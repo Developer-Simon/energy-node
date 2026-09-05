@@ -1,0 +1,18 @@
+{
+  "assignments": {
+    "pv_wr_power": { "role": "pv" },
+    "netz_zaehler_power": { "role": "grid" },
+    "batterie_power": { "role": "battery" },
+    "werkstatt_power": { "role": "load" },
+    "waschmaschine_power": { "role": "load" },
+    "wallbox_power": { "role": "wallbox" },
+    "waermepumpe_power": { "role": "heat_pump" }
+  },
+  "interpretation": {
+    "gap_mode": "unknown_consumer",
+    "load_mode": "combined",
+    "gap_tolerance_mode": "absolute",
+    "gap_tolerance_w": 25,
+    "gap_tolerance_percent": 2
+  }
+}

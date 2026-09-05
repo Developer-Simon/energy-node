@@ -1,0 +1,12 @@
+[
+    {
+        "id": "apsystems_ez1_1",
+        "name": "APsystems EZ1 1",
+        "host": "192.0.2.20"
+    },
+    {
+        "id": "apsystems_ez1_2",
+        "name": "APsystems EZ1 2",
+        "host": "192.0.2.21"
+    }
+]

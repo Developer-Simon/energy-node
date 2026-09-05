@@ -1,0 +1,160 @@
+{
+  "title": "Dashboard Settings",
+  "description": "Operational settings for the Energy Node dashboard.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["health_score_threshold", "sweep_interval_seconds", "show_discovery_tooltips", "show_runtime_status", "device_view_mode", "theme", "show_config_entities_on_tile", "show_diagnostic_entities_on_tile", "live_update_interval_seconds", "wide_panels", "status_bar_items", "history_sample_interval_seconds", "history_retention_mode", "history_retention_hours", "history_budget_mb", "history_raw_window_hours", "history_minute_window_days", "history_extra_entities", "history_exchange_disabled", "history_views"],
+  "properties": {
+    "health_score_threshold": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 3,
+      "title": "Health score threshold",
+      "description": "Number of health points below which a device is reported as unhealthy."
+    },
+    "sweep_interval_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "default": 300,
+      "title": "Sweep interval",
+      "description": "Interval in seconds between runtime-cache maintenance sweeps."
+    },
+    "show_discovery_tooltips": {
+      "type": "boolean",
+      "default": true,
+      "title": "Discovery tooltips",
+      "description": "Show the original MQTT Discovery JSON when hovering over an entity name."
+    },
+    "show_runtime_status": {
+      "type": "boolean",
+      "default": true,
+      "title": "Runtime status",
+      "description": "Show the global runtime status below the dashboard heading."
+    },
+    "device_view_mode": {
+      "type": "string",
+      "enum": ["control", "compact"],
+      "default": "compact",
+      "title": "Device view",
+      "description": "Default presentation for the device panel."
+    },
+    "theme": {
+      "type": "string",
+      "enum": ["mint", "stromblau", "signalgelb", "tageslicht"],
+      "default": "mint",
+      "title": "Farbschema",
+      "description": "Farbschema der Oberfläche. \"mint\" ist das ursprüngliche Dunkel-Theme, \"tageslicht\" das einzige helle."
+    },
+    "show_config_entities_on_tile": {
+      "type": "boolean",
+      "default": false,
+      "title": "Configuration values on tiles",
+      "description": "Show Home Assistant \"config\"-category entities in the device tile quick overview."
+    },
+    "show_diagnostic_entities_on_tile": {
+      "type": "boolean",
+      "default": false,
+      "title": "Diagnostic values on tiles",
+      "description": "Show Home Assistant \"diagnostic\"-category entities in the device tile quick overview."
+    },
+    "live_update_interval_seconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 60,
+      "default": 3,
+      "title": "Live update interval",
+      "description": "Minimum number of seconds between live-fragment refreshes pushed over the SSE event stream. Changing this requires the tune_live_updates role."
+    },
+    "wide_panels": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["overview", "devices", "history", "diagnostics",
+                "config", "energy", "layout", "devicemap", "settings", "automations"]},
+      "default": ["overview", "devices", "history", "layout"],
+      "title": "Tabs ohne Breitendeckelung",
+      "description": "Tabs, die die volle Fensterbreite nutzen duerfen statt der 1180px-Lesebreite."
+    },
+    "status_bar_items": {
+      "type": "array",
+      "items": {"type": "string", "enum": ["mqtt", "cache", "storage", "uptime", "version"]},
+      "default": ["mqtt", "storage", "uptime", "version"],
+      "title": "Angaben im Systemstatus",
+      "description": "Welche Angaben die Statuszeile unterhalb der Kopfzeile zeigt, wenn der globale Systemstatus aktiv ist."
+    },
+    "history_sample_interval_seconds": {
+      "type": "integer",
+      "minimum": 5,
+      "maximum": 3600,
+      "default": 10,
+      "title": "Abtastrate der Verläufe",
+      "description": "Sekunden zwischen zwei Messpunkten der Browser-Historie. Untergrenze 5 s, weil darunter die Verdichtung teurer wird als die Aufzeichnung."
+    },
+    "history_retention_mode": {
+      "type": "string",
+      "enum": ["time", "size"],
+      "default": "time",
+      "title": "Aufbewahrungsart",
+      "description": "\"time\" begrenzt die Historie ueber ihr Alter, \"size\" ueber ihren Speicherbedarf. Es ist immer genau eine Grenze aktiv."
+    },
+    "history_retention_hours": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8760,
+      "default": 6,
+      "title": "Aufbewahrung in Stunden",
+      "description": "Nur wirksam bei history_retention_mode = \"time\"."
+    },
+    "history_budget_mb": {
+      "type": "integer",
+      "minimum": 16,
+      "maximum": 8192,
+      "default": 512,
+      "title": "Speicherbudget in MB",
+      "description": "Nur wirksam bei history_retention_mode = \"size\". Der Browser kann weniger gewaehren als hier steht; die Verlaufsseite zeigt den tatsaechlichen Origin-Verbrauch daneben."
+    },
+    "history_raw_window_hours": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 168,
+      "default": 24,
+      "title": "Rohdaten-Fenster in Stunden",
+      "description": "Wie lange Messpunkte unverdichtet bleiben, bevor sie zu Minutenmitteln zusammengefasst werden."
+    },
+    "history_minute_window_days": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 365,
+      "default": 7,
+      "title": "Minutenwert-Fenster in Tagen",
+      "description": "Wie lange Minutenmittel bleiben, bevor sie zu Fuenf-Minuten-Mitteln zusammengefasst werden."
+    },
+    "history_extra_entities": {
+      "type": "array",
+      "items": {"type": "string"},
+      "default": [],
+      "title": "Zusaetzlich aufgezeichnete Entitaeten",
+      "description": "Entitaets-IDs, die zusaetzlich zu den Energie-Rollen aufgezeichnet werden. Leer bedeutet: nur die Rollen."
+    },
+    "history_exchange_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Schaltet den Verlauf-Austausch zwischen gleichzeitig geöffneten Geräten ab. Nicht gesetzt bedeutet: Austausch ist an."
+    },
+    "history_views": {
+      "type": "array",
+      "default": [],
+      "title": "Gespeicherte Verlaufssichten",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "series", "range_hours", "aggregate"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "series": {"type": "array", "items": {"type": "string"}},
+          "range_hours": {"type": "integer", "minimum": 1, "maximum": 8760},
+          "aggregate": {"type": "string", "enum": ["avg", "min", "max"]}
+        }
+      }
+    }
+  }
+}

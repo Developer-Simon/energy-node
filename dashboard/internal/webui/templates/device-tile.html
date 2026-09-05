@@ -1,0 +1,25 @@
+{{define "device-tile"}}
+  {{ $device := . }}
+  <article class="device-tile" data-device-id="{{.ID}}">
+    <header class="device-tile-header">
+      <div><h3>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3><small>{{.ID}}{{if .Model}} · {{.Model}}{{end}}</small></div>
+      <div class="device-tile-actions"><button type="button" class="device-detail-trigger" data-device-id="{{.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" x-bind:aria-label="`Details für {{.Name}} anzeigen`">Details</button></div>
+    </header>
+    <div class="device-tile-status"><span class="device-tile-status-label">Entitäten</span><strong>{{len .Entities}}</strong><span class="device-tile-status-label">Steuerungen</span><strong>{{commandableCount .Entities}}</strong></div>
+    <div class="device-tile-entities">
+      {{range .Entities}}{{if not .HiddenOnTile}}{{ $entity := . }}
+      {{/* Sensoren ohne unit_of_measurement sind in HA-Konvention Status-/Text-
+           werte, keine Messwerte - aber ein kurzer Status wie "ON"/"Online"
+           soll nicht extra behandelt werden. Erst ab einer gewissen Laenge
+           (freier Text statt Enum-Wert) lohnt sich das breitere, titel-
+           schuetzende Raster wie bei echten text-Entitaeten. */}}
+      {{ $isLongTextSensor := and (not $entity.UnitOfMeasurement) (gt (len $entity.Value) 20) }}
+      <div class="device-tile-entity{{if and $entity.Commandable (eq $entity.Component "number")}} device-tile-entity-number{{else if or (eq $entity.Component "text") $isLongTextSensor}} device-tile-entity-text{{end}}" data-entity-id="{{$entity.UniqueID}}" data-component="{{$entity.Component}}" data-device-class="{{$entity.DeviceClass}}" data-unit="{{$entity.UnitOfMeasurement}}">
+        <div><strong>{{stripDeviceName $device.Name $entity.Name}}</strong><small>{{$entity.Component}}</small></div>
+        {{if and $entity.Commandable (eq $entity.Component "number")}}<div class="entity-number-control"><input type="range" class="entity-number-slider" data-command-type="number" data-entity-id="{{$entity.UniqueID}}" value="{{if $entity.HasValue}}{{$entity.Value}}{{else if $entity.MinValue}}{{$entity.MinValue}}{{end}}" {{with $entity.MinValue}}min="{{.}}"{{end}} {{with $entity.MaxValue}}max="{{.}}"{{end}} {{with $entity.Step}}step="{{.}}"{{end}} {{if $entity.Pending}}disabled aria-busy="true"{{end}} x-on:input="$el.nextElementSibling.value = $el.value" x-on:change="sendNumberCommand($el)" aria-label="{{$entity.Name}} einstellen"><output>{{if $entity.HasValue}}{{$entity.Value}}{{else}}-{{end}}</output></div>{{else}}<span class="device-tile-entity-value{{if $entity.Stale}} stale{{end}}">{{if $entity.HasValue}}{{if eq $entity.DeviceClass "timestamp"}}<time data-relative-timestamp="{{$entity.Value}}">{{$entity.Value}}</time>{{else}}{{$entity.Value}}{{end}}{{if $entity.UnitOfMeasurement}} {{$entity.UnitOfMeasurement}}{{end}}{{else}}-{{end}}</span>{{end}}{{with iconFor $entity}}{{if and $entity.Commandable (ne $entity.Component "number")}}<button class="entity-command-button" type="button" data-entity-id="{{$entity.UniqueID}}" data-command-value="{{$entity.Value}}" data-payload-on="{{$entity.PayloadOn}}" data-payload-off="{{$entity.PayloadOff}}" {{if $entity.Pending}}disabled aria-busy="true"{{end}} x-on:click="sendCommand($event)" aria-label="{{$entity.Name}} schalten" title="{{.Label}}">{{.SVG}}</button>{{else}}<span class="entity-icon{{if .Fallback}} entity-icon-fallback{{end}}" role="img" aria-label="{{.Label}}" title="{{.Label}}">{{.SVG}}</span>{{end}}{{end}}
+        <small class="entity-command-status" x-cloak x-show="commandStates['{{$entity.UniqueID}}']" x-text="commandStates['{{$entity.UniqueID}}']" x-init="commandStates['{{$entity.UniqueID}}'] = {{if $entity.Pending}}'Warte auf Bestätigung über MQTT ...'{{else if eq $entity.LastCommandResult "timeout"}}'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.'{{else}}''{{end}}"></small>
+      </div>
+      {{end}}{{end}}
+    </div>
+  </article>
+{{end}}

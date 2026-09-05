@@ -1,0 +1,677 @@
+{
+  "homeassistant/binary_sensor/battery_soc/ac_fallback/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "problem",
+    "entity_category": "diagnostic",
+    "icon": "mdi:transmission-tower",
+    "name": "AC-Fallback aktiv",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_ac_fallback",
+    "value_template": "{{ 'ON' if value_json.ac_fallback_active else 'OFF' }}"
+  },
+  "homeassistant/binary_sensor/battery_soc/imbalance_warning/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "problem",
+    "entity_category": "diagnostic",
+    "icon": "mdi:scale-unbalanced",
+    "name": "Baenke unsymmetrisch",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_imbalance_warning",
+    "value_template": "{{ 'ON' if value_json.imbalance_warning else 'OFF' }}"
+  },
+  "homeassistant/binary_sensor/battery_soc/inputs_stale/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "problem",
+    "entity_category": "diagnostic",
+    "name": "Eingangsdaten veraltet",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_inputs_stale",
+    "value_template": "{{ 'ON' if value_json.inputs_stale else 'OFF' }}"
+  },
+  "homeassistant/binary_sensor/battery_soc/online/config": {
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "connectivity",
+    "entity_category": "diagnostic",
+    "json_attributes_topic": "outstation/battery_soc/status/online/attributes",
+    "name": "Erreichbarkeit",
+    "payload_off": "0",
+    "payload_on": "1",
+    "state_topic": "outstation/battery_soc/status/online",
+    "unique_id": "battery_soc_online"
+  },
+  "homeassistant/binary_sensor/battery_soc/voltage_soc_mismatch_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "problem",
+    "entity_category": "diagnostic",
+    "name": "Spannungs-/Coulomb-Abweichung Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_voltage_soc_mismatch_bank_a",
+    "value_template": "{{ 'ON' if value_json.bank_a_voltage_soc_mismatch else 'OFF' }}"
+  },
+  "homeassistant/binary_sensor/battery_soc/voltage_soc_mismatch_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "problem",
+    "entity_category": "diagnostic",
+    "name": "Spannungs-/Coulomb-Abweichung Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_voltage_soc_mismatch_bank_b",
+    "value_template": "{{ 'ON' if value_json.bank_b_voltage_soc_mismatch else 'OFF' }}"
+  },
+  "homeassistant/number/battery_soc/manual_soc_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "command_topic": "outstation/battery_soc/cmd/manual_soc/bank_a",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "config",
+    "icon": "mdi:battery-sync",
+    "max": 100,
+    "min": 0,
+    "mode": "box",
+    "name": "Manueller SoC Bank A setzen",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "step": 1,
+    "unique_id": "battery_soc_manual_soc_bank_a",
+    "unit_of_measurement": "%",
+    "value_template": "{{ value_json.soc_a_pct }}"
+  },
+  "homeassistant/number/battery_soc/manual_soc_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "command_topic": "outstation/battery_soc/cmd/manual_soc/bank_b",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "config",
+    "icon": "mdi:battery-sync",
+    "max": 100,
+    "min": 0,
+    "mode": "box",
+    "name": "Manueller SoC Bank B setzen",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "step": 1,
+    "unique_id": "battery_soc_manual_soc_bank_b",
+    "unit_of_measurement": "%",
+    "value_template": "{{ value_json.soc_b_pct }}"
+  },
+  "homeassistant/sensor/battery_soc/calibration_empty_v_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Kalibrierschwelle leer Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_calibration_empty_v_bank_a",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_a_calibration_empty_v_per_cell }}"
+  },
+  "homeassistant/sensor/battery_soc/calibration_empty_v_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Kalibrierschwelle leer Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_calibration_empty_v_bank_b",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_b_calibration_empty_v_per_cell }}"
+  },
+  "homeassistant/sensor/battery_soc/calibration_full_v_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Kalibrierschwelle voll Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_calibration_full_v_bank_a",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_a_calibration_full_v_per_cell }}"
+  },
+  "homeassistant/sensor/battery_soc/calibration_full_v_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Kalibrierschwelle voll Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_calibration_full_v_bank_b",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_b_calibration_full_v_per_cell }}"
+  },
+  "homeassistant/sensor/battery_soc/corrected_v_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Lastkorrigierte Zellspannung Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_corrected_v_bank_a",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_a_corrected_v_per_cell }}"
+  },
+  "homeassistant/sensor/battery_soc/corrected_v_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Lastkorrigierte Zellspannung Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_corrected_v_bank_b",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_b_corrected_v_per_cell }}"
+  },
+  "homeassistant/sensor/battery_soc/current_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "current",
+    "entity_category": "diagnostic",
+    "name": "Strom Bank A (geschaetzt)",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_current_bank_a",
+    "unit_of_measurement": "A",
+    "value_template": "{{ value_json.bank_a_current_a }}"
+  },
+  "homeassistant/sensor/battery_soc/current_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "current",
+    "entity_category": "diagnostic",
+    "name": "Strom Bank B (geschaetzt)",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_current_bank_b",
+    "unit_of_measurement": "A",
+    "value_template": "{{ value_json.bank_b_current_a }}"
+  },
+  "homeassistant/sensor/battery_soc/last_calibration_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "timestamp",
+    "entity_category": "diagnostic",
+    "name": "Letzte Kalibrierung Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_last_calibration_bank_a",
+    "value_template": "{{ value_json.last_calibration_bank_a }}"
+  },
+  "homeassistant/sensor/battery_soc/last_calibration_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "timestamp",
+    "entity_category": "diagnostic",
+    "name": "Letzte Kalibrierung Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_last_calibration_bank_b",
+    "value_template": "{{ value_json.last_calibration_bank_b }}"
+  },
+  "homeassistant/sensor/battery_soc/net_power/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "power",
+    "name": "Netto-Batterieleistung",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_net_power",
+    "unit_of_measurement": "W",
+    "value_template": "{{ value_json.net_power_w }}"
+  },
+  "homeassistant/sensor/battery_soc/remaining_ah_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "diagnostic",
+    "name": "Restkapazitaet Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_remaining_ah_bank_a",
+    "unit_of_measurement": "Ah",
+    "value_template": "{{ value_json.bank_a_remaining_ah }}"
+  },
+  "homeassistant/sensor/battery_soc/remaining_ah_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "diagnostic",
+    "name": "Restkapazitaet Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_remaining_ah_bank_b",
+    "unit_of_measurement": "Ah",
+    "value_template": "{{ value_json.bank_b_remaining_ah }}"
+  },
+  "homeassistant/sensor/battery_soc/soc_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "battery",
+    "icon": "mdi:battery",
+    "name": "SoC Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_soc_a",
+    "unit_of_measurement": "%",
+    "value_template": "{{ value_json.soc_a_pct }}"
+  },
+  "homeassistant/sensor/battery_soc/soc_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "battery",
+    "icon": "mdi:battery",
+    "name": "SoC Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_soc_b",
+    "unit_of_measurement": "%",
+    "value_template": "{{ value_json.soc_b_pct }}"
+  },
+  "homeassistant/sensor/battery_soc/soc_combined/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "battery",
+    "icon": "mdi:battery-heart-variant",
+    "name": "SoC Gesamt (schwaechste Bank)",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_soc_combined",
+    "unit_of_measurement": "%",
+    "value_template": "{{ value_json.soc_combined_pct }}"
+  },
+  "homeassistant/sensor/battery_soc/time_to_empty/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "duration",
+    "entity_category": "diagnostic",
+    "name": "Zeit bis leer",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_time_to_empty",
+    "unit_of_measurement": "h",
+    "value_template": "{{ value_json.time_to_empty_h }}"
+  },
+  "homeassistant/sensor/battery_soc/time_to_full/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "duration",
+    "entity_category": "diagnostic",
+    "name": "Zeit bis voll",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_time_to_full",
+    "unit_of_measurement": "h",
+    "value_template": "{{ value_json.time_to_full_h }}"
+  },
+  "homeassistant/sensor/battery_soc/voltage_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Spannung Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_voltage_bank_a",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_a_voltage_v }}"
+  },
+  "homeassistant/sensor/battery_soc/voltage_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "name": "Spannung Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_voltage_bank_b",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.bank_b_voltage_v }}"
+  },
+  "homeassistant/sensor/battery_soc/voltage_delta/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "voltage",
+    "entity_category": "diagnostic",
+    "icon": "mdi:scale-unbalanced",
+    "name": "Spannungsdifferenz Bank A/B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_voltage_delta",
+    "unit_of_measurement": "V",
+    "value_template": "{{ value_json.voltage_delta_v }}"
+  },
+  "homeassistant/sensor/battery_soc/voltage_soc_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "battery",
+    "entity_category": "diagnostic",
+    "icon": "mdi:flash-alert",
+    "name": "Spannungsbasierte SoC (unsicher) Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_voltage_soc_bank_a",
+    "unit_of_measurement": "%",
+    "value_template": "{{ value_json.bank_a_voltage_soc_pct }}"
+  },
+  "homeassistant/sensor/battery_soc/voltage_soc_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "battery",
+    "entity_category": "diagnostic",
+    "icon": "mdi:flash-alert",
+    "name": "Spannungsbasierte SoC (unsicher) Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_voltage_soc_bank_b",
+    "unit_of_measurement": "%",
+    "value_template": "{{ value_json.bank_b_voltage_soc_pct }}"
+  }
+}

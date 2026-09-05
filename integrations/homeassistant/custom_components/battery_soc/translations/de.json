@@ -1,0 +1,114 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Batteriekonfiguration",
+        "description": "Konfigurieren Sie Ihr Batteriebanksetup",
+        "data": {
+          "name": "Name",
+          "topology": "Batterietopologie",
+          "charger_power_entity": "Ladegeraet Leistungssensor (AC)",
+          "inverter_power_entity": "Wechselrichter Leistungssensor (AC)",
+          "bank_a_voltage_entity": "Bank A Spannungssensor",
+          "bank_b_voltage_entity": "Bank B Spannungssensor",
+          "charger_dc_power_entity": "Ladegeraet Leistungssensor (DC)",
+          "inverter_dc_power_entity": "Wechselrichter Leistungssensor (DC)",
+          "bank_a_voltage_scale": "Bank A Spannungsskala",
+          "bank_b_voltage_scale": "Bank B Spannungsskala",
+          "bank_a_capacity_ah": "Bank A Kapazitaet (Ah)",
+          "bank_b_capacity_ah": "Bank B Kapazitaet (Ah)",
+          "bank_a_cell_count": "Bank A Zellenzahl",
+          "bank_b_cell_count": "Bank B Zellenzahl",
+          "bank_b_enabled": "Bank B aktiviert",
+          "battery_chemistry": "Batteriechemiologie",
+          "soc_curve": "SOC-Kurvenprofil"
+        }
+      },
+      "advanced": {
+        "title": "Erweiterte Batterieparameter",
+        "description": "Erweiterte Batterieparameter konfigurieren",
+        "data": {
+          "empty_v_per_cell": "Leere Spannung pro Zelle (V)",
+          "full_v_per_cell": "Volle Spannung pro Zelle (V)",
+          "charger_ac_dc_efficiency": "Ladegeraet AC/DC Wirkungsgrad",
+          "inverter_dc_ac_efficiency": "Wechselrichter DC/AC Wirkungsgrad",
+          "charge_efficiency": "Lade-Wirkungsgrad",
+          "calibration_tolerance_v_per_cell": "Kalibrierungstoleranz (V/Zelle)",
+          "calibration_hold_s": "Kalibrierungs-Haltedauer (s)",
+          "voltage_soc_mismatch_warn_pct": "Spannungs-/SOC-Nichtubereinstimmungs-Warnung (%)",
+          "voltage_mismatch_hold_s": "Spannungs-Nichtubereinstimmungs-Haltedauer (s)",
+          "imbalance_warn_v": "Unausgewogenheits-Warnungsschwelle (V)",
+          "stale_input_s": "Veraltete Eingabe-Zeituberschreitung (s)",
+          "dc_max_age_s": "Max. Alter der DC-Messung (s)",
+          "require_fresh_inputs": "Aktuelle Eingaben erforderlich",
+          "internal_resistance_mohm_per_cell": "Innenwiderstand (mOhm/Zelle)",
+          "fallback_interval_s": "Fallback-Intervall (s)"
+        }
+      }
+    },
+    "error": {
+      "bank_b_voltage_required": "Bank B Spannungssensor ist fuer die Serientopologie erforderlich",
+      "unknown": "Unbekannter Fehler",
+      "invalid_config": "Ungueltige Konfiguration"
+    },
+    "abort": {
+      "already_configured": "Batteriekonfiguration existiert bereits"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Leistungs- und Spannungsquellen",
+        "description": "Konfigurieren Sie Leistungs- und Spannungsmessquellen",
+        "data": {
+          "charger_power_entity": "Ladegeraet Leistungssensor (AC)",
+          "inverter_power_entity": "Wechselrichter Leistungssensor (AC)",
+          "bank_a_voltage_entity": "Bank A Spannungssensor",
+          "bank_b_voltage_entity": "Bank B Spannungssensor",
+          "charger_dc_power_entity": "Ladegeraet Leistungssensor (DC)",
+          "inverter_dc_power_entity": "Wechselrichter Leistungssensor (DC)",
+          "bank_a_voltage_scale": "Bank A Spannungsskala",
+          "bank_b_voltage_scale": "Bank B Spannungsskala",
+          "fallback_interval_s": "Fallback-Intervall (s)"
+        }
+      },
+      "tunables": {
+        "title": "Einsteubare Batterieparameter",
+        "description": "Feinabstimmung der Batterieparameter",
+        "data": {
+          "empty_v_per_cell": "Leere Spannung pro Zelle (V)",
+          "full_v_per_cell": "Volle Spannung pro Zelle (V)",
+          "charger_ac_dc_efficiency": "Ladegeraet AC/DC Wirkungsgrad",
+          "inverter_dc_ac_efficiency": "Wechselrichter DC/AC Wirkungsgrad",
+          "charge_efficiency": "Lade-Wirkungsgrad",
+          "calibration_tolerance_v_per_cell": "Kalibrierungstoleranz (V/Zelle)",
+          "calibration_hold_s": "Kalibrierungs-Haltedauer (s)",
+          "voltage_soc_mismatch_warn_pct": "Spannungs-/SOC-Nichtubereinstimmungs-Warnung (%)",
+          "voltage_mismatch_hold_s": "Spannungs-Nichtubereinstimmungs-Haltedauer (s)",
+          "imbalance_warn_v": "Unausgewogenheits-Warnungsschwelle (V)",
+          "stale_input_s": "Veraltete Eingabe-Zeituberschreitung (s)",
+          "dc_max_age_s": "Max. Alter der DC-Messung (s)",
+          "require_fresh_inputs": "Aktuelle Eingaben erforderlich",
+          "internal_resistance_mohm_per_cell": "Innenwiderstand (mOhm/Zelle)",
+          "fallback_interval_s": "Fallback-Intervall (s)"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_state_of_charge": {
+      "name": "Ladezustand setzen",
+      "description": "Manuell den Batterie-Ladezustand einstellen",
+      "fields": {
+        "state_of_charge": {
+          "name": "Ladezustand",
+          "description": "SOC-Wert (0-100%)"
+        },
+        "bank": {
+          "name": "Bank",
+          "description": "Batteriebank (a oder b)"
+        }
+      }
+    }
+  }
+}

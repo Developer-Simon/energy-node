@@ -1,0 +1,307 @@
+[
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv1_power/config",
+    "payload": {
+      "name": "PV1 Leistung",
+      "unique_id": "apsystems_dach_pv1_power",
+      "state_topic": "outstation/apsystems_dach/pv1/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv2_power/config",
+    "payload": {
+      "name": "PV2 Leistung",
+      "unique_id": "apsystems_dach_pv2_power",
+      "state_topic": "outstation/apsystems_dach/pv2/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/total_power/config",
+    "payload": {
+      "name": "Gesamtleistung",
+      "unique_id": "apsystems_dach_total_power",
+      "state_topic": "outstation/apsystems_dach/total/power_w",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv1_energy_today/config",
+    "payload": {
+      "name": "PV1 Tagesertrag",
+      "unique_id": "apsystems_dach_pv1_energy_today",
+      "state_topic": "outstation/apsystems_dach/pv1/energy_today_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv2_energy_today/config",
+    "payload": {
+      "name": "PV2 Tagesertrag",
+      "unique_id": "apsystems_dach_pv2_energy_today",
+      "state_topic": "outstation/apsystems_dach/pv2/energy_today_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/total_energy_today/config",
+    "payload": {
+      "name": "Tagesertrag",
+      "unique_id": "apsystems_dach_total_energy_today",
+      "state_topic": "outstation/apsystems_dach/total/energy_today_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv1_energy_lifetime/config",
+    "payload": {
+      "name": "PV1 Gesamtertrag",
+      "unique_id": "apsystems_dach_pv1_energy_lifetime",
+      "state_topic": "outstation/apsystems_dach/pv1/energy_lifetime_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/pv2_energy_lifetime/config",
+    "payload": {
+      "name": "PV2 Gesamtertrag",
+      "unique_id": "apsystems_dach_pv2_energy_lifetime",
+      "state_topic": "outstation/apsystems_dach/pv2/energy_lifetime_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/pv_apsystems_dach/total_energy_lifetime/config",
+    "payload": {
+      "name": "Gesamtertrag",
+      "unique_id": "apsystems_dach_total_energy_lifetime",
+      "state_topic": "outstation/apsystems_dach/total/energy_lifetime_kwh",
+      "unit_of_measurement": "kWh",
+      "device_class": "energy",
+      "state_class": "total_increasing",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/number/pv_apsystems_dach/max_power_limit/config",
+    "payload": {
+      "name": "Power-Limit",
+      "unique_id": "apsystems_dach_max_power_limit",
+      "state_topic": "outstation/apsystems_dach/max_power_limit_w",
+      "command_topic": "outstation/apsystems_dach/max_power_limit_w/set",
+      "unit_of_measurement": "W",
+      "min": 30,
+      "max": 800,
+      "step": 1,
+      "mode": "box",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+  {
+    "topic": "homeassistant/switch/pv_apsystems_dach/power_status/config",
+    "payload": {
+      "name": "Betriebsstatus",
+      "unique_id": "apsystems_dach_power_status",
+      "state_topic": "outstation/apsystems_dach/power_status",
+      "command_topic": "outstation/apsystems_dach/power_status/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "outstation/apsystems_dach/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsystems_dach"], "name": "AP Systems EZ1 (Dach)" }
+    }
+  },
+
+  {"topic": "outstation/apsystems_dach/status/online", "payload": "1"},
+  {"topic": "outstation/apsystems_dach/pv1/power_w", "payload": "2200"},
+  {"topic": "outstation/apsystems_dach/pv2/power_w", "payload": "2000"},
+  {"topic": "outstation/apsystems_dach/total/power_w", "payload": "4200"},
+  {"topic": "outstation/apsystems_dach/pv1/energy_today_kwh", "payload": "3.4"},
+  {"topic": "outstation/apsystems_dach/pv2/energy_today_kwh", "payload": "3.1"},
+  {"topic": "outstation/apsystems_dach/total/energy_today_kwh", "payload": "6.5"},
+  {"topic": "outstation/apsystems_dach/pv1/energy_lifetime_kwh", "payload": "540.4"},
+  {"topic": "outstation/apsystems_dach/pv2/energy_lifetime_kwh", "payload": "523.8"},
+  {"topic": "outstation/apsystems_dach/total/energy_lifetime_kwh", "payload": "1064.2"},
+  {"topic": "outstation/apsystems_dach/max_power_limit_w", "payload": "800"},
+  {"topic": "outstation/apsystems_dach/power_status", "payload": "ON"},
+
+  {
+    "topic": "homeassistant/sensor/netz_zaehler/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "netz_zaehler_power",
+      "state_topic": "zaehler/netz/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["netz_zaehler"], "name": "Netzzaehler" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/batterie_wr/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "batterie_power",
+      "state_topic": "batterie/wr/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["batterie_wr"], "name": "Batterie-Wechselrichter" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/batterie_wr/soc/config",
+    "payload": {
+      "name": "Ladezustand",
+      "unique_id": "batterie_soc",
+      "state_topic": "batterie/wr/soc",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "device": { "identifiers": ["batterie_wr"], "name": "Batterie-Wechselrichter" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/haus_zaehler/power/config",
+    "payload": {
+      "name": "Hausverbrauch",
+      "unique_id": "haus_last_power",
+      "state_topic": "zaehler/haus/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["haus_zaehler"], "name": "Hauszaehler" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/wallbox/power/config",
+    "payload": {
+      "name": "Ladeleistung",
+      "unique_id": "wallbox_power",
+      "state_topic": "wallbox/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["wallbox"], "name": "Wallbox" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/waermepumpe/power/config",
+    "payload": {
+      "name": "Leistungsaufnahme",
+      "unique_id": "waermepumpe_power",
+      "state_topic": "waermepumpe/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["waermepumpe"], "name": "Waermepumpe" }
+    }
+  },
+
+  {"topic": "zaehler/netz/status", "payload": {"id": 0, "apower": -1250, "voltage": 231.2, "source": "smoke"}},
+  {"topic": "batterie/wr/status", "payload": {"id": 0, "apower": 900, "voltage": 51.8, "source": "smoke"}},
+  {"topic": "batterie/wr/soc", "payload": "63.5"},
+  {"topic": "zaehler/haus/status", "payload": {"id": 0, "apower": 2050, "voltage": 230.7, "source": "smoke"}},
+  {"topic": "wallbox/status", "payload": {"id": 0, "apower": 600, "source": "smoke"}},
+  {"topic": "waermepumpe/status", "payload": {"id": 0, "apower": 450, "source": "smoke"}},
+
+  {
+    "topic": "homeassistant/sensor/netz_meanwell/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "netz_meanwell_power",
+      "state_topic": "shelly/netz_meanwell/status",
+      "value_template": "{{ value_json.apower }}",
+      "device": { "identifiers": ["netz_meanwell"], "name": "MeanWell-Ladegeraet (Netzseite)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/netz_lumentree/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "netz_lumentree_power",
+      "state_topic": "shelly/netz_lumentree/status",
+      "value_template": "{{ value_json.apower }}",
+      "device": { "identifiers": ["netz_lumentree"], "name": "Lumentree-Umrichter (Netzseite)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_a/voltage/config",
+    "payload": {
+      "name": "Spannung",
+      "unique_id": "bank_a_voltage",
+      "state_topic": "bms/bank_a/voltage",
+      "device": { "identifiers": ["bms_bank_a"], "name": "Shelly Uni Bank A" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_b/voltage/config",
+    "payload": {
+      "name": "Spannung",
+      "unique_id": "bank_b_voltage",
+      "state_topic": "bms/bank_b/voltage",
+      "device": { "identifiers": ["bms_bank_b"], "name": "Shelly Uni Bank B (sendet nie)" }
+    }
+  },
+
+  {"topic": "shelly/netz_meanwell/status", "payload": {"id": 0, "apower": 12.5, "voltage": 231.4, "current": 0.054, "source": "init"}},
+  {"topic": "shelly/netz_lumentree/status", "payload": {"id": 0, "apower": 48.2, "voltage": 230.9, "source": "init"}},
+  {"topic": "bms/bank_a/voltage", "payload": "26.8"}
+]

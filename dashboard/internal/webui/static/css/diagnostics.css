@@ -1,0 +1,21 @@
+/* Diagnose-Panel: die Gesundheits-Tabelle (diagnostics.html). Aus base.css
+   verlagert (CSS-Split 2026-09) - wird per data-panel-css nur mit dem
+   Diagnose-Tab geladen. .table-scroll bleibt in base.css (auch die
+   Geraeteseite nutzt es).
+
+   .diagnostics-summary-* (die Overview-Kachel) ist bewusst NICHT hier - die
+   steht weiter in base.css, weil die Uebersicht sie sofort braucht. */
+.diagnostics-health { margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel); }
+.diagnostics-health-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.diagnostics-health-header h3 { margin: 0 0 .25rem; color: var(--text); }
+.diagnostics-health-subtitle { margin: 0; color: var(--text-muted); }
+.diagnostics-health-count { color: var(--text-subtle); font-size: .9rem; }
+.diagnostics-health-table { margin: 1rem 0 0; min-width: 42rem; }
+.diagnostics-health-table th { color: var(--text-subtle); font-weight: 500; text-align: left; }
+.diagnostics-health-table td, .diagnostics-health-table th { padding: .55rem .65rem; }
+.diagnostics-device-link { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; text-decoration: underline; }
+.diagnostics-health-status { display: inline-block; padding: .25rem .5rem; border-radius: 999px; font-size: .82rem; font-weight: 600; white-space: nowrap; }
+.diagnostics-health-status-healthy { color: var(--ok); background: var(--ok-bg); }
+.diagnostics-health-status-degraded { color: var(--warn); background: var(--warn-bg); }
+.diagnostics-health-status-unhealthy, .diagnostics-health-status-critical { color: var(--bad); background: var(--bad-bg); }
+.diagnostics-health-status-unknown { color: var(--text-subtle); background: var(--track); }

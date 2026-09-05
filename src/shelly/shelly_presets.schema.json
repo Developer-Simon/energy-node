@@ -1,0 +1,79 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/shelly_presets.schema.json",
+  "title": "Shelly Device Presets",
+  "description": "Reusable technical capability templates for shelly_devices.json entries, used by the dashboard configuration UI. Presets never carry device identity (id, name, host) or authentication.",
+  "type": "array",
+  "items": {
+    "title": "Shelly Preset",
+    "description": "One reusable Shelly type definition.",
+    "type": "object",
+    "required": ["id", "name", "properties"],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Preset identifier",
+        "description": "Stable identifier for this preset, referenced by the configuration UI."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "title": "Display name",
+        "description": "Human readable preset name shown in the configuration UI."
+      },
+      "properties": {
+        "title": "Technical properties",
+        "description": "Technical shelly_devices.json fields this preset applies. Never includes id, name, host, or auth fields.",
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "generation": {
+            "type": "integer",
+            "enum": [1, 2],
+            "title": "Generation",
+            "description": "Shelly generation: 1 for Gen1 devices (/status) and 2 for Gen2+/RPC devices."
+          },
+          "switch_channels": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "Switch channels",
+            "description": "Number of relay channels available on the device."
+          },
+          "has_power": {
+            "type": "boolean",
+            "title": "Power measurements",
+            "description": "Whether the device reports instantaneous power measurements."
+          },
+          "has_energy": {
+            "type": "boolean",
+            "title": "Energy measurements",
+            "description": "Whether the device reports energy measurements."
+          },
+          "has_3phase": {
+            "type": "boolean",
+            "title": "Three-phase measurements",
+            "description": "True for Shelly 3EM devices with three-phase measurements."
+          },
+          "adc_channels": {
+            "type": "integer",
+            "minimum": 0,
+            "title": "ADC channels",
+            "description": "Number of ADC channels available on the device."
+          },
+          "has_temperature": {
+            "type": "boolean",
+            "title": "Temperature measurements",
+            "description": "Whether the device reports temperature."
+          },
+          "has_humidity": {
+            "type": "boolean",
+            "title": "Humidity measurements",
+            "description": "Whether the device reports relative humidity."
+          }
+        }
+      }
+    }
+  }
+}

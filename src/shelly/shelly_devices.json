@@ -1,0 +1,66 @@
+[
+    {
+        "id": "plug_s_plus_beispiel",
+        "name": "Shelly Plug S+ – Beispiel",
+        "host": "192.0.2.10",
+        "generation": 2,
+        "switch_channels": 1,
+        "has_power": true,
+        "has_energy": true,
+        "has_temperature": true
+    },
+    {
+        "id": "hauptzaehler",
+        "name": "Shelly 3EM Hauptzähler",
+        "host": "192.0.2.11",
+        "generation": 1,
+        "switch_channels": 0,
+        "has_power": true,
+        "has_energy": true,
+        "has_3phase": true
+    },
+    {
+        "id": "relais_1",
+        "name": "Shelly 1 – Beispielrelais",
+        "host": "192.0.2.12",
+        "generation": 1,
+        "switch_channels": 1
+    },
+    {
+        "id": "netz_meanwell",
+        "name": "Shelly Plug S – MeanWell-Ladegerät",
+        "host": "192.0.2.13",
+        "generation": 1,
+        "switch_channels": 1,
+        "has_power": true,
+        "has_energy": true,
+        "has_temperature": true
+    },
+    {
+        "id": "netz_lumentree",
+        "name": "Shelly Plug S – Lumentree-Umrichter",
+        "host": "192.0.2.14",
+        "generation": 1,
+        "switch_channels": 1,
+        "has_power": true,
+        "has_energy": true,
+        "has_temperature": true
+    },
+    {
+        "id": "batterie_spannung",
+        "name": "Shelly Uni – Batteriespannung",
+        "host": "192.0.2.15",
+        "generation": 1,
+        "switch_channels": 2,
+        "adc_channels": 1
+    },
+    {
+        "id": "new_shelly_device",
+        "name": "New Shelly Device",
+        "host": "192.0.2.16",
+        "generation": 2,
+        "switch_channels": 0,
+        "has_temperature": true,
+        "has_humidity": true
+    }
+]

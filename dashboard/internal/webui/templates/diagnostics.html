@@ -1,0 +1,106 @@
+{{define "diagnostics"}}
+<section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" x-data="diagnosticsPanel()" x-init="load()">
+  <h2>Diagnose</h2>
+  <div class="toolbar" role="group" aria-label="Diagnosefilter">
+    <label for="diagnostics-severity">Schweregrad</label>
+    <select id="diagnostics-severity" x-model="severity">
+      <option value="all">Alle</option>
+      <template x-for="item in severities" :key="item"><option x-bind:value="item" x-text="item"></option></template>
+    </select>
+    <label for="diagnostics-rule">Regel</label>
+    <select id="diagnostics-rule" x-model="rule">
+      <option value="all">Alle</option>
+      <template x-for="item in rules" :key="item"><option x-bind:value="item" x-text="item"></option></template>
+    </select>
+    <label for="diagnostics-device">Gerät</label>
+    <select id="diagnostics-device" x-model="device">
+      <option value="all">Alle</option>
+      <template x-for="item in devices" :key="item"><option x-bind:value="item" x-text="item"></option></template>
+    </select>
+    <button type="button" x-on:click="load()" x-bind:disabled="loading" x-text="loading ? 'Lade ...' : 'Aktualisieren'"></button>
+  </div>
+  <section class="diagnostics-health" aria-labelledby="diagnostics-health-heading">
+    <div class="diagnostics-health-header">
+      <div>
+        <h3 id="diagnostics-health-heading">Health-Score</h3>
+        <p class="diagnostics-health-subtitle">Zustand der Geräte anhand von Aktualität und Verfügbarkeit</p>
+      </div>
+      <span class="diagnostics-health-count" x-text="`${filteredHealthScores.length} Gerät${filteredHealthScores.length === 1 ? '' : 'e'}`"></span>
+    </div>
+    <p x-show="loading && healthScores.length === 0">Health-Scores werden geladen ...</p>
+    <p x-cloak x-show="!loading && filteredHealthScores.length === 0">Keine Health-Scores verfügbar.</p>
+    <div class="table-scroll" x-show="filteredHealthScores.length > 0">
+      <table class="diagnostics-health-table">
+        <thead><tr>
+          <th>Gerät</th><th>Score</th><th>Status</th><th>Letztes Signal</th><th>Schwellwert</th><th>Warnungen</th>
+        </tr></thead>
+        <tbody>
+          <template x-for="item in filteredHealthScores" :key="item.device_id">
+            <tr>
+              <td><button type="button" class="diagnostics-device-link" x-on:click="device = item.device_id" x-text="item.device_id" x-bind:aria-label="`Warnungen für ${item.device_id} anzeigen`"></button></td>
+              <td><strong x-text="`${item.score}/100`"></strong></td>
+              <td><span class="diagnostics-health-status" x-bind:class="`diagnostics-health-status-${item.status}`" x-text="healthStatusLabel(item.status)"></span></td>
+              <td x-text="formatHealthTime(item.last_seen)"></td>
+              <td x-text="`${item.threshold_seconds} s`"></td>
+              <td x-text="item.warning_count"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <section class="discovery-diagnostics" aria-labelledby="discovery-diagnostics-heading">
+    <h3 id="discovery-diagnostics-heading">MQTT Discovery</h3>
+    <div class="discovery-diagnostics-summary">
+      <span x-text="`${discovery.deviceCount} Geräte`"></span>
+      <span x-text="`${discovery.entityCount} Entitäten`"></span>
+      <span x-text="`${discovery.discovery_errors.length} Parserfehler`"></span>
+      <span x-text="`${duplicateIDs.length} doppelte unique_id(s)`"></span>
+    </div>
+    <p class="message error" x-cloak x-show="discoveryError" x-text="discoveryError"></p>
+    <p x-show="!discoveryError && !discovery.discovery_errors.length && !duplicateIDs.length">Keine Discovery-Probleme bekannt.</p>
+    <div x-show="discovery.discovery_errors.length">
+      <h4>Parserfehler</h4>
+      <template x-for="item in discovery.discovery_errors" :key="`${item.topic}-${item.at}`">
+        <article class="discovery-error">
+          <strong x-text="item.topic"></strong>
+          <div x-text="item.error"></div>
+          <small x-text="`${item.source || 'Quelle unbekannt'} | QoS ${item.qos ?? '-'} | Retain ${item.retained ? 'ja' : 'nein'}`"></small>
+          <pre x-text="item.payload"></pre>
+        </article>
+      </template>
+    </div>
+    <div x-show="duplicateIDs.length">
+      <h4>Doppelte unique_id</h4>
+      <template x-for="item in duplicateIDs" :key="item[0]">
+        <article class="discovery-duplicate"><strong x-text="item[0]"></strong><span> in </span><span x-text="item[1].join(', ')"></span></article>
+      </template>
+    </div>
+  </section>
+  <p id="diagnostics-message" x-show="!loading && filteredWarnings.length === 0">Keine passenden Diagnosen.</p>
+  <div class="table-scroll">
+    <table>
+    <thead><tr>
+      <th><button type="button" x-on:click="sort('severity')" x-bind:aria-label="'Nach Schweregrad sortieren' + sortLabel('severity')">Schweregrad</button></th>
+      <th><button type="button" x-on:click="sort('device_id')" x-bind:aria-label="'Nach Gerät sortieren' + sortLabel('device_id')">Gerät</button></th>
+      <th><button type="button" x-on:click="sort('entity_id')" x-bind:aria-label="'Nach Entität sortieren' + sortLabel('entity_id')">Entität</button></th>
+      <th><button type="button" x-on:click="sort('rule_id')" x-bind:aria-label="'Nach Regel sortieren' + sortLabel('rule_id')">Regel</button></th>
+      <th>Ursache</th><th>Handlung</th>
+    </tr></thead>
+    <tbody id="diagnostics-list">
+      <tr x-show="loading"><td colspan="6">Lade Diagnosen ...</td></tr>
+      <template x-for="item in filteredWarnings" :key="`${item.rule_id}-${item.device_id}-${item.entity_id}-${item.at}`">
+        <tr>
+          <td x-text="item.severity"></td>
+          <td x-text="item.device_id"></td>
+          <td x-text="item.entity_id || '-'"></td>
+          <td x-text="item.rule_id"></td>
+          <td x-text="item.message"></td>
+          <td x-text="item.hint"></td>
+        </tr>
+      </template>
+    </tbody>
+    </table>
+  </div>
+</section>
+{{end}}

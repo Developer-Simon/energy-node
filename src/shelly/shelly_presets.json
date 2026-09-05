@@ -1,0 +1,84 @@
+[
+  {
+    "id": "shelly_1_gen1",
+    "name": "Shelly 1 (Gen1)",
+    "properties": {
+      "generation": 1,
+      "switch_channels": 1
+    }
+  },
+  {
+    "id": "shelly_plug_s_gen1",
+    "name": "Shelly Plug S (Gen1)",
+    "properties": {
+      "generation": 1,
+      "switch_channels": 1,
+      "has_power": true,
+      "has_energy": true,
+      "has_temperature": true
+    }
+  },
+  {
+    "id": "shelly_plug_s_plus_gen2",
+    "name": "Shelly Plug S+ (Gen2)",
+    "properties": {
+      "generation": 2,
+      "switch_channels": 1,
+      "has_power": true,
+      "has_energy": true,
+      "has_temperature": true
+    }
+  },
+  {
+    "id": "shelly_3em_gen1",
+    "name": "Shelly 3EM (Gen1)",
+    "properties": {
+      "generation": 1,
+      "switch_channels": 0,
+      "has_power": true,
+      "has_energy": true,
+      "has_3phase": true
+    }
+  },
+  {
+    "id": "shelly_uni_gen1",
+    "name": "Shelly Uni (Gen1)",
+    "properties": {
+      "generation": 1,
+      "switch_channels": 2,
+      "adc_channels": 1
+    }
+  },
+  {
+    "id": "shelly_1pm_gen2",
+    "name": "Shelly 1PM (Gen2)",
+    "properties": {
+      "generation": 2,
+      "switch_channels": 1,
+      "has_power": true,
+      "has_energy": true,
+      "has_temperature": true
+    }
+  },
+  {
+    "id": "shelly_1pm_gen3",
+    "name": "Shelly 1PM (Gen3)",
+    "properties": {
+      "generation": 2,
+      "switch_channels": 1,
+      "has_power": true,
+      "has_energy": true,
+      "has_temperature": true
+    }
+  },
+  {
+    "id": "shelly_plus_ht",
+    "name": "Shelly Plus H&T",
+    "properties": {
+      "generation": 2,
+      "switch_channels": 0,
+      "has_temperature": true,
+      "has_humidity": true
+    }
+  }
+]

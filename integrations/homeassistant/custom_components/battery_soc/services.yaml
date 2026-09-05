@@ -1,0 +1,25 @@
+set_state_of_charge:
+  name: Set state of charge
+  description: Anchor the coulomb counter to a known state of charge.
+  target:
+    entity:
+      integration: battery_soc
+  fields:
+    state_of_charge:
+      name: State of charge
+      description: The known state of charge in percent.
+      required: true
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: "%"
+    bank:
+      name: Bank
+      description: Which bank to anchor (series topology only).
+      required: false
+      selector:
+        select:
+          options:
+            - "a"
+            - "b"

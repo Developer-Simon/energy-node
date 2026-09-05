@@ -1,0 +1,59 @@
+name: Bug report
+description: Something in the Battery SoC integration is not working as expected.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for taking the time to file a report. This integration estimates
+        state of charge for monitoring and diagnostics — it is **not** a BMS.
+        Please do not report safety concerns here; secure your pack with proper
+        cell-level protection.
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2025.1.0"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Battery SoC version
+      description: HACS → Battery SoC → the installed version.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: topology
+    attributes:
+      label: Battery topology
+      options:
+        - Single bank / parallel
+        - Series (two banks)
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what did you get instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Settings → System → Logs, filtered to `battery_soc`. Scrub sensor names if needed.
+      render: text
+  - type: textarea
+    id: config
+    attributes:
+      label: Configuration
+      description: The source sensors you pointed the integration at (power in W, voltage in V), capacities, cell counts.

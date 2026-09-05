@@ -1,0 +1,74 @@
+/* Reskinnt choices.min.css (Upstream-Default) auf die vorhandenen
+   Theme-Tokens aus base.css, damit die Mehrfachauswahl in allen vier
+   Farbschemata zur restlichen Oberflaeche passt. */
+.choices {
+  --choices-bg-color: var(--panel);
+  --choices-bg-color-dropdown: var(--panel);
+  --choices-bg-color-disabled: var(--track);
+  --choices-text-color: var(--text-muted);
+  --choices-keyline-color: var(--border);
+  --choices-border-radius: 3px;
+  --choices-border-radius-item: 999px;
+  --choices-primary-color: var(--accent-bg);
+  --choices-highlight-color: var(--accent);
+  --choices-highlighted-color: var(--accent-bg);
+  --choices-item-color: var(--accent);
+  --choices-item-disabled-color: var(--text-faint);
+  --choices-disabled-color: var(--text-faint);
+  --choices-invalid-color: var(--bad);
+  /* Chips so flach wie die Statusabzeichen (.runtime-status-badge in
+     base.css: .25rem/.5rem bei .8rem Schrift) - der Upstream-Default
+     4px/10px bei 12px war unnoetig hoch. */
+  --choices-multiple-item-padding: .25rem .5rem;
+  --choices-font-size-sm: .8rem;
+  margin-bottom: 0;
+}
+
+.choices__list--multiple .choices__item[data-deletable] { padding-right: .5rem; }
+
+.choices__inner { color: var(--text); }
+
+.choices__list--dropdown .choices__item--selectable,
+.choices__list[aria-expanded] .choices__item--selectable { color: var(--text); }
+
+/* Das inline "Tippen zum Filtern"-Feld zwischen den Chips soll optisch
+   verschwinden, solange niemand darin tippt - kein eigener Kasten. */
+.choices__input {
+  background: transparent;
+  border: 0;
+  color: var(--text);
+}
+
+/* Ersetzt das mitgelieferte, fest schwarz/weiss eingefaerbte Kreuz-Icon durch
+   ein einfaches "x" wie beim Schliessen-Knopf der Benachrichtigungen
+   (notification-toast-close in base.css) - liest sich in allen vier Themes.
+
+   Dabei sind zwei Erbschaften auszuhebeln, sonst bleibt der Knopf unsichtbar
+   und blaeht den Chip auf:
+   - choices.min.css versteckt den Knopftext ("Remove item") per
+     text-indent: -9999px. Das verschiebt auch unser ::before-Kreuz aus dem
+     Bild, wo .choices { overflow: hidden } es abschneidet. Also text-indent
+     zuruecksetzen und den Text stattdessen ueber font-size: 0 verbergen -
+     die Vorlesehilfe liest ohnehin das aria-label des Knopfes.
+   - Das Override deklariert selbst kein padding, also griff bisher
+     button { padding: .55rem .9rem } aus base.css: 8.8px oben und unten
+     plus 14.4px rechts, also ein 46x33px grosser leerer Kasten pro Chip. */
+.choices:is([data-type*="select-multiple"], [data-type*="text"]) .choices__button {
+  background-image: none;
+  width: auto;
+  margin: 0 0 0 .35rem;
+  padding: 0;
+  border-left: 0;
+  text-indent: 0;
+  font-size: 0;
+  line-height: 1;
+  vertical-align: middle;
+  color: inherit;
+  opacity: .7;
+}
+.choices:is([data-type*="select-multiple"], [data-type*="text"]) .choices__button::before {
+  content: '×';
+  font-size: 1rem;
+}
+.choices:is([data-type*="select-multiple"], [data-type*="text"]) .choices__button:hover,
+.choices:is([data-type*="select-multiple"], [data-type*="text"]) .choices__button:focus-visible { opacity: 1; }

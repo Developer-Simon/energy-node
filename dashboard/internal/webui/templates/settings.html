@@ -1,0 +1,249 @@
+{{define "settings"}}
+<section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" x-data="settingsPage()">
+  <svg style="position:absolute;width:0;height:0" aria-hidden="true">
+    <symbol id="ico-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3 2.45V14"/><path d="M12 17.2h.01"/></symbol>
+  </svg>
+  <h2>Dashboard-Einstellungen</h2>
+  <nav class="settings-nav" role="tablist" aria-label="Einstellungsbereiche">
+    <button type="button" role="tab" aria-controls="settings-general" x-bind:class="{ active: activeSettingsPage === 'general' }" x-bind:aria-selected="activeSettingsPage === 'general'" x-on:click="activeSettingsPage = 'general'">Allgemein</button>
+    <button type="button" role="tab" aria-controls="settings-display" x-bind:class="{ active: activeSettingsPage === 'display' }" x-bind:aria-selected="activeSettingsPage === 'display'" x-on:click="activeSettingsPage = 'display'">Darstellung</button>
+    <button type="button" role="tab" aria-controls="settings-history" x-bind:class="{ active: activeSettingsPage === 'history' }" x-bind:aria-selected="activeSettingsPage === 'history'" x-on:click="activeSettingsPage = 'history'">Verläufe</button>
+    <button type="button" role="tab" aria-controls="settings-tiny-tuya" x-bind:class="{ active: activeSettingsPage === 'tiny-tuya' }" x-bind:aria-selected="activeSettingsPage === 'tiny-tuya'" x-on:click="activeSettingsPage = 'tiny-tuya'">TinyTuya einrichten</button>
+    <button type="button" role="tab" aria-controls="settings-mqtt" x-bind:class="{ active: activeSettingsPage === 'mqtt' }" x-bind:aria-selected="activeSettingsPage === 'mqtt'" x-on:click="activeSettingsPage = 'mqtt'">MQTT</button>
+    <button type="button" role="tab" aria-controls="settings-tailscale" x-bind:class="{ active: activeSettingsPage === 'tailscale' }" x-bind:aria-selected="activeSettingsPage === 'tailscale'" x-on:click="activeSettingsPage = 'tailscale'">Tailscale einrichten</button>
+    <button type="button" role="tab" aria-controls="settings-system" x-bind:class="{ active: activeSettingsPage === 'system' }" x-bind:aria-selected="activeSettingsPage === 'system'" x-on:click="activeSettingsPage = 'system'">System</button>
+  </nav>
+  <div x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); load()">
+  <section id="settings-general" role="tabpanel" x-show="activeSettingsPage === 'general'">
+    <div class="form-grid">
+      <label for="health-threshold">Health-Schwellwert (Sekunden)</label><input id="health-threshold" type="number" min="1" x-model.number="healthScoreThreshold">
+      <label for="sweep-interval">Sweep-Intervall (Sekunden)</label><input id="sweep-interval" type="number" min="1" x-model.number="sweepIntervalSeconds">
+      <label for="live-update-interval">Live-Update-Intervall (Sekunden)</label><input id="live-update-interval" type="number" min="1" max="60" x-model.number="liveUpdateIntervalSeconds" x-bind:disabled="!canTuneLiveUpdates" x-bind:title="canTuneLiveUpdates ? '' : 'Erfordert die Berechtigung tune_live_updates'">
+    </div>
+    <div class="toolbar"><button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+    <section class="storage-health-panel" aria-labelledby="storage-health-heading" aria-live="polite">
+      <div class="storage-health-header">
+        <div>
+          <h3 id="storage-health-heading">Speicherzustand
+            <span class="field-help field-help-align-start">
+              <button class="field-help-trigger" type="button" aria-label="Erklärung zum Speicherzustand"><svg><use href="#ico-help"></use></svg></button>
+              <span class="field-help-text" role="tooltip">Gesundheit und voraussichtliche Haltbarkeit des Systemmediums. Gemessene Werte stammen direkt vom Medium. Die Schätzung für Medien ohne Herstellerdaten basiert auf Host-Schreiblast und einer anfangs konservativen Annahme von 1 bis 3 TBW, die sich mit Herstellermessungen anderer Zeiträume fortlaufend kalibriert; sie ist kein Ausfalldatum.</span>
+            </span>
+          </h3>
+        </div>
+        <span class="storage-health-badge storage-health-badge-unavailable" x-bind:class="storageHealthBadgeClass" x-text="storageHealthBadgeLabel">Wird geprüft</span>
+      </div>
+      <div class="toolbar"><button type="button" x-on:click="loadStorageHealth()" x-bind:disabled="storageHealthLoading" x-text="storageHealthLoading ? 'Prüfe ...' : 'Aktualisieren'"></button></div>
+      <p x-show="storageHealthLoading">Gesundheitsdaten werden gelesen ...</p>
+      <div class="table-scroll">
+        <table class="storage-health-table" x-cloak x-show="storageHealth && storageHealth.available">
+        <tbody>
+          <tr><th scope="row">Medium</th><td x-text="(storageHealth && storageHealth.medium) || '-'">-</td></tr>
+          <tr><th scope="row">Gerät</th><td x-text="(storageHealth && storageHealth.device) || '-'">-</td></tr>
+          <tr><th scope="row">Datenquelle</th><td x-text="(storageHealth && storageHealth.source) || '-'">-</td></tr>
+          <template x-if="storageHealth && storageHealth.mode === 'measured'"><tr><th scope="row">Herstellerstatus</th><td>Vom Medium gemeldet</td></tr></template>
+          <template x-if="storageHealth && storageHealth.life_time_a"><tr><th scope="row">Ausdauerbereich A</th><td x-text="storageHealth.life_time_a.label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.life_time_b"><tr><th scope="row">Ausdauerbereich B</th><td x-text="storageHealth.life_time_b.label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.pre_eol"><tr><th scope="row">Pre-EOL-Status</th><td x-text="storageHealth.pre_eol.label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Geschätzte Restlaufzeit</th><td x-text="storageHealth.estimate.remaining_label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Verbrauchte Schreibzyklen</th><td x-text="storageHealth.estimate.consumed_label || `ca. ${Math.round(storageHealth.estimate.consumed_percent_min || 0)}-${Math.round(storageHealth.estimate.consumed_percent_max || 0)} % des Ausdauerbudgets verbraucht`"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Host-Schreibvolumen</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_bytes)"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Schreiblast pro Tag</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_per_day_bytes)"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Beobachtungszeitraum</th><td x-text="formatStorageDays(storageHealth.estimate.observation_days)"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Annahme</th><td x-text="`${storageHealth.estimate.assumed_endurance_tbw_min}-${storageHealth.estimate.assumed_endurance_tbw_max} TBW`"></td></tr></template>
+          <tr><th scope="row">Zuletzt gelesen</th><td x-text="formatStorageHealthTime(storageHealth && storageHealth.read_at)">-</td></tr>
+        </tbody>
+        </table>
+      </div>
+      <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="(storageHealth && storageHealth.reason) || 'Dieses Medium stellt keine verwertbaren Gesundheitsdaten bereit.'"></p>
+      <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">Die SD-Schätzung wird nach mindestens 24 Stunden Beobachtung verfügbar.</p>
+      <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
+    </section>
+  </section>
+  <section id="settings-display" role="tabpanel" x-show="activeSettingsPage === 'display'">
+    <div class="form-grid">
+      <label for="device-view-mode">Standardansicht Geräte</label><select id="device-view-mode" x-model="deviceViewMode"><option value="compact">Kompakt</option><option value="control">Steuerung (Details)</option></select>
+      <label for="theme">Farbschema</label><select id="theme" x-model="theme"><option value="mint">Mint (Standard)</option><option value="stromblau">Stromblau</option><option value="signalgelb">Signalgelb</option><option value="tageslicht">Tageslicht</option></select>
+      <label class="settings-toggle-label" for="show-discovery-tooltips">Discovery-JSON-Tooltips anzeigen <span class="settings-toggle"><input id="show-discovery-tooltips" type="checkbox" role="switch" x-model="showDiscoveryTooltips" x-bind:aria-checked="showDiscoveryTooltips"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <label class="settings-toggle-label" for="show-runtime-status">Globalen Systemstatus anzeigen <span class="settings-toggle"><input id="show-runtime-status" type="checkbox" role="switch" x-model="showRuntimeStatus" x-bind:aria-checked="showRuntimeStatus"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <label class="settings-toggle-label" for="show-config-entities-on-tile">Konfigurationswerte auf Kacheln anzeigen <span class="settings-toggle"><input id="show-config-entities-on-tile" type="checkbox" role="switch" x-model="showConfigEntitiesOnTile" x-bind:aria-checked="showConfigEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <label class="settings-toggle-label" for="show-diagnostic-entities-on-tile">Diagnosewerte auf Kacheln anzeigen <span class="settings-toggle"><input id="show-diagnostic-entities-on-tile" type="checkbox" role="switch" x-model="showDiagnosticEntitiesOnTile" x-bind:aria-checked="showDiagnosticEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <div class="settings-multiselect-row settings-wide-panels">
+        <label for="wide-panels-select">
+          Tabs ohne Breitendeckelung
+          <span class="field-help">
+            <button class="field-help-trigger" type="button" aria-label="Erklärung zu Tabs ohne Breitendeckelung">
+              <svg><use href="#ico-help"></use></svg>
+            </button>
+            <span class="field-help-text" role="tooltip">Freigegebene Tabs nutzen die volle Fensterbreite statt der 1180px-Lesebreite fuer ihren Inhalt. Überschrift und Tab-Leiste sind immer volle Breite.</span>
+          </span>
+        </label>
+        <select id="wide-panels-select" x-ref="widePanelsSelect" multiple x-on:change="widePanels = syncFromChoices(widePanelsChoices, widePanelOptions)">
+          <template x-for="tab in widePanelOptions" x-bind:key="tab.key">
+            <option x-bind:value="tab.key" x-text="tab.label"></option>
+          </template>
+        </select>
+      </div>
+      <div class="settings-multiselect-row settings-status-bar-items">
+        <label for="status-bar-items-select">
+          Angaben im Systemstatus
+          <span class="field-help">
+            <button class="field-help-trigger" type="button" aria-label="Erklärung zu Angaben im Systemstatus">
+              <svg><use href="#ico-help"></use></svg>
+            </button>
+            <span class="field-help-text" role="tooltip">Nur wirksam, wenn "Globalen Systemstatus anzeigen" oben aktiv ist.</span>
+          </span>
+        </label>
+        <select id="status-bar-items-select" x-ref="statusBarItemsSelect" multiple x-on:change="statusBarItems = syncFromChoices(statusBarItemsChoices, statusBarItemOptions)">
+          <template x-for="item in statusBarItemOptions" x-bind:key="item.key">
+            <option x-bind:value="item.key" x-text="item.label"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+    <div class="toolbar"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+  </section>
+  <section id="settings-history" role="tabpanel" x-show="activeSettingsPage === 'history'">
+    <h3>Aufzeichnung</h3>
+    <p class="settings-hint">Die Messwerte liegen ausschließlich im Browser dieses Geräts. Hier steht nur, wie aufgezeichnet wird — die Einstellung gilt für alle Geräte, die aufgezeichneten Daten nicht.</p>
+    <div class="form-grid">
+      <label for="history-interval">Abtastrate (Sekunden)</label><input id="history-interval" type="number" min="5" max="3600" x-model.number="historySampleIntervalSeconds">
+      <label for="history-raw-window">Rohdaten behalten (Stunden)</label><input id="history-raw-window" type="number" min="1" max="168" x-model.number="historyRawWindowHours">
+      <label for="history-minute-window">Minutenwerte behalten (Tage)</label><input id="history-minute-window" type="number" min="1" max="365" x-model.number="historyMinuteWindowDays">
+    </div>
+    <p id="history-volume" class="settings-hint" x-text="historyVolumeText"></p>
+
+    <h3>Aufbewahrung</h3>
+    <div class="toolbar" role="radiogroup" aria-label="Aufbewahrungsart">
+      <label><input type="radio" name="history-retention-mode" value="time" x-model="historyRetentionMode"> Nach Zeit begrenzen</label>
+      <label><input type="radio" name="history-retention-mode" value="size" x-model="historyRetentionMode"> Nach Speicher begrenzen</label>
+    </div>
+    <div class="form-grid">
+      <label for="history-retention-hours">Aufbewahrung (Stunden)</label><input id="history-retention-hours" type="number" min="1" max="8760" x-model.number="historyRetentionHours" x-bind:disabled="historyRetentionMode !== 'time'">
+      <label for="history-budget">Speicherbudget (MB)</label><input id="history-budget" type="number" min="16" max="8192" x-model.number="historyBudgetMb" x-bind:disabled="historyRetentionMode !== 'size'">
+    </div>
+    <p id="history-budget-text" class="settings-hint" x-text="historyBudgetText"></p>
+    <p id="history-usage" class="settings-hint" x-text="historyUsageText"></p>
+    <div class="toolbar"><button type="button" x-on:click="loadHistoryUsage()">Speicherstand aktualisieren</button></div>
+
+    <h3>Austausch zwischen Geräten</h3>
+    <p class="settings-hint">Geräte, die gleichzeitig geöffnet sind, ergänzen sich gegenseitig um Zeiträume, die dem jeweils anderen fehlen — Minuten- und Fünf-Minuten-Werte, keine Rohdaten. Eigene Messwerte werden dabei nie überschrieben.</p>
+    <div class="toolbar">
+      <label><input id="history-exchange" type="checkbox" x-model="historyExchangeDisabled"> Austausch abschalten</label>
+    </div>
+    <p id="history-exchange-status" class="settings-hint" x-text="historyExchangeStatus"></p>
+    <div class="toolbar"><button type="button" x-on:click="refreshExchangeStatus()">Status aktualisieren</button></div>
+
+    <div class="toolbar"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+  </section>
+  <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
+    {{template "revisions" .}}
+  </div>
+  </div>
+  <section id="settings-system" role="tabpanel" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
+    <h3>Systemzugriff</h3>
+    <section class="system-access-panel">
+      <p class="settings-help">Angemeldet als <strong x-text="username || 'wird geladen'">wird geladen</strong>. Systemaktionen sind nur für registrierte Benutzer mit der Rolle <code>system_actions</code> freigegeben.</p>
+      <p class="settings-help">Dashboard-Version: <strong x-text="version || 'unbekannt'">unbekannt</strong></p>
+      <p class="settings-help">Services-Version: <strong x-text="servicesVersion || 'unbekannt'">unbekannt</strong></p>
+      <div class="toolbar">
+        <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? 'Systemaktionen freigegeben' : 'Gastzugriff'">Wird geprüft</span>
+        <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="Abmelden" aria-label="Abmelden">
+          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
+          <span>Abmelden</span>
+        </button>
+      </div>
+    </section>
+    <section class="system-actions-panel" aria-labelledby="system-actions-heading">
+      <h3 id="system-actions-heading">Systemaktionen</h3>
+      <p>Diese Befehle wirken direkt auf den Raspberry Pi und können die Verbindung zum Dashboard sofort unterbrechen.</p>
+      <div class="system-action-list">
+        <button class="system-action-danger" type="button" x-on:click="run('restart-dashboard', 'Dashboard-Service neu starten')" x-bind:disabled="!canSystemActions || busy">
+          <svg class="automation-icon"><use href="#ico-history"></use></svg>
+          <span>Dashboard-Service neu starten</span>
+        </button>
+        <button class="system-action-danger" type="button" x-on:click="run('reboot', 'System neu starten')" x-bind:disabled="!canSystemActions || busy">
+          <svg class="automation-icon"><use href="#ico-power-on"></use></svg>
+          <span>System neu starten</span>
+        </button>
+        <button class="system-action-danger" type="button" x-on:click="run('poweroff', 'System herunterfahren')" x-bind:disabled="!canSystemActions || busy">
+          <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
+          <span>System herunterfahren</span>
+        </button>
+      </div>
+    </section>
+    <section class="system-config-panel" aria-labelledby="system-config-heading" x-data="systemConfigPanel()" x-init="load()">
+      <h3 id="system-config-heading">Konfiguration</h3>
+      <p class="settings-help">Der Inhalt von <code>/etc/energy-node/config.json</code>. Passwoerter stehen nicht in dieser Datei, nur die Pfade der Dateien, die sie enthalten.</p>
+      <p class="settings-error" x-show="error" x-text="error"></p>
+      <div class="settings-warning" x-cloak x-show="recoverMode && unknownKeys.length">
+        Diese Datei enthält Felder, die das Formular nicht kennt
+        (<span x-text="unknownKeys.join(', ')"></span>). Bearbeite sie als Rohtext,
+        bis sie wieder zum Schema passt.
+      </div>
+      <p class="settings-help" x-cloak x-show="recoverMode && !unknownKeys.length">Das Schema konnte nicht geladen werden — Bearbeitung als Rohtext.</p>
+      <textarea class="system-config-editor" rows="24" spellcheck="false" x-model="text" x-bind:disabled="busy" x-cloak x-show="recoverMode"></textarea>
+      <form x-ref="form" class="schema-form" novalidate x-show="!recoverMode" x-on:input="dirtyTick++" x-on:change="dirtyTick++" x-on:submit.prevent="save()"></form>
+      <div class="system-config-actions">
+        <button class="icon-button labeled primary" type="button" x-on:click="save()" x-bind:disabled="!dirty || busy" title="Speichern" aria-label="Speichern">
+          <svg class="automation-icon"><use href="#ico-save"></use></svg>
+          <span>Speichern</span>
+        </button>
+        <button class="icon-button labeled" type="button" x-on:click="discard()" x-bind:disabled="busy" title="Verwerfen" aria-label="Verwerfen">
+          <svg class="automation-icon"><use href="#ico-close"></use></svg>
+          <span>Verwerfen</span>
+        </button>
+      </div>
+      <p class="settings-warning" x-show="restartRequired.length">
+        Neustart erforderlich fuer:
+        <span x-text="restartRequired.join(', ')"></span>
+      </p>
+      <template x-if="Object.keys(reloaded).length">
+        <ul class="system-config-reload-list">
+          <template x-for="[service, status] in Object.entries(reloaded)" :key="service">
+            <li><span x-text="service"></span>: <span x-text="status"></span></li>
+          </template>
+        </ul>
+      </template>
+      <details class="revision-panel" x-data="revisionPanel(revisionConfig())" x-bind:open="open">
+        <summary x-on:click.prevent="toggle()" x-text="label"></summary>
+        <div class="revision-panel-body">
+          <div class="toolbar">
+            <label>Revision
+              <select x-model="selectedRevision" x-on:change="previewRevision()">
+                <option value="">Revision auswählen</option>
+                <template x-for="revision in revisions" x-bind:key="revision.name">
+                  <option x-bind:value="revision.name" x-text="`${revision.name} (${revision.checksum.slice(0, 8)})`"></option>
+                </template>
+              </select>
+            </label>
+            <button class="icon-button labeled" type="button" x-on:click="load()" x-bind:disabled="loading" x-bind:title="loading ? 'Lade ...' : 'Aktualisieren'" x-bind:aria-label="loading ? 'Lade ...' : 'Aktualisieren'">
+              <svg class="automation-icon"><use href="#ico-history"></use></svg>
+              <span x-text="loading ? 'Lade ...' : 'Aktualisieren'"></span>
+            </button>
+            <button class="icon-button labeled" type="button" x-on:click="restoreRevision()" x-bind:disabled="restoring || !selectedRevision" title="Wiederherstellen" aria-label="Wiederherstellen">
+              <svg class="automation-icon"><use href="#ico-download"></use></svg>
+              <span>Wiederherstellen</span>
+            </button>
+            <span class="revision-panel-empty" x-show="loaded && revisions.length === 0" x-cloak>Noch keine Revisionen vorhanden.</span>
+          </div>
+          <div class="revision-view-toolbar" role="group" aria-label="Ansicht der Revisionsvorschau">
+            <span>Ansicht</span>
+            <button type="button" x-on:click="setRevisionView('preview')" x-bind:aria-pressed="revisionView === 'preview'">Vorschau</button>
+            <button type="button" x-on:click="setRevisionView('diff')" x-bind:aria-pressed="revisionView === 'diff'">Diff</button>
+            <label><input type="checkbox" x-model="cropDiff" x-on:change="previewRevision()"> Nur Änderungen</label>
+          </div>
+          <textarea class="revision-preview" aria-label="Revisionsvorschau" readonly placeholder="Revision auswählen und Vorschau öffnen" x-model="revisionText" x-bind:hidden="revisionView !== 'preview'"></textarea>
+          <pre class="revision-diff" aria-label="Änderungen zwischen Revision und aktuellem Stand" x-ref="revisionDiff" x-bind:hidden="revisionView !== 'diff'"></pre>
+        </div>
+      </details>
+    </section>
+  </section>
+  {{template "tiny-tuya" .}}
+  {{template "mqtt" .}}
+  {{template "tailscale" .}}
+  <footer class="license-footer" aria-label="Lizenzinformationen der verwendeten Bibliotheken">
+    <p>Verwendete Bibliotheken: <strong>HTMX 2.0.6</strong> (0BSD) · <strong>Alpine.js 3.14.9</strong> (MIT, Copyright Caleb Porzio) · <strong>Alpine.js Collapse-Plugin 3.14.9</strong> (MIT, Copyright Caleb Porzio) · <strong>ApexCharts 4.7.0</strong> (MIT, Copyright ApexCharts) · <strong>Popper.js 2.11.8</strong> (MIT) · <strong>Tippy.js 6.3.7</strong> (MIT) · <strong>Cytoscape.js 3.34.0</strong> (MIT, The Cytoscape Consortium) · <strong>Gridstack.js 13.0.2</strong> (MIT, Copyright Alain Dumesny) · <strong>Choices.js 11.2.3</strong> (MIT, Copyright Josh Johnson) · <strong>flatpickr 4.6.13</strong> (MIT, Copyright Gregory Petrosyan) · <a href="https://github.com/bigskysoftware/htmx/blob/v2.0.6/LICENSE" target="_blank" rel="noopener noreferrer">HTMX-Lizenz</a> · <a href="https://github.com/alpinejs/alpine/blob/v3.14.9/README.md" target="_blank" rel="noopener noreferrer">Alpine.js README</a> · <a href="https://github.com/apexcharts/apexcharts.js/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">ApexCharts-Lizenz</a> · <a href="https://github.com/popperjs/popper-core/blob/v2.11.8/LICENSE.md" target="_blank" rel="noopener noreferrer">Popper.js-Lizenz</a> · <a href="https://github.com/atomiks/tippyjs/blob/v6.3.7/LICENSE" target="_blank" rel="noopener noreferrer">Tippy.js-Lizenz</a> · <a href="https://github.com/cytoscape/cytoscape.js/blob/v3.34.0/LICENSE" target="_blank" rel="noopener noreferrer">Cytoscape.js-Lizenz</a> · <a href="https://github.com/gridstack/gridstack.js/blob/v13.0.2/LICENSE" target="_blank" rel="noopener noreferrer">Gridstack.js-Lizenz</a> · <a href="https://github.com/Choices-js/Choices/blob/v11.2.3/LICENSE" target="_blank" rel="noopener noreferrer">Choices.js-Lizenz</a> · <a href="https://github.com/flatpickr/flatpickr/blob/v4.6.13/LICENSE.md" target="_blank" rel="noopener noreferrer">flatpickr-Lizenz</a></p>
+  </footer>
+</section>
+{{end}}

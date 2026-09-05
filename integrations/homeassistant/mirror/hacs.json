@@ -1,0 +1,5 @@
+{
+  "name": "Battery SoC (LiFePO4 coulomb-counting)",
+  "homeassistant": "2024.12.0",
+  "render_readme": true
+}

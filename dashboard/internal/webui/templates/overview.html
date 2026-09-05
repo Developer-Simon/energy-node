@@ -1,0 +1,411 @@
+{{define "overview"}}
+<section id="overview-panel" class="panel" role="tabpanel" aria-label="Übersicht" x-bind:class="{ active: activePanel === 'overview-panel' }" x-show="activePanel === 'overview-panel'" x-data="devicesPanel()" x-init="init()" data-editor-fragment="{{.BasePath}}/?fragment=panel&panel=layout-editor" data-editor-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js,{{.BasePath}}/static/js/layout-editor.js?v=10" data-editor-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css,{{.BasePath}}/static/css/layout-editor.css?v=9">
+  {{template "overview-live" .}}
+  {{template "device-modal" .}}
+</section>
+{{end}}
+
+{{define "history"}}
+<section id="history-panel" class="panel" role="tabpanel" aria-labelledby="tab-history" x-bind:class="{ active: activePanel === 'history-panel' }" x-show="activePanel === 'history-panel'" x-data="historyPanel()" x-init="init()">
+  <h2>Energie-Verläufe</h2>
+  <p id="history-state" x-text="statusText">Verläufe werden geladen ...</p>
+
+  <div id="history-range" class="history-chip-group" role="group" aria-label="Zeitraum">
+    <span class="history-chip-group-label"><svg class="history-chip-group-icon" aria-hidden="true"><use href="#ico-clock"></use></svg>Zeitraum</span>
+    <template x-for="preset in RANGE_PRESETS" x-bind:key="preset.hours">
+      <button type="button" class="history-chip" x-bind:class="{ active: rangeMode === 'relative' && rangeHours === preset.hours }" x-bind:aria-pressed="rangeMode === 'relative' && rangeHours === preset.hours" x-on:click="selectPreset(preset.hours)" x-text="preset.label"></button>
+    </template>
+    <label class="history-chip history-range-custom" x-bind:class="{ active: rangeMode === 'custom' }" for="history-range-custom">
+      <svg class="history-chip-icon" aria-hidden="true"><use href="#ico-calendar"></use></svg>
+      <input type="text" id="history-range-custom" x-ref="rangeInput" readonly x-bind:value="customRangeLabel" placeholder="Eigener Zeitraum">
+    </label>
+    <button type="button" class="icon-button" x-show="rangeMode === 'custom'" x-on:click="clearCustomRange()" title="Eigenen Zeitraum verwerfen" aria-label="Eigenen Zeitraum verwerfen">
+      <svg class="automation-icon"><use href="#ico-close"></use></svg>
+    </button>
+  </div>
+
+  <div id="history-aggregate" class="history-chip-group" role="group" aria-label="Kennwert">
+    <span class="history-chip-group-label">Kennwert</span>
+    <template x-for="option in AGGREGATES" x-bind:key="option.value">
+      <button type="button" class="history-chip" x-bind:class="{ active: aggregate === option.value }" x-bind:aria-pressed="aggregate === option.value" x-on:click="aggregate = option.value; renderChart()" x-text="option.label"></button>
+    </template>
+  </div>
+
+  <div class="history-series-picker" role="group" aria-label="Angezeigte Serien">
+    <template x-for="name in seriesOptions" x-bind:key="name">
+      <button type="button" class="history-chip history-series-chip" x-bind:class="{ active: selectedSeries.includes(name) }" x-bind:aria-pressed="selectedSeries.includes(name)" x-on:click="toggleSeries(name)">
+        <i class="history-series-dot" x-bind:style="`border-color:${seriesColor(name)};background:${selectedSeries.includes(name) ? seriesColor(name) : 'transparent'}`"></i>
+        <span x-text="name"></span>
+      </button>
+    </template>
+  </div>
+
+  <p id="energy-history-empty" x-cloak x-show="isEmpty">Für diesen Zeitraum liegen in diesem Browser keine Daten vor.</p>
+  <p class="settings-hint" x-show="exchangeNotice" x-text="exchangeNotice"></p>
+  <div id="energy-history-chart" class="history-chart" x-ref="chart" x-cloak x-show="!isEmpty"></div>
+
+  <div class="history-advanced">
+    <button type="button" class="history-disclosure" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'" aria-controls="history-advanced-panel">
+      <svg class="automation-icon history-disclosure-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+      <span>Erweitert: Sichten &amp; Export</span>
+    </button>
+    <div id="history-advanced-panel" x-cloak x-show="advancedOpen" x-collapse>
+      <div class="toolbar history-views" role="group" aria-label="Gespeicherte Verlaufssichten">
+        <label for="history-view">Sicht
+          <select id="history-view" x-model="selectedViewId" x-on:change="applyView(selectedViewId)">
+            <option value="">Sicht öffnen ...</option>
+            <template x-for="view in views" x-bind:key="view.id">
+              <option x-bind:value="view.id" x-text="view.name"></option>
+            </template>
+          </select>
+        </label>
+        <label for="history-view-name">Name <input id="history-view-name" type="text" x-model="viewName" placeholder="z. B. Tagesüberblick"></label>
+        <button type="button" class="icon-button labeled accent" x-on:click="saveView()" title="Sicht speichern" aria-label="Sicht speichern">
+          <svg class="automation-icon"><use href="#ico-save"></use></svg>
+          <span>Speichern</span>
+        </button>
+        <button type="button" class="icon-button danger" x-on:click="deleteView(selectedViewId)" x-bind:disabled="!selectedViewId" title="Gewählte Sicht löschen" aria-label="Gewählte Sicht löschen">
+          <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+        </button>
+      </div>
+      <div class="toolbar" role="group" aria-label="Verlauf exportieren">
+        <span x-text="`${exportRowCount} Zeilen im gewählten Zeitraum`"></span>
+        <button type="button" class="icon-button labeled" x-on:click="exportAs('csv')" x-bind:disabled="isEmpty" title="Als CSV exportieren" aria-label="Als CSV exportieren">
+          <svg class="automation-icon"><use href="#ico-download"></use></svg>
+          <span>CSV</span>
+        </button>
+        <button type="button" class="icon-button labeled" x-on:click="exportAs('json')" x-bind:disabled="isEmpty" title="Als JSON exportieren" aria-label="Als JSON exportieren">
+          <svg class="automation-icon"><use href="#ico-download"></use></svg>
+          <span>JSON</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+{{end}}
+
+{{define "overview-live"}}
+<div id="overview-live" data-structure="{{.Structure}}" data-structure-compact="{{.StructureCompact}}">
+  {{/* Ein Schnappschuss fuer alle sieben Energiekarten. Er muss innerhalb
+       von #overview-live stehen: der htmx-Swap ist outerHTML auf genau
+       diesen Knoten, ausserhalb wuerde der Schnappschuss auf dem Stand des
+       ersten Seitenaufrufs einfrieren. */}}
+  <script type="application/json" id="energy-snapshot-initial">{{energySnapshotJSON .Energy}}</script>
+  {{/* overviewShell() umschliesst Werkzeugleiste UND Raster, damit der
+       Editieren-Knopf des Leerzustands (im {{else}}-Zweig unten) im selben
+       Alpine-Scope liegt wie enterEdit(). */}}
+  <div id="overview-shell" x-data="overviewShell()" x-init="watchRowFill()">
+  <div class="layout-toolbar">
+    <span class="layout-count" data-count></span>
+    <span class="layout-spacer"></span>
+    {{if .CanEditLayout}}<button class="layout-btn" type="button" data-view-only data-mode-edit
+            x-on:click="enterEdit()" x-bind:disabled="busy"><svg class="automation-icon" aria-hidden="true"><use href="#ico-pencil"></use></svg>Editieren</button>{{end}}
+  </div>
+  {{/* Traeger fuer die Zielbreitenvorschau: applyTargetWidth() setzt hier
+       --target-w und --target-zoom. Ohne Zielbreite ist der Knoten wirkungslos
+       (width:auto, zoom:1) und die Ansicht damit unveraendert. */}}
+  <div class="layout-canvas-stage">
+  <div class="layout-grid" data-layout-version="{{.Layout.Version}}">
+    {{with activePage .Layout $.ActivePage}}<div data-layout-page="{{.Name}}">{{range .Groups}}{{range .Items}}{{if and .Visible (ne .Type "energy_summary")}}{{$item := .}}<div class="layout-grid-item layout-grid-item-{{.Span}}" style="{{cardStyle $item}}" data-fills-height="{{cardFillsHeight .Type}}" data-layout-item-id="{{.ID}}" data-layout-item-kind="{{.Type}}" data-layout-item-ref="{{.Ref}}" data-display="{{.Display}}" data-flow-scale="{{.FlowScale}}" data-speed-reference-mode="{{.SpeedReferenceMode}}" data-speed-reference-watts="{{.SpeedReferenceWatts}}" data-height-reference="{{.HeightReference}}" data-scale-mode="{{.ScaleMode}}" data-unit="{{.Unit}}" data-bundle-threshold="{{.BundleThreshold}}" data-animate="{{.Animate}}" data-kpi="{{.KPI}}" data-label-mode="{{.LabelMode}}" data-sort="{{.Sort}}" data-spark-window="{{.SparkWindow}}" data-dense="{{.Dense}}" data-show-inactive="{{.ShowInactive}}" data-measured-split="{{.MeasuredSplit}}" data-display-mode="{{.DisplayMode}}" data-show-now="{{.ShowNow}}" data-stroke-mode="{{.StrokeMode}}" data-entity-labels="{{.EntityLabels}}" data-hide-inactive="{{.HideInactive}}" data-display-size="{{.DisplaySize}}" data-beam-span="{{.BeamSpan}}" data-show-advice="{{.ShowAdvice}}" data-battery-window="{{.BatteryWindow}}" data-battery-projection-window="{{.BatteryProjectionWindow}}">{{if eq .Type "energy_flow"}}{{template "energy-flow-card" $}}{{else if eq .Type "device"}}{{with index $.LayoutDevices .Ref}}{{if eq $item.Display "compact"}}{{template "compact-card" .}}{{else}}{{template "device-tile" (deviceTileForItem . $item.VisibleCategories)}}{{end}}{{end}}{{else if eq .Type "entity_value"}}{{with index $.LayoutEntities .Ref}}{{template "entity-value-card" .}}{{end}}{{else if eq .Type "entity_group"}}{{template "entity-group-card" (entityGroupForItem $item $.LayoutEntities)}}{{else if eq .Type "diagnostics"}}{{template "diagnostics-summary-card" $}}{{else if eq .Type "energy_band"}}{{template "energy-band-card" $}}{{else if eq .Type "energy_ring"}}{{template "energy-ring-card" $}}{{else if eq .Type "energy_board"}}{{template "energy-board-card" $}}{{else if eq .Type "energy_day"}}{{template "energy-day-card" $}}{{else if eq .Type "energy_schema"}}{{template "energy-schema-card" $}}{{else if eq .Type "energy_status"}}{{template "energy-status-card" $}}{{else if eq .Type "battery_status"}}{{if eq $item.Display "trajectory"}}{{template "battery-trajectory-card" $}}{{else}}{{template "battery-column-card" $}}{{end}}{{end}}</div>{{end}}{{end}}{{end}}</div>{{else}}
+    <p class="panel-empty">Noch keine Seite eingerichtet.
+      {{if .CanEditLayout}}<button class="layout-btn" type="button" data-mode-edit data-view-only x-on:click="enterEdit()" x-bind:disabled="busy"><svg class="automation-icon" aria-hidden="true"><use href="#ico-pencil"></use></svg>Editieren</button>{{end}}
+    </p>
+    {{end}}
+  </div>
+  </div>
+  </div>
+</div>
+{{end}}
+
+{{define "energy-flow-card"}}
+  <section id="energy-flow-card" class="energy-flow-card" aria-labelledby="energy-flow-title" x-data="energyFlowCard()" x-init="init()">
+    <header class="energy-flow-header">
+      <h3 id="energy-flow-title">Energiefluss</h3>
+    </header>
+    <div class="energy-flow-map" role="group" aria-label="Aktueller Energiefluss von PV, Netz und Batterie zum Hausverbrauch" x-ref="map">
+      <svg class="energy-flow-lines" aria-hidden="true" focusable="false" x-ref="svg"></svg>
+      <article class="energy-flow-node energy-flow-node-pv" data-node="pv"><strong>PV</strong><output><svg class="energy-flow-node-icon energy-flow-pv-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle class="efn-out" cx="12" cy="12" r="4"></circle><g class="efn-rays"><line class="efn-out" x1="18.6" y1="12" x2="21.4" y2="12"></line><line class="efn-out" x1="16.7" y1="16.7" x2="18.6" y2="18.6"></line><line class="efn-out" x1="12" y1="18.6" x2="12" y2="21.4"></line><line class="efn-out" x1="7.3" y1="16.7" x2="5.4" y2="18.6"></line><line class="efn-out" x1="5.4" y1="12" x2="2.6" y2="12"></line><line class="efn-out" x1="7.3" y1="7.3" x2="5.4" y2="5.4"></line><line class="efn-out" x1="12" y1="5.4" x2="12" y2="2.6"></line><line class="efn-out" x1="16.7" y1="7.3" x2="18.6" y2="5.4"></line></g></svg><span class="energy-flow-node-text"></span></output></article>
+      <article class="energy-flow-node energy-flow-node-grid" data-node="grid"><strong>Netz</strong><output><svg class="energy-flow-node-icon energy-flow-grid-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g class="efn-chevs"><path class="efn-out efn-chev" d="M6 9 L12 12.6 L18 9"></path><path class="efn-out efn-chev" d="M6 14 L12 17.6 L18 14"></path></g></svg><span class="energy-flow-node-text"></span></output></article>
+      <article class="energy-flow-node energy-flow-node-home" data-node="home"><strong>Gebäude</strong><span class="energy-flow-calc-hint" aria-hidden="true">berechnet</span><output><svg class="energy-flow-node-icon energy-flow-home-icon" viewBox="0 0 22 12" aria-hidden="true" focusable="false"><path class="efn-out" d="M6.4 11 L6.4 5.4 L11 1.6 L15.6 5.4 L15.6 11 Z"></path><path class="efn-trace" d="M6.4 11 L6.4 5.4 L11 1.6 L15.6 5.4 L15.6 11 Z"></path></svg><span class="energy-flow-node-text"></span></output></article>
+      <article class="energy-flow-node energy-flow-node-battery" data-node="battery"><strong>Speicher</strong><output><svg class="energy-flow-node-icon energy-flow-battery-icon" viewBox="0 0 22 12" aria-hidden="true" focusable="false"><rect class="energy-flow-battery-body" x="1" y="1" width="17" height="10" rx="2"></rect><rect class="energy-flow-battery-fill" x="3" y="3" width="13" height="6"></rect><rect class="energy-flow-battery-nub" x="18.6" y="4.4" width="2" height="3.2" rx=".6"></rect></svg><span class="energy-flow-battery-vals"><span class="energy-flow-battery-text energy-flow-node-text"></span><span class="energy-flow-battery-soc" hidden></span></span></output></article>
+      <article class="energy-flow-node energy-flow-node-load" data-node="load"><strong>Verbrauch</strong><output><ul class="energy-flow-load-list"><li class="energy-flow-load-row"><svg class="energy-flow-node-icon energy-flow-load-icon" data-load-icon="generic" viewBox="0 0 22 12" aria-hidden="true" focusable="false"><circle class="efn-ring" cx="11" cy="6" r="4.6" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-dasharray="3.4 3.8257"></circle><path class="efn-bolt" d="M11.8 1.8 L8.2 6.7 L10.7 6.7 L10.2 10.2 L13.8 5.3 L11.3 5.3 Z"></path></svg><span class="energy-flow-node-text"></span></li></ul></output></article>
+    </div>
+  </section>
+{{end}}
+
+{{/* entity_value: reduzierte Einzelwert-Karte (KPI-Streifen). Ersetzt fuer
+     diesen Kartentyp die technischen Metadaten der entity-list-item durch
+     Wert + Statuspunkt; schaltbare (nicht-number) Entitaeten machen die
+     ganze Karte zum Tap-Ziel wie device-tile-entity.
+     data-entity-id/-device-class/-unit sind der Griff, an dem
+     overview-values.js die Karte beim SSE-Push nachzieht: die Einheit steht
+     sonst nur im DOM, wenn sie gerade gerendert wurde, und die device_class
+     ist gar nicht ablesbar, solange kein Wert da ist. */}}
+{{define "entity-value-card"}}
+{{ $entity := . }}
+{{if and .Commandable (ne .Component "number")}}<button type="button" class="entity-value-card{{if .Stale}} stale{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}" {{if .Pending}}disabled aria-busy="true"{{end}} x-on:click="sendCommand($event)" aria-label="{{.Name}} schalten">{{else}}<article class="entity-value-card{{if .Stale}} stale{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}">{{end}}
+  <header class="entity-value-top">
+    <span class="entity-value-label">{{.Name}}</span>
+    <span class="entity-value-dot{{if not .HasAvailability}} entity-value-dot-unknown{{else if .Available}} entity-value-dot-ok{{else}} entity-value-dot-bad{{end}}"></span>
+  </header>
+  <div class="entity-value-num">{{if .HasValue}}<strong>{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{.Value}}{{end}}</strong>{{if .UnitOfMeasurement}}<span class="entity-value-unit">{{.UnitOfMeasurement}}</span>{{end}}{{else}}<strong>-</strong>{{end}}</div>
+  <small class="entity-command-status" x-cloak x-show="commandStates['{{.UniqueID}}']" x-text="commandStates['{{.UniqueID}}']" x-init="commandStates['{{.UniqueID}}'] = {{if .Pending}}'Warte auf Bestätigung über MQTT ...'{{else if eq .LastCommandResult "timeout"}}'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.'{{else}}''{{end}}"></small>
+{{if and .Commandable (ne .Component "number")}}</button>{{else}}</article>{{end}}
+{{end}}
+
+{{/* entity_group: frei zusammengestellte Entitaetenliste (Chip-Raster).
+     Anders als device-tile ist die Auswahl nicht an ein Geraet gebunden -
+     entityGroupForItem loest EntityRefs gegen LayoutEntities auf und
+     ueberspringt fehlende Refs still, wie der einzelne Ref-Lookup der
+     anderen Kartentypen. */}}
+{{define "entity-group-card"}}
+{{ $group := . }}
+<section class="entity-group-card" aria-label="{{.Title}}">
+  <header class="entity-group-head"><h4>{{.Title}}</h4><span class="entity-group-count">{{len .Entities}}</span></header>
+  <div class="entity-group-grid">
+    {{range .Entities}}{{ $entity := . }}
+    {{if and .Commandable (ne .Component "number")}}<button type="button" class="entity-group-chip{{if .Stale}} stale{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}" {{if .Pending}}disabled aria-busy="true"{{end}} x-on:click="sendCommand($event)" aria-label="{{.Name}} schalten">{{else}}<article class="entity-group-chip{{if .Stale}} stale{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}">{{end}}
+      <div class="entity-group-chip-top">{{with iconFor .}}<span class="entity-icon{{if .Fallback}} entity-icon-fallback{{end}}" role="img" aria-label="{{.Label}}" title="{{.Label}}">{{.SVG}}</span>{{end}}<span class="entity-group-chip-dot{{if not .HasAvailability}} entity-group-chip-dot-unknown{{else if .Available}} entity-group-chip-dot-ok{{else}} entity-group-chip-dot-bad{{end}}"></span></div>
+      <div class="entity-group-chip-val">{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{.Value}}{{end}}{{if .UnitOfMeasurement}}<span>{{.UnitOfMeasurement}}</span>{{end}}{{else}}-{{end}}</div>
+      <div class="entity-group-chip-label">{{.Name}}</div>
+      <small class="entity-command-status" x-cloak x-show="commandStates['{{.UniqueID}}']" x-text="commandStates['{{.UniqueID}}']" x-init="commandStates['{{.UniqueID}}'] = {{if .Pending}}'Warte auf Bestätigung über MQTT ...'{{else if eq .LastCommandResult "timeout"}}'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.'{{else}}''{{end}}"></small>
+    {{if and .Commandable (ne .Component "number")}}</button>{{else}}</article>{{end}}
+    {{end}}
+  </div>
+</section>
+{{end}}
+
+{{/* diagnostics: Statuskachel statt Navigationshinweis (design.md Abschnitt
+     2, Stufe B). Ganze Karte ist Tap-Ziel wie entity-value-card. .Diagnostics
+     kommt aus diagnostics.Summarize() im diagnostics-Paket - derselbe
+     diagnostics.Engine wie /api/v1/diagnostics und
+     /api/v1/diagnostics/health, die Zahlen koennen also nicht von der
+     Diagnose-Tab-Ansicht abweichen. */}}
+{{define "diagnostics-summary-card"}}
+{{ $d := .Diagnostics }}
+<button type="button" class="diagnostics-summary-card" x-on:click="setActivePanel('diagnostics-panel')" aria-label="Diagnose öffnen">
+  <header class="diagnostics-summary-top">
+    <span class="diagnostics-summary-label">Diagnosen</span>
+    <span class="diagnostics-summary-dot diagnostics-summary-dot-{{$d.StatusClass}}"></span>
+  </header>
+  {{if eq $d.StatusClass "ok"}}
+  <p class="diagnostics-summary-ok">Alles in Ordnung</p>
+  {{else}}
+  <div class="diagnostics-summary-counts">
+    <div class="diagnostics-summary-count diagnostics-summary-count-bad"><strong>{{$d.Critical}}</strong><span>Kritisch</span></div>
+    <div class="diagnostics-summary-count diagnostics-summary-count-warn"><strong>{{$d.Warning}}</strong><span>Warnung</span></div>
+    <div class="diagnostics-summary-count diagnostics-summary-count-info"><strong>{{$d.Info}}</strong><span>Hinweis</span></div>
+  </div>
+  {{if $d.WorstDevice}}
+  <div class="diagnostics-summary-worst diagnostics-summary-worst-{{$d.WorstDevice.StatusClass}}">
+    <span class="diagnostics-summary-worst-name">{{$d.WorstDevice.Name}}</span>
+    <span class="diagnostics-summary-worst-score">{{$d.WorstDevice.Score}}</span>
+  </div>
+  {{end}}
+  {{end}}
+</button>
+{{end}}
+
+{{define "energy-status-card"}}
+  <section id="energy-status-card" class="energy-status-card" aria-labelledby="energy-status-title" x-data="energyStatusCard()" x-init="init()">
+    <header class="energy-status-header"><h3 id="energy-status-title">Status</h3></header>
+    <div class="energy-status-lead" x-bind:style="`border-left-color:${lead.color}`">
+      <div><h4 x-text="lead.title"></h4><p x-text="lead.sub"></p></div>
+    </div>
+    <div class="energy-status-beam" x-ref="beamWrap">
+      <svg viewBox="0 0 980 52" role="img" aria-labelledby="energy-status-beam-title energy-status-beam-desc" x-ref="beam">
+        <title id="energy-status-beam-title">Netzbilanz als Waage</title>
+        <desc id="energy-status-beam-desc"></desc>
+      </svg>
+    </div>
+    <div class="energy-status-tiles">
+      <template x-for="tile in tiles" x-bind:key="tile.label">
+        <div class="energy-status-tile" x-bind:style="`border-left-color:${tile.color}`">
+          <div class="energy-status-tile-head"><span x-text="tile.label"></span><span x-bind:style="`color:${tile.color}`" x-text="tile.stateLabel"></span></div>
+          <div class="energy-status-tile-value" x-text="tile.value"></div>
+          <div class="energy-status-tile-note" x-text="tile.note"></div>
+        </div>
+      </template>
+    </div>
+  </section>
+{{end}}
+
+{{define "energy-ring-card"}}
+  <section id="energy-ring-card" class="energy-ring-card" aria-labelledby="energy-ring-title" x-data="energyRingCard()" x-init="init()">
+    <header class="energy-ring-header"><h3 id="energy-ring-title">Autarkie</h3></header>
+    <div class="energy-ring-stage">
+      <svg viewBox="0 0 340 340" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="energy-ring-title energy-ring-desc">
+        <desc id="energy-ring-desc" x-text="description"></desc>
+        <g x-show="!hasFlow">
+          <circle cx="170" cy="170" r="128" fill="none" stroke="var(--track)" stroke-width="20"></circle>
+          <circle cx="170" cy="170" r="100" fill="none" stroke="var(--track)" stroke-width="20"></circle>
+          <circle cx="170" cy="170" r="76" fill="var(--panel)" stroke="var(--border)"></circle>
+          <text x="170" y="175" text-anchor="middle" font-size="14" fill="var(--text-muted)">Kein Fluss</text>
+        </g>
+        <!-- template x-for doesn't clone inside <svg> (no .content in foreign content) - the segment paths render via x-html on plain <g>s instead, see energy-ring.js segmentsMarkup(). -->
+        <g x-show="hasFlow">
+          <circle cx="170" cy="170" r="128" fill="none" stroke="var(--track)" stroke-width="20"></circle>
+          <g x-html="sourceSegmentsMarkup"></g>
+          <circle cx="170" cy="170" r="100" fill="none" stroke="var(--track)" stroke-width="20"></circle>
+          <g x-html="sinkSegmentsMarkup"></g>
+          <circle cx="170" cy="170" r="76" fill="var(--panel)" stroke="var(--border)"></circle>
+          <text x="170" y="148" text-anchor="middle" font-size="10" letter-spacing="1.2" fill="var(--text-muted)" x-text="kpi.label.toUpperCase()"></text>
+          <text x="170" y="180" text-anchor="middle" font-size="30" font-weight="600" fill="var(--text)" x-text="kpi.value"></text>
+          <text x="170" y="200" text-anchor="middle" font-size="10" fill="var(--text-muted)" x-text="kpi.sub"></text>
+          <text x="170" y="222" text-anchor="middle" font-size="11" fill="var(--text-subtle)" x-text="totalLabel"></text>
+          <text x="170" y="22" text-anchor="middle" font-size="9.5" letter-spacing="1.3" fill="var(--text-muted)">DECKUNG</text>
+          <text x="170" y="336" text-anchor="middle" font-size="9.5" letter-spacing="1.3" fill="var(--text-muted)">VERWENDUNG</text>
+        </g>
+      </svg>
+      <div class="energy-ring-readout" x-show="hasFlow">
+        <p class="energy-ring-readout-head">Deckung</p>
+        <template x-for="row in sourceRows" x-bind:key="row.id"><div class="energy-ring-readout-row" x-bind:data-row-id="row.id" x-bind:style="`--row-color:${row.color}; --row-share:${row.share}`"><i></i><b x-text="row.label"></b><span x-text="row.text"></span></div></template>
+        <p class="energy-ring-readout-head">Verwendung</p>
+        <template x-for="row in sinkRows" x-bind:key="row.id"><div class="energy-ring-readout-row" x-bind:data-row-id="row.id" x-bind:style="`--row-color:${row.color}; --row-share:${row.share}`"><i></i><b x-text="row.label"></b><span x-text="row.text"></span></div></template>
+      </div>
+    </div>
+  </section>
+{{end}}
+
+{{define "energy-board-card"}}
+  <section id="energy-board-card" class="energy-board-card" aria-labelledby="energy-board-title" x-data="energyBoardCard()" x-init="init()">
+    <header class="energy-board-header"><h3 id="energy-board-title">Rollen & Verlauf</h3></header>
+    <div class="energy-board-summary">
+      <div class="energy-board-summary-row">
+        <div class="energy-board-summary-label"><span>Woher</span><span x-text="format(summarySource.total)"></span></div>
+        <div class="energy-board-summary-bar">
+          <template x-for="segment in summarySource.segments" x-bind:key="segment.id">
+            <div class="energy-board-summary-seg" x-bind:style="`flex:${segment.value}; background:${segment.color}; opacity:${segment.rest ? .35 : 1}`" x-bind:title="`${segment.label} ${format(segment.value)}`"><span x-show="segment.text" x-text="segment.text"></span></div>
+          </template>
+        </div>
+      </div>
+      <div class="energy-board-summary-row">
+        <div class="energy-board-summary-label"><span>Wohin</span><span x-text="format(summarySink.total)"></span></div>
+        <div class="energy-board-summary-bar">
+          <template x-for="segment in summarySink.segments" x-bind:key="segment.id">
+            <div class="energy-board-summary-seg" x-bind:style="`flex:${segment.value}; background:${segment.color}; opacity:${segment.rest ? .35 : 1}`" x-bind:title="`${segment.label} ${format(segment.value)}`"><span x-show="segment.text" x-text="segment.text"></span></div>
+          </template>
+        </div>
+      </div>
+    </div>
+    <div class="energy-board-table-wrap">
+      <table class="energy-board-table" x-bind:class="{ 'is-dense': options.dense === 'on' }">
+        <thead><tr><th scope="col">Rolle</th><th scope="col">Richtung</th><th scope="col">Anteil</th><th scope="col" style="text-align:right">Leistung</th><th scope="col" x-show="options.sparkWindow !== 'off'">Verlauf</th><th scope="col">Daten</th></tr></thead>
+        <tbody>
+          <template x-for="row in rows" x-bind:key="row.id">
+            <tr x-bind:class="{ 'is-stale': row.stale }">
+              <td><span class="energy-board-role"><i x-bind:style="`background:${row.color}`"></i><span x-text="row.label"></span></span></td>
+              <td><span class="energy-board-dir" x-bind:style="`color:${row.value > 0.5 ? row.color : 'var(--text-faint)'}`" x-text="row.dir"></span></td>
+              <td class="energy-board-cell-bar"><div class="energy-board-barline" x-bind:style="`width:${barWidth(row)}; background:${row.color}; opacity:${row.stale ? .4 : 1}`"></div></td>
+              <td class="energy-board-cell-val" x-text="row.value > 0.5 ? format(row.value) : '—'"></td>
+              <td class="energy-board-cell-spark" x-show="options.sparkWindow !== 'off'">
+                <template x-if="sparklines[row.id]">
+                  <svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true">
+                    <path x-bind:d="sparklines[row.id].area" x-bind:fill="row.color" opacity=".16"></path>
+                    <path x-bind:d="sparklines[row.id].line" fill="none" x-bind:stroke="row.color" stroke-width="1.6" stroke-linejoin="round" vector-effect="non-scaling-stroke"></path>
+                    <circle cx="100" x-bind:cy="sparklines[row.id].lastY" r="2.2" x-bind:fill="row.color"></circle>
+                  </svg>
+                </template>
+              </td>
+              <td><span class="energy-board-fresh" x-bind:style="`background:${freshDotColor(row)}`"></span><span class="energy-board-fresh-label" x-text="freshLabel(row)"></span></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
+{{end}}
+
+{{define "energy-schema-card"}}
+  <section id="energy-schema-card" class="energy-schema-card" aria-labelledby="energy-schema-title" x-data="energySchemaCard()" x-init="init()">
+    <header class="energy-schema-header"><h3 id="energy-schema-title">Anlage</h3></header>
+    <div class="energy-schema-canvas" x-ref="canvas">
+      <svg viewBox="0 0 980 384" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="energy-schema-title energy-schema-desc" x-ref="svg">
+        <desc id="energy-schema-desc" x-text="description"></desc>
+        <!-- Gesamtmix auf der Schiene und die Verbraucherbalken sind Markup-Strings aus demselben Grund wie branchesMarkup unten: <template x-for> klont nicht in <svg>. -->
+        <g x-html="busMixMarkup"></g>
+        <text x-bind:x="geom.busX" y="334" text-anchor="middle" font-size="11" letter-spacing="1.2" fill="var(--text-muted)">HAUSVERTEILUNG</text>
+        <text x-bind:x="geom.busX" y="350" text-anchor="middle" font-size="12" fill="var(--text)" x-text="throughputLabel"></text>
+        <g x-html="legendMarkup"></g>
+
+        <rect x-bind:x="geom.busX - geom.boxWidth / 2" x-bind:y="59 - geom.boxHeight" x-bind:width="geom.boxWidth" x-bind:height="geom.boxHeight" rx="3" fill="var(--panel-alt)" x-bind:stroke="grid.stale ? 'var(--bad)' : (grid.active ? 'var(--info-line)' : 'var(--border)')" x-bind:stroke-width="grid.stale ? 1 : (grid.active ? 1.6 : 1)"></rect>
+        <rect x-bind:x="geom.busX - geom.boxWidth / 2" x-bind:y="59 - geom.boxHeight" width="3" x-bind:height="geom.boxHeight" x-bind:fill="grid.stale ? 'var(--bad)' : (grid.active ? 'var(--info-line)' : 'var(--border)')"></rect>
+        <text x-bind:x="geom.busX - geom.boxWidth / 2 + 12" x-bind:y="59 - geom.boxHeight + geom.fontSize + 4" font-size="13" x-bind:fill="grid.active ? 'var(--text)' : 'var(--text-faint)'">Netzanschluss</text>
+        <line x-bind:x1="geom.busX" y1="59" x-bind:x2="geom.busX" y2="92" x-bind:stroke="grid.stale ? 'var(--bad)' : (grid.active ? 'var(--info-line)' : 'var(--border)')" x-bind:stroke-width="grid.strokeWidth" x-bind:stroke-dasharray="grid.active ? 'none' : '4 6'"></line>
+        <polygon x-show="grid.active" x-bind:points="grid.arrowPoints" fill="var(--info-line)"></polygon>
+        <!-- Balken der Einspeisung, senkrecht ueber der Schiene, unter dem Netzanschluss - siehe exportBarMarkup() in energy-schema.js fuer den Sicherheitsabstand zum Netzanschluss-Kasten. -->
+        <g x-html="exportBarMarkup"></g>
+        <text x-bind:x="geom.busX + 18" y="82" font-size="12" x-bind:fill="grid.active ? 'var(--text)' : 'var(--text-faint)'" x-text="grid.label"></text>
+
+        <!-- template x-for doesn't clone inside <svg> (no .content in foreign content) - branches render via x-html on a plain <g> instead, see energy-schema.js branchesMarkup(). -->
+        <g x-html="branchesMarkup"></g>
+      </svg>
+    </div>
+  </section>
+{{end}}
+
+{{define "energy-band-card"}}
+  <section id="energy-band-card" class="energy-band-card" aria-labelledby="energy-band-title" x-data="energyBandCard()" x-init="init()">
+    <header class="energy-band-header"><h3 id="energy-band-title">Bilanz</h3></header>
+    <div class="energy-band-canvas" x-ref="canvas">
+      <svg viewBox="0 0 980 430" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="energy-band-title energy-band-desc" x-ref="svg">
+        <desc id="energy-band-desc" x-text="description"></desc>
+        <g x-show="!geometry">
+          <text x-bind:x="width / 2" y="209" text-anchor="middle" font-size="15" fill="var(--text-muted)">Kein Energiefluss</text>
+          <text x-bind:x="width / 2" y="231" text-anchor="middle" font-size="12" fill="var(--text-faint)">Alle zugeordneten Rollen melden 0 W</text>
+        </g>
+        <!-- template x-for/x-if don't clone inside <svg> (no .content in foreign content) - the whole filled state renders via one x-html on a plain <g> instead, see energy-band.js bandMarkup(). -->
+        <g x-show="geometry" x-html="svgMarkup"></g>
+      </svg>
+      <div class="energy-band-legend">
+        <template x-for="entry in legend" x-bind:key="entry.color">
+          <span><i x-bind:style="`background:${entry.color}`"></i><span x-text="entry.label"></span></span>
+        </template>
+      </div>
+    </div>
+  </section>
+{{end}}
+
+{{define "energy-day-card"}}
+  <section id="energy-day-card" class="energy-day-card" aria-labelledby="energy-day-title" x-data="energyDayCard()" x-init="init()">
+    <header class="energy-day-header"><h3 id="energy-day-title">Heute</h3></header>
+    <div class="energy-day-canvas" x-ref="canvas">
+      <svg viewBox="0 0 980 360" preserveAspectRatio="xMidYMid meet" role="img" aria-labelledby="energy-day-title energy-day-desc" x-ref="svg">
+        <desc id="energy-day-desc" x-text="geometry ? geometry.description : 'Noch nicht genügend Verlaufsdaten für ein Tagesband.'"></desc>
+        <g x-show="loading">
+          <text x-bind:x="width / 2" y="184" text-anchor="middle" font-size="14" fill="var(--text-muted)">Verlauf wird geladen ...</text>
+        </g>
+        <g x-show="!loading && !geometry">
+          <text x-bind:x="width / 2" y="174" text-anchor="middle" font-size="15" fill="var(--text-muted)">Noch nicht genügend Verlaufsdaten</text>
+          <text x-bind:x="width / 2" y="196" text-anchor="middle" font-size="12" fill="var(--text-faint)">Diese Kachel füllt sich, sobald der Browser ein paar Minuten Energie-Historie gesammelt hat</text>
+        </g>
+        <!-- template x-for/x-if don't clone inside <svg> (no .content in foreign content) - the repeated/conditional parts render via x-html on plain <g>s instead, see energy-day.js gridLinesMarkup()/areasMarkup(). -->
+        <g x-show="!loading && geometry">
+          <g x-html="geometry ? geometry.gridLinesMarkup : ''"></g>
+          <text x="50" y="14" text-anchor="end" font-size="11" letter-spacing=".8" fill="var(--text-muted)">kW</text>
+          <g x-html="geometry ? geometry.supplyAreasMarkup : ''"></g>
+          <g x-html="geometry ? geometry.demandAreasMarkup : ''"></g>
+
+          <text x="58" y="348" text-anchor="start" font-size="12" fill="var(--text-muted)" x-text="geometry ? geometry.startLabel : ''"></text>
+          <text x-bind:x="geometry ? geometry.nowX : 0" y="348" text-anchor="end" font-size="12" fill="var(--text-muted)">jetzt</text>
+
+          <line x-bind:x1="geometry ? geometry.nowX : 0" x-bind:y1="geometry ? geometry.top : 0" x-bind:x2="geometry ? geometry.nowX : 0" x-bind:y2="geometry ? geometry.bottom : 0" stroke="var(--accent)" stroke-width="1.2" opacity=".7"></line>
+          <text x-bind:x="geometry ? geometry.nowX - 8 : 0" x-bind:y="geometry ? geometry.nowSupplyY : 0" text-anchor="end" font-size="13" fill="var(--text-subtle)" x-text="geometry ? geometry.nowSupplyLabel : ''"></text>
+          <text x-bind:x="geometry ? geometry.nowX - 8 : 0" x-bind:y="geometry ? geometry.nowDemandY : 0" text-anchor="end" font-size="13" fill="var(--text-subtle)" x-text="geometry ? geometry.nowDemandLabel : ''"></text>
+        </g>
+      </svg>
+      <div class="energy-day-legend" x-show="geometry">
+        <template x-for="entry in (geometry ? geometry.legend : [])" x-bind:key="entry.label">
+          <span><i x-bind:style="`background:${entry.color}`"></i><span x-text="entry.label"></span></span>
+        </template>
+      </div>
+    </div>
+  </section>
+{{end}}
+
+{{/* Beide Batteriekarten sind blosse Aufhaenger: battery-card-core.js baut
+     ihr DOM einmal auf und schreibt danach nur Werte hinein. Ein
+     x-for/x-bind-Geruest hier waere eine zweite Fassung derselben Karte -
+     die Lovelace-Variante haette sie nicht. */}}
+{{define "battery-column-card"}}<section x-data="batteryColumnCard()" x-init="init()"></section>{{end}}
+{{define "battery-trajectory-card"}}<section x-data="batteryTrajectoryCard()" x-init="init()"></section>{{end}}

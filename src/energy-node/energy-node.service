@@ -1,0 +1,20 @@
+[Unit]
+Description=Energy Node Knoten-Status (MQTT Discovery fuer HA)
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=energynode
+# Konfiguration und MQTT-Zugangsdaten liegen zentral in
+# /etc/energy-node/config.json bzw. der dort referenzierten
+# Passwortdatei. Fehlt die Datei, bricht der Dienst mit einer Meldung ab,
+# statt ohne Zugangsdaten hochzufahren - dieselbe Fail-closed-Regel wie
+# frueher beim EnvironmentFile ohne fuehrendes '-'.
+# Einrichtung: docs/knowledge/konfiguration.md
+ExecStart=/usr/bin/python3 /home/energynode/energy-node/energy_node_mqtt.py --config /etc/energy-node/config.json
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,98 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/shelly_devices.schema.json",
+  "title": "Shelly Devices Configuration",
+  "description": "JSON schema for Shelly device configuration used by shelly_rpc_mqtt.py.",
+  "type": "array",
+  "items": {
+    "title": "Shelly Device",
+    "description": "Configuration for one Shelly device.",
+    "type": "object",
+    "required": ["id", "name", "host", "generation"],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "default": "new_shelly_device",
+        "title": "Identifier",
+        "description": "Unique identifier for the Shelly device used in MQTT topics and home assistant device IDs."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "default": "New Shelly Device",
+        "title": "Display name",
+        "description": "Display name for the Shelly device in Home Assistant."
+      },
+      "host": {
+        "type": "string",
+        "minLength": 1,
+        "default": "192.0.2.100",
+        "title": "Host",
+        "description": "IP address or hostname of the Shelly device."
+      },
+      "generation": {
+        "type": "integer",
+        "enum": [1, 2],
+        "default": 2,
+        "title": "Generation",
+        "description": "Shelly generation: 1 for Gen1 devices (/status) and 2 for Gen2+/RPC devices."
+      },
+      "switch_channels": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0,
+        "title": "Switch channels",
+        "description": "Number of relay channels available on the device."
+      },
+      "has_power": {
+        "type": "boolean",
+        "default": false,
+        "title": "Power measurements",
+        "description": "Whether the device reports instantaneous power measurements."
+      },
+      "has_energy": {
+        "type": "boolean",
+        "default": false,
+        "title": "Energy measurements",
+        "description": "Whether the device reports energy measurements."
+      },
+      "has_3phase": {
+        "type": "boolean",
+        "default": false,
+        "title": "Three-phase measurements",
+        "description": "True for Shelly 3EM devices with three-phase measurements."
+      },
+      "adc_channels": {
+        "type": "integer",
+        "minimum": 0,
+        "default": 0,
+        "title": "ADC channels",
+        "description": "Number of ADC channels available on the device."
+      },
+      "has_temperature": {
+        "type": "boolean",
+        "default": false,
+        "title": "Temperature measurements",
+        "description": "Whether the device reports temperature."
+      },
+      "has_humidity": {
+        "type": "boolean",
+        "default": false,
+        "title": "Humidity measurements",
+        "description": "Whether the device reports relative humidity (e.g. Shelly Plus H&T)."
+      },
+      "auth_user": {
+        "type": "string",
+        "title": "Auth username",
+        "description": "Optional HTTP basic auth username for the Shelly device."
+      },
+      "auth_password": {
+        "type": "string",
+        "title": "Auth password",
+        "description": "Optional HTTP basic auth password for the Shelly device."
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+[Unit]
+Description=Energy Node Dashboard
+After=network-online.target mosquitto.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=energynode
+Group=energynode
+WorkingDirectory=/home/energynode/dashboard
+# Konfiguration und MQTT-Zugangsdaten liegen zentral in
+# /etc/energy-node/config.json bzw. der dort referenzierten
+# Passwortdatei. Fehlt die Datei, bricht der Dienst mit einer Meldung ab,
+# statt ohne Zugangsdaten hochzufahren - dieselbe Fail-closed-Regel wie
+# frueher beim EnvironmentFile ohne fuehrendes '-'.
+# Einrichtung: docs/knowledge/konfiguration.md
+ExecStart=/home/energynode/dashboard/energy-node-dashboard --config /etc/energy-node/config.json
+Restart=on-failure
+RestartSec=5
+
+# The dashboard uses a root-owned, sudoers-allowlisted helper for the
+# explicit system actions exposed by the System and MQTT settings tabs.
+NoNewPrivileges=false
+PrivateTmp=true
+ProtectSystem=full
+# ProtectSystem=full bind-mounts /etc read-only inside this unit's mount
+# namespace. That namespace is inherited by every child process, including
+# the root-elevated apply-bridge-config helper spawned via sudo - a
+# read-only bind mount blocks writes for every UID, not just energynode's. The
+# helper needs to write /etc/mosquitto/conf.d/bridge.conf (and its backup),
+# so that one directory is carved back out as read-write.
+ReadWritePaths=/home/energynode/dashboard/data /home/energynode/devices /etc/mosquitto/conf.d /etc/energy-node
+
+[Install]
+WantedBy=multi-user.target

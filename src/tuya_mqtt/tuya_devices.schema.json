@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/tuya_devices.schema.json",
+  "title": "Tuya Devices Configuration",
+  "description": "JSON configuration for devices handled by the Tuya MQTT bridge.",
+  "type": "array",
+  "minItems": 1,
+  "items": {
+    "title": "Tuya Device",
+    "description": "Configuration for one Tuya device handled by the MQTT bridge.",
+    "type": "object",
+    "required": ["id", "name", "device_id", "local_key", "ip", "datapoints"],
+    "additionalProperties": false,
+    "properties": {
+      "id": { "type": "string", "minLength": 1, "default": "tuya_valve", "title": "Identifier", "description": "Unique identifier used in MQTT topics and Home Assistant device IDs." },
+      "name": { "type": "string", "minLength": 1, "default": "Tuya Wasserventil", "title": "Display name", "description": "Display name for the Tuya device in Home Assistant." },
+      "device_id": { "type": "string", "minLength": 1, "title": "Tuya device ID", "description": "Device identifier assigned by Tuya and required by tinytuya." },
+      "local_key": { "type": "string", "minLength": 1, "title": "Tuya local key", "description": "Local encryption key used to communicate with the Tuya device." },
+      "ip": { "type": "string", "minLength": 1, "title": "IP address or hostname", "description": "Local IP address or hostname of the Tuya device." },
+      "version": { "type": "number", "minimum": 3.0, "default": 3.3, "title": "Tuya protocol version", "description": "Tuya local protocol version used by tinytuya. Defaults to 3.3." },
+      "device_type": { "type": "string", "minLength": 1, "default": "valve", "title": "Device profile", "description": "Logical device profile used to describe the Tuya device and support future device types." },
+      "datapoints": {
+        "type": "object",
+        "description": "Mapping of logical functions to Tuya Data Point identifiers. Additional functions may be added for future profiles.",
+        "required": ["switch"],
+        "additionalProperties": { "type": "string", "minLength": 1 },
+        "properties": {
+          "switch": { "type": "string", "minLength": 1, "default": "1", "title": "Switch DP", "description": "Tuya Data Point identifier controlling the device switch or valve." }
+        }
+      }
+    }
+  }
+}

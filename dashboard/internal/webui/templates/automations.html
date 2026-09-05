@@ -1,0 +1,741 @@
+{{define "automations"}}
+<section id="automations-panel" class="panel" role="tabpanel" aria-labelledby="tab-automations" x-bind:class="{ active: activePanel === 'automations-panel' }" x-show="activePanel === 'automations-panel'" x-data="automationsPanel()" x-init="load()">
+
+  <h2>Automationen <span x-show="!loading" x-text="online ? '(Dienst online)' : '(Dienst offline)'"></span></h2>
+  <p x-show="loading">Regeln werden geladen ...</p>
+
+  <p class="message" x-cloak x-show="!loading && !online">
+    Der Automations-Dienst ist offline — es liegen keine Live-Werte vor.
+    Die Regeln unten zeigen den zuletzt bekannten Stand.
+  </p>
+  <p class="sub" x-cloak x-show="!loading && online && lastStateAt">
+    Live-Werte im Takt des Dienstes, zuletzt aktualisiert vor
+    <span x-text="formatSeconds((Date.now() - lastStateAt) / 1000)"></span>.
+  </p>
+
+  <template x-if="!loading">
+    <div>
+      <div class="toolbar">
+        <button class="icon-button labeled accent" type="button" x-on:click="startRuleWizard()"
+                title="Neue Regel Schritt für Schritt anlegen" aria-label="Neue Regel Schritt für Schritt anlegen">
+          <svg class="automation-icon"><use href="#ico-help"></use></svg>
+          <span>Assistent</span>
+        </button>
+        <button class="icon-button labeled accent" type="button" x-on:click="addRule()"
+                title="Neue Regel anlegen" aria-label="Neue Regel anlegen">
+          <svg class="automation-icon"><use href="#ico-plus"></use></svg>
+          <span>Neue Regel</span>
+        </button>
+        <button class="icon-button labeled primary" type="button" x-on:click="save()"
+                x-bind:disabled="saving"
+                x-bind:title="saving ? 'Speichere ...' : 'Alle Regeln speichern'"
+                x-bind:aria-label="saving ? 'Speichere ...' : 'Alle Regeln speichern'">
+          <svg class="automation-icon"><use href="#ico-save"></use></svg>
+          <span x-text="saving ? 'Speichere ...' : 'Speichern'"></span>
+        </button>
+      </div>
+
+      <template x-if="document.rules.length === 0"><p>Noch keine Regeln angelegt.</p></template>
+
+      <ul style="list-style: none; padding: 0;">
+        <template x-for="rule in document.rules" x-bind:key="rule.id">
+          <li class="automation-rule" x-bind:data-mode="editing[rule.id] ? 'edit' : 'view'" x-data="{ newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '', showEntityWizard: false }">
+            <div class="wizard-bar" x-cloak x-show="isWizardRule(rule)">
+              <span class="wizard-steps">
+                <span class="wizard-step" x-bind:class="wizard.step === 1 ? 'current' : (wizard.step > 1 ? 'done' : '')">1. WENN</span>
+                <span class="wizard-step-sep">→</span>
+                <span class="wizard-step" x-bind:class="wizard.step === 2 ? 'current' : (wizard.step > 2 ? 'done' : '')">2. DANN</span>
+                <span class="wizard-step-sep">→</span>
+                <span class="wizard-step" x-bind:class="wizard.step === 3 ? 'current' : ''">3. Feineinstellungen</span>
+              </span>
+              <button class="icon-button" type="button" x-on:click="wizardBack()" x-bind:disabled="wizard.step === 1"
+                      title="Einen Schritt zurück" aria-label="Einen Schritt zurück">
+                <svg class="automation-icon rule-expand-chevron" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
+              </button>
+              <button class="icon-button labeled accent" type="button" x-on:click="wizardNext()"
+                      x-bind:disabled="!wizardCanAdvance()"
+                      x-bind:title="wizardCanAdvance() ? 'Weiter' : (wizard.step === 1 ? 'Erst eine Bedingung hinzufügen' : 'Erst eine Aktion hinzufügen')"
+                      x-bind:aria-label="'Weiter zum nächsten Schritt'">
+                <span x-text="wizard.step >= 3 ? 'Fertig' : 'Weiter'"></span>
+                <svg class="automation-icon"><use x-bind:href="wizard.step >= 3 ? '#ico-check' : '#ico-chevron'"></use></svg>
+              </button>
+            </div>
+
+            <div class="automation-rule-head">
+              <button class="icon-button" type="button" x-on:click="toggleExpanded(rule)"
+                      x-bind:aria-expanded="Boolean(expanded[rule.id])"
+                      x-bind:title="expanded[rule.id] ? 'Regel zuklappen' : 'Regel aufklappen'"
+                      x-bind:aria-label="expanded[rule.id] ? 'Regel zuklappen' : 'Regel aufklappen'">
+                <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: expanded[rule.id] }"><use href="#ico-chevron"></use></svg>
+              </button>
+
+              <span class="automation-rule-name" x-show="!editing[rule.id]" x-text="rule.name"></span>
+              <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
+                     aria-label="Name der Regel">
+
+              <label class="settings-toggle"
+                     x-bind:title="rule.enabled ? 'Regel ist aktiv' : 'Regel ist aus'">
+                <input type="checkbox" x-bind:checked="rule.enabled" x-on:change="toggleEnabled(rule.id)"
+                       x-bind:aria-label="`Regel ${rule.name} aktiv`">
+                <span class="settings-toggle-track"><span class="settings-toggle-thumb"></span></span>
+              </label>
+
+              <span class="mini-chain" x-show="!expanded[rule.id]">
+                <template x-for="entry in renderMiniChain(rule).conditions">
+                  <svg class="automation-icon automation-icon-sm" x-bind:class="entry.state">
+                    <use x-bind:href="'#' + entry.icon"></use>
+                  </svg>
+                </template>
+                <span class="mini-chain-arrow">→</span>
+                <span class="mini-chain-gate" x-bind:class="renderMiniChain(rule).gate.tone"
+                      x-text="renderMiniChain(rule).gate.label"></span>
+                <span class="mini-chain-arrow">→</span>
+                <template x-for="entry in renderMiniChain(rule).actions">
+                  <svg class="automation-icon automation-icon-sm"><use x-bind:href="'#' + entry.icon"></use></svg>
+                </template>
+              </span>
+
+              <button class="icon-button" x-bind:class="{ active: editing[rule.id] }" type="button"
+                      x-on:click="editing[rule.id] ? stopEditing(rule) : startEditing(rule)"
+                      x-bind:title="editing[rule.id] ? 'Bearbeiten beenden' : 'Regel bearbeiten'"
+                      x-bind:aria-label="editing[rule.id] ? 'Bearbeiten beenden' : 'Regel bearbeiten'">
+                <svg class="automation-icon"><use x-bind:href="editing[rule.id] ? '#ico-check' : '#ico-pencil'"></use></svg>
+              </button>
+              <button class="icon-button danger" type="button" x-on:click="removeRule(rule.id)"
+                      x-bind:title="`Regel ${rule.name} löschen`" x-bind:aria-label="`Regel ${rule.name} löschen`">
+                <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+              </button>
+            </div>
+
+            <div class="rule-flow" x-show="expanded[rule.id]">
+
+              <div class="rule-column">
+                <div class="rule-clause"><span>WENN</span><span class="rule-clause-rule"></span></div>
+                <template x-for="(condition, index) in rule.conditions" x-bind:key="index">
+                  <div>
+                    <div class="cond-conjunction" x-show="index > 0">UND</div>
+                    <div class="cond" x-bind:class="conditionState(rule, index)">
+                      <div class="cond-head">
+                        <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
+                        <span class="cond-title" x-text="describeCondition(condition).title"></span>
+                        <span class="cond-summary" x-text="describeCondition(condition).summary"></span>
+                        <span class="automation-value">
+                          <span x-text="conditionValueText(rule, index)"></span>
+                          <span class="automation-unit" x-text="describeCondition(condition).unit"></span>
+                        </span>
+                      </div>
+                      <div class="cond-meter">
+                        <span class="cond-meter-fill" x-bind:style="meterStyle(rule, index)"></span>
+                        <span class="cond-meter-mark" x-bind:style="markStyle(rule, index)"></span>
+                      </div>
+                      <div class="cond-state" x-text="conditionStateText(rule, index)"></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+
+              <span class="rule-arrow">
+                <svg class="automation-icon automation-icon-lg" viewBox="0 0 24 24"><path d="M3 12h17m0 0-5-5m5 5-5 5"/></svg>
+              </span>
+
+              <div class="rule-column">
+                <div class="gate" x-bind:class="gateVerdict(rule).tone">
+                  <div class="gate-verdict">
+                    <svg class="automation-icon"><use href="#ico-gate"></use></svg>
+                    <span x-text="gateVerdict(rule).label"></span>
+                  </div>
+                  <div class="gate-detail" x-text="gateVerdict(rule).detail"></div>
+                  <div class="gate-meta">
+                    <template x-for="part in gateMeta(rule)"><span x-text="part"></span></template>
+                  </div>
+                </div>
+              </div>
+
+              <span class="rule-arrow">
+                <svg class="automation-icon automation-icon-lg" viewBox="0 0 24 24"><path d="M3 12h17m0 0-5-5m5 5-5 5"/></svg>
+              </span>
+
+              <div class="rule-column">
+                <div class="rule-clause"><span>DANN</span><span class="rule-clause-rule"></span></div>
+                <template x-for="(action, index) in rule.actions" x-bind:key="index">
+                  <div class="act" x-bind:class="describeAction(action).kind">
+                    <div class="act-head">
+                      <svg class="automation-icon"><use x-bind:href="'#' + describeAction(action).icon"></use></svg>
+                      <span class="act-title" x-text="describeAction(action).title"></span>
+                    </div>
+                    <div class="act-preview" x-bind:class="{ blocked: actionPreview(rule, index).blocked }"
+                         x-text="actionPreview(rule, index).text"></div>
+                    <template x-if="computeDrift(action, entities).drifted">
+                      <div class="act-preview blocked"
+                           x-text="`Achtung: Command-Topic hat sich geändert, aktuell: ${computeDrift(action, entities).currentTopic}`"></div>
+                    </template>
+                    <button class="icon-button labeled accent act-test" type="button"
+                            x-show="hasAutomationsRole"
+                            x-bind:disabled="!testState(rule, index).allowed"
+                            x-bind:title="testState(rule, index).reason || 'Diese Aktion jetzt wirklich ausführen'"
+                            x-bind:aria-label="'Aktion jetzt testen'"
+                            x-on:click="testAction(rule, index)">
+                      <svg class="automation-icon"><use href="#ico-play"></use></svg>
+                      <span>Jetzt testen</span>
+                    </button>
+                  </div>
+                </template>
+              </div>
+
+            </div>
+
+            <div class="history" x-show="expanded[rule.id]">
+              <div class="history-head">
+                <button type="button" class="history-toggle" x-on:click="toggleHistory(rule)"
+                        x-text="historyExpanded[rule.id] ? 'Verlauf ausblenden' : 'Verlauf anzeigen'"></button>
+                <label class="settings-toggle"
+                       x-bind:title="rule.history_enabled ? 'Verlauf wird gespeichert' : 'Verlauf wird nicht gespeichert'">
+                  <input x-bind:id="`history-enabled-${rule.id}`" type="checkbox" role="switch"
+                         x-model="rule.history_enabled" x-bind:aria-checked="rule.history_enabled"
+                         x-bind:aria-label="`Verlauf für Regel ${rule.name} speichern`">
+                  <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                </label>
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" aria-label="Erklärung zum Speichern des Verlaufs">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_enabled')"></span>
+                </span>
+              </div>
+              <template x-if="historyExpanded[rule.id]">
+                <div>
+                  <template x-if="!rule.history_enabled">
+                    <p class="sub">Verlauf ist für diese Regel aus.</p>
+                  </template>
+                  <template x-if="rule.history_enabled && historyEntries(rule).length === 0">
+                    <p class="sub">Noch keine Auslösungen aufgezeichnet.</p>
+                  </template>
+                  <ul class="history-list" x-show="rule.history_enabled">
+                    <template x-for="event in historyEntries(rule)" x-bind:key="event.at">
+                      <li class="history-entry" x-bind:class="historyResultInfo(event.result).tone">
+                        <span class="history-time" x-text="historyTimestamp(event)"></span>
+                        <span class="history-badge" x-text="historyResultInfo(event.result).label"></span>
+                        <span class="history-test" x-show="event.test">Test</span>
+                        <ul class="history-actions">
+                          <template x-for="(action, index) in event.actions" x-bind:key="index">
+                            <li x-text="historyActionText(action)"></li>
+                          </template>
+                        </ul>
+                      </li>
+                    </template>
+                  </ul>
+                </div>
+              </template>
+            </div>
+
+            <template x-if="editing[rule.id]">
+              <div>
+                <div x-show="wizardShows(rule, 'tuning')">
+                  <div class="form-grid">
+                    <label x-bind:for="`cooldown-${rule.id}`">
+                      Sperrzeit nach Auslösen (s)
+                      <span class="field-help">
+                        <button class="field-help-trigger" type="button" aria-label="Erklärung zur Sperrzeit">
+                          <svg><use href="#ico-help"></use></svg>
+                        </button>
+                        <span class="field-help-text" role="tooltip" x-text="fieldHelp('cooldown_seconds')"></span>
+                      </span>
+                    </label>
+                    <input x-bind:id="`cooldown-${rule.id}`" type="number" min="0" max="86400" x-model.number="rule.cooldown_seconds">
+                  </div>
+                </div>
+
+                <p class="message error" x-show="validateRuleBeforeSave(rule).length" x-text="validateRuleBeforeSave(rule).join(' / ')"></p>
+
+                <div x-show="wizardShows(rule, 'conditions')">
+                <h4>Bedingungen</h4>
+                <template x-for="(condition, index) in rule.conditions" x-bind:key="index">
+                  <div class="edit-card">
+                    <div class="edit-card-head">
+                      <svg class="automation-icon"><use x-bind:href="'#' + describeCondition(condition).icon"></use></svg>
+                      <span class="edit-card-title" x-text="describeCondition(condition).title"></span>
+                      <button class="icon-button danger" type="button" x-on:click="removeCondition(rule, index)"
+                              title="Diese Bedingung entfernen" aria-label="Diese Bedingung entfernen">
+                        <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                      </button>
+                    </div>
+
+                    <template x-if="condition.type === 'balance_threshold'">
+                      <div>
+                        <div class="edit-sentence">
+                          <span class="edit-sentence-lead">WENN</span>
+                          <select x-model="condition.field" aria-label="Bilanzfeld">
+                            <template x-for="[field, label] in balanceFields" x-bind:key="field">
+                              <option x-bind:value="field" x-text="label"></option>
+                            </template>
+                          </select>
+                          <span>ist</span>
+                          <select x-model="condition.comparison" aria-label="Vergleich">
+                            <option value="above">über</option><option value="below">unter</option>
+                          </select>
+                          <input type="number" x-model.number="condition.threshold" aria-label="Schwellwert">
+                          <span class="edit-unit" x-text="describeCondition(condition).unit"></span>
+                        </div>
+                        <details class="edit-advanced">
+                          <summary>Feineinstellungen</summary>
+                          <div class="edit-field-grid">
+                            <span class="edit-field-label">
+                              Hysterese
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" aria-label="Erklärung zu Hysterese">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hysteresis')"></span>
+                              </span>
+                            </span>
+                            <input type="number" min="0" x-model.number="condition.hysteresis" aria-label="Hysterese">
+                            <span class="edit-unit" x-text="describeCondition(condition).unit"></span>
+
+                            <span class="edit-field-label">
+                              Haltedauer
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" aria-label="Erklärung zu Haltedauer">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                              </span>
+                            </span>
+                            <input type="number" min="0" x-model.number="condition.hold_seconds" aria-label="Haltedauer in Sekunden">
+                            <span class="edit-unit">s</span>
+                          </div>
+                        </details>
+                      </div>
+                    </template>
+
+                    <template x-if="condition.type === 'entity_value'">
+                      <div>
+                        <div class="edit-sentence">
+                          <span class="edit-sentence-lead">WENN</span>
+                          <select x-model="condition.entity_id" x-on:change="onConditionEntityChange(condition)" aria-label="Entität">
+                            <option value="">wählen ...</option>
+                            <template x-for="[deviceName, group] in readableEntityGroups()" x-bind:key="deviceName">
+                              <optgroup x-bind:label="deviceName">
+                                <template x-for="entity in group" x-bind:key="entity.unique_id">
+                                  <option x-bind:value="entity.unique_id" x-text="entity.name || entity.unique_id"></option>
+                                </template>
+                              </optgroup>
+                            </template>
+                          </select>
+                          <span>ist</span>
+                          <select x-model="condition.comparison" aria-label="Vergleich">
+                            <option value="above">über</option><option value="below">unter</option>
+                            <option value="equals">gleich</option><option value="not_equals">ungleich</option>
+                          </select>
+                          <input type="number" x-model.number="condition.value" aria-label="Vergleichswert"
+                                 x-show="condition.comparison === 'above' || condition.comparison === 'below'">
+                          <input type="text" x-model="condition.text" aria-label="Vergleichstext"
+                                 x-show="condition.comparison === 'equals' || condition.comparison === 'not_equals'">
+                          <span class="edit-unit" x-text="describeCondition(condition).unit"></span>
+                        </div>
+
+                        <div class="edit-card-warning" x-show="computeConditionDrift(condition, readableEntities).missing"
+                             x-text="`Achtung: Entität ${condition.entity_id} ist im Register nicht mehr zu finden. Die Regel läuft mit dem gespeicherten Topic weiter.`"></div>
+                        <div class="edit-card-warning" x-show="computeConditionDrift(condition, readableEntities).drifted">
+                          <span x-text="`Achtung: State-Topic oder Template hat sich geändert, aktuell: ${computeConditionDrift(condition, readableEntities).currentTopic}`"></span>
+                          <button class="icon-button labeled" type="button" x-on:click="adoptConditionEntity(condition)"
+                                  title="Aktuelles Topic übernehmen" aria-label="Aktuelles Topic übernehmen">
+                            <svg class="automation-icon"><use href="#ico-check"></use></svg>
+                            <span>Übernehmen</span>
+                          </button>
+                        </div>
+
+                        <details class="edit-advanced">
+                          <summary>Feineinstellungen</summary>
+                          <div class="edit-field-grid">
+                            <span class="edit-field-label">
+                              Haltedauer
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" aria-label="Erklärung zu Haltedauer">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                              </span>
+                            </span>
+                            <input type="number" min="0" x-model.number="condition.hold_seconds" aria-label="Haltedauer in Sekunden">
+                            <span class="edit-unit">s</span>
+                          </div>
+                        </details>
+                      </div>
+                    </template>
+
+                    <template x-if="condition.type === 'topic_value'">
+                      <div>
+                        <div class="edit-sentence">
+                          <span class="edit-sentence-lead">WENN</span>
+                          <input type="text" x-model="condition.topic" placeholder="werkstatt/sensor/x" aria-label="Topic">
+                          <span>ist</span>
+                          <select x-model="condition.comparison" aria-label="Vergleich">
+                            <option value="above">über</option><option value="below">unter</option>
+                            <option value="equals">gleich</option><option value="not_equals">ungleich</option>
+                          </select>
+                          <input type="text" x-model="condition.text" aria-label="Vergleichswert">
+                        </div>
+                        <details class="edit-advanced">
+                          <summary>Feineinstellungen</summary>
+                          <div class="edit-field-grid">
+                            <span class="edit-field-label">
+                              JSON-Key
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" aria-label="Erklärung zu JSON-Key">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('json_key')"></span>
+                              </span>
+                            </span>
+                            <input type="text" x-model="condition.json_key" aria-label="JSON-Key">
+                            <span class="edit-unit"></span>
+
+                            <span class="edit-field-label">
+                              Haltedauer
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" aria-label="Erklärung zu Haltedauer">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                              </span>
+                            </span>
+                            <input type="number" min="0" x-model.number="condition.hold_seconds" aria-label="Haltedauer in Sekunden">
+                            <span class="edit-unit">s</span>
+                          </div>
+                        </details>
+                      </div>
+                    </template>
+
+                    <template x-if="condition.type === 'time_window'">
+                      <div class="edit-sentence">
+                        <span class="edit-sentence-lead">WENN</span>
+                        <span>die Uhrzeit zwischen</span>
+                        <input type="time" x-model="condition.start" aria-label="Startzeit">
+                        <span>und</span>
+                        <input type="time" x-model="condition.end" aria-label="Endzeit">
+                        <span>liegt</span>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+                <div class="type-tiles" role="group" aria-label="Bedingung hinzufügen">
+                  <template x-for="type in conditionTypes()" x-bind:key="type.key">
+                    <button class="type-tile" type="button" x-on:click="addCondition(rule, type.key)"
+                            x-bind:title="type.hint" x-bind:aria-label="`Bedingung hinzufügen: ${type.label}`">
+                      <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
+                      <span class="type-tile-label" x-text="type.label"></span>
+                    </button>
+                  </template>
+                </div>
+                </div>
+
+                <div x-show="wizardShows(rule, 'actions')">
+                <h4>Aktionen</h4>
+                <template x-for="(action, index) in rule.actions" x-bind:key="index">
+                  <div class="edit-card">
+                    <div class="edit-card-head">
+                      <svg class="automation-icon"><use x-bind:href="'#' + describeAction(action).icon"></use></svg>
+                      <span class="edit-card-title" x-text="describeAction(action).title"></span>
+                      <button class="icon-button danger" type="button" x-on:click="removeAction(rule, index)"
+                              title="Diese Aktion entfernen" aria-label="Diese Aktion entfernen">
+                        <svg class="automation-icon"><use href="#ico-trash"></use></svg>
+                      </button>
+                    </div>
+
+                    <template x-if="action.type === 'publish'">
+                      <div>
+                        <div class="edit-sentence">
+                          <span class="edit-sentence-lead">DANN</span>
+                          <span>sende an</span>
+                          <input type="text" x-model="action.topic" placeholder="werkstatt/x/set" aria-label="Topic">
+                          <template x-if="action.payload_source === 'constant'">
+                            <span class="edit-sentence">
+                              <span>den Wert</span>
+                              <input type="text" x-model="action.payload" aria-label="Payload">
+                            </span>
+                          </template>
+                          <span x-show="action.payload_source === 'balance'">
+                            das Bilanzfeld <strong x-text="action.field"></strong>
+                          </span>
+                          <span x-show="action.payload_source === 'toggle'">
+                            und schalte um zwischen <strong x-text="action.payload_on"></strong>
+                            und <strong x-text="action.payload_off"></strong>
+                            (Zustand aus <span x-text="action.source_topic"></span>)
+                          </span>
+                        </div>
+
+                        <div class="edit-card-warning" x-show="computeDrift(action, entities).drifted"
+                             x-text="`Achtung: Command-Topic hat sich geändert, aktuell: ${computeDrift(action, entities).currentTopic}`"></div>
+
+                        <details class="edit-advanced">
+                          <summary>Feineinstellungen</summary>
+                          <div class="edit-field-grid">
+                            <span class="edit-field-label">
+                              retained
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" aria-label="Erklärung zu retained">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('retain')"></span>
+                              </span>
+                            </span>
+                            <input type="checkbox" x-model="action.retain" aria-label="Nachricht retained senden">
+                            <span class="edit-unit"></span>
+
+                            <template x-if="action.payload_source === 'balance'">
+                              <span class="edit-field-label">
+                                Skalierung
+                                <span class="field-help">
+                                  <button class="field-help-trigger" type="button" aria-label="Erklärung zu Skalierung">
+                                    <svg><use href="#ico-help"></use></svg>
+                                  </button>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
+                                </span>
+                              </span>
+                            </template>
+                            <template x-if="action.payload_source === 'balance'">
+                              <input type="number" x-model.number="action.scale" aria-label="Skalierung">
+                            </template>
+                            <template x-if="action.payload_source === 'balance'"><span class="edit-unit">×</span></template>
+
+                            <template x-if="action.payload_source === 'balance'">
+                              <span class="edit-field-label">
+                                Offset
+                                <span class="field-help">
+                                  <button class="field-help-trigger" type="button" aria-label="Erklärung zu Offset">
+                                    <svg><use href="#ico-help"></use></svg>
+                                  </button>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
+                                </span>
+                              </span>
+                            </template>
+                            <template x-if="action.payload_source === 'balance'">
+                              <input type="number" x-model.number="action.offset" aria-label="Offset">
+                            </template>
+                            <template x-if="action.payload_source === 'balance'"><span class="edit-unit">W</span></template>
+                          </div>
+                        </details>
+                      </div>
+                    </template>
+
+                    <template x-if="action.type === 'notification'">
+                      <div class="edit-sentence">
+                        <span class="edit-sentence-lead">DANN</span>
+                        <span>melde</span>
+                        <select x-model="action.severity" aria-label="Schweregrad">
+                          <option value="info">Info</option><option value="warning">Warnung</option><option value="critical">Kritisch</option>
+                        </select>
+                        <input type="text" x-model="action.title" placeholder="Titel" aria-label="Titel">
+                        <input type="text" x-model="action.message" placeholder="Nachricht" aria-label="Nachricht">
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                <div class="type-tiles" role="group" aria-label="Aktion hinzufügen">
+                  <template x-for="type in actionTypes()" x-bind:key="type.key">
+                    <button class="type-tile" type="button"
+                            x-show="!type.advanced && (type.key !== 'entity' || entities.length)"
+                            x-on:click="addAction(rule, type.key, $data)"
+                            x-bind:title="type.hint" x-bind:aria-label="`Aktion hinzufügen: ${type.label}`">
+                      <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
+                      <span class="type-tile-label" x-text="type.label"></span>
+                    </button>
+                  </template>
+                </div>
+
+                <details class="edit-advanced">
+                  <summary>Für Fortgeschrittene</summary>
+                  <div class="type-tiles">
+                    <template x-for="type in actionTypes()" x-bind:key="type.key">
+                      <button class="type-tile" type="button" x-show="type.advanced"
+                              x-on:click="addAction(rule, type.key, $data)"
+                              x-bind:title="type.hint" x-bind:aria-label="`Aktion hinzufügen: ${type.label}`">
+                        <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
+                        <span class="type-tile-label" x-text="type.label"></span>
+                      </button>
+                    </template>
+                  </div>
+                </details>
+
+                <div class="edit-card entity-wizard" x-cloak x-show="entities.length && showEntityWizard">
+                  <div class="edit-card-head">
+                    <svg class="automation-icon"><use href="#ico-switch"></use></svg>
+                    <span class="edit-card-title">Gerät schalten</span>
+                    <button class="icon-button" type="button" x-on:click="showEntityWizard = false"
+                            title="Assistent schließen" aria-label="Assistent schließen">
+                      <svg class="automation-icon"><use href="#ico-chevron"></use></svg>
+                    </button>
+                  </div>
+
+                  <div class="entity-wizard-row">
+                    <label for="wizard-entity">Gerät</label>
+                    <select id="wizard-entity" x-model="newEntityId">
+                      <option value="">wählen ...</option>
+                      <template x-for="[deviceName, group] in commandableEntityGroups()" x-bind:key="deviceName">
+                        <optgroup x-bind:label="deviceName">
+                          <template x-for="entity in group" x-bind:key="entity.unique_id">
+                            <option x-bind:value="entity.unique_id" x-text="entity.name || entity.unique_id"></option>
+                          </template>
+                        </optgroup>
+                      </template>
+                    </select>
+                  </div>
+
+                  <div class="entity-wizard-row" x-show="newEntityId">
+                    <button class="icon-button labeled" type="button" title="Gerät einschalten" aria-label="Gerät einschalten"
+                            x-on:click="rule.actions.push(buildSwitchAction(entityByUniqueId(newEntityId), 'on')); showEntityWizard = false">
+                      <svg class="automation-icon"><use href="#ico-power-on"></use></svg><span>Einschalten</span>
+                    </button>
+                    <button class="icon-button labeled" type="button" title="Gerät ausschalten" aria-label="Gerät ausschalten"
+                            x-on:click="rule.actions.push(buildSwitchAction(entityByUniqueId(newEntityId), 'off')); showEntityWizard = false">
+                      <svg class="automation-icon"><use href="#ico-power-off"></use></svg><span>Ausschalten</span>
+                    </button>
+                    <button class="icon-button labeled" type="button" title="Gerät umschalten" aria-label="Gerät umschalten"
+                            x-show="entityByUniqueId(newEntityId) && entityByUniqueId(newEntityId).payload_on && entityByUniqueId(newEntityId).payload_off"
+                            x-on:click="rule.actions.push(buildToggleAction(entityByUniqueId(newEntityId))); showEntityWizard = false">
+                      <svg class="automation-icon"><use href="#ico-switch"></use></svg><span>Umschalten</span>
+                    </button>
+                  </div>
+
+                  <details class="edit-advanced" x-show="newEntityId">
+                    <summary>Stattdessen einen Sollwert setzen</summary>
+                    <div class="entity-wizard-row" style="padding-top: .6rem;">
+                      <label>Sollwertquelle
+                        <select x-model="newMode">
+                          <option value="constant">Fester Wert</option><option value="balance">Bilanzfeld</option>
+                        </select>
+                      </label>
+                      <template x-if="newMode === 'constant'">
+                        <input type="number" x-model.number="newConstantValue" placeholder="Wert" aria-label="Fester Sollwert">
+                      </template>
+                      <template x-if="newMode === 'balance'">
+                        <span class="entity-wizard-row">
+                          <select x-model="newField" aria-label="Bilanzfeld">
+                            <template x-for="[field, label] in balanceFields" x-bind:key="field">
+                              <option x-bind:value="field" x-text="label"></option>
+                            </template>
+                          </select>
+                          <span class="edit-field-label">
+                            Skalierung
+                            <span class="field-help">
+                              <button class="field-help-trigger" type="button" aria-label="Erklärung zu Skalierung">
+                                <svg><use href="#ico-help"></use></svg>
+                              </button>
+                              <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
+                            </span>
+                          </span>
+                          <input type="number" x-model.number="newScale" style="width: 4.5rem;" aria-label="Skalierung">
+                          <span class="edit-field-label">
+                            Offset
+                            <span class="field-help">
+                              <button class="field-help-trigger" type="button" aria-label="Erklärung zu Offset">
+                                <svg><use href="#ico-help"></use></svg>
+                              </button>
+                              <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
+                            </span>
+                          </span>
+                          <input type="number" x-model.number="newOffset" style="width: 4.5rem;" aria-label="Offset">
+                        </span>
+                      </template>
+                      <button class="icon-button labeled accent" type="button"
+                              title="Sollwert-Aktion hinzufügen" aria-label="Sollwert-Aktion hinzufügen"
+                              x-on:click="rule.actions.push(buildSetpointAction(entityByUniqueId(newEntityId), { mode: newMode, field: newField, scale: newScale, offset: newOffset, value: newConstantValue })); showEntityWizard = false">
+                        <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>Hinzufügen</span>
+                      </button>
+                    </div>
+                  </details>
+                </div>
+                </div>
+              </div>
+            </template>
+          </li>
+        </template>
+      </ul>
+
+      <details class="automations-advanced">
+        <summary>
+          <svg class="automation-icon"><use href="#ico-gear"></use></svg>
+          Für Fortgeschrittene — Einstellungen des Dienstes
+        </summary>
+        <div class="automations-advanced-body">
+          <div class="form-grid">
+            <label for="automations-tick-interval">
+              Tick-Intervall (s)
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="Erklärung zu Tick-Intervall">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('tick_interval_s')"></span>
+              </span>
+            </label>
+            <input id="automations-tick-interval" type="number" min="5" max="3600" x-model.number="document.settings.tick_interval_s">
+
+            <label for="automations-settling-seconds">
+              Beruhigungsfenster nach Start (s)
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="Erklärung zum Beruhigungsfenster">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('settling_seconds')"></span>
+              </span>
+            </label>
+            <input id="automations-settling-seconds" type="number" min="0" max="3600" x-model.number="document.settings.settling_seconds">
+
+            <label for="automations-balance-max-age">
+              Maximales Bilanzalter (s)
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="Erklärung zum maximalen Bilanzalter">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('balance_max_age_s')"></span>
+              </span>
+            </label>
+            <input id="automations-balance-max-age" type="number" min="1" max="3600" x-model.number="document.settings.balance_max_age_s">
+
+            <label for="automations-history-limit">
+              Auslöser-Verlauf: Einträge je Regel
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="Erklärung zum Auslöser-Verlauf">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_limit')"></span>
+              </span>
+            </label>
+            <input id="automations-history-limit" type="number" min="1" max="200" x-model.number="document.settings.history_limit">
+
+            <label class="settings-toggle-label" for="automations-history-persist">
+              <span>
+                Auslöser-Verlauf auf der Platte speichern
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" aria-label="Erklärung zum Speicherort des Verlaufs">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_persist')"></span>
+                </span>
+              </span>
+              <span class="settings-toggle">
+                <input id="automations-history-persist" type="checkbox" role="switch"
+                       x-model="document.settings.history_persist" x-bind:aria-checked="document.settings.history_persist">
+                <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+              </span>
+            </label>
+
+            <label for="automations-publish-prefixes">
+              Erlaubte Publish-Präfixe (eine Zeile je Präfix)
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="Erklärung zu den erlaubten Publish-Präfixen">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('publish_allowed_prefixes')"></span>
+              </span>
+            </label>
+            <textarea id="automations-publish-prefixes" rows="3" x-model="publishAllowedPrefixesText"
+                      placeholder="leer = beim Speichern automatisch alle Topics bekannter Geräte erlauben"></textarea>
+          </div>
+        </div>
+      </details>
+    </div>
+  </template>
+</section>
+{{end}}

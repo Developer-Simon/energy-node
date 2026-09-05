@@ -1,0 +1,794 @@
+/* ---------------------------------------------------------------------------
+   Schema-Formular (config.page.js: primitiveControl / renderNode).
+
+   Apple-Leitgedanke: nur STRUKTUR (Objekt/Array) traegt eine Flaeche,
+   Einzelfelder sind ruhige Zeilen mit Rhythmus ueber gap statt ueber Rahmen.
+   Rueckmeldung auf Druck und Fokus; Aufklappen und neue Array-Eintraege
+   materialisieren weich auf der Entschleunigungskurve --config-ease - alles
+   hinter prefers-reduced-motion.
+   --------------------------------------------------------------------------- */
+.schema-form { display: grid; gap: 1.5rem; max-width: 62rem; }
+
+/* Blattfeld: keine Box. Label - Control - Hilfe als Zeilenstapel. */
+.schema-node { display: grid; gap: .4rem; }
+.schema-node > label {
+  font-weight: 500; font-size: .9rem; letter-spacing: .01em; line-height: 1.3;
+  color: var(--text-subtle);
+}
+
+/* Struktur ist die einzige Ebene mit eigener Flaeche. */
+.schema-object, .schema-array {
+  display: grid; gap: 1rem;
+  padding: 1.05rem 1.15rem;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.schema-object > legend, .schema-array > legend {
+  padding: 0; margin-bottom: .2rem;
+  font-weight: 600; font-size: 1rem; letter-spacing: -.01em; line-height: 1.2;
+  color: var(--text-strong);
+}
+/* Die aeusserste Ebene des Formulars traegt keinen eigenen Rahmen - die
+   Seite fasst das Formular schon ein. Andernfalls doppelt sich die Karte
+   sichtbar mit der ersten Eintrags- bzw. Objektkarte darin. */
+#schema-form > .schema-object, #schema-form > .schema-array {
+  padding: 0; border: 0; border-radius: 0; background: none;
+}
+#schema-form > .schema-object > legend, #schema-form > .schema-array > legend {
+  font-size: 1.1rem;
+}
+/* Verschachtelte Struktur bekommt keine zweite Flaeche - nur Einrueckung,
+   sonst stapeln sich Kaesten in Kaesten. */
+.schema-object .schema-object, .schema-object .schema-array,
+.schema-array .schema-object, .schema-array .schema-array {
+  padding: 0; border: 0; border-radius: 0; background: transparent;
+  border-left: 2px solid var(--border-soft); padding-left: .9rem;
+}
+.schema-object .schema-object > legend, .schema-object .schema-array > legend,
+.schema-array .schema-object > legend, .schema-array .schema-array > legend {
+  font-size: .92rem; color: var(--text-subtle);
+}
+
+/* Steuerelemente: gemeinsame Optik, echter Fokusring wie im Rest der UI. */
+input.schema-control:not([type="checkbox"]),
+select.schema-control {
+  width: 100%; box-sizing: border-box;
+  padding: .5rem .6rem;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  /* --panel, nicht --panel-alt: im Tageslicht-Theme liegt --panel-alt
+     dicht am Seitengrund und laesst grosse Feldflaechen truebe wirken -
+     weisse Felder wie vor dem Umbau sind hier die ruhigere Wahl. */
+  background: var(--panel); color: var(--text);
+  transition: border-color .15s ease, box-shadow .15s ease, background .15s ease;
+}
+.schema-control:focus-visible {
+  outline: none;
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+/* Boolean als Apple-Schalter - Markup .settings-toggle aus base.css. Der
+   Zuruecksetzen-Weg (unset vs. false) bleibt, nur leiser als Textlink. */
+.boolean-control { display: flex; align-items: center; gap: .7rem; }
+.boolean-reset {
+  border: 0; background: transparent; padding: .1rem .15rem;
+  font-size: .8rem; color: var(--text-faint); cursor: pointer;
+  text-decoration: underline; text-underline-offset: 2px;
+}
+.boolean-reset:hover:not(:disabled) { color: var(--text-subtle); background: transparent; border: 0; }
+.boolean-reset[hidden] { display: none; }
+
+/* Optionale Eigenschaften: abgesetzt allein ueber die Haarlinie, nicht ueber
+   einen Farbton - rotierendes Chevron wie .config-json-summary, Inhalt
+   materialisiert beim Aufklappen. */
+.schema-optional-group {
+  border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.schema-optional-group > summary {
+  display: flex; align-items: center; gap: .55rem;
+  padding: .7rem .85rem; list-style: none;
+  cursor: pointer; user-select: none;
+  font-weight: 500; font-size: .88rem; color: var(--text-subtle);
+}
+.schema-optional-group > summary::-webkit-details-marker { display: none; }
+.schema-optional-group > summary::before {
+  content: ""; flex: none; width: 0; height: 0;
+  border-left: .3rem solid transparent; border-right: .3rem solid transparent;
+  border-top: .38rem solid currentColor;
+  transform: rotate(-90deg); transition: transform .2s var(--config-ease);
+}
+.schema-optional-group[open] > summary::before { transform: rotate(0); }
+.schema-optional-group > summary:hover { color: var(--text); }
+.schema-optional-group > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.schema-optional-group[open] > summary { border-bottom: 1px solid var(--border-soft); }
+.schema-optional-fields { display: grid; gap: 1rem; padding: .95rem .85rem; }
+.schema-optional-group[open] .schema-optional-fields { animation: schema-reveal .28s var(--config-ease); }
+@keyframes schema-reveal {
+  from { opacity: 0; transform: translateY(-.35rem); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Array: Karte wie Objekt. Ein Eintrag ist eine flache Flaeche im selben Ton
+   wie die Karte, abgesetzt ueber die Haarlinie plus die Akzentkante links,
+   die ihn als entfernbare Einheit markiert - kein zweiter Farbton. */
+.array-items { display: grid; gap: .8rem; }
+.array-item {
+  display: grid; gap: .75rem;
+  padding: .85rem .9rem .85rem 1rem;
+  border: 1px solid var(--border-soft); border-left: 3px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel);
+}
+.array-item-header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: .5rem; }
+.array-item-header > strong { font-weight: 600; letter-spacing: -.005em; color: var(--text); }
+.schema-array > button { justify-self: start; border-radius: var(--radius-sm); }
+/* Rueckmeldung auf dem Druck, nicht erst auf dem Loslassen. */
+.schema-array > button:active:not(:disabled),
+.array-item-header button:active:not(:disabled) { transform: scale(.98); }
+/* Weggehen wie Herkommen: derselbe Weg (nach oben) zurueck. */
+.array-item.is-entering { animation: schema-item-in .3s var(--config-ease); }
+.array-item.is-leaving { overflow: hidden; animation: schema-item-out .24s var(--config-ease) forwards; }
+@keyframes schema-item-in {
+  from { opacity: 0; transform: translateY(-.5rem) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes schema-item-out {
+  from { opacity: 1; }
+  to   { opacity: 0; transform: translateY(-.35rem); }
+}
+
+/* Hinweistexte - groessenabhaengige Zeilenhoehe, kein fetter Rahmen drumherum. */
+.schema-help { color: var(--text-muted); font-size: .82rem; line-height: 1.45; margin: 0; }
+.schema-hint { color: var(--info-line); font-size: .82rem; line-height: 1.45; margin: 0; }
+.schema-hint.warn { color: var(--warn); }
+.schema-default { color: var(--text-muted); }
+.schema-required { color: var(--bad); }
+
+@media (prefers-reduced-motion: reduce) {
+  .schema-optional-group > summary::before,
+  input.schema-control, select.schema-control { transition-duration: .01ms; }
+  .schema-optional-group[open] .schema-optional-fields,
+  .array-item.is-entering, .array-item.is-leaving { animation: none; }
+  .schema-array > button:active:not(:disabled),
+  .array-item-header button:active:not(:disabled) { transform: none; }
+}
+.checkbox-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: .5rem; }
+.checkbox-list label { display: flex; gap: .5rem; align-items: center; }
+/* ---------------------------------------------------------------------------
+   Energie-Rollen-Panel (energy.html). Auf derselben Apple-Sprache wie das
+   Schema-Formular oben: STRUKTUR (Gruppe) traegt Flaeche, die Rollenzeilen
+   darin sind ruhige Einheiten mit Rhythmus ueber gap. Rueckmeldung auf Druck
+   und Fokus; Meldungen und Aufklappen materialisieren auf der
+   Entschleunigungskurve --energy-ease - alles hinter prefers-reduced-motion.
+   --------------------------------------------------------------------------- */
+#energy-panel { --energy-ease: cubic-bezier(.32, .72, 0, 1); }
+/* Der einleitende Fliesstext lebt jetzt als .field-help-Tooltip am Titel -
+   der haeufige Pfad (Rollen-Liste) rueckt nach oben, die einmal gelesene
+   Erklaerung ist einen Klick entfernt. */
+#energy-panel .energy-title { display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+
+/* Hinweisstreifen: immer sichtbar, damit Zuklappen der Interpretation nie
+   eine Warnung verbirgt. Jede Meldung blendet einzeln ueber x-transition ein. */
+.energy-notices { display: grid; gap: .6rem; margin: 1rem 0; }
+.energy-notices:empty { display: none; }
+.energy-notices .message { margin: 0; }
+.energy-unassigned {
+  margin: 0; padding: .7rem .85rem;
+  border: 1px solid var(--border-soft); border-left: 3px solid var(--warn-line);
+  border-radius: var(--radius-sm); background: var(--panel);
+}
+.energy-unassigned p { margin: 0; }
+.energy-unassigned ul { margin: .4rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
+
+/* Interpretation: der seltene Weg, darum einklappbar. Karte in
+   schema-object-Sprache, Chevron rotiert wie .schema-optional-group. */
+.energy-interpretation {
+  margin: 1rem 0;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.energy-interpretation-summary {
+  display: flex; align-items: center; gap: .55rem;
+  padding: .8rem 1rem; list-style: none; cursor: pointer; user-select: none;
+  font-weight: 600; font-size: 1rem; letter-spacing: -.01em; color: var(--text-strong);
+}
+.energy-interpretation-summary::-webkit-details-marker { display: none; }
+.energy-interpretation-summary::before {
+  content: ""; flex: none; width: 0; height: 0;
+  border-left: .3rem solid transparent; border-right: .3rem solid transparent;
+  border-top: .38rem solid currentColor;
+  transform: rotate(-90deg); transition: transform .2s var(--energy-ease);
+}
+.energy-interpretation[open] > .energy-interpretation-summary::before { transform: rotate(0); }
+.energy-interpretation-summary:hover { color: var(--text); }
+.energy-interpretation-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.energy-interpretation[open] > .energy-interpretation-summary { border-bottom: 1px solid var(--border-soft); }
+.energy-interpretation-body { display: grid; gap: 1.1rem; padding: 1rem; }
+.energy-interpretation[open] .energy-interpretation-body { animation: schema-reveal .28s var(--energy-ease); }
+
+/* Eine Interpretations-Gruppe = eine ruhige schema-node-Zeile: Kopf (Label
+   plus optionaler .field-help-Tooltip wie auf der Automatisierungsseite),
+   darunter das Control. */
+.energy-interpretation-group { display: grid; gap: .45rem; align-items: start; }
+.energy-interpretation-group > label { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; }
+.energy-interpretation-head { display: flex; align-items: center; gap: .3rem; }
+.energy-interpretation-label { font-weight: 500; font-size: .9rem; letter-spacing: .01em; color: var(--text-subtle); }
+
+/* Toleranz- und Statuskarten-Schwellen: kurze Felder, die auf allem ausser
+   dem schmalsten Schirm in eine Zeile passen statt gestapelt. */
+@media (min-width: 47rem) {
+  .energy-interpretation-group.is-compact { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem 1.4rem; }
+  .energy-interpretation-group.is-compact > .energy-interpretation-head { flex: 1 0 100%; }
+  .energy-interpretation-group.is-compact input[type="number"] { width: 6rem; }
+}
+
+/* Die vier Hausverbrauch-Kacheln stehen 2x2, sobald zwei Spalten je breit
+   genug sind, dass die laengste Kachel-Erklaerung (.radio-card-desc) in eine
+   Zeile passt (2 x ~26rem + gap). Reicht der Platz nicht, faellt die ganze
+   Gruppe auf 1x4 zurueck. Die Entscheidung faellt per Container-Query an der
+   echten Breite der Gruppe, nicht an einem geschaetzten Viewport-Breakpoint -
+   in beiden Modi fuellen zwei gleich breite bzw. eine Spalte die volle Breite.
+   Doppelklasse, damit das Grid das display:flex von .radio-card-group (weiter
+   unten in der Datei) unabhaengig von der Quellreihenfolge schlaegt. */
+.energy-interpretation-group:has(> .energy-load-modes) { container: energy-modes / inline-size; }
+.radio-card-group.energy-load-modes {
+  display: grid;
+  grid-template-columns: 1fr;
+}
+@container energy-modes (min-width: 52.5rem) {
+  .radio-card-group.energy-load-modes { grid-template-columns: 1fr 1fr; }
+}
+
+/* Ruhige Fusszeile der Kachelgruppe: erklaert den aktiven Modus direkt dort,
+   wo er gewaehlt wird (Naehe = Zusammenhang). Inset-Flaeche, keine schwere
+   Kontur; die Akzent-Linkskante bleibt echten Warnungen im Streifen oben
+   vorbehalten. */
+.energy-mode-note {
+  display: flex; align-items: flex-start; gap: .5rem;
+  margin: 0; padding: .55rem .7rem;
+  border-radius: var(--radius-sm);
+  border-left: 2px solid var(--border);
+  background: var(--sunken);
+  color: var(--text-subtle); font-size: .82rem; line-height: 1.45; letter-spacing: .01em;
+}
+.energy-mode-note-icon { flex: none; width: .95rem; height: .95rem; margin-top: .12rem; color: var(--text-faint); fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* Server-gerenderte Rollen-Uebersicht. */
+.energy-role-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: .6rem; margin: 1.2rem 0; }
+.energy-role-summary div { border: 1px solid var(--border-soft); border-radius: var(--radius-sm); padding: .7rem .85rem; background: var(--panel); }
+.energy-role-summary dt { color: var(--accent); font-size: .82rem; letter-spacing: .01em; }
+.energy-role-summary dd { margin: .3rem 0; font-size: 1.1rem; font-weight: 600; letter-spacing: -.01em; }
+
+/* Zustand einer Rolle als Zeichenzeile statt Fliesssatz: Icon + Kurzlabel,
+   Farbe aus dem bestehenden Token-Set, kein Chip-Hintergrund (die Kachel ist
+   schon die Flaeche). Volle Bedeutung in der ausklappbaren Legende. */
+.energy-state-row { display: flex; flex-wrap: wrap; gap: .15rem .6rem; margin: .4rem 0 0; padding: 0; list-style: none; }
+.energy-state-chip { display: inline-flex; align-items: center; gap: .3rem; font-size: .72rem; letter-spacing: .01em; color: var(--text-subtle); }
+.energy-state-chip svg { width: .85rem; height: .85rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.energy-state-chip.is-ok svg { stroke: var(--ok); }
+.energy-state-chip.is-warn svg { stroke: var(--warn); }
+.energy-state-chip.is-bad svg { stroke: var(--bad-strong); }
+.energy-state-chip.is-calc svg { stroke: var(--accent); }
+.energy-state-chip.is-muted svg { stroke: var(--text-faint); }
+.energy-legend { margin: -.4rem 0 1.2rem; }
+.energy-legend > summary { cursor: pointer; color: var(--text-subtle); font-size: .82rem; user-select: none; }
+.energy-legend > summary:hover { color: var(--text); }
+.energy-legend-grid { display: grid; grid-template-columns: auto auto 1fr; gap: .45rem .8rem; margin-top: .65rem; align-items: center; font-size: .8rem; color: var(--text-subtle); }
+.energy-legend-grid > span:nth-child(3n-1) { color: var(--text); }
+
+/* Rollen-Gruppen: Struktur traegt Flaeche (Karte), die Zeilen darin sind
+   ruhige Einheiten - kein Kasten-im-Kasten mehr. */
+.energy-roles-groups { display: grid; gap: 1.2rem; }
+.energy-roles-group {
+  display: grid; gap: .7rem;
+  padding: 1.05rem 1.15rem;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-md);
+  background: var(--panel);
+}
+.energy-roles-group-title { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -.01em; color: var(--text-strong); }
+.energy-roles { display: grid; gap: .55rem; }
+
+/* Rollenzeile im Stil von .array-item: ruhige Flaeche, Haarlinie,
+   Akzent-Linkskante NUR bei zugewiesener Rolle - "zugeordnet vs. offen" auf
+   einen Blick. Beim ersten Aufbau materialisieren die Zeilen gestaffelt. */
+.energy-role-row {
+  display: grid;
+  grid-template-columns: minmax(15rem, 1fr) minmax(9rem, 12rem) 7rem auto auto;
+  gap: .55rem; align-items: center;
+  padding: .6rem .7rem;
+  border: 1px solid var(--border-soft); border-left: 3px solid transparent;
+  border-radius: var(--radius-sm); background: var(--panel-alt);
+  transition: border-color .15s ease, background .15s ease, transform .11s var(--energy-ease);
+  animation: schema-item-in .3s var(--energy-ease) both;
+  animation-delay: calc(min(var(--row-index, 0), 10) * 40ms);
+}
+.energy-role-row.is-assigned { border-left-color: var(--accent); }
+.energy-role-row:focus-within { border-color: var(--accent-line); }
+.energy-role-row:active { transform: scale(.995); }
+.energy-role-row > label:first-child { font-size: .9rem; color: var(--text); overflow-wrap: anywhere; }
+.energy-role-row label:last-child { white-space: nowrap; }
+.energy-role-row .energy-role-capacity { grid-column: 3 / span 2; }
+.energy-role-row .energy-role, .energy-role-row input[type="number"] {
+  border-radius: var(--radius-sm);
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.energy-role-row :focus-visible {
+  outline: none; border-color: var(--accent-line);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+.energy-role-hide-toggle {
+  background: transparent; color: var(--text-subtle);
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: .35rem .6rem; cursor: pointer; white-space: nowrap;
+  transition: color .15s ease, border-color .15s ease, transform .11s var(--energy-ease);
+}
+.energy-role-hide-toggle:hover { color: var(--text); border-color: var(--accent); }
+.energy-role-hide-toggle:active { transform: scale(.97); }
+.energy-role-hide-toggle:focus-visible {
+  outline: none; border-color: var(--accent-line);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 32%, transparent);
+}
+
+/* Sticky Materialleiste am unteren Panelrand: eine primaere Aktion statt der
+   frueheren zwei identischen Speichern-Buttons. Vorbild .config-actionbar /
+   .devicemap-toolbar - hier rein per position:sticky, kein IntersectionObserver. */
+.energy-actionbar-dock {
+  position: sticky; bottom: 0; z-index: 20;
+  display: flex; justify-content: flex-end;
+  margin: 1.5rem 0 0; padding: 1rem 0 .25rem;
+}
+.energy-actionbar-dock::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 88%, transparent));
+}
+.energy-actionbar {
+  display: flex; align-items: center; gap: .6rem;
+  padding: .5rem .6rem;
+  border: 1px solid var(--border-soft); border-top-color: rgba(255, 255, 255, .13);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 .5rem 1.75rem rgba(0, 0, 0, .34);
+}
+.energy-actionbar #energy-save { border-radius: 999px; transition: background .15s ease, transform .12s var(--energy-ease); }
+.energy-actionbar #energy-save:active:not(:disabled) { transform: scale(.97); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .energy-actionbar { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft); }
+  .energy-actionbar-dock::before { background: var(--bg); }
+}
+@media (prefers-contrast: more) {
+  .energy-roles-group, .energy-role-row, .energy-interpretation,
+  .energy-unassigned, .energy-role-summary div { border-color: var(--border); }
+  .energy-mode-note { border-left-color: var(--border); background: var(--panel); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .energy-interpretation-summary::before,
+  .energy-role-row, .energy-role-row .energy-role, .energy-role-row input[type="number"],
+  .energy-role-hide-toggle, .energy-actionbar #energy-save { transition-duration: .01ms; }
+  .energy-role-row { animation: none; }
+  .energy-interpretation[open] .energy-interpretation-body { animation: none; }
+  .energy-role-row:active, .energy-role-hide-toggle:active,
+  .energy-actionbar #energy-save:active:not(:disabled) { transform: none; }
+}
+/* Stage/Overlay: Toolbar, Hinweise und Kanten-Toolbar liegen als schwebende
+   Materialschicht ueber dem Canvas statt im Dokumentfluss davor - Ein-/
+   Ausblenden (Verbinden-Modus, Kantenauswahl) verschiebt das Canvas dadurch
+   nie mehr vertikal. pointer-events: none auf dem Overlay-Container, damit
+   Klicks zwischen den schwebenden Elementen zum Canvas (Pan/Zoom) durch-
+   fallen; jedes Kind holt sich pointer-events zurueck. Vorbild fuer das
+   Material selbst ist .energy-flow-node/.device-tile (base.css). */
+.devicemap-stage { position: relative; }
+.devicemap-canvas { width: 100%; height: 70vh; min-height: 22rem; border: 1px solid var(--border-soft); border-radius: var(--radius-lg); background: var(--bg); }
+.devicemap-canvas.devicemap-grid {
+  background-image:
+    linear-gradient(to right, var(--panel-alt) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--panel-alt) 1px, transparent 1px);
+  background-size: var(--devicemap-grid-px, 40px) var(--devicemap-grid-px, 40px);
+  background-position: var(--devicemap-grid-x, 0px) var(--devicemap-grid-y, 0px);
+}
+.devicemap-overlay {
+  position: absolute; inset: .75rem .75rem auto .75rem; z-index: 2;
+  display: flex; flex-direction: column; align-items: flex-start; gap: .55rem;
+  pointer-events: none;
+}
+.devicemap-overlay > * { pointer-events: auto; }
+.devicemap-toolbar, .devicemap-edge-toolbar {
+  margin: 0; padding: .5rem .6rem; border-radius: var(--radius-lg);
+  border: 1px solid var(--border-soft); border-top-color: rgba(255, 255, 255, .13);
+  background: var(--panel); background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 .45rem 1.5rem rgba(0, 0, 0, .28);
+}
+.devicemap-edge-toolbar { align-items: center; }
+.devicemap-unsaved-badge { color: var(--warn); font-size: .85rem; align-self: center; }
+.devicemap-connect-hint, .devicemap-placed-hint {
+  margin: 0; padding: .35rem .7rem; border-radius: var(--radius-md);
+  background: var(--panel); background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
+}
+.devicemap-connect-hint { color: var(--accent); font-size: .9rem; }
+.devicemap-placed-hint { color: var(--text-muted); font-size: .85rem; }
+.devicemap-edge-style-group { display: inline-flex; gap: .3rem; align-items: center; }
+.devicemap-edge-label { color: var(--text-subtle); font-size: .9rem; }
+.devicemap-edge-readonly-hint { color: var(--text-muted); font-size: .85rem; font-style: italic; }
+/* Durchscheinendes Material ist eine Darstellungsentscheidung, keine
+   Information - siehe dasselbe Muster fuer .energy-flow-node in base.css. */
+@media (prefers-reduced-transparency: reduce) {
+  .devicemap-toolbar, .devicemap-edge-toolbar, .devicemap-connect-hint, .devicemap-placed-hint {
+    background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft);
+  }
+}
+/* Mobilansicht fuer die Manager-Panels. Steht bewusst hier und nicht in
+   base.css: manager.css wird nur fuer diese Panels nachgeladen und
+   ueberschreibt base.css. Derselbe Umschaltpunkt wie dort - 700px. */
+@media (max-width: 700px) {
+  .energy-role-row { grid-template-columns: 1fr 1fr; }
+  .energy-role-row label:first-child { grid-column: 1 / -1; }
+  .energy-role-row .energy-role-capacity { grid-column: 1 / -1; }
+  .energy-role-hide-toggle { grid-column: 1 / -1; justify-self: start; }
+  /* Am Handy traegt die Einrueckung die verschachtelte Struktur, nicht die
+     Polsterung - sonst schrumpft der nutzbare Raum je Ebene sichtbar. */
+  .schema-object, .schema-array { padding: .7rem .75rem; }
+  .schema-object .schema-object, .schema-object .schema-array,
+  .schema-array .schema-object, .schema-array .schema-array { padding-left: .65rem; }
+  .schema-optional-fields { padding: .6rem; gap: .7rem; }
+  .schema-optional-group > summary { padding: .55rem .6rem; }
+  .array-item { padding: .6rem .55rem .6rem .7rem; }
+}
+
+.battery-measure { margin-top: .5rem; padding: .5rem .6rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--panel); display: grid; gap: .4rem; }
+.battery-measure-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; color: var(--text-subtle); font-size: .85rem; }
+.battery-measure-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .85rem; }
+.battery-measure-row > span { min-width: 4.5rem; font-weight: 600; }
+
+/* ---------------------------------------------------------------------------
+   Konfigurationsseite: schwebende Aktionsleiste und eingeklappter JSON-Editor.
+
+   Das geloeste Problem war ein Aufbauproblem, kein Optikproblem: die
+   Speichern-Buttons standen zwischen dem beliebig langen Schema-Formular und
+   dem 18rem hohen Rohtext-Editor und waren damit nur nach langem Scrollen
+   erreichbar. Die Leiste liegt jetzt als letztes Element im Fluss, klebt per
+   position:sticky ueber dem Inhalt und dockt erst am Seitenende wieder an -
+   der Sentinel dahinter meldet das per IntersectionObserver als .is-floating
+   (siehe initActionBar() in config.page.js).
+   --------------------------------------------------------------------------- */
+.config-panel {
+  /* Apple-nahe Entschleunigungskurve: schneller Start, langes Ausrollen -
+     dieselbe Rolle wie eine kritisch gedaempfte Feder, nur als Kurve, weil
+     hier ein Zustand umschaltet und keine Geste gefuehrt wird. */
+  --config-ease: cubic-bezier(.32, .72, 0, 1);
+}
+
+/* Uebersichtszahl unter der Ueberschrift. War eine .toolbar, solange dort
+   noch Buttons standen - jetzt ist es nur noch eine Angabe. */
+.config-meta { margin: .35rem 0 1.25rem; color: var(--text-muted); font-size: .85rem; letter-spacing: .01em; }
+
+.config-actionbar-dock {
+  position: sticky; bottom: 0; z-index: 20;
+  display: flex; justify-content: center;
+  margin: 1.5rem 0 0; padding: 1rem .5rem;
+  pointer-events: none;
+}
+/* Scroll-Kante statt 1px-Trennlinie: der Inhalt verlaeuft unter der Leiste
+   weich in den Seitengrund, damit Text nicht hart an der Chrome abreisst. */
+.config-actionbar-dock::before {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 85%, transparent));
+  opacity: 0; transition: opacity .24s ease;
+}
+.config-actionbar-dock.is-floating::before { opacity: 1; }
+
+.config-actionbar {
+  pointer-events: auto;
+  display: flex; align-items: center; gap: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: .4rem .45rem .4rem .85rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text);
+  transition: background-color .28s ease, border-color .28s ease, box-shadow .28s ease, padding-left .34s var(--config-ease);
+}
+/* Geloest aus der Seite: erst hier wird die Leiste zur durchscheinenden
+   Materialschicht - angedockt ist sie ein gewoehnlicher Kasten im Fluss.
+   Vorbild ist .devicemap-toolbar weiter oben. */
+.config-actionbar-dock.is-floating .config-actionbar {
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(20px) saturate(160%); -webkit-backdrop-filter: blur(20px) saturate(160%);
+  border-top-color: rgba(255, 255, 255, .13);
+  box-shadow: 0 .5rem 1.75rem rgba(0, 0, 0, .34);
+}
+
+/* Linke Haelfte der Island: welche Datei und "hol sie neu". Steht vor dem
+   Trenner, weil rechts davon steht, was mit ihr geschieht - Steuerung neben
+   dem, was sie betrifft, statt einer Reihe gleich aussehender Buttons. */
+.config-actionbar-lead {
+  display: inline-flex; align-items: center; gap: .4rem; min-width: 0;
+  max-width: 30rem; margin-right: .35rem; overflow: hidden;
+  transition: max-width .34s var(--config-ease), opacity .18s ease, margin-right .34s var(--config-ease);
+}
+.config-actionbar-lead select {
+  max-width: 15rem;
+  border-radius: 999px; border-color: var(--border);
+  background: var(--panel-alt); color: var(--text);
+  padding: .38rem .7rem;
+}
+.config-actionbar-lead button { padding: .38rem .8rem; }
+.config-actionbar-divider { flex: none; width: 1px; height: 1.35rem; margin: 0 .25rem; background: var(--border-soft); }
+
+.config-actionbar-status { display: inline-flex; align-items: center; gap: .45rem; min-width: 0; }
+.config-actionbar-dot {
+  flex: none; width: .5rem; height: .5rem; border-radius: 50%;
+  background: var(--text-faint);
+  transition: background-color .2s ease, box-shadow .2s ease;
+}
+.config-actionbar-status.is-dirty .config-actionbar-dot { background: var(--warn); box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--warn) 20%, transparent); }
+.config-actionbar-status.is-note .config-actionbar-dot { background: var(--info); }
+/* Kleiner Text bekommt etwas Laufweite dazu, grosser bekaeme sie abgezogen -
+   Laufweite ist groessenabhaengig, nie ein fester Wert fuer alles. */
+.config-actionbar-text {
+  max-width: 18rem; overflow: hidden; white-space: nowrap;
+  margin-right: .6rem;
+  font-size: .85rem; letter-spacing: .01em; color: var(--text-subtle);
+  transition: max-width .34s var(--config-ease), margin-right .34s var(--config-ease), opacity .18s ease, color .2s ease;
+}
+.config-actionbar-status.is-dirty .config-actionbar-text { color: var(--warn); }
+
+.config-actionbar button, .config-actionbar select { border-radius: 999px; white-space: nowrap; }
+.config-actionbar select { transition: padding .34s var(--config-ease), border-color .18s ease; }
+/* Rueckmeldung auf dem Druck, nicht erst auf dem Loslassen. */
+.config-actionbar button:active:not(:disabled) { transform: scale(.97); }
+.config-actionbar button#config-form-save { transition: background .15s ease, transform .12s ease; }
+.config-actionbar-secondary {
+  max-width: 12rem; overflow: hidden; margin-right: .4rem;
+  transition: max-width .34s var(--config-ease), margin-right .34s var(--config-ease),
+              padding .34s var(--config-ease), opacity .18s ease,
+              border-color .18s ease, background .15s ease, color .15s ease, transform .12s ease;
+}
+
+/* Reduzierter Zustand: alles Sekundaere faellt weg, Punkt und primaere
+   Aktion bleiben - die Leiste verliert Umfang, nicht ihre Aufgabe. Gilt nur
+   geloest; angedockt am Seitenende ist wieder Platz fuer die volle Leiste. */
+.config-actionbar-dock.is-floating .config-actionbar.is-compact { padding-left: .5rem; cursor: pointer; }
+.config-actionbar-dock.is-floating .config-actionbar.is-compact .config-actionbar-lead,
+.config-actionbar-dock.is-floating .config-actionbar.is-compact .config-actionbar-text,
+.config-actionbar-dock.is-floating .config-actionbar.is-compact .config-actionbar-secondary {
+  max-width: 0; opacity: 0; margin-right: 0; padding-left: 0; padding-right: 0;
+  border-color: transparent; pointer-events: none;
+}
+
+.config-actionbar-sentinel { height: 1px; }
+
+/* Rohtext-Editor: der seltenere Weg liegt eine Ebene tiefer, mit seinem
+   Speichern-Button bei sich statt in der Leiste. Optik wie
+   .schema-optional-group, nur mit dem Chevron aus .nav-menu-chevron. */
+.config-json { margin-top: 1.25rem; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); }
+.config-json-summary {
+  display: flex; align-items: center; gap: .55rem;
+  padding: .8rem 1rem; border-radius: var(--radius-md);
+  font-weight: 600; color: var(--text-subtle); cursor: pointer; user-select: none;
+  list-style: none;
+}
+.config-json-summary::-webkit-details-marker { display: none; }
+.config-json-summary::before {
+  content: ""; flex: none;
+  width: 0; height: 0;
+  border-left: .32rem solid transparent; border-right: .32rem solid transparent;
+  border-top: .4rem solid currentColor;
+  transform: rotate(-90deg); transition: transform .2s var(--config-ease);
+}
+.config-json[open] .config-json-summary::before { transform: rotate(0); }
+.config-json-summary:hover { color: var(--text); }
+.config-json-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.config-json[open] .config-json-summary { border-bottom: 1px solid var(--border-soft); border-radius: var(--radius-md) var(--radius-md) 0 0; }
+.config-json-summary-label { flex: 1 1 auto; }
+.config-json-dirty {
+  flex: none; padding: .05rem .5rem; border: 1px solid var(--warn-line); border-radius: 999px;
+  font-size: .75rem; font-weight: 500; letter-spacing: .02em; color: var(--warn);
+}
+.config-json-body { display: grid; gap: .7rem; padding: .9rem 1rem 1rem; }
+.config-json-note { margin: 0; color: var(--text-muted); font-size: .85rem; }
+.config-json-actions { display: flex; flex-wrap: wrap; gap: .6rem; justify-content: flex-end; }
+
+/* Durchscheinendes Material ist eine Darstellungsentscheidung, keine
+   Information - dasselbe Muster wie bei .devicemap-toolbar. */
+@media (prefers-reduced-transparency: reduce) {
+  .config-actionbar-dock.is-floating .config-actionbar {
+    background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft);
+  }
+  .config-actionbar-dock::before { background: var(--bg); }
+}
+/* Kein Weg-und-wieder-heran-Wachsen: der Zustand wechselt, nur eben ohne
+   Bewegung. Die Leiste bleibt vollstaendig bedienbar. */
+@media (prefers-reduced-motion: reduce) {
+  .config-actionbar,
+  .config-actionbar-text,
+  .config-actionbar-secondary,
+  .config-actionbar-dot,
+  .config-actionbar-dock::before,
+  .config-json-summary::before { transition-duration: .01ms; }
+  .config-actionbar button:active:not(:disabled) { transform: none; }
+}
+
+@media (max-width: 860px) {
+  .config-actionbar-dock { padding: .75rem .25rem .85rem; }
+  .config-actionbar { flex-wrap: wrap; justify-content: flex-end; row-gap: .45rem; padding: .5rem .55rem; border-radius: var(--radius-lg); }
+  .config-actionbar-lead { flex: 1 1 100%; }
+  .config-actionbar-lead select { flex: 1 1 auto; max-width: none; }
+  .config-actionbar-divider { display: none; }
+  .config-actionbar-status { flex: 1 1 auto; }
+  .config-actionbar-text { max-width: 100%; }
+  /* Reduziert bleibt es auch hier eine einzeilige Kapsel. */
+  .config-actionbar-dock.is-floating .config-actionbar.is-compact { flex-wrap: nowrap; border-radius: 999px; padding: .4rem .45rem .4rem .5rem; }
+  .config-actionbar-dock.is-floating .config-actionbar.is-compact .config-actionbar-lead,
+  .config-actionbar-dock.is-floating .config-actionbar.is-compact .config-actionbar-status { flex: 0 1 auto; }
+}
+
+/* ===========================================================================
+   Aus base.css hierher verlagert (CSS-Split 2026-09): Optik, die nur die
+   Manager-Panels brauchen - Revisionen, Settings-Formulare, Speicherzustand,
+   System-Aktionen, Tiny-Tuya, Energie-Interpretation. base.css wird auf jeder
+   Seite geladen, manager.css nur mit config/energy/layout/devicemap/settings/
+   automations - diese Regeln gehoeren daher hierher.
+   =========================================================================== */
+.revision-preview { min-height: 12rem; color: var(--text-subtle); }
+.revision-view-toolbar { display: flex; gap: .6rem; align-items: center; margin: .6rem 0; }
+.revision-view-toolbar button[aria-pressed="true"] { background: var(--accent); color: var(--bg); }
+.revision-diff { min-height: 12rem; overflow: auto; padding: .75rem; background: var(--panel); border: 1px solid var(--border); border-radius: 3px; font: inherit; white-space: pre; }
+.revision-diff .diff-line { display: grid; grid-template-columns: 4ch 4ch 1fr; }
+.revision-diff .diff-line .diff-reference { color: var(--text-faint); user-select: none; text-align: right; padding-right: 1ch; }
+.revision-diff .diff-added { color: var(--ok); }
+.revision-diff .diff-removed { color: var(--bad); }
+.revision-diff .diff-cropped { color: var(--text-faint); font-size: .9em; font-style: italic; }
+.revision-panel { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: .75rem; }
+.revision-panel > summary { cursor: pointer; color: var(--text-subtle); user-select: none; }
+.revision-panel > summary:hover { color: var(--text); }
+.revision-panel-body { padding-top: .75rem; }
+.revision-panel-empty { color: var(--text-faint); }
+#config-reload-error code { display: block; margin: .5rem 0; color: var(--text-subtle); font-size: .9em; }
+.form-grid { display: grid; grid-template-columns: minmax(12rem, 20rem) minmax(12rem, 20rem); gap: .8rem 1rem; align-items: center; }
+.settings-toggle-label { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; cursor: pointer; }
+/* Wie .settings-toggle-label ueber die volle Grid-Breite, aber Label bleibt
+   auf Spalte-1-Breite ausgerichtet und die Mehrfachauswahl bekommt den ganzen
+   Rest der Seitenbreite statt der 20rem-Deckelung von .form-grid Spalte 2. */
+.settings-multiselect-row { grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 1rem; }
+.settings-multiselect-row > label { flex: 0 0 auto; width: 20rem; padding-top: .5rem; display: flex; align-items: center; gap: .3rem; }
+.settings-multiselect-row > select, .settings-multiselect-row > .choices { flex: 1 1 auto; min-width: 0; margin-bottom: 0; }
+/* Die .settings-toggle-Primitive (Spur, Knauf, Zustaende) stehen seit dem
+   Layout-Bearbeitungsmodus in base.css - das Optionsmodal des Editors laedt
+   manager.css nicht und braucht den Schalter trotzdem. Hier bleiben nur die
+   manager-eigenen Layout-Klassen (.settings-toggle-label). */
+.settings-toggle-label:has(input:disabled) { cursor: not-allowed; opacity: .7; }
+.radio-card-group { display: flex; flex-direction: column; gap: .5rem; width: 100%; }
+.radio-card-group .radio-card { display: flex; align-items: flex-start; white-space: normal; gap: .65rem; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: 4px; background: var(--panel); cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.radio-card-group .radio-card:hover { border-color: var(--accent); }
+.radio-card-group .radio-card:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.radio-card-group .radio-card:has(input:checked) { border-color: var(--accent-line); background: var(--accent-bg); }
+.radio-card-group .radio-card input { margin: .2rem 0 0; flex: 0 0 auto; }
+.radio-card-body { display: flex; flex-direction: column; gap: .15rem; white-space: normal; }
+.radio-card-title { color: var(--text); font-weight: 600; }
+.radio-card-desc { color: var(--text-muted); font-size: .85rem; }
+.mqtt-source-toggle { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--info); background: var(--panel); }
+.mqtt-source-toggle .settings-toggle-label { margin-bottom: .5rem; }
+.mqtt-source-toggle .settings-help { margin: 0; }
+.storage-health-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--info); border-radius: var(--radius-lg); background: var(--panel); }
+.storage-health-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
+.storage-health-header h3 { margin: 0; color: var(--text); display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+.storage-health-badge { display: inline-flex; align-items: center; gap: .35rem; padding: .3rem .55rem; border-radius: 999px; font-size: .8rem; font-weight: 600; white-space: nowrap; }
+.storage-health-badge::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; }
+.storage-health-badge-measured { color: var(--ok); background: var(--ok-bg); }
+.storage-health-badge-estimated { color: var(--warn); background: var(--warn-bg); }
+.storage-health-badge-unavailable { color: var(--bad-strong); background: var(--bad-bg); }
+.storage-health-table { margin: 1rem 0 .5rem; }
+.storage-health-table th { width: 38%; color: var(--text-subtle); font-weight: 500; }
+.storage-health-table td { color: var(--text); }
+.storage-health-error { margin-top: .75rem; }
+.bridge-preview { margin: .5rem 0 1rem; padding: .75rem; border: 1px solid var(--border-soft); background: var(--sunken); color: var(--text-subtle); font-family: monospace; font-size: .85rem; white-space: pre-wrap; overflow-x: auto; }
+.settings-help-panel { margin: 1rem 0 1.25rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
+.settings-help-panel summary { cursor: pointer; padding: .8rem 1rem; color: var(--accent); font-weight: 600; }
+.settings-help-panel[open] summary { border-bottom: 1px solid var(--border-soft); }
+.settings-help-list { display: grid; gap: .6rem; margin: 1rem 1.2rem; padding-left: 1.2rem; line-height: 1.5; }
+.settings-help-panel a { color: var(--accent); }
+.settings-help { color: var(--text-subtle); line-height: 1.5; }
+
+/* Stepper-Kopf und Schritt-Uebergaenge fuer die Tailscale-/TinyTuya-Assistenten
+   (settings-stepper.html-Partial). --settings-ease ist Apples iOS-Drawer-Kurve,
+   uebernommen aus #energy-panel/#config-panel statt neu erfunden. */
+#settings-tailscale, #settings-tiny-tuya { --settings-ease: cubic-bezier(.32, .72, 0, 1); }
+/* Formsprache: die globalen button/input-Regeln in base.css sind mit 3px
+   fast kantig. Innerhalb der beiden Assistenten runder (--radius-sm, wie an
+   anderer Stelle schon fuer Karten/Kacheln verwendet) statt einer neuen
+   Radius-Stufe - bewusst nur hier, nicht global fuer alle Buttons. */
+#settings-tailscale button, #settings-tailscale input, #settings-tailscale select,
+#settings-tiny-tuya button, #settings-tiny-tuya input, #settings-tiny-tuya select {
+  border-radius: var(--radius-sm);
+}
+.settings-stepper { display: flex; align-items: center; margin: 1rem 0 1.5rem; }
+.settings-stepper-item { display: flex; align-items: center; gap: .5rem; }
+.settings-stepper-marker {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.6rem; height: 1.6rem; flex: 0 0 auto; border-radius: 50%;
+  border: 1px solid var(--border); color: var(--text-subtle);
+  font-size: .8rem; font-weight: 600;
+  transition: background-color .2s var(--settings-ease), border-color .2s var(--settings-ease),
+    color .2s var(--settings-ease), transform .2s var(--settings-ease);
+}
+.settings-stepper-item.active .settings-stepper-marker { border-color: var(--accent); color: var(--accent); transform: scale(1.08); }
+.settings-stepper-item.complete .settings-stepper-marker { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.settings-stepper-check { width: .9rem; height: .9rem; }
+.settings-stepper-label { font-size: .82rem; letter-spacing: .01em; color: var(--text-subtle); white-space: nowrap; transition: color .2s var(--settings-ease); }
+.settings-stepper-item.active .settings-stepper-label { color: var(--text); font-weight: 600; }
+.settings-stepper-connector { position: relative; flex: 1 1 auto; min-width: 1.5rem; height: 2px; margin: 0 .5rem; background: var(--border); overflow: hidden; }
+.settings-stepper-connector::after {
+  content: ''; position: absolute; inset: 0; background: var(--accent);
+  transform: scaleX(0); transform-origin: left; transition: transform .25s var(--settings-ease);
+}
+.settings-stepper-connector.filled::after { transform: scaleX(1); }
+/* Grid-Stack statt normalem Fluss: waehrend der ~200ms Ueberblendung sind
+   Alt- und Neu-Schritt beide sichtbar (x-show blendet erst am Ende auf
+   display:none) - ohne das wuerden sie sich im Blockfluss uebereinander
+   stapeln und den Inhalt darunter kurz nach unten schieben. */
+.settings-step-stack { display: grid; }
+.settings-step-stack > .settings-step { grid-area: 1 / 1; }
+.settings-step { transition: transform .2s var(--settings-ease), opacity .2s ease-out; }
+.settings-step h4 { letter-spacing: -.005em; }
+.settings-step-off-right { transform: translateX(12px); opacity: 0; }
+.settings-step-off-left { transform: translateX(-12px); opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .settings-stepper-marker, .settings-stepper-label, .settings-stepper-connector::after, .settings-step { transition-duration: .01ms; }
+  .settings-step-off-right, .settings-step-off-left { transform: none; }
+}
+/* System-Tab: gleiche Formsprache wie die Tailscale-/TinyTuya-Assistenten -
+   deshalb dieselbe --settings-ease-Variable im gleichen Geltungsbereich statt
+   einer neu erfundenen Kurve, und --radius-sm auf Buttons/Feldern statt der
+   fast kantigen 3px-Vorgabe aus base.css. */
+#settings-system { --settings-ease: cubic-bezier(.32, .72, 0, 1); }
+#settings-system button, #settings-system input, #settings-system select, #settings-system textarea {
+  border-radius: var(--radius-sm);
+}
+.system-access-panel { margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--info); border-radius: var(--radius-lg); background: var(--panel); }
+.system-access-panel .settings-help:last-of-type { margin-bottom: 0; }
+/* Badge-Aufbau (Punkt + Farbwechsel als Transition) 1:1 von
+   .runtime-status-badge uebernommen statt neu erfunden - gleiche Idiomatik,
+   gleiche Stelle in base.css als Vorbild. */
+.system-access-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .3rem .6rem; border-radius: 999px; font-size: .82rem; font-weight: 600; white-space: nowrap; transition: color .2s ease, background-color .2s ease; }
+.system-access-badge::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; transition: box-shadow .25s ease; }
+.system-access-granted { color: var(--ok); background: var(--ok-bg); }
+.system-access-guest { color: var(--warn); background: var(--warn-bg); }
+.system-access-guest::before { box-shadow: 0 0 0 4px var(--warn-bg); }
+.system-actions-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--bad-strong); border-radius: var(--radius-lg); background: var(--panel); }
+.system-actions-panel h3 { margin: 0 0 .35rem; color: var(--bad); }
+.system-actions-panel p { color: var(--text-subtle); }
+.system-action-list { display: grid; gap: .65rem; margin-top: 1rem; max-width: 32rem; }
+.system-action-danger {
+  display: flex; align-items: center; gap: .6rem;
+  border: 1px solid var(--bad-line); padding: .65rem .8rem;
+  background: var(--bad-bg); color: var(--bad-ink); cursor: pointer; text-align: left;
+  transition: background-color .15s var(--settings-ease), border-color .15s var(--settings-ease), transform .1s var(--settings-ease);
+}
+.system-action-danger svg { width: 1.15rem; height: 1.15rem; flex: none; }
+.system-action-danger:hover:not(:disabled), .system-action-danger:focus-visible { border-color: var(--bad); background: var(--bad-bg-hover); }
+/* Feedback auf dem Press, nicht erst auf dem Release - apple-design Abschnitt 1. */
+.system-action-danger:active:not(:disabled) { transform: scale(.98); }
+.system-action-danger:disabled { cursor: not-allowed; opacity: .45; }
+.system-config-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); }
+.system-config-editor { font-family: ui-monospace, monospace; }
+.system-config-actions { display: flex; gap: .6rem; margin-top: 1rem; }
+.system-config-reload-list { display: grid; gap: .3rem; margin: .75rem 0 0; padding-left: 1.2rem; color: var(--text-subtle); font-size: .85rem; }
+@media (prefers-reduced-motion: reduce) {
+  .system-access-badge, .system-access-badge::before, .system-action-danger { transition-duration: .01ms; }
+}
+.tiny-tuya-diagnostics { margin: .8rem 0; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
+.tiny-tuya-diagnostics summary { cursor: pointer; padding: .6rem .8rem; color: var(--warn); }
+.tiny-tuya-diagnostics pre { margin: 0; padding: .8rem; overflow: auto; white-space: pre-wrap; color: var(--text); }
+/* .energy-interpretation / .energy-unassigned: siehe den Energie-Rollen-Block
+   weiter oben (CSS-Umbau 2026-09, energy.html von <fieldset> auf <details>). */
+
+/* Mobil: einspaltiges Formularraster - stand vorher im 700px-Block von
+   base.css, gehoert aus demselben Grund wie der Rest hierher. */
+@media (max-width: 700px) {
+  .form-grid { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "settings": {
+    "tick_interval_s": 10,
+    "settling_seconds": 60,
+    "balance_max_age_s": 30,
+    "publish_allowed_prefixes": []
+  },
+  "rules": []
+}

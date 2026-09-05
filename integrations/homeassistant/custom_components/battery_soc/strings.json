@@ -1,0 +1,114 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Battery Configuration",
+        "description": "Configure your battery bank setup",
+        "data": {
+          "name": "Name",
+          "topology": "Battery Topology",
+          "charger_power_entity": "Charger Power Sensor (AC)",
+          "inverter_power_entity": "Inverter Power Sensor (AC)",
+          "bank_a_voltage_entity": "Bank A Voltage Sensor",
+          "bank_b_voltage_entity": "Bank B Voltage Sensor",
+          "charger_dc_power_entity": "Charger Power Sensor (DC)",
+          "inverter_dc_power_entity": "Inverter Power Sensor (DC)",
+          "bank_a_voltage_scale": "Bank A Voltage Scale",
+          "bank_b_voltage_scale": "Bank B Voltage Scale",
+          "bank_a_capacity_ah": "Bank A Capacity (Ah)",
+          "bank_b_capacity_ah": "Bank B Capacity (Ah)",
+          "bank_a_cell_count": "Bank A Cell Count",
+          "bank_b_cell_count": "Bank B Cell Count",
+          "bank_b_enabled": "Bank B Enabled",
+          "battery_chemistry": "Battery Chemistry",
+          "soc_curve": "SOC Curve Profile"
+        }
+      },
+      "advanced": {
+        "title": "Advanced Battery Parameters",
+        "description": "Configure advanced battery parameters",
+        "data": {
+          "empty_v_per_cell": "Empty Voltage per Cell (V)",
+          "full_v_per_cell": "Full Voltage per Cell (V)",
+          "charger_ac_dc_efficiency": "Charger AC/DC Efficiency",
+          "inverter_dc_ac_efficiency": "Inverter DC/AC Efficiency",
+          "charge_efficiency": "Charge Efficiency",
+          "calibration_tolerance_v_per_cell": "Calibration Tolerance (V/cell)",
+          "calibration_hold_s": "Calibration Hold Duration (s)",
+          "voltage_soc_mismatch_warn_pct": "Voltage/SOC Mismatch Warning (%)",
+          "voltage_mismatch_hold_s": "Voltage Mismatch Hold Duration (s)",
+          "imbalance_warn_v": "Imbalance Warning Threshold (V)",
+          "stale_input_s": "Stale Input Timeout (s)",
+          "dc_max_age_s": "DC Measurement Max Age (s)",
+          "require_fresh_inputs": "Require Fresh Inputs",
+          "internal_resistance_mohm_per_cell": "Internal Resistance (mΩ/cell)",
+          "fallback_interval_s": "Fallback Interval (s)"
+        }
+      }
+    },
+    "error": {
+      "bank_b_voltage_required": "Bank B voltage sensor is required for series topology",
+      "unknown": "Unknown error",
+      "invalid_config": "Invalid configuration"
+    },
+    "abort": {
+      "already_configured": "Battery configuration already exists"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Power & Voltage Sources",
+        "description": "Configure power and voltage measurement sources",
+        "data": {
+          "charger_power_entity": "Charger Power Sensor (AC)",
+          "inverter_power_entity": "Inverter Power Sensor (AC)",
+          "bank_a_voltage_entity": "Bank A Voltage Sensor",
+          "bank_b_voltage_entity": "Bank B Voltage Sensor",
+          "charger_dc_power_entity": "Charger Power Sensor (DC)",
+          "inverter_dc_power_entity": "Inverter Power Sensor (DC)",
+          "bank_a_voltage_scale": "Bank A Voltage Scale",
+          "bank_b_voltage_scale": "Bank B Voltage Scale",
+          "fallback_interval_s": "Fallback Interval (s)"
+        }
+      },
+      "tunables": {
+        "title": "Tunable Battery Parameters",
+        "description": "Fine-tune battery calculation parameters",
+        "data": {
+          "empty_v_per_cell": "Empty Voltage per Cell (V)",
+          "full_v_per_cell": "Full Voltage per Cell (V)",
+          "charger_ac_dc_efficiency": "Charger AC/DC Efficiency",
+          "inverter_dc_ac_efficiency": "Inverter DC/AC Efficiency",
+          "charge_efficiency": "Charge Efficiency",
+          "calibration_tolerance_v_per_cell": "Calibration Tolerance (V/cell)",
+          "calibration_hold_s": "Calibration Hold Duration (s)",
+          "voltage_soc_mismatch_warn_pct": "Voltage/SOC Mismatch Warning (%)",
+          "voltage_mismatch_hold_s": "Voltage Mismatch Hold Duration (s)",
+          "imbalance_warn_v": "Imbalance Warning Threshold (V)",
+          "stale_input_s": "Stale Input Timeout (s)",
+          "dc_max_age_s": "DC Measurement Max Age (s)",
+          "require_fresh_inputs": "Require Fresh Inputs",
+          "internal_resistance_mohm_per_cell": "Internal Resistance (mΩ/cell)",
+          "fallback_interval_s": "Fallback Interval (s)"
+        }
+      }
+    }
+  },
+  "services": {
+    "set_state_of_charge": {
+      "name": "Set State of Charge",
+      "description": "Manually set the battery state of charge",
+      "fields": {
+        "state_of_charge": {
+          "name": "State of Charge",
+          "description": "SOC value (0-100%)"
+        },
+        "bank": {
+          "name": "Bank",
+          "description": "Battery bank (a or b)"
+        }
+      }
+    }
+  }
+}

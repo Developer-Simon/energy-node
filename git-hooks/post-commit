@@ -1,0 +1,79 @@
+#!/usr/bin/env bash
+#
+# On any branch other than main, tags the commit just created with a
+# pre-release version instead of bumping VERSION (that only happens on
+# main, see pre-commit):
+#
+#   <major>.<minor>.<patch>-<branch>.<build>
+#
+# <major>.<minor>.<patch> is the current, unbumped version from the
+# touched component's VERSION file. <branch> is the current branch name
+# with "/" and other characters unsafe in tag names replaced by "-".
+# <build> is a per-branch sequence number: 1 plus the highest existing
+# build number among tags ending in "-<branch>.<n>", shared across
+# components so that a commit touching both dashboard/ and src/ gets the
+# same build number for both tags (component collisions in the tag name
+# itself are fine -- they just mean two components happened to be at the
+# same version).
+#
+# These tags are local-only scratch markers; post-merge removes them
+# again once the branch lands on main. Not tracked by git itself -
+# installed into .git/hooks/ via scripts/install_git_hooks.sh.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "${repo_root}"
+source "${repo_root}/git-hooks/lib.sh"
+
+branch="$(current_branch)"
+if [[ -z "${branch}" || "${branch}" == "main" ]]; then
+  exit 0
+fi
+safe_branch="$(sanitize_branch "${branch}")"
+
+changed_files="$(git diff-tree --no-commit-id --name-only -r HEAD)"
+
+versions=()
+for component in "${COMPONENTS[@]}"; do
+  dir_prefix="${component%%:*}"
+  version_file="${component#*:}"
+
+  if ! component_touched "${dir_prefix}" "${version_file}" "${changed_files}"; then
+    continue
+  fi
+  if [[ ! -f "${version_file}" ]]; then
+    echo "post-commit: ${version_file} fehlt, ueberspringe Pre-Tag" >&2
+    continue
+  fi
+
+  current="$(read_component_version "${version_file}")"
+  if [[ ! "${current}" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+    echo "post-commit: ${version_file} hat unerwartetes Format '${current}', ueberspringe Pre-Tag" >&2
+    continue
+  fi
+  versions+=("${BASH_REMATCH[1]}")
+done
+
+if [[ "${#versions[@]}" -eq 0 ]]; then
+  exit 0
+fi
+
+max_build=0
+while IFS= read -r existing_tag; do
+  [[ -z "${existing_tag}" ]] && continue
+  if [[ "${existing_tag}" =~ \.([0-9]+)$ ]]; then
+    n="${BASH_REMATCH[1]}"
+    [[ "${n}" -gt "${max_build}" ]] && max_build="${n}"
+  fi
+done < <(git tag -l "*-${safe_branch}.*")
+build=$((max_build + 1))
+
+for version in "${versions[@]}"; do
+  tag_name="${version}-${safe_branch}.${build}"
+  if git rev-parse -q --verify "refs/tags/${tag_name}" >/dev/null; then
+    echo "post-commit: Tag ${tag_name} existiert bereits, ueberspringe"
+    continue
+  fi
+  git tag "${tag_name}"
+  echo "post-commit: Pre-Release-Tag ${tag_name} erstellt"
+done

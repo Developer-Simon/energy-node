@@ -1,0 +1,33 @@
+{
+  "version": 2,
+  "pages": [
+    {
+      "id": "start",
+      "name": "Start",
+      "order": 0,
+      "groups": [
+        {
+          "id": "energie",
+          "name": "Energie",
+          "items": [
+            {"id": "energy_status:1", "type": "energy_status", "span": "2", "visible": true, "x": 0, "y": 0, "w": 2, "h": 1},
+            {"id": "energy_summary:1", "type": "energy_summary", "span": "2", "visible": true, "x": 2, "y": 0, "w": 2, "h": 1},
+            {"id": "energy_flow:1", "type": "energy_flow", "span": "full", "visible": true, "x": 0, "y": 1, "w": 4, "h": 2, "flow_scale": "width"},
+            {"id": "energy_ring:1", "type": "energy_ring", "span": "2", "visible": true, "x": 0, "y": 3, "w": 2, "h": 2},
+            {"id": "energy_schema:1", "type": "energy_schema", "span": "2", "visible": true, "x": 2, "y": 3, "w": 2, "h": 2},
+            {"id": "energy_band:1", "type": "energy_band", "span": "full", "visible": true, "x": 0, "y": 5, "w": 4, "h": 2},
+            {"id": "energy_day:1", "type": "energy_day", "span": "2", "visible": true, "x": 0, "y": 7, "w": 2, "h": 2},
+            {"id": "energy_board:1", "type": "energy_board", "span": "2", "visible": true, "x": 2, "y": 7, "w": 2, "h": 2}
+          ]
+        },
+        {
+          "id": "system",
+          "name": "System",
+          "items": [
+            {"id": "diagnostics:1", "type": "diagnostics", "span": "2", "visible": true, "x": 0, "y": 9, "w": 2, "h": 1}
+          ]
+        }
+      ]
+    }
+  ]
+}

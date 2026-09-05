@@ -1,0 +1,46 @@
+{
+  "title": "Mosquitto bridge configuration (aussenstandort -> hauptsystem)",
+  "description": "Typed model the server renders into /etc/mosquitto/conf.d/bridge.conf. Never accepted as free text - see knowhow/dashboard/dashboard-mqtt-setup.md, Teil B.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["connections"],
+  "properties": {
+    "connections": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["enabled", "name", "address", "port", "remote_client_id", "topics", "try_private", "start_type_auto", "restart_timeout", "keepalive_seconds", "cleansession"],
+        "properties": {
+          "enabled": {"type": "boolean", "default": false, "title": "Enabled"},
+          "name": {"type": "string", "title": "Connection name"},
+          "address": {"type": "string", "title": "Address of the main system broker"},
+          "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 1883, "title": "Port"},
+          "remote_client_id": {"type": "string", "title": "Remote client ID"},
+          "remote_username": {"type": "string", "title": "Remote username"},
+          "topics": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["pattern", "direction", "qos"],
+              "properties": {
+                "pattern": {"type": "string", "title": "Topic pattern"},
+                "direction": {"type": "string", "enum": ["in", "out", "both"], "title": "Direction"},
+                "qos": {"type": "integer", "minimum": 0, "maximum": 2, "title": "QoS"},
+                "comment": {"type": "string", "title": "Comment (UI only, not rendered)"}
+              }
+            }
+          },
+          "try_private": {"type": "boolean", "default": true, "title": "try_private"},
+          "start_type_auto": {"type": "boolean", "default": true, "title": "start_type automatic"},
+          "restart_timeout": {"type": "integer", "minimum": 5, "maximum": 600, "default": 30, "title": "restart_timeout"},
+          "keepalive_seconds": {"type": "integer", "minimum": 10, "maximum": 300, "default": 60, "title": "keepalive_interval"},
+          "cleansession": {"type": "boolean", "default": false, "title": "cleansession"}
+        }
+      }
+    }
+  }
+}

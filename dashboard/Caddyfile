@@ -1,0 +1,35 @@
+{
+    auto_https disable_redirects
+}
+
+# Das Dashboard erzeugt root-relative URLs, solange kein Praefix-Header
+# ankommt. Wer es unter /node/ ausliefert, muss X-Forwarded-Prefix setzen,
+# sonst zeigt /node/ nur den 401-Text statt des Login-Screens.
+# Siehe knowhow/dashboard/reverse-proxy.md.
+(dashboard) {
+    @not_sse {
+        not path /api/v1/events
+    }
+    encode @not_sse zstd gzip
+
+    redir /node /node/ 308
+    handle_path /node/* {
+        reverse_proxy 127.0.0.1:8080 {
+            header_up X-Forwarded-Prefix /node
+        }
+    }
+    handle {
+        reverse_proxy 127.0.0.1:8080
+    }
+}
+
+:80 {
+    import dashboard
+}
+
+:443 {
+    tls internal {
+        on_demand
+    }
+    import dashboard
+}

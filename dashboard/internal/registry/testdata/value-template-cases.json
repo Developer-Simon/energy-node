@@ -1,0 +1,45 @@
+[
+  {"name": "empty_template_returns_the_raw_payload", "template": "", "payload": "42.5", "expect": "42.5"},
+  {"name": "flat_float_drops_the_trailing_zero", "template": "{{ value_json.soc }}", "payload": "{\"soc\": 80.0}", "expect": "80"},
+  {"name": "flat_float_keeps_real_decimals", "template": "{{ value_json.soc }}", "payload": "{\"soc\": 80.5}", "expect": "80.5"},
+  {"name": "float_below_one", "template": "{{ value_json.v }}", "payload": "{\"v\": 0.5}", "expect": "0.5"},
+  {"name": "negative_float", "template": "{{ value_json.v }}", "payload": "{\"v\": -12.25}", "expect": "-12.25"},
+
+  {"name": "exponent_boundary_stays_fixed_below_1e6", "template": "{{ value_json.v }}", "payload": "{\"v\": 999999}", "expect": "999999"},
+  {"name": "exponent_boundary_flips_at_1e6", "template": "{{ value_json.v }}", "payload": "{\"v\": 1000000}", "expect": "1e+06"},
+  {"name": "exponent_keeps_significant_digits", "template": "{{ value_json.v }}", "payload": "{\"v\": 1523400}", "expect": "1.5234e+06"},
+  {"name": "six_digit_decimal_stays_fixed", "template": "{{ value_json.v }}", "payload": "{\"v\": 123456.7}", "expect": "123456.7"},
+  {"name": "small_value_stays_fixed_at_1e-4", "template": "{{ value_json.v }}", "payload": "{\"v\": 0.0001}", "expect": "0.0001"},
+  {"name": "small_value_flips_below_1e-4", "template": "{{ value_json.v }}", "payload": "{\"v\": 0.00001}", "expect": "1e-05"},
+
+  {"name": "bool_true_is_lowercase", "template": "{{ value_json.on }}", "payload": "{\"on\": true}", "expect": "true"},
+  {"name": "bool_false_is_lowercase", "template": "{{ value_json.on }}", "payload": "{\"on\": false}", "expect": "false"},
+  {"name": "string_passes_through", "template": "{{ value_json.mode }}", "payload": "{\"mode\": \"ON\"}", "expect": "ON"},
+
+  {"name": "nested_path", "template": "{{ value_json.bank['soc'] }}", "payload": "{\"bank\": {\"soc\": 61}}", "expect": "61"},
+  {"name": "nested_path_double_quotes", "template": "{{ value_json.bank[\"soc\"] }}", "payload": "{\"bank\": {\"soc\": 61}}", "expect": "61"},
+
+  {"name": "int_filter_with_spaces_truncates", "template": "{{ value_json.ts | int }}", "payload": "{\"ts\": 1754870400}", "expect": "1754870400"},
+  {"name": "int_filter_truncates_towards_zero", "template": "{{ value_json.v | int }}", "payload": "{\"v\": 80.9}", "expect": "80"},
+  {"name": "int_filter_without_spaces_does_NOT_apply", "template": "{{ value_json.ts|int }}", "payload": "{\"ts\": 1754870400}", "expect": "1.7548704e+09"},
+
+  {"name": "default_zero_with_spaces_fills_a_missing_key", "template": "{{ value_json.missing | default(0) }}", "payload": "{\"other\": 1}", "expect": "0"},
+  {"name": "default_zero_without_spaces_does_NOT_apply", "template": "{{ value_json.missing|default(0) }}", "payload": "{\"other\": 1}", "expect": ""},
+  {"name": "missing_key_without_default_is_empty", "template": "{{ value_json.missing }}", "payload": "{\"other\": 1}", "expect": ""},
+  {"name": "null_value_counts_as_missing", "template": "{{ value_json.v }}", "payload": "{\"v\": null}", "expect": ""},
+
+  {"name": "bool_form_true", "template": "{{ 'ON' if value_json.flag else 'OFF' }}", "payload": "{\"flag\": true}", "expect": "ON"},
+  {"name": "bool_form_false", "template": "{{ 'ON' if value_json.flag else 'OFF' }}", "payload": "{\"flag\": false}", "expect": "OFF"},
+  {"name": "bool_form_zero_is_falsy", "template": "{{ 'ON' if value_json.flag else 'OFF' }}", "payload": "{\"flag\": 0}", "expect": "OFF"},
+  {"name": "bool_form_nonzero_is_truthy", "template": "{{ 'ON' if value_json.flag else 'OFF' }}", "payload": "{\"flag\": 3}", "expect": "ON"},
+  {"name": "bool_form_empty_string_is_falsy", "template": "{{ 'ON' if value_json.flag else 'OFF' }}", "payload": "{\"flag\": \"\"}", "expect": "OFF"},
+  {"name": "bool_form_nonempty_string_is_truthy", "template": "{{ 'ON' if value_json.flag else 'OFF' }}", "payload": "{\"flag\": \"x\"}", "expect": "ON"},
+  {"name": "bool_form_null_short_circuits_to_empty", "template": "{{ 'ON' if value_json.flag else 'OFF' }}", "payload": "{\"flag\": null}", "expect": ""},
+
+  {"name": "non_json_payload_falls_back_to_raw", "template": "{{ value_json.v }}", "payload": "not json at all", "expect": "not json at all"},
+  {"name": "json_array_payload_falls_back_to_raw", "template": "{{ value_json.v }}", "payload": "[1, 2, 3]", "expect": "[1, 2, 3]"},
+  {"name": "unsupported_template_falls_back_to_raw", "template": "{{ value_json.a.b.c }}", "payload": "{\"a\": 1}", "expect": "{\"a\": 1}"},
+
+  {"name": "timestamp_local_formats_rfc3339", "template": "{{ value_json.ts | timestamp_local }}", "payload": "{\"ts\": 1754870400}", "expect": "2025-08-11T02:00:00+02:00", "tz": "Europe/Berlin"},
+  {"name": "timestamp_local_in_winter", "template": "{{ value_json.ts | timestamp_local }}", "payload": "{\"ts\": 1739000000}", "expect": "2025-02-08T08:33:20+01:00", "tz": "Europe/Berlin"}
+]

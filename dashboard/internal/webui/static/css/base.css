@@ -1,0 +1,1562 @@
+/* Farbschemata. Alle Farben der Oberfläche laufen über diese Tokens; die
+   Auswahl steht als data-theme auf <html> und wird serverseitig gerendert
+   (webui.go -> base.html), damit beim ersten Aufbau nichts umspringt.
+   :root ist Mint und damit gleichzeitig der Rückfallwert. */
+:root {
+  color-scheme: dark;
+
+  --bg: #111418;
+  --panel: #171a20;
+  --panel-alt: #1c2027;
+  --sunken: #12151a;
+  --track: #26303a;
+
+  --border: #46515d;
+  --border-soft: #333333;
+
+  --text-strong: #f0f3f6;
+  --text: #e6e6e6;
+  --text-subtle: #b8c7d9;
+  --text-muted: #8b949e;
+  --text-faint: #68717d;
+
+  --accent: #9fd;
+  --accent-ink: #0f1216;
+  --accent-soft: #9fe5d0;
+  --accent-line: #4d9c87;
+  --accent-bg: #18321f;
+
+  --ok: #8fdb8f;
+  --ok-bg: #18321f;
+  --ok-line: #4d9c87;
+
+  --warn: #e9cf68;
+  --warn-bg: #382f16;
+  --warn-line: #c6944f;
+
+  --bad: #f08b8b;
+  --bad-strong: #e06868;
+  --bad-bg: #351b1b;
+  --bad-bg-hover: #4a1e24;
+  --bad-line: #9a4d55;
+  --bad-ink: #ffd9dd;
+
+  --info: #86c5da;
+  --info-bg: #1b3540;
+  --info-line: #7cb9f2;
+
+  /* Kategoriale Datenfarben. Bleiben über die drei Dark-Themes konstant,
+     weil sie Rollen kennzeichnen und nicht die Theme-Identität tragen. */
+  --flow-pv: #f3c969;
+  --flow-grid: #7cb9f2;
+  --flow-battery: #d69af5;
+  --flow-load: #ff9d7a;
+  --flow-wallbox: #ffc9b3;
+  --flow-heatpump: #cf6c47;
+  --flow-measured: #e8748f;
+  --flow-rest: #7d8792;
+
+  --series-1: #9fd;
+  --series-2: #f0a36b;
+  --series-3: #86c5da;
+  --series-4: #d99adf;
+  --series-5: #a8d08d;
+  --series-6: #e9cf68;
+
+  /* Radius-Skala, bisher nur als Literale (4px/9px/12px) verstreut. Neu
+     eingefuehrt fuer device-tile/entity-list-item; andere Stellen bleiben
+     unangetastet, um den Umbau auf die Geraete-Seite zu begrenzen. */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+
+  /* Umlaufzeit der Energie-Laufschriften (.energy-flow-line.is-active,
+     .energy-ring-flow-dash, .energy-band-flow-dash). Muss mit
+     DEFAULT_DASH_SECONDS in energy-presentation.js uebereinstimmen, sonst
+     rechnet die Phasenfortschreibung ueber den outerHTML-Tausch falsch. */
+  --energy-dash-duration: 1.4s;
+
+  /* Kraeftige ease-out-Kurve fuer UI-Bewegung (staerker als das native
+     ease-out des Browsers). Bisher nur vom Masthead-Einzug genutzt. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  /* Entschleunigungskurve fuer Flaechen, die auffahren (Toolbox, Modal,
+     Aufklappen). Wertgleich mit --config-ease/--energy-ease, aber eigener
+     Name: sie gilt hier auch ausserhalb eines Panels. */
+  --layout-ease: cubic-bezier(.32, .72, 0, 1);
+  /* Bewegung AUF dem Schirm (Umbruch, Zielbreitenwechsel) - nicht Ein/Austritt. */
+  --ease-in-out: cubic-bezier(.77, 0, .175, 1);
+}
+
+:root[data-theme="stromblau"] {
+  --bg: #0c1420;
+  --panel: #131f2f;
+  --panel-alt: #1a2a3d;
+  --sunken: #091019;
+  --track: #1f3245;
+  --border: #34506b;
+  --border-soft: #1f3245;
+  --text-strong: #eef5fb;
+  --text: #dce7f2;
+  --text-subtle: #a9bdd0;
+  --text-muted: #7f97ac;
+  --text-faint: #5d7288;
+  --accent: #5ec8ff;
+  --accent-ink: #0a1520;
+  --accent-soft: #a9dcf7;
+  --accent-line: #2f7fa8;
+  --accent-bg: #10283a;
+  --ok: #8fdb8f;
+  --ok-bg: #122a1e;
+  --ok-line: #3f8f6d;
+  --warn: #e9cf68;
+  --warn-bg: #332a12;
+  --warn-line: #b98c4c;
+  --bad: #f08b8b;
+  --bad-strong: #e0797e;
+  --bad-bg: #331b1f;
+  --bad-bg-hover: #452229;
+  --bad-line: #8d4a55;
+  --bad-ink: #ffd9dd;
+  --info: #86c5da;
+  --info-bg: #173248;
+  --info-line: #7ab8ff;
+  --series-1: #5ec8ff;
+  --series-2: #f0a36b;
+  --series-3: #a8d08d;
+  --series-4: #d99adf;
+  --series-5: #86c5da;
+  --series-6: #e9cf68;
+}
+
+:root[data-theme="signalgelb"] {
+  --bg: #131313;
+  --panel: #1e1e1e;
+  --panel-alt: #272727;
+  --sunken: #0d0d0d;
+  --track: #2f2f2f;
+  --border: #3d3d3d;
+  --border-soft: #2a2a2a;
+  --text-strong: #ffffff;
+  --text: #f2f2f0;
+  --text-subtle: #c2c2ba;
+  --text-muted: #9a9a94;
+  --text-faint: #6e6e69;
+  --accent: #f5c400;
+  --accent-ink: #171400;
+  --accent-soft: #ffe066;
+  --accent-line: #8a7000;
+  --accent-bg: #2b2400;
+  --ok: #8fdb8f;
+  --ok-bg: #1c2a18;
+  --ok-line: #4d9c87;
+  --warn: #ff9d42;
+  --warn-bg: #3a2210;
+  --warn-line: #c9762c;
+  --bad: #f2665c;
+  --bad-strong: #f2665c;
+  --bad-bg: #3a1414;
+  --bad-bg-hover: #4d1a1a;
+  --bad-line: #9c4239;
+  --bad-ink: #ffdad6;
+  --info: #86c5da;
+  --info-bg: #17303a;
+  --info-line: #7cb9f2;
+  /* Einziger Fall, in dem ein Dark-Theme eine Datenfarbe anfasst: das
+     ursprüngliche PV-Gelb #f3c969 verschmilzt mit dem Akzent #f5c400. */
+  --flow-pv: #e8b23a;
+  --series-1: #f5c400;
+  --series-2: #7cb9f2;
+  --series-3: #a8d08d;
+  --series-4: #d99adf;
+  --series-5: #ff9d7a;
+  --series-6: #86c5da;
+}
+
+:root[data-theme="tageslicht"] {
+  color-scheme: light;
+  --bg: #f3f1ec;
+  --panel: #ffffff;
+  --panel-alt: #eceae4;
+  --sunken: #e6e3dc;
+  --track: #dfddd6;
+  --border: #c3c9cf;
+  --border-soft: #e0e3e6;
+  --text-strong: #0d1116;
+  --text: #1b2027;
+  --text-subtle: #3f4750;
+  --text-muted: #5b6570;
+  --text-faint: #838c95;
+  --accent: #0f9e7a;
+  --accent-ink: #ffffff;
+  --accent-soft: #0b6b53;
+  --accent-line: #0b7a5e;
+  --accent-bg: #e2f4ee;
+  --ok: #1f8f4f;
+  --ok-bg: #e3f5ea;
+  --ok-line: #2f8f5f;
+  --warn: #8a5f0f;
+  --warn-bg: #fbf0d9;
+  --warn-line: #b98a2e;
+  --bad: #c23b3b;
+  --bad-strong: #a92e2e;
+  --bad-bg: #fbe4e4;
+  --bad-bg-hover: #f6d2d2;
+  --bad-line: #d08a8a;
+  --bad-ink: #5a1616;
+  --info: #2f7fa8;
+  --info-bg: #e3f0f6;
+  --info-line: #3d7fc4;
+  --flow-pv: #c98a1f;
+  --flow-grid: #3d7fc4;
+  --flow-battery: #8c4fc4;
+  --flow-load: #d2593a;
+  --flow-wallbox: #e08a6a;
+  --flow-heatpump: #a8452a;
+  --flow-measured: #b83a56;
+  --flow-rest: #8a939c;
+  --series-1: #0f9e7a;
+  --series-2: #c2661f;
+  --series-3: #2f7fa8;
+  --series-4: #8c4fc4;
+  --series-5: #4a8f2f;
+  --series-6: #8a5f0f;
+}
+
+body { font-family: system-ui, sans-serif; padding: 2rem 1.5rem; background: var(--bg); color: var(--text); }
+/* Nur der Panel-Inhalt wird gedeckelt, Ueberschrift und Tab-Leiste bleiben
+   immer volle Breite - anders als frueher, wo body selbst die Deckelung trug
+   und Header/Nav beim Tab-Wechsel mitgesprungen sind. */
+.page-content { max-width: var(--page-max, 1180px); margin: 0 auto; }
+/* App-Masthead (base.html). Steht ausserhalb von .page-content, also volle
+   Breite und linksbuendig. Typo nach apple-design Abschnitt 15: grosser
+   Display-Text bekommt negatives Tracking und enges Leading, Praesenz kommt
+   ueber das Gewicht statt ueber noch mehr Groesse. */
+.masthead { margin-bottom: 1.5rem; }
+.masthead h1 {
+  margin: 0 0 .15rem;
+  font-size: clamp(1.6rem, 1.2rem + 1.8vw, 2.15rem);
+  line-height: 1.05;
+  letter-spacing: -0.021em;
+  font-weight: 640;
+  font-optical-sizing: auto;
+  color: var(--text-strong);
+  text-wrap: balance;
+}
+.masthead small {
+  display: block;
+  font-size: .85rem;
+  color: var(--text-muted);
+}
+/* Einmaliger Einzug beim ersten Paint - laeuft off-main-thread als
+   CSS-Animation, waehrend Alpine und die Panels booten. Der Header wird beim
+   Tab-Wechsel nie neu gerendert, die Animation also genau einmal pro
+   Seitenaufruf. Untertitel 70ms versetzt. Gleiche Guard-Konvention wie das
+   Modal weiter unten (@starting-style unter no-preference). */
+@media (prefers-reduced-motion: no-preference) {
+  .masthead h1,
+  .masthead small {
+    animation: masthead-rise .42s var(--ease-out) both;
+  }
+  .masthead small { animation-delay: .07s; }
+}
+@keyframes masthead-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+/* Reduced motion: nur der Deckungs-Uebergang, keine Verschiebung. */
+@media (prefers-reduced-motion: reduce) {
+  .masthead h1,
+  .masthead small {
+    animation: masthead-fade .25s ease both;
+  }
+  .masthead small { animation-delay: .05s; }
+}
+@keyframes masthead-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* Tab-Leiste (base.html). Frueher Folder-Tab-Optik mit gerundeten Ecken,
+   1px-Rahmen und ueberlappender Kante; jetzt ein flacher Streifen, dessen
+   einziger aktiver Indikator ein gleitender Akzent-Unterstrich ist
+   (apple-design 7/15: Zustand ueber Position + Farbe, nicht ueber Chrome).
+   Die harte Trennlinie darunter wird zur weichen Hairline (Abschnitt 12).
+   Der Umbruch auf mehrere Zeilen bleibt unveraendert. */
+nav { display: flex; gap: .1rem; align-items: flex-end; flex-wrap: wrap; margin: 1.5rem 0 1.25rem; border-bottom: 1px solid var(--border-soft); padding: 0 .35rem; }
+nav button { position: relative; background: transparent; color: var(--text-subtle); border: 0; border-radius: 7px 7px 0 0; padding: .6rem .8rem .7rem; cursor: pointer; font: inherit; font-size: .92rem; transition: color .18s var(--ease-out), background-color .18s var(--ease-out), transform .1s var(--ease-out); }
+/* Gleitender Unterstrich: pro Tab ein ::after, das per scaleX ein- und
+   ausfaehrt. Beim Tab-Wechsel schrumpft der alte, waehrend der neue waechst -
+   Transition (kein Keyframe), damit ein schneller Doppelklick sauber
+   retargetet. Das -1px legt den Strich exakt auf die nav-Hairline. */
+nav button::after { content: ''; position: absolute; left: .5rem; right: .5rem; bottom: -1px; height: 2px; border-radius: 2px; background: var(--accent); transform: scaleX(0); transition: transform .2s var(--ease-out); }
+nav button.active::after { transform: scaleX(1); }
+nav button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+nav button.active { color: var(--accent); }
+/* Hover nur mit echtem Zeiger - Touch loest sonst beim Tippen einen
+   Phantom-Hover aus (animate: Pointer-Gating). */
+@media (hover: hover) and (pointer: fine) {
+  nav button:hover { background: var(--panel-alt); color: var(--text); }
+}
+/* Rueckmeldung auf pointer-down, nicht erst beim click (apple-design 1). */
+nav button:active { transform: scale(.97); }
+/* Der Menue-Ausloeser existiert im Markup immer, ist aber nur unterhalb
+   700px sichtbar - der einzige Zusatz dieses Bauteils, der auf allen
+   Breiten gilt. */
+.nav-menu-toggle { display: none; }
+.nav-menu-chevron { width: 0; height: 0; border-left: .35rem solid transparent; border-right: .35rem solid transparent; border-top: .4rem solid currentColor; transition: transform .24s var(--ease-out); }
+.nav-menu-toggle[aria-expanded="true"] .nav-menu-chevron { transform: rotate(180deg); }
+section.panel { display: none; }
+section.panel.active { display: block; }
+/* Sanfter Einzug beim Tab-Wechsel - ueberbrueckt den harten display-Sprung
+   (animate: "jarring change" vermeiden). Keyframe statt Transition, weil der
+   Panelwechsel ueber display:none laeuft; laeuft pro Aktivierung einmal frisch
+   von 0. Bei reduzierter Bewegung nur die Deckung, ohne Verschiebung. */
+@media (prefers-reduced-motion: no-preference) {
+  section.panel.active { animation: panel-enter .16s var(--ease-out) both; }
+}
+@keyframes panel-enter {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  section.panel.active { animation: panel-fade .16s ease both; }
+  nav button::after { transition: none; }
+  nav button:active { transform: none; }
+  .nav-menu-chevron { transition: none; }
+}
+@keyframes panel-fade { from { opacity: 0; } to { opacity: 1; } }
+.toolbar { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; margin: 1rem 0; }
+input, select, textarea { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 3px; padding: .5rem; }
+input:disabled, select:disabled, textarea:disabled { background: repeating-linear-gradient(135deg, var(--panel), var(--panel) 6px, var(--panel-alt) 6px, var(--panel-alt) 12px); color: var(--text-faint); border-color: var(--border-soft); cursor: not-allowed; opacity: .7; }
+textarea { width: 100%; min-height: 18rem; box-sizing: border-box; font-family: ui-monospace, monospace; }
+/* Buttons ohne eigene Klasse rendern sonst als nativer Browser-Button und
+   folgen keinem Theme. Vorbild ist .icon-button weiter unten, nur mit
+   automatischer Breite, weil diese Buttons Text statt Icon tragen. Alle
+   klassen-selektierten Buttons setzen border/padding/background selbst und
+   gewinnen über die höhere Spezifität. */
+button {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: .55rem .9rem;
+  font: inherit;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+button:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--accent-line); color: var(--accent-soft); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: not-allowed; }
+button.primary { background: var(--accent); color: var(--bg); border: 0; border-radius: 3px; padding: .55rem .9rem; cursor: pointer; }
+
+/* Quadratischer Icon-Button. Vorbild und Vorgaenger war
+   .devicemap-edit-button in manager.css - er steht jetzt hier, weil ausser
+   der Device-Map auch der Automations-Tab ihn braucht und base.css auf jeder
+   Seite geladen wird. Wer nur ein Icon traegt, braucht title UND aria-label;
+   .labeled traegt zusaetzlich Text und waechst dafuer in der Breite.
+   Die drei Klassen im Hover-Selektor schlagen bewusst die zwei aus
+   button:hover:not(:disabled) weiter oben. */
+.icon-button {
+  display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+  width: 2.1rem; height: 2.1rem; padding: 0;
+  border: 1px solid var(--info-line); border-radius: 3px;
+  background: var(--panel); color: var(--info-line);
+  font: inherit; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, transform .1s ease;
+}
+.icon-button svg { width: 1.15rem; height: 1.15rem; flex: none; }
+/* Ikonen aus dem Sprite (<use href="#ico-...">). Die <symbol> in base.html
+   bringen weder fill noch stroke mit - beides setzt der Aufrufer, sonst
+   rendern Rect und Path mit der SVG-Standardfuellung Schwarz. .automation-icon
+   ist der projektweit benutzte Klassenname dafuer; er stand bis 2026-09
+   doppelt in automations.css und history.css und fehlte jedem Panel, das
+   keine der beiden Dateien laedt. */
+.automation-icon { width: 1.15rem; height: 1.15rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.icon-button.labeled { width: auto; padding: 0 .7rem; font-size: .85rem; }
+.icon-button:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--info-line); color: var(--info-line); }
+/* Feedback auf dem Press, nicht erst auf dem Release - siehe apple-design
+   Skill Abschnitt 1 ("Response"). scale(.94) statt .97: Icon-Buttons sind
+   klein und quadratisch, ein staerkerer Ausschlag bleibt hier noch spuerbar. */
+.icon-button:active:not(:disabled) { transform: scale(.94); }
+.icon-button:focus-visible { outline: 2px solid var(--info-line); outline-offset: 2px; }
+.icon-button:disabled { opacity: .5; cursor: not-allowed; }
+.icon-button.active { background: var(--info-line); color: var(--bg); }
+.icon-button.accent { border-color: var(--accent-line); color: var(--accent); }
+.icon-button.accent:hover:not(:disabled) { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+/* Ausdruecklich hier definiert und nicht dem button.primary weiter oben
+   ueberlassen: dessen padding (.55rem .9rem) wuerde das padding:0 des
+   Icon-Buttons schlagen, weil button.primary eine Klasse UND ein Element
+   nennt. */
+.icon-button.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); padding: 0; }
+.icon-button.labeled.primary { padding: 0 .7rem; }
+.icon-button.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent-line); color: var(--bg); }
+.icon-button.danger { border-color: var(--bad-line); color: var(--bad-ink); background: var(--bad-bg); }
+.icon-button.danger:hover:not(:disabled) { border-color: var(--bad); background: var(--bad-bg-hover); color: var(--bad-ink); }
+
+/* Apple-Schalter fuer Ein/Aus-Felder. Steht hier statt in manager.css, weil
+   ihn ausser den Managerseiten auch das Optionsmodal des Layout-Editors
+   benutzt, das manager.css nicht laedt. Der Klickpfad laeuft ueber das
+   umschliessende <label> - das <input> ist 1px gross und durchsichtig,
+   ein blosses <span> um Track und Thumb schaltet nichts. */
+.settings-toggle { position: relative; display: inline-flex; flex: 0 0 auto; align-items: center; width: 3rem; height: 1.65rem; }
+.settings-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.settings-toggle-track { display: flex; width: 100%; height: 100%; align-items: center; padding: .2rem; box-sizing: border-box; border: 1px solid var(--border); border-radius: 999px; background: var(--track); transition: background .15s ease, border-color .15s ease; }
+.settings-toggle-thumb { width: 1.1rem; height: 1.1rem; border-radius: 50%; background: var(--text-subtle); transition: transform .15s ease, background .15s ease; }
+.settings-toggle input:checked + .settings-toggle-track { border-color: var(--accent-line); background: var(--accent-bg); }
+.settings-toggle input:checked + .settings-toggle-track .settings-toggle-thumb { transform: translateX(1.35rem); background: var(--ok); }
+.settings-toggle input:focus-visible + .settings-toggle-track { outline: 2px solid var(--accent); outline-offset: 2px; }
+.settings-toggle input:disabled + .settings-toggle-track { opacity: .5; cursor: not-allowed; background: repeating-linear-gradient(135deg, var(--track), var(--track) 5px, var(--panel-alt) 5px, var(--panel-alt) 10px); }
+
+/* Hilfe-Popover an einem Feldnamen. Bewusst ohne Tippy: die Regel-Liste des
+   Automations-Tabs ist durchgehend x-for, Alpine erzeugt die Knoten bei jeder
+   Aenderung neu - Tippy-Instanzen muessten dann jedes Mal nachgezogen und
+   aufgeraeumt werden. visibility statt display haelt den Text aus dem
+   Barrierefreiheitsbaum, solange er unsichtbar ist; :focus-within laesst ihn
+   per Tastatur und per Fingertipp erscheinen. */
+.field-help { position: relative; display: inline-flex; align-items: center; }
+.field-help-trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 1.4rem; height: 1.4rem; padding: 0;
+  border: 0; background: transparent; color: var(--text-faint); cursor: help;
+}
+.field-help-trigger svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.field-help-trigger:hover, .field-help-trigger:focus-visible { color: var(--accent); background: transparent; border: 0; }
+.field-help-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.field-help-text {
+  position: absolute; bottom: calc(100% + .4rem); left: 50%; transform: translateX(-50%);
+  z-index: 30; width: max-content; max-width: min(24rem, 80vw);
+  padding: .5rem .65rem;
+  border: 1px solid var(--border); border-radius: 3px;
+  background: var(--panel); color: var(--text-subtle);
+  font-size: .8rem; font-weight: 400; line-height: 1.45; text-align: left; white-space: normal;
+  box-shadow: 0 4px 14px rgb(0 0 0 / .28);
+  opacity: 0; visibility: hidden; transition: opacity .12s ease;
+}
+.field-help:hover .field-help-text,
+.field-help:focus-within .field-help-text { opacity: 1; visibility: visible; }
+/* Modifier for a trigger sitting close to the page's left edge (e.g. a page
+   title) - the default centered tooltip would overflow off-screen there. */
+.field-help-align-start .field-help-text { left: 0; transform: none; }
+.message { min-height: 1.4rem; margin: .6rem 0; color: var(--accent); }
+.error { color: var(--bad-strong); }
+/* Der Weg, eine breite Tabelle mobil-tauglich zu machen: sie scrollt in
+   ihrem eigenen Container statt die ganze Seite scrollbar zu machen.
+   Spalten und Struktur bleiben erhalten - bewusst kein Karten-Layout. */
+.table-scroll { overflow-x: auto; }
+/* Fliessraster (Spec F): die Spaltenzahl ergibt sich aus der Breite, nicht
+   aus einer Konstanten. min(18rem, 100%) statt 18rem, weil minmax(18rem, 1fr)
+   unterhalb von 288px verfuegbarer Breite eine Spur erzwingen wuerde, die
+   breiter ist als der Container - das Raster liefe ueber. Zaehlt fuer den
+   390px-Fall aus Spec D.
+
+   grid-auto-rows gibt es nicht mehr: Zeilen sind inhaltshoch, 7rem ist nur
+   noch die Einheit, in der eine Zwangshoehe gezaehlt wird.
+
+   /* align-items: stretch - Kacheln einer Rasterzeile bekommen die Hoehe der
+   hoechsten dieser Zeile. Bis 2026-08 stand hier bewusst `start` mit der
+   Begruendung, eine Geraetekachel neben einem Tagesband zu strecken erzeuge
+   nur Leerraum. Das stimmt fuer den Inhalt, nicht fuer den Rahmen: ungleich
+   hohe Kartenrahmen nebeneinander lesen sich als Fehler, nicht als Absicht.
+   Der Leerraum liegt jetzt innerhalb der Karte statt darunter. */
+.layout-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(18rem, 100%), 1fr));
+  gap: .8rem;
+  align-items: stretch;
+  container: layout-grid / inline-size;
+}
+
+/* container-type erzwingt Groessen-Containment auf der Inline-Achse: die
+   Zelle darf ihre Breite nicht mehr aus dem Inhalt beziehen. Bei einer
+   1fr-Rasterspur ist das folgenlos.
+
+   Die Hoehe kommt aus max(): eine Zwangshoehe unterhalb des Typ-Minimums
+   bleibt damit wirkungslos, statt die Karte zu stauchen. Zwangshoehe hebt
+   an, sie deckelt nicht. */
+/* Die aktive Layout-Seite ist ein reiner Traeger fuer den Namen, keine
+   Layoutebene: .layout-grid ordnet nur direkte Kinder an, und ohne
+   display:contents stuende dieser Wrapper als einziges Rasterkind zwischen
+   dem Raster und den Karten - die Uebersicht waere einspaltig und jedes
+   grid-column: span N wirkungslos. */
+[data-layout-page] { display: contents; }
+
+/* --- Layout-Seiten in der Tab-Navigation ---------------------------------
+   Diese drei Regeln gehoeren zur Navigation, die bei JEDEM Seitenaufruf
+   steht - nicht zum Editor. In layout-editor.css (lazy, erst beim ersten
+   "Editieren") blieben Trennstrich und Punkt bis dahin unsichtbar. */
+.tab.is-page > i { display:inline-block; width:.3rem; height:.3rem; border-radius:50%; background:var(--accent-line); margin-right:.35rem; vertical-align:.12em; }
+.tab.is-fresh { animation:tab-in .3s var(--layout-ease) both; }
+@keyframes tab-in { from { opacity:0; transform:translateY(.3rem) scale(.94); } to { opacity:1; transform:none; } }
+/* Der Trennstrich ist ein leeres <span>: ohne eigene Hoehe bleibt seine
+   border-left ein 0px hohes Nichts - genau das war er bis 2026-09.
+   align-self:stretch gibt ihm die Hoehe der Tab-Zeile, die Innenabstaende
+   halten ihn von deren Ober- und Unterkante weg. */
+.tab-divider { align-self:stretch; width:0; margin:.55rem .5rem; padding:0; border-left:1px solid var(--border); }
+@media (prefers-reduced-motion: reduce) { .tab.is-fresh { animation:none; } }
+
+/* --- Werkzeugleiste der Uebersicht ---------------------------------------
+   Die Leiste mit Kartenzahl und "Editieren" steht in overview.html und damit
+   bei JEDEM Aufruf der Uebersicht - nur ihre Fuellung (Zielbreite, Toolbox,
+   Speichern) kommt aus dem lazy geladenen Editor. Bis 2026-09 lagen auch
+   diese Grundregeln in layout-editor.css: bis zum ersten "Editieren" war der
+   Knopf darum ein nackter <button>, und beim ersten Klick sprang er in Form.
+   Alles, was nur im Bearbeitungsmodus vorkommt, bleibt in layout-editor.css. */
+.layout-toolbar {
+  position:sticky; top:0; z-index:15;
+  display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
+  padding:.6rem .9rem;
+  background:color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter:blur(18px) saturate(170%);
+  border-bottom:1px solid var(--border-soft);
+}
+.layout-count { font-size:.74rem; color:var(--text-faint); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.layout-spacer { margin-left:auto; }
+
+.layout-btn { border:1px solid var(--border); background:transparent; color:var(--text-subtle); border-radius:999px; padding:.32rem .78rem; font:inherit; font-size:.85rem; cursor:pointer; white-space:nowrap; display:inline-flex; align-items:center; gap:.35rem; transition:color .15s ease, border-color .15s ease, background .15s ease, transform .11s var(--layout-ease); }
+/* :not(:disabled) ist kein Zierrat, sondern Notwehr gegen
+   `button:hover:not(:disabled)` weiter oben: dessen (0,2,1) schlaegt ein
+   blosses .layout-btn:hover (0,2,0) und faerbte jeden Knopf der Leiste beim
+   Ueberfahren auf --panel-alt - den Speichern-Knopf inklusive, dessen dunkle
+   Schrift dann auf grauer Flaeche stand. */
+.layout-btn:hover:not(:disabled) { background:transparent; color:var(--text); border-color:var(--accent-line); }
+.layout-btn:active { transform:scale(.97); }
+/* --accent-ink ist die Schriftfarbe auf Akzentflaechen und wechselt mit dem
+   Farbschema mit; das frueher hier stehende #0f1216 war im hellen
+   "tageslicht" schwarz auf Gruen. Dieselbe Paarung wie .icon-button.primary. */
+.layout-btn.primary { background:var(--accent); color:var(--accent-ink); border-color:transparent; font-weight:600; }
+.layout-btn.primary:hover:not(:disabled) { background:var(--accent); color:var(--accent-ink); border-color:var(--accent-line); }
+.layout-btn.danger { border-color:var(--bad-line); color:var(--bad-ink); background:var(--bad-bg); }
+.layout-btn.danger:hover:not(:disabled) { border-color:var(--bad); background:var(--bad-bg-hover); color:var(--bad-ink); }
+.layout-btn.on { background:color-mix(in srgb,var(--accent) 16%,transparent); border-color:var(--accent-line); color:var(--text-strong); }
+.layout-btn.on:hover:not(:disabled) { background:color-mix(in srgb,var(--accent) 22%,transparent); color:var(--text-strong); }
+.layout-btn:focus-visible { outline:none; border-color:var(--accent-line); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 32%,transparent); }
+.layout-btn .automation-icon { width:1rem; height:1rem; }
+@media (prefers-reduced-motion: reduce) { .layout-btn { transition:none; } }
+
+.layout-grid-item {
+  min-height: max(var(--card-min-height, 0px), var(--card-height, 0px));
+  min-width: 0;
+  overflow: auto;
+  container: layout-cell / inline-size;
+}
+/* Gilt fuer jede Karte, nicht mehr nur fuer die mit FillsHeight: die Zelle
+   wird durch align-items: stretch ohnehin auf Zeilenhoehe gebracht, und ein
+   Kartenrahmen, der darin kuerzer bleibt, sieht aus wie ein Fehler.
+   data-fills-height bleibt als Auskunft im Katalog erhalten (kann die Karte
+   Zusatzhoehe inhaltlich *nutzen*), steuert aber nicht mehr den Rahmen.
+
+   margin: 0 raeumt den Aussenabstand ab, den die Karten aus ihrer Zeit als
+   Elemente im Fluss mitbringen (margin: 1.25rem 0 1.5rem). Im Raster
+   addiert er sich auf das gap und macht den vertikalen Abstand deutlich
+   groesser als den seitlichen. Zentral hier statt in acht Kartenregeln,
+   damit die Karten ausserhalb eines Rasters unveraendert bleiben. */
+.layout-grid-item > * { margin: 0; height: 100%; box-sizing: border-box; }
+
+.layout-grid-item-1    { grid-column: span 1; }
+.layout-grid-item-2    { grid-column: span 2; }
+.layout-grid-item-3    { grid-column: span 3; }
+.layout-grid-item-4    { grid-column: span 4; }
+.layout-grid-item-5    { grid-column: span 5; }
+.layout-grid-item-6    { grid-column: span 6; }
+.layout-grid-item-full { grid-column: 1 / -1; }
+
+/* `span n` klemmt sich NICHT von selbst auf die vorhandene Spaltenzahl:
+   bei repeat(auto-fill, ...) wird die Spurenzahl ohne Ruecksicht auf
+   spannende Items bestimmt, ein `span 3` auf zweispurigem Raster legt eine
+   implizite dritte Spur an und laeuft ueber. Je Klasse eine Query, die auf
+   "so breit wie da ist" zurueckfaellt - in einem Schritt auf 1 / -1, nicht
+   stufenweise: passen die gewuenschten Spuren nicht, ist "nimm alles, was da
+   ist" die einzige Antwort, die auf jeder Spurenzahl stimmt.
+
+   Range-Syntax, weil die Schwellen exakt die auto-fill-Umschaltpunkte sind
+   (n * 18rem + (n-1) * .8rem) und ein max-width mit Sicherheitsabstand eine
+   Luecke liesse. Absteigend notiert, damit sie sich wie eine Treppe lesen;
+   fuer die Kaskade ist die Reihenfolge unerheblich, weil jede Regel einen
+   anderen Selektor trifft.
+
+   `full` braucht keine Query: 1 / -1 stimmt bei jeder Spurenzahl, und
+   auto-fill (nicht auto-fit) erzeugt die noetigen Linien auch dann, wenn die
+   hinteren Spuren leer bleiben. */
+@container layout-grid (width < 112.0rem) { .layout-grid-item-6 { grid-column: 1 / -1; } }
+@container layout-grid (width <  93.2rem) { .layout-grid-item-5 { grid-column: 1 / -1; } }
+@container layout-grid (width <  74.4rem) { .layout-grid-item-4 { grid-column: 1 / -1; } }
+@container layout-grid (width <  55.6rem) { .layout-grid-item-3 { grid-column: 1 / -1; } }
+@container layout-grid (width <  36.8rem) { .layout-grid-item-2 { grid-column: 1 / -1; } }
+
+/* Fragt nach sich selbst, nicht nach der Raster-Zelle: beide Selektoren
+   kommen auch ausserhalb jedes Rasters vor (devices.html), wo eine
+   layout-cell-Query wirkungslos waere. */
+.device-tile, .entity-list-item { container: card / inline-size; }
+
+@container layout-cell (max-width: 30rem) {
+  .energy-ring-stage { grid-template-columns: 1fr; }
+  .energy-board-summary-seg span { display: none; }
+}
+
+@container card (max-width: 22rem) {
+  .entity-list-meta { grid-template-columns: 1fr 1fr; }
+  .entity-list-meta div:last-child { grid-column: 1 / -1; }
+}
+/* display: flex column, mit .energy-flow-map als einzigem wachsenden Kind:
+   seit .layout-grid-item > * auf Zeilenhoehe gestreckt wird (siehe base.css
+   Rasterblock), bekommt die Karte in einer Zeile mit hoeheren Nachbarn mehr
+   Hoehe, als Header+Karte+Footer brauchen. Ohne flex blieb der Zuwachs als
+   Leerraum unterhalb des Footers stehen; mit flex: 1 auf der Karte waechst
+   stattdessen die Flussgrafik selbst hinein. */
+.energy-flow-card { display: flex; flex-direction: column; border: 1px solid var(--border-soft); border-radius: 12px; overflow: hidden; background: var(--panel); --flow-node-w: 9.5rem; --flow-node-h: 5.1rem; --flow-node-home-w: 10.5rem; --flow-node-home-h: 6rem; }
+.energy-flow-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; padding: 1rem 1.1rem .75rem; }
+.energy-flow-header h3 { margin: 0; font-size: 1.15rem; color: var(--text); }
+.energy-flow-map { position: relative; flex: 1 1 auto; min-height: 18rem; overflow: hidden; background: var(--panel); }
+.energy-flow-lines { position: absolute; inset: 0; width: 100%; height: 100%; }
+/* Weder Strichstaerke noch Deckkraft haben hier eine CSS-Transition: beide
+   werden von energy-flow.js Bild fuer Bild aus dem Federzustand geschrieben.
+   Eine Transition wuerde bei jedem Schreibzugriff neu anlaufen und die
+   Bewegung zu Brei ruehren - und ueber den htmx-Tausch hinweg lief sie
+   ohnehin nie, weil das <path> danach ein anderes ist.
+   --energy-flow-opacity setzt dasselbe Skript; die Rueckfallwerte hier gelten
+   nur fuer den einen Frame vor dem ersten step().
+   Einzige Ausnahme ist stroke-dasharray: es wird nicht pro Bild
+   geschrieben, sondern wechselt nur mit der Klasse, wenn ein Fluss
+   einsetzt oder versiegt. Ohne Uebergang zerfaellt das Laufmuster beim
+   Versiegen schlagartig, waehrend die Deckkraft daneben noch ausfedert -
+   zwei Kanaele desselben Ereignisses mit verschiedenem Tempo. */
+.energy-flow-line { fill: none; stroke-width: 4.5; stroke-linecap: round; stroke-dasharray: 1 14; opacity: var(--energy-flow-opacity, .16); transition: stroke-dasharray 220ms cubic-bezier(0.23, 1, 0.32, 1); }
+.energy-flow-line.is-active { stroke-dasharray: 9 10; animation: energy-flow-dash var(--energy-flow-duration, var(--energy-dash-duration)) linear infinite; }
+/* Eine Linie je Verbindung: die Laufrichtung kehrt sich um, wenn der Fluss
+   umkehrt (Einspeisung statt Bezug, Laden statt Entladen) - energy-flow.js
+   setzt is-reversed dazu. */
+.energy-flow-line.is-active.is-reversed { animation-direction: reverse; }
+.energy-flow-line.is-neutral { stroke-dasharray: 7 8; }
+.energy-flow-pv { stroke: var(--flow-pv); }
+.energy-flow-grid { stroke: var(--flow-grid); }
+.energy-flow-battery { stroke: var(--flow-battery); }
+.energy-flow-load { stroke: var(--flow-load); }
+.energy-flow-line:not(.is-active):not(.is-neutral) { stroke: var(--text-faint); }
+/* Die Knoten sind eine durchscheinende Materialebene ueber der Flusskarte,
+   keine undurchsichtigen Platten darauf: der Verlauf und die Linien darunter
+   bleiben als Milchglas sichtbar, was die Ebenen raeumlich trennt, ohne eine
+   weitere Kante zu ziehen. `background: var(--panel)` bleibt als Rueckfall
+   davor stehen - faellt color-mix() aus, ist die Flaeche eben deckend.
+   border-top hell: Licht, das sich in der Materialkante faengt. */
+/* Wie .energy-status-tile: nur Rahmen + 3px-Farbstreifen links + 9px-Radius,
+   flaeche wie die Karte selbst - kein Milchglas, kein Schatten mehr. Die
+   Flussfarbe des Knotens traegt der Streifen (siehe .energy-flow-node-pv ff.),
+   sie ersetzt die frueher am Fuss stehende Legende. */
+.energy-flow-node { position: absolute; display: flex; width: var(--flow-node-w); min-height: var(--flow-node-h); box-sizing: border-box; flex-direction: column; justify-content: center; gap: .15rem; padding: .7rem .8rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); border-radius: 9px; background: var(--panel); transform: translate(-50%, -50%); }
+.energy-flow-node strong { color: var(--text-strong); font-size: 1rem; letter-spacing: -.005em; }
+/* Vor wechselndem, durchscheinendem Untergrund traegt flaches Grau nicht:
+   hoeherer Kontrast, etwas mehr Gewicht, eine Spur mehr Laufweite.
+   tabular-nums ist hier keine Feinheit, sondern Voraussetzung - der Wert
+   wird waehrend des Einschwingens 60-mal pro Sekunde neu gesetzt, und mit
+   proportionalen Ziffern zappelt die ganze Zeile in der Breite. */
+.energy-flow-node output { display: inline-flex; align-items: center; gap: .35rem; color: var(--text); font-size: .82rem; font-weight: 500; letter-spacing: .01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+/* Lasten-Knoten: eine Zeile je Verbraucher (energy-flow.js renderLoadList).
+   Bei einem einzelnen Verbraucher sieht es aus wie die anderen Knoten. */
+.energy-flow-load-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: .25rem; align-items: flex-start; }
+.energy-flow-load-row { display: inline-flex; align-items: center; gap: .35rem; }
+.energy-flow-load-row.energy-flow-value-stale { color: var(--text-faint); }
+.energy-flow-node output.energy-flow-value-stale { color: var(--text-faint); }
+/* "berechnet"-Hinweis: eine eigene, in der Kachel mittig sitzende Zeile direkt
+   unter "Gebaeude" - darunter folgen erst das animierte Icon und der
+   Leistungswert. Frueher haftete der Hinweis als ::after am Text-<span> und
+   stand dadurch unter dem Leistungswert, mittig nur zu diesem statt zur Kachel.
+   Das eigene <span> (overview.html) bleibt verborgen, bis energy-flow.js dem
+   <output> die Klasse energy-flow-value-calculated gibt (Hausverbrauch
+   berechnet/kombiniert). */
+.energy-flow-calc-hint { display: none; }
+.energy-flow-node-home:has(output.energy-flow-value-calculated) .energy-flow-calc-hint { display: block; color: var(--text-faint); font-size: .68rem; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
+/* Batterie-Icon statt des frueheren Wortes "Laden"/"Entladen" (das Wort
+   selbst steht jetzt nur noch im aria-label, siehe energy-flow.js render()).
+   Umriss und Pol staendig sichtbar, aber gedaempft (opacity .55) - das
+   Fuellrechteck ist im Ruhezustand unsichtbar (opacity 0, scaleX(0)) und
+   bekommt seine Bewegung ausschliesslich ueber is-charging/is-discharging.
+   transform-box: fill-box macht transform-origin relativ zur eigenen Box des
+   Rechtecks statt zum SVG-Viewport - noetig, damit scaleX am linken statt
+   am rechten Rand ansetzt: Laden fuellt von links nach rechts, Entladen
+   leert von rechts nach links (beide Male bleibt die linke Kante verankert). */
+.energy-flow-battery-icon { width: 2rem; height: 1.1rem; flex: 0 0 auto; color: var(--flow-battery); }
+.energy-flow-battery-body { fill: none; stroke: currentColor; stroke-width: 1.4; opacity: 1; }
+.energy-flow-battery-nub { fill: currentColor; opacity: 1; }
+/* mask feathert die *wandernde* Kante des Fuellrechtecks weich aus, statt sie
+   als harte Senkrechte durchs Icon laufen zu lassen. */
+.energy-flow-battery-fill { fill: currentColor; transform-box: fill-box; transform-origin: left; opacity: 0; transform: scaleX(0); -webkit-mask: linear-gradient(to right, #000 72%, rgba(0, 0, 0, .25) 100%); mask: linear-gradient(to right, #000 72%, rgba(0, 0, 0, .25) 100%); }
+/* Ruhezustand (kein Laden/Entladen): das Fuellrechteck steht still auf dem
+   aktuellen Fuellstand, auf 5 Stufen gerundet (energy-flow.js setzt
+   --energy-battery-soc). MIN_FLOW_W dort entscheidet, ab wann "Ruhe" gilt. */
+.energy-flow-battery-icon:not(.is-charging):not(.is-discharging) .energy-flow-battery-fill { opacity: 1; transform: scaleX(var(--energy-battery-soc, 0)); }
+/* Fuellstand als eigene, gedaempfte Zeile unter dem Leistungswert (Artefact-
+   Entwurf) statt als " . NN %"-Zusatz am Text - der Leistungswert bleibt so
+   eine reine Zahl. step() blendet die Zeile aus, wenn kein battery_soc da ist. */
+.energy-flow-battery-vals { display: inline-flex; flex-direction: column; gap: .05rem; }
+.energy-flow-battery-soc { font-size: .72em; color: var(--text-faint); }
+/* Ein-Richtungs-Sweep statt Hin-und-Her: das Rechteck fuellt bzw. leert sich
+   einmal komplett und blendet dabei an beiden Enden durch Null-Opazitaet aus
+   - der Sprung zurueck auf den Anfang des naechsten Umlaufs passiert also,
+   waehrend nichts zu sehen ist, genau wie das Zuruecksetzen der Laufschrift
+   bei den Flusslinien (energy-flow-dash) unsichtbar bleibt. */
+.energy-flow-battery-icon.is-charging .energy-flow-battery-fill { animation: energy-flow-battery-charge var(--energy-dash-duration) linear infinite; }
+.energy-flow-battery-icon.is-discharging .energy-flow-battery-fill { animation: energy-flow-battery-discharge var(--energy-dash-duration) linear infinite; }
+@keyframes energy-flow-battery-charge {
+  0% { transform: scaleX(0); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: scaleX(1); opacity: 0; }
+}
+@keyframes energy-flow-battery-discharge {
+  0% { transform: scaleX(1); opacity: 0; }
+  10% { opacity: 1; }
+  90% { opacity: 1; }
+  100% { transform: scaleX(0); opacity: 0; }
+}
+/* Die vier uebrigen Knoten-Icons, gebaut nach demselben Muster wie das
+   Batterie-Icon oben: kleiner Inline-SVG im <output>, currentColor = die
+   Flussfarbe des Knotens, genau ein animiertes Element, Einbahn-Schleife auf
+   --energy-dash-duration, an beiden Enden auf 0 ausgeblendet - der Ruecksprung
+   passiert unsichtbar. Die Zustandsklasse (is-producing / is-importing /
+   is-exporting / is-live / is-drawing) setzt energy-flow.js in step(), analog
+   zu is-charging. Der Umriss (.efn-out) traegt bewusst mehr Tinte als die
+   feinen Flusslinien - Strichstaerke und Deckkraft sind auf die optische
+   Praesenz des grossen, geschlossenen Batterie-Umrisses abgestimmt, damit alle
+   fuenf Knoten-Icons gleich schwer wirken. */
+.energy-flow-node-icon { width: 2rem; height: 1.1rem; flex: 0 0 auto; }
+/* PV und Netz kommen aus einer quadratischen 24er-viewBox (Artefact-Entwurf)
+   statt des flachen 22x12 der uebrigen Icons - eigene, quadratische Box, eine
+   Spur groesser, damit sie neben den flachen Icons gleich schwer wirken. */
+.energy-flow-pv-icon { width: 1.5rem; height: 1.5rem; color: var(--flow-pv); }
+.energy-flow-grid-icon { width: 1.5rem; height: 1.5rem; color: var(--flow-grid); }
+.energy-flow-home-icon { color: var(--accent); }
+.energy-flow-load-icon { color: var(--flow-load); }
+.energy-flow-node-icon .efn-out { fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; opacity: .72; }
+
+/* PV: acht gleich verteilte Strahlen um die Scheibe, sie drehen sich langsam
+   (Artefact-Entwurf). transform-box/-origin auf die viewBox bezogen, damit die
+   Drehung um den Scheibenmittelpunkt (12/12) laeuft. */
+.energy-flow-pv-icon .efn-rays { transform-box: view-box; transform-origin: 12px 12px; opacity: .5; }
+.energy-flow-pv-icon.is-producing .efn-rays { animation: energy-flow-pv-rays 18s linear infinite; }
+@keyframes energy-flow-pv-rays { to { transform: rotate(360deg); } }
+
+/* Netz: zwei Chevrons, deren Deckkraft als versetzter Puls durchlaeuft (Welle,
+   Artefact-Entwurf) - fuer Bezug oben nach unten, das zweite Chevron 0.28s
+   spaeter. Bei Einspeisung spiegelt scaleY(-1) die Gruppe und dreht damit
+   Winkel UND Laufrichtung mit. */
+.energy-flow-grid-icon .efn-chevs { transform-box: fill-box; transform-origin: center; transition: transform 260ms cubic-bezier(0.23, 1, 0.32, 1); }
+.energy-flow-grid-icon.is-exporting .efn-chevs { transform: scaleY(-1); }
+.energy-flow-grid-icon .efn-chev { opacity: .4; }
+.energy-flow-grid-icon.is-importing .efn-chev,
+.energy-flow-grid-icon.is-exporting .efn-chev { animation: energy-flow-grid-fade 1.7s ease-in-out infinite; }
+.energy-flow-grid-icon .efn-chev:nth-of-type(2) { animation-delay: 0.28s; }
+@keyframes energy-flow-grid-fade {
+  0%, 100% { opacity: .28; }
+  45% { opacity: .95; }
+}
+
+/* Haus: ein kurzes helles Segment wandert einmal am Umriss entlang. Nur wenn
+   der Hausverbrauch gar nicht ableitbar ist (nodeText().dir !== 'live') steht
+   es still und der Umriss wird gestrichelt - gemessen, berechnet und
+   kombiniert laufen alle. Umfang des schmalen Hauses: 32.333. */
+.energy-flow-home-icon .efn-trace { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; opacity: 1; stroke-dasharray: 3 29.333; }
+.energy-flow-home-icon.is-live .efn-trace { animation: energy-flow-home-trace calc(var(--energy-dash-duration) * 1.5) linear infinite; }
+.energy-flow-home-icon:not(.is-live) .efn-trace { display: none; }
+.energy-flow-home-icon:not(.is-live) .efn-out { stroke-dasharray: 2.2 1.9; }
+@keyframes energy-flow-home-trace { to { stroke-dashoffset: -32.333; } }
+
+/* Lasten: ein Punktkranz dreht, der Blitz pulst. Vier exakt gleich lange
+   Striche - Umfang 2*pi*4.6 durch vier, ohne Rest (siehe stroke-dasharray im
+   Markup). */
+.energy-flow-load-icon .efn-ring { transform-box: view-box; transform-origin: 11px 6px; opacity: .66; }
+.energy-flow-load-icon .efn-bolt { fill: currentColor; opacity: .55; }
+.energy-flow-load-icon.is-drawing .efn-ring { animation: energy-flow-load-ring calc(var(--energy-dash-duration) * 2.6) linear infinite; }
+.energy-flow-load-icon.is-drawing .efn-bolt { animation: energy-flow-load-bolt var(--energy-dash-duration) ease-in-out infinite; }
+@keyframes energy-flow-load-ring { to { transform: rotate(360deg); } }
+@keyframes energy-flow-load-bolt {
+  0%, 100% { opacity: .55; }
+  50% { opacity: 1; }
+}
+/* Dasselbe SVG traegt je nach staerkstem Verbraucher eine andere Grafik
+   (energy-flow.js LOAD_ICON_MARKUP): Wallbox = geschlossene Auto-Kontur bei
+   voller Deckkraft, Bewegung nur auf Kabel + Stecker (.efn-feed) plus ein
+   Punkt am Kabel; Waermepumpe = Rotor mit drei gefuellten Blaettern im
+   Gitterkasten. */
+.energy-flow-load-icon .efn-car { fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; opacity: 1; }
+.energy-flow-load-icon .efn-feed { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; opacity: .62; }
+.energy-flow-load-icon .efn-fx { fill: currentColor; opacity: 0; }
+.energy-flow-load-icon.is-drawing .efn-feed { animation: energy-flow-load-plug var(--energy-dash-duration) linear infinite; }
+.energy-flow-load-icon.is-drawing .efn-fx { animation: energy-flow-load-mote var(--energy-dash-duration) linear infinite; }
+.energy-flow-load-icon .efn-thin { fill: none; stroke: currentColor; stroke-width: 1.2; stroke-linecap: round; opacity: .58; }
+.energy-flow-load-icon .efn-blade { fill: currentColor; opacity: 1; }
+.energy-flow-load-icon .efn-hub { fill: currentColor; opacity: 1; }
+.energy-flow-load-icon .efn-rotor { transform-box: view-box; transform-origin: 11px 6px; }
+.energy-flow-load-icon.is-drawing .efn-rotor { animation: energy-flow-load-rotor calc(var(--energy-dash-duration) * 1.2) linear infinite; }
+@keyframes energy-flow-load-plug {
+  0%, 100% { opacity: 0; }
+  18% { opacity: .68; }
+  74% { opacity: .68; }
+}
+@keyframes energy-flow-load-mote {
+  0% { offset-distance: 0%; opacity: 0; }
+  12% { opacity: 1; }
+  82% { opacity: 1; }
+  100% { offset-distance: 100%; opacity: 0; }
+}
+@keyframes energy-flow-load-rotor { to { transform: rotate(360deg); } }
+.energy-flow-node-pv { border-left-color: var(--flow-pv); }
+.energy-flow-node-grid { border-left-color: var(--flow-grid); }
+/* Die groesste Flaeche liest sich als die dickste: staerkere Streuung und ein
+   tieferer Schatten setzen den Hausknoten als Zentrum vor die vier anderen,
+   ohne ihn einzufaerben oder zu vergroessern. */
+.energy-flow-node-home { width: var(--flow-node-home-w); min-height: var(--flow-node-home-h); border-left-color: var(--accent); text-align: center; align-items: center; background: var(--panel); }
+.energy-flow-node-battery { border-left-color: var(--flow-battery); }
+.energy-flow-node-load { border-left-color: var(--flow-load); }
+@keyframes energy-flow-dash { to { stroke-dashoffset: -19; } }
+/* Reduzierte Bewegung heisst hier "keine Bewegung", aber nicht "keine
+   Information": ein fest eingefrorenes hohes bzw. niedriges Fuellniveau
+   unterscheidet Laden von Entladen weiterhin auf einen Blick, ganz ohne
+   Animation - das Wort selbst bleibt ohnehin im aria-label erhalten. */
+@media (prefers-reduced-motion: reduce) {
+  .energy-flow-line.is-active { animation: none; }
+  .energy-flow-line { transition: none; }
+  .energy-flow-battery-icon.is-charging .energy-flow-battery-fill { animation: none; opacity: 1; transform: scaleX(.82); }
+  .energy-flow-battery-icon.is-discharging .energy-flow-battery-fill { animation: none; opacity: 1; transform: scaleX(.22); }
+  /* Dieselbe Regel wie bei der Batterie: keine Bewegung, aber eine
+     informative Pose - hell statt dunkel, Blitz voll, Umriss-Segment steht. */
+  .energy-flow-pv-icon.is-producing .efn-rays { animation: none; opacity: 1; transform: none; }
+  .energy-flow-grid-icon .efn-chevs { transition: none; }
+  .energy-flow-grid-icon.is-importing .efn-chev,
+  .energy-flow-grid-icon.is-exporting .efn-chev { animation: none; opacity: .9; }
+  .energy-flow-home-icon.is-live .efn-trace { animation: none; opacity: .7; stroke-dashoffset: -12; }
+  .energy-flow-load-icon.is-drawing .efn-ring { animation: none; }
+  .energy-flow-load-icon.is-drawing .efn-bolt { animation: none; opacity: 1; }
+  .energy-flow-load-icon.is-drawing .efn-feed { animation: none; opacity: .5; }
+  .energy-flow-load-icon.is-drawing .efn-fx { animation: none; opacity: 1; offset-distance: 62%; }
+  .energy-flow-load-icon.is-drawing .efn-rotor { animation: none; transform: rotate(24deg); }
+}
+/* Durchscheinendes Material ist eine Darstellungsentscheidung, keine
+   Information: wer es abbestellt, bekommt dieselbe Flaeche deckend. Die
+   farbige linke Kante bleibt in beiden Faellen unangetastet, sie traegt die
+   Rollenzuordnung - deshalb border-block/-inline-end statt border-color. */
+@media (prefers-reduced-transparency: reduce) {
+  .energy-flow-node, .energy-flow-node-home, .device-tile, .compact-card { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border); }
+}
+@media (prefers-contrast: more) {
+  .energy-flow-node, .energy-flow-node-home { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-block-color: var(--text-muted); border-inline-end-color: var(--text-muted); }
+  .device-tile, .compact-card { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-block-color: var(--text-muted); border-inline-end-color: var(--text-muted); }
+  .energy-flow-node output { color: var(--text-strong); }
+  /* Ueberstimmt die von energy-flow.js gesetzte --energy-flow-opacity: eine
+     ausgegraute Ruhelinie ist bei hohem Kontrastbedarf nicht mehr lesbar. */
+  .energy-flow-line { opacity: 1; }
+  .energy-flow-line:not(.is-active):not(.is-neutral) { stroke: var(--text-muted); }
+}
+.energy-status-card { height: 100%; box-sizing: border-box; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
+.energy-status-header h3 { margin: 0 0 .8rem; font-size: 1.15rem; color: var(--text); }
+.energy-status-lead { display: grid; grid-template-columns: 1fr; gap: 1rem; align-items: start; padding: .9rem 1rem; border: 1px solid var(--border); border-left-width: 3px; border-radius: 9px; background: var(--panel-alt); }
+.energy-status-lead h4 { margin: 0 0 .3rem; font-size: 1.5rem; font-variant-numeric: tabular-nums; color: var(--text); }
+.energy-status-lead p { margin: 0; color: var(--text-subtle); font-size: .88rem; }
+.energy-status-beam { margin: 1rem 0 .2rem; }
+/* height: auto statt einer festen rem-Hoehe: mit einer viewBox in gemessener
+   Pixelbreite und der Hoehe 52 ergibt das genau 52px und damit Massstab 1:1 -
+   der Text unter der Waage bleibt unverzerrt. Gleiche Loesung wie bei
+   .energy-band-canvas svg und .energy-day-canvas svg. */
+.energy-status-beam svg { display: block; width: 100%; height: auto; }
+.energy-status-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .7rem; margin-top: 1rem; }
+.energy-status-tile { padding: .7rem .8rem; border: 1px solid var(--border); border-left-width: 3px; border-radius: 9px; background: var(--panel); }
+.energy-status-tile-head { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; font-size: .7rem; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.energy-status-tile-head span:last-child { font-weight: 700; }
+.energy-status-tile-value { margin: .3rem 0 .1rem; font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
+.energy-status-tile-note { font-size: .8rem; color: var(--text-subtle); }
+.energy-ring-card { height: 100%; box-sizing: border-box; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
+.energy-ring-header h3 { margin: 0 0 .8rem; font-size: 1.15rem; color: var(--text); }
+.energy-ring-stage { display: grid; grid-template-columns: minmax(14rem, 1.1fr) minmax(11rem, 1fr); gap: 1.2rem; align-items: center; }
+.energy-ring-stage svg { display: block; width: 100%; height: auto; }
+.energy-ring-readout { display: grid; gap: .4rem; align-content: start; }
+.energy-ring-readout-head { margin: .5rem 0 -.1rem; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); }
+/* Die Leseliste ist eine Rangliste (rankFlows() in energy-ring.js). Ein
+   Rangwechsel laeuft als FLIP: playRowFlip() setzt die Zeile per transform an
+   ihren alten Platz und raeumt das transform wieder ab - diese transition ist
+   die Rueckfahrt. 500ms, damit der Rangwechsel bewusst nachvollziehbar
+   wirkt statt nur zu blitzen. */
+.energy-ring-readout-row { position: relative; display: grid; grid-template-columns: .6rem 1fr auto; gap: .5rem; align-items: baseline; padding: .3rem .35rem; border-bottom: 1px solid var(--border-soft); font-size: .85rem; transition: transform .5s cubic-bezier(0.23, 1, 0.32, 1); }
+/* Der Anteilsbalken haengt an --row-share (0..1) und wird als scaleX
+   gezeichnet, nicht als width: waehrend die Federn laufen aendert sich der
+   Wert in jedem Bild, und ein transform kostet dabei kein Layout. Die Feder
+   ist hier die Animation - deshalb bewusst keine eigene transition darauf. */
+.energy-ring-readout-row::before { content: ""; position: absolute; inset: 0 auto 1px 0; width: 100%; border-radius: 3px; background: var(--row-color, transparent); opacity: .12; transform: scaleX(var(--row-share, 0)); transform-origin: left center; pointer-events: none; }
+.energy-ring-readout-row > * { position: relative; }
+.energy-ring-readout-row i { width: .6rem; height: .6rem; border-radius: 2px; align-self: center; background: var(--row-color, var(--text-faint)); }
+.energy-ring-readout-row b { font-weight: 500; color: var(--text-subtle); }
+.energy-ring-readout-row span { font-variant-numeric: tabular-nums; color: var(--text); white-space: nowrap; }
+/* Umlaufzeit kommt je Segment inline aus dashSeconds() - der Anteil des
+   Strangs steuert das Tempo. Der Token bleibt der Rueckfallwert. */
+.energy-ring-flow-dash { animation: energy-ring-dash var(--energy-dash-duration) linear infinite; }
+@keyframes energy-ring-dash { to { stroke-dashoffset: -14; } }
+@media (prefers-reduced-motion: reduce) {
+  .energy-ring-flow-dash { animation: none; }
+  /* Der Rang bleibt, die Fahrt dorthin faellt weg - playRowFlip() laeuft in
+     diesem Fall ohnehin nicht (suppressAnimation), das hier deckt den Rest. */
+  .energy-ring-readout-row { transition: none; }
+}
+@container layout-cell (max-width: 30rem) {
+  .energy-ring-stage { grid-template-columns: 1fr; }
+  .energy-ring-stage svg { max-width: 18rem; margin: 0 auto; }
+  .energy-board-summary-seg span { display: none; }
+}
+.energy-board-card { height: 100%; box-sizing: border-box; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
+.energy-board-header h3 { margin: 0 0 .8rem; font-size: 1.15rem; color: var(--text); }
+.energy-board-summary { display: grid; gap: .6rem; margin-bottom: 1rem; }
+.energy-board-summary-label { display: flex; justify-content: space-between; font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: .3rem; }
+.energy-board-summary-bar { display: flex; gap: 2px; height: 1.4rem; }
+.energy-board-summary-seg { min-width: 2px; border-radius: 2px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.energy-board-summary-seg span { font-size: .68rem; color: var(--accent-ink); font-weight: 700; white-space: nowrap; }
+.energy-board-table-wrap {
+  overflow-x: auto;
+  /* Weiche Kante statt harter Abschnitt: der Verlauf zeigt an, dass rechts
+     noch Tabelle liegt. `scroll` als Verlaufsanker heisst, er verschwindet
+     von selbst, sobald das Ende erreicht ist. */
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent 100%);
+  mask-size: 100% 100%;
+}
+@supports not (mask-image: linear-gradient(to right, #000, transparent)) {
+  .energy-board-table-wrap { mask-image: none; }
+}
+table.energy-board-table { width: 100%; min-width: 38rem; border-collapse: collapse; font-size: .88rem; }
+table.energy-board-table th { font-size: .66rem; letter-spacing: .08em; text-transform: uppercase; font-weight: 600; color: var(--text-muted); text-align: left; padding: .4rem .5rem; border-bottom: 1px solid var(--border); }
+table.energy-board-table td { padding: .4rem .5rem; border-bottom: 1px solid var(--border-soft); vertical-align: middle; }
+table.energy-board-table.is-dense td { padding: .18rem .5rem; }
+table.energy-board-table tr.is-stale td { color: var(--text-faint); }
+.energy-board-role { display: inline-flex; align-items: center; gap: .5rem; white-space: nowrap; }
+.energy-board-role i { width: .65rem; height: .65rem; border-radius: 2px; flex: none; }
+.energy-board-dir { font-size: .68rem; letter-spacing: .04em; text-transform: uppercase; padding: .1rem .4rem; border: 1px solid currentColor; border-radius: 2px; white-space: nowrap; }
+.energy-board-cell-bar { width: 40%; }
+.energy-board-barline { height: .55rem; border-radius: 2px 4px 4px 2px; min-width: 2px; }
+.energy-board-cell-val { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; color: var(--text); }
+.energy-board-cell-spark { width: 6.5rem; }
+.energy-board-cell-spark svg { height: 1.5rem; width: 100%; display: block; }
+.energy-board-fresh { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; }
+.energy-board-fresh-label { margin-left: .4rem; font-size: .78rem; color: var(--text-muted); }
+.energy-schema-card { height: 100%; box-sizing: border-box; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
+.energy-schema-header h3 { margin: 0 0 .8rem; font-size: 1.15rem; color: var(--text); }
+.energy-schema-canvas svg { display: block; width: 100%; height: auto; }
+.energy-schema-flow-anim { animation: energy-schema-flow 2.2s linear infinite; }
+@keyframes energy-schema-flow { 0% { opacity: 0; transform: translateX(0); } 10% { opacity: 1; } 86% { opacity: 1; } 100% { opacity: 0; transform: translateX(var(--dx)); } }
+@media (prefers-reduced-motion: reduce) { .energy-schema-flow-anim { animation: none; } }
+.energy-band-card { height: 100%; box-sizing: border-box; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
+.energy-band-header h3 { margin: 0 0 .8rem; font-size: 1.15rem; color: var(--text); }
+.energy-band-canvas svg { display: block; width: 100%; height: auto; }
+.energy-band-flow-dash { animation: energy-band-dash var(--energy-dash-duration) linear infinite; }
+@keyframes energy-band-dash { to { stroke-dashoffset: -20; } }
+@media (prefers-reduced-motion: reduce) { .energy-band-flow-dash { animation: none; } }
+.energy-band-legend { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: .6rem; color: var(--text-subtle); font-size: .85rem; }
+.energy-band-legend span { display: inline-flex; gap: .35rem; align-items: center; }
+.energy-band-legend i { width: .7rem; height: .7rem; border-radius: 2px; display: inline-block; }
+.energy-day-card { height: 100%; box-sizing: border-box; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
+.energy-day-header h3 { margin: 0 0 .8rem; font-size: 1.15rem; color: var(--text); }
+.energy-day-canvas svg { display: block; width: 100%; height: auto; }
+.energy-day-legend { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: .6rem; color: var(--text-subtle); font-size: .85rem; }
+.energy-day-legend span { display: inline-flex; gap: .35rem; align-items: center; }
+.energy-day-legend i { width: .7rem; height: .7rem; border-radius: 2px; display: inline-block; }
+.license-footer { margin-top: 2.5rem; padding-top: .75rem; border-top: 1px solid var(--border-soft); color: var(--text-muted); font-size: .8rem; }
+.license-footer p { margin: 0; }
+/* Systemstatus-Zeile (base.html). Ambientes Panel zwischen Masthead und Nav -
+   wird nie geklickt, pollt alle 30 s /api/v1/health. Nach apple-design ist der
+   Alles-in-Ordnung-Zustand bewusst leise; sichtbar eskaliert wird nur bei
+   degraded/error. Container-Optik an die Energie-Karten angeglichen
+   (border-soft-Hairline, radius 12, weicher Schatten). */
+.runtime-status { display: flex; gap: .75rem; align-items: center; justify-content: space-between; flex-wrap: wrap; margin-top: 1rem; padding: .7rem .9rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); box-shadow: 0 1px 3px rgba(0, 0, 0, .25); color: var(--text-subtle); }
+.runtime-status-summary { display: flex; gap: .55rem; align-items: center; flex-wrap: wrap; }
+/* Eyebrow-Mikrolabel: kleiner Text vertraegt positives Tracking (apple-design
+   Abschnitt 15), Praesenz kommt ueber Versalien + gedaempfte Farbe statt ueber
+   Groesse. Gleiche Idiomatik wie .energy-board-dir. */
+.runtime-status-label { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+/* Status-Pille, an .storage-health-badge angeglichen. Farbe/Fill traegt die
+   Zustandsklasse; der Wechsel laeuft als kurze Transition (nicht Keyframe),
+   damit ein 30-s-Repoll sauber neu ansetzt. */
+.runtime-status-badge { display: inline-flex; align-items: center; gap: .4rem; padding: .28rem .6rem; border-radius: 999px; font-size: .8rem; font-weight: 600; white-space: nowrap; transition: color .2s ease, background-color .2s ease; }
+/* Einmaliger weicher Halo beim Uebergang in einen Warnzustand - kein Dauerpuls
+   (apple-design Abschnitt 14: keine langsamen Endlos-Oszillationen). Der
+   Schatten easet einmal ein und bleibt, bis der Zustand wieder ok ist. */
+.runtime-status-badge::before { content: ''; width: .5rem; height: .5rem; border-radius: 50%; background: currentColor; transition: box-shadow .25s ease; }
+.runtime-status-ok { color: var(--ok); background: transparent; }
+.runtime-status-degraded { color: var(--warn); background: var(--warn-bg); }
+.runtime-status-error { color: var(--bad); background: var(--bad-bg); }
+.runtime-status-degraded::before { box-shadow: 0 0 0 4px var(--warn-bg); }
+.runtime-status-error::before { box-shadow: 0 0 0 4px var(--bad-bg); }
+.runtime-status-details { display: flex; gap: .85rem; flex-wrap: wrap; font-size: .82rem; }
+/* Einzug beim ersten Anzeigen - teilt sich die Keyframes mit dem Masthead
+   (masthead-rise / masthead-fade weiter oben), damit Kopfbereich und
+   Statuszeile als ein Vorgang settlen. Laeuft off-main-thread waehrend Alpine
+   bootet; #runtime-status haengt an x-cloak/x-show, die Animation also einmal
+   beim Erscheinen. Die Details-Zeile zieht nach, sobald der erste Poll da ist
+   (x-show="status") - das ersetzt den bisherigen harten Einblend-Sprung. */
+@media (prefers-reduced-motion: no-preference) {
+  .runtime-status { animation: masthead-rise .42s var(--ease-out) both; animation-delay: .06s; }
+  .runtime-status-details { animation: masthead-rise .4s var(--ease-out) both; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .runtime-status,
+  .runtime-status-details { animation: masthead-fade .25s ease both; }
+}
+/* min() statt 24rem: bei 390px Viewport ragte ein langer Toast mit
+   24rem Breite und 1rem rechtem Abstand links aus dem Bild. Am Desktop
+   gewinnt weiterhin 24rem. */
+.notification-toasts { position: fixed; top: 1rem; right: 1rem; z-index: 1000; display: flex; flex-direction: column; gap: .5rem; max-width: min(24rem, calc(100vw - 2rem)); }
+.notification-toast { display: grid; grid-template-columns: 1fr auto auto; gap: .5rem; align-items: start; padding: .75rem 1rem; border-radius: .5rem; box-shadow: 0 2px 8px rgba(0, 0, 0, .35); font-size: .9rem; border: 1px solid var(--border-soft); }
+.notification-toast-message { overflow-wrap: anywhere; }
+.notification-toast-count { font-variant-numeric: tabular-nums; color: var(--text-subtle); }
+.notification-toast-close { padding: 0 .15rem; border: 0; background: none; color: inherit; font-size: 1.1rem; line-height: 1.2; cursor: pointer; }
+.notification-toast-close:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.notification-toast-info { color: var(--ok); background: var(--ok-bg); }
+.notification-toast-warning { color: var(--warn); background: var(--warn-bg); }
+.notification-toast-critical { color: var(--bad); background: var(--bad-bg); }
+.device-detail { margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel); }
+dialog.device-detail { width: min(72rem, calc(100vw - 2rem)); max-height: calc(100vh - 2rem); box-sizing: border-box; margin: auto; overflow: auto; color: var(--text); }
+dialog.device-detail::backdrop { background: rgba(0, 0, 0, .72); }
+/* device-modal-scrollarea (Sidebar + Switcher zusammen) scrollt als Ganzes
+   unterhalb der fixen Kopfzeile - genau wie im Referenz-Artefakt. Einfacher
+   als "nur die Panelflaeche scrollt" (Vorgaenger-Plan Task 5): keine
+   verschachtelte Hoehenkette mehr noetig, weil hier nur eine einzige Flaeche
+   (statt Body+Switcher+Panel) eine bestimmte Groesse braucht.
+   display:flex NUR im offenen Zustand - sonst ueberschreibt es das
+   UA-`dialog:not([open]) { display: none }` und der Dialog bleibt als
+   Rest mittig auf der Seite haengen. Rundung + overflow:hidden klemmen
+   Kopfzeile und Scrollflaeche auf die Kachelkontur (apple-design).
+
+   Definite `height` (nicht nur `max-height`) im offenen Zustand: WebKit
+   (Safari, iOS) laesst ein `flex: 1`-Kind (also `flex-basis: 0%`) in einem
+   Spalten-Flexcontainer OHNE feste Hoehe auf 0 zusammenfallen - dann rendert
+   nur die Kopfzeile und die Scrollflaeche ist unsichtbar (auf dem iPhone
+   "Modal oeffnet nicht"). Eine feste Hoehe gibt flex-grow echten Freiraum
+   und dem `container-type: inline-size` eine konkrete Blockgroesse. min()
+   deckelt grosse Desktop-Monitore, das Handy bekommt die volle Flaeche;
+   56rem ist ein Erfahrungswert und darf wandern. Dazu `flex-basis: auto`
+   auf der Scrollflaeche, damit ihre Groesse gar nicht erst von einer
+   Prozent-Basis gegen eine unbestimmte Elternhoehe abhaengt. */
+dialog#device-modal { padding: 0; border: 1px solid var(--border); border-radius: var(--radius-md); overflow: hidden; }
+dialog#device-modal[open] { display: flex; flex-direction: column; height: calc(100vh - 2rem); height: min(56rem, calc(100dvh - 2rem)); }
+dialog#device-modal .device-modal-scrollarea { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.app-modal { width: min(32rem, calc(100vw - 2rem)); box-sizing: border-box; margin: auto; padding: 1.25rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel); color: var(--text); }
+.app-modal.app-modal-danger { border-left-color: var(--bad); }
+.app-modal::backdrop { background: rgba(0, 0, 0, .72); }
+.app-modal-title { margin: 0 0 .5rem; font-size: 1.05rem; }
+.app-modal-body { margin: 0 0 1rem; color: var(--text-subtle); }
+.app-modal-actions { display: flex; gap: .5rem; justify-content: flex-end; flex-wrap: wrap; }
+.app-modal-danger-button { background: var(--bad-bg); border: 1px solid var(--bad); color: var(--bad); border-radius: 3px; padding: .55rem .9rem; cursor: pointer; }
+.app-modal-danger-button:hover:not(:disabled) { border-color: var(--bad); color: var(--bad); }
+/* Ein- und Ausblenden nur, wenn der Nutzer Bewegung nicht abbestellt hat.
+   overlay/display brauchen allow-discrete, weil der Top-Layer sonst
+   sofort umschaltet und die Opacity-Transition verschluckt. */
+@media (prefers-reduced-motion: no-preference) {
+  .app-modal { opacity: 0; transition: opacity .18s ease, overlay .18s allow-discrete, display .18s allow-discrete; }
+  .app-modal[open] { opacity: 1; }
+  @starting-style { .app-modal[open] { opacity: 0; } }
+}
+.device-detail-header { display: flex; gap: 1rem; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; }
+.device-detail-header h3 { margin: 0; color: var(--accent); }
+.device-detail-actions { display: flex; gap: .5rem; flex-wrap: wrap; }
+.device-detail table { margin: 1rem 0; }
+.device-detail pre { max-height: 16rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-subtle); font: .78rem/1.45 ui-monospace, monospace; }
+.device-modal-sidebar h5 { margin: 0 0 .5rem; font-size: .72rem; text-transform: uppercase; letter-spacing: .05em; color: var(--text-faint); }
+.device-modal-sidebar > div + div { margin-top: 1.1rem; }
+.device-modal-meta-line { display: flex; justify-content: space-between; gap: .5rem; font-size: .82rem; padding: .28rem 0; border-top: 1px solid color-mix(in srgb, var(--border-soft) 50%, transparent); }
+.device-modal-meta-line:first-of-type { border-top: 0; }
+.device-modal-meta-line dt { margin: 0; color: var(--text-muted); }
+.device-modal-meta-line dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.device-detail-source { color: var(--text-subtle); font-size: .82rem; }
+.device-modal-warning { display: flex; gap: .6rem; align-items: flex-start; border-left: 3px solid var(--warn); background: var(--warn-bg); border-radius: 0 6px 6px 0; padding: .5rem .7rem; font-size: .84rem; margin-bottom: .5rem; }
+.device-modal-warning b { display: block; font-weight: 600; }
+.device-modal-warning small { display: block; margin-top: .2rem; color: var(--text-subtle); }
+.device-modal-warning.is-critical { border-left-color: var(--bad); background: var(--bad-bg-hover); color: var(--bad-ink); }
+.device-modal-warning.is-critical small { color: var(--bad-ink); opacity: .85; }
+.discovery-diagnostics { margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--info); background: var(--panel); }
+.discovery-diagnostics h3 { margin: 0 0 .25rem; color: var(--text); }
+.discovery-diagnostics-summary { display: flex; gap: .8rem; flex-wrap: wrap; color: var(--text-subtle); font-size: .9rem; }
+.discovery-error { margin: .7rem 0; padding: .6rem .75rem; border-left: 3px solid var(--bad-strong); background: var(--bad-bg); }
+.discovery-error pre { max-height: 8rem; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; font: .78rem/1.4 ui-monospace, monospace; }
+.discovery-duplicate { margin: .7rem 0; padding: .6rem .75rem; border-left: 3px solid var(--warn); background: var(--warn-bg); }
+.license-footer a { color: var(--text-subtle); }
+h2 { margin-top: 2rem; font-size: 1.1rem; color: var(--accent); }
+table { border-collapse: collapse; width: 100%; margin-bottom: 1.5rem; }
+th, td { border: 1px solid var(--border-soft); padding: 0.35rem 0.6rem; text-align: left; font-size: 0.92rem; }
+th { background: var(--panel-alt); }
+tr:nth-child(even) td { background: var(--panel); }
+.available { color: var(--ok); font-weight: 600; }
+.unavailable { color: var(--bad-strong); font-weight: 600; }
+.unknown { color: var(--text-muted); }
+.stale { opacity: 0.6; font-style: italic; }
+.entity-cell { white-space: nowrap; }
+.entity-icon { display: inline-flex; width: 1.35rem; height: 1.35rem; margin-right: .35rem; vertical-align: middle; color: var(--accent); }
+.entity-icon svg { width: 100%; height: 100%; fill: currentColor; }
+.entity-icon-fallback { color: var(--text-subtle); }
+.entity-command-button { border: 0; padding: 0; background: transparent; cursor: pointer; transition: transform .1s ease, color .15s ease; }
+.entity-command-button:hover { color: var(--text); }
+.entity-command-button:active { transform: scale(.88); }
+.entity-command-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.entity-command-button:disabled { cursor: wait; opacity: .55; }
+.entity-number-control { display: flex; align-items: center; gap: .55rem; min-width: 0; }
+.entity-number-slider { min-width: 5rem; width: min(10rem, 100%); accent-color: var(--accent); }
+.entity-number-slider:disabled { cursor: wait; opacity: .55; }
+.entity-number-control output { min-width: 3.5rem; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
+.entity-list-number-control { margin: .45rem 0 .2rem; }
+.entity-list-number-control .entity-number-slider { flex: 1 1 auto; width: auto; }
+.entity-discovery-trigger { color: var(--text); cursor: help; text-decoration: underline dotted; text-underline-offset: .15em; }
+.entity-discovery-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+[data-discovery-tooltips-enabled="false"] .entity-discovery-trigger { cursor: default; text-decoration: none; }
+.entity-accordion-toggle { margin: 0 0 .6rem; background: transparent; color: var(--text-subtle); border: 1px solid var(--border); border-radius: 3px; padding: .45rem .65rem; cursor: pointer; }
+.entity-accordion-toggle:hover { color: var(--text); border-color: var(--accent); }
+.entity-accordion-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.devices-panel-header { display: flex; justify-content: space-between; gap: 1rem; align-items: center; flex-wrap: wrap; }
+.devices-panel-header h2 { margin-bottom: 0; }
+
+.device-density-toggle { display: inline-flex; align-items: center; gap: .4rem; border: 1px solid var(--border); border-radius: 3px; padding: .4rem .6rem; background: var(--panel); color: var(--text-subtle); cursor: pointer; }
+.device-density-toggle:hover:not(:disabled) { background: var(--accent); color: var(--bg); }
+.device-density-toggle.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
+.device-density-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.device-density-toggle:disabled { opacity: .6; cursor: default; }
+.device-density-toggle-icon { width: 1.1rem; height: 1.1rem; flex: none; }
+.device-density-toggle-label { font-size: .82rem; }
+
+.device-compact-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr)); gap: .6rem; margin: 1rem 0 1.5rem; }
+.compact-card { min-width: 0; box-sizing: border-box; display: grid; gap: .55rem; width: 100%; text-align: left; font: inherit; color: inherit; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); cursor: pointer; transition: border-color .16s ease, box-shadow .16s ease, transform .12s ease; }
+.compact-card:hover { border-color: var(--accent); }
+.compact-card:active { transform: scale(.985); }
+.compact-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Im Layout-Raster wird jede Karte auf die Zeilenhoehe gestreckt
+   (.layout-grid-item > * { height:100% }). Ein Grid mit auto-Zeilen verteilt
+   die Mehrhoehe sonst auf seine Zeilen - die kompakte Kachel zerfiele in
+   drei weit auseinanderstehende Blöcke statt oben zu stehen. */
+.layout-grid-item .compact-card { align-content: start; }
+.compact-card.is-offline { border-left-color: var(--bad); }
+.compact-card.is-unknown { border-left-color: var(--border); }
+.compact-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: .5rem; align-items: start; }
+.compact-card-icon { display: inline-flex; width: 1.6rem; height: 1.6rem; align-items: center; justify-content: center; border-radius: 6px; background: var(--accent-bg); color: var(--accent); flex: none; }
+.compact-card-icon svg { width: 1rem; height: 1rem; }
+.compact-card-title { min-width: 0; }
+.compact-card-title strong { display: block; color: var(--accent); letter-spacing: -.01em; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compact-card-title small { display: block; margin-top: .1rem; color: var(--text-faint); font-size: .72rem; overflow-wrap: anywhere; }
+.compact-card-status { display: inline-flex; align-items: center; gap: .3rem; font-size: .7rem; color: var(--text-faint); white-space: nowrap; }
+.compact-card-dot { width: .5rem; height: .5rem; border-radius: 999px; background: var(--text-faint); flex: none; }
+.compact-card-status-online .compact-card-dot { background: var(--ok); }
+.compact-card-status-offline .compact-card-dot { background: var(--bad); }
+.compact-card-chevron { align-self: center; color: var(--text-faint); font-size: 1rem; line-height: 1; }
+.compact-card-rows { display: grid; gap: .1rem; border-top: 1px solid var(--border-soft); padding-top: .4rem; }
+.compact-card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .6rem; align-items: baseline; padding: .16rem 0; font-size: .8rem; }
+.compact-card-row-label { color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.compact-card-row-value { color: var(--text); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.compact-card-row-value.stale { color: var(--text-muted); }
+.compact-card-empty { border-top: 1px solid var(--border-soft); padding-top: .4rem; font-size: .76rem; color: var(--text-faint); }
+@media (prefers-reduced-motion: reduce) {
+  .compact-card { transition: none; }
+  .compact-card:active { transform: none; }
+}
+
+.device-tile-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: .8rem; margin: 1rem 0 1.5rem; }
+/* Milchglas wie energy-flow-node (siehe dort): auf der Geraete-Seite stehen
+   deutlich weniger Geraete- als Entitaets-Karten gleichzeitig (eine pro
+   Geraet statt einer pro Entitaet ueber alle Geraete hinweg), der Blur-Preis
+   bleibt also vertretbar - anders als bei entity-list-item weiter unten. Der
+   farbige linke Akzent bleibt, aber im Verbund mit border-radius wie bei
+   energy-status-lead (border + border-left-width statt eigenem border-left),
+   sonst kollidiert die eckige Kante mit den runden Ecken. */
+.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-left-width: 3px; border-left-color: var(--accent); border-radius: var(--radius-lg); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
+.device-tile-header { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
+.device-tile-header h3 { margin: 0; color: var(--accent); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.device-tile-header small { display: block; margin-top: .2rem; overflow-wrap: anywhere; }
+.device-tile-actions { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
+.ignored-devices { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+.ignored-device-row { display: flex; align-items: center; gap: .8rem; border-bottom: 1px solid var(--border-soft); padding: .7rem 0; }
+.ignored-device-row > div { min-width: 0; flex: 1; }
+.ignored-device-row small { display: block; overflow-wrap: anywhere; }
+.ignored-device-stale { color: var(--warn); font-size: .9rem; }
+.device-tile-status { display: flex; gap: .45rem; align-items: baseline; margin: .8rem 0 .55rem; color: var(--text); }
+.device-tile-status strong { font-variant-numeric: tabular-nums; }
+.device-tile-status-label { color: var(--text-muted); font-size: .8rem; }
+.device-tile-entities { display: grid; gap: .35rem; }
+.device-tile-entity { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; min-height: 2.4rem; padding: .15rem 0; border-top: 1px solid color-mix(in srgb, var(--border-soft) 55%, transparent); }
+.device-tile-entity strong, .device-tile-entity small { display: block; overflow-wrap: anywhere; }
+.device-tile-entity small { color: var(--text-muted); font-size: .78rem; }
+.device-tile-entity > span { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
+/* Das breitere, titel-schuetzende Spalten-Layout (minmax(5.5rem, 1fr)
+   schuetzt den Titel vor dem Buchstaben-Umbruch, siehe .device-tile-entity
+   strong/small oben) gilt fuer input_number-Zeilen, echte text-Entitaeten
+   sowie - siehe $isLongTextSensor in device-tile.html - Sensoren ohne
+   unit_of_measurement mit einem laengeren Freitext-Wert (z.B. ein
+   Automatisierungs-Log statt eines Messwerts). Kurze unit-lose Werte wie
+   ein Schalter-Status (ON/OFF) bleiben unter der Laengen-Schwelle und damit
+   beim urspruenglichen 1fr/auto/auto-Raster, das vorher fuer die
+   ueberwiegende Mehrheit der Zeilen besser aussah. */
+.device-tile-entity-text { grid-template-columns: minmax(5.5rem, 1fr) minmax(0, 9rem) auto; }
+/* Slider-Zeilen bekommen eine eigene, vierte Spalte statt der Istwert
+   weiterhin im .entity-number-control-Flexcontainer mit dem Slider um
+   dieselbe (zu knappe) Spaltenbreite konkurriert. display:contents loest
+   den Wrapper aus dem Boxbaum - Slider und <output> werden direkte
+   Grid-Kinder dieser Zeile und landen dadurch in eigenen Spalten:
+   Titel | Slider (waechst, min 5rem) | Istwert (rechtsbuendig wie jede
+   andere Zeile) | Icon. Der Istwert steht damit wieder in Reihe mit den
+   Werten der uebrigen Zeilen, statt an der Kachel-Aussenkante zu haengen -
+   und der Slider nutzt den Platz, der vorher an den Titel ging. */
+.device-tile-entity-number { grid-template-columns: minmax(5.5rem, auto) minmax(5rem, 1fr) auto auto; }
+.device-tile-entity-number .entity-number-control { display: contents; }
+.device-tile .entity-command-button { display: inline-flex; width: 1.35rem; height: 1.35rem; margin: 0; padding: 0; }
+.device-tile .entity-command-button svg { width: 100%; height: 100%; fill: currentColor; }
+.entity-command-status { grid-column: 1 / -1; color: var(--accent); overflow-wrap: anywhere; }
+.entity-command-button-detail { margin-left: .5rem; padding: .2rem .4rem; }
+.device-modal-relation-chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--border); background: transparent; color: var(--accent); border-radius: 99px; padding: .28rem .6rem; margin: 0 .35rem .35rem 0; font-size: .78rem; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
+.device-modal-relation-chip:hover, .device-modal-relation-chip:focus-visible { border-color: var(--accent); color: var(--text); }
+.device-modal-relation-chip:active { transform: scale(.97); }
+.device-modal-log-entry { font-size: .76rem; padding: .3rem 0; border-top: 1px solid color-mix(in srgb, var(--border-soft) 50%, transparent); overflow-wrap: anywhere; }
+.device-modal-log-entry:first-child { border-top: 0; }
+.device-modal-log-entry time { display: block; color: var(--text-faint); font-variant-numeric: tabular-nums; font-size: .7rem; }
+.device-detail-payload { max-width: 24rem; max-height: 8rem; margin: 0; white-space: pre-wrap; overflow: auto; font: .78rem/1.35 ui-monospace, monospace; }
+/* Flach statt Glas: von diesen Karten stehen oft ein Dutzend und mehr
+   gleichzeitig - Milchglas auf jeder einzelnen waere teuer und bei so vielen
+   Flaechen uebereinander kaum noch lesbar. Linker Akzent bleibt, im selben
+   border/border-left-width-Verbund wie bei energy-status-lead. */
+.entity-list-item { min-width: 0; box-sizing: border-box; padding: .75rem .85rem; border: 1px solid var(--border-soft); border-left-width: 3px; border-left-color: var(--border); border-radius: var(--radius-md); background: var(--panel); }
+.entity-list-header { display: flex; justify-content: space-between; gap: .7rem; align-items: flex-start; }
+.entity-list-title { display: flex; min-width: 0; gap: .45rem; align-items: center; }
+.entity-list-title > div { min-width: 0; }
+.entity-list-title strong { display: block; overflow-wrap: anywhere; }
+.entity-list-title small { display: block; color: var(--text-muted); overflow-wrap: anywhere; }
+.entity-list-command { flex: 0 0 auto; display: inline-flex; width: 1.5rem; height: 1.5rem; padding: .15rem; color: var(--accent); }
+.entity-list-command svg { width: 100%; height: 100%; fill: currentColor; }
+.entity-list-value { display: flex; justify-content: space-between; gap: .8rem; align-items: baseline; margin: .65rem 0 .35rem; }
+.entity-list-value > strong { min-width: 0; overflow-wrap: anywhere; font-size: 1.05rem; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.entity-list-value > span { flex: 0 0 auto; font-size: .72rem; font-weight: 600; letter-spacing: .02em; padding: .15rem .5rem; border-radius: 999px; background: var(--panel-alt); }
+.entity-list-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; margin: 0; }
+.entity-list-meta div { min-width: 0; }
+.entity-list-meta dt { color: var(--text-muted); font-size: .74rem; }
+.entity-list-meta dd { margin: .1rem 0 0; overflow-wrap: anywhere; font-size: .82rem; }
+.entity-list-item .entity-command-status { display: block; margin-top: .4rem; }
+
+/* entity_value: reduzierte Einzelwert-Karte. Behaelt den linken Akzent-
+   streifen der uebrigen Karten (Wiedererkennung), ersetzt aber die
+   technischen Metadaten der entity-list-item durch Wert + Statuspunkt. Eine
+   schaltbare (nicht-number) Entitaet rendert als <button> statt <article> -
+   die ganze Karte ist dann das Tap-Ziel, siehe entity-value-card. */
+.entity-value-card { display: block; width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: 4px; background: var(--panel); font: inherit; text-align: left; color: inherit; transition: transform .1s ease; }
+button.entity-value-card { cursor: pointer; }
+button.entity-value-card:active { transform: scale(.97); }
+.entity-value-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .5rem; }
+.entity-value-label { min-width: 0; font-size: .74rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); overflow-wrap: anywhere; }
+.entity-value-dot { flex: 0 0 auto; width: .45rem; height: .45rem; border-radius: 50%; background: var(--text-faint); }
+.entity-value-dot-ok { background: var(--ok); }
+.entity-value-dot-bad { background: var(--bad); }
+.entity-value-num { display: flex; align-items: baseline; gap: .2rem; }
+.entity-value-num strong { font-size: 1.9rem; font-weight: 660; letter-spacing: -0.02em; color: var(--text-strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.entity-value-unit { font-size: .95rem; font-weight: 600; color: var(--text-muted); }
+.entity-value-card.stale .entity-value-num strong, .entity-value-card.stale .entity-value-unit { color: var(--text-faint); }
+
+/* entity_group: frei zusammengestellte Entitaetenliste als Chip-Raster -
+   anders als device-tile nicht an ein Geraet gebunden. Waechst mit der
+   Anzahl Entitaeten nach unten (FillsHeight, siehe cardcatalog.go) statt zu
+   scrollen. */
+.entity-group-card { min-width: 0; padding: 1rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
+.entity-group-head { display: flex; justify-content: space-between; align-items: center; gap: .6rem; margin-bottom: .8rem; }
+.entity-group-head h4 { min-width: 0; margin: 0; font-size: .92rem; font-weight: 650; color: var(--text-strong); overflow-wrap: anywhere; }
+.entity-group-count { flex: 0 0 auto; font-size: .7rem; font-weight: 600; color: var(--text-muted); background: var(--panel-alt); padding: .12rem .5rem; border-radius: 999px; }
+.entity-group-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .6rem; }
+.entity-group-chip { min-width: 0; display: block; width: 100%; box-sizing: border-box; padding: .65rem .7rem; border: 0; border-radius: 9px; background: var(--panel-alt); font: inherit; text-align: left; color: inherit; transition: transform .1s ease; }
+button.entity-group-chip { cursor: pointer; }
+button.entity-group-chip:active { transform: scale(.96); }
+.entity-group-chip-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
+.entity-group-chip-dot { flex: 0 0 auto; width: .4rem; height: .4rem; border-radius: 50%; background: var(--text-faint); }
+.entity-group-chip-dot-ok { background: var(--ok); }
+.entity-group-chip-dot-bad { background: var(--bad); }
+.entity-group-chip-val { font-size: 1.05rem; font-weight: 650; color: var(--text-strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.entity-group-chip-val span { font-size: .72rem; font-weight: 600; color: var(--text-muted); margin-left: .15rem; }
+.entity-group-chip-label { font-size: .68rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entity-group-chip.stale .entity-group-chip-val, .entity-group-chip.stale .entity-group-chip-label { color: var(--text-faint); }
+
+/* diagnostics: Statuskachel statt Navigationshinweis (design.md Abschnitt 2,
+   Stufe B). Ganze Karte als <button>, wie entity-value-card - im Unterschied
+   zu ihr aber mit :hover/:focus-visible von Anfang an (siehe design.md
+   Abschnitt 5.1, dort erst nachtraeglich ergaenzt) und einer asymmetrischen
+   Druck-Transition (Abschnitt 5.2: schnelles Hineindruecken, langsameres
+   Zurueckkommen) statt der einen symmetrischen Dauer der aelteren Karten. */
+.diagnostics-summary-card { display: block; width: 100%; height: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); font: inherit; text-align: left; color: inherit; cursor: pointer; transition: transform .16s ease; }
+.diagnostics-summary-card:hover, .diagnostics-summary-card:focus-visible { border-color: var(--accent); }
+.diagnostics-summary-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.diagnostics-summary-card:active { transition: transform .08s ease; transform: scale(.97); }
+.diagnostics-summary-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .6rem; }
+.diagnostics-summary-label { font-size: .74rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.diagnostics-summary-dot { flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: var(--text-faint); }
+.diagnostics-summary-dot-bad { background: var(--bad); }
+.diagnostics-summary-dot-warn { background: var(--warn); }
+.diagnostics-summary-dot-info { background: var(--info); }
+.diagnostics-summary-dot-ok { background: var(--ok); }
+.diagnostics-summary-ok { margin: .5rem 0 0; color: var(--text-muted); }
+.diagnostics-summary-counts { display: grid; grid-template-columns: repeat(3, 1fr); gap: .5rem; text-align: center; }
+.diagnostics-summary-count strong { display: block; font-size: 1.5rem; font-weight: 660; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.diagnostics-summary-count span { display: block; font-size: .68rem; color: var(--text-muted); }
+.diagnostics-summary-count-bad strong { color: var(--bad); }
+.diagnostics-summary-count-warn strong { color: var(--warn); }
+.diagnostics-summary-count-info strong { color: var(--info); }
+.diagnostics-summary-worst { display: flex; justify-content: space-between; align-items: baseline; gap: .5rem; margin-top: .7rem; padding: .5rem 0 0 .5rem; border-top: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); }
+.diagnostics-summary-worst-bad { border-left-color: var(--bad); }
+.diagnostics-summary-worst-warn { border-left-color: var(--warn); }
+.diagnostics-summary-worst-ok { border-left-color: var(--ok); }
+.diagnostics-summary-worst-name { min-width: 0; overflow-wrap: anywhere; }
+.diagnostics-summary-worst-score { flex: 0 0 auto; font-weight: 650; color: var(--text-strong); font-variant-numeric: tabular-nums; }
+
+@media (prefers-reduced-motion: reduce) {
+  button.entity-value-card, button.entity-group-chip, .diagnostics-summary-card, .device-detail-trigger, .entity-command-button, .icon-button { transition: none; }
+  button.entity-value-card:active, button.entity-group-chip:active, .diagnostics-summary-card:active, .device-detail-trigger:active, .entity-command-button:active, .icon-button:active { transform: none; }
+}
+.device-modal-section-title { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 .7rem; gap: .6rem; flex-wrap: wrap; }
+.device-modal-section-title h4 { margin: 0; font-size: .84rem; color: var(--text-strong); text-transform: uppercase; letter-spacing: .04em; }
+.device-modal-subsection + .device-modal-subsection { margin-top: 1.2rem; }
+
+.device-modal-stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr)); gap: .6rem; }
+.device-modal-stat { background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-md); padding: .65rem .8rem; }
+.device-modal-stat.is-warn { border-color: var(--warn-line); background: color-mix(in srgb, var(--warn-bg) 45%, var(--panel-alt)); }
+.device-modal-stat .k { font-size: .76rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.device-modal-stat .v { font-size: 1.15rem; font-variant-numeric: tabular-nums; color: var(--text-strong); margin-top: .1rem; overflow-wrap: anywhere; }
+.device-modal-stat .v small { font-size: .66rem; color: var(--text-faint); font-weight: 400; margin-left: .2rem; }
+
+.device-modal-control-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .7rem; }
+.device-modal-control-card { background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .9rem 1rem; }
+.device-modal-control-card.is-warn { border-color: var(--warn-line); background: color-mix(in srgb, var(--warn-bg) 45%, var(--panel-alt)); }
+.device-modal-control-card .label { font-size: .85rem; color: var(--text-subtle); margin-bottom: .55rem; overflow-wrap: anywhere; }
+.device-modal-control-card .v { font-size: 1.15rem; font-variant-numeric: tabular-nums; color: var(--text-strong); overflow-wrap: anywhere; }
+.device-modal-control-card .v small { font-size: .66rem; color: var(--text-faint); font-weight: 400; margin-left: .2rem; }
+.device-modal-control-card .entity-number-control output { font-variant-numeric: tabular-nums; color: var(--text-strong); min-width: 3.5rem; text-align: right; }
+.device-modal-control-action { width: 100%; padding: .4rem .55rem; border: 1px solid var(--accent-line); border-radius: var(--radius-sm); background: var(--accent-bg); color: var(--accent-soft); cursor: pointer; transition: transform .1s ease-out, border-color .15s ease, color .15s ease; }
+.device-modal-control-action:hover, .device-modal-control-action:focus-visible { border-color: var(--accent); color: var(--text); }
+.device-modal-control-action:active { transform: scale(.97); }
+.device-modal-control-action:disabled { cursor: wait; opacity: .55; }
+/* Das vereinheitlichte Geraete-Modal. Container Query auf dem Modal selbst,
+   nicht auf dem Viewport - eine schmale Seite mit einem breiten Bildschirm
+   soll trotzdem die Tableiste zeigen. Basis-Zustand (ohne @container) ist
+   das Akkordeon: Sidebar aus, jedes Paar ein eigener Block. */
+/* Kopfzeile im Artefakt-Look: Icon-Quadrat + Name + Online-Pill + Untertitel
+   statt Name + zwei Buttons. "Discovery neu laden" ist bewusst nicht mehr
+   hier - der Button steht unveraendert in "Verwaltung & Analyse". */
+.device-modal-topbar { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem 1rem; border-bottom: 1px solid var(--border-soft); background: var(--panel); }
+.device-modal-topbar-id { display: flex; align-items: center; gap: .7rem; min-width: 0; }
+.device-modal-topbar-text { min-width: 0; }
+.device-modal-topbar h3 { margin: 0; color: var(--accent); font-size: 1rem; line-height: 1.25; letter-spacing: -.01em; display: flex; align-items: center; flex-wrap: wrap; gap: .5rem; }
+.device-modal-topbar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.device-modal-topbar-sub, .device-modal-topbar .device-detail-source { margin: .1rem 0 0; color: var(--text-muted); font-size: .8rem; line-height: 1.3; }
+.device-modal-topbar-icon { flex: none; width: 2.1rem; height: 2.1rem; border-radius: var(--radius-sm); background: var(--accent-bg); border: 1px solid var(--accent-line); display: grid; place-items: center; color: var(--accent-soft); }
+.device-modal-topbar-icon svg { width: 1.1rem; height: 1.1rem; }
+.device-modal-topbar-pill { display: inline-flex; align-items: center; gap: .35rem; font-size: .74rem; font-weight: 400; padding: .16rem .5rem; border-radius: 99px; border: 1px solid var(--ok-line); background: var(--ok-bg); color: var(--ok); }
+.device-modal-topbar-pill::before { content: ""; width: .35rem; height: .35rem; border-radius: 50%; background: currentColor; }
+.device-modal-topbar-pill-offline { border-color: var(--bad-strong); background: var(--bad-bg); color: var(--bad-strong); }
+.device-modal-topbar-close { background: transparent; border: 1px solid var(--border); color: var(--text-muted); border-radius: 3px; padding: .38rem .65rem; font-size: .82rem; cursor: pointer; }
+.device-modal-topbar-close:hover, .device-modal-topbar-close:focus-visible { border-color: var(--accent); color: var(--text); }
+dialog#device-modal { container: device-modal / inline-size; }
+.device-modal-sidebar { display: none; }
+.device-modal-switcher { display: block; }
+.device-modal-pair { display: block; margin-bottom: .6rem; }
+.device-modal-trigger { all: unset; box-sizing: border-box; width: 100%; cursor: pointer; display: flex; align-items: center; gap: .55rem; padding: .6rem .8rem; border-radius: var(--radius-sm) var(--radius-sm) 0 0; }
+.device-modal-trigger:hover { background: var(--panel-alt); }
+.device-modal-trigger.active { background: color-mix(in srgb, var(--panel-alt) 70%, transparent); }
+.device-modal-trigger-icon { flex: none; width: 1.05rem; height: 1.05rem; color: var(--text-faint); display: grid; place-items: center; }
+.device-modal-trigger-icon svg { width: 100%; height: 100%; }
+.device-modal-trigger.active .device-modal-trigger-icon { color: var(--accent); }
+.device-modal-trigger-text { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.2; min-width: 0; }
+.device-modal-trigger-label { font-size: .85rem; color: var(--text-subtle); }
+.device-modal-trigger.active .device-modal-trigger-label { color: var(--accent); }
+.device-modal-trigger-info { font-size: .71rem; color: var(--text-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 8.5rem; }
+.device-modal-trigger-info.is-warn { color: var(--warn); }
+.device-modal-trigger-badge { flex: none; margin-left: .1rem; font-size: .68rem; color: var(--text-faint); background: var(--sunken); border-radius: 99px; padding: .05rem .4rem; font-variant-numeric: tabular-nums; }
+.device-modal-trigger.active .device-modal-trigger-badge { color: var(--accent-soft); background: var(--accent-bg); }
+.device-modal-chev { display: none; margin-left: auto; color: var(--text-faint); }
+/* Der Auswahlstrich existiert nur in der Tab-Ansicht (>=860px). Im Akkordeon
+   ist er aus - dort markiert der aufgeklappte Block die Auswahl. left/top:0
+   verankern ihn an der Ecke der Switcher-Flaeche, damit positionUnderline()
+   ihn per gemessener translateX exakt mittig unter den aktiven Tab schiebt
+   (sonst startet er an seiner Flex-Static-Position und sitzt versetzt). */
+.device-modal-underline { display: none; position: absolute; left: 0; top: 0; height: 2px; background: var(--accent); border-radius: 2px; transition: transform .32s cubic-bezier(.2,.8,.2,1), width .32s cubic-bezier(.2,.8,.2,1); pointer-events: none; }
+.device-modal-panelwrap { order: 100; width: 100%; display: grid; grid-template-rows: 0fr; transition: grid-template-rows .32s cubic-bezier(.2,.8,.2,1); }
+.device-modal-trigger.active + .device-modal-panelwrap { grid-template-rows: 1fr; }
+.device-modal-panelwrap-inner { min-height: 0; overflow: hidden; }
+.device-modal-panel { padding: .9rem .2rem 0; }
+/* Jeder Tab-Inhalt beginnt buendig an der Panel-Oberkante. Das Padding oben
+   trennt die Panelflaeche noch von den Tabs/dem Trigger, aber die
+   Standard-Randabstaende der ersten Ueberschrift (z. B. das blanke <h4> im
+   Verwaltungs-Panel) wuerden sonst je nach Tab einen anderen Versatz
+   aufaddieren. */
+.device-modal-panel > :first-child { margin-top: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .device-modal-underline, .device-modal-panelwrap, .device-modal-trigger, .device-modal-control-action, .device-modal-relation-chip { transition: none; }
+}
+.device-modal-manage-row { display: flex; gap: .55rem; flex-wrap: wrap; margin-top: .3rem; }
+.device-modal-manage-row button { background: transparent; border: 1px solid var(--border); color: var(--text-subtle); border-radius: 3px; padding: .45rem .75rem; font-size: .84rem; cursor: pointer; transition: transform .1s ease-out, border-color .15s ease, color .15s ease; }
+.device-modal-manage-row button:hover { border-color: var(--accent); color: var(--text); }
+.device-modal-manage-row button:active { transform: scale(.97); }
+.device-modal-manage-row button:disabled { cursor: wait; opacity: .55; transform: none; }
+.device-modal-manage-row .warnish:hover { border-color: var(--warn-line); color: var(--warn); }
+.device-modal-manage-row .danger:hover { border-color: var(--bad); color: var(--bad); }
+@media (prefers-reduced-motion: reduce) {
+  .device-modal-manage-row button { transition: none; }
+  .device-modal-manage-row button:active { transform: none; }
+}
+.device-modal-updated { margin: 0 0 .7rem; color: var(--text-faint); font-size: .78rem; text-align: right; }
+.device-modal-section-title .device-modal-updated { margin: 0; }
+/* Ab 860px Modal-Breite: Sidebar sichtbar (mit eigener Flaeche + Trennkante
+   zur Kopfzeile und zum Hauptbereich), "Geraetedaten"-Paar (ihr mobiles
+   Gegenstueck) weg, die uebrigen Paare loesen sich per display:contents aus
+   ihrem Block und ordnen sich ueber "order" zu einer Tableiste ueber einer
+   gemeinsamen Panelflaeche. Das "order" gehoert dabei auf .device-modal-
+   panelwrap - das ist das Flex-Kind der Switcher-Flaeche; .device-modal-panel
+   liegt zwei Ebenen tiefer und wuerde von "order" nie erreicht (das war der
+   Grund, warum Panels ab "Steuerung" nach unten sprangen). */
+@container device-modal (min-width: 860px) {
+  .device-modal-scrollarea { display: grid; grid-template-columns: 14.5rem 1fr; }
+  /* Die Sidebar liegt auf dem Gesamt-Dashboard-Grund (--bg) statt einer
+     eigenen, abgesenkten Flaeche - im Tageslicht-Theme wirkte das
+     color-mix(--sunken, #000) sonst schmutzig-dunkel. Die Trennung zum
+     Hauptbereich traegt jetzt allein die --border-Kante (nicht --border-soft),
+     weil der Tonunterschied zur Kopfzeile dafuer zu klein ist. */
+  .device-modal-sidebar { display: block; padding: 1rem 1.1rem; border-right: 1px solid var(--border); background: var(--bg); }
+  /* row-gap 0: die eingeklappten Panelwraps (0fr-Grid, volle Breite) liegen
+     als 0px-Zeilen zwischen Tableiste und aktivem Panel - mit row-gap
+     wuerde jede davon einen sichtbaren Spalt aufaddieren und die Trennlinie
+     von den Tabs abruecken. */
+  /* align-content: flex-start ist Pflicht, nicht Kosmetik: das Grid der
+     Scrollflaeche streckt den Switcher auf die Hoehe der (meist laengeren)
+     Sidebar. Der Default align-content: stretch verteilt diesen Ueberschuss
+     dann zwischen die Flex-Zeilen - die Tableiste wird auseinandergezogen
+     und das aktive Panel steht mit grossem Versatz unter der Oberkante.
+     flex-start packt Tabs + Panel buendig nach oben. */
+  .device-modal-switcher { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 .15rem; position: relative; min-width: 0; padding: .9rem 1.2rem 1.3rem; }
+  .device-modal-pair[data-tab="deviceInfo"] { display: none; }
+  .device-modal-pair { display: contents; }
+  .device-modal-pair[data-tab="measurements"] .device-modal-trigger,
+  .device-modal-pair[data-tab="measurementsControls"] .device-modal-trigger { order: 0; }
+  .device-modal-pair[data-tab="controls"] .device-modal-trigger { order: 1; }
+  .device-modal-pair[data-tab="configDiag"] .device-modal-trigger { order: 2; }
+  .device-modal-pair[data-tab="management"] .device-modal-trigger { order: 3; }
+  .device-modal-pair[data-tab="measurements"] .device-modal-panelwrap,
+  .device-modal-pair[data-tab="measurementsControls"] .device-modal-panelwrap { order: 100; }
+  .device-modal-pair[data-tab="controls"] .device-modal-panelwrap { order: 101; }
+  .device-modal-pair[data-tab="configDiag"] .device-modal-panelwrap { order: 102; }
+  .device-modal-pair[data-tab="management"] .device-modal-panelwrap { order: 103; }
+  .device-modal-underline { display: block; }
+  .device-modal-trigger { width: auto; border-radius: var(--radius-sm) var(--radius-sm) 0 0; border-bottom: 0; background: var(--panel); }
+  .device-modal-trigger.active { background: var(--panel-alt); }
+  .device-modal-panel { border-top: 1px solid var(--border-soft); padding: 1rem .2rem 0; }
+}
+/* Unter 860px: jedes Paar wird wieder ein eigener Akkordeon-Block. Kein
+   Auswahlstrich (die aufgeklappte Karte markiert die Auswahl), kein
+   Tableisten-Rahmen - nur die Kartenkontur. */
+@container device-modal (max-width: 859px) {
+  .device-modal-switcher { display: block; padding: .9rem 1rem 1.1rem; }
+  .device-modal-pair { display: block; border: 1px solid var(--border); border-radius: var(--radius-md); margin: 0 0 .6rem; background: var(--panel-alt); overflow: hidden; }
+  .device-modal-trigger { width: 100%; border-radius: 0; padding: .7rem .85rem; background: transparent; }
+  .device-modal-trigger.active { background: color-mix(in srgb, var(--panel-alt) 55%, transparent); }
+  .device-modal-chev { display: inline-block; transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+  .device-modal-trigger.active .device-modal-chev { transform: rotate(90deg); }
+  .device-modal-panel { border-top: 0; padding: 0 .95rem .95rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .device-modal-chev { transition: none; }
+}
+.device-detail-trigger { flex: 0 0 auto; background: transparent; color: var(--accent); border: 1px solid var(--border); border-radius: 3px; padding: .4rem .65rem; cursor: pointer; transition: transform .1s ease; }
+.device-detail-trigger:hover, .device-detail-trigger:focus-visible { border-color: var(--accent); color: var(--text); }
+.device-detail-trigger:active { transform: scale(.96); }
+.device-detail-trigger:disabled { cursor: not-allowed; opacity: .55; }
+.device-action-tooltip { display: inline-flex; }
+.discovery-tooltip-content { max-height: 30rem; overflow: auto; color: var(--text); }
+.discovery-tooltip-content strong { display: block; margin-bottom: .5rem; color: var(--accent); }
+.discovery-tooltip-content pre { margin: 0 0 .75rem; color: var(--text-subtle); font: .78rem/1.45 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
+[x-cloak] { display: none !important; }
+small { color: var(--text-muted); }
+/* ------------------------------------------------------------------
+   Mobilansicht. Ein einziger Umschaltpunkt fuer das gesamte Dashboard:
+   700px. CSS-Variablen funktionieren in Media-Queries nicht, der Wert
+   steht deshalb als Literal - wer ihn aendert, aendert ihn hier.
+
+   Zwei Ausnahmen von "alles an einer Stelle", beide gewollt:
+   - manager.css hat einen eigenen 700px-Block am Dateiende, weil es
+     nur fuer Manager-Panels geladen wird und base.css ueberschreibt.
+   - automations.css folgt der umgekehrten Philosophie: mobil zuerst,
+     Umschaltpunkt min-width: 62rem. Das ist Absicht aus Spec B - die
+     Ketten-Darstellung einer Regel braucht mehr als 700px. Zwischen
+     700px und 992px zeigt der Automations-Tab deshalb das
+     Rezept-Layout, waehrend alle anderen Tabs schon Desktop sind.
+   ------------------------------------------------------------------ */
+@media (max-width: 700px) {
+  /* --- Grundgeruest --- */
+  body { padding: 1rem .75rem; }
+
+  /* --- Tab-Leiste als Aufklappmenue --- */
+  /* Zehn Tabs brechen bei 366px nutzbarer Breite auf rund drei Zeilen um,
+     darum unter 700px ein Aufklappmenue. Frueher ein hartes display-Umschalten;
+     jetzt faehrt die Liste ueber max-height + Deckung auf und ab - rein und
+     raus auf demselben Pfad (apple-design 7). visibility haelt die
+     eingeklappten Tabs aus der Tab-Reihenfolge, ohne die Auffahrt zu
+     blockieren (0s verzoegert beim Schliessen, sofort beim Oeffnen).
+     max-height ist nur eine Obergrenze: 32rem fasst die zehn Manager-Tabs
+     knapp; der 4-Tab-Viewer oeffnet dadurch minimal abrupter. */
+  .nav-menu-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .6rem; margin-top: 1.5rem; }
+  nav#dashboard-tabs {
+    margin-top: 0;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0;
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition: max-height .26s var(--ease-out), opacity .18s var(--ease-out), visibility 0s linear .26s;
+  }
+  nav#dashboard-tabs.nav-open {
+    max-height: 32rem;
+    opacity: 1;
+    visibility: visible;
+    transition: max-height .26s var(--ease-out), opacity .18s var(--ease-out), visibility 0s;
+  }
+  nav#dashboard-tabs .tab { margin-bottom: 0; border-radius: 6px; text-align: left; padding: .8rem .9rem; }
+  /* Kein gleitender Unterstrich in der vertikalen Liste - der aktive Eintrag
+     traegt hier eine flaechige Markierung. */
+  nav#dashboard-tabs .tab::after { content: none; }
+  nav#dashboard-tabs .tab.active { background: var(--accent-bg); color: var(--accent); }
+  /* In der senkrechten Liste trennt eine waagerechte Linie - der senkrechte
+     Strich der Tab-Zeile stuende hier quer zur Leserichtung. */
+  nav#dashboard-tabs .tab-divider { align-self: stretch; width: auto; height: 0; margin: .4rem .2rem; border-left: 0; border-top: 1px solid var(--border); }
+
+  /* Reduzierte Bewegung: die Liste blendet nur, keine Hoehenfahrt. */
+  @media (prefers-reduced-motion: reduce) {
+    nav#dashboard-tabs { transition: opacity .15s ease, visibility 0s linear .15s; }
+    nav#dashboard-tabs.nav-open { transition: opacity .15s ease, visibility 0s; }
+  }
+
+  /* Richtwert 2.75rem (44px) fuer Fingerbedienung. */
+  .icon-button { width: 2.75rem; height: 2.75rem; }
+  .icon-button.labeled { width: auto; height: 2.75rem; }
+
+  /* --- Layout-Raster und Energie-Karten --- */
+  .energy-flow-map { min-height: 29rem; }
+  .energy-flow-card { --flow-node-w: 8rem; --flow-node-home-w: 9rem; }
+  .energy-flow-header { padding-inline: .8rem; }
+
+
+  /* --- Antippbare Flaechen --- */
+  /* Richtwert 2.75rem (44px). Nur hier, damit die Desktop-Dichte
+     unveraendert bleibt - dort sind 22px mit der Maus kein Problem.
+     Die Selektoren spiegeln die Desktop-Regeln in Spezifitaet und
+     gewinnen ueber die spaetere Position im Stylesheet. */
+  nav button,
+  .device-density-toggle { min-height: 2.75rem; }
+  .device-tile .entity-command-button,
+  .entity-list-command,
+  .entity-command-button.entity-icon { width: 2.75rem; height: 2.75rem; padding: .7rem; }
+  .entity-command-button-detail { min-height: 2.75rem; padding: .4rem .8rem; }
+}
+
+/* --- Schmale Handys (iPhone 13 Pro und kleiner) ------------------------- */
+/* Die vier Eck-Knoten der Flusskarte sitzen bei x=15%/85% der Kartenbreite
+   (NODES in energy-flow.js) - eine Knotenbreite node_w clippt am linken/
+   rechten Kartenrand, sobald node_w/2 > 0.15 * Kartenbreite, also ab einer
+   Kartenbreite unter node_w / 0.3. Bei den 8rem (128px) der 700px-Regel oben
+   ist das schon unter ~427px der Fall: ein iPhone 13 Pro (390px CSS-Breite,
+   abzueglich Body-Padding und Kartenrahmen rund 364px verfuegbar) clippt die
+   PV-/Netz-/Batterie-/Lasten-Knoten damit sichtbar am .energy-flow-map mit
+   seinem overflow:hidden. 6.4rem (102px) bleibt bis hinunter zu ~340px
+   Kartenbreite clipping-frei - deckt auch kleinere Telefone (iPhone SE/mini)
+   mit ab. */
+@media (max-width: 430px) {
+  .energy-flow-card { --flow-node-w: 6.4rem; --flow-node-home-w: 7.2rem; }
+  .energy-flow-node { padding: .55rem .6rem; }
+  .energy-flow-node strong { font-size: .92rem; }
+  .energy-flow-node output { font-size: .76rem; }
+}

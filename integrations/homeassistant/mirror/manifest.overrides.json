@@ -1,0 +1,6 @@
+{
+  "documentation": "https://github.com/OWNER/REPO",
+  "issue_tracker": "https://github.com/OWNER/REPO/issues",
+  "codeowners": ["@OWNER"],
+  "version": "0.0.0"
+}

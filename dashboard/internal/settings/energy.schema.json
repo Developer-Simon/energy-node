@@ -1,0 +1,76 @@
+{
+  "title": "Energy role assignments",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["assignments"],
+  "properties": {
+    "assignments": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["role"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["", "pv", "battery", "battery_charge", "battery_discharge", "grid", "grid_import", "grid_export", "load", "wallbox", "heat_pump", "battery_soc"]
+          },
+          "scale": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "default": 1
+          },
+          "invert": {
+            "type": "boolean",
+            "default": false
+          },
+          "capacity_kwh": {
+            "type": "number",
+            "minimum": 0,
+            "default": 0
+          }
+        }
+      }
+    },
+    "interpretation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "gap_mode": {
+          "type": "string",
+          "enum": ["unknown_consumer", "diagnostic"]
+        },
+        "load_mode": {
+          "type": "string",
+          "enum": ["measured", "calculated", "auto", "combined"]
+        },
+        "gap_tolerance_mode": {
+          "type": "string",
+          "enum": ["absolute", "percent"]
+        },
+        "gap_tolerance_w": {
+          "type": "number",
+          "minimum": 0
+        },
+        "gap_tolerance_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "surplus_threshold_w": {
+          "type": "number",
+          "minimum": 0
+        },
+        "import_threshold_w": {
+          "type": "number",
+          "minimum": 0
+        },
+        "battery_reserve_percent": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    }
+  }
+}

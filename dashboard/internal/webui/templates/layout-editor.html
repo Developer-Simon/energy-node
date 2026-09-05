@@ -1,0 +1,122 @@
+{{define "layout-editor"}}
+{{/*
+  Editor-Fragment fuer den Layout-Bearbeitungsmodus der Uebersicht.
+  Wird nur bei Bedarf ueber /?fragment=panel&panel=layout-editor nachgeladen
+  und von layout-editor.js in den bestehenden Uebersichts-DOM eingesetzt:
+  die data-edit-only-Bedienelemente wandern in die Live-Werkzeugleiste,
+  Toolbox und Options-Modal haengen sich an die Seite. Nur fuer Manager.
+*/}}
+<div data-editor-toolbar hidden>
+  <div class="layout-widths" role="group" aria-label="Zielbreite" data-edit-only>
+    <button class="layout-width-chip active" type="button" data-w="0">Editorbreite</button>
+    <button class="layout-width-chip" type="button" data-w="390">Handy</button>
+    <button class="layout-width-chip" type="button" data-w="834">Tablet</button>
+    <button class="layout-width-chip" type="button" data-w="1280">Monitor</button>
+  </div>
+  <span class="layout-modehint" data-widthnote data-edit-only></span>
+  <button class="layout-btn" type="button" data-edit-only data-pageopts aria-haspopup="dialog">
+    <svg class="automation-icon" aria-hidden="true"><use href="#ico-pencil"></use></svg>
+    Seite bearbeiten
+  </button>
+  <button class="layout-btn" type="button" data-edit-only data-addpage>
+    <svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg>
+    Seite
+  </button>
+  <button class="layout-btn" type="button" data-edit-only data-toolbox-toggle aria-expanded="false" aria-controls="toolbox">
+    <svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg>
+    Baustein
+  </button>
+  <span class="layout-status" data-status data-edit-only><i></i> Ungespeichert</span>
+  {{/* Steht nur bei ungespeicherten Aenderungen in der Leiste (updateStatus()
+       schaltet [hidden]). Fuehrt ueber denselben Waechter wie das Verlassen. */}}
+  <button class="layout-btn danger" type="button" data-edit-only data-mode-discard hidden>
+    <svg class="automation-icon" aria-hidden="true"><use href="#ico-trash"></use></svg>
+    Änderungen verwerfen
+  </button>
+  {{/* Ikone aus dem Sprite statt eines eigenen Pfades: derselbe Speicher-
+       Knopf wie in den Verlaufssichten und den Managerseiten. */}}
+  <button class="layout-btn primary" type="button" data-edit-only data-mode-save>
+    <svg class="automation-icon" aria-hidden="true"><use href="#ico-save"></use></svg>
+    Speichern &amp; schließen
+  </button>
+</div>
+
+<aside class="layout-toolbox" id="toolbox" aria-hidden="true" aria-label="Bausteine">
+  <div class="layout-toolbox-head">
+    <b>Bausteine</b>
+    <span class="layout-spacer"></span>
+    <button class="layout-chip-btn" type="button" data-toolbox-close aria-label="Toolbox schließen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
+  </div>
+  <div class="layout-toolbox-search"><input type="search" placeholder="Suchen — Karte, Gerät, Entität" data-tb-search aria-label="Bausteine durchsuchen"></div>
+  <div class="layout-toolbox-tabs" role="group" aria-label="Art">
+    <button class="layout-toolbox-tab active" type="button" data-tb-tab="karten">Karten</button>
+    <button class="layout-toolbox-tab" type="button" data-tb-tab="geraete">Geräte</button>
+    <button class="layout-toolbox-tab" type="button" data-tb-tab="entitaeten">Entitäten</button>
+  </div>
+  <div class="layout-toolbox-list" data-tb-list></div>
+  {{/* Der Seitenname kommt aus renderToolbox(); der Text hier ist nur der
+       Stand vor dem ersten Oeffnen. */}}
+  <div class="layout-toolbox-foot">
+    Klicken oder ziehen — landet auf <b data-tb-target>der aktiven Seite</b>.
+  </div>
+</aside>
+
+<div class="layout-modal-scrim" id="layout-options-modal" data-modal>
+  <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="Kartenoptionen">
+    <div class="layout-modal-sheet-head">
+      <div><b data-modal-title>Speicher</b><div class="kind" data-modal-kind>energy_ring</div></div>
+      <span class="layout-spacer"></span>
+      <button class="layout-chip-btn" type="button" data-close aria-label="Schließen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
+    </div>
+    <div class="layout-modal-sheet-body" data-modal-body></div>
+    <div class="layout-modal-sheet-foot">
+      <button class="layout-btn" type="button" data-close>Abbrechen</button>
+      <button class="layout-btn primary" type="button" data-close>
+        <svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
+        Übernehmen
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="layout-modal-scrim" id="layout-page-modal" data-modal>
+  <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="Seite">
+    <div class="layout-modal-sheet-head">
+      <div><b>Seite</b><div class="kind">Layout-Seite der Übersicht</div></div>
+      <span class="layout-spacer"></span>
+      <button class="layout-chip-btn" type="button" data-page-close aria-label="Schließen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
+    </div>
+    <div class="layout-modal-sheet-body">
+      <div class="layout-modal-field"><label for="layout-page-name">Name</label>
+        <input id="layout-page-name" type="text" data-page-name autocomplete="off"></div>
+      <div class="layout-modal-field"><label>Reihenfolge</label>
+        <div class="layout-page-order">
+          <button class="layout-btn" type="button" data-page-move="-1" aria-label="Seite nach vorn">Nach vorn</button>
+          <button class="layout-btn" type="button" data-page-move="1" aria-label="Seite nach hinten">Nach hinten</button>
+        </div></div>
+    </div>
+    <div class="layout-modal-sheet-foot">
+      <button class="layout-btn danger" type="button" data-page-remove>
+        <svg class="automation-icon" aria-hidden="true"><use href="#ico-trash"></use></svg>
+        Seite löschen
+      </button>
+      <span class="layout-spacer"></span>
+      <button class="layout-btn primary" type="button" data-page-close>
+        <svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
+        Fertig
+      </button>
+    </div>
+  </div>
+</div>
+
+<dialog id="layout-guard-modal" class="app-modal app-modal-danger" aria-labelledby="layout-guard-title">
+  <h2 class="app-modal-title" id="layout-guard-title">Ungespeicherte Änderungen</h2>
+  <p class="app-modal-body">Es gibt Änderungen am Layout, die noch nicht gespeichert sind.</p>
+  <div class="app-modal-actions">
+    <button type="button" data-guard-cancel>Weiter bearbeiten</button>
+    <button type="button" class="app-modal-danger-button" data-guard-discard>Verwerfen</button>
+  </div>
+</dialog>
+
+{{template "revisions" .}}
+{{end}}

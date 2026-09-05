@@ -1,0 +1,84 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "pages"],
+  "properties": {
+    "version": {"const": 3},
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "order", "groups"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "name": {"type": "string", "minLength": 1},
+          "order": {"type": "integer", "minimum": 0},
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["id", "name", "items"],
+              "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "name": {"type": "string", "minLength": 1},
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": ["id", "type", "span", "visible"],
+                    "properties": {
+                      "id": {"type": "string", "minLength": 1},
+                      "type": {"type": "string", "enum": ["device", "entity_value", "entity_group", "energy_flow", "energy_summary", "diagnostics", "energy_band", "energy_ring", "energy_board", "energy_day", "energy_schema", "energy_status", "battery_status"]},
+                      "ref": {"type": "string"},
+                      "entity_refs": {
+                        "type": "array",
+                        "items": {"type": "string", "minLength": 1}
+                      },
+                      "title": {"type": "string"},
+                      "span": {"type": "string", "enum": ["1", "2", "3", "4", "5", "6", "full"]},
+                      "visible": {"type": "boolean"},
+                      "visible_categories": {
+                        "type": "array",
+                        "items": {"type": "string", "enum": ["controls", "measurements", "diagnostics", "configuration"]}
+                      },
+                      "display": {"type": "string", "enum": ["detail", "compact", "column", "trajectory"]},
+                      "height": {"type": "integer", "minimum": 1, "maximum": 12},
+                      "flow_scale": {"type": "string", "enum": ["width", "speed"]},
+                      "speed_reference_mode": {"type": "string", "enum": ["relative", "fixed"]},
+                      "speed_reference_watts": {"type": "integer", "minimum": 1},
+                      "height_reference": {"type": "string", "enum": ["fill", "abs"]},
+                      "scale_mode": {"type": "string", "enum": ["linear", "sqrt"]},
+                      "unit": {"type": "string", "enum": ["auto", "w", "kw"]},
+                      "bundle_threshold": {"type": "string", "enum": ["0", "0.03", "0.08"]},
+                      "animate": {"type": "string", "enum": ["on", "off"]},
+                      "kpi": {"type": "string", "enum": ["autarkie", "eigen", "netz", "last"]},
+                      "label_mode": {"type": "string", "enum": ["both", "pct", "abs"]},
+                      "sort": {"type": "string", "enum": ["fixed", "power"]},
+                      "spark_window": {"type": "string", "enum": ["15", "60", "off"]},
+                      "dense": {"type": "string", "enum": ["on", "off"]},
+                      "show_inactive": {"type": "string", "enum": ["on", "off"]},
+                      "measured_split": {"type": "string", "enum": ["sum", "entities"]},
+                      "display_mode": {"type": "string", "enum": ["mirror", "supply", "demand"]},
+                      "show_now": {"type": "string", "enum": ["on", "off"]},
+                      "stroke_mode": {"type": "string", "enum": ["power", "const"]},
+                      "entity_labels": {"type": "string", "enum": ["power", "entity"]},
+                      "hide_inactive": {"type": "string", "enum": ["on", "off"]},
+                      "display_size": {"type": "string", "enum": ["xs", "s", "m", "l", "xl"]},
+                      "beam_span": {"type": "string", "enum": ["3000", "6000", "11000"]},
+                      "show_advice": {"type": "string", "enum": ["on", "off"]},
+                      "battery_window": {"type": "string", "enum": ["3", "6", "12", "24"]},
+                      "battery_projection_window": {"type": "string", "enum": ["3", "6", "12", "24"]}
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

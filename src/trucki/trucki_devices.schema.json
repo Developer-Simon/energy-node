@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/trucki_devices.schema.json",
+  "title": "Trucki Devices Configuration",
+  "description": "JSON schema for Trucki-Stick configuration (T2SG/T2MG/T2HG) used by trucki_http_mqtt.py.",
+  "type": "array",
+  "items": {
+    "title": "Trucki Device",
+    "description": "Configuration for one Trucki-Stick (any of the T2SG/T2MG/T2HG variants; the bridge publishes whatever fields it finds dynamically).",
+    "type": "object",
+    "required": ["id", "name", "host"],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "default": "new_trucki_device",
+        "title": "Identifier",
+        "description": "Unique identifier for the Trucki stick used in MQTT topics and Home Assistant device IDs."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "default": "New Trucki Device",
+        "title": "Display name",
+        "description": "Display name for the Trucki stick in Home Assistant."
+      },
+      "host": {
+        "type": "string",
+        "minLength": 1,
+        "default": "192.0.2.100",
+        "title": "Host",
+        "description": "IP address or hostname of the Trucki stick."
+      },
+      "port": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535,
+        "default": 80,
+        "title": "HTTP port",
+        "description": "TCP port of the stick's local web server."
+      },
+      "live_path": {
+        "type": "string",
+        "minLength": 1,
+        "default": "/jsonlive",
+        "title": "Live status path",
+        "description": "HTTP path that returns the stick's live measurements as flat JSON (confirmed default: /jsonlive, polled every TRUCKI_POLL_INTERVAL_S)."
+      },
+      "once_path": {
+        "type": "string",
+        "minLength": 1,
+        "default": "/jsononce",
+        "title": "Config/info path",
+        "description": "HTTP path that returns the stick's configuration/info data as flat JSON (confirmed default: /jsononce, polled as diagnostic on a longer interval). Password fields in the response are never published."
+      },
+      "auth_user": {
+        "type": "string",
+        "default": "",
+        "title": "HTTP auth username",
+        "description": "Username for HTTP basic auth against the stick's web server, if ADMIN_PASS is set on the stick. Leave empty if the stick has no admin password configured."
+      },
+      "auth_password": {
+        "type": "string",
+        "default": "",
+        "title": "HTTP auth password",
+        "description": "Password for HTTP basic auth, matching auth_user."
+      },
+      "via_device": {
+        "type": "string",
+        "minLength": 1,
+        "default": "energy-node",
+        "title": "Parent device",
+        "description": "Home Assistant device identifier this stick is linked to via 'via_device' (e.g. 'energy-node', or a co-located battery_soc device id if this stick and a battery bank are physically the same unit)."
+      }
+    }
+  }
+}

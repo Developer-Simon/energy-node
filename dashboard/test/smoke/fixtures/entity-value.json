@@ -1,0 +1,29 @@
+[
+  {
+    "topic": "homeassistant/sensor/bms_bank_a/soc/config",
+    "payload": {
+      "name": "Ladezustand",
+      "unique_id": "bank_a_soc",
+      "state_topic": "bms/bank_a/state",
+      "value_template": "{{ value_json.soc }}",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "device": { "identifiers": ["bms_bank_a"], "name": "BMS Bank A" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_a/exotic/config",
+    "payload": {
+      "name": "Exotischer Wert",
+      "unique_id": "bank_a_exotic",
+      "state_topic": "bms/bank_a/state",
+      "value_template": "{{ value_json.a.b.c }}",
+      "device": { "identifiers": ["bms_bank_a"], "name": "BMS Bank A" }
+    }
+  },
+
+  {
+    "topic": "bms/bank_a/state",
+    "payload": { "soc": 61.5, "a": { "b": { "c": 1 } } }
+  }
+]

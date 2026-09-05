@@ -1,0 +1,97 @@
+{{define "tiny-tuya"}}
+<section id="settings-tiny-tuya" role="tabpanel" x-show="activeSettingsPage === 'tiny-tuya'" x-data="tinyTuyaPanel()" x-init="init()">
+  <h3>TinyTuya einrichten</h3>
+  <details class="settings-help-panel" open>
+    <summary>Vorbereitung und externe Abhängigkeiten</summary>
+    <ol class="settings-help-list">
+      <li>Ein Konto auf der <a href="https://iot.tuya.com" target="_blank" rel="noopener noreferrer">Tuya IoT Platform</a> anlegen und ein Cloud-Projekt über <strong>Development → Create Cloud Project</strong> erstellen.</li>
+      <li>Im Projekt das Datacenter passend zur Region der Tuya Smart- oder Smart-Life-App wählen, zum Beispiel <strong>Central Europe</strong> oder <strong>Western Europe</strong>.</li>
+      <li>Die passende <strong>Smart Home</strong>-Trial-Subscription beziehungsweise API-Freigabe zum Projekt hinzufügen.</li>
+      <li>Das Gerät im Cloud-Projekt über <strong>Link Devices by App Account</strong> mit dem verwendeten Tuya-Smart- oder Smart-Life-App-Konto verknüpfen.</li>
+      <li>Im Projekt <strong>Access ID</strong> und <strong>Access Secret</strong> öffnen und hier eintragen. Das Secret kann mit der Speicheroption für spätere Abfragen im Dashboard-Datenverzeichnis abgelegt werden.</li>
+    </ol>
+    <p class="settings-help">Die Zielinstallation benötigt außerdem <a href="https://github.com/jasonacox/tinytuya" target="_blank" rel="noopener noreferrer">TinyTuya auf GitHub</a> beziehungsweise das <a href="https://pypi.org/project/tinytuya/" target="_blank" rel="noopener noreferrer">TinyTuya-Paket auf PyPI</a>. Falls ein Local Key nicht aus der Cloud-Liste kommt, muss er mit den TinyTuya-Werkzeugen auf dem Zielsystem ermittelt werden.</p>
+    <p class="settings-help">Local Keys ändern sich häufig, wenn ein Gerät in der App neu verknüpft wird. Nicht benötigte Zugangsdaten und Local Keys niemals in ein öffentliches Repository übernehmen.</p>
+  </details>
+  {{template "settings-stepper" .}}
+  <div class="settings-step-stack">
+  <section class="settings-step" x-show="currentStep === 1" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
+    <h4>1. Tuya-Zugang prüfen</h4>
+    <div class="form-grid">
+      <label for="tiny-tuya-region">Tuya-Region</label><select id="tiny-tuya-region" x-model="region"><option value="eu">Europa</option><option value="us">USA</option><option value="cn">China</option><option value="in">Indien</option></select>
+      <label for="tiny-tuya-access-id">Access ID</label><input id="tiny-tuya-access-id" type="text" autocomplete="off" x-model.trim="accessID">
+      <label for="tiny-tuya-access-secret">Access Secret</label><input id="tiny-tuya-access-secret" type="password" autocomplete="off" x-model="accessSecret">
+    </div>
+    <p class="settings-help" x-show="savedCredentials">Gespeicherte Zugangsdaten vorhanden<span x-show="savedAccessIDHint"> (<span x-text="savedAccessIDHint"></span>)</span>. Für die nächste Abfrage muss das Secret nicht erneut eingegeben werden.</p>
+    <label><input type="checkbox" x-model="saveCredentials"> Zugangsdaten für spätere TinyTuya-Abfragen speichern</label>
+    <div class="toolbar">
+      <button class="icon-button labeled primary" type="button" x-on:click="loadDevices()" x-bind:disabled="loading || !credentialsValid" x-bind:title="loading ? 'Prüfe ...' : 'Geräte abrufen'" x-bind:aria-label="loading ? 'Prüfe ...' : 'Geräte abrufen'">
+        <svg class="automation-icon"><use href="#ico-download"></use></svg>
+        <span x-text="loading ? 'Prüfe ...' : 'Geräte abrufen'"></span>
+      </button>
+    </div>
+  </section>
+  <section class="settings-step" x-show="currentStep === 2" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
+    <h4>2. Gerät auswählen</h4>
+    <p class="settings-help">Für die lokale Verbindung sollte das Gerät eine feste IP-Adresse oder DHCP-Reservierung haben. Unterstützte Protokollversionen unterscheiden sich je Gerät, häufig sind 3.1, 3.3 oder 3.4.</p>
+    <div class="form-grid">
+      <label for="tiny-tuya-device">Gerät</label><select id="tiny-tuya-device" x-model="selectedDeviceID" x-on:change="selectDevice()"><option value="">Gerät auswählen</option><template x-for="device in devices" x-bind:key="device.device_id"><option x-bind:value="device.device_id" x-text="`${device.name || device.device_id} (${device.device_id})`"></option></template></select>
+      <label for="tiny-tuya-local-key">Local Key</label><input id="tiny-tuya-local-key" type="password" autocomplete="off" x-model="device.local_key">
+      <label for="tiny-tuya-ip">IP-Adresse</label><input id="tiny-tuya-ip" type="text" inputmode="url" x-model.trim="device.ip">
+      <label for="tiny-tuya-version">Protokollversion</label><input id="tiny-tuya-version" type="number" min="3" step="0.1" x-model.number="device.version">
+    </div>
+    <div class="toolbar">
+      <button class="icon-button labeled" type="button" x-on:click="goToStep(1)" title="Zurück" aria-label="Zurück">
+        <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
+        <span>Zurück</span>
+      </button>
+      <button class="icon-button labeled primary" type="button" x-on:click="testConnection()" x-bind:disabled="loading || !deviceValid" x-bind:title="loading ? 'Teste ...' : 'Lokale Verbindung testen'" x-bind:aria-label="loading ? 'Teste ...' : 'Lokale Verbindung testen'">
+        <svg class="automation-icon"><use href="#ico-flash"></use></svg>
+        <span x-text="loading ? 'Teste ...' : 'Lokale Verbindung testen'"></span>
+      </button>
+    </div>
+  </section>
+  <section class="settings-step" x-show="currentStep === 3" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
+    <h4>3. DPS prüfen</h4>
+    <p class="settings-help">DP-IDs sind gerätespezifisch und nicht immer selbsterklärend. Den Rohstatus aufbewahren, bevor eine DP als Switch-DP übernommen wird.</p>
+    <div class="table-scroll">
+    <table><thead><tr><th>DP-ID</th><th>Typ</th><th>Wert</th><th>Switch-DP</th></tr></thead><tbody><template x-for="item in dps" x-bind:key="item.id"><tr><td x-text="item.id"></td><td x-text="item.type"></td><td x-text="item.value"></td><td><input type="radio" name="tiny-tuya-switch-dp" x-bind:value="item.id" x-model="switchDP" aria-label="Als Switch-DP verwenden"></td></tr></template></tbody></table>
+    </div>
+    <details><summary>Rohe Statusantwort anzeigen</summary><pre x-text="rawStatus"></pre></details>
+    <div class="toolbar">
+      <button class="icon-button labeled" type="button" x-on:click="goToStep(2)" title="Zurück" aria-label="Zurück">
+        <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
+        <span>Zurück</span>
+      </button>
+      <button class="icon-button labeled primary" type="button" x-on:click="goToStep(4)" x-bind:disabled="!switchDP" title="Gerät konfigurieren" aria-label="Gerät konfigurieren">
+        <svg class="automation-icon"><use href="#ico-gear"></use></svg>
+        <span>Gerät konfigurieren</span>
+      </button>
+    </div>
+  </section>
+  <section class="settings-step" x-show="currentStep === 4" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
+    <h4>4. Übernahme bestätigen</h4>
+    <div class="form-grid">
+      <label for="tiny-tuya-config-id">Konfigurations-ID</label><input id="tiny-tuya-config-id" type="text" x-model.trim="config.id">
+      <label for="tiny-tuya-name">Anzeigename</label><input id="tiny-tuya-name" type="text" x-model.trim="config.name">
+      <label for="tiny-tuya-device-type">Gerätetyp</label><input id="tiny-tuya-device-type" type="text" x-model.trim="config.device_type">
+    </div>
+    <p>Die bestehende Tuya-Konfiguration wird validiert, versioniert gespeichert und anschließend neu geladen.</p>
+    <div class="toolbar">
+      <button class="icon-button labeled" type="button" x-on:click="goToStep(3)" title="Zurück" aria-label="Zurück">
+        <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
+        <span>Zurück</span>
+      </button>
+      <button class="icon-button labeled primary" type="button" x-on:click="saveDevice()" x-bind:disabled="loading || !configValid" x-bind:title="loading ? 'Übernehme ...' : 'Übernahme bestätigen'" x-bind:aria-label="loading ? 'Übernehme ...' : 'Übernahme bestätigen'">
+        <svg class="automation-icon"><use href="#ico-save"></use></svg>
+        <span x-text="loading ? 'Übernehme ...' : 'Übernahme bestätigen'"></span>
+      </button>
+    </div>
+  </section>
+  </div>
+  <details class="tiny-tuya-diagnostics" x-cloak x-show="toolOutput">
+    <summary>Technische Toolausgabe anzeigen</summary>
+    <pre x-text="toolOutput"></pre>
+  </details>
+</section>
+{{end}}

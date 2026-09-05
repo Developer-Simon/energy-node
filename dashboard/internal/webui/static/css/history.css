@@ -1,0 +1,127 @@
+/* Verlauf-Panel: Zeitraum-/Kennwert-Chips, Serien-Farbchips und der
+   "Erweitert"-Bereich (Sichten & Export). Ergaenzt base.css, das
+   .icon-button/.settings-toggle etc. schon definiert - hier nur, was
+   spezifisch fuers Verlauf-Panel ist. */
+
+.history-chip-group { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .6rem; }
+.history-chip-group-label { display: inline-flex; align-items: center; gap: .35rem; margin-right: .3rem; font-size: .82rem; color: var(--text-muted); }
+.history-chip-group-icon { width: 1rem; height: 1rem; flex: none; }
+
+.history-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .4rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.history-chip:hover { border-color: var(--accent-line); color: var(--text); }
+.history-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.history-chip.active { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent); }
+/* Druckfeedback nach demselben Muster wie .diagnostics-summary-card in
+   base.css: kurze, kaum wahrnehmbare Skalierung statt einer eigenen Kurve. */
+.history-chip:active { transition: transform .08s ease, background .15s ease, border-color .15s ease, color .15s ease; transform: scale(.97); }
+
+/* Gleiche Linien-Optik wie .automation-icon, die seit 2026-09 in base.css
+   steht (dieses Panel benutzt den Klassennamen fuer Save/Trash/Close/Download
+   weiter). Die beiden Chip-Ikonen sind eigene Klassen und brauchen sie hier. */
+.history-chip-icon,
+.history-chip-group-icon { width: 1.15rem; height: 1.15rem; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.history-chip-icon { width: 1rem; height: 1rem; flex: none; }
+
+.history-range-custom { cursor: pointer; }
+.history-range-custom input {
+  all: unset;
+  width: 11rem;
+  max-width: 40vw;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.history-range-custom input::placeholder { color: var(--text-faint); }
+
+.history-series-picker { display: flex; flex-wrap: wrap; gap: .5rem; margin: 0 0 1rem; }
+.history-series-dot { width: .65rem; height: .65rem; border-radius: 50%; border: 2px solid var(--text-faint); flex: none; transition: background .15s ease; }
+.history-series-chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 16rem; }
+
+.history-advanced { margin-top: 1rem; border-top: 1px solid var(--border-soft); padding-top: .75rem; }
+.history-disclosure {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  color: var(--text-subtle);
+  font: inherit;
+  font-size: .88rem;
+  cursor: pointer;
+}
+.history-disclosure:hover { color: var(--text); }
+.history-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Gleiche Werte wie .rule-expand-chevron in automations.css - dort nicht
+   wiederverwendbar, weil automations.css nur im Automationen-Panel geladen
+   wird und dieses Panel unabhaengig davon bleiben muss. */
+.history-disclosure-chevron { width: 1rem; height: 1rem; transition: transform .15s ease; }
+.history-disclosure-chevron.expanded { transform: rotate(90deg); }
+
+#history-advanced-panel { padding-top: .75rem; }
+#history-advanced-panel .history-views { margin-bottom: .75rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .history-chip { transition: none; }
+  .history-chip:active { transform: none; }
+  .history-disclosure-chevron { transition: none; }
+}
+
+@media (max-width: 640px) {
+  .history-chip-group { align-items: stretch; }
+  .history-range-custom input { width: 8.5rem; }
+}
+
+/* Aus base.css verlagert (CSS-Split 2026-09): Regeln nur fuers Verlauf-Panel -
+   Steuerzeile, Chart-Container und das Durchreichen der Theme-Farben an die
+   ApexCharts-Symbolleiste. */
+.history-controls { justify-content: space-between; }
+.history-controls label { display: inline-flex; gap: .45rem; align-items: center; }
+/* ApexCharts bringt eigene Stile mit; hier steht nur, was die Karte in das
+   Panel einpasst und die Farben aus den Theme-Tokens durchreicht. */
+.history-chart { width: 100%; min-height: 360px; }
+.history-chart .apexcharts-tooltip {
+  background: var(--panel-alt);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.history-chart .apexcharts-tooltip-title { background: var(--sunken); border-bottom: 1px solid var(--border); }
+/* ApexCharts faerbt die Symbolleiste (Home, Zoom, Auswahl, Hand) aus
+   theme.mode. Damit die Symbole in beiden Themes sichtbar bleiben, kommt die
+   Farbe hier aus den Theme-Tokens - fill fuer die Icon-Flaechen, stroke fuer
+   das Hand-Symbol. */
+.history-chart .apexcharts-toolbar .apexcharts-menu-icon svg,
+.history-chart .apexcharts-toolbar .apexcharts-reset-icon svg,
+.history-chart .apexcharts-toolbar .apexcharts-zoom-icon svg,
+.history-chart .apexcharts-toolbar .apexcharts-zoomin-icon svg,
+.history-chart .apexcharts-toolbar .apexcharts-zoomout-icon svg,
+.history-chart .apexcharts-toolbar .apexcharts-selection-icon svg { fill: var(--text-muted); }
+.history-chart .apexcharts-toolbar .apexcharts-pan-icon svg { stroke: var(--text-muted); }
+.history-chart .apexcharts-toolbar .apexcharts-menu-icon:hover svg,
+.history-chart .apexcharts-toolbar .apexcharts-reset-icon:hover svg,
+.history-chart .apexcharts-toolbar .apexcharts-zoom-icon:hover svg,
+.history-chart .apexcharts-toolbar .apexcharts-zoomin-icon:hover svg,
+.history-chart .apexcharts-toolbar .apexcharts-zoomout-icon:hover svg,
+.history-chart .apexcharts-toolbar .apexcharts-selection-icon:hover svg,
+.history-chart .apexcharts-toolbar .apexcharts-selected svg { fill: var(--text); }
+.history-chart .apexcharts-toolbar .apexcharts-pan-icon:hover svg,
+.history-chart .apexcharts-toolbar .apexcharts-pan-icon.apexcharts-selected svg { stroke: var(--text); }
+
+@media (max-width: 700px) {
+  .history-controls { align-items: stretch; flex-direction: column; }
+  .history-controls label { justify-content: space-between; }
+  .history-chart { min-height: 15rem; }
+}

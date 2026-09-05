@@ -1,0 +1,114 @@
+[
+  {
+    "topic": "homeassistant/sensor/pv_wechselrichter/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "pv_wr_power",
+      "state_topic": "pv/wechselrichter/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["pv_wechselrichter"], "name": "PV-Wechselrichter" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/netz_zaehler/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "netz_zaehler_power",
+      "state_topic": "zaehler/netz/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["netz_zaehler"], "name": "Netzzaehler" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/batterie_wr/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "batterie_power",
+      "state_topic": "batterie/wr/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["batterie_wr"], "name": "Batterie-Wechselrichter" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/batterie_wr/soc/config",
+    "payload": {
+      "name": "Ladezustand",
+      "unique_id": "batterie_soc",
+      "state_topic": "batterie/wr/soc",
+      "unit_of_measurement": "%",
+      "device_class": "battery",
+      "device": { "identifiers": ["batterie_wr"], "name": "Batterie-Wechselrichter" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/haus_zaehler/power/config",
+    "payload": {
+      "name": "Hausverbrauch",
+      "unique_id": "haus_last_power",
+      "state_topic": "zaehler/haus/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["haus_zaehler"], "name": "Hauszaehler" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/wallbox/power/config",
+    "payload": {
+      "name": "Ladeleistung",
+      "unique_id": "wallbox_power",
+      "state_topic": "wallbox/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["wallbox"], "name": "Wallbox" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/waermepumpe/power/config",
+    "payload": {
+      "name": "Leistungsaufnahme",
+      "unique_id": "waermepumpe_power",
+      "state_topic": "waermepumpe/status",
+      "value_template": "{{ value_json.apower }}",
+      "unit_of_measurement": "W",
+      "device_class": "power",
+      "device": { "identifiers": ["waermepumpe"], "name": "Waermepumpe" }
+    }
+  },
+
+  {
+    "topic": "pv/wechselrichter/status",
+    "payload": { "id": 0, "apower": 4200, "voltage": 402.1, "source": "smoke" }
+  },
+  {
+    "topic": "zaehler/netz/status",
+    "payload": { "id": 0, "apower": -1250, "voltage": 231.2, "source": "smoke" }
+  },
+  {
+    "topic": "batterie/wr/status",
+    "payload": { "id": 0, "apower": 900, "voltage": 51.8, "source": "smoke" }
+  },
+  {
+    "topic": "batterie/wr/soc",
+    "payload": "63.5"
+  },
+  {
+    "topic": "zaehler/haus/status",
+    "payload": { "id": 0, "apower": 2050, "voltage": 230.7, "source": "smoke" }
+  },
+  {
+    "topic": "wallbox/status",
+    "payload": { "id": 0, "apower": 600, "source": "smoke" }
+  },
+  {
+    "topic": "waermepumpe/status",
+    "payload": { "id": 0, "apower": 450, "source": "smoke" }
+  }
+]

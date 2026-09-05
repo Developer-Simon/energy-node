@@ -1,0 +1,85 @@
+[
+  {
+    "topic": "homeassistant/sensor/netz_meanwell/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "netz_meanwell_power",
+      "state_topic": "shelly/netz_meanwell/status",
+      "value_template": "{{ value_json.apower }}",
+      "device": { "identifiers": ["netz_meanwell"], "name": "MeanWell-Ladegeraet (Netzseite)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/netz_lumentree/power/config",
+    "payload": {
+      "name": "Leistung",
+      "unique_id": "netz_lumentree_power",
+      "state_topic": "shelly/netz_lumentree/status",
+      "value_template": "{{ value_json.apower }}",
+      "device": { "identifiers": ["netz_lumentree"], "name": "Lumentree-Umrichter (Netzseite)" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_a/voltage/config",
+    "payload": {
+      "name": "Spannung",
+      "unique_id": "bank_a_voltage",
+      "state_topic": "bms/bank_a/voltage",
+      "device": { "identifiers": ["bms_bank_a"], "name": "Shelly Uni Bank A" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/bms_bank_b/voltage/config",
+    "payload": {
+      "name": "Spannung",
+      "unique_id": "bank_b_voltage",
+      "state_topic": "bms/bank_b/voltage",
+      "device": { "identifiers": ["bms_bank_b"], "name": "Shelly Uni Bank B (sendet nie)" }
+    }
+  },
+
+  {
+    "topic": "homeassistant/sensor/battery_soc/voltage_pack/config",
+    "payload": {
+      "name": "Spannung (Bus)",
+      "unique_id": "battery_soc_voltage_pack",
+      "state_topic": "outstation/battery_soc/state",
+      "value_template": "{{ value_json.pack_voltage_v }}",
+      "device": { "identifiers": ["battery_soc"], "name": "Batterie-Ladezustand" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/t2mg81a4e9/dcpower/config",
+    "payload": {
+      "name": "DC-Leistung",
+      "unique_id": "t2mg81a4e9_dcpower",
+      "state_topic": "outstation/t2mg81a4e9/field/dcpower",
+      "device": { "identifiers": ["t2mg81a4e9"], "name": "Trucki T2MG (MeanWell)" }
+    }
+  },
+  {
+    "topic": "outstation/battery_soc/state",
+    "payload": {
+      "pack_voltage_v": 27.36,
+      "pack_corrected_v_per_cell": 3.398,
+      "soc_combined_pct": 63.4
+    }
+  },
+  {
+    "topic": "outstation/t2mg81a4e9/field/dcpower",
+    "payload": "310.5"
+  },
+
+  {
+    "topic": "shelly/netz_meanwell/status",
+    "payload": { "id": 0, "apower": 12.5, "voltage": 231.4, "current": 0.054, "source": "init" }
+  },
+  {
+    "topic": "shelly/netz_lumentree/status",
+    "payload": { "id": 0, "apower": 48.2, "voltage": 230.9, "source": "init" }
+  },
+  {
+    "topic": "bms/bank_a/voltage",
+    "payload": "26.8"
+  }
+]

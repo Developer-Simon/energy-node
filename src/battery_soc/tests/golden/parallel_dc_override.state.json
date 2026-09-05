@@ -1,0 +1,20 @@
+{
+  "ac_fallback_active": false,
+  "charger_power_source": "dc",
+  "inputs_stale": false,
+  "inverter_power_source": "ac",
+  "last_calibration_pack": null,
+  "net_power_w": 235.6,
+  "pack_calibration_empty_v_per_cell": 2.756,
+  "pack_calibration_full_v_per_cell": 3.444,
+  "pack_corrected_v_per_cell": 3.345,
+  "pack_current_a": 8.79,
+  "pack_remaining_ah": 102.15,
+  "pack_voltage_soc_mismatch": false,
+  "pack_voltage_soc_pct": 89.6,
+  "pack_voltage_v": 26.8,
+  "soc_combined_pct": 51.1,
+  "stale_inputs": "",
+  "time_to_empty_h": null,
+  "time_to_full_h": 11.13
+}

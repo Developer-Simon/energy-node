@@ -1,0 +1,22 @@
+__pycache__
+/energy-node-dashboard
+/dashboard/energy-node-dashboard
+/dashboard/node_modules/
+/dist/
+*.exe
+import/*
+templates/*
+*.whl
+.venv/
+.venv-ha/
+.pytest_cache/
+.source-hash
+dashboard/dashboard
+.superpowers/
+/secrets/
+.worktrees/
+*.egg-info/
+
+# Lokale Entwicklungs-/Planungsdokumente – nicht veroeffentlichen
+/.docs/
+/drafts/

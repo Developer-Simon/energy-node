@@ -1,0 +1,57 @@
+{{define "config"}}
+<section id="config-panel" class="panel config-panel" role="tabpanel" aria-labelledby="tab-config" x-bind:class="{ active: activePanel === 'config-panel' }" x-show="activePanel === 'config-panel'" x-data="configPanel()" x-init="load(); initActionBar()">
+  <h2>Konfigurationen</h2>
+  <p class="config-meta" id="config-count" x-text="configCount"></p>
+  <div id="config-presets-error" class="message error" role="alert" x-cloak x-show="presetsError" x-text="presetsError"></div>
+  <div id="config-reload-error" class="message error" role="alert" x-cloak x-show="reloadFailed">
+    <strong>Dienst nicht neu geladen.</strong>
+    <span>Die Datei ist gespeichert, aber der zugehörige Dienst hat die Änderung nicht übernommen. Bis zum nächsten erfolgreichen Neuladen arbeitet er mit dem alten Stand.</span>
+    <code x-text="reloadError"></code>
+    <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading" x-text="reloading ? 'Lade Dienst ...' : 'Erneut versuchen'"></button>
+  </div>
+  <form id="schema-form" class="schema-form" novalidate x-ref="schemaForm" x-on:submit.prevent="saveForm()" x-on:input="formDirty = true" x-on:change="formDirty = true"></form>
+
+  <!-- Der Rohtext-Editor ist der seltenere Weg und liegt deshalb eine Ebene
+       tiefer; sein Speichern-Button steht bei ihm drin statt in der
+       schwebenden Leiste, damit dort genau eine primaere Aktion bleibt. -->
+  <details id="config-json" class="config-json">
+    <summary class="config-json-summary">
+      <span class="config-json-summary-label">JSON direkt bearbeiten</span>
+      <span class="config-json-dirty" x-cloak x-show="editorDirty">geändert</span>
+    </summary>
+    <div class="config-json-body">
+      <p class="config-json-note">Speichert den Text so, wie er hier steht. Das Formular oben wird danach neu aus der gespeicherten Datei aufgebaut.</p>
+      <textarea id="config-editor" aria-label="JSON-Konfiguration" x-model="editorText"></textarea>
+      <div class="config-json-actions">
+        <button id="config-editor-reset" type="button" x-on:click="resetEditor()" x-bind:disabled="!editorDirty">JSON zurücksetzen</button>
+        <button class="primary" id="config-save" type="button" x-on:click="saveEditor()" x-bind:disabled="saving || loading">JSON speichern</button>
+      </div>
+    </div>
+  </details>
+
+  <template x-if="selectedName">
+    {{template "revisions" .}}
+  </template>
+
+  <!-- Schwebende Aktionsleiste: liegt als letztes Element im Fluss und klebt
+       per position:sticky ueber dem Inhalt, solange der Sentinel darunter
+       nicht sichtbar ist. Sie loest sich damit beim Scrollen aus der Seite
+       (.is-floating) und dockt am Seitenende wieder an. -->
+  <div class="config-actionbar-dock" x-bind:class="{ 'is-floating': actionsFloating }">
+    <div class="config-actionbar" x-bind:class="{ 'is-compact': actionsCompact }" x-on:click="expandActions()" x-on:focusin="expandActions()">
+      <span class="config-actionbar-lead">
+        <select id="config-name" aria-label="Service" x-model="selectedName" x-on:change="loadConfig()"><template x-for="config in configs" x-bind:key="config.name"><option x-bind:value="config.name" x-text="config.label"></option></template></select>
+        <button id="config-load" type="button" x-on:click="loadConfig()" x-bind:disabled="loading || reloading">Laden</button>
+        <span class="config-actionbar-divider" aria-hidden="true"></span>
+      </span>
+      <span class="config-actionbar-status" x-bind:class="{ 'is-dirty': formDirty, 'is-note': !formDirty && editorDirty }">
+        <span class="config-actionbar-dot" aria-hidden="true"></span>
+        <span class="config-actionbar-text" x-text="actionStatusText" aria-live="polite"></span>
+      </span>
+      <button id="config-form-reset" type="button" class="config-actionbar-secondary" x-on:click="resetForm()" x-bind:disabled="loading || saving">Zurücksetzen</button>
+      <button class="primary" id="config-form-save" type="submit" form="schema-form" x-bind:disabled="saving || loading" x-text="saving ? 'Speichert ...' : 'Speichern'">Speichern</button>
+    </div>
+  </div>
+  <div class="config-actionbar-sentinel" x-ref="actionSentinel" aria-hidden="true"></div>
+</section>
+{{end}}

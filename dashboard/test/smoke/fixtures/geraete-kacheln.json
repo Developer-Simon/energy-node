@@ -1,0 +1,141 @@
+[
+  {
+    "topic": "homeassistant/number/apsys_nord/power_limit/config",
+    "payload": {
+      "name": "Power-Limit",
+      "unique_id": "apsys_nord_power_limit",
+      "state_topic": "outstation/apsys_nord/power_limit_w",
+      "command_topic": "outstation/apsys_nord/power_limit_w/set",
+      "unit_of_measurement": "W",
+      "min": 30,
+      "max": 800,
+      "step": 1,
+      "mode": "box",
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsys_nord"], "name": "AP Systems Nord-Dach" }
+    }
+  },
+  {
+    "topic": "homeassistant/switch/apsys_nord/power_status/config",
+    "payload": {
+      "name": "Betriebsstatus",
+      "unique_id": "apsys_nord_power_status",
+      "state_topic": "outstation/apsys_nord/power_status",
+      "command_topic": "outstation/apsys_nord/power_status/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsys_nord"], "name": "AP Systems Nord-Dach" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/apsys_nord/temperature/config",
+    "payload": {
+      "name": "Wechselrichtertemperatur",
+      "unique_id": "apsys_nord_temperature",
+      "state_topic": "outstation/apsys_nord/temperature_c",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsys_nord"], "name": "AP Systems Nord-Dach" }
+    }
+  },
+
+  {
+    "topic": "homeassistant/text/apsys_nord/standort_notiz/config",
+    "payload": {
+      "name": "Standort-Notiz",
+      "unique_id": "apsys_nord_standort_notiz",
+      "state_topic": "outstation/apsys_nord/standort_notiz",
+      "command_topic": "outstation/apsys_nord/standort_notiz/set",
+      "max": 255,
+      "availability_topic": "outstation/apsys_nord/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsys_nord"], "name": "AP Systems Nord-Dach" }
+    }
+  },
+
+  {"topic": "outstation/apsys_nord/status/online", "payload": "1"},
+  {"topic": "outstation/apsys_nord/power_limit_w", "payload": "800"},
+  {"topic": "outstation/apsys_nord/power_status", "payload": "ON"},
+  {"topic": "outstation/apsys_nord/temperature_c", "payload": "41.2"},
+  {"topic": "outstation/apsys_nord/standort_notiz", "payload": "Montagegestell Ost, Neigung 32°, letzte Reinigung 2026-06-01"},
+
+  {
+    "topic": "homeassistant/number/apsys_sued/power_limit/config",
+    "payload": {
+      "name": "Power-Limit",
+      "unique_id": "apsys_sued_power_limit",
+      "state_topic": "outstation/apsys_sued/power_limit_w",
+      "command_topic": "outstation/apsys_sued/power_limit_w/set",
+      "unit_of_measurement": "W",
+      "min": 30,
+      "max": 800,
+      "step": 1,
+      "mode": "box",
+      "availability_topic": "outstation/apsys_sued/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsys_sued"], "name": "AP Systems Süd-Dach" }
+    }
+  },
+  {
+    "topic": "homeassistant/switch/apsys_sued/power_status/config",
+    "payload": {
+      "name": "Betriebsstatus",
+      "unique_id": "apsys_sued_power_status",
+      "state_topic": "outstation/apsys_sued/power_status",
+      "command_topic": "outstation/apsys_sued/power_status/set",
+      "payload_on": "ON",
+      "payload_off": "OFF",
+      "state_on": "ON",
+      "state_off": "OFF",
+      "availability_topic": "outstation/apsys_sued/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsys_sued"], "name": "AP Systems Süd-Dach" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/apsys_sued/temperature/config",
+    "payload": {
+      "name": "Wechselrichtertemperatur",
+      "unique_id": "apsys_sued_temperature",
+      "state_topic": "outstation/apsys_sued/temperature_c",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "state_class": "measurement",
+      "availability_topic": "outstation/apsys_sued/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["apsys_sued"], "name": "AP Systems Süd-Dach" }
+    }
+  },
+
+  {"topic": "outstation/apsys_sued/status/online", "payload": "1"},
+  {"topic": "outstation/apsys_sued/power_limit_w", "payload": "800"},
+  {"topic": "outstation/apsys_sued/power_status", "payload": "ON"},
+  {"topic": "outstation/apsys_sued/temperature_c", "payload": "39.7"},
+
+  {
+    "topic": "homeassistant/sensor/energie_automationen/letzte_meldung/config",
+    "payload": {
+      "name": "Letzte Energie-Automatisierung",
+      "unique_id": "energie_automationen_letzte_meldung",
+      "state_topic": "outstation/energie_automationen/letzte_meldung",
+      "device": { "identifiers": ["energie_automationen"], "name": "Energie-Automationen" }
+    }
+  },
+
+  {"topic": "outstation/energie_automationen/letzte_meldung", "payload": "info: PV Leistung über 500 W - Wallbox eingeschaltet"}
+]

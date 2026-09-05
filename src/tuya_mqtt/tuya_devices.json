@@ -1,0 +1,14 @@
+[
+  {
+    "datapoints": {
+      "switch": "1"
+    },
+    "device_id": "VOR_ORT_EINTRAGEN",
+    "device_type": "valve",
+    "id": "tuya_valve",
+    "ip": "192.0.2.100",
+    "local_key": "VOR_ORT_EINTRAGEN",
+    "name": "Tuya Wasserventil",
+    "version": 3.3
+  }
+]

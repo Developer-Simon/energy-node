@@ -1,0 +1,119 @@
+{{define "tailscale"}}
+<section id="settings-tailscale" role="tabpanel" x-show="activeSettingsPage === 'tailscale'" x-data="tailscalePanel()" x-init="init()">
+  <h3>Tailscale einrichten</h3>
+  <details class="settings-help-panel" open>
+    <summary>Vorbereitung und externe Abhängigkeiten</summary>
+    <ol class="settings-help-list">
+      <li>Ein Konto und ein Tailnet auf <a href="https://tailscale.com" target="_blank" rel="noopener noreferrer">tailscale.com</a> anlegen, falls noch nicht vorhanden.</li>
+      <li>Tailscale muss auf diesem Zielsystem bereits installiert und als Dienst eingerichtet sein - dieser Assistent führt keine Installation durch. Für die ARMv6-Installation dieses Pi siehe die interne Notiz <code>knowhow/tailscale-setup.md</code>.</li>
+      <li>Für die Anmeldung reicht ein Klick auf den Anmeldelink, der in Schritt 2 erscheint - er öffnet Tailscales eigene Kontoanmeldung (Google/Microsoft/GitHub o.ä.) in einem neuen Tab, auf einem beliebigen Gerät.</li>
+    </ol>
+    <p class="settings-help">Kein Auth-Key nötig: Dieser Assistent nutzt die interaktive Tailscale-Anmeldung, kein Zugangsschlüssel wird vom Dashboard gespeichert oder verarbeitet.</p>
+  </details>
+  {{template "settings-stepper" .}}
+  <div class="settings-step-stack">
+  <section class="settings-step" x-show="currentStep === 1" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
+    <h4>1. Voraussetzungen prüfen</h4>
+    <div class="table-scroll">
+      <table class="storage-health-table">
+      <tbody>
+        <tr><th scope="row">Tailscale installiert</th><td x-text="prereqs.installed ? `Ja (${prereqs.version})` : 'Nein'">-</td></tr>
+        <tr><th scope="row">Dienst tailscaled aktiv</th><td x-text="prereqs.service_active || '-'">-</td></tr>
+        <tr><th scope="row">Dienst tailscaled aktiviert</th><td x-text="prereqs.service_enabled || '-'">-</td></tr>
+      </tbody>
+      </table>
+    </div>
+    <div class="toolbar">
+      <button class="icon-button labeled" type="button" x-on:click="checkPrereqs()" x-bind:disabled="prereqsLoading" x-bind:title="prereqsLoading ? 'Prüfe ...' : 'Erneut prüfen'" x-bind:aria-label="prereqsLoading ? 'Prüfe ...' : 'Erneut prüfen'">
+        <svg class="automation-icon"><use href="#ico-history"></use></svg>
+        <span x-text="prereqsLoading ? 'Prüfe ...' : 'Erneut prüfen'"></span>
+      </button>
+      <button class="icon-button labeled primary" type="button" x-on:click="goToStep(2)" x-bind:disabled="!prereqs.installed" title="Weiter" aria-label="Weiter">
+        <svg class="automation-icon"><use href="#ico-chevron"></use></svg>
+        <span>Weiter</span>
+      </button>
+    </div>
+    <p class="settings-help" x-show="prereqsChecked && !prereqs.installed">Tailscale wurde auf diesem System nicht gefunden oder der Dienst läuft nicht. Installation manuell nachholen, dann erneut prüfen.</p>
+  </section>
+  <section class="settings-step" x-show="currentStep === 2" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
+    <h4>2. Anmeldung starten</h4>
+    <p class="settings-help">Diese Einrichtung kann eine bestehende Verbindung zum Werkstattnetz kurz beeinflussen, falls sie über eine Route läuft, die die Anmeldung selbst verändert. Im Normalfall bleibt der bisherige Zugang zum Dashboard unterbrechungsfrei bestehen.</p>
+    <template x-if="status.backend_state === 'Running' && status.online">
+      <p class="message" role="status">Bereits angemeldet. <button class="icon-button labeled" type="button" x-on:click="goToStep(3)" title="Weiter zu Schritt 3" aria-label="Weiter zu Schritt 3"><svg class="automation-icon"><use href="#ico-chevron"></use></svg><span>Weiter zu Schritt 3</span></button></p>
+    </template>
+    <template x-if="!(status.backend_state === 'Running' && status.online)">
+      <div>
+        <div class="toolbar">
+          <button class="icon-button labeled" type="button" x-on:click="backToPrereqs()" title="Zurück" aria-label="Zurück">
+            <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
+            <span>Zurück</span>
+          </button>
+          <button class="icon-button labeled primary" type="button" x-on:click="startLogin()" x-bind:disabled="!canSystemActions || busy" x-bind:title="busy === 'login' ? 'Starte ...' : 'Anmeldung starten'" x-bind:aria-label="busy === 'login' ? 'Starte ...' : 'Anmeldung starten'">
+            <svg class="automation-icon"><use href="#ico-power-on"></use></svg>
+            <span x-text="busy === 'login' ? 'Starte ...' : 'Anmeldung starten'"></span>
+          </button>
+        </div>
+        <p class="settings-help" x-cloak x-show="loginStarted && !status.auth_url">Anmeldelink wird vorbereitet ...</p>
+        <p class="message" role="status" x-cloak x-show="status.auth_url">
+          Zum Anmelden öffnen und mit dem Tailscale-Konto bestätigen:
+          <a x-bind:href="status.auth_url" target="_blank" rel="noopener noreferrer" x-text="status.auth_url"></a>
+        </p>
+        <p class="settings-help" x-show="!canSystemActions">Für die Anmeldung fehlt die Berechtigung system_actions.</p>
+      </div>
+    </template>
+  </section>
+  <section class="settings-step" x-show="currentStep === 3" x-transition:enter-start="direction === 'back' ? 'settings-step-off-left' : 'settings-step-off-right'" x-transition:enter-end="" x-transition:leave-start="" x-transition:leave-end="direction === 'back' ? 'settings-step-off-right' : 'settings-step-off-left'">
+    <h4>3. Ergebnis prüfen</h4>
+    <div class="table-scroll">
+      <table class="storage-health-table">
+      <tbody>
+        <tr><th scope="row">Tailscale-IP</th><td x-text="(status.tailscale_ips && status.tailscale_ips.join(', ')) || '-'">-</td></tr>
+        <tr><th scope="row">MagicDNS-Name</th><td x-text="status.dns_name || '-'">-</td></tr>
+        <tr><th scope="row">Tailnet</th><td x-text="status.tailnet || '-'">-</td></tr>
+        <tr><th scope="row">Online</th><td x-text="status.online ? 'Ja' : 'Nein'">-</td></tr>
+      </tbody>
+      </table>
+    </div>
+    <p>Aktiv ist reiner Geräte-Zugang über die Tailscale-IP dieses Systems - jedes andere Gerät im Tailnet erreicht es direkt über seine Tailscale-IP oder den MagicDNS-Namen.</p>
+    <p class="settings-help">Subnet-Router, Exit-Node, <code>tailscale serve</code> und <code>tailscale funnel</code> sind in diesem Assistenten noch nicht enthalten und für eine spätere Ausbaustufe vorgesehen.</p>
+    <div class="toolbar">
+      <button class="icon-button labeled" type="button" x-on:click="goToStep(2)" title="Zurück" aria-label="Zurück">
+        <svg class="automation-icon" style="transform: rotate(180deg);"><use href="#ico-chevron"></use></svg>
+        <span>Zurück</span>
+      </button>
+    </div>
+  </section>
+  </div>
+
+  <section class="storage-health-panel" aria-labelledby="tailscale-status-heading" aria-live="polite">
+    <h4 id="tailscale-status-heading">Status</h4>
+    <div class="table-scroll">
+      <table class="storage-health-table">
+      <tbody>
+        <tr><th scope="row">Verbindungszustand</th><td x-text="status.backend_state || '-'">-</td></tr>
+        <tr><th scope="row">Online</th><td x-text="status.online ? 'Ja' : 'Nein'">-</td></tr>
+        <tr><th scope="row">Peers</th><td x-text="status.peer_count ?? '-'">-</td></tr>
+        <tr><th scope="row">Ablauf des Keys</th><td x-text="formatTime(status.key_expiry)">-</td></tr>
+        <tr x-show="status.health && status.health.length"><th scope="row">Fehlergrund</th><td x-text="status.health && status.health.join('; ')"></td></tr>
+        <tr x-show="lastAction"><th scope="row">Letzte Aktion</th><td x-text="lastActionLabel()"></td></tr>
+      </tbody>
+      </table>
+    </div>
+    <div class="toolbar">
+      <button class="icon-button labeled" type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-bind:title="statusLoading ? 'Prüfe ...' : 'Verbindung prüfen'" x-bind:aria-label="statusLoading ? 'Prüfe ...' : 'Verbindung prüfen'">
+        <svg class="automation-icon"><use href="#ico-history"></use></svg>
+        <span x-text="statusLoading ? 'Prüfe ...' : 'Verbindung prüfen'"></span>
+      </button>
+      <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="!canSystemActions || busy" title="Abmelden" aria-label="Abmelden">
+        <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
+        <span>Abmelden</span>
+      </button>
+      <button class="icon-button labeled" type="button" x-on:click="restart()" x-bind:disabled="!canSystemActions || busy" x-bind:title="busy === 'restart' ? 'Starte neu ...' : 'Dienst neu starten'" x-bind:aria-label="busy === 'restart' ? 'Starte neu ...' : 'Dienst neu starten'">
+        <svg class="automation-icon"><use href="#ico-history"></use></svg>
+        <span x-text="busy === 'restart' ? 'Starte neu ...' : 'Dienst neu starten'"></span>
+      </button>
+    </div>
+  </section>
+
+</section>
+{{end}}

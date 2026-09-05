@@ -1,0 +1,60 @@
+{{define "devicemap"}}
+<section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)">
+  <h2>
+    Device-Map
+    <span class="field-help field-help-align-start">
+      <button class="field-help-trigger" type="button" aria-label="Erklärung zur Device-Map">
+        <svg><use href="#ico-help"></use></svg>
+      </button>
+      <span class="field-help-text" role="tooltip">Geräte per Drag-and-drop anordnen. Beziehungen (z.B. "als Untergerät verbinden") werden nur über den Verbinden-Modus mit ausdrücklicher Bestätigung geändert - reines Verschieben ändert nie eine Beziehung. Eine bestehende Verbindung anklicken, um sie auszuwählen und - falls sie manuell angelegt wurde - wieder zu lösen.</span>
+    </span>
+  </h2>
+  <div class="devicemap-stage">
+    <div id="devicemap-canvas" class="devicemap-canvas" x-ref="canvas" aria-label="Device-Map-Graph"></div>
+    <div class="devicemap-overlay">
+      <div class="toolbar devicemap-toolbar">
+        <button class="icon-button primary" id="devicemap-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-bind:title="saving ? 'Speichere ...' : 'Positionen speichern'" x-bind:aria-label="saving ? 'Speichere ...' : 'Positionen speichern'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v5h6V4"/><rect x="8" y="14" width="8" height="6"/></svg>
+        </button>
+        <button class="icon-button" id="devicemap-discard" type="button" x-cloak x-show="unsaved" x-on:click="discardChanges()" x-bind:disabled="saving || loading" title="Änderungen zurücksetzen" aria-label="Änderungen zurücksetzen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </button>
+        <button class="icon-button" id="devicemap-connect-toggle" type="button" x-bind:class="{ active: connectMode }" x-bind:aria-pressed="connectMode" x-on:click="toggleConnectMode()" x-bind:disabled="loading" x-bind:title="connectMode ? 'Verbinden-Modus: aktiv' : 'Verbinden-Modus: aus'" x-bind:aria-label="connectMode ? 'Verbinden-Modus: aktiv' : 'Verbinden-Modus: aus'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        <button class="icon-button" id="devicemap-snap-toggle" type="button" x-bind:class="{ active: view.snap_to_grid }" x-bind:aria-pressed="view.snap_to_grid" x-on:click="toggleSnapToGrid()" x-bind:disabled="loading" x-bind:title="view.snap_to_grid ? 'Am Raster einrasten: an' : 'Am Raster einrasten: aus'" x-bind:aria-label="view.snap_to_grid ? 'Am Raster einrasten: an' : 'Am Raster einrasten: aus'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h16"/><path d="M12 4v16"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="icon-button" id="devicemap-grid-toggle" type="button" x-bind:class="{ active: view.show_grid }" x-bind:aria-pressed="view.show_grid" x-on:click="toggleShowGrid()" x-bind:disabled="loading" x-bind:title="view.show_grid ? 'Raster anzeigen: an' : 'Raster anzeigen: aus'" x-bind:aria-label="view.show_grid ? 'Raster anzeigen: an' : 'Raster anzeigen: aus'">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        </button>
+        <div class="devicemap-edge-style-group" role="group" aria-label="Pfeilstil">
+          <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'straight' }" x-bind:aria-pressed="view.edge_style === 'straight'" x-on:click="setEdgeStyle('straight')" title="Pfeile: gerade" aria-label="Pfeile: gerade">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19L19 5"/></svg>
+          </button>
+          <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'elbow' }" x-bind:aria-pressed="view.edge_style === 'elbow'" x-on:click="setEdgeStyle('elbow')" title="Pfeile: abgewinkelt" aria-label="Pfeile: abgewinkelt">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19h9v-9h5"/></svg>
+          </button>
+          <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'curved' }" x-bind:aria-pressed="view.edge_style === 'curved'" x-on:click="setEdgeStyle('curved')" title="Pfeile: gebogen" aria-label="Pfeile: gebogen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19C5 10 10 5 19 5"/></svg>
+          </button>
+        </div>
+        <span class="devicemap-unsaved-badge" role="status" x-cloak x-show="unsaved">Ungespeicherte Positionsänderungen</span>
+      </div>
+      <p class="devicemap-connect-hint" x-cloak x-show="connectMode" x-text="connectSourceLabel ? `Zielgerät für '${connectSourceLabel}' auswählen ...` : 'Erstes Gerät auswählen, das als Untergerät verbunden werden soll ...'"></p>
+      <p class="devicemap-placed-hint" x-cloak x-show="placedCount > 0" x-text="`${placedCount} neue${placedCount === 1 ? 's' : ''} Gerät${placedCount === 1 ? '' : 'e'} unterhalb der bestehenden Anordnung platziert.`"></p>
+      <div class="toolbar devicemap-edge-toolbar" x-cloak x-show="selectedEdge">
+        <span class="devicemap-edge-label" x-text="selectedEdgeLabel"></span>
+        <button class="icon-button danger" type="button" x-show="selectedEdge && selectedEdge.overrideId" x-on:click="removeSelectedRelation()" title="Verbindung lösen" aria-label="Verbindung lösen">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+        </button>
+        <span class="devicemap-edge-readonly-hint" x-cloak x-show="selectedEdge && !selectedEdge.overrideId">Stammt aus der Discovery (via_device) - hier nicht lösbar</span>
+        <button class="icon-button" type="button" x-on:click="clearEdgeSelection()" title="Auswahl aufheben" aria-label="Auswahl aufheben">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  {{template "revisions" .}}
+</section>
+{{end}}

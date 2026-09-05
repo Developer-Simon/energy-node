@@ -1,0 +1,26 @@
+{
+  "title": "Dashboard MQTT broker connection",
+  "description": "The dashboard's own MQTT broker connection, as an alternative to MQTT_* environment variables.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["enabled", "host", "port", "client_id", "tls", "tls_insecure", "keepalive_seconds", "clean_session", "discovery_prefix", "connect_timeout_seconds"],
+  "properties": {
+    "enabled": {
+      "type": "boolean",
+      "default": false,
+      "title": "Enabled",
+      "description": "If true, this document takes full precedence over MQTT_* environment variables."
+    },
+    "host": {"type": "string", "title": "Host"},
+    "port": {"type": "integer", "minimum": 1, "maximum": 65535, "default": 1883, "title": "Port"},
+    "client_id": {"type": "string", "title": "Client ID"},
+    "username": {"type": "string", "title": "Username"},
+    "tls": {"type": "boolean", "default": false, "title": "TLS"},
+    "tls_insecure": {"type": "boolean", "default": false, "title": "Skip TLS certificate verification"},
+    "keepalive_seconds": {"type": "integer", "minimum": 5, "maximum": 300, "default": 30, "title": "Keepalive"},
+    "clean_session": {"type": "boolean", "default": true, "title": "Clean session"},
+    "discovery_prefix": {"type": "string", "default": "homeassistant", "title": "Discovery prefix"},
+    "connect_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 60, "default": 10, "title": "Connect timeout"},
+    "publish_energy_device": {"type": "boolean", "default": true, "title": "Publish energy values as Home Assistant device"}
+  }
+}

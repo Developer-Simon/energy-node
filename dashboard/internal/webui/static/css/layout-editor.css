@@ -1,0 +1,226 @@
+/* ---------------------------------------------------------------------------
+   Layout-Editor. Maschinell uebersetzt aus dem bedienbaren Entwurf unter
+   drafts/layout-bearbeitungsmodus-entwurf.html - Werte hier
+   nicht "anpassen", sondern dort aendern und neu uebersetzen. Wird nur beim
+   Editieren nachgeladen (siehe editorAssetsReady() in dashboard.js), darum
+   eine eigene Datei statt eines Blocks in manager.css.
+   --------------------------------------------------------------------------- */
+
+/* --- Klebende Kopfleiste -------------------------------------------------
+   .layout-toolbar, .layout-count, .layout-spacer und .layout-btn stehen in
+   base.css: die Leiste samt "Editieren"-Knopf steht bei jedem Aufruf der
+   Uebersicht, waehrend diese Datei erst beim ersten Editieren nachkommt.
+   Hier bleibt nur, was der Bearbeitungsmodus mitbringt. */
+/* [hidden] kommt aus dem UA-Stylesheet und verliert gegen jede Autorenregel -
+   ohne die zweite Zeile klebt "Ungespeichert" dauerhaft in der Leiste,
+   obwohl updateStatus() das Attribut korrekt setzt. */
+.layout-status[hidden] { display:none; }
+/* Gleiche Notwehr fuer den Verwerfen-Knopf: [hidden] aus dem UA-Stylesheet
+   verliert gegen die display:inline-flex-Grundregel der Leisten-Knoepfe in
+   base.css, der Knopf stuende sonst dauerhaft in der Leiste. */
+.layout-btn[data-mode-discard][hidden] { display:none; }
+.layout-status { display:inline-flex; align-items:center; gap:.4rem; font-size:.76rem; color:var(--warn); white-space:nowrap; }
+.layout-status i { width:.45rem; height:.45rem; border-radius:50%; background:var(--warn); box-shadow:0 0 0 .18rem color-mix(in srgb,var(--warn) 20%,transparent); }
+
+/* Ansichtsmodus: kein Werkzeug am Rand, kein Griff, keine Auswahl. Die
+   Prototyp-Id wurde zu #overview-panel uebersetzt (Task 3 entfernte das
+   fruehere Layout-Panel), .layout-canvas zum echten Uebersichtsraster
+   .layout-grid. */
+#overview-panel[data-mode="view"] .layout-card-chrome,
+#overview-panel[data-mode="view"] .layout-resize-grip,
+#overview-panel[data-mode="view"] [data-edit-only] { display:none !important; }
+#overview-panel[data-mode="edit"] [data-view-only] { display:none !important; }
+/* Der Bearbeitungsmodus faerbt das Raster leise ein - und sonst nichts. Kein
+   display, kein Abstand, keine Spalten: es ist dasselbe Raster wie in der
+   Ansicht, nur mit Chrome an den Kacheln. */
+#overview-panel[data-mode="edit"] .layout-grid {
+  background:
+    linear-gradient(color-mix(in srgb,var(--accent) 4%,transparent),
+                    color-mix(in srgb,var(--accent) 4%,transparent));
+}
+.layout-modehint { font-size:.72rem; color:var(--text-faint); white-space:nowrap; }
+
+/* --- Zielbreite ---------------------------------------------------------- */
+.layout-widths { display:inline-flex; gap:2px; padding:2px; border-radius:999px; background:var(--panel-alt); border:1px solid var(--border-soft); }
+.layout-width-chip {
+  border:0; background:transparent; color:var(--text-muted); cursor:pointer;
+  border-radius:999px; padding:.24rem .6rem; font-size:.74rem; white-space:nowrap;
+  transition:color .15s ease, background .18s var(--ease-out), transform .1s var(--layout-ease);
+}
+/* :not(:disabled) hebt die Regel ueber base.css' button:hover:not(:disabled) -
+   ohne das gewinnt dessen --panel-alt gegen jede Knopffarbe des Editors. */
+.layout-width-chip:hover:not(:disabled) { background:transparent; color:var(--text); }
+.layout-width-chip:active { transform:scale(.97); }
+.layout-width-chip.active { background:var(--panel); color:var(--text-strong); font-weight:600; box-shadow:0 1px 2px rgba(0,0,0,.35); }
+.layout-width-chip:focus-visible { outline:none; box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent); }
+
+/* Die Buehne behaelt ihre echte Zielbreite in CSS-Pixeln; zoom verkleinert
+   sie nur optisch, sodass die Container-Queries wirklich auf 390 bzw. 834 px
+   rechnen statt auf die Breite des Editorbereichs. */
+.layout-canvas-stage { width:var(--target-w, auto); zoom:var(--target-zoom, 1); margin-inline:auto; transition:width .28s var(--ease-in-out); }
+.layout-canvas-stage.is-framed { outline:1px dashed var(--border); outline-offset:.55rem; border-radius:2px; }
+
+/* --- Leinwand ------------------------------------------------------------ */
+
+.layout-page { scroll-margin-top:3.4rem; }
+.layout-page[hidden] { display:none; }
+.layout-pagehead { display:flex; align-items:baseline; gap:.6rem; flex-wrap:wrap; padding:1rem 0 .45rem; margin-bottom:.8rem; border-bottom:1px solid var(--border-soft); transition:border-color .5s ease; }
+.layout-page.is-landed .layout-pagehead { border-bottom-color:var(--accent); }
+.layout-pagehead b { font-size:.98rem; font-weight:650; letter-spacing:-.01em; color:var(--text-strong); }
+.layout-pagehead .layout-meta { font-size:.72rem; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em; }
+.layout-grouplabel { display:flex; align-items:center; gap:.55rem; font-size:.72rem; text-transform:uppercase; letter-spacing:.07em; color:var(--text-muted); margin:1.1rem 0 .5rem; }
+.layout-grouplabel::after { content:""; flex:1; height:1px; background:var(--border-soft); }
+
+/* --- Karte + Chrome ------------------------------------------------------ */
+/* .layout-edit-slot ist keine Huelle mehr, sondern dieselbe .layout-grid-item:
+   nur so bleibt die Kachel das Rasterkind mit ihrer eigenen span-Klasse und
+   ihrer Inhaltshoehe - Voraussetzung dafuer, dass der Moduswechsel die
+   Geometrie nicht anfasst. Der Kartenrumpf des Entwurfs (.mini) wird
+   ausdruecklich nicht uebernommen (Spec 3.2). */
+.layout-edit-slot { position:relative; min-width:0; transition:border-color .18s ease, opacity .22s ease, box-shadow .18s ease; }
+/* base.css streckt jedes Kind einer .layout-grid-item auf die Zeilenhoehe
+   (`.layout-grid-item > * { height:100% }`). Das traf auch Chrome und Griff:
+   die Optionsleiste stand dann als Band ueber die ganze rechte Kartenkante
+   statt als Knopfgruppe in der Ecke. */
+.layout-edit-slot > .layout-card-chrome { height:auto; }
+.layout-edit-slot > .layout-resize-grip { height:1.15rem; }
+/* Chrome und Griff sitzen buendig auf der Kante (-1px) und wuerden vom
+   overflow:auto der Kachel beschnitten. Nur im Bearbeitungsmodus. */
+#overview-panel[data-mode="edit"] .layout-grid-item { overflow:visible; }
+.layout-edit-slot.is-selected { border-color:var(--accent-line); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 26%,transparent); }
+.layout-edit-slot.is-hidden { opacity:.34; border-style:dashed; }
+.layout-edit-slot.is-hidden::after { content:"ausgeblendet"; position:absolute; inset:auto .8rem .55rem auto; font-size:.64rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); }
+.layout-edit-slot.is-entering { animation:card-in .3s var(--layout-ease) both; }
+@keyframes card-in { from { opacity:0; transform:translateY(-.5rem) scale(.985); } to { opacity:1; transform:none; } }
+
+.layout-card-chrome {
+  position:absolute; inset:-1px -1px auto auto; z-index:3;
+  display:flex; align-items:center; gap:.18rem; padding:.25rem;
+  border-radius:0 var(--radius-md) 0 var(--radius-md);
+  background:color-mix(in srgb,var(--panel-alt) 82%,transparent);
+  backdrop-filter:blur(10px) saturate(160%);
+  border:1px solid var(--border-soft); border-top:0; border-right:0;
+  opacity:0; transform:translateY(-.25rem) scale(.96); transform-origin:100% 0;
+  transition:opacity .16s var(--ease-out), transform .16s var(--ease-out);
+  pointer-events:none;
+}
+@media (hover:hover) and (pointer:fine) { .layout-edit-slot:hover > .layout-card-chrome { opacity:1; transform:none; pointer-events:auto; } }
+.layout-edit-slot:focus-within > .layout-card-chrome, .layout-edit-slot.is-selected > .layout-card-chrome { opacity:1; transform:none; pointer-events:auto; }
+@media (hover:none) { .layout-card-chrome { opacity:1; transform:none; pointer-events:auto; } }
+
+.layout-chip-btn { width:1.7rem; height:1.7rem; display:grid; place-items:center; border:0; border-radius:6px; background:transparent; color:var(--text-subtle); cursor:pointer; padding:0; transition:background .14s ease, color .14s ease, transform .1s var(--layout-ease); }
+.layout-chip-btn:hover:not(:disabled) { background:color-mix(in srgb,var(--accent) 16%,transparent); color:var(--text-strong); border-color:transparent; }
+.layout-chip-btn:active { transform:scale(.9); }
+.layout-chip-btn:focus-visible { outline:none; box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent); }
+.layout-chip-btn.grab { cursor:grab; }
+.layout-chip-btn.danger:hover:not(:disabled) { background:color-mix(in srgb,var(--danger,#e5484d) 18%,transparent); color:var(--danger,#e5484d); }
+.layout-chip-btn svg { width:15px; height:15px; display:block; }
+
+.layout-resize-grip { position:absolute; right:-1px; bottom:-1px; width:1.15rem; height:1.15rem; z-index:3; cursor:nwse-resize; color:var(--text-faint); opacity:0; transition:opacity .16s var(--ease-out), color .14s ease; }
+.layout-edit-slot:hover > .layout-resize-grip, .layout-edit-slot.is-selected > .layout-resize-grip { opacity:1; }
+.layout-resize-grip:hover { color:var(--accent); }
+.layout-resize-grip svg { width:100%; height:100%; display:block; }
+
+/* Frisch eingefuegte Karte: der Server rendert die echte erst nach dem
+   Speichern (Spec 5), bis dahin haelt die Miniatur den Platz. */
+.layout-card-placeholder { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:.4rem; height:100%; color:var(--text-faint); text-align:center; }
+.layout-card-placeholder .thumb { width:2.6rem; opacity:.8; }
+.layout-card-placeholder b { font-size:.84rem; font-weight:600; color:var(--text-strong); }
+.layout-card-placeholder small { font-size:.68rem; letter-spacing:.05em; text-transform:uppercase; }
+
+/* Ziehen zum Umsortieren: die gezogene Kachel bleibt stehen und dimmt, ein
+   Platzhalter wandert durch das echte Raster. So bleibt der Umbruch waehrend
+   des Zugs genau der, den man nach dem Loslassen bekommt. */
+.layout-edit-slot.is-dragging { opacity:.34; }
+.layout-drop-marker { min-height:4rem; border:1px dashed var(--accent-line); border-radius:var(--radius-md); background:color-mix(in srgb,var(--accent) 7%,transparent); }
+
+/* --- Toolbox (paralleles Panel, kein Scrim) ------------------------------
+   position:fixed und am <body> verankert (mount() haengt sie dorthin, wie die
+   beiden Modale): als position:absolute im Panel stand sie im Dokumentfluss
+   und ging nach dem Scrollen weit oberhalb des Sichtbereichs auf - wer eine
+   Karte abgelegt und dann nachgescrollt hatte, konnte sie scheinbar nicht mehr
+   oeffnen. --toolbox-top setzt syncToolboxOffset() auf die Unterkante der
+   klebenden Werkzeugleiste: die bleibt sichtbar, die Toolbox reicht von dort
+   bis zur Fensterunterkante - auch auf einer Seite ganz ohne Kacheln. */
+.layout-toolbox {
+  position:fixed; top:var(--toolbox-top, 0px); bottom:0; right:0;
+  width:min(19rem, 78%); z-index:25;
+  display:flex; flex-direction:column;
+  background:color-mix(in srgb,var(--panel) 92%,transparent);
+  backdrop-filter:blur(22px) saturate(170%);
+  border-left:1px solid var(--border); box-shadow:-18px 0 40px -22px rgba(0,0,0,.85);
+  transform:translateX(101%);
+  transition:transform .26s var(--layout-ease), opacity .2s var(--ease-out);
+}
+.layout-toolbox.open { transform:none; }
+.layout-toolbox[aria-hidden="true"] { opacity:0; pointer-events:none; }
+.layout-toolbox.open[aria-hidden="false"] { opacity:1; pointer-events:auto; }
+
+.layout-toolbox-head { display:flex; align-items:center; gap:.5rem; padding:.7rem .8rem .5rem; border-bottom:1px solid var(--border-soft); }
+.layout-toolbox-head b { font-size:.9rem; font-weight:650; color:var(--text-strong); letter-spacing:-.01em; }
+.layout-toolbox-search { padding:.6rem .8rem; }
+.layout-toolbox-search input { width:100%; padding:.42rem .6rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--panel-alt); color:var(--text); transition:border-color .15s ease, box-shadow .15s ease; }
+.layout-toolbox-search input:focus-visible { outline:none; border-color:var(--accent-line); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 32%,transparent); }
+.layout-toolbox-tabs { display:flex; gap:2px; padding:0 .8rem .6rem; }
+.layout-toolbox-tab { flex:1; border:0; background:transparent; color:var(--text-muted); cursor:pointer; border-radius:var(--radius-sm); padding:.28rem .3rem; font-size:.74rem; transition:background .15s ease, color .15s ease; }
+.layout-toolbox-tab:hover:not(:disabled) { background:transparent; color:var(--text); }
+.layout-toolbox-tab.active { background:var(--panel-alt); color:var(--text-strong); font-weight:600; }
+.layout-toolbox-tab:focus-visible { outline:none; box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 45%,transparent); }
+
+.layout-toolbox-list { flex:1; overflow-y:auto; padding:0 .55rem .6rem; display:grid; gap:.25rem; align-content:start; }
+.layout-toolbox-item {
+  display:grid; grid-template-columns:2.2rem 1fr; gap:.55rem; align-items:center; text-align:left;
+  width:100%; padding:.45rem .5rem; border-radius:var(--radius-sm);
+  border:1px solid transparent; background:transparent; color:var(--text); cursor:grab;
+  transition:background .14s ease, border-color .14s ease, transform .1s var(--layout-ease);
+}
+.layout-toolbox-item:hover:not(:disabled) { background:var(--panel-alt); border-color:var(--border-soft); color:var(--text); }
+.layout-toolbox-item:active { transform:scale(.985); cursor:grabbing; }
+.layout-toolbox-item:focus-visible { outline:none; border-color:var(--accent-line); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 32%,transparent); }
+.layout-toolbox-item .thumb { height:1.8rem; border-radius:5px; background:var(--sunken); border:1px solid var(--border-soft); display:grid; place-items:center; overflow:hidden; }
+.layout-toolbox-item .thumb svg { width:100%; height:100%; display:block; }
+.layout-toolbox-item .tx { min-width:0; }
+.layout-toolbox-item .tx b { display:block; font-size:.79rem; font-weight:600; color:var(--text-strong); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.layout-toolbox-item .tx span { display:block; font-size:.68rem; color:var(--text-faint); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.layout-toolbox-empty { padding:1rem .6rem; font-size:.78rem; color:var(--text-faint); text-align:center; }
+.layout-toolbox-foot { padding:.55rem .8rem .7rem; border-top:1px solid var(--border-soft); font-size:.7rem; color:var(--text-faint); line-height:1.4; }
+.layout-toolbox-foot b { color:var(--text-subtle); font-weight:600; }
+
+/* --- Modal --------------------------------------------------------------- */
+.layout-modal-scrim { position:fixed; inset:0; z-index:30; background:color-mix(in srgb,#05070a 62%,transparent); backdrop-filter:blur(2px); display:grid; place-items:center; padding:1rem; opacity:0; pointer-events:none; transition:opacity .18s var(--ease-out); }
+.layout-modal-scrim.open { opacity:1; pointer-events:auto; }
+.layout-modal-sheet { width:min(30rem,100%); max-height:100%; overflow:auto; background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-md); box-shadow:0 24px 60px -20px rgba(0,0,0,.75); transform:scale(.97) translateY(.4rem); opacity:0; transition:transform .2s var(--ease-out), opacity .2s var(--ease-out); }
+.layout-modal-scrim.open .layout-modal-sheet { transform:none; opacity:1; }
+.layout-modal-sheet-head { display:flex; align-items:center; gap:.6rem; padding:.85rem 1rem; border-bottom:1px solid var(--border-soft); position:sticky; top:0; z-index:2; background:color-mix(in srgb,var(--panel) 88%,transparent); backdrop-filter:blur(14px) saturate(160%); }
+.layout-modal-sheet-head b { font-size:.95rem; font-weight:650; color:var(--text-strong); letter-spacing:-.01em; }
+.layout-modal-sheet-head .kind { font-size:.64rem; letter-spacing:.07em; text-transform:uppercase; color:var(--text-faint); }
+.layout-modal-sheet-body { padding:.9rem 1rem 1.1rem; display:grid; gap:1rem; }
+.layout-modal-fieldgroup { display:grid; gap:.55rem; }
+.layout-modal-fieldgroup > h6 { margin:0; font-size:.68rem; letter-spacing:.08em; text-transform:uppercase; color:var(--text-faint); font-weight:600; }
+.layout-modal-field { display:grid; grid-template-columns:minmax(0,1fr); gap:.25rem; }
+.layout-modal-field > label { font-size:.78rem; color:var(--text-subtle); font-weight:500; }
+/* box-sizing und min-width sind hier kein Feinschliff: das Projekt setzt kein
+   globales border-box, und eine 1fr-Rasterspur hat min-width:auto. Ein
+   <input type="number"> brachte damit seine Eigenbreite mit, sprengte die
+   Spalte um wenige Pixel und das Blatt bekam eine Querscrollleiste. */
+.layout-modal-field select, .layout-modal-field input { width:100%; box-sizing:border-box; min-width:0; padding:.42rem .55rem; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--panel-alt); color:var(--text); transition:border-color .15s ease, box-shadow .15s ease; }
+.layout-modal-field select:focus-visible, .layout-modal-field input:focus-visible { outline:none; border-color:var(--accent-line); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 32%,transparent); }
+.layout-modal-field-row { display:grid; grid-template-columns:1fr 1fr; gap:.55rem; }
+.layout-modal-field-row > * { min-width:0; }
+/* Als <label> ausgezeichnet, nicht als <div>: das <input> des Schalters ist
+   1px gross und durchsichtig (siehe .settings-toggle in base.css), erst die
+   Beschriftung als Label macht Spur und Knauf klickbar. */
+.layout-modal-switchrow { display:flex; align-items:center; justify-content:space-between; gap:.6rem; font-size:.82rem; color:var(--text-subtle); cursor:pointer; }
+.layout-modal-hint { font-size:.72rem; color:var(--text-muted); line-height:1.4; margin:0; }
+.layout-modal-sheet-foot { display:flex; gap:.5rem; justify-content:flex-end; padding:.75rem 1rem; border-top:1px solid var(--border-soft); position:sticky; bottom:0; background:color-mix(in srgb,var(--panel) 88%,transparent); backdrop-filter:blur(14px) saturate(160%); }
+
+/* --- Bewegungsverzicht ---------------------------------------------------
+   Spec 3.3: "Alles hinter prefers-reduced-motion: reduce". Das gilt fuer
+   jede Flaeche, die auffaehrt, und jede Karte, die materialisiert - die
+   Zustaende selbst bleiben, nur der Weg dorthin entfaellt. */
+@media (prefers-reduced-motion: reduce) {
+  .layout-toolbox, .layout-modal-scrim, .layout-modal-sheet, .layout-card-chrome,
+  .layout-canvas-stage, .layout-chip-btn, .layout-resize-grip,
+  .layout-edit-slot, .layout-pagehead { transition:none; }
+  .layout-edit-slot.is-entering { animation:none; }
+}

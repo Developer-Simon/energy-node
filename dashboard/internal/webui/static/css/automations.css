@@ -1,0 +1,189 @@
+/* Automations-Tab: Fluss-Darstellung Ursache -> Tor -> Wirkung.
+   Zwei Layouts aus demselben Markup: Kette (drei Spalten, ab 62rem im
+   Beobachten-Modus) und Rezept (eine Spalte, schmal oder beim Bearbeiten).
+   Siehe docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md */
+
+.automation-rule { border: 1px solid var(--border-soft); background: var(--panel); padding: .9rem; margin-bottom: .8rem; }
+.automation-rule-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-bottom: .7rem; border-bottom: 1px solid var(--border-soft); }
+.automation-rule-name { font-weight: 600; color: var(--text-strong); flex: 1; min-width: 12rem; }
+
+/* .automation-icon selbst steht in base.css - hier nur die Faerbungen. */
+.automation-icon-sm { width: .95rem; height: .95rem; }
+.automation-icon-lg { width: 1.5rem; height: 1.5rem; }
+
+.automation-value { font-family: ui-monospace, monospace; font-variant-numeric: tabular-nums; color: var(--text-strong); font-size: 1.2rem; font-weight: 600; }
+.automation-unit { font-size: .78em; font-weight: 400; color: var(--text-muted); }
+
+/* --- Bedingungskarte --- */
+.cond { border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); background: var(--panel-alt); padding: .65rem .75rem; }
+.cond-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.cond-title { font-weight: 600; color: var(--text-strong); font-size: .9rem; }
+.cond-summary { font-size: .8rem; color: var(--text-muted); }
+.cond-head .automation-value { margin-left: auto; }
+.cond-state { display: flex; align-items: center; gap: .35rem; font-size: .76rem; margin-top: .3rem; color: var(--text-faint); }
+
+.cond-meter { position: relative; height: .42rem; background: var(--track); margin: .5rem 0 .25rem; }
+.cond-meter-fill { position: absolute; inset: 0 auto 0 0; background: var(--text-faint); }
+.cond-meter-mark { position: absolute; top: -.22rem; bottom: -.22rem; width: 2px; background: var(--text-subtle); }
+.cond-meter-band { position: absolute; top: 0; bottom: 0; background: var(--warn-bg); }
+.cond-meter-legend { display: flex; justify-content: space-between; font-size: .7rem; color: var(--text-faint); font-family: ui-monospace, monospace; }
+
+.cond.met { border-left-color: var(--ok); }
+.cond.met .automation-icon, .cond.met .cond-state { color: var(--ok); }
+.cond.met .cond-meter-fill { background: var(--ok); }
+.cond.pending { border-left-color: var(--warn); }
+.cond.pending .automation-icon, .cond.pending .cond-state { color: var(--warn); }
+.cond.pending .cond-meter-fill { background: var(--warn); }
+.cond.novalue { border-left-color: var(--bad); }
+.cond.novalue .cond-state { color: var(--bad); }
+
+.cond-conjunction { display: flex; align-items: center; gap: .5rem; font-family: ui-monospace, monospace; font-size: .68rem; letter-spacing: .16em; color: var(--text-faint); }
+.cond-conjunction::before, .cond-conjunction::after { content: ""; flex: 1; height: 1px; background: var(--border-soft); }
+
+/* --- Tor --- */
+.gate { border: 1px solid var(--border); background: var(--sunken); padding: .7rem .8rem; display: flex; flex-direction: column; gap: .25rem; }
+.gate-verdict { display: flex; align-items: center; gap: .5rem; font-weight: 600; font-size: .92rem; }
+.gate-detail { font-size: .78rem; color: var(--text-subtle); }
+.gate-meta { display: flex; gap: 1rem; flex-wrap: wrap; font-size: .73rem; color: var(--text-muted); font-family: ui-monospace, monospace; }
+.gate.ok   { border-color: var(--ok-line);   background: var(--ok-bg); }
+.gate.ok   .gate-verdict { color: var(--ok); }
+.gate.wait { border-color: var(--warn-line); background: var(--warn-bg); }
+.gate.wait .gate-verdict { color: var(--warn); }
+.gate.info { border-color: var(--info-line); background: var(--info-bg); }
+.gate.info .gate-verdict { color: var(--info); }
+.gate.bad  { border-color: var(--bad-line);  background: var(--bad-bg); }
+.gate.bad  .gate-verdict { color: var(--bad); }
+.gate.off  .gate-verdict { color: var(--text-muted); }
+
+/* --- Aktionskarte --- */
+.act { border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); background: var(--panel-alt); padding: .65rem .75rem; display: flex; flex-direction: column; gap: .45rem; }
+.act-head { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+.act-title { font-weight: 600; color: var(--text-strong); font-size: .9rem; }
+.act.command { border-left-color: var(--flow-battery); }
+.act.command .act-head .automation-icon { color: var(--flow-battery); }
+.act.notify { border-left-color: var(--info); }
+.act.notify .act-head .automation-icon { color: var(--info); }
+.act-preview { font-family: ui-monospace, monospace; font-size: .74rem; color: var(--text-subtle); background: var(--sunken); border: 1px solid var(--border-soft); padding: .3rem .45rem; overflow-x: auto; white-space: nowrap; }
+.act-preview.blocked { color: var(--bad); border-color: var(--bad-line); }
+
+.act-test { align-self: flex-start; }
+
+/* --- Mini-Kette in der zugeklappten Zeile --- */
+.mini-chain { display: flex; align-items: center; gap: .3rem; flex-wrap: wrap; }
+.mini-chain .automation-icon-sm { color: var(--text-faint); }
+.mini-chain .met  { color: var(--ok); }
+.mini-chain .pending { color: var(--warn); }
+.mini-chain .novalue { color: var(--bad); }
+.mini-chain-arrow { color: var(--border); }
+.mini-chain-gate { font-size: .72rem; padding: .05rem .4rem; border: 1px solid var(--border); color: var(--text-subtle); }
+.mini-chain-gate.ok { border-color: var(--ok-line); color: var(--ok); }
+.mini-chain-gate.wait { border-color: var(--warn-line); color: var(--warn); }
+.mini-chain-gate.info { border-color: var(--info-line); color: var(--info); }
+.mini-chain-gate.bad { border-color: var(--bad-line); color: var(--bad); }
+
+/* Ein Symbol statt zwei: der Pfeil zeigt nach rechts und dreht sich beim
+   Aufklappen nach unten. */
+.rule-expand-chevron { transition: transform .15s ease; }
+.rule-expand-chevron.expanded { transform: rotate(90deg); }
+.automation-rule-head .settings-toggle { flex: none; }
+
+/* --- Layout: Rezept ist die Grundform --- */
+.rule-flow { display: flex; flex-direction: column; gap: .55rem; margin-top: .8rem; }
+.rule-clause { display: flex; align-items: baseline; gap: .6rem; font-family: ui-monospace, monospace; font-size: .74rem; letter-spacing: .14em; color: var(--accent); }
+.rule-clause-rule { flex: 1; height: 1px; background: var(--accent-line); opacity: .45; }
+.rule-arrow { display: none; }
+
+/* --- Bearbeiten-Modus: dieselbe Kartenform wie in der Ansicht, nur mit
+   Eingabefeldern. Erste Zeile liest sich als Satz, alles Feinere steckt im
+   nativen <details> darunter - kein zusaetzliches JS. --- */
+.edit-card { border: 1px solid var(--border-soft); border-left: 3px solid var(--accent-line); background: var(--panel-alt); padding: .7rem .8rem; display: flex; flex-direction: column; gap: .55rem; margin-bottom: .6rem; }
+.edit-card-head { display: flex; align-items: center; gap: .5rem; }
+.edit-card-head .automation-icon { color: var(--accent); }
+.edit-card-title { font-weight: 600; color: var(--text-strong); font-size: .9rem; flex: 1; }
+.edit-card-warning { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; font-size: .8rem; color: var(--bad-strong); }
+
+.edit-sentence { display: flex; align-items: center; gap: .45rem; flex-wrap: wrap; font-size: .88rem; color: var(--text-subtle); }
+.edit-sentence-lead { font-family: ui-monospace, monospace; font-size: .72rem; letter-spacing: .14em; color: var(--accent); }
+.edit-sentence input[type="number"] { width: 6rem; }
+.edit-sentence input[type="text"] { width: 10rem; }
+.edit-sentence select { max-width: 100%; }
+.edit-unit { color: var(--text-muted); font-size: .8rem; }
+
+.edit-advanced { border-top: 1px solid var(--border-soft); padding-top: .5rem; }
+.edit-advanced > summary { display: flex; align-items: center; gap: .4rem; cursor: pointer; color: var(--text-muted); font-size: .8rem; user-select: none; list-style: none; }
+.edit-advanced > summary::-webkit-details-marker { display: none; }
+.edit-advanced > summary::before { content: "▸"; color: var(--text-faint); }
+.edit-advanced[open] > summary::before { content: "▾"; }
+.edit-advanced > summary:hover { color: var(--text); }
+.edit-field-grid { display: grid; grid-template-columns: max-content minmax(5rem, 8rem) max-content; gap: .55rem .7rem; align-items: center; padding-top: .6rem; }
+.edit-field-label { display: inline-flex; align-items: center; gap: .25rem; font-size: .82rem; color: var(--text-subtle); }
+
+@media (max-width: 700px) {
+  .edit-field-grid { grid-template-columns: 1fr max-content; }
+  .edit-field-label { grid-column: 1 / -1; }
+}
+
+/* Der Geraete-Assistent ist eine Karte wie jede andere, nur mit gestrichelter
+   Kante: er ist ein Werkzeug zum Anlegen, kein Bestandteil der Regel. */
+.entity-wizard { border-style: dashed; border-left-style: solid; }
+.entity-wizard-row { display: flex; align-items: center; gap: .5rem; flex-wrap: wrap; }
+
+/* --- Typ-Kacheln: das Icon traegt die Wiedererkennung, das Wort darunter
+   die Bedeutung. Ohne Wort waere "Energiewert" nicht zu erraten. --- */
+.type-tiles { display: flex; gap: .5rem; flex-wrap: wrap; margin: .6rem 0 1.2rem; }
+.type-tile {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: .35rem;
+  width: 7rem; min-height: 4.6rem; padding: .65rem .4rem;
+  border: 1px solid var(--border); border-radius: 3px;
+  background: var(--panel); color: var(--text-subtle);
+  font: inherit; font-size: .78rem; line-height: 1.25; text-align: center; cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.type-tile svg { width: 1.5rem; height: 1.5rem; color: var(--accent); flex: none; }
+.type-tile:hover { border-color: var(--accent-line); background: var(--accent-bg); color: var(--text); }
+.type-tile:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* --- Dienst-Einstellungen: unter den Regeln, zugeklappt. Wer eine Regel
+   anlegen will, soll nicht zuerst ueber das Tick-Intervall stolpern. --- */
+.automations-advanced { margin-top: 1.8rem; border-top: 1px solid var(--border); padding-top: .8rem; }
+.automations-advanced > summary { display: flex; align-items: center; gap: .45rem; cursor: pointer; color: var(--text-subtle); user-select: none; }
+.automations-advanced > summary:hover { color: var(--text); }
+.automations-advanced > summary .automation-icon { color: var(--text-faint); }
+.automations-advanced-body { padding-top: 1rem; }
+.automations-advanced-body .form-grid label { display: inline-flex; align-items: center; gap: .25rem; }
+
+/* --- Assistent: eine Schrittleiste ueber der frisch angelegten Regel. --- */
+.wizard-bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .75rem; margin-bottom: .7rem; border: 1px solid var(--accent-line); background: var(--accent-bg); }
+.wizard-steps { display: flex; align-items: center; gap: .4rem; flex: 1; font-size: .78rem; color: var(--text-muted); }
+.wizard-step { display: inline-flex; align-items: center; gap: .3rem; }
+.wizard-step.current { color: var(--accent); font-weight: 600; }
+.wizard-step.done { color: var(--ok); }
+.wizard-step-sep { color: var(--border); }
+
+/* --- Layout: Kette, nur breit und nur im Beobachten-Modus --- */
+@media (min-width: 62rem) {
+  .automation-rule[data-mode="view"] .rule-flow {
+    display: grid;
+    grid-template-columns: 1fr auto minmax(11rem, 15rem) auto 1fr;
+    align-items: center;
+    gap: .9rem;
+  }
+  .automation-rule[data-mode="view"] .rule-clause { display: none; }
+  .automation-rule[data-mode="view"] .rule-arrow { display: flex; align-items: center; color: var(--border); }
+  .automation-rule[data-mode="view"] .rule-column { display: flex; flex-direction: column; gap: .5rem; }
+}
+
+/* --- Verlauf --- */
+.history { margin-top: .6rem; border-top: 1px solid var(--border-soft); padding-top: .6rem; }
+.history-head { display: flex; align-items: center; gap: .55rem; flex-wrap: wrap; }
+.history-toggle { font: inherit; font-size: .78rem; color: var(--accent); background: transparent; border: 1px solid var(--accent-line); padding: .22rem .5rem; cursor: pointer; }
+.history-toggle:hover { background: var(--accent-bg); }
+.history-head .settings-toggle { flex: none; }
+.history-list { list-style: none; padding: 0; margin: .5rem 0 0; display: flex; flex-direction: column; gap: .4rem; }
+.history-entry { border: 1px solid var(--border-soft); border-left: 3px solid var(--text-faint); background: var(--panel-alt); padding: .4rem .6rem; font-size: .78rem; }
+.history-entry.ok { border-left-color: var(--ok); }
+.history-entry.bad { border-left-color: var(--bad); }
+.history-time { font-family: ui-monospace, monospace; color: var(--text-muted); margin-right: .5rem; }
+.history-badge { font-weight: 600; }
+.history-test { margin-left: .4rem; font-size: .68rem; padding: .05rem .35rem; border: 1px solid var(--border); color: var(--text-subtle); }
+.history-actions { list-style: none; padding: 0; margin: .3rem 0 0; font-family: ui-monospace, monospace; font-size: .74rem; color: var(--text-subtle); }

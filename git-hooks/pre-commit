@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+#
+# Bumps the per-component patch version (dashboard/VERSION, src/VERSION) on
+# every commit to the main branch that touches the matching directory.
+# Major/minor stay hand-edited in those files; this hook only ever
+# increments patch. On any other branch the VERSION files are left
+# untouched -- post-commit tags such commits with a pre-release version
+# instead. Not tracked by git itself - installed into .git/hooks/ via
+# scripts/install_git_hooks.sh.
+set -euo pipefail
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "${repo_root}"
+source "${repo_root}/git-hooks/lib.sh"
+
+staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
+
+# --- Vendored-core drift guard (all branches) ---------------------------------
+# The Home Assistant integration ships a copy of src/battery_soc_core. It is a
+# derived artifact: regenerate it with scripts/vendor_core.py, never by hand.
+if printf '%s\n' "${staged_files}" | grep -qE '^(src/battery_soc_core/|integrations/homeassistant/custom_components/battery_soc/battery_soc_core/)'; then
+  if ! python3 "${repo_root}/scripts/vendor_core.py" --check; then
+    echo "pre-commit: vendored core is out of sync." >&2
+    echo "pre-commit: run  .venv/bin/python scripts/vendor_core.py  and stage the result." >&2
+    exit 1
+  fi
+fi
+
+# --- Vendored-card drift guard (all branches) --------------------------------
+# The Lovelace card ships a vendored copy of battery-card-core.js.
+# It is a derived artifact: regenerate it with scripts/vendor_card.py, never by hand.
+if ! python3 "${repo_root}/scripts/vendor_card.py" --check; then
+  echo "pre-commit: vendored card core is out of sync." >&2
+  echo "pre-commit: run  .venv/bin/python scripts/vendor_card.py  and stage the result." >&2
+  exit 1
+fi
+
+if [[ "$(current_branch)" != "main" ]]; then
+  exit 0
+fi
+
+bump_version_file() {
+  local dir_prefix="$1"
+  local version_file="$2"
+
+  if ! component_touched "${dir_prefix}" "${version_file}" "${staged_files}"; then
+    return
+  fi
+  if [[ ! -f "${version_file}" ]]; then
+    echo "pre-commit: ${version_file} fehlt, ueberspringe Versions-Bump" >&2
+    return
+  fi
+
+  if [[ "${version_file}" == *.json ]]; then
+    bump_version_json "${version_file}"
+  else
+    bump_version_plain "${version_file}"
+  fi
+}
+
+bump_version_plain() {
+  local version_file="$1"
+  local current
+  current="$(tr -d '[:space:]' < "${version_file}")"
+  if [[ ! "${current}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    echo "pre-commit: ${version_file} hat unerwartetes Format '${current}', ueberspringe Versions-Bump" >&2
+    return
+  fi
+  local major="${BASH_REMATCH[1]}"
+  local minor="${BASH_REMATCH[2]}"
+  local patch="${BASH_REMATCH[3]}"
+  patch=$((patch + 1))
+  printf 'v%s.%s.%s\n' "${major}" "${minor}" "${patch}" > "${version_file}"
+  git add "${version_file}"
+  echo "pre-commit: ${version_file} -> v${major}.${minor}.${patch}"
+}
+
+# HACS/hassfest verlangt eine nackte Semver ohne "v"-Prefix im manifest.json
+# "version"-Feld - deshalb eigener Pfad statt bump_version_plain. Der
+# generierte Changelog-Abschnitt bekommt trotzdem die "vX.Y.Z"-Ueberschrift
+# wie alle anderen Komponenten (siehe scripts/generate_changelog.sh), nur das
+# manifest.json-Feld selbst bleibt bare-semver.
+bump_version_json() {
+  local version_file="$1"
+  local current
+  current="$(read_component_version "${version_file}")"
+  if [[ ! "${current}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+    echo "pre-commit: ${version_file} hat unerwartetes version-Format '${current}', ueberspringe Versions-Bump" >&2
+    return
+  fi
+  local major="${BASH_REMATCH[1]}"
+  local minor="${BASH_REMATCH[2]}"
+  local patch="${BASH_REMATCH[3]}"
+  patch=$((patch + 1))
+  local new_version="${major}.${minor}.${patch}"
+  python3 -c '
+import json, sys
+path, version = sys.argv[1], sys.argv[2]
+with open(path) as fh:
+    data = json.load(fh)
+data["version"] = version
+with open(path, "w") as fh:
+    json.dump(data, fh, indent=2)
+    fh.write("\n")
+' "${version_file}" "${new_version}"
+  git add "${version_file}"
+  echo "pre-commit: ${version_file} -> ${new_version}"
+}
+
+for component in "${COMPONENTS[@]}"; do
+  bump_version_file "${component%%:*}" "${component#*:}"
+done

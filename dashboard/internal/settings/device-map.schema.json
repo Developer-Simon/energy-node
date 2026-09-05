@@ -1,0 +1,47 @@
+{
+  "title": "Device-Map positions and relation overrides",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "nodes"],
+  "properties": {
+    "version": {"type": "integer", "minimum": 1},
+    "nodes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["device_id", "x", "y"],
+        "properties": {
+          "device_id": {"type": "string", "minLength": 1},
+          "x": {"type": "number"},
+          "y": {"type": "number"}
+        }
+      }
+    },
+    "edges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "child_id", "parent_id", "kind", "created_at"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "child_id": {"type": "string", "minLength": 1},
+          "parent_id": {"type": "string", "minLength": 1},
+          "kind": {"type": "string", "minLength": 1},
+          "created_at": {"type": "string"}
+        }
+      }
+    },
+    "view": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "snap_to_grid": {"type": "boolean"},
+        "show_grid": {"type": "boolean"},
+        "grid_size": {"type": "integer", "minimum": 4, "maximum": 400},
+        "edge_style": {"type": "string", "enum": ["straight", "elbow", "curved"]}
+      }
+    }
+  }
+}

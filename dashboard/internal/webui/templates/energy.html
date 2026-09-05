@@ -1,0 +1,133 @@
+{{define "energy-role-row"}}<div class="energy-role-row" x-bind:class="{ 'is-assigned': assignments[entity.id].role }" x-bind:style="`--row-index: ${index}`"><label x-bind:for="`energy-role-${entity.id}`" x-text="entity.label"></label><select class="energy-role" x-bind:id="`energy-role-${entity.id}`" x-model="assignments[entity.id].role" x-init="$nextTick(() => $el.value = assignments[entity.id].role)"><option value="">Keine Rolle</option><template x-for="option in roleOptionsFor(entity.unit)" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template></select><input class="energy-scale" type="number" min="0.01" step="0.01" title="Skalierung" x-model.number="assignments[entity.id].scale" x-show="!isSocRow(entity.id)"><label x-show="!isSocRow(entity.id)"><input class="energy-invert" type="checkbox" x-model="assignments[entity.id].invert"> invertieren</label><label class="energy-role-capacity" x-show="isSocRow(entity.id)" x-cloak>Kapazität <input class="energy-capacity" type="number" min="0" step="0.1" title="Nutzbare Kapazität dieser Bank" x-model.number="assignments[entity.id].capacity_kwh"> kWh</label><button type="button" class="energy-role-hide-toggle" x-on:click="toggleHidden(entity.id)" x-text="isHidden(entity.id) ? 'Einblenden' : 'Ausblenden'" x-bind:title="isHidden(entity.id) ? 'Eintrag wieder einblenden' : 'Eintrag ausblenden'"></button></div>{{end}}
+{{define "energy"}}
+<section id="energy-panel" class="panel" role="tabpanel" aria-labelledby="tab-energy" x-bind:class="{ active: activePanel === 'energy-panel' }" x-show="activePanel === 'energy-panel'" x-data="energyRolesPanel()" x-init="load()">
+  <h2 class="energy-title">Energie-Rollen
+    <span class="field-help field-help-align-start">
+      <button class="field-help-trigger" type="button" aria-label="Was macht diese Seite?"><svg><use href="#ico-help"></use></svg></button>
+      <span class="field-help-text" role="tooltip">Heuristisch erkannte Leistungswerte einer Energie-Rolle zuordnen. Positive Werte folgen der Rollenbedeutung; Freshness und Quelle werden pro Rolle ausgewiesen.</span>
+    </span>
+  </h2>
+
+  <div class="energy-notices" role="region" aria-label="Hinweise zur Energie-Bilanz">
+    <p class="message" role="status" x-cloak x-show="showMeasuredWarning" x-transition.opacity>Hausverbrauch ist auf „Gemessen" gestellt, aber keiner Entität ist die Rolle „Hausverbrauch" zugeordnet - der Hausverbrauch wird bis dahin als 0 W geführt.</p>
+    <p class="message" role="status" x-cloak x-show="showCombinedWithoutLoadWarning" x-transition.opacity>„Kombiniert" ist gewählt, aber keiner Entität ist die Rolle „Hausverbrauch" zugeordnet - es gibt nichts zu separieren, der Modus verhält sich derzeit wie „Berechnet".</p>
+    <p class="message" role="status" x-cloak x-show="showSocCapacityWarning" x-transition.opacity x-text="socCapacityWarning"></p>
+    <div class="energy-unassigned" x-show="unassignedCount > 0" x-cloak x-transition.opacity>
+      <p><strong x-text="unassignedCount"></strong> Leistungswerte ohne Rolle - oft die eigentliche Ursache einer Bilanzlücke:</p>
+      <ul><template x-for="entity in unassigned" x-bind:key="entity.entity_id"><li x-text="`${entity.name || entity.entity_id}: ${Math.round(entity.value)} ${entity.unit}`"></li></template></ul>
+    </div>
+  </div>
+
+  <details class="energy-interpretation" open x-data="{ open: JSON.parse(localStorage.getItem('energy-interpretation-open') ?? 'true') }" x-bind:open="open" x-on:toggle="open = $event.target.open; localStorage.setItem('energy-interpretation-open', JSON.stringify(open))">
+    <summary class="energy-interpretation-summary">Bilanz-Interpretation</summary>
+    <div class="energy-interpretation-body">
+
+      <div class="energy-interpretation-group">
+        <span class="energy-interpretation-head"><span class="energy-interpretation-label">Hausverbrauch</span></span>
+        <div class="radio-card-group energy-load-modes" role="radiogroup" aria-label="Hausverbrauch">
+          <label class="radio-card"><input type="radio" name="load-mode" value="measured" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">Gemessen</span><span class="radio-card-desc">Rolle „Hausverbrauch"</span></span></label>
+          <label class="radio-card"><input type="radio" name="load-mode" value="calculated" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">Berechnet</span><span class="radio-card-desc">PV + Netzbezug + Entladen − Einspeisung − Laden</span></span></label>
+          <label class="radio-card"><input type="radio" name="load-mode" value="combined" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">Kombiniert</span><span class="radio-card-desc">berechnet, gemessene Verbraucher separat ausgewiesen</span></span></label>
+          <label class="radio-card"><input type="radio" name="load-mode" value="auto" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">Automatisch (Standard)</span><span class="radio-card-desc">gemessen falls vorhanden, sonst berechnet</span></span></label>
+        </div>
+        <p class="energy-mode-note" x-cloak x-show="loadModeNote" x-transition.opacity>
+          <svg class="energy-mode-note-icon" aria-hidden="true"><use href="#ico-help"></use></svg>
+          <span x-text="loadModeNote"></span>
+        </p>
+      </div>
+
+      <div class="energy-interpretation-group">
+        <span class="energy-interpretation-head">
+          <span class="energy-interpretation-label">Bilanzlücke</span>
+          <span class="field-help">
+            <button class="field-help-trigger" type="button" aria-label="Erklärung zur Bilanzlücke"><svg><use href="#ico-help"></use></svg></button>
+            <span class="field-help-text" role="tooltip" x-text="gapModeIncludesInLoad ? 'Unbekannter Verbraucher (Standard) - die Lücke fließt in den Hausverbrauch ein.' : 'Diagnose - die Lücke bleibt als „Nicht zugeordnet“ sichtbar.'"></span>
+          </span>
+        </span>
+        <label class="settings-toggle-label" for="gap-mode-toggle">Bilanzlücke in Hausverbrauch einrechnen <span class="settings-toggle"><input id="gap-mode-toggle" type="checkbox" role="switch" x-model="gapModeIncludesInLoad" x-bind:aria-checked="gapModeIncludesInLoad"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      </div>
+
+      <div class="energy-interpretation-group is-compact">
+        <span class="energy-interpretation-head">
+          <span class="energy-interpretation-label">Toleranzschwelle</span>
+          <span class="field-help">
+            <button class="field-help-trigger" type="button" aria-label="Erklärung zur Toleranzschwelle"><svg><use href="#ico-help"></use></svg></button>
+            <span class="field-help-text" role="tooltip" x-text="`Bilanzlücken unterhalb dieser Schwelle gelten als ausgeglichen - entspricht aktuell ca. ${toleranceWEquivalent} W.`"></span>
+          </span>
+        </span>
+        <label>Modus
+          <select x-model="interpretation.gap_tolerance_mode">
+            <option value="absolute">Watt</option>
+            <option value="percent">Prozent der Gesamtleistung</option>
+          </select>
+        </label>
+        <label x-show="interpretation.gap_tolerance_mode === 'absolute'">Watt <input type="number" min="0" step="1" x-model.number="interpretation.gap_tolerance_w"></label>
+        <label x-show="interpretation.gap_tolerance_mode === 'percent'">Prozent <input type="number" min="0" max="100" step="0.5" x-model.number="interpretation.gap_tolerance_percent"></label>
+      </div>
+
+      <div class="energy-interpretation-group is-compact">
+        <span class="energy-interpretation-head">
+          <span class="energy-interpretation-label">Statuskarte-Schwellen</span>
+          <span class="field-help">
+            <button class="field-help-trigger" type="button" aria-label="Erklärung zu den Statuskarte-Schwellen"><svg><use href="#ico-help"></use></svg></button>
+            <span class="field-help-text" role="tooltip">Schwellen für die Empfehlungen der Statuskarte im Layout-Editor (Kachel „Energie: Statuskarte“). Die Speicher-Reserve ist der Ladestand, gegen den die Batteriekarten ihre Restlaufzeit rechnen; 0 schaltet sie ab.</span>
+          </span>
+        </span>
+        <label>Überschuss ab <input type="number" min="0" step="50" x-model.number="interpretation.surplus_threshold_w"> W</label>
+        <label>Netzbezug ab <input type="number" min="0" step="50" x-model.number="interpretation.import_threshold_w"> W</label>
+        <label>Speicher-Reserve <input type="number" min="0" max="100" step="1" x-model.number="interpretation.battery_reserve_percent"> % <span class="field-hint">0 = keine Reserve</span></label>
+      </div>
+
+    </div>
+  </details>
+
+  {{if .Energy.Roles}}
+  <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
+    <dt title="{{.Sign}}">{{.Label}}</dt>
+    <dd>{{printf "%.0f %s" .Value .Unit}}</dd>
+    <ul class="energy-state-row">
+      {{if eq .Quality "invalid"}}<li class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg>Ungültig</li>
+      {{else if or (eq .Freshness "stale") (eq .Quality "stale")}}<li class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg>Veraltet</li>
+      {{else}}<li class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg>Frisch</li>{{end}}
+      {{if eq .Source "live"}}<li class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg>Live</li>
+      {{else if eq .Source "mixed"}}<li class="energy-state-chip is-muted"><svg><use href="#ico-layers"></use></svg>Gemischt</li>
+      {{else if or (eq .Source "mqtt-replay") (eq .Source "runtime-cache")}}<li class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg>Wiederhergestellt</li>
+      {{else}}<li class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg>{{.Source}}</li>{{end}}
+    </ul>
+  </div>{{end}}</dl>
+  <details class="energy-legend">
+    <summary>Zeichen erklären</summary>
+    <div class="energy-legend-grid">
+      <span class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg></span><span>Frisch</span><span>Aktueller, plausibler Wert.</span>
+      <span class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg></span><span>Veraltet</span><span>Länger kein Update oder Entität nicht verfügbar — der Wert ist eingefroren.</span>
+      <span class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg></span><span>Ungültig</span><span>Falsche Einheit oder unlesbarer Wert.</span>
+      <span class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg></span><span>Live</span><span>Wert aus einer laufenden MQTT-Nachricht.</span>
+      <span class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg></span><span>Wiederhergestellt</span><span>Nach Neustart aus Verlauf oder Zwischenspeicher übernommen, noch keine Live-Nachricht.</span>
+      <span class="energy-state-chip is-muted"><svg><use href="#ico-layers"></use></svg></span><span>Gemischt</span><span>Mehrere Entitäten mit unterschiedlicher Quelle speisen diese Rolle.</span>
+    </div>
+  </details>
+  {{end}}
+  <div id="energy-roles" class="energy-roles-groups">
+    <div class="energy-roles-group">
+      <h3 class="energy-roles-group-title">Energie-Werte</h3>
+      <div class="energy-roles"><template x-for="(entity, index) in visibleEnergyEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
+    </div>
+    <div class="energy-roles-group">
+      <h3 class="energy-roles-group-title">Batterie-Werte</h3>
+      <div class="energy-roles"><template x-for="(entity, index) in visibleBatteryEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
+    </div>
+    <div class="energy-roles-group" x-show="hiddenCount > 0" x-cloak>
+      <button class="entity-accordion-toggle" type="button" x-on:click="hiddenExpanded = !hiddenExpanded" x-bind:aria-expanded="hiddenExpanded" x-bind:aria-controls="$id('energy-hidden-rows')">Ausgeblendete Einträge (<span x-text="hiddenCount"></span>)</button>
+      <div class="entity-accordion-panel energy-roles" x-cloak x-bind:id="$id('energy-hidden-rows')" x-show="hiddenExpanded" x-collapse><template x-for="(entity, index) in hiddenEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
+    </div>
+  </div>
+
+  <div class="energy-actionbar-dock">
+    <div class="energy-actionbar">
+      <button class="primary" id="energy-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere …' : 'Speichern'"></button>
+    </div>
+  </div>
+
+  {{template "revisions" .}}
+</section>
+{{end}}

@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/schemas/apsystems_devices.schema.json",
+  "title": "APsystems EZ1 Devices Configuration",
+  "description": "JSON schema for APsystems EZ1 inverter configuration used by apsystems_ez1_mqtt.py.",
+  "type": "array",
+  "items": {
+    "title": "APsystems EZ1 Inverter",
+    "description": "Configuration for one APsystems EZ1 inverter.",
+    "type": "object",
+    "required": ["id", "name", "host"],
+    "additionalProperties": false,
+    "properties": {
+      "id": {
+        "type": "string",
+        "minLength": 1,
+        "default": "new_apsystems_ez1",
+        "title": "Identifier",
+        "description": "Unique identifier for the APsystems inverter used in MQTT topics and home assistant device IDs."
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "default": "New APsystems EZ1",
+        "title": "Display name",
+        "description": "Display name for the APsystems device in Home Assistant."
+      },
+      "host": {
+        "type": "string",
+        "minLength": 1,
+        "default": "192.0.2.100",
+        "title": "Host",
+        "description": "IP address or hostname of the APsystems EZ1 inverter."
+      },
+      "port": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535,
+        "default": 8050,
+        "title": "API port",
+        "description": "TCP port for the local EZ1 REST API. Defaults to 8050."
+      }
+    }
+  }
+}

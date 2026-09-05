@@ -1,0 +1,114 @@
+#!/bin/sh
+set -eu
+
+# Mosquitto bridge staging paths for apply-bridge-config. DASHBOARD_DATA_DIR
+# is only ever set here as a fallback default - this script runs as root via
+# sudo, not with the dashboard service's environment, so it does not
+# actually inherit the dashboard's own DASHBOARD_DATA_DIR.
+BRIDGE_STAGED="/home/energynode/dashboard/data/mosquitto-bridge.staged.conf"
+BRIDGE_TARGET="/etc/mosquitto/conf.d/bridge.conf"
+BRIDGE_BACKUP="/etc/mosquitto/conf.d/.bridge.conf.bak"
+BRIDGE_OWNER="energynode"
+
+# apply_bridge_config installs BRIDGE_STAGED as BRIDGE_TARGET and restarts
+# mosquitto, with two independent defenses against a compromised dashboard
+# process and one rollback path against a working-but-wrong configuration:
+#
+#   1/2: the staged file must be small, owned by the dashboard user, and
+#        every line must match the directive allowlist below - this is what
+#        stops an attacker from smuggling in an unrelated Mosquitto
+#        directive (log_dest, a new listener, user, pid_file, ...) even if
+#        the dashboard process itself is compromised, since this helper is
+#        the only thing that runs as root.
+#   3/4: the previously installed file is backed up before being replaced.
+#   5/6: if mosquitto fails to restart with the new file, the backup is
+#        restored and mosquitto is restarted again - a typo in the bridge
+#        address must never leave the local broker down, since that would
+#        also cut the dashboard off from its own devices.
+#
+# See knowhow/dashboard/dashboard-mqtt-setup.md, Teil B, "Ablauf beim
+# Anwenden", for the full design rationale.
+apply_bridge_config() {
+  [ -f "$BRIDGE_STAGED" ] || exit 65
+  owner="$(/usr/bin/stat -c %U "$BRIDGE_STAGED" 2>/dev/null || echo '')"
+  [ "$owner" = "$BRIDGE_OWNER" ] || exit 65
+  size="$(/usr/bin/stat -c %s "$BRIDGE_STAGED" 2>/dev/null || echo 999999999)"
+  [ "$size" -le 8192 ] || exit 65
+  lines="$(/usr/bin/wc -l < "$BRIDGE_STAGED")"
+  [ "$lines" -le 200 ] || exit 65
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      ''|'#'*) continue ;;
+      'connection '*|'address '*|'remote_username '*|'remote_password '*|'remote_clientid '*) continue ;;
+      'topic '*|'try_private '*|'start_type '*|'restart_timeout '*|'keepalive_interval '*) continue ;;
+      'cleansession '*|'notifications '*|'bridge_attempt_unsubscribe '*) continue ;;
+      *) exit 65 ;;
+    esac
+  done < "$BRIDGE_STAGED"
+
+  if [ -f "$BRIDGE_TARGET" ]; then
+    /usr/bin/install -o root -g root -m 0600 "$BRIDGE_TARGET" "$BRIDGE_BACKUP"
+  fi
+
+  /usr/bin/install -o root -g "$BRIDGE_OWNER" -m 0640 "$BRIDGE_STAGED" "$BRIDGE_TARGET"
+
+  if /bin/systemctl restart mosquitto; then
+    rm -f "$BRIDGE_STAGED"
+    exit 0
+  fi
+
+  if [ -f "$BRIDGE_BACKUP" ]; then
+    /usr/bin/install -o root -g "$BRIDGE_OWNER" -m 0640 "$BRIDGE_BACKUP" "$BRIDGE_TARGET"
+  else
+    rm -f "$BRIDGE_TARGET"
+  fi
+  /bin/systemctl restart mosquitto || true
+  rm -f "$BRIDGE_STAGED"
+  exit 75
+}
+
+if [ "$#" -ne 1 ]; then
+  exit 64
+fi
+
+case "$1" in
+  restart-dashboard)
+    exec /bin/systemctl restart energy-node-dashboard.service
+    ;;
+  reboot)
+    exec /bin/systemctl reboot
+    ;;
+  poweroff)
+    exec /bin/systemctl poweroff
+    ;;
+  apply-bridge-config)
+    apply_bridge_config
+    ;;
+  restart-mosquitto)
+    exec /bin/systemctl restart mosquitto
+    ;;
+  tailscale-up)
+    # tailscale up without --authkey starts Tailscale's own interactive
+    # browser login and blocks until it completes (or forever, if nobody
+    # finishes it) - the CLI invocation only needs to kick the flow off, the
+    # resulting state (including the login URL) lives in tailscaled itself
+    # and is visible to any later unprivileged `tailscale status --json`.
+    # So this backgrounds the CLI and returns immediately rather than
+    # holding the caller's sudo/HTTP request open for an unbounded login.
+    # nohup alone (no `disown`, not POSIX sh) is enough: the backgrounded
+    # process ignores SIGHUP and this script exits right after, so no
+    # interactive job control is ever in play.
+    nohup /usr/sbin/tailscale up >/dev/null 2>&1 &
+    exit 0
+    ;;
+  tailscale-logout)
+    exec /usr/sbin/tailscale logout
+    ;;
+  tailscale-restart)
+    exec /bin/systemctl restart tailscaled
+    ;;
+  *)
+    exit 64
+    ;;
+esac

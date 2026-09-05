@@ -1,0 +1,24 @@
+{
+  "version": 2,
+  "pages": [
+    {
+      "id": "start",
+      "name": "Start",
+      "order": 0,
+      "groups": [
+        {
+          "id": "geraete",
+          "name": "Geräte",
+          "items": [
+            {"id": "device:apsys_nord", "type": "device", "ref": "apsys_nord", "span": "1", "visible": true, "x": 0, "y": 0, "w": 1, "h": 2},
+            {"id": "device:apsys_sued", "type": "device", "ref": "apsys_sued", "span": "1", "visible": true, "x": 1, "y": 0, "w": 1, "h": 2},
+            {"id": "device:energie_automationen", "type": "device", "ref": "energie_automationen", "span": "1", "visible": true, "x": 2, "y": 0, "w": 1, "h": 2},
+            {"id": "device:apsys_nord_kompakt", "type": "device", "ref": "apsys_nord", "span": "1", "visible": true, "display": "compact", "x": 3, "y": 0, "w": 1, "h": 1},
+            {"id": "bat-col", "type": "battery_status", "display": "column", "span": "1", "visible": true, "x": 0, "y": 2, "w": 1, "h": 2},
+            {"id": "bat-traj", "type": "battery_status", "display": "trajectory", "span": "2", "visible": true, "x": 1, "y": 2, "w": 2, "h": 2}
+          ]
+        }
+      ]
+    }
+  ]
+}

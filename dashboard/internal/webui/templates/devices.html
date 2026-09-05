@@ -1,0 +1,360 @@
+{{define "devices"}}
+<section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" data-discovery-tooltips-enabled="{{if .ShowDiscoveryTooltips}}true{{else}}false{{end}}" data-device-view-mode="{{.DeviceViewMode}}" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" x-data="devicesPanel()" x-init="init()">
+  <div class="devices-panel-header">
+    <h2>Geräte</h2>
+    <button type="button" class="device-density-toggle" x-bind:class="{ active: viewMode === 'control' }" x-bind:aria-pressed="viewMode === 'control'" x-bind:disabled="viewModeSaving" x-bind:aria-label="viewMode === 'control' ? 'Zur kompakten Übersicht wechseln' : 'Zur Detailansicht wechseln'" x-on:click="setViewMode(viewMode === 'control' ? 'compact' : 'control')">
+      <svg class="device-density-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><rect x="3" y="4" width="18" height="6" rx="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.6"/></svg>
+      <span class="device-density-toggle-label" x-text="viewMode === 'control' ? 'Details' : 'Kompakt'"></span>
+    </button>
+  </div>
+  {{template "devices-live" .}}
+  {{template "device-modal" .}}
+</section>
+{{end}}
+
+{{define "devices-live"}}
+<div id="devices-live" data-device-view-mode="{{.DeviceViewMode}}" data-structure="{{.Structure}}" data-structure-compact="{{.StructureCompact}}" aria-live="polite" hx-get="{{.BasePath}}/?fragment=devices-live" hx-target="#devices-live" hx-swap="outerHTML">
+  {{if not .Devices}}
+  <p>Noch keine Geräte über MQTT Discovery gefunden.</p>
+  {{end}}
+  {{if eq .DeviceViewMode "control"}}
+  {{template "devices-control" .}}
+  {{else}}
+  {{template "devices-compact" .}}
+  {{end}}
+  {{if .IgnoredDevices}}
+  <section id="ignored-devices" class="ignored-devices" aria-labelledby="ignored-devices-heading">
+    <h3 id="ignored-devices-heading">Ignorierte Geräte</h3>
+    {{range .IgnoredDevices}}
+    <article class="ignored-device-row" data-device-id="{{.DeviceID}}">
+      <div><strong>{{if .Name}}{{.Name}}{{else}}{{.DeviceID}}{{end}}</strong><small>{{.DeviceID}}{{if .Model}} · {{.Model}}{{end}}</small></div>
+      {{if .Stale}}<span class="ignored-device-stale">Discovery fehlt</span>{{end}}
+      <button type="button" class="device-detail-trigger" data-device-id="{{.DeviceID}}" x-on:click="unignoreDevice($el.dataset.deviceId)">Reaktivieren</button>
+    </article>
+    {{end}}
+  </section>
+  {{end}}
+</div>
+{{end}}
+
+{{define "devices-control"}}
+<div class="device-tile-grid">
+  {{range .Devices}}
+  {{template "device-tile" .}}
+  {{end}}
+</div>
+{{end}}
+
+{{define "devices-compact"}}
+<div class="device-compact-grid">
+  {{range .Devices}}
+  {{template "compact-card" .}}
+  {{end}}
+</div>
+{{end}}
+
+{{define "compact-card"}}
+{{ $device := . }}
+{{ $availability := deviceAvailability .Entities }}
+<button type="button" class="compact-card is-{{$availability}}" data-device-id="{{.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" x-bind:aria-label="`Details für {{.Name}} anzeigen`">
+  <span class="compact-card-head">
+    <span class="compact-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/></svg></span>
+    <span class="compact-card-title"><strong>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</strong><small>{{.ID}}{{if .Model}} · {{.Model}}{{end}}</small></span>
+    <span class="compact-card-status compact-card-status-{{$availability}}"><span class="compact-card-dot" aria-hidden="true"></span>{{if eq $availability "online"}}Online{{else if eq $availability "offline"}}Offline{{else}}Unbekannt{{end}}</span>
+    <span class="compact-card-chevron" aria-hidden="true">›</span>
+  </span>
+  {{ $priority := priorityEntities . }}
+  {{if $priority}}
+  <span class="compact-card-rows">
+    {{range $priority}}
+    <span class="compact-card-row" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}"><span class="compact-card-row-label">{{stripDeviceName $device.Name .Name}}</span><span class="compact-card-row-value{{if .Stale}} stale{{end}}">{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{.Value}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}–{{end}}</span></span>
+    {{end}}
+  </span>
+  {{else}}
+  <span class="compact-card-empty">{{len .Entities}} Entitäten</span>
+  {{end}}
+</button>
+{{end}}
+
+
+{{define "device-modal"}}
+<dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading">
+  <div class="device-modal-topbar">
+    <div class="device-modal-topbar-id">
+      <div class="device-modal-topbar-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/></svg>
+      </div>
+      <div class="device-modal-topbar-text">
+        <h3 id="device-modal-heading">
+          <span class="device-modal-topbar-name" x-text="deviceDetail ? deviceDetail.name : 'Gerätedetails'"></span>
+          <span class="device-modal-topbar-pill" x-show="deviceAvailability !== 'unknown'" x-bind:class="`device-modal-topbar-pill-${deviceAvailability}`" x-text="deviceAvailability === 'online' ? 'Online' : 'Offline'"></span>
+        </h3>
+        <p class="device-modal-topbar-sub" x-show="deviceDetail?.manufacturer || deviceDetail?.model" x-text="[deviceDetail?.manufacturer, deviceDetail?.model].filter(Boolean).join(' · ')"></p>
+        <p class="device-detail-source" x-show="selectedDeviceId && !(deviceDetail?.manufacturer || deviceDetail?.model)" x-text="selectedDeviceId ? `Gerät: ${selectedDeviceId}` : ''"></p>
+      </div>
+    </div>
+    <button type="button" class="device-modal-topbar-close" x-on:click="closeDeviceDetail()">Schließen ✕</button>
+  </div>
+  <p x-show="detailLoading">Gerätedetails werden geladen ...</p>
+  <p class="message error" x-cloak x-show="detailError" x-text="detailError"></p>
+  <div class="device-modal-scrollarea" x-show="deviceDetail" x-ref="deviceModalScrollarea">
+    <aside class="device-modal-sidebar">
+      {{template "device-modal-info-body" .}}
+    </aside>
+    <div class="device-modal-switcher" x-ref="deviceModalSwitcher">
+
+      <div class="device-modal-pair" data-tab="deviceInfo">
+        <button type="button" class="device-modal-trigger" x-bind:class="{ active: activeDeviceTab === 'deviceInfo' }" x-bind:aria-expanded="activeDeviceTab === 'deviceInfo'" aria-controls="device-modal-panel-deviceInfo" x-on:click="setDeviceTab('deviceInfo')">
+          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">Gerätedaten</span></span>
+          <span class="device-modal-chev" aria-hidden="true">▸</span>
+        </button>
+        <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-deviceInfo">
+          {{template "device-modal-info-body" .}}
+        </div></div></div>
+      </div>
+
+      <div class="device-modal-pair" data-tab="measurements" x-show="!mergedTab && measurementEntities.length">
+        <button type="button" class="device-modal-trigger" x-bind:class="{ active: activeDeviceTab === 'measurements' }" x-bind:aria-expanded="activeDeviceTab === 'measurements'" aria-controls="device-modal-panel-measurements" x-on:click="setDeviceTab('measurements')">
+          <span class="device-modal-trigger-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="12" width="3.4" height="8"/><rect x="10.3" y="7" width="3.4" height="13"/><rect x="16.6" y="3" width="3.4" height="17"/></svg></span>
+          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">Messwerte</span><span class="device-modal-trigger-info" x-show="measurementsTeaser" x-text="measurementsTeaser"></span></span>
+          <span class="device-modal-trigger-badge" x-show="measurementEntities.length" x-text="measurementEntities.length"></span>
+          <span class="device-modal-chev" aria-hidden="true">▸</span>
+        </button>
+        <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-measurements">
+          <p class="device-modal-updated" x-show="updatedRelative" x-text="updatedRelative"></p>
+          <div class="device-modal-stat-grid">{{template "device-modal-stat-tile" "measurementEntities"}}</div>
+        </div></div></div>
+      </div>
+
+      <div class="device-modal-pair" data-tab="controls" x-show="!mergedTab && controlEntities.length">
+        <button type="button" class="device-modal-trigger" x-bind:class="{ active: activeDeviceTab === 'controls' }" x-bind:aria-expanded="activeDeviceTab === 'controls'" aria-controls="device-modal-panel-controls" x-on:click="setDeviceTab('controls')">
+          <span class="device-modal-trigger-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="8" rx="4" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="15" cy="12" r="3" fill="currentColor"/></svg></span>
+          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">Steuerung</span><span class="device-modal-trigger-info" x-show="controlsTeaser" x-text="controlsTeaser"></span></span>
+          <span class="device-modal-trigger-badge" x-show="controlEntities.length" x-text="controlEntities.length"></span>
+          <span class="device-modal-chev" aria-hidden="true">▸</span>
+        </button>
+        <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-controls">
+          <div class="device-modal-control-row">{{template "device-modal-control-tile" "controlEntities"}}</div>
+        </div></div></div>
+      </div>
+
+      <div class="device-modal-pair" data-tab="measurementsControls" x-show="mergedTab && canMerge">
+        <button type="button" class="device-modal-trigger" x-bind:class="{ active: activeDeviceTab === 'measurementsControls' }" x-bind:aria-expanded="activeDeviceTab === 'measurementsControls'" aria-controls="device-modal-panel-measurementsControls" x-on:click="setDeviceTab('measurementsControls')">
+          <span class="device-modal-trigger-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><circle cx="7" cy="7" r="2"/><circle cx="17" cy="7" r="2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></span>
+          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">Messwerte &amp; Steuerung</span><span class="device-modal-trigger-info" x-show="measurementsTeaser || controlsTeaser" x-text="measurementsTeaser || controlsTeaser"></span></span>
+          <span class="device-modal-trigger-badge" x-show="measurementEntities.length + controlEntities.length" x-text="measurementEntities.length + controlEntities.length"></span>
+          <span class="device-modal-chev" aria-hidden="true">▸</span>
+        </button>
+        <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-measurementsControls">
+          <div class="device-modal-subsection">
+            <div class="device-modal-section-title"><h4>Messwerte</h4><span class="device-modal-updated" x-show="updatedRelative" x-text="updatedRelative"></span></div>
+            <div class="device-modal-stat-grid">{{template "device-modal-stat-tile" "measurementEntities"}}</div>
+          </div>
+          <div class="device-modal-subsection">
+            <div class="device-modal-section-title"><h4>Steuerung</h4></div>
+            <div class="device-modal-control-row">{{template "device-modal-control-tile" "controlEntities"}}</div>
+          </div>
+        </div></div></div>
+      </div>
+
+      <div class="device-modal-pair" data-tab="configDiag" x-show="configDiagEntities.length">
+        <button type="button" class="device-modal-trigger" x-bind:class="{ active: activeDeviceTab === 'configDiag' }" x-bind:aria-expanded="activeDeviceTab === 'configDiag'" aria-controls="device-modal-panel-configDiag" x-on:click="setDeviceTab('configDiag')">
+          <span class="device-modal-trigger-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="12" r="8.5"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r=".2" stroke-width="2.4"/></svg></span>
+          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">Konfiguration &amp; Diagnose</span><span class="device-modal-trigger-info" x-show="configDiagTeaser" x-text="configDiagTeaser"></span></span>
+          <span class="device-modal-trigger-badge" x-show="configDiagEntities.length" x-text="configDiagEntities.length"></span>
+          <span class="device-modal-chev" aria-hidden="true">▸</span>
+        </button>
+        <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-configDiag">
+          <div class="device-modal-subsection" x-show="configEntities.length">
+            <div class="device-modal-section-title"><h4>Konfiguration</h4></div>
+            <div class="device-modal-control-row">{{template "device-modal-control-tile" "configEntities"}}</div>
+          </div>
+          <div class="device-modal-subsection" x-show="diagnosticEntities.length">
+            <div class="device-modal-section-title"><h4>Diagnose</h4></div>
+            <div class="device-modal-stat-grid">{{template "device-modal-stat-tile" "diagnosticEntities"}}</div>
+          </div>
+        </div></div></div>
+      </div>
+
+      <div class="device-modal-pair" data-tab="management">
+        <button type="button" class="device-modal-trigger" x-bind:class="{ active: activeDeviceTab === 'management' }" x-bind:aria-expanded="activeDeviceTab === 'management'" aria-controls="device-modal-panel-management" x-on:click="setDeviceTab('management')">
+          <span class="device-modal-trigger-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="14" y2="17"/></svg></span>
+          <span class="device-modal-trigger-text"><span class="device-modal-trigger-label">Verwaltung &amp; Analyse</span><span class="device-modal-trigger-info" x-bind:class="{ 'is-warn': groupedWarnings.length }" x-show="managementTeaser()" x-text="managementTeaser()"></span></span>
+          <span class="device-modal-chev" aria-hidden="true">▸</span>
+        </button>
+        <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-management">
+
+          <h4>Warnungen</h4>
+          <p x-show="!groupedWarnings.length">Keine Gerätewarnungen.</p>
+          <template x-for="warning in groupedWarnings" :key="`${warning.rule_id}-${warning.message}-${warning.hint}`">
+            <div class="device-modal-warning" x-bind:class="{ 'is-critical': warning.severity === 'critical' }">
+              <span aria-hidden="true" x-text="warning.severity === 'critical' ? '⛔' : '⚠'"></span>
+              <div>
+                <b x-text="warning.message"></b>
+                <small x-show="warning.count > 1" x-text="`${warning.count} betroffene Entitäten`"></small>
+                <small x-show="warning.affectedEntityIds.length" x-text="`Betroffene Entitäten: ${warning.affectedEntityIds.map(id => entityLabel(id)).join(', ')}`"></small>
+                <small x-show="warning.hint" x-text="`Hinweis: ${warning.hint}`"></small>
+              </div>
+            </div>
+          </template>
+
+          <div x-show="isAccordion" x-flip>
+            <h4>Aktivität</h4>
+            <p x-show="!(deviceDetail?.command_actions || []).length && !recentMessages.length">Noch keine Aktivität im laufenden Prozess.</p>
+            <template x-for="action in (deviceDetail?.command_actions || []).slice(0, 3)" :key="`mgmt-${action.at}-${action.entity_id}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(action.at)"></time><span x-text="`${action.entity_id}: ${action.result === 'published' ? 'Befehl gesendet' : 'Befehl fehlgeschlagen'}`"></span></div></template>
+            <template x-for="message in recentMessages.slice(0, 3)" :key="`mgmt-${message.unique_id}-${message.at}`">
+              <template x-for="state in messageStates(message)" :key="`mgmt-${message.unique_id}-${message.at}-${state.label}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(message.at)"></time><span x-text="`${state.label}: ${state.value}`"></span></div></template>
+            </template>
+          </div>
+
+          <h4>Letzte MQTT-Nachrichten</h4>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Entität</th><th>Topic</th><th>Zeitpunkt</th><th>QoS</th><th>Retain</th><th>Payload</th></tr></thead>
+              <tbody>
+                <template x-for="entity in (deviceDetail?.entities || [])" :key="`${entity.unique_id}-message`">
+                  <tr>
+                    <td x-text="entityDisplayName(entity, 'unique_id')"></td>
+                    <td x-text="entity.last_message?.topic || '-'"></td>
+                    <td x-text="formatDetailTime(entity.last_message?.at)"></td>
+                    <td x-text="entity.last_message?.qos ?? '-'"></td>
+                    <td x-text="entity.last_message?.retained ? 'ja' : 'nein'"></td>
+                    <td><pre class="device-detail-payload" x-text="entity.last_message?.payload || 'Keine Nachricht'"></pre></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>Discovery</h4>
+          <div class="table-scroll">
+            <table>
+              <thead><tr><th>Entität</th><th>Topic</th><th>Quelle</th><th>QoS</th><th>Retain</th><th>Payload</th></tr></thead>
+              <tbody>
+                <template x-for="entity in (deviceDetail?.entities || [])" :key="`${entity.unique_id}-discovery`">
+                  <tr>
+                    <td x-text="entity.unique_id"></td>
+                    <td x-text="entity.discovery_topic || '-'"></td>
+                    <td x-text="entity.discovery_source || '-'"></td>
+                    <td x-text="entity.discovery_qos ?? '-'"></td>
+                    <td x-text="entity.discovery_retained ? 'ja' : 'nein'"></td>
+                    <td><details><summary>Anzeigen</summary><pre x-text="entity.discovery_json || 'Keine Payload'"></pre></details></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>Letzte Schreibaktionen</h4>
+          <p x-show="!(deviceDetail?.command_actions || []).length">Keine Schreibaktionen im laufenden Prozess.</p>
+          <div class="table-scroll" x-show="(deviceDetail?.command_actions || []).length">
+            <table>
+              <thead><tr><th>Zeitpunkt</th><th>Entität</th><th>Topic</th><th>Payload</th><th>Ergebnis</th></tr></thead>
+              <tbody>
+                <template x-for="action in (deviceDetail?.command_actions || [])" :key="`${action.at}-${action.entity_id}`">
+                  <tr>
+                    <td x-text="formatDetailTime(action.at)"></td>
+                    <td x-text="action.entity_id"></td>
+                    <td x-text="action.topic"></td>
+                    <td x-text="action.payload"></td>
+                    <td x-text="action.result === 'published' ? 'published' : `Fehler: ${action.error || 'unbekannt'}`"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+
+          <h4>Geräte-Verwaltung</h4>
+          <div class="device-modal-manage-row">
+            <button type="button" x-on:click="reloadDevice()" x-bind:disabled="reloadLoading || detailLoading" x-text="reloadLoading ? 'Lade Discovery ...' : 'Discovery neu laden'"></button>
+            <span class="device-action-tooltip" x-bind:title="canDeleteDiscovery ? 'Discovery entfernen' : 'Nur Administratoren dürfen Discovery entfernen.'">
+              <button type="button" class="danger" x-bind:disabled="!canDeleteDiscovery" x-bind:aria-disabled="(!canDeleteDiscovery).toString()" x-on:click="openDiscoveryDelete(selectedDeviceId)">Discovery entfernen</button>
+            </span>
+            <button type="button" class="warnish" x-on:click="ignoreDevice(selectedDeviceId)">Gerät ignorieren</button>
+          </div>
+
+        </div></div></div>
+      </div>
+
+      <span class="device-modal-underline" x-ref="deviceModalUnderline" aria-hidden="true"></span>
+    </div>
+  </div>
+</dialog>
+<dialog id="device-discovery-delete-dialog" class="device-detail" x-ref="discoveryDeleteDialog" aria-labelledby="device-discovery-delete-heading">
+  <form method="dialog" x-on:submit.prevent="closeDiscoveryDelete()">
+    <div class="device-detail-header"><h3 id="device-discovery-delete-heading">Discovery entfernen</h3><button type="submit">Schließen</button></div>
+    <p x-show="deletePreviewLoading">Referenzen werden geprüft ...</p>
+    <p class="message error" x-cloak x-show="deletePreviewError" x-text="deletePreviewError"></p>
+    <div x-show="deletePreview">
+      <p>Die folgenden retained Discovery-Topics werden gelöscht:</p>
+      <ul><template x-for="topic in (deletePreview?.discovery_topics || [])" :key="topic"><li><code x-text="topic"></code></li></template></ul>
+      <p x-show="!(deletePreview?.configuration_references || []).length">Keine Konfigurationsreferenzen gefunden.</p>
+      <ul><template x-for="reference in (deletePreview?.configuration_references || [])" :key="`${reference.configuration}-${reference.path}-${reference.value}`"><li><a x-bind:href="dashboardPath(reference.configuration_url || reference.url)" x-text="`${reference.configuration} ${reference.path}`"></a></li></template></ul>
+      <button type="button" class="primary" x-on:click="confirmDiscoveryDelete()" x-bind:disabled="deleteLoading">Discovery endgültig löschen</button>
+    </div>
+  </form>
+</dialog>
+{{end}}
+
+{{define "device-modal-info-body"}}
+<div>
+  <h5>Gerät</h5>
+  <div class="device-modal-meta-line"><dt>Geräte-ID</dt><dd x-text="deviceDetail?.id || selectedDeviceId || '-'"></dd></div>
+  <div class="device-modal-meta-line" x-show="deviceDetail?.manufacturer"><dt>Hersteller</dt><dd x-text="deviceDetail?.manufacturer"></dd></div>
+  <div class="device-modal-meta-line" x-show="deviceDetail?.model"><dt>Modell</dt><dd x-text="deviceDetail?.model"></dd></div>
+  <div class="device-modal-meta-line" x-show="deviceDetail?.firmware"><dt>Firmware</dt><dd x-text="deviceDetail?.firmware"></dd></div>
+  <div class="device-modal-meta-line"><dt>Entitäten</dt><dd x-text="deviceDetail?.entities?.length || 0"></dd></div>
+</div>
+<div x-show="deviceDetail?.relations?.length">
+  <h5>Verknüpfte Geräte</h5>
+  <template x-for="relation in (deviceDetail?.relations || [])" :key="`${relation.kind}-${relation.id}`"><button type="button" class="device-modal-relation-chip" x-on:click="selectDevice(relation.id)" x-text="`${relation.kind === 'parent' ? 'Eltern: ' : 'Kind: '}${relation.name || relation.id}`"></button></template>
+</div>
+<div x-show="!isAccordion" x-flip>
+  <h5>Aktivität</h5>
+  <p x-show="!(deviceDetail?.command_actions || []).length && !recentMessages.length">Noch keine Aktivität im laufenden Prozess.</p>
+  <template x-for="action in (deviceDetail?.command_actions || []).slice(0, 3)" :key="`${action.at}-${action.entity_id}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(action.at)"></time><span x-text="`${action.entity_id}: ${action.result === 'published' ? 'Befehl gesendet' : 'Befehl fehlgeschlagen'}`"></span></div></template>
+  <template x-for="message in recentMessages.slice(0, 3)" :key="`${message.unique_id}-${message.at}`">
+    <template x-for="state in messageStates(message)" :key="`${message.unique_id}-${message.at}-${state.label}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(message.at)"></time><span x-text="`${state.label}: ${state.value}`"></span></div></template>
+  </template>
+</div>
+{{end}}
+
+{{define "device-modal-stat-tile"}}
+<template x-for="entity in {{.}}" :key="entity.unique_id">
+  <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
+    <div class="k" x-text="entityDisplayName(entity)"></div>
+    <div class="v"><span x-roll x-text="entity.has_value ? entity.value : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+  </article>
+</template>
+{{end}}
+
+{{define "device-modal-control-tile"}}
+<template x-for="entity in {{.}}" :key="entity.unique_id">
+  <article class="device-modal-control-card" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
+    <div class="label" x-text="entityDisplayName(entity)"></div>
+    <div x-show="entity.commandable && entity.component === 'number'" class="entity-number-control"><input type="range" class="entity-number-slider" data-command-type="number" x-model="entity.value" x-bind:data-entity-id="entity.unique_id" x-bind:min="entity.min_value ?? 0" x-bind:max="entity.max_value ?? 100" x-bind:step="entity.step ?? 'any'" x-bind:disabled="entity.pending" x-on:change="sendNumberCommand($el)" x-bind:aria-label="`${entity.name || entity.object_id} einstellen`"><output x-text="`${entity.value}${entity.unit_of_measurement ? ` ${entity.unit_of_measurement}` : ''}`"></output></div>
+    <div x-show="!(entity.commandable && entity.component === 'number')" class="v"><span x-roll x-text="entity.has_value ? entity.value : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+    <button x-show="entity.commandable && entity.component !== 'number'" type="button" class="device-modal-control-action" x-bind:disabled="entity.pending" x-on:click="sendCommand($event)" x-bind:data-entity-id="entity.unique_id" x-bind:aria-label="`${entity.name || entity.object_id} schalten`">Schalten</button>
+    <small class="entity-command-status" x-cloak x-show="commandStatusText(entity)" x-text="commandStatusText(entity)"></small>
+  </article>
+</template>
+{{end}}
+
+{{define "entity-list-item"}}
+{{ $entity := . }}
+<article class="entity-list-item" role="listitem" data-entity-id="{{.UniqueID}}">
+  <header class="entity-list-header">
+    <div class="entity-list-title">
+      {{with iconFor .}}<span class="entity-icon{{if .Fallback}} entity-icon-fallback{{end}}" role="img" aria-label="{{.Label}}" title="{{.Label}}">{{.SVG}}</span>{{end}}
+      <div><strong class="entity-discovery-trigger" tabindex="0" data-discovery-tooltip-target="discovery-json-{{.UniqueID}}">{{.Name}}</strong><small>{{.Component}} / {{.ObjectID}}</small></div>
+      <template id="discovery-json-{{.UniqueID}}"><div class="discovery-tooltip-content"><strong>MQTT Discovery JSON</strong>{{if .DiscoveryJSON}}<pre>{{prettyJSON .DiscoveryJSON}}</pre>{{else}}<pre>Keine originale Discovery-Payload im Registry-Snapshot vorhanden.</pre>{{end}}</div></template>
+    </div>
+    {{with iconFor .}}{{if and $entity.Commandable (ne $entity.Component "number")}}<button class="entity-command-button entity-list-command" type="button" data-entity-id="{{$entity.UniqueID}}" {{if $entity.Pending}}disabled aria-busy="true"{{end}} x-on:click="sendCommand($event)" aria-label="{{$entity.Name}} schalten" title="{{.Label}}">{{.SVG}}</button>{{end}}{{end}}
+  </header>
+  <div class="entity-list-value{{if .Stale}} stale{{end}}"><strong>{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{.Value}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}-{{end}}</strong><span class="{{if not .HasAvailability}}unknown{{else if .Available}}available{{else}}unavailable{{end}}">{{if not .HasAvailability}}unbekannt{{else if .Available}}online{{else}}offline{{end}}</span></div>
+  {{if and .Commandable (eq .Component "number")}}<div class="entity-number-control entity-list-number-control"><input type="range" class="entity-number-slider" data-command-type="number" data-entity-id="{{.UniqueID}}" value="{{if .HasValue}}{{.Value}}{{else if .MinValue}}{{.MinValue}}{{end}}" {{with .MinValue}}min="{{.}}"{{end}} {{with .MaxValue}}max="{{.}}"{{end}} {{with .Step}}step="{{.}}"{{end}} {{if .Pending}}disabled aria-busy="true"{{end}} x-on:input="$el.nextElementSibling.value = $el.value" x-on:change="sendNumberCommand($el)" aria-label="{{.Name}} einstellen"><output>{{if .HasValue}}{{.Value}}{{else}}-{{end}}</output></div>{{end}}
+  <dl class="entity-list-meta"><div><dt>Quelle</dt><dd>{{.Source}}</dd></div><div><dt>Freshness</dt><dd>{{.Freshness}}{{if .Stale}} (Replay){{end}}</dd></div><div><dt>Zuletzt gesehen</dt><dd>{{if .HasValue}}<time data-local-timestamp datetime="{{localTimestamp .LastSeen}}">{{localDisplay .LastSeen}}</time>{{else}}-{{end}}</dd></div></dl>
+  <small class="entity-command-status" x-cloak x-show="commandStates['{{.UniqueID}}']" x-text="commandStates['{{.UniqueID}}']" x-init="commandStates['{{.UniqueID}}'] = {{if .Pending}}'Warte auf Bestätigung über MQTT ...'{{else if eq .LastCommandResult "timeout"}}'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.'{{else}}''{{end}}"></small>
+</article>
+{{end}}
+

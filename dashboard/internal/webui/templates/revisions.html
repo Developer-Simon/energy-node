@@ -1,0 +1,28 @@
+{{define "revisions"}}
+<details class="revision-panel" x-data="revisionPanel(revisionConfig())" x-bind:open="open">
+  <summary x-on:click.prevent="toggle()" x-text="label"></summary>
+  <div class="revision-panel-body">
+    <div class="toolbar">
+      <label>Revision
+        <select x-model="selectedRevision" x-on:change="previewRevision()">
+          <option value="">Revision auswählen</option>
+          <template x-for="revision in revisions" x-bind:key="revision.name">
+            <option x-bind:value="revision.name" x-text="`${revision.name} (${revision.checksum.slice(0, 8)})`"></option>
+          </template>
+        </select>
+      </label>
+      <button type="button" x-on:click="load()" x-bind:disabled="loading" x-text="loading ? 'Lade ...' : 'Aktualisieren'"></button>
+      <button type="button" x-on:click="restoreRevision()" x-bind:disabled="restoring || !selectedRevision">Wiederherstellen</button>
+      <span class="revision-panel-empty" x-show="loaded && revisions.length === 0" x-cloak>Noch keine Revisionen vorhanden.</span>
+    </div>
+    <div class="revision-view-toolbar" role="group" aria-label="Ansicht der Revisionsvorschau">
+      <span>Ansicht</span>
+      <button type="button" x-on:click="setRevisionView('preview')" x-bind:aria-pressed="revisionView === 'preview'">Vorschau</button>
+      <button type="button" x-on:click="setRevisionView('diff')" x-bind:aria-pressed="revisionView === 'diff'">Diff</button>
+      <label><input type="checkbox" x-model="cropDiff" x-on:change="previewRevision()"> Nur Änderungen</label>
+    </div>
+    <textarea class="revision-preview" aria-label="Revisionsvorschau" readonly placeholder="Revision auswählen und Vorschau öffnen" x-model="revisionText" x-bind:hidden="revisionView !== 'preview'"></textarea>
+    <pre class="revision-diff" aria-label="Änderungen zwischen Revision und aktuellem Stand" x-ref="revisionDiff" x-bind:hidden="revisionView !== 'diff'"></pre>
+  </div>
+</details>
+{{end}}

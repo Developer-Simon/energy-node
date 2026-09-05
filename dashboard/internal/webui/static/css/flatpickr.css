@@ -1,0 +1,87 @@
+/* Reskinnt flatpickr.min.css (Upstream-Default, hell) auf die vorhandenen
+   Theme-Tokens aus base.css. Anders als choices.css referenziert die
+   Originaldatei keine CSS-Variablen - jede Farbe wird hier gezielt
+   ueberschrieben statt wie bei Choices nur ein Variablenset umzudefinieren. */
+
+.flatpickr-calendar {
+  background: var(--panel);
+  box-shadow: 1px 0 0 var(--border), -1px 0 0 var(--border), 0 1px 0 var(--border), 0 -1px 0 var(--border), 0 3px 13px rgba(0, 0, 0, .3);
+  border-radius: var(--radius-md);
+}
+.flatpickr-calendar.arrowTop:before { border-bottom-color: var(--border); }
+.flatpickr-calendar.arrowTop:after { border-bottom-color: var(--panel); }
+.flatpickr-calendar.arrowBottom:before { border-top-color: var(--border); }
+.flatpickr-calendar.arrowBottom:after { border-top-color: var(--panel); }
+
+.flatpickr-months .flatpickr-month { color: var(--text-strong); fill: var(--text-strong); }
+.flatpickr-months .flatpickr-prev-month,
+.flatpickr-months .flatpickr-next-month { color: var(--text-muted); fill: var(--text-muted); }
+.flatpickr-months .flatpickr-prev-month:hover,
+.flatpickr-months .flatpickr-next-month:hover { color: var(--accent); }
+.flatpickr-months .flatpickr-prev-month:hover svg,
+.flatpickr-months .flatpickr-next-month:hover svg { fill: var(--accent); }
+
+.flatpickr-current-month input.cur-year,
+.flatpickr-current-month .flatpickr-monthDropdown-months { color: var(--text-strong); }
+.flatpickr-current-month .numInputWrapper span.arrowUp:after { border-bottom-color: var(--text-strong); }
+.flatpickr-current-month .numInputWrapper span.arrowDown:after { border-top-color: var(--text-strong); }
+.flatpickr-current-month span.cur-month:hover,
+.flatpickr-current-month .flatpickr-monthDropdown-months:hover,
+.numInputWrapper:hover { background: var(--panel-alt); }
+
+span.flatpickr-weekday { color: var(--text-muted); }
+.dayContainer + .dayContainer { box-shadow: -1px 0 0 var(--border-soft); }
+
+.flatpickr-day { color: var(--text); }
+.flatpickr-day.inRange,
+.flatpickr-day.today.inRange,
+.flatpickr-day:hover,
+.flatpickr-day:focus {
+  background: var(--panel-alt);
+  border-color: var(--panel-alt);
+}
+.flatpickr-day.today { border-color: var(--accent-line); }
+.flatpickr-day.today:hover,
+.flatpickr-day.today:focus { border-color: var(--accent-line); background: var(--accent-line); color: var(--accent-ink); }
+
+.flatpickr-day.selected,
+.flatpickr-day.startRange,
+.flatpickr-day.endRange,
+.flatpickr-day.selected.inRange,
+.flatpickr-day.startRange.inRange,
+.flatpickr-day.endRange.inRange,
+.flatpickr-day.selected:focus,
+.flatpickr-day.startRange:focus,
+.flatpickr-day.endRange:focus,
+.flatpickr-day.selected:hover,
+.flatpickr-day.startRange:hover,
+.flatpickr-day.endRange:hover {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-ink);
+}
+.flatpickr-day.selected.startRange + .endRange:not(:nth-child(7n+1)),
+.flatpickr-day.startRange.startRange + .endRange:not(:nth-child(7n+1)),
+.flatpickr-day.endRange.startRange + .endRange:not(:nth-child(7n+1)) {
+  box-shadow: -10px 0 0 var(--accent);
+}
+.flatpickr-day.inRange { box-shadow: -5px 0 0 var(--panel-alt), 5px 0 0 var(--panel-alt); }
+.flatpickr-day.flatpickr-disabled,
+.flatpickr-day.flatpickr-disabled:hover,
+.flatpickr-day.prevMonthDay,
+.flatpickr-day.nextMonthDay,
+.flatpickr-day.notAllowed {
+  color: var(--text-faint);
+  background: transparent;
+  border-color: transparent;
+}
+
+.flatpickr-time { border-top-color: var(--border); }
+.flatpickr-time input,
+.flatpickr-time .flatpickr-time-separator,
+.flatpickr-time .flatpickr-am-pm { color: var(--text-strong); }
+.flatpickr-time input:hover,
+.flatpickr-time input:focus,
+.flatpickr-time .flatpickr-am-pm:hover { background: var(--panel-alt); }
+.flatpickr-time .numInputWrapper span.arrowUp:after { border-bottom-color: var(--text-strong); }
+.flatpickr-time .numInputWrapper span.arrowDown:after { border-top-color: var(--text-strong); }
