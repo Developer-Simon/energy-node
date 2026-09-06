@@ -39,11 +39,15 @@ def corrected_voltage_per_cell(voltage_v, cell_count, current_a, capacity_ah,
     return voltage_v / cell_count - offset_v_per_cell
 
 
-def calibration_tolerance(params, current_a, capacity_ah):
-    """Wie weit die Kalibrierschwellen bei diesem Strom aufgeweicht werden
-    duerfen (V/Zelle, immer >= 0). Volle Toleranz im Ruhezustand und in der
-    CV-Endphase, keine bei Bulk-Strom - siehe CALIBRATION_TAPER_C_RATE."""
-    max_tolerance = params.calibration_tolerance_v_per_cell
+def calibration_tolerance(params, current_a, capacity_ah, side="full"):
+    """Wie weit die Kalibrierschwelle dieser Seite bei diesem Strom
+    aufgeweicht werden darf (V/Zelle, immer >= 0). Volle Toleranz im
+    Ruhezustand und in der CV-Endphase, keine bei Bulk-Strom - siehe
+    CALIBRATION_TAPER_C_RATE.
+
+    `side` waehlt zwischen der Leer- und der Voll-Schwelle; ohne
+    seitenweise Uebersteuerung liefern beide denselben Wert."""
+    max_tolerance = params.tolerance_for(side)
     if max_tolerance <= 0 or capacity_ah <= 0:
         return 0.0
     c_rate = abs(current_a or 0.0) / capacity_ah
@@ -121,14 +125,15 @@ def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0):
         bank.pending_high_since = None
         return
 
-    tolerance = calibration_tolerance(params, current_a, bank.capacity_ah)
-    if corrected_v_per_cell <= params.empty_v_per_cell + tolerance:
+    tolerance_empty = calibration_tolerance(params, current_a, bank.capacity_ah, "empty")
+    tolerance_full = calibration_tolerance(params, current_a, bank.capacity_ah, "full")
+    if corrected_v_per_cell <= params.empty_v_per_cell + tolerance_empty:
         bank.pending_high_since = None
         bank.pending_low_since = bank.pending_low_since or now
         if now - bank.pending_low_since >= params.calibration_hold_s:
             bank.coulomb_ah = 0.0
             bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-    elif corrected_v_per_cell >= params.full_v_per_cell - tolerance:
+    elif corrected_v_per_cell >= params.full_v_per_cell - tolerance_full:
         bank.pending_low_since = None
         if not full_taper_satisfied(params, current_a, bank.capacity_ah):
             # Spannung stimmt, Strom nicht - das ist ein Laderegler an der

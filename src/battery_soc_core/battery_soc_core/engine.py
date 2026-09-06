@@ -185,8 +185,12 @@ def tick(params, state, inputs, now, *, dt_hours=None,
         voltage_stale = groups_stale.get(voltage_group, False)
         apply_calibration(params, unit, None if voltage_stale else corr, now,
                           current_a)
-    calibration_tolerances = [
-        calibration_tolerance(params, current_a, unit.capacity_ah)
+    tolerances_empty = [
+        calibration_tolerance(params, current_a, unit.capacity_ah, "empty")
+        for unit, current_a in zip(units, currents)
+    ]
+    tolerances_full = [
+        calibration_tolerance(params, current_a, unit.capacity_ah, "full")
         for unit, current_a in zip(units, currents)
     ]
 
@@ -226,9 +230,9 @@ def tick(params, state, inputs, now, *, dt_hours=None,
         "time_to_full_h": time_to_full_h,
         "time_to_empty_h": time_to_empty_h,
     }
-    for unit, voltage_v, current_a, corr, voltage_soc_pct, tolerance in zip(
+    for unit, voltage_v, current_a, corr, voltage_soc_pct, tolerance_empty, tolerance_full in zip(
         units, voltages, currents, corrected, voltage_soc_estimates,
-        calibration_tolerances
+        tolerances_empty, tolerances_full
     ):
         outputs.update({
             f"{unit.name}_voltage_v": voltage_v,
@@ -239,9 +243,9 @@ def tick(params, state, inputs, now, *, dt_hours=None,
             f"{unit.name}_voltage_soc_pct": voltage_soc_pct,
             f"{unit.name}_voltage_soc_mismatch": unit.voltage_mismatch,
             f"{unit.name}_calibration_empty_v_per_cell":
-                round(params.empty_v_per_cell + tolerance, 3),
+                round(params.empty_v_per_cell + tolerance_empty, 3),
             f"{unit.name}_calibration_full_v_per_cell":
-                round(params.full_v_per_cell - tolerance, 3),
+                round(params.full_v_per_cell - tolerance_full, 3),
         })
     if series:
         outputs["soc_a_pct"] = units[0].soc_pct

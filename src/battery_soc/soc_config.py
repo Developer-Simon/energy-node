@@ -75,6 +75,8 @@ class BatteryConfig:
     # stellt das alte Verhalten mit harten Schwellen wieder her.
     calibration_tolerance_v_per_cell: float = 0.08
     full_taper_c_rate: Optional[float] = None
+    calibration_tolerance_empty_v_per_cell: Optional[float] = None
+    calibration_tolerance_full_v_per_cell: Optional[float] = None
     bank_b_enabled: bool = True
     imbalance_warn_v: float = 0.5
     calibration_hold_s: float = 120.0

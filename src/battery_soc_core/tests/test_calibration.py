@@ -296,3 +296,51 @@ def test_full_taper_does_not_touch_the_empty_side():
     bank.coulomb_ah = 50.0
     apply_calibration(params, bank, 2.70, time.time(), current_a=-40.0)
     assert bank.coulomb_ah == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Getrennte Toleranzen (Task 2)
+# ---------------------------------------------------------------------------
+def test_tolerance_falls_back_to_the_shared_value():
+    params = make_params(calibration_tolerance_v_per_cell=0.05)
+    assert params.tolerance_for("empty") == 0.05
+    assert params.tolerance_for("full") == 0.05
+
+
+def test_tolerance_per_side_overrides_the_shared_value():
+    """Der Anlagenfall: oben eng, weil der Laderegler die Vollspannung
+    erreicht - unten weit, weil das BMS lange vor der Leerspannung
+    abschaltet."""
+    params = make_params(calibration_tolerance_v_per_cell=0.02,
+                         calibration_tolerance_empty_v_per_cell=0.20)
+    assert params.tolerance_for("full") == 0.02
+    assert params.tolerance_for("empty") == 0.20
+
+
+def test_tolerance_zero_per_side_is_distinguishable_from_unset():
+    """0.0 heisst ausdruecklich 'keine Toleranz', nicht 'nicht gesetzt' -
+    dasselbe Muster wie bei internal_resistance_mohm_per_cell."""
+    params = make_params(calibration_tolerance_v_per_cell=0.08,
+                         calibration_tolerance_full_v_per_cell=0.0)
+    assert params.tolerance_for("full") == 0.0
+    assert params.tolerance_for("empty") == 0.08
+
+
+def test_wide_empty_tolerance_makes_the_bottom_anchor_reachable():
+    """23,2 V Packspannung ist die BMS-Warnschwelle des Dyness - tiefer
+    kommt die Anlage nicht. Mit 0.20 V/Zelle Toleranz kalibriert sie dort,
+    ohne bleibt der Zaehler unten ohne Anker."""
+    reachable = make_params(calibration_hold_s=0.0, empty_v_per_cell=2.7,
+                            calibration_tolerance_v_per_cell=0.02,
+                            calibration_tolerance_empty_v_per_cell=0.20)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 40.0
+    apply_calibration(reachable, bank, 23.2 / 8, time.time(), current_a=-2.0)
+    assert bank.coulomb_ah == 0.0
+
+    unreachable = make_params(calibration_hold_s=0.0, empty_v_per_cell=2.7,
+                              calibration_tolerance_v_per_cell=0.02)
+    bank2 = BankState("pack", 8, 200.0)
+    bank2.coulomb_ah = 40.0
+    apply_calibration(unreachable, bank2, 23.2 / 8, time.time(), current_a=-2.0)
+    assert bank2.coulomb_ah == 40.0

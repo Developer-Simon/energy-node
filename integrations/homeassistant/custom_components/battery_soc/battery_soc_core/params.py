@@ -38,6 +38,17 @@ class SocParams:
     # Richtwert ist der Tail-Strom aus dem Zell-Datenblatt (Dyness AR2.5:
     # 5 A je 100-Ah-Pack = 0.05 C).
     full_taper_c_rate: Optional[float] = None
+    # Seitenweise Uebersteuerung von calibration_tolerance_v_per_cell.
+    # None = gemeinsamen Wert benutzen, 0.0 = ausdruecklich keine Toleranz.
+    #
+    # Warum ueberhaupt getrennt: die beiden Enden haben verschiedene Gegner.
+    # Oben steht ein Laderegler, der die Vollspannung erreicht - dort ist
+    # jede Aufweichung ein Risiko. Unten steht ein BMS, das lange vor der
+    # Leerspannung der Kurve abschaltet - dort ist ohne Aufweichung gar kein
+    # Anker zu bekommen. Ein symmetrischer Wert muss einen der beiden Faelle
+    # falsch machen.
+    calibration_tolerance_empty_v_per_cell: Optional[float] = None
+    calibration_tolerance_full_v_per_cell: Optional[float] = None
     calibration_hold_s: float = 120.0
     voltage_soc_mismatch_warn_pct: float = 25.0
     voltage_mismatch_hold_s: float = 300.0
@@ -54,6 +65,12 @@ class SocParams:
     def from_dict(cls, d):
         known = cls.field_names()
         return cls(**{k: v for k, v in d.items() if k in known})
+
+    def tolerance_for(self, side):
+        """Maximale Schwellen-Aufweichung dieser Seite ('empty' / 'full')."""
+        override = (self.calibration_tolerance_empty_v_per_cell if side == "empty"
+                    else self.calibration_tolerance_full_v_per_cell)
+        return self.calibration_tolerance_v_per_cell if override is None else override
 
     def validate(self):
         if self.topology not in ("parallel", "series"):
@@ -82,6 +99,11 @@ class SocParams:
                 "full_taper_c_rate muss zwischen 0 (exklusiv) und 1 liegen: "
                 f"{self.full_taper_c_rate}"
             )
+        for name in ("calibration_tolerance_empty_v_per_cell",
+                     "calibration_tolerance_full_v_per_cell"):
+            value = getattr(self, name)
+            if value is not None and value < 0:
+                raise ValueError(f"{name} darf nicht negativ sein: {value}")
         for name in ("charger_ac_dc_efficiency", "inverter_dc_ac_efficiency", "charge_efficiency"):
             value = getattr(self, name)
             if not 0 < value <= 1:
