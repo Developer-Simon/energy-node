@@ -1,0 +1,32 @@
+[
+  {
+    "id": "battery_soc",
+    "name": "Batterie-Ladezustand",
+    "via_device": "energy-node",
+    "charger_power_topic": "outstation/t2mg81a4e9/field/acpower",
+    "inverter_power_topic": "outstation/t2sga55a69/field/acpower",
+    "charger_dc_power_topic": "outstation/t2mg81a4e9/field/dcpower",
+    "bank_a_voltage_topic": "outstation/batterie_spannung/adc/0",
+    "bank_a_voltage_scale": 1,
+    "bank_b_voltage_scale": 1,
+    "bank_a_cell_count": 8,
+    "bank_a_capacity_ah": 100,
+    "bank_b_cell_count": 8,
+    "bank_b_capacity_ah": 100,
+    "topology": "parallel",
+    "charger_ac_dc_efficiency": 0.9,
+    "inverter_dc_ac_efficiency": 0.9,
+    "charge_efficiency": 0.98,
+    "soc_curve": "dyness_ar2.5",
+    "empty_v_per_cell": 2.7,
+    "full_v_per_cell": 3.5,
+    "calibration_tolerance_v_per_cell": 0.02,
+    "bank_b_enabled": true,
+    "imbalance_warn_v": 0.5,
+    "calibration_hold_s": 120,
+    "state_file": "/home/orgelbau/battery_soc/state.json",
+    "stale_input_s": 120,
+    "simulation_charger_power_w": 200,
+    "simulation_inverter_power_w": 50
+  }
+]
