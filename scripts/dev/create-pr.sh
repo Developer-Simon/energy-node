@@ -1,37 +1,47 @@
 #!/usr/bin/env bash
 #
-# Oeffnet einen Pull Request fuer eine Aenderung an energy-node.
+# Opens a pull request for a change to energy-node.
 #
-# `main` ist seit dem Initial-Push geschuetzt: Aenderungen laufen nur noch
-# ueber PRs (Branch-Protection, lin'eare History, Squash-Merge). Dieses Skript
-# nimmt die aktuelle Arbeit, schiebt sie auf einen Branch und macht den PR auf.
+# `main` has been protected since the initial push: changes only land through
+# PRs (branch protection, linear history, squash merge). This script takes the
+# current work, pushes it onto a branch and opens the PR.
 #
-# Der PR-Body kommt aus `.github/PULL_REQUEST_TEMPLATE.md`. Der Code-Block
-# darin ist die spaetere Squash-Merge-Commit-Message: das Skript fuellt ihn
-# aus den Branch-Commits vor, oeffnet ihn im Editor und uebernimmt die erste
-# Zeile als PR-Titel (Titel == Squash-Subject == Conventional-Commits-Subject).
+# The PR body comes from `.github/PULL_REQUEST_TEMPLATE.md`. The fenced code
+# block in it is the eventual squash-merge commit message: the script pre-fills
+# it from the branch commits, opens it in the editor and takes the first line
+# as the PR title (title == squash subject == Conventional Commits subject).
+# Alternatively `PR_MESSAGE_FILE` supplies the message ready-made as a file (or
+# via stdin) - that skips both the commit pre-fill and the editor.
 #
 # Usage:
-#   scripts/dev/create-pr.sh <branch-name> ["PR-Titel"]
+#   scripts/dev/create-pr.sh [<branch-name>] ["PR title"]
 #
-#   <branch-name>  Ziel-Branch. Bist du schon auf einem Branch != main, wird
-#                  dieser genutzt und das Argument nur zur Kontrolle geprueft.
-#   "PR-Titel"     Optional. Ohne Angabe wird der Subject des letzten Commits
-#                  (bzw. bei mehreren Commits deren Liste) verwendet.
+#   <branch-name>  Target branch. If you are already on a branch != main it is
+#                  used and the argument is only checked for consistency.
+#                  Without an argument the current branch is used - after a
+#                  confirmation prompt (non-interactive: needs PR_ASSUME_YES=1).
+#   "PR title"     Optional. Without it the subject of the last commit (or, for
+#                  multiple commits, their list) is used.
 #
-# Umgebungsvariablen:
-#   PR_SKIP_EDIT=1  Editor-Schritt ueberspringen (nicht-interaktiv / CI).
+# Environment variables:
+#   PR_SKIP_EDIT=1     Skip the editor step (non-interactive / CI).
+#   PR_ASSUME_YES=1    Confirm the "use current branch" prompt without a TTY.
+#   PR_MESSAGE_FILE=…  File with the ready-made squash-merge commit message
+#                      (subject + blank line + body, without a code fence).
+#                      Replaces the pre-fill from the branch commits and skips
+#                      the editor; the first line becomes the PR title.
+#                      "-" reads the message from stdin.
 #
-# Voraussetzungen: committe deine Arbeit, bevor du das Skript aufrufst - es
-# verschiebt Branches, aber committet nichts fuer dich.
+# Prerequisite: commit your work before calling the script - it moves branches
+# around but does not commit anything for you.
 
 set -euo pipefail
 
 branch="${1:-}"
 title="${2:-}"
 
-if [[ -z "${branch}" ]]; then
-  echo "usage: $0 <branch-name> [\"PR-Titel\"]" >&2
+if [[ -n "${PR_MESSAGE_FILE:-}" && "${PR_MESSAGE_FILE}" != "-" && ! -f "${PR_MESSAGE_FILE}" ]]; then
+  echo "PR_MESSAGE_FILE does not point at a file: ${PR_MESSAGE_FILE}" >&2
   exit 2
 fi
 
@@ -40,27 +50,48 @@ cd "${REPO_ROOT}"
 
 current="$(git branch --show-current)"
 
+# No branch name given: fall back to the current branch, but confirm first.
+if [[ -z "${branch}" ]]; then
+  if [[ -z "${current}" || "${current}" == "main" ]]; then
+    echo "usage: $0 [<branch-name>] [\"PR title\"]" >&2
+    echo "(no branch name given and HEAD is '${current:-detached}')" >&2
+    exit 2
+  fi
+  if [[ -t 0 && -t 1 ]]; then
+    read -r -p "No branch name given. Open a PR for the current branch '${current}'? [y/N] " reply
+    case "${reply}" in
+      [yY] | [yY][eE][sS]) ;;
+      *) echo "Aborted." >&2; exit 1 ;;
+    esac
+  elif [[ -z "${PR_ASSUME_YES:-}" ]]; then
+    echo "No branch name given and no TTY to confirm." >&2
+    echo "Set PR_ASSUME_YES=1 to use the current branch '${current}'." >&2
+    exit 2
+  fi
+  branch="${current}"
+fi
+
 if [[ "${branch}" == "main" ]]; then
-  echo "Ziel-Branch darf nicht 'main' sein." >&2
+  echo "Target branch must not be 'main'." >&2
   exit 2
 fi
 
 if [[ "${current}" == "main" ]]; then
-  # Uncommittete Aenderungen wandern mit auf den neuen Branch, bereits auf
-  # main liegende Commits ebenfalls (main wird hier nicht zurueckgesetzt -
-  # das macht der PR-Merge bzw. ein spaeterer `git reset` von Hand).
+  # Uncommitted changes move onto the new branch, commits already on main do
+  # too (main is not reset here - the PR merge or a later manual `git reset`
+  # takes care of that).
   git switch -c "${branch}"
 elif [[ "${current}" != "${branch}" ]]; then
-  echo "Du bist auf '${current}', angefordert wurde '${branch}'." >&2
-  echo "Wechsle selbst auf den richtigen Branch oder rufe ohne Namen erneut auf." >&2
+  echo "You are on '${current}', but '${branch}' was requested." >&2
+  echo "Switch to the right branch yourself or call again without a name." >&2
   exit 1
 fi
 
 git fetch origin main --quiet
 
 if git diff --quiet "origin/main...HEAD"; then
-  echo "Keine Commits gegenueber origin/main auf '${branch}'." >&2
-  echo "Committe deine Arbeit und starte das Skript erneut." >&2
+  echo "No commits against origin/main on '${branch}'." >&2
+  echo "Commit your work and start the script again." >&2
   exit 1
 fi
 
@@ -68,36 +99,54 @@ git push -u origin "${branch}"
 
 TEMPLATE="${REPO_ROOT}/.github/PULL_REQUEST_TEMPLATE.md"
 
-# Ohne Template: altes Verhalten (Body aus Commit-Infos).
-if [[ ! -f "${TEMPLATE}" ]]; then
-  echo "Kein PR-Template gefunden, nutze gh --fill." >&2
-  [[ -n "${title}" ]] || title="$(git log -1 --pretty=%s)"
-  gh pr create --base main --head "${branch}" --title "${title}" --fill
-  gh pr view --web
-  exit 0
-fi
-
-# --- Squash-Merge-Message aus den Branch-Commits vorbefuellen ------------------
-
-mapfile -t commits < <(git log --reverse --format='%H' "origin/main..HEAD")
-
 msg_file="$(mktemp)"
 body_file="$(mktemp)"
 trap 'rm -f "${msg_file}" "${body_file}"' EXIT
 
-if [[ "${#commits[@]}" -eq 1 ]]; then
-  # Ein Commit: Subject + Body unveraendert uebernehmen.
-  git log -1 --format='%s%n%n%b' "${commits[0]}" > "${msg_file}"
+# --- Determine the squash-merge message ------------------------------------
+
+if [[ -n "${PR_MESSAGE_FILE:-}" ]]; then
+  # Ready-made message from a file (or stdin for "-"); no editor step.
+  if [[ "${PR_MESSAGE_FILE}" == "-" ]]; then
+    cat > "${msg_file}"
+  else
+    cat "${PR_MESSAGE_FILE}" > "${msg_file}"
+  fi
+  if [[ ! -s "${msg_file}" ]]; then
+    echo "PR_MESSAGE_FILE is empty." >&2
+    exit 2
+  fi
 else
-  # Mehrere Commits: Titel als Subject, Commit-Subjects als Body-Liste.
-  subject="${title:-$(git log -1 --format='%s' "${commits[0]}")}"
-  {
-    printf '%s\n\n' "${subject}"
-    git log --reverse --format='- %s' "origin/main..HEAD"
-  } > "${msg_file}"
+  # Pre-fill from the branch commits.
+  mapfile -t commits < <(git log --reverse --format='%H' "origin/main..HEAD")
+  if [[ "${#commits[@]}" -eq 1 ]]; then
+    # One commit: take subject + body unchanged.
+    git log -1 --format='%s%n%n%b' "${commits[0]}" > "${msg_file}"
+  else
+    # Multiple commits: title as subject, commit subjects as a body list.
+    subject="${title:-$(git log -1 --format='%s' "${commits[0]}")}"
+    {
+      printf '%s\n\n' "${subject}"
+      git log --reverse --format='- %s' "origin/main..HEAD"
+    } > "${msg_file}"
+  fi
 fi
 
-# Den ersten Code-Block im Template durch die vorbefuellte Message ersetzen.
+# Without a template: body straight from the message (or the old --fill path).
+if [[ ! -f "${TEMPLATE}" ]]; then
+  if [[ -n "${PR_MESSAGE_FILE:-}" ]]; then
+    title="$(awk 'NF { print; exit }' "${msg_file}")"
+    gh pr create --base main --head "${branch}" --title "${title}" --body-file "${msg_file}"
+  else
+    echo "No PR template found, using gh --fill." >&2
+    [[ -n "${title}" ]] || title="$(git log -1 --pretty=%s)"
+    gh pr create --base main --head "${branch}" --title "${title}" --fill
+  fi
+  gh pr view --web
+  exit 0
+fi
+
+# Replace the first code block in the template with the pre-filled message.
 awk -v msgfile="${msg_file}" '
   state == 0 && /^```/ {
     print
@@ -110,14 +159,14 @@ awk -v msgfile="${msg_file}" '
   { print }
 ' "${TEMPLATE}" > "${body_file}"
 
-# --- Editor-Schritt ----------------------------------------------------------
+# --- Editor step ----------------------------------------------------------
 
-if [[ -z "${PR_SKIP_EDIT:-}" && -t 0 && -t 1 ]]; then
+if [[ -z "${PR_SKIP_EDIT:-}" && -z "${PR_MESSAGE_FILE:-}" && -t 0 && -t 1 ]]; then
   editor="$(git var GIT_EDITOR)"
   eval "${editor} \"${body_file}\""
 fi
 
-# --- Titel aus der ersten Zeile des Code-Blocks ziehen ----------------------
+# --- Pull the title from the first line of the code block ----------------
 
 subject_line="$(awk '/^```/ { c++; next } c == 1 && NF { print; exit }' "${body_file}")"
 if [[ -n "${subject_line}" ]]; then
