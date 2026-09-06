@@ -207,6 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| harden-battery-soc branch | `js/config.page.js` · `css/manager.css` (5 panels) | `2` · `17` | 2026-09-06 |
 | v0.5.11 | `js/battery-card-core.js` · `js/battery-status.js` · `js/layout-editor.js` | `2` · `1` · `10` | 2026-09-05 |
 | v0.5.10 | `css/manager.css` (5 panels) | `16` | 2026-09-05 |
 | v0.5.9 | `js/settings.page.js` | `2` | 2026-09-05 |
