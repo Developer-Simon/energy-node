@@ -100,3 +100,61 @@ async def test_fallback_timer_advances_coulomb_counter(hass):
     await hass.async_block_till_done()
     assert coord.state.units[0].coulomb_ah > start
     await coord.async_shutdown()
+
+
+async def test_state_persistence_roundtrip(hass):
+    """Test that charged_ah, discharged_ah, and events survive Store roundtrip."""
+    from custom_components.battery_soc.battery_soc_core.state import CalibrationEvent
+
+    entry = _mk_entry(hass)
+    coord = BatterySocCoordinator(hass, entry)
+
+    hass.states.async_set("sensor.meanwell_power", "100")
+    hass.states.async_set("sensor.lumentree_power", "0")
+    hass.states.async_set("sensor.bank_voltage", "26.8")
+
+    await coord.async_load()
+
+    # Seed some state
+    original_charged = 50.5
+    original_discharged = 25.3
+    original_event = CalibrationEvent(
+        iso="2026-09-06T12:00:00Z",
+        unit="pack",
+        side="full",
+        coulomb_before_ah=95.0,
+        coulomb_after_ah=100.0,
+        residual_ah=5.0,
+        voltage_v=28.0,
+        cell_count=8,
+        corrected_v_per_cell=3.5,
+        current_a=1.0,
+        threshold_v_per_cell=3.5,
+        tolerance_v_per_cell=0.08,
+        hold_s=120.0,
+        taper_met=True,
+        charged_ah=50.5,
+        discharged_ah=25.3,
+    )
+
+    coord.state.units[0].charged_ah = original_charged
+    coord.state.units[0].discharged_ah = original_discharged
+    coord.state.units[0].events = [original_event]
+
+    # Save state via Store (same path as coordinator._save)
+    await coord._store.async_save(coord.state.to_dict())
+
+    # Create a new coordinator and load
+    coord2 = BatterySocCoordinator(hass, entry)
+    await coord2.async_load()
+
+    try:
+        # Verify state was restored (use approximate comparison due to coulomb recalc)
+        assert coord2.state.units[0].charged_ah == pytest.approx(original_charged, rel=1e-3)
+        assert coord2.state.units[0].discharged_ah == pytest.approx(original_discharged, rel=1e-3)
+        assert len(coord2.state.units[0].events) == 1
+        assert coord2.state.units[0].events[0].iso == original_event.iso
+        assert coord2.state.units[0].events[0].side == original_event.side
+    finally:
+        await coord.async_shutdown()
+        await coord2.async_shutdown()

@@ -42,6 +42,10 @@
           "dc_max_age_s": "Max. Alter der DC-Messung (s)",
           "require_fresh_inputs": "Aktuelle Eingaben erforderlich",
           "internal_resistance_mohm_per_cell": "Innenwiderstand (mOhm/Zelle)",
+          "full_taper_c_rate": "Endstrom fuer Vollkalibrierung (C-rate)",
+          "calibration_tolerance_empty_v_per_cell": "Kalibrierungstoleranz, Leer (V/Zelle)",
+          "calibration_tolerance_full_v_per_cell": "Kalibrierungstoleranz, Voll (V/Zelle)",
+          "calibration_grace_s": "Kalibrierungs-Gnadenfrist (s)",
           "fallback_interval_s": "Fallback-Intervall (s)"
         }
       }
@@ -90,6 +94,10 @@
           "dc_max_age_s": "Max. Alter der DC-Messung (s)",
           "require_fresh_inputs": "Aktuelle Eingaben erforderlich",
           "internal_resistance_mohm_per_cell": "Innenwiderstand (mOhm/Zelle)",
+          "full_taper_c_rate": "Endstrom fuer Vollkalibrierung (C-rate)",
+          "calibration_tolerance_empty_v_per_cell": "Kalibrierungstoleranz, Leer (V/Zelle)",
+          "calibration_tolerance_full_v_per_cell": "Kalibrierungstoleranz, Voll (V/Zelle)",
+          "calibration_grace_s": "Kalibrierungs-Gnadenfrist (s)",
           "fallback_interval_s": "Fallback-Intervall (s)"
         }
       }
