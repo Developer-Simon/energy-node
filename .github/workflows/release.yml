@@ -1,0 +1,93 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: dashboard/go.mod
+
+      - name: Test dashboard
+        working-directory: dashboard
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Build release binaries
+        working-directory: dashboard
+        env:
+          CGO_ENABLED: "0"
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          ver="${TAG#v}"
+          mkdir -p ../dist
+          build() {
+            goos=$1; goarch=$2; goarm=${3:-}
+            token="linux_${goarch}${goarm:+v$goarm}"
+            echo "==> $token"
+            GOOS="$goos" GOARCH="$goarch" GOARM="$goarm" \
+              go build -trimpath -ldflags "-s -w" \
+              -o ../dist/energy-node-dashboard ./cmd/dashboard
+            tar -C ../dist -czf \
+              "../dist/energy-node-dashboard_${ver}_${token}.tar.gz" \
+              energy-node-dashboard
+            rm ../dist/energy-node-dashboard
+          }
+          build linux arm 6
+          build linux arm64
+          build linux amd64
+          cd ../dist
+          sha256sum ./*.tar.gz > SHA256SUMS
+          ls -l
+
+      - name: Assemble release notes
+        id: notes
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          notes_file="$RUNNER_TEMP/notes.md"
+          if scripts/release/extract-changelog.sh dashboard/CHANGELOG.md "$TAG" > "$notes_file"; then
+            {
+              echo "notes-file=$notes_file"
+              echo "generate=false"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "No CHANGELOG section for $TAG; using generated notes." >&2
+            echo "generate=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          NOTES_FILE: ${{ steps.notes.outputs.notes-file }}
+          GENERATE: ${{ steps.notes.outputs.generate }}
+        run: |
+          set -euo pipefail
+          args=(release create "$TAG" dist/*.tar.gz dist/SHA256SUMS
+                --title "$TAG" --verify-tag)
+          case "$TAG" in
+            *-*) args+=(--prerelease) ;;
+          esac
+          if [ "$GENERATE" = "true" ]; then
+            args+=(--generate-notes)
+          else
+            args+=(--notes-file "$NOTES_FILE")
+          fi
+          gh "${args[@]}"
