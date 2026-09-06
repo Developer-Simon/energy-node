@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  dashboard-go:
+    name: Dashboard (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: dashboard/go.mod
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test ./...
+
+  dashboard-js:
+    name: Dashboard (JS)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dashboard
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
+  python-bridges:
+    name: Python bridges
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e src/energy_node_common -e src/battery_soc_core pytest
+          pip install -r requirements-dev.txt
+      - run: pytest src scripts/tests -q
+      - run: bash scripts/tests/test_publish_mirror.sh
+      - run: ./scripts/deploy/check_tracked_secrets.sh
+
+  home-assistant-integration:
+    name: Home Assistant integration
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/homeassistant
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.14"
+      - run: |
+          python -m pip install --upgrade pip
+          pip install -e ../../src/battery_soc_core -r requirements-test.txt
+      - run: pytest
