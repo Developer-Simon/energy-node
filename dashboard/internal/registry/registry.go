@@ -121,12 +121,17 @@ type entityState struct {
 	lastTopicAt     time.Time
 	lastRetained    bool
 	lastMessage     *MQTTMessage
-	source          string
-	payloadValid    bool
-	payloadError    string
-	hasPayloadState bool
-	availability    map[string]bool
-	availabilityAt  map[string]time.Time
+	// lastStateMessage is the last message seen on this entity's state topic.
+	// lastMessage tracks whichever topic (state or availability) carried the
+	// most recent message, so it is not a reliable source for the state
+	// payload once an availability heartbeat lands - see TopicSample.
+	lastStateMessage *MQTTMessage
+	source           string
+	payloadValid     bool
+	payloadError     string
+	hasPayloadState  bool
+	availability     map[string]bool
+	availabilityAt   map[string]time.Time
 
 	// pending tracks a command that was published but not yet confirmed by a
 	// live MQTT state message (see BeginPendingCommand). value/hasValue are
@@ -671,6 +676,7 @@ func (r *Registry) updateStateLocked(topic string, payload []byte, retained bool
 			continue
 		}
 		es.lastMessage = updateLastMessage(es.lastMessage, topic, payload, retained, qos, seenAt)
+		es.lastStateMessage = updateLastMessage(es.lastStateMessage, topic, payload, retained, qos, seenAt)
 		if es.hasAvailability && !es.available {
 			continue
 		}
@@ -742,6 +748,7 @@ func (r *Registry) RestoreStateAt(deviceID, uniqueID, value string, available, h
 		es.lastMessage = &MQTTMessage{
 			Topic: es.info.StateTopic, Payload: payload, At: lastTopicAt, Retained: true,
 		}
+		es.lastStateMessage = cloneMQTTMessage(es.lastMessage)
 		es.source = "runtime-cache"
 	} else if es.source == "" {
 		es.source = "runtime-cache"
@@ -1313,11 +1320,11 @@ func (r *Registry) sampleForTopicLocked(topic string) TopicSample {
 			}
 		}
 		es := dev.entities[uniqueID]
-		if es == nil || es.lastMessage == nil || es.lastMessage.Topic != topic {
+		if es == nil || es.lastStateMessage == nil || es.lastStateMessage.Topic != topic {
 			continue
 		}
-		at := es.lastMessage.At
-		sample.Payload = es.lastMessage.Payload
+		at := es.lastStateMessage.At
+		sample.Payload = es.lastStateMessage.Payload
 		sample.At = &at
 		source := es.source
 		if source == "" {
@@ -1330,8 +1337,9 @@ func (r *Registry) sampleForTopicLocked(topic string) TopicSample {
 }
 
 // TopicSamples returns every topic from Topics() with its last payload, if one
-// has arrived. Availability topics never carry a payload here - only the state
-// topic branch of updateStateLocked records lastMessage.
+// has arrived. Only the state topic branch of updateStateLocked records
+// lastStateMessage, so an availability-only topic never carries a payload and a
+// state topic keeps its payload even after an availability heartbeat.
 func (r *Registry) TopicSamples() []TopicSample {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
