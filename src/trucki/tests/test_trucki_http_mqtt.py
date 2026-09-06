@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import trucki_http_mqtt as trucki
@@ -11,7 +13,13 @@ TEMPLATES_DIR = Path(__file__).resolve().parents[3] / "templates"
 
 
 def load_fixture(name: str) -> dict:
-    return json.loads((TEMPLATES_DIR / name).read_text())
+    path = TEMPLATES_DIR / name
+    if not path.exists():
+        pytest.skip(
+            f"{name} ist eine lokale Mitschrift eines echten Trucki-Sticks und "
+            "liegt nicht im oeffentlichen Repository (templates/ ist gitignored)."
+        )
+    return json.loads(path.read_text())
 
 
 class FakeClient:

@@ -149,6 +149,7 @@ Deployment from the development machine:
 
 ```sh
 .venv/bin/pytest src/battery_soc_core src/battery_soc scripts/tests   # core, MQTT adapter, tooling
+.venv/bin/pip install -r requirements-dev.txt && .venv/bin/pytest src   # full bridge suite (needs the bridges' own runtime deps)
 bash scripts/tests/test_publish_mirror.sh                             # HACS mirror assembly
 cd integrations/homeassistant && ../../.venv-ha/bin/pytest            # HA integration (separate venv, see below)
 cd dashboard && go test ./...      # Go dashboard (go.mod lives in dashboard/)
