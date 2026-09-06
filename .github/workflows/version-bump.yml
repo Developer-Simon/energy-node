@@ -1,0 +1,63 @@
+name: Version bump
+
+# Carries the per-component patch bump that the pre-commit hook used to do for
+# commits on `main` (git-hooks/pre-commit). `main` is PR-protected now, so the
+# bump has to land on the PR branch instead: this workflow runs
+# scripts/version/bump-patch.sh against the PR base and pushes the result back
+# onto the head branch, where the squash-merge then takes it to `main`.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: version-bump-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  bump:
+    name: Bump component versions
+    runs-on: ubuntu-latest
+    # Skip PRs from forks: the workflow needs push access to the head branch.
+    if: github.event.pull_request.head.repo.fork == false
+    env:
+      # The default GITHUB_TOKEN can push, but its push does not re-trigger the
+      # required status checks, so the PR would sit unmergeable. A fine-grained
+      # PAT (contents: write), stored as the BUMP_TOKEN secret, does. Without it
+      # the job still runs, in check-only mode.
+      HAS_TOKEN: ${{ secrets.BUMP_TOKEN != '' }}
+      BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+          token: ${{ secrets.BUMP_TOKEN || github.token }}
+
+      - name: Fetch base branch
+        run: git fetch origin "${{ github.event.pull_request.base.ref }}" --quiet
+
+      - name: Check for a missing version bump
+        if: env.HAS_TOKEN != 'true'
+        run: |
+          echo "::warning::BUMP_TOKEN secret is not set - running in check-only mode." \
+            "Create a fine-grained PAT (contents: write) and save it as BUMP_TOKEN" \
+            "so this workflow can push the bump automatically."
+          scripts/version/bump-patch.sh --check "$BASE_REF"
+
+      - name: Bump and push
+        if: env.HAS_TOKEN == 'true'
+        run: |
+          scripts/version/bump-patch.sh "$BASE_REF"
+          if git diff --cached --quiet; then
+            echo "No version bump needed."
+            exit 0
+          fi
+          git config user.name "energy-node-bot"
+          git config user.email "energy-node-bot@users.noreply.github.com"
+          git commit -m "chore(release): bump component versions"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"

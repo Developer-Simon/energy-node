@@ -12,9 +12,12 @@ pushing the tag.
 
 ## Publishing `vX.Y.Z`
 
-1. **Bump the version if needed.** The pre-commit hook only auto-bumps the patch
-   level in `dashboard/VERSION` (and `src/VERSION`) for commits on `main`. Set
-   the `MAJOR` / `MINOR` in `dashboard/VERSION` by hand when the release is not a
+1. **Bump the version if needed.** Every PR has its touched components' patch
+   level bumped automatically on the PR branch by the
+   [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
+   workflow (`scripts/version/bump-patch.sh`), so `dashboard/VERSION` /
+   `src/VERSION` are already current on `main`. Set the `MAJOR` / `MINOR` in
+   `dashboard/VERSION` by hand (on the PR branch) when the release is not a
    patch.
 2. **Regenerate the changelog:**
 
@@ -55,3 +58,24 @@ On a `v*` tag push, [`Release`](https://github.com/Developer-Simon/energy-node/b
 A tag with a pre-release suffix — `vX.Y.Z-rc1`, `vX.Y.Z-beta1`, anything with a
 `-` after the version — is published as a **pre-release** (`gh release create
 --prerelease`). Everything else is identical to a normal release.
+
+## One-time setup: the `BUMP_TOKEN` secret
+
+The [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
+workflow pushes the bump commit back onto the PR branch. The default
+`GITHUB_TOKEN` can push, but its push does not re-trigger the required status
+checks, so the PR would sit unmergeable — the workflow uses a separate token
+instead:
+
+1. Create a **fine-grained personal access token** (GitHub → *Settings* →
+   *Developer settings* → *Personal access tokens* → *Fine-grained tokens*),
+   scoped to this repository, with **Repository permissions → Contents:
+   Read and write**.
+2. Save it as the repo secret **`BUMP_TOKEN`** (repo → *Settings* → *Secrets and
+   variables* → *Actions* → *New repository secret*).
+
+Without the secret the workflow still runs, but only in check-only mode: it
+fails the PR when a component was changed without its patch version being
+bumped, and you bump it by committing your work and running
+`scripts/version/bump-patch.sh` on the branch (it diffs committed history,
+`origin/main...HEAD`).

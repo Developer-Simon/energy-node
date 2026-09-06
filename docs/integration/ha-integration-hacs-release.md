@@ -103,10 +103,11 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
 3. `.venv/bin/python scripts/check_mirror_manifest.py`
 4. `version` in
    `integrations/homeassistant/custom_components/battery_soc/manifest.json`
-   (**bare** semver, no leading `v`) auto-bumps its patch on every commit
-   touching `integrations/homeassistant/` (`git-hooks/pre-commit`, same
-   `COMPONENTS` mechanism as `dashboard/VERSION`/`src/VERSION` — see
-   `git-hooks/lib.sh`); major/minor stay hand-edited. `CHANGELOG.md` is
+   (**bare** semver, no leading `v`) has its patch bumped on the PR branch by
+   the `Version bump` workflow when the PR touches `integrations/homeassistant/`
+   (`scripts/version/bump-patch.sh`, same `COMPONENTS` mechanism as
+   `dashboard/VERSION`/`src/VERSION` — see `git-hooks/lib.sh`); major/minor stay
+   hand-edited. `CHANGELOG.md` is
    generated the same way as the other components, grouped by major.minor into
    `## vX.Y.Z (date)` sections. **`publish_mirror.sh --release` runs
    `scripts/generate_changelog.sh ha-integration` for you** and stages the
