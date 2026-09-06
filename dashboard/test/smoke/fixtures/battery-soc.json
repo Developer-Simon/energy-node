@@ -66,6 +66,33 @@
     }
   },
   {
+    "topic": "outstation/battery_soc/tuning",
+    "payload": {
+      "generated_iso": "2026-09-06T21:30:00+0200",
+      "units": {
+        "pack": {
+          "suggestions": [
+            {
+              "key": "inverter_dc_ac_efficiency",
+              "current_value": 0.9,
+              "suggested_value": 0.945,
+              "confidence": "hoch",
+              "sample_count": 8,
+              "spread": 0.01
+            }
+          ],
+          "findings": [
+            {
+              "code": "zu_wenig_daten",
+              "severity": "info",
+              "message": "Nur 8 Kalibrierereignisse - der Innenwiderstand bleibt vorerst unveraendert."
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
     "topic": "outstation/t2mg81a4e9/field/dcpower",
     "payload": "310.5"
   },
