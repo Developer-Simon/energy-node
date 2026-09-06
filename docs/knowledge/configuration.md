@@ -48,7 +48,7 @@ The file follows this JSON structure:
 {
   "schema_version": 1,
   "mqtt": { "host": "...", "port": 1883, "username": "...", "password_file": "..." },
-  "paths": { "devices_dir": "...", "data_dir": "..." },
+  "paths": { "devices_dir": "...", "data_dir": "...", "services_version_file": "..." },
   "logging": { "level": "INFO" },
   "node": { "device_id": "...", "device_name": "...", "managed_bridges": [...], "poll_interval_s": 60, "diagnostic_poll_multiplier": 10 },
   "services": { "apsystems": {...}, "battery_soc": {...}, "shelly": {...}, "trucki": {...}, "tuya": {...}, "automation": {...} },

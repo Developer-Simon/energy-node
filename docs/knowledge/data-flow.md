@@ -236,7 +236,7 @@ There are two separate directories with different ownership.
 
 ```mermaid
 flowchart TB
-    subgraph DEV["Devices directory (DASHBOARD_DEVICES_DIR)"]
+    subgraph DEV["Devices directory (paths.devices_dir)"]
         D1["apsystems_devices.json"]
         D2["shelly_devices.json"]
         D3["tuya_devices.json"]
@@ -246,7 +246,7 @@ flowchart TB
         DR["revisions/ per configuration"]
     end
 
-    subgraph DAT["Data directory (DASHBOARD_DATA_DIR)"]
+    subgraph DAT["Data directory (paths.data_dir)"]
         S1["settings.json"]
         S2["layout.json"]
         S3["energy.json"]
@@ -372,14 +372,66 @@ a checksum comparison between the stored and the installed configuration.
 
 ---
 
-## 10. What the system deliberately does *not* do
+## 10. Browser history (IndexedDB, not on the Pi)
+
+The dashboard keeps a rolling measurement history, but it lives **in each
+browser's IndexedDB** (`energy-node-dashboard`, store version 2) — the Pi
+stores nothing. `internal/history` on the server side only defines the data
+contract and the retention window; it holds no samples.
+
+```mermaid
+flowchart LR
+    subgraph Browser["Browser (one leading tab records)"]
+        REC["history-recorder.js<br/>Web Locks leader"]
+        IDB[("IndexedDB<br/>samples_raw / _1m / _5m")]
+        MNT["history-maintenance.js<br/>compaction"]
+        CHART["history.js<br/>chart panel"]
+    end
+    API1["GET /api/v1/energy"] --> REC
+    API2["GET /api/v1/history/entities"] --> REC
+    REC --> IDB
+    IDB --> MNT --> IDB
+    IDB --> CHART
+    EX["history-exchange.js"] <-->|"/api/v1/history/exchange/*"| SRV{{"dashboard<br/>relay + 24 h ring buffer"}}
+    IDB <--> EX
+```
+
+- **What is recorded:** the energy roles (`role:pv`, `role:grid_import`, …)
+  taken from the balance, plus any individual entities listed in `settings.json`
+  under `history_extra_entities`, whose current values the browser polls from
+  `GET /api/v1/history/entities` — a server-side allowlist, so the browser
+  cannot ask for arbitrary IDs. The sampling interval comes from the dashboard
+  settings, not from code.
+- **One recorder per browser.** The writing tab holds a Web Locks lease
+  (`energy-node-historizer`); the other tabs read only and are notified over a
+  `BroadcastChannel`. Two tabs writing slightly offset timestamps would defeat
+  the composite key and bloat the store.
+- **Three tiers, bounded retention:** `samples_raw` (~6 h), `samples_1m`
+  (~7 days), `samples_5m` (~30 days). `history-maintenance.js` rolls raw → 1 m
+  → 5 m in the leading tab, advancing a watermark in the `meta` store so a run
+  only ever touches the newest span.
+- **Device-to-device exchange** (`/api/v1/history/exchange/*`): the server is a
+  **relay, not a store** — offers are broadcast, requests and deliveries are
+  passed to exactly one peer over an SSE stream, nothing is written to disk. A
+  24 h in-memory ring buffer joins as the pseudo-peer `server`, so a single
+  browser can still backfill after a reload. Peers announce coverage as coarse
+  rasters (counts per time bucket), diff them, and request only the missing
+  ranges. Only the `1m` and `5m` tiers are exchanged — never raw, whose offset
+  timestamps would not deduplicate. Protocol version 1; limits are 500 rows per
+  delivery, 20 000 per request, 1 MiB per body.
+
+---
+
+## 11. What the system deliberately does *not* do
 
 These non-features explain many of the design decisions above:
 
-- **No time-series database in the dashboard.** The registry holds only the
-  *current* state. History, if at all, is produced on the main site.
+- **No server-side time-series database.** The Pi's registry holds only the
+  *current* state; the rolling history lives in the browser (§10), and any
+  long-term archive is the main site's job.
 - **No server-side event history.** Command history, the last bridge apply and
-  the last Tailscale action live in memory only and are gone after a restart.
+  the last Tailscale action live in memory only and are gone after a restart —
+  as is the history-exchange ring buffer (§10).
 - **No wildcard subscription.** What was not announced via Discovery, the
   dashboard does not see.
 - **No direct device access from the dashboard.** The exception is the TinyTuya

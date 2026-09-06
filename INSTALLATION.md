@@ -112,22 +112,17 @@ sudo cp systemd/tailscaled.service /etc/systemd/system/
 sudo cp systemd/tailscaled.defaults /etc/default/tailscaled
 ```
 
-ARMv6 kernels frequently lack a native WireGuard kernel module, so the
-daemon must fall back to userspace networking. Edit
-`/etc/default/tailscaled`:
-
-```sh
-FLAGS="--tun=userspace-networking"
-```
-
-> **Typo trap:** `userspace-network` (without the trailing *ing*) makes
-> `tailscaled` abort with `invalid argument`. The error does not mention the
-> flag value, so it is easy to misread as a broken install.
+Leave `/etc/default/tailscaled` at its default (`FLAGS=""`). Do **not** set
+`--tun=userspace-networking`: it stops `tailscaled` from creating the
+`tailscale0` interface and installing kernel routes, so the node cannot
+route IP traffic to other tailnet peers at all. The ARMv6 kernel does not
+need it — `wireguard-go` runs in userspace on every architecture and only
+needs `/dev/net/tun`, which Raspberry Pi OS already provides.
 
 ```sh
 sudo systemctl daemon-reload
 sudo systemctl enable --now tailscaled
-sudo tailscale up --tun=userspace-networking --accept-routes
+sudo tailscale up
 ```
 
 Open the printed login URL in any browser and approve the machine. Then
@@ -139,27 +134,30 @@ tailscale status
 tailscale ip -4        # the node's 100.x.x.x address
 ```
 
-Two more settings that are easy to forget and painful to fix from a remote
-site later:
+**Disable key expiry** for this machine in the Tailscale admin console.
+Otherwise the node drops off the tailnet after ~180 days and needs an
+interactive login on site.
 
-- **Disable key expiry** for this machine in the Tailscale admin console.
-  Otherwise the node drops off the tailnet after ~180 days and needs an
-  interactive login on site.
-- `--accept-routes` is **not** the default. Without it, subnet routes
-  advertised by the main site stay invisible on the node — `tailscale ping`
-  answers `no matching peer` even though everything looks connected.
+Reach the main site over its **Tailscale IP** (`100.x.x.x`), not over a
+subnet route:
 
-On the Home Assistant side, the Tailscale add-on runs in its own container,
-so its container IP cannot reach the Mosquitto add-on. The working
-combination is `userspace_networking: false`, `advertise_routes:
-local_subnets` (IPv4 only), and approving that route in the admin console —
-after which the node talks to the **LAN IP of the Home Assistant host**, not
-to a container Tailscale IP.
-
-> **Security note:** advertising `local_subnets` exposes the whole home
-> network to every tailnet member under the default ACL. If the tailnet ever
-> gains more devices or people, restrict it to
-> `<HA-LAN-IP>:1883` for this node.
+- Do not pass `--accept-routes` on the node and do not advertise routes
+  from it. A stale `--advertise-routes` that only takes effect once IP
+  forwarding is enabled once turned the node into a silent router for a
+  whole `/24`: `--accept-routes` clients sent their LAN traffic for that
+  subnet through the tunnel, so `ping`/`curl` to those hosts broke while
+  established SSH sessions stayed up. Clear it with
+  `sudo tailscale up --reset --advertise-routes=` and confirm in the admin
+  console that the route is no longer advertised.
+- On the Home Assistant side, run the Tailscale add-on with
+  `userspace_networking: false` so the **HA host** gets a `100.x` address.
+  The Mosquitto add-on's `1883:1883` port mapping binds every interface, so
+  the node reaches the broker at `<HA-Tailscale-IP>:1883` — no
+  `advertise_routes`, no admin-console route approval.
+- Never point the bridge at a LAN IP that could also exist on the node
+  site's own network: Tailscale prefers local network membership over an
+  advertised route, so the bridge would connect to the wrong local host.
+  The `100.x` address has no such ambiguity.
 
 ### 3.2 Python packages on an externally managed system
 
@@ -240,7 +238,7 @@ sudo ufw enable
 
 ## 5. Bridge to the main site
 
-The bridge from the node to the main site is configured through the dashboard's **MQTT** settings page. It opens an **outgoing** connection from the node to the main site's broker and mirrors `outstation/#` in both directions. Fill in the main site's address (its Tailscale IP, or its LAN IP if you use the subnet-route setup from section 3.1) and the broker credentials.
+The bridge from the node to the main site is configured through the dashboard's **MQTT** settings page. It opens an **outgoing** connection from the node to the main site's broker and mirrors `outstation/#` in both directions. Fill in the main site's **Tailscale IP** (`100.x`, section 3.1) and the broker credentials.
 
 Verify from the main site that `outstation/#` messages arrive (MQTT Explorer, or `mosquitto_sub -t 'outstation/#' -v`). No extra TLS is needed: Tailscale already encrypts the link.
 
@@ -367,8 +365,8 @@ Then check, in order:
 
 | Symptom | Likely cause |
 |---|---|
-| `tailscaled` exits with `invalid argument` | `userspace-network` typo in `/etc/default/tailscaled` (section 3.1) |
-| `tailscale ping` says `no matching peer` while everything looks online | `--accept-routes` was never set on the node |
+| Node cannot ping or route to any other tailnet peer | `--tun=userspace-networking` is set in `/etc/default/tailscaled` — remove it (section 3.1) |
+| A client's traffic to the main site's LAN breaks after IP forwarding is enabled, SSH stays up | Node still advertises a subnet route — `sudo tailscale up --reset --advertise-routes=` (section 3.1) |
 | Node drops off the tailnet after months | Key expiry was not disabled in the admin console |
 | `pip` refuses with "externally-managed-environment" | Missing `--break-system-packages` (section 3.2) |
 | A service starts, then dies immediately | `/etc/energy-node/config.json` or `mqtt.pw` missing or unreadable for group `energynode` — fail-closed by design |

@@ -183,8 +183,9 @@ no `?v=` in `data-editor-css` on `#overview-panel`. Reconcile on the next touch.
    [base.html](../../../dashboard/internal/webui/templates/base.html) by 1 — append
    `?v=1` if there is no tag yet. Files referenced from multiple places (see the
    table above) in **all** references at once.
-3. Record the bump in the [change history](#change-history) below: date, file,
-   `old → new`, reason, branch/commit.
+3. Add a row to the [change history](#change-history) table below: the
+   `dashboard/VERSION` triple, the files touched, their new `?v=` values (same
+   order across both columns), and the date.
 4. Bring the current-version-state section above up to date.
 5. `cd dashboard && go test ./...` and `npm test` — the template tests in
    [webui_test.go](../../../dashboard/internal/webui/webui_test.go) check some
@@ -197,136 +198,29 @@ entry here are in place.
 
 ## Change history
 
-Newest entries on top. Format:
-`YYYY-MM-DD — file: old → new — reason (branch/commit)`
+Newest first. Each row is one release that moved one or more `?v=` values: the
+files and the value they moved **to**, in the same order across the two columns.
+The **dashboard version** is `dashboard/VERSION` at the commit that carried the
+bump, taken from the predecessor repo's (`werkstatt-IoT`) history — that history
+was not brought into this fork, so the mapping is fixed here and not
+recomputable.
 
-- **2026-09-05** — `js/battery-card-core.js`: `1 → 2`, `js/battery-status.js`:
-  `– → 1` (first entry), `js/layout-editor.js`: `9 → 10` — trajectory card: the
-  chart SVG now has a fixed height (150 px) and a growing `viewBox` width (the
-  renderer measures the card via `ResizeObserver`), so a wide tile grows wider
-  instead of taller; the history and projection windows are configurable via
-  `data-battery-window` / `data-battery-projection-window` (respectively `window`
-  / `projection_window` in the HA card), and the layout editor gets two select
-  fields for them. `css/layout-editor.css` unchanged (`9`). Branch
-  `2026-09-05-batterie-trajektorie-sizing-und-zeitfenster`.
-- **2026-09-05** — `css/manager.css`: `15 → 16` (all 5 panels) — storage state on
-  the settings page: the estimate block was a single `<template x-if>` with six
-  `<tr>` children, of which Alpine renders only the first — "used write cycles"
-  (used writes in %) and four more rows were missing. Each row now has its own
-  `<template x-if>`. The subtitle and the long measured/estimated note moved into
-  a `.field-help` tooltip on the `<h3>` (following the automations pattern);
-  `.storage-health-subtitle` and `.storage-health-note` in `manager.css` are
-  gone, `.storage-health-header h3` becomes a flex row for the help icon (patch
-  straight onto `main`).
-- **2026-09-05** — `js/settings.page.js`: `1 → 2` — TinyTuya bugfix: saved
-  credentials became unusable once the Access ID field was filled (autofill or a
-  leftover from an earlier query in the same session). `credentialsValid` now
-  requires a secret only for a *new* Access ID; without a secret, `savedCredentials`
-  alone counts, and `loadDevices()` sends the Access ID only together with a
-  typed secret. The backend (`resolveTinyTuyaCloudRequest`) now also falls back
-  to the stored secret when the Access ID is set but identical (patch straight
-  onto `main`).
-- **2026-09-05** — `js/battery-card-core.js`: `– → 1` (first entry, backfilled),
-  `js/dashboard.js`: `9 → 10` — battery status card (column and trajectory):
-  `battery-card-core.js` is the host-independent core and now loads conditionally
-  in the `EnergyCardScripts` channel (finding 8 of the closing review, instead of
-  unconditionally on every page); `dashboard.js` gets a `battery_status: 'energy'`
-  entry in `branchForKind` (`liveGridPushCovers()`), so an SSE push patches the
-  card instead of swapping the whole grid (branch
-  `2026-09-05-batterie-statuskarte-saeule-und-trajektorie`).
-- **2026-09-05** — `css/manager.css`: `14 → 15` (all 5 panels) — settings "System"
-  tab reworked in the Apple style: `System access` / `System actions` /
-  `Configuration` brought onto the `--settings-ease` / `--radius-sm` /
-  `--radius-lg` form language known from the Tailscale/TinyTuya wizards (scope
-  `#settings-system`), badge transition modelled on `.runtime-status-badge` (dot
-  + colour change as a transition instead of a jump), press feedback on the
-  `.system-action-danger` buttons, and all buttons in the tab (log out, the three
-  system actions, save/discard the configuration, refresh/restore revisions)
-  switched to `.icon-button.labeled` with sprite icons instead of plain text.
-- **2026-09-04** — `css/manager.css`: `13 → 14` (all 5 panels) — Tailscale/TinyTuya
-  wizard: buttons/inputs inside the two assistants rounded to `--radius-sm`
-  (Apple form language) and the toolbar buttons switched to `.icon-button.labeled`
-  with icons from the existing sprite (templates only changed, but `manager.css`
-  carries the new radius rule).
-- **2026-09-04** — `css/manager.css`: `12 → 13` (all 5 panels), `js/settings.page.js`:
-  `– → 1`, `js/tailscale.page.js`: `– → 1` — Tailscale/TinyTuya setup assistants
-  moved onto a shared stepper partial (`settings-stepper.html`) with animated
-  step transitions (Apple design/motion rework); the Tailscale wizard shortened
-  from 4 to 3 steps ("confirm access options" merged into the result step).
-- **2026-09-04** — `js/layout-editor.js`: `6 → 7`, `css/layout-editor.css`: stays
-  `6` — removal of the `entity` card type ("entity with technical details"): the
-  second catalogue row per entity and the per-entity options are gone,
-  `refMissing()` and the thumbnails no longer know the type. JavaScript only, the
-  editor CSS is unchanged.
-- **2026-09-05** — `css/base.css`: `16 → 17`, `js/dashboard.js`: `8 → 9`,
-  `js/layout-editor.js`: `7 → 9`, `css/layout-editor.css`: `6 → 9` — squash-merge
-  of the compact-device-tile plan (tasks 1–8) onto `main`: `device` items render
-  either `device-tile` or `compact-card`, the device of a dropped tile can be
-  changed afterwards in the options modal, and the toolbox thumbnails draw their
-  role colours (`--flow-pv`, `--flow-battery`, `--accent`, `--text-*` …) via
-  `var(--token)` instead of fixed hex values, so every colour scheme (including
-  `tageslicht`) supplies its own values — this replaced an interim purely
-  monochrome `currentColor` draft that was briefly task 7 on the branch.
-  `layout-editor.js` jumped straight from the `7` of the entity removal (see the
-  entry above) to `9` because the branch had run in parallel to `8` before being
-  merged here; `layout-editor.css` moves in lockstep with the `.js` file despite
-  a small content change.
-- **2026-09-04** — `js/history-store.js`: `1 → 2`, `js/history-recorder.js`: `6 → 7`,
-  `js/history-export.js`: `– → 1`, `js/systemconfig.page.js`: `– → 1` — product
-  rename: dashboard client storage keys, export header and filename prefix
-  updated (task 6 of the GitHub-publication-and-rename work).
-- **2026-09-04** — `css/base.css`: `13 → 16`, `js/dashboard.js`: `5 → 8`,
-  `css/manager.css`: `10 → 12` (all 5 panels), `css/history.css`: `2 → 3`,
-  `css/automations.css`: `2 → 3`, `js/overview.page.js`: `– → 5`,
-  `js/layout-editor.js`/`css/layout-editor.css`: `– → 6`,
-  `js/energy.page.js`/`js/mqtt.page.js`: stay `1` — merge of the layout edit mode
-  onto `main`. `base.css`/`dashboard.js` now carry both branches (energy-tab
-  redesign from `main`, editor from the branch), hence a jump past the numbers
-  assigned on the branch. The former `layout-panel` channel is gone.
-- **2026-09-04** — `js/layout-editor.js`: `5 → 6`, `css/layout-editor.css`:
-  `5 → 6` — more follow-up on edit mode: a "discard changes" button in the
-  toolbar, the toolbox-toggle listener is re-attached per mount and released in
-  `unmount()` (after "save & close" the toolbox otherwise stopped opening), the
-  switch back to editor width animates over the pixel width instead of jumping to
-  `auto`, hidden tiles are kept in sync in the editor (`syncHiddenCards()`), and
-  the duplicate visibility switch in the options modal is gone.
-- **2026-09-04** — `js/dashboard.js`: `6 → 7`, `js/overview.page.js`: `4 → 5`,
-  `js/layout-editor.js`: `4 → 5`, `css/layout-editor.css`: `4 → 5` — follow-up on
-  edit mode: the toolbox now hangs off `<body>` and sits `position:fixed` under
-  the sticky toolbar (previously `position:absolute` in the panel and off-screen
-  after scrolling), the left/right selection in its footer is gone, the catalogue
-  knows the entity list and carries a value card and a detail card per entity;
-  `energy_schema`/`energy_status`/`entity_value`/`entity` get their own
-  thumbnails. Plus the page logic: `syncActivePage()`/`renderLocalPage()`, own
-  IDs per tile, `relinkEditItems()` and the queue in `refreshLiveFragment()`.
-- **2026-09-03** — `css/base.css`: `14 → 15`, `css/manager.css`: `11 → 12` (all 5
-  panels), `css/history.css`: `2 → 3`, `css/automations.css`: `2 → 3`,
-  `js/dashboard.js`: `5 → 6`, `js/overview.page.js`: `3 → 4`,
-  `js/layout-editor.js`: `3 → 4`, `css/layout-editor.css`: `3 → 4` — follow-up on
-  edit mode. Three rule sets moved into `base.css` because they are needed by
-  markup that is in the document without the previous file: the base rules of the
-  overview toolbar (`.layout-toolbar`, `.layout-btn`, `.layout-count`,
-  `.layout-spacer`) from `layout-editor.css`, the Apple switch
-  (`.settings-toggle*`) from `manager.css`, and the sprite icons
-  (`.automation-icon`) from `automations.css` / `history.css` where they were
-  duplicated.
-- **2026-09-03** — `js/overview.page.js`: `1 → 2`, `js/layout-editor.js`: `1 → 2`,
-  `css/layout-editor.css`: `1 → 2` — completion of the layout edit mode:
-  `overview.page.js` fetches and mounts the editor fragment, `layout-editor.js`
-  wires up chrome, options modal, toolbox, target width and "save & close", the
-  mode styles in `layout-editor.css` target `#overview-panel`.
-- **2026-09-03** — `css/base.css`: `13 → 14`, `css/manager.css`: `10 → 11` (all 5
-  panels), `js/overview.page.js`: `– → 1`, `js/layout-editor.js`: `– → 1`,
-  `css/layout-editor.css`: `– → 1` — layout editor as an edit mode of the
-  overview; the old `layout-panel` with `layout.html` and the dead
-  `.layout-page*`/`.layout-group*` rules in `manager.css` removed. The two
-  `layout-editor.*` carry their `?v=` in `data-editor-script` / `data-editor-css`
-  on `#overview-panel` in `overview.html`, not in `base.html`. Note: `manager.css`
-  was already at `10` in `base.html` while the version-state section above still
-  said `9` — now pulled together to `11`.
-- **2026-09-02** — `css/base.css`: `12 → 13` — "calculated" hint in the
-  energy-flow building node as its own centred line under "Building" instead of
-  as an `::after` under the power value (branch `feat/energy-tab-apple-redesign`).
-- **2026-09-02** — First entry for this file. No bump; documents the state found
-  in `base.html` at that time (see [current version state](#current-version-state)).
-  Reference commit `d6cc3e0`.
+| Dashboard version | Files | New `?v=` | Date |
+|---|---|---|---|
+| v0.5.11 | `js/battery-card-core.js` · `js/battery-status.js` · `js/layout-editor.js` | `2` · `1` · `10` | 2026-09-05 |
+| v0.5.10 | `css/manager.css` (5 panels) | `16` | 2026-09-05 |
+| v0.5.9 | `js/settings.page.js` | `2` | 2026-09-05 |
+| v0.5.8 | `js/battery-card-core.js` · `js/dashboard.js` | `1` · `10` | 2026-09-05 |
+| v0.5.7 | `css/base.css` · `js/dashboard.js` · `js/layout-editor.js` · `css/layout-editor.css` | `17` · `9` · `9` · `9` | 2026-09-05 |
+| v0.5.6 | `css/manager.css` (5 panels) | `15` | 2026-09-05 |
+| v0.5.5 | `css/manager.css` (5 panels) · `js/settings.page.js` · `js/tailscale.page.js` | `14` · `1` · `1` | 2026-09-05 |
+| v0.5.4 | `js/layout-editor.js` | `7` | 2026-09-04 |
+| v0.5.0 | `js/history-store.js` · `js/history-recorder.js` · `js/history-export.js` · `js/systemconfig.page.js` | `2` · `7` · `1` · `1` | 2026-09-04 |
+| v0.3.19 | `css/base.css` · `js/dashboard.js` · `css/manager.css` (5 panels) · `css/history.css` · `css/automations.css` · `js/overview.page.js` · `js/layout-editor.js` · `css/layout-editor.css` | `16` · `8` · `12` · `3` · `3` · `5` · `6` · `6` | 2026-09-04 |
+| v0.3.15 | `css/base.css` · `css/manager.css` (5 panels) | `13` · `10` | 2026-09-03 |
+| v0.3.14 | baseline — `base.html` state at commit `d6cc3e0`, no bump | — | 2026-09-02 |
+
+The **v0.3.19** row is the `feat(layout): overview layout-editing mode` squash
+merge — on the branch the same files were bumped in steps (`layout-editor.*` and
+`overview.page.js` `1 → 6`, `base.css` `13 → 16`, etc.), but only the merged
+result reached `main`.

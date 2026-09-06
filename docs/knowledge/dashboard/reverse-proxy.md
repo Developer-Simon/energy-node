@@ -32,8 +32,7 @@ hundred root-relative path literals, kept passing without a single adjustment.
 
 **Scope, as currently defined:** no sub-path operation without a header (i.e. no
 ENV fallback), no domain/host rewriting, no adjustment of `js-deps/` (htmx,
-Alpine, Cytoscape, GridStack), and no absolute paths in CSS — there are none
-there.
+Alpine, Cytoscape, …), and no absolute paths in CSS — there are none there.
 
 ## Why `sub_filter` is not enough
 
@@ -51,8 +50,8 @@ the paths, which are already correct now, a second time.
 ## Architecture
 
 A middleware wrapper on the very outside around the router resolves the prefix
-and removes it from the request path. As a result, **all mux patterns
-(currently 52) and the `TrimPrefix`/`HasPrefix` locations in `internal/httpapi`
+and removes it from the request path. As a result, **all mux patterns (~70 as
+of this writing) and the `TrimPrefix`/`HasPrefix` locations in `internal/httpapi`
 stay unchanged and root-relative** — they still see `/api/v1/...`. Only the
 *output* side is prefixed.
 
@@ -243,8 +242,8 @@ curl -s -H 'X-Forwarded-Prefix: //evil.com' localhost:8080/ | grep -o 'data-base
 
 End-to-end behind nginx: open `https://ha.example/node/`, check for 404/502 in
 the DevTools network tab, and open every panel (Devices, History,
-Configuration, Energy, Layout, Device Map, Settings) once — each lazy-loads its
-assets and is thus its own path test. Run through login/logout (the cookie path
+Configuration, Energy, Device Map, Settings) once, plus the overview's layout
+edit mode — each lazy-loads its assets and is thus its own path test. Run through login/logout (the cookie path
 must be `/node/`) and watch the system-status badge: if it updates, the SSE
 stream is running.
 

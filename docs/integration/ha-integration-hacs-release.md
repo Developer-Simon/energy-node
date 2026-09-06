@@ -136,36 +136,3 @@ before the real run; it cannot be combined with `--push` or `--release`.
 Without `--release` the script only syncs the tree into the mirror as a plain
 commit (no tag, no changelog, no Release); add `--push` to also push the
 branch. `--release` implies publishing, so `--push` is redundant with it.
-
----
-
-## Getting the icon into HACS UI — the `home-assistant/brands` PR
-
-The HACS store list and the HACS update-entity dialog load
-`https://brands.home-assistant.io/_/battery_soc/icon.png`. Until that path
-exists they render "Icon not available" (the in-tree `brand/` folder does not
-feed this — see the note in the one-time section). One-time fix:
-
-1. Fork and clone `home-assistant/brands`.
-2. Add the icons under **`custom_integrations/battery_soc/`**:
-   - `icon.png` — 256×256, PNG, transparent, trimmed square. Reuse
-     `integrations/homeassistant/custom_components/battery_soc/brand/icon.png`.
-   - `icon@2x.png` — 512×512. Reuse `brand/icon@2x.png`.
-   - (optional) `dark_icon.png` / `dark_icon@2x.png` if the icon needs a
-     light-on-dark variant; skip if the current icon reads on both themes.
-   - no `logo*.png` — this integration only has an icon.
-3. `python3 -m script.hassfest` in the brands repo (or just let CI run) — it
-   checks size, format and that `manifest.json`'s domain matches the folder.
-4. PR title `Add battery_soc`. In the body link the integration repo
-   (`https://github.com/Developer-Simon/ha-battery-soc`) and note it is a
-   custom (not-yet-default) HACS integration, which is why it goes under
-   `custom_integrations/`.
-5. After merge the CDN picks it up within ~1 day; a browser refresh then shows
-   the icon in both HACS surfaces. No integration release is needed.
-
-## If you ever want it in the default HACS store
-
-Open a PR against `hacs/default` adding `Developer-Simon/ha-battery-soc`. That
-additionally requires the `home-assistant/brands` entry above (under
-`core_integrations/` rather than `custom_integrations/` once it is default).
-Not required for custom-repository installs.

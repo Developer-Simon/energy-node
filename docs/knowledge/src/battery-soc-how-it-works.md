@@ -5,8 +5,9 @@ title: "Battery State of Charge (SoC) — How It Works"
 # Battery State of Charge (SoC) — How It Works
 
 What `src/battery_soc/battery_soc_mqtt.py` does, why it computes the way it
-does, and which setting turns which screw. Supplements section 12 in the setup
-section in INSTALLATION.md, which describes the installation.
+does, and which setting turns which screw. Supplements the "Battery state of
+charge" section in [device-services.md](../../device-services.md) and the
+installation steps in [INSTALLATION.md](../../../INSTALLATION.md).
 
 **Explicitly a monitoring/diagnostic estimate, not a BMS function.** Do not use
 for automatic shutdowns without additional safeguards.
@@ -222,8 +223,8 @@ reason changes, it warns again.
 There is **no fallback** from the key path to the regex path: whoever
 configured a key wants that key. Silently taking the first number in the raw
 text would again be a wrong value instead of a visible error. As a preventive
-measure, the dashboard form suggests the keys from the last payload — see
-dashboard/konfigurationsformular.md.
+measure, the dashboard form suggests the keys from the last payload — see the
+configuration editor in [dashboard.md](../../dashboard.md).
 
 **All six `*_json_key` have `""` as their default**, and that is not
 carelessness but a requirement: the dashboard stores a field that is empty *or
@@ -313,8 +314,8 @@ return `null`.
   same recalibration applies as in operation (§3).
 - **Device coupling:** its own HA device, linked via `via_device` under
   `energy-node`. The Trucki stick in turn points via `via_device` to this
-  device — deliberately no discovery merge (see section 12 of the setup
-  documentation).
+  device — deliberately no discovery merge (see the Trucki section in
+  [device-services.md](../../device-services.md)).
 
 ## 10a. Home Assistant Integration
 

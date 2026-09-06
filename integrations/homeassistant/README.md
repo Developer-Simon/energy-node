@@ -12,7 +12,7 @@ Where each surface gets the icon from:
 |---|---|---|
 | Home Assistant UI (device page, config flow) | local `custom_components/battery_soc/brand/` (HA 2025.x+ serves it at `/api/brands/integration/…`) | ✅ ships in-tree |
 | HACS / hassfest validation (`brands` check) | local `brand/icon.png` | ✅ ships in-tree |
-| HACS **store list**, **update-entity dialog**, README header | `brands.home-assistant.io` CDN, by domain (fetched by the browser) | ❌ needs a [`home-assistant/brands`](https://github.com/home-assistant/brands) PR — `custom_integrations/battery_soc/{icon,icon@2x}.png`. Checklist in [`docs/integration/ha-integration-hacs-release.md`](../../docs/integration/ha-integration-hacs-release.md). |
+| HACS **store list**, **update-entity dialog**, README header | `brands.home-assistant.io` CDN, by domain (fetched by the browser) | ❌ needs a [`home-assistant/brands`](https://github.com/home-assistant/brands) PR — `custom_integrations/battery_soc/{icon,icon@2x}.png`. Checklist in [`.docs/knowledge/integration/hacs-brands-pr.md`](../../.docs/knowledge/integration/hacs-brands-pr.md). |
 
 ## Setup
 

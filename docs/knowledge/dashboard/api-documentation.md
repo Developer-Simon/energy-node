@@ -10,8 +10,9 @@ HTTP interface of the Energy Node dashboard (Go binary
 Related documents:
 
 - System-wide data flows → [../data-flow.md](../data-flow.md)
-- Authentication, Caddy, reverse proxy → dashboard-systemzugriff-authentifizierung-und-caddy.md
-- MQTT settings and bridge → settings-mqtt.md
+- Reverse proxy / sub-path operation → [reverse-proxy.md](reverse-proxy.md)
+- Secrets, passwords, credential files → [secrets-and-credentials.md](secrets-and-credentials.md)
+- Frontend asset cache-busting → [lazy-assets-cache-busting.md](lazy-assets-cache-busting.md)
 
 The source of truth is the routing table in
 `dashboard/internal/httpapi/httpapi.go` (`NewRouterWithDependencies`).
@@ -87,6 +88,7 @@ requires HTTPS.
 | `automations` | Write and test automation rules |
 | `delete_device_discovery` | Delete a device's discovery entries |
 | `tune_live_updates` | Change `live_update_interval_seconds` |
+| `edit_layout` | Reserved for layout editing — reported in the session payload but **not currently enforced**: `PUT /api/v1/layout` has no gate |
 
 Logged in but without a role: everything read-only, plus layout, device card,
 energy roles, switch commands, and the remaining settings.
@@ -130,6 +132,7 @@ additional requirements.
   "tune_live_updates": true,
   "mqtt_config": true,
   "automations": true,
+  "edit_layout": false,
   "csrf_token": "…",
   "expires_at": "2026-08-12T09:00:00Z"
 }
@@ -149,6 +152,7 @@ additional requirements.
 | POST | `/api/v1/devices/{id}/discovery-delete` | `delete_device_discovery` + CSRF | Delete discovery topics |
 | GET | `/api/v1/devices/ignored` | – | List of hidden devices |
 | GET | `/api/v1/discovery` | – | Devices + parse errors + duplicate IDs |
+| GET | `/api/v1/discovery/summary` | – | `device_count`, `entity_count`, `discovery_errors`, `duplicate_ids`; carries `ETag: "registry-N"` |
 | GET | `/api/v1/topics` | – | All known topics |
 | GET | `/api/v1/topics/samples` | – | Last payload per topic |
 | GET | `/api/v1/events` | – | SSE stream with the registry version |
@@ -196,6 +200,9 @@ arbitrary topics are not reachable through the API.
 | GET | `/api/v1/energy` | – | Current balance including interpretation |
 | GET/PUT | `/api/v1/energy/roles` | – | Role assignment per entity |
 | GET/PUT | `/api/v1/energy/interpretation` | – | Interpretation parameters |
+| GET | `/api/v1/energy/revisions` | – | Revision list for `energy.json` (roles + interpretation) |
+| GET | `/api/v1/energy/revisions/{revision}` | – | A single revision |
+| POST | `/api/v1/energy/restore` | – | Restore a revision, body `{"revision":"…"}` |
 
 Available roles: `pv`, `battery`, `battery_charge`, `battery_discharge`,
 `battery_soc`, `grid`, `grid_import`, `grid_export`, `load`, `wallbox`,
@@ -207,6 +214,49 @@ so that saving roles alone does not reset the interpretation.
 
 The balance is additionally published every 10 s to
 `outstation/dashboard/energy/balance`; the automations build on that.
+
+### History
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/history/entities` | – | Current value of the entities on the history allowlist |
+| GET | `/api/v1/history/exchange` | – | Self-describing announcement: protocol version + limits |
+| GET | `/api/v1/history/exchange/stream` | – | SSE stream: peer join/leave, offers, requests, deliveries |
+| POST | `/api/v1/history/exchange/offer` | – | Broadcast a coverage offer to the other peers |
+| POST | `/api/v1/history/exchange/request` | – | Ask one peer (or the ring buffer) for specific ranges |
+| POST | `/api/v1/history/exchange/deliver` | – | Hand rows to one peer, answering a request |
+| POST | `/api/v1/history/exchange/buffer` | – | Feed rows into the server's 24 h ring buffer |
+
+The dashboard keeps **no history on disk** — samples live in each browser's
+IndexedDB (see [../data-flow.md](../data-flow.md) §10). These endpoints only
+support the browser-side recorder.
+
+**`GET /api/v1/history/entities`** returns the current value of exactly the
+entities named in `settings.json` under `history_extra_entities` (a server-side
+allowlist; the browser cannot poll arbitrary IDs):
+
+```json
+{
+  "at": "2026-09-06T09:00:00Z",
+  "samples": [
+    { "entity_id": "…", "value": 42.0, "unit": "W", "stale": false }
+  ]
+}
+```
+
+`value` is `null` when the entity currently has no numeric value.
+
+**`/api/v1/history/exchange/*`** is a device-to-device transfer channel; the
+server is a **relay, not a store**. Browsers on the same broker exchange their
+recorded `1m` and `5m` tiers (never raw) so a freshly opened dashboard can
+backfill. `GET /api/v1/history/exchange` describes the protocol (version 1; 500
+rows per delivery, 20 000 per request, 1 MiB per body). The `.../stream` SSE
+carries the message flow; `offer` / `request` / `deliver` are the POST
+counterparts a peer uses to talk back; `buffer` feeds a 24 h in-memory ring
+buffer that participates as the pseudo-peer `server`. Every POST must carry a
+`peer` field matching a currently connected stream, else `peer_unknown` (403).
+Other codes: `peer_gone` (404, the target left), `tier_unknown` (400),
+`body_too_large` / `too_many_rows` (413).
 
 ### Diagnostics and health
 
@@ -246,6 +296,7 @@ MQTT connection is missing, or the storage check fails.
 | POST | `/api/v1/configurations/{name}/restore` | – | Restore a revision |
 | POST | `/api/v1/configurations/{name}/reload` | – | Trigger a reload via MQTT |
 | POST | `/api/v1/automations/test` | `automations` + CSRF | Test a single rule action |
+| GET | `/api/v1/automations/history/{rule_id}` | – | Recorded fire events for one rule, read from `automation_history.json` in the devices directory (empty array if the file or rule is absent) |
 
 `PUT` validates against the schema, writes atomically, and creates a revision
 beforehand; afterwards a reload command goes out via MQTT to the responsible
@@ -270,6 +321,9 @@ valid, topic allowed) are done by the automation service, not the dashboard.
 | Method | Path | Gate | Purpose |
 |---|---|---|---|
 | GET/PUT | `/api/v1/settings` | `tune_live_updates` only for interval changes | Dashboard settings |
+| GET | `/api/v1/settings/revisions` | – | Settings revisions |
+| GET | `/api/v1/settings/revisions/{revision}` | – | A single settings revision |
+| POST | `/api/v1/settings/restore` | – | Restore settings, body `{"revision":"…"}` |
 | GET/PUT | `/api/v1/layout` | – | Tile layout |
 | GET | `/api/v1/layout/revisions` | – | Layout revisions |
 | GET | `/api/v1/layout/revisions/{revision}` | – | A single layout revision |
@@ -308,6 +362,7 @@ self-references (`relation_self_reference`), unknown IDs (`unknown_device`,
 | DELETE | `/api/v1/mqtt/credentials` | `mqtt_config` + HTTPS + CSRF | Delete password |
 | POST | `/api/v1/mqtt/test` | `mqtt_config` + HTTPS + CSRF | Test connection |
 | POST | `/api/v1/mqtt/reconnect` | `mqtt_config` + HTTPS + CSRF | Rebuild the running connection |
+| PUT | `/api/v1/mqtt/energy-device` | `mqtt_config` + HTTPS + CSRF | Toggle `publish_energy_device` in `mqtt.json`, body `{"publish_energy_device": true}` |
 | GET | `/api/v1/mqtt/status` | – | Connection status |
 
 **Precedence rule:** A saved and activated `mqtt.json` wins *completely* over
@@ -371,29 +426,38 @@ absent after a restart.
 
 | Method | Path | Gate | Purpose |
 |---|---|---|---|
-| GET | `/api/v1/system/config` | – | Central configuration file (`config.json`) |
-| PUT | `/api/v1/system/config` | `mqtt_config` + HTTPS + CSRF | Save and load configuration |
-| GET | `/api/v1/system/config/revisions` | – | Revision list |
-| GET | `/api/v1/system/config/revisions/{revision}` | – | A single revision |
-| POST | `/api/v1/system/config/restore` | `mqtt_config` + HTTPS + CSRF | Restore a revision |
+| GET | `/api/v1/system/config` | – | Central configuration file (`config.json`) + revision list |
+| PUT | `/api/v1/system/config` | `system_actions` + HTTPS + CSRF | Validate and save configuration |
+| GET | `/api/v1/system/config/schema` | – | The embedded `config.schema.json` (the settings form is built from it) |
 
-**`GET /api/v1/system/config`** returns the current central configuration.
-All `*_file` fields contain only the path, never the content of the password.
+There are **no** separate `/revisions` or `/restore` routes for the central
+config — the revision list is returned inline by `GET`, and there is currently
+no restore endpoint.
 
-**`PUT /api/v1/system/config`** saves the configuration atomically, creates a
-revision beforehand, and afterwards triggers a reload command via MQTT to the
-affected services. The response contains:
-- `saved: true` – the file was written
-- `reload_attempted: true` – a reload was triggered
-- `services_affected: ["apsystems", "dashboard", ...]` – list of services that reload
-- `restart_required: ["apsystems"]` – which services must be restarted (right-hand column fields in the reload table)
+**`GET /api/v1/system/config`** returns
+`{"config": {…}, "revisions": ["<UTC timestamp>.json", …]}`. All `*_file`
+fields contain only the path, never the password itself. Not role-gated.
 
-Error codes: `config_invalid` (schema violation or invalid `*_file` paths),
-`config_write_failed` (filesystem error).
+**`PUT /api/v1/system/config`** (body limit 1 MiB):
 
-`PUT /api/v1/system/config` requires schema validation against the central
-configuration and checks all `*_file` values against the allowlist (only paths
-under `/etc/energy-node/` and `/etc/energy-node-dashboard/` are allowed).
+1. schema-validates the document against `config.schema.json`;
+2. checks every `*_file` value against the allowlist — only paths under
+   `/etc/energy-node/` and `/etc/energy-node-dashboard/` are accepted;
+3. writes a revision of the *previous* file (kept under
+   `data_dir/revisions/system-config/`, max 20);
+4. writes the new file atomically.
+
+Response: `{"config": {…}, "restart_required": [...], "reloaded": {…}}`.
+`restart_required` lists the changed fields that need a unit restart (`mqtt`,
+`paths`, any `*.device_id`, `dashboard.port`, `.bind_address`, `.tls`,
+`.admin_username`, `.admin_password_file`); everything else is picked up by the
+services over `outstation/<id>/config/reload`. `reloaded` maps a service's
+device ID to `"ok"` or an error string, and is populated only when a reload
+dispatcher is wired into the router — in the current build it is passed as
+`nil`, so `reloaded` comes back empty and no reload command is sent.
+
+Error codes: `config_unreadable`, `invalid_body`, `schema_violation`,
+`path_not_allowed`, `revision_failed`, `config_not_writable`.
 
 ### System actions
 
@@ -476,8 +540,11 @@ secret files `mqtt_credentials.json`, `mqtt_bridge_credentials.json`, and
 
 ### Deliberate limits
 
-- The server keeps **no history** apart from the in-memory command history
-  (max. 12 entries per device). No time series, no persistent event list.
+- The server persists **no history**: the per-device command history (max. 12
+  entries) and the history-exchange ring buffer (24 h) are in memory only, and
+  the rolling measurement history lives in each browser's IndexedDB, not on the
+  Pi (see the History section above). No server-side time series, no persistent
+  event list.
 - Write endpoints limit the body to 2 MiB, commands to 4 KiB.
 - There is **no rate limiting** — the dashboard is designed for a trusted
   network plus Tailscale, not for open exposure.

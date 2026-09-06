@@ -4,7 +4,7 @@ title: "Credentials and Secrets"
 
 # Credentials and Secrets
 
-Last updated: 2026-08-21
+Last updated: 2026-09-06
 
 ## Ground rule
 
@@ -161,14 +161,3 @@ If an SSH key is set up instead, the password goes unnoticed — `ssh`/`scp`
 then behave as they did before this change.
 
 Installing `sshpass` (Fedora): `sudo dnf install sshpass`
-
-## Known legacy issues
-
-The MQTT password still appears in roughly eleven older commits as part of
-`mqtt.env` files. The repo has **no Git remote** and was never pushed; a
-deliberate decision was therefore made against a history rewrite and against
-an immediate rotation.
-
-**Before the release as an open-source project**, a fresh fork without
-inherited history is created, with a changelog of the changes following
-Conventional Commits. That also settles this legacy issue.

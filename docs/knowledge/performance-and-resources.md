@@ -13,6 +13,11 @@ single-core, 512 MB — of which 427 MB usable, the rest GPU reserve). Uptime at
 the time of measurement: 11 days. Raw logs are not in the repo; the numbers
 below are the distilled state.
 
+This is a **point-in-time snapshot**, not a figure that is kept in sync with the
+code. Everything below (service list, rule counts, CPU/RAM shares, the open
+items in §5) describes the node on that date; treat it as a baseline to
+re-measure against, not as the current state.
+
 ---
 
 ## 1. Measurement method
