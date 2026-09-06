@@ -41,6 +41,7 @@ the conventions they all share.
 Everything couples through **exactly one local MQTT broker**. There is no
 direct HTTP path between the device bridges and the dashboard.
 
+{% raw %}
 ```mermaid
 flowchart LR
     subgraph Remote["Remote site — Raspberry Pi 1 (ARMv6)"]
@@ -60,6 +61,7 @@ flowchart LR
         HA["Home Assistant<br/>+ Mosquitto"]
     end
 ```
+{% endraw %}
 
 Three properties shape the whole design:
 
