@@ -219,7 +219,7 @@ def read_tailscale_connected():
 
 # `apt list --upgradable` parst jedes Mal den kompletten APT-Paket-Cache und
 # ist auf dem Pi 1 der teuerste Diagnose-Aufruf (siehe
-# docs/knowledge/performance-und-ressourcen.md 5.2). Der Diagnose-Zyklus ruft
+# docs/knowledge/performance-and-resources.md 5.2). Der Diagnose-Zyklus ruft
 # read_apt_updates_pending() weiterhin regelmaessig, echt ausgefuehrt wird der
 # Aufruf aber hoechstens 1x/Tag - dazwischen kommt der zuletzt ermittelte Wert.
 APT_UPDATES_TTL_S = 86_400

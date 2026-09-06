@@ -1,3 +1,7 @@
+---
+title: "Credentials and Secrets"
+---
+
 # Credentials and Secrets
 
 Last updated: 2026-08-21

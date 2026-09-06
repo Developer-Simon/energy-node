@@ -1,3 +1,7 @@
+---
+title: "Home Assistant integration — HACS mirror repo & release runbook"
+---
+
 # Home Assistant integration — HACS mirror repo & release runbook
 
 The `battery_soc` Home Assistant integration lives in this monorepo under

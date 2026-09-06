@@ -289,7 +289,7 @@ run with `--service <name>`, where the name is the source directory:
 
 Edit `/etc/energy-node/config.json` (broker, paths, log level, node
 settings, per-service settings, dashboard settings) — every field is
-documented in [`docs/knowledge/konfiguration.md`](docs/knowledge/konfiguration.md).
+documented in [`docs/knowledge/configuration.md`](docs/knowledge/configuration.md).
 There is no environment-variable fallback: if the file is missing, services
 fail to start rather than come up unconfigured.
 

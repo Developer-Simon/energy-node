@@ -1,3 +1,7 @@
+---
+title: "Lazy-loaded JS/CSS assets and their `?v=` versioning"
+---
+
 # Lazy-loaded JS/CSS assets and their `?v=` versioning
 
 The dashboard embeds its entire frontend locally (`go:embed` in

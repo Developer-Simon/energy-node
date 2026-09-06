@@ -1,0 +1,28 @@
+# GitHub Pages configuration for the documentation site.
+#
+# Enable it under Settings -> Pages -> "Deploy from a branch",
+# branch "main", folder "/docs". No workflow and no local build needed;
+# GitHub builds this with Jekyll.
+
+title: Energy Node
+description: >-
+  Energy monitoring and automation for a remote site — solar, battery and
+  switchable loads on a single small Linux box, mirrored to Home Assistant
+  over a VPN.
+
+theme: jekyll-theme-cayman
+
+# jekyll-relative-links is enabled by default on GitHub Pages and rewrites
+# the .md links between these documents to their generated URLs. Listing it
+# keeps a local `bundle exec jekyll serve` behaving the same way.
+plugins:
+  - jekyll-relative-links
+
+relative_links:
+  enabled: true
+  collections: false
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - vendor

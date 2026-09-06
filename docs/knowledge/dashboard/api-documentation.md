@@ -1,3 +1,7 @@
+---
+title: "Dashboard API Documentation"
+---
+
 # Dashboard API Documentation
 
 HTTP interface of the Energy Node dashboard (Go binary

@@ -1,3 +1,7 @@
+---
+title: "Battery State of Charge (SoC) — How It Works"
+---
+
 # Battery State of Charge (SoC) — How It Works
 
 What `src/battery_soc/battery_soc_mqtt.py` does, why it computes the way it

@@ -46,7 +46,7 @@ Use `../scripts/deploy/deploy_dashboard_to_remote.sh` for the established remote
 
 `VERSION` holds the release triple shown on the settings page (`major.minor` hand-edited, `patch` auto-bumped per commit by `../git-hooks/pre-commit` — run `../scripts/install_git_hooks.sh` once to activate it locally). The build binds it via `-ldflags "-X main.buildVersion=..."`; see `scripts/deploy/deploy_dashboard_to_remote.sh` for how the branch prerelease suffix is computed. A plain `go build` without that flag reports version `dev`.
 
-The Python services' own `../src/VERSION` (same auto-bump hook, independent counter) is shown next to it, read at runtime from the path in `config.json`'s `paths.services_version_file` — see [Konfiguration](../docs/knowledge/konfiguration.md). Empty/unset shows "unbekannt" instead of failing to start.
+The Python services' own `../src/VERSION` (same auto-bump hook, independent counter) is shown next to it, read at runtime from the path in `config.json`'s `paths.services_version_file` — see [Konfiguration](../docs/knowledge/configuration.md). Empty/unset shows "unbekannt" instead of failing to start.
 
 ## Invariants
 

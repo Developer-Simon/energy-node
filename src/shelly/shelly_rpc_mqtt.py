@@ -96,7 +96,7 @@ def load_devices(path: str) -> list[ShellyDeviceConfig]:
 #
 # Eine modulweite Session hält die TCP-Verbindung pro Gerät per Keep-alive
 # offen - auf dem Pi 1 ist der Verbindungsaufbau der teuerste Teil eines
-# Polls (siehe docs/knowledge/performance-und-ressourcen.md 5.1). Bricht eine
+# Polls (siehe docs/knowledge/performance-and-resources.md 5.1). Bricht eine
 # gepoolte Verbindung weg (Gerät neu gestartet, WLAN weg), verwirft urllib3
 # sie und baut on demand eine neue auf; die Retry-Policy deckt zusätzlich den
 # Fall ab, dass der Abbruch erst beim Senden auffällt - auch für die

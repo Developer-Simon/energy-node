@@ -1,3 +1,7 @@
+---
+title: "Performance & Resources on the Pi 1 Node"
+---
+
 # Performance & Resources on the Pi 1 Node
 
 This document records the node's resource analysis: **how much CPU and RAM the

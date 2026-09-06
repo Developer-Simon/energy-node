@@ -1,0 +1,21 @@
+<!-- Render the ```mermaid fences in these documents as diagrams.
+     Kramdown emits them as <pre><code class="language-mermaid">, which
+     Mermaid does not pick up on its own, so convert them first. -->
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+  const dark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+  mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default" });
+  document.addEventListener("DOMContentLoaded", () => {
+    for (const code of document.querySelectorAll("code.language-mermaid")) {
+      const pre = document.createElement("pre");
+      pre.className = "mermaid";
+      pre.textContent = code.textContent;
+      code.closest("pre")?.replaceWith(pre);
+    }
+    mermaid.run();
+  });
+</script>
+<style>
+  pre.mermaid { background: none; border: 0; padding: 0; text-align: center; }
+  main img { border-radius: 4px; }
+</style>

@@ -79,16 +79,21 @@ or a device.
 **Overview** — energy status, live flow, self-sufficiency ring, balance and
 role assignment, all driven by MQTT Discovery:
 
-![Dashboard overview](docs/images/dashboard-uebersicht.png)
+![Dashboard overview](docs/images/dashboard.png)
 
 **Devices** — every discovered device with its entities and controls:
 
-![Device view](docs/images/dashboard-geraete.png)
+![Device view](docs/images/dashboard-devices.png)
 
 **History** — recorded and charted **in the browser** (IndexedDB), so the Pi
 stores nothing and stays responsive; exportable as CSV or JSON:
 
-![History view](docs/images/dashboard-verlaeufe.png)
+![History view](docs/images/dashboard-history.png)
+
+Every page of the UI — overview and layout editor, devices, history,
+configuration, energy roles, device map, diagnostics, automations, all seven
+settings tabs and the four colour schemes — is walked through with screenshots
+in [`docs/dashboard.md`](docs/dashboard.md).
 
 ---
 
@@ -187,23 +192,34 @@ no credentials made it into tracked files.
 ## Documentation
 
 Reference documentation lives under [`docs/`](docs/). It is a curated subset of
-the project's internal notes, translated to English:
+the project's internal notes, translated to English, and is also published as a
+GitHub Pages site from that folder ([`docs/index.md`](docs/index.md) is its
+landing page).
+
+Start here:
+
+- [`docs/dashboard.md`](docs/dashboard.md) — the dashboard, page by page, with
+  a screenshot of every screen
+- [`docs/device-services.md`](docs/device-services.md) — the device services:
+  what each one talks to, what it publishes, and how it is configured
+
+Reference:
 
 - [`docs/knowledge/data-flow.md`](docs/knowledge/data-flow.md) — what data is
   produced where, which channels it travels through, and who consumes it
-- [`docs/knowledge/konfiguration.md`](docs/knowledge/konfiguration.md) — every
+- [`docs/knowledge/configuration.md`](docs/knowledge/configuration.md) — every
   field of the central `config.json`
-- [`docs/knowledge/performance-und-ressourcen.md`](docs/knowledge/performance-und-ressourcen.md)
+- [`docs/knowledge/performance-and-resources.md`](docs/knowledge/performance-and-resources.md)
   — measured CPU/RAM per service on the Pi 1 and the optimisations that follow
-- [`docs/knowledge/dashboard/api-dokumentation.md`](docs/knowledge/dashboard/api-dokumentation.md)
+- [`docs/knowledge/dashboard/api-documentation.md`](docs/knowledge/dashboard/api-documentation.md)
   — the `/api/v1` HTTP API, endpoint by endpoint
 - [`docs/knowledge/dashboard/reverse-proxy.md`](docs/knowledge/dashboard/reverse-proxy.md)
   — running the dashboard under a sub-path behind another reverse proxy
-- [`docs/knowledge/dashboard/secrets-und-zugangsdaten.md`](docs/knowledge/dashboard/secrets-und-zugangsdaten.md)
+- [`docs/knowledge/dashboard/secrets-and-credentials.md`](docs/knowledge/dashboard/secrets-and-credentials.md)
   — where credentials live on the node and how they are installed
 - [`docs/knowledge/dashboard/lazy-assets-cache-busting.md`](docs/knowledge/dashboard/lazy-assets-cache-busting.md)
   — the frontend's manual `?v=` asset versioning
-- [`docs/knowledge/src/battery-soc-funktionsweise.md`](docs/knowledge/src/battery-soc-funktionsweise.md)
+- [`docs/knowledge/src/battery-soc-how-it-works.md`](docs/knowledge/src/battery-soc-how-it-works.md)
   — how the LiFePO4 state-of-charge engine works
 - [`docs/integration/ha-integration-hacs-release.md`](docs/integration/ha-integration-hacs-release.md)
   — the Home Assistant custom integration: HACS mirror repo and release runbook

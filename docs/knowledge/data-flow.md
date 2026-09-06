@@ -1,3 +1,7 @@
+---
+title: "Data flows in the Energy Node system"
+---
+
 # Data flows in the Energy Node system
 
 This document describes **which data is produced where, which channels it
@@ -7,7 +11,7 @@ together.
 
 Details about individual building blocks live elsewhere:
 
-- The dashboard's HTTP interface → [dashboard/api-dokumentation.md](dashboard/api-dokumentation.md)
+- The dashboard's HTTP interface → [dashboard/api-documentation.md](dashboard/api-documentation.md)
 - The Python infrastructure package → `src/energy_node_common/`
 - The Mosquitto bridge to the main site → see INSTALLATION.md section 5
 

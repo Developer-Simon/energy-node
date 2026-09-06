@@ -1,6 +1,6 @@
 """`apt list --upgradable` parst jedes Mal den kompletten APT-Cache und ist
 auf dem Pi 1 der teuerste Diagnose-Aufruf. Es wird daher hoechstens 1x/Tag
-wirklich ausgefuehrt. Siehe docs/knowledge/performance-und-ressourcen.md 5.2.
+wirklich ausgefuehrt. Siehe docs/knowledge/performance-and-resources.md 5.2.
 """
 
 import sys

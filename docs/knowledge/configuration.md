@@ -1,3 +1,7 @@
+---
+title: "Central configuration file `/etc/energy-node/config.json`"
+---
+
 # Central configuration file `/etc/energy-node/config.json`
 
 The central configuration file replaces the previously scattered environment variables: instead of seven different `*.env` files, there is now a single JSON document that holds all the values needed by the Python services, the Go dashboard, and the system components.

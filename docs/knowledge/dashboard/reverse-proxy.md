@@ -1,3 +1,7 @@
+---
+title: "Dashboard behind a reverse proxy under a sub-path (`/node/`)"
+---
+
 # Dashboard behind a reverse proxy under a sub-path (`/node/`)
 
 Status: 2026-08-08. This file documents the **implemented** state of the

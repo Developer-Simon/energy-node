@@ -1,5 +1,5 @@
 """Der Shelly-Dienst hält HTTP-Verbindungen offen (Keep-alive) und baut sie
-bei Verbindungsverlust neu auf. Siehe docs/knowledge/performance-und-ressourcen.md
+bei Verbindungsverlust neu auf. Siehe docs/knowledge/performance-and-resources.md
 Abschnitt 5.1."""
 
 import sys

@@ -47,7 +47,7 @@ dashboard/test/smoke/run-local-dashboard.sh                           # real das
 
 Never commit real credentials, IPs from your own site's private range, or
 device serials — see
-[`docs/knowledge/dashboard/secrets-und-zugangsdaten.md`](docs/knowledge/dashboard/secrets-und-zugangsdaten.md).
+[`docs/knowledge/dashboard/secrets-and-credentials.md`](docs/knowledge/dashboard/secrets-and-credentials.md).
 `./scripts/deploy/check_tracked_secrets.sh` scans tracked files for obvious
 leaks; run it before pushing.
 
