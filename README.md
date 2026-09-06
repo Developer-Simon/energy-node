@@ -191,11 +191,13 @@ python3.14 -m venv .venv-ha
 ```
 
 `./scripts/install_git_hooks.sh` links this repo's hooks into `.git/hooks/`; the
-pre-commit hook bumps the patch version in `dashboard/VERSION` and
-`src/VERSION` for commits on `main` that touch the matching directory, and
-(on every branch) rejects a commit whose staged files leave the vendored
-`battery_soc_core` copy out of sync with `src/battery_soc_core/` — run
-`.venv/bin/python scripts/vendor_core.py` and stage the result.
+pre-commit hook rejects a commit whose staged files leave a vendored copy out of
+sync — `battery_soc_core` with `src/battery_soc_core/`, or the Lovelace
+`battery-card-core.js` — run `.venv/bin/python scripts/vendor_core.py`
+(resp. `scripts/vendor_card.py`) and stage the result. Per-component patch
+versions are bumped on the PR branch by the `Version bump` workflow
+(`scripts/version/bump-patch.sh`), not by a hook; see
+[`docs/knowledge/releasing.md`](docs/knowledge/releasing.md).
 `./scripts/deploy/check_tracked_secrets.sh` (also run as a deploy preflight) verifies that
 no credentials made it into tracked files.
 
@@ -211,8 +213,8 @@ GitHub Pages site from that folder.
 the dashboard walkthrough with a screenshot of every screen, the device
 services, the data-flow and configuration references, measured per-service
 performance on the Pi 1, the `/api/v1` HTTP API, reverse-proxy and
-credentials notes, the battery state-of-charge internals, and the Home
-Assistant integration release runbook.
+credentials notes, the battery state-of-charge internals, how a release is
+cut, and the Home Assistant integration release runbook.
 
 ---
 

@@ -47,8 +47,19 @@ jobs:
           pip install -e src/energy_node_common -e src/battery_soc_core pytest
           pip install -r requirements-dev.txt
       - run: pytest src scripts/tests -q
+
+  shell-scripts:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
       - run: bash scripts/tests/test_publish_mirror.sh
       - run: bash scripts/tests/test_generate_changelog.sh
+      - run: bash scripts/tests/test_extract_changelog.sh
+      - run: bash scripts/tests/test_bump_version.sh
       - run: ./scripts/deploy/check_tracked_secrets.sh
 
   home-assistant-integration:

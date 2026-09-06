@@ -1,10 +1,15 @@
 <!-- Render the ```mermaid fences in these documents as diagrams.
      Kramdown emits them as <pre><code class="language-mermaid">, which
-     Mermaid does not pick up on its own, so convert them first. -->
+     Mermaid does not pick up on its own, so convert them first.
+
+     The fences themselves must be wrapped in {% raw %} ... {% endraw %}
+     in the Markdown: Jekyll runs Liquid before Kramdown, and Mermaid's
+     hexagon-node syntax  X{{"label"}}  otherwise looks like a Liquid
+     expression and gets stripped to  X"label" , which Mermaid rejects
+     with "Syntax error in text". -->
 <script type="module">
   import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
-  const dark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
-  mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default" });
+  mermaid.initialize({ startOnLoad: false, theme: "default" });
   document.addEventListener("DOMContentLoaded", () => {
     for (const code of document.querySelectorAll("code.language-mermaid")) {
       const pre = document.createElement("pre");
@@ -18,4 +23,58 @@
 <style>
   pre.mermaid { background: none; border: 0; padding: 0; text-align: center; }
   main img { border-radius: 4px; }
+
+  /* Two-column documentation layout (see _layouts/default.html). */
+  @media screen and (min-width: 64em) {
+    .main-content {
+      max-width: 72rem;
+      padding-left: 3rem;
+      padding-right: 3rem;
+    }
+  }
+
+  .doc-layout {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.5rem;
+    align-items: flex-start;
+  }
+  .doc-body { flex: 1 1 32rem; min-width: 0; }
+
+  .doc-nav { flex: 0 0 14rem; font-size: 0.95rem; }
+  .doc-nav summary { font-weight: 700; cursor: pointer; margin-bottom: 0.5rem; }
+  .doc-nav h2 {
+    margin: 1.25rem 0 0.4rem;
+    padding: 0;
+    border: 0;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6c7278;
+  }
+  .doc-nav ul { list-style: none; margin: 0; padding: 0; }
+  .doc-nav li { margin: 0.1rem 0; line-height: 1.35; }
+  .doc-nav a { color: #1e6bb8; text-decoration: none; }
+  .doc-nav a:hover { text-decoration: underline; }
+  .doc-nav a[aria-current="page"] { font-weight: 700; color: #159957; }
+
+  @media screen and (min-width: 64em) {
+    .doc-nav {
+      position: sticky;
+      top: 1.5rem;
+      max-height: calc(100vh - 3rem);
+      overflow-y: auto;
+    }
+    .doc-nav summary { display: none; }
+    .doc-nav h2:first-of-type { margin-top: 0; }
+  }
+
+  @media screen and (max-width: 63.99em) {
+    .doc-nav {
+      flex-basis: 100%;
+      padding-bottom: 0.75rem;
+      border-bottom: 1px solid #e6e6e6;
+    }
+  }
 </style>

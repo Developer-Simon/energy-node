@@ -41,6 +41,7 @@ the conventions they all share.
 Everything couples through **exactly one local MQTT broker**. There is no
 direct HTTP path between the device bridges and the dashboard.
 
+{% raw %}
 ```mermaid
 flowchart LR
     subgraph Remote["Remote site — Raspberry Pi 1 (ARMv6)"]
@@ -60,6 +61,7 @@ flowchart LR
         HA["Home Assistant<br/>+ Mosquitto"]
     end
 ```
+{% endraw %}
 
 Three properties shape the whole design:
 
@@ -96,6 +98,8 @@ Three properties shape the whole design:
   — the frontend's manual `?v=` asset versioning
 - [Battery state of charge](knowledge/src/battery-soc-how-it-works.md) — how
   the LiFePO4 engine works
+- [Cutting a release](knowledge/releasing.md) — the tag-driven build-and-publish
+  workflow and how to publish `vX.Y.Z`
 - [Home Assistant integration (HACS)](integration/ha-integration-hacs-release.md)
   — the native custom integration, its mirror repo and release runbook
 

@@ -56,6 +56,26 @@ function panel(options) {
   return {dom, component, charts};
 }
 
+// init(), selectPreset() und clearCustomRange() stossen load()+renderChart()
+// an, ohne die Kette zurueckzugeben. Ein Test, der danach dom.window.close()
+// ruft, zieht dem noch laufenden renderChart() das document weg - themeMode()
+// liest dann document.documentElement auf dem geschlossenen Fenster und wirft
+// (CI-Flake, je nachdem ob load() laenger braucht als eine feste Wartezeit).
+// captureAsync haengt sich in die Lade-Methoden und liefert ein Promise, das
+// erst faellig ist, wenn jede angestossene Kette wirklich durch ist.
+function captureAsync(component, names = ['load', 'loadViews', 'loadInterpretation']) {
+  const pending = [];
+  for (const name of names) {
+    const real = component[name].bind(component);
+    component[name] = (...args) => {
+      const result = real(...args);
+      pending.push(result);
+      return result;
+    };
+  }
+  return () => Promise.allSettled(pending);
+}
+
 test('load waehlt bei kurzem Zeitraum die Rohstufe', async () => {
   const {dom, component} = panel();
   const now = Date.now();
@@ -703,18 +723,20 @@ test('rangeBounds faellt auf relativ zurueck, solange kein vollstaendiger custom
 
 test('selectPreset wechselt in den relativen Modus und setzt rangeHours', async () => {
   const {dom, component} = panel();
+  const settled = captureAsync(component);
   component.rangeMode = 'custom';
   component.customFrom = 1;
   component.customTo = 2;
   component.selectPreset(24);
   assert.equal(component.rangeMode, 'relative');
   assert.equal(component.rangeHours, 24);
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await settled();
   dom.window.close();
 });
 
 test('clearCustomRange faellt auf den relativen Modus zurueck', async () => {
   const {dom, component} = panel();
+  const settled = captureAsync(component);
   component.rangeHours = 6;
   component.rangeMode = 'custom';
   component.customFrom = 1;
@@ -723,7 +745,7 @@ test('clearCustomRange faellt auf den relativen Modus zurueck', async () => {
   assert.equal(component.rangeMode, 'relative');
   assert.equal(component.customFrom, null);
   assert.equal(component.customTo, null);
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await settled();
   dom.window.close();
 });
 
@@ -786,13 +808,14 @@ test('eine eingegangene Lieferung erscheint als Notiz im Panel', async () => {
   const {dom, factory} = load();
   const component = factory();
   attachStores(component);
+  const settled = captureAsync(component);
   await component.init();
+  await settled();
   assert.equal(component.exchangeNotice, '');
 
   dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged', {
     detail: {peer: 'p-fremd', tier: '1m', rows: 180},
   }));
-  await new Promise(resolve => setTimeout(resolve, 10));
   assert.match(component.exchangeNotice, /180/);
   assert.match(component.exchangeNotice, /ergänzt/);
   dom.window.close();
@@ -802,13 +825,14 @@ test('mehrere Lieferungen werden in der Notiz aufsummiert', async () => {
   const {dom, factory} = load();
   const component = factory();
   attachStores(component);
+  const settled = captureAsync(component);
   await component.init();
+  await settled();
   const fire = rows => dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged', {
     detail: {peer: 'p-fremd', tier: '1m', rows},
   }));
   fire(100);
   fire(80);
-  await new Promise(resolve => setTimeout(resolve, 10));
   assert.match(component.exchangeNotice, /180/);
   dom.window.close();
 });
@@ -817,11 +841,12 @@ test('eine Lieferung ohne Saetze erzeugt keine Notiz', async () => {
   const {dom, factory} = load();
   const component = factory();
   attachStores(component);
+  const settled = captureAsync(component);
   await component.init();
+  await settled();
   dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged', {
     detail: {peer: 'p-fremd', tier: '1m', rows: 0},
   }));
-  await new Promise(resolve => setTimeout(resolve, 10));
   assert.equal(component.exchangeNotice, '');
   dom.window.close();
 });

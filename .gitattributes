@@ -5,3 +5,7 @@ dashboard/internal/webui/static/js-deps/** linguist-vendored
 # Generated lockfiles — same reasoning, standard linguist practice.
 dashboard/package-lock.json linguist-generated
 dashboard/go.sum linguist-generated
+
+# Repo tooling (release/CI/dev helper scripts) — not the shipped product;
+# keep it out of GitHub's language statistics.
+scripts/** linguist-vendored

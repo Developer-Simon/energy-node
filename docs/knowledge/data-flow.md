@@ -23,6 +23,7 @@ Everything runs through **exactly one local MQTT broker** (Mosquitto on the
 Raspberry Pi). There is no direct HTTP path between the device bridges and the
 dashboard — the broker is the only coupling.
 
+{% raw %}
 ```mermaid
 flowchart TB
     subgraph Physik["Devices / field level"]
@@ -88,6 +89,7 @@ flowchart TB
     BROKER <--> BR
     BR <--> HS
 ```
+{% endraw %}
 
 **Core statement:** device state flows *upward* (device → bridge → broker →
 dashboard → browser), commands and configuration flow *downward* (browser →
@@ -129,6 +131,7 @@ The dashboard has **no device list in a configuration file**. It learns
 everything at runtime from retained Discovery messages. A restart of the
 dashboard is enough, because the broker re-delivers the retained messages.
 
+{% raw %}
 ```mermaid
 sequenceDiagram
     participant B as Python bridge
@@ -152,6 +155,7 @@ sequenceDiagram
     R->>R: version++
     U->>R: GET /api/v1/events (SSE) sees the new version
 ```
+{% endraw %}
 
 Details that matter day to day:
 
@@ -171,6 +175,7 @@ Details that matter day to day:
 The browser does **not** get values pushed from MQTT. Between the registry and
 the browser sits a deliberately simple version mechanism.
 
+{% raw %}
 ```mermaid
 flowchart LR
     M{{Mosquitto}} -->|"state / availability"| C[mqttclient]
@@ -182,6 +187,7 @@ flowchart LR
     JS -->|"only then"| D
     D --> JS
 ```
+{% endraw %}
 
 - **SSE carries no payload data**, only `{"version": N}`. On a change the client
   fetches the devices via `GET /api/v1/devices` — that saves a diff
@@ -199,6 +205,7 @@ flowchart LR
 
 ## 5. Commands — from the click to the device
 
+{% raw %}
 ```mermaid
 sequenceDiagram
     participant U as Browser
@@ -220,6 +227,7 @@ sequenceDiagram
     B->>M: publish new actual value
     M->>A: state update → registry → version++
 ```
+{% endraw %}
 
 The dashboard publishes **only to `command_topic`s that come from Discovery** —
 there is no API path to write an arbitrary topic. The one exception is the
@@ -234,6 +242,7 @@ and appears in `GET /api/v1/devices/{id}` as `command_actions`.
 
 There are two separate directories with different ownership.
 
+{% raw %}
 ```mermaid
 flowchart TB
     subgraph DEV["Devices directory (paths.devices_dir)"]
@@ -270,6 +279,7 @@ flowchart TB
 
     UI2["dashboard settings"] -->|"PUT /api/v1/settings, /layout, ..."| S1
 ```
+{% endraw %}
 
 Characteristics of the storage path:
 
@@ -291,6 +301,7 @@ The balance is a derived data stream: roles are assigned to entities, and from
 the roles a balance object is produced that is available both over HTTP and over
 MQTT.
 
+{% raw %}
 ```mermaid
 flowchart LR
     REG[("registry<br/>entity values")] --> RES["energy.Resolver<br/>role per entity"]
@@ -302,6 +313,7 @@ flowchart LR
     MQTT --> AUTO["automation_mqtt.py<br/>balance_threshold condition"]
     HTTP --> UI["energy-flow chart"]
 ```
+{% endraw %}
 
 The automation service consumes the balance as *finished numbers* — it computes
 nothing itself. If the balance goes stale (older than `balance_max_age_s`,
@@ -311,6 +323,7 @@ default 30 s), balance-based rules stop firing.
 
 ## 8. Automations
 
+{% raw %}
 ```mermaid
 sequenceDiagram
     participant UI as automations editor
@@ -336,6 +349,7 @@ sequenceDiagram
     M->>S: test job
     S->>M: publish outstation/automation/test/result
 ```
+{% endraw %}
 
 Condition types: `balance_threshold`, `battery_soc`, `topic_value`,
 `time_window`, `entity_value`. Action types: `publish`, `notification`.
@@ -351,6 +365,7 @@ site sees the same Discovery and measurement topics as the dashboard.
 The dashboard **manages** the bridge but is not itself part of the bridge data
 path:
 
+{% raw %}
 ```mermaid
 flowchart LR
     UI["bridge UI"] -->|"PUT /api/v1/mqtt/bridge"| BJ[("bridge.json")]
@@ -364,6 +379,7 @@ flowchart LR
     TGT -.->|"drift comparison via checksum"| ST["GET /api/v1/mqtt/bridge/status"]
     SYS["$SYS connection state<br/>of the bridge client"] --> ST
 ```
+{% endraw %}
 
 The dashboard never writes directly to `/etc` — it drops a file in its own data
 directory and lets a root helper do the rest. The status combines three
@@ -379,6 +395,7 @@ browser's IndexedDB** (`energy-node-dashboard`, store version 2) — the Pi
 stores nothing. `internal/history` on the server side only defines the data
 contract and the retention window; it holds no samples.
 
+{% raw %}
 ```mermaid
 flowchart LR
     subgraph Browser["Browser (one leading tab records)"]
@@ -395,6 +412,7 @@ flowchart LR
     EX["history-exchange.js"] <-->|"/api/v1/history/exchange/*"| SRV{{"dashboard<br/>relay + 24 h ring buffer"}}
     IDB <--> EX
 ```
+{% endraw %}
 
 - **What is recorded:** the energy roles (`role:pv`, `role:grid_import`, …)
   taken from the balance, plus any individual entities listed in `settings.json`
