@@ -1,6 +1,7 @@
 """Coordinator for battery_soc integration."""
 from __future__ import annotations
 
+import dataclasses
 import logging
 import time
 from datetime import timedelta
@@ -13,7 +14,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .battery_soc_core import SocInputs, SocState, tick
+from .battery_soc_core import SocInputs, SocState, tick, analyse_calibration
 from .const import (
     CONF_BANK_A_VOLTAGE_ENTITY,
     CONF_BANK_A_VOLTAGE_SCALE,
@@ -124,7 +125,16 @@ class BatterySocCoordinator(DataUpdateCoordinator[dict]):
         """Run core tick calculation and update coordinator data."""
         now = time.time()
         result = tick(self.params, self.state, self._inputs, now)
-        self.async_set_updated_data(result.outputs)
+        tuning = {}
+        for unit in self.state.units:
+            suggestions, findings = analyse_calibration(self.params, unit.events)
+            tuning[unit.name] = {
+                "suggestions": [dataclasses.asdict(s) for s in suggestions],
+                "findings": [dataclasses.asdict(f) for f in findings],
+            }
+        data = dict(result.outputs)
+        data["_tuning"] = tuning
+        self.async_set_updated_data(data)
         self._save_debounce.async_schedule_call()
 
     def async_start_listeners(self) -> None:

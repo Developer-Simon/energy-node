@@ -158,3 +158,25 @@ async def test_state_persistence_roundtrip(hass):
     finally:
         await coord.async_shutdown()
         await coord2.async_shutdown()
+
+
+async def test_recalc_populates_tuning_per_unit(hass):
+    """Test that _recalc populates coordinator.data["_tuning"] with calibration analysis."""
+    from tests.conftest import _mk_config_entry, USER_PARALLEL, ADVANCED_DEFAULTS
+
+    entry = _mk_config_entry(USER_PARALLEL, ADVANCED_DEFAULTS)
+    entry.add_to_hass(hass)
+
+    # Set up source entity states
+    hass.states.async_set("sensor.meanwell_power", "200")
+    hass.states.async_set("sensor.lumentree_power", "50")
+    hass.states.async_set("sensor.bank_voltage", "26.8")
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    coord = hass.data["battery_soc"][entry.entry_id]
+    assert "_tuning" in coord.data
+    assert set(coord.data["_tuning"]) == {u.name for u in coord.state.units}
+    for block in coord.data["_tuning"].values():
+        assert "suggestions" in block and "findings" in block
