@@ -1,0 +1,7 @@
+# Vendored third-party JS (see js-deps/THIRD-PARTY-NOTICES.md) — not this
+# project's code; keep it out of GitHub's language statistics.
+dashboard/internal/webui/static/js-deps/** linguist-vendored
+
+# Generated lockfiles — same reasoning, standard linguist practice.
+dashboard/package-lock.json linguist-generated
+dashboard/go.sum linguist-generated
