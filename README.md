@@ -14,6 +14,14 @@ It is developed and run on a **Raspberry Pi 1 Model B (ARMv6, single core,
 512 MB RAM)**. Newer Pi models work as well; the Pi 1 is the floor that every
 design decision is measured against.
 
+> **Language note:** this project started as a single-site tool before it was
+> made public, and the dashboard's UI — templates, JS strings, the automation
+> editor — is currently **German-only**, as are most in-code comments across
+> the Go and Python source. This documentation (README, INSTALLATION.md,
+> `docs/`) is written in English. A proper localization layer for the
+> dashboard is planned but not yet implemented; until then, changing the
+> displayed language means editing the embedded templates directly.
+
 ---
 
 ## Why a "remote site" module
