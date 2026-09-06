@@ -86,3 +86,97 @@ def test_missing_bottom_anchor_is_reported_not_guessed():
     suggestions, findings = analyse(params, events)
     assert not any(s.key.endswith("capacity_ah") for s in suggestions)
     assert any(f.code == "kein_unterer_anker" for f in findings)
+
+
+# ---------------------------------------------------------------------------
+# Innenwiderstand (Task 5)
+# ---------------------------------------------------------------------------
+def resistance_event(current_a, true_r_mohm, anchor_v_per_cell, n=0, cell_count=8):
+    """Ein Kalibrierereignis, dessen ROHE Spannung exakt dem linearen
+    Widerstandsmodell folgt - so laesst sich der Rueckrechnung ein bekannter
+    Erwartungswert gegenueberstellen."""
+    side = "full" if current_a > 0 else "empty"
+    raw_v_per_cell = anchor_v_per_cell + current_a * true_r_mohm / 1000.0
+    return CalibrationEvent(
+        iso=f"2026-09-0{n % 9 + 1}T12:00:00+0200", unit="pack", side=side,
+        coulomb_before_ah=100.0, coulomb_after_ah=100.0, residual_ah=0.0,
+        voltage_v=round(raw_v_per_cell * cell_count, 4), cell_count=cell_count,
+        corrected_v_per_cell=anchor_v_per_cell, current_a=current_a,
+        threshold_v_per_cell=anchor_v_per_cell, tolerance_v_per_cell=0.02,
+        hold_s=600.0, taper_met=True, charged_ah=100.0, discharged_ah=100.0)
+
+
+def test_resistance_suggestion_recovers_the_true_value():
+    """Voll- und Leer-Seite zusammen, groesserer Strombereich als jede
+    Seite allein - siehe Modul-Docstring zur Streuung bei kleinem Strom."""
+    params = make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                         empty_v_per_cell=2.70, full_taper_c_rate=0.05,
+                         bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0)
+    currents = [4.0, 6.0, 8.0, 3.0, 5.0, -20.0, -35.0, -15.0, -25.0]
+    events = [
+        resistance_event(c, 1.2, 3.48 if c > 0 else 2.70, n=n)
+        for n, c in enumerate(currents)
+    ]
+    suggestions, _ = analyse(params, events)
+    r = next(s for s in suggestions if s.key == "internal_resistance_mohm_per_cell")
+    assert r.suggested_value == pytest.approx(1.2, abs=0.3)
+    assert r.current_value is None
+    assert r.sample_count == len(currents)
+
+
+def test_resistance_suggestion_excludes_near_zero_current_events():
+    """Unter MIN_CURRENT_FOR_RESISTANCE_A ist der Nenner zu klein, um
+    Signal von Rauschen zu trennen - solche Ereignisse duerfen die
+    Stichprobenzahl nicht aufblaehen."""
+    params = make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                         empty_v_per_cell=2.70, full_taper_c_rate=0.05,
+                         bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0)
+    strong = [resistance_event(c, 1.2, 3.48 if c > 0 else 2.70, n=n)
+              for n, c in enumerate([-20.0, -25.0, -30.0, -22.0, -28.0, -35.0])]
+    strong_full = [resistance_event(c, 1.2, 3.48, n=n + 6)
+                   for n, c in enumerate([3.0, 4.0, 5.0])]
+    weak = [resistance_event(c, 1.2, 3.48 if c > 0 else 2.70, n=n + 9)
+            for n, c in enumerate([0.3, 0.4, -0.2, 0.1])]
+    suggestions, _ = analyse(params, strong + strong_full + weak)
+    r = next(s for s in suggestions if s.key == "internal_resistance_mohm_per_cell")
+    # 6 strong empty + 3 strong full = 9; die vier Ereignisse unter
+    # MIN_CURRENT_FOR_RESISTANCE_A duerfen die Zahl NICHT aufblaehen.
+    assert r.sample_count == 9
+
+
+def test_resistance_suggestion_needs_minimum_current_samples():
+    params = make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                         full_taper_c_rate=0.05, bank_a_capacity_ah=100.0,
+                         bank_b_capacity_ah=100.0)
+    events = [resistance_event(c, 1.2, 3.48, n=n)
+              for n, c in enumerate([0.3, 0.4, 0.2, 0.1, 0.35])]
+    suggestions, findings = analyse(params, events)
+    assert not any(s.key == "internal_resistance_mohm_per_cell" for s in suggestions)
+    assert any(f.code == "zu_geringer_strom" for f in findings)
+
+
+def test_resistance_suggestion_reports_implausible_values():
+    """25 mOhm/Zelle waere ein defektes Pack oder ein loser Kontakt, kein
+    normaler Zellwert - der Algorithmus muss das melden statt vorschlagen."""
+    params = make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                         empty_v_per_cell=2.70, full_taper_c_rate=0.05,
+                         bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0)
+    currents = [4.0, 6.0, 8.0, 5.0, 7.0, -20.0, -30.0, -15.0]
+    events = [resistance_event(c, 25.0, 3.48 if c > 0 else 2.70, n=n)
+              for n, c in enumerate(currents)]
+    suggestions, findings = analyse(params, events)
+    assert not any(s.key == "internal_resistance_mohm_per_cell" for s in suggestions)
+    assert any(f.code == "unplausibel" for f in findings)
+
+
+def test_resistance_suggestion_reports_the_configured_value_when_set():
+    params = make_params(inverter_dc_ac_efficiency=0.90, full_v_per_cell=3.48,
+                         empty_v_per_cell=2.70, full_taper_c_rate=0.05,
+                         bank_a_capacity_ah=100.0, bank_b_capacity_ah=100.0,
+                         internal_resistance_mohm_per_cell=1.0)
+    currents = [4.0, 6.0, 8.0, 5.0, 7.0, -20.0, -30.0, -15.0]
+    events = [resistance_event(c, 1.2, 3.48 if c > 0 else 2.70, n=n)
+              for n, c in enumerate(currents)]
+    suggestions, _ = analyse(params, events)
+    r = next(s for s in suggestions if s.key == "internal_resistance_mohm_per_cell")
+    assert r.current_value == 1.0

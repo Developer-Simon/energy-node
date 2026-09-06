@@ -223,6 +223,32 @@ than half of the recent full calibrations happened too close to the tail-current
 pointing to a threshold that is too low (`full_v_per_cell`) or a tolerance that is
 too wide.
 
+### Internal Resistance Estimation from Calibration Behaviour
+
+The raw (unload-corrected) pack voltage at a calibration anchor point, combined
+with the known anchor voltage and the current at that moment, yields an estimate
+of the internal resistance. At the anchor, the true open-circuit voltage equals
+the configured threshold (`full_v_per_cell` or `empty_v_per_cell`), regardless of
+which load correction model (bin table or `internal_resistance_mohm_per_cell`)
+brought it there. Therefore:
+
+```
+delta_v_per_cell = raw_v_per_cell − anchor_v_per_cell
+R_i = delta_v_per_cell / current_a · 1000     [mΩ/cell]
+```
+
+Simulation with realistic sensor noise (±3 mV/cell, at the resolution limit of a
+Shelly Uni) shows the challenge: full-side calibrations occur only in the taper
+phase (`full_taper_c_rate` ≤ 0.05 C, i.e. ≤ 10 A on a 200 Ah system), small
+currents in the denominator amplify noise disproportionately, and single estimates
+scatter by 50–90 % of the true value. Empty-side calibrations have no taper
+condition (no equivalent to the full side's tail-current requirement), yielding
+larger, less noisy currents. Because `offset = I·R` holds regardless of sign
+(unlike the directional bin table), both sides can be fused in a single estimate;
+doing so halves the scatter relative to the full side alone. Events with
+`|current_a|` below a minimum threshold (2.0 A) are excluded — the denominator is
+too small to distinguish signal from noise regardless of sample size.
+
 ## 7. Stale Inputs
 
 If nothing arrives on a configured topic for longer than `stale_input_s`
