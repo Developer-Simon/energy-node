@@ -59,6 +59,21 @@ runtime_entity: sensor.speicher_time_to_empty   # optional, wins over the linear
 trajectory display falls back to showing only the projection — that's the
 normal case after a restart, not an error.
 
+## Calibration tuning
+
+The integration offers fine-grained control over the SoC calibration process through four tunables in the options flow:
+
+- **`full_taper_c_rate`** — the 100% calibration only fires when the pack neither takes nor delivers more than this C-rate at full voltage (leave empty to disable; counterpart to the calibration tolerance).
+- **`calibration_tolerance_empty_v_per_cell`** — overrides the shared calibration tolerance for the 0% threshold only (set generously when the BMS/inverter cuts off well above the configured empty voltage).
+- **`calibration_tolerance_full_v_per_cell`** — overrides the shared calibration tolerance for the 100% threshold only (keep tight when the charger can actually reach full voltage).
+- **`calibration_grace_s`** — how long a single charger dropout may interrupt a running hold timer without resetting it (0 = old behaviour).
+
+The diagnostic sensor `open_suggestions_<unit>` reports the number of open suggestions as its native value, with detailed `suggestions` and `findings` lists on its attributes.
+
+The service `battery_soc.apply_suggestion` (parameters: `entry_id`, `key`, optional `unit`) applies one pending suggestion to the config entry options and reloads it.
+
+**Note:** nothing is applied automatically; suggestions are advisory and only take effect through the options flow or an explicit `apply_suggestion` call.
+
 ## Manifest
 
 `manifest.json` carries the real public identifiers (`Developer-Simon` /
