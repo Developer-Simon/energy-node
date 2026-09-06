@@ -117,6 +117,24 @@
           "description": "Batteriebank (a oder b)"
         }
       }
+    },
+    "apply_suggestion": {
+      "name": "Kalibrierungsvorschlag anwenden",
+      "description": "Einen ausstehenden Kalibrierungsvorschlag auf die Batteriekonfiguration anwenden",
+      "fields": {
+        "entry_id": {
+          "name": "Konfigurationseintrag",
+          "description": "Der Batterie-Konfigurationseintrag"
+        },
+        "key": {
+          "name": "Parameterschlussel",
+          "description": "Der anzuwendende Kalibrierungsparameter"
+        },
+        "unit": {
+          "name": "Einheit",
+          "description": "Optionaler Einheitenname zur Begrenzung des Vorschlags"
+        }
+      }
     }
   }
 }

@@ -117,6 +117,24 @@
           "description": "Battery bank (a or b)"
         }
       }
+    },
+    "apply_suggestion": {
+      "name": "Apply Calibration Suggestion",
+      "description": "Apply a pending calibration suggestion to the battery configuration",
+      "fields": {
+        "entry_id": {
+          "name": "Config Entry",
+          "description": "The battery configuration entry"
+        },
+        "key": {
+          "name": "Parameter Key",
+          "description": "The calibration parameter to apply"
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "Optional unit name to scope the suggestion"
+        }
+      }
     }
   }
 }

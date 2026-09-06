@@ -23,3 +23,30 @@ set_state_of_charge:
           options:
             - "a"
             - "b"
+
+apply_suggestion:
+  name: Apply calibration suggestion
+  description: Apply a pending calibration suggestion to the battery configuration.
+  fields:
+    entry_id:
+      name: Config entry
+      description: The battery configuration entry.
+      required: true
+      selector:
+        config_entry:
+          integration: battery_soc
+    key:
+      name: Parameter key
+      description: The calibration parameter to apply.
+      required: true
+      selector:
+        select:
+          options:
+            - inverter_dc_ac_efficiency
+            - internal_resistance_mohm_per_cell
+    unit:
+      name: Unit
+      description: Optional unit name to scope the suggestion.
+      required: false
+      selector:
+        text:
