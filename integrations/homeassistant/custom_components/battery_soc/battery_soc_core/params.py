@@ -49,6 +49,16 @@ class SocParams:
     # falsch machen.
     calibration_tolerance_empty_v_per_cell: Optional[float] = None
     calibration_tolerance_full_v_per_cell: Optional[float] = None
+    # Wie lange ein einzelner Aussetzer die laufende Haltezeit ueberleben
+    # darf. 0 = Hard-Reset wie bisher.
+    #
+    # Ohne Karenz ist calibration_hold_s in einer Anlage mit
+    # Ueberschussladen nicht nach oben skalierbar: der Laderegler pausiert
+    # regelmaessig fuer eine halbe Minute, und jede Pause wirft den Timer auf
+    # null. Genau die lange Haltezeit waere aber die beste Absicherung.
+    # Die Karenz gilt NICHT fuer eine veraltete Spannung - dort setzt die
+    # Engine None ein, und ein blinder Sensor darf keine Haltezeit fuellen.
+    calibration_grace_s: float = 0.0
     calibration_hold_s: float = 120.0
     voltage_soc_mismatch_warn_pct: float = 25.0
     voltage_mismatch_hold_s: float = 300.0
@@ -104,6 +114,10 @@ class SocParams:
             value = getattr(self, name)
             if value is not None and value < 0:
                 raise ValueError(f"{name} darf nicht negativ sein: {value}")
+        if self.calibration_grace_s < 0:
+            raise ValueError(
+                f"calibration_grace_s darf nicht negativ sein: {self.calibration_grace_s}"
+            )
         for name in ("charger_ac_dc_efficiency", "inverter_dc_ac_efficiency", "charge_efficiency"):
             value = getattr(self, name)
             if not 0 < value <= 1:

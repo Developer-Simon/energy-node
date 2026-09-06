@@ -344,3 +344,61 @@ def test_wide_empty_tolerance_makes_the_bottom_anchor_reachable():
     bank2.coulomb_ah = 40.0
     apply_calibration(unreachable, bank2, 23.2 / 8, time.time(), current_a=-2.0)
     assert bank2.coulomb_ah == 40.0
+
+
+# ---------------------------------------------------------------------------
+# Karenzzeit (Task 3)
+# ---------------------------------------------------------------------------
+def _params_with_grace(grace_s):
+    return make_params(calibration_hold_s=600.0, full_v_per_cell=3.5,
+                       calibration_tolerance_v_per_cell=0.02,
+                       full_taper_c_rate=0.05,
+                       calibration_grace_s=grace_s)
+
+
+def test_short_dropout_does_not_reset_the_hold_timer():
+    """Der T2MG pausiert beim Ueberschussladen 30-60 s. Ohne Karenz kann
+    calibration_hold_s in dieser Anlage nie ablaufen."""
+    params = _params_with_grace(90.0)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    t0 = 1000.0
+    apply_calibration(params, bank, 3.49, t0, current_a=5.0)          # Timer startet
+    assert bank.pending_high_since == t0
+    apply_calibration(params, bank, 3.20, t0 + 300, current_a=0.0)    # Aussetzer
+    assert bank.pending_high_since == t0                              # ueberlebt
+    apply_calibration(params, bank, 3.49, t0 + 340, current_a=5.0)    # wieder da
+    assert bank.pending_high_since == t0
+    apply_calibration(params, bank, 3.49, t0 + 601, current_a=5.0)    # 600 s voll
+    assert bank.coulomb_ah == 200.0
+
+
+def test_long_dropout_resets_the_hold_timer():
+    params = _params_with_grace(90.0)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    t0 = 1000.0
+    apply_calibration(params, bank, 3.49, t0, current_a=5.0)
+    apply_calibration(params, bank, 3.20, t0 + 300, current_a=0.0)
+    apply_calibration(params, bank, 3.20, t0 + 400, current_a=0.0)    # 100 s > 90 s
+    assert bank.pending_high_since is None
+
+
+def test_grace_zero_keeps_the_old_hard_reset():
+    params = _params_with_grace(0.0)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.49, 1000.0, current_a=5.0)
+    apply_calibration(params, bank, 3.20, 1001.0, current_a=0.0)
+    assert bank.pending_high_since is None
+
+
+def test_grace_does_not_survive_a_stale_voltage():
+    """Bei veralteter Spannung liefert die Engine None. Das ist kein
+    Aussetzer des Ladereglers, sondern ein blinder Sensor - da darf keine
+    Haltezeit weiterlaufen, sonst kalibriert ein haengender Sensor."""
+    params = _params_with_grace(600.0)
+    bank = BankState("pack", 8, 200.0)
+    apply_calibration(params, bank, 3.49, 1000.0, current_a=5.0)
+    apply_calibration(params, bank, None, 1010.0, current_a=5.0)
+    assert bank.pending_high_since is None

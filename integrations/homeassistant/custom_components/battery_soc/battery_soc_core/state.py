@@ -15,6 +15,8 @@ class BankState:
         self.last_calibration_iso = None
         self.pending_low_since = None
         self.pending_high_since = None
+        self.pending_low_broken_since = None
+        self.pending_high_broken_since = None
         self.pending_mismatch_since = None
         self.voltage_mismatch = False
 
