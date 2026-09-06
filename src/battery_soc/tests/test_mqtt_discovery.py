@@ -42,17 +42,41 @@ def _run(name):
     return got, want
 
 
+def _verify_tuning_sensor_discovery(got, cfg):
+    """Verify that open_suggestions_* sensors have correct state_topic,
+    json_attributes_topic, and json_attributes_template."""
+    base_topic = cfg.base_topic
+    params = cfg.soc_params()
+    from battery_soc_core.state import build_units
+    units = build_units(params)
+
+    for unit in units:
+        topic = f"homeassistant/sensor/battery_soc/open_suggestions_{unit.name}/config"
+        assert topic in got, f"Missing discovery for open_suggestions_{unit.name}"
+        payload = got[topic]
+        assert payload["state_topic"] == f"{base_topic}/tuning"
+        assert payload["json_attributes_topic"] == f"{base_topic}/tuning"
+        assert "json_attributes_template" in payload
+        assert unit.name in payload["json_attributes_template"]
+
+
 def test_discovery_matches_golden_parallel_fresh():
     got, want = _run("parallel_fresh")
     # golden was captured before the manual-SoC number existed: allow the new key
     for topic in want:
         assert got.get(topic) == want[topic], topic
+    # Verify tuning sensor has correct structure
+    cfg = _configs("parallel_fresh")
+    _verify_tuning_sensor_discovery(got, cfg)
 
 
 def test_discovery_matches_golden_series_fresh():
     got, want = _run("series_fresh")
     for topic in want:
         assert got.get(topic) == want[topic], topic
+    # Verify tuning sensor has correct structure
+    cfg = _configs("series_fresh")
+    _verify_tuning_sensor_discovery(got, cfg)
 
 
 def test_publish_discovery_removes_entities_of_the_other_topology():

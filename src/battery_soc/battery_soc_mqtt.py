@@ -90,6 +90,7 @@ import state_store
 from mqtt_inputs import apply_message, mark_configured
 from soc_config import BatteryConfig, SOC_PARAM_FIELDS, input_topics, load_configs
 
+from battery_soc_core import analyse_calibration
 from battery_soc_core.engine import effective_power, tick
 from battery_soc_core.inputs import SocInputs, availability, sample_is_fresh, stale_groups
 from battery_soc_core.simulation import simulated_bank_voltage_v
@@ -105,6 +106,7 @@ class BatteryRuntime:
         mark_configured(config, self.inputs)
         self.state = SocState(config.soc_params())
         self.logged_calibration = {}
+        self.last_tuning_json = None
 
 
 configs = []
@@ -248,6 +250,25 @@ def compute_and_publish(client, runtime, dt_hours, simulation_active=False):
 
     client.publish(f"{config.base_topic}/state", json.dumps(result.outputs),
                    retain=True, qos=0)
+
+    tuning_payload = {
+        "generated_iso": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "units": {},
+    }
+    for unit in runtime.state.units:
+        suggestions, findings = analyse_calibration(params, unit.events)
+        tuning_payload["units"][unit.name] = {
+            "suggestions": [dataclasses.asdict(s) for s in suggestions],
+            "findings": [dataclasses.asdict(f) for f in findings],
+        }
+    tuning_json = json.dumps(tuning_payload, sort_keys=True)
+    # Nur bei Aenderung publizieren - der Block aendert sich nur mit einem
+    # neuen Kalibrierereignis, nicht mit jedem Sekunden-Tick. sort_keys
+    # macht den Vergleich unabhaengig von Dict-Iterationsreihenfolge.
+    if tuning_json != runtime.last_tuning_json:
+        client.publish(f"{config.base_topic}/tuning", tuning_json, retain=True, qos=0)
+        runtime.last_tuning_json = tuning_json
+
     publish_online_status(client, runtime, now, simulation_active)
     state_store.save_state(config, runtime.state)
 

@@ -28,6 +28,7 @@ class EntityDesc:
     number_min: Optional[float] = None
     number_max: Optional[float] = None
     number_step: Optional[float] = None
+    state_topic_suffix: Optional[str] = None
 
 
 def entity_specs(params: SocParams) -> List[EntityDesc]:
@@ -229,6 +230,7 @@ ALL_OBJECT_IDS = {
         "time_to_full", "time_to_empty",
         "calibration_residual_pack", "calibration_residual_bank_a", "calibration_residual_bank_b",
         "calibration_current_pack", "calibration_current_bank_a", "calibration_current_bank_b",
+        "open_suggestions_pack", "open_suggestions_bank_a", "open_suggestions_bank_b",
     ],
     "binary_sensor": [
         "inputs_stale", "ac_fallback", "imbalance_warning",

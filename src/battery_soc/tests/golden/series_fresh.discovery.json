@@ -497,6 +497,52 @@
     "unit_of_measurement": "W",
     "value_template": "{{ value_json.net_power_w }}"
   },
+  "homeassistant/sensor/battery_soc/open_suggestions_bank_a/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "diagnostic",
+    "icon": "mdi:tune",
+    "json_attributes_template": "{{ {'suggestions': value_json.units.bank_a.suggestions | default([]), 'findings': value_json.units.bank_a.findings | default([])} | tojson }}",
+    "json_attributes_topic": "outstation/battery_soc/tuning",
+    "name": "Offene Einstellungsvorschlaege Bank A",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/tuning",
+    "unique_id": "battery_soc_open_suggestions_bank_a",
+    "value_template": "{{ value_json.units.bank_a.suggestions | default([]) | length }}"
+  },
+  "homeassistant/sensor/battery_soc/open_suggestions_bank_b/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "diagnostic",
+    "icon": "mdi:tune",
+    "json_attributes_template": "{{ {'suggestions': value_json.units.bank_b.suggestions | default([]), 'findings': value_json.units.bank_b.findings | default([])} | tojson }}",
+    "json_attributes_topic": "outstation/battery_soc/tuning",
+    "name": "Offene Einstellungsvorschlaege Bank B",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/tuning",
+    "unique_id": "battery_soc_open_suggestions_bank_b",
+    "value_template": "{{ value_json.units.bank_b.suggestions | default([]) | length }}"
+  },
   "homeassistant/sensor/battery_soc/remaining_ah_bank_a/config": {
     "availability_topic": "outstation/battery_soc/status/online",
     "device": {

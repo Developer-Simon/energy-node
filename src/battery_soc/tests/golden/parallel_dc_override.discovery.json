@@ -278,6 +278,29 @@
     "unit_of_measurement": "W",
     "value_template": "{{ value_json.net_power_w }}"
   },
+  "homeassistant/sensor/battery_soc/open_suggestions_pack/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "diagnostic",
+    "icon": "mdi:tune",
+    "json_attributes_template": "{{ {'suggestions': value_json.units.pack.suggestions | default([]), 'findings': value_json.units.pack.findings | default([])} | tojson }}",
+    "json_attributes_topic": "outstation/battery_soc/tuning",
+    "name": "Offene Einstellungsvorschlaege",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/tuning",
+    "unique_id": "battery_soc_open_suggestions_pack",
+    "value_template": "{{ value_json.units.pack.suggestions | default([]) | length }}"
+  },
   "homeassistant/sensor/battery_soc/remaining_ah_pack/config": {
     "availability_topic": "outstation/battery_soc/status/online",
     "device": {
