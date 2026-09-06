@@ -105,6 +105,28 @@
     "unit_of_measurement": "%",
     "value_template": "{{ value_json.soc_combined_pct }}"
   },
+  "homeassistant/sensor/battery_soc/calibration_current_pack/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "device_class": "current",
+    "entity_category": "diagnostic",
+    "name": "Strom bei Kalibrierung",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_calibration_current_pack",
+    "unit_of_measurement": "A",
+    "value_template": "{{ value_json.pack_last_calibration_current_a }}"
+  },
   "homeassistant/sensor/battery_soc/calibration_empty_v_pack/config": {
     "availability_topic": "outstation/battery_soc/status/online",
     "device": {
@@ -148,6 +170,28 @@
     "unique_id": "battery_soc_calibration_full_v_pack",
     "unit_of_measurement": "V",
     "value_template": "{{ value_json.pack_calibration_full_v_per_cell }}"
+  },
+  "homeassistant/sensor/battery_soc/calibration_residual_pack/config": {
+    "availability_topic": "outstation/battery_soc/status/online",
+    "device": {
+      "identifiers": [
+        "battery_soc"
+      ],
+      "manufacturer": "DIY",
+      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
+      "name": "Batterie-Ladezustand",
+      "via_device": "energy-node"
+    },
+    "entity_category": "diagnostic",
+    "icon": "mdi:battery-sync",
+    "name": "Kalibriersprung",
+    "payload_available": "1",
+    "payload_not_available": "0",
+    "state_class": "measurement",
+    "state_topic": "outstation/battery_soc/state",
+    "unique_id": "battery_soc_calibration_residual_pack",
+    "unit_of_measurement": "Ah",
+    "value_template": "{{ value_json.pack_last_calibration_residual_ah }}"
   },
   "homeassistant/sensor/battery_soc/corrected_v_pack/config": {
     "availability_topic": "outstation/battery_soc/status/online",

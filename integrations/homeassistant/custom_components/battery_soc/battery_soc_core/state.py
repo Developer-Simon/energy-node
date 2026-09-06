@@ -1,9 +1,62 @@
 from __future__ import annotations
 
+import dataclasses
 import time
+from dataclasses import dataclass
 from typing import List, Optional
 
 from .params import SocParams
+
+# Jak viele Kalibrierereignisse je Einheit aufgehoben werden. Der Ring landet
+# in state.json - gross genug fuer eine belastbare Auswertung (Task 4b),
+# klein genug, dass die Datei eine Datei bleibt.
+CALIBRATION_EVENT_LIMIT = 20
+
+
+@dataclass(frozen=True)
+class CalibrationEvent:
+    """Was im Moment einer Kalibrierung galt - der Beleg, den ein Sprung im
+    SoC-Verlauf sonst schuldig bleibt.
+
+    residual_ah ist das Fehlersignal: wie weit der Coulomb-Zaehler daneben
+    lag, positiv wenn er zu niedrig stand. charged_ah/discharged_ah sind die
+    beiden Regressoren, mit denen sich dieses Residuum in Task 4b auf die
+    Lade- und die Entladeseite aufteilen laesst - ohne sie ist der Sprung
+    zwar sichtbar, aber nicht zuzuordnen.
+
+    voltage_v ist bewusst die ROHE, unkorrigierte Packspannung - nicht die
+    lastkorrigierte. Task 5 rechnet aus roher Spannung, Ankerschwelle und
+    Strom den tatsaechlichen Innenwiderstand zurueck; mit einer bereits
+    korrigierten Spannung waere das zirkulaer, weil die Korrektur selbst
+    schon eine R-Annahme (oder die Tabelle) enthaelt. corrected_v_per_cell
+    bleibt daneben stehen - das ist der Wert, an dem die Schwelle
+    tatsaechlich gemessen hat. cell_count macht das Ereignis
+    selbststaendig auswertbar, auch wenn sich die Konfiguration spaeter
+    aendert."""
+    iso: str
+    unit: str
+    side: str
+    coulomb_before_ah: float
+    coulomb_after_ah: float
+    residual_ah: float
+    voltage_v: Optional[float]
+    cell_count: int
+    corrected_v_per_cell: float
+    current_a: float
+    threshold_v_per_cell: float
+    tolerance_v_per_cell: float
+    hold_s: float
+    taper_met: bool
+    charged_ah: float
+    discharged_ah: float
+
+    def to_dict(self):
+        return dataclasses.asdict(self)
+
+    @classmethod
+    def from_dict(cls, d):
+        known = {f.name for f in dataclasses.fields(cls)}
+        return cls(**{k: v for k, v in d.items() if k in known})
 
 
 class BankState:
@@ -19,12 +72,23 @@ class BankState:
         self.pending_high_broken_since = None
         self.pending_mismatch_since = None
         self.voltage_mismatch = False
+        self.charged_ah = 0.0
+        self.discharged_ah = 0.0
+        self.events = []
 
     @property
     def soc_pct(self):
         if self.capacity_ah <= 0:
             return None
         return round(max(0.0, min(100.0, self.coulomb_ah / self.capacity_ah * 100)), 1)
+
+    def append_event(self, event):
+        self.events.append(event)
+        del self.events[:-CALIBRATION_EVENT_LIMIT]
+
+    def reset_balance(self):
+        self.charged_ah = 0.0
+        self.discharged_ah = 0.0
 
 
 def build_units(params: SocParams) -> List[BankState]:
@@ -52,7 +116,10 @@ class SocState:
 
     def to_dict(self):
         return {"units": {u.name: {"coulomb_ah": u.coulomb_ah,
-                                   "last_calibration_iso": u.last_calibration_iso}
+                                   "last_calibration_iso": u.last_calibration_iso,
+                                   "charged_ah": u.charged_ah,
+                                   "discharged_ah": u.discharged_ah,
+                                   "events": [e.to_dict() for e in u.events]}
                           for u in self.units}}
 
     def load_dict(self, data):
@@ -64,6 +131,11 @@ class SocState:
             if isinstance(entry, dict):
                 unit.coulomb_ah = entry.get("coulomb_ah", unit.coulomb_ah)
                 unit.last_calibration_iso = entry.get("last_calibration_iso")
+                unit.charged_ah = entry.get("charged_ah", 0.0)
+                unit.discharged_ah = entry.get("discharged_ah", 0.0)
+                unit.events = [CalibrationEvent.from_dict(e)
+                               for e in entry.get("events", [])
+                               if isinstance(e, dict)]
 
     def load_legacy_dict(self, data, topology):
         legacy = [

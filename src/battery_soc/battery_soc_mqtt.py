@@ -104,6 +104,7 @@ class BatteryRuntime:
         self.inputs = SocInputs()
         mark_configured(config, self.inputs)
         self.state = SocState(config.soc_params())
+        self.logged_calibration = {}
 
 
 configs = []
@@ -228,6 +229,22 @@ def compute_and_publish(client, runtime, dt_hours, simulation_active=False):
                       dt_hours=dt_hours, voltages_override=voltages_override)
     else:
         result = tick(params, runtime.state, runtime.inputs, now, dt_hours=dt_hours)
+
+    for unit in runtime.state.units:
+        if unit.events and unit.events[-1].iso != runtime.logged_calibration.get(unit.name):
+            event = unit.events[-1]
+            runtime.logged_calibration[unit.name] = event.iso
+            # Eine Zeile je Kalibrierung ins Journal - ein Sprung im
+            # SoC-Verlauf soll ohne MQTT-Mitschnitt nachvollziehbar sein.
+            logging.warning(
+                "Kalibrierung %s/%s: %.1f -> %.1f Ah (Residuum %+.1f Ah) bei "
+                "%.3f V/Zelle, %.1f A, Schwelle %.3f, Haltezeit %.0f s, "
+                "Taper %s, Bilanz +%.1f/-%.1f Ah",
+                unit.name, event.side, event.coulomb_before_ah,
+                event.coulomb_after_ah, event.residual_ah,
+                event.corrected_v_per_cell, event.current_a,
+                event.threshold_v_per_cell, event.hold_s, event.taper_met,
+                event.charged_ah, event.discharged_ah)
 
     client.publish(f"{config.base_topic}/state", json.dumps(result.outputs),
                    retain=True, qos=0)

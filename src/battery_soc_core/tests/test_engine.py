@@ -347,3 +347,16 @@ def test_tick_reports_voltage_soc_mismatch():
 
     assert out["pack_voltage_soc_pct"] > 50.0
     assert out["pack_voltage_soc_mismatch"] is True
+
+
+def test_tick_accumulates_the_charge_balance_per_unit():
+    params = make_params(bank_b_enabled=False, bank_a_capacity_ah=200.0)
+    state = SocState(params)
+    now = time.time()
+    tick(params, state, fresh_inputs(now, charger_power_w=1000.0), now, dt_hours=1.0)
+    pack = state.units[0]
+    assert pack.charged_ah > 0
+    assert pack.discharged_ah == 0.0
+
+    tick(params, state, fresh_inputs(now, inverter_power_w=500.0), now, dt_hours=1.0)
+    assert pack.discharged_ah > 0

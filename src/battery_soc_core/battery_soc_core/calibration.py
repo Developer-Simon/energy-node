@@ -143,7 +143,38 @@ def _clear_hold_timers(bank):
     bank.pending_high_broken_since = None
 
 
-def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0):
+def _record_calibration(bank, side, target_ah, now, since, corrected_v_per_cell,
+                        current_a, raw_voltage_v, threshold, tolerance, taper_met):
+    from .state import CalibrationEvent  # lokal: haelt state.py importfrei von calibration.py
+
+    before = bank.coulomb_ah
+    bank.coulomb_ah = target_ah
+    bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    bank.append_event(CalibrationEvent(
+        iso=bank.last_calibration_iso, unit=bank.name, side=side,
+        coulomb_before_ah=round(before, 3),
+        coulomb_after_ah=round(target_ah, 3),
+        residual_ah=round(target_ah - before, 3),
+        voltage_v=None if raw_voltage_v is None else round(raw_voltage_v, 3),
+        cell_count=bank.cell_count,
+        corrected_v_per_cell=round(corrected_v_per_cell, 4),
+        current_a=round(current_a or 0.0, 3),
+        threshold_v_per_cell=round(threshold, 4),
+        tolerance_v_per_cell=round(tolerance, 4),
+        hold_s=round(now - since, 1),
+        taper_met=taper_met,
+        charged_ah=round(bank.charged_ah, 3),
+        discharged_ah=round(bank.discharged_ah, 3),
+    ))
+    bank.reset_balance()
+    # Ruling 6: Reset the hold timer so the next event on the same side
+    # needs a fresh calibration_hold_s to accumulate.
+    setattr(bank, f"pending_{'low' if side == 'empty' else 'high'}_since", None)
+    setattr(bank, f"pending_{'low' if side == 'empty' else 'high'}_broken_since", None)
+
+
+def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0,
+                      raw_voltage_v=None):
     """Prueft, ob die (lastkorrigierte) Spannung stabil genug ausserhalb der
     Schwellen liegt, um den Coulomb-Zaehler auf 0%/100% zurueckzusetzen.
 
@@ -173,11 +204,15 @@ def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0):
     high_since = _hold_timer(bank, "high", now, params.calibration_grace_s, high_active)
 
     if low_since is not None and now - low_since >= params.calibration_hold_s:
-        bank.coulomb_ah = 0.0
-        bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        _record_calibration(bank, "empty", 0.0, now, low_since, corrected_v_per_cell,
+                          current_a, raw_voltage_v,
+                          params.empty_v_per_cell + tolerance_empty, tolerance_empty,
+                          True)
     elif high_since is not None and now - high_since >= params.calibration_hold_s:
-        bank.coulomb_ah = bank.capacity_ah
-        bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+        _record_calibration(bank, "full", bank.capacity_ah, now, high_since, corrected_v_per_cell,
+                          current_a, raw_voltage_v,
+                          params.full_v_per_cell - tolerance_full, tolerance_full,
+                          full_taper_satisfied(params, current_a, bank.capacity_ah))
 
 
 def apply_voltage_plausibility(params, bank, voltage_soc_pct, now):

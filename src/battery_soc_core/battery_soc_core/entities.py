@@ -142,6 +142,20 @@ def entity_specs(params: SocParams) -> List[EntityDesc]:
                 f"{unit.name}_voltage_soc_mismatch",
                 device_class="problem", entity_category="diagnostic"
             ),
+            EntityDesc(
+                "sensor", f"calibration_residual_{unit.name}",
+                f"Kalibriersprung{label}",
+                f"{unit.name}_last_calibration_residual_ah",
+                unit="Ah", state_class="measurement",
+                entity_category="diagnostic", icon="mdi:battery-sync"
+            ),
+            EntityDesc(
+                "sensor", f"calibration_current_{unit.name}",
+                f"Strom bei Kalibrierung{label}",
+                f"{unit.name}_last_calibration_current_a",
+                unit="A", device_class="current", state_class="measurement",
+                entity_category="diagnostic"
+            ),
         ])
 
     # Series-only items
@@ -213,6 +227,8 @@ ALL_OBJECT_IDS = {
         "corrected_v_pack", "corrected_v_bank_a", "corrected_v_bank_b",
         "voltage_soc_pack", "voltage_soc_bank_a", "voltage_soc_bank_b",
         "time_to_full", "time_to_empty",
+        "calibration_residual_pack", "calibration_residual_bank_a", "calibration_residual_bank_b",
+        "calibration_current_pack", "calibration_current_bank_a", "calibration_current_bank_b",
     ],
     "binary_sensor": [
         "inputs_stale", "ac_fallback", "imbalance_warning",

@@ -402,3 +402,29 @@ def test_grace_does_not_survive_a_stale_voltage():
     apply_calibration(params, bank, 3.49, 1000.0, current_a=5.0)
     apply_calibration(params, bank, None, 1010.0, current_a=5.0)
     assert bank.pending_high_since is None
+
+
+def test_calibration_records_an_event_and_resets_the_balance():
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 166.0
+    bank.charged_ah, bank.discharged_ah = 95.4, 61.2
+    apply_calibration(params, bank, 3.49, 1000.0, current_a=6.1, raw_voltage_v=27.94)
+
+    assert len(bank.events) == 1
+    event = bank.events[-1]
+    assert event.side == "full"
+    assert event.coulomb_before_ah == 166.0
+    assert event.coulomb_after_ah == 200.0
+    assert event.residual_ah == pytest.approx(34.0)
+    assert event.voltage_v == pytest.approx(27.94)
+    assert event.cell_count == 8
+    assert event.charged_ah == pytest.approx(95.4)
+    assert event.discharged_ah == pytest.approx(61.2)
+    assert event.taper_met is True
+    # Die Bilanz laeuft ab dem Anker neu - sonst zaehlt das naechste
+    # Intervall die Ladung des vorigen mit.
+    assert bank.charged_ah == 0.0
+    assert bank.discharged_ah == 0.0
