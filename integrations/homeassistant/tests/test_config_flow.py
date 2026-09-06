@@ -84,3 +84,47 @@ async def test_options_flow_updates_a_tunable(hass):
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert entry.options["calibration_hold_s"] == 300
     assert entry.options["fallback_interval_s"] == 15
+
+
+async def test_options_flow_accepts_new_calibration_tunables(hass):
+    """The four fields from Tasks 1-3 must go through the tunables step
+    and land unchanged in params_from_config."""
+    from custom_components.battery_soc.helpers import params_from_config
+
+    entry = await _create_entry(hass, USER_PARALLEL, ADVANCED_DEFAULTS)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {
+            "charger_power_entity": "sensor.meanwell_power",
+            "inverter_power_entity": "sensor.lumentree_power",
+            "bank_a_voltage_entity": "sensor.bank_voltage",
+            "bank_a_voltage_scale": 1.0, "bank_b_voltage_scale": 1.0,
+            "fallback_interval_s": 15,
+        })
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        user_input={**ADVANCED_DEFAULTS,
+                    "full_taper_c_rate": 0.05,
+                    "calibration_tolerance_empty_v_per_cell": 0.20,
+                    "calibration_tolerance_full_v_per_cell": 0.02,
+                    "calibration_grace_s": 90},
+    )
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    params = params_from_config({**entry.data, **result["data"]})
+    assert params.full_taper_c_rate == 0.05
+    assert params.calibration_tolerance_empty_v_per_cell == 0.20
+    assert params.calibration_tolerance_full_v_per_cell == 0.02
+    assert params.calibration_grace_s == 90
+
+
+async def test_options_flow_leaves_taper_and_overrides_unset_by_default(hass):
+    """Nothing entered -> None or dataclass default; the production Pi
+    guarantee also holds for HA users."""
+    from custom_components.battery_soc.helpers import params_from_config
+
+    entry = await _create_entry(hass, USER_PARALLEL, ADVANCED_DEFAULTS)
+    params = params_from_config({**entry.data, **entry.options})
+    assert params.full_taper_c_rate is None
+    assert params.calibration_tolerance_empty_v_per_cell is None
+    assert params.calibration_tolerance_full_v_per_cell is None
+    assert params.calibration_grace_s == 0.0

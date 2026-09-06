@@ -42,6 +42,10 @@
           "dc_max_age_s": "DC Measurement Max Age (s)",
           "require_fresh_inputs": "Require Fresh Inputs",
           "internal_resistance_mohm_per_cell": "Internal Resistance (mΩ/cell)",
+          "full_taper_c_rate": "Tail Current for Full Calibration (C-rate)",
+          "calibration_tolerance_empty_v_per_cell": "Calibration Tolerance, Empty (V/cell)",
+          "calibration_tolerance_full_v_per_cell": "Calibration Tolerance, Full (V/cell)",
+          "calibration_grace_s": "Calibration Grace Period (s)",
           "fallback_interval_s": "Fallback Interval (s)"
         }
       }
@@ -90,6 +94,10 @@
           "dc_max_age_s": "DC Measurement Max Age (s)",
           "require_fresh_inputs": "Require Fresh Inputs",
           "internal_resistance_mohm_per_cell": "Internal Resistance (mΩ/cell)",
+          "full_taper_c_rate": "Tail Current for Full Calibration (C-rate)",
+          "calibration_tolerance_empty_v_per_cell": "Calibration Tolerance, Empty (V/cell)",
+          "calibration_tolerance_full_v_per_cell": "Calibration Tolerance, Full (V/cell)",
+          "calibration_grace_s": "Calibration Grace Period (s)",
           "fallback_interval_s": "Fallback Interval (s)"
         }
       }
@@ -107,6 +115,24 @@
         "bank": {
           "name": "Bank",
           "description": "Battery bank (a or b)"
+        }
+      }
+    },
+    "apply_suggestion": {
+      "name": "Apply Calibration Suggestion",
+      "description": "Apply a pending calibration suggestion to the battery configuration",
+      "fields": {
+        "entry_id": {
+          "name": "Config Entry",
+          "description": "The battery configuration entry"
+        },
+        "key": {
+          "name": "Parameter Key",
+          "description": "The calibration parameter to apply"
+        },
+        "unit": {
+          "name": "Unit",
+          "description": "Optional unit name to scope the suggestion"
         }
       }
     }

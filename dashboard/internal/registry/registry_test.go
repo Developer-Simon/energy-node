@@ -783,3 +783,47 @@ func TestStructureFingerprintOfEmptyIsStableAndNotBlank(t *testing.T) {
 		t.Error("nil und leere Liste liefern verschiedene Fingerabdruecke")
 	}
 }
+
+func TestTopicSamplesForReturnsKnownFalseForUnknownTopic(t *testing.T) {
+	reg := New()
+	samples := reg.TopicSamplesFor([]string{"outstation/nichts/state"})
+	if len(samples) != 1 || samples[0].Known {
+		t.Fatalf("expected one unknown sample, got %+v", samples)
+	}
+}
+
+func TestTopicSamplesForPreservesRequestOrder(t *testing.T) {
+	reg := New()
+	reg.UpsertEntity(Discovery{Device: DeviceInfo{ID: "node"}, Entity: EntityInfo{UniqueID: "b", StateTopic: "outstation/b/state"}})
+	reg.UpsertEntity(Discovery{Device: DeviceInfo{ID: "node"}, Entity: EntityInfo{UniqueID: "a", StateTopic: "outstation/a/state"}})
+	topics := []string{"outstation/b/state", "outstation/a/state"}
+	samples := reg.TopicSamplesFor(topics)
+	if len(samples) != 2 || samples[0].Topic != topics[0] || samples[1].Topic != topics[1] {
+		t.Fatalf("expected request order preserved, got %+v", samples)
+	}
+}
+
+func TestRestoreStateAtSeedsLastMessageFromCachedPayload(t *testing.T) {
+	reg := New()
+	reg.UpsertEntity(Discovery{Device: DeviceInfo{ID: "dev"}, Entity: EntityInfo{UniqueID: "uid", StateTopic: "outstation/x/state"}})
+	lastSeen := time.Date(2026, 8, 1, 1, 0, 0, 0, time.UTC)
+	lastTopicAt := time.Date(2026, 8, 1, 1, 1, 0, 0, time.UTC)
+	reg.RestoreStateAt("dev", "uid", "42", true, false, lastSeen, lastTopicAt, `{"raw":true}`)
+	samples := reg.TopicSamplesFor([]string{"outstation/x/state"})
+	if samples[0].Payload != `{"raw":true}` || samples[0].Source != "runtime-cache" {
+		t.Fatalf("expected cached raw payload with runtime-cache source, got %+v", samples[0])
+	}
+}
+
+func TestRestoreStateAtDoesNotOverwriteALiveMessage(t *testing.T) {
+	reg := New()
+	reg.UpsertEntity(Discovery{Device: DeviceInfo{ID: "dev"}, Entity: EntityInfo{UniqueID: "uid", StateTopic: "outstation/x/state"}})
+	lastSeen := time.Date(2026, 8, 1, 1, 0, 0, 0, time.UTC)
+	lastTopicAt := time.Date(2026, 8, 1, 1, 1, 0, 0, time.UTC)
+	reg.UpdateTopicWithQoS("outstation/x/state", []byte(`{"live":true}`), false, 0, lastTopicAt)
+	reg.RestoreStateAt("dev", "uid", "42", true, false, lastSeen, lastTopicAt, `{"stale":true}`)
+	samples := reg.TopicSamplesFor([]string{"outstation/x/state"})
+	if samples[0].Payload != `{"live":true}` || samples[0].Source != "live" {
+		t.Fatalf("restore must not clobber an already-live message, got %+v", samples[0])
+	}
+}

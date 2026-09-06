@@ -1136,6 +1136,36 @@ func TestTopicSamplesEndpointRejectsOtherMethods(t *testing.T) {
 	}
 }
 
+func TestTopicSamplesEndpointFiltersWithTopicParameter(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "battery"},
+		Entity: registry.EntityInfo{UniqueID: "battery-soc", StateTopic: "outstation/battery/state"},
+	})
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "inverter"},
+		Entity: registry.EntityInfo{UniqueID: "inv-power", StateTopic: "outstation/inverter/power"},
+	})
+	reg.UpdateState("outstation/battery/state", []byte(`{"soc":50}`), false, time.Now())
+
+	router := NewRouter(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/v1/topics/samples?topic=outstation/battery/state", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d", recorder.Code)
+	}
+	var samples []registry.TopicSample
+	if err := json.NewDecoder(recorder.Body).Decode(&samples); err != nil {
+		t.Fatal(err)
+	}
+	if len(samples) != 1 {
+		t.Fatalf("expected exactly one sample, got %d: %#v", len(samples), samples)
+	}
+	if samples[0].Topic != "outstation/battery/state" || samples[0].Payload != `{"soc":50}` {
+		t.Fatalf("sample = %#v", samples[0])
+	}
+}
+
 func TestAutomationRulesPutRequiresAuth(t *testing.T) {
 	// Setup: create temp directories and seed config
 	configDir := t.TempDir()

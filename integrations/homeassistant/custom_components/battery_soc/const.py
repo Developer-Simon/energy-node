@@ -5,6 +5,7 @@ DOMAIN = "battery_soc"
 PLATFORMS = ["sensor", "binary_sensor", "number"]
 
 SERVICE_SET_SOC = "set_state_of_charge"
+SERVICE_APPLY_SUGGESTION = "apply_suggestion"
 ATTR_STATE_OF_CHARGE = "state_of_charge"
 ATTR_BANK = "bank"
 

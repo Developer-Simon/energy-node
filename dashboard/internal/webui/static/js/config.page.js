@@ -304,7 +304,7 @@
           control: (args) => this.configControl(args),
           afterObject: (objectNode) => {
             this.linkJsonKeyFields(objectNode);
-            this.linkBatteryVoltageMeasurement(objectNode);
+            this.renderTuningPanel(objectNode);
           },
           arrayItemHeader: (header, args) => this.shellyItemHeader(header, args),
           onDirty: () => { this.formDirty = true; },
@@ -392,9 +392,13 @@
       return this.selectedName === 'battery_soc_devices';
     },
 
-    batteryLiveState(objectNode) {
+    batteryDeviceId(objectNode) {
       const idControl = objectNode.querySelector('[data-schema-key="id"] .schema-control');
-      const id = idControl && idControl.value;
+      return (idControl && idControl.value) || null;
+    },
+
+    batteryLiveState(objectNode) {
+      const id = this.batteryDeviceId(objectNode);
       if (!id) return null;
       const sample = this.topicSamples.get(`outstation/${id}/state`);
       if (!sample || !sample.payload) return null;
@@ -405,6 +409,48 @@
       } catch (error) {
         return null;
       }
+    },
+
+    // Der {base}/tuning-Payload aus Task 6: {generated_iso, units: {name:
+    // {suggestions: [...], findings: [...]}}}. Kommt ueber dieselbe
+    // topicSamples-Map wie der State - nur ein anderes Topic.
+    batteryTuningState(objectNode) {
+      const id = this.batteryDeviceId(objectNode);
+      if (!id) return null;
+      const sample = this.topicSamples.get(`outstation/${id}/tuning`);
+      if (!sample || !sample.payload) return null;
+      try {
+        const payload = JSON.parse(sample.payload);
+        if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+        return payload;
+      } catch (error) {
+        return null;
+      }
+    },
+
+    // Die Registry markiert einen aus dem Runtime-Cache geladenen Wert mit
+    // source != "live" (Task 7) - ein solcher Stand darf nicht stillschweigend
+    // als frisch gelten.
+    batterySampleSource(objectNode, kind) {
+      const id = this.batteryDeviceId(objectNode);
+      if (!id) return null;
+      const sample = this.topicSamples.get(`outstation/${id}/${kind}`);
+      return (sample && sample.source) || null;
+    },
+
+    // Gezielte Abfrage statt der vollen Topic-Liste: nur state + tuning der
+    // gerade bearbeiteten Anlage, und nur bekannte Topics werden in die
+    // vorhandene topicSamples-Map gemischt (Task 7).
+    async fetchDeviceSamples(objectNode) {
+      const id = this.batteryDeviceId(objectNode);
+      if (!id) return;
+      const params = new URLSearchParams();
+      params.append('topic', `outstation/${id}/state`);
+      params.append('topic', `outstation/${id}/tuning`);
+      const samples = await requestJSON(`/api/v1/topics/samples?${params}`);
+      (samples || []).forEach(sample => {
+        if (sample && sample.known && sample.topic) this.topicSamples.set(sample.topic, sample);
+      });
     },
 
     // Die Namen im State-Payload haengen von der Topologie ab (siehe
@@ -451,28 +497,67 @@
       this.topicSamples = new Map((samples || []).map(sample => [sample.topic, sample]));
     },
 
-    linkBatteryVoltageMeasurement(objectNode) {
+    // Ein einklappbares Panel oberhalb des Formulars, nur an der Batterie-
+    // Konfiguration. Abschnitt A ist der bisherige Messblock (aus den
+    // Feldknoten hierher verschoben), Abschnitt B die Vorschlaege aus
+    // {base}/tuning.
+    renderTuningPanel(objectNode) {
       if (!this.isBatteryConfig()) return;
+      let details = objectNode.querySelector('.battery-tuning');
+      if (!details) {
+        details = document.createElement('details');
+        details.className = 'battery-tuning';
+        details.open = true;
+        const summary = document.createElement('summary');
+        summary.textContent = 'Kalibrierung & Abstimmung';
+        details.append(summary);
+        objectNode.prepend(details);
+      }
+      let body = details.querySelector('.battery-tuning-body');
+      if (!body) {
+        body = document.createElement('div');
+        body.className = 'battery-tuning-body';
+        details.append(body);
+      }
+      body.replaceChildren();
+      this.renderBatteryMeasureSection(body, objectNode); // Abschnitt A
+      this.renderTuningSuggestions(body, objectNode);     // Abschnitt B
+    },
+
+    // Ersetzt das frühere linkBatteryVoltageMeasurement: statt je einen
+    // battery-measure-Block in die Feldknoten zu haengen, kommen beide in den
+    // Panel-Koerper, per data-threshold-key unterscheidbar.
+    renderBatteryMeasureSection(body, objectNode) {
       ['empty_v_per_cell', 'full_v_per_cell'].forEach(key => {
-        const targetNode = objectNode.querySelector(`[data-schema-key="${key}"]`);
-        if (!targetNode) return;
+        if (!objectNode.querySelector(`[data-schema-key="${key}"] .schema-control`)) return;
         const block = document.createElement('div');
         block.className = 'battery-measure';
-        targetNode.append(block);
-        this.renderBatteryMeasureBlock(block, objectNode, targetNode);
+        block.dataset.thresholdKey = key;
+        body.append(block);
+        this.renderBatteryMeasureBlock(block, objectNode, key);
       });
     },
 
-    renderBatteryMeasureBlock(block, objectNode, targetNode) {
+    renderBatteryMeasureBlock(block, objectNode, key) {
       block.replaceChildren();
-      const control = targetNode.querySelector('.schema-control');
+      const control = objectNode.querySelector(`[data-schema-key="${key}"] .schema-control`);
+      if (!control) return;
+      const fieldLabel = key === 'full_v_per_cell' ? 'Vollschwelle' : 'Leerschwelle';
       const live = this.batteryLiveState(objectNode);
       const head = document.createElement('div');
       head.className = 'battery-measure-head';
       const caption = document.createElement('span');
       caption.textContent = live
-        ? `Aktuell gemessen${this.measuredAgo(live.at)}:`
-        : 'Keine Live-Daten für diese Anlage.';
+        ? `${fieldLabel} · aktuell gemessen${this.measuredAgo(live.at)}:`
+        : `${fieldLabel} · Keine Live-Daten für diese Anlage.`;
+      head.append(caption);
+      const source = this.batterySampleSource(objectNode, 'state');
+      if (live && source && source !== 'live') {
+        const cached = document.createElement('span');
+        cached.className = 'battery-measure-cached';
+        cached.textContent = 'zwischengespeicherter Stand';
+        head.append(cached);
+      }
       const refresh = document.createElement('button');
       refresh.type = 'button';
       refresh.className = 'battery-measure-refresh';
@@ -480,12 +565,15 @@
       refresh.addEventListener('click', () => {
         // Erst mit dem vorhandenen Stand neu zeichnen: dann folgt der Block
         // sofort einer geaenderten Zellzahl, auch wenn der Abruf scheitert.
-        this.renderBatteryMeasureBlock(block, objectNode, targetNode);
-        this.refreshTopicSamples()
-          .then(() => this.renderBatteryMeasureBlock(block, objectNode, targetNode))
+        this.renderBatteryMeasureBlock(block, objectNode, key);
+        this.fetchDeviceSamples(objectNode)
+          .then(() => {
+            this.renderBatteryMeasureBlock(block, objectNode, key);
+            this.refreshTuningSuggestions(objectNode);
+          })
           .catch(error => this.$store.toasts.push(error.message, 'critical'));
       });
-      head.append(caption, refresh);
+      head.append(refresh);
       block.append(head);
       if (!live) return;
       this.batteryUnits(objectNode).forEach(unit => {
@@ -513,6 +601,58 @@
         });
         block.append(row);
       });
+    },
+
+    // Abschnitt B: je Vorschlag eine Zeile mit "uebernehmen"-Knopf (setzt nur
+    // den Formularwert, kein PUT), Befunde als reine Hinweiszeilen ohne Knopf.
+    renderTuningSuggestions(body, objectNode) {
+      const tuning = this.batteryTuningState(objectNode);
+      const section = document.createElement('div');
+      section.className = 'battery-tuning-suggestions';
+      if (!tuning) {
+        section.textContent = 'Noch keine Auswertung.';
+        body.append(section);
+        return;
+      }
+      this.batteryUnits(objectNode).forEach(unit => {
+        const unitData = tuning.units && tuning.units[unit.name];
+        if (!unitData) return;
+        (unitData.suggestions || []).forEach(s => {
+          const row = document.createElement('div');
+          row.className = 'battery-tuning-row';
+          row.textContent = `${s.key}: ${s.current_value ?? '–'} → ${s.suggested_value} `
+            + `(Konfidenz ${s.confidence}, n=${s.sample_count}, Streuung ±${s.spread})`;
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'battery-tuning-apply';
+          button.textContent = 'übernehmen';
+          button.addEventListener('click', () => {
+            const control = objectNode.querySelector(`[data-schema-key="${s.key}"] .schema-control`);
+            if (!control) return;
+            control.value = s.suggested_value;
+            // Wie beim Messblock: ohne diese Events verwirft readNode() den Wert.
+            control.dispatchEvent(new Event('input', {bubbles: true}));
+            control.dispatchEvent(new Event('change', {bubbles: true}));
+          });
+          row.append(button);
+          section.append(row);
+        });
+        (unitData.findings || []).forEach(f => {
+          const row = document.createElement('div');
+          row.className = `battery-tuning-finding battery-tuning-finding--${f.severity}`;
+          row.textContent = f.message;
+          section.append(row);
+        });
+      });
+      body.append(section);
+    },
+
+    refreshTuningSuggestions(objectNode) {
+      const details = objectNode.querySelector('.battery-tuning');
+      const body = details && details.querySelector('.battery-tuning-body');
+      if (!body) return;
+      body.querySelectorAll('.battery-tuning-suggestions').forEach(el => el.remove());
+      this.renderTuningSuggestions(body, objectNode);
     },
 
     applyJsonKeySuggestions(keyNode, topic) {

@@ -36,6 +36,7 @@ from .simulation import (  # noqa: F401
 from .state import (  # noqa: F401
     BankState, build_units, SocState, set_state_of_charge,
 )
+from .tuning import Finding, Suggestion, analyse as analyse_calibration  # noqa: F401
 
 __all__ = [
     "apply_calibration", "apply_voltage_plausibility", "calibration_tolerance",
@@ -53,4 +54,5 @@ __all__ = [
     "sample_is_fresh", "stale_groups",
     "BankState", "build_units", "SocState", "set_state_of_charge",
     "simulated_bank_voltage_v",
+    "Finding", "Suggestion", "analyse_calibration",
 ]

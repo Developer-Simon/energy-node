@@ -78,6 +78,19 @@ def _advanced_schema_dict(defaults: Mapping[str, Any]) -> dict[str, Any]:
         vol.Optional("internal_resistance_mohm_per_cell"): NumberSelector(
             NumberSelectorConfig(step=0.1)
         ),
+        # Tasks 1-3: new SocParams calibration tunables without defaults (None = unset)
+        vol.Optional("full_taper_c_rate"): NumberSelector(
+            NumberSelectorConfig(min=0, max=1, step=0.01)
+        ),
+        vol.Optional("calibration_tolerance_empty_v_per_cell"): NumberSelector(
+            NumberSelectorConfig(min=0, step=0.01)
+        ),
+        vol.Optional("calibration_tolerance_full_v_per_cell"): NumberSelector(
+            NumberSelectorConfig(min=0, step=0.01)
+        ),
+        vol.Optional("calibration_grace_s", default=defaults.get("calibration_grace_s", 0)): NumberSelector(
+            NumberSelectorConfig(min=0, step=1)
+        ),
         vol.Optional(CONF_FALLBACK_INTERVAL_S, default=defaults.get(CONF_FALLBACK_INTERVAL_S, 30)): NumberSelector(
             NumberSelectorConfig(step=1)
         ),

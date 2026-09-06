@@ -1145,6 +1145,10 @@ func handleTopicSamples(reg *registry.Registry) http.HandlerFunc {
 			methodNotAllowed(w)
 			return
 		}
+		if topics := r.URL.Query()["topic"]; len(topics) > 0 {
+			writeJSON(w, reg.TopicSamplesFor(topics))
+			return
+		}
 		writeJSON(w, reg.TopicSamples())
 	}
 }

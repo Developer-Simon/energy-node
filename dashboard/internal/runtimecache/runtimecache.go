@@ -27,6 +27,7 @@ type Entry struct {
 	LastTopicAt     time.Time `json:"last_topic_at,omitempty"`
 	Available       bool      `json:"available"`
 	HasAvailability bool      `json:"has_availability"`
+	Payload         string    `json:"payload,omitempty"`
 }
 
 type Status struct {
@@ -152,6 +153,7 @@ func (s *Store) ObserveChanges(changes []registry.StateChange) {
 			LastTopicAt:     change.LastTopicAt,
 			Available:       change.Available,
 			HasAvailability: change.HasAvailability,
+			Payload:         change.Payload,
 		}
 		s.entries[key(entry.DeviceID, entry.EntityID)] = entry
 	}
@@ -164,7 +166,11 @@ func (s *Store) observeLocked(devices []registry.DeviceView) bool {
 			if !entity.HasValue {
 				continue
 			}
-			entry := Entry{DeviceID: device.ID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Value: entity.Value, LastSeen: entity.LastSeen, LastTopicAt: entity.LastTopicAt, Available: entity.Available, HasAvailability: entity.HasAvailability}
+			payload := ""
+			if entity.LastMessage != nil {
+				payload = entity.LastMessage.Payload
+			}
+			entry := Entry{DeviceID: device.ID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Value: entity.Value, LastSeen: entity.LastSeen, LastTopicAt: entity.LastTopicAt, Available: entity.Available, HasAvailability: entity.HasAvailability, Payload: payload}
 			k := key(entry.DeviceID, entry.EntityID)
 			old, ok := s.entries[k]
 			s.entries[k] = entry
@@ -182,7 +188,11 @@ func (s *Store) Sweep(devices []registry.DeviceView, now time.Time) error {
 	for _, device := range devices {
 		for _, entity := range device.Entities {
 			if entity.HasValue {
-				s.entries[key(device.ID, entity.UniqueID)] = Entry{DeviceID: device.ID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Value: entity.Value, LastSeen: entity.LastSeen, LastTopicAt: entity.LastTopicAt, Available: entity.Available, HasAvailability: entity.HasAvailability}
+				payload := ""
+				if entity.LastMessage != nil {
+					payload = entity.LastMessage.Payload
+				}
+				s.entries[key(device.ID, entity.UniqueID)] = Entry{DeviceID: device.ID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Value: entity.Value, LastSeen: entity.LastSeen, LastTopicAt: entity.LastTopicAt, Available: entity.Available, HasAvailability: entity.HasAvailability, Payload: payload}
 			}
 		}
 	}
@@ -211,7 +221,7 @@ func (s *Store) Restore(reg *registry.Registry, deviceID, entityID string) bool 
 	if lastTopicAt.IsZero() {
 		lastTopicAt = entry.LastSeen
 	}
-	return reg.RestoreStateAt(deviceID, entityID, entry.Value, entry.Available, entry.HasAvailability, entry.LastSeen, lastTopicAt)
+	return reg.RestoreStateAt(deviceID, entityID, entry.Value, entry.Available, entry.HasAvailability, entry.LastSeen, lastTopicAt, entry.Payload)
 }
 
 func (s *Store) writeLocked() error {

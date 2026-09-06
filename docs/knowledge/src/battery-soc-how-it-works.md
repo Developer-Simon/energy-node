@@ -165,7 +165,91 @@ voltage bank A/B"). **This is the number that makes the calibration decision** �
 without it, neither the thresholds nor the internal resistance can be
 meaningfully re-tuned.
 
-## 5. Stale Inputs
+## 5. Calibration Telemetry and Tuning Suggestions
+
+Every recalibration at the ends (§3) records an event with:
+- When it occurred (ISO timestamp)
+- How far the coulomb counter was off (residual)
+- How much charge and discharge the counter saw between this and the previous full calibration
+- The current at the moment the counter was caught
+- Whether the current held below the `full_taper_c_rate` threshold
+
+These events form the basis for tuning suggestions on the two model parameters
+that actually matter: the `inverter_dc_ac_efficiency` (what fraction of DC power
+becomes AC), and indirectly the validation of the `empty_v_per_cell` threshold.
+
+**The three conditions of a reliable full-end calibration are:**
+1. Corrected cell voltage ≥ `full_v_per_cell` (3.55 V)
+2. Current ≤ `full_taper_c_rate` × pack capacity (charging *tail* only, not bulk)
+3. The condition held continuously for `calibration_hold_s` (120 s)
+
+Between two such calibrations, the pack was at both ends full: net charge over
+the interval is zero. Yet the coulomb counter recorded `charged_ah` in and
+`discharged_ah` out. This yields an equation:
+
+```
+a · charged_ah − b · discharged_ah = 0
+```
+
+where `a` and `b` are unknown correction factors. Two unknowns, one equation — **only
+their ratio `a/b` is determinable, not the absolute values.** This is not a weakness
+of the measurement but a property of a system with only one calibration anchor.
+
+The way out is a **reasoned normalization**: the charge side is measured directly on
+the DC bus (`charger_dc_power_topic`) if configured, so `a := 1`. The discharge side
+has no DC measurement — the Lumentree stick provides none — and is estimated via
+`inverter_dc_ac_efficiency` from the grid side. That efficiency is the only free
+assumption, so the correction belongs exactly where the assumption sits:
+
+```
+inverter_dc_ac_efficiency_new = inverter_dc_ac_efficiency_old / (charged_ah / discharged_ah)
+```
+
+**The algorithm proposes suggestions; it changes nothing.** The service stays
+fail-closed. Applying a suggestion is a conscious action in the dashboard, the same
+way `publish_allowed_prefixes` are handled. With fewer than five intervals to work
+from, nothing is suggested at all — a single cycle is an anecdote, not a measurement
+series.
+
+The **capacity** cannot be estimated from full-to-full intervals; it requires a
+full-to-empty path. Until a 0 % calibration is reachable (see roadmap), the
+algorithm reports this constraint and offers no capacity suggestion — fixing it
+requires different measurements, not tuning.
+
+**The threshold quality is a separate finding** and does not come from the residual
+but from the state when the counter was caught: a calibration at 0.08 C is
+suspicious regardless of how small the residual was. A finding is reported if more
+than half of the recent full calibrations happened too close to the tail-current limit,
+pointing to a threshold that is too low (`full_v_per_cell`) or a tolerance that is
+too wide.
+
+### Internal Resistance Estimation from Calibration Behaviour
+
+The raw (unload-corrected) pack voltage at a calibration anchor point, combined
+with the known anchor voltage and the current at that moment, yields an estimate
+of the internal resistance. At the anchor, the true open-circuit voltage equals
+the configured threshold (`full_v_per_cell` or `empty_v_per_cell`), regardless of
+which load correction model (bin table or `internal_resistance_mohm_per_cell`)
+brought it there. Therefore:
+
+```
+delta_v_per_cell = raw_v_per_cell − anchor_v_per_cell
+R_i = delta_v_per_cell / current_a · 1000     [mΩ/cell]
+```
+
+Simulation with realistic sensor noise (±3 mV/cell, at the resolution limit of a
+Shelly Uni) shows the challenge: full-side calibrations occur only in the taper
+phase (`full_taper_c_rate` ≤ 0.05 C, i.e. ≤ 10 A on a 200 Ah system), small
+currents in the denominator amplify noise disproportionately, and single estimates
+scatter by 50–90 % of the true value. Empty-side calibrations have no taper
+condition (no equivalent to the full side's tail-current requirement), yielding
+larger, less noisy currents. Because `offset = I·R` holds regardless of sign
+(unlike the directional bin table), both sides can be fused in a single estimate;
+doing so halves the scatter relative to the full side alone. Events with
+`|current_a|` below a minimum threshold (2.0 A) are excluded — the denominator is
+too small to distinguish signal from noise regardless of sample size.
+
+## 7. Stale Inputs
 
 If nothing arrives on a configured topic for longer than `stale_input_s`
 (120 s), the input is considered stale. Then **integration and calibration are
@@ -191,7 +275,7 @@ is stale only when **none** of its topics is fresh. Otherwise "input data
 stale" would be permanently shown on every scheduled AC fallback (see above),
 even though the charge power is known throughout.
 
-## 6. Single-Bank Installations
+## 8. Single-Bank Installations
 
 `bank_b_enabled: false` removes bank B from the current split, the total SoC,
 the imbalance, and the stale check; bank A receives the full current. All
@@ -202,7 +286,7 @@ Discovery is deliberately **not** omitted: `energy_node_common` knows no way to
 remove discovery again, so toggling would leave orphaned HA entities behind.
 "Unknown" is more honest than an invented 50 %.
 
-## 7. Input Topics and JSON Keys
+## 9. Input Topics and JSON Keys
 
 Each of the four inputs is a pair `*_topic` + `*_json_key`. The key is
 optional:
@@ -237,7 +321,7 @@ long as `charger_power_json_key` and `inverter_power_json_key` were set to
 `apower`. Suggestions belong in the `<datalist>` from the real payload, not in
 the default.
 
-## 8. Settings Overview
+## 10. Settings Overview
 
 All in `src/battery_soc/battery_soc_devices.json`, schema alongside, editable as
 a form in the dashboard. Saving triggers
@@ -263,7 +347,7 @@ a form in the dashboard. Saving triggers
 | `bank_*_voltage_scale` | 1.0 | factor on the reported voltage (divider ratio at the Shelly Uni) |
 | `simulation_*` | | power substitute values in simulation mode when the real topics are silent (see below) |
 
-## 9. Published Entities
+## 11. Published Entities
 
 All from one JSON payload on `outstation/battery_soc/state` via
 `value_template`. Order as in `entities()`. The payload additionally carries
@@ -291,7 +375,7 @@ smooths nothing anywhere. As an order of magnitude they are useful, as a
 displayed value they jitter. Below 10 W net power and with stale inputs they
 return `null`.
 
-## 10. Persistence, Simulation, Operation
+## 12. Persistence, Simulation, Operation
 
 - **Persistence:** the coulomb counter and calibration timestamps live in
   `state_file` (`/home/energynode/battery_soc/state.json`), so a restart does
@@ -317,7 +401,7 @@ return `null`.
   device — deliberately no discovery merge (see the Trucki section in
   [device-services.md](../../device-services.md)).
 
-## 10a. Home Assistant Integration
+## 12a. Home Assistant Integration
 
 A native custom integration `custom_components/battery_soc/` runs the same
 `battery_soc_core` as a second adapter. The config flow (`user` + `advanced`
@@ -331,7 +415,7 @@ no import of the MQTT service state. A `battery_soc.set_state_of_charge` service
 plus a `number` entity "Set manual SoC" form the calibration anchors.
 **Simulation mode is not carried over** — only real operation.
 
-## 11. Tests
+## 13. Tests
 
 The pure SoC domain logic has its own test suite in the core package; the
 adapter now only covers MQTT wiring, config loading, and golden-fixture parity:

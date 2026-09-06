@@ -440,8 +440,17 @@ select.schema-control {
 
 .battery-measure { margin-top: .5rem; padding: .5rem .6rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-sm); background: var(--panel); display: grid; gap: .4rem; }
 .battery-measure-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; color: var(--text-subtle); font-size: .85rem; }
+.battery-measure-head .battery-measure-cached { margin-left: auto; font-size: .78rem; color: var(--warn-line); }
 .battery-measure-row { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; font-size: .85rem; }
 .battery-measure-row > span { min-width: 4.5rem; font-weight: 600; }
+
+.battery-tuning { margin-bottom: .75rem; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel); }
+.battery-tuning > summary { cursor: pointer; padding: .5rem .75rem; font-weight: 600; }
+.battery-tuning-body { padding: 0 .75rem .75rem; display: grid; gap: .5rem; }
+.battery-tuning-suggestions { display: grid; gap: .4rem; font-size: .85rem; }
+.battery-tuning-row { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; font-size: .85rem; }
+.battery-tuning-finding { font-size: .85rem; padding-left: 1rem; border-left: 3px solid var(--border-soft); }
+.battery-tuning-finding--warnung { border-left-color: var(--bad-line, #c0392b); }
 
 /* ---------------------------------------------------------------------------
    Konfigurationsseite: schwebende Aktionsleiste und eingeklappter JSON-Editor.

@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Features
+
+- calibration hardening: tail-current gate, per-side tolerances, hold-time grace period
+- calibration telemetry: per-anchor event ring, tuning suggestions, apply_suggestion service
+
 ## v0.2.8 (2026-09-06)
 
 ### Features

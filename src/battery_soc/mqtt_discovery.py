@@ -15,16 +15,43 @@ from energy_node_common.discovery import (
 )
 
 from battery_soc_core.entities import ALL_OBJECT_IDS, EntityDesc, entity_specs
+from battery_soc_core.state import build_units
 
 # Kommando-Topic-Ende einer manual-SoC-number unter config.base_topic. In
 # Reihenschaltung haengt zusaetzlich /bank_a bzw. /bank_b daran.
 MANUAL_SOC_COMMAND_SUFFIX = "cmd/manual_soc"
+
+_UNIT_LABELS = {"pack": "", "bank_a": " Bank A", "bank_b": " Bank B"}
 
 _MANUAL_SOC_BANK_SUFFIX = {
     "manual_soc_bank_a": "/bank_a",
     "manual_soc_bank_b": "/bank_b",
     "manual_soc": "",
 }
+
+
+def _open_suggestions_discovery(config, unit_name):
+    """Baut die Discovery-Config fuer einen open_suggestions_<unit>-Diagnose-Sensor."""
+    base_topic = config.base_topic
+    return {
+        "name": f"Offene Einstellungsvorschlaege{_UNIT_LABELS.get(unit_name, '')}",
+        "unique_id": f"{config.id}_open_suggestions_{unit_name}",
+        "device": device_block(config),
+        "availability_topic": f"{base_topic}/status/online",
+        "payload_available": "1",
+        "payload_not_available": "0",
+        "state_topic": f"{base_topic}/tuning",
+        "value_template": "{{ value_json.units." + unit_name + ".suggestions | default([]) | length }}",
+        "state_class": "measurement",
+        "entity_category": "diagnostic",
+        "icon": "mdi:tune",
+        "json_attributes_topic": f"{base_topic}/tuning",
+        "json_attributes_template": (
+            "{{ {'suggestions': value_json.units." + unit_name
+            + ".suggestions | default([]), 'findings': value_json.units." + unit_name
+            + ".findings | default([])} | tojson }}"
+        ),
+    }
 
 
 def device_block(config) -> dict:
@@ -43,6 +70,10 @@ def desc_to_discovery(config, desc: EntityDesc, state_topic: str):
     """Uebersetzt einen EntityDesc in (component, object_id, payload). Der
     payload entspricht dem, was make_config()/entities() bisher gebaut haben."""
     base_topic = config.base_topic
+    effective_state_topic = (
+        f"{base_topic}/{desc.state_topic_suffix}"
+        if desc.state_topic_suffix else state_topic
+    )
     payload = {
         "name": desc.name,
         "unique_id": f"{config.id}_{desc.object_id}",
@@ -50,7 +81,7 @@ def desc_to_discovery(config, desc: EntityDesc, state_topic: str):
         "availability_topic": f"{base_topic}/status/online",
         "payload_available": "1",
         "payload_not_available": "0",
-        "state_topic": state_topic,
+        "state_topic": effective_state_topic,
     }
 
     if desc.component == "binary_sensor":
@@ -94,13 +125,20 @@ def publish_discovery(client, config, state) -> None:
     die zur aktuellen Topologie nicht gehoert, und haengt die Availability-
     Entity an. `state` wird nicht gebraucht, bleibt fuer Signatur-Paritaet mit
     den uebrigen publish_*-Funktionen erhalten."""
-    del state  # nur fuer die Signatur
     state_topic = f"{config.base_topic}/state"
     active = set()
     for desc in entity_specs(config.soc_params()):
         component, object_id, payload = desc_to_discovery(config, desc, state_topic)
         common_publish_discovery(client, config.id, component, object_id, payload)
         active.add((component, object_id))
+
+    # Publiziere Diagnose-Sensoren fuer Kalibrier-Vorschlaege je Einheit
+    units = build_units(config.soc_params())
+    for unit in units:
+        payload = _open_suggestions_discovery(config, unit.name)
+        common_publish_discovery(client, config.id, "sensor", f"open_suggestions_{unit.name}", payload)
+        active.add(("sensor", f"open_suggestions_{unit.name}"))
+
     for component, object_ids in ALL_OBJECT_IDS.items():
         for object_id in object_ids:
             if (component, object_id) not in active:

@@ -90,6 +90,7 @@ import state_store
 from mqtt_inputs import apply_message, mark_configured
 from soc_config import BatteryConfig, SOC_PARAM_FIELDS, input_topics, load_configs
 
+from battery_soc_core import analyse_calibration
 from battery_soc_core.engine import effective_power, tick
 from battery_soc_core.inputs import SocInputs, availability, sample_is_fresh, stale_groups
 from battery_soc_core.simulation import simulated_bank_voltage_v
@@ -104,6 +105,8 @@ class BatteryRuntime:
         self.inputs = SocInputs()
         mark_configured(config, self.inputs)
         self.state = SocState(config.soc_params())
+        self.logged_calibration = {}
+        self.last_tuning_json = None
 
 
 configs = []
@@ -229,8 +232,43 @@ def compute_and_publish(client, runtime, dt_hours, simulation_active=False):
     else:
         result = tick(params, runtime.state, runtime.inputs, now, dt_hours=dt_hours)
 
+    for unit in runtime.state.units:
+        if unit.events and unit.events[-1].iso != runtime.logged_calibration.get(unit.name):
+            event = unit.events[-1]
+            runtime.logged_calibration[unit.name] = event.iso
+            # Eine Zeile je Kalibrierung ins Journal - ein Sprung im
+            # SoC-Verlauf soll ohne MQTT-Mitschnitt nachvollziehbar sein.
+            logging.warning(
+                "Kalibrierung %s/%s: %.1f -> %.1f Ah (Residuum %+.1f Ah) bei "
+                "%.3f V/Zelle, %.1f A, Schwelle %.3f, Haltezeit %.0f s, "
+                "Taper %s, Bilanz +%.1f/-%.1f Ah",
+                unit.name, event.side, event.coulomb_before_ah,
+                event.coulomb_after_ah, event.residual_ah,
+                event.corrected_v_per_cell, event.current_a,
+                event.threshold_v_per_cell, event.hold_s, event.taper_met,
+                event.charged_ah, event.discharged_ah)
+
     client.publish(f"{config.base_topic}/state", json.dumps(result.outputs),
                    retain=True, qos=0)
+
+    tuning_payload = {
+        "generated_iso": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
+        "units": {},
+    }
+    for unit in runtime.state.units:
+        suggestions, findings = analyse_calibration(params, unit.events)
+        tuning_payload["units"][unit.name] = {
+            "suggestions": [dataclasses.asdict(s) for s in suggestions],
+            "findings": [dataclasses.asdict(f) for f in findings],
+        }
+    tuning_json = json.dumps(tuning_payload, sort_keys=True)
+    # Nur bei Aenderung publizieren - der Block aendert sich nur mit einem
+    # neuen Kalibrierereignis, nicht mit jedem Sekunden-Tick. sort_keys
+    # macht den Vergleich unabhaengig von Dict-Iterationsreihenfolge.
+    if tuning_json != runtime.last_tuning_json:
+        client.publish(f"{config.base_topic}/tuning", tuning_json, retain=True, qos=0)
+        runtime.last_tuning_json = tuning_json
+
     publish_online_status(client, runtime, now, simulation_active)
     state_store.save_state(config, runtime.state)
 

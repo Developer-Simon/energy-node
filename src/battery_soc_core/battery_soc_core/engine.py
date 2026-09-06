@@ -38,11 +38,19 @@ def unit_currents(params, net_power_w, voltages):
 
 def integrate_coulomb(params, bank, current_a, dt_hours):
     """Getrennt von estimate_current(), damit der Strom auch dann publiziert
-    werden kann, wenn nicht integriert werden darf (veraltete Eingaenge)."""
+    werden kann, wenn nicht integriert werden darf (veraltete Eingaenge).
+
+    Fuehrt neben dem Zaehler die getrennte Lade-/Entladebilanz seit dem
+    letzten Kalibrieranker - die beiden Summen sind in Task 4b die einzige
+    Moeglichkeit, ein Residuum auf die richtige Seite zu buchen."""
     if current_a is None or dt_hours <= 0:
         return
     efficiency = params.charge_efficiency if current_a > 0 else 1.0
     delta_ah = current_a * dt_hours * efficiency
+    if delta_ah > 0:
+        bank.charged_ah += delta_ah
+    else:
+        bank.discharged_ah += -delta_ah
     bank.coulomb_ah = max(0.0, min(bank.capacity_ah, bank.coulomb_ah + delta_ah))
 
 
@@ -180,13 +188,17 @@ def tick(params, state, inputs, now, *, dt_hours=None,
     # ueber die Haltezeit hinweg eine falsche Voll-/Leerkalibrierung ausloesen.
     voltage_group_names = (["Spannung Bank A", "Spannung Bank B"] if series
                            else ["Busspannung"])
-    for unit, corr, current_a, voltage_group in zip(units, corrected, currents,
-                                                    voltage_group_names):
+    for unit, corr, current_a, voltage_v, voltage_group in zip(units, corrected, currents,
+                                                                voltages, voltage_group_names):
         voltage_stale = groups_stale.get(voltage_group, False)
         apply_calibration(params, unit, None if voltage_stale else corr, now,
-                          current_a)
-    calibration_tolerances = [
-        calibration_tolerance(params, current_a, unit.capacity_ah)
+                          current_a, raw_voltage_v=None if voltage_stale else voltage_v)
+    tolerances_empty = [
+        calibration_tolerance(params, current_a, unit.capacity_ah, "empty")
+        for unit, current_a in zip(units, currents)
+    ]
+    tolerances_full = [
+        calibration_tolerance(params, current_a, unit.capacity_ah, "full")
         for unit, current_a in zip(units, currents)
     ]
 
@@ -226,10 +238,11 @@ def tick(params, state, inputs, now, *, dt_hours=None,
         "time_to_full_h": time_to_full_h,
         "time_to_empty_h": time_to_empty_h,
     }
-    for unit, voltage_v, current_a, corr, voltage_soc_pct, tolerance in zip(
+    for unit, voltage_v, current_a, corr, voltage_soc_pct, tolerance_empty, tolerance_full in zip(
         units, voltages, currents, corrected, voltage_soc_estimates,
-        calibration_tolerances
+        tolerances_empty, tolerances_full
     ):
+        last_event = unit.events[-1] if unit.events else None
         outputs.update({
             f"{unit.name}_voltage_v": voltage_v,
             f"{unit.name}_current_a": None if current_a is None else round(current_a, 2),
@@ -239,9 +252,17 @@ def tick(params, state, inputs, now, *, dt_hours=None,
             f"{unit.name}_voltage_soc_pct": voltage_soc_pct,
             f"{unit.name}_voltage_soc_mismatch": unit.voltage_mismatch,
             f"{unit.name}_calibration_empty_v_per_cell":
-                round(params.empty_v_per_cell + tolerance, 3),
+                round(params.empty_v_per_cell + tolerance_empty, 3),
             f"{unit.name}_calibration_full_v_per_cell":
-                round(params.full_v_per_cell - tolerance, 3),
+                round(params.full_v_per_cell - tolerance_full, 3),
+            f"{unit.name}_last_calibration_side":
+                None if last_event is None else last_event.side,
+            f"{unit.name}_last_calibration_residual_ah":
+                None if last_event is None else last_event.residual_ah,
+            f"{unit.name}_last_calibration_current_a":
+                None if last_event is None else last_event.current_a,
+            f"{unit.name}_last_calibration_taper_met":
+                None if last_event is None else last_event.taper_met,
         })
     if series:
         outputs["soc_a_pct"] = units[0].soc_pct

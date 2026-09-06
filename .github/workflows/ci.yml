@@ -1,8 +1,16 @@
 name: CI
 
 on:
+  # `push` only for the post-merge run on `main`. Branch development is covered
+  # by `pull_request`, so a plain `push:` here would run every job twice on any
+  # branch that has an open PR.
   push:
+    branches: [main]
   pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   dashboard-go:

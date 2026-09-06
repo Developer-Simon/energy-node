@@ -125,3 +125,86 @@ async def test_service_series_targets_bank_b(hass):
 
     # Cleanup
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_apply_suggestion_writes_option_and_reloads(hass):
+    """Test apply_suggestion service writes option and reloads entry."""
+    # Create and setup entry
+    entry = _mk_config_entry(user_data=USER_PARALLEL, advanced_data=ADVANCED_DEFAULTS)
+    entry.add_to_hass(hass)
+
+    # Set up source entity states
+    hass.states.async_set("sensor.meanwell_power", "300")
+    hass.states.async_set("sensor.lumentree_power", "40")
+    hass.states.async_set("sensor.bank_voltage", "26.8")
+
+    # Setup the integration
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Force a suggestion into _tuning without waiting for real calibration history
+    coord = hass.data[DOMAIN][entry.entry_id]
+    coord.data["_tuning"] = {
+        coord.state.units[0].name: {
+            "suggestions": [
+                {
+                    "key": "inverter_dc_ac_efficiency",
+                    "current_value": 0.90,
+                    "suggested_value": 0.945,
+                    "confidence": "hoch",
+                    "sample_count": 8,
+                    "spread": 0.01,
+                    "reason": "test suggestion"
+                }
+            ],
+            "findings": [],
+        }
+    }
+
+    # Call the service
+    await hass.services.async_call(
+        DOMAIN,
+        "apply_suggestion",
+        {"entry_id": entry.entry_id, "key": "inverter_dc_ac_efficiency"},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+
+    # Verify the option was written
+    entry = hass.config_entries.async_get_entry(entry.entry_id)
+    assert entry.options["inverter_dc_ac_efficiency"] == 0.945
+
+    # Cleanup
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_apply_suggestion_rejects_a_key_that_is_not_pending(hass):
+    """Test apply_suggestion service rejects keys without pending suggestions."""
+    # Create and setup entry
+    entry = _mk_config_entry(user_data=USER_PARALLEL, advanced_data=ADVANCED_DEFAULTS)
+    entry.add_to_hass(hass)
+
+    # Set up source entity states
+    hass.states.async_set("sensor.meanwell_power", "300")
+    hass.states.async_set("sensor.lumentree_power", "40")
+    hass.states.async_set("sensor.bank_voltage", "26.8")
+
+    # Setup the integration
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    # Set empty _tuning (no suggestions)
+    hass.data[DOMAIN][entry.entry_id].data["_tuning"] = {}
+
+    # Call should raise ServiceValidationError
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            "apply_suggestion",
+            {"entry_id": entry.entry_id, "key": "inverter_dc_ac_efficiency"},
+            blocking=True,
+        )
+    await hass.async_block_till_done()
+
+    # Cleanup
+    assert await hass.config_entries.async_unload(entry.entry_id)

@@ -449,21 +449,45 @@ const batteryItemSchema = {
     topology: { type: 'string', enum: ['parallel', 'series'], default: 'parallel' },
     bank_a_cell_count: { type: 'integer', default: 8 },
     bank_b_cell_count: { type: 'integer', default: 8 },
+    inverter_dc_ac_efficiency: { type: 'number', default: 0.9 },
     empty_v_per_cell: { type: 'number', default: 2.5 },
     full_v_per_cell: { type: 'number', default: 3.55 },
   },
 };
 
-function batteryPanel(payload) {
+// tuningPayload (optional) is published by Task 6 on {base}/tuning and read
+// back through the targeted /api/v1/topics/samples?topic= query from Task 7.
+function batteryPanel(payload, tuningPayload) {
   const created = createConfigPanel();
   created.component.selectedName = 'battery_soc_devices';
   created.component.topics = ['outstation/battery_soc/state'];
-  created.component.topicSamples = new Map([[
+  const samples = [[
     'outstation/battery_soc/state',
-    { topic: 'outstation/battery_soc/state', device: 'Batterie-Ladezustand', payload: JSON.stringify(payload), at: new Date().toISOString() },
-  ]]);
+    { topic: 'outstation/battery_soc/state', device: 'Batterie-Ladezustand', payload: JSON.stringify(payload), at: new Date().toISOString(), known: true, source: 'live' },
+  ]];
+  if (tuningPayload !== undefined) {
+    samples.push([
+      'outstation/battery_soc/tuning',
+      { topic: 'outstation/battery_soc/tuning', device: 'Batterie-Ladezustand', payload: JSON.stringify(tuningPayload), at: new Date().toISOString(), known: true, source: 'live' },
+    ]);
+  }
+  created.component.topicSamples = new Map(samples);
   return created;
 }
+
+const tuningPayloadPack = {
+  generated_iso: '2026-09-06T21:30:00+0200',
+  units: {
+    pack: {
+      suggestions: [
+        { key: 'inverter_dc_ac_efficiency', current_value: 0.9, suggested_value: 0.945, confidence: 'hoch', sample_count: 8, spread: 0.01 },
+      ],
+      findings: [
+        { code: 'zu_wenig_daten', severity: 'info', message: 'Zu wenige Kalibrierereignisse für eine Innenwiderstandsschätzung.' },
+      ],
+    },
+  },
+};
 
 const liveBatteryStateSeries = {
   bank_a_voltage_v: 27.36,
@@ -483,7 +507,9 @@ test('battery form offers the measured cell voltage for both threshold fields (s
   document.body.append(node);
 
   ['empty_v_per_cell', 'full_v_per_cell'].forEach(key => {
-    const block = node.querySelector(`[data-schema-key="${key}"] .battery-measure`);
+    // Der Messblock steckt jetzt im Kalibrier-Panel, je Schwelle per
+    // data-threshold-key unterscheidbar - nicht mehr im Feldknoten.
+    const block = node.querySelector(`.battery-tuning [data-threshold-key="${key}"]`);
     assert.ok(block, `Messblock fehlt bei ${key}`);
     const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
     // 27.36 / 8 = 3.420 roh, 3.398 lastkorrigiert
@@ -500,7 +526,7 @@ test('battery form offers the measured cell voltage for the default parallel top
   const node = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
   document.body.append(node);
 
-  const block = node.querySelector('[data-schema-key="empty_v_per_cell"] .battery-measure');
+  const block = node.querySelector('.battery-tuning [data-threshold-key="empty_v_per_cell"]');
   assert.ok(block, 'Messblock fehlt');
   const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
   // 27.36 / 8 = 3.420 roh, 3.398 lastkorrigiert
@@ -514,7 +540,8 @@ test('applying a measured value writes it into the field and marks it as touched
   document.body.append(node);
 
   const fullField = node.querySelector('[data-schema-key="full_v_per_cell"]');
-  const applyCorrected = [...fullField.querySelectorAll('.battery-measure-apply')]
+  const fullBlock = node.querySelector('.battery-tuning [data-threshold-key="full_v_per_cell"]');
+  const applyCorrected = [...fullBlock.querySelectorAll('.battery-measure-apply')]
     .find(button => button.textContent.includes('lastkorrigiert 3.398'));
   applyCorrected.click();
 
@@ -532,7 +559,7 @@ test('measured value uses the cell count currently in the form, not the saved on
   document.body.append(node);
 
   setControl(node, window, 'bank_a_cell_count', '16', false);
-  const block = node.querySelector('[data-schema-key="empty_v_per_cell"] .battery-measure');
+  const block = node.querySelector('.battery-tuning [data-threshold-key="empty_v_per_cell"]');
   block.querySelector('.battery-measure-refresh').click();
 
   const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
@@ -548,7 +575,7 @@ test('battery form says so when no live values are available', () => {
   const node = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
   document.body.append(node);
 
-  const block = node.querySelector('[data-schema-key="empty_v_per_cell"] .battery-measure');
+  const block = node.querySelector('.battery-tuning [data-threshold-key="empty_v_per_cell"]');
   assert.match(block.textContent, /Keine Live-Daten/);
   assert.equal(block.querySelectorAll('.battery-measure-apply').length, 0);
 });
@@ -560,6 +587,68 @@ test('other configurations get no measurement block', () => {
   document.body.append(node);
 
   assert.equal(node.querySelectorAll('.battery-measure').length, 0);
+});
+
+// --- Kalibrier-Panel (Abschnitt B: Vorschläge aus {base}/tuning) -----------
+
+test('battery tuning panel renders suggestions with an apply button', () => {
+  const { component, document } = batteryPanel(liveBatteryStatePack, tuningPayloadPack);
+  const objectNode = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
+  document.body.append(objectNode);
+
+  const panel = objectNode.querySelector('.battery-tuning .battery-tuning-body');
+  assert.ok(panel, 'Panel-Körper fehlt');
+  const applyButtons = panel.querySelectorAll('.battery-tuning-apply');
+  assert.strictEqual(applyButtons.length, 1);
+
+  applyButtons[0].click();
+  const control = objectNode.querySelector('[data-schema-key="inverter_dc_ac_efficiency"] .schema-control');
+  assert.strictEqual(control.value, '0.945');
+  // Übernehmen darf nur den Formularwert setzen und als "berührt" markieren -
+  // kein PUT.
+  assert.strictEqual(control.closest('[data-schema-key]').dataset.schemaDefault, 'false');
+});
+
+test('battery tuning panel shows findings without an apply button', () => {
+  const { component, document } = batteryPanel(liveBatteryStatePack, tuningPayloadPack);
+  const objectNode = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
+  document.body.append(objectNode);
+
+  const finding = [...objectNode.querySelectorAll('.battery-tuning .battery-tuning-finding')]
+    .find(el => el.textContent.includes('Zu wenige Kalibrierereignisse'));
+  assert.ok(finding, 'Befund-Text fehlt');
+  assert.strictEqual(finding.querySelector('.battery-tuning-apply'), null);
+});
+
+test('battery tuning panel is collapsible', () => {
+  const { component, document } = batteryPanel(liveBatteryStatePack, tuningPayloadPack);
+  const objectNode = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
+  document.body.append(objectNode);
+
+  const panel = objectNode.querySelector('.battery-tuning-body');
+  const details = panel.closest('.battery-tuning');
+  assert.strictEqual(details.tagName, 'DETAILS');
+});
+
+test('battery voltage measurement moved into the panel, not the field', () => {
+  const { component, document } = batteryPanel(liveBatteryStatePack, tuningPayloadPack);
+  const objectNode = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
+  document.body.append(objectNode);
+
+  const voltageField = objectNode.querySelector('[data-schema-key="full_v_per_cell"]');
+  assert.strictEqual(voltageField.querySelector('.battery-measure'), null);
+  assert.ok(objectNode.querySelector('.battery-tuning .battery-measure'));
+});
+
+test('battery tuning panel says so when there is no evaluation yet', () => {
+  const { component, document } = batteryPanel(liveBatteryStatePack);
+  const objectNode = component.renderNode(batteryItemSchema, { id: 'battery_soc', name: 'Batterie' }, 'Eintrag');
+  document.body.append(objectNode);
+
+  const suggestions = objectNode.querySelector('.battery-tuning .battery-tuning-suggestions');
+  assert.ok(suggestions);
+  assert.match(suggestions.textContent, /Noch keine Auswertung/);
+  assert.strictEqual(suggestions.querySelector('.battery-tuning-apply'), null);
 });
 
 // --- Aktionsleiste: Änderungsstand und Reduzieren ---------------------------

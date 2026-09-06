@@ -33,15 +33,23 @@ MODULE_DIR = Path(__file__).resolve().parents[1]
 class FakeClient:
     def __init__(self):
         self.published = []
+        self.published_kwargs = []
 
     def publish(self, topic, payload=None, qos=0, retain=True):
         self.published.append((topic, payload))
+        self.published_kwargs.append((qos, retain))
 
     def state_payload(self):
         for topic, payload in reversed(self.published):
             if topic.endswith("/state"):
                 return json.loads(payload)
         raise AssertionError("kein /state-Payload publiziert")
+
+    def tuning_payload(self):
+        for topic, payload in reversed(self.published):
+            if topic.endswith("/tuning"):
+                return json.loads(payload)
+        raise AssertionError("kein /tuning-Payload publiziert")
 
 
 class FakeMessage:
@@ -457,3 +465,22 @@ def test_module_has_no_environment_constants():
 def test_battery_config_path_follows_convention(app_config):
     config = app_config()
     assert config.devices_config("battery_soc").name == "battery_soc_devices.json"
+
+
+# ---------------------------------------------------------------------------
+# Kalibrier-Vorschlaege / Tuning-Payload
+# ---------------------------------------------------------------------------
+def test_compute_and_publish_emits_a_tuning_payload_per_unit():
+    """Kein Anspruch an den Inhalt hier - der ist in test_tuning.py
+    (Task 4b/5) geprueft. Hier zaehlt nur, dass der Adapter analyse()
+    ueberhaupt aufruft und retained veroeffentlicht."""
+    client = FakeClient()
+    runtime = battery_soc.BatteryRuntime(device_config())
+    battery_soc.compute_and_publish(client, runtime, dt_hours=0.0)
+    payload = client.tuning_payload()
+    assert "generated_iso" in payload
+    assert set(payload["units"]) == {u.name for u in runtime.state.units}
+    for unit in payload["units"].values():
+        assert "suggestions" in unit and "findings" in unit
+    tuning_idx = next(i for i, (t, _p) in enumerate(client.published) if t.endswith("/tuning"))
+    assert client.published_kwargs[tuning_idx][1] is True  # retain=True

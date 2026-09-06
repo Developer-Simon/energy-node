@@ -39,11 +39,15 @@ def corrected_voltage_per_cell(voltage_v, cell_count, current_a, capacity_ah,
     return voltage_v / cell_count - offset_v_per_cell
 
 
-def calibration_tolerance(params, current_a, capacity_ah):
-    """Wie weit die Kalibrierschwellen bei diesem Strom aufgeweicht werden
-    duerfen (V/Zelle, immer >= 0). Volle Toleranz im Ruhezustand und in der
-    CV-Endphase, keine bei Bulk-Strom - siehe CALIBRATION_TAPER_C_RATE."""
-    max_tolerance = params.calibration_tolerance_v_per_cell
+def calibration_tolerance(params, current_a, capacity_ah, side="full"):
+    """Wie weit die Kalibrierschwelle dieser Seite bei diesem Strom
+    aufgeweicht werden darf (V/Zelle, immer >= 0). Volle Toleranz im
+    Ruhezustand und in der CV-Endphase, keine bei Bulk-Strom - siehe
+    CALIBRATION_TAPER_C_RATE.
+
+    `side` waehlt zwischen der Leer- und der Voll-Schwelle; ohne
+    seitenweise Uebersteuerung liefern beide denselben Wert."""
+    max_tolerance = params.tolerance_for(side)
     if max_tolerance <= 0 or capacity_ah <= 0:
         return 0.0
     c_rate = abs(current_a or 0.0) / capacity_ah
@@ -91,37 +95,124 @@ def voltage_based_soc_pct(corrected_v_per_cell, params):
     return 100.0
 
 
-def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0):
+def full_taper_satisfied(params, current_a, capacity_ah):
+    """Nimmt das Pack bei Vollspannung noch nennenswert Ladung auf - oder
+    gibt es welche ab? Nur wenn beides verneint ist, ist 'voll' mehr als
+    eine Spannungsablesung.
+
+    Richtungsblind: 27,9 V unter 30 A Entladung sind genauso wenig ein
+    volles Pack wie 27,9 V unter 30 A Ladung. Ohne konfigurierte C-Rate
+    ist das Gate offen (Bestandsverhalten)."""
+    if params.full_taper_c_rate is None:
+        return True
+    if capacity_ah <= 0:
+        return False
+    return abs(current_a or 0.0) / capacity_ah <= params.full_taper_c_rate
+
+
+def _hold_timer(bank, side, now, grace_s, active):
+    """Fuehrt den Haltezeit-Timer einer Seite und liefert seinen Startpunkt
+    zurueck (None = laeuft nicht).
+
+    `active` sagt, ob die Bedingung in diesem Tick erfuellt ist. Ein
+    Aussetzer loescht den Timer nicht sofort, sondern erst wenn er laenger
+    als grace_s dauert - siehe SocParams.calibration_grace_s."""
+    since_attr = f"pending_{side}_since"
+    broken_attr = f"pending_{side}_broken_since"
+    if active:
+        setattr(bank, broken_attr, None)
+        if getattr(bank, since_attr) is None:
+            setattr(bank, since_attr, now)
+        return getattr(bank, since_attr)
+    if getattr(bank, since_attr) is None:
+        return None
+    broken_since = getattr(bank, broken_attr)
+    if broken_since is None:
+        broken_since = now
+        setattr(bank, broken_attr, broken_since)
+    if now - broken_since >= grace_s:
+        setattr(bank, since_attr, None)
+        setattr(bank, broken_attr, None)
+    return None
+
+
+def _clear_hold_timers(bank):
+    bank.pending_low_since = None
+    bank.pending_high_since = None
+    bank.pending_low_broken_since = None
+    bank.pending_high_broken_since = None
+
+
+def _record_calibration(bank, side, target_ah, now, since, corrected_v_per_cell,
+                        current_a, raw_voltage_v, threshold, tolerance, taper_met):
+    from .state import CalibrationEvent  # lokal: haelt state.py importfrei von calibration.py
+
+    before = bank.coulomb_ah
+    bank.coulomb_ah = target_ah
+    bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
+    bank.append_event(CalibrationEvent(
+        iso=bank.last_calibration_iso, unit=bank.name, side=side,
+        coulomb_before_ah=round(before, 3),
+        coulomb_after_ah=round(target_ah, 3),
+        residual_ah=round(target_ah - before, 3),
+        voltage_v=None if raw_voltage_v is None else round(raw_voltage_v, 3),
+        cell_count=bank.cell_count,
+        corrected_v_per_cell=round(corrected_v_per_cell, 4),
+        current_a=round(current_a or 0.0, 3),
+        threshold_v_per_cell=round(threshold, 4),
+        tolerance_v_per_cell=round(tolerance, 4),
+        hold_s=round(now - since, 1),
+        taper_met=taper_met,
+        charged_ah=round(bank.charged_ah, 3),
+        discharged_ah=round(bank.discharged_ah, 3),
+    ))
+    bank.reset_balance()
+    # Ruling 6: Reset the hold timer so the next event on the same side
+    # needs a fresh calibration_hold_s to accumulate.
+    setattr(bank, f"pending_{'low' if side == 'empty' else 'high'}_since", None)
+    setattr(bank, f"pending_{'low' if side == 'empty' else 'high'}_broken_since", None)
+
+
+def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0,
+                      raw_voltage_v=None):
     """Prueft, ob die (lastkorrigierte) Spannung stabil genug ausserhalb der
     Schwellen liegt, um den Coulomb-Zaehler auf 0%/100% zurueckzusetzen.
 
-    Die Schwellen sind nicht hart: bei kleinem Strom weicht sie
-    calibration_tolerance() um bis zu calibration_tolerance_v_per_cell auf,
-    damit ein Ladegeraet mit zu tiefer CV-Schwelle bzw. ein vor der
-    Leerspannung abschaltender Wechselrichter die Kalibrierung nicht dauerhaft
-    verhindert. Die Toleranz gilt weiterhin nur zusammen mit
-    calibration_hold_s - ein einzelner Messausreisser kalibriert nichts."""
+    Drei Bedingungen muessen zusammenkommen:
+      1. die Spannung liegt jenseits der Schwelle, aufgeweicht um die
+         seitenweise Toleranz (calibration_tolerance),
+      2. oben zusaetzlich: das Pack nimmt keine Ladung mehr auf und gibt
+         auch keine ab (full_taper_satisfied) - in einer Anlage mit
+         Ueberschussladen ist die Klemmenspannung eine Stellgroesse, kein
+         Vollstands-Signal,
+      3. beides haelt calibration_hold_s lang an, wobei Aussetzer bis
+         calibration_grace_s den Timer nicht zuruecksetzen.
+
+    Eine fehlende Spannung (veralteter Sensor) loescht beide Timer
+    unabhaengig von der Karenz."""
     if corrected_v_per_cell is None:
-        bank.pending_low_since = None
-        bank.pending_high_since = None
+        _clear_hold_timers(bank)
         return
 
-    tolerance = calibration_tolerance(params, current_a, bank.capacity_ah)
-    if corrected_v_per_cell <= params.empty_v_per_cell + tolerance:
-        bank.pending_high_since = None
-        bank.pending_low_since = bank.pending_low_since or now
-        if now - bank.pending_low_since >= params.calibration_hold_s:
-            bank.coulomb_ah = 0.0
-            bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-    elif corrected_v_per_cell >= params.full_v_per_cell - tolerance:
-        bank.pending_low_since = None
-        bank.pending_high_since = bank.pending_high_since or now
-        if now - bank.pending_high_since >= params.calibration_hold_s:
-            bank.coulomb_ah = bank.capacity_ah
-            bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
-    else:
-        bank.pending_low_since = None
-        bank.pending_high_since = None
+    tolerance_empty = calibration_tolerance(params, current_a, bank.capacity_ah, "empty")
+    tolerance_full = calibration_tolerance(params, current_a, bank.capacity_ah, "full")
+    low_active = corrected_v_per_cell <= params.empty_v_per_cell + tolerance_empty
+    high_active = (corrected_v_per_cell >= params.full_v_per_cell - tolerance_full
+                   and full_taper_satisfied(params, current_a, bank.capacity_ah))
+
+    low_since = _hold_timer(bank, "low", now, params.calibration_grace_s, low_active)
+    high_since = _hold_timer(bank, "high", now, params.calibration_grace_s, high_active)
+
+    if low_since is not None and now - low_since >= params.calibration_hold_s:
+        _record_calibration(bank, "empty", 0.0, now, low_since, corrected_v_per_cell,
+                          current_a, raw_voltage_v,
+                          params.empty_v_per_cell + tolerance_empty, tolerance_empty,
+                          True)
+    elif high_since is not None and now - high_since >= params.calibration_hold_s:
+        _record_calibration(bank, "full", bank.capacity_ah, now, high_since, corrected_v_per_cell,
+                          current_a, raw_voltage_v,
+                          params.full_v_per_cell - tolerance_full, tolerance_full,
+                          full_taper_satisfied(params, current_a, bank.capacity_ah))
 
 
 def apply_voltage_plausibility(params, bank, voltage_soc_pct, now):

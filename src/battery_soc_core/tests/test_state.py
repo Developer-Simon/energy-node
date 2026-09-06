@@ -1,7 +1,7 @@
 import time
 import pytest
 from tests.conftest import make_params
-from battery_soc_core.state import BankState, build_units, SocState, set_state_of_charge
+from battery_soc_core.state import BankState, build_units, SocState, set_state_of_charge, CalibrationEvent, CALIBRATION_EVENT_LIMIT
 
 
 def test_parallel_builds_one_pack_unit_with_summed_capacity():
@@ -64,3 +64,37 @@ def test_set_state_of_charge_clamps_out_of_range():
     s = SocState(p, last_tick=0.0)
     set_state_of_charge(s, p, 150)
     assert s.units[0].soc_pct == 100.0
+
+
+def test_bank_state_starts_with_an_empty_charge_balance():
+    bank = BankState("pack", 8, 200.0)
+    assert bank.charged_ah == 0.0
+    assert bank.discharged_ah == 0.0
+    assert bank.events == []
+
+
+def test_calibration_event_roundtrips_through_dict():
+    """Der Ringpuffer landet in state.json - was rausgeht, muss
+    unveraendert wieder reinkommen."""
+    event = CalibrationEvent(
+        iso="2026-09-06T17:26:22+0200", unit="pack", side="full",
+        coulomb_before_ah=166.0, coulomb_after_ah=200.0, residual_ah=34.0,
+        voltage_v=27.9, cell_count=8, corrected_v_per_cell=3.482, current_a=6.1,
+        threshold_v_per_cell=3.48, tolerance_v_per_cell=0.02,
+        hold_s=612.0, taper_met=True, charged_ah=95.4, discharged_ah=61.2,
+    )
+    assert CalibrationEvent.from_dict(event.to_dict()) == event
+
+
+def test_event_ring_keeps_only_the_newest_entries():
+    bank = BankState("pack", 8, 200.0)
+    for n in range(CALIBRATION_EVENT_LIMIT + 5):
+        bank.append_event(CalibrationEvent(
+            iso=f"2026-09-06T00:00:{n:02d}+0200", unit="pack", side="full",
+            coulomb_before_ah=float(n), coulomb_after_ah=200.0,
+            residual_ah=200.0 - n, voltage_v=27.9, cell_count=8,
+            corrected_v_per_cell=3.48,
+            current_a=5.0, threshold_v_per_cell=3.48, tolerance_v_per_cell=0.02,
+            hold_s=600.0, taper_met=True, charged_ah=0.0, discharged_ah=0.0))
+    assert len(bank.events) == CALIBRATION_EVENT_LIMIT
+    assert bank.events[-1].coulomb_before_ah == CALIBRATION_EVENT_LIMIT + 4

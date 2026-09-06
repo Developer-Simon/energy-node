@@ -10,7 +10,12 @@ from tests.conftest import USER_PARALLEL, USER_SERIES, ADVANCED_DEFAULTS, _mk_co
 
 @pytest.mark.parametrize("user,adv", [(USER_PARALLEL, ADVANCED_DEFAULTS), (USER_SERIES, ADVANCED_DEFAULTS)])
 async def test_every_spec_entity_exists_with_matching_attrs(hass, user, adv):
-    """Test that every EntityDesc in entity_specs results in a registered entity with matching attributes."""
+    """Test that every EntityDesc in entity_specs results in a registered entity with matching attributes.
+
+    Note: open_suggestions_* sensors are deliberately not in entity_specs — they are constructed
+    directly in BatterySocSuggestionsSensor as an Adapter-Auswertung over the calibration event ring,
+    not as a tick() output.
+    """
     entry = _mk_config_entry(user, adv)
     entry.add_to_hass(hass)
 
@@ -91,6 +96,7 @@ async def test_adapter_output_keyset_equals_core_tick(hass, user, adv):
     coord = hass.data["battery_soc"][entry.entry_id]
     fresh = tick(coord.params, SocState(coord.params), SocInputs(), 1000.0).outputs
 
-    # Verify keysets are identical (adapter adds/drops nothing)
-    assert set(coord.data) == set(fresh), \
-        f"Keyset mismatch: adapter has {set(coord.data)}, core produces {set(fresh)}"
+    # Verify keysets are identical (adapter adds/drops nothing) excluding _tuning which is the
+    # coordinator's calibration-analysis block, deliberately not a tick() output — see BatterySocSuggestionsSensor
+    assert set(coord.data) - {"_tuning"} == set(fresh), \
+        f"Keyset mismatch: adapter has {set(coord.data) - {'_tuning'}}, core produces {set(fresh)}"

@@ -228,3 +228,203 @@ def test_voltage_plausibility_ignores_a_missing_voltage_estimate():
     apply_voltage_plausibility(params, bank, None, time.time())
     assert bank.voltage_mismatch is False
     assert bank.pending_mismatch_since is None
+
+
+# ---------------------------------------------------------------------------
+# Taper-Kriterium (Task 1)
+# ---------------------------------------------------------------------------
+def test_full_taper_blocks_calibration_at_bulk_current():
+    """Der Fall aus der Anlage: 27,9 V Packspannung, aber 17 A Ladestrom.
+    Das Pack nimmt noch Ladung auf, also ist es nicht voll - egal wie hoch
+    die Spannung steht, denn die stellt der Laderegler."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    now = time.time()
+    # 3.49 V/Zelle liegt ueber der Schwelle 3.48 - ohne Taper wuerde das
+    # sofort kalibrieren.
+    apply_calibration(params, bank, 3.49, now, current_a=17.0)
+    assert bank.coulomb_ah == 150.0
+    assert bank.pending_high_since is None
+
+
+def test_full_taper_allows_calibration_below_tail_current():
+    """5 A je Pack ist der Tail-Strom aus dem Dyness-Datenblatt; bei zwei
+    parallelen Packs (200 Ah) sind das 10 A = 0.05 C."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.49, time.time(), current_a=9.0)
+    assert bank.coulomb_ah == 200.0
+
+
+def test_full_taper_is_direction_blind():
+    """Ein Pack, das bei hoher Spannung kraeftig entladen wird, ist genauso
+    wenig 'voll' wie eines, das kraeftig laedt."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.49, time.time(), current_a=-30.0)
+    assert bank.coulomb_ah == 150.0
+
+
+def test_full_taper_unset_keeps_old_behaviour():
+    """Bestandsinstallationen ohne den neuen Schluessel duerfen sich nicht
+    aendern - das ist die Rueckfall-Garantie fuer den Produktiv-Pi."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02)
+    assert params.full_taper_c_rate is None
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.50, time.time(), current_a=17.0)
+    assert bank.coulomb_ah == 200.0
+
+
+def test_full_taper_does_not_touch_the_empty_side():
+    """Die Leer-Kalibrierung hat ihr eigenes Kriterium und darf vom
+    Taper-Gate nicht mitblockiert werden."""
+    params = make_params(calibration_hold_s=0.0, empty_v_per_cell=2.7,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 50.0
+    apply_calibration(params, bank, 2.70, time.time(), current_a=-40.0)
+    assert bank.coulomb_ah == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Getrennte Toleranzen (Task 2)
+# ---------------------------------------------------------------------------
+def test_tolerance_falls_back_to_the_shared_value():
+    params = make_params(calibration_tolerance_v_per_cell=0.05)
+    assert params.tolerance_for("empty") == 0.05
+    assert params.tolerance_for("full") == 0.05
+
+
+def test_tolerance_per_side_overrides_the_shared_value():
+    """Der Anlagenfall: oben eng, weil der Laderegler die Vollspannung
+    erreicht - unten weit, weil das BMS lange vor der Leerspannung
+    abschaltet."""
+    params = make_params(calibration_tolerance_v_per_cell=0.02,
+                         calibration_tolerance_empty_v_per_cell=0.20)
+    assert params.tolerance_for("full") == 0.02
+    assert params.tolerance_for("empty") == 0.20
+
+
+def test_tolerance_zero_per_side_is_distinguishable_from_unset():
+    """0.0 heisst ausdruecklich 'keine Toleranz', nicht 'nicht gesetzt' -
+    dasselbe Muster wie bei internal_resistance_mohm_per_cell."""
+    params = make_params(calibration_tolerance_v_per_cell=0.08,
+                         calibration_tolerance_full_v_per_cell=0.0)
+    assert params.tolerance_for("full") == 0.0
+    assert params.tolerance_for("empty") == 0.08
+
+
+def test_wide_empty_tolerance_makes_the_bottom_anchor_reachable():
+    """23,2 V Packspannung ist die BMS-Warnschwelle des Dyness - tiefer
+    kommt die Anlage nicht. Mit 0.20 V/Zelle Toleranz kalibriert sie dort,
+    ohne bleibt der Zaehler unten ohne Anker."""
+    reachable = make_params(calibration_hold_s=0.0, empty_v_per_cell=2.7,
+                            calibration_tolerance_v_per_cell=0.02,
+                            calibration_tolerance_empty_v_per_cell=0.20)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 40.0
+    apply_calibration(reachable, bank, 23.2 / 8, time.time(), current_a=-2.0)
+    assert bank.coulomb_ah == 0.0
+
+    unreachable = make_params(calibration_hold_s=0.0, empty_v_per_cell=2.7,
+                              calibration_tolerance_v_per_cell=0.02)
+    bank2 = BankState("pack", 8, 200.0)
+    bank2.coulomb_ah = 40.0
+    apply_calibration(unreachable, bank2, 23.2 / 8, time.time(), current_a=-2.0)
+    assert bank2.coulomb_ah == 40.0
+
+
+# ---------------------------------------------------------------------------
+# Karenzzeit (Task 3)
+# ---------------------------------------------------------------------------
+def _params_with_grace(grace_s):
+    return make_params(calibration_hold_s=600.0, full_v_per_cell=3.5,
+                       calibration_tolerance_v_per_cell=0.02,
+                       full_taper_c_rate=0.05,
+                       calibration_grace_s=grace_s)
+
+
+def test_short_dropout_does_not_reset_the_hold_timer():
+    """Der T2MG pausiert beim Ueberschussladen 30-60 s. Ohne Karenz kann
+    calibration_hold_s in dieser Anlage nie ablaufen."""
+    params = _params_with_grace(90.0)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    t0 = 1000.0
+    apply_calibration(params, bank, 3.49, t0, current_a=5.0)          # Timer startet
+    assert bank.pending_high_since == t0
+    apply_calibration(params, bank, 3.20, t0 + 300, current_a=0.0)    # Aussetzer
+    assert bank.pending_high_since == t0                              # ueberlebt
+    apply_calibration(params, bank, 3.49, t0 + 340, current_a=5.0)    # wieder da
+    assert bank.pending_high_since == t0
+    apply_calibration(params, bank, 3.49, t0 + 601, current_a=5.0)    # 600 s voll
+    assert bank.coulomb_ah == 200.0
+
+
+def test_long_dropout_resets_the_hold_timer():
+    params = _params_with_grace(90.0)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    t0 = 1000.0
+    apply_calibration(params, bank, 3.49, t0, current_a=5.0)
+    apply_calibration(params, bank, 3.20, t0 + 300, current_a=0.0)
+    apply_calibration(params, bank, 3.20, t0 + 400, current_a=0.0)    # 100 s > 90 s
+    assert bank.pending_high_since is None
+
+
+def test_grace_zero_keeps_the_old_hard_reset():
+    params = _params_with_grace(0.0)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.49, 1000.0, current_a=5.0)
+    apply_calibration(params, bank, 3.20, 1001.0, current_a=0.0)
+    assert bank.pending_high_since is None
+
+
+def test_grace_does_not_survive_a_stale_voltage():
+    """Bei veralteter Spannung liefert die Engine None. Das ist kein
+    Aussetzer des Ladereglers, sondern ein blinder Sensor - da darf keine
+    Haltezeit weiterlaufen, sonst kalibriert ein haengender Sensor."""
+    params = _params_with_grace(600.0)
+    bank = BankState("pack", 8, 200.0)
+    apply_calibration(params, bank, 3.49, 1000.0, current_a=5.0)
+    apply_calibration(params, bank, None, 1010.0, current_a=5.0)
+    assert bank.pending_high_since is None
+
+
+def test_calibration_records_an_event_and_resets_the_balance():
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 166.0
+    bank.charged_ah, bank.discharged_ah = 95.4, 61.2
+    apply_calibration(params, bank, 3.49, 1000.0, current_a=6.1, raw_voltage_v=27.94)
+
+    assert len(bank.events) == 1
+    event = bank.events[-1]
+    assert event.side == "full"
+    assert event.coulomb_before_ah == 166.0
+    assert event.coulomb_after_ah == 200.0
+    assert event.residual_ah == pytest.approx(34.0)
+    assert event.voltage_v == pytest.approx(27.94)
+    assert event.cell_count == 8
+    assert event.charged_ah == pytest.approx(95.4)
+    assert event.discharged_ah == pytest.approx(61.2)
+    assert event.taper_met is True
+    # Die Bilanz laeuft ab dem Anker neu - sonst zaehlt das naechste
+    # Intervall die Ladung des vorigen mit.
+    assert bank.charged_ah == 0.0
+    assert bank.discharged_ah == 0.0
