@@ -170,8 +170,8 @@ test('readSamples deckelt das Fenster, statt die gesamte Historie zu laden', asy
 test('ohne Web-Locks-API zeichnet der Tab auf, statt gar nicht aufzuzeichnen', async () => {
   const dom = load();
   // jsdom kennt navigator.locks nicht - genau der Rueckfallpfad.
-  // Der async start() muss abgearbeitet werden, deshalb eine Tick warten.
-  await new Promise(resolve => setTimeout(resolve, 0));
+  // Der async start() muss abgearbeitet sein, bevor wir isLeader() lesen.
+  await dom.window.dashboardHistorizer.whenReady();
   assert.equal(dom.window.navigator.locks, undefined);
   assert.equal(dom.window.dashboardHistorizer.isLeader(), true);
   dom.window.close();
@@ -181,10 +181,10 @@ test('ein volles Kontingent pausiert die Aufzeichnung mit Begruendung statt stil
   const dom = load();
   // start() laeuft beim Laden automatisch los und liest in becomeLeader()
   // ueber zwei echte IndexedDB-Zugriffe (persist(), meta()) den gespeicherten
-  // Pause-Zustand, bevor der eigene Bootstrap-Collect beginnt. Ohne diese
-  // Wartezeit ueberschreibt dieser Lauf das paused=true von unten mit einem
+  // Pause-Zustand, bevor der eigene Bootstrap-Collect beginnt. Ohne dieses
+  // Abwarten ueberschreibt dieser Lauf das paused=true von unten mit einem
   // veralteten "false", weil er erst danach zu Ende laeuft.
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await dom.window.dashboardHistorizer.whenReady();
   const historizer = dom.window.dashboardHistorizer;
   const events = [];
   dom.window.addEventListener('dashboard-history-paused', event => events.push(event.detail));
@@ -213,7 +213,7 @@ test('eine pausierte Aufzeichnung schreibt nicht weiter', async () => {
   const dom = load();
   // Siehe Kommentar oben: der automatische Bootstrap-Lauf muss abgeschlossen
   // sein, bevor wir den Zustand manuell manipulieren.
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await dom.window.dashboardHistorizer.whenReady();
   const historizer = dom.window.dashboardHistorizer;
   let writes = 0;
   dom.window.HistoryStore.writeRaw = () => {
@@ -236,7 +236,7 @@ test('resume nimmt die Aufzeichnung wieder auf', async () => {
   const dom = load();
   // Siehe Kommentar oben: der automatische Bootstrap-Lauf muss abgeschlossen
   // sein, bevor wir den Zustand manuell manipulieren.
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await dom.window.dashboardHistorizer.whenReady();
   const historizer = dom.window.dashboardHistorizer;
   dom.window.HistoryStore.writeRaw = () => {
     const error = new Error('Quota überschritten');
@@ -289,7 +289,7 @@ function fakeExchange() {
 // mit und die Erwartungen waeren von der Promise-Reihenfolge abhaengig.
 async function leaderWithExchange() {
   const dom = load();
-  await new Promise(resolve => setTimeout(resolve, 10));
+  await dom.window.dashboardHistorizer.whenReady();
   const exchange = fakeExchange();
   dom.window.HistoryExchange = exchange;
   return {dom, exchange};

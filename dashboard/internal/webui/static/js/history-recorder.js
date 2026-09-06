@@ -40,6 +40,14 @@
   let pauseReason = '';
   let persisted = null;
 
+  // Loest auf, sobald becomeLeader() seinen Bootstrap abgeschlossen hat
+  // (persist(), meta('recording_paused'), erster collect()). Tests warten
+  // darauf, statt einen festen Timeout zu raten - auf langsamen CI-Laeufern
+  // reichte der geratene Wert nicht und der Bootstrap ueberschrieb den im Test
+  // gesetzten Zustand nachtraeglich.
+  let signalReady;
+  const ready = new Promise(resolve => { signalReady = resolve; });
+
   const basePath = () => window.__DASHBOARD_BASE_PATH__ || '';
 
   const announceUpdate = () => {
@@ -222,6 +230,7 @@
     await runMaintenance();
     maintenanceTimer = window.setInterval(runMaintenance, MAINTENANCE_INTERVAL_MS);
     startExchange();
+    signalReady();
   };
 
   // Der Lock wird gehalten, solange der Tab lebt: das Promise loest nie auf.
@@ -273,6 +282,9 @@
     readSamples,
     roleSamples,
     resume,
+    // whenReady loest auf, sobald der automatische Fuehrungsantritt fertig ist
+    // - der Testeinstieg, um genau danach den Zustand zu manipulieren.
+    whenReady: () => ready,
     // collectOnce ist der Testeinstieg in genau einen Sammeldurchgang -
     // der Timer-getriebene Pfad ist in jsdom nicht beobachtbar.
     collectOnce: collect,
