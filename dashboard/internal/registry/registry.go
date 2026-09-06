@@ -523,9 +523,14 @@ type StateChange struct {
 	LastTopicAt     time.Time
 	Available       bool
 	HasAvailability bool
+	Payload         string
 }
 
 func (r *Registry) stateChangeLocked(uniqueID string, es *entityState) StateChange {
+	payload := ""
+	if es.lastMessage != nil {
+		payload = es.lastMessage.Payload
+	}
 	return StateChange{
 		DeviceID:        r.byUnique[uniqueID],
 		UniqueID:        uniqueID,
@@ -536,6 +541,7 @@ func (r *Registry) stateChangeLocked(uniqueID string, es *entityState) StateChan
 		LastTopicAt:     es.lastTopicAt,
 		Available:       es.available,
 		HasAvailability: es.hasAvailability,
+		Payload:         payload,
 	}
 }
 
@@ -702,12 +708,12 @@ func (r *Registry) updateStateLocked(topic string, payload []byte, retained bool
 // RestoreState hydrates a discovered entity from the runtime cache. The next
 // fresh state message replaces this value and its source automatically.
 func (r *Registry) RestoreState(deviceID, uniqueID, value string, available, hasAvailability bool, lastSeen time.Time) bool {
-	return r.RestoreStateAt(deviceID, uniqueID, value, available, hasAvailability, lastSeen, lastSeen)
+	return r.RestoreStateAt(deviceID, uniqueID, value, available, hasAvailability, lastSeen, lastSeen, "")
 }
 
 // RestoreStateAt hydrates a discovered entity with cached state and the last
 // timestamp observed on either its state or availability topic.
-func (r *Registry) RestoreStateAt(deviceID, uniqueID, value string, available, hasAvailability bool, lastSeen, lastTopicAt time.Time) bool {
+func (r *Registry) RestoreStateAt(deviceID, uniqueID, value string, available, hasAvailability bool, lastSeen, lastTopicAt time.Time, payload string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	dev, ok := r.devices[deviceID]
@@ -725,10 +731,21 @@ func (r *Registry) RestoreStateAt(deviceID, uniqueID, value string, available, h
 	es.lastSeen = lastSeen
 	es.lastTopicAt = lastTopicAt
 	es.lastRetained = true
-	es.source = "runtime-cache"
 	es.payloadValid = true
 	es.payloadError = ""
 	es.hasPayloadState = false
+	// Nur seeden, wenn noch keine echte MQTT-Nachricht da war - Restore darf
+	// eine bereits laufende Live-Verbindung nicht mit einem veralteten
+	// Cache-Stand ueberschreiben (siehe AGENTS.md: restaurierte Werte sind
+	// non-live, bis eine frische Nachricht sie ersetzt).
+	if payload != "" && es.lastMessage == nil {
+		es.lastMessage = &MQTTMessage{
+			Topic: es.info.StateTopic, Payload: payload, At: lastTopicAt, Retained: true,
+		}
+		es.source = "runtime-cache"
+	} else if es.source == "" {
+		es.source = "runtime-cache"
+	}
 	return true
 }
 
@@ -1256,10 +1273,60 @@ func (r *Registry) Topics() []string {
 // topic that never carried a message would otherwise report year 1.
 type TopicSample struct {
 	Topic    string     `json:"topic"`
+	Known    bool       `json:"known"`
 	Payload  string     `json:"payload,omitempty"`
 	At       *time.Time `json:"at,omitempty"`
 	Device   string     `json:"device,omitempty"`
 	DeviceID string     `json:"device_id,omitempty"`
+	Source   string     `json:"source,omitempty"`
+}
+
+// sampleForTopicLocked baut den TopicSample-Eintrag fuer genau ein Topic -
+// gemeinsamer Kern von TopicSamples() (alle bekannten Topics) und
+// TopicSamplesFor() (eine angefragte Teilmenge, inklusive unbekannter
+// Topics). Caller haelt r.mu bereits.
+func (r *Registry) sampleForTopicLocked(topic string) TopicSample {
+	uniqueIDs, known := r.byTopic[topic]
+	sample := TopicSample{Topic: topic, Known: known}
+	if !known {
+		return sample
+	}
+	ids := make([]string, 0, len(uniqueIDs))
+	for uniqueID := range uniqueIDs {
+		ids = append(ids, uniqueID)
+	}
+	sort.Strings(ids)
+	for _, uniqueID := range ids {
+		deviceID, ok := r.byUnique[uniqueID]
+		if !ok {
+			continue
+		}
+		dev, ok := r.devices[deviceID]
+		if !ok {
+			continue
+		}
+		if sample.DeviceID == "" {
+			sample.DeviceID = deviceID
+			sample.Device = dev.info.Name
+			if sample.Device == "" {
+				sample.Device = deviceID
+			}
+		}
+		es := dev.entities[uniqueID]
+		if es == nil || es.lastMessage == nil || es.lastMessage.Topic != topic {
+			continue
+		}
+		at := es.lastMessage.At
+		sample.Payload = es.lastMessage.Payload
+		sample.At = &at
+		source := es.source
+		if source == "" {
+			source = "live"
+		}
+		sample.Source = source
+		break
+	}
+	return sample
 }
 
 // TopicSamples returns every topic from Topics() with its last payload, if one
@@ -1268,48 +1335,29 @@ type TopicSample struct {
 func (r *Registry) TopicSamples() []TopicSample {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-
-	samples := make([]TopicSample, 0, len(r.byTopic))
-	for topic, uniqueIDs := range r.byTopic {
-		sample := TopicSample{Topic: topic}
-		// Sortiert iterieren: bei mehreren Entities auf einem Topic waere die
-		// Map-Reihenfolge sonst zufaellig und die Gruppierung im Formular
-		// spraenge zwischen zwei Geraeten hin und her.
-		ids := make([]string, 0, len(uniqueIDs))
-		for uniqueID := range uniqueIDs {
-			ids = append(ids, uniqueID)
-		}
-		sort.Strings(ids)
-		for _, uniqueID := range ids {
-			deviceID, ok := r.byUnique[uniqueID]
-			if !ok {
-				continue
-			}
-			dev, ok := r.devices[deviceID]
-			if !ok {
-				continue
-			}
-			// Das Geraet steht auch dann fest, wenn auf dem Topic noch nie eine
-			// Nachricht lag - die Gruppierung darf davon nicht abhaengen.
-			if sample.DeviceID == "" {
-				sample.DeviceID = deviceID
-				sample.Device = dev.info.Name
-				if sample.Device == "" {
-					sample.Device = deviceID
-				}
-			}
-			es := dev.entities[uniqueID]
-			if es == nil || es.lastMessage == nil || es.lastMessage.Topic != topic {
-				continue
-			}
-			at := es.lastMessage.At
-			sample.Payload = es.lastMessage.Payload
-			sample.At = &at
-			break
-		}
-		samples = append(samples, sample)
+	topics := make([]string, 0, len(r.byTopic))
+	for topic := range r.byTopic {
+		topics = append(topics, topic)
 	}
-	sort.Slice(samples, func(i, j int) bool { return samples[i].Topic < samples[j].Topic })
+	sort.Strings(topics)
+	samples := make([]TopicSample, 0, len(topics))
+	for _, topic := range topics {
+		samples = append(samples, r.sampleForTopicLocked(topic))
+	}
+	return samples
+}
+
+// TopicSamplesFor liefert genau einen Eintrag je angefragtem Topic, in
+// Anfragereihenfolge - Known:false statt eines fehlenden Eintrags, wenn das
+// Topic in dieser Anlage nicht bekannt ist. Fuer gezielte Abfragen (siehe
+// config.page.js, Task 8) statt der vollen, potenziell grossen Liste.
+func (r *Registry) TopicSamplesFor(topics []string) []TopicSample {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	samples := make([]TopicSample, 0, len(topics))
+	for _, topic := range topics {
+		samples = append(samples, r.sampleForTopicLocked(topic))
+	}
 	return samples
 }
 
