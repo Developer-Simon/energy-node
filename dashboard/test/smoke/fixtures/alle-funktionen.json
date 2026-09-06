@@ -192,6 +192,9 @@
       "value_template": "{{ value_json.apower }}",
       "unit_of_measurement": "W",
       "device_class": "power",
+      "availability_topic": "zaehler/netz/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["netz_zaehler"], "name": "Netzzaehler" }
     }
   },
@@ -204,6 +207,9 @@
       "value_template": "{{ value_json.apower }}",
       "unit_of_measurement": "W",
       "device_class": "power",
+      "availability_topic": "batterie/wr/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["batterie_wr"], "name": "Batterie-Wechselrichter" }
     }
   },
@@ -215,6 +221,9 @@
       "state_topic": "batterie/wr/soc",
       "unit_of_measurement": "%",
       "device_class": "battery",
+      "availability_topic": "batterie/wr/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["batterie_wr"], "name": "Batterie-Wechselrichter" }
     }
   },
@@ -227,6 +236,9 @@
       "value_template": "{{ value_json.apower }}",
       "unit_of_measurement": "W",
       "device_class": "power",
+      "availability_topic": "zaehler/haus/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["haus_zaehler"], "name": "Hauszaehler" }
     }
   },
@@ -239,6 +251,9 @@
       "value_template": "{{ value_json.apower }}",
       "unit_of_measurement": "W",
       "device_class": "power",
+      "availability_topic": "wallbox/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["wallbox"], "name": "Wallbox" }
     }
   },
@@ -251,9 +266,18 @@
       "value_template": "{{ value_json.apower }}",
       "unit_of_measurement": "W",
       "device_class": "power",
+      "availability_topic": "waermepumpe/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["waermepumpe"], "name": "Waermepumpe" }
     }
   },
+
+  {"topic": "zaehler/netz/online", "payload": "true"},
+  {"topic": "batterie/wr/online", "payload": "true"},
+  {"topic": "zaehler/haus/online", "payload": "true"},
+  {"topic": "wallbox/online", "payload": "true"},
+  {"topic": "waermepumpe/online", "payload": "true"},
 
   {"topic": "zaehler/netz/status", "payload": {"id": 0, "apower": -1250, "voltage": 231.2, "source": "smoke"}},
   {"topic": "batterie/wr/status", "payload": {"id": 0, "apower": 900, "voltage": 51.8, "source": "smoke"}},
@@ -269,6 +293,9 @@
       "unique_id": "netz_meanwell_power",
       "state_topic": "shelly/netz_meanwell/status",
       "value_template": "{{ value_json.apower }}",
+      "availability_topic": "shelly/netz_meanwell/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["netz_meanwell"], "name": "MeanWell-Ladegeraet (Netzseite)" }
     }
   },
@@ -279,6 +306,9 @@
       "unique_id": "netz_lumentree_power",
       "state_topic": "shelly/netz_lumentree/status",
       "value_template": "{{ value_json.apower }}",
+      "availability_topic": "shelly/netz_lumentree/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["netz_lumentree"], "name": "Lumentree-Umrichter (Netzseite)" }
     }
   },
@@ -288,6 +318,9 @@
       "name": "Spannung",
       "unique_id": "bank_a_voltage",
       "state_topic": "bms/bank_a/voltage",
+      "availability_topic": "bms/bank_a/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["bms_bank_a"], "name": "Shelly Uni Bank A" }
     }
   },
@@ -297,9 +330,17 @@
       "name": "Spannung",
       "unique_id": "bank_b_voltage",
       "state_topic": "bms/bank_b/voltage",
+      "availability_topic": "bms/bank_b/online",
+      "payload_available": "true",
+      "payload_not_available": "false",
       "device": { "identifiers": ["bms_bank_b"], "name": "Shelly Uni Bank B (sendet nie)" }
     }
   },
+
+  {"topic": "shelly/netz_meanwell/online", "payload": "true"},
+  {"topic": "shelly/netz_lumentree/online", "payload": "true"},
+  {"topic": "bms/bank_a/online", "payload": "true"},
+  {"topic": "bms/bank_b/online", "payload": "false"},
 
   {"topic": "shelly/netz_meanwell/status", "payload": {"id": 0, "apower": 12.5, "voltage": 231.4, "current": 0.054, "source": "init"}},
   {"topic": "shelly/netz_lumentree/status", "payload": {"id": 0, "apower": 48.2, "voltage": 230.9, "source": "init"}},

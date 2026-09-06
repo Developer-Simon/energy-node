@@ -7,6 +7,14 @@ Pi) reicht ein Broker, der CONNECT/SUBSCRIBE/PINGREQ beantwortet und einem
 neuen Abonnenten eine vorbereitete Liste von Retained-Nachrichten zustellt -
 genau das, woraus die Registry ihre Geraete, Topics und Payload-Proben bildet.
 
+Direkt nach den Retained-Nachrichten schickt der Broker jedes Nicht-Discovery-
+Topic noch einmal als *nicht* retained PUBLISH. Ohne diese frische Kopie fuehrt
+die Registry jeden Wert als "mqtt-replay" und das Dashboard markiert ihn als
+"veraltet" - auf echter Hardware raeumt das die erste Live-Publikation der
+Sensoren weg, hier gibt es keine. Discovery-Topics (homeassistant/.../config)
+bleiben aussen vor: sie erneut ohne Retain-Flag zu senden kippte die
+"Discovery retained"-Anzeige im Geraete-Dialog auf "nein".
+
 BEWUSST UNVOLLSTAENDIG: kein QoS > 0, kein Wildcard-Matching, keine
 Weiterleitung zwischen Clients, keine Authentifizierung. Nichts davon wird fuer
 den Smoke-Test gebraucht. Nicht ausserhalb von Tests verwenden.
@@ -78,10 +86,11 @@ def encode_remaining(length):
             return out
 
 
-def publish_packet(topic, payload):
-    # 0x31 = PUBLISH, QoS 0, RETAIN gesetzt.
+def publish_packet(topic, payload, retain=True):
+    # 0x30 = PUBLISH, QoS 0; das unterste Bit ist das RETAIN-Flag.
+    first = 0x31 if retain else 0x30
     body = struct.pack("!H", len(topic)) + topic.encode("utf-8") + payload
-    return bytes([0x31]) + encode_remaining(len(body)) + body
+    return bytes([first]) + encode_remaining(len(body)) + body
 
 
 def read_remaining(sock):
@@ -122,12 +131,20 @@ def handle(conn, messages, connections):
                 with lock:
                     conn.sendall(b"\x20\x02\x00\x00")
                 connections[conn] = lock
-            elif packet_type == 8:    # SUBSCRIBE -> SUBACK + alle Retained
+            elif packet_type == 8:    # SUBSCRIBE -> SUBACK + alle Retained + Live-Refresh
                 packet_id = struct.unpack("!H", body[:2])[0]
                 with lock:
                     conn.sendall(b"\x90" + encode_remaining(3) + struct.pack("!H", packet_id) + b"\x00")
                     for topic, payload in messages.items():
                         conn.sendall(publish_packet(topic, payload))
+                    # Jedes State-/Verfuegbarkeits-Topic noch einmal als nicht
+                    # retained PUBLISH: so fuehrt die Registry den Wert als
+                    # "live" statt "mqtt-replay" und das Dashboard zeigt ihn
+                    # nicht als "veraltet". Discovery bleibt retained (s. o.).
+                    for topic, payload in messages.items():
+                        if topic.startswith("homeassistant/"):
+                            continue
+                        conn.sendall(publish_packet(topic, payload, retain=False))
             elif packet_type == 12:   # PINGREQ -> PINGRESP
                 with lock:
                     conn.sendall(b"\xd0\x00")
@@ -144,10 +161,12 @@ def handle(conn, messages, connections):
 def simulate_loop(messages, connections):
     # Periodisch neue Werte fuer SIMULATED_TOPICS berechnen, in messages
     # ablegen (damit ein neu verbindender Client den aktuellen Stand als
-    # Retained-Nachricht bekommt) und an jede offene Verbindung senden. Reine
-    # Sinuskurven um die Fixture-Basiswerte - kein Energiebilanz-Modell, nur
-    # genug Bewegung, damit die zeitbasierten Energie-Karten im Browser eine
-    # echte Kurve statt einer flachen Linie zeigen.
+    # Retained-Nachricht bekommt) und an jede offene Verbindung senden - als
+    # nicht retained PUBLISH, wie eine echte Live-Publikation, sonst faerbte
+    # jeder Tick die Werte wieder auf "veraltet". Reine Sinuskurven um die
+    # Fixture-Basiswerte - kein Energiebilanz-Modell, nur genug Bewegung,
+    # damit die zeitbasierten Energie-Karten im Browser eine echte Kurve
+    # statt einer flachen Linie zeigen.
     start = time.monotonic()
     while True:
         time.sleep(SIMULATE_INTERVAL)
@@ -162,7 +181,7 @@ def simulate_loop(messages, connections):
             for conn, lock in list(connections.items()):
                 try:
                     with lock:
-                        conn.sendall(publish_packet(topic, payload))
+                        conn.sendall(publish_packet(topic, payload, retain=False))
                 except OSError:
                     connections.pop(conn, None)
 
