@@ -22,6 +22,22 @@ class SocParams:
     full_v_per_cell: float = 3.5
     internal_resistance_mohm_per_cell: Optional[float] = None
     calibration_tolerance_v_per_cell: float = 0.08
+    # Tail-Strom-Kriterium der Voll-Kalibrierung: das Pack gilt nur dann als
+    # voll, wenn es bei Vollspannung nicht mehr als diese C-Rate aufnimmt
+    # ODER abgibt. None = aus (Verhalten vor Einfuehrung).
+    #
+    # Das ist der Gegenspieler zu calibration_tolerance_v_per_cell. Die
+    # Toleranz weicht die Schwelle bei kleinem Strom auf, weil die Messung
+    # dann als Ruhespannung durchgeht. In einer Anlage mit Ueberschussladen
+    # ist kleiner Strom aber kein Vollstands-Signal, sondern ein
+    # Sonnenstands-Signal: der Laderegler stellt die Klemmenspannung nach
+    # verfuegbarer Leistung ein. Erst zusammen mit dem Taper-Kriterium wird
+    # die Toleranz wieder sicher - kleine Stroeme oeffnen das Fenster dann
+    # nur noch, wenn das Pack die Ladung auch wirklich verweigert.
+    #
+    # Richtwert ist der Tail-Strom aus dem Zell-Datenblatt (Dyness AR2.5:
+    # 5 A je 100-Ah-Pack = 0.05 C).
+    full_taper_c_rate: Optional[float] = None
     calibration_hold_s: float = 120.0
     voltage_soc_mismatch_warn_pct: float = 25.0
     voltage_mismatch_hold_s: float = 300.0
@@ -61,6 +77,11 @@ class SocParams:
             raise ValueError("Zellzahlen muessen positiv sein")
         if self.bank_a_capacity_ah <= 0 or (self.bank_b_enabled and self.bank_b_capacity_ah <= 0):
             raise ValueError("Kapazitaeten muessen positiv sein")
+        if self.full_taper_c_rate is not None and not 0 < self.full_taper_c_rate <= 1:
+            raise ValueError(
+                "full_taper_c_rate muss zwischen 0 (exklusiv) und 1 liegen: "
+                f"{self.full_taper_c_rate}"
+            )
         for name in ("charger_ac_dc_efficiency", "inverter_dc_ac_efficiency", "charge_efficiency"):
             value = getattr(self, name)
             if not 0 < value <= 1:

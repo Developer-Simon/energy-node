@@ -91,6 +91,21 @@ def voltage_based_soc_pct(corrected_v_per_cell, params):
     return 100.0
 
 
+def full_taper_satisfied(params, current_a, capacity_ah):
+    """Nimmt das Pack bei Vollspannung noch nennenswert Ladung auf - oder
+    gibt es welche ab? Nur wenn beides verneint ist, ist 'voll' mehr als
+    eine Spannungsablesung.
+
+    Richtungsblind: 27,9 V unter 30 A Entladung sind genauso wenig ein
+    volles Pack wie 27,9 V unter 30 A Ladung. Ohne konfigurierte C-Rate
+    ist das Gate offen (Bestandsverhalten)."""
+    if params.full_taper_c_rate is None:
+        return True
+    if capacity_ah <= 0:
+        return False
+    return abs(current_a or 0.0) / capacity_ah <= params.full_taper_c_rate
+
+
 def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0):
     """Prueft, ob die (lastkorrigierte) Spannung stabil genug ausserhalb der
     Schwellen liegt, um den Coulomb-Zaehler auf 0%/100% zurueckzusetzen.
@@ -115,6 +130,11 @@ def apply_calibration(params, bank, corrected_v_per_cell, now, current_a=0.0):
             bank.last_calibration_iso = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     elif corrected_v_per_cell >= params.full_v_per_cell - tolerance:
         bank.pending_low_since = None
+        if not full_taper_satisfied(params, current_a, bank.capacity_ah):
+            # Spannung stimmt, Strom nicht - das ist ein Laderegler an der
+            # Arbeit, kein volles Pack. Timer nicht laufen lassen.
+            bank.pending_high_since = None
+            return
         bank.pending_high_since = bank.pending_high_since or now
         if now - bank.pending_high_since >= params.calibration_hold_s:
             bank.coulomb_ah = bank.capacity_ah

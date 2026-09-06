@@ -228,3 +228,71 @@ def test_voltage_plausibility_ignores_a_missing_voltage_estimate():
     apply_voltage_plausibility(params, bank, None, time.time())
     assert bank.voltage_mismatch is False
     assert bank.pending_mismatch_since is None
+
+
+# ---------------------------------------------------------------------------
+# Taper-Kriterium (Task 1)
+# ---------------------------------------------------------------------------
+def test_full_taper_blocks_calibration_at_bulk_current():
+    """Der Fall aus der Anlage: 27,9 V Packspannung, aber 17 A Ladestrom.
+    Das Pack nimmt noch Ladung auf, also ist es nicht voll - egal wie hoch
+    die Spannung steht, denn die stellt der Laderegler."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    now = time.time()
+    # 3.49 V/Zelle liegt ueber der Schwelle 3.48 - ohne Taper wuerde das
+    # sofort kalibrieren.
+    apply_calibration(params, bank, 3.49, now, current_a=17.0)
+    assert bank.coulomb_ah == 150.0
+    assert bank.pending_high_since is None
+
+
+def test_full_taper_allows_calibration_below_tail_current():
+    """5 A je Pack ist der Tail-Strom aus dem Dyness-Datenblatt; bei zwei
+    parallelen Packs (200 Ah) sind das 10 A = 0.05 C."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.49, time.time(), current_a=9.0)
+    assert bank.coulomb_ah == 200.0
+
+
+def test_full_taper_is_direction_blind():
+    """Ein Pack, das bei hoher Spannung kraeftig entladen wird, ist genauso
+    wenig 'voll' wie eines, das kraeftig laedt."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.49, time.time(), current_a=-30.0)
+    assert bank.coulomb_ah == 150.0
+
+
+def test_full_taper_unset_keeps_old_behaviour():
+    """Bestandsinstallationen ohne den neuen Schluessel duerfen sich nicht
+    aendern - das ist die Rueckfall-Garantie fuer den Produktiv-Pi."""
+    params = make_params(calibration_hold_s=0.0, full_v_per_cell=3.5,
+                         calibration_tolerance_v_per_cell=0.02)
+    assert params.full_taper_c_rate is None
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 150.0
+    apply_calibration(params, bank, 3.50, time.time(), current_a=17.0)
+    assert bank.coulomb_ah == 200.0
+
+
+def test_full_taper_does_not_touch_the_empty_side():
+    """Die Leer-Kalibrierung hat ihr eigenes Kriterium und darf vom
+    Taper-Gate nicht mitblockiert werden."""
+    params = make_params(calibration_hold_s=0.0, empty_v_per_cell=2.7,
+                         calibration_tolerance_v_per_cell=0.02,
+                         full_taper_c_rate=0.05)
+    bank = BankState("pack", 8, 200.0)
+    bank.coulomb_ah = 50.0
+    apply_calibration(params, bank, 2.70, time.time(), current_a=-40.0)
+    assert bank.coulomb_ah == 0.0
