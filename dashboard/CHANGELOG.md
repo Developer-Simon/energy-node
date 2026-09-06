@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.5.13 (2026-09-06)
+
+### Features
+
+- **docs:** Add comprehensive documentation on dashboard and services (35cce56)
+- **docs:** update favicon and improve documentation (a7f25f4)
+
+### Documentation
+
+- record license and version for vendored dashboard JS libraries (032743e)
+
+### Tests
+
+- add availability topics and update minibroker for live data publishing (d3b36e9)
+
+### Chores
+
+- initial public release of Energy Node (e9c9417)
+
 ## v0.5.12 (2026-09-05)
 
 ### Features

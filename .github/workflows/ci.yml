@@ -48,6 +48,7 @@ jobs:
           pip install -r requirements-dev.txt
       - run: pytest src scripts/tests -q
       - run: bash scripts/tests/test_publish_mirror.sh
+      - run: bash scripts/tests/test_generate_changelog.sh
       - run: ./scripts/deploy/check_tracked_secrets.sh
 
   home-assistant-integration:

@@ -10,7 +10,7 @@
 # entsteht deshalb nur, wenn sich Major oder Minor aendert, oder wenn der
 # Commit selbst getaggt ist; reine Patch-Bumps bleiben im selben Abschnitt.
 #
-# Usage: ./generate_changelog.sh [--freeze-before <version>] [<target>|all]
+# Usage: ./generate_changelog.sh [--freeze-before <version>] [--rebuild] [<target>|all]
 #   <target>: dashboard | src | common | battery_soc_core | ha-integration
 #
 # Ohne Zielangabe (oder mit "all") werden alle Targets nacheinander generiert.
@@ -21,6 +21,24 @@
 # VERSION-Datei; die Changelog-Ueberschriften nutzen trotzdem "vX.Y.Z" wie
 # ueberall sonst, siehe scripts/publish_mirror.sh.
 #
+# Auto-Freeze (Standardverhalten):
+#   Die bestehende CHANGELOG.md wird in Abschnitte zerlegt. Vom ersten
+#   Abschnitt an (von oben), den die aktuelle Commit-Historie nicht mehr
+#   hergibt - also mind. eine "(hash)"-Referenz, die "git log" fuer diese
+#   Komponente nicht mehr kennt, oder ein Abschnitt ganz ohne Hashes -, wird
+#   der Rest der Datei unveraendert uebernommen ("eingefroren"). Alles
+#   darueber (was Git noch reproduzieren kann) wird wie gehabt neu aus der
+#   Commit-Historie gebaut und oben angefuegt. So kann kein Lauf von Hand
+#   gepflegte bzw. aus dem Vorgaenger-Repo uebernommene Alt-Historie mehr
+#   plattmachen (History-freier Fork), und wiederholte Laeufe sind idempotent.
+#   Ohne solchen Abschnitt (frische Datei, oder Git kennt noch alles) ist
+#   Auto-Freeze wirkungslos und es wird komplett neu gebaut.
+#
+# --rebuild:
+#   Auto-Freeze aus. Die CHANGELOG.md wird komplett aus der Commit-Historie
+#   neu aufgebaut (nur noch --freeze-before / die Komponenten-Untergrenze
+#   min_freeze frieren dann Abschnitte ein). Bewusster Voll-Neuaufbau.
+#
 # --freeze-before <version>:
 #   Abschnitte mit Major.Minor < <version> werden unveraendert aus der
 #   bestehenden CHANGELOG.md uebernommen (z.B. von Hand nachbearbeitete
@@ -28,18 +46,15 @@
 #   zu werden. Ab <version> (inklusive) wird wie gewohnt aus der
 #   Commit-Historie neu generiert, damit der aktuell offene Abschnitt neue
 #   Commits aufnimmt. <version> akzeptiert "vX.Y", "X.Y" oder "vX.Y.Z".
-#
-# Baut die jeweilige CHANGELOG.md bei jedem Lauf komplett neu auf (keine
-# inkrementelle Aktualisierung), damit die Abschnittsgrenzen immer korrekt
-# aus der Commit-Historie neu berechnet werden - ausser fuer Abschnitte, die
-# durch --freeze-before eingefroren sind.
+#   Wirkt zusaetzlich zu Auto-Freeze: friert hoechstens mehr Abschnitte ein
+#   (auch solche, die Git noch reproduzieren koennte), nie weniger.
 
 set -euo pipefail
 
 ALL_TARGETS=(dashboard src common battery_soc_core ha-integration)
 
 usage() {
-  echo "Usage: $(basename "$0") [--freeze-before <version>] [$(IFS='|'; echo "${ALL_TARGETS[*]}")|all]" >&2
+  echo "Usage: $(basename "$0") [--freeze-before <version>] [--rebuild] [$(IFS='|'; echo "${ALL_TARGETS[*]}")|all]" >&2
 }
 
 declare -A LABELS=(
@@ -56,6 +71,7 @@ COMMIT_RE_PLAIN='^([a-zA-Z]+):[[:space:]](.*)$'
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
 freeze_before=""
+rebuild=false
 target=""
 
 while [[ $# -gt 0 ]]; do
@@ -67,6 +83,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --freeze-before=*)
       freeze_before="${1#*=}"
+      shift
+      ;;
+    --rebuild)
+      rebuild=true
       shift
       ;;
     dashboard|src|common|battery_soc_core|ha-integration|all)
@@ -157,6 +177,37 @@ classify_and_append() {
   GBUCKET[$type]+="${entry}"$'\n'
 }
 
+# "(hash)"-Referenzen aus einem Markdown-Block ziehen (7-40 Hex in Klammern).
+block_hashes() {
+  grep -oE '\([0-9a-f]{7,40}\)' <<< "$1" | tr -d '()'
+}
+
+# 0, wenn der Block mind. eine "(hash)"-Referenz hat und Git jede davon in der
+# aktuellen Historie dieser Komponente noch kennt (HIST_HASHES) - der Block
+# laesst sich dann aus der Commit-Historie neu bauen. Sonst 1 (einfrieren).
+# HIST_HASHES wird von generate_one als 'local -A' bereitgestellt.
+block_reproducible() {
+  local h had=false
+  while IFS= read -r h; do
+    [[ -z "$h" ]] && continue
+    had=true
+    [[ -n "${HIST_HASHES[$h]:-}" ]] || return 1
+  done < <(block_hashes "$1")
+  $had
+}
+
+# 0, wenn jede "(hash)"-Referenz des neu gebauten Abschnitts ($1) bereits im
+# eingefrorenen Text ($2) steht (dann nicht noch einmal voranstellen).
+section_covered_by() {
+  local h had=false
+  while IFS= read -r h; do
+    [[ -z "$h" ]] && continue
+    had=true
+    grep -qF "($h)" <<< "$2" || return 1
+  done < <(block_hashes "$1")
+  $had
+}
+
 # Generiert die CHANGELOG.md einer einzelnen Komponente (dashboard|src|common).
 generate_one() {
   local comp="$1"
@@ -229,7 +280,18 @@ generate_one() {
 
   local changelog="${repo_root}/${out_dir_prefix}CHANGELOG.md"
 
+  # auto_freeze (Standard, sofern nicht --rebuild): Abschnitte der bestehenden
+  # CHANGELOG.md, deren Commit-Referenzen die aktuelle Commit-Historie nicht
+  # mehr hergibt (von Hand gepflegte / aus dem Vorgaenger-Repo uebernommene
+  # Alt-Historie - beim History-freien Fork faellt hier alles Vor-Fork-Wissen
+  # rein), werden unveraendert eingefroren. Alles, was Git noch reproduzieren
+  # kann, wird wie gehabt neu aus der Historie gebaut. So kann ein Lauf die
+  # Alt-Historie nicht mehr plattmachen, bleibt aber idempotent.
+  local auto_freeze=true
+  $rebuild && auto_freeze=false
+
   local -A GBUCKET=()
+  local -A HIST_HASHES=()   # alle %h dieser Komponente aus der Commit-Historie
   local group_unversioned="" group_major="" group_minor=""
   local group_version="" group_tag="" group_date=""
   local SECTIONS=() SECTION_MAJOR=() SECTION_MINOR=() SECTION_UNVER=()
@@ -247,6 +309,7 @@ generate_one() {
   local hash subject
   while IFS=$'\t' read -r hash subject; do
     [[ -z "$hash" ]] && continue
+    HIST_HASHES[$hash]=1
 
     local local_version=""
     local raw vf
@@ -312,17 +375,20 @@ except Exception:
 
   flush_group
 
-  # --freeze-before / min_freeze: alles ab dem ersten Abschnitt der
-  # bestehenden CHANGELOG.md mit Major.Minor < eff_major.eff_minor wird
-  # unveraendert (als zusammenhaengender Rest-Block, gleich wie in der
-  # Datei) uebernommen statt aus der Commit-Historie neu gebaut zu werden -
-  # so bleiben auch mehrere von Hand geschriebene Abschnitte innerhalb
-  # derselben Minor-Version erhalten, statt zu einem Abschnitt zu
-  # verschmelzen. Ohne Treffer (kein Boundary in der alten Datei gefunden,
-  # z.B. beim allerersten Lauf) bleibt frozen_tail leer und es wird komplett
-  # frisch generiert.
+  # Bestehende CHANGELOG.md in Abschnitte ("## ...") zerlegen und - top-down -
+  # den ersten Abschnitt suchen, ab dem eingefroren wird. Ausloeser:
+  #   * auto_freeze: der Abschnitt ist aus der aktuellen Commit-Historie nicht
+  #     reproduzierbar (mind. eine "(hash)"-Referenz fehlt in HIST_HASHES, oder
+  #     der Abschnitt fuehrt gar keine Hashes) - typisch fuer von Hand
+  #     gepflegte / vor dem History-freien Fork geschriebene Abschnitte.
+  #   * --freeze-before / min_freeze: Abschnitt "## vX.Y." mit Major.Minor <
+  #     eff_major.eff_minor, oder "## Unversioniert ...".
+  # Ab dem Treffer wird der Rest der Datei unveraendert als frozen_tail
+  # uebernommen; alles darueber baut sich neu aus der Commit-Historie auf.
+  # Kein Treffer (frische Datei, oder Git kennt noch jeden Abschnitt) ->
+  # frozen_tail bleibt leer, es wird komplett frisch generiert.
   local frozen_tail=""
-  if $freeze_active && [[ -f "$changelog" ]]; then
+  if { $auto_freeze || $freeze_active; } && [[ -f "$changelog" ]]; then
     local old_blocks_raw=()
     mapfile -d '' -t old_blocks_raw < <(awk 'BEGIN{RS="\n## "} NR>1{printf "## %s%c", $0, 0}' "$changelog")
     local n=${#old_blocks_raw[@]}
@@ -337,13 +403,15 @@ except Exception:
       (( i < n - 1 )) && old_block+=$'\n'
       if ! $found; then
         old_heading="${old_block%%$'\n'*}"
-        if [[ "$old_heading" =~ ^\#\#\ v([0-9]+)\.([0-9]+)\. ]]; then
+        if $auto_freeze && ! block_reproducible "$old_block"; then
+          found=true
+        elif [[ -n "$eff_major" && "$old_heading" =~ ^\#\#\ v([0-9]+)\.([0-9]+)\. ]]; then
           old_major="${BASH_REMATCH[1]}"
           old_minor="${BASH_REMATCH[2]}"
           if (( old_major < eff_major || (old_major == eff_major && old_minor < eff_minor) )); then
             found=true
           fi
-        elif [[ "$old_heading" == "## Unversioniert "* ]]; then
+        elif [[ -n "$eff_major" && "$old_heading" == "## Unversioniert "* ]]; then
           found=true
         fi
       fi
@@ -359,10 +427,13 @@ except Exception:
       local is_new=true
       if [[ "${SECTION_UNVER[$idx]}" == "1" ]]; then
         is_new=false
-      elif [[ -n "${SECTION_MAJOR[$idx]}" ]]; then
-        if (( SECTION_MAJOR[idx] < eff_major || (SECTION_MAJOR[idx] == eff_major && SECTION_MINOR[idx] < eff_minor) )); then
-          is_new=false
-        fi
+      elif [[ -n "$eff_major" && -n "${SECTION_MAJOR[$idx]}" ]] \
+        && (( SECTION_MAJOR[idx] < eff_major || (SECTION_MAJOR[idx] == eff_major && SECTION_MINOR[idx] < eff_minor) )); then
+        is_new=false
+      elif section_covered_by "${SECTIONS[$idx]}" "$frozen_tail"; then
+        # jede "(hash)"-Referenz dieses neu gebauten Abschnitts steckt schon
+        # im eingefrorenen Teil -> nicht doppelt voranstellen (Idempotenz).
+        is_new=false
       fi
       $is_new || continue
     fi

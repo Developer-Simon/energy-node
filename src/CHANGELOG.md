@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.2.5 (2026-09-06)
+
+### Features
+
+- **docs:** Add comprehensive documentation on dashboard and services (35cce56)
+
+### Tests
+
+- make the full src/ suite collectible and skip local-only fixtures (cb6abfe)
+
+### Chores
+
+- initial public release of Energy Node (e9c9417)
+
 ## v0.2.4 (2026-09-05)
 
 ### Refactors

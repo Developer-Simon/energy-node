@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.3.13 (2026-09-05)
+
+### Chores
+
+- initial public release of Energy Node (e9c9417)
+
 ## v0.3.12 (2026-09-05)
 
 ### Refactors

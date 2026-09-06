@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.8 (2026-09-06)
+
+### Features
+
+- **docs:** update favicon and improve documentation (a7f25f4)
+
+### Chores
+
+- initial public release of Energy Node (e9c9417)
+
 ## v0.2.7 (2026-09-05)
 
 ### Features
