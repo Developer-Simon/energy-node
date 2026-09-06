@@ -211,8 +211,8 @@ GitHub Pages site from that folder.
 the dashboard walkthrough with a screenshot of every screen, the device
 services, the data-flow and configuration references, measured per-service
 performance on the Pi 1, the `/api/v1` HTTP API, reverse-proxy and
-credentials notes, the battery state-of-charge internals, and the Home
-Assistant integration release runbook.
+credentials notes, the battery state-of-charge internals, how a release is
+cut, and the Home Assistant integration release runbook.
 
 ---
 
@@ -234,22 +234,6 @@ anyone with a remote energy site could run as-is**: configuration over code,
 device support added as bridges rather than forks, and site-specific
 assumptions steadily pushed out into config. Contributions that widen what it
 covers are what move it there — see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Releases
-
-Releases are cut from Git tags. To publish `vX.Y.Z`:
-
-1. Bump the `MAJOR`/`MINOR` in `dashboard/VERSION` by hand if needed
-   (the pre-commit hook only auto-bumps the patch level).
-2. Regenerate the changelog: `./scripts/generate_changelog.sh dashboard`.
-3. Commit, then `git tag vX.Y.Z && git push origin vX.Y.Z`.
-
-The [`Release`](.github/workflows/release.yml) workflow then builds the
-dashboard binary for `linux/armv6` (Raspberry Pi 1), `linux/arm64` and
-`linux/amd64`, attaches the `tar.gz` archives plus `SHA256SUMS`, and
-publishes a GitHub Release. Release notes are the matching section of
-`dashboard/CHANGELOG.md`; a tag with a pre-release suffix
-(`vX.Y.Z-rc1`) is marked as a pre-release.
 
 ## License
 

@@ -19,6 +19,7 @@
     - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
     - { label: "Lazy assets & cache busting", url: "knowledge/dashboard/lazy-assets-cache-busting.md" }
     - { label: "Battery state of charge", url: "knowledge/src/battery-soc-how-it-works.md" }
+    - { label: "Cutting a release", url: "knowledge/releasing.md" }
 
 - title: Integration
   items:

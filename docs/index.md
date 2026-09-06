@@ -98,6 +98,8 @@ Three properties shape the whole design:
   — the frontend's manual `?v=` asset versioning
 - [Battery state of charge](knowledge/src/battery-soc-how-it-works.md) — how
   the LiFePO4 engine works
+- [Cutting a release](knowledge/releasing.md) — the tag-driven build-and-publish
+  workflow and how to publish `vX.Y.Z`
 - [Home Assistant integration (HACS)](integration/ha-integration-hacs-release.md)
   — the native custom integration, its mirror repo and release runbook
 
