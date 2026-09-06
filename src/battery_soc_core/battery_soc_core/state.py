@@ -7,7 +7,7 @@ from typing import List, Optional
 
 from .params import SocParams
 
-# Jak viele Kalibrierereignisse je Einheit aufgehoben werden. Der Ring landet
+# Wie viele Kalibrierereignisse je Einheit aufgehoben werden. Der Ring landet
 # in state.json - gross genug fuer eine belastbare Auswertung (Task 4b),
 # klein genug, dass die Datei eine Datei bleibt.
 CALIBRATION_EVENT_LIMIT = 20
