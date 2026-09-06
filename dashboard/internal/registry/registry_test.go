@@ -560,6 +560,39 @@ func TestTopicSamplesCarryTheLastStatePayload(t *testing.T) {
 	}
 }
 
+// A device that heartbeats its availability topic every cycle (battery_soc
+// publishes .../status/online after every /state and /tuning message) must not
+// lose the state-topic sample: the availability message is the most recent one
+// on the entity, but the sample for the state topic still has to carry the last
+// state payload.
+func TestTopicSamplesKeepStatePayloadAfterAvailabilityHeartbeat(t *testing.T) {
+	reg := New()
+	reg.UpsertEntity(Discovery{
+		Device: DeviceInfo{ID: "battery_soc", Name: "Batterie-Ladezustand"},
+		Entity: EntityInfo{
+			UniqueID:            "battery_soc_open_suggestions_pack",
+			StateTopic:          "outstation/battery_soc/tuning",
+			AvailabilityTopic:   "outstation/battery_soc/status/online",
+			PayloadAvailable:    "1",
+			PayloadNotAvailable: "0",
+		},
+	})
+	reg.UpdateState("outstation/battery_soc/tuning", []byte(`{"units":{"pack":{"suggestions":[]}}}`), true, time.Now())
+	// The availability heartbeat lands after the state message, on the same entity.
+	reg.UpdateAvailability("outstation/battery_soc/status/online", []byte("1"), true, time.Now())
+
+	samples := reg.TopicSamplesFor([]string{"outstation/battery_soc/tuning"})
+	if len(samples) != 1 {
+		t.Fatalf("expected one sample, got %d", len(samples))
+	}
+	if got := samples[0].Payload; got != `{"units":{"pack":{"suggestions":[]}}}` {
+		t.Fatalf("state payload lost after availability heartbeat: %q", got)
+	}
+	if samples[0].At == nil {
+		t.Fatal("sample has no timestamp")
+	}
+}
+
 func TestTopicSamplesCoverExactlyTheKnownTopics(t *testing.T) {
 	reg := New()
 	reg.UpsertEntity(Discovery{Device: DeviceInfo{ID: "node"}, Entity: EntityInfo{UniqueID: "temp", StateTopic: "state/node/temp", AvailabilityTopic: "status/node"}})
