@@ -6,7 +6,6 @@ __pycache__
 *.exe
 import/*
 templates/*
-!templates/battery_soc.config.json
 *.whl
 .venv/
 .venv-ha/
