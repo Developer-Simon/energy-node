@@ -1,5 +1,5 @@
 {{define "overview"}}
-<section id="overview-panel" class="panel" role="tabpanel" aria-label="Übersicht" x-bind:class="{ active: activePanel === 'overview-panel' }" x-show="activePanel === 'overview-panel'" x-data="devicesPanel()" x-init="init()" data-editor-fragment="{{.BasePath}}/?fragment=panel&panel=layout-editor" data-editor-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js,{{.BasePath}}/static/js/layout-editor.js?v=10" data-editor-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css,{{.BasePath}}/static/css/layout-editor.css?v=9">
+<section id="overview-panel" class="panel" role="tabpanel" aria-label="Übersicht" x-bind:class="{ active: activePanel === 'overview-panel' }" x-show="activePanel === 'overview-panel'" x-data="devicesPanel()" x-init="init()" data-editor-fragment="{{.BasePath}}/?fragment=panel&panel=layout-editor" data-editor-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js,{{.BasePath}}/static/js/layout-editor.js?v=11" data-editor-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css,{{.BasePath}}/static/css/layout-editor.css?v=9">
   {{template "overview-live" .}}
   {{template "device-modal" .}}
 </section>

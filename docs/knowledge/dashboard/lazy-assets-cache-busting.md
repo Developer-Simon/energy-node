@@ -64,7 +64,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-09-06**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-09-07**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -94,7 +94,7 @@ As of **2026-09-06**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `8` |
 | `js/notifications.js` | – |
-| `js/dashboard.js` | `10` |
+| `js/dashboard.js` | `11` |
 | `js/overview.page.js` | `5` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -135,7 +135,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/layout-editor.js` `10` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/layout-editor.js` `11` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` –, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
@@ -207,6 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| configure-compact-device branch | `js/dashboard.js` · `js/layout-editor.js` | `11` · `11` | 2026-09-07 |
 | harden-battery-soc branch | `js/config.page.js` · `css/manager.css` (5 panels) · `js/history-recorder.js` | `2` · `17` · `8` | 2026-09-06 |
 | v0.5.11 | `js/battery-card-core.js` · `js/battery-status.js` · `js/layout-editor.js` | `2` · `1` · `10` | 2026-09-05 |
 | v0.5.10 | `css/manager.css` (5 panels) | `16` | 2026-09-05 |
