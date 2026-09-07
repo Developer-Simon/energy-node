@@ -12,6 +12,7 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"fmt"
 	"hash/fnv"
 	"html/template"
 	"io/fs"
@@ -99,6 +100,7 @@ var overviewTmpl = template.Must(template.New("base.html").Funcs(template.FuncMa
 	"compactCardAuto":    compactCardAuto,
 	"compactCardForItem": compactCardForItem,
 	"deviceTileForItem":  deviceTileForItem,
+	"deviceTileStatus":   deviceTileStatus,
 	"entityGroupForItem": entityGroupForItem,
 	"cardStyle":          cardStyle,
 	"cardFillsHeight":    cardFillsHeight,
@@ -168,6 +170,46 @@ func deviceAvailability(entities []registry.EntityView) string {
 		return "unknown"
 	}
 	return "offline"
+}
+
+// deviceTileStatusInfo is the header status dot on a device tile: a class for
+// the colour and a short label for the tooltip/caption.
+type deviceTileStatusInfo struct {
+	Class string
+	Label string
+}
+
+// deviceTileStatus rolls a device's entities into one health verdict for the
+// tile header (Spec 2026-08-23 Abschnitt 3.2, replacing the flat accent
+// stripe). An entity that reports unavailable outranks everything; a replayed
+// (stale) value is next; a device that reports availability everywhere and is
+// fully up is "ok"; a device that reports no availability at all stays neutral.
+func deviceTileStatus(entities []registry.EntityView) deviceTileStatusInfo {
+	offline := 0
+	stale := false
+	known := false
+	for _, e := range entities {
+		if e.Stale {
+			stale = true
+		}
+		if !e.HasAvailability {
+			continue
+		}
+		known = true
+		if !e.Available {
+			offline++
+		}
+	}
+	switch {
+	case offline > 0:
+		return deviceTileStatusInfo{Class: "bad", Label: fmt.Sprintf("%d offline", offline)}
+	case stale:
+		return deviceTileStatusInfo{Class: "warn", Label: "veraltet"}
+	case known:
+		return deviceTileStatusInfo{Class: "ok", Label: "alle online"}
+	default:
+		return deviceTileStatusInfo{Class: "unknown", Label: ""}
+	}
 }
 
 // priorityEntities picks up to three entities to surface on a compact device

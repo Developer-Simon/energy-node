@@ -1150,25 +1150,35 @@ tr:nth-child(even) td { background: var(--panel); }
 /* Milchglas wie energy-flow-node (siehe dort): auf der Geraete-Seite stehen
    deutlich weniger Geraete- als Entitaets-Karten gleichzeitig (eine pro
    Geraet statt einer pro Entitaet ueber alle Geraete hinweg), der Blur-Preis
-   bleibt also vertretbar - anders als bei entity-list-item weiter unten. Der
-   farbige linke Akzent bleibt, aber im Verbund mit border-radius wie bei
-   energy-status-lead (border + border-left-width statt eigenem border-left),
-   sonst kollidiert die eckige Kante mit den runden Ecken. */
-.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-left-width: 3px; border-left-color: var(--accent); border-radius: var(--radius-lg); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
+   bleibt also vertretbar - anders als bei entity-list-item weiter unten.
+   Kein linker Akzentstreifen mehr (Spec 2026-08-23 Abschnitt 3.2): er trug
+   auf jedem Geraet dieselbe Farbe und damit keine Information - an seine
+   Stelle tritt der Status-Punkt in der Kopfzeile (.device-tile-dot). Radius
+   wie jede andere Rasterkarte (--radius-md, Abschnitt 7). */
+.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
 .device-tile-header { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
-.device-tile-header h3 { margin: 0; color: var(--accent); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.device-tile-header h3 { display: flex; align-items: center; gap: .4rem; margin: 0; color: var(--accent); letter-spacing: -.01em; overflow-wrap: anywhere; }
 .device-tile-header small { display: block; margin-top: .2rem; overflow-wrap: anywhere; }
+/* Status-Punkt statt Akzentstreifen (Abschnitt 3.2): schlechtester Zustand
+   der Entitaeten - rot bei offline, gelb bei einem Replay-Wert, gruen wenn
+   alles gemeldet und da ist, neutral ohne jede Verfuegbarkeitsangabe. */
+.device-tile-dot { flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: var(--text-faint); }
+.device-tile-dot-ok { background: var(--ok); }
+.device-tile-dot-bad { background: var(--bad); }
+.device-tile-dot-warn { background: var(--warn); }
 .device-tile-actions { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
 .ignored-devices { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .ignored-device-row { display: flex; align-items: center; gap: .8rem; border-bottom: 1px solid var(--border-soft); padding: .7rem 0; }
 .ignored-device-row > div { min-width: 0; flex: 1; }
 .ignored-device-row small { display: block; overflow-wrap: anywhere; }
 .ignored-device-stale { color: var(--warn); font-size: .9rem; }
-.device-tile-status { display: flex; gap: .45rem; align-items: baseline; margin: .8rem 0 .55rem; color: var(--text); }
-.device-tile-status strong { font-variant-numeric: tabular-nums; }
-.device-tile-status-label { color: var(--text-muted); font-size: .8rem; }
-.device-tile-entities { display: grid; gap: .35rem; }
-.device-tile-entity { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; min-height: 2.4rem; padding: .15rem 0; border-top: 1px solid color-mix(in srgb, var(--border-soft) 55%, transparent); }
+/* Zwei Chips statt der "Entitaeten N Steuerungen M"-Grundlinienzeile
+   (Abschnitt 3.4), im Stil von .entity-group-count. */
+.device-tile-status { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: .8rem 0 .55rem; }
+.device-tile-chip { flex: 0 0 auto; font-size: .7rem; font-weight: 600; color: var(--text-muted); background: var(--panel-alt); padding: .12rem .5rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.device-tile-entities { display: grid; gap: .4rem; }
+/* Abstand statt Trennstrich zwischen den Zeilen (Abschnitt 3.5). */
+.device-tile-entity { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; min-height: 2.4rem; padding: .15rem 0; }
 .device-tile-entity strong, .device-tile-entity small { display: block; overflow-wrap: anywhere; }
 .device-tile-entity small { color: var(--text-muted); font-size: .78rem; }
 .device-tile-entity > span { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -1193,8 +1203,13 @@ tr:nth-child(even) td { background: var(--panel); }
    und der Slider nutzt den Platz, der vorher an den Titel ging. */
 .device-tile-entity-number { grid-template-columns: minmax(5.5rem, auto) minmax(5rem, 1fr) auto auto; }
 .device-tile-entity-number .entity-number-control { display: contents; }
-.device-tile .entity-command-button { display: inline-flex; width: 1.35rem; height: 1.35rem; margin: 0; padding: 0; }
+/* 2,75rem Trefferflaeche auch am Desktop (Abschnitt 3.7): das Icon bleibt
+   1,35rem, der Knopf bekommt transparente Polsterung (.7rem*2 + 1.35rem =
+   2.75rem). Die MQTT-Bestaetigung braucht ~1s - in dieser Sekunde ist die
+   :active-Skalierung die einzige Rueckmeldung, dass etwas passiert. */
+.device-tile .entity-command-button { display: inline-flex; box-sizing: border-box; width: 2.75rem; height: 2.75rem; margin: 0; padding: .7rem; }
 .device-tile .entity-command-button svg { width: 100%; height: 100%; fill: currentColor; }
+.device-tile .entity-command-button:active { transform: scale(.94); }
 .entity-command-status { grid-column: 1 / -1; color: var(--accent); overflow-wrap: anywhere; }
 .entity-command-button-detail { margin-left: .5rem; padding: .2rem .4rem; }
 .device-modal-relation-chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--border); background: transparent; color: var(--accent); border-radius: 99px; padding: .28rem .6rem; margin: 0 .35rem .35rem 0; font-size: .78rem; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
@@ -1534,10 +1549,11 @@ small { color: var(--text-muted); }
   /* Richtwert 2.75rem (44px). Nur hier, damit die Desktop-Dichte
      unveraendert bleibt - dort sind 22px mit der Maus kein Problem.
      Die Selektoren spiegeln die Desktop-Regeln in Spezifitaet und
-     gewinnen ueber die spaetere Position im Stylesheet. */
+     gewinnen ueber die spaetere Position im Stylesheet.
+     .device-tile .entity-command-button steht seit Spec 2026-08-23
+     Abschnitt 3.7 bereits am Desktop auf 2,75rem und fehlt hier darum. */
   nav button,
   .device-density-toggle { min-height: 2.75rem; }
-  .device-tile .entity-command-button,
   .entity-list-command,
   .entity-command-button.entity-icon { width: 2.75rem; height: 2.75rem; padding: .7rem; }
   .entity-command-button-detail { min-height: 2.75rem; padding: .4rem .8rem; }

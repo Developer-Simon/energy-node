@@ -1118,7 +1118,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=17"`,
+		`href="/node/static/css/base.css?v=18"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -1762,6 +1762,77 @@ func TestDeviceAvailabilityRollup(t *testing.T) {
 				t.Fatalf("deviceAvailability = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+// TestDeviceTileStatus covers Spec 2026-08-23 Abschnitt 3.2: the flat accent
+// stripe on every device tile is replaced by a header status dot that answers
+// "is this device healthy?" - offline entities outrank a stale (replayed)
+// value, a stale value outranks a clean roll-up, and a device that reports no
+// availability at all stays neutral.
+func TestDeviceTileStatus(t *testing.T) {
+	cases := []struct {
+		name      string
+		in        []registry.EntityView
+		wantClass string
+		wantLabel string
+	}{
+		{"no availability anywhere", []registry.EntityView{{}, {}}, "unknown", ""},
+		{"all available", []registry.EntityView{{HasAvailability: true, Available: true}, {HasAvailability: true, Available: true}}, "ok", "alle online"},
+		{"two offline", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: false}, {HasAvailability: true, Available: true}}, "bad", "2 offline"},
+		{"stale value, all available", []registry.EntityView{{HasAvailability: true, Available: true, Stale: true}}, "warn", "veraltet"},
+		{"offline outranks stale", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: true, Stale: true}}, "bad", "1 offline"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := deviceTileStatus(tc.in)
+			if got.Class != tc.wantClass || got.Label != tc.wantLabel {
+				t.Fatalf("deviceTileStatus = {%q, %q}, want {%q, %q}", got.Class, got.Label, tc.wantClass, tc.wantLabel)
+			}
+		})
+	}
+}
+
+// TestDeviceTileHeaderNachzug covers Spec 2026-08-23 Abschnitt 3.2/3.3/3.4:
+// the flat accent stripe becomes a header status dot, the raw device ID drops
+// out of the subtitle (it is in the detail dialog), and the "Entitäten N
+// Steuerungen M" baseline row becomes two count chips.
+func TestDeviceTileHeaderNachzug(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node-1", Name: "Node One", Model: "Widget 9000"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung"},
+	})
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveLayout(settings.Layout{Pages: []settings.Page{{
+		ID: "overview", Name: "Overview", Order: 0,
+		Groups: []settings.Group{{ID: "main", Name: "Main", Items: []settings.Item{
+			{ID: "device:node-1", Type: "device", Ref: "node-1", Span: "1", Visible: true},
+		}}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=overview-live", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d", recorder.Code)
+	}
+	body := recorder.Body.String()
+
+	if !strings.Contains(body, `class="device-tile-dot device-tile-dot-`) {
+		t.Fatalf("device tile is missing the header status dot: %s", body)
+	}
+	if strings.Contains(body, `class="device-tile-status-label"`) {
+		t.Fatalf("device tile still renders the old baseline count row instead of chips: %s", body)
+	}
+	if !strings.Contains(body, `class="device-tile-chip"`) {
+		t.Fatalf("device tile is missing the count chips: %s", body)
+	}
+	if strings.Contains(body, `<small>node-1`) {
+		t.Fatalf("device tile subtitle still leads with the raw device ID: %s", body)
+	}
+	if !strings.Contains(body, `<small>Widget 9000</small>`) {
+		t.Fatalf("device tile subtitle dropped the model: %s", body)
 	}
 }
 
