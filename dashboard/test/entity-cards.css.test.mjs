@@ -55,8 +55,13 @@ test('5.4 ein wartender Befehl laesst den Statuspunkt pulsieren, mit Farbfallbac
   assert.match(reduced, /\[aria-busy="true"\] \.entity-value-dot[^}]*animation:\s*none/);
 });
 
-test('7 die Wert-Karte traegt Radius 12 und keinen dekorativen Akzentstreifen', () => {
+test('7 die Wert-Karte traegt Radius 12 und die Akzent-Seitenleiste wie die Kompaktkachel', () => {
   const body = blockAfter('.entity-value-card {');
   assert.match(body, /border-radius:\s*var\(--radius-md\)/);
-  assert.doesNotMatch(body, /border-left/);
+  assert.match(body, /border-left:\s*3px solid var\(--accent\)/);
+});
+
+test('7 die Seitenleiste der Wert-Karte faerbt sich bei offline/stale um', () => {
+  assert.match(blockAfter('.entity-value-card.is-offline'), /border-left-color:\s*var\(--bad\)/);
+  assert.match(blockAfter('.entity-value-card.stale {'), /border-left-color:\s*var\(--text-faint\)/);
 });

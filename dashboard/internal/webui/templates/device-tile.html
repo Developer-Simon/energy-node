@@ -1,7 +1,7 @@
 {{define "device-tile"}}
   {{ $device := . }}
   {{ $status := deviceTileStatus .Entities }}
-  <article class="device-tile" data-device-id="{{.ID}}">
+  <article class="device-tile{{with $status.Rail}} {{.}}{{end}}" data-device-id="{{.ID}}">
     <header class="device-tile-header">
       <div>
         <h3><span class="device-tile-dot device-tile-dot-{{$status.Class}}"{{with $status.Label}} title="{{.}}"{{end}} aria-hidden="true"></span>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3>

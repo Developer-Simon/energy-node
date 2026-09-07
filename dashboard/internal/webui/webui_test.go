@@ -1776,18 +1776,19 @@ func TestDeviceTileStatus(t *testing.T) {
 		in        []registry.EntityView
 		wantClass string
 		wantLabel string
+		wantRail  string
 	}{
-		{"no availability anywhere", []registry.EntityView{{}, {}}, "unknown", ""},
-		{"all available", []registry.EntityView{{HasAvailability: true, Available: true}, {HasAvailability: true, Available: true}}, "ok", "alle online"},
-		{"two offline", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: false}, {HasAvailability: true, Available: true}}, "bad", "2 offline"},
-		{"stale value, all available", []registry.EntityView{{HasAvailability: true, Available: true, Stale: true}}, "warn", "veraltet"},
-		{"offline outranks stale", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: true, Stale: true}}, "bad", "1 offline"},
+		{"no availability anywhere", []registry.EntityView{{}, {}}, "unknown", "", ""},
+		{"all available", []registry.EntityView{{HasAvailability: true, Available: true}, {HasAvailability: true, Available: true}}, "ok", "alle online", ""},
+		{"two offline", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: false}, {HasAvailability: true, Available: true}}, "bad", "2 offline", "is-offline"},
+		{"stale value, all available", []registry.EntityView{{HasAvailability: true, Available: true, Stale: true}}, "warn", "veraltet", "is-degraded"},
+		{"offline outranks stale", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: true, Stale: true}}, "bad", "1 offline", "is-offline"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			got := deviceTileStatus(tc.in)
-			if got.Class != tc.wantClass || got.Label != tc.wantLabel {
-				t.Fatalf("deviceTileStatus = {%q, %q}, want {%q, %q}", got.Class, got.Label, tc.wantClass, tc.wantLabel)
+			if got.Class != tc.wantClass || got.Label != tc.wantLabel || got.Rail != tc.wantRail {
+				t.Fatalf("deviceTileStatus = {%q, %q, %q}, want {%q, %q, %q}", got.Class, got.Label, got.Rail, tc.wantClass, tc.wantLabel, tc.wantRail)
 			}
 		})
 	}
@@ -1833,6 +1834,59 @@ func TestDeviceTileHeaderNachzug(t *testing.T) {
 	}
 	if !strings.Contains(body, `<small>Widget 9000</small>`) {
 		t.Fatalf("device tile subtitle dropped the model: %s", body)
+	}
+}
+
+// TestDeviceTileAccentRailReflectsState covers the follow-up to Abschnitt 3.2:
+// the theme-coloured side rail stays (styled like .compact-card) but recolours
+// with the device roll-up - an offline entity marks the whole tile is-offline.
+func TestDeviceTileAccentRailReflectsState(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node-1", Name: "Node One"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "state/p", AvailabilityTopic: "status/n", PayloadAvailable: "online"},
+	})
+	reg.UpdateAvailability("status/n", []byte("offline"), false, time.Now().UTC())
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveLayout(settings.Layout{Pages: []settings.Page{{
+		ID: "overview", Name: "Overview", Order: 0,
+		Groups: []settings.Group{{ID: "main", Name: "Main", Items: []settings.Item{
+			{ID: "device:node-1", Type: "device", Ref: "node-1", Span: "1", Visible: true},
+		}}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=overview-live", nil))
+	body := recorder.Body.String()
+	if !strings.Contains(body, `class="device-tile is-offline"`) {
+		t.Fatalf("offline device tile must carry the is-offline rail modifier: %s", body)
+	}
+}
+
+// TestEntityValueCardAccentRailReflectsState: same follow-up for the value
+// card - the accent rail stays and an unavailable entity marks it is-offline.
+func TestEntityValueCardAccentRailReflectsState(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node-1", Name: "Node One"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "state/p", AvailabilityTopic: "status/n", PayloadAvailable: "online"},
+	})
+	reg.UpdateAvailability("status/n", []byte("offline"), false, time.Now().UTC())
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveLayout(settings.Layout{Pages: []settings.Page{{
+		ID: "overview", Name: "Overview", Order: 0,
+		Groups: []settings.Group{{ID: "main", Name: "Main", Items: []settings.Item{
+			{ID: "entity-value:node_power", Type: "entity_value", Ref: "node_power", Span: "1", Visible: true},
+		}}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=overview-live", nil))
+	body := recorder.Body.String()
+	if !strings.Contains(body, `entity-value-card is-offline`) {
+		t.Fatalf("offline entity value card must carry the is-offline rail modifier: %s", body)
 	}
 }
 

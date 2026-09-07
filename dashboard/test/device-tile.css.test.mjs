@@ -21,11 +21,16 @@ function ruleBody(selector) {
   return css.slice(open + 1, close);
 }
 
-test('3.1/3.2 .device-tile traegt Radius 12 und keinen dekorativen Akzentstreifen mehr', () => {
+test('3.1 .device-tile traegt Radius 12, weichen Rand und die Akzent-Seitenleiste wie die Kompaktkachel', () => {
   const body = ruleBody('.device-tile');
   assert.match(body, /border-radius:\s*var\(--radius-md\)/, 'Radius 12 (--radius-md) fehlt');
-  assert.doesNotMatch(body, /border-left/, 'der Akzentstreifen auf jedem Geraet muss weg');
   assert.match(body, /border:\s*1px solid var\(--border-soft\)/, 'weicher Rand fehlt');
+  assert.match(body, /border-left:\s*3px solid var\(--accent\)/, 'die Theme-farbene Seitenleiste (wie .compact-card) fehlt');
+});
+
+test('3.2 die Seitenleiste faerbt sich bei offline/degraded um, wie .compact-card.is-offline', () => {
+  assert.match(ruleBody('.device-tile.is-offline'), /border-left-color:\s*var\(--bad\)/);
+  assert.match(ruleBody('.device-tile.is-degraded'), /border-left-color:\s*var\(--warn\)/);
 });
 
 test('3.2 der Status-Punkt der Kopfzeile hat die drei Zustandsfarben', () => {

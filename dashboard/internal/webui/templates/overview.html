@@ -143,7 +143,7 @@
      ist gar nicht ablesbar, solange kein Wert da ist. */}}
 {{define "entity-value-card"}}
 {{ $entity := . }}
-{{if and .Commandable (ne .Component "number")}}<button type="button" class="entity-value-card{{if .Stale}} stale{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}" {{if .Pending}}disabled aria-busy="true"{{end}} x-on:click="sendCommand($event)" aria-label="{{.Name}} schalten">{{else}}<article class="entity-value-card{{if .Stale}} stale{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}">{{end}}
+{{if and .Commandable (ne .Component "number")}}<button type="button" class="entity-value-card{{if .Stale}} stale{{end}}{{if and .HasAvailability (not .Available)}} is-offline{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}" {{if .Pending}}disabled aria-busy="true"{{end}} x-on:click="sendCommand($event)" aria-label="{{.Name}} schalten">{{else}}<article class="entity-value-card{{if .Stale}} stale{{end}}{{if and .HasAvailability (not .Available)}} is-offline{{end}}" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}">{{end}}
   <header class="entity-value-top">
     <span class="entity-value-label">{{.Name}}</span>
     <span class="entity-value-dot{{if not .HasAvailability}} entity-value-dot-unknown{{else if .Available}} entity-value-dot-ok{{else}} entity-value-dot-bad{{end}}"></span>

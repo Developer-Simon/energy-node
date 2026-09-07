@@ -1151,16 +1151,19 @@ tr:nth-child(even) td { background: var(--panel); }
    deutlich weniger Geraete- als Entitaets-Karten gleichzeitig (eine pro
    Geraet statt einer pro Entitaet ueber alle Geraete hinweg), der Blur-Preis
    bleibt also vertretbar - anders als bei entity-list-item weiter unten.
-   Kein linker Akzentstreifen mehr (Spec 2026-08-23 Abschnitt 3.2): er trug
-   auf jedem Geraet dieselbe Farbe und damit keine Information - an seine
-   Stelle tritt der Status-Punkt in der Kopfzeile (.device-tile-dot). Radius
-   wie jede andere Rasterkarte (--radius-md, Abschnitt 7). */
-.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
+   Seitenleiste wie .compact-card: 3px Theme-Akzent, der bei einem offline
+   gemeldeten (.is-offline) oder einem Replay-Wert (.is-degraded) umschlaegt.
+   Fehlt der Availability-Kanal ganz, bleibt der Akzent stehen - nur der
+   (kleine, informative) Status-Punkt in der Kopfzeile wird dann neutral.
+   Radius wie jede andere Rasterkarte (--radius-md, Abschnitt 7). */
+.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
+.device-tile.is-offline { border-left-color: var(--bad); }
+.device-tile.is-degraded { border-left-color: var(--warn); }
 .device-tile-header { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
 .device-tile-header h3 { display: flex; align-items: center; gap: .4rem; margin: 0; color: var(--accent); letter-spacing: -.01em; overflow-wrap: anywhere; }
 .device-tile-header small { display: block; margin-top: .2rem; overflow-wrap: anywhere; }
-/* Status-Punkt statt Akzentstreifen (Abschnitt 3.2): schlechtester Zustand
-   der Entitaeten - rot bei offline, gelb bei einem Replay-Wert, gruen wenn
+/* Status-Punkt neben dem Titel (Abschnitt 3.2): schlechtester Zustand der
+   Entitaeten - rot bei offline, gelb bei einem Replay-Wert, gruen wenn
    alles gemeldet und da ist, neutral ohne jede Verfuegbarkeitsangabe. */
 .device-tile-dot { flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: var(--text-faint); }
 .device-tile-dot-ok { background: var(--ok); }
@@ -1244,10 +1247,14 @@ tr:nth-child(even) td { background: var(--panel); }
    Metadaten der entity-list-item durch Wert + Statuspunkt. Eine schaltbare
    (nicht-number) Entitaet rendert als <button> statt <article> - die ganze
    Karte ist dann das Tap-Ziel. Rand + Radius wie jede andere Rasterkarte
-   (--border-soft, --radius-md); kein linker Akzentstreifen mehr (Abschnitt
-   7: er war auf jeder Karte gleich und damit Dekoration). Druck asymmetrisch
-   (Abschnitt 5.2): .16s zurueck als Grundregel, .08s hinein im :active. */
-.entity-value-card { display: block; width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); font: inherit; text-align: left; color: inherit; transition: transform .16s ease; }
+   (--border-soft, --radius-md). Seitenleiste wie .compact-card: 3px
+   Theme-Akzent, der bei einer gemeldet nicht verfuegbaren (.is-offline) oder
+   veralteten (.stale) Entitaet umschlaegt - fehlt der Availability-Kanal
+   ganz (der Normalfall fuer die meisten Sensoren), bleibt der Akzent stehen.
+   Druck asymmetrisch (Abschnitt 5.2): .16s zurueck als Grundregel, .08s
+   hinein im :active. */
+.entity-value-card { display: block; width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); font: inherit; text-align: left; color: inherit; transition: transform .16s ease; }
+.entity-value-card.is-offline { border-left-color: var(--bad); }
 button.entity-value-card { cursor: pointer; }
 button.entity-value-card:hover { border-color: var(--accent); }
 button.entity-value-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1260,8 +1267,10 @@ button.entity-value-card:active { transition: transform .08s ease; transform: sc
 .entity-value-num { display: flex; align-items: baseline; gap: .2rem; }
 .entity-value-num strong { font-size: 1.9rem; font-weight: 660; letter-spacing: -0.02em; color: var(--text-strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .entity-value-unit { font-size: .95rem; font-weight: 600; color: var(--text-muted); }
-/* Abschnitt 5.3: ein veralteter Wert graut auch den Punkt aus - ein grauer
-   Wert mit gruenem Punkt waere eine Falschaussage. */
+/* Abschnitt 5.3: ein veralteter Wert graut auch den Punkt (und die
+   Seitenleiste) aus - ein grauer Wert mit gruenem Punkt waere eine
+   Falschaussage. */
+.entity-value-card.stale { border-left-color: var(--text-faint); }
 .entity-value-card.stale .entity-value-num strong, .entity-value-card.stale .entity-value-unit { color: var(--text-faint); }
 .entity-value-card.stale .entity-value-dot { background: var(--text-faint); }
 
