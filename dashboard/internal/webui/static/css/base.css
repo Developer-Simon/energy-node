@@ -1240,14 +1240,18 @@ tr:nth-child(even) td { background: var(--panel); }
 .entity-list-meta dd { margin: .1rem 0 0; overflow-wrap: anywhere; font-size: .82rem; }
 .entity-list-item .entity-command-status { display: block; margin-top: .4rem; }
 
-/* entity_value: reduzierte Einzelwert-Karte. Behaelt den linken Akzent-
-   streifen der uebrigen Karten (Wiedererkennung), ersetzt aber die
-   technischen Metadaten der entity-list-item durch Wert + Statuspunkt. Eine
-   schaltbare (nicht-number) Entitaet rendert als <button> statt <article> -
-   die ganze Karte ist dann das Tap-Ziel, siehe entity-value-card. */
-.entity-value-card { display: block; width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: 4px; background: var(--panel); font: inherit; text-align: left; color: inherit; transition: transform .1s ease; }
+/* entity_value: reduzierte Einzelwert-Karte. Ersetzt die technischen
+   Metadaten der entity-list-item durch Wert + Statuspunkt. Eine schaltbare
+   (nicht-number) Entitaet rendert als <button> statt <article> - die ganze
+   Karte ist dann das Tap-Ziel. Rand + Radius wie jede andere Rasterkarte
+   (--border-soft, --radius-md); kein linker Akzentstreifen mehr (Abschnitt
+   7: er war auf jeder Karte gleich und damit Dekoration). Druck asymmetrisch
+   (Abschnitt 5.2): .16s zurueck als Grundregel, .08s hinein im :active. */
+.entity-value-card { display: block; width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); font: inherit; text-align: left; color: inherit; transition: transform .16s ease; }
 button.entity-value-card { cursor: pointer; }
-button.entity-value-card:active { transform: scale(.97); }
+button.entity-value-card:hover { border-color: var(--accent); }
+button.entity-value-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.entity-value-card:active { transition: transform .08s ease; transform: scale(.97); }
 .entity-value-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .5rem; }
 .entity-value-label { min-width: 0; font-size: .74rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); overflow-wrap: anywhere; }
 .entity-value-dot { flex: 0 0 auto; width: .45rem; height: .45rem; border-radius: 50%; background: var(--text-faint); }
@@ -1256,7 +1260,10 @@ button.entity-value-card:active { transform: scale(.97); }
 .entity-value-num { display: flex; align-items: baseline; gap: .2rem; }
 .entity-value-num strong { font-size: 1.9rem; font-weight: 660; letter-spacing: -0.02em; color: var(--text-strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .entity-value-unit { font-size: .95rem; font-weight: 600; color: var(--text-muted); }
+/* Abschnitt 5.3: ein veralteter Wert graut auch den Punkt aus - ein grauer
+   Wert mit gruenem Punkt waere eine Falschaussage. */
 .entity-value-card.stale .entity-value-num strong, .entity-value-card.stale .entity-value-unit { color: var(--text-faint); }
+.entity-value-card.stale .entity-value-dot { background: var(--text-faint); }
 
 /* entity_group: frei zusammengestellte Entitaetenliste als Chip-Raster -
    anders als device-tile nicht an ein Geraet gebunden. Waechst mit der
@@ -1267,9 +1274,11 @@ button.entity-value-card:active { transform: scale(.97); }
 .entity-group-head h4 { min-width: 0; margin: 0; font-size: .92rem; font-weight: 650; color: var(--text-strong); overflow-wrap: anywhere; }
 .entity-group-count { flex: 0 0 auto; font-size: .7rem; font-weight: 600; color: var(--text-muted); background: var(--panel-alt); padding: .12rem .5rem; border-radius: 999px; }
 .entity-group-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .6rem; }
-.entity-group-chip { min-width: 0; display: block; width: 100%; box-sizing: border-box; padding: .65rem .7rem; border: 0; border-radius: 9px; background: var(--panel-alt); font: inherit; text-align: left; color: inherit; transition: transform .1s ease; }
+.entity-group-chip { min-width: 0; display: block; width: 100%; box-sizing: border-box; padding: .65rem .7rem; border: 0; border-radius: 9px; background: var(--panel-alt); font: inherit; text-align: left; color: inherit; transition: transform .16s ease; }
 button.entity-group-chip { cursor: pointer; }
-button.entity-group-chip:active { transform: scale(.96); }
+button.entity-group-chip:hover { background: color-mix(in srgb, var(--panel-alt) 82%, var(--accent)); }
+button.entity-group-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.entity-group-chip:active { transition: transform .08s ease; transform: scale(.96); }
 .entity-group-chip-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
 .entity-group-chip-dot { flex: 0 0 auto; width: .4rem; height: .4rem; border-radius: 50%; background: var(--text-faint); }
 .entity-group-chip-dot-ok { background: var(--ok); }
@@ -1278,6 +1287,16 @@ button.entity-group-chip:active { transform: scale(.96); }
 .entity-group-chip-val span { font-size: .72rem; font-weight: 600; color: var(--text-muted); margin-left: .15rem; }
 .entity-group-chip-label { font-size: .68rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entity-group-chip.stale .entity-group-chip-val, .entity-group-chip.stale .entity-group-chip-label { color: var(--text-faint); }
+.entity-group-chip.stale .entity-group-chip-dot { background: var(--text-faint); }
+
+/* Abschnitt 5.4: ein wartender Befehl (aria-busy, disabled) laesst den
+   Statuspunkt pulsieren - an der Stelle, auf die man beim Schalten ohnehin
+   sieht, statt nur den uebersehenen <small>-Bestaetigungstext. Der
+   prefers-reduced-motion-Fallback (im gebuendelten reduce-Block weiter
+   unten) laesst die Wartefarbe stehen und schaltet nur die Animation ab. */
+@keyframes entity-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+button.entity-value-card[aria-busy="true"] .entity-value-dot,
+button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: var(--warn); animation: entity-dot-pulse 1s ease-in-out infinite; }
 
 /* diagnostics: Statuskachel statt Navigationshinweis (design.md Abschnitt 2,
    Stufe B). Ganze Karte als <button>, wie entity-value-card - im Unterschied
@@ -1313,6 +1332,8 @@ button.entity-group-chip:active { transform: scale(.96); }
 @media (prefers-reduced-motion: reduce) {
   button.entity-value-card, button.entity-group-chip, .diagnostics-summary-card, .device-detail-trigger, .entity-command-button, .icon-button { transition: none; }
   button.entity-value-card:active, button.entity-group-chip:active, .diagnostics-summary-card:active, .device-detail-trigger:active, .entity-command-button:active, .icon-button:active { transform: none; }
+  button.entity-value-card[aria-busy="true"] .entity-value-dot,
+  button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { animation: none; }
 }
 .device-modal-section-title { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 .7rem; gap: .6rem; flex-wrap: wrap; }
 .device-modal-section-title h4 { margin: 0; font-size: .84rem; color: var(--text-strong); text-transform: uppercase; letter-spacing: .04em; }
