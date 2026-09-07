@@ -585,11 +585,12 @@ test('bei offenem Geraete-Modal ruht das Nachziehen des Rasters', async () => {
   assert.equal(panel.livePatchStale, false);
 });
 
-// Ein Raster mit einer kompakten Geraetekachel, samt der beiden
-// Fingerabdruecke an #overview-live, die der Push treffen muss.
-const compactGridHTML = (structure, structureCompact, display = 'compact') =>
-  `<div id="overview-panel" class="panel active"><div id="overview-live" data-structure="${structure}" data-structure-compact="${structureCompact}"><div class="layout-grid">`
-  + `<div data-layout-item-kind="device" data-display="${display}" data-layout-item-ref="dev1"></div>`
+// Ein Raster mit einer kompakten Geraetekachel. configured=true haengt die
+// feste-Auswahl-Markierung an, wie sie der Server fuer eine Kachel mit
+// entity_refs rendert.
+const compactGridHTML = (structure, structureCompact, display = 'compact', {configured = false, availability = 'av1'} = {}) =>
+  `<div id="overview-panel" class="panel active"><div id="overview-live" data-structure="${structure}" data-structure-compact="${structureCompact}" data-structure-availability="${availability}"><div class="layout-grid">`
+  + `<div data-layout-item-kind="device" data-display="${display}" data-compact-configured="${configured}" data-layout-item-ref="dev1"></div>`
   + `</div></div></div>`;
 
 // Wie overviewPanel(), nur mit fertigem Markup statt einer Kind-Liste.
@@ -628,4 +629,50 @@ test('kompakte Geraetekachel: fehlendes structure_compact tauscht', () => {
 test('die Detailkachel bleibt beim geteilten Fingerabdruck', () => {
   const calls = compactPanelCalls(compactGridHTML('s1', 'c1', 'detail'), { ...fullDetail, structure: 's1' });
   assert.deepEqual(calls, []);
+});
+
+test('konfigurierte Kompaktkachel: structure + structure_availability passen, kein Tausch', () => {
+  const calls = compactPanelCalls(
+    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
+    { ...fullDetail, structure: 's1', structure_availability: 'av1' });
+  assert.deepEqual(calls, []);
+});
+
+test('konfigurierte Kompaktkachel: veraenderter structure_compact ist egal', () => {
+  const calls = compactPanelCalls(
+    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
+    { ...fullDetail, structure: 's1', structure_compact: 'c2', structure_availability: 'av1' });
+  assert.deepEqual(calls, []);
+});
+
+test('konfigurierte Kompaktkachel: Verfuegbarkeitswechsel tauscht', () => {
+  const calls = compactPanelCalls(
+    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
+    { ...fullDetail, structure: 's1', structure_availability: 'av2' });
+  assert.equal(calls.length, 1);
+});
+
+test('konfigurierte Kompaktkachel: fehlendes structure_availability tauscht', () => {
+  const calls = compactPanelCalls(
+    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
+    { ...fullDetail, structure: 's1' });
+  assert.equal(calls.length, 1);
+});
+
+test('gemischtes Raster: eine automatische Kompaktkachel zieht den strengeren Waechter', () => {
+  const { factories, window } = load({ html:
+    `<div id="overview-panel" class="panel active"><div id="overview-live" data-structure="s1" data-structure-compact="c1" data-structure-availability="av1"><div class="layout-grid">`
+    + `<div data-layout-item-kind="device" data-display="compact" data-compact-configured="true" data-layout-item-ref="dev1"></div>`
+    + `<div data-layout-item-kind="device" data-display="compact" data-compact-configured="false" data-layout-item-ref="dev2"></div>`
+    + `</div></div></div>` });
+  const calls = [];
+  window.htmx = { ajax: (...args) => { calls.push(args); return Promise.resolve(); } };
+  window.EnergyPresentation = { publish: () => {} };
+  const panel = factories.devicesPanel();
+  panel.$root = window.document.getElementById('overview-panel');
+  panel.$refs = {};
+  panel.init();
+  window.dispatchEvent(new window.CustomEvent('registry-updated', { detail:
+    { ...fullDetail, structure: 's1', structure_availability: 'av1' } }));
+  assert.equal(calls.length, 1); // structure_compact fehlt -> die automatische Kachel erzwingt den Tausch
 });

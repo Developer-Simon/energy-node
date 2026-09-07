@@ -1000,10 +1000,25 @@
       // Raster der geteilte Fingerabdruck faellt. Dieselbe Pruefung wie
       // compactCardsPushCovers() im Geraete-Tab, nur auf #overview-live.
       const live = this.$root.querySelector('#overview-live');
-      if (items.some(item => item.dataset.layoutItemKind === 'device' && item.dataset.display === 'compact')) {
-        return this.structureUnchanged(detail, live)
-          && Boolean(detail.structure_compact)
-          && detail.structure_compact === live?.dataset?.structureCompact;
+      const compactCells = items.filter(item =>
+        item.dataset.layoutItemKind === 'device' && item.dataset.display === 'compact');
+      if (compactCells.length) {
+        // Discovery-Wechsel tauscht immer - dieselbe Untergrenze wie fuer die
+        // Detailkachel.
+        if (!this.structureUnchanged(detail, live)) return false;
+        // Eine kompakte Kachel *ohne* feste Zeilenauswahl haengt an
+        // priorityEntities: dafuer bleibt der wertabhaengige
+        // CompactStructureFingerprint der Waechter (structure_compact).
+        if (compactCells.some(cell => cell.dataset.compactConfigured !== 'true')) {
+          return Boolean(detail.structure_compact)
+            && detail.structure_compact === live?.dataset?.structureCompact;
+        }
+        // Sind alle kompakten Kacheln konfiguriert, stehen ihre Zeilen fest.
+        // Dann reicht "Discovery unveraendert" plus "Geraete-Ampel
+        // unveraendert" (structure_availability); ein reiner Messwert wird von
+        // compact-card-values.js in place nachgezogen, ohne Fragment-Tausch.
+        return Boolean(detail.structure_availability)
+          && detail.structure_availability === live?.dataset?.structureAvailability;
       }
       if (items.some(item => item.dataset.layoutItemKind === 'device')) {
         return this.structureUnchanged(detail, live);
