@@ -278,6 +278,28 @@ func CompactStructureFingerprint(devices []registry.DeviceView) string {
 	return strconv.FormatUint(sum.Sum64(), 16)
 }
 
+// AvailabilityStructureFingerprint verdichtet nur, was die *konfigurierte*
+// Kompaktkachel strukturell zeigt und der geteilte StructureFingerprint nicht
+// abdeckt: die zu einer Ampel verdichtete Geraete-Verfuegbarkeit. Ihre bis zu
+// drei Zeilen stehen fest (entity_refs), deshalb braucht sie den
+// wertabhaengigen CompactStructureFingerprint nicht - nur dieses eine Ja.
+//
+// dashboard.js vergleicht ihn (SSE-Feld structure_availability gegen
+// data-structure-availability) fuer Raster, in denen jede Kompaktkachel
+// konfiguriert ist. Als Hex-String, gleiche Begruendung wie bei
+// StructureFingerprint: ein uint64 jenseits 2^53 verliert beim JSON-Parsen in
+// JavaScript Stellen.
+func AvailabilityStructureFingerprint(devices []registry.DeviceView) string {
+	sum := fnv.New64a()
+	for _, device := range devices {
+		sum.Write([]byte(device.ID))
+		sum.Write([]byte{0})
+		sum.Write([]byte(deviceAvailability(device.Entities)))
+		sum.Write([]byte{0})
+	}
+	return strconv.FormatUint(sum.Sum64(), 16)
+}
+
 // deviceTileForItem returns dev unchanged when visibleCategories is empty
 // (the layout item has no per-tile override, so the tile follows the global
 // HiddenOnTile computation like the Devices panel). Otherwise it returns a
@@ -606,6 +628,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// aus reg.Snapshot() rechnet.
 		if needsTiles {
 			view["StructureCompact"] = CompactStructureFingerprint(devices)
+			view["StructureAvailability"] = AvailabilityStructureFingerprint(devices)
 		}
 		if needsEnergyAggregate {
 			if store != nil {

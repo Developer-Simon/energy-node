@@ -2390,3 +2390,61 @@ func TestCompactCardTemplateRendersConfiguredRows(t *testing.T) {
 		t.Errorf("eine nicht gewaehlte Zeile wurde gerendert:\n%s", body)
 	}
 }
+
+// Der Availability-Fingerabdruck ist der Waechter der konfigurierten
+// Kompaktkachel: sie haengt nicht an priorityEntities (ihre Zeilen stehen
+// fest), aber die Geraete-Ampel muss stimmen. Reine Wertaenderungen lassen
+// ihn stehen, ein Verfuegbarkeitswechsel bewegt ihn.
+func TestAvailabilityStructureFingerprint(t *testing.T) {
+	online := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
+		{UniqueID: "a", HasValue: true, Value: "1", HasAvailability: true, Available: true},
+	}}}
+	valueTick := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
+		{UniqueID: "a", HasValue: true, Value: "9999", HasAvailability: true, Available: true},
+	}}}
+	offline := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
+		{UniqueID: "a", HasValue: true, Value: "1", HasAvailability: true, Available: false},
+	}}}
+	if AvailabilityStructureFingerprint(online) != AvailabilityStructureFingerprint(valueTick) {
+		t.Error("eine reine Wertaenderung hat den Availability-Fingerabdruck bewegt")
+	}
+	if AvailabilityStructureFingerprint(online) == AvailabilityStructureFingerprint(offline) {
+		t.Error("ein Verfuegbarkeitswechsel hat den Availability-Fingerabdruck nicht bewegt")
+	}
+	if AvailabilityStructureFingerprint(nil) == "" {
+		t.Error("leerer Availability-Fingerabdruck - der Client wuerde dauerhaft tauschen")
+	}
+	if AvailabilityStructureFingerprint(nil) != AvailabilityStructureFingerprint([]registry.DeviceView{}) {
+		t.Error("nil und leere Liste liefern verschiedene Availability-Fingerabdruecke")
+	}
+}
+
+// Die Uebersicht markiert jede kompakte Geraetekachel danach, ob sie eine
+// feste Zeilenauswahl hat - daran entscheidet dashboard.js, welcher
+// Fingerabdruck die Kachel deckt.
+func TestOverviewMarksConfiguredCompactCards(t *testing.T) {
+	configured := settings.Layout{Version: 3, Pages: []settings.Page{{
+		ID: "p", Name: "Start", Order: 0,
+		Groups: []settings.Group{{ID: "g", Name: "Dashboard", Items: []settings.Item{
+			{ID: "device:node", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact",
+				EntityRefs: []string{"node_power"}},
+		}}},
+	}}}
+	body := renderOverviewWithLayout(t, configured)
+	if !strings.Contains(body, `data-compact-configured="true"`) {
+		t.Errorf("die konfigurierte Kachel traegt data-compact-configured=\"true\" nicht:\n%s", body)
+	}
+	if !strings.Contains(body, `data-structure-availability="`) {
+		t.Error("data-structure-availability fehlt an #overview-live")
+	}
+
+	auto := settings.Layout{Version: 3, Pages: []settings.Page{{
+		ID: "p", Name: "Start", Order: 0,
+		Groups: []settings.Group{{ID: "g", Name: "Dashboard", Items: []settings.Item{
+			{ID: "device:node", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact"},
+		}}},
+	}}}
+	if strings.Contains(renderOverviewWithLayout(t, auto), `data-compact-configured="true"`) {
+		t.Error("eine Kachel ohne feste Auswahl gilt faelschlich als konfiguriert")
+	}
+}
