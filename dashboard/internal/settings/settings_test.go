@@ -1449,3 +1449,55 @@ func TestSaveLayoutRejectsUnknownDisplay(t *testing.T) {
 		t.Fatal("SaveLayout hat display=\"kompakt\" angenommen")
 	}
 }
+
+// Die kompakte Geraetekachel darf bis zu drei Entitaeten ihres Geraets fest
+// zeigen - dasselbe Feld wie entity_group, nur fuer einen anderen Typ. Ein
+// vierter Eintrag ist kein Fehler, er wird beim Speichern abgeschnitten:
+// mehr als drei Zeilen passen optisch nicht in die Kachel.
+func TestNormalizeLayoutKeepsAndCapsCompactDeviceEntityRefs(t *testing.T) {
+	store := NewStore(t.TempDir())
+	layout := Layout{Version: 3, Pages: []Page{{
+		ID: "p", Name: "Start", Order: 0,
+		Groups: []Group{{ID: "g", Name: "Dashboard", Items: []Item{
+			{ID: "device:a", Type: "device", Ref: "a", Span: "1", Visible: true, Display: "compact",
+				EntityRefs: []string{"a_1", "a_2", "a_3", "a_4"}},
+			{ID: "device:b", Type: "device", Ref: "b", Span: "1", Visible: true, Display: "detail",
+				EntityRefs: []string{"b_1"}},
+			{ID: "device:c", Type: "device", Ref: "c", Span: "1", Visible: true, Display: "compact"},
+		}}},
+	}}}
+	if err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("SaveLayout: %v", err)
+	}
+	loaded, err := store.LoadLayout()
+	if err != nil {
+		t.Fatalf("LoadLayout: %v", err)
+	}
+	items := loaded.Pages[0].Groups[0].Items
+	if got := items[0].EntityRefs; len(got) != 3 || got[0] != "a_1" || got[2] != "a_3" {
+		t.Errorf("compact device refs = %v, want [a_1 a_2 a_3]", got)
+	}
+	if items[1].EntityRefs != nil {
+		t.Errorf("detail device behaelt entity_refs %v, want nil", items[1].EntityRefs)
+	}
+	if items[2].EntityRefs != nil {
+		t.Errorf("compact device ohne Auswahl = %v, want nil", items[2].EntityRefs)
+	}
+}
+
+// entity_group darf sich durch die neue device-Verzweigung nicht aendern:
+// nach normalizeLayout weiterhin nie nil, sondern die leere Liste. (Der
+// Save/Load-Roundtrip nil-t leere Slices ueber cloneLayout - ein
+// vorbestehender Nebeneffekt, der nichts mit dieser Verzweigung zu tun hat -
+// deshalb hier normalizeLayout direkt, wie die Nachbartests.)
+func TestNormalizeLayoutEntityGroupRefsUnchanged(t *testing.T) {
+	layout := normalizeLayout(Layout{Version: 3, Pages: []Page{{
+		ID: "p", Name: "Start", Order: 0,
+		Groups: []Group{{ID: "g", Name: "Dashboard", Items: []Item{
+			{ID: "grp", Type: "entity_group", Span: "1", Visible: true},
+		}}},
+	}}})
+	if refs := layout.Pages[0].Groups[0].Items[0].EntityRefs; refs == nil {
+		t.Error("entity_group entity_refs ist nil, want []string{}")
+	}
+}

@@ -1463,7 +1463,19 @@ func normalizeLayout(value Layout) Layout {
 					}
 				} else {
 					item.Title = ""
-					item.EntityRefs = nil
+					// device: die kompakte Kachel darf bis zu drei Entitaeten
+					// ihres Geraets fest zeigen (entity_refs, dasselbe Feld wie
+					// entity_group). Leer heisst "priorityEntities-Automatik" -
+					// deshalb kein []string{} wie bei entity_group, sondern nil.
+					// Jeder andere Typ und die Detailkachel tragen die Auswahl
+					// nicht, also weg damit.
+					if item.Type == "device" && item.Display == "compact" && len(item.EntityRefs) > 0 {
+						if len(item.EntityRefs) > 3 {
+							item.EntityRefs = item.EntityRefs[:3]
+						}
+					} else {
+						item.EntityRefs = nil
+					}
 				}
 				// Zwei Typen mit Darstellungsvarianten, als eine if/else-if/else-Kette:
 				// nur der "sonst"-Zweig leert Display, und der steht damit fuer

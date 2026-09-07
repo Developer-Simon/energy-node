@@ -96,6 +96,8 @@ var overviewTmpl = template.Must(template.New("base.html").Funcs(template.FuncMa
 	"localDisplay":       localDisplay,
 	"prettyJSON":         prettyJSON,
 	"priorityEntities":   priorityEntities,
+	"compactCardAuto":    compactCardAuto,
+	"compactCardForItem": compactCardForItem,
 	"deviceTileForItem":  deviceTileForItem,
 	"entityGroupForItem": entityGroupForItem,
 	"cardStyle":          cardStyle,
@@ -194,6 +196,46 @@ func priorityEntities(dev registry.DeviceView) []registry.EntityView {
 	return picked
 }
 
+// compactCardView ist die Render-Form der Kompakt-Karte: das Geraet plus die
+// bis zu drei Zeilen, die sie zeigt. Vor 2026-09 waehlte das Template die
+// Zeilen selbst (priorityEntities); jetzt entscheidet der Aufrufer, ob die
+// Automatik greift (Geraete-Tab, compactCardAuto) oder eine feste Auswahl aus
+// dem Layout (Uebersichtskachel, compactCardForItem).
+type compactCardView struct {
+	Device registry.DeviceView
+	Rows   []registry.EntityView
+}
+
+// compactCardAuto ist der unveraenderte Weg: die Zeilen kommen aus
+// priorityEntities. Das nutzt der Geraete-Tab (devices-compact).
+func compactCardAuto(dev registry.DeviceView) compactCardView {
+	return compactCardView{Device: dev, Rows: priorityEntities(dev)}
+}
+
+// compactCardForItem beruecksichtigt die feste Zeilenauswahl eines
+// Layout-Items. Ist item.EntityRefs gesetzt, sind das genau die Zeilen - in
+// der gewaehlten Reihenfolge, ein Ref ohne Treffer faellt still weg (wie ein
+// verwaister entity_value-Ref). Leer heisst: zurueck zur Automatik.
+func compactCardForItem(dev registry.DeviceView, item settings.Item) compactCardView {
+	if len(item.EntityRefs) == 0 {
+		return compactCardAuto(dev)
+	}
+	byID := make(map[string]registry.EntityView, len(dev.Entities))
+	for _, entity := range dev.Entities {
+		byID[entity.UniqueID] = entity
+	}
+	rows := make([]registry.EntityView, 0, len(item.EntityRefs))
+	for _, ref := range item.EntityRefs {
+		if entity, ok := byID[ref]; ok {
+			rows = append(rows, entity)
+		}
+		if len(rows) == 3 {
+			break
+		}
+	}
+	return compactCardView{Device: dev, Rows: rows}
+}
+
 // CompactStructureFingerprint verdichtet das, was die Kompakt-Karte
 // (compact-card in devices.html) *strukturell* zeigt und was der geteilte
 // registry.StructureFingerprint nicht abdeckt: welche bis zu drei Entitaeten
@@ -232,6 +274,28 @@ func CompactStructureFingerprint(devices []registry.DeviceView) string {
 		// Geraete-Trenner, damit zwei Geraete mit den Auswahl-IDs [a] und
 		// [a b] nicht denselben Hash ergeben wie [a b] und [a].
 		writeField("|")
+	}
+	return strconv.FormatUint(sum.Sum64(), 16)
+}
+
+// AvailabilityStructureFingerprint verdichtet nur, was die *konfigurierte*
+// Kompaktkachel strukturell zeigt und der geteilte StructureFingerprint nicht
+// abdeckt: die zu einer Ampel verdichtete Geraete-Verfuegbarkeit. Ihre bis zu
+// drei Zeilen stehen fest (entity_refs), deshalb braucht sie den
+// wertabhaengigen CompactStructureFingerprint nicht - nur dieses eine Ja.
+//
+// dashboard.js vergleicht ihn (SSE-Feld structure_availability gegen
+// data-structure-availability) fuer Raster, in denen jede Kompaktkachel
+// konfiguriert ist. Als Hex-String, gleiche Begruendung wie bei
+// StructureFingerprint: ein uint64 jenseits 2^53 verliert beim JSON-Parsen in
+// JavaScript Stellen.
+func AvailabilityStructureFingerprint(devices []registry.DeviceView) string {
+	sum := fnv.New64a()
+	for _, device := range devices {
+		sum.Write([]byte(device.ID))
+		sum.Write([]byte{0})
+		sum.Write([]byte(deviceAvailability(device.Entities)))
+		sum.Write([]byte{0})
 	}
 	return strconv.FormatUint(sum.Sum64(), 16)
 }
@@ -564,6 +628,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// aus reg.Snapshot() rechnet.
 		if needsTiles {
 			view["StructureCompact"] = CompactStructureFingerprint(devices)
+			view["StructureAvailability"] = AvailabilityStructureFingerprint(devices)
 		}
 		if needsEnergyAggregate {
 			if store != nil {
