@@ -71,7 +71,7 @@ As of **2026-09-07**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `17` |
+| `css/base.css` | `18` |
 
 ### Deferred `<script>` block (channel 1)
 
@@ -207,6 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| dashboard-kacheln-nachzug branch | `css/base.css` | `18` | 2026-09-07 |
 | configure-compact-device branch | `js/dashboard.js` · `js/layout-editor.js` | `11` · `11` | 2026-09-07 |
 | harden-battery-soc branch | `js/config.page.js` · `css/manager.css` (5 panels) · `js/history-recorder.js` | `2` · `17` · `8` | 2026-09-06 |
 | v0.5.11 | `js/battery-card-core.js` · `js/battery-status.js` · `js/layout-editor.js` | `2` · `1` · `10` | 2026-09-05 |

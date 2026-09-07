@@ -1,11 +1,15 @@
 {{define "device-tile"}}
   {{ $device := . }}
-  <article class="device-tile" data-device-id="{{.ID}}">
+  {{ $status := deviceTileStatus .Entities }}
+  <article class="device-tile{{with $status.Rail}} {{.}}{{end}}" data-device-id="{{.ID}}">
     <header class="device-tile-header">
-      <div><h3>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3><small>{{.ID}}{{if .Model}} · {{.Model}}{{end}}</small></div>
+      <div>
+        <h3><span class="device-tile-dot device-tile-dot-{{$status.Class}}"{{with $status.Label}} title="{{.}}"{{end}} aria-hidden="true"></span>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3>
+        {{if .Model}}<small>{{.Model}}</small>{{end}}
+      </div>
       <div class="device-tile-actions"><button type="button" class="device-detail-trigger" data-device-id="{{.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" x-bind:aria-label="`Details für {{.Name}} anzeigen`">Details</button></div>
     </header>
-    <div class="device-tile-status"><span class="device-tile-status-label">Entitäten</span><strong>{{len .Entities}}</strong><span class="device-tile-status-label">Steuerungen</span><strong>{{commandableCount .Entities}}</strong></div>
+    <div class="device-tile-status"><span class="device-tile-chip">{{len .Entities}} Entitäten</span><span class="device-tile-chip">{{commandableCount .Entities}} Steuerungen</span></div>
     <div class="device-tile-entities">
       {{range .Entities}}{{if not .HiddenOnTile}}{{ $entity := . }}
       {{/* Sensoren ohne unit_of_measurement sind in HA-Konvention Status-/Text-

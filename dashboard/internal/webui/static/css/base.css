@@ -1150,25 +1150,38 @@ tr:nth-child(even) td { background: var(--panel); }
 /* Milchglas wie energy-flow-node (siehe dort): auf der Geraete-Seite stehen
    deutlich weniger Geraete- als Entitaets-Karten gleichzeitig (eine pro
    Geraet statt einer pro Entitaet ueber alle Geraete hinweg), der Blur-Preis
-   bleibt also vertretbar - anders als bei entity-list-item weiter unten. Der
-   farbige linke Akzent bleibt, aber im Verbund mit border-radius wie bei
-   energy-status-lead (border + border-left-width statt eigenem border-left),
-   sonst kollidiert die eckige Kante mit den runden Ecken. */
-.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-left-width: 3px; border-left-color: var(--accent); border-radius: var(--radius-lg); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
+   bleibt also vertretbar - anders als bei entity-list-item weiter unten.
+   Seitenleiste wie .compact-card: 3px Theme-Akzent, der bei einem offline
+   gemeldeten (.is-offline) oder einem Replay-Wert (.is-degraded) umschlaegt.
+   Fehlt der Availability-Kanal ganz, bleibt der Akzent stehen - nur der
+   (kleine, informative) Status-Punkt in der Kopfzeile wird dann neutral.
+   Radius wie jede andere Rasterkarte (--radius-md, Abschnitt 7). */
+.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
+.device-tile.is-offline { border-left-color: var(--bad); }
+.device-tile.is-degraded { border-left-color: var(--warn); }
 .device-tile-header { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
-.device-tile-header h3 { margin: 0; color: var(--accent); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.device-tile-header h3 { display: flex; align-items: center; gap: .4rem; margin: 0; color: var(--accent); letter-spacing: -.01em; overflow-wrap: anywhere; }
 .device-tile-header small { display: block; margin-top: .2rem; overflow-wrap: anywhere; }
+/* Status-Punkt neben dem Titel (Abschnitt 3.2): schlechtester Zustand der
+   Entitaeten - rot bei offline, gelb bei einem Replay-Wert, gruen wenn
+   alles gemeldet und da ist, neutral ohne jede Verfuegbarkeitsangabe. */
+.device-tile-dot { flex: 0 0 auto; width: .5rem; height: .5rem; border-radius: 50%; background: var(--text-faint); }
+.device-tile-dot-ok { background: var(--ok); }
+.device-tile-dot-bad { background: var(--bad); }
+.device-tile-dot-warn { background: var(--warn); }
 .device-tile-actions { display: flex; flex-wrap: wrap; gap: .35rem; justify-content: flex-end; }
 .ignored-devices { margin-top: 1.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
 .ignored-device-row { display: flex; align-items: center; gap: .8rem; border-bottom: 1px solid var(--border-soft); padding: .7rem 0; }
 .ignored-device-row > div { min-width: 0; flex: 1; }
 .ignored-device-row small { display: block; overflow-wrap: anywhere; }
 .ignored-device-stale { color: var(--warn); font-size: .9rem; }
-.device-tile-status { display: flex; gap: .45rem; align-items: baseline; margin: .8rem 0 .55rem; color: var(--text); }
-.device-tile-status strong { font-variant-numeric: tabular-nums; }
-.device-tile-status-label { color: var(--text-muted); font-size: .8rem; }
-.device-tile-entities { display: grid; gap: .35rem; }
-.device-tile-entity { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; min-height: 2.4rem; padding: .15rem 0; border-top: 1px solid color-mix(in srgb, var(--border-soft) 55%, transparent); }
+/* Zwei Chips statt der "Entitaeten N Steuerungen M"-Grundlinienzeile
+   (Abschnitt 3.4), im Stil von .entity-group-count. */
+.device-tile-status { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: .8rem 0 .55rem; }
+.device-tile-chip { flex: 0 0 auto; font-size: .7rem; font-weight: 600; color: var(--text-muted); background: var(--panel-alt); padding: .12rem .5rem; border-radius: 999px; font-variant-numeric: tabular-nums; }
+.device-tile-entities { display: grid; gap: .4rem; }
+/* Abstand statt Trennstrich zwischen den Zeilen (Abschnitt 3.5). */
+.device-tile-entity { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: .5rem; align-items: center; min-height: 2.4rem; padding: .15rem 0; }
 .device-tile-entity strong, .device-tile-entity small { display: block; overflow-wrap: anywhere; }
 .device-tile-entity small { color: var(--text-muted); font-size: .78rem; }
 .device-tile-entity > span { text-align: right; overflow-wrap: anywhere; font-variant-numeric: tabular-nums; }
@@ -1193,8 +1206,13 @@ tr:nth-child(even) td { background: var(--panel); }
    und der Slider nutzt den Platz, der vorher an den Titel ging. */
 .device-tile-entity-number { grid-template-columns: minmax(5.5rem, auto) minmax(5rem, 1fr) auto auto; }
 .device-tile-entity-number .entity-number-control { display: contents; }
-.device-tile .entity-command-button { display: inline-flex; width: 1.35rem; height: 1.35rem; margin: 0; padding: 0; }
+/* 2,75rem Trefferflaeche auch am Desktop (Abschnitt 3.7): das Icon bleibt
+   1,35rem, der Knopf bekommt transparente Polsterung (.7rem*2 + 1.35rem =
+   2.75rem). Die MQTT-Bestaetigung braucht ~1s - in dieser Sekunde ist die
+   :active-Skalierung die einzige Rueckmeldung, dass etwas passiert. */
+.device-tile .entity-command-button { display: inline-flex; box-sizing: border-box; width: 2.75rem; height: 2.75rem; margin: 0; padding: .7rem; }
 .device-tile .entity-command-button svg { width: 100%; height: 100%; fill: currentColor; }
+.device-tile .entity-command-button:active { transform: scale(.94); }
 .entity-command-status { grid-column: 1 / -1; color: var(--accent); overflow-wrap: anywhere; }
 .entity-command-button-detail { margin-left: .5rem; padding: .2rem .4rem; }
 .device-modal-relation-chip { display: inline-flex; align-items: center; gap: .3rem; border: 1px solid var(--border); background: transparent; color: var(--accent); border-radius: 99px; padding: .28rem .6rem; margin: 0 .35rem .35rem 0; font-size: .78rem; cursor: pointer; transition: border-color .15s ease, color .15s ease; }
@@ -1225,14 +1243,22 @@ tr:nth-child(even) td { background: var(--panel); }
 .entity-list-meta dd { margin: .1rem 0 0; overflow-wrap: anywhere; font-size: .82rem; }
 .entity-list-item .entity-command-status { display: block; margin-top: .4rem; }
 
-/* entity_value: reduzierte Einzelwert-Karte. Behaelt den linken Akzent-
-   streifen der uebrigen Karten (Wiedererkennung), ersetzt aber die
-   technischen Metadaten der entity-list-item durch Wert + Statuspunkt. Eine
-   schaltbare (nicht-number) Entitaet rendert als <button> statt <article> -
-   die ganze Karte ist dann das Tap-Ziel, siehe entity-value-card. */
-.entity-value-card { display: block; width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: 4px; background: var(--panel); font: inherit; text-align: left; color: inherit; transition: transform .1s ease; }
+/* entity_value: reduzierte Einzelwert-Karte. Ersetzt die technischen
+   Metadaten der entity-list-item durch Wert + Statuspunkt. Eine schaltbare
+   (nicht-number) Entitaet rendert als <button> statt <article> - die ganze
+   Karte ist dann das Tap-Ziel. Rand + Radius wie jede andere Rasterkarte
+   (--border-soft, --radius-md). Seitenleiste wie .compact-card: 3px
+   Theme-Akzent, der bei einer gemeldet nicht verfuegbaren (.is-offline) oder
+   veralteten (.stale) Entitaet umschlaegt - fehlt der Availability-Kanal
+   ganz (der Normalfall fuer die meisten Sensoren), bleibt der Akzent stehen.
+   Druck asymmetrisch (Abschnitt 5.2): .16s zurueck als Grundregel, .08s
+   hinein im :active. */
+.entity-value-card { display: block; width: 100%; min-width: 0; box-sizing: border-box; padding: .8rem .9rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); font: inherit; text-align: left; color: inherit; transition: transform .16s ease; }
+.entity-value-card.is-offline { border-left-color: var(--bad); }
 button.entity-value-card { cursor: pointer; }
-button.entity-value-card:active { transform: scale(.97); }
+button.entity-value-card:hover { border-color: var(--accent); }
+button.entity-value-card:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.entity-value-card:active { transition: transform .08s ease; transform: scale(.97); }
 .entity-value-top { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .5rem; }
 .entity-value-label { min-width: 0; font-size: .74rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); overflow-wrap: anywhere; }
 .entity-value-dot { flex: 0 0 auto; width: .45rem; height: .45rem; border-radius: 50%; background: var(--text-faint); }
@@ -1241,7 +1267,12 @@ button.entity-value-card:active { transform: scale(.97); }
 .entity-value-num { display: flex; align-items: baseline; gap: .2rem; }
 .entity-value-num strong { font-size: 1.9rem; font-weight: 660; letter-spacing: -0.02em; color: var(--text-strong); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
 .entity-value-unit { font-size: .95rem; font-weight: 600; color: var(--text-muted); }
+/* Abschnitt 5.3: ein veralteter Wert graut auch den Punkt (und die
+   Seitenleiste) aus - ein grauer Wert mit gruenem Punkt waere eine
+   Falschaussage. */
+.entity-value-card.stale { border-left-color: var(--text-faint); }
 .entity-value-card.stale .entity-value-num strong, .entity-value-card.stale .entity-value-unit { color: var(--text-faint); }
+.entity-value-card.stale .entity-value-dot { background: var(--text-faint); }
 
 /* entity_group: frei zusammengestellte Entitaetenliste als Chip-Raster -
    anders als device-tile nicht an ein Geraet gebunden. Waechst mit der
@@ -1252,9 +1283,11 @@ button.entity-value-card:active { transform: scale(.97); }
 .entity-group-head h4 { min-width: 0; margin: 0; font-size: .92rem; font-weight: 650; color: var(--text-strong); overflow-wrap: anywhere; }
 .entity-group-count { flex: 0 0 auto; font-size: .7rem; font-weight: 600; color: var(--text-muted); background: var(--panel-alt); padding: .12rem .5rem; border-radius: 999px; }
 .entity-group-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr)); gap: .6rem; }
-.entity-group-chip { min-width: 0; display: block; width: 100%; box-sizing: border-box; padding: .65rem .7rem; border: 0; border-radius: 9px; background: var(--panel-alt); font: inherit; text-align: left; color: inherit; transition: transform .1s ease; }
+.entity-group-chip { min-width: 0; display: block; width: 100%; box-sizing: border-box; padding: .65rem .7rem; border: 0; border-radius: 9px; background: var(--panel-alt); font: inherit; text-align: left; color: inherit; transition: transform .16s ease; }
 button.entity-group-chip { cursor: pointer; }
-button.entity-group-chip:active { transform: scale(.96); }
+button.entity-group-chip:hover { background: color-mix(in srgb, var(--panel-alt) 82%, var(--accent)); }
+button.entity-group-chip:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.entity-group-chip:active { transition: transform .08s ease; transform: scale(.96); }
 .entity-group-chip-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; }
 .entity-group-chip-dot { flex: 0 0 auto; width: .4rem; height: .4rem; border-radius: 50%; background: var(--text-faint); }
 .entity-group-chip-dot-ok { background: var(--ok); }
@@ -1263,6 +1296,16 @@ button.entity-group-chip:active { transform: scale(.96); }
 .entity-group-chip-val span { font-size: .72rem; font-weight: 600; color: var(--text-muted); margin-left: .15rem; }
 .entity-group-chip-label { font-size: .68rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .entity-group-chip.stale .entity-group-chip-val, .entity-group-chip.stale .entity-group-chip-label { color: var(--text-faint); }
+.entity-group-chip.stale .entity-group-chip-dot { background: var(--text-faint); }
+
+/* Abschnitt 5.4: ein wartender Befehl (aria-busy, disabled) laesst den
+   Statuspunkt pulsieren - an der Stelle, auf die man beim Schalten ohnehin
+   sieht, statt nur den uebersehenen <small>-Bestaetigungstext. Der
+   prefers-reduced-motion-Fallback (im gebuendelten reduce-Block weiter
+   unten) laesst die Wartefarbe stehen und schaltet nur die Animation ab. */
+@keyframes entity-dot-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .25; } }
+button.entity-value-card[aria-busy="true"] .entity-value-dot,
+button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: var(--warn); animation: entity-dot-pulse 1s ease-in-out infinite; }
 
 /* diagnostics: Statuskachel statt Navigationshinweis (design.md Abschnitt 2,
    Stufe B). Ganze Karte als <button>, wie entity-value-card - im Unterschied
@@ -1298,6 +1341,8 @@ button.entity-group-chip:active { transform: scale(.96); }
 @media (prefers-reduced-motion: reduce) {
   button.entity-value-card, button.entity-group-chip, .diagnostics-summary-card, .device-detail-trigger, .entity-command-button, .icon-button { transition: none; }
   button.entity-value-card:active, button.entity-group-chip:active, .diagnostics-summary-card:active, .device-detail-trigger:active, .entity-command-button:active, .icon-button:active { transform: none; }
+  button.entity-value-card[aria-busy="true"] .entity-value-dot,
+  button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { animation: none; }
 }
 .device-modal-section-title { display: flex; align-items: baseline; justify-content: space-between; margin: 0 0 .7rem; gap: .6rem; flex-wrap: wrap; }
 .device-modal-section-title h4 { margin: 0; font-size: .84rem; color: var(--text-strong); text-transform: uppercase; letter-spacing: .04em; }
@@ -1534,10 +1579,11 @@ small { color: var(--text-muted); }
   /* Richtwert 2.75rem (44px). Nur hier, damit die Desktop-Dichte
      unveraendert bleibt - dort sind 22px mit der Maus kein Problem.
      Die Selektoren spiegeln die Desktop-Regeln in Spezifitaet und
-     gewinnen ueber die spaetere Position im Stylesheet. */
+     gewinnen ueber die spaetere Position im Stylesheet.
+     .device-tile .entity-command-button steht seit Spec 2026-08-23
+     Abschnitt 3.7 bereits am Desktop auf 2,75rem und fehlt hier darum. */
   nav button,
   .device-density-toggle { min-height: 2.75rem; }
-  .device-tile .entity-command-button,
   .entity-list-command,
   .entity-command-button.entity-icon { width: 2.75rem; height: 2.75rem; padding: .7rem; }
   .entity-command-button-detail { min-height: 2.75rem; padding: .4rem .8rem; }
