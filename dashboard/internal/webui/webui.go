@@ -96,6 +96,8 @@ var overviewTmpl = template.Must(template.New("base.html").Funcs(template.FuncMa
 	"localDisplay":       localDisplay,
 	"prettyJSON":         prettyJSON,
 	"priorityEntities":   priorityEntities,
+	"compactCardAuto":    compactCardAuto,
+	"compactCardForItem": compactCardForItem,
 	"deviceTileForItem":  deviceTileForItem,
 	"entityGroupForItem": entityGroupForItem,
 	"cardStyle":          cardStyle,
@@ -192,6 +194,46 @@ func priorityEntities(dev registry.DeviceView) []registry.EntityView {
 	take(func(e registry.EntityView) bool { return classifyEntityCategory(e) == "measurements" })
 	take(func(registry.EntityView) bool { return true })
 	return picked
+}
+
+// compactCardView ist die Render-Form der Kompakt-Karte: das Geraet plus die
+// bis zu drei Zeilen, die sie zeigt. Vor 2026-09 waehlte das Template die
+// Zeilen selbst (priorityEntities); jetzt entscheidet der Aufrufer, ob die
+// Automatik greift (Geraete-Tab, compactCardAuto) oder eine feste Auswahl aus
+// dem Layout (Uebersichtskachel, compactCardForItem).
+type compactCardView struct {
+	Device registry.DeviceView
+	Rows   []registry.EntityView
+}
+
+// compactCardAuto ist der unveraenderte Weg: die Zeilen kommen aus
+// priorityEntities. Das nutzt der Geraete-Tab (devices-compact).
+func compactCardAuto(dev registry.DeviceView) compactCardView {
+	return compactCardView{Device: dev, Rows: priorityEntities(dev)}
+}
+
+// compactCardForItem beruecksichtigt die feste Zeilenauswahl eines
+// Layout-Items. Ist item.EntityRefs gesetzt, sind das genau die Zeilen - in
+// der gewaehlten Reihenfolge, ein Ref ohne Treffer faellt still weg (wie ein
+// verwaister entity_value-Ref). Leer heisst: zurueck zur Automatik.
+func compactCardForItem(dev registry.DeviceView, item settings.Item) compactCardView {
+	if len(item.EntityRefs) == 0 {
+		return compactCardAuto(dev)
+	}
+	byID := make(map[string]registry.EntityView, len(dev.Entities))
+	for _, entity := range dev.Entities {
+		byID[entity.UniqueID] = entity
+	}
+	rows := make([]registry.EntityView, 0, len(item.EntityRefs))
+	for _, ref := range item.EntityRefs {
+		if entity, ok := byID[ref]; ok {
+			rows = append(rows, entity)
+		}
+		if len(rows) == 3 {
+			break
+		}
+	}
+	return compactCardView{Device: dev, Rows: rows}
 }
 
 // CompactStructureFingerprint verdichtet das, was die Kompakt-Karte

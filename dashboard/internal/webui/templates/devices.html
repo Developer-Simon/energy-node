@@ -48,22 +48,22 @@
 {{define "devices-compact"}}
 <div class="device-compact-grid">
   {{range .Devices}}
-  {{template "compact-card" .}}
+  {{template "compact-card" (compactCardAuto .)}}
   {{end}}
 </div>
 {{end}}
 
 {{define "compact-card"}}
-{{ $device := . }}
-{{ $availability := deviceAvailability .Entities }}
-<button type="button" class="compact-card is-{{$availability}}" data-device-id="{{.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" x-bind:aria-label="`Details für {{.Name}} anzeigen`">
+{{ $device := .Device }}
+{{ $availability := deviceAvailability .Device.Entities }}
+<button type="button" class="compact-card is-{{$availability}}" data-device-id="{{.Device.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" x-bind:aria-label="`Details für {{.Device.Name}} anzeigen`">
   <span class="compact-card-head">
     <span class="compact-card-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/></svg></span>
-    <span class="compact-card-title"><strong>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</strong><small>{{.ID}}{{if .Model}} · {{.Model}}{{end}}</small></span>
+    <span class="compact-card-title"><strong>{{if .Device.Name}}{{.Device.Name}}{{else}}{{.Device.ID}}{{end}}</strong><small>{{.Device.ID}}{{if .Device.Model}} · {{.Device.Model}}{{end}}</small></span>
     <span class="compact-card-status compact-card-status-{{$availability}}"><span class="compact-card-dot" aria-hidden="true"></span>{{if eq $availability "online"}}Online{{else if eq $availability "offline"}}Offline{{else}}Unbekannt{{end}}</span>
     <span class="compact-card-chevron" aria-hidden="true">›</span>
   </span>
-  {{ $priority := priorityEntities . }}
+  {{ $priority := .Rows }}
   {{if $priority}}
   <span class="compact-card-rows">
     {{range $priority}}
@@ -71,7 +71,7 @@
     {{end}}
   </span>
   {{else}}
-  <span class="compact-card-empty">{{len .Entities}} Entitäten</span>
+  <span class="compact-card-empty">{{len .Device.Entities}} Entitäten</span>
   {{end}}
 </button>
 {{end}}

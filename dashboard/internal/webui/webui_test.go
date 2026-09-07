@@ -1799,7 +1799,7 @@ func TestCompactCardTemplateRendersStatusAndPriorityRows(t *testing.T) {
 		{UniqueID: "node_power", Name: "Node Leistung", Component: "sensor", HasValue: true, Value: "42", UnitOfMeasurement: "W", HasAvailability: true, Available: true},
 	}}
 	var buf bytes.Buffer
-	if err := overviewTmpl.ExecuteTemplate(&buf, "compact-card", dev); err != nil {
+	if err := overviewTmpl.ExecuteTemplate(&buf, "compact-card", compactCardAuto(dev)); err != nil {
 		t.Fatal(err)
 	}
 	body := buf.String()
@@ -2338,5 +2338,55 @@ func TestOverviewRendersBatteryTrajectoryCard(t *testing.T) {
 	// Das Zeitfenster reist als data-Attribut zur Karte, die es im Browser liest.
 	if !strings.Contains(body, `data-battery-window="12"`) || !strings.Contains(body, `data-battery-projection-window="3"`) {
 		t.Fatalf("Zeitfenster-Attribute fehlen am Layout-Item:\n%s", body)
+	}
+}
+
+// compactCardForItem ist die eine Stelle, an der sich entscheidet, welche
+// Zeilen eine kompakte Kachel zeigt: die fest gewaehlten (in genau ihrer
+// Reihenfolge), sonst die Automatik. Ein Ref ohne Treffer faellt still weg -
+// dieselbe Fehlerbehandlung wie beim einzelnen entity_value-Ref.
+func TestCompactCardForItemHonoursEntityRefsOrderAndFallback(t *testing.T) {
+	dev := registry.DeviceView{ID: "node", Name: "Node", Entities: []registry.EntityView{
+		{UniqueID: "node_power", Name: "Leistung", Component: "sensor", HasValue: true, Value: "42", UnitOfMeasurement: "W"},
+		{UniqueID: "node_temp", Name: "Temperatur", Component: "sensor", HasValue: true, Value: "21", UnitOfMeasurement: "C"},
+		{UniqueID: "node_relay", Name: "Relais", Component: "switch", HasValue: true, Value: "on"},
+	}}
+
+	picked := compactCardForItem(dev, settings.Item{Type: "device", Display: "compact",
+		Ref: "node", EntityRefs: []string{"node_temp", "missing", "node_relay"}})
+	if len(picked.Rows) != 2 || picked.Rows[0].UniqueID != "node_temp" || picked.Rows[1].UniqueID != "node_relay" {
+		t.Fatalf("Rows = %v, want [node_temp node_relay] in dieser Reihenfolge", picked.Rows)
+	}
+	if picked.Device.ID != "node" {
+		t.Errorf("Device.ID = %q, want node", picked.Device.ID)
+	}
+
+	auto := compactCardForItem(dev, settings.Item{Type: "device", Display: "compact", Ref: "node"})
+	want := priorityEntities(dev)
+	if len(auto.Rows) != len(want) {
+		t.Fatalf("ohne entity_refs = %d Rows, want %d (priorityEntities)", len(auto.Rows), len(want))
+	}
+}
+
+// Das compact-card-Template rendert jetzt aus compactCardView, nicht mehr aus
+// einer nackten DeviceView - die feste Auswahl schlaegt dabei auf die
+// sichtbaren Zeilen durch.
+func TestCompactCardTemplateRendersConfiguredRows(t *testing.T) {
+	dev := registry.DeviceView{ID: "node", Name: "Node", Entities: []registry.EntityView{
+		{UniqueID: "node_power", Name: "Node Leistung", Component: "sensor", HasValue: true, Value: "42", UnitOfMeasurement: "W"},
+		{UniqueID: "node_temp", Name: "Node Temperatur", Component: "sensor", HasValue: true, Value: "21", UnitOfMeasurement: "C"},
+	}}
+	view := compactCardForItem(dev, settings.Item{Type: "device", Display: "compact", Ref: "node",
+		EntityRefs: []string{"node_temp"}})
+	var buf bytes.Buffer
+	if err := overviewTmpl.ExecuteTemplate(&buf, "compact-card", view); err != nil {
+		t.Fatal(err)
+	}
+	body := buf.String()
+	if !strings.Contains(body, `data-entity-id="node_temp"`) {
+		t.Errorf("die gewaehlte Zeile fehlt:\n%s", body)
+	}
+	if strings.Contains(body, `data-entity-id="node_power"`) {
+		t.Errorf("eine nicht gewaehlte Zeile wurde gerendert:\n%s", body)
 	}
 }
