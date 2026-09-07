@@ -2295,3 +2295,54 @@ test('cardKey bildet die Trajektorie auf ihren Variantenschlüssel ab', () => {
   assert.equal(factory.cardKey({ type: 'battery_status' }), 'battery_status');
   assert.equal(factory.cardKey({ type: 'device', display: 'compact' }), 'device:compact');
 });
+
+test('das Optionen-Modal der Kompaktkachel bietet die Werteauswahl des eigenen Geraets', () => {
+  const { factory } = loadLayoutPage({ gridstack: false });
+  const devices = [
+    {id: 'dev1', name: 'Gerät 1', entities: [
+      {unique_id: 'dev1_power', name: 'Leistung', object_id: 'power'},
+      {unique_id: 'dev1_temp', name: 'Temperatur', object_id: 'temp'},
+    ]},
+    {id: 'dev2', name: 'Gerät 2', entities: [{unique_id: 'dev2_x', name: 'X', object_id: 'x'}]},
+  ];
+
+  const compact = factory.optionsSheetHTML(
+    {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, display: 'compact', entityRefs: ['dev1_temp'], visibleCategories: []},
+    devices, 'Gerät 1', 4);
+  assert.match(compact, /data-role="entity-refs"/);
+  assert.match(compact, /<option value="dev1_temp" selected/);
+  assert.match(compact, /<option value="dev1_power"(?! selected)/);
+  assert.equal(/value="dev2_x"/.test(compact), false, 'Entitaeten fremder Geraete stehen in der Auswahl');
+
+  const detail = factory.optionsSheetHTML(
+    {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, display: 'detail', entityRefs: [], visibleCategories: []},
+    devices, 'Gerät 1', 4);
+  assert.equal(/data-role="entity-refs"/.test(detail), false, 'die Detailkachel zeigt die Werteauswahl');
+});
+
+test('applyOptionChange: die Werteauswahl der Kompaktkachel wird auf drei gedeckelt', () => {
+  const { component } = loadLayoutPage({ gridstack: false });
+  component._optionsItem = {id: 'a', type: 'device', ref: 'dev1', display: 'compact', entityRefs: []};
+  const select = {dataset: {role: 'entity-refs'}, selectedOptions: [
+    {value: 'e1'}, {value: 'e2'}, {value: 'e3'}, {value: 'e4'},
+  ]};
+  component.applyOptionChange({target: select});
+  // JSON-Roundtrip zieht das Array aus dem vm-Realm in den Testrealm - sonst
+  // scheitert deepEqual an der Prototyp-Identitaet (wie an den Nachbartests).
+  assert.deepEqual(JSON.parse(JSON.stringify(component._optionsItem.entityRefs)), ['e1', 'e2', 'e3']);
+});
+
+test('applyOptionChange: der Wechsel auf Detail und der Geraetewechsel leeren die Werteauswahl', () => {
+  const { component } = loadLayoutPage({ gridstack: false });
+  component.devices = [{id: 'dev1', name: 'G1', entities: []}, {id: 'dev2', name: 'G2', entities: []}];
+  component._optionsItem = {id: 'a', type: 'device', ref: 'dev1', display: 'compact', entityRefs: ['e1', 'e2']};
+  component._optionsSlot = null;
+
+  component.applyOptionChange({target: {dataset: {role: 'display'}, value: 'detail'}});
+  assert.deepEqual(JSON.parse(JSON.stringify(component._optionsItem.entityRefs)), []);
+
+  component._optionsItem.display = 'compact';
+  component._optionsItem.entityRefs = ['e1'];
+  component.applyOptionChange({target: {dataset: {role: 'device-ref'}, value: 'dev2'}});
+  assert.deepEqual(JSON.parse(JSON.stringify(component._optionsItem.entityRefs)), []);
+});

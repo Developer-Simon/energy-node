@@ -582,6 +582,29 @@
     return `<div class="layout-modal-field"><label>Gerät</label><select data-role="device-ref"><option value="">– wählen –</option>${source.map(device => `<option value="${escapeHTML(device.id)}"${item.ref === device.id ? ' selected' : ''}>${escapeHTML(device.name || device.id)}</option>`).join('')}</select></div>`;
   }
 
+  // Die feste Zeilenauswahl der Kompaktkachel: bis zu drei Entitaeten des
+  // eigenen Geraets, in der gewaehlten Reihenfolge. Leer heisst
+  // "priorityEntities-Automatik" (der Server-Default). Dieselbe data-role wie
+  // entity_group, damit applyOptionChange() und initEntityChoicesFor() ohne
+  // Sonderfall weiterlaufen; anders als dort sind die Optionen aber auf das
+  // Geraet item.ref beschraenkt.
+  function compactRowsPickerHTML(item, devices) {
+    if (item.type !== 'device' || item.display !== 'compact') return '';
+    const source = devices && devices.length ? devices : allDevices;
+    const device = source.find(d => d.id === item.ref);
+    if (!device) {
+      return '<p class="layout-modal-hint">Erst ein Gerät wählen, dann lassen sich bis zu drei seiner Werte fest anzeigen.</p>';
+    }
+    const labelID = `layout-item-compact-rows-label-${escapeHTML(item.id || '')}`;
+    const options = (device.entities || []).map(entity => {
+      const ref = entity.unique_id;
+      const selected = (item.entityRefs || []).includes(ref) ? ' selected' : '';
+      return `<option value="${escapeHTML(ref)}"${selected}>${escapeHTML(entity.name || entity.object_id || ref)}</option>`;
+    }).join('');
+    return `<div class="layout-modal-field"><label id="${labelID}">Angezeigte Werte (bis zu drei)</label>`
+      + `<select multiple data-role="entity-refs" aria-labelledby="${labelID}">${options}</select></div>`;
+  }
+
   // Das Optionen-Modal einer Kachel: drei Gruppen mit Ueberschrift - Platz,
   // Darstellung, Ort. Die Feld-Bausteine (spanSelectHTML, heightFieldHTML,
   // energyOptionsHTML, die Kategorie- und Entitaetenauswahl) wandern hierher;
@@ -599,7 +622,7 @@
     const platz = g('Platz', `<div class="layout-modal-field-row">${spanSelectHTML(item, label, columns)}${heightFieldHTML(item)}</div>` + heightHintHTML(item));
     const darstellungBody = flowScaleHTML(item) + deviceDisplayHTML(item) + batteryDisplayHTML(item) + categoryHTML(item) + energyOptionsHTML(item);
     const darstellung = g('Darstellung', darstellungBody || '<p class="layout-modal-hint">Fuer diese Karte gibt es keine Darstellungsoptionen.</p>');
-    const ortBody = entityGroupHTML(item, devices) + entityValuePickerHTML(item, devices) + deviceRefPickerHTML(item, devices);
+    const ortBody = entityGroupHTML(item, devices) + entityValuePickerHTML(item, devices) + deviceRefPickerHTML(item, devices) + compactRowsPickerHTML(item, devices);
     const ort = g('Ort', ortBody || '<p class="layout-modal-hint">Diese Karte hat keine eigene Datenquelle.</p>');
     return platz + darstellung + ort;
   }
@@ -1405,12 +1428,19 @@
         item.title = t.value;
       } else if (role === 'entity-refs') {
         item.entityRefs = Array.from(t.selectedOptions).map(option => option.value);
+        // Die Kompaktkachel zeigt hoechstens drei Zeilen - mehr passen
+        // optisch nicht, und der Server schneidet sie beim Speichern ohnehin
+        // ab (normalizeLayout).
+        if (item.type === 'device') item.entityRefs = item.entityRefs.slice(0, 3);
       } else if (role === 'entity-value-ref') {
         item.ref = t.value;
         this.syncSlotForItem(item);
         this.refillOptionsBody();
       } else if (role === 'device-ref') {
         item.ref = t.value;
+        // Die bisherige Werteauswahl gehoerte zum alten Geraet - ihre Refs
+        // gibt es am neuen nicht.
+        if (item.type === 'device') item.entityRefs = [];
         this.syncSlotForItem(item);
         this.refillOptionsBody();
       } else if (role === 'flow-scale') {
@@ -1420,6 +1450,8 @@
         item.display = item.type === 'battery_status'
           ? (t.value === 'trajectory' ? 'trajectory' : 'column')
           : (t.value === 'compact' ? 'compact' : 'detail');
+        // Die Detailkachel kennt keine feste Zeilenauswahl.
+        if (item.type === 'device' && item.display !== 'compact') item.entityRefs = [];
         this.syncSlotForItem(item);
         this.refillOptionsBody();
       } else if (role === 'span') {
