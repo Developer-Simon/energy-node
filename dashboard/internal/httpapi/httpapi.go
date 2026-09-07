@@ -926,6 +926,12 @@ type eventBody struct {
 	// webui.CompactStructureFingerprint). "omitempty" ist die sichere
 	// Seite: ohne den Zweig tauscht der Client.
 	StructureCompact string `json:"structure_compact,omitempty"`
+	// StructureAvailability deckt fuer die *konfigurierte* Kompaktkachel der
+	// Uebersicht die Geraete-Ampel ab. Ihre Zeilen stehen fest (entity_refs),
+	// also braucht sie StructureCompact nicht - nur diesen Zweig (siehe
+	// webui.AvailabilityStructureFingerprint). "omitempty" ist die sichere
+	// Seite: ohne den Zweig tauscht der Client.
+	StructureAvailability string `json:"structure_availability,omitempty"`
 	// EntitiesDelta markiert einen Rumpf, dessen "entities" nur die seit der
 	// zuletzt gebauten Version geaenderten Werte traegt. Fehlt das Feld (oder
 	// ist es false), enthaelt "entities" alle Werte. "omitempty", damit der
@@ -951,10 +957,11 @@ func (c *eventCache) bodies(reg *registry.Registry, resolver *energy.Resolver, e
 	devices := reg.Snapshot()
 	values := registry.ValueViews(devices)
 	body := eventBody{
-		Version:          version,
-		Entities:         values,
-		Structure:        registry.StructureFingerprint(devices),
-		StructureCompact: webui.CompactStructureFingerprint(devices),
+		Version:               version,
+		Entities:              values,
+		Structure:             registry.StructureFingerprint(devices),
+		StructureCompact:      webui.CompactStructureFingerprint(devices),
+		StructureAvailability: webui.AvailabilityStructureFingerprint(devices),
 	}
 	snapshot := energy.Aggregate(devices, resolver, time.Now().UTC())
 	body.Energy = snapshot.WithInterpretation(resolver.Interpretation())

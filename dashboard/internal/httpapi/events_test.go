@@ -273,3 +273,31 @@ func TestEventBodyCompactStructureSurvivesAValueTick(t *testing.T) {
 		t.Errorf("ein Messwert hat den Kompakt-Fingerabdruck veraendert: %q -> %q", before, body.StructureCompact)
 	}
 }
+
+// Der Availability-Zweig deckt fuer die konfigurierte Kompaktkachel die
+// Geraete-Ampel ab. Fehlt er, faellt der Client auf den Fragment-Tausch
+// zurueck - der Gewinn dieses Plans waere weg.
+func TestEventBodyCarriesAvailabilityStructureFingerprint(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
+	})
+	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
+
+	cache := &eventCache{}
+	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
+
+	var body struct {
+		StructureAvailability string `json:"structure_availability"`
+	}
+	if err := json.Unmarshal(data, &body); err != nil {
+		t.Fatalf("Rumpf ist kein gueltiges JSON: %v (%s)", err, data)
+	}
+	if want := webui.AvailabilityStructureFingerprint(reg.Snapshot()); body.StructureAvailability != want {
+		t.Errorf("structure_availability = %q, erwartet %q", body.StructureAvailability, want)
+	}
+	if body.StructureAvailability == "" {
+		t.Error("structure_availability ist leer - die konfigurierte Kompaktkachel wuerde dauerhaft tauschen")
+	}
+}
