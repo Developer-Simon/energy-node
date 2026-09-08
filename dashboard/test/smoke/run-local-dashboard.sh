@@ -27,6 +27,12 @@
 #                    schmale device-Kacheln mit Slider, span "1" auf der
 #                    18rem-Untergrenze - Sichtpruefung fuer Slider-Breite und
 #                    Titel-Umbruch in .device-tile-entity)
+#   notification     fixtures/notification.json, kein Seed - simuliert die
+#                    Automations-Topics (last_event {at, message}, state,
+#                    status/online). notifications.js pollt daraus
+#                    /api/v1/automation/notification und wirft beim Laden einen
+#                    Warn-Toast; das Geraet "Energie-Automationen" erscheint in
+#                    der Uebersicht.
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
@@ -91,8 +97,11 @@ while [[ $# -gt 0 ]]; do
           FIXTURE="$HERE/fixtures/geraete-kacheln.json"
           SEED_DATA="$HERE/fixtures/seed/geraete-kacheln"
           ;;
+        notification)
+          FIXTURE="$HERE/fixtures/notification.json"; SEED_DATA=""
+          ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, geraete-kacheln)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, geraete-kacheln, notification)" >&2
           exit 2
           ;;
       esac

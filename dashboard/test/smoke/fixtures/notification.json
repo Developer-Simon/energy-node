@@ -1,0 +1,47 @@
+[
+  {
+    "topic": "homeassistant/sensor/automation/state/config",
+    "payload": {
+      "name": "Automations-Zustand",
+      "unique_id": "automation_state",
+      "state_topic": "outstation/automation/state",
+      "value_template": "{{ value_json.rules_enabled }}",
+      "json_attributes_topic": "outstation/automation/state",
+      "availability_topic": "outstation/automation/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "entity_category": "diagnostic",
+      "unit_of_measurement": "Regeln",
+      "state_class": "measurement",
+      "device": { "identifiers": ["automation"], "name": "Energie-Automationen", "manufacturer": "Energy Node" }
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/automation/last_event/config",
+    "payload": {
+      "name": "Letztes Ereignis",
+      "unique_id": "automation_last_event",
+      "state_topic": "outstation/automation/last_event",
+      "value_template": "{{ value_json.message }}",
+      "json_attributes_topic": "outstation/automation/last_event",
+      "availability_topic": "outstation/automation/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "device": { "identifiers": ["automation"], "name": "Energie-Automationen", "manufacturer": "Energy Node" }
+    }
+  },
+
+  {
+    "topic": "outstation/automation/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/automation/state",
+    "payload": { "rules_enabled": 3, "online": true }
+  },
+
+  {
+    "topic": "outstation/automation/last_event",
+    "payload": { "at": 1789000000, "message": "warning: Netzeinspeisung gedrosselt - PV-Ueberschuss ueber Grenzwert" }
+  }
+]
