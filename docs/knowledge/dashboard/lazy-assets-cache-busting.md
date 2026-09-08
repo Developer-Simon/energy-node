@@ -64,7 +64,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-09-07**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-09-08**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -93,7 +93,7 @@ As of **2026-09-07**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-exchange.js` | `1` |
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `8` |
-| `js/notifications.js` | – |
+| `js/notifications.js` | `1` |
 | `js/dashboard.js` | `11` |
 | `js/overview.page.js` | `5` |
 | `js-deps/htmx.min.js` | – |
@@ -207,6 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| pre-work-installer branch | `js/notifications.js` | `1` | 2026-09-08 |
 | dashboard-kacheln-nachzug branch | `css/base.css` | `18` | 2026-09-07 |
 | configure-compact-device branch | `js/dashboard.js` · `js/layout-editor.js` | `11` · `11` | 2026-09-07 |
 | harden-battery-soc branch | `js/config.page.js` · `css/manager.css` (5 panels) · `js/history-recorder.js` | `2` · `17` · `8` | 2026-09-06 |

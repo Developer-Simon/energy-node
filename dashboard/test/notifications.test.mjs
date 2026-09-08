@@ -13,14 +13,19 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 
-function createNotifications({ deviceResponse, status = 200 } = {}) {
+// The poller now reads /api/v1/automation/notification, which returns the
+// {at, message} document already parsed from the last_event state topic. No
+// more entities.find() over a single-device payload, no more JSON.parse of a
+// raw last_message slot that an availability heartbeat could clobber.
+function createNotifications({ notification, status = 200 } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   const context = dom.getInternalVMContext();
   const requestedURLs = [];
   dom.window.fetch = async (url) => {
     requestedURLs.push(url);
-    if (status === 404) return { ok: false, status: 404, json: async () => ({ code: 'device_not_found' }) };
-    return { ok: true, status: 200, json: async () => deviceResponse || null };
+    if (status === 404) return { ok: false, status: 404, json: async () => ({ code: 'automation_not_found' }) };
+    if (status === 204) return { ok: true, status: 204, json: async () => { throw new Error('204 has no body'); } };
+    return { ok: true, status: 200, json: async () => notification || null };
   };
   Object.defineProperty(dom.window.document, 'visibilityState', { value: 'visible', configurable: true });
   const toasts = fakeToastStore();
@@ -32,38 +37,23 @@ function createNotifications({ deviceResponse, status = 200 } = {}) {
   return { window: dom.window, toasts, requestedURLs };
 }
 
-// last_event uses value_template ({{ value_json.message }}) to reduce the
-// topic payload to just the message string for .value - the Go registry has
-// no json_attributes_topic support, so the full {at, message} document only
-// exists in .last_message.payload, the raw untemplated MQTT payload.
-function automationDevice({ message, at }) {
-  return {
-    id: 'automation',
-    entities: [{
-      object_id: 'last_event',
-      value: message,
-      last_message: { topic: 'outstation/automation/last_event', payload: JSON.stringify({ message, at }) },
-    }],
-  };
-}
-
-test('a new last_event value produces exactly one toast', async () => {
-  const { window, toasts } = createNotifications({ deviceResponse: automationDevice({ message: 'info: Test - alles ok', at: 100 }) });
+test('a new notification produces exactly one toast', async () => {
+  const { window, toasts } = createNotifications({ notification: { message: 'info: Test - alles ok', at: 100 } });
   await window.__automationNotifications.poll();
   assert.equal(toasts.items.length, 1);
 });
 
-test('the same last_event value does not produce a second toast', async () => {
-  const { window, toasts } = createNotifications({ deviceResponse: automationDevice({ message: 'info: Test - alles ok', at: 100 }) });
+test('the same notification does not produce a second toast', async () => {
+  const { window, toasts } = createNotifications({ notification: { message: 'info: Test - alles ok', at: 100 } });
   await window.__automationNotifications.poll();
   await window.__automationNotifications.poll();
   assert.equal(toasts.items.length, 1);
 });
 
 test('a later at-timestamp produces a second toast', async () => {
-  const { window, toasts } = createNotifications({ deviceResponse: automationDevice({ message: 'info: erstens', at: 100 }) });
+  const { window, toasts } = createNotifications({ notification: { message: 'info: erstens', at: 100 } });
   await window.__automationNotifications.poll();
-  window.fetch = async () => ({ ok: true, status: 200, json: async () => automationDevice({ message: 'info: zweitens', at: 200 }) });
+  window.fetch = async () => ({ ok: true, status: 200, json: async () => ({ message: 'info: zweitens', at: 200 }) });
   await window.__automationNotifications.poll();
   assert.equal(toasts.items.length, 2);
 });
@@ -75,29 +65,33 @@ test('severity is derived from the message prefix', () => {
   assert.equal(window.__automationNotifications.severityFromMessage('info: Alles gut'), 'info');
 });
 
-test('a critical last_event is pushed with the critical severity', async () => {
-  const { window, toasts } = createNotifications({ deviceResponse: automationDevice({ message: 'critical: Ausfall', at: 100 }) });
+test('a critical notification is pushed with the critical severity', async () => {
+  const { window, toasts } = createNotifications({ notification: { message: 'critical: Ausfall', at: 100 } });
   await window.__automationNotifications.poll();
   assert.equal(toasts.items[0].severity, 'critical');
 });
 
 test('polling is skipped while the document is not visible', async () => {
-  const { window, toasts } = createNotifications({ deviceResponse: automationDevice({ message: 'info: x', at: 100 }) });
+  const { window, toasts } = createNotifications({ notification: { message: 'info: x', at: 100 } });
   Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
   await window.__automationNotifications.poll();
   assert.equal(toasts.items.length, 0);
 });
 
-test('der Poller fragt die Einzelgeraete-Route, nicht die Geraeteliste', async () => {
-  const { window, requestedURLs } = createNotifications({ deviceResponse: automationDevice({ message: 'info: x', at: 100 }) });
+test('der Poller fragt den Notification-Endpunkt, nicht die Geraeteroute', async () => {
+  const { window, requestedURLs } = createNotifications({ notification: { message: 'info: x', at: 100 } });
   await window.__automationNotifications.poll();
-  assert.deepEqual(requestedURLs, ['/api/v1/devices/automation']);
+  assert.deepEqual(requestedURLs, ['/api/v1/automation/notification']);
 });
 
 test('eine Instanz ohne Automations-Dienst (404) bleibt still', async () => {
   const { window, toasts } = createNotifications({ status: 404 });
-  // Kein throw: 404 ist hier der Normalfall, nicht ein Fehler. Vorher lieferte
-  // das find() ueber die Geraeteliste in diesem Fall schlicht undefined.
+  await window.__automationNotifications.poll();
+  assert.equal(toasts.items.length, 0);
+});
+
+test('ein Dienst ohne bisheriges Ereignis (204) bleibt still', async () => {
+  const { window, toasts } = createNotifications({ status: 204 });
   await window.__automationNotifications.poll();
   assert.equal(toasts.items.length, 0);
 });

@@ -1,19 +1,21 @@
-// Automations-Poller: liest das last_event der Automation aus
-// /api/v1/devices/automation und schiebt neue Ereignisse in den Toast-Store.
-// Die Darstellung liegt in notify.js und base.html - diese Datei baut kein
-// DOM mehr. Bewusst die Einzelgeraete-Route und nicht die Liste: die wiegt am
-// Live-System 448 KB gegen 10,9 KB, alle 10 Sekunden, auf jedem offenen Tab.
+// Automations-Poller: liest das letzte {at, message}-Ereignis der Automation
+// aus /api/v1/automation/notification und schiebt neue Ereignisse in den
+// Toast-Store. Die Darstellung liegt in notify.js und base.html - diese Datei
+// baut kein DOM. Der Endpunkt liefert das Dokument bereits geparst aus dem
+// last_event-State-Topic (lastStateMessage), nicht aus dem last_message-Slot
+// der Einzelgeraete-Route: den teilt sich der State-Payload mit dem
+// Availability-Heartbeat, der ihn ueberschreiben konnte - dann schlug hier das
+// JSON.parse bis zum naechsten echten Ereignis fehl.
 (() => {
   const STORAGE_KEY = 'automation-last-event-seen-at';
   const POLL_INTERVAL_MS = 10000;
 
   const requestJSON = async (url) => {
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`);
-    // 404 heisst hier: diese Instanz hat keinen Automations-Dienst. Das ist
-    // kein Fehler, sondern ein Dauerzustand - vorher lieferte das find() ueber
-    // die Geraeteliste in dem Fall undefined und poll() stieg still aus.
-    // Ohne diesen Zweig wuerde der Poller alle 10 s ins Leere feuern.
-    if (response.status === 404) return null;
+    // 404 heisst hier: diese Instanz hat keinen Automations-Dienst - das ist
+    // kein Fehler, sondern ein Dauerzustand. 204: der Dienst ist da, hat aber
+    // noch kein Ereignis veroeffentlicht. Beide enden still.
+    if (response.status === 404 || response.status === 204) return null;
     if (!response.ok) throw new Error('Anfrage fehlgeschlagen');
     return response.json();
   };
@@ -35,16 +37,7 @@
   async function poll() {
     if (document.visibilityState !== 'visible') return;
     try {
-      const device = await requestJSON('/api/v1/devices/automation');
-      // Der Geraetename "automation" war schon vorher fest verdrahtet (im
-      // find() darunter) - er wandert hier nur in den Pfad.
-      const lastEventEntity = device && (device.entities || []).find((entity) => entity.object_id === 'last_event');
-      // .value ist der value_template-reduzierte Nachrichtentext (kein JSON);
-      // das volle {at, message}-Dokument steckt im rohen, ungetemplateten
-      // last_message.payload - siehe automations.page.js loadRuntimeState().
-      const rawDocument = lastEventEntity && lastEventEntity.last_message && lastEventEntity.last_message.payload;
-      if (!rawDocument) return;
-      const payload = JSON.parse(rawDocument);
+      const payload = await requestJSON('/api/v1/automation/notification');
       if (!payload || !payload.message || !(payload.at > lastSeenAt())) return;
       window.Alpine.store('toasts').push(payload.message, severityFromMessage(payload.message));
       markSeen(payload.at);
