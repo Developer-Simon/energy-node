@@ -80,7 +80,12 @@ Three properties shape the whole design:
 
 ---
 
-## Reference documentation
+## Knowledge base
+
+Reference material, grouped the same way as the sidebar: general topics that
+span the node, then the dashboard, then the device services under `src/`.
+
+**General**
 
 - [Data flows](knowledge/data-flow.md) — what data is produced where, which
   channels it travels through, and who consumes it
@@ -88,6 +93,11 @@ Three properties shape the whole design:
   `config.json`
 - [Performance and resources](knowledge/performance-and-resources.md) —
   measured CPU/RAM per service on the Pi 1, and the optimisations that follow
+- [Cutting a release](knowledge/releasing.md) — the tag-driven build-and-publish
+  workflow and how to publish `vX.Y.Z`
+
+**Dashboard**
+
 - [HTTP API](knowledge/dashboard/api-documentation.md) — the dashboard's
   `/api/v1`, endpoint by endpoint
 - [Reverse proxy](knowledge/dashboard/reverse-proxy.md) — running the dashboard
@@ -96,12 +106,17 @@ Three properties shape the whole design:
   where credentials live on the node and how they are installed
 - [Lazy assets and cache busting](knowledge/dashboard/lazy-assets-cache-busting.md)
   — the frontend's manual `?v=` asset versioning
-- [Battery state of charge](knowledge/src/battery-soc-how-it-works.md) — how
+
+**Services**
+
+- [Battery state of charge](knowledge/services/battery-soc-how-it-works.md) — how
   the LiFePO4 engine works
-- [Cutting a release](knowledge/releasing.md) — the tag-driven build-and-publish
-  workflow and how to publish `vX.Y.Z`
-- [Home Assistant integration (HACS)](integration/ha-integration-hacs-release.md)
-  — the native custom integration, its mirror repo and release runbook
+
+## Integration
+
+- [battery_soc HA mirror](integration/ha-integration-hacs-release.md) — the
+  `battery_soc` custom integration, its public HACS mirror repo and release
+  runbook
 
 Installation is documented in `INSTALLATION.md` in the repository; it covers
 the ARMv6 specifics, including the packages that must be installed in an

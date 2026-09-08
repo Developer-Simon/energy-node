@@ -1,0 +1,22 @@
+{%- comment -%}
+  Renders one <ul> of sidebar links from `include.items`, marking the entry
+  whose normalised URL equals `include.current` as the current page. Shared by
+  _layouts/default.html for both flat groups and section sub-groups.
+{%- endcomment -%}
+<ul>
+  {%- for item in include.items -%}
+    {%- assign key = item.url | replace: 'index.md', 'index.html' | replace: '.md', '.html' -%}
+    {%- if item.url == 'index.md' -%}
+      {%- assign href = '/' | relative_url -%}
+    {%- else -%}
+      {%- assign href = item.url | replace: '.md', '.html' | relative_url -%}
+    {%- endif -%}
+    <li>
+      {%- if key == include.current -%}
+        <a href="{{ href }}" aria-current="page">{{ item.label }}</a>
+      {%- else -%}
+        <a href="{{ href }}">{{ item.label }}</a>
+      {%- endif -%}
+    </li>
+  {%- endfor -%}
+</ul>

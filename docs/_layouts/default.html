@@ -45,23 +45,14 @@
             <summary>Documentation</summary>
             {%- for group in site.data.nav -%}
               <h2>{{ group.title }}</h2>
-              <ul>
-                {%- for item in group.items -%}
-                  {%- assign key = item.url | replace: 'index.md', 'index.html' | replace: '.md', '.html' -%}
-                  {%- if item.url == 'index.md' -%}
-                    {%- assign href = '/' | relative_url -%}
-                  {%- else -%}
-                    {%- assign href = item.url | replace: '.md', '.html' | relative_url -%}
-                  {%- endif -%}
-                  <li>
-                    {%- if key == current -%}
-                      <a href="{{ href }}" aria-current="page">{{ item.label }}</a>
-                    {%- else -%}
-                      <a href="{{ href }}">{{ item.label }}</a>
-                    {%- endif -%}
-                  </li>
+              {%- if group.sections -%}
+                {%- for section in group.sections -%}
+                  <h3>{{ section.label }}</h3>
+                  {%- include nav-items.html items=section.items current=current -%}
                 {%- endfor -%}
-              </ul>
+              {%- else -%}
+                {%- include nav-items.html items=group.items current=current -%}
+              {%- endif -%}
             {%- endfor -%}
           </details>
         </nav>

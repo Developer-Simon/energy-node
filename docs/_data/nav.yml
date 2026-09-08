@@ -2,6 +2,10 @@
 # `url` is the source path relative to /docs; the layout turns it into the
 # generated URL and marks the current page. Keep this in the reading order
 # a newcomer should follow.
+#
+# A group carries either `items` (a flat list) or `sections` (labelled
+# sub-groups, each with its own `items`) - the layout renders the group
+# title as <h2> and each section label as <h3>.
 
 - title: Guide
   items:
@@ -9,18 +13,24 @@
     - { label: "The dashboard, page by page", url: "dashboard.md" }
     - { label: "Device services", url: "device-services.md" }
 
-- title: Reference
-  items:
-    - { label: "Data flows", url: "knowledge/data-flow.md" }
-    - { label: "Configuration file", url: "knowledge/configuration.md" }
-    - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
-    - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
-    - { label: "Reverse proxy", url: "knowledge/dashboard/reverse-proxy.md" }
-    - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
-    - { label: "Lazy assets & cache busting", url: "knowledge/dashboard/lazy-assets-cache-busting.md" }
-    - { label: "Battery state of charge", url: "knowledge/src/battery-soc-how-it-works.md" }
-    - { label: "Cutting a release", url: "knowledge/releasing.md" }
+- title: Knowledge
+  sections:
+    - label: General
+      items:
+        - { label: "Data flows", url: "knowledge/data-flow.md" }
+        - { label: "Configuration file", url: "knowledge/configuration.md" }
+        - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
+        - { label: "Cutting a release", url: "knowledge/releasing.md" }
+    - label: Dashboard
+      items:
+        - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
+        - { label: "Reverse proxy", url: "knowledge/dashboard/reverse-proxy.md" }
+        - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
+        - { label: "Lazy assets & cache busting", url: "knowledge/dashboard/lazy-assets-cache-busting.md" }
+    - label: Services
+      items:
+        - { label: "Battery state of charge", url: "knowledge/services/battery-soc-how-it-works.md" }
 
 - title: Integration
   items:
-    - { label: "Home Assistant (HACS)", url: "integration/ha-integration-hacs-release.md" }
+    - { label: "battery_soc HA mirror", url: "integration/ha-integration-hacs-release.md" }
