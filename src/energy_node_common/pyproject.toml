@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "energy-node-common"
 dynamic = ["version"]
-description = "Gemeinsame MQTT/Home-Assistant-Master/Slave-Infrastruktur fuer die Energy-Node Python-Bridges"
+description = "Gemeinsame MQTT/Home-Assistant-Slave-Infrastruktur fuer die Energy-Node Python-Bridges"
 requires-python = ">=3.9"
 dependencies = [
     "paho-mqtt>=2.0",

@@ -63,8 +63,7 @@ des zugehoerigen Eintrags in battery_soc_devices.json setzen (z. B.
 `"battery_soc"`), dann erscheint der Trucki-Stick in Home Assistant als
 "Verbunden ueber" das Batterie-SoC-Geraet.
 
-Nutzt das gemeinsame energy_node_common-Paket (Slave-Seite des Master/
-Slave-Protokolls) fuer MQTT-Aufbau, Availability, Discovery-Publishing und
+Nutzt das gemeinsame energy_node_common-Paket (Slave-Seite des Settings-Protokolls) fuer MQTT-Aufbau, Availability, Discovery-Publishing und
 den asyncio-Poll-Scheduler (inkl. des Diagnose-Poll-Hooks fuer /jsononce).
 """
 
@@ -865,7 +864,7 @@ class TruckiService:
             poll_diagnostics=self.poll_diagnostics,
             default_poll_interval_s=self.service_config.poll_interval_s,
             default_diagnostic_multiplier=self.service_config.diagnostic_poll_multiplier,
-            master_device_id=self.node_device_id,
+            node_device_id=self.node_device_id,
             on_config_reload=self.reload_config,
             on_poll_error=self.on_poll_error,
             async_loop=self.loop,

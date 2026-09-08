@@ -1,9 +1,11 @@
-"""Slave-Seite des Master/Slave-Polling-Protokolls (siehe knowhow/plan.md).
+"""Slave-Seite fuer einen Geraete-Service.
 
 Jeder Geraete-Service instanziiert genau ein `Slave`-Objekt und liefert nur
-`poll_core()` (und optional `poll_diagnostics()`/`on_setting_changed()`).
-Diese Klasse uebernimmt das Settings-Protokoll, den Scheduler, Ack-/Status-
-Publishing und `last_update` - keine geraetespezifische Fachlogik.
+`poll_core()` (und optional `poll_diagnostics()`/`on_config_reload()`).
+Diese Klasse uebernimmt Scheduler, geraeteweise + globale Simulation,
+`config/reload`, das retained `settings/status`-Publishing und `last_update`
+- keine geraetespezifische Fachlogik. Poll-Intervall und Diagnose-
+Multiplikator kommen aus der config.json (kein `/set`-Topic mehr).
 """
 
 from __future__ import annotations
@@ -14,17 +16,11 @@ from typing import Any, Callable, Optional
 import paho.mqtt.client as mqtt
 
 from . import mqtt as mqtt_helpers
-from .discovery import entity_config, number_entity_config
+from .discovery import entity_config
 from .discovery import publish_discovery as _publish_discovery
 from .mqtt import publish as _publish
 from .scheduler import AsyncScheduler, Scheduler
 from .settings import (
-    DIAGNOSTIC_MULTIPLIER_SETTING,
-    MAX_DIAGNOSTIC_MULTIPLIER,
-    MAX_POLL_INTERVAL_S,
-    MIN_DIAGNOSTIC_MULTIPLIER,
-    MIN_POLL_INTERVAL_S,
-    POLL_INTERVAL_SETTING,
     SIMULATION_SETTING,
     SlaveStatus,
     settings_set_topic,
@@ -32,8 +28,6 @@ from .settings import (
     settings_status_topic,
     master_settings_set_topic,
     config_reload_topic,
-    validate_diagnostic_multiplier,
-    validate_poll_interval_s,
     parse_bool,
 )
 
@@ -48,7 +42,7 @@ class Slave:
         poll_diagnostics: Optional[Callable] = None,
         default_poll_interval_s: float = 60,
         default_diagnostic_multiplier: float = 10,
-        master_device_id: Optional[str] = None,
+        node_device_id: Optional[str] = None,
         on_setting_changed: Optional[Callable[[str, Any], None]] = None,
         on_simulation_changed: Optional[Callable[[str, bool], None]] = None,
         on_config_reload: Optional[Callable[[], None]] = None,
@@ -58,16 +52,14 @@ class Slave:
         self.device_id = device_id
         self.base_topic = f"outstation/{device_id}"
 
+        # Abfrageraten kommen aus der config.json und werden nur ueber
+        # apply_config_defaults() aktualisiert.
         self.poll_interval_s = default_poll_interval_s
         self.diagnostic_poll_multiplier = default_diagnostic_multiplier
-        # Merkt sich, ob ein Wert zur Laufzeit ueber das Settings-Topic
-        # gesetzt wurde. apply_config_defaults laesst solche Werte in Ruhe.
-        self._poll_interval_overridden = False
-        self._diagnostic_multiplier_overridden = False
         self._simulation_active: dict[str, bool] = {}
         self._master_simulation_set_topic = (
-            master_settings_set_topic(master_device_id, SIMULATION_SETTING)
-            if master_device_id
+            master_settings_set_topic(node_device_id, SIMULATION_SETTING)
+            if node_device_id
             else None
         )
         self._on_setting_changed = on_setting_changed
@@ -77,10 +69,6 @@ class Slave:
         self._async_loop = async_loop
         self._scheduler_started = False
 
-        self._poll_interval_set_topic = settings_set_topic(device_id, POLL_INTERVAL_SETTING)
-        self._poll_interval_state_topic = settings_state_topic(device_id, POLL_INTERVAL_SETTING)
-        self._diag_multiplier_set_topic = settings_set_topic(device_id, DIAGNOSTIC_MULTIPLIER_SETTING)
-        self._diag_multiplier_state_topic = settings_state_topic(device_id, DIAGNOSTIC_MULTIPLIER_SETTING)
         self._status_topic = settings_status_topic(device_id)
         self._config_reload_topic = config_reload_topic(device_id)
 
@@ -105,7 +93,7 @@ class Slave:
     @property
     def settings_topics(self) -> tuple:
         """Topics, die der Service in seinem `on_connect` abonnieren muss."""
-        topics = [self._poll_interval_set_topic, self._diag_multiplier_set_topic, self._config_reload_topic]
+        topics = [self._config_reload_topic]
         if self._master_simulation_set_topic:
             topics.append(self._master_simulation_set_topic)
         topics.extend(
@@ -156,16 +144,12 @@ class Slave:
         bestaetigt die aktuellen Werte retained und startet den Scheduler
         (nur beim allerersten Aufruf; erneutes `start()` nach Reconnect
         startet den Scheduler nicht doppelt)."""
-        client.subscribe(self._poll_interval_set_topic)
-        client.subscribe(self._diag_multiplier_set_topic)
         client.subscribe(self._config_reload_topic)
         if self._master_simulation_set_topic:
             client.subscribe(self._master_simulation_set_topic)
         for device_id in self._simulation_active:
             client.subscribe(self._simulation_set_topic(device_id))
             client.subscribe(self._simulation_state_topic(device_id))
-        self._publish_ack(client, POLL_INTERVAL_SETTING, self.poll_interval_s)
-        self._publish_ack(client, DIAGNOSTIC_MULTIPLIER_SETTING, self.diagnostic_poll_multiplier)
         for device_id, active in self._simulation_active.items():
             self._publish_simulation_ack(client, device_id, active)
         self._publish_status(client)
@@ -181,12 +165,6 @@ class Slave:
         """Im `on_message` des Services aufrufen. Gibt True zurueck, wenn
         die Nachricht zum Settings-Protokoll gehoerte (und damit bereits
         verarbeitet wurde)."""
-        if topic == self._poll_interval_set_topic:
-            self._apply_setting(client, POLL_INTERVAL_SETTING, payload)
-            return True
-        if topic == self._diag_multiplier_set_topic:
-            self._apply_setting(client, DIAGNOSTIC_MULTIPLIER_SETTING, payload)
-            return True
         if topic == self._master_simulation_set_topic:
             self._apply_global_simulation(client, payload)
             return True
@@ -248,56 +226,16 @@ class Slave:
         poll_interval_s: Optional[float] = None,
         diagnostic_multiplier: Optional[float] = None,
     ) -> None:
-        """Neue Startwerte aus config.json uebernehmen.
+        """Neue Abfrageraten aus config.json uebernehmen.
 
-        Ein zur Laufzeit ueber outstation/<id>/settings/<name>/set
-        gesetzter Wert bleibt unangetastet: die Konfigurationsdatei liefert
-        den Standard, nicht den Sollwert.
+        Nach dem Master-Rueckbau gibt es kein `/set`-Topic mehr, das diese
+        Werte zur Laufzeit ueberschreiben koennte: die config.json ist die
+        alleinige Quelle, wirksam bei Start und bei `config/reload`.
         """
-        if poll_interval_s is not None and not self._poll_interval_overridden:
+        if poll_interval_s is not None:
             self.poll_interval_s = poll_interval_s
-        if diagnostic_multiplier is not None and not self._diagnostic_multiplier_overridden:
+        if diagnostic_multiplier is not None:
             self.diagnostic_poll_multiplier = diagnostic_multiplier
-
-    def _apply_setting(self, client: mqtt.Client, setting: str, payload: str) -> None:
-        if setting == SIMULATION_SETTING:
-            self._apply_global_simulation(client, payload)
-            return
-
-        try:
-            value = float(payload)
-        except (TypeError, ValueError):
-            return
-
-        error = (
-            validate_poll_interval_s(value)
-            if setting == POLL_INTERVAL_SETTING
-            else validate_diagnostic_multiplier(value)
-        )
-        if error:
-            self._publish_status(client, runtime_status="rejected", error=error)
-            return
-
-        if setting == POLL_INTERVAL_SETTING:
-            self.poll_interval_s = value
-            self._poll_interval_overridden = True
-        else:
-            self.diagnostic_poll_multiplier = value
-            self._diagnostic_multiplier_overridden = True
-
-        self._publish_ack(client, setting, value)
-        self._publish_status(client)
-        if self._on_setting_changed:
-            self._on_setting_changed(setting, value)
-
-    def _publish_ack(self, client: mqtt.Client, setting: str, value: float | int) -> None:
-        if setting == POLL_INTERVAL_SETTING:
-            topic = self._poll_interval_state_topic
-        elif setting == DIAGNOSTIC_MULTIPLIER_SETTING:
-            topic = self._diag_multiplier_state_topic
-        else:
-            return
-        mqtt_helpers.publish(client, topic, value)
 
     def _publish_simulation_ack(self, client: mqtt.Client, device_id: str, active: bool) -> None:
         mqtt_helpers.publish(client, self._simulation_state_topic(device_id), int(active))
@@ -322,43 +260,6 @@ class Slave:
         self._last_update_ts = ts if ts is not None else int(time.time())
         self._publish_status(client)
         _publish(client, f"{self.base_topic}/status/last_update", self._last_update_ts)
-
-    def publish_discovery(
-        self,
-        client: mqtt.Client,
-        device_block: dict,
-        local_entities_enabled_by_default: bool = False,
-    ) -> None:
-        """Veroeffentlicht lokale Rate-/Diagnose-Entities.
-
-        Geraete-Services rufen diese Methode nicht mehr auf; damit entstehen
-        dort keine kuenstlichen Service- oder `last_update`-Entities.
-        """
-        _publish_discovery(
-            client, self.device_id, "number", POLL_INTERVAL_SETTING,
-            number_entity_config(
-                self.device_id, self.base_topic, POLL_INTERVAL_SETTING, "Abfrageintervall (lokal)",
-                device_block,
-                state_topic=self._poll_interval_state_topic,
-                command_topic=self._poll_interval_set_topic,
-                min_value=MIN_POLL_INTERVAL_S,
-                max_value=MAX_POLL_INTERVAL_S,
-                unit_of_measurement="s",
-                enabled_by_default=local_entities_enabled_by_default,
-            ),
-        )
-        _publish_discovery(
-            client, self.device_id, "number", DIAGNOSTIC_MULTIPLIER_SETTING,
-            number_entity_config(
-                self.device_id, self.base_topic, DIAGNOSTIC_MULTIPLIER_SETTING, "Diagnose-Multiplikator (lokal)",
-                device_block,
-                state_topic=self._diag_multiplier_state_topic,
-                command_topic=self._diag_multiplier_set_topic,
-                min_value=MIN_DIAGNOSTIC_MULTIPLIER,
-                max_value=MAX_DIAGNOSTIC_MULTIPLIER,
-                enabled_by_default=local_entities_enabled_by_default,
-            ),
-        )
 
     def publish_simulation_discovery(
         self, client: mqtt.Client, device_id: str, device_block: dict, base_topic: str

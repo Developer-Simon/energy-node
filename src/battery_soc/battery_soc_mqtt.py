@@ -61,8 +61,7 @@ Skripten auf diesem Knoten. Der Knoten "energy-node" wird per
 via_device als Elterngeraet referenziert (gleiches Muster wie im
 Shelly-mqtt-discovery-self-Skript).
 
-Nutzt das gemeinsame energy_node_common-Paket (Slave-Seite des Master/
-Slave-Protokolls) fuer MQTT-Aufbau, Availability, Discovery-Publishing und
+Nutzt das gemeinsame energy_node_common-Paket (Slave-Seite des Settings-Protokolls) fuer MQTT-Aufbau, Availability, Discovery-Publishing und
 den Poll-Scheduler.
 
 Die eigentliche SoC-Fachlogik (Coulomb-Zaehlung, Kalibrierung, Spannungs-
@@ -410,7 +409,7 @@ def main() -> None:
         poll_core=poll_core,
         default_poll_interval_s=service_config.poll_interval_s,
         default_diagnostic_multiplier=service_config.diagnostic_poll_multiplier,
-        master_device_id=app_config.node.device_id,
+        node_device_id=app_config.node.device_id,
         on_config_reload=reload_config,
         on_poll_error=lambda exc: print(f"Scheduler-Fehler: {exc}"),
     )

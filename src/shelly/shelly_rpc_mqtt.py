@@ -937,7 +937,7 @@ class ShellyService:
             poll_diagnostics=self.poll_diagnostics,
             default_poll_interval_s=self.service_config.poll_interval_s,
             default_diagnostic_multiplier=self.service_config.diagnostic_poll_multiplier,
-            master_device_id=self.node_device_id,
+            node_device_id=self.node_device_id,
             on_config_reload=self.reload_config,
             on_poll_error=self.on_poll_error,
             async_loop=self.loop,
