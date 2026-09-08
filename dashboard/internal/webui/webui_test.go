@@ -52,7 +52,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-discovery-tooltips", "showDiscoveryTooltips", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js,/static/js/schema-form.js,/static/js/config.page.js?v=2\"", "data-panel-script=\"/static/js/revisions.js,/static/js/energy.page.js?v=1\"", "data-panel-css=\"/static/css/manager.css?v=17\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-discovery-tooltips", "showDiscoveryTooltips", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js,/static/js/schema-form.js,/static/js/config.page.js?v=2\"", "data-panel-script=\"/static/js/revisions.js,/static/js/energy.page.js?v=1\"", "data-panel-css=\"/static/css/manager.css?v=18\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -138,7 +138,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=1,/static/js/energy-model.js,/static/js/history.js?v=9",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js,/static/js/schema-form.js,/static/js/settings.page.js?v=2,/static/js/mqtt.page.js?v=1,/static/js/tailscale.page.js?v=1,/static/js/systemconfig.page.js?v=1",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js,/static/js/schema-form.js,/static/js/settings.page.js?v=2,/static/js/mqtt.page.js?v=1,/static/js/tailscale.page.js?v=1,/static/js/systemconfig.page.js?v=2",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -151,7 +151,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	if !strings.Contains(body, `data-panel-css="/static/css/tippy.css"`) {
 		t.Fatal("devices-panel does not declare lazy tippy.css")
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=1,/static/css/manager.css?v=17"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=1,/static/css/manager.css?v=18"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1124,7 +1124,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
 		`data-panel-script="/node/static/js-deps/popper.min.js,/node/static/js-deps/tippy.umd.min.js"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=1,/node/static/css/manager.css?v=17"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=1,/node/static/css/manager.css?v=18"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1484,11 +1484,19 @@ func TestDeviceMapPanelEmbedsRevisionPartial(t *testing.T) {
 
 func TestSettingsPanelEmbedsRevisionPartial(t *testing.T) {
 	body := renderPanel(t, "settings")
-	// MQTT und Bridge bekommen bewusst keine eigene Revisionsverwaltung -
-	// nur der allgemeine Einstellungsbereich und die Systemkonfiguration
-	// (config.json, Task 8 des Konfigurationsplans) haben je eine eigene.
-	if got := strings.Count(body, `x-data="revisionPanel(revisionConfig())"`); got != 2 {
-		t.Fatalf("settings panel embeds the revision partial %d times, want 2", got)
+	// Nur der allgemeine Einstellungsbereich nutzt die geteilte Revisions-
+	// komponente. MQTT und Bridge bekommen bewusst keine; die Systemkonfiguration
+	// (config.json) hat serverseitig keine /revisions-, /revisions/{name}- und
+	// /restore-Routen und zeigt daher nur eine Nur-Lese-Liste (P1.8 der
+	// Dashboard-Ideenliste).
+	// Die Systemkonfiguration darf die geteilte Komponente nicht mehr an ihre
+	// nicht existierenden Routen haengen (sonst kommt HTML statt JSON zurueck);
+	// sie zeigt stattdessen die Nur-Lese-Liste mit revisionLabel().
+	if got := strings.Count(body, `x-data="revisionPanel(revisionConfig())"`); got != 1 {
+		t.Fatalf("settings panel embeds the revision partial %d times, want 1", got)
+	}
+	if !strings.Contains(body, "revisionLabel(name)") {
+		t.Fatalf("system config panel does not render the read-only revision list: %s", body)
 	}
 }
 
