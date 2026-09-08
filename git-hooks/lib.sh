@@ -4,9 +4,9 @@
 
 COMPONENTS=(
   "dashboard/:dashboard/VERSION"
-  "src/:src/VERSION"
-  "src/energy_node_common/:src/energy_node_common/VERSION"
-  "src/battery_soc_core/:src/battery_soc_core/VERSION"
+  "services/:services/VERSION"
+  "libs/energy_node_common/:libs/energy_node_common/VERSION"
+  "libs/battery_soc_core/:libs/battery_soc_core/VERSION"
   "integrations/homeassistant/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
 )
 
@@ -21,10 +21,10 @@ sanitize_branch() {
 
 # component_touched prueft, ob eine Datei-Liste (staged/changed, eine pro
 # Zeile) eine Komponente betrifft. Dateien einer verschachtelten Komponente
-# (z.B. src/energy_node_common/ unterhalb von src/) zaehlen dabei NICHT als
-# den umgebenden Praefix betreffend - ein Commit, der ausschliesslich das
-# gemeinsame Modul aendert, soll nur dessen eigenes VERSION bumpen/taggen,
-# nicht auch noch src/VERSION.
+# (z.B. libs/energy_node_common/ unterhalb eines umschliessenden Praefix)
+# zaehlen dabei NICHT als den umgebenden Praefix betreffend - ein Commit, der
+# ausschliesslich das gemeinsame Modul aendert, soll nur dessen eigenes
+# VERSION bumpen/taggen, nicht auch noch das der Sammel-Komponente.
 # Liest die aktuelle Version einer Komponente normalisiert als "vX.Y.Z".
 # Bei .json-Dateien (z.B. manifest.json) wird das "version"-Feld gelesen -
 # HACS/hassfest verlangt dort eine nackte Semver ohne "v"-Prefix - und fuer

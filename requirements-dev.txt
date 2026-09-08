@@ -1,9 +1,9 @@
 # Third-party runtime dependencies needed to collect and run the full
-# src/*/tests suite locally (beyond the editable installs already covered by
-# INSTALLATION.md, section "Development machine"):
+# services/*/tests suite locally (beyond the editable installs already covered
+# by INSTALLATION.md, section "Development machine"):
 #
 #   python3 -m venv .venv
-#   .venv/bin/pip install -e src/energy_node_common -e src/battery_soc_core pytest
+#   .venv/bin/pip install -e libs/energy_node_common -e libs/battery_soc_core pytest
 #   .venv/bin/pip install -r requirements-dev.txt
 #
 # These match the node-side runtime deps in INSTALLATION.md section 3.2 —

@@ -11,8 +11,8 @@
 # with "/" and other characters unsafe in tag names replaced by "-".
 # <build> is a per-branch sequence number: 1 plus the highest existing
 # build number among tags ending in "-<branch>.<n>", shared across
-# components so that a commit touching both dashboard/ and src/ gets the
-# same build number for both tags (component collisions in the tag name
+# components so that a commit touching both dashboard/ and services/ gets
+# the same build number for both tags (component collisions in the tag name
 # itself are fine -- they just mean two components happened to be at the
 # same version).
 #
