@@ -22,19 +22,6 @@ from typing import Dict, Optional, Sequence, Tuple
 DEFAULT_CONFIG_PATH = "/etc/energy-node/config.json"
 SCHEMA_VERSION = 1
 
-# Pflichtfelder je Dienst. Ein Dienst, dessen Schluessel unter "services"
-# fehlt, startet nicht - es gibt bewusst keinen impliziten Standardnamen.
-# Diese Tabelle und die "required"-Listen in config.schema.json beschreiben
-# dieselbe Regel und muessen synchron bleiben.
-REQUIRED_SERVICE_FIELDS: Dict[str, Tuple[str, ...]] = {
-    "apsystems": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier"),
-    "shelly": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"),
-    "trucki": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"),
-    "tuya": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier"),
-    "battery_soc": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier"),
-    "automation": ("service_id",),
-}
-
 _NUMERIC_SERVICE_FIELDS = ("poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s")
 
 
@@ -172,12 +159,50 @@ def config_path_from_argv(argv: Optional[Sequence[str]] = None) -> str:
     return DEFAULT_CONFIG_PATH
 
 
-def _load_services(data: dict, path: str) -> Dict[str, ServiceConfig]:
+def _load_manifests(config_dir: Path, path: str) -> Dict[str, Tuple[str, ...]]:
+    """Die aktive Dienstmenge samt Pflichtfeldern aus <config-dir>/manifests/.
+
+    Genau eine Wahrheit ueber den Funktionsumfang eines Node: je Dienst ein
+    manifest.json mit "service_id" und "required". Fehlt das Verzeichnis oder
+    ist es leer, startet der Dienst nicht (fail-closed).
+    """
+    manifests_dir = config_dir / "manifests"
+    try:
+        files = sorted(manifests_dir.glob("*.json"))
+    except OSError as exc:
+        raise ConfigError(f"{manifests_dir}: Manifest-Verzeichnis nicht lesbar: {exc}") from exc
+    if not files:
+        raise ConfigError(
+            f"{manifests_dir}: kein Dienst-Manifest gefunden (erwartet <service_id>.json je Dienst)"
+        )
+    required_by_service: Dict[str, Tuple[str, ...]] = {}
+    for file in files:
+        try:
+            entry = json.loads(file.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            raise ConfigError(f"{file}: Manifest nicht lesbar: {exc}") from exc
+        service_id = entry.get("service_id")
+        if not isinstance(service_id, str) or not service_id:
+            raise ConfigError(f"{file}: service_id fehlt oder ist leer")
+        raw_required = entry.get("required", [])
+        if not isinstance(raw_required, list) or not all(
+            isinstance(item, str) and item for item in raw_required
+        ):
+            raise ConfigError(f"{file}: required erwartet eine Liste nicht-leerer Zeichenketten")
+        if service_id in required_by_service:
+            raise ConfigError(f"{file}: service_id {service_id!r} doppelt vergeben")
+        required_by_service[service_id] = tuple(raw_required)
+    return required_by_service
+
+
+def _load_services(
+    data: dict, path: str, required_by_service: Dict[str, Tuple[str, ...]]
+) -> Dict[str, ServiceConfig]:
     section = _section(data, "services", path)
     services: Dict[str, ServiceConfig] = {}
-    for name, required in REQUIRED_SERVICE_FIELDS.items():
+    for name, required in required_by_service.items():
         if name not in section:
-            raise ConfigError(f"{path}: services.{name}: Abschnitt fehlt")
+            raise ConfigError(f"{path}: services.{name}: Abschnitt fehlt (Manifest vorhanden)")
         entry = section[name]
         prefix = f"services.{name}"
         if not isinstance(entry, dict):
@@ -193,6 +218,11 @@ def _load_services(data: dict, path: str) -> Dict[str, ServiceConfig]:
             service_id=_text(entry, "service_id", path, prefix),
             **values,
         )
+    for name in section:
+        if name not in required_by_service:
+            raise ConfigError(
+                f"{path}: services.{name}: kein Manifest unter manifests/ (unbekannter Dienst)"
+            )
     return services
 
 
@@ -252,7 +282,8 @@ def load(path: Optional[str] = None) -> AppConfig:
     mqtt_section = _section(data, "mqtt", path)
     paths_section = _section(data, "paths", path)
     logging_section = _section(data, "logging", path)
-    services = _load_services(data, path)
+    manifests = _load_manifests(Path(path).parent, path)
+    services = _load_services(data, path, manifests)
 
     return AppConfig(
         path=path,
