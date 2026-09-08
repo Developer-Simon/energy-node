@@ -205,36 +205,25 @@
           </template>
         </ul>
       </template>
-      <details class="revision-panel" x-data="revisionPanel(revisionConfig())" x-bind:open="open">
-        <summary x-on:click.prevent="toggle()" x-text="label"></summary>
+      <!-- Nur-Lese-Liste: die Systemkonfiguration hat serverseitig keine
+           /revisions-, /revisions/{name}- und /restore-Routen wie die anderen
+           Konfigurationsabschnitte, nur die inline in GET /api/v1/system/config
+           mitgelieferte Namensliste. Vergleichen und Wiederherstellen bleiben
+           zurueckgestellt - siehe P1.8 der Dashboard-Ideenliste. -->
+      <details class="revision-panel">
+        <summary>Revisionen der Systemkonfiguration</summary>
         <div class="revision-panel-body">
-          <div class="toolbar">
-            <label>Revision
-              <select x-model="selectedRevision" x-on:change="previewRevision()">
-                <option value="">Revision auswählen</option>
-                <template x-for="revision in revisions" x-bind:key="revision.name">
-                  <option x-bind:value="revision.name" x-text="`${revision.name} (${revision.checksum.slice(0, 8)})`"></option>
-                </template>
-              </select>
-            </label>
-            <button class="icon-button labeled" type="button" x-on:click="load()" x-bind:disabled="loading" x-bind:title="loading ? 'Lade ...' : 'Aktualisieren'" x-bind:aria-label="loading ? 'Lade ...' : 'Aktualisieren'">
-              <svg class="automation-icon"><use href="#ico-history"></use></svg>
-              <span x-text="loading ? 'Lade ...' : 'Aktualisieren'"></span>
-            </button>
-            <button class="icon-button labeled" type="button" x-on:click="restoreRevision()" x-bind:disabled="restoring || !selectedRevision" title="Wiederherstellen" aria-label="Wiederherstellen">
-              <svg class="automation-icon"><use href="#ico-download"></use></svg>
-              <span>Wiederherstellen</span>
-            </button>
-            <span class="revision-panel-empty" x-show="loaded && revisions.length === 0" x-cloak>Noch keine Revisionen vorhanden.</span>
-          </div>
-          <div class="revision-view-toolbar" role="group" aria-label="Ansicht der Revisionsvorschau">
-            <span>Ansicht</span>
-            <button type="button" x-on:click="setRevisionView('preview')" x-bind:aria-pressed="revisionView === 'preview'">Vorschau</button>
-            <button type="button" x-on:click="setRevisionView('diff')" x-bind:aria-pressed="revisionView === 'diff'">Diff</button>
-            <label><input type="checkbox" x-model="cropDiff" x-on:change="previewRevision()"> Nur Änderungen</label>
-          </div>
-          <textarea class="revision-preview" aria-label="Revisionsvorschau" readonly placeholder="Revision auswählen und Vorschau öffnen" x-model="revisionText" x-bind:hidden="revisionView !== 'preview'"></textarea>
-          <pre class="revision-diff" aria-label="Änderungen zwischen Revision und aktuellem Stand" x-ref="revisionDiff" x-bind:hidden="revisionView !== 'diff'"></pre>
+          <p class="settings-help">
+            Jedes Speichern legt hier den vorherigen Stand ab (max. 20).
+            Vergleichen und Wiederherstellen sind fuer die Systemkonfiguration
+            noch nicht verfuegbar.
+          </p>
+          <ul class="revision-list" x-show="revisions.length">
+            <template x-for="name in revisions" x-bind:key="name">
+              <li x-text="revisionLabel(name)"></li>
+            </template>
+          </ul>
+          <span class="revision-panel-empty" x-show="revisions.length === 0" x-cloak>Noch keine Revisionen vorhanden.</span>
         </div>
       </details>
     </section>

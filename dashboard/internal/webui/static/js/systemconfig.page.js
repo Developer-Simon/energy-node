@@ -31,6 +31,11 @@
       unknownKeys: [],
       restartRequired: [],
       reloaded: {},
+      // Nur-Lese-Liste der Revisions-Dateinamen, wie GET /api/v1/system/config
+      // sie inline liefert. Die Systemkonfiguration hat serverseitig keine
+      // /revisions-, /revisions/{name}- und /restore-Routen, also kein Diff und
+      // kein Wiederherstellen - siehe P1.8 der Dashboard-Ideenliste.
+      revisions: [],
       // Formulareingaben aendern das DOM, nicht den Alpine-State; dieser
       // Zaehler wird bei jedem input/change hochgesetzt, damit der dirty-
       // Getter neu ausgewertet wird.
@@ -46,6 +51,7 @@
           ]);
           this.value = document.config;
           this.text = JSON.stringify(this.value, null, 2);
+          this.revisions = Array.isArray(document.revisions) ? [...document.revisions].reverse() : [];
           this.schema = schema;
           this.applyLoaded();
         } catch (err) {
@@ -138,13 +144,12 @@
         this.dirtyTick += 1;
       },
 
-      revisionConfig() {
-        return {
-          basePath: '/api/v1/system/config',
-          current: () => this.value,
-          reload: () => this.load(),
-          label: 'Revisionen der Systemkonfiguration',
-        };
+      // Der Dateiname ist ein UTC-Zeitstempel plus '.json'
+      // (writeSystemConfigRevision, systemconfig.go). Fuer die Anzeige das
+      // Suffix abschneiden und 'T' durch ein Leerzeichen ersetzen; unbekannte
+      // Formen unveraendert durchreichen.
+      revisionLabel(name) {
+        return String(name).replace(/\.json$/, '').replace('T', ' ');
       },
     };
   }

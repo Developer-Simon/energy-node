@@ -657,6 +657,7 @@ select.schema-control {
 .revision-panel > summary:hover { color: var(--text); }
 .revision-panel-body { padding-top: .75rem; }
 .revision-panel-empty { color: var(--text-faint); }
+.revision-list { display: grid; gap: .3rem; margin: .75rem 0 0; padding-left: 1.2rem; color: var(--text-subtle); font-size: .85rem; font-variant-numeric: tabular-nums; }
 #config-reload-error code { display: block; margin: .5rem 0; color: var(--text-subtle); font-size: .9em; }
 .form-grid { display: grid; grid-template-columns: minmax(12rem, 20rem) minmax(12rem, 20rem); gap: .8rem 1rem; align-items: center; }
 .settings-toggle-label { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; cursor: pointer; }

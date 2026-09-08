@@ -116,11 +116,11 @@ As of **2026-09-08**, read from `base.html` and `overview.html`. "–" means: no
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` –, `js/history.js` `9` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
-| `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `17` |
-| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `1` | `css/manager.css` `17` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `17` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `2`, `js/mqtt.page.js` `1`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `1` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `17` |
-| `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `17`, `css/automations.css` `3` |
+| `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `18` |
+| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `1` | `css/manager.css` `18` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `18` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `2`, `js/mqtt.page.js` `1`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `18` |
+| `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `18`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -207,6 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| systemconfig-revisions-readonly branch | `css/manager.css` (5 panels) · `js/systemconfig.page.js` | `18` · `2` | 2026-09-08 |
 | pre-work-installer branch | `js/notifications.js` | `1` | 2026-09-08 |
 | dashboard-kacheln-nachzug branch | `css/base.css` | `18` | 2026-09-07 |
 | configure-compact-device branch | `js/dashboard.js` · `js/layout-editor.js` | `11` · `11` | 2026-09-07 |
