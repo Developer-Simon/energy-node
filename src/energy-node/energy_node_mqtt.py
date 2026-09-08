@@ -33,6 +33,7 @@ from energy_node_common import Slave
 from energy_node_common import appconfig
 from energy_node_common.discovery import (
     availability_entity_config,
+    discovery_topic,
     publish_discovery as common_publish_discovery,
 )
 
@@ -403,6 +404,35 @@ def publish_slow_diagnostics(client, topics):
     client.publish(topics.diagnostics, json.dumps(payload), retain=True, qos=0)
 
 
+def cleanup_legacy_master_entities(client, node_device_id, bridge_ids):
+    """Einmalige Abraeumung nach dem Master-Rueckbau (Plan 0.1).
+
+    Die zentralen Master-Number-/Switch-Entities, die lokalen Node-Poll-
+    Entities und die je-Bridge-`last_update`-Sensoren am Node-Geraet gibt
+    es nicht mehr. Ein leerer retained Payload auf dem jeweiligen
+    Discovery-Topic laesst Home Assistant die Entity entfernen; die
+    gespiegelten State-Topics werden gleich mit geleert. Das aktive
+    `.../settings/simulation_active/set` bleibt unberuehrt - darauf hoeren
+    die Slaves weiterhin.
+    """
+    base = f"outstation/{node_device_id}"
+    topics = [
+        discovery_topic("number", node_device_id, "diagnostic_poll_multiplier"),
+        discovery_topic("number", node_device_id, "poll_interval_s"),
+        discovery_topic("switch", node_device_id, "simulation_active"),
+        f"{base}/settings/diagnostic_poll_multiplier",
+        f"{base}/settings/simulation_active",
+    ]
+    for device_id in bridge_ids:
+        topics.append(discovery_topic("number", node_device_id, f"{device_id}_poll_interval_s"))
+        topics.append(discovery_topic("sensor", node_device_id, f"{device_id}_last_update"))
+        topics.append(f"{base}/settings/{device_id}/poll_interval_s")
+        topics.append(f"{base}/settings/{device_id}/diagnostic_poll_multiplier")
+        topics.append(f"{base}/settings/{device_id}/status")
+    for topic in topics:
+        client.publish(topic, payload="", qos=0, retain=True)
+
+
 def main():
     try:
         config = appconfig.load(appconfig.config_path_from_argv())
@@ -440,6 +470,7 @@ def main():
 
     def on_connect(client, userdata, flags, reason_code, properties=None):
         client.publish(topics.availability, "1", retain=True, qos=1)
+        cleanup_legacy_master_entities(client, node_config.device_id, config.node.managed_bridges)
         publish_discovery(client, node_config, topics)
         slave.start(client)
 
