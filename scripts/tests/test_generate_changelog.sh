@@ -91,4 +91,18 @@ gen --rebuild dashboard
 grep -q "another change"           "$cl" || fail "--rebuild dropped git history"
 grep -q "ancient hand-written fix" "$cl" && fail "--rebuild kept frozen history"
 
+# --- the version-bump workflow's housekeeping commits are not listed ---------
+echo z > "$tmp/dashboard/app3.js"
+commit "feat(dashboard): real change to list"
+echo z2 >> "$tmp/dashboard/app3.js"
+commit "chore(release): bump component versions"
+printf '# Changelog\n\n' > "$tmp/dashboard/CHANGELOG.md"
+commit "docs(changelog): regenerate component changelogs"
+printf '# Changelog\n' > "$tmp/dashboard/CHANGELOG.md"
+commit "docs(changelog): update changelogs"
+gen --rebuild dashboard
+grep -q "real change to list"      "$cl" || fail "real commit missing after housekeeping filter"
+grep -q "bump component versions"  "$cl" && fail "chore(release) housekeeping commit was listed"
+grep -q "changelogs"              "$cl" && fail "a docs(changelog) housekeeping commit was listed"
+
 echo "OK"
