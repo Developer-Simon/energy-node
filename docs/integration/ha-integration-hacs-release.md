@@ -11,6 +11,8 @@ repo is a *derived artifact*: it is assembled from this monorepo by
 `scripts/publish_mirror.sh` and never edited by hand.
 
 - **Source of truth:** this monorepo.
+- **Mirror repo:** [`Developer-Simon/ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc)
+  — the public, HACS-facing repo, assembled from here by `scripts/publish_mirror.sh`.
 - **Shared core:** `src/battery_soc_core/` → vendored into the integration by
   `scripts/vendor_core.py` (drift-guarded by `git-hooks/pre-commit` and
   `integrations/homeassistant/tests/test_vendor_sync.py`).
