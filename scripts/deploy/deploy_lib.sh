@@ -87,13 +87,13 @@ RSYNC_OPTS=(
 # Ein anderer Wert (aktuell ungenutzt) markiert eine Unit, die nur
 # zurueckgeholt (fetch_env_from_remote.sh), aber nie ausgerollt wird.
 SERVICE_TABLE=(
-  "apsystems-ez1.service:src/apsystems_ez1/apsystems-ez1.service:apsystems_ez1:1"
-  "battery-soc.service:src/battery_soc/battery-soc.service:battery_soc:1"
-  "shelly-rpc.service:src/shelly/shelly-rpc.service:shelly:1"
-  "trucki-http.service:src/trucki/trucki-http.service:trucki:1"
-  "tuya.service:src/tuya_mqtt/tuya.service:tuya_mqtt:1"
-  "energy-node.service:src/energy-node/energy-node.service:energy-node:1"
-  "automation.service:src/automation/automation.service:automation:1"
+  "apsystems-ez1.service:services/apsystems_ez1/apsystems-ez1.service:apsystems_ez1:1"
+  "battery-soc.service:services/battery_soc/battery-soc.service:battery_soc:1"
+  "shelly-rpc.service:services/shelly/shelly-rpc.service:shelly:1"
+  "trucki-http.service:services/trucki/trucki-http.service:trucki:1"
+  "tuya.service:services/tuya_mqtt/tuya.service:tuya_mqtt:1"
+  "energy-node.service:services/energy-node/energy-node.service:energy-node:1"
+  "automation.service:services/automation/automation.service:automation:1"
 )
 
 service_field() {
@@ -182,7 +182,7 @@ parse_deploy_args() {
 }
 
 # render_service_unit ersetzt im generischen Platzhalter "energynode"
-# (siehe src/*/*.service, dashboard/energy-node-dashboard*), unter dem alle
+# (siehe services/*/*.service, dashboard/energy-node-dashboard*), unter dem alle
 # Service-Units/System-Action-Skripte/Sudoers-Regeln im oeffentlichen Repo
 # hinterlegt sind, durch den tatsaechlichen Zielbenutzer/-pfad, bevor die
 # Datei auf das Zielgeraet kopiert wird. Erst der /home/energynode-Pfad,

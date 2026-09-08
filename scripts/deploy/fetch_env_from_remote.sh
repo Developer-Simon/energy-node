@@ -13,7 +13,7 @@ source "${SCRIPT_DIR}/deploy_lib.sh"
 
 parse_deploy_args "$@"
 
-# Alle nachfolgenden repo-relativen Pfade (src/...) setzen CWD == Repo-Root
+# Alle nachfolgenden repo-relativen Pfade (services/...) setzen CWD == Repo-Root
 # voraus - unabhaengig davon, von wo aus dieses Skript aufgerufen wird.
 cd "${REPO_ROOT}"
 
@@ -21,19 +21,19 @@ cd "${REPO_ROOT}"
 # bearbeitet; dieser fetch holt den dortigen Stand als neue Vorlage
 # zurueck. Vor dem Commit pruefen, ob geraetespezifische Werte
 # (Hostnamen, Pfade) wirklich in die versionierte Vorlage gehoeren.
-fetch_with_sudo "${SSH_TARGET}:/etc/energy-node/config.json" "src/energy-node.config.json"
+fetch_with_sudo "${SSH_TARGET}:/etc/energy-node/config.json" "services/energy-node.config.json"
 
 # Geraetekonfigurationen fetchen
-fetch "${REMOTE_PREFIX}/devices/apsystems_devices.json" "src/apsystems_ez1/apsystems_devices.json"
-fetch "${REMOTE_PREFIX}/devices/battery_soc_devices.json" "src/battery_soc/battery_soc_devices.json"
-fetch "${REMOTE_PREFIX}/devices/battery_soc_devices.schema.json" "src/battery_soc/battery_soc_devices.schema.json"
-fetch "${REMOTE_PREFIX}/devices/shelly_devices.json" "src/shelly/shelly_devices.json"
-fetch "${REMOTE_PREFIX}/devices/shelly_presets.json" "src/shelly/shelly_presets.json"
-fetch "${REMOTE_PREFIX}/devices/shelly_presets.schema.json" "src/shelly/shelly_presets.schema.json"
-fetch "${REMOTE_PREFIX}/devices/tuya_devices.json" "src/tuya_mqtt/tuya_devices.json"
-fetch "${REMOTE_PREFIX}/devices/tuya_devices.schema.json" "src/tuya_mqtt/tuya_devices.schema.json"
-fetch "${REMOTE_PREFIX}/devices/trucki_devices.json" "src/trucki/trucki_devices.json"
-fetch "${REMOTE_PREFIX}/devices/trucki_devices.schema.json" "src/trucki/trucki_devices.schema.json"
+fetch "${REMOTE_PREFIX}/devices/apsystems_devices.json" "services/apsystems_ez1/apsystems_devices.json"
+fetch "${REMOTE_PREFIX}/devices/battery_soc_devices.json" "services/battery_soc/battery_soc_devices.json"
+fetch "${REMOTE_PREFIX}/devices/battery_soc_devices.schema.json" "services/battery_soc/battery_soc_devices.schema.json"
+fetch "${REMOTE_PREFIX}/devices/shelly_devices.json" "services/shelly/shelly_devices.json"
+fetch "${REMOTE_PREFIX}/devices/shelly_presets.json" "services/shelly/shelly_presets.json"
+fetch "${REMOTE_PREFIX}/devices/shelly_presets.schema.json" "services/shelly/shelly_presets.schema.json"
+fetch "${REMOTE_PREFIX}/devices/tuya_devices.json" "services/tuya_mqtt/tuya_devices.json"
+fetch "${REMOTE_PREFIX}/devices/tuya_devices.schema.json" "services/tuya_mqtt/tuya_devices.schema.json"
+fetch "${REMOTE_PREFIX}/devices/trucki_devices.json" "services/trucki/trucki_devices.json"
+fetch "${REMOTE_PREFIX}/devices/trucki_devices.schema.json" "services/trucki/trucki_devices.schema.json"
 
 # Systemd-Units fetchen, die in diesem Repository verwaltet werden
 for entry in "${SERVICE_TABLE[@]}"; do
