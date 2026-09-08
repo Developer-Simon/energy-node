@@ -5,6 +5,7 @@
 ### Features
 
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
+- **dashboard:** compose config.schema.json from per-service fragments (fc73de5)
 
 ### Fixes
 
@@ -13,6 +14,14 @@
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+
+### Documentation
+
+- config.schema.json is now generated from per-service fragments (0105cb7)
+
+### CI
+
+- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 
 ## v0.5.18 (2026-09-07)
 
