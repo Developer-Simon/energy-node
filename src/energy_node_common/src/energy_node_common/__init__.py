@@ -1,19 +1,18 @@
 """Gemeinsame Infrastruktur fuer die Energy-Node Python-MQTT-Bridges.
 
-Dieses Paket kapselt das Master/Slave-Protokoll zur zentralen Steuerung der
-Abfrageraten (siehe knowhow/plan.md): MQTT-/Home-Assistant-Discovery-Helfer,
-den gemeinsamen Scheduler sowie die Slave- und Master-Seite des
-Settings-Protokolls.
+Kapselt MQTT-/Home-Assistant-Discovery-Helfer, den gemeinsamen Scheduler
+und die Slave-Seite des Settings-Protokolls: geraeteweise und globale
+Simulation, `config/reload`, die retained `settings/status`-Struktur und
+`last_update`. Eine zentrale Master-Seite (Live-Umschaltung der Abfrageraten
+ueber HA-Number-Entities) gibt es nicht mehr; Poll-Raten kommen aus der
+config.json.
 
-Enthaelt bewusst KEINE geraetespezifische Fachlogik (keine EZ1-/Tuya-API,
-keine SoC-Berechnung, keine Pi-Systemdiagnose) - das bleibt Aufgabe der
-einzelnen Services.
+Enthaelt bewusst KEINE geraetespezifische Fachlogik.
 """
 
-from .master import Master, SlaveDescriptor
 from .slave import Slave
 from . import appconfig
 
-__all__ = ["Master", "SlaveDescriptor", "Slave", "appconfig"]
+__all__ = ["Slave", "appconfig"]
 
 __version__ = "0.1.0"

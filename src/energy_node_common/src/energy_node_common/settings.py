@@ -1,8 +1,10 @@
-"""Gemeinsame Topic-Konventionen, Grenzwerte und Statusstruktur fuer das
-Master/Slave-Polling-Protokoll.
+"""Gemeinsame Topic-Konventionen und Statusstruktur fuer die Slave-Seite.
 
-Master und Slave importieren ausschliesslich aus diesem Modul, damit ein
-zentral gesetzter Wert niemals von einem Slave abweichend validiert wird.
+Nach dem Master-Rueckbau (siehe installer-vorarbeit-design.md V1) gibt es
+keine zentrale Live-Umschaltung der Abfrageraten mehr: Poll-Intervall und
+Diagnose-Multiplikator kommen ausschliesslich aus der config.json. Dieses
+Modul haelt nur noch die Topics fuer Simulation, Status und config/reload
+sowie die retained Statusstruktur.
 """
 
 from __future__ import annotations
@@ -10,20 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
-# Sinnvolle, service-uebergreifende Grenzen fuer die Poll-Rate und den
-# Diagnose-Multiplikator.
-MIN_POLL_INTERVAL_S = 5
-MAX_POLL_INTERVAL_S = 3600
-
-MIN_DIAGNOSTIC_MULTIPLIER = 1
-MAX_DIAGNOSTIC_MULTIPLIER = 200
-
-POLL_INTERVAL_SETTING = "poll_interval_s"
-DIAGNOSTIC_MULTIPLIER_SETTING = "diagnostic_poll_multiplier"
 SIMULATION_SETTING = "simulation_active"
 CONFIG_RELOAD_TOPIC_SUFFIX = "config/reload"
-
-SETTINGS = (POLL_INTERVAL_SETTING, DIAGNOSTIC_MULTIPLIER_SETTING, SIMULATION_SETTING)
 
 
 def base_topic(device_id: str) -> str:
@@ -31,8 +21,8 @@ def base_topic(device_id: str) -> str:
 
 
 def settings_set_topic(device_id: str, setting: str) -> str:
-    """Retained Command-Topic, auf das der Slave hoert (vom Master oder
-    direkt aus Home Assistant beschrieben)."""
+    """Retained Command-Topic, auf das der Slave hoert (aktuell nur
+    simulation_active, direkt aus Home Assistant oder vom Node-Broadcast)."""
     return f"{base_topic(device_id)}/settings/{setting}/set"
 
 
@@ -42,39 +32,21 @@ def settings_state_topic(device_id: str, setting: str) -> str:
 
 
 def settings_status_topic(device_id: str) -> str:
-    """Gemeinsame Statusstruktur (JSON) mit Soll-/Ist-Rate, Diagnose-
-    Multiplikator, letzter erfolgreicher Aktualisierung, Laufzeitstatus und
-    optionalem Fehlergrund."""
+    """Gemeinsame Statusstruktur (JSON) mit Rate, Diagnose-Multiplikator,
+    letzter erfolgreicher Aktualisierung, Laufzeitstatus und optionalem
+    Fehlergrund."""
     return f"{base_topic(device_id)}/settings/status"
 
 
-def master_settings_set_topic(master_device_id: str, setting: str) -> str:
-    """Globaler Command-Topic eines Nodes, den alle Slaves abonnieren."""
-    return f"{base_topic(master_device_id)}/settings/{setting}/set"
-
-
-def master_settings_state_topic(master_device_id: str, setting: str) -> str:
-    """Retained globaler Zustand, den der Node fuer seine Anzeige spiegelt."""
-    return f"{base_topic(master_device_id)}/settings/{setting}"
+def master_settings_set_topic(node_device_id: str, setting: str) -> str:
+    """Globaler Command-Topic eines Nodes, den alle Slaves abonnieren
+    (nur noch fuer den simulation_active-Broadcast)."""
+    return f"{base_topic(node_device_id)}/settings/{setting}/set"
 
 
 def config_reload_topic(device_id: str) -> str:
     """Command topic for asking a service to reload its JSON configuration."""
     return f"{base_topic(device_id)}/{CONFIG_RELOAD_TOPIC_SUFFIX}"
-
-
-def validate_poll_interval_s(value: float) -> Optional[str]:
-    """Gibt None zurueck, wenn `value` gueltig ist, sonst einen kurzen
-    Ablehnungsgrund fuer Diagnose/Logging."""
-    if value < MIN_POLL_INTERVAL_S or value > MAX_POLL_INTERVAL_S:
-        return f"out_of_range_{MIN_POLL_INTERVAL_S}_{MAX_POLL_INTERVAL_S}"
-    return None
-
-
-def validate_diagnostic_multiplier(value: float) -> Optional[str]:
-    if value < MIN_DIAGNOSTIC_MULTIPLIER or value > MAX_DIAGNOSTIC_MULTIPLIER:
-        return f"out_of_range_{MIN_DIAGNOSTIC_MULTIPLIER}_{MAX_DIAGNOSTIC_MULTIPLIER}"
-    return None
 
 
 def parse_bool(value) -> tuple[Optional[bool], Optional[str]]:
@@ -93,10 +65,8 @@ def validate_simulation_active(value) -> Optional[str]:
 
 @dataclass
 class SlaveStatus:
-    """Gemeinsame Statusstruktur, die jeder Slave retained veroeffentlicht
-    und die der Master unveraendert fuer die zentrale Anzeige uebernimmt.
-    Ein nicht erreichbarer oder ablehnender Slave wird ueber
-    `runtime_status`/`error` sichtbar, nicht stillschweigend uebernommen."""
+    """Gemeinsame Statusstruktur, die jeder Slave retained veroeffentlicht.
+    Ein ablehnender Slave wird ueber `runtime_status`/`error` sichtbar."""
 
     poll_interval_s: float
     diagnostic_poll_multiplier: float

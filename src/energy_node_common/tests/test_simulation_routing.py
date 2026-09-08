@@ -1,3 +1,4 @@
+import json
 import unittest
 
 from energy_node_common.slave import Slave
@@ -25,7 +26,7 @@ class SimulationRoutingTests(unittest.TestCase):
         slave = Slave(
             "service",
             lambda: None,
-            master_device_id="node",
+            node_device_id="node",
         )
         slave.register_devices(["device_a", "device_b"])
         return slave
@@ -100,7 +101,7 @@ class SimulationRoutingTests(unittest.TestCase):
         self.assertEqual(client.published, [])
 
 
-def test_apply_config_defaults_updates_untouched_values():
+def test_apply_config_defaults_updates_values():
     slave = Slave(device_id="shelly", poll_core=lambda: None,
                   default_poll_interval_s=20, default_diagnostic_multiplier=15)
 
@@ -110,18 +111,49 @@ def test_apply_config_defaults_updates_untouched_values():
     assert slave.diagnostic_poll_multiplier == 5
 
 
-def test_apply_config_defaults_keeps_runtime_override():
+def test_poll_interval_set_topic_is_ignored_config_wins():
+    # Nach dem Master-Rueckbau gibt es kein /set-Topic mehr, das die Rate
+    # zur Laufzeit ueberschreiben koennte: die config.json ist die Wahrheit.
     client = FakeClient()
     slave = Slave(device_id="shelly", poll_core=lambda: None,
                   default_poll_interval_s=20, default_diagnostic_multiplier=15)
-    slave.handle_message(client, "outstation/shelly/settings/poll_interval_s/set", "45")
+
+    handled = slave.handle_message(
+        client, "outstation/shelly/settings/poll_interval_s/set", "45"
+    )
+
+    assert handled is False
+    assert slave.poll_interval_s == 20
 
     slave.apply_config_defaults(poll_interval_s=30, diagnostic_multiplier=5)
-
-    # Der zur Laufzeit gesetzte Wert bleibt: die Konfigurationsdatei ist
-    # der Standard, nicht der Sollwert.
-    assert slave.poll_interval_s == 45
+    assert slave.poll_interval_s == 30
     assert slave.diagnostic_poll_multiplier == 5
+
+
+def test_config_reload_still_dispatches():
+    client = FakeClient()
+    called = []
+    slave = Slave(device_id="x", poll_core=lambda: None,
+                  on_config_reload=lambda: called.append(True))
+
+    handled = slave.handle_message(client, "outstation/x/config/reload", "")
+
+    assert handled is True
+    assert called == [True]
+
+
+def test_status_payload_keeps_poll_fields():
+    client = FakeClient()
+    slave = Slave(device_id="x", poll_core=lambda: None,
+                  default_poll_interval_s=42, default_diagnostic_multiplier=7)
+
+    slave._publish_status(client)
+
+    topic, payload = client.published[-1]
+    data = json.loads(payload)
+    assert topic == "outstation/x/settings/status"
+    assert data["poll_interval_s"] == 42
+    assert data["diagnostic_poll_multiplier"] == 7
 
 
 if __name__ == "__main__":

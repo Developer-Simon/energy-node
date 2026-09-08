@@ -46,40 +46,6 @@ def entity_config(
     return config
 
 
-def number_entity_config(
-    device_id: str,
-    base_topic: str,
-    object_id: str,
-    name: str,
-    device_block: dict,
-    state_topic: str,
-    command_topic: str,
-    min_value: float,
-    max_value: float,
-    step: float = 1,
-    enabled_by_default: bool = True,
-    **kwargs,
-) -> dict:
-    """Zentrale bzw. lokale Number-Entity fuer eine Settings-Groesse
-    (Poll-Intervall, Diagnose-Multiplikator, ...)."""
-    return entity_config(
-        device_id,
-        base_topic,
-        object_id,
-        name,
-        device_block,
-        state_topic=state_topic,
-        command_topic=command_topic,
-        min=min_value,
-        max=max_value,
-        step=step,
-        mode="box",
-        entity_category="config",
-        enabled_by_default=enabled_by_default,
-        **kwargs,
-    )
-
-
 def availability_entity_config(
     device_id: str,
     base_topic: str,
