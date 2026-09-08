@@ -23,12 +23,12 @@ var restartRequiredFields = []string{
 	"mqtt",
 	"paths",
 	"node.device_id",
-	"services.apsystems.device_id",
-	"services.battery_soc.device_id",
-	"services.shelly.device_id",
-	"services.trucki.device_id",
-	"services.tuya.device_id",
-	"services.automation.device_id",
+	"services.apsystems.service_id",
+	"services.battery_soc.service_id",
+	"services.shelly.service_id",
+	"services.trucki.service_id",
+	"services.tuya.service_id",
+	"services.automation.service_id",
 	"dashboard.port",
 	"dashboard.bind_address",
 	"dashboard.tls",
@@ -204,8 +204,8 @@ func changedRestartFields(previous, next []byte) []string {
 	return changed
 }
 
-// serviceDeviceIDs liefert alle device_id-Werte aus dem JSON-Dokument.
-// Das sind die device_id-Werte aller Eintraege unter "services" plus "node.device_id".
+// serviceDeviceIDs liefert alle Dienst-/Node-IDs aus dem JSON-Dokument.
+// Das sind die service_id-Werte aller Eintraege unter "services" plus "node.device_id".
 func serviceDeviceIDs(data []byte) []string {
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
@@ -223,12 +223,12 @@ func serviceDeviceIDs(data []byte) []string {
 		}
 	}
 
-	// services.*.device_id
+	// services.*.service_id
 	if servicesVal, ok := doc["services"]; ok {
 		if services, ok := servicesVal.(map[string]any); ok {
 			for _, serviceVal := range services {
 				if service, ok := serviceVal.(map[string]any); ok {
-					if id, ok := service["device_id"].(string); ok && id != "" {
+					if id, ok := service["service_id"].(string); ok && id != "" {
 						ids = append(ids, id)
 					}
 				}
@@ -252,7 +252,7 @@ func serviceDeviceIDs(data []byte) []string {
 }
 
 // getPath liest einen Wert aus einem verschachtelten Dokument anhand eines
-// Pfads in Punktschreibweise, z.B. "services.shelly.device_id" oder "mqtt".
+// Pfads in Punktschreibweise, z.B. "services.shelly.service_id" oder "mqtt".
 func getPath(doc map[string]any, path string) any {
 	if doc == nil {
 		return nil

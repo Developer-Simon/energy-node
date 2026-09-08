@@ -12,9 +12,9 @@ import (
 
 func validDocument() map[string]any {
 	var document map[string]any
-	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "src", "energy-node.config.json"))
+	raw, err := os.ReadFile(filepath.Join("..", "..", "..", "services", "energy-node.config.json"))
 	if err != nil {
-		panic("Vorlage src/energy-node.config.json fehlt: " + err.Error())
+		panic("Vorlage services/energy-node.config.json fehlt: " + err.Error())
 	}
 	if err := json.Unmarshal(raw, &document); err != nil {
 		panic("Vorlage ist kein gueltiges JSON: " + err.Error())

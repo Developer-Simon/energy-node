@@ -24,7 +24,7 @@
       "properties": {
         "devices_dir": {"type": "string", "minLength": 1, "title": "Geraetekonfigurationen"},
         "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard-Daten"},
-        "services_version_file": {"type": "string", "title": "Services-Versionsdatei", "description": "Optionaler Pfad zur von scripts/deploy/deploy_src_to_remote.sh deployten src/VERSION-Datei. Leer = nicht konfiguriert."}
+        "services_version_file": {"type": "string", "title": "Services-Versionsdatei", "description": "Optionaler Pfad zur von scripts/deploy/deploy_src_to_remote.sh deployten services/VERSION-Datei. Leer = nicht konfiguriert."}
       }
     },
     "logging": {
@@ -53,9 +53,9 @@
         "apsystems": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["device_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
           "properties": {
-            "device_id": {"type": "string", "minLength": 1, "title": "Geraete-ID"},
+            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
             "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
             "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
           }
@@ -63,9 +63,9 @@
         "shelly": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["device_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
+          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
           "properties": {
-            "device_id": {"type": "string", "minLength": 1, "title": "Geraete-ID"},
+            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
             "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
             "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"},
             "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP-Timeout"}
@@ -74,9 +74,9 @@
         "trucki": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["device_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
+          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
           "properties": {
-            "device_id": {"type": "string", "minLength": 1, "title": "Geraete-ID"},
+            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
             "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
             "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"},
             "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP-Timeout"}
@@ -85,9 +85,9 @@
         "tuya": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["device_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
           "properties": {
-            "device_id": {"type": "string", "minLength": 1, "title": "Geraete-ID"},
+            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
             "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
             "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
           }
@@ -95,9 +95,9 @@
         "battery_soc": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["device_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
           "properties": {
-            "device_id": {"type": "string", "minLength": 1, "title": "Geraete-ID"},
+            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
             "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
             "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
           }
@@ -105,8 +105,8 @@
         "automation": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["device_id"],
-          "properties": {"device_id": {"type": "string", "minLength": 1, "title": "Geraete-ID"}}
+          "required": ["service_id"],
+          "properties": {"service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"}}
         }
       }
     },
