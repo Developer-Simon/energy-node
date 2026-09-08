@@ -96,9 +96,19 @@ for component in "${COMPONENTS[@]}"; do
   current="$(read_component_version "${version_file}")"
   base_version="$(read_version_from_ref "${base_ref}" "${version_file}" || true)"
 
+  # The version file does not exist at the base ref: the component is new on
+  # this branch, or a rename moved its version file to a path the base does not
+  # carry yet. Either way it already holds the version it was created with --
+  # never bump it. Without this, an unreadable base version reads as "not yet
+  # bumped" and every workflow run bumps it again; because each push re-triggers
+  # the workflow, that is an infinite loop of bump commits.
+  if [[ -z "${base_version}" ]]; then
+    continue
+  fi
+
   # Already bumped on this branch: leave it alone (keeps the script idempotent
   # and lets a hand-picked major/minor bump on the branch survive).
-  if [[ -n "${base_version}" && "${current}" != "${base_version}" ]]; then
+  if [[ "${current}" != "${base_version}" ]]; then
     continue
   fi
 
