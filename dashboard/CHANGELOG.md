@@ -1,6 +1,37 @@
 # Changelog
 
-## v0.5.13 (2026-09-06)
+## v0.5.21 (2026-09-08)
+
+### Features
+
+- **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
+
+### Fixes
+
+- **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
+
+### Refactors
+
+- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+
+## v0.5.18 (2026-09-07)
+
+### Features
+
+- **dashboard:** configurable compact device card (#4) (e58d0e2)
+- **dashboard:** modernise the non-energy overview tiles (#5) (9c19382)
+
+### Fixes
+
+- **dashboard:** keep topic samples payload after availability heartbeat (#3) (5c7cde4)
+
+## v0.5.15 (2026-09-06)
+
+### Features
+
+- **battery_soc:** calibration hardening and guided tuning suggestions (#2) (b18974c)
+
+## v0.5.14 (2026-09-06)
 
 ### Features
 
@@ -10,6 +41,7 @@
 ### Documentation
 
 - record license and version for vendored dashboard JS libraries (032743e)
+- update changelogs (6284c1a)
 
 ### Tests
 
@@ -18,6 +50,10 @@
 ### Chores
 
 - initial public release of Energy Node (e9c9417)
+
+### Dev
+
+- update pages and add release ci (#1) (f461a51)
 
 ## v0.5.12 (2026-09-05)
 

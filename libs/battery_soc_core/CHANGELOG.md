@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.8 (2026-09-08)
+
+### Refactors
+
+- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+
 ## v0.1.7 (2026-09-05)
 
 ### Chores
