@@ -223,7 +223,7 @@ measured cell voltage.
 
 It is a monitoring estimate, not a BMS. How the engine works is documented in
 detail in
-[`knowledge/src/battery-soc-how-it-works.md`](knowledge/src/battery-soc-how-it-works.md).
+[`knowledge/services/battery-soc-how-it-works.md`](knowledge/services/battery-soc-how-it-works.md).
 
 **Inputs.** Charger power, inverter power, and one voltage topic per bank —
 each as a topic plus an optional JSON key, because a Trucki stick publishes a
