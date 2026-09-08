@@ -113,14 +113,14 @@ in [`docs/dashboard.md`](docs/dashboard.md).
 | Component | Language | What it does |
 |---|---|---|
 | `dashboard/` | Go | Web UI and `/api/v1` HTTP API. Reads MQTT Discovery, keeps device/entity state in memory, renders server-side HTML, edits the bridge JSON configs, shows energy charts, hosts the automation rule editor and the Tailscale setup wizard. Ships as one static ARMv6 binary. |
-| `src/apsystems_ez1/` | Python | APsystems EZ1 microinverters over their local REST API — power, yield, writable power limit, on/off. |
-| `src/shelly/` | Python | All Shelly devices, polled over HTTP (`/status` for Gen1, `/rpc` for Gen2+). Switching, power, energy, 3-phase, ADC, temperature/humidity. MQTT stays disabled on the devices themselves. |
-| `src/trucki/` | Python | Lumentree inverters with a Trucki stick (T2SG/T2MG/T2HG), read-only, polled over HTTP at an interval the node controls. |
-| `src/tuya_mqtt/` | Python | Local Tuya devices via `tinytuya`, including a data-point probe for the setup flow. |
-| `src/battery_soc/` | Python | State of charge for two LiFePO4 banks by coulomb counting, with voltage recalibration at the ends of the curve and per-converter efficiency. Monitoring estimate, not a BMS. |
-| `src/automation/` | Python | Rule engine (conditions, hysteresis, hold times, cooldown, allowed publish prefixes). Deliberately a separate process from the dashboard, so the dashboard stays read-only. |
-| `src/energy-node/` | Python | The node's own Home Assistant device: CPU/RAM/disk, throttling and undervoltage, uptime, Mosquitto and Tailscale status, pending updates. Also the **master** for the shared poll-rate protocol. |
-| `src/energy_node_common/` | Python | Installable package shared by all bridges: MQTT setup, Discovery, availability, scheduler, and the master/slave settings protocol. |
+| `services/apsystems_ez1/` | Python | APsystems EZ1 microinverters over their local REST API — power, yield, writable power limit, on/off. |
+| `services/shelly/` | Python | All Shelly devices, polled over HTTP (`/status` for Gen1, `/rpc` for Gen2+). Switching, power, energy, 3-phase, ADC, temperature/humidity. MQTT stays disabled on the devices themselves. |
+| `services/trucki/` | Python | Lumentree inverters with a Trucki stick (T2SG/T2MG/T2HG), read-only, polled over HTTP at an interval the node controls. |
+| `services/tuya_mqtt/` | Python | Local Tuya devices via `tinytuya`, including a data-point probe for the setup flow. |
+| `services/battery_soc/` | Python | State of charge for two LiFePO4 banks by coulomb counting, with voltage recalibration at the ends of the curve and per-converter efficiency. Monitoring estimate, not a BMS. |
+| `services/automation/` | Python | Rule engine (conditions, hysteresis, hold times, cooldown, allowed publish prefixes). Deliberately a separate process from the dashboard, so the dashboard stays read-only. |
+| `services/energy-node/` | Python | The node's own Home Assistant device: CPU/RAM/disk, throttling and undervoltage, uptime, Mosquitto and Tailscale status, pending updates. Also the **master** for the shared poll-rate protocol. |
+| `libs/energy_node_common/` | Python | Installable package shared by all bridges: MQTT setup, Discovery, availability, scheduler, and the master/slave settings protocol. |
 | `integrations/homeassistant/` | Python | Separate track: a native Home Assistant custom integration that brings dashboard features into HA directly, starting with LiFePO4 state of charge (same `battery_soc_core` engine). Installed via HACS — see [Home Assistant integration (HACS)](#home-assistant-integration-hacs). |
 
 Everything couples through **exactly one local MQTT broker**. There is no
@@ -141,12 +141,12 @@ counting, voltage recalibration and per-converter efficiency that drive the
 dashboard's battery view, running as a config-flow integration with a
 `battery_soc.set_state_of_charge` action instead of MQTT topics. The
 dashboard's **battery tiles** are the next piece to follow. Both sides share
-the transport-agnostic `src/battery_soc_core/` engine — the MQTT service and
+the transport-agnostic `libs/battery_soc_core/` engine — the MQTT service and
 the HA integration are two adapters over one core.
 
 Distribution is a separate public repo (`ha-battery-soc`) wired for HACS,
 assembled from this monorepo by `scripts/publish_mirror.sh`; the vendored core
-inside the integration is kept in lockstep with `src/battery_soc_core/` by
+inside the integration is kept in lockstep with `libs/battery_soc_core/` by
 `scripts/vendor_core.py` and a commit-time drift guard. Setup and the release
 runbook:
 [`docs/integration/ha-integration-hacs-release.md`](docs/integration/ha-integration-hacs-release.md).
@@ -173,8 +173,8 @@ Deployment from the development machine:
 ## Development
 
 ```sh
-.venv/bin/pytest src/battery_soc_core src/battery_soc scripts/tests   # core, MQTT adapter, tooling
-.venv/bin/pip install -r requirements-dev.txt && .venv/bin/pytest src   # full bridge suite (needs the bridges' own runtime deps)
+.venv/bin/pytest libs/battery_soc_core services/battery_soc scripts/tests   # core, MQTT adapter, tooling
+.venv/bin/pip install -r requirements-dev.txt && .venv/bin/pytest services libs   # full bridge suite (needs the bridges' own runtime deps)
 bash scripts/tests/test_publish_mirror.sh                             # HACS mirror assembly
 cd integrations/homeassistant && ../../.venv-ha/bin/pytest            # HA integration (separate venv, see below)
 cd dashboard && go test ./...      # Go dashboard (go.mod lives in dashboard/)
@@ -187,12 +187,12 @@ pulls plugins that conflict with the plain suite. Build it once:
 
 ```sh
 python3.14 -m venv .venv-ha
-.venv-ha/bin/pip install -e ./src/battery_soc_core -r integrations/homeassistant/requirements-test.txt
+.venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt
 ```
 
 `./scripts/install_git_hooks.sh` links this repo's hooks into `.git/hooks/`; the
 pre-commit hook rejects a commit whose staged files leave a vendored copy out of
-sync — `battery_soc_core` with `src/battery_soc_core/`, or the Lovelace
+sync — `battery_soc_core` with `libs/battery_soc_core/`, or the Lovelace
 `battery-card-core.js` — run `.venv/bin/python scripts/vendor_core.py`
 (resp. `scripts/vendor_card.py`) and stage the result. Per-component patch
 versions are bumped on the PR branch by the `Version bump` workflow

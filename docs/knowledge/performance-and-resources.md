@@ -52,7 +52,7 @@ services become comparable.
 | tuya | 0.11 % | ~11 min | 8 d | |
 
 The 1094 lines of the automation rule engine
-([`src/automation/automation_mqtt.py`](../../src/automation/automation_mqtt.py))
+([`services/automation/automation_mqtt.py`](../../services/automation/automation_mqtt.py))
 are large in the code but irrelevant to load, as long as only a handful of
 rules are configured.
 
@@ -135,7 +135,7 @@ being swapped right now).
 
 ### 5.1 shelly: reuse HTTP connections — implemented 2026-08-29
 
-[`shelly_rpc_mqtt.py`](../../src/shelly/shelly_rpc_mqtt.py) opened a new TCP
+[`shelly_rpc_mqtt.py`](../../services/shelly/shelly_rpc_mqtt.py) opened a new TCP
 connection on *every* poll (`requests.get`/`requests.post` directly). On ARMv6,
 establishing the connection is the most expensive part of a poll.
 
@@ -155,7 +155,7 @@ firing them simultaneously → the 22 % spike would become several small ones.
 ### 5.2 node: decouple `apt list --upgradable` — implemented 2026-08-29
 
 `read_apt_updates_pending()` in
-[`energy_node_mqtt.py`](../../src/energy-node/energy_node_mqtt.py)
+[`energy_node_mqtt.py`](../../services/energy-node/energy_node_mqtt.py)
 ran on the diagnostic cycle (every ~10 min).
 
 **Implementation:** a TTL cache around the call, `APT_UPDATES_TTL_S = 86400`

@@ -22,9 +22,9 @@ cd "${repo_root}"
 staged_files="$(git diff --cached --name-only --diff-filter=ACMR)"
 
 # --- Vendored-core drift guard ----------------------------------------------
-# The Home Assistant integration ships a copy of src/battery_soc_core. It is a
+# The Home Assistant integration ships a copy of libs/battery_soc_core. It is a
 # derived artifact: regenerate it with scripts/vendor_core.py, never by hand.
-if printf '%s\n' "${staged_files}" | grep -qE '^(src/battery_soc_core/|integrations/homeassistant/custom_components/battery_soc/battery_soc_core/)'; then
+if printf '%s\n' "${staged_files}" | grep -qE '^(libs/battery_soc_core/|integrations/homeassistant/custom_components/battery_soc/battery_soc_core/)'; then
   if ! python3 "${repo_root}/scripts/vendor_core.py" --check; then
     echo "pre-commit: vendored core is out of sync." >&2
     echo "pre-commit: run  .venv/bin/python scripts/vendor_core.py  and stage the result." >&2

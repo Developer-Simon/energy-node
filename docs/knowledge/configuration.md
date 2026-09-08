@@ -9,13 +9,13 @@ The central configuration file replaces the previously scattered environment var
 ## What the file is for
 
 Previously the configuration was spread across seven files:
-- `src/apsystems_ez1/apsystems.env`
-- `src/automation/automation.env`
-- `src/battery_soc/battery_soc.env`
-- `src/shelly/shelly_rpc.env`
-- `src/trucki/trucki.env`
-- `src/tuya_mqtt/tuya.env`
-- `src/energy-node/energy_node.env`
+- `services/apsystems_ez1/apsystems.env`
+- `services/automation/automation.env`
+- `services/battery_soc/battery_soc.env`
+- `services/shelly/shelly_rpc.env`
+- `services/trucki/trucki.env`
+- `services/tuya_mqtt/tuya.env`
+- `services/energy-node/energy_node.env`
 - `dashboard/energy_node_dashboard.env`
 
 This led to duplication (for example `MQTT_HOST` in all seven files), naming inconsistencies, and maintenance problems. The central file creates a **single source of truth** for 49 values. It is mandatory — there is no fallback to environment variables.
@@ -73,7 +73,7 @@ The file follows this JSON structure:
 | **Paths (base directories)** | | | |
 | `paths.devices_dir` | String | Python, Go | Base path for `*_devices.json` and other device configurations |
 | `paths.data_dir` | String | Go | Path for `settings.json`, `mqtt.json`, `bridge.json`, `layout.json` (dashboard operating state) |
-| `paths.services_version_file` | String | Go | Optional: path to the `src/VERSION` file deployed by `scripts/deploy/deploy_src_to_remote.sh`, shown on the settings page. Empty/missing = not configured. |
+| `paths.services_version_file` | String | Go | Optional: path to the `services/VERSION` file deployed by `scripts/deploy/deploy_src_to_remote.sh`, shown on the settings page. Empty/missing = not configured. |
 | | | | |
 | **Logging** | | | |
 | `logging.level` | String | Python | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
@@ -86,7 +86,7 @@ The file follows this JSON structure:
 | `node.diagnostic_poll_multiplier` | Integer | Python | factor for the diagnostic poll interval (default: 10) |
 | | | | |
 | **Services (service-specific values)** | | | |
-| `services.<name>.device_id` | String | Python | unique ID of the service (e.g. `apsystems`, `shelly`) |
+| `services.<name>.service_id` | String | Python | unique ID of the service (e.g. `apsystems`, `shelly`) |
 | `services.<name>.poll_interval_s` | Integer | Python | poll interval of this service in seconds |
 | `services.<name>.diagnostic_poll_multiplier` | Integer | Python | factor for diagnostic polls of this service |
 | `services.<name>.http_timeout_s` | Integer | Python | HTTP timeout for HTTP-based services (Shelly, Trucki) |
@@ -185,7 +185,7 @@ The file contains two classes of values:
 When the dashboard changes a reloadable value:
 
 1. It writes `config.json` atomically (to a temp file, then `rename`) and stores a revision in `data_dir/revisions/`.
-2. For each affected service, a message is published on `outstation/<device_id>/config/reload`.
+2. For each affected service, a message is published on `outstation/<service_id>/config/reload`.
 3. The service loads the new configuration; on an error it keeps the old values and reports `runtime_status: rejected` with a reason.
 4. If the change includes a field from the right-hand column, the dashboard shows "restart required" together with the list of units.
 

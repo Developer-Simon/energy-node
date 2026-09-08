@@ -58,7 +58,7 @@ development machine; the Python services are copied as source.
 
 ```sh
 git clone <your-fork> energy-node && cd energy-node
-python3 -m venv .venv && .venv/bin/pip install -e src/energy_node_common -e src/battery_soc_core pytest
+python3 -m venv .venv && .venv/bin/pip install -e libs/energy_node_common -e libs/battery_soc_core pytest
 ./scripts/install_git_hooks.sh
 ```
 
@@ -267,7 +267,7 @@ where a secret is needed:
 3. `/etc/energy-node-dashboard/auth.pw` — the dashboard admin password,
    same treatment.
 4. `/etc/energy-node/config.json` — installed from
-   `src/energy-node.config.json` if missing.
+   `services/energy-node.config.json` if missing.
 
 Existing files are **never** overwritten by a redeploy — the dashboard is
 allowed to edit `config.json`, and a deploy must not throw that away. Use

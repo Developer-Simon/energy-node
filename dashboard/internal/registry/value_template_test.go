@@ -16,7 +16,7 @@ type valueTemplateCase struct {
 }
 
 // Die Fixture haelt Go und die Python-Entsprechung in
-// src/automation/ha_template.py zusammen - dieselbe Konstruktion, mit der
+// services/automation/ha_template.py zusammen - dieselbe Konstruktion, mit der
 // internal/energy/testdata/balance-cases.json Go und JS zusammenhaelt. Fehlt
 // die Datei, schlaegt der Test fehl, statt still zu ueberspringen.
 func TestExtractValueMatchesTheSharedFixture(t *testing.T) {

@@ -12,7 +12,7 @@
 #   ensure_remote_config "<ssh_target>" "<force:true|false>" "${SSH_OPTS[@]}"
 
 ENSURE_CONFIG_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CONFIG_TEMPLATE="$(git -C "${ENSURE_CONFIG_LIB_DIR}" rev-parse --show-toplevel)/src/energy-node.config.json"
+CONFIG_TEMPLATE="$(git -C "${ENSURE_CONFIG_LIB_DIR}" rev-parse --show-toplevel)/services/energy-node.config.json"
 
 ensure_remote_config() {
     local ssh_target="$1"

@@ -12,7 +12,7 @@ together.
 Details about individual building blocks live elsewhere:
 
 - The dashboard's HTTP interface → [dashboard/api-documentation.md](dashboard/api-documentation.md)
-- The Python infrastructure package → `src/energy_node_common/`
+- The Python infrastructure package → `libs/energy_node_common/`
 - The Mosquitto bridge to the main site → see INSTALLATION.md section 5
 
 ---

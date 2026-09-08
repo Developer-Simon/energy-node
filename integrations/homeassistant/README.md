@@ -16,7 +16,7 @@ Where each surface gets the icon from:
 
 ## Setup
 
-The vendored core is at `custom_components/battery_soc/battery_soc_core/` — see `_VENDORED.md` there. Do not edit it directly; Plan 3 automates syncs from `src/battery_soc_core`.
+The vendored core is at `custom_components/battery_soc/battery_soc_core/` — see `_VENDORED.md` there. Do not edit it directly; Plan 3 automates syncs from `libs/battery_soc_core`.
 
 ## Running Tests
 
@@ -25,7 +25,7 @@ This integration has a separate test environment (`.venv-ha`) to avoid conflicts
 **First time only:** build the test venv:
 ```bash
 python3.14 -m venv .venv-ha
-.venv-ha/bin/pip install -e ./src/battery_soc_core -r integrations/homeassistant/requirements-test.txt
+.venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt
 ```
 
 **Run tests:**

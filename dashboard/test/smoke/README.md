@@ -8,7 +8,7 @@ convincingly cover (registry → HTTP API → form).
 ```bash
 dashboard/test/smoke/run-local-dashboard.sh            # check, then tear down
 dashboard/test/smoke/run-local-dashboard.sh --keep     # leave running, view in the browser
-dashboard/test/smoke/run-local-dashboard.sh --devices src/tuya_mqtt
+dashboard/test/smoke/run-local-dashboard.sh --devices services/tuya_mqtt
 ```
 
 `--keep` prints the URL and credentials and leaves everything up until Ctrl-C
@@ -38,7 +38,7 @@ node dashboard/test/smoke/screenshot.mjs --out /tmp/tiles.png
 | Option | Effect |
 |---|---|
 | `--keep` | keeps running instead of tearing down; URL and credentials are printed |
-| `--devices DIR` | device configurations from `DIR` instead of `src/battery_soc` |
+| `--devices DIR` | device configurations from `DIR` instead of `services/battery_soc` |
 | `--fixture FILE` | retained messages from `FILE` instead of `fixtures/battery-soc.json` |
 | `--seed-data DIR` | `*.json` from `DIR` into the data directory, **before** the dashboard starts |
 | `--theme NAME` | `mint`, `stromblau`, `signalgelb` or `tageslicht` in `settings.json` |

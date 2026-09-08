@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "energy-node-common"
+dynamic = ["version"]
+description = "Gemeinsame MQTT/Home-Assistant-Slave-Infrastruktur fuer die Energy-Node Python-Bridges"
+requires-python = ">=3.9"
+dependencies = [
+    "paho-mqtt>=2.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["energy_node_common*"]
+
+# VERSION wird wie dashboard/VERSION und services/VERSION per git-hooks/pre-commit
+# gepflegt (siehe COMPONENTS in git-hooks/lib.sh) - eine einzige Quelle statt
+# einer manuell synchron zu haltenden Versionsangabe hier.
+[tool.setuptools.dynamic]
+version = { file = ["VERSION"] }

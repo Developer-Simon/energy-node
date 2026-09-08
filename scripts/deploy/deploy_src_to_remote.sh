@@ -11,7 +11,7 @@ source "${SCRIPT_DIR}/deploy_lib.sh"
 source "${SCRIPT_DIR}/ensure_remote_secrets.sh"
 source "${SCRIPT_DIR}/ensure_remote_config.sh"
 
-# Alle nachfolgenden repo-relativen Pfade (src/..., check_tracked_secrets.sh
+# Alle nachfolgenden repo-relativen Pfade (services/..., check_tracked_secrets.sh
 # ueber SCRIPT_DIR) setzen CWD == Repo-Root voraus - unabhaengig davon, von
 # wo aus dieses Skript aufgerufen wird.
 cd "${REPO_ROOT}"
@@ -204,7 +204,7 @@ install_or_update_service_units() {
 # Clean up local build artifacts that might have been created by earlier
 # local or remote installs.  This prevents root-owned __pycache__ / egg-info
 # directories from being copied to the remote host.
-find src/energy_node_common -type d \( \
+find libs/energy_node_common -type d \( \
   -name '__pycache__' -o \
   -name '*.egg-info' -o \
   -name '.venv' -o \
@@ -226,57 +226,57 @@ ensure_remote_secrets "${SSH_TARGET}" "${SSH_OPTS[@]}"
 echo "==> Preflight: zentrale Konfiguration auf dem Zielgeraet"
 ensure_remote_config "${SSH_TARGET}" "${FORCE_CONFIG}" "${SSH_OPTS[@]}"
 
-# src/VERSION beschreibt alle Python-Dienste als Ganzes (siehe
+# services/VERSION beschreibt alle Python-Dienste als Ganzes (siehe
 # git-hooks/pre-commit). Es landet im gemeinsamen devices_dir, den Python und
 # Go-Dashboard schon fuer *_devices.json teilen; das Dashboard zeigt es an,
 # wenn paths.services_version_file in config.json darauf zeigt (Standard in
-# src/energy-node.config.json).
-copy "src/VERSION" "${REMOTE_PREFIX}/devices/"
+# services/energy-node.config.json).
+copy "services/VERSION" "${REMOTE_PREFIX}/devices/"
 
 # Copy source files - ein Block je Dienst, nur ausgefuehrt wenn der Dienst in
 # EFFECTIVE_SERVICES steht (Standard: alle). remote_subdir (siehe
 # SERVICE_TABLE Feld 3) ist der Schluessel, denselben Namen nimmt --service
 # entgegen.
 copy_apsystems_ez1() {
-  copy "src/apsystems_ez1/apsystems_ez1_mqtt.py" "${REMOTE_PREFIX}/apsystems_ez1/"
-  copy_if_absent "src/apsystems_ez1/apsystems_devices.json" "${REMOTE_PREFIX}/devices/"
-  copy "src/apsystems_ez1/apsystems_devices.schema.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/apsystems_ez1/apsystems_ez1_mqtt.py" "${REMOTE_PREFIX}/apsystems_ez1/"
+  copy_if_absent "services/apsystems_ez1/apsystems_devices.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/apsystems_ez1/apsystems_devices.schema.json" "${REMOTE_PREFIX}/devices/"
 }
 copy_battery_soc() {
-  copy "src/battery_soc/battery_soc_mqtt.py" "${REMOTE_PREFIX}/battery_soc/"
-  copy "src/battery_soc/soc_config.py" "${REMOTE_PREFIX}/battery_soc/"
-  copy "src/battery_soc/state_store.py" "${REMOTE_PREFIX}/battery_soc/"
-  copy "src/battery_soc/mqtt_inputs.py" "${REMOTE_PREFIX}/battery_soc/"
-  copy "src/battery_soc/mqtt_discovery.py" "${REMOTE_PREFIX}/battery_soc/"
-  copy_if_absent "src/battery_soc/battery_soc_devices.json" "${REMOTE_PREFIX}/devices/"
-  copy "src/battery_soc/battery_soc_devices.schema.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/battery_soc/battery_soc_mqtt.py" "${REMOTE_PREFIX}/battery_soc/"
+  copy "services/battery_soc/soc_config.py" "${REMOTE_PREFIX}/battery_soc/"
+  copy "services/battery_soc/state_store.py" "${REMOTE_PREFIX}/battery_soc/"
+  copy "services/battery_soc/mqtt_inputs.py" "${REMOTE_PREFIX}/battery_soc/"
+  copy "services/battery_soc/mqtt_discovery.py" "${REMOTE_PREFIX}/battery_soc/"
+  copy_if_absent "services/battery_soc/battery_soc_devices.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/battery_soc/battery_soc_devices.schema.json" "${REMOTE_PREFIX}/devices/"
 }
 copy_automation() {
-  copy "src/automation/automation_mqtt.py" "${REMOTE_PREFIX}/automation/"
-  copy "src/automation/ha_template.py" "${REMOTE_PREFIX}/automation/"
-  copy "src/automation/automation_rules.schema.json" "${REMOTE_PREFIX}/devices/"
-  copy_if_absent "src/automation/automation_rules.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/automation/automation_mqtt.py" "${REMOTE_PREFIX}/automation/"
+  copy "services/automation/ha_template.py" "${REMOTE_PREFIX}/automation/"
+  copy "services/automation/automation_rules.schema.json" "${REMOTE_PREFIX}/devices/"
+  copy_if_absent "services/automation/automation_rules.json" "${REMOTE_PREFIX}/devices/"
 }
 copy_shelly() {
-  copy "src/shelly/shelly_rpc_mqtt.py" "${REMOTE_PREFIX}/shelly/"
-  copy_if_absent "src/shelly/shelly_devices.json" "${REMOTE_PREFIX}/devices/"
-  copy "src/shelly/shelly_devices.schema.json" "${REMOTE_PREFIX}/devices/"
-  copy "src/shelly/shelly_presets.json" "${REMOTE_PREFIX}/devices/"
-  copy "src/shelly/shelly_presets.schema.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/shelly/shelly_rpc_mqtt.py" "${REMOTE_PREFIX}/shelly/"
+  copy_if_absent "services/shelly/shelly_devices.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/shelly/shelly_devices.schema.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/shelly/shelly_presets.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/shelly/shelly_presets.schema.json" "${REMOTE_PREFIX}/devices/"
 }
 copy_tuya_mqtt() {
-  copy "src/tuya_mqtt/tuya_mqtt.py" "${REMOTE_PREFIX}/tuya_mqtt/"
-  copy "src/tuya_mqtt/tinytuya_probe.py" "${REMOTE_PREFIX}/tuya_mqtt/"
-  copy_if_absent "src/tuya_mqtt/tuya_devices.json" "${REMOTE_PREFIX}/devices/"
-  copy "src/tuya_mqtt/tuya_devices.schema.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/tuya_mqtt/tuya_mqtt.py" "${REMOTE_PREFIX}/tuya_mqtt/"
+  copy "services/tuya_mqtt/tinytuya_probe.py" "${REMOTE_PREFIX}/tuya_mqtt/"
+  copy_if_absent "services/tuya_mqtt/tuya_devices.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/tuya_mqtt/tuya_devices.schema.json" "${REMOTE_PREFIX}/devices/"
 }
 copy_trucki() {
-  copy "src/trucki/trucki_http_mqtt.py" "${REMOTE_PREFIX}/trucki/"
-  copy_if_absent "src/trucki/trucki_devices.json" "${REMOTE_PREFIX}/devices/"
-  copy "src/trucki/trucki_devices.schema.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/trucki/trucki_http_mqtt.py" "${REMOTE_PREFIX}/trucki/"
+  copy_if_absent "services/trucki/trucki_devices.json" "${REMOTE_PREFIX}/devices/"
+  copy "services/trucki/trucki_devices.schema.json" "${REMOTE_PREFIX}/devices/"
 }
 copy_energy_node() {
-  copy "src/energy-node/energy_node_mqtt.py" "${REMOTE_PREFIX}/energy-node/"
+  copy "services/energy-node/energy_node_mqtt.py" "${REMOTE_PREFIX}/energy-node/"
 }
 
 for service in "${EFFECTIVE_SERVICES[@]}"; do
@@ -301,7 +301,7 @@ install_or_update_service_units
 # Build and deploy the energy-node-common package as a wheel. The target's
 # installed version (pip show) is checked first: if it already matches
 # VERSION_FILE (bumped per commit by git-hooks/pre-commit, like
-# dashboard/VERSION and src/VERSION - see COMPONENTS in git-hooks/lib.sh),
+# dashboard/VERSION and services/VERSION - see COMPONENTS in git-hooks/lib.sh),
 # nothing is built and nothing is installed. Otherwise a wheel cached in the
 # package's dist directory is reused as long as its version matches
 # VERSION_FILE, and only rebuilt when it does not. Building locally avoids
@@ -318,7 +318,7 @@ CORE_WHEEL_BUILD_DIR=""
 CORE_BUILD_DIR=""
 trap 'rm -rf "${WHEEL_BUILD_DIR}" "${COMMON_BUILD_DIR}" "${CORE_WHEEL_BUILD_DIR}" "${CORE_BUILD_DIR}"' EXIT
 
-COMMON_DIR="src/energy_node_common"
+COMMON_DIR="libs/energy_node_common"
 WHEEL_CACHE_DIR="${COMMON_DIR}/dist"
 VERSION_FILE="${COMMON_DIR}/VERSION"
 
@@ -416,7 +416,7 @@ fi
 # Nur gebaut/installiert, wenn battery_soc ueberhaupt ausgerollt wird - kein
 # anderer Dienst haengt davon ab.
 if service_selected "battery_soc"; then
-  CORE_DIR="src/battery_soc_core"
+  CORE_DIR="libs/battery_soc_core"
   CORE_WHEEL_CACHE_DIR="${CORE_DIR}/dist"
   CORE_VERSION_FILE="${CORE_DIR}/VERSION"
 

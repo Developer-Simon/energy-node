@@ -22,7 +22,7 @@ upstream that work — but it is no longer the assumed way to use this.)
   on a PR that doesn't fit the architecture in [`dashboard/AGENTS.md`](dashboard/AGENTS.md)
   or the invariants documented under [`docs/`](docs/).
 - Bridge- or dashboard-specific conventions live next to the code
-  (`dashboard/AGENTS.md`, the module docstrings under `src/`). Read the one
+  (`dashboard/AGENTS.md`, the module docstrings under `services/` and `libs/`). Read the one
   for the area you're touching before changing it.
 
 ## New device services
@@ -37,14 +37,14 @@ architecture:
   **locally, with no cloud account**, and publishes Home Assistant MQTT
   Discovery entities under `outstation/<id>/…`. Nothing talks HTTP to the
   dashboard — the broker is the only coupling.
-- [`src/energy_node_common/`](src/energy_node_common/) already provides the
+- [`libs/energy_node_common/`](libs/energy_node_common/) already provides the
   MQTT setup and last will, discovery-payload construction, availability
   publishing, the poll scheduler with its separate diagnostic-poll cycle,
   the central config loader, and both sides of the master/slave poll-rate
   protocol. A new bridge consumes that package; it should not re-implement
   any of it.
-- [`src/shelly/`](src/shelly/) (read + switch) and
-  [`src/trucki/`](src/trucki/) (read-only) are the cleanest templates. Copy
+- [`services/shelly/`](services/shelly/) (read + switch) and
+  [`services/trucki/`](services/trucki/) (read-only) are the cleanest templates. Copy
   the one whose direction matches your device.
 - Ship the service with a `*_devices.schema.json` next to it — the dashboard
   renders that schema as the configuration form, so a new service is
@@ -65,8 +65,8 @@ See **[INSTALLATION.md](INSTALLATION.md)** ("Development machine") for the
 full environment. In short:
 
 ```sh
-python3 -m venv .venv && .venv/bin/pip install -e src/energy_node_common -e src/battery_soc_core pytest
-.venv/bin/pip install -r requirements-dev.txt   # needed for the full src/ test suite
+python3 -m venv .venv && .venv/bin/pip install -e libs/energy_node_common -e libs/battery_soc_core pytest
+.venv/bin/pip install -r requirements-dev.txt   # needed for the full services/ test suite
 ./scripts/install_git_hooks.sh
 ```
 
@@ -79,7 +79,7 @@ Run whichever of these apply to your change before opening a PR — CI runs
 all of them:
 
 ```sh
-.venv/bin/pytest src scripts/tests                                    # Python bridges + tooling
+.venv/bin/pytest services libs scripts/tests                                    # Python bridges + tooling
 bash scripts/tests/test_publish_mirror.sh                             # HACS mirror assembly
 cd integrations/homeassistant && ../../.venv-ha/bin/pytest            # HA integration
 cd dashboard && gofmt -l . && go vet ./... && go test ./...           # Go dashboard
@@ -112,7 +112,7 @@ the body. This is a rule, not a suggestion — matching the existing history
 in `git log` is the quickest way to get it right.
 
 `./scripts/install_git_hooks.sh` links this repo's hooks into `.git/hooks/`.
-The pre-commit hook auto-bumps `dashboard/VERSION` / `src/VERSION` on `main`
+The pre-commit hook auto-bumps `dashboard/VERSION` / `services/VERSION` on `main`
 and rejects a commit that leaves the vendored `battery_soc_core` copy under
-`integrations/homeassistant/` out of sync with `src/battery_soc_core/` — run
+`integrations/homeassistant/` out of sync with `libs/battery_soc_core/` — run
 `.venv/bin/python scripts/vendor_core.py` and stage the result if it fires.

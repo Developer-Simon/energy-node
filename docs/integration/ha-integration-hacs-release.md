@@ -13,13 +13,13 @@ repo is a *derived artifact*: it is assembled from this monorepo by
 - **Source of truth:** this monorepo.
 - **Mirror repo:** [`Developer-Simon/ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc)
   — the public, HACS-facing repo, assembled from here by `scripts/publish_mirror.sh`.
-- **Shared core:** `src/battery_soc_core/` → vendored into the integration by
+- **Shared core:** `libs/battery_soc_core/` → vendored into the integration by
   `scripts/vendor_core.py` (drift-guarded by `git-hooks/pre-commit` and
   `integrations/homeassistant/tests/test_vendor_sync.py`).
 - **Test venvs:** the plain suites run in `.venv`; the Home Assistant suite
   needs its own `.venv-ha` (HA's pytest plugins conflict with the plain
   suite). Build it once:
-  `python3.14 -m venv .venv-ha && .venv-ha/bin/pip install -e ./src/battery_soc_core -r integrations/homeassistant/requirements-test.txt`.
+  `python3.14 -m venv .venv-ha && .venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt`.
 - **Public identifiers:** `integrations/homeassistant/mirror/release.env` —
   `OWNER=Developer-Simon`, `REPO=ha-battery-soc`, `HA_MIN_VERSION`.
 - **Real HACS/hassfest validation:** runs as GitHub Actions **in the mirror
@@ -98,7 +98,7 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
 
 ## Recurring — cut a release
 
-1. Land the change in `src/battery_soc_core/` (or directly in the integration),
+1. Land the change in `libs/battery_soc_core/` (or directly in the integration),
    then `.venv/bin/python scripts/vendor_core.py` and stage the result.
 2. `cd integrations/homeassistant && ../../.venv-ha/bin/pytest -q`
    (whole HA suite, including the drift and mirror-template checks).
@@ -108,7 +108,7 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
    (**bare** semver, no leading `v`) has its patch bumped on the PR branch by
    the `Version bump` workflow when the PR touches `integrations/homeassistant/`
    (`scripts/version/bump-patch.sh`, same `COMPONENTS` mechanism as
-   `dashboard/VERSION`/`src/VERSION` — see `git-hooks/lib.sh`); major/minor stay
+   `dashboard/VERSION`/`services/VERSION` — see `git-hooks/lib.sh`); major/minor stay
    hand-edited. `CHANGELOG.md` is
    generated the same way as the other components, grouped by major.minor into
    `## vX.Y.Z (date)` sections. **`publish_mirror.sh --release` runs

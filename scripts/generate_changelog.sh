@@ -11,7 +11,7 @@
 # Commit selbst getaggt ist; reine Patch-Bumps bleiben im selben Abschnitt.
 #
 # Usage: ./generate_changelog.sh [--freeze-before <version>] [--rebuild] [<target>|all]
-#   <target>: dashboard | src | common | battery_soc_core | ha-integration
+#   <target>: dashboard | services | common | battery_soc_core | ha-integration
 #
 # Ohne Zielangabe (oder mit "all") werden alle Targets nacheinander generiert.
 #
@@ -51,7 +51,7 @@
 
 set -euo pipefail
 
-ALL_TARGETS=(dashboard src common battery_soc_core ha-integration)
+ALL_TARGETS=(dashboard services common battery_soc_core ha-integration)
 
 usage() {
   echo "Usage: $(basename "$0") [--freeze-before <version>] [--rebuild] [$(IFS='|'; echo "${ALL_TARGETS[*]}")|all]" >&2
@@ -89,7 +89,7 @@ while [[ $# -gt 0 ]]; do
       rebuild=true
       shift
       ;;
-    dashboard|src|common|battery_soc_core|ha-integration|all)
+    dashboard|services|common|battery_soc_core|ha-integration|all)
       if [[ -n "$target" ]]; then
         usage
         exit 1
@@ -208,7 +208,7 @@ section_covered_by() {
   $had
 }
 
-# Generiert die CHANGELOG.md einer einzelnen Komponente (dashboard|src|common).
+# Generiert die CHANGELOG.md einer einzelnen Komponente (dashboard|services|common).
 generate_one() {
   local comp="$1"
   # out_dir_prefix: aktueller Pfad, in den die CHANGELOG.md geschrieben wird.
@@ -234,21 +234,21 @@ generate_one() {
       history_prefixes=("dashboard/")
       version_file_candidates=("dashboard/VERSION")
       ;;
-    src)
-      out_dir_prefix="src/"
-      history_prefixes=("src/")
-      version_file_candidates=("src/VERSION")
-      exclude_prefixes=("src/energy_node_common/" "src/werkstatt_iot_common/")
+    services)
+      out_dir_prefix="services/"
+      history_prefixes=("services/")
+      version_file_candidates=("services/VERSION")
+      exclude_prefixes=("libs/energy_node_common/" "src/werkstatt_iot_common/")
       ;;
     common)
-      out_dir_prefix="src/energy_node_common/"
-      history_prefixes=("src/energy_node_common/" "src/werkstatt_iot_common/")
-      version_file_candidates=("src/energy_node_common/VERSION" "src/werkstatt_iot_common/VERSION")
+      out_dir_prefix="libs/energy_node_common/"
+      history_prefixes=("libs/energy_node_common/" "src/werkstatt_iot_common/")
+      version_file_candidates=("libs/energy_node_common/VERSION" "src/werkstatt_iot_common/VERSION")
       ;;
     battery_soc_core)
-      out_dir_prefix="src/battery_soc_core/"
-      history_prefixes=("src/battery_soc_core/")
-      version_file_candidates=("src/battery_soc_core/VERSION")
+      out_dir_prefix="libs/battery_soc_core/"
+      history_prefixes=("libs/battery_soc_core/")
+      version_file_candidates=("libs/battery_soc_core/VERSION")
       ;;
     ha-integration)
       out_dir_prefix="integrations/homeassistant/"

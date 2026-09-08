@@ -5,6 +5,11 @@ name: Version bump
 # bump has to land on the PR branch instead: this workflow runs
 # scripts/version/bump-patch.sh against the PR base and pushes the result back
 # onto the head branch, where the squash-merge then takes it to `main`.
+#
+# The push uses a PAT so the required checks re-run, which also re-triggers this
+# workflow. The "Skip when HEAD is already a bot commit" guard below is what
+# stops that from looping: a bump (or changelog) commit can never trigger
+# another one.
 
 on:
   pull_request:
@@ -41,8 +46,22 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin "${{ github.event.pull_request.base.ref }}" --quiet
 
+      - name: Skip when HEAD is already a bot commit
+        id: guard
+        run: |
+          author="$(git log -1 --format='%an')"
+          subject="$(git log -1 --format='%s')"
+          if [ "$author" = "energy-node-bot" ] && {
+               [ "$subject" = "chore(release): bump component versions" ] ||
+               [ "$subject" = "docs(changelog): update changelogs" ]; }; then
+            echo "HEAD is \"$subject\" by $author - nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Check for a missing version bump
-        if: env.HAS_TOKEN != 'true'
+        if: env.HAS_TOKEN != 'true' && steps.guard.outputs.skip != 'true'
         run: |
           echo "::warning::BUMP_TOKEN secret is not set - running in check-only mode." \
             "Create a fine-grained PAT (contents: write) and save it as BUMP_TOKEN" \
@@ -50,7 +69,7 @@ jobs:
           scripts/version/bump-patch.sh --check "$BASE_REF"
 
       - name: Bump and push
-        if: env.HAS_TOKEN == 'true'
+        if: env.HAS_TOKEN == 'true' && steps.guard.outputs.skip != 'true'
         run: |
           scripts/version/bump-patch.sh "$BASE_REF"
           if git diff --cached --quiet; then
