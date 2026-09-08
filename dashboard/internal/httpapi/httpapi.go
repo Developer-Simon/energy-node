@@ -211,6 +211,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/entities/", handleEntityCommand(reg, publisher, commands))
 	mux.HandleFunc("/api/v1/topics", handleTopics(reg))
 	mux.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
+	mux.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
 	resolver := dependencies.Resolver
 	if resolver == nil {
 		resolver = energy.NewResolver(nil)
@@ -1157,6 +1158,57 @@ func handleTopicSamples(reg *registry.Registry) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, reg.TopicSamples())
+	}
+}
+
+// handleAutomationNotification serves the last {at, message} document from the
+// automation service's last_event topic, already parsed. notifications.js polls
+// this instead of the full single-device route: the device route only exposes
+// last_message, the slot an availability heartbeat shares with the state
+// payload and can overwrite (see registry lastStateMessage vs lastMessage),
+// which left the browser JSON.parse failing until the next real event. A 404
+// means this instance runs no automation service - notifications.js treats that
+// as a permanent, silent state. A 204 means the service is known but has not
+// published an event yet.
+func handleAutomationNotification(reg *registry.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		device, ok := reg.Get("automation")
+		if !ok {
+			writeError(w, http.StatusNotFound, "automation_not_found", "Kein Automations-Dienst auf dieser Instanz")
+			return
+		}
+		var stateTopic string
+		for _, entity := range device.Entities {
+			if entity.ObjectID == "last_event" {
+				stateTopic = entity.StateTopic
+				break
+			}
+		}
+		if stateTopic == "" {
+			writeError(w, http.StatusNotFound, "automation_not_found", "Automations-Dienst ohne last_event-Topic")
+			return
+		}
+		samples := reg.TopicSamplesFor([]string{stateTopic})
+		if len(samples) == 0 || samples[0].Payload == "" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		var document struct {
+			At      json.Number `json:"at"`
+			Message string      `json:"message"`
+		}
+		// A payload that is not the expected {at, message} document - e.g. an
+		// availability word that reached this topic - is nothing the client can
+		// turn into a toast, so it reads the same as "no event yet".
+		if err := json.Unmarshal([]byte(samples[0].Payload), &document); err != nil || document.Message == "" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		writeJSON(w, document)
 	}
 }
 

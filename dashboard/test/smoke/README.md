@@ -109,6 +109,7 @@ takes the seed set of `energie` but the own fixture.
 | `energie-kombiniert` | `--fixture fixtures/energie-kombiniert.json --seed-data fixtures/seed/energie-kombiniert` — `load_mode "combined"`, band and board per entity, ring collected |
 | `alle-funktionen` | `--fixture fixtures/alle-funktionen.json --seed-data fixtures/seed/alle-funktionen` |
 | `geraete-kacheln` | `--fixture fixtures/geraete-kacheln.json --seed-data fixtures/seed/geraete-kacheln` — three device tiles with `span: "1"`, for visual checks of `.device-tile-entity` (slider width, title wrapping for `number`/`text`, value alignment, unchanged grid for all other entity types) |
+| `notification` | `--fixture fixtures/notification.json` (no seed) — simulates the automation topics (`outstation/automation/last_event` as `{at, message}`, plus `state` and `status/online`). `notifications.js` polls `/api/v1/automation/notification` from these and raises a warning toast on load; the `Energie-Automationen` device shows up on the overview |
 
 ## What is solved here
 
@@ -244,6 +245,27 @@ the slider used to squeeze the title column down to nearly 0:
 
 ```bash
 dashboard/test/smoke/run-local-dashboard.sh --keep --preset geraete-kacheln
+```
+
+`fixtures/notification.json` mirrors what the automation service publishes, so
+the toast path in `notifications.js` can be exercised without a running
+automation service. One device, `automation` ("Energie-Automationen"), with two
+entities:
+
+- `last_event` — `state_topic` `outstation/automation/last_event`, carrying the
+  raw `{"at": …, "message": "warning: …"}` document. `notifications.js` polls
+  `/api/v1/automation/notification`, which parses this off the topic's
+  `lastStateMessage` slot, and pushes one toast because `at` is greater than the
+  last-seen timestamp in `localStorage` (`0` in a fresh browser). The `warning:`
+  prefix selects the warning styling.
+- `state` — `outstation/automation/state` (`rules_enabled`), so the device tile
+  renders with a plausible value.
+
+`outstation/automation/status/online` is published as `1` so both entities are
+available. No seed:
+
+```bash
+dashboard/test/smoke/run-local-dashboard.sh --keep --preset notification
 ```
 
 ## Seed data

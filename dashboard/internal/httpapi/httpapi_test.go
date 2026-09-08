@@ -1407,13 +1407,66 @@ func TestAuthSessionReportsTheAutomationsRole(t *testing.T) {
 	}
 }
 
-// TestDeviceEndpointKeepsLastMessage haelt die Zusicherung fest, auf der die
-// Benachrichtigungen (notifications.js) und der Automations-Tick
-// (automations.page.js) stehen: beide lesen den rohen, ungetemplateten
-// MQTT-Payload aus last_message und holen ihn seit dem Serverlast-Spec ueber
-// die Einzelgeraete-Route statt ueber die 448-KB-Liste. Faellt last_message
-// hier weg, verstummen die Toasts stillschweigend - der catch-Block im
-// Browser schluckt den Fehler.
+// TestAutomationNotificationEndpoint deckt die Route ab, die notifications.js
+// seit dem last_message-Clobber pollt: sie liefert das {at, message}-Dokument
+// bereits geparst aus dem last_event-State-Topic. Kein Automations-Geraet ->
+// 404 (stiller Dauerzustand), Geraet ohne Ereignis oder mit Fremd-Payload ->
+// 204.
+func TestAutomationNotificationEndpoint(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{UniqueID: "automation_last_event", ObjectID: "last_event", StateTopic: "outstation/automation/last_event"},
+	})
+
+	// Geraet bekannt, noch kein Ereignis -> 204.
+	empty := httptest.NewRecorder()
+	NewRouter(reg, nil, nil).ServeHTTP(empty, httptest.NewRequest(http.MethodGet, "/api/v1/automation/notification", nil))
+	if empty.Code != http.StatusNoContent {
+		t.Fatalf("no event yet should 204, got %d: %s", empty.Code, empty.Body.String())
+	}
+
+	reg.UpdateState("outstation/automation/last_event", []byte(`{"at":100,"message":"info: Test"}`), false, time.Now().UTC())
+
+	recorder := httptest.NewRecorder()
+	NewRouter(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automation/notification", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("notification response %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var document struct {
+		At      json.Number `json:"at"`
+		Message string      `json:"message"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &document); err != nil {
+		t.Fatal(err)
+	}
+	if document.At.String() != "100" || document.Message != "info: Test" {
+		t.Fatalf("parsed document altered: %#v", document)
+	}
+
+	// Ein Fremd-Payload auf dem Topic (z. B. ein Availability-Wort) ist nichts,
+	// woraus der Client einen Toast bauen kann -> 204 wie "noch kein Ereignis".
+	reg.UpdateState("outstation/automation/last_event", []byte("online"), false, time.Now().UTC())
+	foreign := httptest.NewRecorder()
+	NewRouter(reg, nil, nil).ServeHTTP(foreign, httptest.NewRequest(http.MethodGet, "/api/v1/automation/notification", nil))
+	if foreign.Code != http.StatusNoContent {
+		t.Fatalf("foreign payload should 204, got %d: %s", foreign.Code, foreign.Body.String())
+	}
+
+	// Keine Automation auf dieser Instanz -> 404.
+	missing := httptest.NewRecorder()
+	NewRouter(registry.New(), nil, nil).ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/v1/automation/notification", nil))
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("no automation service should 404, got %d: %s", missing.Code, missing.Body.String())
+	}
+}
+
+// TestDeviceEndpointKeepsLastMessage haelt die Zusicherung fest, auf der der
+// Automations-Tick (automations.page.js) steht: er liest den rohen,
+// ungetemplateten MQTT-Payload aus last_message und holt ihn seit dem
+// Serverlast-Spec ueber die Einzelgeraete-Route statt ueber die 448-KB-Liste.
+// Faellt last_message hier weg, verstummt der Tick stillschweigend - der
+// catch-Block im Browser schluckt den Fehler.
 func TestDeviceEndpointKeepsLastMessage(t *testing.T) {
 	reg := registry.New()
 	reg.UpsertEntity(registry.Discovery{

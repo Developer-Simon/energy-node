@@ -155,6 +155,7 @@ additional requirements.
 | GET | `/api/v1/discovery/summary` | – | `device_count`, `entity_count`, `discovery_errors`, `duplicate_ids`; carries `ETag: "registry-N"` |
 | GET | `/api/v1/topics` | – | All known topics |
 | GET | `/api/v1/topics/samples` | – | Last payload per topic |
+| GET | `/api/v1/automation/notification` | – | Last `{at, message}` event from the automation service's `last_event` topic, parsed. `404` when no automation service, `204` before its first event. Polled by `notifications.js` for toasts. |
 | GET | `/api/v1/events` | – | SSE stream with the registry version |
 | POST | `/api/v1/entities/{unique_id}/command` | – | Switch an entity or set a value |
 
