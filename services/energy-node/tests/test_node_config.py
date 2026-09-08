@@ -1,6 +1,6 @@
 """Tests fuer die Konfigurationsaufloesung des Node-Dienstes.
 
-Ausfuehren mit `.venv/bin/pytest src/energy-node/tests`.
+Ausfuehren mit `.venv/bin/pytest services/energy-node/tests`.
 """
 
 import sys

@@ -1,6 +1,6 @@
 """Tests fuer energy_node_common.appconfig.
 
-Ausfuehren mit `.venv/bin/pytest src/energy_node_common/tests`
+Ausfuehren mit `.venv/bin/pytest libs/energy_node_common/tests`
 (Projekt-venv, nie globales python).
 """
 

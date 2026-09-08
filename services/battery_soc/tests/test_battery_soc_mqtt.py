@@ -1,12 +1,12 @@
 """Tests fuer battery_soc_mqtt.py.
 
-Muster wie src/trucki/tests/: das Modul wird direkt importiert, MQTT wird
+Muster wie services/trucki/tests/: das Modul wird direkt importiert, MQTT wird
 durch eine FakeClient-Klasse ersetzt. Ausfuehren mit
-`.venv/bin/pytest src/battery_soc/tests` (Projekt-venv, nie globales python).
+`.venv/bin/pytest services/battery_soc/tests` (Projekt-venv, nie globales python).
 
 Die reine SoC-Fachlogik (Coulomb-Zaehlung, Kalibrierung, Spannungskorrektur,
 Entity-Spec) ist nach battery_soc_core ausgelagert und dort getestet
-(src/battery_soc_core/tests/). Dieses Modul deckt nur noch die
+(libs/battery_soc_core/tests/). Dieses Modul deckt nur noch die
 Adapter-Verantwortung ab: MQTT-Eingaenge, Konfigurationsladung/-validierung,
 Simulationsmodus-Verdrahtung und das manuelle SoC-Kommando.
 """

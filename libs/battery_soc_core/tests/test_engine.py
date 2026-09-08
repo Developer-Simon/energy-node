@@ -1,6 +1,6 @@
 """Tests for battery_soc_core.engine — the pure tick().
 
-Ported from src/battery_soc/tests/test_battery_soc_mqtt.py, where the same
+Ported from services/battery_soc/tests/test_battery_soc_mqtt.py, where the same
 scenarios drove compute_and_publish(). Here they build SocParams + SocState +
 SocInputs, call tick(...), and read result.outputs — the byte-for-byte
 equivalent of today's /state payload.

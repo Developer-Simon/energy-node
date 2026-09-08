@@ -3,7 +3,7 @@ deklarativen Entity-Spec des Cores (battery_soc_core.entities).
 
 Ziel ist bit-genaue Paritaet mit dem, was battery_soc_mqtt.py::entities() /
 make_config() / publish_discovery() bisher publiziert haben - siehe
-src/battery_soc/tests/golden/*.discovery.json (vor der Extraktion aus dem
+services/battery_soc/tests/golden/*.discovery.json (vor der Extraktion aus dem
 laufenden Dienst aufgenommen).
 """
 from __future__ import annotations

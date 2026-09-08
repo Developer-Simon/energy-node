@@ -16,7 +16,7 @@ pushing the tag.
    level bumped automatically on the PR branch by the
    [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
    workflow (`scripts/version/bump-patch.sh`), so `dashboard/VERSION` /
-   `src/VERSION` are already current on `main`. Set the `MAJOR` / `MINOR` in
+   `services/VERSION` are already current on `main`. Set the `MAJOR` / `MINOR` in
    `dashboard/VERSION` by hand (on the PR branch) when the release is not a
    patch.
 2. **Regenerate the changelog:**

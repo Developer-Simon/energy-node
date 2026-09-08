@@ -450,10 +450,11 @@ fields contain only the path, never the password itself. Not role-gated.
 
 Response: `{"config": {…}, "restart_required": [...], "reloaded": {…}}`.
 `restart_required` lists the changed fields that need a unit restart (`mqtt`,
-`paths`, any `*.device_id`, `dashboard.port`, `.bind_address`, `.tls`,
-`.admin_username`, `.admin_password_file`); everything else is picked up by the
-services over `outstation/<id>/config/reload`. `reloaded` maps a service's
-device ID to `"ok"` or an error string, and is populated only when a reload
+`paths`, `node.device_id`, any `services.*.service_id`, `dashboard.port`,
+`.bind_address`, `.tls`, `.admin_username`, `.admin_password_file`); everything
+else is picked up by the services over `outstation/<id>/config/reload`.
+`reloaded` maps a service's ID to `"ok"` or an error string, and is populated
+only when a reload
 dispatcher is wired into the router — in the current build it is passed as
 `nil`, so `reloaded` comes back empty and no reload command is sent.
 

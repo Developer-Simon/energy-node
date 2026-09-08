@@ -1,7 +1,7 @@
 """Tests for battery_soc_core.calibration module.
 
 Test coverage for voltage correction, calibration tolerance, simulated curves,
-and voltage plausibility. Ported from src/battery_soc/tests/test_battery_soc_mqtt.py.
+and voltage plausibility. Ported from services/battery_soc/tests/test_battery_soc_mqtt.py.
 """
 from __future__ import annotations
 

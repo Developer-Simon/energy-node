@@ -1,7 +1,7 @@
 """Tests fuer soc_config.py.
 
 Modul wird direkt importiert. Ausfuehren mit
-`.venv/bin/pytest src/battery_soc/tests` (Projekt-venv, nie globales python).
+`.venv/bin/pytest services/battery_soc/tests` (Projekt-venv, nie globales python).
 """
 
 import sys

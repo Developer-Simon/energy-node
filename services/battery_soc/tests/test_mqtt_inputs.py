@@ -1,6 +1,6 @@
 """Tests fuer mqtt_inputs.py.
 
-Muster wie src/trucki/tests/: das Modul wird direkt importiert.
+Muster wie services/trucki/tests/: das Modul wird direkt importiert.
 """
 
 import sys

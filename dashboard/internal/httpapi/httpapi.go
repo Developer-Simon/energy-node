@@ -138,7 +138,7 @@ type RouterDependencies struct {
 	// Versionskennung (siehe main.buildVersion), leer bzw. "dev" ausserhalb
 	// von Release-Builds.
 	Version string
-	// ServicesVersion ist der Inhalt von src/VERSION, gelesen von der in
+	// ServicesVersion ist der Inhalt von services/VERSION, gelesen von der in
 	// config.json unter paths.services_version_file konfigurierten Datei.
 	// Leer, wenn nicht konfiguriert oder nicht lesbar.
 	ServicesVersion string
@@ -1557,7 +1557,7 @@ func handleAutomationTest(publisher CommandPublisher, authManager *auth.Manager)
 // automationHistoryFileName ist bewusst eine Konstante, kein Parameter: der
 // Automations-Dienst schreibt exakt diese Datei in dasselbe geteilte
 // Verzeichnis, in dem auch automation_rules.json liegt (siehe
-// AUTOMATION_HISTORY_FILE in src/automation/automation_mqtt.py). Reines
+// AUTOMATION_HISTORY_FILE in services/automation/automation_mqtt.py). Reines
 // Lesen - keine neue Schreib-Ausnahme von der read-only-Regel.
 const automationHistoryFileName = "automation_history.json"
 

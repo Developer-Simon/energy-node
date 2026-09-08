@@ -49,7 +49,7 @@ DASHBOARD_DIR="$(cd "$HERE/../.." && pwd)"
 REPO_DIR="$(cd "$DASHBOARD_DIR/.." && pwd)"
 SCRIPT_ROOT="$(cd "$HERE/../../.." && pwd)"
 
-DEVICES_SOURCE="$REPO_DIR/src/battery_soc"
+DEVICES_SOURCE="$REPO_DIR/services/battery_soc"
 FIXTURE="$HERE/fixtures/battery-soc.json"
 SEED_DATA=""
 THEME=""
@@ -263,7 +263,7 @@ sleep 1
 # Ladepfad, den auch das Zielgeraet nutzt, statt ihn zu umgehen.
 printf '%s' "$PASSWORD" > "$WORK/auth.pw"
 chmod 600 "$WORK/auth.pw"
-python3 - "$SCRIPT_ROOT/src/energy-node.config.json" "$WORK/config.json" \
+python3 - "$SCRIPT_ROOT/services/energy-node.config.json" "$WORK/config.json" \
          "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" <<'PY'
 import json
 import sys

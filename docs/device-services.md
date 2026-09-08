@@ -87,7 +87,7 @@ hardware — useful to check a layout or a rule without a device on the bench.
 
 ## Shelly
 
-`src/shelly/` · `shelly-rpc.service` · `shelly_devices.json`
+`services/shelly/` · `shelly-rpc.service` · `shelly_devices.json`
 
 Polls Shelly devices over HTTP and publishes one state per cycle. MQTT is
 deliberately left **disabled on the devices themselves**: their own MQTT client
@@ -127,7 +127,7 @@ reload.
 
 ## APsystems EZ1
 
-`src/apsystems_ez1/` · `apsystems-ez1.service` · `apsystems_devices.json`
+`services/apsystems_ez1/` · `apsystems-ez1.service` · `apsystems_devices.json`
 
 One service for all configured EZ1 microinverters, over their **local** REST
 API (`host`, `port`, default 8050) — no cloud account. Each inverter keeps its
@@ -155,7 +155,7 @@ holds no matter who publishes the command.
 
 ## Trucki stick
 
-`src/trucki/` · `trucki-http.service` · `trucki_devices.json`
+`services/trucki/` · `trucki-http.service` · `trucki_devices.json`
 
 Community-firmware WLAN sticks on Lumentree/Growatt inverters. All three
 variants are covered by one implementation — T2SG (zero export), T2MG and T2HG
@@ -192,7 +192,7 @@ them into one.
 
 ## Tuya
 
-`src/tuya_mqtt/` · `tuya.service` · `tuya_devices.json`
+`services/tuya_mqtt/` · `tuya.service` · `tuya_devices.json`
 
 Local Tuya devices through `tinytuya` — local key, local IP, local protocol,
 no cloud at runtime. A device needs `device_id`, `local_key`, `ip` and the
@@ -212,7 +212,7 @@ that cannot be reached publishes `UNKNOWN` rather than a stale on/off.
 
 ## Battery state of charge
 
-`src/battery_soc/` + `src/battery_soc_core/` · `battery-soc.service` ·
+`services/battery_soc/` + `libs/battery_soc_core/` · `battery-soc.service` ·
 `battery_soc_devices.json`
 
 The one service that polls nothing. It **subscribes** to power and voltage
@@ -264,7 +264,7 @@ with a config flow instead of MQTT topics. See
 
 ## Automations
 
-`src/automation/` · `automation.service` · `automation_rules.json`
+`services/automation/` · `automation.service` · `automation_rules.json`
 
 The rule engine. It is a **separate process from the dashboard on purpose**: the
 dashboard edits the rule file and never publishes a rule's action itself, so a
@@ -306,7 +306,7 @@ rule so the dashboard can show why something switched.
 
 ## The node itself
 
-`src/energy-node/` · `energy-node.service`
+`services/energy-node/` · `energy-node.service`
 
 The Raspberry Pi published as its own Home Assistant device, and the **master**
 of the poll-rate protocol.
@@ -326,7 +326,7 @@ Assistant lists them all as *connected via Energy Node*.
 
 ## The shared package
 
-`src/energy_node_common/` is an installable package that every service depends
+`libs/energy_node_common/` is an installable package that every service depends
 on: MQTT client setup and last will, discovery payload construction,
 availability publishing, the asyncio poll scheduler with its diagnostic-poll
 hook, the central config loader, and both sides of the master/slave settings

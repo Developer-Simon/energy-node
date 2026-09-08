@@ -4,7 +4,7 @@ title: "Battery State of Charge (SoC) — How It Works"
 
 # Battery State of Charge (SoC) — How It Works
 
-What `src/battery_soc/battery_soc_mqtt.py` does, why it computes the way it
+What `services/battery_soc/battery_soc_mqtt.py` does, why it computes the way it
 does, and which setting turns which screw. Supplements the "Battery state of
 charge" section in [device-services.md](../../device-services.md) and the
 installation steps in [INSTALLATION.md](../../../INSTALLATION.md).
@@ -323,7 +323,7 @@ the default.
 
 ## 10. Settings Overview
 
-All in `src/battery_soc/battery_soc_devices.json`, schema alongside, editable as
+All in `services/battery_soc/battery_soc_devices.json`, schema alongside, editable as
 a form in the dashboard. Saving triggers
 `outstation/battery_soc/config/reload`.
 
@@ -421,8 +421,8 @@ The pure SoC domain logic has its own test suite in the core package; the
 adapter now only covers MQTT wiring, config loading, and golden-fixture parity:
 
 ```bash
-.venv/bin/pytest src/battery_soc_core/tests -v   # coulomb counting, calibration, entity spec, …
-.venv/bin/pytest src/battery_soc/tests -v        # MQTT adapter + parity with pre-refactor behavior
+.venv/bin/pytest libs/battery_soc_core/tests -v   # coulomb counting, calibration, entity spec, …
+.venv/bin/pytest services/battery_soc/tests -v        # MQTT adapter + parity with pre-refactor behavior
 ```
 
 Three tests are structural rather than behavioral checks and are worth
@@ -436,7 +436,7 @@ mentioning:
   from `entity_specs()` must be present in the published `/state` payload. A
   typo in between is otherwise just a silent "unknown" entity in Home
   Assistant.
-- `src/battery_soc/tests/test_core_parity.py` — drives a scenario matrix
+- `services/battery_soc/tests/test_core_parity.py` — drives a scenario matrix
   (parallel/series, fresh/stale, simulation, …) through the core + adapter and
   compares `/state` and discovery configs byte-for-byte with the
   `golden/*.json` fixtures recorded before the core extraction. A deviation

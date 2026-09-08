@@ -1,7 +1,7 @@
 """Snapshot of the MQTT service's observable output, captured BEFORE the core
 extraction and re-verified against the post-extraction adapter (Task 16).
 
-Run once from the repo root:  .venv/bin/python src/battery_soc/tests/_capture_golden.py
+Run once from the repo root:  .venv/bin/python services/battery_soc/tests/_capture_golden.py
 Re-run only if you deliberately change the service contract (then review the diff).
 """
 import json

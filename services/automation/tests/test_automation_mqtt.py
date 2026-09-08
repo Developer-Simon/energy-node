@@ -1,7 +1,7 @@
 """Tests fuer automation_mqtt.py.
 
-Muster wie src/battery_soc/tests/: das Modul wird direkt importiert.
-Ausfuehren mit `.venv/bin/pytest src/automation/tests` (Projekt-venv).
+Muster wie services/battery_soc/tests/: das Modul wird direkt importiert.
+Ausfuehren mit `.venv/bin/pytest services/automation/tests` (Projekt-venv).
 """
 
 import json
