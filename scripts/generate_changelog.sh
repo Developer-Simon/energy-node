@@ -304,6 +304,9 @@ generate_one() {
     pathspec+=(":(exclude)${ex}")
   done
 
+  # The version-bump workflow's own housekeeping commits are skipped (see the
+  # --invert-grep below) so a CHANGELOG.md never lists the commits that wrote
+  # it or the patch bump that rode along.
   local prev_tagged=false
   local first=true
   local hash subject
@@ -371,7 +374,11 @@ except Exception:
     prev_tagged=false
     [[ -n "$local_tag" ]] && prev_tagged=true
     first=false
-  done < <(git -C "$repo_root" log --no-merges --reverse --pretty=format:'%h%x09%s' "${pathspec[@]}"; printf '\n')
+  done < <(git -C "$repo_root" log --no-merges --reverse --pretty=format:'%h%x09%s' \
+    --invert-grep \
+    --grep='^chore(release): bump component versions$' \
+    --grep='^docs(changelog): ' \
+    "${pathspec[@]}"; printf '\n')
 
   flush_group
 

@@ -104,6 +104,22 @@ git -C "$r" diff --cached --quiet || fail "staged a bump for a new-on-branch ver
 out="$(bump "$r" main)"
 [ -z "$out" ] || fail "second run bumped the new-on-branch version file" "$out"
 
+# --- a CHANGELOG.md-only change does not bump the component --------------
+r="$tmp/changelog"
+setup_repo "$r"
+printf '# Changelog\n\n## v0.5.0\n' > "$r/dashboard/CHANGELOG.md"
+commit "$r" "docs(changelog): update changelogs"
+out="$(bump "$r" main)"
+[ -z "$out" ] || fail "a changelog-only change bumped" "$out"
+[ "$(cat "$r/dashboard/VERSION")" = v0.5.0 ] \
+  || fail "dashboard/VERSION bumped by a changelog-only change" "$(cat "$r/dashboard/VERSION")"
+# ...but a real change alongside the changelog still bumps
+echo y > "$r/dashboard/app.js"
+commit "$r" "feat: real dashboard change"
+bump "$r" main
+[ "$(cat "$r/dashboard/VERSION")" = v0.5.1 ] \
+  || fail "dashboard/VERSION not bumped by a real change next to the changelog" "$(cat "$r/dashboard/VERSION")"
+
 # --- --check: exit 1 when a bump is missing, 0 once it is there -----------
 r="$tmp/check"
 setup_repo "$r"

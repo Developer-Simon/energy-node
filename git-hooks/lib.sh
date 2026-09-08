@@ -50,6 +50,9 @@ component_touched() {
   local filtered other other_prefix
   filtered="$(printf '%s\n' "${files}" | grep "^${dir_prefix}" || true)"
   filtered="$(printf '%s\n' "${filtered}" | grep -v "^${version_file}$" || true)"
+  # CHANGELOG.md is a generated artefact (scripts/generate_changelog.sh) - a
+  # changelog-only change must not bump the component or mint a pre-release tag.
+  filtered="$(printf '%s\n' "${filtered}" | grep -v "^${dir_prefix}CHANGELOG.md$" || true)"
   for other in "${COMPONENTS[@]}"; do
     other_prefix="${other%%:*}"
     if [[ "${other_prefix}" != "${dir_prefix}" && "${other_prefix}" == "${dir_prefix}"* ]]; then
