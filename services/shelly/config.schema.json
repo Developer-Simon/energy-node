@@ -1,0 +1,11 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
+  "properties": {
+    "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
+    "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
+    "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"},
+    "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP-Timeout"}
+  }
+}
