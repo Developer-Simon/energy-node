@@ -1,159 +1,439 @@
 {
-  "title": "Energy Node zentrale Konfiguration",
-  "description": "Ersetzt die frueheren *.env-Dateien aller Dienste. Liegt auf dem Zielgeraet unter /etc/energy-node/config.json.",
-  "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "mqtt", "paths", "logging", "node", "services", "dashboard", "tailscale", "tinytuya"],
+  "description": "Ersetzt die frueheren *.env-Dateien aller Dienste. Liegt auf dem Zielgeraet unter /etc/energy-node/config.json.",
   "properties": {
-    "schema_version": {"type": "integer", "minimum": 1, "maximum": 1, "title": "Schemaversion"},
-    "mqtt": {
-      "type": "object",
+    "dashboard": {
       "additionalProperties": false,
-      "required": ["host", "port", "username", "password_file"],
       "properties": {
-        "host": {"type": "string", "minLength": 1, "title": "Broker-Host"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "Broker-Port"},
-        "username": {"type": "string", "title": "Benutzername"},
-        "password_file": {"type": "string", "title": "Passwortdatei"}
-      }
-    },
-    "paths": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["devices_dir", "data_dir"],
-      "properties": {
-        "devices_dir": {"type": "string", "minLength": 1, "title": "Geraetekonfigurationen"},
-        "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard-Daten"},
-        "services_version_file": {"type": "string", "title": "Services-Versionsdatei", "description": "Optionaler Pfad zur von scripts/deploy/deploy_src_to_remote.sh deployten services/VERSION-Datei. Leer = nicht konfiguriert."}
-      }
+        "admin_password_file": {
+          "title": "Admin-Passwortdatei",
+          "type": "string"
+        },
+        "admin_username": {
+          "minLength": 1,
+          "title": "Admin-Benutzername",
+          "type": "string"
+        },
+        "bind_address": {
+          "minLength": 1,
+          "title": "Bind-Adresse",
+          "type": "string"
+        },
+        "client_id": {
+          "minLength": 1,
+          "title": "MQTT-Client-ID",
+          "type": "string"
+        },
+        "device_identifier": {
+          "minLength": 1,
+          "title": "Eigener Geraetebezeichner",
+          "type": "string"
+        },
+        "log_level": {
+          "minLength": 1,
+          "title": "Log-Level",
+          "type": "string"
+        },
+        "mosquitto_bridge_target": {
+          "minLength": 1,
+          "title": "Bridge-Zieldatei",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "HTTP-Port",
+          "type": "integer"
+        },
+        "sweep_interval_seconds": {
+          "minimum": 1,
+          "title": "Sweep-Intervall",
+          "type": "integer"
+        },
+        "system_action_helper": {
+          "minLength": 1,
+          "title": "Systemaktions-Helfer",
+          "type": "string"
+        },
+        "tls": {
+          "additionalProperties": false,
+          "properties": {
+            "cert_file": {
+              "title": "Zertifikat",
+              "type": "string"
+            },
+            "key_file": {
+              "title": "Schluessel",
+              "type": "string"
+            }
+          },
+          "required": [
+            "cert_file",
+            "key_file"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "bind_address",
+        "port",
+        "client_id",
+        "device_identifier",
+        "log_level",
+        "sweep_interval_seconds",
+        "admin_username",
+        "admin_password_file",
+        "tls",
+        "system_action_helper",
+        "mosquitto_bridge_target"
+      ],
+      "type": "object"
     },
     "logging": {
-      "type": "object",
       "additionalProperties": false,
-      "required": ["level"],
-      "properties": {"level": {"type": "string", "minLength": 1, "title": "Log-Level der Python-Dienste"}}
+      "properties": {
+        "level": {
+          "minLength": 1,
+          "title": "Log-Level der Python-Dienste",
+          "type": "string"
+        }
+      },
+      "required": [
+        "level"
+      ],
+      "type": "object"
+    },
+    "mqtt": {
+      "additionalProperties": false,
+      "properties": {
+        "host": {
+          "minLength": 1,
+          "title": "Broker-Host",
+          "type": "string"
+        },
+        "password_file": {
+          "title": "Passwortdatei",
+          "type": "string"
+        },
+        "port": {
+          "maximum": 65535,
+          "minimum": 1,
+          "title": "Broker-Port",
+          "type": "integer"
+        },
+        "username": {
+          "title": "Benutzername",
+          "type": "string"
+        }
+      },
+      "required": [
+        "host",
+        "port",
+        "username",
+        "password_file"
+      ],
+      "type": "object"
     },
     "node": {
-      "type": "object",
       "additionalProperties": false,
-      "required": ["device_id", "device_name", "managed_bridges", "poll_interval_s", "diagnostic_poll_multiplier"],
       "properties": {
-        "device_id": {"type": "string", "minLength": 1, "title": "Node-Geraete-ID"},
-        "device_name": {"type": "string", "minLength": 1, "title": "Anzeigename"},
-        "managed_bridges": {"type": "array", "items": {"type": "string", "minLength": 1}, "title": "Verwaltete Bridges"},
-        "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
-        "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
-      }
+        "device_id": {
+          "minLength": 1,
+          "title": "Node-Geraete-ID",
+          "type": "string"
+        },
+        "device_name": {
+          "minLength": 1,
+          "title": "Anzeigename",
+          "type": "string"
+        },
+        "diagnostic_poll_multiplier": {
+          "exclusiveMinimum": 0,
+          "title": "Diagnose-Multiplikator",
+          "type": "number"
+        },
+        "managed_bridges": {
+          "items": {
+            "minLength": 1,
+            "type": "string"
+          },
+          "title": "Verwaltete Bridges",
+          "type": "array"
+        },
+        "poll_interval_s": {
+          "exclusiveMinimum": 0,
+          "title": "Abfrageintervall",
+          "type": "number"
+        }
+      },
+      "required": [
+        "device_id",
+        "device_name",
+        "managed_bridges",
+        "poll_interval_s",
+        "diagnostic_poll_multiplier"
+      ],
+      "type": "object"
+    },
+    "paths": {
+      "additionalProperties": false,
+      "properties": {
+        "data_dir": {
+          "minLength": 1,
+          "title": "Dashboard-Daten",
+          "type": "string"
+        },
+        "devices_dir": {
+          "minLength": 1,
+          "title": "Geraetekonfigurationen",
+          "type": "string"
+        },
+        "services_version_file": {
+          "description": "Optionaler Pfad zur von scripts/deploy/deploy_src_to_remote.sh deployten services/VERSION-Datei. Leer = nicht konfiguriert.",
+          "title": "Services-Versionsdatei",
+          "type": "string"
+        }
+      },
+      "required": [
+        "devices_dir",
+        "data_dir"
+      ],
+      "type": "object"
+    },
+    "schema_version": {
+      "maximum": 1,
+      "minimum": 1,
+      "title": "Schemaversion",
+      "type": "integer"
     },
     "services": {
-      "type": "object",
       "additionalProperties": false,
-      "required": ["apsystems", "shelly", "trucki", "tuya", "battery_soc", "automation"],
       "properties": {
         "apsystems": {
-          "type": "object",
           "additionalProperties": false,
-          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
           "properties": {
-            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
-            "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
-            "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
-          }
-        },
-        "shelly": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
-          "properties": {
-            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
-            "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
-            "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"},
-            "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP-Timeout"}
-          }
-        },
-        "trucki": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
-          "properties": {
-            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
-            "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
-            "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"},
-            "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP-Timeout"}
-          }
-        },
-        "tuya": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
-          "properties": {
-            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
-            "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
-            "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
-          }
-        },
-        "battery_soc": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
-          "properties": {
-            "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
-            "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
-            "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
-          }
+            "diagnostic_poll_multiplier": {
+              "exclusiveMinimum": 0,
+              "title": "Diagnose-Multiplikator",
+              "type": "number"
+            },
+            "poll_interval_s": {
+              "exclusiveMinimum": 0,
+              "title": "Abfrageintervall",
+              "type": "number"
+            },
+            "service_id": {
+              "minLength": 1,
+              "title": "Dienst-ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service_id",
+            "poll_interval_s",
+            "diagnostic_poll_multiplier"
+          ],
+          "type": "object"
         },
         "automation": {
-          "type": "object",
           "additionalProperties": false,
-          "required": ["service_id"],
-          "properties": {"service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"}}
-        }
-      }
-    },
-    "dashboard": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["bind_address", "port", "client_id", "device_identifier", "log_level", "sweep_interval_seconds", "admin_username", "admin_password_file", "tls", "system_action_helper", "mosquitto_bridge_target"],
-      "properties": {
-        "bind_address": {"type": "string", "minLength": 1, "title": "Bind-Adresse"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "HTTP-Port"},
-        "client_id": {"type": "string", "minLength": 1, "title": "MQTT-Client-ID"},
-        "device_identifier": {"type": "string", "minLength": 1, "title": "Eigener Geraetebezeichner"},
-        "log_level": {"type": "string", "minLength": 1, "title": "Log-Level"},
-        "sweep_interval_seconds": {"type": "integer", "minimum": 1, "title": "Sweep-Intervall"},
-        "admin_username": {"type": "string", "minLength": 1, "title": "Admin-Benutzername"},
-        "admin_password_file": {"type": "string", "title": "Admin-Passwortdatei"},
-        "tls": {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["cert_file", "key_file"],
           "properties": {
-            "cert_file": {"type": "string", "title": "Zertifikat"},
-            "key_file": {"type": "string", "title": "Schluessel"}
-          }
+            "service_id": {
+              "minLength": 1,
+              "title": "Dienst-ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service_id"
+          ],
+          "type": "object"
         },
-        "system_action_helper": {"type": "string", "minLength": 1, "title": "Systemaktions-Helfer"},
-        "mosquitto_bridge_target": {"type": "string", "minLength": 1, "title": "Bridge-Zieldatei"}
-      }
+        "battery_soc": {
+          "additionalProperties": false,
+          "properties": {
+            "diagnostic_poll_multiplier": {
+              "exclusiveMinimum": 0,
+              "title": "Diagnose-Multiplikator",
+              "type": "number"
+            },
+            "poll_interval_s": {
+              "exclusiveMinimum": 0,
+              "title": "Abfrageintervall",
+              "type": "number"
+            },
+            "service_id": {
+              "minLength": 1,
+              "title": "Dienst-ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service_id",
+            "poll_interval_s",
+            "diagnostic_poll_multiplier"
+          ],
+          "type": "object"
+        },
+        "shelly": {
+          "additionalProperties": false,
+          "properties": {
+            "diagnostic_poll_multiplier": {
+              "exclusiveMinimum": 0,
+              "title": "Diagnose-Multiplikator",
+              "type": "number"
+            },
+            "http_timeout_s": {
+              "exclusiveMinimum": 0,
+              "title": "HTTP-Timeout",
+              "type": "number"
+            },
+            "poll_interval_s": {
+              "exclusiveMinimum": 0,
+              "title": "Abfrageintervall",
+              "type": "number"
+            },
+            "service_id": {
+              "minLength": 1,
+              "title": "Dienst-ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service_id",
+            "poll_interval_s",
+            "diagnostic_poll_multiplier",
+            "http_timeout_s"
+          ],
+          "type": "object"
+        },
+        "trucki": {
+          "additionalProperties": false,
+          "properties": {
+            "diagnostic_poll_multiplier": {
+              "exclusiveMinimum": 0,
+              "title": "Diagnose-Multiplikator",
+              "type": "number"
+            },
+            "http_timeout_s": {
+              "exclusiveMinimum": 0,
+              "title": "HTTP-Timeout",
+              "type": "number"
+            },
+            "poll_interval_s": {
+              "exclusiveMinimum": 0,
+              "title": "Abfrageintervall",
+              "type": "number"
+            },
+            "service_id": {
+              "minLength": 1,
+              "title": "Dienst-ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service_id",
+            "poll_interval_s",
+            "diagnostic_poll_multiplier",
+            "http_timeout_s"
+          ],
+          "type": "object"
+        },
+        "tuya": {
+          "additionalProperties": false,
+          "properties": {
+            "diagnostic_poll_multiplier": {
+              "exclusiveMinimum": 0,
+              "title": "Diagnose-Multiplikator",
+              "type": "number"
+            },
+            "poll_interval_s": {
+              "exclusiveMinimum": 0,
+              "title": "Abfrageintervall",
+              "type": "number"
+            },
+            "service_id": {
+              "minLength": 1,
+              "title": "Dienst-ID",
+              "type": "string"
+            }
+          },
+          "required": [
+            "service_id",
+            "poll_interval_s",
+            "diagnostic_poll_multiplier"
+          ],
+          "type": "object"
+        }
+      },
+      "required": [
+        "apsystems",
+        "automation",
+        "battery_soc",
+        "shelly",
+        "trucki",
+        "tuya"
+      ],
+      "type": "object"
     },
     "tailscale": {
-      "type": "object",
       "additionalProperties": false,
-      "required": ["bin", "status_timeout_s"],
       "properties": {
-        "bin": {"type": "string", "minLength": 1, "title": "tailscale-Binary"},
-        "status_timeout_s": {"type": "integer", "minimum": 1, "title": "Status-Timeout"}
-      }
+        "bin": {
+          "minLength": 1,
+          "title": "tailscale-Binary",
+          "type": "string"
+        },
+        "status_timeout_s": {
+          "minimum": 1,
+          "title": "Status-Timeout",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "bin",
+        "status_timeout_s"
+      ],
+      "type": "object"
     },
     "tinytuya": {
-      "type": "object",
       "additionalProperties": false,
-      "required": ["probe_python", "probe_script", "probe_timeout_s"],
       "properties": {
-        "probe_python": {"type": "string", "minLength": 1, "title": "Python-Interpreter"},
-        "probe_script": {"type": "string", "minLength": 1, "title": "Probe-Skript"},
-        "probe_timeout_s": {"type": "integer", "minimum": 1, "title": "Probe-Timeout"}
-      }
+        "probe_python": {
+          "minLength": 1,
+          "title": "Python-Interpreter",
+          "type": "string"
+        },
+        "probe_script": {
+          "minLength": 1,
+          "title": "Probe-Skript",
+          "type": "string"
+        },
+        "probe_timeout_s": {
+          "minimum": 1,
+          "title": "Probe-Timeout",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "probe_python",
+        "probe_script",
+        "probe_timeout_s"
+      ],
+      "type": "object"
     }
-  }
+  },
+  "required": [
+    "schema_version",
+    "mqtt",
+    "paths",
+    "logging",
+    "node",
+    "services",
+    "dashboard",
+    "tailscale",
+    "tinytuya"
+  ],
+  "title": "Energy Node zentrale Konfiguration",
+  "type": "object"
 }
