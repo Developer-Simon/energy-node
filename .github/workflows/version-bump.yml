@@ -1,15 +1,18 @@
 name: Version bump
 
-# Carries the per-component patch bump that the pre-commit hook used to do for
-# commits on `main` (git-hooks/pre-commit). `main` is PR-protected now, so the
-# bump has to land on the PR branch instead: this workflow runs
-# scripts/version/bump-patch.sh against the PR base and pushes the result back
-# onto the head branch, where the squash-merge then takes it to `main`.
+# Keeps two derived artefacts current on a PR branch, so the squash-merge
+# carries both to `main`:
+#   1. the per-component CHANGELOG.md files (scripts/generate_changelog.sh),
+#      committed as "docs(changelog): update changelogs";
+#   2. the per-component patch bump (scripts/version/bump-patch.sh), committed
+#      as "chore(release): bump component versions" -- the bump the pre-commit
+#      hook used to do before `main` became PR-protected.
+# The changelog commit lands first so it stays a distinct entry from the bump.
 #
 # The push uses a PAT so the required checks re-run, which also re-triggers this
 # workflow. The "Skip when HEAD is already a bot commit" guard below is what
-# stops that from looping: a bump (or changelog) commit can never trigger
-# another one.
+# stops that from looping: a changelog or bump commit can never trigger another
+# run of this job.
 
 on:
   pull_request:
@@ -36,6 +39,11 @@ jobs:
       # the job still runs, in check-only mode.
       HAS_TOKEN: ${{ secrets.BUMP_TOKEN != '' }}
       BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+      # generate_changelog.sh targets. "ha-integration" is intentionally left
+      # out: its version stream is manifest.json (v0.2.x) and it has its own
+      # HACS/mirror release flow (scripts/publish_mirror.sh); the repo-wide
+      # v0.5.x tags would otherwise carve bogus sections into its changelog.
+      CHANGELOG_TARGETS: dashboard services common battery_soc_core
     steps:
       - uses: actions/checkout@v4
         with:
@@ -60,23 +68,44 @@ jobs:
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check for a missing version bump
+      - name: Check for pending changelog / version updates
         if: env.HAS_TOKEN != 'true' && steps.guard.outputs.skip != 'true'
         run: |
           echo "::warning::BUMP_TOKEN secret is not set - running in check-only mode." \
             "Create a fine-grained PAT (contents: write) and save it as BUMP_TOKEN" \
-            "so this workflow can push the bump automatically."
+            "so this workflow can push the changelog and version bump automatically."
+          for t in $CHANGELOG_TARGETS; do scripts/generate_changelog.sh "$t"; done
+          git diff --quiet -- '*CHANGELOG.md' \
+            || echo "::warning::component changelogs are stale - run scripts/generate_changelog.sh"
+          git checkout -- '*CHANGELOG.md'
           scripts/version/bump-patch.sh --check "$BASE_REF"
 
-      - name: Bump and push
+      - name: Regenerate changelogs, bump versions, push
         if: env.HAS_TOKEN == 'true' && steps.guard.outputs.skip != 'true'
+        env:
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          scripts/version/bump-patch.sh "$BASE_REF"
-          if git diff --cached --quiet; then
-            echo "No version bump needed."
-            exit 0
-          fi
           git config user.name "energy-node-bot"
           git config user.email "energy-node-bot@users.noreply.github.com"
-          git commit -m "chore(release): bump component versions"
-          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+
+          # Changelogs first, as their own commit before the bump.
+          for t in $CHANGELOG_TARGETS; do scripts/generate_changelog.sh "$t"; done
+          if ! git diff --quiet -- '*CHANGELOG.md'; then
+            git add -- '*CHANGELOG.md'
+            git commit -m "docs(changelog): update changelogs"
+          fi
+
+          # Per-component patch bump.
+          scripts/version/bump-patch.sh "$BASE_REF"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): bump component versions"
+          fi
+
+          # One push for whatever landed. The guard step no-ops the run this
+          # push re-triggers, so it cannot loop.
+          if [ "$(git rev-parse HEAD)" = "$HEAD_SHA" ]; then
+            echo "Changelogs and versions already current - nothing to push."
+          else
+            git push origin "HEAD:$HEAD_REF"
+          fi
