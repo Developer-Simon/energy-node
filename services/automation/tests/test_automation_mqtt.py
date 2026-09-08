@@ -36,8 +36,8 @@ def test_history_file_path_follows_convention(app_config):
     assert config.history_file().name == "automation_history.json"
 
 
-def test_service_topics_follow_device_id(app_config, tmp_path):
-    config = app_config(services={"automation": {"device_id": "automation-x"}})
+def test_service_topics_follow_service_id(app_config, tmp_path):
+    config = app_config(services={"automation": {"service_id": "automation-x"}})
     rules_path = tmp_path / "automation_rules.json"
     rules_path.write_text(json.dumps({"version": 1, "settings": {}, "rules": []}))
     config_store = ReloadableConfig(str(rules_path), automation.load_and_validate)
@@ -997,7 +997,7 @@ def test_on_connect_resubscribes_after_a_reconnect_with_an_unchanged_document():
     service.startup_error = None
     service.base_topic = "outstation/automation"
     service.test_command_topic = "outstation/automation/test/set"
-    service.service_config = type('obj', (object,), {'device_id': 'automation'})()
+    service.service_config = type('obj', (object,), {'service_id': 'automation'})()
 
     service.on_connect(service.client, None, {}, 0)
     service.client.subscribed.clear()  # nur den zweiten (Reconnect-)Aufruf pruefen
@@ -1030,7 +1030,7 @@ def test_publish_startup_rejection_publishes_a_rejected_slave_status():
     service = automation.AutomationService.__new__(automation.AutomationService)
     service.client = client
     service.doc = automation.RulesDocument(version=1, settings=automation.Settings(), rules=[])
-    service.service_config = type('obj', (object,), {'device_id': 'automation'})()
+    service.service_config = type('obj', (object,), {'service_id': 'automation'})()
     service._publish_startup_rejection(client, "bad json")
     payload = client.state_payload(suffix="/settings/status")
     assert payload["runtime_status"] == "rejected"
@@ -1162,7 +1162,7 @@ def _service_with(rules, *, prefixes=None, published=None, history_path=None, hi
 
     # Mock config objects for testing
     service_config = Mock()
-    service_config.device_id = "automation"
+    service_config.service_id = "automation"
     mqtt_config = Mock()
 
     # Mock config_store that returns the test doc

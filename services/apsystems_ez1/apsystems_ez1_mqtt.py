@@ -593,7 +593,7 @@ class APsystemsService:
         self.service_config = config.service(service_name)
         self.node_device_id = config.node.device_id
         self.mqtt_config = config.mqtt
-        self.base_topic = f"outstation/{self.service_config.device_id}"
+        self.base_topic = f"outstation/{self.service_config.service_id}"
         self.client: Optional[mqtt.Client] = None
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.slave: Optional[Slave] = None
@@ -798,7 +798,7 @@ class APsystemsService:
         asyncio.set_event_loop(self.loop)
 
         self.slave = Slave(
-            device_id=self.service_config.device_id,
+            service_id=self.service_config.service_id,
             poll_core=self.poll_core,
             poll_diagnostics=self.poll_diagnostics,
             default_poll_interval_s=self.service_config.poll_interval_s,
@@ -811,7 +811,7 @@ class APsystemsService:
         self.slave.register_devices([device.cfg.id for device in self.devices])
 
         self.client = common_mqtt.build_client(
-            client_id=f"{self.service_config.device_id}-bridge",
+            client_id=f"{self.service_config.service_id}-bridge",
             host=self.mqtt_config.host,
             port=self.mqtt_config.port,
             user=self.mqtt_config.username,

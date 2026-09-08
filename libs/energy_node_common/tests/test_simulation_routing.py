@@ -102,7 +102,7 @@ class SimulationRoutingTests(unittest.TestCase):
 
 
 def test_apply_config_defaults_updates_values():
-    slave = Slave(device_id="shelly", poll_core=lambda: None,
+    slave = Slave(service_id="shelly", poll_core=lambda: None,
                   default_poll_interval_s=20, default_diagnostic_multiplier=15)
 
     slave.apply_config_defaults(poll_interval_s=30, diagnostic_multiplier=5)
@@ -115,7 +115,7 @@ def test_poll_interval_set_topic_is_ignored_config_wins():
     # Nach dem Master-Rueckbau gibt es kein /set-Topic mehr, das die Rate
     # zur Laufzeit ueberschreiben koennte: die config.json ist die Wahrheit.
     client = FakeClient()
-    slave = Slave(device_id="shelly", poll_core=lambda: None,
+    slave = Slave(service_id="shelly", poll_core=lambda: None,
                   default_poll_interval_s=20, default_diagnostic_multiplier=15)
 
     handled = slave.handle_message(
@@ -133,7 +133,7 @@ def test_poll_interval_set_topic_is_ignored_config_wins():
 def test_config_reload_still_dispatches():
     client = FakeClient()
     called = []
-    slave = Slave(device_id="x", poll_core=lambda: None,
+    slave = Slave(service_id="x", poll_core=lambda: None,
                   on_config_reload=lambda: called.append(True))
 
     handled = slave.handle_message(client, "outstation/x/config/reload", "")
@@ -144,7 +144,7 @@ def test_config_reload_still_dispatches():
 
 def test_status_payload_keeps_poll_fields():
     client = FakeClient()
-    slave = Slave(device_id="x", poll_core=lambda: None,
+    slave = Slave(service_id="x", poll_core=lambda: None,
                   default_poll_interval_s=42, default_diagnostic_multiplier=7)
 
     slave._publish_status(client)

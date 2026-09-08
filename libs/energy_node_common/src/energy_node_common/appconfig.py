@@ -27,12 +27,12 @@ SCHEMA_VERSION = 1
 # Diese Tabelle und die "required"-Listen in config.schema.json beschreiben
 # dieselbe Regel und muessen synchron bleiben.
 REQUIRED_SERVICE_FIELDS: Dict[str, Tuple[str, ...]] = {
-    "apsystems": ("device_id", "poll_interval_s", "diagnostic_poll_multiplier"),
-    "shelly": ("device_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"),
-    "trucki": ("device_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"),
-    "tuya": ("device_id", "poll_interval_s", "diagnostic_poll_multiplier"),
-    "battery_soc": ("device_id", "poll_interval_s", "diagnostic_poll_multiplier"),
-    "automation": ("device_id",),
+    "apsystems": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier"),
+    "shelly": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"),
+    "trucki": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"),
+    "tuya": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier"),
+    "battery_soc": ("service_id", "poll_interval_s", "diagnostic_poll_multiplier"),
+    "automation": ("service_id",),
 }
 
 _NUMERIC_SERVICE_FIELDS = ("poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s")
@@ -105,7 +105,7 @@ class MQTTConfig:
 @dataclass(frozen=True)
 class ServiceConfig:
     name: str
-    device_id: str
+    service_id: str
     poll_interval_s: Optional[float] = None
     diagnostic_poll_multiplier: Optional[float] = None
     http_timeout_s: Optional[float] = None
@@ -190,7 +190,7 @@ def _load_services(data: dict, path: str) -> Dict[str, ServiceConfig]:
                 values[field_name] = None
         services[name] = ServiceConfig(
             name=name,
-            device_id=_text(entry, "device_id", path, prefix),
+            service_id=_text(entry, "service_id", path, prefix),
             **values,
         )
     return services

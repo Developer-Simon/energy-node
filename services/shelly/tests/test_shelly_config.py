@@ -34,7 +34,7 @@ def test_http_timeout_is_passed_through(monkeypatch):
 
 
 def test_service_derives_base_topic_from_service_config(app_config):
-    config = app_config(services={"shelly": {"device_id": "shelly-x", "poll_interval_s": 20,
+    config = app_config(services={"shelly": {"service_id": "shelly-x", "poll_interval_s": 20,
                                              "diagnostic_poll_multiplier": 15, "http_timeout_s": 5}})
     service = shelly.ShellyService([], None, config, "shelly")
 

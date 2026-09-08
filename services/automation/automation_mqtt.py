@@ -843,7 +843,7 @@ class AutomationService:
         self.app_config = app_config
         self.service_name = service_name
         self.doc, self.startup_error = load_initial_document(config_store)
-        self.base_topic = f"outstation/{service_config.device_id}"
+        self.base_topic = f"outstation/{service_config.service_id}"
         self.test_command_topic = f"{self.base_topic}/test/set"
         self.test_result_topic = f"{self.base_topic}/test/result"
         self.executor = ActionExecutor(publish_fn=self._publish_action,
@@ -904,7 +904,7 @@ class AutomationService:
                               diagnostic_poll_multiplier=1,
                               actual_poll_interval_s=self.doc.settings.tick_interval_s,
                               runtime_status="rejected", error=error)
-        publish_json(client, settings_status_topic(self.service_config.device_id), status.to_dict())
+        publish_json(client, settings_status_topic(self.service_config.service_id), status.to_dict())
 
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
         publish_online_status(client, self.base_topic, online=True, reason="connected")
@@ -915,9 +915,9 @@ class AutomationService:
         # bei unveraendertem Dokument nach einem Reconnect auf gar nichts.
         self.subscribed_topics = set()
         self.apply_subscriptions(self.doc)
-        device_block = {"identifiers": [self.service_config.device_id], "name": "Energie-Automationen", "manufacturer": "Energy Node"}
-        for component, object_id, config in discovery_object_ids(self.service_config.device_id, self.base_topic, device_block):
-            publish_discovery(client, self.service_config.device_id, component, object_id, config)
+        device_block = {"identifiers": [self.service_config.service_id], "name": "Energie-Automationen", "manufacturer": "Energy Node"}
+        for component, object_id, config in discovery_object_ids(self.service_config.service_id, self.base_topic, device_block):
+            publish_discovery(client, self.service_config.service_id, component, object_id, config)
         self.slave.start(client)
         if self.startup_error is not None:
             self._publish_startup_rejection(client, self.startup_error)
@@ -1052,13 +1052,13 @@ class AutomationService:
         self.apply_subscriptions(new_doc)
 
     def run(self):
-        self.client = build_client(client_id=f"{self.service_config.device_id}-service", host=self.mqtt_config.host, port=self.mqtt_config.port,
+        self.client = build_client(client_id=f"{self.service_config.service_id}-service", host=self.mqtt_config.host, port=self.mqtt_config.port,
                                     user=self.mqtt_config.username, password=self.mqtt_config.password(), will_topic=f"{self.base_topic}/status/online")
         self.client.enable_logger(LOG)
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
 
-        self.slave = Slave(device_id=self.service_config.device_id, poll_core=self.poll_core,
+        self.slave = Slave(service_id=self.service_config.service_id, poll_core=self.poll_core,
                             default_poll_interval_s=self.doc.settings.tick_interval_s,
                             on_config_reload=self.reload_config,
                             on_poll_error=lambda exc: LOG.error("Scheduler-Fehler: %s", exc))

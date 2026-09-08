@@ -16,26 +16,26 @@ SIMULATION_SETTING = "simulation_active"
 CONFIG_RELOAD_TOPIC_SUFFIX = "config/reload"
 
 
-def base_topic(device_id: str) -> str:
-    return f"outstation/{device_id}"
+def base_topic(service_id: str) -> str:
+    return f"outstation/{service_id}"
 
 
-def settings_set_topic(device_id: str, setting: str) -> str:
+def settings_set_topic(service_id: str, setting: str) -> str:
     """Retained Command-Topic, auf das der Slave hoert (aktuell nur
     simulation_active, direkt aus Home Assistant oder vom Node-Broadcast)."""
-    return f"{base_topic(device_id)}/settings/{setting}/set"
+    return f"{base_topic(service_id)}/settings/{setting}/set"
 
 
-def settings_state_topic(device_id: str, setting: str) -> str:
+def settings_state_topic(service_id: str, setting: str) -> str:
     """Retained Ack-Topic mit dem vom Slave tatsaechlich uebernommenen Wert."""
-    return f"{base_topic(device_id)}/settings/{setting}"
+    return f"{base_topic(service_id)}/settings/{setting}"
 
 
-def settings_status_topic(device_id: str) -> str:
+def settings_status_topic(service_id: str) -> str:
     """Gemeinsame Statusstruktur (JSON) mit Rate, Diagnose-Multiplikator,
     letzter erfolgreicher Aktualisierung, Laufzeitstatus und optionalem
     Fehlergrund."""
-    return f"{base_topic(device_id)}/settings/status"
+    return f"{base_topic(service_id)}/settings/status"
 
 
 def master_settings_set_topic(node_device_id: str, setting: str) -> str:
@@ -44,9 +44,9 @@ def master_settings_set_topic(node_device_id: str, setting: str) -> str:
     return f"{base_topic(node_device_id)}/settings/{setting}/set"
 
 
-def config_reload_topic(device_id: str) -> str:
+def config_reload_topic(service_id: str) -> str:
     """Command topic for asking a service to reload its JSON configuration."""
-    return f"{base_topic(device_id)}/{CONFIG_RELOAD_TOPIC_SUFFIX}"
+    return f"{base_topic(service_id)}/{CONFIG_RELOAD_TOPIC_SUFFIX}"
 
 
 def parse_bool(value) -> tuple[Optional[bool], Optional[str]]:

@@ -13,7 +13,7 @@ def test_module_has_no_environment_constants():
 
 
 def test_service_uses_config_values(app_config):
-    config = app_config(services={"tuya": {"device_id": "tuya-x", "poll_interval_s": 45, "diagnostic_poll_multiplier": 2}})
+    config = app_config(services={"tuya": {"service_id": "tuya-x", "poll_interval_s": 45, "diagnostic_poll_multiplier": 2}})
     service = tuya_mqtt.TuyaService([], None, config, "tuya")
 
     assert service.base_topic == "outstation/tuya-x"

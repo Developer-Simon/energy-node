@@ -459,7 +459,7 @@ def main():
         publish_slow_diagnostics(client, topics)
 
     slave = Slave(
-        device_id=node_config.device_id,
+        service_id=node_config.device_id,
         poll_core=poll_core,
         poll_diagnostics=poll_diagnostics,
         default_poll_interval_s=node_config.poll_interval_s,

@@ -405,7 +405,7 @@ def main() -> None:
         runtimes = new_runtimes
 
     slave = Slave(
-        device_id=service_config.device_id,
+        service_id=service_config.service_id,
         poll_core=poll_core,
         default_poll_interval_s=service_config.poll_interval_s,
         default_diagnostic_multiplier=service_config.diagnostic_poll_multiplier,

@@ -709,7 +709,7 @@ class ShellyService:
         self.service_config = app_config.service(service_name)
         self.mqtt_config = app_config.mqtt
         self.node_device_id = app_config.node.device_id
-        self.base_topic = f"outstation/{self.service_config.device_id}"
+        self.base_topic = f"outstation/{self.service_config.service_id}"
         self.client: Optional[mqtt_client.Client] = None
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         self.slave: Optional[Slave] = None
@@ -932,7 +932,7 @@ class ShellyService:
         asyncio.set_event_loop(self.loop)
 
         self.slave = Slave(
-            device_id=self.service_config.device_id,
+            service_id=self.service_config.service_id,
             poll_core=self.poll_core,
             poll_diagnostics=self.poll_diagnostics,
             default_poll_interval_s=self.service_config.poll_interval_s,
@@ -945,7 +945,7 @@ class ShellyService:
         self.slave.register_devices([device.unique_id for device in self.devices])
 
         self.client = mqtt.build_client(
-            client_id=f"{self.service_config.device_id}-service",
+            client_id=f"{self.service_config.service_id}-service",
             host=self.mqtt_config.host,
             port=self.mqtt_config.port,
             user=self.mqtt_config.username,

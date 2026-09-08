@@ -218,7 +218,7 @@ class TuyaService:
     @property
     def base_topic(self) -> str:
         if self.service_config:
-            return f"outstation/{self.service_config.device_id}"
+            return f"outstation/{self.service_config.service_id}"
         return "outstation/tuya"
 
     def reload_config(self) -> None:
@@ -319,7 +319,7 @@ class TuyaService:
 
     def run(self) -> None:
         self.slave = Slave(
-            device_id=self.service_config.device_id,
+            service_id=self.service_config.service_id,
             poll_core=self.poll_core,
             default_poll_interval_s=self.service_config.poll_interval_s,
             default_diagnostic_multiplier=self.service_config.diagnostic_poll_multiplier,
@@ -329,7 +329,7 @@ class TuyaService:
         )
         self.slave.register_devices([device.cfg.id for device in self.devices])
         self.client = common_mqtt.build_client(
-            client_id=f"{self.service_config.device_id}-bridge",
+            client_id=f"{self.service_config.service_id}-bridge",
             host=self.mqtt_config.host,
             port=self.mqtt_config.port,
             user=self.mqtt_config.username,

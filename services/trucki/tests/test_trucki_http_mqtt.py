@@ -357,7 +357,7 @@ def test_module_has_no_environment_constants():
 
 
 def test_service_derives_base_topic_from_service_config(app_config):
-    config = app_config(services={"trucki": {"device_id": "trucki-x", "poll_interval_s": 30,
+    config = app_config(services={"trucki": {"service_id": "trucki-x", "poll_interval_s": 30,
                                              "diagnostic_poll_multiplier": 10, "http_timeout_s": 5}})
     service = trucki.TruckiService([], None, config, "trucki")
 

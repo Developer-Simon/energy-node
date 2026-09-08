@@ -37,7 +37,7 @@ class Slave:
 
     def __init__(
         self,
-        device_id: str,
+        service_id: str,
         poll_core: Callable,
         poll_diagnostics: Optional[Callable] = None,
         default_poll_interval_s: float = 60,
@@ -49,8 +49,8 @@ class Slave:
         on_poll_error: Optional[Callable[[Exception], None]] = None,
         async_loop=None,
     ):
-        self.device_id = device_id
-        self.base_topic = f"outstation/{device_id}"
+        self.service_id = service_id
+        self.base_topic = f"outstation/{service_id}"
 
         # Abfrageraten kommen aus der config.json und werden nur ueber
         # apply_config_defaults() aktualisiert.
@@ -69,8 +69,8 @@ class Slave:
         self._async_loop = async_loop
         self._scheduler_started = False
 
-        self._status_topic = settings_status_topic(device_id)
-        self._config_reload_topic = config_reload_topic(device_id)
+        self._status_topic = settings_status_topic(service_id)
+        self._config_reload_topic = config_reload_topic(service_id)
 
         if async_loop is not None:
             self._scheduler = AsyncScheduler(
@@ -87,7 +87,7 @@ class Slave:
                 lambda: self.diagnostic_poll_multiplier,
                 poll_diagnostics,
                 on_error=on_poll_error,
-                name=f"{device_id}-slave-scheduler",
+                name=f"{service_id}-slave-scheduler",
             )
 
     @property

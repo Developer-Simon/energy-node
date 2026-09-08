@@ -37,12 +37,12 @@ def valid_document() -> dict:
             "diagnostic_poll_multiplier": 10,
         },
         "services": {
-            "apsystems": {"device_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10},
-            "shelly": {"device_id": "shelly", "poll_interval_s": 20, "diagnostic_poll_multiplier": 15, "http_timeout_s": 5},
-            "trucki": {"device_id": "trucki", "poll_interval_s": 30, "diagnostic_poll_multiplier": 10, "http_timeout_s": 5},
-            "tuya": {"device_id": "tuya", "poll_interval_s": 30, "diagnostic_poll_multiplier": 1},
-            "battery_soc": {"device_id": "battery_soc", "poll_interval_s": 10, "diagnostic_poll_multiplier": 1},
-            "automation": {"device_id": "automation"},
+            "apsystems": {"service_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10},
+            "shelly": {"service_id": "shelly", "poll_interval_s": 20, "diagnostic_poll_multiplier": 15, "http_timeout_s": 5},
+            "trucki": {"service_id": "trucki", "poll_interval_s": 30, "diagnostic_poll_multiplier": 10, "http_timeout_s": 5},
+            "tuya": {"service_id": "tuya", "poll_interval_s": 30, "diagnostic_poll_multiplier": 1},
+            "battery_soc": {"service_id": "battery_soc", "poll_interval_s": 10, "diagnostic_poll_multiplier": 1},
+            "automation": {"service_id": "automation"},
         },
     }
 
@@ -68,7 +68,7 @@ def test_load_reads_every_section(tmp_path):
     assert config.node.managed_bridges == ("apsystems", "tuya", "battery_soc", "shelly")
     assert config.node.poll_interval_s == 60.0
     assert config.node.diagnostic_poll_multiplier == 10.0
-    assert config.service("shelly").device_id == "shelly"
+    assert config.service("shelly").service_id == "shelly"
     assert config.service("shelly").poll_interval_s == 20.0
     assert config.service("shelly").http_timeout_s == 5.0
     assert config.service("automation").http_timeout_s is None
