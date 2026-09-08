@@ -47,6 +47,15 @@ separate JSON file per service under `paths.devices_dir`, with a JSON schema
 next to it. That schema is what the dashboard's configuration editor renders as
 a form, so the field descriptions quoted below are the ones you see in the UI.
 
+**Every service is self-describing.** Each service directory also carries a
+`manifest.json` (`service_id`, `unit`, `schema`, `required`) and a
+`config.schema.json` — the JSON Schema fragment for that service's
+`services.<service_id>` block in the central config. `dashboard/cmd/schemagen`
+composes those fragments, plus a hand-maintained core schema, into the
+committed `dashboard/internal/appconfig/config.schema.json`; the Python
+services read the active service set and its required fields from the manifests
+alone.
+
 **A predictable topic tree.** Every device gets `outstation/<id>/…` as its base
 topic, where `<id>` is the `id` from its config entry:
 

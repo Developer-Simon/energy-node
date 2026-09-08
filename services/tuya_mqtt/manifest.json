@@ -1,0 +1,6 @@
+{
+  "service_id": "tuya",
+  "unit": "tuya.service",
+  "schema": "config.schema.json",
+  "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"]
+}

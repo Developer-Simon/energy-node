@@ -2,9 +2,18 @@
 
 ## v0.2.8 (2026-09-08)
 
+### Features
+
+- add a manifest and schema fragment per device service (7124a64)
+
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+- **appconfig:** derive the service set from manifests/, not a table (652345c)
+
+### CI
+
+- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 
 ## v0.2.5 (2026-09-06)
 

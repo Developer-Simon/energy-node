@@ -11,6 +11,34 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from energy_node_common import appconfig
 
 
+_MANIFEST_REQUIRED = {
+    "apsystems": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+    "shelly": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
+    "trucki": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
+    "tuya": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+    "battery_soc": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+    "automation": ["service_id"],
+}
+
+
+def _write_manifests(config_dir):
+    """Legt <config_dir>/manifests/<id>.json an -- appconfig.load liest sie dort."""
+    manifests_dir = config_dir / "manifests"
+    manifests_dir.mkdir(exist_ok=True)
+    for service_id, required in _MANIFEST_REQUIRED.items():
+        manifests_dir.joinpath(f"{service_id}.json").write_text(
+            json.dumps(
+                {
+                    "service_id": service_id,
+                    "unit": f"{service_id}.service",
+                    "schema": "config.schema.json",
+                    "required": required,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+
 def _valid_document(services=None):
     """Ein vollstaendiges Konfigurationsdokument fuer Tests."""
     return {
@@ -50,6 +78,7 @@ def app_config(tmp_path):
     """Erstellt eine AppConfig-Factory fuer Tests mit Ueberrides."""
     def _make_config(services=None):
         document = _valid_document(services)
+        _write_manifests(tmp_path)
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(document), encoding="utf-8")
         return appconfig.load(str(config_path))

@@ -47,7 +47,36 @@ def valid_document() -> dict:
     }
 
 
+_MANIFESTS = {
+    "apsystems": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+    "shelly": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
+    "trucki": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
+    "tuya": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+    "battery_soc": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"],
+    "automation": ["service_id"],
+}
+
+
+def write_manifests(tmp_path: Path, service_ids=None) -> None:
+    """Legt <tmp_path>/manifests/<id>.json fuer die gewuenschten Dienste an."""
+    manifests_dir = tmp_path / "manifests"
+    manifests_dir.mkdir(exist_ok=True)
+    for service_id in _MANIFESTS if service_ids is None else service_ids:
+        manifests_dir.joinpath(f"{service_id}.json").write_text(
+            json.dumps(
+                {
+                    "service_id": service_id,
+                    "unit": f"{service_id}.service",
+                    "schema": "config.schema.json",
+                    "required": _MANIFESTS[service_id],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+
 def write_config(tmp_path: Path, document: dict | None = None) -> str:
+    write_manifests(tmp_path)
     path = tmp_path / "config.json"
     path.write_text(json.dumps(document if document is not None else valid_document()), encoding="utf-8")
     return str(path)
@@ -166,3 +195,27 @@ def test_config_path_from_argv():
     assert appconfig.config_path_from_argv(["--config=/tmp/b.json"]) == "/tmp/b.json"
     with pytest.raises(appconfig.ConfigError):
         appconfig.config_path_from_argv(["--config"])
+
+
+def test_services_entry_without_manifest_is_rejected(tmp_path):
+    document = valid_document()
+    document["services"]["extra"] = {"service_id": "extra"}
+    with pytest.raises(appconfig.ConfigError) as excinfo:
+        appconfig.load(write_config(tmp_path, document))
+    assert "services.extra" in str(excinfo.value) and "Manifest" in str(excinfo.value)
+
+
+def test_manifested_service_without_services_entry_is_rejected(tmp_path):
+    document = valid_document()
+    del document["services"]["trucki"]
+    with pytest.raises(appconfig.ConfigError) as excinfo:
+        appconfig.load(write_config(tmp_path, document))
+    assert "services.trucki" in str(excinfo.value)
+
+
+def test_missing_manifests_dir_is_rejected(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps(valid_document()), encoding="utf-8")  # kein write_manifests
+    with pytest.raises(appconfig.ConfigError) as excinfo:
+        appconfig.load(str(path))
+    assert "manifests" in str(excinfo.value)

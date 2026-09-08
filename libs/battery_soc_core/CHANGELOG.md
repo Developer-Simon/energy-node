@@ -6,6 +6,10 @@
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
 
+### CI
+
+- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
+
 ## v0.1.7 (2026-09-05)
 
 ### Chores

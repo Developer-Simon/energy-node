@@ -9,6 +9,7 @@ These instructions apply to the Go dashboard and its embedded web UI.
 - `internal/registry` owns synchronized in-memory device/entity state. HTTP and UI code should use snapshots or value copies rather than reaching into its locks.
 - `internal/runtimecache` persists only reduced stale/fallback state. `internal/config` manages bridge JSON plus schemas and revisions; `internal/settings` manages dashboard-owned settings, energy assignments, and layout. Keep these data concerns separate.
 - `internal/httpapi` owns versioned `/api/v1` routes. `internal/webui` owns server-rendered templates and locally embedded JavaScript/CSS assets.
+- `internal/appconfig` embeds `config.schema.json` for the central `config.json`. That file is **generated**, not hand-edited: `cmd/schemagen` composes it from `cmd/schemagen/core.schema.json` plus one `services/<name>/config.schema.json` fragment per device service. After changing the core schema or a fragment, run `go run ./cmd/schemagen`; `git-hooks/pre-commit` and `go test ./...` guard it against drift.
 
 ## Development
 

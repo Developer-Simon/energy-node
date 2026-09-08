@@ -429,7 +429,7 @@ absent after a restart.
 |---|---|---|---|
 | GET | `/api/v1/system/config` | – | Central configuration file (`config.json`) + revision list |
 | PUT | `/api/v1/system/config` | `system_actions` + HTTPS + CSRF | Validate and save configuration |
-| GET | `/api/v1/system/config/schema` | – | The embedded `config.schema.json` (the settings form is built from it) |
+| GET | `/api/v1/system/config/schema` | – | The embedded `config.schema.json`, composed by `dashboard/cmd/schemagen` from the per-service fragments (the settings form is built from it) |
 
 There are **no** separate `/revisions` or `/restore` routes for the central
 config — the revision list is returned inline by `GET`, and there is currently

@@ -1,0 +1,6 @@
+{
+  "service_id": "automation",
+  "unit": "automation.service",
+  "schema": "config.schema.json",
+  "required": ["service_id"]
+}
