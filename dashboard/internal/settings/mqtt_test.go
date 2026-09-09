@@ -3,6 +3,7 @@ package settings
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 )
 
@@ -41,7 +42,7 @@ func TestStorePersistsMQTTConfigWithDefaults(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got != value {
+	if !reflect.DeepEqual(got, value) {
 		t.Fatalf("got %#v, want the saved value round-tripped", got)
 	}
 
@@ -134,6 +135,20 @@ func TestMQTTRevisionsCanBeReadAndRestored(t *testing.T) {
 	}
 	if current.Host != "broker-a" {
 		t.Fatalf("got current host %q after restore, want %q", current.Host, "broker-a")
+	}
+}
+
+func TestMQTTConfigMetricEnabledDefaultsTrue(t *testing.T) {
+	if !DefaultMQTT().MetricEnabled("cpu_temp") {
+		t.Fatal("MetricEnabled without a map = false, want true")
+	}
+	cfg := DefaultMQTT()
+	cfg.Metrics = map[string]bool{"cpu_temp": false}
+	if cfg.MetricEnabled("cpu_temp") {
+		t.Fatal("MetricEnabled(cpu_temp) = true after setting false")
+	}
+	if !cfg.MetricEnabled("ram") {
+		t.Fatal("MetricEnabled(ram) = false although only cpu_temp was disabled")
 	}
 }
 

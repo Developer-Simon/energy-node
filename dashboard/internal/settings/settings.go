@@ -258,6 +258,21 @@ type MQTTConfig struct {
 	// internal/energydiscovery). Default true; bei false setzt der
 	// Connect-Publisher retained Removals auf die Discovery-Topics.
 	PublishEnergyDevice bool `json:"publish_energy_device"`
+	// Metrics schaltet je Systemmetrik (nodeagent.Metrics) das Publizieren
+	// der Node-Diagnose ab. Ein fehlender Schluessel bedeutet an - die
+	// Bedeutung von "nicht gesetzt" traegt dieser Default, nicht das Schema
+	// (Spec V2).
+	Metrics map[string]bool `json:"metrics,omitempty"`
+}
+
+// MetricEnabled liefert true, solange die Metrik nicht ausdruecklich auf
+// false gesetzt ist.
+func (m MQTTConfig) MetricEnabled(metric string) bool {
+	if m.Metrics == nil {
+		return true
+	}
+	v, ok := m.Metrics[metric]
+	return !ok || v
 }
 
 // BridgeTopic is one bridged topic pattern in a BridgeConnection, rendered

@@ -275,10 +275,9 @@ allowed to edit `config.json`, and a deploy must not throw that away. Use
 `scripts/deploy/deploy_src_to_remote.sh` ships all Python services by default. Restrict a
 run with `--service <name>`, where the name is the source directory:
 `apsystems_ez1`, `battery_soc`, `shelly`, `trucki`, `tuya_mqtt`,
-`energy-node`, `automation`. The matching units are
+`automation`. The matching units are
 `apsystems-ez1.service`, `battery-soc.service`, `shelly-rpc.service`,
-`trucki-http.service`, `tuya.service`, `energy-node.service` and
-`automation.service`.
+`trucki-http.service`, `tuya.service` and `automation.service`.
 
 ---
 
@@ -345,7 +344,7 @@ To serve the dashboard under a sub-path behind another reverse proxy, set
 ```sh
 systemctl is-active mosquitto tailscaled energy-node-dashboard.service
 systemctl is-active apsystems-ez1 shelly-rpc trucki-http tuya battery-soc \
-                    energy-node automation
+                    automation
 journalctl -u shelly-rpc -f
 mosquitto_sub -h localhost -u <mqtt-user> -P <password> -t 'outstation/#' -v
 ```

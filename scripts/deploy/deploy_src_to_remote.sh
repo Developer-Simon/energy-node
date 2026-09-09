@@ -143,7 +143,7 @@ copy_if_absent() {
 ensure_remote_dirs() {
   echo "Creating remote directories on ${SSH_TARGET}"
   ssh "${SSH_OPTS[@]}" "${SSH_TARGET}" \
-    "mkdir -p -- '${TARGET_BASE}/apsystems_ez1' '${TARGET_BASE}/battery_soc' '${TARGET_BASE}/battery_soc_core' '${TARGET_BASE}/shelly' '${TARGET_BASE}/tuya_mqtt' '${TARGET_BASE}/trucki' '${TARGET_BASE}/energy-node' '${TARGET_BASE}/energy_node_common' '${TARGET_BASE}/automation' '${TARGET_BASE}/devices'"
+    "mkdir -p -- '${TARGET_BASE}/apsystems_ez1' '${TARGET_BASE}/battery_soc' '${TARGET_BASE}/battery_soc_core' '${TARGET_BASE}/shelly' '${TARGET_BASE}/tuya_mqtt' '${TARGET_BASE}/trucki' '${TARGET_BASE}/energy_node_common' '${TARGET_BASE}/automation' '${TARGET_BASE}/devices'"
 }
 
 # Frueher wurde jede bereits installierte Unit uebersprungen. Beim harten
@@ -276,9 +276,6 @@ copy_trucki() {
   copy_if_absent "services/trucki/trucki_devices.json" "${REMOTE_PREFIX}/devices/"
   copy "services/trucki/trucki_devices.schema.json" "${REMOTE_PREFIX}/devices/"
 }
-copy_energy_node() {
-  copy "services/energy-node/energy_node_mqtt.py" "${REMOTE_PREFIX}/energy-node/"
-}
 
 for service in "${EFFECTIVE_SERVICES[@]}"; do
   echo "==> Kopiere Quelldateien fuer: ${service}"
@@ -289,7 +286,6 @@ for service in "${EFFECTIVE_SERVICES[@]}"; do
     shelly) copy_shelly ;;
     tuya_mqtt) copy_tuya_mqtt ;;
     trucki) copy_trucki ;;
-    energy-node) copy_energy_node ;;
     *)
       echo "Kein Copy-Schritt fuer Dienst '${service}' hinterlegt." >&2
       exit 1

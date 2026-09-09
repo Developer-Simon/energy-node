@@ -29,6 +29,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registryevents"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
@@ -151,6 +152,10 @@ type RouterDependencies struct {
 	// MQTTBase ist die Verbindung aus config.json - die zweite Stufe der
 	// Praezedenz, wenn keine aktivierte mqtt.json vorliegt.
 	MQTTBase mqttclient.Config
+	// NodeAgent publiziert den Pi-Knoten als HA-Geraet und haelt die
+	// zuletzt gelesene Systemtelemetrie. Der Health-Endpunkt (Task 6/7)
+	// liest daraus; hier nur durchgereicht.
+	NodeAgent *nodeagent.Agent
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -197,7 +202,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
+	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
 	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
 	mux.Handle("/static/", webui.Static())
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
@@ -781,7 +786,9 @@ type healthResponse struct {
 	Features map[string]int `json:"features"`
 }
 
-func handleHealth(cache runtimecache.StatusProvider, storageProvider storagehealth.Provider, mqttStatus mqttclient.StatusProvider, startedAt time.Time, version string, servicesVersion string, now func() time.Time) http.HandlerFunc {
+// nodeAgent is threaded through for Task 6/7 (healthResponse.Node); the
+// handler body does not read it yet.
+func handleHealth(cache runtimecache.StatusProvider, storageProvider storagehealth.Provider, mqttStatus mqttclient.StatusProvider, nodeAgent *nodeagent.Agent, startedAt time.Time, version string, servicesVersion string, now func() time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w)

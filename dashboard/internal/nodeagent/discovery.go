@@ -135,13 +135,48 @@ func (a *Agent) DiscoveryMessages(metricEnabled func(string) bool) []mqttclient.
 	return out
 }
 
+// StateMessages refreshes both the fast metrics and the expensive slow
+// diagnostics and returns the state and diagnostics payloads in that order.
+// The two tickers in cmd/dashboard use StateMessage / DiagnosticsMessage for
+// the split cadence; this convenience is the "publish everything once" call
+// (start-up, and the slow tick).
 func (a *Agent) StateMessages(ctx context.Context, metricEnabled func(string) bool) []mqttclient.OutboundMessage {
 	if metricEnabled == nil {
 		metricEnabled = func(string) bool { return true }
 	}
 	a.Refresh(ctx, true)
+	return []mqttclient.OutboundMessage{
+		{Topic: a.stateTopic(), Payload: a.statePayload(metricEnabled), Retain: true},
+		{Topic: a.diagTopic(), Payload: a.diagnosticsPayload(metricEnabled), Retain: true},
+	}
+}
+
+// StateMessage refreshes only the cheap fast metrics and returns the single
+// retained `outstation/<id>/state` message - the fast ticker's payload.
+func (a *Agent) StateMessage(ctx context.Context, metricEnabled func(string) bool) mqttclient.OutboundMessage {
+	if metricEnabled == nil {
+		metricEnabled = func(string) bool { return true }
+	}
+	a.Refresh(ctx, false)
+	return mqttclient.OutboundMessage{Topic: a.stateTopic(), Payload: a.statePayload(metricEnabled), Retain: true}
+}
+
+// DiagnosticsMessage refreshes the fast metrics and the expensive slow
+// diagnostics and returns the single retained `outstation/<id>/diagnostics`
+// message - the slow ticker's payload.
+func (a *Agent) DiagnosticsMessage(ctx context.Context, metricEnabled func(string) bool) mqttclient.OutboundMessage {
+	if metricEnabled == nil {
+		metricEnabled = func(string) bool { return true }
+	}
+	a.Refresh(ctx, true)
+	return mqttclient.OutboundMessage{Topic: a.diagTopic(), Payload: a.diagnosticsPayload(metricEnabled), Retain: true}
+}
+
+// statePayload renders the fast-metric JSON object from the last cached
+// FastState. It does not refresh - the caller decides the cadence.
+func (a *Agent) statePayload(metricEnabled func(string) bool) string {
 	a.mu.RLock()
-	fast, slow := a.fast, a.slow
+	fast := a.fast
 	a.mu.RUnlock()
 
 	state := map[string]any{}
@@ -171,6 +206,18 @@ func (a *Agent) StateMessages(ctx context.Context, metricEnabled func(string) bo
 		state["throttled_now"] = fast.ThrottledNow
 	}
 
+	stateJSON, _ := json.Marshal(state)
+	return string(stateJSON)
+}
+
+// diagnosticsPayload renders the slow-diagnostics JSON object from the last
+// cached SlowDiagnostics. It does not refresh - the caller decides the
+// cadence.
+func (a *Agent) diagnosticsPayload(metricEnabled func(string) bool) string {
+	a.mu.RLock()
+	slow := a.slow
+	a.mu.RUnlock()
+
 	diag := map[string]any{}
 	if metricEnabled(metricIP) {
 		diag["ip_address"] = slow.IPAddress
@@ -185,12 +232,8 @@ func (a *Agent) StateMessages(ctx context.Context, metricEnabled func(string) bo
 		diag["apt_updates_pending"] = slow.AptUpdatesPending
 	}
 
-	stateJSON, _ := json.Marshal(state)
 	diagJSON, _ := json.Marshal(diag)
-	return []mqttclient.OutboundMessage{
-		{Topic: a.stateTopic(), Payload: string(stateJSON), Retain: true},
-		{Topic: a.diagTopic(), Payload: string(diagJSON), Retain: true},
-	}
+	return string(diagJSON)
 }
 
 // LegacyCleanupMessages raeumt das alte, mit Bindestrich benannte

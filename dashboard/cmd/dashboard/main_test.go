@@ -2,10 +2,13 @@ package main
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 )
 
@@ -28,6 +31,30 @@ func TestServiceIDForConfig(t *testing.T) {
 				t.Errorf("serviceIDForConfig(%q) = (%q, %v), want (%q, %v)", tt.input, gotID, gotOK, tt.wantID, tt.wantOK)
 			}
 		})
+	}
+}
+
+func TestNodeAgentOptionsFromConfig(t *testing.T) {
+	cfg, err := appconfig.Load(filepath.Join("..", "..", "..", "services", "energy-node.config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := nodeagent.New(nodeagent.Options{
+		NodeID:                   cfg.Dashboard.NodeDeviceID,
+		NodeName:                 cfg.Dashboard.NodeDeviceName,
+		DiscoveryPrefix:          "homeassistant",
+		PollIntervalS:            cfg.Dashboard.NodePollIntervalS,
+		DiagnosticPollMultiplier: cfg.Dashboard.NodeDiagnosticPollMultiplier,
+	})
+	if a.PollInterval() != 60*time.Second {
+		t.Fatalf("PollInterval = %v, want 60s", a.PollInterval())
+	}
+	if a.DiagnosticInterval() != 600*time.Second {
+		t.Fatalf("DiagnosticInterval = %v, want 600s", a.DiagnosticInterval())
+	}
+	msgs := a.DiscoveryMessages(nil)
+	if len(msgs) == 0 || msgs[0].Topic[:14] != "homeassistant/" {
+		t.Fatalf("unexpected discovery messages: %+v", msgs)
 	}
 }
 

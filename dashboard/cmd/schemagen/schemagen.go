@@ -79,7 +79,7 @@ func compose(root string) ([]byte, error) {
 		manifestPath := filepath.Join(servicesDir, entry.Name(), "manifest.json")
 		raw, err := os.ReadFile(manifestPath)
 		if os.IsNotExist(err) {
-			continue // e.g. services/energy-node/ carries no manifest
+			continue // a service directory without a manifest.json is skipped
 		}
 		if err != nil {
 			return nil, err

@@ -1,8 +1,8 @@
 // Package nodeagent publiziert den Raspberry-Pi-Knoten selbst als HA-Gerät
 // "energy_node" (Systemdiagnose ueber MQTT Discovery), spiegelt den globalen
 // simulation_active-Broadcast und leitet die Live-Erreichbarkeit der
-// konfigurierten Bridges ab. Es ersetzt den frueheren Python-Dienst
-// src/energy-node/energy_node_mqtt.py (Spec V2). Die Metrik-Leser hier sind
+// konfigurierten Bridges ab. Es ersetzt den frueheren, inzwischen
+// geloeschten Python-Node-Dienst (Spec V2). Die Metrik-Leser hier sind
 // bewusst injizierbar (readFile/run/now), damit metrics_test.go ohne echtes
 // /proc, /sys oder CLIs laeuft - dasselbe Muster wie internal/storagehealth.
 package nodeagent

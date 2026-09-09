@@ -92,7 +92,6 @@ SERVICE_TABLE=(
   "shelly-rpc.service:services/shelly/shelly-rpc.service:shelly:1"
   "trucki-http.service:services/trucki/trucki-http.service:trucki:1"
   "tuya.service:services/tuya_mqtt/tuya.service:tuya_mqtt:1"
-  "energy-node.service:services/energy-node/energy-node.service:energy-node:1"
   "automation.service:services/automation/automation.service:automation:1"
 )
 

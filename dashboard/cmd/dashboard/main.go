@@ -28,6 +28,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -146,6 +147,29 @@ func main() {
 	}
 	defer client.Close()
 
+	// nodeagent publiziert den Pi-Knoten selbst als HA-Geraet "energy_node"
+	// (Systemdiagnose ueber MQTT). Das Dashboard ist ab hier alleiniger
+	// Publisher von outstation/energy_node/* - der fruehere Python-Node-Dienst
+	// ist geloescht.
+	nodeAgent := nodeagent.New(nodeagent.Options{
+		NodeID:                   cfg.Dashboard.NodeDeviceID,
+		NodeName:                 cfg.Dashboard.NodeDeviceName,
+		DiscoveryPrefix:          client.DiscoveryPrefix(),
+		PollIntervalS:            cfg.Dashboard.NodePollIntervalS,
+		DiagnosticPollMultiplier: cfg.Dashboard.NodeDiagnosticPollMultiplier,
+		TailscaleBin:             cfg.Tailscale.Bin,
+	})
+
+	// metricEnabled liest bei jedem Aufruf den je-Metrik-Schalter aus
+	// mqtt.json frisch, damit ein "Speichern" im MQTT-Tab sofort greift; ein
+	// fehlender Schluessel (auch: unlesbare Datei) bedeutet "an".
+	metricEnabled := func(metric string) bool {
+		if stored, err := settingsStore.LoadMQTT(); err == nil {
+			return stored.MetricEnabled(metric)
+		}
+		return true
+	}
+
 	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
 	// Der Schalter wird bei jedem Aufruf frisch gelesen, damit ein
 	// "Speichern und neu verbinden" ihn sofort anwendet; bei false trägt
@@ -164,6 +188,12 @@ func main() {
 				Retain:  true,
 			})
 		}
+
+		// Node-Systemdiagnose (energy_node) + einmalige Abraeumung des alten,
+		// mit Bindestrich benannten energy-node-Geraets des geloeschten
+		// Python-Dienstes.
+		msgs = append(msgs, nodeAgent.LegacyCleanupMessages()...)
+		msgs = append(msgs, nodeAgent.DiscoveryMessages(metricEnabled)...)
 		return msgs
 	})
 
@@ -247,6 +277,7 @@ func main() {
 			Tailscale:         tailscaleClient,
 			Resolver:          energyResolver,
 			MQTTBase:          mqttBase,
+			NodeAgent:         nodeAgent,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -267,6 +298,34 @@ func main() {
 				if err := client.PublishRetained("outstation/dashboard/energy/balance", string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
 				}
+			}
+		}
+	}()
+
+	// Node-Telemetrie: der schnelle Ticker publiziert nur
+	// outstation/energy_node/state, der langsame zusaetzlich
+	// .../diagnostics. Beim Start einmal beides.
+	go func() {
+		fast := time.NewTicker(nodeAgent.PollInterval())
+		slow := time.NewTicker(nodeAgent.DiagnosticInterval())
+		defer fast.Stop()
+		defer slow.Stop()
+		publish := func(msgs ...mqttclient.OutboundMessage) {
+			for _, m := range msgs {
+				if err := client.PublishRetained(m.Topic, m.Payload); err != nil {
+					log.Printf("energy-node-dashboard: node telemetry publish skipped: %v", err)
+				}
+			}
+		}
+		publish(nodeAgent.StateMessages(ctx, metricEnabled)...) // beim Start einmal voll
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-fast.C:
+				publish(nodeAgent.StateMessage(ctx, metricEnabled))
+			case <-slow.C:
+				publish(nodeAgent.DiagnosticsMessage(ctx, metricEnabled))
 			}
 		}
 	}()
