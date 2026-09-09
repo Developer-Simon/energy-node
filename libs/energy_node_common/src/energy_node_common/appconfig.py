@@ -108,6 +108,14 @@ class NodeConfig:
 
 
 @dataclass(frozen=True)
+class DashboardConfig:
+    node_device_id: str
+    node_device_name: str
+    node_poll_interval_s: float
+    node_diagnostic_poll_multiplier: float
+
+
+@dataclass(frozen=True)
 class PathsConfig:
     devices_dir: str
     data_dir: str
@@ -121,6 +129,7 @@ class AppConfig:
     paths: PathsConfig
     log_level: str
     node: NodeConfig
+    dashboard: DashboardConfig
     services: Dict[str, ServiceConfig]
 
     def service(self, name: str) -> ServiceConfig:
@@ -249,6 +258,16 @@ def _load_node(data: dict, path: str, services: Dict[str, ServiceConfig]) -> Nod
     )
 
 
+def _load_dashboard(data: dict, path: str) -> DashboardConfig:
+    section = _section(data, "dashboard", path)
+    return DashboardConfig(
+        node_device_id=_text(section, "node_device_id", path, "dashboard"),
+        node_device_name=_text(section, "node_device_name", path, "dashboard"),
+        node_poll_interval_s=_number(section, "node_poll_interval_s", path, "dashboard"),
+        node_diagnostic_poll_multiplier=_number(section, "node_diagnostic_poll_multiplier", path, "dashboard"),
+    )
+
+
 def load(path: Optional[str] = None) -> AppConfig:
     """Die zentrale Konfiguration lesen oder mit ConfigError abbrechen."""
     path = path or DEFAULT_CONFIG_PATH
@@ -300,5 +319,6 @@ def load(path: Optional[str] = None) -> AppConfig:
         ),
         log_level=_text(logging_section, "level", path, "logging"),
         node=_load_node(data, path, services),
+        dashboard=_load_dashboard(data, path),
         services=services,
     )

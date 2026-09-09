@@ -61,6 +61,12 @@ def _valid_document(services=None):
             "poll_interval_s": 60,
             "diagnostic_poll_multiplier": 10,
         },
+        "dashboard": {
+            "node_device_id": "energy-node",
+            "node_device_name": "Energy Node",
+            "node_poll_interval_s": 60,
+            "node_diagnostic_poll_multiplier": 10,
+        },
         "services": {
             "apsystems": {"service_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10},
             "shelly": {"service_id": "shelly", "poll_interval_s": 20, "diagnostic_poll_multiplier": 15, "http_timeout_s": 5},

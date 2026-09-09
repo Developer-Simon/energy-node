@@ -36,6 +36,12 @@ def valid_document() -> dict:
             "poll_interval_s": 60,
             "diagnostic_poll_multiplier": 10,
         },
+        "dashboard": {
+            "node_device_id": "energy-node",
+            "node_device_name": "Energy Node",
+            "node_poll_interval_s": 60,
+            "node_diagnostic_poll_multiplier": 10,
+        },
         "services": {
             "apsystems": {"service_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10},
             "shelly": {"service_id": "shelly", "poll_interval_s": 20, "diagnostic_poll_multiplier": 15, "http_timeout_s": 5},
@@ -101,6 +107,14 @@ def test_load_reads_every_section(tmp_path):
     assert config.service("shelly").poll_interval_s == 20.0
     assert config.service("shelly").http_timeout_s == 5.0
     assert config.service("automation").http_timeout_s is None
+
+
+def test_load_reads_dashboard_node_fields(tmp_path):
+    config = appconfig.load(write_config(tmp_path))
+    assert config.dashboard.node_device_id == "energy-node"
+    assert config.dashboard.node_device_name == "Energy Node"
+    assert config.dashboard.node_poll_interval_s == 60.0
+    assert config.dashboard.node_diagnostic_poll_multiplier == 10.0
 
 
 def test_missing_file_names_path_and_flag(tmp_path):

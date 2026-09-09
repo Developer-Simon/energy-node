@@ -73,6 +73,12 @@ def _valid_document(node=None, services=None):
             "diagnostic_poll_multiplier": 10,
             **(node or {}),
         },
+        "dashboard": {
+            "node_device_id": "energy-node",
+            "node_device_name": "Energy Node",
+            "node_poll_interval_s": 60,
+            "node_diagnostic_poll_multiplier": 10,
+        },
         "services": base_services,
     }
 

@@ -54,7 +54,7 @@
     "dashboard": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["bind_address", "port", "client_id", "device_identifier", "log_level", "sweep_interval_seconds", "admin_username", "admin_password_file", "tls", "system_action_helper", "mosquitto_bridge_target"],
+      "required": ["bind_address", "port", "client_id", "device_identifier", "log_level", "sweep_interval_seconds", "admin_username", "admin_password_file", "tls", "system_action_helper", "mosquitto_bridge_target", "node_device_id", "node_device_name", "node_poll_interval_s", "node_diagnostic_poll_multiplier"],
       "properties": {
         "bind_address": {"type": "string", "minLength": 1, "title": "Bind-Adresse"},
         "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "HTTP-Port"},
@@ -74,7 +74,11 @@
           }
         },
         "system_action_helper": {"type": "string", "minLength": 1, "title": "Systemaktions-Helfer"},
-        "mosquitto_bridge_target": {"type": "string", "minLength": 1, "title": "Bridge-Zieldatei"}
+        "mosquitto_bridge_target": {"type": "string", "minLength": 1, "title": "Bridge-Zieldatei"},
+        "node_device_id": {"type": "string", "minLength": 1, "title": "Node-Geraete-ID"},
+        "node_device_name": {"type": "string", "minLength": 1, "title": "Node-Anzeigename"},
+        "node_poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Node-Abfrageintervall"},
+        "node_diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Node-Diagnose-Multiplikator"}
       }
     },
     "tailscale": {
