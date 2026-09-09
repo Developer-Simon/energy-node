@@ -35,6 +35,7 @@
 ### CI
 
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
+- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
 
 ### Other
 

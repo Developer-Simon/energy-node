@@ -7,6 +7,7 @@
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
+- **dashboard:** rebuild the Verläufe settings tab with Apple-style controls (fecc586)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - **dashboard:** compose config.schema.json from per-service fragments (fc73de5)
 
@@ -28,6 +29,7 @@
 ### CI
 
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
+- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
 
 ### Other
 
