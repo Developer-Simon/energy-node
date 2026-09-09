@@ -9,7 +9,7 @@ import (
 
 // TestComposedSchemaIsCommitted is the CI half of the drift guard: go test
 // ./... (job dashboard-go) fails when config.schema.json no longer matches the
-// fragments. The pre-commit hook runs the same check via "go run".
+// fragments. Locally, run the same check via "go run ./cmd/schemagen -check".
 func TestComposedSchemaIsCommitted(t *testing.T) {
 	root, err := repoRoot()
 	if err != nil {

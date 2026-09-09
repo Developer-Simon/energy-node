@@ -9,7 +9,7 @@ These instructions apply to the Go dashboard and its embedded web UI.
 - `internal/registry` owns synchronized in-memory device/entity state. HTTP and UI code should use snapshots or value copies rather than reaching into its locks.
 - `internal/runtimecache` persists only reduced stale/fallback state. `internal/config` manages bridge JSON plus schemas and revisions; `internal/settings` manages dashboard-owned settings, energy assignments, and layout. Keep these data concerns separate.
 - `internal/httpapi` owns versioned `/api/v1` routes. `internal/webui` owns server-rendered templates and locally embedded JavaScript/CSS assets.
-- `internal/appconfig` embeds `config.schema.json` for the central `config.json`. That file is **generated**, not hand-edited: `cmd/schemagen` composes it from `cmd/schemagen/core.schema.json` plus one `services/<name>/config.schema.json` fragment per device service. After changing the core schema or a fragment, run `go run ./cmd/schemagen`; `git-hooks/pre-commit` and `go test ./...` guard it against drift.
+- `internal/appconfig` embeds `config.schema.json` for the central `config.json`. That file is **generated**, not hand-edited: `cmd/schemagen` composes it from `cmd/schemagen/core.schema.json` plus one `services/<name>/config.schema.json` fragment per device service. After changing the core schema or a fragment, run `go run ./cmd/schemagen`; `go test ./...` (CI job *Dashboard (Go)*) guards it against drift.
 
 ## Development
 
@@ -45,9 +45,9 @@ CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -o energy-node-dashboard ./
 
 Use `../scripts/deploy/deploy_dashboard_to_remote.sh` for the established remote deployment flow. Keep frontend dependencies local and embedded; do not add CDN runtime dependencies.
 
-`VERSION` holds the release triple shown on the settings page (`major.minor` hand-edited, `patch` auto-bumped per commit by `../git-hooks/pre-commit` — run `../scripts/install_git_hooks.sh` once to activate it locally). The build binds it via `-ldflags "-X main.buildVersion=..."`; see `scripts/deploy/deploy_dashboard_to_remote.sh` for how the branch prerelease suffix is computed. A plain `go build` without that flag reports version `dev`.
+`VERSION` holds the release triple shown on the settings page (`major.minor` hand-edited, `patch` bumped on the PR branch by the `Version bump` workflow, `../scripts/version/bump-patch.sh`). The build binds it via `-ldflags "-X main.buildVersion=..."`; see `scripts/deploy/deploy_dashboard_to_remote.sh` for how the branch prerelease suffix is computed. A plain `go build` without that flag reports version `dev`.
 
-The Python services' own `../services/VERSION` (same auto-bump hook, independent counter) is shown next to it, read at runtime from the path in `config.json`'s `paths.services_version_file` — see [Konfiguration](../docs/knowledge/configuration.md). Empty/unset shows "unbekannt" instead of failing to start.
+The Python services' own `../services/VERSION` (same auto-bump workflow, independent counter) is shown next to it, read at runtime from the path in `config.json`'s `paths.services_version_file` — see [Konfiguration](../docs/knowledge/configuration.md). Empty/unset shows "unbekannt" instead of failing to start.
 
 ## Invariants
 

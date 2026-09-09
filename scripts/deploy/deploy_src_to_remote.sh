@@ -226,8 +226,9 @@ ensure_remote_secrets "${SSH_TARGET}" "${SSH_OPTS[@]}"
 echo "==> Preflight: zentrale Konfiguration auf dem Zielgeraet"
 ensure_remote_config "${SSH_TARGET}" "${FORCE_CONFIG}" "${SSH_OPTS[@]}"
 
-# services/VERSION beschreibt alle Python-Dienste als Ganzes (siehe
-# git-hooks/pre-commit). Es landet im gemeinsamen devices_dir, den Python und
+# services/VERSION beschreibt alle Python-Dienste als Ganzes (Patch-Bump auf
+# dem PR-Branch durch den `Version bump`-Workflow). Es landet im gemeinsamen
+# devices_dir, den Python und
 # Go-Dashboard schon fuer *_devices.json teilen; das Dashboard zeigt es an,
 # wenn paths.services_version_file in config.json darauf zeigt (Standard in
 # services/energy-node.config.json).
@@ -300,8 +301,9 @@ install_or_update_service_units
 
 # Build and deploy the energy-node-common package as a wheel. The target's
 # installed version (pip show) is checked first: if it already matches
-# VERSION_FILE (bumped per commit by git-hooks/pre-commit, like
-# dashboard/VERSION and services/VERSION - see COMPONENTS in git-hooks/lib.sh),
+# VERSION_FILE (bumped on the PR branch by the `Version bump` workflow, like
+# dashboard/VERSION and services/VERSION - see COMPONENTS in
+# scripts/version/components.sh),
 # nothing is built and nothing is installed. Otherwise a wheel cached in the
 # package's dist directory is reused as long as its version matches
 # VERSION_FILE, and only rebuilt when it does not. Building locally avoids

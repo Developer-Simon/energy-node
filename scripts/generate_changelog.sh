@@ -4,8 +4,8 @@
 # (feat, fix, refactor, perf, docs, test, style, chore, dev, build, ci) der
 # Commits, die die jeweilige Komponente betreffen.
 #
-# Jede Komponente hat ihre eigene VERSION-Datei, deren Patch-Level bei jedem
-# Commit auf main automatisch hochgezaehlt wird (siehe git-hooks/pre-commit)
+# Jede Komponente hat ihre eigene VERSION-Datei, deren Patch-Level auf dem
+# PR-Branch vom `Version bump`-Workflow hochgezaehlt wird (scripts/version/bump-patch.sh)
 # - Major/Minor werden von Hand gepflegt. Ein neuer Abschnitt im Changelog
 # entsteht deshalb nur, wenn sich Major oder Minor aendert, oder wenn der
 # Commit selbst getaggt ist; reine Patch-Bumps bleiben im selben Abschnitt.

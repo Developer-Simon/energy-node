@@ -9,7 +9,7 @@
 //	(cd dashboard && go run ./cmd/schemagen)
 //
 // after adding or changing a service manifest or fragment. "-check" exits 1 on
-// drift and is wired into git-hooks/pre-commit and TestComposedSchemaIsCommitted.
+// drift; TestComposedSchemaIsCommitted runs the same check in CI (go test ./...).
 package main
 
 import (

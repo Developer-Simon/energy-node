@@ -190,13 +190,12 @@ python3.14 -m venv .venv-ha
 .venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt
 ```
 
-`./scripts/install_git_hooks.sh` links this repo's hooks into `.git/hooks/`; the
-pre-commit hook rejects a commit whose staged files leave a vendored copy out of
-sync — `battery_soc_core` with `libs/battery_soc_core/`, or the Lovelace
-`battery-card-core.js` — run `.venv/bin/python scripts/vendor_core.py`
-(resp. `scripts/vendor_card.py`) and stage the result. Per-component patch
-versions are bumped on the PR branch by the `Version bump` workflow
-(`scripts/version/bump-patch.sh`), not by a hook; see
+CI (`.github/workflows/ci.yml`, the *Vendored artefacts in sync* job) fails a PR
+whose vendored copies drift out of sync — `battery_soc_core` from
+`libs/battery_soc_core/`, or the Lovelace `battery-card-core.js` — run
+`.venv/bin/python scripts/vendor_core.py` (resp. `scripts/vendor_card.py`) and
+commit the result. Per-component patch versions are bumped on the PR branch by
+the `Version bump` workflow (`scripts/version/bump-patch.sh`); see
 [`docs/knowledge/releasing.md`](docs/knowledge/releasing.md).
 `./scripts/deploy/check_tracked_secrets.sh` (also run as a deploy preflight) verifies that
 no credentials made it into tracked files.
