@@ -18,7 +18,7 @@ SOC_PARAM_FIELDS = frozenset(SocParams.field_names())
 class BatteryConfig:
     id: str
     name: str
-    via_device: str = "energy-node"
+    via_device: str = "energy_node"
     # Leerer json_key = das Payload ist eine nackte Zahl (so publizieren die
     # Trucki-Sticks jedes Feld). Hier steht bewusst KEIN Herstellername wie
     # "apower": das Dashboard speichert ein leeres optionales Feld als

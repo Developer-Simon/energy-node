@@ -32,7 +32,7 @@
     "tls": { "cert_file": "", "key_file": "" },
     "system_action_helper": "/usr/local/sbin/energy-node-dashboard-system-action",
     "mosquitto_bridge_target": "/etc/mosquitto/conf.d/bridge.conf",
-    "node_device_id": "energy-node",
+    "node_device_id": "energy_node",
     "node_device_name": "Energy Node",
     "node_poll_interval_s": 60,
     "node_diagnostic_poll_multiplier": 10

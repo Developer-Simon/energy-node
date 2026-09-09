@@ -14,7 +14,7 @@
     "properties": {
       "id": { "type": "string", "minLength": 1, "default": "new_battery_soc", "title": "Identifier", "description": "Unique identifier used in MQTT topics and Home Assistant device IDs." },
       "name": { "type": "string", "minLength": 1, "default": "New Battery SoC", "title": "Display name", "description": "Human-readable name for the battery state-of-charge device." },
-      "via_device": { "type": "string", "minLength": 1, "default": "energy-node", "title": "Parent device", "description": "Home Assistant device identifier that provides the battery telemetry." },
+      "via_device": { "type": "string", "minLength": 1, "default": "energy_node", "title": "Parent device", "description": "Home Assistant device identifier that provides the battery telemetry." },
       "charger_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Charger power topic", "description": "MQTT topic that reports charger power." },
       "charger_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Charger power JSON key", "description": "JSON property containing charger power in the charger message. Leave empty when the topic carries a bare number, as the Trucki sticks publish it; a Shelly reports an object and needs its key here, for example apower." },
       "inverter_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Inverter power topic", "description": "MQTT topic that reports inverter power." },
