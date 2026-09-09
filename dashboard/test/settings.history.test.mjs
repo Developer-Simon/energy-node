@@ -151,3 +151,46 @@ test('ohne Austausch-Client sagt die Statuszeile das auch', () => {
   assert.match(component.historyExchangeStatus, /nicht aktiv/);
   dom.window.close();
 });
+
+// Die Stepper der neuen Verlaufs-Karten schreiben dieselben Felder wie die
+// alten Zahlenfelder, nur ueber stepField() mit fester Schrittweite und
+// hartem Clamp an den Grenzen, die auch valid() prueft.
+test('stepField erhoeht die Abtastrate um die Schrittweite 5 und clampt bei 3600', () => {
+  const {dom, component} = panel();
+  component.historySampleIntervalSeconds = 10;
+  component.stepField('historySampleIntervalSeconds', 1);
+  assert.equal(component.historySampleIntervalSeconds, 15);
+  component.historySampleIntervalSeconds = 3599;
+  component.stepField('historySampleIntervalSeconds', 1);
+  assert.equal(component.historySampleIntervalSeconds, 3600);
+  dom.window.close();
+});
+
+test('stepField clampt nach unten an die jeweilige Feldgrenze', () => {
+  const {dom, component} = panel();
+  component.historySampleIntervalSeconds = 5;
+  component.stepField('historySampleIntervalSeconds', -1);
+  assert.equal(component.historySampleIntervalSeconds, 5);
+  component.historyRawWindowHours = 1;
+  component.stepField('historyRawWindowHours', -1);
+  assert.equal(component.historyRawWindowHours, 1);
+  dom.window.close();
+});
+
+test('stepField kennt das Speicherbudget mit Schrittweite 16 und Obergrenze 8192', () => {
+  const {dom, component} = panel();
+  component.historyBudgetMb = 512;
+  component.stepField('historyBudgetMb', 1);
+  assert.equal(component.historyBudgetMb, 528);
+  component.historyBudgetMb = 8180;
+  component.stepField('historyBudgetMb', 1);
+  assert.equal(component.historyBudgetMb, 8192);
+  dom.window.close();
+});
+
+test('stepField ignoriert ein unbekanntes Feld, statt NaN zu schreiben', () => {
+  const {dom, component} = panel();
+  component.stepField('nichtVorhanden', 1);
+  assert.equal(component.nichtVorhanden, undefined);
+  dom.window.close();
+});

@@ -13,6 +13,17 @@
     return body;
   };
 
+  // Schrittweite und Grenzen der Verlaufs-Stepper. Die Grenzen decken sich
+  // mit den min/max der Formularfelder und mit dem, was valid() unten prueft -
+  // der Stepper kann also nie einen Wert erzeugen, den das Speichern ablehnt.
+  const HISTORY_STEP_FIELDS = {
+    historySampleIntervalSeconds: {min: 5, max: 3600, step: 5},
+    historyRawWindowHours: {min: 1, max: 168, step: 1},
+    historyMinuteWindowDays: {min: 1, max: 365, step: 1},
+    historyRetentionHours: {min: 1, max: 8760, step: 1},
+    historyBudgetMb: {min: 16, max: 8192, step: 16},
+  };
+
   const settingsPanel = () => ({
     healthScoreThreshold: 3,
     sweepIntervalSeconds: 300,
@@ -191,6 +202,34 @@
       this.historyExchangeStatus = status.addedRows
         ? `Verbunden, ${geraete}. ${status.addedRows} Messwerte ergänzt.`
         : `Verbunden, ${geraete}. Noch nichts ergänzt.`;
+    },
+
+    // Ein Klick auf - / + der Stepper. dir ist +1 oder -1; der Wert bleibt
+    // in den Feldgrenzen aus HISTORY_STEP_FIELDS.
+    stepField(name, dir) {
+      const cfg = HISTORY_STEP_FIELDS[name];
+      if (!cfg) return;
+      const current = Number(this[name]);
+      const base = Number.isFinite(current) ? current : cfg.min;
+      const next = base + (dir < 0 ? -cfg.step : cfg.step);
+      this[name] = Math.min(cfg.max, Math.max(cfg.min, next));
+    },
+
+    // Gedrueckt halten: der erste Schritt kommt ueber x-on:click (auch per
+    // Tastatur), hier startet nur der Wiederholeinsatz - nach 400 ms alle
+    // 80 ms ein weiterer Schritt, wie eine gehaltene Taste.
+    startRepeat(name, dir) {
+      this.releaseStep();
+      this._holdTimer = setTimeout(() => {
+        this._holdInterval = setInterval(() => this.stepField(name, dir), 80);
+      }, 400);
+    },
+
+    releaseStep() {
+      clearTimeout(this._holdTimer);
+      clearInterval(this._holdInterval);
+      this._holdTimer = null;
+      this._holdInterval = null;
     },
 
     get historyBytesPerDay() {
