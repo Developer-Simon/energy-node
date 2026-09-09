@@ -48,11 +48,19 @@ jobs:
           all() { for o in dashboard python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
 
           # No diff (post-merge run, or it could not be computed) or a change to
-          # the workflow itself: run everything.
+          # the workflow itself: run everything. This check runs against the
+          # unfiltered diff so a docs-only PR does not land here.
           if [ -z "$files" ] || grep -qE '^\.github/workflows/' <<<"$files"; then
             all
             exit 0
           fi
+
+          # Documentation-only changes affect no job. Drop Markdown paths before
+          # matching: a docs-only PR has a non-empty diff but nothing left here,
+          # so every emit below marks its area false and all jobs skip.
+          files="$(printf '%s\n' "$files" | grep -vE '\.md$' || true)"
+          echo "Changed files (excluding Markdown):"
+          printf '%s\n' "$files"
 
           emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
           emit dashboard '^dashboard/'
