@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "mqtt": {
     "host": "127.0.0.1",
     "port": 1883,
@@ -12,13 +12,6 @@
     "services_version_file": "/home/energynode/devices/VERSION"
   },
   "logging": { "level": "INFO" },
-  "node": {
-    "device_id": "energy-node",
-    "device_name": "Energy Node",
-    "managed_bridges": ["apsystems", "tuya", "battery_soc", "shelly"],
-    "poll_interval_s": 60,
-    "diagnostic_poll_multiplier": 10
-  },
   "services": {
     "apsystems": { "service_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10 },
     "shelly": { "service_id": "shelly", "poll_interval_s": 20, "diagnostic_poll_multiplier": 15, "http_timeout_s": 5 },

@@ -17,7 +17,7 @@ from energy_node_common import appconfig
 
 def valid_document() -> dict:
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "mqtt": {
             "host": "127.0.0.1",
             "port": 1883,
@@ -29,13 +29,6 @@ def valid_document() -> dict:
             "data_dir": "/home/energynode/dashboard/data",
         },
         "logging": {"level": "INFO"},
-        "node": {
-            "device_id": "energy-node",
-            "device_name": "Energy Node",
-            "managed_bridges": ["apsystems", "tuya", "battery_soc", "shelly"],
-            "poll_interval_s": 60,
-            "diagnostic_poll_multiplier": 10,
-        },
         "dashboard": {
             "node_device_id": "energy-node",
             "node_device_name": "Energy Node",
@@ -91,18 +84,13 @@ def write_config(tmp_path: Path, document: dict | None = None) -> str:
 def test_load_reads_every_section(tmp_path):
     config = appconfig.load(write_config(tmp_path))
 
-    assert config.schema_version == 1
+    assert config.schema_version == 2
     assert config.mqtt.host == "127.0.0.1"
     assert config.mqtt.port == 1883
     assert config.mqtt.username == "energynode_client"
     assert config.paths.devices_dir == "/home/energynode/devices"
     assert config.paths.data_dir == "/home/energynode/dashboard/data"
     assert config.log_level == "INFO"
-    assert config.node.device_id == "energy-node"
-    assert config.node.device_name == "Energy Node"
-    assert config.node.managed_bridges == ("apsystems", "tuya", "battery_soc", "shelly")
-    assert config.node.poll_interval_s == 60.0
-    assert config.node.diagnostic_poll_multiplier == 10.0
     assert config.service("shelly").service_id == "shelly"
     assert config.service("shelly").poll_interval_s == 20.0
     assert config.service("shelly").http_timeout_s == 5.0
@@ -140,12 +128,21 @@ def test_wrong_type_names_json_path_and_value(tmp_path):
     assert 'services.shelly.poll_interval_s: erwartet Zahl, gefunden "20"' in str(excinfo.value)
 
 
-def test_schema_version_mismatch_names_both_versions(tmp_path):
+def test_schema_version_one_is_rejected_with_hint(tmp_path):
     document = valid_document()
-    document["schema_version"] = 2
+    document["schema_version"] = 1
     with pytest.raises(appconfig.ConfigError) as excinfo:
         appconfig.load(write_config(tmp_path, document))
-    assert "2" in str(excinfo.value) and "1" in str(excinfo.value)
+    assert "schema_version 1" in str(excinfo.value)
+    assert "dashboard.node_" in str(excinfo.value)
+
+
+def test_schema_version_mismatch_names_expected_version(tmp_path):
+    document = valid_document()
+    document["schema_version"] = 99
+    with pytest.raises(appconfig.ConfigError) as excinfo:
+        appconfig.load(write_config(tmp_path, document))
+    assert "99" in str(excinfo.value) and "2" in str(excinfo.value)
 
 
 def test_missing_service_key_names_expected_key(tmp_path):
@@ -154,14 +151,6 @@ def test_missing_service_key_names_expected_key(tmp_path):
     with pytest.raises(appconfig.ConfigError) as excinfo:
         appconfig.load(write_config(tmp_path, document))
     assert "services.trucki" in str(excinfo.value)
-
-
-def test_managed_bridge_without_service_section_is_rejected(tmp_path):
-    document = valid_document()
-    document["node"]["managed_bridges"] = ["apsystems", "unbekannt"]
-    with pytest.raises(appconfig.ConfigError) as excinfo:
-        appconfig.load(write_config(tmp_path, document))
-    assert "services.unbekannt" in str(excinfo.value)
 
 
 def test_missing_password_file_names_file(tmp_path):

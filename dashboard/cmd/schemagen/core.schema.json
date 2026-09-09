@@ -3,9 +3,9 @@
   "description": "Ersetzt die frueheren *.env-Dateien aller Dienste. Liegt auf dem Zielgeraet unter /etc/energy-node/config.json.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schema_version", "mqtt", "paths", "logging", "node", "services", "dashboard", "tailscale", "tinytuya"],
+  "required": ["schema_version", "mqtt", "paths", "logging", "services", "dashboard", "tailscale", "tinytuya"],
   "properties": {
-    "schema_version": {"type": "integer", "minimum": 1, "maximum": 1, "title": "Schemaversion"},
+    "schema_version": {"type": "integer", "minimum": 2, "maximum": 2, "title": "Schemaversion"},
     "mqtt": {
       "type": "object",
       "additionalProperties": false,
@@ -32,18 +32,6 @@
       "additionalProperties": false,
       "required": ["level"],
       "properties": {"level": {"type": "string", "minLength": 1, "title": "Log-Level der Python-Dienste"}}
-    },
-    "node": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": ["device_id", "device_name", "managed_bridges", "poll_interval_s", "diagnostic_poll_multiplier"],
-      "properties": {
-        "device_id": {"type": "string", "minLength": 1, "title": "Node-Geraete-ID"},
-        "device_name": {"type": "string", "minLength": 1, "title": "Anzeigename"},
-        "managed_bridges": {"type": "array", "items": {"type": "string", "minLength": 1}, "title": "Verwaltete Bridges"},
-        "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
-        "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"}
-      }
     },
     "services": {
       "type": "object",

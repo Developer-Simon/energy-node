@@ -39,10 +39,10 @@ def _write_manifests(config_dir):
         )
 
 
-def _valid_document(node=None):
+def _valid_document():
     """Ein vollstaendiges Konfigurationsdokument fuer Tests."""
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "mqtt": {
             "host": "127.0.0.1",
             "port": 1883,
@@ -54,14 +54,6 @@ def _valid_document(node=None):
             "data_dir": "/tmp/data",
         },
         "logging": {"level": "INFO"},
-        "node": {
-            "device_id": "energy-node",
-            "device_name": "Energy Node",
-            "managed_bridges": ["shelly"],
-            "poll_interval_s": 60,
-            "diagnostic_poll_multiplier": 10,
-            **(node or {}),
-        },
         "dashboard": {
             "node_device_id": "energy-node",
             "node_device_name": "Energy Node",
@@ -82,8 +74,8 @@ def _valid_document(node=None):
 @pytest.fixture
 def app_config(tmp_path):
     """Erstellt eine AppConfig-Factory fuer Tests mit Ueberrides."""
-    def _make_config(services=None, node=None):
-        document = _valid_document(node)
+    def _make_config(services=None):
+        document = _valid_document()
         if services:
             document["services"].update(services)
         _write_manifests(tmp_path)
