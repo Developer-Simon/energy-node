@@ -83,8 +83,12 @@ for _t in "${TYPE_ORDER[@]}"; do LABEL_TO_TYPE["${LABELS[$_t]}"]="$_t"; done
 unset _t
 VERSION_RE='^v([0-9]+)\.([0-9]+)\.([0-9]+)$'
 FREEZE_VERSION_RE='^v?([0-9]+)\.([0-9]+)(\.[0-9]+)?$'
-COMMIT_RE_SCOPED='^([a-zA-Z]+)\(([^)]*)\):[[:space:]](.*)$'
-COMMIT_RE_PLAIN='^([a-zA-Z]+):[[:space:]](.*)$'
+# The optional "!" before the colon is the Conventional-Commits breaking-change
+# marker (feat!:, fix(scope)!:). It must not defeat type detection - the commit
+# still belongs in its normal bucket - so it is captured as its own group and
+# turned into a "⚠ Breaking" prefix in classify_and_append.
+COMMIT_RE_SCOPED='^([a-zA-Z]+)\(([^)]*)\)(!?):[[:space:]](.*)$'
+COMMIT_RE_PLAIN='^([a-zA-Z]+)(!?):[[:space:]](.*)$'
 
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
 
@@ -179,19 +183,27 @@ flush_group() {
 
 classify_and_append() {
   local hash="$1" subject="$2"
-  local type="other" scope="" rest="$subject" raw_type=""
+  local type="other" scope="" rest="$subject" raw_type="" breaking=""
   if [[ "$subject" =~ $COMMIT_RE_SCOPED ]]; then
     raw_type="${BASH_REMATCH[1],,}"
     scope="${BASH_REMATCH[2]}"
-    rest="${BASH_REMATCH[3]}"
+    breaking="${BASH_REMATCH[3]}"
+    rest="${BASH_REMATCH[4]}"
     [[ -n "${LABELS[$raw_type]:-}" ]] && type="$raw_type"
   elif [[ "$subject" =~ $COMMIT_RE_PLAIN ]]; then
     raw_type="${BASH_REMATCH[1],,}"
-    rest="${BASH_REMATCH[2]}"
+    breaking="${BASH_REMATCH[2]}"
+    rest="${BASH_REMATCH[3]}"
     [[ -n "${LABELS[$raw_type]:-}" ]] && type="$raw_type"
   fi
   local entry="- "
-  [[ -n "$scope" ]] && entry+="**${scope}:** "
+  if [[ -n "$breaking" && -n "$scope" ]]; then
+    entry+="**⚠ Breaking — ${scope}:** "
+  elif [[ -n "$breaking" ]]; then
+    entry+="**⚠ Breaking:** "
+  elif [[ -n "$scope" ]]; then
+    entry+="**${scope}:** "
+  fi
   entry+="${rest} (${hash})"
   GBUCKET[$type]+="${entry}"$'\n'
 }

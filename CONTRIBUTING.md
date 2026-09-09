@@ -110,6 +110,10 @@ Keep the summary imperative and under ~72 characters; put the rationale in
 the body. This is a rule, not a suggestion — matching the existing history
 in `git log` is the quickest way to get it right.
 
+Mark a breaking change with a `!` before the colon (`feat!: …`,
+`fix(dashboard)!: …`). The generated component changelog keeps the commit in
+its normal section but prefixes the entry with **⚠ Breaking**.
+
 Per-component `VERSION` files are patch-bumped on the PR branch by CI
 (`.github/workflows/version-bump.yml`); `major`/`minor` you bump by hand on the
 branch. CI (`.github/workflows/ci.yml`, the *Vendored artefacts in sync* job)
