@@ -103,38 +103,85 @@
     </div>
     <div class="toolbar"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
   </section>
-  <section id="settings-history" role="tabpanel" x-show="activeSettingsPage === 'history'">
-    <h3>Aufzeichnung</h3>
-    <p class="settings-hint">Die Messwerte liegen ausschließlich im Browser dieses Geräts. Hier steht nur, wie aufgezeichnet wird — die Einstellung gilt für alle Geräte, die aufgezeichneten Daten nicht.</p>
-    <div class="form-grid">
-      <label for="history-interval">Abtastrate (Sekunden)</label><input id="history-interval" type="number" min="5" max="3600" x-model.number="historySampleIntervalSeconds">
-      <label for="history-raw-window">Rohdaten behalten (Stunden)</label><input id="history-raw-window" type="number" min="1" max="168" x-model.number="historyRawWindowHours">
-      <label for="history-minute-window">Minutenwerte behalten (Tage)</label><input id="history-minute-window" type="number" min="1" max="365" x-model.number="historyMinuteWindowDays">
-    </div>
-    <p id="history-volume" class="settings-hint" x-text="historyVolumeText"></p>
+  <section id="settings-history" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'history'">
+    <p class="settings-hint">Alle Messwerte liegen nur im Browser dieses Geräts. Hier steht, <em>wie</em> aufgezeichnet wird — das gilt geräteübergreifend, die Daten selbst bleiben lokal.</p>
 
-    <h3>Aufbewahrung</h3>
-    <div class="toolbar" role="radiogroup" aria-label="Aufbewahrungsart">
-      <label><input type="radio" name="history-retention-mode" value="time" x-model="historyRetentionMode"> Nach Zeit begrenzen</label>
-      <label><input type="radio" name="history-retention-mode" value="size" x-model="historyRetentionMode"> Nach Speicher begrenzen</label>
+    <div class="setting-card">
+      <h3 class="setting-card-title">Aufzeichnung</h3>
+      <p class="setting-note">Wie oft ein Messpunkt entsteht und wie lange die feinen Auflösungen erhalten bleiben, bevor sie zu gröberen Mittelwerten zusammenfallen.</p>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-history-interval">Abtastrate <span class="setting-row-unit">Sekunden</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-history-interval">
+          <button type="button" class="stepper-btn" aria-label="Abtastrate verringern" x-on:click="stepField('historySampleIntervalSeconds', -1)" x-on:pointerdown="startRepeat('historySampleIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input class="stepper-input" type="number" min="5" max="3600" step="5" x-model.number="historySampleIntervalSeconds" aria-labelledby="lbl-history-interval">
+          <button type="button" class="stepper-btn" aria-label="Abtastrate erhöhen" x-on:click="stepField('historySampleIntervalSeconds', 1)" x-on:pointerdown="startRepeat('historySampleIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-history-raw">Rohdaten behalten <span class="setting-row-unit">Stunden</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-history-raw">
+          <button type="button" class="stepper-btn" aria-label="Rohdaten-Fenster verringern" x-on:click="stepField('historyRawWindowHours', -1)" x-on:pointerdown="startRepeat('historyRawWindowHours', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input class="stepper-input" type="number" min="1" max="168" step="1" x-model.number="historyRawWindowHours" aria-labelledby="lbl-history-raw">
+          <button type="button" class="stepper-btn" aria-label="Rohdaten-Fenster erhöhen" x-on:click="stepField('historyRawWindowHours', 1)" x-on:pointerdown="startRepeat('historyRawWindowHours', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-history-minute">Minutenwerte behalten <span class="setting-row-unit">Tage</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-history-minute">
+          <button type="button" class="stepper-btn" aria-label="Minutenwerte-Fenster verringern" x-on:click="stepField('historyMinuteWindowDays', -1)" x-on:pointerdown="startRepeat('historyMinuteWindowDays', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input class="stepper-input" type="number" min="1" max="365" step="1" x-model.number="historyMinuteWindowDays" aria-labelledby="lbl-history-minute">
+          <button type="button" class="stepper-btn" aria-label="Minutenwerte-Fenster erhöhen" x-on:click="stepField('historyMinuteWindowDays', 1)" x-on:pointerdown="startRepeat('historyMinuteWindowDays', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </div>
+      <p id="history-volume" class="setting-note setting-card-foot" x-text="historyVolumeText"></p>
     </div>
-    <div class="form-grid">
-      <label for="history-retention-hours">Aufbewahrung (Stunden)</label><input id="history-retention-hours" type="number" min="1" max="8760" x-model.number="historyRetentionHours" x-bind:disabled="historyRetentionMode !== 'time'">
-      <label for="history-budget">Speicherbudget (MB)</label><input id="history-budget" type="number" min="16" max="8192" x-model.number="historyBudgetMb" x-bind:disabled="historyRetentionMode !== 'size'">
-    </div>
-    <p id="history-budget-text" class="settings-hint" x-text="historyBudgetText"></p>
-    <p id="history-usage" class="settings-hint" x-text="historyUsageText"></p>
-    <div class="toolbar"><button type="button" x-on:click="loadHistoryUsage()">Speicherstand aktualisieren</button></div>
 
-    <h3>Austausch zwischen Geräten</h3>
-    <p class="settings-hint">Geräte, die gleichzeitig geöffnet sind, ergänzen sich gegenseitig um Zeiträume, die dem jeweils anderen fehlen — Minuten- und Fünf-Minuten-Werte, keine Rohdaten. Eigene Messwerte werden dabei nie überschrieben.</p>
-    <div class="toolbar">
-      <label><input id="history-exchange" type="checkbox" x-model="historyExchangeDisabled"> Austausch abschalten</label>
+    <div class="setting-card">
+      <h3 class="setting-card-title">Aufbewahrung</h3>
+      <p class="setting-note">Ab wann ältere Werte verworfen werden — nach Alter oder nach dem Platz, den sie im Browser belegen dürfen.</p>
+      <div class="segmented" role="radiogroup" aria-label="Aufbewahrungsart">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="history-retention-mode" value="time" x-model="historyRetentionMode"><span>Nach Zeit</span></label>
+        <label class="segmented-option"><input type="radio" name="history-retention-mode" value="size" x-model="historyRetentionMode"><span>Nach Speicher</span></label>
+      </div>
+      <div class="retention-field">
+        <div class="setting-row" x-show="historyRetentionMode === 'time'" x-transition.opacity.duration.150ms>
+          <span class="setting-row-label" id="lbl-history-retention">Aufbewahrung <span class="setting-row-unit">Stunden</span></span>
+          <span class="stepper" role="group" aria-labelledby="lbl-history-retention">
+            <button type="button" class="stepper-btn" aria-label="Aufbewahrung verringern" x-on:click="stepField('historyRetentionHours', -1)" x-on:pointerdown="startRepeat('historyRetentionHours', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <input class="stepper-input" type="number" min="1" max="8760" step="1" x-model.number="historyRetentionHours" aria-labelledby="lbl-history-retention">
+            <button type="button" class="stepper-btn" aria-label="Aufbewahrung erhöhen" x-on:click="stepField('historyRetentionHours', 1)" x-on:pointerdown="startRepeat('historyRetentionHours', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          </span>
+        </div>
+        <div class="setting-row" x-show="historyRetentionMode === 'size'" x-transition.opacity.duration.150ms>
+          <span class="setting-row-label" id="lbl-history-budget">Speicherbudget <span class="setting-row-unit">MB</span></span>
+          <span class="stepper" role="group" aria-labelledby="lbl-history-budget">
+            <button type="button" class="stepper-btn" aria-label="Budget verringern" x-on:click="stepField('historyBudgetMb', -1)" x-on:pointerdown="startRepeat('historyBudgetMb', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <input class="stepper-input" type="number" min="16" max="8192" step="16" x-model.number="historyBudgetMb" aria-labelledby="lbl-history-budget">
+            <button type="button" class="stepper-btn" aria-label="Budget erhöhen" x-on:click="stepField('historyBudgetMb', 1)" x-on:pointerdown="startRepeat('historyBudgetMb', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          </span>
+        </div>
+      </div>
+      <p id="history-budget-text" class="setting-note" x-text="historyBudgetText"></p>
+      <p id="history-usage" class="setting-note" x-text="historyUsageText"></p>
+      <button type="button" class="setting-quiet-btn" x-on:click="loadHistoryUsage()">Speicherstand aktualisieren</button>
     </div>
-    <p id="history-exchange-status" class="settings-hint" x-text="historyExchangeStatus"></p>
-    <div class="toolbar"><button type="button" x-on:click="refreshExchangeStatus()">Status aktualisieren</button></div>
 
-    <div class="toolbar"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+    <div class="setting-card">
+      <h3 class="setting-card-title">Geräteaustausch</h3>
+      <p class="setting-note">Gleichzeitig geöffnete Geräte ergänzen sich gegenseitig um fehlende Zeiträume — Minuten- und Fünf-Minuten-Werte, keine Rohdaten. Eigene Messwerte werden dabei nie überschrieben.</p>
+      <label class="switch-row" for="history-exchange">
+        <span>Verläufe mit anderen Geräten austauschen</span>
+        <span class="settings-toggle">
+          <input id="history-exchange" type="checkbox" role="switch" x-bind:checked="!historyExchangeDisabled" x-on:change="historyExchangeDisabled = !$event.target.checked" x-bind:aria-checked="(!historyExchangeDisabled).toString()">
+          <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+        </span>
+      </label>
+      <p id="history-exchange-status" class="setting-note" x-text="historyExchangeStatus"></p>
+      <button type="button" class="setting-quiet-btn" x-on:click="refreshExchangeStatus()">Status aktualisieren</button>
+    </div>
+
+    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
   </section>
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
     {{template "revisions" .}}
