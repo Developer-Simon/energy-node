@@ -77,8 +77,8 @@ if [[ -d src ]] && find src -maxdepth 1 -type d -name '*.egg-info' | grep -q .; 
   fi
 fi
 
-# Version kommt dynamisch aus VERSION (siehe pyproject.toml), gepflegt per
-# git-hooks/pre-commit wie dashboard/VERSION und services/VERSION. Ein manuelles
+# Version kommt dynamisch aus VERSION (siehe pyproject.toml), gepflegt vom
+# `Version bump`-Workflow wie dashboard/VERSION und services/VERSION. Ein manuelles
 # Bumpen hier entfaellt damit; bei unveraendertem VERSION-Stand kann pip ein
 # lokal editiertes Paket als bereits aktuell ansehen - im Zweifel
 # --force-reinstall an pip uebergeben oder --editable verwenden.

@@ -22,8 +22,8 @@ publish_mirror.sh [--mirror-path PATH] [--version X.Y.Z] [--dry-run] [--push] [-
 --mirror-path defaults to ${DEFAULT_MIRROR_PATH}.
 --version defaults to the bare semver in the monorepo's
   custom_components/battery_soc/manifest.json ("version" field), which the
-  pre-commit hook auto-bumps. Pass it explicitly only to override that
-  (first bootstrap release, or a manual major/minor jump).
+  "Version bump" workflow patch-bumps on the PR branch. Pass it explicitly only
+  to override that (first bootstrap release, or a manual major/minor jump).
 
 Assembles the public HACS repo tree at PATH from this monorepo:
   1. scripts/vendor_core.py --check                     (abort on drift)
@@ -81,7 +81,8 @@ src_cc="${ha}/custom_components/battery_soc"
 mirror="${ha}/mirror"
 
 # Default the release version to the monorepo manifest's "version" field --
-# the pre-commit hook keeps it current (git-hooks/lib.sh COMPONENTS). It is a
+# the `Version bump` workflow keeps it current (scripts/version/components.sh
+# COMPONENTS). It is a
 # bare semver there (HACS/hassfest requirement); the script adds the "v"
 # prefix itself for tags/commits/changelog.
 if [[ -z "$version" ]]; then

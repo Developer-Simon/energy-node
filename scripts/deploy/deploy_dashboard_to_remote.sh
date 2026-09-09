@@ -37,7 +37,7 @@ trap 'rm -rf "${BUILD_DIR}"' EXIT
 cd "${REPO_ROOT}/dashboard"
 
 # dashboard/VERSION holds the release triple (major.minor bumped by hand,
-# patch auto-bumped per commit by git-hooks/pre-commit). Builds off a branch
+# patch bumped on the PR branch by the `Version bump` workflow). Builds off a branch
 # other than main get a semver prerelease suffix identifying the branch and
 # how many commits it has, so two builds from the same VERSION content stay
 # distinguishable.

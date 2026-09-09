@@ -4,8 +4,8 @@
 # (feat, fix, refactor, perf, docs, test, style, chore, dev, build, ci) der
 # Commits, die die jeweilige Komponente betreffen.
 #
-# Jede Komponente hat ihre eigene VERSION-Datei, deren Patch-Level bei jedem
-# Commit auf main automatisch hochgezaehlt wird (siehe git-hooks/pre-commit)
+# Jede Komponente hat ihre eigene VERSION-Datei, deren Patch-Level auf dem
+# PR-Branch vom `Version bump`-Workflow hochgezaehlt wird (scripts/version/bump-patch.sh)
 # - Major/Minor werden von Hand gepflegt. Ein neuer Abschnitt im Changelog
 # entsteht deshalb nur, wenn sich Major oder Minor aendert, oder wenn der
 # Commit selbst getaggt ist; reine Patch-Bumps bleiben im selben Abschnitt.
@@ -33,6 +33,19 @@
 #   plattmachen (History-freier Fork), und wiederholte Laeufe sind idempotent.
 #   Ohne solchen Abschnitt (frische Datei, oder Git kennt noch alles) ist
 #   Auto-Freeze wirkungslos und es wird komplett neu gebaut.
+#
+# Same-Minor-Zusammenfuehrung (immer, zusaetzlich zu Auto-Freeze):
+#   Der offene Minor bekommt genau EINEN Abschnitt. Wird eine PR per Squash
+#   gemerged, sind ihre Branch-Commit-Hashes danach unerreichbar; Auto-Freeze
+#   wuerde dann den vorherigen "## vX.Y.Z"-Abschnitt desselben Minor einfrieren
+#   und dieser Lauf ein frisches "## vX.Y.(Z+1)" darueber stapeln - ein
+#   Abschnitt pro PR, nie zusammengefuehrt. Stattdessen wird jeder eingefrorene
+#   "## vX.Y.Z"-Block in einen neu gebauten Abschnitt hineingezogen, wenn er
+#   (1) exakt dessen Version hat oder (2) zum Minor des offenen Abschnitts
+#   gehoert und neuer ist als der naechste getaggte Release desselben Minor
+#   darunter. Vereinigung der Eintraege, dedupliziert ueber "(#NN)" oder den
+#   Eintragstext ohne den angehaengten Hash. "## Unversioniert", getaggte und
+#   vor einem Tag geschriebene aeltere Bloecke bleiben unberuehrt.
 #
 # --rebuild:
 #   Auto-Freeze aus. Die CHANGELOG.md wird komplett aus der Commit-Historie
@@ -63,6 +76,11 @@ declare -A LABELS=(
   [dev]="Dev" [build]="Build" [ci]="CI" [other]="Other"
 )
 TYPE_ORDER=(feat fix refactor perf docs test style chore dev build ci other)
+# Reverse of LABELS: "### <Heading>" text -> type key, for re-parsing an
+# already-rendered section back into buckets (merge_section_blocks).
+declare -A LABEL_TO_TYPE=()
+for _t in "${TYPE_ORDER[@]}"; do LABEL_TO_TYPE["${LABELS[$_t]}"]="$_t"; done
+unset _t
 VERSION_RE='^v([0-9]+)\.([0-9]+)\.([0-9]+)$'
 FREEZE_VERSION_RE='^v?([0-9]+)\.([0-9]+)(\.[0-9]+)?$'
 COMMIT_RE_SCOPED='^([a-zA-Z]+)\(([^)]*)\):[[:space:]](.*)$'
@@ -156,6 +174,7 @@ flush_group() {
   SECTION_MAJOR+=("$group_major")
   SECTION_MINOR+=("$group_minor")
   SECTION_UNVER+=("$group_unversioned")
+  SECTION_VER+=("$group_version")
 }
 
 classify_and_append() {
@@ -206,6 +225,50 @@ section_covered_by() {
     grep -qF "($h)" <<< "$2" || return 1
   done < <(block_hashes "$1")
   $had
+}
+
+# Re-rendert den Primaerblock ($1, dessen "## ..."-Ueberschrift erhalten
+# bleibt) mit der Vereinigung der "- "-Eintraege aller uebergebenen Bloecke,
+# gruppiert nach "### Typ" (Reihenfolge: TYPE_ORDER). Dedupliziert ueber die
+# "(#NN)"-PR-Nummer, sonst ueber den Eintragstext ohne den angehaengten
+# " (hash)". Reihenfolge der Eintraege: erstes Auftreten. Ergebnis in der
+# globalen Variable MERGED_BLOCK (kein $(...) - erhaelt die Schluss-Newlines).
+MERGED_BLOCK=""
+merge_section_blocks() {
+  local primary="$1"; shift
+  local heading="${primary%%$'\n'*}"
+  local -A seen=() bucket=()
+  local t
+  for t in "${TYPE_ORDER[@]}"; do bucket[$t]=""; done
+  local block cur_type line body key
+  for block in "$primary" "$@"; do
+    cur_type=""
+    while IFS= read -r line; do
+      if [[ "$line" =~ ^###[[:space:]]+(.+[^[:space:]])[[:space:]]*$ ]]; then
+        cur_type="${LABEL_TO_TYPE[${BASH_REMATCH[1]}]:-other}"
+      elif [[ "$line" == "- "* && -n "$cur_type" ]]; then
+        body="${line#- }"
+        if [[ "$body" =~ \(#([0-9]+)\) ]]; then
+          key="pr:${BASH_REMATCH[1]}"
+        else
+          key="txt:$(sed -E 's/ \([0-9a-f]{7,40}\)$//' <<< "$body")"
+        fi
+        if [[ -z "${seen[$key]:-}" ]]; then
+          seen[$key]=1
+          bucket[$cur_type]+="${line}"$'\n'
+        fi
+      fi
+    done <<< "$block"
+  done
+  MERGED_BLOCK="${heading}"$'\n\n'
+  local any=false
+  for t in "${TYPE_ORDER[@]}"; do
+    if [[ -n "${bucket[$t]}" ]]; then
+      any=true
+      MERGED_BLOCK+="### ${LABELS[$t]}"$'\n\n'"${bucket[$t]}"$'\n'
+    fi
+  done
+  [[ "$any" == true ]] || MERGED_BLOCK+="_No changes yet._"$'\n\n'
 }
 
 # Generiert die CHANGELOG.md einer einzelnen Komponente (dashboard|services|common).
@@ -294,7 +357,7 @@ generate_one() {
   local -A HIST_HASHES=()   # alle %h dieser Komponente aus der Commit-Historie
   local group_unversioned="" group_major="" group_minor=""
   local group_version="" group_tag="" group_date=""
-  local SECTIONS=() SECTION_MAJOR=() SECTION_MINOR=() SECTION_UNVER=()
+  local SECTIONS=() SECTION_MAJOR=() SECTION_MINOR=() SECTION_UNVER=() SECTION_VER=()
 
   reset_bucket
 
@@ -424,6 +487,85 @@ except Exception:
       fi
       $found && frozen_tail+="$old_block"
     done
+  fi
+
+  # Same-Minor-Zusammenfuehrung: eingefrorene "## vX.Y.Z"-Bloecke des
+  # frozen_tail in einen neu gebauten Abschnitt hineinziehen, statt sie separat
+  # zu behalten (siehe Kommentar am Dateianfang). Zwei Faelle:
+  #   1. Der eingefrorene Block hat exakt die Version eines gebauten Abschnitts
+  #      (z.B. ein per Squash "verwaister" Tag-Abschnitt, der neben seinem neu
+  #      gebauten Gegenstueck stehen bliebe) -> in diesen mergen.
+  #   2. Der Block gehoert zum Minor des offenen (neuesten) Abschnitts und ist
+  #      neuer als der naechste getaggte Release desselben Minor darunter
+  #      (Untergrenze) -> in den offenen Abschnitt mergen. So wandert ein nach
+  #      dem letzten Tag stehen gebliebener Pro-PR-Abschnitt hinein, waehrend
+  #      vor einem Tag geschriebene Bloecke desselben Minor an ihrem Platz
+  #      bleiben.
+  # Vereinigung der Eintraege, dedupliziert ueber "(#NN)" bzw. den Eintragstext
+  # ohne Hash. "## Unversioniert" und Nicht-"vX.Y.Z"-Ueberschriften bleiben
+  # unberuehrt.
+  local nsec=${#SECTIONS[@]}
+  if [[ -n "$frozen_tail" && $nsec -gt 0 ]]; then
+    local -A ver_to_idx=()
+    local s
+    for (( s = 0; s < nsec; s++ )); do
+      [[ "${SECTION_UNVER[$s]}" != "1" && "${SECTION_VER[$s]}" =~ $VERSION_RE ]] \
+        && ver_to_idx["${SECTION_VER[$s]}"]=$s
+    done
+    local open_idx=$((nsec - 1))
+    local open_major="${SECTION_MAJOR[$open_idx]}" open_minor="${SECTION_MINOR[$open_idx]}"
+    local open_ok=false
+    [[ "${SECTION_UNVER[$open_idx]}" != "1" && -n "$open_major" ]] && open_ok=true
+    # Untergrenze fuer Fall 2: Patch des naechsttieferen gebauten Abschnitts
+    # mit gleichem Major.Minor (per Tag abgetrennt). Keiner -> -1.
+    local lb_patch=-1 k
+    if $open_ok; then
+      for (( k = open_idx - 1; k >= 0; k-- )); do
+        if [[ "${SECTION_MAJOR[$k]}" == "$open_major" && "${SECTION_MINOR[$k]}" == "$open_minor" ]]; then
+          [[ "${SECTION_VER[$k]}" =~ $VERSION_RE ]] && lb_patch=$((10#${BASH_REMATCH[3]}))
+          break
+        fi
+      done
+    fi
+    local ft_blocks=()
+    mapfile -d '' -t ft_blocks < <(printf '%s' "$frozen_tail" | awk '
+      BEGIN{RS="\n## "}
+      { if (NR==1) printf "%s%c", $0, 0; else printf "## %s%c", $0, 0 }')
+    local ft_n=${#ft_blocks[@]}
+    # fold_into[idx] sammelt (NUL-getrennt) die in Abschnitt idx zu mergenden
+    # eingefrorenen Bloecke; was nirgends hinpasst, bleibt in kept_tail.
+    local -A fold_into=()
+    local j ft_block ft_head ft_ver kept_tail="" target_idx
+    for (( j = 0; j < ft_n; j++ )); do
+      ft_block="${ft_blocks[$j]}"
+      (( j < ft_n - 1 )) && ft_block+=$'\n'
+      ft_head="${ft_block%%$'\n'*}"
+      target_idx=""
+      if [[ "$ft_head" =~ ^\#\#\ (v[0-9]+\.[0-9]+\.[0-9]+)\  ]]; then
+        ft_ver="${BASH_REMATCH[1]}"
+        if [[ -n "${ver_to_idx[$ft_ver]:-}" ]]; then
+          target_idx="${ver_to_idx[$ft_ver]}"
+        elif $open_ok && [[ "$ft_ver" =~ $VERSION_RE ]] \
+             && [[ "${BASH_REMATCH[1]}" == "$open_major" && "${BASH_REMATCH[2]}" == "$open_minor" ]] \
+             && (( 10#${BASH_REMATCH[3]} > lb_patch )); then
+          target_idx=$open_idx
+        fi
+      fi
+      if [[ -n "$target_idx" ]]; then
+        fold_into[$target_idx]+="${ft_block}"$'\0'
+      else
+        kept_tail+="$ft_block"
+      fi
+    done
+    if [[ ${#fold_into[@]} -gt 0 ]]; then
+      for target_idx in "${!fold_into[@]}"; do
+        local -a extra=()
+        mapfile -d '' -t extra < <(printf '%s' "${fold_into[$target_idx]}")
+        merge_section_blocks "${SECTIONS[$target_idx]}" "${extra[@]}"
+        SECTIONS[$target_idx]="$MERGED_BLOCK"
+      done
+      frozen_tail="$kept_tail"
+    fi
   fi
 
   local final_blocks=()

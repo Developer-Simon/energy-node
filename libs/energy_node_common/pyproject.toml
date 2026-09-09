@@ -15,8 +15,8 @@ dependencies = [
 where = ["src"]
 include = ["energy_node_common*"]
 
-# VERSION wird wie dashboard/VERSION und services/VERSION per git-hooks/pre-commit
-# gepflegt (siehe COMPONENTS in git-hooks/lib.sh) - eine einzige Quelle statt
-# einer manuell synchron zu haltenden Versionsangabe hier.
+# VERSION wird wie dashboard/VERSION und services/VERSION vom `Version bump`-
+# Workflow gepflegt (siehe COMPONENTS in scripts/version/components.sh) - eine
+# einzige Quelle statt einer manuell synchron zu haltenden Versionsangabe hier.
 [tool.setuptools.dynamic]
 version = { file = ["VERSION"] }

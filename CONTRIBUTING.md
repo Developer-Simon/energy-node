@@ -67,7 +67,6 @@ full environment. In short:
 ```sh
 python3 -m venv .venv && .venv/bin/pip install -e libs/energy_node_common -e libs/battery_soc_core pytest
 .venv/bin/pip install -r requirements-dev.txt   # needed for the full services/ test suite
-./scripts/install_git_hooks.sh
 ```
 
 The Home Assistant integration needs its own virtualenv — see the
@@ -111,8 +110,11 @@ Keep the summary imperative and under ~72 characters; put the rationale in
 the body. This is a rule, not a suggestion — matching the existing history
 in `git log` is the quickest way to get it right.
 
-`./scripts/install_git_hooks.sh` links this repo's hooks into `.git/hooks/`.
-The pre-commit hook auto-bumps `dashboard/VERSION` / `services/VERSION` on `main`
-and rejects a commit that leaves the vendored `battery_soc_core` copy under
-`integrations/homeassistant/` out of sync with `libs/battery_soc_core/` — run
-`.venv/bin/python scripts/vendor_core.py` and stage the result if it fires.
+Per-component `VERSION` files are patch-bumped on the PR branch by CI
+(`.github/workflows/version-bump.yml`); `major`/`minor` you bump by hand on the
+branch. CI (`.github/workflows/ci.yml`, the *Vendored artefacts in sync* job)
+also fails a PR that leaves the vendored `battery_soc_core` copy under
+`integrations/homeassistant/` or the vendored `battery-card-core.js` in the
+Lovelace card out of sync with its source — run
+`.venv/bin/python scripts/vendor_core.py` / `scripts/vendor_card.py` and commit
+the result if it fires.

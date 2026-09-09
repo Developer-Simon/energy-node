@@ -14,8 +14,8 @@ repo is a *derived artifact*: it is assembled from this monorepo by
 - **Mirror repo:** [`Developer-Simon/ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc)
   — the public, HACS-facing repo, assembled from here by `scripts/publish_mirror.sh`.
 - **Shared core:** `libs/battery_soc_core/` → vendored into the integration by
-  `scripts/vendor_core.py` (drift-guarded by `git-hooks/pre-commit` and
-  `integrations/homeassistant/tests/test_vendor_sync.py`).
+  `scripts/vendor_core.py` (drift-guarded by the CI job *Vendored artefacts in
+  sync* and `integrations/homeassistant/tests/test_vendor_sync.py`).
 - **Test venvs:** the plain suites run in `.venv`; the Home Assistant suite
   needs its own `.venv-ha` (HA's pytest plugins conflict with the plain
   suite). Build it once:
@@ -108,7 +108,7 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
    (**bare** semver, no leading `v`) has its patch bumped on the PR branch by
    the `Version bump` workflow when the PR touches `integrations/homeassistant/`
    (`scripts/version/bump-patch.sh`, same `COMPONENTS` mechanism as
-   `dashboard/VERSION`/`services/VERSION` — see `git-hooks/lib.sh`); major/minor stay
+   `dashboard/VERSION`/`services/VERSION` — see `scripts/version/components.sh`); major/minor stay
    hand-edited. `CHANGELOG.md` is
    generated the same way as the other components, grouped by major.minor into
    `## vX.Y.Z (date)` sections. **`publish_mirror.sh --release` runs

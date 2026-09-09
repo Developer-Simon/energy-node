@@ -10,9 +10,10 @@ trap 'rm -rf "$tmp"' EXIT
 
 fail() { echo "FAIL: $1"; [ -n "${2:-}" ] && printf '%s\n' "$2"; exit 1; }
 
-# A throwaway repo carrying the real component layout from git-hooks/lib.sh.
-# bump-patch.sh sources lib.sh relative to its own location, so the real
-# COMPONENTS list applies and the paths below must match it.
+# A throwaway repo carrying the real component layout from
+# scripts/version/components.sh. bump-patch.sh sources components.sh relative to
+# its own location, so the real COMPONENTS list applies and the paths below must
+# match it.
 setup_repo() {
   local dir="$1"
   mkdir -p "$dir"
