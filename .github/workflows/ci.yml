@@ -13,8 +13,58 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides which of the jobs below need to run for this change. On a PR it
+  # diffs the head against the PR base; on the post-merge `main` run (or if the
+  # diff can't be computed) every area is marked changed so nothing is skipped.
+  # A change to the workflow file itself also forces every job to run.
+  changes:
+    name: Detect changed areas
+    runs-on: ubuntu-latest
+    outputs:
+      dashboard: ${{ steps.filter.outputs.dashboard }}
+      python: ${{ steps.filter.outputs.python }}
+      shell: ${{ steps.filter.outputs.shell }}
+      vendored: ${{ steps.filter.outputs.vendored }}
+      ha: ${{ steps.filter.outputs.ha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # Three-dot: only what this branch changed since it diverged from
+            # the base, ignoring commits that landed on the base since then.
+            files="$(git diff --name-only "$BASE_SHA...$HEAD_SHA" || true)"
+          else
+            files=""
+          fi
+          echo "Changed files:"
+          printf '%s\n' "$files"
+
+          all() { for o in dashboard python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
+
+          # No diff (post-merge run, or it could not be computed) or a change to
+          # the workflow itself: run everything.
+          if [ -z "$files" ] || grep -qE '^\.github/workflows/' <<<"$files"; then
+            all
+            exit 0
+          fi
+
+          emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
+          emit dashboard '^dashboard/'
+          emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
+          emit shell     '^scripts/'
+          emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^scripts/vendor_(core|card)\.py$'
+          emit ha        '^integrations/homeassistant/|^libs/battery_soc_core/'
+
   dashboard-go:
     name: Dashboard (Go)
+    needs: changes
+    if: needs.changes.outputs.dashboard == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -30,6 +80,8 @@ jobs:
 
   dashboard-js:
     name: Dashboard (JS)
+    needs: changes
+    if: needs.changes.outputs.dashboard == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -44,6 +96,8 @@ jobs:
 
   python-bridges:
     name: Python bridges
+    needs: changes
+    if: needs.changes.outputs.python == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -58,6 +112,8 @@ jobs:
 
   shell-scripts:
     name: Shell scripts
+    needs: changes
+    if: needs.changes.outputs.shell == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -72,6 +128,8 @@ jobs:
 
   vendored-artefacts:
     name: Vendored artefacts in sync
+    needs: changes
+    if: needs.changes.outputs.vendored == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -85,6 +143,8 @@ jobs:
 
   home-assistant-integration:
     name: Home Assistant integration
+    needs: changes
+    if: needs.changes.outputs.ha == 'true' || github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -98,3 +158,30 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ../../libs/battery_soc_core -r requirements-test.txt
       - run: pytest
+
+  # Single required status check. Always runs; passes only when every job above
+  # either succeeded or was legitimately skipped by the path filter. Point the
+  # `main` branch-protection rule at this job instead of the individual ones.
+  ci-ok:
+    name: CI ok
+    if: always()
+    needs:
+      - changes
+      - dashboard-go
+      - dashboard-js
+      - python-bridges
+      - shell-scripts
+      - vendored-artefacts
+      - home-assistant-integration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no needed job failed
+        run: |
+          results='${{ join(needs.*.result, ' ') }}'
+          echo "Job results: $results"
+          for r in $results; do
+            case "$r" in
+              success|skipped) ;;
+              *) echo "::error::a CI job did not pass (result: $r)"; exit 1 ;;
+            esac
+          done
