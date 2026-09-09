@@ -18,7 +18,7 @@ def test_module_has_no_master_symbols():
 
 def test_publish_discovery_dropped_bridges_param():
     params = list(inspect.signature(node.publish_discovery).parameters)
-    assert params == ["client", "node_config", "topics"]
+    assert params == ["client", "dashboard", "topics"]
 
 
 def test_publish_slow_diagnostics_dropped_master_param():

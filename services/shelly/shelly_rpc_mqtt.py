@@ -708,7 +708,7 @@ class ShellyService:
         self.service_name = service_name
         self.service_config = app_config.service(service_name)
         self.mqtt_config = app_config.mqtt
-        self.node_device_id = app_config.node.device_id
+        self.node_device_id = app_config.dashboard.node_device_id
         self.base_topic = f"outstation/{self.service_config.service_id}"
         self.client: Optional[mqtt_client.Client] = None
         self.loop: Optional[asyncio.AbstractEventLoop] = None
@@ -787,7 +787,7 @@ class ShellyService:
         self.app_config = new_app_config
         self.service_config = new_service_config
         self.mqtt_config = new_app_config.mqtt
-        self.node_device_id = new_app_config.node.device_id
+        self.node_device_id = new_app_config.dashboard.node_device_id
         self.config_store.commit(new_configs)
         logging.getLogger().setLevel(new_app_config.log_level)
         if self.slave is not None:

@@ -22,7 +22,7 @@ import (
 var restartRequiredFields = []string{
 	"mqtt",
 	"paths",
-	"node.device_id",
+	"dashboard.node_device_id",
 	"services.apsystems.service_id",
 	"services.battery_soc.service_id",
 	"services.shelly.service_id",
@@ -183,7 +183,7 @@ func writeSystemConfigRevision(dataDir string, data []byte) error {
 
 // changedRestartFields vergleicht zwei JSON-Dokumente und liefert die
 // Pfade aus restartRequiredFields, die sich unterscheiden. Ein Pfad wie
-// "mqtt" vergleicht den ganzen Abschnitt, "node.device_id" nur das Blatt.
+// "mqtt" vergleicht den ganzen Abschnitt, "dashboard.node_device_id" nur das Blatt.
 func changedRestartFields(previous, next []byte) []string {
 	var prevDoc, nextDoc map[string]any
 	if err := json.Unmarshal(previous, &prevDoc); err != nil {
@@ -205,7 +205,7 @@ func changedRestartFields(previous, next []byte) []string {
 }
 
 // serviceDeviceIDs liefert alle Dienst-/Node-IDs aus dem JSON-Dokument.
-// Das sind die service_id-Werte aller Eintraege unter "services" plus "node.device_id".
+// Das sind die service_id-Werte aller Eintraege unter "services" plus "dashboard.node_device_id".
 func serviceDeviceIDs(data []byte) []string {
 	var doc map[string]any
 	if err := json.Unmarshal(data, &doc); err != nil {
@@ -214,10 +214,10 @@ func serviceDeviceIDs(data []byte) []string {
 
 	var ids []string
 
-	// node.device_id
-	if nodeVal, ok := doc["node"]; ok {
-		if node, ok := nodeVal.(map[string]any); ok {
-			if id, ok := node["device_id"].(string); ok && id != "" {
+	// dashboard.node_device_id
+	if dashVal, ok := doc["dashboard"]; ok {
+		if dash, ok := dashVal.(map[string]any); ok {
+			if id, ok := dash["node_device_id"].(string); ok && id != "" {
 				ids = append(ids, id)
 			}
 		}

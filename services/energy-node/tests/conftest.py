@@ -39,7 +39,7 @@ def _write_manifests(config_dir):
         )
 
 
-def _valid_document(node=None):
+def _valid_document(dashboard=None):
     """Ein vollstaendiges Konfigurationsdokument fuer Tests."""
     return {
         "schema_version": 1,
@@ -60,13 +60,13 @@ def _valid_document(node=None):
             "managed_bridges": ["apsystems", "tuya", "battery_soc", "shelly"],
             "poll_interval_s": 60,
             "diagnostic_poll_multiplier": 10,
-            **(node or {}),
         },
         "dashboard": {
             "node_device_id": "energy-node",
             "node_device_name": "Energy Node",
             "node_poll_interval_s": 60,
             "node_diagnostic_poll_multiplier": 10,
+            **(dashboard or {}),
         },
         "services": {
             "apsystems": {"service_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10},
@@ -82,8 +82,8 @@ def _valid_document(node=None):
 @pytest.fixture
 def app_config(tmp_path):
     """Erstellt eine AppConfig-Factory fuer Tests mit Ueberrides."""
-    def _make_config(node=None):
-        document = _valid_document(node)
+    def _make_config(dashboard=None):
+        document = _valid_document(dashboard)
         _write_manifests(tmp_path)
         config_path = tmp_path / "config.json"
         config_path.write_text(json.dumps(document), encoding="utf-8")

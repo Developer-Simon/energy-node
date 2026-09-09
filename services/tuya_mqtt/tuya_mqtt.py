@@ -208,7 +208,7 @@ class TuyaService:
         self.service_name = service_name
         if app_config:
             self.service_config = app_config.service(service_name)
-            self.node_device_id = app_config.node.device_id
+            self.node_device_id = app_config.dashboard.node_device_id
             self.mqtt_config = app_config.mqtt
         else:
             self.service_config = None
@@ -237,7 +237,7 @@ class TuyaService:
 
         self._app_config = new_app_config
         self.service_config = new_service_config
-        self.node_device_id = new_app_config.node.device_id
+        self.node_device_id = new_app_config.dashboard.node_device_id
         self.mqtt_config = new_app_config.mqtt
         self.config_store.commit(new_configs)
         logging.getLogger().setLevel(new_app_config.log_level)
