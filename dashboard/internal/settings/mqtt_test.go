@@ -152,6 +152,19 @@ func TestMQTTConfigMetricEnabledDefaultsTrue(t *testing.T) {
 	}
 }
 
+func TestMQTTConfigSimulationActiveRoundTrips(t *testing.T) {
+	store := NewStore(t.TempDir())
+	cfg := DefaultMQTT()
+	cfg.SimulationActive = true
+	if err := store.SaveMQTT(cfg); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadMQTT()
+	if err != nil || !got.SimulationActive {
+		t.Fatalf("SimulationActive = %v, err %v; want true", got.SimulationActive, err)
+	}
+}
+
 func TestMQTTConfigPublishEnergyDeviceDefaultsTrue(t *testing.T) {
 	if !DefaultMQTT().PublishEnergyDevice {
 		t.Fatal("DefaultMQTT().PublishEnergyDevice = false, want true")

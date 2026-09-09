@@ -170,6 +170,13 @@ func main() {
 		return true
 	}
 
+	// Der MQTT-Tab schaltet den globalen simulation_active-Broadcast; der
+	// Sollzustand liegt in mqtt.json und wird retained auf ein festes Topic
+	// gelegt - hier beim Umschalten (ueber nodeSimPublisher), im
+	// Connect-Publisher unten fuer jeden (Re-)Connect.
+	nodeSimTopic := "outstation/" + cfg.Dashboard.NodeDeviceID + "/settings/simulation_active/set"
+	nodeSimPublisher := nodeSimAdapter{client: client, topic: nodeSimTopic}
+
 	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
 	// Der Schalter wird bei jedem Aufruf frisch gelesen, damit ein
 	// "Speichern und neu verbinden" ihn sofort anwendet; bei false trägt
@@ -194,6 +201,17 @@ func main() {
 		// Python-Dienstes.
 		msgs = append(msgs, nodeAgent.LegacyCleanupMessages()...)
 		msgs = append(msgs, nodeAgent.DiscoveryMessages(metricEnabled)...)
+
+		// Globaler simulation_active-Sollzustand, retained, bei jedem Connect.
+		simPayload := "0"
+		if stored, err := settingsStore.LoadMQTT(); err == nil && stored.SimulationActive {
+			simPayload = "1"
+		}
+		msgs = append(msgs, mqttclient.OutboundMessage{
+			Topic:   nodeSimTopic,
+			Payload: simPayload,
+			Retain:  true,
+		})
 		return msgs
 	})
 
@@ -278,6 +296,7 @@ func main() {
 			Resolver:          energyResolver,
 			MQTTBase:          mqttBase,
 			NodeAgent:         nodeAgent,
+			NodeSimulation:    nodeSimPublisher,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -375,6 +394,26 @@ func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now 
 		Balance        energy.Balance        `json:"balance"`
 		Interpretation energy.Interpretation `json:"interpretation"`
 	}{At: now.Unix(), Balance: full.Balance, Interpretation: cfg})
+}
+
+// nodeSimAdapter turns the MQTT tab's simulation_active switch into a
+// retained publish on outstation/<node>/settings/simulation_active/set.
+// *mqttclient.Client itself grows no method for this - the topic is fixed
+// at startup from cfg.Dashboard.NodeDeviceID, so a tiny adapter keeps that
+// knowledge in main.go.
+type nodeSimAdapter struct {
+	client *mqttclient.Client
+	topic  string
+}
+
+func (a nodeSimAdapter) PublishNodeSimulation(active bool) {
+	payload := "0"
+	if active {
+		payload = "1"
+	}
+	if err := a.client.PublishRetained(a.topic, payload); err != nil {
+		log.Printf("energy-node-dashboard: node simulation publish skipped: %v", err)
+	}
 }
 
 func serviceIDForConfig(name string) (string, bool) {

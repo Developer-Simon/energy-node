@@ -67,6 +67,14 @@ type MQTTReconfigurer interface {
 	Reconfigure(mqttclient.Config) error
 }
 
+// NodeSettingsPublisher pushes the retained node broadcast state
+// (outstation/<node>/settings/simulation_active/set) whenever the MQTT tab
+// changes it. It is implemented by a small adapter around
+// *mqttclient.Client in cmd/dashboard/main.go and faked in tests.
+type NodeSettingsPublisher interface {
+	PublishNodeSimulation(active bool)
+}
+
 const maxCommandActionsPerDevice = 12
 
 type CommandAction struct {
@@ -156,6 +164,9 @@ type RouterDependencies struct {
 	// zuletzt gelesene Systemtelemetrie. Der Health-Endpunkt (Task 6/7)
 	// liest daraus; hier nur durchgereicht.
 	NodeAgent *nodeagent.Agent
+	// NodeSimulation publiziert den retained simulation_active-Sollzustand,
+	// wenn der MQTT-Tab ihn umschaltet.
+	NodeSimulation NodeSettingsPublisher
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -273,6 +284,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase))
 		mux.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
+		mux.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
 		mux.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
 		mux.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))

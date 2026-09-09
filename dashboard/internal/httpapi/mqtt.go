@@ -87,20 +87,22 @@ func requireCSRF(w http.ResponseWriter, r *http.Request, manager *auth.Manager) 
 }
 
 type mqttConfigResponse struct {
-	Enabled             bool   `json:"enabled"`
-	Host                string `json:"host"`
-	Port                int    `json:"port"`
-	ClientID            string `json:"client_id"`
-	Username            string `json:"username,omitempty"`
-	TLS                 bool   `json:"tls"`
-	TLSInsecure         bool   `json:"tls_insecure"`
-	KeepaliveSeconds    int    `json:"keepalive_seconds"`
-	CleanSession        bool   `json:"clean_session"`
-	DiscoveryPrefix     string `json:"discovery_prefix"`
-	ConnectTimeoutSec   int    `json:"connect_timeout_seconds"`
-	PublishEnergyDevice bool   `json:"publish_energy_device"`
-	Source              string `json:"source"`
-	PasswordConfigured  bool   `json:"password_configured"`
+	Enabled             bool            `json:"enabled"`
+	Host                string          `json:"host"`
+	Port                int             `json:"port"`
+	ClientID            string          `json:"client_id"`
+	Username            string          `json:"username,omitempty"`
+	TLS                 bool            `json:"tls"`
+	TLSInsecure         bool            `json:"tls_insecure"`
+	KeepaliveSeconds    int             `json:"keepalive_seconds"`
+	CleanSession        bool            `json:"clean_session"`
+	DiscoveryPrefix     string          `json:"discovery_prefix"`
+	ConnectTimeoutSec   int             `json:"connect_timeout_seconds"`
+	PublishEnergyDevice bool            `json:"publish_energy_device"`
+	SimulationActive    bool            `json:"simulation_active"`
+	Metrics             map[string]bool `json:"metrics"`
+	Source              string          `json:"source"`
+	PasswordConfigured  bool            `json:"password_configured"`
 }
 
 // handleMQTTConfig serves the dashboard's own MQTT broker connection
@@ -137,6 +139,8 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 				DiscoveryPrefix:     cfg.DiscoveryPrefix,
 				ConnectTimeoutSec:   cfg.ConnectTimeoutSec,
 				PublishEnergyDevice: stored.PublishEnergyDevice,
+				SimulationActive:    stored.SimulationActive,
+				Metrics:             stored.Metrics,
 				Source:              source,
 				PasswordConfigured:  mqttPasswordConfigured(credentials),
 			})
@@ -205,6 +209,62 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 			return
 		}
 		writeJSON(w, map[string]bool{"publish_energy_device": body.PublishEnergyDevice})
+	}
+}
+
+// handleMQTTNodeSettings persists the two node-broadcast controls of the
+// MQTT tab into mqtt.json: MQTTConfig.simulation_active (the retained
+// outstation/<node>/settings/simulation_active/set desired state) and
+// MQTTConfig.metrics (the per-metric publish toggles). Like
+// handleMQTTEnergyDevice it is deliberately separate from PUT /api/v1/mqtt
+// so the switches work without supplying a full, valid broker config. When
+// simulation_active is part of the request the resolved state is published
+// straight away via NodeSettingsPublisher; the per-connect publish in
+// cmd/dashboard/main.go covers everything else.
+func handleMQTTNodeSettings(store *settings.Store, authManager *auth.Manager, publisher NodeSettingsPublisher) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			methodNotAllowed(w, http.MethodPost)
+			return
+		}
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Einstellungen fehlt die Berechtigung") {
+			return
+		}
+		if !requireHTTPS(w, r) {
+			return
+		}
+		if !requireCSRF(w, r, authManager) {
+			return
+		}
+		var body struct {
+			SimulationActive *bool           `json:"simulation_active"`
+			Metrics          map[string]bool `json:"metrics"`
+		}
+		if err := decodeBody(r, &body); err != nil {
+			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			return
+		}
+		stored, err := store.LoadMQTT()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+			return
+		}
+		if body.SimulationActive != nil {
+			stored.SimulationActive = *body.SimulationActive
+		}
+		if body.Metrics != nil {
+			// Assign the freshly decoded map rather than mutating the one the
+			// in-memory config cache may still hold (map-aliasing caution).
+			stored.Metrics = body.Metrics
+		}
+		if err := store.SaveMQTT(stored); err != nil {
+			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			return
+		}
+		if publisher != nil && body.SimulationActive != nil {
+			publisher.PublishNodeSimulation(stored.SimulationActive)
+		}
+		writeJSON(w, map[string]any{"simulation_active": stored.SimulationActive, "metrics": stored.Metrics})
 	}
 }
 

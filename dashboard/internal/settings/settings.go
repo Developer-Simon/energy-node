@@ -263,6 +263,10 @@ type MQTTConfig struct {
 	// Bedeutung von "nicht gesetzt" traegt dieser Default, nicht das Schema
 	// (Spec V2).
 	Metrics map[string]bool `json:"metrics,omitempty"`
+	// SimulationActive ist der Sollzustand des globalen simulation_active-
+	// Broadcasts, den das Dashboard retained an
+	// outstation/<node>/settings/simulation_active/set schickt. Default false.
+	SimulationActive bool `json:"simulation_active"`
 }
 
 // MetricEnabled liefert true, solange die Metrik nicht ausdruecklich auf

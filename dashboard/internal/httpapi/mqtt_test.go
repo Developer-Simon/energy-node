@@ -422,6 +422,69 @@ func TestMQTTEnergyDevicePUTTogglesIndependentlyOfEnabled(t *testing.T) {
 	}
 }
 
+type fakeNodeSim struct {
+	lastActive bool
+	called     bool
+}
+
+func (f *fakeNodeSim) PublishNodeSimulation(active bool) { f.lastActive = active; f.called = true }
+
+func newNodeSettingsTestRouter(t *testing.T, store *settings.Store, sim NodeSettingsPublisher) (http.Handler, *auth.Manager) {
+	t.Helper()
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, RouterDependencies{
+		Auth: manager, NodeSimulation: sim,
+	})
+	return router, manager
+}
+
+func TestMQTTNodeSettingsPublishesSimulation(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	sim := &fakeNodeSim{}
+	router, _ := newNodeSettingsTestRouter(t, store, sim)
+	adminCookie, csrf := loginAsAdmin(t, router)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/mqtt/node-settings", strings.NewReader(`{"simulation_active":true}`))
+	req.AddCookie(adminCookie)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-CSRF-Token", csrf)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	if !sim.called || !sim.lastActive {
+		t.Fatalf("PublishNodeSimulation(true) not called (called=%v active=%v)", sim.called, sim.lastActive)
+	}
+	stored, _ := store.LoadMQTT()
+	if !stored.SimulationActive {
+		t.Fatal("SimulationActive not persisted")
+	}
+}
+
+func TestMQTTNodeSettingsSavesMetrics(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router, _ := newNodeSettingsTestRouter(t, store, &fakeNodeSim{})
+	adminCookie, csrf := loginAsAdmin(t, router)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/mqtt/node-settings", strings.NewReader(`{"metrics":{"cpu_temp":false}}`))
+	req.AddCookie(adminCookie)
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-CSRF-Token", csrf)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status %d: %s", rec.Code, rec.Body.String())
+	}
+	stored, _ := store.LoadMQTT()
+	if stored.MetricEnabled("cpu_temp") {
+		t.Fatal("cpu_temp still enabled")
+	}
+}
+
 func TestMQTTEnergyDevicePUTRejectsInsecureRequest(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	router, _ := newMQTTTestRouter(t, store, nil, nil, nil)
