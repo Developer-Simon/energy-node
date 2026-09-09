@@ -285,9 +285,9 @@ run with `--service <name>`, where the name is the source directory:
 
 ## 7. Configure devices
 
-Edit `/etc/energy-node/config.json` (broker, paths, log level, node
-settings, per-service settings, dashboard settings) — every field is
-documented in [`docs/knowledge/configuration.md`](docs/knowledge/configuration.md).
+Edit `/etc/energy-node/config.json` (broker, paths, log level,
+per-service settings, dashboard settings incl. the `node_*` fields) — every
+field is documented in [`docs/knowledge/configuration.md`](docs/knowledge/configuration.md).
 There is no environment-variable fallback: if the file is missing, services
 fail to start rather than come up unconfigured.
 

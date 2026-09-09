@@ -10,7 +10,7 @@ Tailscale-/Mosquitto-Status, verfügbare Updates, ...).
 Der wichtige Punkt: Andere Skripte (AP Systems, Tuya, ...) können in ihrem
 eigenen Discovery-"device"-Block das Feld
 
-    "via_device": "energy-node"   (Standard-Geraete-ID dieses Knotens, aus node.device_id der zentralen Config)
+    "via_device": "energy-node"   (Standard-Geraete-ID dieses Knotens, aus dashboard.node_device_id der zentralen Config)
 
 ergänzen. Dann zeigt Home Assistant sie in der Geräteliste als
 "Verbunden über Energy Node" an, mit einem Klick von dort navigierbar.
