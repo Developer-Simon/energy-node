@@ -211,4 +211,24 @@ grep -q "real change to list"      "$cl" || fail "real commit missing after hous
 grep -q "bump component versions"  "$cl" && fail "chore(release) housekeeping commit was listed"
 grep -q "changelogs"              "$cl" && fail "a docs(changelog) housekeeping commit was listed"
 
+# --- semver breaking-change marker: `type!:` and `type(scope)!:` --------------
+# The "!" must not defeat type detection (commit still lands in its normal
+# bucket), and the entry gets a "⚠ Breaking" prefix rather than the raw
+# subject leaking into "### Other".
+echo b1 > "$tmp/dashboard/breaking1.js"
+commit "feat!: drop the legacy node block"
+echo b2 > "$tmp/dashboard/breaking2.js"
+commit "fix(dashboard)!: reject configs without an explicit unit"
+gen --rebuild dashboard
+grep -qF '**⚠ Breaking:** drop the legacy node block' "$cl" \
+  || fail "plain feat! entry missing its breaking marker / wrong bucket"
+grep -qF '**⚠ Breaking — dashboard:** reject configs without an explicit unit' "$cl" \
+  || fail "scoped fix! entry missing its breaking marker / wrong bucket"
+grep -q "feat!: drop the legacy node block" "$cl" \
+  && fail "raw feat! subject leaked (commit fell through to Other)"
+awk '/^### /{sec=$0} /drop the legacy node block/{print sec}' "$cl" | grep -qx "### Features" \
+  || fail "feat! not filed under Features"
+awk '/^### /{sec=$0} /reject configs without an explicit unit/{print sec}' "$cl" | grep -qx "### Fixes" \
+  || fail "fix(dashboard)! not filed under Fixes"
+
 echo "OK"

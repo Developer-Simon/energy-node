@@ -1,16 +1,18 @@
 # Changelog
 
-## v0.3.16 (2026-09-09)
+## v0.3.17 (2026-09-09)
 
 ### Features
 
 - make device services self-describing with per-service manifests (#12) (2e8c911)
+- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - add a manifest and schema fragment per device service (7124a64)
 
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
 - **appconfig:** derive the service set from manifests/, not a table (652345c)
 - rename product Werkstatt-IoT to Energy Node repo-wide (3978730)
 - rename Werkstatt-IoT to Energy Node, externalize deploy config, and document pi migration (daf06da)
@@ -36,7 +38,6 @@
 
 ### Other
 
-- feat!: fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
 
 ## Unversioniert (bis 2026-08-24)
