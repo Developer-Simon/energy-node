@@ -59,7 +59,6 @@ development machine; the Python services are copied as source.
 ```sh
 git clone <your-fork> energy-node && cd energy-node
 python3 -m venv .venv && .venv/bin/pip install -e libs/energy_node_common -e libs/battery_soc_core pytest
-./scripts/install_git_hooks.sh
 ```
 
 ---

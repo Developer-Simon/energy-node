@@ -5,14 +5,13 @@
 # version file was already bumped on the branch. Idempotent: a second run is a
 # no-op.
 #
-# `main` is PR-protected, so the working tree never commits there and the old
-# pre-commit bump (git-hooks/pre-commit) can no longer fire. This script carries
-# the bump the squash-merge used to do; it runs on the PR branch from
-# .github/workflows/version-bump.yml and can also be run by hand on the branch
-# (commit your changes first -- it diffs committed history, base...HEAD).
+# `main` is PR-protected, so nothing ever commits there directly. This script
+# carries the patch bump the squash-merge used to do; it runs on the PR branch
+# from .github/workflows/version-bump.yml and can also be run by hand on the
+# branch (commit your changes first -- it diffs committed history, base...HEAD).
 #
 # Components, their version files and the "bare semver in a JSON field" special
-# case for manifest.json all come from git-hooks/lib.sh.
+# case for manifest.json all come from scripts/version/components.sh.
 #
 # Usage:
 #   scripts/version/bump-patch.sh [--check] [base-ref]
@@ -31,7 +30,7 @@ base_ref="${1:-origin/main}"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo_root="$(git rev-parse --show-toplevel)"
 cd "${repo_root}"
-source "${script_dir}/../../git-hooks/lib.sh"
+source "${script_dir}/components.sh"
 
 if ! git rev-parse --verify --quiet "${base_ref}" >/dev/null; then
   echo "bump-patch: base ref '${base_ref}' not found" >&2
@@ -41,7 +40,7 @@ fi
 changed_files="$(git diff --name-only "${base_ref}...HEAD")"
 
 # Current "version" field of a component as of an arbitrary ref, normalised to
-# "vX.Y.Z" exactly like git-hooks/lib.sh read_component_version does for the
+# "vX.Y.Z" exactly like components.sh read_component_version does for the
 # working tree. Returns non-zero if the file does not exist at that ref.
 read_version_from_ref() {
   local ref="$1" version_file="$2" raw
