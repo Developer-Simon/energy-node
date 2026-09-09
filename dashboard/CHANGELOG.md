@@ -1,11 +1,12 @@
 # Changelog
 
-## v0.5.23 (2026-09-09)
+## v0.5.24 (2026-09-09)
 
 ### Features
 
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
+- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - **dashboard:** compose config.schema.json from per-service fragments (fc73de5)
 
@@ -16,6 +17,7 @@
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
 - read the node identity from dashboard.node_* (5e1e672)
 
 ### Documentation
@@ -29,7 +31,6 @@
 
 ### Other
 
-- feat!: fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
 
 ## v0.5.18 (2026-09-07)

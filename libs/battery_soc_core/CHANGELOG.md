@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.1.8 (2026-09-09)
+## v0.1.9 (2026-09-09)
 
 ### Features
 
 - make device services self-describing with per-service manifests (#12) (2e8c911)
+- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **battery_soc:** extract core logic and adapter modules (4a31188)
 - **battery_soc:** show net battery power as a measurement, not diagnostic (b3878e8)
 - **ha:** native Home Assistant integration for battery SoC (99ef3cf)
@@ -12,6 +13,7 @@
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
 - rename product Werkstatt-IoT to Energy Node repo-wide (3978730)
 
 ### Documentation
@@ -30,8 +32,4 @@
 ### CI
 
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
-
-### Other
-
-- feat!: fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 
