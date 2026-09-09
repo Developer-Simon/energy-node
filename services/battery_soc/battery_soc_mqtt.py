@@ -409,7 +409,7 @@ def main() -> None:
         poll_core=poll_core,
         default_poll_interval_s=service_config.poll_interval_s,
         default_diagnostic_multiplier=service_config.diagnostic_poll_multiplier,
-        node_device_id=app_config.node.device_id,
+        node_device_id=app_config.dashboard.node_device_id,
         on_config_reload=reload_config,
         on_poll_error=lambda exc: print(f"Scheduler-Fehler: {exc}"),
     )

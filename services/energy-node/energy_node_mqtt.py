@@ -10,7 +10,7 @@ Tailscale-/Mosquitto-Status, verfügbare Updates, ...).
 Der wichtige Punkt: Andere Skripte (AP Systems, Tuya, ...) können in ihrem
 eigenen Discovery-"device"-Block das Feld
 
-    "via_device": "energy-node"   (Standard-Geraete-ID dieses Knotens, aus node.device_id der zentralen Config)
+    "via_device": "energy-node"   (Standard-Geraete-ID dieses Knotens, aus dashboard.node_device_id der zentralen Config)
 
 ergänzen. Dann zeigt Home Assistant sie in der Geräteliste als
 "Verbunden über Energy Node" an, mit einem Klick von dort navigierbar.
@@ -69,16 +69,18 @@ def default_bridge_settings(device_id: str):
 
 
 def managed_bridges(config):
-    """Die vom Node verwalteten Bridges aus der zentralen Konfiguration.
+    """Die je-Bridge-Liste fuer die Einmal-Abraeumung (Plan 0.1) - abgeleitet
+    aus den in der config.json gepflegten Diensten. Nach dem Wegfall von
+    node.managed_bridges (Plan 0.4) gibt es keine separate Liste mehr.
 
     Der Anzeigename kommt aus default_bridge_settings, das Poll-Intervall
     aus services.<name>.poll_interval_s - damit steht der Wert nur noch an
-    einer Stelle, statt wie frueher zusaetzlich in MANAGED_BRIDGES.
+    einer Stelle.
     """
     bridges = []
-    for device_id in config.node.managed_bridges:
-        name, _ = default_bridge_settings(device_id)
-        bridges.append((device_id, name, config.service(device_id).poll_interval_s))
+    for service_id in sorted(config.services):
+        name, _ = default_bridge_settings(service_id)
+        bridges.append((service_id, name, config.service(service_id).poll_interval_s))
     return bridges
 
 
@@ -252,63 +254,63 @@ def read_apt_updates_pending(now=None):
 # ---------------------------------------------------------------------------
 # Home Assistant MQTT Discovery
 # ---------------------------------------------------------------------------
-def device_block(node_config):
+def device_block(dashboard):
     return {
-        "identifiers": [node_config.device_id],
-        "name": node_config.device_name,
+        "identifiers": [dashboard.node_device_id],
+        "name": dashboard.node_device_name,
         "manufacturer": "Raspberry Pi Foundation",
         "model": "Raspberry Pi 1 (ARMv6)",
         "sw_version": "Raspberry Pi OS Legacy (32-bit) Lite",
     }
 
 
-def make_config_payload(component, object_id, name, node_config, topics, **extra):
+def make_config_payload(component, object_id, name, dashboard, topics, **extra):
     payload = {
         "name": name,
-        "unique_id": f"{node_config.device_id}_{object_id}",
+        "unique_id": f"{dashboard.node_device_id}_{object_id}",
         "availability_topic": topics.availability,
         "payload_available": "1",
         "payload_not_available": "0",
-        "device": device_block(node_config),
+        "device": device_block(dashboard),
     }
     payload.update(extra)
     return component, object_id, payload
 
 
-def _build_entities(node_config, topics):
+def _build_entities(dashboard, topics):
     """Erstellt die Basis-Entity-Konfigurationen."""
     return [
         make_config_payload(
             "sensor", "cpu_temp", "CPU-Temperatur",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ value_json.cpu_temp_c }}",
             unit_of_measurement="°C", device_class="temperature",
             state_class="measurement", entity_category="diagnostic",
         ),
         make_config_payload(
             "sensor", "cpu_load", "CPU-Auslastung",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ value_json.cpu_load_pct }}",
             unit_of_measurement="%", state_class="measurement",
             icon="mdi:chip", entity_category="diagnostic",
         ),
         make_config_payload(
             "sensor", "ram_used", "RAM-Auslastung",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ value_json.ram_used_pct }}",
             unit_of_measurement="%", state_class="measurement",
             icon="mdi:memory", entity_category="diagnostic",
         ),
         make_config_payload(
             "sensor", "disk_used", "Speicherplatz belegt",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ value_json.disk_used_pct }}",
             unit_of_measurement="%", state_class="measurement",
             icon="mdi:harddisk", entity_category="diagnostic",
         ),
         make_config_payload(
             "sensor", "wifi_signal", "WLAN-Signalstärke",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ value_json.wifi_signal_dbm }}",
             unit_of_measurement="dBm", device_class="signal_strength",
             state_class="measurement", entity_category="diagnostic",
@@ -316,49 +318,49 @@ def _build_entities(node_config, topics):
         ),
         make_config_payload(
             "binary_sensor", "undervoltage_now", "Unterspannung aktuell",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ 'ON' if value_json.undervoltage_now else 'OFF' }}",
             device_class="problem", entity_category="diagnostic",
         ),
         make_config_payload(
             "binary_sensor", "undervoltage_occurred", "Unterspannung seit letztem Neustart aufgetreten",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ 'ON' if value_json.undervoltage_occurred else 'OFF' }}",
             device_class="problem", entity_category="diagnostic",
         ),
         make_config_payload(
             "binary_sensor", "throttled_now", "CPU aktuell gedrosselt",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ 'ON' if value_json.throttled_now else 'OFF' }}",
             device_class="problem", entity_category="diagnostic",
         ),
         make_config_payload(
             "sensor", "last_boot", "Letzter Neustart",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.state, value_template="{{ value_json.last_boot }}",
             device_class="timestamp", entity_category="diagnostic",
         ),
         make_config_payload(
             "sensor", "ip_address", "IP-Adresse",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.diagnostics, value_template="{{ value_json.ip_address }}",
             icon="mdi:ip-network", entity_category="diagnostic",
         ),
         make_config_payload(
             "binary_sensor", "mosquitto_running", "Mosquitto läuft",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.diagnostics, value_template="{{ 'ON' if value_json.mosquitto_active else 'OFF' }}",
             device_class="running", entity_category="diagnostic",
         ),
         make_config_payload(
             "binary_sensor", "tailscale_connected", "Tailscale verbunden",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.diagnostics, value_template="{{ 'ON' if value_json.tailscale_connected else 'OFF' }}",
             device_class="connectivity", entity_category="diagnostic",
         ),
         make_config_payload(
             "sensor", "apt_updates", "Verfügbare Paket-Updates",
-            node_config, topics,
+            dashboard, topics,
             state_topic=topics.diagnostics, value_template="{{ value_json.apt_updates_pending }}",
             icon="mdi:package-up", state_class="measurement", entity_category="diagnostic",
         ),
@@ -366,18 +368,18 @@ def _build_entities(node_config, topics):
             "binary_sensor",
             "online",
             availability_entity_config(
-                node_config.device_id,
+                dashboard.node_device_id,
                 topics.base,
-                device_block(node_config),
+                device_block(dashboard),
             ),
         ),
     ]
 
 
-def publish_discovery(client, node_config, topics):
-    entities = _build_entities(node_config, topics)
+def publish_discovery(client, dashboard, topics):
+    entities = _build_entities(dashboard, topics)
     for component, object_id, payload in entities:
-        common_publish_discovery(client, node_config.device_id, component, object_id, payload)
+        common_publish_discovery(client, dashboard.node_device_id, component, object_id, payload)
 
 
 def publish_fast_state(client, topics):
@@ -440,12 +442,12 @@ def main():
         print(f"Konfigurationsfehler: {exc}", file=sys.stderr)
         raise SystemExit(1)
 
-    node_config = config.node
-    topics = NodeTopics(node_config.device_id)
+    dashboard = config.dashboard
+    topics = NodeTopics(dashboard.node_device_id)
 
     client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
-        client_id=f"energy-node-bridge-{node_config.device_id}",
+        client_id=f"energy-node-bridge-{dashboard.node_device_id}",
     )
     if config.mqtt.username:
         client.username_pw_set(config.mqtt.username, config.mqtt.password())
@@ -459,19 +461,23 @@ def main():
         publish_slow_diagnostics(client, topics)
 
     slave = Slave(
-        service_id=node_config.device_id,
+        service_id=dashboard.node_device_id,
         poll_core=poll_core,
         poll_diagnostics=poll_diagnostics,
-        default_poll_interval_s=node_config.poll_interval_s,
-        default_diagnostic_multiplier=node_config.diagnostic_poll_multiplier,
-        node_device_id=node_config.device_id,
+        default_poll_interval_s=dashboard.node_poll_interval_s,
+        default_diagnostic_multiplier=dashboard.node_diagnostic_poll_multiplier,
+        node_device_id=dashboard.node_device_id,
         on_poll_error=lambda exc: print(f"Scheduler-Fehler: {exc}"),
     )
 
     def on_connect(client, userdata, flags, reason_code, properties=None):
         client.publish(topics.availability, "1", retain=True, qos=1)
-        cleanup_legacy_master_entities(client, node_config.device_id, config.node.managed_bridges)
-        publish_discovery(client, node_config, topics)
+        cleanup_legacy_master_entities(
+            client,
+            dashboard.node_device_id,
+            [bridge_id for bridge_id, _, _ in managed_bridges(config)],
+        )
+        publish_discovery(client, dashboard, topics)
         slave.start(client)
 
     def on_message(client, userdata, msg):

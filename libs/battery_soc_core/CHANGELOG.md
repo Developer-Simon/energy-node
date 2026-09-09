@@ -2,6 +2,10 @@
 
 ## v0.1.8 (2026-09-08)
 
+### Features
+
+- make device services self-describing with per-service manifests (#12) (2e8c911)
+
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)

@@ -591,7 +591,7 @@ class APsystemsService:
         self.config = config
         self.service_name = service_name
         self.service_config = config.service(service_name)
-        self.node_device_id = config.node.device_id
+        self.node_device_id = config.dashboard.node_device_id
         self.mqtt_config = config.mqtt
         self.base_topic = f"outstation/{self.service_config.service_id}"
         self.client: Optional[mqtt.Client] = None
@@ -613,7 +613,7 @@ class APsystemsService:
         new_app_config = appconfig.load(self.config.path)
         new_service_config = new_app_config.service(self.service_name)
         new_configs = self.config_store.load_candidate()
-        new_node_device_id = new_app_config.node.device_id
+        new_node_device_id = new_app_config.dashboard.node_device_id
 
         self.config = new_app_config
         self.service_config = new_service_config
@@ -870,7 +870,7 @@ def main() -> None:
     )
     devices_path = config.devices_config("apsystems")
     config_store = common_config.ReloadableConfig(devices_path, load_devices)
-    devices = [APsystemsDevice(cfg, config.node.device_id) for cfg in config_store.load()]
+    devices = [APsystemsDevice(cfg, config.dashboard.node_device_id) for cfg in config_store.load()]
     log.info("Geladen: %d EZ1-Geraete aus %s", len(devices), devices_path)
     APsystemsService(devices, config_store, config, "apsystems").run()
 

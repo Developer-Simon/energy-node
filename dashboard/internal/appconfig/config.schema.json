@@ -39,6 +39,26 @@
           "title": "Bridge-Zieldatei",
           "type": "string"
         },
+        "node_device_id": {
+          "minLength": 1,
+          "title": "Node-Geraete-ID",
+          "type": "string"
+        },
+        "node_device_name": {
+          "minLength": 1,
+          "title": "Node-Anzeigename",
+          "type": "string"
+        },
+        "node_diagnostic_poll_multiplier": {
+          "exclusiveMinimum": 0,
+          "title": "Node-Diagnose-Multiplikator",
+          "type": "number"
+        },
+        "node_poll_interval_s": {
+          "exclusiveMinimum": 0,
+          "title": "Node-Abfrageintervall",
+          "type": "number"
+        },
         "port": {
           "maximum": 65535,
           "minimum": 1,
@@ -85,7 +105,11 @@
         "admin_password_file",
         "tls",
         "system_action_helper",
-        "mosquitto_bridge_target"
+        "mosquitto_bridge_target",
+        "node_device_id",
+        "node_device_name",
+        "node_poll_interval_s",
+        "node_diagnostic_poll_multiplier"
       ],
       "type": "object"
     },
@@ -134,47 +158,6 @@
       ],
       "type": "object"
     },
-    "node": {
-      "additionalProperties": false,
-      "properties": {
-        "device_id": {
-          "minLength": 1,
-          "title": "Node-Geraete-ID",
-          "type": "string"
-        },
-        "device_name": {
-          "minLength": 1,
-          "title": "Anzeigename",
-          "type": "string"
-        },
-        "diagnostic_poll_multiplier": {
-          "exclusiveMinimum": 0,
-          "title": "Diagnose-Multiplikator",
-          "type": "number"
-        },
-        "managed_bridges": {
-          "items": {
-            "minLength": 1,
-            "type": "string"
-          },
-          "title": "Verwaltete Bridges",
-          "type": "array"
-        },
-        "poll_interval_s": {
-          "exclusiveMinimum": 0,
-          "title": "Abfrageintervall",
-          "type": "number"
-        }
-      },
-      "required": [
-        "device_id",
-        "device_name",
-        "managed_bridges",
-        "poll_interval_s",
-        "diagnostic_poll_multiplier"
-      ],
-      "type": "object"
-    },
     "paths": {
       "additionalProperties": false,
       "properties": {
@@ -201,8 +184,8 @@
       "type": "object"
     },
     "schema_version": {
-      "maximum": 1,
-      "minimum": 1,
+      "maximum": 2,
+      "minimum": 2,
       "title": "Schemaversion",
       "type": "integer"
     },
@@ -428,7 +411,6 @@
     "mqtt",
     "paths",
     "logging",
-    "node",
     "services",
     "dashboard",
     "tailscale",

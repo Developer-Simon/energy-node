@@ -25,8 +25,9 @@ const DefaultPath = "/etc/energy-node/config.json"
 
 // SchemaVersion ist die Version, die dieser Leser versteht. Weicht die
 // Datei ab, bricht der Start ab - so faellt ein Deploy, bei dem Dashboard
-// und Python-Dienste auseinanderlaufen, sofort auf.
-const SchemaVersion = 1
+// und Python-Dienste auseinanderlaufen, sofort auf. Version 2 hat den
+// node-Block aufgeloest: seine Felder leben jetzt als dashboard.node_*.
+const SchemaVersion = 2
 
 //go:embed config.schema.json
 var schemaJSON []byte
@@ -111,6 +112,12 @@ func Load(path string) (Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: Konfigurationsdatei nicht lesbar (anderer Pfad ueber -config): %w", path, err)
+	}
+	var probe struct {
+		SchemaVersion int `json:"schema_version"`
+	}
+	if err := json.Unmarshal(data, &probe); err == nil && probe.SchemaVersion == 1 {
+		return Config{}, fmt.Errorf("%s: schema_version 1 wird nicht mehr unterstuetzt - der node-Block ist in dashboard.node_* gewandert (schema_version 2); siehe docs/knowledge/configuration.md", path)
 	}
 	if err := config.ValidateDocument(data, schemaJSON); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)

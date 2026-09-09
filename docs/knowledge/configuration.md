@@ -46,13 +46,12 @@ The file follows this JSON structure:
 
 ```json
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "mqtt": { "host": "...", "port": 1883, "username": "...", "password_file": "..." },
   "paths": { "devices_dir": "...", "data_dir": "...", "services_version_file": "..." },
   "logging": { "level": "INFO" },
-  "node": { "device_id": "...", "device_name": "...", "managed_bridges": [...], "poll_interval_s": 60, "diagnostic_poll_multiplier": 10 },
   "services": { "apsystems": {...}, "battery_soc": {...}, "shelly": {...}, "trucki": {...}, "tuya": {...}, "automation": {...} },
-  "dashboard": { "bind_address": "...", "port": 8080, "client_id": "...", "device_identifier": "...", "log_level": "info", "sweep_interval_seconds": 300, "admin_username": "...", "admin_password_file": "...", "tls": {...}, "system_action_helper": "...", "mosquitto_bridge_target": "..." },
+  "dashboard": { "bind_address": "...", "port": 8080, "client_id": "...", "device_identifier": "...", "log_level": "info", "sweep_interval_seconds": 300, "admin_username": "...", "admin_password_file": "...", "tls": {...}, "system_action_helper": "...", "mosquitto_bridge_target": "...", "node_device_id": "...", "node_device_name": "...", "node_poll_interval_s": 60, "node_diagnostic_poll_multiplier": 10 },
   "tailscale": { "bin": "...", "status_timeout_s": 10 },
   "tinytuya": { "probe_python": "...", "probe_script": "...", "probe_timeout_s": 30 }
 }
@@ -62,7 +61,7 @@ The file follows this JSON structure:
 
 | Field | Type | Read by | Meaning |
 |---|---|---|---|
-| `schema_version` | Integer | Python, Go | Version control of the file; must be 1 |
+| `schema_version` | Integer | Python, Go | Version control of the file; must be 2 |
 | | | | |
 | **MQTT broker (shared)** | | | |
 | `mqtt.host` | String | Python, Go | IP or hostname of the broker |
@@ -77,13 +76,6 @@ The file follows this JSON structure:
 | | | | |
 | **Logging** | | | |
 | `logging.level` | String | Python | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
-| | | | |
-| **Node (central MQTT node)** | | | |
-| `node.device_id` | String | Python | unique ID of the central node (normally `energy-node`) |
-| `node.device_name` | String | Python | human-readable name for display |
-| `node.managed_bridges` | Array | Python | list of services managed by the node, e.g. `["apsystems", "tuya", "battery_soc", "shelly"]` |
-| `node.poll_interval_s` | Integer | Python | poll interval of the node in seconds (default: 60) |
-| `node.diagnostic_poll_multiplier` | Integer | Python | factor for the diagnostic poll interval (default: 10) |
 | | | | |
 | **Services (service-specific values)** | | | |
 | `services.<name>.service_id` | String | Python | unique ID of the service (e.g. `apsystems`, `shelly`) |
@@ -104,6 +96,10 @@ The file follows this JSON structure:
 | `dashboard.tls.key_file` | String | Go | path to the TLS key file (empty = no TLS) |
 | `dashboard.system_action_helper` | String | Go | path to the helper program for system actions (e.g. reboot) |
 | `dashboard.mosquitto_bridge_target` | String | Go | target path for `bridge.conf` on the target device |
+| `dashboard.node_device_id` | String | Python | unique ID of the central node (normally `energy-node`) |
+| `dashboard.node_device_name` | String | Python | human-readable name for display |
+| `dashboard.node_poll_interval_s` | Integer | Python | poll interval of the node in seconds (default: 60) |
+| `dashboard.node_diagnostic_poll_multiplier` | Integer | Python | factor for the diagnostic poll interval (default: 10) |
 | | | | |
 | **Tailscale integration** | | | |
 | `tailscale.bin` | String | Go | path to the `tailscale` binary |
@@ -174,7 +170,7 @@ The file contains two classes of values:
 |---|---|
 | `logging.level` | `mqtt.*` (host, port, authentication) |
 | `services.*.poll_interval_s` | `paths.*` (files, directories) |
-| `services.*.diagnostic_poll_multiplier` | `node.device_id`, `services.*.device_id` |
+| `services.*.diagnostic_poll_multiplier` | `dashboard.node_device_id`, `services.*.service_id` |
 | `services.*.http_timeout_s` | `dashboard.port`, `.bind_address`, `.tls.*` |
 | `tinytuya.*`, `tailscale.*` | `dashboard.admin_*` |
 
@@ -193,11 +189,13 @@ The restart remains an explicit action performed through the dashboard interface
 
 ## `schema_version`
 
-The integer `schema_version` is currently set to `1`. Every service (Python and Go) checks at startup that this version number matches the one it knows. A mismatch is a startup error:
+The integer `schema_version` is currently set to `2`. Every service (Python and Go) checks at startup that this version number matches the one it knows. A mismatch is a startup error:
 
 ```
-error loading config.json: schema_version 2 found, but only 1 supported
+error loading config.json: schema_version 3 found, but only 2 supported
 ```
+
+A `schema_version` of `1` is rejected with a dedicated hint: version 2 dissolved the former top-level `node` block into flat `dashboard.node_*` fields, so an old file needs that block moved before it loads.
 
 This concept ensures that a deployment in which the dashboard and the Python services come from different versions of the repository is noticed immediately — instead of surfacing as a subtle misconfiguration.
 

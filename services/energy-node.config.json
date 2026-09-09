@@ -1,5 +1,5 @@
 {
-  "schema_version": 1,
+  "schema_version": 2,
   "mqtt": {
     "host": "127.0.0.1",
     "port": 1883,
@@ -12,13 +12,6 @@
     "services_version_file": "/home/energynode/devices/VERSION"
   },
   "logging": { "level": "INFO" },
-  "node": {
-    "device_id": "energy-node",
-    "device_name": "Energy Node",
-    "managed_bridges": ["apsystems", "tuya", "battery_soc", "shelly"],
-    "poll_interval_s": 60,
-    "diagnostic_poll_multiplier": 10
-  },
   "services": {
     "apsystems": { "service_id": "apsystems", "poll_interval_s": 60, "diagnostic_poll_multiplier": 10 },
     "shelly": { "service_id": "shelly", "poll_interval_s": 20, "diagnostic_poll_multiplier": 15, "http_timeout_s": 5 },
@@ -38,7 +31,11 @@
     "admin_password_file": "/etc/energy-node-dashboard/auth.pw",
     "tls": { "cert_file": "", "key_file": "" },
     "system_action_helper": "/usr/local/sbin/energy-node-dashboard-system-action",
-    "mosquitto_bridge_target": "/etc/mosquitto/conf.d/bridge.conf"
+    "mosquitto_bridge_target": "/etc/mosquitto/conf.d/bridge.conf",
+    "node_device_id": "energy-node",
+    "node_device_name": "Energy Node",
+    "node_poll_interval_s": 60,
+    "node_diagnostic_poll_multiplier": 10
   },
   "tailscale": { "bin": "/usr/sbin/tailscale", "status_timeout_s": 10 },
   "tinytuya": {

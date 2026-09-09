@@ -82,9 +82,18 @@ func TestLoadRejectsWrongType(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsSchemaVersionOne(t *testing.T) {
+	document := validDocument()
+	document["schema_version"] = float64(1)
+	_, err := appconfig.Load(writeConfig(t, document))
+	if err == nil || !strings.Contains(err.Error(), "schema_version 1") || !strings.Contains(err.Error(), "dashboard.node_") {
+		t.Fatalf("erwartet Blockverschiebungs-Hinweis, bekam %v", err)
+	}
+}
+
 func TestLoadRejectsSchemaVersionMismatch(t *testing.T) {
 	document := validDocument()
-	document["schema_version"] = float64(2)
+	document["schema_version"] = float64(99)
 	_, err := appconfig.Load(writeConfig(t, document))
 	if err == nil || !strings.Contains(err.Error(), "schema_version") {
 		t.Fatalf("erwartet schema_version-Fehler, bekam %v", err)

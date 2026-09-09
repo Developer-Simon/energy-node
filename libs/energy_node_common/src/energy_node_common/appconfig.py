@@ -20,7 +20,7 @@ from pathlib import Path
 from typing import Dict, Optional, Sequence, Tuple
 
 DEFAULT_CONFIG_PATH = "/etc/energy-node/config.json"
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 
 _NUMERIC_SERVICE_FIELDS = ("poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s")
 
@@ -99,12 +99,11 @@ class ServiceConfig:
 
 
 @dataclass(frozen=True)
-class NodeConfig:
-    device_id: str
-    device_name: str
-    managed_bridges: Tuple[str, ...]
-    poll_interval_s: float
-    diagnostic_poll_multiplier: float
+class DashboardConfig:
+    node_device_id: str
+    node_device_name: str
+    node_poll_interval_s: float
+    node_diagnostic_poll_multiplier: float
 
 
 @dataclass(frozen=True)
@@ -120,7 +119,7 @@ class AppConfig:
     mqtt: MQTTConfig
     paths: PathsConfig
     log_level: str
-    node: NodeConfig
+    dashboard: DashboardConfig
     services: Dict[str, ServiceConfig]
 
     def service(self, name: str) -> ServiceConfig:
@@ -226,26 +225,13 @@ def _load_services(
     return services
 
 
-def _load_node(data: dict, path: str, services: Dict[str, ServiceConfig]) -> NodeConfig:
-    section = _section(data, "node", path)
-    raw_bridges = section.get("managed_bridges")
-    if not isinstance(raw_bridges, list) or not raw_bridges:
-        raise ConfigError(f"{path}: node.managed_bridges: erwartet nicht-leere Liste, gefunden {_found(raw_bridges)}")
-    bridges = []
-    for index, entry in enumerate(raw_bridges):
-        if not isinstance(entry, str) or not entry:
-            raise ConfigError(
-                f"{path}: node.managed_bridges[{index}]: erwartet nicht-leere Zeichenkette, gefunden {_found(entry)}"
-            )
-        if entry not in services:
-            raise ConfigError(f"{path}: node.managed_bridges[{index}]: services.{entry} fehlt")
-        bridges.append(entry)
-    return NodeConfig(
-        device_id=_text(section, "device_id", path, "node"),
-        device_name=_text(section, "device_name", path, "node"),
-        managed_bridges=tuple(bridges),
-        poll_interval_s=_number(section, "poll_interval_s", path, "node"),
-        diagnostic_poll_multiplier=_number(section, "diagnostic_poll_multiplier", path, "node"),
+def _load_dashboard(data: dict, path: str) -> DashboardConfig:
+    section = _section(data, "dashboard", path)
+    return DashboardConfig(
+        node_device_id=_text(section, "node_device_id", path, "dashboard"),
+        node_device_name=_text(section, "node_device_name", path, "dashboard"),
+        node_poll_interval_s=_number(section, "node_poll_interval_s", path, "dashboard"),
+        node_diagnostic_poll_multiplier=_number(section, "node_diagnostic_poll_multiplier", path, "dashboard"),
     )
 
 
@@ -274,6 +260,11 @@ def load(path: Optional[str] = None) -> AppConfig:
     version = data.get("schema_version")
     if isinstance(version, bool) or not isinstance(version, int):
         raise ConfigError(f"{path}: schema_version: erwartet Zahl, gefunden {_found(version)}")
+    if version == 1:
+        raise ConfigError(
+            f"{path}: schema_version 1 wird nicht mehr unterstuetzt - der node-Block ist "
+            f"in dashboard.node_* gewandert (schema_version 2)"
+        )
     if version != SCHEMA_VERSION:
         raise ConfigError(
             f"{path}: schema_version {version} passt nicht zu erwarteter Version {SCHEMA_VERSION}"
@@ -299,6 +290,6 @@ def load(path: Optional[str] = None) -> AppConfig:
             data_dir=_text(paths_section, "data_dir", path, "paths"),
         ),
         log_level=_text(logging_section, "level", path, "logging"),
-        node=_load_node(data, path, services),
+        dashboard=_load_dashboard(data, path),
         services=services,
     )
