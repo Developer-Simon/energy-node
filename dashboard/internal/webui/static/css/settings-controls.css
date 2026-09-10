@@ -8,12 +8,27 @@
    Nur Theme-Tokens aus base.css, keine neuen Farben, kein neuer Radius.
    =========================================================================== */
 
-.settings-cards { display: flex; flex-direction: column; gap: 1rem; max-width: 40rem; }
+/* Zwei gleichwertige Spalten, solange der Panel-Body Platz fuer zwei Karten
+   hat, sonst eine. Kein eigener max-width mehr - das Raster nutzt die
+   Lesebreite des Panels; die Breakpoint-Frage haengt am settings-body-
+   Container auf .settings-panel-body, nicht am Viewport. */
+.settings-panel-body { container: settings-body / inline-size; }
+.settings-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.settings-cards > .settings-hint,
+.settings-cards > .setting-actions { grid-column: 1 / -1; }
 .settings-cards > .settings-hint {
-  margin: .1rem 0 .25rem;
+  margin: .1rem 0 .15rem;
   color: var(--text-muted);
   font-size: .88rem;
   line-height: 1.55;
+}
+@container settings-body (max-width: 46rem) {
+  .settings-cards { grid-template-columns: 1fr; }
 }
 
 /* --- Material-Karte -------------------------------------------------------- */
@@ -124,7 +139,9 @@
 
 /* --- Segmented Control ----------------------------------------------------
    Zwei feste Optionen. Der Thumb gleitet in X mit Apples iOS-Drawer-Kurve
-   (--layout-ease); Position rein per :has(), kein JS-Statusklassen-Umweg. */
+   (--layout-ease); Position rein per :has() ueber die Reihenfolge der
+   Optionen, nicht ueber deren value - so tragen Verlaufs-Aufbewahrung
+   (Zeit/Speicher) und Standardansicht (Kompakt/Steuerung) dieselbe Regel. */
 .segmented {
   position: relative;
   display: grid;
@@ -148,7 +165,7 @@
   background: var(--accent-bg);
   transition: transform .35s var(--layout-ease);
 }
-.segmented:has(input[value="size"]:checked) .segmented-thumb { transform: translateX(100%); }
+.segmented:has(.segmented-option:nth-of-type(2) input:checked) .segmented-thumb { transform: translateX(100%); }
 .segmented-option {
   position: relative;
   z-index: 1;
@@ -183,6 +200,13 @@
   font-size: .92rem;
   cursor: pointer;
 }
+/* Mehrere Schalter in einer Karte: duenne Trennlinie statt nur Abstand,
+   damit die Zeilen als eine Gruppe lesbar bleiben (Darstellungs-Tab). */
+.switch-row + .switch-row {
+  margin-top: 0;
+  padding-top: .8rem;
+  border-top: 1px solid var(--border-soft);
+}
 
 /* --- ruhiger Textknopf ("Speicherstand aktualisieren" usw.) ------------- */
 .setting-quiet-btn {
@@ -200,6 +224,38 @@
 
 /* --- Speicherleiste am Fuss des Kartenstapels -------------------------- */
 .setting-actions { display: flex; gap: .6rem; margin-top: .5rem; }
+
+/* --- Karten, die die volle Rasterbreite brauchen ---------------------
+   Der Darstellungs-Tab hat Karten mit den breiten Choices.js-Mehrfach-
+   auswahlen (Tab-Breite, Angaben im Systemstatus) - die stehen ueber
+   beide Spalten, nicht halbbreit gequetscht. */
+.setting-card--wide { grid-column: 1 / -1; }
+
+/* Der Speicherzustand ist jetzt selbst eine .setting-card; das margin-top
+   aus .storage-health-panel (fuer den alten Fluss gedacht) wuerde im
+   Raster eine schiefe Fuge geben. */
+.settings-cards > .storage-health-panel { margin-top: 0; }
+
+/* Auswahl-Feld in einer .setting-row (Farbschema im Darstellungs-Tab):
+   rechtsbuendig, an der Control-Spalte ausgerichtet wie die Stepper. */
+.setting-row > .setting-select { flex: 0 1 13rem; margin: 0; }
+
+/* Freistehendes Label ueber einem Segmented-Block in einer Karte. */
+.setting-card > .setting-row-label { margin-top: .9rem; }
+
+/* Choices.js-Mehrfachauswahl in einer Karte: Label oben, Auswahl darunter
+   ueber die volle Kartenbreite - die 20rem-Deckelung der .form-grid-Fassung
+   quetscht die Chips im schmalen Kartenraster sonst ueber den Rand. */
+.setting-card .settings-multiselect-row {
+  flex-direction: column;
+  align-items: stretch;
+  gap: .4rem;
+  margin-top: .9rem;
+}
+.setting-card .settings-multiselect-row > label {
+  width: auto;
+  padding-top: 0;
+}
 
 /* --- Auffahren beim ersten Anzeigen ----------------------------------- */
 @media (prefers-reduced-motion: no-preference) {

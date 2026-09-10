@@ -13,15 +13,37 @@
     <button type="button" role="tab" aria-controls="settings-tailscale" x-bind:class="{ active: activeSettingsPage === 'tailscale' }" x-bind:aria-selected="activeSettingsPage === 'tailscale'" x-on:click="activeSettingsPage = 'tailscale'">Tailscale einrichten</button>
     <button type="button" role="tab" aria-controls="settings-system" x-bind:class="{ active: activeSettingsPage === 'system' }" x-bind:aria-selected="activeSettingsPage === 'system'" x-on:click="activeSettingsPage = 'system'">System</button>
   </nav>
-  <div x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); load()">
-  <section id="settings-general" role="tabpanel" x-show="activeSettingsPage === 'general'">
-    <div class="form-grid">
-      <label for="health-threshold">Health-Schwellwert (Sekunden)</label><input id="health-threshold" type="number" min="1" x-model.number="healthScoreThreshold">
-      <label for="sweep-interval">Sweep-Intervall (Sekunden)</label><input id="sweep-interval" type="number" min="1" x-model.number="sweepIntervalSeconds">
-      <label for="live-update-interval">Live-Update-Intervall (Sekunden)</label><input id="live-update-interval" type="number" min="1" max="60" x-model.number="liveUpdateIntervalSeconds" x-bind:disabled="!canTuneLiveUpdates" x-bind:title="canTuneLiveUpdates ? '' : 'Erfordert die Berechtigung tune_live_updates'">
+  <div class="settings-panel-body" x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); load()">
+  <section id="settings-general" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'general'">
+    <div class="setting-card">
+      <h3 class="setting-card-title">Betrieb</h3>
+      <p class="setting-note">Wie schnell ein stiller Wert als veraltet gilt, wie oft der Speicher aufgeräumt wird und in welchem Takt die Live-Ansicht nachlädt.</p>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-health-threshold">Health-Schwellwert <span class="setting-row-unit">Sekunden</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-health-threshold">
+          <button type="button" class="stepper-btn" aria-label="Health-Schwellwert verringern" x-on:click="stepField('healthScoreThreshold', -1)" x-on:pointerdown="startRepeat('healthScoreThreshold', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input class="stepper-input" type="number" min="1" max="600" step="1" x-model.number="healthScoreThreshold" aria-labelledby="lbl-health-threshold">
+          <button type="button" class="stepper-btn" aria-label="Health-Schwellwert erhöhen" x-on:click="stepField('healthScoreThreshold', 1)" x-on:pointerdown="startRepeat('healthScoreThreshold', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-sweep-interval">Sweep-Intervall <span class="setting-row-unit">Sekunden</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-sweep-interval">
+          <button type="button" class="stepper-btn" aria-label="Sweep-Intervall verringern" x-on:click="stepField('sweepIntervalSeconds', -1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input class="stepper-input" type="number" min="30" max="3600" step="30" x-model.number="sweepIntervalSeconds" aria-labelledby="lbl-sweep-interval">
+          <button type="button" class="stepper-btn" aria-label="Sweep-Intervall erhöhen" x-on:click="stepField('sweepIntervalSeconds', 1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </div>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-live-update">Live-Update-Intervall <span class="setting-row-unit">Sekunden</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-live-update" x-bind:title="canTuneLiveUpdates ? '' : 'Erfordert die Berechtigung tune_live_updates'">
+          <button type="button" class="stepper-btn" aria-label="Live-Update-Intervall verringern" x-bind:disabled="!canTuneLiveUpdates" x-on:click="stepField('liveUpdateIntervalSeconds', -1)" x-on:pointerdown="startRepeat('liveUpdateIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input class="stepper-input" type="number" min="1" max="60" step="1" x-model.number="liveUpdateIntervalSeconds" x-bind:disabled="!canTuneLiveUpdates" aria-labelledby="lbl-live-update">
+          <button type="button" class="stepper-btn" aria-label="Live-Update-Intervall erhöhen" x-bind:disabled="!canTuneLiveUpdates" x-on:click="stepField('liveUpdateIntervalSeconds', 1)" x-on:pointerdown="startRepeat('liveUpdateIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </div>
     </div>
-    <div class="toolbar"><button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
-    <section class="storage-health-panel" aria-labelledby="storage-health-heading" aria-live="polite">
+    <section class="setting-card storage-health-panel" aria-labelledby="storage-health-heading" aria-live="polite">
       <div class="storage-health-header">
         <div>
           <h3 id="storage-health-heading">Speicherzustand
@@ -59,31 +81,43 @@
       <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">Die SD-Schätzung wird nach mindestens 24 Stunden Beobachtung verfügbar.</p>
       <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
     </section>
+    <div class="setting-actions"><button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
   </section>
-  <section id="settings-display" role="tabpanel" x-show="activeSettingsPage === 'display'">
-    <div class="form-grid">
-      <label for="device-view-mode">Standardansicht Geräte</label><select id="device-view-mode" x-model="deviceViewMode"><option value="compact">Kompakt</option><option value="control">Steuerung (Details)</option></select>
-      <label for="theme">Farbschema</label><select id="theme" x-model="theme"><option value="mint">Mint (Standard)</option><option value="stromblau">Stromblau</option><option value="signalgelb">Signalgelb</option><option value="tageslicht">Tageslicht</option></select>
-      <label class="settings-toggle-label" for="show-discovery-tooltips">Discovery-JSON-Tooltips anzeigen <span class="settings-toggle"><input id="show-discovery-tooltips" type="checkbox" role="switch" x-model="showDiscoveryTooltips" x-bind:aria-checked="showDiscoveryTooltips"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <label class="settings-toggle-label" for="show-runtime-status">Globalen Systemstatus anzeigen <span class="settings-toggle"><input id="show-runtime-status" type="checkbox" role="switch" x-model="showRuntimeStatus" x-bind:aria-checked="showRuntimeStatus"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <label class="settings-toggle-label" for="show-config-entities-on-tile">Konfigurationswerte auf Kacheln anzeigen <span class="settings-toggle"><input id="show-config-entities-on-tile" type="checkbox" role="switch" x-model="showConfigEntitiesOnTile" x-bind:aria-checked="showConfigEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <label class="settings-toggle-label" for="show-diagnostic-entities-on-tile">Diagnosewerte auf Kacheln anzeigen <span class="settings-toggle"><input id="show-diagnostic-entities-on-tile" type="checkbox" role="switch" x-model="showDiagnosticEntitiesOnTile" x-bind:aria-checked="showDiagnosticEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <div class="settings-multiselect-row settings-wide-panels">
-        <label for="wide-panels-select">
-          Tabs ohne Breitendeckelung
-          <span class="field-help">
-            <button class="field-help-trigger" type="button" aria-label="Erklärung zu Tabs ohne Breitendeckelung">
-              <svg><use href="#ico-help"></use></svg>
-            </button>
-            <span class="field-help-text" role="tooltip">Freigegebene Tabs nutzen die volle Fensterbreite statt der 1180px-Lesebreite fuer ihren Inhalt. Überschrift und Tab-Leiste sind immer volle Breite.</span>
-          </span>
-        </label>
-        <select id="wide-panels-select" x-ref="widePanelsSelect" multiple x-on:change="widePanels = syncFromChoices(widePanelsChoices, widePanelOptions)">
-          <template x-for="tab in widePanelOptions" x-bind:key="tab.key">
-            <option x-bind:value="tab.key" x-text="tab.label"></option>
-          </template>
-        </select>
+  <section id="settings-display" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'display'">
+    <div class="setting-card">
+      <h3 class="setting-card-title">Anzeige</h3>
+      <p class="setting-note">Wie die Geräteliste startet und welches Farbschema das Dashboard trägt.</p>
+      <span class="setting-row-label" id="lbl-device-view">Standardansicht Geräte</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="lbl-device-view">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="device-view-mode" value="compact" x-model="deviceViewMode"><span>Kompakt</span></label>
+        <label class="segmented-option"><input type="radio" name="device-view-mode" value="control" x-model="deviceViewMode"><span>Steuerung</span></label>
       </div>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-theme">Farbschema</span>
+        <select id="theme" class="setting-select" x-model="theme" aria-labelledby="lbl-theme"><option value="mint">Mint (Standard)</option><option value="stromblau">Stromblau</option><option value="signalgelb">Signalgelb</option><option value="tageslicht">Tageslicht</option></select>
+      </div>
+    </div>
+
+    <div class="setting-card">
+      <h3 class="setting-card-title">Auf Kacheln anzeigen</h3>
+      <p class="setting-note">Zusätzliche Werteklassen, die sonst nur im Gerätedetail stehen.</p>
+      <label class="switch-row" for="show-config-entities-on-tile">
+        <span>Konfigurationswerte</span>
+        <span class="settings-toggle"><input id="show-config-entities-on-tile" type="checkbox" role="switch" x-model="showConfigEntitiesOnTile" x-bind:aria-checked="showConfigEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+      </label>
+      <label class="switch-row" for="show-diagnostic-entities-on-tile">
+        <span>Diagnosewerte</span>
+        <span class="settings-toggle"><input id="show-diagnostic-entities-on-tile" type="checkbox" role="switch" x-model="showDiagnosticEntitiesOnTile" x-bind:aria-checked="showDiagnosticEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+      </label>
+    </div>
+
+    <div class="setting-card setting-card--wide">
+      <h3 class="setting-card-title">Systemstatus</h3>
+      <label class="switch-row" for="show-runtime-status">
+        <span>Globalen Systemstatus anzeigen</span>
+        <span class="settings-toggle"><input id="show-runtime-status" type="checkbox" role="switch" x-model="showRuntimeStatus" x-bind:aria-checked="showRuntimeStatus"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+      </label>
       <div class="settings-multiselect-row settings-status-bar-items">
         <label for="status-bar-items-select">
           Angaben im Systemstatus
@@ -101,7 +135,28 @@
         </select>
       </div>
     </div>
-    <div class="toolbar"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+
+    <div class="setting-card setting-card--wide">
+      <h3 class="setting-card-title">Tab-Breite</h3>
+      <div class="settings-multiselect-row settings-wide-panels">
+        <label for="wide-panels-select">
+          Tabs ohne Breitendeckelung
+          <span class="field-help">
+            <button class="field-help-trigger" type="button" aria-label="Erklärung zu Tabs ohne Breitendeckelung">
+              <svg><use href="#ico-help"></use></svg>
+            </button>
+            <span class="field-help-text" role="tooltip">Freigegebene Tabs nutzen die volle Fensterbreite statt der 1180px-Lesebreite fuer ihren Inhalt. Überschrift und Tab-Leiste sind immer volle Breite.</span>
+          </span>
+        </label>
+        <select id="wide-panels-select" x-ref="widePanelsSelect" multiple x-on:change="widePanels = syncFromChoices(widePanelsChoices, widePanelOptions)">
+          <template x-for="tab in widePanelOptions" x-bind:key="tab.key">
+            <option x-bind:value="tab.key" x-text="tab.label"></option>
+          </template>
+        </select>
+      </div>
+    </div>
+
+    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
   </section>
   <section id="settings-history" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'history'">
     <p class="settings-hint">Alle Messwerte liegen nur im Browser dieses Geräts. Hier steht, <em>wie</em> aufgezeichnet wird — das gilt geräteübergreifend, die Daten selbst bleiben lokal.</p>

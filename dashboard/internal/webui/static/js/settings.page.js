@@ -13,10 +13,14 @@
     return body;
   };
 
-  // Schrittweite und Grenzen der Verlaufs-Stepper. Die Grenzen decken sich
-  // mit den min/max der Formularfelder und mit dem, was valid() unten prueft -
-  // der Stepper kann also nie einen Wert erzeugen, den das Speichern ablehnt.
-  const HISTORY_STEP_FIELDS = {
+  // Schrittweite und Grenzen der Stepper auf den Einstellungs-Tabs (Allgemein
+  // und Verlaeufe). Die Grenzen decken sich mit den min/max der Formularfelder
+  // und mit dem, was valid() unten prueft - der Stepper kann also nie einen
+  // Wert erzeugen, den das Speichern ablehnt.
+  const STEP_FIELDS = {
+    healthScoreThreshold: {min: 1, max: 600, step: 1},
+    sweepIntervalSeconds: {min: 30, max: 3600, step: 30},
+    liveUpdateIntervalSeconds: {min: 1, max: 60, step: 1},
     historySampleIntervalSeconds: {min: 5, max: 3600, step: 5},
     historyRawWindowHours: {min: 1, max: 168, step: 1},
     historyMinuteWindowDays: {min: 1, max: 365, step: 1},
@@ -27,7 +31,6 @@
   const settingsPanel = () => ({
     healthScoreThreshold: 3,
     sweepIntervalSeconds: 300,
-    showDiscoveryTooltips: true,
     showRuntimeStatus: true,
     deviceViewMode: 'compact',
     theme: 'mint',
@@ -88,7 +91,6 @@
         const [value, session] = await Promise.all([requestJSON('/api/v1/settings'), requestJSON('/api/v1/auth/session').catch(() => null), this.loadStorageHealth()]);
         this.healthScoreThreshold = value.health_score_threshold;
         this.sweepIntervalSeconds = value.sweep_interval_seconds;
-        this.showDiscoveryTooltips = value.show_discovery_tooltips;
         this.showRuntimeStatus = value.show_runtime_status !== false;
         this.deviceViewMode = value.device_view_mode === 'control' ? 'control' : 'compact';
         this.theme = ['mint', 'stromblau', 'signalgelb', 'tageslicht'].includes(value.theme) ? value.theme : 'mint';
@@ -205,9 +207,9 @@
     },
 
     // Ein Klick auf - / + der Stepper. dir ist +1 oder -1; der Wert bleibt
-    // in den Feldgrenzen aus HISTORY_STEP_FIELDS.
+    // in den Feldgrenzen aus STEP_FIELDS.
     stepField(name, dir) {
-      const cfg = HISTORY_STEP_FIELDS[name];
+      const cfg = STEP_FIELDS[name];
       if (!cfg) return;
       const current = Number(this[name]);
       const base = Number.isFinite(current) ? current : cfg.min;
@@ -318,7 +320,6 @@
       return {
         health_score_threshold: Number(this.healthScoreThreshold),
         sweep_interval_seconds: Number(this.sweepIntervalSeconds),
-        show_discovery_tooltips: Boolean(this.showDiscoveryTooltips),
         show_runtime_status: Boolean(this.showRuntimeStatus),
         device_view_mode: this.deviceViewMode,
         theme: this.theme,
@@ -362,7 +363,6 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(this.payload()),
         });
-        document.dispatchEvent(new CustomEvent('discovery-tooltips-setting-changed', {detail: {enabled: this.showDiscoveryTooltips}}));
         document.dispatchEvent(new CustomEvent('runtime-status-setting-changed', {detail: {enabled: this.showRuntimeStatus}}));
         document.dispatchEvent(new CustomEvent('device-view-mode-changed', {detail: {mode: this.deviceViewMode}}));
         document.documentElement.setAttribute('data-theme', this.theme);

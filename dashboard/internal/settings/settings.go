@@ -49,7 +49,6 @@ var bridgeSchema []byte
 type Settings struct {
 	HealthScoreThreshold         int      `json:"health_score_threshold"`
 	SweepIntervalSeconds         int      `json:"sweep_interval_seconds"`
-	ShowDiscoveryTooltips        bool     `json:"show_discovery_tooltips"`
 	ShowRuntimeStatus            bool     `json:"show_runtime_status"`
 	DeviceViewMode               string   `json:"device_view_mode"`
 	Theme                        string   `json:"theme"`
@@ -327,7 +326,7 @@ func NewStore(dir string) *Store { return &Store{dir: filepath.Clean(dir)} }
 
 func Default() Settings {
 	return Settings{
-		HealthScoreThreshold: 3, SweepIntervalSeconds: 300, ShowDiscoveryTooltips: true, ShowRuntimeStatus: true,
+		HealthScoreThreshold: 3, SweepIntervalSeconds: 300, ShowRuntimeStatus: true,
 		DeviceViewMode: DeviceViewModeCompact, Theme: ThemeMint,
 		ShowConfigEntitiesOnTile: false, ShowDiagnosticEntitiesOnTile: false,
 		LiveUpdateIntervalSeconds: 3, WidePanels: []string{"overview", "devices", "history", "layout"},

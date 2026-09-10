@@ -64,7 +64,7 @@
   --series-6: #e9cf68;
 
   /* Radius-Skala, bisher nur als Literale (4px/9px/12px) verstreut. Neu
-     eingefuehrt fuer device-tile/entity-list-item; andere Stellen bleiben
+     eingefuehrt fuer die Geraete-Kacheln; andere Stellen bleiben
      unangetastet, um den Umbau auf die Geraete-Seite zu begrenzen. */
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -582,19 +582,9 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 @container layout-grid (width <  55.6rem) { .layout-grid-item-3 { grid-column: 1 / -1; } }
 @container layout-grid (width <  36.8rem) { .layout-grid-item-2 { grid-column: 1 / -1; } }
 
-/* Fragt nach sich selbst, nicht nach der Raster-Zelle: beide Selektoren
-   kommen auch ausserhalb jedes Rasters vor (devices.html), wo eine
-   layout-cell-Query wirkungslos waere. */
-.device-tile, .entity-list-item { container: card / inline-size; }
-
 @container layout-cell (max-width: 30rem) {
   .energy-ring-stage { grid-template-columns: 1fr; }
   .energy-board-summary-seg span { display: none; }
-}
-
-@container card (max-width: 22rem) {
-  .entity-list-meta { grid-template-columns: 1fr 1fr; }
-  .entity-list-meta div:last-child { grid-column: 1 / -1; }
 }
 /* display: flex column, mit .energy-flow-map als einzigem wachsenden Kind:
    seit .layout-grid-item > * auf Zeilenhoehe gestreckt wird (siehe base.css
@@ -1093,11 +1083,6 @@ tr:nth-child(even) td { background: var(--panel); }
 .entity-number-slider { min-width: 5rem; width: min(10rem, 100%); accent-color: var(--accent); }
 .entity-number-slider:disabled { cursor: wait; opacity: .55; }
 .entity-number-control output { min-width: 3.5rem; color: var(--text); text-align: right; font-variant-numeric: tabular-nums; }
-.entity-list-number-control { margin: .45rem 0 .2rem; }
-.entity-list-number-control .entity-number-slider { flex: 1 1 auto; width: auto; }
-.entity-discovery-trigger { color: var(--text); cursor: help; text-decoration: underline dotted; text-underline-offset: .15em; }
-.entity-discovery-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-[data-discovery-tooltips-enabled="false"] .entity-discovery-trigger { cursor: default; text-decoration: none; }
 .entity-accordion-toggle { margin: 0 0 .6rem; background: transparent; color: var(--text-subtle); border: 1px solid var(--border); border-radius: 3px; padding: .45rem .65rem; cursor: pointer; }
 .entity-accordion-toggle:hover { color: var(--text); border-color: var(--accent); }
 .entity-accordion-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
@@ -1150,13 +1135,16 @@ tr:nth-child(even) td { background: var(--panel); }
 /* Milchglas wie energy-flow-node (siehe dort): auf der Geraete-Seite stehen
    deutlich weniger Geraete- als Entitaets-Karten gleichzeitig (eine pro
    Geraet statt einer pro Entitaet ueber alle Geraete hinweg), der Blur-Preis
-   bleibt also vertretbar - anders als bei entity-list-item weiter unten.
+   bleibt also vertretbar - anders als bei den flachen Entitaets-Karten.
    Seitenleiste wie .compact-card: 3px Theme-Akzent, der bei einem offline
    gemeldeten (.is-offline) oder einem Replay-Wert (.is-degraded) umschlaegt.
    Fehlt der Availability-Kanal ganz, bleibt der Akzent stehen - nur der
    (kleine, informative) Status-Punkt in der Kopfzeile wird dann neutral.
    Radius wie jede andere Rasterkarte (--radius-md, Abschnitt 7). */
-.device-tile { min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
+/* container: fragt nach sich selbst, nicht nach der Raster-Zelle - die Kachel
+   kommt auch ausserhalb jedes Rasters vor (devices.html), wo eine
+   layout-cell-Query wirkungslos waere. */
+.device-tile { container: card / inline-size; min-width: 0; box-sizing: border-box; padding: .9rem 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--accent); border-radius: var(--radius-md); background: var(--panel); background: color-mix(in srgb, var(--panel) 68%, transparent); backdrop-filter: blur(18px) saturate(150%); -webkit-backdrop-filter: blur(18px) saturate(150%); border-top-color: rgba(255, 255, 255, .13); box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12); }
 .device-tile.is-offline { border-left-color: var(--bad); }
 .device-tile.is-degraded { border-left-color: var(--warn); }
 .device-tile-header { display: flex; justify-content: space-between; gap: .8rem; align-items: flex-start; }
@@ -1222,29 +1210,9 @@ tr:nth-child(even) td { background: var(--panel); }
 .device-modal-log-entry:first-child { border-top: 0; }
 .device-modal-log-entry time { display: block; color: var(--text-faint); font-variant-numeric: tabular-nums; font-size: .7rem; }
 .device-detail-payload { max-width: 24rem; max-height: 8rem; margin: 0; white-space: pre-wrap; overflow: auto; font: .78rem/1.35 ui-monospace, monospace; }
-/* Flach statt Glas: von diesen Karten stehen oft ein Dutzend und mehr
-   gleichzeitig - Milchglas auf jeder einzelnen waere teuer und bei so vielen
-   Flaechen uebereinander kaum noch lesbar. Linker Akzent bleibt, im selben
-   border/border-left-width-Verbund wie bei energy-status-lead. */
-.entity-list-item { min-width: 0; box-sizing: border-box; padding: .75rem .85rem; border: 1px solid var(--border-soft); border-left-width: 3px; border-left-color: var(--border); border-radius: var(--radius-md); background: var(--panel); }
-.entity-list-header { display: flex; justify-content: space-between; gap: .7rem; align-items: flex-start; }
-.entity-list-title { display: flex; min-width: 0; gap: .45rem; align-items: center; }
-.entity-list-title > div { min-width: 0; }
-.entity-list-title strong { display: block; overflow-wrap: anywhere; }
-.entity-list-title small { display: block; color: var(--text-muted); overflow-wrap: anywhere; }
-.entity-list-command { flex: 0 0 auto; display: inline-flex; width: 1.5rem; height: 1.5rem; padding: .15rem; color: var(--accent); }
-.entity-list-command svg { width: 100%; height: 100%; fill: currentColor; }
-.entity-list-value { display: flex; justify-content: space-between; gap: .8rem; align-items: baseline; margin: .65rem 0 .35rem; }
-.entity-list-value > strong { min-width: 0; overflow-wrap: anywhere; font-size: 1.05rem; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
-.entity-list-value > span { flex: 0 0 auto; font-size: .72rem; font-weight: 600; letter-spacing: .02em; padding: .15rem .5rem; border-radius: 999px; background: var(--panel-alt); }
-.entity-list-meta { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .45rem; margin: 0; }
-.entity-list-meta div { min-width: 0; }
-.entity-list-meta dt { color: var(--text-muted); font-size: .74rem; }
-.entity-list-meta dd { margin: .1rem 0 0; overflow-wrap: anywhere; font-size: .82rem; }
-.entity-list-item .entity-command-status { display: block; margin-top: .4rem; }
 
 /* entity_value: reduzierte Einzelwert-Karte. Ersetzt die technischen
-   Metadaten der entity-list-item durch Wert + Statuspunkt. Eine schaltbare
+   Metadaten der frueheren entity-list-Karte durch Wert + Statuspunkt. Eine schaltbare
    (nicht-number) Entitaet rendert als <button> statt <article> - die ganze
    Karte ist dann das Tap-Ziel. Rand + Radius wie jede andere Rasterkarte
    (--border-soft, --radius-md). Seitenleiste wie .compact-card: 3px
@@ -1500,9 +1468,6 @@ dialog#device-modal { container: device-modal / inline-size; }
 .device-detail-trigger:active { transform: scale(.96); }
 .device-detail-trigger:disabled { cursor: not-allowed; opacity: .55; }
 .device-action-tooltip { display: inline-flex; }
-.discovery-tooltip-content { max-height: 30rem; overflow: auto; color: var(--text); }
-.discovery-tooltip-content strong { display: block; margin-bottom: .5rem; color: var(--accent); }
-.discovery-tooltip-content pre { margin: 0 0 .75rem; color: var(--text-subtle); font: .78rem/1.45 ui-monospace, monospace; white-space: pre-wrap; overflow-wrap: anywhere; }
 [x-cloak] { display: none !important; }
 small { color: var(--text-muted); }
 /* ------------------------------------------------------------------
@@ -1584,7 +1549,6 @@ small { color: var(--text-muted); }
      Abschnitt 3.7 bereits am Desktop auf 2,75rem und fehlt hier darum. */
   nav button,
   .device-density-toggle { min-height: 2.75rem; }
-  .entity-list-command,
   .entity-command-button.entity-icon { width: 2.75rem; height: 2.75rem; padding: .7rem; }
   .entity-command-button-detail { min-height: 2.75rem; padding: .4rem .8rem; }
 }

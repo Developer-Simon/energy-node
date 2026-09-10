@@ -1,5 +1,5 @@
 {{define "devices"}}
-<section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" data-discovery-tooltips-enabled="{{if .ShowDiscoveryTooltips}}true{{else}}false{{end}}" data-device-view-mode="{{.DeviceViewMode}}" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" x-data="devicesPanel()" x-init="init()">
+<section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" data-device-view-mode="{{.DeviceViewMode}}" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" x-data="devicesPanel()" x-init="init()">
   <div class="devices-panel-header">
     <h2>Geräte</h2>
     <button type="button" class="device-density-toggle" x-bind:class="{ active: viewMode === 'control' }" x-bind:aria-pressed="viewMode === 'control'" x-bind:disabled="viewModeSaving" x-bind:aria-label="viewMode === 'control' ? 'Zur kompakten Übersicht wechseln' : 'Zur Detailansicht wechseln'" x-on:click="setViewMode(viewMode === 'control' ? 'compact' : 'control')">
@@ -338,23 +338,5 @@
     <small class="entity-command-status" x-cloak x-show="commandStatusText(entity)" x-text="commandStatusText(entity)"></small>
   </article>
 </template>
-{{end}}
-
-{{define "entity-list-item"}}
-{{ $entity := . }}
-<article class="entity-list-item" role="listitem" data-entity-id="{{.UniqueID}}">
-  <header class="entity-list-header">
-    <div class="entity-list-title">
-      {{with iconFor .}}<span class="entity-icon{{if .Fallback}} entity-icon-fallback{{end}}" role="img" aria-label="{{.Label}}" title="{{.Label}}">{{.SVG}}</span>{{end}}
-      <div><strong class="entity-discovery-trigger" tabindex="0" data-discovery-tooltip-target="discovery-json-{{.UniqueID}}">{{.Name}}</strong><small>{{.Component}} / {{.ObjectID}}</small></div>
-      <template id="discovery-json-{{.UniqueID}}"><div class="discovery-tooltip-content"><strong>MQTT Discovery JSON</strong>{{if .DiscoveryJSON}}<pre>{{prettyJSON .DiscoveryJSON}}</pre>{{else}}<pre>Keine originale Discovery-Payload im Registry-Snapshot vorhanden.</pre>{{end}}</div></template>
-    </div>
-    {{with iconFor .}}{{if and $entity.Commandable (ne $entity.Component "number")}}<button class="entity-command-button entity-list-command" type="button" data-entity-id="{{$entity.UniqueID}}" {{if $entity.Pending}}disabled aria-busy="true"{{end}} x-on:click="sendCommand($event)" aria-label="{{$entity.Name}} schalten" title="{{.Label}}">{{.SVG}}</button>{{end}}{{end}}
-  </header>
-  <div class="entity-list-value{{if .Stale}} stale{{end}}"><strong>{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{.Value}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}-{{end}}</strong><span class="{{if not .HasAvailability}}unknown{{else if .Available}}available{{else}}unavailable{{end}}">{{if not .HasAvailability}}unbekannt{{else if .Available}}online{{else}}offline{{end}}</span></div>
-  {{if and .Commandable (eq .Component "number")}}<div class="entity-number-control entity-list-number-control"><input type="range" class="entity-number-slider" data-command-type="number" data-entity-id="{{.UniqueID}}" value="{{if .HasValue}}{{.Value}}{{else if .MinValue}}{{.MinValue}}{{end}}" {{with .MinValue}}min="{{.}}"{{end}} {{with .MaxValue}}max="{{.}}"{{end}} {{with .Step}}step="{{.}}"{{end}} {{if .Pending}}disabled aria-busy="true"{{end}} x-on:input="$el.nextElementSibling.value = $el.value" x-on:change="sendNumberCommand($el)" aria-label="{{.Name}} einstellen"><output>{{if .HasValue}}{{.Value}}{{else}}-{{end}}</output></div>{{end}}
-  <dl class="entity-list-meta"><div><dt>Quelle</dt><dd>{{.Source}}</dd></div><div><dt>Freshness</dt><dd>{{.Freshness}}{{if .Stale}} (Replay){{end}}</dd></div><div><dt>Zuletzt gesehen</dt><dd>{{if .HasValue}}<time data-local-timestamp datetime="{{localTimestamp .LastSeen}}">{{localDisplay .LastSeen}}</time>{{else}}-{{end}}</dd></div></dl>
-  <small class="entity-command-status" x-cloak x-show="commandStates['{{.UniqueID}}']" x-text="commandStates['{{.UniqueID}}']" x-init="commandStates['{{.UniqueID}}'] = {{if .Pending}}'Warte auf Bestätigung über MQTT ...'{{else if eq .LastCommandResult "timeout"}}'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.'{{else}}''{{end}}"></small>
-</article>
 {{end}}
 
