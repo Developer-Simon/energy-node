@@ -135,6 +135,7 @@ def test_schema_version_one_is_rejected_with_hint(tmp_path):
         appconfig.load(write_config(tmp_path, document))
     assert "schema_version 1" in str(excinfo.value)
     assert "dashboard.node_" in str(excinfo.value)
+    assert "Dashboard" in str(excinfo.value)
 
 
 def test_schema_version_mismatch_names_expected_version(tmp_path):

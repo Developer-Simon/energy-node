@@ -13,6 +13,7 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -131,7 +132,19 @@ func Load(path string) (Config, error) {
 		SchemaVersion int `json:"schema_version"`
 	}
 	if err := json.Unmarshal(data, &probe); err == nil && probe.SchemaVersion == 1 {
-		return Config{}, fmt.Errorf("%s: schema_version 1 wird nicht mehr unterstuetzt - der node-Block ist in dashboard.node_* gewandert (schema_version 2); siehe docs/knowledge/configuration.md", path)
+		migrated, warnings, mErr := MigrateV1toV2(data)
+		if mErr != nil {
+			return Config{}, fmt.Errorf("%s: schema_version 1 liess sich nicht auf 2 migrieren: %w", path, mErr)
+		}
+		for _, w := range warnings {
+			log.Printf("appconfig: %s: %s", path, w)
+		}
+		if wErr := persistMigration(path, data, migrated); wErr != nil {
+			log.Printf("appconfig: %s: schema_version 1 in-memory auf 2 gehoben, aber Rueckschreiben fehlgeschlagen (%v) - die Datei bleibt v1 und die Python-Dienste lehnen sie weiter ab", path, wErr)
+		} else {
+			log.Printf("appconfig: %s: schema_version 1 auf 2 migriert, der node-Block ist nach dashboard.node_* gewandert (Sicherung: %s.v1-backup)", path, path)
+		}
+		data = migrated
 	}
 	if err := config.ValidateDocument(data, schemaJSON); err != nil {
 		return Config{}, fmt.Errorf("%s: %w", path, err)
