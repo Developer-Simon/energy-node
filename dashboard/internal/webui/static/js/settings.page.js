@@ -13,10 +13,14 @@
     return body;
   };
 
-  // Schrittweite und Grenzen der Verlaufs-Stepper. Die Grenzen decken sich
-  // mit den min/max der Formularfelder und mit dem, was valid() unten prueft -
-  // der Stepper kann also nie einen Wert erzeugen, den das Speichern ablehnt.
-  const HISTORY_STEP_FIELDS = {
+  // Schrittweite und Grenzen der Stepper auf den Einstellungs-Tabs (Allgemein
+  // und Verlaeufe). Die Grenzen decken sich mit den min/max der Formularfelder
+  // und mit dem, was valid() unten prueft - der Stepper kann also nie einen
+  // Wert erzeugen, den das Speichern ablehnt.
+  const STEP_FIELDS = {
+    healthScoreThreshold: {min: 1, max: 600, step: 1},
+    sweepIntervalSeconds: {min: 30, max: 3600, step: 30},
+    liveUpdateIntervalSeconds: {min: 1, max: 60, step: 1},
     historySampleIntervalSeconds: {min: 5, max: 3600, step: 5},
     historyRawWindowHours: {min: 1, max: 168, step: 1},
     historyMinuteWindowDays: {min: 1, max: 365, step: 1},
@@ -205,9 +209,9 @@
     },
 
     // Ein Klick auf - / + der Stepper. dir ist +1 oder -1; der Wert bleibt
-    // in den Feldgrenzen aus HISTORY_STEP_FIELDS.
+    // in den Feldgrenzen aus STEP_FIELDS.
     stepField(name, dir) {
-      const cfg = HISTORY_STEP_FIELDS[name];
+      const cfg = STEP_FIELDS[name];
       if (!cfg) return;
       const current = Number(this[name]);
       const base = Number.isFinite(current) ? current : cfg.min;
