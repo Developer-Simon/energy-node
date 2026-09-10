@@ -2,8 +2,8 @@
   "availability_topic": "outstation/energy_node/status/online",
   "device": {
     "identifiers": ["energy_node"],
-    "manufacturer": "Energy Node",
-    "model": "Dashboard Energy",
+    "manufacturer": "Raspberry Pi Foundation",
+    "model": "Raspberry Pi 1 (ARMv6)",
     "name": "Energy Node",
     "sw_version": "1.2.3-test"
   },

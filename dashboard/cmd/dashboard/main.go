@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -50,6 +51,9 @@ func main() {
 	flag.Parse()
 	cfg, err := appconfig.Load(*configPath)
 	if err != nil {
+		log.Fatalf("energy-node-dashboard: %v", err)
+	}
+	if err := validateNodeDeviceID(cfg.Dashboard.NodeDeviceID, *configPath); err != nil {
 		log.Fatalf("energy-node-dashboard: %v", err)
 	}
 
@@ -401,6 +405,23 @@ func main() {
 			log.Printf("energy-node-dashboard: storage health flush failed: %v", err)
 		}
 	}
+}
+
+// validateNodeDeviceID guards against a node-ID split-brain. The MQTT LWT is
+// pinned to energydiscovery.AvailabilityTopic (outstation/energy_node/status/
+// online), while nodeagent derives its availability/state topics from
+// dashboard.node_device_id. They only agree when node_device_id is
+// "energy_node"; any other value (e.g. an upgraded node that kept the old
+// hyphenated "energy-node") leaves every node diagnostic entity permanently
+// unavailable and triggers a self-erasing legacy cleanup. An empty value is
+// rejected too - appconfig does not default it here.
+func validateNodeDeviceID(id, configPath string) error {
+	if id == energydiscovery.DeviceID {
+		return nil
+	}
+	return fmt.Errorf(
+		"dashboard.node_device_id is %q but must be %q: the MQTT availability topic is fixed to outstation/%s/status/online, so any other id makes the node's diagnostic entities permanently unavailable. Set dashboard.node_device_id to %q in %s (see INSTALLATION.md, section \"Upgrading from an earlier release (<= 0.4)\")",
+		id, energydiscovery.DeviceID, energydiscovery.DeviceID, energydiscovery.DeviceID, configPath)
 }
 
 func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now time.Time) ([]byte, error) {

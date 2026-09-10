@@ -84,13 +84,19 @@ func nodeEntities() []entity {
 	}
 }
 
+// deviceBlock is the HA device card for the shared "energy_node" device.
+// internal/energydiscovery publishes the same identifiers/name/manufacturer/
+// model for the dashboard's own energy sensors; those fields are kept
+// identical on both sides so HA's identifier merge cannot make the card
+// flap. sw_version is deliberately owned by energydiscovery alone (the
+// dashboard build version) - emitting an OS string here would clobber it
+// depending on retained delivery order.
 func (a *Agent) deviceBlock() map[string]any {
 	return map[string]any{
 		"identifiers":  []string{a.opts.NodeID},
 		"name":         a.opts.NodeName,
 		"manufacturer": "Raspberry Pi Foundation",
 		"model":        "Raspberry Pi 1 (ARMv6)",
-		"sw_version":   "Raspberry Pi OS Legacy (32-bit) Lite",
 	}
 }
 

@@ -34,19 +34,21 @@ func fakeReader(files map[string]string, cmds map[string]string) *reader {
 
 func TestParseThrottled(t *testing.T) {
 	cases := []struct {
-		raw               string
-		wantNow, wantOccd bool
+		raw                                           string
+		wantUnderNow, wantUnderOccd, wantThrottledNow bool
 	}{
-		{"throttled=0x0", false, false},
-		{"throttled=0x1", true, false},
-		{"throttled=0x50000", false, true},
-		{"throttled=0x50005", true, true},
-		{"garbage", false, false},
+		{"throttled=0x0", false, false, false},
+		{"throttled=0x1", true, false, false},     // under-voltage now, not throttled
+		{"throttled=0x4", false, false, true},     // throttled now, no under-voltage
+		{"throttled=0x50000", false, true, false}, // under-voltage occurred (0x10000)
+		{"throttled=0x50005", true, true, true},   // 0x1 + 0x4 + 0x10000
+		{"garbage", false, false, false},
 	}
 	for _, c := range cases {
-		now, occd := parseThrottled(c.raw)
-		if now != c.wantNow || occd != c.wantOccd {
-			t.Errorf("parseThrottled(%q) = %v,%v want %v,%v", c.raw, now, occd, c.wantNow, c.wantOccd)
+		underNow, underOccd, throttledNow := parseThrottled(c.raw)
+		if underNow != c.wantUnderNow || underOccd != c.wantUnderOccd || throttledNow != c.wantThrottledNow {
+			t.Errorf("parseThrottled(%q) = %v,%v,%v want %v,%v,%v",
+				c.raw, underNow, underOccd, throttledNow, c.wantUnderNow, c.wantUnderOccd, c.wantThrottledNow)
 		}
 	}
 }
@@ -102,8 +104,16 @@ func TestFastStateFromFakes(t *testing.T) {
 	if fs.DiskUsedPct == nil || *fs.DiskUsedPct != 75.0 {
 		t.Errorf("DiskUsedPct = %v, want 75.0", fs.DiskUsedPct)
 	}
-	if !fs.UndervoltageNow || !fs.UndervoltageOccurred || !fs.ThrottledNow {
-		t.Errorf("throttled flags = %+v, want all true", fs)
+	// throttled=0x50005: 0x1 -> undervoltage now, 0x4 -> throttled now,
+	// 0x10000 -> undervoltage occurred. Each field checked distinctly.
+	if !fs.UndervoltageNow {
+		t.Errorf("UndervoltageNow = false, want true (0x1)")
+	}
+	if !fs.UndervoltageOccurred {
+		t.Errorf("UndervoltageOccurred = false, want true (0x10000)")
+	}
+	if !fs.ThrottledNow {
+		t.Errorf("ThrottledNow = false, want true (0x4)")
 	}
 	if fs.LastBoot == nil || *fs.LastBoot != "2026-09-09T11:00:00+0000" {
 		t.Errorf("LastBoot = %v, want 2026-09-09T11:00:00+0000", fs.LastBoot)

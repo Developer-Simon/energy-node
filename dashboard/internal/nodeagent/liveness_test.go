@@ -12,7 +12,6 @@ import (
 
 func livenessAgent(t *testing.T, now time.Time) *Agent {
 	a := New(Options{NodeID: "energy_node"})
-	a.now = func() time.Time { return now }
 	a.SetServiceCatalog([]string{"apsystems", "shelly"}, map[string]appconfig.ServicePoll{
 		"apsystems": {PollIntervalS: 60, DiagnosticPollMultiplier: 10}, // Fenster 600 + 60
 		"shelly":    {PollIntervalS: 20, DiagnosticPollMultiplier: 15}, // Fenster 300 + 60

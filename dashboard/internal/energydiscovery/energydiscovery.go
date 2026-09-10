@@ -20,9 +20,14 @@ const (
 	// Assistant die Entitäten zu einem Gerät zusammenfasst.
 	DeviceIdentifier = "energy_node"
 
+	// The device card is one HA device shared with internal/nodeagent (same
+	// identifiers). These three fields are kept byte-identical to nodeagent's
+	// deviceBlock so HA's identifier merge cannot make the card flap. Only
+	// sw_version differs and it lives here alone (the dashboard build version);
+	// nodeagent no longer emits sw_version.
 	deviceName         = "Energy Node"
-	deviceManufacturer = "Energy Node"
-	deviceModel        = "Dashboard Energy"
+	deviceManufacturer = "Raspberry Pi Foundation"
+	deviceModel        = "Raspberry Pi 1 (ARMv6)"
 
 	// StateTopic ist das geteilte, retained JSON-Topic (identisch mit dem
 	// Broadcast in cmd/dashboard/main.go).

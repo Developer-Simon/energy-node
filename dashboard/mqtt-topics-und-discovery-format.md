@@ -104,11 +104,16 @@ Zusätzlich zum Parsen fremder Discovery veröffentlicht das Dashboard **sich
 selbst** als ein HA-Gerät für seine server-seitig berechneten Energiewerte
 (`internal/energydiscovery`).
 
-- **Gerät:** `identifiers: ["energy_node"]`, Name
-  „Energy Node", `manufacturer: "Energy Node"`,
-  `model: "Dashboard Energy"`, `sw_version` = Dashboard-Build-Version. Kein
-  `via_device`. Die sieben Energie-Sensoren sind damit Teil desselben
-  `energy_node`-HA-Geräts wie die Systemdiagnose aus `internal/nodeagent`
+- **Gerät:** `identifiers: ["energy_node"]`, Name „Energy Node",
+  `manufacturer: "Raspberry Pi Foundation"`, `model: "Raspberry Pi 1 (ARMv6)"`,
+  `sw_version` = Dashboard-Build-Version. Kein `via_device`. `identifiers`,
+  `name`, `manufacturer` und `model` sind byte-identisch mit dem Geräteblock
+  aus `internal/nodeagent` — es ist dasselbe `energy_node`-HA-Gerät, und HA
+  fasst beide Blöcke über `identifiers` zusammen. `sw_version` trägt allein
+  dieser Block (die Dashboard-Build-Version); `nodeagent` sendet kein
+  `sw_version` mehr, damit die Reihenfolge der retained Nachrichten die
+  Version nicht mehr überschreiben kann. Die sieben Energie-Sensoren sind
+  damit Teil desselben Geräts wie die Systemdiagnose aus `internal/nodeagent`
   (gleiches Pfadsegment, kollisionsfreie `object_id`s).
 - **Discovery-Topics:** `<discovery_prefix>/sensor/energy_node/<object_id>/config`,
   retained, `qos=0`, `unique_id: energy_node_<object_id>`.

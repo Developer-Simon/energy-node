@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -31,6 +32,21 @@ func TestServiceIDForConfig(t *testing.T) {
 				t.Errorf("serviceIDForConfig(%q) = (%q, %v), want (%q, %v)", tt.input, gotID, gotOK, tt.wantID, tt.wantOK)
 			}
 		})
+	}
+}
+
+func TestValidateNodeDeviceID(t *testing.T) {
+	if err := validateNodeDeviceID("energy_node", "/etc/energy-node/config.json"); err != nil {
+		t.Fatalf("energy_node must be accepted, got %v", err)
+	}
+	for _, bad := range []string{"energy-node", "", "node", "Energy Node"} {
+		err := validateNodeDeviceID(bad, "/etc/energy-node/config.json")
+		if err == nil {
+			t.Fatalf("validateNodeDeviceID(%q) = nil, want an error", bad)
+		}
+		if !strings.Contains(err.Error(), "energy_node") || !strings.Contains(err.Error(), "/etc/energy-node/config.json") {
+			t.Fatalf("error for %q lacks the id or the config path: %v", bad, err)
+		}
 	}
 }
 

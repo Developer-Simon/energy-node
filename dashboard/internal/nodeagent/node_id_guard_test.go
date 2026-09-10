@@ -20,8 +20,15 @@ func TestNodeIDHasNoHyphenInMQTTContext(t *testing.T) {
 		// discovery.go dodges this guard via string concatenation, but
 		// discovery_test.go uses the literal, so that one test file is excluded.
 		":!:dashboard/internal/nodeagent/discovery_test.go").CombinedOutput()
-	if err != nil && len(out) == 0 {
-		t.Fatalf("git grep failed: %v", err)
+	if err != nil {
+		// `git grep` exits 1 with empty output when there are simply no
+		// matches - that is the clean-tree pass, not a failure. Any other
+		// error (git missing, exit code >= 2, run from outside a repo) is a
+		// real problem.
+		if ee, ok := err.(*exec.ExitError); ok && ee.ExitCode() == 1 && len(out) == 0 {
+			return
+		}
+		t.Fatalf("git grep failed: %v (output: %q)", err, out)
 	}
 	pathLike := regexp.MustCompile(`/etc/energy-node/|energy-node-dashboard|energy-node\.service|energy-node\.config\.json|energy-node-bridge`)
 	mqttCtx := regexp.MustCompile(`via_device|identifiers|unique_id|outstation/energy-node|homeassistant/[a-z_]+/energy-node/`)

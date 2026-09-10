@@ -78,7 +78,6 @@ func runtimeNumCPU() int { return numCPUImpl() }
 
 func ptrF(v float64) *float64 { return &v }
 func ptrS(v string) *string   { return &v }
-func ptrI(v int) *int         { return &v }
 
 func (r *reader) cpuTempC() *float64 {
 	data, err := r.readFile("/sys/class/thermal/thermal_zone0/temp")
@@ -198,24 +197,27 @@ func (r *reader) lastBootISO() *string {
 	return ptrS(boot.Format("2006-01-02T15:04:05-0700"))
 }
 
-func parseThrottled(raw string) (now bool, occurred bool) {
+// parseThrottled decodes `vcgencmd get_throttled`. The bits are distinct:
+// 0x1 = under-voltage now, 0x4 = currently throttled now, 0x10000 =
+// under-voltage has occurred since boot, 0x40000 = throttling has occurred.
+// Only the first three map to FastState fields; there is deliberately no
+// throttled_occurred field.
+func parseThrottled(raw string) (undervoltageNow, undervoltageOccurred, throttledNow bool) {
 	_, hex, ok := strings.Cut(strings.TrimSpace(raw), "=")
 	if !ok {
-		return false, false
+		return false, false, false
 	}
 	value, err := strconv.ParseUint(strings.TrimPrefix(strings.TrimSpace(hex), "0x"), 16, 64)
 	if err != nil {
-		return false, false
+		return false, false, false
 	}
-	nowBit := value&0x1 != 0 || value&0x4 != 0
-	occurredBit := value&0x10000 != 0 || value&0x40000 != 0
-	return nowBit, occurredBit
+	return value&0x1 != 0, value&0x10000 != 0, value&0x4 != 0
 }
 
-func (r *reader) throttled(ctx context.Context) (now, occurred bool) {
+func (r *reader) throttled(ctx context.Context) (undervoltageNow, undervoltageOccurred, throttledNow bool) {
 	out, err := r.run(ctx, "vcgencmd", "get_throttled")
 	if err != nil {
-		return false, false
+		return false, false, false
 	}
 	return parseThrottled(string(out))
 }
@@ -258,7 +260,7 @@ func (r *reader) aptUpdatesPending(ctx context.Context) *int {
 }
 
 func (r *reader) FastState(ctx context.Context) FastState {
-	nowBit, occurredBit := r.throttled(ctx)
+	undervoltageNow, undervoltageOccurred, throttledNow := r.throttled(ctx)
 	return FastState{
 		CPUTempC:             r.cpuTempC(),
 		CPULoadPct:           r.cpuLoadPct(),
@@ -266,9 +268,9 @@ func (r *reader) FastState(ctx context.Context) FastState {
 		DiskUsedPct:          r.diskUsedPct(),
 		WiFiSignalDBm:        r.wifiSignalDBm(),
 		LastBoot:             r.lastBootISO(),
-		UndervoltageNow:      nowBit,
-		UndervoltageOccurred: occurredBit,
-		ThrottledNow:         nowBit,
+		UndervoltageNow:      undervoltageNow,
+		UndervoltageOccurred: undervoltageOccurred,
+		ThrottledNow:         throttledNow,
 	}
 }
 
