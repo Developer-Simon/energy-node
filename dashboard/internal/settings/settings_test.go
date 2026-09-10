@@ -20,13 +20,11 @@ func TestStorePersistsSettingsAndLayout(t *testing.T) {
 	} else if !reflect.DeepEqual(got, Default()) {
 		t.Fatalf("got %#v, want defaults", got)
 	}
-	if err := store.SaveSettings(Settings{HealthScoreThreshold: 4, SweepIntervalSeconds: 120, ShowDiscoveryTooltips: false, ShowRuntimeStatus: false}); err != nil {
+	if err := store.SaveSettings(Settings{HealthScoreThreshold: 4, SweepIntervalSeconds: 120, ShowRuntimeStatus: false}); err != nil {
 		t.Fatal(err)
 	}
 	if got, err := store.LoadSettings(); err != nil {
 		t.Fatal(err)
-	} else if got.ShowDiscoveryTooltips {
-		t.Fatal("discovery tooltips unexpectedly enabled after saving false")
 	} else if got.ShowRuntimeStatus {
 		t.Fatal("runtime status unexpectedly enabled after saving false")
 	}
@@ -161,7 +159,7 @@ func TestStoreRejectsUnknownDeviceViewMode(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveSettings(Settings{
 		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
-		ShowDiscoveryTooltips: true, ShowRuntimeStatus: true, DeviceViewMode: "unknown",
+		ShowRuntimeStatus: true, DeviceViewMode: "unknown",
 	}); err == nil {
 		t.Fatal("unknown device view mode was accepted")
 	}
@@ -379,9 +377,6 @@ func TestSchemaDeclaresDashboardDefaults(t *testing.T) {
 	if got := schema.Properties["sweep_interval_seconds"].Default; got != float64(300) {
 		t.Fatalf("sweep interval default = %#v, want 300", got)
 	}
-	if got := schema.Properties["show_discovery_tooltips"].Default; got != true {
-		t.Fatalf("discovery tooltip default = %#v, want true", got)
-	}
 	if got := schema.Properties["show_runtime_status"].Default; got != true {
 		t.Fatalf("runtime status default = %#v, want true", got)
 	}
@@ -567,8 +562,8 @@ func TestStoreRejectsUnknownTheme(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveSettings(Settings{
 		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
-		ShowDiscoveryTooltips: true, ShowRuntimeStatus: true,
-		DeviceViewMode: DeviceViewModeControl, Theme: "kupferwerk",
+		ShowRuntimeStatus: true,
+		DeviceViewMode:    DeviceViewModeControl, Theme: "kupferwerk",
 	}); err == nil {
 		t.Fatal("unknown theme was accepted")
 	}
@@ -578,8 +573,8 @@ func TestStorePersistsTheme(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveSettings(Settings{
 		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
-		ShowDiscoveryTooltips: true, ShowRuntimeStatus: true,
-		DeviceViewMode: DeviceViewModeControl, Theme: ThemeTageslicht,
+		ShowRuntimeStatus: true,
+		DeviceViewMode:    DeviceViewModeControl, Theme: ThemeTageslicht,
 	}); err != nil {
 		t.Fatal(err)
 	}

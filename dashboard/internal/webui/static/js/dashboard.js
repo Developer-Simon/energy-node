@@ -387,10 +387,7 @@
 
   const devicesPanel = () => ({
     ...window.deviceTileMixin(),
-    tooltipInstances: [],
-    settingChanged: null,
     deviceViewModeChanged: null,
-    contentChanged: null,
     registryUpdated: null,
     dialogClosed: null,
     viewMode: 'compact',
@@ -1076,7 +1073,6 @@
       if (this.registryUpdated) return;
       this.viewMode = this.$root.dataset.deviceViewMode === 'control' ? 'control' : 'compact';
       this.loadSession();
-      this.settingChanged = event => this.setTooltipsEnabled(event.detail.enabled);
       this.configTileSettingChanged = () => this.refreshLiveFragment();
       this.deviceViewModeChanged = event => {
         const mode = event.detail?.mode === 'control' ? 'control' : 'compact';
@@ -1124,23 +1120,17 @@
         if (!this.livePushCovers(detail)) this.refreshLiveFragment();
         this.refreshSelectedDevice();
       };
-      this.contentChanged = event => {
-        if (event.target.id === 'devices-live') this.initTooltips();
-      };
       this.dialogClosed = event => {
         if (event.target === this.$refs.deviceModalDialog && this.selectedDeviceId) this.closeDeviceDetail();
       };
       this.layoutSaved = () => this.refreshLiveFragment();
       this.pageChanged = () => this.refreshLiveFragment();
-      document.addEventListener('discovery-tooltips-setting-changed', this.settingChanged);
       document.addEventListener('config-tile-setting-changed', this.configTileSettingChanged);
       document.addEventListener('device-view-mode-changed', this.deviceViewModeChanged);
       window.addEventListener('registry-updated', this.registryUpdated);
       window.addEventListener('layout-saved', this.layoutSaved);
       window.addEventListener('layout-page-changed', this.pageChanged);
-      document.addEventListener('htmx:afterSwap', this.contentChanged);
       this.$refs.deviceModalDialog?.addEventListener('close', this.dialogClosed);
-      this.initTooltips();
       this.observeMergeThreshold();
       // Sekundentakt fuer die relative "aktualisiert vor X"-Anzeige im
       // Modal. Laeuft nur weiter, solange ein Geraet offen ist.
@@ -1149,47 +1139,13 @@
       }, 1000);
     },
 
-    initTooltips() {
-      if (typeof tippy !== 'function' || this.$root.dataset.discoveryTooltipsEnabled !== 'true') return;
-      this.destroyTooltips();
-      this.tooltipInstances = [...this.$root.querySelectorAll('[data-discovery-tooltip-target]')]
-        .map(trigger => {
-          const template = document.getElementById(trigger.dataset.discoveryTooltipTarget);
-          if (!template) return null;
-          return tippy(trigger, {
-            allowHTML: true,
-            content: template.innerHTML,
-            interactive: true,
-            // 760 ist fast die doppelte Breite eines Handy-Bildschirms.
-            // Am Desktop gewinnt weiterhin 760.
-            maxWidth: Math.min(760, window.innerWidth - 32),
-            placement: 'top-start',
-          });
-        })
-        .filter(Boolean);
-    },
-
-    setTooltipsEnabled(enabled) {
-      this.$root.dataset.discoveryTooltipsEnabled = String(enabled);
-      this.destroyTooltips();
-      if (enabled) this.initTooltips();
-    },
-
-    destroyTooltips() {
-      this.tooltipInstances.forEach(instance => instance.destroy());
-      this.tooltipInstances = [];
-    },
-
     destroy() {
-      if (this.settingChanged) document.removeEventListener('discovery-tooltips-setting-changed', this.settingChanged);
       if (this.configTileSettingChanged) document.removeEventListener('config-tile-setting-changed', this.configTileSettingChanged);
       if (this.deviceViewModeChanged) document.removeEventListener('device-view-mode-changed', this.deviceViewModeChanged);
       if (this.registryUpdated) window.removeEventListener('registry-updated', this.registryUpdated);
       if (this.layoutSaved) window.removeEventListener('layout-saved', this.layoutSaved);
       if (this.pageChanged) window.removeEventListener('layout-page-changed', this.pageChanged);
-      if (this.contentChanged) document.removeEventListener('htmx:afterSwap', this.contentChanged);
       if (this.dialogClosed) this.$refs.deviceModalDialog?.removeEventListener('close', this.dialogClosed);
-      this.destroyTooltips();
       this.mergeObserver?.disconnect();
     },
   });

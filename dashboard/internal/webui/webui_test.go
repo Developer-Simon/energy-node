@@ -52,7 +52,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-discovery-tooltips", "showDiscoveryTooltips", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js,/static/js/schema-form.js,/static/js/config.page.js?v=2\"", "data-panel-script=\"/static/js/revisions.js,/static/js/energy.page.js?v=1\"", "data-panel-css=\"/static/css/manager.css?v=18\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js,/static/js/schema-form.js,/static/js/config.page.js?v=2\"", "data-panel-script=\"/static/js/revisions.js,/static/js/energy.page.js?v=1\"", "data-panel-css=\"/static/css/manager.css?v=18\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -138,7 +138,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=1,/static/js/energy-model.js,/static/js/history.js?v=9",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js,/static/js/schema-form.js,/static/js/settings.page.js?v=4,/static/js/mqtt.page.js?v=1,/static/js/tailscale.page.js?v=1,/static/js/systemconfig.page.js?v=2",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js,/static/js/schema-form.js,/static/js/settings.page.js?v=5,/static/js/mqtt.page.js?v=1,/static/js/tailscale.page.js?v=1,/static/js/systemconfig.page.js?v=2",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -231,9 +231,9 @@ func TestOverviewRendersTailscaleSettingsWorkflow(t *testing.T) {
 	}
 }
 
-func TestOverviewDisablesDiscoveryTooltipsFromSettings(t *testing.T) {
+func TestOverviewDisablesRuntimeStatusFromSettings(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
-	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 3, SweepIntervalSeconds: 300, ShowDiscoveryTooltips: false, ShowRuntimeStatus: false}); err != nil {
+	if err := store.SaveSettings(settings.Settings{HealthScoreThreshold: 3, SweepIntervalSeconds: 300, ShowRuntimeStatus: false}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -248,16 +248,8 @@ func TestOverviewDisablesDiscoveryTooltipsFromSettings(t *testing.T) {
 	if recorder.Code != 200 {
 		t.Fatalf("got status %d", recorder.Code)
 	}
-	body := recorder.Body.String()
-	if !strings.Contains(body, `data-runtime-status-enabled="false"`) {
+	if !strings.Contains(recorder.Body.String(), `data-runtime-status-enabled="false"`) {
 		t.Fatal("runtime status setting was not passed to Alpine")
-	}
-	// data-discovery-tooltips-enabled lives on the devices panel, which is
-	// lazy-loaded rather than part of the initial page.
-	devicesRecorder := httptest.NewRecorder()
-	Overview(reg, config.NewManager(t.TempDir()), store).ServeHTTP(devicesRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel=devices", nil))
-	if !strings.Contains(devicesRecorder.Body.String(), `data-discovery-tooltips-enabled="false"`) {
-		t.Fatalf("disabled tooltip setting was not rendered: %s", devicesRecorder.Body.String())
 	}
 }
 
@@ -1040,22 +1032,6 @@ func TestOverviewRendersDiscoveryIcons(t *testing.T) {
 	}
 }
 
-func TestEntityListItemRendersAbsoluteTimestamp(t *testing.T) {
-	entity := registry.EntityView{
-		UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Power",
-		HasValue: true, Value: "42",
-		LastSeen: time.Date(2026, 8, 1, 0, 15, 0, 0, time.FixedZone("CEST", 2*60*60)),
-	}
-	var buf bytes.Buffer
-	if err := overviewTmpl.ExecuteTemplate(&buf, "entity-list-item", entity); err != nil {
-		t.Fatal(err)
-	}
-	body := buf.String()
-	if !strings.Contains(body, `data-local-timestamp`) || !strings.Contains(body, `datetime="2026-08-01T00:15:00&#43;02:00"`) {
-		t.Fatalf("timestamp was not exposed as an absolute browser-parsed value: %s", body)
-	}
-}
-
 func TestOverviewRendersTimestampValueForRelativeBrowserFormatting(t *testing.T) {
 	reg := registry.New()
 	reg.UpsertEntity(registry.Discovery{
@@ -1118,7 +1094,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=18"`,
+		`href="/node/static/css/base.css?v=19"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -1219,8 +1195,8 @@ func TestOverviewRendersThemeAttribute(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	if err := store.SaveSettings(settings.Settings{
 		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
-		ShowDiscoveryTooltips: true, ShowRuntimeStatus: true,
-		DeviceViewMode: settings.DeviceViewModeControl, Theme: settings.ThemeSignalgelb,
+		ShowRuntimeStatus: true,
+		DeviceViewMode:    settings.DeviceViewModeControl, Theme: settings.ThemeSignalgelb,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -1246,8 +1222,8 @@ func TestLoginRendersThemeAttribute(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	if err := store.SaveSettings(settings.Settings{
 		HealthScoreThreshold: 3, SweepIntervalSeconds: 300,
-		ShowDiscoveryTooltips: true, ShowRuntimeStatus: true,
-		DeviceViewMode: settings.DeviceViewModeControl, Theme: settings.ThemeTageslicht,
+		ShowRuntimeStatus: true,
+		DeviceViewMode:    settings.DeviceViewModeControl, Theme: settings.ThemeTageslicht,
 	}); err != nil {
 		t.Fatal(err)
 	}

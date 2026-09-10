@@ -31,7 +31,6 @@
   const settingsPanel = () => ({
     healthScoreThreshold: 3,
     sweepIntervalSeconds: 300,
-    showDiscoveryTooltips: true,
     showRuntimeStatus: true,
     deviceViewMode: 'compact',
     theme: 'mint',
@@ -92,7 +91,6 @@
         const [value, session] = await Promise.all([requestJSON('/api/v1/settings'), requestJSON('/api/v1/auth/session').catch(() => null), this.loadStorageHealth()]);
         this.healthScoreThreshold = value.health_score_threshold;
         this.sweepIntervalSeconds = value.sweep_interval_seconds;
-        this.showDiscoveryTooltips = value.show_discovery_tooltips;
         this.showRuntimeStatus = value.show_runtime_status !== false;
         this.deviceViewMode = value.device_view_mode === 'control' ? 'control' : 'compact';
         this.theme = ['mint', 'stromblau', 'signalgelb', 'tageslicht'].includes(value.theme) ? value.theme : 'mint';
@@ -322,7 +320,6 @@
       return {
         health_score_threshold: Number(this.healthScoreThreshold),
         sweep_interval_seconds: Number(this.sweepIntervalSeconds),
-        show_discovery_tooltips: Boolean(this.showDiscoveryTooltips),
         show_runtime_status: Boolean(this.showRuntimeStatus),
         device_view_mode: this.deviceViewMode,
         theme: this.theme,
@@ -366,7 +363,6 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(this.payload()),
         });
-        document.dispatchEvent(new CustomEvent('discovery-tooltips-setting-changed', {detail: {enabled: this.showDiscoveryTooltips}}));
         document.dispatchEvent(new CustomEvent('runtime-status-setting-changed', {detail: {enabled: this.showRuntimeStatus}}));
         document.dispatchEvent(new CustomEvent('device-view-mode-changed', {detail: {mode: this.deviceViewMode}}));
         document.documentElement.setAttribute('data-theme', this.theme);

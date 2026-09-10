@@ -71,7 +71,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `18` |
+| `css/base.css` | `19` |
 
 ### Deferred `<script>` block (channel 1)
 
@@ -94,7 +94,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `8` |
 | `js/notifications.js` | `1` |
-| `js/dashboard.js` | `11` |
+| `js/dashboard.js` | `12` |
 | `js/overview.page.js` | `5` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -119,7 +119,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `18` |
 | `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `1` | `css/manager.css` `18` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `18` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `4`, `js/mqtt.page.js` `1`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `18`, `css/settings-controls.css` `2` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `5`, `js/mqtt.page.js` `1`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `18`, `css/settings-controls.css` `2` |
 | `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `18`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -207,12 +207,12 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| update-settings branch | `js/settings.page.js` · `css/settings-controls.css` | `4` · `2` | 2026-09-10 |
-| systemconfig-revisions-readonly branch | `css/manager.css` (5 panels) · `js/systemconfig.page.js` | `18` · `2` | 2026-09-08 |
-| pre-work-installer branch | `js/notifications.js` | `1` | 2026-09-08 |
-| dashboard-kacheln-nachzug branch | `css/base.css` | `18` | 2026-09-07 |
-| configure-compact-device branch | `js/dashboard.js` · `js/layout-editor.js` | `11` · `11` | 2026-09-07 |
-| harden-battery-soc branch | `js/config.page.js` · `css/manager.css` (5 panels) · `js/history-recorder.js` | `2` · `17` · `8` | 2026-09-06 |
+| v0.5.25 | `js/settings.page.js` · `css/settings-controls.css` · `js/dashboard.js` · `css/base.css` | `5` · `2` · `12` · `19` | 2026-09-10 |
+| v0.5.20 | `css/manager.css` (5 panels) · `js/systemconfig.page.js` | `18` · `2` | 2026-09-08 |
+| v0.5.19 | `js/notifications.js` | `1` | 2026-09-08 |
+| v0.5.18 | `css/base.css` | `18` | 2026-09-07 |
+| v0.5.17 | `js/dashboard.js` · `js/layout-editor.js` | `11` · `11` | 2026-09-07 |
+| v0.5.15 | `js/config.page.js` · `css/manager.css` (5 panels) · `js/history-recorder.js` | `2` · `17` · `8` | 2026-09-06 |
 | v0.5.11 | `js/battery-card-core.js` · `js/battery-status.js` · `js/layout-editor.js` | `2` · `1` · `10` | 2026-09-05 |
 | v0.5.10 | `css/manager.css` (5 panels) | `16` | 2026-09-05 |
 | v0.5.9 | `js/settings.page.js` | `2` | 2026-09-05 |

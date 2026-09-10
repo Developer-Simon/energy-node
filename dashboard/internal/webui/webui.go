@@ -9,7 +9,6 @@
 package webui
 
 import (
-	"bytes"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -95,7 +94,6 @@ var overviewTmpl = template.Must(template.New("base.html").Funcs(template.FuncMa
 	"commandableCount":   commandableCount,
 	"localTimestamp":     localTimestamp,
 	"localDisplay":       localDisplay,
-	"prettyJSON":         prettyJSON,
 	"priorityEntities":   priorityEntities,
 	"compactCardAuto":    compactCardAuto,
 	"compactCardForItem": compactCardForItem,
@@ -420,14 +418,6 @@ func localDisplay(value time.Time) string {
 	return value.Format("2006-01-02 15:04:05")
 }
 
-func prettyJSON(value string) string {
-	var formatted bytes.Buffer
-	if err := json.Indent(&formatted, []byte(value), "", "  "); err != nil {
-		return value
-	}
-	return formatted.String()
-}
-
 // energySnapshotJSON embeds an energy.Snapshot as the payload of a
 // <script type="application/json"> element so energy-flow.js can draw its
 // first frame without a round-trip to /api/v1/energy. "</" is escaped to
@@ -606,7 +596,6 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		needsLayout := templateName == "base" || templateName == "overview-live"
 		needsDevices := needsTiles || needsEnergyAggregate
 
-		showDiscoveryTooltips := true
 		showRuntimeStatus := true
 		deviceViewMode := settings.DeviceViewModeCompact
 		theme := settings.ThemeMint
@@ -616,7 +605,6 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		statusBarItems := settings.Default().StatusBarItems
 		if store != nil {
 			if value, err := store.LoadSettings(); err == nil {
-				showDiscoveryTooltips = value.ShowDiscoveryTooltips
 				showRuntimeStatus = value.ShowRuntimeStatus
 				deviceViewMode = value.DeviceViewMode
 				theme = value.Theme
@@ -649,16 +637,15 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		}
 
 		view := map[string]any{
-			"BasePath":              basepath.From(r),
-			"Manager":               configs != nil && store != nil,
-			"CanEditLayout":         canEditLayout,
-			"ShowDiscoveryTooltips": showDiscoveryTooltips,
-			"ShowRuntimeStatus":     showRuntimeStatus,
-			"DeviceViewMode":        deviceViewMode,
-			"Theme":                 theme,
-			"IgnoredDevices":        []devicefilter.Summary{},
-			"WidePanels":            strings.Join(widePanels, ","),
-			"StatusBarItems":        strings.Join(statusBarItems, ","),
+			"BasePath":          basepath.From(r),
+			"Manager":           configs != nil && store != nil,
+			"CanEditLayout":     canEditLayout,
+			"ShowRuntimeStatus": showRuntimeStatus,
+			"DeviceViewMode":    deviceViewMode,
+			"Theme":             theme,
+			"IgnoredDevices":    []devicefilter.Summary{},
+			"WidePanels":        strings.Join(widePanels, ","),
+			"StatusBarItems":    strings.Join(statusBarItems, ","),
 		}
 		if needsDevices {
 			view["Devices"] = devices
