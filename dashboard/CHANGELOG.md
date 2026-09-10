@@ -4,7 +4,7 @@
 
 ### Chores
 
-- bump minor versions for dashboard, services and energy_node_common (3916742)
+- bump minor versions for dashboard, services and energy_node_common (549a100)
 
 ## v0.5.26 (2026-09-10)
 

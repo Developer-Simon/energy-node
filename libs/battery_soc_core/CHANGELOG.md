@@ -7,6 +7,7 @@
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
+- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
 - **battery_soc:** extract core logic and adapter modules (4a31188)
 - **battery_soc:** show net battery power as a measurement, not diagnostic (b3878e8)
 - **ha:** native Home Assistant integration for battery SoC (99ef3cf)
