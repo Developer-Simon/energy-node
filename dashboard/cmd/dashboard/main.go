@@ -49,6 +49,7 @@ var buildVersion = "dev"
 func main() {
 	configPath := flag.String("config", appconfig.DefaultPath, "Pfad zur zentralen Konfigurationsdatei")
 	flag.Parse()
+	rawConfig, _ := os.ReadFile(*configPath)
 	cfg, err := appconfig.Load(*configPath)
 	if err != nil {
 		log.Fatalf("energy-node-dashboard: %v", err)
@@ -103,6 +104,25 @@ func main() {
 		log.Fatalf("energy-node-dashboard: auth store failed: %v", err)
 	}
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
+
+	// appconfig.Load hat eine schema_version-1-Datei nur in-memory nach v2
+	// gehoben. Die Datei auf der Platte ist noch v1 - das Dashboard laeuft
+	// zwar, aber die Python-Bridges lehnen sie ab. Einmalig ueber den
+	// privilegierten Helper persistieren; schlaegt das fehl (Helper nicht
+	// eingerichtet, sudoers-Zeile fehlt), laeuft das Dashboard mit der
+	// in-memory-Config weiter und versucht es beim naechsten Start erneut.
+	if appconfig.IsSchemaVersionOne(rawConfig) {
+		if migrated, warnings, mErr := appconfig.MigrateV1toV2(rawConfig); mErr == nil {
+			for _, warning := range warnings {
+				log.Printf("energy-node-dashboard: %s: %s", *configPath, warning)
+			}
+			if perr := persistV1Migration(ctx, systemExecutor, cfg.Paths.DataDir, migrated); perr != nil {
+				log.Printf("energy-node-dashboard: %s: schema_version 1 nur in-memory auf 2 gehoben, Persistieren ueber apply-app-config fehlgeschlagen (%v) - die Datei bleibt v1, die Python-Bridges lehnen sie ab", *configPath, perr)
+			} else {
+				log.Printf("energy-node-dashboard: %s: schema_version 1 -> 2 migriert und ueber apply-app-config persistiert (Sicherung: /etc/energy-node/.config.json.bak)", *configPath)
+			}
+		}
+	}
 	tailscaleClient := tailscale.NewClient(cfg.Tailscale.Bin, systemactions.ExecOutputRunner{}, time.Duration(cfg.Tailscale.StatusTimeoutS)*time.Second)
 	runtimeStore := runtimecache.NewStore(dataDir)
 	credentialStore := tinytuya.NewCredentialStore(dataDir)

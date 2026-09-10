@@ -41,6 +41,17 @@ func TestExecutorUsesOnlyTheAllowlistedHelperInvocation(t *testing.T) {
 	}
 }
 
+func TestExecutorSupportsApplyAppConfig(t *testing.T) {
+	runner := &recordingRunner{}
+	executor := NewExecutor(runner, "/usr/local/sbin/energy-node-dashboard-system-action")
+	if err := executor.Execute(context.Background(), ApplyAppConfig); err != nil {
+		t.Fatalf("Execute(ApplyAppConfig) = %v, want nil", err)
+	}
+	if runner.args[len(runner.args)-1] != "apply-app-config" {
+		t.Fatalf("runner args = %#v, want last arg %q", runner.args, "apply-app-config")
+	}
+}
+
 func TestExecutorSupportsTheNewBridgeActions(t *testing.T) {
 	runner := &recordingRunner{}
 	executor := NewExecutor(runner, "/usr/local/sbin/energy-node-dashboard-system-action")

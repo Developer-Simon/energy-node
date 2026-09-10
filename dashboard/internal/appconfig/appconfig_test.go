@@ -101,7 +101,7 @@ func TestLoadRejectsWrongType(t *testing.T) {
 	}
 }
 
-func TestLoadMigratesSchemaVersionOneInPlace(t *testing.T) {
+func TestLoadMigratesSchemaVersionOneInMemory(t *testing.T) {
 	path := writeConfig(t, v1Document())
 
 	cfg, err := appconfig.Load(path)
@@ -118,55 +118,35 @@ func TestLoadMigratesSchemaVersionOneInPlace(t *testing.T) {
 		t.Fatalf("node poll = %v / %v, want 60 / 10", cfg.Dashboard.NodePollIntervalS, cfg.Dashboard.NodeDiagnosticPollMultiplier)
 	}
 
+	// Load schreibt nichts zurueck - das Persistieren laeuft ueber den
+	// privilegierten Helper in cmd/dashboard, nicht aus diesem Paket.
 	onDisk, err := os.ReadFile(path)
 	if err != nil {
-		t.Fatalf("Datei nach Migration nicht lesbar: %v", err)
+		t.Fatalf("Datei nicht mehr lesbar: %v", err)
 	}
 	var disk map[string]any
 	if err := json.Unmarshal(onDisk, &disk); err != nil {
-		t.Fatalf("migrierte Datei ist kein JSON: %v", err)
+		t.Fatalf("Datei ist kein JSON: %v", err)
 	}
-	if disk["schema_version"] != float64(2) {
-		t.Fatalf("Datei traegt schema_version %v, want 2", disk["schema_version"])
+	if disk["schema_version"] != float64(1) {
+		t.Fatalf("Load hat die Datei veraendert: schema_version %v, want 1", disk["schema_version"])
 	}
-	if _, ok := disk["node"]; ok {
-		t.Fatal("node-Block steht noch in der migrierten Datei")
-	}
-
-	backup, err := os.ReadFile(path + ".v1-backup")
-	if err != nil {
-		t.Fatalf("Sicherung fehlt: %v", err)
-	}
-	var saved map[string]any
-	if err := json.Unmarshal(backup, &saved); err != nil {
-		t.Fatalf("Sicherung ist kein JSON: %v", err)
-	}
-	if saved["schema_version"] != float64(1) {
-		t.Fatalf("Sicherung traegt schema_version %v, want 1", saved["schema_version"])
+	if _, err := os.Stat(path + ".v1-backup"); !os.IsNotExist(err) {
+		t.Fatalf("Load hat eine Sicherung angelegt (%v), soll es aber nicht", err)
 	}
 }
 
-func TestLoadMigratesSchemaVersionOneEvenWhenWriteBackFails(t *testing.T) {
-	if os.Geteuid() == 0 {
-		t.Skip("root umgeht die 0555-Verzeichnisrechte, die diesen Fall ausloesen")
+func TestIsSchemaVersionOne(t *testing.T) {
+	one, _ := json.Marshal(v1Document())
+	if !appconfig.IsSchemaVersionOne(one) {
+		t.Fatal("schema_version 1 nicht erkannt")
 	}
-	dir := t.TempDir()
-	path := filepath.Join(dir, "config.json")
-	raw, _ := json.Marshal(v1Document())
-	if err := os.WriteFile(path, raw, 0o644); err != nil {
-		t.Fatal(err)
+	two, _ := json.Marshal(validDocument())
+	if appconfig.IsSchemaVersionOne(two) {
+		t.Fatal("schema_version 2 faelschlich als 1 erkannt")
 	}
-	if err := os.Chmod(dir, 0o555); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
-
-	cfg, err := appconfig.Load(path)
-	if err != nil {
-		t.Fatalf("Load soll trotz fehlgeschlagenem Rueckschreiben laufen: %v", err)
-	}
-	if cfg.SchemaVersion != 2 || cfg.Dashboard.NodeDeviceID != "energy_node" {
-		t.Fatalf("in-memory-Migration unvollstaendig: %+v", cfg.Dashboard)
+	if appconfig.IsSchemaVersionOne([]byte("{")) {
+		t.Fatal("kaputtes JSON als schema_version 1 erkannt")
 	}
 }
 

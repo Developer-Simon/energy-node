@@ -14,6 +14,7 @@ const (
 	Reboot            Action = "reboot"
 	Poweroff          Action = "poweroff"
 	ApplyBridgeConfig Action = "apply-bridge-config"
+	ApplyAppConfig    Action = "apply-app-config"
 	RestartMosquitto  Action = "restart-mosquitto"
 	TailscaleUp       Action = "tailscale-up"
 	TailscaleLogout   Action = "tailscale-logout"
@@ -27,6 +28,7 @@ var actions = map[Action]struct{}{
 	Reboot:            {},
 	Poweroff:          {},
 	ApplyBridgeConfig: {},
+	ApplyAppConfig:    {},
 	RestartMosquitto:  {},
 	TailscaleUp:       {},
 	TailscaleLogout:   {},

@@ -1,16 +1,17 @@
 # Changelog
 
-## v0.6.0 (2026-09-10)
+## v0.6.1 (2026-09-10)
 
 ### Features
 
 - **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (3ac68ef)
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
 - **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (3ac68ef)
 - **nodeagent:** add injectable system-metric readers (547d1f3)
 - **nodeagent:** build the energy_node HA discovery and state payloads (acdd553)
 - **⚠ Breaking:** move node telemetry into the dashboard, delete the energy-node service (540eac6)
@@ -25,6 +26,7 @@
 
 ### Fixes
 
+- **dashboard:** finish the config.json v1 -> v2 migration path (89252c9)
 - **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
 - **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
 - **nodeagent:** address task-6 review findings (ee8e3c4)
