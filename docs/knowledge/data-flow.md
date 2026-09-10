@@ -50,7 +50,7 @@ flowchart TB
         API["httpapi<br/>/api/v1/*"]
         WEB["webui<br/>server-side HTML"]
         FILES[("data directory<br/>*.json")]
-        NODE["nodeagent<br/>(node identity, Pi diagnostics,<br/>master / poll rate)"]
+        NODE["nodeagent<br/>(node identity,<br/>Pi diagnostics)"]
     end
 
     BR["Mosquitto bridge"]

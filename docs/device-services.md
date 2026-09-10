@@ -317,10 +317,10 @@ rule so the dashboard can show why something switched.
 
 `dashboard/internal/nodeagent/` · runs inside `energy-node-dashboard.service`
 
-The Raspberry Pi published as its own Home Assistant device (`energy_node`), and
-the **master** of the poll-rate protocol. This used to be a standalone Python
-service; it now lives in the dashboard binary as `internal/nodeagent`, so the
-dashboard is the only publisher of `outstation/energy_node/…`.
+The Raspberry Pi published as its own Home Assistant device (`energy_node`). This
+used to be a standalone Python service; it now lives in the dashboard binary as
+`internal/nodeagent`, so the dashboard is the only publisher of
+`outstation/energy_node/…`.
 
 **Entities published:** CPU temperature, CPU load, RAM use, disk use, WLAN
 signal strength (disabled by default — it only matters on a WLAN-attached
