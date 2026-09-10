@@ -1,7 +1,7 @@
 {
-  "availability_topic": "outstation/dashboard/status/online",
+  "availability_topic": "outstation/energy_node/status/online",
   "device": {
-    "identifiers": ["energy-node-dashboard-energy"],
+    "identifiers": ["energy_node"],
     "manufacturer": "Energy Node",
     "model": "Dashboard Energy",
     "name": "Energy Node",
@@ -12,8 +12,8 @@
   "payload_available": "1",
   "payload_not_available": "0",
   "state_class": "measurement",
-  "state_topic": "outstation/dashboard/energy/balance",
-  "unique_id": "dashboard_energy_pv_power",
+  "state_topic": "outstation/energy_node/energy/balance",
+  "unique_id": "energy_node_pv_power",
   "unit_of_measurement": "W",
   "value_template": "{{ value_json.balance['pv'] }}"
 }

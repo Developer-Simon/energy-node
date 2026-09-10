@@ -121,7 +121,7 @@ func TestCredentialStoreSaveLoadDelete(t *testing.T) {
 func TestBuildOptionsSetsRetainedWillWhenAvailabilityTopicSet(t *testing.T) {
 	client := NewWithContext(context.Background(), Config{
 		Host: "h", Port: "1883", ClientID: "c",
-		AvailabilityTopic: "outstation/dashboard/status/online",
+		AvailabilityTopic: "outstation/energy_node/status/online",
 	}, registry.New(), nil)
 
 	opts := client.buildOptions()
@@ -129,7 +129,7 @@ func TestBuildOptionsSetsRetainedWillWhenAvailabilityTopicSet(t *testing.T) {
 	if !opts.WillEnabled {
 		t.Fatal("WillEnabled = false, want true when AvailabilityTopic is set")
 	}
-	if opts.WillTopic != "outstation/dashboard/status/online" {
+	if opts.WillTopic != "outstation/energy_node/status/online" {
 		t.Fatalf("WillTopic = %q", opts.WillTopic)
 	}
 	if string(opts.WillPayload) != "0" {

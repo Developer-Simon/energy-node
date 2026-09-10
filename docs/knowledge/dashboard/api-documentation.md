@@ -214,7 +214,7 @@ omits `interpretation`, the stored interpretation is kept — this is intentiona
 so that saving roles alone does not reset the interpretation.
 
 The balance is additionally published every 10 s to
-`outstation/dashboard/energy/balance`; the automations build on that.
+`outstation/energy_node/energy/balance`; the automations build on that.
 
 ### History
 

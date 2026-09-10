@@ -213,6 +213,13 @@ func main() {
 		msgs = append(msgs, nodeAgent.LegacyCleanupMessages()...)
 		msgs = append(msgs, nodeAgent.DiscoveryMessages(metricEnabled)...)
 
+		// Einmalige Abraeumung des frueheren dashboard-eigenen Topic-Baums
+		// samt der dashboard_energy-Discovery-Configs; nach dem Umzug ist
+		// outstation/energy_node/... der einzige Node-Topic-Baum.
+		for _, m := range energydiscovery.LegacyCleanupMessages(client.DiscoveryPrefix()) {
+			msgs = append(msgs, mqttclient.OutboundMessage{Topic: m.Topic, Payload: string(m.Payload), Retain: true})
+		}
+
 		// Globaler simulation_active-Sollzustand, retained, bei jedem Connect.
 		simPayload := "0"
 		if stored, err := settingsStore.LoadMQTT(); err == nil && stored.SimulationActive {
@@ -325,7 +332,7 @@ func main() {
 					log.Printf("energy-node-dashboard: energy balance marshal failed: %v", err)
 					continue
 				}
-				if err := client.PublishRetained("outstation/dashboard/energy/balance", string(payload)); err != nil {
+				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
 				}
 			}

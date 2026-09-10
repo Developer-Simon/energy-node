@@ -104,14 +104,16 @@ Zusätzlich zum Parsen fremder Discovery veröffentlicht das Dashboard **sich
 selbst** als ein HA-Gerät für seine server-seitig berechneten Energiewerte
 (`internal/energydiscovery`).
 
-- **Gerät:** `identifiers: ["energy-node-dashboard-energy"]`, Name
+- **Gerät:** `identifiers: ["energy_node"]`, Name
   „Energy Node", `manufacturer: "Energy Node"`,
   `model: "Dashboard Energy"`, `sw_version` = Dashboard-Build-Version. Kein
-  `via_device`.
-- **Discovery-Topics:** `<discovery_prefix>/sensor/dashboard_energy/<object_id>/config`,
-  retained, `qos=0`, `unique_id: dashboard_energy_<object_id>`.
+  `via_device`. Die sieben Energie-Sensoren sind damit Teil desselben
+  `energy_node`-HA-Geräts wie die Systemdiagnose aus `internal/nodeagent`
+  (gleiches Pfadsegment, kollisionsfreie `object_id`s).
+- **Discovery-Topics:** `<discovery_prefix>/sensor/energy_node/<object_id>/config`,
+  retained, `qos=0`, `unique_id: energy_node_<object_id>`.
 - **Sieben Sensoren** (`state_class: measurement`), alle mit
-  `state_topic: outstation/dashboard/energy/balance` und
+  `state_topic: outstation/energy_node/energy/balance` und
   `value_template: {{ value_json.balance['<feld>'] }}`. Die Subscript-Form
   (nicht `value_json.balance.<feld>`) ist Absicht: Home Assistant versteht
   beide, aber der value_template-Parser des Dashboards selbst
@@ -129,9 +131,9 @@ selbst** als ein HA-Gerät für seine server-seitig berechneten Energiewerte
   | `house_load` | `load_total` | power | W |
   | `battery_soc` | `battery_soc` | battery | % |
 
-- **State-Topic:** `outstation/dashboard/energy/balance` wird alle 10 s
+- **State-Topic:** `outstation/energy_node/energy/balance` wird alle 10 s
   **retained** veröffentlicht (`{"at":…,"balance":…,"interpretation":…}`).
-- **Erreichbarkeit:** retained MQTT-LWT `outstation/dashboard/status/online`
+- **Erreichbarkeit:** retained MQTT-LWT `outstation/energy_node/status/online`
   = `0`, retained Birth `1` bei Connect; jede Config verweist mit
   `availability_topic` darauf (`payload_available: "1"`,
   `payload_not_available: "0"`).

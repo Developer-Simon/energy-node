@@ -325,7 +325,7 @@ func TestMQTTStatusReturnsProviderStatus(t *testing.T) {
 
 func TestResolveMQTTConfigCarriesAvailabilityTopic(t *testing.T) {
 	base := testBase()
-	base.AvailabilityTopic = "outstation/dashboard/status/online"
+	base.AvailabilityTopic = "outstation/energy_node/status/online"
 
 	// Zweig "config" (nichts gespeichert)
 	cfg, _, err := ResolveMQTTConfig(settings.NewStore(t.TempDir()), nil, base)

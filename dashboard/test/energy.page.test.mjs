@@ -93,11 +93,11 @@ test('entity label drops a redundant device-name prefix that the entity name rep
 test('the dashboard\'s own republished HA energy device is not offered as an assignable row', async () => {
   const devices = [
     {
-      id: 'energy-node-dashboard-energy',
+      id: 'energy_node',
       name: 'Energy Node',
       entities: [
-        { unique_id: 'dashboard_energy_pv_power', name: 'PV-Leistung', object_id: 'pv_power', unit_of_measurement: 'W' },
-        { unique_id: 'dashboard_energy_grid_import', name: 'Netzbezug', object_id: 'grid_import', unit_of_measurement: 'W' },
+        { unique_id: 'energy_node_pv_power', name: 'PV-Leistung', object_id: 'pv_power', unit_of_measurement: 'W' },
+        { unique_id: 'energy_node_grid_import', name: 'Netzbezug', object_id: 'grid_import', unit_of_measurement: 'W' },
       ],
     },
     {

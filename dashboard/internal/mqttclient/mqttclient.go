@@ -740,7 +740,7 @@ func (c *Client) ReloadService(serviceID string) error {
 
 // Publish sends a non-retained message to an arbitrary topic. Used both for
 // discovered-entity commands and for the dashboard's own energy-balance
-// broadcast on outstation/dashboard/energy/balance (see cmd/dashboard/main.go).
+// broadcast on outstation/energy_node/energy/balance (see cmd/dashboard/main.go).
 func (c *Client) Publish(topic, payload string) error {
 	if topic == "" {
 		return errors.New("mqttclient: command topic is empty")

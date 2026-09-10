@@ -117,7 +117,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` –, `js/history.js` `9` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
 | `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `18` |
-| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `1` | `css/manager.css` `18` |
+| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `18` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `18` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `6`, `js/mqtt.page.js` `2`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `18`, `css/settings-controls.css` `2` |
 | `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `18`, `css/automations.css` `3` |
@@ -207,7 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.5.27 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` | `2` · `13` · `6` | 2026-09-10 |
+| v0.5.27 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` · `js/energy.page.js` | `2` · `13` · `6` · `2` | 2026-09-10 |
 | v0.5.25 | `js/settings.page.js` · `css/settings-controls.css` · `js/dashboard.js` · `css/base.css` | `5` · `2` · `12` · `19` | 2026-09-10 |
 | v0.5.20 | `css/manager.css` (5 panels) · `js/systemconfig.page.js` | `18` · `2` | 2026-09-08 |
 | v0.5.19 | `js/notifications.js` | `1` | 2026-09-08 |
@@ -237,6 +237,11 @@ nodeagent` squash merge. On the branch the bumps landed in steps:
   items (`cpu_temp`, `ram`, `undervoltage`) rendered from `/api/v1/health`
   `node.telemetry`; `dashboard.js` adds `formatTemp()`/`formatPct()`,
   `settings.page.js` expands the status-bar-item options list.
+- `energy.page.js` `2` — the own-device filter follows the `energy_node`
+  identity move: `OWN_ENERGY_DEVICE_ID` changes from
+  `energy-node-dashboard-energy` to `energy_node` to match the renamed
+  `energydiscovery.DeviceIdentifier`, so the dashboard's own seven energy
+  sensors stay filtered out of the energy-role editor.
 
 The **v0.3.19** row is the `feat(layout): overview layout-editing mode` squash
 merge — on the branch the same files were bumped in steps (`layout-editor.*` and

@@ -280,7 +280,7 @@ dashboard edits the rule file and never publishes a rule's action itself, so a
 read-only web UI cannot switch a relay.
 
 It subscribes to the balance the dashboard publishes on
-`outstation/dashboard/energy/balance`, plus any MQTT topics the rules name, and
+`outstation/energy_node/energy/balance`, plus any MQTT topics the rules name, and
 evaluates on a tick (`tick_interval_s`, default 10 s). At most 16 rules, each
 with up to 8 conditions and 8 actions.
 

@@ -12,11 +12,13 @@ import "encoding/json"
 
 const (
 	// DeviceID ist die device_id-Ebene des 3-Ebenen-Discovery-Topics und
-	// zugleich der unique_id-Präfix.
-	DeviceID = "dashboard_energy"
+	// zugleich der unique_id-Präfix. Dasselbe Pfadsegment wie internal/
+	// nodeagent — die object_ids kollidieren nicht, beide Sätze bilden über
+	// device.identifiers ein HA-Gerät.
+	DeviceID = "energy_node"
 	// DeviceIdentifier ist der Eintrag in device.identifiers, an dem Home
 	// Assistant die Entitäten zu einem Gerät zusammenfasst.
-	DeviceIdentifier = "energy-node-dashboard-energy"
+	DeviceIdentifier = "energy_node"
 
 	deviceName         = "Energy Node"
 	deviceManufacturer = "Energy Node"
@@ -24,10 +26,10 @@ const (
 
 	// StateTopic ist das geteilte, retained JSON-Topic (identisch mit dem
 	// Broadcast in cmd/dashboard/main.go).
-	StateTopic = "outstation/dashboard/energy/balance"
+	StateTopic = "outstation/energy_node/energy/balance"
 	// AvailabilityTopic trägt die retained LWT/Birth "0"/"1" des
 	// Dashboards; jede Config verweist mit availability_topic hierauf.
-	AvailabilityTopic = "outstation/dashboard/status/online"
+	AvailabilityTopic = "outstation/energy_node/status/online"
 )
 
 // Message ist eine zu veröffentlichende Discovery-Nachricht. Ein leeres
@@ -113,6 +115,21 @@ func Configs(prefix, swVersion string, enabled bool) []Message {
 			msg.Payload = encoded
 		}
 		out = append(out, msg)
+	}
+	return out
+}
+
+// LegacyCleanupMessages raeumt den frueheren dashboard-eigenen Topic-Baum
+// ab: die retained LWT/Birth, das Bilanz-Topic und die sieben
+// dashboard_energy-Discovery-Configs. Nach dem Umzug ist outstation/
+// energy_node/... der einzige Node-Topic-Baum (Spec V9).
+func LegacyCleanupMessages(prefix string) []Message {
+	out := []Message{
+		{Topic: "outstation/dashboard/status/online"},
+		{Topic: "outstation/dashboard/energy/balance"},
+	}
+	for _, s := range sensors {
+		out = append(out, Message{Topic: prefix + "/sensor/dashboard_energy/" + s.objectID + "/config"})
 	}
 	return out
 }
