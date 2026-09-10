@@ -2,10 +2,14 @@ package main
 
 import (
 	"encoding/json"
+	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 )
 
@@ -28,6 +32,45 @@ func TestServiceIDForConfig(t *testing.T) {
 				t.Errorf("serviceIDForConfig(%q) = (%q, %v), want (%q, %v)", tt.input, gotID, gotOK, tt.wantID, tt.wantOK)
 			}
 		})
+	}
+}
+
+func TestValidateNodeDeviceID(t *testing.T) {
+	if err := validateNodeDeviceID("energy_node", "/etc/energy-node/config.json"); err != nil {
+		t.Fatalf("energy_node must be accepted, got %v", err)
+	}
+	for _, bad := range []string{"energy-node", "", "node", "Energy Node"} {
+		err := validateNodeDeviceID(bad, "/etc/energy-node/config.json")
+		if err == nil {
+			t.Fatalf("validateNodeDeviceID(%q) = nil, want an error", bad)
+		}
+		if !strings.Contains(err.Error(), "energy_node") || !strings.Contains(err.Error(), "/etc/energy-node/config.json") {
+			t.Fatalf("error for %q lacks the id or the config path: %v", bad, err)
+		}
+	}
+}
+
+func TestNodeAgentOptionsFromConfig(t *testing.T) {
+	cfg, err := appconfig.Load(filepath.Join("..", "..", "..", "services", "energy-node.config.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := nodeagent.New(nodeagent.Options{
+		NodeID:                   cfg.Dashboard.NodeDeviceID,
+		NodeName:                 cfg.Dashboard.NodeDeviceName,
+		DiscoveryPrefix:          "homeassistant",
+		PollIntervalS:            cfg.Dashboard.NodePollIntervalS,
+		DiagnosticPollMultiplier: cfg.Dashboard.NodeDiagnosticPollMultiplier,
+	})
+	if a.PollInterval() != 60*time.Second {
+		t.Fatalf("PollInterval = %v, want 60s", a.PollInterval())
+	}
+	if a.DiagnosticInterval() != 600*time.Second {
+		t.Fatalf("DiagnosticInterval = %v, want 600s", a.DiagnosticInterval())
+	}
+	msgs := a.DiscoveryMessages(nil)
+	if len(msgs) == 0 || msgs[0].Topic[:14] != "homeassistant/" {
+		t.Fatalf("unexpected discovery messages: %+v", msgs)
 	}
 }
 

@@ -37,11 +37,11 @@ Bridge-Konvention; sie ersetzt weiterhin nicht die HA-Discovery-Spezifikation.
     3-Ebenen-Form ab. Ein 4-Ebenen-Format (`node_id`) ist erst in Phase 5
     vorgesehen, falls tatsächlich eine Bridge oder ein Fremdgerät es
     benötigt (siehe Kernprinzip, Scope-Reduktion).
-- **Zentraler Knoten:** `energy_node_mqtt.py` veröffentlicht den
-  Knoten selbst als eigenes HA-Gerät (`energy-node`), damit andere
+- **Zentraler Knoten:** `internal/nodeagent` im Dashboard veröffentlicht den
+  Knoten selbst als eigenes HA-Gerät (`energy_node`), damit andere
   Geräte sich per `via_device` daran anhängen können.
 - **Geräteverknüpfung:** APsystems, Shelly, Tuya und der Batterie-SoC-Block
-  verwenden `via_device: energy-node`; der Trucki-Stick verwendet
+  verwenden `via_device: energy_node`; der Trucki-Stick verwendet
   `via_device` konfigurierbar je Gerät (aktuell auf den zugehörigen
   Batterie-SoC-Eintrag gesetzt, da beide physisch dasselbe Gerät sind). Kein
   Discovery-Merge zwischen den Bridges — jedes Gerät bleibt eigenständig.
@@ -104,14 +104,21 @@ Zusätzlich zum Parsen fremder Discovery veröffentlicht das Dashboard **sich
 selbst** als ein HA-Gerät für seine server-seitig berechneten Energiewerte
 (`internal/energydiscovery`).
 
-- **Gerät:** `identifiers: ["energy-node-dashboard-energy"]`, Name
-  „Energy Node", `manufacturer: "Energy Node"`,
-  `model: "Dashboard Energy"`, `sw_version` = Dashboard-Build-Version. Kein
-  `via_device`.
-- **Discovery-Topics:** `<discovery_prefix>/sensor/dashboard_energy/<object_id>/config`,
-  retained, `qos=0`, `unique_id: dashboard_energy_<object_id>`.
+- **Gerät:** `identifiers: ["energy_node"]`, Name „Energy Node",
+  `manufacturer: "Raspberry Pi Foundation"`, `model: "Raspberry Pi 1 (ARMv6)"`,
+  `sw_version` = Dashboard-Build-Version. Kein `via_device`. `identifiers`,
+  `name`, `manufacturer` und `model` sind byte-identisch mit dem Geräteblock
+  aus `internal/nodeagent` — es ist dasselbe `energy_node`-HA-Gerät, und HA
+  fasst beide Blöcke über `identifiers` zusammen. `sw_version` trägt allein
+  dieser Block (die Dashboard-Build-Version); `nodeagent` sendet kein
+  `sw_version` mehr, damit die Reihenfolge der retained Nachrichten die
+  Version nicht mehr überschreiben kann. Die sieben Energie-Sensoren sind
+  damit Teil desselben Geräts wie die Systemdiagnose aus `internal/nodeagent`
+  (gleiches Pfadsegment, kollisionsfreie `object_id`s).
+- **Discovery-Topics:** `<discovery_prefix>/sensor/energy_node/<object_id>/config`,
+  retained, `qos=0`, `unique_id: energy_node_<object_id>`.
 - **Sieben Sensoren** (`state_class: measurement`), alle mit
-  `state_topic: outstation/dashboard/energy/balance` und
+  `state_topic: outstation/energy_node/energy/balance` und
   `value_template: {{ value_json.balance['<feld>'] }}`. Die Subscript-Form
   (nicht `value_json.balance.<feld>`) ist Absicht: Home Assistant versteht
   beide, aber der value_template-Parser des Dashboards selbst
@@ -129,9 +136,9 @@ selbst** als ein HA-Gerät für seine server-seitig berechneten Energiewerte
   | `house_load` | `load_total` | power | W |
   | `battery_soc` | `battery_soc` | battery | % |
 
-- **State-Topic:** `outstation/dashboard/energy/balance` wird alle 10 s
+- **State-Topic:** `outstation/energy_node/energy/balance` wird alle 10 s
   **retained** veröffentlicht (`{"at":…,"balance":…,"interpretation":…}`).
-- **Erreichbarkeit:** retained MQTT-LWT `outstation/dashboard/status/online`
+- **Erreichbarkeit:** retained MQTT-LWT `outstation/energy_node/status/online`
   = `0`, retained Birth `1` bei Connect; jede Config verweist mit
   `availability_topic` darauf (`payload_available: "1"`,
   `payload_not_available: "0"`).

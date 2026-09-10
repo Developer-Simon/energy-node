@@ -29,6 +29,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registryevents"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
@@ -64,6 +65,14 @@ type SystemActionExecutor interface {
 // supply a fake without pulling in a real Paho connection.
 type MQTTReconfigurer interface {
 	Reconfigure(mqttclient.Config) error
+}
+
+// NodeSettingsPublisher pushes the retained node broadcast state
+// (outstation/<node>/settings/simulation_active/set) whenever the MQTT tab
+// changes it. It is implemented by a small adapter around
+// *mqttclient.Client in cmd/dashboard/main.go and faked in tests.
+type NodeSettingsPublisher interface {
+	PublishNodeSimulation(active bool)
 }
 
 const maxCommandActionsPerDevice = 12
@@ -151,6 +160,13 @@ type RouterDependencies struct {
 	// MQTTBase ist die Verbindung aus config.json - die zweite Stufe der
 	// Praezedenz, wenn keine aktivierte mqtt.json vorliegt.
 	MQTTBase mqttclient.Config
+	// NodeAgent publiziert den Pi-Knoten als HA-Geraet und haelt die
+	// zuletzt gelesene Systemtelemetrie. Der Health-Endpunkt (Task 6/7)
+	// liest daraus; hier nur durchgereicht.
+	NodeAgent *nodeagent.Agent
+	// NodeSimulation publiziert den retained simulation_active-Sollzustand,
+	// wenn der MQTT-Tab ihn umschaltet.
+	NodeSimulation NodeSettingsPublisher
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -197,7 +213,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
+	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
 	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
 	mux.Handle("/static/", webui.Static())
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
@@ -268,6 +284,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase))
 		mux.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
+		mux.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))
 		mux.HandleFunc("/api/v1/mqtt/test", handleMQTTTest(dependencies.MQTTCredentials, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/reconnect", handleMQTTReconnect(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTReconfigure, dependencies.MQTT, dependencies.MQTTBase))
 		mux.HandleFunc("/api/v1/mqtt/status", handleMQTTStatus(dependencies.MQTT))
@@ -779,9 +796,19 @@ type healthResponse struct {
 	// diese Zeile macht ihn nur dort sichtbar, wo der Betriebszustand
 	// ohnehin abgefragt wird.
 	Features map[string]int `json:"features"`
+
+	// Node traegt den Pi-Knoten-Zustand (Systemtelemetrie plus je-Dienst
+	// Bridge-Liveness), sofern ein nodeagent verdrahtet ist.
+	Node *nodeStatus `json:"node,omitempty"`
 }
 
-func handleHealth(cache runtimecache.StatusProvider, storageProvider storagehealth.Provider, mqttStatus mqttclient.StatusProvider, startedAt time.Time, version string, servicesVersion string, now func() time.Time) http.HandlerFunc {
+type nodeStatus struct {
+	Telemetry *nodeagent.Telemetry        `json:"telemetry,omitempty"`
+	Services  []nodeagent.ServiceLiveness `json:"services"`
+}
+
+// nodeAgent is threaded through for Task 6/7 (healthResponse.Node).
+func handleHealth(cache runtimecache.StatusProvider, storageProvider storagehealth.Provider, mqttStatus mqttclient.StatusProvider, nodeAgent *nodeagent.Agent, startedAt time.Time, version string, servicesVersion string, now func() time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w)
@@ -842,6 +869,13 @@ func handleHealth(cache runtimecache.StatusProvider, storageProvider storageheal
 		response.Status = result
 		response.Storage = storage
 		response.Features = map[string]int{"history_exchange": exchangeProtocolVersion}
+		if nodeAgent != nil {
+			ns := &nodeStatus{Services: nodeAgent.ServiceLiveness(currentTime)}
+			if tel, ok := nodeAgent.Telemetry(); ok {
+				ns.Telemetry = &tel
+			}
+			response.Node = ns
+		}
 		writeJSON(w, response)
 	}
 }

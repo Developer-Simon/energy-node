@@ -55,7 +55,7 @@ def _valid_document(services=None):
         },
         "logging": {"level": "INFO"},
         "dashboard": {
-            "node_device_id": "energy-node",
+            "node_device_id": "energy_node",
             "node_device_name": "Energy Node",
             "node_poll_interval_s": 60,
             "node_diagnostic_poll_multiplier": 10,

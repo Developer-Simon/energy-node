@@ -4,13 +4,13 @@
         "name": "Lumentree Trucki-Stick (T2SG)",
         "host": "192.0.2.30",
         "port": 80,
-        "via_device": "energy-node"
+        "via_device": "energy_node"
     },
     {
         "id": "t2mg81a4e9",
         "name": "MeanWell Trucki-Stick (T2MG)",
         "host": "192.0.2.31",
         "port": 80,
-        "via_device": "energy-node"
+        "via_device": "energy_node"
     }
 ]

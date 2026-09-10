@@ -40,7 +40,6 @@ flowchart TB
         TYS["tuya_mqtt.py"]
         BAT["battery_soc_mqtt.py<br/>(computes, polls nothing)"]
         AUT["automation_mqtt.py<br/>(rules)"]
-        NODE["energy_node_mqtt.py<br/>(master / poll rate)"]
     end
 
     BROKER{{"Mosquitto<br/>localhost:1883"}}
@@ -51,6 +50,7 @@ flowchart TB
         API["httpapi<br/>/api/v1/*"]
         WEB["webui<br/>server-side HTML"]
         FILES[("data directory<br/>*.json")]
+        NODE["nodeagent<br/>(node identity,<br/>Pi diagnostics)"]
     end
 
     BR["Mosquitto bridge"]
@@ -68,7 +68,7 @@ flowchart TB
     TYS -->|publish| BROKER
     BAT -->|publish| BROKER
     AUT -->|publish| BROKER
-    NODE -->|"poll rate, simulation"| BROKER
+    NODE -->|"outstation/energy_node/… (diagnostics, poll rate, simulation)"| BROKER
     BROKER -->|"subscribe: raw values"| BAT
     BROKER -->|"subscribe: balance, topics"| AUT
     BROKER -->|"config/reload, */set"| APS
@@ -81,7 +81,7 @@ flowchart TB
     REG --> WEB
     API <--> FILES
     API -->|"publish: command_topic"| BROKER
-    API -->|"outstation/dashboard/energy/balance"| BROKER
+    API -->|"outstation/energy_node/energy/balance"| BROKER
 
     WEB -->|HTML| BROWSER
     API <-->|"JSON / SSE"| BROWSER
@@ -114,14 +114,15 @@ Important sub-structures below `outstation/`:
 | `outstation/{device_id}/status/online` | bridge → broker | availability; also set as the MQTT *last will* |
 | `outstation/{device_id}/.../set` | broker → bridge | switch command (`command_topic` from Discovery) |
 | `outstation/{service_id}/config/reload` | dashboard → bridge | bridge reloads its JSON configuration |
-| `outstation/dashboard/energy/balance` | dashboard → broker | energy balance, every 10 s |
+| `outstation/energy_node/energy/balance` | dashboard → broker | energy balance, every 10 s |
 | `outstation/automation/test/set` | dashboard → automation | run a single rule action as a test |
 | `outstation/automation/test/result` | automation → broker | result of the test |
 | `$SYS/broker/connection/{remote_client_id}/state` | broker → dashboard | is the bridge to the main site up? (`1`/`0`) |
 
 When publishing, the automation service enforces guard rules: no wildcards, no
-`homeassistant/...` (no forged Discovery), no `$SYS/...`, no
-`outstation/dashboard/...` (no forged dashboard topics).
+`homeassistant/...` (no forged Discovery), no `$SYS/...`, and no writes to the
+dashboard's own `outstation/energy_node/energy/balance` and
+`outstation/energy_node/status/online` topics.
 
 ---
 
@@ -309,7 +310,7 @@ flowchart LR
     RES --> AGG["energy.Aggregate"]
     AGG --> BAL["Balance:<br/>pv, grid_import/export,<br/>battery_charge/discharge,<br/>load_total, wallbox, heat_pump,<br/>battery_soc, self-sufficiency"]
     BAL --> HTTP["GET /api/v1/energy"]
-    BAL --> MQTT["publish every 10 s<br/>outstation/dashboard/energy/balance"]
+    BAL --> MQTT["publish every 10 s<br/>outstation/energy_node/energy/balance"]
     MQTT --> AUTO["automation_mqtt.py<br/>balance_threshold condition"]
     HTTP --> UI["energy-flow chart"]
 ```

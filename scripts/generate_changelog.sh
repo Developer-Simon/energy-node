@@ -34,18 +34,23 @@
 #   Ohne solchen Abschnitt (frische Datei, oder Git kennt noch alles) ist
 #   Auto-Freeze wirkungslos und es wird komplett neu gebaut.
 #
-# Same-Minor-Zusammenfuehrung (immer, zusaetzlich zu Auto-Freeze):
-#   Der offene Minor bekommt genau EINEN Abschnitt. Wird eine PR per Squash
-#   gemerged, sind ihre Branch-Commit-Hashes danach unerreichbar; Auto-Freeze
-#   wuerde dann den vorherigen "## vX.Y.Z"-Abschnitt desselben Minor einfrieren
-#   und dieser Lauf ein frisches "## vX.Y.(Z+1)" darueber stapeln - ein
-#   Abschnitt pro PR, nie zusammengefuehrt. Stattdessen wird jeder eingefrorene
-#   "## vX.Y.Z"-Block in einen neu gebauten Abschnitt hineingezogen, wenn er
-#   (1) exakt dessen Version hat oder (2) zum Minor des offenen Abschnitts
-#   gehoert und neuer ist als der naechste getaggte Release desselben Minor
-#   darunter. Vereinigung der Eintraege, dedupliziert ueber "(#NN)" oder den
-#   Eintragstext ohne den angehaengten Hash. "## Unversioniert", getaggte und
-#   vor einem Tag geschriebene aeltere Bloecke bleiben unberuehrt.
+# Release-Cap-Zusammenfuehrung (immer, zusaetzlich zu Auto-Freeze):
+#   Der unveroeffentlichte Stand bekommt genau EINEN Abschnitt. "Veroeffentlicht"
+#   ist die hoechste Version dieser Komponente, die zu einem von HEAD
+#   erreichbaren Repo-Tag gehoerte (ihre VERSION-/manifest.json-Datei an diesem
+#   Tag, ueber Umbenennungen hinweg) - der Release-Cap. Jeder gebaute wie
+#   eingefrorene "## vX.Y.Z"-Block echt oberhalb des Caps und <= der offenen
+#   Version wird in den offenen (neuesten) Abschnitt gezogen - auch ueber einen
+#   von Hand gesetzten Minor-/Major-Bump hinweg (der "chore: bump minor"-Commit
+#   erzeugt sonst einen fast leeren "## vX.(Y+1).0" ueber dem "## vX.Y.Z", das
+#   die eigentliche Arbeit haelt). Zusaetzlich wird ein eingefrorener Block mit
+#   exakt der Version eines noch vorhandenen gebauten Abschnitts in diesen
+#   gemergt. Vereinigung der Eintraege, dedupliziert ueber "(#NN)" oder den
+#   Eintragstext ohne den angehaengten Hash. Bloecke <= Cap (getaggte und vor
+#   einem Tag geschriebene aeltere), "## Unversioniert" und
+#   Nicht-"vX.Y.Z"-Ueberschriften bleiben unberuehrt. Gibt es keinen
+#   erreichbaren Tag (tagloses Repo), gilt der alte Fallback: nur derselbe Minor
+#   wie der offene Abschnitt, neuer als der naechste getaggte Release darunter.
 #
 # --rebuild:
 #   Auto-Freeze aus. Die CHANGELOG.md wird komplett aus der Commit-Historie
@@ -91,6 +96,57 @@ COMMIT_RE_SCOPED='^([a-zA-Z]+)\(([^)]*)\)(!?):[[:space:]](.*)$'
 COMMIT_RE_PLAIN='^([a-zA-Z]+)(!?):[[:space:]](.*)$'
 
 repo_root="$(git -C "$(dirname "$0")" rev-parse --show-toplevel)"
+
+# Numerischer Semver-Vergleich auf zwei (major minor patch)-Tripeln:
+# 0 (wahr), wenn das erste Tripel groesser ist als das zweite.
+ver_gt() {
+  (( 10#$1 > 10#$4
+     || (10#$1 == 10#$4 && 10#$2 > 10#$5)
+     || (10#$1 == 10#$4 && 10#$2 == 10#$5 && 10#$3 > 10#$6) ))
+}
+
+# Version einer Komponente (ueber die uebergebene Kandidatenliste) an einer
+# beliebigen Git-Ref, normalisiert als "vX.Y.Z". Rueckgabe 1, wenn dort keine
+# der Kandidatendateien existiert. Kapselt den manifest.json-Sonderfall
+# (nackte Semver im "version"-Feld) genau wie der History-Walk in generate_one.
+version_at_ref() {
+  local ref="$1"; shift
+  local vf raw
+  for vf in "$@"; do
+    raw="$(git -C "$repo_root" show "${ref}:${vf}" 2>/dev/null)" || continue
+    if [[ "$vf" == *.json ]]; then
+      local jv
+      jv="$(python3 -c 'import json,sys
+try:
+    print(json.load(sys.stdin).get("version", ""))
+except Exception:
+    pass' <<< "$raw")"
+      [[ -n "$jv" ]] && { printf 'v%s\n' "$jv"; return 0; }
+    else
+      raw="$(tr -d '[:space:]' <<< "$raw")"
+      [[ -n "$raw" ]] && { printf '%s\n' "$raw"; return 0; }
+    fi
+  done
+  return 1
+}
+
+# in_open_span M m p: gehoert die Version (M.m.p) in den einen offenen
+# Abschnitt? Liest per dynamischem Scope die Locals des Aufrufers (generate_one):
+#   * mit Release-Cap (cap_major gesetzt): alles echt oberhalb des Caps bis
+#     einschliesslich der offenen Version - auch ueber einen von Hand gesetzten
+#     Minor-/Major-Bump hinweg;
+#   * ohne Cap: nur derselbe Minor wie der offene Abschnitt und Patch > lb_patch
+#     (das alte Same-Minor-Verhalten, damit taglose Repos unveraendert bleiben).
+in_open_span() {
+  local M="$1" m="$2" p="$3"
+  $open_ok || return 1
+  ver_gt "$M" "$m" "$p" "$open_major" "$open_minor" "${open_patch:-0}" && return 1
+  if [[ -n "$cap_major" ]]; then
+    ver_gt "$M" "$m" "$p" "$cap_major" "$cap_minor" "$cap_patch"
+  else
+    [[ "$M" == "$open_major" && "$m" == "$open_minor" ]] && (( 10#$p > lb_patch ))
+  fi
+}
 
 freeze_before=""
 rebuild=false
@@ -155,9 +211,16 @@ reset_bucket() {
 flush_group() {
   [[ -z "$group_date" ]] && return
 
+  # Ueberschrift immer aus der KOMPONENTEN-Version (group_version), nicht aus dem
+  # Tag-Namen: die Repo-Tags (vX.Y.Z) tragen den Dashboard-Stand, der fuer
+  # services/common/... nichts bedeutet - ein "## v0.5.18" im services-Changelog
+  # (Stand v0.2.x) waere schlicht falsch. Der Tag-Name greift nur, wenn die
+  # Komponente an diesem Commit gar keine gueltige vX.Y.Z-Version hatte.
   local heading
   if [[ -n "$group_unversioned" ]]; then
     heading="## Unversioniert (bis ${group_date})"
+  elif [[ "$group_version" =~ $VERSION_RE ]]; then
+    heading="## ${group_version} (${group_date})"
   elif [[ -n "$group_tag" ]]; then
     heading="## ${group_tag} (${group_date})"
   else
@@ -312,18 +375,26 @@ generate_one() {
     services)
       out_dir_prefix="services/"
       history_prefixes=("services/")
-      version_file_candidates=("services/VERSION")
+      # src/VERSION is the pre-split path (75abe73 moved src/ -> services/); it
+      # never resolves in the history walk (history_prefixes stays services/)
+      # but lets the release-cap lookup read this component's version at a repo
+      # tag taken before the split.
+      version_file_candidates=("services/VERSION" "src/VERSION")
       exclude_prefixes=("libs/energy_node_common/" "src/werkstatt_iot_common/")
       ;;
     common)
       out_dir_prefix="libs/energy_node_common/"
       history_prefixes=("libs/energy_node_common/" "src/werkstatt_iot_common/")
-      version_file_candidates=("libs/energy_node_common/VERSION" "src/werkstatt_iot_common/VERSION")
+      version_file_candidates=(
+        "libs/energy_node_common/VERSION"
+        "src/energy_node_common/VERSION"
+        "src/werkstatt_iot_common/VERSION"
+      )
       ;;
     battery_soc_core)
       out_dir_prefix="libs/battery_soc_core/"
       history_prefixes=("libs/battery_soc_core/")
-      version_file_candidates=("libs/battery_soc_core/VERSION")
+      version_file_candidates=("libs/battery_soc_core/VERSION" "src/battery_soc_core/VERSION")
       ;;
     ha-integration)
       out_dir_prefix="integrations/homeassistant/"
@@ -457,6 +528,28 @@ except Exception:
 
   flush_group
 
+  # Release-Cap: die hoechste Version dieser Komponente, die zu einem von HEAD
+  # erreichbaren Repo-Tag gehoerte - ihr letzter veroeffentlichter Stand. Alles
+  # darueber ist unveroeffentlicht und gehoert in EINEN offenen Abschnitt, auch
+  # ueber einen von Hand gesetzten Minor-/Major-Bump hinweg (siehe
+  # Release-Cap-Zusammenfuehrung im Dateikopf). Leer, wenn es keinen
+  # erreichbaren Tag gibt oder an keinem eine VERSION-Kandidatendatei existierte
+  # (Komponente juenger als jeder Tag, oder ein tagloses Test-Repo) - dann
+  # bleibt es beim Same-Minor-Fallback in in_open_span.
+  local cap_major="" cap_minor="" cap_patch=""
+  local _tag _tv
+  while IFS= read -r _tag; do
+    [[ -z "$_tag" ]] && continue
+    _tv="$(version_at_ref "$_tag" "${version_file_candidates[@]}")" || continue
+    [[ "$_tv" =~ $VERSION_RE ]] || continue
+    if [[ -z "$cap_major" ]] || ver_gt "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" \
+                                        "$cap_major" "$cap_minor" "$cap_patch"; then
+      cap_major="${BASH_REMATCH[1]}"
+      cap_minor="${BASH_REMATCH[2]}"
+      cap_patch="${BASH_REMATCH[3]}"
+    fi
+  done < <(git -C "$repo_root" tag --merged HEAD 2>/dev/null)
+
   # Bestehende CHANGELOG.md in Abschnitte ("## ...") zerlegen und - top-down -
   # den ersten Abschnitt suchen, ab dem eingefroren wird. Ausloeser:
   #   * auto_freeze: der Abschnitt ist aus der aktuellen Commit-Historie nicht
@@ -501,44 +594,72 @@ except Exception:
     done
   fi
 
-  # Same-Minor-Zusammenfuehrung: eingefrorene "## vX.Y.Z"-Bloecke des
-  # frozen_tail in einen neu gebauten Abschnitt hineinziehen, statt sie separat
-  # zu behalten (siehe Kommentar am Dateianfang). Zwei Faelle:
-  #   1. Der eingefrorene Block hat exakt die Version eines gebauten Abschnitts
-  #      (z.B. ein per Squash "verwaister" Tag-Abschnitt, der neben seinem neu
-  #      gebauten Gegenstueck stehen bliebe) -> in diesen mergen.
-  #   2. Der Block gehoert zum Minor des offenen (neuesten) Abschnitts und ist
-  #      neuer als der naechste getaggte Release desselben Minor darunter
-  #      (Untergrenze) -> in den offenen Abschnitt mergen. So wandert ein nach
-  #      dem letzten Tag stehen gebliebener Pro-PR-Abschnitt hinein, waehrend
-  #      vor einem Tag geschriebene Bloecke desselben Minor an ihrem Platz
-  #      bleiben.
+  # Release-Cap-Zusammenfuehrung: der offene (neueste) Abschnitt bekommt ALLES,
+  # was oberhalb des letzten veroeffentlichten Stands liegt - egal ob es aus der
+  # Commit-Historie neu gebaut oder als "## vX.Y.Z"-Block eingefroren wurde
+  # (siehe Kommentar am Dateianfang). Drei Faelle:
+  #   0. Ein neben dem offenen stehender gebauter Abschnitt liegt per
+  #      in_open_span oberhalb des Caps -> in den offenen mergen. Faengt den von
+  #      Hand gesetzten Minor-/Major-Bump ab, der sonst einen fast leeren
+  #      Abschnitt ueber den legt, der die Eintraege haelt.
+  #   1. Ein eingefrorener Block hat exakt die Version eines (nicht schon
+  #      weggefalteten) gebauten Abschnitts -> in diesen mergen.
+  #   2. Ein eingefrorener Block liegt per in_open_span im offenen Span -> in den
+  #      offenen Abschnitt mergen. So wandern nach dem letzten Tag stehen
+  #      gebliebene Pro-PR-Abschnitte hinein, waehrend vor dem Tag geschriebene
+  #      Bloecke (<= Cap) an ihrem Platz bleiben.
   # Vereinigung der Eintraege, dedupliziert ueber "(#NN)" bzw. den Eintragstext
   # ohne Hash. "## Unversioniert" und Nicht-"vX.Y.Z"-Ueberschriften bleiben
   # unberuehrt.
   local nsec=${#SECTIONS[@]}
+  local open_idx=$((nsec - 1))
+  local open_major="" open_minor="" open_patch="" open_ok=false
+  if (( nsec > 0 )) && [[ "${SECTION_UNVER[$open_idx]}" != "1" && -n "${SECTION_MAJOR[$open_idx]}" ]]; then
+    open_major="${SECTION_MAJOR[$open_idx]}"
+    open_minor="${SECTION_MINOR[$open_idx]}"
+    [[ "${SECTION_VER[$open_idx]}" =~ $VERSION_RE ]] && open_patch="${BASH_REMATCH[3]}"
+    open_ok=true
+  fi
+  # lb_patch: Fallback-Untergrenze fuer in_open_span, wenn kein Cap gilt - Patch
+  # des naechsttieferen gebauten Abschnitts mit gleichem Major.Minor wie der
+  # offene (per Tag abgetrennt). Keiner -> -1.
+  local lb_patch=-1 k
+  if $open_ok; then
+    for (( k = open_idx - 1; k >= 0; k-- )); do
+      if [[ "${SECTION_MAJOR[$k]}" == "$open_major" && "${SECTION_MINOR[$k]}" == "$open_minor" ]]; then
+        [[ "${SECTION_VER[$k]}" =~ $VERSION_RE ]] && lb_patch=$((10#${BASH_REMATCH[3]}))
+        break
+      fi
+    done
+  fi
+
+  # Fall 0: gebaute Nachbarabschnitte oberhalb des Caps in den offenen ziehen.
+  # SECTION_FOLDED markiert die weggefalteten Indizes fuer die Endausgabe.
+  local -A SECTION_FOLDED=()
+  if $open_ok && (( nsec > 1 )); then
+    local -a _built_extra=()
+    for (( k = open_idx - 1; k >= 0; k-- )); do
+      [[ "${SECTION_UNVER[$k]}" == "1" ]] && continue
+      [[ "${SECTION_VER[$k]}" =~ $VERSION_RE ]] || continue
+      if in_open_span "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"; then
+        _built_extra+=("${SECTIONS[$k]}")
+        SECTION_FOLDED[$k]=1
+      fi
+    done
+    if (( ${#_built_extra[@]} > 0 )); then
+      merge_section_blocks "${SECTIONS[$open_idx]}" "${_built_extra[@]}"
+      SECTIONS[$open_idx]="$MERGED_BLOCK"
+    fi
+  fi
+
   if [[ -n "$frozen_tail" && $nsec -gt 0 ]]; then
     local -A ver_to_idx=()
     local s
     for (( s = 0; s < nsec; s++ )); do
+      [[ -n "${SECTION_FOLDED[$s]:-}" ]] && continue
       [[ "${SECTION_UNVER[$s]}" != "1" && "${SECTION_VER[$s]}" =~ $VERSION_RE ]] \
         && ver_to_idx["${SECTION_VER[$s]}"]=$s
     done
-    local open_idx=$((nsec - 1))
-    local open_major="${SECTION_MAJOR[$open_idx]}" open_minor="${SECTION_MINOR[$open_idx]}"
-    local open_ok=false
-    [[ "${SECTION_UNVER[$open_idx]}" != "1" && -n "$open_major" ]] && open_ok=true
-    # Untergrenze fuer Fall 2: Patch des naechsttieferen gebauten Abschnitts
-    # mit gleichem Major.Minor (per Tag abgetrennt). Keiner -> -1.
-    local lb_patch=-1 k
-    if $open_ok; then
-      for (( k = open_idx - 1; k >= 0; k-- )); do
-        if [[ "${SECTION_MAJOR[$k]}" == "$open_major" && "${SECTION_MINOR[$k]}" == "$open_minor" ]]; then
-          [[ "${SECTION_VER[$k]}" =~ $VERSION_RE ]] && lb_patch=$((10#${BASH_REMATCH[3]}))
-          break
-        fi
-      done
-    fi
     local ft_blocks=()
     mapfile -d '' -t ft_blocks < <(printf '%s' "$frozen_tail" | awk '
       BEGIN{RS="\n## "}
@@ -553,13 +674,11 @@ except Exception:
       (( j < ft_n - 1 )) && ft_block+=$'\n'
       ft_head="${ft_block%%$'\n'*}"
       target_idx=""
-      if [[ "$ft_head" =~ ^\#\#\ (v[0-9]+\.[0-9]+\.[0-9]+)\  ]]; then
+      if [[ "$ft_head" =~ ^\#\#\ (v([0-9]+)\.([0-9]+)\.([0-9]+))\  ]]; then
         ft_ver="${BASH_REMATCH[1]}"
         if [[ -n "${ver_to_idx[$ft_ver]:-}" ]]; then
           target_idx="${ver_to_idx[$ft_ver]}"
-        elif $open_ok && [[ "$ft_ver" =~ $VERSION_RE ]] \
-             && [[ "${BASH_REMATCH[1]}" == "$open_major" && "${BASH_REMATCH[2]}" == "$open_minor" ]] \
-             && (( 10#${BASH_REMATCH[3]} > lb_patch )); then
+        elif in_open_span "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "${BASH_REMATCH[4]}"; then
           target_idx=$open_idx
         fi
       fi
@@ -584,6 +703,9 @@ except Exception:
   local idx=${#SECTIONS[@]}
   while (( idx > 0 )); do
     (( idx-- ))
+    # In den offenen Abschnitt weggefaltete gebaute Abschnitte (Fall 0) nicht
+    # noch einmal separat ausgeben.
+    [[ -n "${SECTION_FOLDED[$idx]:-}" ]] && continue
     if [[ -n "$frozen_tail" ]]; then
       local is_new=true
       if [[ "${SECTION_UNVER[$idx]}" == "1" ]]; then

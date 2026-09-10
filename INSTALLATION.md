@@ -275,10 +275,38 @@ allowed to edit `config.json`, and a deploy must not throw that away. Use
 `scripts/deploy/deploy_src_to_remote.sh` ships all Python services by default. Restrict a
 run with `--service <name>`, where the name is the source directory:
 `apsystems_ez1`, `battery_soc`, `shelly`, `trucki`, `tuya_mqtt`,
-`energy-node`, `automation`. The matching units are
+`automation`. The matching units are
 `apsystems-ez1.service`, `battery-soc.service`, `shelly-rpc.service`,
-`trucki-http.service`, `tuya.service`, `energy-node.service` and
-`automation.service`.
+`trucki-http.service`, `tuya.service` and `automation.service`.
+
+### Upgrading from an earlier release (≤ 0.4)
+
+Two things changed that the deploy scripts do **not** fix for you, because
+they never overwrite a live `config.json` or a deployed device file. Do these
+once, on the node, before the first start of the new dashboard:
+
+1. **Retire the old Python node service.** Node telemetry now lives in the
+   dashboard binary as `internal/nodeagent`; the standalone service is gone.
+   Leaving it running makes it a second publisher on `outstation/energy_node/…`.
+
+   ```sh
+   sudo systemctl disable --now energy-node.service
+   sudo rm -f /etc/systemd/system/energy-node.service
+   sudo systemctl daemon-reload
+   rm -rf ~/energy-node          # the deployed code dir (TARGET_BASE from deploy_src_to_remote.sh)
+   ```
+
+2. **Normalise the node ID.** In `/etc/energy-node/config.json` set
+   `dashboard.node_device_id` to `"energy_node"` (older nodes had the
+   hyphenated `"energy-node"`). The dashboard now refuses to start with any
+   other value, because its MQTT availability topic is fixed to
+   `outstation/energy_node/status/online`.
+
+3. **Fix `via_device` in the operator-editable device files.** In the deployed
+   `battery_soc_devices.json` and `trucki_devices.json` (under
+   `paths.devices_dir`, i.e. `~/devices/`), change every `via_device` from
+   `"energy-node"` to `"energy_node"` so Home Assistant keeps linking those
+   entities to the node device.
 
 ---
 
@@ -345,7 +373,7 @@ To serve the dashboard under a sub-path behind another reverse proxy, set
 ```sh
 systemctl is-active mosquitto tailscaled energy-node-dashboard.service
 systemctl is-active apsystems-ez1 shelly-rpc trucki-http tuya battery-soc \
-                    energy-node automation
+                    automation
 journalctl -u shelly-rpc -f
 mosquitto_sub -h localhost -u <mqtt-user> -P <password> -t 'outstation/#' -v
 ```

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.25 (2026-09-10)
+## v0.6.0 (2026-09-10)
 
 ### Features
 
@@ -8,6 +8,14 @@
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
+- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
+- **nodeagent:** add injectable system-metric readers (547d1f3)
+- **nodeagent:** build the energy_node HA discovery and state payloads (acdd553)
+- **⚠ Breaking:** move node telemetry into the dashboard, delete the energy-node service (540eac6)
+- **dashboard:** broadcast simulation_active and expose per-metric toggles (99dd2a5)
+- **nodeagent:** derive per-service liveness from MQTT (627cadc)
+- **dashboard:** optional CPU temp, RAM and undervoltage in the status bar (1fe14fe)
+- **⚠ Breaking:** move the dashboard's own topics under outstation/energy_node (25358cb)
 - **dashboard:** rebuild the general and display settings tabs as material cards (fdba93e)
 - **dashboard:** rebuild the Verläufe settings tab with Apple-style controls (fecc586)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
@@ -15,23 +23,33 @@
 
 ### Fixes
 
+- **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
 - **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
+- **nodeagent:** address task-6 review findings (ee8e3c4)
+- **nodeagent:** correct throttle bits, guard node id, unify device block (92bd8fa)
+- **dashboard:** style the mqtt metric-toggle fieldset and refresh stale docs (0b3e4ec)
 
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
 - remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
+- normalise the node MQTT/HA id to energy_node (800fd08)
 - **dashboard:** remove the no-op discovery-JSON-tooltip feature (04f298a)
 - read the node identity from dashboard.node_* (5e1e672)
 
 ### Documentation
 
+- finish the energy-node -> energy_node rename and guard it (a01c32e)
 - drop remaining git-hooks references (7786f6d)
 - config.schema.json is now generated from per-service fragments (0105cb7)
 
 ### Style
 
 - **dashboard:** lay the history settings cards out in a responsive grid (bc0cf9b)
+
+### Chores
+
+- bump minor versions for dashboard, services and energy_node_common (549a100)
 
 ### CI
 

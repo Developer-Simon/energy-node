@@ -15,7 +15,6 @@ Previously the configuration was spread across seven files:
 - `services/shelly/shelly_rpc.env`
 - `services/trucki/trucki.env`
 - `services/tuya_mqtt/tuya.env`
-- `services/energy-node/energy_node.env`
 - `dashboard/energy_node_dashboard.env`
 
 This led to duplication (for example `MQTT_HOST` in all seven files), naming inconsistencies, and maintenance problems. The central file creates a **single source of truth** for 49 values. It is mandatory — there is no fallback to environment variables.
@@ -96,10 +95,10 @@ The file follows this JSON structure:
 | `dashboard.tls.key_file` | String | Go | path to the TLS key file (empty = no TLS) |
 | `dashboard.system_action_helper` | String | Go | path to the helper program for system actions (e.g. reboot) |
 | `dashboard.mosquitto_bridge_target` | String | Go | target path for `bridge.conf` on the target device |
-| `dashboard.node_device_id` | String | Python | unique ID of the central node (normally `energy-node`) |
-| `dashboard.node_device_name` | String | Python | human-readable name for display |
-| `dashboard.node_poll_interval_s` | Integer | Python | poll interval of the node in seconds (default: 60) |
-| `dashboard.node_diagnostic_poll_multiplier` | Integer | Python | factor for the diagnostic poll interval (default: 10) |
+| `dashboard.node_device_id` | String | Go | unique ID of the central node (must be `energy_node`); read by `internal/nodeagent` |
+| `dashboard.node_device_name` | String | Go | human-readable name for display |
+| `dashboard.node_poll_interval_s` | Integer | Go | poll interval of the node in seconds (default: 60) |
+| `dashboard.node_diagnostic_poll_multiplier` | Integer | Go | factor for the diagnostic poll interval (default: 10) |
 | | | | |
 | **Tailscale integration** | | | |
 | `tailscale.bin` | String | Go | path to the `tailscale` binary |
@@ -226,7 +225,9 @@ The Mosquitto MQTT bridge is still configured through the file `/etc/mosquitto/c
 
 The files `settings.json`, `mqtt.json`, and `bridge.json` in `data_dir` are the operating state and do not belong to `config.json`. They contain settings that the user saves at runtime through the dashboard:
 - `settings.json`: general dashboard settings
-- `mqtt.json`: MQTT settings (broker alternatives)
+- `mqtt.json`: MQTT settings (broker alternatives). Two optional fields beyond the broker connection:
+  - `metrics`: map `metric-name → bool`. A missing key means the metric is published (default on); setting a key to `false` stops the dashboard's node agent from publishing that individual system metric.
+  - `simulation_active`: bool, default `false`. When `true`, the dashboard retained-broadcasts simulation mode to all bridges on `outstation/energy_node/settings/simulation_active/set`.
 - `bridge.json`: Mosquitto bridge settings
 
 This separation stays in place — `config.json` is only for settings that are set by the admin (locally or via deployment), not for runtime operating state.

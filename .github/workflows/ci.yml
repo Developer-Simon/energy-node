@@ -165,6 +165,7 @@ jobs:
           python-version: "3.12"
       - run: bash scripts/tests/test_publish_mirror.sh
       - run: bash scripts/tests/test_generate_changelog.sh
+      - run: bash scripts/tests/test_generate_changelog_cap.sh
       - run: bash scripts/tests/test_extract_changelog.sh
       - run: bash scripts/tests/test_bump_version.sh
       - run: ./scripts/deploy/check_tracked_secrets.sh

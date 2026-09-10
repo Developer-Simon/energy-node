@@ -74,7 +74,7 @@ def test_publish_state_publishes_humidity_topic():
 def test_publish_device_discovery_announces_humidity_sensor():
     cfg = ht_config()
     client = FakeClient()
-    shelly.publish_device_discovery(client, cfg, "energy-node")
+    shelly.publish_device_discovery(client, cfg, "energy_node")
     discovery_topics = [topic for topic, _ in client.published if "/humidity/" in topic]
     assert discovery_topics, "expected a humidity discovery entity to be published"
 

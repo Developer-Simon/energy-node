@@ -8,7 +8,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "problem",
     "entity_category": "diagnostic",
@@ -29,7 +29,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "problem",
     "entity_category": "diagnostic",
@@ -48,7 +48,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "connectivity",
     "entity_category": "diagnostic",
@@ -68,7 +68,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "problem",
     "entity_category": "diagnostic",
@@ -89,7 +89,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "entity_category": "config",
     "icon": "mdi:battery-sync",
@@ -114,7 +114,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "current",
     "entity_category": "diagnostic",
@@ -136,7 +136,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "voltage",
     "entity_category": "diagnostic",
@@ -158,7 +158,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "voltage",
     "entity_category": "diagnostic",
@@ -180,7 +180,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "entity_category": "diagnostic",
     "icon": "mdi:battery-sync",
@@ -202,7 +202,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "voltage",
     "entity_category": "diagnostic",
@@ -224,7 +224,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "current",
     "entity_category": "diagnostic",
@@ -246,7 +246,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "timestamp",
     "entity_category": "diagnostic",
@@ -266,7 +266,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "power",
     "name": "Netto-Batterieleistung",
@@ -287,7 +287,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "entity_category": "diagnostic",
     "icon": "mdi:tune",
@@ -310,7 +310,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "entity_category": "diagnostic",
     "name": "Restkapazitaet",
@@ -331,7 +331,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "battery",
     "icon": "mdi:battery-heart-variant",
@@ -353,7 +353,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "duration",
     "entity_category": "diagnostic",
@@ -375,7 +375,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "duration",
     "entity_category": "diagnostic",
@@ -397,7 +397,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "voltage",
     "entity_category": "diagnostic",
@@ -419,7 +419,7 @@
       "manufacturer": "DIY",
       "model": "LiFePO4 Dual-Bank Coulomb-Counter",
       "name": "Batterie-Ladezustand",
-      "via_device": "energy-node"
+      "via_device": "energy_node"
     },
     "device_class": "battery",
     "entity_category": "diagnostic",

@@ -684,6 +684,9 @@ select.schema-control {
 .mqtt-source-toggle { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--info); background: var(--panel); }
 .mqtt-source-toggle .settings-toggle-label { margin-bottom: .5rem; }
 .mqtt-source-toggle .settings-help { margin: 0; }
+.mqtt-metric-toggles { margin: 1.5rem 0; padding: 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--info); background: var(--panel); }
+.mqtt-metric-toggles > legend { padding: 0 .4rem; color: var(--text-subtle); font-weight: 600; font-size: .9rem; }
+.mqtt-metric-toggles .settings-toggle-label { margin: .35rem 0; }
 .storage-health-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--info); border-radius: var(--radius-lg); background: var(--panel); }
 .storage-health-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
 .storage-health-header h3 { margin: 0; color: var(--text); display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }

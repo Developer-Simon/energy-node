@@ -112,14 +112,13 @@ in [`docs/dashboard.md`](docs/dashboard.md).
 
 | Component | Language | What it does |
 |---|---|---|
-| `dashboard/` | Go | Web UI and `/api/v1` HTTP API. Reads MQTT Discovery, keeps device/entity state in memory, renders server-side HTML, edits the bridge JSON configs, shows energy charts, hosts the automation rule editor and the Tailscale setup wizard. Ships as one static ARMv6 binary. |
+| `dashboard/` | Go | Web UI and `/api/v1` HTTP API. Reads MQTT Discovery, keeps device/entity state in memory, renders server-side HTML, edits the bridge JSON configs, shows energy charts, hosts the automation rule editor and the Tailscale setup wizard. Also publishes the node itself as its own Home Assistant device via `internal/nodeagent` (CPU/RAM/disk, throttling and undervoltage, uptime, Mosquitto and Tailscale status, pending updates) — this used to be a standalone Python service. Ships as one static ARMv6 binary. |
 | `services/apsystems_ez1/` | Python | APsystems EZ1 microinverters over their local REST API — power, yield, writable power limit, on/off. |
 | `services/shelly/` | Python | All Shelly devices, polled over HTTP (`/status` for Gen1, `/rpc` for Gen2+). Switching, power, energy, 3-phase, ADC, temperature/humidity. MQTT stays disabled on the devices themselves. |
 | `services/trucki/` | Python | Lumentree inverters with a Trucki stick (T2SG/T2MG/T2HG), read-only, polled over HTTP at an interval the node controls. |
 | `services/tuya_mqtt/` | Python | Local Tuya devices via `tinytuya`, including a data-point probe for the setup flow. |
 | `services/battery_soc/` | Python | State of charge for two LiFePO4 banks by coulomb counting, with voltage recalibration at the ends of the curve and per-converter efficiency. Monitoring estimate, not a BMS. |
 | `services/automation/` | Python | Rule engine (conditions, hysteresis, hold times, cooldown, allowed publish prefixes). Deliberately a separate process from the dashboard, so the dashboard stays read-only. |
-| `services/energy-node/` | Python | The node's own Home Assistant device: CPU/RAM/disk, throttling and undervoltage, uptime, Mosquitto and Tailscale status, pending updates. Also the **master** for the shared poll-rate protocol. |
 | `libs/energy_node_common/` | Python | Installable package shared by all bridges: MQTT setup, Discovery, availability, scheduler, and the master/slave settings protocol. |
 | `integrations/homeassistant/` | Python | Separate track: a native Home Assistant custom integration that brings dashboard features into HA directly, starting with LiFePO4 state of charge (same `battery_soc_core` engine). Installed via HACS — see [Home Assistant integration (HACS)](#home-assistant-integration-hacs). |
 

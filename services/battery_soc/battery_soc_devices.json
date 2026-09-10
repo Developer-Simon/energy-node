@@ -2,7 +2,7 @@
     {
         "id": "battery_soc",
         "name": "Batterie-Ladezustand",
-        "via_device": "energy-node",
+        "via_device": "energy_node",
         "charger_power_topic": "outstation/t2mg81a4e9/field/acpower",
         "inverter_power_topic": "outstation/t2sga55a69/field/acdisplay",
         "bank_a_voltage_topic": "outstation/batterie_spannung/adc/0",

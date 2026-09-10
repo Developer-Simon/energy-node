@@ -57,7 +57,7 @@ kritische BMS-Funktion. Nicht fuer automatische Abschaltungen ohne zusaetzliche
 Absicherung (z. B. Zell-Ueberwachung im Ladegeraet selbst) verwenden.
 
 Nutzt paho-mqtt v2 (CallbackAPIVersion.VERSION2), analog zu den anderen
-Skripten auf diesem Knoten. Der Knoten "energy-node" wird per
+Skripten auf diesem Knoten. Der Knoten "energy_node" wird per
 via_device als Elterngeraet referenziert (gleiches Muster wie im
 Shelly-mqtt-discovery-self-Skript).
 

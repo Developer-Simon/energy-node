@@ -78,7 +78,7 @@ function discoveryDevice(mac) {
   device.mdl_id = Shelly.getDeviceInfo().model;
   device.sw = Shelly.getDeviceInfo().ver;
   device.hw = "gen " + Shelly.getDeviceInfo().gen;
-  device.via_device = "energy-node";   // experimental: this refers to the pi that routes the MQTT messages to the HA broker, so that in HA the Shelly device is shown as a child of the pi device. This way it is possible to see all devices that are routed through the pi in one place.
+  device.via_device = "energy_node";   // experimental: this refers to the pi that routes the MQTT messages to the HA broker, so that in HA the Shelly device is shown as a child of the pi device. This way it is possible to see all devices that are routed through the pi in one place.
 
   if (CONFIG.report_ip) {
     device.cu = "http://" + Shelly.getComponentStatus("wifi").sta_ip;

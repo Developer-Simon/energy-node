@@ -30,7 +30,7 @@ device ──(local HTTP / tinytuya)──▶ bridge ──(MQTT)──▶ Mosqu
 | [Tuya](#tuya) | `tuya.service` | Local Tuya devices via `tinytuya` | read + switch |
 | [Battery SoC](#battery-state-of-charge) | `battery-soc.service` | Nothing — computes from other services' topics | computed |
 | [Automations](#automations) | `automation.service` | The broker itself; evaluates rules | writes |
-| [Energy Node](#the-node-itself) | `energy-node.service` | The Raspberry Pi it runs on | read + master |
+| [Energy Node](#the-node-itself) | `internal/nodeagent` (in the dashboard) | The Raspberry Pi it runs on | read + master |
 
 All of them are configured the same way, and all of them are editable from the
 dashboard's *Configuration* tab rather than by hand.
@@ -280,7 +280,7 @@ dashboard edits the rule file and never publishes a rule's action itself, so a
 read-only web UI cannot switch a relay.
 
 It subscribes to the balance the dashboard publishes on
-`outstation/dashboard/energy/balance`, plus any MQTT topics the rules name, and
+`outstation/energy_node/energy/balance`, plus any MQTT topics the rules name, and
 evaluates on a tick (`tick_interval_s`, default 10 s). At most 16 rules, each
 with up to 8 conditions and 8 actions.
 
@@ -315,10 +315,12 @@ rule so the dashboard can show why something switched.
 
 ## The node itself
 
-`services/energy-node/` · `energy-node.service`
+`dashboard/internal/nodeagent/` · runs inside `energy-node-dashboard.service`
 
-The Raspberry Pi published as its own Home Assistant device, and the **master**
-of the poll-rate protocol.
+The Raspberry Pi published as its own Home Assistant device (`energy_node`). This
+used to be a standalone Python service; it now lives in the dashboard binary as
+`internal/nodeagent`, so the dashboard is the only publisher of
+`outstation/energy_node/…`.
 
 **Entities published:** CPU temperature, CPU load, RAM use, disk use, WLAN
 signal strength (disabled by default — it only matters on a WLAN-attached

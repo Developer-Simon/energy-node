@@ -75,7 +75,7 @@ func TestConfigsInvariants(t *testing.T) {
 		if p["availability_topic"] != energydiscovery.AvailabilityTopic {
 			t.Fatalf("topic %s: availability_topic = %v, want %s", m.Topic, p["availability_topic"], energydiscovery.AvailabilityTopic)
 		}
-		wantTopic := "ha-test/sensor/dashboard_energy/"
+		wantTopic := "ha-test/sensor/energy_node/"
 		if len(m.Topic) < len(wantTopic) || m.Topic[:len(wantTopic)] != wantTopic {
 			t.Fatalf("topic %s does not start with %s", m.Topic, wantTopic)
 		}

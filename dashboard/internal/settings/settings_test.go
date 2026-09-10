@@ -1065,6 +1065,31 @@ func TestSettingsRejectsUnknownStatusBarItem(t *testing.T) {
 	}
 }
 
+func TestSettingsAcceptsTelemetryStatusBarItems(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value, err := store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	value.StatusBarItems = []string{"cpu_temp", "ram", "undervoltage"}
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatalf("SaveSettings failed for telemetry status bar items: %v", err)
+	}
+	reloaded, err := store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reloaded.StatusBarItems) != 3 {
+		t.Fatalf("StatusBarItems = %v, want 3 items", reloaded.StatusBarItems)
+	}
+	expected := map[string]bool{"cpu_temp": true, "ram": true, "undervoltage": true}
+	for _, item := range reloaded.StatusBarItems {
+		if !expected[item] {
+			t.Fatalf("unexpected StatusBarItem %q", item)
+		}
+	}
+}
+
 func TestSettingsRevisionsCanBeReadAndRestored(t *testing.T) {
 	store := NewStore(t.TempDir())
 	first := Default()

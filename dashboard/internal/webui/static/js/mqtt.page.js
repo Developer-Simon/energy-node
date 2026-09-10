@@ -24,6 +24,8 @@
     discovery_prefix: 'homeassistant',
     connect_timeout_seconds: 10,
     publish_energy_device: true,
+    simulation_active: false,
+    metrics: {},
   });
 
   const mqttPanel = () => ({
@@ -71,6 +73,8 @@
         discovery_prefix: config.discovery_prefix || 'homeassistant',
         connect_timeout_seconds: config.connect_timeout_seconds || 10,
         publish_energy_device: config.publish_energy_device !== false,
+        simulation_active: Boolean(config.simulation_active),
+        metrics: config.metrics || {},
       };
       this.source = config.source || '';
       this.passwordConfigured = Boolean(config.password_configured);
@@ -167,6 +171,47 @@
           : 'Das Home-Assistant-Energie-Gerät wird beim nächsten Verbinden entfernt.');
       } catch (error) {
         this.form.publish_energy_device = !desired;
+        this.$store.toasts.push(error.message, 'critical');
+      }
+    },
+
+    // metricKeys must stay word-for-word in sync with nodeagent.Metrics
+    // (order does not matter, the set does) - webui.TestMetricKeysMatchNodeagent
+    // enforces it.
+    metricKeys: ['cpu_temp', 'cpu_load', 'ram', 'disk', 'wifi_signal', 'undervoltage', 'throttled', 'last_boot', 'ip_address', 'mosquitto', 'tailscale', 'apt_updates'],
+    metricLabels: {
+      cpu_temp: 'CPU-Temperatur', cpu_load: 'CPU-Auslastung', ram: 'RAM', disk: 'Speicherplatz',
+      wifi_signal: 'WLAN-Signal', undervoltage: 'Unterspannung', throttled: 'CPU-Drosselung',
+      last_boot: 'Letzter Neustart', ip_address: 'IP-Adresse', mosquitto: 'Mosquitto',
+      tailscale: 'Tailscale', apt_updates: 'Paket-Updates',
+    },
+
+    metricEnabled(metric) {
+      const m = this.form.metrics || {};
+      return !(metric in m) || m[metric] === true;
+    },
+
+    toggleMetric(metric, enabled) {
+      this.form.metrics = {...(this.form.metrics || {}), [metric]: enabled};
+      this.saveNodeSettings();
+    },
+
+    // saveNodeSettings persists the two node-broadcast controls
+    // (simulation_active + per-metric toggles) via their own endpoint, so
+    // they work without a full, valid broker config. Fired straight from the
+    // toggles' change events.
+    async saveNodeSettings() {
+      if (!this.canConfigure) return;
+      try {
+        await requestJSON('/api/v1/mqtt/node-settings', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          body: JSON.stringify({
+            simulation_active: this.form.simulation_active,
+            metrics: this.form.metrics || {},
+          }),
+        });
+      } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       }
     },

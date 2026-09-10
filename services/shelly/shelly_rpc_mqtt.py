@@ -16,7 +16,7 @@ blockiert), fragt dieser Service jedes Gerät aktiv per HTTP ab:
 
 Ein Prozess = ein Slave (Settings-Protokoll von energy_node_common), aber
 JEDES physische Shelly-Gerät bekommt sein eigenes HA-Gerät (via_device zu
-energy-node), eigene Discovery-Entities und eigene Verfügbarkeit.
+energy_node), eigene Discovery-Entities und eigene Verfügbarkeit.
 
 Poll-Zyklus: alle Geräte werden pro Zyklus concurrent (asyncio) abgefragt.
 Ein Fehler an einem Gerät (Timeout, falsche IP, ...) wird pro Gerät isoliert

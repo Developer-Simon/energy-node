@@ -397,7 +397,7 @@ return `null`.
   coulomb counter, the voltage follows the state of charge, and at the ends the
   same recalibration applies as in operation (§3).
 - **Device coupling:** its own HA device, linked via `via_device` under
-  `energy-node`. The Trucki stick in turn points via `via_device` to this
+  `energy_node`. The Trucki stick in turn points via `via_device` to this
   device — deliberately no discovery merge (see the Trucki section in
   [device-services.md](../../device-services.md)).
 

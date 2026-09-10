@@ -42,7 +42,7 @@ services become comparable.
 | **dashboard** | **~20–30 %** | **~2000–3000 min** | 75 min, NRestarts=0 | **By far the largest consumer.** Re-measured 2026-08-29 22:35 (see 2.1) — *not* a startup effect, real sustained load |
 | tailscaled | 3.19 % | ~321 min | 11 d | Fixed cost (WireGuard crypto, possibly a DERP relay) — hardly reducible |
 | **shelly-rpc** | **2.83 %** | **~285 min** | 7.5 d | Largest real consumer **among the bridges.** Spikes up to ~22 % when all devices are polled at once |
-| energy-node | 1.12 % | ~113 min | 8 d | Contains the expensive `apt list --upgradable` call on the diagnostic cycle |
+| nodeagent (measured as a standalone service; now `internal/nodeagent` in the dashboard) | 1.12 % | ~113 min | 8 d | Contains the expensive `apt list --upgradable` call on the diagnostic cycle |
 | trucki-http | 0.86 % | ~86 min | 8 d | |
 | mosquitto | 0.78 % | ~78 min | 11 d | Inconspicuous at ~3–10 msg/s |
 | battery-soc | 0.36 % | ~37 min | 28 h | |
@@ -154,8 +154,9 @@ firing them simultaneously → the 22 % spike would become several small ones.
 
 ### 5.2 node: decouple `apt list --upgradable` — implemented 2026-08-29
 
-`read_apt_updates_pending()` in
-[`energy_node_mqtt.py`](../../services/energy-node/energy_node_mqtt.py)
+`read_apt_updates_pending()` in the then-standalone `energy_node_mqtt.py`
+(since folded into the dashboard as
+[`internal/nodeagent`](../../dashboard/internal/nodeagent/))
 ran on the diagnostic cycle (every ~10 min).
 
 **Implementation:** a TTL cache around the call, `APT_UPDATES_TTL_S = 86400`

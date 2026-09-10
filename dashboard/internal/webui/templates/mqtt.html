@@ -24,6 +24,18 @@
     <p class="settings-help">Unabhängig von der Broker-Quelle und sofort beim Umschalten gespeichert. Ist dies an, meldet sich das Dashboard beim nächsten Verbinden per MQTT-Discovery als Gerät „Energy Node" mit PV-, Netz-, Batterie- und Hauslast-Sensoren. Aus entfernt die Discovery beim nächsten Verbinden wieder.</p>
   </div>
   <div class="mqtt-source-toggle">
+    <label class="settings-toggle-label" for="mqtt-node-simulation">Simulationsmodus an alle Bridges senden <span class="settings-toggle"><input id="mqtt-node-simulation" type="checkbox" role="switch" x-model="form.simulation_active" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.simulation_active" x-on:change="saveNodeSettings()"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+    <p class="settings-help">Sofort beim Umschalten gespeichert und retained auf <code>outstation/&lt;node&gt;/settings/simulation_active/set</code> gelegt - unabhängig von der Broker-Quelle.</p>
+  </div>
+  <fieldset class="mqtt-metric-toggles" x-show="canConfigure">
+    <legend>Systemmetriken publizieren</legend>
+    <template x-for="metric in metricKeys" x-bind:key="metric">
+      <label class="settings-toggle-label"><span x-text="metricLabels[metric] || metric"></span>
+        <span class="settings-toggle"><input type="checkbox" role="switch" x-bind:checked="metricEnabled(metric)" x-on:change="toggleMetric(metric, $event.target.checked)"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+      </label>
+    </template>
+  </fieldset>
+  <div class="mqtt-source-toggle">
     <label class="settings-toggle-label" for="mqtt-enabled">Dashboard-Einstellungen statt Umgebungsvariablen verwenden <span class="settings-toggle"><input id="mqtt-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
     <p class="settings-help">Ist dieser Schalter aus, gelten die <code>MQTT_*</code>-Umgebungsvariablen des Dienstes unverändert. Ist er an, gewinnt die hier gespeicherte Konfiguration vollständig - ohne feldweises Mischen.</p>
   </div>

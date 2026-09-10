@@ -94,7 +94,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `8` |
 | `js/notifications.js` | `1` |
-| `js/dashboard.js` | `12` |
+| `js/dashboard.js` | `13` |
 | `js/overview.page.js` | `5` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -116,11 +116,11 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` –, `js/history.js` `9` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
-| `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `18` |
-| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `1` | `css/manager.css` `18` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `18` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `5`, `js/mqtt.page.js` `1`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `18`, `css/settings-controls.css` `2` |
-| `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `18`, `css/automations.css` `3` |
+| `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `19` |
+| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `19` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `19` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `6`, `js/mqtt.page.js` `2`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `19`, `css/settings-controls.css` `2` |
+| `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `19`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -207,6 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.6.0 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` · `js/energy.page.js` · `css/manager.css` (5 panels) | `2` · `13` · `6` · `2` · `19` | 2026-09-10 |
 | v0.5.25 | `js/settings.page.js` · `css/settings-controls.css` · `js/dashboard.js` · `css/base.css` | `5` · `2` · `12` · `19` | 2026-09-10 |
 | v0.5.20 | `css/manager.css` (5 panels) · `js/systemconfig.page.js` | `18` · `2` | 2026-09-08 |
 | v0.5.19 | `js/notifications.js` | `1` | 2026-09-08 |
@@ -225,6 +226,27 @@ recomputable.
 | v0.3.19 | `css/base.css` · `js/dashboard.js` · `css/manager.css` (5 panels) · `css/history.css` · `css/automations.css` · `js/overview.page.js` · `js/layout-editor.js` · `css/layout-editor.css` | `16` · `8` · `12` · `3` · `3` · `5` · `6` · `6` | 2026-09-04 |
 | v0.3.15 | `css/base.css` · `css/manager.css` (5 panels) | `13` · `10` | 2026-09-03 |
 | v0.3.14 | baseline — `base.html` state at commit `d6cc3e0`, no bump | — | 2026-09-02 |
+
+The **v0.6.0** row is the `feat: fold node telemetry into the dashboard
+nodeagent` squash merge. On the branch the bumps landed in steps:
+
+- `mqtt.page.js` `2` — MQTT tab gains a simulation toggle and per-metric
+  publish switches; the file grows the `metricKeys` list, `saveNodeSettings()`
+  and the `simulation_active`/`metrics` form fields.
+- `dashboard.js` `13`, `settings.page.js` `6` — three new opt-in status-bar
+  items (`cpu_temp`, `ram`, `undervoltage`) rendered from `/api/v1/health`
+  `node.telemetry`; `dashboard.js` adds `formatTemp()`/`formatPct()`,
+  `settings.page.js` expands the status-bar-item options list.
+- `energy.page.js` `2` — the own-device filter follows the `energy_node`
+  identity move: `OWN_ENERGY_DEVICE_ID` changes from
+  `energy-node-dashboard-energy` to `energy_node` to match the renamed
+  `energydiscovery.DeviceIdentifier`, so the dashboard's own seven energy
+  sensors stay filtered out of the energy-role editor.
+- `css/manager.css` `18 → 19` (5 panels) — the
+  `<fieldset class="mqtt-metric-toggles">` added with the per-metric publish
+  switches was rendering with raw browser fieldset/legend chrome; `manager.css`
+  gains a `.mqtt-metric-toggles` rule matching the surrounding
+  `.mqtt-source-toggle` block.
 
 The **v0.3.19** row is the `feat(layout): overview layout-editing mode` squash
 merge — on the branch the same files were bumped in steps (`layout-editor.*` and

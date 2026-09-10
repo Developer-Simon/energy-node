@@ -81,8 +81,8 @@ def test_validate_publish_topic_rejects_sys_prefix():
     assert automation.validate_publish_topic("$SYS/broker/uptime") is not None
 
 
-def test_validate_publish_topic_rejects_dashboard_balance_topic():
-    assert automation.validate_publish_topic("outstation/dashboard/energy/balance") is not None
+def test_validate_publish_topic_rejects_energy_node_balance_topic():
+    assert automation.validate_publish_topic("outstation/energy_node/energy/balance") is not None
 
 
 def test_validate_publish_topic_accepts_a_normal_command_topic():
@@ -191,12 +191,26 @@ def test_load_and_validate_rejects_homeassistant_publish_topic(tmp_path):
         automation.load_and_validate(write_doc(tmp_path, doc))
 
 
-def test_load_and_validate_rejects_dashboard_balance_publish_topic(tmp_path):
+def test_load_and_validate_rejects_energy_node_balance_publish_topic(tmp_path):
     doc = document(rules=[rule(cooldown_seconds=300,
                                 conditions=[balance_condition(hold_seconds=300)],
-                                actions=[publish_action(topic="outstation/dashboard/energy/balance")])])
+                                actions=[publish_action(topic="outstation/energy_node/energy/balance")])])
     with pytest.raises(automation.RuleValidationError):
         automation.load_and_validate(write_doc(tmp_path, doc))
+
+
+def test_publish_guard_blocks_balance_and_availability_allows_settings():
+    assert automation.validate_publish_topic(automation.BALANCE_TOPIC) is not None
+    assert automation.validate_publish_topic("outstation/energy_node/status/online") is not None
+    assert automation.validate_publish_topic("outstation/energy_node/settings/simulation_active/set") is None
+    assert automation.validate_publish_topic("outstation/apsystems/settings/simulation_active/set") is None
+
+
+def test_publish_guard_blocks_node_state_and_diagnostics_topics():
+    # The dashboard is the sole publisher of retained node telemetry; a rule
+    # must not be able to forge outstation/energy_node/state or .../diagnostics.
+    assert automation.validate_publish_topic("outstation/energy_node/state") is not None
+    assert automation.validate_publish_topic("outstation/energy_node/diagnostics") is not None
 
 
 def test_load_and_validate_rejects_too_many_rules(tmp_path):

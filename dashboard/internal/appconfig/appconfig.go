@@ -40,13 +40,14 @@ var schemaJSON []byte
 var secretPathPrefixes = []string{"/etc/energy-node/", "/etc/energy-node-dashboard/"}
 
 type Config struct {
-	SchemaVersion int              `json:"schema_version"`
-	MQTT          MQTTSection      `json:"mqtt"`
-	Paths         PathsSection     `json:"paths"`
-	Logging       LoggingSection   `json:"logging"`
-	Dashboard     DashboardSection `json:"dashboard"`
-	Tailscale     TailscaleSection `json:"tailscale"`
-	TinyTuya      TinyTuyaSection  `json:"tinytuya"`
+	SchemaVersion int                    `json:"schema_version"`
+	MQTT          MQTTSection            `json:"mqtt"`
+	Paths         PathsSection           `json:"paths"`
+	Logging       LoggingSection         `json:"logging"`
+	Dashboard     DashboardSection       `json:"dashboard"`
+	Tailscale     TailscaleSection       `json:"tailscale"`
+	TinyTuya      TinyTuyaSection        `json:"tinytuya"`
+	Services      map[string]ServicePoll `json:"services"`
 }
 
 type MQTTSection struct {
@@ -76,17 +77,30 @@ type TLSSection struct {
 }
 
 type DashboardSection struct {
-	BindAddress           string     `json:"bind_address"`
-	Port                  int        `json:"port"`
-	ClientID              string     `json:"client_id"`
-	DeviceIdentifier      string     `json:"device_identifier"`
-	LogLevel              string     `json:"log_level"`
-	SweepIntervalSeconds  int        `json:"sweep_interval_seconds"`
-	AdminUsername         string     `json:"admin_username"`
-	AdminPasswordFile     string     `json:"admin_password_file"`
-	TLS                   TLSSection `json:"tls"`
-	SystemActionHelper    string     `json:"system_action_helper"`
-	MosquittoBridgeTarget string     `json:"mosquitto_bridge_target"`
+	BindAddress                  string     `json:"bind_address"`
+	Port                         int        `json:"port"`
+	ClientID                     string     `json:"client_id"`
+	DeviceIdentifier             string     `json:"device_identifier"`
+	LogLevel                     string     `json:"log_level"`
+	SweepIntervalSeconds         int        `json:"sweep_interval_seconds"`
+	AdminUsername                string     `json:"admin_username"`
+	AdminPasswordFile            string     `json:"admin_password_file"`
+	TLS                          TLSSection `json:"tls"`
+	SystemActionHelper           string     `json:"system_action_helper"`
+	MosquittoBridgeTarget        string     `json:"mosquitto_bridge_target"`
+	NodeDeviceID                 string     `json:"node_device_id"`
+	NodeDeviceName               string     `json:"node_device_name"`
+	NodePollIntervalS            float64    `json:"node_poll_interval_s"`
+	NodeDiagnosticPollMultiplier float64    `json:"node_diagnostic_poll_multiplier"`
+}
+
+// ServicePoll ist der Ausschnitt aus services.<name>, den internal/nodeagent
+// fuer das Frische-Fenster der Bridge-Liveness braucht. Go modelliert
+// services sonst nicht (das ist die Python-Seite); weitere Felder werden
+// von encoding/json ignoriert.
+type ServicePoll struct {
+	PollIntervalS            float64 `json:"poll_interval_s"`
+	DiagnosticPollMultiplier float64 `json:"diagnostic_poll_multiplier"`
 }
 
 type TailscaleSection struct {

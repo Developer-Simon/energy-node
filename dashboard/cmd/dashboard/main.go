@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -28,6 +29,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -49,6 +51,9 @@ func main() {
 	flag.Parse()
 	cfg, err := appconfig.Load(*configPath)
 	if err != nil {
+		log.Fatalf("energy-node-dashboard: %v", err)
+	}
+	if err := validateNodeDeviceID(cfg.Dashboard.NodeDeviceID, *configPath); err != nil {
 		log.Fatalf("energy-node-dashboard: %v", err)
 	}
 
@@ -146,6 +151,47 @@ func main() {
 	}
 	defer client.Close()
 
+	// nodeagent publiziert den Pi-Knoten selbst als HA-Geraet "energy_node"
+	// (Systemdiagnose ueber MQTT). Das Dashboard ist ab hier alleiniger
+	// Publisher von outstation/energy_node/* - der fruehere Python-Node-Dienst
+	// ist geloescht.
+	nodeAgent := nodeagent.New(nodeagent.Options{
+		NodeID:                   cfg.Dashboard.NodeDeviceID,
+		NodeName:                 cfg.Dashboard.NodeDeviceName,
+		DiscoveryPrefix:          client.DiscoveryPrefix(),
+		PollIntervalS:            cfg.Dashboard.NodePollIntervalS,
+		DiagnosticPollMultiplier: cfg.Dashboard.NodeDiagnosticPollMultiplier,
+		TailscaleBin:             cfg.Tailscale.Bin,
+	})
+
+	// Bridge-Liveness: aus den deployten Dienst-Manifesten den Dienstkatalog
+	// laden und outstation/<id>/status/online + .../settings/status
+	// beobachten, damit /api/v1/health je Dienst active/configured meldet.
+	manifestsDir := filepath.Join(filepath.Dir(*configPath), "manifests")
+	serviceIDs, err := nodeagent.LoadServiceIDs(manifestsDir)
+	if err != nil {
+		log.Printf("energy-node-dashboard: manifests unreadable: %v", err)
+	}
+	nodeAgent.SetServiceCatalog(serviceIDs, cfg.Services)
+	client.WatchTopics(nodeAgent.WatchTopicsFor(), nodeAgent.ObserveLiveness)
+
+	// metricEnabled liest bei jedem Aufruf den je-Metrik-Schalter aus
+	// mqtt.json frisch, damit ein "Speichern" im MQTT-Tab sofort greift; ein
+	// fehlender Schluessel (auch: unlesbare Datei) bedeutet "an".
+	metricEnabled := func(metric string) bool {
+		if stored, err := settingsStore.LoadMQTT(); err == nil {
+			return stored.MetricEnabled(metric)
+		}
+		return true
+	}
+
+	// Der MQTT-Tab schaltet den globalen simulation_active-Broadcast; der
+	// Sollzustand liegt in mqtt.json und wird retained auf ein festes Topic
+	// gelegt - hier beim Umschalten (ueber nodeSimPublisher), im
+	// Connect-Publisher unten fuer jeden (Re-)Connect.
+	nodeSimTopic := "outstation/" + cfg.Dashboard.NodeDeviceID + "/settings/simulation_active/set"
+	nodeSimPublisher := nodeSimAdapter{client: client, topic: nodeSimTopic}
+
 	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
 	// Der Schalter wird bei jedem Aufruf frisch gelesen, damit ein
 	// "Speichern und neu verbinden" ihn sofort anwendet; bei false trägt
@@ -164,6 +210,30 @@ func main() {
 				Retain:  true,
 			})
 		}
+
+		// Node-Systemdiagnose (energy_node) + einmalige Abraeumung des alten,
+		// mit Bindestrich benannten energy-node-Geraets des geloeschten
+		// Python-Dienstes.
+		msgs = append(msgs, nodeAgent.LegacyCleanupMessages()...)
+		msgs = append(msgs, nodeAgent.DiscoveryMessages(metricEnabled)...)
+
+		// Einmalige Abraeumung des frueheren dashboard-eigenen Topic-Baums
+		// samt der dashboard_energy-Discovery-Configs; nach dem Umzug ist
+		// outstation/energy_node/... der einzige Node-Topic-Baum.
+		for _, m := range energydiscovery.LegacyCleanupMessages(client.DiscoveryPrefix()) {
+			msgs = append(msgs, mqttclient.OutboundMessage{Topic: m.Topic, Payload: string(m.Payload), Retain: true})
+		}
+
+		// Globaler simulation_active-Sollzustand, retained, bei jedem Connect.
+		simPayload := "0"
+		if stored, err := settingsStore.LoadMQTT(); err == nil && stored.SimulationActive {
+			simPayload = "1"
+		}
+		msgs = append(msgs, mqttclient.OutboundMessage{
+			Topic:   nodeSimTopic,
+			Payload: simPayload,
+			Retain:  true,
+		})
 		return msgs
 	})
 
@@ -247,6 +317,8 @@ func main() {
 			Tailscale:         tailscaleClient,
 			Resolver:          energyResolver,
 			MQTTBase:          mqttBase,
+			NodeAgent:         nodeAgent,
+			NodeSimulation:    nodeSimPublisher,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
@@ -264,9 +336,37 @@ func main() {
 					log.Printf("energy-node-dashboard: energy balance marshal failed: %v", err)
 					continue
 				}
-				if err := client.PublishRetained("outstation/dashboard/energy/balance", string(payload)); err != nil {
+				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
 				}
+			}
+		}
+	}()
+
+	// Node-Telemetrie: der schnelle Ticker publiziert nur
+	// outstation/energy_node/state, der langsame zusaetzlich
+	// .../diagnostics. Beim Start einmal beides.
+	go func() {
+		fast := time.NewTicker(nodeAgent.PollInterval())
+		slow := time.NewTicker(nodeAgent.DiagnosticInterval())
+		defer fast.Stop()
+		defer slow.Stop()
+		publish := func(msgs ...mqttclient.OutboundMessage) {
+			for _, m := range msgs {
+				if err := client.PublishRetained(m.Topic, m.Payload); err != nil {
+					log.Printf("energy-node-dashboard: node telemetry publish skipped: %v", err)
+				}
+			}
+		}
+		publish(nodeAgent.StateMessages(ctx, metricEnabled)...) // beim Start einmal voll
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-fast.C:
+				publish(nodeAgent.StateMessage(ctx, metricEnabled))
+			case <-slow.C:
+				publish(nodeAgent.DiagnosticsMessage(ctx, metricEnabled))
 			}
 		}
 	}()
@@ -307,6 +407,23 @@ func main() {
 	}
 }
 
+// validateNodeDeviceID guards against a node-ID split-brain. The MQTT LWT is
+// pinned to energydiscovery.AvailabilityTopic (outstation/energy_node/status/
+// online), while nodeagent derives its availability/state topics from
+// dashboard.node_device_id. They only agree when node_device_id is
+// "energy_node"; any other value (e.g. an upgraded node that kept the old
+// hyphenated "energy-node") leaves every node diagnostic entity permanently
+// unavailable and triggers a self-erasing legacy cleanup. An empty value is
+// rejected too - appconfig does not default it here.
+func validateNodeDeviceID(id, configPath string) error {
+	if id == energydiscovery.DeviceID {
+		return nil
+	}
+	return fmt.Errorf(
+		"dashboard.node_device_id is %q but must be %q: the MQTT availability topic is fixed to outstation/%s/status/online, so any other id makes the node's diagnostic entities permanently unavailable. Set dashboard.node_device_id to %q in %s (see INSTALLATION.md, section \"Upgrading from an earlier release (<= 0.4)\")",
+		id, energydiscovery.DeviceID, energydiscovery.DeviceID, energydiscovery.DeviceID, configPath)
+}
+
 func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now time.Time) ([]byte, error) {
 	snapshot := energy.Aggregate(reg.Snapshot(), resolver, now.UTC())
 	cfg := resolver.Interpretation()
@@ -316,6 +433,26 @@ func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now 
 		Balance        energy.Balance        `json:"balance"`
 		Interpretation energy.Interpretation `json:"interpretation"`
 	}{At: now.Unix(), Balance: full.Balance, Interpretation: cfg})
+}
+
+// nodeSimAdapter turns the MQTT tab's simulation_active switch into a
+// retained publish on outstation/<node>/settings/simulation_active/set.
+// *mqttclient.Client itself grows no method for this - the topic is fixed
+// at startup from cfg.Dashboard.NodeDeviceID, so a tiny adapter keeps that
+// knowledge in main.go.
+type nodeSimAdapter struct {
+	client *mqttclient.Client
+	topic  string
+}
+
+func (a nodeSimAdapter) PublishNodeSimulation(active bool) {
+	payload := "0"
+	if active {
+		payload = "1"
+	}
+	if err := a.client.PublishRetained(a.topic, payload); err != nil {
+		log.Printf("energy-node-dashboard: node simulation publish skipped: %v", err)
+	}
 }
 
 func serviceIDForConfig(name string) (string, bool) {

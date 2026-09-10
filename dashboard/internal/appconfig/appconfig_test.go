@@ -57,6 +57,25 @@ func TestLoadReadsEverySection(t *testing.T) {
 	}
 }
 
+func TestLoadReadsDashboardNodeFields(t *testing.T) {
+	cfg, err := appconfig.Load(writeConfig(t, validDocument()))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.Dashboard.NodeDeviceID != "energy_node" {
+		t.Fatalf("NodeDeviceID = %q, want energy_node", cfg.Dashboard.NodeDeviceID)
+	}
+	if cfg.Dashboard.NodeDeviceName != "Energy Node" {
+		t.Fatalf("NodeDeviceName = %q, want Energy Node", cfg.Dashboard.NodeDeviceName)
+	}
+	if cfg.Dashboard.NodePollIntervalS != 60 || cfg.Dashboard.NodeDiagnosticPollMultiplier != 10 {
+		t.Fatalf("node poll = %v / %v, want 60 / 10", cfg.Dashboard.NodePollIntervalS, cfg.Dashboard.NodeDiagnosticPollMultiplier)
+	}
+	if got := cfg.Services["apsystems"].PollIntervalS; got != 60 {
+		t.Fatalf("Services[apsystems].PollIntervalS = %v, want 60", got)
+	}
+}
+
 func TestLoadRejectsMissingFile(t *testing.T) {
 	_, err := appconfig.Load(filepath.Join(t.TempDir(), "fehlt.json"))
 	if err == nil || !strings.Contains(err.Error(), "fehlt.json") {

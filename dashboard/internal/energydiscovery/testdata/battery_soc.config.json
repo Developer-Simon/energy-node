@@ -1,9 +1,9 @@
 {
-  "availability_topic": "outstation/dashboard/status/online",
+  "availability_topic": "outstation/energy_node/status/online",
   "device": {
-    "identifiers": ["energy-node-dashboard-energy"],
-    "manufacturer": "Energy Node",
-    "model": "Dashboard Energy",
+    "identifiers": ["energy_node"],
+    "manufacturer": "Raspberry Pi Foundation",
+    "model": "Raspberry Pi 1 (ARMv6)",
     "name": "Energy Node",
     "sw_version": "1.2.3-test"
   },
@@ -12,8 +12,8 @@
   "payload_available": "1",
   "payload_not_available": "0",
   "state_class": "measurement",
-  "state_topic": "outstation/dashboard/energy/balance",
-  "unique_id": "dashboard_energy_battery_soc",
+  "state_topic": "outstation/energy_node/energy/balance",
+  "unique_id": "energy_node_battery_soc",
   "unit_of_measurement": "%",
   "value_template": "{{ value_json.balance['battery_soc'] }}"
 }

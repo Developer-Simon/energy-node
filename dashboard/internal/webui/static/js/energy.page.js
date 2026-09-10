@@ -7,7 +7,7 @@
   // zuweisbar erscheinen - sie würden die Bilanz doppelt zählen. Das Backend
   // hält sie schon aus energy.Aggregate heraus; die Zeilenliste hier stammt
   // aber direkt aus /api/v1/devices und braucht denselben Filter.
-  const OWN_ENERGY_DEVICE_ID = 'energy-node-dashboard-energy';
+  const OWN_ENERGY_DEVICE_ID = 'energy_node';
 
   // Viele Integrationen stellen jedem Entitätsnamen den Gerätenamen voran
   // ("Trucki T2MG" / "Trucki T2MG DC Power"). Im Rollen-Editor steht der

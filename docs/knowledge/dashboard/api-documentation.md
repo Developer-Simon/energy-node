@@ -214,7 +214,7 @@ omits `interpretation`, the stored interpretation is kept — this is intentiona
 so that saving roles alone does not reset the interpretation.
 
 The balance is additionally published every 10 s to
-`outstation/dashboard/energy/balance`; the automations build on that.
+`outstation/energy_node/energy/balance`; the automations build on that.
 
 ### History
 
@@ -278,12 +278,29 @@ Other codes: `peer_gone` (404, the target left), `tier_unknown` (400),
   "uptime_seconds": 86400,
   "runtime_cache": { "…": "…" },
   "mqtt": { "connected": true, "broker_address": "localhost:1883" },
-  "storage": { "available": true, "medium": "…", "mode": "…", "confidence": "…" }
+  "storage": { "available": true, "medium": "…", "mode": "…", "confidence": "…" },
+  "node": {
+    "telemetry": { "cpu_temp_c": 47.8, "ram_used_pct": 63.1, "undervoltage_now": false },
+    "services": [
+      { "id": "shelly", "state": "active" },
+      { "id": "trucki", "state": "configured" }
+    ]
+  }
 }
 ```
 
 `status` is set to `degraded` as soon as the runtime cache is degraded, the
 MQTT connection is missing, or the storage check fails.
+
+`node` reports the Pi node the dashboard's node agent (`internal/nodeagent`)
+publishes; it is present only when that agent is wired, and omitted otherwise.
+`node.telemetry` is itself omitted until the first reading arrives and then
+carries `cpu_temp_c` and `ram_used_pct` (each a number or `null`) plus the
+`undervoltage_now` flag. `node.services` has one entry per configured device
+service, `{ "id": "<service_id>", "state": … }`: `state` is `active` when that
+service's `outstation/<id>/status/online` is `1` **and** the `last_update` in
+its `outstation/<id>/settings/status` is no older than `poll_interval_s *
+diagnostic_poll_multiplier + 60 s`, and `configured` otherwise.
 
 ### Configurations (device JSONs)
 

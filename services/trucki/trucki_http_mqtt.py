@@ -105,7 +105,7 @@ class TruckiDeviceConfig:
     once_path: str = "/jsononce"
     auth_user: str = ""
     auth_password: str = ""
-    via_device: str = "energy-node"
+    via_device: str = "energy_node"
 
     @property
     def base_topic(self) -> str:
@@ -144,7 +144,7 @@ def load_devices(path: str) -> list[TruckiDeviceConfig]:
                 once_path=str(item.get("once_path", "/jsononce")).strip(),
                 auth_user=str(item.get("auth_user", "")).strip(),
                 auth_password=str(item.get("auth_password", "")),
-                via_device=str(item.get("via_device", "energy-node")).strip(),
+                via_device=str(item.get("via_device", "energy_node")).strip(),
             )
         )
 
