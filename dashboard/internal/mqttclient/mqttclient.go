@@ -155,6 +155,9 @@ type Client struct {
 	bridgeWatchTopic string
 	bridgeState      BridgeConnectionState
 
+	watchTopics  []string
+	watchHandler func(string, []byte)
+
 	connectPublisher func() []OutboundMessage
 }
 
@@ -245,6 +248,50 @@ func (c *Client) SetBridgeWatch(remoteClientID string) {
 		if token := paho.Subscribe(topic, 0, c.handleBridgeState); token.Wait() && token.Error() != nil {
 			c.logger.Printf("bridge watch subscribe %s failed: %v", topic, token.Error())
 		}
+	}
+}
+
+// WatchTopics abonniert eine feste Liste roher Topics und leitet jede
+// Nachricht an handler weiter. Die Liste wird bei jedem (Re-)Connect neu
+// abonniert. Gedacht fuer internal/nodeagent (Bridge-Liveness) - NICHT fuer
+// HA-Discovery, die laeuft ueber die Registry.
+func (c *Client) WatchTopics(topics []string, handler func(topic string, payload []byte)) {
+	c.mu.Lock()
+	c.watchTopics = append([]string(nil), topics...)
+	c.watchHandler = handler
+	c.mu.Unlock()
+	c.subscribeWatchTopics()
+}
+
+func (c *Client) subscribeWatchTopics() {
+	c.mu.Lock()
+	paho := c.paho
+	topics := append([]string(nil), c.watchTopics...)
+	handler := c.watchHandler
+	c.mu.Unlock()
+	if paho == nil || !paho.IsConnected() || handler == nil {
+		return
+	}
+	for _, topic := range topics {
+		t := topic
+		if token := paho.Subscribe(t, 0, func(_ mqtt.Client, m mqtt.Message) {
+			c.dispatchWatch(m)
+		}); token.Wait() && token.Error() != nil {
+			c.logger.Printf("watch subscribe %s: %v", t, token.Error())
+		}
+	}
+}
+
+// dispatchWatch forwards one watched message to the registered handler. It is
+// the single delivery path for WatchTopics - the Paho subscribe callback and
+// the tests both go through here (no broker is available in the test
+// environment, same limitation as handleBridgeState).
+func (c *Client) dispatchWatch(msg mqtt.Message) {
+	c.mu.Lock()
+	handler := c.watchHandler
+	c.mu.Unlock()
+	if handler != nil {
+		handler(msg.Topic(), msg.Payload())
 	}
 }
 
@@ -764,6 +811,8 @@ func (c *Client) onConnect(client mqtt.Client) {
 			c.logger.Printf("bridge watch re-subscribe %s failed: %v", bridgeTopic, token.Error())
 		}
 	}
+
+	c.subscribeWatchTopics()
 
 	if cfg.AvailabilityTopic != "" {
 		if token := client.Publish(cfg.AvailabilityTopic, 0, true, "1"); token.Wait() && token.Error() != nil {

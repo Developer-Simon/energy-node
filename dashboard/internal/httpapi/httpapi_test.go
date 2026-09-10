@@ -12,10 +12,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/runtimecache"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -533,6 +535,26 @@ func TestHealthVersionDefaultsToDev(t *testing.T) {
 	router.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
 	if health.Code != http.StatusOK || !strings.Contains(health.Body.String(), `"version":"dev"`) {
 		t.Fatalf("health response %d: %s", health.Code, health.Body.String())
+	}
+}
+
+func TestHealthReportsServiceLiveness(t *testing.T) {
+	a := nodeagent.New(nodeagent.Options{NodeID: "energy_node"})
+	a.SetServiceCatalog([]string{"apsystems"}, map[string]appconfig.ServicePoll{"apsystems": {PollIntervalS: 60, DiagnosticPollMultiplier: 10}})
+	h := handleHealth(nil, nil, nil, a, time.Now(), "test", "svc", time.Now)
+	rec := httptest.NewRecorder()
+	h(rec, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode health body: %v", err)
+	}
+	node, ok := body["node"].(map[string]any)
+	if !ok {
+		t.Fatalf("no node in health: %s", rec.Body)
+	}
+	services := node["services"].([]any)
+	if len(services) != 1 || services[0].(map[string]any)["state"] != "configured" {
+		t.Fatalf("services = %v", services)
 	}
 }
 

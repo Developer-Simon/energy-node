@@ -23,6 +23,9 @@ type Agent struct {
 	fast FastState
 	slow SlowDiagnostics
 	seen bool
+
+	live liveness
+	now  func() time.Time
 }
 
 func New(opts Options) *Agent {
@@ -38,7 +41,7 @@ func New(opts Options) *Agent {
 	if opts.DiagnosticPollMultiplier <= 0 {
 		opts.DiagnosticPollMultiplier = 10
 	}
-	return &Agent{opts: opts, reader: newReader()}
+	return &Agent{opts: opts, reader: newReader(), now: time.Now}
 }
 
 func (a *Agent) baseTopic() string  { return "outstation/" + a.opts.NodeID }

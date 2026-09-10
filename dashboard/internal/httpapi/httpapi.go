@@ -796,10 +796,18 @@ type healthResponse struct {
 	// diese Zeile macht ihn nur dort sichtbar, wo der Betriebszustand
 	// ohnehin abgefragt wird.
 	Features map[string]int `json:"features"`
+
+	// Node traegt den Pi-Knoten-Zustand (Systemtelemetrie plus je-Dienst
+	// Bridge-Liveness), sofern ein nodeagent verdrahtet ist.
+	Node *nodeStatus `json:"node,omitempty"`
 }
 
-// nodeAgent is threaded through for Task 6/7 (healthResponse.Node); the
-// handler body does not read it yet.
+type nodeStatus struct {
+	Telemetry *nodeagent.Telemetry        `json:"telemetry,omitempty"`
+	Services  []nodeagent.ServiceLiveness `json:"services"`
+}
+
+// nodeAgent is threaded through for Task 6/7 (healthResponse.Node).
 func handleHealth(cache runtimecache.StatusProvider, storageProvider storagehealth.Provider, mqttStatus mqttclient.StatusProvider, nodeAgent *nodeagent.Agent, startedAt time.Time, version string, servicesVersion string, now func() time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -861,6 +869,13 @@ func handleHealth(cache runtimecache.StatusProvider, storageProvider storageheal
 		response.Status = result
 		response.Storage = storage
 		response.Features = map[string]int{"history_exchange": exchangeProtocolVersion}
+		if nodeAgent != nil {
+			ns := &nodeStatus{Services: nodeAgent.ServiceLiveness(currentTime)}
+			if tel, ok := nodeAgent.Telemetry(); ok {
+				ns.Telemetry = &tel
+			}
+			response.Node = ns
+		}
 		writeJSON(w, response)
 	}
 }

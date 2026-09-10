@@ -160,6 +160,17 @@ func main() {
 		TailscaleBin:             cfg.Tailscale.Bin,
 	})
 
+	// Bridge-Liveness: aus den deployten Dienst-Manifesten den Dienstkatalog
+	// laden und outstation/<id>/status/online + .../settings/status
+	// beobachten, damit /api/v1/health je Dienst active/configured meldet.
+	manifestsDir := filepath.Join(filepath.Dir(*configPath), "manifests")
+	serviceIDs, err := nodeagent.LoadServiceIDs(manifestsDir)
+	if err != nil {
+		log.Printf("energy-node-dashboard: manifests unreadable: %v", err)
+	}
+	nodeAgent.SetServiceCatalog(serviceIDs, cfg.Services)
+	client.WatchTopics(nodeAgent.WatchTopicsFor(), nodeAgent.ObserveLiveness)
+
 	// metricEnabled liest bei jedem Aufruf den je-Metrik-Schalter aus
 	// mqtt.json frisch, damit ein "Speichern" im MQTT-Tab sofort greift; ein
 	// fehlender Schluessel (auch: unlesbare Datei) bedeutet "an".

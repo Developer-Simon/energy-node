@@ -173,3 +173,45 @@ func TestSetConnectPublisherStoresCallback(t *testing.T) {
 		t.Fatalf("stored callback misbehaves: called=%v msgs=%+v", called, msgs)
 	}
 }
+
+// TestWatchTopicsPersistsTheListAndHandler - WatchTopics muss die rohe
+// Topic-Liste und den Handler festhalten, damit onConnect sie nach jedem
+// (Re-)Connect neu abonnieren kann (Muster wie SetBridgeWatch).
+func TestWatchTopicsPersistsTheListAndHandler(t *testing.T) {
+	client := NewWithContext(context.Background(), Config{}, registry.New(), nil)
+	client.WatchTopics(
+		[]string{"outstation/apsystems/status/online", "outstation/apsystems/settings/status"},
+		func(topic string, payload []byte) {},
+	)
+	client.mu.Lock()
+	got := append([]string(nil), client.watchTopics...)
+	hasHandler := client.watchHandler != nil
+	client.mu.Unlock()
+	if len(got) != 2 || got[0] != "outstation/apsystems/status/online" || got[1] != "outstation/apsystems/settings/status" {
+		t.Fatalf("watchTopics = %v, want the two raw topics verbatim", got)
+	}
+	if !hasHandler {
+		t.Fatal("watchHandler not stored")
+	}
+}
+
+// TestWatchTopicsDeliversMessagesToTheHandler feeds a message through the
+// single delivery path (dispatchWatch) the Paho subscribe callback uses -
+// no broker is available in this test environment, same limitation as the
+// handleBridgeState tests.
+func TestWatchTopicsDeliversMessagesToTheHandler(t *testing.T) {
+	client := NewWithContext(context.Background(), Config{}, registry.New(), nil)
+	got := make(chan string, 1)
+	client.WatchTopics([]string{"outstation/apsystems/status/online"}, func(topic string, payload []byte) {
+		got <- topic + "=" + string(payload)
+	})
+	client.dispatchWatch(fakeMessage{topic: "outstation/apsystems/status/online", payload: []byte("1")})
+	select {
+	case v := <-got:
+		if v != "outstation/apsystems/status/online=1" {
+			t.Fatalf("got %q", v)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("watch handler not called")
+	}
+}
