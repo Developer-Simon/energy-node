@@ -206,6 +206,13 @@ def test_publish_guard_blocks_balance_and_availability_allows_settings():
     assert automation.validate_publish_topic("outstation/apsystems/settings/simulation_active/set") is None
 
 
+def test_publish_guard_blocks_node_state_and_diagnostics_topics():
+    # The dashboard is the sole publisher of retained node telemetry; a rule
+    # must not be able to forge outstation/energy_node/state or .../diagnostics.
+    assert automation.validate_publish_topic("outstation/energy_node/state") is not None
+    assert automation.validate_publish_topic("outstation/energy_node/diagnostics") is not None
+
+
 def test_load_and_validate_rejects_too_many_rules(tmp_path):
     doc = document(rules=[rule(id=f"r{i}") for i in range(17)])
     with pytest.raises(automation.RuleValidationError):

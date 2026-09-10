@@ -79,12 +79,18 @@ def validate_publish_topic(topic: str) -> Optional[str]:
     if topic.startswith("$SYS/"):
         return "topic must not target broker-internal $SYS/..."
     # Nach dem Topic-Umzug (Spec V9) liegt der Dashboard-eigene Baum unter
-    # outstation/energy_node/. Geschuetzt sind genau die Bilanz- und
-    # Erreichbarkeits-Topics, die das Dashboard publiziert; die
-    # settings/-Topics (u. a. simulation_active/set) bleiben erlaubt, damit
-    # eine Regel den Broadcast setzen darf.
-    if topic in (BALANCE_TOPIC, "outstation/energy_node/status/online"):
-        return "topic must not forge the dashboard's own topics (energy balance / availability)"
+    # outstation/energy_node/. Geschuetzt sind genau die retained Topics, die
+    # das Dashboard selbst publiziert: die Bilanz, die Erreichbarkeit und die
+    # Node-Telemetrie (state / diagnostics). Die settings/-Topics (u. a.
+    # simulation_active/set) bleiben erlaubt, damit eine Regel den Broadcast
+    # setzen darf.
+    if topic in (
+        BALANCE_TOPIC,
+        "outstation/energy_node/status/online",
+        "outstation/energy_node/state",
+        "outstation/energy_node/diagnostics",
+    ):
+        return "topic must not forge the dashboard's own topics (energy balance / availability / node telemetry)"
     return None
 
 
