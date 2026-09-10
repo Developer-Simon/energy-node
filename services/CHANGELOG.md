@@ -1,11 +1,5 @@
 # Changelog
 
-## v0.3.0 (2026-09-10)
-
-### Chores
-
-- bump minor versions for dashboard, services and energy_node_common (549a100)
-
 ## v0.2.10 (2026-09-10)
 
 ### Features
@@ -13,22 +7,14 @@
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
-- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
-- **⚠ Breaking:** move node telemetry into the dashboard, delete the energy-node service (540eac6)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - add a manifest and schema fragment per device service (7124a64)
 - **docs:** Add comprehensive documentation on dashboard and services (35cce56)
-
-### Fixes
-
-- **automation:** block forged node state and diagnostics publishes (f6707de)
 
 ### Refactors
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
 - remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
-- normalise the node MQTT/HA id to energy_node (800fd08)
-- **automation:** follow the energy balance topic to outstation/energy_node (e8b808d)
 - read the node identity from dashboard.node_* (5e1e672)
 - **appconfig:** derive the service set from manifests/, not a table (652345c)
 - rename product Werkstatt-IoT to Energy Node repo-wide (3978730)
