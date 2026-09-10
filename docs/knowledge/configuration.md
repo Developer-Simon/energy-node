@@ -96,7 +96,7 @@ The file follows this JSON structure:
 | `dashboard.tls.key_file` | String | Go | path to the TLS key file (empty = no TLS) |
 | `dashboard.system_action_helper` | String | Go | path to the helper program for system actions (e.g. reboot) |
 | `dashboard.mosquitto_bridge_target` | String | Go | target path for `bridge.conf` on the target device |
-| `dashboard.node_device_id` | String | Python | unique ID of the central node (normally `energy-node`) |
+| `dashboard.node_device_id` | String | Python | unique ID of the central node (normally `energy_node`) |
 | `dashboard.node_device_name` | String | Python | human-readable name for display |
 | `dashboard.node_poll_interval_s` | Integer | Python | poll interval of the node in seconds (default: 60) |
 | `dashboard.node_diagnostic_poll_multiplier` | Integer | Python | factor for the diagnostic poll interval (default: 10) |
@@ -226,7 +226,9 @@ The Mosquitto MQTT bridge is still configured through the file `/etc/mosquitto/c
 
 The files `settings.json`, `mqtt.json`, and `bridge.json` in `data_dir` are the operating state and do not belong to `config.json`. They contain settings that the user saves at runtime through the dashboard:
 - `settings.json`: general dashboard settings
-- `mqtt.json`: MQTT settings (broker alternatives)
+- `mqtt.json`: MQTT settings (broker alternatives). Two optional fields beyond the broker connection:
+  - `metrics`: map `metric-name → bool`. A missing key means the metric is published (default on); setting a key to `false` stops the dashboard's node agent from publishing that individual system metric.
+  - `simulation_active`: bool, default `false`. When `true`, the dashboard retained-broadcasts simulation mode to all bridges on `outstation/energy_node/settings/simulation_active/set`.
 - `bridge.json`: Mosquitto bridge settings
 
 This separation stays in place — `config.json` is only for settings that are set by the admin (locally or via deployment), not for runtime operating state.

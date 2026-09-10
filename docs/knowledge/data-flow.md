@@ -40,7 +40,6 @@ flowchart TB
         TYS["tuya_mqtt.py"]
         BAT["battery_soc_mqtt.py<br/>(computes, polls nothing)"]
         AUT["automation_mqtt.py<br/>(rules)"]
-        NODE["energy_node_mqtt.py<br/>(master / poll rate)"]
     end
 
     BROKER{{"Mosquitto<br/>localhost:1883"}}
@@ -51,6 +50,7 @@ flowchart TB
         API["httpapi<br/>/api/v1/*"]
         WEB["webui<br/>server-side HTML"]
         FILES[("data directory<br/>*.json")]
+        NODE["nodeagent<br/>(node identity, Pi diagnostics,<br/>master / poll rate)"]
     end
 
     BR["Mosquitto bridge"]
@@ -68,7 +68,7 @@ flowchart TB
     TYS -->|publish| BROKER
     BAT -->|publish| BROKER
     AUT -->|publish| BROKER
-    NODE -->|"poll rate, simulation"| BROKER
+    NODE -->|"outstation/energy_node/… (diagnostics, poll rate, simulation)"| BROKER
     BROKER -->|"subscribe: raw values"| BAT
     BROKER -->|"subscribe: balance, topics"| AUT
     BROKER -->|"config/reload, */set"| APS

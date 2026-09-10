@@ -30,7 +30,7 @@ def valid_document() -> dict:
         },
         "logging": {"level": "INFO"},
         "dashboard": {
-            "node_device_id": "energy-node",
+            "node_device_id": "energy_node",
             "node_device_name": "Energy Node",
             "node_poll_interval_s": 60,
             "node_diagnostic_poll_multiplier": 10,
@@ -99,7 +99,7 @@ def test_load_reads_every_section(tmp_path):
 
 def test_load_reads_dashboard_node_fields(tmp_path):
     config = appconfig.load(write_config(tmp_path))
-    assert config.dashboard.node_device_id == "energy-node"
+    assert config.dashboard.node_device_id == "energy_node"
     assert config.dashboard.node_device_name == "Energy Node"
     assert config.dashboard.node_poll_interval_s == 60.0
     assert config.dashboard.node_diagnostic_poll_multiplier == 10.0

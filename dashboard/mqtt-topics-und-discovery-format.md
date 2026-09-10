@@ -37,11 +37,11 @@ Bridge-Konvention; sie ersetzt weiterhin nicht die HA-Discovery-Spezifikation.
     3-Ebenen-Form ab. Ein 4-Ebenen-Format (`node_id`) ist erst in Phase 5
     vorgesehen, falls tatsächlich eine Bridge oder ein Fremdgerät es
     benötigt (siehe Kernprinzip, Scope-Reduktion).
-- **Zentraler Knoten:** `energy_node_mqtt.py` veröffentlicht den
-  Knoten selbst als eigenes HA-Gerät (`energy-node`), damit andere
+- **Zentraler Knoten:** `internal/nodeagent` im Dashboard veröffentlicht den
+  Knoten selbst als eigenes HA-Gerät (`energy_node`), damit andere
   Geräte sich per `via_device` daran anhängen können.
 - **Geräteverknüpfung:** APsystems, Shelly, Tuya und der Batterie-SoC-Block
-  verwenden `via_device: energy-node`; der Trucki-Stick verwendet
+  verwenden `via_device: energy_node`; der Trucki-Stick verwendet
   `via_device` konfigurierbar je Gerät (aktuell auf den zugehörigen
   Batterie-SoC-Eintrag gesetzt, da beide physisch dasselbe Gerät sind). Kein
   Discovery-Merge zwischen den Bridges — jedes Gerät bleibt eigenständig.
