@@ -9,6 +9,7 @@
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
 - **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
 - **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **battery_soc:** extract core logic and adapter modules (4a31188)
 - **battery_soc:** show net battery power as a measurement, not diagnostic (b3878e8)
 - **ha:** native Home Assistant integration for battery SoC (99ef3cf)
