@@ -8,12 +8,27 @@
    Nur Theme-Tokens aus base.css, keine neuen Farben, kein neuer Radius.
    =========================================================================== */
 
-.settings-cards { display: flex; flex-direction: column; gap: 1rem; max-width: 40rem; }
+/* Zwei gleichwertige Spalten, solange der Panel-Body Platz fuer zwei Karten
+   hat, sonst eine. Kein eigener max-width mehr - das Raster nutzt die
+   Lesebreite des Panels; die Breakpoint-Frage haengt am settings-body-
+   Container auf .settings-panel-body, nicht am Viewport. */
+.settings-panel-body { container: settings-body / inline-size; }
+.settings-cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  align-items: start;
+}
+.settings-cards > .settings-hint,
+.settings-cards > .setting-actions { grid-column: 1 / -1; }
 .settings-cards > .settings-hint {
-  margin: .1rem 0 .25rem;
+  margin: .1rem 0 .15rem;
   color: var(--text-muted);
   font-size: .88rem;
   line-height: 1.55;
+}
+@container settings-body (max-width: 46rem) {
+  .settings-cards { grid-template-columns: 1fr; }
 }
 
 /* --- Material-Karte -------------------------------------------------------- */

@@ -13,7 +13,7 @@
     <button type="button" role="tab" aria-controls="settings-tailscale" x-bind:class="{ active: activeSettingsPage === 'tailscale' }" x-bind:aria-selected="activeSettingsPage === 'tailscale'" x-on:click="activeSettingsPage = 'tailscale'">Tailscale einrichten</button>
     <button type="button" role="tab" aria-controls="settings-system" x-bind:class="{ active: activeSettingsPage === 'system' }" x-bind:aria-selected="activeSettingsPage === 'system'" x-on:click="activeSettingsPage = 'system'">System</button>
   </nav>
-  <div x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); load()">
+  <div class="settings-panel-body" x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); load()">
   <section id="settings-general" role="tabpanel" x-show="activeSettingsPage === 'general'">
     <div class="form-grid">
       <label for="health-threshold">Health-Schwellwert (Sekunden)</label><input id="health-threshold" type="number" min="1" x-model.number="healthScoreThreshold">
