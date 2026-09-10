@@ -331,6 +331,9 @@
       return `${minutes} min`;
     },
 
+    formatTemp(v) { return (v === null || v === undefined) ? '-' : `${v.toFixed(1)} °C`; },
+    formatPct(v) { return (v === null || v === undefined) ? '-' : `${Math.round(v)} %`; },
+
     async load() {
       this.loading = true;
       this.error = '';

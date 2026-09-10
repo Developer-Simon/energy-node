@@ -69,7 +69,7 @@
     },
     "status_bar_items": {
       "type": "array",
-      "items": {"type": "string", "enum": ["mqtt", "cache", "storage", "uptime", "version"]},
+      "items": {"type": "string", "enum": ["mqtt", "cache", "storage", "uptime", "version", "cpu_temp", "ram", "undervoltage"]},
       "default": ["mqtt", "storage", "uptime", "version"],
       "title": "Angaben im Systemstatus",
       "description": "Welche Angaben die Statuszeile unterhalb der Kopfzeile zeigt, wenn der globale Systemstatus aktiv ist."
