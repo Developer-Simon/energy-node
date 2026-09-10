@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.9 (2026-09-09)
+## v0.1.9 (2026-09-10)
 
 ### Features
 
@@ -34,4 +34,5 @@
 
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 - path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
+- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
 

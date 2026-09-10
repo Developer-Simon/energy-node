@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.5.25 (2026-09-09)
+## v0.5.25 (2026-09-10)
 
 ### Features
 
@@ -8,6 +8,7 @@
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
+- **dashboard:** rebuild the general and display settings tabs as material cards (fdba93e)
 - **dashboard:** rebuild the Verläufe settings tab with Apple-style controls (fecc586)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - **dashboard:** compose config.schema.json from per-service fragments (fc73de5)
@@ -20,6 +21,7 @@
 
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
 - remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
+- **dashboard:** remove the no-op discovery-JSON-tooltip feature (04f298a)
 - read the node identity from dashboard.node_* (5e1e672)
 
 ### Documentation
@@ -27,10 +29,15 @@
 - drop remaining git-hooks references (7786f6d)
 - config.schema.json is now generated from per-service fragments (0105cb7)
 
+### Style
+
+- **dashboard:** lay the history settings cards out in a responsive grid (bc0cf9b)
+
 ### CI
 
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 - path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
+- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
 
 ### Other
 
