@@ -195,15 +195,23 @@ error loading config.json: schema_version 3 found, but only 2 supported
 ```
 
 A `schema_version` of `1` is migrated automatically by the **dashboard** on
-startup: version 2 dissolved the former top-level `node` block into flat
-`dashboard.node_*` fields, and `internal/appconfig` rewrites an old file in
-place (moving the four surviving `node.*` fields, dropping
-`node.managed_bridges`, and normalising `node_device_id` to `energy_node`).
-The original is kept next to it as `config.json.v1-backup`. If the rewrite
-cannot be persisted (read-only path), the dashboard still starts on the
-migrated config in memory and logs a warning. The Python services do **not**
-migrate — they still reject `schema_version 1` and expect the dashboard to
-have upgraded the file first; restart them once it has.
+startup. Version 2 dissolved the former top-level `node` block into flat
+`dashboard.node_*` fields, so `internal/appconfig` transforms an old file
+in memory as it loads it: moving the four surviving `node.*` fields,
+dropping `node.managed_bridges`, normalising `node_device_id` to
+`energy_node`, and — for a file predating the service-level `device_id` →
+`service_id` rename — renaming that key in each `services.*` entry.
+
+The dashboard then persists the migrated file through the privileged
+system-action helper (`apply-app-config`), which backs the old file up to
+`/etc/energy-node/.config.json.bak` before installing the new one — a
+direct write fails because `ensure_remote_config.sh` creates
+`/etc/energy-node` as mode `0755` and the service group cannot create files
+there. If the helper is not reachable (not installed, no sudoers entry),
+the dashboard still starts on the in-memory config, logs a warning, and
+retries on the next start. The Python services do **not** migrate — they
+still reject `schema_version 1` and expect the dashboard to have upgraded
+the file first; restart them once it has.
 
 This concept ensures that a deployment in which the dashboard and the Python services come from different versions of the repository is noticed immediately — instead of surfacing as a subtle misconfiguration.
 

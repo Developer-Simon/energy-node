@@ -166,6 +166,49 @@ func TestMigrateV1toV2PreservesOtherSections(t *testing.T) {
 	}
 }
 
+// earlyV1Document ist eine v1-Datei aus der Zeit vor PR #10: die
+// Service-Eintraege tragen noch device_id statt service_id.
+func earlyV1Document() map[string]any {
+	doc := v1Document()
+	services := doc["services"].(map[string]any)
+	for name, raw := range services {
+		entry := raw.(map[string]any)
+		entry["device_id"] = entry["service_id"]
+		delete(entry, "service_id")
+		services[name] = entry
+	}
+	return doc
+}
+
+func TestMigrateV1toV2RenamesServiceDeviceIDToServiceID(t *testing.T) {
+	got := migrate(t, earlyV1Document())
+
+	services, ok := got["services"].(map[string]any)
+	if !ok {
+		t.Fatalf("services fehlt: %v", got["services"])
+	}
+	for name, raw := range services {
+		entry := raw.(map[string]any)
+		if _, ok := entry["device_id"]; ok {
+			t.Fatalf("services.%s.device_id noch vorhanden: %v", name, entry)
+		}
+		if entry["service_id"] != name {
+			t.Fatalf("services.%s.service_id = %v, want %q", name, entry["service_id"], name)
+		}
+	}
+}
+
+func TestMigrateV1toV2EarlyV1OutputValidatesAgainstSchema(t *testing.T) {
+	raw, _ := json.Marshal(earlyV1Document())
+	out, _, err := appconfig.MigrateV1toV2(raw)
+	if err != nil {
+		t.Fatalf("MigrateV1toV2: %v", err)
+	}
+	if err := config.ValidateDocument(out, appconfig.Schema()); err != nil {
+		t.Fatalf("migriertes early-v1-Dokument verletzt das v2-Schema: %v", err)
+	}
+}
+
 func TestMigrateV1toV2RejectsNonV1(t *testing.T) {
 	raw, _ := json.Marshal(validDocument())
 	if _, _, err := appconfig.MigrateV1toV2(raw); err == nil {

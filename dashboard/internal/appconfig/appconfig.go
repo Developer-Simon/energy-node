@@ -13,7 +13,6 @@ import (
 	_ "embed"
 	"encoding/json"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -118,8 +117,23 @@ type TinyTuyaSection struct {
 // Schema liefert das eingebettete Schema fuer die Pruefung beim Schreiben.
 func Schema() []byte { return schemaJSON }
 
+// IsSchemaVersionOne meldet, ob das Dokument schema_version 1 traegt - die
+// eine Version, die MigrateV1toV2 annimmt. Ungueltiges JSON oder eine
+// fehlende Versionsangabe zaehlen als "nein". cmd/dashboard nutzt das, um
+// die einmalige v1->v2-Migration ueber den privilegierten System-Action-
+// Helper zu persistieren.
+func IsSchemaVersionOne(data []byte) bool {
+	var probe struct {
+		SchemaVersion int `json:"schema_version"`
+	}
+	return json.Unmarshal(data, &probe) == nil && probe.SchemaVersion == 1
+}
+
 // Load liest und validiert die Datei oder liefert einen Fehler, der Datei
-// und Ursache nennt.
+// und Ursache nennt. Eine schema_version-1-Datei wird beim Laden in-memory
+// nach v2 migriert (MigrateV1toV2) - Load schreibt dabei nichts zurueck;
+// das Persistieren uebernimmt cmd/dashboard ueber den privilegierten
+// Helper, weil /etc/energy-node der Dienstgruppe gegenueber nur lesbar ist.
 func Load(path string) (Config, error) {
 	if path == "" {
 		path = DefaultPath
@@ -128,21 +142,10 @@ func Load(path string) (Config, error) {
 	if err != nil {
 		return Config{}, fmt.Errorf("%s: Konfigurationsdatei nicht lesbar (anderer Pfad ueber -config): %w", path, err)
 	}
-	var probe struct {
-		SchemaVersion int `json:"schema_version"`
-	}
-	if err := json.Unmarshal(data, &probe); err == nil && probe.SchemaVersion == 1 {
-		migrated, warnings, mErr := MigrateV1toV2(data)
+	if IsSchemaVersionOne(data) {
+		migrated, _, mErr := MigrateV1toV2(data)
 		if mErr != nil {
 			return Config{}, fmt.Errorf("%s: schema_version 1 liess sich nicht auf 2 migrieren: %w", path, mErr)
-		}
-		for _, w := range warnings {
-			log.Printf("appconfig: %s: %s", path, w)
-		}
-		if wErr := persistMigration(path, data, migrated); wErr != nil {
-			log.Printf("appconfig: %s: schema_version 1 in-memory auf 2 gehoben, aber Rueckschreiben fehlgeschlagen (%v) - die Datei bleibt v1 und die Python-Dienste lehnen sie weiter ab", path, wErr)
-		} else {
-			log.Printf("appconfig: %s: schema_version 1 auf 2 migriert, der node-Block ist nach dashboard.node_* gewandert (Sicherung: %s.v1-backup)", path, path)
 		}
 		data = migrated
 	}

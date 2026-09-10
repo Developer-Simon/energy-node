@@ -264,8 +264,8 @@ def load(path: Optional[str] = None) -> AppConfig:
         raise ConfigError(
             f"{path}: schema_version 1 wird nicht mehr unterstuetzt - der node-Block ist "
             f"in dashboard.node_* gewandert (schema_version 2). Das Dashboard hebt die "
-            f"Datei beim Start automatisch auf 2 (Sicherung: {path}.v1-backup); danach "
-            f"diesen Dienst neu starten."
+            f"Datei beim Start automatisch auf 2 (Sicherung: /etc/energy-node/.config.json.bak); "
+            f"danach diesen Dienst neu starten."
         )
     if version != SCHEMA_VERSION:
         raise ConfigError(

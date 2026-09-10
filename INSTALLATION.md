@@ -297,12 +297,18 @@ once, on the node, around the first start of the new dashboard:
    ```
 
 2. **Let the dashboard migrate `config.json`.** A `schema_version 1` file
-   (top-level `node` block, hyphenated `node.device_id`) is upgraded to
-   version 2 in place the first time the new dashboard starts: the four
-   surviving `node.*` fields move to `dashboard.node_*`,
-   `node.managed_bridges` is dropped, and `node_device_id` is normalised to
-   `"energy_node"`. The original is saved as
-   `/etc/energy-node/config.json.v1-backup`. The Python services still reject
+   (top-level `node` block, hyphenated `node.device_id`, and — on very old
+   nodes — `services.*.device_id` instead of `service_id`) is upgraded to
+   version 2 the first time the new dashboard starts: the four surviving
+   `node.*` fields move to `dashboard.node_*`, `node.managed_bridges` is
+   dropped, `node_device_id` is normalised to `"energy_node"`, and any
+   `services.*.device_id` is renamed to `service_id`. The dashboard writes
+   the result back through its privileged system-action helper
+   (`apply-app-config`), keeping the old file as
+   `/etc/energy-node/.config.json.bak`. That needs the helper and its
+   sudoers entry from the current `scripts/deploy/deploy_dashboard_to_remote.sh`;
+   if they are missing the dashboard still runs on the migrated config but
+   the file on disk stays version 1. The Python services still reject
    version 1, so start the dashboard first, then restart the bridges
    (`systemctl restart apsystems-ez1 shelly-rpc trucki-http tuya battery-soc automation`).
    A `node_device_id` that is neither `energy-node` nor `energy_node` is left

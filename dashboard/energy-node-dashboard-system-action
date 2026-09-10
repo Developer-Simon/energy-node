@@ -10,6 +10,15 @@ BRIDGE_TARGET="/etc/mosquitto/conf.d/bridge.conf"
 BRIDGE_BACKUP="/etc/mosquitto/conf.d/.bridge.conf.bak"
 BRIDGE_OWNER="energynode"
 
+# App-config staging paths for apply-app-config. Hardcoded for the same
+# reason as the bridge paths above - this script runs as root via sudo,
+# without the dashboard service's environment. The staged file name matches
+# stagedAppConfigName in dashboard/cmd/dashboard/configmigrate.go.
+APP_CONFIG_STAGED="/home/energynode/dashboard/data/energy-node.config.staged.json"
+APP_CONFIG_TARGET="/etc/energy-node/config.json"
+APP_CONFIG_BACKUP="/etc/energy-node/.config.json.bak"
+APP_CONFIG_OWNER="energynode"
+
 # apply_bridge_config installs BRIDGE_STAGED as BRIDGE_TARGET and restarts
 # mosquitto, with two independent defenses against a compromised dashboard
 # process and one rollback path against a working-but-wrong configuration:
@@ -68,6 +77,38 @@ apply_bridge_config() {
   exit 75
 }
 
+# apply_app_config installs APP_CONFIG_STAGED as APP_CONFIG_TARGET
+# (/etc/energy-node/config.json). The dashboard cannot write that path
+# itself: ensure_remote_config.sh creates /etc/energy-node as mode 0755, so
+# the service group has no write access to the directory and an atomic
+# write (temp file + rename) fails. The dashboard stages the file in its
+# own data dir - which it owns - and this helper, the only thing running as
+# root, moves it into place after two checks against a compromised
+# dashboard process (owner and size) and a cheap JSON-shape check. The full
+# schema validation already ran in the Go dashboard before staging. The
+# previous file is backed up first; no service is restarted here.
+apply_app_config() {
+  [ -f "$APP_CONFIG_STAGED" ] || exit 65
+  owner="$(/usr/bin/stat -c %U "$APP_CONFIG_STAGED" 2>/dev/null || echo '')"
+  [ "$owner" = "$APP_CONFIG_OWNER" ] || exit 65
+  size="$(/usr/bin/stat -c %s "$APP_CONFIG_STAGED" 2>/dev/null || echo 999999999)"
+  [ "$size" -ge 2 ] || exit 65
+  [ "$size" -le 65536 ] || exit 65
+
+  compact="$(/usr/bin/tr -d ' \t\r\n' < "$APP_CONFIG_STAGED" 2>/dev/null || true)"
+  case "$compact" in
+    '{'*'}') : ;;
+    *) exit 65 ;;
+  esac
+
+  if [ -f "$APP_CONFIG_TARGET" ]; then
+    /usr/bin/install -o root -g root -m 0600 "$APP_CONFIG_TARGET" "$APP_CONFIG_BACKUP"
+  fi
+  /usr/bin/install -o root -g "$APP_CONFIG_OWNER" -m 0664 "$APP_CONFIG_STAGED" "$APP_CONFIG_TARGET"
+  rm -f "$APP_CONFIG_STAGED"
+  exit 0
+}
+
 if [ "$#" -ne 1 ]; then
   exit 64
 fi
@@ -84,6 +125,9 @@ case "$1" in
     ;;
   apply-bridge-config)
     apply_bridge_config
+    ;;
+  apply-app-config)
+    apply_app_config
     ;;
   restart-mosquitto)
     exec /bin/systemctl restart mosquitto

@@ -3,8 +3,6 @@ package appconfig
 import (
 	"encoding/json"
 	"fmt"
-
-	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 )
 
 // nodeFieldDefaults sind die Werte, die ein v1-node-Block laut altem Schema
@@ -89,6 +87,26 @@ func MigrateV1toV2(data []byte) (migrated []byte, warnings []string, err error) 
 	dashboard["node_diagnostic_poll_multiplier"] = resolve(
 		"node_diagnostic_poll_multiplier", "diagnostic_poll_multiplier", nodeFieldDefaults.pollMultiplier)
 
+	// PR #10 hat das Service-Feld device_id in service_id umbenannt, noch
+	// unter schema_version 1. Eine Datei aus der Zeit davor traegt in jedem
+	// services.<name>-Eintrag device_id; der Wert ist immer der Servicename.
+	if services, ok := doc["services"].(map[string]any); ok {
+		for _, raw := range services {
+			entry, ok := raw.(map[string]any)
+			if !ok {
+				continue
+			}
+			legacyID, hasLegacy := entry["device_id"]
+			if !hasLegacy {
+				continue
+			}
+			delete(entry, "device_id")
+			if _, hasNew := entry["service_id"]; !hasNew {
+				entry["service_id"] = legacyID
+			}
+		}
+	}
+
 	delete(dashboard, "node_managed_bridges")
 	delete(doc, "node")
 	doc["schema_version"] = float64(2)
@@ -98,17 +116,6 @@ func MigrateV1toV2(data []byte) (migrated []byte, warnings []string, err error) 
 		return nil, nil, fmt.Errorf("Ergebnis nicht serialisierbar: %w", err)
 	}
 	return append(out, '\n'), warnings, nil
-}
-
-// persistMigration sichert das v1-Original als <path>.v1-backup und
-// schreibt das migrierte v2-Dokument atomar an dieselbe Stelle. Schlaegt
-// schon die Sicherung fehl (z. B. schreibgeschuetztes Verzeichnis), bleibt
-// die Originaldatei unberuehrt.
-func persistMigration(path string, original, migrated []byte) error {
-	if err := config.AtomicWrite(path+".v1-backup", original, 0o644); err != nil {
-		return err
-	}
-	return config.AtomicWrite(path, migrated, 0o664)
 }
 
 // jsonEqual vergleicht zwei aus JSON dekodierte Werte strukturell.
