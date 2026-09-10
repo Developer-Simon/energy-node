@@ -207,7 +207,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.5.27 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` · `js/energy.page.js` · `css/manager.css` (5 panels) | `2` · `13` · `6` · `2` · `19` | 2026-09-10 |
+| v0.6.0 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` · `js/energy.page.js` · `css/manager.css` (5 panels) | `2` · `13` · `6` · `2` · `19` | 2026-09-10 |
 | v0.5.25 | `js/settings.page.js` · `css/settings-controls.css` · `js/dashboard.js` · `css/base.css` | `5` · `2` · `12` · `19` | 2026-09-10 |
 | v0.5.20 | `css/manager.css` (5 panels) · `js/systemconfig.page.js` | `18` · `2` | 2026-09-08 |
 | v0.5.19 | `js/notifications.js` | `1` | 2026-09-08 |
@@ -227,7 +227,7 @@ recomputable.
 | v0.3.15 | `css/base.css` · `css/manager.css` (5 panels) | `13` · `10` | 2026-09-03 |
 | v0.3.14 | baseline — `base.html` state at commit `d6cc3e0`, no bump | — | 2026-09-02 |
 
-The **v0.5.27** row is the `feat: fold node telemetry into the dashboard
+The **v0.6.0** row is the `feat: fold node telemetry into the dashboard
 nodeagent` squash merge. On the branch the bumps landed in steps:
 
 - `mqtt.page.js` `2` — MQTT tab gains a simulation toggle and per-metric

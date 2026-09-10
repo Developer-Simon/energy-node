@@ -1,5 +1,92 @@
 # Changelog
 
+## v0.6.0 (2026-09-10)
+
+### Chores
+
+- bump minor versions for dashboard, services and energy_node_common (3916742)
+
+## v0.5.26 (2026-09-10)
+
+### Features
+
+- **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
+- make device services self-describing with per-service manifests (#12) (2e8c911)
+- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
+- **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
+- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
+- **nodeagent:** add injectable system-metric readers (547d1f3)
+- **nodeagent:** build the energy_node HA discovery and state payloads (acdd553)
+- **⚠ Breaking:** move node telemetry into the dashboard, delete the energy-node service (540eac6)
+- **dashboard:** broadcast simulation_active and expose per-metric toggles (99dd2a5)
+- **nodeagent:** derive per-service liveness from MQTT (627cadc)
+- **dashboard:** optional CPU temp, RAM and undervoltage in the status bar (1fe14fe)
+- **⚠ Breaking:** move the dashboard's own topics under outstation/energy_node (25358cb)
+
+### Fixes
+
+- **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
+- **nodeagent:** address task-6 review findings (ee8e3c4)
+- **nodeagent:** correct throttle bits, guard node id, unify device block (92bd8fa)
+- **dashboard:** style the mqtt metric-toggle fieldset and refresh stale docs (0b3e4ec)
+
+### Refactors
+
+- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
+- normalise the node MQTT/HA id to energy_node (800fd08)
+
+### Documentation
+
+- finish the energy-node -> energy_node rename and guard it (a01c32e)
+
+### CI
+
+- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
+- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
+- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
+
+## v0.5.18 (2026-09-07)
+
+### Features
+
+- **dashboard:** configurable compact device card (#4) (e58d0e2)
+- **dashboard:** modernise the non-energy overview tiles (#5) (9c19382)
+
+### Fixes
+
+- **dashboard:** keep topic samples payload after availability heartbeat (#3) (5c7cde4)
+
+## v0.5.15 (2026-09-06)
+
+### Features
+
+- **battery_soc:** calibration hardening and guided tuning suggestions (#2) (b18974c)
+
+## v0.5.14 (2026-09-06)
+
+### Features
+
+- **docs:** Add comprehensive documentation on dashboard and services (35cce56)
+- **docs:** update favicon and improve documentation (a7f25f4)
+
+### Documentation
+
+- record license and version for vendored dashboard JS libraries (032743e)
+- update changelogs (6284c1a)
+
+### Tests
+
+- add availability topics and update minibroker for live data publishing (d3b36e9)
+
+### Chores
+
+- initial public release of Energy Node (e9c9417)
+
+### Dev
+
+- update pages and add release ci (#1) (f461a51)
+
 ## v0.5.25 (2026-09-10)
 
 ### Features
@@ -42,47 +129,6 @@
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
-
-## v0.5.18 (2026-09-07)
-
-### Features
-
-- **dashboard:** configurable compact device card (#4) (e58d0e2)
-- **dashboard:** modernise the non-energy overview tiles (#5) (9c19382)
-
-### Fixes
-
-- **dashboard:** keep topic samples payload after availability heartbeat (#3) (5c7cde4)
-
-## v0.5.15 (2026-09-06)
-
-### Features
-
-- **battery_soc:** calibration hardening and guided tuning suggestions (#2) (b18974c)
-
-## v0.5.14 (2026-09-06)
-
-### Features
-
-- **docs:** Add comprehensive documentation on dashboard and services (35cce56)
-- **docs:** update favicon and improve documentation (a7f25f4)
-
-### Documentation
-
-- record license and version for vendored dashboard JS libraries (032743e)
-- update changelogs (6284c1a)
-
-### Tests
-
-- add availability topics and update minibroker for live data publishing (d3b36e9)
-
-### Chores
-
-- initial public release of Energy Node (e9c9417)
-
-### Dev
-
-- update pages and add release ci (#1) (f461a51)
 
 ## v0.5.12 (2026-09-05)
 
