@@ -14,7 +14,6 @@ const livenessSlackSeconds = 60
 type serviceState struct {
 	online     bool
 	lastUpdate int64 // unix seconds aus settings/status
-	seenAt     time.Time
 }
 
 type liveness struct {
@@ -69,7 +68,6 @@ func (a *Agent) ObserveLiveness(topic string, payload []byte) {
 		st = &serviceState{}
 		a.live.state[id] = st
 	}
-	st.seenAt = a.now()
 	switch {
 	case strings.HasSuffix(topic, "/status/online"):
 		st.online = strings.TrimSpace(string(payload)) == "1"

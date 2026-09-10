@@ -1,6 +1,9 @@
 package nodeagent
 
 import (
+	"os"
+	"path/filepath"
+	"reflect"
 	"testing"
 	"time"
 
@@ -56,5 +59,38 @@ func TestLoadServiceIDsMissingDirIsEmpty(t *testing.T) {
 	ids, err := LoadServiceIDs(t.TempDir() + "/nope")
 	if err != nil || ids != nil {
 		t.Fatalf("got %v, %v; want nil, nil", ids, err)
+	}
+}
+
+func TestLoadServiceIDsHappyPathSortsAndSkipsNonManifests(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Three real manifests, deliberately out of alphabetical order.
+	write("shelly.json", `{"service_id":"shelly"}`)
+	write("apsystems.json", `{"service_id":"apsystems"}`)
+	write("mqtt-bridge.json", `{"service_id":"mqtt_bridge","other":"ignored"}`)
+	// A .json with no service_id must be skipped, not error.
+	write("placeholder.json", `{"name":"placeholder"}`)
+	write("empty-id.json", `{"service_id":""}`)
+	// A non-.json file must be skipped.
+	write("README.txt", `not a manifest`)
+	// A subdirectory (even one ending in .json) must be skipped.
+	if err := os.Mkdir(filepath.Join(dir, "nested.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	write(filepath.Join("nested.json", "deep.json"), `{"service_id":"should_not_be_seen"}`)
+
+	ids, err := LoadServiceIDs(dir)
+	if err != nil {
+		t.Fatalf("LoadServiceIDs: %v", err)
+	}
+	want := []string{"apsystems", "mqtt_bridge", "shelly"}
+	if !reflect.DeepEqual(ids, want) {
+		t.Fatalf("LoadServiceIDs = %v, want %v", ids, want)
 	}
 }

@@ -259,22 +259,26 @@ func (c *Client) WatchTopics(topics []string, handler func(topic string, payload
 	c.mu.Lock()
 	c.watchTopics = append([]string(nil), topics...)
 	c.watchHandler = handler
+	paho := c.paho
 	c.mu.Unlock()
-	c.subscribeWatchTopics()
+	c.subscribeWatchTopics(paho)
 }
 
-func (c *Client) subscribeWatchTopics() {
+// subscribeWatchTopics (re)subscribes the current watch list on client. It is
+// called from onConnect with the callback's client parameter (c.paho is not
+// assigned yet at that point, exactly as for the discovery/state/bridge
+// re-subscribes) and from WatchTopics with c.paho.
+func (c *Client) subscribeWatchTopics(client mqtt.Client) {
 	c.mu.Lock()
-	paho := c.paho
 	topics := append([]string(nil), c.watchTopics...)
 	handler := c.watchHandler
 	c.mu.Unlock()
-	if paho == nil || !paho.IsConnected() || handler == nil {
+	if client == nil || !client.IsConnected() || handler == nil {
 		return
 	}
 	for _, topic := range topics {
 		t := topic
-		if token := paho.Subscribe(t, 0, func(_ mqtt.Client, m mqtt.Message) {
+		if token := client.Subscribe(t, 0, func(_ mqtt.Client, m mqtt.Message) {
 			c.dispatchWatch(m)
 		}); token.Wait() && token.Error() != nil {
 			c.logger.Printf("watch subscribe %s: %v", t, token.Error())
@@ -812,7 +816,7 @@ func (c *Client) onConnect(client mqtt.Client) {
 		}
 	}
 
-	c.subscribeWatchTopics()
+	c.subscribeWatchTopics(client)
 
 	if cfg.AvailabilityTopic != "" {
 		if token := client.Publish(cfg.AvailabilityTopic, 0, true, "1"); token.Wait() && token.Error() != nil {
