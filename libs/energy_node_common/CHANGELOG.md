@@ -6,6 +6,7 @@
 
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
+- **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - add a manifest and schema fragment per device service (7124a64)
 

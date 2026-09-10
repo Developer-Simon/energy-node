@@ -20,6 +20,9 @@ jobs:
   changes:
     name: Detect changed areas
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: read
     outputs:
       dashboard: ${{ steps.filter.outputs.dashboard }}
       python: ${{ steps.filter.outputs.python }}
@@ -27,6 +30,38 @@ jobs:
       vendored: ${{ steps.filter.outputs.vendored }}
       ha: ${{ steps.filter.outputs.ha }}
     steps:
+      # The Version bump workflow keeps the changelog and per-component patch
+      # bump current on the PR branch; its bot commit re-triggers CI. Block
+      # here until that workflow's check-run for this exact commit has
+      # concluded, so the job set below is decided against the settled branch
+      # and CI does not burn a full run on the pre-bump state. On the
+      # post-merge `main` run and on fork PRs (no bump run) this is skipped.
+      - name: Wait for the version bump to settle
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.fork == false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          CHECK_NAME: Bump component versions
+        run: |
+          for i in $(seq 1 40); do
+            runs="$(gh api \
+              "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs?per_page=100" \
+              --jq '.check_runs[]
+                    | select(.name == env.CHECK_NAME)
+                    | .status + "/" + (.conclusion // "")' 2>/dev/null || true)"
+            echo "attempt ${i}: [${runs//$'\n'/ }]"
+            case "$runs" in
+              *completed/success*|*completed/skipped*)
+                echo "Version bump settled."; exit 0 ;;
+              *completed/*)
+                echo "::error::the Version bump check did not pass (${runs})"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "::error::timed out waiting for the Version bump check on ${HEAD_SHA}"
+          exit 1
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -48,11 +83,19 @@ jobs:
           all() { for o in dashboard python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
 
           # No diff (post-merge run, or it could not be computed) or a change to
-          # the workflow itself: run everything.
+          # the workflow itself: run everything. This check runs against the
+          # unfiltered diff so a docs-only PR does not land here.
           if [ -z "$files" ] || grep -qE '^\.github/workflows/' <<<"$files"; then
             all
             exit 0
           fi
+
+          # Documentation-only changes affect no job. Drop Markdown paths before
+          # matching: a docs-only PR has a non-empty diff but nothing left here,
+          # so every emit below marks its area false and all jobs skip.
+          files="$(printf '%s\n' "$files" | grep -vE '\.md$' || true)"
+          echo "Changed files (excluding Markdown):"
+          printf '%s\n' "$files"
 
           emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
           emit dashboard '^dashboard/'
