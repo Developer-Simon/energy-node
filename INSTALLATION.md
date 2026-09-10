@@ -281,9 +281,9 @@ run with `--service <name>`, where the name is the source directory:
 
 ### Upgrading from an earlier release (≤ 0.4)
 
-Two things changed that the deploy scripts do **not** fix for you, because
+Some things changed that the deploy scripts do **not** fix for you, because
 they never overwrite a live `config.json` or a deployed device file. Do these
-once, on the node, before the first start of the new dashboard:
+once, on the node, around the first start of the new dashboard:
 
 1. **Retire the old Python node service.** Node telemetry now lives in the
    dashboard binary as `internal/nodeagent`; the standalone service is gone.
@@ -296,11 +296,18 @@ once, on the node, before the first start of the new dashboard:
    rm -rf ~/energy-node          # the deployed code dir (TARGET_BASE from deploy_src_to_remote.sh)
    ```
 
-2. **Normalise the node ID.** In `/etc/energy-node/config.json` set
-   `dashboard.node_device_id` to `"energy_node"` (older nodes had the
-   hyphenated `"energy-node"`). The dashboard now refuses to start with any
-   other value, because its MQTT availability topic is fixed to
-   `outstation/energy_node/status/online`.
+2. **Let the dashboard migrate `config.json`.** A `schema_version 1` file
+   (top-level `node` block, hyphenated `node.device_id`) is upgraded to
+   version 2 in place the first time the new dashboard starts: the four
+   surviving `node.*` fields move to `dashboard.node_*`,
+   `node.managed_bridges` is dropped, and `node_device_id` is normalised to
+   `"energy_node"`. The original is saved as
+   `/etc/energy-node/config.json.v1-backup`. The Python services still reject
+   version 1, so start the dashboard first, then restart the bridges
+   (`systemctl restart apsystems-ez1 shelly-rpc trucki-http tuya battery-soc automation`).
+   A `node_device_id` that is neither `energy-node` nor `energy_node` is left
+   untouched and the dashboard then refuses to start — set it to
+   `"energy_node"` by hand in that case.
 
 3. **Fix `via_device` in the operator-editable device files.** In the deployed
    `battery_soc_devices.json` and `trucki_devices.json` (under

@@ -101,12 +101,72 @@ func TestLoadRejectsWrongType(t *testing.T) {
 	}
 }
 
-func TestLoadRejectsSchemaVersionOne(t *testing.T) {
-	document := validDocument()
-	document["schema_version"] = float64(1)
-	_, err := appconfig.Load(writeConfig(t, document))
-	if err == nil || !strings.Contains(err.Error(), "schema_version 1") || !strings.Contains(err.Error(), "dashboard.node_") {
-		t.Fatalf("erwartet Blockverschiebungs-Hinweis, bekam %v", err)
+func TestLoadMigratesSchemaVersionOneInPlace(t *testing.T) {
+	path := writeConfig(t, v1Document())
+
+	cfg, err := appconfig.Load(path)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.SchemaVersion != 2 {
+		t.Fatalf("SchemaVersion = %d, want 2", cfg.SchemaVersion)
+	}
+	if cfg.Dashboard.NodeDeviceID != "energy_node" {
+		t.Fatalf("NodeDeviceID = %q, want energy_node", cfg.Dashboard.NodeDeviceID)
+	}
+	if cfg.Dashboard.NodePollIntervalS != 60 || cfg.Dashboard.NodeDiagnosticPollMultiplier != 10 {
+		t.Fatalf("node poll = %v / %v, want 60 / 10", cfg.Dashboard.NodePollIntervalS, cfg.Dashboard.NodeDiagnosticPollMultiplier)
+	}
+
+	onDisk, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("Datei nach Migration nicht lesbar: %v", err)
+	}
+	var disk map[string]any
+	if err := json.Unmarshal(onDisk, &disk); err != nil {
+		t.Fatalf("migrierte Datei ist kein JSON: %v", err)
+	}
+	if disk["schema_version"] != float64(2) {
+		t.Fatalf("Datei traegt schema_version %v, want 2", disk["schema_version"])
+	}
+	if _, ok := disk["node"]; ok {
+		t.Fatal("node-Block steht noch in der migrierten Datei")
+	}
+
+	backup, err := os.ReadFile(path + ".v1-backup")
+	if err != nil {
+		t.Fatalf("Sicherung fehlt: %v", err)
+	}
+	var saved map[string]any
+	if err := json.Unmarshal(backup, &saved); err != nil {
+		t.Fatalf("Sicherung ist kein JSON: %v", err)
+	}
+	if saved["schema_version"] != float64(1) {
+		t.Fatalf("Sicherung traegt schema_version %v, want 1", saved["schema_version"])
+	}
+}
+
+func TestLoadMigratesSchemaVersionOneEvenWhenWriteBackFails(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root umgeht die 0555-Verzeichnisrechte, die diesen Fall ausloesen")
+	}
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.json")
+	raw, _ := json.Marshal(v1Document())
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+
+	cfg, err := appconfig.Load(path)
+	if err != nil {
+		t.Fatalf("Load soll trotz fehlgeschlagenem Rueckschreiben laufen: %v", err)
+	}
+	if cfg.SchemaVersion != 2 || cfg.Dashboard.NodeDeviceID != "energy_node" {
+		t.Fatalf("in-memory-Migration unvollstaendig: %+v", cfg.Dashboard)
 	}
 }
 

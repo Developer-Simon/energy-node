@@ -194,7 +194,16 @@ The integer `schema_version` is currently set to `2`. Every service (Python and 
 error loading config.json: schema_version 3 found, but only 2 supported
 ```
 
-A `schema_version` of `1` is rejected with a dedicated hint: version 2 dissolved the former top-level `node` block into flat `dashboard.node_*` fields, so an old file needs that block moved before it loads.
+A `schema_version` of `1` is migrated automatically by the **dashboard** on
+startup: version 2 dissolved the former top-level `node` block into flat
+`dashboard.node_*` fields, and `internal/appconfig` rewrites an old file in
+place (moving the four surviving `node.*` fields, dropping
+`node.managed_bridges`, and normalising `node_device_id` to `energy_node`).
+The original is kept next to it as `config.json.v1-backup`. If the rewrite
+cannot be persisted (read-only path), the dashboard still starts on the
+migrated config in memory and logs a warning. The Python services do **not**
+migrate — they still reject `schema_version 1` and expect the dashboard to
+have upgraded the file first; restart them once it has.
 
 This concept ensures that a deployment in which the dashboard and the Python services come from different versions of the repository is noticed immediately — instead of surfacing as a subtle misconfiguration.
 

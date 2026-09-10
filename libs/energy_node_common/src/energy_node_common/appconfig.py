@@ -263,7 +263,9 @@ def load(path: Optional[str] = None) -> AppConfig:
     if version == 1:
         raise ConfigError(
             f"{path}: schema_version 1 wird nicht mehr unterstuetzt - der node-Block ist "
-            f"in dashboard.node_* gewandert (schema_version 2)"
+            f"in dashboard.node_* gewandert (schema_version 2). Das Dashboard hebt die "
+            f"Datei beim Start automatisch auf 2 (Sicherung: {path}.v1-backup); danach "
+            f"diesen Dienst neu starten."
         )
     if version != SCHEMA_VERSION:
         raise ConfigError(
