@@ -2,12 +2,15 @@ name: Version bump
 
 # Keeps two derived artefacts current on a PR branch, so the squash-merge
 # carries both to `main`:
-#   1. the per-component CHANGELOG.md files (scripts/generate_changelog.sh),
-#      committed as "docs(changelog): update changelogs";
-#   2. the per-component patch bump (scripts/version/bump-patch.sh), committed
+#   1. the per-component patch bump (scripts/version/bump-patch.sh), committed
 #      as "chore(release): bump component versions" -- the bump the pre-commit
-#      hook used to do before `main` became PR-protected.
-# The changelog commit lands first so it stays a distinct entry from the bump.
+#      hook used to do before `main` became PR-protected;
+#   2. the per-component CHANGELOG.md files (scripts/generate_changelog.sh),
+#      committed as "docs(changelog): update changelogs".
+# The bump lands first, as its own commit, so generate_changelog.sh sees it in
+# the component's git log and can head the open section with the version it
+# just produced -- otherwise the changelog would still show the pre-bump
+# version until the *next* run caught up.
 #
 # The push uses a PAT so the required checks re-run, which also re-triggers this
 # workflow. The "Skip when HEAD is already a bot commit" guard below is what
@@ -89,17 +92,19 @@ jobs:
           git config user.name "energy-node-bot"
           git config user.email "energy-node-bot@users.noreply.github.com"
 
-          # Changelogs first, as their own commit before the bump.
+          # Per-component patch bump first, as its own commit: generate_changelog.sh
+          # reads each component's version off the commit history, and needs this
+          # commit in place to head the open section with the bumped version.
+          scripts/version/bump-patch.sh "$BASE_REF"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(release): bump component versions"
+          fi
+
+          # Changelogs second, so they pick up the bump commit above.
           for t in $CHANGELOG_TARGETS; do scripts/generate_changelog.sh "$t"; done
           if ! git diff --quiet -- '*CHANGELOG.md'; then
             git add -- '*CHANGELOG.md'
             git commit -m "docs(changelog): update changelogs"
-          fi
-
-          # Per-component patch bump.
-          scripts/version/bump-patch.sh "$BASE_REF"
-          if ! git diff --cached --quiet; then
-            git commit -m "chore(release): bump component versions"
           fi
 
           # One push for whatever landed. The guard step no-ops the run this

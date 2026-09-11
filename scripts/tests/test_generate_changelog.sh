@@ -211,6 +211,17 @@ grep -q "real change to list"      "$cl" || fail "real commit missing after hous
 grep -q "bump component versions"  "$cl" && fail "chore(release) housekeeping commit was listed"
 grep -q "changelogs"              "$cl" && fail "a docs(changelog) housekeeping commit was listed"
 
+# --- the bump commit still heads the open section with its own version ------
+# generate_changelog.sh runs after bump-patch.sh on the PR branch (see
+# .github/workflows/version-bump.yml), so it walks the "chore(release): bump
+# component versions" commit too -- it must move the open section's heading to
+# the version that commit produced, without becoming an entry itself.
+echo v0.5.18 > "$tmp/dashboard/VERSION"
+commit "chore(release): bump component versions"
+gen --rebuild dashboard
+grep -q "^## v0.5.18 " "$cl"      || fail "bump commit's version did not become the open section heading"
+grep -q "bump component versions" "$cl" && fail "bump commit itself got listed as an entry"
+
 # --- semver breaking-change marker: `type!:` and `type(scope)!:` --------------
 # The "!" must not defeat type detection (commit still lands in its normal
 # bucket), and the entry gets a "⚠ Breaking" prefix rather than the raw
@@ -230,5 +241,30 @@ awk '/^### /{sec=$0} /drop the legacy node block/{print sec}' "$cl" | grep -qx "
   || fail "feat! not filed under Features"
 awk '/^### /{sec=$0} /reject configs without an explicit unit/{print sec}' "$cl" | grep -qx "### Fixes" \
   || fail "fix(dashboard)! not filed under Fixes"
+
+# --- cross-"(#NN)" duplicate removed by hash existence -----------------------
+# A squash-merged PR's "(#NN)" entry can repeat an in-branch commit's exact
+# title under a new hash. The pre-squash entry the previous run already froze
+# (no "(#NN)", a hash git no longer knows) must not survive next to it: same
+# text once the hash and any "(#NN)" are stripped, but only one hash is still
+# reachable.
+echo dup > "$tmp/dashboard/dup.js"
+echo v0.5.19 > "$tmp/dashboard/VERSION"
+commit "fix(dashboard): rename the frobnicator (#31)"
+cat > "$cl" <<'EOF'
+# Changelog
+
+## v0.5.19 (2026-09-11)
+
+### Fixes
+
+- **dashboard:** rename the frobnicator (deadccc1)
+EOF
+commit "docs(changelog): simulate the pre-squash frobnicator entry"
+gen dashboard
+[ "$(grep -c "rename the frobnicator" "$cl")" -eq 1 ] \
+  || fail "stale pre-squash duplicate not removed by the hash-existence dedup"
+grep -q "rename the frobnicator (#31)" "$cl" \
+  || fail "live (#NN) entry lost while deduplicating"
 
 echo "OK"

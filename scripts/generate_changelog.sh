@@ -46,8 +46,13 @@
 #   die eigentliche Arbeit haelt). Zusaetzlich wird ein eingefrorener Block mit
 #   exakt der Version eines noch vorhandenen gebauten Abschnitts in diesen
 #   gemergt. Vereinigung der Eintraege, dedupliziert ueber "(#NN)" oder den
-#   Eintragstext ohne den angehaengten Hash. Bloecke <= Cap (getaggte und vor
-#   einem Tag geschriebene aeltere), "## Unversioniert" und
+#   Eintragstext ohne den angehaengten Hash - und zusaetzlich ueber den Text
+#   ohne Hash UND ohne "(#NN)": hat eine Zeile dort ein Gegenstueck, dessen
+#   "(hash)" die aktuelle Commit-Historie dieser Komponente noch kennt, faellt
+#   jede gleichlautende Zeile mit einem Git nicht mehr bekannten Hash weg (z.B.
+#   der In-Branch-Commit vor einem Squash-Merge, dessen Titel der neue
+#   "(#NN)"-Eintrag der Merge-Referenz wiederholt). Bloecke <= Cap (getaggte
+#   und vor einem Tag geschriebene aeltere), "## Unversioniert" und
 #   Nicht-"vX.Y.Z"-Ueberschriften bleiben unberuehrt. Gibt es keinen
 #   erreichbaren Tag (tagloses Repo), gilt der alte Fallback: nur derselbe Minor
 #   wie der offene Abschnitt, neuer als der naechste getaggte Release darunter.
@@ -302,20 +307,47 @@ section_covered_by() {
   $had
 }
 
+# Text eines Eintrags ($1, ohne das fuehrende "- ") ohne den angehaengten
+# " (hash)" und - falls dann noch am Ende - ohne ein angehaengtes " (#NN)".
+# Gemeinsamer Normalisierer fuer die beiden Dedup-Stufen in
+# merge_section_blocks.
+entry_norm_text() {
+  sed -E 's/ \([0-9a-f]{7,40}\)$//; s/ \(#[0-9]+\)$//' <<< "$1"
+}
+
 # Re-rendert den Primaerblock ($1, dessen "## ..."-Ueberschrift erhalten
 # bleibt) mit der Vereinigung der "- "-Eintraege aller uebergebenen Bloecke,
-# gruppiert nach "### Typ" (Reihenfolge: TYPE_ORDER). Dedupliziert ueber die
-# "(#NN)"-PR-Nummer, sonst ueber den Eintragstext ohne den angehaengten
-# " (hash)". Reihenfolge der Eintraege: erstes Auftreten. Ergebnis in der
-# globalen Variable MERGED_BLOCK (kein $(...) - erhaelt die Schluss-Newlines).
+# gruppiert nach "### Typ" (Reihenfolge: TYPE_ORDER). Zwei Dedup-Stufen:
+#   1. exakt ueber die "(#NN)"-PR-Nummer, sonst ueber den Eintragstext ohne
+#      den angehaengten " (hash)";
+#   2. zusaetzlich ueber den Text ohne Hash UND ohne "(#NN)" (entry_norm_text):
+#      hat eine Zeile dort ein Gegenstueck, dessen "(hash)" HIST_HASHES kennt
+#      (von generate_one als 'local -A' bereitgestellt, siehe
+#      block_reproducible), faellt jede gleichlautende Zeile mit einem Git
+#      nicht mehr bekannten Hash weg - der In-Branch-Commit-Titel, den ein
+#      Squash-Merge unter neuem Hash (und ggf. "(#NN)") wiederholt.
+# Reihenfolge der Eintraege: erstes Auftreten. Ergebnis in der globalen
+# Variable MERGED_BLOCK (kein $(...) - erhaelt die Schluss-Newlines).
 MERGED_BLOCK=""
 merge_section_blocks() {
   local primary="$1"; shift
   local heading="${primary%%$'\n'*}"
-  local -A seen=() bucket=()
+  local -A seen=() bucket=() norm_has_live=()
   local t
   for t in "${TYPE_ORDER[@]}"; do bucket[$t]=""; done
-  local block cur_type line body key
+  local block line body h norm
+  for block in "$primary" "$@"; do
+    while IFS= read -r line; do
+      [[ "$line" == "- "* ]] || continue
+      body="${line#- }"
+      [[ "$body" =~ \(([0-9a-f]{7,40})\)[[:space:]]*$ ]] || continue
+      h="${BASH_REMATCH[1]}"
+      [[ -n "${HIST_HASHES[$h]:-}" ]] || continue
+      norm="$(entry_norm_text "$body")"
+      norm_has_live["$norm"]=1
+    done <<< "$block"
+  done
+  local cur_type key
   for block in "$primary" "$@"; do
     cur_type=""
     while IFS= read -r line; do
@@ -323,6 +355,11 @@ merge_section_blocks() {
         cur_type="${LABEL_TO_TYPE[${BASH_REMATCH[1]}]:-other}"
       elif [[ "$line" == "- "* && -n "$cur_type" ]]; then
         body="${line#- }"
+        norm="$(entry_norm_text "$body")"
+        if [[ -n "${norm_has_live[$norm]:-}" ]] && [[ "$body" =~ \(([0-9a-f]{7,40})\)[[:space:]]*$ ]]; then
+          h="${BASH_REMATCH[1]}"
+          [[ -n "${HIST_HASHES[$h]:-}" ]] || continue
+        fi
         if [[ "$body" =~ \(#([0-9]+)\) ]]; then
           key="pr:${BASH_REMATCH[1]}"
         else
@@ -450,15 +487,22 @@ generate_one() {
     pathspec+=(":(exclude)${ex}")
   done
 
-  # The version-bump workflow's own housekeeping commits are skipped (see the
+  # The version-bump workflow's own changelog commits are skipped (see the
   # --invert-grep below) so a CHANGELOG.md never lists the commits that wrote
-  # it or the patch bump that rode along.
+  # it. Its patch-bump commit ("chore(release): bump component versions") is
+  # NOT skipped: the workflow now runs the bump before generate_changelog.sh
+  # (see .github/workflows/version-bump.yml), and this walk needs to see it to
+  # head the open section with the version it just produced. It still never
+  # gets a changelog entry of its own - see the is_bump_commit check below.
   local prev_tagged=false
   local first=true
   local hash subject
   while IFS=$'\t' read -r hash subject; do
     [[ -z "$hash" ]] && continue
     HIST_HASHES[$hash]=1
+
+    local is_bump_commit=false
+    [[ "$subject" == "chore(release): bump component versions" ]] && is_bump_commit=true
 
     local local_version=""
     local raw vf
@@ -512,17 +556,21 @@ except Exception:
       group_minor="$local_minor"
     fi
 
-    classify_and_append "$hash" "$subject"
+    # The bump commit only ever moves the open section's heading forward; it
+    # never becomes an entry (nothing a reader could act on) and never counts
+    # as a tag boundary.
+    $is_bump_commit || classify_and_append "$hash" "$subject"
     group_version="$local_version"
     group_tag="$local_tag"
     group_date="$(git -C "$repo_root" log -1 --format=%ad --date=short "$hash")"
 
-    prev_tagged=false
-    [[ -n "$local_tag" ]] && prev_tagged=true
+    if ! $is_bump_commit; then
+      prev_tagged=false
+      [[ -n "$local_tag" ]] && prev_tagged=true
+    fi
     first=false
   done < <(git -C "$repo_root" log --no-merges --reverse --pretty=format:'%h%x09%s' \
     --invert-grep \
-    --grep='^chore(release): bump component versions$' \
     --grep='^docs(changelog): ' \
     "${pathspec[@]}"; printf '\n')
 
