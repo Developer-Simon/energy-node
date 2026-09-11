@@ -168,6 +168,7 @@ jobs:
       - run: bash scripts/tests/test_generate_changelog_cap.sh
       - run: bash scripts/tests/test_extract_changelog.sh
       - run: bash scripts/tests/test_bump_version.sh
+      - run: bash scripts/tests/test_ensure_remote_manifests.sh
       - run: ./scripts/deploy/check_tracked_secrets.sh
 
   vendored-artefacts:
