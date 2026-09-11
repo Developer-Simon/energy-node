@@ -125,6 +125,16 @@ The file follows fixed conventions for paths and file names:
 
 The `<name>` key under `services` is consistent with the first part of the corresponding file names. A service must be defined under `services` in order to start — there is no implicit default name.
 
+## Service manifests delivery
+
+Service manifests are delivered to the node via deploy: `scripts/deploy/deploy_src_to_remote.sh`
+mirrors the complete set from `services/*/manifest.json` to
+`/etc/energy-node/manifests/<service_id>.json` on every run (`ensure_remote_manifests`,
+`rsync --delete` — orphaned manifests are removed). The set matches the
+`services` block in `config.json`; `energy_node_common` validates this on the
+node in both directions. The installer must replicate this same step when it
+unpacks its bundle.
+
 ## Credentials
 
 ### Why passwords live in separate files
