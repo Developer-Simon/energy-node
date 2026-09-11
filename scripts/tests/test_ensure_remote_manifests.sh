@@ -45,4 +45,28 @@ if stage_manifests "$(mktemp -d)" "$(mktemp -d)" 2>/dev/null; then
   fail "leeres services/-Verzeichnis haette abgelehnt werden muessen"
 fi
 
+# 5. ensure_remote_manifests im DRY_RUN ruft weder ssh noch rsync auf.
+stubbin="$(mktemp -d)"
+cat > "${stubbin}/ssh"   <<'EOF'
+#!/bin/sh
+echo "STUB-SSH $*" >> "${STUB_LOG}"
+EOF
+cat > "${stubbin}/rsync" <<'EOF'
+#!/bin/sh
+echo "STUB-RSYNC $*" >> "${STUB_LOG}"
+EOF
+chmod +x "${stubbin}/ssh" "${stubbin}/rsync"
+
+STUB_LOG="$(mktemp)"
+export STUB_LOG
+DRY_RUN=true
+TARGET_USER=someuser
+RSYNC_OPTS=(--archive --dry-run)
+RSYNC_SSH="ssh"
+PATH="${stubbin}:${PATH}" ensure_remote_manifests "someuser@example" -o BatchMode=yes \
+  || fail "ensure_remote_manifests DRY_RUN exit $?"
+[[ ! -s "${STUB_LOG}" ]] || fail "DRY_RUN hat Zielzugriffe gemacht: $(cat "${STUB_LOG}")"
+rm -rf "${stubbin}" "${STUB_LOG}"
+unset DRY_RUN TARGET_USER RSYNC_OPTS RSYNC_SSH STUB_LOG
+
 echo "PASS: test_ensure_remote_manifests.sh"

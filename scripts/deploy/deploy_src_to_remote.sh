@@ -10,6 +10,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/deploy_lib.sh"
 source "${SCRIPT_DIR}/ensure_remote_secrets.sh"
 source "${SCRIPT_DIR}/ensure_remote_config.sh"
+source "${SCRIPT_DIR}/ensure_remote_manifests.sh"
 
 # Alle nachfolgenden repo-relativen Pfade (services/..., check_tracked_secrets.sh
 # ueber SCRIPT_DIR) setzen CWD == Repo-Root voraus - unabhaengig davon, von
@@ -225,6 +226,9 @@ ensure_remote_secrets "${SSH_TARGET}" "${SSH_OPTS[@]}"
 
 echo "==> Preflight: zentrale Konfiguration auf dem Zielgeraet"
 ensure_remote_config "${SSH_TARGET}" "${FORCE_CONFIG}" "${SSH_OPTS[@]}"
+
+echo "==> Preflight: Dienst-Manifeste auf dem Zielgeraet"
+ensure_remote_manifests "${SSH_TARGET}" "${SSH_OPTS[@]}"
 
 # services/VERSION beschreibt alle Python-Dienste als Ganzes (Patch-Bump auf
 # dem PR-Branch durch den `Version bump`-Workflow). Es landet im gemeinsamen

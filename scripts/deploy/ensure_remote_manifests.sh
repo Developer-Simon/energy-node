@@ -60,3 +60,47 @@ print(value)
     return 1
   fi
 }
+
+# ensure_remote_manifests <ssh_target> <ssh_opts...>
+# Spiegelt den vollen Manifest-Satz nach /etc/energy-node/manifests/ auf dem
+# Zielgeraet. Verwaiste Manifeste werden entfernt (rsync --delete), der Satz
+# muss dem services-Block der config.json exakt entsprechen.
+ensure_remote_manifests() {
+  local ssh_target="$1"
+  shift
+  local ssh_opts=("$@")
+
+  local staging
+  staging="$(mktemp -d)"
+
+  if ! stage_manifests "${ENSURE_MANIFESTS_REPO_ROOT}/services" "${staging}"; then
+    rm -rf "${staging}"
+    echo "ensure_remote_manifests: Staging fehlgeschlagen" >&2
+    return 1
+  fi
+
+  local names
+  names="$(cd "${staging}" && printf '%s ' -- *.json)"
+  echo "==> Dienst-Manifeste -> ${ssh_target}:/etc/energy-node/manifests/"
+  echo "    ${names}"
+
+  if [[ "${DRY_RUN:-false}" == true ]]; then
+    echo "    (dry-run: kein Schreibvorgang auf dem Zielgeraet)"
+    rm -rf "${staging}"
+    return 0
+  fi
+
+  ssh "${ssh_opts[@]}" "${ssh_target}" "
+    set -e
+    sudo mkdir -p /etc/energy-node/manifests
+    sudo chown root:${TARGET_USER} /etc/energy-node/manifests
+    sudo chmod 0755 /etc/energy-node/manifests
+  "
+
+  rsync "${RSYNC_OPTS[@]}" --delete --rsync-path='sudo rsync' \
+    --chown="root:${TARGET_USER}" --chmod=D0755,F0644 \
+    -e "${RSYNC_SSH}" \
+    "${staging}/" "${ssh_target}:/etc/energy-node/manifests/"
+
+  rm -rf "${staging}"
+}
