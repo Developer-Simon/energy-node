@@ -1,11 +1,11 @@
 # Changelog
 
-## v0.6.1 (2026-09-10)
+## v0.6.2 (2026-09-11)
 
 ### Features
 
-- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
+- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
@@ -26,6 +26,7 @@
 
 ### Fixes
 
+- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **dashboard:** finish the config.json v1 -> v2 migration path (89252c9)
 - **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
 - **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
@@ -64,6 +65,37 @@
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
+
+## v0.6.0 (2026-09-10)
+
+### Features
+
+- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
+
+## v0.5.26 (2026-09-10)
+
+### Features
+
+- **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
+- make device services self-describing with per-service manifests (#12) (2e8c911)
+- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
+- **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
+- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
+
+### Fixes
+
+- **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
+
+### Refactors
+
+- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
+
+### CI
+
+- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
+- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
+- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
 
 ## v0.5.18 (2026-09-07)
 
