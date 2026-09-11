@@ -237,6 +237,56 @@
 /* --- Speicherleiste am Fuss des Kartenstapels -------------------------- */
 .setting-actions { display: flex; gap: .6rem; margin-top: .5rem; }
 
+/* --- Schwebende Speicherleiste fuer lange Formulare -----------------------
+   Reines position:sticky ohne IntersectionObserver (anders als
+   .config-actionbar): die Leiste bleibt am unteren Rand sichtbar, solange
+   ihre eigene Karte noch im Viewport ist, und dockt von selbst an ihrer
+   eigentlichen Stelle an, sobald die Karte zu Ende ist. Der MQTT-Tab nutzt
+   sie zweimal (Verbindung, Mosquitto-Bridge-Vorschau) mit getrennten
+   Alpine-Scopes - deshalb zwei eigene Leisten statt einer gemeinsamen wie auf
+   der Konfigurationsseite.
+
+   Anders als .energy-actionbar/.config-actionbar (eine Pille fuer ein bis
+   zwei kurze Aktionen) traegt diese Leiste bis zu drei unterschiedlich lange
+   Buttons und bricht auf schmalen Karten in mehrere Zeilen um - eine
+   durchgehend runde Pille wuerde dabei zur schiefen Kapsel verzerren. Die
+   Karte bekommt deshalb denselben Eckradius und dieselbe Materialstaerke wie
+   .setting-card, keine eigene Pillenoptik, und die Buttons behalten ihren
+   normalen eckigen Stil statt eines erzwungenen Pillenradius. */
+.setting-actionbar-dock {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; justify-content: flex-end;
+  margin-top: .8rem; padding: .75rem 0 .1rem;
+  pointer-events: none;
+}
+.setting-actionbar-dock::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 88%, transparent));
+}
+.setting-actionbar {
+  pointer-events: auto;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: .6rem;
+  padding: .7rem .8rem;
+  border: 1px solid var(--border-soft);
+  border-top-color: rgba(255, 255, 255, .13);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12);
+}
+.setting-actionbar button { white-space: nowrap; }
+.setting-actionbar button:active:not(:disabled) { transform: scale(.97); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .setting-actionbar { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft); }
+  .setting-actionbar-dock::before { background: var(--bg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setting-actionbar button:active:not(:disabled) { transform: none; }
+}
+
 /* --- Karten, die die volle Rasterbreite brauchen ---------------------
    Der Darstellungs-Tab hat Karten mit den breiten Choices.js-Mehrfach-
    auswahlen (Tab-Breite, Angaben im Systemstatus) - die stehen ueber
