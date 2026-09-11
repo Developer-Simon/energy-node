@@ -47,3 +47,22 @@ def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
 def test_no_unexpected_service_dir_has_a_manifest():
     with_manifest = {p.parent.name for p in SERVICES_DIR.glob("*/manifest.json")}
     assert with_manifest == set(EXPECTED)
+
+
+def test_manifest_set_matches_config_template_services():
+    """Der Manifest-Satz und der services-Block der ausgelieferten
+    config.json-Vorlage muessen deckungsgleich sein: energy_node_common
+    prueft auf dem Node beide Richtungen (fehlendes Manifest wie
+    ueberzaehliges Manifest), also faellt der Bridge-Start sonst hart.
+    """
+    template = json.loads(
+        (REPO_ROOT / "services" / "energy-node.config.json").read_text(encoding="utf-8")
+    )
+    config_services = set(template["services"])
+    manifest_ids = {
+        json.loads(
+            (SERVICES_DIR / dir_name / "manifest.json").read_text(encoding="utf-8")
+        )["service_id"]
+        for dir_name in EXPECTED
+    }
+    assert manifest_ids == config_services

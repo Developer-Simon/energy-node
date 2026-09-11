@@ -279,6 +279,13 @@ run with `--service <name>`, where the name is the source directory:
 `apsystems-ez1.service`, `battery-soc.service`, `shelly-rpc.service`,
 `trucki-http.service`, `tuya.service` and `automation.service`.
 
+`deploy_src_to_remote.sh` also delivers the complete set of service manifests
+to `/etc/energy-node/manifests/<service_id>.json` on every run
+(`ensure_remote_manifests`). The dashboard and Python bridges read the active
+service scope from this directory; the Python bridges will not start without it.
+The set must match the `services` block in `config.json`, or the bridge startup
+will fail.
+
 ### Upgrading from an earlier release (≤ 0.4)
 
 Some things changed that the deploy scripts do **not** fix for you, because
@@ -315,7 +322,15 @@ once, on the node, around the first start of the new dashboard:
    untouched and the dashboard then refuses to start — set it to
    `"energy_node"` by hand in that case.
 
-3. **Fix `via_device` in the operator-editable device files.** In the deployed
+3. **Deliver service manifests.** A node set up before this change has no
+   `/etc/energy-node/manifests/`. Re-run `scripts/deploy/deploy_src_to_remote.sh`
+   to create it; then restart the Python bridges (`systemctl restart
+   apsystems-ez1 shelly-rpc trucki-http tuya battery-soc automation`). Without
+   deploy access, create the six files by hand — each as `{"service_id": "<id>",
+   "unit": "<unit>", "schema": "config.schema.json", "required": [...]}` from
+   `services/<name>/manifest.json`.
+
+4. **Fix `via_device` in the operator-editable device files.** In the deployed
    `battery_soc_devices.json` and `trucki_devices.json` (under
    `paths.devices_dir`, i.e. `~/devices/`), change every `via_device` from
    `"energy-node"` to `"energy_node"` so Home Assistant keeps linking those
