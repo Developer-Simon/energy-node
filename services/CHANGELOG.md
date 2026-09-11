@@ -5,6 +5,7 @@
 ### Features
 
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
+- **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
 - **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
