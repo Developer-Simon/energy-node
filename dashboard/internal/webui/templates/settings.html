@@ -93,9 +93,13 @@
         <label class="segmented-option"><input type="radio" name="device-view-mode" value="compact" x-model="deviceViewMode"><span>Kompakt</span></label>
         <label class="segmented-option"><input type="radio" name="device-view-mode" value="control" x-model="deviceViewMode"><span>Steuerung</span></label>
       </div>
-      <div class="setting-row">
-        <span class="setting-row-label" id="lbl-theme">Farbschema</span>
-        <select id="theme" class="setting-select" x-model="theme" aria-labelledby="lbl-theme"><option value="mint">Mint (Standard)</option><option value="stromblau">Stromblau</option><option value="signalgelb">Signalgelb</option><option value="tageslicht">Tageslicht</option></select>
+      <span class="setting-row-label" id="lbl-theme">Farbschema</span>
+      <div class="segmented segmented--4" role="radiogroup" aria-labelledby="lbl-theme">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="theme" value="mint" x-model="theme"><span>Mint</span></label>
+        <label class="segmented-option"><input type="radio" name="theme" value="stromblau" x-model="theme"><span>Stromblau</span></label>
+        <label class="segmented-option"><input type="radio" name="theme" value="signalgelb" x-model="theme"><span>Signalgelb</span></label>
+        <label class="segmented-option"><input type="radio" name="theme" value="tageslicht" x-model="theme"><span>Tageslicht</span></label>
       </div>
     </div>
 

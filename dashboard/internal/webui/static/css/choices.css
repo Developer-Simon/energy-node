@@ -1,6 +1,21 @@
 /* Reskinnt choices.min.css (Upstream-Default) auf die vorhandenen
    Theme-Tokens aus base.css, damit die Mehrfachauswahl in allen vier
    Farbschemata zur restlichen Oberflaeche passt. */
+
+/* choices.min.css setzt auf .choices__inner und .choices__list--dropdown
+   "width: 100%" ohne box-sizing - im Browser-Standard (content-box) kommen
+   Padding und Border dann oben drauf. Solange .choices { overflow: hidden }
+   greift (Feld geschlossen), faellt das nicht auf; sobald die Auswahl
+   aufklappt, schaltet choices.min.css auf .is-open { overflow: visible },
+   und die ueberschuessigen ~17px ragen sichtbar aus der Karte heraus. */
+.choices,
+.choices__inner,
+.choices__list--dropdown,
+.choices__list[aria-expanded],
+.choices__input {
+  box-sizing: border-box;
+}
+
 .choices {
   --choices-bg-color: var(--panel);
   --choices-bg-color-dropdown: var(--panel);

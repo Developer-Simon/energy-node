@@ -119,7 +119,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `19` |
 | `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `19` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `19` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `6`, `js/mqtt.page.js` `2`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `1`, `css/manager.css` `19`, `css/settings-controls.css` `2` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `6`, `js/mqtt.page.js` `2`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `19`, `css/settings-controls.css` `3` |
 | `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `19`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -136,7 +136,7 @@ only place outside `base.html` with versioned assets.
 | Channel | Assets (`?v=`) |
 |---|---|
 | `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/layout-editor.js` `11` |
-| `data-editor-css` | `css/choices.min.css` –, `css/choices.css` –, `css/layout-editor.css` `9` |
+| `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
 
@@ -147,9 +147,8 @@ place pulls the old file from the cache:
 - `js/energy-model.js` – channel 2 (`history-panel`) **and** channel 3 (energy cards)
 - `js/revisions.js`, `js/schema-form.js` – several manager panels and the overview editor assets
 - `js/choices.min.js` – overview editor assets and `settings-panel`
-
-**Known inconsistency:** `css/choices.css` is `?v=1` in `settings-panel` and has
-no `?v=` in `data-editor-css` on `#overview-panel`. Reconcile on the next touch.
+- `css/choices.css` – overview editor assets and `settings-panel` (reconciled
+  2026-09-11: both now carry a `?v=`, previously only `settings-panel` did)
 
 ---
 
@@ -207,6 +206,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.6.2 | `css/choices.css` (settings-panel + overview editor assets) · `css/settings-controls.css` | `2` · `1` (was unversioned) · `3` | 2026-09-11 |
 | v0.6.0 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` · `js/energy.page.js` · `css/manager.css` (5 panels) | `2` · `13` · `6` · `2` · `19` | 2026-09-10 |
 | v0.5.25 | `js/settings.page.js` · `css/settings-controls.css` · `js/dashboard.js` · `css/base.css` | `5` · `2` · `12` · `19` | 2026-09-10 |
 | v0.5.20 | `css/manager.css` (5 panels) · `js/systemconfig.page.js` | `18` · `2` | 2026-09-08 |
@@ -226,6 +226,18 @@ recomputable.
 | v0.3.19 | `css/base.css` · `js/dashboard.js` · `css/manager.css` (5 panels) · `css/history.css` · `css/automations.css` · `js/overview.page.js` · `js/layout-editor.js` · `css/layout-editor.css` | `16` · `8` · `12` · `3` · `3` · `5` · `6` · `6` | 2026-09-04 |
 | v0.3.15 | `css/base.css` · `css/manager.css` (5 panels) | `13` · `10` | 2026-09-03 |
 | v0.3.14 | baseline — `base.html` state at commit `d6cc3e0`, no bump | — | 2026-09-02 |
+
+The **v0.6.2** row: `choices.css` gets `box-sizing: border-box` on
+`.choices`/`.choices__inner`/`.choices__list--dropdown`/`.choices__input` —
+without it, the open (`.is-open { overflow: visible }`) multiselect's inner
+box and dropdown list were each ~17px wider than their container (padding +
+border added on top of `width: 100%` under the browser's content-box
+default), spilling past the settings card's right edge. Bumped in both places
+that load `choices.css` (`settings-panel` and the overview's layout-editor
+assets), reconciling the pre-existing gap where only `settings-panel` carried
+a `?v=`. `settings-controls.css` gains a four-option variant of `.segmented`
+(`.segmented--4`, used by the new "Farbschema" theme picker replacing the
+`<select>` on the settings display tab).
 
 The **v0.6.0** row is the `feat: fold node telemetry into the dashboard
 nodeagent` squash merge. On the branch the bumps landed in steps:

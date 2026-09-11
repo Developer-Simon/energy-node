@@ -138,10 +138,14 @@
 .stepper-input:disabled { color: var(--text-faint); }
 
 /* --- Segmented Control ----------------------------------------------------
-   Zwei feste Optionen. Der Thumb gleitet in X mit Apples iOS-Drawer-Kurve
-   (--layout-ease); Position rein per :has() ueber die Reihenfolge der
-   Optionen, nicht ueber deren value - so tragen Verlaufs-Aufbewahrung
-   (Zeit/Speicher) und Standardansicht (Kompakt/Steuerung) dieselbe Regel. */
+   Zwei oder vier feste Optionen (.segmented--4 fuer vier). Der Thumb gleitet
+   in X mit Apples iOS-Drawer-Kurve (--layout-ease); die translateX-Schritte
+   sind Prozent der Thumb-eigenen Breite, nicht der Kartenbreite - dieselbe
+   Regel gilt also unabhaengig davon, ob der Thumb 50% oder 25% breit ist.
+   Position rein per :has() ueber die Reihenfolge der Optionen, nicht ueber
+   deren value - so tragen Verlaufs-Aufbewahrung (Zeit/Speicher),
+   Standardansicht (Kompakt/Steuerung) und Farbschema (vier Themes) dieselbe
+   Regel. */
 .segmented {
   position: relative;
   display: grid;
@@ -153,6 +157,7 @@
   background: var(--sunken);
   isolation: isolate;
 }
+.segmented--4 { grid-template-columns: repeat(4, 1fr); }
 .segmented-thumb {
   position: absolute;
   z-index: 0;
@@ -165,7 +170,10 @@
   background: var(--accent-bg);
   transition: transform .35s var(--layout-ease);
 }
+.segmented--4 .segmented-thumb { width: calc(25% - 3px); }
 .segmented:has(.segmented-option:nth-of-type(2) input:checked) .segmented-thumb { transform: translateX(100%); }
+.segmented:has(.segmented-option:nth-of-type(3) input:checked) .segmented-thumb { transform: translateX(200%); }
+.segmented:has(.segmented-option:nth-of-type(4) input:checked) .segmented-thumb { transform: translateX(300%); }
 .segmented-option {
   position: relative;
   z-index: 1;
@@ -178,6 +186,10 @@
   transition: color .2s var(--ease-out);
 }
 .segmented-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+/* Vier Theme-Namen sind laenger als "Kompakt"/"Steuerung" - engerer
+   Innenabstand und kleinere Schrift halten sie einzeilig statt den Thumb
+   durch einen Umbruch unregelmaessig hoch zu machen. */
+.segmented--4 .segmented-option { padding: .45rem .3rem; font-size: .8rem; }
 .segmented-option:has(input:checked) { color: var(--accent-soft); font-weight: 600; }
 .segmented-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: calc(var(--radius-sm) - 3px); }
 
