@@ -11,6 +11,20 @@
     return body;
   };
 
+  // Schrittweite und Grenzen der Stepper im Verbindungs-Formular; die Grenzen
+  // spiegeln min/max der Felder und valid() unten wider, ein Klick kann also
+  // nie einen Wert erzeugen, den das Speichern ablehnt.
+  const STEP_FIELDS_MQTT = {
+    port: {min: 1, max: 65535, step: 1},
+    keepalive_seconds: {min: 5, max: 300, step: 1},
+    connect_timeout_seconds: {min: 1, max: 60, step: 1},
+  };
+  const STEP_FIELDS_BRIDGE = {
+    port: {min: 1, max: 65535, step: 1},
+    restart_timeout: {min: 5, max: 600, step: 1},
+    keepalive_seconds: {min: 10, max: 300, step: 1},
+  };
+
   const defaultForm = () => ({
     enabled: false,
     host: '',
@@ -232,6 +246,34 @@
         this.busy = false;
       }
     },
+
+    // Ein Klick auf - / + eines Stepper-Felds im Verbindungs-Formular. dir
+    // ist +1 oder -1; der Wert bleibt in den Feldgrenzen aus STEP_FIELDS_MQTT.
+    stepField(name, dir) {
+      const cfg = STEP_FIELDS_MQTT[name];
+      if (!cfg) return;
+      const current = Number(this.form[name]);
+      const base = Number.isFinite(current) ? current : cfg.min;
+      const next = base + (dir < 0 ? -cfg.step : cfg.step);
+      this.form[name] = Math.min(cfg.max, Math.max(cfg.min, next));
+    },
+
+    // Gedrueckt halten: der erste Schritt kommt ueber x-on:click (auch per
+    // Tastatur), hier startet nur der Wiederholeinsatz - nach 400 ms alle
+    // 80 ms ein weiterer Schritt, wie eine gehaltene Taste.
+    startRepeat(name, dir) {
+      this.releaseStep();
+      this._holdTimer = setTimeout(() => {
+        this._holdInterval = setInterval(() => this.stepField(name, dir), 80);
+      }, 400);
+    },
+
+    releaseStep() {
+      clearTimeout(this._holdTimer);
+      clearInterval(this._holdInterval);
+      this._holdTimer = null;
+      this._holdInterval = null;
+    },
   });
 
   const defaultBridgeForm = () => ({
@@ -449,6 +491,32 @@
       } finally {
         this.busy = false;
       }
+    },
+
+    // Ein Klick auf - / + eines Stepper-Felds in der Bridge-Konfiguration.
+    // dir ist +1 oder -1; der Wert bleibt in den Feldgrenzen aus
+    // STEP_FIELDS_BRIDGE.
+    stepField(name, dir) {
+      const cfg = STEP_FIELDS_BRIDGE[name];
+      if (!cfg) return;
+      const current = Number(this.form[name]);
+      const base = Number.isFinite(current) ? current : cfg.min;
+      const next = base + (dir < 0 ? -cfg.step : cfg.step);
+      this.form[name] = Math.min(cfg.max, Math.max(cfg.min, next));
+    },
+
+    startRepeat(name, dir) {
+      this.releaseStep();
+      this._holdTimer = setTimeout(() => {
+        this._holdInterval = setInterval(() => this.stepField(name, dir), 80);
+      }, 400);
+    },
+
+    releaseStep() {
+      clearTimeout(this._holdTimer);
+      clearInterval(this._holdInterval);
+      this._holdTimer = null;
+      this._holdInterval = null;
     },
   });
 

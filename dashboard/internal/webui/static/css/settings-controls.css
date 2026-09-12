@@ -11,16 +11,27 @@
 /* Zwei gleichwertige Spalten, solange der Panel-Body Platz fuer zwei Karten
    hat, sonst eine. Kein eigener max-width mehr - das Raster nutzt die
    Lesebreite des Panels; die Breakpoint-Frage haengt am settings-body-
-   Container auf .settings-panel-body, nicht am Viewport. */
-.settings-panel-body { container: settings-body / inline-size; }
+   Container, nicht am Viewport.
+
+   Der Container sitzt auf #settings-panel selbst, nicht auf
+   .settings-panel-body: MQTT/Tailscale/TinyTuya liegen als eigene
+   Alpine-Scopes NACH dem schliessenden .settings-panel-body (siehe
+   settings.html), also ausserhalb dieses Divs - ein Container nur dort
+   haette fuer sie nie gegriffen und ihre Karten waeren beim Verschmalern nie
+   auf eine Spalte umgesprungen. #settings-panel selbst umschliesst beides,
+   Allgemein/Darstellung/Verlaeufe genauso wie MQTT/Tailscale/TinyTuya. */
+#settings-panel { container: settings-body / inline-size; }
 .settings-cards {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-flow: dense;
   gap: 1rem;
   align-items: start;
 }
 .settings-cards > .settings-hint,
-.settings-cards > .setting-actions { grid-column: 1 / -1; }
+.settings-cards > .setting-actions,
+.settings-cards > .setting-note,
+.settings-cards > .setting-actionbar-dock { grid-column: 1 / -1; }
 .settings-cards > .settings-hint {
   margin: .1rem 0 .15rem;
   color: var(--text-muted);
@@ -136,6 +147,11 @@
 .stepper-input::-webkit-outer-spin-button,
 .stepper-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .stepper-input:disabled { color: var(--text-faint); }
+/* Ports gehen bis 65535 (5 Stellen) - die generische 3.75rem-Breite reicht
+   fuer Sekunden-/Tage-Werte, quetscht aber eine 5-stellige Portnummer. Nur
+   innerhalb der .form-grid-Karten (MQTT-Verbindung, Bridge-Konfiguration)
+   verbreitert, die Allgemein-/Verlaufs-Stepper bleiben unveraendert. */
+.form-grid .stepper-input { width: 4.5rem; }
 
 /* --- Segmented Control ----------------------------------------------------
    Zwei oder vier feste Optionen (.segmented--4 fuer vier). Der Thumb gleitet
@@ -236,6 +252,63 @@
 
 /* --- Speicherleiste am Fuss des Kartenstapels -------------------------- */
 .setting-actions { display: flex; gap: .6rem; margin-top: .5rem; }
+
+/* --- Schwebende Speicherleiste fuer lange Formulare -----------------------
+   Reines position:sticky ohne IntersectionObserver (anders als
+   .config-actionbar): die Leiste bleibt am unteren Rand sichtbar, solange
+   ihr Containing Block noch im Viewport ist, und dockt von selbst an ihrer
+   eigentlichen Stelle an, sobald der zu Ende ist. Der MQTT-Tab nutzt sie
+   zweimal mit getrennten Alpine-Scopes - deshalb zwei eigene Leisten statt
+   einer gemeinsamen wie auf der Konfigurationsseite. Die Verbindungs-Leiste
+   sitzt in ihrer eigenen Karte (ein Feld, ein Containing Block); die
+   Bridge-Leiste haengt direkt im Bridge-Abschnitt (`#settings-mqtt-bridge`,
+   nicht in der letzten Karte "Vorschau") und bleibt dadurch schon sichtbar,
+   sobald man in den Bridge-Bereich scrollt - also bevor die Verbindungs-
+   Leiste ueberhaupt an ihrer Stelle eingerastet ist, keine tote Zone
+   dazwischen.
+
+   Anders als .energy-actionbar/.config-actionbar (eine Pille fuer ein bis
+   zwei kurze Aktionen) traegt diese Leiste bis zu drei unterschiedlich lange
+   Buttons und bricht auf schmalen Karten in mehrere Zeilen um - eine
+   durchgehend runde Pille wuerde dabei zur schiefen Kapsel verzerren. Die
+   Karte bekommt deshalb denselben Eckradius und dieselbe Materialstaerke wie
+   .setting-card, keine eigene Pillenoptik, und die Buttons behalten ihren
+   normalen eckigen Stil statt eines erzwungenen Pillenradius. Mittig statt
+   randbuendig: die Leiste dockt in der Kartenspalte an, nicht am
+   Seitenrand, deshalb zieht sie den Blick zur Mitte statt zur Kante. */
+.setting-actionbar-dock {
+  position: sticky; bottom: 0; z-index: 5;
+  display: flex; justify-content: center;
+  margin-top: .8rem; padding: .75rem 0 .1rem;
+  pointer-events: none;
+}
+.setting-actionbar-dock::before {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--bg) 88%, transparent));
+}
+.setting-actionbar {
+  pointer-events: auto;
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .6rem;
+  padding: .7rem .8rem;
+  border: 1px solid var(--border-soft);
+  border-top-color: rgba(255, 255, 255, .13);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12);
+}
+.setting-actionbar button { white-space: nowrap; }
+.setting-actionbar button:active:not(:disabled) { transform: scale(.97); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .setting-actionbar { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft); }
+  .setting-actionbar-dock::before { background: var(--bg); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .setting-actionbar button:active:not(:disabled) { transform: none; }
+}
 
 /* --- Karten, die die volle Rasterbreite brauchen ---------------------
    Der Darstellungs-Tab hat Karten mit den breiten Choices.js-Mehrfach-
