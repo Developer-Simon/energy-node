@@ -1,6 +1,12 @@
 {
   "service_id": "trucki",
   "unit": "trucki-http.service",
+  "bootstrap_step": "84",
   "schema": "config.schema.json",
-  "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"]
+  "required": [
+    "service_id",
+    "poll_interval_s",
+    "diagnostic_poll_multiplier",
+    "http_timeout_s"
+  ]
 }

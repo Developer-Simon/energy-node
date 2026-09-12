@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.0 (2026-09-11)
+## v0.3.0 (2026-09-12)
 
 ### Features
 
@@ -25,6 +25,7 @@
 
 ### Refactors
 
+- **build:** derive the bash service table from service manifests (d6f39ff)
 - split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
 - remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
 - normalise the node MQTT/HA id to energy_node (800fd08)

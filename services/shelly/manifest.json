@@ -1,6 +1,12 @@
 {
   "service_id": "shelly",
   "unit": "shelly-rpc.service",
+  "bootstrap_step": "83",
   "schema": "config.schema.json",
-  "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"]
+  "required": [
+    "service_id",
+    "poll_interval_s",
+    "diagnostic_poll_multiplier",
+    "http_timeout_s"
+  ]
 }

@@ -1,6 +1,11 @@
 {
   "service_id": "battery_soc",
   "unit": "battery-soc.service",
+  "bootstrap_step": "82",
   "schema": "config.schema.json",
-  "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"]
+  "required": [
+    "service_id",
+    "poll_interval_s",
+    "diagnostic_poll_multiplier"
+  ]
 }
