@@ -1,5 +1,62 @@
 {{define "mqtt"}}
 <section id="settings-mqtt" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'mqtt'" x-data="mqttPanel()" x-init="load()">
+  <div class="setting-card">
+    <h3 class="setting-card-title">Verbindung
+      <span class="field-help field-help-align-start">
+        <button class="field-help-trigger" type="button" aria-label="Erklärung zur Verbindung"><svg><use href="#ico-help"></use></svg></button>
+        <span class="field-help-text" role="tooltip">Verbindung des Dashboards zum MQTT-Broker. Ändern erfordert die Rolle <code>mqtt_config</code> und HTTPS.</span>
+      </span>
+    </h3>
+    <label class="switch-row" for="mqtt-enabled">
+      <span>Dashboard-Einstellungen statt Umgebungsvariablen verwenden
+        <span class="field-help">
+          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Dashboard-Einstellungen statt Umgebungsvariablen verwenden"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">Ist dieser Schalter aus, gelten die <code>MQTT_*</code>-Umgebungsvariablen des Dienstes unverändert. Ist er an, gewinnt die hier gespeicherte Konfiguration vollständig - ohne feldweises Mischen.</span>
+        </span>
+      </span>
+      <span class="settings-toggle"><input id="mqtt-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+    </label>
+    <div class="form-grid">
+      <label for="mqtt-host">Host</label><input id="mqtt-host" type="text" autocomplete="off" x-model.trim="form.host" x-bind:disabled="!canConfigure">
+      <label for="mqtt-port" id="lbl-mqtt-port">Port</label>
+      <span class="stepper" role="group" aria-labelledby="lbl-mqtt-port">
+        <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+        <input id="mqtt-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
+        <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+      </span>
+      <label for="mqtt-client-id">Client-ID</label><input id="mqtt-client-id" type="text" autocomplete="off" x-model.trim="form.client_id" x-bind:disabled="!canConfigure">
+      <label for="mqtt-username">Benutzername</label><input id="mqtt-username" type="text" autocomplete="off" x-model.trim="form.username" x-bind:disabled="!canConfigure">
+      <label for="mqtt-password">Passwort</label><input id="mqtt-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
+      <label for="mqtt-discovery-prefix">Discovery-Präfix</label><input id="mqtt-discovery-prefix" type="text" autocomplete="off" x-model.trim="form.discovery_prefix" x-bind:disabled="!canConfigure">
+      <label for="mqtt-keepalive" id="lbl-mqtt-keepalive">Keepalive (Sekunden)</label>
+      <span class="stepper" role="group" aria-labelledby="lbl-mqtt-keepalive">
+        <button type="button" class="stepper-btn" aria-label="Keepalive verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+        <input id="mqtt-keepalive" class="stepper-input" type="number" min="5" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
+        <button type="button" class="stepper-btn" aria-label="Keepalive erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+      </span>
+      <label for="mqtt-connect-timeout" id="lbl-mqtt-connect-timeout">Verbindungs-Timeout (Sekunden)</label>
+      <span class="stepper" role="group" aria-labelledby="lbl-mqtt-connect-timeout">
+        <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', -1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+        <input id="mqtt-connect-timeout" class="stepper-input" type="number" min="1" max="60" x-model.number="form.connect_timeout_seconds" x-bind:disabled="!canConfigure">
+        <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', 1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+      </span>
+      <label class="settings-toggle-label" for="mqtt-tls">TLS <span class="settings-toggle"><input id="mqtt-tls" type="checkbox" role="switch" x-model="form.tls" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.tls"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <label class="settings-toggle-label" for="mqtt-tls-insecure">TLS-Zertifikatsprüfung überspringen <span class="settings-toggle"><input id="mqtt-tls-insecure" type="checkbox" role="switch" x-model="form.tls_insecure" x-bind:disabled="!canConfigure || !form.tls" x-bind:aria-checked="form.tls_insecure"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <label class="settings-toggle-label" for="mqtt-clean-session">Clean Session <span class="settings-toggle"><input id="mqtt-clean-session" type="checkbox" role="switch" x-model="form.clean_session" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.clean_session"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+    </div>
+    <p class="setting-note" x-show="!canConfigure">Für Änderungen fehlt entweder die Rolle <code>mqtt_config</code> oder die Verbindung läuft nicht über HTTPS.</p>
+    <div class="setting-actionbar-dock">
+      <div class="setting-actionbar">
+        <button type="button" x-on:click="test()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'test' ? 'Teste ...' : 'Verbindung testen'"></button>
+        <button class="primary" type="button" x-on:click="save(false)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? 'Speichere ...' : 'Speichern'"></button>
+        <button type="button" x-on:click="save(true)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'reconnect' ? 'Verbinde ...' : 'Speichern und neu verbinden'"></button>
+      </div>
+    </div>
+    <p class="setting-note" x-cloak x-show="busy === 'reconnect'">Broker startet neu, Verbindung wird wiederhergestellt. Die Live-Anzeige setzt kurz aus.</p>
+    <div class="message error" role="alert" x-cloak x-show="testResult && !testResult.ok" x-text="testResult && `${testResult.error_code}: ${testResult.message}`"></div>
+    <div class="message" role="status" x-cloak x-show="testResult && testResult.ok" x-text="testResult && `Verbindung erfolgreich (${testResult.duration_ms} ms, ${testResult.discovery_messages_seen} Discovery-Nachrichten gesehen)`"></div>
+  </div>
+
   <section class="setting-card storage-health-panel" aria-labelledby="mqtt-status-heading" aria-live="polite">
     <h3 class="setting-card-title" id="mqtt-status-heading">Status</h3>
     <div class="table-scroll">
@@ -18,52 +75,26 @@
     <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? 'Prüfe ...' : 'Status aktualisieren'"></button></div>
   </section>
 
-  <div class="setting-card">
-    <h3 class="setting-card-title">Verbindung</h3>
-    <p class="setting-note">Verbindung des Dashboards zum MQTT-Broker. Ändern erfordert die Rolle <code>mqtt_config</code> und HTTPS.</p>
-    <label class="switch-row" for="mqtt-enabled">
-      <span>Dashboard-Einstellungen statt Umgebungsvariablen verwenden</span>
-      <span class="settings-toggle"><input id="mqtt-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
-    </label>
-    <p class="setting-note">Ist dieser Schalter aus, gelten die <code>MQTT_*</code>-Umgebungsvariablen des Dienstes unverändert. Ist er an, gewinnt die hier gespeicherte Konfiguration vollständig - ohne feldweises Mischen.</p>
-    <div class="form-grid">
-      <label for="mqtt-host">Host</label><input id="mqtt-host" type="text" autocomplete="off" x-model.trim="form.host" x-bind:disabled="!canConfigure">
-      <label for="mqtt-port">Port</label><input id="mqtt-port" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
-      <label for="mqtt-client-id">Client-ID</label><input id="mqtt-client-id" type="text" autocomplete="off" x-model.trim="form.client_id" x-bind:disabled="!canConfigure">
-      <label for="mqtt-username">Benutzername</label><input id="mqtt-username" type="text" autocomplete="off" x-model.trim="form.username" x-bind:disabled="!canConfigure">
-      <label for="mqtt-password">Passwort</label><input id="mqtt-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
-      <label for="mqtt-discovery-prefix">Discovery-Präfix</label><input id="mqtt-discovery-prefix" type="text" autocomplete="off" x-model.trim="form.discovery_prefix" x-bind:disabled="!canConfigure">
-      <label for="mqtt-keepalive">Keepalive (Sekunden)</label><input id="mqtt-keepalive" type="number" min="5" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
-      <label for="mqtt-connect-timeout">Verbindungs-Timeout (Sekunden)</label><input id="mqtt-connect-timeout" type="number" min="1" max="60" x-model.number="form.connect_timeout_seconds" x-bind:disabled="!canConfigure">
-      <label class="settings-toggle-label" for="mqtt-tls">TLS <span class="settings-toggle"><input id="mqtt-tls" type="checkbox" role="switch" x-model="form.tls" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.tls"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <label class="settings-toggle-label" for="mqtt-tls-insecure">TLS-Zertifikatsprüfung überspringen <span class="settings-toggle"><input id="mqtt-tls-insecure" type="checkbox" role="switch" x-model="form.tls_insecure" x-bind:disabled="!canConfigure || !form.tls" x-bind:aria-checked="form.tls_insecure"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <label class="settings-toggle-label" for="mqtt-clean-session">Clean Session <span class="settings-toggle"><input id="mqtt-clean-session" type="checkbox" role="switch" x-model="form.clean_session" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.clean_session"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-    </div>
-    <p class="setting-note" x-show="!canConfigure">Für Änderungen fehlt entweder die Rolle <code>mqtt_config</code> oder die Verbindung läuft nicht über HTTPS.</p>
-    <div class="setting-actionbar-dock">
-      <div class="setting-actionbar">
-        <button type="button" x-on:click="test()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'test' ? 'Teste ...' : 'Verbindung testen'"></button>
-        <button class="primary" type="button" x-on:click="save(false)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? 'Speichere ...' : 'Speichern'"></button>
-        <button type="button" x-on:click="save(true)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'reconnect' ? 'Verbinde ...' : 'Speichern und neu verbinden'"></button>
-      </div>
-    </div>
-    <p class="setting-note" x-cloak x-show="busy === 'reconnect'">Broker startet neu, Verbindung wird wiederhergestellt. Die Live-Anzeige setzt kurz aus.</p>
-    <div class="message error" role="alert" x-cloak x-show="testResult && !testResult.ok" x-text="testResult && `${testResult.error_code}: ${testResult.message}`"></div>
-    <div class="message" role="status" x-cloak x-show="testResult && testResult.ok" x-text="testResult && `Verbindung erfolgreich (${testResult.duration_ms} ms, ${testResult.discovery_messages_seen} Discovery-Nachrichten gesehen)`"></div>
-  </div>
-
   <div class="setting-card" x-bind:class="{ 'setting-card--wide': !canConfigure }">
     <h3 class="setting-card-title">Home Assistant &amp; Simulation</h3>
     <label class="switch-row" for="mqtt-publish-energy-device">
-      <span>Energiewerte als Home-Assistant-Gerät anbieten</span>
+      <span>Energiewerte als Home-Assistant-Gerät anbieten
+        <span class="field-help">
+          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Energiewerte als Home-Assistant-Gerät anbieten"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">Unabhängig von der Broker-Quelle und sofort beim Umschalten gespeichert. Ist dies an, meldet sich das Dashboard beim nächsten Verbinden per MQTT-Discovery als Gerät „Energy Node" mit PV-, Netz-, Batterie- und Hauslast-Sensoren. Aus entfernt die Discovery beim nächsten Verbinden wieder.</span>
+        </span>
+      </span>
       <span class="settings-toggle"><input id="mqtt-publish-energy-device" type="checkbox" role="switch" x-model="form.publish_energy_device" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.publish_energy_device" x-on:change="saveEnergyDevice()"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
     </label>
-    <p class="setting-note">Unabhängig von der Broker-Quelle und sofort beim Umschalten gespeichert. Ist dies an, meldet sich das Dashboard beim nächsten Verbinden per MQTT-Discovery als Gerät „Energy Node" mit PV-, Netz-, Batterie- und Hauslast-Sensoren. Aus entfernt die Discovery beim nächsten Verbinden wieder.</p>
     <label class="switch-row" for="mqtt-node-simulation">
-      <span>Simulationsmodus an alle Bridges senden</span>
+      <span>Simulationsmodus an alle Bridges senden
+        <span class="field-help">
+          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Simulationsmodus an alle Bridges senden"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">Sofort beim Umschalten gespeichert und retained auf <code>outstation/&lt;node&gt;/settings/simulation_active/set</code> gelegt - unabhängig von der Broker-Quelle.</span>
+        </span>
+      </span>
       <span class="settings-toggle"><input id="mqtt-node-simulation" type="checkbox" role="switch" x-model="form.simulation_active" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.simulation_active" x-on:change="saveNodeSettings()"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
     </label>
-    <p class="setting-note">Sofort beim Umschalten gespeichert und retained auf <code>outstation/&lt;node&gt;/settings/simulation_active/set</code> gelegt - unabhängig von der Broker-Quelle.</p>
   </div>
 
   <div class="setting-card" x-show="canConfigure">
@@ -77,9 +108,47 @@
   </div>
 
   <section id="settings-mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
+    <div class="setting-card">
+      <h3 class="setting-card-title">Bridge-Konfiguration</h3>
+      <div class="form-grid">
+        <label for="bridge-name">Verbindungsname</label><input id="bridge-name" type="text" autocomplete="off" x-model.trim="form.name" x-bind:disabled="!canConfigure">
+        <label for="bridge-address">Adresse Hauptsystem</label><input id="bridge-address" type="text" autocomplete="off" x-model.trim="form.address" x-bind:disabled="!canConfigure">
+        <label for="bridge-port" id="lbl-bridge-port">Port</label>
+        <span class="stepper" role="group" aria-labelledby="lbl-bridge-port">
+          <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input id="bridge-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
+          <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+        <label for="bridge-remote-client-id">Remote-Client-ID</label><input id="bridge-remote-client-id" type="text" autocomplete="off" x-model.trim="form.remote_client_id" x-bind:disabled="!canConfigure">
+        <label for="bridge-remote-username">Remote-Benutzername</label><input id="bridge-remote-username" type="text" autocomplete="off" x-model.trim="form.remote_username" x-bind:disabled="!canConfigure">
+        <label for="bridge-remote-password">Remote-Passwort</label><input id="bridge-remote-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
+        <label for="bridge-restart-timeout" id="lbl-bridge-restart-timeout">restart_timeout (Sekunden)</label>
+        <span class="stepper" role="group" aria-labelledby="lbl-bridge-restart-timeout">
+          <button type="button" class="stepper-btn" aria-label="restart_timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', -1)" x-on:pointerdown="startRepeat('restart_timeout', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input id="bridge-restart-timeout" class="stepper-input" type="number" min="5" max="600" x-model.number="form.restart_timeout" x-bind:disabled="!canConfigure">
+          <button type="button" class="stepper-btn" aria-label="restart_timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', 1)" x-on:pointerdown="startRepeat('restart_timeout', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+        <label for="bridge-keepalive" id="lbl-bridge-keepalive">keepalive_interval (Sekunden)</label>
+        <span class="stepper" role="group" aria-labelledby="lbl-bridge-keepalive">
+          <button type="button" class="stepper-btn" aria-label="keepalive_interval verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input id="bridge-keepalive" class="stepper-input" type="number" min="10" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
+          <button type="button" class="stepper-btn" aria-label="keepalive_interval erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+        <label class="settings-toggle-label" for="bridge-enabled">Aktiv <span class="settings-toggle"><input id="bridge-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+        <label class="settings-toggle-label" for="bridge-try-private">try_private <span class="settings-toggle"><input id="bridge-try-private" type="checkbox" role="switch" x-model="form.try_private" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.try_private"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+        <label class="settings-toggle-label" for="bridge-start-type-auto">start_type automatic <span class="settings-toggle"><input id="bridge-start-type-auto" type="checkbox" role="switch" x-model="form.start_type_auto" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.start_type_auto"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+        <label class="settings-toggle-label" for="bridge-cleansession">cleansession <span class="settings-toggle"><input id="bridge-cleansession" type="checkbox" role="switch" x-model="form.cleansession" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.cleansession"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      </div>
+      <p class="setting-note" x-cloak x-show="addressWarning" x-text="addressWarning"></p>
+    </div>
+
     <section class="setting-card storage-health-panel" aria-labelledby="bridge-status-heading" aria-live="polite">
-      <h3 class="setting-card-title" id="bridge-status-heading">Mosquitto-Bridge – Status</h3>
-      <p class="setting-note">Bridge-Konfiguration in <code>/etc/mosquitto/conf.d/bridge.conf</code>. Speichern erfordert die Rolle <code>mqtt_config</code>, Anwenden zusätzlich <code>system_actions</code> - beides nur über HTTPS.</p>
+      <h3 class="setting-card-title" id="bridge-status-heading">Mosquitto-Bridge – Status
+        <span class="field-help field-help-align-start">
+          <button class="field-help-trigger" type="button" aria-label="Erklärung zur Mosquitto-Bridge"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">Bridge-Konfiguration in <code>/etc/mosquitto/conf.d/bridge.conf</code>. Speichern erfordert die Rolle <code>mqtt_config</code>, Anwenden zusätzlich <code>system_actions</code> - beides nur über HTTPS.</span>
+        </span>
+      </h3>
       <div class="table-scroll">
         <table class="storage-health-table">
         <tbody>
@@ -95,27 +164,12 @@
     </section>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Bridge-Konfiguration</h3>
-      <div class="form-grid">
-        <label for="bridge-name">Verbindungsname</label><input id="bridge-name" type="text" autocomplete="off" x-model.trim="form.name" x-bind:disabled="!canConfigure">
-        <label for="bridge-address">Adresse Hauptsystem</label><input id="bridge-address" type="text" autocomplete="off" x-model.trim="form.address" x-bind:disabled="!canConfigure">
-        <label for="bridge-port">Port</label><input id="bridge-port" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
-        <label for="bridge-remote-client-id">Remote-Client-ID</label><input id="bridge-remote-client-id" type="text" autocomplete="off" x-model.trim="form.remote_client_id" x-bind:disabled="!canConfigure">
-        <label for="bridge-remote-username">Remote-Benutzername</label><input id="bridge-remote-username" type="text" autocomplete="off" x-model.trim="form.remote_username" x-bind:disabled="!canConfigure">
-        <label for="bridge-remote-password">Remote-Passwort</label><input id="bridge-remote-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
-        <label for="bridge-restart-timeout">restart_timeout (Sekunden)</label><input id="bridge-restart-timeout" type="number" min="5" max="600" x-model.number="form.restart_timeout" x-bind:disabled="!canConfigure">
-        <label for="bridge-keepalive">keepalive_interval (Sekunden)</label><input id="bridge-keepalive" type="number" min="10" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
-        <label class="settings-toggle-label" for="bridge-enabled">Aktiv <span class="settings-toggle"><input id="bridge-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-        <label class="settings-toggle-label" for="bridge-try-private">try_private <span class="settings-toggle"><input id="bridge-try-private" type="checkbox" role="switch" x-model="form.try_private" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.try_private"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-        <label class="settings-toggle-label" for="bridge-start-type-auto">start_type automatic <span class="settings-toggle"><input id="bridge-start-type-auto" type="checkbox" role="switch" x-model="form.start_type_auto" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.start_type_auto"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-        <label class="settings-toggle-label" for="bridge-cleansession">cleansession <span class="settings-toggle"><input id="bridge-cleansession" type="checkbox" role="switch" x-model="form.cleansession" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.cleansession"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      </div>
-      <p class="setting-note" x-cloak x-show="addressWarning" x-text="addressWarning"></p>
-    </div>
-
-    <div class="setting-card setting-card--wide">
-      <h3 class="setting-card-title">Bridge-Topics</h3>
-      <p class="setting-note">Welche Topic-Muster über die Bridge zum Hauptsystem weitergeleitet werden.</p>
+      <h3 class="setting-card-title">Bridge-Topics
+        <span class="field-help field-help-align-start">
+          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Bridge-Topics"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">Welche Topic-Muster über die Bridge zum Hauptsystem weitergeleitet werden.</span>
+        </span>
+      </h3>
       <div class="table-scroll">
         <table class="storage-health-table">
         <thead><tr><th scope="col">Pattern</th><th scope="col">Richtung</th><th scope="col">QoS</th><th scope="col">Kommentar</th><th scope="col"></th></tr></thead>
@@ -141,21 +195,22 @@
       <div class="toolbar"><button type="button" x-on:click="addTopic()" x-bind:disabled="!canConfigure || form.topics.length >= 32">Topic hinzufügen</button></div>
     </div>
 
-    <div class="setting-card setting-card--wide">
+    <div class="setting-card">
       <h3 class="setting-card-title">Vorschau</h3>
       <pre class="bridge-preview" x-show="preview" x-text="preview"></pre>
       <p class="setting-note" x-show="!preview">Noch keine Bridge-Konfiguration gespeichert.</p>
-      <p class="setting-note" x-show="!canConfigure">Für Änderungen fehlt entweder die Rolle <code>mqtt_config</code> oder die Verbindung läuft nicht über HTTPS.</p>
-      <p class="setting-note" x-show="canConfigure && !canApply">Für das Anwenden fehlt zusätzlich die Rolle <code>system_actions</code>.</p>
-      <div class="setting-actionbar-dock">
-        <div class="setting-actionbar">
-          <button class="primary" type="button" x-on:click="save()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? 'Speichere ...' : 'Speichern'"></button>
-          <button class="system-action-danger" type="button" x-on:click="apply()" x-bind:disabled="!canApply || busy || !valid" x-text="busy === 'apply' ? 'Wende an ...' : 'Anwenden und Mosquitto neu starten'"></button>
-          <button type="button" x-on:click="restartOnly()" x-bind:disabled="!canRestart || busy" x-text="busy === 'restart' ? 'Starte neu ...' : 'Nur Mosquitto neu starten'"></button>
-        </div>
-      </div>
-      <p class="setting-note" x-cloak x-show="busy === 'apply' || busy === 'restart'">Mosquitto startet neu. Die Live-Anzeige des Dashboards setzt kurz aus und verbindet automatisch neu.</p>
     </div>
+
+    <p class="setting-note" x-show="!canConfigure">Für Änderungen fehlt entweder die Rolle <code>mqtt_config</code> oder die Verbindung läuft nicht über HTTPS.</p>
+    <p class="setting-note" x-show="canConfigure && !canApply">Für das Anwenden fehlt zusätzlich die Rolle <code>system_actions</code>.</p>
+    <div class="setting-actionbar-dock">
+      <div class="setting-actionbar">
+        <button class="primary" type="button" x-on:click="save()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? 'Speichere ...' : 'Speichern'"></button>
+        <button class="system-action-danger" type="button" x-on:click="apply()" x-bind:disabled="!canApply || busy || !valid" x-text="busy === 'apply' ? 'Wende an ...' : 'Anwenden und Mosquitto neu starten'"></button>
+        <button type="button" x-on:click="restartOnly()" x-bind:disabled="!canRestart || busy" x-text="busy === 'restart' ? 'Starte neu ...' : 'Nur Mosquitto neu starten'"></button>
+      </div>
+    </div>
+    <p class="setting-note" x-cloak x-show="busy === 'apply' || busy === 'restart'">Mosquitto startet neu. Die Live-Anzeige des Dashboards setzt kurz aus und verbindet automatisch neu.</p>
   </section>
 </section>
 {{end}}

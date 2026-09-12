@@ -138,7 +138,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=1,/static/js/energy-model.js,/static/js/history.js?v=9",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js,/static/js/schema-form.js,/static/js/settings.page.js?v=6,/static/js/mqtt.page.js?v=2,/static/js/tailscale.page.js?v=1,/static/js/systemconfig.page.js?v=2",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js,/static/js/schema-form.js,/static/js/settings.page.js?v=6,/static/js/mqtt.page.js?v=3,/static/js/tailscale.page.js?v=1,/static/js/systemconfig.page.js?v=2",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -151,7 +151,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	if !strings.Contains(body, `data-panel-css="/static/css/tippy.css"`) {
 		t.Fatal("devices-panel does not declare lazy tippy.css")
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=19,/static/css/settings-controls.css?v=3"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=19,/static/css/settings-controls.css?v=5"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1100,7 +1100,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
 		`data-panel-script="/node/static/js-deps/popper.min.js,/node/static/js-deps/tippy.umd.min.js"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=19,/node/static/css/settings-controls.css?v=3"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=19,/node/static/css/settings-controls.css?v=5"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)

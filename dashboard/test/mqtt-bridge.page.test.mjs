@@ -280,3 +280,32 @@ test('driftLabel/bridgeConnectionLabel summarise the status endpoint response', 
   assert.equal(component.bridgeConnectionLabel(), 'verbunden');
   assert.equal(component.driftLabel(), 'ja');
 });
+
+// Die Stepper in der Bridge-Konfiguration schreiben form.port/
+// restart_timeout/keepalive_seconds ueber stepField() mit fester
+// Schrittweite und hartem Clamp an den Grenzen, die auch valid() prueft.
+test('stepField erhoeht den Port um 1 und clampt bei 65535', () => {
+  const { component } = createBridgePanel();
+  component.form.port = 1883;
+  component.stepField('port', 1);
+  assert.equal(component.form.port, 1884);
+  component.form.port = 65535;
+  component.stepField('port', 1);
+  assert.equal(component.form.port, 65535);
+});
+
+test('stepField clampt restart_timeout und keepalive_seconds nach unten an ihre Feldgrenze', () => {
+  const { component } = createBridgePanel();
+  component.form.restart_timeout = 5;
+  component.stepField('restart_timeout', -1);
+  assert.equal(component.form.restart_timeout, 5);
+  component.form.keepalive_seconds = 10;
+  component.stepField('keepalive_seconds', -1);
+  assert.equal(component.form.keepalive_seconds, 10);
+});
+
+test('stepField ignoriert ein unbekanntes Feld, statt NaN in form zu schreiben', () => {
+  const { component } = createBridgePanel();
+  component.stepField('nichtVorhanden', 1);
+  assert.equal(component.form.nichtVorhanden, undefined);
+});

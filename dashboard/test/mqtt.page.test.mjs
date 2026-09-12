@@ -270,6 +270,35 @@ test('sourceLabel translates the effective-config sources', () => {
   assert.equal(component.sourceLabel(''), '-');
 });
 
+// Die Stepper im Verbindungs-Formular schreiben form.port/keepalive_seconds/
+// connect_timeout_seconds ueber stepField() mit fester Schrittweite und
+// hartem Clamp an den Grenzen, die auch valid() prueft.
+test('stepField erhoeht den Port um 1 und clampt bei 65535', () => {
+  const { component } = createMqttPanel();
+  component.form.port = 1883;
+  component.stepField('port', 1);
+  assert.equal(component.form.port, 1884);
+  component.form.port = 65535;
+  component.stepField('port', 1);
+  assert.equal(component.form.port, 65535);
+});
+
+test('stepField clampt Keepalive und Verbindungs-Timeout nach unten an ihre Feldgrenze', () => {
+  const { component } = createMqttPanel();
+  component.form.keepalive_seconds = 5;
+  component.stepField('keepalive_seconds', -1);
+  assert.equal(component.form.keepalive_seconds, 5);
+  component.form.connect_timeout_seconds = 1;
+  component.stepField('connect_timeout_seconds', -1);
+  assert.equal(component.form.connect_timeout_seconds, 1);
+});
+
+test('stepField ignoriert ein unbekanntes Feld, statt NaN in form zu schreiben', () => {
+  const { component } = createMqttPanel();
+  component.stepField('nichtVorhanden', 1);
+  assert.equal(component.form.nichtVorhanden, undefined);
+});
+
 test('every request goes through the reverse-proxy base path when one is set', async () => {
   const seen = [];
   const { component } = createMqttPanel({
