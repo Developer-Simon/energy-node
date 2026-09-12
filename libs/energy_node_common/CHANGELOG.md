@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.4.3 (2026-09-12)
+
+### Features
+
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+
+### Refactors
+
+- **build:** derive the bash service table from service manifests (d6f39ff)
+
 ## v0.4.3 (2026-09-11)
 
 ### Features

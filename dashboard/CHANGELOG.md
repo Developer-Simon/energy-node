@@ -1,11 +1,18 @@
 # Changelog
 
+## v0.6.3 (2026-09-11)
+
+### Features
+
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+
 ## v0.6.2 (2026-09-11)
 
 ### Features
 
-- **dashboard:** replace theme select with a four-way segmented slider (465c4af)
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
+- **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
+- **dashboard:** replace theme select with a four-way segmented slider (465c4af)
 - **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
@@ -66,17 +73,6 @@
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
-
-## v0.6.2 (2026-09-11)
-
-### Features
-
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
-- **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
-
-### Fixes
-
-- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 
 ## v0.6.0 (2026-09-10)
 

@@ -4,6 +4,7 @@
 
 ### Features
 
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
@@ -44,6 +45,17 @@
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 - path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
 - skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
+
+## v0.1.9 (2026-09-11)
+
+### Features
+
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
+- **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
+
+### Fixes
+
+- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 
 ## v0.1.9 (2026-09-10)
 
