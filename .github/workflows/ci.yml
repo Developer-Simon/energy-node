@@ -169,6 +169,31 @@ jobs:
       - run: bash scripts/tests/test_extract_changelog.sh
       - run: bash scripts/tests/test_bump_version.sh
       - run: bash scripts/tests/test_ensure_remote_manifests.sh
+      - name: shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck
+          shellcheck -x scripts/bootstrap/*.sh scripts/bootstrap/lib/*.sh \
+                        scripts/build/*.sh scripts/build/lib/*.sh \
+                        scripts/deploy/*.sh scripts/version/*.sh \
+                        scripts/tests/*.sh
+      - run: bash scripts/tests/test_bootstrap_step_lib.sh
+      - run: bash scripts/tests/test_bootstrap_verify_bundle.sh
+      - run: bash scripts/tests/test_bootstrap_service_step.sh
+      - run: bash scripts/tests/test_bootstrap_10_apt.sh
+      - run: bash scripts/tests/test_bootstrap_20_mosquitto.sh
+      - run: bash scripts/tests/test_bootstrap_30_ufw.sh
+      - run: bash scripts/tests/test_bootstrap_40_tailscale.sh
+      - run: bash scripts/tests/test_bootstrap_50_python_deps.sh
+      - run: bash scripts/tests/test_bootstrap_60_node_install.sh
+      - run: bash scripts/tests/test_bootstrap_70_caddy.sh
+      - run: bash scripts/tests/test_bootstrap_service_scripts.sh
+      - run: bash scripts/tests/test_bootstrap_plan.sh
+      - run: bash scripts/tests/test_bootstrap_diagnose.sh
+      - run: bash scripts/tests/test_build_manifests.sh
+      - run: bash scripts/tests/test_build_wheels.sh
+      - run: bash scripts/tests/test_build_manifest_sign.sh
+      - run: bash scripts/tests/test_build_make_bundle.sh
       - run: ./scripts/deploy/check_tracked_secrets.sh
 
   vendored-artefacts:
@@ -204,6 +229,26 @@ jobs:
           pip install -e ../../libs/battery_soc_core -r requirements-test.txt
       - run: pytest
 
+  bootstrap-chain:
+    name: Bootstrap chain (double run)
+    needs: changes
+    if: needs.changes.outputs.shell == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    # Debian bookworm ist das, worauf der Referenz-Node aufsetzt; bash,
+    # python3, openssl und tar kommen dort in denselben Fassungen wie auf
+    # Raspberry Pi OS Lite.
+    container: debian:bookworm
+    steps:
+      - name: Install prerequisites
+        run: |
+          apt-get update -qq
+          apt-get install -y --no-install-recommends \
+            bash ca-certificates git openssl python3 tar findutils diffutils
+      - uses: actions/checkout@v4
+      - name: Trust the checkout inside the container
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
+      - run: bash scripts/tests/bootstrap_container.sh
+
   # Single required status check. Always runs; passes only when every job above
   # either succeeded or was legitimately skipped by the path filter. Point the
   # `main` branch-protection rule at this job instead of the individual ones.
@@ -216,6 +261,7 @@ jobs:
       - dashboard-js
       - python-bridges
       - shell-scripts
+      - bootstrap-chain
       - vendored-artefacts
       - home-assistant-integration
     runs-on: ubuntu-latest
