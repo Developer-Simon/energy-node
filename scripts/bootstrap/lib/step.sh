@@ -21,6 +21,7 @@ EN_BUNDLE_VERSION="${EN_BUNDLE_VERSION:-unbekannt}"
 # SUDO ist bewusst ein Array: als Zeichenkette muesste jede Aufrufstelle
 # unquoted expandieren, was bei leerem Wert ein leeres Argument erzeugt.
 read -r -a SUDO <<< "${EN_SUDO-sudo}"
+: "${SUDO[@]}"  # als benutzt markieren - wird von Skripten verwendet, die diese Datei sourcen
 
 STEP_ID="${STEP_ID:-}"
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# shellcheck disable=SC1090  # Testrahmen sourct absichtlich einen dynamischen Pfad, um die Bibliotheksfunktionen im selben Prozess zu pruefen
 # Test for scripts/bootstrap/lib/step.sh
 set -euo pipefail
 
@@ -22,7 +23,7 @@ grep -qx "bundle=v1.0.0" "$tmp/state/steps/10" || fail "Bundle-Version fehlt im 
 
 # --- step_done erkennt den Stempel nur bei gleicher Bundle-Version ---------
 ( source "$lib"; step_done 10 ) || fail "step_done erkennt eigenen Stempel nicht"
-( EN_BUNDLE_VERSION=v2.0.0 source "$lib"; step_done 10 ) && fail "step_done ignoriert Versionswechsel"
+( EN_BUNDLE_VERSION=v2.0.0; source "$lib"; step_done 10 ) && fail "step_done ignoriert Versionswechsel"
 ( source "$lib"; step_done 99 ) && fail "step_done meldet fremden Schritt als erledigt"
 
 # --- skip und fail ---------------------------------------------------------
