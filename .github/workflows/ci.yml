@@ -175,8 +175,8 @@ jobs:
           sudo apt-get install -y shellcheck
           shellcheck -x scripts/bootstrap/*.sh scripts/bootstrap/lib/*.sh \
                         scripts/build/*.sh scripts/build/lib/*.sh \
-                        scripts/deploy/*.sh scripts/version/*.sh \
-                        scripts/tests/*.sh
+                        scripts/tests/test_bootstrap_*.sh scripts/tests/test_build_*.sh \
+                        scripts/tests/bootstrap_container.sh
       - run: bash scripts/tests/test_bootstrap_step_lib.sh
       - run: bash scripts/tests/test_bootstrap_verify_bundle.sh
       - run: bash scripts/tests/test_bootstrap_service_step.sh

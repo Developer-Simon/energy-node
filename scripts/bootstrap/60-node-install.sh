@@ -43,10 +43,15 @@ shopt -u nullglob
 
 # Eigentuemer und Gruppe nur setzen, wenn wir sie setzen koennen. Der Test
 # laeuft als normaler Benutzer mit EN_SUDO=""; ein hartes -o root machte
-# dort jeden Lauf zum Fehler, ohne irgendetwas zu beweisen.
+# dort jeden Lauf zum Fehler, ohne irgendetwas zu beweisen. Die Gruppenpruefung
+# schuetzt zusaetzlich den containerisierten Doppellauf (CI): der laeuft als
+# root, aber ohne den Zielbenutzer anzulegen - "install -g" wuerde dort mit
+# "invalid group" abbrechen, obwohl auf einem echten Node die Gruppe laengst
+# existiert.
 install_owned() {
   local mode="$1" src="$2" dst="$3"
-  if [[ "${#SUDO[@]}" -gt 0 || "$(id -u)" -eq 0 ]]; then
+  if { [[ "${#SUDO[@]}" -gt 0 || "$(id -u)" -eq 0 ]] \
+       && getent group "${EN_TARGET_USER}" >/dev/null 2>&1; }; then
     "${SUDO[@]}" install -o root -g "${EN_TARGET_USER}" -m "${mode}" "${src}" "${dst}"
   else
     install -m "${mode}" "${src}" "${dst}"
