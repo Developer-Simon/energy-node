@@ -14,6 +14,12 @@
 
 ### Features
 
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+
+## v0.4.3 (2026-09-11)
+
+### Features
+
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
 

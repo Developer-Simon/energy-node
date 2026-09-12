@@ -1,10 +1,16 @@
 # Changelog
 
-## v0.6.3 (2026-09-11)
+## v0.6.3 (2026-09-12)
 
 ### Features
 
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+- **dashboard:** restyle MQTT settings tab to match card layout (2d5f2bf)
+- **dashboard:** fill row gaps and add floating save bars on MQTT tab (a389ce4)
+
+### Fixes
+
+- **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
 
 ## v0.6.2 (2026-09-11)
 
