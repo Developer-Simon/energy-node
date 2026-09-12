@@ -48,4 +48,37 @@ n="$( EN_SUDO="" bash -c 'source "$1"; echo "${#SUDO[@]}"' _ "$lib" )"
 n="$( EN_SUDO="sudo" bash -c 'source "$1"; echo "${SUDO[0]}"' _ "$lib" )"
 [ "$n" = sudo ] || fail "SUDO-Vorgabe falsch" "$n"
 
+# --- ohne selection.json ist jeder Schritt gewaehlt ------------------------
+export EN_SELECTION="$tmp/selection.json"
+( source "$lib"; step_selected 40 ) || fail "ohne Datei nicht gewaehlt"
+
+# --- ein nicht genannter Schritt bleibt gewaehlt ---------------------------
+printf '{"steps":{"70":false}}\n' > "$EN_SELECTION"
+( source "$lib"; step_selected 40 ) || fail "nicht genannter Schritt abgewaehlt"
+( source "$lib"; step_selected 70 ) && fail "abgewaehlter Schritt gilt als gewaehlt"
+printf '{"steps":{"70":true}}\n' > "$EN_SELECTION"
+( source "$lib"; step_selected 70 ) || fail "true wurde nicht als gewaehlt gelesen"
+
+# --- kaputtes JSON ist nicht stillschweigend "alles an" -------------------
+printf 'kein json\n' > "$EN_SELECTION"
+set +e
+( source "$lib"; step_selected 70 ) 2>/dev/null
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "kaputte selection.json galt als gewaehlt"
+rm -f "$EN_SELECTION"
+unset EN_SELECTION
+
+# --- EN_TARGET_BASE faellt auf HOME zurueck, bleibt aber ueberschreibbar ---
+n="$( HOME=/home/pruef bash -c 'source "$1"; echo "$EN_TARGET_BASE"' _ "$lib" )"
+[ "$n" = /home/pruef ] || fail "EN_TARGET_BASE nicht aus HOME" "$n"
+n="$( EN_TARGET_BASE=/opt/en bash -c 'source "$1"; echo "$EN_TARGET_BASE"' _ "$lib" )"
+[ "$n" = /opt/en ] || fail "EN_TARGET_BASE nicht ueberschreibbar" "$n"
+
+# --- EN_TARGET_USER faellt auf den laufenden Benutzer zurueck -------------
+n="$( bash -c 'source "$1"; echo "$EN_TARGET_USER"' _ "$lib" )"
+[ "$n" = "$(id -un)" ] || fail "EN_TARGET_USER nicht aus id -un" "$n"
+n="$( EN_TARGET_USER=energynode bash -c 'source "$1"; echo "$EN_TARGET_USER"' _ "$lib" )"
+[ "$n" = energynode ] || fail "EN_TARGET_USER nicht ueberschreibbar" "$n"
+
 echo "OK: $(basename "$0")"

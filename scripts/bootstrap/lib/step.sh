@@ -17,6 +17,13 @@ EN_STATE_DIR="${EN_STATE_DIR:-/var/lib/energy-node-installer}"
 EN_ROOT="${EN_ROOT:-}"
 EN_BUNDLE_DIR="${EN_BUNDLE_DIR:-${EN_STATE_DIR}/bundle}"
 EN_BUNDLE_VERSION="${EN_BUNDLE_VERSION:-unbekannt}"
+EN_SELECTION="${EN_SELECTION:-${EN_STATE_DIR}/selection.json}"
+# Heimatverzeichnis der Python-Dienste. Die Units im Bundle sind bereits
+# darauf gerendert, also muss der Node die Quellen an dieselbe Stelle legen.
+EN_TARGET_BASE="${EN_TARGET_BASE:-${HOME}}"
+# Derselbe Benutzer als Name; wird Gruppe der Dateien unter /etc/energy-node,
+# die die Dienste selbst lesen muessen.
+EN_TARGET_USER="${EN_TARGET_USER:-$(id -un)}"
 
 # SUDO ist bewusst ein Array: als Zeichenkette muesste jede Aufrufstelle
 # unquoted expandieren, was bei leerem Wert ein leeres Argument erzeugt.
@@ -58,4 +65,25 @@ step_done() {
   stamp="$(step_stamp_path "$1")"
   [[ -f "${stamp}" ]] || return 1
   grep -qx "bundle=${EN_BUNDLE_VERSION}" "${stamp}"
+}
+
+# step_selected entscheidet fuer optionale Schritte, ob sie laufen.
+# Fehlende Datei oder nicht genannter Schritt = gewaehlt (Vorgabe "an",
+# E7). Eine unlesbare Datei ist dagegen ein Fehler und keine Zustimmung -
+# sonst installierte ein Tippfehler in der Auswahl stillschweigend alles.
+step_selected() {
+  local id="$1"
+  [[ -f "${EN_SELECTION}" ]] || return 0
+  python3 - "${EN_SELECTION}" "${id}" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        data = json.load(handle)
+except (OSError, ValueError) as exc:
+    sys.exit("selection.json nicht lesbar: %s" % exc)
+steps = data.get("steps")
+if not isinstance(steps, dict):
+    sys.exit("selection.json: 'steps' fehlt oder ist kein Objekt")
+sys.exit(0 if steps.get(sys.argv[2], True) else 1)
+PY
 }
