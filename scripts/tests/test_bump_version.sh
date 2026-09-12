@@ -21,10 +21,12 @@ setup_repo() {
   git -C "$dir" config user.email t@t
   git -C "$dir" config user.name t
   mkdir -p "$dir/libs/energy_node_common" "$dir/services" "$dir/dashboard" \
+    "$dir/scripts/bootstrap" \
     "$dir/integrations/homeassistant/custom_components/battery_soc"
   echo v1.2.3 > "$dir/services/VERSION"
   echo v3.0.0 > "$dir/libs/energy_node_common/VERSION"
   echo v0.5.0 > "$dir/dashboard/VERSION"
+  echo v0.1.0 > "$dir/scripts/bootstrap/VERSION"
   printf '{\n  "domain": "battery_soc",\n  "version": "9.9.9"\n}\n' \
     > "$dir/integrations/homeassistant/custom_components/battery_soc/manifest.json"
   git -C "$dir" add -A
@@ -132,5 +134,30 @@ bump "$r" main
 commit "$r" "chore: bump"
 rc=0; bump "$r" --check main >/dev/null || rc=$?
 [ "$rc" -eq 0 ] || fail "--check should exit 0 once bumped, got $rc"
+
+# --- bootstrap ist eine eigene Komponente ---------------------------------
+r="$tmp/bootstrap"
+setup_repo "$r"
+echo x > "$r/scripts/bootstrap/10-apt.sh"
+commit "$r" "feat: touch bootstrap"
+bump "$r" main
+[ "$(cat "$r/scripts/bootstrap/VERSION")" = v0.1.1 ] \
+  || fail "scripts/bootstrap/VERSION not bumped" "$(cat "$r/scripts/bootstrap/VERSION")"
+[ "$(cat "$r/services/VERSION")" = v1.2.3 ] \
+  || fail "untouched services/VERSION changed" "$(cat "$r/services/VERSION")"
+
+# --- scripts/ ausserhalb von bootstrap/ bumpt nichts ----------------------
+# scripts/ selbst ist keine Komponente; nur das Unterverzeichnis bootstrap/
+# ist eines. Ein Commit an scripts/deploy/ darf deshalb nichts anfassen.
+r="$tmp/scripts-only"
+setup_repo "$r"
+mkdir -p "$r/scripts/deploy"
+echo x > "$r/scripts/deploy/foo.sh"
+commit "$r" "chore: touch a non-component script"
+out="$(bump "$r" main)"
+[ -z "$out" ] || fail "a scripts/deploy change bumped something" "$out"
+[ "$(cat "$r/scripts/bootstrap/VERSION")" = v0.1.0 ] \
+  || fail "scripts/bootstrap/VERSION bumped by a scripts/deploy change" \
+     "$(cat "$r/scripts/bootstrap/VERSION")"
 
 echo "PASS: bump-patch.sh"

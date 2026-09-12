@@ -8,6 +8,7 @@ COMPONENTS=(
   "services/:services/VERSION"
   "libs/energy_node_common/:libs/energy_node_common/VERSION"
   "libs/battery_soc_core/:libs/battery_soc_core/VERSION"
+  "scripts/bootstrap/:scripts/bootstrap/VERSION"
   "integrations/homeassistant/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
 )
 
