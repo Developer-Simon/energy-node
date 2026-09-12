@@ -83,17 +83,13 @@ RSYNC_OPTS=(
 
 # Dienstetabelle: unit:lokaler-pfad:remote-unterverzeichnis:deploy
 #
-# deploy=1 bedeutet: Unit installieren/aktualisieren und Dienst neu starten.
-# Ein anderer Wert (aktuell ungenutzt) markiert eine Unit, die nur
-# zurueckgeholt (fetch_env_from_remote.sh), aber nie ausgerollt wird.
-SERVICE_TABLE=(
-  "apsystems-ez1.service:services/apsystems_ez1/apsystems-ez1.service:apsystems_ez1:1"
-  "battery-soc.service:services/battery_soc/battery-soc.service:battery_soc:1"
-  "shelly-rpc.service:services/shelly/shelly-rpc.service:shelly:1"
-  "trucki-http.service:services/trucki/trucki-http.service:trucki:1"
-  "tuya.service:services/tuya_mqtt/tuya.service:tuya_mqtt:1"
-  "automation.service:services/automation/automation.service:automation:1"
-)
+# Die Eintraege stammen aus services/<dir>/manifest.json - derselben Quelle,
+# aus der auch das Go-Dashboard und die Python-Bruecken den Dienstumfang
+# lesen. Frueher stand die Tabelle hier als Literal; das war eine zweite
+# Wahrheit, sobald es die Manifeste gab.
+# shellcheck source=scripts/build/lib/manifests.sh
+source "${REPO_ROOT}/scripts/build/lib/manifests.sh"
+load_service_table "${REPO_ROOT}/services"
 
 service_field() {
   local entry="$1" index="$2"

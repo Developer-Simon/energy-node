@@ -1,6 +1,11 @@
 {
   "service_id": "tuya",
   "unit": "tuya.service",
+  "bootstrap_step": "85",
   "schema": "config.schema.json",
-  "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"]
+  "required": [
+    "service_id",
+    "poll_interval_s",
+    "diagnostic_poll_multiplier"
+  ]
 }

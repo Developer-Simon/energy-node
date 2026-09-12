@@ -1,6 +1,11 @@
 {
   "service_id": "apsystems",
   "unit": "apsystems-ez1.service",
+  "bootstrap_step": "81",
   "schema": "config.schema.json",
-  "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier"]
+  "required": [
+    "service_id",
+    "poll_interval_s",
+    "diagnostic_poll_multiplier"
+  ]
 }

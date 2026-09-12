@@ -1,6 +1,9 @@
 {
   "service_id": "automation",
   "unit": "automation.service",
+  "bootstrap_step": "88",
   "schema": "config.schema.json",
-  "required": ["service_id"]
+  "required": [
+    "service_id"
+  ]
 }
