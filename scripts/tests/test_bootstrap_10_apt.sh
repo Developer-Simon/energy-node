@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC2034  # INSTALLED ist eine Umgebungsvariable fuer die Test-Subshells
 # Test for scripts/bootstrap/10-apt.sh
 set -euo pipefail
 
@@ -45,8 +44,7 @@ grep -q '^##STEP 10 skip' <<<"$out" || fail "zweiter Lauf nicht uebersprungen" "
 # --- alles bereits installiert: ok ohne apt-get install --------------------
 rm -rf "$tmp/state"
 : > "$APT_LOG"
-INSTALLED="mosquitto mosquitto-clients ufw python3-pip ca-certificates" \
-  out="$(INSTALLED="mosquitto mosquitto-clients ufw python3-pip ca-certificates" bash "$script")"
+out="$(INSTALLED="mosquitto mosquitto-clients ufw python3-pip ca-certificates" bash "$script")"
 grep -q '^##STEP 10 ok$' <<<"$out" || fail "kein ok bei vollstaendiger Installation" "$out"
 grep -q 'install' "$APT_LOG" && fail "apt-get install trotz vollstaendiger Installation"
 

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# shellcheck disable=SC1091  # Schritt sourct absichtlich einen dynamischen Pfad auf das step.sh Modul
 #
 # Schritt 10: Systempakete (INSTALLATION.md §2 und §4).
 #
@@ -7,6 +6,7 @@
 # Schritt laufen kann. Alles, was ein optionaler Dienst braucht, bringt
 # dessen eigener Schritt mit.
 set -euo pipefail
+# shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
 
 PACKAGES=(mosquitto mosquitto-clients ufw python3-pip ca-certificates)
