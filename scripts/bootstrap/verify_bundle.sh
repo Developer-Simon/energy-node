@@ -47,7 +47,7 @@ signature="${manifest}.sig"
 [[ -n "${BUNDLE}" && -f "${manifest}" ]] || die BUNDLE_MANIFEST_MISSING
 
 if [[ "${TARGET_ONLY}" != true ]]; then
-  [[ -f "${signature}" ]] || die BUNDLE_MANIFEST_MISSING
+  [[ -f "${signature}" ]] || die BUNDLE_SIGNATURE_INVALID
   [[ -n "${PUBKEY}" && -f "${PUBKEY}" ]] || die BUNDLE_SIGNATURE_INVALID
 
   # -rawin ist fuer ed25519 Pflicht: der Algorithmus signiert die Nachricht

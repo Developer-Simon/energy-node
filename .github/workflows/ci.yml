@@ -100,7 +100,7 @@ jobs:
 
           emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
           emit dashboard '^dashboard/'
-          emit installer  '^installer/'
+          emit installer  '^installer/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
           emit shell     '^scripts/'
           emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^scripts/vendor_(core|card)\.py$'

@@ -122,8 +122,17 @@ func TestRunCancellationEndsTheSession(t *testing.T) {
 	runCtx, runCancel := context.WithCancel(context.Background())
 	runCancel()
 
+	start := time.Now()
 	err := client.Run(runCtx, "sleep 5", &bytes.Buffer{}, &bytes.Buffer{})
+	elapsed := time.Since(start)
+
 	if err == nil {
 		t.Fatalf("expected Run to report the cancellation")
+	}
+	// sleep does not touch its stdio, so it never notices the channel
+	// closing -- Run must give up after cancelWaitGrace rather than block
+	// for the remaining ~5s until the remote process exits on its own.
+	if elapsed >= 5*time.Second {
+		t.Fatalf("Run took %s to return after cancellation; it waited out the remote command instead of bounding the wait", elapsed)
 	}
 }

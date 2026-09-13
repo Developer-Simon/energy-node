@@ -18,6 +18,16 @@ import (
 	"github.com/Developer-Simon/energy-node-installer/internal/transport/transporttest"
 )
 
+// testStagingTag mirrors bundle's unexported stagingTag: Deploy and
+// VerifyRemote namespace their /tmp staging filenames by the target
+// remoteDir precisely so that a cleanup check can scope its glob to its own
+// remoteDir instead of matching another concurrently-running test binary's
+// unrelated staged file on the same shared /tmp.
+func testStagingTag(remoteDir string) string {
+	replacer := strings.NewReplacer("/", "_", " ", "_")
+	return replacer.Replace(strings.Trim(remoteDir, "/"))
+}
+
 func requireSFTPServerForBundle(t *testing.T) {
 	t.Helper()
 	if _, ok := transporttest.SFTPServerPath(); !ok {
@@ -127,8 +137,11 @@ func TestDeployUploadsAndExtractsTheArchive(t *testing.T) {
 	}
 
 	// The staged archive played no role beyond getting the bytes there and
-	// must not linger on the node afterwards.
-	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-bundle-*.tar.gz"); n != 0 {
+	// must not linger on the node afterwards. Scoped to this test's own
+	// remoteDir tag so a concurrently-running package (steps also calls
+	// Deploy) staging its own archive under the same /tmp cannot make this
+	// assertion flaky.
+	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-bundle-"+testStagingTag(remoteDir)+"-*.tar.gz"); n != 0 {
 		t.Fatalf("staged archive was not cleaned up: %d matching files remain", n)
 	}
 }
@@ -189,7 +202,7 @@ func TestVerifyRemoteCleansUpTheUploadedPublicKey(t *testing.T) {
 		t.Fatalf("VerifyRemote: %v", err)
 	}
 
-	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-pubkey-*.pem"); n != 0 {
+	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-pubkey-"+testStagingTag(remoteDir)+"-*.pem"); n != 0 {
 		t.Fatalf("uploaded public key was not cleaned up: %d matching files remain", n)
 	}
 }

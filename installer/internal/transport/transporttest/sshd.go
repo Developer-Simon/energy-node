@@ -3,6 +3,10 @@
 // steps all exercise their SSH-facing code against it instead of a mock.
 // Modelled on net/http/httptest: an ordinary importable package that
 // happens to take *testing.T and is only ever called from test files.
+//
+// Unlike net/http/httptest, this package does import "testing" itself (for
+// t.Helper/t.Cleanup/t.TempDir). Do not import it from non-test code --
+// doing so would pull testing's flag registration into a production binary.
 package transporttest
 
 import (

@@ -268,3 +268,48 @@ func TestEndToEndRejectsAnArchitectureMismatchBeforeAnyStepRuns(t *testing.T) {
 		t.Fatalf("a step appears to have run despite the architecture mismatch")
 	}
 }
+
+// TestMissingSignatureReportsTheSameFaultCodeOnBothHalves guards the
+// contract internal/faults (Plan B-II) depends on: a real-world fault must
+// map to the same stable code however it was first noticed, so a caller
+// never has to know whether Go or Bash caught it. Go's local VerifySignature
+// and Bash's verify_bundle.sh independently classify the exact same missing
+// manifest.json.sig, and must agree.
+func TestMissingSignatureReportsTheSameFaultCodeOnBothHalves(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	requireOpenSSL(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	abi := hostPythonABI(t)
+	pub, priv, err := ed25519.GenerateKey(rand.Reader)
+	if err != nil {
+		t.Fatalf("generating key: %v", err)
+	}
+
+	src := t.TempDir()
+	buildEndToEndBundle(t, src, "test-arch", []string{hostUnameMachine(t)}, abi, "v1.0.0", priv)
+	if err := os.Remove(filepath.Join(src, "manifest.json.sig")); err != nil {
+		t.Fatalf("removing manifest.json.sig: %v", err)
+	}
+
+	localErr := bundle.VerifySignature(src, pub)
+	var localBundleErr *bundle.Error
+	if !errors.As(localErr, &localBundleErr) {
+		t.Fatalf("expected a *bundle.Error from the local check, got %v", localErr)
+	}
+
+	remoteBundleDir := deployPrebuiltBundle(t, client, src)
+	remoteErr := bundle.VerifyRemote(context.Background(), client, remoteBundleDir, encodePublicKeyPEM(t, pub))
+	var remoteBundleErr *bundle.Error
+	if !errors.As(remoteErr, &remoteBundleErr) {
+		t.Fatalf("expected a *bundle.Error from the remote check, got %v", remoteErr)
+	}
+
+	if localBundleErr.Code != remoteBundleErr.Code {
+		t.Fatalf("Go and Bash disagree on the fault code for a missing signature: local=%s remote=%s", localBundleErr.Code, remoteBundleErr.Code)
+	}
+	if localBundleErr.Code != bundle.FaultSignatureInvalid {
+		t.Fatalf("expected FaultSignatureInvalid, got %s", localBundleErr.Code)
+	}
+}

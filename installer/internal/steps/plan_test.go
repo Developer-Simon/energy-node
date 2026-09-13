@@ -2,8 +2,10 @@ package steps_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 
+	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/steps"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport/transporttest"
 )
@@ -61,10 +63,15 @@ func TestPreviewReportsAMissingManifest(t *testing.T) {
 	sshd := transporttest.Start(t)
 	client := dialForStepsTest(t, sshd)
 
-	const failScript = "#!/bin/sh\nprintf 'FEHLER BUNDLE_MANIFEST_MISSING\\n'\nexit 1\n"
+	const failScript = "#!/bin/sh\necho diagnostic noise on its own line\nprintf 'FEHLER BUNDLE_MANIFEST_MISSING\\n'\nexit 1\n"
 	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"plan.sh": failScript})
 
-	if _, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0"); err == nil {
-		t.Fatalf("expected an error")
+	_, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0")
+	var bundleErr *bundle.Error
+	if !errors.As(err, &bundleErr) {
+		t.Fatalf("expected a *bundle.Error, got %v", err)
+	}
+	if bundleErr.Code != bundle.FaultManifestMissing {
+		t.Fatalf("expected FaultManifestMissing, got %s", bundleErr.Code)
 	}
 }

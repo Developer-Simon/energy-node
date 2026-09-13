@@ -63,12 +63,15 @@ func Run(ctx context.Context, opts RunOptions) error {
 	}
 
 	for _, step := range opts.Steps {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		terminal, err := runOneStep(ctx, opts, step)
 		if err != nil {
 			return err
 		}
 		if terminal.Kind == Fail {
-			return &StepFailure{StepID: step.ID, Code: terminal.Detail}
+			return &StepFailure{StepID: terminal.StepID, Code: terminal.Detail}
 		}
 	}
 	return nil
@@ -131,6 +134,13 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 
 	if !haveTerminal {
 		return Marker{}, fmt.Errorf("step %s ended without a terminal marker: %v (stderr: %q)", step.ID, runErr, stderr.String())
+	}
+	// A terminal "ok"/"skip" marker means step.sh believes it succeeded, but
+	// the command can still exit non-zero afterward (a trailing command
+	// failing after the marker was already printed). Trust the exit status
+	// over the marker in that case rather than reporting full success.
+	if terminal.Kind != Fail && runErr != nil {
+		return Marker{}, fmt.Errorf("step %s reported %q but then failed: %w (stderr: %q)", step.ID, terminal.Kind, runErr, stderr.String())
 	}
 	return terminal, nil
 }

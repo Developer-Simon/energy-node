@@ -8,6 +8,7 @@ import (
 	"path"
 	"strings"
 
+	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
 
@@ -57,8 +58,8 @@ func Preview(ctx context.Context, client *transport.Client, remoteBundleDir, rem
 
 	var stdout, stderr bytes.Buffer
 	if err := client.Run(ctx, command, &stdout, &stderr); err != nil {
-		if code, ok := strings.CutPrefix(strings.TrimSpace(stdout.String()), "FEHLER "); ok {
-			return nil, fmt.Errorf("plan.sh reported %s", code)
+		if code, ok := strings.CutPrefix(bundle.LastLine(stdout.String()), "FEHLER "); ok {
+			return nil, &bundle.Error{Code: bundle.FaultCode(code), Message: "plan.sh reported a fault"}
 		}
 		return nil, fmt.Errorf("plan.sh failed: %w (stderr: %s)", err, stderr.String())
 	}

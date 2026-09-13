@@ -83,12 +83,21 @@ func (c *Client) Close() error {
 	return c.conn.Close()
 }
 
+// cancelWaitGrace bounds how long Run waits for session.Wait to return once
+// ctx is cancelled. Closing the SSH channel ends the remote's stdio, which a
+// process actively reading or writing it observes as teardown immediately --
+// but a process that never touches stdio again (sleep, and most of a long
+// apt-get run) will not notice until it next does, or exits on its own,
+// which can be far later than the caller is willing to wait.
+const cancelWaitGrace = 3 * time.Second
+
 // Run executes command in a fresh SSH session on the held connection,
-// streaming its stdout and stderr to the given writers. Cancelling ctx
-// closes the session; most sshd configurations disable the SSH "signal"
-// request, so this cannot deliver SIGTERM to the remote process, but closing
-// the channel ends its stdio and the remote shell observes that as normal
-// process teardown (a pipe write failing, or read returning EOF).
+// streaming its stdout and stderr to the given writers. Cancelling ctx tries
+// SIGTERM first -- most sshd configurations disable the SSH "signal"
+// request, so this usually has no effect -- then closes the session, which
+// ends its stdio; Run returns ctx.Err() once that happens or after
+// cancelWaitGrace, whichever comes first, rather than waiting out however
+// long the remote command takes to actually exit.
 func (c *Client) Run(ctx context.Context, command string, stdout, stderr io.Writer) error {
 	session, err := c.conn.NewSession()
 	if err != nil {
@@ -108,8 +117,16 @@ func (c *Client) Run(ctx context.Context, command string, stdout, stderr io.Writ
 
 	select {
 	case <-ctx.Done():
+		_ = session.Signal(ssh.SIGTERM)
 		session.Close()
-		<-done
+		select {
+		case <-done:
+		case <-time.After(cancelWaitGrace):
+			// The remote process did not react to the channel closing within
+			// the grace period; done is still buffered (size 1) so the
+			// goroutine above will not leak once session.Wait eventually
+			// returns.
+		}
 		return ctx.Err()
 	case err := <-done:
 		return err
@@ -142,8 +159,9 @@ func BuildCommand(env map[string]string, command string) string {
 	return b.String()
 }
 
-// shellQuote wraps s in single quotes for POSIX sh, escaping an embedded
-// single quote as '\” (close quote, escaped literal quote, reopen quote).
+// shellQuote wraps s in single quotes for POSIX sh, escaping each embedded
+// quote character by ending the quoted string, inserting a backslash-escaped
+// quote, and reopening a new quoted string right after it.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }

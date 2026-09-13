@@ -48,10 +48,18 @@ func (c *Client) uploadReader(r io.Reader, remotePath string, mode os.FileMode) 
 	}
 	defer remote.Close()
 
+	// Chmod before writing any content: the server just created remotePath
+	// at its own default mode (mode & ^umask, typically 0644), and a caller
+	// staging a secret must never leave a window where those bytes sit on
+	// disk at a world-readable mode.
+	if err := remote.Chmod(mode); err != nil {
+		return fmt.Errorf("setting mode of %s: %w", remotePath, err)
+	}
+
 	if _, err := io.Copy(remote, r); err != nil {
 		return fmt.Errorf("writing %s: %w", remotePath, err)
 	}
-	return remote.Chmod(mode)
+	return nil
 }
 
 // RemoveRemote deletes a file on the node. A file that is already gone is
