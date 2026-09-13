@@ -1,1 +1,9 @@
-{}
+{
+  "app.title": "Energy-Node-Installer",
+  "language.label": "Sprache",
+  "language.de": "Deutsch",
+  "language.en": "English",
+  "entry.install": "Neu einrichten",
+  "entry.redeploy": "Aktualisieren",
+  "entry.diagnose": "Diagnose"
+}

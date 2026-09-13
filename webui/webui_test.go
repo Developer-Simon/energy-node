@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-webui"
+	"github.com/Developer-Simon/energy-node-webui/i18n"
 )
 
 func TestAssetVersionIsTheVersionFileWithoutWhitespace(t *testing.T) {
@@ -39,6 +40,27 @@ func TestCatalogsContainBothLanguages(t *testing.T) {
 	for _, name := range []string{"de.json", "en.json"} {
 		if _, err := webui.Catalogs().Open(name); err != nil {
 			t.Errorf("Catalogs().Open(%q): %v", name, err)
+		}
+	}
+}
+
+func TestShippedCatalogsCoverTheSameKeys(t *testing.T) {
+	set, err := i18n.Load(webui.Catalogs())
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	german := map[string]bool{}
+	for _, key := range set.Keys("de") {
+		german[key] = true
+	}
+	for _, key := range set.Keys("en") {
+		if !german[key] {
+			t.Errorf("key %q is missing from catalogs/de.json", key)
+		}
+	}
+	for _, key := range set.Keys("de") {
+		if _, ok := set.Lookup("en", key); !ok {
+			t.Errorf("key %q is missing from catalogs/en.json", key)
 		}
 	}
 }
