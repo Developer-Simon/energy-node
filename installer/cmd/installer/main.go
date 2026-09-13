@@ -9,15 +9,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/devcli"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
+	if len(os.Args) < 2 || strings.HasPrefix(os.Args[1], "-") {
+		cfg, err := newUIConfig(os.Args[1:])
+		if err != nil {
+			os.Exit(2)
+		}
+		if err := runUI(cfg); err != nil {
+			fmt.Fprintln(os.Stderr, "installer:", err)
+			os.Exit(1)
+		}
+		return
 	}
 
 	var err error
