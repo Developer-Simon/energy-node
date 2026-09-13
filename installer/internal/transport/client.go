@@ -147,3 +147,10 @@ func BuildCommand(env map[string]string, command string) string {
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
+
+// ShellQuote exposes shellQuote for other installer packages that build a
+// remote command line directly, such as internal/bundle's Deploy and
+// VerifyRemote.
+func ShellQuote(s string) string {
+	return shellQuote(s)
+}

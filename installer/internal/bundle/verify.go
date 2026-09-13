@@ -23,6 +23,13 @@ func EmbeddedPublicKey() (ed25519.PublicKey, error) {
 	return ParsePublicKeyPEM(embeddedPublicKeyPEM)
 }
 
+// EmbeddedPublicKeyPEM returns the raw PEM bytes compiled into this binary.
+// VerifyRemote needs these bytes, not a parsed key, to hand to the node's
+// verify_bundle.sh, which expects a PEM file on disk.
+func EmbeddedPublicKeyPEM() []byte {
+	return embeddedPublicKeyPEM
+}
+
 // ParsePublicKeyPEM decodes a PEM-encoded SubjectPublicKeyInfo block -- the
 // format `openssl pkey -pubout` writes -- into an ed25519 public key.
 func ParsePublicKeyPEM(pemBytes []byte) (ed25519.PublicKey, error) {
