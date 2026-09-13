@@ -1,11 +1,12 @@
 # Changelog
 
-## v0.1.9 (2026-09-12)
+## v0.1.9 (2026-09-13)
 
 ### Features
 
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
+- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
 - make device services self-describing with per-service manifests (#12) (2e8c911)

@@ -1,17 +1,19 @@
 # Changelog
 
-## v0.6.4 (2026-09-12)
+## v0.6.4 (2026-09-13)
 
 ### Features
 
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
+- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
 - **dashboard:** restyle MQTT settings tab to match card layout (2d5f2bf)
 - **dashboard:** fill row gaps and add floating save bars on MQTT tab (a389ce4)
 
 ### Fixes
 
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
 
 ## v0.6.2 (2026-09-11)
