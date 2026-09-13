@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
@@ -21,18 +22,23 @@ func swapDeployCollaborators(t *testing.T) {
 	origVerifyRemote, origPreview := verifyBundleRemote, previewRun
 	origRun, origClear := runSteps, clearRemoteConfigAndStamp
 	origPubKey, origPubKeyPEM := embeddedPublicKey, embeddedPublicKeyPEM
+	origVerifyLocalDev, origVerifyRemoteDev := verifyBundleLocalDev, verifyBundleRemoteDev
+	origProvision := provisionRemoteStateDir
 	t.Cleanup(func() {
 		buildViaRepo, extractArchive = origBuild, origExtract
 		verifyBundleLocal, deployBundle = origVerifyLocal, origDeploy
 		verifyBundleRemote, previewRun = origVerifyRemote, origPreview
 		runSteps, clearRemoteConfigAndStamp = origRun, origClear
 		embeddedPublicKey, embeddedPublicKeyPEM = origPubKey, origPubKeyPEM
+		verifyBundleLocalDev, verifyBundleRemoteDev = origVerifyLocalDev, origVerifyRemoteDev
+		provisionRemoteStateDir = origProvision
 	})
 
 	buildViaRepo = func(context.Context, bundle.BuildArgs) (string, error) { return "/fake/archive.tar.gz", nil }
 	extractArchive = func(string, string) error { return nil }
 	embeddedPublicKey = func() (ed25519.PublicKey, error) { return ed25519.PublicKey{}, nil }
 	embeddedPublicKeyPEM = func() []byte { return nil }
+	provisionRemoteStateDir = func(context.Context, *transport.Client) error { return nil }
 }
 
 func fakeManifest() *bundle.Manifest {
@@ -194,6 +200,115 @@ func TestRunDeployTranslatesAStepFailureThroughFaults(t *testing.T) {
 	}
 	if got := err.Error(); !containsAll(got, "50", "break-system-packages") {
 		t.Fatalf("expected the translated fault text in the error, got: %s", got)
+	}
+}
+
+func TestRunDeployProvisionsTheRemoteStateDirBeforeDeployingTheBundle(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	var order []string
+	provisionRemoteStateDir = func(context.Context, *transport.Client) error {
+		order = append(order, "provision")
+		return nil
+	}
+	deployBundle = func(context.Context, *transport.Client, string, string) error {
+		order = append(order, "deploy")
+		return nil
+	}
+
+	err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}})
+	if err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if len(order) != 2 || order[0] != "provision" || order[1] != "deploy" {
+		t.Fatalf("expected the remote state dir to be provisioned before the bundle is deployed, got %v", order)
+	}
+}
+
+func TestRunDeployAbortsBeforeDeployingWhenProvisioningFails(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	provisionRemoteStateDir = func(context.Context, *transport.Client) error { return errors.New("no sudo") }
+	deployBundle = func(context.Context, *transport.Client, string, string) error {
+		t.Fatalf("must not deploy when provisioning the remote state dir fails")
+		return nil
+	}
+
+	err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}})
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+}
+
+func TestRunDeployDryRunDoesNotProvisionTheRemoteStateDir(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	previewRun = func(context.Context, *transport.Client, string, string, string) (*steps.Plan, error) {
+		return &steps.Plan{}, nil
+	}
+	provisionRemoteStateDir = func(context.Context, *transport.Client) error {
+		t.Fatalf("--dry-run must not touch the node at all")
+		return nil
+	}
+
+	if err := RunDeploy(context.Background(), DeployArgs{DryRun: true, Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+}
+
+func TestRunDeployDevUnsignedSkipsSignatureVerificationLocallyAndRemotely(t *testing.T) {
+	swapDeployCollaborators(t)
+	embeddedPublicKey = func() (ed25519.PublicKey, error) {
+		t.Fatalf("--dev-unsigned must never need the embedded signing key")
+		return nil, nil
+	}
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) {
+		t.Fatalf("--dev-unsigned must use the unsigned local verifier, not the signed one")
+		return nil, nil
+	}
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error {
+		t.Fatalf("--dev-unsigned must use the unsigned remote verifier, not the signed one")
+		return nil
+	}
+	localCalled, remoteCalled := false, false
+	verifyBundleLocalDev = func(string) (*bundle.Manifest, error) { localCalled = true; return fakeManifest(), nil }
+	verifyBundleRemoteDev = func(context.Context, *transport.Client, string) error { remoteCalled = true; return nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	var out bytes.Buffer
+	err := RunDeploy(context.Background(), DeployArgs{DevUnsigned: true, Stdout: &out})
+	if err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !localCalled || !remoteCalled {
+		t.Fatalf("expected both the local and remote unsigned verifiers to run")
+	}
+	if !containsAll(out.String(), "dev-unsigned") {
+		t.Fatalf("expected a loud warning that signature verification was skipped, got: %s", out.String())
+	}
+}
+
+func TestRunDeployWithoutDevUnsignedUsesTheSignedVerifiers(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+	verifyBundleLocalDev = func(string) (*bundle.Manifest, error) {
+		t.Fatalf("must not use the unsigned local verifier by default")
+		return nil, nil
+	}
+	verifyBundleRemoteDev = func(context.Context, *transport.Client, string) error {
+		t.Fatalf("must not use the unsigned remote verifier by default")
+		return nil
+	}
+
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
 	}
 }
 

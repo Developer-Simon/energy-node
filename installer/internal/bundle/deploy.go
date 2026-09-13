@@ -125,6 +125,32 @@ func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir strin
 	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
 }
 
+// VerifyRemoteDev is VerifyRemote's --dev-unsigned counterpart: it runs
+// verify_bundle.sh --target-only, which checks architecture and Python ABI
+// against the node but skips the signature and hash checks entirely (see
+// verify_bundle.sh's own --target-only doc comment) -- there is no key to
+// check a signature against, since a developer build made with --dev-
+// unsigned never has one. It never uploads a public key, unlike
+// VerifyRemote, because none is needed.
+func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir string) error {
+	command := fmt.Sprintf(
+		"bash %s --bundle %s --target-only",
+		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
+		transport.ShellQuote(remoteDir),
+	)
+	var stdout, stderr bytes.Buffer
+	runErr := client.Run(ctx, command, &stdout, &stderr)
+
+	result := LastLine(stdout.String())
+	if result == "OK" && runErr == nil {
+		return nil
+	}
+	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
+		return &Error{Code: FaultCode(code), Message: "verify_bundle.sh rejected the bundle on the node"}
+	}
+	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
+}
+
 // LastLine returns the last non-empty line of s, trimming a trailing
 // newline first. verify_bundle.sh and plan.sh both write their machine-
 // readable result ("OK" or "FEHLER <CODE>") as the last line of stdout,

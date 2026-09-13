@@ -112,3 +112,21 @@ func Verify(bundleDir string, pubKey ed25519.PublicKey) (*Manifest, error) {
 	}
 	return manifest, nil
 }
+
+// VerifyDev runs the same local integrity check as Verify minus the
+// signature: only --dev-unsigned callers use this, for a bundle built
+// without --sign-key (there is no private key matching the embedded
+// release public key anywhere in this repository, so a normal developer
+// build can never produce a signature Verify would accept). It still checks
+// every file hash against the manifest, so a corrupted or incomplete local
+// build is still caught.
+func VerifyDev(bundleDir string) (*Manifest, error) {
+	manifest, err := LoadManifest(bundleDir)
+	if err != nil {
+		return nil, err
+	}
+	if err := VerifyFileHashes(bundleDir, manifest); err != nil {
+		return nil, err
+	}
+	return manifest, nil
+}

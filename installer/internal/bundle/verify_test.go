@@ -164,3 +164,31 @@ func TestEmbeddedPublicKeyParses(t *testing.T) {
 		t.Fatalf("EmbeddedPublicKey: %v", err)
 	}
 }
+
+func TestVerifyDevAcceptsAnUnsignedIntactBundle(t *testing.T) {
+	dir, _ := newTestBundle(t)
+	if err := os.Remove(filepath.Join(dir, "manifest.json.sig")); err != nil {
+		t.Fatalf("removing signature: %v", err)
+	}
+	manifest, err := bundle.VerifyDev(dir)
+	if err != nil {
+		t.Fatalf("VerifyDev: %v", err)
+	}
+	if manifest.Version != "v0.2.0" {
+		t.Fatalf("unexpected manifest: %+v", manifest)
+	}
+}
+
+func TestVerifyDevStillRejectsATamperedFile(t *testing.T) {
+	dir, _ := newTestBundle(t)
+	if err := os.WriteFile(filepath.Join(dir, "bootstrap", "10-apt.sh"), []byte("echo boese\n"), 0o644); err != nil {
+		t.Fatalf("tampering: %v", err)
+	}
+	_, err := bundle.VerifyDev(dir)
+	assertFaultCode(t, err, bundle.FaultHashMismatch)
+}
+
+func TestVerifyDevRejectsAMissingManifest(t *testing.T) {
+	_, err := bundle.VerifyDev(t.TempDir())
+	assertFaultCode(t, err, bundle.FaultManifestMissing)
+}

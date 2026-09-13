@@ -48,8 +48,8 @@ func printUsage() {
 	fmt.Fprint(os.Stderr, `energy-node-installer developer CLI (E12)
 
 Usage:
-  installer deploy [--only <dashboard|wheels|<service>>] [--dry-run] [--force-config] [common flags]
-  installer ensure-secrets [common flags]
+  installer deploy [--only <dashboard|wheels|<service>>] [--dry-run] [--force-config] [--dev-unsigned] [common flags]
+  installer ensure-secrets [--dev-unsigned] [common flags]
   installer fetch-config [common flags]
   installer diagnose [common flags]
 
@@ -78,6 +78,7 @@ type commonFlags struct {
 	pythonMinor  string
 	abi          string
 	signKey      string
+	devUnsigned  bool
 }
 
 func addCommonFlags(fs *flag.FlagSet, c *commonFlags, repoRootDefault string) {
@@ -146,6 +147,7 @@ func parseDeployFlags(args []string, repoRootDefault string) (deployConfig, erro
 	fs.StringVar(&cfg.common.pythonMinor, "python-minor", "", "override the bundle's Python minor version")
 	fs.StringVar(&cfg.common.abi, "abi", "", "override the bundle's wheel ABI tag")
 	fs.StringVar(&cfg.common.signKey, "sign-key", "", "path to an ed25519 private key for signing (optional)")
+	fs.BoolVar(&cfg.common.devUnsigned, "dev-unsigned", false, "skip bundle signature verification (local and remote); there is no private key for the embedded release public key outside CI, so this is required to deploy a local build at all")
 	fs.StringVar(&cfg.only, "only", "", `deploy just "dashboard", "wheels", or a device service id`)
 	fs.BoolVar(&cfg.dryRun, "dry-run", false, "preview changes without touching the node")
 	fs.BoolVar(&cfg.forceConfig, "force-config", false, "overwrite the node's existing config.json (asks first)")
@@ -184,6 +186,7 @@ func runDeployCmd(args []string) error {
 		PythonMinor: cfg.common.pythonMinor,
 		ABI:         cfg.common.abi,
 		SignKeyPath: cfg.common.signKey,
+		DevUnsigned: cfg.common.devUnsigned,
 		Only:        cfg.only,
 		DryRun:      cfg.dryRun,
 		ForceConfig: cfg.forceConfig,
@@ -208,6 +211,7 @@ func parseEnsureSecretsFlags(args []string, repoRootDefault string) (ensureSecre
 	fs.StringVar(&cfg.common.pythonMinor, "python-minor", "", "override the bundle's Python minor version")
 	fs.StringVar(&cfg.common.abi, "abi", "", "override the bundle's wheel ABI tag")
 	fs.StringVar(&cfg.common.signKey, "sign-key", "", "path to an ed25519 private key for signing (optional)")
+	fs.BoolVar(&cfg.common.devUnsigned, "dev-unsigned", false, "skip bundle signature verification (local and remote); there is no private key for the embedded release public key outside CI, so this is required to deploy a local build at all")
 	fs.StringVar(&cfg.mqttSecretPath, "mqtt-secret-path", "", "local cache for the MQTT password (default: <repo>/secrets/mqtt.pw)")
 	fs.StringVar(&cfg.adminSecretPath, "admin-secret-path", "", "local cache for the dashboard admin password (default: <repo>/secrets/dashboard-admin.pw)")
 	if err := fs.Parse(args); err != nil {
@@ -251,6 +255,7 @@ func runEnsureSecretsCmd(args []string) error {
 		PythonMinor:     cfg.common.pythonMinor,
 		ABI:             cfg.common.abi,
 		SignKeyPath:     cfg.common.signKey,
+		DevUnsigned:     cfg.common.devUnsigned,
 		MQTTSecretPath:  cfg.mqttSecretPath,
 		AdminSecretPath: cfg.adminSecretPath,
 		Stdout:          os.Stdout,

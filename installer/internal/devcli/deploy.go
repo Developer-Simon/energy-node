@@ -34,6 +34,9 @@ var (
 	embeddedPublicKey         = bundle.EmbeddedPublicKey
 	embeddedPublicKeyPEM      = bundle.EmbeddedPublicKeyPEM
 	clearRemoteConfigAndStamp = defaultClearRemoteConfigAndStamp
+	verifyBundleLocalDev      = bundle.VerifyDev
+	verifyBundleRemoteDev     = bundle.VerifyRemoteDev
+	provisionRemoteStateDir   = defaultProvisionRemoteStateDir
 )
 
 // DeployArgs configures one call to RunDeploy: which node, which repo
@@ -47,6 +50,7 @@ type DeployArgs struct {
 	PythonMinor string
 	ABI         string
 	SignKeyPath string
+	DevUnsigned bool   // skip signature verification (local and remote); there is no private key matching the embedded release public key outside CI
 	Only        string // "" for a full deploy
 	DryRun      bool
 	ForceConfig bool
@@ -60,9 +64,8 @@ type DeployArgs struct {
 // node-changing call, and why --force-config only clears a stamp instead of
 // re-implementing 60-node-install.sh's own idempotency in Go.
 func RunDeploy(ctx context.Context, args DeployArgs) error {
-	pubKey, err := embeddedPublicKey()
-	if err != nil {
-		return fmt.Errorf("loading embedded signing key: %w", err)
+	if args.DevUnsigned {
+		fmt.Fprintln(args.Stdout, "WARNING: --dev-unsigned: skipping bundle signature verification (local and remote). Never use this against a node you do not control.")
 	}
 
 	outDir, err := os.MkdirTemp("", "energy-node-installer-build-*")
@@ -90,7 +93,7 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		return fmt.Errorf("extracting built bundle: %w", err)
 	}
 
-	manifest, err := verifyBundleLocal(extractDir, pubKey)
+	manifest, err := verifyLocal(extractDir, args.DevUnsigned)
 	if err != nil {
 		return fmt.Errorf("verifying built bundle: %w", err)
 	}
@@ -117,10 +120,13 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		return nil
 	}
 
+	if err := provisionRemoteStateDir(ctx, args.Client); err != nil {
+		return fmt.Errorf("provisioning %s on the node: %w", DefaultRemoteStateDir, err)
+	}
 	if err := deployBundle(ctx, args.Client, archivePath, DefaultRemoteBundleDir); err != nil {
 		return fmt.Errorf("uploading bundle: %w", err)
 	}
-	if err := verifyBundleRemote(ctx, args.Client, DefaultRemoteBundleDir, embeddedPublicKeyPEM()); err != nil {
+	if err := verifyRemote(ctx, args.Client, args.DevUnsigned); err != nil {
 		return fmt.Errorf("verifying bundle on the node: %w", err)
 	}
 
@@ -153,6 +159,49 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		OnLog:           func(stepID, line string) { fmt.Fprintf(args.Stdout, "[%s] %s\n", stepID, line) },
 	})
 	return translateStepFailure(err)
+}
+
+// verifyLocal picks the signed or unsigned local verifier: the default path
+// unchanged from before --dev-unsigned existed, or (only when the caller
+// asked for it) the hash-only check a bundle built without --sign-key can
+// actually pass, since no developer checkout ever holds the private key
+// matching the embedded release public key.
+func verifyLocal(extractDir string, devUnsigned bool) (*bundle.Manifest, error) {
+	if devUnsigned {
+		return verifyBundleLocalDev(extractDir)
+	}
+	pubKey, err := embeddedPublicKey()
+	if err != nil {
+		return nil, fmt.Errorf("loading embedded signing key: %w", err)
+	}
+	return verifyBundleLocal(extractDir, pubKey)
+}
+
+// verifyRemote mirrors verifyLocal's choice for the node-side check.
+func verifyRemote(ctx context.Context, client *transport.Client, devUnsigned bool) error {
+	if devUnsigned {
+		return verifyBundleRemoteDev(ctx, client, DefaultRemoteBundleDir)
+	}
+	return verifyBundleRemote(ctx, client, DefaultRemoteBundleDir, embeddedPublicKeyPEM())
+}
+
+// defaultProvisionRemoteStateDir grants the connecting user ownership of
+// DefaultRemoteStateDir before anything writes under it. /var/lib is
+// root-owned 0755, so mkdir -p by the unprivileged connecting user (which is
+// what Deploy and step.sh's own stamp writes both do) fails with EACCES on
+// a node that has never had this installer run before. install -d is
+// idempotent, so running this once per connection is safe even when the
+// directory already exists and is already owned correctly. Passwordless
+// sudo is already a hard precondition of this whole installer (the
+// Vorprüfung step checks `sudo -n true` before anything runs), so this does
+// not introduce a new requirement.
+func defaultProvisionRemoteStateDir(ctx context.Context, client *transport.Client) error {
+	cmd := fmt.Sprintf(`sudo install -d -o "$(id -un)" -g "$(id -un)" -m 0755 %s`, transport.ShellQuote(DefaultRemoteStateDir))
+	var stderr bytes.Buffer
+	if err := client.Run(ctx, cmd, io.Discard, &stderr); err != nil {
+		return fmt.Errorf("%w (stderr: %s)", err, stderr.String())
+	}
+	return nil
 }
 
 // translateStepFailure turns a *steps.StepFailure into operator-facing text

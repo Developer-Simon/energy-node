@@ -206,3 +206,91 @@ func TestVerifyRemoteCleansUpTheUploadedPublicKey(t *testing.T) {
 		t.Fatalf("uploaded public key was not cleaned up: %d matching files remain", n)
 	}
 }
+
+// realVerifyBundlePath locates the actual verify_bundle.sh relative to this
+// test file, mirroring steps.e2e_test's realVerifyBundlePath: this proves
+// VerifyRemoteDev's --target-only invocation actually matches what the real
+// script accepts, not just a fake script that ignores its own arguments.
+func realVerifyBundlePath(t *testing.T) string {
+	t.Helper()
+	path, err := filepath.Abs(filepath.Join("..", "..", "..", "scripts", "bootstrap", "verify_bundle.sh"))
+	if err != nil {
+		t.Fatalf("resolving verify_bundle.sh path: %v", err)
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Skipf("scripts/bootstrap/verify_bundle.sh not found: %v", err)
+	}
+	return path
+}
+
+func TestVerifyRemoteDevAcceptsAnUnsignedBundleAgainstTheRealScript(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not available; the real verify_bundle.sh needs it")
+	}
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+
+	verifyScript, err := os.ReadFile(realVerifyBundlePath(t))
+	if err != nil {
+		t.Fatalf("reading real verify_bundle.sh: %v", err)
+	}
+	uname, err := exec.Command("uname", "-m").Output()
+	if err != nil {
+		t.Fatalf("uname -m: %v", err)
+	}
+	machine := strings.TrimSpace(string(uname))
+	manifest := fmt.Sprintf(`{"version":"v0.1.0","uname_machine":["%s"]}`, machine)
+	archive := buildTestArchive(t, map[string]string{
+		"bootstrap/verify_bundle.sh": string(verifyScript),
+		"manifest.json":              manifest,
+	})
+	remoteDir := "/tmp/energy-node-installer-verify-dev-test/" + t.Name()
+	if err := bundle.Deploy(context.Background(), client, archive, remoteDir); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	// No manifest.json.sig was written above: the real script must accept
+	// this bundle under --target-only precisely because it never asks for a
+	// signature or a key.
+	if err := bundle.VerifyRemoteDev(ctx, client, remoteDir); err != nil {
+		t.Fatalf("VerifyRemoteDev against the real script: %v", err)
+	}
+}
+
+func TestVerifyRemoteDevReportsTheFaultCode(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := deployFakeVerifyScript(t, client, "FEHLER ARCH_MISMATCH", 1)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err := bundle.VerifyRemoteDev(ctx, client, remoteDir)
+	var bundleErr *bundle.Error
+	if !errors.As(err, &bundleErr) {
+		t.Fatalf("expected a *bundle.Error, got %v", err)
+	}
+	if bundleErr.Code != bundle.FaultArchMismatch {
+		t.Fatalf("expected FaultArchMismatch, got %s", bundleErr.Code)
+	}
+}
+
+func TestVerifyRemoteDevDoesNotUploadAPublicKey(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := deployFakeVerifyScript(t, client, "OK", 0)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := bundle.VerifyRemoteDev(ctx, client, remoteDir); err != nil {
+		t.Fatalf("VerifyRemoteDev: %v", err)
+	}
+	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-pubkey-*"); n != 0 {
+		t.Fatalf("VerifyRemoteDev must never upload a public key, found %d matching files", n)
+	}
+}

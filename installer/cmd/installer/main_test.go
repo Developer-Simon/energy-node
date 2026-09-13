@@ -37,6 +37,36 @@ func TestParseDeployFlagsAppliesOverrides(t *testing.T) {
 	}
 }
 
+func TestParseDeployFlagsDevUnsignedDefaultsToFalse(t *testing.T) {
+	cfg, err := parseDeployFlags(nil, "/repo")
+	if err != nil {
+		t.Fatalf("parseDeployFlags: %v", err)
+	}
+	if cfg.common.devUnsigned {
+		t.Errorf("expected --dev-unsigned to default to false")
+	}
+}
+
+func TestParseDeployFlagsAppliesDevUnsigned(t *testing.T) {
+	cfg, err := parseDeployFlags([]string{"--dev-unsigned"}, "/repo")
+	if err != nil {
+		t.Fatalf("parseDeployFlags: %v", err)
+	}
+	if !cfg.common.devUnsigned {
+		t.Errorf("expected --dev-unsigned to apply")
+	}
+}
+
+func TestParseEnsureSecretsFlagsAppliesDevUnsigned(t *testing.T) {
+	cfg, err := parseEnsureSecretsFlags([]string{"--dev-unsigned"}, "/repo")
+	if err != nil {
+		t.Fatalf("parseEnsureSecretsFlags: %v", err)
+	}
+	if !cfg.common.devUnsigned {
+		t.Errorf("expected --dev-unsigned to apply")
+	}
+}
+
 func TestParseFetchConfigFlagsDefaultsTheLocalTemplatePath(t *testing.T) {
 	cfg, err := parseFetchConfigFlags(nil, "/repo")
 	if err != nil {

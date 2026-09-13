@@ -113,6 +113,74 @@ func TestRunEnsureSecretsClearsTheStampBeforeRunning(t *testing.T) {
 	}
 }
 
+func TestRunEnsureSecretsProvisionsTheRemoteStateDirBeforeDeployingTheBundle(t *testing.T) {
+	swapEnsureSecretsCollaborators(t)
+	dir := t.TempDir()
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	var order []string
+	provisionRemoteStateDir = func(context.Context, *transport.Client) error {
+		order = append(order, "provision")
+		return nil
+	}
+	deployBundle = func(context.Context, *transport.Client, string, string) error {
+		order = append(order, "deploy")
+		return nil
+	}
+
+	err := RunEnsureSecrets(context.Background(), EnsureSecretsArgs{
+		MQTTSecretPath:  filepath.Join(dir, "mqtt.pw"),
+		AdminSecretPath: filepath.Join(dir, "dashboard-admin.pw"),
+		PromptSecret:    func(string) (string, error) { return "x", nil },
+		Stdout:          &bytes.Buffer{},
+	})
+	if err != nil {
+		t.Fatalf("RunEnsureSecrets: %v", err)
+	}
+	if len(order) != 2 || order[0] != "provision" || order[1] != "deploy" {
+		t.Fatalf("expected the remote state dir to be provisioned before the bundle is deployed, got %v", order)
+	}
+}
+
+func TestRunEnsureSecretsDevUnsignedSkipsSignatureVerificationLocallyAndRemotely(t *testing.T) {
+	swapEnsureSecretsCollaborators(t)
+	dir := t.TempDir()
+	embeddedPublicKey = func() (ed25519.PublicKey, error) {
+		t.Fatalf("--dev-unsigned must never need the embedded signing key")
+		return nil, nil
+	}
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) {
+		t.Fatalf("--dev-unsigned must use the unsigned local verifier, not the signed one")
+		return nil, nil
+	}
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error {
+		t.Fatalf("--dev-unsigned must use the unsigned remote verifier, not the signed one")
+		return nil
+	}
+	localCalled, remoteCalled := false, false
+	verifyBundleLocalDev = func(string) (*bundle.Manifest, error) { localCalled = true; return fakeManifest(), nil }
+	verifyBundleRemoteDev = func(context.Context, *transport.Client, string) error { remoteCalled = true; return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	var out bytes.Buffer
+	err := RunEnsureSecrets(context.Background(), EnsureSecretsArgs{
+		DevUnsigned:     true,
+		MQTTSecretPath:  filepath.Join(dir, "mqtt.pw"),
+		AdminSecretPath: filepath.Join(dir, "dashboard-admin.pw"),
+		PromptSecret:    func(string) (string, error) { return "x", nil },
+		Stdout:          &out,
+	})
+	if err != nil {
+		t.Fatalf("RunEnsureSecrets: %v", err)
+	}
+	if !localCalled || !remoteCalled {
+		t.Fatalf("expected both the local and remote unsigned verifiers to run")
+	}
+	if !containsAll(out.String(), "dev-unsigned") {
+		t.Fatalf("expected a loud warning that signature verification was skipped, got: %s", out.String())
+	}
+}
+
 func TestRunEnsureSecretsFailsWhenManifestHasNoStep60(t *testing.T) {
 	swapEnsureSecretsCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) {

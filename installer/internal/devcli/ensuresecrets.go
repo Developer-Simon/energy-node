@@ -31,6 +31,7 @@ type EnsureSecretsArgs struct {
 	PythonMinor     string
 	ABI             string
 	SignKeyPath     string
+	DevUnsigned     bool                               // skip signature verification (local and remote); there is no private key matching the embedded release public key outside CI
 	MQTTSecretPath  string                             // e.g. secrets/mqtt.pw
 	AdminSecretPath string                             // e.g. secrets/dashboard-admin.pw
 	PromptSecret    func(label string) (string, error) // nil uses a real terminal prompt
@@ -42,9 +43,8 @@ type EnsureSecretsArgs struct {
 // this task's rationale for why that reuses 60-node-install.sh's own
 // idempotency instead of a second implementation in Go.
 func RunEnsureSecrets(ctx context.Context, args EnsureSecretsArgs) error {
-	pubKey, err := embeddedPublicKey()
-	if err != nil {
-		return fmt.Errorf("loading embedded signing key: %w", err)
+	if args.DevUnsigned {
+		fmt.Fprintln(args.Stdout, "WARNING: --dev-unsigned: skipping bundle signature verification (local and remote). Never use this against a node you do not control.")
 	}
 
 	outDir, err := os.MkdirTemp("", "energy-node-installer-build-*")
@@ -67,7 +67,7 @@ func RunEnsureSecrets(ctx context.Context, args EnsureSecretsArgs) error {
 		return fmt.Errorf("extracting built bundle: %w", err)
 	}
 
-	manifest, err := verifyBundleLocal(extractDir, pubKey)
+	manifest, err := verifyLocal(extractDir, args.DevUnsigned)
 	if err != nil {
 		return fmt.Errorf("verifying built bundle: %w", err)
 	}
@@ -89,10 +89,13 @@ func RunEnsureSecrets(ctx context.Context, args EnsureSecretsArgs) error {
 		return fmt.Errorf("getting the dashboard admin password: %w", err)
 	}
 
+	if err := provisionRemoteStateDir(ctx, args.Client); err != nil {
+		return fmt.Errorf("provisioning %s on the node: %w", DefaultRemoteStateDir, err)
+	}
 	if err := deployBundle(ctx, args.Client, archivePath, DefaultRemoteBundleDir); err != nil {
 		return fmt.Errorf("uploading bundle: %w", err)
 	}
-	if err := verifyBundleRemote(ctx, args.Client, DefaultRemoteBundleDir, embeddedPublicKeyPEM()); err != nil {
+	if err := verifyRemote(ctx, args.Client, args.DevUnsigned); err != nil {
 		return fmt.Errorf("verifying bundle on the node: %w", err)
 	}
 
