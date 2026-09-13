@@ -10,6 +10,7 @@ COMPONENTS=(
   "libs/battery_soc_core/:libs/battery_soc_core/VERSION"
   "scripts/bootstrap/:scripts/bootstrap/VERSION"
   "integrations/homeassistant/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
+  "installer/:installer/VERSION"
 )
 
 # component_touched prueft, ob eine Datei-Liste (staged/changed, eine pro

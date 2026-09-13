@@ -1,12 +1,20 @@
 # Changelog
 
-## v0.3.0 (2026-09-12)
+## v0.3.1 (2026-09-12)
 
 ### Features
 
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+- **dashboard:** redesign the MQTT settings tab (#24) (8844555)
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
+
+## v0.3.0 (2026-09-11)
+
+### Features
+
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
@@ -63,17 +71,6 @@
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
-
-## v0.3.0 (2026-09-11)
-
-### Features
-
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
-- **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
-
-### Fixes
-
-- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 
 ## v0.3.0 (2026-09-10)
 
