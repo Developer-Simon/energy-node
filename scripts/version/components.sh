@@ -5,6 +5,7 @@
 
 COMPONENTS=(
   "dashboard/:dashboard/VERSION"
+  "webui/:webui/VERSION"
   "services/:services/VERSION"
   "libs/energy_node_common/:libs/energy_node_common/VERSION"
   "libs/battery_soc_core/:libs/battery_soc_core/VERSION"

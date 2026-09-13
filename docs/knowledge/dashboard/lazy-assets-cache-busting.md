@@ -170,6 +170,22 @@ place pulls the old file from the cache:
 
 ---
 
+## The `webui/` module: one central mark instead of many hand-kept ones
+
+The installer's UI lives in its own Go module, `webui/`, and both hosts (the
+installer binary and — from Plan D on — the dashboard) embed it. Its assets do
+**not** follow the per-file `?v=N` convention above. Instead
+`webui.AssetVersion()` reads `webui/VERSION` and the shell template appends
+`?v=<version>` to every JS and CSS URL.
+
+Why the difference: `webui/VERSION` is patch-bumped by CI on every PR that
+touches `webui/` (`scripts/version/components.sh`), so a changed asset busts
+its cache without anyone remembering to. The dashboard's own assets keep their
+hand-kept marks — retrofitting them would mean invalidating every asset on
+every dashboard release, which the lazy-panel loading above makes expensive.
+
+---
+
 ## Mandatory: bump at the end of every development branch
 
 **At the end of every branch, every worktree and every small patch straight onto

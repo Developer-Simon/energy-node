@@ -30,6 +30,7 @@ jobs:
       vendored: ${{ steps.filter.outputs.vendored }}
       ha: ${{ steps.filter.outputs.ha }}
       installer: ${{ steps.filter.outputs.installer }}
+      webui: ${{ steps.filter.outputs.webui }}
     steps:
       # The Version bump workflow keeps the changelog and per-component patch
       # bump current on the PR branch; its bot commit re-triggers CI. Block
@@ -81,7 +82,7 @@ jobs:
           echo "Changed files:"
           printf '%s\n' "$files"
 
-          all() { for o in dashboard installer python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
+          all() { for o in dashboard webui installer python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
 
           # No diff (post-merge run, or it could not be computed) or a change to
           # the workflow itself: run everything. This check runs against the
@@ -100,7 +101,8 @@ jobs:
 
           emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
           emit dashboard '^dashboard/'
-          emit installer  '^installer/|^scripts/bootstrap/'
+          emit webui     '^webui/'
+          emit installer  '^installer/|^webui/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
           emit shell     '^scripts/'
           emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^scripts/vendor_(core|card)\.py$'
@@ -158,6 +160,23 @@ jobs:
           node-version: 22
       - run: npm ci
       - run: npm test
+
+  webui-go:
+    name: WebUI (Go)
+    needs: changes
+    if: needs.changes.outputs.webui == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test ./...
 
   python-bridges:
     name: Python bridges
@@ -282,6 +301,7 @@ jobs:
       - dashboard-go
       - installer-go
       - dashboard-js
+      - webui-go
       - python-bridges
       - shell-scripts
       - bootstrap-chain
