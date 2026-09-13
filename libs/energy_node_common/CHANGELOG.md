@@ -1,15 +1,12 @@
 # Changelog
 
-## v0.4.3 (2026-09-12)
+## v0.4.4 (2026-09-12)
 
 ### Features
 
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
-
-### Refactors
-
-- **build:** derive the bash service table from service manifests (d6f39ff)
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 
 ## v0.4.3 (2026-09-11)
 
@@ -17,10 +14,16 @@
 
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+- **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 
 ### Fixes
 
 - **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
+
+### Refactors
+
+- **build:** derive the bash service table from service manifests (d6f39ff)
 
 ## v0.4.2 (2026-09-11)
 

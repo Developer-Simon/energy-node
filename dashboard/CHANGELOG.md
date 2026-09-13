@@ -6,6 +6,7 @@
 
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **dashboard:** restyle MQTT settings tab to match card layout (2d5f2bf)
 - **dashboard:** fill row gaps and add floating save bars on MQTT tab (a389ce4)
 
