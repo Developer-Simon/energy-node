@@ -661,6 +661,14 @@ select.schema-control {
 #config-reload-error code { display: block; margin: .5rem 0; color: var(--text-subtle); font-size: .9em; }
 .form-grid { display: grid; grid-template-columns: minmax(12rem, 20rem) minmax(12rem, 20rem); gap: .8rem 1rem; align-items: center; }
 .settings-toggle-label { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; cursor: pointer; }
+/* Stepper-Zeilen (Port/Keepalive/Timeout) wie .settings-toggle-label ueber die
+   volle Grid-Breite und rechtsbuendig: vorher standen Label und Stepper in
+   Spalte 1/2 des Zwei-Spalten-Rasters, der Stepper lag dadurch links in einer
+   bis zu 20rem breiten Spalte statt buendig mit dem rechten Kartenrand wie die
+   Schalter. .stepper-input hat ueber .form-grid .stepper-input ohnehin eine
+   feste Breite, die Stepper-Breite ist also unabhaengig vom Feld schon
+   einheitlich - hier nur noch die Zeilen-Ausrichtung wie beim Schalter. */
+.stepper-row { grid-column: 1 / -1; display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 /* Wie .settings-toggle-label ueber die volle Grid-Breite, aber Label bleibt
    auf Spalte-1-Breite ausgerichtet und die Mehrfachauswahl bekommt den ganzen
    Rest der Seitenbreite statt der 20rem-Deckelung von .form-grid Spalte 2. */
