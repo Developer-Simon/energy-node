@@ -18,28 +18,31 @@
     </label>
     <div class="form-grid">
       <label for="mqtt-host">Host</label><input id="mqtt-host" type="text" autocomplete="off" x-model.trim="form.host" x-bind:disabled="!canConfigure">
-      <label for="mqtt-port" id="lbl-mqtt-port">Port</label>
-      <span class="stepper" role="group" aria-labelledby="lbl-mqtt-port">
-        <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
-        <input id="mqtt-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
-        <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
-      </span>
+      <label class="stepper-row" for="mqtt-port" id="lbl-mqtt-port">Port
+        <span class="stepper" role="group" aria-labelledby="lbl-mqtt-port">
+          <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input id="mqtt-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
+          <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </label>
       <label for="mqtt-client-id">Client-ID</label><input id="mqtt-client-id" type="text" autocomplete="off" x-model.trim="form.client_id" x-bind:disabled="!canConfigure">
       <label for="mqtt-username">Benutzername</label><input id="mqtt-username" type="text" autocomplete="off" x-model.trim="form.username" x-bind:disabled="!canConfigure">
       <label for="mqtt-password">Passwort</label><input id="mqtt-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
       <label for="mqtt-discovery-prefix">Discovery-Präfix</label><input id="mqtt-discovery-prefix" type="text" autocomplete="off" x-model.trim="form.discovery_prefix" x-bind:disabled="!canConfigure">
-      <label for="mqtt-keepalive" id="lbl-mqtt-keepalive">Keepalive (Sekunden)</label>
-      <span class="stepper" role="group" aria-labelledby="lbl-mqtt-keepalive">
-        <button type="button" class="stepper-btn" aria-label="Keepalive verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
-        <input id="mqtt-keepalive" class="stepper-input" type="number" min="5" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
-        <button type="button" class="stepper-btn" aria-label="Keepalive erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
-      </span>
-      <label for="mqtt-connect-timeout" id="lbl-mqtt-connect-timeout">Verbindungs-Timeout (Sekunden)</label>
-      <span class="stepper" role="group" aria-labelledby="lbl-mqtt-connect-timeout">
-        <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', -1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
-        <input id="mqtt-connect-timeout" class="stepper-input" type="number" min="1" max="60" x-model.number="form.connect_timeout_seconds" x-bind:disabled="!canConfigure">
-        <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', 1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
-      </span>
+      <label class="stepper-row" for="mqtt-keepalive" id="lbl-mqtt-keepalive">Keepalive (Sekunden)
+        <span class="stepper" role="group" aria-labelledby="lbl-mqtt-keepalive">
+          <button type="button" class="stepper-btn" aria-label="Keepalive verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input id="mqtt-keepalive" class="stepper-input" type="number" min="5" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
+          <button type="button" class="stepper-btn" aria-label="Keepalive erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </label>
+      <label class="stepper-row" for="mqtt-connect-timeout" id="lbl-mqtt-connect-timeout">Verbindungs-Timeout (Sekunden)
+        <span class="stepper" role="group" aria-labelledby="lbl-mqtt-connect-timeout">
+          <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', -1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <input id="mqtt-connect-timeout" class="stepper-input" type="number" min="1" max="60" x-model.number="form.connect_timeout_seconds" x-bind:disabled="!canConfigure">
+          <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', 1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+        </span>
+      </label>
       <label class="settings-toggle-label" for="mqtt-tls">TLS <span class="settings-toggle"><input id="mqtt-tls" type="checkbox" role="switch" x-model="form.tls" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.tls"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
       <label class="settings-toggle-label" for="mqtt-tls-insecure">TLS-Zertifikatsprüfung überspringen <span class="settings-toggle"><input id="mqtt-tls-insecure" type="checkbox" role="switch" x-model="form.tls_insecure" x-bind:disabled="!canConfigure || !form.tls" x-bind:aria-checked="form.tls_insecure"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
       <label class="settings-toggle-label" for="mqtt-clean-session">Clean Session <span class="settings-toggle"><input id="mqtt-clean-session" type="checkbox" role="switch" x-model="form.clean_session" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.clean_session"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
@@ -113,27 +116,30 @@
       <div class="form-grid">
         <label for="bridge-name">Verbindungsname</label><input id="bridge-name" type="text" autocomplete="off" x-model.trim="form.name" x-bind:disabled="!canConfigure">
         <label for="bridge-address">Adresse Hauptsystem</label><input id="bridge-address" type="text" autocomplete="off" x-model.trim="form.address" x-bind:disabled="!canConfigure">
-        <label for="bridge-port" id="lbl-bridge-port">Port</label>
-        <span class="stepper" role="group" aria-labelledby="lbl-bridge-port">
-          <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
-          <input id="bridge-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
-          <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
-        </span>
+        <label class="stepper-row" for="bridge-port" id="lbl-bridge-port">Port
+          <span class="stepper" role="group" aria-labelledby="lbl-bridge-port">
+            <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <input id="bridge-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
+            <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          </span>
+        </label>
         <label for="bridge-remote-client-id">Remote-Client-ID</label><input id="bridge-remote-client-id" type="text" autocomplete="off" x-model.trim="form.remote_client_id" x-bind:disabled="!canConfigure">
         <label for="bridge-remote-username">Remote-Benutzername</label><input id="bridge-remote-username" type="text" autocomplete="off" x-model.trim="form.remote_username" x-bind:disabled="!canConfigure">
         <label for="bridge-remote-password">Remote-Passwort</label><input id="bridge-remote-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
-        <label for="bridge-restart-timeout" id="lbl-bridge-restart-timeout">restart_timeout (Sekunden)</label>
-        <span class="stepper" role="group" aria-labelledby="lbl-bridge-restart-timeout">
-          <button type="button" class="stepper-btn" aria-label="restart_timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', -1)" x-on:pointerdown="startRepeat('restart_timeout', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
-          <input id="bridge-restart-timeout" class="stepper-input" type="number" min="5" max="600" x-model.number="form.restart_timeout" x-bind:disabled="!canConfigure">
-          <button type="button" class="stepper-btn" aria-label="restart_timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', 1)" x-on:pointerdown="startRepeat('restart_timeout', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
-        </span>
-        <label for="bridge-keepalive" id="lbl-bridge-keepalive">keepalive_interval (Sekunden)</label>
-        <span class="stepper" role="group" aria-labelledby="lbl-bridge-keepalive">
-          <button type="button" class="stepper-btn" aria-label="keepalive_interval verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
-          <input id="bridge-keepalive" class="stepper-input" type="number" min="10" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
-          <button type="button" class="stepper-btn" aria-label="keepalive_interval erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
-        </span>
+        <label class="stepper-row" for="bridge-restart-timeout" id="lbl-bridge-restart-timeout">restart_timeout (Sekunden)
+          <span class="stepper" role="group" aria-labelledby="lbl-bridge-restart-timeout">
+            <button type="button" class="stepper-btn" aria-label="restart_timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', -1)" x-on:pointerdown="startRepeat('restart_timeout', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <input id="bridge-restart-timeout" class="stepper-input" type="number" min="5" max="600" x-model.number="form.restart_timeout" x-bind:disabled="!canConfigure">
+            <button type="button" class="stepper-btn" aria-label="restart_timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', 1)" x-on:pointerdown="startRepeat('restart_timeout', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          </span>
+        </label>
+        <label class="stepper-row" for="bridge-keepalive" id="lbl-bridge-keepalive">keepalive_interval (Sekunden)
+          <span class="stepper" role="group" aria-labelledby="lbl-bridge-keepalive">
+            <button type="button" class="stepper-btn" aria-label="keepalive_interval verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <input id="bridge-keepalive" class="stepper-input" type="number" min="10" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
+            <button type="button" class="stepper-btn" aria-label="keepalive_interval erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          </span>
+        </label>
         <label class="settings-toggle-label" for="bridge-enabled">Aktiv <span class="settings-toggle"><input id="bridge-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
         <label class="settings-toggle-label" for="bridge-try-private">try_private <span class="settings-toggle"><input id="bridge-try-private" type="checkbox" role="switch" x-model="form.try_private" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.try_private"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
         <label class="settings-toggle-label" for="bridge-start-type-auto">start_type automatic <span class="settings-toggle"><input id="bridge-start-type-auto" type="checkbox" role="switch" x-model="form.start_type_auto" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.start_type_auto"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
