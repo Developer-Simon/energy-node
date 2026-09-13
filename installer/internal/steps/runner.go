@@ -27,6 +27,7 @@ type RunOptions struct {
 	TargetBase      string // optional; becomes EN_TARGET_BASE if set
 	Steps           []bundle.StepEntry
 	Selection       *selection.Selection // optional; uploaded before the first step
+	Secrets         *Secrets             // optional; only step 60 ever receives it
 	OnMarker        func(Marker)
 	OnLog           func(stepID, line string)
 }
@@ -96,7 +97,16 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 	if opts.TargetBase != "" {
 		env["EN_TARGET_BASE"] = opts.TargetBase
 	}
-	command := transport.BuildCommand(env, "bash "+transport.ShellQuote(scriptPath))
+	scriptCommand := "bash " + transport.ShellQuote(scriptPath)
+	if step.ID == dashboardStepID && opts.Secrets != nil {
+		extraArgs, cleanupSecrets, err := stageSecretsForStep60(opts.Client, opts.Secrets)
+		if err != nil {
+			return Marker{}, err
+		}
+		defer cleanupSecrets()
+		scriptCommand += extraArgs
+	}
+	command := transport.BuildCommand(env, scriptCommand)
 
 	var terminal Marker
 	haveTerminal := false
