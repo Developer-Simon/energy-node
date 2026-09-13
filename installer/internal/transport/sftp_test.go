@@ -96,3 +96,38 @@ func trimNewline(s string) string {
 	}
 	return s
 }
+
+func TestDownloadFileRetrievesRemoteContent(t *testing.T) {
+	requireSFTPServer(t)
+	sshd := transporttest.Start(t)
+	client := dialTestSSHD(t, sshd)
+
+	remote := filepath.Join(t.TempDir(), "config.json")
+	if err := os.WriteFile(remote, []byte(`{"hello":"welt"}`), 0o644); err != nil {
+		t.Fatalf("writing remote fixture: %v", err)
+	}
+
+	local := filepath.Join(t.TempDir(), "downloaded.json")
+	if err := client.DownloadFile(remote, local); err != nil {
+		t.Fatalf("DownloadFile: %v", err)
+	}
+
+	got, err := os.ReadFile(local)
+	if err != nil {
+		t.Fatalf("reading downloaded file: %v", err)
+	}
+	if string(got) != `{"hello":"welt"}` {
+		t.Fatalf("unexpected content: %q", got)
+	}
+}
+
+func TestDownloadFileReportsAMissingRemoteFile(t *testing.T) {
+	requireSFTPServer(t)
+	sshd := transporttest.Start(t)
+	client := dialTestSSHD(t, sshd)
+
+	err := client.DownloadFile(filepath.Join(t.TempDir(), "missing.json"), filepath.Join(t.TempDir(), "out.json"))
+	if err == nil {
+		t.Fatalf("expected an error for a missing remote file")
+	}
+}

@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"path/filepath"
 
 	"github.com/pkg/sftp"
 )
@@ -74,6 +75,38 @@ func (c *Client) RemoveRemote(remotePath string) error {
 
 	if err := client.Remove(remotePath); err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("removing %s: %w", remotePath, err)
+	}
+	return nil
+}
+
+// DownloadFile copies remotePath from the node to localPath, creating
+// localPath's parent directory if needed. It is the mirror of UploadFile,
+// added for RunFetchConfig (Plan B-II) -- Plan B-I never needed the download
+// direction.
+func (c *Client) DownloadFile(remotePath, localPath string) error {
+	client, err := sftp.NewClient(c.conn)
+	if err != nil {
+		return fmt.Errorf("opening SFTP session: %w", err)
+	}
+	defer client.Close()
+
+	remote, err := client.Open(remotePath)
+	if err != nil {
+		return fmt.Errorf("opening remote %s: %w", remotePath, err)
+	}
+	defer remote.Close()
+
+	if err := os.MkdirAll(filepath.Dir(localPath), 0o755); err != nil {
+		return fmt.Errorf("creating local directory for %s: %w", localPath, err)
+	}
+	local, err := os.Create(localPath)
+	if err != nil {
+		return fmt.Errorf("creating local file %s: %w", localPath, err)
+	}
+	defer local.Close()
+
+	if _, err := io.Copy(local, remote); err != nil {
+		return fmt.Errorf("downloading %s: %w", remotePath, err)
 	}
 	return nil
 }
