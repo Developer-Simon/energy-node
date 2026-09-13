@@ -21,6 +21,7 @@
         - { label: "Configuration file", url: "knowledge/configuration.md" }
         - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
         - { label: "Cutting a release", url: "knowledge/releasing.md" }
+        - { label: "Installer developer CLI", url: "knowledge/installer-developer-cli.md" }
     - label: Dashboard
       items:
         - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
