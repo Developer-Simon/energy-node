@@ -108,6 +108,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/manifest", s.handleManifest)
 	s.mux.HandleFunc("/api/selection", s.handleSelection)
 	s.mux.HandleFunc("/api/plan", s.handlePlan)
+	s.mux.HandleFunc("/api/run", s.handleRun)
+	s.mux.HandleFunc("/api/cancel", s.handleCancel)
+	s.mux.HandleFunc("/api/events", s.handleEvents)
+	s.mux.HandleFunc("/api/diagnose", s.handleDiagnose)
 }
 
 func (s *Server) trimBase(path string) string {
