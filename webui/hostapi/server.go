@@ -38,6 +38,7 @@ type Server struct {
 	tmpl *template.Template
 	mux  *http.ServeMux
 	run  runState
+	conn connection
 }
 
 // Bootstrap ist die Antwort von GET /api/bootstrap: alles, was die Oberflaeche
@@ -101,6 +102,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/", s.handleShell)
 	s.mux.HandleFunc("/api/bootstrap", s.handleBootstrap)
 	s.mux.HandleFunc("/api/catalog/", s.handleCatalog)
+	s.mux.HandleFunc("/api/connect", s.handleConnect)
+	s.mux.HandleFunc("/api/keypair", s.handleKeypair)
 }
 
 func (s *Server) trimBase(path string) string {
