@@ -81,7 +81,7 @@ jobs:
           echo "Changed files:"
           printf '%s\n' "$files"
 
-          all() { for o in dashboard python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
+          all() { for o in dashboard installer python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
 
           # No diff (post-merge run, or it could not be computed) or a change to
           # the workflow itself: run everything. This check runs against the
