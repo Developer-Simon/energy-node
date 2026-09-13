@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.6.4 (2026-09-13)
+## v0.6.5 (2026-09-13)
 
 ### Features
 
@@ -14,6 +14,7 @@
 ### Fixes
 
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
+- **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
 
 ## v0.6.2 (2026-09-11)
