@@ -1,8 +1,12 @@
 {
   "app.loading": "Loading…",
   "app.title": "Energy Node installer",
+  "app.title.diagnose": "Diagnostics",
+  "app.title.install": "Set up Energy Node",
+  "app.title.redeploy": "Update Energy Node",
   "entry.diagnose": "Diagnose",
   "entry.install": "Set up",
+  "entry.label": "What do you want to do?",
   "entry.redeploy": "Update",
   "error.BACKEND_ERROR": "The installer ran into an unexpected error.",
   "error.BAD_REQUEST": "The request was incomplete.",
@@ -58,5 +62,11 @@
   "number.6": "Six",
   "number.7": "Seven",
   "number.8": "Eight",
-  "number.9": "Nine"
+  "number.9": "Nine",
+  "stepper.configure": "Configuration",
+  "stepper.connect": "Connection",
+  "stepper.precheck": "Pre-check",
+  "stepper.preview": "Preview",
+  "stepper.result": "Result",
+  "stepper.run": "Run"
 }

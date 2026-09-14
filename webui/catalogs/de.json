@@ -1,8 +1,12 @@
 {
   "app.loading": "Wird geladen …",
   "app.title": "Energy-Node-Installer",
+  "app.title.diagnose": "Diagnose",
+  "app.title.install": "Energy Node einrichten",
+  "app.title.redeploy": "Energy Node aktualisieren",
   "entry.diagnose": "Diagnose",
   "entry.install": "Neu einrichten",
+  "entry.label": "Was soll passieren?",
   "entry.redeploy": "Aktualisieren",
   "error.BACKEND_ERROR": "Der Installer ist auf einen unerwarteten Fehler gestoßen.",
   "error.BAD_REQUEST": "Die Anfrage war unvollständig.",
@@ -58,5 +62,11 @@
   "number.6": "Sechs",
   "number.7": "Sieben",
   "number.8": "Acht",
-  "number.9": "Neun"
+  "number.9": "Neun",
+  "stepper.configure": "Konfiguration",
+  "stepper.connect": "Verbindung",
+  "stepper.precheck": "Vorprüfung",
+  "stepper.preview": "Vorschau",
+  "stepper.result": "Ergebnis",
+  "stepper.run": "Ausführung"
 }
