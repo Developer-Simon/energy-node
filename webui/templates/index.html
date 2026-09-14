@@ -45,12 +45,14 @@
         </span>
       </div>
     </template>
+    {{template "screen-connect" .}}
     {{/* Bildschirme */}}
   </div>
   <script src="{{.BasePath}}/assets/js/i18n.js?v={{.AssetVersion}}" defer></script>
   <script src="{{.BasePath}}/assets/js/format.js?v={{.AssetVersion}}" defer></script>
   <script src="{{.BasePath}}/assets/js/api.js?v={{.AssetVersion}}" defer></script>
   <script src="{{.BasePath}}/assets/js/app.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-connect.js?v={{.AssetVersion}}" defer></script>
   {{/* Bildschirm-Skripte */}}
   <script src="{{.BasePath}}/assets/js-deps/alpine.min.js?v={{.AssetVersion}}" defer></script>
 </body>

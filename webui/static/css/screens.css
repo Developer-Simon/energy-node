@@ -2,3 +2,36 @@
  *   python3 webui/scripts/scope_css.py <Name> <screen>
  * und danach nur um die Abweichungen aus Plan C-II, Vertrag 7, veraendert.
  * Ergaenzungen stehen hinter dem jeweiligen Block. */
+/* == Vorlage: Main == */
+.app[data-screen="connect"] .mode{flex:none;display:flex;gap:.2rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
+.app[data-screen="connect"] .mode-i{padding:.26rem .62rem;text-align:center;font-size:.74rem;color:var(--text-muted);border-radius:999px;white-space:nowrap}
+.app[data-screen="connect"] .mode-i.on{background:var(--accent-bg);color:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);font-weight:600}
+.app[data-screen="connect"] .lang{flex:none;display:flex;gap:.15rem;margin-left:.6rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
+.app[data-screen="connect"] .lang-i{padding:.26rem .5rem;font-size:.72rem;font-weight:600;color:var(--text-faint);border-radius:999px}
+.app[data-screen="connect"] .lang-i.on{background:var(--panel-alt);color:var(--text-subtle)}
+.app[data-screen="connect"] .cols{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1.2fr 1fr;gap:1rem;align-items:start}
+.app[data-screen="connect"] .row2{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.app[data-screen="connect"] .field{margin-bottom:.8rem}
+.app[data-screen="connect"] .seg{display:flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;background:var(--sunken)}
+.app[data-screen="connect"] .seg-i{flex:1 1 0;padding:.45rem .6rem;text-align:center;font-size:.83rem;color:var(--text-subtle)}
+.app[data-screen="connect"] .seg-i.on{background:var(--accent-bg);color:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.app[data-screen="connect"] .check{display:flex;gap:.55rem;align-items:flex-start;margin-top:.9rem}
+.app[data-screen="connect"] .box{width:1.05rem;height:1.05rem;border-radius:5px;border:1px solid var(--border);flex:none; display:inline-flex;align-items:center;justify-content:center;margin-top:.15rem}
+.app[data-screen="connect"] .box.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.app[data-screen="connect"] .box svg{width:.72rem;height:.72rem}
+.app[data-screen="connect"] .check-t{font-size:.83rem;color:var(--text)}
+.app[data-screen="connect"] .check-s{font-size:.75rem;color:var(--text-muted);line-height:1.4}
+.app[data-screen="connect"] .opt{display:flex;gap:.6rem;padding:.6rem .7rem;border-radius:var(--radius-sm);border:1px solid var(--border-soft); background:var(--sunken);margin-bottom:.5rem}
+.app[data-screen="connect"] .opt.on{border-color:var(--accent-line);background:var(--accent-bg)}
+.app[data-screen="connect"] .radio{width:1.05rem;height:1.05rem;border-radius:50%;border:1px solid var(--border);flex:none;margin-top:.15rem; display:inline-flex;align-items:center;justify-content:center}
+.app[data-screen="connect"] .opt.on .radio{border-color:var(--accent)}
+.app[data-screen="connect"] .opt.on .radio::after{content:'';width:.5rem;height:.5rem;border-radius:50%;background:var(--accent)}
+.app[data-screen="connect"] .opt-t{font-size:.84rem;font-weight:600;color:var(--text-strong)}
+.app[data-screen="connect"] .opt-s{font-size:.74rem;color:var(--text-muted);line-height:1.4}
+.app[data-screen="connect"] .tofu{flex:none;margin-top:1rem;display:flex;gap:.9rem;align-items:center;padding:.8rem 1rem; border-radius:var(--radius-md);border:1px solid var(--info-line);background:var(--info-bg)}
+.app[data-screen="connect"] .tofu-ic{flex:none;width:2rem;height:2rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center; background:rgba(134,197,218,.14);color:var(--info)}
+.app[data-screen="connect"] .tofu-ic svg{width:1.1rem;height:1.1rem}
+.app[data-screen="connect"] .tofu-t{font-size:.84rem;font-weight:600;color:var(--text-strong)}
+.app[data-screen="connect"] .fp{font-family:ui-monospace,monospace;font-size:.775rem;color:var(--text-subtle);word-break:break-all;margin-top:.15rem}
+.app[data-screen="connect"] .tofu-s{font-size:.74rem;color:var(--text-muted);margin-top:.2rem}
+/* == Ende Vorlage == */

@@ -1,0 +1,93 @@
+{{define "screen-connect"}}<template x-if="screen === 'connect'">
+<div class="screen" x-data="screenConnect">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="cols">
+      <section class="card">
+        <h2 class="card-h" x-text="t('connect.access.heading')"></h2>
+        <p class="card-p" x-text="t('connect.access.text')"></p>
+
+        <div class="row2">
+          <div class="field">
+            <span class="lbl" id="connect-address" x-text="t('field.address')"></span>
+            <input type="text" x-model.trim="host" aria-labelledby="connect-address" autocomplete="off" spellcheck="false" @keydown.enter="connect()">
+          </div>
+          <div class="field">
+            <span class="lbl" id="connect-user" x-text="t('field.user')"></span>
+            <input type="text" x-model.trim="user" aria-labelledby="connect-user" autocomplete="off" spellcheck="false" @keydown.enter="connect()">
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="lbl" id="connect-auth" x-text="t('field.auth')"></span>
+          <div class="seg" role="radiogroup" aria-labelledby="connect-auth">
+            <div class="seg-i" :class="{ on: kind === 'password' }" role="radio" tabindex="0" :aria-checked="kind === 'password'"
+                 @click="kind = 'password'" @keydown.enter.prevent="kind = 'password'" @keydown.space.prevent="kind = 'password'"
+                 x-text="t('field.auth_password')"></div>
+            <div class="seg-i" :class="{ on: kind === 'key' }" role="radio" tabindex="0" :aria-checked="kind === 'key'"
+                 @click="kind = 'key'" @keydown.enter.prevent="kind = 'key'" @keydown.space.prevent="kind = 'key'"
+                 x-text="t('field.auth_key')"></div>
+          </div>
+        </div>
+
+        <template x-if="kind === 'password'">
+          <div class="field">
+            <span class="lbl" id="connect-password" x-text="t('field.password')"></span>
+            <input type="password" x-model="secret" aria-labelledby="connect-password" autocomplete="off" @keydown.enter="connect()">
+          </div>
+        </template>
+        <template x-if="kind === 'key'">
+          <div class="field">
+            <span class="lbl" id="connect-keypath" x-text="t('field.key_path')"></span>
+            <input type="text" x-model.trim="keyPath" aria-labelledby="connect-keypath" autocomplete="off" spellcheck="false" @keydown.enter="connect()">
+          </div>
+        </template>
+
+        <template x-if="kind === 'password'">
+          <div class="check" role="checkbox" tabindex="0" :aria-checked="makeKey"
+               @click="makeKey = !makeKey" @keydown.space.prevent="makeKey = !makeKey">
+            <span class="box" :class="{ on: makeKey }"><template x-if="makeKey">{{template "icon-ok"}}</template></span>
+            <span>
+              <span class="check-t" x-text="t('connect.keypair.title')"></span>
+              <span class="check-s" x-text="t('connect.keypair.text')"></span>
+            </span>
+          </div>
+        </template>
+      </section>
+
+      <section class="card">
+        <h2 class="card-h" x-text="t('connect.package.heading')"></h2>
+        <p class="card-p" x-text="t('connect.package.text')"></p>
+
+        <div class="opt on" role="radio" aria-checked="true">
+          <span class="radio"></span>
+          <span>
+            <span class="opt-t" x-text="packageLabel"></span>
+            <span class="opt-s" x-text="t('connect.package.bundled_hint')"></span>
+          </span>
+        </div>
+      </section>
+    </div>
+
+    <template x-if="fingerprint">
+      <div class="tofu">
+        <span class="tofu-ic">{{template "icon-shield"}}</span>
+        <span style="flex:1 1 auto;min-width:0">
+          <span class="tofu-t" x-text="t('connect.tofu.title')"></span>
+          <div class="fp" x-text="fingerprint"></div>
+          <div class="tofu-s" x-text="t('connect.tofu.text')"></div>
+        </span>
+        <button type="button" class="small" style="flex:none" :disabled="busy" @click="confirmFingerprint()" x-text="t('action.confirm_fingerprint')"></button>
+      </div>
+    </template>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="reset()" x-text="t('action.cancel')"></button>
+    <span class="foot-spacer"></span>
+    <template x-if="hint"><span class="foot-hint" x-text="hint"></span></template>
+    <button type="button" class="primary" :disabled="!canConnect" @click="connect()" x-text="t('action.connect')"></button>
+  </footer>
+</div>
+</template>{{end}}
