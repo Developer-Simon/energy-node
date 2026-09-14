@@ -178,6 +178,22 @@ jobs:
       - run: go vet ./...
       - run: go test ./...
 
+  webui-js:
+    name: WebUI (JS)
+    needs: changes
+    if: needs.changes.outputs.webui == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
   python-bridges:
     name: Python bridges
     needs: changes
@@ -303,6 +319,7 @@ jobs:
       - installer-go
       - dashboard-js
       - webui-go
+      - webui-js
       - python-bridges
       - shell-scripts
       - bootstrap-chain

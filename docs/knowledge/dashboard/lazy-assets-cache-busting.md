@@ -184,6 +184,15 @@ its cache without anyone remembering to. The dashboard's own assets keep their
 hand-kept marks — retrofitting them would mean invalidating every asset on
 every dashboard release, which the lazy-panel loading above makes expensive.
 
+The vendored `webui/static/js-deps/alpine.min.js` is the same build as the
+dashboard's. Update both in the same PR: from Plan D on they share a binary.
+
+The installer UI's look is pinned to the drafts copied into
+`webui/test/reference/`. `installer.css` and `screens.css` contain the draft
+CSS verbatim inside `/* == Vorlage: … == */` blocks; `npm test` fails when a
+rule inside a block drifts from its draft or when an addition after a block
+overrides a property the draft sets.
+
 ---
 
 ## Mandatory: bump at the end of every development branch

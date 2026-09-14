@@ -1,0 +1,4 @@
+/* Bildschirm-Stile. Je Bildschirm ein Block "Vorlage: <Name>", erzeugt mit
+ *   python3 webui/scripts/scope_css.py <Name> <screen>
+ * und danach nur um die Abweichungen aus Plan C-II, Vertrag 7, veraendert.
+ * Ergaenzungen stehen hinter dem jeweiligen Block. */

@@ -5,11 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}}</title>
   <link rel="stylesheet" href="{{.BasePath}}/assets/css/installer.css?v={{.AssetVersion}}">
+  <link rel="stylesheet" href="{{.BasePath}}/assets/css/screens.css?v={{.AssetVersion}}">
 </head>
 <body data-base-path="{{.BasePath}}" data-token="{{.Token}}" data-language="{{.Language}}">
-  <main id="app">
-    <h1>{{.Title}}</h1>
-  </main>
-  <script src="{{.BasePath}}/assets/js/app.js?v={{.AssetVersion}}" defer></script>
+  <div class="app" data-screen="connect">
+    <header class="bar"><div class="bar-title">{{.Title}}</div></header>
+    <div class="body"></div>
+    <footer class="foot"></footer>
+  </div>
 </body>
 </html>{{end}}

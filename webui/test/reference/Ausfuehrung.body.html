@@ -1,0 +1,117 @@
+<div class="app">
+  <header class="bar">
+    <span class="bar-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:1.05rem;height:1.05rem"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
+    <div class="bar-title">Energy Node einrichten</div>
+    <span class="bar-spacer"></span>
+    <span class="bar-sub">Paket 1.4.2 · armv6</span>
+    <span class="chip"><span class="dot"></span>pi@energy-node.local</span>
+  </header>
+
+  <div class="body">
+    <div class="stepper">
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Verbindung</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Vorprüfung</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Konfiguration</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item active"><span class="st-mark">4</span><span class="st-lbl">Ausführung</span></div>
+      <div class="st-conn"></div>
+      <div class="st-item"><span class="st-mark">5</span><span class="st-lbl">Ergebnis</span></div>
+    </div>
+
+    <div class="prog">
+      <div class="prog-top">
+        <span class="prog-t">Schritt 4 von 7: Tailscale</span>
+        <span class="prog-n">04:12 vergangen</span>
+      </div>
+      <div class="prog-track"><div class="prog-fill"></div></div>
+    </div>
+
+    <div class="cols">
+      <section class="card tall">
+        <div class="steps">
+          <div class="stp">
+            <span class="si si-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span style="flex:1 1 auto;min-width:0"><span class="stp-t">Systempakete</span></span>
+            <span class="stp-time">1:42</span>
+          </div>
+          <div class="stp">
+            <span class="si si-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span style="flex:1 1 auto;min-width:0"><span class="stp-t">MQTT-Broker</span></span>
+            <span class="stp-time">0:21</span>
+          </div>
+          <div class="stp">
+            <span class="si si-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+            <span style="flex:1 1 auto;min-width:0"><span class="stp-t">Firewall</span></span>
+            <span class="stp-time">0:04</span>
+          </div>
+          <div class="stp now">
+            <span class="si si-run"><svg class="spin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/></svg></span>
+            <span style="flex:1 1 auto;min-width:0"><span class="stp-t">Tailscale</span><div class="stp-d">Version 1.62.0 entpackt, Dienst läuft, wartet auf die Anmeldung</div></span>
+            <span class="stp-time">0:23</span>
+          </div>
+          <div class="call">
+            <div class="call-t">Anmeldung im Browser nötig</div>
+            <div class="call-u">https://login.tailscale.com/a/4f2c8ab19de3</div>
+            <button class="small">Im Browser öffnen</button>
+          </div>
+          <div class="stp wait">
+            <span class="si si-wait"></span>
+            <span style="flex:1 1 auto;min-width:0"><span class="stp-t">Python-Pakete</span></span>
+          </div>
+          <div class="stp wait">
+            <span class="si si-wait"></span>
+            <span style="flex:1 1 auto;min-width:0"><span class="stp-t">Dienste und Dashboard</span><div class="stp-d">Aus der Auswahl: 7 von 8 Diensten</div></span>
+          </div>
+          <div class="subs">
+            <span class="sub">MQTT-Brücke</span>
+            <span class="sub">Automation</span>
+            <span class="sub">Tuya</span>
+            <span class="sub">Shelly</span>
+            <span class="sub">APsystems</span>
+            <span class="sub">Trucki</span>
+            <span class="sub off">Batterie-SoC</span>
+            <span class="sub">Dashboard</span>
+          </div>
+          <div class="stp wait">
+            <span class="si si-wait"></span>
+            <span style="flex:1 1 auto;min-width:0"><span class="stp-t">HTTPS über Caddy</span></span>
+          </div>
+        </div>
+      </section>
+
+      <section class="card tall">
+        <div class="log-h">
+          <span class="lbl">Protokoll</span>
+          <span style="flex:1 1 auto"></span>
+          <button class="small">Speichern</button>
+        </div>
+        <div class="log">
+<i>14:21:44</i>  mosquitto_passwd -b energynode <u>••••••••</u><br>
+<i>14:21:45</i>  /etc/mosquitto/conf.d/default.conf geschrieben<br>
+<i>14:21:46</i>  mosquitto neu gestartet, Testnachricht zugestellt<br>
+<i>14:21:46</i>  <b>##STEP 20-mosquitto ok</b><br>
+<i>14:21:47</i>  <b>##STEP 30-ufw begin</b><br>
+<i>14:21:48</i>  Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp<br>
+<i>14:21:50</i>  ufw aktiv<br>
+<i>14:21:50</i>  <b>##STEP 30-ufw ok</b><br>
+<i>14:22:07</i>  <b>##STEP 40-tailscale begin</b><br>
+<i>14:22:07</i>  tailscale_1.62.0_arm.tgz übertragen (24,1 MB)<br>
+<i>14:22:07</i>  sha256 stimmt mit dem Manifest überein<br>
+<i>14:22:11</i>  tailscale, tailscaled nach /usr/sbin kopiert<br>
+<i>14:22:11</i>  FLAGS="--tun=userspace-networking" in /etc/default/tailscaled<br>
+<i>14:22:12</i>  tailscaled.service aktiviert und gestartet<br>
+<i>14:22:14</i>  tailscale up --tun=userspace-networking --accept-routes<br>
+<i>14:22:15</i>  Anmeldung erforderlich, Adresse links eingeblendet<br>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button class="ghost">Abbrechen</button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint">Erledigte Schritte bleiben erhalten. Ein neuer Lauf setzt hier fort.</span>
+  </footer>
+</div>

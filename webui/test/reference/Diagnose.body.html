@@ -1,0 +1,82 @@
+<div class="app">
+  <header class="bar">
+    <span class="bar-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:1.05rem;height:1.05rem"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
+    <div class="bar-title">Diagnose</div>
+    <span class="bar-sub">· energy-node.local · Paket 1.4.2</span>
+    <span class="bar-spacer"></span>
+    <div class="mode">
+      <div class="mode-i">Neu einrichten</div>
+      <div class="mode-i">Aktualisieren</div>
+      <div class="mode-i on">Diagnose</div>
+    </div>
+    <span class="bar-sub">geprüft vor 12 s</span>
+    <button class="small">Erneut prüfen</button>
+  </header>
+
+  <div class="body">
+    <div class="tally">
+      <span class="tl ok"><span class="tl-n">13</span><span class="tl-l">in Ordnung</span></span>
+      <span class="tl warn"><span class="tl-n">1</span><span class="tl-l">Hinweis</span></span>
+      <span class="tl bad"><span class="tl-n">1</span><span class="tl-l">Fehler</span></span>
+    </div>
+
+    <div class="cols">
+      <section class="card">
+        <p class="gh">Dienste</p>
+        <div class="r"><span class="d"></span><span class="r-n">apsystems-ez1</span><span class="r-v">aktiv · 3 d</span></div>
+        <div class="r"><span class="d"></span><span class="r-n">battery-soc</span><span class="r-v">aktiv · 3 d</span></div>
+        <div class="r"><span class="d bad"></span><span class="r-n">shelly-rpc</span><span class="r-v bad">beendet sich sofort</span></div>
+
+        <div class="fail">
+          <div class="fail-h">
+            <span class="code">PY_DEP_MISSING</span>
+            <span class="fail-t">Ein Python-Modul fehlt für den System-Interpreter</span>
+          </div>
+          <p class="fail-p">Die Shelly-Bridge braucht <em>requests</em>. Für den Interpreter, den die Unit startet (<em>/usr/bin/python3</em>), ist das Modul nicht installiert. Das passiert meist, wenn die Wheels gegen eine andere Python-Version gebaut wurden.</p>
+          <div class="fail-log">
+            ModuleNotFoundError: No module named 'requests'<br>
+            shelly-rpc.service: Main process exited, code=exited, status=1<br>
+            shelly-rpc.service: Scheduled restart job, restart counter is at 5
+          </div>
+          <div class="acts">
+            <button class="primary small">Schritt 5 · Python-Pakete erneut ausführen</button>
+            <button class="small">Journal ansehen</button>
+          </div>
+        </div>
+
+        <div class="r"><span class="d"></span><span class="r-n">trucki-http</span><span class="r-v">aktiv · 3 d</span></div>
+        <div class="r"><span class="d"></span><span class="r-n">tuya</span><span class="r-v">aktiv · 3 d</span></div>
+        <div class="r"><span class="d"></span><span class="r-n">energy-node</span><span class="r-v">aktiv · 3 d</span></div>
+        <div class="r"><span class="d"></span><span class="r-n">automation</span><span class="r-v">aktiv · 3 d</span></div>
+      </section>
+
+      <div class="stack">
+        <section class="card">
+          <p class="gh">System</p>
+          <div class="r"><span class="d"></span><span class="r-n">Dashboard erreichbar</span><span class="r-v">1.4.2 · 41 ms</span></div>
+          <div class="r"><span class="d"></span><span class="r-n">Mosquitto</span><span class="r-v">Testnachricht in 12 ms</span></div>
+          <div class="r"><span class="d"></span><span class="r-n">Tailscale</span><span class="r-v">100.92.14.7</span></div>
+          <div class="r"><span class="d"></span><span class="r-n">Ports 1883 · 8080 · 443</span><span class="r-v">offen</span></div>
+          <div class="r"><span class="d"></span><span class="r-n">Plattenplatz</span><span class="r-v">11,8 GB frei</span></div>
+          <div class="r"><span class="d warn"></span><span class="r-n">Stromversorgung</span><span class="r-v warn">0x50000 · Unterspannung</span></div>
+          <div class="warnbox"><p>Das Netzteil hat mindestens einmal zu wenig geliefert. Der Node drosselt dann ohne Meldung, was sich später als sporadisches Einfrieren zeigt. Per Software lässt sich das nicht beheben.</p></div>
+        </section>
+
+        <section class="card">
+          <p class="gh">Konfiguration</p>
+          <div class="r"><span class="d"></span><span class="r-n">/etc/energy-node/config.json</span><span class="r-v">0640 root:energynode</span></div>
+          <div class="r"><span class="d"></span><span class="r-n">/etc/energy-node/mqtt.pw</span><span class="r-v">0640 root:energynode</span></div>
+          <div class="r"><span class="d"></span><span class="r-n">/etc/energy-node-dashboard/auth.pw</span><span class="r-v">0640 root:energynode</span></div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button class="ghost">Schließen</button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint">Eine Reparatur wiederholt genau den zugehörigen Schritt. Mehr passiert nicht.</span>
+    <button>Bericht speichern</button>
+  </footer>
+</div>

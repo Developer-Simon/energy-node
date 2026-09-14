@@ -1,0 +1,85 @@
+<div class="app">
+  <header class="bar">
+    <span class="bar-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:1.05rem;height:1.05rem"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
+    <div class="bar-title">Energy Node aktualisieren</div>
+    <span class="bar-spacer"></span>
+    <div class="mode">
+      <div class="mode-i">Neu einrichten</div>
+      <div class="mode-i on">Aktualisieren</div>
+      <div class="mode-i">Diagnose</div>
+    </div>
+    <span class="chip"><span class="dot"></span>pi@energy-node.local</span>
+  </header>
+
+  <div class="body">
+    <div class="stepper">
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Verbindung</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item active"><span class="st-mark">2</span><span class="st-lbl">Vorschau</span></div>
+      <div class="st-conn"></div>
+      <div class="st-item"><span class="st-mark">3</span><span class="st-lbl">Ausführung</span></div>
+      <div class="st-conn"></div>
+      <div class="st-item"><span class="st-mark">4</span><span class="st-lbl">Ergebnis</span></div>
+    </div>
+
+    <div class="vd">
+      <span class="vd-lbl">Paket</span>
+      <span class="vd-from">1.4.1</span>
+      <span class="vd-arr"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+      <span class="vd-to">1.4.2</span>
+      <span class="vd-note">armv6 · seit 34 Tagen installiert · Auswahl unverändert</span>
+    </div>
+
+    <div class="cols">
+      <section class="card">
+        <h2 class="card-h">Was sich ändert</h2>
+        <p class="card-p">Jede Komponente bringt ihre eigene Version mit. Verglichen wird gegen die Stempel auf dem Gerät.</p>
+
+        <div class="vr"><span class="vr-d rep"></span><span class="vr-n">Dashboard</span><span class="vr-v"><span class="o">1.4.1</span> → <span class="n">1.4.2</span></span></div>
+        <div class="vr"><span class="vr-d rep"></span><span class="vr-n">Dienste (Repo)</span><span class="vr-v"><span class="o">3.6.0</span> → <span class="n">3.7.1</span></span></div>
+        <div class="vr"><span class="vr-d rep"></span><span class="vr-n">Wheel <em>energy_node_common</em></span><span class="vr-v"><span class="o">1.4.0</span> → <span class="n">1.4.2</span></span></div>
+        <div class="vr"><span class="vr-d"></span><span class="vr-n">Wheel <em>battery_soc_core</em></span><span class="vr-v">0.9.3</span></div>
+        <div class="vr"><span class="vr-d rep"></span><span class="vr-n">Abhängigkeit <em>tinytuya</em></span><span class="vr-v"><span class="o">1.15.1</span> → <span class="n">1.16.0</span></span></div>
+        <div class="vr"><span class="vr-d"></span><span class="vr-n">übrige Abhängigkeiten</span><span class="vr-v">unverändert</span></div>
+
+        <div class="keep">
+          <span class="keep-t">Startet neu</span>
+          <div class="keep-l"><em>energy-node.service</em>, <em>automation.service</em>, <em>tuya.service</em></div>
+          <span class="keep-t" style="margin-top:.5rem">Bleibt stehen, wird übersprungen</span>
+          <div class="keep-l">Systempakete · MQTT-Broker · Firewall · Tailscale · HTTPS über Caddy · <em>config.json</em> und Secrets</div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="card">
+          <h2 class="card-h">Funktionsumfang</h2>
+          <p class="card-p">Wie zuletzt gewählt. Ein Update bringt nur diese Dienste.</p>
+          <div class="svc"><span class="svc-c on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="svc-n">Automation</span></div>
+          <div class="svc"><span class="svc-c on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="svc-n">Geräte-Dienste</span></div>
+          <div class="chips">
+            <span class="chipk on">Tuya</span>
+            <span class="chipk on">Shelly</span>
+            <span class="chipk on">APsystems</span>
+            <span class="chipk on">Trucki</span>
+            <span class="chipk">Batterie-SoC</span>
+          </div>
+          <div class="svc"><span class="svc-c on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="svc-n">Tailscale</span></div>
+          <div class="svc"><span class="svc-c on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span class="svc-n">HTTPS über Caddy</span></div>
+          <div class="svc off"><span class="svc-c"></span><span class="svc-n">Modbus-Verteiler <span class="svc-tag">neu im Paket</span></span></div>
+          <button class="small ghost svc-edit">Dienste ändern</button>
+        </section>
+
+        <section class="card soft">
+          <p class="reuse">Dieselbe Seite steckt im Dashboard. Dort startest du ein Update ohne dieses Programm, über die gleichen Schritte.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button class="ghost">Abbrechen</button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint">Ab hier wird das Gerät verändert</span>
+    <button class="primary">Aktualisieren</button>
+  </footer>
+</div>
