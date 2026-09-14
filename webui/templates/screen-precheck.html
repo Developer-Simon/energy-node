@@ -1,0 +1,48 @@
+{{define "screen-precheck"}}<template x-if="screen === 'precheck'">
+<div class="screen" x-data="screenPrecheck">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="cols">
+      <section class="card">
+        <h2 class="card-h" x-text="t('precheck.card.heading')"></h2>
+        <p class="card-p" x-text="summary"></p>
+
+        <template x-for="row in rows" :key="row.id">
+          <div class="chk">
+            <span class="ic" :class="'ic-' + row.state">
+              <template x-if="row.state === 'ok'">{{template "icon-ok"}}</template>
+              <template x-if="row.state === 'warn'">{{template "icon-warn"}}</template>
+              <template x-if="row.state === 'bad'">{{template "icon-bad"}}</template>
+            </span>
+            <span class="chk-b">
+              <span class="chk-t" x-text="row.title"></span>
+              <template x-if="row.detail"><div class="chk-d"><span x-text="row.detail"></span><template x-if="row.em"><em x-text="row.em"></em></template></div></template>
+              <template x-if="row.remedy"><div class="chk-d" x-text="row.remedy"></div></template>
+            </span>
+          </div>
+        </template>
+      </section>
+
+      <section class="card">
+        <h2 class="card-h" x-text="t('precheck.transfer.heading')"></h2>
+        <template x-if="manifest">
+          <div class="sum"><span class="sum-n" x-text="sumNumber"></span><span class="sum-u" x-text="sumUnit"></span></div>
+        </template>
+        <template x-for="line in transfer" :key="line.label">
+          <div class="man"><span x-text="line.label"></span><span x-text="line.value"></span></div>
+        </template>
+        <div class="note" x-text="t('precheck.transfer.note')"></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    <span class="foot-spacer"></span>
+    <template x-if="report"><span class="foot-hint" x-text="hint"></span></template>
+    <button type="button" :disabled="busy" @click="load()" x-text="t('action.recheck')"></button>
+    <button type="button" class="primary" :disabled="!canProceed" @click="proceed()" x-text="t('action.next')"></button>
+  </footer>
+</div>
+</template>{{end}}
