@@ -199,3 +199,16 @@ func TestAWrongMethodIsRejectedWithACode(t *testing.T) {
 		t.Errorf("error = %q, want METHOD_NOT_ALLOWED", payload["error"])
 	}
 }
+
+func TestBootstrapCarriesTheBundleArchitecture(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	fake.Description.BundleArch = "armv6"
+	rec := do(t, server, http.MethodGet, "/api/bootstrap", "")
+	var got hostapi.Bootstrap
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	if got.BundleArch != "armv6" {
+		t.Errorf("bundle_arch = %q, want armv6 - the connection screen shows it before any connection exists", got.BundleArch)
+	}
+}

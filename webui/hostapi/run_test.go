@@ -290,3 +290,27 @@ func TestRepairRunsExactlyOneStep(t *testing.T) {
 		t.Errorf("the backend got %+v, want a repair of step 20", fake.LastRun)
 	}
 }
+
+func TestEveryStreamedEventCarriesItsTimestamp(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	connectFirst(t, server)
+	fake.Script(hostapitest.FakeStep{ID: "10", State: "ok", Log: []string{"apt: nothing to do"}})
+	startRun(t, server, `{"mode":"install"}`)
+	waitForRunToFinish(t, server)
+
+	rec := do(t, server, http.MethodGet, "/api/events?since=0&once=1", "")
+	events := readEvents(t, strings.NewReader(rec.Body.String()))
+	if len(events) < 4 {
+		t.Fatalf("got %d events, want hello, run-started, step, log, run-finished", len(events))
+	}
+	for _, event := range events {
+		data, ok := event.Data.(map[string]any)
+		if !ok {
+			t.Fatalf("%s: data is not an object: %#v", event.Type, event.Data)
+		}
+		at, ok := data["at"].(float64)
+		if !ok || at <= 0 {
+			t.Errorf("%s carries no usable at: %#v", event.Type, data)
+		}
+	}
+}

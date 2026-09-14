@@ -18,6 +18,9 @@ type Description struct {
 	EntryPoints     []string `json:"entry_points"`
 	NeedsConnection bool     `json:"needs_connection"`
 	BundleVersion   string   `json:"bundle_version"`
+	// BundleArch ist die Zielarchitektur des Bundles (manifest.arch). Der
+	// Verbindungsbildschirm zeigt sie, bevor eine Verbindung besteht.
+	BundleArch string `json:"bundle_arch"`
 }
 
 // AuthKind ist die Art, wie sich der Installer am Node anmeldet.
@@ -76,6 +79,13 @@ type Precheck struct {
 	Internet               bool   `json:"internet"`
 	Installed              bool   `json:"installed"`
 	InstalledBundleVersion string `json:"installed_bundle_version"`
+	// OSPrettyName ist PRETTY_NAME aus /etc/os-release, leer wenn unbekannt.
+	OSPrettyName string `json:"os_pretty_name"`
+	// DiskTotalMB ist die Groesse des Dateisystems, auf dem DiskFreeMB
+	// gemessen wurde; 0 heisst unbekannt.
+	DiskTotalMB int64 `json:"disk_total_mb"`
+	// Timezone ist die Zeitzone des Node, etwa "Europe/Berlin".
+	Timezone string `json:"timezone"`
 	// Die Bewertung. Codes stammen aus internal/faults und sind sprachneutral;
 	// die Oberflaeche uebersetzt sie.
 	ArchOK      bool     `json:"arch_ok"`
@@ -93,6 +103,9 @@ type StepView struct {
 	Unit      string `json:"unit,omitempty"`
 	Optional  bool   `json:"optional"`
 	Default   bool   `json:"default"`
+	// Kind ist "device" fuer einen Geraete-Dienst, "service" fuer einen
+	// anderen Python-Dienst und leer fuer einen Systemschritt.
+	Kind string `json:"kind,omitempty"`
 }
 
 // ManifestView ist der fuer die Oberflaeche interessante Teil des Manifests.
@@ -105,6 +118,13 @@ type ManifestView struct {
 	Components    map[string]string `json:"components"`
 	Steps         []StepView        `json:"steps"`
 	HasCaddy      bool              `json:"has_caddy"`
+	// BundleBytes ist die Summe der Dateigroessen aus manifest.files.
+	BundleBytes int64 `json:"bundle_bytes"`
+	// WheelCount, UnitCount und TemplateCount zaehlen die Dateien unter
+	// wheels/, die *.service-Dateien und die Dateien unter config/.
+	WheelCount    int `json:"wheel_count"`
+	UnitCount     int `json:"unit_count"`
+	TemplateCount int `json:"template_count"`
 }
 
 // SelectionView ist die aktuelle Dienstauswahl samt ihrer Herkunft.
@@ -160,6 +180,8 @@ type RunRequest struct {
 	AdminPassword string `json:"admin_password,omitempty"`
 	TargetUser    string `json:"target_user,omitempty"`
 	TargetBase    string `json:"target_base,omitempty"`
+	// MQTTUser ist der Broker-Benutzer, den Schritt 20 anlegt.
+	MQTTUser string `json:"mqtt_user,omitempty"`
 }
 
 // Secrets liefert die Werte, die aus jeder Ausgabe gefiltert werden muessen.
@@ -173,6 +195,12 @@ type Check struct {
 	OK          bool   `json:"ok"`
 	Detail      string `json:"detail"`
 	RetryStepID string `json:"retry_step_id,omitempty"`
+	// Group ordnet die Zeile einer Karte zu: "services", "system", "config".
+	Group string `json:"group"`
+	// Subject ist das Gepruefte ohne Praefix: Unit-Name, Port, Dateiname.
+	Subject string `json:"subject"`
+	// Severity "warn" macht aus einer fehlgeschlagenen Pruefung einen Hinweis.
+	Severity string `json:"severity,omitempty"`
 }
 
 // DiagnoseView ist die Antwort von GET /api/diagnose.

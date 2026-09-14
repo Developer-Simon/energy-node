@@ -48,6 +48,7 @@ type Bootstrap struct {
 	EntryPoints     []string `json:"entry_points"`
 	NeedsConnection bool     `json:"needs_connection"`
 	BundleVersion   string   `json:"bundle_version"`
+	BundleArch      string   `json:"bundle_arch"`
 	AssetVersion    string   `json:"asset_version"`
 	Language        string   `json:"language"`
 	LanguageFixed   bool     `json:"language_fixed"`
@@ -174,6 +175,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		EntryPoints:     description.EntryPoints,
 		NeedsConnection: description.NeedsConnection,
 		BundleVersion:   description.BundleVersion,
+		BundleArch:      description.BundleArch,
 		AssetVersion:    webui.AssetVersion(),
 		Language:        s.opts.Language,
 		LanguageFixed:   s.opts.LanguageFixed,

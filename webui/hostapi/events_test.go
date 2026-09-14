@@ -2,6 +2,7 @@ package hostapi_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
@@ -104,5 +105,18 @@ func TestASlowSubscriberIsDroppedInsteadOfBlockingTheRun(t *testing.T) {
 	}
 	if drained > hostapi.SubscriberBuffer {
 		t.Fatalf("drained %d events, want at most the buffer size", drained)
+	}
+}
+
+func TestPublishStampsEachEventWithItsTime(t *testing.T) {
+	bus := hostapi.NewBus(8)
+	before := time.Now().UnixMilli()
+	event := bus.Publish("step", map[string]string{"id": "10"})
+	after := time.Now().UnixMilli()
+	if event.At < before || event.At > after {
+		t.Fatalf("At = %d, want between %d and %d", event.At, before, after)
+	}
+	if replay := bus.Since(0); replay[0].At != event.At {
+		t.Errorf("the replayed event lost its time: %d vs %d", replay[0].At, event.At)
 	}
 }

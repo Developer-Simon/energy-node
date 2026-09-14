@@ -1,6 +1,7 @@
 package hostapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -205,7 +206,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	s.run.mu.Lock()
 	running, runID := s.run.running, s.run.id
 	s.run.mu.Unlock()
-	writeSSE(w, Event{Seq: s.bus.Seq(), Type: "hello", Data: map[string]any{
+	writeSSE(w, Event{Seq: s.bus.Seq(), Type: "hello", At: time.Now().UnixMilli(), Data: map[string]any{
 		"seq": s.bus.Seq(), "running": running, "run_id": runID,
 	}})
 	flusher.Flush()
@@ -255,5 +256,24 @@ func writeSSE(w http.ResponseWriter, event Event) {
 	if err != nil {
 		payload = []byte(`{}`)
 	}
-	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", event.Seq, event.Type, payload)
+	fmt.Fprintf(w, "id: %d\nevent: %s\ndata: %s\n\n", event.Seq, event.Type, withAt(payload, event.At))
+}
+
+// withAt setzt "at" als erstes Feld in ein JSON-Objekt ein. Alles, was kein
+// Objekt ist, und ein Zeitpunkt 0 bleiben unberuehrt - der Vertrag kennt nur
+// Objekte, und 0 hiesse "unbekannt", nicht 1970.
+func withAt(payload []byte, at int64) []byte {
+	trimmed := bytes.TrimLeft(payload, " \t\r\n")
+	if at == 0 || len(trimmed) < 2 || trimmed[0] != '{' {
+		return payload
+	}
+	stamp := []byte(fmt.Sprintf(`"at":%d`, at))
+	rest := bytes.TrimLeft(trimmed[1:], " \t\r\n")
+	out := make([]byte, 0, len(trimmed)+len(stamp)+1)
+	out = append(out, '{')
+	out = append(out, stamp...)
+	if len(rest) > 0 && rest[0] != '}' {
+		out = append(out, ',')
+	}
+	return append(out, rest...)
 }

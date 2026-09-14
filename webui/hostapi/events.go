@@ -1,17 +1,23 @@
 package hostapi
 
-import "sync"
+import (
+	"sync"
+	"time"
+)
 
 // SubscriberBuffer ist die Zahl der Ereignisse, die ein einzelner Abonnent
 // hinterherhaengen darf, bevor er abgeworfen wird. Er verbindet sich danach
 // neu und holt ueber ?since= alles nach.
 const SubscriberBuffer = 256
 
-// Event ist ein Eintrag im Ereignisstrom (Vertrag 2). Data ist alles, was sich
-// als JSON schreiben laesst.
+// Event ist ein Ereignis des Stroms. At ist der Zeitpunkt der
+// Veroeffentlichung in Unix-Millisekunden - die Oberflaeche rechnet Dauern
+// daraus, nicht aus der Ankunftszeit, damit ein nachgeholtes Ereignis seine
+// Zeit behaelt.
 type Event struct {
 	Seq  int64  `json:"seq"`
 	Type string `json:"type"`
+	At   int64  `json:"at"`
 	Data any    `json:"data"`
 }
 
@@ -57,7 +63,7 @@ func (b *Bus) Publish(typ string, data any) Event {
 	defer b.mu.Unlock()
 
 	b.seq++
-	event := Event{Seq: b.seq, Type: typ, Data: data}
+	event := Event{Seq: b.seq, Type: typ, At: time.Now().UnixMilli(), Data: data}
 	b.history = append(b.history, event)
 	b.trim()
 

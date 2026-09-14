@@ -69,12 +69,14 @@ func NewFake() *FakeBackend {
 			EntryPoints:     []string{"install", "redeploy", "diagnose"},
 			NeedsConnection: true,
 			BundleVersion:   version,
+			BundleArch:      "armv6",
 		},
 		ConnectResult: hostapi.ConnectResult{Connected: true, Host: "node.local", User: "orgelbau"},
 		Keypair:       hostapi.KeypairResult{PublicKey: "ssh-ed25519 AAAA… installer", PrivatePath: "/home/dev/.energy-node/id_ed25519", Installed: true},
 		PrecheckView: &hostapi.Precheck{
 			OSID: "debian", OSVersionID: "12", Arch: "armv6l", PythonABI: "cp311",
 			PythonVersion: "3.11.2", DiskFreeMB: 4096, SudoNopasswd: true, Internet: true,
+			OSPrettyName: "Debian GNU/Linux 12 (bookworm)", DiskTotalMB: 29700, Timezone: "Europe/Berlin",
 			ArchOK: true, PythonABIOK: true, DiskOK: true,
 		},
 		ManifestView: &hostapi.ManifestView{
@@ -84,9 +86,10 @@ func NewFake() *FakeBackend {
 			Steps: []hostapi.StepView{
 				{ID: "10"},
 				{ID: "40", Optional: true, Default: true},
-				{ID: "85", ServiceID: "tuya", Dir: "tuya_bridge", Unit: "energy-node-tuya.service", Optional: true, Default: true},
+				{ID: "85", ServiceID: "tuya", Dir: "tuya_bridge", Unit: "energy-node-tuya.service", Optional: true, Default: true, Kind: "device"},
 			},
-			HasCaddy: true,
+			HasCaddy:    true,
+			BundleBytes: 43_000_000, WheelCount: 12, UnitCount: 8, TemplateCount: 7,
 		},
 		SelectionView: &hostapi.SelectionView{Steps: map[string]bool{"40": true, "85": true}, Source: "manifest-default"},
 		PlanResult: &hostapi.PlanView{
@@ -98,7 +101,7 @@ func NewFake() *FakeBackend {
 			BundleVersion: version,
 			Units:         map[string]string{"energy-node-dashboard.service": "active"},
 			Ports:         map[string]bool{"1883": true, "8080": true},
-			Checks:        []hostapi.Check{{Name: "energy-node-dashboard.service", OK: true}},
+			Checks:        []hostapi.Check{{Name: "unit energy-node-dashboard.service", OK: true, Detail: "active", Group: "system", Subject: "energy-node-dashboard.service"}},
 		},
 		Steps: []FakeStep{
 			{ID: "10", State: "ok", Log: []string{"apt: nothing to do"}},
