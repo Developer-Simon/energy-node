@@ -47,6 +47,7 @@
     </template>
     {{template "screen-connect" .}}
     {{template "screen-precheck" .}}
+    {{template "screen-configure" .}}
     {{/* Bildschirme */}}
   </div>
   <script src="{{.BasePath}}/assets/js/i18n.js?v={{.AssetVersion}}" defer></script>
@@ -55,6 +56,8 @@
   <script src="{{.BasePath}}/assets/js/app.js?v={{.AssetVersion}}" defer></script>
   <script src="{{.BasePath}}/assets/js/screen-connect.js?v={{.AssetVersion}}" defer></script>
   <script src="{{.BasePath}}/assets/js/screen-precheck.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/services.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-configure.js?v={{.AssetVersion}}" defer></script>
   {{/* Bildschirm-Skripte */}}
   <script src="{{.BasePath}}/assets/js-deps/alpine.min.js?v={{.AssetVersion}}" defer></script>
 </body>

@@ -1,0 +1,88 @@
+{{define "screen-configure"}}<template x-if="screen === 'configure'">
+<div class="screen" x-data="screenConfigure">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="cols">
+      <template x-if="!servicesOnly">
+        <div class="stack">
+          <section class="card">
+            <h2 class="card-h" x-text="t('configure.credentials.heading')"></h2>
+            <p class="card-p" x-text="t('configure.credentials.text')"></p>
+            <div class="row2">
+              <div class="field">
+                <span class="lbl" id="configure-mqtt-user" x-text="t('field.mqtt_user')"></span>
+                <input type="text" x-model.trim="mqttUser" aria-labelledby="configure-mqtt-user" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="field">
+                <span class="lbl" id="configure-mqtt-password" x-text="t('field.mqtt_password')"></span>
+                <span class="inp-wrap">
+                  <input :type="showMqtt ? 'text' : 'password'" x-model="mqttPassword" aria-labelledby="configure-mqtt-password" autocomplete="new-password">
+                  <button type="button" @click="showMqtt = !showMqtt" :aria-pressed="showMqtt" :aria-label="t('action.show_password')">{{template "icon-eye"}}</button>
+                </span>
+              </div>
+            </div>
+            <div class="field">
+              <span class="lbl" id="configure-admin-password" x-text="t('field.admin_password')"></span>
+              <span class="inp-wrap">
+                <input :type="showAdmin ? 'text' : 'password'" x-model="adminPassword" aria-labelledby="configure-admin-password" autocomplete="new-password">
+                <button type="button" @click="showAdmin = !showAdmin" :aria-pressed="showAdmin" :aria-label="t('action.show_password')">{{template "icon-eye"}}</button>
+              </span>
+            </div>
+            <p class="hint"><span x-text="t('configure.secrets.before')"></span><em x-text="t('configure.secrets.mqtt_path')"></em><span x-text="t('configure.secrets.between')"></span><em x-text="t('configure.secrets.admin_path')"></em><span x-text="t('configure.secrets.after')"></span></p>
+          </section>
+
+          <section class="card">
+            <h2 class="card-h" x-text="t('configure.target.heading')"></h2>
+            <div class="row2">
+              <div class="field">
+                <span class="lbl" id="configure-target-user" x-text="t('field.target_user')"></span>
+                <input type="text" x-model.trim="targetUser" aria-labelledby="configure-target-user" autocomplete="off" spellcheck="false">
+              </div>
+              <div class="field">
+                <span class="lbl" id="configure-target-base" x-text="t('field.target_base')"></span>
+                <input type="text" x-model.trim="targetBase" aria-labelledby="configure-target-base" autocomplete="off" spellcheck="false">
+              </div>
+            </div>
+          </section>
+        </div>
+      </template>
+
+      <section class="card">
+        <h2 class="card-h" x-text="t('configure.services.heading')"></h2>
+        <p class="card-p" x-text="t('configure.services.text')"></p>
+
+        <template x-for="row in rows" :key="row.key">
+          <div class="tog">
+            <span class="sw" :class="{ on: row.on }" role="switch" tabindex="0" :aria-checked="row.on" :aria-label="row.name"
+                  @click="toggle(row)" @keydown.enter.prevent="toggle(row)" @keydown.space.prevent="toggle(row)"></span>
+            <span>
+              <span class="tog-t" x-text="row.name"></span>
+              <template x-if="row.hint"><div class="tog-s" x-text="row.hint"></div></template>
+              <template x-if="row.chips">
+                <div class="chips">
+                  <template x-for="chip in row.chips" :key="chip.id">
+                    <span class="chipk" :class="{ on: chip.on }" role="checkbox" tabindex="0" :aria-checked="chip.on"
+                          @click="toggleChip(chip)" @keydown.enter.prevent="toggleChip(chip)" @keydown.space.prevent="toggleChip(chip)"
+                          x-text="chip.name"></span>
+                  </template>
+                </div>
+              </template>
+            </span>
+          </div>
+        </template>
+
+        <div class="later"><span x-text="t('configure.later.before')"></span><em x-text="t('configure.later.file')"></em><span x-text="t('configure.later.after')"></span></div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint" x-text="servicesOnly ? t('configure.hint.selection') : t('configure.hint.mutates')"></span>
+    <template x-if="!servicesOnly"><button type="button" class="primary" :disabled="!canStart" @click="start()" x-text="t('action.start_install')"></button></template>
+    <template x-if="servicesOnly"><button type="button" class="primary" :disabled="!canApply" @click="apply()" x-text="t('action.apply_selection')"></button></template>
+  </footer>
+</div>
+</template>{{end}}
