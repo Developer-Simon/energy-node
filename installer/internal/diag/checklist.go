@@ -15,6 +15,12 @@ type Check struct {
 	OK          bool
 	Detail      string
 	RetryStepID string // step id that would fix this if rerun; "" if none applies
+	// Group names the card the UI shows the check on: "services" for a
+	// Python service unit, "system" for the fixed units, ports and Tailscale,
+	// "config" for files.
+	Group string
+	// Subject is what was checked, without the Name prefix.
+	Subject string
 }
 
 // fixedUnitSteps names the retry step for the four units whose step id never
@@ -66,6 +72,8 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 			OK:          state == "active",
 			Detail:      state,
 			RetryStepID: retry,
+			Group:       unitGroup(name),
+			Subject:     name,
 		})
 	}
 
@@ -92,6 +100,8 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 			OK:          open,
 			Detail:      detail,
 			RetryStepID: fixedPortSteps[name],
+			Group:       "system",
+			Subject:     name,
 		})
 	}
 
@@ -100,6 +110,8 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 		OK:          r.Config.ConfigJSON,
 		Detail:      fmt.Sprintf("present=%v", r.Config.ConfigJSON),
 		RetryStepID: "60",
+		Group:       "config",
+		Subject:     "config.json",
 	})
 
 	checks = append(checks, Check{
@@ -107,7 +119,18 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 		OK:          r.Tailscale.Angemeldet,
 		Detail:      fmt.Sprintf("angemeldet=%v", r.Tailscale.Angemeldet),
 		RetryStepID: "40",
+		Group:       "system",
+		Subject:     "tailscale",
 	})
 
 	return checks
+}
+
+// unitGroup puts the four fixed units on the system card; every other unit
+// belongs to a Python service.
+func unitGroup(name string) string {
+	if _, fixed := fixedUnitSteps[name]; fixed {
+		return "system"
+	}
+	return "services"
 }

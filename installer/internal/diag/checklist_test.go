@@ -90,3 +90,32 @@ func TestChecklistIsOrderedDeterministically(t *testing.T) {
 		}
 	}
 }
+
+func TestChecklistGroupsEveryCheckAndNamesItsSubject(t *testing.T) {
+	report := &diag.Report{
+		Units:     map[string]string{"mosquitto.service": "active", "shelly-rpc.service": "failed"},
+		Ports:     map[string]bool{"1883": true},
+		Config:    diag.ConfigReport{ConfigJSON: true},
+		Tailscale: diag.TailscaleReport{Angemeldet: false},
+	}
+	want := map[string][2]string{
+		"unit mosquitto.service":  {"system", "mosquitto.service"},
+		"unit shelly-rpc.service": {"services", "shelly-rpc.service"},
+		"port 1883":               {"system", "1883"},
+		"config.json":             {"config", "config.json"},
+		"tailscale login":         {"system", "tailscale"},
+	}
+	for _, check := range report.Checklist(testSteps()) {
+		expected, ok := want[check.Name]
+		if !ok {
+			continue
+		}
+		if check.Group != expected[0] || check.Subject != expected[1] {
+			t.Errorf("%s: group=%q subject=%q, want %q/%q", check.Name, check.Group, check.Subject, expected[0], expected[1])
+		}
+		delete(want, check.Name)
+	}
+	if len(want) != 0 {
+		t.Errorf("checks missing from the list: %v", want)
+	}
+}

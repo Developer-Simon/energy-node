@@ -25,6 +25,7 @@ type RunOptions struct {
 	BundleVersion   string // manifest.Version, becomes EN_BUNDLE_VERSION
 	TargetUser      string // optional; becomes EN_TARGET_USER if set
 	TargetBase      string // optional; becomes EN_TARGET_BASE if set
+	MQTTUser        string // optional; step 20 receives it as --user together with the staged password file
 	Steps           []bundle.StepEntry
 	Selection       *selection.Selection // optional; uploaded before the first step
 	Secrets         *Secrets             // optional; only step 60 ever receives it
@@ -101,6 +102,14 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 		env["EN_TARGET_BASE"] = opts.TargetBase
 	}
 	scriptCommand := "bash " + transport.ShellQuote(scriptPath)
+	if step.ID == mosquittoStepID {
+		extraArgs, cleanupStep20, err := stageSecretsForStep20(opts.Client, opts.MQTTUser, opts.Secrets)
+		if err != nil {
+			return Marker{}, err
+		}
+		defer cleanupStep20()
+		scriptCommand += extraArgs
+	}
 	if step.ID == dashboardStepID && opts.Secrets != nil {
 		extraArgs, cleanupSecrets, err := stageSecretsForStep60(opts.Client, opts.Secrets)
 		if err != nil {

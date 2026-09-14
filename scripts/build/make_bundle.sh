@@ -236,6 +236,7 @@ for row in os.environ["SERVICE_STEP_ROWS"].splitlines():
         "optional": True,
         "default": True,
         "service_id": manifest["service_id"],
+        "kind": manifest["kind"],
         "dir": directory,
         "unit": units[directory],
     })

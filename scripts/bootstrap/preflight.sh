@@ -17,10 +17,12 @@ EN_STATE_DIR="${EN_STATE_DIR:-/var/lib/energy-node-installer}"
 
 os_id=""
 os_version_id=""
+os_pretty_name=""
 if [[ -r "${EN_ROOT}/etc/os-release" ]]; then
   # shellcheck disable=SC1091
   os_id="$(sed -n 's/^ID=//p' "${EN_ROOT}/etc/os-release" | tr -d '"' | head -n 1)"
   os_version_id="$(sed -n 's/^VERSION_ID=//p' "${EN_ROOT}/etc/os-release" | tr -d '"' | head -n 1)"
+  os_pretty_name="$(sed -n 's/^PRETTY_NAME=//p' "${EN_ROOT}/etc/os-release" | tr -d '"' | head -n 1)"
 fi
 
 arch="$(uname -m)"
@@ -39,7 +41,10 @@ probe="${EN_STATE_DIR}"
 while [[ -n "${probe}" && ! -d "${probe}" ]]; do
   probe="$(dirname "${probe}")"
 done
-disk_free_mb="$(df -Pm "${probe:-/}" 2>/dev/null | awk 'NR==2 {print $4}')"
+disk_line="$(df -Pm "${probe:-/}" 2>/dev/null | awk 'NR==2 {print $2" "$4}')"
+disk_total_mb="${disk_line%% *}"
+disk_free_mb="${disk_line##* }"
+disk_total_mb="${disk_total_mb:-0}"
 disk_free_mb="${disk_free_mb:-0}"
 
 sudo_nopasswd=false
@@ -61,6 +66,14 @@ elif command -v wget >/dev/null 2>&1; then
   fi
 fi
 
+# Zeitzone: /etc/timezone (Debian), sonst das Ziel des localtime-Links.
+timezone=""
+if [[ -r "${EN_ROOT}/etc/timezone" ]]; then
+  timezone="$(head -n 1 "${EN_ROOT}/etc/timezone" | tr -d '[:space:]')"
+elif [[ -L "${EN_ROOT}/etc/localtime" ]]; then
+  timezone="$(readlink "${EN_ROOT}/etc/localtime" | sed 's|.*/zoneinfo/||')"
+fi
+
 installed=false
 installed_bundle_version=""
 if [[ -d "${EN_STATE_DIR}/steps" ]] && compgen -G "${EN_STATE_DIR}/steps/*" >/dev/null; then
@@ -74,18 +87,21 @@ if [[ -d "${EN_STATE_DIR}/steps" ]] && compgen -G "${EN_STATE_DIR}/steps/*" >/de
   done
 fi
 
-python3 - <<PY
-import json
+OS_PRETTY_NAME="${os_pretty_name}" TIMEZONE="${timezone}" python3 - <<PY
+import json, os
 print(json.dumps({
     "os_id": "${os_id}",
     "os_version_id": "${os_version_id}",
+    "os_pretty_name": os.environ["OS_PRETTY_NAME"],
     "arch": "${arch}",
     "python_abi": "${python_abi}",
     "python_version": "${python_version}",
     "disk_free_mb": int("${disk_free_mb}"),
+    "disk_total_mb": int("${disk_total_mb}"),
     "sudo_nopasswd": ${sudo_nopasswd^},
     "internet": ${internet^},
     "installed": ${installed^},
     "installed_bundle_version": "${installed_bundle_version}",
+    "timezone": os.environ["TIMEZONE"],
 }, ensure_ascii=False))
 PY

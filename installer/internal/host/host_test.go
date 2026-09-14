@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/host"
@@ -138,5 +139,72 @@ func TestPrecheckComparesTheNodeFactsAgainstTheManifest(t *testing.T) {
 	}
 	if len(ok.Warnings) != 3 {
 		t.Errorf("warnings = %v, want disk, sudo and internet", ok.Warnings)
+	}
+}
+
+func TestManifestViewCountsTheBundleFilesAndCarriesKinds(t *testing.T) {
+	dir := t.TempDir()
+	files := map[string]string{
+		"wheels/a.whl": "x",
+		"wheels/b.whl": "x",
+		"dashboard/energy-node-dashboard.service": "x",
+		"config/config.json":                      "x",
+	}
+	for rel := range files {
+		path := filepath.Join(dir, rel)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(strings.Repeat("a", 100)), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	manifest := map[string]any{
+		"version": "v1.4.2", "arch": "armv6", "uname_machine": []string{"armv6l"},
+		"steps": []map[string]any{{"id": "83", "optional": true, "service_id": "shelly", "kind": "device"}},
+		"files": files,
+	}
+	raw, _ := json.Marshal(manifest)
+	if err := os.WriteFile(filepath.Join(dir, "manifest.json"), raw, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h, err := host.New(host.Config{BundleDir: dir, IdentityDir: t.TempDir(), KnownHostsPath: filepath.Join(t.TempDir(), "known_hosts")})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if got := h.Describe().BundleArch; got != "armv6" {
+		t.Errorf("BundleArch = %q, want armv6", got)
+	}
+	view, err := h.Manifest(context.Background())
+	if err != nil {
+		t.Fatalf("Manifest: %v", err)
+	}
+	if view.WheelCount != 2 || view.UnitCount != 1 || view.TemplateCount != 1 {
+		t.Errorf("counts = %d/%d/%d, want 2/1/1", view.WheelCount, view.UnitCount, view.TemplateCount)
+	}
+	if view.BundleBytes != 400 {
+		t.Errorf("BundleBytes = %d, want 400", view.BundleBytes)
+	}
+	if view.Steps[0].Kind != "device" {
+		t.Errorf("kind = %q, want device", view.Steps[0].Kind)
+	}
+}
+
+func TestAUTCTimezoneIsAWarning(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir)
+	h, err := host.New(host.Config{BundleDir: dir, IdentityDir: t.TempDir(), KnownHostsPath: filepath.Join(t.TempDir(), "known_hosts")})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	view := h.EvaluatePreflight(host.PreflightFacts{
+		Arch: "armv6l", PythonABI: "cp311", DiskFreeMB: 4096, SudoNopasswd: true, Internet: true,
+		Timezone: "Etc/UTC", OSPrettyName: "Raspberry Pi OS Lite 12 (bookworm)", DiskTotalMB: 29700,
+	})
+	if len(view.Warnings) != 1 || view.Warnings[0] != "TIMEZONE_UTC" {
+		t.Errorf("warnings = %v, want TIMEZONE_UTC", view.Warnings)
+	}
+	if view.Timezone != "Etc/UTC" || view.OSPrettyName == "" || view.DiskTotalMB != 29700 {
+		t.Errorf("the facts were not copied: %+v", view)
 	}
 }

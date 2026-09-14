@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -73,6 +74,7 @@ func (h *Host) Describe() hostapi.Description {
 		EntryPoints:     []string{"install", "redeploy", "diagnose"},
 		NeedsConnection: true,
 		BundleVersion:   h.manifest.Version,
+		BundleArch:      h.manifest.Arch,
 	}
 }
 
@@ -159,6 +161,9 @@ type PreflightFacts struct {
 	Internet               bool   `json:"internet"`
 	Installed              bool   `json:"installed"`
 	InstalledBundleVersion string `json:"installed_bundle_version"`
+	OSPrettyName           string `json:"os_pretty_name"`
+	DiskTotalMB            int64  `json:"disk_total_mb"`
+	Timezone               string `json:"timezone"`
 }
 
 // EvaluatePreflight bewertet die Tatsachen des Node gegen das Manifest. Das
@@ -171,6 +176,7 @@ func (h *Host) EvaluatePreflight(facts PreflightFacts) *hostapi.Precheck {
 		DiskFreeMB: facts.DiskFreeMB, SudoNopasswd: facts.SudoNopasswd,
 		Internet: facts.Internet, Installed: facts.Installed,
 		InstalledBundleVersion: facts.InstalledBundleVersion,
+		OSPrettyName:           facts.OSPrettyName, DiskTotalMB: facts.DiskTotalMB, Timezone: facts.Timezone,
 	}
 	for _, machine := range h.manifest.UnameMachine {
 		if machine == facts.Arch {
@@ -195,6 +201,9 @@ func (h *Host) EvaluatePreflight(facts PreflightFacts) *hostapi.Precheck {
 	}
 	if !facts.Internet {
 		view.Warnings = append(view.Warnings, "NO_INTERNET")
+	}
+	if facts.Timezone == "Etc/UTC" || facts.Timezone == "UTC" {
+		view.Warnings = append(view.Warnings, "TIMEZONE_UTC")
 	}
 	return view
 }
@@ -239,9 +248,10 @@ func (h *Host) Manifest(ctx context.Context) (*hostapi.ManifestView, error) {
 	for _, step := range h.manifest.Steps {
 		view.Steps = append(view.Steps, hostapi.StepView{
 			ID: step.ID, ServiceID: step.ServiceID, Dir: step.Dir, Unit: step.Unit,
-			Optional: step.Optional, Default: step.Default,
+			Optional: step.Optional, Default: step.Default, Kind: step.Kind,
 		})
 	}
+	view.BundleBytes, view.WheelCount, view.UnitCount, view.TemplateCount = bundleStats(h.cfg.BundleDir, h.manifest.Files)
 	return view, nil
 }
 
@@ -303,6 +313,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		BundleVersion:   h.manifest.Version,
 		TargetUser:      firstNonEmpty(req.TargetUser, h.manifest.TargetUser),
 		TargetBase:      firstNonEmpty(req.TargetBase, h.manifest.TargetBase),
+		MQTTUser:        req.MQTTUser,
 		Steps:           list,
 		Selection:       h.selectionForRun(),
 		Secrets:         &steps.Secrets{MQTTPassword: req.MQTTPassword, AdminPassword: req.AdminPassword},
@@ -338,6 +349,7 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	for _, check := range report.Checklist(h.manifest.Steps) {
 		view.Checks = append(view.Checks, hostapi.Check{
 			Name: check.Name, OK: check.OK, Detail: check.Detail, RetryStepID: check.RetryStepID,
+			Group: check.Group, Subject: check.Subject,
 		})
 	}
 	return view, nil
@@ -426,4 +438,25 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// bundleStats zaehlt, was die Karte "Was uebertragen wird" zeigt. Eine
+// fehlende Datei zaehlt mit, traegt aber keine Bytes bei - die Pruefsummen
+// verifiziert ohnehin bundle.Verify, nicht diese Anzeige.
+func bundleStats(dir string, files map[string]string) (total int64, wheels, units, templates int) {
+	for rel := range files {
+		switch {
+		case strings.HasPrefix(rel, "wheels/"):
+			wheels++
+		case strings.HasPrefix(rel, "config/"):
+			templates++
+		}
+		if strings.HasSuffix(rel, ".service") {
+			units++
+		}
+		if info, err := os.Stat(filepath.Join(dir, filepath.FromSlash(rel))); err == nil {
+			total += info.Size()
+		}
+	}
+	return total, wheels, units, templates
 }

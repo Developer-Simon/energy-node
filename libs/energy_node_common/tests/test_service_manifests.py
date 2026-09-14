@@ -33,6 +33,17 @@ EXPECTED_STEPS = {
     "automation": "88",
 }
 
+# Verzeichnisname -> Art des Dienstes. "device" landet in der Oberflaeche
+# unter "Geraete-Dienste", "service" bekommt eine eigene Zeile.
+EXPECTED_KINDS = {
+    "apsystems_ez1": "device",
+    "battery_soc": "device",
+    "shelly": "device",
+    "trucki": "device",
+    "tuya_mqtt": "device",
+    "automation": "service",
+}
+
 
 @pytest.mark.parametrize("dir_name, service_id", sorted(EXPECTED.items()))
 def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
@@ -40,7 +51,8 @@ def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
     manifest_path = service_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    assert set(manifest) == {"service_id", "unit", "schema", "bootstrap_step", "required"}
+    assert set(manifest) == {"service_id", "unit", "schema", "bootstrap_step", "required", "kind"}
+    assert manifest["kind"] == EXPECTED_KINDS[dir_name]
     assert manifest["bootstrap_step"] == EXPECTED_STEPS[dir_name]
     assert manifest["service_id"] == service_id
     assert manifest["schema"] == "config.schema.json"

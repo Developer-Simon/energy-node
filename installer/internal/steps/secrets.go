@@ -26,6 +26,29 @@ func randomSuffix() string {
 // [--admin-password-file <pfad>]").
 const dashboardStepID = "60"
 
+// mosquittoStepID is the step that creates the broker user
+// ("20-mosquitto.sh --user <name> --password-file <pfad>").
+const mosquittoStepID = "20"
+
+// mosquittoArgs renders the arguments step 20 expects. The password travels
+// as a path, never as a value (Umgang mit Geheimnissen).
+func mosquittoArgs(user, passwordPath string) string {
+	return " --user " + transport.ShellQuote(user) + " --password-file " + transport.ShellQuote(passwordPath)
+}
+
+// stageSecretsForStep20 uploads the MQTT password to a 0600 temp file and
+// returns step 20's arguments plus a cleanup that removes the file again.
+func stageSecretsForStep20(client *transport.Client, user string, secrets *Secrets) (string, func(), error) {
+	if user == "" || secrets == nil || secrets.MQTTPassword == "" {
+		return "", func() {}, nil
+	}
+	remotePath := fmt.Sprintf("/tmp/energy-node-installer-mqtt20-%s.pw", randomSuffix())
+	if err := client.UploadBytes([]byte(secrets.MQTTPassword), remotePath, 0o600); err != nil {
+		return "", func() {}, fmt.Errorf("staging the MQTT password for step 20: %w", err)
+	}
+	return mosquittoArgs(user, remotePath), func() { _ = client.RemoveRemote(remotePath) }, nil
+}
+
 // Secrets holds the passwords a fresh install or a password change collects
 // in the UI. Both are optional: 60-node-install.sh leaves an already-set
 // password alone and reports a missing one as human text rather than

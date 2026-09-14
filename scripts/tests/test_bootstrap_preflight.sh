@@ -18,6 +18,8 @@ VERSION_ID="12"
 ID=debian
 OSR
 
+printf 'Etc/UTC\n' > "$tmp/root/etc/timezone"
+
 export EN_ROOT="$tmp/root" EN_STATE_DIR="$tmp/state"
 out="$("$script")" || fail "preflight.sh exited non-zero" "$out"
 
@@ -26,6 +28,9 @@ import json, sys
 data = json.loads(sys.argv[1])
 assert data["os_id"] == "debian", data
 assert data["os_version_id"] == "12", data
+assert data["os_pretty_name"] == "Debian GNU/Linux 12 (bookworm)", data
+assert data["timezone"] == "Etc/UTC", data
+assert isinstance(data["disk_total_mb"], int) and data["disk_total_mb"] >= data["disk_free_mb"], data
 assert data["arch"], data
 assert data["python_abi"].startswith("cp"), data
 assert isinstance(data["disk_free_mb"], int) and data["disk_free_mb"] > 0, data
