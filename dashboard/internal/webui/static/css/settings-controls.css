@@ -46,6 +46,7 @@
 /* Transluzente Flaeche wie .device-tile: die Karte liegt als eigene Schicht
    ueber dem Panel, statt es in einen festen Streifen zu zerschneiden. */
 .setting-card {
+  container: setting-card / inline-size;
   box-sizing: border-box;
   padding: 1rem 1.1rem 1.1rem;
   border: 1px solid var(--border-soft);
@@ -152,6 +153,19 @@
    innerhalb der .form-grid-Karten (MQTT-Verbindung, Bridge-Konfiguration)
    verbreitert, die Allgemein-/Verlaufs-Stepper bleiben unveraendert. */
 .form-grid .stepper-input { width: 4.5rem; }
+/* .form-grid faellt in manager.css bei 700px Viewportbreite auf eine Spalte -
+   das greift nicht, wenn die Karte selbst schmal ist, der Viewport aber breit
+   bleibt (zwei .setting-card nebeneinander in .settings-cards). Dann sprengt
+   die zweispaltige minmax(12rem, 20rem)-Spur (min. 24rem + 1rem Gap) die
+   Karte, der Stepper ragt heraus. Deshalb zusaetzlich ueber den .setting-card-
+   Container selbst gemessen (nicht ueber settings-body, das nur ueber 1 vs. 2
+   Karten entscheidet): Kontrolle springt unter das Label, sobald die Karte
+   dafuer zu schmal wird - und wieder daneben, sobald sie (z.B. in der
+   Ein-Kachel-Anordnung von .settings-cards) erneut breit genug ist. Schwelle
+   = 24rem Spuren + 1rem Gap + 2.2rem Karten-Innenabstand + Puffer. */
+@container setting-card (max-width: 28rem) {
+  .setting-card .form-grid { grid-template-columns: 1fr; }
+}
 
 /* --- Segmented Control ----------------------------------------------------
    Zwei oder vier feste Optionen (.segmented--4 fuer vier). Der Thumb gleitet
