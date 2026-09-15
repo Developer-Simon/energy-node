@@ -108,7 +108,18 @@ test('die Diagnose repariert genau den ausgefallenen Dienst (Kriterium 6)', () =
   const { page, context } = await openPage(browser, host.url);
   await page.locator('.mode-i', { hasText: 'Diagnose' }).click();
   assert.equal(await page.locator('.bar-title').textContent(), 'Diagnose');
+  // /api/diagnose kuenstlich verzoegern, bevor ueberhaupt verbunden wird -
+  // sonst ist der allererste, durch afterConnect() ausgeloeste Aufruf schon
+  // durch, bevor sich pruefen liesse, ob das Banner erscheint (Regression:
+  // siehe navigate() in app.js).
+  await page.route('**/api/diagnose', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
   await connect(page, { trusted: true });
+  await page.locator('.app[data-screen="diagnose"]').waitFor();
+  await page.locator('.alert--progress', { hasText: 'Diagnose läuft' }).waitFor({ timeout: 500 });
+  await page.locator('.alert--progress').waitFor({ state: 'detached' });
 
   await page.locator('.app[data-screen="diagnose"] .fail').waitFor();
   assert.equal(await page.locator('.fail .code').textContent(), 'failed');

@@ -55,14 +55,25 @@ test('Kriterium 9: ein neuer Dienst kommt nur mit ausdruecklicher Zustimmung, Ab
   await context.close();
 }));
 
-test('im Installer-Wirt fuehrt der Einstieg Aktualisieren ueber die Verbindung in dieselbe Vorschau', () => withHost(['--trusted', '--scenario', 'vorlage-update'], async (host) => {
+test('im Installer-Wirt fuehrt der Einstieg Aktualisieren ueber die Verbindung in dieselbe Vorschau, mit Fortschritt beim ersten Laden', () => withHost(['--trusted', '--scenario', 'vorlage-update'], async (host) => {
   const { page, context } = await openPage(browser, host.url);
   await page.locator('.mode-i', { hasText: 'Aktualisieren' }).click();
   assert.equal(await page.locator('.bar-title').textContent(), 'Energy Node aktualisieren');
   assert.deepEqual(await page.locator('.st-lbl').allTextContents(), ['Verbindung', 'Vorschau', 'Ausführung', 'Ergebnis']);
 
+  // /api/plan kuenstlich verzoegern, bevor ueberhaupt verbunden wird - sonst
+  // ist der allererste, durch afterConnect() ausgeloeste Aufruf schon durch,
+  // bevor sich pruefen liesse, ob das Banner erscheint (Regression: siehe
+  // navigate() in app.js).
+  await page.route('**/api/plan', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
   await connect(page, { trusted: true });
+  await page.locator('.app[data-screen="preview"]').waitFor();
+  await page.locator('.alert--progress', { hasText: 'Änderungen werden ermittelt' }).waitFor({ timeout: 500 });
   await page.locator('.app[data-screen="preview"] .vr').first().waitFor();
+  await page.locator('.alert--progress').waitFor({ state: 'detached' });
   assert.equal(await page.locator('.reuse').count(), 1);
   await context.close();
 }));

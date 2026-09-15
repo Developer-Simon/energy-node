@@ -167,6 +167,7 @@
       async load() {
         this.busy = true;
         this.shell.error = null;
+        this.shell.progress = 'diagnose.progress.loading';
         var shared = this.shell.shared;
         try {
           var results = await Promise.all([
@@ -180,6 +181,7 @@
           this.shell.fail(err);
         } finally {
           this.busy = false;
+          this.shell.progress = null;
           this.updateBar();
         }
       },
