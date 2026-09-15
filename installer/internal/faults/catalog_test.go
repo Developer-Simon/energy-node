@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	webui "github.com/Developer-Simon/energy-node-webui"
+	"github.com/Developer-Simon/energy-node-webui/i18n"
+
 	"github.com/Developer-Simon/energy-node-installer/internal/faults"
 )
 
@@ -63,17 +66,21 @@ func TestEveryCodeHasBothFields(t *testing.T) {
 // step actually failed on a real node.
 func TestCatalogCoversTheStableCodeInventory(t *testing.T) {
 	want := []string{
-		"APT_UPDATE_FAILED", "APT_INSTALL_FAILED",
-		"MOSQUITTO_CONF_FOREIGN", "MOSQUITTO_PASSWD_FAILED", "MOSQUITTO_ARGS_MISSING",
-		"UFW_FAILED",
-		"TAILSCALE_TARBALL_MISSING", "TAILSCALE_FLAG_INVALID", "TAILSCALE_INSTALL_FAILED",
-		"BUNDLE_INCOMPLETE", "WHEELS_MISSING", "ARCH_MISMATCH", "PYTHON_ABI_MISMATCH",
-		"PIP_EXTERNALLY_MANAGED", "PIP_INSTALL_FAILED",
-		"DASHBOARD_BINARY_MISSING", "CONFIG_TEMPLATE_MISSING", "MANIFESTS_MISSING",
-		"SUDOERS_INVALID", "SECRET_FILE_MISSING", "DASHBOARD_START_FAILED",
-		"CADDY_BINARY_MISSING", "CADDY_CONFIG_INVALID", "CADDY_START_FAILED",
-		"SERVICE_SOURCE_MISSING", "SERVICE_UNIT_FAILED", "SERVICE_START_FAILED",
-		"BUNDLE_MANIFEST_MISSING", "BUNDLE_SIGNATURE_INVALID", "BUNDLE_HASH_MISMATCH",
+		"ARCH_MISMATCH",
+		"APT_FAILED",
+		"BUNDLE_HASH_MISMATCH",
+		"BUNDLE_MANIFEST_MISSING",
+		"BUNDLE_SIGNATURE_INVALID",
+		"CADDY_VALIDATE_FAILED",
+		"CONFIG_EXISTS",
+		"MOSQUITTO_CONFIG_INVALID",
+		"PIP_EXTERNALLY_MANAGED",
+		"PYTHON_ABI_MISMATCH",
+		"SUDO_REQUIRED",
+		"TAILSCALE_FLAG_INVALID",
+		"UFW_MISSING",
+		"UNIT_START_FAILED",
+		"WHEEL_MISSING",
 	}
 	for _, code := range want {
 		if _, ok := faults.Lookup(code); !ok {
@@ -82,5 +89,55 @@ func TestCatalogCoversTheStableCodeInventory(t *testing.T) {
 	}
 	if len(faults.Codes()) != len(want) {
 		t.Errorf("catalog has %d entries, expected exactly %d known codes (found an extra or a typo?)", len(faults.Codes()), len(want))
+	}
+}
+
+func TestEveryCodeHasTextInEveryShippedCatalog(t *testing.T) {
+	set, err := i18n.Load(webui.Catalogs())
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for _, lang := range set.Languages() {
+		for _, code := range faults.Codes() {
+			for _, suffix := range []string{"message", "remediation"} {
+				key := "fault." + string(code) + "." + suffix
+				text, ok := set.Lookup(lang, key)
+				if !ok || text == "" {
+					t.Errorf("catalog %s is missing %s", lang, key)
+				}
+			}
+		}
+	}
+}
+
+func TestLookupFollowsTheActiveLanguage(t *testing.T) {
+	t.Cleanup(func() { faults.SetLanguage("en") })
+
+	faults.SetLanguage("en")
+	english, ok := faults.Lookup("PIP_EXTERNALLY_MANAGED")
+	if !ok {
+		t.Fatalf("PIP_EXTERNALLY_MANAGED is not in the catalog")
+	}
+
+	faults.SetLanguage("de")
+	german, ok := faults.Lookup("PIP_EXTERNALLY_MANAGED")
+	if !ok {
+		t.Fatalf("PIP_EXTERNALLY_MANAGED is not in the German catalog")
+	}
+	if german.Message == english.Message {
+		t.Errorf("the German message equals the English one: %q", german.Message)
+	}
+	if german.Code != english.Code {
+		t.Errorf("the code must not depend on the language: %q vs %q", german.Code, english.Code)
+	}
+}
+
+func TestUnknownCodeStaysUntranslatedButUsable(t *testing.T) {
+	entry := faults.Unknown("SOMETHING_NEW")
+	if entry.Code != "SOMETHING_NEW" {
+		t.Errorf("Code = %q, want the code to survive verbatim", entry.Code)
+	}
+	if entry.Message == "" {
+		t.Errorf("an unknown code must still carry a message the CLI can print")
 	}
 }

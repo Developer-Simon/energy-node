@@ -1,0 +1,12 @@
+{
+  "name": "energy-node-webui-assets",
+  "private": true,
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "playwright": "^1.62.1"
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\"",
+    "test:e2e": "node --test --test-concurrency=1 \"test/e2e/*.spec.mjs\""
+  }
+}

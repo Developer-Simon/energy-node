@@ -15,6 +15,7 @@ type StepEntry struct {
 	ServiceID string `json:"service_id,omitempty"`
 	Dir       string `json:"dir,omitempty"`
 	Unit      string `json:"unit,omitempty"`
+	Kind      string `json:"kind,omitempty"`
 }
 
 // CaddyInfo mirrors manifest.json's "caddy" object, present only when the

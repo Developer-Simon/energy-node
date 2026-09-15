@@ -30,6 +30,7 @@ jobs:
       vendored: ${{ steps.filter.outputs.vendored }}
       ha: ${{ steps.filter.outputs.ha }}
       installer: ${{ steps.filter.outputs.installer }}
+      installer_webui: ${{ steps.filter.outputs.installer_webui }}
     steps:
       # The Version bump workflow keeps the changelog and per-component patch
       # bump current on the PR branch; its bot commit re-triggers CI. Block
@@ -81,7 +82,7 @@ jobs:
           echo "Changed files:"
           printf '%s\n' "$files"
 
-          all() { for o in dashboard installer python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
+          all() { for o in dashboard installer_webui installer python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
 
           # No diff (post-merge run, or it could not be computed) or a change to
           # the workflow itself: run everything. This check runs against the
@@ -100,6 +101,7 @@ jobs:
 
           emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
           emit dashboard '^dashboard/'
+          emit installer_webui '^installer/webui/'
           emit installer  '^installer/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
           emit shell     '^scripts/'
@@ -159,6 +161,82 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  installer-webui-go:
+    name: Installer webui (Go)
+    needs: changes
+    if: needs.changes.outputs.installer_webui == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: installer/webui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - run: test -z "$(gofmt -l .)"
+      - run: go vet ./...
+      - run: go test ./...
+
+  installer-webui-js:
+    name: Installer webui (JS)
+    needs: changes
+    if: needs.changes.outputs.installer_webui == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: installer/webui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm test
+
+  installer-webui-e2e:
+    name: Installer webui (browser)
+    needs: changes
+    if: needs.changes.outputs.installer_webui == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: installer/webui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  installer-cross:
+    name: Installer (cross-compile)
+    needs: changes
+    if: needs.changes.outputs.installer == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [windows/amd64, darwin/amd64, darwin/arm64, linux/amd64]
+    defaults:
+      run:
+        working-directory: installer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+      - name: Build for ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
+          CGO_ENABLED: '0'
+        run: GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}" go build -o "$RUNNER_TEMP/installer-build" ./cmd/installer
+
   python-bridges:
     name: Python bridges
     needs: changes
@@ -201,6 +279,7 @@ jobs:
                         scripts/tests/bootstrap_container.sh
       - run: bash scripts/tests/test_bootstrap_step_lib.sh
       - run: bash scripts/tests/test_bootstrap_verify_bundle.sh
+      - run: bash scripts/tests/test_bootstrap_preflight.sh
       - run: bash scripts/tests/test_bootstrap_service_step.sh
       - run: bash scripts/tests/test_bootstrap_10_apt.sh
       - run: bash scripts/tests/test_bootstrap_20_mosquitto.sh
@@ -282,6 +361,10 @@ jobs:
       - dashboard-go
       - installer-go
       - dashboard-js
+      - installer-webui-go
+      - installer-webui-js
+      - installer-webui-e2e
+      - installer-cross
       - python-bridges
       - shell-scripts
       - bootstrap-chain

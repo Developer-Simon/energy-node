@@ -1,0 +1,43 @@
+{{define "diagnose-card"}}<p class="gh" x-text="card.heading"></p>
+<template x-for="part in card.parts" :key="part.key">
+  <div :class="part.cls">
+    <template x-if="part.type === 'r'"><span :class="part.dot"></span></template>
+    <template x-if="part.type === 'r'"><span class="r-n" x-text="part.name"></span></template>
+    <template x-if="part.type === 'r'"><span :class="part.valueCls" x-text="part.value"></span></template>
+    <template x-if="part.type === 'fail'"><div class="fail-h"><span class="code" x-text="part.chip"></span><span class="fail-t" x-text="part.title"></span></div></template>
+    <template x-if="part.type === 'fail'"><p class="fail-p" x-text="part.text"></p></template>
+    <template x-if="part.type === 'fail' && part.retry"><div class="acts"><button type="button" class="primary small" :disabled="busy" @click="retry(part)" x-text="part.retry.label"></button></div></template>
+    <template x-if="part.type === 'warnbox'"><p x-text="part.text"></p></template>
+  </div>
+</template>{{end}}
+
+{{define "screen-diagnose"}}<template x-if="screen === 'diagnose'">
+<div class="screen" x-data="screenDiagnose">
+  <div class="body">
+    <div class="tally">
+      <span class="tl ok"><span class="tl-n" x-text="tally.ok"></span><span class="tl-l" x-text="t('diagnose.tally.ok')"></span></span>
+      <span class="tl warn"><span class="tl-n" x-text="tally.warn"></span><span class="tl-l" x-text="tn('diagnose.tally.warn', tally.warn)"></span></span>
+      <span class="tl bad"><span class="tl-n" x-text="tally.bad"></span><span class="tl-l" x-text="tn('diagnose.tally.bad', tally.bad)"></span></span>
+    </div>
+
+    <div class="cols">
+      <template x-for="card in leftCards" :key="card.key">
+        <section class="card">{{template "diagnose-card"}}</section>
+      </template>
+
+      <div class="stack">
+        <template x-for="card in rightCards" :key="card.key">
+          <section class="card">{{template "diagnose-card"}}</section>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="close()" x-text="t('action.close')"></button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint" x-text="t('diagnose.hint')"></span>
+    <button type="button" :disabled="!view" @click="save()" x-text="t('action.save_report')"></button>
+  </footer>
+</div>
+</template>{{end}}

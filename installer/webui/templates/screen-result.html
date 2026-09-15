@@ -1,0 +1,82 @@
+{{define "screen-result"}}<template x-if="screen === 'result'">
+<div class="screen" x-data="screenResult">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="hero">
+      <span class="hero-ic" :class="{ bad: !ok }">
+        <template x-if="ok">{{template "icon-hero-ok"}}</template>
+        <template x-if="!ok">{{template "icon-hero-bad"}}</template>
+      </span>
+      <span>
+        <h1 x-text="heading"></h1>
+        <p x-text="summary"></p>
+      </span>
+    </div>
+
+    <div class="cols">
+      <template x-if="ok">
+        <section class="card">
+          <h2 class="card-h" x-text="t('result.reach.heading')"></h2>
+          <p class="card-p" x-text="t('result.reach.text')"></p>
+          <template x-for="link in urls" :key="link.url">
+            <div class="url" :class="{ lead: link.lead }">
+              <span class="url-b">
+                <div class="url-a" x-text="link.url"></div>
+                <div class="url-s" x-text="link.hint"></div>
+              </span>
+              <button type="button" class="small" @click="openUrl(link.url)" x-text="t('action.open')"></button>
+            </div>
+          </template>
+        </section>
+      </template>
+
+      <template x-if="ok">
+        <section class="card">
+          <h2 class="card-h" x-text="t('result.todo.heading')"></h2>
+          <p class="card-p" x-text="todoText"></p>
+          <template x-for="item in todos" :key="item.key">
+            <div class="todo">
+              <span class="todo-n" x-text="item.n"></span>
+              <span>
+                <span class="todo-t" x-text="item.title"></span>
+                <div class="todo-s" x-text="item.text"></div>
+              </span>
+            </div>
+          </template>
+        </section>
+      </template>
+
+      <template x-if="!ok">
+        <section class="card">
+          <h2 class="card-h" x-text="t(cancelled ? 'result.cancelled.card' : 'result.fail.card')"></h2>
+          <p class="card-p" x-text="cancelled ? t('result.cancelled.text') : fault.message"></p>
+          <template x-if="!cancelled && fault.remediation"><p class="card-p" x-text="fault.remediation"></p></template>
+        </section>
+      </template>
+
+      <template x-if="!ok && !cancelled">
+        <section class="card">
+          <h2 class="card-h" x-text="t('result.lines.heading')"></h2>
+          <p class="card-p" x-text="t('result.lines.text')"></p>
+          <template x-if="lines.length">
+            <div class="url">
+              <span class="url-b">
+                <template x-for="(line, index) in lines" :key="index"><div class="url-a" x-text="line"></div></template>
+              </span>
+            </div>
+          </template>
+        </section>
+      </template>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="save()" x-text="t('action.save_log')"></button>
+    <span class="foot-spacer"></span>
+    <button type="button" @click="openDiagnose()" x-text="t('action.open_diagnose')"></button>
+    <template x-if="ok"><button type="button" class="primary" @click="openUrl(primaryUrl)" x-text="t('action.open_dashboard')"></button></template>
+    <template x-if="!ok"><button type="button" class="primary" @click="retry()" x-text="t('action.retry')"></button></template>
+  </footer>
+</div>
+</template>{{end}}

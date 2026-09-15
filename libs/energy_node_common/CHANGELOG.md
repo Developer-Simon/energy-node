@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.4 (2026-09-14)
+
+### Features
+
+- **installer:** deliver the node facts, service kinds and MQTT user the UI drafts need (ee7af39)
+
 ## v0.4.4 (2026-09-13)
 
 ### Features
@@ -8,6 +14,10 @@
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
+
+### Fixes
+
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 
 ## v0.4.3 (2026-09-11)
 

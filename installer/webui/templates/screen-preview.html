@@ -1,0 +1,69 @@
+{{define "screen-preview"}}<template x-if="screen === 'preview'">
+<div class="screen" x-data="screenPreview">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="vd">
+      <span class="vd-lbl" x-text="t('preview.package')"></span>
+      <template x-if="fromVersion"><span class="vd-from" x-text="fromVersion"></span></template>
+      <template x-if="fromVersion"><span class="vd-arr">{{template "icon-arrow"}}</span></template>
+      <span class="vd-to" x-text="toVersion"></span>
+      <span class="vd-note" x-text="note"></span>
+    </div>
+
+    <div class="cols">
+      <section class="card">
+        <h2 class="card-h" x-text="t('preview.changes.heading')"></h2>
+        <p class="card-p" x-text="t('preview.changes.text')"></p>
+
+        <template x-for="row in components" :key="row.key">
+          <div class="vr">
+            <span class="vr-d" :class="{ rep: row.changed }"></span>
+            <span class="vr-n"><span x-text="row.label"></span><template x-if="row.em"><span> <em x-text="row.em"></em></span></template></span>
+            <template x-if="row.changed"><span class="vr-v"><span class="o" x-text="row.from"></span> → <span class="n" x-text="row.to"></span></span></template>
+            <template x-if="!row.changed"><span class="vr-v" x-text="row.to"></span></template>
+          </div>
+        </template>
+
+        <div class="keep">
+          <span class="keep-t" x-text="t('preview.restart.heading')"></span>
+          <div class="keep-l">
+            <template x-if="!restart.length"><span x-text="t('preview.restart.none')"></span></template>
+            <template x-for="(unit, index) in restart" :key="unit"><span><template x-if="index > 0"><span>, </span></template><em x-text="unit"></em></span></template>
+          </div>
+          <span class="keep-t" style="margin-top:.5rem" x-text="t('preview.keep.heading')"></span>
+          <div class="keep-l"><span x-text="keepNames"></span><template x-if="keepNames"><span x-text="t('preview.keep.separator')"></span></template><em x-text="t('preview.keep.config')"></em><span x-text="t('preview.keep.secrets')"></span></div>
+        </div>
+      </section>
+
+      <div class="stack">
+        <section class="card">
+          <h2 class="card-h" x-text="t('preview.scope.heading')"></h2>
+          <p class="card-p" x-text="t('preview.scope.text')"></p>
+          <template x-for="part in serviceParts" :key="part.key">
+            <div :class="part.cls">
+              <template x-if="part.type === 'svc'"><span class="svc-c" :class="{ on: part.on }"><template x-if="part.on">{{template "icon-ok"}}</template></span></template>
+              <template x-if="part.type === 'svc'"><span class="svc-n"><span x-text="part.name"></span><template x-if="part.isNew"><span class="svc-tag" x-text="t('preview.scope.new')"></span></template></span></template>
+              <template x-for="chip in part.chips || []" :key="chip.id"><span class="chipk" :class="{ on: chip.on }" x-text="chip.name"></span></template>
+            </div>
+          </template>
+          <button type="button" class="small ghost svc-edit" :disabled="busy || !manifest" @click="editServices()" x-text="t('action.edit_services')"></button>
+        </section>
+
+        <template x-if="showReuse">
+          <section class="card soft">
+            <p class="reuse" x-text="t('preview.reuse')"></p>
+          </section>
+        </template>
+      </div>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" :disabled="busy" @click="cancel()" x-text="t('action.cancel')"></button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint" x-text="t('configure.hint.mutates')"></span>
+    <button type="button" class="primary" :disabled="!canStart" @click="start()" x-text="t('action.update')"></button>
+  </footer>
+</div>
+</template>{{end}}

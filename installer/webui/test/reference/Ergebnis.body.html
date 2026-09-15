@@ -1,0 +1,84 @@
+<div class="app">
+  <header class="bar">
+    <span class="bar-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:1.05rem;height:1.05rem"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
+    <div class="bar-title">Energy Node einrichten</div>
+    <span class="bar-spacer"></span>
+    <span class="chip"><span class="dot"></span>pi@energy-node.local</span>
+  </header>
+
+  <div class="body">
+    <div class="stepper">
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Verbindung</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Vorprüfung</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Konfiguration</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Ausführung</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item active"><span class="st-mark">5</span><span class="st-lbl">Ergebnis</span></div>
+    </div>
+
+    <div class="hero">
+      <span class="hero-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+      <span>
+        <h1>Der Node läuft</h1>
+        <p>7 von 7 gewählten Diensten aktiv · 8:12 gebraucht · Paket 1.4.2 (armv6)</p>
+      </span>
+    </div>
+
+    <div class="cols">
+      <section class="card">
+        <h2 class="card-h">Dashboard erreichen</h2>
+        <p class="card-p">Beide Adressen zeigen auf dasselbe Dashboard.</p>
+        <div class="url lead">
+          <span class="url-b">
+            <div class="url-a">https://energy-node.local</div>
+            <div class="url-s">Über Caddy, nötig für die Admin-Anmeldung</div>
+          </span>
+          <button class="small">Öffnen</button>
+        </div>
+        <div class="url">
+          <span class="url-b">
+            <div class="url-a">http://energy-node.local:8080</div>
+            <div class="url-s">Direkt, ohne Verschlüsselung</div>
+          </span>
+          <button class="small">Öffnen</button>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-h">Das machst du noch selbst</h2>
+        <p class="card-p">Diese drei Schritte kann das Programm nicht übernehmen.</p>
+        <div class="todo">
+          <span class="todo-n">1</span>
+          <span>
+            <span class="todo-t">Schlüsselablauf in der Tailscale-Konsole abschalten</span>
+            <div class="todo-s">Sonst fällt der Node nach rund 180 Tagen aus dem Tailnet, und die nächste Anmeldung muss vor Ort passieren.</div>
+          </span>
+        </div>
+        <div class="todo">
+          <span class="todo-n">2</span>
+          <span>
+            <span class="todo-t">Caddys lokalem Zertifikat vertrauen</span>
+            <div class="todo-s">Das Programm installiert die eigene CA nicht systemweit, deshalb warnt der Browser bei jedem Aufruf.</div>
+          </span>
+        </div>
+        <div class="todo">
+          <span class="todo-n">3</span>
+          <span>
+            <span class="todo-t">Geräte und die Brücke im Dashboard eintragen</span>
+            <div class="todo-s">Tuya, Shelly, APsystems und die Batterie konfigurierst du dort, mit Schemaprüfung und Revisionen.</div>
+          </span>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button class="ghost">Protokoll speichern</button>
+    <span class="foot-spacer"></span>
+    <button>Diagnose öffnen</button>
+    <button class="primary">Dashboard öffnen</button>
+  </footer>
+</div>

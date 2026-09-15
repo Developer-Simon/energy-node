@@ -1,0 +1,83 @@
+<div class="app">
+  <header class="bar">
+    <span class="bar-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="width:1.05rem;height:1.05rem"><rect x="3" y="4" width="18" height="7" rx="2"/><rect x="3" y="13" width="18" height="7" rx="2"/><path d="M7 7.5h.01M7 16.5h.01"/></svg></span>
+    <div class="bar-title">Energy Node einrichten</div>
+    <span class="bar-spacer"></span>
+    <div class="mode">
+      <div class="mode-i on">Neu einrichten</div>
+      <div class="mode-i">Aktualisieren</div>
+      <div class="mode-i">Diagnose</div>
+    </div>
+    <span class="chip"><span class="dot"></span>pi@energy-node.local</span>
+  </header>
+
+  <div class="body">
+    <div class="stepper">
+      <div class="st-item done"><span class="st-mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" style="width:.85rem;height:.85rem"><path d="M20 6 9 17l-5-5"/></svg></span><span class="st-lbl">Verbindung</span></div>
+      <div class="st-conn filled"></div>
+      <div class="st-item active"><span class="st-mark">2</span><span class="st-lbl">Vorprüfung</span></div>
+      <div class="st-conn"></div>
+      <div class="st-item"><span class="st-mark">3</span><span class="st-lbl">Konfiguration</span></div>
+      <div class="st-conn"></div>
+      <div class="st-item"><span class="st-mark">4</span><span class="st-lbl">Ausführung</span></div>
+      <div class="st-conn"></div>
+      <div class="st-item"><span class="st-mark">5</span><span class="st-lbl">Ergebnis</span></div>
+    </div>
+
+    <div class="cols">
+      <section class="card">
+        <h2 class="card-h">Prüfung des Zielgeräts</h2>
+        <p class="card-p">Sieben Prüfungen, bevor etwas verändert wird.</p>
+
+        <div class="chk">
+          <span class="ic ic-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="chk-b"><span class="chk-t">Architektur</span><div class="chk-d">armv6l, 32 Bit. Passt zum Paket <em>armv6</em></div></span>
+        </div>
+        <div class="chk">
+          <span class="ic ic-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="chk-b"><span class="chk-t">Betriebssystem</span><div class="chk-d">Raspberry Pi OS Lite 12 (bookworm) · Python 3.11.2</div></span>
+        </div>
+        <div class="chk">
+          <span class="ic ic-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="chk-b"><span class="chk-t">Freier Speicher</span><div class="chk-d">12,4 GB von 29,7 GB frei, gebraucht werden 340 MB</div></span>
+        </div>
+        <div class="chk">
+          <span class="ic ic-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="chk-b"><span class="chk-t">Internetzugang</span><div class="chk-d">deb.debian.org erreichbar, nur für die Systempakete nötig</div></span>
+        </div>
+        <div class="chk">
+          <span class="ic ic-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="chk-b"><span class="chk-t">Erhöhte Rechte</span><div class="chk-d">sudo ohne Passwortabfrage verfügbar</div></span>
+        </div>
+        <div class="chk">
+          <span class="ic ic-ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>
+          <span class="chk-b"><span class="chk-t">Vorhandene Installation</span><div class="chk-d">keine gefunden, das Gerät wird von Grund auf eingerichtet</div></span>
+        </div>
+        <div class="chk">
+          <span class="ic ic-warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4.5M12 17h.01M10.3 3.9 2.6 17.4A2 2 0 0 0 4.3 20.4h15.4a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></span>
+          <span class="chk-b"><span class="chk-t">Zeitzone</span><div class="chk-d">Etc/UTC, damit weichen Zeitstempel im Verlauf von der Ortszeit ab</div></span>
+          <span class="chk-a"><button class="small">Auf Europe/Berlin setzen</button></span>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2 class="card-h">Was übertragen wird</h2>
+        <div class="sum"><span class="sum-n">1.4.2</span><span class="sum-u">armv6 · 41 MB</span></div>
+        <div class="man"><span>Dashboard</span><span>1 Binary</span></div>
+        <div class="man"><span>Python-Dienste</span><span>7</span></div>
+        <div class="man"><span>Wheels</span><span>12</span></div>
+        <div class="man"><span>systemd-Units</span><span>8</span></div>
+        <div class="man"><span>Konfigurationsvorlagen</span><span>7</span></div>
+        <div class="note">Bis zum Start der Installation wird auf dem Gerät nichts verändert. Diese Seite liest nur.</div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button class="ghost">Zurück</button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint">1 Hinweis, blockiert nicht</span>
+    <button>Erneut prüfen</button>
+    <button class="primary">Weiter</button>
+  </footer>
+</div>

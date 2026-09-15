@@ -7,5 +7,6 @@
     "service_id",
     "poll_interval_s",
     "diagnostic_poll_multiplier"
-  ]
+  ],
+  "kind": "device"
 }

@@ -290,7 +290,13 @@ func TestVerifyRemoteDevDoesNotUploadAPublicKey(t *testing.T) {
 	if err := bundle.VerifyRemoteDev(ctx, client, remoteDir); err != nil {
 		t.Fatalf("VerifyRemoteDev: %v", err)
 	}
-	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-pubkey-*"); n != 0 {
+	// Scoped to this test's own stagingTag, like the cleanup test above: /tmp
+	// is the real, shared temp dir of the machine running the test, and
+	// `go test ./...` runs packages concurrently, so an unscoped glob can
+	// catch a pubkey file that a different package's own VerifyRemote (e.g.
+	// internal/devcli, internal/steps) happens to have in flight at the same
+	// moment.
+	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-pubkey-"+testStagingTag(remoteDir)+"-*.pem"); n != 0 {
 		t.Fatalf("VerifyRemoteDev must never upload a public key, found %d matching files", n)
 	}
 }

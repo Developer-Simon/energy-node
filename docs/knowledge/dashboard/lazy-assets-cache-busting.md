@@ -170,6 +170,33 @@ place pulls the old file from the cache:
 
 ---
 
+## The `installer/webui/` module: one central mark instead of many hand-kept ones
+
+The installer's UI lives in its own Go module, `installer/webui/`, and both
+hosts (the installer binary and — from Plan D on — the dashboard) embed it.
+Its assets do **not** follow the per-file `?v=N` convention above. Instead
+`webui.AssetVersion()` reads `installer/webui/VERSION` and the shell template
+appends `?v=<version>` to every JS and CSS URL.
+
+Why the difference: `installer/webui/VERSION` is patch-bumped by CI on every
+PR that touches `installer/webui/` (`scripts/version/components.sh`), so a
+changed asset busts its cache without anyone remembering to. The dashboard's
+own assets keep their hand-kept marks — retrofitting them would mean
+invalidating every asset on every dashboard release, which the lazy-panel
+loading above makes expensive.
+
+The vendored `installer/webui/static/js-deps/alpine.min.js` is the same build
+as the dashboard's. Update both in the same PR: from Plan D on they share a
+binary.
+
+The installer UI's look is pinned to the drafts copied into
+`installer/webui/test/reference/`. `installer.css` and `screens.css` contain the draft
+CSS verbatim inside `/* == Vorlage: … == */` blocks; `npm test` fails when a
+rule inside a block drifts from its draft or when an addition after a block
+overrides a property the draft sets.
+
+---
+
 ## Mandatory: bump at the end of every development branch
 
 **At the end of every branch, every worktree and every small patch straight onto

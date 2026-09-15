@@ -90,6 +90,10 @@ get() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(
   || fail "10 faelschlich optional"
 [ "$(get 'next(s["unit"] for s in d["steps"] if s["id"]=="83")')" = shelly-rpc.service ] \
   || fail "Unit im Schritt 83 falsch"
+[ "$(get 'next(s["kind"] for s in d["steps"] if s["id"]=="83")')" = device ] \
+  || fail "Schritt 83 traegt kein kind=device"
+[ "$(get 'next(s["kind"] for s in d["steps"] if s["id"]=="88")')" = service ] \
+  || fail "Schritt 88 traegt kein kind=service"
 [ "$(get 'd["caddy"]["version"] != ""')" = True ] || fail "Caddy-Angaben fehlen"
 [ "$(get '"bootstrap" in d["components"]')" = True ] || fail "Bootstrap-Version fehlt"
 

@@ -1,0 +1,75 @@
+{{define "index"}}<!doctype html>
+<html lang="{{.Language}}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}}</title>
+  <link rel="stylesheet" href="{{.BasePath}}/assets/css/installer.css?v={{.AssetVersion}}">
+  <link rel="stylesheet" href="{{.BasePath}}/assets/css/screens.css?v={{.AssetVersion}}">
+</head>
+<body data-base-path="{{.BasePath}}" data-token="{{.Token}}" data-language="{{.Language}}">
+  <div class="app" x-data="installerShell" :data-screen="screen" :data-dir="dir" x-cloak>
+    <header class="bar">
+      <span class="bar-mark">{{template "icon-mark"}}</span>
+      <div class="bar-title" x-text="ready ? title : ''"></div>
+      <template x-if="bar.lead"><span class="bar-sub" x-text="bar.lead"></span></template>
+      <span class="bar-spacer"></span>
+      <template x-if="bar.sub"><span class="bar-sub" x-text="bar.sub"></span></template>
+      <template x-if="ready && showEntrySwitch">
+        <div class="mode" role="radiogroup" :aria-label="t('entry.label')">
+          <template x-for="name in bootstrap.entry_points" :key="name">
+            <div class="mode-i" :class="{ on: entry === name }" role="radio" tabindex="0" :aria-checked="entry === name"
+                 @click="switchEntry(name)" @keydown.enter.prevent="switchEntry(name)" @keydown.space.prevent="switchEntry(name)"
+                 x-text="t('entry.' + name)"></div>
+          </template>
+        </div>
+      </template>
+      <template x-if="bar.status"><span class="bar-sub" x-text="bar.status"></span></template>
+      <template x-if="bar.action"><button type="button" class="small" @click="bar.action.run()" x-text="bar.action.label"></button></template>
+      <template x-if="ready && showLanguageSwitch">
+        <div class="lang" role="radiogroup" :aria-label="t('language.label')">
+          <template x-for="code in bootstrap.languages" :key="code">
+            <div class="lang-i" :class="{ on: lang === code }" role="radio" tabindex="0" :aria-checked="lang === code"
+                 @click="switchLanguage(code)" @keydown.enter.prevent="switchLanguage(code)" @keydown.space.prevent="switchLanguage(code)"
+                 x-text="t('language.' + code + '.short')"></div>
+          </template>
+        </div>
+      </template>
+      <template x-if="chip"><span class="chip"><span class="dot"></span><span x-text="chip"></span></span></template>
+    </header>
+    <template x-if="error">
+      <div class="alert" role="alert">
+        <span>
+          <div class="alert-t" x-text="errorText"></div>
+          <template x-if="error.detail"><div class="alert-s" x-text="error.detail"></div></template>
+        </span>
+      </div>
+    </template>
+    {{template "screen-connect" .}}
+    {{template "screen-precheck" .}}
+    {{template "screen-configure" .}}
+    {{template "screen-run" .}}
+    {{template "screen-result" .}}
+    {{template "screen-preview" .}}
+    {{template "screen-diagnose" .}}
+    {{/* Bildschirme */}}
+  </div>
+  <script src="{{.BasePath}}/assets/js/i18n.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/format.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/api.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/app.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-connect.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-precheck.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/services.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-configure.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/events.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/run-model.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/download.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-run.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-result.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-preview.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-diagnose.js?v={{.AssetVersion}}" defer></script>
+  {{/* Bildschirm-Skripte */}}
+  <script src="{{.BasePath}}/assets/js-deps/alpine.min.js?v={{.AssetVersion}}" defer></script>
+</body>
+</html>{{end}}

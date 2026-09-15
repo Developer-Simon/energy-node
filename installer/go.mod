@@ -9,6 +9,9 @@ require (
 )
 
 require (
+	github.com/Developer-Simon/energy-node-webui v0.0.0
 	github.com/kr/fs v0.1.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 )
+
+replace github.com/Developer-Simon/energy-node-webui => ./webui
