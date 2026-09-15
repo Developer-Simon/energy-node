@@ -132,3 +132,23 @@
 .app[data-screen="run"] .si-skip svg{width:.7rem;height:.7rem}
 .app[data-screen="run"] .prog-fill{transition:width .4s var(--ease)}
 @media (prefers-reduced-motion:reduce){.app[data-screen="run"] .prog-fill{transition:none}}
+/* == Vorlage: Ergebnis == */
+.app[data-screen="result"] .hero{flex:none;display:flex;align-items:center;gap:1rem;margin:.4rem 0 1.3rem}
+.app[data-screen="result"] .hero-ic{flex:none;width:3.1rem;height:3.1rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center; background:var(--accent-bg);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.app[data-screen="result"] .hero-ic svg{width:1.6rem;height:1.6rem}
+.app[data-screen="result"] .hero h1{margin:0;font-size:1.62rem;line-height:1.1;letter-spacing:-.021em;font-weight:660;color:var(--text-strong)}
+.app[data-screen="result"] .hero p{margin:.2rem 0 0;font-size:.86rem;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.app[data-screen="result"] .cols{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1fr 1.15fr;gap:1rem;align-items:start}
+.app[data-screen="result"] .url{display:flex;align-items:center;gap:.75rem;padding:.68rem .8rem;border-radius:var(--radius-sm); border:1px solid var(--border-soft);background:var(--sunken);margin-bottom:.55rem}
+.app[data-screen="result"] .url.lead{border-color:var(--accent-line);background:var(--accent-bg)}
+.app[data-screen="result"] .url-b{flex:1 1 auto;min-width:0}
+.app[data-screen="result"] .url-a{font-family:ui-monospace,monospace;font-size:.8rem;color:var(--text-strong);word-break:break-all}
+.app[data-screen="result"] .url-s{font-size:.735rem;color:var(--text-muted);margin-top:.12rem}
+.app[data-screen="result"] .todo{display:flex;gap:.7rem;padding:.62rem 0;border-top:1px solid rgba(255,255,255,.05)}
+.app[data-screen="result"] .todo:first-of-type{border-top:0;padding-top:0}
+.app[data-screen="result"] .todo-n{flex:none;width:1.35rem;height:1.35rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center; background:var(--panel-alt);color:var(--text-subtle);font-size:.72rem;font-weight:650;margin-top:.05rem}
+.app[data-screen="result"] .todo-t{font-size:.85rem;font-weight:600;color:var(--text-strong)}
+.app[data-screen="result"] .todo-s{font-size:.765rem;color:var(--text-muted);line-height:1.45}
+/* == Ende Vorlage == */
+/* Ergaenzung result: ein misslungener Lauf in den Tokens von .fail. */
+.app[data-screen="result"] .hero-ic.bad{background:var(--bad-bg);color:var(--bad);box-shadow:inset 0 0 0 1px var(--bad-line)}
