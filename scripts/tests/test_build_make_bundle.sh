@@ -82,7 +82,7 @@ get() { python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(eval(
 [ "$(get 'd["target_user"]')" = pruef ] || fail "target_user falsch"
 [ "$(get 'd["target_base"]')" = /home/pruef ] || fail "target_base falsch"
 [ "$(get 'sorted(s["id"] for s in d["steps"])')" \
-  = "['10', '20', '30', '40', '50', '60', '70', '81', '82', '83', '84', '85', '88']" ] \
+  = "['10', '20', '30', '40', '50', '60', '65', '70', '81', '82', '83', '84', '85', '88']" ] \
   || fail "Schrittliste falsch" "$(get 'sorted(s["id"] for s in d["steps"])')"
 [ "$(get 'next(s["optional"] for s in d["steps"] if s["id"]=="40")')" = True ] \
   || fail "40 nicht optional"

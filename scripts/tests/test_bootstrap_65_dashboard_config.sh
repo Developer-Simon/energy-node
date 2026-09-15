@@ -27,6 +27,20 @@ export EN_STATE_DIR="$tmp/state" EN_ROOT="$tmp/root" EN_BUNDLE_DIR="$bundle"
 export EN_BUNDLE_VERSION=v1.0.0 EN_SUDO=""
 export EN_SELECTION="$tmp/state/selection.json"
 
+# Der Schritt ruft am Ende "systemctl try-restart" auf (C3) - das darf in
+# diesem Test niemals den echten systemd des Testrechners erreichen. Ein
+# Fake-Binary vor dem echten systemctl im PATH haelt den Aufruf vollstaendig
+# im Sandkasten, statt sich nur auf "2>/dev/null || true" zu verlassen.
+mkdir -p "$tmp/bin"
+systemctl_log="$tmp/systemctl.log"
+cat > "$tmp/bin/systemctl" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$systemctl_log"
+exit 1
+SH
+chmod +x "$tmp/bin/systemctl"
+export PATH="$tmp/bin:$PATH"
+
 etc="$tmp/root/etc/energy-node"
 mkdir -p "$etc"
 printf '{"mqtt":{}}\n' > "$etc/config.json"
@@ -46,6 +60,8 @@ if got != want:
 if doc.get("mqtt") != {}:
     sys.exit("fremder Schluessel 'mqtt' wurde veraendert")
 PY
+grep -q 'try-restart energy-node-dashboard.service' "$systemctl_log" \
+  || fail "kein try-restart auf die Dashboard-Unit" "$(cat "$systemctl_log" 2>/dev/null || true)"
 
 # --- mit selection.json: automation abgewaehlt -----------------------------
 mkdir -p "$tmp/state"
@@ -60,5 +76,19 @@ got = doc.get("installed_services")
 if got != want:
     sys.exit("installed_services = %r, erwartet %r" % (got, want))
 PY
+
+# --- kaputte selection.json: laut scheitern statt still "alles aus" --------
+printf '{not valid json' > "$EN_SELECTION"
+before="$(cat "$etc/config.json")"
+if out="$(run 2>&1)"; then
+  fail "haette an kaputter selection.json scheitern muessen" "$out"
+fi
+grep -q '^##STEP 65 fail SELECTION_UNREADABLE$' <<<"$out" || fail "falscher/fehlender fail-Marker" "$out"
+after="$(cat "$etc/config.json")"
+[ "$before" = "$after" ] || fail "config.json wurde trotz Fehlschlag veraendert" "$after"
+
+# selection.json wieder gueltig machen, damit ein Test-Lauf danach nicht
+# faelschlich weiter kaputte Zustaende hinterlaesst.
+printf '{"steps":{"88":false}}\n' > "$EN_SELECTION"
 
 echo "ok"
