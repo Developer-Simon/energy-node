@@ -139,16 +139,26 @@ grep -q '^##STEP .* fail ' "$tmp/lauf1.log" \
 # --- Zustand einfrieren ----------------------------------------------------
 before="$(find "$tmp/root" -type f -exec sha256sum {} + | sort)"
 
-# --- zweiter Lauf: jeder Schritt meldet skip, nichts aendert sich ---------
+# --- zweiter Lauf: jeder Schritt meldet skip, ausser 65 -------------------
+# 65-dashboard-config.sh ist bewusst kein Skip-Schritt (siehe die Datei
+# selbst): die Dienstauswahl kann sich per Re-Deploy aendern, ohne dass die
+# Bundle-Version steigt, also schreibt er bei jedem Lauf neu und stoesst am
+# Ende einen (hier per Attrappe abgefangenen) systemctl try-restart an.
 : > "$CMD_LOG"
 run_chain "$tmp/lauf2.log"
 for id in "${STEP_IDS[@]}"; do
+  [ "$id" = "65" ] && continue
   grep -q "^##STEP $id skip bereits erledigt\$" "$tmp/lauf2.log" \
     || fail "Schritt $id im zweiten Lauf nicht uebersprungen" "$(cat "$tmp/lauf2.log")"
 done
-grep -q '^##STEP .* ok$' "$tmp/lauf2.log" \
-  && fail "ein Schritt lief im zweiten Lauf erneut" "$(cat "$tmp/lauf2.log")"
-[ -s "$CMD_LOG" ] && fail "zweiter Lauf hat Systemkommandos aufgerufen" "$(cat "$CMD_LOG")"
+grep -q '^##STEP 65 ok$' "$tmp/lauf2.log" \
+  || fail "Schritt 65 im zweiten Lauf nicht erneut ok" "$(cat "$tmp/lauf2.log")"
+grep -v '^##STEP 65 ' "$tmp/lauf2.log" | grep -q '^##STEP .* ok$' \
+  && fail "ein anderer Schritt als 65 lief im zweiten Lauf erneut" "$(cat "$tmp/lauf2.log")"
+if [ -s "$CMD_LOG" ]; then
+  [ "$(cat "$CMD_LOG")" = "systemctl try-restart energy-node-dashboard.service" ] \
+    || fail "zweiter Lauf hat unerwartete Systemkommandos aufgerufen" "$(cat "$CMD_LOG")"
+fi
 
 after="$(find "$tmp/root" -type f -exec sha256sum {} + | sort)"
 [ "$before" = "$after" ] || fail "der zweite Lauf hat Dateien veraendert" \

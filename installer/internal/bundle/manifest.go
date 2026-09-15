@@ -16,6 +16,11 @@ type StepEntry struct {
 	Dir       string `json:"dir,omitempty"`
 	Unit      string `json:"unit,omitempty"`
 	Kind      string `json:"kind,omitempty"`
+	// DashboardKey ist, falls gesetzt, der Schluessel, unter dem
+	// 65-dashboard-config.sh diesen Dienst in installed_services vermerkt
+	// (Installer-Spec, Komponente A, E7). Leer heisst: dieser Schritt hat
+	// keinen Dashboard-Tab, der aus- oder eingeblendet werden muesste.
+	DashboardKey string `json:"dashboard_key,omitempty"`
 }
 
 // CaddyInfo mirrors manifest.json's "caddy" object, present only when the

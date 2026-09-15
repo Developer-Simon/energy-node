@@ -303,6 +303,7 @@
   "step.40": "Tailscale",
   "step.50": "Python packages",
   "step.60": "Dashboard and MQTT bridge",
+  "step.65": "Dashboard configuration",
   "step.70": "HTTPS via Caddy",
   "stepper.configure": "Configuration",
   "stepper.connect": "Connection",

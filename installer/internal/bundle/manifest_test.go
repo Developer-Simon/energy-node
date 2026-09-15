@@ -1,9 +1,11 @@
 package bundle_test
 
 import (
+	"encoding/json"
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
@@ -69,5 +71,37 @@ func TestLoadManifestInvalidJSON(t *testing.T) {
 	writeManifest(t, dir, "not json")
 	if _, err := bundle.LoadManifest(dir); err == nil {
 		t.Fatalf("expected an error for invalid JSON")
+	}
+}
+
+func TestStepEntryRoundTripsDashboardKey(t *testing.T) {
+	entry := bundle.StepEntry{
+		ID:           "81",
+		Optional:     true,
+		Default:      true,
+		ServiceID:    "apsystems",
+		Kind:         "device",
+		DashboardKey: "apsystems",
+	}
+	raw, err := json.Marshal(entry)
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	var got bundle.StepEntry
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatalf("Unmarshal: %v", err)
+	}
+	if got.DashboardKey != "apsystems" {
+		t.Fatalf("DashboardKey = %q, erwartet %q", got.DashboardKey, "apsystems")
+	}
+}
+
+func TestStepEntryOmitsEmptyDashboardKey(t *testing.T) {
+	raw, err := json.Marshal(bundle.StepEntry{ID: "10", Optional: false})
+	if err != nil {
+		t.Fatalf("Marshal: %v", err)
+	}
+	if got := string(raw); strings.Contains(got, "dashboard_key") {
+		t.Fatalf("dashboard_key sollte bei leerem Wert fehlen: %s", got)
 	}
 }

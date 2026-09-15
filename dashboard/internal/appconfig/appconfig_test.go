@@ -235,3 +235,86 @@ func TestValidateSecretPaths(t *testing.T) {
 		t.Fatalf("leerer Pfad abgelehnt: %v", err)
 	}
 }
+
+func TestSchemaAllowsInstalledServicesBlock(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{
+		"apsystems":   true,
+		"automation":  false,
+		"battery_soc": true,
+		"shelly":      true,
+		"tailscale":   false,
+		"trucki":      true,
+		"tuya":        true,
+	}
+	if _, err := appconfig.Load(writeConfig(t, document)); err != nil {
+		t.Fatalf("Load mit installed_services: %v", err)
+	}
+}
+
+// Seit I2 ist additionalProperties fuer installed_services kein hartes
+// "false" mehr, sondern {"type": "boolean"} - ein neuer, dem Schema noch
+// unbekannter Dienst darf also erscheinen (Vorwaertskompatibilitaet fuer
+// einen kuenftigen achten Dienst), solange sein Wert ein Boolean bleibt.
+// Diese Grenze prueft der Test jetzt: ein unbekannter Schluessel mit einem
+// Nicht-Boolean-Wert soll weiterhin am Schema scheitern.
+func TestSchemaRejectsUnknownInstalledServicesKeyWithNonBooleanValue(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{"unbekannt": "an"}
+	if _, err := appconfig.Load(writeConfig(t, document)); err == nil {
+		t.Fatal("erwartete einen Schema-Fehler fuer einen unbekannten Schluessel mit Nicht-Boolean-Wert")
+	}
+}
+
+func TestSchemaAcceptsUnknownBooleanInstalledServicesKey(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{"unbekannt": true}
+	if _, err := appconfig.Load(writeConfig(t, document)); err != nil {
+		t.Fatalf("ein unbekannter, aber boolescher Schluessel sollte akzeptiert werden: %v", err)
+	}
+}
+
+func TestSchemaInstalledServicesBlockIsOptional(t *testing.T) {
+	document := validDocument()
+	delete(document, "installed_services")
+	if _, err := appconfig.Load(writeConfig(t, document)); err != nil {
+		t.Fatalf("Load ohne installed_services: %v", err)
+	}
+}
+
+func TestServiceInstalledDefaultsToTrueWithoutBlock(t *testing.T) {
+	document := validDocument()
+	delete(document, "installed_services")
+	cfg, err := appconfig.Load(writeConfig(t, document))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for _, key := range []string{"automation", "tailscale", "tuya", "irrelevant"} {
+		if !cfg.ServiceInstalled(key) {
+			t.Fatalf("ServiceInstalled(%q) = false, erwartet true ohne Block", key)
+		}
+	}
+}
+
+func TestServiceInstalledRespectsBlock(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{
+		"automation": false,
+		"tailscale":  true,
+	}
+	cfg, err := appconfig.Load(writeConfig(t, document))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.ServiceInstalled("automation") {
+		t.Fatal("automation sollte false sein")
+	}
+	if !cfg.ServiceInstalled("tailscale") {
+		t.Fatal("tailscale sollte true sein")
+	}
+	// tuya steht nicht im Block -> "nicht genannt heisst an", dieselbe Regel
+	// wie fuer den fehlenden Block insgesamt.
+	if !cfg.ServiceInstalled("tuya") {
+		t.Fatal("tuya (nicht im Block genannt) sollte true sein")
+	}
+}

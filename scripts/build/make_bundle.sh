@@ -37,8 +37,12 @@ TAILSCALE_VERSION="1.62.0"
 BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
-CORE_STEPS=(10 20 30 50 60)
+CORE_STEPS=(10 20 30 50 60 65)
 OPTIONAL_STEPS=(40 70)
+# dashboard_key je optionalem System-Schritt (nicht Dienst-Schritt), der
+# einen eigenen Dashboard-Tab hat. 70 (Caddy/HTTPS) bleibt bewusst aussen
+# vor - das Dashboard blendet dafuer nichts aus (E7).
+declare -A OPTIONAL_STEP_DASHBOARD_KEYS=([40]="tailscale")
 
 usage() {
   sed -n '2,12p' "${BASH_SOURCE[0]}"
@@ -210,6 +214,7 @@ UNAME_MACHINES="$(arch_uname_machines "${ARCH}" | paste -sd, -)" \
 CORE_STEPS="${CORE_STEPS[*]}" OPTIONAL_STEPS="${OPTIONAL_STEPS[*]}" \
 SERVICE_ROWS="$(printf '%s\n' "${SERVICE_TABLE[@]}")" \
 SERVICE_STEP_ROWS="$(printf '%s\n' "${SERVICE_STEPS[@]}")" \
+OPTIONAL_STEP_DASHBOARD_KEY_ROWS="$(for id in "${!OPTIONAL_STEP_DASHBOARD_KEYS[@]}"; do printf '%s:%s\n' "$id" "${OPTIONAL_STEP_DASHBOARD_KEYS[$id]}"; done)" \
 CADDY_VERSION="${caddy_version}" CADDY_FILE="${caddy_file}" CADDY_SHA="${caddy_sha}" \
 python3 > "${STAGE}/manifest.head.json" <<'PY'
 import datetime, json, os, pathlib
@@ -220,11 +225,21 @@ def version_of(rel):
     path = repo / rel
     return path.read_text(encoding="utf-8").strip() if path.is_file() else None
 
+optional_dashboard_keys = {}
+for row in os.environ["OPTIONAL_STEP_DASHBOARD_KEY_ROWS"].splitlines():
+    if not row.strip():
+        continue
+    step_id, key = row.split(":", 1)
+    optional_dashboard_keys[step_id] = key
+
 steps = []
 for step_id in os.environ["CORE_STEPS"].split():
     steps.append({"id": step_id, "optional": False})
 for step_id in os.environ["OPTIONAL_STEPS"].split():
-    steps.append({"id": step_id, "optional": True, "default": True})
+    entry = {"id": step_id, "optional": True, "default": True}
+    if step_id in optional_dashboard_keys:
+        entry["dashboard_key"] = optional_dashboard_keys[step_id]
+    steps.append(entry)
 
 units = {}
 for row in os.environ["SERVICE_ROWS"].splitlines():
@@ -245,6 +260,7 @@ for row in os.environ["SERVICE_STEP_ROWS"].splitlines():
         "kind": manifest["kind"],
         "dir": directory,
         "unit": units[directory],
+        "dashboard_key": manifest["service_id"],
     })
 steps.sort(key=lambda item: item["id"])
 

@@ -1,23 +1,27 @@
 # Changelog
 
-## v0.6.5 (2026-09-15)
+## v0.6.6 (2026-09-15)
 
 ### Features
 
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
-- **dashboard:** redesign the MQTT settings tab (#24) (8844555)
-- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
-- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
-- **dashboard:** restyle MQTT settings tab to match card layout (2d5f2bf)
-- **dashboard:** fill row gaps and add floating save bars on MQTT tab (a389ce4)
+- **dashboard:** allow an optional installed_services block in config.json Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (0710bea)
+- **dashboard:** add Config.ServiceInstalled with the default-on rule Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (faa9300)
+- **dashboard:** thread a resolved installed_services map into the overview handler (9dbaa36)
+- **dashboard:** hide the automations tab and tailscale/tuya settings subpages when deselected Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (106aa98)
 
 ### Fixes
 
-- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
-- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
-- **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
-- **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
+- **dashboard:** keep the generated config schema in sync with its source (38d5d6d)
+- **dashboard:** forward-compatible schema, close automations fragment gap (6549e38)
+
+### Documentation
+
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
+
+### Tests
+
+- **dashboard:** add a smoke-test preset with every optional service off (f1f33f5)
 
 ### Documentation
 
@@ -31,10 +35,26 @@
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **dashboard:** allow an optional installed_services block in config.json Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (0710bea)
+- **dashboard:** add Config.ServiceInstalled with the default-on rule Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (faa9300)
+- **dashboard:** thread a resolved installed_services map into the overview handler (9dbaa36)
+- **dashboard:** hide the automations tab and tailscale/tuya settings subpages when deselected Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (106aa98)
+- **dashboard:** restyle MQTT settings tab to match card layout (2d5f2bf)
+- **dashboard:** fill row gaps and add floating save bars on MQTT tab (a389ce4)
 
 ### Fixes
 
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
+- **dashboard:** keep the generated config schema in sync with its source (38d5d6d)
+- **dashboard:** forward-compatible schema, close automations fragment gap (6549e38)
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
+- **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
+- **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
+
+### Documentation
+
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 
 ## v0.6.2 (2026-09-11)
 

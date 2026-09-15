@@ -12,6 +12,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -2555,5 +2556,78 @@ func TestOverviewMarksConfiguredCompactCards(t *testing.T) {
 	}}}
 	if strings.Contains(renderOverviewWithLayout(t, auto), `data-compact-configured="true"`) {
 		t.Error("eine Kachel ohne feste Auswahl gilt faelschlich als konfiguriert")
+	}
+}
+
+func TestOverviewHidesDeselectedTabsAndSubpages(t *testing.T) {
+	reg := registry.New()
+	installed := map[string]bool{"automation": false, "tailscale": false, "tuya": true}
+	handler := OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), installed)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	body := rec.Body.String()
+
+	// Settings panel is lazy-loaded, so fetch it separately
+	settingsRec := httptest.NewRecorder()
+	OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), installed).
+		ServeHTTP(settingsRec, httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil))
+	body += settingsRec.Body.String()
+
+	for _, gone := range []string{`id="tab-automations"`, `aria-controls="settings-tailscale"`} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("erwartet, dass %q fehlt, aber es steht im Body", gone)
+		}
+	}
+	if !strings.Contains(body, `aria-controls="settings-tiny-tuya"`) {
+		t.Fatal("tuya ist installiert - die TinyTuya-Unterseite sollte da sein")
+	}
+}
+
+func TestOverviewShowsEverythingWithoutInstalledServices(t *testing.T) {
+	reg := registry.New()
+	handler := OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	body := rec.Body.String()
+
+	// Settings panel is lazy-loaded, so fetch it separately
+	settingsRec := httptest.NewRecorder()
+	OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), nil).
+		ServeHTTP(settingsRec, httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil))
+	body += settingsRec.Body.String()
+
+	for _, want := range []string{`id="tab-automations"`, `aria-controls="settings-tailscale"`, `aria-controls="settings-tiny-tuya"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("ohne installed_services sollte %q vorhanden sein", want)
+		}
+	}
+}
+
+// Anders als die tailscale/tuya-Unterseiten (nur ueber den Tab-Knopf im
+// bereits geladenen settings-Fragment erreichbar) haengt der
+// Automations-Inhalt an seiner eigenen URL (?fragment=panel&panel=automations).
+// Das Gating am Tab-Knopf/an der Ladeplatzhalter-Section in base.html reicht
+// dafuer nicht: dieser Test fragt das Fragment direkt ab und stellt sicher,
+// dass es bei abgewaehltem Dienst nicht mehr den echten Panel-Inhalt liefert
+// (leere Huelle, Status 200 - wie es die tailscale/tuya-Unterseiten fuer
+// ihren eigenen, ungegateten Fall bereits vorleben).
+func TestOverviewAutomationsFragmentGatedWhenDeselected(t *testing.T) {
+	reg := registry.New()
+	installed := map[string]bool{"automation": false, "tailscale": true, "tuya": true}
+	handler := OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), installed)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=automations", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Status = %d, erwartet 200 (das Template-Gate liefert eine leere Huelle, keinen 404)", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, `x-data="automationsPanel()"`) {
+		t.Fatalf("automation ist abgewaehlt, trotzdem liefert die eigene Fragment-URL den echten Panel-Inhalt:\n%s", body)
 	}
 }

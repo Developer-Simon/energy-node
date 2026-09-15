@@ -48,6 +48,10 @@ type Config struct {
 	Tailscale     TailscaleSection       `json:"tailscale"`
 	TinyTuya      TinyTuyaSection        `json:"tinytuya"`
 	Services      map[string]ServicePoll `json:"services"`
+	// InstalledServices spiegelt den optionalen installed_services-Block
+	// (E7 der Installer-Spec). Ein fehlender Block bedeutet "alles an";
+	// siehe ServiceInstalled.
+	InstalledServices map[string]bool `json:"installed_services,omitempty"`
 }
 
 type MQTTSection struct {
@@ -170,6 +174,22 @@ func (c Config) DevicesConfig(name string) string {
 // ShellyPresets loest devices_dir/shelly_presets.json auf.
 func (c Config) ShellyPresets() string {
 	return filepath.Join(c.Paths.DevicesDir, "shelly_presets.json")
+}
+
+// ServiceInstalled berichtet, ob der optionale Dienst mit diesem
+// installed_services-Schluessel aktiv ist. Ein fehlender Block und ein im
+// Block nicht genannter Schluessel bedeuten beide "an" - dieselbe Regel, die
+// selection.Selected und step_selected auf der Installer-Seite schon
+// durchsetzen (E7: "fehlend heisst alles an").
+func (c Config) ServiceInstalled(key string) bool {
+	if c.InstalledServices == nil {
+		return true
+	}
+	v, ok := c.InstalledServices[key]
+	if !ok {
+		return true
+	}
+	return v
 }
 
 // MQTTPassword liest das Broker-Passwort aus der referenzierten Datei.

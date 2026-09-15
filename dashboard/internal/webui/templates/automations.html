@@ -1,4 +1,11 @@
 {{define "automations"}}
+{{/* Anders als die tailscale/tuya-Unterseiten in settings.html ist dieses
+     Fragment ueber eine eigene URL erreichbar (?fragment=panel&panel=automations),
+     nicht nur ueber den (bereits gegateten) Tab-Knopf. Das Gate muss also
+     hier stehen, nicht nur um die Ladeplatzhalter-Section in base.html -
+     sonst liefert ein direkter Aufruf der Fragment-URL den echten Inhalt
+     trotz abgewaehltem Dienst. */}}
+{{if index .InstalledServices "automation"}}
 <section id="automations-panel" class="panel" role="tabpanel" aria-labelledby="tab-automations" x-bind:class="{ active: activePanel === 'automations-panel' }" x-show="activePanel === 'automations-panel'" x-data="automationsPanel()" x-init="load()">
 
   <h2>Automationen <span x-show="!loading" x-text="online ? '(Dienst online)' : '(Dienst offline)'"></span></h2>
@@ -738,4 +745,5 @@
     </div>
   </template>
 </section>
+{{end}}
 {{end}}
