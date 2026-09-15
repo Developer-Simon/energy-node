@@ -116,13 +116,27 @@
     "installed_services": {
       "additionalProperties": false,
       "properties": {
-        "apsystems": { "type": "boolean" },
-        "automation": { "type": "boolean" },
-        "battery_soc": { "type": "boolean" },
-        "shelly": { "type": "boolean" },
-        "tailscale": { "type": "boolean" },
-        "trucki": { "type": "boolean" },
-        "tuya": { "type": "boolean" }
+        "apsystems": {
+          "type": "boolean"
+        },
+        "automation": {
+          "type": "boolean"
+        },
+        "battery_soc": {
+          "type": "boolean"
+        },
+        "shelly": {
+          "type": "boolean"
+        },
+        "tailscale": {
+          "type": "boolean"
+        },
+        "trucki": {
+          "type": "boolean"
+        },
+        "tuya": {
+          "type": "boolean"
+        }
       },
       "type": "object"
     },

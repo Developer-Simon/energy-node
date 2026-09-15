@@ -341,9 +341,9 @@ func main() {
 				"tailscale":  cfg.ServiceInstalled("tailscale"),
 				"tuya":       cfg.ServiceInstalled("tuya"),
 			},
-			MQTTBase:          mqttBase,
-			NodeAgent:         nodeAgent,
-			NodeSimulation:    nodeSimPublisher,
+			MQTTBase:       mqttBase,
+			NodeAgent:      nodeAgent,
+			NodeSimulation: nodeSimPublisher,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

@@ -148,7 +148,7 @@ type RouterDependencies struct {
 	// die das Dashboard je nach Auswahl ausblendet: automation, tailscale,
 	// tuya. main.go fuellt sie ueber Config.ServiceInstalled; nil heisst
 	// hier wie dort "alles an".
-	InstalledServices  map[string]bool
+	InstalledServices map[string]bool
 	// Version ist die aus dashboard/VERSION plus Branch-Suffix gebaute
 	// Versionskennung (siehe main.buildVersion), leer bzw. "dev" ausserhalb
 	// von Release-Builds.
