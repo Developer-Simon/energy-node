@@ -20,6 +20,7 @@
 
 ### Fixes
 
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 - **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
 
