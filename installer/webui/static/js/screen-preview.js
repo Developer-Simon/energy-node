@@ -7,10 +7,10 @@
   // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels baut.
   // Ein Test haelt die Liste gegen das Skript.
   var WHEEL_COMPONENTS = ['energy_node_common', 'battery_soc_core'];
-  // bootstrap traegt die Bundle-Version (make_bundle.sh) - sie steht in der
+  // dashboard traegt die Bundle-Version (make_bundle.sh) - sie steht in der
   // Versionsleiste, nicht in der Liste.
-  var PACKAGE = 'bootstrap';
-  var PLAIN = ['dashboard', 'services'];
+  var PACKAGE = 'dashboard';
+  var PLAIN = ['bootstrap', 'services'];
 
   function plain(version) {
     return window.Format.plainVersion(version);
@@ -107,6 +107,7 @@
       async load() {
         this.busy = true;
         this.shell.error = null;
+        this.shell.progress = 'preview.progress.loading';
         var shared = this.shell.shared;
         try {
           var results = await Promise.all([
@@ -124,11 +125,12 @@
           this.shell.fail(err);
         } finally {
           this.busy = false;
+          this.shell.progress = null;
         }
       },
 
       get fromVersion() {
-        var delta = this.plan && this.plan.components && this.plan.components.bootstrap;
+        var delta = this.plan && this.plan.components && this.plan.components.dashboard;
         return delta && delta.from ? plain(delta.from) : '';
       },
 

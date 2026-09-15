@@ -6,6 +6,10 @@
 
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 
+### Documentation
+
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
+
 ## v0.4.4 (2026-09-13)
 
 ### Features

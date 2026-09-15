@@ -48,7 +48,7 @@ test('die Versionsleiste zeigt von und nach, ohne Installationsdauer (A7)', asyn
 test('Was sich aendert: je Komponente von/nach, unveraenderte Abhaengigkeiten zusammengefasst', async () => {
   const { screen } = await mount();
   assert.deepEqual(plain(screen.components.map((row) => [row.label, row.em, row.changed, row.from, row.to])), [
-    ['Dashboard', '', true, '1.4.1', '1.4.2'],
+    ['Bootstrap', '', true, '1.0.4', '1.0.5'],
     ['Dienste (Repo)', '', true, '3.6.0', '3.7.1'],
     ['Wheel', 'energy_node_common', true, '1.4.0', '1.4.2'],
     ['Wheel', 'battery_soc_core', false, '0.9.3', '0.9.3'],
@@ -58,10 +58,10 @@ test('Was sich aendert: je Komponente von/nach, unveraenderte Abhaengigkeiten zu
 });
 
 test('eine Komponente ohne Vorzustand ist neu', async () => {
-  const plan = Object.assign({}, PLAN_UPDATE, { components: { dashboard: { from: null, to: 'v1.5.0' } } });
+  const plan = Object.assign({}, PLAN_UPDATE, { components: { bootstrap: { from: null, to: 'v1.5.0' } } });
   const { screen } = await mount({ responses: { 'GET /api/plan': plan } });
   assert.deepEqual(plain(screen.components.map((row) => [row.changed, row.from, row.to])), [[true, 'neu', '1.5.0']]);
-  assert.equal(screen.fromVersion, '', 'ohne bootstrap kein "von"');
+  assert.equal(screen.fromVersion, '', 'ohne dashboard kein "von"');
 });
 
 test('Startet neu und Bleibt stehen folgen dem Plan (A17)', async () => {

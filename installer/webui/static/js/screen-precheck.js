@@ -8,6 +8,27 @@
   var ROW_WARNINGS = ['DISK_LOW', 'NO_INTERNET', 'SUDO_PASSWORD_REQUIRED', 'TIMEZONE_UTC'];
   var ROW_BLOCKING = ['ARCH_MISMATCH', 'PYTHON_ABI_MISMATCH'];
 
+  // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels baut
+  // (dieselbe Liste wie PreviewModel.WHEEL_COMPONENTS - ein Test haelt beide
+  // gegen das Skript). dashboard/bootstrap sind die Kernbestandteile hinter
+  // der "Dashboard"-Zeile, alles andere gehoert zur "Python-Dienste"-Zeile.
+  var WHEEL_COMPONENTS = ['energy_node_common', 'battery_soc_core'];
+  var CORE_COMPONENTS = ['dashboard', 'bootstrap'];
+
+  // componentItem beschriftet eine Komponente fuer die aufklappbare
+  // Versionsliste: bekannte Namen (Dashboard, Bootstrap, Dienste) bekommen
+  // ihre eigene Uebersetzung, alles andere zeigt die generische Art (Wheel /
+  // Abhaengigkeit) mit dem Rohnamen daneben - wie in der Vorschau (PreviewModel).
+  function componentItem(name, version, shell) {
+    var key = 'component.' + name;
+    var text = shell.t(key);
+    if (text !== key) {
+      return { label: text, em: '', value: window.Format.plainVersion(version) };
+    }
+    var kind = WHEEL_COMPONENTS.indexOf(name) >= 0 ? 'wheel' : 'dependency';
+    return { label: shell.t('component.' + kind), em: name, value: window.Format.plainVersion(version) };
+  }
+
   function includes(list, code) {
     return (list || []).indexOf(code) >= 0;
   }
@@ -76,12 +97,17 @@
       // Die MQTT-Bruecke laeuft im Dashboard-Binary aus Schritt 60 und hat
       // keinen eigenen Dienst-Schritt - sie zaehlt trotzdem als Dienst.
       var services = (manifest.steps || []).filter(function (step) { return step.service_id; }).length + 1;
+      var components = manifest.components || {};
+      var coreItems = CORE_COMPONENTS.filter(function (name) { return components[name]; })
+        .map(function (name) { return componentItem(name, components[name], shell); });
+      var serviceItems = Object.keys(components).filter(function (name) { return !includes(CORE_COMPONENTS, name); })
+        .map(function (name) { return componentItem(name, components[name], shell); });
       return [
-        { label: shell.t('precheck.transfer.dashboard'), value: shell.tn('precheck.transfer.binaries', 1) },
-        { label: shell.t('precheck.transfer.services'), value: String(services) },
-        { label: shell.t('precheck.transfer.wheels'), value: String(manifest.wheel_count || 0) },
-        { label: shell.t('precheck.transfer.units'), value: String(manifest.unit_count || 0) },
-        { label: shell.t('precheck.transfer.templates'), value: String(manifest.template_count || 0) },
+        { key: 'dashboard', label: shell.t('precheck.transfer.dashboard'), value: shell.tn('precheck.transfer.binaries', 1), items: coreItems },
+        { key: 'services', label: shell.t('precheck.transfer.services'), value: String(services), items: serviceItems },
+        { key: 'wheels', label: shell.t('precheck.transfer.wheels'), value: String(manifest.wheel_count || 0), items: [] },
+        { key: 'units', label: shell.t('precheck.transfer.units'), value: String(manifest.unit_count || 0), items: [] },
+        { key: 'templates', label: shell.t('precheck.transfer.templates'), value: String(manifest.template_count || 0), items: [] },
       ];
     },
   };
@@ -93,6 +119,13 @@
       report: null,
       manifest: null,
       busy: false,
+      // expanded haelt, welche "was uebertragen wird"-Zeilen aufgeklappt sind
+      // (Schluessel = line.key). Nur Zeilen mit items koennen aufklappen.
+      expanded: {},
+
+      toggleTransfer(key) {
+        this.expanded[key] = !this.expanded[key];
+      },
 
       get shell() {
         return window.Installer.shell;
@@ -105,6 +138,7 @@
       async load() {
         this.busy = true;
         this.shell.error = null;
+        this.shell.progress = 'precheck.progress.loading';
         try {
           var shared = this.shell.shared;
           var results = await Promise.all([
@@ -118,6 +152,7 @@
           this.shell.fail(err);
         } finally {
           this.busy = false;
+          this.shell.progress = null;
         }
       },
 
@@ -130,7 +165,7 @@
       },
 
       get summary() {
-        return this.shell.t('precheck.card.text', { count: this.shell.number(this.rows.length) });
+        return this.report ? this.shell.t('precheck.card.text', { count: this.shell.number(this.rows.length) }) : this.shell.t('precheck.card.loading');
       },
 
       get hint() {

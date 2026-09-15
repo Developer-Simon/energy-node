@@ -15,7 +15,12 @@ const REPORT = {
 };
 const MANIFEST = {
   bundle_version: 'v1.4.2', arch: 'armv6', python_abi: 'cp311', target_user: 'energynode', target_base: '/home/energynode',
-  components: {}, has_caddy: true,
+  components: {
+    bootstrap: 'v1.0.5', dashboard: '1.4.2', services: '3.7.1',
+    energy_node_common: '1.4.2', battery_soc_core: '0.9.3',
+    tinytuya: '1.16.0', 'paho-mqtt': '2.1.0',
+  },
+  has_caddy: true,
   bundle_bytes: 41 * 1024 * 1024, wheel_count: 12, unit_count: 8, template_count: 7,
   steps: [
     { id: '10' }, { id: '20' }, { id: '30' }, { id: '40', optional: true, default: true }, { id: '50' }, { id: '60' },
@@ -69,6 +74,29 @@ test('die Karte "Was uebertragen wird" zeigt die Zahlen der Vorlage', async () =
   assert.deepEqual(plain(screen.transfer.map((line) => [line.label, line.value])), [
     ['Dashboard', '1 Binary'], ['Python-Dienste', '7'], ['Wheels', '12'], ['systemd-Units', '8'], ['Konfigurationsvorlagen', '7'],
   ]);
+});
+
+test('die Zeilen "Dashboard" und "Python-Dienste" listen ihre Komponentenversionen, Wheels/Units/Vorlagen bleiben Zahlen', async () => {
+  const { screen } = await mount();
+  const [dashboard, services, wheels, units, templates] = screen.transfer;
+  assert.deepEqual(plain(dashboard.items.map((item) => [item.label, item.em, item.value])), [
+    ['Dashboard', '', '1.4.2'], ['Bootstrap', '', '1.0.5'],
+  ]);
+  assert.deepEqual(plain(services.items.map((item) => [item.label, item.em, item.value])), [
+    ['Dienste (Repo)', '', '3.7.1'],
+    ['Wheel', 'energy_node_common', '1.4.2'], ['Wheel', 'battery_soc_core', '0.9.3'],
+    ['Abhängigkeit', 'tinytuya', '1.16.0'], ['Abhängigkeit', 'paho-mqtt', '2.1.0'],
+  ]);
+  assert.deepEqual(plain([wheels.items, units.items, templates.items]), [[], [], []]);
+});
+
+test('eine Zeile mit Versionen klappt per toggleTransfer auf und wieder zu', async () => {
+  const { screen } = await mount();
+  assert.equal(screen.expanded.dashboard, undefined);
+  screen.toggleTransfer('dashboard');
+  assert.equal(screen.expanded.dashboard, true);
+  screen.toggleTransfer('dashboard');
+  assert.equal(screen.expanded.dashboard, false);
 });
 
 test('eine falsche Architektur blockiert und nennt die Abhilfe', async () => {

@@ -54,8 +54,10 @@
 
         <template x-for="row in rows" :key="row.key">
           <div class="tog">
-            <span class="sw" :class="{ on: row.on }" role="switch" tabindex="0" :aria-checked="row.on" :aria-label="row.name"
-                  @click="toggle(row)" @keydown.enter.prevent="toggle(row)" @keydown.space.prevent="toggle(row)"></span>
+            <label class="settings-toggle">
+              <input type="checkbox" role="switch" :checked="row.on" :aria-label="row.name" @change="toggle(row)">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </label>
             <span>
               <span class="tog-t" x-text="row.name"></span>
               <template x-if="row.hint"><div class="tog-s" x-text="row.hint"></div></template>

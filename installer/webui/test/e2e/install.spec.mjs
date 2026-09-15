@@ -44,6 +44,31 @@ test('eine Erstinstallation laeuft von der Verbindung bis zum Ergebnis, ohne ein
   await context.close();
 }));
 
+test('die Vorpruefung zeigt Fortschritt und Lade-Skelett schon beim ersten, automatischen Laden nach der Verbindung', () => withHost([], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  // /api/precheck und /api/manifest kuenstlich verzoegern, bevor ueberhaupt
+  // verbunden wird - sonst ist der allererste, durch afterConnect()
+  // ausgeloeste Aufruf schon durch, bevor sich pruefen liesse, ob Banner und
+  // Skelett erscheinen.
+  await page.route('**/api/precheck', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+  await page.route('**/api/manifest', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+  await connect(page);
+  await page.locator('.app[data-screen="precheck"]').waitFor();
+  await page.locator('.alert--progress', { hasText: 'Zielgerät wird geprüft' }).waitFor({ timeout: 500 });
+  assert.equal(await page.locator('.app[data-screen="precheck"] .ic-skeleton').count(), 6, 'sechs Skelett-Zeilen links');
+  assert.equal(await page.locator('.app[data-screen="precheck"] .man .skel-bar').count(), 10, 'fuenf Skelett-Zeilen rechts, je zwei Balken');
+  assert.equal(await page.locator('.app[data-screen="precheck"] .card-p').first().textContent(), 'Prüfungen laufen …');
+  await page.locator('.alert--progress').waitFor({ state: 'detached' });
+  assert.equal(await page.locator('.app[data-screen="precheck"] .ic-skeleton').count(), 0, 'das Skelett weicht den echten Zeilen');
+  await context.close();
+}));
+
 test('der Sprachumschalter wechselt jeden Text samt Fehlerklartext und bleibt gemerkt (Kriterium 12)', () => withHost(['--trusted', '--fail-step', '50:PIP_EXTERNALLY_MANAGED'], async (host) => {
   const { page, context } = await openPage(browser, host.url);
   await page.locator('.lang-i', { hasText: 'EN' }).click();
@@ -92,7 +117,18 @@ test('die Diagnose repariert genau den ausgefallenen Dienst (Kriterium 6)', () =
   const { page, context } = await openPage(browser, host.url);
   await page.locator('.mode-i', { hasText: 'Diagnose' }).click();
   assert.equal(await page.locator('.bar-title').textContent(), 'Diagnose');
+  // /api/diagnose kuenstlich verzoegern, bevor ueberhaupt verbunden wird -
+  // sonst ist der allererste, durch afterConnect() ausgeloeste Aufruf schon
+  // durch, bevor sich pruefen liesse, ob das Banner erscheint (Regression:
+  // siehe navigate() in app.js).
+  await page.route('**/api/diagnose', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
   await connect(page, { trusted: true });
+  await page.locator('.app[data-screen="diagnose"]').waitFor();
+  await page.locator('.alert--progress', { hasText: 'Diagnose läuft' }).waitFor({ timeout: 500 });
+  await page.locator('.alert--progress').waitFor({ state: 'detached' });
 
   await page.locator('.app[data-screen="diagnose"] .fail').waitFor();
   assert.equal(await page.locator('.fail .code').textContent(), 'failed');

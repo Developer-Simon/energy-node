@@ -21,11 +21,12 @@
 
         <div class="field">
           <span class="lbl" id="connect-auth" x-text="t('field.auth')"></span>
-          <div class="seg" role="radiogroup" aria-labelledby="connect-auth">
-            <div class="seg-i" :class="{ on: kind === 'password' }" role="radio" tabindex="0" :aria-checked="kind === 'password'"
+          <div class="segmented" role="radiogroup" aria-labelledby="connect-auth">
+            <span class="segmented-thumb" aria-hidden="true"></span>
+            <div class="segmented-option" :class="{ on: kind === 'password' }" role="radio" tabindex="0" :aria-checked="kind === 'password'"
                  @click="kind = 'password'" @keydown.enter.prevent="kind = 'password'" @keydown.space.prevent="kind = 'password'"
                  x-text="t('field.auth_password')"></div>
-            <div class="seg-i" :class="{ on: kind === 'key' }" role="radio" tabindex="0" :aria-checked="kind === 'key'"
+            <div class="segmented-option" :class="{ on: kind === 'key' }" role="radio" tabindex="0" :aria-checked="kind === 'key'"
                  @click="kind = 'key'" @keydown.enter.prevent="kind = 'key'" @keydown.space.prevent="kind = 'key'"
                  x-text="t('field.auth_key')"></div>
           </div>
