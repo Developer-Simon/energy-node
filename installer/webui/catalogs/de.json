@@ -191,6 +191,7 @@
   "precheck.arch.mismatch_plain": "{arch}. Passt nicht zum Paket ",
   "precheck.arch.title": "Architektur",
   "precheck.card.heading": "Prüfung des Zielgeräts",
+  "precheck.card.loading": "Prüfungen laufen …",
   "precheck.card.text": "{count} Prüfungen, bevor etwas verändert wird.",
   "precheck.disk.detail": "{free} von {total} frei",
   "precheck.disk.detail_plain": "{free} frei",

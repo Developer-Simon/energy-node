@@ -8,6 +8,19 @@
         <h2 class="card-h" x-text="t('precheck.card.heading')"></h2>
         <p class="card-p" x-text="summary"></p>
 
+        <template x-if="!report">
+          <div aria-hidden="true">
+            <template x-for="n in 6" :key="'chk-skel-' + n">
+              <div class="chk">
+                <span class="ic ic-skeleton">{{template "icon-unchecked"}}</span>
+                <span class="chk-b">
+                  <span class="skel-bar" :style="'width:' + (40 + (n * 11) % 35) + '%'"></span>
+                  <span class="skel-bar skel-bar-sub" :style="'width:' + (55 + (n * 13) % 30) + '%'"></span>
+                </span>
+              </div>
+            </template>
+          </div>
+        </template>
         <template x-for="row in rows" :key="row.id">
           <div class="chk">
             <span class="ic" :class="'ic-' + row.state">
@@ -28,6 +41,17 @@
         <h2 class="card-h" x-text="t('precheck.transfer.heading')"></h2>
         <template x-if="manifest">
           <div class="sum"><span class="sum-n" x-text="sumNumber"></span><span class="sum-u" x-text="sumUnit"></span></div>
+        </template>
+        <template x-if="!manifest">
+          <div aria-hidden="true">
+            <div class="sum"><span class="skel-bar skel-bar-sum" style="width:4rem"></span></div>
+            <template x-for="n in 5" :key="'man-skel-' + n">
+              <div class="man">
+                <span class="skel-bar" :style="'width:' + (35 + (n * 9) % 25) + '%'"></span>
+                <span class="skel-bar" style="width:2.4rem"></span>
+              </div>
+            </template>
+          </div>
         </template>
         <template x-for="line in transfer" :key="line.key">
           <div class="man-group">

@@ -165,7 +165,7 @@
       },
 
       get summary() {
-        return this.shell.t('precheck.card.text', { count: this.shell.number(this.rows.length) });
+        return this.report ? this.shell.t('precheck.card.text', { count: this.shell.number(this.rows.length) }) : this.shell.t('precheck.card.loading');
       },
 
       get hint() {

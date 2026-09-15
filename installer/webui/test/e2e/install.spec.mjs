@@ -44,19 +44,28 @@ test('eine Erstinstallation laeuft von der Verbindung bis zum Ergebnis, ohne ein
   await context.close();
 }));
 
-test('die Vorpruefung zeigt den Fortschritt schon beim ersten, automatischen Laden nach der Verbindung', () => withHost([], async (host) => {
+test('die Vorpruefung zeigt Fortschritt und Lade-Skelett schon beim ersten, automatischen Laden nach der Verbindung', () => withHost([], async (host) => {
   const { page, context } = await openPage(browser, host.url);
-  // /api/precheck kuenstlich verzoegern, bevor ueberhaupt verbunden wird -
-  // sonst ist der allererste, durch afterConnect() ausgeloeste Aufruf schon
-  // durch, bevor sich pruefen liesse, ob das Banner erscheint.
+  // /api/precheck und /api/manifest kuenstlich verzoegern, bevor ueberhaupt
+  // verbunden wird - sonst ist der allererste, durch afterConnect()
+  // ausgeloeste Aufruf schon durch, bevor sich pruefen liesse, ob Banner und
+  // Skelett erscheinen.
   await page.route('**/api/precheck', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+  await page.route('**/api/manifest', async (route) => {
     await new Promise((resolve) => setTimeout(resolve, 800));
     await route.continue();
   });
   await connect(page);
   await page.locator('.app[data-screen="precheck"]').waitFor();
   await page.locator('.alert--progress', { hasText: 'Zielgerät wird geprüft' }).waitFor({ timeout: 500 });
+  assert.equal(await page.locator('.app[data-screen="precheck"] .ic-skeleton').count(), 6, 'sechs Skelett-Zeilen links');
+  assert.equal(await page.locator('.app[data-screen="precheck"] .man .skel-bar').count(), 10, 'fuenf Skelett-Zeilen rechts, je zwei Balken');
+  assert.equal(await page.locator('.app[data-screen="precheck"] .card-p').first().textContent(), 'Prüfungen laufen …');
   await page.locator('.alert--progress').waitFor({ state: 'detached' });
+  assert.equal(await page.locator('.app[data-screen="precheck"] .ic-skeleton').count(), 0, 'das Skelett weicht den echten Zeilen');
   await context.close();
 }));
 

@@ -191,6 +191,7 @@
   "precheck.arch.mismatch_plain": "{arch}. Does not match the package ",
   "precheck.arch.title": "Architecture",
   "precheck.card.heading": "Checking the device",
+  "precheck.card.loading": "Checks running …",
   "precheck.card.text": "{count} checks before anything is changed.",
   "precheck.disk.detail": "{free} of {total} free",
   "precheck.disk.detail_plain": "{free} free",
