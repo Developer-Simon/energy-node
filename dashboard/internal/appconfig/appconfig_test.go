@@ -235,3 +235,35 @@ func TestValidateSecretPaths(t *testing.T) {
 		t.Fatalf("leerer Pfad abgelehnt: %v", err)
 	}
 }
+
+func TestSchemaAllowsInstalledServicesBlock(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{
+		"apsystems":   true,
+		"automation":  false,
+		"battery_soc": true,
+		"shelly":      true,
+		"tailscale":   false,
+		"trucki":      true,
+		"tuya":        true,
+	}
+	if _, err := appconfig.Load(writeConfig(t, document)); err != nil {
+		t.Fatalf("Load mit installed_services: %v", err)
+	}
+}
+
+func TestSchemaRejectsUnknownInstalledServicesKey(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{"unbekannt": true}
+	if _, err := appconfig.Load(writeConfig(t, document)); err == nil {
+		t.Fatal("erwartete einen Schema-Fehler fuer einen unbekannten Schluessel")
+	}
+}
+
+func TestSchemaInstalledServicesBlockIsOptional(t *testing.T) {
+	document := validDocument()
+	delete(document, "installed_services")
+	if _, err := appconfig.Load(writeConfig(t, document)); err != nil {
+		t.Fatalf("Load ohne installed_services: %v", err)
+	}
+}
