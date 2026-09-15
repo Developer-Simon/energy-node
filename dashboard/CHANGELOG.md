@@ -13,6 +13,7 @@
 
 ### Fixes
 
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
 - **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
