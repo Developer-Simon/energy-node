@@ -71,7 +71,17 @@
         }
         this.entry = this.bootstrap.entry_points[0] || 'install';
         this.connected = !this.bootstrap.needs_connection;
-        this.screen = this.connected ? FIRST_SCREEN[this.entry] : 'connect';
+        var hello = window.Events ? await window.Events.hello() : null;
+        if (hello && hello.running) {
+          // Ein Lauf ist unterwegs (Fenster neu geladen, Dashboard neu
+          // gestartet): zurueck in die Ausfuehrung, sie holt ab seq 0 nach.
+          this.connected = true;
+          this.mutating = true;
+          this.shared.run = { runId: hello.run_id, mode: '', only: '', resumed: true };
+          this.screen = 'run';
+        } else {
+          this.screen = this.connected ? FIRST_SCREEN[this.entry] : 'connect';
+        }
         this.ready = true;
       },
 

@@ -1,0 +1,61 @@
+{{define "screen-run"}}<template x-if="screen === 'run'">
+<div class="screen" x-data="screenRun">
+  <div class="body">
+    {{template "stepper"}}
+
+    <div class="prog">
+      <div class="prog-top">
+        <span class="prog-t" x-text="progressText"></span>
+        <span class="prog-n" x-text="elapsedText"></span>
+      </div>
+      <div class="prog-track"><div class="prog-fill" :style="{ width: progress + '%' }"></div></div>
+    </div>
+
+    <div class="cols">
+      <section class="card tall">
+        <div class="steps">
+          <template x-for="part in parts" :key="part.key">
+            <div :class="part.type === 'stp' ? part.cls : part.type">
+              <template x-if="part.type === 'stp'">
+                <span class="si" :class="'si-' + part.state">
+                  <template x-if="part.state === 'ok'">{{template "icon-ok"}}</template>
+                  <template x-if="part.state === 'run'">{{template "icon-spin"}}</template>
+                  <template x-if="part.state === 'fail'">{{template "icon-bad"}}</template>
+                  <template x-if="part.state === 'skip'">{{template "icon-skip"}}</template>
+                </span>
+              </template>
+              <template x-if="part.type === 'stp'">
+                <span style="flex:1 1 auto;min-width:0"><span class="stp-t" x-text="part.title"></span><template x-if="part.detail"><div class="stp-d" x-text="part.detail"></div></template></span>
+              </template>
+              <template x-if="part.type === 'stp' && part.time"><span class="stp-time" x-text="part.time"></span></template>
+              <template x-if="part.type === 'call'"><div class="call-t" x-text="t('run.login.title')"></div></template>
+              <template x-if="part.type === 'call'"><div class="call-u" x-text="part.url"></div></template>
+              <template x-if="part.type === 'call'"><button type="button" class="small" @click="openLogin()" x-text="t('action.open_in_browser')"></button></template>
+              <template x-for="sub in part.subs || []" :key="sub.key"><span class="sub" :class="{ off: !sub.on }" x-text="sub.name"></span></template>
+            </div>
+          </template>
+        </div>
+      </section>
+
+      <section class="card tall">
+        <div class="log-h">
+          <span class="lbl" x-text="t('run.log.heading')"></span>
+          <span style="flex:1 1 auto"></span>
+          <button type="button" class="small" :disabled="!model" @click="save()" x-text="t('action.save')"></button>
+        </div>
+        <div class="log" x-ref="log" @scroll="onLogScroll($event)">
+          <template x-for="entry in logEntries" :key="entry.key">
+            <div><i x-text="entry.clock"></i> <template x-if="entry.marker"><b x-text="entry.text"></b></template><template x-for="(segment, index) in entry.segments" :key="index"><span><template x-if="segment.secret"><u>••••••••</u></template><template x-if="!segment.secret"><span x-text="segment.text"></span></template></span></template></div>
+          </template>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" :disabled="cancelling" @click="cancel()" x-text="t('action.cancel')"></button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint" x-text="t('run.hint')"></span>
+  </footer>
+</div>
+</template>{{end}}

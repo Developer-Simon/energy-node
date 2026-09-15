@@ -48,6 +48,7 @@
     {{template "screen-connect" .}}
     {{template "screen-precheck" .}}
     {{template "screen-configure" .}}
+    {{template "screen-run" .}}
     {{/* Bildschirme */}}
   </div>
   <script src="{{.BasePath}}/assets/js/i18n.js?v={{.AssetVersion}}" defer></script>
@@ -58,6 +59,10 @@
   <script src="{{.BasePath}}/assets/js/screen-precheck.js?v={{.AssetVersion}}" defer></script>
   <script src="{{.BasePath}}/assets/js/services.js?v={{.AssetVersion}}" defer></script>
   <script src="{{.BasePath}}/assets/js/screen-configure.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/events.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/run-model.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/download.js?v={{.AssetVersion}}" defer></script>
+  <script src="{{.BasePath}}/assets/js/screen-run.js?v={{.AssetVersion}}" defer></script>
   {{/* Bildschirm-Skripte */}}
   <script src="{{.BasePath}}/assets/js-deps/alpine.min.js?v={{.AssetVersion}}" defer></script>
 </body>

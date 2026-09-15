@@ -25,13 +25,15 @@ export const SCREENS = {
 };
 
 // Jede Bildschirm-Task (6-12) nimmt hier ihre Vorlage auf.
-const IMPLEMENTED = ['_shell', 'Main', 'Vorpruefung', 'Konfiguration'];
+const IMPLEMENTED = ['_shell', 'Main', 'Vorpruefung', 'Konfiguration', 'Ausfuehrung'];
 
 // "<screen oder shell>|<Selektor der Vorlage>" -> ersetzte oder ergaenzte
 // Deklarationen. Jede Zeile hat einen Eintrag in der Tabelle aus Vertrag 7.
 const DEVIATIONS = {
   'shell|.app': { width: '100%', height: '100vh' },          // A1
   'shell|.body': { overflow: 'auto' },                       // A2
+  'run|.log': { overflow: 'auto' },                          // A4
+  'run|.steps': { overflow: 'auto' },                        // A5
 };
 
 function productFile(name) {

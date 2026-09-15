@@ -11,13 +11,16 @@ const DASHBOARD = {
   bundle_version: 'v1.4.2', bundle_arch: 'armv6', language: 'de', language_fixed: true, languages: ['de', 'en'],
 };
 
-async function createShell({ bootstrap = BOOT, catalog = {}, stored = null, bootstrapError = null } = {}) {
+async function createShell({ bootstrap = BOOT, catalog = {}, stored = null, bootstrapError = null, hello } = {}) {
   const { window } = loadScripts(['i18n.js', 'api.js', 'app.js']);
   if (stored) {
     window.localStorage.setItem('energy-node-installer.lang', stored);
   }
   const factories = {};
   window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  if (hello !== undefined) {
+    window.Events = { hello: async () => hello };
+  }
   const requests = [];
   window.fetch = async (url) => {
     requests.push(String(url));
@@ -220,4 +223,18 @@ test('ein gescheiterter Bootstrap zeigt den Fehler statt einer leeren Seite', as
   const { shell } = await createShell({ bootstrapError: 'TOKEN_INVALID' });
   assert.equal(shell.ready, true);
   assert.equal(shell.error.code, 'TOKEN_INVALID');
+});
+
+test('ein laufender Lauf wird beim Laden erkannt und fuehrt in die Ausfuehrung', async () => {
+  const { shell } = await createShell({ hello: { seq: 40, running: true, run_id: 'run-7', at: 1 } });
+  assert.equal(shell.screen, 'run');
+  assert.equal(shell.mutating, true);
+  assert.equal(shell.connected, true);
+  assert.deepEqual(plain(shell.shared.run), { runId: 'run-7', mode: '', only: '', resumed: true });
+});
+
+test('ohne laufenden Lauf ist alles bis hello.seq Vergangenheit', async () => {
+  const { shell } = await createShell({ hello: { seq: 40, running: false, run_id: 'run-7', at: 1 } });
+  assert.equal(shell.screen, 'connect');
+  assert.equal(shell.shared.run, null);
 });
