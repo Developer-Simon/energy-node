@@ -29,8 +29,31 @@
         <template x-if="manifest">
           <div class="sum"><span class="sum-n" x-text="sumNumber"></span><span class="sum-u" x-text="sumUnit"></span></div>
         </template>
-        <template x-for="line in transfer" :key="line.label">
-          <div class="man"><span x-text="line.label"></span><span x-text="line.value"></span></div>
+        <template x-for="line in transfer" :key="line.key">
+          <div class="man-group">
+            <div class="man" :class="{ expand: line.items.length, open: expanded[line.key] }"
+                 :role="line.items.length ? 'button' : null" :tabindex="line.items.length ? 0 : null"
+                 :aria-expanded="line.items.length ? (!!expanded[line.key]).toString() : null"
+                 @click="line.items.length && toggleTransfer(line.key)"
+                 @keydown.enter.prevent="line.items.length && toggleTransfer(line.key)"
+                 @keydown.space.prevent="line.items.length && toggleTransfer(line.key)">
+              <span x-text="line.label"></span>
+              <span class="man-v">
+                <span x-text="line.value"></span>
+                <template x-if="line.items.length">{{template "icon-chevron"}}</template>
+              </span>
+            </div>
+            <template x-if="line.items.length && expanded[line.key]">
+              <div class="man-items">
+                <template x-for="item in line.items" :key="item.label + item.em">
+                  <div class="man-item">
+                    <span><span x-text="item.label"></span><template x-if="item.em"><em x-text="' ' + item.em"></em></template></span>
+                    <span x-text="item.value"></span>
+                  </div>
+                </template>
+              </div>
+            </template>
+          </div>
         </template>
         <div class="note" x-text="t('precheck.transfer.note')"></div>
       </section>

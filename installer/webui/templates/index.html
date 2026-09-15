@@ -45,6 +45,14 @@
         </span>
       </div>
     </template>
+    <template x-if="!error && progress">
+      <div class="alert alert--progress" role="status">
+        <span class="spinner" aria-hidden="true"></span>
+        <span>
+          <div class="alert-t" x-text="progressText"></div>
+        </span>
+      </div>
+    </template>
     {{template "screen-connect" .}}
     {{template "screen-precheck" .}}
     {{template "screen-configure" .}}

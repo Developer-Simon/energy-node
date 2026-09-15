@@ -5,6 +5,11 @@
 // Das Manifest der Vorlage.
 export const MANIFEST = {
   bundle_version: 'v1.4.2', arch: 'armv6', target_user: 'energynode', target_base: '/home/energynode',
+  components: {
+    bootstrap: 'v1.0.5', dashboard: '1.4.2', services: '3.7.1',
+    energy_node_common: '1.4.2', battery_soc_core: '0.9.3',
+    tinytuya: '1.16.0', 'paho-mqtt': '2.1.0',
+  },
   steps: [
     { id: '10' }, { id: '20' }, { id: '30' }, { id: '40', optional: true, default: true }, { id: '50' }, { id: '60' },
     { id: '70', optional: true, default: true },
@@ -42,7 +47,7 @@ export const PLAN_UPDATE = {
     { id: '89', state: 'deselected', optional: true, unit: 'modbus.service' },
   ],
   components: {
-    bootstrap: { from: 'v1.4.1', to: 'v1.4.2' },
+    bootstrap: { from: 'v1.0.4', to: 'v1.0.5' },
     dashboard: { from: '1.4.1', to: '1.4.2' },
     services: { from: '3.6.0', to: '3.7.1' },
     energy_node_common: { from: '1.4.0', to: '1.4.2' },

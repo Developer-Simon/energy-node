@@ -82,7 +82,13 @@ arch_platform_tags "${ARCH}" >/dev/null
 ABI="${ABI:-cp${PYTHON_MINOR//./}}"
 BUNDLE_BASE="${BUNDLE_BASE:-/home/${BUNDLE_USER}}"
 
-VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/scripts/bootstrap/VERSION")"
+# Die Paketversion (Archivname, manifest.json "version", was die Oberflaeche
+# ueberall als "Paketversion" zeigt) geht vom Dashboard aus, nicht vom
+# Installer - das Dashboard ist der Teil, den Betreiber als "die Version"
+# wahrnehmen. bootstrap/ traegt trotzdem seine eigene Version weiter, als
+# eigener Eintrag in components (siehe Manifest-Kopf unten).
+VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/dashboard/VERSION")"
+BOOTSTRAP_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/scripts/bootstrap/VERSION")"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "${STAGE}"' EXIT
 
@@ -98,7 +104,7 @@ mkdir -p "${STAGE}/dashboard"
 if [[ -n "${DASHBOARD_BINARY}" ]]; then
   install -m 0755 "${DASHBOARD_BINARY}" "${STAGE}/dashboard/${BINARY_NAME}"
 else
-  dashboard_version="$(tr -d '[:space:]' < "${REPO_ROOT}/dashboard/VERSION")"
+  dashboard_version="${VERSION}"
   echo "==> Cross-Compile ${BINARY_NAME} ${dashboard_version}"
   go_env=()
   while IFS= read -r line; do go_env+=("${line}"); done < <(arch_go_env "${ARCH}")
@@ -198,7 +204,7 @@ if [[ -n "${CADDY_BINARY}" ]]; then
 fi
 
 # --- Manifest-Kopf ---------------------------------------------------------
-ARCH="${ARCH}" VERSION="${VERSION}" PYTHON_MINOR="${PYTHON_MINOR}" ABI="${ABI}" \
+ARCH="${ARCH}" VERSION="${VERSION}" BOOTSTRAP_VERSION="${BOOTSTRAP_VERSION}" PYTHON_MINOR="${PYTHON_MINOR}" ABI="${ABI}" \
 BUNDLE_USER="${BUNDLE_USER}" BUNDLE_BASE="${BUNDLE_BASE}" REPO_ROOT="${REPO_ROOT}" \
 UNAME_MACHINES="$(arch_uname_machines "${ARCH}" | paste -sd, -)" \
 CORE_STEPS="${CORE_STEPS[*]}" OPTIONAL_STEPS="${OPTIONAL_STEPS[*]}" \
@@ -252,7 +258,7 @@ head = {
     "target_user": os.environ["BUNDLE_USER"],
     "target_base": os.environ["BUNDLE_BASE"],
     "components": {
-        "bootstrap": os.environ["VERSION"],
+        "bootstrap": os.environ["BOOTSTRAP_VERSION"],
         "dashboard": version_of("dashboard/VERSION"),
         "services": version_of("services/VERSION"),
         "energy_node_common": version_of("libs/energy_node_common/VERSION"),

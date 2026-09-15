@@ -62,6 +62,7 @@
       async attempt(acceptFingerprint) {
         this.busy = true;
         this.shell.error = null;
+        this.shell.progress = 'connect.progress.connecting';
         try {
           var result = await window.Api.post('/api/connect', {
             host: this.host,
@@ -100,6 +101,7 @@
           }
         } finally {
           this.busy = false;
+          this.shell.progress = null;
         }
       },
 

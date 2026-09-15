@@ -21,3 +21,4 @@ dashboard/dashboard
 /.docs/
 /drafts/
 installer/installer
+installer/bundle/**
