@@ -25,7 +25,7 @@ export const SCREENS = {
 };
 
 // Jede Bildschirm-Task (6-12) nimmt hier ihre Vorlage auf.
-const IMPLEMENTED = ['_shell', 'Main', 'Vorpruefung', 'Konfiguration', 'Ausfuehrung', 'Ergebnis'];
+const IMPLEMENTED = ['_shell', 'Main', 'Vorpruefung', 'Konfiguration', 'Ausfuehrung', 'Ergebnis', 'Aktualisieren'];
 
 // "<screen oder shell>|<Selektor der Vorlage>" -> ersetzte oder ergaenzte
 // Deklarationen. Jede Zeile hat einen Eintrag in der Tabelle aus Vertrag 7.
