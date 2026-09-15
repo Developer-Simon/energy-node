@@ -2573,3 +2573,51 @@ func TestOverviewMarksInstalledServicesInView(t *testing.T) {
 		t.Skip("tab-automations noch nicht bedingt gerendert - Task 7 baut das Gating")
 	}
 }
+
+func TestOverviewHidesDeselectedTabsAndSubpages(t *testing.T) {
+	reg := registry.New()
+	installed := map[string]bool{"automation": false, "tailscale": false, "tuya": true}
+	handler := OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), installed)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	body := rec.Body.String()
+
+	// Settings panel is lazy-loaded, so fetch it separately
+	settingsRec := httptest.NewRecorder()
+	OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), installed).
+		ServeHTTP(settingsRec, httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil))
+	body += settingsRec.Body.String()
+
+	for _, gone := range []string{`id="tab-automations"`, `aria-controls="settings-tailscale"`} {
+		if strings.Contains(body, gone) {
+			t.Fatalf("erwartet, dass %q fehlt, aber es steht im Body", gone)
+		}
+	}
+	if !strings.Contains(body, `aria-controls="settings-tiny-tuya"`) {
+		t.Fatal("tuya ist installiert - die TinyTuya-Unterseite sollte da sein")
+	}
+}
+
+func TestOverviewShowsEverythingWithoutInstalledServices(t *testing.T) {
+	reg := registry.New()
+	handler := OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+	body := rec.Body.String()
+
+	// Settings panel is lazy-loaded, so fetch it separately
+	settingsRec := httptest.NewRecorder()
+	OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), nil).
+		ServeHTTP(settingsRec, httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=settings", nil))
+	body += settingsRec.Body.String()
+
+	for _, want := range []string{`id="tab-automations"`, `aria-controls="settings-tailscale"`, `aria-controls="settings-tiny-tuya"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("ohne installed_services sollte %q vorhanden sein", want)
+		}
+	}
+}
