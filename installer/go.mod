@@ -14,4 +14,4 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 )
 
-replace github.com/Developer-Simon/energy-node-webui => ../webui
+replace github.com/Developer-Simon/energy-node-webui => ./webui

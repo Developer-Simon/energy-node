@@ -5,13 +5,13 @@
 
 COMPONENTS=(
   "dashboard/:dashboard/VERSION"
-  "webui/:webui/VERSION"
   "services/:services/VERSION"
   "libs/energy_node_common/:libs/energy_node_common/VERSION"
   "libs/battery_soc_core/:libs/battery_soc_core/VERSION"
   "scripts/bootstrap/:scripts/bootstrap/VERSION"
   "integrations/homeassistant/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
   "installer/:installer/VERSION"
+  "installer/webui/:installer/webui/VERSION"
 )
 
 # component_touched prueft, ob eine Datei-Liste (staged/changed, eine pro

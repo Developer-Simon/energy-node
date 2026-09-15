@@ -10,7 +10,7 @@ import { loadScripts } from './helpers/load.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webui = path.join(here, '..');
-const repo = path.join(webui, '..');
+const repo = path.join(webui, '..', '..');
 const read = (...parts) => fs.readFileSync(path.join(...parts), 'utf8');
 const list = (dir, pattern) => fs.readdirSync(dir).filter((name) => pattern.test(name)).sort();
 

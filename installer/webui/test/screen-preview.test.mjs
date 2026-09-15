@@ -133,7 +133,7 @@ test('ein gescheiterter Plan landet im Banner und sperrt Aktualisieren', async (
 
 test('die Wheel-Liste entspricht dem Bundle-Bau', async () => {
   const { window } = await mount();
-  const script = fs.readFileSync(path.join(here, '..', '..', 'scripts', 'build', 'lib', 'wheels.sh'), 'utf8');
+  const script = fs.readFileSync(path.join(here, '..', '..', '..', 'scripts', 'build', 'lib', 'wheels.sh'), 'utf8');
   const match = /for lib in ([a-z0-9_ ]+); do/.exec(script);
   assert.ok(match, 'build_local_wheels in scripts/build/lib/wheels.sh no longer lists its libraries in one for loop');
   assert.deepEqual([...window.PreviewModel.WHEEL_COMPONENTS], match[1].trim().split(/\s+/));
