@@ -213,6 +213,16 @@ func (h *Host) Precheck(ctx context.Context) (*hostapi.Precheck, error) {
 	if err != nil {
 		return nil, err
 	}
+	// /var/lib is root-owned 0755, so on a node that has never had this
+	// installer run before, plain SFTP's mkdir of RemoteStateDir (for
+	// preflight.sh below, and later for the selection and secrets steps
+	// upload) fails with EACCES. Grant the connecting user ownership first,
+	// exactly like the developer CLI does before its own first upload
+	// (internal/devcli.defaultProvisionRemoteStateDir) - passwordless sudo is
+	// already a hard precondition of this whole installer.
+	if err := provisionRemoteStateDir(ctx, client, h.cfg.RemoteStateDir); err != nil {
+		return nil, &hostapi.Error{Code: "PREFLIGHT_UPLOAD_FAILED", Detail: err.Error()}
+	}
 	// preflight.sh liegt im Bundle unter bootstrap/ - make_bundle.sh kopiert
 	// scripts/bootstrap/ vollstaendig dorthin, eine Aenderung an Komponente B
 	// braucht es dafuer nicht.
@@ -438,6 +448,23 @@ func firstNonEmpty(values ...string) string {
 		}
 	}
 	return ""
+}
+
+// provisionRemoteStateDir is a seam for tests; production always runs
+// defaultProvisionRemoteStateDir.
+var provisionRemoteStateDir = defaultProvisionRemoteStateDir
+
+// defaultProvisionRemoteStateDir grants the connecting user ownership of dir
+// before anything is written under it. install -d is idempotent, so calling
+// this on every Precheck is safe even once the directory exists and is
+// already owned correctly.
+func defaultProvisionRemoteStateDir(ctx context.Context, client *transport.Client, dir string) error {
+	cmd := fmt.Sprintf(`sudo install -d -o "$(id -un)" -g "$(id -un)" -m 0755 %s`, transport.ShellQuote(dir))
+	var discard, stderr strings.Builder
+	if err := client.Run(ctx, cmd, &discard, &stderr); err != nil {
+		return fmt.Errorf("%w (stderr: %s)", err, stderr.String())
+	}
+	return nil
 }
 
 // bundleStats zaehlt, was die Karte "Was uebertragen wird" zeigt. Eine
