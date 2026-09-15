@@ -193,3 +193,39 @@
 .app[data-screen="preview"] .card.soft{background:var(--sunken)}
 .app[data-screen="preview"] .reuse{margin:0;font-size:.785rem;line-height:1.5;color:var(--text-subtle)}
 /* == Ende Vorlage == */
+/* == Vorlage: Diagnose == */
+.app[data-screen="diagnose"] .tally{flex:none;display:flex;gap:.55rem;margin-bottom:1rem}
+.app[data-screen="diagnose"] .tl{display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem;border-radius:var(--radius-sm); border:1px solid var(--border-soft);background:var(--panel)}
+.app[data-screen="diagnose"] .tl-n{font-size:1.15rem;font-weight:660;letter-spacing:-.015em;font-variant-numeric:tabular-nums;color:var(--text-strong)}
+.app[data-screen="diagnose"] .tl-l{font-size:.775rem;color:var(--text-muted)}
+.app[data-screen="diagnose"] .tl.ok{border-color:var(--ok-line)}
+.app[data-screen="diagnose"] .tl.ok .tl-n{color:var(--ok)}
+.app[data-screen="diagnose"] .tl.warn{border-color:var(--warn-line)}
+.app[data-screen="diagnose"] .tl.warn .tl-n{color:var(--warn)}
+.app[data-screen="diagnose"] .tl.bad{border-color:var(--bad-line)}
+.app[data-screen="diagnose"] .tl.bad .tl-n{color:var(--bad)}
+.app[data-screen="diagnose"] .mode{flex:none;display:flex;gap:.2rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
+.app[data-screen="diagnose"] .mode-i{padding:.24rem .58rem;text-align:center;font-size:.72rem;color:var(--text-muted);border-radius:999px;white-space:nowrap}
+.app[data-screen="diagnose"] .mode-i.on{background:var(--accent-bg);color:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);font-weight:600}
+.app[data-screen="diagnose"] .cols{flex:1 1 auto;min-height:0;display:grid;grid-template-columns:1.05fr 1fr;gap:1rem;align-items:start}
+.app[data-screen="diagnose"] .stack{display:flex;flex-direction:column;gap:.85rem}
+.app[data-screen="diagnose"] .r{display:flex;align-items:center;gap:.65rem;padding:.36rem 0;border-top:1px solid rgba(255,255,255,.05)}
+.app[data-screen="diagnose"] .r:first-of-type{border-top:0}
+.app[data-screen="diagnose"] .d{flex:none;width:.5rem;height:.5rem;border-radius:50%;background:var(--ok)}
+.app[data-screen="diagnose"] .d.warn{background:var(--warn)}
+.app[data-screen="diagnose"] .d.bad{background:var(--bad)}
+.app[data-screen="diagnose"] .r-n{flex:1 1 auto;min-width:0;font-size:.83rem;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app[data-screen="diagnose"] .r-v{flex:none;font-size:.765rem;color:var(--text-muted);font-variant-numeric:tabular-nums}
+.app[data-screen="diagnose"] .r-v.bad{color:var(--bad)}
+.app[data-screen="diagnose"] .r-v.warn{color:var(--warn)}
+.app[data-screen="diagnose"] .fail{margin:.5rem 0 .2rem;padding:.8rem .85rem;border-radius:var(--radius-sm); border:1px solid var(--bad-line);background:var(--bad-bg)}
+.app[data-screen="diagnose"] .fail-h{display:flex;align-items:center;gap:.5rem;margin-bottom:.4rem}
+.app[data-screen="diagnose"] .code{font-family:ui-monospace,monospace;font-size:.7rem;padding:.1rem .42rem;border-radius:4px; background:rgba(240,139,139,.14);color:var(--bad);letter-spacing:.02em}
+.app[data-screen="diagnose"] .fail-t{font-size:.8rem;font-weight:600;color:var(--bad-ink,#ffd9dd)}
+.app[data-screen="diagnose"] .fail-p{margin:0 0 .6rem;font-size:.785rem;line-height:1.5;color:var(--text-subtle)}
+.app[data-screen="diagnose"] .fail-log{font-family:ui-monospace,monospace;font-size:.72rem;line-height:1.6;color:var(--text-muted); background:var(--sunken);border-radius:6px;padding:.45rem .55rem;margin-bottom:.65rem;overflow:hidden}
+.app[data-screen="diagnose"] .acts{display:flex;gap:.45rem;flex-wrap:wrap}
+.app[data-screen="diagnose"] .gh{margin:0 0 .55rem;font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--text-muted)}
+.app[data-screen="diagnose"] .warnbox{margin:.4rem 0 .15rem;padding:.6rem .7rem;border-radius:var(--radius-sm); border:1px solid var(--warn-line);background:var(--warn-bg)}
+.app[data-screen="diagnose"] .warnbox p{margin:0;font-size:.775rem;line-height:1.45;color:var(--text-subtle)}
+/* == Ende Vorlage == */
