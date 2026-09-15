@@ -1,8 +1,10 @@
-{{define "stepper"}}<div class="stepper">
+{{define "stepper"}}<template x-if="stepperParts.length">
+<div class="stepper">
   <template x-for="part in stepperParts" :key="part.key">
     <div :class="part.cls">
       <template x-if="part.item"><span class="st-mark"><template x-if="part.done">{{template "icon-step-done"}}</template><template x-if="!part.done"><span x-text="part.n"></span></template></span></template>
       <template x-if="part.item"><span class="st-lbl" x-text="part.label"></span></template>
     </div>
   </template>
-</div>{{end}}
+</div>
+</template>{{end}}

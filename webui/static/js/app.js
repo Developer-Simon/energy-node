@@ -29,7 +29,12 @@
       entry: 'install',
       screen: 'connect',
       dir: 'forward',
-      lang: 'en',
+      // '' statt einer echten Sprache: der erste Bildschirm haengt schon vor
+      // init() am DOM (screen ist von Anfang an 'connect'), und t() haengt
+      // sich per void this.lang an lang. Stuende hier schon 'en', waere die
+      // Zuweisung in init() bei einer gemerkten Praeferenz 'en' ein No-op -
+      // Alpine sieht keine Aenderung und zeichnet nie mit dem Katalog neu.
+      lang: '',
       // mutating wird wahr, sobald ein Lauf angenommen wurde, und erst mit
       // dem Ergebnis wieder falsch. Es ist die eine Sperre fuer den Umschalter.
       mutating: false,

@@ -194,6 +194,49 @@ jobs:
       - run: npm ci
       - run: npm test
 
+  webui-e2e:
+    name: WebUI (browser)
+    needs: changes
+    if: needs.changes.outputs.webui == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: webui
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+
+  installer-cross:
+    name: Installer (cross-compile)
+    needs: changes
+    if: needs.changes.outputs.installer == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [windows/amd64, darwin/amd64, darwin/arm64, linux/amd64]
+    defaults:
+      run:
+        working-directory: installer
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+      - name: Build for ${{ matrix.target }}
+        env:
+          TARGET: ${{ matrix.target }}
+          CGO_ENABLED: '0'
+        run: GOOS="${TARGET%/*}" GOARCH="${TARGET#*/}" go build -o "$RUNNER_TEMP/installer-build" ./cmd/installer
+
   python-bridges:
     name: Python bridges
     needs: changes
@@ -320,6 +363,8 @@ jobs:
       - dashboard-js
       - webui-go
       - webui-js
+      - webui-e2e
+      - installer-cross
       - python-bridges
       - shell-scripts
       - bootstrap-chain
