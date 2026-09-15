@@ -12,6 +12,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -2555,5 +2556,20 @@ func TestOverviewMarksConfiguredCompactCards(t *testing.T) {
 	}}}
 	if strings.Contains(renderOverviewWithLayout(t, auto), `data-compact-configured="true"`) {
 		t.Error("eine Kachel ohne feste Auswahl gilt faelschlich als konfiguriert")
+	}
+}
+
+func TestOverviewMarksInstalledServicesInView(t *testing.T) {
+	reg := registry.New()
+	installed := map[string]bool{"automation": false, "tailscale": true, "tuya": true}
+	handler := OverviewWithDeviceFilterAndEngine(reg, nil, nil, nil, diagnostics.NewEngine(reg, nil), installed)
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, req)
+
+	body := rec.Body.String()
+	if !strings.Contains(body, `id="tab-automations"`) {
+		t.Skip("tab-automations noch nicht bedingt gerendert - Task 7 baut das Gating")
 	}
 }

@@ -336,6 +336,11 @@ func main() {
 			BridgeTargetPath:  cfg.Dashboard.MosquittoBridgeTarget,
 			Tailscale:         tailscaleClient,
 			Resolver:          energyResolver,
+			InstalledServices: map[string]bool{
+				"automation": cfg.ServiceInstalled("automation"),
+				"tailscale":  cfg.ServiceInstalled("tailscale"),
+				"tuya":       cfg.ServiceInstalled("tuya"),
+			},
 			MQTTBase:          mqttBase,
 			NodeAgent:         nodeAgent,
 			NodeSimulation:    nodeSimPublisher,

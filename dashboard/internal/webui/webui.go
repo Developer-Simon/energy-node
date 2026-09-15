@@ -546,19 +546,16 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 }
 
 func OverviewWithDeviceFilter(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store) http.HandlerFunc {
-	return OverviewWithDeviceFilterAndEngine(reg, configs, store, ignored, diagnostics.NewEngine(reg, store))
+	return OverviewWithDeviceFilterAndEngine(reg, configs, store, ignored, diagnostics.NewEngine(reg, store), nil)
 }
 
 // OverviewWithDeviceFilterAndEngine is OverviewWithDeviceFilter with an
-// explicit diagnostics.Engine instead of a freshly constructed one. The
-// engine used for /api/v1/diagnostics and /api/v1/diagnostics/health already
-// carries SetIgnoredStore/SetConfigManager/SetStartedAt (see
-// httpapi.NewRouterWithDependencies) - reusing that same instance for the
-// "diagnostics" layout card is what keeps its counts from ever disagreeing
-// with the Diagnose tab it summarizes. OverviewWithDeviceFilter builds its
-// own bare engine because most of its ~50 call sites are tests that don't
-// exercise the diagnostics card at all.
-func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine) http.HandlerFunc {
+// explicit diagnostics engine and a resolved installed-services map.
+// installedServices is nil-safe: a nil or missing key renders as installed,
+// matching appconfig.Config.ServiceInstalled's default (Installer-Spec E7) -
+// callers that don't care (e.g. Overview/OverviewWithDeviceFilter above,
+// and every existing test) can keep passing nil.
+func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.Manager, store *settings.Store, ignored *devicefilter.Store, engine *diagnostics.Engine, installedServices map[string]bool) http.HandlerFunc {
 	resolver := energy.NewResolver(nil)
 	var resolverMu sync.Mutex
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -636,6 +633,14 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			}
 		}
 
+		resolvedInstalledServices := map[string]bool{
+			"automation": true,
+			"tailscale":  true,
+			"tuya":       true,
+		}
+		for key, value := range installedServices {
+			resolvedInstalledServices[key] = value
+		}
 		view := map[string]any{
 			"BasePath":          basepath.From(r),
 			"Manager":           configs != nil && store != nil,
@@ -646,6 +651,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"IgnoredDevices":    []devicefilter.Summary{},
 			"WidePanels":        strings.Join(widePanels, ","),
 			"StatusBarItems":    strings.Join(statusBarItems, ","),
+			"InstalledServices": resolvedInstalledServices,
 		}
 		if needsDevices {
 			view["Devices"] = devices

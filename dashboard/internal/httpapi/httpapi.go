@@ -143,6 +143,12 @@ type RouterDependencies struct {
 	BridgeTargetPath   string
 	Tailscale          *tailscale.Client
 	Resolver           *energy.Resolver
+	// InstalledServices ist die aufgeloeste installed_services-Sicht aus
+	// appconfig.Config (Installer-Spec E7) fuer die drei Tabs/Unterseiten,
+	// die das Dashboard je nach Auswahl ausblendet: automation, tailscale,
+	// tuya. main.go fuellt sie ueber Config.ServiceInstalled; nil heisst
+	// hier wie dort "alles an".
+	InstalledServices  map[string]bool
 	// Version ist die aus dashboard/VERSION plus Branch-Suffix gebaute
 	// Versionskennung (siehe main.buildVersion), leer bzw. "dev" ausserhalb
 	// von Release-Builds.
@@ -313,7 +319,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/tailscale/logout", handleTailscaleLogout(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 		mux.HandleFunc("/api/v1/tailscale/restart", handleTailscaleRestart(dependencies.Auth, dependencies.SystemActions, tailscaleActionState))
 	}
-	mux.HandleFunc("/", webui.OverviewWithDeviceFilterAndEngine(reg, configs, store, dependencies.DeviceFilter, engine))
+	mux.HandleFunc("/", webui.OverviewWithDeviceFilterAndEngine(reg, configs, store, dependencies.DeviceFilter, engine, dependencies.InstalledServices))
 	return mux
 }
 
