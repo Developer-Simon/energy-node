@@ -5,13 +5,16 @@ title: "Installer developer CLI"
 # Installer developer CLI
 
 The installer (`installer/`, a separate Go module) is planned as four layers —
-core, HTTP/SSE, web UI, app shell — but today only the core layer exists,
-exposed directly as a CLI (internally "E12"). It builds a signed bundle from
+core, HTTP/SSE, web UI, app shell. The core layer, exposed directly as a CLI
+(internally "E12"), and the HTTP/SSE + web UI layers (Schicht 2/3) both exist
+today; only the fourth layer — a packaged, downloadable app shell for
+non-technical end users — does not (see "Trying the graphical UI" below for
+what "app shell" means today: an unsigned local dev binary that opens a
+browser window, not a release artifact). The CLI builds a signed bundle from
 your local checkout, ships it to a Raspberry Pi over SSH/SFTP, and runs the
 same idempotent [bootstrap steps](https://github.com/Developer-Simon/energy-node/tree/main/scripts/bootstrap)
-a future graphical installer would run. `--only dashboard` runs exactly the
-step a full redeploy would run — there is no second code path for a partial
-update.
+the web UI also runs. `--only dashboard` runs exactly the step a full
+redeploy would run — there is no second code path for a partial update.
 
 It is the fast iteration loop for developing on a real node without touching
 the Pi's shell by hand, and it is meant to replace `scripts/deploy/*.sh`
@@ -26,7 +29,49 @@ go build -o installer ./cmd/installer
 ```
 
 `go vet` and `go test` for `installer/` run in CI whenever `installer/` or
-`scripts/bootstrap/` change.
+`scripts/bootstrap/` change; `installer/webui/` (a further nested Go module,
+`replace`d in `installer/go.mod`) has its own Go and JS test suites, plus a
+Playwright browser suite, all gated the same way.
+
+## Trying the graphical UI
+
+Running the binary with no subcommand — or only flags — starts the web UI
+instead of the CLI:
+
+```sh
+./installer
+```
+
+This opens a browser window (Chrome/Edge in app mode, falling back to the
+default browser) on a local one-time-token URL. Unlike the CLI, it does not
+build a bundle on demand: it expects one already unpacked at `bundle/` next
+to the binary (`--bundle <dir>` to point elsewhere). Build one first:
+
+```sh
+cd ..   # repo root
+bash scripts/build/make_bundle.sh --arch armv6 --skip-wheels
+mkdir -p installer/bundle
+tar -xzf dist/energy-node-*-armv6.tar.gz -C installer/bundle
+```
+
+`--skip-wheels` avoids the piwheels round-trip for a quick local try; the
+dashboard binary is cross-compiled and the Tailscale tarball downloaded
+automatically unless `--dashboard-binary` / `--tailscale-tarball` inject
+prebuilt ones. Signing works the same as `deploy` — an unsigned bundle is
+fine for driving the UI locally.
+
+| Flag | Purpose |
+| --- | --- |
+| `--port` | Port on 127.0.0.1; 0 (default) lets the OS pick one |
+| `--bundle <dir>` | Unpacked bundle directory; default: `bundle/` next to the binary |
+| `--lang` | UI language; default: guessed from the OS locale |
+| `--no-window` | Don't open a browser window, just print the URL |
+
+The target node needs passwordless sudo, same as the CLI: the very first
+thing the UI does after connecting is create and take ownership of
+`/var/lib/energy-node-installer` on the node (`sudo install -d`), because a
+plain SSH user cannot write under root-owned `/var/lib` on a node that has
+never had this installer run before.
 
 ## Configuring a target node
 
