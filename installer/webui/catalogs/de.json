@@ -297,6 +297,7 @@
   "step.40": "Tailscale",
   "step.50": "Python-Pakete",
   "step.60": "Dashboard und MQTT-Brücke",
+  "step.65": "Dashboard-Konfiguration",
   "step.70": "HTTPS über Caddy",
   "stepper.configure": "Konfiguration",
   "stepper.connect": "Verbindung",

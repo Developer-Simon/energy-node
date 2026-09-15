@@ -3,10 +3,16 @@
 # Schritt 65: schreibt den Block installed_services in die config.json des
 # Dashboards, aus der Dienstauswahl in selection.json (E7 der Spec).
 #
-# Kern-Schritt, aber ohne die uebliche Stempel/skip-Pruefung: die Auswahl
-# kann sich bei einem Re-Deploy ("Dienste aendern") aendern, ohne dass sich
-# die Bundle-Version aendert, und der Block muss das bei jedem Lauf
-# widerspiegeln - deshalb schreibt dieser Schritt immer, nie skip.
+# Kern-Schritt, aber ohne die uebliche Skip-Pruefung: die Auswahl kann sich
+# bei einem Re-Deploy ("Dienste aendern") aendern, ohne dass sich die
+# Bundle-Version aendert, und der Block muss das bei jedem Lauf widerspiegeln
+# - deshalb prueft dieser Schritt (anders als die anderen Kern-Schritte)
+# seinen eigenen Stempel nie und schreibt immer. Er setzt am Ende trotzdem
+# step_ok statt eines bloss lokalen "ok"-Markers: der Stempel selbst hat
+# hier keine Skip-Wirkung (das oben beschriebene "nie skip" bleibt), aber
+# plan.sh (Bericht fuer die Installer-Oberflaeche) liest denselben Stempel,
+# um done/pending zu melden - ohne ihn bliebe dieser Schritt dort fuer immer
+# "pending", obwohl er jedes Mal erfolgreich lief.
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
@@ -92,4 +98,4 @@ PY
 "${SUDO[@]}" systemctl try-restart "${BINARY_NAME:-energy-node-dashboard}.service" 2>/dev/null || true
 
 step_log "installed_services aktualisiert."
-printf '##STEP %s ok\n' "65"
+step_ok
