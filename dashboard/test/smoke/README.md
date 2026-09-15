@@ -44,6 +44,7 @@ node dashboard/test/smoke/screenshot.mjs --out /tmp/tiles.png
 | `--theme NAME` | `mint`, `stromblau`, `signalgelb` or `tageslicht` in `settings.json` |
 | `--port N` | different HTTP port (default 18100) |
 | `--simulate` | PV/grid/battery/house load move along a sine curve instead of sitting still (only with `fixtures/energie-ueberschuss.json`, otherwise a no-op) |
+| `--installed-services-off` | `installed_services` in `config.json` is set to all seven services `false`, instead of being left out — the same shape `65-dashboard-config.sh` leaves on a node installed without any optional service |
 | `--preset NAME` | bundles `--fixture`/`--seed-data`/`--simulate` for one of the cases documented below (see "Presets") |
 
 View four themes with every energy card — one call per theme, without a single
@@ -110,6 +111,7 @@ takes the seed set of `energie` but the own fixture.
 | `alle-funktionen` | `--fixture fixtures/alle-funktionen.json --seed-data fixtures/seed/alle-funktionen` |
 | `geraete-kacheln` | `--fixture fixtures/geraete-kacheln.json --seed-data fixtures/seed/geraete-kacheln` — three device tiles with `span: "1"`, for visual checks of `.device-tile-entity` (slider width, title wrapping for `number`/`text`, value alignment, unchanged grid for all other entity types) |
 | `notification` | `--fixture fixtures/notification.json` (no seed) — simulates the automation topics (`outstation/automation/last_event` as `{at, message}`, plus `state` and `status/online`). `notifications.js` polls `/api/v1/automation/notification` from these and raises a warning toast on load; the `Energie-Automationen` device shows up on the overview |
+| `keine-optionalen-dienste` | `--fixture fixtures/battery-soc.json --installed-services-off` (no seed) — end-to-end check that the dashboard hides the Automationen tab and the Tailscale/TinyTuya settings subpages, including their own fragment routes, when every optional service is off (Installer-Spec E7, Abnahmekriterium 11) |
 
 ## What is solved here
 

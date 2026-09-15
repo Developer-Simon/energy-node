@@ -9,6 +9,7 @@
 #   ./run-local-dashboard.sh --seed-data DIR    # settings/layout/energy vorbelegen
 #   ./run-local-dashboard.sh --theme NAME       # Farbschema vorbelegen
 #   ./run-local-dashboard.sh --simulate         # PV/Netz/Batterie/Last "leben" lassen
+#   ./run-local-dashboard.sh --installed-services-off  # installed_services: alle Dienste aus
 #   ./run-local-dashboard.sh --preset NAME      # --fixture/--seed-data/--simulate gebuendelt,
 #                                                # siehe PRESETS unten; einzelne Flags danach
 #                                                # ueberstimmen das Preset
@@ -33,6 +34,12 @@
 #                    /api/v1/automation/notification und wirft beim Laden einen
 #                    Warn-Toast; das Geraet "Energie-Automationen" erscheint in
 #                    der Uebersicht.
+#   keine-optionalen-dienste  fixtures/battery-soc.json, kein Seed, zusaetzlich
+#                    --installed-services-off - installed_services in
+#                    config.json wird auf alle sieben Dienste = false gesetzt
+#                    (Installer-Spec E7). Sichtpruefung + automatisierte
+#                    Probe, dass der Automationen-Tab sowie die
+#                    Tailscale-/TinyTuya-Unterseiten dann fehlen.
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
@@ -55,6 +62,7 @@ SEED_DATA=""
 THEME=""
 KEEP=0
 SIMULATE=0
+INSTALLED_SERVICES_OFF=0
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
 PASSWORD="smoketest1234"
@@ -100,8 +108,12 @@ while [[ $# -gt 0 ]]; do
         notification)
           FIXTURE="$HERE/fixtures/notification.json"; SEED_DATA=""
           ;;
+        keine-optionalen-dienste)
+          FIXTURE="$HERE/fixtures/battery-soc.json"; SEED_DATA=""
+          INSTALLED_SERVICES_OFF=1
+          ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, geraete-kacheln, notification)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, geraete-kacheln, notification, keine-optionalen-dienste)" >&2
           exit 2
           ;;
       esac
@@ -111,6 +123,7 @@ while [[ $# -gt 0 ]]; do
     --fixture) FIXTURE="$2"; shift 2 ;;
     --seed-data) SEED_DATA="$2"; shift 2 ;;
     --theme) THEME="$2"; shift 2 ;;
+    --installed-services-off) INSTALLED_SERVICES_OFF=1; shift ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
@@ -264,11 +277,12 @@ sleep 1
 printf '%s' "$PASSWORD" > "$WORK/auth.pw"
 chmod 600 "$WORK/auth.pw"
 python3 - "$SCRIPT_ROOT/services/energy-node.config.json" "$WORK/config.json" \
-         "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" <<'PY'
+         "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" \
+         "$INSTALLED_SERVICES_OFF" <<'PY'
 import json
 import sys
 
-vorlage, ziel, http_port, devices_dir, data_dir, mqtt_port, admin_pw = sys.argv[1:8]
+vorlage, ziel, http_port, devices_dir, data_dir, mqtt_port, admin_pw, services_off = sys.argv[1:9]
 config = json.loads(open(vorlage, encoding="utf-8").read())
 config["mqtt"]["host"] = "127.0.0.1"
 config["mqtt"]["port"] = int(mqtt_port)
@@ -279,6 +293,24 @@ config["paths"]["data_dir"] = data_dir
 config["dashboard"]["port"] = int(http_port)
 config["dashboard"]["bind_address"] = "127.0.0.1"
 config["dashboard"]["admin_password_file"] = admin_pw
+# --installed-services-off: alle sieben Dienste explizit aus, statt den
+# Block wegzulassen - so wird genau der Pfad geprueft, den
+# 65-dashboard-config.sh nach einer Installation ohne optionale Dienste auf
+# dem Node hinterlaesst (Installer-Spec E7), nicht nur das "kein Block =
+# alles an"-Verhalten.
+if services_off == "1":
+    config["installed_services"] = {
+        key: False
+        for key in (
+            "apsystems",
+            "automation",
+            "battery_soc",
+            "shelly",
+            "tailscale",
+            "trucki",
+            "tuya",
+        )
+    }
 open(ziel, "w", encoding="utf-8").write(json.dumps(config, indent=2) + "\n")
 PY
 
@@ -437,6 +469,29 @@ if [[ -n "$THEME" ]]; then
   check "Farbschema aus --theme ist aktiv" \
     "data['theme'] == '$THEME'" \
     "$BASE/api/v1/settings"
+fi
+
+# --installed-services-off: die Praesenz-Proben lesen echtes HTML statt
+# JSON, deshalb kein check() (das erwartet einen JSON-Body). Geprueft wird
+# derselbe End-zu-Ende-Weg wie auf dem Node: config.json -> Go-Template ->
+# gerenderte Seite - nicht nur die Unit-Tests der einzelnen Handler.
+if [[ $INSTALLED_SERVICES_OFF -eq 1 ]]; then
+  html_lacks() { # name, verbotener-string, url
+    local name="$1" verboten="$2" url="$3"
+    if api "$url" | grep -qF -- "$verboten"; then
+      echo "  FEHL $name (\"$verboten\" steht trotzdem im HTML)"; FAILED=1
+    else
+      echo "  OK   $name"
+    fi
+  }
+  html_lacks "Automationen-Tab fehlt bei installed_services=aus" \
+    'id="tab-automations"' "$BASE/"
+  html_lacks "Automationen-Fragment liefert bei installed_services=aus keinen Inhalt" \
+    'x-data="automationsPanel()"' "$BASE/?fragment=panel&panel=automations"
+  html_lacks "Tailscale-Unterseite fehlt bei installed_services=aus" \
+    'aria-controls="settings-tailscale"' "$BASE/?fragment=panel&panel=settings"
+  html_lacks "TinyTuya-Unterseite fehlt bei installed_services=aus" \
+    'aria-controls="settings-tiny-tuya"' "$BASE/?fragment=panel&panel=settings"
 fi
 
 # fixtures/energie-ueberschuss.json ist genau auf die Rollen in
