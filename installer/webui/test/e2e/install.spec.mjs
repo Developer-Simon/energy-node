@@ -44,6 +44,22 @@ test('eine Erstinstallation laeuft von der Verbindung bis zum Ergebnis, ohne ein
   await context.close();
 }));
 
+test('die Vorpruefung zeigt den Fortschritt schon beim ersten, automatischen Laden nach der Verbindung', () => withHost([], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  // /api/precheck kuenstlich verzoegern, bevor ueberhaupt verbunden wird -
+  // sonst ist der allererste, durch afterConnect() ausgeloeste Aufruf schon
+  // durch, bevor sich pruefen liesse, ob das Banner erscheint.
+  await page.route('**/api/precheck', async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    await route.continue();
+  });
+  await connect(page);
+  await page.locator('.app[data-screen="precheck"]').waitFor();
+  await page.locator('.alert--progress', { hasText: 'Zielgerät wird geprüft' }).waitFor({ timeout: 500 });
+  await page.locator('.alert--progress').waitFor({ state: 'detached' });
+  await context.close();
+}));
+
 test('der Sprachumschalter wechselt jeden Text samt Fehlerklartext und bleibt gemerkt (Kriterium 12)', () => withHost(['--trusted', '--fail-step', '50:PIP_EXTERNALLY_MANAGED'], async (host) => {
   const { page, context } = await openPage(browser, host.url);
   await page.locator('.lang-i', { hasText: 'EN' }).click();

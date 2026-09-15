@@ -40,6 +40,11 @@
       mutating: false,
       connected: false,
       error: null,
+      // progress ist der Uebersetzungsschluessel einer Zeile, waehrend ein
+      // Bildschirm ohne sichtbare Rueckmeldung wartet (Verbindungsaufbau,
+      // Vorpruefung) - an derselben Stelle wie error, aber blau statt rot.
+      // Ein Fehler geht immer vor: fail() und error setzen es implizit weg.
+      progress: null,
       // bar traegt, was ein Bildschirm in der Kopfleiste zeigt: lead hinter
       // dem Titel, sub vor dem Umschalter, status und action dahinter.
       bar: emptyBar(),
@@ -127,6 +132,10 @@
         return text === key ? this.t('error.unknown', { code: this.error.code }) : text;
       },
 
+      get progressText() {
+        return this.progress ? this.t(this.progress) : '';
+      },
+
       get showEntrySwitch() {
         return !this.mutating && !!this.bootstrap && this.bootstrap.entry_points.length > 1 &&
           HARMLESS.indexOf(this.screen) >= 0;
@@ -174,6 +183,23 @@
       navigate(screen, dir) {
         this.dir = dir;
         this.error = null;
+        // progress raeumt sich verzoegert auf: setzte navigate() es hier
+        // synchron auf null, faellt das in denselben Alpine-Durchlauf, in dem
+        // Alpine das x-if des neuen Bildschirms (und damit dessen init()/
+        // load(), das progress oft sofort neu setzt) synchron mitzieht -
+        // progress kippt dann innerhalb eines einzigen Durchlaufs von wahr
+        // auf null und zurueck auf wahr, und das Banner-x-if verpasst die
+        // Aenderung (bleibt unsichtbar, obwohl progress am Ende wieder einen
+        // Wert traegt). Der Mikrotask-Schub laeuft erst, nachdem dieser
+        // Durchlauf fertig ist: hat der neue Bildschirm bis dahin selbst
+        // einen neuen Wert gesetzt, ist stale veraltet und das Aufraeumen
+        // unterbleibt - sonst greift es wie zuvor.
+        var stale = this.progress;
+        queueMicrotask(() => {
+          if (this.progress === stale) {
+            this.progress = null;
+          }
+        });
         this.bar = emptyBar();
         this.screen = screen;
       },
@@ -225,6 +251,7 @@
       },
 
       fail(err) {
+        this.progress = null;
         this.error = {
           code: err && err.code ? err.code : 'BACKEND_ERROR',
           detail: err && err.detail ? String(err.detail) : '',
