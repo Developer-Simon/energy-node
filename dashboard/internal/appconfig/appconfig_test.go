@@ -267,3 +267,40 @@ func TestSchemaInstalledServicesBlockIsOptional(t *testing.T) {
 		t.Fatalf("Load ohne installed_services: %v", err)
 	}
 }
+
+func TestServiceInstalledDefaultsToTrueWithoutBlock(t *testing.T) {
+	document := validDocument()
+	delete(document, "installed_services")
+	cfg, err := appconfig.Load(writeConfig(t, document))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	for _, key := range []string{"automation", "tailscale", "tuya", "irrelevant"} {
+		if !cfg.ServiceInstalled(key) {
+			t.Fatalf("ServiceInstalled(%q) = false, erwartet true ohne Block", key)
+		}
+	}
+}
+
+func TestServiceInstalledRespectsBlock(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{
+		"automation": false,
+		"tailscale":  true,
+	}
+	cfg, err := appconfig.Load(writeConfig(t, document))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.ServiceInstalled("automation") {
+		t.Fatal("automation sollte false sein")
+	}
+	if !cfg.ServiceInstalled("tailscale") {
+		t.Fatal("tailscale sollte true sein")
+	}
+	// tuya steht nicht im Block -> "nicht genannt heisst an", dieselbe Regel
+	// wie fuer den fehlenden Block insgesamt.
+	if !cfg.ServiceInstalled("tuya") {
+		t.Fatal("tuya (nicht im Block genannt) sollte true sein")
+	}
+}
