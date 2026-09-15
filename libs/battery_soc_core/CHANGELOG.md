@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.9 (2026-09-13)
+## v0.1.9 (2026-09-15)
 
 ### Features
 
@@ -32,6 +32,7 @@
 
 ### Documentation
 
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 - drop remaining git-hooks references (7786f6d)
 - refresh changelogs before public fork (220794e)
 
@@ -48,6 +49,18 @@
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 - path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
 - skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
+
+## v0.1.9 (2026-09-13)
+
+### Features
+
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+- **dashboard:** redesign the MQTT settings tab (#24) (8844555)
+- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
+
+### Fixes
+
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 
 ## v0.1.9 (2026-09-11)
 

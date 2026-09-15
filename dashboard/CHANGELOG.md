@@ -19,6 +19,10 @@
 - **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
 
+### Documentation
+
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
+
 ## v0.6.5 (2026-09-13)
 
 ### Features
