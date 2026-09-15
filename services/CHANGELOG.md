@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.3.1 (2026-09-14)
+## v0.3.2 (2026-09-15)
+
+### Features
+
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+
+## v0.3.1 (2026-09-13)
 
 ### Features
 
@@ -9,6 +15,10 @@
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
 - **installer:** deliver the node facts, service kinds and MQTT user the UI drafts need (ee7af39)
+
+### Fixes
+
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 
 ## v0.3.0 (2026-09-11)
 

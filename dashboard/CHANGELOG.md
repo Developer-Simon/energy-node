@@ -1,9 +1,10 @@
 # Changelog
 
-## v0.6.5 (2026-09-13)
+## v0.6.5 (2026-09-15)
 
 ### Features
 
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
@@ -17,6 +18,19 @@
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
 - **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
+
+## v0.6.5 (2026-09-13)
+
+### Features
+
+- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
+- **dashboard:** redesign the MQTT settings tab (#24) (8844555)
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
+- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
+
+### Fixes
+
+- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 
 ## v0.6.2 (2026-09-11)
 

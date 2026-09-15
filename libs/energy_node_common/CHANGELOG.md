@@ -1,10 +1,10 @@
 # Changelog
 
-## v0.4.4 (2026-09-14)
+## v0.4.5 (2026-09-15)
 
 ### Features
 
-- **installer:** deliver the node facts, service kinds and MQTT user the UI drafts need (ee7af39)
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 
 ## v0.4.4 (2026-09-13)
 
@@ -14,6 +14,7 @@
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
+- **installer:** deliver the node facts, service kinds and MQTT user the UI drafts need (ee7af39)
 
 ### Fixes
 
