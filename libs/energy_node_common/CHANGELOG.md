@@ -1,12 +1,14 @@
 # Changelog
 
-## v0.4.4 (2026-09-12)
+## v0.4.4 (2026-09-14)
 
 ### Features
 
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
+- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
+- **installer:** deliver the node facts, service kinds and MQTT user the UI drafts need (ee7af39)
 
 ## v0.4.3 (2026-09-11)
 
