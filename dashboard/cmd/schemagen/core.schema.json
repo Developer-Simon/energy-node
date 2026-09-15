@@ -41,15 +41,16 @@
     },
     "installed_services": {
       "type": "object",
-      "additionalProperties": false,
+      "title": "Installierte Dienste",
+      "additionalProperties": {"type": "boolean"},
       "properties": {
-        "apsystems": {"type": "boolean"},
-        "automation": {"type": "boolean"},
-        "battery_soc": {"type": "boolean"},
-        "shelly": {"type": "boolean"},
-        "tailscale": {"type": "boolean"},
-        "trucki": {"type": "boolean"},
-        "tuya": {"type": "boolean"}
+        "apsystems": {"type": "boolean", "title": "APsystems"},
+        "automation": {"type": "boolean", "title": "Automationen"},
+        "battery_soc": {"type": "boolean", "title": "Batterie-SoC"},
+        "shelly": {"type": "boolean", "title": "Shelly"},
+        "tailscale": {"type": "boolean", "title": "Tailscale"},
+        "trucki": {"type": "boolean", "title": "Trucki"},
+        "tuya": {"type": "boolean", "title": "TinyTuya"}
       }
     },
     "dashboard": {

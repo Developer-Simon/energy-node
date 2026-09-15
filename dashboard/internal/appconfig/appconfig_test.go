@@ -252,11 +252,25 @@ func TestSchemaAllowsInstalledServicesBlock(t *testing.T) {
 	}
 }
 
-func TestSchemaRejectsUnknownInstalledServicesKey(t *testing.T) {
+// Seit I2 ist additionalProperties fuer installed_services kein hartes
+// "false" mehr, sondern {"type": "boolean"} - ein neuer, dem Schema noch
+// unbekannter Dienst darf also erscheinen (Vorwaertskompatibilitaet fuer
+// einen kuenftigen achten Dienst), solange sein Wert ein Boolean bleibt.
+// Diese Grenze prueft der Test jetzt: ein unbekannter Schluessel mit einem
+// Nicht-Boolean-Wert soll weiterhin am Schema scheitern.
+func TestSchemaRejectsUnknownInstalledServicesKeyWithNonBooleanValue(t *testing.T) {
+	document := validDocument()
+	document["installed_services"] = map[string]any{"unbekannt": "an"}
+	if _, err := appconfig.Load(writeConfig(t, document)); err == nil {
+		t.Fatal("erwartete einen Schema-Fehler fuer einen unbekannten Schluessel mit Nicht-Boolean-Wert")
+	}
+}
+
+func TestSchemaAcceptsUnknownBooleanInstalledServicesKey(t *testing.T) {
 	document := validDocument()
 	document["installed_services"] = map[string]any{"unbekannt": true}
-	if _, err := appconfig.Load(writeConfig(t, document)); err == nil {
-		t.Fatal("erwartete einen Schema-Fehler fuer einen unbekannten Schluessel")
+	if _, err := appconfig.Load(writeConfig(t, document)); err != nil {
+		t.Fatalf("ein unbekannter, aber boolescher Schluessel sollte akzeptiert werden: %v", err)
 	}
 }
 

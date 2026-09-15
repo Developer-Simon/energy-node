@@ -50,6 +50,7 @@ The file follows this JSON structure:
   "paths": { "devices_dir": "...", "data_dir": "...", "services_version_file": "..." },
   "logging": { "level": "INFO" },
   "services": { "apsystems": {...}, "battery_soc": {...}, "shelly": {...}, "trucki": {...}, "tuya": {...}, "automation": {...} },
+  "installed_services": { "apsystems": true, "automation": true, "battery_soc": true, "shelly": true, "tailscale": true, "trucki": true, "tuya": true },
   "dashboard": { "bind_address": "...", "port": 8080, "client_id": "...", "device_identifier": "...", "log_level": "info", "sweep_interval_seconds": 300, "admin_username": "...", "admin_password_file": "...", "tls": {...}, "system_action_helper": "...", "mosquitto_bridge_target": "...", "node_device_id": "...", "node_device_name": "...", "node_poll_interval_s": 60, "node_diagnostic_poll_multiplier": 10 },
   "tailscale": { "bin": "...", "status_timeout_s": 10 },
   "tinytuya": { "probe_python": "...", "probe_script": "...", "probe_timeout_s": 30 }
@@ -81,6 +82,9 @@ The file follows this JSON structure:
 | `services.<name>.poll_interval_s` | Integer | Python | poll interval of this service in seconds |
 | `services.<name>.diagnostic_poll_multiplier` | Integer | Python | factor for diagnostic polls of this service |
 | `services.<name>.http_timeout_s` | Integer | Python | HTTP timeout for HTTP-based services (Shelly, Trucki) |
+| | | | |
+| **Installed services (optional)** | | | |
+| `installed_services.<key>` | Boolean | Go | one boolean per service (`apsystems`, `automation`, `battery_soc`, `shelly`, `tailscale`, `trucki`, `tuya`); the dashboard hides that service's tab/subpage when `false`. A missing block, or a missing key within it, both mean the service is **on** — the same default-on rule as everywhere else in this file. Written by the installer's bootstrap step `65-dashboard-config.sh` from the service selection; do not hand-edit it, the next install or re-deploy run overwrites it. |
 | | | | |
 | **Dashboard (Go)** | | | |
 | `dashboard.bind_address` | String | Go | bind address (normally `0.0.0.0` for both local and network access) |

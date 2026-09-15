@@ -2559,21 +2559,6 @@ func TestOverviewMarksConfiguredCompactCards(t *testing.T) {
 	}
 }
 
-func TestOverviewMarksInstalledServicesInView(t *testing.T) {
-	reg := registry.New()
-	installed := map[string]bool{"automation": false, "tailscale": true, "tuya": true}
-	handler := OverviewWithDeviceFilterAndEngine(reg, nil, nil, nil, diagnostics.NewEngine(reg, nil), installed)
-
-	req := httptest.NewRequest(http.MethodGet, "/", nil)
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, req)
-
-	body := rec.Body.String()
-	if !strings.Contains(body, `id="tab-automations"`) {
-		t.Skip("tab-automations noch nicht bedingt gerendert - Task 7 baut das Gating")
-	}
-}
-
 func TestOverviewHidesDeselectedTabsAndSubpages(t *testing.T) {
 	reg := registry.New()
 	installed := map[string]bool{"automation": false, "tailscale": false, "tuya": true}
@@ -2619,5 +2604,30 @@ func TestOverviewShowsEverythingWithoutInstalledServices(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Fatalf("ohne installed_services sollte %q vorhanden sein", want)
 		}
+	}
+}
+
+// Anders als die tailscale/tuya-Unterseiten (nur ueber den Tab-Knopf im
+// bereits geladenen settings-Fragment erreichbar) haengt der
+// Automations-Inhalt an seiner eigenen URL (?fragment=panel&panel=automations).
+// Das Gating am Tab-Knopf/an der Ladeplatzhalter-Section in base.html reicht
+// dafuer nicht: dieser Test fragt das Fragment direkt ab und stellt sicher,
+// dass es bei abgewaehltem Dienst nicht mehr den echten Panel-Inhalt liefert
+// (leere Huelle, Status 200 - wie es die tailscale/tuya-Unterseiten fuer
+// ihren eigenen, ungegateten Fall bereits vorleben).
+func TestOverviewAutomationsFragmentGatedWhenDeselected(t *testing.T) {
+	reg := registry.New()
+	installed := map[string]bool{"automation": false, "tailscale": true, "tuya": true}
+	handler := OverviewWithDeviceFilterAndEngine(reg, config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, diagnostics.NewEngine(reg, nil), installed)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/?fragment=panel&panel=automations", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Status = %d, erwartet 200 (das Template-Gate liefert eine leere Huelle, keinen 404)", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, `x-data="automationsPanel()"`) {
+		t.Fatalf("automation ist abgewaehlt, trotzdem liefert die eigene Fragment-URL den echten Panel-Inhalt:\n%s", body)
 	}
 }

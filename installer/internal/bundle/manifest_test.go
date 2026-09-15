@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
@@ -100,18 +101,7 @@ func TestStepEntryOmitsEmptyDashboardKey(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Marshal: %v", err)
 	}
-	if got := string(raw); contains(got, "dashboard_key") {
+	if got := string(raw); strings.Contains(got, "dashboard_key") {
 		t.Fatalf("dashboard_key sollte bei leerem Wert fehlen: %s", got)
 	}
-}
-
-func contains(haystack, needle string) bool {
-	return len(haystack) >= len(needle) && (func() bool {
-		for i := 0; i+len(needle) <= len(haystack); i++ {
-			if haystack[i:i+len(needle)] == needle {
-				return true
-			}
-		}
-		return false
-	})()
 }
