@@ -15,14 +15,19 @@ import (
 
 const testToken = "t0ken-for-tests"
 
-func newTestServer(t *testing.T, mutate func(*hostapi.Options)) (*hostapi.Server, *hostapitest.FakeBackend) {
+func testCatalogs(t *testing.T) *i18n.Set {
 	t.Helper()
 	set, err := i18n.Load(webui.Catalogs())
 	if err != nil {
 		t.Fatalf("i18n.Load: %v", err)
 	}
+	return set
+}
+
+func newTestServer(t *testing.T, mutate func(*hostapi.Options)) (*hostapi.Server, *hostapitest.FakeBackend) {
+	t.Helper()
 	fake := hostapitest.NewFake()
-	opts := hostapi.Options{Backend: fake, Catalogs: set, Token: testToken, Language: "de"}
+	opts := hostapi.Options{Backend: fake, Catalogs: testCatalogs(t), Token: testToken, Language: "de"}
 	if mutate != nil {
 		mutate(&opts)
 	}
@@ -210,5 +215,17 @@ func TestBootstrapCarriesTheBundleArchitecture(t *testing.T) {
 	}
 	if got.BundleArch != "armv6" {
 		t.Errorf("bundle_arch = %q, want armv6 - the connection screen shows it before any connection exists", got.BundleArch)
+	}
+}
+
+func TestNewSeedsTheBusFromOptionsInitialBus(t *testing.T) {
+	seeded := hostapi.RestoreBus(hostapi.ReplayEvents([]string{"1000 ##STEP 60 ok"}), 10)
+	fake := hostapitest.NewFake()
+	server, err := hostapi.New(hostapi.Options{Backend: fake, Catalogs: testCatalogs(t), InitialBus: seeded})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	if server.Bus().Seq() != 1 {
+		t.Fatalf("Seq() = %d, want 1 (seeded, not a fresh empty bus)", server.Bus().Seq())
 	}
 }

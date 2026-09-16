@@ -29,6 +29,12 @@ type Options struct {
 	// BasePath ist der Pfadpraefix, unter dem der Server haengt, ohne
 	// abschliessenden Schraegstrich.
 	BasePath string
+	// InitialBus seeds the server's event bus instead of an empty one.
+	// Plan D's dashboard host passes RestoreBus's result here after a
+	// self-update restart, so a reconnecting SSE client's ?since= still
+	// lines up with events published before the restart. Nil means a
+	// fresh, empty bus -- every host but the dashboard's resume path.
+	InitialBus *Bus
 }
 
 // Server ist Schicht 2.
@@ -74,7 +80,11 @@ func New(opts Options) (*Server, error) {
 		return nil, err
 	}
 
-	s := &Server{opts: opts, bus: NewBus(5000), tmpl: tmpl, mux: http.NewServeMux()}
+	bus := opts.InitialBus
+	if bus == nil {
+		bus = NewBus(5000)
+	}
+	s := &Server{opts: opts, bus: bus, tmpl: tmpl, mux: http.NewServeMux()}
 	s.routes()
 	return s, nil
 }

@@ -173,6 +173,10 @@ type RouterDependencies struct {
 	// NodeSimulation publiziert den retained simulation_active-Sollzustand,
 	// wenn der MQTT-Tab ihn umschaltet.
 	NodeSimulation NodeSettingsPublisher
+	// Redeploy serves the Re-Deploy screen locally (Plan D of the
+	// installer spec). Nil in tests that do not need it -- the router
+	// simply does not register the route.
+	Redeploy http.Handler
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -222,6 +226,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
 	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
 	mux.Handle("/static/", webui.Static())
+	if dependencies.Redeploy != nil {
+		mux.Handle("/redeploy/", requireSystemActions(dependencies.Auth, dependencies.Redeploy))
+	}
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
@@ -436,6 +443,49 @@ func handleAuthLogout(manager *auth.Manager) http.HandlerFunc {
 		http.SetCookie(w, &http.Cookie{Name: sessionCookieName(secureRequest), Value: "", Path: basepath.CookiePath(r), MaxAge: -1, HttpOnly: true, Secure: secureRequest, SameSite: http.SameSiteLaxMode})
 		writeJSON(w, map[string]string{"status": "logged_out"})
 	}
+}
+
+// requireSystemActions gates a whole mounted sub-handler behind the same
+// privilege handleSystemAction demands for a single endpoint: the
+// RoleSystemActions role, plus a valid CSRF token on every state-changing
+// method. It exists for /redeploy/, which is a *larger* privilege than any
+// single system action -- it triggers a root-privileged bootstrap run --
+// and must therefore never be reachable for a guest session, which
+// authMiddleware alone would happily let through (a guest has a valid
+// session, just no privilege). GET stays token-free so the screen itself
+// and its SSE stream load exactly like every other read-only route.
+func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if manager == nil {
+			writeError(w, http.StatusNotImplemented, "system_actions_unavailable", "Systemaktionen sind nicht konfiguriert")
+			return
+		}
+		user, ok := auth.UserFromContext(r.Context())
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+			return
+		}
+		if !auth.HasRole(user, auth.RoleSystemActions) {
+			writeError(w, http.StatusForbidden, "system_actions_forbidden", "Für Systemaktionen fehlt die Berechtigung")
+			return
+		}
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			// The mounted screen is the installer's own frontend, which
+			// carries its one token in X-Installer-Token rather than in
+			// the dashboard's X-CSRF-Token; accept either carrier so the
+			// screen can satisfy this gate without a second header.
+			token := r.Header.Get("X-CSRF-Token")
+			if token == "" {
+				token = r.Header.Get("X-Installer-Token")
+			}
+			cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
+			if err != nil || !manager.ValidateCSRF(cookie.Value, token) {
+				writeError(w, http.StatusForbidden, "csrf_failed", "Sicherheitsprüfung fehlgeschlagen")
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func handleSystemAction(manager *auth.Manager, executor SystemActionExecutor, action systemactions.Action) http.HandlerFunc {

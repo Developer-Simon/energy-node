@@ -38,6 +38,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 )
 
 // buildVersion is overridden at build time via
@@ -104,6 +105,16 @@ func main() {
 		log.Fatalf("energy-node-dashboard: auth store failed: %v", err)
 	}
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
+
+	redeployHandler, err := buildRedeployHandler(redeployConfig{
+		candidateBundleDir:    filepath.Join(dataDir, "redeploy-candidate"),
+		installedManifestPath: "/var/lib/energy-node-installer/installed-manifest.json",
+		selectionPath:         "/var/lib/energy-node-installer/selection.json",
+		jobDir:                updaterjob.DefaultDir,
+	})
+	if err != nil {
+		log.Printf("redeploy: could not start the local update handler: %v", err)
+	}
 
 	// appconfig.Load hat eine schema_version-1-Datei nur in-memory nach v2
 	// gehoben. Die Datei auf der Platte ist noch v1 - das Dashboard laeuft
@@ -344,6 +355,7 @@ func main() {
 			MQTTBase:       mqttBase,
 			NodeAgent:      nodeAgent,
 			NodeSimulation: nodeSimPublisher,
+			Redeploy:       redeployHandler,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

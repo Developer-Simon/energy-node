@@ -10,6 +10,7 @@
 #   ./run-local-dashboard.sh --theme NAME       # Farbschema vorbelegen
 #   ./run-local-dashboard.sh --simulate         # PV/Netz/Batterie/Last "leben" lassen
 #   ./run-local-dashboard.sh --installed-services-off  # installed_services: alle Dienste aus
+#   ./run-local-dashboard.sh --https             # echtes TLS statt X-Forwarded-Proto-Trick
 #   ./run-local-dashboard.sh --preset NAME      # --fixture/--seed-data/--simulate gebuendelt,
 #                                                # siehe PRESETS unten; einzelne Flags danach
 #                                                # ueberstimmen das Preset
@@ -63,11 +64,14 @@ THEME=""
 KEEP=0
 SIMULATE=0
 INSTALLED_SERVICES_OFF=0
+HTTPS=0
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
 PASSWORD="smoketest1234"
 # isSecureRequest() akzeptiert TLS oder diesen Header - ohne ihn antwortet der
-# Login mit "secure_login_required".
+# Login mit "secure_login_required". Bei --https laeuft der Server mit einem
+# echten (selbstsignierten) Zertifikat, dann ist der Header ueberfluessig,
+# schadet aber nicht.
 SECURE_HEADER="X-Forwarded-Proto: https"
 
 while [[ $# -gt 0 ]]; do
@@ -124,6 +128,7 @@ while [[ $# -gt 0 ]]; do
     --seed-data) SEED_DATA="$2"; shift 2 ;;
     --theme) THEME="$2"; shift 2 ;;
     --installed-services-off) INSTALLED_SERVICES_OFF=1; shift ;;
+    --https) HTTPS=1; shift ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
@@ -175,7 +180,7 @@ trap cleanup EXIT
 check_history_exchange() {
   echo "==> Verlauf-Austausch: Ankuendigung"
   local announced
-  announced="$(curl -sf -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange")" || {
+  announced="$(curl -sf "${CURL_INSECURE[@]}" -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange")" || {
     echo "FEHLER: Ankuendigung nicht erreichbar" >&2
     return 1
   }
@@ -192,9 +197,9 @@ check_history_exchange() {
   local first_out second_out
   first_out="$(mktemp)"
   second_out="$(mktemp)"
-  curl -sN --max-time 8 -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange/stream" >"${first_out}" &
+  curl -sN "${CURL_INSECURE[@]}" --max-time 8 -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange/stream" >"${first_out}" &
   local first_pid=$!
-  curl -sN --max-time 8 -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange/stream" >"${second_out}" &
+  curl -sN "${CURL_INSECURE[@]}" --max-time 8 -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange/stream" >"${second_out}" &
   local second_pid=$!
   sleep 2
 
@@ -206,7 +211,7 @@ check_history_exchange() {
     return 1
   fi
 
-  curl -sf -X POST -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange/offer" \
+  curl -sf "${CURL_INSECURE[@]}" -X POST -b "$COOKIES" -H "$SECURE_HEADER" "${BASE}/api/v1/history/exchange/offer" \
     -H 'Content-Type: application/json' \
     -d "{\"peer\":\"${first_peer}\",\"coverage\":{\"1m\":{\"role:pv\":{\"from\":0,\"step\":3600000,\"n\":[60]}}}}" \
     -o /dev/null || {
@@ -276,13 +281,30 @@ sleep 1
 # Ladepfad, den auch das Zielgeraet nutzt, statt ihn zu umgehen.
 printf '%s' "$PASSWORD" > "$WORK/auth.pw"
 chmod 600 "$WORK/auth.pw"
+
+CURL_INSECURE=()
+if [[ $HTTPS -eq 1 ]]; then
+  # Selbstsigniertes Zertifikat fuer localhost - reicht fuer ListenAndServeTLS,
+  # der Browser/curl muss ihm nur ausdruecklich vertrauen (-k bzw. Klick-durch).
+  openssl req -x509 -newkey rsa:2048 -nodes -days 1 \
+    -keyout "$WORK/tls.key" -out "$WORK/tls.crt" \
+    -subj "/CN=localhost" -addext "subjectAltName=DNS:localhost,IP:127.0.0.1" \
+    2>"$WORK/openssl.log" || {
+    echo "FEHLER: Zertifikat konnte nicht erzeugt werden:" >&2
+    cat "$WORK/openssl.log" >&2
+    exit 1
+  }
+  CURL_INSECURE=(-k)
+fi
+
 python3 - "$SCRIPT_ROOT/services/energy-node.config.json" "$WORK/config.json" \
          "$HTTP_PORT" "$WORK/devices" "$WORK/data" "$MQTT_PORT" "$WORK/auth.pw" \
-         "$INSTALLED_SERVICES_OFF" <<'PY'
+         "$INSTALLED_SERVICES_OFF" "$WORK/tls.crt" "$WORK/tls.key" "$HTTPS" <<'PY'
 import json
 import sys
 
-vorlage, ziel, http_port, devices_dir, data_dir, mqtt_port, admin_pw, services_off = sys.argv[1:9]
+(vorlage, ziel, http_port, devices_dir, data_dir, mqtt_port, admin_pw,
+ services_off, tls_cert, tls_key, https) = sys.argv[1:12]
 config = json.loads(open(vorlage, encoding="utf-8").read())
 config["mqtt"]["host"] = "127.0.0.1"
 config["mqtt"]["port"] = int(mqtt_port)
@@ -293,6 +315,8 @@ config["paths"]["data_dir"] = data_dir
 config["dashboard"]["port"] = int(http_port)
 config["dashboard"]["bind_address"] = "127.0.0.1"
 config["dashboard"]["admin_password_file"] = admin_pw
+if https == "1":
+    config["dashboard"]["tls"] = {"cert_file": tls_cert, "key_file": tls_key}
 # --installed-services-off: alle sieben Dienste explizit aus, statt den
 # Block wegzulassen - so wird genau der Pfad geprueft, den
 # 65-dashboard-config.sh nach einer Installation ohne optionale Dienste auf
@@ -325,10 +349,14 @@ DASHBOARD_VERSION="$(tr -d '[:space:]' < "$DASHBOARD_DIR/VERSION")-dev"
 ) > "$WORK/dashboard.log" 2>&1 &
 DASHBOARD_PID=$!
 
-BASE="http://localhost:$HTTP_PORT"
+if [[ $HTTPS -eq 1 ]]; then
+  BASE="https://localhost:$HTTP_PORT"
+else
+  BASE="http://localhost:$HTTP_PORT"
+fi
 # Jede API-Antwort zaehlt als "erreichbar" - auch 401, denn die Endpunkte
 # verlangen eine Anmeldung, die es an dieser Stelle noch nicht gibt.
-listening() { [[ "$(curl -s -m 2 -o /dev/null -w '%{http_code}' "$BASE/api/v1/health")" != "000" ]]; }
+listening() { [[ "$(curl -s "${CURL_INSECURE[@]}" -m 2 -o /dev/null -w '%{http_code}' "$BASE/api/v1/health")" != "000" ]]; }
 for _ in $(seq 1 60); do
   listening && break
   sleep 1
@@ -340,10 +368,10 @@ if ! listening; then
 fi
 
 COOKIES="$WORK/cookies.txt"
-curl -sf -m 5 -c "$COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
+curl -sf "${CURL_INSECURE[@]}" -m 5 -c "$COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
   -X POST "$BASE/api/v1/auth/login" \
   -d "{\"username\":\"admin\",\"password\":\"$PASSWORD\"}" > /dev/null
-api() { curl -sf -m 5 -b "$COOKIES" -H "$SECURE_HEADER" "$@"; }
+api() { curl -sf "${CURL_INSECURE[@]}" -m 5 -b "$COOKIES" -H "$SECURE_HEADER" "$@"; }
 
 # Die Registry braucht einen Moment, bis Discovery und Zustaende verarbeitet sind.
 sleep 2
@@ -405,7 +433,7 @@ data[0]['charge_efficiency'] = 0.95
 data[0]['full_v_per_cell'] = 3.6
 json.dump(data, open('$WORK/valid.json', 'w'))
 "
-if curl -sf -m 5 -b "$COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
+if curl -sf "${CURL_INSECURE[@]}" -m 5 -b "$COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
      -X PUT "$CONFIG_URL" --data-binary "@$WORK/valid.json" > /dev/null; then
   stored=$(api "$CONFIG_URL" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['charge_efficiency'])")
   if [[ "$stored" == "0.95" ]]; then
@@ -426,7 +454,7 @@ data[0]['charger_dc_power_topic'] = 'outstation/t2mg81a4e9/field/dcpower'
 data[0]['dc_max_age_s'] = 45
 json.dump(data, open('$WORK/dc.json', 'w'))
 "
-if curl -sf -m 5 -b "$COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
+if curl -sf "${CURL_INSECURE[@]}" -m 5 -b "$COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
      -X PUT "$CONFIG_URL" --data-binary "@$WORK/dc.json" > /dev/null; then
   stored=$(api "$CONFIG_URL" | python3 -c "import json,sys; print(json.load(sys.stdin)[0]['dc_max_age_s'])")
   if [[ "$stored" == "45" ]]; then
@@ -445,7 +473,7 @@ data = json.load(open('$WORK/valid.json'))
 data[0]['charge_efficiency'] = 1.5
 json.dump(data, open('$WORK/invalid.json', 'w'))
 "
-code=$(curl -s -m 5 -o /dev/null -w '%{http_code}' -b "$COOKIES" -H "$SECURE_HEADER" \
+code=$(curl -s "${CURL_INSECURE[@]}" -m 5 -o /dev/null -w '%{http_code}' -b "$COOKIES" -H "$SECURE_HEADER" \
   -H 'Content-Type: application/json' -X PUT "$CONFIG_URL" --data-binary "@$WORK/invalid.json")
 if [[ "$code" == "400" || "$code" == "422" ]]; then
   echo "  OK   ungueltiger Wert 1.5 abgelehnt (HTTP $code)"

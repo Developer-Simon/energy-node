@@ -1,0 +1,9 @@
+[Unit]
+Description=Run a staged energy-node update job
+# Kein After=energy-node-dashboard.service: dieser Dienst darf laufen,
+# waehrend das Dashboard neu startet oder kurz gar nicht laeuft (E10).
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/sbin/energy-node-updater

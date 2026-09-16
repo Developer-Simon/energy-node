@@ -88,6 +88,32 @@ if [[ -f "${sudoers_src}" ]]; then
     "${EN_ROOT}/etc/sudoers.d/${BINARY_NAME}-system-action"
 fi
 
+# --- Updater-Unit (Plan D): eigene Einheit, kein neues sudo-Verb ---------
+"${SUDO[@]}" install -m 0755 "${dash}/energy-node-updater" \
+  "${EN_ROOT}/usr/local/sbin/energy-node-updater"
+"${SUDO[@]}" install -m 0644 "${dash}/energy-node-updater.service" \
+  "${EN_ROOT}/etc/systemd/system/energy-node-updater.service"
+"${SUDO[@]}" install -m 0644 "${dash}/energy-node-updater.path" \
+  "${EN_ROOT}/etc/systemd/system/energy-node-updater.path"
+
+"${SUDO[@]}" mkdir -p "${EN_ROOT}/usr/local/lib/energy-node-installer" \
+  "${EN_ROOT}/etc/energy-node-updater"
+"${SUDO[@]}" install -m 0755 "${EN_BUNDLE_DIR}/bootstrap/verify_bundle.sh" \
+  "${EN_ROOT}/usr/local/lib/energy-node-installer/verify_bundle.sh"
+"${SUDO[@]}" install -m 0644 "${dash}/signing_key.pub.pem" \
+  "${EN_ROOT}/etc/energy-node-updater/signing_key.pub.pem"
+
+job_dir="${EN_ROOT}/var/lib/energy-node-installer/job"
+"${SUDO[@]}" mkdir -p "${job_dir}"
+install_owned_dir() {
+  local dir="$1"
+  if { [[ "${#SUDO[@]}" -gt 0 || "$(id -u)" -eq 0 ]] \
+       && getent group "${EN_TARGET_USER}" >/dev/null 2>&1; }; then
+    "${SUDO[@]}" chown "${EN_TARGET_USER}:${EN_TARGET_USER}" "${dir}"
+  fi
+}
+install_owned_dir "${job_dir}"
+
 # --- zentrale Konfiguration ----------------------------------------------
 etc="${EN_ROOT}/etc/energy-node"
 "${SUDO[@]}" mkdir -p "${etc}/manifests"
@@ -138,6 +164,8 @@ place_secret "${ADMIN_PW_FILE}" "${EN_ROOT}/etc/${BINARY_NAME}/auth.pw" "auth.pw
 "${SUDO[@]}" systemctl daemon-reload
 "${SUDO[@]}" systemctl enable --now "${BINARY_NAME}.service" \
   || step_fail DASHBOARD_START_FAILED
+"${SUDO[@]}" systemctl enable --now energy-node-updater.path \
+  || step_fail UPDATER_PATH_START_FAILED
 
 step_log "Dashboard eingerichtet; erreichbar auf Port 8080."
 step_ok

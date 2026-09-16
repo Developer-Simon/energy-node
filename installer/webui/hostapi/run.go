@@ -69,21 +69,7 @@ func (s *Server) StartRun(ctx context.Context, req RunRequest) (string, error) {
 	go func() {
 		defer cancel()
 		err := s.opts.Backend.Run(runCtx, req, sink)
-
-		payload := map[string]any{"run_id": id, "ok": err == nil}
-		if err != nil {
-			var typed *Error
-			if errors.As(err, &typed) {
-				payload["code"] = typed.Code
-				payload["step_id"] = lastStepID(s.bus)
-			} else if errors.Is(err, context.Canceled) {
-				payload["code"] = "RUN_CANCELLED"
-			} else {
-				payload["code"] = "BACKEND_ERROR"
-				payload["detail"] = sink.redactor.Line(err.Error())
-			}
-		}
-		s.bus.Publish("run-finished", payload)
+		s.bus.Publish("run-finished", runFinishPayload(s.bus, id, err, sink.redactor))
 
 		s.run.mu.Lock()
 		s.run.running = false
@@ -109,6 +95,58 @@ func lastStepID(bus *Bus) string {
 		}
 	}
 	return ""
+}
+
+// runFinishPayload builds the "run-finished" event data both StartRun and
+// ResumeRun publish, so a resumed job's result looks identical on the wire
+// to a live one. redactor may be nil (ResumeRun has no secrets to redact --
+// Plan D's jobs never carry any, see Global Constraints).
+func runFinishPayload(bus *Bus, id string, err error, redactor *Redactor) map[string]any {
+	payload := map[string]any{"run_id": id, "ok": err == nil}
+	if err == nil {
+		return payload
+	}
+	var typed *Error
+	switch {
+	case errors.As(err, &typed):
+		payload["code"] = typed.Code
+		payload["step_id"] = lastStepID(bus)
+	case errors.Is(err, context.Canceled):
+		payload["code"] = "RUN_CANCELLED"
+	default:
+		payload["code"] = "BACKEND_ERROR"
+		detail := err.Error()
+		if redactor != nil {
+			detail = redactor.Line(detail)
+		}
+		payload["detail"] = detail
+	}
+	return payload
+}
+
+// ResumeRun re-arms runState for a job the previous process instance
+// started before this one replaced it (Plan D: the updater unit keeps
+// running across the dashboard's own self-update restart). Unlike
+// StartRun, it does not call Backend.Run -- the steps are already running
+// in the updater unit, a process outside this one entirely. The caller
+// (dashboard/internal/updaterhost) drives the job the rest of the way by
+// tailing job/log and publishing onto Bus() directly, then calls the
+// returned finish func exactly once, when the job reaches a terminal
+// state.
+func (s *Server) ResumeRun(id string) (finish func(err error)) {
+	s.run.mu.Lock()
+	s.run.running = true
+	s.run.id = id
+	s.run.cancel = func() {} // nothing here to cancel; see Global Constraints
+	s.run.mu.Unlock()
+
+	return func(err error) {
+		s.bus.Publish("run-finished", runFinishPayload(s.bus, id, err, nil))
+		s.run.mu.Lock()
+		s.run.running = false
+		s.run.cancel = nil
+		s.run.mu.Unlock()
+	}
 }
 
 func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
