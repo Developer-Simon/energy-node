@@ -146,3 +146,95 @@ func TestSettingsPutProtectsLiveUpdateIntervalByRoleButAllowsOtherFields(t *test
 		t.Fatalf("interval not saved for admin: %#v (err=%v)", value, err)
 	}
 }
+
+// TestAuthenticatedRouterProtectsTheRedeployMount goes through the whole
+// authenticated router on purpose: buildRedeployHandler's own test mounts
+// the handler bare, which is exactly why it never noticed that /redeploy/
+// -- a root-privileged bootstrap run, a strictly larger privilege than any
+// single system action -- was reachable for an unauthenticated guest.
+func TestAuthenticatedRouterProtectsTheRedeployMount(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	reached := false
+	redeploy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached = true
+		w.WriteHeader(http.StatusOK)
+	})
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, Redeploy: redeploy})
+
+	guest := httptest.NewRecorder()
+	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
+	if guest.Code != http.StatusOK {
+		t.Fatalf("guest login status %d: %s", guest.Code, guest.Body.String())
+	}
+	guestCookie := guest.Result().Cookies()[0]
+
+	for _, target := range []string{"/redeploy/", "/redeploy/api/run"} {
+		request := httptest.NewRequest(http.MethodPost, target, nil)
+		request.AddCookie(guestCookie)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusForbidden {
+			t.Fatalf("guest POST %s status %d: %s", target, recorder.Code, recorder.Body.String())
+		}
+	}
+	guestScreen := httptest.NewRequest(http.MethodGet, "/redeploy/", nil)
+	guestScreen.AddCookie(guestCookie)
+	guestScreenRecorder := httptest.NewRecorder()
+	router.ServeHTTP(guestScreenRecorder, guestScreen)
+	if guestScreenRecorder.Code != http.StatusForbidden {
+		t.Fatalf("guest GET /redeploy/ status %d: %s", guestScreenRecorder.Code, guestScreenRecorder.Body.String())
+	}
+	if reached {
+		t.Fatal("a guest reached the redeploy handler")
+	}
+
+	loginRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username":"admin","password":"secret"}`))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginRequest.Header.Set("X-Forwarded-Proto", "https")
+	adminLogin := httptest.NewRecorder()
+	router.ServeHTTP(adminLogin, loginRequest)
+	if adminLogin.Code != http.StatusOK {
+		t.Fatalf("admin login status %d: %s", adminLogin.Code, adminLogin.Body.String())
+	}
+	var session struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.NewDecoder(adminLogin.Body).Decode(&session); err != nil {
+		t.Fatal(err)
+	}
+	adminCookie := adminLogin.Result().Cookies()[0]
+
+	// A GET (the screen itself and its SSE stream) needs no token.
+	screen := httptest.NewRequest(http.MethodGet, "/redeploy/api/events", nil)
+	screen.AddCookie(adminCookie)
+	screen.Header.Set("X-Forwarded-Proto", "https")
+	screenRecorder := httptest.NewRecorder()
+	router.ServeHTTP(screenRecorder, screen)
+	if screenRecorder.Code != http.StatusOK || !reached {
+		t.Fatalf("admin GET status %d, reached=%v: %s", screenRecorder.Code, reached, screenRecorder.Body.String())
+	}
+
+	// A POST without the token is still refused, even for the admin.
+	reached = false
+	noToken := httptest.NewRequest(http.MethodPost, "/redeploy/api/run", nil)
+	noToken.AddCookie(adminCookie)
+	noToken.Header.Set("X-Forwarded-Proto", "https")
+	noTokenRecorder := httptest.NewRecorder()
+	router.ServeHTTP(noTokenRecorder, noToken)
+	if noTokenRecorder.Code != http.StatusForbidden || reached {
+		t.Fatalf("admin POST without CSRF status %d, reached=%v", noTokenRecorder.Code, reached)
+	}
+
+	run := httptest.NewRequest(http.MethodPost, "/redeploy/api/run", nil)
+	run.AddCookie(adminCookie)
+	run.Header.Set("X-Forwarded-Proto", "https")
+	run.Header.Set("X-CSRF-Token", session.CSRFToken)
+	runRecorder := httptest.NewRecorder()
+	router.ServeHTTP(runRecorder, run)
+	if runRecorder.Code != http.StatusOK || !reached {
+		t.Fatalf("admin POST /redeploy/api/run status %d, reached=%v: %s", runRecorder.Code, reached, runRecorder.Body.String())
+	}
+}
