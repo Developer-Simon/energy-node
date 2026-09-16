@@ -309,6 +309,22 @@ def publish_device_discovery(client: mqtt.Client, device: APsystemsDevice) -> No
     _publish_discovery(
         client,
         device,
+        "sensor",
+        "max_power_flash_default",
+        _ha_entity_config(
+            device,
+            "sensor",
+            "max_power_flash_default",
+            "Power-Limit Flash-Deckel",
+            f"{base}/max_power_flash_default_w",
+            unit_of_measurement="W",
+            entity_category="diagnostic",
+            enabled_by_default=False,
+        ),
+    )
+    _publish_discovery(
+        client,
+        device,
         "switch",
         "power_status",
         _ha_entity_config(
@@ -529,6 +545,11 @@ async def poll_extended_info(
         device_info = await device.inverter.get_device_info()
         _publish_object_fields(mqtt_client, device, "device_info", device_info)
         await ensure_ram_power_mode(device, int(device_info.maxPower))
+        if device._ram_mode:
+            _publish(
+                mqtt_client, device, "max_power_flash_default_w",
+                device._flash_default_max_power_w,
+            )
     except Exception as exc:
         log.warning("[%s] Geraeteinfo-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
 
