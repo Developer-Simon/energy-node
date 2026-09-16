@@ -5,9 +5,9 @@ title: "Battery State of Charge (SoC) — How It Works"
 # Battery State of Charge (SoC) — How It Works
 
 What `services/battery_soc/battery_soc_mqtt.py` does, why it computes the way it
-does, and which setting turns which screw. Supplements the "Battery state of
-charge" section in [device-services.md](../../device-services.md) and the
-installation steps in [INSTALLATION.md](../../../INSTALLATION.md).
+does, and which setting turns which screw. Supplements the general
+description in [`services/battery-soc.md`](../../services/battery-soc.md) and
+the installation steps in [INSTALLATION.md](../../../INSTALLATION.md).
 
 **Explicitly a monitoring/diagnostic estimate, not a BMS function.** Do not use
 for automatic shutdowns without additional safeguards.

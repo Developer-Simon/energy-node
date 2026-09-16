@@ -7,11 +7,16 @@
 # sub-groups, each with its own `items`) - the layout renders the group
 # title as <h2> and each section label as <h3>.
 
-- title: Guide
+- title: Overview
   items:
-    - { label: "Overview", url: "index.md" }
+    - { label: "What is Energy Node?", url: "index.md" }
     - { label: "The dashboard, page by page", url: "dashboard.md" }
     - { label: "Device services", url: "device-services.md" }
+
+- title: Services
+  items:
+    - { label: "APsystems EZ1", url: "services/apsystems-ez1.md" }
+    - { label: "Battery state of charge", url: "services/battery-soc.md" }
 
 - title: Knowledge
   sections:
@@ -22,6 +27,7 @@
         - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
         - { label: "Cutting a release", url: "knowledge/releasing.md" }
         - { label: "Installer developer CLI", url: "knowledge/installer-developer-cli.md" }
+        - { label: "Third-party sources", url: "knowledge/dependencies.md" }
     - label: Dashboard
       items:
         - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
