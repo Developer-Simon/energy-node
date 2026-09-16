@@ -49,6 +49,7 @@
     historyExchangeDisabled: false,
     historyExchangeStatus: '',
     historyViews: [],
+    updateCheckDisabled: false,
     // Wird aus der IndexedDB nachgeladen; 6 ist die Zahl der Energie-Rollen
     // und damit der ehrliche Startwert, solange noch nichts aufgezeichnet ist.
     historySeriesCount: 6,
@@ -111,6 +112,7 @@
         this.historyExtraEntities = Array.isArray(value.history_extra_entities) ? [...value.history_extra_entities] : [];
         this.historyExchangeDisabled = Boolean(value.history_exchange_disabled);
         this.historyViews = Array.isArray(value.history_views) ? [...value.history_views] : [];
+        this.updateCheckDisabled = Boolean(value.update_check_disabled);
         this.loadHistoryUsage();
         this.canTuneLiveUpdates = Boolean(session && session.tune_live_updates);
         this.setChoicesSelection(this.widePanelsChoices, this.widePanels);
@@ -340,6 +342,7 @@
         history_extra_entities: [...this.historyExtraEntities],
         history_exchange_disabled: Boolean(this.historyExchangeDisabled),
         history_views: [...this.historyViews],
+        update_check_disabled: Boolean(this.updateCheckDisabled),
       };
     },
 
@@ -404,6 +407,8 @@
     servicesVersion: '',
     loading: false,
     busy: false,
+    updateStatus: null,
+    checkingForUpdates: false,
 
     async load() {
       this.loading = true;
@@ -424,6 +429,24 @@
       } catch (error) {
         this.version = '';
         this.servicesVersion = '';
+      }
+      try {
+        const status = await requestJSON('/api/v1/updates/status');
+        this.updateStatus = status.checked === false ? null : status;
+      } catch (error) {
+        this.updateStatus = null;
+      }
+    },
+
+    async checkForUpdates() {
+      if (this.checkingForUpdates) return;
+      this.checkingForUpdates = true;
+      try {
+        this.updateStatus = await requestJSON('/api/v1/updates/check');
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.checkingForUpdates = false;
       }
     },
 
