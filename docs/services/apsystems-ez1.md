@@ -16,6 +16,27 @@ the loop. Each inverter keeps its own topic prefix
 (`outstation/<id>/…`), entities and availability, following the conventions
 described in [device-services.md](../device-services.md#what-every-service-has-in-common).
 
+## Enabling local mode
+
+By default the EZ1 only talks to APsystems' own cloud (EMA); the service
+needs the inverter's **local** API switched on first. Using the official
+APsystems EZ1 app:
+
+1. Connect the app **directly** to the inverter — over Bluetooth, or the
+   inverter's own Wi-Fi access point if it isn't on the home network yet —
+   rather than through an APsystems cloud account. If the app is signed into
+   the cloud, sign out first: the **Local Mode** menu stays hidden while a
+   cloud session is active.
+2. Open **Settings → Local Mode**, enable it, and set it to **Continuous**
+   (not just for the current session), so it survives a reconnect.
+3. Note the IP address shown there — that is the `host` this service's
+   device entry needs, on port `8050`.
+
+Once enabled, the inverter runs its own local HTTP server on that port and no
+longer needs the cloud for API access. See the manufacturer's
+[EZ1 Local API User Manual](https://forum.iobroker.net/assets/uploads/files/1701255814508-apsystems-ez1-local-api-user-manual.pdf)
+for the full walkthrough with screenshots.
+
 ## Entities
 
 **Core sensors**, polled every cycle:
@@ -132,9 +153,7 @@ retry an endpoint a device has already shown it does not have.
 The RAM/flash power-limit handling and the `getOutputDataDetail` diagnostics
 were adapted from ideas documented by the community-maintained
 [`apsystems-ez1-enhanced`](https://github.com/shopf/apsystems-ez1-enhanced)
-Home Assistant integration, discussed in the
-[Home Assistant community forum thread](https://community.home-assistant.io/t/apsystems-ez1-m-ez1-spe-ez1-lv-ez1-h-ez1d-l-ez1d-ez1d-h-community-enhanced-integration-extended-sensors-all-models-overnight-fix-more/994091)
-for the same project. Both projects talk to the same inverter family through
-the same underlying `apsystems-ez1` PyPI package — no code was copied, only
-the endpoint behavior and the flash-protection strategy. See also
+Home Assistant integration. Both projects talk to the same inverter family
+through the same underlying `apsystems-ez1` PyPI package — no code was
+copied, only the endpoint behavior and the flash-protection strategy. See also
 [Third-party sources](../knowledge/dependencies.md#apsystems-ez1).

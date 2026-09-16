@@ -61,5 +61,3 @@ here rather than duplicating the table.
   [`services/apsystems-ez1.md`](../services/apsystems-ez1.md). No code was
   copied — both projects use the same underlying `apsystems-ez1` PyPI
   package, so the endpoint behavior applies directly.
-- [Home Assistant community forum thread](https://community.home-assistant.io/t/apsystems-ez1-m-ez1-spe-ez1-lv-ez1-h-ez1d-l-ez1d-ez1d-h-community-enhanced-integration-extended-sensors-all-models-overnight-fix-more/994091)
-  — the discussion the enhanced integration above was found through.
