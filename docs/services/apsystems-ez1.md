@@ -1,19 +1,20 @@
 ---
-title: "APsystems EZ1 — Entities and Power-Limit Handling"
+title: "APsystems EZ1"
 ---
 
-# APsystems EZ1 — Entities and Power-Limit Handling
+# APsystems EZ1
 
 What `services/apsystems_ez1/apsystems_ez1_mqtt.py` publishes for each
 configured EZ1 microinverter, and how it protects the inverter's flash memory
-while changing the power limit. Supplements the "APsystems EZ1" section in
-[device-services.md](../../device-services.md).
+while changing the power limit. See
+[device-services.md](../device-services.md#apsystems-ez1) for where this
+service sits among the others.
 
 One service instance handles every configured inverter over its **local**
 REST API (`host`, `port`, default `8050`) — no cloud account, no vendor app in
 the loop. Each inverter keeps its own topic prefix
 (`outstation/<id>/…`), entities and availability, following the conventions
-described in [device-services.md](../../device-services.md#what-every-service-has-in-common).
+described in [device-services.md](../device-services.md#what-every-service-has-in-common).
 
 ## Entities
 
@@ -136,4 +137,4 @@ Home Assistant integration, discussed in the
 for the same project. Both projects talk to the same inverter family through
 the same underlying `apsystems-ez1` PyPI package — no code was copied, only
 the endpoint behavior and the flash-protection strategy. See also
-[Third-party sources](../dependencies.md#apsystems-ez1).
+[Third-party sources](../knowledge/dependencies.md#apsystems-ez1).
