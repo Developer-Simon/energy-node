@@ -38,8 +38,14 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 )
+
+// updatesRepo is the GitHub repository internal/updatecheck asks about. It
+// is the same repository docs/knowledge/releasing.md publishes tagged
+// releases to.
+const updatesRepo = "Developer-Simon/energy-node"
 
 // buildVersion is overridden at build time via
 // -ldflags "-X main.buildVersion=...", computed from dashboard/VERSION plus
@@ -115,6 +121,17 @@ func main() {
 	if err != nil {
 		log.Printf("redeploy: could not start the local update handler: %v", err)
 	}
+
+	updatesChecker := &updatecheck.Checker{Repo: updatesRepo}
+	// ENERGY_NODE_UPDATES_API_BASE points the GitHub lookup at a different
+	// host instead of the real API. Unset in every real deployment; it
+	// exists so test/smoke/run-local-dashboard.sh --simulate-update can make
+	// an update look available (via fake_github_releases.py) without a real
+	// newer tag on GitHub.
+	if base := os.Getenv("ENERGY_NODE_UPDATES_API_BASE"); base != "" {
+		updatesChecker.BaseURL = base
+	}
+	updatesCache := &updatecheck.Cache{}
 
 	// appconfig.Load hat eine schema_version-1-Datei nur in-memory nach v2
 	// gehoben. Die Datei auf der Platte ist noch v1 - das Dashboard laeuft
@@ -317,6 +334,40 @@ func main() {
 		}
 	}()
 
+	go func() {
+		// Once a day, not at a fixed clock time: an hourly tick just asks
+		// "has it been >=24h since the last successful check (or has there
+		// never been one)", which survives restarts without drifting or
+		// needing a missed-the-slot special case (see the "recommended"
+		// option discussed for this feature).
+		runIfDue := func() {
+			value, err := settingsStore.LoadSettings()
+			if err != nil || value.UpdateCheckDisabled {
+				return
+			}
+			if last, has := updatesCache.Get(); has && time.Since(last.CheckedAt) < 24*time.Hour {
+				return
+			}
+			result, err := updatesChecker.Check(ctx, buildVersion)
+			if err != nil {
+				log.Printf("energy-node-dashboard: update check failed: %v", err)
+				return
+			}
+			updatesCache.Set(result)
+		}
+		runIfDue()
+		ticker := time.NewTicker(time.Hour)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				runIfDue()
+			}
+		}
+	}()
+
 	srv := &http.Server{
 		Addr: net.JoinHostPort(bindAddress, port),
 		// basepath.Middleware sits outermost so the router only ever sees
@@ -356,6 +407,8 @@ func main() {
 			NodeAgent:      nodeAgent,
 			NodeSimulation: nodeSimPublisher,
 			Redeploy:       redeployHandler,
+			UpdatesChecker: updatesChecker,
+			UpdatesCache:   updatesCache,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

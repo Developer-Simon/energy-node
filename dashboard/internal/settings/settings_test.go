@@ -1393,6 +1393,57 @@ func TestAustauschLaesstSichAbschalten(t *testing.T) {
 	}
 }
 
+func TestUpdatePruefungIstStandardmaessigAn(t *testing.T) {
+	if Default().UpdateCheckDisabled {
+		t.Fatal("die Update-Pruefung muss in der Vorgabe an sein")
+	}
+	normalized := normalizeSettings(Settings{})
+	if normalized.UpdateCheckDisabled {
+		t.Fatal("nicht gesetzt muss 'an' bedeuten")
+	}
+}
+
+func TestUpdatePruefungLaesstSichAbschalten(t *testing.T) {
+	normalized := normalizeSettings(Settings{UpdateCheckDisabled: true})
+	if !normalized.UpdateCheckDisabled {
+		t.Fatal("ein bewusstes Abschalten darf nicht zurueckgedreht werden")
+	}
+	disabled := Default()
+	disabled.UpdateCheckDisabled = true
+	if err := validateSettings(disabled); err != nil {
+		t.Fatalf("abgeschaltete Einstellung ist ungueltig: %v", err)
+	}
+}
+
+func TestSchemaKenntDenUpdatePruefungSchalter(t *testing.T) {
+	var schema struct {
+		Required   []string `json:"required"`
+		Properties map[string]struct {
+			Type    string `json:"type"`
+			Default any    `json:"default"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(settingsSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	property, ok := schema.Properties["update_check_disabled"]
+	if !ok {
+		t.Fatal("update_check_disabled fehlt im Schema")
+	}
+	if property.Type != "boolean" || property.Default != false {
+		t.Fatalf("update_check_disabled = %+v, want boolean/false", property)
+	}
+	found := false
+	for _, name := range schema.Required {
+		if name == "update_check_disabled" {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("update_check_disabled fehlt in required")
+	}
+}
+
 func TestSchemaKenntDenAustauschSchalter(t *testing.T) {
 	var schema struct {
 		Required   []string `json:"required"`

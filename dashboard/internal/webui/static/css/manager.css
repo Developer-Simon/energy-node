@@ -780,6 +780,21 @@ select.schema-control {
 .system-access-granted { color: var(--ok); background: var(--ok-bg); }
 .system-access-guest { color: var(--warn); background: var(--warn-bg); }
 .system-access-guest::before { box-shadow: 0 0 0 4px var(--warn-bg); }
+/* Ergebnis von "Nach Updates suchen" - dieselben Farben und derselbe
+   Einzug (.update-badge-enter*, base.css) wie die Masthead-Pille, damit
+   "ein Update ist verfuegbar" ueberall gleich aussieht. */
+.update-available-chip { display: inline-flex; align-items: center; flex-wrap: wrap; gap: .4rem; padding: .3rem .65rem; border: 1px solid var(--accent-line); border-radius: 999px; background: var(--accent-bg); color: var(--accent-soft); font-size: .82rem; font-weight: 600; }
+.update-available-chip svg { width: .95rem; height: .95rem; flex: none; }
+.update-available-chip strong { font-weight: 700; }
+.update-available-chip a { color: inherit; text-decoration: underline; }
+/* Der eigentliche Weg zum Redeploy-Screen (dashboard/cmd/dashboard/redeploy.go)
+   - fett statt nur unterstrichen, damit er sich von "Änderungen ansehen"
+   als die primäre Aktion der Pille abhebt. Selektor so spezifisch wie
+   ".update-available-chip a" gehalten, sonst gewinnt dessen underline. */
+.update-available-chip a.update-available-cta { font-weight: 700; text-decoration: none; }
+@media (hover: hover) and (pointer: fine) {
+  .update-available-chip a.update-available-cta:hover { text-decoration: underline; }
+}
 .system-actions-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--bad-strong); border-radius: var(--radius-lg); background: var(--panel); }
 .system-actions-panel h3 { margin: 0 0 .35rem; color: var(--bad); }
 .system-actions-panel p { color: var(--text-subtle); }

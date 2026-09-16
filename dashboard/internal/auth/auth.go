@@ -30,7 +30,14 @@ const (
 	// jeder Gast (siehe ContinueAsGuest) -, damit das Layout ohne Adminkonto
 	// anpassbar bleibt; die eigene Rolle ist das Plumbing, an das eine
 	// spaetere Rollen-Oberflaeche greift.
-	RoleEditLayout   = "edit_layout"
+	RoleEditLayout = "edit_layout"
+	// RoleCheckUpdates schaltet nur das Lesen frei, ob auf GitHub eine
+	// neuere Version liegt (siehe internal/updatecheck) - keine der
+	// updater-startenden Aktionen hinter RoleSystemActions. Wie
+	// RoleEditLayout bekommt sie provisorisch jeder, auch jeder Gast, weil
+	// es noch keine Rollen-Oberflaeche gibt, ueber die man das gezielt
+	// wieder entziehen koennte.
+	RoleCheckUpdates = "check_updates"
 	guestLifetime    = 7 * 24 * time.Hour
 	sessionLifetime  = 24 * time.Hour
 	guestSessionLife = 7 * 24 * time.Hour
@@ -121,7 +128,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 				return nil, hashErr
 			}
 			nowValue := manager.now().UTC()
-			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout}, CreatedAt: nowValue, LastLoginAt: nowValue}
+			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates}, CreatedAt: nowValue, LastLoginAt: nowValue}
 			changed = true
 		}
 	}
@@ -190,12 +197,12 @@ func (m *Manager) ContinueAsGuest() (Session, error) {
 		return Session{}, err
 	}
 	nowValue := m.now().UTC()
-	// Provisional: guests get RoleAutomations and RoleEditLayout too, since
-	// there is no per-user role UI yet and locking either behind an
-	// admin-only login would make the feature unusable for the primary user.
-	// Revisit once role management grows a UI
-	// (knowhow/dashboard/automationen-tab.md).
-	user := User{Username: username, Guest: true, Roles: []string{RoleAutomations, RoleEditLayout}, CreatedAt: nowValue, LastLoginAt: nowValue}
+	// Provisional: guests get RoleAutomations, RoleEditLayout and
+	// RoleCheckUpdates too, since there is no per-user role UI yet and
+	// locking either behind an admin-only login would make the feature
+	// unusable for the primary user. Revisit once role management grows a
+	// UI (knowhow/dashboard/automationen-tab.md).
+	user := User{Username: username, Guest: true, Roles: []string{RoleAutomations, RoleEditLayout, RoleCheckUpdates}, CreatedAt: nowValue, LastLoginAt: nowValue}
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err

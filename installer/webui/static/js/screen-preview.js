@@ -230,6 +230,16 @@
           this.shell.back('connect');
           return;
         }
+        // Im Dashboard (Plan D) gibt es keinen "Verbindung"-Bildschirm, zu
+        // dem needs_connection sonst zurueckfuehrt - ohne diesen Zweig
+        // laedt Abbrechen hier nur die Vorschau neu. Faellt die Vorschau
+        // selbst schon (z.B. MANIFEST_UNREADABLE, weil noch kein Bundle
+        // bereitliegt), wiederholte das denselben Fehler statt den Nutzer
+        // je wieder herauszulassen.
+        if (this.shell.bootstrap && this.shell.bootstrap.host === 'dashboard') {
+          this.shell.backToDashboard();
+          return;
+        }
         await this.load();
       },
     };

@@ -1,12 +1,22 @@
 # Changelog
 
-## v0.6.7 (2026-09-16)
+## v0.7.0 (2026-09-16)
 
 ### Features
 
+- **dashboard:** make the "check for updates" button more prominent (00a5e46)
+- **dashboard:** link the update-available chip to the redeploy screen (c60f545)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** polish for the installer webui (#30) (05d424b)
 - **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
+- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
+- **auth:** add a role gating the GitHub update check (92e35f4)
+- **updatecheck:** add a GitHub release version checker (7f5a047)
+- **settings:** add a toggle for the automatic update check (207c345)
+- **dashboard:** run the daily update check and expose it over HTTP (4b2cf9e)
+- **dashboard:** show an update-available badge in the masthead (148a77e)
+- **dashboard:** add a manual update check to settings (e1e2d0b)
 - **dashboard:** add the updaterjob staging format (9b727eb)
 - **dashboard:** add the energy-node-updater orchestrator script Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (1a90149)
 - **installer:** install the updater unit and its .path trigger in step 60 Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (cd5df50)
@@ -19,6 +29,7 @@
 
 ### Fixes
 
+- **updatecheck:** recognize the v-prefixed version main.go actually passes (7808e4c)
 - **dashboard:** use InFlight() to allow staging new jobs after previous job completes (2086154)
 - **installer:** remove unnecessary committed copy of signing key (3e23319)
 - **dashboard:** gate /redeploy/ behind the system-actions role and CSRF (7f3a132)
@@ -33,11 +44,14 @@
 
 ### Tests
 
+- **dashboard:** add a smoke-test flag to simulate an available update (5c98ab5)
 - **dashboard:** add --https to the local smoke test (386d716)
 - **dashboard:** add a smoke-test preset with every optional service off (f1f33f5)
 
 ### Chores
 
+- **dashboard:** bump version to v0.7.0 (441d4a7)
+- **dashboard:** bump cache-busted asset versions (d8d2094)
 - **dashboard:** depend on the energy-node-webui module (0ed9456)
 
 ## v0.6.5 (2026-09-13)

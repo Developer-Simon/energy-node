@@ -45,6 +45,7 @@ node dashboard/test/smoke/screenshot.mjs --out /tmp/tiles.png
 | `--port N` | different HTTP port (default 18100) |
 | `--simulate` | PV/grid/battery/house load move along a sine curve instead of sitting still (only with `fixtures/energie-ueberschuss.json`, otherwise a no-op) |
 | `--installed-services-off` | `installed_services` in `config.json` is set to all seven services `false`, instead of being left out — the same shape `65-dashboard-config.sh` leaves on a node installed without any optional service |
+| `--simulate-update` | points the update checker (`internal/updatecheck`) at `fake_github_releases.py` instead of the real GitHub API, so it always reports `v9.9.9` available — visual check for the masthead badge and the "Nach Updates suchen" button in Systemzugriff |
 | `--preset NAME` | bundles `--fixture`/`--seed-data`/`--simulate` for one of the cases documented below (see "Presets") |
 
 View four themes with every energy card — one call per theme, without a single

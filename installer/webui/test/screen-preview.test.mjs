@@ -116,13 +116,13 @@ test('Aktualisieren startet den Lauf ohne Geheimnisse und vergisst die gemerkte 
   assert.equal(shell.shared.selectionAtEntry, null);
 });
 
-test('im Dashboard-Wirt laedt Abbrechen neu, und der Hinweis auf das Dashboard entfaellt', async () => {
+test('im Dashboard-Wirt fuehrt Abbrechen zurueck ins Dashboard, und der Hinweis darauf entfaellt', async () => {
   const { screen, shell, calls } = await mount({ shell: { bootstrap: { host: 'dashboard', needs_connection: false, entry_points: ['redeploy', 'diagnose'] } } });
   assert.equal(screen.showReuse, false);
   const before = calls.length;
   await screen.cancel();
-  assert.equal(shell.screen, 'preview');
-  assert.ok(calls.slice(before).some((call) => call.key === 'GET /api/plan'), 'die Vorschau wurde neu geladen');
+  assert.equal(shell.backToDashboardCalled, 1);
+  assert.equal(calls.slice(before).some((call) => call.key === 'GET /api/plan'), false, 'die Vorschau wird nicht mehr neu geladen - das wiederholte nur denselben Fehler (z.B. MANIFEST_UNREADABLE ohne bereitliegendes Bundle)');
 });
 
 test('ein gescheiterter Plan landet im Banner und sperrt Aktualisieren', async () => {

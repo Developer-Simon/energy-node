@@ -76,6 +76,13 @@ type Settings struct {
 	// zurueckgedreht.
 	HistoryExchangeDisabled bool          `json:"history_exchange_disabled"`
 	HistoryViews            []HistoryView `json:"history_views"`
+
+	// UpdateCheckDisabled schaltet die einmal-taeglich laufende Pruefung auf
+	// GitHub ab (siehe internal/updatecheck und main.go). Invertiert benannt
+	// aus demselben Grund wie HistoryExchangeDisabled: der Nullwert muss "an"
+	// bedeuten, sonst waere ein bewusstes Abschalten von "nicht gesetzt"
+	// nicht zu unterscheiden.
+	UpdateCheckDisabled bool `json:"update_check_disabled"`
 }
 
 // HistoryView ist eine gespeicherte Verlaufssicht. Sie liegt serverseitig,

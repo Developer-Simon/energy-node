@@ -240,6 +240,18 @@
       <button type="button" class="setting-quiet-btn" x-on:click="refreshExchangeStatus()">Status aktualisieren</button>
     </div>
 
+    <div class="setting-card">
+      <h3 class="setting-card-title">Updates</h3>
+      <p class="setting-note">Einmal täglich still im Hintergrund geprüft, ob auf GitHub eine neuere Version liegt. Bei einem Fund erscheint ein Hinweis oben im Kopfbereich.</p>
+      <label class="switch-row" for="update-check">
+        <span>Automatisch auf Updates prüfen</span>
+        <span class="settings-toggle">
+          <input id="update-check" type="checkbox" role="switch" x-bind:checked="!updateCheckDisabled" x-on:change="updateCheckDisabled = !$event.target.checked" x-bind:aria-checked="(!updateCheckDisabled).toString()">
+          <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+        </span>
+      </label>
+    </div>
+
     <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
   </section>
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
@@ -252,6 +264,19 @@
       <p class="settings-help">Angemeldet als <strong x-text="username || 'wird geladen'">wird geladen</strong>. Systemaktionen sind nur für registrierte Benutzer mit der Rolle <code>system_actions</code> freigegeben.</p>
       <p class="settings-help">Dashboard-Version: <strong x-text="version || 'unbekannt'">unbekannt</strong></p>
       <p class="settings-help">Services-Version: <strong x-text="servicesVersion || 'unbekannt'">unbekannt</strong></p>
+      <div class="toolbar">
+        <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="Nach Updates suchen" aria-label="Nach Updates suchen">
+          <svg class="automation-icon"><use href="#ico-download"></use></svg>
+          <span x-text="checkingForUpdates ? 'Prüfe ...' : 'Nach Updates suchen'"></span>
+        </button>
+        <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
+          <svg class="automation-icon"><use href="#ico-download"></use></svg>
+          Update verfügbar: <strong x-text="updateStatus && updateStatus.latest"></strong>
+          <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">Jetzt aktualisieren →</a>
+          <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus && updateStatus.notes_url" target="_blank" rel="noopener">Änderungen ansehen</a>
+        </span>
+        <span x-show="updateStatus && !updateStatus.available" class="settings-help">Aktuell.</span>
+      </div>
       <div class="toolbar">
         <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? 'Systemaktionen freigegeben' : 'Gastzugriff'">Wird geprüft</span>
         <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="Abmelden" aria-label="Abmelden">

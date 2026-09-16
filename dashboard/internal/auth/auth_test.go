@@ -29,6 +29,9 @@ func TestManagerBootstrapsAdminAndCreatesSession(t *testing.T) {
 	if !HasRole(session.User, RoleEditLayout) {
 		t.Fatalf("bootstrap admin missing RoleEditLayout")
 	}
+	if !HasRole(session.User, RoleCheckUpdates) {
+		t.Fatalf("bootstrap admin missing RoleCheckUpdates")
+	}
 	if !manager.ValidateCSRF(session.Token, session.CSRFToken) || manager.ValidateCSRF(session.Token, "wrong") {
 		t.Fatal("CSRF validation result is incorrect")
 	}
@@ -58,6 +61,9 @@ func TestManagerCreatesAndCleansGuestUsers(t *testing.T) {
 	}
 	if !HasRole(guest.User, RoleEditLayout) {
 		t.Fatalf("guest missing the provisional RoleEditLayout grant")
+	}
+	if !HasRole(guest.User, RoleCheckUpdates) {
+		t.Fatalf("guest missing the provisional RoleCheckUpdates grant")
 	}
 	manager.mu.Lock()
 	old := guest.User

@@ -3,7 +3,7 @@
   "description": "Operational settings for the Energy Node dashboard.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["health_score_threshold", "sweep_interval_seconds", "show_runtime_status", "device_view_mode", "theme", "show_config_entities_on_tile", "show_diagnostic_entities_on_tile", "live_update_interval_seconds", "wide_panels", "status_bar_items", "history_sample_interval_seconds", "history_retention_mode", "history_retention_hours", "history_budget_mb", "history_raw_window_hours", "history_minute_window_days", "history_extra_entities", "history_exchange_disabled", "history_views"],
+  "required": ["health_score_threshold", "sweep_interval_seconds", "show_runtime_status", "device_view_mode", "theme", "show_config_entities_on_tile", "show_diagnostic_entities_on_tile", "live_update_interval_seconds", "wide_panels", "status_bar_items", "history_sample_interval_seconds", "history_retention_mode", "history_retention_hours", "history_budget_mb", "history_raw_window_hours", "history_minute_window_days", "history_extra_entities", "history_exchange_disabled", "history_views", "update_check_disabled"],
   "properties": {
     "health_score_threshold": {
       "type": "integer",
@@ -149,6 +149,11 @@
           "aggregate": {"type": "string", "enum": ["avg", "min", "max"]}
         }
       }
+    },
+    "update_check_disabled": {
+      "type": "boolean",
+      "default": false,
+      "description": "Schaltet die einmal-taeglich laufende Pruefung auf eine neuere Version auf GitHub ab. Nicht gesetzt bedeutet: die Pruefung laeuft."
     }
   }
 }

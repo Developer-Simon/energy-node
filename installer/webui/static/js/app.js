@@ -212,6 +212,29 @@
         this.navigate(screen, 'back');
       },
 
+      // Nur sinnvoll wenn bootstrap.host === 'dashboard': /redeploy/ ist ein
+      // Unterpfad des Dashboards, das diese Oberflaeche mountet (siehe
+      // dashboard/cmd/dashboard/redeploy.go). bootstrap.base_path nennt genau
+      // diesen Mount-Pfad ("/redeploy") - alles davor in der tatsaechlichen
+      // Browser-URL ist der Weg zurueck zum Dashboard, egal ob ein
+      // Reverse-Proxy zusaetzlich einen eigenen Praefix voranstellt
+      // (basepath.Middleware kennt hostapi.Options.BasePath selbst nicht,
+      // aber die Browser-URL traegt jeden Praefix ohnehin schon). Als eigene,
+      // reine Funktion herausgeloest, weil window.location.assign() selbst in
+      // jsdom nicht ueberschreibbar ist (Location.prototype.assign ist
+      // absichtlich non-configurable, wie im echten Browser) - so bleibt
+      // wenigstens die Pfadberechnung pruefbar.
+      dashboardRootPath() {
+        var path = window.location.pathname;
+        var marker = (this.bootstrap && this.bootstrap.base_path) || '/redeploy';
+        var idx = path.indexOf(marker);
+        return (idx >= 0 ? path.slice(0, idx) : '') + '/';
+      },
+
+      backToDashboard() {
+        window.location.assign(this.dashboardRootPath());
+      },
+
       switchEntry(name) {
         if (this.mutating || this.entry === name || !this.bootstrap || this.bootstrap.entry_points.indexOf(name) < 0) {
           return;

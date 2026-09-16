@@ -39,6 +39,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
@@ -177,6 +178,14 @@ type RouterDependencies struct {
 	// installer spec). Nil in tests that do not need it -- the router
 	// simply does not register the route.
 	Redeploy http.Handler
+	// UpdatesChecker asks GitHub whether a newer release exists (see
+	// internal/updatecheck). Nil disables /api/v1/updates/check; the
+	// background loop in main.go is what actually calls it periodically.
+	UpdatesChecker *updatecheck.Checker
+	// UpdatesCache holds the last check's result, shared between the
+	// on-demand endpoint and the periodic background check. Nil disables
+	// both update routes.
+	UpdatesCache *updatecheck.Cache
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -228,6 +237,10 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.Handle("/static/", webui.Static())
 	if dependencies.Redeploy != nil {
 		mux.Handle("/redeploy/", requireSystemActions(dependencies.Auth, dependencies.Redeploy))
+	}
+	if dependencies.UpdatesCache != nil {
+		mux.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
+		mux.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
 	}
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
@@ -522,6 +535,73 @@ func handleSystemAction(manager *auth.Manager, executor SystemActionExecutor, ac
 		}
 		w.WriteHeader(http.StatusAccepted)
 		writeJSON(w, map[string]string{"action": string(action), "status": "accepted"})
+	}
+}
+
+// requireCheckUpdatesRole is the read-only counterpart of the role check in
+// handleSystemAction: GET-only, no CSRF, gated behind RoleCheckUpdates
+// instead of RoleSystemActions since it only reveals a version comparison,
+// never anything that touches the node.
+func requireCheckUpdatesRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+	if manager == nil {
+		writeError(w, http.StatusNotImplemented, "check_updates_unavailable", "Anmeldung ist nicht konfiguriert")
+		return false
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+		return false
+	}
+	if !auth.HasRole(user, auth.RoleCheckUpdates) {
+		writeError(w, http.StatusForbidden, "check_updates_forbidden", "Für die Update-Prüfung fehlt die Berechtigung")
+		return false
+	}
+	return true
+}
+
+// handleUpdatesStatus returns the last cached check result, if any, without
+// making a GitHub request itself -- cheap enough for the masthead badge to
+// call on every page load.
+func handleUpdatesStatus(manager *auth.Manager, cache *updatecheck.Cache) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w)
+			return
+		}
+		if !requireCheckUpdatesRole(w, r, manager) {
+			return
+		}
+		result, has := cache.Get()
+		if !has {
+			writeJSON(w, map[string]bool{"checked": false})
+			return
+		}
+		writeJSON(w, result)
+	}
+}
+
+// handleUpdatesCheck forces a live GitHub check (the "Jetzt prüfen" button),
+// and updates the shared cache so the next status read reflects it too.
+func handleUpdatesCheck(manager *auth.Manager, checker *updatecheck.Checker, cache *updatecheck.Cache, version string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w)
+			return
+		}
+		if !requireCheckUpdatesRole(w, r, manager) {
+			return
+		}
+		if checker == nil {
+			writeError(w, http.StatusNotImplemented, "updates_check_unavailable", "Update-Prüfung ist nicht konfiguriert")
+			return
+		}
+		result, err := checker.Check(r.Context(), version)
+		if err != nil {
+			writeError(w, http.StatusBadGateway, "updates_check_failed", "Prüfung auf GitHub fehlgeschlagen")
+			return
+		}
+		cache.Set(result)
+		writeJSON(w, result)
 	}
 }
 

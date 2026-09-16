@@ -11,6 +11,11 @@
 #   ./run-local-dashboard.sh --simulate         # PV/Netz/Batterie/Last "leben" lassen
 #   ./run-local-dashboard.sh --installed-services-off  # installed_services: alle Dienste aus
 #   ./run-local-dashboard.sh --https             # echtes TLS statt X-Forwarded-Proto-Trick
+#   ./run-local-dashboard.sh --simulate-update  # Update-Pruefung meldet immer v9.9.9
+#                                                # verfuegbar (fake_github_releases.py statt
+#                                                # der echten GitHub-API) - Sichtpruefung fuer
+#                                                # die Masthead-Pille und den Button in
+#                                                # Systemzugriff
 #   ./run-local-dashboard.sh --preset NAME      # --fixture/--seed-data/--simulate gebuendelt,
 #                                                # siehe PRESETS unten; einzelne Flags danach
 #                                                # ueberstimmen das Preset
@@ -65,8 +70,10 @@ KEEP=0
 SIMULATE=0
 INSTALLED_SERVICES_OFF=0
 HTTPS=0
+SIMULATE_UPDATE=0
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
+UPDATES_API_PORT="${DASHBOARD_SMOKE_UPDATES_API_PORT:-18884}"
 PASSWORD="smoketest1234"
 # isSecureRequest() akzeptiert TLS oder diesen Header - ohne ihn antwortet der
 # Login mit "secure_login_required". Bei --https laeuft der Server mit einem
@@ -129,6 +136,7 @@ while [[ $# -gt 0 ]]; do
     --theme) THEME="$2"; shift 2 ;;
     --installed-services-off) INSTALLED_SERVICES_OFF=1; shift ;;
     --https) HTTPS=1; shift ;;
+    --simulate-update) SIMULATE_UPDATE=1; shift ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
@@ -154,6 +162,7 @@ mkdir -p "$RUN_ROOT"
 WORK="$(mktemp -d "$RUN_ROOT/XXXXXX")"
 BROKER_PID=""
 DASHBOARD_PID=""
+UPDATES_API_PID=""
 
 # Ein Ueberbleibsel eines abgebrochenen Laufs haelt sonst den Port, das neue
 # Dashboard kann nicht binden - und curl redet unbemerkt mit dem alten Prozess,
@@ -170,6 +179,7 @@ free_port() {
 cleanup() {
   [[ -n "$DASHBOARD_PID" ]] && kill "$DASHBOARD_PID" 2>/dev/null || true
   [[ -n "$BROKER_PID" ]] && kill "$BROKER_PID" 2>/dev/null || true
+  [[ -n "$UPDATES_API_PID" ]] && kill "$UPDATES_API_PID" 2>/dev/null || true
   # `go run` startet das Binary als Kindprozess - der ueberlebt das kill sonst.
   pkill -f "go-build.*exe/dashboard" 2>/dev/null || true
   [[ $KEEP -eq 0 ]] && rm -rf "$WORK"
@@ -238,6 +248,7 @@ check_history_exchange() {
 
 free_port "$HTTP_PORT"
 free_port "$MQTT_PORT"
+[[ $SIMULATE_UPDATE -eq 1 ]] && free_port "$UPDATES_API_PORT"
 
 mkdir -p "$WORK/devices" "$WORK/data"
 # Nur Paare aus *.json + *.schema.json sind fuer den Manager sichtbar.
@@ -275,6 +286,13 @@ BROKER_ARGS=("$MQTT_PORT" "$FIXTURE")
 python3 "$HERE/minibroker.py" "${BROKER_ARGS[@]}" > "$WORK/broker.log" 2>&1 &
 BROKER_PID=$!
 sleep 1
+
+if [[ $SIMULATE_UPDATE -eq 1 ]]; then
+  python3 "$HERE/fake_github_releases.py" "$UPDATES_API_PORT" > "$WORK/updates-api.log" 2>&1 &
+  UPDATES_API_PID=$!
+  sleep 1
+  echo "Update-Simulation: v9.9.9 ueber http://127.0.0.1:$UPDATES_API_PORT"
+fi
 
 # Der Smoke-Test schreibt eine vollstaendige config.json ins
 # Arbeitsverzeichnis und startet mit --config. So laeuft er ueber genau den
@@ -345,6 +363,9 @@ PY
 DASHBOARD_VERSION="$(tr -d '[:space:]' < "$DASHBOARD_DIR/VERSION")-dev"
 (
   cd "$DASHBOARD_DIR"
+  if [[ $SIMULATE_UPDATE -eq 1 ]]; then
+    export ENERGY_NODE_UPDATES_API_BASE="http://127.0.0.1:$UPDATES_API_PORT"
+  fi
   go run -ldflags "-X main.buildVersion=${DASHBOARD_VERSION}" ./cmd/dashboard --config "$WORK/config.json"
 ) > "$WORK/dashboard.log" 2>&1 &
 DASHBOARD_PID=$!
@@ -560,6 +581,28 @@ print(next(s['payload'] for s in data if s['topic'] == 'pv/wechselrichter/status
     echo "  OK   --simulate liefert Live-MQTT-Updates (PV-Leistung aendert sich)"
   else
     echo "  FEHL --simulate: PV-Leistung aendert sich nicht - Broker-Push kommt nicht an"
+    FAILED=1
+  fi
+fi
+
+# --simulate-update zeigt den Checker per ENERGY_NODE_UPDATES_API_BASE auf
+# fake_github_releases.py statt der echten API; main.go prueft einmal sofort
+# beim Start, wenn der Cache noch leer ist, also reicht kurzes Polling.
+if [[ $SIMULATE_UPDATE -eq 1 ]]; then
+  echo "==> Update-Simulation: /api/v1/updates/status"
+  update_available=0
+  for _ in $(seq 1 10); do
+    status="$(api "$BASE/api/v1/updates/status" || true)"
+    if echo "$status" | grep -q '"available":true' && echo "$status" | grep -q '"latest":"9.9.9"'; then
+      update_available=1
+      break
+    fi
+    sleep 1
+  done
+  if [[ $update_available -eq 1 ]]; then
+    echo "  OK   Update v9.9.9 wird als verfuegbar gemeldet"
+  else
+    echo "  FEHL Update-Status meldet kein verfuegbares v9.9.9: ${status:-<keine Antwort>}" >&2
     FAILED=1
   fi
 fi
