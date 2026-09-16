@@ -272,6 +272,7 @@
         <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
           <svg class="automation-icon"><use href="#ico-download"></use></svg>
           Update verfügbar: <strong x-text="updateStatus && updateStatus.latest"></strong>
+          <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">Jetzt aktualisieren →</a>
           <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus && updateStatus.notes_url" target="_blank" rel="noopener">Änderungen ansehen</a>
         </span>
         <span x-show="updateStatus && !updateStatus.available" class="settings-help">Aktuell.</span>

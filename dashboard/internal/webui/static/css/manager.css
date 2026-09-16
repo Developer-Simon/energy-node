@@ -787,6 +787,14 @@ select.schema-control {
 .update-available-chip svg { width: .95rem; height: .95rem; flex: none; }
 .update-available-chip strong { font-weight: 700; }
 .update-available-chip a { color: inherit; text-decoration: underline; }
+/* Der eigentliche Weg zum Redeploy-Screen (dashboard/cmd/dashboard/redeploy.go)
+   - fett statt nur unterstrichen, damit er sich von "Änderungen ansehen"
+   als die primäre Aktion der Pille abhebt. Selektor so spezifisch wie
+   ".update-available-chip a" gehalten, sonst gewinnt dessen underline. */
+.update-available-chip a.update-available-cta { font-weight: 700; text-decoration: none; }
+@media (hover: hover) and (pointer: fine) {
+  .update-available-chip a.update-available-cta:hover { text-decoration: underline; }
+}
 .system-actions-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--bad-strong); border-radius: var(--radius-lg); background: var(--panel); }
 .system-actions-panel h3 { margin: 0 0 .35rem; color: var(--bad); }
 .system-actions-panel p { color: var(--text-subtle); }
