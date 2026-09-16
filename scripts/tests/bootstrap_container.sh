@@ -27,26 +27,23 @@ minor="$(python3 -c 'import sys; print("%d.%d" % sys.version_info[:2])')"
 
 # --- Attrappen fuer alles, was das System anfasst -------------------------
 mkdir -p "$tmp/bin"
-for cmd in apt-get dpkg-query ufw systemctl visudo caddy mosquitto_passwd tailscale ss; do
-  cat > "$tmp/bin/$cmd" <<SH
+# shellcheck disable=SC1091
+source "$here/lib/fake_system_commands.sh"
+install_fake_system_commands "$tmp/bin"
+# bootstrap_container.sh's mosquitto_passwd needs special behavior: read password from stdin
+# and write it to a file for later --password-file checks. Override the generic stub.
+cat > "$tmp/bin/mosquitto_passwd" <<SH
 #!/usr/bin/env bash
-printf '$cmd %s\n' "\$*" >> "\$CMD_LOG"
-case "$cmd" in
-  dpkg-query) exit 1 ;;
-  tailscale) [ "\$1" = status ] && exit 0 ;;
-  mosquitto_passwd)
-    file=""; user=""
-    while [ \$# -gt 0 ]; do
-      case "\$1" in -c) file="\$2"; shift 2 ;; *) user="\$1"; shift ;; esac
-    done
-    read -r pw
-    printf '%s:%s\n' "\$user" "\$pw" > "\$file"
-    ;;
-esac
+printf 'mosquitto_passwd %s\n' "\$*" >> "\$CMD_LOG"
+file=""; user=""
+while [ \$# -gt 0 ]; do
+  case "\$1" in -c) file="\$2"; shift 2 ;; *) user="\$1"; shift ;; esac
+done
+read -r pw
+printf '%s:%s\n' "\$user" "\$pw" > "\$file"
 exit 0
 SH
-  chmod +x "$tmp/bin/$cmd"
-done
+chmod +x "$tmp/bin/mosquitto_passwd"
 cat > "$tmp/bin/fakepip" <<'SH'
 #!/usr/bin/env bash
 printf 'pip %s\n' "$*" >> "$CMD_LOG"
