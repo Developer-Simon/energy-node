@@ -90,7 +90,7 @@ PY
 # weiteren Auftrag ab - das Auftragsverzeichnis waere dauerhaft verriegelt.
 # Der Trap sorgt dafuer, dass es in jedem Fall einen Endzustand gibt; hat
 # der regulaere Weg schon einen geschrieben, ruehrt er ihn nicht an.
-# shellcheck disable=SC2329 # wird ueber trap aufgerufen
+# shellcheck disable=SC2329,SC2317 # wird ueber trap aufgerufen
 finish_interrupted() {
   local rc="$?"
   if [[ ! -f "${STATUS}" ]]; then
