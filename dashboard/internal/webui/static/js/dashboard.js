@@ -388,6 +388,32 @@
     },
   });
 
+  // Masthead-Pille fuer internal/updatecheck: liest nur den zuletzt
+  // zwischengespeicherten Stand (der taegliche Hintergrund-Check oder ein
+  // "Jetzt pruefen" in den Einstellungen fuellt ihn), fragt selbst nie live
+  // bei GitHub nach. loaded schuetzt vor dem doppelten Aufruf aus x-init plus
+  // Alpines eigenem init()-Hook, wie bei runtimeStatusPanel oben.
+  const updateBadge = () => ({
+    available: false,
+    latest: '',
+    notesUrl: '',
+    loaded: false,
+
+    async init() {
+      if (this.loaded) return;
+      this.loaded = true;
+      try {
+        const status = await requestJSON('/api/v1/updates/status');
+        this.available = Boolean(status && status.available);
+        this.latest = (status && status.latest) || '';
+        this.notesUrl = (status && status.notes_url) || '';
+      } catch (error) {
+        // Kein Toast fuer einen Hintergrund-Status, der ohnehin taeglich
+        // neu versucht wird.
+      }
+    },
+  });
+
   const devicesPanel = () => ({
     ...window.deviceTileMixin(),
     deviceViewModeChanged: null,
@@ -1397,6 +1423,7 @@
   document.addEventListener('alpine:init', () => {
     Alpine.data('dashboardShell', dashboardShell);
     Alpine.data('runtimeStatusPanel', runtimeStatusPanel);
+    Alpine.data('updateBadge', updateBadge);
     Alpine.data('diagnosticsPanel', diagnosticsPanel);
     Alpine.data('devicesPanel', devicesPanel);
     registerRollDirective(Alpine);

@@ -60,8 +60,14 @@
 </head>
 <body x-data="dashboardShell()" x-init="initWidePanels()" data-wide-panels="{{.WidePanels}}">
   {{template "icon-sprite" .}}
-  <header class="masthead">
-    <h1>Energy Node Dashboard</h1>
+  <header class="masthead" x-data="updateBadge()" x-init="init()">
+    <div class="masthead-title">
+      <h1>Energy Node Dashboard</h1>
+      <a x-cloak x-show="available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-badge" x-bind:href="notesUrl" target="_blank" rel="noopener">
+        <svg aria-hidden="true"><use href="#ico-download"></use></svg>
+        <span x-text="'Update ' + latest + ' verfügbar'"></span>
+      </a>
+    </div>
     <small>Discovery-getriebene Live-Ansicht und lokaler Gerätemanager</small>
   </header>
   <div id="runtime-status" class="runtime-status" data-runtime-status-enabled="{{if .ShowRuntimeStatus}}true{{else}}false{{end}}" data-status-bar-items="{{.StatusBarItems}}" x-data="runtimeStatusPanel()" x-init="init()" x-cloak x-show="enabled" aria-live="polite" aria-atomic="true">
