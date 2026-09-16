@@ -41,7 +41,7 @@ jobs:
             token="linux_${goarch}${goarm:+v$goarm}"
             echo "==> $token"
             GOOS="$goos" GOARCH="$goarch" GOARM="$goarm" \
-              go build -trimpath -ldflags "-s -w" \
+              go build -trimpath -ldflags "-s -w -X main.buildVersion=${TAG}" \
               -o ../dist/energy-node-dashboard ./cmd/dashboard
             tar -C ../dist -czf \
               "../dist/energy-node-dashboard_${ver}_${token}.tar.gz" \
