@@ -145,20 +145,20 @@ own topic prefix, entities and availability.
 **Entities published:** power, daily yield and lifetime yield, each for string
 PV1, string PV2 and the total — nine sensors, with `total_increasing` state
 class on the lifetime counters so Home Assistant's energy dashboard accepts
-them. Additional fields found on the inverter are published as diagnostic
-sensors that are disabled by default.
+them; a power-limit `number` and an operating-status `switch`; and a set of
+diagnostic sensors disabled by default, including extended electrical
+readings (PV input voltage/current, grid voltage/frequency, temperature)
+where the inverter's firmware supports them.
 
-**Control:**
+The EZ1 can store its power limit in flash, and frequent writes wear flash
+out over time. The service detects per inverter whether its firmware instead
+keeps the limit in RAM and, if so, changes the write strategy accordingly;
+inverters without that support keep a service-enforced **minimum of five
+minutes between two writes**, no matter who publishes the command.
 
-| Entity | Topic | Range |
-|---|---|---|
-| Power limit (`number`) | `outstation/<id>/set/max_power_limit_w` | 30–800 W |
-| Operating status (`switch`) | `outstation/<id>/set/power_status` | on/off |
-
-The EZ1 stores its power limit in flash, and community reports point at flash
-wear from frequent writes. The bridge therefore enforces a **minimum of five
-minutes between two writes** — a rule in the service, not in the UI, so it
-holds no matter who publishes the command.
+**Full documentation:**
+[`services/apsystems-ez1.md`](services/apsystems-ez1.md) — the complete
+entity list and the RAM/flash power-limit handling in detail.
 
 ---
 
@@ -230,44 +230,18 @@ of one or two LiFePO4 banks by coulomb counting — with voltage recalibration a
 the ends of the curve, per-converter efficiency, and load compensation on the
 measured cell voltage.
 
-It is a monitoring estimate, not a BMS. How the engine works is documented in
-detail in
+It is a monitoring estimate, not a BMS. Inputs are power and voltage topics
+from the other bridges (with optional DC-side topics taking over from AC
+measurements while fresh); entities published cover combined and per-bank
+SoC, net battery power, problem sensors for stale inputs, time to full/empty,
+and a `number` entity to set the SoC by hand after an outage. It is also
+available as a native Home Assistant integration, installable through HACS.
+
+**Full documentation:**
+[`services/battery-soc.md`](services/battery-soc.md) — inputs, topology,
+calibration and the complete entity list. The coulomb-counting algorithm
+itself is documented separately in
 [`knowledge/services/battery-soc-how-it-works.md`](knowledge/services/battery-soc-how-it-works.md).
-
-**Inputs.** Charger power, inverter power, and one voltage topic per bank —
-each as a topic plus an optional JSON key, because a Trucki stick publishes a
-bare number where a Shelly publishes an object. Optional DC-side power topics
-take over from the AC measurements while they are fresh (`dc_max_age_s`), and
-fall back automatically when they go stale.
-
-**Topology.** `parallel` (both banks on one DC bus, one voltage) or `series`;
-`bank_b_enabled: false` for a single-bank installation. The entity list follows
-the topology — a series pack additionally gets per-bank SoC, the voltage
-difference between banks and an imbalance warning.
-
-**Calibration and efficiency.** Cell count and capacity per bank; the
-open-circuit volts per cell that count as empty and full; how far those
-thresholds may soften at rest (`calibration_tolerance_v_per_cell`); how long a
-voltage must hold before calibration applies; charger AC→DC and inverter DC→AC
-efficiency; and the charge efficiency of the cells themselves.
-
-**Entities published:** combined SoC, net battery power, "inputs stale" and
-"AC fallback active" as problem sensors, time to full and time to empty; then
-per unit (pack, or bank A and bank B) voltage, estimated current, remaining
-Ah, load-corrected cell voltage, last calibration timestamp, the two active
-calibration thresholds, a voltage-based SoC estimate and a
-voltage-versus-coulomb mismatch warning. Finally a `number` entity to **set the
-SoC by hand** — one for the pack, or one per bank on a series pack — which is
-the way back after an outage that lost the count.
-
-Discovery is cleaned up as the topology changes: object IDs that do not belong
-to the current configuration are cleared with an empty retained payload rather
-than left behind as ghost entities.
-
-The same engine is also available as a **native Home Assistant integration**
-under `integrations/homeassistant/`, installable through HACS — the same core
-with a config flow instead of MQTT topics. See
-[`integration/ha-integration-hacs-release.md`](integration/ha-integration-hacs-release.md).
 
 ---
 
@@ -352,3 +326,4 @@ protocol. It exists so a topic convention or a validation rule is written once
 - [`knowledge/data-flow.md`](knowledge/data-flow.md) — the full path of a value, from device to Home Assistant
 - [`knowledge/configuration.md`](knowledge/configuration.md) — every field of `/etc/energy-node/config.json`
 - [`knowledge/performance-and-resources.md`](knowledge/performance-and-resources.md) — what each service costs on a Pi 1
+- [`knowledge/dependencies.md`](knowledge/dependencies.md) — third-party code and ideas a service's implementation was adapted from

@@ -144,6 +144,17 @@ class APsystemsDevice:
     _simulation_lifetime_base_e1: float = field(default=540.0, init=False)
     _simulation_lifetime_base_e2: float = field(default=520.0, init=False)
     _initial_diagnostics_done: bool = field(default=False, init=False)
+    # None = noch nicht geprueft; True = Firmware trennt RAM/Flash
+    # (setMaxPower schreibt nur noch RAM); False = aeltere Firmware, bei der
+    # setMaxPower weiterhin den Flash-Speicher beschreibt.
+    _ram_mode: Optional[bool] = field(default=None, init=False)
+    _flash_default_max_power_w: Optional[int] = field(default=None, init=False)
+    # Zuletzt vom Nutzer gewuenschtes Power-Limit; dient als Referenz, um
+    # nach einem Wechselrichter-Neustart (RAM faellt auf den Flash-Wert
+    # zurueck) automatisch wiederherzustellen.
+    _desired_max_power_w: Optional[int] = field(default=None, init=False)
+    # None = noch nicht geprueft; True/False = Ergebnis der ersten Abfrage.
+    _detail_supported: Optional[bool] = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.inverter = APsystemsEZ1M(self.cfg.host, self.cfg.port)
@@ -300,6 +311,22 @@ def publish_device_discovery(client: mqtt.Client, device: APsystemsDevice) -> No
     _publish_discovery(
         client,
         device,
+        "sensor",
+        "max_power_flash_default",
+        _ha_entity_config(
+            device,
+            "sensor",
+            "max_power_flash_default",
+            "Power-Limit Flash-Deckel",
+            f"{base}/max_power_flash_default_w",
+            unit_of_measurement="W",
+            entity_category="diagnostic",
+            enabled_by_default=False,
+        ),
+    )
+    _publish_discovery(
+        client,
+        device,
         "switch",
         "power_status",
         _ha_entity_config(
@@ -374,6 +401,107 @@ def _get_simulation_output_data(device: APsystemsDevice) -> SimpleNamespace:
     te2 = round(device._simulation_lifetime_base_e2 + e2_today, 3)
 
     return SimpleNamespace(p1=p1, p2=p2, e1=e1_today, e2=e2_today, te1=te1, te2=te2)
+
+
+# ---------------------------------------------------------------------------
+# RAM/Flash-Erkennung fuer das Power-Limit
+# ---------------------------------------------------------------------------
+
+async def _request_raw(device: APsystemsDevice, endpoint: str) -> Optional[dict]:
+    """Ruft einen Endpunkt auf, den die Bibliothek nicht als eigene Methode
+    anbietet (getDefaultMaxPower/setDefaultMaxPower), ueber deren internen
+    _request()-Mechanismus."""
+    return await device.inverter._request(endpoint)
+
+
+async def ensure_ram_power_mode(device: APsystemsDevice, hardware_max_power_w: int) -> None:
+    """
+    Prueft einmalig pro Geraet, ob die Firmware Power-Limits im RAM statt im
+    Flash-Speicher haelt (getDefaultMaxPower/setDefaultMaxPower vorhanden;
+    ab Firmware-Generation mit dieser Trennung schreibt setMaxPower nur noch
+    RAM). Falls ja, wird der Flash-Deckel einmalig auf das Hardware-Maximum
+    angehoben, damit alle folgenden Power-Limit-Aenderungen ueber setMaxPower
+    den Flash-Speicher nicht mehr abnutzen. Scheitert die Pruefung (aeltere
+    Firmware ohne diese Trennung), bleibt das Geraet dauerhaft im bisherigen
+    Flash-only-Verhalten (geschuetzt durch MIN_SECONDS_BETWEEN_POWER_WRITES).
+    """
+    if device._ram_mode is not None:
+        return
+
+    try:
+        resp = await _request_raw(device, "getDefaultMaxPower")
+        flash_value = int(resp["data"]["maxPower"])
+    except Exception as exc:
+        device._ram_mode = False
+        log.debug(
+            "[%s] getDefaultMaxPower nicht verfuegbar, bleibe im Flash-only-Modus: %s",
+            device.cfg.id, exc,
+        )
+        return
+
+    device._ram_mode = True
+    device._flash_default_max_power_w = flash_value
+    log.info("[%s] RAM/Flash-Trennung erkannt (Flash-Deckel: %sW).", device.cfg.id, flash_value)
+
+    if flash_value < hardware_max_power_w:
+        try:
+            await _request_raw(device, f"setDefaultMaxPower?p={hardware_max_power_w}")
+            device._flash_default_max_power_w = hardware_max_power_w
+            log.info(
+                "[%s] Flash-Deckel einmalig auf Hardware-Maximum %sW angehoben.",
+                device.cfg.id, hardware_max_power_w,
+            )
+        except Exception as exc:
+            log.warning("[%s] Anheben des Flash-Deckels fehlgeschlagen: %s", device.cfg.id, exc)
+
+
+# ---------------------------------------------------------------------------
+# Erweiterte Diagnosedaten (getOutputDataDetail)
+# ---------------------------------------------------------------------------
+
+_OUTPUT_DETAIL_FIELDS = ("v1", "v2", "c1", "c2", "gv", "gf", "t")
+
+
+async def fetch_output_detail(device: APsystemsDevice) -> Optional[SimpleNamespace]:
+    """
+    Fragt die undokumentierten Zusatz-Diagnosewerte (getOutputDataDetail) ab:
+    PV-Spannung/-Strom je Eingang (v1/v2/c1/c2), Netzspannung/-frequenz
+    (gv/gf) und Temperatur (t). Manche Firmware-Versionen liefern nur einen
+    Teil der Felder (z.B. keine DC-Werte) - das gilt weiterhin als
+    unterstuetzt. Liefert None, wenn der Endpunkt ueberhaupt keine
+    Zusatzfelder enthaelt oder fehlschlaegt; das Geraet wird dann dauerhaft
+    als nicht unterstuetzt markiert, um nicht bei jedem Poll erneut
+    anzufragen.
+    """
+    if device._detail_supported is False:
+        return None
+
+    try:
+        resp = await _request_raw(device, "getOutputDataDetail")
+        data = (resp or {}).get("data") or {}
+    except Exception as exc:
+        if device._detail_supported is None:
+            device._detail_supported = False
+            log.debug(
+                "[%s] getOutputDataDetail nicht verfuegbar: %s", device.cfg.id, exc
+            )
+        return None
+
+    if not any(data.get(k) not in (None, "", "null") for k in _OUTPUT_DETAIL_FIELDS):
+        device._detail_supported = False
+        log.debug(
+            "[%s] getOutputDataDetail liefert keine Zusatzfelder - Firmware "
+            "unterstuetzt den Endpunkt vermutlich nicht.",
+            device.cfg.id,
+        )
+        return None
+
+    device._detail_supported = True
+    values = {
+        k: (float(data[k]) if data.get(k) not in (None, "", "null") else None)
+        for k in _OUTPUT_DETAIL_FIELDS
+    }
+    return SimpleNamespace(**values)
 
 
 # ---------------------------------------------------------------------------
@@ -461,12 +589,24 @@ async def poll_extended_info(
             "power_status",
             "ON" if device._simulation_power_active else "OFF",
         )
+        _publish_object_fields(
+            mqtt_client,
+            device,
+            "output_detail",
+            SimpleNamespace(v1=32.0, v2=31.5, c1=1.1, c2=1.0, gv=231.0, gf=50.0, t=36.5),
+        )
         log.info("[%s] Simulierte erweiterte Geraeteinfo aktualisiert.", device.cfg.id)
         return
 
     try:
         device_info = await device.inverter.get_device_info()
         _publish_object_fields(mqtt_client, device, "device_info", device_info)
+        await ensure_ram_power_mode(device, int(device_info.maxPower))
+        if device._ram_mode:
+            _publish(
+                mqtt_client, device, "max_power_flash_default_w",
+                device._flash_default_max_power_w,
+            )
     except Exception as exc:
         log.warning("[%s] Geraeteinfo-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
 
@@ -478,6 +618,23 @@ async def poll_extended_info(
 
     try:
         max_power = await device.inverter.get_max_power()
+        if device._desired_max_power_w is None:
+            device._desired_max_power_w = max_power
+        elif device._ram_mode and max_power != device._desired_max_power_w:
+            log.info(
+                "[%s] RAM-Power-Limit ist von %sW auf %sW abgewichen (vermutlich "
+                "Neustart) - stelle %sW wieder her.",
+                device.cfg.id, device._desired_max_power_w, max_power,
+                device._desired_max_power_w,
+            )
+            try:
+                await device.inverter.set_max_power(device._desired_max_power_w)
+                max_power = await device.inverter.get_max_power()
+            except Exception as exc:
+                log.warning(
+                    "[%s] Wiederherstellen des Power-Limits fehlgeschlagen: %s",
+                    device.cfg.id, exc,
+                )
         _publish(mqtt_client, device, "max_power_limit_w", max_power)
     except Exception as exc:
         log.warning("[%s] Power-Limit-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
@@ -487,6 +644,13 @@ async def poll_extended_info(
         _publish(mqtt_client, device, "power_status", "ON" if power_status else "OFF")
     except Exception as exc:
         log.warning("[%s] Status-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
+
+    try:
+        detail = await fetch_output_detail(device)
+        if detail is not None:
+            _publish_object_fields(mqtt_client, device, "output_detail", detail)
+    except Exception as exc:
+        log.warning("[%s] Zusatzdiagnose-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
 
     log.info("[%s] Erweiterte Geraeteinfo aktualisiert.", device.cfg.id)
 
@@ -516,6 +680,7 @@ async def set_max_power_safe(
             device.cfg.id,
             new_limit,
         )
+        device._desired_max_power_w = current
         _publish(mqtt_client, device, "max_power_limit_w", current)
         return
 
@@ -551,6 +716,7 @@ async def set_max_power_safe(
 
         await asyncio.sleep(2)
         current = await device.inverter.get_max_power()
+        device._desired_max_power_w = current if current is not None else new_limit
         _publish(mqtt_client, device, "max_power_limit_w", current)
     except Exception as exc:
         log.warning("[%s] Setzen des Power-Limits fehlgeschlagen: %s", device.cfg.id, exc)
