@@ -4,6 +4,7 @@
 
 ### Features
 
+- **dashboard:** make the "check for updates" button more prominent (00a5e46)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** polish for the installer webui (#30) (05d424b)
 - **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
@@ -27,6 +28,7 @@
 
 ### Fixes
 
+- **updatecheck:** recognize the v-prefixed version main.go actually passes (7808e4c)
 - **dashboard:** use InFlight() to allow staging new jobs after previous job completes (2086154)
 - **installer:** remove unnecessary committed copy of signing key (3e23319)
 - **dashboard:** gate /redeploy/ behind the system-actions role and CSRF (7f3a132)
@@ -41,13 +43,14 @@
 
 ### Tests
 
+- **dashboard:** add a smoke-test flag to simulate an available update (5c98ab5)
 - **dashboard:** add --https to the local smoke test (386d716)
 - **dashboard:** add a smoke-test preset with every optional service off (f1f33f5)
 
 ### Chores
 
 - **dashboard:** bump version to v0.7.0 (441d4a7)
-- **dashboard:** bump cache-busted asset versions (23fb69b)
+- **dashboard:** bump cache-busted asset versions (d8d2094)
 - **dashboard:** depend on the energy-node-webui module (0ed9456)
 
 ## v0.6.5 (2026-09-13)
