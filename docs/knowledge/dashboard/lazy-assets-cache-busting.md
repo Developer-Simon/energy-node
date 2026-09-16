@@ -64,14 +64,14 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-09-16**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `19` |
+| `css/base.css` | `20` |
 
 ### Deferred `<script>` block (channel 1)
 
@@ -94,7 +94,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `8` |
 | `js/notifications.js` | `1` |
-| `js/dashboard.js` | `13` |
+| `js/dashboard.js` | `14` |
 | `js/overview.page.js` | `5` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -119,7 +119,7 @@ As of **2026-09-09**, read from `base.html` and `overview.html`. "–" means: no
 | `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `19` |
 | `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `19` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `19` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `6`, `js/mqtt.page.js` `3`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `19`, `css/settings-controls.css` `5` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `7`, `js/mqtt.page.js` `3`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `19`, `css/settings-controls.css` `5` |
 | `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `19`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -233,6 +233,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.6.7 | `css/base.css` · `js/dashboard.js` · `js/settings.page.js` | `20` · `14` · `7` | 2026-09-16 |
 | v0.6.2 | `css/choices.css` (settings-panel + overview editor assets) · `css/settings-controls.css` | `2` · `1` (was unversioned) · `3` | 2026-09-11 |
 | v0.6.0 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` · `js/energy.page.js` · `css/manager.css` (5 panels) | `2` · `13` · `6` · `2` · `19` | 2026-09-10 |
 | v0.5.25 | `js/settings.page.js` · `css/settings-controls.css` · `js/dashboard.js` · `css/base.css` | `5` · `2` · `12` · `19` | 2026-09-10 |
