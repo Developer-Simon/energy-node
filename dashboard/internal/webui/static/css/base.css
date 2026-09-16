@@ -431,6 +431,21 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 .icon-button.primary:hover:not(:disabled) { background: var(--accent); border-color: var(--accent-line); color: var(--bg); }
 .icon-button.danger { border-color: var(--bad-line); color: var(--bad-ink); background: var(--bad-bg); }
 .icon-button.danger:hover:not(:disabled) { border-color: var(--bad); background: var(--bad-bg-hover); color: var(--bad-ink); }
+/* Laufender Zustand einer asynchronen Icon-Button-Aktion (aktuell "Nach
+   Updates suchen"): das Icon dreht sich, solange die Anfrage laeuft - Status
+   ueber die ganze Dauer, nicht nur ein Ergebnis am Ende (apple-design 16,
+   "Feedback comes in four kinds: status, completion, warning, error").
+   Linear + infinite wie jede Ladeanimation ohne bekannte Dauer; reduced-motion
+   bekommt ein Pulsieren der Deckkraft statt Drehung, kein ersatzloses
+   Verschwinden der Rueckmeldung. */
+@media (prefers-reduced-motion: no-preference) {
+  .icon-button.is-busy svg { animation: icon-button-spin .9s linear infinite; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .icon-button.is-busy svg { animation: icon-button-pulse 1.1s ease-in-out infinite; }
+}
+@keyframes icon-button-spin { to { transform: rotate(360deg); } }
+@keyframes icon-button-pulse { 50% { opacity: .35; } }
 
 /* Apple-Schalter fuer Ein/Aus-Felder. Steht hier statt in manager.css, weil
    ihn ausser den Managerseiten auch das Optionsmodal des Layout-Editors

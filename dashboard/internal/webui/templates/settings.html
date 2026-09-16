@@ -265,10 +265,12 @@
       <p class="settings-help">Dashboard-Version: <strong x-text="version || 'unbekannt'">unbekannt</strong></p>
       <p class="settings-help">Services-Version: <strong x-text="servicesVersion || 'unbekannt'">unbekannt</strong></p>
       <div class="toolbar">
-        <button class="setting-quiet-btn" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates">
+        <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="Nach Updates suchen" aria-label="Nach Updates suchen">
+          <svg class="automation-icon"><use href="#ico-download"></use></svg>
           <span x-text="checkingForUpdates ? 'Prüfe ...' : 'Nach Updates suchen'"></span>
         </button>
-        <span x-show="updateStatus && updateStatus.available" class="settings-help">
+        <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
+          <svg class="automation-icon"><use href="#ico-download"></use></svg>
           Update verfügbar: <strong x-text="updateStatus && updateStatus.latest"></strong>
           <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus && updateStatus.notes_url" target="_blank" rel="noopener">Änderungen ansehen</a>
         </span>
