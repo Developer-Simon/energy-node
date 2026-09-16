@@ -173,6 +173,10 @@ type RouterDependencies struct {
 	// NodeSimulation publiziert den retained simulation_active-Sollzustand,
 	// wenn der MQTT-Tab ihn umschaltet.
 	NodeSimulation NodeSettingsPublisher
+	// Redeploy serves the Re-Deploy screen locally (Plan D of the
+	// installer spec). Nil in tests that do not need it -- the router
+	// simply does not register the route.
+	Redeploy http.Handler
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -222,6 +226,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
 	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
 	mux.Handle("/static/", webui.Static())
+	if dependencies.Redeploy != nil {
+		mux.Handle("/redeploy/", dependencies.Redeploy)
+	}
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
