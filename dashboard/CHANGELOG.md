@@ -1,10 +1,17 @@
 # Changelog
 
-## v0.6.6 (2026-09-15)
+## v0.6.6 (2026-09-16)
 
 ### Features
 
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **installer:** polish for the installer webui (#30) (05d424b)
+- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
+- **dashboard:** add the updaterjob staging format (9b727eb)
+- **dashboard:** add the energy-node-updater orchestrator script Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (1a90149)
+- **installer:** install the updater unit and its .path trigger in step 60 Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (cd5df50)
+- **dashboard:** add the local updaterhost Backend (a23ab21)
+- **dashboard:** mount the local redeploy screen and resume it after a self-update restart Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (2f2f0a2)
 - **dashboard:** allow an optional installed_services block in config.json Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (0710bea)
 - **dashboard:** add Config.ServiceInstalled with the default-on rule Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (faa9300)
 - **dashboard:** thread a resolved installed_services map into the overview handler (9dbaa36)
@@ -12,6 +19,10 @@
 
 ### Fixes
 
+- **dashboard:** use InFlight() to allow staging new jobs after previous job completes (2086154)
+- **installer:** remove unnecessary committed copy of signing key (3e23319)
+- **dashboard:** gate /redeploy/ behind the system-actions role and CSRF (7f3a132)
+- **installer:** make a real redeploy work and stop job.json from steering root (694cbe3)
 - **dashboard:** keep the generated config schema in sync with its source (38d5d6d)
 - **dashboard:** forward-compatible schema, close automations fragment gap (6549e38)
 
@@ -23,9 +34,9 @@
 
 - **dashboard:** add a smoke-test preset with every optional service off (f1f33f5)
 
-### Documentation
+### Chores
 
-- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
+- **dashboard:** depend on the energy-node-webui module (0ed9456)
 
 ## v0.6.5 (2026-09-13)
 
