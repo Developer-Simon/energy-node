@@ -149,6 +149,10 @@ class APsystemsDevice:
     # setMaxPower weiterhin den Flash-Speicher beschreibt.
     _ram_mode: Optional[bool] = field(default=None, init=False)
     _flash_default_max_power_w: Optional[int] = field(default=None, init=False)
+    # Zuletzt vom Nutzer gewuenschtes Power-Limit; dient als Referenz, um
+    # nach einem Wechselrichter-Neustart (RAM faellt auf den Flash-Wert
+    # zurueck) automatisch wiederherzustellen.
+    _desired_max_power_w: Optional[int] = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.inverter = APsystemsEZ1M(self.cfg.host, self.cfg.port)
@@ -524,6 +528,7 @@ async def poll_extended_info(
     try:
         device_info = await device.inverter.get_device_info()
         _publish_object_fields(mqtt_client, device, "device_info", device_info)
+        await ensure_ram_power_mode(device, int(device_info.maxPower))
     except Exception as exc:
         log.warning("[%s] Geraeteinfo-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
 
@@ -535,6 +540,23 @@ async def poll_extended_info(
 
     try:
         max_power = await device.inverter.get_max_power()
+        if device._desired_max_power_w is None:
+            device._desired_max_power_w = max_power
+        elif device._ram_mode and max_power != device._desired_max_power_w:
+            log.info(
+                "[%s] RAM-Power-Limit ist von %sW auf %sW abgewichen (vermutlich "
+                "Neustart) - stelle %sW wieder her.",
+                device.cfg.id, device._desired_max_power_w, max_power,
+                device._desired_max_power_w,
+            )
+            try:
+                await device.inverter.set_max_power(device._desired_max_power_w)
+                max_power = await device.inverter.get_max_power()
+            except Exception as exc:
+                log.warning(
+                    "[%s] Wiederherstellen des Power-Limits fehlgeschlagen: %s",
+                    device.cfg.id, exc,
+                )
         _publish(mqtt_client, device, "max_power_limit_w", max_power)
     except Exception as exc:
         log.warning("[%s] Power-Limit-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
@@ -573,6 +595,7 @@ async def set_max_power_safe(
             device.cfg.id,
             new_limit,
         )
+        device._desired_max_power_w = current
         _publish(mqtt_client, device, "max_power_limit_w", current)
         return
 
@@ -608,6 +631,7 @@ async def set_max_power_safe(
 
         await asyncio.sleep(2)
         current = await device.inverter.get_max_power()
+        device._desired_max_power_w = current if current is not None else new_limit
         _publish(mqtt_client, device, "max_power_limit_w", current)
     except Exception as exc:
         log.warning("[%s] Setzen des Power-Limits fehlgeschlagen: %s", device.cfg.id, exc)
