@@ -153,6 +153,8 @@ class APsystemsDevice:
     # nach einem Wechselrichter-Neustart (RAM faellt auf den Flash-Wert
     # zurueck) automatisch wiederherzustellen.
     _desired_max_power_w: Optional[int] = field(default=None, init=False)
+    # None = noch nicht geprueft; True/False = Ergebnis der ersten Abfrage.
+    _detail_supported: Optional[bool] = field(default=None, init=False)
 
     def __post_init__(self) -> None:
         self.inverter = APsystemsEZ1M(self.cfg.host, self.cfg.port)
@@ -454,6 +456,55 @@ async def ensure_ram_power_mode(device: APsystemsDevice, hardware_max_power_w: i
 
 
 # ---------------------------------------------------------------------------
+# Erweiterte Diagnosedaten (getOutputDataDetail)
+# ---------------------------------------------------------------------------
+
+_OUTPUT_DETAIL_FIELDS = ("v1", "v2", "c1", "c2", "gv", "gf", "t")
+
+
+async def fetch_output_detail(device: APsystemsDevice) -> Optional[SimpleNamespace]:
+    """
+    Fragt die undokumentierten Zusatz-Diagnosewerte (getOutputDataDetail) ab:
+    PV-Spannung/-Strom je Eingang (v1/v2/c1/c2), Netzspannung/-frequenz
+    (gv/gf) und Temperatur (t). Manche Firmware-Versionen liefern nur einen
+    Teil der Felder (z.B. keine DC-Werte) - das gilt weiterhin als
+    unterstuetzt. Liefert None, wenn der Endpunkt ueberhaupt keine
+    Zusatzfelder enthaelt oder fehlschlaegt; das Geraet wird dann dauerhaft
+    als nicht unterstuetzt markiert, um nicht bei jedem Poll erneut
+    anzufragen.
+    """
+    if device._detail_supported is False:
+        return None
+
+    try:
+        resp = await _request_raw(device, "getOutputDataDetail")
+        data = (resp or {}).get("data") or {}
+    except Exception as exc:
+        if device._detail_supported is None:
+            device._detail_supported = False
+            log.debug(
+                "[%s] getOutputDataDetail nicht verfuegbar: %s", device.cfg.id, exc
+            )
+        return None
+
+    if not any(data.get(k) not in (None, "", "null") for k in _OUTPUT_DETAIL_FIELDS):
+        device._detail_supported = False
+        log.debug(
+            "[%s] getOutputDataDetail liefert keine Zusatzfelder - Firmware "
+            "unterstuetzt den Endpunkt vermutlich nicht.",
+            device.cfg.id,
+        )
+        return None
+
+    device._detail_supported = True
+    values = {
+        k: (float(data[k]) if data.get(k) not in (None, "", "null") else None)
+        for k in _OUTPUT_DETAIL_FIELDS
+    }
+    return SimpleNamespace(**values)
+
+
+# ---------------------------------------------------------------------------
 # Poll- und Steuerlogik
 # ---------------------------------------------------------------------------
 
@@ -538,6 +589,12 @@ async def poll_extended_info(
             "power_status",
             "ON" if device._simulation_power_active else "OFF",
         )
+        _publish_object_fields(
+            mqtt_client,
+            device,
+            "output_detail",
+            SimpleNamespace(v1=32.0, v2=31.5, c1=1.1, c2=1.0, gv=231.0, gf=50.0, t=36.5),
+        )
         log.info("[%s] Simulierte erweiterte Geraeteinfo aktualisiert.", device.cfg.id)
         return
 
@@ -587,6 +644,13 @@ async def poll_extended_info(
         _publish(mqtt_client, device, "power_status", "ON" if power_status else "OFF")
     except Exception as exc:
         log.warning("[%s] Status-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
+
+    try:
+        detail = await fetch_output_detail(device)
+        if detail is not None:
+            _publish_object_fields(mqtt_client, device, "output_detail", detail)
+    except Exception as exc:
+        log.warning("[%s] Zusatzdiagnose-Abfrage fehlgeschlagen: %s", device.cfg.id, exc)
 
     log.info("[%s] Erweiterte Geraeteinfo aktualisiert.", device.cfg.id)
 
