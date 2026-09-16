@@ -48,6 +48,18 @@ func TestStageRefusesAConcurrentJob(t *testing.T) {
 	}
 }
 
+func TestStageProceedsWhenAPreviousJobHasFinished(t *testing.T) {
+	dir := t.TempDir()
+	bundle := t.TempDir()
+	os.WriteFile(filepath.Join(bundle, "manifest.json"), []byte(`{}`), 0o644)
+	os.WriteFile(filepath.Join(dir, "current.json"), []byte(`{}`), 0o644)
+	os.WriteFile(filepath.Join(dir, "status.json"), []byte(`{"result":"ok"}`), 0o644)
+	job := updaterjob.Job{BundleVersion: "2.0.0"}
+	if err := updaterjob.Stage(dir, job, bundle); err != nil {
+		t.Fatalf("Stage should proceed once the previous job finished (InFlight()==false), got: %v", err)
+	}
+}
+
 func TestReadStatusReportsNotYetFinished(t *testing.T) {
 	dir := t.TempDir()
 	status, done, err := updaterjob.ReadStatus(dir)

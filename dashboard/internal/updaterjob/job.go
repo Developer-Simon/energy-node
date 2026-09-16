@@ -48,7 +48,7 @@ func Stage(dir string, job Job, bundleSrc string) error {
 	if _, err := os.Stat(filepath.Join(dir, "pending.json")); err == nil {
 		return errors.New("updaterjob: a job is already pending")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "current.json")); err == nil {
+	if InFlight(dir) {
 		return errors.New("updaterjob: a job is already running")
 	}
 
