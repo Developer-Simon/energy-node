@@ -314,3 +314,29 @@ func TestEveryStreamedEventCarriesItsTimestamp(t *testing.T) {
 		}
 	}
 }
+
+func TestResumeRunPublishesRunFinishedAndClearsRunningState(t *testing.T) {
+	fake := hostapitest.NewFake()
+	server, err := hostapi.New(hostapi.Options{Backend: fake, Catalogs: testCatalogs(t)})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	finish := server.ResumeRun("resumed-1")
+	events, cancel := server.Bus().Subscribe(0)
+	defer cancel()
+
+	finish(nil)
+
+	select {
+	case event := <-events:
+		if event.Type != "run-finished" {
+			t.Fatalf("event.Type = %q, want run-finished", event.Type)
+		}
+		data := event.Data.(map[string]any)
+		if data["run_id"] != "resumed-1" || data["ok"] != true {
+			t.Fatalf("data = %+v", data)
+		}
+	default:
+		t.Fatal("expected a run-finished event")
+	}
+}
