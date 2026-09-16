@@ -9,10 +9,11 @@ const BOOT = {
 const DASHBOARD = {
   host: 'dashboard', entry_points: ['redeploy', 'diagnose'], needs_connection: false,
   bundle_version: 'v1.4.2', bundle_arch: 'armv6', language: 'de', language_fixed: true, languages: ['de', 'en'],
+  base_path: '/redeploy',
 };
 
-async function createShell({ bootstrap = BOOT, catalog = {}, stored = null, bootstrapError = null, hello } = {}) {
-  const { window } = loadScripts(['i18n.js', 'api.js', 'app.js']);
+async function createShell({ bootstrap = BOOT, catalog = {}, stored = null, bootstrapError = null, hello, url } = {}) {
+  const { window } = loadScripts(['i18n.js', 'api.js', 'app.js'], { url });
   if (stored) {
     window.localStorage.setItem('energy-node-installer.lang', stored);
   }
@@ -237,4 +238,24 @@ test('ohne laufenden Lauf ist alles bis hello.seq Vergangenheit', async () => {
   const { shell } = await createShell({ hello: { seq: 40, running: false, run_id: 'run-7', at: 1 } });
   assert.equal(shell.screen, 'connect');
   assert.equal(shell.shared.run, null);
+});
+
+// dashboardRootPath() ist die reine Pfad-Berechnung hinter backToDashboard()
+// (der eigentliche window.location.assign()-Aufruf laesst sich nicht testen:
+// Location.prototype.assign ist in jsdom - wie im echten Browser - absichtlich
+// non-configurable).
+test('dashboardRootPath entfernt "/redeploy" aus dem tatsaechlichen Browserpfad', async () => {
+  const { shell } = await createShell({ bootstrap: DASHBOARD, url: 'http://127.0.0.1/redeploy/preview' });
+  assert.equal(shell.dashboardRootPath(), '/');
+});
+
+test('dashboardRootPath beruecksichtigt einen Reverse-Proxy-Praefix vor /redeploy', async () => {
+  const { shell } = await createShell({ bootstrap: DASHBOARD, url: 'http://127.0.0.1/node/redeploy/run' });
+  assert.equal(shell.dashboardRootPath(), '/node/');
+});
+
+test('dashboardRootPath verwendet bootstrap.base_path statt eines fest verdrahteten Namens', async () => {
+  const custom = Object.assign({}, DASHBOARD, { base_path: '/dashboard-redeploy' });
+  const { shell } = await createShell({ bootstrap: custom, url: 'http://127.0.0.1/dashboard-redeploy/preview' });
+  assert.equal(shell.dashboardRootPath(), '/');
 });
