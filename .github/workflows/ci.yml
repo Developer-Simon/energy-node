@@ -100,7 +100,11 @@ jobs:
           printf '%s\n' "$files"
 
           emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
-          emit dashboard '^dashboard/'
+          # installer/webui too: the dashboard module depends on it through a
+          # replace directive (its local Re-Deploy screen implements
+          # hostapi.Backend), so a change there can break the dashboard build
+          # without touching a single file under dashboard/.
+          emit dashboard '^dashboard/|^installer/webui/'
           emit installer_webui '^installer/webui/'
           emit installer  '^installer/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
