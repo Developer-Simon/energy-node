@@ -7,11 +7,11 @@
 # systemd und ist Handtest an echter Hardware, siehe unten), einmal mit
 # einem nachtraeglich veraenderten manifest.json (AC 16).
 #
-# Die Auftrag-Steps sind bewusst nur ["50","60"]: Schritt 20 (Mosquitto)
-# verlangt --user/--password-file, die energy-node-updater.sh nie mitgibt
-# (ein Redeploy-Auftrag traegt laut Spec nie mqtt.pw/auth.pw) -- das ist
-# eine echte, gewollte Eigenschaft des Produktionsdesigns, keine
-# Testabkuerzung.
+# Die Schrittliste des Auftrags kommt aus dem gebauten Manifest, nicht aus
+# einer Liste hier: genau wie updaterhost.Host.Run sie bildet, naemlich
+# jeder nicht-optionale Schritt (10, 20, 30, 50, 60, 65). Eine fest
+# verdrahtete Liste ["50","60"] uebersprang frueher Schritt 20 und liess
+# damit unbemerkt, dass ein echter Redeploy dort scheiterte.
 set -euo pipefail
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(cd "$here/../.." && pwd)"
@@ -76,22 +76,31 @@ stage_job() {
     mkdir -p "$jobdir/bundle/wheels"
   fi
   printf 'platzhalter\n' > "$jobdir/bundle/wheels/energy_node_common-0.0.0-py3-none-any.whl"
+  # Derselbe Auftrag, den updaterhost.Host.Run ohne "only" stellt: jeder
+  # nicht-optionale Schritt des Manifests. target_user/target_base stehen
+  # bewusst nicht drin - der Updater nimmt sie aus dem signierten Manifest.
   python3 - "$jobdir/bundle/manifest.json" "$jobdir/job.json" <<'PY'
 import json, sys
 manifest = json.load(open(sys.argv[1]))
-job = {
-    "bundle_version": manifest["version"],
-    "mode": "redeploy",
-    "target_user": "pruef",
-    "target_base": "/home/pruef",
-    "steps": ["50", "60"],
-}
+steps = [s["id"] for s in manifest["steps"] if not s.get("optional")]
+if not steps:
+    raise SystemExit("das gebaute Manifest nennt keinen Kern-Schritt")
+job = {"bundle_version": manifest["version"], "mode": "redeploy", "steps": steps}
 json.dump(job, open(sys.argv[2], "w"))
 PY
   mv "$jobdir/job.json" "$jobdir/pending.json"
 }
 
 export EN_ROOT="$tmp/root" EN_SUDO="" EN_PIP="$tmp/bin/fakepip"
+
+# Ein Redeploy laeuft gegen einen bereits eingerichteten Knoten: config.json
+# und mqtt.pw liegen dort seit der Erstinstallation. Genau von dort holt die
+# Updater-Unit die Argumente fuer Schritt 20 - durch den Auftrag fliesst kein
+# Geheimnis.
+mkdir -p "$tmp/root/etc/energy-node"
+cp "$repo/services/energy-node.config.json" "$tmp/root/etc/energy-node/config.json"
+printf 'geheim\n' > "$tmp/root/etc/energy-node/mqtt.pw"
+chmod 600 "$tmp/root/etc/energy-node/mqtt.pw"
 
 # --- AC 15 (Form): unangetastetes, korrekt signiertes Bundle laeuft durch ---
 job="$tmp/job"
@@ -102,6 +111,14 @@ EN_UPDATER_JOB_DIR="$job" EN_UPDATER_VERIFY="$repo/scripts/bootstrap/verify_bund
   || fail "updater exited non-zero on a valid job" "$(cat "$job/log" 2>/dev/null)"
 grep -q '"result":"ok"' "$job/status.json" 2>/dev/null \
   || fail "an untouched, correctly signed bundle must run to completion" "$(cat "$job/status.json" 2>/dev/null)"
+# Jeder Kern-Schritt muss wirklich gelaufen sein. Schritt 20 steht hier
+# ausdruecklich: er war der Schritt, den die alte feste Liste ausliess und
+# an dem ein echter Redeploy deshalb unbemerkt scheiterte.
+for id in 10 20 30 50 60 65; do
+  grep -q "##STEP ${id} ok" "$job/log" \
+    || fail "step ${id} did not run to ok in a normal redeploy" "$(cat "$job/log")"
+done
+[ ! -e "$job/bundle" ] || fail "the bundle must leave the dashboard-writable job dir before it is verified"
 
 # --- AC 16: eine veraenderte manifest.json muss abgelehnt werden, bevor irgendein Schritt laeuft ---
 job2="$tmp/job2"
@@ -119,7 +136,9 @@ if EN_UPDATER_JOB_DIR="$job2" EN_UPDATER_VERIFY="$repo/scripts/bootstrap/verify_
    bash "$repo/dashboard/energy-node-updater.sh"; then
   fail "a tampered manifest.json must be rejected"
 fi
-[ ! -f "$job2/log" ] || grep -q '##STEP' "$job2/log" && fail "no step may have run against a rejected bundle" "$(cat "$job2/log")"
+if [ -f "$job2/log" ] && grep -q '##STEP' "$job2/log"; then
+  fail "no step may have run against a rejected bundle" "$(cat "$job2/log")"
+fi
 grep -q '"result":"rejected"' "$job2/status.json" || fail "status.json must record the rejection" "$(cat "$job2/status.json" 2>/dev/null)"
 
 echo "OK"

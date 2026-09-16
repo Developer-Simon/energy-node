@@ -7,8 +7,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/Developer-Simon/energy-node-webui/hostapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
+	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
 
 // tailJobLog polls logPath for lines past fromOffset, translating each one
@@ -18,9 +18,16 @@ import (
 // job the previous dashboard process instance started) use -- the only
 // difference between the two callers is where the Sink implementation
 // ends up publishing (see host.go).
-func tailJobLog(ctx context.Context, logPath, statusPath string, fromOffset int64, sink hostapi.Sink, pollEvery time.Duration) error {
+//
+// maxWait bounds the whole poll. The updater writes status.json even when
+// it is interrupted (its EXIT trap), but a process killed hard enough
+// never runs that trap, and a dashboard that resumed into such a job would
+// otherwise poll a file that will never appear, forever and silently. Zero
+// means no bound; tests use it.
+func tailJobLog(ctx context.Context, logPath, statusPath string, fromOffset int64, sink hostapi.Sink, pollEvery, maxWait time.Duration) error {
 	offset := fromOffset
 	currentStep := ""
+	started := time.Now()
 	ticker := time.NewTicker(pollEvery)
 	defer ticker.Stop()
 
@@ -58,7 +65,17 @@ func tailJobLog(ctx context.Context, logPath, statusPath string, fromOffset int6
 			if status.Result == "ok" {
 				return nil
 			}
-			return &hostapi.Error{Code: status.Code, Detail: "Schritt " + status.Step}
+			// A rejection carries no step -- "Schritt " with nothing
+			// after it would be the worst of both.
+			detail := "Bundle abgelehnt"
+			if status.Step != "" {
+				detail = "Schritt " + status.Step
+			}
+			return &hostapi.Error{Code: status.Code, Detail: detail}
+		}
+
+		if maxWait > 0 && time.Since(started) > maxWait {
+			return &hostapi.Error{Code: "UPDATER_TIMEOUT", Detail: "Der Auftrag hat sich nicht mehr gemeldet."}
 		}
 
 		select {

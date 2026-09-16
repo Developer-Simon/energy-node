@@ -14,7 +14,7 @@ func TestStageWritesJobJSONAndPendingTrigger(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(bundle, "manifest.json"), []byte(`{"version":"1.5.0"}`), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	job := updaterjob.Job{BundleVersion: "1.5.0", Mode: "redeploy", TargetUser: "energynode", TargetBase: "/home/energynode", Steps: []string{"50", "60"}}
+	job := updaterjob.Job{BundleVersion: "1.5.0", Mode: "redeploy", Steps: []string{"50", "60"}}
 
 	if err := updaterjob.Stage(dir, job, bundle); err != nil {
 		t.Fatalf("Stage: %v", err)
@@ -32,6 +32,12 @@ func TestStageWritesJobJSONAndPendingTrigger(t *testing.T) {
 	}
 	if !contains(string(raw), `"bundle_version":"1.5.0"`) || !contains(string(raw), `"60"`) {
 		t.Fatalf("pending.json = %s", raw)
+	}
+	// target_user/target_base must never travel in this file: it is
+	// dashboard-writable and unsigned, and both values steer root-run
+	// mkdir/install/chown inside 60-node-install.sh.
+	if contains(string(raw), "target_user") || contains(string(raw), "target_base") {
+		t.Fatalf("pending.json carries a target the signature does not cover: %s", raw)
 	}
 }
 

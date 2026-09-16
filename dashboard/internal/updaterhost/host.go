@@ -27,6 +27,12 @@ import (
 // restart than a watch handle that dies with the process anyway.
 const pollInterval = 250 * time.Millisecond
 
+// maxTailDuration bounds how long a single tail waits for status.json.
+// Long enough for a real bootstrap run on a Pi (apt, wheels, restarts),
+// short enough that a job whose updater died without writing a status
+// eventually surfaces as an error instead of an endless spinner.
+const maxTailDuration = 30 * time.Minute
+
 // Config points Host at the files it reads and writes. CandidateBundleDir
 // is wherever a new bundle to redeploy already sits unpacked -- how it got
 // there is out of scope for this plan (the Dashboard-OTA-Spec's job); this
@@ -81,8 +87,11 @@ func (h *Host) loadCandidateManifest() (*candidateManifest, error) {
 	return &m, nil
 }
 
+// Describe advertises only "redeploy". Diagnose below is still
+// NOT_SUPPORTED, and Schicht 3 shows a Diagnose tab as soon as a host
+// advertises more than one entry point -- which would dead-end on a 501.
 func (h *Host) Describe() hostapi.Description {
-	desc := hostapi.Description{Host: hostapi.HostDashboard, EntryPoints: []string{"redeploy", "diagnose"}, NeedsConnection: false}
+	desc := hostapi.Description{Host: hostapi.HostDashboard, EntryPoints: []string{"redeploy"}, NeedsConnection: false}
 	if m, err := h.loadCandidateManifest(); err == nil {
 		desc.BundleVersion = m.Version
 		desc.BundleArch = m.Arch
@@ -196,15 +205,19 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		}
 	}
 
+	// req.TargetUser/TargetBase are deliberately not forwarded: they would
+	// travel through the unsigned, dashboard-writable job.json into a
+	// root-run install/chown. The updater takes both from the verified
+	// manifest instead.
 	job := updaterjob.Job{
 		BundleVersion: candidate.Version, Mode: string(req.Mode), Only: req.Only,
-		TargetUser: req.TargetUser, TargetBase: req.TargetBase, Steps: stepIDs,
+		Steps: stepIDs,
 	}
 	if err := updaterjob.Stage(h.cfg.JobDir, job, h.cfg.CandidateBundleDir); err != nil {
 		return &hostapi.Error{Code: "JOB_STAGING_FAILED", Detail: err.Error()}
 	}
 
-	return tailJobLog(ctx, h.cfg.JobDir+"/log", h.cfg.JobDir+"/status.json", 0, sink, pollInterval)
+	return tailJobLog(ctx, h.cfg.JobDir+"/log", h.cfg.JobDir+"/status.json", 0, sink, pollInterval, maxTailDuration)
 }
 
 // TailInFlight resumes watching a job the updater already claimed before
@@ -218,7 +231,7 @@ func (h *Host) TailInFlight(ctx context.Context, sink hostapi.Sink) error {
 	if !updaterjob.InFlight(h.cfg.JobDir) {
 		return fmt.Errorf("updaterhost: no job in flight in %s", h.cfg.JobDir)
 	}
-	return tailJobLog(ctx, h.cfg.JobDir+"/log", h.cfg.JobDir+"/status.json", 0, sink, pollInterval)
+	return tailJobLog(ctx, h.cfg.JobDir+"/log", h.cfg.JobDir+"/status.json", 0, sink, pollInterval, maxTailDuration)
 }
 
 func (h *Host) Diagnose(context.Context) (*hostapi.DiagnoseView, error) {

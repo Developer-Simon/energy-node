@@ -22,12 +22,17 @@ const DefaultDir = "/var/lib/energy-node-installer/job"
 // Job is what the dashboard stages for the updater to run. It carries no
 // secrets (see the plan's Global Constraints) -- a redeploy never needs
 // mqtt.pw/auth.pw, which already exist on a node the dashboard runs on.
+//
+// It deliberately carries no target_user/target_base either. This file is
+// written by the unprivileged dashboard account and is not covered by the
+// bundle signature, so anything in it that steered a root-run
+// mkdir/install/chown would bypass E13 entirely. The updater reads both
+// from the signature-verified manifest.json instead, and holds Steps
+// against that same manifest's step list before running anything.
 type Job struct {
 	BundleVersion string   `json:"bundle_version"`
 	Mode          string   `json:"mode"`
 	Only          string   `json:"only,omitempty"`
-	TargetUser    string   `json:"target_user"`
-	TargetBase    string   `json:"target_base"`
 	Steps         []string `json:"steps"`
 }
 

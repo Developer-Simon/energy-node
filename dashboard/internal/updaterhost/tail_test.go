@@ -3,10 +3,13 @@ package updaterhost
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
 
 type recordingSink struct {
@@ -27,7 +30,7 @@ func TestTailJobLogStopsAtOkStatus(t *testing.T) {
 	os.WriteFile(statusPath, []byte(`{"result":"ok"}`), 0o644)
 
 	sink := &recordingSink{}
-	err := tailJobLog(context.Background(), logPath, statusPath, 0, sink, 10*time.Millisecond)
+	err := tailJobLog(context.Background(), logPath, statusPath, 0, sink, 10*time.Millisecond, 0)
 	if err != nil {
 		t.Fatalf("tailJobLog: %v", err)
 	}
@@ -46,7 +49,7 @@ func TestTailJobLogReportsAFailStatusAsAnError(t *testing.T) {
 	os.WriteFile(logPath, []byte("1000 ##STEP 60 fail DASHBOARD_START_FAILED\n"), 0o644)
 	os.WriteFile(statusPath, []byte(`{"result":"fail","step":"60","code":"DASHBOARD_START_FAILED"}`), 0o644)
 
-	err := tailJobLog(context.Background(), logPath, statusPath, 0, &recordingSink{}, 10*time.Millisecond)
+	err := tailJobLog(context.Background(), logPath, statusPath, 0, &recordingSink{}, 10*time.Millisecond, 0)
 	if err == nil {
 		t.Fatal("expected an error for a failed job")
 	}
@@ -60,7 +63,7 @@ func TestTailJobLogWaitsForNewLinesBeforeTheStatusAppears(t *testing.T) {
 
 	done := make(chan error, 1)
 	sink := &recordingSink{}
-	go func() { done <- tailJobLog(context.Background(), logPath, statusPath, 0, sink, 5*time.Millisecond) }()
+	go func() { done <- tailJobLog(context.Background(), logPath, statusPath, 0, sink, 5*time.Millisecond, 0) }()
 
 	time.Sleep(20 * time.Millisecond)
 	f, _ := os.OpenFile(logPath, os.O_APPEND|os.O_WRONLY, 0o644)
@@ -78,5 +81,21 @@ func TestTailJobLogWaitsForNewLinesBeforeTheStatusAppears(t *testing.T) {
 	}
 	if len(sink.markers) != 2 {
 		t.Fatalf("markers = %v, want begin+ok", sink.markers)
+	}
+}
+
+// A job whose updater died hard enough never to write status.json would
+// otherwise keep a resumed dashboard polling forever, with nothing on the
+// screen ever changing.
+func TestTailJobLogGivesUpOnAStatusThatNeverArrives(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "log")
+	os.WriteFile(logPath, []byte("1000 ##STEP 60 begin\n"), 0o644)
+
+	err := tailJobLog(context.Background(), logPath, filepath.Join(dir, "status.json"), 0,
+		&recordingSink{}, 5*time.Millisecond, 20*time.Millisecond)
+	var typed *hostapi.Error
+	if !errors.As(err, &typed) || typed.Code != "UPDATER_TIMEOUT" {
+		t.Fatalf("err = %v, want an UPDATER_TIMEOUT hostapi.Error", err)
 	}
 }
