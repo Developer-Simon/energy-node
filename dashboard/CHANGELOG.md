@@ -5,6 +5,7 @@
 ### Features
 
 - **dashboard:** make the "check for updates" button more prominent (00a5e46)
+- **dashboard:** link the update-available chip to the redeploy screen (c60f545)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** polish for the installer webui (#30) (05d424b)
 - **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
