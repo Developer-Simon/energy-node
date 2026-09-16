@@ -5,6 +5,8 @@
 ### Features
 
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **installer:** polish for the installer webui (#30) (05d424b)
+- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
 - **dashboard:** allow an optional installed_services block in config.json Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (0710bea)
 - **dashboard:** add Config.ServiceInstalled with the default-on rule Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (faa9300)
 - **dashboard:** thread a resolved installed_services map into the overview handler (9dbaa36)
@@ -22,10 +24,6 @@
 ### Tests
 
 - **dashboard:** add a smoke-test preset with every optional service off (f1f33f5)
-
-### Documentation
-
-- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 
 ## v0.6.5 (2026-09-13)
 
