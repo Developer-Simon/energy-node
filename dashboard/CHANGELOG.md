@@ -23,6 +23,7 @@
 - **installer:** remove unnecessary committed copy of signing key (3e23319)
 - **dashboard:** gate /redeploy/ behind the system-actions role and CSRF (7f3a132)
 - **installer:** make a real redeploy work and stop job.json from steering root (694cbe3)
+- **dashboard:** silence SC2317 on the trap-only finish_interrupted (7d5843d)
 - **dashboard:** keep the generated config schema in sync with its source (38d5d6d)
 - **dashboard:** forward-compatible schema, close automations fragment gap (6549e38)
 
