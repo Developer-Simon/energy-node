@@ -1,11 +1,12 @@
 # Changelog
 
-## v0.4.5 (2026-09-15)
+## v0.4.5 (2026-09-16)
 
 ### Features
 
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** polish for the installer webui (#30) (05d424b)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
 
 ### Documentation
 
