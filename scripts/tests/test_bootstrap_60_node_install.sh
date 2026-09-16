@@ -24,11 +24,18 @@ export PATH="$tmp/bin:$PATH"
 export SYSTEMCTL_LOG="$tmp/systemctl.log" VISUDO_LOG="$tmp/visudo.log"
 
 bundle="$tmp/bundle"
-mkdir -p "$bundle/dashboard" "$bundle/config/manifests"
+mkdir -p "$bundle/dashboard" "$bundle/config/manifests" "$bundle/bootstrap"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-dashboard"
 printf '[Unit]\n'       > "$bundle/dashboard/energy-node-dashboard.service"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-dashboard-system-action"
 printf 'energynode ALL\n' > "$bundle/dashboard/energy-node-dashboard-system-action.sudoers"
+printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-updater"
+chmod +x "$bundle/dashboard/energy-node-updater"
+printf '[Unit]\nDescription=Test\n' > "$bundle/dashboard/energy-node-updater.service"
+printf '[Unit]\nDescription=Test\n' > "$bundle/dashboard/energy-node-updater.path"
+printf 'test-key\n'     > "$bundle/dashboard/signing_key.pub.pem"
+printf '#!/bin/sh\n'    > "$bundle/bootstrap/verify_bundle.sh"
+chmod +x "$bundle/bootstrap/verify_bundle.sh"
 printf '{"mqtt":{}}\n'  > "$bundle/config/config.json"
 printf 'v1.4.0\n'       > "$bundle/config/services-VERSION"
 printf '{"service_id":"shelly"}\n'  > "$bundle/config/manifests/shelly.json"
@@ -65,6 +72,22 @@ grep -q '^##STEP 60 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 [ -f "$base/devices/VERSION" ] || fail "services-VERSION fehlt"
 grep -q 'systemctl enable --now energy-node-dashboard.service' "$SYSTEMCTL_LOG" \
   || fail "Dashboard nicht gestartet" "$(cat "$SYSTEMCTL_LOG")"
+
+# --- Updater-Unit (Plan D) ------------------------------------------------
+[[ -x "$tmp/root/usr/local/sbin/energy-node-updater" ]] \
+  || fail "energy-node-updater not installed executable"
+[[ -f "$tmp/root/etc/systemd/system/energy-node-updater.service" ]] \
+  || fail "energy-node-updater.service not installed"
+[[ -f "$tmp/root/etc/systemd/system/energy-node-updater.path" ]] \
+  || fail "energy-node-updater.path not installed"
+[[ -x "$tmp/root/usr/local/lib/energy-node-installer/verify_bundle.sh" ]] \
+  || fail "persistent verify_bundle.sh not installed"
+[[ -f "$tmp/root/etc/energy-node-updater/signing_key.pub.pem" ]] \
+  || fail "signing public key not installed for the updater"
+grep -q "enable --now energy-node-updater.path" "$SYSTEMCTL_LOG" \
+  || fail "energy-node-updater.path must be enabled and started"
+[[ -d "$tmp/root/var/lib/energy-node-installer/job" ]] \
+  || fail "job directory not created"
 
 # --- visudo lief gegen die Datei im Bundle, nicht gegen die installierte ---
 grep -q "visudo -cf $bundle/dashboard/" "$VISUDO_LOG" \
