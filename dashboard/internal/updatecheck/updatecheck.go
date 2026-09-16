@@ -48,7 +48,10 @@ type githubRelease struct {
 	PublishedAt time.Time `json:"published_at"`
 }
 
-var versionLike = regexp.MustCompile(`^\d+(\.\d+){0,2}`)
+// The optional "v" matters: main.buildVersion is built from dashboard/VERSION
+// (which itself is "vX.Y.Z") plus an optional "-dev" or "-branch.N" suffix,
+// so a real build's current version always carries the prefix.
+var versionLike = regexp.MustCompile(`^v?\d+(\.\d+){0,2}`)
 
 // Check compares current (typically main.buildVersion) against the latest
 // GitHub release tag. A current version that does not look like a version

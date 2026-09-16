@@ -75,6 +75,24 @@ func TestCheckIgnoresAPatchAheadOfGitHub(t *testing.T) {
 	}
 }
 
+func TestCheckHandlesTheVPrefixMainBuildVersionActuallyCarries(t *testing.T) {
+	// main.buildVersion is built from dashboard/VERSION ("vX.Y.Z") plus an
+	// optional "-dev"/"-branch.N" suffix -- never a bare "1.4.1". A regex
+	// requiring a leading digit would silently make every real deployment
+	// report "no update available", always, regardless of the actual
+	// comparison.
+	server := serverWithRelease(t, "v1.4.2")
+	checker := &Checker{Repo: "Developer-Simon/energy-node", BaseURL: server.URL}
+
+	result, err := checker.Check(context.Background(), "v1.4.1-dev")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !result.Available {
+		t.Fatalf("expected the v-prefixed, suffixed current version to compare correctly: %+v", result)
+	}
+}
+
 func TestCheckSkipsComparisonForANonVersionCurrent(t *testing.T) {
 	server := serverWithRelease(t, "v1.4.2")
 	checker := &Checker{Repo: "Developer-Simon/energy-node", BaseURL: server.URL}
