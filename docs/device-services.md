@@ -145,20 +145,20 @@ own topic prefix, entities and availability.
 **Entities published:** power, daily yield and lifetime yield, each for string
 PV1, string PV2 and the total — nine sensors, with `total_increasing` state
 class on the lifetime counters so Home Assistant's energy dashboard accepts
-them. Additional fields found on the inverter are published as diagnostic
-sensors that are disabled by default.
+them; a power-limit `number` and an operating-status `switch`; and a set of
+diagnostic sensors disabled by default, including extended electrical
+readings (PV input voltage/current, grid voltage/frequency, temperature)
+where the inverter's firmware supports them.
 
-**Control:**
+The EZ1 can store its power limit in flash, and frequent writes wear flash
+out over time. The service detects per inverter whether its firmware instead
+keeps the limit in RAM and, if so, changes the write strategy accordingly;
+inverters without that support keep a service-enforced **minimum of five
+minutes between two writes**, no matter who publishes the command.
 
-| Entity | Topic | Range |
-|---|---|---|
-| Power limit (`number`) | `outstation/<id>/set/max_power_limit_w` | 30–800 W |
-| Operating status (`switch`) | `outstation/<id>/set/power_status` | on/off |
-
-The EZ1 stores its power limit in flash, and community reports point at flash
-wear from frequent writes. The bridge therefore enforces a **minimum of five
-minutes between two writes** — a rule in the service, not in the UI, so it
-holds no matter who publishes the command.
+**Full documentation:**
+[`knowledge/services/apsystems-ez1.md`](knowledge/services/apsystems-ez1.md) —
+the complete entity list and the RAM/flash power-limit handling in detail.
 
 ---
 
@@ -230,9 +230,7 @@ of one or two LiFePO4 banks by coulomb counting — with voltage recalibration a
 the ends of the curve, per-converter efficiency, and load compensation on the
 measured cell voltage.
 
-It is a monitoring estimate, not a BMS. How the engine works is documented in
-detail in
-[`knowledge/services/battery-soc-how-it-works.md`](knowledge/services/battery-soc-how-it-works.md).
+It is a monitoring estimate, not a BMS.
 
 **Inputs.** Charger power, inverter power, and one voltage topic per bank —
 each as a topic plus an optional JSON key, because a Trucki stick publishes a
@@ -268,6 +266,11 @@ The same engine is also available as a **native Home Assistant integration**
 under `integrations/homeassistant/`, installable through HACS — the same core
 with a config flow instead of MQTT topics. See
 [`integration/ha-integration-hacs-release.md`](integration/ha-integration-hacs-release.md).
+
+**Full documentation:**
+[`knowledge/services/battery-soc-how-it-works.md`](knowledge/services/battery-soc-how-it-works.md)
+— coulomb counting, recalibration, load compensation and every setting in
+detail.
 
 ---
 
@@ -352,3 +355,4 @@ protocol. It exists so a topic convention or a validation rule is written once
 - [`knowledge/data-flow.md`](knowledge/data-flow.md) — the full path of a value, from device to Home Assistant
 - [`knowledge/configuration.md`](knowledge/configuration.md) — every field of `/etc/energy-node/config.json`
 - [`knowledge/performance-and-resources.md`](knowledge/performance-and-resources.md) — what each service costs on a Pi 1
+- [`knowledge/dependencies.md`](knowledge/dependencies.md) — third-party code and ideas a service's implementation was adapted from
