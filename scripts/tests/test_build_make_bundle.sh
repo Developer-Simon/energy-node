@@ -65,6 +65,16 @@ done
 [ -e "$out/services/shelly/devices/manifest.json" ] && fail "manifest.json als Geraetedatei einsortiert"
 [ -e "$out/services/shelly/devices/config.schema.json" ] && fail "Schema-Fragment als Geraetedatei einsortiert"
 
+# --- Updater-Unit und Signaturschluessel im Bundle ----------------------------
+[[ -x "${out}/dashboard/energy-node-updater" ]] \
+  || fail "energy-node-updater not staged into the bundle"
+[[ -f "${out}/dashboard/energy-node-updater.service" ]] \
+  || fail "energy-node-updater.service not staged"
+[[ -f "${out}/dashboard/energy-node-updater.path" ]] \
+  || fail "energy-node-updater.path not staged"
+[[ -f "${out}/dashboard/signing_key.pub.pem" ]] \
+  || fail "signing public key not staged into the bundle"
+
 # --- Units sind gerendert --------------------------------------------------
 grep -q 'energynode' "$out/services/shelly/shelly-rpc.service" \
   && fail "Platzhalter in der Dienst-Unit" "$(cat "$out/services/shelly/shelly-rpc.service")"

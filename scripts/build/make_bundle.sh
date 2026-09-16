@@ -118,11 +118,16 @@ else
       -o "${STAGE}/dashboard/${BINARY_NAME}" ./cmd/dashboard )
 fi
 for file in "${BINARY_NAME}.service" "${BINARY_NAME}-system-action" \
-            "${BINARY_NAME}-system-action.sudoers"; do
+            "${BINARY_NAME}-system-action.sudoers" \
+            energy-node-updater.service energy-node-updater.path; do
   render_unit_as "${REPO_ROOT}/dashboard/${file}" "${STAGE}/dashboard/${file}" \
     "${BUNDLE_USER}" "${BUNDLE_BASE}"
 done
 cp "${REPO_ROOT}/dashboard/Caddyfile" "${STAGE}/dashboard/Caddyfile"
+install -m 0755 "${REPO_ROOT}/dashboard/energy-node-updater.sh" \
+  "${STAGE}/dashboard/energy-node-updater"
+cp "${REPO_ROOT}/installer/internal/bundle/signing_key.pub.pem" \
+  "${STAGE}/dashboard/signing_key.pub.pem"
 
 # --- services/ und config/manifests/ --------------------------------------
 load_service_table "${REPO_ROOT}/services"
