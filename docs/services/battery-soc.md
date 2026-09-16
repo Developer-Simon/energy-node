@@ -43,14 +43,56 @@ DC→AC efficiency; and the charge efficiency of the cells themselves.
 
 ## Entities
 
-**Entities published:** combined SoC, net battery power, "inputs stale" and
-"AC fallback active" as problem sensors, time to full and time to empty; then
-per unit (pack, or bank A and bank B) voltage, estimated current, remaining
-Ah, load-corrected cell voltage, last calibration timestamp, the two active
-calibration thresholds, a voltage-based SoC estimate and a
-voltage-versus-coulomb mismatch warning. Finally a `number` entity to **set
-the SoC by hand** — one for the pack, or one per bank on a series pack —
-which is the way back after an outage that lost the count.
+All sensor and binary-sensor entities read from a single JSON state topic,
+`outstation/<id>/state`, via a `value_template`; the "Field" column below is
+the JSON key inside that payload. Most carry `entity_category: diagnostic`,
+noted where it applies — unlike the other services' diagnostic sensors, none
+of these are disabled by default.
+
+**Always published:**
+
+| Entity | Field | Unit | Notes |
+|---|---|---|---|
+| SoC | `soc_combined_pct` | % | combined; on a series pack this is the weaker bank |
+| Net battery power | `net_power_w` | W | positive = net charge |
+| Inputs stale | `inputs_stale` | — | `binary_sensor`, problem, diagnostic |
+| AC fallback active | `ac_fallback_active` | — | `binary_sensor`, problem, diagnostic |
+| Time to full | `time_to_full_h` | h | diagnostic |
+| Time to empty | `time_to_empty_h` | h | diagnostic |
+
+**Per unit** — once for `pack`, or once each for `bank_a` / `bank_b` on a
+series topology (`<unit>` below stands for that unit's name):
+
+| Entity | Field | Unit | Notes |
+|---|---|---|---|
+| Voltage | `<unit>_voltage_v` | V | diagnostic |
+| Current (estimated) | `<unit>_current_a` | A | diagnostic |
+| Remaining capacity | `<unit>_remaining_ah` | Ah | diagnostic |
+| Load-corrected cell voltage | `<unit>_corrected_v_per_cell` | V | diagnostic |
+| Last calibration | `last_calibration_<unit>` | timestamp | diagnostic |
+| Calibration threshold, empty | `<unit>_calibration_empty_v_per_cell` | V | diagnostic |
+| Calibration threshold, full | `<unit>_calibration_full_v_per_cell` | V | diagnostic |
+| Voltage-based SoC (uncertain) | `<unit>_voltage_soc_pct` | % | diagnostic |
+| Voltage/coulomb mismatch | `<unit>_voltage_soc_mismatch` | — | `binary_sensor`, problem, diagnostic |
+| Calibration jump | `<unit>_last_calibration_residual_ah` | Ah | diagnostic |
+| Current at calibration | `<unit>_last_calibration_current_a` | A | diagnostic |
+
+**Series topology only:**
+
+| Entity | Field | Unit | Notes |
+|---|---|---|---|
+| SoC Bank A | `soc_a_pct` | % | |
+| SoC Bank B | `soc_b_pct` | % | |
+| Voltage difference A/B | `voltage_delta_v` | V | diagnostic |
+| Banks unbalanced | `imbalance_warning` | — | `binary_sensor`, problem, diagnostic |
+
+**Control:**
+
+| Entity | Topic | Range |
+|---|---|---|
+| Set SoC by hand (`number`) | `outstation/<id>/cmd/manual_soc` — parallel/single-bank, or `.../cmd/manual_soc/bank_a` and `.../bank_b` on a series pack | 0–100 % |
+
+This is the way back after an outage that lost the coulomb count.
 
 Discovery is cleaned up as the topology changes: object IDs that do not
 belong to the current configuration are cleared with an empty retained
