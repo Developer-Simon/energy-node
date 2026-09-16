@@ -1,11 +1,12 @@
 # Changelog
 
-## v0.3.2 (2026-09-16)
+## v0.3.3 (2026-09-16)
 
 ### Features
 
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** polish for the installer webui (#30) (05d424b)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
 - **apsystems:** detect RAM/flash power-limit split and raise flash ceiling once (3e814ef)
 - **apsystems:** restore RAM power limit after firmware-side drift (a42c671)
 - **apsystems:** expose flash-stored power limit as diagnostic sensor (19336e2)

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.6.6 (2026-09-16)
+## v0.6.7 (2026-09-16)
 
 ### Features
 
@@ -32,6 +32,7 @@
 
 ### Tests
 
+- **dashboard:** add --https to the local smoke test (386d716)
 - **dashboard:** add a smoke-test preset with every optional service off (f1f33f5)
 
 ### Chores
