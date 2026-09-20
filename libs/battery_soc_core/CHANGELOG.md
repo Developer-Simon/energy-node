@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.9 (2026-09-16)
+## v0.1.9 (2026-09-20)
 
 ### Features
 
@@ -23,6 +23,7 @@
 
 ### Fixes
 
+- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 - **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
@@ -52,6 +53,18 @@
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 - path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
 - skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
+
+## v0.1.9 (2026-09-16)
+
+### Features
+
+- **installer:** polish for the installer webui (#30) (05d424b)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
+- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
+
+### Documentation
+
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 
 ## v0.1.9 (2026-09-13)
 

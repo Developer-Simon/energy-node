@@ -81,7 +81,11 @@ for entry in data.get("steps", []):
     printf 'manifest%s%s%s\n' "$tab" "$(basename "${manifest}" .json)" "$tab"
   done
 
-  if command -v tailscale >/dev/null 2>&1 && tailscale status >/dev/null 2>&1; then
+  # tailscale liegt in /usr/sbin, das im PATH einer nicht-interaktiven
+  # SSH-Sitzung fehlt (Debian: /usr/local/bin:/usr/bin:/bin:/usr/games). Ein
+  # "command -v" fand es dort nie und meldete einen angemeldeten Node als
+  # ausgeloggt. Ueber sudo greift dessen secure_path, wie in Schritt 40.
+  if "${SUDO[@]}" tailscale status >/dev/null 2>&1; then
     printf 'tailscale%sangemeldet%strue\n' "$tab" "$tab"
   else
     printf 'tailscale%sangemeldet%sfalse\n' "$tab" "$tab"

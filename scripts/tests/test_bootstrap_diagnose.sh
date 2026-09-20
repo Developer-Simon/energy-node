@@ -43,7 +43,7 @@ cat > "$bundle/manifest.json" <<'JSON'
 JSON
 
 export EN_STATE_DIR="$tmp/state" EN_ROOT="$tmp/root" EN_BUNDLE_DIR="$bundle"
-export EN_BUNDLE_VERSION=v0.2.0
+export EN_BUNDLE_VERSION=v0.2.0 EN_SUDO=""
 
 mkdir -p "$EN_STATE_DIR/steps" "$tmp/root/etc/energy-node/manifests"
 printf 'bundle=v0.2.0\n' > "$EN_STATE_DIR/steps/10"
@@ -69,6 +69,27 @@ get() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv
 [ "$(get 'd["config"]["config.json"]')" = True ] || fail "config.json nicht erkannt" "$out"
 [ "$(get 'sorted(d["config"]["manifests"])')" = "['shelly', 'tuya']" ] || fail "Manifeste falsch" "$out"
 [ "$(get 'd["tailscale"]["angemeldet"]')" = True ] || fail "tailscale nicht angemeldet" "$out"
+
+# --- tailscale liegt in /usr/sbin, das im PATH einer SSH-Sitzung fehlt ----
+# Eine nicht-interaktive Sitzung auf Debian hat nur /usr/local/bin:/usr/bin:
+# /bin:/usr/games im PATH. "command -v tailscale" fand das Programm dort nie
+# und meldete einen angemeldeten Node als ausgeloggt. Ueber sudo greift
+# dessen secure_path - die Attrappe stellt /usr/sbin nur fuer den
+# umschlossenen Aufruf voran.
+mkdir -p "$tmp/sbin"
+mv "$tmp/bin/tailscale" "$tmp/sbin/tailscale"
+cat > "$tmp/bin/fakesudo" <<SH
+#!/usr/bin/env bash
+PATH="$tmp/sbin:\$PATH" exec "\$@"
+SH
+chmod +x "$tmp/bin/fakesudo"
+out="$(EN_SUDO="$tmp/bin/fakesudo" ACTIVE="" LISTENING="" TS_STATUS_RC=0 bash "$script")"
+[ "$(get 'd["tailscale"]["angemeldet"]')" = True ] \
+  || fail "tailscale in /usr/sbin (nicht im PATH) nicht gefunden" "$out"
+out="$(EN_SUDO="$tmp/bin/fakesudo" ACTIVE="" LISTENING="" TS_STATUS_RC=1 bash "$script")"
+[ "$(get 'd["tailscale"]["angemeldet"]')" = False ] \
+  || fail "abgemeldet ueber sudo nicht erkannt" "$out"
+mv "$tmp/sbin/tailscale" "$tmp/bin/tailscale"
 
 # --- kaputter Node: trotzdem Exit 0 und vollstaendiges JSON --------------
 rm -rf "$tmp/root" "$tmp/state"

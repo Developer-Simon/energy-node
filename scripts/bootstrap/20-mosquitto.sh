@@ -3,9 +3,11 @@
 # Schritt 20: Mosquitto-Broker, Benutzer und conf.d/default.conf
 # (INSTALLATION.md §4).
 #
-# Das Passwort kommt ausschliesslich als Pfad zu einer 0600-Datei und
-# erreicht mosquitto_passwd ueber stdin - ein Argument stuende in
-# /proc/<pid>/cmdline und waere fuer jeden lokalen Benutzer lesbar.
+# Das Passwort kommt ausschliesslich als Pfad zu einer 0600-Datei. Die
+# passwd-Zeile bauen wir selbst (siehe unten) statt mosquitto_passwd
+# aufzurufen: das kennt keinen stdin-Weg - das Passwort kommt vom Terminal
+# oder mit -b als Argument, und ein Argument stuende in /proc/<pid>/cmdline
+# und waere fuer jeden lokalen Benutzer lesbar.
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
@@ -50,10 +52,39 @@ allow_anonymous false
 password_file /etc/mosquitto/passwd
 CONF
 
-# -c legt die Datei neu an; danach steht genau ein Benutzer darin. Das ist
+# Die Datei wird neu angelegt; danach steht genau ein Benutzer darin. Das ist
 # gewollt: der Broker gehoert diesem Node, nicht einer gewachsenen Historie.
-"${SUDO[@]}" mosquitto_passwd -c "${passwd_file}" "${MQTT_USER}" < "${PASSWORD_FILE}" \
-  || step_fail MOSQUITTO_PASSWD_FAILED
+#
+# Format wie mosquitto_passwd 2.x es schreibt (sha512-pbkdf2, dessen
+# Vorgabe): user:$7$<Runden>$<Salt, base64>$<PBKDF2-HMAC-SHA512, base64> mit
+# 12 Byte Salt, das dekodiert in den Hash eingeht. Das Passwort wird wie in
+# energy_node_common.appconfig gelesen - nachlaufender Weissraum zaehlt nicht
+# dazu, damit der Hash dasselbe Passwort meint wie die Clients.
+hash_line="$(mktemp)"
+trap 'rm -f "${hash_line}"' EXIT
+python3 - "${PASSWORD_FILE}" "${MQTT_USER}" > "${hash_line}" <<'PY' || step_fail MOSQUITTO_PASSWD_FAILED
+import base64, hashlib, os, sys
+
+password_file, user = sys.argv[1], sys.argv[2]
+password = open(password_file, encoding="utf-8").read().rstrip("\r\n\t ")
+if not password or not user or ":" in user:
+    sys.exit("Benutzername oder Passwort unbrauchbar")
+salt = os.urandom(12)
+digest = hashlib.pbkdf2_hmac("sha512", password.encode("utf-8"), salt, 101)
+print("%s:$7$101$%s$%s" % (user, base64.b64encode(salt).decode(), base64.b64encode(digest).decode()))
+PY
+
+# Der Broker liest die Datei nach dem Wechsel auf seinen eigenen Benutzer neu
+# (SIGHUP) und neuere Fassungen verweigern eine fuer alle lesbare Datei - also
+# root:mosquitto 0640, wo die Gruppe existiert (das Paket legt sie an).
+if { [[ "${#SUDO[@]}" -gt 0 || "$(id -u)" -eq 0 ]] \
+     && getent group mosquitto >/dev/null 2>&1; }; then
+  "${SUDO[@]}" install -o root -g mosquitto -m 0640 "${hash_line}" "${passwd_file}" \
+    || step_fail MOSQUITTO_PASSWD_FAILED
+else
+  "${SUDO[@]}" install -m 0644 "${hash_line}" "${passwd_file}" \
+    || step_fail MOSQUITTO_PASSWD_FAILED
+fi
 
 "${SUDO[@]}" systemctl enable --now mosquitto
 "${SUDO[@]}" systemctl restart mosquitto

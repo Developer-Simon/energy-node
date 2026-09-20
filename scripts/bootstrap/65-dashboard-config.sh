@@ -45,7 +45,8 @@ fi
 # kaputtes manifest.json ergaebe dann still null Zeilen statt eines
 # Fehlschlags.
 manifest_rows="$(mktemp)"
-trap 'rm -f "${manifest_rows}"' EXIT
+new_cfg="$(mktemp)"
+trap 'rm -f "${manifest_rows}" "${new_cfg}"' EXIT
 python3 - "${manifest}" > "${manifest_rows}" <<'PY' || step_fail MANIFEST_PARSE_FAILED
 import json, sys
 manifest = json.loads(open(sys.argv[1], encoding="utf-8").read())
@@ -66,12 +67,14 @@ while IFS=$'\t' read -r step_id dashboard_key; do
   selected_rows+="${dashboard_key}"$'\t'"${selected}"$'\n'
 done < "${manifest_rows}"
 
-SELECTED_ROWS="${selected_rows}" python3 - "${cfg}" <<'PY'
+# Das neue JSON entsteht in einer Datei des Aufrufers, nicht neben der
+# config.json: der Installer fuehrt diesen Schritt als SSH-Benutzer aus, und
+# /etc/energy-node gehoert root:<Benutzer> mit 0755 - dort laesst sich keine
+# Temp-Datei anlegen.
+SELECTED_ROWS="${selected_rows}" python3 - "${cfg}" > "${new_cfg}" <<'PY' || step_fail CONFIG_WRITE_FAILED
 import json, os, sys
 
-path = sys.argv[1]
-tmp_path = path + ".tmp"
-doc = json.loads(open(path, encoding="utf-8").read())
+doc = json.loads(open(sys.argv[1], encoding="utf-8").read())
 
 installed = {}
 for row in os.environ["SELECTED_ROWS"].splitlines():
@@ -81,11 +84,20 @@ for row in os.environ["SELECTED_ROWS"].splitlines():
     installed[key] = selected == "true"
 
 doc["installed_services"] = installed
-with open(tmp_path, "w", encoding="utf-8") as handle:
-    json.dump(doc, handle, indent=2, sort_keys=True, ensure_ascii=False)
-    handle.write("\n")
-os.replace(tmp_path, path)
+json.dump(doc, sys.stdout, indent=2, sort_keys=True, ensure_ascii=False)
+sys.stdout.write("\n")
 PY
+
+# Ersetzt wird ueber sudo: cp -p uebernimmt Besitzer und Rechte der alten
+# Datei (root:<Benutzer> 0664 - das Dashboard bearbeitet sie live und muss
+# weiter schreiben duerfen), tee legt den neuen Inhalt hinein, mv tauscht sie
+# atomar aus.
+"${SUDO[@]}" cp -p "${cfg}" "${cfg}.tmp" || step_fail CONFIG_WRITE_FAILED
+if ! "${SUDO[@]}" tee "${cfg}.tmp" < "${new_cfg}" >/dev/null; then
+  "${SUDO[@]}" rm -f "${cfg}.tmp"
+  step_fail CONFIG_WRITE_FAILED
+fi
+"${SUDO[@]}" mv "${cfg}.tmp" "${cfg}" || step_fail CONFIG_WRITE_FAILED
 
 # Ohne Neustart bliebe ein bei diesem Lauf abgewaehlter Dienst im laufenden
 # Prozess sichtbar, bis irgendwann etwas anderes das Dashboard neu startet -

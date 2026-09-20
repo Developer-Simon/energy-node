@@ -87,3 +87,17 @@ if not isinstance(steps, dict):
 sys.exit(0 if steps.get(sys.argv[2], True) else 1)
 PY
 }
+
+# step_version_ge <a> <b>: Erfolg, wenn Version a gleich oder neuer als b ist.
+# Ein fuehrendes "v" und alles ab dem ersten Zeichen, das nicht zu einer
+# Punktversion gehoert (1.98.9-t4fb758c39-g200941d74), zaehlen nicht. Eine
+# leere oder nicht lesbare Version ist "unbekannt" und nie gleich oder
+# neuer: wer damit einen Schritt ueberspringt, tut es nur bei sicherem
+# Wissen.
+step_version_ge() {
+  local a="${1#v}" b="${2#v}"
+  a="${a%%[!0-9.]*}"
+  b="${b%%[!0-9.]*}"
+  [[ "${a}" =~ ^[0-9]+(\.[0-9]+)*$ && "${b}" =~ ^[0-9]+(\.[0-9]+)*$ ]] || return 1
+  [[ "$(printf '%s\n%s\n' "${a}" "${b}" | sort -V | tail -n 1)" == "${a}" ]]
+}

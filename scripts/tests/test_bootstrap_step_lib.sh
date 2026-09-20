@@ -81,4 +81,17 @@ n="$( bash -c 'source "$1"; echo "$EN_TARGET_USER"' _ "$lib" )"
 n="$( EN_TARGET_USER=energynode bash -c 'source "$1"; echo "$EN_TARGET_USER"' _ "$lib" )"
 [ "$n" = energynode ] || fail "EN_TARGET_USER nicht ueberschreibbar" "$n"
 
+# --- step_version_ge: gleich oder neuer, Zusaetze zaehlen nicht ------------
+ge() { ( source "$lib"; step_version_ge "$1" "$2" ); }
+ge 1.98.9 1.62.0 || fail "1.98.9 gilt nicht als neuer als 1.62.0"
+ge 1.62.0 1.62.0 || fail "gleiche Version gilt nicht als gleich"
+ge 1.100.0 1.62.0 || fail "1.100.0 wird als Zeichenkette statt als Version verglichen"
+ge v2.6.2 2.6.2 || fail "fuehrendes v wird nicht ignoriert"
+ge 1.98.9-t4fb758c39-g200941d74 1.98.9 || fail "Zusatz ab dem Bindestrich zaehlt mit"
+ge 1.50.0 1.62.0 && fail "1.50.0 gilt als neuer als 1.62.0"
+ge 2.6.2 2.9.1 && fail "2.6.2 gilt als neuer als 2.9.1"
+ge "" 1.62.0 && fail "leere Version gilt als bekannt"
+ge 1.62.0 "" && fail "leere Vergleichsversion gilt als bekannt"
+ge unbekannt 1.62.0 && fail "Text gilt als Version"
+
 echo "OK: $(basename "$0")"
