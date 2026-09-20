@@ -6,7 +6,7 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 script="$here/../bootstrap/65-dashboard-config.sh"
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+trap 'chmod -R u+w "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
 fail() { echo "FAIL: $1"; [ -n "${2:-}" ] && printf '%s\n' "$2"; exit 1; }
 
 bundle="$tmp/bundle"
@@ -90,5 +90,43 @@ after="$(cat "$etc/config.json")"
 # selection.json wieder gueltig machen, damit ein Test-Lauf danach nicht
 # faelschlich weiter kaputte Zustaende hinterlaesst.
 printf '{"steps":{"88":false}}\n' > "$EN_SELECTION"
+
+# --- config.json geht ueber sudo, Besitzer und Rechte bleiben --------------
+# Der Installer fuehrt die Schritte als SSH-Benutzer aus, und
+# /etc/energy-node gehoert root:<Benutzer> mit 0755 - dort kann er keine
+# Temp-Datei neben der config.json anlegen (nur die Datei selbst ist per
+# Gruppe beschreibbar). Der Schritt muss also ueber sudo schreiben, und das
+# Dashboard, das die Datei live bearbeitet, darf danach seine Schreibrechte
+# nicht verlieren. Die sudo-Attrappe macht das Verzeichnis nur fuer den
+# Aufruf beschreibbar, so wie es root waere.
+sudo_log="$tmp/sudo.log"
+cat > "$tmp/bin/fakesudo" <<SH
+#!/usr/bin/env bash
+printf '%s\n' "\$*" >> "$sudo_log"
+chmod u+w "$etc" 2>/dev/null || true
+"\$@"
+rc=\$?
+chmod u-w "$etc" 2>/dev/null || true
+exit \$rc
+SH
+chmod +x "$tmp/bin/fakesudo"
+chmod 0664 "$etc/config.json"
+chmod 0555 "$etc"
+: > "$sudo_log"
+out="$(EN_SUDO="$tmp/bin/fakesudo" run 2>&1)" \
+  || fail "Schritt 65 scheitert, wenn nur root neben die config.json schreiben darf" "$out"
+grep -q '^##STEP 65 ok$' <<<"$out" || fail "kein ok-Marker bei nicht beschreibbarem Verzeichnis" "$out"
+grep -q '^mv ' "$sudo_log" || fail "config.json wurde nicht ueber sudo ersetzt" "$(cat "$sudo_log")"
+[ "$(stat -c %a "$etc/config.json")" = "664" ] \
+  || fail "Rechte der config.json nicht erhalten" "$(stat -c %a "$etc/config.json")"
+[ ! -e "$etc/config.json.tmp" ] || fail "config.json.tmp blieb liegen"
+python3 - "$etc/config.json" <<'PY'
+import json, sys
+doc = json.load(open(sys.argv[1], encoding="utf-8"))
+want = {"tailscale": True, "apsystems": True, "automation": False}
+if doc.get("installed_services") != want:
+    sys.exit("installed_services = %r, erwartet %r" % (doc.get("installed_services"), want))
+PY
+chmod 0755 "$etc"
 
 echo "ok"
