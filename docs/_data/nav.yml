@@ -12,7 +12,7 @@
     - { label: "What is Energy Node?", url: "index.md" }
     - { label: "The dashboard, page by page", url: "dashboard.md" }
     - { label: "Device services", url: "device-services.md" }
-    - { label: "The installer", url: "installer.md" }
+    - { label: "Deploying a node", url: "installer.md" }
 
 - title: Services
   items:

@@ -34,8 +34,9 @@ it publishes: Shelly, APsystems EZ1, Trucki sticks, Tuya, the computed battery
 state of charge, the automation engine and the node's own diagnostics — plus
 the conventions they all share.
 
-**[The installer](installer.md)** — the desktop program that sets a node up on
-a Raspberry Pi, updates it and diagnoses it, screen by screen.
+**[Deploying a node](installer.md)** — the installer, a desktop program that
+sets a node up on a Raspberry Pi, updates it and diagnoses it, screen by
+screen.
 
 ---
 

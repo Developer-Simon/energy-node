@@ -7,7 +7,7 @@ title: "Installer developer CLI"
 The installer (`installer/`, a separate Go module) is built in four layers —
 core, HTTP/SSE, web UI, window shell. All four exist. The core layer is exposed
 directly as a CLI (internally "E12"); the web UI and the window shell are
-described for end users on [The installer](../installer.md). This page covers
+described for end users on [Deploying a node](../installer.md). This page covers
 the developer side: the CLI builds a signed bundle from your local checkout,
 ships it to a Raspberry Pi over SSH/SFTP, and runs the same idempotent
 [bootstrap steps](https://github.com/Developer-Simon/energy-node/tree/main/scripts/bootstrap)
@@ -80,7 +80,7 @@ never had this installer run before.
 
 `installer/webui/cmd/fakehost` serves the same screens against a canned
 backend. It is what the Playwright suite drives, and the source of the
-screenshots on [The installer](../installer.md):
+screenshots on [Deploying a node](../installer.md):
 
 ```sh
 cd installer/webui

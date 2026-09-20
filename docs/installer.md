@@ -1,8 +1,8 @@
 ---
-title: "The installer"
+title: "Deploying a node"
 ---
 
-# The installer
+# Deploying a node
 
 The installer is a desktop program that brings Energy Node onto a Raspberry Pi
 from your own computer. You point it at the Pi, choose which services you want,
