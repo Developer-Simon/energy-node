@@ -84,3 +84,37 @@ func TestManagerCreatesAndCleansGuestUsers(t *testing.T) {
 		t.Fatal("expired guest was not removed")
 	}
 }
+
+// An admin that predates a role keeps its stored role list, so every role
+// added after the first bootstrap has to be backfilled on load -- otherwise
+// the existing admin is the one account locked out of the new feature.
+func TestManagerBackfillsRolesForExistingAdmin(t *testing.T) {
+	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	path := filepath.Join(t.TempDir(), "users.json")
+	stored := `{"users":[{"username":"admin","password_hash":"x","roles":["system_actions"],` +
+		`"created_at":"2026-01-01T00:00:00Z","last_login_at":"2026-01-01T00:00:00Z"}]}`
+	if err := os.WriteFile(path, []byte(stored), 0600); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := newManager(path, "admin", "secret", func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Lock()
+	admin := manager.users["admin"]
+	manager.mu.Unlock()
+	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates} {
+		if !HasRole(admin, role) {
+			t.Errorf("existing admin was not backfilled with %q", role)
+		}
+	}
+	reloaded, err := newManager(path, "admin", "secret", func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	reloaded.mu.Lock()
+	defer reloaded.mu.Unlock()
+	if !HasRole(reloaded.users["admin"], RoleCheckUpdates) {
+		t.Error("backfilled roles were not persisted to users.json")
+	}
+}
