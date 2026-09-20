@@ -1293,6 +1293,20 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 	}
 }
 
+// Die Sprite-<symbol> bringen weder fill noch stroke mit (siehe base.css,
+// .automation-icon). Das Download-Icon der Update-Pille im Masthead hatte die
+// Klasse nicht und blieb unsichtbar.
+func TestUpdateBadgeIconIsStyledAsSpriteIcon(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	page := recorder.Body.String()
+	if !strings.Contains(page, `<svg class="automation-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
+        <span x-text="'Update '`) {
+		t.Fatal("Das Icon der Update-Pille braucht class=\"automation-icon\" (fill:none, stroke:currentColor)")
+	}
+}
+
 // Icon-only Knoepfe brauchen beides: title fuer die Maus, aria-label fuer
 // Screenreader. Die Konvention stammt aus der Device-Map.
 func TestAutomationsIconButtonsCarryAccessibleNames(t *testing.T) {
