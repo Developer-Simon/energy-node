@@ -112,9 +112,6 @@ func runUI(cfg uiConfig) error {
 
 	fmt.Println(url)
 
-	stop := make(chan os.Signal, 1)
-	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
-
 	if cfg.openWindow {
 		// E6's process-lifetime rule: the WebView's event loop must own the
 		// process's original OS thread, so this must run on the goroutine
@@ -132,6 +129,12 @@ func runUI(cfg uiConfig) error {
 		}
 	}
 
+	// Only registered after shell.Open: for ModeWebview Open blocks until the
+	// window closes, and nothing reads stop during that time - registering
+	// earlier would swallow Ctrl+C instead of letting the default handler
+	// end the process.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	select {
 	case err := <-errs:
 		return err
