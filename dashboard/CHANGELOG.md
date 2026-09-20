@@ -4,6 +4,7 @@
 
 ### Features
 
+- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 - **dashboard:** make the "check for updates" button more prominent (00a5e46)
 - **dashboard:** link the update-available chip to the redeploy screen (c60f545)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
@@ -53,6 +54,20 @@
 - **dashboard:** bump version to v0.7.0 (441d4a7)
 - **dashboard:** bump cache-busted asset versions (d8d2094)
 - **dashboard:** depend on the energy-node-webui module (0ed9456)
+
+## v0.6.7 (2026-09-16)
+
+### Features
+
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **installer:** polish for the installer webui (#30) (05d424b)
+- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
+- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
+
+### Documentation
+
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 
 ## v0.6.5 (2026-09-13)
 

@@ -7,6 +7,7 @@
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** polish for the installer webui (#30) (05d424b)
 - **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
+- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 
 ### Documentation
 
