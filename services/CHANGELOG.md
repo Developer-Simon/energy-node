@@ -11,6 +11,10 @@
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 
+### Documentation
+
+- **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
+
 ## v0.3.3 (2026-09-16)
 
 ### Features
