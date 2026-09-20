@@ -1,6 +1,16 @@
 # Changelog
 
-## v0.3.3 (2026-09-20)
+## v0.3.4 (2026-09-20)
+
+### Features
+
+- **installer:** open the UI in an embedded system WebView (Part C2) (#35) (84bdc7a)
+
+### Fixes
+
+- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+
+## v0.3.3 (2026-09-16)
 
 ### Features
 
@@ -17,20 +27,6 @@
 ### Fixes
 
 - **apsystems:** stop publishing the legacy power_status sensor removal (e01cac6)
-
-### Documentation
-
-- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
-
-## v0.3.3 (2026-09-16)
-
-### Features
-
-- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **installer:** polish for the installer webui (#30) (05d424b)
-- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
-- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
-- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 
 ### Documentation
 

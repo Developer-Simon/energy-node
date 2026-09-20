@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.5 (2026-09-20)
+
+### Fixes
+
+- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+
 ## v0.4.5 (2026-09-16)
 
 ### Features
