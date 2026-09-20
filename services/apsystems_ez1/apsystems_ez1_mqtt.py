@@ -44,8 +44,6 @@ from energy_node_common.discovery import (
 # Konstanten
 # ---------------------------------------------------------------------------
 
-HA_DISCOVERY_PREFIX = "homeassistant"
-
 # Der EZ1 speichert das Power-Limit im Flash-Speicher. Zu haeufiges
 # Schreiben kann laut Community-Berichten den Flash-Speicher abnutzen.
 # Deshalb: Mindestabstand zwischen zwei Schreibvorgaengen erzwingen.
@@ -341,13 +339,6 @@ def publish_device_discovery(client: mqtt.Client, device: APsystemsDevice) -> No
             state_on="ON",
             state_off="OFF",
         ),
-    )
-    # Alte Sensor-Discovery fuer power_status entfernen, falls noch vorhanden.
-    client.publish(
-        f"{HA_DISCOVERY_PREFIX}/sensor/{device.cfg.id}/power_status/config",
-        payload="",
-        qos=0,
-        retain=True,
     )
     common_publish_availability_discovery(
         client, device.cfg.id, device.cfg.base_topic, device.ha_device
