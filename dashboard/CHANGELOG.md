@@ -1,6 +1,18 @@
 # Changelog
 
-## v0.7.0 (2026-09-20)
+## v0.7.1 (2026-09-21)
+
+### Fixes
+
+- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+- **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
+- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
+
+### Documentation
+
+- **installer:** add an end-user installer page and refresh the developer page (31acec4)
+
+## v0.7.0 (2026-09-16)
 
 ### Features
 
@@ -55,12 +67,6 @@
 - **dashboard:** bump version to v0.7.0 (441d4a7)
 - **dashboard:** bump cache-busted asset versions (d8d2094)
 - **dashboard:** depend on the energy-node-webui module (0ed9456)
-
-## v0.7.0 (2026-09-16)
-
-### Features
-
-- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 
 ## v0.6.7 (2026-09-16)
 

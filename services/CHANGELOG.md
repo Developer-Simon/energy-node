@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.4 (2026-09-20)
+## v0.3.4 (2026-09-21)
 
 ### Features
 
@@ -9,6 +9,7 @@
 ### Fixes
 
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+- **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 
 ## v0.3.3 (2026-09-16)
 

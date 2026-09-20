@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.9 (2026-09-20)
+## v0.1.9 (2026-09-21)
 
 ### Features
 
@@ -24,6 +24,7 @@
 ### Fixes
 
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+- **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 - **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **changelog:** roll unreleased sections into a hand minor bump (ea01be2)

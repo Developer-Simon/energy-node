@@ -4,15 +4,13 @@ title: "Installer developer CLI"
 
 # Installer developer CLI
 
-The installer (`installer/`, a separate Go module) is planned as four layers —
-core, HTTP/SSE, web UI, app shell. The core layer, exposed directly as a CLI
-(internally "E12"), and the HTTP/SSE + web UI layers (Schicht 2/3) both exist
-today; only the fourth layer — a packaged, downloadable app shell for
-non-technical end users — does not (see "Trying the graphical UI" below for
-what "app shell" means today: an unsigned local dev binary that opens a
-browser window, not a release artifact). The CLI builds a signed bundle from
-your local checkout, ships it to a Raspberry Pi over SSH/SFTP, and runs the
-same idempotent [bootstrap steps](https://github.com/Developer-Simon/energy-node/tree/main/scripts/bootstrap)
+The installer (`installer/`, a separate Go module) is built in four layers —
+core, HTTP/SSE, web UI, window shell. All four exist. The core layer is exposed
+directly as a CLI (internally "E12"); the web UI and the window shell are
+described for end users on [Deploying a node](../installer.md). This page covers
+the developer side: the CLI builds a signed bundle from your local checkout,
+ships it to a Raspberry Pi over SSH/SFTP, and runs the same idempotent
+[bootstrap steps](https://github.com/Developer-Simon/energy-node/tree/main/scripts/bootstrap)
 the web UI also runs. `--only dashboard` runs exactly the step a full
 redeploy would run — there is no second code path for a partial update.
 
@@ -36,19 +34,24 @@ Playwright browser suite, all gated the same way.
 ## Trying the graphical UI
 
 Running the binary with no subcommand — or only flags — starts the web UI
-instead of the CLI:
+instead of the CLI. `scripts/dev/run-installer.sh` builds the binary if it is
+missing and starts it, passing its arguments through:
 
 ```sh
-./installer
+scripts/dev/run-installer.sh          # or: ./installer/installer
 ```
 
-This opens a browser window (Chrome/Edge in app mode, falling back to the
-default browser) on a local one-time-token URL. Unlike the CLI, it does not
-build a bundle on demand: it expects one already unpacked at `bundle/` next
-to the binary (`--bundle <dir>` to point elsewhere). Build one first:
+The window opens in the first stage of a four-stage chain that works: an
+embedded system WebView (Cocoa/WKWebView on macOS, WebView2 on Windows,
+GTK/WebKitGTK on Linux — loaded at run time, so the binary stays CGo-free),
+then a Chrome/Chromium/Edge `--app=` window, then the default browser, then
+just the printed URL. `--no-window` jumps straight to the last stage. When the
+WebView opens, closing its window ends the process. The URL carries a one-time
+token. Unlike the CLI, the UI does not build a bundle on demand: it expects one
+already unpacked at `bundle/` next to the binary (`--bundle <dir>` to point
+elsewhere). Build one first:
 
 ```sh
-cd ..   # repo root
 bash scripts/build/make_bundle.sh --arch armv6 --skip-wheels
 mkdir -p installer/bundle
 tar -xzf dist/energy-node-*-armv6.tar.gz -C installer/bundle
@@ -72,6 +75,33 @@ thing the UI does after connecting is create and take ownership of
 `/var/lib/energy-node-installer` on the node (`sudo install -d`), because a
 plain SSH user cannot write under root-owned `/var/lib` on a node that has
 never had this installer run before.
+
+### Working on the UI without a Pi
+
+`installer/webui/cmd/fakehost` serves the same screens against a canned
+backend. It is what the Playwright suite drives, and the source of the
+screenshots on [Deploying a node](../installer.md):
+
+```sh
+cd installer/webui
+go run ./cmd/fakehost --lang en --port 8099
+```
+
+`--scenario vorlage-update` serves the update preview, `--hold-step <id>`
+stops a run at that step, `--fail-step <id>:<CODE>` fails one, `--trusted`
+skips the fingerprint dialog and `--dashboard` plays the dashboard-hosted
+variant. `npm run test:e2e` in `installer/webui` runs the browser suite.
+
+### Publishing release binaries
+
+`.github/workflows/installer-release.yml` is triggered manually
+(`workflow_dispatch` only). It runs `go vet` and `go test`, cross-compiles the
+installer with `CGO_ENABLED=0` for Windows amd64, macOS amd64/arm64 and Linux
+amd64, and publishes the archives plus `SHA256SUMS` as a GitHub release tagged
+`installer-<contents of installer/VERSION>`; a version containing a hyphen is
+marked as a prerelease. The tag is independent of the dashboard's `v*`
+releases. The binaries are unsigned and carry no bundle: they embed only the
+release public key, and the `bundle/` directory still has to be supplied.
 
 ## Configuring a target node
 
