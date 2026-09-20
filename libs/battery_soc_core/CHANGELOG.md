@@ -37,6 +37,7 @@
 
 ### Documentation
 
+- **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
 - **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 - drop remaining git-hooks references (7786f6d)
 - refresh changelogs before public fork (220794e)

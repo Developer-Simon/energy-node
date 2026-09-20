@@ -4,6 +4,7 @@
 
 ### Fixes
 
+- **dashboard:** show the download icon in the masthead update badge (61471d2)
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 - **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
@@ -11,6 +12,18 @@
 ### Documentation
 
 - **installer:** add an end-user installer page and refresh the developer page (31acec4)
+
+## v0.7.1 (2026-09-21)
+
+### Fixes
+
+- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+- **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
+- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
+
+### Documentation
+
+- **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
 
 ## v0.7.0 (2026-09-16)
 
