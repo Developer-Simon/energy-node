@@ -4,7 +4,6 @@
 package shell
 
 import (
-	"fmt"
 	"os/exec"
 	"runtime"
 )
@@ -41,30 +40,6 @@ func Candidates(goos string) []Candidate {
 			{Name: "microsoft-edge", Args: appArgs},
 		}
 	}
-}
-
-// Open oeffnet die URL. mode ist "app", wenn ein rahmenloses Fenster
-// aufging, und "browser", wenn der Standardbrowser einsprang.
-func Open(url string) (string, error) {
-	for _, candidate := range Candidates(runtime.GOOS) {
-		path, err := exec.LookPath(candidate.Name)
-		if err != nil {
-			continue
-		}
-		cmd := exec.Command(path, candidate.Args(url)...)
-		if err := cmd.Start(); err != nil {
-			continue
-		}
-		// Nicht auf das Fenster warten: es lebt laenger als dieser Aufruf, und
-		// der Server muss weiterlaufen. Das Kind wird beim Beenden des
-		// Installers ohnehin vom Betriebssystem uebernommen.
-		go func() { _ = cmd.Wait() }()
-		return "app", nil
-	}
-	if err := openInBrowser(url); err != nil {
-		return "", fmt.Errorf("shell: kein Fenster und kein Browser: %w", err)
-	}
-	return "browser", nil
 }
 
 func openInBrowser(url string) error {
