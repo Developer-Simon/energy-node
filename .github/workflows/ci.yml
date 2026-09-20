@@ -147,6 +147,12 @@ jobs:
       # Task 5 braucht einen echten sshd fuer den Transport-Integrationstest;
       # ubuntu-latest bringt keinen mit.
       - run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server openssh-client
+      - name: Assert WebKitGTK is absent (Komponente F, Stufe 1's real failure path)
+        run: |
+          if ldconfig -p | grep -qiE 'webkitgtk|webkit2gtk'; then
+            echo "::error::WebKitGTK is installed on this runner - internal/shell's no-WebKitGTK fallback test no longer proves what it claims. See ci.yml and the spec's Komponente F Test row." >&2
+            exit 1
+          fi
       - run: go test ./...
 
   dashboard-js:
