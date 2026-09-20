@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/host"
@@ -110,15 +111,28 @@ func runUI(cfg uiConfig) error {
 	}()
 
 	fmt.Println(url)
+
 	if cfg.openWindow {
+		// E6's process-lifetime rule: the WebView's event loop must own the
+		// process's original OS thread, so this must run on the goroutine
+		// main() called us on, not a spawned one.
+		runtime.LockOSThread()
 		mode, err := shell.Open(url)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Kein Fenster: %v\nDie Oberflaeche ist trotzdem unter der Adresse oben erreichbar.\n", err)
-		} else if mode == "browser" {
-			fmt.Fprintln(os.Stderr, "Kein Chrome/Edge gefunden - die Oberflaeche laeuft im Standardbrowser.")
+		} else if note, waitForSignal := describeShellMode(mode); !waitForSignal {
+			// ModeWebview: shell.Open already blocked until the window
+			// closed. There is nothing left to wait for.
+			return httpServer.Shutdown(context.Background())
+		} else if note != "" {
+			fmt.Fprintln(os.Stderr, note)
 		}
 	}
 
+	// Only registered after shell.Open: for ModeWebview Open blocks until the
+	// window closes, and nothing reads stop during that time - registering
+	// earlier would swallow Ctrl+C instead of letting the default handler
+	// end the process.
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	select {
@@ -126,6 +140,23 @@ func runUI(cfg uiConfig) error {
 		return err
 	case <-stop:
 		return httpServer.Shutdown(context.Background())
+	}
+}
+
+// describeShellMode maps a shell.Mode to the operator-facing note (if any)
+// and whether runUI should still wait for SIGINT afterward. ModeWebview is
+// the only mode that answers false: shell.Open already blocked until the
+// window closed.
+func describeShellMode(mode shell.Mode) (note string, waitForSignal bool) {
+	switch mode {
+	case shell.ModeWebview:
+		return "", false
+	case shell.ModeBrowser:
+		return "Kein eigenes Fenster gefunden - die Oberflaeche laeuft im Standardbrowser.", true
+	case shell.ModeURLOnly:
+		return "Kein Fenster und kein Browser gefunden - die Adresse steht oben.", true
+	default: // shell.ModeApp
+		return "", true
 	}
 }
 

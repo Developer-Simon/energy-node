@@ -1,0 +1,80 @@
+name: Installer Release
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+
+      - name: Install openssh
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends openssh-server openssh-client
+
+      - name: Test installer
+        working-directory: installer
+        run: |
+          go vet ./...
+          go test ./...
+
+      - name: Install zip
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zip
+
+      - name: Build release binaries
+        working-directory: installer
+        env:
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          ver="$(cat VERSION)"
+          tag="installer-${ver}"
+          {
+            echo "VER=${ver}"
+            echo "TAG=${tag}"
+          } >> "$GITHUB_ENV"
+          mkdir -p ../dist
+          build() {
+            goos=$1; goarch=$2
+            token="${goos}_${goarch}"
+            echo "==> ${token}"
+            bin=energy-node-installer
+            [ "$goos" = "windows" ] && bin="${bin}.exe"
+            GOOS="$goos" GOARCH="$goarch" \
+              go build -trimpath -ldflags "-s -w" -o "../dist/${bin}" ./cmd/installer
+            if [ "$goos" = "windows" ]; then
+              (cd ../dist && zip -q "energy-node-installer_${ver}_${token}.zip" "${bin}" && rm "${bin}")
+            else
+              tar -C ../dist -czf "../dist/energy-node-installer_${ver}_${token}.tar.gz" "${bin}"
+              rm "../dist/${bin}"
+            fi
+          }
+          build windows amd64
+          build darwin amd64
+          build darwin arm64
+          build linux amd64
+          cd ../dist
+          sha256sum ./* > SHA256SUMS
+          ls -l
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          args=(release create "$TAG" dist/energy-node-installer_* dist/SHA256SUMS
+                --title "$TAG" --target "${{ github.sha }}" --generate-notes)
+          case "$VER" in
+            *-*) args+=(--prerelease) ;;
+          esac
+          gh "${args[@]}"
