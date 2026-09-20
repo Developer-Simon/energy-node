@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.3.3 (2026-09-16)
+## v0.3.3 (2026-09-20)
 
 ### Features
 
@@ -12,6 +12,24 @@
 - **apsystems:** restore RAM power limit after firmware-side drift (a42c671)
 - **apsystems:** expose flash-stored power limit as diagnostic sensor (19336e2)
 - **apsystems:** publish getOutputDataDetail extended diagnostics (e0fa2ad)
+
+### Fixes
+
+- **apsystems:** stop publishing the legacy power_status sensor removal (e01cac6)
+
+### Documentation
+
+- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
+
+## v0.3.3 (2026-09-16)
+
+### Features
+
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **installer:** polish for the installer webui (#30) (05d424b)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
+- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
+- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 
 ### Documentation
 

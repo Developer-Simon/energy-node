@@ -6,6 +6,7 @@
 
 - **installer:** polish for the installer webui (#30) (05d424b)
 - **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
+- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
