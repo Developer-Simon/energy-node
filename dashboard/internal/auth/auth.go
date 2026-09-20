@@ -95,30 +95,16 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 		return nil, err
 	}
 	manager.mu.Lock()
-	if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, RoleDeleteDeviceDiscovery) {
-		user.Roles = append(user.Roles, RoleDeleteDeviceDiscovery)
-		manager.users[bootstrapUsername] = user
-		changed = true
-	}
-	if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, RoleTuneLiveUpdates) {
-		user.Roles = append(user.Roles, RoleTuneLiveUpdates)
-		manager.users[bootstrapUsername] = user
-		changed = true
-	}
-	if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, RoleMQTTConfig) {
-		user.Roles = append(user.Roles, RoleMQTTConfig)
-		manager.users[bootstrapUsername] = user
-		changed = true
-	}
-	if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, RoleAutomations) {
-		user.Roles = append(user.Roles, RoleAutomations)
-		manager.users[bootstrapUsername] = user
-		changed = true
-	}
-	if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, RoleEditLayout) {
-		user.Roles = append(user.Roles, RoleEditLayout)
-		manager.users[bootstrapUsername] = user
-		changed = true
+	// Roles added after an admin was first bootstrapped are backfilled here,
+	// since an existing users.json keeps the role list it was written with.
+	// Every new role that the bootstrap admin gets below belongs in this list
+	// too, or the already-installed node is the one that stays locked out.
+	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates} {
+		if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, role) {
+			user.Roles = append(user.Roles, role)
+			manager.users[bootstrapUsername] = user
+			changed = true
+		}
 	}
 	if bootstrapPassword != "" {
 		if _, exists := manager.users[bootstrapUsername]; !exists {
