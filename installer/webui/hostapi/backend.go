@@ -21,6 +21,9 @@ type Description struct {
 	// BundleArch ist die Zielarchitektur des Bundles (manifest.arch). Der
 	// Verbindungsbildschirm zeigt sie, bevor eine Verbindung besteht.
 	BundleArch string `json:"bundle_arch"`
+	// Package macht die Paketauswahl auf dem Verbindungsbildschirm moeglich.
+	// nil heisst: dieser Wirt hat keine.
+	Package *PackageInfo `json:"package,omitempty"`
 }
 
 // AuthKind ist die Art, wie sich der Installer am Node anmeldet.

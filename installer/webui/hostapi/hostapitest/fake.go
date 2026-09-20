@@ -8,6 +8,7 @@ package hostapitest
 import (
 	"context"
 	"errors"
+	"io"
 	"sync"
 	"time"
 
@@ -52,11 +53,18 @@ type FakeBackend struct {
 	// RunErr wird nach dem Drehbuch zurueckgegeben.
 	RunErr error
 
+	// PrepareLog und PrepareErr steuern einen Lauf im Modus prepare.
+	PrepareLog []string
+	PrepareErr error
+
 	// Aufzeichnung fuer Tests.
 	LastConnect   hostapi.ConnectRequest
 	LastRun       hostapi.RunRequest
 	SavedSelected map[string]bool
 	Runs          int
+	LastPackage   hostapi.PackageSelection
+	UploadedName  string
+	UploadedBytes int
 }
 
 // NewFake liefert eine Attrappe mit brauchbaren Vorgaben: ein Installer-Wirt
@@ -70,6 +78,10 @@ func NewFake() *FakeBackend {
 			NeedsConnection: true,
 			BundleVersion:   version,
 			BundleArch:      "armv6",
+			Package: &hostapi.PackageInfo{
+				Bundled: &hostapi.BundledInfo{Version: version, Arch: "armv6"},
+				Repo:    hostapi.RepoInfo{Available: true, Path: "/home/dev/energy-node"},
+			},
 		},
 		ConnectResult: hostapi.ConnectResult{Connected: true, Host: "node.local", User: "orgelbau"},
 		Keypair:       hostapi.KeypairResult{PublicKey: "ssh-ed25519 AAAA… installer", PrivatePath: "/home/dev/.energy-node/id_ed25519", Installed: true},
@@ -177,7 +189,22 @@ func (f *FakeBackend) Run(ctx context.Context, req hostapi.RunRequest, sink host
 	steps := append([]FakeStep(nil), f.Steps...)
 	delay := f.StepDelay
 	runErr := f.RunErr
+	prepareLog := append([]string(nil), f.PrepareLog...)
+	prepareErr := f.PrepareErr
 	f.mu.Unlock()
+
+	if req.Mode == hostapi.ModePrepare {
+		sink.Marker("package", "begin", "")
+		for _, line := range prepareLog {
+			sink.Log("package", line)
+		}
+		if prepareErr != nil {
+			sink.Marker("package", "fail", "PACKAGE_FAILED")
+			return prepareErr
+		}
+		sink.Marker("package", "ok", "")
+		return nil
+	}
 
 	for _, step := range steps {
 		if err := sleepCtx(ctx, delay); err != nil {
@@ -201,6 +228,23 @@ func (f *FakeBackend) Run(ctx context.Context, req hostapi.RunRequest, sink host
 
 func (f *FakeBackend) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	return f.DiagnoseView, f.DiagnoseErr
+}
+
+func (f *FakeBackend) SelectPackage(ctx context.Context, sel hostapi.PackageSelection) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.LastPackage = sel
+	return nil
+}
+
+func (f *FakeBackend) UploadPackage(ctx context.Context, name string, r io.Reader) error {
+	n, err := io.Copy(io.Discard, r)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.UploadedName = name
+	f.UploadedBytes = int(n)
+	f.LastPackage = hostapi.PackageSelection{Kind: "file"}
+	return err
 }
 
 func sleepCtx(ctx context.Context, d time.Duration) error {

@@ -50,16 +50,17 @@ type Server struct {
 // Bootstrap ist die Antwort von GET /api/bootstrap: alles, was die Oberflaeche
 // braucht, bevor sie das erste Mal zeichnet.
 type Bootstrap struct {
-	Host            HostKind `json:"host"`
-	EntryPoints     []string `json:"entry_points"`
-	NeedsConnection bool     `json:"needs_connection"`
-	BundleVersion   string   `json:"bundle_version"`
-	BundleArch      string   `json:"bundle_arch"`
-	AssetVersion    string   `json:"asset_version"`
-	Language        string   `json:"language"`
-	LanguageFixed   bool     `json:"language_fixed"`
-	Languages       []string `json:"languages"`
-	BasePath        string   `json:"base_path"`
+	Host            HostKind     `json:"host"`
+	EntryPoints     []string     `json:"entry_points"`
+	NeedsConnection bool         `json:"needs_connection"`
+	BundleVersion   string       `json:"bundle_version"`
+	BundleArch      string       `json:"bundle_arch"`
+	AssetVersion    string       `json:"asset_version"`
+	Language        string       `json:"language"`
+	LanguageFixed   bool         `json:"language_fixed"`
+	Languages       []string     `json:"languages"`
+	BasePath        string       `json:"base_path"`
+	Package         *PackageInfo `json:"package,omitempty"`
 }
 
 // New baut den Server und registriert alle Routen.
@@ -123,6 +124,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/cancel", s.handleCancel)
 	s.mux.HandleFunc("/api/events", s.handleEvents)
 	s.mux.HandleFunc("/api/diagnose", s.handleDiagnose)
+	s.mux.HandleFunc("/api/package", s.handlePackage)
+	s.mux.HandleFunc("/api/package/upload", s.handlePackageUpload)
 }
 
 func (s *Server) trimBase(path string) string {
@@ -191,6 +194,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		LanguageFixed:   s.opts.LanguageFixed,
 		Languages:       s.opts.Catalogs.Languages(),
 		BasePath:        s.opts.BasePath,
+		Package:         description.Package,
 	})
 }
 
