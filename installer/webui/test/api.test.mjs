@@ -80,3 +80,19 @@ test('url() haengt Token und Parameter an - fuer EventSource, das keine Kopfzeil
   window.Api.configure({ basePath: '/installer', token: 'a b' });
   assert.equal(window.Api.url('/api/events', { since: 7 }), '/installer/api/events?token=a%20b&since=7');
 });
+
+test('upload schickt eine Datei als multipart/form-data', async () => {
+  const { window } = load();
+  let seen = null;
+  window.fetch = async (url, init) => {
+    seen = { url, init };
+    return { ok: true, status: 200, json: async () => ({}) };
+  };
+  const file = new window.File(['content'], 'bundle.tar.gz');
+  await window.Api.upload('/api/package/upload', file);
+  assert.equal(seen.url, '/api/package/upload');
+  assert.equal(seen.init.method, 'POST');
+  assert.ok(seen.init.body instanceof window.FormData);
+  assert.ok(seen.init.body.get('file') !== null && seen.init.body.get('file').name === file.name, 'file ist in FormData');
+  assert.equal(seen.init.headers['Content-Type'], undefined, 'Content-Type muss ungesetzt bleiben');
+});

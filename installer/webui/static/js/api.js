@@ -72,6 +72,18 @@
     put: function (path, body) {
       return send('PUT', path, body === undefined ? {} : body);
     },
+
+    // upload schickt eine Datei als multipart/form-data (Feld "file"). Der
+    // Content-Type bleibt ungesetzt: der Browser ergaenzt die Grenze selbst.
+    upload: function (path, file) {
+      var form = new window.FormData();
+      form.append('file', file, file.name);
+      return window.fetch(config.basePath + path, {
+        method: 'POST',
+        headers: { 'X-Installer-Token': config.token },
+        body: form,
+      }).then(handle, unreachable);
+    },
   };
   window.ApiError = ApiError;
 })();

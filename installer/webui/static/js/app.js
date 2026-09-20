@@ -156,7 +156,8 @@
         var flow = FLOW[this.entry].filter(function (id) {
           return id !== 'connect' || needsConnection;
         });
-        var at = this.screen === 'configure' && this.entry === 'redeploy' ? 'preview' : this.screen;
+        var at = this.screen === 'prepare' ? 'connect'
+          : this.screen === 'configure' && this.entry === 'redeploy' ? 'preview' : this.screen;
         var position = flow.indexOf(at);
         if (position < 0) {
           return [];
@@ -270,6 +271,12 @@
       afterConnect(target) {
         this.connected = true;
         this.shared.target = { host: target.host || '', user: target.user || '' };
+        this.go(this.bootstrap && this.bootstrap.package ? 'prepare' : FIRST_SCREEN[this.entry]);
+      },
+
+      // afterPrepare ruft der Vorbereitungsbildschirm, sobald das Paket auf
+      // dem Geraet liegt und geprueft ist.
+      afterPrepare() {
         this.go(FIRST_SCREEN[this.entry]);
       },
 

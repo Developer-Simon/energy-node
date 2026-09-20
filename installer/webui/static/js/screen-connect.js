@@ -19,9 +19,16 @@
       // Bestaetigung wartet. Ein geaenderter Key setzt ihn nie.
       fingerprint: '',
       busy: false,
+      packageKind: '',
+      repoPath: '',
+      packageFile: null,
 
       get shell() {
         return window.Installer.shell;
+      },
+
+      get packageInfo() {
+        return (this.shell.bootstrap || {}).package || null;
       },
 
       init() {
@@ -30,13 +37,29 @@
         } catch (err) {
           this.host = '';
         }
+        var info = this.packageInfo;
+        if (info) {
+          this.packageKind = info.bundled ? 'bundled' : 'github';
+          this.repoPath = (info.repo && info.repo.path) || '';
+        }
       },
 
       get canConnect() {
         if (this.busy || this.fingerprint || !this.host || !this.user) {
           return false;
         }
-        return this.kind === 'password' ? this.secret !== '' : this.keyPath !== '';
+        if (!(this.kind === 'password' ? this.secret !== '' : this.keyPath !== '')) {
+          return false;
+        }
+        if (this.packageInfo) {
+          if (this.packageKind === 'file' && !this.packageFile) {
+            return false;
+          }
+          if (this.packageKind === 'repo' && !this.repoPath) {
+            return false;
+          }
+        }
+        return true;
       },
 
       get hint() {
@@ -57,6 +80,27 @@
 
       confirmFingerprint() {
         return this.fingerprint && !this.busy ? this.attempt(this.fingerprint) : Promise.resolve();
+      },
+
+      selectPackage(kind) {
+        if (kind === 'repo' && !(this.packageInfo && this.packageInfo.repo.available)) {
+          return;
+        }
+        this.packageKind = kind;
+      },
+
+      async submitPackage() {
+        if (!this.packageInfo) {
+          return;
+        }
+        if (this.packageKind === 'file') {
+          await window.Api.upload('/api/package/upload', this.packageFile);
+          return;
+        }
+        await window.Api.put('/api/package', {
+          kind: this.packageKind,
+          path: this.packageKind === 'repo' ? this.repoPath : '',
+        });
       },
 
       async attempt(acceptFingerprint) {
@@ -87,6 +131,7 @@
             }
           }
           this.secret = '';
+          await this.submitPackage();
           this.shell.afterConnect({ host: result.host || this.host, user: result.user || this.user });
           if (keypairError) {
             // erst nach dem Wechsel: go() raeumt das Banner sonst gleich weg
