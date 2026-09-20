@@ -30,20 +30,6 @@ mkdir -p "$tmp/bin"
 # shellcheck disable=SC1091
 source "$here/lib/fake_system_commands.sh"
 install_fake_system_commands "$tmp/bin"
-# bootstrap_container.sh's mosquitto_passwd needs special behavior: read password from stdin
-# and write it to a file for later --password-file checks. Override the generic stub.
-cat > "$tmp/bin/mosquitto_passwd" <<SH
-#!/usr/bin/env bash
-printf 'mosquitto_passwd %s\n' "\$*" >> "\$CMD_LOG"
-file=""; user=""
-while [ \$# -gt 0 ]; do
-  case "\$1" in -c) file="\$2"; shift 2 ;; *) user="\$1"; shift ;; esac
-done
-read -r pw
-printf '%s:%s\n' "\$user" "\$pw" > "\$file"
-exit 0
-SH
-chmod +x "$tmp/bin/mosquitto_passwd"
 cat > "$tmp/bin/fakepip" <<'SH'
 #!/usr/bin/env bash
 printf 'pip %s\n' "$*" >> "$CMD_LOG"
