@@ -3,6 +3,8 @@ package main
 import (
 	"strings"
 	"testing"
+
+	"github.com/Developer-Simon/energy-node-installer/internal/shell"
 )
 
 func TestNewUIConfigDefaults(t *testing.T) {
@@ -55,5 +57,27 @@ func TestNewTokenIsLongAndDifferentEveryTime(t *testing.T) {
 	}
 	if first == second {
 		t.Errorf("two tokens were identical")
+	}
+}
+
+func TestDescribeShellModeStopsWaitingOnlyAfterAWebviewClosed(t *testing.T) {
+	cases := []struct {
+		mode          shell.Mode
+		wantWait      bool
+		wantNoteEmpty bool
+	}{
+		{shell.ModeWebview, false, true},
+		{shell.ModeApp, true, true},
+		{shell.ModeBrowser, true, false},
+		{shell.ModeURLOnly, true, false},
+	}
+	for _, c := range cases {
+		note, wait := describeShellMode(c.mode)
+		if wait != c.wantWait {
+			t.Errorf("mode %v: waitForSignal = %v, want %v", c.mode, wait, c.wantWait)
+		}
+		if (note == "") != c.wantNoteEmpty {
+			t.Errorf("mode %v: note = %q, wantEmpty = %v", c.mode, note, c.wantNoteEmpty)
+		}
 	}
 }
