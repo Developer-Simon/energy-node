@@ -93,6 +93,50 @@ grep -qx 'FLAGS="--tun=userspace-networking"' "$defaults" \
   || fail "defaults trotz Abbruch veraendert" "$(cat "$defaults")"
 rm -f "$defaults"
 
+# --- neuere Version vorhanden: nichts wird angefasst ----------------------
+# Ein Node, der Tailscale per "tailscale update" hochgezogen hat (oder von
+# Hand eine neuere Fassung installierte), darf nicht auf die Fassung im
+# Bundle zurueckgesetzt werden. Und "tailscale update" wuerde tailscaled neu
+# starten und die Verbindung kappen, ueber die der Installer selbst laeuft.
+installed_ts() { # <erste Zeile von "tailscaled --version">
+  rm -rf "$tmp/root" "$tmp/state"
+  mkdir -p "$tmp/root/usr/sbin"
+  printf '#!/bin/sh\necho "%s"\necho "  tailscale commit: abc"\n' "$1" > "$tmp/root/usr/sbin/tailscaled"
+  printf '#!/bin/sh\n# vorhandenes tailscale\n' > "$tmp/root/usr/sbin/tailscale"
+  chmod +x "$tmp/root/usr/sbin/tailscaled" "$tmp/root/usr/sbin/tailscale"
+}
+untouched() {
+  grep -q '# vorhandenes tailscale' "$tmp/root/usr/sbin/tailscale" \
+    && [ ! -e "$tmp/root/etc/systemd/system/tailscaled.service" ] \
+    && [ ! -e "$defaults" ] && ! grep -q 'tailscale update' "$TS_LOG"
+}
+
+installed_ts 1.98.9-t4fb758c39-g200941d74; : > "$TS_LOG"
+out="$(TS_STATUS_RC=0 bash "$script")"
+grep -q '^##STEP 40 ok$' <<<"$out" || fail "neuere Version: kein ok-Marker" "$out"
+untouched || fail "neuere Version wurde ueberschrieben, Unit/defaults angelegt oder update aufgerufen" "$(cat "$TS_LOG")"
+[ -f "$tmp/state/steps/40" ] || fail "neuere Version: kein Stempel"
+grep -q '1.98.9' <<<"$out" || fail "vorhandene Version nicht gemeldet" "$out"
+
+installed_ts 1.62.0; : > "$TS_LOG"
+out="$(TS_STATUS_RC=0 bash "$script")"
+grep -q '^##STEP 40 ok$' <<<"$out" || fail "gleiche Version: kein ok-Marker" "$out"
+untouched || fail "gleiche Version wurde ueberschrieben" "$(cat "$TS_LOG")"
+
+# ...aber die Anmeldung wird weiter geprueft.
+installed_ts 1.98.9; : > "$TS_LOG"
+out="$(TS_STATUS_RC=1 bash "$script")"
+grep -q '^##STEP 40 skip login ausstehend$' <<<"$out" || fail "neuere Version, nicht angemeldet: kein Login-Hinweis" "$out"
+grep -q '# vorhandenes tailscale' "$tmp/root/usr/sbin/tailscale" \
+  || fail "neuere Version bei nicht angemeldetem Node ueberschrieben"
+
+# --- aeltere Version vorhanden: wie bisher auf die Bundle-Fassung ----------
+installed_ts 1.50.0; : > "$TS_LOG"
+out="$(TS_STATUS_RC=0 bash "$script")"
+grep -q '^##STEP 40 ok$' <<<"$out" || fail "aeltere Version: kein ok-Marker" "$out"
+grep -q '# vorhandenes tailscale' "$tmp/root/usr/sbin/tailscale" && fail "aeltere Version wurde nicht ersetzt"
+grep -q 'tailscale update' "$TS_LOG" || fail "aeltere Version: kein update" "$(cat "$TS_LOG")"
+
 # --- fehlender Tarball -----------------------------------------------------
 rm -rf "$tmp/state" "$bundle/tailscale"
 set +e

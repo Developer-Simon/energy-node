@@ -19,7 +19,12 @@ cat > "$tmp/bin/systemctl" <<'SH'
 #!/usr/bin/env bash
 printf 'systemctl %s\n' "$*" >> "$SYSTEMCTL_LOG"
 SH
-chmod +x "$tmp/bin/caddy" "$tmp/bin/systemctl"
+# dpkg -S: DPKG_RC=0 heisst "die Datei gehoert einem Paket".
+cat > "$tmp/bin/dpkg" <<'SH'
+#!/usr/bin/env bash
+exit "${DPKG_RC:-1}"
+SH
+chmod +x "$tmp/bin/caddy" "$tmp/bin/systemctl" "$tmp/bin/dpkg"
 export PATH="$tmp/bin:$PATH"
 export CADDY_LOG="$tmp/caddy.log" SYSTEMCTL_LOG="$tmp/systemctl.log"
 
@@ -62,6 +67,50 @@ out="$(bash "$script")"
 grep -q '^##STEP 70 ok$' <<<"$out" || fail "Lauf mit eigener Caddyfile nicht ok" "$out"
 grep -qx ':8443 {' "$caddyfile" || fail "eigene Caddyfile ueberschrieben" "$(cat "$caddyfile")"
 grep -qi 'weicht ab' <<<"$out" || fail "Abweichung nicht gemeldet" "$out"
+
+# --- vorhandenes Caddy-Binary bleibt stehen, wenn es nicht unser ist -------
+# Ein Node, dessen Caddy aus dem Debian-Paket stammt (oder schon neuer ist
+# als das Bundle), darf nicht durch das Bundle-Binary ersetzt werden: dpkg
+# haelt die Datei, und ein spaeteres apt upgrade wuerde sie wieder tauschen.
+bundled_caddy() {
+  printf '#!/bin/sh\necho "v2.9.1 h1:bundled"\n' > "$bundle/caddy/caddy"
+  chmod +x "$bundle/caddy/caddy"
+}
+installed_caddy() { # <erste Zeile von "caddy version">
+  rm -rf "$tmp/root" "$tmp/state"
+  mkdir -p "$tmp/root/usr/bin" "$tmp/root/etc/caddy"
+  printf '#!/bin/sh\n# vorhandenes caddy\necho "%s"\n' "$1" > "$tmp/root/usr/bin/caddy"
+  chmod +x "$tmp/root/usr/bin/caddy"
+  printf ':443 {\n  tls internal\n}\n' > "$caddyfile"
+}
+mkdir -p "$bundle/caddy"; bundled_caddy
+
+installed_caddy "v2.6.2 h1:debian"
+out="$(DPKG_RC=0 bash "$script")"
+grep -q '^##STEP 70 ok$' <<<"$out" || fail "Paket-Caddy: kein ok-Marker" "$out"
+grep -q '# vorhandenes caddy' "$tmp/root/usr/bin/caddy" || fail "vom Paketmanager verwaltetes Caddy wurde ersetzt"
+grep -qi 'paketmanager' <<<"$out" || fail "Paket-Caddy: kein Hinweis" "$out"
+
+installed_caddy "v2.10.0 h1:newer"
+out="$(bash "$script")"
+grep -q '^##STEP 70 ok$' <<<"$out" || fail "neueres Caddy: kein ok-Marker" "$out"
+grep -q '# vorhandenes caddy' "$tmp/root/usr/bin/caddy" || fail "neueres Caddy wurde durch das Bundle-Binary ersetzt"
+
+installed_caddy "v2.9.1 h1:same"
+out="$(bash "$script")"
+grep -q '# vorhandenes caddy' "$tmp/root/usr/bin/caddy" || fail "gleich neues Caddy wurde ersetzt"
+
+# Die Konfiguration wird trotzdem geprueft und der Dienst angestossen.
+: > "$CADDY_LOG"; : > "$SYSTEMCTL_LOG"; rm -rf "$tmp/state"
+out="$(bash "$script")"
+grep -q 'caddy validate' "$CADDY_LOG" || fail "bei behaltenem Binary keine Validierung" "$(cat "$CADDY_LOG")"
+grep -q 'systemctl enable --now caddy' "$SYSTEMCTL_LOG" || fail "bei behaltenem Binary kein enable --now"
+
+# Ein eigenes, aelteres Binary (nicht vom Paketmanager) wird ersetzt.
+installed_caddy "v2.6.2 h1:manual"
+out="$(bash "$script")"
+grep -q '^##STEP 70 ok$' <<<"$out" || fail "aelteres Caddy: kein ok-Marker" "$out"
+grep -q '# vorhandenes caddy' "$tmp/root/usr/bin/caddy" && fail "aelteres, nicht paketverwaltetes Caddy wurde nicht ersetzt"
 
 # --- ungueltige Konfiguration --------------------------------------------
 rm -rf "$tmp/state"

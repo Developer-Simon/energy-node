@@ -36,42 +36,67 @@ if [[ -f "${defaults}" ]] && grep -q -- "${FORBIDDEN_FLAG}" "${defaults}"; then
   step_fail TAILSCALE_FLAG_INVALID
 fi
 
-work="$(mktemp -d)"
-trap 'rm -rf "${work}"' EXIT
-tar -xzf "${tarballs[0]}" -C "${work}" || step_fail TAILSCALE_INSTALL_FAILED
-
-# Der echte Tarball packt alles unter tailscale_<ver>_<arch>/. Statt den
-# Namen zu raten, wird die Nutzlast an tailscaled festgemacht.
-payload="$(find "${work}" -type f -name tailscaled -print -quit)"
-[[ -n "${payload}" ]] || step_fail TAILSCALE_INSTALL_FAILED
-payload="$(dirname "${payload}")"
-
-"${SUDO[@]}" mkdir -p "${EN_ROOT}/usr/sbin" "${EN_ROOT}/etc/systemd/system" \
-  "${EN_ROOT}/etc/default"
-"${SUDO[@]}" install -m 0755 "${payload}/tailscale" "${payload}/tailscaled" \
-  "${EN_ROOT}/usr/sbin/" || step_fail TAILSCALE_INSTALL_FAILED
-"${SUDO[@]}" install -m 0644 "${payload}/systemd/tailscaled.service" \
-  "${EN_ROOT}/etc/systemd/system/tailscaled.service" || step_fail TAILSCALE_INSTALL_FAILED
-
-# Nur anlegen, wenn sie fehlt - eine vorhandene Datei gehoert dem Betreiber.
-if [[ ! -f "${defaults}" ]]; then
-  "${SUDO[@]}" install -m 0644 "${payload}/systemd/tailscaled.defaults" \
-    "${defaults}" || step_fail TAILSCALE_INSTALL_FAILED
+# Eine vorhandene Installation, die nicht aelter ist als die im Bundle, bleibt
+# unangetastet. Der Tarball ist auf die letzte ARMv6-Fassung (1.62.0)
+# festgelegt; ein Node, der per "tailscale update" laengst darueber liegt,
+# wuerde sonst bei jedem neuen Bundle zurueckgesetzt - und "tailscale update"
+# startet tailscaled neu und kappt damit die Verbindung, ueber die der
+# Installer selbst laeuft. Die Bundle-Fassung steht im Tarballnamen.
+bundled_version="$(basename "${tarballs[0]}" .tgz)"
+bundled_version="${bundled_version#tailscale_}"
+bundled_version="${bundled_version%%_*}"
+installed_version=""
+if [[ -x "${EN_ROOT}/usr/sbin/tailscaled" ]]; then
+  installed_version="$("${EN_ROOT}/usr/sbin/tailscaled" --version 2>/dev/null | head -n 1 || true)"
 fi
-# Gegenprobe nach dem Schreiben: auch die mitgelieferte Vorlage darf den
-# Schalter nicht enthalten.
-if grep -q -- "${FORBIDDEN_FLAG}" "${defaults}"; then
-  step_log "Die installierte ${defaults} enthaelt ${FORBIDDEN_FLAG}."
-  step_fail TAILSCALE_FLAG_INVALID
+keep_installed=false
+if step_version_ge "${installed_version}" "${bundled_version}"; then
+  keep_installed=true
+  step_log "Vorhanden ist Tailscale ${installed_version}, das Bundle bringt ${bundled_version}: die Installation bleibt unangetastet."
 fi
 
-"${SUDO[@]}" systemctl daemon-reload
+if [[ "${keep_installed}" == false ]]; then
+  work="$(mktemp -d)"
+  trap 'rm -rf "${work}"' EXIT
+  tar -xzf "${tarballs[0]}" -C "${work}" || step_fail TAILSCALE_INSTALL_FAILED
+
+  # Der echte Tarball packt alles unter tailscale_<ver>_<arch>/. Statt den
+  # Namen zu raten, wird die Nutzlast an tailscaled festgemacht.
+  payload="$(find "${work}" -type f -name tailscaled -print -quit)"
+  [[ -n "${payload}" ]] || step_fail TAILSCALE_INSTALL_FAILED
+  payload="$(dirname "${payload}")"
+
+  "${SUDO[@]}" mkdir -p "${EN_ROOT}/usr/sbin" "${EN_ROOT}/etc/systemd/system" \
+    "${EN_ROOT}/etc/default"
+  "${SUDO[@]}" install -m 0755 "${payload}/tailscale" "${payload}/tailscaled" \
+    "${EN_ROOT}/usr/sbin/" || step_fail TAILSCALE_INSTALL_FAILED
+  "${SUDO[@]}" install -m 0644 "${payload}/systemd/tailscaled.service" \
+    "${EN_ROOT}/etc/systemd/system/tailscaled.service" || step_fail TAILSCALE_INSTALL_FAILED
+
+  # Nur anlegen, wenn sie fehlt - eine vorhandene Datei gehoert dem Betreiber.
+  if [[ ! -f "${defaults}" ]]; then
+    "${SUDO[@]}" install -m 0644 "${payload}/systemd/tailscaled.defaults" \
+      "${defaults}" || step_fail TAILSCALE_INSTALL_FAILED
+  fi
+  # Gegenprobe nach dem Schreiben: auch die mitgelieferte Vorlage darf den
+  # Schalter nicht enthalten.
+  if grep -q -- "${FORBIDDEN_FLAG}" "${defaults}"; then
+    step_log "Die installierte ${defaults} enthaelt ${FORBIDDEN_FLAG}."
+    step_fail TAILSCALE_FLAG_INVALID
+  fi
+
+  "${SUDO[@]}" systemctl daemon-reload
+fi
 "${SUDO[@]}" systemctl enable --now tailscaled || step_fail TAILSCALE_INSTALL_FAILED
 
 if "${SUDO[@]}" tailscale status >/dev/null 2>&1; then
-  step_log "Node ist angemeldet; aktualisiere auf die aktuelle Fassung."
-  "${SUDO[@]}" tailscale update --yes \
-    || step_log "tailscale update fehlgeschlagen; Fassung 1.62.0 bleibt aktiv."
+  if [[ "${keep_installed}" == true ]]; then
+    step_log "Node ist angemeldet."
+  else
+    step_log "Node ist angemeldet; aktualisiere auf die aktuelle Fassung."
+    "${SUDO[@]}" tailscale update --yes \
+      || step_log "tailscale update fehlgeschlagen; Fassung 1.62.0 bleibt aktiv."
+  fi
   step_ok
   exit 0
 fi
