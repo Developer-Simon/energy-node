@@ -15,6 +15,7 @@ import (
 // Der Compiler ist hier der eigentliche Test: der Wirt muss den vollstaendigen
 // Vertrag erfuellen, sonst laesst sich die Oberflaeche gar nicht an ihn binden.
 var _ hostapi.Backend = (*host.Host)(nil)
+var _ hostapi.PackageBackend = (*host.Host)(nil)
 
 func writeManifest(t *testing.T, dir string) {
 	t.Helper()
