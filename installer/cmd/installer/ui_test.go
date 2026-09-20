@@ -81,3 +81,10 @@ func TestDescribeShellModeStopsWaitingOnlyAfterAWebviewClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestRunUIStateDirsLiveUnderTheEnergyNodeHome(t *testing.T) {
+	dirs := stateDirs("/home/dev")
+	if dirs.work != "/home/dev/.energy-node/work" || dirs.cache != "/home/dev/.energy-node/cache" {
+		t.Errorf("stateDirs = %+v", dirs)
+	}
+}
