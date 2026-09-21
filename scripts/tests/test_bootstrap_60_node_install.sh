@@ -26,7 +26,8 @@ export SYSTEMCTL_LOG="$tmp/systemctl.log" VISUDO_LOG="$tmp/visudo.log"
 bundle="$tmp/bundle"
 mkdir -p "$bundle/dashboard" "$bundle/config/manifests" "$bundle/bootstrap"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-dashboard"
-printf '[Unit]\n'       > "$bundle/dashboard/energy-node-dashboard.service"
+printf '[Unit]\nUser=energynode\nExecStart=/home/energynode/dashboard/energy-node-dashboard\n' \
+  > "$bundle/dashboard/energy-node-dashboard.service"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-dashboard-system-action"
 printf 'energynode ALL\n' > "$bundle/dashboard/energy-node-dashboard-system-action.sudoers"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-updater"
@@ -36,7 +37,7 @@ printf '[Unit]\nDescription=Test\n' > "$bundle/dashboard/energy-node-updater.pat
 printf 'test-key\n'     > "$bundle/dashboard/signing_key.pub.pem"
 printf '#!/bin/sh\n'    > "$bundle/bootstrap/verify_bundle.sh"
 chmod +x "$bundle/bootstrap/verify_bundle.sh"
-printf '{"mqtt":{}}\n'  > "$bundle/config/config.json"
+printf '{"mqtt":{},"devices_dir":"/home/energynode/devices","username":"energynode_client"}\n' > "$bundle/config/config.json"
 printf 'v1.4.0\n'       > "$bundle/config/services-VERSION"
 printf '{"service_id":"shelly"}\n'  > "$bundle/config/manifests/shelly.json"
 printf '{"service_id":"tuya"}\n'    > "$bundle/config/manifests/tuya.json"
@@ -72,6 +73,24 @@ grep -q '^##STEP 60 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 [ -f "$base/devices/VERSION" ] || fail "services-VERSION fehlt"
 grep -q 'systemctl enable --now energy-node-dashboard.service' "$SYSTEMCTL_LOG" \
   || fail "Dashboard nicht gestartet" "$(cat "$SYSTEMCTL_LOG")"
+
+# --- Vorlagen sind fuer den Zielbenutzer gerendert -------------------------
+grep -qx 'User=pruef' "$tmp/root/etc/systemd/system/energy-node-dashboard.service" \
+  || fail "Dashboard-Unit nicht gerendert" "$(cat "$tmp/root/etc/systemd/system/energy-node-dashboard.service")"
+grep -q 'ExecStart=/home/pruef/dashboard/' "$tmp/root/etc/systemd/system/energy-node-dashboard.service" \
+  || fail "Basis in der Unit nicht gerendert"
+grep -qx 'pruef ALL' "$tmp/root/etc/sudoers.d/energy-node-dashboard-system-action" \
+  || fail "Sudoers nicht gerendert" "$(cat "$tmp/root/etc/sudoers.d/energy-node-dashboard-system-action")"
+grep -q '"devices_dir":"/home/pruef/devices"' "$etc/config.json" \
+  || fail "config.json-Vorlage nicht gerendert" "$(cat "$etc/config.json")"
+grep -q '"username":"energynode_client"' "$etc/config.json" \
+  || fail "energynode_client darf nicht umgeschrieben werden"
+
+# --- das Ziel steht in einer root-eigenen Datei fuer den Updater ----------
+target_file="$tmp/root/etc/energy-node-updater/target.json"
+[ -f "$target_file" ] || fail "target.json fehlt"
+[ "$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["user"], d["base"])' "$target_file")" \
+  = "pruef /home/pruef" ] || fail "target.json falsch" "$(cat "$target_file")"
 
 # --- Updater-Unit (Plan D) ------------------------------------------------
 [[ -x "$tmp/root/usr/local/sbin/energy-node-updater" ]] \
@@ -146,5 +165,20 @@ set +e
 out="$(run)"
 set -e
 grep -q '^##STEP 60 fail DASHBOARD_BINARY_MISSING$' <<<"$out" || fail "falscher Code" "$out"
+# Restore the binary for the next test
+printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-dashboard"
+
+# --- ein ungueltiges Ziel bricht ab, bevor irgendetwas installiert wird ----
+rm -rf "$tmp/state" "$tmp/root"
+set +e
+out="$(EN_TARGET_USER='bad user' run)"
+rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "ungueltiges Ziel nicht abgelehnt" "$rc"
+grep -q '^##STEP 60 fail TARGET_INVALID$' <<<"$out" || fail "falscher Code" "$out"
+[ -e "$tmp/root/etc/systemd/system/energy-node-dashboard.service" ] \
+  && fail "trotz ungueltigem Ziel installiert"
+[ -e "$tmp/root/etc/energy-node-updater/target.json" ] \
+  && fail "target.json trotz ungueltigem Ziel geschrieben"
 
 echo "OK: $(basename "$0")"

@@ -13,6 +13,8 @@
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
+# shellcheck source=scripts/bootstrap/lib/render.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/render.sh"
 
 BINARY_NAME="energy-node-dashboard"
 MQTT_PW_FILE=""
@@ -41,6 +43,24 @@ manifests=("${EN_BUNDLE_DIR}"/config/manifests/*.json)
 shopt -u nullglob
 [[ "${#manifests[@]}" -gt 0 ]] || step_fail MANIFESTS_MISSING
 
+# --- Vorlagen fuer den Zielbenutzer rendern --------------------------------
+# Das Bundle liefert Units, Sudoers und die Konfiguration als Vorlagen mit dem
+# Platzhalter "energynode" aus. Hier, auf dem Node, werden sie fuer den
+# Benutzer und die Basis dieses Laufs gerendert. Ein Bundle, das der
+# Bau-Rechner schon auf einen Benutzer festgelegt hat (make_bundle.sh --user),
+# enthaelt den Platzhalter nicht mehr; das Rendern aendert dann nichts.
+rendered="$(mktemp -d)"
+trap 'rm -rf "${rendered}"' EXIT
+for name in "${BINARY_NAME}.service" "${BINARY_NAME}-system-action" \
+            "${BINARY_NAME}-system-action.sudoers" \
+            energy-node-updater.service energy-node-updater.path; do
+  [[ -f "${dash}/${name}" ]] || continue
+  render_unit_as "${dash}/${name}" "${rendered}/${name}" "${EN_TARGET_USER}" "${EN_TARGET_BASE}" \
+    || step_fail TARGET_INVALID
+done
+render_unit_as "${cfg_template}" "${rendered}/config.json" "${EN_TARGET_USER}" "${EN_TARGET_BASE}" \
+  || step_fail TARGET_INVALID
+
 # Eigentuemer und Gruppe nur setzen, wenn wir sie setzen koennen. Der Test
 # laeuft als normaler Benutzer mit EN_SUDO=""; ein hartes -o root machte
 # dort jeden Lauf zum Fehler, ohne irgendetwas zu beweisen. Die Gruppenpruefung
@@ -62,9 +82,9 @@ install_owned() {
 # visudo laeuft gegen die Datei im Bundle. Andersherum laege im Fehlerfall
 # bereits eine kaputte Regel unter /etc/sudoers.d - und die kann sudo
 # insgesamt aussperren.
-sudoers_src="${dash}/${BINARY_NAME}-system-action.sudoers"
-if [[ -f "${sudoers_src}" ]]; then
-  "${SUDO[@]}" visudo -cf "${sudoers_src}" >/dev/null || step_fail SUDOERS_INVALID
+sudoers_bundle="${dash}/${BINARY_NAME}-system-action.sudoers"
+if [[ -f "${sudoers_bundle}" ]]; then
+  "${SUDO[@]}" visudo -cf "${sudoers_bundle}" >/dev/null || step_fail SUDOERS_INVALID
 fi
 
 # --- Laufzeitdateien im Heimatverzeichnis des Zielbenutzers ---------------
@@ -79,21 +99,21 @@ fi
 # --- systemd, Helfer, Sudoers --------------------------------------------
 "${SUDO[@]}" mkdir -p "${EN_ROOT}/etc/systemd/system" "${EN_ROOT}/usr/local/sbin" \
   "${EN_ROOT}/etc/sudoers.d"
-"${SUDO[@]}" install -m 0644 "${dash}/${BINARY_NAME}.service" \
+"${SUDO[@]}" install -m 0644 "${rendered}/${BINARY_NAME}.service" \
   "${EN_ROOT}/etc/systemd/system/${BINARY_NAME}.service"
 "${SUDO[@]}" install -m 0755 "${dash}/${BINARY_NAME}-system-action" \
   "${EN_ROOT}/usr/local/sbin/${BINARY_NAME}-system-action"
-if [[ -f "${sudoers_src}" ]]; then
-  "${SUDO[@]}" install -m 0440 "${sudoers_src}" \
+if [[ -f "${sudoers_bundle}" ]]; then
+  "${SUDO[@]}" install -m 0440 "${rendered}/${BINARY_NAME}-system-action.sudoers" \
     "${EN_ROOT}/etc/sudoers.d/${BINARY_NAME}-system-action"
 fi
 
 # --- Updater-Unit (Plan D): eigene Einheit, kein neues sudo-Verb ---------
 "${SUDO[@]}" install -m 0755 "${dash}/energy-node-updater" \
   "${EN_ROOT}/usr/local/sbin/energy-node-updater"
-"${SUDO[@]}" install -m 0644 "${dash}/energy-node-updater.service" \
+"${SUDO[@]}" install -m 0644 "${rendered}/energy-node-updater.service" \
   "${EN_ROOT}/etc/systemd/system/energy-node-updater.service"
-"${SUDO[@]}" install -m 0644 "${dash}/energy-node-updater.path" \
+"${SUDO[@]}" install -m 0644 "${rendered}/energy-node-updater.path" \
   "${EN_ROOT}/etc/systemd/system/energy-node-updater.path"
 
 "${SUDO[@]}" mkdir -p "${EN_ROOT}/usr/local/lib/energy-node-installer" \
@@ -102,6 +122,14 @@ fi
   "${EN_ROOT}/usr/local/lib/energy-node-installer/verify_bundle.sh"
 "${SUDO[@]}" install -m 0644 "${dash}/signing_key.pub.pem" \
   "${EN_ROOT}/etc/energy-node-updater/signing_key.pub.pem"
+
+# Das Ziel dieses Knotens, aus dem der Updater es spaeter liest. Er nimmt es
+# nie aus dem Auftrag (job.json gehoert dem Dashboard-Konto und ist nicht
+# signiert) und nicht aus dem Zustandsverzeichnis (gehoert dem SSH-Benutzer):
+# /etc/energy-node-updater ist root-eigen, wie der dort abgelegte Schluessel.
+printf '{"user":"%s","base":"%s"}\n' "${EN_TARGET_USER}" "${EN_TARGET_BASE}" > "${rendered}/target.json"
+"${SUDO[@]}" install -m 0644 "${rendered}/target.json" \
+  "${EN_ROOT}/etc/energy-node-updater/target.json"
 
 job_dir="${EN_ROOT}/var/lib/energy-node-installer/job"
 "${SUDO[@]}" mkdir -p "${job_dir}"
@@ -120,7 +148,7 @@ etc="${EN_ROOT}/etc/energy-node"
 if [[ -e "${etc}/config.json" ]]; then
   step_log "config.json vorhanden, bleibt unangetastet."
 else
-  install_owned 0664 "${cfg_template}" "${etc}/config.json"
+  install_owned 0664 "${rendered}/config.json" "${etc}/config.json"
   step_log "config.json aus der Vorlage angelegt."
 fi
 

@@ -23,13 +23,13 @@ export SYSTEMCTL_LOG="$tmp/systemctl.log"
 bundle="$tmp/bundle"
 mkdir -p "$bundle/services/demo/devices"
 printf 'print("demo")\n'  > "$bundle/services/demo/demo_mqtt.py"
-printf '[Unit]\n'         > "$bundle/services/demo/demo.service"
+printf '[Unit]\nUser=energynode\nWorkingDirectory=/home/energynode/demo\n' > "$bundle/services/demo/demo.service"
 printf '{"schema":1}\n'   > "$bundle/services/demo/devices/demo_devices.schema.json"
 printf '{"presets":1}\n'  > "$bundle/services/demo/devices/demo_presets.json"
 printf '{"geraete":[]}\n' > "$bundle/services/demo/devices/demo_devices.json"
 
 export EN_STATE_DIR="$tmp/state" EN_ROOT="$tmp/root" EN_BUNDLE_DIR="$bundle"
-export EN_BUNDLE_VERSION=v1.0.0 EN_SUDO="" EN_TARGET_BASE=/home/pruef
+export EN_BUNDLE_VERSION=v1.0.0 EN_SUDO="" EN_TARGET_BASE=/home/pruef EN_TARGET_USER=pruef
 export EN_SELECTION="$tmp/selection.json"
 
 base="$tmp/root/home/pruef"
@@ -45,6 +45,10 @@ grep -q '^##STEP 81 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 [ -f "$tmp/root/etc/systemd/system/demo.service" ] || fail "Unit nicht installiert"
 grep -q 'systemctl enable --now demo.service' "$SYSTEMCTL_LOG" \
   || fail "Dienst nicht gestartet" "$(cat "$SYSTEMCTL_LOG")"
+grep -qx 'User=pruef' "$tmp/root/etc/systemd/system/demo.service" \
+  || fail "Unit nicht fuer den Zielbenutzer gerendert" "$(cat "$tmp/root/etc/systemd/system/demo.service")"
+grep -qx 'WorkingDirectory=/home/pruef/demo' "$tmp/root/etc/systemd/system/demo.service" \
+  || fail "Basis in der Unit nicht gerendert"
 
 # --- zweiter Lauf ueberspringt --------------------------------------------
 : > "$SYSTEMCTL_LOG"
