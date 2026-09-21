@@ -297,6 +297,7 @@
   "result.fail.card": "What went wrong",
   "result.fail.heading": "The run stopped",
   "result.fail.summary": "At “{step}” · after {duration}",
+  "result.fail.summary_nostep": "After {duration}",
   "result.lines.heading": "Last log lines",
   "result.lines.text": "From the step that failed.",
   "result.ok.heading": "The node is running",

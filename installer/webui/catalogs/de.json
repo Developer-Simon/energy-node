@@ -297,6 +297,7 @@
   "result.fail.card": "Was schiefging",
   "result.fail.heading": "Der Lauf ist abgebrochen",
   "result.fail.summary": "Bei „{step}“ · nach {duration}",
+  "result.fail.summary_nostep": "Nach {duration}",
   "result.lines.heading": "Letzte Protokollzeilen",
   "result.lines.text": "Aus dem Schritt, der fehlgeschlagen ist.",
   "result.ok.heading": "Der Node läuft",

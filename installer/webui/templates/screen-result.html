@@ -52,6 +52,7 @@
           <h2 class="card-h" x-text="t(cancelled ? 'result.cancelled.card' : 'result.fail.card')"></h2>
           <p class="card-p" x-text="cancelled ? t('result.cancelled.text') : fault.message"></p>
           <template x-if="!cancelled && fault.remediation"><p class="card-p" x-text="fault.remediation"></p></template>
+          <template x-if="!cancelled && detail"><p class="card-p"><code x-text="detail"></code></p></template>
         </section>
       </template>
 
