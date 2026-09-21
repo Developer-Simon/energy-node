@@ -2,6 +2,8 @@ package transport
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -81,22 +83,48 @@ func (c *Client) uploadReader(r io.Reader, remotePath string, mode os.FileMode) 
 		}
 	}
 
-	remote, err := client.OpenFile(remotePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
-	if err != nil {
-		return fmt.Errorf("creating %s: %w", remotePath, err)
+	// Write next to the target and rename over it. Opening an existing
+	// remotePath with O_TRUNC fails when the SSH user may not write that
+	// file -- a manual install leaves a root-owned selection.json in a
+	// directory the user owns -- while replacing it only needs the
+	// directory. The rename also means a reader never sees a half-written
+	// file.
+	suffix := make([]byte, 6)
+	if _, err := rand.Read(suffix); err != nil {
+		return fmt.Errorf("choosing a temporary name for %s: %w", remotePath, err)
 	}
-	defer remote.Close()
+	tmpPath := remotePath + ".tmp-" + hex.EncodeToString(suffix)
 
-	// Chmod before writing any content: the server just created remotePath
+	remote, err := client.OpenFile(tmpPath, os.O_WRONLY|os.O_CREATE|os.O_EXCL)
+	if err != nil {
+		return fmt.Errorf("creating %s: %w", tmpPath, err)
+	}
+	// Chmod before writing any content: the server just created the file
 	// at its own default mode (mode & ^umask, typically 0644), and a caller
 	// staging a secret must never leave a window where those bytes sit on
 	// disk at a world-readable mode.
 	if err := remote.Chmod(mode); err != nil {
-		return fmt.Errorf("setting mode of %s: %w", remotePath, err)
+		remote.Close()
+		client.Remove(tmpPath)
+		return fmt.Errorf("setting mode of %s: %w", tmpPath, err)
 	}
-
 	if _, err := io.Copy(remote, r); err != nil {
+		remote.Close()
+		client.Remove(tmpPath)
 		return fmt.Errorf("writing %s: %w", remotePath, err)
+	}
+	if err := remote.Close(); err != nil {
+		client.Remove(tmpPath)
+		return fmt.Errorf("writing %s: %w", remotePath, err)
+	}
+	if err := client.PosixRename(tmpPath, remotePath); err != nil {
+		// Servers without the posix-rename extension refuse to rename over
+		// an existing file; remove the target first.
+		client.Remove(remotePath)
+		if err := client.Rename(tmpPath, remotePath); err != nil {
+			client.Remove(tmpPath)
+			return fmt.Errorf("replacing %s: %w", remotePath, err)
+		}
 	}
 	return nil
 }

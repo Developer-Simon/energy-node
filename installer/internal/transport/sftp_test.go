@@ -171,3 +171,37 @@ func TestUploadFileProgressReportsEveryByteAndKeepsContent(t *testing.T) {
 		t.Fatalf("remote size = %s, want 8388608", got)
 	}
 }
+
+// A manual install can leave a file in the state directory that the SSH user
+// may not open for writing (root-owned selection.json in a directory the user
+// owns). The user may still replace it, so the upload must.
+func TestUploadBytesReplacesAnExistingFileTheUserCannotWrite(t *testing.T) {
+	requireSFTPServer(t)
+	if os.Geteuid() == 0 {
+		t.Skip("root can write any file, the scenario cannot be reproduced")
+	}
+	sshd := transporttest.Start(t)
+	client := dialTestSSHD(t, sshd)
+
+	dir := t.TempDir()
+	remotePath := filepath.Join(dir, "selection.json")
+	if err := os.WriteFile(remotePath, []byte("alt"), 0o444); err != nil {
+		t.Fatalf("writing fixture: %v", err)
+	}
+
+	if err := client.UploadBytes([]byte("neu"), remotePath, 0o644); err != nil {
+		t.Fatalf("UploadBytes over a read-only file: %v", err)
+	}
+	got, err := os.ReadFile(remotePath)
+	if err != nil || string(got) != "neu" {
+		t.Fatalf("content = %q, %v, want neu", got, err)
+	}
+	info, _ := os.Stat(remotePath)
+	if info.Mode().Perm() != 0o644 {
+		t.Errorf("mode = %v, want 0644", info.Mode().Perm())
+	}
+	leftovers, _ := filepath.Glob(filepath.Join(dir, "selection.json.*"))
+	if len(leftovers) != 0 {
+		t.Errorf("temporary files left behind: %v", leftovers)
+	}
+}
