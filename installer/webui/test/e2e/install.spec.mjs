@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startFakehost, openPage, connect, startInstall, connectWithPackage, getDebugState, SECRETS } from './fakehost.mjs';
+import { startFakehost, openPage, connect, startInstall, connectWithPackage, waitForPrepare, getDebugState, SECRETS } from './fakehost.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const en = JSON.parse(fs.readFileSync(path.join(here, '..', '..', 'catalogs', 'en.json'), 'utf8'));
@@ -198,7 +198,9 @@ test('die Paketdatei-Quelle sperrt den Verbinden-Button bis eine Datei ausgewaeh
   // Connect and wait for prepare to complete
   await connectButton.click();
   await page.locator('.tofu').waitFor({ timeout: 5000 }).catch(() => null); // Handle TOFU if present
-  // Wait for prepare screen and completion
+  // Wait for prepare to complete (prepare screen may or may not show)
+  await waitForPrepare(page);
+  // Now wait for precheck screen
   await page.locator('.app[data-screen="precheck"] .chk').first().waitFor({ timeout: 30000 });
 
   // Verify the backend recorded the uploaded file name
