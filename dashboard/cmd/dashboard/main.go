@@ -153,6 +153,7 @@ func main() {
 		selectionPath:         filepath.Join(installerStateDir, "selection.json"),
 		jobDir:                jobDir,
 		prepare:               prepare,
+		pageToken:             httpapi.SessionCSRFToken(authManager),
 	})
 	if err != nil {
 		log.Printf("redeploy: could not start the local update handler: %v", err)

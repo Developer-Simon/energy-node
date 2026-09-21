@@ -74,6 +74,40 @@ func TestTheShellCarriesTheAssetVersionAndTheToken(t *testing.T) {
 	}
 }
 
+func TestAHostWithItsOwnAuthenticationCanHandThePageAPerRequestToken(t *testing.T) {
+	server, _ := newTestServer(t, func(o *hostapi.Options) {
+		o.Token = ""
+		o.PageToken = func(r *http.Request) string { return "session-" + r.Header.Get("X-Who") }
+	})
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	req.Header.Set("X-Who", "anna")
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), `data-token="session-anna"`) {
+		t.Errorf("the shell does not carry the per-request token:\n%s", rec.Body.String())
+	}
+	// The token check itself stays off: the host authenticates on its own.
+	api := httptest.NewRequest(http.MethodGet, "/api/bootstrap", nil)
+	apiRec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(apiRec, api)
+	if apiRec.Code != http.StatusOK {
+		t.Fatalf("api status = %d, want 200", apiRec.Code)
+	}
+}
+
+func TestAConfiguredTokenWinsOverThePageToken(t *testing.T) {
+	server, _ := newTestServer(t, func(o *hostapi.Options) {
+		o.PageToken = func(*http.Request) string { return "from-host" }
+	})
+	body := do(t, server, http.MethodGet, "/", "").Body.String()
+	if !strings.Contains(body, `data-token="`+testToken+`"`) || strings.Contains(body, "from-host") {
+		t.Errorf("the configured token must win:\n%s", body)
+	}
+}
+
 func TestAnAssetIsServedWithoutAToken(t *testing.T) {
 	server, _ := newTestServer(t, nil)
 	req := httptest.NewRequest(http.MethodGet, "/assets/js/does-not-exist.js", nil)

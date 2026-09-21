@@ -673,9 +673,17 @@ fi
 # auf "Aktualisieren" im Browser das Herunterladen zeigen, nicht ein fertiges Paket.
 if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
   CANDIDATE="$WORK/data/redeploy-candidate"
-  csrf="$(api "$BASE/api/v1/auth/session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["csrf_token"])')"
+  # Wie der Browser: den Token aus der ausgelieferten Seite nehmen (data-token)
+  # und als X-Installer-Token schicken. Ein Token aus /api/v1/auth/session zu
+  # holen haette verdeckt, dass die Seite ihn nicht bekam (403 csrf_failed).
+  page_token="$(api "$BASE/redeploy/" | sed -n 's/.*data-token="\([^"]*\)".*/\1/p' | head -n 1)"
+  if [[ -n "$page_token" ]]; then
+    echo "  OK   die Redeploy-Seite traegt den Sitzungs-Token fuer ihre Aufrufe"
+  else
+    echo "  FEHL die Redeploy-Seite hat keinen Token (data-token ist leer)"; FAILED=1
+  fi
   start_prepare() {
-    api -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' -X POST \
+    api -H "X-Installer-Token: $page_token" -H 'Content-Type: application/json' -X POST \
       "$BASE/redeploy/api/run" -d '{"mode":"prepare"}' > /dev/null
   }
   echo "==> Paketbezug: Vorbereiten laedt das Bundle"
