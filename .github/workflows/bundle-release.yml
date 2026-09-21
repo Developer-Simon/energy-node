@@ -1,0 +1,57 @@
+name: Bundle Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the bundles to (for example v0.7.0)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  bundles:
+    name: Bundle ${{ matrix.arch }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        arch: [armv6, arm64, amd64]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: dashboard/go.mod
+
+      - name: Write signing key
+        env:
+          BUNDLE_SIGNING_KEY: ${{ secrets.BUNDLE_SIGNING_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "$BUNDLE_SIGNING_KEY" || { echo "secret BUNDLE_SIGNING_KEY is not set" >&2; exit 1; }
+          umask 077
+          printf '%s\n' "$BUNDLE_SIGNING_KEY" > "$RUNNER_TEMP/bundle-sign.pem"
+
+      - name: Build signed bundle
+        run: |
+          set -euo pipefail
+          bash scripts/build/make_bundle.sh --arch "${{ matrix.arch }}" --out dist \
+            --sign-key "$RUNNER_TEMP/bundle-sign.pem"
+          ls -l dist
+
+      - name: Attach to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh release upload "${{ inputs.tag }}" \
+            dist/energy-node-*-"${{ matrix.arch }}".tar.gz --clobber
+
+      - name: Remove signing key
+        if: always()
+        run: rm -f "$RUNNER_TEMP/bundle-sign.pem"
