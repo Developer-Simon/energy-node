@@ -1,6 +1,12 @@
 # Changelog
 
-## v0.4.0 (2026-09-20)
+## v0.4.0 (2026-09-21)
+
+### Features
+
+- **services:** give every service its own version and changelog (c2e4e2c)
+
+## v0.3.4 (2026-09-20)
 
 ### Features
 

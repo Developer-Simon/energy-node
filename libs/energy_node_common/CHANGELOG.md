@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.5 (2026-09-15)
+## v0.4.5 (2026-09-21)
 
 ### Features
 
@@ -21,6 +21,10 @@
 
 - **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
 - **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
+
+### Tests
+
+- **services:** accept the new version field in a service manifest (6f55366)
 
 ## v0.4.4 (2026-09-13)
 
