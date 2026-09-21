@@ -4,32 +4,9 @@
 
 ### Features
 
-- **installer:** polish for the installer webui (#30) (05d424b)
-- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
-- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
-- **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
-- **dashboard:** redesign the MQTT settings tab (#24) (8844555)
-- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
-- **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
-- make device services self-describing with per-service manifests (#12) (2e8c911)
-- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
-- **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
-- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
-- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - **battery_soc:** extract core logic and adapter modules (4a31188)
 - **battery_soc:** show net battery power as a measurement, not diagnostic (b3878e8)
 - **ha:** native Home Assistant integration for battery SoC (99ef3cf)
-
-### Fixes
-
-- **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
-- **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
-- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
-- **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
-- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
-- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
-- **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
 
 ### Refactors
 
@@ -39,8 +16,6 @@
 
 ### Documentation
 
-- **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
-- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 - drop remaining git-hooks references (7786f6d)
 - refresh changelogs before public fork (220794e)
 
@@ -51,10 +26,4 @@
 ### Dev
 
 - **scripts:** auto-generate battery_soc_core + HA integration changelogs, move deploy scripts under scripts/ (1f98ab1)
-
-### CI
-
-- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
-- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
-- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
 
