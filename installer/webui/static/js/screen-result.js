@@ -21,7 +21,7 @@
 
       get outcome() {
         return this.shell.shared.lastRun ||
-          { ok: false, code: '', mode: '', only: '', steps: {}, groups: [], lastLines: [], logText: '', startedAt: 0, finishedAt: 0 };
+          { ok: false, code: '', detail: '', mode: '', only: '', steps: {}, groups: [], lastLines: [], logText: '', startedAt: 0, finishedAt: 0 };
       },
 
       async init() {
@@ -73,6 +73,9 @@
         var outcome = this.outcome;
         if (this.cancelled) {
           return shell.t('result.cancelled.summary', { duration: this.duration });
+        }
+        if (!outcome.ok && !outcome.stepId) {
+          return shell.t('result.fail.summary_nostep', { duration: this.duration });
         }
         if (!outcome.ok) {
           return shell.t('result.fail.summary', { step: this.label(outcome.stepId), duration: this.duration });
@@ -172,6 +175,10 @@
         var key = 'fault.' + code + '.remediation';
         var remediation = t(key);
         return { message: window.RunModel.faultText(code, t), remediation: remediation === key ? '' : remediation };
+      },
+
+      get detail() {
+        return this.outcome.detail || '';
       },
 
       get lines() {

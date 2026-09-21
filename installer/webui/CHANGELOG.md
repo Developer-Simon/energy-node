@@ -1,11 +1,18 @@
 # Changelog
 
-## v0.1.5 (2026-09-21)
+## v0.1.6 (2026-09-21)
 
 ### Features
 
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
 - **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
+- **installer:** report the bundle upload progress and write concurrently (19df0c0)
+
+### Fixes
+
+- **webui:** show the error detail of a failed run (5017432)
+- **installer:** give step 20 its MQTT arguments from the node on redeploy and repair (bb4cd40)
+- **installer:** add texts for every fault code the bootstrap steps emit (23a64c3)
 
 ## v0.1.3 (2026-09-16)
 

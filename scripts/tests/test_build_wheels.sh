@@ -52,6 +52,39 @@ for pkg in paho-mqtt apsystems-ez1 tinytuya requests; do
 done
 [ -d "$tmp/wheels" ] || fail "Zielverzeichnis nicht angelegt"
 
+# --- fehlende Abhaengigkeiten unter den Zielmarkern ------------------------
+# pip wertet Marker wie python_version < "3.13" mit dem Interpreter des
+# Bau-Rechners aus, nicht mit dem Ziel: Auf Python 3.14 fehlt sonst
+# typing_extensions im Bundle, das aiohttp auf dem Node (3.11) braucht.
+missing_py="$here/../build/lib/missing_requirements.py"
+mk_wheel() { # <ziel> <name-version> <Requires-Dist>...
+  local dir="$1" nv="$2"; shift 2
+  local name="${nv%%-*}" version="${nv#*-}" meta
+  meta="$(mktemp -d)"
+  mkdir -p "$meta/${name}-${version}.dist-info"
+  {
+    printf 'Metadata-Version: 2.1\nName: %s\nVersion: %s\n' "$name" "$version"
+    for req in "$@"; do printf 'Requires-Dist: %s\n' "$req"; done
+  } > "$meta/${name}-${version}.dist-info/METADATA"
+  mkdir -p "$dir"
+  (cd "$meta" && python3 -c 'import sys,zipfile,glob; z=zipfile.ZipFile(sys.argv[1],"w"); [z.write(f) for f in glob.glob("*/*")]' \
+    "$dir/${name}-${version}-py3-none-any.whl")
+  rm -rf "$meta"
+}
+w="$tmp/closure"
+mk_wheel "$w" aiohttp-3.14.3 'typing_extensions>=4.4; python_version < "3.13"' 'attrs>=17' \
+  'old_thing; python_version < "3.9"' 'speedups_only; extra == "speedups"' \
+  'arm_only; platform_machine == "armv6l"' 'other_arch; platform_machine == "x86_64"'
+mk_wheel "$w" attrs-24.1.0
+mk_wheel "$w" new_enough-1.0 'attrs>=99'
+out="$(python3 "$missing_py" "$w" 3.11 armv6l)" || fail "missing_requirements.py schlug fehl" "$out"
+[ "$(sort <<<"$out" | tr '\n' ' ')" = "arm-only attrs>=99 typing-extensions>=4.4 " ] \
+  || fail "falsche fehlende Abhaengigkeiten" "$out"
+out="$(python3 "$missing_py" "$w" 3.14 x86_64)" || fail "missing_requirements.py (3.14) schlug fehl"
+grep -q typing-extensions <<<"$out" && fail "typing_extensions unter 3.14 nicht noetig" "$out"
+grep -qx other-arch <<<"$out" || fail "x86_64-Marker nicht ausgewertet" "$out"
+[ -z "$(python3 "$missing_py" "$tmp/leer" 3.11 armv6l)" ] || fail "leeres Verzeichnis meldet etwas"
+
 # --- arm64 reicht beide Platform-Tags durch -------------------------------
 : > "$PIP_LOG"
 run fetch_thirdparty_wheels "$tmp/wheels64" arm64 3.11 cp311 >/dev/null

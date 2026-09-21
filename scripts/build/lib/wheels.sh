@@ -72,22 +72,44 @@ fetch_thirdparty_wheels() {
     args+=(--platform "${tag}")
   done
 
-  if ! "${WHEELS_PIP[@]}" download \
-      --only-binary=:all: \
-      --index-url https://www.piwheels.org/simple \
-      --extra-index-url https://pypi.org/simple \
-      "${args[@]}" \
-      --python-version "${minor}" \
-      --implementation cp \
-      --abi "${abi}" \
-      -d "${target}" \
-      "${THIRDPARTY_PACKAGES[@]}"; then
-    echo "Fuer mindestens eines der Pakete (${THIRDPARTY_PACKAGES[*]}) gibt es" >&2
-    echo "kein Wheel fuer ${arch}/${abi}. Der Bundle-Bau bricht ab - ein Node" >&2
-    echo "darf Abhaengigkeiten nicht selbst aufloesen (E11)." >&2
-    return 1
-  fi
+  # pip wertet Umgebungsmarker (python_version < "3.13" ...) mit dem Python
+  # des Bau-Rechners aus, nicht mit dem Ziel. Nach dem Download prueft
+  # missing_requirements.py die Abhaengigkeiten aller Wheels gegen die
+  # Zielmarker und holt nach, was fehlt - bis nichts mehr fehlt.
+  local machine missing=()
+  machine="$(arch_uname_machines "${arch}" | head -n 1)"
+  for _ in 1 2 3 4 5 6; do
+    if ! "${WHEELS_PIP[@]}" download \
+        --only-binary=:all: \
+        --index-url https://www.piwheels.org/simple \
+        --extra-index-url https://pypi.org/simple \
+        "${args[@]}" \
+        --python-version "${minor}" \
+        --implementation cp \
+        --abi "${abi}" \
+        -d "${target}" \
+        "${THIRDPARTY_PACKAGES[@]}" "${missing[@]}"; then
+      echo "Fuer mindestens eines der Pakete (${THIRDPARTY_PACKAGES[*]} ${missing[*]}) gibt es" >&2
+      echo "kein Wheel fuer ${arch}/${abi}. Der Bundle-Bau bricht ab - ein Node" >&2
+      echo "darf Abhaengigkeiten nicht selbst aufloesen (E11)." >&2
+      return 1
+    fi
+    missing=()
+    while IFS= read -r req; do
+      if [[ -n "${req}" ]]; then
+        missing+=("${req}")
+      fi
+    done < <(python3 "$(dirname "${BASH_SOURCE[0]}")/missing_requirements.py" \
+               "${target}" "${minor}" "${machine}") || return 1
+    if [[ "${#missing[@]}" -eq 0 ]]; then
+      return 0
+    fi
+    echo "Zusaetzlich fuer ${minor}/${machine} noetig: ${missing[*]}" >&2
+  done
+  echo "Die Abhaengigkeiten der Wheels lassen sich nicht schliessen (fehlt: ${missing[*]})." >&2
+  return 1
 }
+
 
 # build_local_wheels <ziel>
 #

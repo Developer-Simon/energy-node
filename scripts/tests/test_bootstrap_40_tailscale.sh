@@ -93,6 +93,26 @@ grep -qx 'FLAGS="--tun=userspace-networking"' "$defaults" \
   || fail "defaults trotz Abbruch veraendert" "$(cat "$defaults")"
 rm -f "$defaults"
 
+# --- der Schalter nur als Kommentar ist kein Abbruchgrund ------------------
+# Debians Standarddatei (und die Vorlage im echten Tarball) fuehrt das Beispiel
+# auskommentiert auf; das ist keine Konfiguration.
+rm -rf "$tmp/state"
+printf '# Extra flags.\n#FLAGS="--tun=userspace-networking"\nPORT="41641"\n' > "$defaults"
+out="$(TS_STATUS_RC=0 bash "$script")" || fail "auskommentierter Schalter fuehrte zum Abbruch" "$out"
+grep -q '^##STEP 40 ok$' <<<"$out" || fail "auskommentierter Schalter: kein ok" "$out"
+rm -f "$defaults"
+
+# ... auch nicht in der mitgelieferten Vorlage (frischer Node, Gegenprobe)
+rm -rf "$tmp/state" "$tmp/root"
+printf '#FLAGS="--tun=userspace-networking"\nPORT="41641"\n' \
+  > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.defaults"
+tar -czf "$bundle/tailscale/tailscale_1.62.0_arm.tgz" -C "$tmp/pack" tailscale_1.62.0_arm
+out="$(TS_STATUS_RC=0 bash "$script")" || fail "auskommentierter Schalter in der Vorlage fuehrte zum Abbruch" "$out"
+grep -q '^##STEP 40 ok$' <<<"$out" || fail "auskommentierter Schalter in der Vorlage: kein ok" "$out"
+printf 'FLAGS=""\n' > "$tmp/pack/tailscale_1.62.0_arm/systemd/tailscaled.defaults"
+tar -czf "$bundle/tailscale/tailscale_1.62.0_arm.tgz" -C "$tmp/pack" tailscale_1.62.0_arm
+rm -rf "$tmp/state" "$tmp/root"
+
 # --- neuere Version vorhanden: nichts wird angefasst ----------------------
 # Ein Node, der Tailscale per "tailscale update" hochgezogen hat (oder von
 # Hand eine neuere Fassung installierte), darf nicht auf die Fassung im

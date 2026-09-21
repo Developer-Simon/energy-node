@@ -21,22 +21,41 @@ fi
 
 binary="${EN_BUNDLE_DIR}/caddy/caddy"
 template="${EN_BUNDLE_DIR}/dashboard/Caddyfile"
-[[ -f "${binary}" && -f "${template}" ]] || step_fail CADDY_BINARY_MISSING
+caddy_bin="${EN_ROOT}/usr/bin/caddy"
+caddyfile="${EN_ROOT}/etc/caddy/Caddyfile"
+
+# Das Beipack (E13) ist nur dabei, wenn das Bundle mit --caddy-binary gebaut
+# wurde. Gebraucht wird es erst, wenn dieser Schritt ein Binary installieren
+# oder eine Caddyfile anlegen soll; ein Node mit Caddy und Konfiguration
+# kommt ohne aus.
+have_installed=false
+[[ -x "${caddy_bin}" ]] && have_installed=true
+if [[ ! -f "${binary}" && "${have_installed}" == false ]]; then
+  step_fail CADDY_BINARY_MISSING
+fi
+if [[ ! -f "${template}" && ! -f "${caddyfile}" ]]; then
+  step_fail CADDY_BINARY_MISSING
+fi
 
 # Ein vorhandenes Caddy-Binary bleibt stehen, wenn es dem Paketmanager gehoert
-# (ein spaeteres apt upgrade tauschte die Datei ohnehin wieder aus) oder
-# nicht aelter ist als das im Bundle. Ersetzt wird nur ein eigenes, aelteres.
-caddy_bin="${EN_ROOT}/usr/bin/caddy"
+# (ein spaeteres apt upgrade tauschte die Datei ohnehin wieder aus), nicht
+# aelter ist als das im Bundle oder das Bundle keines mitbringt. Ersetzt wird
+# nur ein eigenes, aelteres.
 install_binary=true
-if [[ -x "${caddy_bin}" ]]; then
+if [[ "${have_installed}" == true ]]; then
   installed_version="$("${caddy_bin}" version 2>/dev/null | head -n 1 | cut -d' ' -f1 || true)"
-  bundled_version="$("${binary}" version 2>/dev/null | head -n 1 | cut -d' ' -f1 || true)"
   if dpkg -S "${caddy_bin}" >/dev/null 2>&1; then
     install_binary=false
     step_log "Das vorhandene Caddy ${installed_version} gehoert dem Paketmanager und bleibt unangetastet."
-  elif step_version_ge "${installed_version}" "${bundled_version}"; then
+  elif [[ ! -f "${binary}" ]]; then
     install_binary=false
-    step_log "Das vorhandene Caddy ${installed_version} ist nicht aelter als das im Bundle (${bundled_version}) und bleibt unangetastet."
+    step_log "Das Bundle bringt kein Caddy mit; das vorhandene ${installed_version} bleibt unangetastet."
+  else
+    bundled_version="$("${binary}" version 2>/dev/null | head -n 1 | cut -d' ' -f1 || true)"
+    if step_version_ge "${installed_version}" "${bundled_version}"; then
+      install_binary=false
+      step_log "Das vorhandene Caddy ${installed_version} ist nicht aelter als das im Bundle (${bundled_version}) und bleibt unangetastet."
+    fi
   fi
 fi
 
@@ -47,9 +66,8 @@ fi
 
 # Eine vorhandene Caddyfile gehoert dem Betreiber: INSTALLATION.md 8 sagt
 # ausdruecklich, dass ein Deploy die Caddy-Konfiguration nicht anfasst.
-caddyfile="${EN_ROOT}/etc/caddy/Caddyfile"
 if [[ -f "${caddyfile}" ]]; then
-  if ! cmp -s "${template}" "${caddyfile}"; then
+  if [[ -f "${template}" ]] && ! cmp -s "${template}" "${caddyfile}"; then
     step_log "Die vorhandene ${caddyfile} weicht ab und bleibt unangetastet."
   fi
 else

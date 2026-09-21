@@ -17,7 +17,7 @@
 
   function create(runId) {
     return {
-      runId: runId, started: false, finished: false, ok: null, code: '', failedStep: '',
+      runId: runId, started: false, finished: false, ok: null, code: '', detail: '', failedStep: '',
       mode: '', only: '', startedAt: 0, finishedAt: 0, lastAt: 0,
       steps: {}, log: [], logCount: 0, loginUrl: '', loginStep: '', loginPending: false,
     };
@@ -96,6 +96,7 @@
       model.finished = true;
       model.ok = !!data.ok;
       model.code = data.code || '';
+      model.detail = data.detail || '';
       model.failedStep = data.step_id || '';
       model.finishedAt = at;
       return true;
@@ -216,7 +217,7 @@
 
   function outcome(model, groups) {
     return {
-      ok: model.ok, code: model.code, stepId: model.failedStep, mode: model.mode, only: model.only,
+      ok: model.ok, code: model.code, detail: model.detail, stepId: model.failedStep, mode: model.mode, only: model.only,
       startedAt: model.startedAt, finishedAt: model.finishedAt,
       loginUrl: model.loginUrl, loginPending: model.loginPending,
       steps: JSON.parse(JSON.stringify(model.steps)), groups: groups,

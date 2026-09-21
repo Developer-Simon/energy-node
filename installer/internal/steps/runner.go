@@ -29,6 +29,7 @@ type RunOptions struct {
 	Steps           []bundle.StepEntry
 	Selection       *selection.Selection // optional; uploaded before the first step
 	Secrets         *Secrets             // optional; only step 60 ever receives it
+	NodeConfigPath  string               // optional; where step 20 finds the MQTT user without credentials, default DefaultNodeConfigPath
 	OnMarker        func(Marker)
 	OnLog           func(stepID, line string)
 }
@@ -108,6 +109,18 @@ func runOneStep(ctx context.Context, opts RunOptions, step bundle.StepEntry) (Ma
 			return Marker{}, err
 		}
 		defer cleanupStep20()
+		if extraArgs == "" {
+			// A redeploy or repair collects no credentials; the node
+			// already has them, and the script checks its arguments
+			// before it checks whether there is anything to do.
+			extraArgs, err = nodeMosquittoArgs(ctx, opts)
+			if err != nil {
+				if opts.OnMarker != nil {
+					opts.OnMarker(Marker{StepID: step.ID, Kind: Fail, Detail: mqttConfigUnreadable})
+				}
+				return Marker{}, &StepFailure{StepID: step.ID, Code: mqttConfigUnreadable}
+			}
+		}
 		scriptCommand += extraArgs
 	}
 	if step.ID == dashboardStepID && opts.Secrets != nil {

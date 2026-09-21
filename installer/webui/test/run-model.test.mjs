@@ -138,3 +138,15 @@ test('das Protokoll haelt hoechstens 2000 Eintraege', () => {
   assert.equal(model.log.length, 2000);
   assert.equal(model.log[0].text, 'z100');
 });
+
+test('ein Abbruch ohne Schritt traegt sein detail in outcome', () => {
+  const { M, groups } = setup();
+  const model = M.create('run-1');
+  play(M, model, [
+    ['run-started', { run_id: 'run-1', mode: 'install' }, 0],
+    ['run-finished', { run_id: 'run-1', ok: false, code: 'BACKEND_ERROR', detail: 'no bootstrap script found for step 10' }, 1],
+  ]);
+  const outcome = M.outcome(model, groups);
+  assert.equal(outcome.stepId, '');
+  assert.equal(outcome.detail, 'no bootstrap script found for step 10');
+});
