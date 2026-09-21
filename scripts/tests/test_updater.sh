@@ -249,6 +249,8 @@ for doc in '{"user":"x y","base":"/home/x"}' \
            '{"user":"a","base":"/home/a/../../etc"}' \
            '{"user":"a","base":"relative"}' \
            '{"user":"a","base":"/"}' \
+           '{"user":"orgelbau\n","base":"/home/orgelbau"}' \
+           '{"user":"orgelbau","base":"/home/orgelbau\n"}' \
            'not json'; do
   printf '%s\n' "$doc" > "$tmp/target-bad.json"
   job_e="$tmp/job-e"; rm -rf "$job_e"; stage_generic "$job_e" "$job_steps"

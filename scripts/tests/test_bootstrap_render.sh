@@ -28,6 +28,7 @@ render_unit_as "$tmp/out" "$tmp/out2" orgelbau /opt/en
 cmp -s "$tmp/out" "$tmp/out2" || fail "Rendern ist nicht idempotent"
 
 # Ungueltige Ziele werden abgelehnt, und es entsteht keine Ausgabedatei.
+# shellcheck disable=SC2016  # '$(id)' ist absichtlich ein Literal
 for bad_user in "x y" 'a;b' Root '' '$(id)' 'a b' "$(printf 'a%.0s' {1..40})"; do
   rm -f "$tmp/bad"
   if render_unit_as "$tmp/in" "$tmp/bad" "$bad_user" /opt/en; then

@@ -171,8 +171,10 @@ USER = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
 BASE = re.compile(r"^/[A-Za-z0-9._/-]{1,200}$")
 
 
+# fullmatch statt match mit $: $ passt in Python auch vor einem abschliessenden
+# Zeilenumbruch, und der liesse aus "user\n" zwei Ausgabezeilen werden.
 def valid(user, base):
-    return bool(USER.match(user)) and bool(BASE.match(base)) \
+    return bool(USER.fullmatch(user)) and bool(BASE.fullmatch(base)) \
         and base != "/" and ".." not in base.split("/")
 
 

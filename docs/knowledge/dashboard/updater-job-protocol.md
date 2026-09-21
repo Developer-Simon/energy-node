@@ -45,8 +45,10 @@ The job directory belongs to the dashboard's own unprivileged service
 account, and `job.json` is not covered by the bundle signature. So the job
 says only *which* steps to run, and even that list is held against the step
 list in the verified `manifest.json` before anything executes. Everything
-that steers a root-run command — the target user, the target base
-directory, the bundle version — comes from the manifest instead.
+that steers a root-run command does not: the target user and base directory
+come from the root-owned `/etc/energy-node-updater/target.json` (or, for a
+bundle still pinned with `make_bundle.sh --user/--base`, from its verified
+manifest; see below), and the bundle version comes from the verified manifest.
 
 The job carries no secrets either. A redeploy never needs `mqtt.pw` or
 `auth.pw`: they already exist on a node the dashboard is running on, and

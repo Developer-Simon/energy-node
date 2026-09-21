@@ -79,12 +79,12 @@ install_owned() {
 }
 
 # --- Sudoers zuerst pruefen, dann erst irgendetwas installieren -----------
-# visudo laeuft gegen die Datei im Bundle. Andersherum laege im Fehlerfall
-# bereits eine kaputte Regel unter /etc/sudoers.d - und die kann sudo
-# insgesamt aussperren.
-sudoers_bundle="${dash}/${BINARY_NAME}-system-action.sudoers"
-if [[ -f "${sudoers_bundle}" ]]; then
-  "${SUDO[@]}" visudo -cf "${sudoers_bundle}" >/dev/null || step_fail SUDOERS_INVALID
+# visudo laeuft gegen die gerenderte Datei, also genau die, die spaeter
+# installiert wird. Andersherum laege im Fehlerfall bereits eine kaputte Regel
+# unter /etc/sudoers.d - und die kann sudo insgesamt aussperren.
+sudoers_src="${rendered}/${BINARY_NAME}-system-action.sudoers"
+if [[ -f "${sudoers_src}" ]]; then
+  "${SUDO[@]}" visudo -cf "${sudoers_src}" >/dev/null || step_fail SUDOERS_INVALID
 fi
 
 # --- Laufzeitdateien im Heimatverzeichnis des Zielbenutzers ---------------
@@ -101,10 +101,10 @@ fi
   "${EN_ROOT}/etc/sudoers.d"
 "${SUDO[@]}" install -m 0644 "${rendered}/${BINARY_NAME}.service" \
   "${EN_ROOT}/etc/systemd/system/${BINARY_NAME}.service"
-"${SUDO[@]}" install -m 0755 "${dash}/${BINARY_NAME}-system-action" \
+"${SUDO[@]}" install -m 0755 "${rendered}/${BINARY_NAME}-system-action" \
   "${EN_ROOT}/usr/local/sbin/${BINARY_NAME}-system-action"
-if [[ -f "${sudoers_bundle}" ]]; then
-  "${SUDO[@]}" install -m 0440 "${rendered}/${BINARY_NAME}-system-action.sudoers" \
+if [[ -f "${sudoers_src}" ]]; then
+  "${SUDO[@]}" install -m 0440 "${sudoers_src}" \
     "${EN_ROOT}/etc/sudoers.d/${BINARY_NAME}-system-action"
 fi
 

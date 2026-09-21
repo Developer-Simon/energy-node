@@ -28,7 +28,7 @@ mkdir -p "$bundle/dashboard" "$bundle/config/manifests" "$bundle/bootstrap"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-dashboard"
 printf '[Unit]\nUser=energynode\nExecStart=/home/energynode/dashboard/energy-node-dashboard\n' \
   > "$bundle/dashboard/energy-node-dashboard.service"
-printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-dashboard-system-action"
+printf '#!/bin/sh\nBRIDGE_OWNER="energynode"\nAPP_CONFIG_STAGED=/home/energynode/x\n' > "$bundle/dashboard/energy-node-dashboard-system-action"
 printf 'energynode ALL\n' > "$bundle/dashboard/energy-node-dashboard-system-action.sudoers"
 printf '#!/bin/sh\n'    > "$bundle/dashboard/energy-node-updater"
 chmod +x "$bundle/dashboard/energy-node-updater"
@@ -79,6 +79,11 @@ grep -qx 'User=pruef' "$tmp/root/etc/systemd/system/energy-node-dashboard.servic
   || fail "Dashboard-Unit nicht gerendert" "$(cat "$tmp/root/etc/systemd/system/energy-node-dashboard.service")"
 grep -q 'ExecStart=/home/pruef/dashboard/' "$tmp/root/etc/systemd/system/energy-node-dashboard.service" \
   || fail "Basis in der Unit nicht gerendert"
+helper="$tmp/root/usr/local/sbin/energy-node-dashboard-system-action"
+grep -qx 'BRIDGE_OWNER="pruef"' "$helper" \
+  || fail "Helfer nicht fuer den Zielbenutzer gerendert" "$(cat "$helper")"
+grep -qx 'APP_CONFIG_STAGED=/home/pruef/x' "$helper" \
+  || fail "Basis im Helfer nicht gerendert" "$(cat "$helper")"
 grep -qx 'pruef ALL' "$tmp/root/etc/sudoers.d/energy-node-dashboard-system-action" \
   || fail "Sudoers nicht gerendert" "$(cat "$tmp/root/etc/sudoers.d/energy-node-dashboard-system-action")"
 grep -q '"devices_dir":"/home/pruef/devices"' "$etc/config.json" \
@@ -108,9 +113,11 @@ grep -q "enable --now energy-node-updater.path" "$SYSTEMCTL_LOG" \
 [[ -d "$tmp/root/var/lib/energy-node-installer/job" ]] \
   || fail "job directory not created"
 
-# --- visudo lief gegen die Datei im Bundle, nicht gegen die installierte ---
-grep -q "visudo -cf $bundle/dashboard/" "$VISUDO_LOG" \
+# --- visudo lief gegen die gerenderte Vorstufe, nicht gegen die installierte ---
+grep -q "visudo -cf .*energy-node-dashboard-system-action.sudoers" "$VISUDO_LOG" \
   || fail "visudo prueft die falsche Datei" "$(cat "$VISUDO_LOG")"
+grep -q "visudo -cf $tmp/root/etc/sudoers.d" "$VISUDO_LOG" \
+  && fail "visudo lief gegen die installierte Datei" "$(cat "$VISUDO_LOG")"
 
 # --- kein Passwort in der Ausgabe -----------------------------------------
 grep -q 'mqtt-geheim' <<<"$out"  && fail "MQTT-Passwort in der Ausgabe" "$out"

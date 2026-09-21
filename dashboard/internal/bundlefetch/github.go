@@ -119,6 +119,9 @@ func (p *progress) Write(b []byte) (int, error) {
 
 // Download streams asset to dest, refusing more than maxArchiveBytes.
 func (c *Client) Download(ctx context.Context, asset Asset, dest string, log func(string)) error {
+	if log == nil {
+		log = func(string) {}
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
 	if err != nil {
 		return unreachable(err.Error())
