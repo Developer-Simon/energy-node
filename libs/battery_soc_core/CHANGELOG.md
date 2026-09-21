@@ -24,6 +24,7 @@
 ### Fixes
 
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
+- **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)

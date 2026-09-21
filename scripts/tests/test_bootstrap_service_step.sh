@@ -43,8 +43,15 @@ grep -q '^##STEP 81 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 [ -f "$base/devices/demo_presets.json" ] || fail "Presets nicht kopiert"
 [ -f "$base/devices/demo_devices.json" ] || fail "Geraetevorlage nicht angelegt"
 [ -f "$tmp/root/etc/systemd/system/demo.service" ] || fail "Unit nicht installiert"
-grep -q 'systemctl enable --now demo.service' "$SYSTEMCTL_LOG" \
-  || fail "Dienst nicht gestartet" "$(cat "$SYSTEMCTL_LOG")"
+grep -qx 'systemctl enable demo.service' "$SYSTEMCTL_LOG" \
+  || fail "Dienst nicht aktiviert" "$(cat "$SYSTEMCTL_LOG")"
+grep -qx 'systemctl restart demo.service' "$SYSTEMCTL_LOG" \
+  || fail "Dienst nicht (neu) gestartet" "$(cat "$SYSTEMCTL_LOG")"
+# Reihenfolge: erst aktivieren, dann starten - eine gestoppte Unit muss durch
+# den restart ebenfalls anlaufen.
+[ "$(grep -n 'demo.service' "$SYSTEMCTL_LOG" | cut -d: -f2- | tr '\n' '|')" \
+  = 'systemctl enable demo.service|systemctl restart demo.service|' ] \
+  || fail "falsche Reihenfolge der systemctl-Aufrufe" "$(cat "$SYSTEMCTL_LOG")"
 
 # --- zweiter Lauf ueberspringt --------------------------------------------
 : > "$SYSTEMCTL_LOG"
@@ -59,12 +66,17 @@ grep -q '^##STEP 81 skip bereits erledigt$' <<<"$out" || fail "nicht uebersprung
 printf '{"geraete":["meins"]}\n' > "$base/devices/demo_devices.json"
 printf 'veraltet\n'              > "$base/devices/demo_devices.schema.json"
 rm -rf "$tmp/state"
+: > "$SYSTEMCTL_LOG"
 out="$(run)"
 grep -q '^##STEP 81 ok$' <<<"$out" || fail "dritter Lauf nicht ok" "$out"
 grep -q 'meins' "$base/devices/demo_devices.json" \
   || fail "Betreiberdaten ueberschrieben" "$(cat "$base/devices/demo_devices.json")"
 grep -q 'schema' "$base/devices/demo_devices.schema.json" \
   || fail "Schema nicht erneuert" "$(cat "$base/devices/demo_devices.schema.json")"
+# Ein Update laeuft gegen eine schon laufende Unit: ohne restart bliebe der
+# alte Python-Code im Speicher, `enable --now` allein startet nichts neu.
+grep -qx 'systemctl restart demo.service' "$SYSTEMCTL_LOG" \
+  || fail "Update startet die laufende Unit nicht neu" "$(cat "$SYSTEMCTL_LOG")"
 
 # --- abgewaehlt: nichts passiert, kein Stempel ----------------------------
 rm -rf "$tmp/state" "$tmp/root"
