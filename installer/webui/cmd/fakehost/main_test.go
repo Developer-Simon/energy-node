@@ -10,10 +10,11 @@ import (
 
 var _ hostapi.Backend = (*stagedBackend)(nil)
 
-type countingSink struct{ markers, logs int }
+type countingSink struct{ markers, logs, notes int }
 
-func (c *countingSink) Marker(string, string, string) { c.markers++ }
-func (c *countingSink) Log(string, string)            { c.logs++ }
+func (c *countingSink) Marker(string, string, string)             { c.markers++ }
+func (c *countingSink) Log(string, string)                        { c.logs++ }
+func (c *countingSink) Message(string, string, map[string]string) { c.notes++ }
 
 func TestSplitFailSpec(t *testing.T) {
 	id, code := splitFailSpec("50:PIP_EXTERNALLY_MANAGED")

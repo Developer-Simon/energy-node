@@ -48,7 +48,8 @@
           return;
         }
         if (type === 'log' && data.step_id === 'package') {
-          this.lines.push(data.line);
+          var text = data.key ? window.I18n.t(data.key, data.args) : data.line;
+          this.lines.push(text);
           if (this.lines.length > MAX_LINES) {
             this.lines.shift();
           }

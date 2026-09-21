@@ -47,6 +47,19 @@ func (s *busSink) Log(stepID, line string) {
 	})
 }
 
+func (s *busSink) Message(stepID, key string, args map[string]string) {
+	// Redact all argument values
+	redacted := make(map[string]string)
+	for k, v := range args {
+		redacted[k] = s.redactor.Line(v)
+	}
+	s.bus.Publish("log", map[string]interface{}{
+		"step_id": stepID,
+		"key":     key,
+		"args":    redacted,
+	})
+}
+
 // StartRun startet einen Lauf im Hintergrund und liefert seine ID. Ein Wirt,
 // der einen Lauf ausserhalb von POST /api/run anstoesst, benutzt dieselbe
 // Funktion - damit gibt es genau einen Weg, auf dem ein Lauf beginnt.

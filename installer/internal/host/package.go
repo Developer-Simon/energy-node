@@ -146,7 +146,8 @@ func (h *Host) prepare(ctx context.Context, sink hostapi.Sink) error {
 	}
 	sink.Marker("package", "begin", "")
 	logf := func(line string) { sink.Log("package", line) }
-	if err := h.doPrepare(ctx, client, logf); err != nil {
+	notef := func(key string, args map[string]string) { sink.Message("package", key, args) }
+	if err := h.doPrepare(ctx, client, logf, notef); err != nil {
 		apiErr := packageError(err)
 		var typed *hostapi.Error
 		if errors.As(apiErr, &typed) {
@@ -160,7 +161,7 @@ func (h *Host) prepare(ctx context.Context, sink hostapi.Sink) error {
 	return nil
 }
 
-func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf func(string)) error {
+func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf func(string), notef func(string, map[string]string)) error {
 	if h.cfg.Resolver == nil {
 		return &hostapi.Error{Code: "NO_PACKAGE", Status: http.StatusConflict}
 	}
@@ -175,7 +176,7 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		}
 	}
 
-	logf("Architektur des Geraets ermitteln")
+	notef("package.log.detect_arch", map[string]string{})
 	machine, err := detectMachine(ctx, client)
 	if err != nil {
 		return err
@@ -184,12 +185,13 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 	if !ok {
 		return &hostapi.Error{Code: "ARCH_UNSUPPORTED", Detail: machine}
 	}
-	logf("Geraet meldet " + machine + ", Paket fuer " + arch)
+	notef("package.log.arch_detected", map[string]string{"machine": machine, "arch": arch})
 
 	choice.Arch = arch
 	choice.User = target.User
 	choice.Base = "/home/" + target.User
 	choice.Log = logf
+	choice.Note = notef
 	resolved, err := h.cfg.Resolver.Resolve(ctx, choice)
 	if err != nil {
 		return err

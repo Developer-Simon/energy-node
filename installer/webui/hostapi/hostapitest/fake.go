@@ -23,6 +23,12 @@ type FakeStep struct {
 	Log    []string
 }
 
+// FakeNote ist eine übersetzte Nachricht eines Laufs.
+type FakeNote struct {
+	Key  string
+	Args map[string]string
+}
+
 // FakeBackend ist ein steuerbares Backend. Jedes Feld darf vor dem Start
 // gesetzt werden; die Zeiger-Felder mit Fehlern erzwingen den Fehlerpfad.
 type FakeBackend struct {
@@ -54,8 +60,9 @@ type FakeBackend struct {
 	RunErr error
 
 	// PrepareLog und PrepareErr steuern einen Lauf im Modus prepare.
-	PrepareLog []string
-	PrepareErr error
+	PrepareLog   []string
+	PrepareNotes []FakeNote
+	PrepareErr   error
 
 	// Aufzeichnung fuer Tests.
 	LastConnect   hostapi.ConnectRequest
@@ -197,6 +204,10 @@ func (f *FakeBackend) Run(ctx context.Context, req hostapi.RunRequest, sink host
 		sink.Marker("package", "begin", "")
 		for _, line := range prepareLog {
 			sink.Log("package", line)
+		}
+		prepareNotes := append([]FakeNote(nil), f.PrepareNotes...)
+		for _, note := range prepareNotes {
+			sink.Message("package", note.Key, note.Args)
 		}
 		if prepareErr != nil {
 			sink.Marker("package", "fail", "PACKAGE_FAILED")

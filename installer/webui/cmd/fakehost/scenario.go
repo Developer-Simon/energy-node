@@ -224,7 +224,10 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "70", Log: []string{"caddy validate: Valid configuration"}},
 		{ID: "81"}, {ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83"}, {ID: "84"}, {ID: "85"}, {ID: "88"},
 	}
-	fake.PrepareLog = []string{"Suche das neueste Release fuer armv6", "Lade energy-node-v1.4.2-armv6.tar.gz"}
+	fake.PrepareNotes = []hostapitest.FakeNote{
+		{Key: "package.log.github_search", Args: map[string]string{"arch": "armv6"}},
+		{Key: "package.log.download", Args: map[string]string{"name": "energy-node-v1.4.2-armv6.tar.gz"}},
+	}
 	if update {
 		fake.Steps = []hostapitest.FakeStep{
 			{ID: "10", State: "skip", Detail: "bereits erledigt"}, {ID: "20", State: "skip", Detail: "bereits erledigt"},

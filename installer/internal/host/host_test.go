@@ -104,8 +104,9 @@ func TestEveryConnectedCallFailsBeforeConnect(t *testing.T) {
 
 type nopSink struct{}
 
-func (nopSink) Marker(string, string, string) {}
-func (nopSink) Log(string, string)            {}
+func (nopSink) Marker(string, string, string)             {}
+func (nopSink) Log(string, string)                        {}
+func (nopSink) Message(string, string, map[string]string) {}
 
 func TestPrecheckComparesTheNodeFactsAgainstTheManifest(t *testing.T) {
 	dir := t.TempDir()

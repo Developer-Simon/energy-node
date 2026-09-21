@@ -68,10 +68,10 @@ func TestFindAssetReportsNoReleaseForAnArchWithoutABundle(t *testing.T) {
 func TestFetchDownloadsOnceAndThenUsesTheCache(t *testing.T) {
 	var n atomic.Int32
 	g := newGitHub(t, releasesServer(t, &n))
-	var logged []string
-	log := func(l string) { logged = append(logged, l) }
+	var notes []string
+	note := func(key string, args map[string]string) { notes = append(notes, key) }
 
-	first, err := g.Fetch(context.Background(), "armv6", log)
+	first, err := g.Fetch(context.Background(), "armv6", note)
 	if err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
@@ -79,15 +79,21 @@ func TestFetchDownloadsOnceAndThenUsesTheCache(t *testing.T) {
 	if string(raw) != "bundle-bytes" {
 		t.Fatalf("downloaded = %q", raw)
 	}
-	second, err := g.Fetch(context.Background(), "armv6", log)
+	second, err := g.Fetch(context.Background(), "armv6", note)
 	if err != nil || second != first {
 		t.Fatalf("second Fetch = %q, %v; want the cached %q", second, err, first)
 	}
 	if n.Load() != 1 {
 		t.Errorf("downloads = %d, want exactly 1", n.Load())
 	}
-	if len(logged) == 0 {
-		t.Errorf("Fetch logged nothing")
+	if len(notes) < 2 {
+		t.Errorf("Fetch produced %d notes, want at least 2 (search + download or cached)", len(notes))
+	}
+	wantKeys := []string{"package.log.github_search", "package.log.download"}
+	for i, want := range wantKeys {
+		if i >= len(notes) || notes[i] != want {
+			t.Errorf("note[%d] = %q, want %q", i, notes[i], want)
+		}
 	}
 }
 

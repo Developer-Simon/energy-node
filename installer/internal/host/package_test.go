@@ -16,10 +16,13 @@ import (
 
 var _ hostapi.PackageBackend = (*Host)(nil)
 
-type recordingSink struct{ markers, logs []string }
+type recordingSink struct{ markers, logs, notes []string }
 
 func (s *recordingSink) Marker(id, state, detail string) { s.markers = append(s.markers, id+":"+state) }
 func (s *recordingSink) Log(id, line string)             { s.logs = append(s.logs, line) }
+func (s *recordingSink) Message(id, key string, args map[string]string) {
+	s.notes = append(s.notes, id+":"+key)
+}
 
 // stubSeams replaces the SSH-facing seams; the returned recorder tells a
 // test what was staged.

@@ -27,6 +27,7 @@ type Request struct {
 	Arch       string
 	User, Base string
 	Log        func(line string)
+	Note       func(key string, args map[string]string)
 }
 
 // Resolved is a verified, unpacked bundle.
@@ -82,7 +83,7 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Resolved, error) 
 		if r.GitHub == nil {
 			err = &Error{Code: CodeGitHubUnreachable, Detail: "not configured"}
 		} else {
-			archive, err = r.GitHub.Fetch(ctx, req.Arch, log)
+			archive, err = r.GitHub.Fetch(ctx, req.Arch, req.Note)
 			cached = archive
 		}
 	default:

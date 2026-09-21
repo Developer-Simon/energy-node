@@ -133,7 +133,8 @@ function composedKeys() {
     'result.todo.count.2', 'result.todo.count.3', 'result.todo.count.4',
     'component.dashboard', 'component.services', 'component.wheel', 'component.dependency',
     'diagnose.group.services', 'diagnose.group.system', 'diagnose.group.config',
-    'connect.package.repo_unavailable.OS_UNSUPPORTED', 'connect.package.repo_unavailable.TOOLS_MISSING');
+    'connect.package.repo_unavailable.OS_UNSUPPORTED', 'connect.package.repo_unavailable.TOOLS_MISSING',
+    'package.log.arch_detected', 'package.log.cached', 'package.log.detect_arch', 'package.log.download', 'package.log.github_search');
   for (const state of ['active', 'failed', 'inactive', 'activating']) {
     keys.push(`diagnose.unit.${state}`);
   }

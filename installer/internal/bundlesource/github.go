@@ -100,24 +100,24 @@ func (g *GitHub) FindAsset(ctx context.Context, arch string) (Asset, error) {
 // Fetch makes sure the newest matching bundle archive is in CacheDir and
 // returns its path. A cached file is reused as is; the caller verifies it
 // and removes it if verification fails.
-func (g *GitHub) Fetch(ctx context.Context, arch string, log func(string)) (string, error) {
-	if log == nil {
-		log = func(string) {}
+func (g *GitHub) Fetch(ctx context.Context, arch string, note func(key string, args map[string]string)) (string, error) {
+	if note == nil {
+		note = func(string, map[string]string) {}
 	}
-	log("Suche das neueste Release fuer " + arch)
+	note("package.log.github_search", map[string]string{"arch": arch})
 	asset, err := g.FindAsset(ctx, arch)
 	if err != nil {
 		return "", err
 	}
 	dest := filepath.Join(g.CacheDir, asset.Tag, asset.Name)
 	if _, err := os.Stat(dest); err == nil {
-		log(asset.Name + " liegt bereits im Zwischenspeicher")
+		note("package.log.cached", map[string]string{"name": asset.Name})
 		return dest, nil
 	}
 	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return "", err
 	}
-	log("Lade " + asset.Name)
+	note("package.log.download", map[string]string{"name": asset.Name})
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
 	if err != nil {
 		return "", unreachable(err.Error())

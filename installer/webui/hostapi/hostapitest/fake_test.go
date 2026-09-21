@@ -16,6 +16,7 @@ var _ hostapi.Backend = (*hostapitest.FakeBackend)(nil)
 type recordingSink struct {
 	markers []string
 	logs    []string
+	notes   []string
 }
 
 func (r *recordingSink) Marker(stepID, state, detail string) {
@@ -24,6 +25,10 @@ func (r *recordingSink) Marker(stepID, state, detail string) {
 
 func (r *recordingSink) Log(stepID, line string) {
 	r.logs = append(r.logs, stepID+": "+line)
+}
+
+func (r *recordingSink) Message(stepID, key string, args map[string]string) {
+	r.notes = append(r.notes, stepID+": "+key)
 }
 
 func TestRunPlaysTheScriptInOrder(t *testing.T) {
