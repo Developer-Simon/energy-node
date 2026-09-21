@@ -1,6 +1,11 @@
 # Changelog
 
-## v0.7.3 (2026-09-21)
+## v0.7.4 (2026-09-21)
+
+### Features
+
+- **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
+- **updater:** record the applied manifest as installed-manifest.json (c7e3d4b)
 
 ### Fixes
 
