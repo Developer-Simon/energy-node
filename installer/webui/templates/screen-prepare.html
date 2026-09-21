@@ -1,0 +1,28 @@
+{{define "screen-prepare"}}<template x-if="screen === 'prepare'">
+<div class="screen" x-data="screenPrepare">
+  <div class="body">
+    {{template "stepper"}}
+    <section class="card tall">
+      <h2 class="card-h" x-text="t('prepare.heading')"></h2>
+      <p class="card-p" x-text="state === 'working' ? t('prepare.working') : state === 'done' ? t('prepare.done') : t('prepare.failed')"></p>
+      <template x-if="state === 'done' && unsigned">
+        <p class="card-p" x-text="t('prepare.unsigned')"></p>
+      </template>
+      <pre class="log" x-text="lines.join('\n')"></pre>
+    </section>
+  </div>
+
+  <footer class="foot">
+    <template x-if="state === 'working'">
+      <button type="button" class="ghost" @click="cancel()" x-text="t('action.cancel')"></button>
+    </template>
+    <template x-if="state === 'failed'">
+      <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    </template>
+    <span class="foot-spacer"></span>
+    <template x-if="state === 'done' && unsigned">
+      <button type="button" class="primary" @click="next()" x-text="t('action.next')"></button>
+    </template>
+  </footer>
+</div>
+</template>{{end}}

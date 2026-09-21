@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startFakehost, openPage, connect, startInstall, SECRETS } from './fakehost.mjs';
+import { startFakehost, openPage, connect, startInstall, connectWithPackage, getDebugState, SECRETS } from './fakehost.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const en = JSON.parse(fs.readFileSync(path.join(here, '..', '..', 'catalogs', 'en.json'), 'utf8'));
@@ -139,5 +139,76 @@ test('die Diagnose repariert genau den ausgefallenen Dienst (Kriterium 6)', () =
   assert.equal(await page.locator('.stepper').count(), 0, 'eine Reparatur hat keinen Stepper');
   await page.getByRole('button', { name: 'Diagnose öffnen' }).click();
   await page.locator('.app[data-screen="diagnose"] .tally').waitFor();
+  await context.close();
+}));
+
+test('die Paketquellen-Auswahl auf dem Verbindungsbildschirm zeigt alle vier Quellen und bereitet das Paket vor', () => withHost([], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await page.locator('.app[data-screen="connect"]').waitFor();
+
+  // Wait for the package radiogroup with options to be visible
+  await page.locator('[role="radiogroup"] .opt').first().waitFor();
+
+  // Count radio options for package sources - should show 4 sources when packageInfo is available
+  const packageOptions = page.locator('[role="radiogroup"] .opt');
+  const optCount = await packageOptions.count();
+  assert.equal(optCount, 4, 'vier Paketquellen angeboten');
+
+  // Use helper to connect with GitHub package source
+  await connectWithPackage(page, 'github');
+
+  // After prepare completes, should be on precheck screen
+  await page.locator('.app[data-screen="precheck"] .chk').first().waitFor();
+
+  await context.close();
+}));
+
+test('die Paketdatei-Quelle sperrt den Verbinden-Button bis eine Datei ausgewaehlt ist', () => withHost([], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await page.locator('.app[data-screen="connect"]').waitFor();
+
+  // Wait for the package radiogroup with options to be visible
+  await page.locator('[role="radiogroup"] .opt').first().waitFor();
+
+  // Select "Paketdatei wählen"
+  const packageOptions = page.locator('[role="radiogroup"] .opt');
+  await packageOptions.filter({ hasText: 'Paketdatei wählen' }).click();
+
+  // Fill connection details
+  await page.getByLabel('Adresse', { exact: true }).fill('energy-node.local');
+  await page.getByLabel('Benutzer', { exact: true }).fill('pi');
+  await page.getByLabel('Passwort', { exact: true }).fill(SECRETS.login);
+
+  // Verify connect button is disabled (no file selected yet)
+  const connectButton = page.getByRole('button', { name: 'Verbinden', exact: true });
+  assert.equal(await connectButton.isDisabled(), true, 'Verbinden-Button bleibt disabled ohne Datei');
+
+  // Set a file
+  const fileInput = page.locator('input[type="file"]');
+  const fileName = 'test-package.tar.gz';
+  await fileInput.setInputFiles({
+    name: fileName,
+    mimeType: 'application/gzip',
+    buffer: Buffer.from('PK\x03\x04'),  // Minimal gzip magic bytes
+  });
+
+  // Now connect button should be enabled
+  await page.locator('input[type="file"]').evaluate(el => el.offsetHeight > 0 || true); // Trigger any file-change handlers
+  assert.equal(await connectButton.isDisabled(), false, 'Verbinden-Button wird aktiviert mit Datei');
+
+  // Click connect and handle the flow
+  await connectButton.click();
+  await page.locator('.tofu').waitFor({ timeout: 5000 }).catch(() => null); // Handle TOFU if present
+  if (await page.locator('.tofu').isVisible().catch(() => false)) {
+    await page.getByRole('button', { name: 'Fingerabdruck bestätigen' }).click();
+  }
+
+  // Wait for precheck screen to appear (may be preceded by prepare screen)
+  await page.locator('.app[data-screen="precheck"] .chk').first().waitFor({ timeout: 60000 });
+
+  // Verify the backend recorded the uploaded file name
+  const debugState = await getDebugState(host.url);
+  assert.equal(debugState.uploaded_name, fileName, `Backend recorded the uploaded file name: ${fileName}`);
+
   await context.close();
 }));

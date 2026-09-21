@@ -1,10 +1,12 @@
 # Changelog
 
-## v0.7.2 (2026-09-21)
+## v0.7.3 (2026-09-21)
 
 ### Fixes
 
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
+- **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
+- **dashboard:** implement the new hostapi.Sink.Message method (8ae6af3)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (85e8ce0)
 
 ## v0.7.1 (2026-09-21)

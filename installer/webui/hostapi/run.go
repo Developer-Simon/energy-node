@@ -47,6 +47,19 @@ func (s *busSink) Log(stepID, line string) {
 	})
 }
 
+func (s *busSink) Message(stepID, key string, args map[string]string) {
+	// Werte aller Argumente sind zu redigieren.
+	redacted := make(map[string]string)
+	for k, v := range args {
+		redacted[k] = s.redactor.Line(v)
+	}
+	s.bus.Publish("log", map[string]any{
+		"step_id": stepID,
+		"key":     key,
+		"args":    redacted,
+	})
+}
+
 // StartRun startet einen Lauf im Hintergrund und liefert seine ID. Ein Wirt,
 // der einen Lauf ausserhalb von POST /api/run anstoesst, benutzt dieselbe
 // Funktion - damit gibt es genau einen Weg, auf dem ein Lauf beginnt.
@@ -163,7 +176,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch req.Mode {
-	case ModeInstall, ModeRedeploy, ModeRepair:
+	case ModeInstall, ModeRedeploy, ModeRepair, ModePrepare:
 	default:
 		writeError(w, http.StatusBadRequest, "BAD_REQUEST", "unbekannter mode: "+string(req.Mode))
 		return

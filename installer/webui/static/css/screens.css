@@ -35,6 +35,7 @@
 .app[data-screen="connect"] .fp{font-family:ui-monospace,monospace;font-size:.775rem;color:var(--text-subtle);word-break:break-all;margin-top:.15rem}
 .app[data-screen="connect"] .tofu-s{font-size:.74rem;color:var(--text-muted);margin-top:.2rem}
 /* == Ende Vorlage == */
+.app[data-screen="connect"] .opt.off { opacity: .5; cursor: not-allowed; }
 /* == Vorlage: Vorpruefung == */
 .app[data-screen="precheck"] .mode{flex:none;display:flex;gap:.2rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
 .app[data-screen="precheck"] .mode-i{padding:.26rem .62rem;text-align:center;font-size:.74rem;color:var(--text-muted);border-radius:999px;white-space:nowrap}

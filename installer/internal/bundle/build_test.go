@@ -155,3 +155,34 @@ func TestBuildViaRepoOmitsUnsetOptionalFlags(t *testing.T) {
 		t.Fatalf("an unset SignKeyPath must not produce a --sign-key flag:\n%s", logged)
 	}
 }
+
+func TestBuildViaRepoStreamsTheScriptOutputLineByLine(t *testing.T) {
+	repoRoot := t.TempDir()
+	writeFakeMakeBundle(t, repoRoot, `#!/bin/sh
+set -eu
+out=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --out) out="$2"; shift 2 ;;
+    *) shift ;;
+  esac
+done
+mkdir -p "$out"
+echo step-one
+echo step-two >&2
+printf 'fake\n' > "$out/energy-node-vTEST-armv6.tar.gz"
+`)
+	var lines []string
+	_, err := bundle.BuildViaRepo(context.Background(), bundle.BuildArgs{
+		RepoRoot: repoRoot,
+		Arch:     "armv6",
+		OutDir:   filepath.Join(t.TempDir(), "dist"),
+		Log:      func(line string) { lines = append(lines, line) },
+	})
+	if err != nil {
+		t.Fatalf("BuildViaRepo: %v", err)
+	}
+	if len(lines) != 2 || lines[0] != "step-one" || lines[1] != "step-two" {
+		t.Fatalf("streamed lines = %q, want [step-one step-two]", lines)
+	}
+}

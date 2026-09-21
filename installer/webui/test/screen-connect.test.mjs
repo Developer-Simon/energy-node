@@ -167,3 +167,109 @@ test('reset verwirft Passwort und offenen Fingerabdruck', async () => {
   assert.equal(screen.secret, '');
   assert.equal(screen.host, 'energy-node.local', 'die Adresse bleibt stehen');
 });
+
+const PACKAGE_BOOTSTRAP = {
+  package: {
+    bundled: { version: 'v1.4.2', arch: 'armv6' },
+    repo: { available: true, path: '/home/dev/energy-node' },
+    resolved: null,
+  },
+};
+
+test('mit bootstrap.package ist die default Paketart bundled wenn ein Bundle existiert', () => {
+  const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP } });
+  assert.equal(screen.packageKind, 'bundled');
+});
+
+test('mit bootstrap.package ist die default Paketart github wenn kein Bundle existiert', () => {
+  const { screen } = mount({ shell: { bootstrap: Object.assign({}, PACKAGE_BOOTSTRAP, { package: Object.assign({}, PACKAGE_BOOTSTRAP.package, { bundled: null }) }) } });
+  assert.equal(screen.packageKind, 'github');
+});
+
+test('mit bootstrap.package.repo.path wird repoPath vorgefüllt', () => {
+  const { screen } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP } });
+  assert.equal(screen.repoPath, '/home/dev/energy-node');
+});
+
+test('canConnect ist false für file ohne gewählte Datei und für repo mit leerem Pfad', () => {
+  const { screen, window } = mount({ shell: { bootstrap: PACKAGE_BOOTSTRAP } });
+  fill(screen);
+  assert.equal(screen.canConnect, true, 'mit bundled ist canConnect true');
+  screen.selectPackage('file');
+  assert.equal(screen.canConnect, false, 'file ohne packageFile ist false');
+  screen.packageFile = new window.File([''], 'bundle.tar.gz');
+  assert.equal(screen.canConnect, true, 'file mit Datei ist true');
+  screen.selectPackage('repo');
+  assert.equal(screen.canConnect, true, 'repo mit vorgefülltem Pfad ist true');
+  screen.repoPath = '';
+  assert.equal(screen.canConnect, false, 'repo mit leerem Pfad ist false');
+});
+
+test('connect mit github schickt PUT /api/package und führt in prepare', async () => {
+  const { screen, shell, calls } = mount({
+    shell: { bootstrap: PACKAGE_BOOTSTRAP },
+    responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR, 'PUT /api/package': {} },
+  });
+  fill(screen);
+  screen.selectPackage('github');
+  await screen.connect();
+  const packageCall = calls.find((c) => c.key === 'PUT /api/package');
+  assert.ok(packageCall);
+  assert.deepEqual(packageCall.body, { kind: 'github', path: '' });
+  assert.equal(shell.screen, 'prepare');
+});
+
+test('connect mit repo schickt PUT /api/package mit dem Pfad', async () => {
+  const { screen, calls } = mount({
+    shell: { bootstrap: PACKAGE_BOOTSTRAP },
+    responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR, 'PUT /api/package': {} },
+  });
+  fill(screen);
+  screen.selectPackage('repo');
+  screen.repoPath = '/home/dev/energy-node';
+  await screen.connect();
+  const packageCall = calls.find((c) => c.key === 'PUT /api/package');
+  assert.deepEqual(packageCall.body, { kind: 'repo', path: '/home/dev/energy-node' });
+});
+
+test('connect mit file schickt Api.upload statt PUT', async () => {
+  const { screen, window, calls } = mount({
+    shell: { bootstrap: PACKAGE_BOOTSTRAP },
+    responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR },
+  });
+  fill(screen);
+  screen.selectPackage('file');
+  const file = new window.File(['content'], 'bundle.tar.gz');
+  screen.packageFile = file;
+  window.Api.upload = async (path, uploadFile) => {
+    calls.push({ key: 'Api.upload', path, file: uploadFile });
+  };
+  await screen.connect();
+  const uploadCall = calls.find((c) => c.key === 'Api.upload');
+  assert.ok(uploadCall);
+  assert.equal(uploadCall.path, '/api/package/upload');
+  assert.equal(uploadCall.file, file);
+});
+
+test('PUT /api/package mit Fehler lässt die Verbindung stehen und zeigt den Fehler', async () => {
+  const { screen, shell, calls } = mount({
+    shell: { bootstrap: PACKAGE_BOOTSTRAP },
+    responses: { 'POST /api/connect': CONNECTED },
+    errors: { 'PUT /api/package': { code: 'REPO_NOT_A_CHECKOUT', status: 400 } },
+  });
+  fill(screen);
+  screen.selectPackage('repo');
+  screen.repoPath = '/tmp';
+  await screen.connect();
+  assert.equal(shell.screen, 'connect', 'Bildschirm bleibt auf connect');
+  assert.equal(shell.error.code, 'REPO_NOT_A_CHECKOUT');
+});
+
+test('ohne bootstrap.package: nichts ändert sich, keine package-Calls, endet auf precheck', async () => {
+  const { screen, shell, calls } = mount({ responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR } });
+  fill(screen);
+  await screen.connect();
+  const packageCalls = calls.filter((c) => c.key.includes('package'));
+  assert.equal(packageCalls.length, 0, 'keine package-Calls');
+  assert.equal(shell.screen, 'precheck', 'endet auf precheck statt prepare');
+});

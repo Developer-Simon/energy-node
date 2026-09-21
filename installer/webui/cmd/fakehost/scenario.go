@@ -44,6 +44,11 @@ func (b *stagedBackend) Connect(ctx context.Context, req hostapi.ConnectRequest)
 }
 
 func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
+	// Delegate prepare runs to FakeBackend which handles them correctly
+	if req.Mode == hostapi.ModePrepare {
+		return b.FakeBackend.Run(ctx, req, sink)
+	}
+
 	for _, step := range b.Steps {
 		if req.Only != "" && step.ID != req.Only {
 			continue
@@ -96,6 +101,10 @@ func newScenario(name string, opts options) *stagedBackend {
 	fake.Description = hostapi.Description{
 		Host: hostapi.HostInstaller, EntryPoints: []string{"install", "redeploy", "diagnose"},
 		NeedsConnection: true, BundleVersion: "v1.4.2", BundleArch: "armv6",
+		Package: &hostapi.PackageInfo{
+			Bundled: &hostapi.BundledInfo{Version: "v1.4.2", Arch: "armv6"},
+			Repo:    hostapi.RepoInfo{Available: true, Path: "/home/dev/energy-node"},
+		},
 	}
 	if opts.dashboard {
 		fake.Description.Host = hostapi.HostDashboard
@@ -214,6 +223,10 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "60", Log: []string{"energy-node-dashboard 1.4.2 installiert", "auth.pw geschrieben (0640)"}},
 		{ID: "70", Log: []string{"caddy validate: Valid configuration"}},
 		{ID: "81"}, {ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83"}, {ID: "84"}, {ID: "85"}, {ID: "88"},
+	}
+	fake.PrepareNotes = []hostapitest.FakeNote{
+		{Key: "package.log.github_search", Args: map[string]string{"arch": "armv6"}},
+		{Key: "package.log.download", Args: map[string]string{"name": "energy-node-v1.4.2-armv6.tar.gz"}},
 	}
 	if update {
 		fake.Steps = []hostapitest.FakeStep{

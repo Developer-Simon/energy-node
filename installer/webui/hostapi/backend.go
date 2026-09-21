@@ -21,6 +21,9 @@ type Description struct {
 	// BundleArch ist die Zielarchitektur des Bundles (manifest.arch). Der
 	// Verbindungsbildschirm zeigt sie, bevor eine Verbindung besteht.
 	BundleArch string `json:"bundle_arch"`
+	// Package macht die Paketauswahl auf dem Verbindungsbildschirm moeglich.
+	// nil heisst: dieser Wirt hat keine.
+	Package *PackageInfo `json:"package,omitempty"`
 }
 
 // AuthKind ist die Art, wie sich der Installer am Node anmeldet.
@@ -212,7 +215,7 @@ type DiagnoseView struct {
 }
 
 // Sink nimmt entgegen, was waehrend eines Laufs passiert. Der Server baut
-// daraus den Ereignisstrom; ein Backend ruft nur diese zwei Methoden auf und
+// daraus den Ereignisstrom; ein Backend ruft nur diese Methoden auf und
 // weiss nichts von SSE.
 type Sink interface {
 	// Marker meldet einen ##STEP-Marker. state ist "begin", "ok", "skip" oder
@@ -220,6 +223,9 @@ type Sink interface {
 	Marker(stepID, state, detail string)
 	// Log meldet eine Zeile Menschentext eines Schritts.
 	Log(stepID, line string)
+	// Message meldet eine uebersetzte Nachricht eines Schritts: einen Schluessel
+	// aus dem Katalog plus ihre Platzhalter.
+	Message(stepID, key string, args map[string]string)
 }
 
 // Backend ist die einzige Naht zwischen Schicht 2 und dem Wirt.

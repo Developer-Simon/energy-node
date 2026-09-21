@@ -61,13 +61,70 @@
         <h2 class="card-h" x-text="t('connect.package.heading')"></h2>
         <p class="card-p" x-text="t('connect.package.text')"></p>
 
-        <div class="opt on" role="radio" aria-checked="true">
-          <span class="radio"></span>
-          <span>
-            <span class="opt-t" x-text="packageLabel"></span>
-            <span class="opt-s" x-text="t('connect.package.bundled_hint')"></span>
-          </span>
-        </div>
+        <template x-if="!packageInfo">
+          <div class="opt on" role="radio" aria-checked="true">
+            <span class="radio"></span>
+            <span>
+              <span class="opt-t" x-text="packageLabel"></span>
+              <span class="opt-s" x-text="t('connect.package.bundled_hint')"></span>
+            </span>
+          </div>
+        </template>
+
+        <template x-if="packageInfo">
+          <div role="radiogroup" :aria-label="t('connect.package.heading')">
+            <template x-if="packageInfo.bundled">
+              <div class="opt" :class="{ on: packageKind === 'bundled' }" role="radio" tabindex="0" :aria-checked="packageKind === 'bundled'"
+                   @click="selectPackage('bundled')" @keydown.enter.prevent="selectPackage('bundled')" @keydown.space.prevent="selectPackage('bundled')">
+                <span class="radio"></span>
+                <span>
+                  <span class="opt-t" x-text="packageLabel"></span>
+                  <span class="opt-s" x-text="t('connect.package.bundled_hint')"></span>
+                </span>
+              </div>
+            </template>
+
+            <div class="opt" :class="{ on: packageKind === 'file' }" role="radio" tabindex="0" :aria-checked="packageKind === 'file'"
+                 @click="selectPackage('file')" @keydown.enter.prevent="selectPackage('file')" @keydown.space.prevent="selectPackage('file')">
+              <span class="radio"></span>
+              <span>
+                <span class="opt-t" x-text="t('connect.package.file')"></span>
+                <span class="opt-s" x-text="t('connect.package.file_hint')"></span>
+              </span>
+            </div>
+            <template x-if="packageKind === 'file'">
+              <div class="field">
+                <input type="file" accept=".gz,.tgz" :aria-label="t('connect.package.file')"
+                       @change="packageFile = $event.target.files[0] || null">
+              </div>
+            </template>
+
+            <div class="opt" :class="{ on: packageKind === 'repo', off: !packageInfo.repo.available }" role="radio" tabindex="0"
+                 :aria-checked="packageKind === 'repo'" :aria-disabled="!packageInfo.repo.available"
+                 @click="selectPackage('repo')" @keydown.enter.prevent="selectPackage('repo')" @keydown.space.prevent="selectPackage('repo')">
+              <span class="radio"></span>
+              <span>
+                <span class="opt-t" x-text="t('connect.package.repo')"></span>
+                <span class="opt-s" x-text="packageInfo.repo.available ? t('connect.package.repo_hint') : t('connect.package.repo_unavailable.' + packageInfo.repo.reason)"></span>
+              </span>
+            </div>
+            <template x-if="packageKind === 'repo'">
+              <div class="field">
+                <span class="lbl" id="connect-repopath" x-text="t('connect.package.repo_path')"></span>
+                <input type="text" x-model.trim="repoPath" aria-labelledby="connect-repopath" autocomplete="off" spellcheck="false">
+              </div>
+            </template>
+
+            <div class="opt" :class="{ on: packageKind === 'github' }" role="radio" tabindex="0" :aria-checked="packageKind === 'github'"
+                 @click="selectPackage('github')" @keydown.enter.prevent="selectPackage('github')" @keydown.space.prevent="selectPackage('github')">
+              <span class="radio"></span>
+              <span>
+                <span class="opt-t" x-text="t('connect.package.github')"></span>
+                <span class="opt-s" x-text="t('connect.package.github_hint')"></span>
+              </span>
+            </div>
+          </div>
+        </template>
       </section>
     </div>
 

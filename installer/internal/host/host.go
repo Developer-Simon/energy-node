@@ -17,6 +17,7 @@ import (
 	"sync"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
+	"github.com/Developer-Simon/energy-node-installer/internal/bundlesource"
 	"github.com/Developer-Simon/energy-node-installer/internal/diag"
 	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/steps"
@@ -40,14 +41,27 @@ type Config struct {
 	KnownHostsPath string
 	// IdentityDir ist das Verzeichnis fuer erzeugte Schluesselpaare.
 	IdentityDir string
+	// Resolver loest die gewaehlte Paketquelle auf. nil heisst: keine
+	// Paketauswahl, der Wirt arbeitet nur mit BundleDir (Tests, aeltere
+	// Aufrufer).
+	Resolver *bundlesource.Resolver
+	// RepoPath ist der erkannte Checkout, mit dem das Feld
+	// "Aus Repository bauen" vorbelegt wird.
+	RepoPath string
 }
 
 // Host erfuellt hostapi.Backend ueber SSH.
 type Host struct {
-	cfg      Config
-	manifest *bundle.Manifest
+	cfg Config
 
-	mu      sync.Mutex
+	mu        sync.Mutex
+	manifest  *bundle.Manifest // nil, bis ein Paket geladen ist
+	bundleDir string
+	cleanup   func()
+	choice    bundlesource.Request
+	uploaded  string
+	resolved  *hostapi.ResolvedInfo
+
 	client  *transport.Client
 	target  hostapi.ConnectRequest
 	pending *selection.Selection
@@ -61,21 +75,60 @@ func New(cfg Config) (*Host, error) {
 	if cfg.RemoteStateDir == "" {
 		cfg.RemoteStateDir = "/var/lib/energy-node-installer"
 	}
+	h := &Host{cfg: cfg, bundleDir: cfg.BundleDir}
 	manifest, err := bundle.LoadManifest(cfg.BundleDir)
-	if err != nil {
+	switch {
+	case err == nil:
+		h.manifest = manifest
+	case isManifestMissing(err):
+		// Ohne mitgeliefertes Bundle startet der Wirt trotzdem; die
+		// Paketauswahl liefert eines, bevor es gebraucht wird.
+	default:
 		return nil, err
 	}
-	return &Host{cfg: cfg, manifest: manifest}, nil
+	return h, nil
+}
+
+func isManifestMissing(err error) bool {
+	var bundleErr *bundle.Error
+	return errors.As(err, &bundleErr) && bundleErr.Code == bundle.FaultManifestMissing
 }
 
 func (h *Host) Describe() hostapi.Description {
-	return hostapi.Description{
+	h.mu.Lock()
+	manifest, resolved := h.manifest, h.resolved
+	h.mu.Unlock()
+	description := hostapi.Description{
 		Host:            hostapi.HostInstaller,
 		EntryPoints:     []string{"install", "redeploy", "diagnose"},
 		NeedsConnection: true,
-		BundleVersion:   h.manifest.Version,
-		BundleArch:      h.manifest.Arch,
 	}
+	if manifest != nil {
+		description.BundleVersion, description.BundleArch = manifest.Version, manifest.Arch
+	}
+	if h.cfg.Resolver != nil {
+		description.Package = h.packageInfo(manifest, resolved)
+	}
+	return description
+}
+
+// loaded gibt das geladene Manifest und Bundle-Verzeichnis zurueck, oder einen
+// NO_PACKAGE-Fehler wenn noch nichts geladen wurde.
+func (h *Host) loaded() (*bundle.Manifest, string, error) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.manifest == nil {
+		return nil, "", &hostapi.Error{Code: "NO_PACKAGE", Status: http.StatusConflict}
+	}
+	return h.manifest, h.bundleDir, nil
+}
+
+// manifestOrEmpty gibt das Manifest zurueck, oder nil und keine Fehler wenn
+// noch nichts geladen wurde (fuer EvaluatePreflight).
+func (h *Host) manifestOrEmpty() *bundle.Manifest {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.manifest
 }
 
 func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi.ConnectResult, error) {
@@ -178,13 +231,16 @@ func (h *Host) EvaluatePreflight(facts PreflightFacts) *hostapi.Precheck {
 		InstalledBundleVersion: facts.InstalledBundleVersion,
 		OSPrettyName:           facts.OSPrettyName, DiskTotalMB: facts.DiskTotalMB, Timezone: facts.Timezone,
 	}
-	for _, machine := range h.manifest.UnameMachine {
-		if machine == facts.Arch {
-			view.ArchOK = true
-			break
+	manifest := h.manifestOrEmpty()
+	if manifest != nil {
+		for _, machine := range manifest.UnameMachine {
+			if machine == facts.Arch {
+				view.ArchOK = true
+				break
+			}
 		}
+		view.PythonABIOK = manifest.PythonABI == "" || manifest.PythonABI == facts.PythonABI
 	}
-	view.PythonABIOK = h.manifest.PythonABI == "" || h.manifest.PythonABI == facts.PythonABI
 	view.DiskOK = facts.DiskFreeMB >= MinDiskFreeMB
 
 	if !view.ArchOK {
@@ -223,10 +279,18 @@ func (h *Host) Precheck(ctx context.Context) (*hostapi.Precheck, error) {
 	if err := provisionRemoteStateDir(ctx, client, h.cfg.RemoteStateDir); err != nil {
 		return nil, &hostapi.Error{Code: "PREFLIGHT_UPLOAD_FAILED", Detail: err.Error()}
 	}
+	// loaded() gibt manifest und bundleDir, oder einen Fehler wenn noch nicht
+	// geladen. Die Reihenfolge (connected, provision, dann loaded) ist bewusst,
+	// damit precheck_provision_test.go den Fehler der Bereitstellung vor
+	// "kein Bundle" sieht.
+	_, bundleDir, err := h.loaded()
+	if err != nil {
+		return nil, err
+	}
 	// preflight.sh liegt im Bundle unter bootstrap/ - make_bundle.sh kopiert
 	// scripts/bootstrap/ vollstaendig dorthin, eine Aenderung an Komponente B
 	// braucht es dafuer nicht.
-	local := path.Join(h.cfg.BundleDir, "bootstrap", "preflight.sh")
+	local := path.Join(bundleDir, "bootstrap", "preflight.sh")
 	remote := path.Join(h.cfg.RemoteStateDir, "preflight.sh")
 	if err := client.UploadFile(local, remote, 0o755); err != nil {
 		return nil, &hostapi.Error{Code: "PREFLIGHT_UPLOAD_FAILED", Detail: err.Error()}
@@ -244,24 +308,28 @@ func (h *Host) Precheck(ctx context.Context) (*hostapi.Precheck, error) {
 }
 
 func (h *Host) Manifest(ctx context.Context) (*hostapi.ManifestView, error) {
+	manifest, bundleDir, err := h.loaded()
+	if err != nil {
+		return nil, err
+	}
 	view := &hostapi.ManifestView{
-		BundleVersion: h.manifest.Version,
-		PythonABI:     h.manifest.PythonABI,
-		TargetUser:    h.manifest.TargetUser,
-		TargetBase:    h.manifest.TargetBase,
-		Components:    h.manifest.Components,
-		HasCaddy:      h.manifest.Caddy != nil,
+		BundleVersion: manifest.Version,
+		PythonABI:     manifest.PythonABI,
+		TargetUser:    manifest.TargetUser,
+		TargetBase:    manifest.TargetBase,
+		Components:    manifest.Components,
+		HasCaddy:      manifest.Caddy != nil,
 	}
-	if len(h.manifest.UnameMachine) > 0 {
-		view.Arch = h.manifest.UnameMachine[0]
+	if len(manifest.UnameMachine) > 0 {
+		view.Arch = manifest.UnameMachine[0]
 	}
-	for _, step := range h.manifest.Steps {
+	for _, step := range manifest.Steps {
 		view.Steps = append(view.Steps, hostapi.StepView{
 			ID: step.ID, ServiceID: step.ServiceID, Dir: step.Dir, Unit: step.Unit,
 			Optional: step.Optional, Default: step.Default, Kind: step.Kind,
 		})
 	}
-	view.BundleBytes, view.WheelCount, view.UnitCount, view.TemplateCount = bundleStats(h.cfg.BundleDir, h.manifest.Files)
+	view.BundleBytes, view.WheelCount, view.UnitCount, view.TemplateCount = bundleStats(bundleDir, manifest.Files)
 	return view, nil
 }
 
@@ -269,7 +337,11 @@ func (h *Host) Selection(ctx context.Context) (*hostapi.SelectionView, error) {
 	if current := h.currentSelection(); current != nil {
 		return current, nil
 	}
-	defaults := selection.DefaultFor(h.manifest)
+	manifest, _, err := h.loaded()
+	if err != nil {
+		return nil, err
+	}
+	defaults := selection.DefaultFor(manifest)
 	return &hostapi.SelectionView{Steps: defaults.Steps, Source: "manifest-default"}, nil
 }
 
@@ -285,7 +357,11 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	if err != nil {
 		return nil, err
 	}
-	preview, err := steps.Preview(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, h.manifest.Version)
+	manifest, _, err := h.loaded()
+	if err != nil {
+		return nil, err
+	}
+	preview, err := steps.Preview(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version)
 	if err != nil {
 		return nil, &hostapi.Error{Code: "PLAN_FAILED", Detail: err.Error()}
 	}
@@ -303,13 +379,20 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 }
 
 func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
+	if req.Mode == hostapi.ModePrepare {
+		return h.prepare(ctx, sink)
+	}
 	client, err := h.connected()
 	if err != nil {
 		return err
 	}
-	list := h.manifest.Steps
+	manifest, _, err := h.loaded()
+	if err != nil {
+		return err
+	}
+	list := manifest.Steps
 	if req.Only != "" {
-		entry, ok := h.manifest.StepByID(req.Only)
+		entry, ok := manifest.StepByID(req.Only)
 		if !ok {
 			return &hostapi.Error{Code: "UNKNOWN_STEP", Detail: req.Only, Status: http.StatusBadRequest}
 		}
@@ -320,9 +403,9 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		Client:          client,
 		RemoteBundleDir: h.cfg.RemoteBundleDir,
 		RemoteStateDir:  h.cfg.RemoteStateDir,
-		BundleVersion:   h.manifest.Version,
-		TargetUser:      firstNonEmpty(req.TargetUser, h.manifest.TargetUser),
-		TargetBase:      firstNonEmpty(req.TargetBase, h.manifest.TargetBase),
+		BundleVersion:   manifest.Version,
+		TargetUser:      firstNonEmpty(req.TargetUser, manifest.TargetUser),
+		TargetBase:      firstNonEmpty(req.TargetBase, manifest.TargetBase),
 		MQTTUser:        req.MQTTUser,
 		Steps:           list,
 		Selection:       h.selectionForRun(),
@@ -347,7 +430,11 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 	if err != nil {
 		return nil, err
 	}
-	report, err := diag.Run(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, h.manifest.Version)
+	manifest, _, err := h.loaded()
+	if err != nil {
+		return nil, err
+	}
+	report, err := diag.Run(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version)
 	if err != nil {
 		return nil, &hostapi.Error{Code: "DIAGNOSE_FAILED", Detail: err.Error()}
 	}
@@ -356,7 +443,7 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		Units:         report.Units,
 		Ports:         report.Ports,
 	}
-	for _, check := range report.Checklist(h.manifest.Steps) {
+	for _, check := range report.Checklist(manifest.Steps) {
 		view.Checks = append(view.Checks, hostapi.Check{
 			Name: check.Name, OK: check.OK, Detail: check.Detail, RetryStepID: check.RetryStepID,
 			Group: check.Group, Subject: check.Subject,
@@ -415,7 +502,13 @@ func (h *Host) selectionForRun() *selection.Selection {
 	if current := h.currentSelection(); current != nil {
 		return &selection.Selection{Steps: current.Steps}
 	}
-	return selection.DefaultFor(h.manifest)
+	manifest, _, _ := h.loaded()
+	if manifest == nil {
+		// Sollte nicht vorkommen, da wir hier nur von Run() kommen,
+		// das loaded() vorher prueft.
+		return &selection.Selection{}
+	}
+	return selection.DefaultFor(manifest)
 }
 
 // readKeyFile liest eine private Schluesseldatei vom Rechner des

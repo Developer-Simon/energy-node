@@ -47,26 +47,27 @@ GTK/WebKitGTK on Linux — loaded at run time, so the binary stays CGo-free),
 then a Chrome/Chromium/Edge `--app=` window, then the default browser, then
 just the printed URL. `--no-window` jumps straight to the last stage. When the
 WebView opens, closing its window ends the process. The URL carries a one-time
-token. Unlike the CLI, the UI does not build a bundle on demand: it expects one
-already unpacked at `bundle/` next to the binary (`--bundle <dir>` to point
-elsewhere). Build one first:
+token. The UI starts without a bundle. On the connect screen you pick where the
+package comes from, and after connecting the installer asks the node for its
+architecture (`uname -m`), resolves the package for it, uploads it and
+verifies it on the node:
 
-```sh
-bash scripts/build/make_bundle.sh --arch armv6 --skip-wheels
-mkdir -p installer/bundle
-tar -xzf dist/energy-node-*-armv6.tar.gz -C installer/bundle
-```
+| Source | What happens |
+| --- | --- |
+| Bundled | The unpacked bundle next to the binary (or `--bundle <dir>`), if there is one |
+| Package file | A `.tar.gz` you pick in the browser; uploaded to the local installer, verified, then sent to the node |
+| Build from repository | Linux only. Runs `scripts/build/make_bundle.sh` in a checkout (path is pre-filled when the installer runs inside one). Needs `bash`, `git` and `go`; unsigned |
+| Live from GitHub | Downloads the newest stable release's signed `energy-node-<version>-<arch>.tar.gz`; the signature must match the embedded release key |
 
-`--skip-wheels` avoids the piwheels round-trip for a quick local try; the
-dashboard binary is cross-compiled and the Tailscale tarball downloaded
-automatically unless `--dashboard-binary` / `--tailscale-tarball` inject
-prebuilt ones. Signing works the same as `deploy` — an unsigned bundle is
-fine for driving the UI locally.
+Downloads and repo builds are cached under `~/.energy-node/cache/`, unpacked
+scratch space under `~/.energy-node/work/`. A bundle without a signature is
+accepted (except from GitHub) and flagged "unsigned" in the UI; a bundle with
+a signature that does not verify is always refused.
 
 | Flag | Purpose |
 | --- | --- |
 | `--port` | Port on 127.0.0.1; 0 (default) lets the OS pick one |
-| `--bundle <dir>` | Unpacked bundle directory; default: `bundle/` next to the binary |
+| `--bundle <dir>` | Unpacked bundle directory (optional) |
 | `--lang` | UI language; default: guessed from the OS locale |
 | `--no-window` | Don't open a browser window, just print the URL |
 

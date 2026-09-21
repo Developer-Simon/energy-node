@@ -1,8 +1,11 @@
 package bundle
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +25,10 @@ type BuildArgs struct {
 	Base        string // omit to let make_bundle.sh choose
 	OutDir      string
 	SignKeyPath string // omit for an unsigned bundle
+	// Log, when set, receives every line make_bundle.sh prints (stdout and
+	// stderr interleaved) while it runs. The full output is still included
+	// in the error on failure.
+	Log func(line string)
 }
 
 // BuildViaRepo runs scripts/build/make_bundle.sh on an existing checkout and
@@ -49,7 +56,13 @@ func BuildViaRepo(ctx context.Context, args BuildArgs) (string, error) {
 
 	cmd := exec.CommandContext(ctx, "bash", append([]string{script}, cmdArgs...)...)
 	cmd.Dir = args.RepoRoot
-	output, err := cmd.CombinedOutput()
+	var output []byte
+	var err error
+	if args.Log == nil {
+		output, err = cmd.CombinedOutput()
+	} else {
+		output, err = runStreaming(cmd, args.Log)
+	}
 	if err != nil {
 		return "", fmt.Errorf("make_bundle.sh failed: %w\n%s", err, output)
 	}
@@ -84,4 +97,28 @@ func findBuiltArchive(outDir string) (string, error) {
 	default:
 		return "", fmt.Errorf("more than one energy-node-*.tar.gz found in %s: %v", outDir, matches)
 	}
+}
+
+// runStreaming runs cmd with stdout and stderr merged, calls log for each
+// line as it arrives, and returns everything it captured.
+func runStreaming(cmd *exec.Cmd, log func(string)) ([]byte, error) {
+	pr, pw := io.Pipe()
+	cmd.Stdout, cmd.Stderr = pw, pw
+	var captured bytes.Buffer
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		scanner := bufio.NewScanner(io.TeeReader(pr, &captured))
+		scanner.Buffer(make([]byte, 0, 64*1024), 1<<20)
+		for scanner.Scan() {
+			log(scanner.Text())
+		}
+		// A line beyond the scanner's limit stops it; keep draining so the
+		// child never blocks on a full pipe.
+		_, _ = io.Copy(io.Discard, pr)
+	}()
+	err := cmd.Run()
+	_ = pw.Close()
+	<-done
+	return captured.Bytes(), err
 }

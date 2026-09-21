@@ -46,7 +46,12 @@ export function fakeShell(window, overrides = {}) {
     backToDashboard() { this.backToDashboardCalled = (this.backToDashboardCalled || 0) + 1; },
     switchEntry(name) { this.entry = name; this.navigate(this.connected ? FIRST_SCREEN[name] : 'connect', 'forward'); },
     openDiagnose() { this.entry = 'diagnose'; this.navigate('diagnose', 'forward'); },
-    afterConnect(target) { this.connected = true; this.shared.target = target; this.go(FIRST_SCREEN[this.entry]); },
+    afterConnect(target) {
+      this.connected = true;
+      this.shared.target = target;
+      this.go(this.bootstrap.package ? 'prepare' : FIRST_SCREEN[this.entry]);
+    },
+    afterPrepare() { this.go(FIRST_SCREEN[this.entry]); },
     fail(err) { this.error = { code: err.code, detail: err.detail || '' }; },
     startRun(response, request) {
       this.mutating = true;

@@ -15,6 +15,8 @@ import (
 	"runtime"
 	"syscall"
 
+	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
+	"github.com/Developer-Simon/energy-node-installer/internal/bundlesource"
 	"github.com/Developer-Simon/energy-node-installer/internal/host"
 	"github.com/Developer-Simon/energy-node-installer/internal/shell"
 	webui "github.com/Developer-Simon/energy-node-webui"
@@ -29,11 +31,21 @@ type uiConfig struct {
 	openWindow bool
 }
 
+type stateLayout struct{ work, cache string }
+
+// stateDirs legt fest, wo der Installer Zwischenstaende ablegt: entpackte
+// Pakete unter work (werden aufgeraeumt), heruntergeladene und gebaute
+// Archive unter cache (bleiben, damit ein zweiter Lauf nichts erneut laedt).
+func stateDirs(home string) stateLayout {
+	base := filepath.Join(home, ".energy-node")
+	return stateLayout{work: filepath.Join(base, "work"), cache: filepath.Join(base, "cache")}
+}
+
 func newUIConfig(args []string) (uiConfig, error) {
 	fs := flag.NewFlagSet("installer", flag.ContinueOnError)
 	fs.SetOutput(os.Stderr)
 	port := fs.Int("port", 0, "Port auf 127.0.0.1; 0 laesst das Betriebssystem waehlen")
-	bundleDir := fs.String("bundle", "", "entpacktes Bundle; leer heisst: neben dem Programm suchen")
+	bundleDir := fs.String("bundle", "", "entpacktes Bundle (optional); leer heisst: neben dem Programm suchen")
 	language := fs.String("lang", "", "Sprache der Oberflaeche; leer heisst: aus der OS-Locale")
 	noWindow := fs.Bool("no-window", false, "kein Fenster oeffnen, nur die URL ausgeben")
 	if err := fs.Parse(args); err != nil {
@@ -74,14 +86,30 @@ func runUI(cfg uiConfig) error {
 	if err != nil {
 		return err
 	}
+
+	dirs := stateDirs(stateHome)
+	publicKey, err := bundle.EmbeddedPublicKey()
+	if err != nil {
+		return err
+	}
+	cwd, _ := os.Getwd()
+	exeDir := filepath.Dir(bundleDir)
 	backend, err := host.New(host.Config{
 		BundleDir:      bundleDir,
 		KnownHostsPath: filepath.Join(stateHome, ".energy-node", "known_hosts"),
 		IdentityDir:    filepath.Join(stateHome, ".energy-node"),
+		RepoPath:       bundlesource.DetectRepo(cwd, exeDir),
+		Resolver: &bundlesource.Resolver{
+			BundledDir: bundleDir,
+			WorkDir:    dirs.work,
+			GitHub:     &bundlesource.GitHub{CacheDir: dirs.cache},
+			PublicKey:  publicKey,
+		},
 	})
 	if err != nil {
 		return err
 	}
+	defer backend.Close()
 
 	token, err := newToken()
 	if err != nil {

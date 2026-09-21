@@ -19,7 +19,7 @@ const catalogs = Object.fromEntries(
 );
 
 // Die Praefixe aus Vertrag 6.
-const PREFIXES = ['app', 'entry', 'language', 'stepper', 'connect', 'precheck', 'configure', 'run', 'result', 'preview',
+const PREFIXES = ['app', 'entry', 'language', 'stepper', 'connect', 'prepare', 'precheck', 'configure', 'run', 'result', 'preview',
   'diagnose', 'field', 'action', 'step', 'service', 'component', 'unit', 'number', 'warning', 'fault', 'error'];
 const KEY = new RegExp(`^(?:${PREFIXES.join('|')})(?:\\.[A-Za-z0-9_-]+)+$`);
 
@@ -67,8 +67,10 @@ function errorCodes() {
   const sources = [
     ...list(path.join(webui, 'hostapi'), /\.go$/).filter((name) => !name.endsWith('_test.go')).map((name) => read(webui, 'hostapi', name)),
     read(repo, 'installer', 'internal', 'host', 'host.go'),
+    read(repo, 'installer', 'internal', 'host', 'package.go'),
+    ...list(path.join(repo, 'installer', 'internal', 'bundlesource'), /\.go$/).filter((name) => !name.endsWith('_test.go')).map((name) => read(repo, 'installer', 'internal', 'bundlesource', name)),
   ];
-  const patterns = [/writeError\(\s*w,\s*http\.\w+,\s*"([A-Z_]+)"/g, /Code:\s*"([A-Z_]+)"/g, /payload\["code"\]\s*=\s*"([A-Z_]+)"/g];
+  const patterns = [/writeError\(\s*w,\s*http\.\w+,\s*"([A-Z_]+)"/g, /Code:\s*"([A-Z_]+)"/g, /Code\w+\s*=\s*"([A-Z_]+)"/g, /payload\["code"\]\s*=\s*"([A-Z_]+)"/g];
   const codes = new Set();
   for (const source of sources) {
     for (const pattern of patterns) {
@@ -130,7 +132,9 @@ function composedKeys() {
     'precheck.disk.detail', 'precheck.disk.detail_plain', 'precheck.disk.low', 'precheck.disk.low_plain',
     'result.todo.count.2', 'result.todo.count.3', 'result.todo.count.4',
     'component.dashboard', 'component.services', 'component.wheel', 'component.dependency',
-    'diagnose.group.services', 'diagnose.group.system', 'diagnose.group.config');
+    'diagnose.group.services', 'diagnose.group.system', 'diagnose.group.config',
+    'connect.package.repo_unavailable.OS_UNSUPPORTED', 'connect.package.repo_unavailable.TOOLS_MISSING',
+    'package.log.arch_detected', 'package.log.cached', 'package.log.detect_arch', 'package.log.download', 'package.log.github_search');
   for (const state of ['active', 'failed', 'inactive', 'activating']) {
     keys.push(`diagnose.unit.${state}`);
   }
