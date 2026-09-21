@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startFakehost, openPage, connect, startInstall, connectWithPackage, waitForPrepare, getDebugState, SECRETS } from './fakehost.mjs';
+import { startFakehost, openPage, connect, startInstall, connectWithPackage, SECRETS } from './fakehost.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const en = JSON.parse(fs.readFileSync(path.join(here, '..', '..', 'catalogs', 'en.json'), 'utf8'));
