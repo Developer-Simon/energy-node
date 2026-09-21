@@ -6,6 +6,7 @@
 
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **services:** give every service its own version and changelog (#45) (5bc91b8)
 
 ### Tests
 
