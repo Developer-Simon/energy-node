@@ -48,12 +48,12 @@ func (s *busSink) Log(stepID, line string) {
 }
 
 func (s *busSink) Message(stepID, key string, args map[string]string) {
-	// Redact all argument values
+	// Werte aller Argumente sind zu redigieren.
 	redacted := make(map[string]string)
 	for k, v := range args {
 		redacted[k] = s.redactor.Line(v)
 	}
-	s.bus.Publish("log", map[string]interface{}{
+	s.bus.Publish("log", map[string]any{
 		"step_id": stepID,
 		"key":     key,
 		"args":    redacted,

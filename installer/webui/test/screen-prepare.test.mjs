@@ -80,3 +80,27 @@ test('a failed prepare shows the code and goes back to the connect screen', asyn
   screen.back();
   assert.equal(shell.screen, 'connect');
 });
+
+test('a translated log event with key renders the text from the German catalog', async () => {
+  const { screen, sources } = mount();
+  await screen.init();
+  sources[0].emit('run-started', { run_id: 'run-1', mode: 'prepare' }, 4);
+  sources[0].emit('log', { step_id: 'package', key: 'package.log.arch_detected', args: { machine: 'armv6l', arch: 'armv6' } }, 5);
+  assert.deepEqual(JSON.parse(JSON.stringify(screen.lines)), ['Gerät meldet armv6l, Paket für armv6']);
+});
+
+test('a translated log event with key renders the text from the English catalog', async () => {
+  const { screen, sources } = mount({ catalog: realCatalog('en') });
+  await screen.init();
+  sources[0].emit('run-started', { run_id: 'run-1', mode: 'prepare' }, 4);
+  sources[0].emit('log', { step_id: 'package', key: 'package.log.arch_detected', args: { machine: 'armv6l', arch: 'armv6' } }, 5);
+  assert.deepEqual(JSON.parse(JSON.stringify(screen.lines)), ['Device reports armv6l, package for armv6']);
+});
+
+test('a raw log event without a key still renders the line as-is', async () => {
+  const { screen, sources } = mount();
+  await screen.init();
+  sources[0].emit('run-started', { run_id: 'run-1', mode: 'prepare' }, 4);
+  sources[0].emit('log', { step_id: 'package', line: 'raw output text' }, 5);
+  assert.deepEqual(JSON.parse(JSON.stringify(screen.lines)), ['raw output text']);
+});

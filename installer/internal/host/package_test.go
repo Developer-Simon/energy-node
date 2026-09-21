@@ -180,3 +180,38 @@ func TestUploadPackageStoresTheFileAndSelectsIt(t *testing.T) {
 		t.Errorf("Close must remove the uploaded file")
 	}
 }
+
+func TestPrepareBundledEmitsTranslatedNoteKeys(t *testing.T) {
+	stubSeams(t, "armv6l")
+	h := hostWithBundled(t)
+	sink := &recordingSink{}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+
+	// Verify the two host-emitted message keys appear in order
+	if len(sink.notes) < 2 {
+		t.Errorf("notes = %v, want at least 2 keys (detect_arch, arch_detected)", sink.notes)
+	} else {
+		if sink.notes[0] != "package:package.log.detect_arch" {
+			t.Errorf("notes[0] = %q, want package:package.log.detect_arch", sink.notes[0])
+		}
+		if sink.notes[1] != "package:package.log.arch_detected" {
+			t.Errorf("notes[1] = %q, want package:package.log.arch_detected", sink.notes[1])
+		}
+	}
+
+	// Verify no German text from prepare steps appears in the logs
+	for _, line := range sink.logs {
+		// These are German strings that should NOT appear when using notes
+		if strings.Contains(line, "Architektur") || strings.Contains(line, "Geraet meldet") ||
+			strings.Contains(line, "Suche das neueste") || strings.Contains(line, "Lade ") ||
+			strings.Contains(line, "liegt bereits") {
+			t.Errorf("sink.logs contains German prepare text: %q", line)
+		}
+	}
+}
