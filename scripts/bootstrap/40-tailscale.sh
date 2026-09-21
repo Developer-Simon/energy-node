@@ -11,6 +11,12 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
 
 FORBIDDEN_FLAG='--tun=userspace-networking'
 
+# Nur eine wirksame Zeile zaehlt: Debians Standarddatei und die Vorlage im
+# Tarball fuehren das Beispiel auskommentiert (#FLAGS="--tun=...") auf.
+has_forbidden_flag() {
+  sed 's/#.*//' "$1" | grep -q -- "${FORBIDDEN_FLAG}"
+}
+
 step_begin 40
 if ! step_selected 40; then
   step_skip "nicht ausgewaehlt"
@@ -31,7 +37,7 @@ defaults="${EN_ROOT}/etc/default/tailscaled"
 # Vor jeder Aenderung: eine vorhandene Datei mit dem verbotenen Schalter ist
 # ein Abbruchgrund, kein Reparaturfall. Der Schalter verhindert, dass
 # tailscaled tailscale0 anlegt - der Node kann dann zu keinem Peer routen.
-if [[ -f "${defaults}" ]] && grep -q -- "${FORBIDDEN_FLAG}" "${defaults}"; then
+if [[ -f "${defaults}" ]] && has_forbidden_flag "${defaults}"; then
   step_log "In ${defaults} steht ${FORBIDDEN_FLAG}. Bitte entfernen (INSTALLATION.md 3.1)."
   step_fail TAILSCALE_FLAG_INVALID
 fi
@@ -80,7 +86,7 @@ if [[ "${keep_installed}" == false ]]; then
   fi
   # Gegenprobe nach dem Schreiben: auch die mitgelieferte Vorlage darf den
   # Schalter nicht enthalten.
-  if grep -q -- "${FORBIDDEN_FLAG}" "${defaults}"; then
+  if has_forbidden_flag "${defaults}"; then
     step_log "Die installierte ${defaults} enthaelt ${FORBIDDEN_FLAG}."
     step_fail TAILSCALE_FLAG_INVALID
   fi
