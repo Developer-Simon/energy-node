@@ -19,6 +19,9 @@ func (s *recordingSink) Marker(stepID, state, detail string) {
 	s.markers = append(s.markers, stepID+" "+state)
 }
 func (s *recordingSink) Log(stepID, line string) { s.logs = append(s.logs, line) }
+func (s *recordingSink) Message(stepID, key string, args map[string]string) {
+	s.logs = append(s.logs, key)
+}
 
 func setupNode(t *testing.T) updaterhost.Config {
 	t.Helper()

@@ -95,3 +95,6 @@ func (s busSink) Marker(stepID, state, detail string) {
 func (s busSink) Log(stepID, line string) {
 	s.bus.Publish("log", map[string]string{"step_id": stepID, "line": line})
 }
+func (s busSink) Message(stepID, key string, args map[string]string) {
+	s.bus.Publish("log", map[string]any{"step_id": stepID, "key": key, "args": args})
+}

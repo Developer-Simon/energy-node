@@ -21,6 +21,9 @@ func (s *recordingSink) Marker(stepID, state, detail string) {
 	s.markers = append(s.markers, stepID+" "+state+" "+detail)
 }
 func (s *recordingSink) Log(stepID, line string) { s.logs = append(s.logs, stepID+": "+line) }
+func (s *recordingSink) Message(stepID, key string, args map[string]string) {
+	s.logs = append(s.logs, stepID+": "+key)
+}
 
 func TestTailJobLogStopsAtOkStatus(t *testing.T) {
 	dir := t.TempDir()
