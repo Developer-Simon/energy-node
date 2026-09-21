@@ -276,7 +276,7 @@ for row in os.environ["SERVICE_STEP_ROWS"].splitlines():
         continue
     directory, step_id = row.split(":")
     manifest = json.loads((repo / "services" / directory / "manifest.json").read_text(encoding="utf-8"))
-    steps.append({
+    entry = {
         "id": step_id,
         "optional": True,
         "default": True,
@@ -285,7 +285,14 @@ for row in os.environ["SERVICE_STEP_ROWS"].splitlines():
         "dir": directory,
         "unit": units[directory],
         "dashboard_key": manifest["service_id"],
-    })
+    }
+    # Jeder Dienst traegt seit v0.4.0 seine eigene Version im Manifest. Sie
+    # kommt hier mit ins Bundle-Manifest, damit Installer und Dashboard die
+    # Version eines einzelnen Dienstes zeigen koennen, ohne das mitgelieferte
+    # config/manifests/<id>.json nachzuladen.
+    if manifest.get("version"):
+        entry["version"] = "v%s" % manifest["version"].lstrip("v")
+    steps.append(entry)
 steps.sort(key=lambda item: item["id"])
 
 head = {

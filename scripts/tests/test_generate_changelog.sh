@@ -211,6 +211,17 @@ grep -q "real change to list"      "$cl" || fail "real commit missing after hous
 grep -q "bump component versions"  "$cl" && fail "chore(release) housekeeping commit was listed"
 grep -q "changelogs"              "$cl" && fail "a docs(changelog) housekeeping commit was listed"
 
+# --- the bump commit still heads the open section with its own version ------
+# generate_changelog.sh runs after bump-patch.sh on the PR branch (see
+# .github/workflows/version-bump.yml), so it walks the "chore(release): bump
+# component versions" commit too -- it must move the open section's heading to
+# the version that commit produced, without becoming an entry itself.
+echo v0.5.18 > "$tmp/dashboard/VERSION"
+commit "chore(release): bump component versions"
+gen --rebuild dashboard
+grep -q "^## v0.5.18 " "$cl"      || fail "bump commit's version did not become the open section heading"
+grep -q "bump component versions" "$cl" && fail "bump commit itself got listed as an entry"
+
 # --- semver breaking-change marker: `type!:` and `type(scope)!:` --------------
 # The "!" must not defeat type detection (commit still lands in its normal
 # bucket), and the entry gets a "⚠ Breaking" prefix rather than the raw
@@ -230,5 +241,173 @@ awk '/^### /{sec=$0} /drop the legacy node block/{print sec}' "$cl" | grep -qx "
   || fail "feat! not filed under Features"
 awk '/^### /{sec=$0} /reject configs without an explicit unit/{print sec}' "$cl" | grep -qx "### Fixes" \
   || fail "fix(dashboard)! not filed under Fixes"
+
+# --- cross-"(#NN)" duplicate removed by hash existence -----------------------
+# A squash-merged PR's "(#NN)" entry can repeat an in-branch commit's exact
+# title under a new hash. The pre-squash entry the previous run already froze
+# (no "(#NN)", a hash git no longer knows) must not survive next to it: same
+# text once the hash and any "(#NN)" are stripped, but only one hash is still
+# reachable.
+echo dup > "$tmp/dashboard/dup.js"
+echo v0.5.19 > "$tmp/dashboard/VERSION"
+commit "fix(dashboard): rename the frobnicator (#31)"
+cat > "$cl" <<'EOF'
+# Changelog
+
+## v0.5.19 (2026-09-11)
+
+### Fixes
+
+- **dashboard:** rename the frobnicator (deadccc1)
+EOF
+commit "docs(changelog): simulate the pre-squash frobnicator entry"
+gen dashboard
+[ "$(grep -c "rename the frobnicator" "$cl")" -eq 1 ] \
+  || fail "stale pre-squash duplicate not removed by the hash-existence dedup"
+grep -q "rename the frobnicator (#31)" "$cl" \
+  || fail "live (#NN) entry lost while deduplicating"
+
+# --- a foreign commit (only CHANGELOG.md / VERSION) is not this component's --
+# A squash-merge carries the PR branch's bot commits with it, so it touches
+# every component's CHANGELOG.md and VERSION even when it changed nothing in
+# that component. Those two files must not put a commit into the walk --
+# otherwise every PR lands in every component's changelog.
+echo v0.6.0 > "$tmp/dashboard/VERSION"
+printf '# Changelog\n' > "$cl"
+commit "feat(installer): something that never touched the dashboard"
+mkdir -p "$tmp/installer"
+echo real > "$tmp/installer/main.go"
+commit "feat(installer): real installer work"
+echo local > "$tmp/dashboard/local.js"
+commit "feat(dashboard): real dashboard work"
+gen --rebuild dashboard
+grep -q "real dashboard work" "$cl" \
+  || fail "the component's own commit is missing"
+grep -q "something that never touched the dashboard" "$cl" \
+  && fail "a CHANGELOG.md/VERSION-only commit was listed as dashboard work"
+grep -q "real installer work" "$cl" \
+  && fail "a commit outside the component was listed"
+
+# --- the open section is headed by the current VERSION file ------------------
+# The bump commit only touches VERSION, so it is no longer in the walk. The
+# heading has to come from the version file itself.
+echo v0.6.1 > "$tmp/dashboard/VERSION"
+commit "chore(release): bump component versions"
+gen --rebuild dashboard
+grep -q "^## v0.6.1 " "$cl" \
+  || fail "open section not headed by the current VERSION file"
+
+# --- duplicate inside ONE section: "(#NN)" wins over the in-PR entry ---------
+# Both hashes are alive here, so the hash-existence rule cannot decide; the
+# entry carrying the PR reference is the one to keep.
+echo dd > "$tmp/dashboard/dd.js"
+commit "fix(dashboard): stop the springs from fighting"
+echo dd2 >> "$tmp/dashboard/dd.js"
+commit "fix(dashboard): stop the springs from fighting (#41)"
+gen --rebuild dashboard
+[ "$(grep -c "stop the springs from fighting" "$cl")" -eq 1 ] \
+  || fail "in-PR duplicate not removed inside the section"
+grep -q "stop the springs from fighting (#41)" "$cl" \
+  || fail "the (#NN) entry is the one that must survive"
+
+# --- two different PRs with the same title both stay -------------------------
+echo t1 > "$tmp/dashboard/t1.js"
+commit "fix(dashboard): tidy up (#50)"
+echo t2 > "$tmp/dashboard/t2.js"
+commit "fix(dashboard): tidy up (#51)"
+gen --rebuild dashboard
+[ "$(grep -c "tidy up (#5" "$cl")" -eq 2 ] \
+  || fail "two distinct PRs with the same title must both be listed"
+
+# --- an emptied "### " heading disappears with its entries -------------------
+cat > "$cl" <<'EOF'
+# Changelog
+
+## v0.6.1 (2026-09-12)
+
+### Features
+
+- **dashboard:** only here once (#60)
+- **dashboard:** only here once
+
+### Fixes
+
+- **dashboard:** a real fix (#61)
+EOF
+commit "docs(changelog): hand-written section with an in-PR duplicate"
+gen dashboard
+[ "$(grep -c "only here once" "$cl")" -eq 1 ] \
+  || fail "duplicate inside a frozen section not removed"
+grep -q "a real fix (#61)" "$cl" || fail "frozen section lost an entry"
+grep -q "^### Features" "$cl"    || fail "a still-populated heading was dropped"
+
+# --- commit trailers do not leak into an entry -------------------------------
+echo tr > "$tmp/dashboard/tr.js"
+commit "feat(dashboard): add the orchestrator script Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+gen --rebuild dashboard
+grep -q "Co-Authored-By" "$cl" && fail "a commit trailer leaked into the changelog"
+grep -qF "**dashboard:** add the orchestrator script (" "$cl" \
+  || fail "entry text lost while stripping the trailer"
+
+# --- service:<dir>: own changelog, own version out of manifest.json ---------
+# A service's version lives in its manifest.json, which also carries real
+# configuration -- so, unlike a plain VERSION file, it must stay in the walk.
+# For commits from before the split there is no "version" field yet; the
+# lookup then falls back to the services umbrella VERSION so the older
+# sections keep meaningful headings.
+mkdir -p "$tmp/services/shelly"
+echo v0.3.0 > "$tmp/services/VERSION"
+printf '{\n  "service_id": "shelly",\n  "kind": "device"\n}\n' \
+  > "$tmp/services/shelly/manifest.json"
+echo rpc > "$tmp/services/shelly/shelly_rpc.py"
+commit "feat(shelly): talk to the RPC endpoint"
+printf '{\n  "service_id": "shelly",\n  "version": "0.4.0",\n  "kind": "device"\n}\n' \
+  > "$tmp/services/shelly/manifest.json"
+commit "feat(shelly): give the service its own version"
+scl="$tmp/services/shelly/CHANGELOG.md"
+gen --rebuild service:shelly
+[ -f "$scl" ] || fail "service:shelly wrote no changelog"
+grep -q "talk to the RPC endpoint" "$scl" || fail "service commit missing"
+grep -q "give the service its own version" "$scl" || fail "manifest.json change missing from the walk"
+grep -q "^## v0.4.0 " "$scl" || fail "open section not headed by the manifest version"
+awk '/^## /{sec=$0} /talk to the RPC endpoint/{print sec}' "$scl" | grep -q "v0.3.0\|v0.4.0" \
+  || fail "pre-split commit did not fall back to the umbrella version"
+
+# --- the services umbrella no longer repeats a service's work ---------------
+mkdir -p "$tmp/services"
+echo shared > "$tmp/services/shared.py"
+commit "feat(services): shared helper"
+gen --rebuild services
+scl2="$tmp/services/CHANGELOG.md"
+grep -q "shared helper"            "$scl2" || fail "umbrella lost its own commit"
+grep -q "talk to the RPC endpoint" "$scl2" && fail "umbrella repeated a service's commit"
+
+# --- installer, installer-webui and bootstrap are separate components --------
+# installer/ contains installer/webui/, which has its own version and changelog;
+# the installer target must not list the web UI's commits, and neither may list
+# bootstrap's.
+mkdir -p "$tmp/installer/webui" "$tmp/scripts/bootstrap"
+echo v0.1.0 > "$tmp/installer/VERSION"
+echo v0.1.0 > "$tmp/installer/webui/VERSION"
+echo v0.1.0 > "$tmp/scripts/bootstrap/VERSION"
+echo a > "$tmp/installer/main.go"
+commit "feat(installer): dial the node"
+echo b > "$tmp/installer/webui/app.js"
+commit "feat(webui): add a screen"
+echo c > "$tmp/scripts/bootstrap/10-apt.sh"
+commit "fix(bootstrap): retry apt"
+gen --rebuild installer
+gen --rebuild installer-webui
+gen --rebuild bootstrap
+icl="$tmp/installer/CHANGELOG.md"
+wcl="$tmp/installer/webui/CHANGELOG.md"
+bcl="$tmp/scripts/bootstrap/CHANGELOG.md"
+grep -q "dial the node"    "$icl" || fail "installer lost its own commit"
+grep -q "add a screen"     "$icl" && fail "installer listed a web UI commit"
+grep -q "retry apt"        "$icl" && fail "installer listed a bootstrap commit"
+grep -q "add a screen"     "$wcl" || fail "installer-webui lost its own commit"
+grep -q "dial the node"    "$wcl" && fail "installer-webui listed an installer commit"
+grep -q "retry apt"        "$bcl" || fail "bootstrap lost its own commit"
+grep -q "^## v0.1.0 "      "$icl" || fail "installer section not headed by installer/VERSION"
 
 echo "OK"

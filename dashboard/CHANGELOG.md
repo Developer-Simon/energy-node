@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.7.4 (2026-09-21)
+## v0.7.6 (2026-09-21)
 
 ### Features
 
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
+- **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
 - **updater:** take the target from the root-owned target.json for user-independent bundles (e3813fc)
 - **dashboard:** add a GitHub release client that finds and downloads the node bundle (0493264)
 - **dashboard:** extract, validate and atomically install a downloaded bundle (e0896ae)
@@ -15,13 +16,13 @@
 
 ### Fixes
 
+- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
 - **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
 - render the system-action helper on the node, validate targets with fullmatch, register the new tests (e546498)
 - **dashboard:** hand the redeploy page the session's CSRF token (7bd8f3a)
 - **dashboard:** implement the new hostapi.Sink.Message method (8ae6af3)
-- **dashboard:** stop duplicate energy card mounts from fighting over springs (85e8ce0)
 
 ### Tests
 
@@ -31,15 +32,7 @@
 
 ### Fixes
 
-- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
-- **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
-- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
 - **dashboard:** show the download icon in the masthead update badge (61471d2)
-
-### Documentation
-
-- **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
-- **installer:** add an end-user installer page and refresh the developer page (31acec4)
 
 ## v0.7.0 (2026-09-16)
 
@@ -48,11 +41,6 @@
 - **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 - **dashboard:** make the "check for updates" button more prominent (00a5e46)
 - **dashboard:** link the update-available chip to the redeploy screen (c60f545)
-- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **installer:** polish for the installer webui (#30) (05d424b)
-- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
-- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
-- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
 - **auth:** add a role gating the GitHub update check (92e35f4)
 - **updatecheck:** add a GitHub release version checker (7f5a047)
 - **settings:** add a toggle for the automatic update check (207c345)
@@ -71,7 +59,6 @@
 
 ### Fixes
 
-- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **updatecheck:** recognize the v-prefixed version main.go actually passes (7808e4c)
 - **dashboard:** use InFlight() to allow staging new jobs after previous job completes (2086154)
 - **installer:** remove unnecessary committed copy of signing key (3e23319)
@@ -81,10 +68,6 @@
 - **dashboard:** keep the generated config schema in sync with its source (38d5d6d)
 - **dashboard:** forward-compatible schema, close automations fragment gap (6549e38)
 
-### Documentation
-
-- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
-
 ### Tests
 
 - **dashboard:** add a smoke-test flag to simulate an available update (5c98ab5)
@@ -93,7 +76,6 @@
 
 ### Chores
 
-- **dashboard:** bump version to v0.7.0 (441d4a7)
 - **dashboard:** bump cache-busted asset versions (d8d2094)
 - **dashboard:** depend on the energy-node-webui module (0ed9456)
 
@@ -101,51 +83,30 @@
 
 ### Features
 
-- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **installer:** polish for the installer webui (#30) (05d424b)
 - **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
-- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
 - **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
-
-### Documentation
-
-- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 
 ## v0.6.5 (2026-09-13)
 
 ### Features
 
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
-- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
-- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
-- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **dashboard:** allow an optional installed_services block in config.json Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (0710bea)
-- **dashboard:** add Config.ServiceInstalled with the default-on rule Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (faa9300)
-- **dashboard:** thread a resolved installed_services map into the overview handler (9dbaa36)
-- **dashboard:** hide the automations tab and tailscale/tuya settings subpages when deselected Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (106aa98)
 - **dashboard:** restyle MQTT settings tab to match card layout (2d5f2bf)
 - **dashboard:** fill row gaps and add floating save bars on MQTT tab (a389ce4)
 
 ### Fixes
 
+- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
-- **dashboard:** keep the generated config schema in sync with its source (38d5d6d)
-- **dashboard:** forward-compatible schema, close automations fragment gap (6549e38)
-- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
 - **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
-
-### Documentation
-
-- **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 
 ## v0.6.2 (2026-09-11)
 
 ### Features
 
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
-- **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
 - **dashboard:** replace theme select with a four-way segmented slider (465c4af)
 - **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
@@ -153,7 +114,6 @@
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
 - **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (3ac68ef)
 - **nodeagent:** add injectable system-metric readers (547d1f3)
 - **nodeagent:** build the energy_node HA discovery and state payloads (acdd553)
 - **⚠ Breaking:** move node telemetry into the dashboard, delete the energy-node service (540eac6)
@@ -168,10 +128,7 @@
 
 ### Fixes
 
-- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
-- **dashboard:** finish the config.json v1 -> v2 migration path (89252c9)
 - **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
-- **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
 - **nodeagent:** address task-6 review findings (ee8e3c4)
 - **nodeagent:** correct throttle bits, guard node id, unify device block (92bd8fa)
 - **dashboard:** style the mqtt metric-toggle fieldset and refresh stale docs (0b3e4ec)
@@ -194,50 +151,9 @@
 
 - **dashboard:** lay the history settings cards out in a responsive grid (bc0cf9b)
 
-### Chores
-
-- bump minor versions for dashboard, services and energy_node_common (549a100)
-
-### CI
-
-- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
-- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
-- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
-
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
-
-## v0.6.0 (2026-09-10)
-
-### Features
-
-- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
-
-## v0.5.26 (2026-09-10)
-
-### Features
-
-- **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
-- make device services self-describing with per-service manifests (#12) (2e8c911)
-- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
-- **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
-- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
-
-### Fixes
-
-- **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
-
-### Refactors
-
-- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
-- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
-
-### CI
-
-- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
-- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
-- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
 
 ## v0.5.18 (2026-09-07)
 
@@ -266,7 +182,6 @@
 ### Documentation
 
 - record license and version for vendored dashboard JS libraries (032743e)
-- update changelogs (6284c1a)
 
 ### Tests
 

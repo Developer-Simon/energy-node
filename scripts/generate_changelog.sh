@@ -12,8 +12,49 @@
 #
 # Usage: ./generate_changelog.sh [--freeze-before <version>] [--rebuild] [<target>|all]
 #   <target>: dashboard | services | common | battery_soc_core | ha-integration
+#             | installer | installer-webui | bootstrap
+#             | service:<dir>  (apsystems_ez1, automation, battery_soc, shelly,
+#                               trucki, tuya_mqtt)
 #
 # Ohne Zielangabe (oder mit "all") werden alle Targets nacheinander generiert.
+#
+# Was zu einer Komponente zaehlt:
+#   Der History-Walk laeuft ueber die Pfade der Komponente, ABER ohne ihre
+#   eigene CHANGELOG.md und ohne eine reine VERSION-Datei. Beides ist
+#   Buchhaltung, keine Arbeit: ein Squash-Merge traegt die Bot-Commits des
+#   PR-Branches mit sich ("docs(changelog): ...", "chore(release): bump
+#   component versions") und fasst damit JEDE <komponente>/CHANGELOG.md und
+#   JEDE <komponente>/VERSION an - ohne diesen Ausschluss landet jeder PR in
+#   jedem Changelog. Eine manifest.json bleibt drin: sie traegt neben
+#   "version" auch echte Konfiguration.
+#   Weil der reine Bump-Commit damit aus dem Walk faellt, kommt die
+#   Ueberschrift des offenen Abschnitts aus der Versionsdatei im
+#   Arbeitsverzeichnis (version_in_worktree).
+#
+# Versionen pro Dienst (ab services v0.4.0):
+#   Jeder Dienst unter services/ ist eine eigene Komponente mit eigener
+#   CHANGELOG.md und eigener Version im "version"-Feld seiner manifest.json
+#   (nackte Semver, wie bei der HA-Integration). Fuer Commits von vor der
+#   Umstellung faellt die Versionssuche auf services/VERSION zurueck, damit
+#   die aelteren Abschnitte ihre Ueberschriften behalten. Das Dach-Target
+#   "services" blendet die Dienste-Verzeichnisse aus und listet nur noch, was
+#   direkt unter services/ liegt.
+#
+# Duplikate:
+#   1. Innerhalb eines Abschnitts (dedup_block_entries, laeuft ueber jeden
+#      Abschnitt - auch die eingefrorenen): gibt es zu einem Eintragstext eine
+#      Zeile mit "(#NN)", faellt die gleichlautende Zeile ohne "(#NN)" weg -
+#      der In-PR-Commit, dessen Titel der Squash-Merge wiederholt. Zwei
+#      verschiedene PRs mit gleichem Titel bleiben beide stehen. Das ist rein
+#      entfernend, Handarbeit in einem Abschnitt bleibt sonst unberuehrt.
+#   2. Ueber Abschnitte hinweg beim Zusammenfuehren, siehe
+#      merge_section_blocks und die Release-Cap-Zusammenfuehrung unten.
+#
+# Reihenfolge:
+#   Zum Schluss werden alle Abschnitte absteigend nach Version sortiert und
+#   direkt benachbarte Abschnitte mit identischer Version zusammengefuehrt.
+#   Abschnitte ohne "## vX.Y.Z"-Ueberschrift bleiben oben ("## [Unreleased]")
+#   bzw. unten ("## Unversioniert ..."), je nachdem wo sie vorher standen.
 #
 # ha-integration (integrations/homeassistant/, die HACS-Integration) liest
 # ihre Version aus custom_components/battery_soc/manifest.json ("version",
@@ -46,8 +87,13 @@
 #   die eigentliche Arbeit haelt). Zusaetzlich wird ein eingefrorener Block mit
 #   exakt der Version eines noch vorhandenen gebauten Abschnitts in diesen
 #   gemergt. Vereinigung der Eintraege, dedupliziert ueber "(#NN)" oder den
-#   Eintragstext ohne den angehaengten Hash. Bloecke <= Cap (getaggte und vor
-#   einem Tag geschriebene aeltere), "## Unversioniert" und
+#   Eintragstext ohne den angehaengten Hash - und zusaetzlich ueber den Text
+#   ohne Hash UND ohne "(#NN)": hat eine Zeile dort ein Gegenstueck, dessen
+#   "(hash)" die aktuelle Commit-Historie dieser Komponente noch kennt, faellt
+#   jede gleichlautende Zeile mit einem Git nicht mehr bekannten Hash weg (z.B.
+#   der In-Branch-Commit vor einem Squash-Merge, dessen Titel der neue
+#   "(#NN)"-Eintrag der Merge-Referenz wiederholt). Bloecke <= Cap (getaggte
+#   und vor einem Tag geschriebene aeltere), "## Unversioniert" und
 #   Nicht-"vX.Y.Z"-Ueberschriften bleiben unberuehrt. Gibt es keinen
 #   erreichbaren Tag (tagloses Repo), gilt der alte Fallback: nur derselbe Minor
 #   wie der offene Abschnitt, neuer als der naechste getaggte Release darunter.
@@ -69,7 +115,12 @@
 
 set -euo pipefail
 
-ALL_TARGETS=(dashboard services common battery_soc_core ha-integration)
+ALL_TARGETS=(
+  dashboard services common battery_soc_core ha-integration
+  installer installer-webui bootstrap
+  service:apsystems_ez1 service:automation service:battery_soc
+  service:shelly service:trucki service:tuya_mqtt
+)
 
 usage() {
   echo "Usage: $(basename "$0") [--freeze-before <version>] [--rebuild] [$(IFS='|'; echo "${ALL_TARGETS[*]}")|all]" >&2
@@ -130,6 +181,31 @@ except Exception:
   return 1
 }
 
+# Aktuelle Version einer Komponente aus dem Arbeitsverzeichnis (nicht aus der
+# Commit-Historie), normalisiert als "vX.Y.Z". Rueckgabe 1, wenn keine der
+# Kandidatendateien existiert oder leer ist. Gegenstueck zu version_at_ref:
+# der Bump-Commit steht nicht mehr im Pathspec des History-Walks, also kommt
+# die Ueberschrift des offenen Abschnitts aus dieser Datei.
+version_in_worktree() {
+  local vf raw
+  for vf in "$@"; do
+    [[ -f "${repo_root}/${vf}" ]] || continue
+    if [[ "$vf" == *.json ]]; then
+      local jv
+      jv="$(python3 -c 'import json,sys
+try:
+    print(json.load(open(sys.argv[1])).get("version", ""))
+except Exception:
+    pass' "${repo_root}/${vf}")"
+      [[ -n "$jv" ]] && { printf 'v%s\n' "$jv"; return 0; }
+    else
+      raw="$(tr -d '[:space:]' < "${repo_root}/${vf}")"
+      [[ -n "$raw" ]] && { printf '%s\n' "$raw"; return 0; }
+    fi
+  done
+  return 1
+}
+
 # in_open_span M m p: gehoert die Version (M.m.p) in den einen offenen
 # Abschnitt? Liest per dynamischem Scope die Locals des Aufrufers (generate_one):
 #   * mit Release-Cap (cap_major gesetzt): alles echt oberhalb des Caps bis
@@ -167,7 +243,7 @@ while [[ $# -gt 0 ]]; do
       rebuild=true
       shift
       ;;
-    dashboard|services|common|battery_soc_core|ha-integration|all)
+    dashboard|services|common|battery_soc_core|ha-integration|installer|installer-webui|bootstrap|all|service:*)
       if [[ -n "$target" ]]; then
         usage
         exit 1
@@ -259,6 +335,11 @@ classify_and_append() {
     rest="${BASH_REMATCH[3]}"
     [[ -n "${LABELS[$raw_type]:-}" ]] && type="$raw_type"
   fi
+  # Commit-Trailer, die in die Betreffzeile gerutscht sind (ein "git commit -m"
+  # ohne Leerzeile vor dem Trailer-Block), gehoeren nicht in den Changelog.
+  rest="$(sed -E 's/[[:space:]]*(Co-[Aa]uthored-[Bb]y|Signed-off-by|Reviewed-by|🤖 Generated with):?.*$//' <<< "$rest")"
+  rest="${rest%"${rest##*[![:space:]]}"}"
+
   local entry="- "
   if [[ -n "$breaking" && -n "$scope" ]]; then
     entry+="**⚠ Breaking — ${scope}:** "
@@ -302,20 +383,126 @@ section_covered_by() {
   $had
 }
 
+# Text eines Eintrags ($1, ohne das fuehrende "- ") ohne den angehaengten
+# " (hash)" und - falls dann noch am Ende - ohne ein angehaengtes " (#NN)".
+# Gemeinsamer Normalisierer fuer die beiden Dedup-Stufen in
+# merge_section_blocks.
+entry_norm_text() {
+  sed -E 's/ \([0-9a-f]{7,40}\)$//; s/ \(#[0-9]+\)$//' <<< "$1"
+}
+
+# Entfernt Duplikate INNERHALB eines einzelnen Abschnitts ("## ..."-Block).
+# Der Schluessel eines Eintrags ist sein Text ohne den angehaengten " (hash)"
+# UND ohne ein angehaengtes " (#NN)" (entry_norm_text). Regeln:
+#   * gibt es zu diesem Schluessel im selben Abschnitt eine Zeile mit "(#NN)"
+#     - die Squash-Merge-Referenz des PRs -, faellt jede gleichlautende Zeile
+#     OHNE "(#NN)" weg (der In-PR-Commit, dessen Titel der Merge wiederholt);
+#   * zwei Zeilen mit derselben "(#NN)" fallen auf eine zusammen;
+#   * zwei Zeilen mit gleichem Text aber verschiedenen "(#NN)" bleiben beide
+#     stehen - das sind zwei echte PRs mit demselben Titel;
+#   * ohne "(#NN)" auf beiden Seiten bleibt die erste Zeile.
+# Anders als merge_section_blocks arbeitet das rein entfernend: alle Zeilen,
+# die keine Eintraege sind, bleiben unveraendert, nur eine "### "-Ueberschrift,
+# die dadurch leer wird, faellt mit weg. Deshalb ist es auch auf eingefrorene
+# und von Hand gepflegte Abschnitte anwendbar.
+# Ergebnis in der globalen Variable DEDUPED_BLOCK (kein $(...) - erhaelt die
+# Schluss-Newlines).
+DEDUPED_BLOCK=""
+dedup_block_entries() {
+  local block="$1"
+  local had_trailing_nl=false
+  [[ "$block" == *$'\n' ]] && had_trailing_nl=true
+
+  local -a lines=()
+  mapfile -t lines < <(printf '%s' "$block")
+
+  local -A has_pr=()
+  local line body norm key
+  for line in "${lines[@]}"; do
+    [[ "$line" == "- "* ]] || continue
+    body="${line#- }"
+    [[ "$body" =~ \(#[0-9]+\) ]] || continue
+    has_pr["$(entry_norm_text "$body")"]=1
+  done
+
+  # 1. Durchgang: doppelte Eintragszeilen weglassen, alles andere behalten.
+  local -A seen=()
+  local -a kept=()
+  for line in "${lines[@]}"; do
+    if [[ "$line" == "- "* ]]; then
+      body="${line#- }"
+      norm="$(entry_norm_text "$body")"
+      if [[ "$body" =~ \(#([0-9]+)\) ]]; then
+        key="pr:${BASH_REMATCH[1]}:${norm}"
+      else
+        [[ -n "${has_pr[$norm]:-}" ]] && continue
+        key="txt:${norm}"
+      fi
+      [[ -n "${seen[$key]:-}" ]] && continue
+      seen[$key]=1
+    fi
+    kept+=("$line")
+  done
+
+  # 2. Durchgang: eine "### "-Ueberschrift, unter der kein Eintrag mehr steht,
+  # faellt samt der ihr folgenden Leerzeile weg.
+  local -a out=()
+  local i n=${#kept[@]} j
+  for (( i = 0; i < n; i++ )); do
+    if [[ "${kept[$i]}" == "### "* ]]; then
+      local empty=true
+      for (( j = i + 1; j < n; j++ )); do
+        [[ "${kept[$j]}" == "### "* || "${kept[$j]}" == "## "* ]] && break
+        if [[ "${kept[$j]}" == "- "* ]]; then empty=false; break; fi
+      done
+      if $empty; then
+        if (( i + 1 < n )) && [[ -z "${kept[$((i+1))]}" ]]; then (( i++ )); fi
+        continue
+      fi
+    fi
+    out+=("${kept[$i]}")
+  done
+
+  # Kein $(...) - das wuerde die Leerzeile am Blockende schlucken, die den
+  # Abschnitt von der naechsten "## "-Ueberschrift trennt.
+  DEDUPED_BLOCK=""
+  for line in "${out[@]}"; do DEDUPED_BLOCK+="${line}"$'\n'; done
+  $had_trailing_nl || DEDUPED_BLOCK="${DEDUPED_BLOCK%$'\n'}"
+}
+
 # Re-rendert den Primaerblock ($1, dessen "## ..."-Ueberschrift erhalten
 # bleibt) mit der Vereinigung der "- "-Eintraege aller uebergebenen Bloecke,
-# gruppiert nach "### Typ" (Reihenfolge: TYPE_ORDER). Dedupliziert ueber die
-# "(#NN)"-PR-Nummer, sonst ueber den Eintragstext ohne den angehaengten
-# " (hash)". Reihenfolge der Eintraege: erstes Auftreten. Ergebnis in der
-# globalen Variable MERGED_BLOCK (kein $(...) - erhaelt die Schluss-Newlines).
+# gruppiert nach "### Typ" (Reihenfolge: TYPE_ORDER). Zwei Dedup-Stufen:
+#   1. exakt ueber die "(#NN)"-PR-Nummer, sonst ueber den Eintragstext ohne
+#      den angehaengten " (hash)";
+#   2. zusaetzlich ueber den Text ohne Hash UND ohne "(#NN)" (entry_norm_text):
+#      hat eine Zeile dort ein Gegenstueck, dessen "(hash)" HIST_HASHES kennt
+#      (von generate_one als 'local -A' bereitgestellt, siehe
+#      block_reproducible), faellt jede gleichlautende Zeile mit einem Git
+#      nicht mehr bekannten Hash weg - der In-Branch-Commit-Titel, den ein
+#      Squash-Merge unter neuem Hash (und ggf. "(#NN)") wiederholt.
+# Reihenfolge der Eintraege: erstes Auftreten. Ergebnis in der globalen
+# Variable MERGED_BLOCK (kein $(...) - erhaelt die Schluss-Newlines).
 MERGED_BLOCK=""
 merge_section_blocks() {
   local primary="$1"; shift
   local heading="${primary%%$'\n'*}"
-  local -A seen=() bucket=()
+  local -A seen=() bucket=() norm_has_live=()
   local t
   for t in "${TYPE_ORDER[@]}"; do bucket[$t]=""; done
-  local block cur_type line body key
+  local block line body h norm
+  for block in "$primary" "$@"; do
+    while IFS= read -r line; do
+      [[ "$line" == "- "* ]] || continue
+      body="${line#- }"
+      [[ "$body" =~ \(([0-9a-f]{7,40})\)[[:space:]]*$ ]] || continue
+      h="${BASH_REMATCH[1]}"
+      [[ -n "${HIST_HASHES[$h]:-}" ]] || continue
+      norm="$(entry_norm_text "$body")"
+      norm_has_live["$norm"]=1
+    done <<< "$block"
+  done
+  local cur_type key
   for block in "$primary" "$@"; do
     cur_type=""
     while IFS= read -r line; do
@@ -323,6 +510,11 @@ merge_section_blocks() {
         cur_type="${LABEL_TO_TYPE[${BASH_REMATCH[1]}]:-other}"
       elif [[ "$line" == "- "* && -n "$cur_type" ]]; then
         body="${line#- }"
+        norm="$(entry_norm_text "$body")"
+        if [[ -n "${norm_has_live[$norm]:-}" ]] && [[ "$body" =~ \(([0-9a-f]{7,40})\)[[:space:]]*$ ]]; then
+          h="${BASH_REMATCH[1]}"
+          [[ -n "${HIST_HASHES[$h]:-}" ]] || continue
+        fi
         if [[ "$body" =~ \(#([0-9]+)\) ]]; then
           key="pr:${BASH_REMATCH[1]}"
         else
@@ -380,7 +572,18 @@ generate_one() {
       # but lets the release-cap lookup read this component's version at a repo
       # tag taken before the split.
       version_file_candidates=("services/VERSION" "src/VERSION")
-      exclude_prefixes=("libs/energy_node_common/" "src/werkstatt_iot_common/")
+      # Jeder Dienst hat seit v0.4.0 sein eigenes Target (service:<dir>) und
+      # seinen eigenen Changelog. Das Dach-Target listet nur noch, was direkt
+      # unter services/ liegt (gemeinsamer Code, Konfiguration, Tests).
+      exclude_prefixes=(
+        "libs/energy_node_common/" "src/werkstatt_iot_common/"
+        "services/apsystems_ez1/"
+        "services/automation/"
+        "services/battery_soc/"
+        "services/shelly/"
+        "services/trucki/"
+        "services/tuya_mqtt/"
+      )
       ;;
     common)
       out_dir_prefix="libs/energy_node_common/"
@@ -395,6 +598,38 @@ generate_one() {
       out_dir_prefix="libs/battery_soc_core/"
       history_prefixes=("libs/battery_soc_core/")
       version_file_candidates=("libs/battery_soc_core/VERSION" "src/battery_soc_core/VERSION")
+      ;;
+    service:*)
+      # Ein einzelner Dienst unter services/. Seine Version steht im
+      # "version"-Feld seiner manifest.json (nackte Semver); fuer Commits von
+      # vor der Umstellung faellt die Suche auf die Dach-Version zurueck,
+      # damit die alten Abschnitte ihre Ueberschriften behalten.
+      local svc_dir="${comp#service:}"
+      out_dir_prefix="services/${svc_dir}/"
+      history_prefixes=("services/${svc_dir}/")
+      version_file_candidates=(
+        "services/${svc_dir}/manifest.json"
+        "services/VERSION"
+        "src/VERSION"
+      )
+      ;;
+    installer)
+      out_dir_prefix="installer/"
+      history_prefixes=("installer/")
+      version_file_candidates=("installer/VERSION")
+      # Die Web-Oberflaeche ist ein eigenes Modul mit eigener Version und
+      # eigenem Changelog (installer-webui).
+      exclude_prefixes=("installer/webui/")
+      ;;
+    installer-webui)
+      out_dir_prefix="installer/webui/"
+      history_prefixes=("installer/webui/")
+      version_file_candidates=("installer/webui/VERSION")
+      ;;
+    bootstrap)
+      out_dir_prefix="scripts/bootstrap/"
+      history_prefixes=("scripts/bootstrap/")
+      version_file_candidates=("scripts/bootstrap/VERSION")
       ;;
     ha-integration)
       out_dir_prefix="integrations/homeassistant/"
@@ -449,16 +684,46 @@ generate_one() {
   for ex in "${exclude_prefixes[@]}"; do
     pathspec+=(":(exclude)${ex}")
   done
+  # Die eigene CHANGELOG.md und die eigene Versionsdatei sind erzeugte bzw.
+  # Buchhaltungs-Dateien, keine Arbeit an der Komponente. Sie muessen aus dem
+  # Pathspec fallen, sonst zaehlt JEDER Squash-Merge als Aenderung an JEDER
+  # Komponente: der Squash traegt die Bot-Commits des PR-Branches
+  # ("docs(changelog): update changelogs", "chore(release): bump component
+  # versions") mit sich und fasst dadurch alle <komponente>/CHANGELOG.md und
+  # alle <komponente>/VERSION an. Genau so sind die Fremdeintraege entstanden
+  # (Dashboard-PRs im battery_soc_core-Changelog usw.).
+  # Folge: der reine Bump-Commit einer VERSION-Datei taucht im Walk nicht mehr
+  # auf - die Ueberschrift des offenen Abschnitts kommt stattdessen aus der
+  # aktuellen Versionsdatei, siehe version_in_worktree weiter unten.
+  # Ausgenommen sind Versionsdateien, die nebenbei echte Konfiguration tragen:
+  # eine manifest.json (Dienste unter services/, HA-Integration) haelt neben
+  # "version" auch service_id, unit, bootstrap_step usw. Eine Aenderung daran
+  # ist echte Arbeit an der Komponente und muss im Walk bleiben; der reine
+  # Bump-Commit wird dort weiterhin ueber is_bump_commit herausgehalten.
+  for ex in "${history_prefixes[@]}"; do
+    pathspec+=(":(exclude)${ex}CHANGELOG.md")
+  done
+  for ex in "${version_file_candidates[@]}"; do
+    [[ "$ex" == *.json ]] && continue
+    pathspec+=(":(exclude)${ex}")
+  done
 
-  # The version-bump workflow's own housekeeping commits are skipped (see the
+  # The version-bump workflow's own changelog commits are skipped (see the
   # --invert-grep below) so a CHANGELOG.md never lists the commits that wrote
-  # it or the patch bump that rode along.
+  # it. Its patch-bump commit ("chore(release): bump component versions") is
+  # NOT skipped: the workflow now runs the bump before generate_changelog.sh
+  # (see .github/workflows/version-bump.yml), and this walk needs to see it to
+  # head the open section with the version it just produced. It still never
+  # gets a changelog entry of its own - see the is_bump_commit check below.
   local prev_tagged=false
   local first=true
   local hash subject
   while IFS=$'\t' read -r hash subject; do
     [[ -z "$hash" ]] && continue
     HIST_HASHES[$hash]=1
+
+    local is_bump_commit=false
+    [[ "$subject" == "chore(release): bump component versions" ]] && is_bump_commit=true
 
     local local_version=""
     local raw vf
@@ -477,7 +742,11 @@ except Exception:
         else
           local_version="$(tr -d '[:space:]' <<< "$raw")"
         fi
-        break
+        # Nur abbrechen, wenn die Datei wirklich eine Version hergab. Eine
+        # manifest.json ohne "version"-Feld (Commits von vor der Umstellung
+        # auf Versionen pro Dienst) faellt sonst auf "Unversioniert" statt
+        # auf den naechsten Kandidaten, die Dach-VERSION.
+        [[ -n "$local_version" ]] && break
       fi
     done
 
@@ -512,19 +781,47 @@ except Exception:
       group_minor="$local_minor"
     fi
 
-    classify_and_append "$hash" "$subject"
+    # The bump commit only ever moves the open section's heading forward; it
+    # never becomes an entry (nothing a reader could act on) and never counts
+    # as a tag boundary.
+    $is_bump_commit || classify_and_append "$hash" "$subject"
     group_version="$local_version"
     group_tag="$local_tag"
     group_date="$(git -C "$repo_root" log -1 --format=%ad --date=short "$hash")"
 
-    prev_tagged=false
-    [[ -n "$local_tag" ]] && prev_tagged=true
+    if ! $is_bump_commit; then
+      prev_tagged=false
+      [[ -n "$local_tag" ]] && prev_tagged=true
+    fi
     first=false
   done < <(git -C "$repo_root" log --no-merges --reverse --pretty=format:'%h%x09%s' \
     --invert-grep \
-    --grep='^chore(release): bump component versions$' \
     --grep='^docs(changelog): ' \
     "${pathspec[@]}"; printf '\n')
+
+  # Ueberschrift des offenen Abschnitts: der reine Bump-Commit faellt aus dem
+  # Pathspec (er fasst nur die Versionsdatei an), also kommt die Version des
+  # offenen Abschnitts aus der Versionsdatei selbst. Nur wenn der Abschnitt
+  # wirklich offen ist (kein Tag auf dem letzten Commit), ueberhaupt eine
+  # Version hat und die Datei echt weiter ist als der Walk - ein getaggter
+  # oder ein "Unversioniert"-Abschnitt bleibt, wie er ist.
+  if [[ -n "$group_date" && -z "$group_tag" && -z "$group_unversioned" ]]; then
+    local wt_version
+    if wt_version="$(version_in_worktree "${version_file_candidates[@]}")" \
+       && [[ "$wt_version" =~ $VERSION_RE ]]; then
+      local wt_major="${BASH_REMATCH[1]}" wt_minor="${BASH_REMATCH[2]}" wt_patch="${BASH_REMATCH[3]}"
+      local gv_major="" gv_minor="" gv_patch=""
+      if [[ "$group_version" =~ $VERSION_RE ]]; then
+        gv_major="${BASH_REMATCH[1]}"; gv_minor="${BASH_REMATCH[2]}"; gv_patch="${BASH_REMATCH[3]}"
+      fi
+      if [[ -z "$gv_major" ]] \
+         || ver_gt "$wt_major" "$wt_minor" "$wt_patch" "$gv_major" "$gv_minor" "$gv_patch"; then
+        group_version="$wt_version"
+        group_major="$wt_major"
+        group_minor="$wt_minor"
+      fi
+    fi
+  fi
 
   flush_group
 
@@ -723,14 +1020,99 @@ except Exception:
     final_blocks+=("${SECTIONS[$idx]}")
   done
 
+  # Letzte Schritte vor dem Schreiben: alle Abschnitte einsammeln, nach
+  # Version sortieren, gleiche Versionen zusammenfuehren, Duplikate innerhalb
+  # eines Abschnitts entfernen.
+  local -a all_blocks=()
+  local b
+  for b in "${final_blocks[@]}"; do all_blocks+=("$b"); done
+  if [[ -n "$frozen_tail" ]]; then
+    local -a tail_blocks=()
+    mapfile -d '' -t tail_blocks < <(printf '%s' "$frozen_tail" | awk '
+      BEGIN{RS="\n## "}
+      { if (NR==1) printf "%s%c", $0, 0; else printf "## %s%c", $0, 0 }')
+    local tn=${#tail_blocks[@]} ti
+    for (( ti = 0; ti < tn; ti++ )); do
+      b="${tail_blocks[$ti]}"
+      (( ti < tn - 1 )) && b+=$'\n'
+      all_blocks+=("$b")
+    done
+  fi
+
+  # Endsortierung. Die neu gebauten Abschnitte stehen bis hier oben und der
+  # eingefrorene Rest darunter - das stimmt nur, solange beide Mengen sauber
+  # getrennte Versionsbereiche abdecken. Sobald ein Abschnitt in der Mitte
+  # einfriert (z.B. weil ein Commit nicht mehr zur Komponente zaehlt), steht
+  # die Datei durcheinander. Deshalb hier einmal hart nach Version absteigend
+  # sortieren; Abschnitte ohne "## vX.Y.Z"-Ueberschrift bleiben oben
+  # ("## [Unreleased]") bzw. unten ("## Unversioniert ..."), je nachdem, wo
+  # sie vorher standen. Anschliessend werden direkt benachbarte Abschnitte mit
+  # derselben Version zu einem zusammengefuehrt.
+  local -a head_blocks=() ver_rows=() foot_blocks=()
+  local ai an=${#all_blocks[@]} seen_ver=false
+  local bh bmaj bmin bpat bdate
+  for (( ai = 0; ai < an; ai++ )); do
+    bh="${all_blocks[$ai]%%$'\n'*}"
+    if [[ "$bh" =~ ^\#\#\ v([0-9]+)\.([0-9]+)\.([0-9]+) ]]; then
+      bmaj="${BASH_REMATCH[1]}"; bmin="${BASH_REMATCH[2]}"; bpat="${BASH_REMATCH[3]}"
+      bdate="0000-00-00"
+      [[ "$bh" =~ \(([0-9]{4}-[0-9]{2}-[0-9]{2})\) ]] && bdate="${BASH_REMATCH[1]}"
+      ver_rows+=("$(printf '%06d.%06d.%06d\t%s\t%d' \
+        "$((10#$bmaj))" "$((10#$bmin))" "$((10#$bpat))" "$bdate" "$ai")")
+      seen_ver=true
+    elif $seen_ver; then
+      foot_blocks+=("${all_blocks[$ai]}")
+    else
+      head_blocks+=("${all_blocks[$ai]}")
+    fi
+  done
+
+  local -a out_blocks=()
+  for b in "${head_blocks[@]+"${head_blocks[@]}"}"; do out_blocks+=("$b"); done
+  if (( ${#ver_rows[@]} > 0 )); then
+    local -a sorted=()
+    mapfile -t sorted < <(printf '%s\n' "${ver_rows[@]}" | LC_ALL=C sort -r -t$'\t' -k1,1 -k2,2)
+    local row key prev_key="" idx
+    local -a group=()
+    for row in "${sorted[@]}" ""; do
+      key=""; idx=""
+      if [[ -n "$row" ]]; then
+        key="${row%%$'\t'*}"
+        idx="${row##*$'\t'}"
+      fi
+      if [[ "$key" != "$prev_key" && ${#group[@]} -gt 0 ]]; then
+        if (( ${#group[@]} == 1 )); then
+          out_blocks+=("${group[0]}")
+        else
+          merge_section_blocks "${group[@]}"
+          out_blocks+=("$MERGED_BLOCK")
+        fi
+        group=()
+      fi
+      [[ -z "$row" ]] && break
+      group+=("${all_blocks[$idx]}")
+      prev_key="$key"
+    done
+  fi
+  for b in "${foot_blocks[@]+"${foot_blocks[@]}"}"; do out_blocks+=("$b"); done
+
+  # Duplikate innerhalb JEDES Abschnitts entfernen - auch in den eingefrorenen.
+  # Das ist rein entfernend (siehe dedup_block_entries) und faengt den Fall,
+  # den die Blockzusammenfuehrung nicht sieht: PR-Eintrag "(#NN)" und
+  # gleichlautender In-PR-Eintrag stehen bereits im selben Abschnitt, beide mit
+  # einem Hash, den Git noch kennt.
+  local ob on=${#out_blocks[@]}
+  for (( ob = 0; ob < on; ob++ )); do
+    dedup_block_entries "${out_blocks[$ob]}"
+    out_blocks[$ob]="$DEDUPED_BLOCK"
+  done
+
   {
     echo "# Changelog"
     echo
-    local b
-    for b in "${final_blocks[@]}"; do
+    for b in "${out_blocks[@]}"; do
       printf '%s' "$b"
     done
-    [[ -n "$frozen_tail" ]] && printf '%s' "$frozen_tail"
   } > "$changelog"
 
   echo "$(basename "$0"): $changelog aktualisiert (${#final_blocks[@]} Abschnitte)" >&2
