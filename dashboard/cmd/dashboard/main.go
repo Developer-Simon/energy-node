@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -23,6 +24,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -112,11 +114,37 @@ func main() {
 	}
 	systemExecutor := systemactions.NewExecutor(nil, cfg.Dashboard.SystemActionHelper)
 
+	candidateDir := filepath.Join(dataDir, "redeploy-candidate")
+	// Fetching the newest bundle needs to know which architecture to ask
+	// for; an unknown GOARCH leaves prepare nil and the redeploy screen as
+	// before (the candidate directory is then filled by hand).
+	var prepare func(context.Context, func(string)) error
+	if arch, ok := bundlefetch.ArchForGo(runtime.GOARCH); ok {
+		client := &bundlefetch.Client{
+			Repo: updatesRepo,
+			// No overall timeout: a bundle download on a Pi takes minutes
+			// and the run's context cancels it. A stalled connection is
+			// caught by the header timeout.
+			HTTP: &http.Client{Transport: &http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				TLSHandshakeTimeout:   15 * time.Second,
+				ResponseHeaderTimeout: 30 * time.Second,
+			}},
+		}
+		// Same override the update check honors (see below): lets the smoke
+		// test point the download at a fake GitHub.
+		if base := os.Getenv("ENERGY_NODE_UPDATES_API_BASE"); base != "" {
+			client.APIBase = base
+		}
+		prepare = prepareFunc(&bundlefetch.Fetcher{Client: client, Arch: arch, DestDir: candidateDir})
+	}
+
 	redeployHandler, err := buildRedeployHandler(redeployConfig{
-		candidateBundleDir:    filepath.Join(dataDir, "redeploy-candidate"),
+		candidateBundleDir:    candidateDir,
 		installedManifestPath: "/var/lib/energy-node-installer/installed-manifest.json",
 		selectionPath:         "/var/lib/energy-node-installer/selection.json",
 		jobDir:                updaterjob.DefaultDir,
+		prepare:               prepare,
 	})
 	if err != nil {
 		log.Printf("redeploy: could not start the local update handler: %v", err)

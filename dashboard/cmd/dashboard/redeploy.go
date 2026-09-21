@@ -8,11 +8,13 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterhost"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 	webui "github.com/Developer-Simon/energy-node-webui"
@@ -25,9 +27,25 @@ type redeployConfig struct {
 	installedManifestPath string
 	selectionPath         string
 	jobDir                string
+	// prepare fetches the newest package into candidateBundleDir; nil
+	// disables the download and the redeploy screen starts at the preview.
+	prepare func(ctx context.Context, log func(line string)) error
 }
 
 var timeNowUnixNano = func() int64 { return time.Now().UnixNano() }
+
+// prepareFunc adapts a bundlefetch.Fetcher to updaterhost's Prepare seam:
+// its typed errors become hostapi errors the UI translates (error.<code>).
+func prepareFunc(f *bundlefetch.Fetcher) func(context.Context, func(string)) error {
+	return func(ctx context.Context, log func(string)) error {
+		err := f.Fetch(ctx, log)
+		var fetchErr *bundlefetch.Error
+		if errors.As(err, &fetchErr) {
+			return &hostapi.Error{Code: fetchErr.Code, Detail: fetchErr.Detail}
+		}
+		return err
+	}
+}
 
 // buildRedeployHandler builds the mounted /redeploy/ handler. Token is
 // empty and LanguageFixed is true throughout: the dashboard's own session
@@ -37,7 +55,7 @@ var timeNowUnixNano = func() int64 { return time.Now().UnixNano() }
 func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
 	backend, err := updaterhost.New(updaterhost.Config{
 		CandidateBundleDir: cfg.candidateBundleDir, InstalledManifestPath: cfg.installedManifestPath,
-		SelectionPath: cfg.selectionPath, JobDir: cfg.jobDir,
+		SelectionPath: cfg.selectionPath, JobDir: cfg.jobDir, Prepare: cfg.prepare,
 	})
 	if err != nil {
 		return nil, err
