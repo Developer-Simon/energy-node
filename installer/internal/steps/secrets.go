@@ -1,9 +1,14 @@
 package steps
 
 import (
+	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"path"
+	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
@@ -34,6 +39,52 @@ const mosquittoStepID = "20"
 // as a path, never as a value (Umgang mit Geheimnissen).
 func mosquittoArgs(user, passwordPath string) string {
 	return " --user " + transport.ShellQuote(user) + " --password-file " + transport.ShellQuote(passwordPath)
+}
+
+// DefaultNodeConfigPath is the dashboard's config on the node; it names the
+// broker user and the 0600 file that holds its password.
+const DefaultNodeConfigPath = "/etc/energy-node/config.json"
+
+// mqttConfigUnreadable is the fault code for a run that has no credentials
+// and cannot find them on the node either (same code as the updater's).
+const mqttConfigUnreadable = "MQTT_CONFIG_UNREADABLE"
+
+// readMqttConfigPy prints the broker user and its password file. The bundle's
+// template lacks password_file on some versions, hence the default.
+const readMqttConfigPy = `import json, sys
+mqtt = json.load(open(sys.argv[1], encoding="utf-8")).get("mqtt", {})
+print(mqtt.get("username", ""))
+print(mqtt.get("password_file", "/etc/energy-node/mqtt.pw"))`
+
+// nodeMosquittoArgs builds step 20's arguments from what is already on the
+// node, as dashboard/energy-node-updater.sh does: the user and password
+// file from the running config, or -- on a first install -- from the
+// bundle's template. The password never leaves the node.
+func nodeMosquittoArgs(ctx context.Context, opts RunOptions) (string, error) {
+	configPath := opts.NodeConfigPath
+	if configPath == "" {
+		configPath = DefaultNodeConfigPath
+	}
+	candidates := []string{configPath, path.Join(opts.RemoteBundleDir, "config", "config.json")}
+	var quoted []string
+	for _, c := range candidates {
+		quoted = append(quoted, transport.ShellQuote(c))
+	}
+	command := fmt.Sprintf(`for f in %s; do [ -f "$f" ] && python3 -c %s "$f" && exit 0; done; exit 1`,
+		strings.Join(quoted, " "), transport.ShellQuote(readMqttConfigPy))
+	var stdout, stderr bytes.Buffer
+	if err := opts.Client.Run(ctx, command, &stdout, &stderr); err != nil {
+		return "", fmt.Errorf("reading the MQTT config: %w (stderr: %s)", err, stderr.String())
+	}
+	lines := strings.Split(strings.TrimSpace(stdout.String()), "\n")
+	if len(lines) != 2 || lines[0] == "" || lines[1] == "" {
+		return "", fmt.Errorf("the MQTT config names no user or password file")
+	}
+	user, passwordFile := lines[0], lines[1]
+	if err := opts.Client.Run(ctx, "test -f "+transport.ShellQuote(passwordFile), io.Discard, io.Discard); err != nil {
+		return "", fmt.Errorf("the MQTT password file %s does not exist", passwordFile)
+	}
+	return mosquittoArgs(user, passwordFile), nil
 }
 
 // stageSecretsForStep20 uploads the MQTT password to a 0600 temp file and

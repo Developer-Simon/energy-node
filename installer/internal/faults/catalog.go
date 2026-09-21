@@ -27,7 +27,9 @@ const (
 	CodeArchMismatch           Code = "ARCH_MISMATCH"
 	CodePythonABIMismatch      Code = "PYTHON_ABI_MISMATCH"
 	CodeAptFailed              Code = "APT_FAILED"
+	CodeMosquittoArgsMissing   Code = "MOSQUITTO_ARGS_MISSING"
 	CodeMosquittoConfigInvalid Code = "MOSQUITTO_CONFIG_INVALID"
+	CodeMQTTConfigUnreadable   Code = "MQTT_CONFIG_UNREADABLE"
 	CodeUFWMissing             Code = "UFW_MISSING"
 	CodePipExternallyManaged   Code = "PIP_EXTERNALLY_MANAGED"
 	CodeWheelMissing           Code = "WHEEL_MISSING"
@@ -46,7 +48,9 @@ var allCodes = []Code{
 	CodeBundleSignatureInvalid,
 	CodeCaddyValidateFailed,
 	CodeConfigExists,
+	CodeMosquittoArgsMissing,
 	CodeMosquittoConfigInvalid,
+	CodeMQTTConfigUnreadable,
 	CodePipExternallyManaged,
 	CodePythonABIMismatch,
 	CodeSudoRequired,
