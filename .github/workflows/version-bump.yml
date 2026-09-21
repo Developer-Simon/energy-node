@@ -46,7 +46,10 @@ jobs:
       # out: its version stream is manifest.json (v0.2.x) and it has its own
       # HACS/mirror release flow (scripts/publish_mirror.sh); the repo-wide
       # v0.5.x tags would otherwise carve bogus sections into its changelog.
-      CHANGELOG_TARGETS: dashboard services common battery_soc_core
+      CHANGELOG_TARGETS: >-
+        dashboard services common battery_soc_core
+        service:apsystems_ez1 service:automation service:battery_soc
+        service:shelly service:trucki service:tuya_mqtt
     steps:
       - uses: actions/checkout@v4
         with:

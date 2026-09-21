@@ -16,6 +16,10 @@ type StepEntry struct {
 	Dir       string `json:"dir,omitempty"`
 	Unit      string `json:"unit,omitempty"`
 	Kind      string `json:"kind,omitempty"`
+	// Version ist die Version genau dieses Dienstes ("vX.Y.Z"), aus dem
+	// "version"-Feld seiner services/<dir>/manifest.json. Leer bei Schritten
+	// ohne Dienst und bei Bundles, die vor der Umstellung gebaut wurden.
+	Version string `json:"version,omitempty"`
 	// DashboardKey ist, falls gesetzt, der Schluessel, unter dem
 	// 65-dashboard-config.sh diesen Dienst in installed_services vermerkt
 	// (Installer-Spec, Komponente A, E7). Leer heisst: dieser Schritt hat

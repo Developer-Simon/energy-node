@@ -23,6 +23,14 @@ setup_repo() {
   mkdir -p "$dir/libs/energy_node_common" "$dir/services" "$dir/dashboard" \
     "$dir/scripts/bootstrap" \
     "$dir/integrations/homeassistant/custom_components/battery_soc"
+  # Jeder Dienst unter services/ ist eine eigene Komponente und traegt seine
+  # Version im "version"-Feld seiner manifest.json.
+  local svc
+  for svc in apsystems_ez1 automation battery_soc shelly trucki tuya_mqtt; do
+    mkdir -p "$dir/services/$svc"
+    printf '{\n  "service_id": "%s",\n  "version": "0.4.0",\n  "kind": "device"\n}\n' \
+      "$svc" > "$dir/services/$svc/manifest.json"
+  done
   echo v1.2.3 > "$dir/services/VERSION"
   echo v3.0.0 > "$dir/libs/energy_node_common/VERSION"
   echo v0.5.0 > "$dir/dashboard/VERSION"
@@ -41,13 +49,49 @@ bump()   { ( cd "$1" && shift && "$script" "$@" ); }
 # --- bumps a touched component, leaves the rest alone ------------------------
 r="$tmp/basic"
 setup_repo "$r"
-mkdir -p "$r/services/battery_soc"
-echo x > "$r/services/battery_soc/foo.py"
+echo x > "$r/services/shared.py"
 commit "$r" "feat: touch services"
 bump "$r" main
 [ "$(cat "$r/services/VERSION")" = v1.2.4 ] || fail "services/VERSION not bumped" "$(cat "$r/services/VERSION")"
 [ "$(cat "$r/dashboard/VERSION")" = v0.5.0 ] || fail "untouched dashboard/VERSION changed"
 git -C "$r" diff --cached --quiet && fail "bumped file was not staged"
+
+# --- a single service bumps only its own manifest ---------------------------
+svc_version() {
+  python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
+    "$1/services/$2/manifest.json"
+}
+r="$tmp/one-service"
+setup_repo "$r"
+echo x > "$r/services/shelly/shelly_rpc.py"
+commit "$r" "feat(shelly): touch one service"
+bump "$r" main
+[ "$(svc_version "$r" shelly)" = 0.4.1 ] \
+  || fail "the touched service's manifest version was not bumped" "$(svc_version "$r" shelly)"
+[ "$(svc_version "$r" trucki)" = 0.4.0 ] \
+  || fail "an untouched service was bumped" "$(svc_version "$r" trucki)"
+[ "$(cat "$r/services/VERSION")" = v1.2.3 ] \
+  || fail "the services umbrella was bumped by work inside one service" "$(cat "$r/services/VERSION")"
+
+# --- shared code under services/ bumps the umbrella, not the services -------
+r="$tmp/umbrella"
+setup_repo "$r"
+echo x > "$r/services/energy-node.config.json"
+commit "$r" "feat: touch shared services config"
+bump "$r" main
+[ "$(cat "$r/services/VERSION")" = v1.2.4 ] \
+  || fail "shared services change did not bump the umbrella" "$(cat "$r/services/VERSION")"
+[ "$(svc_version "$r" shelly)" = 0.4.0 ] \
+  || fail "shared services change bumped an individual service" "$(svc_version "$r" shelly)"
+
+# --- a service's CHANGELOG.md alone bumps nothing ---------------------------
+r="$tmp/service-changelog"
+setup_repo "$r"
+printf '# Changelog\n' > "$r/services/trucki/CHANGELOG.md"
+commit "$r" "docs(changelog): update changelogs"
+bump "$r" main
+[ "$(svc_version "$r" trucki)" = 0.4.0 ] \
+  || fail "a changelog-only change bumped the service" "$(svc_version "$r" trucki)"
 
 # --- manifest.json gets a bare semver, stays valid JSON --------------------
 r="$tmp/manifest"

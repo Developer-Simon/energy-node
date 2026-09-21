@@ -59,6 +59,47 @@ A tag with a pre-release suffix — `vX.Y.Z-rc1`, `vX.Y.Z-beta1`, anything with 
 `-` after the version — is published as a **pre-release** (`gh release create
 --prerelease`). Everything else is identical to a normal release.
 
+## Components and their version files
+
+Every component carries its own version and its own `CHANGELOG.md`. The list
+lives in [`scripts/version/components.sh`](https://github.com/Developer-Simon/energy-node/blob/main/scripts/version/components.sh);
+the changelog targets are the `<target>` arguments of
+`scripts/generate_changelog.sh`.
+
+| Component | Version file | Changelog | Target |
+|---|---|---|---|
+| Dashboard | `dashboard/VERSION` | `dashboard/CHANGELOG.md` | `dashboard` |
+| Services (shared) | `services/VERSION` | `services/CHANGELOG.md` | `services` |
+| APsystems EZ1 | `services/apsystems_ez1/manifest.json` (`version`) | `services/apsystems_ez1/CHANGELOG.md` | `service:apsystems_ez1` |
+| Automation | `services/automation/manifest.json` (`version`) | `services/automation/CHANGELOG.md` | `service:automation` |
+| Battery SoC | `services/battery_soc/manifest.json` (`version`) | `services/battery_soc/CHANGELOG.md` | `service:battery_soc` |
+| Shelly | `services/shelly/manifest.json` (`version`) | `services/shelly/CHANGELOG.md` | `service:shelly` |
+| Trucki | `services/trucki/manifest.json` (`version`) | `services/trucki/CHANGELOG.md` | `service:trucki` |
+| Tuya | `services/tuya_mqtt/manifest.json` (`version`) | `services/tuya_mqtt/CHANGELOG.md` | `service:tuya_mqtt` |
+| `energy_node_common` | `libs/energy_node_common/VERSION` | `libs/energy_node_common/CHANGELOG.md` | `common` |
+| `battery_soc_core` | `libs/battery_soc_core/VERSION` | `libs/battery_soc_core/CHANGELOG.md` | `battery_soc_core` |
+| HA integration | `integrations/homeassistant/.../manifest.json` (`version`) | `integrations/homeassistant/CHANGELOG.md` | `ha-integration` |
+| Bootstrap | `scripts/bootstrap/VERSION` | — | — |
+| Installer | `installer/VERSION` | — | — |
+| Installer web UI | `installer/webui/VERSION` | — | — |
+
+Notes:
+
+* A service's version lives in the `version` field of its `manifest.json` as a
+  **bare** semver (`0.4.0`, no `v`), the same convention the HA integration
+  uses. The manifest already travels into the bundle as
+  `config/manifests/<service_id>.json`, so the version ships with it, and
+  `make_bundle.sh` additionally writes it into the bundle manifest's step
+  entry (`steps[].version`).
+* Per-service versioning started at **v0.4.0**; `services/VERSION` was moved to
+  `v0.4.0` at the same time so no version appears to go backwards. Commits from
+  before that point fall back to `services/VERSION` when the changelog
+  generator needs a version for them.
+* Work inside one service bumps only that service. Work directly under
+  `services/` (shared config, shared tests) bumps only `services/VERSION`.
+* Bootstrap, installer and installer web UI have a version but no changelog
+  target yet — see the cleanup proposal list.
+
 ## One-time setup: the `BUMP_TOKEN` secret
 
 The [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
