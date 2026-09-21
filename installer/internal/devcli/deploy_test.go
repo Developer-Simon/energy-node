@@ -12,6 +12,10 @@ import (
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
 
+// recordCalls counts how often RunDeploy recorded the installed manifest;
+// swapDeployCollaborators resets it and installs the counting fake.
+var recordCalls int
+
 // swapDeployCollaborators overrides every package-level seam this task
 // introduces and restores the originals when the test ends, so tests never
 // leak a fake into another test.
@@ -24,6 +28,7 @@ func swapDeployCollaborators(t *testing.T) {
 	origPubKey, origPubKeyPEM := embeddedPublicKey, embeddedPublicKeyPEM
 	origVerifyLocalDev, origVerifyRemoteDev := verifyBundleLocalDev, verifyBundleRemoteDev
 	origProvision := provisionRemoteStateDir
+	origRecord := recordInstalled
 	t.Cleanup(func() {
 		buildViaRepo, extractArchive = origBuild, origExtract
 		verifyBundleLocal, deployBundle = origVerifyLocal, origDeploy
@@ -32,6 +37,7 @@ func swapDeployCollaborators(t *testing.T) {
 		embeddedPublicKey, embeddedPublicKeyPEM = origPubKey, origPubKeyPEM
 		verifyBundleLocalDev, verifyBundleRemoteDev = origVerifyLocalDev, origVerifyRemoteDev
 		provisionRemoteStateDir = origProvision
+		recordInstalled = origRecord
 	})
 
 	buildViaRepo = func(context.Context, bundle.BuildArgs) (string, error) { return "/fake/archive.tar.gz", nil }
@@ -39,6 +45,8 @@ func swapDeployCollaborators(t *testing.T) {
 	embeddedPublicKey = func() (ed25519.PublicKey, error) { return ed25519.PublicKey{}, nil }
 	embeddedPublicKeyPEM = func() []byte { return nil }
 	provisionRemoteStateDir = func(context.Context, *transport.Client) error { return nil }
+	recordCalls = 0
+	recordInstalled = func(context.Context, *transport.Client, string, string) error { recordCalls++; return nil }
 }
 
 func fakeManifest() *bundle.Manifest {
@@ -77,6 +85,38 @@ func TestRunDeployFullRunUsesEveryManifestStep(t *testing.T) {
 	}
 }
 
+func TestRunDeployFullRunRecordsTheInstalledManifest(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if recordCalls != 1 {
+		t.Fatalf("recordInstalled called %d times after a full run, want 1", recordCalls)
+	}
+}
+
+func TestRunDeployRecordFailureIsOnlyAWarning(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+	recordInstalled = func(context.Context, *transport.Client, string, string) error { return errors.New("disk full") }
+
+	var out bytes.Buffer
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &out}); err != nil {
+		t.Fatalf("a failed record must not fail the run: %v", err)
+	}
+	if !containsAll(out.String(), "warning", "disk full") {
+		t.Fatalf("expected a warning naming the cause, got: %q", out.String())
+	}
+}
+
 func TestRunDeployOnlyFiltersToASingleStep(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
@@ -92,6 +132,21 @@ func TestRunDeployOnlyFiltersToASingleStep(t *testing.T) {
 	}
 	if len(gotOpts.Steps) != 1 || gotOpts.Steps[0].ID != "60" {
 		t.Fatalf("expected exactly step 60, got %+v", gotOpts.Steps)
+	}
+}
+
+func TestRunDeployOnlyDoesNotRecordTheInstalledManifest(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	if err := RunDeploy(context.Background(), DeployArgs{Only: "dashboard", Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if recordCalls != 0 {
+		t.Fatalf("a single-step run must not record, calls = %d", recordCalls)
 	}
 }
 
@@ -200,6 +255,9 @@ func TestRunDeployTranslatesAStepFailureThroughFaults(t *testing.T) {
 	}
 	if got := err.Error(); !containsAll(got, "50", "break-system-packages") {
 		t.Fatalf("expected the translated fault text in the error, got: %s", got)
+	}
+	if recordCalls != 0 {
+		t.Fatalf("a failed run must not record, calls = %d", recordCalls)
 	}
 }
 

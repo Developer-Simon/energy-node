@@ -422,7 +422,26 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		}
 		return err
 	}
+	h.recordAfterFullRun(ctx, client, req.Only, sink)
 	return nil
+}
+
+// recordInstalled is a seam for tests; production always runs
+// steps.RecordInstalled.
+var recordInstalled = steps.RecordInstalled
+
+// recordAfterFullRun stores the applied manifest on the node once a full run
+// finished. A single-step run (only != "") never records: the other steps
+// were not touched, so the node is not at this bundle version yet. A failure
+// here is only a warning -- every step succeeded and re-running is idempotent
+// -- but the operator should see that the next preview will show no "von".
+func (h *Host) recordAfterFullRun(ctx context.Context, client *transport.Client, only string, sink hostapi.Sink) {
+	if only != "" {
+		return
+	}
+	if err := recordInstalled(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir); err != nil {
+		sink.Log("", "Warning: could not record installed-manifest.json: "+err.Error())
+	}
 }
 
 func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
