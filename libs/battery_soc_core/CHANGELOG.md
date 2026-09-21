@@ -23,6 +23,7 @@
 
 ### Fixes
 
+- **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
@@ -55,6 +56,17 @@
 - **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
 - path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
 - skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
+
+## v0.1.9 (2026-09-21)
+
+### Fixes
+
+- **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+- **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
+
+### Documentation
+
+- **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
 
 ## v0.1.9 (2026-09-16)
 

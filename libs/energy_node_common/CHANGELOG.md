@@ -4,6 +4,12 @@
 
 ### Fixes
 
+- **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
+
+## v0.4.5 (2026-09-21)
+
+### Fixes
+
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 

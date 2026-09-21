@@ -2,6 +2,12 @@
 
 ## v0.3.4 (2026-09-21)
 
+### Fixes
+
+- **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
+
+## v0.3.4 (2026-09-21)
+
 ### Features
 
 - **installer:** open the UI in an embedded system WebView (Part C2) (#35) (84bdc7a)
