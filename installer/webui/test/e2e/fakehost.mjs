@@ -97,6 +97,41 @@ export async function fillSecrets(page) {
   await page.getByLabel('Dashboard-Admin-Passwort', { exact: true }).fill(SECRETS.admin);
 }
 
+export async function waitForPrepare(page) {
+  // If the prepare screen appears, wait for it to complete and transition to precheck
+  try {
+    // Wait up to 5 seconds for the prepare screen to appear
+    await page.locator('.app[data-screen="prepare"]').waitFor({ timeout: 5000 });
+    // If we get here, prepare screen appeared - wait for it to transition to precheck
+    await page.locator('.app[data-screen="precheck"]').waitFor({ timeout: 30000 });
+  } catch (e) {
+    // Prepare screen didn't appear - that's fine, return without error
+  }
+}
+
+export async function connectWithPackage(page, packageKind, { trusted = false } = {}) {
+  // Wait for package selection options to appear
+  await page.locator('[role="radiogroup"] .opt').first().waitFor();
+
+  // Select the desired package kind
+  const packageOptions = page.locator('[role="radiogroup"] .opt');
+  if (packageKind === 'github') {
+    await packageOptions.filter({ hasText: 'Live von GitHub' }).click();
+  } else if (packageKind === 'file') {
+    await packageOptions.filter({ hasText: 'Paketdatei wählen' }).click();
+  }
+
+  // Fill login and connect
+  await fillLogin(page);
+  await page.getByRole('button', { name: 'Verbinden', exact: true }).click();
+  if (!trusted) {
+    await page.locator('.tofu').waitFor();
+    await page.getByRole('button', { name: 'Fingerabdruck bestätigen' }).click();
+  }
+  // Wait for prepare to complete
+  await waitForPrepare(page);
+}
+
 export async function startInstall(page) {
   await page.locator('.app[data-screen="precheck"] .chk').first().waitFor();
   await page.getByRole('button', { name: 'Weiter', exact: true }).click();
@@ -104,4 +139,12 @@ export async function startInstall(page) {
   await fillSecrets(page);
   await page.getByRole('button', { name: 'Installation starten' }).click();
   await page.locator('.app[data-screen="run"]').waitFor();
+}
+
+export async function getDebugState(hostUrl) {
+  const response = await fetch(`${hostUrl}debug/state`);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch debug state: ${response.statusText}`);
+  }
+  return response.json();
 }

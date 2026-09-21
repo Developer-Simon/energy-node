@@ -4,6 +4,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"log"
@@ -14,7 +15,25 @@ import (
 	webui "github.com/Developer-Simon/energy-node-webui"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 	"github.com/Developer-Simon/energy-node-webui/i18n"
+	"github.com/Developer-Simon/energy-node-webui/hostapi/hostapitest"
 )
+
+// debugHandler wraps the main HTTP handler and adds a debug endpoint.
+func debugHandler(mainHandler http.Handler, backend *hostapitest.FakeBackend) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/debug/state" && r.Method == http.MethodGet {
+			state := struct {
+				UploadedName string `json:"uploaded_name"`
+			}{
+				UploadedName: backend.UploadedName,
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(state)
+			return
+		}
+		mainHandler.ServeHTTP(w, r)
+	})
+}
 
 func main() {
 	port := flag.Int("port", 8099, "Port auf 127.0.0.1")
@@ -35,8 +54,9 @@ func main() {
 	if *failStep != "" {
 		opts.failStep, opts.failCode = splitFailSpec(*failStep)
 	}
+	stagedBackend := newScenario(*scenario, opts)
 	server, err := hostapi.New(hostapi.Options{
-		Backend:       newScenario(*scenario, opts),
+		Backend:       stagedBackend,
 		Catalogs:      catalogs,
 		Language:      *language,
 		LanguageFixed: *dashboard,
@@ -46,7 +66,8 @@ func main() {
 	}
 	addr := fmt.Sprintf("127.0.0.1:%d", *port)
 	fmt.Printf("http://%s/\n", addr)
-	log.Fatal(http.ListenAndServe(addr, server.Handler()))
+	handler := debugHandler(server.Handler(), stagedBackend.FakeBackend)
+	log.Fatal(http.ListenAndServe(addr, handler))
 }
 
 // splitFailSpec zerlegt "50:PIP_EXTERNALLY_MANAGED".
