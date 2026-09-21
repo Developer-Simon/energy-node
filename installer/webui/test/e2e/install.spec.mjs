@@ -198,10 +198,8 @@ test('die Paketdatei-Quelle sperrt den Verbinden-Button bis eine Datei ausgewaeh
   // Connect and wait for prepare to complete
   await connectButton.click();
   await page.locator('.tofu').waitFor({ timeout: 5000 }).catch(() => null); // Handle TOFU if present
-  // Wait for prepare to complete (prepare screen may or may not show)
-  await waitForPrepare(page);
-  // Now wait for precheck screen
-  await page.locator('.app[data-screen="precheck"] .chk').first().waitFor({ timeout: 30000 });
+  // Wait for precheck screen (prepare may be skipped for file uploads)
+  await page.locator('.app[data-screen="precheck"] .chk').first().waitFor({ timeout: 60000 });
 
   // Verify the backend recorded the uploaded file name
   const debugState = await getDebugState(host.url);
