@@ -104,3 +104,37 @@ test('a raw log event without a key still renders the line as-is', async () => {
   sources[0].emit('log', { step_id: 'package', line: 'raw output text' }, 5);
   assert.deepEqual(JSON.parse(JSON.stringify(screen.lines)), ['raw output text']);
 });
+
+test('auf dem Dashboard fuehrt Zurueck zum Dashboard statt zur Verbindung', async () => {
+  const { screen, shell } = mount({ shell: { bootstrap: { host: 'dashboard', auto_prepare: true, needs_connection: false } } });
+  await screen.init();
+  screen.back();
+  assert.equal(shell.backToDashboardCalled, 1);
+});
+
+test('nach einem Fehler geht es mit einem schon vorhandenen Paket weiter', async () => {
+  const { screen, shell, sources } = mount({
+    shell: { bootstrap: { host: 'dashboard', auto_prepare: true, needs_connection: false, bundle_version: 'v1.4.2' } },
+  });
+  await screen.init();
+  sources[0].emit('run-started', { run_id: 'run-1', mode: 'prepare' }, 4);
+  sources[0].emit('run-finished', { run_id: 'run-1', ok: false, code: 'GITHUB_UNREACHABLE' }, 5);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canUseExisting, true);
+  let advanced = 0;
+  shell.afterPrepare = () => { advanced += 1; };
+  screen.useExisting();
+  assert.equal(advanced, 1);
+});
+
+test('ohne vorhandenes Paket wird "Weiter mit vorhandenem Paket" nicht angeboten', async () => {
+  const { screen, sources } = mount({
+    shell: { bootstrap: { host: 'dashboard', auto_prepare: true, needs_connection: false, bundle_version: '' } },
+  });
+  await screen.init();
+  sources[0].emit('run-started', { run_id: 'run-1', mode: 'prepare' }, 4);
+  sources[0].emit('run-finished', { run_id: 'run-1', ok: false, code: 'GITHUB_NO_RELEASE' }, 5);
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  assert.equal(screen.canUseExisting, false);
+});

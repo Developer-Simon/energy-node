@@ -24,6 +24,11 @@ type Description struct {
 	// Package macht die Paketauswahl auf dem Verbindungsbildschirm moeglich.
 	// nil heisst: dieser Wirt hat keine.
 	Package *PackageInfo `json:"package,omitempty"`
+	// AutoPrepare sagt: dieser Wirt besorgt sein Paket selbst (das Dashboard
+	// laedt es von GitHub). Die Shell zeigt dann vor dem ersten Bildschirm des
+	// Redeploy den Bildschirm "Paket vorbereiten", der POST /api/run mit
+	// mode "prepare" ausloest.
+	AutoPrepare bool `json:"auto_prepare,omitempty"`
 }
 
 // AuthKind ist die Art, wie sich der Installer am Node anmeldet.

@@ -87,8 +87,30 @@
         this.shell.afterPrepare();
       },
 
+      // Ein Wirt, der sein Paket selbst besorgt, hat keinen Verbindungs-
+      // bildschirm, zu dem es zurueckgehen koennte.
+      get autoPrepare() {
+        return !!(this.shell.bootstrap && this.shell.bootstrap.auto_prepare);
+      },
+
+      // Schlaegt das Laden fehl, kann der Nutzer mit einem Paket weitermachen,
+      // das schon vorher im Kandidatenverzeichnis lag.
+      get canUseExisting() {
+        return this.autoPrepare && this.state === 'failed' && !!this.shell.bootstrap.bundle_version;
+      },
+
+      useExisting() {
+        this.stop();
+        this.shell.error = null;
+        this.shell.afterPrepare();
+      },
+
       back() {
         this.stop();
+        if (this.autoPrepare) {
+          this.shell.backToDashboard();
+          return;
+        }
         this.shell.back('connect');
       },
 

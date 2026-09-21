@@ -96,7 +96,8 @@ stage_job() {
 run_updater() {
   local dir="$1"
   EN_UPDATER_JOB_DIR="$dir" EN_UPDATER_VERIFY="$verify_stub" EN_UPDATER_PUBKEY="$pubkey" \
-    EN_UPDATER_STATE_DIR="$dir/state" EN_ROOT="$tmp/root" \
+    EN_UPDATER_STATE_DIR="$dir/state" EN_UPDATER_TARGET="${TARGET_JSON:-$tmp/absent-target.json}" \
+    EN_ROOT="$tmp/root" \
     bash "$repo/dashboard/energy-node-updater.sh"
 }
 
@@ -206,5 +207,72 @@ run_updater "$job7" 2>/dev/null || true
 [ -f "$job7/status.json" ] || fail "an interrupted updater must still leave a terminal status"
 grep -q '"code":"UPDATER_INTERRUPTED"' "$job7/status.json" \
   || fail "an interrupted run must report UPDATER_INTERRUPTED: $(cat "$job7/status.json")"
+
+# --- Zielaufloesung (user-unabhaengige Bundles) ----------------------------
+generic="$tmp/fixture-generic"
+cp -a "$fixture" "$generic"
+cat > "$generic/manifest.json" <<'JSON'
+{"version":"1.6.0","steps":[{"id":"20","optional":false},{"id":"50","optional":false},{"id":"60","optional":false}]}
+JSON
+stage_generic() {
+  local dir="$1" steps="$2"
+  mkdir -p "$dir/bundle"
+  cp -a "$generic/." "$dir/bundle/"
+  printf '%s\n' "$steps" > "$dir/pending.json"
+}
+job_steps='{"bundle_version":"1.6.0","mode":"redeploy","steps":["60"]}'
+no_steps_ran() { ! { [ -f "$1/log" ] && grep -q '##STEP' "$1/log"; }; }
+
+# a) allgemeines Manifest + target.json: der Schritt bekommt das Ziel des Knotens
+printf '{"user":"orgelbau","base":"/home/orgelbau"}\n' > "$tmp/target-orgelbau.json"
+job_a="$tmp/job-a"; stage_generic "$job_a" "$job_steps"
+TARGET_JSON="$tmp/target-orgelbau.json" run_updater "$job_a" \
+  || fail "generic bundle + target.json must run: $(cat "$job_a/log" 2>/dev/null)"
+grep -q 'nach /home/orgelbau fuer orgelbau' "$job_a/log" \
+  || fail "target did not come from target.json: $(cat "$job_a/log")"
+
+# b) allgemeines Manifest ohne target.json: TARGET_UNKNOWN, kein Schritt laeuft
+job_b="$tmp/job-b"; stage_generic "$job_b" "$job_steps"
+if run_updater "$job_b"; then fail "must fail without any target source"; fi
+grep -q '"code":"TARGET_UNKNOWN"' "$job_b/status.json" || fail "expected TARGET_UNKNOWN: $(cat "$job_b/status.json")"
+no_steps_ran "$job_b" || fail "no step may run without a target"
+
+# c) festgelegtes Manifest (energynode) gegen target.json (orgelbau): TARGET_MISMATCH
+job_c="$tmp/job-c"; stage_job "$job_c" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["60"]}'
+if TARGET_JSON="$tmp/target-orgelbau.json" run_updater "$job_c"; then fail "must fail on a target mismatch"; fi
+grep -q '"code":"TARGET_MISMATCH"' "$job_c/status.json" || fail "expected TARGET_MISMATCH: $(cat "$job_c/status.json")"
+no_steps_ran "$job_c" || fail "no step may run on a mismatch"
+
+# d) festgelegtes Manifest, das mit target.json uebereinstimmt, laeuft
+printf '{"user":"energynode","base":"/home/energynode"}\n' > "$tmp/target-default.json"
+job_d="$tmp/job-d"; stage_job "$job_d" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["60"]}'
+TARGET_JSON="$tmp/target-default.json" run_updater "$job_d" \
+  || fail "pinned bundle that agrees with target.json must run: $(cat "$job_d/log" 2>/dev/null)"
+
+# e) ungueltige oder eingeschleuste Werte in target.json: TARGET_INVALID
+for doc in '{"user":"x y","base":"/home/x"}' \
+           '{"user":"a","base":"/home/a/../../etc"}' \
+           '{"user":"a","base":"relative"}' \
+           '{"user":"a","base":"/"}' \
+           '{"user":"orgelbau\n","base":"/home/orgelbau"}' \
+           '{"user":"orgelbau","base":"/home/orgelbau\n"}' \
+           'not json'; do
+  printf '%s\n' "$doc" > "$tmp/target-bad.json"
+  job_e="$tmp/job-e"; rm -rf "$job_e"; stage_generic "$job_e" "$job_steps"
+  if TARGET_JSON="$tmp/target-bad.json" run_updater "$job_e"; then fail "invalid target accepted: $doc"; fi
+  grep -q '"code":"TARGET_INVALID"' "$job_e/status.json" || fail "expected TARGET_INVALID for $doc: $(cat "$job_e/status.json")"
+  no_steps_ran "$job_e" || fail "no step may run for an invalid target: $doc"
+done
+
+# f) ein festgelegtes Manifest mit ungueltigem Ziel ohne target.json: TARGET_INVALID
+pinned_bad="$tmp/fixture-pinned-bad"; cp -a "$fixture" "$pinned_bad"
+cat > "$pinned_bad/manifest.json" <<'JSON'
+{"version":"1.5.0","target_user":"x y","target_base":"/home/x",
+ "steps":[{"id":"60","optional":false}]}
+JSON
+job_f="$tmp/job-f"; mkdir -p "$job_f/bundle"; cp -a "$pinned_bad/." "$job_f/bundle/"
+printf '%s\n' '{"bundle_version":"1.5.0","mode":"redeploy","steps":["60"]}' > "$job_f/pending.json"
+if run_updater "$job_f"; then fail "invalid pinned target accepted"; fi
+grep -q '"code":"TARGET_INVALID"' "$job_f/status.json" || fail "expected TARGET_INVALID: $(cat "$job_f/status.json")"
 
 echo "OK"

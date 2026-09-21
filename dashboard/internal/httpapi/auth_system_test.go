@@ -147,6 +147,64 @@ func TestSettingsPutProtectsLiveUpdateIntervalByRoleButAllowsOtherFields(t *test
 	}
 }
 
+// TestSessionCSRFTokenIsWhatTheRedeployGateAccepts covers the missing link
+// between the mounted installer screen and the gate above it: the screen
+// sends the page's token in X-Installer-Token, so the page has to be rendered
+// with the session's CSRF token, and only with that of the requesting session.
+func TestSessionCSRFTokenIsWhatTheRedeployGateAccepts(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var reachedWith string
+	redeploy := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reachedWith = r.Header.Get("X-Installer-Token")
+		w.WriteHeader(http.StatusOK)
+	})
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager, Redeploy: redeploy})
+
+	loginRequest := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username":"admin","password":"secret"}`))
+	loginRequest.Header.Set("Content-Type", "application/json")
+	loginRequest.Header.Set("X-Forwarded-Proto", "https")
+	login := httptest.NewRecorder()
+	router.ServeHTTP(login, loginRequest)
+	var session struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.NewDecoder(login.Body).Decode(&session); err != nil {
+		t.Fatal(err)
+	}
+	cookie := login.Result().Cookies()[0]
+
+	pageToken := SessionCSRFToken(manager)
+	withSession := httptest.NewRequest(http.MethodGet, "/redeploy/", nil)
+	withSession.AddCookie(cookie)
+	withSession.Header.Set("X-Forwarded-Proto", "https")
+	if got := pageToken(withSession); got == "" || got != session.CSRFToken {
+		t.Fatalf("page token = %q, want the session's CSRF token %q", got, session.CSRFToken)
+	}
+	if got := pageToken(httptest.NewRequest(http.MethodGet, "/redeploy/", nil)); got != "" {
+		t.Fatalf("page token without a session = %q, want empty", got)
+	}
+	forged := httptest.NewRequest(http.MethodGet, "/redeploy/", nil)
+	forged.AddCookie(&http.Cookie{Name: cookie.Name, Value: "not-a-session"})
+	forged.Header.Set("X-Forwarded-Proto", "https")
+	if got := pageToken(forged); got != "" {
+		t.Fatalf("page token for an unknown session = %q, want empty", got)
+	}
+
+	// What the page then sends passes the gate, the way the screen sends it.
+	run := httptest.NewRequest(http.MethodPost, "/redeploy/api/run", nil)
+	run.AddCookie(cookie)
+	run.Header.Set("X-Forwarded-Proto", "https")
+	run.Header.Set("X-Installer-Token", pageToken(withSession))
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, run)
+	if recorder.Code != http.StatusOK || reachedWith != session.CSRFToken {
+		t.Fatalf("POST with the page token: status %d, reached with %q: %s", recorder.Code, reachedWith, recorder.Body.String())
+	}
+}
+
 // TestAuthenticatedRouterProtectsTheRedeployMount goes through the whole
 // authenticated router on purpose: buildRedeployHandler's own test mounts
 // the handler bare, which is exactly why it never noticed that /redeploy/

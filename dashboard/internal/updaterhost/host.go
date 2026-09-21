@@ -11,6 +11,7 @@ package updaterhost
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -42,6 +43,12 @@ type Config struct {
 	InstalledManifestPath string
 	SelectionPath         string
 	JobDir                string
+	// Prepare fetches the newest package into CandidateBundleDir (see
+	// internal/bundlefetch). It is called for hostapi.ModePrepare and gets a
+	// callback for one human-readable log line at a time. Nil means this host
+	// cannot fetch: Describe does not advertise AutoPrepare and ModePrepare
+	// answers NOT_SUPPORTED. Errors of type *hostapi.Error keep their code.
+	Prepare func(ctx context.Context, log func(line string)) error
 }
 
 // candidateManifest is the handful of manifest.json fields this package
@@ -91,7 +98,7 @@ func (h *Host) loadCandidateManifest() (*candidateManifest, error) {
 // NOT_SUPPORTED, and Schicht 3 shows a Diagnose tab as soon as a host
 // advertises more than one entry point -- which would dead-end on a 501.
 func (h *Host) Describe() hostapi.Description {
-	desc := hostapi.Description{Host: hostapi.HostDashboard, EntryPoints: []string{"redeploy"}, NeedsConnection: false}
+	desc := hostapi.Description{Host: hostapi.HostDashboard, EntryPoints: []string{"redeploy"}, NeedsConnection: false, AutoPrepare: h.cfg.Prepare != nil}
 	if m, err := h.loadCandidateManifest(); err == nil {
 		desc.BundleVersion = m.Version
 		desc.BundleArch = m.Arch
@@ -185,6 +192,10 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 // process uses instead, to pick the same job back up (see
 // cmd/dashboard/main.go, Task 8).
 func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
+	if req.Mode == hostapi.ModePrepare {
+		return h.runPrepare(ctx, sink)
+	}
+
 	candidate, err := h.loadCandidateManifest()
 	if err != nil {
 		return &hostapi.Error{Code: "MANIFEST_UNREADABLE", Detail: err.Error()}
@@ -232,6 +243,39 @@ func (h *Host) TailInFlight(ctx context.Context, sink hostapi.Sink) error {
 		return fmt.Errorf("updaterhost: no job in flight in %s", h.cfg.JobDir)
 	}
 	return tailJobLog(ctx, h.cfg.JobDir+"/log", h.cfg.JobDir+"/status.json", 0, sink, pollInterval, maxTailDuration)
+}
+
+// runPrepare fetches the newest package into the candidate directory and
+// reports it as the pseudo step "package", the same way the installer host
+// reports its own prepare run, so one prepare screen serves both hosts.
+func (h *Host) runPrepare(ctx context.Context, sink hostapi.Sink) error {
+	if h.cfg.Prepare == nil {
+		return &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
+	}
+	// The updater moves the staged bundle out of the job directory when it
+	// claims the job, and Stage copies the candidate; replacing the candidate
+	// under a job that is queued or running would make "what will run" a lie.
+	if updaterjob.Pending(h.cfg.JobDir) || updaterjob.InFlight(h.cfg.JobDir) {
+		return &hostapi.Error{Code: "JOB_IN_PROGRESS", Status: http.StatusConflict}
+	}
+
+	sink.Marker("package", "begin", "")
+	err := h.cfg.Prepare(ctx, func(line string) { sink.Log("package", line) })
+	if err == nil {
+		sink.Marker("package", "ok", "")
+		return nil
+	}
+	if errors.Is(err, context.Canceled) {
+		sink.Marker("package", "fail", "RUN_CANCELLED")
+		return err
+	}
+	var typed *hostapi.Error
+	if errors.As(err, &typed) {
+		sink.Marker("package", "fail", typed.Code)
+		return err
+	}
+	sink.Marker("package", "fail", "PREPARE_FAILED")
+	return &hostapi.Error{Code: "PREPARE_FAILED", Detail: err.Error()}
 }
 
 func (h *Host) Diagnose(context.Context) (*hostapi.DiagnoseView, error) {

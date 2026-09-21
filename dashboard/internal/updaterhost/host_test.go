@@ -4,8 +4,10 @@ package updaterhost_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -126,6 +128,91 @@ func TestRunReturnsTheHostapiErrorFromAFailedStatus(t *testing.T) {
 	}
 	if !asHostapiError(err, &typed) || typed.Code != "DASHBOARD_START_FAILED" {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestDescribeAdvertisesAutoPrepareOnlyWithAPrepareFunc(t *testing.T) {
+	cfg := setupNode(t)
+	host, _ := updaterhost.New(cfg)
+	if host.Describe().AutoPrepare {
+		t.Errorf("AutoPrepare without Config.Prepare")
+	}
+	cfg.Prepare = func(context.Context, func(string)) error { return nil }
+	host, _ = updaterhost.New(cfg)
+	if !host.Describe().AutoPrepare {
+		t.Errorf("AutoPrepare must be true when Config.Prepare is set")
+	}
+}
+
+func TestRunPrepareStreamsTheFetchLogAndMarksThePackageStep(t *testing.T) {
+	cfg := setupNode(t)
+	cfg.Prepare = func(_ context.Context, log func(string)) error {
+		log("Lade paket")
+		return nil
+	}
+	host, _ := updaterhost.New(cfg)
+	sink := &recordingSink{}
+	if err := host.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if strings.Join(sink.markers, ",") != "package begin,package ok" {
+		t.Errorf("markers = %v", sink.markers)
+	}
+	if len(sink.logs) != 1 || sink.logs[0] != "Lade paket" {
+		t.Errorf("logs = %v", sink.logs)
+	}
+}
+
+func TestRunPrepareKeepsATypedErrorAndWrapsAnUntypedOne(t *testing.T) {
+	cfg := setupNode(t)
+	host, _ := updaterhost.New(cfg)
+
+	cfg.Prepare = func(context.Context, func(string)) error {
+		return &hostapi.Error{Code: "GITHUB_UNREACHABLE", Detail: "HTTP 403"}
+	}
+	host, _ = updaterhost.New(cfg)
+	err := host.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var typed *hostapi.Error
+	if !asHostapiError(err, &typed) || typed.Code != "GITHUB_UNREACHABLE" {
+		t.Fatalf("err = %v, want the typed GITHUB_UNREACHABLE", err)
+	}
+
+	cfg.Prepare = func(context.Context, func(string)) error { return errors.New("boom") }
+	host, _ = updaterhost.New(cfg)
+	sink := &recordingSink{}
+	err = host.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink)
+	if !asHostapiError(err, &typed) || typed.Code != "PREPARE_FAILED" || typed.Detail != "boom" {
+		t.Fatalf("err = %v, want PREPARE_FAILED with detail boom", err)
+	}
+	if sink.markers[len(sink.markers)-1] != "package fail" {
+		t.Errorf("markers = %v, want the run to end with package fail", sink.markers)
+	}
+}
+
+func TestRunPrepareRefusesWhileAJobIsPendingAndDoesNotFetch(t *testing.T) {
+	cfg := setupNode(t)
+	called := false
+	cfg.Prepare = func(context.Context, func(string)) error { called = true; return nil }
+	if err := os.WriteFile(filepath.Join(cfg.JobDir, "pending.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	host, _ := updaterhost.New(cfg)
+	err := host.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var typed *hostapi.Error
+	if !asHostapiError(err, &typed) || typed.Code != "JOB_IN_PROGRESS" {
+		t.Fatalf("err = %v, want JOB_IN_PROGRESS", err)
+	}
+	if called {
+		t.Errorf("Prepare must not run while a job is pending")
+	}
+}
+
+func TestRunPrepareWithoutAPrepareFuncIsNotSupported(t *testing.T) {
+	host, _ := updaterhost.New(setupNode(t))
+	err := host.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var typed *hostapi.Error
+	if !asHostapiError(err, &typed) || typed.Code != "NOT_SUPPORTED" {
+		t.Fatalf("err = %v, want NOT_SUPPORTED", err)
 	}
 }
 

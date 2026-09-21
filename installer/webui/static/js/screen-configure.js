@@ -38,9 +38,12 @@
           shared.selection = results[1];
           this.manifest = results[0];
           this.steps = Object.assign({}, results[1].steps);
-          this.targetUser = this.manifest.target_user || '';
-          this.targetBase = this.manifest.target_base || '';
-          this.mqttUser = this.manifest.target_user || '';
+          // Ein allgemeines Bundle traegt kein Ziel: dann gilt der Benutzer,
+          // mit dem die Verbindung besteht, und sein Heimatverzeichnis.
+          var loginUser = (shared.target && shared.target.user) || '';
+          this.targetUser = this.manifest.target_user || loginUser;
+          this.targetBase = this.manifest.target_base || (this.targetUser ? '/home/' + this.targetUser : '');
+          this.mqttUser = this.manifest.target_user || loginUser;
         } catch (err) {
           this.shell.fail(err);
         } finally {

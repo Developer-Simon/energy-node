@@ -11,6 +11,8 @@
 SERVICE_STEP_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "${SERVICE_STEP_LIB_DIR}/step.sh"
+# shellcheck source=scripts/bootstrap/lib/render.sh
+source "${SERVICE_STEP_LIB_DIR}/render.sh"
 
 # Geraetedateien zerfallen in zwei Klassen. Ausgeliefert und damit bei jedem
 # Lauf erneuert: *.schema.json und *_presets.json. Alles andere
@@ -67,9 +69,18 @@ service_step() {
     fi
   done
 
+  # Die Unit liegt im Bundle als Vorlage; hier wird sie fuer den Zielbenutzer
+  # gerendert (siehe lib/render.sh).
+  local rendered
+  rendered="$(mktemp)"
+  if ! render_unit_as "${src}/${unit}" "${rendered}" "${EN_TARGET_USER}" "${EN_TARGET_BASE}"; then
+    rm -f "${rendered}"
+    step_fail TARGET_INVALID
+  fi
   "${SUDO[@]}" mkdir -p "${EN_ROOT}/etc/systemd/system"
-  "${SUDO[@]}" install -m 0644 "${src}/${unit}" \
-    "${EN_ROOT}/etc/systemd/system/${unit}" || step_fail SERVICE_UNIT_FAILED
+  "${SUDO[@]}" install -m 0644 "${rendered}" \
+    "${EN_ROOT}/etc/systemd/system/${unit}" || { rm -f "${rendered}"; step_fail SERVICE_UNIT_FAILED; }
+  rm -f "${rendered}"
   "${SUDO[@]}" systemctl daemon-reload
   # enable + restart statt enable --now: --now startet nur eine gestoppte
   # Unit. Bei einem Update laeuft sie schon mit dem alten Python-Code im

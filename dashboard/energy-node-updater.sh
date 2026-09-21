@@ -16,8 +16,10 @@
 # dem unprivilegierten Dashboard-Konto gehoert, und sind von der Signatur
 # ueber manifest.json NICHT gedeckt. Deshalb steuert der Auftrag nur noch,
 # WELCHE Schritte laufen sollen - und selbst diese Liste wird gegen die
-# Schrittliste im geprueften Manifest gehalten. Alles andere (Zielbenutzer,
-# Zielbasis, Bundle-Version) kommt aus manifest.json.
+# Schrittliste im geprueften Manifest gehalten. Zielbenutzer und Zielbasis
+# kommen aus der root-eigenen target.json (von Schritt 60 geschrieben), bei
+# einem noch auf einen Benutzer festgelegten Bundle aus dessen geprueftem
+# Manifest; die Bundle-Version kommt aus manifest.json.
 #
 # Umgebungsvariablen (Vorgaben fuer den echten Betrieb, ueberschreibbar fuer
 # scripts/tests/test_updater.sh):
@@ -26,6 +28,7 @@
 #   EN_UPDATER_RUN_DIR    <state>/run  (nur root; hierhin wandert das Bundle)
 #   EN_UPDATER_VERIFY     /usr/local/lib/energy-node-installer/verify_bundle.sh
 #   EN_UPDATER_PUBKEY     /etc/energy-node-updater/signing_key.pub.pem
+#   EN_UPDATER_TARGET     /etc/energy-node-updater/target.json  (root-eigenes Ziel des Knotens)
 #   EN_ROOT               Praefix vor Systempfaden (wie in lib/step.sh)
 set -uo pipefail
 
@@ -34,6 +37,7 @@ STATE_DIR="${EN_UPDATER_STATE_DIR:-/var/lib/energy-node-installer}"
 RUN_DIR="${EN_UPDATER_RUN_DIR:-${STATE_DIR}/run}"
 VERIFY="${EN_UPDATER_VERIFY:-/usr/local/lib/energy-node-installer/verify_bundle.sh}"
 PUBKEY="${EN_UPDATER_PUBKEY:-/etc/energy-node-updater/signing_key.pub.pem}"
+TARGET_FILE="${EN_UPDATER_TARGET:-/etc/energy-node-updater/target.json}"
 ROOT_PREFIX="${EN_ROOT:-}"
 
 PENDING="${JOB_DIR}/pending.json"
@@ -151,14 +155,61 @@ fi
   IFS= read -r manifest_step_ids
 } <<< "${manifest_fields}"
 
-# Zielbenutzer und Zielbasis steuern mkdir/install/chown als root. Sie
-# kamen frueher aus job.json; ein gefaelschtes target_base legte damit
-# root-eigene Dateien an beliebiger Stelle ab. Jetzt stehen sie im
-# signierten Manifest - dieselben Werte, mit denen make_bundle.sh die Units
-# gerendert hat, was ohnehin die einzige Kombination ist, die passt.
-if [[ -z "${target_user}" || -z "${target_base}" ]]; then
-  fail_job fail "" MANIFEST_TARGET_MISSING
+# Zielbenutzer und Zielbasis steuern mkdir/install/chown und die Sudoers-Regel
+# als root. Sie kamen frueher aus job.json (dashboard-beschreibbar, nicht
+# signiert) und dann nur aus dem signierten Manifest. Ein user-unabhaengiges
+# Bundle traegt kein Ziel; das steht dann in /etc/energy-node-updater/
+# target.json, das Schritt 60 als root schreibt. Ein noch festgelegtes Bundle
+# muss zu dieser Datei passen. Ein Rueckgriff auf installed-manifest.json gibt
+# es absichtlich nicht: es liegt im Zustandsverzeichnis, und das gehoert dem
+# SSH-Benutzer.
+if ! target_out="$(python3 - "${TARGET_FILE}" "${target_user}" "${target_base}" <<'PY'
+import json, os, re, sys
+
+path, man_user, man_base = sys.argv[1:4]
+USER = re.compile(r"^[a-z_][a-z0-9_-]{0,31}$")
+BASE = re.compile(r"^/[A-Za-z0-9._/-]{1,200}$")
+
+
+# fullmatch statt match mit $: $ passt in Python auch vor einem abschliessenden
+# Zeilenumbruch, und der liesse aus "user\n" zwei Ausgabezeilen werden.
+def valid(user, base):
+    return bool(USER.fullmatch(user)) and bool(BASE.fullmatch(base)) \
+        and base != "/" and ".." not in base.split("/")
+
+
+def reject(code):
+    print(code)
+    sys.exit(1)
+
+
+if os.path.isfile(path):
+    try:
+        with open(path, encoding="utf-8") as handle:
+            doc = json.load(handle)
+        user, base = str(doc["user"]), str(doc["base"])
+    except (OSError, ValueError, KeyError, TypeError):
+        reject("TARGET_INVALID")
+    if not valid(user, base):
+        reject("TARGET_INVALID")
+    if (man_user or man_base) and (man_user != user or man_base != base):
+        reject("TARGET_MISMATCH")
+else:
+    user, base = man_user, man_base
+    if not user or not base:
+        reject("TARGET_UNKNOWN")
+    if not valid(user, base):
+        reject("TARGET_INVALID")
+print(user)
+print(base)
+PY
+)"; then
+  code="${target_out//[^A-Za-z0-9_]/}"
+  [[ -n "${code}" ]] || code="TARGET_INVALID"
+  log_line "FAIL ${code}"
+  fail_job fail "" "${code}"
 fi
+{ IFS= read -r target_user; IFS= read -r target_base; } <<< "${target_out}"
 
 # --- Schrittliste aus dem Auftrag, gehalten gegen das Manifest -----------
 # Der Exit-Code von python3 wird ausgewertet: ohne ihn ergaebe eine kaputte
