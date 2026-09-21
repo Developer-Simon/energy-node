@@ -16,6 +16,10 @@
 #                                                # der echten GitHub-API) - Sichtpruefung fuer
 #                                                # die Masthead-Pille und den Button in
 #                                                # Systemzugriff
+#   ./run-local-dashboard.sh --simulate-package # wie --simulate-update, und der Fake-GitHub bietet
+#                                                # zusaetzlich ein Bundle zum Herunterladen an:
+#                                                # "Aktualisieren" (/redeploy/) laedt es, dann
+#                                                # folgt die Vorschau (Paketbezug, OTA)
 #   ./run-local-dashboard.sh --preset NAME      # --fixture/--seed-data/--simulate gebuendelt,
 #                                                # siehe PRESETS unten; einzelne Flags danach
 #                                                # ueberstimmen das Preset
@@ -71,6 +75,7 @@ SIMULATE=0
 INSTALLED_SERVICES_OFF=0
 HTTPS=0
 SIMULATE_UPDATE=0
+SIMULATE_PACKAGE=0
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
 UPDATES_API_PORT="${DASHBOARD_SMOKE_UPDATES_API_PORT:-18884}"
@@ -137,6 +142,7 @@ while [[ $# -gt 0 ]]; do
     --installed-services-off) INSTALLED_SERVICES_OFF=1; shift ;;
     --https) HTTPS=1; shift ;;
     --simulate-update) SIMULATE_UPDATE=1; shift ;;
+    --simulate-package) SIMULATE_UPDATE=1; SIMULATE_PACKAGE=1; shift ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
@@ -287,11 +293,60 @@ python3 "$HERE/minibroker.py" "${BROKER_ARGS[@]}" > "$WORK/broker.log" 2>&1 &
 BROKER_PID=$!
 sleep 1
 
+FAKE_GITHUB_ARGS=("$UPDATES_API_PORT" "v9.9.9")
+if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
+  # Ein Mini-Bundle fuer die Architektur, auf der das Dashboard hier laeuft
+  # (internal/bundlefetch fragt nach runtime.GOARCH), plus ein Zustands-
+  # verzeichnis, wie es ein installierter Node hat: Auswahl und das Manifest
+  # der installierten Version, damit die Vorschau etwas zum Vergleichen hat.
+  # Signiert ist es nicht wirklich - das Dashboard prueft nur, dass
+  # manifest.json.sig existiert; die Signatur prueft erst der Updater als root.
+  case "$(cd "$DASHBOARD_DIR" && go env GOARCH)" in
+    arm) PACKAGE_ARCH="armv6" ;;
+    *) PACKAGE_ARCH="$(cd "$DASHBOARD_DIR" && go env GOARCH)" ;;
+  esac
+  PACKAGE_ASSET="energy-node-v9.9.9-$PACKAGE_ARCH.tar.gz"
+  mkdir -p "$WORK/package" "$WORK/installer-state"
+  python3 - "$WORK/package/$PACKAGE_ASSET" "$PACKAGE_ARCH" "$WORK/installer-state" <<'PY'
+import io, json, os, sys, tarfile
+
+archive, arch, state = sys.argv[1:4]
+manifest = {
+    "version": "v9.9.9",
+    "arch": arch,
+    "components": {"bootstrap": "1.2.0", "dashboard": "9.9.9", "services": "3.4.0"},
+    "steps": [
+        {"id": "10", "optional": False}, {"id": "20", "optional": False},
+        {"id": "30", "optional": False}, {"id": "40", "optional": True},
+        {"id": "50", "optional": False}, {"id": "60", "optional": False},
+        {"id": "65", "optional": False}, {"id": "70", "optional": True},
+    ],
+}
+files = {
+    "./manifest.json": json.dumps(manifest).encode(),
+    "./manifest.json.sig": b"smoke-test-not-a-real-signature",
+    "./bootstrap/10-apt.sh": b"#!/bin/sh\n",
+    # Nicht komprimierbar, damit der Download ein paar Sekunden dauert und der
+    # Fortschritt (20 %-Schritte) auf dem Bildschirm zu sehen ist.
+    "./payload/wheels.bin": os.urandom(6 * 1024 * 1024),
+}
+with tarfile.open(archive, "w:gz") as tar:
+    for name, body in files.items():
+        info = tarfile.TarInfo(name)
+        info.size = len(body)
+        info.mode = 0o755 if name.endswith(".sh") else 0o644
+        tar.addfile(info, io.BytesIO(body))
+json.dump({"steps": {"40": True, "70": False}}, open(os.path.join(state, "selection.json"), "w"))
+json.dump({"version": "v0.7.0"}, open(os.path.join(state, "installed-manifest.json"), "w"))
+PY
+  FAKE_GITHUB_ARGS+=("$WORK/package/$PACKAGE_ASSET")
+fi
 if [[ $SIMULATE_UPDATE -eq 1 ]]; then
-  python3 "$HERE/fake_github_releases.py" "$UPDATES_API_PORT" > "$WORK/updates-api.log" 2>&1 &
+  python3 "$HERE/fake_github_releases.py" "${FAKE_GITHUB_ARGS[@]}" > "$WORK/updates-api.log" 2>&1 &
   UPDATES_API_PID=$!
   sleep 1
   echo "Update-Simulation: v9.9.9 ueber http://127.0.0.1:$UPDATES_API_PORT"
+  [[ $SIMULATE_PACKAGE -eq 1 ]] && echo "Paketbezug-Simulation: $PACKAGE_ASSET wird als Release-Asset angeboten"
 fi
 
 # Der Smoke-Test schreibt eine vollstaendige config.json ins
@@ -365,6 +420,9 @@ DASHBOARD_VERSION="$(tr -d '[:space:]' < "$DASHBOARD_DIR/VERSION")-dev"
   cd "$DASHBOARD_DIR"
   if [[ $SIMULATE_UPDATE -eq 1 ]]; then
     export ENERGY_NODE_UPDATES_API_BASE="http://127.0.0.1:$UPDATES_API_PORT"
+  fi
+  if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
+    export ENERGY_NODE_INSTALLER_STATE_DIR="$WORK/installer-state"
   fi
   go run -ldflags "-X main.buildVersion=${DASHBOARD_VERSION}" ./cmd/dashboard --config "$WORK/config.json"
 ) > "$WORK/dashboard.log" 2>&1 &
@@ -605,6 +663,53 @@ if [[ $SIMULATE_UPDATE -eq 1 ]]; then
     echo "  FEHL Update-Status meldet kein verfuegbares v9.9.9: ${status:-<keine Antwort>}" >&2
     FAILED=1
   fi
+fi
+
+# --simulate-package: derselbe Weg wie im Browser. Die Oberflaeche ruft
+# POST /redeploy/api/run mit mode "prepare", das Dashboard laedt das Bundle vom
+# Fake-GitHub in redeploy-candidate/, danach liest die Vorschau dessen Schritte
+# (GET /redeploy/api/plan). Der zweite Lauf muss den Download ueberspringen.
+# Am Ende wird das Verzeichnis wieder geleert: bei --keep soll der erste Klick
+# auf "Aktualisieren" im Browser das Herunterladen zeigen, nicht ein fertiges Paket.
+if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
+  CANDIDATE="$WORK/data/redeploy-candidate"
+  csrf="$(api "$BASE/api/v1/auth/session" | python3 -c 'import json,sys; print(json.load(sys.stdin)["csrf_token"])')"
+  start_prepare() {
+    api -H "X-CSRF-Token: $csrf" -H 'Content-Type: application/json' -X POST \
+      "$BASE/redeploy/api/run" -d '{"mode":"prepare"}' > /dev/null
+  }
+  echo "==> Paketbezug: Vorbereiten laedt das Bundle"
+  if start_prepare; then
+    for _ in $(seq 1 30); do
+      [[ -f "$CANDIDATE/manifest.json" ]] && break
+      sleep 1
+    done
+  fi
+  if [[ -f "$CANDIDATE/manifest.json" && -f "$CANDIDATE/manifest.json.sig" ]]; then
+    echo "  OK   Bundle liegt in redeploy-candidate/"
+  else
+    echo "  FEHL Bundle wurde nicht heruntergeladen (siehe $WORK/dashboard.log)"; FAILED=1
+  fi
+  check "Vorschau nennt Version und alle Schritte des heruntergeladenen Bundles" \
+    "data['bundle_version'] == 'v9.9.9' and [s['id'] for s in data['steps']] == ['10','20','30','40','50','60','65','70']" \
+    "$BASE/redeploy/api/plan"
+  check "Auswahl des Nodes gilt (optionaler Schritt 70 abgewaehlt)" \
+    "any(s['id'] == '70' and s['state'] == 'deselected' for s in data['steps'])" \
+    "$BASE/redeploy/api/plan"
+  check "Die Oberflaeche kennt jetzt das bereitliegende Paket" \
+    "data['auto_prepare'] is True and data['bundle_version'] == 'v9.9.9'" \
+    "$BASE/redeploy/api/bootstrap"
+  # Zweiter Lauf: gleiche Version, also kein zweiter Download.
+  before="$(stat -c %Y "$CANDIDATE/manifest.json")"
+  sleep 1
+  start_prepare || true
+  sleep 2
+  if [[ "$(stat -c %Y "$CANDIDATE/manifest.json")" == "$before" ]]; then
+    echo "  OK   gleiche Version wird nicht erneut heruntergeladen"
+  else
+    echo "  FEHL das Bundle wurde trotz gleicher Version neu geschrieben"; FAILED=1
+  fi
+  rm -rf "$CANDIDATE"
 fi
 
 check_history_exchange || FAILED=1

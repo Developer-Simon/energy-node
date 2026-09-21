@@ -139,11 +139,19 @@ func main() {
 		prepare = prepareFunc(&bundlefetch.Fetcher{Client: client, Arch: arch, DestDir: candidateDir})
 	}
 
+	// The installer's state directory. Fixed on a node; the override lets the
+	// smoke test (test/smoke) run the redeploy screens without root.
+	installerStateDir := "/var/lib/energy-node-installer"
+	jobDir := updaterjob.DefaultDir
+	if dir := os.Getenv("ENERGY_NODE_INSTALLER_STATE_DIR"); dir != "" {
+		installerStateDir = dir
+		jobDir = filepath.Join(dir, "job")
+	}
 	redeployHandler, err := buildRedeployHandler(redeployConfig{
 		candidateBundleDir:    candidateDir,
-		installedManifestPath: "/var/lib/energy-node-installer/installed-manifest.json",
-		selectionPath:         "/var/lib/energy-node-installer/selection.json",
-		jobDir:                updaterjob.DefaultDir,
+		installedManifestPath: filepath.Join(installerStateDir, "installed-manifest.json"),
+		selectionPath:         filepath.Join(installerStateDir, "selection.json"),
+		jobDir:                jobDir,
 		prepare:               prepare,
 	})
 	if err != nil {
