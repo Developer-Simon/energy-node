@@ -4,6 +4,7 @@ Ausfuehren mit `.venv/bin/pytest libs/energy_node_common/tests/test_service_mani
 """
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -51,7 +52,13 @@ def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
     manifest_path = service_dir / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
 
-    assert set(manifest) == {"service_id", "unit", "schema", "bootstrap_step", "required", "kind"}
+    assert set(manifest) == {
+        "service_id", "version", "unit", "schema", "bootstrap_step", "required", "kind",
+    }
+    # Jeder Dienst ist seit v0.4.0 eine eigene Versionskomponente; die Version
+    # steht hier als nackte Semver (ohne "v"), genau wie in der manifest.json
+    # der HA-Integration, und wird von scripts/version/bump-patch.sh gepflegt.
+    assert re.fullmatch(r"\d+\.\d+\.\d+", manifest["version"]), manifest["version"]
     assert manifest["kind"] == EXPECTED_KINDS[dir_name]
     assert manifest["bootstrap_step"] == EXPECTED_STEPS[dir_name]
     assert manifest["service_id"] == service_id
