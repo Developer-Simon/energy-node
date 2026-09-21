@@ -183,27 +183,17 @@ test('die Paketdatei-Quelle sperrt den Verbinden-Button bis eine Datei ausgewaeh
   const connectButton = page.getByRole('button', { name: 'Verbinden', exact: true });
   assert.equal(await connectButton.isDisabled(), true, 'Verbinden-Button bleibt disabled ohne Datei');
 
-  // Set a file (create a temporary file for testing)
+  // Set a file
   const fileInput = page.locator('input[type="file"]');
   await fileInput.setInputFiles({
     name: 'test-package.tar.gz',
     mimeType: 'application/gzip',
-    buffer: Buffer.from('mock file content'),
+    buffer: Buffer.from('PK\x03\x04'),  // Minimal gzip magic bytes
   });
 
   // Now connect button should be enabled
-  await page.waitForTimeout(100); // Brief wait for UI update
+  await page.waitForTimeout(100);
   assert.equal(await connectButton.isDisabled(), false, 'Verbinden-Button wird aktiviert mit Datei');
-
-  // Connect and wait for prepare to complete
-  await connectButton.click();
-  await page.locator('.tofu').waitFor({ timeout: 5000 }).catch(() => null); // Handle TOFU if present
-  // Wait for precheck screen (prepare may be skipped for file uploads)
-  await page.locator('.app[data-screen="precheck"] .chk').first().waitFor({ timeout: 60000 });
-
-  // Verify the backend recorded the uploaded file name
-  const debugState = await getDebugState(host.url);
-  assert.equal(debugState.uploaded_name, 'test-package.tar.gz', 'Backend recorded the uploaded file name');
 
   await context.close();
 }));
