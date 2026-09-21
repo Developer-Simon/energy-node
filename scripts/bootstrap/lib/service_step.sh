@@ -82,7 +82,14 @@ service_step() {
     "${EN_ROOT}/etc/systemd/system/${unit}" || { rm -f "${rendered}"; step_fail SERVICE_UNIT_FAILED; }
   rm -f "${rendered}"
   "${SUDO[@]}" systemctl daemon-reload
-  "${SUDO[@]}" systemctl enable --now "${unit}" || step_fail SERVICE_START_FAILED
+  # enable + restart statt enable --now: --now startet nur eine gestoppte
+  # Unit. Bei einem Update laeuft sie schon mit dem alten Python-Code im
+  # Speicher und muss neu starten. restart startet eine gestoppte Unit
+  # ebenfalls, der Ablauf ist also fuer Erstinstallation und Update derselbe.
+  # Der Koerper laeuft nur einmal je Bundle-Version (step_done), das ist
+  # also ein Neustart je Update, nicht je Lauf.
+  "${SUDO[@]}" systemctl enable "${unit}" || step_fail SERVICE_START_FAILED
+  "${SUDO[@]}" systemctl restart "${unit}" || step_fail SERVICE_START_FAILED
 
   step_log "Dienst ${dir} eingerichtet (${unit})."
   step_ok

@@ -118,6 +118,9 @@ grep -q 'nach /home/energynode fuer energynode' "$job/log" \
   || fail "target user/base did not come from the manifest: $(cat "$job/log")"
 grep -q 'sudo=\[\]' "$job/log" || fail "steps must run with EN_SUDO empty: $(cat "$job/log")"
 grep -q '"result":"ok"' "$job/status.json" || fail "status.json must report ok: $(cat "$job/status.json")"
+cmp -s "$fixture/manifest.json" "$job/state/installed-manifest.json" \
+  || fail "installed-manifest.json must be a copy of the applied manifest: $(cat "$job/state/installed-manifest.json" 2>&1)"
+[ ! -e "$job/state/installed-manifest.json.tmp" ] || fail "the .tmp file must not be left behind"
 
 # --- zweiter Fall: die Signatur ist ungueltig -----------------------------
 job2="$tmp/job2"
@@ -131,6 +134,7 @@ if [ -f "$job2/log" ] && grep -q '##STEP' "$job2/log"; then
 fi
 grep -q '"result":"rejected"' "$job2/status.json" || fail "status.json must report rejected: $(cat "$job2/status.json")"
 grep -q '"code":"BUNDLE_SIGNATURE_INVALID"' "$job2/status.json" || fail "status.json must carry the fault code"
+[ ! -e "$job2/state/installed-manifest.json" ] || fail "a rejected bundle must not be recorded as installed"
 accept_bundle
 
 # --- dritter Fall: eine Kennung, die das gepruefte Manifest nicht kennt ---
@@ -151,6 +155,7 @@ fi
 [ ! -e "$tmp/PWNED" ] || fail "a crafted step id reached a script outside the bundle"
 grep -q '"code":"STEP_NOT_IN_MANIFEST"' "$job3/status.json" \
   || fail "status.json must name the rejected step id: $(cat "$job3/status.json")"
+[ ! -e "$job3/state/installed-manifest.json" ] || fail "a failed job must not be recorded as installed"
 
 # --- vierter Fall: ein Auftrag ohne Schritte darf nicht "ok" melden -------
 job4="$tmp/job4"

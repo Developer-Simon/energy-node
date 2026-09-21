@@ -334,5 +334,18 @@ for id in "${step_ids[@]}"; do
   fi
 done
 
+# Erst jetzt gilt das Bundle als vollstaendig angewandt: plan.sh liest diese
+# Kopie als "von" der Komponenten, und ein halb angewandtes Bundle darf dort
+# nicht als Ausgangsstand stehen. Atomar (.tmp + mv), damit ein Abbruch
+# mitten im Schreiben nie eine halbe Datei hinterlaesst. Scheitert nur das
+# Ablegen, laufen die Schritte trotzdem als erledigt (sie sind idempotent);
+# der Auftrag soll deshalb nicht als fehlgeschlagen gelten.
+installed="${STATE_DIR}/installed-manifest.json"
+if ! { install -m 0644 "${BUNDLE}/manifest.json" "${installed}.tmp" \
+       && mv -f "${installed}.tmp" "${installed}"; }; then
+  rm -f "${installed}.tmp"
+  log_line "WARN INSTALLED_MANIFEST_FAILED"
+fi
+
 write_status "ok" "" ""
 exit 0

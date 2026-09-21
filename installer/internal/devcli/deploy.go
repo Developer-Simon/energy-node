@@ -37,6 +37,7 @@ var (
 	verifyBundleLocalDev      = bundle.VerifyDev
 	verifyBundleRemoteDev     = bundle.VerifyRemoteDev
 	provisionRemoteStateDir   = defaultProvisionRemoteStateDir
+	recordInstalled           = steps.RecordInstalled
 )
 
 // DeployArgs configures one call to RunDeploy: which node, which repo
@@ -158,7 +159,17 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		OnMarker:        func(m steps.Marker) { printMarker(args.Stdout, m) },
 		OnLog:           func(stepID, line string) { fmt.Fprintf(args.Stdout, "[%s] %s\n", stepID, line) },
 	})
-	return translateStepFailure(err)
+	if err != nil {
+		return translateStepFailure(err)
+	}
+	// Only a full run makes the node "at this bundle version"; --only leaves
+	// the other steps untouched. See steps.RecordInstalled.
+	if args.Only == "" {
+		if err := recordInstalled(ctx, args.Client, DefaultRemoteBundleDir, DefaultRemoteStateDir); err != nil {
+			fmt.Fprintf(args.Stdout, "warning: could not record installed-manifest.json: %v\n", err)
+		}
+	}
+	return nil
 }
 
 // verifyLocal picks the signed or unsigned local verifier: the default path
