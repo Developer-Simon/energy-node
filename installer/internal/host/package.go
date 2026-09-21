@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
@@ -20,11 +21,34 @@ import (
 // Die Nahtstellen zum Node; Tests ersetzen sie, weil sie SSH brauchen.
 var (
 	detectMachine = defaultDetectMachine
-	stageBundle   = func(ctx context.Context, c *transport.Client, archive, remoteDir string) error {
-		return bundle.Deploy(ctx, c, archive, remoteDir)
+	stageBundle   = func(ctx context.Context, c *transport.Client, archive, remoteDir string, onProgress func(done, total int64)) error {
+		return bundle.DeployProgress(ctx, c, archive, remoteDir, onProgress)
 	}
 	verifyStaged = defaultVerifyStaged
 )
+
+// uploadProgress turns byte counts into one note per 5 % step, so the UI
+// shows movement without a message for every 32 KiB packet.
+func uploadProgress(notef func(string, map[string]string)) func(done, total int64) {
+	lastStep := 0
+	return func(done, total int64) {
+		if total <= 0 {
+			return
+		}
+		step := int(done * 20 / total) // 0..20, one per 5 %
+		if step <= lastStep {
+			return
+		}
+		lastStep = step
+		notef("package.log.upload_progress", map[string]string{
+			"percent": strconv.Itoa(step * 5),
+			"done":    megabytes(done),
+			"total":   megabytes(total),
+		})
+	}
+}
+
+func megabytes(n int64) string { return fmt.Sprintf("%.1f", float64(n)/(1<<20)) }
 
 func defaultDetectMachine(ctx context.Context, c *transport.Client) (string, error) {
 	var stdout, stderr strings.Builder
@@ -223,7 +247,7 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
 	logf("Paket auf das Geraet uebertragen")
-	if err := stageBundle(ctx, client, archive, h.cfg.RemoteBundleDir); err != nil {
+	if err := stageBundle(ctx, client, archive, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
 	logf("Paket auf dem Geraet pruefen")

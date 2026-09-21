@@ -118,6 +118,7 @@
   "package.log.detect_arch": "Prozessorarchitektur des Geräts ermitteln",
   "package.log.download": "Lade {name}",
   "package.log.github_search": "Suche das neueste Release für {arch}",
+  "package.log.upload_progress": "Übertrage auf das Gerät: {percent} % ({done} von {total} MB)",
   "prepare.done": "Das Paket liegt auf dem Gerät und ist geprüft.",
   "prepare.failed": "Das Paket konnte nicht vorbereitet werden.",
   "prepare.heading": "Paket vorbereiten",

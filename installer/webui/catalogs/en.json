@@ -118,6 +118,7 @@
   "package.log.detect_arch": "Detecting the device's processor architecture",
   "package.log.download": "Downloading {name}",
   "package.log.github_search": "Looking for the newest release for {arch}",
+  "package.log.upload_progress": "Uploading to the device: {percent} % ({done} of {total} MB)",
   "prepare.done": "The package is on the device and has been verified.",
   "prepare.failed": "The package could not be prepared.",
   "prepare.heading": "Prepare package",

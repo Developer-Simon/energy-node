@@ -41,8 +41,10 @@ func stubSeams(t *testing.T, machine string) *staged {
 	rec := &staged{}
 	detectMachine = func(context.Context, *transport.Client) (string, error) { return machine, nil }
 	provisionRemoteStateDir = func(context.Context, *transport.Client, string) error { return nil }
-	stageBundle = func(_ context.Context, _ *transport.Client, archive, remoteDir string) error {
+	stageBundle = func(_ context.Context, _ *transport.Client, archive, remoteDir string, onProgress func(done, total int64)) error {
 		rec.archive, rec.remoteDir = archive, remoteDir
+		onProgress(50, 100)
+		onProgress(100, 100)
 		if _, err := os.Stat(archive); err != nil {
 			return err
 		}
@@ -213,5 +215,45 @@ func TestPrepareBundledEmitsTranslatedNoteKeys(t *testing.T) {
 			strings.Contains(line, "liegt bereits") {
 			t.Errorf("sink.logs contains German prepare text: %q", line)
 		}
+	}
+}
+
+func TestUploadProgressNotesEveryFivePercentOnceAndEndsAtOneHundred(t *testing.T) {
+	var got []map[string]string
+	report := uploadProgress(func(key string, args map[string]string) {
+		if key != "package.log.upload_progress" {
+			t.Errorf("key = %s", key)
+		}
+		got = append(got, args)
+	})
+	const total = 10 << 20
+	for done := int64(0); done <= total; done += 64 << 10 { // 64 KiB reads
+		report(done, total)
+	}
+	report(total, total) // a repeated final call must not repeat the note
+	if len(got) != 20 {
+		t.Fatalf("got %d notes, want 20 (5%% steps): %v", len(got), got)
+	}
+	last := got[len(got)-1]
+	if last["percent"] != "100" || last["done"] != "10.0" || last["total"] != "10.0" {
+		t.Errorf("last note = %v, want 100 %% of 10.0 MB", last)
+	}
+	if got[0]["percent"] != "5" {
+		t.Errorf("first note = %v, want 5 %%", got[0])
+	}
+}
+
+func TestPrepareReportsTheUploadProgress(t *testing.T) {
+	stubSeams(t, "armv6l")
+	sink := &recordingSink{}
+	if err := hostWithBundled(t).Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	found := false
+	for _, n := range sink.notes {
+		found = found || n == "package:package.log.upload_progress"
+	}
+	if !found {
+		t.Errorf("notes = %v, want an upload_progress note", sink.notes)
 	}
 }

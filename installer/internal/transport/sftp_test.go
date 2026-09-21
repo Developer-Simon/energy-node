@@ -131,3 +131,43 @@ func TestDownloadFileReportsAMissingRemoteFile(t *testing.T) {
 		t.Fatalf("expected an error for a missing remote file")
 	}
 }
+
+func TestUploadFileProgressReportsEveryByteAndKeepsContent(t *testing.T) {
+	requireSFTPServer(t)
+	sshd := transporttest.Start(t)
+	client := dialTestSSHD(t, sshd)
+
+	payload := bytes.Repeat([]byte("0123456789abcdef"), 512*1024) // 8 MiB, several SFTP packets
+	local := filepath.Join(t.TempDir(), "bundle.tar.gz")
+	if err := os.WriteFile(local, payload, 0o600); err != nil {
+		t.Fatalf("writing local fixture: %v", err)
+	}
+	remotePath := "/tmp/energy-node-installer-test/progress.bin"
+	t.Cleanup(func() { _ = client.RemoveRemote(remotePath) })
+
+	var last, total int64
+	calls := 0
+	err := client.UploadFileProgress(local, remotePath, 0o600, func(done, size int64) {
+		if done < last {
+			t.Errorf("progress went backwards: %d after %d", done, last)
+		}
+		last, total = done, size
+		calls++
+	})
+	if err != nil {
+		t.Fatalf("UploadFileProgress: %v", err)
+	}
+	if last != int64(len(payload)) || total != int64(len(payload)) || calls < 2 {
+		t.Fatalf("progress ended at %d/%d after %d calls, want %d/%d over several calls", last, total, calls, len(payload), len(payload))
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	var sum bytes.Buffer
+	if err := client.Run(ctx, "wc -c < "+remotePath, &sum, &bytes.Buffer{}); err != nil {
+		t.Fatalf("wc: %v", err)
+	}
+	if got := trimNewline(sum.String()); got != "8388608" {
+		t.Fatalf("remote size = %s, want 8388608", got)
+	}
+}

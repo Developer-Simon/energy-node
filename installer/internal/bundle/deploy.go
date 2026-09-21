@@ -63,8 +63,14 @@ func stagingTag(remoteDir string) string {
 // archive, so it cannot by itself catch a bundle whose entire contents,
 // script included, were forged together.
 func Deploy(ctx context.Context, client *transport.Client, localArchivePath, remoteDir string) error {
+	return DeployProgress(ctx, client, localArchivePath, remoteDir, nil)
+}
+
+// DeployProgress is Deploy that reports the archive upload's progress
+// (bytes sent, archive size); onProgress may be nil.
+func DeployProgress(ctx context.Context, client *transport.Client, localArchivePath, remoteDir string, onProgress func(done, total int64)) error {
 	remoteArchive := fmt.Sprintf("/tmp/energy-node-installer-bundle-%s-%s.tar.gz", stagingTag(remoteDir), randomSuffix())
-	if err := client.UploadFile(localArchivePath, remoteArchive, 0o600); err != nil {
+	if err := client.UploadFileProgress(localArchivePath, remoteArchive, 0o600, onProgress); err != nil {
 		return fmt.Errorf("uploading bundle archive: %w", err)
 	}
 	defer client.RemoveRemote(remoteArchive)

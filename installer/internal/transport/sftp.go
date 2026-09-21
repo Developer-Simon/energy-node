@@ -16,12 +16,48 @@ import (
 // explicitly -- SFTP's default create mode depends on the server's umask,
 // which must not be trusted for files that will hold secrets.
 func (c *Client) UploadFile(localPath, remotePath string, mode os.FileMode) error {
+	return c.UploadFileProgress(localPath, remotePath, mode, nil)
+}
+
+// UploadFileProgress is UploadFile that reports how many bytes have been
+// written so far and the file's total size. onProgress may be nil; it is
+// called from the copy loop, so it must return quickly. With concurrent
+// writes the callback can be invoked from several goroutines, but done only
+// ever grows.
+func (c *Client) UploadFileProgress(localPath, remotePath string, mode os.FileMode, onProgress func(done, total int64)) error {
 	local, err := os.Open(localPath)
 	if err != nil {
 		return fmt.Errorf("opening %s: %w", localPath, err)
 	}
 	defer local.Close()
-	return c.uploadReader(local, remotePath, mode)
+	var reader io.Reader = local
+	if onProgress != nil {
+		info, err := local.Stat()
+		if err != nil {
+			return fmt.Errorf("reading size of %s: %w", localPath, err)
+		}
+		reader = &progressReader{r: local, total: info.Size(), onProgress: onProgress}
+	}
+	return c.uploadReader(reader, remotePath, mode)
+}
+
+// progressReader counts the bytes read through it. Reads come from one
+// goroutine (sftp's concurrent writer reads sequentially and fans the chunks
+// out), so no locking is needed.
+type progressReader struct {
+	r          io.Reader
+	total      int64
+	done       int64
+	onProgress func(done, total int64)
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	if n > 0 {
+		p.done += int64(n)
+		p.onProgress(p.done, p.total)
+	}
+	return n, err
 }
 
 // UploadBytes writes data to remotePath -- for content that only exists in
@@ -31,7 +67,9 @@ func (c *Client) UploadBytes(data []byte, remotePath string, mode os.FileMode) e
 }
 
 func (c *Client) uploadReader(r io.Reader, remotePath string, mode os.FileMode) error {
-	client, err := sftp.NewClient(c.conn)
+	// Without concurrent writes every 32 KiB packet waits for its
+	// acknowledgement, so a high-latency link (Tailscale, Wi-Fi) crawls.
+	client, err := sftp.NewClient(c.conn, sftp.UseConcurrentWrites(true))
 	if err != nil {
 		return fmt.Errorf("opening SFTP session: %w", err)
 	}
