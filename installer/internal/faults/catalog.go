@@ -21,42 +21,100 @@ type Code string
 // Die bekannten Codes. Quelle: die "Fehlercodes"-Zeilen der Plaene A-I/A-II
 // und die fuenf Bundle-Codes aus Plan B-I.
 const (
-	CodeBundleManifestMissing  Code = "BUNDLE_MANIFEST_MISSING"
-	CodeBundleSignatureInvalid Code = "BUNDLE_SIGNATURE_INVALID"
-	CodeBundleHashMismatch     Code = "BUNDLE_HASH_MISMATCH"
-	CodeArchMismatch           Code = "ARCH_MISMATCH"
-	CodePythonABIMismatch      Code = "PYTHON_ABI_MISMATCH"
-	CodeAptFailed              Code = "APT_FAILED"
-	CodeMosquittoArgsMissing   Code = "MOSQUITTO_ARGS_MISSING"
-	CodeMosquittoConfigInvalid Code = "MOSQUITTO_CONFIG_INVALID"
-	CodeMQTTConfigUnreadable   Code = "MQTT_CONFIG_UNREADABLE"
-	CodeUFWMissing             Code = "UFW_MISSING"
-	CodePipExternallyManaged   Code = "PIP_EXTERNALLY_MANAGED"
-	CodeWheelMissing           Code = "WHEEL_MISSING"
-	CodeTailscaleFlagInvalid   Code = "TAILSCALE_FLAG_INVALID"
-	CodeCaddyValidateFailed    Code = "CADDY_VALIDATE_FAILED"
-	CodeUnitStartFailed        Code = "UNIT_START_FAILED"
-	CodeConfigExists           Code = "CONFIG_EXISTS"
-	CodeSudoRequired           Code = "SUDO_REQUIRED"
+	CodeBundleManifestMissing   Code = "BUNDLE_MANIFEST_MISSING"
+	CodeBundleSignatureInvalid  Code = "BUNDLE_SIGNATURE_INVALID"
+	CodeBundleHashMismatch      Code = "BUNDLE_HASH_MISMATCH"
+	CodeArchMismatch            Code = "ARCH_MISMATCH"
+	CodePythonABIMismatch       Code = "PYTHON_ABI_MISMATCH"
+	CodeAptFailed               Code = "APT_FAILED"
+	CodeMosquittoArgsMissing    Code = "MOSQUITTO_ARGS_MISSING"
+	CodeMosquittoConfigInvalid  Code = "MOSQUITTO_CONFIG_INVALID"
+	CodeMQTTConfigUnreadable    Code = "MQTT_CONFIG_UNREADABLE"
+	CodeUFWMissing              Code = "UFW_MISSING"
+	CodePipExternallyManaged    Code = "PIP_EXTERNALLY_MANAGED"
+	CodeWheelMissing            Code = "WHEEL_MISSING"
+	CodeTailscaleFlagInvalid    Code = "TAILSCALE_FLAG_INVALID"
+	CodeCaddyValidateFailed     Code = "CADDY_VALIDATE_FAILED"
+	CodeUnitStartFailed         Code = "UNIT_START_FAILED"
+	CodeConfigExists            Code = "CONFIG_EXISTS"
+	CodeSudoRequired            Code = "SUDO_REQUIRED"
+	CodeAptInstallFailed        Code = "APT_INSTALL_FAILED"
+	CodeAptUpdateFailed         Code = "APT_UPDATE_FAILED"
+	CodeBundleIncomplete        Code = "BUNDLE_INCOMPLETE"
+	CodeCaddyBinaryMissing      Code = "CADDY_BINARY_MISSING"
+	CodeCaddyConfigInvalid      Code = "CADDY_CONFIG_INVALID"
+	CodeCaddyStartFailed        Code = "CADDY_START_FAILED"
+	CodeConfigJsonMissing       Code = "CONFIG_JSON_MISSING"
+	CodeConfigTemplateMissing   Code = "CONFIG_TEMPLATE_MISSING"
+	CodeConfigWriteFailed       Code = "CONFIG_WRITE_FAILED"
+	CodeDashboardBinaryMissing  Code = "DASHBOARD_BINARY_MISSING"
+	CodeDashboardStartFailed    Code = "DASHBOARD_START_FAILED"
+	CodeManifestsMissing        Code = "MANIFESTS_MISSING"
+	CodeManifestMissing         Code = "MANIFEST_MISSING"
+	CodeManifestParseFailed     Code = "MANIFEST_PARSE_FAILED"
+	CodeMosquittoConfForeign    Code = "MOSQUITTO_CONF_FOREIGN"
+	CodeMosquittoPasswdFailed   Code = "MOSQUITTO_PASSWD_FAILED"
+	CodePipInstallFailed        Code = "PIP_INSTALL_FAILED"
+	CodeSecretFileMissing       Code = "SECRET_FILE_MISSING"
+	CodeSelectionUnreadable     Code = "SELECTION_UNREADABLE"
+	CodeServiceSourceMissing    Code = "SERVICE_SOURCE_MISSING"
+	CodeServiceStartFailed      Code = "SERVICE_START_FAILED"
+	CodeServiceUnitFailed       Code = "SERVICE_UNIT_FAILED"
+	CodeSudoersInvalid          Code = "SUDOERS_INVALID"
+	CodeTailscaleInstallFailed  Code = "TAILSCALE_INSTALL_FAILED"
+	CodeTailscaleTarballMissing Code = "TAILSCALE_TARBALL_MISSING"
+	CodeTargetInvalid           Code = "TARGET_INVALID"
+	CodeUfwFailed               Code = "UFW_FAILED"
+	CodeUpdaterPathStartFailed  Code = "UPDATER_PATH_START_FAILED"
+	CodeWheelsMissing           Code = "WHEELS_MISSING"
 )
 
 var allCodes = []Code{
-	CodeArchMismatch,
 	CodeAptFailed,
+	CodeAptInstallFailed,
+	CodeAptUpdateFailed,
+	CodeArchMismatch,
 	CodeBundleHashMismatch,
+	CodeBundleIncomplete,
 	CodeBundleManifestMissing,
 	CodeBundleSignatureInvalid,
+	CodeCaddyBinaryMissing,
+	CodeCaddyConfigInvalid,
+	CodeCaddyStartFailed,
 	CodeCaddyValidateFailed,
 	CodeConfigExists,
+	CodeConfigJsonMissing,
+	CodeConfigTemplateMissing,
+	CodeConfigWriteFailed,
+	CodeDashboardBinaryMissing,
+	CodeDashboardStartFailed,
+	CodeManifestsMissing,
+	CodeManifestMissing,
+	CodeManifestParseFailed,
 	CodeMosquittoArgsMissing,
 	CodeMosquittoConfigInvalid,
+	CodeMosquittoConfForeign,
+	CodeMosquittoPasswdFailed,
 	CodeMQTTConfigUnreadable,
 	CodePipExternallyManaged,
+	CodePipInstallFailed,
 	CodePythonABIMismatch,
+	CodeSecretFileMissing,
+	CodeSelectionUnreadable,
+	CodeServiceSourceMissing,
+	CodeServiceStartFailed,
+	CodeServiceUnitFailed,
+	CodeSudoersInvalid,
 	CodeSudoRequired,
 	CodeTailscaleFlagInvalid,
+	CodeTailscaleInstallFailed,
+	CodeTailscaleTarballMissing,
+	CodeTargetInvalid,
+	CodeUfwFailed,
 	CodeUFWMissing,
 	CodeUnitStartFailed,
+	CodeUpdaterPathStartFailed,
+	CodeWheelsMissing,
 	CodeWheelMissing,
 }
 
