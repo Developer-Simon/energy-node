@@ -121,8 +121,26 @@ set -e
 [ "$rc" -eq 1 ] || fail "ungueltige Konfiguration nicht abgelehnt" "$rc"
 grep -q '^##STEP 70 fail CADDY_CONFIG_INVALID$' <<<"$out" || fail "falscher Code" "$out"
 
+# --- Bundle ohne Caddy-Beipack, aber Caddy ist schon da --------------------
+# Ein aus dem Repo gebautes Bundle traegt das Beipack nur mit --caddy-binary.
+# Ein Node, dessen Caddy vom Paketmanager stammt, braucht es nicht: der Schritt
+# darf dann nicht an dem fehlenden Binary scheitern, sondern bewahrt das
+# vorhandene und prueft nur die Konfiguration.
+rm -rf "$bundle/caddy" "$bundle/dashboard/Caddyfile"
+installed_caddy "v2.6.2 h1:debian"
+: > "$CADDY_LOG"; : > "$SYSTEMCTL_LOG"
+out="$(DPKG_RC=0 bash "$script")" || fail "vorhandenes Caddy ohne Beipack: Abbruch" "$out"
+grep -q '^##STEP 70 ok$' <<<"$out" || fail "vorhandenes Caddy ohne Beipack: kein ok-Marker" "$out"
+grep -q '# vorhandenes caddy' "$tmp/root/usr/bin/caddy" || fail "vorhandenes Caddy wurde angefasst"
+grep -q 'caddy validate' "$CADDY_LOG" || fail "ohne Beipack keine Validierung" "$(cat "$CADDY_LOG")"
+grep -q 'systemctl enable --now caddy' "$SYSTEMCTL_LOG" || fail "ohne Beipack kein enable --now"
+grep -qx ':443 {' "$caddyfile" || fail "vorhandene Caddyfile veraendert"
+mkdir -p "$bundle/caddy" "$bundle/dashboard"
+printf ':443 {\n  tls internal\n}\n' > "$bundle/dashboard/Caddyfile"
+
 # --- fehlendes Beipack ----------------------------------------------------
-rm -rf "$tmp/state" "$bundle/caddy"
+# Ohne vorhandenes Caddy hat der Node nichts, was den Schritt tragen koennte.
+rm -rf "$tmp/state" "$tmp/root" "$bundle/caddy"
 set +e
 out="$(bash "$script")"
 set -e
