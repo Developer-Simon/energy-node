@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.7.5 (2026-09-21)
+## v0.7.6 (2026-09-21)
 
 ### Features
 
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
+- **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
 - **updater:** take the target from the root-owned target.json for user-independent bundles (e3813fc)
 - **dashboard:** add a GitHub release client that finds and downloads the node bundle (0493264)
 - **dashboard:** extract, validate and atomically install a downloaded bundle (e0896ae)

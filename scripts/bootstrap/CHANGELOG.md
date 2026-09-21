@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.6 (2026-09-21)
+## v0.1.7 (2026-09-21)
 
 ### Features
 
@@ -9,6 +9,7 @@
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
 - **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
+- **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
 
 ### Fixes
 
