@@ -5,6 +5,7 @@
 ### Fixes
 
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
+- **dashboard:** stop duplicate energy card mounts from fighting over springs (85e8ce0)
 
 ## v0.7.1 (2026-09-21)
 

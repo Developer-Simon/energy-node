@@ -311,3 +311,44 @@ test('publish() traegt tote Karten aus', () => {
   presentation.publish({ values: { pv: 900 } });
   assert.equal(applied.length, 1);
 });
+
+// x-init="init()" plus Alpines eigener init()-Aufruf montiert jede
+// Energiekarte zweimal unter demselben Schluessel, und die Karte behaelt nur
+// den zweiten presenter (this.presenter wird ueberschrieben). Die erste
+// Montage bleibt am Leben, solange die Kachel im Dokument steht, bekommt aber
+// keinen publish() mehr: ihr Ziel veraltet. Nach einem Seitenwechsel stehen
+// die Federn noch auf dem alten Stand, beide Montagen starten in Bewegung
+// und ziehen dieselben Federn zu zwei verschiedenen Zielen - sie schwingen
+// nie ein, die Bildschleife laeuft dauernd, und die Karte zeichnet mit
+// veralteten Nebenfeldern gegen die frischen an.
+test('eine zweite Montage unter demselben Schluessel loest die erste ab', () => {
+  const { presentation, state } = loadWithClock();
+  const drawnByFirst = [];
+  const drawnBySecond = [];
+  const mount = (raw, sink) => presentation.present({
+    key: 'doppelt', raw, reducedMotion: false, alive: () => true, apply: presented => sink.push(presented.values.pv),
+  });
+
+  // Die Karte stand auf einer anderen Seite mit 2000 W auf dem Schirm.
+  mount({ values: { pv: 2000 } }, []).release();
+
+  // Zurueck auf die Seite: der eingebettete Schnappschuss zeigt 1000 W, und
+  // init() laeuft zweimal.
+  const embedded = { values: { pv: 1000 } };
+  mount(embedded, drawnByFirst);
+  mount(embedded, drawnBySecond);
+
+  // Der SSE-Push erreicht nur die zuletzt angemeldete Karte.
+  presentation.publish({ values: { pv: 1500 } });
+
+  const drawnByFirstBefore = drawnByFirst.length;
+  let frames = 0;
+  while (state.frames.length && frames < 600) {
+    state.now += 16;
+    state.frames.shift()();
+    frames += 1;
+  }
+  assert.ok(frames < 600, 'die Bildschleife muss anhalten, sobald die Federn eingeschwungen sind');
+  assert.equal(drawnByFirst.length, drawnByFirstBefore, 'die abgeloeste Montage darf nicht mehr zeichnen');
+  assert.equal(drawnBySecond[drawnBySecond.length - 1], 1500, 'die aktuelle Montage schwingt auf den gepushten Wert ein');
+});

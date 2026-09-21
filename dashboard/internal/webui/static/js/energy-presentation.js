@@ -283,7 +283,17 @@
     };
     // Eine zweite Montage unter demselben Schluessel loest die erste ab -
     // beim Fragment-Tausch entsteht die neue Karte, bevor die alte ihr
-    // release() bekommt.
+    // release() bekommt, und x-init="init()" plus Alpines eigener init()-
+    // Aufruf montieren jede Karte ohnehin zweimal.
+    //
+    // Ablösen heisst freigeben, nicht nur austragen: die erste Montage teilt
+    // sich mit der zweiten die Federn in stateFor(key), behaelt aber ihr
+    // eigenes Ziel und bekommt keinen publish() mehr. Bliebe sie in
+    // `instances`, zoege sie die Federn nach jedem Datenwechsel zu ihrem
+    // veralteten Ziel zurueck, waehrend die zweite sie zum aktuellen zieht -
+    // beide schwingen nie ein, die Bildschleife liefe dauernd.
+    const superseded = subscribers.get(key);
+    if (superseded) superseded.release();
     subscribers.set(key, api);
     return api;
   }
