@@ -61,6 +61,7 @@ type Bootstrap struct {
 	Languages       []string     `json:"languages"`
 	BasePath        string       `json:"base_path"`
 	Package         *PackageInfo `json:"package,omitempty"`
+	AutoPrepare     bool         `json:"auto_prepare,omitempty"`
 }
 
 // New baut den Server und registriert alle Routen.
@@ -195,6 +196,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		Languages:       s.opts.Catalogs.Languages(),
 		BasePath:        s.opts.BasePath,
 		Package:         description.Package,
+		AutoPrepare:     description.AutoPrepare,
 	})
 }
 
