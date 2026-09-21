@@ -79,9 +79,16 @@ the changelog targets are the `<target>` arguments of
 | `energy_node_common` | `libs/energy_node_common/VERSION` | `libs/energy_node_common/CHANGELOG.md` | `common` |
 | `battery_soc_core` | `libs/battery_soc_core/VERSION` | `libs/battery_soc_core/CHANGELOG.md` | `battery_soc_core` |
 | HA integration | `integrations/homeassistant/.../manifest.json` (`version`) | `integrations/homeassistant/CHANGELOG.md` | `ha-integration` |
-| Bootstrap | `scripts/bootstrap/VERSION` | — | — |
-| Installer | `installer/VERSION` | — | — |
-| Installer web UI | `installer/webui/VERSION` | — | — |
+| Bootstrap | `scripts/bootstrap/VERSION` | `scripts/bootstrap/CHANGELOG.md` | `bootstrap` |
+| Installer | `installer/VERSION` | `installer/CHANGELOG.md` | `installer` |
+| Installer web UI | `installer/webui/VERSION` | `installer/webui/CHANGELOG.md` | `installer-webui` |
+
+`scripts/version/components.json` carries the same components with a display
+label, a kind and a `bundle` flag (does it ship in the release bundle). It
+exists for tooling that needs those three facts — `changelog.json` in the bundle
+reads it. A test (`scripts/tests/test_components_table.py`) fails when it drifts
+from `components.sh`, the generator targets or the workflow's
+`CHANGELOG_TARGETS`, so a new component has to be added to all of them.
 
 Notes:
 
@@ -97,8 +104,6 @@ Notes:
   generator needs a version for them.
 * Work inside one service bumps only that service. Work directly under
   `services/` (shared config, shared tests) bumps only `services/VERSION`.
-* Bootstrap, installer and installer web UI have a version but no changelog
-  target yet — see the cleanup proposal list.
 
 ## One-time setup: the `BUMP_TOKEN` secret
 
