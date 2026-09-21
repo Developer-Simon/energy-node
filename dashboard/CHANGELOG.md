@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.4 (2026-09-21)
+## v0.7.5 (2026-09-21)
 
 ### Features
 
@@ -9,10 +9,11 @@
 
 ### Fixes
 
+- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
+- **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
 - **dashboard:** implement the new hostapi.Sink.Message method (8ae6af3)
-- **dashboard:** stop duplicate energy card mounts from fighting over springs (85e8ce0)
 
 ## v0.7.1 (2026-09-21)
 
@@ -26,7 +27,6 @@
 ### Documentation
 
 - **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
-- **installer:** add an end-user installer page and refresh the developer page (31acec4)
 
 ## v0.7.0 (2026-09-16)
 
@@ -88,11 +88,11 @@
 
 ### Features
 
+- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
+- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **installer:** polish for the installer webui (#30) (05d424b)
-- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
 - **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
-- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
 
 ### Documentation
 
@@ -102,6 +102,7 @@
 
 ### Features
 
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
@@ -116,10 +117,10 @@
 
 ### Fixes
 
+- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 - **dashboard:** keep the generated config schema in sync with its source (38d5d6d)
 - **dashboard:** forward-compatible schema, close automations fragment gap (6549e38)
-- **dashboard:** keep MQTT settings steppers from overflowing narrow cards (65eb162)
 - **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
 
@@ -140,7 +141,6 @@
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
 - **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (3ac68ef)
 - **nodeagent:** add injectable system-metric readers (547d1f3)
 - **nodeagent:** build the energy_node HA discovery and state payloads (acdd553)
 - **⚠ Breaking:** move node telemetry into the dashboard, delete the energy-node service (540eac6)
@@ -156,7 +156,6 @@
 ### Fixes
 
 - **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
-- **dashboard:** finish the config.json v1 -> v2 migration path (89252c9)
 - **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
 - **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
 - **nodeagent:** address task-6 review findings (ee8e3c4)
@@ -194,37 +193,6 @@
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
-
-## v0.6.0 (2026-09-10)
-
-### Features
-
-- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
-
-## v0.5.26 (2026-09-10)
-
-### Features
-
-- **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
-- make device services self-describing with per-service manifests (#12) (2e8c911)
-- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
-- **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
-- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
-
-### Fixes
-
-- **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
-
-### Refactors
-
-- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
-- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
-
-### CI
-
-- **version-bump:** refresh component changelogs on the PR branch (#11) (6326afb)
-- path-filter the workflow and flag breaking changes in the changelog (#15) (5282452)
-- skip Markdown-only diffs and gate the job set on the version bump (#17) (9446219)
 
 ## v0.5.18 (2026-09-07)
 

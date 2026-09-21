@@ -1,21 +1,19 @@
 # Changelog
 
-## v0.3.4 (2026-09-21)
-
-### Fixes
-
-- **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
-- **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
-
-## v0.3.4 (2026-09-21)
+## v0.3.4 (2026-09-20)
 
 ### Features
 
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
 - **installer:** open the UI in an embedded system WebView (Part C2) (#35) (84bdc7a)
 
 ### Fixes
 
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
+- **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
+- **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 
 ### Documentation
@@ -58,14 +56,14 @@
 
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
 
-## v0.3.0 (2026-09-11)
+## v0.3.0 (2026-09-10)
 
 ### Features
 
+- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **deploy:** deliver service manifests, fix changelog bump ordering (#22) (a1f6ec6)
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
-- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - make device services self-describing with per-service manifests (#12) (2e8c911)
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
@@ -122,13 +120,7 @@
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
 
-## v0.3.0 (2026-09-10)
-
-### Features
-
-- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
-
-## v0.2.10 (2026-09-10)
+## v0.2.10 (2026-09-09)
 
 ### Features
 

@@ -1,34 +1,25 @@
 # Changelog
 
-## v0.4.5 (2026-09-21)
+## v0.4.5 (2026-09-15)
+
+### Features
+
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **installer:** polish for the installer webui (#30) (05d424b)
+- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
+- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
 
 ### Fixes
 
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
-
-## v0.4.5 (2026-09-21)
-
-### Fixes
-
 - **apsystems:** stop publishing the legacy power_status sensor removal (#36) (b1d352b)
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 
 ### Documentation
 
 - **installer:** add an end-user installer page and refresh the developer page (#39) (80f184b)
-
-## v0.4.5 (2026-09-16)
-
-### Features
-
-- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **installer:** polish for the installer webui (#30) (05d424b)
-- **apsystems:** RAM-only power limits and extended diagnostics (#32) (909e735)
-- **dashboard:** add a GitHub update check with a masthead notification (#34) (e5fc9db)
-
-### Documentation
-
 - **installer:** reflect the merged web UI and its provisioning precondition (#29) (84726c8)
 
 ## v0.4.4 (2026-09-13)
@@ -72,14 +63,12 @@
 - **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 - **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
 - **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (3ac68ef)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - add a manifest and schema fragment per device service (7124a64)
 
 ### Fixes
 
 - **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
-- **dashboard:** finish the config.json v1 -> v2 migration path (89252c9)
 - **changelog:** roll unreleased sections into a hand minor bump (ea01be2)
 
 ### Refactors
