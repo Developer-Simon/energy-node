@@ -14,18 +14,19 @@ import (
 
 	webui "github.com/Developer-Simon/energy-node-webui"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
-	"github.com/Developer-Simon/energy-node-webui/i18n"
 	"github.com/Developer-Simon/energy-node-webui/hostapi/hostapitest"
+	"github.com/Developer-Simon/energy-node-webui/i18n"
 )
 
-// debugHandler wraps the main HTTP handler and adds a debug endpoint.
+// debugHandler wraps the main HTTP handler and adds a debug endpoint
+// to expose backend state for e2e tests.
 func debugHandler(mainHandler http.Handler, backend *hostapitest.FakeBackend) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/debug/state" && r.Method == http.MethodGet {
 			state := struct {
 				UploadedName string `json:"uploaded_name"`
 			}{
-				UploadedName: backend.UploadedName,
+				UploadedName: backend.GetUploadedName(),
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(state)

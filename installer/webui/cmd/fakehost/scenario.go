@@ -44,6 +44,11 @@ func (b *stagedBackend) Connect(ctx context.Context, req hostapi.ConnectRequest)
 }
 
 func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
+	// Delegate prepare runs to FakeBackend which handles them correctly
+	if req.Mode == hostapi.ModePrepare {
+		return b.FakeBackend.Run(ctx, req, sink)
+	}
+
 	for _, step := range b.Steps {
 		if req.Only != "" && step.ID != req.Only {
 			continue

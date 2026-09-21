@@ -90,6 +90,8 @@ export async function connect(page, { trusted = false } = {}) {
     await page.locator('.tofu').waitFor();
     await page.getByRole('button', { name: 'Fingerabdruck bestätigen' }).click();
   }
+  // After connecting, the UI may show prepare screen if a package is configured
+  await waitForPrepare(page);
 }
 
 export async function fillSecrets(page) {
@@ -98,15 +100,20 @@ export async function fillSecrets(page) {
 }
 
 export async function waitForPrepare(page) {
-  // If the prepare screen appears, wait for it to complete and transition to precheck
-  try {
-    // Wait up to 5 seconds for the prepare screen to appear
-    await page.locator('.app[data-screen="prepare"]').waitFor({ timeout: 5000 });
-    // If we get here, prepare screen appeared - wait for it to transition to precheck
+  // After connecting with a package source, the UI may show:
+  // 1. A prepare screen while the package is resolved
+  // 2. Or jump directly to precheck if prepare is not needed
+  // We wait for the screen to reach precheck in either case.
+
+  // Check if prepare screen is currently visible
+  const prepareVisible = await page.locator('.app[data-screen="prepare"]').isVisible().catch(() => false);
+
+  if (prepareVisible) {
+    // Prepare screen is showing - wait for it to transition to precheck
+    // This happens after the prepare phase completes
     await page.locator('.app[data-screen="precheck"]').waitFor({ timeout: 30000 });
-  } catch (e) {
-    // Prepare screen didn't appear - that's fine, return without error
   }
+  // If prepare screen is not visible, precheck should be showing or will appear shortly
 }
 
 export async function connectWithPackage(page, packageKind, { trusted = false } = {}) {

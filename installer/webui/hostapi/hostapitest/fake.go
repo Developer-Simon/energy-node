@@ -247,6 +247,14 @@ func (f *FakeBackend) UploadPackage(ctx context.Context, name string, r io.Reade
 	return err
 }
 
+// GetUploadedName returns the name of the last uploaded package file,
+// thread-safe.
+func (f *FakeBackend) GetUploadedName() string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.UploadedName
+}
+
 func sleepCtx(ctx context.Context, d time.Duration) error {
 	if d <= 0 {
 		select {

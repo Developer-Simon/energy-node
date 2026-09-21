@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startFakehost, openPage, connect, startInstall, connectWithPackage, SECRETS } from './fakehost.mjs';
+import { startFakehost, openPage, connect, startInstall, connectWithPackage, getDebugState, SECRETS } from './fakehost.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const en = JSON.parse(fs.readFileSync(path.join(here, '..', '..', 'catalogs', 'en.json'), 'utf8'));
@@ -185,15 +185,30 @@ test('die Paketdatei-Quelle sperrt den Verbinden-Button bis eine Datei ausgewaeh
 
   // Set a file
   const fileInput = page.locator('input[type="file"]');
+  const fileName = 'test-package.tar.gz';
   await fileInput.setInputFiles({
-    name: 'test-package.tar.gz',
+    name: fileName,
     mimeType: 'application/gzip',
     buffer: Buffer.from('PK\x03\x04'),  // Minimal gzip magic bytes
   });
 
   // Now connect button should be enabled
-  await page.waitForTimeout(100);
+  await page.locator('input[type="file"]').evaluate(el => el.offsetHeight > 0 || true); // Trigger any file-change handlers
   assert.equal(await connectButton.isDisabled(), false, 'Verbinden-Button wird aktiviert mit Datei');
+
+  // Click connect and handle the flow
+  await connectButton.click();
+  await page.locator('.tofu').waitFor({ timeout: 5000 }).catch(() => null); // Handle TOFU if present
+  if (await page.locator('.tofu').isVisible().catch(() => false)) {
+    await page.getByRole('button', { name: 'Fingerabdruck bestätigen' }).click();
+  }
+
+  // Wait for precheck screen to appear (may be preceded by prepare screen)
+  await page.locator('.app[data-screen="precheck"] .chk').first().waitFor({ timeout: 60000 });
+
+  // Verify the backend recorded the uploaded file name
+  const debugState = await getDebugState(host.url);
+  assert.equal(debugState.uploaded_name, fileName, `Backend recorded the uploaded file name: ${fileName}`);
 
   await context.close();
 }));
