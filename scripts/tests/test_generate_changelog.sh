@@ -382,4 +382,32 @@ scl2="$tmp/services/CHANGELOG.md"
 grep -q "shared helper"            "$scl2" || fail "umbrella lost its own commit"
 grep -q "talk to the RPC endpoint" "$scl2" && fail "umbrella repeated a service's commit"
 
+# --- installer, installer-webui and bootstrap are separate components --------
+# installer/ contains installer/webui/, which has its own version and changelog;
+# the installer target must not list the web UI's commits, and neither may list
+# bootstrap's.
+mkdir -p "$tmp/installer/webui" "$tmp/scripts/bootstrap"
+echo v0.1.0 > "$tmp/installer/VERSION"
+echo v0.1.0 > "$tmp/installer/webui/VERSION"
+echo v0.1.0 > "$tmp/scripts/bootstrap/VERSION"
+echo a > "$tmp/installer/main.go"
+commit "feat(installer): dial the node"
+echo b > "$tmp/installer/webui/app.js"
+commit "feat(webui): add a screen"
+echo c > "$tmp/scripts/bootstrap/10-apt.sh"
+commit "fix(bootstrap): retry apt"
+gen --rebuild installer
+gen --rebuild installer-webui
+gen --rebuild bootstrap
+icl="$tmp/installer/CHANGELOG.md"
+wcl="$tmp/installer/webui/CHANGELOG.md"
+bcl="$tmp/scripts/bootstrap/CHANGELOG.md"
+grep -q "dial the node"    "$icl" || fail "installer lost its own commit"
+grep -q "add a screen"     "$icl" && fail "installer listed a web UI commit"
+grep -q "retry apt"        "$icl" && fail "installer listed a bootstrap commit"
+grep -q "add a screen"     "$wcl" || fail "installer-webui lost its own commit"
+grep -q "dial the node"    "$wcl" && fail "installer-webui listed an installer commit"
+grep -q "retry apt"        "$bcl" || fail "bootstrap lost its own commit"
+grep -q "^## v0.1.0 "      "$icl" || fail "installer section not headed by installer/VERSION"
+
 echo "OK"

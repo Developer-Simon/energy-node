@@ -48,6 +48,7 @@ jobs:
       # v0.5.x tags would otherwise carve bogus sections into its changelog.
       CHANGELOG_TARGETS: >-
         dashboard services common battery_soc_core
+        installer installer-webui bootstrap
         service:apsystems_ez1 service:automation service:battery_soc
         service:shelly service:trucki service:tuya_mqtt
     steps:

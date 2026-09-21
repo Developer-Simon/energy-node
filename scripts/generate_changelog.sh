@@ -12,6 +12,7 @@
 #
 # Usage: ./generate_changelog.sh [--freeze-before <version>] [--rebuild] [<target>|all]
 #   <target>: dashboard | services | common | battery_soc_core | ha-integration
+#             | installer | installer-webui | bootstrap
 #             | service:<dir>  (apsystems_ez1, automation, battery_soc, shelly,
 #                               trucki, tuya_mqtt)
 #
@@ -116,7 +117,9 @@ set -euo pipefail
 
 ALL_TARGETS=(
   dashboard services common battery_soc_core ha-integration
-  service:apsystems_ez1 service:automation service:battery_soc service:shelly service:trucki service:tuya_mqtt
+  installer installer-webui bootstrap
+  service:apsystems_ez1 service:automation service:battery_soc
+  service:shelly service:trucki service:tuya_mqtt
 )
 
 usage() {
@@ -240,7 +243,7 @@ while [[ $# -gt 0 ]]; do
       rebuild=true
       shift
       ;;
-    dashboard|services|common|battery_soc_core|ha-integration|all|service:*)
+    dashboard|services|common|battery_soc_core|ha-integration|installer|installer-webui|bootstrap|all|service:*)
       if [[ -n "$target" ]]; then
         usage
         exit 1
@@ -609,6 +612,24 @@ generate_one() {
         "services/VERSION"
         "src/VERSION"
       )
+      ;;
+    installer)
+      out_dir_prefix="installer/"
+      history_prefixes=("installer/")
+      version_file_candidates=("installer/VERSION")
+      # Die Web-Oberflaeche ist ein eigenes Modul mit eigener Version und
+      # eigenem Changelog (installer-webui).
+      exclude_prefixes=("installer/webui/")
+      ;;
+    installer-webui)
+      out_dir_prefix="installer/webui/"
+      history_prefixes=("installer/webui/")
+      version_file_candidates=("installer/webui/VERSION")
+      ;;
+    bootstrap)
+      out_dir_prefix="scripts/bootstrap/"
+      history_prefixes=("scripts/bootstrap/")
+      version_file_candidates=("scripts/bootstrap/VERSION")
       ;;
     ha-integration)
       out_dir_prefix="integrations/homeassistant/"
