@@ -78,7 +78,7 @@ func (h *Host) SelectPackage(ctx context.Context, sel hostapi.PackageSelection) 
 		if err := bundlesource.CheckRepo(sel.Path); err != nil {
 			return &hostapi.Error{Code: err.Code, Detail: err.Detail, Status: http.StatusBadRequest}
 		}
-		req.Path = sel.Path
+		req.Path = bundlesource.ExpandHome(sel.Path)
 	default:
 		return &hostapi.Error{Code: "BAD_REQUEST", Detail: "unbekannte Paketquelle: " + sel.Kind, Status: http.StatusBadRequest}
 	}

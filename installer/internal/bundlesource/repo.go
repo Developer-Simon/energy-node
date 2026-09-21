@@ -4,6 +4,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 )
 
 // lookPath is a seam for tests.
@@ -46,8 +47,24 @@ func MissingTools() []string {
 	return missing
 }
 
-// CheckRepo reports why path cannot be built from, or nil if it can.
+// ExpandHome resolves a leading "~" or "~/" to the user's home directory and
+// cleans the result. The operator types the path into the UI, where no shell
+// expands it. Anything else (including "~user") is returned unchanged.
+func ExpandHome(path string) string {
+	if path != "~" && !strings.HasPrefix(path, "~/") {
+		return path
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return path
+	}
+	return filepath.Join(home, path[1:])
+}
+
+// CheckRepo reports why path cannot be built from, or nil if it can. A
+// leading "~" is expanded first.
 func CheckRepo(path string) *Error {
+	path = ExpandHome(path)
 	if _, err := os.Stat(filepath.Join(path, filepath.FromSlash(makeBundleScript))); err != nil {
 		return &Error{Code: CodeRepoNotACheckout, Detail: path}
 	}

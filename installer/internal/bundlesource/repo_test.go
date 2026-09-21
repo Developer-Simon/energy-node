@@ -57,3 +57,32 @@ func TestCheckRepoReportsMissingTools(t *testing.T) {
 		t.Errorf("MissingTools = %v, want [go]", got)
 	}
 }
+
+func TestExpandHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		t.Skip("no home directory")
+	}
+	cases := map[string]string{
+		"~":                 home,
+		"~/dev/energy-node": filepath.Join(home, "dev", "energy-node"),
+		"~/dev/x/":          filepath.Join(home, "dev", "x"),
+		"/abs/path":         "/abs/path",
+		"rel/path":          "rel/path",
+		"~other/x":          "~other/x",
+		"":                  "",
+	}
+	for in, want := range cases {
+		if got := ExpandHome(in); got != want {
+			t.Errorf("ExpandHome(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestCheckRepoExpandsAHomePrefix(t *testing.T) {
+	root := fakeCheckout(t)
+	t.Setenv("HOME", root)
+	if err := CheckRepo("~"); err != nil {
+		t.Fatalf("CheckRepo(~) = %+v, want nil", err)
+	}
+}

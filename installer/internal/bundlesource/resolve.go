@@ -139,6 +139,7 @@ func (r *Resolver) finish(req Request, dir, archive string, strict bool, cleanup
 }
 
 func (r *Resolver) buildFromRepo(ctx context.Context, req Request, log func(string)) (string, error) {
+	req.Path = ExpandHome(req.Path)
 	if err := CheckRepo(req.Path); err != nil {
 		return "", err
 	}
