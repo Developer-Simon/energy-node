@@ -166,7 +166,7 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		return &hostapi.Error{Code: "NO_PACKAGE", Status: http.StatusConflict}
 	}
 	h.mu.Lock()
-	choice, target := h.choice, h.target
+	choice := h.choice
 	h.mu.Unlock()
 	if choice.Kind == "" {
 		if h.bundledPresent() {
@@ -188,8 +188,6 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 	notef("package.log.arch_detected", map[string]string{"machine": machine, "arch": arch})
 
 	choice.Arch = arch
-	choice.User = target.User
-	choice.Base = "/home/" + target.User
 	choice.Log = logf
 	choice.Note = notef
 	resolved, err := h.cfg.Resolver.Resolve(ctx, choice)

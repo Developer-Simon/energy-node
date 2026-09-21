@@ -109,3 +109,21 @@ test('Zurueck fuehrt je nach Modus in die Vorpruefung oder die Vorschau', async 
   assert.equal(redeploy.shell.screen, 'preview');
   assert.equal(redeploy.shell.shared.servicesOnly, false);
 });
+
+test('ein allgemeines Bundle ohne Ziel nimmt den SSH-Benutzer und sein Heimatverzeichnis', async () => {
+  const generic = Object.assign({}, MANIFEST);
+  delete generic.target_user;
+  delete generic.target_base;
+  const { screen } = await mount({
+    responses: {
+      'GET /api/manifest': generic,
+      'GET /api/selection': SELECTION,
+      'PUT /api/selection': (body) => ({ source: 'node', steps: body.steps }),
+      'POST /api/run': { run_id: 'run-1', seq: 3 },
+    },
+    shell: { shared: { target: { host: 'knoten', user: 'orgelbau' } } },
+  });
+  assert.equal(screen.targetUser, 'orgelbau');
+  assert.equal(screen.targetBase, '/home/orgelbau');
+  assert.equal(screen.mqttUser, 'orgelbau');
+});
