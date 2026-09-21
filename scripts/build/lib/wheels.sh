@@ -76,9 +76,9 @@ fetch_thirdparty_wheels() {
   # des Bau-Rechners aus, nicht mit dem Ziel. Nach dem Download prueft
   # missing_requirements.py die Abhaengigkeiten aller Wheels gegen die
   # Zielmarker und holt nach, was fehlt - bis nichts mehr fehlt.
-  local machine missing=() round
+  local machine missing=()
   machine="$(arch_uname_machines "${arch}" | head -n 1)"
-  for round in 1 2 3 4 5 6; do
+  for _ in 1 2 3 4 5 6; do
     if ! "${WHEELS_PIP[@]}" download \
         --only-binary=:all: \
         --index-url https://www.piwheels.org/simple \
