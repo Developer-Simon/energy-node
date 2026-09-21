@@ -344,47 +344,77 @@ func TestResumeRunPublishesRunFinishedAndClearsRunningState(t *testing.T) {
 func TestBusSinkPublishesMessagesAsLogEvents(t *testing.T) {
 	server, fake := newTestServer(t, nil)
 	connectFirst(t, server)
-	fake.Script(hostapitest.FakeStep{ID: "10", State: "ok"})
-	startRun(t, server, `{"mode":"install"}`)
+	fake.PrepareNotes = []hostapitest.FakeNote{
+		{Key: "package.log.download", Args: map[string]string{"name": "asset.tar.gz"}},
+	}
+	startRun(t, server, `{"mode":"prepare"}`)
 	waitForRunToFinish(t, server)
 
-	// Verify that a log event carries key, args, and step_id
+	// Verify that a log event with key carries step_id, key, args (no line field)
+	found := false
 	for _, event := range server.Bus().Since(0) {
 		if event.Type != "log" {
 			continue
 		}
 		data := event.Data.(map[string]any)
-		if data["step_id"] != nil && data["key"] == nil && data["line"] != nil {
-			// This is a raw log event (line from FakeStep.Log)
-			continue
-		}
-		if data["key"] == "package.log.test" {
-			args := data["args"].(map[string]any)
-			if args["test"] != "value" {
-				t.Errorf("args[\"test\"] = %v, want \"value\"", args["test"])
+		if data["key"] == "package.log.download" {
+			found = true
+			if data["step_id"] != "package" {
+				t.Fatalf("step_id = %v, want \"package\"", data["step_id"])
 			}
-			return
+			args := data["args"].(map[string]string)
+			if args["name"] != "asset.tar.gz" {
+				t.Fatalf("args[\"name\"] = %v, want \"asset.tar.gz\"", args["name"])
+			}
+			if data["line"] != nil {
+				t.Fatalf("message event must not carry a line field, got %v", data["line"])
+			}
+			break
 		}
 	}
-	// Note: this test verifies the interface works; a real flow with messages
-	// is tested via package_test.go prepare flow
+	if !found {
+		t.Fatalf("no log event with key=\"package.log.download\" found in event stream")
+	}
 }
 
 func TestBusSinkRedactsSecretMessageArgs(t *testing.T) {
 	server, fake := newTestServer(t, nil)
 	connectFirst(t, server)
-	fake.Script(hostapitest.FakeStep{ID: "10", State: "ok"})
-	startRun(t, server, `{"mode":"install","mqtt_password":"hunter2","admin_password":"s3cret"}`)
+	fake.PrepareNotes = []hostapitest.FakeNote{
+		{Key: "package.log.cached", Args: map[string]string{"name": "hunter2"}},
+	}
+	startRun(t, server, `{"mode":"prepare","mqtt_password":"hunter2"}`)
 	waitForRunToFinish(t, server)
 
-	// Verify redaction applies to message args too
+	// Verify secrets in message args are redacted
+	found := false
+	for _, event := range server.Bus().Since(0) {
+		if event.Type != "log" {
+			continue
+		}
+		data := event.Data.(map[string]any)
+		if data["key"] == "package.log.cached" {
+			found = true
+			args := data["args"].(map[string]string)
+			if args["name"] == "hunter2" {
+				t.Fatalf("message args carry secret in clear: name=%q", args["name"])
+			}
+			if args["name"] != hostapi.Mask {
+				t.Fatalf("redacted arg name = %q, want masked value", args["name"])
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("no log event with key=\"package.log.cached\" found in event stream")
+	}
+
+	// Also verify that the marshalled bus contains no secret
 	raw, err := json.Marshal(server.Bus().Since(0))
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	for _, secret := range []string{"hunter2", "s3cret"} {
-		if strings.Contains(string(raw), secret) {
-			t.Fatalf("message args carry %q in the clear", secret)
-		}
+	if strings.Contains(string(raw), "hunter2") {
+		t.Fatalf("the event stream carries secret in the clear")
 	}
 }
