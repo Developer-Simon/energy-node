@@ -259,3 +259,16 @@ test('dashboardRootPath verwendet bootstrap.base_path statt eines fest verdrahte
   const { shell } = await createShell({ bootstrap: custom, url: 'http://127.0.0.1/dashboard-redeploy/preview' });
   assert.equal(shell.dashboardRootPath(), '/');
 });
+
+test('ein Wirt, der sein Paket selbst besorgt, beginnt den Redeploy beim Vorbereiten', async () => {
+  const { shell } = await createShell({ bootstrap: Object.assign({}, DASHBOARD, { auto_prepare: true }) });
+  assert.equal(shell.screen, 'prepare');
+  assert.equal(shell.entry, 'redeploy');
+  shell.afterPrepare();
+  assert.equal(shell.screen, 'preview', 'nach dem Vorbereiten kommt die Vorschau, nicht wieder das Vorbereiten');
+});
+
+test('ohne auto_prepare bleibt der erste Bildschirm des Dashboards die Vorschau', async () => {
+  const { shell } = await createShell({ bootstrap: DASHBOARD });
+  assert.equal(shell.screen, 'preview');
+});

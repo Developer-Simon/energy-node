@@ -90,7 +90,7 @@
           this.shared.run = { runId: hello.run_id, mode: '', only: '', resumed: true };
           this.screen = 'run';
         } else {
-          this.screen = this.connected ? FIRST_SCREEN[this.entry] : 'connect';
+          this.screen = this.connected ? this.firstScreen() : 'connect';
         }
         this.ready = true;
       },
@@ -272,6 +272,16 @@
         this.connected = true;
         this.shared.target = { host: target.host || '', user: target.user || '' };
         this.go(this.bootstrap && this.bootstrap.package ? 'prepare' : FIRST_SCREEN[this.entry]);
+      },
+
+      // Erster Bildschirm des aktuellen Einstiegs. Ein Wirt, der sein Paket
+      // selbst besorgt (das Dashboard laedt es von GitHub), beginnt den
+      // Redeploy beim Vorbereiten; danach gilt wieder FIRST_SCREEN.
+      firstScreen() {
+        if (this.entry === 'redeploy' && this.bootstrap && this.bootstrap.auto_prepare) {
+          return 'prepare';
+        }
+        return FIRST_SCREEN[this.entry];
       },
 
       // afterPrepare ruft der Vorbereitungsbildschirm, sobald das Paket auf

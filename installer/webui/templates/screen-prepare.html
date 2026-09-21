@@ -4,7 +4,7 @@
     {{template "stepper"}}
     <section class="card tall">
       <h2 class="card-h" x-text="t('prepare.heading')"></h2>
-      <p class="card-p" x-text="state === 'working' ? t('prepare.working') : state === 'done' ? t('prepare.done') : t('prepare.failed')"></p>
+      <p class="card-p" x-text="state === 'working' ? t(autoPrepare ? 'prepare.workingLocal' : 'prepare.working') : state === 'done' ? t('prepare.done') : t('prepare.failed')"></p>
       <template x-if="state === 'done' && unsigned">
         <p class="card-p" x-text="t('prepare.unsigned')"></p>
       </template>
@@ -18,6 +18,9 @@
     </template>
     <template x-if="state === 'failed'">
       <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    </template>
+    <template x-if="canUseExisting">
+      <button type="button" class="ghost" @click="useExisting()" x-text="t('prepare.useExisting')"></button>
     </template>
     <span class="foot-spacer"></span>
     <template x-if="state === 'done' && unsigned">
