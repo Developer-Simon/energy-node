@@ -501,6 +501,28 @@ func requireSystemActions(manager *auth.Manager, next http.Handler) http.Handler
 	})
 }
 
+// SessionCSRFToken returns the CSRF token of the session a request carries, or
+// "" when there is none. The mounted installer screen sends the token its page
+// was rendered with in X-Installer-Token, which requireSystemActions accepts
+// as the CSRF carrier; rendering the page with this value is what lets the
+// screen's own POSTs (prepare, run, cancel) pass that gate.
+func SessionCSRFToken(manager *auth.Manager) func(*http.Request) string {
+	return func(r *http.Request) string {
+		if manager == nil {
+			return ""
+		}
+		cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
+		if err != nil {
+			return ""
+		}
+		session, ok := manager.Session(cookie.Value)
+		if !ok {
+			return ""
+		}
+		return session.CSRFToken
+	}
+}
+
 func handleSystemAction(manager *auth.Manager, executor SystemActionExecutor, action systemactions.Action) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {

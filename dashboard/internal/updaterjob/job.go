@@ -50,7 +50,7 @@ type Status struct {
 // unit watches. Everything else is written first so the rename is the
 // single atomic instant at which the job becomes visible to the updater.
 func Stage(dir string, job Job, bundleSrc string) error {
-	if _, err := os.Stat(filepath.Join(dir, "pending.json")); err == nil {
+	if Pending(dir) {
 		return errors.New("updaterjob: a job is already pending")
 	}
 	if InFlight(dir) {
@@ -112,6 +112,14 @@ func ReadLog(dir string) ([]string, error) {
 		return nil, err
 	}
 	return splitLines(string(raw)), nil
+}
+
+// Pending is true while a staged job waits for the updater to claim it
+// (pending.json exists). Together with InFlight it says whether the job
+// directory is busy.
+func Pending(dir string) bool {
+	_, err := os.Stat(filepath.Join(dir, "pending.json"))
+	return err == nil
 }
 
 // InFlight is true exactly when the updater has claimed a job

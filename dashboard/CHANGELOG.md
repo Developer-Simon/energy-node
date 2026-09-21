@@ -5,14 +5,27 @@
 ### Features
 
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
+- **updater:** take the target from the root-owned target.json for user-independent bundles (e3813fc)
+- **dashboard:** add a GitHub release client that finds and downloads the node bundle (0493264)
+- **dashboard:** extract, validate and atomically install a downloaded bundle (e0896ae)
+- **dashboard:** add the Fetcher that downloads the newest bundle into the candidate directory (d411166)
+- **dashboard:** run a prepare step in the redeploy host through a Prepare seam (4def9a9)
+- **dashboard:** download the newest release bundle into the redeploy candidate directory (6ae89ec)
 - **updater:** record the applied manifest as installed-manifest.json (c7e3d4b)
 
 ### Fixes
 
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
+- **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
+- render the system-action helper on the node, validate targets with fullmatch, register the new tests (e546498)
+- **dashboard:** hand the redeploy page the session's CSRF token (7bd8f3a)
 - **dashboard:** implement the new hostapi.Sink.Message method (8ae6af3)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (85e8ce0)
+
+### Tests
+
+- **dashboard:** show the package download in the local smoke test (f2c2f2c)
 
 ## v0.7.1 (2026-09-21)
 

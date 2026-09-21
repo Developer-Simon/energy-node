@@ -63,7 +63,6 @@ type Host struct {
 	resolved  *hostapi.ResolvedInfo
 
 	client  *transport.Client
-	target  hostapi.ConnectRequest
 	pending *selection.Selection
 }
 
@@ -173,8 +172,6 @@ func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi
 		_ = h.client.Close()
 	}
 	h.client = client
-	h.target = req
-	h.target.Secret = "" // nie festhalten, was nicht festgehalten werden muss
 	h.mu.Unlock()
 
 	return hostapi.ConnectResult{Connected: true, Host: req.Host, User: req.User}, nil

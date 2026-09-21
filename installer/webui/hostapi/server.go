@@ -26,6 +26,12 @@ type Options struct {
 	// Token ist das Einmal-Token aus der geoeffneten URL. Leer schaltet die
 	// Pruefung ab - fuer einen Wirt, der selbst authentifiziert.
 	Token string
+	// PageToken liefert bei leerem Token pro Anfrage den Wert, den die
+	// Oberflaeche in X-Installer-Token mitschickt. Fuer einen Wirt, der selbst
+	// authentifiziert und dessen aeusseres Tor bei schreibenden Aufrufen ein
+	// Sitzungs-Token verlangt (das Dashboard: CSRF). Geprueft wird hier nichts;
+	// ein gesetztes Token gewinnt.
+	PageToken func(*http.Request) string
 	// BasePath ist der Pfadpraefix, unter dem der Server haengt, ohne
 	// abschliessenden Schraegstrich.
 	BasePath string
@@ -61,6 +67,7 @@ type Bootstrap struct {
 	Languages       []string     `json:"languages"`
 	BasePath        string       `json:"base_path"`
 	Package         *PackageInfo `json:"package,omitempty"`
+	AutoPrepare     bool         `json:"auto_prepare,omitempty"`
 }
 
 // New baut den Server und registriert alle Routen.
@@ -162,10 +169,14 @@ func (s *Server) handleShell(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	title, _ := s.opts.Catalogs.Lookup(s.opts.Language, "app.title")
+	token := s.opts.Token
+	if token == "" && s.opts.PageToken != nil {
+		token = s.opts.PageToken(r)
+	}
 	data := map[string]any{
 		"Title":        title,
 		"Language":     s.opts.Language,
-		"Token":        s.opts.Token,
+		"Token":        token,
 		"BasePath":     s.opts.BasePath,
 		"AssetVersion": webui.AssetVersion(),
 	}
@@ -195,6 +206,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		Languages:       s.opts.Catalogs.Languages(),
 		BasePath:        s.opts.BasePath,
 		Package:         description.Package,
+		AutoPrepare:     description.AutoPrepare,
 	})
 }
 

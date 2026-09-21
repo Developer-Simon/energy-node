@@ -101,6 +101,19 @@ func TestInFlightIsTrueOnlyBetweenCurrentAndStatus(t *testing.T) {
 	}
 }
 
+func TestPendingIsTrueOnlyWhileAJobWaitsForTheUpdater(t *testing.T) {
+	dir := t.TempDir()
+	if updaterjob.Pending(dir) {
+		t.Fatalf("empty dir must not be pending")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "pending.json"), []byte("{}"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !updaterjob.Pending(dir) {
+		t.Fatalf("pending.json present, Pending must be true")
+	}
+}
+
 func contains(haystack, needle string) bool {
 	return len(haystack) >= len(needle) && (haystack == needle || len(needle) == 0 ||
 		func() bool {

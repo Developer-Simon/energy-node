@@ -25,7 +25,7 @@ source "${BUILD_DIR}/lib/render.sh"
 ARCH=""
 PYTHON_MINOR="3.11"
 ABI=""
-BUNDLE_USER="energynode"
+BUNDLE_USER=""
 BUNDLE_BASE=""
 OUT_DIR="${REPO_ROOT}/dist"
 SIGN_KEY=""
@@ -51,8 +51,8 @@ usage() {
   --arch <armv6|arm64|amd64>   Pflicht.
   --python-minor <3.11>        Python-Minor des Zielsystems.
   --abi <cp311>                ABI-Tag; ohne Angabe aus --python-minor.
-  --user <name>                Zielbenutzer fuer das Unit-Rendering.
-  --base <pfad>                Zielbasis; ohne Angabe /home/<user>.
+  --user <name>                Bundle fuer diesen Benutzer festlegen (ohne: allgemein).
+  --base <pfad>                Zielbasis; ohne Angabe /home/<user> (nur mit --user).
   --out <pfad>                 Ausgabeverzeichnis (Vorgabe dist/).
   --sign-key <pfad>            ed25519-Schluessel; ohne bleibt die Signatur aus.
   --dashboard-binary <pfad>    Fertiges Binary statt Cross-Compile.
@@ -84,7 +84,27 @@ done
 # Prueft die Architektur, bevor irgendetwas gebaut wird.
 arch_platform_tags "${ARCH}" >/dev/null
 ABI="${ABI:-cp${PYTHON_MINOR//./}}"
-BUNDLE_BASE="${BUNDLE_BASE:-/home/${BUNDLE_USER}}"
+
+# Ohne --user/--base bleibt das Bundle allgemein: Units, Helfer, Sudoers und
+# die Konfigurationsvorlage behalten den Platzhalter "energynode", das
+# Manifest traegt kein Ziel, und die Schritte rendern auf dem Node (siehe
+# scripts/bootstrap/lib/render.sh). Mit --user und/oder --base wird das Bundle
+# wie frueher fuer genau dieses Ziel festgelegt.
+if [[ -n "${BUNDLE_USER}${BUNDLE_BASE}" ]]; then
+  BUNDLE_USER="${BUNDLE_USER:-energynode}"
+  BUNDLE_BASE="${BUNDLE_BASE:-/home/${BUNDLE_USER}}"
+  target_is_valid "${BUNDLE_USER}" "${BUNDLE_BASE}" \
+    || { echo "--user/--base ungueltig: ${BUNDLE_USER} ${BUNDLE_BASE}" >&2; exit 1; }
+fi
+
+# stage_template <src> <dst>: festgelegt = rendern, allgemein = unveraendert.
+stage_template() {
+  if [[ -n "${BUNDLE_USER}" ]]; then
+    render_unit_as "$1" "$2" "${BUNDLE_USER}" "${BUNDLE_BASE}"
+  else
+    cp "$1" "$2"
+  fi
+}
 
 # Die Paketversion (Archivname, manifest.json "version", was die Oberflaeche
 # ueberall als "Paketversion" zeigt) geht vom Dashboard aus, nicht vom
@@ -120,8 +140,7 @@ fi
 for file in "${BINARY_NAME}.service" "${BINARY_NAME}-system-action" \
             "${BINARY_NAME}-system-action.sudoers" \
             energy-node-updater.service energy-node-updater.path; do
-  render_unit_as "${REPO_ROOT}/dashboard/${file}" "${STAGE}/dashboard/${file}" \
-    "${BUNDLE_USER}" "${BUNDLE_BASE}"
+  stage_template "${REPO_ROOT}/dashboard/${file}" "${STAGE}/dashboard/${file}"
 done
 cp "${REPO_ROOT}/dashboard/Caddyfile" "${STAGE}/dashboard/Caddyfile"
 install -m 0755 "${REPO_ROOT}/dashboard/energy-node-updater.sh" \
@@ -143,7 +162,7 @@ for entry in "${SERVICE_TABLE[@]}"; do
   mkdir -p "${dst}/devices"
 
   cp "${src}"/*.py "${dst}/"
-  render_unit_as "${src}/${unit}" "${dst}/${unit}" "${BUNDLE_USER}" "${BUNDLE_BASE}"
+  stage_template "${src}/${unit}" "${dst}/${unit}"
 
   # Jede .json im Dienstverzeichnis ist eine Geraetedatei - ausser den
   # beiden, die es nicht sind: manifest.json ist Installer-Wissen,
@@ -276,8 +295,6 @@ head = {
     "uname_machine": os.environ["UNAME_MACHINES"].split(","),
     "python_minor": os.environ["PYTHON_MINOR"],
     "python_abi": os.environ["ABI"],
-    "target_user": os.environ["BUNDLE_USER"],
-    "target_base": os.environ["BUNDLE_BASE"],
     "components": {
         "bootstrap": os.environ["BOOTSTRAP_VERSION"],
         "dashboard": version_of("dashboard/VERSION"),
@@ -287,6 +304,9 @@ head = {
     },
     "steps": steps,
 }
+if os.environ.get("BUNDLE_USER"):
+    head["target_user"] = os.environ["BUNDLE_USER"]
+    head["target_base"] = os.environ["BUNDLE_BASE"]
 if os.environ.get("CADDY_FILE"):
     head["caddy"] = {
         "version": os.environ["CADDY_VERSION"],
