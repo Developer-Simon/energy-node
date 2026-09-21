@@ -267,4 +267,119 @@ gen dashboard
 grep -q "rename the frobnicator (#31)" "$cl" \
   || fail "live (#NN) entry lost while deduplicating"
 
+# --- a foreign commit (only CHANGELOG.md / VERSION) is not this component's --
+# A squash-merge carries the PR branch's bot commits with it, so it touches
+# every component's CHANGELOG.md and VERSION even when it changed nothing in
+# that component. Those two files must not put a commit into the walk --
+# otherwise every PR lands in every component's changelog.
+echo v0.6.0 > "$tmp/dashboard/VERSION"
+printf '# Changelog\n' > "$cl"
+commit "feat(installer): something that never touched the dashboard"
+mkdir -p "$tmp/installer"
+echo real > "$tmp/installer/main.go"
+commit "feat(installer): real installer work"
+echo local > "$tmp/dashboard/local.js"
+commit "feat(dashboard): real dashboard work"
+gen --rebuild dashboard
+grep -q "real dashboard work" "$cl" \
+  || fail "the component's own commit is missing"
+grep -q "something that never touched the dashboard" "$cl" \
+  && fail "a CHANGELOG.md/VERSION-only commit was listed as dashboard work"
+grep -q "real installer work" "$cl" \
+  && fail "a commit outside the component was listed"
+
+# --- the open section is headed by the current VERSION file ------------------
+# The bump commit only touches VERSION, so it is no longer in the walk. The
+# heading has to come from the version file itself.
+echo v0.6.1 > "$tmp/dashboard/VERSION"
+commit "chore(release): bump component versions"
+gen --rebuild dashboard
+grep -q "^## v0.6.1 " "$cl" \
+  || fail "open section not headed by the current VERSION file"
+
+# --- duplicate inside ONE section: "(#NN)" wins over the in-PR entry ---------
+# Both hashes are alive here, so the hash-existence rule cannot decide; the
+# entry carrying the PR reference is the one to keep.
+echo dd > "$tmp/dashboard/dd.js"
+commit "fix(dashboard): stop the springs from fighting"
+echo dd2 >> "$tmp/dashboard/dd.js"
+commit "fix(dashboard): stop the springs from fighting (#41)"
+gen --rebuild dashboard
+[ "$(grep -c "stop the springs from fighting" "$cl")" -eq 1 ] \
+  || fail "in-PR duplicate not removed inside the section"
+grep -q "stop the springs from fighting (#41)" "$cl" \
+  || fail "the (#NN) entry is the one that must survive"
+
+# --- two different PRs with the same title both stay -------------------------
+echo t1 > "$tmp/dashboard/t1.js"
+commit "fix(dashboard): tidy up (#50)"
+echo t2 > "$tmp/dashboard/t2.js"
+commit "fix(dashboard): tidy up (#51)"
+gen --rebuild dashboard
+[ "$(grep -c "tidy up (#5" "$cl")" -eq 2 ] \
+  || fail "two distinct PRs with the same title must both be listed"
+
+# --- an emptied "### " heading disappears with its entries -------------------
+cat > "$cl" <<'EOF'
+# Changelog
+
+## v0.6.1 (2026-09-12)
+
+### Features
+
+- **dashboard:** only here once (#60)
+- **dashboard:** only here once
+
+### Fixes
+
+- **dashboard:** a real fix (#61)
+EOF
+commit "docs(changelog): hand-written section with an in-PR duplicate"
+gen dashboard
+[ "$(grep -c "only here once" "$cl")" -eq 1 ] \
+  || fail "duplicate inside a frozen section not removed"
+grep -q "a real fix (#61)" "$cl" || fail "frozen section lost an entry"
+grep -q "^### Features" "$cl"    || fail "a still-populated heading was dropped"
+
+# --- commit trailers do not leak into an entry -------------------------------
+echo tr > "$tmp/dashboard/tr.js"
+commit "feat(dashboard): add the orchestrator script Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com>"
+gen --rebuild dashboard
+grep -q "Co-Authored-By" "$cl" && fail "a commit trailer leaked into the changelog"
+grep -qF "**dashboard:** add the orchestrator script (" "$cl" \
+  || fail "entry text lost while stripping the trailer"
+
+# --- service:<dir>: own changelog, own version out of manifest.json ---------
+# A service's version lives in its manifest.json, which also carries real
+# configuration -- so, unlike a plain VERSION file, it must stay in the walk.
+# For commits from before the split there is no "version" field yet; the
+# lookup then falls back to the services umbrella VERSION so the older
+# sections keep meaningful headings.
+mkdir -p "$tmp/services/shelly"
+echo v0.3.0 > "$tmp/services/VERSION"
+printf '{\n  "service_id": "shelly",\n  "kind": "device"\n}\n' \
+  > "$tmp/services/shelly/manifest.json"
+echo rpc > "$tmp/services/shelly/shelly_rpc.py"
+commit "feat(shelly): talk to the RPC endpoint"
+printf '{\n  "service_id": "shelly",\n  "version": "0.4.0",\n  "kind": "device"\n}\n' \
+  > "$tmp/services/shelly/manifest.json"
+commit "feat(shelly): give the service its own version"
+scl="$tmp/services/shelly/CHANGELOG.md"
+gen --rebuild service:shelly
+[ -f "$scl" ] || fail "service:shelly wrote no changelog"
+grep -q "talk to the RPC endpoint" "$scl" || fail "service commit missing"
+grep -q "give the service its own version" "$scl" || fail "manifest.json change missing from the walk"
+grep -q "^## v0.4.0 " "$scl" || fail "open section not headed by the manifest version"
+awk '/^## /{sec=$0} /talk to the RPC endpoint/{print sec}' "$scl" | grep -q "v0.3.0\|v0.4.0" \
+  || fail "pre-split commit did not fall back to the umbrella version"
+
+# --- the services umbrella no longer repeats a service's work ---------------
+mkdir -p "$tmp/services"
+echo shared > "$tmp/services/shared.py"
+commit "feat(services): shared helper"
+gen --rebuild services
+scl2="$tmp/services/CHANGELOG.md"
+grep -q "shared helper"            "$scl2" || fail "umbrella lost its own commit"
+grep -q "talk to the RPC endpoint" "$scl2" && fail "umbrella repeated a service's commit"
+
 echo "OK"
