@@ -66,8 +66,26 @@ test('eine Komponente ohne Vorzustand ist neu', async () => {
 
 test('Startet neu und Bleibt stehen folgen dem Plan (A17)', async () => {
   const { screen } = await mount();
-  assert.deepEqual(plain(screen.restart), ['energy-node-dashboard.service', 'tuya.service', 'automation.service']);
+  assert.deepEqual(plain(screen.restart), ['energy-node-dashboard.service', 'tuya.service']);
   assert.equal(screen.keepNames, 'Systempakete · MQTT-Broker · Firewall · Tailscale · HTTPS über Caddy');
+});
+
+test('nur Dienste mit Aenderung stehen unter Neustarts, "Alle neu starten" nimmt alle dazu', async () => {
+  const { screen } = await mount();
+  const units = plain(screen.restart);
+  assert.ok(units.includes('tuya.service'), 'geaenderter Dienst fehlt');
+  assert.ok(!units.includes('automation.service'), 'unveraenderter Dienst darf nicht neu starten');
+  screen.restartAll = true;
+  assert.ok(plain(screen.restart).includes('automation.service'), 'mit "alle" muss auch automation dabei sein');
+});
+
+test('start sendet restart_all nur, wenn der Schalter an ist', async () => {
+  const { screen, calls } = await mount();
+  await screen.start();
+  assert.equal(calls.find((call) => call.key === 'POST /api/run').body.restart_all, undefined);
+  screen.restartAll = true;
+  await screen.start();
+  assert.equal(calls.filter((call) => call.key === 'POST /api/run').pop().body.restart_all, true);
 });
 
 test('der Funktionsumfang zeigt die Auswahl und einen neuen Dienst als aus', async () => {

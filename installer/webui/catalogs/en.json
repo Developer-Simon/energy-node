@@ -345,6 +345,7 @@
   "preview.keep.separator": " · ",
   "preview.package": "Package",
   "preview.progress.loading": "Checking for changes …",
+  "preview.restart.all": "Restart all services",
   "preview.restart.heading": "Restarts",
   "preview.restart.none": "nothing",
   "preview.reuse": "The same page is part of the dashboard. There you start an update without this program, through the same steps.",

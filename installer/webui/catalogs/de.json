@@ -345,6 +345,7 @@
   "preview.keep.separator": " · ",
   "preview.package": "Paket",
   "preview.progress.loading": "Änderungen werden ermittelt …",
+  "preview.restart.all": "Alle Dienste neu starten",
   "preview.restart.heading": "Startet neu",
   "preview.restart.none": "nichts",
   "preview.reuse": "Dieselbe Seite steckt im Dashboard. Dort startest du ein Update ohne dieses Programm, über die gleichen Schritte.",
