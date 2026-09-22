@@ -268,7 +268,11 @@ test('seedPrefsDraft füllt den Entwurf einmal je Gerät und überschreibt laufe
 
   panel.seedPrefsDraft();
   assert.equal(panel.prefsDraft.icon, 'mdi:raspberry-pi');
-  assert.deepEqual(panel.prefsDraft.favorite_refs, ['node_temp']);
+  // seedPrefsDraft() baut favorite_refs per Spread im vm-Kontext von
+  // dashboard.js - dasselbe realmuebergreifende deepStrictEqual-Problem wie
+  // bei messageStates oben, deshalb hier ueber Array.from in den Haupt-Realm
+  // geholt.
+  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), ['node_temp']);
   assert.equal(panel.prefsDraft.pin_favorites, true);
 
   // Der Nutzer tippt weiter, waehrend der SSE-Takt loadDeviceDetail erneut
@@ -281,7 +285,7 @@ test('seedPrefsDraft füllt den Entwurf einmal je Gerät und überschreibt laufe
   panel.deviceDetail = {id: 'shelly', entities: []};
   panel.seedPrefsDraft();
   assert.equal(panel.prefsDraft.icon, '');
-  assert.deepEqual(panel.prefsDraft.favorite_refs, []);
+  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), []);
 });
 
 test('toggleFavorite hält die Auswahl bei drei Einträgen', () => {
