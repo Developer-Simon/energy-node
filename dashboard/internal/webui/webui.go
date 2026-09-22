@@ -87,6 +87,7 @@ func stripDeviceName(deviceName, entityName string) string {
 
 var overviewTmpl = template.Must(template.New("base.html").Funcs(template.FuncMap{
 	"iconFor":            iconFor,
+	"deviceIcon":         deviceIcon,
 	"add":                func(a, b int) int { return a + b },
 	"energySnapshotJSON": energySnapshotJSON,
 	"defaultHiddenCount": defaultHiddenCount,
