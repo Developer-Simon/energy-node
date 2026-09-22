@@ -25,6 +25,13 @@ service_step_is_artefact() {
   esac
 }
 
+# Muss diese Unit neu starten? Die Regel steht in restart_rule.py (eine
+# Stelle fuer Schritt, Vorschau und Dashboard). Leere Antwort = nein.
+service_restart_reason() {
+  python3 "${SERVICE_STEP_LIB_DIR}/restart_rule.py" \
+    "${EN_BUNDLE_DIR}" "${EN_STATE_DIR}" "$1"
+}
+
 # Achtung: step_fail beendet den Prozess. Das ist gewollt - jedes NN-*.sh
 # ruft service_step genau einmal und hat danach nichts mehr zu tun.
 service_step() {
@@ -82,15 +89,19 @@ service_step() {
     "${EN_ROOT}/etc/systemd/system/${unit}" || { rm -f "${rendered}"; step_fail SERVICE_UNIT_FAILED; }
   rm -f "${rendered}"
   "${SUDO[@]}" systemctl daemon-reload
-  # enable + restart statt enable --now: --now startet nur eine gestoppte
-  # Unit. Bei einem Update laeuft sie schon mit dem alten Python-Code im
-  # Speicher und muss neu starten. restart startet eine gestoppte Unit
-  # ebenfalls, der Ablauf ist also fuer Erstinstallation und Update derselbe.
-  # Der Koerper laeuft nur einmal je Bundle-Version (step_done), das ist
-  # also ein Neustart je Update, nicht je Lauf.
+  # enable statt enable --now, und restart nur, wenn die Regel es verlangt:
+  # ein Update laesst laufende Dienste in Ruhe, die sich nicht geaendert haben
+  # (restart_rule.py). Eine gestoppte Unit wird immer gestartet - restart tut
+  # das ebenfalls, ein Lauf ist also fuer Erstinstallation und Update derselbe.
+  # Der Koerper laeuft nur einmal je Bundle-Version (step_done).
+  local reason
+  reason="$(service_restart_reason "${id}")"
   "${SUDO[@]}" systemctl enable "${unit}" || step_fail SERVICE_START_FAILED
-  "${SUDO[@]}" systemctl restart "${unit}" || step_fail SERVICE_START_FAILED
-
-  step_log "Dienst ${dir} eingerichtet (${unit})."
+  if [[ -n "${reason}" ]] || ! "${SUDO[@]}" systemctl is-active --quiet "${unit}"; then
+    "${SUDO[@]}" systemctl restart "${unit}" || step_fail SERVICE_START_FAILED
+    step_log "Dienst ${dir} eingerichtet und neu gestartet (${unit}, ${reason:-war nicht aktiv})."
+  else
+    step_log "Dienst ${dir} eingerichtet (${unit}), unveraendert - kein Neustart."
+  fi
   step_ok
 }
