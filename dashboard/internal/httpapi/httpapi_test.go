@@ -1932,3 +1932,64 @@ func TestEventCacheRebuildsWhenDevicePrefsChange(t *testing.T) {
 		t.Fatal("bodies returned the cached body although the preferences changed - clients would keep the stale row selection")
 	}
 }
+
+func TestDeviceIconsEndpointServesTheCatalogue(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	NewRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/device/icons", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", recorder.Code)
+	}
+	var icons []struct {
+		Name   string `json:"name"`
+		Label  string `json:"label"`
+		Markup string `json:"markup"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &icons); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(icons) < 18 || icons[0].Markup == "" {
+		t.Fatalf("icons = %#v, want the full catalogue with markup", icons)
+	}
+}
+
+func TestDevicePrefsEndpointSavesAndReturnsTheDocument(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router := NewRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), store)
+
+	body := strings.NewReader(`{"icon":"mdi:raspberry-pi","favorite_refs":["node_temp"],"pin_favorites":true}`)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/device/prefs/node", body)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	byID, err := store.DevicePrefsByID()
+	if err != nil {
+		t.Fatalf("DevicePrefsByID: %v", err)
+	}
+	if got := byID["node"]; got.Icon != "mdi:raspberry-pi" || !got.PinFavorites {
+		t.Fatalf("stored = %#v, want the posted record under the path's device id", got)
+	}
+}
+
+func TestDevicePrefsEndpointRejectsBadIconAndWrongMethod(t *testing.T) {
+	router := NewRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	bad := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/device/prefs/node", strings.NewReader(`{"icon":"javascript:alert(1)"}`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(bad, request)
+	if bad.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 for an icon name outside the catalogue pattern", bad.Code)
+	}
+
+	wrongMethod := httptest.NewRecorder()
+	router.ServeHTTP(wrongMethod, httptest.NewRequest(http.MethodPost, "/api/v1/device/prefs/node", nil))
+	if wrongMethod.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", wrongMethod.Code)
+	}
+}

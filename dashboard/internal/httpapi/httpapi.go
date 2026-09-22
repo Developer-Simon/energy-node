@@ -307,6 +307,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		}
 		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store))
 		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg))
+		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
+		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
+		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase))
 		mux.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
@@ -1595,6 +1598,34 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 	}
 }
 
+// requireLayoutMutation gates writes that change shared display
+// configuration. Deliberately stricter than the plain /api/v1/layout PUT
+// (which predates the auth manager): an instance running without
+// authentication keeps working unchanged, but as soon as there are sessions,
+// the caller needs the role the layout editor asks for plus a valid CSRF
+// token - device preferences are visible to everyone who opens this
+// dashboard, not a private per-browser setting.
+func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+	if manager == nil {
+		return true
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+		return false
+	}
+	if !auth.HasRole(user, auth.RoleEditLayout) {
+		writeError(w, http.StatusForbidden, "device_prefs_forbidden", "Für das Ändern der Darstellung fehlt die Berechtigung")
+		return false
+	}
+	cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
+	if err != nil || !manager.ValidateCSRF(cookie.Value, r.Header.Get("X-CSRF-Token")) {
+		writeError(w, http.StatusForbidden, "csrf_failed", "Sicherheitsprüfung fehlgeschlagen")
+		return false
+	}
+	return true
+}
+
 func requireDeviceMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager, roleRequired, csrfRequired bool) bool {
 	if manager == nil {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
@@ -2153,6 +2184,66 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry) http.Hand
 			return
 		}
 		methodNotAllowed(w)
+	}
+}
+
+func handleDeviceIcons() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		writeJSON(w, webui.DeviceIconCatalogue())
+	}
+}
+
+func handleDevicePrefs(store *settings.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		value, err := store.LoadDevicePrefs()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "device_prefs_invalid", err.Error())
+			return
+		}
+		writeJSON(w, value)
+	}
+}
+
+// handleDevicePrefsEntry saves exactly one device's record. One device per
+// request, not the whole document: two tabs with two devices open must not
+// overwrite each other, and the merge happens under the store's lock.
+func handleDevicePrefsEntry(store *settings.Store, manager *auth.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		raw := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/device/prefs/"), "/")
+		deviceID, err := url.PathUnescape(raw)
+		if err != nil || strings.TrimSpace(deviceID) == "" || strings.Contains(deviceID, "/") {
+			writeError(w, http.StatusNotFound, "route_not_found", "Route wurde nicht gefunden")
+			return
+		}
+		if r.Method != http.MethodPut {
+			methodNotAllowed(w, http.MethodPut)
+			return
+		}
+		if !requireLayoutMutation(w, r, manager) {
+			return
+		}
+		var entry settings.DevicePrefsEntry
+		if err := decodeBody(r, &entry); err != nil {
+			writeError(w, http.StatusBadRequest, "device_prefs_rejected", err.Error())
+			return
+		}
+		// Die ID kommt aus dem Pfad, nie aus dem Rumpf - sonst koennte ein
+		// Aufruf auf /node den Datensatz eines anderen Geraets schreiben.
+		entry.DeviceID = deviceID
+		value, err := store.SaveDevicePrefsEntry(entry)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "device_prefs_rejected", err.Error())
+			return
+		}
+		writeJSON(w, value)
 	}
 }
 
