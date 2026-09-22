@@ -22,7 +22,8 @@ from typing import Dict, Optional, Sequence, Tuple
 DEFAULT_CONFIG_PATH = "/etc/energy-node/config.json"
 SCHEMA_VERSION = 2
 
-_NUMERIC_SERVICE_FIELDS = ("poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s")
+_NUMERIC_SERVICE_FIELDS = ("poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s", "webhook_port")
+_BOOL_SERVICE_FIELDS = ("webhook_enabled",)
 
 
 class ConfigError(Exception):
@@ -65,6 +66,15 @@ def _number(section: dict, key: str, path: str, prefix: str) -> float:
     return float(value)
 
 
+def _bool(section: dict, key: str, path: str, prefix: str) -> bool:
+    if key not in section:
+        raise ConfigError(f"{path}: {prefix}.{key}: Feld fehlt")
+    value = section[key]
+    if not isinstance(value, bool):
+        raise ConfigError(f"{path}: {prefix}.{key}: erwartet Wahrheitswert, gefunden {_found(value)}")
+    return value
+
+
 @dataclass(frozen=True)
 class MQTTConfig:
     host: str
@@ -96,6 +106,8 @@ class ServiceConfig:
     poll_interval_s: Optional[float] = None
     diagnostic_poll_multiplier: Optional[float] = None
     http_timeout_s: Optional[float] = None
+    webhook_port: Optional[float] = None
+    webhook_enabled: Optional[bool] = None
 
 
 @dataclass(frozen=True)
@@ -210,6 +222,11 @@ def _load_services(
         for field_name in _NUMERIC_SERVICE_FIELDS:
             if field_name in required or field_name in entry:
                 values[field_name] = _number(entry, field_name, path, prefix)
+            else:
+                values[field_name] = None
+        for field_name in _BOOL_SERVICE_FIELDS:
+            if field_name in required or field_name in entry:
+                values[field_name] = _bool(entry, field_name, path, prefix)
             else:
                 values[field_name] = None
         services[name] = ServiceConfig(

@@ -21,19 +21,31 @@ energy_node), eigene Discovery-Entities und eigene Verfügbarkeit.
 Poll-Zyklus: alle Geräte werden pro Zyklus concurrent (asyncio) abgefragt.
 Ein Fehler an einem Gerät (Timeout, falsche IP, ...) wird pro Gerät isoliert
 behandelt und wirkt sich NICHT auf die anderen Geräte im selben Zyklus aus.
+
+Schlafende Batteriegeräte (z.B. H&T, siehe ShellyDeviceConfig.sleepy) sind
+zwischen ihren Meldungen nicht per HTTP erreichbar - ein fehlgeschlagener
+Poll ist dort der Normalfall, kein Fehler (siehe SleepyDeviceState). Ein
+optionaler, standardmäßig ausgeschalteter Wake-Webhook (siehe
+make_wake_webhook_handler) erlaubt einem Gen1-Gerät, beim Aufwachen selbst
+einen sofortigen Poll anzustoßen, statt auf den nächsten Zyklus zu warten -
+bewusst per HTTP-Callback statt per geräteeigenem MQTT-Client, aus demselben
+Grund wie oben (Shelly-Cloud-Zugriff).
 """
 
 from __future__ import annotations
 
 import asyncio
+import http.server
 import json
 import logging
 import math
 import re
 import sys
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any, Optional
+from urllib.parse import urlparse
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -724,6 +736,42 @@ async def apply_relay_command(
 
 
 # ---------------------------------------------------------------------------
+# Wake-Webhook (optional, standardmaessig aus)
+#
+# Ein Gen1-Shelly kann per Action "Report sensor values"/"Report URL" beim
+# Aufwachen selbst eine URL aufrufen. Der Listener hier loest dabei nur einen
+# sofortigen Poll fuer genau dieses Geraet aus (es ist jetzt kurz erreichbar)
+# - er parst keine Sensorwerte aus der Aufruf-URL, das erledigt weiterhin der
+# normale HTTP-Abruf in fetch_and_publish_state.
+# ---------------------------------------------------------------------------
+
+WAKE_WEBHOOK_PATH_PREFIX = "/shelly/wake/"
+
+
+def make_wake_webhook_handler(service: "ShellyService") -> type[http.server.BaseHTTPRequestHandler]:
+    class WakeWebhookHandler(http.server.BaseHTTPRequestHandler):
+        def log_message(self, format: str, *args: Any) -> None:  # noqa: A002 - stdlib-Signatur
+            LOG.debug("Wake-Webhook: " + format, *args)
+
+        def do_GET(self) -> None:  # noqa: N802 - stdlib-Signatur
+            path = urlparse(self.path).path
+            if not path.startswith(WAKE_WEBHOOK_PATH_PREFIX):
+                self.send_response(404)
+                self.end_headers()
+                return
+            device_id = path[len(WAKE_WEBHOOK_PATH_PREFIX):]
+            if device_id not in service.by_id:
+                self.send_response(404)
+                self.end_headers()
+                return
+            service.trigger_wake(device_id)
+            self.send_response(204)
+            self.end_headers()
+
+    return WakeWebhookHandler
+
+
+# ---------------------------------------------------------------------------
 # Service-Zusammenbau
 # ---------------------------------------------------------------------------
 
@@ -754,6 +802,8 @@ class ShellyService:
         self.sleepy_state = {
             device.unique_id: SleepyDeviceState() for device in devices
         }
+        self._webhook_server: Optional[http.server.HTTPServer] = None
+        self._webhook_thread: Optional[threading.Thread] = None
         # Stammdaten aus dem Diagnose-Poll (Shelly.GetDeviceInfo bzw. Gen1
         # /settings) und der Hash des zuletzt veroeffentlichten Geraeteblocks
         # pro Geraet - nur bei Aenderung wird die Discovery erneut publiziert.
@@ -970,6 +1020,54 @@ class ShellyService:
     def on_poll_error(self, exc: Exception) -> None:
         LOG.error("Scheduler-Fehler im Shelly-Service: %s", exc)
 
+    def trigger_wake(self, device_id: str):
+        """Sofortigen Poll fuer genau ein Geraet anstossen (Aufruf aus dem
+        Webhook-HTTP-Thread heraus, daher run_coroutine_threadsafe).
+
+        Gibt das concurrent.futures.Future zurueck (bzw. None, wenn das
+        Geraet unbekannt ist oder die Event-Loop noch nicht laeuft), damit
+        Aufrufer bei Bedarf auf den Abschluss warten koennen.
+        """
+        cfg = self.by_id.get(device_id)
+        if cfg is None or self.loop is None:
+            return None
+        LOG.info("Wake-Webhook: sofortiger Poll fuer '%s' angestossen", device_id)
+        return asyncio.run_coroutine_threadsafe(
+            poll_one_device(
+                self.client,
+                cfg,
+                self.service_config.http_timeout_s,
+                self.slave.simulation_active_for(cfg.unique_id) if self.slave is not None else False,
+                self.simulated_state.get(cfg.unique_id),
+                self.sleepy_state.get(cfg.unique_id),
+            ),
+            self.loop,
+        )
+
+    def start_webhook_server(self) -> None:
+        """Startet den optionalen Wake-Webhook-Listener, falls in der
+        Konfiguration aktiviert (Standard: aus, siehe config.schema.json)."""
+        if not self.service_config.webhook_enabled:
+            return
+        port = int(self.service_config.webhook_port or 0)
+        self._webhook_server = http.server.ThreadingHTTPServer(
+            ("0.0.0.0", port), make_wake_webhook_handler(self)
+        )
+        self._webhook_thread = threading.Thread(
+            target=self._webhook_server.serve_forever,
+            name="shelly-wake-webhook",
+            daemon=True,
+        )
+        self._webhook_thread.start()
+        LOG.info("Wake-Webhook-Listener aktiv auf Port %d", self._webhook_server.server_port)
+
+    def stop_webhook_server(self) -> None:
+        if self._webhook_server is None:
+            return
+        self._webhook_server.shutdown()
+        self._webhook_server.server_close()
+        self._webhook_server = None
+
     def run(self) -> None:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
@@ -1004,10 +1102,12 @@ class ShellyService:
 
         self.client.connect(self.mqtt_config.host, self.mqtt_config.port)
         self.client.loop_start()
+        self.start_webhook_server()
 
         try:
             self.loop.run_forever()
         finally:
+            self.stop_webhook_server()
             self.slave.stop()
             mqtt.publish_online_status(self.client, self.base_topic, online=False, reason="shutdown")
             self.client.loop_stop()

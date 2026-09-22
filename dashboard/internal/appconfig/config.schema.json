@@ -317,6 +317,20 @@
               "minLength": 1,
               "title": "Dienst-ID",
               "type": "string"
+            },
+            "webhook_enabled": {
+              "default": false,
+              "description": "Optionaler eingehender HTTP-Endpunkt, den ein Gen1-Shelly-Geraet beim Aufwachen per Action/Report-URL aufrufen kann, damit ein sleepy-Geraet sofort als online erkannt wird statt erst beim naechsten zufaelligen Poll-Treffer. Standardmaessig aus.",
+              "title": "Wake-Webhook aktiv",
+              "type": "boolean"
+            },
+            "webhook_port": {
+              "default": 8082,
+              "description": "Port des Wake-Webhook-Listeners, nur relevant wenn webhook_enabled true ist.",
+              "maximum": 65535,
+              "minimum": 1,
+              "title": "Wake-Webhook Port",
+              "type": "integer"
             }
           },
           "required": [
