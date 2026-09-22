@@ -10,6 +10,7 @@
 
 ### Fixes
 
+- **installer:** make redeploy, repair and repo-built bundles install cleanly (#46) (bf1fe10)
 - **webui:** show the error detail of a failed run (5017432)
 - **installer:** give step 20 its MQTT arguments from the node on redeploy and repair (bb4cd40)
 - **installer:** add texts for every fault code the bootstrap steps emit (23a64c3)
