@@ -1474,7 +1474,13 @@ dialog#device-modal { container: device-modal / inline-size; }
      color-mix(--sunken, #000) sonst schmutzig-dunkel. Die Trennung zum
      Hauptbereich traegt jetzt allein die --border-Kante (nicht --border-soft),
      weil der Tonunterschied zur Kopfzeile dafuer zu klein ist. */
-  .device-modal-sidebar { display: block; padding: 1rem 1.1rem; border-right: 1px solid var(--border); background: var(--bg); }
+  /* grid-row: 1 / span 2 haelt die Sidebar auf voller Hoehe, seit der
+     angepinnte Favoriten-Block als drittes Kind in dasselbe 2-Spalten-Grid
+     kam: ohne die Spanne setzt Auto-Placement den Block in Zeile 1/Spalte 2
+     und schiebt den Switcher nach Zeile 2/Spalte 1 - die Tableiste landet
+     dann in der 14.5rem-Sidebar-Spalte statt in der breiten Hauptspalte. */
+  .device-modal-sidebar { display: block; grid-row: 1 / span 2; padding: 1rem 1.1rem; border-right: 1px solid var(--border); background: var(--bg); }
+  .device-modal-pinned { grid-column: 2; align-content: start; }
   /* row-gap 0: die eingeklappten Panelwraps (0fr-Grid, volle Breite) liegen
      als 0px-Zeilen zwischen Tableiste und aktivem Panel - mit row-gap
      wuerde jede davon einen sichtbaren Spalt aufaddieren und die Trennlinie
@@ -1485,7 +1491,7 @@ dialog#device-modal { container: device-modal / inline-size; }
      dann zwischen die Flex-Zeilen - die Tableiste wird auseinandergezogen
      und das aktive Panel steht mit grossem Versatz unter der Oberkante.
      flex-start packt Tabs + Panel buendig nach oben. */
-  .device-modal-switcher { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 .15rem; position: relative; min-width: 0; padding: .9rem 1.2rem 1.3rem; }
+  .device-modal-switcher { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 .15rem; position: relative; min-width: 0; padding: .9rem 1.2rem 1.3rem; grid-column: 2; }
   .device-modal-pair[data-tab="deviceInfo"] { display: none; }
   .device-modal-pair { display: contents; }
   .device-modal-pair[data-tab="measurements"] .device-modal-trigger,

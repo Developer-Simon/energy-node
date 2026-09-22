@@ -2722,3 +2722,49 @@ func TestCompactStructureFingerprintFollowsFavourites(t *testing.T) {
 		t.Fatal("CompactStructureFingerprint ignored the favourite selection - the live patcher would write values into the wrong rows")
 	}
 }
+
+// TestOverviewPageStampsDevicePrefs is the one render path Overview() itself
+// takes (the other two - SSE event cache, device-detail JSON - already have
+// their own tests in internal/httpapi). Deleting the ApplyDevicePrefs call
+// in OverviewWithDeviceFilterAndEngine leaves every other test in this
+// package and internal/httpapi green, which is exactly the silent-regression
+// this plan warns about: the compact card would keep its automatic rows and
+// default icon while the SSE stream and device-detail JSON already reflect
+// the saved preference.
+func TestOverviewPageStampsDevicePrefs(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung"},
+	})
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_temp", ObjectID: "temp", Component: "sensor", Name: "Temperatur"},
+	})
+	reg.UpdateState("node/power", []byte("42"), false, time.Now())
+	reg.UpdateState("node/temp", []byte("21"), false, time.Now())
+
+	store := settings.NewStore(t.TempDir())
+	if _, err := store.SaveDevicePrefsEntry(settings.DevicePrefsEntry{
+		DeviceID: "node", Icon: "mdi:raspberry-pi", FavoriteRefs: []string{"node_power"},
+	}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d", recorder.Code)
+	}
+	body := recorder.Body.String()
+
+	if !strings.Contains(body, `cx="11.7" cy="12.2"`) {
+		t.Errorf("compact card does not carry the saved mdi:raspberry-pi markup - ApplyDevicePrefs was not applied on the page render path: %s", body)
+	}
+	if !strings.Contains(body, "Leistung") {
+		t.Errorf("compact card is missing the favourite row (Leistung): %s", body)
+	}
+	if strings.Contains(body, "Temperatur") {
+		t.Errorf("compact card shows the non-favourite entity (Temperatur) - favourite selection did not replace the automatic rows: %s", body)
+	}
+}
