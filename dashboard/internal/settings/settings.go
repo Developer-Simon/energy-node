@@ -369,24 +369,24 @@ type Revision struct {
 }
 
 type Store struct {
-	mu              sync.Mutex
-	dir             string
-	sweepDefault    int
-	settingsLoaded  bool
-	settingsValue   Settings
-	energyLoaded    bool
-	energyValue     EnergyConfig
-	layoutLoaded    bool
-	layoutValue     Layout
-	deviceMapLoaded bool
-	deviceMapValue  DeviceMap
+	mu                sync.Mutex
+	dir               string
+	sweepDefault      int
+	settingsLoaded    bool
+	settingsValue     Settings
+	energyLoaded      bool
+	energyValue       EnergyConfig
+	layoutLoaded      bool
+	layoutValue       Layout
+	deviceMapLoaded   bool
+	deviceMapValue    DeviceMap
 	devicePrefsLoaded bool
 	devicePrefsValue  DevicePrefs
 	devicePrefsGen    uint64
-	mqttLoaded      bool
-	mqttValue       MQTTConfig
-	bridgeLoaded    bool
-	bridgeValue     BridgeConfig
+	mqttLoaded        bool
+	mqttValue         MQTTConfig
+	bridgeLoaded      bool
+	bridgeValue       BridgeConfig
 }
 
 func NewStore(dir string) *Store { return &Store{dir: filepath.Clean(dir)} }
