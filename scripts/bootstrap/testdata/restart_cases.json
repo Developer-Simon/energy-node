@@ -1,0 +1,60 @@
+[
+  {"name": "restart all wins over everything",
+   "candidate": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {"energy_node_common": "v0.4.5"}},
+   "installed": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {"energy_node_common": "v0.4.5"}},
+   "step_id": "82", "restart_all": true, "want": "all"},
+
+  {"name": "no installed manifest means first install",
+   "candidate": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {}},
+   "installed": null, "step_id": "82", "restart_all": false, "want": "first"},
+
+  {"name": "service missing from the installed manifest is new",
+   "candidate": {"steps": [{"id": "84", "dir": "trucki", "version": "v0.4.0"}], "components": {}},
+   "installed": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {}},
+   "step_id": "84", "restart_all": false, "want": "first"},
+
+  {"name": "same version, same libraries: no restart",
+   "candidate": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {"energy_node_common": "v0.4.5", "battery_soc_core": "v0.1.9"}},
+   "installed": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {"energy_node_common": "v0.4.5", "battery_soc_core": "v0.1.9"}},
+   "step_id": "83", "restart_all": false, "want": ""},
+
+  {"name": "changed service version restarts that service",
+   "candidate": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.3"}], "components": {}},
+   "installed": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {}},
+   "step_id": "83", "restart_all": false, "want": "version"},
+
+  {"name": "installed manifest from before per-service versions is unknown",
+   "candidate": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {}},
+   "installed": {"steps": [{"id": "83", "dir": "shelly"}], "components": {}},
+   "step_id": "83", "restart_all": false, "want": "unknown"},
+
+  {"name": "candidate without a version is unknown",
+   "candidate": {"steps": [{"id": "83", "dir": "shelly"}], "components": {}},
+   "installed": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {}},
+   "step_id": "83", "restart_all": false, "want": "unknown"},
+
+  {"name": "energy_node_common changed restarts every service",
+   "candidate": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {"energy_node_common": "v0.4.6"}},
+   "installed": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {"energy_node_common": "v0.4.5"}},
+   "step_id": "83", "restart_all": false, "want": "library"},
+
+  {"name": "battery_soc_core changed restarts battery_soc",
+   "candidate": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {"battery_soc_core": "v0.2.0"}},
+   "installed": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {"battery_soc_core": "v0.1.9"}},
+   "step_id": "82", "restart_all": false, "want": "library"},
+
+  {"name": "battery_soc_core changed leaves other services alone",
+   "candidate": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {"battery_soc_core": "v0.2.0"}},
+   "installed": {"steps": [{"id": "83", "dir": "shelly", "version": "v0.4.2"}], "components": {"battery_soc_core": "v0.1.9"}},
+   "step_id": "83", "restart_all": false, "want": ""},
+
+  {"name": "library missing from the installed manifest counts as changed",
+   "candidate": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {"battery_soc_core": "v0.1.9"}},
+   "installed": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {}},
+   "step_id": "82", "restart_all": false, "want": "library"},
+
+  {"name": "step not in the candidate needs no restart",
+   "candidate": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {}},
+   "installed": {"steps": [{"id": "82", "dir": "battery_soc", "version": "v0.4.0"}], "components": {}},
+   "step_id": "99", "restart_all": false, "want": ""}
+]
