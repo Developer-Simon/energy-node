@@ -1,0 +1,27 @@
+{
+  "title": "Per-device display preferences",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "devices"],
+  "properties": {
+    "version": {"type": "integer", "minimum": 1},
+    "devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["device_id"],
+        "properties": {
+          "device_id": {"type": "string", "minLength": 1},
+          "icon": {"type": "string", "minLength": 1},
+          "favorite_refs": {
+            "type": "array",
+            "maxItems": 3,
+            "items": {"type": "string", "minLength": 1}
+          },
+          "pin_favorites": {"type": "boolean"}
+        }
+      }
+    }
+  }
+}

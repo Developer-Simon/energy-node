@@ -1572,3 +1572,97 @@ func TestNormalizeLayoutEntityGroupRefsUnchanged(t *testing.T) {
 		t.Error("entity_group entity_refs ist nil, want []string{}")
 	}
 }
+
+func TestNormalizeDevicePrefsCapsTrimsAndSorts(t *testing.T) {
+	value := normalizeDevicePrefs(DevicePrefs{Devices: []DevicePrefsEntry{
+		{DeviceID: "zeta", Icon: " mdi:battery ", FavoriteRefs: []string{"z_1", "z_2", "z_1", "", "z_3", "z_4"}},
+		{DeviceID: " alpha ", PinFavorites: true},
+		{DeviceID: "  ", Icon: "mdi:solar-panel"},
+		{DeviceID: "leer", Icon: "   "},
+	}})
+
+	if value.Version != 1 {
+		t.Fatalf("Version = %d, want 1", value.Version)
+	}
+	if len(value.Devices) != 2 {
+		t.Fatalf("Devices = %#v, want alpha and zeta only", value.Devices)
+	}
+	if value.Devices[0].DeviceID != "alpha" || value.Devices[1].DeviceID != "zeta" {
+		t.Fatalf("Devices are not sorted by device_id: %#v", value.Devices)
+	}
+	zeta := value.Devices[1]
+	if zeta.Icon != "mdi:battery" {
+		t.Errorf("Icon = %q, want the trimmed name", zeta.Icon)
+	}
+	if got := zeta.FavoriteRefs; len(got) != 3 || got[0] != "z_1" || got[1] != "z_2" || got[2] != "z_3" {
+		t.Errorf("FavoriteRefs = %#v, want three unique refs in order", got)
+	}
+}
+
+func TestNormalizeDevicePrefsDropsEmptyRecords(t *testing.T) {
+	value := normalizeDevicePrefs(DevicePrefs{Version: 1, Devices: []DevicePrefsEntry{
+		{DeviceID: "node", Icon: "mdi:chip-outline"},
+		{DeviceID: "node"},
+	}})
+
+	if len(value.Devices) != 0 {
+		t.Fatalf("Devices = %#v, want the reset record to disappear entirely", value.Devices)
+	}
+}
+
+func TestValidateDevicePrefsRejectsUnsupportedIconName(t *testing.T) {
+	err := validateDevicePrefs(DevicePrefs{Version: 1, Devices: []DevicePrefsEntry{
+		{DeviceID: "node", Icon: "<script>"},
+	}})
+
+	if err == nil {
+		t.Fatal("validateDevicePrefs accepted an icon name that is not mdi:*")
+	}
+}
+
+func TestSaveDevicePrefsEntryMergesAndBumpsGeneration(t *testing.T) {
+	store := NewStore(t.TempDir())
+	before := store.DevicePrefsGeneration()
+
+	if _, err := store.SaveDevicePrefsEntry(DevicePrefsEntry{DeviceID: "node", Icon: "mdi:raspberry-pi"}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+	if _, err := store.SaveDevicePrefsEntry(DevicePrefsEntry{DeviceID: "shelly", FavoriteRefs: []string{"shelly_power"}}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+	if _, err := store.SaveDevicePrefsEntry(DevicePrefsEntry{DeviceID: "node", Icon: "mdi:home-battery", PinFavorites: true}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+
+	byID, err := store.DevicePrefsByID()
+	if err != nil {
+		t.Fatalf("DevicePrefsByID: %v", err)
+	}
+	if got := byID["node"]; got.Icon != "mdi:home-battery" || !got.PinFavorites {
+		t.Errorf("node = %#v, want the merged icon and the pin flag", got)
+	}
+	if got := byID["shelly"]; len(got.FavoriteRefs) != 1 || got.FavoriteRefs[0] != "shelly_power" {
+		t.Errorf("shelly = %#v, want its own record untouched", got)
+	}
+	if store.DevicePrefsGeneration() != before+3 {
+		t.Errorf("DevicePrefsGeneration = %d, want %d", store.DevicePrefsGeneration(), before+3)
+	}
+}
+
+func TestLoadDevicePrefsSurvivesRoundTrip(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	if _, err := store.SaveDevicePrefs(DevicePrefs{Devices: []DevicePrefsEntry{
+		{DeviceID: "node", Icon: "mdi:raspberry-pi", FavoriteRefs: []string{"node_cpu"}, PinFavorites: true},
+	}}); err != nil {
+		t.Fatalf("SaveDevicePrefs: %v", err)
+	}
+
+	reloaded, err := NewStore(dir).LoadDevicePrefs()
+	if err != nil {
+		t.Fatalf("LoadDevicePrefs: %v", err)
+	}
+	if len(reloaded.Devices) != 1 || reloaded.Devices[0].Icon != "mdi:raspberry-pi" || !reloaded.Devices[0].PinFavorites {
+		t.Fatalf("reloaded = %#v, want the saved record", reloaded.Devices)
+	}
+}
