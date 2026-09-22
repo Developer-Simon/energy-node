@@ -817,6 +817,14 @@
       return `${this.configDiagEntities.length}${staleDiagnostic ? ' · ⚠' : ''}`;
     },
 
+    // Die angepinnten Favoriten des Geraets - leer, solange der Schalter aus
+    // ist. Ein Ref ohne Treffer faellt still weg, wie ueberall sonst auch.
+    get pinnedFavorites() {
+      if (!this.deviceDetail?.pin_favorites) return [];
+      const byID = new Map((this.deviceDetail.entities || []).map(entity => [entity.unique_id, entity]));
+      return (this.deviceDetail.favorite_refs || []).map(ref => byID.get(ref)).filter(Boolean);
+    },
+
     managementTeaser(now = new Date()) {
       const warningCount = this.groupedWarnings.length;
       const latest = [...(this.deviceDetail?.command_actions || []).map(a => a.at), ...this.recentMessages.map(m => m.at)]

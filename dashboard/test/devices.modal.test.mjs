@@ -315,3 +315,21 @@ test('iconMarkup baut ein vollständiges SVG und fällt auf den Standard zurück
   assert.match(panel.iconMarkup('mdi:unbekannt'), /rect x="6"/);
   assert.match(panel.iconMarkup(''), /rect x="6"/);
 });
+
+test('pinnedFavorites zeigt nur bei gesetztem Schalter und überspringt verwaiste Refs', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    id: 'node',
+    favorite_refs: ['node_relay', 'node_weg', 'node_temp'],
+    pin_favorites: false,
+    entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}],
+  };
+
+  assert.deepEqual(Array.from(panel.pinnedFavorites), []);
+
+  panel.deviceDetail = {...panel.deviceDetail, pin_favorites: true};
+  assert.deepEqual(
+    Array.from(panel.pinnedFavorites, entity => entity.unique_id),
+    ['node_relay', 'node_temp'],
+  );
+});

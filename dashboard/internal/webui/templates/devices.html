@@ -101,6 +101,14 @@
     <aside class="device-modal-sidebar">
       {{template "device-modal-info-body" .}}
     </aside>
+    <div class="device-modal-pinned" x-cloak x-show="pinnedFavorites.length">
+      <template x-for="entity in pinnedFavorites" :key="`pinned-${entity.unique_id}`">
+        <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
+          <div class="k" x-text="entityDisplayName(entity)"></div>
+          <div class="v"><span x-roll x-text="entity.has_value ? entity.value : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+        </article>
+      </template>
+    </div>
     <div class="device-modal-switcher" x-ref="deviceModalSwitcher">
 
       <div class="device-modal-pair" data-tab="deviceInfo">

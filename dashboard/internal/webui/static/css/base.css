@@ -1643,3 +1643,7 @@ small { color: var(--text-muted); }
 .device-prefs-status { color: var(--text-muted); }
 .device-tile-icon { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: .35rem; color: var(--accent); vertical-align: -.2em; }
 .device-tile-icon svg { width: 18px; height: 18px; }
+
+/* Angepinnte Favoriten: dieselbe Kachel wie im Messwerte-Tab, nur oberhalb
+   der Tableiste und in einer Reihe. */
+.device-modal-pinned { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; margin-bottom: .75rem; }
