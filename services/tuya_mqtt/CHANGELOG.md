@@ -1,10 +1,14 @@
 # Changelog
 
-## v0.4.0 (2026-09-21)
+## v0.4.1 (2026-09-22)
 
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+
+### Fixes
+
+- **tuya:** retry once on a stale persistent socket before reporting offline (41e9f55)
 
 ## v0.3.2 (2026-09-15)
 

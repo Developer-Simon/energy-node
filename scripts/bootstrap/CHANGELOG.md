@@ -15,6 +15,7 @@
 
 - **bootstrap:** make steps 20, 40, 65, 70 and the diagnosis work on a real node (#37) (11eef9d)
 - **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
+- **installer:** make redeploy, repair and repo-built bundles install cleanly (#46) (bf1fe10)
 - **bootstrap:** ignore a commented-out userspace-networking flag in step 40 (a1aeee1)
 - **bootstrap:** let step 70 keep an installed Caddy when the bundle has no Caddy pack (f8fbc8d)
 
