@@ -15,6 +15,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -1864,5 +1865,70 @@ func TestHealthNenntDieAustauschFaehigkeit(t *testing.T) {
 	}
 	if got := payload.Features["history_exchange"]; got != exchangeProtocolVersion {
 		t.Fatalf("features.history_exchange = %d, want %d", got, exchangeProtocolVersion)
+	}
+}
+
+func devicePrefsTestRegistry() *registry.Registry {
+	reg := registry.New()
+	for _, entity := range []registry.EntityInfo{
+		{UniqueID: "node_temp", ObjectID: "temp", StateTopic: "node/temp"},
+		{UniqueID: "node_uptime", ObjectID: "uptime", StateTopic: "node/uptime"},
+	} {
+		reg.UpsertEntity(registry.Discovery{
+			Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+			Entity: entity,
+		})
+	}
+	reg.UpdateState("node/temp", []byte("21"), false, time.Now())
+	reg.UpdateState("node/uptime", []byte("12"), false, time.Now())
+	return reg
+}
+
+func TestDeviceDetailCarriesDevicePrefs(t *testing.T) {
+	reg := devicePrefsTestRegistry()
+	store := settings.NewStore(t.TempDir())
+	if _, err := store.SaveDevicePrefsEntry(settings.DevicePrefsEntry{
+		DeviceID: "node", Icon: "mdi:raspberry-pi", FavoriteRefs: []string{"node_temp"}, PinFavorites: true,
+	}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	NewRouter(reg, config.NewManager(t.TempDir()), store).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/devices/node", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	var detail struct {
+		IconName     string   `json:"icon_name"`
+		FavoriteRefs []string `json:"favorite_refs"`
+		PinFavorites bool     `json:"pin_favorites"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &detail); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if detail.IconName != "mdi:raspberry-pi" || !detail.PinFavorites {
+		t.Errorf("detail = %#v, want the stored icon and pin flag", detail)
+	}
+	if len(detail.FavoriteRefs) != 1 || detail.FavoriteRefs[0] != "node_temp" {
+		t.Errorf("FavoriteRefs = %#v, want the stored ref", detail.FavoriteRefs)
+	}
+}
+
+func TestEventCacheRebuildsWhenDevicePrefsChange(t *testing.T) {
+	reg := devicePrefsTestRegistry()
+	store := settings.NewStore(t.TempDir())
+	cache := &eventCache{}
+	resolver := energy.NewResolver(nil)
+	engine := diagnostics.NewEngine(reg, nil)
+
+	first, _ := cache.bodies(reg, store, resolver, engine, reg.Version())
+	if _, err := store.SaveDevicePrefsEntry(settings.DevicePrefsEntry{DeviceID: "node", FavoriteRefs: []string{"node_uptime"}}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+	second, _ := cache.bodies(reg, store, resolver, engine, reg.Version())
+
+	if string(first) == string(second) {
+		t.Fatal("bodies returned the cached body although the preferences changed - clients would keep the stale row selection")
 	}
 }

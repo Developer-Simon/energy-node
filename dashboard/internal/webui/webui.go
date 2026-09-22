@@ -662,6 +662,13 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		var devices []registry.DeviceView
 		if needsDevices {
 			devices = reg.Snapshot()
+			// Vor jeder Auswertung: die Zeilenauswahl der Kompakt-Karte und
+			// beide Strukturfingerabdruecke haengen daran (ApplyDevicePrefs).
+			if store != nil {
+				if prefs, err := store.DevicePrefsByID(); err == nil {
+					ApplyDevicePrefs(devices, prefs)
+				}
+			}
 		}
 		if needsTiles {
 			for i := range devices {

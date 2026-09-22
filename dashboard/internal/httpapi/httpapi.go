@@ -245,7 +245,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
-	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
+	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
 	mux.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
 	// /api/v1/discovery ist ohne Schraegstrich registriert, hat also keinen
 	// Unterrouter, mit dem diese Route kollidieren koennte.
@@ -1091,12 +1091,13 @@ func liveUpdateInterval(store *settings.Store) time.Duration {
 // Der Snapshot wird bewusst nur einmal gezogen und an alle drei Zweige
 // weitergereicht.
 type eventCache struct {
-	mu         sync.Mutex
-	version    uint64
-	valid      bool
-	full       []byte
-	delta      []byte
-	lastValues map[string]registry.ValueView
+	mu              sync.Mutex
+	version         uint64
+	valid           bool
+	prefsGeneration uint64
+	full            []byte
+	delta           []byte
+	lastValues      map[string]registry.ValueView
 }
 
 // eventBody ist der Rumpf hinter "data: ". Fehlt ein Zweig, faellt der
@@ -1140,14 +1141,23 @@ type eventBody struct {
 //
 // Der Snapshot wird bewusst nur einmal gezogen und an alle Zweige
 // weitergereicht.
-func (c *eventCache) bodies(reg *registry.Registry, resolver *energy.Resolver, engine *diagnostics.Engine, version uint64) (full, delta []byte) {
+func (c *eventCache) bodies(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine, version uint64) (full, delta []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.valid && c.version == version {
+	prefsGeneration := uint64(0)
+	if store != nil {
+		prefsGeneration = store.DevicePrefsGeneration()
+	}
+	if c.valid && c.version == version && c.prefsGeneration == prefsGeneration {
 		return c.full, c.delta
 	}
 
 	devices := reg.Snapshot()
+	if store != nil {
+		if prefs, err := store.DevicePrefsByID(); err == nil {
+			webui.ApplyDevicePrefs(devices, prefs)
+		}
+	}
 	values := registry.ValueViews(devices)
 	body := eventBody{
 		Version:               version,
@@ -1176,7 +1186,7 @@ func (c *eventCache) bodies(reg *registry.Registry, resolver *energy.Resolver, e
 		return nil, nil
 	}
 
-	c.version, c.full, c.delta, c.lastValues, c.valid = version, fullBytes, deltaBytes, values, true
+	c.version, c.prefsGeneration, c.full, c.delta, c.lastValues, c.valid = version, prefsGeneration, fullBytes, deltaBytes, values, true
 	return c.full, c.delta
 }
 
@@ -1220,7 +1230,7 @@ func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energ
 		registryStreamQueueSize,
 		reg.Version,
 		func(version uint64) (full, delta []byte) {
-			return cache.bodies(reg, resolver, engine, version)
+			return cache.bodies(reg, store, resolver, engine, version)
 		},
 		func() time.Duration { return liveUpdateInterval(store) },
 	)
@@ -1421,7 +1431,7 @@ func handleIgnoredDevices(store *devicefilter.Store) http.HandlerFunc {
 	}
 }
 
-func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, reloader DeviceReloader, now func() time.Time, history *commandHistory, configs *config.Manager, authManager *auth.Manager, filter *devicefilter.Store, actions DeviceActioner) http.HandlerFunc {
+func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *settings.Store, reloader DeviceReloader, now func() time.Time, history *commandHistory, configs *config.Manager, authManager *auth.Manager, filter *devicefilter.Store, actions DeviceActioner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/devices/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
@@ -1571,6 +1581,15 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, reloader D
 		if !ok {
 			writeError(w, http.StatusNotFound, "device_not_found", "Gerät wurde nicht gefunden")
 			return
+		}
+		// Damit das Modal Icon, Favoriten und den Pin-Schalter kennt, ohne
+		// eine zweite Anfrage zu stellen.
+		if store != nil {
+			if prefs, err := store.DevicePrefsByID(); err == nil {
+				stamped := []registry.DeviceView{dev}
+				webui.ApplyDevicePrefs(stamped, prefs)
+				dev = stamped[0]
+			}
 		}
 		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: engine.Device(id, now()), CommandActions: history.forDevice(id)})
 	}
