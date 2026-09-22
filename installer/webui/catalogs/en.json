@@ -422,6 +422,7 @@
   "stepper.configure": "Configuration",
   "stepper.connect": "Connection",
   "stepper.precheck": "Pre-check",
+  "stepper.prepare": "Preparation",
   "stepper.preview": "Preview",
   "stepper.result": "Result",
   "stepper.run": "Run",
