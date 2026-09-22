@@ -78,7 +78,19 @@
       "generation": 2,
       "switch_channels": 0,
       "has_temperature": true,
-      "has_humidity": true
+      "has_humidity": true,
+      "sleepy": true
+    }
+  },
+  {
+    "id": "shelly_ht_gen1",
+    "name": "Shelly H&T (Gen1)",
+    "properties": {
+      "generation": 1,
+      "switch_channels": 0,
+      "has_temperature": true,
+      "has_humidity": true,
+      "sleepy": true
     }
   }
 ]

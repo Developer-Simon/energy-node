@@ -64,6 +64,8 @@ class ShellyDeviceConfig:
     adc_channels: int = 0  # Anzahl ADC-Kanäle (z.B. Shelly Uni)
     has_temperature: bool = False  # Gerätetemperatur vorhanden
     has_humidity: bool = False  # Luftfeuchte vorhanden (z.B. Shelly Plus H&T)
+    sleepy: bool = False  # Batteriegerät, das zwischen Meldungen schläft (z.B. H&T)
+    offline_grace_s: float = 3600.0  # nur für sleepy: Gnadenfrist ab letztem Kontakt
     auth_user: str = ""
     auth_password: str = ""
 
@@ -510,6 +512,19 @@ class SimulatedDeviceState:
     last_update_ts: Optional[float] = None
 
 
+@dataclass
+class SleepyDeviceState:
+    """Laufzeitzustand eines schlafenden Geraets (siehe ShellyDeviceConfig.sleepy).
+
+    last_online_ts: Zeitpunkt des letzten ERFOLGREICHEN Kontakts. Ein
+        fehlgeschlagener Poll wird erst als offline gemeldet, wenn seither
+        mehr als offline_grace_s vergangen sind - ein Poll waehrend der
+        Schlafphase des Geraets ist der Normalfall, kein Fehler.
+    """
+
+    last_online_ts: Optional[float] = None
+
+
 def _simulated_power_channel_count(cfg: ShellyDeviceConfig) -> int:
     if cfg.has_3phase:
         return 3
@@ -594,10 +609,15 @@ async def fetch_and_publish_state(
     timeout_s: float,
     simulation_active: bool = False,
     simulated_device_state: Optional[SimulatedDeviceState] = None,
+    sleepy_state: Optional[SleepyDeviceState] = None,
 ) -> None:
     """Fragt ein einzelnes Gerät ab und veröffentlicht den Zustand.
 
-    Fehler werden gefangen, geloggt und als offline markiert.
+    Fehler werden gefangen, geloggt und als offline markiert - außer bei
+    einem sleepy-Gerät innerhalb seiner Gnadenfrist (siehe SleepyDeviceState):
+    dort ist ein fehlgeschlagener Poll der Normalfall (Gerät schläft) und
+    wird stillschweigend übersprungen, solange der letzte erfolgreiche
+    Kontakt nicht länger als offline_grace_s zurückliegt.
     """
     try:
         if simulation_active:
@@ -614,9 +634,20 @@ async def fetch_and_publish_state(
 
         _publish_state(client, cfg, data)
         mqtt.publish_online_status(client, cfg.base_topic, online=True, reason=reason)
+        if sleepy_state is not None:
+            sleepy_state.last_online_ts = time.time()
 
     except Exception as exc:
         LOG.warning("Shelly '%s' (%s) nicht erreichbar: %s", cfg.id, cfg.host, exc)
+        if cfg.sleepy and sleepy_state is not None and sleepy_state.last_online_ts is not None:
+            elapsed = time.time() - sleepy_state.last_online_ts
+            if elapsed < cfg.offline_grace_s:
+                LOG.info(
+                    "Shelly '%s' (%s) vermutlich im Schlafmodus (letzter Kontakt vor "
+                    "%.0fs, Gnadenfrist %.0fs) - Offline-Meldung unterdrückt",
+                    cfg.id, cfg.host, elapsed, cfg.offline_grace_s,
+                )
+                return
         mqtt.publish_online_status(client, cfg.base_topic, online=False, reason=str(exc))
 
 
@@ -626,9 +657,12 @@ async def poll_one_device(
     timeout_s: float,
     simulation_active: bool = False,
     simulated_device_state: Optional[SimulatedDeviceState] = None,
+    sleepy_state: Optional[SleepyDeviceState] = None,
 ) -> None:
     """Wrapper für fetch_and_publish_state im Poll-Zyklus."""
-    await fetch_and_publish_state(client, cfg, timeout_s, simulation_active, simulated_device_state)
+    await fetch_and_publish_state(
+        client, cfg, timeout_s, simulation_active, simulated_device_state, sleepy_state
+    )
 
 
 def _publish_state(client, cfg: ShellyDeviceConfig, data: dict) -> None:
@@ -716,6 +750,9 @@ class ShellyService:
         self._discovery_done = False
         self.simulated_state = {
             device.unique_id: new_simulated_state(device) for device in devices
+        }
+        self.sleepy_state = {
+            device.unique_id: SleepyDeviceState() for device in devices
         }
         # Stammdaten aus dem Diagnose-Poll (Shelly.GetDeviceInfo bzw. Gen1
         # /settings) und der Hash des zuletzt veroeffentlichten Geraeteblocks
@@ -828,6 +865,11 @@ class ShellyService:
                 new_state.last_update_ts = old_state.last_update_ts
             self.simulated_state[cfg.unique_id] = new_state
         new_ids = {cfg.unique_id for cfg in new_configs}
+        previous_sleepy_state = self.sleepy_state
+        self.sleepy_state = {
+            cfg.unique_id: previous_sleepy_state.get(cfg.unique_id, SleepyDeviceState())
+            for cfg in new_configs
+        }
         self.device_info = {
             uid: info for uid, info in self.device_info.items() if uid in new_ids
         }
@@ -856,6 +898,7 @@ class ShellyService:
                     self.service_config.http_timeout_s,
                     self.slave.simulation_active_for(device.unique_id),
                     self.simulated_state[device.unique_id],
+                    self.sleepy_state[device.unique_id],
                 )
                 for device in self.devices
             )
