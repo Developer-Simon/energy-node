@@ -234,6 +234,18 @@ if [[ -z "${job_steps}" ]]; then
 fi
 mapfile -t step_ids <<< "${job_steps}"
 
+# restart_all: job.json ist dashboard-beschreibbar und ungesigniert, darf den
+# Neustart also nur ausweiten, nie sonst etwas steuern - deshalb nur "true"
+# akzeptiert, alles andere (fehlend, false, kaputt) bleibt "".
+restart_all=""
+if [[ "$(python3 - "${CURRENT}" <<'PY'
+import json, sys
+print("all" if json.load(open(sys.argv[1], encoding="utf-8")).get("restart_all") is True else "")
+PY
+)" == all ]]; then
+  restart_all=all
+fi
+
 # step_known haelt eine Kennung aus job.json gegen das gepruefte Manifest.
 # Ohne diese Pruefung baute eine Kennung wie "../../etc/cron.d/x" den
 # Glob unten aus dem Bootstrap-Verzeichnis heraus, und root fuehrte aus,
@@ -322,7 +334,8 @@ for id in "${step_ids[@]}"; do
     # bereits als root, und ein zusaetzliches sudo haenge den Lauf an eine
     # gesunde sudoers-Konfiguration und strippte Umgebungsvariablen, auf die
     # einzelne Schritte bauen (DEBIAN_FRONTEND in 10-apt.sh).
-  done < <(EN_STATE_DIR="${STATE_DIR}" EN_SELECTION="${STATE_DIR}/selection.json" \
+  done < <(env ${restart_all:+EN_RESTART=all} \
+            EN_STATE_DIR="${STATE_DIR}" EN_SELECTION="${STATE_DIR}/selection.json" \
             EN_BUNDLE_DIR="${BUNDLE}" EN_BUNDLE_VERSION="${bundle_version}" \
             EN_TARGET_USER="${target_user}" EN_TARGET_BASE="${target_base}" \
             EN_SUDO="" \

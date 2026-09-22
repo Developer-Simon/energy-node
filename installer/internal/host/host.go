@@ -404,6 +404,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		TargetUser:      firstNonEmpty(req.TargetUser, manifest.TargetUser),
 		TargetBase:      firstNonEmpty(req.TargetBase, manifest.TargetBase),
 		MQTTUser:        req.MQTTUser,
+		RestartAll:      req.RestartAll,
 		Steps:           list,
 		Selection:       h.selectionForRun(),
 		Secrets:         &steps.Secrets{MQTTPassword: req.MQTTPassword, AdminPassword: req.AdminPassword},

@@ -251,3 +251,34 @@ printf '##STEP 60 ok\n'
 		t.Fatalf("Run: %v", err)
 	}
 }
+
+func TestRunPassesRestartAllToTheStepsOnlyWhenAsked(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+	const echoScript = `#!/bin/sh
+printf '##STEP 10 begin\n'
+printf 'EN_RESTART=%s\n' "${EN_RESTART:-unset}"
+printf '##STEP 10 ok\n'
+`
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"10-apt.sh": echoScript})
+
+	for _, tc := range []struct {
+		restartAll bool
+		want       string
+	}{{false, "EN_RESTART=unset"}, {true, "EN_RESTART=all"}} {
+		var logs []string
+		err := steps.Run(context.Background(), steps.RunOptions{
+			Client: client, RemoteBundleDir: bundleDir, RemoteStateDir: stateDir, BundleVersion: "v0.1.0",
+			Steps:      []bundle.StepEntry{{ID: "10"}},
+			RestartAll: tc.restartAll,
+			OnLog:      func(_, line string) { logs = append(logs, line) },
+		})
+		if err != nil {
+			t.Fatalf("Run(restartAll=%v): %v", tc.restartAll, err)
+		}
+		if len(logs) != 1 || logs[0] != tc.want {
+			t.Errorf("restartAll=%v: logs = %q, want [%q]", tc.restartAll, logs, tc.want)
+		}
+	}
+}

@@ -41,6 +41,38 @@ func TestStageWritesJobJSONAndPendingTrigger(t *testing.T) {
 	}
 }
 
+func TestStageWritesRestartAllOnlyWhenSet(t *testing.T) {
+	dir := t.TempDir()
+	bundle := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bundle, "manifest.json"), []byte(`{"version":"1.5.0"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	job := updaterjob.Job{BundleVersion: "1.5.0", Mode: "redeploy", Steps: []string{"50"}, RestartAll: true}
+	if err := updaterjob.Stage(dir, job, bundle); err != nil {
+		t.Fatalf("Stage: %v", err)
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, "pending.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !contains(string(raw), `"restart_all":true`) {
+		t.Fatalf("restart_all missing from pending.json: %s", raw)
+	}
+
+	dir2 := t.TempDir()
+	job2 := updaterjob.Job{BundleVersion: "1.5.0", Mode: "redeploy", Steps: []string{"50"}}
+	if err := updaterjob.Stage(dir2, job2, bundle); err != nil {
+		t.Fatalf("Stage: %v", err)
+	}
+	raw2, err := os.ReadFile(filepath.Join(dir2, "pending.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if contains(string(raw2), "restart_all") {
+		t.Fatalf("restart_all present without being set: %s", raw2)
+	}
+}
+
 func TestStageRefusesAConcurrentJob(t *testing.T) {
 	dir := t.TempDir()
 	bundle := t.TempDir()

@@ -52,6 +52,7 @@ if [ -z "$user" ] || [ -z "$pwfile" ] || [ ! -f "$pwfile" ]; then
   echo "##STEP 20 fail MOSQUITTO_ARGS_MISSING"; exit 1
 fi
 echo "Broker eingerichtet, Benutzer $user."
+echo "EN_RESTART=${EN_RESTART:-unset}"
 echo "##STEP 20 ok"
 SH
 cat > "$fixture/bootstrap/50-python-deps.sh" <<'SH'
@@ -274,5 +275,16 @@ job_f="$tmp/job-f"; mkdir -p "$job_f/bundle"; cp -a "$pinned_bad/." "$job_f/bund
 printf '%s\n' '{"bundle_version":"1.5.0","mode":"redeploy","steps":["60"]}' > "$job_f/pending.json"
 if run_updater "$job_f"; then fail "invalid pinned target accepted"; fi
 grep -q '"code":"TARGET_INVALID"' "$job_f/status.json" || fail "expected TARGET_INVALID: $(cat "$job_f/status.json")"
+
+# --- restart_all im Auftrag setzt EN_RESTART=all fuer die Schritte ---------
+job8="$tmp/job8"
+stage_job "$job8" '{"bundle_version":"1.5.0","mode":"redeploy","restart_all":true,"steps":["20"]}'
+run_updater "$job8"
+grep -q 'EN_RESTART=all' "$job8/log" || fail "restart_all kam nicht bei den Schritten an" "$(cat "$job8/log")"
+
+job9="$tmp/job9"
+stage_job "$job9" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["20"]}'
+run_updater "$job9"
+grep -q 'EN_RESTART=unset' "$job9/log" || fail "EN_RESTART ohne restart_all gesetzt" "$(cat "$job9/log")"
 
 echo "OK"
