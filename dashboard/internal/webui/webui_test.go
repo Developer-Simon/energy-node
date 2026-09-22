@@ -2645,3 +2645,80 @@ func TestOverviewAutomationsFragmentGatedWhenDeselected(t *testing.T) {
 		t.Fatalf("automation ist abgewaehlt, trotzdem liefert die eigene Fragment-URL den echten Panel-Inhalt:\n%s", body)
 	}
 }
+
+func devicePrefsTestDevice() registry.DeviceView {
+	return registry.DeviceView{ID: "node", Name: "Node", Entities: []registry.EntityView{
+		{UniqueID: "node_temp", ObjectID: "temp", Name: "Temperatur", Component: "sensor",
+			DeviceClass: "temperature", UnitOfMeasurement: "°C", HasValue: true, Value: "21"},
+		{UniqueID: "node_relay", ObjectID: "relay", Name: "Relais", Component: "switch",
+			HasValue: true, Value: "ON", Commandable: true},
+		{UniqueID: "node_uptime", ObjectID: "uptime", Name: "Laufzeit", Component: "sensor",
+			HasValue: true, Value: "12"},
+		{UniqueID: "node_pending", ObjectID: "pending", Name: "Ohne Wert", Component: "sensor"},
+	}}
+}
+
+func TestApplyDevicePrefsStampsSnapshot(t *testing.T) {
+	devices := []registry.DeviceView{devicePrefsTestDevice(), {ID: "other"}}
+
+	ApplyDevicePrefs(devices, map[string]settings.DevicePrefsEntry{
+		"node": {DeviceID: "node", Icon: "mdi:raspberry-pi", FavoriteRefs: []string{"node_relay"}, PinFavorites: true},
+	})
+
+	if devices[0].IconName != "mdi:raspberry-pi" || !devices[0].PinFavorites {
+		t.Errorf("devices[0] = %#v, want the stamped icon and pin flag", devices[0])
+	}
+	if len(devices[0].FavoriteRefs) != 1 || devices[0].FavoriteRefs[0] != "node_relay" {
+		t.Errorf("FavoriteRefs = %#v, want the stored ref", devices[0].FavoriteRefs)
+	}
+	if devices[1].IconName != "" || devices[1].FavoriteRefs != nil {
+		t.Errorf("devices[1] = %#v, want a device without a record left untouched", devices[1])
+	}
+}
+
+func TestPriorityEntitiesUsesFavouritesInOrder(t *testing.T) {
+	dev := devicePrefsTestDevice()
+	dev.FavoriteRefs = []string{"node_relay", "node_temp"}
+
+	picked := priorityEntities(dev)
+
+	if len(picked) != 2 || picked[0].UniqueID != "node_relay" || picked[1].UniqueID != "node_temp" {
+		t.Fatalf("priorityEntities = %v, want the favourites in the picked order", picked)
+	}
+}
+
+func TestPriorityEntitiesKeepsFavouriteWithoutValue(t *testing.T) {
+	dev := devicePrefsTestDevice()
+	dev.FavoriteRefs = []string{"node_pending"}
+
+	picked := priorityEntities(dev)
+
+	if len(picked) != 1 || picked[0].UniqueID != "node_pending" {
+		t.Fatalf("priorityEntities = %v, want an explicitly picked entity even without a value", picked)
+	}
+}
+
+func TestPriorityEntitiesSkipsOrphanFavouriteAndFallsBackWhenEmpty(t *testing.T) {
+	dev := devicePrefsTestDevice()
+	dev.FavoriteRefs = []string{"node_gone", "node_temp"}
+
+	picked := priorityEntities(dev)
+	if len(picked) != 1 || picked[0].UniqueID != "node_temp" {
+		t.Fatalf("priorityEntities = %v, want the orphan ref skipped silently", picked)
+	}
+
+	dev.FavoriteRefs = nil
+	if automatic := priorityEntities(dev); len(automatic) == 0 {
+		t.Fatal("priorityEntities returned nothing for a device without favourites, want the automatic selection")
+	}
+}
+
+func TestCompactStructureFingerprintFollowsFavourites(t *testing.T) {
+	plain := []registry.DeviceView{devicePrefsTestDevice()}
+	favoured := []registry.DeviceView{devicePrefsTestDevice()}
+	favoured[0].FavoriteRefs = []string{"node_uptime"}
+
+	if CompactStructureFingerprint(plain) == CompactStructureFingerprint(favoured) {
+		t.Fatal("CompactStructureFingerprint ignored the favourite selection - the live patcher would write values into the wrong rows")
+	}
+}

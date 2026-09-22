@@ -216,12 +216,65 @@ func deviceTileStatus(entities []registry.EntityView) deviceTileStatusInfo {
 	}
 }
 
+// maxCompactRows ist die Zeilenzahl, die auf eine Kompakt-Karte passt -
+// dieselbe Obergrenze, die das Layout-Item fuer seine entity_refs kennt.
+const maxCompactRows = 3
+
+// ApplyDevicePrefs copies the stored per-device display preferences onto a
+// snapshot. Call it right after reg.Snapshot() and before anything reads the
+// devices: the compact card's row selection and CompactStructureFingerprint
+// both derive from FavoriteRefs, so a snapshot that skipped this step would
+// render a card the fingerprint does not describe - and the live patcher
+// would write values into the wrong rows.
+func ApplyDevicePrefs(devices []registry.DeviceView, prefs map[string]settings.DevicePrefsEntry) {
+	if len(prefs) == 0 {
+		return
+	}
+	for i := range devices {
+		entry, ok := prefs[devices[i].ID]
+		if !ok {
+			continue
+		}
+		devices[i].IconName = entry.Icon
+		devices[i].FavoriteRefs = append([]string(nil), entry.FavoriteRefs...)
+		devices[i].PinFavorites = entry.PinFavorites
+	}
+}
+
+// resolveEntityRefs turns unique IDs into entities, in the order they were
+// picked, capped at maxCompactRows. A ref without a match (entity renamed or
+// gone) is skipped silently - the same failure mode as an orphaned
+// entity_value ref in the overview layout. Unlike the automatic selection
+// this does not require HasValue: an explicitly picked entity stays visible
+// while it waits for its first message.
+func resolveEntityRefs(dev registry.DeviceView, refs []string) []registry.EntityView {
+	byID := make(map[string]registry.EntityView, len(dev.Entities))
+	for _, entity := range dev.Entities {
+		byID[entity.UniqueID] = entity
+	}
+	rows := make([]registry.EntityView, 0, len(refs))
+	for _, ref := range refs {
+		if entity, ok := byID[ref]; ok {
+			rows = append(rows, entity)
+		}
+		if len(rows) == maxCompactRows {
+			break
+		}
+	}
+	return rows
+}
+
 // priorityEntities picks up to three entities to surface on a compact device
 // card: measurement entities that currently carry a value first (registry
 // order), then any other non-hidden entity that carries a value, so a device
 // whose only live entities are controls still shows something. Values only —
 // the template never renders an input for these.
 func priorityEntities(dev registry.DeviceView) []registry.EntityView {
+	// Eine gesetzte Favoritenauswahl ersetzt die Automatik vollstaendig -
+	// leer heisst weiterhin Automatik.
+	if len(dev.FavoriteRefs) > 0 {
+		return resolveEntityRefs(dev, dev.FavoriteRefs)
+	}
 	const limit = 3
 	picked := make([]registry.EntityView, 0, limit)
 	seen := make(map[string]bool)
@@ -266,20 +319,7 @@ func compactCardForItem(dev registry.DeviceView, item settings.Item) compactCard
 	if len(item.EntityRefs) == 0 {
 		return compactCardAuto(dev)
 	}
-	byID := make(map[string]registry.EntityView, len(dev.Entities))
-	for _, entity := range dev.Entities {
-		byID[entity.UniqueID] = entity
-	}
-	rows := make([]registry.EntityView, 0, len(item.EntityRefs))
-	for _, ref := range item.EntityRefs {
-		if entity, ok := byID[ref]; ok {
-			rows = append(rows, entity)
-		}
-		if len(rows) == 3 {
-			break
-		}
-	}
-	return compactCardView{Device: dev, Rows: rows}
+	return compactCardView{Device: dev, Rows: resolveEntityRefs(dev, item.EntityRefs)}
 }
 
 // CompactStructureFingerprint verdichtet das, was die Kompakt-Karte
