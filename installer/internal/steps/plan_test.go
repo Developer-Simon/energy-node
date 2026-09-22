@@ -17,7 +17,7 @@ cat <<'JSON'
   "steps": [
     {"id": "10", "optional": false, "selected": true, "state": "done"},
     {"id": "40", "optional": true, "selected": false, "state": "deselected"},
-    {"id": "81", "optional": true, "selected": true, "state": "pending", "service_id": "apsystems", "dir": "apsystems_ez1", "unit": "apsystems-ez1.service"}
+    {"id": "81", "optional": true, "selected": true, "state": "pending", "service_id": "apsystems", "dir": "apsystems_ez1", "unit": "apsystems-ez1.service", "von": "v0.4.0", "nach": "v0.4.1", "restart": "version"}
   ],
   "components": {
     "dashboard": {"von": "v0.6.0", "nach": "v0.6.1"},
@@ -46,6 +46,9 @@ func TestPreviewParsesThePlanReport(t *testing.T) {
 	}
 	if plan.Steps[2].ServiceID != "apsystems" || plan.Steps[2].Unit != "apsystems-ez1.service" {
 		t.Fatalf("unexpected service step: %+v", plan.Steps[2])
+	}
+	if plan.Steps[2].From == nil || *plan.Steps[2].From != "v0.4.0" || plan.Steps[2].To != "v0.4.1" || plan.Steps[2].Restart != "version" {
+		t.Fatalf("unexpected restart info: %+v", plan.Steps[2])
 	}
 
 	dashboard, ok := plan.Components["dashboard"]

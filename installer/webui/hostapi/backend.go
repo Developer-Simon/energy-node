@@ -159,6 +159,11 @@ type PlanStep struct {
 	Optional bool   `json:"optional"`
 	Selected bool   `json:"selected"`
 	Unit     string `json:"unit,omitempty"`
+	From     string `json:"from,omitempty"`
+	To       string `json:"to,omitempty"`
+	// Restart says why the unit restarts: "version", "library", "first" or
+	// "unknown"; empty when it stays as it is.
+	Restart string `json:"restart,omitempty"`
 }
 
 // PlanView ist die Antwort von GET /api/plan.

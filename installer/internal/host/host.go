@@ -364,10 +364,15 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	}
 	view := &hostapi.PlanView{BundleVersion: preview.BundleVersion, Components: map[string]hostapi.ComponentDelta{}}
 	for _, step := range preview.Steps {
-		view.Steps = append(view.Steps, hostapi.PlanStep{
+		ps := hostapi.PlanStep{
 			ID: step.ID, State: step.State, Optional: step.Optional,
 			Selected: step.Selected, Unit: step.Unit,
-		})
+			To: step.To, Restart: step.Restart,
+		}
+		if step.From != nil {
+			ps.From = *step.From
+		}
+		view.Steps = append(view.Steps, ps)
 	}
 	for name, versions := range preview.Components {
 		view.Components[name] = hostapi.ComponentDelta{From: versions.From, To: versions.To}

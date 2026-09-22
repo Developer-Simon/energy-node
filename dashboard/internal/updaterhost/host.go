@@ -62,11 +62,18 @@ type candidateManifest struct {
 	Steps      []struct {
 		ID       string `json:"id"`
 		Optional bool   `json:"optional"`
+		Dir      string `json:"dir"`
+		Version  string `json:"version"`
 	} `json:"steps"`
 }
 
 type installedManifest struct {
-	Version string `json:"version"`
+	Version    string            `json:"version"`
+	Components map[string]string `json:"components"`
+	Steps      []struct {
+		ID      string `json:"id"`
+		Version string `json:"version"`
+	} `json:"steps"`
 }
 
 type selectionFile struct {
@@ -163,9 +170,12 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 	if err != nil {
 		return nil, err
 	}
-	var installed installedManifest
+	var installed *installedManifest
 	if raw, err := os.ReadFile(h.cfg.InstalledManifestPath); err == nil {
-		_ = json.Unmarshal(raw, &installed)
+		var doc installedManifest
+		if json.Unmarshal(raw, &doc) == nil {
+			installed = &doc
+		}
 	}
 
 	view := &hostapi.PlanView{BundleVersion: candidate.Version, Components: map[string]hostapi.ComponentDelta{}}
@@ -178,7 +188,20 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 		if s.Optional && !sel.Steps[s.ID] {
 			state = "deselected"
 		}
-		view.Steps = append(view.Steps, hostapi.PlanStep{ID: s.ID, Optional: s.Optional, Selected: selected, State: state})
+		ps := hostapi.PlanStep{ID: s.ID, Optional: s.Optional, Selected: selected, State: state}
+		if s.Dir != "" {
+			if installed != nil {
+				for _, is := range installed.Steps {
+					if is.ID == s.ID {
+						ps.From = is.Version
+					}
+				}
+			}
+			if state == "pending" {
+				ps.Restart = restartReason(installed, candidate, s.ID, false)
+			}
+		}
+		view.Steps = append(view.Steps, ps)
 	}
 	return view, nil
 }
