@@ -246,11 +246,11 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 	if err := provisionRemoteStateDir(ctx, client, h.cfg.RemoteStateDir); err != nil {
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
-	logf("Paket auf das Geraet uebertragen")
+	notef("package.log.upload", map[string]string{})
 	if err := stageBundle(ctx, client, archive, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
-	logf("Paket auf dem Geraet pruefen")
+	notef("package.log.verify", map[string]string{})
 	if err := verifyStaged(ctx, client, h.cfg.RemoteBundleDir, resolved.Signed); err != nil {
 		return err
 	}
