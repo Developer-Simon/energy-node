@@ -59,7 +59,7 @@ test('im Installer-Wirt fuehrt der Einstieg Aktualisieren ueber die Verbindung i
   const { page, context } = await openPage(browser, host.url);
   await page.locator('.mode-i', { hasText: 'Aktualisieren' }).click();
   assert.equal(await page.locator('.bar-title').textContent(), 'Energy Node aktualisieren');
-  assert.deepEqual(await page.locator('.st-lbl').allTextContents(), ['Verbindung', 'Vorschau', 'Ausführung', 'Ergebnis']);
+  assert.deepEqual(await page.locator('.st-lbl').allTextContents(), ['Verbindung', 'Vorbereitung', 'Vorschau', 'Ausführung', 'Ergebnis']);
 
   // /api/plan kuenstlich verzoegern, bevor ueberhaupt verbunden wird - sonst
   // ist der allererste, durch afterConnect() ausgeloeste Aufruf schon durch,
