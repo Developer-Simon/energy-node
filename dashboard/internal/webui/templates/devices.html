@@ -184,6 +184,46 @@
         </button>
         <div class="device-modal-panelwrap"><div class="device-modal-panelwrap-inner"><div class="device-modal-panel" id="device-modal-panel-management">
 
+          <h4>Darstellung</h4>
+          <p class="device-prefs-hint" x-show="!canEditPrefs">Zum Ändern der Darstellung fehlt die Berechtigung.</p>
+          <div class="device-prefs" x-show="canEditPrefs">
+            <p class="device-prefs-hint">Icon und bis zu drei Favoriten gelten für alle, die dieses Dashboard öffnen.</p>
+            <div class="device-prefs-icons" role="radiogroup" aria-label="Geräte-Icon">
+              <template x-for="icon in deviceIcons" :key="icon.name">
+                <button type="button" class="device-prefs-icon" role="radio"
+                        x-bind:class="{ active: prefsDraft.icon === icon.name || (!prefsDraft.icon && icon.name === 'mdi:chip-outline') }"
+                        x-bind:aria-checked="(prefsDraft.icon === icon.name || (!prefsDraft.icon && icon.name === 'mdi:chip-outline')).toString()"
+                        x-bind:title="icon.label"
+                        x-on:click="prefsDraft.icon = icon.name === 'mdi:chip-outline' ? '' : icon.name">
+                  <span x-html="iconMarkup(icon.name)"></span>
+                </button>
+              </template>
+            </div>
+            <p class="device-prefs-hint">Favoriten (max. 3) – ohne Auswahl entscheidet die Automatik.</p>
+            <ul class="device-prefs-favorites">
+              <template x-for="entity in (deviceDetail?.entities || [])" :key="`fav-${entity.unique_id}`">
+                <li>
+                  <label>
+                    <input type="checkbox"
+                           x-bind:checked="prefsDraft.favorite_refs.includes(entity.unique_id)"
+                           x-bind:disabled="!prefsDraft.favorite_refs.includes(entity.unique_id) && prefsDraft.favorite_refs.length >= 3"
+                           x-on:change="toggleFavorite(entity.unique_id)">
+                    <span x-text="entityDisplayName(entity)"></span>
+                  </label>
+                </li>
+              </template>
+            </ul>
+            <label class="device-prefs-pin">
+              <input type="checkbox" x-model="prefsDraft.pin_favorites">
+              <span>Favoriten oben im Modal anpinnen</span>
+            </label>
+            <div class="device-prefs-actions">
+              <button type="button" class="primary" x-bind:disabled="prefsSaving" x-on:click="saveDevicePrefs()"
+                      x-text="prefsSaving ? 'Speichert ...' : 'Darstellung speichern'"></button>
+              <small class="device-prefs-status" x-cloak x-show="prefsMessage" x-text="prefsMessage"></small>
+            </div>
+          </div>
+
           <h4>Warnungen</h4>
           <p x-show="!groupedWarnings.length">Keine Gerätewarnungen.</p>
           <template x-for="warning in groupedWarnings" :key="`${warning.rule_id}-${warning.message}-${warning.hint}`">

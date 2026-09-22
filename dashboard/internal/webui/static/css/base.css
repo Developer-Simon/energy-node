@@ -1625,3 +1625,21 @@ small { color: var(--text-muted); }
   .energy-flow-node strong { font-size: .92rem; }
   .energy-flow-node output { font-size: .76rem; }
 }
+
+/* Darstellung je Geraet: Icon-Raster und Favoritenliste im Modal-Tab
+   "Verwaltung & Analyse". */
+.device-prefs { display: grid; gap: .6rem; margin-bottom: 1rem; }
+.device-prefs-hint { color: var(--text-muted); font-size: .85rem; margin: 0; }
+.device-prefs-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: .35rem; }
+.device-prefs-icon { display: grid; place-items: center; padding: .4rem; background: var(--panel-alt); border: 1px solid var(--border-soft); border-radius: 6px; color: var(--text); cursor: pointer; }
+.device-prefs-icon:hover { border-color: var(--accent-line); }
+.device-prefs-icon.active { border-color: var(--accent); color: var(--accent); }
+.device-prefs-icon svg { width: 24px; height: 24px; }
+.device-prefs-favorites { list-style: none; margin: 0; padding: 0; display: grid; gap: .2rem; max-height: 12rem; overflow-y: auto; }
+.device-prefs-favorites label { display: flex; align-items: center; gap: .45rem; font-size: .9rem; }
+.device-prefs-favorites input:disabled + span { color: var(--text-faint); }
+.device-prefs-pin { display: flex; align-items: center; gap: .45rem; font-size: .9rem; }
+.device-prefs-actions { display: flex; align-items: center; gap: .6rem; }
+.device-prefs-status { color: var(--text-muted); }
+.device-tile-icon { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: .35rem; color: var(--accent); vertical-align: -.2em; }
+.device-tile-icon svg { width: 18px; height: 18px; }

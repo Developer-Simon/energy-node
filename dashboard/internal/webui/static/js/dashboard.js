@@ -463,14 +463,89 @@
     deletePreviewError: '',
     deleteLoading: false,
 
+    // Darstellung je Geraet (device-prefs.json). prefsDraftFor merkt sich,
+    // fuer welches Geraet der Entwurf gefuellt wurde: loadDeviceDetail laeuft
+    // im SSE-Takt erneut, und ein erneutes Fuellen wuerde dem Nutzer die
+    // Eingabe unter den Fingern wegziehen.
+    deviceIcons: [],
+    prefsDraft: {icon: '', favorite_refs: [], pin_favorites: false},
+    prefsDraftFor: '',
+    prefsSaving: false,
+    prefsMessage: '',
+    canEditPrefs: false,
+
+    async loadDeviceIcons() {
+      if (this.deviceIcons.length) return;
+      try {
+        this.deviceIcons = await requestJSON('/api/v1/device/icons');
+      } catch (error) {
+        this.deviceIcons = [];
+      }
+    },
+
+    // Baut denselben SVG-Rumpf wie deviceIcon() in deviceicons.go, damit
+    // Picker und gerenderte Karte identisch aussehen.
+    iconMarkup(name) {
+      const fallback = this.deviceIcons.find(icon => icon.name === 'mdi:chip-outline');
+      const icon = this.deviceIcons.find(candidate => candidate.name === name) || fallback;
+      const markup = icon ? icon.markup : '';
+      return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${markup}</svg>`;
+    },
+
+    seedPrefsDraft() {
+      const deviceId = this.selectedDeviceId;
+      if (!deviceId || this.prefsDraftFor === deviceId) return;
+      this.prefsDraftFor = deviceId;
+      this.prefsDraft = {
+        icon: this.deviceDetail?.icon_name || '',
+        favorite_refs: [...(this.deviceDetail?.favorite_refs || [])],
+        pin_favorites: this.deviceDetail?.pin_favorites === true,
+      };
+      this.prefsMessage = '';
+    },
+
+    toggleFavorite(ref) {
+      const refs = this.prefsDraft.favorite_refs;
+      const at = refs.indexOf(ref);
+      if (at >= 0) refs.splice(at, 1);
+      else if (refs.length < 3) refs.push(ref);
+    },
+
+    async saveDevicePrefs() {
+      if (!this.selectedDeviceId || this.prefsSaving) return;
+      this.prefsSaving = true;
+      this.prefsMessage = '';
+      try {
+        await requestJSON(
+          `/api/v1/device/prefs/${encodeURIComponent(this.selectedDeviceId)}`,
+          {...this.mutationOptions(this.prefsDraft), method: 'PUT'},
+        );
+        this.prefsMessage = 'Gespeichert';
+        // Das Detail traegt die Praeferenzen mit; der Entwurf darf danach
+        // wieder aus dem Server-Stand kommen.
+        this.prefsDraftFor = '';
+        await this.loadDeviceDetail(this.selectedDeviceId);
+        this.seedPrefsDraft();
+        await this.refreshAfterMutation();
+      } catch (error) {
+        this.prefsMessage = error.message;
+      } finally {
+        this.prefsSaving = false;
+      }
+    },
+
     async loadSession() {
       try {
         const session = await requestJSON('/api/v1/auth/session');
         this.csrfToken = session.csrf_token || '';
         this.canDeleteDiscovery = session.delete_device_discovery === true;
+        this.canEditPrefs = session.edit_layout !== false;
       } catch (error) {
         this.csrfToken = '';
         this.canDeleteDiscovery = false;
+        // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung - dann
+        // laesst auch requireLayoutMutation den Schreibzugriff durch.
+        this.canEditPrefs = true;
       }
     },
 
@@ -938,6 +1013,8 @@
       const detail = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}`);
       if (requestToken !== this.detailRequestToken || this.selectedDeviceId !== deviceId) return;
       this.deviceDetail = detail;
+      this.seedPrefsDraft();
+      this.loadDeviceIcons();
       if (this.$nextTick) this.$nextTick(() => this.positionUnderline());
     },
 
@@ -962,6 +1039,7 @@
       this.selectedDeviceId = '';
       this.deviceDetail = null;
       this.detailError = '';
+      this.prefsDraftFor = '';
       if (this.livePatchStale) {
         this.livePatchStale = false;
         this.refreshLiveFragment();

@@ -254,3 +254,60 @@ test('positionUnderline setzt Breite/Position aus dem aktiven Trigger, ohne Fehl
   const panel = createDevicesPanel();
   assert.doesNotThrow(() => panel.positionUnderline());
 });
+
+test('seedPrefsDraft füllt den Entwurf einmal je Gerät und überschreibt laufende Eingaben nicht', () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'node';
+  panel.deviceDetail = {
+    id: 'node',
+    icon_name: 'mdi:raspberry-pi',
+    favorite_refs: ['node_temp'],
+    pin_favorites: true,
+    entities: [{unique_id: 'node_temp'}, {unique_id: 'node_relay'}],
+  };
+
+  panel.seedPrefsDraft();
+  assert.equal(panel.prefsDraft.icon, 'mdi:raspberry-pi');
+  assert.deepEqual(panel.prefsDraft.favorite_refs, ['node_temp']);
+  assert.equal(panel.prefsDraft.pin_favorites, true);
+
+  // Der Nutzer tippt weiter, waehrend der SSE-Takt loadDeviceDetail erneut
+  // laufen laesst - der Entwurf darf dabei nicht zurueckspringen.
+  panel.prefsDraft.icon = 'mdi:solar-panel';
+  panel.seedPrefsDraft();
+  assert.equal(panel.prefsDraft.icon, 'mdi:solar-panel');
+
+  panel.selectedDeviceId = 'shelly';
+  panel.deviceDetail = {id: 'shelly', entities: []};
+  panel.seedPrefsDraft();
+  assert.equal(panel.prefsDraft.icon, '');
+  assert.deepEqual(panel.prefsDraft.favorite_refs, []);
+});
+
+test('toggleFavorite hält die Auswahl bei drei Einträgen', () => {
+  const panel = createDevicesPanel();
+  panel.prefsDraft = {icon: '', favorite_refs: [], pin_favorites: false};
+
+  ['a', 'b', 'c', 'd'].forEach(ref => panel.toggleFavorite(ref));
+  assert.deepEqual(panel.prefsDraft.favorite_refs, ['a', 'b', 'c']);
+
+  panel.toggleFavorite('b');
+  assert.deepEqual(panel.prefsDraft.favorite_refs, ['a', 'c']);
+
+  panel.toggleFavorite('d');
+  assert.deepEqual(panel.prefsDraft.favorite_refs, ['a', 'c', 'd']);
+});
+
+test('iconMarkup baut ein vollständiges SVG und fällt auf den Standard zurück', () => {
+  const panel = createDevicesPanel();
+  panel.deviceIcons = [
+    {name: 'mdi:chip-outline', label: 'Standard', markup: '<rect x="6" y="6" width="12" height="12"/>'},
+    {name: 'mdi:solar-panel', label: 'Solarpanel', markup: '<path d="M3.5 16 7 6Z"/>'},
+  ];
+
+  const chosen = panel.iconMarkup('mdi:solar-panel');
+  assert.match(chosen, /^<svg /);
+  assert.match(chosen, /M3\.5 16 7 6Z/);
+  assert.match(panel.iconMarkup('mdi:unbekannt'), /rect x="6"/);
+  assert.match(panel.iconMarkup(''), /rect x="6"/);
+});
