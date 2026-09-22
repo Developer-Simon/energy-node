@@ -143,6 +143,14 @@ def publish_device_discovery(client: mqtt.Client, device: TuyaDevice, node_devic
     )
 
 
+def connect_device(cfg: TuyaDeviceConfig) -> Any:
+    device = tinytuya.Device(cfg.device_id, cfg.ip, cfg.local_key)
+    device.set_version(cfg.version)
+    device.set_socketPersistent(True)
+    log.info("[%s] Tuya-Gerät initialisiert: %s", cfg.id, cfg.device_id)
+    return device
+
+
 def poll_one(device: TuyaDevice, client: mqtt.Client, simulation_active: bool) -> None:
     if simulation_active:
         publish(client, device, "switch", "ON" if device.simulated_switch_state else "OFF")
@@ -150,16 +158,22 @@ def poll_one(device: TuyaDevice, client: mqtt.Client, simulation_active: bool) -
         return
 
     if device.device is None:
-        device.device = tinytuya.Device(
-            device.cfg.device_id, device.cfg.ip, device.cfg.local_key
-        )
-        device.device.set_version(device.cfg.version)
-        device.device.set_socketPersistent(True)
-        log.info("[%s] Tuya-Gerät initialisiert: %s", device.cfg.id, device.cfg.device_id)
+        device.device = connect_device(device.cfg)
 
-    status = device.device.status()
-    if "Error" in status:
-        raise RuntimeError(f"Statusfehler: {status}")
+    try:
+        status = device.device.status()
+        if "Error" in status:
+            raise RuntimeError(f"Statusfehler: {status}")
+    except Exception as exc:
+        # Der persistente Socket verwirft nach einer erfolgreichen Abfrage
+        # gelegentlich unaufgefordert nachgeschobene Payloads (TinyTuya
+        # "Unexpected Payload"/Err 904); ein frischer Verbindungsaufbau
+        # behebt das zuverlässig, siehe journalctl-Muster auf dem Node.
+        log.info("[%s] Abfrage fehlgeschlagen (%s), verbinde neu und versuche erneut", device.cfg.id, exc)
+        device.device = connect_device(device.cfg)
+        status = device.device.status()
+        if "Error" in status:
+            raise RuntimeError(f"Statusfehler: {status}")
 
     dps = status.get("dps", {})
     log.info("[%s] Roher Gerätestatus (dps): %s", device.cfg.id, dps)
@@ -182,11 +196,7 @@ def set_switch(device: TuyaDevice, client: mqtt.Client, active: bool, simulation
         device.simulated_switch_state = active
     else:
         if device.device is None:
-            device.device = tinytuya.Device(
-                device.cfg.device_id, device.cfg.ip, device.cfg.local_key
-            )
-            device.device.set_version(device.cfg.version)
-            device.device.set_socketPersistent(True)
+            device.device = connect_device(device.cfg)
         result = device.device.set_value(device.cfg.switch_dp, active)
         log.info("[%s] Tuya-Antwort: %s", device.cfg.id, result)
     publish(client, device, "switch", "ON" if active else "OFF")
