@@ -22,6 +22,7 @@ COMPONENTS=(
   "libs/battery_soc_core/:libs/battery_soc_core/VERSION"
   "scripts/bootstrap/:scripts/bootstrap/VERSION"
   "integrations/homeassistant/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
+  "integrations/homeassistant/custom_components/energy_node_icons/:integrations/homeassistant/custom_components/energy_node_icons/manifest.json"
   "installer/:installer/VERSION"
   "installer/webui/:installer/webui/VERSION"
 )

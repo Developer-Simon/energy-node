@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "energy-node Icons",
+        "description": "Registers the \"energy-node\" icon set in the frontend. After that, the icons are selectable everywhere Home Assistant asks for an icon - for example energy-node:solar-panel."
+      }
+    },
+    "abort": {
+      "single_instance_allowed": "energy-node Icons is already set up."
+    }
+  }
+}
