@@ -21,4 +21,5 @@ dashboard/dashboard
 /.docs/
 /drafts/
 installer/installer
+installer/fakehost
 installer/bundle/**

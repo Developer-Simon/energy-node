@@ -70,7 +70,7 @@ scripts/dev/run-installer.sh
 
 `--arch` is the Pi's architecture: `armv6` for a Pi 1 or Pi Zero (the default
 target), `arm64` or `amd64` otherwise. `run-installer.sh` builds the program
-if needed and starts it. The
+and starts it (`--no-build` skips the build). The
 [Installer developer CLI](knowledge/installer-developer-cli.md) page has the
 details, such as a quicker package build for a first try.
 

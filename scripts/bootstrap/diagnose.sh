@@ -11,6 +11,8 @@
 set -uo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
+# shellcheck source=scripts/bootstrap/lib/shelly_webhook.sh
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/shelly_webhook.sh"
 
 PORTS=(1883 8080 443)
 FIXED_UNITS=(
@@ -69,6 +71,22 @@ for entry in data.get("steps", []):
     fi
   done
 
+  # Shelly-Wake-Webhook: nur, wenn der Betreiber die Freigabe gewaehlt hat
+  # (Schritt 35) und der Shelly-Dienst installiert ist. Firewall-Regel und
+  # Listener getrennt: der Dienst lauscht erst, wenn webhook_enabled im
+  # Dashboard an ist - eine offene Regel ohne Listener ist der Normalfall
+  # direkt nach der Installation, kein Fehler.
+  if shelly_webhook_wanted 2>/dev/null; then
+    local wport rules="" allowed=false listens=false
+    wport="$(shelly_webhook_port)"
+    rules="$("${SUDO[@]}" ufw status 2>/dev/null || true)"
+    grep -qE "^${wport}/tcp[[:space:]]+ALLOW" <<<"${rules}" && allowed=true
+    grep -qE "[:.]${wport}[[:space:]]" <<<"${listening}" && listens=true
+    printf 'webhook%sport%s%s\n' "$tab" "$tab" "${wport}"
+    printf 'webhook%sfirewall%s%s\n' "$tab" "$tab" "${allowed}"
+    printf 'webhook%slistening%s%s\n' "$tab" "$tab" "${listens}"
+  fi
+
   local etc="${EN_ROOT}/etc/energy-node"
   if [[ -f "${etc}/config.json" ]]; then
     printf 'config%sconfig.json%strue\n' "$tab" "$tab"
@@ -125,6 +143,10 @@ for line in sys.stdin:
         report["config"]["manifests"].append(key)
     elif kind == "tailscale":
         report["tailscale"][key] = value == "true"
+    elif kind == "webhook":
+        # Nur vorhanden, wenn die Freigabe gewaehlt ist (Schritt 35).
+        hook = report.setdefault("shelly_webhook", {})
+        hook[key] = value if key == "port" else value == "true"
 
 report["config"]["manifests"].sort()
 print(json.dumps(report, indent=2, ensure_ascii=False))

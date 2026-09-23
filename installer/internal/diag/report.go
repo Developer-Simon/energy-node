@@ -33,6 +33,20 @@ type Report struct {
 	Ports         map[string]bool   `json:"ports"`
 	Config        ConfigReport      `json:"config"`
 	Tailscale     TailscaleReport   `json:"tailscale"`
+	// ShellyWebhook ist nur gesetzt, wenn der Betreiber die Firewall-Freigabe
+	// fuer den Shelly-Wake-Webhook gewaehlt hat (Schritt 35) und der
+	// Shelly-Dienst installiert ist.
+	ShellyWebhook *ShellyWebhookReport `json:"shelly_webhook,omitempty"`
+}
+
+// ShellyWebhookReport mirrors diagnose.sh's "shelly_webhook" object:
+// Firewall is the ufw rule step 35 opens, Listening whether the Shelly
+// service actually listens -- it only does once webhook_enabled is switched
+// on in the dashboard.
+type ShellyWebhookReport struct {
+	Port      string `json:"port"`
+	Firewall  bool   `json:"firewall"`
+	Listening bool   `json:"listening"`
 }
 
 // Run executes diagnose.sh on the node and parses its output. diagnose.sh

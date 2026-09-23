@@ -26,6 +26,8 @@ grep -q '^##STEP 30 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 for rule in "allow ssh" "allow 1883/tcp" "allow 8080/tcp" "allow 443/tcp"; do
   grep -q "ufw $rule" "$UFW_LOG" || fail "Regel fehlt: $rule" "$(cat "$UFW_LOG")"
 done
+# Der Shelly-Wake-Webhook ist Opt-in (Schritt 35) und gehoert nicht hierher.
+grep -q '8082' "$UFW_LOG" && fail "Webhook-Port ohne Opt-in freigegeben" "$(cat "$UFW_LOG")"
 # --force, weil `ufw enable` sonst interaktiv nachfragt und in einer
 # SSH-Session auf die Rueckfrage wartet.
 grep -q 'ufw --force enable' "$UFW_LOG" || fail "enable fehlt" "$(cat "$UFW_LOG")"

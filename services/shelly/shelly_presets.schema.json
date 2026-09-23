@@ -71,6 +71,17 @@
             "type": "boolean",
             "title": "Humidity measurements",
             "description": "Whether the device reports relative humidity."
+          },
+          "sleepy": {
+            "type": "boolean",
+            "title": "Sleepy (battery) device",
+            "description": "Battery-powered device that sleeps between reports (e.g. Shelly H&T)."
+          },
+          "offline_grace_s": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "title": "Offline grace period (s)",
+            "description": "Only used when sleepy is true: how long the device may stay silent before it is reported offline."
           }
         }
       }

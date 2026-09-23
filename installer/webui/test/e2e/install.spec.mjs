@@ -6,7 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
-import { startFakehost, openPage, connect, startInstall, connectWithPackage, getDebugState, SECRETS } from './fakehost.mjs';
+import { startFakehost, openPage, connect, startInstall, connectWithPackage, getDebugState, fillSecrets, SECRETS } from './fakehost.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const en = JSON.parse(fs.readFileSync(path.join(here, '..', '..', 'catalogs', 'en.json'), 'utf8'));
@@ -139,6 +139,42 @@ test('die Diagnose repariert genau den ausgefallenen Dienst (Kriterium 6)', () =
   assert.equal(await page.locator('.stepper').count(), 0, 'eine Reparatur hat keinen Stepper');
   await page.getByRole('button', { name: 'Diagnose öffnen' }).click();
   await page.locator('.app[data-screen="diagnose"] .tally').waitFor();
+  await context.close();
+}));
+
+test('mit gewaehltem Shelly-Webhook zeigt die Diagnose Port und Hinweis', () => withHost(['--trusted'], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await connect(page, { trusted: true });
+  await page.locator('.app[data-screen="precheck"] .chk').first().waitFor();
+  await page.getByRole('button', { name: 'Weiter', exact: true }).click();
+  await page.locator('.app[data-screen="configure"] .tog').first().waitFor();
+  const webhook = page.getByRole('switch', { name: 'Shelly-Wake-Webhook in der Firewall' });
+  assert.equal(await webhook.isChecked(), false, 'Opt-in: standardmaessig aus');
+  await webhook.click({ force: true });
+  await fillSecrets(page);
+  await page.getByRole('button', { name: 'Installation starten' }).click();
+  await page.locator('.app[data-screen="result"] .hero h1').waitFor({ timeout: 20000 });
+
+  await page.getByRole('button', { name: 'Diagnose öffnen' }).click();
+  const diagnose = page.locator('.app[data-screen="diagnose"]');
+  await diagnose.getByText('Shelly-Webhook-Port 8082').waitFor();
+  const text = await diagnose.innerText();
+  assert.match(text, /Shelly-Webhook-Port 8082\s+freigegeben/);
+  assert.match(text, /Shelly-Wake-Webhook\s+im Dashboard aus/);
+  assert.match(text, /webhook_enabled/);
+  assert.match(text, /Ports 443 · 1883 · 8080/, 'die Pflichtports bleiben eine eigene Zeile');
+  await context.close();
+}));
+
+test('ohne Shelly-Webhook bleibt die Diagnose ohne Webhook-Zeilen', () => withHost(['--trusted'], async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await connect(page, { trusted: true });
+  await startInstall(page);
+  await page.locator('.app[data-screen="result"] .hero h1').waitFor({ timeout: 20000 });
+  await page.getByRole('button', { name: 'Diagnose öffnen' }).click();
+  await page.locator('.app[data-screen="diagnose"] .tally').waitFor();
+  await page.locator('.app[data-screen="diagnose"]').getByText('Tailscale-Anmeldung').waitFor();
+  assert.equal(await page.locator('.app[data-screen="diagnose"]').getByText('Shelly-Webhook').count(), 0);
   await context.close();
 }));
 

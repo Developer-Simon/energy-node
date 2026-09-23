@@ -79,6 +79,19 @@ EN_BUNDLE_VERSION="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[
   "$bundle/manifest.json")"
 export EN_BUNDLE_VERSION
 
+# Opt-in-Schritte (Manifest-Vorgabe "aus", z. B. 35) laufen nur mit
+# ausdruecklicher Zustimmung. Ohne Auswahl wuerden sie hier uebersprungen und
+# blieben in der Kette ungeprueft: also fuer jeden von ihnen zustimmen. Alle
+# anderen optionalen Schritte gelten weiter als "an" (nicht genannt).
+python3 - "$bundle/manifest.json" "$EN_STATE_DIR/selection.json" <<'PY'
+import json, pathlib, sys
+manifest = json.load(open(sys.argv[1], encoding="utf-8"))
+steps = {e["id"]: True for e in manifest["steps"] if e.get("optional") and not e.get("default", True)}
+path = pathlib.Path(sys.argv[2])
+path.parent.mkdir(parents=True, exist_ok=True)
+path.write_text(json.dumps({"steps": steps}) + "\n", encoding="utf-8")
+PY
+
 # Die Schrittliste kommt aus dem Manifest - nicht aus einer Kopie hier.
 mapfile -t STEP_IDS < <(python3 -c '
 import json, sys

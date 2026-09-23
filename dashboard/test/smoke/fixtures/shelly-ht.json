@@ -1,0 +1,258 @@
+[
+  {
+    "topic": "homeassistant/sensor/ht_bad/temperature/config",
+    "payload": {
+      "name": "Shelly H&T Bad Temperatur",
+      "unique_id": "ht_bad_temperature",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/temperature",
+      "availability_topic": "outstation/ht_bad/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_bad/humidity/config",
+    "payload": {
+      "name": "Shelly H&T Bad Luftfeuchte",
+      "unique_id": "ht_bad_humidity",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/humidity",
+      "availability_topic": "outstation/ht_bad/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "%",
+      "device_class": "humidity",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_bad/rssi/config",
+    "payload": {
+      "name": "Shelly H&T Bad WLAN-Signal",
+      "unique_id": "ht_bad_rssi",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/rssi",
+      "availability_topic": "outstation/ht_bad/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "dBm",
+      "device_class": "signal_strength",
+      "entity_category": "diagnostic",
+      "enabled_by_default": false
+    }
+  },
+  {
+    "topic": "homeassistant/binary_sensor/ht_bad/online/config",
+    "payload": {
+      "name": "Erreichbarkeit",
+      "unique_id": "ht_bad_online",
+      "device": {
+        "name": "Shelly H&T Bad",
+        "identifiers": [
+          "ht_bad"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SHHT-1",
+        "sw_version": "1.11.8",
+        "hw_version": "Gen 1",
+        "serial_number": "C45BBE6A1F20"
+      },
+      "state_topic": "outstation/ht_bad/status/online",
+      "device_class": "connectivity",
+      "payload_on": "1",
+      "payload_off": "0",
+      "entity_category": "diagnostic",
+      "json_attributes_topic": "outstation/ht_bad/status/online/attributes"
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_keller/temperature/config",
+    "payload": {
+      "name": "Shelly Plus H&T Keller Temperatur",
+      "unique_id": "ht_keller_temperature",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/temperature",
+      "availability_topic": "outstation/ht_keller/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "°C",
+      "device_class": "temperature",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_keller/humidity/config",
+    "payload": {
+      "name": "Shelly Plus H&T Keller Luftfeuchte",
+      "unique_id": "ht_keller_humidity",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/humidity",
+      "availability_topic": "outstation/ht_keller/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "%",
+      "device_class": "humidity",
+      "enabled_by_default": true
+    }
+  },
+  {
+    "topic": "homeassistant/sensor/ht_keller/rssi/config",
+    "payload": {
+      "name": "Shelly Plus H&T Keller WLAN-Signal",
+      "unique_id": "ht_keller_rssi",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/rssi",
+      "availability_topic": "outstation/ht_keller/status/online",
+      "payload_available": "1",
+      "payload_not_available": "0",
+      "unit_of_measurement": "dBm",
+      "device_class": "signal_strength",
+      "entity_category": "diagnostic",
+      "enabled_by_default": false
+    }
+  },
+  {
+    "topic": "homeassistant/binary_sensor/ht_keller/online/config",
+    "payload": {
+      "name": "Erreichbarkeit",
+      "unique_id": "ht_keller_online",
+      "device": {
+        "name": "Shelly Plus H&T Keller",
+        "identifiers": [
+          "ht_keller"
+        ],
+        "manufacturer": "Shelly",
+        "via_device": "energy_node",
+        "model": "SNSN-0013A",
+        "sw_version": "1.4.4",
+        "hw_version": "Gen 2",
+        "serial_number": "80646FE3A1B2"
+      },
+      "state_topic": "outstation/ht_keller/status/online",
+      "device_class": "connectivity",
+      "payload_on": "1",
+      "payload_off": "0",
+      "entity_category": "diagnostic",
+      "json_attributes_topic": "outstation/ht_keller/status/online/attributes"
+    }
+  },
+  {
+    "topic": "outstation/ht_bad/status/online",
+    "payload": "1"
+  },
+  {
+    "topic": "outstation/ht_bad/status/online/attributes",
+    "payload": {
+      "reason": "poll ok"
+    }
+  },
+  {
+    "topic": "outstation/ht_bad/status/last_update",
+    "payload": "1790150400"
+  },
+  {
+    "topic": "outstation/ht_bad/temperature",
+    "payload": "21.4"
+  },
+  {
+    "topic": "outstation/ht_bad/humidity",
+    "payload": "58.2"
+  },
+  {
+    "topic": "outstation/ht_bad/rssi",
+    "payload": "-67"
+  },
+  {
+    "topic": "outstation/ht_keller/temperature",
+    "payload": "12.3"
+  },
+  {
+    "topic": "outstation/ht_keller/humidity",
+    "payload": "71.0"
+  },
+  {
+    "topic": "outstation/ht_keller/rssi",
+    "payload": "-78"
+  },
+  {
+    "topic": "outstation/ht_keller/status/online",
+    "payload": "0"
+  },
+  {
+    "topic": "outstation/ht_keller/status/online/attributes",
+    "payload": {
+      "reason": "HTTPConnectionPool(host='192.0.2.22', port=80): Max retries exceeded"
+    }
+  }
+]

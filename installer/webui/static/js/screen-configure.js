@@ -38,6 +38,7 @@
           shared.selection = results[1];
           this.manifest = results[0];
           this.steps = Object.assign({}, results[1].steps);
+          window.Services.dropUnmet(this.manifest, this.steps);
           // Ein allgemeines Bundle traegt kein Ziel: dann gilt der Benutzer,
           // mit dem die Verbindung besteht, und sein Heimatverzeichnis.
           var loginUser = (shared.target && shared.target.user) || '';
@@ -59,10 +60,12 @@
         var next = !row.on;
         var steps = this.steps;
         row.ids.forEach(function (id) { steps[id] = next; });
+        window.Services.dropUnmet(this.manifest, steps);
       },
 
       toggleChip(chip) {
         this.steps[chip.id] = !chip.on;
+        window.Services.dropUnmet(this.manifest, this.steps);
       },
 
       get canStart() {

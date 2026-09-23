@@ -114,6 +114,10 @@ type StepView struct {
 	// Kind ist "device" fuer einen Geraete-Dienst, "service" fuer einen
 	// anderen Python-Dienst und leer fuer einen Systemschritt.
 	Kind string `json:"kind,omitempty"`
+	// Requires ist der Schritt, ohne den dieser nicht laeuft (manifest.json,
+	// "requires"). Die Konfiguration sperrt den Schalter, solange der
+	// benoetigte Schritt aus ist.
+	Requires string `json:"requires,omitempty"`
 }
 
 // ManifestView ist der fuer die Oberflaeche interessante Teil des Manifests.

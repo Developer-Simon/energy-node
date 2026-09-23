@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"strings"
 	"testing"
 	"time"
 
@@ -65,5 +66,41 @@ func TestTheUpdateScenarioCarriesANewOptionalService(t *testing.T) {
 	selection, _ := backend.Selection(context.Background())
 	if _, listed := selection.Steps["89"]; listed || selection.Source != "node" {
 		t.Errorf("selection = %+v, want a node selection that does not know step 89", selection)
+	}
+}
+
+func TestTheDiagnoseShowsTheShellyWebhookOnlyWhenChosen(t *testing.T) {
+	backend := newScenario("vorlage", options{})
+	webhookChecks := func() []hostapi.Check {
+		view, err := backend.Diagnose(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+		var found []hostapi.Check
+		for _, c := range view.Checks {
+			if strings.HasPrefix(c.Subject, "shelly-webhook-") {
+				found = append(found, c)
+			}
+		}
+		return found
+	}
+	if got := webhookChecks(); len(got) != 0 {
+		t.Fatalf("without the opt-in the diagnose shows no webhook, got %+v", got)
+	}
+
+	steps := map[string]bool{"35": true, "83": true}
+	if err := backend.SaveSelection(context.Background(), steps); err != nil {
+		t.Fatal(err)
+	}
+	got := webhookChecks()
+	if len(got) != 2 || !got[0].OK || got[0].RetryStepID != "35" || got[1].OK || got[1].Severity != "warn" {
+		t.Fatalf("with the opt-in: rule ok (retry 35) and listener as hint, got %+v", got)
+	}
+
+	if err := backend.SaveSelection(context.Background(), map[string]bool{"35": true, "83": false}); err != nil {
+		t.Fatal(err)
+	}
+	if got := webhookChecks(); len(got) != 0 {
+		t.Fatalf("without the Shelly service the webhook is gone again, got %+v", got)
 	}
 }

@@ -1,12 +1,13 @@
 # Changelog
 
-## v0.4.6 (2026-09-21)
+## v0.4.7 (2026-09-22)
 
 ### Features
 
 - **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **shelly:** optional wake webhook so a sleeping Gen1 device is polled the moment it wakes (3105234)
 
 ### Tests
 

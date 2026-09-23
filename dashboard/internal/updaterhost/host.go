@@ -64,6 +64,7 @@ type candidateManifest struct {
 		Optional bool   `json:"optional"`
 		Dir      string `json:"dir"`
 		Version  string `json:"version"`
+		Requires string `json:"requires,omitempty"`
 	} `json:"steps"`
 }
 
@@ -136,7 +137,7 @@ func (h *Host) Manifest(context.Context) (*hostapi.ManifestView, error) {
 	}
 	view := &hostapi.ManifestView{BundleVersion: m.Version, Arch: m.Arch, Components: m.Components}
 	for _, s := range m.Steps {
-		view.Steps = append(view.Steps, hostapi.StepView{ID: s.ID, Optional: s.Optional})
+		view.Steps = append(view.Steps, hostapi.StepView{ID: s.ID, Optional: s.Optional, Requires: s.Requires})
 	}
 	return view, nil
 }

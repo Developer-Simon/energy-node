@@ -119,3 +119,46 @@ func TestChecklistGroupsEveryCheckAndNamesItsSubject(t *testing.T) {
 		t.Errorf("checks missing from the list: %v", want)
 	}
 }
+
+func TestChecklistReportsTheShellyWebhookOnlyWhenOptedIn(t *testing.T) {
+	report := &diag.Report{Ports: map[string]bool{"1883": true}}
+	for _, c := range report.Checklist(testSteps()) {
+		if c.RetryStepID == "35" || c.Severity != "" {
+			t.Fatalf("without the opt-in no webhook check may appear, got %+v", c)
+		}
+	}
+}
+
+func TestChecklistSplitsTheShellyWebhookIntoRuleAndListener(t *testing.T) {
+	report := &diag.Report{ShellyWebhook: &diag.ShellyWebhookReport{Port: "8082", Firewall: false, Listening: false}}
+	byName := map[string]diag.Check{}
+	for _, c := range report.Checklist(testSteps()) {
+		byName[c.Name] = c
+	}
+
+	rule, ok := byName["shelly webhook firewall 8082"]
+	if !ok {
+		t.Fatalf("expected a firewall check, got %+v", byName)
+	}
+	if rule.OK || rule.Severity != "" || rule.RetryStepID != "35" || rule.Group != "system" || rule.Detail != "missing" {
+		t.Errorf("a missing rule is an error fixed by step 35, got %+v", rule)
+	}
+	if rule.Subject != "shelly-webhook-firewall:8082" {
+		t.Errorf("subject = %q", rule.Subject)
+	}
+
+	listener, ok := byName["shelly webhook listener 8082"]
+	if !ok {
+		t.Fatalf("expected a listener check, got %+v", byName)
+	}
+	if listener.OK || listener.Severity != "warn" || listener.RetryStepID != "" {
+		t.Errorf("a missing listener is only a hint without a retry step, got %+v", listener)
+	}
+
+	report.ShellyWebhook = &diag.ShellyWebhookReport{Port: "9090", Firewall: true, Listening: true}
+	for _, c := range report.Checklist(testSteps()) {
+		if (c.Name == "shelly webhook firewall 9090" || c.Name == "shelly webhook listener 9090") && !c.OK {
+			t.Errorf("rule and listener in place must pass, got %+v", c)
+		}
+	}
+}

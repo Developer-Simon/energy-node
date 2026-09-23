@@ -111,8 +111,9 @@ function composedKeys() {
       keys.push(`step.${id}`);
     }
   }
-  // Die optionalen Systemschritte (E7): Tailscale und Caddy.
-  keys.push('configure.hint.step.40', 'configure.hint.step.70');
+  // Die optionalen Systemschritte (E7): Shelly-Webhook-Freigabe (Opt-in),
+  // Tailscale und Caddy.
+  keys.push('configure.hint.step.35', 'configure.hint.step.40', 'configure.hint.step.70');
 
   const checklist = read(repo, 'installer', 'internal', 'diag', 'checklist.go');
   const fixedUnits = checklist.slice(checklist.indexOf('var fixedUnitSteps'), checklist.indexOf('var fixedPortSteps'));

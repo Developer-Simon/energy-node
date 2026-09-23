@@ -49,19 +49,28 @@ func RunDiagnose(ctx context.Context, args DiagnoseArgs) error {
 	fmt.Fprintf(args.Stdout, "Installed version: %s\n\n", manifest.Version)
 
 	checks := report.Checklist(manifest.Steps)
-	failed := 0
+	failed, warned := 0, 0
 	for _, c := range checks {
 		status := "OK"
-		if !c.OK {
+		switch {
+		case c.OK:
+		case c.Severity == "warn":
+			// Ein Hinweis blockiert nichts und hat keinen Reparaturschritt.
+			status = "WARN"
+			warned++
+		default:
 			status = "FAIL"
 			failed++
 		}
 		fmt.Fprintf(args.Stdout, "[%s] %-24s %s\n", status, c.Name, c.Detail)
-		if !c.OK {
+		if status == "FAIL" {
 			fmt.Fprintf(args.Stdout, "       -> retry: %s\n", retryHint(manifest.Steps, c.RetryStepID))
 		}
 	}
-	fmt.Fprintf(args.Stdout, "\n%d/%d checks OK\n", len(checks)-failed, len(checks))
+	fmt.Fprintf(args.Stdout, "\n%d/%d checks OK\n", len(checks)-failed-warned, len(checks))
+	if warned > 0 {
+		fmt.Fprintf(args.Stdout, "%d hint(s), nothing blocking\n", warned)
+	}
 	return nil
 }
 

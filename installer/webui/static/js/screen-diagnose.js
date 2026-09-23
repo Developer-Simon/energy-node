@@ -26,6 +26,14 @@
     if (check.group === 'config') {
       return 'config';
     }
+    // Shelly-Wake-Webhook (nur mit Opt-in, Schritt 35): Firewall-Regel und
+    // Listener, der Port steht hinter dem Doppelpunkt.
+    if (/^shelly-webhook-firewall:/.test(subject)) {
+      return 'webhook-firewall';
+    }
+    if (/^shelly-webhook-listener:/.test(subject)) {
+      return 'webhook-listener';
+    }
     if (/\.service$/.test(subject)) {
       return 'unit';
     }
@@ -33,6 +41,10 @@
       return 'port';
     }
     return subject === 'tailscale' ? 'tailscale' : 'other';
+  }
+
+  function portOf(check) {
+    return String(check.subject || '').split(':')[1] || '';
   }
 
   var DiagnoseModel = {
@@ -64,13 +76,13 @@
         parts.push({ key: key, type: 'r', cls: 'r', name: name, value: value, dot: 'd' + suffix, valueCls: 'r-v' + suffix });
       }
 
-      function follow(parts, check, title, text) {
+      function follow(parts, check, title, text, warnText) {
         var level = levelOf(check);
         if (level === 'ok') {
           return;
         }
         if (level === 'warn') {
-          parts.push({ key: 'warn-' + check.name, type: 'warnbox', cls: 'warnbox', text: t('diagnose.warn.text') });
+          parts.push({ key: 'warn-' + check.name, type: 'warnbox', cls: 'warnbox', text: warnText || t('diagnose.warn.text') });
           return;
         }
         parts.push({
@@ -108,6 +120,16 @@
               follow(parts, check, t('diagnose.fail.unit.title'), t('diagnose.fail.unit.text', { unit: check.subject }));
               return;
             }
+            case 'webhook-firewall':
+              row(parts, check.name, t('diagnose.webhook.firewall', { port: portOf(check) }),
+                t(check.ok ? 'diagnose.webhook.firewall.allowed' : 'diagnose.webhook.firewall.missing'), levelOf(check));
+              follow(parts, check, t('diagnose.fail.webhook.title'), t('diagnose.fail.webhook.text', { port: portOf(check) }));
+              return;
+            case 'webhook-listener':
+              row(parts, check.name, t('diagnose.webhook.listener'),
+                t(check.ok ? 'diagnose.webhook.listener.on' : 'diagnose.webhook.listener.off'), levelOf(check));
+              follow(parts, check, '', '', t('diagnose.warn.webhook', { port: portOf(check) }));
+              return;
             case 'tailscale':
               row(parts, check.name, t('diagnose.tailscale'), t(check.ok ? 'diagnose.tailscale.in' : 'diagnose.tailscale.out'), levelOf(check));
               follow(parts, check, t('diagnose.fail.tailscale.title'), t('diagnose.fail.tailscale.text'));

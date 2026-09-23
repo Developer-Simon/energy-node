@@ -67,6 +67,20 @@ rc=$?
 set -e
 [ "$rc" -ne 0 ] || fail "kaputte selection.json galt als gewaehlt"
 rm -f "$EN_SELECTION"
+
+# --- step_opted_in: nur ein ausdrueckliches true zaehlt --------------------
+( source "$lib"; step_opted_in 35 ) && fail "Opt-in ohne Datei gilt als gewaehlt"
+printf '{"steps":{"70":true}}\n' > "$EN_SELECTION"
+( source "$lib"; step_opted_in 35 ) && fail "nicht genannter Opt-in-Schritt gilt als gewaehlt"
+printf '{"steps":{"35":false}}\n' > "$EN_SELECTION"
+( source "$lib"; step_opted_in 35 ) && fail "abgewaehlter Opt-in-Schritt gilt als gewaehlt"
+printf '{"steps":{"35":"ja"}}\n' > "$EN_SELECTION"
+( source "$lib"; step_opted_in 35 ) && fail "ein Nicht-Wahrheitswert gilt als Zustimmung"
+printf '{"steps":{"35":true}}\n' > "$EN_SELECTION"
+( source "$lib"; step_opted_in 35 ) || fail "ausdrueckliches true nicht als gewaehlt gelesen"
+printf 'kein json\n' > "$EN_SELECTION"
+( source "$lib"; step_opted_in 35 ) 2>/dev/null && fail "kaputte selection.json galt als Zustimmung"
+rm -f "$EN_SELECTION"
 unset EN_SELECTION
 
 # --- EN_TARGET_BASE faellt auf HOME zurueck, bleibt aber ueberschreibbar ---

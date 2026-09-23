@@ -8,6 +8,11 @@
   // Schritt 60 installiert das Dashboard-Binary; die MQTT-Bruecke laeuft darin.
   var CORE_STEP = '60';
   var DASHBOARD_UNIT = 'energy-node-dashboard.service';
+  // Optionale Systemschritte, die in der Ausfuehrung keine eigene Station
+  // bekommen, sondern unter der eines anderen laufen: 35 (Opt-in-Freigabe
+  // des Shelly-Wake-Webhooks) ist eine weitere Firewall-Regel. In der
+  // Konfiguration bleibt er ein eigener Schalter.
+  var RUN_GROUP_OF = { '35': '30' };
 
   function optionalText(shell, key) {
     var text = shell.t(key);
@@ -24,6 +29,29 @@
         return true;
       }
       return !!(selection && selection.steps && selection.steps[step.id] === true);
+    },
+
+    // requiresMet: ein Schritt mit "requires" (manifest.json) zaehlt nur,
+    // solange der benoetigte Schritt gewaehlt ist - 35 (Webhook-Port) nur
+    // mit dem Shelly-Dienst 83. Fehlt der benoetigte Schritt im Manifest,
+    // ist die Bedingung nicht erfuellt.
+    requiresMet: function (manifest, step, selection) {
+      if (!step.requires) {
+        return true;
+      }
+      var needed = ((manifest && manifest.steps) || []).filter(function (s) { return s.id === step.requires; })[0];
+      return !!needed && Services.isSelected(needed, selection);
+    },
+
+    // dropUnmet schaltet in der Auswahl jeden Schritt ab, dessen benoetigter
+    // Schritt aus ist - sonst bliebe nach dem Abwaehlen von Shelly ein
+    // unsichtbares Opt-in fuer den Webhook-Port gespeichert.
+    dropUnmet: function (manifest, steps) {
+      ((manifest && manifest.steps) || []).forEach(function (step) {
+        if (step.requires && steps[step.id] === true && !Services.requiresMet(manifest, step, { steps: steps })) {
+          steps[step.id] = false;
+        }
+      });
     },
 
     isKnown: function (step, selection) {
@@ -78,6 +106,10 @@
         });
       }
       parts.system.forEach(function (step) {
+        // Erst sichtbar, wenn der benoetigte Schritt an ist (35 mit Shelly).
+        if (!Services.requiresMet(manifest, step, selection)) {
+          return;
+        }
         rows.push({
           key: 'step-' + step.id, kind: 'system', ids: [step.id],
           name: Services.stepName(step.id, shell),
@@ -103,8 +135,11 @@
 
       var groups = [];
       var placed = false;
-      ((manifest && manifest.steps) || []).forEach(function (step) {
-        if (step.service_id) {
+      var steps = (manifest && manifest.steps) || [];
+      var present = {};
+      steps.forEach(function (step) { present[step.id] = true; });
+      steps.forEach(function (step) {
+        if (step.service_id || present[RUN_GROUP_OF[step.id]]) {
           return;
         }
         if (step.id === CORE_STEP) {
@@ -112,7 +147,10 @@
           placed = true;
           return;
         }
-        groups.push({ key: 'step-' + step.id, label: Services.stepName(step.id, shell), ids: [step.id], subs: null });
+        var ids = [step.id].concat(steps.filter(function (other) {
+          return RUN_GROUP_OF[other.id] === step.id;
+        }).map(function (other) { return other.id; }));
+        groups.push({ key: 'step-' + step.id, label: Services.stepName(step.id, shell), ids: ids, subs: null });
       });
       if (!placed && serviceSteps.length) {
         servicesGroup.ids = servicesGroup.ids.slice(1);

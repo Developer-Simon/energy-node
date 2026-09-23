@@ -53,6 +53,9 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 		if req.Only != "" && step.ID != req.Only {
 			continue
 		}
+		if step.ID == webhookStep && b.webhookChosen() {
+			step = hostapitest.FakeStep{ID: webhookStep, Log: []string{"Firewall: 8082/tcp fuer den Shelly-Wake-Webhook freigegeben"}}
+		}
 		if err := pause(ctx, b.opts.stepDelay); err != nil {
 			return err
 		}
@@ -78,6 +81,35 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 		sink.Marker(step.ID, state, step.Detail)
 	}
 	return nil
+}
+
+// webhookStep ist die Opt-in-Freigabe des Shelly-Wake-Webhooks; sie laeuft
+// nur mit dem Shelly-Dienst (83), wie auf einem echten Node.
+const webhookStep = "35"
+
+// webhookChosen folgt der zuletzt gespeicherten Auswahl, damit Ausfuehrung
+// und Diagnose zeigen, was die Konfiguration eingestellt hat.
+func (b *stagedBackend) webhookChosen() bool {
+	if b.SelectionView == nil {
+		return false
+	}
+	return b.SelectionView.Steps[webhookStep] && b.SelectionView.Steps["83"]
+}
+
+// Diagnose ergaenzt die feste Pruefliste um den Shelly-Wake-Webhook, sobald
+// er gewaehlt ist: Firewall-Regel gesetzt, der Webhook im Dashboard aber noch
+// aus - der Zustand direkt nach der Installation, also ein Hinweis.
+func (b *stagedBackend) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
+	view, err := b.FakeBackend.Diagnose(ctx)
+	if err != nil || view == nil || !b.webhookChosen() {
+		return view, err
+	}
+	out := *view
+	out.Checks = append(append([]hostapi.Check{}, view.Checks...),
+		hostapi.Check{Name: "shelly webhook firewall 8082", OK: true, Detail: "allowed", RetryStepID: webhookStep, Group: "system", Subject: "shelly-webhook-firewall:8082"},
+		hostapi.Check{Name: "shelly webhook listener 8082", OK: false, Detail: "not listening", Group: "system", Subject: "shelly-webhook-listener:8082", Severity: "warn"},
+	)
+	return &out, nil
 }
 
 func pause(ctx context.Context, d time.Duration) error {
@@ -123,6 +155,7 @@ func newScenario(name string, opts options) *stagedBackend {
 
 	steps := []hostapi.StepView{
 		{ID: "10"}, {ID: "20"}, {ID: "30"},
+		{ID: "35", Optional: true, Default: false, Requires: "83"},
 		{ID: "40", Optional: true, Default: true},
 		{ID: "50"}, {ID: "60"},
 		{ID: "70", Optional: true, Default: true},
@@ -148,7 +181,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		BundleBytes: 41 * 1024 * 1024, WheelCount: 12, UnitCount: 8, TemplateCount: 7,
 	}
 
-	selected := map[string]bool{"40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true}
+	selected := map[string]bool{"35": false, "40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true}
 	fake.SelectionView = &hostapi.SelectionView{Steps: selected, Source: "manifest-default"}
 
 	if update {
@@ -159,6 +192,7 @@ func newScenario(name string, opts options) *stagedBackend {
 			BundleVersion: "v1.4.2",
 			Steps: []hostapi.PlanStep{
 				{ID: "10", State: "done"}, {ID: "20", State: "done"}, {ID: "30", State: "done"},
+				{ID: "35", State: "deselected", Optional: true},
 				{ID: "40", State: "done", Optional: true, Selected: true},
 				{ID: "50", State: "pending"}, {ID: "60", State: "pending"},
 				{ID: "70", State: "done", Optional: true, Selected: true},
@@ -214,6 +248,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-venv", "12 Pakete installiert"}},
 		{ID: "20", Log: []string{"mosquitto_passwd -b energynode ***", "/etc/mosquitto/conf.d/default.conf geschrieben", "mosquitto neu gestartet, Testnachricht zugestellt"}},
 		{ID: "30", Log: []string{"Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp", "ufw aktiv"}},
+		{ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
 		{ID: "40", Log: []string{
 			"tailscale_1.62.0_arm.tgz übertragen (24,1 MB)", "sha256 stimmt mit dem Manifest überein",
 			"tailscale, tailscaled nach /usr/sbin kopiert", "tailscaled.service aktiviert und gestartet",
@@ -231,7 +266,8 @@ func newScenario(name string, opts options) *stagedBackend {
 	if update {
 		fake.Steps = []hostapitest.FakeStep{
 			{ID: "10", State: "skip", Detail: "bereits erledigt"}, {ID: "20", State: "skip", Detail: "bereits erledigt"},
-			{ID: "30", State: "skip", Detail: "bereits erledigt"}, {ID: "40", State: "skip", Detail: "bereits erledigt"},
+			{ID: "30", State: "skip", Detail: "bereits erledigt"}, {ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
+			{ID: "40", State: "skip", Detail: "bereits erledigt"},
 			{ID: "50", Log: []string{"tinytuya 1.15.1 -> 1.16.0"}}, {ID: "60", Log: []string{"energy-node-dashboard 1.4.1 -> 1.4.2"}},
 			{ID: "70", State: "skip", Detail: "bereits erledigt"}, {ID: "81", State: "skip", Detail: "bereits erledigt"},
 			{ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83", State: "skip", Detail: "bereits erledigt"},

@@ -4,7 +4,10 @@
 #
 # 443 wird auch dann freigegeben, wenn Caddy nicht gewaehlt ist - eine offene
 # Regel ohne lauschenden Dienst ist harmlos, eine fehlende Regel nach einem
-# spaeteren Hinzuwaehlen von HTTPS dagegen ein stiller Ausfall.
+# spaeteren Hinzuwaehlen von HTTPS dagegen ein stiller Ausfall. Der Port des
+# Shelly-Wake-Webhooks steht bewusst NICHT hier: er nimmt Anfragen aus dem
+# LAN an, die Freigabe muss der Betreiber im Installer ausdruecklich erteilen
+# (Opt-in-Schritt 35).
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"

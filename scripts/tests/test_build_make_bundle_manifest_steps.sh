@@ -40,11 +40,27 @@ for step_id, want in expect_keyed.items():
     if got != want:
         sys.exit("step %s: dashboard_key = %r, erwartet %r" % (step_id, got, want))
 
-expect_none = ["10", "20", "30", "50", "60", "70"]
+expect_none = ["10", "20", "30", "35", "50", "60", "70"]
 for step_id in expect_none:
     got = by_id.get(step_id, {}).get("dashboard_key")
     if got:
         sys.exit("step %s: dashboard_key = %r, erwartet keinen" % (step_id, got))
+
+# Opt-in: die Firewall-Freigabe fuer den Shelly-Wake-Webhook ist optional
+# und standardmaessig aus; alle anderen optionalen Schritte bleiben an (E7).
+step35 = by_id.get("35")
+if not step35 or step35.get("optional") is not True or step35.get("default") is not False:
+    sys.exit("step 35: erwartet optional mit default false, gefunden %r" % step35)
+# Der Webhook-Port ergibt nur mit dem Shelly-Dienst Sinn.
+if step35.get("requires") != "83" or by_id.get("83", {}).get("service_id") != "shelly":
+    sys.exit("step 35: erwartet requires 83 (shelly), gefunden %r" % step35.get("requires"))
+if [s["id"] for s in manifest["steps"] if s.get("requires")] != ["35"]:
+    sys.exit("requires steht an anderen Schritten als 35")
+for step in manifest["steps"]:
+    if step["optional"] and step["id"] != "35" and step.get("default") is not True:
+        sys.exit("step %s: optionaler Schritt ohne default true" % step["id"])
+if by_id.get("30", {}).get("optional"):
+    sys.exit("step 30 ist nicht mehr Kern")
 
 print("ok")
 PY

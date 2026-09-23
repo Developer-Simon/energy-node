@@ -83,6 +83,19 @@
         "title": "Humidity measurements",
         "description": "Whether the device reports relative humidity (e.g. Shelly Plus H&T)."
       },
+      "sleepy": {
+        "type": "boolean",
+        "default": false,
+        "title": "Sleepy (battery) device",
+        "description": "Battery-powered device that sleeps between reports (e.g. Shelly H&T) and is normally unreachable over HTTP. A failed poll is only reported offline after offline_grace_s without a successful contact, instead of immediately."
+      },
+      "offline_grace_s": {
+        "type": "number",
+        "exclusiveMinimum": 0,
+        "default": 3600,
+        "title": "Offline grace period (s)",
+        "description": "Only used when sleepy is true: how long a device may stay silent after its last successful contact before it is reported offline. Should be a bit longer than the device's configured wake/report interval."
+      },
       "auth_user": {
         "type": "string",
         "title": "Auth username",

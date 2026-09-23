@@ -146,6 +146,29 @@ def test_schema_version_mismatch_names_expected_version(tmp_path):
     assert "99" in str(excinfo.value) and "2" in str(excinfo.value)
 
 
+def test_optional_bool_and_numeric_service_fields_default_to_none(tmp_path):
+    config = appconfig.load(write_config(tmp_path))
+    assert config.service("shelly").webhook_enabled is None
+    assert config.service("shelly").webhook_port is None
+
+
+def test_optional_service_fields_are_read_when_present(tmp_path):
+    document = valid_document()
+    document["services"]["shelly"]["webhook_enabled"] = True
+    document["services"]["shelly"]["webhook_port"] = 8082
+    config = appconfig.load(write_config(tmp_path, document))
+    assert config.service("shelly").webhook_enabled is True
+    assert config.service("shelly").webhook_port == 8082.0
+
+
+def test_webhook_enabled_rejects_non_boolean(tmp_path):
+    document = valid_document()
+    document["services"]["shelly"]["webhook_enabled"] = "yes"
+    with pytest.raises(appconfig.ConfigError) as excinfo:
+        appconfig.load(write_config(tmp_path, document))
+    assert "services.shelly.webhook_enabled" in str(excinfo.value)
+
+
 def test_missing_service_key_names_expected_key(tmp_path):
     document = valid_document()
     del document["services"]["trucki"]

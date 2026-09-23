@@ -6,6 +6,20 @@
     "service_id": {"type": "string", "minLength": 1, "title": "Dienst-ID"},
     "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Abfrageintervall"},
     "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnose-Multiplikator"},
-    "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP-Timeout"}
+    "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP-Timeout"},
+    "webhook_enabled": {
+      "type": "boolean",
+      "default": false,
+      "title": "Wake-Webhook aktiv",
+      "description": "Optionaler eingehender HTTP-Endpunkt, den ein Gen1-Shelly-Geraet beim Aufwachen per Action/Report-URL aufrufen kann, damit ein sleepy-Geraet sofort als online erkannt wird statt erst beim naechsten zufaelligen Poll-Treffer. Standardmaessig aus."
+    },
+    "webhook_port": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 65535,
+      "default": 8082,
+      "title": "Wake-Webhook Port",
+      "description": "Port des Wake-Webhook-Listeners, nur relevant wenn webhook_enabled true ist."
+    }
   }
 }

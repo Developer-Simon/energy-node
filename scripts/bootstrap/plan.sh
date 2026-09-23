@@ -57,11 +57,24 @@ def stamped(step_id):
         return False
     return ("bundle=%s" % version) in path.read_text(encoding="utf-8").splitlines()
 
+def chosen(entry):
+    if not entry.get("optional"):
+        return True
+    # Nicht genannt = Manifest-Vorgabe: "an" fuer die ueblichen optionalen
+    # Schritte (E7), "aus" fuer Opt-in-Schritte wie 35 (step_opted_in).
+    return bool(selection.get(str(entry.get("id")), entry.get("default", True)))
+
+by_id = {str(entry.get("id")): entry for entry in manifest.get("steps", [])}
+
 steps = []
 for entry in manifest.get("steps", []):
     step_id = str(entry.get("id"))
     optional = bool(entry.get("optional"))
-    selected = bool(selection.get(step_id, True)) if optional else True
+    selected = chosen(entry)
+    # requires: ohne den benoetigten Schritt laeuft dieser nicht (35 -> 83).
+    needed = entry.get("requires")
+    if selected and needed and not chosen(by_id.get(str(needed), {"optional": True, "default": False})):
+        selected = False
     if not selected:
         state_name = "deselected"
     elif stamped(step_id):

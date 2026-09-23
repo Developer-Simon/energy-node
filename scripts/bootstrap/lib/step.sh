@@ -88,6 +88,28 @@ sys.exit(0 if steps.get(sys.argv[2], True) else 1)
 PY
 }
 
+# step_opted_in ist das Gegenstueck fuer Opt-in-Schritte (Manifest-Vorgabe
+# "aus"): nur ein ausdrueckliches true in selection.json zaehlt. Fehlende
+# Datei oder nicht genannter Schritt = nicht gewaehlt - sonst braechte ein
+# Update auf einem Node mit aelterer Auswahl den Schritt ungefragt mit. Eine
+# unlesbare Datei ist wie bei step_selected ein Fehler.
+step_opted_in() {
+  local id="$1"
+  [[ -f "${EN_SELECTION}" ]] || return 1
+  python3 - "${EN_SELECTION}" "${id}" <<'PY'
+import json, sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as handle:
+        data = json.load(handle)
+except (OSError, ValueError) as exc:
+    sys.exit("selection.json nicht lesbar: %s" % exc)
+steps = data.get("steps")
+if not isinstance(steps, dict):
+    sys.exit("selection.json: 'steps' fehlt oder ist kein Objekt")
+sys.exit(0 if steps.get(sys.argv[2]) is True else 1)
+PY
+}
+
 # step_version_ge <a> <b>: Erfolg, wenn Version a gleich oder neuer als b ist.
 # Ein fuehrendes "v" und alles ab dem ersten Zeichen, das nicht zu einer
 # Punktversion gehoert (1.98.9-t4fb758c39-g200941d74), zaehlen nicht. Eine

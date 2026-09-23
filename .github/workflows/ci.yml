@@ -289,30 +289,21 @@ jobs:
                         scripts/tests/lib/*.sh \
                         scripts/tests/bootstrap_container.sh dashboard/energy-node-updater.sh \
                         scripts/tests/test_updater.sh scripts/tests/test_updater_end_to_end.sh
-      - run: bash scripts/tests/test_bootstrap_step_lib.sh
+      # Every bootstrap/build test by glob: a new scripts/tests/test_bootstrap_*.sh
+      # or test_build_*.sh is picked up without touching this workflow (a workflow
+      # edit makes the change-detection job run every area, see `changes`).
+      # All of them run; the step fails if any did.
+      - name: Bootstrap and build tests
+        run: |
+          rc=0
+          for t in scripts/tests/test_bootstrap_*.sh scripts/tests/test_build_*.sh; do
+            echo "::group::$t"
+            bash "$t" || { echo "::error::$t failed"; rc=1; }
+            echo "::endgroup::"
+          done
+          exit $rc
       - run: bash scripts/tests/test_updater.sh
       - run: bash scripts/tests/test_updater_end_to_end.sh
-      - run: bash scripts/tests/test_bootstrap_verify_bundle.sh
-      - run: bash scripts/tests/test_bootstrap_preflight.sh
-      - run: bash scripts/tests/test_bootstrap_service_step.sh
-      - run: bash scripts/tests/test_bootstrap_10_apt.sh
-      - run: bash scripts/tests/test_bootstrap_20_mosquitto.sh
-      - run: bash scripts/tests/test_bootstrap_30_ufw.sh
-      - run: bash scripts/tests/test_bootstrap_40_tailscale.sh
-      - run: bash scripts/tests/test_bootstrap_50_python_deps.sh
-      - run: bash scripts/tests/test_bootstrap_render.sh
-      - run: bash scripts/tests/test_bootstrap_60_node_install.sh
-      - run: bash scripts/tests/test_bootstrap_70_caddy.sh
-      - run: bash scripts/tests/test_bootstrap_service_scripts.sh
-      - run: bash scripts/tests/test_bootstrap_plan.sh
-      - run: bash scripts/tests/test_bootstrap_diagnose.sh
-      - run: bash scripts/tests/test_bootstrap_65_dashboard_config.sh
-      - run: bash scripts/tests/test_build_manifests.sh
-      - run: bash scripts/tests/test_build_wheels.sh
-      - run: bash scripts/tests/test_build_manifest_sign.sh
-      - run: bash scripts/tests/test_build_make_bundle.sh
-      - run: bash scripts/tests/test_build_make_bundle_generic.sh
-      - run: bash scripts/tests/test_build_make_bundle_manifest_steps.sh
       - run: ./scripts/deploy/check_tracked_secrets.sh
 
   vendored-artefacts:

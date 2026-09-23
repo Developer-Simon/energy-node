@@ -91,6 +91,46 @@ out="$(EN_SUDO="$tmp/bin/fakesudo" ACTIVE="" LISTENING="" TS_STATUS_RC=1 bash "$
   || fail "abgemeldet ueber sudo nicht erkannt" "$out"
 mv "$tmp/sbin/tailscale" "$tmp/bin/tailscale"
 
+# --- Shelly-Wake-Webhook: nur mit Opt-in (35) und Shelly-Dienst (83) -----
+# UFW_ALLOWED listet die Ports, fuer die "ufw status" eine ALLOW-Regel zeigt.
+cat > "$tmp/bin/ufw" <<'SH'
+#!/usr/bin/env bash
+[ "$1" = status ] || exit 1
+printf 'Status: active\n\nTo                         Action      From\n--                         ------      ----\n'
+for p in ${UFW_ALLOWED:-}; do printf '%s/tcp                   ALLOW       Anywhere\n' "$p"; done
+SH
+chmod +x "$tmp/bin/ufw"
+has_webhook() { get '"shelly_webhook" in d'; }
+
+rm -f "$EN_STATE_DIR/selection.json"
+out="$(UFW_ALLOWED="8082" LISTENING="8082" bash "$script")"
+[ "$(has_webhook)" = False ] || fail "Webhook ohne Auswahl gemeldet" "$out"
+printf '{"steps":{"35":false}}\n' > "$EN_STATE_DIR/selection.json"
+out="$(UFW_ALLOWED="8082" LISTENING="8082" bash "$script")"
+[ "$(has_webhook)" = False ] || fail "Webhook trotz Abwahl gemeldet" "$out"
+printf '{"steps":{"35":true,"83":false}}\n' > "$EN_STATE_DIR/selection.json"
+out="$(UFW_ALLOWED="8082" LISTENING="8082" bash "$script")"
+[ "$(has_webhook)" = False ] || fail "Webhook ohne Shelly-Dienst gemeldet" "$out"
+
+printf '{"steps":{"35":true}}\n' > "$EN_STATE_DIR/selection.json"
+out="$(UFW_ALLOWED="1883 8082" LISTENING="1883" bash "$script")"
+[ "$(get 'd["shelly_webhook"]["port"]')" = 8082 ] || fail "Webhook-Port falsch" "$out"
+[ "$(get 'd["shelly_webhook"]["firewall"]')" = True ] || fail "Firewall-Regel nicht erkannt" "$out"
+[ "$(get 'd["shelly_webhook"]["listening"]')" = False ] || fail "Listener faelschlich erkannt" "$out"
+# Der feste Port-Check bleibt unberuehrt: 8082 ist kein Pflichtport.
+[ "$(get '"8082" in d["ports"]')" = False ] || fail "8082 in den Pflichtports" "$out"
+
+out="$(UFW_ALLOWED="" LISTENING="8082" bash "$script")"
+[ "$(get 'd["shelly_webhook"]["firewall"]')" = False ] || fail "fehlende Regel nicht erkannt" "$out"
+[ "$(get 'd["shelly_webhook"]["listening"]')" = True ] || fail "Listener nicht erkannt" "$out"
+
+# Ein im Dashboard geaenderter webhook_port gilt auch hier.
+printf '{"services":{"shelly":{"webhook_port":9090}}}\n' > "$tmp/root/etc/energy-node/config.json"
+out="$(UFW_ALLOWED="9090" LISTENING="9090" bash "$script")"
+[ "$(get 'd["shelly_webhook"]["port"]')" = 9090 ] || fail "webhook_port aus config.json ignoriert" "$out"
+[ "$(get 'd["shelly_webhook"]["firewall"]')" = True ] || fail "Regel fuer 9090 nicht erkannt" "$out"
+rm -f "$EN_STATE_DIR/selection.json"
+
 # --- kaputter Node: trotzdem Exit 0 und vollstaendiges JSON --------------
 rm -rf "$tmp/root" "$tmp/state"
 set +e

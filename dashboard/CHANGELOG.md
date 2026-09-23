@@ -1,11 +1,14 @@
 # Changelog
 
-## v0.7.7 (2026-09-22)
+## v0.7.8 (2026-09-23)
 
 ### Features
 
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
 - **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
+- **installer:** restart only the service units whose version changed (#48) (1d2c57f)
+- **shelly:** optional wake webhook so a sleeping Gen1 device is polled the moment it wakes (3105234)
+- **installer:** pass step requirements from the manifest to the web UI (69ffe39)
 - **installer:** carry a restart-all request from the UI to the service steps (bad757a)
 - **installer:** show per service which units restart in the preview (e2464cb)
 - **updater:** take the target from the root-owned target.json for user-independent bundles (e3813fc)
@@ -32,6 +35,7 @@
 
 ### Tests
 
+- **dashboard:** add a shelly-ht smoke preset for sleepy H&T devices (07f6a6e)
 - **dashboard:** show the package download in the local smoke test (f2c2f2c)
 
 ## v0.7.1 (2026-09-21)
