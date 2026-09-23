@@ -29,6 +29,9 @@
      "version_file": "installer/webui/VERSION", "changelog": "installer/webui/CHANGELOG.md", "bundle": false, "ci": true},
     {"id": "ha-integration", "label": "Home Assistant integration", "kind": "integration", "target": "ha-integration",
      "version_file": "integrations/homeassistant/custom_components/battery_soc/manifest.json",
-     "changelog": "integrations/homeassistant/CHANGELOG.md", "bundle": false, "ci": false}
+     "changelog": "integrations/homeassistant/CHANGELOG.md", "bundle": false, "ci": false},
+    {"id": "ha-icons", "label": "Home Assistant icon set", "kind": "integration", "target": "ha-icons",
+     "version_file": "integrations/homeassistant/custom_components/energy_node_icons/manifest.json",
+     "changelog": "integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md", "bundle": false, "ci": false}
   ]
 }
