@@ -1,9 +1,11 @@
 # Changelog
 
-## v0.7.11 (2026-09-23)
+## v0.7.12 (2026-09-23)
 
 ### Features
 
+- **dashboard:** per-device icons and pinned favourite entities (#53) (d649df3)
+- **dashboard:** export the device icon catalogue for Home Assistant (e7b3f40)
 - **dashboard:** store per-device icon and favourite preferences (490352a)
 - **dashboard:** let favourite entities drive the compact card rows (78749f7)
 - **dashboard:** add a device icon catalogue and render it on the cards (8c90408)
@@ -17,6 +19,7 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **dashboard:** keep the exported icon markup readable in diffs (dc5114a)
 - **dashboard:** keep the pinned-favourites block from breaking the modal grid (c0876ee)
 
 ### Documentation
