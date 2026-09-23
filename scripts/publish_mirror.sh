@@ -136,7 +136,7 @@ cp -r "${template}/.github" "${mirror_path}/.github"
 rm -rf "${mirror_path}/docs"
 mkdir -p "${mirror_path}/docs"
 # Optional: copy docs/img if specified in release.env (e.g. battery_soc includes screenshots)
-if [[ -n "$DOCS_IMG" ]]; then
+if [[ -n "${DOCS_IMG:-}" ]]; then
   cp -r "${repo_root}/${DOCS_IMG}" "${mirror_path}/docs/img"
 fi
 cp "${template}"/docs/*.md "${mirror_path}/docs/"
