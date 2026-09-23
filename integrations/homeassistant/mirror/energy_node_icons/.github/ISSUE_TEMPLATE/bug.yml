@@ -1,14 +1,14 @@
 name: Bug report
-description: Something in the Battery SoC integration is not working as expected.
+description: An icon is not showing correctly or not appearing in the picker.
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: >
-        Thanks for taking the time to file a report. This integration estimates
-        state of charge for monitoring and diagnostics — it is **not** a BMS.
-        Please do not report safety concerns here; secure your pack with proper
-        cell-level protection.
+        Thanks for taking the time to file a report. This icon set provides outline
+        symbols for the energy-node dashboard; Home Assistant fills them with your
+        theme color. If an icon is missing or broken, please let us know where it
+        appears wrong and in which Home Assistant version.
   - type: input
     id: ha_version
     attributes:
@@ -19,41 +19,43 @@ body:
   - type: input
     id: integration_version
     attributes:
-      label: Battery SoC version
-      description: HACS → Battery SoC → the installed version.
+      label: energy-node Icons version
+      description: HACS → energy-node Icons → the installed version.
       placeholder: "0.1.0"
     validations:
       required: true
   - type: dropdown
-    id: topology
+    id: install_method
     attributes:
-      label: Battery topology
+      label: Installation method
       options:
-        - Single bank / parallel
-        - Series (two banks)
+        - HACS custom repository
+        - Manual (downloaded ZIP)
     validations:
       required: true
+  - type: input
+    id: icon_name
+    attributes:
+      label: Icon name (if known)
+      description: The `energy-node:icon-name` that is misbehaving, or leave blank if unknown.
+      placeholder: "energy-node:solar-panel"
   - type: textarea
     id: what_happened
     attributes:
       label: What happened?
-      description: What did you expect, and what did you get instead?
+      description: Where does the icon show wrong or not appear? (e.g., in picker, on card, nowhere)
     validations:
       required: true
   - type: textarea
-    id: reproduce
+    id: browser_info
     attributes:
-      label: Steps to reproduce
+      label: Browser and OS
+      description: Browser type and version, and your OS (relevant for icon rendering).
     validations:
       required: true
   - type: textarea
     id: logs
     attributes:
       label: Relevant log output
-      description: Settings → System → Logs, filtered to `battery_soc`. Scrub sensor names if needed.
+      description: Settings → System → Logs, filtered to `energy_node_icons`. Include browser console errors if any.
       render: text
-  - type: textarea
-    id: config
-    attributes:
-      label: Configuration
-      description: The source sensors you pointed the integration at (power in W, voltage in V), capacities, cell counts.

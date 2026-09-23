@@ -1,8 +1,12 @@
-<!-- Thanks for contributing to Battery SoC. -->
+<!-- Thanks for contributing to energy-node Icons. -->
 
 ## What does this change?
 
 <!-- Short description of the change and why. Link any related issue. -->
+
+<!-- Note: the icons are generated from the energy-node monorepo. Pull requests
+     belong in https://github.com/Developer-Simon/energy-node, not in this mirror.
+     This repository is regenerated with each release. -->
 
 ## AI-use disclosure (required)
 
@@ -19,6 +23,6 @@
 
 ## Checklist
 
-- [ ] `battery_soc_core` tests pass locally
 - [ ] hassfest / HACS validation is green (or explained below)
-- [ ] Docs / `services.yaml` updated if behaviour changed
+- [ ] Icon names in manifest and documentation match the HA catalogue
+- [ ] Any docs updated if icon behaviour or picker availability changed
