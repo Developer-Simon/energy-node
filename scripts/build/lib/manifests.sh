@@ -2,7 +2,7 @@
 #
 # Die Dienstetabelle aus den Dienst-Manifesten (services/<dir>/manifest.json).
 #
-# Bis zur Vorarbeit stand sie als Doppelpunkt-Zeichenkette in deploy_lib.sh.
+# Bis zur Vorarbeit stand sie als Doppelpunkt-Zeichenkette in den Deploy-Skripten.
 # Seit es die Manifeste gibt, waere das eine zweite Wahrheit neben Go
 # (nodeagent.LoadServiceIDs) und Python (appconfig._load_manifests) - deshalb
 # liest die Bash jetzt dieselbe Quelle. Plan B ersetzt diese Datei durch den

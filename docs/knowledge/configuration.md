@@ -72,7 +72,7 @@ The file follows this JSON structure:
 | **Paths (base directories)** | | | |
 | `paths.devices_dir` | String | Python, Go | Base path for `*_devices.json` and other device configurations |
 | `paths.data_dir` | String | Go | Path for `settings.json`, `mqtt.json`, `bridge.json`, `layout.json` (dashboard operating state) |
-| `paths.services_version_file` | String | Go | Optional: path to the `services/VERSION` file deployed by `scripts/deploy/deploy_src_to_remote.sh`, shown on the settings page. Empty/missing = not configured. |
+| `paths.services_version_file` | String | Go | Optional: path to the `services/VERSION` file the installer places on the node (bootstrap step 60), shown on the settings page. Empty/missing = not configured. |
 | | | | |
 | **Logging** | | | |
 | `logging.level` | String | Python | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
@@ -131,13 +131,12 @@ The `<name>` key under `services` is consistent with the first part of the corre
 
 ## Service manifests delivery
 
-Service manifests are delivered to the node via deploy: `scripts/deploy/deploy_src_to_remote.sh`
-mirrors the complete set from `services/*/manifest.json` to
-`/etc/energy-node/manifests/<service_id>.json` on every run (`ensure_remote_manifests`,
-`rsync --delete` — orphaned manifests are removed). The set matches the
-`services` block in `config.json`; `energy_node_common` validates this on the
-node in both directions. The installer must replicate this same step when it
-unpacks its bundle.
+Service manifests are delivered to the node by the installer: the bundle
+carries the complete set from `services/*/manifest.json`, and bootstrap step 60
+(`scripts/bootstrap/60-node-install.sh`) installs it as
+`/etc/energy-node/manifests/<service_id>.json` on every run, removing orphaned
+manifests. The set matches the `services` block in `config.json`;
+`energy_node_common` validates this on the node in both directions.
 
 ## Credentials
 
@@ -219,7 +218,7 @@ dropping `node.managed_bridges`, normalising `node_device_id` to
 The dashboard then persists the migrated file through the privileged
 system-action helper (`apply-app-config`), which backs the old file up to
 `/etc/energy-node/.config.json.bak` before installing the new one — a
-direct write fails because `ensure_remote_config.sh` creates
+direct write fails because `60-node-install.sh` creates
 `/etc/energy-node` as mode `0755` and the service group cannot create files
 there. If the helper is not reachable (not installed, no sudoers entry),
 the dashboard still starts on the in-memory config, logs a warning, and

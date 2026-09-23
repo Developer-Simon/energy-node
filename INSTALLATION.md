@@ -22,15 +22,16 @@ and it is worth reading before you start.
 
 | Where | What |
 |---|---|
-| Development machine | Go toolchain, Node.js, Python venv, this repository, the deploy scripts |
+| Development machine | Go toolchain, Node.js, Python venv, this repository, the installer's developer CLI |
 | Node — `/home/energynode/` | Python services, `devices/*.json`, the dashboard binary and its data dir |
 | Node — `/etc/energy-node/` | `config.json` (the single source of truth) and `mqtt.pw` |
 | Node — `/etc/energy-node-dashboard/` | `auth.pw` (dashboard admin password) |
 | Node — `/etc/systemd/system/` | one unit per service |
 | Node — `/etc/mosquitto/conf.d/` | broker config and the bridge to the main site |
 
-Nothing is built on the node. The Go dashboard is cross-compiled on the
-development machine; the Python services are copied as source.
+Nothing is built on the node. The development machine builds an installation
+package: the Go dashboard cross-compiled, the Python services as source, their
+dependencies as wheels.
 
 ---
 
@@ -54,7 +55,9 @@ development machine; the Python services are copied as source.
 **Development machine**
 
 - Go ≥ 1.22 (`dashboard/go.mod`), Node.js (for the dashboard's JS tests),
-  Python 3.9+ with a project venv, `rsync`, `ssh`, `scp`.
+  Python 3.9+ with a project venv, `git` and `bash`. The installer module
+  pins a newer Go than the dashboard; `scripts/dev/run-installer.sh` lets Go
+  fetch that toolchain itself.
 
 ```sh
 git clone <your-fork> energy-node && cd energy-node
@@ -179,11 +182,10 @@ Two things to know:
 - On an **older Legacy image** the `--break-system-packages` flag does not
   exist yet. Drop it there — plain `sudo python3 -m pip install …` is
   correct on those releases.
-- `scripts/deploy/deploy_src_to_remote.sh` installs the shared `energy_node_common` wheel
-  (and, alongside the battery-SoC service, the `battery_soc_core` wheel)
-  with `--no-deps`, on purpose: the deploy must not start resolving packages
-  from PyPI on a Pi 1 over a possibly flaky link. That means the third-party
-  dependencies above must already be present before the first deploy.
+- The installer's bootstrap step 50 does this for you: it installs every
+  wheel from the bundle with `--no-index`, so the node never resolves
+  packages from PyPI over a possibly flaky link. The build machine fetched
+  them from piwheels in advance.
 
 ### 3.3 Go and Node.js — do not install them on the node
 
@@ -195,7 +197,8 @@ statically linked ARMv6 binary with CGO disabled:
 CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=6 go build -o energy-node-dashboard ./cmd/dashboard
 ```
 
-`scripts/deploy/deploy_dashboard_to_remote.sh` does exactly this and ships the result.
+`scripts/build/make_bundle.sh` does exactly this when it builds the
+installation package.
 Node.js is only used for the dashboard's browser-side tests, on the
 development machine.
 
@@ -251,51 +254,58 @@ Verify from the main site that `outstation/#` messages arrive (MQTT Explorer, or
 
 ## 6. Deploy from the development machine
 
-Both deploy scripts read the target host/user from the gitignored
-`secrets/deploy-target.env` (`TARGET_USER`, `TARGET_HOST`), default the base
-to `/home/<TARGET_USER>`, and accept `--host`, `--user`, `--base`, `--dry-run`,
-`--skip-restart` to override.
+The software itself always reaches the node as an installation package
+(bundle): the dashboard binary, the Python services, their wheels, units and
+manifests, and the bootstrap steps that install them. Two tools ship it:
+
+- The **[desktop installer](docs/installer.md)** for a released version, or a
+  package file you pick.
+- The installer's **developer CLI** for a build of your own checkout. It
+  builds the bundle, uploads it over SSH and runs the same steps:
 
 ```sh
-./scripts/deploy/deploy_dashboard_to_remote.sh --dry-run     # look first
-./scripts/deploy/deploy_dashboard_to_remote.sh
-./scripts/deploy/deploy_src_to_remote.sh
+scripts/dev/run-installer.sh deploy --dev-unsigned --dry-run   # look first
+scripts/dev/run-installer.sh ensure-secrets --dev-unsigned     # first run: MQTT and admin passwords
+scripts/dev/run-installer.sh deploy --dev-unsigned
 ```
 
-On the **first** run the scripts do the one-time setup for you, prompting
-where a secret is needed:
+The CLI reads the target host/user from the gitignored
+`secrets/deploy-target.env` (`TARGET_USER`, `TARGET_HOST`), defaults the base
+to `/home/<TARGET_USER>`, and accepts `--host`, `--user` and `--base` to
+override. [Installer developer CLI](docs/knowledge/installer-developer-cli.md)
+covers SSH authentication and every flag.
 
-1. `scripts/deploy/check_tracked_secrets.sh` — refuses to deploy if credentials ended up in
-   tracked files.
-2. `/etc/energy-node/mqtt.pw` — created from your input, `root:energynode`,
-   mode `0640`; a local copy is kept in the gitignored `secrets/`.
-3. `/etc/energy-node-dashboard/auth.pw` — the dashboard admin password,
-   same treatment.
-4. `/etc/energy-node/config.json` — installed from
+On the **first** run the steps do the one-time setup:
+
+1. `/etc/energy-node/mqtt.pw`: `ensure-secrets` asks for the password, keeps
+   a local copy in the gitignored `secrets/`, and step 60 installs it as
+   `root:energynode`, mode `0640`.
+2. `/etc/energy-node-dashboard/auth.pw`: the dashboard admin password, same
+   treatment.
+3. `/etc/energy-node/config.json`: installed from
    `services/energy-node.config.json` if missing.
 
-Existing files are **never** overwritten by a redeploy — the dashboard is
+Existing files are **never** overwritten by a redeploy. The dashboard is
 allowed to edit `config.json`, and a deploy must not throw that away. Use
-`--force-config` (with confirmation) if you really want the template back.
+`deploy --force-config` (with confirmation) if you really want the template
+back.
 
-`scripts/deploy/deploy_src_to_remote.sh` ships all Python services by default. Restrict a
-run with `--service <name>`, where the name is the source directory:
-`apsystems_ez1`, `battery_soc`, `shelly`, `trucki`, `tuya_mqtt`,
-`automation`. The matching units are
-`apsystems-ez1.service`, `battery-soc.service`, `shelly-rpc.service`,
-`trucki-http.service`, `tuya.service` and `automation.service`.
+A full deploy runs every step and restarts every service. Restrict a run with
+`--only <target>`: `dashboard`, `wheels`, or a service id (`apsystems`,
+`battery-soc`, `shelly`, `trucki`, `tuya`, `automation`). That step runs even
+if it already ran for this version, and its unit restarts afterwards.
+`restart [--only <target>]` restarts units without deploying anything.
 
-`deploy_src_to_remote.sh` also delivers the complete set of service manifests
-to `/etc/energy-node/manifests/<service_id>.json` on every run
-(`ensure_remote_manifests`). The dashboard and Python bridges read the active
-service scope from this directory; the Python bridges will not start without it.
-The set must match the `services` block in `config.json`, or the bridge startup
-will fail.
+Step 60 also delivers the complete set of service manifests to
+`/etc/energy-node/manifests/<service_id>.json` on every run. The dashboard and
+Python bridges read the active service scope from this directory; the Python
+bridges will not start without it. The set must match the `services` block in
+`config.json`, or the bridge startup will fail.
 
 ### Upgrading from an earlier release (≤ 0.4)
 
-Some things changed that the deploy scripts do **not** fix for you, because
-they never overwrite a live `config.json` or a deployed device file. Do these
+Some things changed that a deploy does **not** fix for you, because it
+never overwrites a live `config.json` or a deployed device file. Do these
 once, on the node, around the first start of the new dashboard:
 
 1. **Retire the old Python node service.** Node telemetry now lives in the
@@ -306,7 +316,7 @@ once, on the node, around the first start of the new dashboard:
    sudo systemctl disable --now energy-node.service
    sudo rm -f /etc/systemd/system/energy-node.service
    sudo systemctl daemon-reload
-   rm -rf ~/energy-node          # the deployed code dir (TARGET_BASE from deploy_src_to_remote.sh)
+   rm -rf ~/energy-node          # the old service's code dir under the target base
    ```
 
 2. **Let the dashboard migrate `config.json`.** A `schema_version 1` file
@@ -319,7 +329,7 @@ once, on the node, around the first start of the new dashboard:
    the result back through its privileged system-action helper
    (`apply-app-config`), keeping the old file as
    `/etc/energy-node/.config.json.bak`. That needs the helper and its
-   sudoers entry from the current `scripts/deploy/deploy_dashboard_to_remote.sh`;
+   sudoers entry that bootstrap step 60 installs (`deploy --only dashboard`);
    if they are missing the dashboard still runs on the migrated config but
    the file on disk stays version 1. The Python services still reject
    version 1, so start the dashboard first, then restart the bridges
@@ -329,9 +339,10 @@ once, on the node, around the first start of the new dashboard:
    `"energy_node"` by hand in that case.
 
 3. **Deliver service manifests.** A node set up before this change has no
-   `/etc/energy-node/manifests/`. Re-run `scripts/deploy/deploy_src_to_remote.sh`
-   to create it; then restart the Python bridges (`systemctl restart
-   apsystems-ez1 shelly-rpc trucki-http tuya battery-soc automation`). Without
+   `/etc/energy-node/manifests/`. Run `deploy --only dashboard` (step 60
+   installs them) to create it; then restart the Python bridges
+   (`restart`, or `systemctl restart apsystems-ez1 shelly-rpc trucki-http
+   tuya battery-soc automation`). Without
    deploy access, create the six files by hand — each as `{"service_id": "<id>",
    "unit": "<unit>", "schema": "config.schema.json", "required": [...]}` from
    `services/<name>/manifest.json`.

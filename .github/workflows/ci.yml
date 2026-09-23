@@ -278,7 +278,6 @@ jobs:
       - run: bash scripts/tests/test_generate_changelog_cap.sh
       - run: bash scripts/tests/test_extract_changelog.sh
       - run: bash scripts/tests/test_bump_version.sh
-      - run: bash scripts/tests/test_ensure_remote_manifests.sh
       - name: shellcheck
         run: |
           sudo apt-get update -qq
@@ -304,7 +303,7 @@ jobs:
           exit $rc
       - run: bash scripts/tests/test_updater.sh
       - run: bash scripts/tests/test_updater_end_to_end.sh
-      - run: ./scripts/deploy/check_tracked_secrets.sh
+      - run: ./scripts/dev/check_tracked_secrets.sh
 
   vendored-artefacts:
     name: Vendored artefacts in sync

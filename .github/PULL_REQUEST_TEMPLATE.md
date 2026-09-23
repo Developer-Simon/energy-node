@@ -39,7 +39,7 @@ Closes #
       [CONTRIBUTING.md → Running the checks](../blob/main/CONTRIBUTING.md#running-the-checks)
       pass locally (Python bridges, HA integration, Go dashboard, dashboard JS,
       dashboard smoke test — whichever the change touches).
-- [ ] `./scripts/deploy/check_tracked_secrets.sh` is clean — no real
+- [ ] `./scripts/dev/check_tracked_secrets.sh` is clean — no real
       credentials, private-range IPs, or device serials.
 - [ ] AI assistance, if any, is disclosed per
       [AI-DISCLAIMER.md](../blob/main/AI-DISCLAIMER.md).

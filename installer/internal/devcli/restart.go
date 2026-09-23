@@ -31,7 +31,7 @@ type RestartArgs struct {
 }
 
 // RunRestart restarts units on the node without deploying anything -- the
-// replacement for deploy_src_to_remote.sh --restart-only. The installed
+// replacement for the old deploy script's --restart-only. The installed
 // bundle's manifest names the units, so a node restarts exactly what it has.
 //
 // With --only the one unit is restarted unconditionally. Without it every

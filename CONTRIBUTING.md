@@ -104,6 +104,7 @@ scripts/dev/run-installer.sh deploy --dev-unsigned --dry-run            # previe
 scripts/dev/run-installer.sh deploy --dev-unsigned                      # full deploy
 scripts/dev/run-installer.sh deploy --dev-unsigned --only dashboard     # or a single step
 scripts/dev/run-installer.sh diagnose                                   # check the node
+scripts/dev/run-installer.sh restart --only shelly                      # restart without deploying
 ```
 
 The target node comes from `secrets/deploy-target.env`. For that file, SSH
@@ -115,7 +116,7 @@ authentication and every subcommand, see
 Never commit real credentials, IPs from your own site's private range, or
 device serials — see
 [`docs/knowledge/dashboard/secrets-and-credentials.md`](docs/knowledge/dashboard/secrets-and-credentials.md).
-`./scripts/deploy/check_tracked_secrets.sh` scans tracked files for obvious
+`./scripts/dev/check_tracked_secrets.sh` scans tracked files for obvious
 leaks; run it before pushing.
 
 ## Disclose AI use
