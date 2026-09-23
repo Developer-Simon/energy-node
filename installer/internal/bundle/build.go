@@ -25,6 +25,10 @@ type BuildArgs struct {
 	Base        string // omit to let make_bundle.sh choose
 	OutDir      string
 	SignKeyPath string // omit for an unsigned bundle
+	// DevVersion appends -dev.<commit> (and .dirty) to the bundle version
+	// (make_bundle.sh --dev-version), so a build from a working tree never
+	// shares its step stamps with a release of the same VERSION.
+	DevVersion bool
 	// Log, when set, receives every line make_bundle.sh prints (stdout and
 	// stderr interleaved) while it runs. The full output is still included
 	// in the error on failure.
@@ -52,6 +56,10 @@ func BuildViaRepo(ctx context.Context, args BuildArgs) (string, error) {
 		if value != "" {
 			cmdArgs = append(cmdArgs, flag, value)
 		}
+	}
+
+	if args.DevVersion {
+		cmdArgs = append(cmdArgs, "--dev-version")
 	}
 
 	cmd := exec.CommandContext(ctx, "bash", append([]string{script}, cmdArgs...)...)

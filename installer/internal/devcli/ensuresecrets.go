@@ -56,7 +56,7 @@ func RunEnsureSecrets(ctx context.Context, args EnsureSecretsArgs) error {
 	archivePath, err := buildViaRepo(ctx, bundle.BuildArgs{
 		RepoRoot: args.RepoRoot, Arch: args.Arch, PythonMinor: args.PythonMinor,
 		ABI: args.ABI, User: args.Target.User, Base: args.Target.Base,
-		OutDir: outDir, SignKeyPath: args.SignKeyPath,
+		OutDir: outDir, SignKeyPath: args.SignKeyPath, DevVersion: true,
 	})
 	if err != nil {
 		return fmt.Errorf("building bundle: %w", err)

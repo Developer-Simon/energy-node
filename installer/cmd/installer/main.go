@@ -1,5 +1,5 @@
 // cmd/installer is the developer-CLI entry point (E12): deploy, ensure-
-// secrets, fetch-config and diagnose reuse the same internal/devcli
+// secrets, fetch-config, diagnose and restart reuse the same internal/devcli
 // orchestration a graphical installer would (Plan C), without Schicht 2-4.
 package main
 
@@ -8,6 +8,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 
@@ -38,6 +39,8 @@ func main() {
 		err = runFetchConfigCmd(os.Args[2:])
 	case "diagnose":
 		err = runDiagnoseCmd(os.Args[2:])
+	case "restart":
+		err = runRestartCmd(os.Args[2:])
 	case "-h", "--help", "help":
 		printUsage()
 		return
@@ -58,8 +61,9 @@ func printUsage() {
 Usage:
   installer deploy [--only <dashboard|wheels|<service>>] [--dry-run] [--force-config] [--dev-unsigned] [common flags]
   installer ensure-secrets [--dev-unsigned] [common flags]
-  installer fetch-config [common flags]
+  installer fetch-config [--devices] [common flags]
   installer diagnose [common flags]
+  installer restart [--only <dashboard|<service>>] [common flags]
 
 Running without a subcommand (or with flags only) starts the graphical
 installer instead.
@@ -276,6 +280,7 @@ type fetchConfigConfig struct {
 	common            commonFlags
 	remoteConfigPath  string
 	localTemplatePath string
+	devices           bool
 }
 
 func parseFetchConfigFlags(args []string, repoRootDefault string) (fetchConfigConfig, error) {
@@ -284,6 +289,7 @@ func parseFetchConfigFlags(args []string, repoRootDefault string) (fetchConfigCo
 	addCommonFlags(fs, &cfg.common, repoRootDefault)
 	fs.StringVar(&cfg.remoteConfigPath, "remote-path", "/etc/energy-node/config.json", "config.json path on the node")
 	fs.StringVar(&cfg.localTemplatePath, "local", "", "local template path (default: <repo>/services/energy-node.config.json)")
+	fs.BoolVar(&cfg.devices, "devices", false, "also pull the node's device files (*_devices.json, automation_rules.json) into services/")
 	if err := fs.Parse(args); err != nil {
 		return fetchConfigConfig{}, err
 	}
@@ -319,6 +325,9 @@ func runFetchConfigCmd(args []string) error {
 		RemoteConfigPath:  cfg.remoteConfigPath,
 		LocalTemplatePath: cfg.localTemplatePath,
 		Stdout:            os.Stdout,
+		Devices:           cfg.devices,
+		RepoRoot:          cfg.common.repoRoot,
+		RemoteDevicesDir:  path.Join(target.Base, "devices"),
 	})
 }
 
@@ -359,6 +368,53 @@ func runDiagnoseCmd(args []string) error {
 		Client:          client,
 		RemoteBundleDir: devcli.DefaultRemoteBundleDir,
 		RemoteStateDir:  devcli.DefaultRemoteStateDir,
+		Stdout:          os.Stdout,
+	})
+}
+
+// --- restart ------------------------------------------------------------
+
+type restartConfig struct {
+	common commonFlags
+	only   string
+}
+
+func parseRestartFlags(args []string, repoRootDefault string) (restartConfig, error) {
+	fs := flag.NewFlagSet("restart", flag.ContinueOnError)
+	var cfg restartConfig
+	addCommonFlags(fs, &cfg.common, repoRootDefault)
+	fs.StringVar(&cfg.only, "only", "", `restart just "dashboard" or a device service id (default: every running unit)`)
+	if err := fs.Parse(args); err != nil {
+		return restartConfig{}, err
+	}
+	return cfg, nil
+}
+
+func runRestartCmd(args []string) error {
+	repoRootDefault, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	cfg, err := parseRestartFlags(args, repoRootDefault)
+	if err != nil {
+		return err
+	}
+
+	target, err := resolveTarget(cfg.common)
+	if err != nil {
+		return err
+	}
+	ctx := context.Background()
+	client, err := connectFromFlags(ctx, target, cfg.common)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	return devcli.RunRestart(ctx, devcli.RestartArgs{
+		Client:          client,
+		RemoteBundleDir: devcli.DefaultRemoteBundleDir,
+		Only:            cfg.only,
 		Stdout:          os.Stdout,
 	})
 }
