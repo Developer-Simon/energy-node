@@ -52,14 +52,21 @@ installed. If a window cannot be opened, the installer falls back to a browser
 
 ## Getting the installer
 
-Release builds are published on the repository's GitHub releases page under
-tags named `installer-<version>`, as one archive each for Windows (amd64),
-macOS (Intel and Apple Silicon) and Linux (amd64), plus a `SHA256SUMS` file.
-They are unsigned, so Windows SmartScreen and macOS Gatekeeper warn before the
-first start.
+Every release on the repository's GitHub releases page carries the installer:
 
-The installation package is not part of those archives yet. To build it and
-start the installer from a checkout:
+| Your computer | File |
+|---|---|
+| Windows | `energy-node-installer_windows_amd64.exe` — start it with a double click |
+| macOS (Intel and Apple Silicon) | `energy-node-installer_macos_universal.zip` — unzip, then start `energy-node-installer` |
+| Linux (x86-64) | `energy-node-installer_linux_amd64.tar.gz` |
+| Linux (ARM64) | `energy-node-installer_linux_arm64.tar.gz` |
+
+`SHA256SUMS.installer` lists their checksums. The builds are unsigned, so
+Windows SmartScreen and macOS Gatekeeper warn before the first start. The
+installer downloads the signed installation package for your Pi from the same
+releases, so the program is all you need.
+
+To run the installer from a checkout with a package built locally instead:
 
 ```sh
 bash scripts/build/make_bundle.sh --arch armv6

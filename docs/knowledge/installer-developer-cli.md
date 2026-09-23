@@ -99,14 +99,14 @@ variant. `npm run test:e2e` in `installer/webui` runs the browser suite.
 
 ### Publishing release binaries
 
-`.github/workflows/installer-release.yml` is triggered manually
-(`workflow_dispatch` only). It runs `go vet` and `go test`, cross-compiles the
-installer with `CGO_ENABLED=0` for Windows amd64, macOS amd64/arm64 and Linux
-amd64, and publishes the archives plus `SHA256SUMS` as a GitHub release tagged
-`installer-<contents of installer/VERSION>`; a version containing a hyphen is
-marked as a prerelease. The tag is independent of the dashboard's `v*`
-releases. The binaries are unsigned and carry no bundle: they embed only the
-release public key, and the `bundle/` directory still has to be supplied.
+`.github/workflows/installer-release.yml` runs as part of every `v*` release
+(see [Cutting a release](releasing.md)) and can be re-run by hand for an existing
+tag. It runs `go vet` and `go test`, cross-compiles the installer with
+`CGO_ENABLED=0` for Windows amd64 (bare `.exe`), macOS (one universal binary,
+zipped) and Linux amd64/arm64 (`.tar.gz`), and attaches them plus
+`SHA256SUMS.installer` to the release. The binaries are unsigned and carry no
+bundle: they embed only the release public key and download the signed bundle
+for the target node from the same releases.
 
 ## Configuring a target node
 
