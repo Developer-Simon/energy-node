@@ -79,15 +79,28 @@ func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
 	// Resume across a self-update restart (Plan D, E10): if the updater
 	// unit claimed a job before this process existed, seed the bus from
 	// its log instead of starting empty, then keep tailing in the
-	// background exactly like a live Run would.
+	// background exactly like a live Run would. The run keeps the id it was
+	// staged under, so a page still open from before the restart accepts
+	// its run-finished; the restored bus opens with that run's run-started,
+	// so a page loaded after the restart can follow it from seq 0. A job
+	// staged by a dashboard that did not record its id gets a fresh one.
 	resuming := updaterjob.InFlight(cfg.jobDir)
+	resumeID := fmt.Sprintf("resumed-%d", timeNowUnixNano())
 	if resuming {
+		mode, only := "", ""
+		if job, err := updaterjob.ReadCurrent(cfg.jobDir); err != nil {
+			log.Printf("redeploy: reading in-flight job: %v", err)
+		} else {
+			mode, only = job.Mode, job.Only
+			if job.RunID != "" {
+				resumeID = job.RunID
+			}
+		}
 		lines, err := updaterjob.ReadLog(cfg.jobDir)
 		if err != nil {
 			log.Printf("redeploy: reading in-flight job log: %v", err)
-		} else {
-			opts.InitialBus = hostapi.RestoreBus(hostapi.ReplayEvents(lines), 5000)
 		}
+		opts.InitialBus = hostapi.RestoreBus(hostapi.ReplayRun(resumeID, mode, only, lines), 5000)
 	}
 
 	server, err := hostapi.New(opts)
@@ -96,7 +109,6 @@ func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
 	}
 
 	if resuming {
-		resumeID := fmt.Sprintf("resumed-%d", timeNowUnixNano())
 		finish := server.ResumeRun(resumeID)
 		sink := busSink{bus: server.Bus()}
 		go func() {

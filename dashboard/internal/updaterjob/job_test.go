@@ -157,3 +157,33 @@ func contains(haystack, needle string) bool {
 			return false
 		}())
 }
+
+func TestReadCurrentReturnsTheClaimedJobWithItsRunID(t *testing.T) {
+	dir := t.TempDir()
+	bundle := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bundle, "manifest.json"), []byte(`{"version":"1.5.0"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	job := updaterjob.Job{BundleVersion: "1.5.0", Mode: "redeploy", Steps: []string{"60"}, RunID: "run-42"}
+	if err := updaterjob.Stage(dir, job, bundle); err != nil {
+		t.Fatalf("Stage: %v", err)
+	}
+	// The updater's first action: pending.json becomes current.json.
+	if err := os.Rename(filepath.Join(dir, "pending.json"), filepath.Join(dir, "current.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	got, err := updaterjob.ReadCurrent(dir)
+	if err != nil {
+		t.Fatalf("ReadCurrent: %v", err)
+	}
+	if got.RunID != "run-42" || got.Mode != "redeploy" {
+		t.Fatalf("ReadCurrent = %+v", got)
+	}
+}
+
+func TestReadCurrentFailsWithoutAClaimedJob(t *testing.T) {
+	if _, err := updaterjob.ReadCurrent(t.TempDir()); err == nil {
+		t.Fatal("ReadCurrent without current.json must fail")
+	}
+}

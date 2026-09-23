@@ -81,3 +81,28 @@ test('hello liefert null bei Fehler oder Zeitablauf', async () => {
   silent.timers.run();
   assert.equal(await b, null);
 });
+
+test('ein neuer Bus (Wirt neu gestartet) setzt lastSeq zurueck und holt ab 0 nach', () => {
+  const { window, sources, timers } = setup();
+  const restarts = [];
+  const seen = [];
+  const stream = window.Events.open({
+    since: 0, onEvent: (type, data, seq) => seen.push([type, seq]), onRestart: (hello) => restarts.push(hello.run_id),
+    setTimeout: timers.setTimeout, clearTimeout: timers.clearTimeout,
+  });
+  sources[0].emit('hello', 0, { seq: 0, running: true, run_id: 'run-1', bus: 'a', at: 1 });
+  sources[0].emit('step', 40, { id: '60', state: 'begin', at: 1 });
+  sources[0].fail();
+  timers.run();
+  assert.equal(sources[1].url, '/api/events?token=tok&since=40');
+
+  sources[1].emit('hello', 12, { seq: 12, running: true, run_id: 'run-1', bus: 'b', at: 2 });
+  assert.equal(sources[1].closed, true, 'die Verbindung ab dem alten seq wird verworfen');
+  assert.deepEqual(restarts, ['run-1']);
+  assert.equal(sources[2].url, '/api/events?token=tok&since=0');
+  sources[2].emit('hello', 12, { seq: 12, running: true, run_id: 'run-1', bus: 'b', at: 2 });
+  sources[2].emit('run-started', 1, { run_id: 'run-1', at: 1 });
+  assert.deepEqual(seen.slice(-1), [['run-started', 1]]);
+  assert.equal(stream.lastSeq, 1);
+  assert.deepEqual(restarts, ['run-1'], 'derselbe Bus loest keinen zweiten Neustart aus');
+});

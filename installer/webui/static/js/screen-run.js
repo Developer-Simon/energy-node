@@ -48,6 +48,7 @@
         this.stream = window.Events.open({
           since: 0,
           onEvent: function (type, data) { self.onEvent(type, data); },
+          onRestart: function (hello) { self.onRestart(hello); },
         });
         this.timer = window.setInterval(function () { self.tick += 1; }, 1000);
       },
@@ -71,6 +72,17 @@
           this.stop();
           this.shell.finishRun(window.RunModel.outcome(this.model, this.groups));
         }
+      },
+
+      // onRestart: der Wirt ist neu gestartet und hat den Lauf wieder
+      // aufgenommen. Sein Bus spielt ihn ab seq 1 neu ab, mit run-started
+      // unter der ID, die hello nennt - das Modell faengt unter ihr von vorn an.
+      onRestart(hello) {
+        var run = this.shell.shared.run;
+        if (hello.run_id) {
+          run.runId = hello.run_id;
+        }
+        this.model = window.RunModel.create(run.runId);
       },
 
       onStarted() {

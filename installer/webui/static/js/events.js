@@ -11,6 +11,10 @@
 
   function open(options) {
     var lastSeq = options.since || 0;
+    // busId ist der Bus, zu dem lastSeq gehoert. Meldet hello einen anderen,
+    // ist der Wirt neu gestartet (Plan D: Schritt 60 ersetzt das Dashboard)
+    // und zaehlt wieder ab 1 - ab dem alten seq kaeme nichts mehr an.
+    var busId = '';
     var delay = FIRST_DELAY;
     var source = null;
     var timer = null;
@@ -59,6 +63,19 @@
             data = JSON.parse(event.data);
           } catch (err) {
             return;
+          }
+          if (type === 'hello' && data.bus) {
+            if (busId && data.bus !== busId) {
+              busId = data.bus;
+              lastSeq = 0;
+              source.close();
+              if (options.onRestart) {
+                options.onRestart(data);
+              }
+              connect();
+              return;
+            }
+            busId = data.bus;
           }
           options.onEvent(type, data, seq);
         });

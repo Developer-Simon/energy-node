@@ -202,6 +202,11 @@ type RunRequest struct {
 	// RestartAll starts every service unit again, not only the ones whose
 	// version changed (the redeploy page's "Restart all services" switch).
 	RestartAll bool `json:"restart_all,omitempty"`
+	// RunID ist die ID, unter der StartRun den Lauf meldet. Ein Wirt, dessen
+	// Prozess den Lauf nicht ueberlebt (Plan D: Schritt 60 ersetzt das
+	// Dashboard), legt sie beim Auftrag ab und nimmt ihn unter derselben ID
+	// wieder auf - sonst verwirft die offene Seite dessen run-finished.
+	RunID string `json:"-"`
 }
 
 // Secrets liefert die Werte, die aus jeder Ausgabe gefiltert werden muessen.

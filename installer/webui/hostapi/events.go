@@ -1,7 +1,9 @@
 package hostapi
 
 import (
+	"strconv"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -24,6 +26,10 @@ type Event struct {
 // Bus verteilt Ereignisse an alle Abonnenten und haelt die letzten keep
 // Ereignisse fuer die Wiederholung nach einem Verbindungsabriss vor.
 type Bus struct {
+	// id benennt diesen Bus. Ein neu gestarteter Wirt hat einen neuen Bus,
+	// dessen seq wieder bei 1 anfaengt; an einer anderen id erkennt die
+	// Seite, dass ihr since nicht mehr zu diesem Bus passt.
+	id          string
 	mu          sync.Mutex
 	seq         int64
 	keep        int
@@ -37,7 +43,16 @@ func NewBus(keep int) *Bus {
 	if keep < 1 {
 		keep = 1
 	}
-	return &Bus{keep: keep, subscribers: map[int]chan Event{}}
+	id := strconv.FormatInt(time.Now().UnixNano(), 36) + "-" + strconv.FormatInt(busCount.Add(1), 36)
+	return &Bus{id: id, keep: keep, subscribers: map[int]chan Event{}}
+}
+
+// busCount haelt zwei Busse auseinander, die in derselben Nanosekunde entstehen.
+var busCount atomic.Int64
+
+// ID ist die Kennung dieses Busses (siehe Bus.id).
+func (b *Bus) ID() string {
+	return b.id
 }
 
 // RestoreBus baut einen Bus, der eine bereits gelaufene Sequenz fortsetzt.

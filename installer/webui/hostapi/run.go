@@ -76,6 +76,7 @@ func (s *Server) StartRun(ctx context.Context, req RunRequest) (string, error) {
 	s.run.cancel = cancel
 	s.run.mu.Unlock()
 
+	req.RunID = id
 	sink := &busSink{bus: s.bus, redactor: NewRedactor(req.Secrets()...)}
 	s.bus.Publish("run-started", map[string]any{"run_id": id, "mode": string(req.Mode), "only": req.Only})
 
@@ -262,7 +263,7 @@ func (s *Server) handleEvents(w http.ResponseWriter, r *http.Request) {
 	running, runID := s.run.running, s.run.id
 	s.run.mu.Unlock()
 	writeSSE(w, Event{Seq: s.bus.Seq(), Type: "hello", At: time.Now().UnixMilli(), Data: map[string]any{
-		"seq": s.bus.Seq(), "running": running, "run_id": runID,
+		"seq": s.bus.Seq(), "running": running, "run_id": runID, "bus": s.bus.ID(),
 	}})
 	flusher.Flush()
 
