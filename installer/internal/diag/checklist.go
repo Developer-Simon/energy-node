@@ -21,7 +21,12 @@ type Check struct {
 	Group string
 	// Subject is what was checked, without the Name prefix.
 	Subject string
+	// Severity "warn" turns a failed check into a hint instead of an error.
+	Severity string
 }
+
+// shellyWebhookStep opens the wake webhook's firewall rule (opt-in).
+const shellyWebhookStep = "35"
 
 // fixedUnitSteps names the retry step for the four units whose step id never
 // changes across bundles -- 10-60 are core steps, never optional, so unlike
@@ -102,6 +107,36 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 			RetryStepID: fixedPortSteps[name],
 			Group:       "system",
 			Subject:     name,
+		})
+	}
+
+	// Shelly-Wake-Webhook (nur mit Opt-in): die fehlende Regel ist ein
+	// Fehler, den Schritt 35 repariert; ein fehlender Listener nur ein
+	// Hinweis - der Webhook wird erst im Dashboard eingeschaltet.
+	if hook := r.ShellyWebhook; hook != nil {
+		firewall := "missing"
+		if hook.Firewall {
+			firewall = "allowed"
+		}
+		checks = append(checks, Check{
+			Name:        "shelly webhook firewall " + hook.Port,
+			OK:          hook.Firewall,
+			Detail:      firewall,
+			RetryStepID: shellyWebhookStep,
+			Group:       "system",
+			Subject:     "shelly-webhook-firewall:" + hook.Port,
+		})
+		listener := "not listening"
+		if hook.Listening {
+			listener = "listening"
+		}
+		checks = append(checks, Check{
+			Name:     "shelly webhook listener " + hook.Port,
+			OK:       hook.Listening,
+			Detail:   listener,
+			Group:    "system",
+			Subject:  "shelly-webhook-listener:" + hook.Port,
+			Severity: "warn",
 		})
 	}
 
