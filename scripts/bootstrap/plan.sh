@@ -61,7 +61,9 @@ steps = []
 for entry in manifest.get("steps", []):
     step_id = str(entry.get("id"))
     optional = bool(entry.get("optional"))
-    selected = bool(selection.get(step_id, True)) if optional else True
+    # Nicht genannt = Manifest-Vorgabe: "an" fuer die ueblichen optionalen
+    # Schritte (E7), "aus" fuer Opt-in-Schritte wie 35 (step_opted_in).
+    selected = bool(selection.get(step_id, entry.get("default", True))) if optional else True
     if not selected:
         state_name = "deselected"
     elif stamped(step_id):
