@@ -60,11 +60,15 @@ type candidateManifest struct {
 	Arch       string            `json:"arch"`
 	Components map[string]string `json:"components"`
 	Steps      []struct {
-		ID       string `json:"id"`
-		Optional bool   `json:"optional"`
-		Dir      string `json:"dir"`
-		Version  string `json:"version"`
-		Requires string `json:"requires,omitempty"`
+		ID        string `json:"id"`
+		Optional  bool   `json:"optional"`
+		Default   bool   `json:"default"`
+		ServiceID string `json:"service_id"`
+		Kind      string `json:"kind"`
+		Dir       string `json:"dir"`
+		Unit      string `json:"unit"`
+		Version   string `json:"version"`
+		Requires  string `json:"requires,omitempty"`
 	} `json:"steps"`
 }
 
@@ -137,7 +141,11 @@ func (h *Host) Manifest(context.Context) (*hostapi.ManifestView, error) {
 	}
 	view := &hostapi.ManifestView{BundleVersion: m.Version, Arch: m.Arch, Components: m.Components}
 	for _, s := range m.Steps {
-		view.Steps = append(view.Steps, hostapi.StepView{ID: s.ID, Optional: s.Optional, Requires: s.Requires})
+		view.Steps = append(view.Steps, hostapi.StepView{
+			ID: s.ID, ServiceID: s.ServiceID, Dir: s.Dir, Unit: s.Unit,
+			Optional: s.Optional, Default: s.Default, Kind: s.Kind,
+			Requires: s.Requires,
+		})
 	}
 	return view, nil
 }
@@ -180,8 +188,16 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 	}
 
 	view := &hostapi.PlanView{BundleVersion: candidate.Version, Components: map[string]hostapi.ComponentDelta{}}
+	// From mirrors plan.sh: the installed manifest's version of the
+	// component, nil when there is no installed manifest or it lacks one.
 	for name, to := range candidate.Components {
-		view.Components[name] = hostapi.ComponentDelta{To: to}
+		delta := hostapi.ComponentDelta{To: to}
+		if installed != nil {
+			if from, ok := installed.Components[name]; ok {
+				delta.From = &from
+			}
+		}
+		view.Components[name] = delta
 	}
 	for _, s := range candidate.Steps {
 		selected := !s.Optional || sel.Steps[s.ID]
@@ -189,7 +205,7 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 		if s.Optional && !sel.Steps[s.ID] {
 			state = "deselected"
 		}
-		ps := hostapi.PlanStep{ID: s.ID, Optional: s.Optional, Selected: selected, State: state}
+		ps := hostapi.PlanStep{ID: s.ID, Optional: s.Optional, Selected: selected, State: state, Unit: s.Unit, To: s.Version}
 		if s.Dir != "" {
 			if installed != nil {
 				for _, is := range installed.Steps {

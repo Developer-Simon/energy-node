@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.9 (2026-09-23)
+
+### Fixes
+
+- **dashboard:** pass service fields and previous versions to the redeploy preview (4b96844)
+
 ## v0.7.8 (2026-09-23)
 
 ### Features
