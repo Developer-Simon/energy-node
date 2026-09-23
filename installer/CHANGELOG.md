@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.1.11 (2026-09-23)
+
+### Features
+
+- **installer:** make the developer CLI a full replacement for scripts/deploy (167d2a4)
+
+### Refactors
+
+- **⚠ Breaking — scripts:** remove scripts/deploy in favour of the installer CLI (c3a8b5e)
+
+### Documentation
+
+- point developers at the installer CLI for deploying to a node (9da9e28)
+
 ## v0.1.10 (2026-09-23)
 
 ### Features
