@@ -27,27 +27,27 @@ The icon names start with the `energy-node:` prefix (e.g. `energy-node:solar-pan
 
 ## Icon catalogue
 
-| Icon | Name |
+| HA Name | Description |
 |---|---|
-| ![battery-charging](https://placeholder) | `energy-node:battery-charging` |
-| ![chip-outline](https://placeholder) | `energy-node:chip-outline` |
-| ![current-ac](https://placeholder) | `energy-node:current-ac` |
-| ![ev-station](https://placeholder) | `energy-node:ev-station` |
-| ![flash-circle](https://placeholder) | `energy-node:flash-circle` |
-| ![gas-burner](https://placeholder) | `energy-node:gas-burner` |
-| ![heat-pump](https://placeholder) | `energy-node:heat-pump` |
-| ![home](https://placeholder) | `energy-node:home` |
-| ![home-battery](https://placeholder) | `energy-node:home-battery` |
-| ![meter-electric](https://placeholder) | `energy-node:meter-electric` |
-| ![pipe-valve](https://placeholder) | `energy-node:pipe-valve` |
-| ![power-plug](https://placeholder) | `energy-node:power-plug` |
-| ![power-socket-de](https://placeholder) | `energy-node:power-socket-de` |
-| ![raspberry-pi](https://placeholder) | `energy-node:raspberry-pi` |
-| ![sitemap](https://placeholder) | `energy-node:sitemap` |
-| ![solar-panel](https://placeholder) | `energy-node:solar-panel` |
-| ![thermometer](https://placeholder) | `energy-node:thermometer` |
-| ![transmission-tower](https://placeholder) | `energy-node:transmission-tower` |
-| ![water-boiler](https://placeholder) | `energy-node:water-boiler` |
+| `battery-charging` | Charger |
+| `chip-outline` | Standard |
+| `current-ac` | Inverter |
+| `ev-station` | EV Charger (Wallbox) |
+| `flash-circle` | Consumption |
+| `gas-burner` | Oil/Gas Heating |
+| `heat-pump` | Heat Pump |
+| `home` | Building |
+| `home-battery` | Battery |
+| `meter-electric` | 3-Phase Energy Meter |
+| `pipe-valve` | Heating-pipe Valve |
+| `power-plug` | Smart Socket |
+| `power-socket-de` | Flush-mounted Socket |
+| `raspberry-pi` | Raspberry Pi |
+| `sitemap` | Automations |
+| `solar-panel` | Solar Panel |
+| `thermometer` | Thermometer |
+| `transmission-tower` | Grid Connection |
+| `water-boiler` | Water Boiler |
 
 ## About the drawings
 

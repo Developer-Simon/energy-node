@@ -155,7 +155,7 @@ by `scripts/publish_mirror.sh`:
 
 The vendored core and generated icons inside the integrations are kept in lockstep
 with their sources by `scripts/vendor_core.py` / `scripts/icons/flatten_icons.py`
-and commit-time drift guards. Setup and the release runbook:
+and CI drift guards (Go test `TestCommittedCatalogueIsCurrent`, Python `flatten_icons.py --check`). Setup and the release runbook:
 [`docs/integration/ha-integration-hacs-release.md`](docs/integration/ha-integration-hacs-release.md).
 
 ---

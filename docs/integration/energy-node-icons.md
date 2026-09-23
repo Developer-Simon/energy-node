@@ -28,30 +28,31 @@ If you prefer not to use HACS:
 1. Download the latest release from [ha-energy-node-icons](https://github.com/Developer-Simon/ha-energy-node-icons/releases).
 2. Extract to `<config>/custom_components/energy_node_icons/`.
 3. Restart Home Assistant.
+4. **Settings → Devices & Services → Add Integration → "energy-node Icons"** (this loads the icon set into Home Assistant).
 
 ## Icon catalogue
 
 | Icon name | Description |
 |-----------|-------------|
-| `battery-charging` | Battery, charging state |
-| `chip-outline` | Generic device or control unit |
-| `current-ac` | AC current (alternating) |
-| `ev-station` | EV charging station |
-| `flash-circle` | Lightning bolt or power spike |
-| `gas-burner` | Gas heater or burner |
-| `heat-pump` | Heat pump (generic) |
-| `home` | House or building |
-| `home-battery` | Home energy storage battery |
-| `meter-electric` | Electricity meter |
-| `pipe-valve` | Water pipe or valve |
-| `power-plug` | Power outlet or plug |
-| `power-socket-de` | German power outlet (distinct type) |
-| `raspberry-pi` | Computer or Raspberry Pi |
-| `sitemap` | Network diagram or infrastructure |
-| `solar-panel` | Photovoltaic (PV) solar array |
-| `thermometer` | Temperature or heat sensor |
-| `transmission-tower` | High-voltage transmission |
-| `water-boiler` | Hot water tank or boiler |
+| `battery-charging` | Charger |
+| `chip-outline` | Standard |
+| `current-ac` | Inverter |
+| `ev-station` | EV Charger (Wallbox) |
+| `flash-circle` | Consumption |
+| `gas-burner` | Oil/Gas Heating |
+| `heat-pump` | Heat Pump |
+| `home` | Building |
+| `home-battery` | Battery |
+| `meter-electric` | 3-Phase Energy Meter |
+| `pipe-valve` | Heating-pipe Valve |
+| `power-plug` | Smart Socket |
+| `power-socket-de` | Flush-mounted Socket |
+| `raspberry-pi` | Raspberry Pi |
+| `sitemap` | Automations |
+| `solar-panel` | Solar Panel |
+| `thermometer` | Thermometer |
+| `transmission-tower` | Grid Connection |
+| `water-boiler` | Water Boiler |
 
 ## How to use
 

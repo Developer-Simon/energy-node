@@ -23,8 +23,8 @@ repos are *derived artifacts*: they are assembled from this monorepo by
   suite). Build it once:
   `python3.14 -m venv .venv-ha && .venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt`.
 - **Public identifiers:** each component has its own `release.env` file:
-  - `integrations/homeassistant/mirror/battery_soc/release.env` — `OWNER=Developer-Simon`, `REPO=ha-battery-soc`, `HA_MIN_VERSION`, `MIRROR_PATH`, `CHANGELOG_TARGET=ha-integration`, `CHANGELOG_PATH=integrations/homeassistant/CHANGELOG.md`.
-  - `integrations/homeassistant/mirror/energy_node_icons/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node-icons`, `HA_MIN_VERSION`, `MIRROR_PATH`, `CHANGELOG_TARGET=ha-icons`, `CHANGELOG_PATH=custom_components/energy_node_icons/CHANGELOG.md`.
+  - `integrations/homeassistant/mirror/battery_soc/release.env` — `OWNER=Developer-Simon`, `REPO=ha-battery-soc`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-battery-soc` (absolute path where the mirror repo is checked out), `CHANGELOG_TARGET=ha-integration`, `CHANGELOG_PATH=integrations/homeassistant/CHANGELOG.md`.
+  - `integrations/homeassistant/mirror/energy_node_icons/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node-icons`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-energy-node-icons` (absolute path where the mirror repo is checked out), `CHANGELOG_TARGET=ha-icons`, `CHANGELOG_PATH=integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md` (monorepo-rooted path).
 - **Real HACS/hassfest validation:** runs as GitHub Actions **in the mirror
   repo** (`.github/workflows/validate.yml`), not here.
   `scripts/check_mirror_manifest.py` is only a fast offline pre-check.
@@ -113,8 +113,10 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
 
 ## Recurring — cut a release
 
-Release both components together. The changelog target and path for each are read
-from the `release.env` file of the chosen component.
+The two components (`battery_soc` and `energy_node_icons`) have independent version
+streams. Release each component **only when it has changed** — do not release both
+together if only one changed. The changelog target and path for each are read
+from the `release.env` file of the chosen component (use `--component` to select it).
 
 ### For `battery_soc`:
 
@@ -151,9 +153,21 @@ from the `release.env` file of the chosen component.
 
 ### For `energy_node_icons`:
 
-Same process; in step 3, 5: use `--component energy_node_icons`. The `CHANGELOG.md`
-is generated into `custom_components/energy_node_icons/CHANGELOG.md` (see the
-`release.env` `CHANGELOG_TARGET` and `CHANGELOG_PATH`).
+The process is similar, but includes icon regeneration:
+
+1. Edit the icon drawings in `dashboard/internal/webui/deviceicons.go`.
+2. Regenerate the icon source and module:
+   - Build the dashboard source: `cd dashboard && go run ./cmd/deviceicons` (writes `integrations/homeassistant/icons.source.json`).
+   - Convert to Home Assistant format: `.venv/bin/python scripts/icons/flatten_icons.py` (writes `integrations/homeassistant/custom_components/energy_node_icons/www/energy-node-icons.js`).
+   - Verify no drift: `python3 scripts/icons/flatten_icons.py --check` (exit 0 = OK).
+   - Commit the updated source and JS module.
+3. Run the integration tests: `cd integrations/homeassistant && ../../.venv-ha/bin/pytest -q`.
+4. `.venv/bin/python scripts/check_mirror_manifest.py --component energy_node_icons`
+5. Version in `integrations/homeassistant/custom_components/energy_node_icons/manifest.json` follows the same auto-bump scheme as `battery_soc`.
+6. `scripts/publish_mirror.sh --component energy_node_icons --release` (regenerates the changelog, commits + tags the mirror, pushes branch + tag and creates the GitHub Release). The version defaults to the `manifest.json` `version` field; pass `--version X.Y.Z` only to override.
+7. Then commit the staged `integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md` in the monorepo.
+
+The `CHANGELOG.md` is generated into `custom_components/energy_node_icons/CHANGELOG.md` (see the `release.env` `CHANGELOG_TARGET` and `CHANGELOG_PATH`).
 
 ### General notes:
 
