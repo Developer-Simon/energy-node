@@ -118,6 +118,35 @@ streams. Release each component **only when it has changed** — do not release 
 together if only one changed. The changelog target and path for each are read
 from the `release.env` file of the chosen component (use `--component` to select it).
 
+### From GitHub Actions (preferred)
+
+The **HA Mirror Release** workflow (`.github/workflows/ha-mirror-release.yml`)
+runs the same `scripts/publish_mirror.sh` as the local steps below, so a
+release looks the same whichever way you cut it.
+
+One-time setup: create a fine-grained personal access token with
+**Contents: read and write** on both mirror repos (`ha-battery-soc`,
+`ha-energy-node-icons`) and store it as the repository secret
+`HA_MIRROR_TOKEN` in this monorepo. The default `GITHUB_TOKEN` cannot push to
+another repository or create its releases.
+
+Per release:
+
+1. Make sure the change is merged to `main` and the component's
+   `manifest.json` carries the version you want to publish (CI patch-bumps it
+   on the PR branch; bump minor/major by hand there).
+2. **Actions → HA Mirror Release → Run workflow** on `main`. Pick the
+   component and leave **Dry run** on. The log shows the assembled mirror
+   tree and manifest.
+3. Run it again with **Dry run** off. The workflow commits the mirror, tags
+   `vX.Y.Z`, pushes, and creates the GitHub Release. The release notes come
+   from the component's changelog.
+4. The run regenerates that changelog in the monorepo too. Its summary shows
+   the diff, and the **changelog** artifact holds the file. Commit it through
+   a normal PR, because `main` is protected.
+
+A real release (dry run off) refuses to run on any branch other than `main`.
+
 ### For `battery_soc`:
 
 1. Land the change in `libs/battery_soc_core/` (or directly in the integration),
