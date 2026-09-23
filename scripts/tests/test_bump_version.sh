@@ -205,16 +205,16 @@ bump "$r" main
 
 # --- scripts/ ausserhalb von bootstrap/ bumpt nichts ----------------------
 # scripts/ selbst ist keine Komponente; nur das Unterverzeichnis bootstrap/
-# ist eines. Ein Commit an scripts/deploy/ darf deshalb nichts anfassen.
+# ist eines. Ein Commit an scripts/dev/ darf deshalb nichts anfassen.
 r="$tmp/scripts-only"
 setup_repo "$r"
-mkdir -p "$r/scripts/deploy"
-echo x > "$r/scripts/deploy/foo.sh"
+mkdir -p "$r/scripts/dev"
+echo x > "$r/scripts/dev/foo.sh"
 commit "$r" "chore: touch a non-component script"
 out="$(bump "$r" main)"
-[ -z "$out" ] || fail "a scripts/deploy change bumped something" "$out"
+[ -z "$out" ] || fail "a scripts/dev change bumped something" "$out"
 [ "$(cat "$r/scripts/bootstrap/VERSION")" = v0.1.0 ] \
-  || fail "scripts/bootstrap/VERSION bumped by a scripts/deploy change" \
+  || fail "scripts/bootstrap/VERSION bumped by a scripts/dev change" \
      "$(cat "$r/scripts/bootstrap/VERSION")"
 
 echo "PASS: bump-patch.sh"

@@ -84,6 +84,7 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		Base:        args.Target.Base,
 		OutDir:      outDir,
 		SignKeyPath: args.SignKeyPath,
+		DevVersion:  true,
 	})
 	if err != nil {
 		return fmt.Errorf("building bundle: %w", err)
@@ -148,6 +149,17 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		}
 	}
 
+	// --only is the developer's "ship this one part now": the step runs even
+	// if its stamp says this bundle version already did it (a dirty tree keeps
+	// the same dev version across edits), and its unit restarts afterwards
+	// even when the restart rule sees no version change -- step 60 on its own
+	// never restarts a running dashboard at all.
+	if args.Only != "" {
+		if err := clearRemoteStepStamp(ctx, args.Client, DefaultRemoteStateDir, runList[0].ID); err != nil {
+			return fmt.Errorf("clearing step %s's stamp: %w", runList[0].ID, err)
+		}
+	}
+
 	err = runSteps(ctx, steps.RunOptions{
 		Client:          args.Client,
 		RemoteBundleDir: DefaultRemoteBundleDir,
@@ -156,18 +168,28 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		TargetUser:      args.Target.User,
 		TargetBase:      args.Target.Base,
 		Steps:           runList,
-		OnMarker:        func(m steps.Marker) { printMarker(args.Stdout, m) },
-		OnLog:           func(stepID, line string) { fmt.Fprintf(args.Stdout, "[%s] %s\n", stepID, line) },
+		// Code from a working tree changes without its service's VERSION
+		// changing, so the restart rule would leave the old code running.
+		// --only restarts its one unit itself below.
+		RestartAll: args.Only == "",
+		OnMarker:   func(m steps.Marker) { printMarker(args.Stdout, m) },
+		OnLog:      func(stepID, line string) { fmt.Fprintf(args.Stdout, "[%s] %s\n", stepID, line) },
 	})
 	if err != nil {
 		return translateStepFailure(err)
 	}
+	if args.Only != "" {
+		unit, ok := unitForStep(runList[0])
+		if !ok {
+			fmt.Fprintf(args.Stdout, "--only %s has no unit of its own; run `installer restart` if the services should pick the change up.\n", args.Only)
+			return nil
+		}
+		return restartUnits(ctx, args.Client, "restart", []string{unit}, args.Stdout)
+	}
 	// Only a full run makes the node "at this bundle version"; --only leaves
 	// the other steps untouched. See steps.RecordInstalled.
-	if args.Only == "" {
-		if err := recordInstalled(ctx, args.Client, DefaultRemoteBundleDir, DefaultRemoteStateDir); err != nil {
-			fmt.Fprintf(args.Stdout, "warning: could not record installed-manifest.json: %v\n", err)
-		}
+	if err := recordInstalled(ctx, args.Client, DefaultRemoteBundleDir, DefaultRemoteStateDir); err != nil {
+		fmt.Fprintf(args.Stdout, "warning: could not record installed-manifest.json: %v\n", err)
 	}
 	return nil
 }

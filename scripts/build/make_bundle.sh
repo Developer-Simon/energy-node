@@ -33,6 +33,7 @@ DASHBOARD_BINARY=""
 TAILSCALE_TARBALL=""
 CADDY_BINARY=""
 SKIP_WHEELS=false
+DEV_VERSION=false
 TAILSCALE_VERSION="1.62.0"
 BINARY_NAME="energy-node-dashboard"
 
@@ -68,6 +69,7 @@ usage() {
   --tailscale-tarball <pfad>   Fertiger Tarball statt Download.
   --caddy-binary <pfad>        Erzeugt das getrennte Caddy-Beipack.
   --skip-wheels                Keine Wheels beschaffen.
+  --dev-version                Version um -dev.<commit> (und .dirty) ergaenzen.
 TXT
 }
 
@@ -84,6 +86,7 @@ while [[ $# -gt 0 ]]; do
     --tailscale-tarball) TAILSCALE_TARBALL="${2:-}"; shift 2 ;;
     --caddy-binary) CADDY_BINARY="${2:-}"; shift 2 ;;
     --skip-wheels) SKIP_WHEELS=true; shift ;;
+    --dev-version) DEV_VERSION=true; shift ;;
     --help|-h) usage; exit 0 ;;
     *) echo "Unbekannter Schalter: $1" >&2; usage >&2; exit 1 ;;
   esac
@@ -121,6 +124,15 @@ stage_template() {
 # wahrnehmen. bootstrap/ traegt trotzdem seine eigene Version weiter, als
 # eigener Eintrag in components (siehe Manifest-Kopf unten).
 VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/dashboard/VERSION")"
+# --dev-version: ein Bau aus dem Arbeitsstand (Entwickler-CLI) bekommt eine
+# eigene Version. Die Schritt-Stempel auf dem Node haengen an der
+# Bundle-Version - ohne Suffix liefe ein erneuter Deploy mit unveraenderter
+# VERSION ins Leere. Das Dashboard zeigt den Commit an, und fuer den
+# Update-Check bleibt v0.7.9-dev.* kleiner als das Release v0.7.9.
+if [[ "${DEV_VERSION}" == true ]]; then
+  VERSION="${VERSION}-dev.$(git -C "${REPO_ROOT}" rev-parse --short HEAD)"
+  git -C "${REPO_ROOT}" diff --quiet HEAD -- || VERSION="${VERSION}.dirty"
+fi
 BOOTSTRAP_VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/scripts/bootstrap/VERSION")"
 STAGE="$(mktemp -d)"
 trap 'rm -rf "${STAGE}"' EXIT

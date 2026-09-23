@@ -2,7 +2,7 @@
 
 Energy Node started on one specific site's hardware, but the goal is a
 flexible, general solution anyone with a remote energy site could run as-is —
-see [About this repository](README.md#about-this-repository). Getting there is
+see [Background](README.md#background). Getting there is
 what contributions are for, and every kind is welcome: bug reports, fixes,
 documentation, dashboard improvements, and pushing site-specific assumptions
 out into configuration.
@@ -69,8 +69,14 @@ python3 -m venv .venv && .venv/bin/pip install -e libs/energy_node_common -e lib
 .venv/bin/pip install -r requirements-dev.txt   # needed for the full services/ test suite
 ```
 
-The Home Assistant integration needs its own virtualenv — see the
-[README's Development section](README.md#development) for why and how.
+The Home Assistant integration needs its own virtualenv, because
+`pytest-homeassistant-custom-component` pulls plugins that conflict with the
+plain suite. Build it once:
+
+```sh
+python3.14 -m venv .venv-ha
+.venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt
+```
 
 ## Running the checks
 
@@ -86,12 +92,31 @@ cd dashboard && npm install && npm test                               # dashboar
 dashboard/test/smoke/run-local-dashboard.sh                           # real dashboard, no Pi, no broker
 ```
 
+## Deploying to your own node
+
+The installer's developer CLI builds a bundle from your checkout and runs the
+same bootstrap steps on a node that the installer's UI runs.
+`scripts/dev/run-installer.sh` builds the installer and passes every argument
+through, so a subcommand works as well:
+
+```sh
+scripts/dev/run-installer.sh deploy --dev-unsigned --dry-run            # preview what would change
+scripts/dev/run-installer.sh deploy --dev-unsigned                      # full deploy
+scripts/dev/run-installer.sh deploy --dev-unsigned --only dashboard     # or a single step
+scripts/dev/run-installer.sh diagnose                                   # check the node
+scripts/dev/run-installer.sh restart --only shelly                      # restart without deploying
+```
+
+The target node comes from `secrets/deploy-target.env`. For that file, SSH
+authentication and every subcommand, see
+[Installer developer CLI](docs/knowledge/installer-developer-cli.md).
+
 ## Secrets
 
 Never commit real credentials, IPs from your own site's private range, or
 device serials — see
 [`docs/knowledge/dashboard/secrets-and-credentials.md`](docs/knowledge/dashboard/secrets-and-credentials.md).
-`./scripts/deploy/check_tracked_secrets.sh` scans tracked files for obvious
+`./scripts/dev/check_tracked_secrets.sh` scans tracked files for obvious
 leaks; run it before pushing.
 
 ## Disclose AI use

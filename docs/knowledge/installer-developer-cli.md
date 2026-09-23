@@ -15,15 +15,25 @@ the web UI also runs. `--only dashboard` runs exactly the step a full
 redeploy would run — there is no second code path for a partial update.
 
 It is the fast iteration loop for developing on a real node without touching
-the Pi's shell by hand, and it is meant to replace `scripts/deploy/*.sh`
-(still documented in `INSTALLATION.md` §6) once its parity with those scripts
-is proven.
+the Pi's shell by hand, and it replaced the former `scripts/deploy/*.sh`.
+A bundle built by the CLI carries a dev version (`<VERSION>-dev.<commit>`,
+plus `.dirty` for uncommitted changes), so a new commit reruns every step,
+and the dashboard shows which build is running.
 
 ## Building the CLI
 
 ```sh
 cd installer
 go build -o installer ./cmd/installer
+```
+
+`scripts/dev/run-installer.sh` does the build for you and passes every
+argument on to the binary, so it runs the subcommands below as well
+(`--no-build` reuses the existing binary):
+
+```sh
+scripts/dev/run-installer.sh deploy --dev-unsigned --only dashboard
+scripts/dev/run-installer.sh diagnose
 ```
 
 `go vet` and `go test` for `installer/` run in CI whenever `installer/` or
@@ -142,12 +152,15 @@ Every subcommand needs a target node and a way to reach it over SSH.
 ./installer deploy --dev-unsigned
 ```
 
-Builds a bundle from `--repo` (default: the current directory) and deploys it
-to the target, running whichever bootstrap steps changed.
+Builds a bundle from `--repo` (default: the current directory) with a dev
+version and deploys it to the target. A new commit gives a new dev version, so
+every step runs again, and every service restarts afterwards: code from a
+working tree changes without its service's own version changing, which the
+restart rule alone would not notice.
 
 | Flag | Purpose |
 | --- | --- |
-| `--only <target>` | Deploy just one step: `dashboard`, `wheels`, or a device service id (`apsystems`, `battery-soc`, `shelly`, `trucki`, `tuya`, `automation`) |
+| `--only <target>` | Deploy just one step: `dashboard`, `wheels`, or a device service id (`apsystems`, `battery-soc`, `shelly`, `trucki`, `tuya`, `automation`). The step runs even if it already ran for this version (its stamp is cleared first), and its unit restarts afterwards. `wheels` has no unit of its own; follow it with `restart` |
 | `--dry-run` | Preview what would change without touching the node |
 | `--force-config` | Overwrite the node's existing `config.json` (asks for confirmation first) |
 | `--arch` | Target architecture: `armv6` (default, Pi 1 / Pi Zero W), `arm64`, `amd64` |
@@ -173,6 +186,27 @@ same bundle flags as `deploy` because it may need to build one.
 Copies the node's live `/etc/energy-node/config.json` (`--remote-path` to
 change it) down to a local template path (`--local`, default:
 `services/energy-node.config.json`) so you can inspect or diff it.
+
+`--devices` also pulls the operator's device files from `<base>/devices/`
+back into `services/<dir>/`: every JSON file a service ships as a template
+that the dashboard then edits on the node (`*_devices.json`,
+`automation_rules.json`). Schemas and presets are left alone, since every
+deploy replaces them on the node anyway. A file the node does not have is
+skipped, and the CLI asks once before overwriting. Run
+`scripts/dev/check_tracked_secrets.sh` before committing what came back.
+
+### `installer restart`
+
+```sh
+./installer restart
+./installer restart --only shelly
+```
+
+Restarts units on the node without deploying anything. The installed
+bundle's manifest names them. Without `--only`, the dashboard and every
+service unit get `systemctl try-restart`, so a service that is not running
+stays stopped. `--only dashboard` or `--only <service id>` restarts that one
+unit unconditionally.
 
 ### `installer diagnose`
 

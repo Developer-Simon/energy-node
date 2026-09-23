@@ -16,13 +16,11 @@ It has three entry points, switchable in the top bar of the window:
 - **Update** — bring an installed node to the version in the installer's package.
 - **Diagnose** — check an installed node and repair one failing part.
 
-> **Status: preview.** The installer runs and installs a real node, but it is
-> not yet packaged for end users. The release archives contain only the
-> program; the installation package (`bundle/`) has to be built from a
-> checkout of this repository and unpacked next to the program — see
-> [Getting the installer](#getting-the-installer). Until that changes,
+> **Status: beta.** The installer sets up, updates and diagnoses real nodes
+> today; what is still missing is the 1.0 release. Until then, screens and
+> steps can still change between versions, and
 > [INSTALLATION.md](https://github.com/Developer-Simon/energy-node/blob/main/INSTALLATION.md)
-> stays the reference for what the installer automates.
+> documents what the installer automates and why.
 
 Every screenshot on this page comes from the installer's demo host, not from a
 real Pi: the real window and the real screens, backed by canned data. The
@@ -183,8 +181,8 @@ install, so there is no separate "partial" update to go wrong.
 
 The dashboard serves the same page under `/redeploy/`, behind its login, and
 runs the same steps on the node itself, without this program and without SSH.
-It works with a package that is already staged on the node; it cannot fetch
-one.
+It can download the newest signed release package from GitHub itself, and the
+dashboard's header shows a notice when a newer release is out.
 
 ---
 

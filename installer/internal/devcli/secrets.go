@@ -8,11 +8,10 @@ import (
 )
 
 // LoadOrPromptSecret reads a cached secret from path if it exists, trimming
-// exactly one trailing newline the way ensure_remote_secrets.sh's own local
-// cache files are written today. If the file is missing, it calls prompt
-// with label and caches the result at path with mode 0600 before returning
-// it -- the same "ask once, reuse afterwards" behaviour as the bash scripts
-// it replaces (ensure_remote_secrets.sh, ensure_remote_dashboard_auth.sh).
+// exactly one trailing newline, the format the old deploy scripts wrote these
+// cache files in. If the file is missing, it calls prompt with label and
+// caches the result at path with mode 0600 before returning it: ask once,
+// reuse afterwards.
 func LoadOrPromptSecret(path string, label string, prompt func(label string) (string, error)) (string, error) {
 	if existing, err := os.ReadFile(path); err == nil {
 		return strings.TrimRight(string(existing), "\n"), nil

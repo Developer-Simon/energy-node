@@ -105,6 +105,7 @@ func TestBuildViaRepoForwardsFlagsToTheScript(t *testing.T) {
 		Base:        "/home/energynode",
 		OutDir:      filepath.Join(t.TempDir(), "dist"),
 		SignKeyPath: "/tmp/sign-key.pem",
+		DevVersion:  true,
 	})
 	if err != nil {
 		t.Fatalf("BuildViaRepo: %v", err)
@@ -126,7 +127,7 @@ func TestBuildViaRepoForwardsFlagsToTheScript(t *testing.T) {
 	for _, want := range []string{
 		"--arch", "arm64", "--python-minor", "3.11", "--abi", "cp311",
 		"--user", "energynode", "--base", "/home/energynode",
-		"--sign-key", "/tmp/sign-key.pem",
+		"--sign-key", "/tmp/sign-key.pem", "--dev-version",
 	} {
 		if !contains(want) {
 			t.Fatalf("expected argument %q not found in log:\n%s", want, logged)
@@ -153,6 +154,9 @@ func TestBuildViaRepoOmitsUnsetOptionalFlags(t *testing.T) {
 	logged, _ := os.ReadFile(argsLog)
 	if strings.Contains(string(logged), "--sign-key") {
 		t.Fatalf("an unset SignKeyPath must not produce a --sign-key flag:\n%s", logged)
+	}
+	if strings.Contains(string(logged), "--dev-version") {
+		t.Fatalf("DevVersion false must not produce --dev-version:\n%s", logged)
 	}
 }
 

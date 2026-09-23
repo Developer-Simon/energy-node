@@ -29,7 +29,7 @@ cd "${REPO_ROOT}"
 KEY_PATTERN='^[[:space:]]*(MQTT_PASSWORD|MQTT_USER|MQTT_USERNAME|remote_password|remote_username)[[:space:]=]'
 
 EXCLUDE_FILES=(
-  "scripts/deploy/check_tracked_secrets.sh"
+  "scripts/dev/check_tracked_secrets.sh"
   "dashboard/internal/mqttbridge/testdata/golden.conf"
 )
 

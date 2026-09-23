@@ -61,6 +61,16 @@ out="$pinned"
 grep -q 'energynode' "$pinned/dashboard/energy-node-dashboard.service" \
   && fail "festgelegtes Bundle traegt noch den Platzhalter"
 
+# --- --dev-version haengt Commit (und ggf. .dirty) an die Version -----------
+build "$tmp/dist-dev" --dev-version
+archive="$(find "$tmp/dist-dev" -maxdepth 1 -name 'energy-node-*-armv6.tar.gz' | head -n 1)"
+dev="$tmp/dev"; mkdir -p "$dev"; tar -xzf "$archive" -C "$dev"
+out="$dev"
+want="$(tr -d '[:space:]' < "$here/../../dashboard/VERSION")-dev.$(git -C "$here" rev-parse --short HEAD)"
+git -C "$here" diff --quiet HEAD -- || want="${want}.dirty"
+[ "$(get 'd["version"]')" = "$want" ] || fail "--dev-version: Version $(get 'd["version"]'), erwartet $want"
+case "$archive" in *"$want"*) ;; *) fail "--dev-version: Archivname ohne Dev-Version: $archive" ;; esac
+
 # --- ungueltiger Benutzer wird vor dem Bau abgelehnt ------------------------
 if bash "$script" --arch armv6 --user 'bad user' --out "$tmp/dist-bad" \
      --dashboard-binary "$tmp/fake-dashboard" --skip-wheels >/dev/null 2>&1; then

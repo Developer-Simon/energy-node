@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ed25519"
 	"errors"
+	"io"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
@@ -15,6 +16,13 @@ import (
 // recordCalls counts how often RunDeploy recorded the installed manifest;
 // swapDeployCollaborators resets it and installs the counting fake.
 var recordCalls int
+
+// clearedStamps and restarted record what RunDeploy asked the node to do
+// around an --only run; swapDeployCollaborators resets both.
+var (
+	clearedStamps []string
+	restarted     []string
+)
 
 // swapDeployCollaborators overrides every package-level seam this task
 // introduces and restores the originals when the test ends, so tests never
@@ -29,7 +37,9 @@ func swapDeployCollaborators(t *testing.T) {
 	origVerifyLocalDev, origVerifyRemoteDev := verifyBundleLocalDev, verifyBundleRemoteDev
 	origProvision := provisionRemoteStateDir
 	origRecord := recordInstalled
+	origClearStamp, origRestart := clearRemoteStepStamp, restartUnits
 	t.Cleanup(func() {
+		clearRemoteStepStamp, restartUnits = origClearStamp, origRestart
 		buildViaRepo, extractArchive = origBuild, origExtract
 		verifyBundleLocal, deployBundle = origVerifyLocal, origDeploy
 		verifyBundleRemote, previewRun = origVerifyRemote, origPreview
@@ -47,6 +57,17 @@ func swapDeployCollaborators(t *testing.T) {
 	provisionRemoteStateDir = func(context.Context, *transport.Client) error { return nil }
 	recordCalls = 0
 	recordInstalled = func(context.Context, *transport.Client, string, string) error { recordCalls++; return nil }
+	clearedStamps, restarted = nil, nil
+	clearRemoteStepStamp = func(_ context.Context, _ *transport.Client, _, stepID string) error {
+		clearedStamps = append(clearedStamps, stepID)
+		return nil
+	}
+	restartUnits = func(_ context.Context, _ *transport.Client, verb string, units []string, _ io.Writer) error {
+		for _, u := range units {
+			restarted = append(restarted, verb+" "+u)
+		}
+		return nil
+	}
 }
 
 func fakeManifest() *bundle.Manifest {
@@ -55,7 +76,7 @@ func fakeManifest() *bundle.Manifest {
 		Steps: []bundle.StepEntry{
 			{ID: "50", Optional: false},
 			{ID: "60", Optional: false},
-			{ID: "81", Optional: true, ServiceID: "apsystems"},
+			{ID: "81", Optional: true, ServiceID: "apsystems", Unit: "apsystems-ez1.service"},
 		},
 	}
 }
@@ -132,6 +153,111 @@ func TestRunDeployOnlyFiltersToASingleStep(t *testing.T) {
 	}
 	if len(gotOpts.Steps) != 1 || gotOpts.Steps[0].ID != "60" {
 		t.Fatalf("expected exactly step 60, got %+v", gotOpts.Steps)
+	}
+}
+
+func TestRunDeployBuildsWithADevVersion(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+	var gotBuild bundle.BuildArgs
+	buildViaRepo = func(_ context.Context, a bundle.BuildArgs) (string, error) {
+		gotBuild = a
+		return "/fake/archive.tar.gz", nil
+	}
+
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !gotBuild.DevVersion {
+		t.Fatalf("a deploy from a checkout must build with DevVersion")
+	}
+}
+
+func TestRunDeployFullRunRestartsEveryServiceThroughTheSteps(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	var gotOpts steps.RunOptions
+	runSteps = func(_ context.Context, opts steps.RunOptions) error { gotOpts = opts; return nil }
+
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !gotOpts.RestartAll {
+		t.Fatalf("a full developer deploy must restart every service (RestartAll)")
+	}
+	if len(clearedStamps) != 0 || len(restarted) != 0 {
+		t.Fatalf("a full run must neither clear stamps nor restart on its own: %v %v", clearedStamps, restarted)
+	}
+}
+
+func TestRunDeployOnlyRedoesTheStepAndRestartsItsUnit(t *testing.T) {
+	for _, tc := range []struct{ only, step, unit string }{
+		{"dashboard", "60", "restart energy-node-dashboard.service"},
+		{"apsystems", "81", "restart apsystems-ez1.service"},
+	} {
+		t.Run(tc.only, func(t *testing.T) {
+			swapDeployCollaborators(t)
+			verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+			deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+			verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+			var gotOpts steps.RunOptions
+			runSteps = func(_ context.Context, opts steps.RunOptions) error {
+				if len(clearedStamps) != 1 || clearedStamps[0] != tc.step {
+					t.Fatalf("stamp of step %s must be cleared before the run, got %v", tc.step, clearedStamps)
+				}
+				gotOpts = opts
+				return nil
+			}
+
+			if err := RunDeploy(context.Background(), DeployArgs{Only: tc.only, Stdout: &bytes.Buffer{}}); err != nil {
+				t.Fatalf("RunDeploy: %v", err)
+			}
+			if gotOpts.RestartAll {
+				t.Fatalf("--only restarts its own unit; RestartAll must stay off")
+			}
+			if len(restarted) != 1 || restarted[0] != tc.unit {
+				t.Fatalf("restarted = %v, want [%s]", restarted, tc.unit)
+			}
+		})
+	}
+}
+
+func TestRunDeployOnlyWheelsRestartsNothingAndSaysSo(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	var out bytes.Buffer
+	if err := RunDeploy(context.Background(), DeployArgs{Only: "wheels", Stdout: &out}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if len(restarted) != 0 {
+		t.Fatalf("--only wheels has no unit, restarted = %v", restarted)
+	}
+	if !containsAll(out.String(), "installer restart") {
+		t.Fatalf("expected a hint to run installer restart, got %q", out.String())
+	}
+}
+
+func TestRunDeployOnlyDryRunClearsNothing(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	previewRun = func(_ context.Context, _ *transport.Client, _, _, v string) (*steps.Plan, error) {
+		return &steps.Plan{BundleVersion: v}, nil
+	}
+
+	if err := RunDeploy(context.Background(), DeployArgs{Only: "dashboard", DryRun: true, Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if len(clearedStamps) != 0 || len(restarted) != 0 {
+		t.Fatalf("--dry-run must not touch the node: %v %v", clearedStamps, restarted)
 	}
 }
 

@@ -5,6 +5,7 @@
 ### Features
 
 - **dashboard:** per-device icons and pinned favourite entities (#53) (d649df3)
+- **homeassistant:** ship the dashboard's device icons as an HA icon set (#54) (c4c196b)
 - **dashboard:** export the device icon catalogue for Home Assistant (e7b3f40)
 - **dashboard:** store per-device icon and favourite preferences (490352a)
 - **dashboard:** let favourite entities drive the compact card rows (78749f7)

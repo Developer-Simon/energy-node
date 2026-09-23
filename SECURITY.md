@@ -40,7 +40,7 @@ unless it is triggered by unauthenticated network input.
 
 ## Credentials in this repository
 
-`scripts/deploy/check_tracked_secrets.sh` runs as a deploy preflight and
+`scripts/dev/check_tracked_secrets.sh` runs in CI on every pull request and
 rejects tracked files that look like real credentials. If you believe a
 secret has nonetheless been committed, report it the same way as above —
 do not open a public issue that repeats the secret.

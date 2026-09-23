@@ -78,6 +78,26 @@ func TestParseFetchConfigFlagsDefaultsTheLocalTemplatePath(t *testing.T) {
 	}
 }
 
+func TestParseFetchConfigFlagsAppliesDevices(t *testing.T) {
+	cfg, err := parseFetchConfigFlags([]string{"--devices"}, "/repo")
+	if err != nil {
+		t.Fatalf("parseFetchConfigFlags: %v", err)
+	}
+	if !cfg.devices {
+		t.Errorf("expected --devices to apply")
+	}
+}
+
+func TestParseRestartFlagsAppliesOnly(t *testing.T) {
+	cfg, err := parseRestartFlags([]string{"--only", "shelly"}, "/repo")
+	if err != nil {
+		t.Fatalf("parseRestartFlags: %v", err)
+	}
+	if cfg.only != "shelly" {
+		t.Errorf("got only %q, want shelly", cfg.only)
+	}
+}
+
 func TestParseEnsureSecretsFlagsDefaultsTheSecretPaths(t *testing.T) {
 	cfg, err := parseEnsureSecretsFlags(nil, "/repo")
 	if err != nil {

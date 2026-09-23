@@ -2,60 +2,91 @@
 
 <img src="docs/images/favicon.png" alt="Energy Node icon" width="100" align="right">
 
-Energy Node **extends an existing Home Assistant setup with the energy side of
-a remote site** — a workshop, barn, garage or second property that has its own
-solar, battery and switchable loads, but no reliable place to run a full
-home-automation stack.
+**Energy monitoring and automation for a remote site. It runs on a
+Raspberry Pi 1 and works with or without Home Assistant.**
 
-A single small Linux box at that site becomes a self-contained node: it polls
-the local energy hardware, runs its own automation rules and serves its own
-web dashboard. A Mosquitto bridge over a VPN then mirrors one topic tree to
-the Home Assistant instance at the main site, which picks the devices up
-through normal MQTT Discovery — PV production, battery state of charge, load
-power, grid import/export, all as first-class HA entities for the energy
-dashboard and your existing automations.
+[![Release](https://img.shields.io/github/v/release/Developer-Simon/energy-node?include_prereleases&label=release)](https://github.com/Developer-Simon/energy-node/releases)
+[![CI](https://github.com/Developer-Simon/energy-node/actions/workflows/ci.yml/badge.svg)](https://github.com/Developer-Simon/energy-node/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-The **dashboard also runs standalone**. With no Home Assistant at all — or
-when you just want a local energy view on site — the bridge to the main site
-is optional and everything on the node works without it.
+![Energy Node dashboard](docs/images/dashboard.png)
 
-It is developed and run on a **Raspberry Pi 1 Model B (ARMv6, single core,
-512 MB RAM)** — the floor every design decision is measured against. A
-**Raspberry Pi Zero W** is an equally good minimum; any newer Pi has headroom
-to spare.
+## What it is
 
-> **Language note:** this project started as a single-site tool before it was
-> made public, and the dashboard's UI — templates, JS strings, the automation
-> editor — is currently **German-only**, as are most in-code comments across
-> the Go and Python source. This documentation (README, INSTALLATION.md,
-> `docs/`) is written in English. A proper localization layer for the
-> dashboard is planned but not yet implemented; until then, changing the
-> displayed language means editing the embedded templates directly.
+Some solar arrays, batteries and switchable loads sit at a workshop, barn,
+garage or second property. Those sites are often too far away, or sit behind
+too flaky a link, for the Home Assistant at home to poll their devices
+directly.
 
----
+Energy Node puts one small Linux box at that site and makes it a
+self-contained node. It polls the local devices without any cloud account, runs
+its own automation rules and serves its own web dashboard. If the internet or
+the VPN goes down, the node carries on as before.
 
-## Why a "remote site" module
+If you use Home Assistant, a Mosquitto bridge over Tailscale mirrors the node's
+devices to your main site. There they appear as ordinary MQTT Discovery
+entities: PV production, battery state of charge, load power, grid
+import/export. Without Home Assistant, the dashboard works on its own.
 
-The problem this solves is not "read a Shelly". It is that the energy
-hardware sits somewhere the main automation system cannot reach reliably:
+## Highlights
 
-- **Local autonomy.** Broker, bridges, automations and dashboard all run at
-  the remote site. If the VPN, the internet or the main site goes down, the
-  node keeps measuring, keeps its rules running and keeps its dashboard
-  reachable on the local network. Nothing depends on a cloud account —
-  every device is polled locally (Shelly HTTP/RPC, Tuya via `tinytuya`,
-  APsystems local API, Trucki stick HTTP).
-- **One narrow link to the main site.** A Mosquitto bridge over a
-  [Tailscale](https://tailscale.com) tunnel mirrors exactly one topic tree,
-  `outstation/#`, to the main site's broker. Home Assistant there picks the
-  devices up through normal MQTT Discovery. No port forwarding, no exposed
-  broker, no extra TLS layer (WireGuard already encrypts the link).
-- **Cheap or old hardware is the point.** A remote site is exactly where a
-  spare Raspberry Pi 1 ends up, or where a Pi Zero W is all the outlay a side
-  building justifies. Running well on ARMv6 is a hard requirement, and it
-  shapes the architecture: a single statically linked Go binary without CGO,
-  no SQLite, no server-side history, no plugin system, no CDN assets, and
-  chart history kept in the browser's IndexedDB rather than on the node.
+- **Live overview**: energy flow, self-sufficiency ring, balance and cards you
+  can arrange in a layout editor. You can pin favourite entities and give each
+  device its own icon.
+- **History in the browser**: charts are recorded in IndexedDB, so the Pi
+  stores nothing. You can export them as CSV or JSON.
+- **Automations**: a rule engine with conditions, hysteresis, hold times and
+  cooldowns, edited in the dashboard. It runs as its own process, separate from
+  the dashboard.
+- **Configuration from the UI**: every device service is set up through a form
+  in the dashboard, including Tuya and Tailscale setup wizards.
+- **Energy roles and device map**: you tell the node which measurement is PV,
+  battery, load or grid, and a map you arrange by hand records how the site is
+  wired.
+- **Desktop installer**: sets up a fresh Pi, updates an existing node or
+  diagnoses and repairs one, from Windows, macOS or Linux.
+- **Updates from the dashboard**: a notice appears when a new release is out.
+  The dashboard downloads the signed package and redeploys the node without SSH.
+- **Home Assistant, two ways**: devices arrive through MQTT Discovery, and two
+  HACS integrations bring dashboard features into HA directly.
+- **Built for weak hardware**: a single static Go binary, no CGO, no database,
+  no CDN assets. The Raspberry Pi 1 (ARMv6, single core, 512 MB RAM) is the
+  floor every design decision is measured against.
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/dashboard-history.png" alt="History view"><br><sub><b>History</b>: charted in the browser, exportable</sub></td>
+    <td width="50%"><img src="docs/images/dashboard-automation.png" alt="Automation editor"><br><sub><b>Automations</b>: rules edited in the dashboard</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/dashboard-device-map.png" alt="Device map"><br><sub><b>Device map</b>: how the devices are connected</sub></td>
+    <td width="50%"><img src="docs/images/installer-configure.png" alt="Installer configuration screen"><br><sub><b>Installer</b>: pick the services for a new node</sub></td>
+  </tr>
+</table>
+
+Every page of the dashboard, including all settings tabs and the four colour
+schemes, has a screenshot in [**the dashboard, page by page**](docs/dashboard.md).
+The screenshots come from a local smoke test against a fixture broker, so you
+can reproduce them without a Pi.
+
+## Supported devices
+
+All devices are polled locally, and none of them needs a cloud account.
+
+| Hardware | How | Direction |
+|---|---|---|
+| **Shelly** Gen1 and Gen2+ (switches, meters, 3-phase, H&T, ADC) | HTTP `/status` / `/rpc` | read + switch |
+| **APsystems EZ1** microinverters | local REST API | read + power limit, on/off |
+| **Lumentree** inverters with a **Trucki stick** (T2SG/T2MG/T2HG) | HTTP | read-only |
+| **Tuya** devices | local protocol via `tinytuya` | read + switch |
+| **LiFePO4 battery banks** | computed from other devices (coulomb counting) | state of charge |
+| **The node itself** | CPU, RAM, disk, throttling, Mosquitto/Tailscale status, pending updates | read |
+
+Each family is one small Python service. [Device services](docs/device-services.md)
+covers what each one publishes. A new device family is added as another
+service; [CONTRIBUTING.md](CONTRIBUTING.md#new-device-services) explains how.
+
+## How it fits together
 
 ```mermaid
 flowchart LR
@@ -70,178 +101,95 @@ flowchart LR
         MQ --> DASH
     end
 
-    MQ <-->|"outstation/# over Tailscale"| HA
+    MQ <-->|"outstation/# over Tailscale (optional)"| HA
 
     subgraph Main["Main site"]
         HA["Home Assistant<br/>+ Mosquitto"]
     end
 ```
 
----
+- **Local autonomy.** The broker, services, automations and dashboard all run
+  on the node. The link to the main site is optional.
+- **One broker, one narrow link.** Everything on the node talks through a
+  single local MQTT broker, and no service calls another over HTTP. Only one
+  topic tree, `outstation/#`, crosses the Tailscale tunnel. That means no port
+  forwarding and no exposed broker.
+- **Cheap hardware is the point.** A side building usually gets a spare Pi 1
+  or a Pi Zero W. That is why there is no SQLite, no server-side history and no
+  plugin system. Any newer Pi has room to spare.
 
-## The dashboard
-
-Server-rendered, no build step, no CDN — everything is embedded in the one
-binary. The screenshots below are from the local smoke test
-(`dashboard/test/smoke/run-local-dashboard.sh`), which runs the real
-dashboard against a fixture broker, so anyone can reproduce them without a Pi
-or a device.
-
-**Overview** — energy status, live flow, self-sufficiency ring, balance and
-role assignment, all driven by MQTT Discovery:
-
-![Dashboard overview](docs/images/dashboard.png)
-
-**Devices** — every discovered device with its entities and controls:
-
-![Device view](docs/images/dashboard-devices.png)
-
-**History** — recorded and charted **in the browser** (IndexedDB), so the Pi
-stores nothing and stays responsive; exportable as CSV or JSON:
-
-![History view](docs/images/dashboard-history.png)
-
-Every page of the UI — overview and layout editor, devices, history,
-configuration, energy roles, device map, diagnostics, automations, all seven
-settings tabs and the four colour schemes — is walked through with screenshots
-in [`docs/dashboard.md`](docs/dashboard.md).
-
----
-
-## Components
-
-| Component | Language | What it does |
+| Component | Language | Role |
 |---|---|---|
-| `dashboard/` | Go | Web UI and `/api/v1` HTTP API. Reads MQTT Discovery, keeps device/entity state in memory, renders server-side HTML, edits the bridge JSON configs, shows energy charts, hosts the automation rule editor and the Tailscale setup wizard. Also publishes the node itself as its own Home Assistant device via `internal/nodeagent` (CPU/RAM/disk, throttling and undervoltage, uptime, Mosquitto and Tailscale status, pending updates) — this used to be a standalone Python service. Ships as one static ARMv6 binary. |
-| `services/apsystems_ez1/` | Python | APsystems EZ1 microinverters over their local REST API — power, yield, writable power limit, on/off. |
-| `services/shelly/` | Python | All Shelly devices, polled over HTTP (`/status` for Gen1, `/rpc` for Gen2+). Switching, power, energy, 3-phase, ADC, temperature/humidity. MQTT stays disabled on the devices themselves. |
-| `services/trucki/` | Python | Lumentree inverters with a Trucki stick (T2SG/T2MG/T2HG), read-only, polled over HTTP at an interval the node controls. |
-| `services/tuya_mqtt/` | Python | Local Tuya devices via `tinytuya`, including a data-point probe for the setup flow. |
-| `services/battery_soc/` | Python | State of charge for two LiFePO4 banks by coulomb counting, with voltage recalibration at the ends of the curve and per-converter efficiency. Monitoring estimate, not a BMS. |
-| `services/automation/` | Python | Rule engine (conditions, hysteresis, hold times, cooldown, allowed publish prefixes). Deliberately a separate process from the dashboard, so the dashboard stays read-only. |
-| `libs/energy_node_common/` | Python | Installable package shared by all bridges: MQTT setup, Discovery, availability, scheduler, and the master/slave settings protocol. |
-| `integrations/homeassistant/` | Python | Separate track: native Home Assistant custom integrations that bring dashboard features into HA directly, starting with LiFePO4 state of charge (same `battery_soc_core` engine) and the device icon set. Installed via HACS — see [Home Assistant integration (HACS)](#home-assistant-integration-hacs). |
-
-Everything couples through **exactly one local MQTT broker**. There is no
-direct HTTP path between the bridges and the dashboard.
-
----
-
-## Home Assistant integration (HACS)
-
-Beyond the MQTT bridge, the plan is to make features that already exist in the
-dashboard available **inside Home Assistant itself**, as native custom
-integrations under
-[`integrations/homeassistant/`](integrations/homeassistant/), installed
-through HACS.
-
-Two integrations are published:
-
-- **`battery_soc`**: the LiFePO4 state-of-charge counter — the same coulomb
-  counting, voltage recalibration and per-converter efficiency that drive the
-  dashboard's battery view, running as a config-flow integration with a
-  `battery_soc.set_state_of_charge` action instead of MQTT topics. The
-  transport-agnostic engine is shared with the MQTT service via
-  `libs/battery_soc_core/`.
-
-- **`energy_node_icons`**: eighteen device symbols plus a generic fallback from
-  the dashboard's icon catalogue, usable in Home Assistant entity icon pickers.
-  Each icon is an outline that Home Assistant fills with your theme color.
-
-Distribution uses separate public repos wired for HACS, assembled from this monorepo
-by `scripts/publish_mirror.sh`:
-- [`ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc)
-- [`ha-energy-node-icons`](https://github.com/Developer-Simon/ha-energy-node-icons)
-
-The vendored core and generated icons inside the integrations are kept in lockstep
-with their sources by `scripts/vendor_core.py` / `scripts/icons/flatten_icons.py`
-and CI drift guards (Go test `TestCommittedCatalogueIsCurrent`, Python `flatten_icons.py --check`). Setup and the release runbook:
-[`docs/integration/ha-integration-hacs-release.md`](docs/integration/ha-integration-hacs-release.md).
-
----
+| [`dashboard/`](dashboard/) | Go | Web UI, `/api/v1` HTTP API, config editor, automation editor, updater. Also reports the node itself to Home Assistant. |
+| [`services/`](services/) | Python | One bridge per device family, plus the automation engine and battery state of charge. |
+| [`libs/`](libs/) | Python | Code shared by the services: MQTT, Discovery, scheduling, and the battery SoC engine. |
+| [`installer/`](installer/) | Go | Desktop installer for setting up, updating and diagnosing a node. |
+| [`integrations/homeassistant/`](integrations/homeassistant/) | Python | Native Home Assistant integrations, shipped through HACS. |
 
 ## Getting started
 
-See **[INSTALLATION.md](INSTALLATION.md)** — it covers the ARMv6 specifics,
-including the packages that must be installed in an outdated version first
-and updated afterwards (Tailscale), and the pip flags a modern Raspberry Pi
-OS needs.
+**With the installer (recommended).** Download the installer for your
+computer from the [latest release](https://github.com/Developer-Simon/energy-node/releases).
+Point it at a Raspberry Pi with SSH enabled, choose your services and let it
+run. It fetches the right installation package for the Pi itself.
+[Deploying a node](docs/installer.md) walks through every screen.
 
-Deployment from the development machine:
+**By hand.** [INSTALLATION.md](INSTALLATION.md) describes every step the
+installer automates, including the ARMv6 quirks: packages that have to be
+installed in an old version first (Tailscale), and the pip flags a current
+Raspberry Pi OS needs.
 
-```sh
-./scripts/deploy/deploy_dashboard_to_remote.sh          # cross-compile + ship the Go dashboard
-./scripts/deploy/deploy_src_to_remote.sh                # ship the Python services
-./scripts/deploy/deploy_src_to_remote.sh --service shelly   # or just one of them
-```
+## Home Assistant integrations
 
----
+With the MQTT bridge, every device already shows up in Home Assistant. Two
+HACS integrations add dashboard features that run inside HA directly:
 
-## Development
+- [**`ha-battery-soc`**](https://github.com/Developer-Simon/ha-battery-soc):
+  LiFePO4 state of charge. It uses the same coulomb-counting engine as the
+  node, set up through a config flow.
+- [**`ha-energy-node-icons`**](https://github.com/Developer-Simon/ha-energy-node-icons):
+  the dashboard's device icons as an icon set for Home Assistant's icon pickers.
 
-```sh
-.venv/bin/pytest libs/battery_soc_core services/battery_soc scripts/tests   # core, MQTT adapter, tooling
-.venv/bin/pip install -r requirements-dev.txt && .venv/bin/pytest services libs   # full bridge suite (needs the bridges' own runtime deps)
-bash scripts/tests/test_publish_mirror.sh                             # HACS mirror assembly
-cd integrations/homeassistant && ../../.venv-ha/bin/pytest            # HA integration (separate venv, see below)
-cd dashboard && go test ./...      # Go dashboard (go.mod lives in dashboard/)
-cd dashboard && npm install && npm test   # browser-side JS (node --test + jsdom)
-dashboard/test/smoke/run-local-dashboard.sh   # real dashboard, no Pi, no broker
-```
-
-The Home Assistant suite needs its own virtualenv — `pytest-homeassistant-custom-component`
-pulls plugins that conflict with the plain suite. Build it once:
-
-```sh
-python3.14 -m venv .venv-ha
-.venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt
-```
-
-CI (`.github/workflows/ci.yml`, the *Vendored artefacts in sync* job) fails a PR
-whose vendored copies drift out of sync — `battery_soc_core` from
-`libs/battery_soc_core/`, or the Lovelace `battery-card-core.js` — run
-`.venv/bin/python scripts/vendor_core.py` (resp. `scripts/vendor_card.py`) and
-commit the result. Per-component patch versions are bumped on the PR branch by
-the `Version bump` workflow (`scripts/version/bump-patch.sh`); see
-[`docs/knowledge/releasing.md`](docs/knowledge/releasing.md).
-`./scripts/deploy/check_tracked_secrets.sh` (also run as a deploy preflight) verifies that
-no credentials made it into tracked files.
-
----
+Both are published from [`integrations/homeassistant/`](integrations/homeassistant/)
+in this repository.
 
 ## Documentation
 
-Reference documentation lives under [`docs/`](docs/) — a curated subset of the
-project's internal notes, translated to English, and also published as a
-GitHub Pages site from that folder.
+The [documentation site](docs/index.md) collects all pages. These are the
+main entry points:
 
-**[`docs/index.md`](docs/index.md) is the entry point.** It links every page:
-the dashboard walkthrough with a screenshot of every screen, the device
-services, the data-flow and configuration references, measured per-service
-performance on the Pi 1, the `/api/v1` HTTP API, reverse-proxy and
-credentials notes, the battery state-of-charge internals, how a release is
-cut, and the Home Assistant integration release runbook.
+- [The dashboard, page by page](docs/dashboard.md): every screen with a screenshot
+- [Deploying a node](docs/installer.md): the installer, screen by screen
+- [Device services](docs/device-services.md): what each service talks to and publishes
+- [Data flow](docs/knowledge/data-flow.md) and [configuration](docs/knowledge/configuration.md) reference
+- [Performance on the Pi 1](docs/knowledge/performance-and-resources.md): measured CPU and RAM per service
+- [Releasing](docs/knowledge/releasing.md): how versions and releases are cut
 
----
+## Status
 
-## About this repository
+Energy Node is **in beta**. Everything described here runs every day on a
+real node, but there is no 1.0 release yet. Until then, configuration formats
+and screens can still change between 0.x versions, and the changelogs say when
+they do.
 
-Energy Node comes out of one concrete problem. There is a workshop at a
-separate address, with its own solar array, battery bank and switchable
-loads — but it is too far away, and too dependent on a VPN link, for the
-main Home Assistant instance to poll those devices directly. The node closes
-that gap: it does the local polling and automation on site, and a Mosquitto
-bridge over the VPN carries just the energy values — PV production, battery
-state of charge, load and grid power — back to Home Assistant as MQTT
-Discovery entities.
+The **dashboard's UI is German-only** for now, as are most comments in the
+code. This README and the documentation are in English. A localization layer
+for the dashboard is planned.
 
-That one site is where it started and where it runs today, so parts of it —
-the hardware set, the energy-role assignments, some automation rules — still
-reflect those specifics. But the goal is a **flexible, general solution
-anyone with a remote energy site could run as-is**: configuration over code,
-device support added as bridges rather than forks, and site-specific
-assumptions steadily pushed out into config. Contributions that widen what it
-covers are what move it there — see [CONTRIBUTING.md](CONTRIBUTING.md).
+## Contributing
+
+Bug reports, fixes and support for new device families are welcome. Before
+you start, see [CONTRIBUTING.md](CONTRIBUTING.md). It covers the development
+setup, the test suites and the commit conventions.
+
+## Background
+
+Energy Node started with a single site: a workshop at a separate address with
+its own solar array, battery bank and switchable loads. That is where it still
+runs today, so some defaults still reflect that setup. The goal is a general
+tool that anyone with a remote energy site can run without changing the code.
+The project works towards that by moving configuration out of the code and
+adding device support as new services, not forks.
 
 ## License
 

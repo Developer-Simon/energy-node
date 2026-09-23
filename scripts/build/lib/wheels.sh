@@ -114,8 +114,7 @@ fetch_thirdparty_wheels() {
 # build_local_wheels <ziel>
 #
 # Baut die beiden eigenen Pakete. Ein im dist/-Verzeichnis liegendes Rad
-# derselben Version wird wiederverwendet - dasselbe Verfahren, das
-# deploy_src_to_remote.sh schon benutzt, nur ohne Gegenstelle.
+# derselben Version wird wiederverwendet.
 build_local_wheels() {
   local target="$1"
   local repo_root lib dist version cached built

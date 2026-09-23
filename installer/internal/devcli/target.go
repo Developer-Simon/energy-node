@@ -13,18 +13,17 @@ import (
 	"strings"
 )
 
-// Target names the node a subcommand acts on -- literally TARGET_HOST,
-// TARGET_USER and TARGET_BASE from scripts/deploy/deploy_lib.sh's
-// parse_deploy_args, read the same way from the same file.
+// Target names the node a subcommand acts on: TARGET_HOST, TARGET_USER and
+// TARGET_BASE from secrets/deploy-target.env.
 type Target struct {
 	Host string
 	User string
 	Base string
 }
 
-// DefaultDeployTargetPath is where every scripts/deploy/*.sh script already
-// looks for its target, so the CLI defaults to the same file rather than
-// asking developers to configure their target twice.
+// DefaultDeployTargetPath is where the CLI looks for its target by default.
+// The file name dates from the deploy scripts the CLI replaced, so existing
+// checkouts keep working unchanged.
 func DefaultDeployTargetPath(repoRoot string) string {
 	return filepath.Join(repoRoot, "secrets", "deploy-target.env")
 }
@@ -69,8 +68,7 @@ func LoadTarget(path string) (Target, error) {
 }
 
 // Override replaces each field with the given value if it is non-empty,
-// matching how --host/--user/--base take precedence over deploy-target.env
-// in every scripts/deploy/*.sh script today.
+// so --host/--user/--base take precedence over deploy-target.env.
 func (t Target) Override(host, user, base string) Target {
 	if host != "" {
 		t.Host = host

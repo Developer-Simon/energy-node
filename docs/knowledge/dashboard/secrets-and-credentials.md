@@ -4,13 +4,13 @@ title: "Credentials and Secrets"
 
 # Credentials and Secrets
 
-Last updated: 2026-09-06
+Last updated: 2026-09-23
 
 ## Ground rule
 
 No plaintext secret in a Git-tracked file. The guard
-`scripts/deploy/check_tracked_secrets.sh` enforces this and is called by both
-deploy scripts before anything is transferred.
+`scripts/dev/check_tracked_secrets.sh` enforces this and runs in CI on every
+pull request.
 
 ## Central MQTT credentials
 
@@ -36,22 +36,24 @@ itself, so the `energynode` group needs read access.
 
 ### First-time setup on the Pi
 
-Both deploy scripts (`scripts/deploy/deploy_dashboard_to_remote.sh`, `scripts/deploy/deploy_src_to_remote.sh`)
-check before transferring whether `/etc/energy-node/mqtt.pw` and
-`/etc/energy-node/config.json` exist on the target device, via the
-shared helpers `scripts/deploy/ensure_remote_secrets.sh` and `scripts/deploy/ensure_remote_config.sh`.
+Bootstrap step 60 (`scripts/bootstrap/60-node-install.sh`) creates
+`/etc/energy-node/config.json` from the bundle's template and places
+`/etc/energy-node/mqtt.pw` from a password file the installer hands it. Both
+are only created when missing; an existing file stays untouched.
 
 **For the MQTT password:**
 
-If `/etc/energy-node/mqtt.pw` is missing:
+The graphical installer asks for the password on its configuration screen.
+From a checkout, `installer ensure-secrets` (see
+[Installer developer CLI](../installer-developer-cli.md)) does the same:
 
-1. If the local staging copy `secrets/mqtt.pw` is also missing (never
-   versioned, thanks to the `.gitignore` entry `/secrets/`), the script
-   prompts interactively for the password and creates the file locally.
-2. The local copy is transferred via `scp` and installed on the target device
-   in the right place with `sudo install -o root -g energynode -m 0640`.
+1. If the local staging copy `secrets/mqtt.pw` is missing (never versioned,
+   thanks to the `.gitignore` entry `/secrets/`), it prompts interactively for
+   the password and creates the file locally.
+2. It reruns step 60 with that file, which installs it on the target device
+   as `root:energynode` with mode `0640`.
 
-On a repeat deploy to a fresh target device (or a second Pi), the existing
+On a repeat run against a fresh target device (or a second Pi), the existing
 local copy `secrets/mqtt.pw` is reused without prompting again.
 
 You can still do it manually:
@@ -97,16 +99,14 @@ under `dashboard.admin_username`.
 
 **First-time setup on the Pi:**
 
-`scripts/deploy/deploy_dashboard_to_remote.sh` checks before transferring
-whether `/etc/energy-node-dashboard/auth.pw` exists on the target device, via
-the helper `scripts/deploy/ensure_remote_dashboard_auth.sh` (analogous to
-`scripts/deploy/ensure_remote_secrets.sh` for the MQTT password):
+Step 60 places `/etc/energy-node-dashboard/auth.pw` the same way as the MQTT
+password, and `installer ensure-secrets` covers both:
 
-1. If the local staging copy `secrets/dashboard-admin.pw` is also missing
-   (never versioned, thanks to the `.gitignore` entry `/secrets/`), the script
-   prompts interactively for the password and creates the file locally.
-2. The local copy is transferred via `scp` and installed on the target device
-   in the right place with `sudo install -o root -g energynode -m 0640`.
+1. If the local staging copy `secrets/dashboard-admin.pw` is missing (never
+   versioned, thanks to the `.gitignore` entry `/secrets/`), it prompts
+   interactively for the password and creates the file locally.
+2. Step 60 installs it on the target device as `root:energynode` with mode
+   `0640`.
 
 If the file already exists on the target device, it is left untouched — a
 redeploy must not discard a password that was changed via the dashboard.
@@ -128,36 +128,25 @@ copy the live version back into the repo.
 The credentials that the main system (Home Assistant) issues for this bridge
 are kept locally only as a store under `secrets/hauptsystem-mqtt.env` —
 deliberately without automation, for the same reason: the live version is not
-written by a deploy script.
+written by a deploy.
 
-## Target user and host of the deploy scripts
+## Target user and host for the developer CLI
 
-The target user and host of your own target device are no longer hardcoded in
-`scripts/deploy/deploy_lib.sh`; instead they live locally under
-`secrets/deploy-target.env` (never versioned, thanks to the `.gitignore` entry
-`/secrets/`):
+The target user and host of your own target device are not in the repository;
+they live locally under `secrets/deploy-target.env` (never versioned, thanks
+to the `.gitignore` entry `/secrets/`):
 
     TARGET_USER=energynode
     TARGET_HOST=energy-node
 
-`deploy_lib.sh` reads this file at the start of every deploy script, unless
-`TARGET_USER`/`TARGET_HOST` are already set via environment variable. If the
-file is missing and no environment variables are set either, the scripts abort
-with an error message instead of continuing with a built-in default. They can
-still be overridden per run via `--user`/`--host`.
+The installer's developer CLI reads this file for every subcommand.
+`--host`/`--user`/`--base` override it per run, and `--target-env` points at a
+different file.
 
 ## SSH access to the target device
 
-The system login password for the user `energynode` is kept locally under
+The CLI tries an SSH key first (`~/.ssh/id_ed25519`, or `--identity`). Without
+one it uses the system login password kept locally under
 `secrets/system-ssh.pw` (never versioned, thanks to the `.gitignore` entry
-`/secrets/`).
-
-`scripts/deploy/deploy_lib.sh` reads this file at the start of every deploy
-script: if it is present and `sshpass` is installed, all `ssh`, `scp`, and
-`rsync` calls of the deploy scripts authenticate with it automatically,
-instead of prompting for the password interactively on every run. If `sshpass`
-is missing, a notice appears and the scripts prompt interactively as before.
-If an SSH key is set up instead, the password goes unnoticed — `ssh`/`scp`
-then behave as they did before this change.
-
-Installing `sshpass` (Fedora): `sudo dnf install sshpass`
+`/secrets/`; `--password-file` to override). No `sshpass` is needed; the CLI
+speaks SSH itself.

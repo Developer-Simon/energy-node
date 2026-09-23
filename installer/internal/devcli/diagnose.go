@@ -1,12 +1,9 @@
 package devcli
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
-	"path"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/diag"
@@ -29,16 +26,9 @@ type DiagnoseArgs struct {
 // (via internal/diag) and prints a checklist with a retry hint for every
 // failing check.
 func RunDiagnose(ctx context.Context, args DiagnoseArgs) error {
-	manifestPath := path.Join(args.RemoteBundleDir, "manifest.json")
-	var stdout, stderr bytes.Buffer
-	cmd := "cat " + transport.ShellQuote(manifestPath)
-	if err := args.Client.Run(ctx, cmd, &stdout, &stderr); err != nil {
-		return fmt.Errorf("reading %s (is anything installed on this node yet?): %w (stderr: %s)", manifestPath, err, stderr.String())
-	}
-
-	var manifest bundle.Manifest
-	if err := json.Unmarshal(stdout.Bytes(), &manifest); err != nil {
-		return fmt.Errorf("parsing %s: %w", manifestPath, err)
+	manifest, err := readInstalledManifest(ctx, args.Client, args.RemoteBundleDir)
+	if err != nil {
+		return err
 	}
 
 	report, err := diag.Run(ctx, args.Client, args.RemoteBundleDir, args.RemoteStateDir, manifest.Version)
