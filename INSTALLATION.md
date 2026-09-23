@@ -10,11 +10,11 @@ updated afterwards**, because their current installers no longer support the
 architecture. That is [section 3](#3-packages-you-must-install-outdated-first)
 and it is worth reading before you start.
 
-> **A guided installer is planned.** It will fold sections 2–8 below into a
-> single script run from the development machine (flash check, package
-> bootstrap, broker, bridge, deploy, Caddy). Until it lands, the manual
-> sequence here is the way to bring a node up — and it stays the reference
-> for what the installer automates and why.
+> **There is a guided installer.** The [desktop installer](docs/installer.md)
+> runs sections 2–8 below from your own computer: package bootstrap, broker,
+> firewall, Tailscale, the dashboard, HTTPS and the device services. This page
+> is the manual route, and the reference for what the installer automates and
+> why.
 
 ---
 

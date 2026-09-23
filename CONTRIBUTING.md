@@ -2,7 +2,7 @@
 
 Energy Node started on one specific site's hardware, but the goal is a
 flexible, general solution anyone with a remote energy site could run as-is —
-see [About this repository](README.md#about-this-repository). Getting there is
+see [Background](README.md#background). Getting there is
 what contributions are for, and every kind is welcome: bug reports, fixes,
 documentation, dashboard improvements, and pushing site-specific assumptions
 out into configuration.
@@ -69,8 +69,14 @@ python3 -m venv .venv && .venv/bin/pip install -e libs/energy_node_common -e lib
 .venv/bin/pip install -r requirements-dev.txt   # needed for the full services/ test suite
 ```
 
-The Home Assistant integration needs its own virtualenv — see the
-[README's Development section](README.md#development) for why and how.
+The Home Assistant integration needs its own virtualenv, because
+`pytest-homeassistant-custom-component` pulls plugins that conflict with the
+plain suite. Build it once:
+
+```sh
+python3.14 -m venv .venv-ha
+.venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt
+```
 
 ## Running the checks
 
@@ -84,6 +90,17 @@ cd integrations/homeassistant && ../../.venv-ha/bin/pytest            # HA integ
 cd dashboard && gofmt -l . && go vet ./... && go test ./...           # Go dashboard
 cd dashboard && npm install && npm test                               # dashboard JS
 dashboard/test/smoke/run-local-dashboard.sh                           # real dashboard, no Pi, no broker
+```
+
+## Deploying to your own node
+
+From a development machine you can ship changes to a node without the
+installer:
+
+```sh
+./scripts/deploy/deploy_dashboard_to_remote.sh              # cross-compile + ship the Go dashboard
+./scripts/deploy/deploy_src_to_remote.sh                    # ship the Python services
+./scripts/deploy/deploy_src_to_remote.sh --service shelly   # or just one of them
 ```
 
 ## Secrets
