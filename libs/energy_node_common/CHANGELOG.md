@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.7 (2026-09-22)
+## v0.4.7 (2026-09-23)
 
 ### Features
 
@@ -8,6 +8,10 @@
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 - **shelly:** optional wake webhook so a sleeping Gen1 device is polled the moment it wakes (3105234)
+
+### Fixes
+
+- **shelly:** support sleepy H&T devices with an opt-in wake webhook (#49) (1e6d571)
 
 ### Tests
 
