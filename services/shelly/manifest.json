@@ -1,6 +1,6 @@
 {
   "service_id": "shelly",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "unit": "shelly-rpc.service",
   "bootstrap_step": "83",
   "schema": "config.schema.json",
