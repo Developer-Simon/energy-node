@@ -55,3 +55,24 @@ func TestReplayEventsFallsBackToNowForAnUnparseableTimestamp(t *testing.T) {
 		t.Fatalf("events = %+v", events)
 	}
 }
+
+func TestReplayRunStartsWithTheOriginalRunStarted(t *testing.T) {
+	events := hostapi.ReplayRun("run-7", "redeploy", "", []string{
+		"1000 ##STEP 60 begin",
+		"1005 ##STEP 60 ok",
+	})
+	if len(events) != 3 {
+		t.Fatalf("len = %d, want run-started plus 2", len(events))
+	}
+	first := events[0]
+	if first.Seq != 1 || first.Type != "run-started" || first.At != 1000 {
+		t.Fatalf("event 0 = %+v", first)
+	}
+	data := first.Data.(map[string]any)
+	if data["run_id"] != "run-7" || data["mode"] != "redeploy" || data["only"] != "" {
+		t.Fatalf("run-started data = %+v", data)
+	}
+	if events[1].Seq != 2 || events[1].Type != "step" || events[2].Seq != 3 {
+		t.Fatalf("replayed events not shifted behind run-started: %+v", events[1:])
+	}
+}

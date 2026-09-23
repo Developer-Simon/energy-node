@@ -143,3 +143,18 @@ test('destroy schliesst den Strom', async () => {
   screen.destroy();
   assert.equal(source.closed, true);
 });
+
+test('nach einem Neustart des Wirts baut der Lauf sich unter der ID aus hello neu auf', async () => {
+  const { source, sources, shell, screen } = await mount();
+  source.emit('hello', 0, { seq: 0, running: true, run_id: 'run-1', bus: 'a', at: T0 });
+  emitAll(source, UNTIL_TAILSCALE);
+  source.emit('hello', 3, { seq: 3, running: true, run_id: 'resumed-1', bus: 'b', at: T0 });
+  assert.equal(shell.shared.run.runId, 'resumed-1');
+  const again = sources[sources.length - 1];
+  again.emit('run-started', 1, { run_id: 'resumed-1', mode: 'redeploy', only: '', at: T0 });
+  again.emit('step', 2, { id: '60', state: 'ok', at: T0 + 1000 });
+  again.emit('run-finished', 3, { run_id: 'resumed-1', ok: true, at: T0 + 2000 });
+  assert.equal(screen.model.finished, true);
+  assert.equal(shell.screen, 'result');
+  assert.equal(shell.shared.lastRun.ok, true);
+});

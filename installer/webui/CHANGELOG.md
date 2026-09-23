@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.9 (2026-09-23)
+
+### Fixes
+
+- **redeploy:** keep following a run across the dashboard's self-update restart (0c69419)
+
 ## v0.1.8 (2026-09-23)
 
 ### Features

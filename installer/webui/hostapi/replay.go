@@ -52,6 +52,26 @@ func ReplayEvents(lines []string) []Event {
 	return events
 }
 
+// ReplayRun is ReplayEvents behind the run-started event of the run the log
+// belongs to, so a page that loads after the restart (or follows from seq 0)
+// sees the run begin under the id the resumed run will finish with. The
+// run-started carries the time of the first log line.
+func ReplayRun(runID, mode, only string, lines []string) []Event {
+	replayed := ReplayEvents(lines)
+	at := time.Now().UnixMilli()
+	if len(replayed) > 0 {
+		at = replayed[0].At
+	}
+	events := make([]Event, 0, len(replayed)+1)
+	events = append(events, Event{Seq: 1, Type: "run-started", At: at,
+		Data: map[string]any{"run_id": runID, "mode": mode, "only": only}})
+	for _, event := range replayed {
+		event.Seq++
+		events = append(events, event)
+	}
+	return events
+}
+
 // parseMarkerLine recognizes "##STEP <id> <state> [detail]", the same
 // grammar installer/internal/steps.ParseMarker parses from SSH stdout.
 // Duplicated rather than imported: this module must not depend on the

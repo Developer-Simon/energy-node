@@ -103,3 +103,38 @@ func TestPrepareFuncKeepsTheErrorCodeOfABundlefetchError(t *testing.T) {
 		t.Fatalf("err = %v, want a hostapi error with code %s", err, bundlefetch.CodeGitHubUnreachable)
 	}
 }
+
+// A dashboard that restarts mid-job (step 60 replaces its own binary) must
+// resume under the run id the page already follows, or the page never
+// accepts the resumed run's run-finished.
+func TestResumedRunKeepsTheRunIDOfTheStagedJob(t *testing.T) {
+	root := t.TempDir()
+	candidate := filepath.Join(root, "candidate")
+	os.MkdirAll(candidate, 0o755)
+	os.WriteFile(filepath.Join(candidate, "manifest.json"), []byte(`{"version":"1.5.0","steps":[]}`), 0o644)
+	os.WriteFile(filepath.Join(root, "selection.json"), []byte(`{"steps":{}}`), 0o644)
+	jobDir := filepath.Join(root, "job")
+	os.MkdirAll(jobDir, 0o755)
+	os.WriteFile(filepath.Join(jobDir, "current.json"), []byte(`{"bundle_version":"1.5.0","mode":"redeploy","steps":["60"],"run_id":"run-9"}`), 0o644)
+	os.WriteFile(filepath.Join(jobDir, "log"), []byte("1000 ##STEP 60 begin\n"), 0o644)
+
+	handler, err := buildRedeployHandler(redeployConfig{
+		candidateBundleDir: candidate, installedManifestPath: filepath.Join(root, "installed-manifest.json"),
+		selectionPath: filepath.Join(root, "selection.json"), jobDir: jobDir,
+	})
+	if err != nil {
+		t.Fatalf("buildRedeployHandler: %v", err)
+	}
+	// Let the resumed tail finish so its goroutine does not outlive the test.
+	defer os.WriteFile(filepath.Join(jobDir, "status.json"), []byte(`{"result":"ok"}`), 0o644)
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/redeploy/api/events?since=0&once=1", nil))
+	body := rec.Body.String()
+	if !strings.Contains(body, `"running":true`) || !strings.Contains(body, `"run_id":"run-9"`) {
+		t.Fatalf("hello does not report the staged run: %s", body)
+	}
+	if !strings.Contains(body, "event: run-started") {
+		t.Fatalf("the restored bus has no run-started for the page to pick up: %s", body)
+	}
+}

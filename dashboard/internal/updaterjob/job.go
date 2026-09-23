@@ -35,6 +35,10 @@ type Job struct {
 	Only          string   `json:"only,omitempty"`
 	Steps         []string `json:"steps"`
 	RestartAll    bool     `json:"restart_all,omitempty"`
+	// RunID is the id the page follows the run under. A dashboard that
+	// restarts mid-job reads it back from current.json and resumes under
+	// the same id. The updater ignores it.
+	RunID string `json:"run_id,omitempty"`
 }
 
 // Status is the updater's final report, written once to status.json. A
@@ -83,6 +87,19 @@ func Stage(dir string, job Job, bundleSrc string) error {
 		return fmt.Errorf("updaterjob: activating pending.json: %w", err)
 	}
 	return nil
+}
+
+// ReadCurrent reads the job the updater has claimed (dir/current.json).
+func ReadCurrent(dir string) (*Job, error) {
+	raw, err := os.ReadFile(filepath.Join(dir, "current.json"))
+	if err != nil {
+		return nil, fmt.Errorf("updaterjob: reading current job: %w", err)
+	}
+	var job Job
+	if err := json.Unmarshal(raw, &job); err != nil {
+		return nil, fmt.Errorf("updaterjob: decoding current job: %w", err)
+	}
+	return &job, nil
 }
 
 // ReadStatus reads dir/status.json. done is false and status is nil when

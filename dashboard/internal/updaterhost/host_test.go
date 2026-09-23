@@ -323,3 +323,26 @@ func TestPlanStepsCarryUnitAndVersions(t *testing.T) {
 		t.Errorf("step 88 = %+v, want unit automation.service, no from, to 0.1.0", s)
 	}
 }
+
+func TestRunWritesTheRunIDIntoTheJob(t *testing.T) {
+	cfg := setupNode(t)
+	h, _ := updaterhost.New(cfg)
+	go func() {
+		for {
+			if _, err := os.Stat(filepath.Join(cfg.JobDir, "pending.json")); err == nil {
+				break
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+		os.Rename(filepath.Join(cfg.JobDir, "pending.json"), filepath.Join(cfg.JobDir, "current.json"))
+		os.WriteFile(filepath.Join(cfg.JobDir, "status.json"), []byte(`{"result":"ok"}`), 0o644)
+	}()
+
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModeRedeploy, RunID: "run-5"}, &recordingSink{}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(cfg.JobDir, "current.json"))
+	if !strings.Contains(string(raw), `"run_id":"run-5"`) {
+		t.Fatalf("current.json = %s, want the run id", raw)
+	}
+}

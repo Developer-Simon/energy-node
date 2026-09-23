@@ -262,7 +262,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 	// manifest instead.
 	job := updaterjob.Job{
 		BundleVersion: candidate.Version, Mode: string(req.Mode), Only: req.Only,
-		Steps: stepIDs, RestartAll: req.RestartAll,
+		Steps: stepIDs, RestartAll: req.RestartAll, RunID: req.RunID,
 	}
 	if err := updaterjob.Stage(h.cfg.JobDir, job, h.cfg.CandidateBundleDir); err != nil {
 		return &hostapi.Error{Code: "JOB_STAGING_FAILED", Detail: err.Error()}

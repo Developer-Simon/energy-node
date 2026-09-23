@@ -2,6 +2,7 @@ package hostapi_test
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -416,5 +417,38 @@ func TestBusSinkRedactsSecretMessageArgs(t *testing.T) {
 	}
 	if strings.Contains(string(raw), "hunter2") {
 		t.Fatalf("the event stream carries secret in the clear")
+	}
+}
+
+func TestStartRunHandsItsRunIDToTheBackend(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	connectFirst(t, server)
+	fake.Script(hostapitest.FakeStep{ID: "20", State: "ok"})
+	id, err := server.StartRun(context.Background(), hostapi.RunRequest{Mode: hostapi.ModeRedeploy})
+	if err != nil {
+		t.Fatalf("StartRun: %v", err)
+	}
+	waitForRunToFinish(t, server)
+
+	if fake.LastRun.RunID == "" || fake.LastRun.RunID != id {
+		t.Errorf("backend got run id %q, want %q", fake.LastRun.RunID, id)
+	}
+}
+
+func TestHelloNamesTheBusSoAPageNoticesARestart(t *testing.T) {
+	first, _ := newTestServer(t, nil)
+	second, _ := newTestServer(t, nil)
+	busOf := func(server *hostapi.Server) string {
+		rec := do(t, server, http.MethodGet, "/api/events?since=0&once=1", "")
+		events := readEvents(t, strings.NewReader(rec.Body.String()))
+		bus, _ := events[0].Data.(map[string]any)["bus"].(string)
+		return bus
+	}
+	a, b := busOf(first), busOf(second)
+	if a == "" || a == b {
+		t.Fatalf("bus ids = %q, %q; want two different non-empty ids", a, b)
+	}
+	if again := busOf(first); again != a {
+		t.Fatalf("bus id changed within one server: %q -> %q", a, again)
 	}
 }
