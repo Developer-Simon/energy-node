@@ -38,7 +38,11 @@ BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
 CORE_STEPS=(10 20 30 50 60 65)
-OPTIONAL_STEPS=(40 70)
+OPTIONAL_STEPS=(35 40 70)
+# Opt-in: optionale Schritte mit Vorgabe aus. 35 gibt den Port des Shelly-
+# Wake-Webhooks in der Firewall frei - das muss der Betreiber ausdruecklich
+# waehlen (scripts/bootstrap/35-ufw-shelly-webhook.sh).
+OPT_IN_STEPS=(35)
 # dashboard_key je optionalem System-Schritt (nicht Dienst-Schritt), der
 # einen eigenen Dashboard-Tab hat. 70 (Caddy/HTTPS) bleibt bewusst aussen
 # vor - das Dashboard blendet dafuer nichts aus (E7).
@@ -235,7 +239,7 @@ fi
 ARCH="${ARCH}" VERSION="${VERSION}" BOOTSTRAP_VERSION="${BOOTSTRAP_VERSION}" PYTHON_MINOR="${PYTHON_MINOR}" ABI="${ABI}" \
 BUNDLE_USER="${BUNDLE_USER}" BUNDLE_BASE="${BUNDLE_BASE}" REPO_ROOT="${REPO_ROOT}" \
 UNAME_MACHINES="$(arch_uname_machines "${ARCH}" | paste -sd, -)" \
-CORE_STEPS="${CORE_STEPS[*]}" OPTIONAL_STEPS="${OPTIONAL_STEPS[*]}" \
+CORE_STEPS="${CORE_STEPS[*]}" OPTIONAL_STEPS="${OPTIONAL_STEPS[*]}" OPT_IN_STEPS="${OPT_IN_STEPS[*]}" \
 SERVICE_ROWS="$(printf '%s\n' "${SERVICE_TABLE[@]}")" \
 SERVICE_STEP_ROWS="$(printf '%s\n' "${SERVICE_STEPS[@]}")" \
 OPTIONAL_STEP_DASHBOARD_KEY_ROWS="$(for id in "${!OPTIONAL_STEP_DASHBOARD_KEYS[@]}"; do printf '%s:%s\n' "$id" "${OPTIONAL_STEP_DASHBOARD_KEYS[$id]}"; done)" \
@@ -259,8 +263,9 @@ for row in os.environ["OPTIONAL_STEP_DASHBOARD_KEY_ROWS"].splitlines():
 steps = []
 for step_id in os.environ["CORE_STEPS"].split():
     steps.append({"id": step_id, "optional": False})
+opt_in = set(os.environ["OPT_IN_STEPS"].split())
 for step_id in os.environ["OPTIONAL_STEPS"].split():
-    entry = {"id": step_id, "optional": True, "default": True}
+    entry = {"id": step_id, "optional": True, "default": step_id not in opt_in}
     if step_id in optional_dashboard_keys:
         entry["dashboard_key"] = optional_dashboard_keys[step_id]
     steps.append(entry)

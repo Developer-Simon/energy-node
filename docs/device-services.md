@@ -152,9 +152,13 @@ wait for the shared cycle to happen to land inside its short wake window:
 
 1. Enable it in the shelly service config: `webhook_enabled: true`,
    `webhook_port` (default `8082`).
-2. Open that port in the firewall (the bootstrap script does this by default
-   for the standard port 8082, see `scripts/bootstrap/30-ufw.sh`; a
-   non-default port needs a manual `sudo ufw allow <port>/tcp`).
+2. Open that port in the firewall. This is an explicit opt-in: the installer
+   only opens it when you tick **Shelly wake webhook in the firewall** on
+   its configuration screen (step 35, `scripts/bootstrap/35-ufw-shelly-webhook.sh`,
+   off by default; an update never turns it on by itself). It opens the
+   `webhook_port` from `config.json` if set, otherwise 8082. Unticking it
+   later removes the rule again on the next run. Without the installer, run
+   `sudo ufw allow <port>/tcp` by hand.
 3. On the device, under *Settings → Actions*, add a **Report URL** / sensor
    report action pointing at `http://<node-host>:<webhook_port>/shelly/wake/<device id>`
    (the `<device id>` is the `id` field from `shelly_devices.json`).

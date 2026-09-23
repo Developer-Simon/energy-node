@@ -230,8 +230,13 @@ sudo ufw allow ssh
 sudo ufw allow 1883/tcp    # MQTT
 sudo ufw allow 8080/tcp    # dashboard (HTTP)
 sudo ufw allow 443/tcp     # dashboard (HTTPS via Caddy, see section 8)
-sudo ufw allow 8082/tcp    # Shelly wake webhook (opt-in, off by default; see docs/device-services.md)
 sudo ufw enable
+```
+
+Only if you use the Shelly wake webhook (opt-in, see `docs/device-services.md`), also open its port. The installer does this only when you tick **Shelly wake webhook in the firewall** on its configuration screen (step 35, off by default):
+
+```sh
+sudo ufw allow 8082/tcp    # Shelly wake webhook, default webhook_port
 ```
 
 ---

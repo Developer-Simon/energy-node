@@ -298,6 +298,7 @@ jobs:
       - run: bash scripts/tests/test_bootstrap_10_apt.sh
       - run: bash scripts/tests/test_bootstrap_20_mosquitto.sh
       - run: bash scripts/tests/test_bootstrap_30_ufw.sh
+      - run: bash scripts/tests/test_bootstrap_35_ufw_shelly_webhook.sh
       - run: bash scripts/tests/test_bootstrap_40_tailscale.sh
       - run: bash scripts/tests/test_bootstrap_50_python_deps.sh
       - run: bash scripts/tests/test_bootstrap_render.sh
