@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.9 (2026-09-22)
+## v0.1.10 (2026-09-23)
 
 ### Features
 
@@ -11,6 +11,9 @@
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
 - **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **installer:** restart only the service units whose version changed (#48) (1d2c57f)
+- **installer:** pass step requirements from the manifest to the web UI (69ffe39)
+- **installer:** check the Shelly wake webhook in the diagnose checklist (9cadae6)
 - **installer:** carry a restart-all request from the UI to the service steps (bad757a)
 - **installer:** show per service which units restart in the preview (e2464cb)
 - **installer:** report the bundle upload progress and write concurrently (19df0c0)
