@@ -1,0 +1,140 @@
+{
+  "generated_by": "dashboard/cmd/deviceicons/main.go",
+  "stroke_width": "1.6",
+  "view_box": "0 0 24 24",
+  "icons": [
+    {
+      "name": "mdi:chip-outline",
+      "ha_name": "chip-outline",
+      "label": "Standard",
+      "markup": "\u003crect x=\"6\" y=\"6\" width=\"12\" height=\"12\" rx=\"2\"/\u003e\u003cline x1=\"9\" y1=\"3\" x2=\"9\" y2=\"6\"/\u003e\u003cline x1=\"15\" y1=\"3\" x2=\"15\" y2=\"6\"/\u003e\u003cline x1=\"9\" y1=\"18\" x2=\"9\" y2=\"21\"/\u003e\u003cline x1=\"15\" y1=\"18\" x2=\"15\" y2=\"21\"/\u003e\u003cline x1=\"3\" y1=\"9\" x2=\"6\" y2=\"9\"/\u003e\u003cline x1=\"3\" y1=\"15\" x2=\"6\" y2=\"15\"/\u003e\u003cline x1=\"18\" y1=\"9\" x2=\"21\" y2=\"9\"/\u003e\u003cline x1=\"18\" y1=\"15\" x2=\"21\" y2=\"15\"/\u003e",
+      "sha256": "c1f0492f5b2862a55ffdb4ffdbccb187dcabf7a2299c9e541c5d815e6e74312c"
+    },
+    {
+      "name": "mdi:solar-panel",
+      "ha_name": "solar-panel",
+      "label": "Solarpanel",
+      "markup": "\u003cpath d=\"M3.5 16 7 6h13.5L17 16Z\"/\u003e\u003cpath d=\"M5.25 11h13.5\"/\u003e\u003cpath d=\"M11.5 6 8 16\"/\u003e\u003cpath d=\"M16 6l-3.5 10\"/\u003e\u003cpath d=\"M10.2 16v4\"/\u003e\u003cpath d=\"M7 20h6.5\"/\u003e",
+      "sha256": "a6daa1f88a49f973a75b7a8386e8dba92bc1f575a24ea540d450f17fff77464c"
+    },
+    {
+      "name": "mdi:current-ac",
+      "ha_name": "current-ac",
+      "label": "Wechselrichter",
+      "markup": "\u003crect x=\"3\" y=\"3.5\" width=\"18\" height=\"17\" rx=\"2\"/\u003e\u003cpath d=\"M12.2 6.5 9 11.6h2.8l-.3 3.4 4.7-5.1h-2.8z\"/\u003e\u003cpath d=\"M7 18c1.667-1.9 3.333-1.9 5 0s3.333 1.9 5 0\"/\u003e",
+      "sha256": "e77cdb03eb0a768dd5271f0601df8d23ba56082a394f49d012c1ae0b118b794c"
+    },
+    {
+      "name": "mdi:power-plug",
+      "ha_name": "power-plug",
+      "label": "Smarte Steckdose",
+      "markup": "\u003cg transform=\"rotate(-28 12 12)\"\u003e\u003cpath d=\"M16.2 6.6H9.4A3.4 3.4 0 0 0 6 10v4a3.4 3.4 0 0 0 3.4 3.4h6.8\"/\u003e\u003cellipse cx=\"16.2\" cy=\"12\" rx=\"2.4\" ry=\"5.4\"/\u003e\u003ccircle cx=\"16.5\" cy=\"10.1\" r=\"0.8\"/\u003e\u003ccircle cx=\"16.5\" cy=\"13.9\" r=\"0.8\"/\u003e\u003cpath d=\"M2.6 9.9h3.4M2.6 14.1h3.4\"/\u003e\u003c/g\u003e",
+      "sha256": "020f69cd6ef79f9843982bedc507af9c424cdd9ae245c7153316c4233315f818"
+    },
+    {
+      "name": "mdi:meter-electric",
+      "ha_name": "meter-electric",
+      "label": "3-Phasen-Energiezähler",
+      "markup": "\u003crect x=\"3.5\" y=\"3\" width=\"17\" height=\"18\" rx=\"2\"/\u003e\u003crect x=\"6\" y=\"5.8\" width=\"12\" height=\"5\" rx=\"1\"/\u003e\u003cpath d=\"M8.4 7.4v1.8M10.4 7.4v1.8M12.4 7.4v1.8M14.4 7.4v1.8\"/\u003e\u003cpath d=\"M15.9 9.1h.01\"/\u003e\u003cpath d=\"M12.1 12.4 9.6 16.4h2.3l-.3 2.6 2.5-4h-2.3z\"/\u003e",
+      "sha256": "10c753ea69e8877d7950877353a6028899ea67a483059b87da65a0d378bb8567"
+    },
+    {
+      "name": "mdi:pipe-valve",
+      "ha_name": "pipe-valve",
+      "label": "Heizungsrohr-Ventil",
+      "markup": "\u003cpath d=\"M2 15h5M17 15h5\"/\u003e\u003cpath d=\"M7 11.5 17 18.5v-7L7 18.5Z\"/\u003e\u003cpath d=\"M12 15V9.5\"/\u003e\u003cpath d=\"M9 9.5h6\"/\u003e",
+      "sha256": "f348720744b51e537334795f00facac9fcb5ef9032cf3f179c321bdbab7ed194"
+    },
+    {
+      "name": "mdi:raspberry-pi",
+      "ha_name": "raspberry-pi",
+      "label": "Raspberry Pi",
+      "markup": "\u003crect x=\"2.5\" y=\"4\" width=\"19\" height=\"16\" rx=\"3\"/\u003e\u003cpath d=\"M5 8.6h2.6M5 11.1h2.6M5 13.6h2.6\"/\u003e\u003cpath d=\"M12.9 10.2C11.5 10 10.5 8.9 10.5 7.5c1.5-.1 2.5 1.1 2.5 2.7Z\"/\u003e\u003cpath d=\"M13.1 10.2C14.5 10 15.5 8.9 15.5 7.5c-1.5-.1-2.5 1.1-2.5 2.7Z\"/\u003e\u003ccircle cx=\"11.7\" cy=\"12.2\" r=\"1.15\"/\u003e\u003ccircle cx=\"14.3\" cy=\"12.2\" r=\"1.15\"/\u003e\u003ccircle cx=\"13\" cy=\"14.4\" r=\"1.15\"/\u003e\u003crect x=\"18.2\" y=\"8.6\" width=\"2.8\" height=\"2.2\" rx=\"0.5\"/\u003e\u003crect x=\"18.2\" y=\"13.2\" width=\"2.8\" height=\"2.2\" rx=\"0.5\"/\u003e",
+      "sha256": "965b8a56ceb0d9724a5e818b57766a43470cb67e2c76d964ec76bf492a834797"
+    },
+    {
+      "name": "mdi:home-battery",
+      "ha_name": "home-battery",
+      "label": "Batterie",
+      "markup": "\u003crect x=\"5\" y=\"2.5\" width=\"14\" height=\"18\" rx=\"2\"/\u003e\u003cpath d=\"M5 6.2h14\"/\u003e\u003crect x=\"10.9\" y=\"8.2\" width=\"2.2\" height=\"1.3\" rx=\"0.45\"/\u003e\u003crect x=\"9.3\" y=\"9.5\" width=\"5.4\" height=\"8\" rx=\"1.2\"/\u003e\u003cpath d=\"M10.7 15.2h2.6M10.7 12.9h2.6\"/\u003e\u003cpath d=\"M8 20.5V22M16 20.5V22\"/\u003e",
+      "sha256": "cc6b9551773e6cbe67d15c856f4bf62b23a840d7e56334523492f5c6ada4d6f3"
+    },
+    {
+      "name": "mdi:battery-charging",
+      "ha_name": "battery-charging",
+      "label": "Ladegerät",
+      "markup": "\u003crect x=\"3\" y=\"7\" width=\"18\" height=\"10\" rx=\"2.5\"/\u003e\u003cpath d=\"M6 10.4h5\"/\u003e\u003cpath d=\"M6 13.6h.01M8.5 13.6h.01\"/\u003e\u003cpath d=\"M16.6 9.5 14.6 13h1.7l-.3 2.4 2.1-3.6h-1.7z\"/\u003e\u003cpath d=\"M3 12H1.2M21 12h1.8\"/\u003e",
+      "sha256": "6332ec767cb1a687143fcc319605ab92d0bb9b20625bda2d952f7b80c35a6af3"
+    },
+    {
+      "name": "mdi:thermometer",
+      "ha_name": "thermometer",
+      "label": "Thermometer",
+      "markup": "\u003cpath d=\"M10 13.6V5.5a2 2 0 1 1 4 0v8.1a4.2 4.2 0 1 1-4 0Z\"/\u003e\u003cpath d=\"M8.2 6.5H6M8.2 9H7M8.2 11.5H6\"/\u003e\u003ccircle cx=\"12\" cy=\"17.3\" r=\"1.7\"/\u003e",
+      "sha256": "6e02e8836e534bbec2a762224f72ca7c9d6f9aaa8587967d1908cdd8617f2cac"
+    },
+    {
+      "name": "mdi:power-socket-de",
+      "ha_name": "power-socket-de",
+      "label": "Unterputz-Steckdose",
+      "markup": "\u003crect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"3\"/\u003e\u003ccircle cx=\"12\" cy=\"12\" r=\"6\"/\u003e\u003ccircle cx=\"9.5\" cy=\"12\" r=\"1.1\"/\u003e\u003ccircle cx=\"14.5\" cy=\"12\" r=\"1.1\"/\u003e\u003cpath d=\"M18.3 19.3h.01\"/\u003e\u003cpath d=\"M16.9 18.1a2.2 2.2 0 0 1 2.9 0\"/\u003e",
+      "sha256": "305b1f9c56a099fdb3dbe54b7384e71d937163e458d5024dde0943b5e1a0cee8"
+    },
+    {
+      "name": "mdi:gas-burner",
+      "ha_name": "gas-burner",
+      "label": "Heizung (Öl/Gas)",
+      "markup": "\u003cpath d=\"M7.5 5.5V3.2a1.2 1.2 0 0 1 1.2-1.2h2.3\"/\u003e\u003crect x=\"3.5\" y=\"5.5\" width=\"17\" height=\"14\" rx=\"2\"/\u003e\u003cpath d=\"M12 9c1.9 1.9 2.8 3 2.8 4.2a2.8 2.8 0 0 1-5.6 0C9.2 12 10.1 10.9 12 9Z\"/\u003e\u003cpath d=\"M7 19.5v2M17 19.5v2\"/\u003e",
+      "sha256": "5803da53a64e1ed1228458ad609f0036d5815b75f9df7ddd135db9b8823cc7d8"
+    },
+    {
+      "name": "mdi:water-boiler",
+      "ha_name": "water-boiler",
+      "label": "Wasserboiler",
+      "markup": "\u003crect x=\"3.5\" y=\"3.5\" width=\"11.5\" height=\"17\" rx=\"4\"/\u003e\u003cpath d=\"M5 8.4c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0\"/\u003e\u003cpath d=\"M5 11.4c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0\"/\u003e\u003cpath d=\"M9.5 14.4 7.4 17.8h1.8l-.2 2.2 1.8-3.4H9.3z\"/\u003e\u003cpath d=\"M19.9 14.1V8.3a1.6 1.6 0 1 0-3.2 0v5.8a3.3 3.3 0 1 0 3.2 0Z\"/\u003e",
+      "sha256": "f8136002479d1df9cbadf0403c58559014bcb13e15646bcd3055732fee297604"
+    },
+    {
+      "name": "mdi:ev-station",
+      "ha_name": "ev-station",
+      "label": "Wallbox",
+      "markup": "\u003crect x=\"2.5\" y=\"3\" width=\"11\" height=\"14\" rx=\"2.5\"/\u003e\u003cpath d=\"M8.1 6 5.8 10.8h2.1l-.2 3.2 2.3-4.8H7.9z\"/\u003e\u003cpath d=\"M13.5 13h2a3 3 0 0 1 3 3v1\"/\u003e\u003cpath d=\"M16 17a3 3 0 1 0 5 0Z\"/\u003e",
+      "sha256": "627d17cda88bac5dbcec2f0e07a0598a7f4312978311c0a81bed46a5d324659a"
+    },
+    {
+      "name": "mdi:transmission-tower",
+      "ha_name": "transmission-tower",
+      "label": "Stromnetz",
+      "markup": "\u003cpath d=\"M7.8 21 10.9 5M16.2 21 13.1 5\"/\u003e\u003cpath d=\"M10.9 5h2.2\"/\u003e\u003cpath d=\"M3.5 8h17\"/\u003e\u003cpath d=\"M5.5 8v2.4M12 8v2.4M18.5 8v2.4\"/\u003e\u003cpath d=\"M8.8 16h6.4\"/\u003e",
+      "sha256": "56debf88b3ab07cc27acc6a6305f3a3551dcb25823685fc16e266e61b4fb67e3"
+    },
+    {
+      "name": "mdi:sitemap",
+      "ha_name": "sitemap",
+      "label": "Automationen",
+      "markup": "\u003ccircle cx=\"5.5\" cy=\"6\" r=\"2.5\"/\u003e\u003ccircle cx=\"5.5\" cy=\"18\" r=\"2.5\"/\u003e\u003ccircle cx=\"18.5\" cy=\"12\" r=\"2.5\"/\u003e\u003cpath d=\"M8 6h5a3 3 0 0 1 3 3v.8\"/\u003e\u003cpath d=\"M8 18h5a3 3 0 0 0 3-3v-.8\"/\u003e",
+      "sha256": "cc5d152442ac0b17662678fafdff703f1c14a9beb0c6b1069a811f2cb71a1fdf"
+    },
+    {
+      "name": "mdi:home",
+      "ha_name": "home",
+      "label": "Gebäude",
+      "markup": "\u003cpath d=\"M6 11 12 4 18 11\"/\u003e\u003cpath d=\"M6 11v8.6h12v-8.6\"/\u003e\u003crect x=\"10.2\" y=\"14.7\" width=\"3.6\" height=\"4.9\" rx=\"0.4\"/\u003e",
+      "sha256": "5d1989909c967260434f3f792fcd97cb1bccd99b682430d24eb92b778af41776"
+    },
+    {
+      "name": "mdi:heat-pump",
+      "ha_name": "heat-pump",
+      "label": "Wärmepumpe",
+      "markup": "\u003crect x=\"3\" y=\"7\" width=\"15\" height=\"10\" rx=\"1.5\"/\u003e\u003cpath d=\"M5.5 9.6h3M5.5 12h3M5.5 14.4h3\"/\u003e\u003ccircle cx=\"13.4\" cy=\"12\" r=\"3.3\"/\u003e\u003cpath d=\"M13.4 12 13.4 9.4M13.4 12 11.15 13.3M13.4 12 15.65 13.3\"/\u003e",
+      "sha256": "9c8c43b730d7d64b8af8b16a9cbd3f378f799a289b30004aca16348399611850"
+    },
+    {
+      "name": "mdi:flash-circle",
+      "ha_name": "flash-circle",
+      "label": "Verbrauch",
+      "markup": "\u003ccircle cx=\"12\" cy=\"12\" r=\"8.4\"/\u003e\u003cpath d=\"M12.7 6.6 9.3 12.1h2.6l-.3 4.3 4.4-5.3h-2.6z\"/\u003e",
+      "sha256": "ed5930790b9617ada507af8c5dedca1d8bd5b1252db94e07ba6df082cad6a7f1"
+    }
+  ]
+}

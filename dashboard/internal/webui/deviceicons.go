@@ -24,10 +24,13 @@ type DeviceIcon struct {
 // preference therefore looks exactly like it did.
 const deviceIconFallbackName = "mdi:chip-outline"
 
-// deviceIconSVGAttrs are shared by the server-rendered icon and by the
-// picker in the browser (device-prefs.js builds the same wrapper around
-// DeviceIcon.Markup), so both render identically.
-const deviceIconSVGAttrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"`
+// DeviceIconStrokeWidth is the stroke every device icon is drawn with. The
+// Home Assistant generator (scripts/icons/flatten_icons.py) buffers each
+// stroke by half this value to turn the drawing into a filled outline - a
+// change here without regenerating is caught by flatten_icons.py --check.
+const DeviceIconStrokeWidth = "1.6"
+
+const deviceIconSVGAttrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="` + DeviceIconStrokeWidth + `" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"`
 
 var deviceIconCatalogue = []DeviceIcon{
 	{Name: deviceIconFallbackName, Label: "Standard", Markup: `<rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/>`},
