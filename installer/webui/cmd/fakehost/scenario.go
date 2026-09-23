@@ -123,6 +123,7 @@ func newScenario(name string, opts options) *stagedBackend {
 
 	steps := []hostapi.StepView{
 		{ID: "10"}, {ID: "20"}, {ID: "30"},
+		{ID: "35", Optional: true, Default: false},
 		{ID: "40", Optional: true, Default: true},
 		{ID: "50"}, {ID: "60"},
 		{ID: "70", Optional: true, Default: true},
@@ -148,7 +149,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		BundleBytes: 41 * 1024 * 1024, WheelCount: 12, UnitCount: 8, TemplateCount: 7,
 	}
 
-	selected := map[string]bool{"40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true}
+	selected := map[string]bool{"35": false, "40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true}
 	fake.SelectionView = &hostapi.SelectionView{Steps: selected, Source: "manifest-default"}
 
 	if update {
@@ -159,6 +160,7 @@ func newScenario(name string, opts options) *stagedBackend {
 			BundleVersion: "v1.4.2",
 			Steps: []hostapi.PlanStep{
 				{ID: "10", State: "done"}, {ID: "20", State: "done"}, {ID: "30", State: "done"},
+				{ID: "35", State: "deselected", Optional: true},
 				{ID: "40", State: "done", Optional: true, Selected: true},
 				{ID: "50", State: "pending"}, {ID: "60", State: "pending"},
 				{ID: "70", State: "done", Optional: true, Selected: true},
@@ -214,6 +216,7 @@ func newScenario(name string, opts options) *stagedBackend {
 		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-venv", "12 Pakete installiert"}},
 		{ID: "20", Log: []string{"mosquitto_passwd -b energynode ***", "/etc/mosquitto/conf.d/default.conf geschrieben", "mosquitto neu gestartet, Testnachricht zugestellt"}},
 		{ID: "30", Log: []string{"Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp", "ufw aktiv"}},
+		{ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
 		{ID: "40", Log: []string{
 			"tailscale_1.62.0_arm.tgz übertragen (24,1 MB)", "sha256 stimmt mit dem Manifest überein",
 			"tailscale, tailscaled nach /usr/sbin kopiert", "tailscaled.service aktiviert und gestartet",
@@ -231,7 +234,8 @@ func newScenario(name string, opts options) *stagedBackend {
 	if update {
 		fake.Steps = []hostapitest.FakeStep{
 			{ID: "10", State: "skip", Detail: "bereits erledigt"}, {ID: "20", State: "skip", Detail: "bereits erledigt"},
-			{ID: "30", State: "skip", Detail: "bereits erledigt"}, {ID: "40", State: "skip", Detail: "bereits erledigt"},
+			{ID: "30", State: "skip", Detail: "bereits erledigt"}, {ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
+			{ID: "40", State: "skip", Detail: "bereits erledigt"},
 			{ID: "50", Log: []string{"tinytuya 1.15.1 -> 1.16.0"}}, {ID: "60", Log: []string{"energy-node-dashboard 1.4.1 -> 1.4.2"}},
 			{ID: "70", State: "skip", Detail: "bereits erledigt"}, {ID: "81", State: "skip", Detail: "bereits erledigt"},
 			{ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83", State: "skip", Detail: "bereits erledigt"},

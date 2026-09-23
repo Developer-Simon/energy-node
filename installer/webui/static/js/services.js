@@ -8,6 +8,11 @@
   // Schritt 60 installiert das Dashboard-Binary; die MQTT-Bruecke laeuft darin.
   var CORE_STEP = '60';
   var DASHBOARD_UNIT = 'energy-node-dashboard.service';
+  // Optionale Systemschritte, die in der Ausfuehrung keine eigene Station
+  // bekommen, sondern unter der eines anderen laufen: 35 (Opt-in-Freigabe
+  // des Shelly-Wake-Webhooks) ist eine weitere Firewall-Regel. In der
+  // Konfiguration bleibt er ein eigener Schalter.
+  var RUN_GROUP_OF = { '35': '30' };
 
   function optionalText(shell, key) {
     var text = shell.t(key);
@@ -103,8 +108,11 @@
 
       var groups = [];
       var placed = false;
-      ((manifest && manifest.steps) || []).forEach(function (step) {
-        if (step.service_id) {
+      var steps = (manifest && manifest.steps) || [];
+      var present = {};
+      steps.forEach(function (step) { present[step.id] = true; });
+      steps.forEach(function (step) {
+        if (step.service_id || present[RUN_GROUP_OF[step.id]]) {
           return;
         }
         if (step.id === CORE_STEP) {
@@ -112,7 +120,10 @@
           placed = true;
           return;
         }
-        groups.push({ key: 'step-' + step.id, label: Services.stepName(step.id, shell), ids: [step.id], subs: null });
+        var ids = [step.id].concat(steps.filter(function (other) {
+          return RUN_GROUP_OF[other.id] === step.id;
+        }).map(function (other) { return other.id; }));
+        groups.push({ key: 'step-' + step.id, label: Services.stepName(step.id, shell), ids: ids, subs: null });
       });
       if (!placed && serviceSteps.length) {
         servicesGroup.ids = servicesGroup.ids.slice(1);

@@ -83,3 +83,42 @@ test('Pflichtschritte sind immer gewaehlt, optionale nur mit true', () => {
   assert.equal(S.isSelected({ id: '40', optional: true, default: true }, { steps: {} }), false);
   assert.equal(S.isSelected({ id: '40', optional: true }, { steps: { 40: true } }), true);
 });
+
+// Schritt 35 (Firewall-Freigabe fuer den Shelly-Wake-Webhook) ist Opt-in:
+// Manifest-Vorgabe aus, eigener Schalter in der Konfiguration, in der
+// Ausfuehrung aber Teil der Station "Firewall".
+const WEBHOOK_STEP = { id: '35', optional: true, default: false };
+function withWebhookStep() {
+  const steps = MANIFEST.steps.slice();
+  steps.splice(steps.findIndex((step) => step.id === '30') + 1, 0, WEBHOOK_STEP);
+  return Object.assign({}, MANIFEST, { steps });
+}
+
+test('der Shelly-Webhook ist ein eigener Schalter und ohne Zustimmung aus', () => {
+  const { S, shell } = load();
+  const manifest = withWebhookStep();
+  const row = S.toggles(manifest, { steps: Object.assign({}, SELECTION.steps, { 35: false }) }, shell)
+    .find((r) => r.ids[0] === '35');
+  assert.equal(row.kind, 'system');
+  assert.equal(row.name, 'Shelly-Wake-Webhook in der Firewall');
+  assert.match(row.hint, /8082/);
+  assert.equal(row.on, false);
+  // Eine Auswahl von vor dem Schritt (Update) nennt 35 nicht: bleibt aus.
+  const fromNode = S.toggles(manifest, { source: 'node', steps: SELECTION.steps }, shell).find((r) => r.ids[0] === '35');
+  assert.equal(fromNode.on, false);
+  assert.equal(fromNode.known, false);
+  const opted = S.toggles(manifest, { steps: { 35: true } }, shell).find((r) => r.ids[0] === '35');
+  assert.equal(opted.on, true);
+});
+
+test('in der Ausfuehrung laeuft der Shelly-Webhook unter der Firewall', () => {
+  const { S, shell } = load();
+  const manifest = withWebhookStep();
+  const groups = S.runGroups(manifest, SELECTION, shell);
+  assert.deepEqual(plain(groups.map((group) => group.label)), [
+    'Systempakete', 'MQTT-Broker', 'Firewall', 'Tailscale', 'Python-Pakete', 'Dienste und Dashboard', 'HTTPS über Caddy',
+  ]);
+  assert.deepEqual(plain(groups[2].ids), ['30', '35']);
+  assert.equal(S.groupOf(groups, '35').number, 3);
+  assert.equal(S.stepLabel(manifest, '35', shell), 'Shelly-Wake-Webhook in der Firewall');
+});
