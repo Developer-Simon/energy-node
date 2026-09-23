@@ -37,6 +37,7 @@ test -f "$tmp/custom_components/energy_node_icons/brand/icon.png"
 test -f "$tmp/docs/integration.md"
 # docs/img should NOT be present for energy_node_icons (no DOCS_IMG in release.env)
 [ ! -d "$tmp/docs/img" ] || { echo "docs/img should not be present for energy_node_icons"; exit 1; }
+test -f "$tmp/docs/icons/solar-panel.svg" || { echo "docs/icons missing for energy_node_icons"; exit 1; }
 # dry-run must NOT create a commit or tag
 [ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
 echo "OK energy_node_icons"

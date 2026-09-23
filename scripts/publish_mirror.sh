@@ -146,6 +146,10 @@ mkdir -p "${mirror_path}/docs"
 if [[ -n "${DOCS_IMG:-}" ]]; then
   cp -r "${repo_root}/${DOCS_IMG}" "${mirror_path}/docs/img"
 fi
+# Optional: the per-icon SVGs the README's icon table links to (energy_node_icons)
+if [[ -n "${DOCS_ICONS:-}" ]]; then
+  cp -r "${repo_root}/${DOCS_ICONS}" "${mirror_path}/docs/icons"
+fi
 cp "${template}"/docs/*.md "${mirror_path}/docs/"
 
 # 4. Rewrite the manifest's public fields (stdlib json, no jq).
