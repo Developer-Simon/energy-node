@@ -42,8 +42,8 @@ export const PLAN_UPDATE = {
     { id: '82', state: 'deselected', optional: true, unit: 'battery-soc.service' },
     { id: '83', state: 'done', optional: true, selected: true, unit: 'shelly-rpc.service' },
     { id: '84', state: 'done', optional: true, selected: true, unit: 'trucki-http.service' },
-    { id: '85', state: 'pending', optional: true, selected: true, unit: 'tuya.service' },
-    { id: '88', state: 'pending', optional: true, selected: true, unit: 'automation.service' },
+    { id: '85', state: 'pending', optional: true, selected: true, unit: 'tuya.service', from: '1.0.0', to: '1.0.1', restart: 'version' },
+    { id: '88', state: 'pending', optional: true, selected: true, unit: 'automation.service', from: '1.0.0', to: '1.0.0', restart: '' },
     { id: '89', state: 'deselected', optional: true, unit: 'modbus.service' },
   ],
   components: {

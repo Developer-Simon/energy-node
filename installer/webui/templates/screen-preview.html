@@ -31,6 +31,13 @@
             <template x-if="!restart.length"><span x-text="t('preview.restart.none')"></span></template>
             <template x-for="(unit, index) in restart" :key="unit"><span><template x-if="index > 0"><span>, </span></template><em x-text="unit"></em></span></template>
           </div>
+          <div class="restart-all">
+            <label class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="restartAll" :disabled="busy" :aria-label="t('preview.restart.all')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </label>
+            <span x-text="t('preview.restart.all')"></span>
+          </div>
           <span class="keep-t" style="margin-top:.5rem" x-text="t('preview.keep.heading')"></span>
           <div class="keep-l"><span x-text="keepNames"></span><template x-if="keepNames"><span x-text="t('preview.keep.separator')"></span></template><em x-text="t('preview.keep.config')"></em><span x-text="t('preview.keep.secrets')"></span></div>
         </div>

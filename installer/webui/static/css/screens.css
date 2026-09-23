@@ -229,6 +229,10 @@
 .app[data-screen="preview"] .card.soft{background:var(--sunken)}
 .app[data-screen="preview"] .reuse{margin:0;font-size:.785rem;line-height:1.5;color:var(--text-subtle)}
 /* == Ende Vorlage == */
+/* Ergaenzung Aktualisieren: "Alle neu starten" (nicht in der Vorlage) -
+   Schalter und Beschriftung als Zeile, statt den Text ins feste
+   .settings-toggle-Mass (2.35rem) zu zwaengen. */
+.app[data-screen="preview"] .restart-all{display:flex;align-items:center;gap:.5rem;margin-top:.5rem;font-size:.765rem;color:var(--text-subtle)}
 /* == Vorlage: Diagnose == */
 .app[data-screen="diagnose"] .tally{flex:none;display:flex;gap:.55rem;margin-bottom:1rem}
 .app[data-screen="diagnose"] .tl{display:flex;align-items:center;gap:.5rem;padding:.5rem .8rem;border-radius:var(--radius-sm); border:1px solid var(--border-soft);background:var(--panel)}

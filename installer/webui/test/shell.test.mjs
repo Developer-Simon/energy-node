@@ -272,3 +272,25 @@ test('ohne auto_prepare bleibt der erste Bildschirm des Dashboards die Vorschau'
   const { shell } = await createShell({ bootstrap: DASHBOARD });
   assert.equal(shell.screen, 'preview');
 });
+
+test('das Vorbereiten hat im Stepper eine eigene Station statt unter Verbindung mitzulaufen', async () => {
+  const { shell } = await createShell({ bootstrap: Object.assign({}, BOOT, { package: {} }) });
+  shell.screen = 'prepare';
+  const items = shell.stepperParts.filter((part) => part.item);
+  assert.deepEqual(plain(items.map((item) => item.key)), ['connect', 'prepare', 'precheck', 'configure', 'run', 'result']);
+  assert.equal(items[0].done, true, 'Verbindung liegt hinter dem Vorbereiten');
+  assert.equal(items[1].cls, 'st-item active');
+});
+
+test('ein Wirt ohne Paketauswahl und ohne auto_prepare zeigt keine Vorbereiten-Station', async () => {
+  const { shell } = await createShell();
+  const items = shell.stepperParts.filter((part) => part.item);
+  assert.equal(items.some((item) => item.key === 'prepare'), false);
+});
+
+test('beim Dashboard mit auto_prepare steht das Vorbereiten als eigene, aktive Station vor der Vorschau', async () => {
+  const { shell } = await createShell({ bootstrap: Object.assign({}, DASHBOARD, { auto_prepare: true }) });
+  const items = shell.stepperParts.filter((part) => part.item);
+  assert.deepEqual(plain(items.map((item) => item.key)), ['prepare', 'preview', 'run', 'result']);
+  assert.equal(items[0].cls, 'st-item active');
+});

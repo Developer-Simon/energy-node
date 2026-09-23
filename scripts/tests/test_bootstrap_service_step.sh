@@ -12,6 +12,11 @@ fail() { echo "FAIL: $1"; [ -n "${2:-}" ] && printf '%s\n' "$2"; exit 1; }
 mkdir -p "$tmp/bin"
 cat > "$tmp/bin/systemctl" <<'SH'
 #!/usr/bin/env bash
+# is-active fragt nur; es steht nicht im Protokoll. UNIT_ACTIVE=1 = laeuft.
+if [ "$1" = is-active ]; then
+  [ "${UNIT_ACTIVE:-0}" = 1 ]
+  exit $?
+fi
 printf 'systemctl %s\n' "$*" >> "$SYSTEMCTL_LOG"
 SH
 chmod +x "$tmp/bin/systemctl"
@@ -101,5 +106,51 @@ rc=$?
 set -e
 [ "$rc" -eq 1 ] || fail "fehlende Quelle nicht gemeldet" "$rc"
 grep -q '^##STEP 81 fail SERVICE_SOURCE_MISSING$' <<<"$out" || fail "falscher Code" "$out"
+
+# --- Neustart nur, wenn sich der Dienst geaendert hat ---------------------
+manifest() { # <Dienstversion> <energy_node_common-Version>
+  printf '{"version":"v1.0.0","components":{"energy_node_common":"%s"},"steps":[{"id":"81","dir":"demo","version":"%s"}]}\n' "$2" "$1"
+}
+manifest v0.4.0 v0.4.5 > "$bundle/manifest.json"
+mkdir -p "$tmp/state"
+manifest v0.4.0 v0.4.5 > "$tmp/state/installed-manifest.json"
+restarts() { grep -c 'systemctl restart demo.service' "$SYSTEMCTL_LOG" || true; }
+
+# unveraendert und laeuft: kein Neustart, die Unit wird trotzdem eingerichtet
+rm -rf "$tmp/state/steps"; : > "$SYSTEMCTL_LOG"
+out="$(UNIT_ACTIVE=1 run)"
+grep -q '^##STEP 81 ok$' <<<"$out" || fail "unveraenderter Dienst: kein ok" "$out"
+[ "$(restarts)" = 0 ] || fail "unveraenderter, laufender Dienst wurde neu gestartet" "$(cat "$SYSTEMCTL_LOG")"
+grep -qx 'systemctl enable demo.service' "$SYSTEMCTL_LOG" || fail "Unit nicht aktiviert"
+grep -qi 'kein Neustart' <<<"$out" || fail "kein Hinweis auf den ausgebliebenen Neustart" "$out"
+
+# unveraendert, aber gestoppt: wird gestartet
+rm -rf "$tmp/state/steps"; : > "$SYSTEMCTL_LOG"
+UNIT_ACTIVE=0 run >/dev/null
+[ "$(restarts)" = 1 ] || fail "gestoppter Dienst wurde nicht gestartet" "$(cat "$SYSTEMCTL_LOG")"
+
+# neue Dienstversion: Neustart
+manifest v0.4.1 v0.4.5 > "$bundle/manifest.json"
+rm -rf "$tmp/state/steps"; : > "$SYSTEMCTL_LOG"
+UNIT_ACTIVE=1 run >/dev/null
+[ "$(restarts)" = 1 ] || fail "geaenderter Dienst wurde nicht neu gestartet" "$(cat "$SYSTEMCTL_LOG")"
+
+# gemeinsame Bibliothek geaendert: Neustart trotz gleicher Dienstversion
+manifest v0.4.0 v0.4.6 > "$bundle/manifest.json"
+rm -rf "$tmp/state/steps"; : > "$SYSTEMCTL_LOG"
+UNIT_ACTIVE=1 run >/dev/null
+[ "$(restarts)" = 1 ] || fail "Bibliotheksaenderung fuehrte nicht zum Neustart" "$(cat "$SYSTEMCTL_LOG")"
+
+# EN_RESTART=all erzwingt den Neustart
+manifest v0.4.0 v0.4.5 > "$bundle/manifest.json"
+rm -rf "$tmp/state/steps"; : > "$SYSTEMCTL_LOG"
+EN_RESTART=all UNIT_ACTIVE=1 run >/dev/null
+[ "$(restarts)" = 1 ] || fail "EN_RESTART=all startete nicht neu" "$(cat "$SYSTEMCTL_LOG")"
+
+# ohne installiertes Manifest (Erstinstallation): Start
+rm -f "$tmp/state/installed-manifest.json"
+rm -rf "$tmp/state/steps"; : > "$SYSTEMCTL_LOG"
+UNIT_ACTIVE=1 run >/dev/null
+[ "$(restarts)" = 1 ] || fail "Erstinstallation startete nicht" "$(cat "$SYSTEMCTL_LOG")"
 
 echo "OK: $(basename "$0")"

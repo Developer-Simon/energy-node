@@ -7,8 +7,9 @@
 # Komponente von/nach. Gibt JSON aus und KEINE ##STEP-Marker - dies ist kein
 # Schritt, sondern ein Bericht.
 set -euo pipefail
+SCRIPT_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib"
 # shellcheck source=scripts/bootstrap/lib/step.sh
-source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
+source "${SCRIPT_LIB_DIR}/step.sh"
 
 if [[ ! -f "${EN_BUNDLE_DIR}/manifest.json" ]]; then
   printf 'FEHLER BUNDLE_MANIFEST_MISSING\n'
@@ -19,6 +20,7 @@ EN_STATE_DIR="${EN_STATE_DIR}" \
 EN_BUNDLE_DIR="${EN_BUNDLE_DIR}" \
 EN_BUNDLE_VERSION="${EN_BUNDLE_VERSION}" \
 EN_SELECTION="${EN_SELECTION}" \
+EN_PLAN_LIB_DIR="${SCRIPT_LIB_DIR}" \
 python3 <<'PY'
 import json, os, pathlib, sys
 
@@ -26,7 +28,18 @@ state = pathlib.Path(os.environ["EN_STATE_DIR"])
 bundle = pathlib.Path(os.environ["EN_BUNDLE_DIR"])
 version = os.environ["EN_BUNDLE_VERSION"]
 
+sys.path.insert(0, os.environ["EN_PLAN_LIB_DIR"])
+import restart_rule
+
 manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
+
+installed_doc = None
+_installed_path = state / "installed-manifest.json"
+if _installed_path.is_file():
+    try:
+        installed_doc = json.loads(_installed_path.read_text(encoding="utf-8"))
+    except ValueError:
+        installed_doc = None
 
 # Auswahl: fehlende Datei oder nicht genannter Schritt = gewaehlt.
 selection = {}
@@ -59,6 +72,12 @@ for entry in manifest.get("steps", []):
     for extra in ("service_id", "dir", "unit"):
         if entry.get(extra):
             item[extra] = entry[extra]
+    if entry.get("dir"):
+        old = next((s for s in (installed_doc or {}).get("steps") or [] if str(s.get("id")) == step_id), None)
+        item["von"] = (old or {}).get("version")
+        item["nach"] = entry.get("version")
+        if state_name == "pending":
+            item["restart"] = restart_rule.restart_reason(manifest, installed_doc, step_id)
     steps.append(item)
 
 # von: das Manifest des zuletzt vollstaendig angewandten Bundles. Diese

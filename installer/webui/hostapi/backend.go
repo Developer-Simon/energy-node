@@ -159,6 +159,11 @@ type PlanStep struct {
 	Optional bool   `json:"optional"`
 	Selected bool   `json:"selected"`
 	Unit     string `json:"unit,omitempty"`
+	From     string `json:"from,omitempty"`
+	To       string `json:"to,omitempty"`
+	// Restart says why the unit restarts: "version", "library", "first" or
+	// "unknown"; empty when it stays as it is.
+	Restart string `json:"restart,omitempty"`
 }
 
 // PlanView ist die Antwort von GET /api/plan.
@@ -190,6 +195,9 @@ type RunRequest struct {
 	TargetBase    string `json:"target_base,omitempty"`
 	// MQTTUser ist der Broker-Benutzer, den Schritt 20 anlegt.
 	MQTTUser string `json:"mqtt_user,omitempty"`
+	// RestartAll starts every service unit again, not only the ones whose
+	// version changed (the redeploy page's "Restart all services" switch).
+	RestartAll bool `json:"restart_all,omitempty"`
 }
 
 // Secrets liefert die Werte, die aus jeder Ausgabe gefiltert werden muessen.

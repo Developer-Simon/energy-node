@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.8 (2026-09-21)
+## v0.1.9 (2026-09-22)
 
 ### Features
 
@@ -11,12 +11,15 @@
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
 - **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **installer:** carry a restart-all request from the UI to the service steps (bad757a)
+- **installer:** show per service which units restart in the preview (e2464cb)
 - **installer:** report the bundle upload progress and write concurrently (19df0c0)
 
 ### Fixes
 
 - **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
 - **installer:** make redeploy, repair and repo-built bundles install cleanly (#46) (bf1fe10)
+- **installer:** localize the package-preparation log lines (c67b49d)
 - **installer:** expand ~ in the repo package path (873bdda)
 - **installer:** replace remote files the SSH user cannot open for writing (eca0198)
 - **installer:** give step 20 its MQTT arguments from the node on redeploy and repair (bb4cd40)

@@ -15,13 +15,16 @@ import (
 // StepPreview mirrors one entry of plan.sh's "steps" array (Plan A-II,
 // Task 14).
 type StepPreview struct {
-	ID        string `json:"id"`
-	Optional  bool   `json:"optional"`
-	Selected  bool   `json:"selected"`
-	State     string `json:"state"` // "done", "deselected" or "pending"
-	ServiceID string `json:"service_id,omitempty"`
-	Dir       string `json:"dir,omitempty"`
-	Unit      string `json:"unit,omitempty"`
+	ID        string  `json:"id"`
+	Optional  bool    `json:"optional"`
+	Selected  bool    `json:"selected"`
+	State     string  `json:"state"` // "done", "deselected" or "pending"
+	ServiceID string  `json:"service_id,omitempty"`
+	Dir       string  `json:"dir,omitempty"`
+	Unit      string  `json:"unit,omitempty"`
+	From      *string `json:"von,omitempty"`  // installed version of a service step; nil when unknown
+	To        string  `json:"nach,omitempty"` // version in the bundle
+	Restart   string  `json:"restart,omitempty"`
 }
 
 // ComponentVersions mirrors one entry of plan.sh's "components" map. From

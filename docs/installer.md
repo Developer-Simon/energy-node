@@ -163,11 +163,16 @@ file.
 
 Choose **Update** and connect. The preview compares each component's version
 against the stamp on the Pi and lists what changes, which services restart, and
-which steps are skipped because their work is done. The scope card shows the
-services as they were last selected; a service that is new in the package stays
-off until you tick it (**Change services**). **Update** runs exactly the steps
-that are pending — the same code path as a fresh install, so there is no
-separate "partial" update to go wrong.
+which steps are skipped because their work is done. By default, only a service
+whose own version changed restarts; a change to `energy_node_common` restarts
+every service, and a change to `battery_soc_core` restarts `battery_soc` alone.
+Tick **Restart all services** to restart every service unit regardless. A unit
+that is not currently running always starts, whatever the rule says, and a node
+whose last run predates per-service versions restarts every service once. The
+scope card shows the services as they were last selected; a service that is new
+in the package stays off until you tick it (**Change services**). **Update**
+runs exactly the steps that are pending — the same code path as a fresh
+install, so there is no separate "partial" update to go wrong.
 
 The dashboard serves the same page under `/redeploy/`, behind its login, and
 runs the same steps on the node itself, without this program and without SSH.

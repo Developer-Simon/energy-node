@@ -11,8 +11,8 @@
   // Plan C-II, Vertrag 5, als Tabellen.
   var FIRST_SCREEN = { install: 'precheck', redeploy: 'preview', diagnose: 'diagnose' };
   var FLOW = {
-    install: ['connect', 'precheck', 'configure', 'run', 'result'],
-    redeploy: ['connect', 'preview', 'run', 'result'],
+    install: ['connect', 'prepare', 'precheck', 'configure', 'run', 'result'],
+    redeploy: ['connect', 'prepare', 'preview', 'run', 'result'],
   };
   // Auf diesen Bildschirmen ist noch nichts veraendert - nur dort steht der
   // Einstiegs-Umschalter.
@@ -153,11 +153,20 @@
           return [];
         }
         var needsConnection = this.bootstrap.needs_connection;
+        // prepare steht nur in der Kette, wenn dieser Bildschirm ueberhaupt
+        // angelaufen wird: ueber die Paketauswahl des Installers (package)
+        // oder das selbstaendige Besorgen des Dashboards (auto_prepare).
+        var showsPrepare = !!(this.bootstrap.package || this.bootstrap.auto_prepare);
         var flow = FLOW[this.entry].filter(function (id) {
-          return id !== 'connect' || needsConnection;
+          if (id === 'connect') {
+            return needsConnection;
+          }
+          if (id === 'prepare') {
+            return showsPrepare;
+          }
+          return true;
         });
-        var at = this.screen === 'prepare' ? 'connect'
-          : this.screen === 'configure' && this.entry === 'redeploy' ? 'preview' : this.screen;
+        var at = this.screen === 'configure' && this.entry === 'redeploy' ? 'preview' : this.screen;
         var position = flow.indexOf(at);
         if (position < 0) {
           return [];

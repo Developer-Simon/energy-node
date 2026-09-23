@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.8 (2026-09-21)
+## v0.1.9 (2026-09-22)
 
 ### Features
 
@@ -10,6 +10,9 @@
 - **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
 - **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
 - **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
+- **bootstrap:** add the rule that decides which service units restart (5405aca)
+- **bootstrap:** restart a service unit only when its version or library changed (440f113)
+- **installer:** show per service which units restart in the preview (e2464cb)
 
 ### Fixes
 

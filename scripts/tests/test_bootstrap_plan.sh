@@ -20,7 +20,7 @@ cat > "$bundle/manifest.json" <<'JSON'
     { "id": "40", "optional": true, "default": true },
     { "id": "50", "optional": false },
     { "id": "81", "optional": true, "default": true, "service_id": "apsystems",
-      "dir": "apsystems_ez1", "unit": "apsystems-ez1.service" }
+      "dir": "apsystems_ez1", "unit": "apsystems-ez1.service", "version": "v0.4.1" }
   ]
 }
 JSON
@@ -32,7 +32,7 @@ mkdir -p "$EN_STATE_DIR/steps"
 printf 'bundle=v0.2.0\n' > "$EN_STATE_DIR/steps/10"   # erledigt
 printf 'bundle=v0.1.0\n' > "$EN_STATE_DIR/steps/50"   # altes Bundle -> offen
 printf '{"steps":{"40":false}}\n' > "$EN_SELECTION"
-printf '{"version":"v0.1.0","components":{"dashboard":"v0.6.0"}}\n' \
+printf '{"version":"v0.1.0","components":{"dashboard":"v0.6.0"},"steps":[{"id":"81","dir":"apsystems_ez1","version":"v0.4.0"}]}\n' \
   > "$EN_STATE_DIR/installed-manifest.json"
 
 out="$(bash "$script")"
@@ -50,6 +50,15 @@ get() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv
 [ "$(get 'd["components"]["dashboard"]["von"]')" = "v0.6.0" ] || fail "von falsch" "$out"
 [ "$(get 'd["components"]["dashboard"]["nach"]')" = "v0.6.1" ] || fail "nach falsch" "$out"
 [ "$(get 'd["components"]["services"]["von"]')" = "None" ] || fail "unbekanntes von nicht null" "$out"
+
+python3 - "$out" <<'PY' || fail "Vorschau meldet den Neustart des Dienstes falsch"
+import json, sys
+steps = {s["id"]: s for s in json.loads(sys.argv[1])["steps"]}
+apsystems = steps["81"]
+assert apsystems["von"] == "v0.4.0" and apsystems["nach"] == "v0.4.1", apsystems
+assert apsystems["restart"] == "version", apsystems
+assert "restart" not in steps["50"], steps["50"]   # kein Dienstschritt
+PY
 
 # --- ohne installed-manifest.json ist jedes von null ----------------------
 rm -f "$EN_STATE_DIR/installed-manifest.json"

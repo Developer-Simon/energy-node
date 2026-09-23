@@ -127,6 +127,12 @@ build_local_wheels() {
     version="$(tr -d '[:space:]' < "${repo_root}/libs/${lib}/VERSION")"
     version="${version#v}"
 
+    # dist/ may not exist yet on a checkout that has never built a wheel
+    # locally before -- find on a missing directory fails, and pipefail
+    # would otherwise carry that failure into the assignment below and kill
+    # the script under set -e without printing anything (the real error is
+    # thrown away by 2>/dev/null).
+    mkdir -p "${dist}"
     cached="$(find "${dist}" -maxdepth 1 -name "${lib}-${version}-*.whl" 2>/dev/null | head -n 1)"
     if [[ -n "${cached}" ]]; then
       echo "Wiederverwendet: $(basename "${cached}")"

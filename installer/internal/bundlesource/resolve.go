@@ -57,6 +57,10 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Resolved, error) 
 	if log == nil {
 		log = func(string) {}
 	}
+	note := req.Note
+	if note == nil {
+		note = func(string, map[string]string) {}
+	}
 	if req.Kind == KindBundled {
 		return r.finish(req, r.BundledDir, "", false, noop, "")
 	}
@@ -94,7 +98,7 @@ func (r *Resolver) Resolve(ctx context.Context, req Request) (*Resolved, error) 
 		return nil, err
 	}
 
-	log("Paket entpacken")
+	note("package.log.extract", map[string]string{})
 	dir := filepath.Join(work, "bundle")
 	if err := bundle.ExtractArchive(archive, dir); err != nil {
 		cleanup()
@@ -139,6 +143,10 @@ func (r *Resolver) finish(req Request, dir, archive string, strict bool, cleanup
 }
 
 func (r *Resolver) buildFromRepo(ctx context.Context, req Request, log func(string)) (string, error) {
+	note := req.Note
+	if note == nil {
+		note = func(string, map[string]string) {}
+	}
 	req.Path = ExpandHome(req.Path)
 	if err := CheckRepo(req.Path); err != nil {
 		return "", err
@@ -163,7 +171,7 @@ func (r *Resolver) buildFromRepo(ctx context.Context, req Request, log func(stri
 	if build == nil {
 		build = bundle.BuildViaRepo
 	}
-	log("Bundle aus dem Repository bauen (das kann einige Minuten dauern)")
+	note("package.log.repo_build", map[string]string{})
 	archive, err := build(ctx, bundle.BuildArgs{
 		RepoRoot: req.Path, Arch: req.Arch, User: req.User, Base: req.Base,
 		OutDir: outDir, Log: log,

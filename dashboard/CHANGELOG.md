@@ -1,11 +1,13 @@
 # Changelog
 
-## v0.7.6 (2026-09-21)
+## v0.7.7 (2026-09-22)
 
 ### Features
 
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
 - **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
+- **installer:** carry a restart-all request from the UI to the service steps (bad757a)
+- **installer:** show per service which units restart in the preview (e2464cb)
 - **updater:** take the target from the root-owned target.json for user-independent bundles (e3813fc)
 - **dashboard:** add a GitHub release client that finds and downloads the node bundle (0493264)
 - **dashboard:** extract, validate and atomically install a downloaded bundle (e0896ae)
@@ -23,6 +25,10 @@
 - render the system-action helper on the node, validate targets with fullmatch, register the new tests (e546498)
 - **dashboard:** hand the redeploy page the session's CSRF token (7bd8f3a)
 - **dashboard:** implement the new hostapi.Sink.Message method (8ae6af3)
+
+### Documentation
+
+- describe which service units an update restarts (08ae4b9)
 
 ### Tests
 

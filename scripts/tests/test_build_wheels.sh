@@ -99,4 +99,38 @@ set -e
 [ "$rc" -ne 0 ] || fail "pip-Fehler nicht weitergereicht"
 grep -qi 'kein Wheel' <<<"$out" || fail "Meldung nennt das Problem nicht" "$out"
 
+# --- build_local_wheels auf einem frischen Checkout ohne dist/ -----------
+# find auf einem fehlenden Verzeichnis schlaegt fehl; unter set -e/pipefail
+# darf das cached=$(find ...) nicht das ganze Skript stumm abbrechen (es tat
+# das vor dem Fix, weil 2>/dev/null die einzige Fehlermeldung verschluckte).
+repo="$tmp/repo"
+mkdir -p "$repo/libs/energy_node_common" "$repo/libs/battery_soc_core"
+(cd "$repo" && git init -q)
+printf 'v1.2.3\n' > "$repo/libs/energy_node_common/VERSION"
+printf 'v0.1.0\n' > "$repo/libs/battery_soc_core/VERSION"
+cat > "$tmp/bin/fakepip" <<'SH'
+#!/usr/bin/env bash
+printf 'pip %s\n' "$*" >> "$PIP_LOG"
+if [ "$1" = wheel ]; then
+  src="$2" dir=""
+  shift
+  while [ $# -gt 0 ]; do
+    case "$1" in --wheel-dir) dir="$2"; shift 2 ;; *) shift ;; esac
+  done
+  name="$(basename "$src")"
+  version="$(tr -d '[:space:]' < "$src/VERSION")"; version="${version#v}"
+  : > "$dir/${name}-${version}-py3-none-any.whl"
+fi
+exit "${PIP_RC:-0}"
+SH
+chmod +x "$tmp/bin/fakepip"
+: > "$PIP_LOG"
+# make_bundle.sh selbst laeuft mit set -euo pipefail - das muss hier auch
+# gelten, sonst prueft der Test nicht denselben Fehlerpfad (ein einfacher
+# "source; call" ohne -e haette den Bug nicht gezeigt).
+out="$(cd "$repo" && bash -c 'set -euo pipefail; source "$1"; shift; "$@"' _ "$lib" build_local_wheels "$tmp/localwheels" 2>&1)" \
+  || fail "build_local_wheels brach auf einem Checkout ohne dist/ stumm ab" "$out"
+[ -d "$repo/libs/energy_node_common/dist" ] || fail "dist/ wurde nicht angelegt"
+grep -q 'Baue energy_node_common 1.2.3' <<<"$out" || fail "Bauhinweis fehlt" "$out"
+
 echo "OK: $(basename "$0")"

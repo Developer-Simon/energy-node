@@ -320,6 +320,10 @@ manifest = {
         {"id": "30", "optional": False}, {"id": "40", "optional": True},
         {"id": "50", "optional": False}, {"id": "60", "optional": False},
         {"id": "65", "optional": False}, {"id": "70", "optional": True},
+        # Zwei Dienstschritte, damit die Vorschau etwas zum Neustart-Vergleich
+        # hat: battery_soc geaendert (Neustart), apsystems unveraendert.
+        {"id": "81", "optional": True, "dir": "apsystems_ez1", "unit": "apsystems-ez1.service", "version": "v0.4.0"},
+        {"id": "82", "optional": True, "dir": "battery_soc", "unit": "battery-soc.service", "version": "v0.5.0"},
     ],
 }
 files = {
@@ -336,8 +340,15 @@ with tarfile.open(archive, "w:gz") as tar:
         info.size = len(body)
         info.mode = 0o755 if name.endswith(".sh") else 0o644
         tar.addfile(info, io.BytesIO(body))
-json.dump({"steps": {"40": True, "70": False}}, open(os.path.join(state, "selection.json"), "w"))
-json.dump({"version": "v0.7.0"}, open(os.path.join(state, "installed-manifest.json"), "w"))
+json.dump({"steps": {"40": True, "70": False, "81": True, "82": True}}, open(os.path.join(state, "selection.json"), "w"))
+json.dump({
+    "version": "v0.7.0",
+    "components": {},
+    "steps": [
+        {"id": "82", "version": "v0.4.0"},
+        {"id": "81", "version": "v0.4.0"},
+    ],
+}, open(os.path.join(state, "installed-manifest.json"), "w"))
 PY
   FAKE_GITHUB_ARGS+=("$WORK/package/$PACKAGE_ASSET")
 fi
@@ -699,10 +710,16 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
     echo "  FEHL Bundle wurde nicht heruntergeladen (siehe $WORK/dashboard.log)"; FAILED=1
   fi
   check "Vorschau nennt Version und alle Schritte des heruntergeladenen Bundles" \
-    "data['bundle_version'] == 'v9.9.9' and [s['id'] for s in data['steps']] == ['10','20','30','40','50','60','65','70']" \
+    "data['bundle_version'] == 'v9.9.9' and [s['id'] for s in data['steps']] == ['10','20','30','40','50','60','65','70','81','82']" \
     "$BASE/redeploy/api/plan"
   check "Auswahl des Nodes gilt (optionaler Schritt 70 abgewaehlt)" \
     "any(s['id'] == '70' and s['state'] == 'deselected' for s in data['steps'])" \
+    "$BASE/redeploy/api/plan"
+  check "geaenderter Dienst (battery_soc) steht mit restart=version in der Vorschau" \
+    "next(s for s in data['steps'] if s['id'] == '82')['restart'] == 'version'" \
+    "$BASE/redeploy/api/plan"
+  check "unveraenderter Dienst (apsystems) hat keinen Neustartgrund" \
+    "not next(s for s in data['steps'] if s['id'] == '81').get('restart')" \
     "$BASE/redeploy/api/plan"
   check "Die Oberflaeche kennt jetzt das bereitliegende Paket" \
     "data['auto_prepare'] is True and data['bundle_version'] == 'v9.9.9'" \

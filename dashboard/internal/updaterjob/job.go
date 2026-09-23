@@ -34,6 +34,7 @@ type Job struct {
 	Mode          string   `json:"mode"`
 	Only          string   `json:"only,omitempty"`
 	Steps         []string `json:"steps"`
+	RestartAll    bool     `json:"restart_all,omitempty"`
 }
 
 // Status is the updater's final report, written once to status.json. A

@@ -8,7 +8,7 @@
 
 ### Fixes
 
-- **tuya:** retry once on a stale persistent socket before reporting offline (41e9f55)
+- **tuya:** retry once on a stale persistent socket before reporting offline (#47) (1dfc8bd)
 
 ## v0.3.2 (2026-09-15)
 

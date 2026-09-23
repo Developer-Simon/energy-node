@@ -56,10 +56,11 @@
       return rows;
     },
 
-    // restart: die Units der ausstehenden Schritte. Der Schritt, der die
-    // Dienst-Station anfuehrt (60), hat keine Unit im Manifest - er ist das
-    // Dashboard.
-    restart: function (plan, manifest, shell) {
+    // restart: die Units, die neu starten. Ein Dienst startet nur neu, wenn der
+    // Plan ihm einen Grund gibt (step.restart) oder "Alle neu starten" an ist.
+    // Der Schritt, der die Dienst-Station anfuehrt (60), hat keine Unit im
+    // Manifest - er ist das Dashboard und laeuft wie bisher immer mit.
+    restart: function (plan, manifest, shell, restartAll) {
       var group = window.Services.runGroups(manifest, { steps: {} }, shell).filter(function (g) { return g.subs; })[0];
       var core = group ? group.ids[0] : '';
       var units = [];
@@ -68,7 +69,11 @@
           return;
         }
         var unit = step.unit || (step.id === core ? window.Services.DASHBOARD_UNIT : '');
-        if (unit && units.indexOf(unit) < 0) {
+        var isService = !!step.unit;
+        if (!unit || (isService && !restartAll && !step.restart)) {
+          return;
+        }
+        if (units.indexOf(unit) < 0) {
           units.push(unit);
         }
       });
@@ -91,6 +96,7 @@
       plan: null,
       manifest: null,
       busy: false,
+      restartAll: false,
 
       get shell() {
         return window.Installer.shell;
@@ -161,7 +167,7 @@
       },
 
       get restart() {
-        return this.plan && this.manifest ? PreviewModel.restart(this.plan, this.manifest, this.shell) : [];
+        return this.plan && this.manifest ? PreviewModel.restart(this.plan, this.manifest, this.shell, this.restartAll) : [];
       },
 
       get keepNames() {
@@ -205,7 +211,11 @@
         this.busy = true;
         this.shell.error = null;
         try {
-          var response = await window.Api.post('/api/run', { mode: 'redeploy' });
+          var body = { mode: 'redeploy' };
+          if (this.restartAll) {
+            body.restart_all = true;
+          }
+          var response = await window.Api.post('/api/run', body);
           this.shell.shared.selectionAtEntry = null;
           this.shell.startRun(response, { mode: 'redeploy' });
         } catch (err) {
