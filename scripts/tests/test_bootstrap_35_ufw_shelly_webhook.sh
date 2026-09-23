@@ -56,6 +56,18 @@ grep -q '^##STEP 35 skip nicht ausgewaehlt$' <<<"$out" || fail "abgewaehlt nicht
 grep -qx 'ufw delete allow 8082/tcp' "$UFW_LOG" || fail "Freigabe nicht zurueckgenommen" "$(cat "$UFW_LOG")"
 [ -f "$stamp" ] && fail "Stempel nach Abwahl noch da"
 
+# --- Shelly-Dienst (83) abgewaehlt: kein Webhook-Port, trotz Opt-in --------
+printf '{"steps":{"35":true}}\n' > "$EN_SELECTION"
+bash "$script" >/dev/null
+[ -f "$stamp" ] || fail "Vorbedingung: Freigabe nicht erteilt"
+printf '{"steps":{"35":true,"83":false}}\n' > "$EN_SELECTION"
+: > "$UFW_LOG"
+out="$(bash "$script")"
+grep -q '^##STEP 35 skip nicht ausgewaehlt$' <<<"$out" || fail "lief ohne Shelly-Dienst" "$out"
+grep -q 'ufw allow' "$UFW_LOG" && fail "ohne Shelly-Dienst freigegeben" "$(cat "$UFW_LOG")"
+grep -qx 'ufw delete allow 8082/tcp' "$UFW_LOG" || fail "Freigabe ohne Shelly-Dienst nicht zurueckgenommen" "$(cat "$UFW_LOG")"
+[ -f "$stamp" ] && fail "Stempel ohne Shelly-Dienst noch da"
+
 # --- webhook_port aus config.json gilt, wenn vorhanden ---------------------
 mkdir -p "$EN_ROOT/etc/energy-node"
 printf '{"services":{"shelly":{"service_id":"shelly","webhook_port":9090}}}\n' \

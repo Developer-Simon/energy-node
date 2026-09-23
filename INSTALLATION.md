@@ -233,7 +233,7 @@ sudo ufw allow 443/tcp     # dashboard (HTTPS via Caddy, see section 8)
 sudo ufw enable
 ```
 
-Only if you use the Shelly wake webhook (opt-in, see `docs/device-services.md`), also open its port. The installer does this only when you tick **Shelly wake webhook in the firewall** on its configuration screen (step 35, off by default):
+Only if you use the Shelly wake webhook (opt-in, see `docs/device-services.md`), also open its port. The installer does this only when you tick **Shelly wake webhook in the firewall** on its configuration screen (step 35, off by default, only offered while the Shelly service is selected):
 
 ```sh
 sudo ufw allow 8082/tcp    # Shelly wake webhook, default webhook_port

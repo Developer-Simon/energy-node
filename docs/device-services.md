@@ -155,7 +155,9 @@ wait for the shared cycle to happen to land inside its short wake window:
 2. Open that port in the firewall. This is an explicit opt-in: the installer
    only opens it when you tick **Shelly wake webhook in the firewall** on
    its configuration screen (step 35, `scripts/bootstrap/35-ufw-shelly-webhook.sh`,
-   off by default; an update never turns it on by itself). It opens the
+   off by default; an update never turns it on by itself). The switch only
+   appears while the Shelly device service is selected; deselecting Shelly
+   also drops the opt-in and removes the rule. It opens the
    `webhook_port` from `config.json` if set, otherwise 8082. Unticking it
    later removes the rule again on the next run. Without the installer, run
    `sudo ufw allow <port>/tcp` by hand.

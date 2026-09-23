@@ -17,7 +17,7 @@ cat > "$bundle/manifest.json" <<'JSON'
   "components": { "dashboard": "v0.6.1", "services": "v1.4.0" },
   "steps": [
     { "id": "10", "optional": false },
-    { "id": "35", "optional": true, "default": false },
+    { "id": "35", "optional": true, "default": false, "requires": "81" },
     { "id": "40", "optional": true, "default": true },
     { "id": "50", "optional": false },
     { "id": "81", "optional": true, "default": true, "service_id": "apsystems",
@@ -75,6 +75,19 @@ out="$(bash "$script")"
 [ "$(get 'd["steps"][2]["selected"]')" = "True" ] || fail "ohne Auswahl nicht gewaehlt" "$out"
 [ "$(get 'd["steps"][2]["state"]')" = "pending" ] || fail "ohne Auswahl nicht pending" "$out"
 [ "$(get 'd["steps"][1]["selected"]')" = "False" ] || fail "Opt-in-Schritt ohne Auswahl gewaehlt" "$out"
+
+# --- requires: ohne den benoetigten Schritt ist der abhaengige abgewaehlt --
+printf '{"steps":{"35":true,"81":false}}\n' > "$EN_SELECTION"
+out="$(bash "$script")"
+[ "$(get 'd["steps"][1]["selected"]')" = "False" ] || fail "35 trotz abgewaehltem 81 gewaehlt" "$out"
+[ "$(get 'd["steps"][1]["state"]')" = "deselected" ] || fail "35 trotz abgewaehltem 81 nicht deselected" "$out"
+printf '{"steps":{"35":true}}\n' > "$EN_SELECTION"
+out="$(bash "$script")"
+[ "$(get 'd["steps"][1]["selected"]')" = "True" ] || fail "35 mit (vorgabemaessig) gewaehltem 81 nicht gewaehlt" "$out"
+printf '{"steps":{"35":true,"81":true}}\n' > "$EN_SELECTION"
+out="$(bash "$script")"
+[ "$(get 'd["steps"][1]["state"]')" = "pending" ] || fail "35 mit 81 nicht pending" "$out"
+rm -f "$EN_SELECTION"
 
 # --- keine ##STEP-Marker --------------------------------------------------
 grep -q '^##STEP' <<<"$out" && fail "plan.sh gibt Schritt-Marker aus" "$out"

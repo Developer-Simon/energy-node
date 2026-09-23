@@ -10,6 +10,11 @@
 # ausdruecklich gewaehlt hat (Manifest-Vorgabe "aus", step_opted_in: ein
 # fehlender Eintrag in selection.json zaehlt als "nein").
 #
+# Der Listener gehoert zum Shelly-Dienst (Schritt 83). Ist der abgewaehlt,
+# gilt dieser Schritt ebenfalls als abgewaehlt - dieselbe Abhaengigkeit steht
+# als "requires" im Manifest (make_bundle.sh, STEP_REQUIRES) und wird dort von
+# plan.sh und der Oberflaeche gelesen.
+#
 # Abgewaehlt nimmt der Schritt eine frueher erteilte Freigabe wieder zurueck
 # und loescht seinen Stempel, damit ein erneutes Waehlen wieder greift.
 #
@@ -20,6 +25,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
 
 DEFAULT_PORT=8082
+REQUIRED_STEP=83
 cfg="${EN_ROOT}/etc/energy-node/config.json"
 
 # Bei einer Erstinstallation gibt es config.json hier noch nicht (Schritt 65
@@ -39,7 +45,7 @@ PY
 step_begin 35
 port="$(webhook_port)"
 
-if ! step_opted_in 35; then
+if ! step_opted_in 35 || ! step_selected "${REQUIRED_STEP}"; then
   # Kann auf einem Node ohne Freigabe nichts loeschen - ufw meldet das und
   # das ist kein Fehler. Der Standardport wird mit entfernt, falls der Port
   # seit der Freigabe im Dashboard geaendert wurde.

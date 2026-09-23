@@ -51,6 +51,11 @@ for step_id in expect_none:
 step35 = by_id.get("35")
 if not step35 or step35.get("optional") is not True or step35.get("default") is not False:
     sys.exit("step 35: erwartet optional mit default false, gefunden %r" % step35)
+# Der Webhook-Port ergibt nur mit dem Shelly-Dienst Sinn.
+if step35.get("requires") != "83" or by_id.get("83", {}).get("service_id") != "shelly":
+    sys.exit("step 35: erwartet requires 83 (shelly), gefunden %r" % step35.get("requires"))
+if [s["id"] for s in manifest["steps"] if s.get("requires")] != ["35"]:
+    sys.exit("requires steht an anderen Schritten als 35")
 for step in manifest["steps"]:
     if step["optional"] and step["id"] != "35" and step.get("default") is not True:
         sys.exit("step %s: optionaler Schritt ohne default true" % step["id"])
