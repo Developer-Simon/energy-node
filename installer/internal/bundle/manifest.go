@@ -25,6 +25,11 @@ type StepEntry struct {
 	// (Installer-Spec, Komponente A, E7). Leer heisst: dieser Schritt hat
 	// keinen Dashboard-Tab, der aus- oder eingeblendet werden muesste.
 	DashboardKey string `json:"dashboard_key,omitempty"`
+	// Requires nennt, falls gesetzt, den Schritt, ohne den dieser nicht
+	// laeuft (35 oeffnet den Port eines Listeners im Shelly-Dienst 83).
+	// plan.sh, das Schritt-Skript und die Oberflaeche behandeln ihn dann als
+	// abgewaehlt.
+	Requires string `json:"requires,omitempty"`
 }
 
 // CaddyInfo mirrors manifest.json's "caddy" object, present only when the

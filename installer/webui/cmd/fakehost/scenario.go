@@ -123,7 +123,7 @@ func newScenario(name string, opts options) *stagedBackend {
 
 	steps := []hostapi.StepView{
 		{ID: "10"}, {ID: "20"}, {ID: "30"},
-		{ID: "35", Optional: true, Default: false},
+		{ID: "35", Optional: true, Default: false, Requires: "83"},
 		{ID: "40", Optional: true, Default: true},
 		{ID: "50"}, {ID: "60"},
 		{ID: "70", Optional: true, Default: true},

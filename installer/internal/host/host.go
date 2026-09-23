@@ -324,6 +324,7 @@ func (h *Host) Manifest(ctx context.Context) (*hostapi.ManifestView, error) {
 		view.Steps = append(view.Steps, hostapi.StepView{
 			ID: step.ID, ServiceID: step.ServiceID, Dir: step.Dir, Unit: step.Unit,
 			Optional: step.Optional, Default: step.Default, Kind: step.Kind,
+			Requires: step.Requires,
 		})
 	}
 	view.BundleBytes, view.WheelCount, view.UnitCount, view.TemplateCount = bundleStats(bundleDir, manifest.Files)
