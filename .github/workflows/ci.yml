@@ -109,7 +109,7 @@ jobs:
           emit installer  '^installer/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
           emit shell     '^scripts/'
-          emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^scripts/(vendor_(core|card)|icons/flatten_icons)\.py$'
+          emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^docs/(images/device-icons/|integration/energy-node-icons\.md$)|^scripts/(vendor_(core|card)|icons/flatten_icons)\.py$'
           emit ha        '^integrations/homeassistant/|^libs/battery_soc_core/'
 
   dashboard-go:
