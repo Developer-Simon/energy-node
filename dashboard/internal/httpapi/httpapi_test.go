@@ -1993,3 +1993,25 @@ func TestDevicePrefsEndpointRejectsBadIconAndWrongMethod(t *testing.T) {
 		t.Errorf("status = %d, want 405", wrongMethod.Code)
 	}
 }
+
+func TestDeviceDetailCarriesSuggestedIconWithoutStore(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "plug", Name: "Plug", Manufacturer: "Shelly", Model: "SNPL-00112EU"},
+		Entity: registry.EntityInfo{UniqueID: "plug_power", ObjectID: "power", StateTopic: "plug/power"},
+	})
+
+	recorder := httptest.NewRecorder()
+	NewRouter(reg, config.NewManager(t.TempDir()), nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/devices/plug", nil))
+
+	var detail struct {
+		IconName      string `json:"icon_name"`
+		SuggestedIcon string `json:"suggested_icon"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &detail); err != nil {
+		t.Fatalf("decode: %v (%s)", err, recorder.Body.String())
+	}
+	if detail.IconName != "" || detail.SuggestedIcon != "mdi:power-plug" {
+		t.Errorf("detail = %#v, want no saved icon and the power-plug suggestion", detail)
+	}
+}

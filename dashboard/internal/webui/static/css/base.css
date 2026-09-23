@@ -1641,10 +1641,9 @@ small { color: var(--text-muted); }
 .device-prefs-icon:hover { border-color: var(--accent-line); }
 .device-prefs-icon.active { border-color: var(--accent); color: var(--accent); }
 .device-prefs-icon svg { width: 24px; height: 24px; }
-.device-prefs-favorites { list-style: none; margin: 0; padding: 0; display: grid; gap: .2rem; max-height: 12rem; overflow-y: auto; }
-.device-prefs-favorites label { display: flex; align-items: center; gap: .45rem; font-size: .9rem; }
-.device-prefs-favorites input:disabled + span { color: var(--text-faint); }
-.device-prefs-pin { display: flex; align-items: center; gap: .45rem; font-size: .9rem; }
+.device-prefs-favorites { min-width: 0; }
+.device-prefs-pin { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .9rem; cursor: pointer; }
+.device-modal-topbar-glyph { display: contents; }
 .device-prefs-actions { display: flex; align-items: center; gap: .6rem; }
 .device-prefs-status { color: var(--text-muted); }
 .device-tile-icon { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: .35rem; color: var(--accent); vertical-align: -.2em; }

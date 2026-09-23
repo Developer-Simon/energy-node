@@ -78,11 +78,12 @@
 
 
 {{define "device-modal"}}
-<dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading">
+<dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading" data-choices-script="{{.BasePath}}/static/js-deps/choices.min.js" data-choices-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2">
   <div class="device-modal-topbar">
     <div class="device-modal-topbar-id">
       <div class="device-modal-topbar-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/></svg>
+        <span class="device-modal-topbar-glyph" x-cloak x-show="deviceIcons.length" x-html="iconMarkup(savedIconName)"></span>
+        <svg x-show="!deviceIcons.length" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/></svg>
       </div>
       <div class="device-modal-topbar-text">
         <h3 id="device-modal-heading">
@@ -199,31 +200,21 @@
             <div class="device-prefs-icons" role="radiogroup" aria-label="Geräte-Icon">
               <template x-for="icon in deviceIcons" :key="icon.name">
                 <button type="button" class="device-prefs-icon" role="radio"
-                        x-bind:class="{ active: prefsDraft.icon === icon.name || (!prefsDraft.icon && icon.name === 'mdi:chip-outline') }"
-                        x-bind:aria-checked="(prefsDraft.icon === icon.name || (!prefsDraft.icon && icon.name === 'mdi:chip-outline')).toString()"
-                        x-bind:title="icon.label"
-                        x-on:click="prefsDraft.icon = icon.name === 'mdi:chip-outline' ? '' : icon.name">
+                        x-bind:class="{ active: draftIconName === icon.name }"
+                        x-bind:aria-checked="(draftIconName === icon.name).toString()"
+                        x-bind:title="icon.name === defaultIconName ? `${icon.label} (Vorschlag)` : icon.label"
+                        x-on:click="pickIcon(icon.name)">
                   <span x-html="iconMarkup(icon.name)"></span>
                 </button>
               </template>
             </div>
-            <p class="device-prefs-hint">Favoriten (max. 3) – ohne Auswahl entscheidet die Automatik.</p>
-            <ul class="device-prefs-favorites">
-              <template x-for="entity in (deviceDetail?.entities || [])" :key="`fav-${entity.unique_id}`">
-                <li>
-                  <label>
-                    <input type="checkbox"
-                           x-bind:checked="prefsDraft.favorite_refs.includes(entity.unique_id)"
-                           x-bind:disabled="!prefsDraft.favorite_refs.includes(entity.unique_id) && prefsDraft.favorite_refs.length >= 3"
-                           x-on:change="toggleFavorite(entity.unique_id)">
-                    <span x-text="entityDisplayName(entity)"></span>
-                  </label>
-                </li>
-              </template>
-            </ul>
+            <label class="device-prefs-hint" for="device-prefs-favorites">Favoriten (max. 3) – ohne Auswahl entscheidet die Automatik.</label>
+            <div class="device-prefs-favorites">
+              <select id="device-prefs-favorites" multiple x-ref="favoritesSelect" x-on:change="syncFavoritesFromChoices()"></select>
+            </div>
             <label class="device-prefs-pin">
-              <input type="checkbox" x-model="prefsDraft.pin_favorites">
               <span>Favoriten oben im Modal anpinnen</span>
+              <span class="settings-toggle"><input type="checkbox" role="switch" x-model="prefsDraft.pin_favorites" x-bind:aria-checked="prefsDraft.pin_favorites"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
             </label>
             <div class="device-prefs-actions">
               <button type="button" class="primary" x-bind:disabled="prefsSaving" x-on:click="saveDevicePrefs()"

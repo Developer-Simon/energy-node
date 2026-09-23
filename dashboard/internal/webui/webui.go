@@ -227,11 +227,12 @@ const maxCompactRows = 3
 // both derive from FavoriteRefs, so a snapshot that skipped this step would
 // render a card the fingerprint does not describe - and the live patcher
 // would write values into the wrong rows.
+//
+// It also stamps SuggestedIcon on every device, with or without a record, so
+// the modal's picker knows which icon an empty choice stands for.
 func ApplyDevicePrefs(devices []registry.DeviceView, prefs map[string]settings.DevicePrefsEntry) {
-	if len(prefs) == 0 {
-		return
-	}
 	for i := range devices {
+		devices[i].SuggestedIcon = suggestedDeviceIcon(devices[i])
 		entry, ok := prefs[devices[i].ID]
 		if !ok {
 			continue

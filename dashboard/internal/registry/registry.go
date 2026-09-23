@@ -1080,6 +1080,9 @@ type DeviceView struct {
 	IconName     string   `json:"icon_name,omitempty"`
 	FavoriteRefs []string `json:"favorite_refs,omitempty"`
 	PinFavorites bool     `json:"pin_favorites,omitempty"`
+	// SuggestedIcon ist das Icon, das aus Hersteller und Modell folgt
+	// (webui.suggestedDeviceIcon). Es greift nur, solange IconName leer ist.
+	SuggestedIcon string `json:"suggested_icon,omitempty"`
 }
 
 type DiagnosticsSnapshot struct {

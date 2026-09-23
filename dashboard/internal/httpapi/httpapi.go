@@ -1586,14 +1586,17 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			return
 		}
 		// Damit das Modal Icon, Favoriten und den Pin-Schalter kennt, ohne
-		// eine zweite Anfrage zu stellen.
+		// eine zweite Anfrage zu stellen. Auch ohne lesbare Praeferenzen
+		// laufen: das vorgeschlagene Icon haengt nur am Geraet selbst.
+		var prefs map[string]settings.DevicePrefsEntry
 		if store != nil {
-			if prefs, err := store.DevicePrefsByID(); err == nil {
-				stamped := []registry.DeviceView{dev}
-				webui.ApplyDevicePrefs(stamped, prefs)
-				dev = stamped[0]
+			if loaded, err := store.DevicePrefsByID(); err == nil {
+				prefs = loaded
 			}
 		}
+		stamped := []registry.DeviceView{dev}
+		webui.ApplyDevicePrefs(stamped, prefs)
+		dev = stamped[0]
 		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: engine.Device(id, now()), CommandActions: history.forDevice(id)})
 	}
 }

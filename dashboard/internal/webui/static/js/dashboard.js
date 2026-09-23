@@ -473,6 +473,10 @@
     prefsSaving: false,
     prefsMessage: '',
     canEditPrefs: false,
+    // Choices.js-Instanz der Favoriten-Mehrfachauswahl - dieselbe Bibliothek
+    // wie Settings > Darstellung und der Layout-Editor. Sie wird je Geraet
+    // neu aufgebaut (seedPrefsDraft), nicht im SSE-Takt.
+    favoritesChoices: null,
 
     async loadDeviceIcons() {
       if (this.deviceIcons.length) return;
@@ -481,6 +485,27 @@
       } catch (error) {
         this.deviceIcons = [];
       }
+    },
+
+    // Das Icon, fuer das eine leere Auswahl steht: der Vorschlag zum
+    // Geraetetyp (suggestedDeviceIcon in deviceicons.go), sonst der Chip.
+    get defaultIconName() {
+      return this.deviceDetail?.suggested_icon || 'mdi:chip-outline';
+    },
+
+    // Was die Karte gerade zeigt - fuer den Modal-Kopf.
+    get savedIconName() {
+      return this.deviceDetail?.icon_name || this.defaultIconName;
+    },
+
+    get draftIconName() {
+      return this.prefsDraft.icon || this.defaultIconName;
+    },
+
+    // Wer das Vorschlags-Icon waehlt, speichert "nichts" - so folgt das
+    // Geraet weiter seinem Typ, statt das Icon festzuschreiben.
+    pickIcon(name) {
+      this.prefsDraft.icon = name === this.defaultIconName ? '' : name;
     },
 
     // Baut denselben SVG-Rumpf wie deviceIcon() in deviceicons.go, damit
@@ -502,13 +527,86 @@
         pin_favorites: this.deviceDetail?.pin_favorites === true,
       };
       this.prefsMessage = '';
+      if (this.$nextTick) this.$nextTick(() => this.initFavoritesChoices());
     },
 
-    toggleFavorite(ref) {
+    // Choices.js kommt erst mit dem ersten Modal - die Uebersicht laedt es
+    // sonst nur fuer den Editor, der Geraete-Tab gar nicht. Pfade stehen
+    // mit Basis-Praefix am <dialog> (data-choices-script/-css).
+    async ensureChoicesAssets() {
+      if (window.Choices) return;
+      const dialog = this.$refs?.deviceModalDialog;
+      const css = (dialog?.dataset.choicesCss || '').split(',').filter(Boolean);
+      const script = dialog?.dataset.choicesScript;
+      css.forEach(href => {
+        if (document.querySelector(`link[href="${href}"]`)) return;
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.append(link);
+      });
+      if (!script) return;
+      await new Promise((resolve, reject) => {
+        const tag = document.createElement('script');
+        tag.src = script;
+        tag.onload = resolve;
+        tag.onerror = () => reject(new Error(`Asset konnte nicht geladen werden: ${script}`));
+        document.head.append(tag);
+      });
+    },
+
+    destroyFavoritesChoices() {
+      if (!this.favoritesChoices) return;
+      this.favoritesChoices.destroy();
+      this.favoritesChoices = null;
+    },
+
+    async initFavoritesChoices() {
+      const deviceId = this.prefsDraftFor;
+      try {
+        await this.ensureChoicesAssets();
+      } catch (error) {
+        return;
+      }
+      const select = this.$refs?.favoritesSelect;
+      if (!window.Choices || !select || this.prefsDraftFor !== deviceId) return;
+      this.destroyFavoritesChoices();
       const refs = this.prefsDraft.favorite_refs;
-      const at = refs.indexOf(ref);
-      if (at >= 0) refs.splice(at, 1);
-      else if (refs.length < 3) refs.push(ref);
+      const choices = new window.Choices(select, {
+        removeItemButton: true,
+        shouldSort: false,
+        maxItemCount: 3,
+        maxItemText: count => `Höchstens ${count} Favoriten`,
+        searchResultLimit: 30,
+        placeholderValue: 'Entität suchen ...',
+        noResultsText: 'Keine Treffer',
+        noChoicesText: 'Keine Entitäten mehr verfügbar',
+        itemSelectText: '',
+      });
+      // Choices legt vorbelegte Chips in der Reihenfolge der Optionen an,
+      // nicht in der von setChoiceByValue. Die Favoriten stehen darum vorn,
+      // in Auswahlreihenfolge - sie bestimmt die Zeilen der Kompaktkarte.
+      const entities = this.deviceDetail?.entities || [];
+      const rank = entity => {
+        const at = refs.indexOf(entity.unique_id);
+        return at < 0 ? refs.length : at;
+      };
+      const ordered = entities.map((entity, index) => ({entity, index}))
+        .sort((a, b) => rank(a.entity) - rank(b.entity) || a.index - b.index)
+        .map(({entity}) => entity);
+      choices.setChoices(
+        ordered.map(entity => ({value: entity.unique_id, label: this.entityDisplayName(entity)})),
+        'value', 'label', true,
+      );
+      choices.setChoiceByValue([...refs]);
+      this.favoritesChoices = choices;
+    },
+
+    // Choices feuert "change" am <select>; die Reihenfolge der Chips ist die
+    // Reihenfolge der Auswahl.
+    syncFavoritesFromChoices() {
+      if (!this.favoritesChoices) return;
+      this.prefsDraft.favorite_refs = this.favoritesChoices.getValue(true);
     },
 
     async saveDevicePrefs() {
@@ -520,12 +618,13 @@
           `/api/v1/device/prefs/${encodeURIComponent(this.selectedDeviceId)}`,
           {...this.mutationOptions(this.prefsDraft), method: 'PUT'},
         );
-        this.prefsMessage = 'Gespeichert';
         // Das Detail traegt die Praeferenzen mit; der Entwurf darf danach
-        // wieder aus dem Server-Stand kommen.
+        // wieder aus dem Server-Stand kommen. Die Meldung erst danach setzen -
+        // seedPrefsDraft leert sie.
         this.prefsDraftFor = '';
         await this.loadDeviceDetail(this.selectedDeviceId);
         this.seedPrefsDraft();
+        this.prefsMessage = 'Gespeichert';
         await this.refreshAfterMutation();
       } catch (error) {
         this.prefsMessage = error.message;
@@ -989,6 +1088,7 @@
       this.deviceDetail = null;
       this.detailError = '';
       this.detailLoading = true;
+      this.loadDeviceIcons();
       // Jedes Geraet startet getrennt; der ResizeObserver legt gleich wieder
       // zusammen, falls die Hoehe reicht.
       this.mergedTab = false;
@@ -1048,6 +1148,7 @@
       this.deviceDetail = null;
       this.detailError = '';
       this.prefsDraftFor = '';
+      this.destroyFavoritesChoices();
       if (this.livePatchStale) {
         this.livePatchStale = false;
         this.refreshLiveFragment();

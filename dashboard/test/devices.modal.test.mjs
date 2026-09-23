@@ -35,7 +35,10 @@ function createDevicesPanel() {
   dom.window.deviceTileMixin = () => ({});
   vm.runInContext(source, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
-  return factories.devicesPanel();
+  const panel = factories.devicesPanel();
+  // Fuer Tests, die window.Choices doubeln muessen.
+  Object.defineProperty(panel, 'testWindow', {value: dom.window});
+  return panel;
 }
 
 function entity(overrides) {
@@ -288,18 +291,63 @@ test('seedPrefsDraft füllt den Entwurf einmal je Gerät und überschreibt laufe
   assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), []);
 });
 
-test('toggleFavorite hält die Auswahl bei drei Einträgen', () => {
+test('pickIcon speichert das Vorschlags-Icon als leere Auswahl', () => {
   const panel = createDevicesPanel();
+  panel.deviceDetail = {id: 'plug', suggested_icon: 'mdi:power-plug', entities: []};
   panel.prefsDraft = {icon: '', favorite_refs: [], pin_favorites: false};
 
-  ['a', 'b', 'c', 'd'].forEach(ref => panel.toggleFavorite(ref));
-  assert.deepEqual(panel.prefsDraft.favorite_refs, ['a', 'b', 'c']);
+  assert.equal(panel.draftIconName, 'mdi:power-plug');
+  assert.equal(panel.savedIconName, 'mdi:power-plug');
 
-  panel.toggleFavorite('b');
-  assert.deepEqual(panel.prefsDraft.favorite_refs, ['a', 'c']);
+  panel.pickIcon('mdi:chip-outline');
+  assert.equal(panel.prefsDraft.icon, 'mdi:chip-outline');
+  assert.equal(panel.draftIconName, 'mdi:chip-outline');
 
-  panel.toggleFavorite('d');
-  assert.deepEqual(panel.prefsDraft.favorite_refs, ['a', 'c', 'd']);
+  panel.pickIcon('mdi:power-plug');
+  assert.equal(panel.prefsDraft.icon, '');
+
+  // Ohne Vorschlag steht die leere Auswahl fuer den Chip.
+  panel.deviceDetail = {id: 'x', entities: []};
+  panel.pickIcon('mdi:chip-outline');
+  assert.equal(panel.prefsDraft.icon, '');
+  panel.deviceDetail = {id: 'x', icon_name: 'mdi:home', entities: []};
+  assert.equal(panel.savedIconName, 'mdi:home');
+});
+
+test('initFavoritesChoices füllt Choices in Auswahlreihenfolge, begrenzt auf drei', async () => {
+  const panel = createDevicesPanel();
+  const calls = {};
+  let selected = [];
+  panel.testWindow.Choices = class {
+    constructor(select, options) { calls.select = select; calls.options = options; }
+    setChoices(list) { calls.choices = Array.from(list, item => ({...item})); }
+    setChoiceByValue(values) { selected = Array.from(values); }
+    getValue() { return selected; }
+    destroy() { calls.destroyed = true; }
+  };
+  const select = {};
+  panel.$refs = {favoritesSelect: select, deviceModalDialog: {dataset: {}}};
+  panel.selectedDeviceId = 'node';
+  panel.prefsDraftFor = 'node';
+  panel.deviceDetail = {id: 'node', entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}]};
+  panel.prefsDraft = {icon: '', favorite_refs: ['node_relay', 'node_temp'], pin_favorites: false};
+
+  await panel.initFavoritesChoices();
+
+  assert.equal(calls.select, select);
+  assert.equal(calls.options.maxItemCount, 3);
+  // Favoriten zuerst, in Auswahlreihenfolge - Choices legt die Chips in
+  // Optionsreihenfolge an.
+  assert.deepEqual(calls.choices.map(item => item.value), ['node_relay', 'node_temp']);
+  assert.deepEqual(selected, ['node_relay', 'node_temp']);
+
+  selected = ['node_temp'];
+  panel.syncFavoritesFromChoices();
+  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), ['node_temp']);
+
+  panel.destroyFavoritesChoices();
+  assert.equal(calls.destroyed, true);
+  assert.equal(panel.favoritesChoices, null);
 });
 
 test('iconMarkup baut ein vollständiges SVG und fällt auf den Standard zurück', () => {

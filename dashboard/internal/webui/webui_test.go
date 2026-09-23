@@ -2768,3 +2768,16 @@ func TestOverviewPageStampsDevicePrefs(t *testing.T) {
 		t.Errorf("compact card shows the non-favourite entity (Temperatur) - favourite selection did not replace the automatic rows: %s", body)
 	}
 }
+
+func TestApplyDevicePrefsStampsSuggestedIconWithoutPrefs(t *testing.T) {
+	devices := []registry.DeviceView{{ID: "ez1", Manufacturer: "APsystems", Model: "EZ1"}, {ID: "x"}}
+
+	ApplyDevicePrefs(devices, nil)
+
+	if devices[0].SuggestedIcon != "mdi:solar-panel" {
+		t.Errorf("SuggestedIcon = %q, want mdi:solar-panel even without any stored prefs", devices[0].SuggestedIcon)
+	}
+	if devices[0].IconName != "" || devices[1].SuggestedIcon != "" {
+		t.Errorf("devices = %#v, want no saved icon and no suggestion for an unknown device", devices)
+	}
+}

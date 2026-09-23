@@ -65,12 +65,69 @@ func DeviceIconCatalogue() []DeviceIcon {
 	return append([]DeviceIcon(nil), deviceIconCatalogue...)
 }
 
-// deviceIcon renders the device's chosen symbol. An unset or unknown name
-// falls back to the chip outline rather than failing - a catalogue entry can
-// be renamed or dropped without breaking a saved device-prefs.json, the same
-// tolerance iconFor has for unknown Home Assistant icon names.
+// deviceIconSuggestion maps a discovery device block to a catalogue icon.
+// Manufacturer must match exactly (case-insensitive); ModelPrefixes is empty
+// for "any model of this manufacturer". The first matching rule wins, so the
+// more specific rules of one manufacturer come first.
+type deviceIconSuggestion struct {
+	Manufacturer  string
+	ModelPrefixes []string
+	Icon          string
+}
+
+// deviceIconSuggestions is the default icon per device type, used until
+// someone saves an icon for the device. Manufacturer and model are what the
+// services put into their Home Assistant discovery device block; the Shelly
+// codes are the hardware IDs from Shelly.GetDeviceInfo (gen1 SH*, Plus SN*,
+// Pro SP*, gen3 S3*). Documented in docs/knowledge/dashboard/device-icons.md.
+var deviceIconSuggestions = []deviceIconSuggestion{
+	{Manufacturer: "APsystems", Icon: "mdi:solar-panel"},
+	{Manufacturer: "Trucki (Community-Firmware)", Icon: "mdi:current-ac"},
+	{Manufacturer: "DIY", ModelPrefixes: []string{"LiFePO4"}, Icon: "mdi:home-battery"},
+	{Manufacturer: "Raspberry Pi Foundation", Icon: "mdi:raspberry-pi"},
+	{Manufacturer: "Energy Node", Icon: "mdi:sitemap"},
+	{Manufacturer: "Tuya", ModelPrefixes: []string{"Tuya valve"}, Icon: "mdi:pipe-valve"},
+	// Zwischenstecker: Plug, Plug S, Plus Plug S, Plug S Gen3.
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHPLG", "SNPL", "S3PL"}, Icon: "mdi:power-plug"},
+	// Unterputz-Relais: 1, 1PM, 2.5, Plus 1/1PM/2PM, Mini, Gen3.
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHSW", "SNSW", "S3SW", "SPSW"}, Icon: "mdi:power-socket-de"},
+	// Energiezaehler: EM, 3EM, Pro EM/3EM, Gen3 EM.
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHEM", "SPEM", "S3EM"}, Icon: "mdi:meter-electric"},
+	// Temperatur/Feuchte: H&T, Plus H&T, H&T Gen3.
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHHT", "SNSN-0013A", "S3SN-0U12A"}, Icon: "mdi:thermometer"},
+}
+
+// suggestedDeviceIcon returns the catalogue icon for the device's type, or
+// "" when no rule matches.
+func suggestedDeviceIcon(dev registry.DeviceView) string {
+	manufacturer := strings.TrimSpace(dev.Manufacturer)
+	model := strings.ToUpper(strings.TrimSpace(dev.Model))
+	for _, rule := range deviceIconSuggestions {
+		if !strings.EqualFold(rule.Manufacturer, manufacturer) {
+			continue
+		}
+		if len(rule.ModelPrefixes) == 0 {
+			return rule.Icon
+		}
+		for _, prefix := range rule.ModelPrefixes {
+			if strings.HasPrefix(model, strings.ToUpper(prefix)) {
+				return rule.Icon
+			}
+		}
+	}
+	return ""
+}
+
+// deviceIcon renders the device's symbol: the saved choice, else the
+// suggestion for its type, else the chip outline. An unknown saved name falls
+// back the same way rather than failing - a catalogue entry can be renamed or
+// dropped without breaking a saved device-prefs.json, the same tolerance
+// iconFor has for unknown Home Assistant icon names.
 func deviceIcon(dev registry.DeviceView) template.HTML {
 	icon, ok := deviceIconByName[strings.TrimSpace(dev.IconName)]
+	if !ok {
+		icon, ok = deviceIconByName[suggestedDeviceIcon(dev)]
+	}
 	if !ok {
 		icon = deviceIconByName[deviceIconFallbackName]
 	}
