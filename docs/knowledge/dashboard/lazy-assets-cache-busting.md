@@ -233,6 +233,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.7.0 | `css/base.css` · `js/dashboard.js` | `22` · `15` | 2026-09-22 |
 | v0.7.0 | `css/manager.css` (5 panels) | `22` | 2026-09-16 |
 | v0.7.0 | `css/base.css` · `css/manager.css` (5 panels) | `21` · `21` | 2026-09-16 |
 | v0.6.7 | `css/base.css` · `js/dashboard.js` · `js/settings.page.js` | `20` · `14` · `7` | 2026-09-16 |

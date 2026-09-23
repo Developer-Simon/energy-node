@@ -1166,7 +1166,7 @@ tr:nth-child(even) td { background: var(--panel); }
 .compact-card.is-unknown { border-left-color: var(--border); }
 .compact-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: .5rem; align-items: start; }
 .compact-card-icon { display: inline-flex; width: 1.6rem; height: 1.6rem; align-items: center; justify-content: center; border-radius: 6px; background: var(--accent-bg); color: var(--accent); flex: none; }
-.compact-card-icon svg { width: 1rem; height: 1rem; }
+.compact-card-icon svg { width: 1.35rem; height: 1.35rem; }
 .compact-card-title { min-width: 0; }
 .compact-card-title strong { display: block; color: var(--accent); letter-spacing: -.01em; font-size: .92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .compact-card-title small { display: block; margin-top: .1rem; color: var(--text-faint); font-size: .72rem; overflow-wrap: anywhere; }
@@ -1403,7 +1403,7 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-topbar-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
 .device-modal-topbar-sub, .device-modal-topbar .device-detail-source { margin: .1rem 0 0; color: var(--text-muted); font-size: .8rem; line-height: 1.3; }
 .device-modal-topbar-icon { flex: none; width: 2.1rem; height: 2.1rem; border-radius: var(--radius-sm); background: var(--accent-bg); border: 1px solid var(--accent-line); display: grid; place-items: center; color: var(--accent-soft); }
-.device-modal-topbar-icon svg { width: 1.1rem; height: 1.1rem; }
+.device-modal-topbar-icon svg { width: 1.7rem; height: 1.7rem; }
 .device-modal-topbar-pill { display: inline-flex; align-items: center; gap: .35rem; font-size: .74rem; font-weight: 400; padding: .16rem .5rem; border-radius: 99px; border: 1px solid var(--ok-line); background: var(--ok-bg); color: var(--ok); }
 .device-modal-topbar-pill::before { content: ""; width: .35rem; height: .35rem; border-radius: 50%; background: currentColor; }
 .device-modal-topbar-pill-offline { border-color: var(--bad-strong); background: var(--bad-bg); color: var(--bad-strong); }
@@ -1474,7 +1474,13 @@ dialog#device-modal { container: device-modal / inline-size; }
      color-mix(--sunken, #000) sonst schmutzig-dunkel. Die Trennung zum
      Hauptbereich traegt jetzt allein die --border-Kante (nicht --border-soft),
      weil der Tonunterschied zur Kopfzeile dafuer zu klein ist. */
-  .device-modal-sidebar { display: block; padding: 1rem 1.1rem; border-right: 1px solid var(--border); background: var(--bg); }
+  /* grid-row: 1 / span 2 haelt die Sidebar auf voller Hoehe, seit der
+     angepinnte Favoriten-Block als drittes Kind in dasselbe 2-Spalten-Grid
+     kam: ohne die Spanne setzt Auto-Placement den Block in Zeile 1/Spalte 2
+     und schiebt den Switcher nach Zeile 2/Spalte 1 - die Tableiste landet
+     dann in der 14.5rem-Sidebar-Spalte statt in der breiten Hauptspalte. */
+  .device-modal-sidebar { display: block; grid-row: 1 / span 2; padding: 1rem 1.1rem; border-right: 1px solid var(--border); background: var(--bg); }
+  .device-modal-pinned { grid-column: 2; align-content: start; }
   /* row-gap 0: die eingeklappten Panelwraps (0fr-Grid, volle Breite) liegen
      als 0px-Zeilen zwischen Tableiste und aktivem Panel - mit row-gap
      wuerde jede davon einen sichtbaren Spalt aufaddieren und die Trennlinie
@@ -1485,7 +1491,7 @@ dialog#device-modal { container: device-modal / inline-size; }
      dann zwischen die Flex-Zeilen - die Tableiste wird auseinandergezogen
      und das aktive Panel steht mit grossem Versatz unter der Oberkante.
      flex-start packt Tabs + Panel buendig nach oben. */
-  .device-modal-switcher { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 .15rem; position: relative; min-width: 0; padding: .9rem 1.2rem 1.3rem; }
+  .device-modal-switcher { display: flex; flex-wrap: wrap; align-items: flex-start; align-content: flex-start; gap: 0 .15rem; position: relative; min-width: 0; padding: .9rem 1.2rem 1.3rem; grid-column: 2; }
   .device-modal-pair[data-tab="deviceInfo"] { display: none; }
   .device-modal-pair { display: contents; }
   .device-modal-pair[data-tab="measurements"] .device-modal-trigger,
@@ -1625,3 +1631,24 @@ small { color: var(--text-muted); }
   .energy-flow-node strong { font-size: .92rem; }
   .energy-flow-node output { font-size: .76rem; }
 }
+
+/* Darstellung je Geraet: Icon-Raster und Favoritenliste im Modal-Tab
+   "Verwaltung & Analyse". */
+.device-prefs { display: grid; gap: .6rem; margin-bottom: 1rem; }
+.device-prefs-hint { color: var(--text-muted); font-size: .85rem; margin: 0; }
+.device-prefs-icons { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: .35rem; }
+.device-prefs-icon { display: grid; place-items: center; padding: .4rem; background: var(--panel-alt); border: 1px solid var(--border-soft); border-radius: 6px; color: var(--text); cursor: pointer; }
+.device-prefs-icon:hover { border-color: var(--accent-line); }
+.device-prefs-icon.active { border-color: var(--accent); color: var(--accent); }
+.device-prefs-icon svg { width: 24px; height: 24px; }
+.device-prefs-favorites { min-width: 0; }
+.device-prefs-pin { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .9rem; cursor: pointer; }
+.device-modal-topbar-glyph { display: contents; }
+.device-prefs-actions { display: flex; align-items: center; gap: .6rem; }
+.device-prefs-status { color: var(--text-muted); }
+.device-tile-icon { display: inline-grid; place-items: center; width: 20px; height: 20px; margin-right: .35rem; color: var(--accent); vertical-align: -.2em; }
+.device-tile-icon svg { width: 18px; height: 18px; }
+
+/* Angepinnte Favoriten: dieselbe Kachel wie im Messwerte-Tab, nur oberhalb
+   der Tableiste und in einer Reihe. */
+.device-modal-pinned { display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: .5rem; margin-bottom: .75rem; }

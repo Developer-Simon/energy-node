@@ -46,6 +46,9 @@ var mqttSchema []byte
 //go:embed bridge.schema.json
 var bridgeSchema []byte
 
+//go:embed device-prefs.schema.json
+var devicePrefsSchema []byte
+
 type Settings struct {
 	HealthScoreThreshold         int      `json:"health_score_threshold"`
 	SweepIntervalSeconds         int      `json:"sweep_interval_seconds"`
@@ -236,6 +239,41 @@ type DeviceMapView struct {
 	EdgeStyle  string `json:"edge_style"`
 }
 
+// DevicePrefs are the per-device display preferences the Devices tab writes:
+// which icon a device shows and which of its entities are pinned as
+// favourites. Display state, not discovery data - the registry never reads
+// it, the presentation layer stamps it onto a snapshot.
+type DevicePrefs struct {
+	Version int                `json:"version"`
+	Devices []DevicePrefsEntry `json:"devices"`
+}
+
+// DevicePrefsEntry is one device's record. A record that carries nothing is
+// dropped on normalisation, so "reset to default" leaves no trace in the
+// file.
+type DevicePrefsEntry struct {
+	DeviceID string `json:"device_id"`
+	// Icon is a catalogue name from webui.DeviceIconCatalogue, e.g.
+	// "mdi:solar-panel". Empty means the built-in chip outline. An unknown
+	// name renders the fallback rather than failing - same tolerance the
+	// entity icons in webui/icons.go already have for unknown HA names.
+	Icon string `json:"icon,omitempty"`
+	// FavoriteRefs are entity unique IDs, at most maxFavoriteRefs, in the
+	// order the user picked them. Empty means the compact card falls back to
+	// its automatic selection.
+	FavoriteRefs []string `json:"favorite_refs,omitempty"`
+	// PinFavorites additionally shows those entities as a block at the top
+	// of the device modal. Per device on purpose: a favourite worth pinning
+	// on the inverter is noise on a thermometer.
+	PinFavorites bool `json:"pin_favorites,omitempty"`
+}
+
+const maxFavoriteRefs = 3
+
+// Nur Katalognamen, kein freier Text: der Name landet im Dateinamen-Stil in
+// device-prefs.json und wird im Browser in Markup eingesetzt.
+var devicePrefsIconPattern = regexp.MustCompile(`^mdi:[a-z0-9-]+$`)
+
 type RelationOverride struct {
 	ID        string    `json:"id"`
 	ChildID   string    `json:"child_id"`
@@ -331,21 +369,24 @@ type Revision struct {
 }
 
 type Store struct {
-	mu              sync.Mutex
-	dir             string
-	sweepDefault    int
-	settingsLoaded  bool
-	settingsValue   Settings
-	energyLoaded    bool
-	energyValue     EnergyConfig
-	layoutLoaded    bool
-	layoutValue     Layout
-	deviceMapLoaded bool
-	deviceMapValue  DeviceMap
-	mqttLoaded      bool
-	mqttValue       MQTTConfig
-	bridgeLoaded    bool
-	bridgeValue     BridgeConfig
+	mu                sync.Mutex
+	dir               string
+	sweepDefault      int
+	settingsLoaded    bool
+	settingsValue     Settings
+	energyLoaded      bool
+	energyValue       EnergyConfig
+	layoutLoaded      bool
+	layoutValue       Layout
+	deviceMapLoaded   bool
+	deviceMapValue    DeviceMap
+	devicePrefsLoaded bool
+	devicePrefsValue  DevicePrefs
+	devicePrefsGen    uint64
+	mqttLoaded        bool
+	mqttValue         MQTTConfig
+	bridgeLoaded      bool
+	bridgeValue       BridgeConfig
 }
 
 func NewStore(dir string) *Store { return &Store{dir: filepath.Clean(dir)} }
@@ -888,6 +929,175 @@ func validateDeviceMap(value DeviceMap) error {
 		seenEdges[edge.ID] = true
 	}
 	return nil
+}
+
+func normalizeDevicePrefs(value DevicePrefs) DevicePrefs {
+	if value.Version == 0 {
+		value.Version = 1
+	}
+	byID := make(map[string]DevicePrefsEntry, len(value.Devices))
+	for _, entry := range value.Devices {
+		entry.DeviceID = strings.TrimSpace(entry.DeviceID)
+		if entry.DeviceID == "" {
+			continue
+		}
+		entry.Icon = strings.TrimSpace(entry.Icon)
+		entry.FavoriteRefs = normalizeFavoriteRefs(entry.FavoriteRefs)
+		// Ein Eintrag ohne Inhalt ist dasselbe wie kein Eintrag. So waechst
+		// die Datei nicht um einen Datensatz je Geraet, das einmal geoeffnet
+		// und auf Standard belassen wurde - und "zuruecksetzen" ist einfach
+		// ein leerer Eintrag.
+		if entry.Icon == "" && len(entry.FavoriteRefs) == 0 && !entry.PinFavorites {
+			delete(byID, entry.DeviceID)
+			continue
+		}
+		// Der spaetere Eintrag gewinnt: genau das liefert ein zusammen-
+		// fuehrendes Speichern (SaveDevicePrefsEntry haengt hinten an).
+		byID[entry.DeviceID] = entry
+	}
+	ids := make([]string, 0, len(byID))
+	for id := range byID {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	entries := make([]DevicePrefsEntry, 0, len(ids))
+	for _, id := range ids {
+		entries = append(entries, byID[id])
+	}
+	value.Devices = entries
+	return value
+}
+
+func normalizeFavoriteRefs(refs []string) []string {
+	result := make([]string, 0, len(refs))
+	seen := make(map[string]bool, len(refs))
+	for _, ref := range refs {
+		ref = strings.TrimSpace(ref)
+		if ref == "" || seen[ref] {
+			continue
+		}
+		seen[ref] = true
+		result = append(result, ref)
+		if len(result) == maxFavoriteRefs {
+			break
+		}
+	}
+	if len(result) == 0 {
+		return nil
+	}
+	return result
+}
+
+func validateDevicePrefs(value DevicePrefs) error {
+	value = normalizeDevicePrefs(value)
+	data, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	if err := config.ValidateDocument(data, devicePrefsSchema); err != nil {
+		return err
+	}
+	// config.ValidateDocument kennt kein "pattern" - der Icon-Name wird
+	// deshalb hier geprueft und nicht im Schema.
+	for _, entry := range value.Devices {
+		if entry.Icon != "" && !devicePrefsIconPattern.MatchString(entry.Icon) {
+			return fmt.Errorf("device %q has an unsupported icon name %q", entry.DeviceID, entry.Icon)
+		}
+	}
+	return nil
+}
+
+func cloneDevicePrefs(value DevicePrefs) DevicePrefs {
+	entries := make([]DevicePrefsEntry, len(value.Devices))
+	for i, entry := range value.Devices {
+		entry.FavoriteRefs = append([]string(nil), entry.FavoriteRefs...)
+		entries[i] = entry
+	}
+	return DevicePrefs{Version: value.Version, Devices: entries}
+}
+
+func (s *Store) LoadDevicePrefs() (DevicePrefs, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.loadDevicePrefsLocked()
+}
+
+func (s *Store) loadDevicePrefsLocked() (DevicePrefs, error) {
+	if s.devicePrefsLoaded {
+		return cloneDevicePrefs(s.devicePrefsValue), nil
+	}
+	var value DevicePrefs
+	if err := s.loadJSONLocked("device-prefs.json", &value); errors.Is(err, os.ErrNotExist) {
+		value = normalizeDevicePrefs(DevicePrefs{})
+	} else if err != nil {
+		return DevicePrefs{}, err
+	} else {
+		value = normalizeDevicePrefs(value)
+		if err := validateDevicePrefs(value); err != nil {
+			return DevicePrefs{}, err
+		}
+	}
+	s.devicePrefsValue = cloneDevicePrefs(value)
+	s.devicePrefsLoaded = true
+	return cloneDevicePrefs(value), nil
+}
+
+func (s *Store) SaveDevicePrefs(value DevicePrefs) (DevicePrefs, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.saveDevicePrefsLocked(value)
+}
+
+func (s *Store) saveDevicePrefsLocked(value DevicePrefs) (DevicePrefs, error) {
+	value = normalizeDevicePrefs(value)
+	if err := validateDevicePrefs(value); err != nil {
+		return DevicePrefs{}, err
+	}
+	if err := s.saveJSONLocked("device-prefs.json", value); err != nil {
+		return DevicePrefs{}, err
+	}
+	s.devicePrefsValue = cloneDevicePrefs(value)
+	s.devicePrefsLoaded = true
+	s.devicePrefsGen++
+	return value, nil
+}
+
+// SaveDevicePrefsEntry merges one device's record into the document. The
+// read-modify-write runs under the store's lock, so two browser tabs editing
+// two different devices cannot overwrite each other's record.
+func (s *Store) SaveDevicePrefsEntry(entry DevicePrefsEntry) (DevicePrefs, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	current, err := s.loadDevicePrefsLocked()
+	if err != nil {
+		return DevicePrefs{}, err
+	}
+	current.Devices = append(current.Devices, entry)
+	return s.saveDevicePrefsLocked(current)
+}
+
+// DevicePrefsByID is the lookup shape the render paths want.
+func (s *Store) DevicePrefsByID() (map[string]DevicePrefsEntry, error) {
+	value, err := s.LoadDevicePrefs()
+	if err != nil {
+		return nil, err
+	}
+	result := make(map[string]DevicePrefsEntry, len(value.Devices))
+	for _, entry := range value.Devices {
+		result[entry.DeviceID] = entry
+	}
+	return result, nil
+}
+
+// DevicePrefsGeneration counts successful saves of device-prefs.json. The
+// SSE event cache keys on it next to the registry version: a preference
+// change moves a compact card's row selection without touching the registry,
+// so without this the cache would keep serving a body built for the old
+// selection (see httpapi.eventCache.bodies).
+func (s *Store) DevicePrefsGeneration() uint64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.devicePrefsGen
 }
 
 func (s *Store) LoadMQTT() (MQTTConfig, error) {

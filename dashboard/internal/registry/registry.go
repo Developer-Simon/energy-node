@@ -1070,6 +1070,19 @@ type DeviceView struct {
 	LastUpdated   time.Time        `json:"last_updated,omitempty"`
 	DiscoveryJSON []string         `json:"discovery_json,omitempty"`
 	Entities      []EntityView     `json:"entities"`
+	// Anzeige-Praeferenzen aus device-prefs.json. Die Registry fuellt sie
+	// nie - das tut die Praesentationsschicht (webui.ApplyDevicePrefs),
+	// direkt nachdem sie einen Snapshot gezogen hat. Sie stehen hier und
+	// nicht in einer Parallelstruktur, damit jede Stelle, die ohnehin schon
+	// eine DeviceView in der Hand haelt - Template, Strukturfingerabdruck,
+	// Detail-JSON - sie ohne zweiten Parameter sieht. Dasselbe Muster wie
+	// EntityView.HiddenOnTile.
+	IconName     string   `json:"icon_name,omitempty"`
+	FavoriteRefs []string `json:"favorite_refs,omitempty"`
+	PinFavorites bool     `json:"pin_favorites,omitempty"`
+	// SuggestedIcon ist das Icon, das aus Hersteller und Modell folgt
+	// (webui.suggestedDeviceIcon). Es greift nur, solange IconName leer ist.
+	SuggestedIcon string `json:"suggested_icon,omitempty"`
 }
 
 type DiagnosticsSnapshot struct {

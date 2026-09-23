@@ -346,6 +346,9 @@ valid, topic allowed) are done by the automation service, not the dashboard.
 | GET | `/api/v1/layout/revisions` | – | Layout revisions |
 | GET | `/api/v1/layout/revisions/{revision}` | – | A single layout revision |
 | POST | `/api/v1/layout/restore` | – | Restore layout |
+| GET | `/api/v1/device/icons` | – | Icon catalogue (name, label, markup) |
+| GET | `/api/v1/device/prefs` | – | Device preferences document |
+| PUT | `/api/v1/device/prefs/{device_id}` | `edit_layout` + CSRF | Save icon, favourites, and pinning |
 | GET/PUT | `/api/v1/device/map` | – | Device card including manual edges |
 | GET | `/api/v1/device/map/revisions` | – | Revisions |
 | POST | `/api/v1/device/map/restore` | – | Restore |
@@ -364,6 +367,46 @@ truth about the space requirements per card type. An item carries `span` (size
 class `"1"`–`"6"`/`"full"`) and optionally `height` (forced height, 1–12 units
 of 7 rem) instead of coordinates. `card_types` is output only and is ignored by
 `PUT`.
+
+`GET /api/v1/device/icons` returns the full icon catalogue as an array:
+
+```json
+[
+  { "name": "mdi:solar-panel", "label": "Solar Panel", "markup": "…" },
+  …
+]
+```
+
+`markup` is the inner SVG of a 24×24 stroked icon and may be used directly in a
+`<symbol>` or rendered to a canvas.
+
+**`GET /api/v1/device/prefs`** returns the complete `device-prefs.json`
+document containing the `icon`, `favorite_refs`, and `pin_favorites` state for
+every device (shared across all browser sessions).
+
+**`PUT /api/v1/device/prefs/{device_id}`** — `{device_id}` is URL-encoded.
+The body is a partial device preferences object:
+
+```json
+{
+  "icon": "mdi:solar-panel",
+  "favorite_refs": ["entity-1", "entity-2"],
+  "pin_favorites": true
+}
+```
+
+The server merges the changes into the saved document and returns the updated
+`device-prefs.json`. Validation:
+
+- `icon`: must match `^mdi:[a-z0-9-]+$` (names from the icon catalogue), or be
+  `null` or omitted (clears the custom icon).
+- `favorite_refs`: array of entity IDs, max. 3 entries. Omit to clear.
+- `pin_favorites`: boolean, or omit to clear.
+
+On validation failure: `400` with `device_prefs_rejected`.
+
+Requires `edit_layout` role and CSRF token when authentication is active (like
+all layout-modifying endpoints).
 
 `POST /api/v1/device/map/relations` expects
 `{"child_id":"…","parent_id":"…","kind":"via_device"}` and rejects

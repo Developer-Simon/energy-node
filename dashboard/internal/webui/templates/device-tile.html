@@ -4,7 +4,7 @@
   <article class="device-tile{{with $status.Rail}} {{.}}{{end}}" data-device-id="{{.ID}}">
     <header class="device-tile-header">
       <div>
-        <h3><span class="device-tile-dot device-tile-dot-{{$status.Class}}"{{with $status.Label}} title="{{.}}"{{end}} aria-hidden="true"></span>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3>
+        <h3><span class="device-tile-icon" aria-hidden="true">{{deviceIcon $device}}</span><span class="device-tile-dot device-tile-dot-{{$status.Class}}"{{with $status.Label}} title="{{.}}"{{end}} aria-hidden="true"></span>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3>
         {{if .Model}}<small>{{.Model}}</small>{{end}}
       </div>
       <div class="device-tile-actions"><button type="button" class="device-detail-trigger" data-device-id="{{.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" x-bind:aria-label="`Details für {{.Name}} anzeigen`">Details</button></div>

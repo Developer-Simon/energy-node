@@ -1095,7 +1095,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=21"`,
+		`href="/node/static/css/base.css?v=22"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -2643,5 +2643,141 @@ func TestOverviewAutomationsFragmentGatedWhenDeselected(t *testing.T) {
 	body := rec.Body.String()
 	if strings.Contains(body, `x-data="automationsPanel()"`) {
 		t.Fatalf("automation ist abgewaehlt, trotzdem liefert die eigene Fragment-URL den echten Panel-Inhalt:\n%s", body)
+	}
+}
+
+func devicePrefsTestDevice() registry.DeviceView {
+	return registry.DeviceView{ID: "node", Name: "Node", Entities: []registry.EntityView{
+		{UniqueID: "node_temp", ObjectID: "temp", Name: "Temperatur", Component: "sensor",
+			DeviceClass: "temperature", UnitOfMeasurement: "°C", HasValue: true, Value: "21"},
+		{UniqueID: "node_relay", ObjectID: "relay", Name: "Relais", Component: "switch",
+			HasValue: true, Value: "ON", Commandable: true},
+		{UniqueID: "node_uptime", ObjectID: "uptime", Name: "Laufzeit", Component: "sensor",
+			HasValue: true, Value: "12"},
+		{UniqueID: "node_pending", ObjectID: "pending", Name: "Ohne Wert", Component: "sensor"},
+	}}
+}
+
+func TestApplyDevicePrefsStampsSnapshot(t *testing.T) {
+	devices := []registry.DeviceView{devicePrefsTestDevice(), {ID: "other"}}
+
+	ApplyDevicePrefs(devices, map[string]settings.DevicePrefsEntry{
+		"node": {DeviceID: "node", Icon: "mdi:raspberry-pi", FavoriteRefs: []string{"node_relay"}, PinFavorites: true},
+	})
+
+	if devices[0].IconName != "mdi:raspberry-pi" || !devices[0].PinFavorites {
+		t.Errorf("devices[0] = %#v, want the stamped icon and pin flag", devices[0])
+	}
+	if len(devices[0].FavoriteRefs) != 1 || devices[0].FavoriteRefs[0] != "node_relay" {
+		t.Errorf("FavoriteRefs = %#v, want the stored ref", devices[0].FavoriteRefs)
+	}
+	if devices[1].IconName != "" || devices[1].FavoriteRefs != nil {
+		t.Errorf("devices[1] = %#v, want a device without a record left untouched", devices[1])
+	}
+}
+
+func TestPriorityEntitiesUsesFavouritesInOrder(t *testing.T) {
+	dev := devicePrefsTestDevice()
+	dev.FavoriteRefs = []string{"node_relay", "node_temp"}
+
+	picked := priorityEntities(dev)
+
+	if len(picked) != 2 || picked[0].UniqueID != "node_relay" || picked[1].UniqueID != "node_temp" {
+		t.Fatalf("priorityEntities = %v, want the favourites in the picked order", picked)
+	}
+}
+
+func TestPriorityEntitiesKeepsFavouriteWithoutValue(t *testing.T) {
+	dev := devicePrefsTestDevice()
+	dev.FavoriteRefs = []string{"node_pending"}
+
+	picked := priorityEntities(dev)
+
+	if len(picked) != 1 || picked[0].UniqueID != "node_pending" {
+		t.Fatalf("priorityEntities = %v, want an explicitly picked entity even without a value", picked)
+	}
+}
+
+func TestPriorityEntitiesSkipsOrphanFavouriteAndFallsBackWhenEmpty(t *testing.T) {
+	dev := devicePrefsTestDevice()
+	dev.FavoriteRefs = []string{"node_gone", "node_temp"}
+
+	picked := priorityEntities(dev)
+	if len(picked) != 1 || picked[0].UniqueID != "node_temp" {
+		t.Fatalf("priorityEntities = %v, want the orphan ref skipped silently", picked)
+	}
+
+	dev.FavoriteRefs = nil
+	if automatic := priorityEntities(dev); len(automatic) == 0 {
+		t.Fatal("priorityEntities returned nothing for a device without favourites, want the automatic selection")
+	}
+}
+
+func TestCompactStructureFingerprintFollowsFavourites(t *testing.T) {
+	plain := []registry.DeviceView{devicePrefsTestDevice()}
+	favoured := []registry.DeviceView{devicePrefsTestDevice()}
+	favoured[0].FavoriteRefs = []string{"node_uptime"}
+
+	if CompactStructureFingerprint(plain) == CompactStructureFingerprint(favoured) {
+		t.Fatal("CompactStructureFingerprint ignored the favourite selection - the live patcher would write values into the wrong rows")
+	}
+}
+
+// TestOverviewPageStampsDevicePrefs is the one render path Overview() itself
+// takes (the other two - SSE event cache, device-detail JSON - already have
+// their own tests in internal/httpapi). Deleting the ApplyDevicePrefs call
+// in OverviewWithDeviceFilterAndEngine leaves every other test in this
+// package and internal/httpapi green, which is exactly the silent-regression
+// this plan warns about: the compact card would keep its automatic rows and
+// default icon while the SSE stream and device-detail JSON already reflect
+// the saved preference.
+func TestOverviewPageStampsDevicePrefs(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung"},
+	})
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_temp", ObjectID: "temp", Component: "sensor", Name: "Temperatur"},
+	})
+	reg.UpdateState("node/power", []byte("42"), false, time.Now())
+	reg.UpdateState("node/temp", []byte("21"), false, time.Now())
+
+	store := settings.NewStore(t.TempDir())
+	if _, err := store.SaveDevicePrefsEntry(settings.DevicePrefsEntry{
+		DeviceID: "node", Icon: "mdi:raspberry-pi", FavoriteRefs: []string{"node_power"},
+	}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d", recorder.Code)
+	}
+	body := recorder.Body.String()
+
+	if !strings.Contains(body, `cx="11.7" cy="12.2"`) {
+		t.Errorf("compact card does not carry the saved mdi:raspberry-pi markup - ApplyDevicePrefs was not applied on the page render path: %s", body)
+	}
+	if !strings.Contains(body, "Leistung") {
+		t.Errorf("compact card is missing the favourite row (Leistung): %s", body)
+	}
+	if strings.Contains(body, "Temperatur") {
+		t.Errorf("compact card shows the non-favourite entity (Temperatur) - favourite selection did not replace the automatic rows: %s", body)
+	}
+}
+
+func TestApplyDevicePrefsStampsSuggestedIconWithoutPrefs(t *testing.T) {
+	devices := []registry.DeviceView{{ID: "ez1", Manufacturer: "APsystems", Model: "EZ1"}, {ID: "x"}}
+
+	ApplyDevicePrefs(devices, nil)
+
+	if devices[0].SuggestedIcon != "mdi:solar-panel" {
+		t.Errorf("SuggestedIcon = %q, want mdi:solar-panel even without any stored prefs", devices[0].SuggestedIcon)
+	}
+	if devices[0].IconName != "" || devices[1].SuggestedIcon != "" {
+		t.Errorf("devices = %#v, want no saved icon and no suggestion for an unknown device", devices)
 	}
 }

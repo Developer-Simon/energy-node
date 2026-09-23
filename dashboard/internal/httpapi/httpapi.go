@@ -245,7 +245,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
-	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
+	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
 	mux.HandleFunc("/api/v1/discovery", handleDiscovery(reg))
 	// /api/v1/discovery ist ohne Schraegstrich registriert, hat also keinen
 	// Unterrouter, mit dem diese Route kollidieren koennte.
@@ -307,6 +307,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		}
 		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store))
 		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg))
+		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
+		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
+		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase))
 		mux.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
@@ -1091,12 +1094,13 @@ func liveUpdateInterval(store *settings.Store) time.Duration {
 // Der Snapshot wird bewusst nur einmal gezogen und an alle drei Zweige
 // weitergereicht.
 type eventCache struct {
-	mu         sync.Mutex
-	version    uint64
-	valid      bool
-	full       []byte
-	delta      []byte
-	lastValues map[string]registry.ValueView
+	mu              sync.Mutex
+	version         uint64
+	valid           bool
+	prefsGeneration uint64
+	full            []byte
+	delta           []byte
+	lastValues      map[string]registry.ValueView
 }
 
 // eventBody ist der Rumpf hinter "data: ". Fehlt ein Zweig, faellt der
@@ -1140,14 +1144,23 @@ type eventBody struct {
 //
 // Der Snapshot wird bewusst nur einmal gezogen und an alle Zweige
 // weitergereicht.
-func (c *eventCache) bodies(reg *registry.Registry, resolver *energy.Resolver, engine *diagnostics.Engine, version uint64) (full, delta []byte) {
+func (c *eventCache) bodies(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine, version uint64) (full, delta []byte) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	if c.valid && c.version == version {
+	prefsGeneration := uint64(0)
+	if store != nil {
+		prefsGeneration = store.DevicePrefsGeneration()
+	}
+	if c.valid && c.version == version && c.prefsGeneration == prefsGeneration {
 		return c.full, c.delta
 	}
 
 	devices := reg.Snapshot()
+	if store != nil {
+		if prefs, err := store.DevicePrefsByID(); err == nil {
+			webui.ApplyDevicePrefs(devices, prefs)
+		}
+	}
 	values := registry.ValueViews(devices)
 	body := eventBody{
 		Version:               version,
@@ -1176,7 +1189,7 @@ func (c *eventCache) bodies(reg *registry.Registry, resolver *energy.Resolver, e
 		return nil, nil
 	}
 
-	c.version, c.full, c.delta, c.lastValues, c.valid = version, fullBytes, deltaBytes, values, true
+	c.version, c.prefsGeneration, c.full, c.delta, c.lastValues, c.valid = version, prefsGeneration, fullBytes, deltaBytes, values, true
 	return c.full, c.delta
 }
 
@@ -1220,7 +1233,7 @@ func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energ
 		registryStreamQueueSize,
 		reg.Version,
 		func(version uint64) (full, delta []byte) {
-			return cache.bodies(reg, resolver, engine, version)
+			return cache.bodies(reg, store, resolver, engine, version)
 		},
 		func() time.Duration { return liveUpdateInterval(store) },
 	)
@@ -1421,7 +1434,7 @@ func handleIgnoredDevices(store *devicefilter.Store) http.HandlerFunc {
 	}
 }
 
-func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, reloader DeviceReloader, now func() time.Time, history *commandHistory, configs *config.Manager, authManager *auth.Manager, filter *devicefilter.Store, actions DeviceActioner) http.HandlerFunc {
+func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *settings.Store, reloader DeviceReloader, now func() time.Time, history *commandHistory, configs *config.Manager, authManager *auth.Manager, filter *devicefilter.Store, actions DeviceActioner) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/devices/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
@@ -1572,8 +1585,48 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, reloader D
 			writeError(w, http.StatusNotFound, "device_not_found", "Gerät wurde nicht gefunden")
 			return
 		}
+		// Damit das Modal Icon, Favoriten und den Pin-Schalter kennt, ohne
+		// eine zweite Anfrage zu stellen. Auch ohne lesbare Praeferenzen
+		// laufen: das vorgeschlagene Icon haengt nur am Geraet selbst.
+		var prefs map[string]settings.DevicePrefsEntry
+		if store != nil {
+			if loaded, err := store.DevicePrefsByID(); err == nil {
+				prefs = loaded
+			}
+		}
+		stamped := []registry.DeviceView{dev}
+		webui.ApplyDevicePrefs(stamped, prefs)
+		dev = stamped[0]
 		writeJSON(w, deviceDetailResponse{DeviceView: dev, Warnings: engine.Device(id, now()), CommandActions: history.forDevice(id)})
 	}
+}
+
+// requireLayoutMutation gates writes that change shared display
+// configuration. Deliberately stricter than the plain /api/v1/layout PUT
+// (which predates the auth manager): an instance running without
+// authentication keeps working unchanged, but as soon as there are sessions,
+// the caller needs the role the layout editor asks for plus a valid CSRF
+// token - device preferences are visible to everyone who opens this
+// dashboard, not a private per-browser setting.
+func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+	if manager == nil {
+		return true
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+		return false
+	}
+	if !auth.HasRole(user, auth.RoleEditLayout) {
+		writeError(w, http.StatusForbidden, "device_prefs_forbidden", "Für das Ändern der Darstellung fehlt die Berechtigung")
+		return false
+	}
+	cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
+	if err != nil || !manager.ValidateCSRF(cookie.Value, r.Header.Get("X-CSRF-Token")) {
+		writeError(w, http.StatusForbidden, "csrf_failed", "Sicherheitsprüfung fehlgeschlagen")
+		return false
+	}
+	return true
 }
 
 func requireDeviceMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager, roleRequired, csrfRequired bool) bool {
@@ -2134,6 +2187,66 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry) http.Hand
 			return
 		}
 		methodNotAllowed(w)
+	}
+}
+
+func handleDeviceIcons() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		writeJSON(w, webui.DeviceIconCatalogue())
+	}
+}
+
+func handleDevicePrefs(store *settings.Store) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		value, err := store.LoadDevicePrefs()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "device_prefs_invalid", err.Error())
+			return
+		}
+		writeJSON(w, value)
+	}
+}
+
+// handleDevicePrefsEntry saves exactly one device's record. One device per
+// request, not the whole document: two tabs with two devices open must not
+// overwrite each other, and the merge happens under the store's lock.
+func handleDevicePrefsEntry(store *settings.Store, manager *auth.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		raw := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api/v1/device/prefs/"), "/")
+		deviceID, err := url.PathUnescape(raw)
+		if err != nil || strings.TrimSpace(deviceID) == "" || strings.Contains(deviceID, "/") {
+			writeError(w, http.StatusNotFound, "route_not_found", "Route wurde nicht gefunden")
+			return
+		}
+		if r.Method != http.MethodPut {
+			methodNotAllowed(w, http.MethodPut)
+			return
+		}
+		if !requireLayoutMutation(w, r, manager) {
+			return
+		}
+		var entry settings.DevicePrefsEntry
+		if err := decodeBody(r, &entry); err != nil {
+			writeError(w, http.StatusBadRequest, "device_prefs_rejected", err.Error())
+			return
+		}
+		// Die ID kommt aus dem Pfad, nie aus dem Rumpf - sonst koennte ein
+		// Aufruf auf /node den Datensatz eines anderen Geraets schreiben.
+		entry.DeviceID = deviceID
+		value, err := store.SaveDevicePrefsEntry(entry)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "device_prefs_rejected", err.Error())
+			return
+		}
+		writeJSON(w, value)
 	}
 }
 

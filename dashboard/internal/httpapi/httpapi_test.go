@@ -15,6 +15,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -1864,5 +1865,153 @@ func TestHealthNenntDieAustauschFaehigkeit(t *testing.T) {
 	}
 	if got := payload.Features["history_exchange"]; got != exchangeProtocolVersion {
 		t.Fatalf("features.history_exchange = %d, want %d", got, exchangeProtocolVersion)
+	}
+}
+
+func devicePrefsTestRegistry() *registry.Registry {
+	reg := registry.New()
+	for _, entity := range []registry.EntityInfo{
+		{UniqueID: "node_temp", ObjectID: "temp", StateTopic: "node/temp"},
+		{UniqueID: "node_uptime", ObjectID: "uptime", StateTopic: "node/uptime"},
+	} {
+		reg.UpsertEntity(registry.Discovery{
+			Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+			Entity: entity,
+		})
+	}
+	reg.UpdateState("node/temp", []byte("21"), false, time.Now())
+	reg.UpdateState("node/uptime", []byte("12"), false, time.Now())
+	return reg
+}
+
+func TestDeviceDetailCarriesDevicePrefs(t *testing.T) {
+	reg := devicePrefsTestRegistry()
+	store := settings.NewStore(t.TempDir())
+	if _, err := store.SaveDevicePrefsEntry(settings.DevicePrefsEntry{
+		DeviceID: "node", Icon: "mdi:raspberry-pi", FavoriteRefs: []string{"node_temp"}, PinFavorites: true,
+	}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+
+	recorder := httptest.NewRecorder()
+	NewRouter(reg, config.NewManager(t.TempDir()), store).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/devices/node", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	var detail struct {
+		IconName     string   `json:"icon_name"`
+		FavoriteRefs []string `json:"favorite_refs"`
+		PinFavorites bool     `json:"pin_favorites"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &detail); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if detail.IconName != "mdi:raspberry-pi" || !detail.PinFavorites {
+		t.Errorf("detail = %#v, want the stored icon and pin flag", detail)
+	}
+	if len(detail.FavoriteRefs) != 1 || detail.FavoriteRefs[0] != "node_temp" {
+		t.Errorf("FavoriteRefs = %#v, want the stored ref", detail.FavoriteRefs)
+	}
+}
+
+func TestEventCacheRebuildsWhenDevicePrefsChange(t *testing.T) {
+	reg := devicePrefsTestRegistry()
+	store := settings.NewStore(t.TempDir())
+	cache := &eventCache{}
+	resolver := energy.NewResolver(nil)
+	engine := diagnostics.NewEngine(reg, nil)
+
+	first, _ := cache.bodies(reg, store, resolver, engine, reg.Version())
+	if _, err := store.SaveDevicePrefsEntry(settings.DevicePrefsEntry{DeviceID: "node", FavoriteRefs: []string{"node_uptime"}}); err != nil {
+		t.Fatalf("SaveDevicePrefsEntry: %v", err)
+	}
+	second, _ := cache.bodies(reg, store, resolver, engine, reg.Version())
+
+	if string(first) == string(second) {
+		t.Fatal("bodies returned the cached body although the preferences changed - clients would keep the stale row selection")
+	}
+}
+
+func TestDeviceIconsEndpointServesTheCatalogue(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	NewRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/device/icons", nil))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", recorder.Code)
+	}
+	var icons []struct {
+		Name   string `json:"name"`
+		Label  string `json:"label"`
+		Markup string `json:"markup"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &icons); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(icons) < 18 || icons[0].Markup == "" {
+		t.Fatalf("icons = %#v, want the full catalogue with markup", icons)
+	}
+}
+
+func TestDevicePrefsEndpointSavesAndReturnsTheDocument(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router := NewRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), store)
+
+	body := strings.NewReader(`{"icon":"mdi:raspberry-pi","favorite_refs":["node_temp"],"pin_favorites":true}`)
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/device/prefs/node", body)
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (%s)", recorder.Code, recorder.Body.String())
+	}
+	byID, err := store.DevicePrefsByID()
+	if err != nil {
+		t.Fatalf("DevicePrefsByID: %v", err)
+	}
+	if got := byID["node"]; got.Icon != "mdi:raspberry-pi" || !got.PinFavorites {
+		t.Fatalf("stored = %#v, want the posted record under the path's device id", got)
+	}
+}
+
+func TestDevicePrefsEndpointRejectsBadIconAndWrongMethod(t *testing.T) {
+	router := NewRouter(devicePrefsTestRegistry(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+
+	bad := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/device/prefs/node", strings.NewReader(`{"icon":"javascript:alert(1)"}`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(bad, request)
+	if bad.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 for an icon name outside the catalogue pattern", bad.Code)
+	}
+
+	wrongMethod := httptest.NewRecorder()
+	router.ServeHTTP(wrongMethod, httptest.NewRequest(http.MethodPost, "/api/v1/device/prefs/node", nil))
+	if wrongMethod.Code != http.StatusMethodNotAllowed {
+		t.Errorf("status = %d, want 405", wrongMethod.Code)
+	}
+}
+
+func TestDeviceDetailCarriesSuggestedIconWithoutStore(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "plug", Name: "Plug", Manufacturer: "Shelly", Model: "SNPL-00112EU"},
+		Entity: registry.EntityInfo{UniqueID: "plug_power", ObjectID: "power", StateTopic: "plug/power"},
+	})
+
+	recorder := httptest.NewRecorder()
+	NewRouter(reg, config.NewManager(t.TempDir()), nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/devices/plug", nil))
+
+	var detail struct {
+		IconName      string `json:"icon_name"`
+		SuggestedIcon string `json:"suggested_icon"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &detail); err != nil {
+		t.Fatalf("decode: %v (%s)", err, recorder.Body.String())
+	}
+	if detail.IconName != "" || detail.SuggestedIcon != "mdi:power-plug" {
+		t.Errorf("detail = %#v, want no saved icon and the power-plug suggestion", detail)
 	}
 }

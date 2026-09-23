@@ -22,8 +22,8 @@ func TestEventCacheBuildsOncePerVersion(t *testing.T) {
 	engine := diagnostics.NewEngine(reg, nil)
 	cache := &eventCache{}
 
-	first, _ := cache.bodies(reg, resolver, engine, 7)
-	second, _ := cache.bodies(reg, resolver, engine, 7)
+	first, _ := cache.bodies(reg, nil, resolver, engine, 7)
+	second, _ := cache.bodies(reg, nil, resolver, engine, 7)
 	if first == nil {
 		t.Fatal("erster Aufruf lieferte keinen Rumpf")
 	}
@@ -31,7 +31,7 @@ func TestEventCacheBuildsOncePerVersion(t *testing.T) {
 		t.Error("zweiter Aufruf bei gleicher Version hat neu gerechnet statt den Cache zu nutzen")
 	}
 
-	third, _ := cache.bodies(reg, resolver, engine, 8)
+	third, _ := cache.bodies(reg, nil, resolver, engine, 8)
 	if len(third) > 0 && &third[0] == &first[0] {
 		t.Error("neue Version hat den alten Cache wiederverwendet")
 	}
@@ -40,7 +40,7 @@ func TestEventCacheBuildsOncePerVersion(t *testing.T) {
 func TestEventBodyCarriesAllThreeBranches(t *testing.T) {
 	reg := registry.New()
 	cache := &eventCache{}
-	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 3)
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 3)
 
 	var body map[string]json.RawMessage
 	if err := json.Unmarshal(data, &body); err != nil {
@@ -67,7 +67,7 @@ func TestEventBodyCarriesAllThreeBranches(t *testing.T) {
 func TestEventBodyEntitiesIsObjectWhenEmpty(t *testing.T) {
 	reg := registry.New()
 	cache := &eventCache{}
-	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 1)
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 1)
 
 	var body struct {
 		Entities map[string]registry.ValueView `json:"entities"`
@@ -90,7 +90,7 @@ func TestEventBodyCarriesStructureFingerprint(t *testing.T) {
 		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "relay", Component: "switch", Name: "Relais"},
 	})
 	cache := &eventCache{}
-	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 4)
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 4)
 
 	var body struct {
 		Structure string `json:"structure"`
@@ -119,7 +119,7 @@ func TestEventBodyStructureSurvivesAValueChange(t *testing.T) {
 	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
 
 	cache := &eventCache{}
-	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
 	var body struct {
 		Structure string `json:"structure"`
 	}
@@ -150,7 +150,7 @@ func TestEventCacheDeltaCarriesOnlyChangedValues(t *testing.T) {
 	resolver := energy.NewResolver(nil)
 	engine := diagnostics.NewEngine(reg, nil)
 
-	full1, delta1 := cache.bodies(reg, resolver, engine, reg.Version())
+	full1, delta1 := cache.bodies(reg, nil, resolver, engine, reg.Version())
 	if full1 == nil || delta1 == nil {
 		t.Fatal("erster Aufruf lieferte keinen Rumpf")
 	}
@@ -160,7 +160,7 @@ func TestEventCacheDeltaCarriesOnlyChangedValues(t *testing.T) {
 	}
 
 	reg.UpdateTopicWithQoS("dev-a/power", []byte("2"), false, 0, time.Now().UTC())
-	full2, delta2 := cache.bodies(reg, resolver, engine, reg.Version())
+	full2, delta2 := cache.bodies(reg, nil, resolver, engine, reg.Version())
 
 	fe := decodeEntities(t, full2)
 	if len(fe) != 2 {
@@ -196,11 +196,11 @@ func TestEventCacheDeltaIsStableWithinAVersion(t *testing.T) {
 	resolver := energy.NewResolver(nil)
 	engine := diagnostics.NewEngine(reg, nil)
 
-	_, _ = cache.bodies(reg, resolver, engine, reg.Version())
+	_, _ = cache.bodies(reg, nil, resolver, engine, reg.Version())
 	reg.UpdateTopicWithQoS("dev-a/power", []byte("2"), false, 0, time.Now().UTC())
 	v := reg.Version()
-	_, deltaA := cache.bodies(reg, resolver, engine, v)
-	_, deltaB := cache.bodies(reg, resolver, engine, v)
+	_, deltaA := cache.bodies(reg, nil, resolver, engine, v)
+	_, deltaB := cache.bodies(reg, nil, resolver, engine, v)
 	if string(deltaA) != string(deltaB) {
 		t.Errorf("Delta bei gleicher Version instabil:\n a=%s\n b=%s", deltaA, deltaB)
 	}
@@ -232,7 +232,7 @@ func TestEventBodyCarriesCompactStructureFingerprint(t *testing.T) {
 	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
 
 	cache := &eventCache{}
-	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
 
 	var body struct {
 		StructureCompact string `json:"structure_compact"`
@@ -262,7 +262,7 @@ func TestEventBodyCompactStructureSurvivesAValueTick(t *testing.T) {
 	reg.UpdateTopicWithQoS("node/power", []byte("1337"), false, 0, time.Now().UTC())
 
 	cache := &eventCache{}
-	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
 	var body struct {
 		StructureCompact string `json:"structure_compact"`
 	}
@@ -286,7 +286,7 @@ func TestEventBodyCarriesAvailabilityStructureFingerprint(t *testing.T) {
 	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
 
 	cache := &eventCache{}
-	data, _ := cache.bodies(reg, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
 
 	var body struct {
 		StructureAvailability string `json:"structure_availability"`

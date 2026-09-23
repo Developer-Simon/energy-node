@@ -35,7 +35,10 @@ function createDevicesPanel() {
   dom.window.deviceTileMixin = () => ({});
   vm.runInContext(source, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
-  return factories.devicesPanel();
+  const panel = factories.devicesPanel();
+  // Fuer Tests, die window.Choices doubeln muessen.
+  Object.defineProperty(panel, 'testWindow', {value: dom.window});
+  return panel;
 }
 
 function entity(overrides) {
@@ -253,4 +256,128 @@ test('deviceAvailability ist unknown, wenn keine Entitaet Verfuegbarkeit meldet'
 test('positionUnderline setzt Breite/Position aus dem aktiven Trigger, ohne Fehler bei fehlendem Ref', () => {
   const panel = createDevicesPanel();
   assert.doesNotThrow(() => panel.positionUnderline());
+});
+
+test('seedPrefsDraft füllt den Entwurf einmal je Gerät und überschreibt laufende Eingaben nicht', () => {
+  const panel = createDevicesPanel();
+  panel.selectedDeviceId = 'node';
+  panel.deviceDetail = {
+    id: 'node',
+    icon_name: 'mdi:raspberry-pi',
+    favorite_refs: ['node_temp'],
+    pin_favorites: true,
+    entities: [{unique_id: 'node_temp'}, {unique_id: 'node_relay'}],
+  };
+
+  panel.seedPrefsDraft();
+  assert.equal(panel.prefsDraft.icon, 'mdi:raspberry-pi');
+  // seedPrefsDraft() baut favorite_refs per Spread im vm-Kontext von
+  // dashboard.js - dasselbe realmuebergreifende deepStrictEqual-Problem wie
+  // bei messageStates oben, deshalb hier ueber Array.from in den Haupt-Realm
+  // geholt.
+  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), ['node_temp']);
+  assert.equal(panel.prefsDraft.pin_favorites, true);
+
+  // Der Nutzer tippt weiter, waehrend der SSE-Takt loadDeviceDetail erneut
+  // laufen laesst - der Entwurf darf dabei nicht zurueckspringen.
+  panel.prefsDraft.icon = 'mdi:solar-panel';
+  panel.seedPrefsDraft();
+  assert.equal(panel.prefsDraft.icon, 'mdi:solar-panel');
+
+  panel.selectedDeviceId = 'shelly';
+  panel.deviceDetail = {id: 'shelly', entities: []};
+  panel.seedPrefsDraft();
+  assert.equal(panel.prefsDraft.icon, '');
+  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), []);
+});
+
+test('pickIcon speichert das Vorschlags-Icon als leere Auswahl', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {id: 'plug', suggested_icon: 'mdi:power-plug', entities: []};
+  panel.prefsDraft = {icon: '', favorite_refs: [], pin_favorites: false};
+
+  assert.equal(panel.draftIconName, 'mdi:power-plug');
+  assert.equal(panel.savedIconName, 'mdi:power-plug');
+
+  panel.pickIcon('mdi:chip-outline');
+  assert.equal(panel.prefsDraft.icon, 'mdi:chip-outline');
+  assert.equal(panel.draftIconName, 'mdi:chip-outline');
+
+  panel.pickIcon('mdi:power-plug');
+  assert.equal(panel.prefsDraft.icon, '');
+
+  // Ohne Vorschlag steht die leere Auswahl fuer den Chip.
+  panel.deviceDetail = {id: 'x', entities: []};
+  panel.pickIcon('mdi:chip-outline');
+  assert.equal(panel.prefsDraft.icon, '');
+  panel.deviceDetail = {id: 'x', icon_name: 'mdi:home', entities: []};
+  assert.equal(panel.savedIconName, 'mdi:home');
+});
+
+test('initFavoritesChoices füllt Choices in Auswahlreihenfolge, begrenzt auf drei', async () => {
+  const panel = createDevicesPanel();
+  const calls = {};
+  let selected = [];
+  panel.testWindow.Choices = class {
+    constructor(select, options) { calls.select = select; calls.options = options; }
+    setChoices(list) { calls.choices = Array.from(list, item => ({...item})); }
+    setChoiceByValue(values) { selected = Array.from(values); }
+    getValue() { return selected; }
+    destroy() { calls.destroyed = true; }
+  };
+  const select = {};
+  panel.$refs = {favoritesSelect: select, deviceModalDialog: {dataset: {}}};
+  panel.selectedDeviceId = 'node';
+  panel.prefsDraftFor = 'node';
+  panel.deviceDetail = {id: 'node', entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}]};
+  panel.prefsDraft = {icon: '', favorite_refs: ['node_relay', 'node_temp'], pin_favorites: false};
+
+  await panel.initFavoritesChoices();
+
+  assert.equal(calls.select, select);
+  assert.equal(calls.options.maxItemCount, 3);
+  // Favoriten zuerst, in Auswahlreihenfolge - Choices legt die Chips in
+  // Optionsreihenfolge an.
+  assert.deepEqual(calls.choices.map(item => item.value), ['node_relay', 'node_temp']);
+  assert.deepEqual(selected, ['node_relay', 'node_temp']);
+
+  selected = ['node_temp'];
+  panel.syncFavoritesFromChoices();
+  assert.deepEqual(Array.from(panel.prefsDraft.favorite_refs), ['node_temp']);
+
+  panel.destroyFavoritesChoices();
+  assert.equal(calls.destroyed, true);
+  assert.equal(panel.favoritesChoices, null);
+});
+
+test('iconMarkup baut ein vollständiges SVG und fällt auf den Standard zurück', () => {
+  const panel = createDevicesPanel();
+  panel.deviceIcons = [
+    {name: 'mdi:chip-outline', label: 'Standard', markup: '<rect x="6" y="6" width="12" height="12"/>'},
+    {name: 'mdi:solar-panel', label: 'Solarpanel', markup: '<path d="M3.5 16 7 6Z"/>'},
+  ];
+
+  const chosen = panel.iconMarkup('mdi:solar-panel');
+  assert.match(chosen, /^<svg /);
+  assert.match(chosen, /M3\.5 16 7 6Z/);
+  assert.match(panel.iconMarkup('mdi:unbekannt'), /rect x="6"/);
+  assert.match(panel.iconMarkup(''), /rect x="6"/);
+});
+
+test('pinnedFavorites zeigt nur bei gesetztem Schalter und überspringt verwaiste Refs', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = {
+    id: 'node',
+    favorite_refs: ['node_relay', 'node_weg', 'node_temp'],
+    pin_favorites: false,
+    entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}],
+  };
+
+  assert.deepEqual(Array.from(panel.pinnedFavorites), []);
+
+  panel.deviceDetail = {...panel.deviceDetail, pin_favorites: true};
+  assert.deepEqual(
+    Array.from(panel.pinnedFavorites, entity => entity.unique_id),
+    ['node_relay', 'node_temp'],
+  );
 });

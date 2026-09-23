@@ -4,7 +4,7 @@
 
 ### Fixes
 
-- **redeploy:** keep following a run across the dashboard's self-update restart (0c69419)
+- **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
 
 ## v0.1.8 (2026-09-23)
 
