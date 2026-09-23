@@ -20,6 +20,7 @@
 ### Fixes
 
 - **installer:** make redeploy, repair and repo-built bundles install cleanly (#46) (bf1fe10)
+- **shelly:** support sleepy H&T devices with an opt-in wake webhook (#49) (1e6d571)
 - **installer:** localize the package-preparation log lines (c67b49d)
 - **webui:** stop the "restart all" label from overlapping neighbouring text (bbf1e27)
 - **webui:** update the design drafts for the new prepare stepper entry (c958d03)

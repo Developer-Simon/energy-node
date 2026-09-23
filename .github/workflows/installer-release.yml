@@ -1,19 +1,34 @@
 name: Installer Release
 
 on:
-  workflow_dispatch: {}
+  # release.yml calls this after it has published a tag's release, so every
+  # release carries the installer next to the bundles it downloads.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the installer to"
+        required: true
+        type: string
+  # Manual run to (re)attach the installer to an existing release.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the installer to (for example v0.7.0)"
+        required: true
 
 permissions:
   contents: write
 
+# File names carry no version so releases/latest/download/<name> stays a
+# stable link; the installer's own version lives in installer/VERSION.
 jobs:
-  release:
-    name: Build and publish
+  test:
+    name: Test installer
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          ref: ${{ inputs.tag }}
 
       - uses: actions/setup-go@v5
         with:
@@ -28,53 +43,98 @@ jobs:
           go vet ./...
           go test ./...
 
-      - name: Install zip
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends zip
+  build-linux-windows:
+    name: Build Linux and Windows
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
 
-      - name: Build release binaries
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+
+      - name: Build
         working-directory: installer
         env:
           CGO_ENABLED: "0"
         run: |
           set -euo pipefail
-          ver="$(cat VERSION)"
-          tag="installer-${ver}"
-          {
-            echo "VER=${ver}"
-            echo "TAG=${tag}"
-          } >> "$GITHUB_ENV"
           mkdir -p ../dist
-          build() {
-            goos=$1; goarch=$2
-            token="${goos}_${goarch}"
-            echo "==> ${token}"
-            bin=energy-node-installer
-            [ "$goos" = "windows" ] && bin="${bin}.exe"
-            GOOS="$goos" GOARCH="$goarch" \
-              go build -trimpath -ldflags "-s -w" -o "../dist/${bin}" ./cmd/installer
-            if [ "$goos" = "windows" ]; then
-              (cd ../dist && zip -q "energy-node-installer_${ver}_${token}.zip" "${bin}" && rm "${bin}")
-            else
-              tar -C ../dist -czf "../dist/energy-node-installer_${ver}_${token}.tar.gz" "${bin}"
-              rm "../dist/${bin}"
-            fi
-          }
-          build windows amd64
-          build darwin amd64
-          build darwin arm64
-          build linux amd64
-          cd ../dist
-          sha256sum ./* > SHA256SUMS
-          ls -l
+          # A bare .exe starts with a double click.
+          GOOS=windows GOARCH=amd64 go build -trimpath -ldflags "-s -w" \
+            -o ../dist/energy-node-installer_windows_amd64.exe ./cmd/installer
+          # tar keeps the executable bit a plain browser download would lose.
+          for arch in amd64 arm64; do
+            GOOS=linux GOARCH="$arch" go build -trimpath -ldflags "-s -w" \
+              -o ../dist/energy-node-installer ./cmd/installer
+            tar -C ../dist -czf "../dist/energy-node-installer_linux_${arch}.tar.gz" \
+              energy-node-installer
+            rm ../dist/energy-node-installer
+          done
+          ls -l ../dist
 
-      - name: Create GitHub release
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-linux-windows
+          path: dist/*
+
+  build-macos:
+    name: Build macOS universal
+    needs: test
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: installer/go.mod
+
+      - name: Build
+        working-directory: installer
         env:
-          GH_TOKEN: ${{ github.token }}
+          CGO_ENABLED: "0"
         run: |
           set -euo pipefail
-          args=(release create "$TAG" dist/energy-node-installer_* dist/SHA256SUMS
-                --title "$TAG" --target "${{ github.sha }}" --generate-notes)
-          case "$VER" in
-            *-*) args+=(--prerelease) ;;
-          esac
-          gh "${args[@]}"
+          mkdir -p ../dist ../work
+          for arch in amd64 arm64; do
+            GOOS=darwin GOARCH="$arch" go build -trimpath -ldflags "-s -w" \
+              -o "../work/energy-node-installer-${arch}" ./cmd/installer
+          done
+          # One binary for Intel and Apple Silicon; the zip keeps the
+          # executable bit.
+          lipo -create -output ../work/energy-node-installer \
+            ../work/energy-node-installer-amd64 ../work/energy-node-installer-arm64
+          (cd ../work && zip -q ../dist/energy-node-installer_macos_universal.zip energy-node-installer)
+          ls -l ../dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-macos
+          path: dist/*
+
+  publish:
+    name: Attach to the release
+    needs: [build-linux-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Upload
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          cd dist
+          sha256sum energy-node-installer_* > SHA256SUMS.installer
+          ls -l
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber \
+            energy-node-installer_* SHA256SUMS.installer

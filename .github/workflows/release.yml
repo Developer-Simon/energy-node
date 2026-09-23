@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   release:
-    name: Build and publish
+    name: Test and create draft
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,34 +26,6 @@ jobs:
         run: |
           go vet ./...
           go test ./...
-
-      - name: Build release binaries
-        working-directory: dashboard
-        env:
-          CGO_ENABLED: "0"
-          TAG: ${{ github.ref_name }}
-        run: |
-          set -euo pipefail
-          ver="${TAG#v}"
-          mkdir -p ../dist
-          build() {
-            goos=$1; goarch=$2; goarm=${3:-}
-            token="linux_${goarch}${goarm:+v$goarm}"
-            echo "==> $token"
-            GOOS="$goos" GOARCH="$goarch" GOARM="$goarm" \
-              go build -trimpath -ldflags "-s -w -X main.buildVersion=${TAG}" \
-              -o ../dist/energy-node-dashboard ./cmd/dashboard
-            tar -C ../dist -czf \
-              "../dist/energy-node-dashboard_${ver}_${token}.tar.gz" \
-              energy-node-dashboard
-            rm ../dist/energy-node-dashboard
-          }
-          build linux arm 6
-          build linux arm64
-          build linux amd64
-          cd ../dist
-          sha256sum ./*.tar.gz > SHA256SUMS
-          ls -l
 
       - name: Assemble release notes
         id: notes
@@ -80,8 +52,9 @@ jobs:
           GENERATE: ${{ steps.notes.outputs.generate }}
         run: |
           set -euo pipefail
-          args=(release create "$TAG" dist/*.tar.gz dist/SHA256SUMS
-                --title "$TAG" --verify-tag)
+          # A draft until publish below: nodes must not see a release whose
+          # bundles are not attached yet.
+          args=(release create "$TAG" --title "$TAG" --verify-tag --draft)
           case "$TAG" in
             *-*) args+=(--prerelease) ;;
           esac
@@ -91,3 +64,29 @@ jobs:
             args+=(--notes-file "$NOTES_FILE")
           fi
           gh "${args[@]}"
+
+  bundles:
+    name: Signed bundles
+    needs: release
+    uses: ./.github/workflows/bundle-release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
+
+  installer:
+    name: Installer
+    needs: release
+    uses: ./.github/workflows/installer-release.yml
+    with:
+      tag: ${{ github.ref_name }}
+
+  publish:
+    name: Publish release
+    needs: [bundles, installer]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false

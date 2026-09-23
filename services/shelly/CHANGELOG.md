@@ -9,6 +9,7 @@
 
 ### Fixes
 
+- **shelly:** support sleepy H&T devices with an opt-in wake webhook (#49) (1e6d571)
 - **shelly:** don't mark sleepy battery devices offline on a single missed poll (fa3a4d8)
 
 ## v0.3.2 (2026-09-15)

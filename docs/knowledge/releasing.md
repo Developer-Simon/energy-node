@@ -6,8 +6,8 @@ title: "Cutting a release"
 
 Releases are cut from **Git tags**. Pushing a tag that matches `v*` triggers the
 [`Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/release.yml)
-workflow, which builds the dashboard binary, attaches the archives and publishes
-a GitHub Release. There is nothing to run by hand on the release side beyond
+workflow, which attaches the signed node bundles and the installer binaries to
+a GitHub Release and publishes it. There is nothing to run by hand on the release side beyond
 pushing the tag.
 
 ## Publishing `vX.Y.Z`
@@ -40,18 +40,29 @@ pushing the tag.
 On a `v*` tag push, [`Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/release.yml):
 
 1. Runs `go vet ./...` and `go test ./...` in `dashboard/`.
-2. Cross-compiles the dashboard binary (`CGO_ENABLED=0`, `-trimpath`,
-   `-ldflags "-s -w"`) for:
-   - `linux/arm/v6` — Raspberry Pi 1 / Pi Zero W
-   - `linux/arm64`
-   - `linux/amd64`
-3. Packs each build as `energy-node-dashboard_<version>_linux_<arch>.tar.gz` and
-   writes a `SHA256SUMS` file over the archives.
-4. Assembles the release notes: the matching section of `dashboard/CHANGELOG.md`,
+2. Assembles the release notes: the matching section of `dashboard/CHANGELOG.md`,
    extracted by `scripts/release/extract-changelog.sh`. If there is no section
    for the tag, the workflow falls back to GitHub's auto-generated notes.
-5. Creates the GitHub Release with `--verify-tag`, attaching the archives and
-   `SHA256SUMS`.
+3. Creates the GitHub Release as a **draft** with `--verify-tag`.
+4. Calls two reusable workflows in parallel, both attaching to that draft:
+   - [`Bundle Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/bundle-release.yml)
+     builds the signed `energy-node-v<version>-<arch>.tar.gz` bundles for
+     `armv6`, `arm64` and `amd64`. The in-dashboard update and the installer
+     download these; a release without them reports "no published package".
+     Signing needs the `BUNDLE_SIGNING_KEY` secret (the ed25519 private key
+     matching `installer/internal/bundle/signing_key.pub.pem`).
+   - [`Installer Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/installer-release.yml)
+     tests the installer and builds it as
+     `energy-node-installer_windows_amd64.exe`,
+     `energy-node-installer_macos_universal.zip` (Intel and Apple Silicon) and
+     `energy-node-installer_linux_<amd64|arm64>.tar.gz`, plus
+     `SHA256SUMS.installer`. The names carry no version, so
+     `releases/latest/download/<name>` is a stable link.
+5. Publishes the draft once both succeeded. If either fails, the release stays
+   a draft and nodes keep seeing the previous one.
+
+Both reusable workflows can also be run by hand (`workflow_dispatch` with a
+`tag`) to re-attach their assets to an existing release.
 
 ## Pre-releases
 

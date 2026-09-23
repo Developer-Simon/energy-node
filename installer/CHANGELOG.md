@@ -22,6 +22,7 @@
 
 - **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
 - **installer:** make redeploy, repair and repo-built bundles install cleanly (#46) (bf1fe10)
+- **shelly:** support sleepy H&T devices with an opt-in wake webhook (#49) (1e6d571)
 - **installer:** localize the package-preparation log lines (c67b49d)
 - **installer:** expand ~ in the repo package path (873bdda)
 - **installer:** replace remote files the SSH user cannot open for writing (eca0198)
