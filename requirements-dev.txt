@@ -12,3 +12,10 @@
 apsystems-ez1
 tinytuya
 requests
+
+# Only for regenerating the Home Assistant icon module
+# (scripts/icons/flatten_icons.py). Not needed for any test: its --check mode
+# and integrations/homeassistant/tests/test_icon_set.py are stdlib-only.
+# shapely 2.0.x has no Python 3.14 wheels, hence >=2.1.
+svgelements==1.9.6
+shapely>=2.1
