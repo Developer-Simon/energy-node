@@ -13,13 +13,14 @@
 set -euo pipefail
 
 # Local mirror checkout assembled into by default; override with --mirror-path.
-DEFAULT_MIRROR_PATH="/home/simon/dev/ha-battery-soc"
+DEFAULT_MIRROR_PATH=""  # Will be set from release.env if not provided
 
 usage() {
   cat >&2 <<EOF
-publish_mirror.sh [--mirror-path PATH] [--version X.Y.Z] [--dry-run] [--push] [--release]
+publish_mirror.sh [--component NAME] [--mirror-path PATH] [--version X.Y.Z] [--dry-run] [--push] [--release]
 
---mirror-path defaults to ${DEFAULT_MIRROR_PATH}.
+--component defaults to 'battery_soc' (the other option: 'energy_node_icons').
+--mirror-path defaults to the value in mirror/COMPONENT/release.env (MIRROR_PATH).
 --version defaults to the bare semver in the monorepo's
   custom_components/battery_soc/manifest.json ("version" field), which the
   "Version bump" workflow patch-bumps on the PR branch. Pass it explicitly only
@@ -54,13 +55,15 @@ EOF
   exit 2
 }
 
-mirror_path="$DEFAULT_MIRROR_PATH"
+component="battery_soc"
+mirror_path=""
 version=""
 dry_run=0
 push=0
 release=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    --component) component="${2:?--component needs a value}"; shift 2 ;;
     --mirror-path) mirror_path="${2:?--mirror-path needs a value}"; shift 2 ;;
     --version) version="${2:?--version needs a value}"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
@@ -77,8 +80,19 @@ fi
 
 repo_root="$(git -C "$(dirname "${BASH_SOURCE[0]}")" rev-parse --show-toplevel)"
 ha="${repo_root}/integrations/homeassistant"
-src_cc="${ha}/custom_components/battery_soc"
-mirror="${ha}/mirror"
+src_cc="${ha}/custom_components/${component}"
+template="${ha}/mirror/${component}"
+
+# Read mirror-specific settings from release.env if mirror_path not explicitly provided
+if [[ -z "$mirror_path" ]]; then
+  if [[ ! -f "${template}/release.env" ]]; then
+    echo "error: mirror template for '${component}' not found at ${template}" >&2
+    exit 1
+  fi
+  # shellcheck source=/dev/null
+  source "${template}/release.env"
+  mirror_path="${MIRROR_PATH:?release.env must set MIRROR_PATH}"
+fi
 
 # Default the release version to the monorepo manifest's "version" field --
 # the `Version bump` workflow keeps it current (scripts/version/components.sh
@@ -108,28 +122,28 @@ fi
 python3 "${repo_root}/scripts/vendor_core.py" --check
 
 # 2. Integration source (drop caches).
-mkdir -p "${mirror_path}/custom_components/battery_soc"
+mkdir -p "${mirror_path}/custom_components/${component}"
 rsync -a --delete --exclude '__pycache__/' --exclude '*.pyc' \
-  "${src_cc}/" "${mirror_path}/custom_components/battery_soc/"
+  "${src_cc}/" "${mirror_path}/custom_components/${component}/"
 
 # 3. Repo-root files + workflows + README screenshots.
-cp "${mirror}/hacs.json" "${mirror}/README.md" "${mirror}/info.md" \
-   "${mirror}/LICENSE" "${mirror}/AI-DISCLAIMER.md" "${mirror_path}/"
+cp "${template}/hacs.json" "${template}/README.md" "${template}/info.md" \
+   "${template}/LICENSE" "${template}/AI-DISCLAIMER.md" "${mirror_path}/"
 rm -rf "${mirror_path}/.github"
-cp -r "${mirror}/.github" "${mirror_path}/.github"
+cp -r "${template}/.github" "${mirror_path}/.github"
 rm -rf "${mirror_path}/docs"
 mkdir -p "${mirror_path}/docs"
 cp -r "${ha}/docs/img" "${mirror_path}/docs/img"
-cp "${mirror}"/docs/*.md "${mirror_path}/docs/"
+cp "${template}"/docs/*.md "${mirror_path}/docs/"
 
 # 4. Rewrite the manifest's public fields (stdlib json, no jq).
 # shellcheck source=/dev/null
-source "${mirror}/release.env"
+source "${template}/release.env"
 OWNER="${OWNER:?release.env must set OWNER}" \
 REPO="${REPO:?release.env must set REPO}" \
 VERSION="$version" \
-python3 - "${mirror}/manifest.overrides.json" \
-          "${mirror_path}/custom_components/battery_soc/manifest.json" <<'PY'
+python3 - "${template}/manifest.overrides.json" \
+          "${mirror_path}/custom_components/${component}/manifest.json" <<'PY'
 import json, os, sys
 
 overrides_path, manifest_path = sys.argv[1], sys.argv[2]
@@ -161,8 +175,8 @@ PY
 if [[ "$dry_run" -eq 1 ]]; then
   echo "--- dry run: assembled tree at ${mirror_path} ---"
   git -C "$mirror_path" status --porcelain
-  echo "--- custom_components/battery_soc/manifest.json ---"
-  cat "${mirror_path}/custom_components/battery_soc/manifest.json"
+  echo "--- custom_components/${component}/manifest.json ---"
+  cat "${mirror_path}/custom_components/${component}/manifest.json"
   exit 0
 fi
 
@@ -187,16 +201,18 @@ if [[ "$release" -eq 0 ]]; then
   exit 0
 fi
 
-# 5b. Release (--release). First rebuild integrations/homeassistant/CHANGELOG.md
+# 5b. Release (--release). First rebuild the component's CHANGELOG.md
 # from the monorepo history and stage it there -- it is a monorepo-tracked
 # file, so this script only stages it; you commit it alongside the version
 # bump.
-"${repo_root}/scripts/generate_changelog.sh" ha-integration
-git -C "$repo_root" add integrations/homeassistant/CHANGELOG.md
-if git -C "$repo_root" diff --cached --quiet -- integrations/homeassistant/CHANGELOG.md; then
-  echo "integrations/homeassistant/CHANGELOG.md unchanged."
+CHANGELOG_TARGET="${CHANGELOG_TARGET:?release.env must set CHANGELOG_TARGET}" \
+CHANGELOG_PATH="${CHANGELOG_PATH:?release.env must set CHANGELOG_PATH}"
+"${repo_root}/scripts/generate_changelog.sh" "$CHANGELOG_TARGET"
+git -C "$repo_root" add "$CHANGELOG_PATH"
+if git -C "$repo_root" diff --cached --quiet -- "$CHANGELOG_PATH"; then
+  echo "${CHANGELOG_PATH} unchanged."
 else
-  echo "note: integrations/homeassistant/CHANGELOG.md regenerated and staged in the monorepo -- commit it with the release."
+  echo "note: ${CHANGELOG_PATH} regenerated and staged in the monorepo -- commit it with the release."
 fi
 
 # 6. Commit + tag the mirror, then publish: push branch + tag and cut the
@@ -226,9 +242,20 @@ awk -v ver="v${version}" '
   $0 ~ "^## " ver "( |$|\\()" { grab = 1; next }
   grab && /^## / { exit }
   grab { print }
-' "${ha}/CHANGELOG.md" > "$notes_file"
+' "${repo_root}/${CHANGELOG_PATH}" > "$notes_file"
 if [[ ! -s "$notes_file" ]]; then
-  printf 'Release %s of the Battery SoC Home Assistant integration.\n' "v${version}" > "$notes_file"
+  # Fallback message depends on component
+  case "$component" in
+    battery_soc)
+      printf 'Release %s of the Battery SoC Home Assistant integration.\n' "v${version}" > "$notes_file"
+      ;;
+    energy_node_icons)
+      printf 'Release %s of the energy-node Icons integration.\n' "v${version}" > "$notes_file"
+      ;;
+    *)
+      printf 'Release %s.\n' "v${version}" > "$notes_file"
+      ;;
+  esac
 fi
 
 gh release create "v${version}" \

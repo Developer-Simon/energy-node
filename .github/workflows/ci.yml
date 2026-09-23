@@ -109,7 +109,7 @@ jobs:
           emit installer  '^installer/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
           emit shell     '^scripts/'
-          emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^scripts/vendor_(core|card)\.py$'
+          emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^scripts/(vendor_(core|card)|icons/flatten_icons)\.py$'
           emit ha        '^integrations/homeassistant/|^libs/battery_soc_core/'
 
   dashboard-go:
@@ -320,6 +320,9 @@ jobs:
       # --check exits non-zero when the copy has drifted from its source.
       - run: python scripts/vendor_core.py --check
       - run: python scripts/vendor_card.py --check
+      # Stdlib-only check path: the geometry libraries the generator needs are
+      # imported lazily and are not installed here.
+      - run: python scripts/icons/flatten_icons.py --check
 
   home-assistant-integration:
     name: Home Assistant integration

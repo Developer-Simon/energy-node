@@ -4,15 +4,17 @@ title: "Home Assistant integration — HACS mirror repo & release runbook"
 
 # Home Assistant integration — HACS mirror repo & release runbook
 
-The `battery_soc` Home Assistant integration lives in this monorepo under
-`integrations/homeassistant/custom_components/battery_soc/`. It is distributed
-to users through a **separate, public GitHub repo** wired for HACS. That mirror
-repo is a *derived artifact*: it is assembled from this monorepo by
+Home Assistant integrations in this monorepo (`battery_soc` and `energy_node_icons`) are
+distributed to users through **separate, public GitHub repos** wired for HACS. Those mirror
+repos are *derived artifacts*: they are assembled from this monorepo by
 `scripts/publish_mirror.sh` and never edited by hand.
 
 - **Source of truth:** this monorepo.
-- **Mirror repo:** [`Developer-Simon/ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc)
-  — the public, HACS-facing repo, assembled from here by `scripts/publish_mirror.sh`.
+- **Mirror repos:** 
+  - [`Developer-Simon/ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc) — the public, HACS-facing repo for `battery_soc`.
+  - [`Developer-Simon/ha-energy-node-icons`](https://github.com/Developer-Simon/ha-energy-node-icons) — the public, HACS-facing repo for `energy_node_icons`.
+  
+  Both are assembled from here by `scripts/publish_mirror.sh` (pass `--component battery_soc` or `--component energy_node_icons`).
 - **Shared core:** `libs/battery_soc_core/` → vendored into the integration by
   `scripts/vendor_core.py` (drift-guarded by the CI job *Vendored artefacts in
   sync* and `integrations/homeassistant/tests/test_vendor_sync.py`).
@@ -20,8 +22,9 @@ repo is a *derived artifact*: it is assembled from this monorepo by
   needs its own `.venv-ha` (HA's pytest plugins conflict with the plain
   suite). Build it once:
   `python3.14 -m venv .venv-ha && .venv-ha/bin/pip install -e ./libs/battery_soc_core -r integrations/homeassistant/requirements-test.txt`.
-- **Public identifiers:** `integrations/homeassistant/mirror/release.env` —
-  `OWNER=Developer-Simon`, `REPO=ha-battery-soc`, `HA_MIN_VERSION`.
+- **Public identifiers:** each component has its own `release.env` file:
+  - `integrations/homeassistant/mirror/battery_soc/release.env` — `OWNER=Developer-Simon`, `REPO=ha-battery-soc`, `HA_MIN_VERSION`, `MIRROR_PATH`, `CHANGELOG_TARGET=ha-integration`, `CHANGELOG_PATH=integrations/homeassistant/CHANGELOG.md`.
+  - `integrations/homeassistant/mirror/energy_node_icons/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node-icons`, `HA_MIN_VERSION`, `MIRROR_PATH`, `CHANGELOG_TARGET=ha-icons`, `CHANGELOG_PATH=custom_components/energy_node_icons/CHANGELOG.md`.
 - **Real HACS/hassfest validation:** runs as GitHub Actions **in the mirror
   repo** (`.github/workflows/validate.yml`), not here.
   `scripts/check_mirror_manifest.py` is only a fast offline pre-check.
@@ -31,39 +34,51 @@ repository's working copy).
 
 ---
 
-## One-time — create the public repo (fresh, no history)
+## One-time — create the public repos (fresh, no history)
 
 Consistent with this project's release model (open-source as a fork without
-history, no git remote in the monorepo), the mirror is a brand-new repo — no
-history is imported from here.
+history, no git remote in the monorepo), each mirror is a brand-new repo — no
+history is imported from here. Repeat this once for each component.
+
+### For `battery_soc`:
 
 1. `mkdir -p ../ha-battery-soc && cd ../ha-battery-soc && git init && git branch -m main`
 2. On GitHub: create an empty **public** repo `Developer-Simon/ha-battery-soc`
    (no README, no license, no .gitignore — `publish_mirror.sh` provides them).
 3. `git -C ../ha-battery-soc remote add origin git@github.com:Developer-Simon/ha-battery-soc.git`
-4. Confirm `integrations/homeassistant/mirror/release.env` has the real
-   `OWNER` (`Developer-Simon`). This is the only place it lives.
+4. Confirm `integrations/homeassistant/mirror/battery_soc/release.env` has the real values.
 5. In the **base** manifest
    `integrations/homeassistant/custom_components/battery_soc/manifest.json`,
    replace the `OWNER` / `@OWNER` placeholders in `documentation`,
    `issue_tracker` and `codeowners` with the real values, then commit in the
    monorepo. (`publish_mirror.sh` also rewrites these for the mirror, but the
    base file should not ship placeholders.)
-6. First publish (assembles into the sibling `../ha-battery-soc` by default;
-   override with `--mirror-path`):
+6. First publish (assembles into the sibling `../ha-battery-soc` by default):
    - the very first time the branch does not exist on `origin` yet, so push it
-     by hand: `scripts/publish_mirror.sh --version 0.1.0` (a bare sync commit,
+     by hand: `scripts/publish_mirror.sh --component battery_soc --version 0.1.0` (a bare sync commit,
      no tag) then `git -C ../ha-battery-soc push -u origin main --follow-tags`
      and `gh release create v0.1.0 --repo Developer-Simon/ha-battery-soc --title v0.1.0 --notes-file <(...)`.
-   - every later release: `scripts/publish_mirror.sh --release` (version taken
+   - every later release: `scripts/publish_mirror.sh --component battery_soc --release` (version taken
      from `manifest.json`) regenerates the changelog, commits + tags the
      mirror, pushes branch + tag **and** creates the GitHub Release in one
-     step. A plain `scripts/publish_mirror.sh --push` (no `--release`) only
+     step. A plain `scripts/publish_mirror.sh --component battery_soc --push` (no `--release`) only
      syncs the tree and pushes the branch — no tag, no Release.
 7. Set GitHub **repo topics** on the mirror (HACS rejects a repo with none):
    `gh repo edit Developer-Simon/ha-battery-soc --add-topic home-assistant --add-topic hacs --add-topic home-assistant-integration --add-topic lifepo4 --add-topic battery`
 8. Watch the **Validate** workflow (hassfest + HACS) in the mirror repo. Fix
    anything it flags **in the monorepo**, then re-publish (bump the version).
+
+### For `energy_node_icons`:
+
+Repeat steps 1–8 above with:
+- Step 1: `mkdir -p ../ha-energy-node-icons && cd ../ha-energy-node-icons && git init && git branch -m main`
+- Step 2: repo name `Developer-Simon/ha-energy-node-icons`
+- Step 3: `git remote add origin git@github.com:Developer-Simon/ha-energy-node-icons.git`
+- Step 4: `integrations/homeassistant/mirror/energy_node_icons/release.env`
+- Step 5: `integrations/homeassistant/custom_components/energy_node_icons/manifest.json`
+- Step 6 & 7: replace `battery_soc` with `energy_node_icons` in the commands.
+- Step 7 topics: `--add-topic home-assistant --add-topic hacs --add-topic icons`
+- Mirror path: `../ha-energy-node-icons` (inferred from `release.env`).
 
 A GitHub **Release** (not just a tag) is mandatory, not optional polish: with
 zero Releases HACS runs the repo in *commit mode* — the update entity shows a
@@ -98,20 +113,25 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
 
 ## Recurring — cut a release
 
+Release both components together. The changelog target and path for each are read
+from the `release.env` file of the chosen component.
+
+### For `battery_soc`:
+
 1. Land the change in `libs/battery_soc_core/` (or directly in the integration),
    then `.venv/bin/python scripts/vendor_core.py` and stage the result.
 2. `cd integrations/homeassistant && ../../.venv-ha/bin/pytest -q`
    (whole HA suite, including the drift and mirror-template checks).
-3. `.venv/bin/python scripts/check_mirror_manifest.py`
+3. `.venv/bin/python scripts/check_mirror_manifest.py --component battery_soc`
 4. `version` in
    `integrations/homeassistant/custom_components/battery_soc/manifest.json`
    (**bare** semver, no leading `v`) has its patch bumped on the PR branch by
    the `Version bump` workflow when the PR touches `integrations/homeassistant/`
    (`scripts/version/bump-patch.sh`, same `COMPONENTS` mechanism as
    `dashboard/VERSION`/`services/VERSION` — see `scripts/version/components.sh`); major/minor stay
-   hand-edited. `CHANGELOG.md` is
-   generated the same way as the other components, grouped by major.minor into
-   `## vX.Y.Z (date)` sections. **`publish_mirror.sh --release` runs
+   hand-edited. `CHANGELOG.md` (in `integrations/homeassistant/CHANGELOG.md`)
+   is generated the same way as the other components, grouped by major.minor into
+   `## vX.Y.Z (date)` sections. **`publish_mirror.sh --component battery_soc --release` runs
    `scripts/generate_changelog.sh ha-integration` for you** and stages the
    result in the monorepo (you commit it with the version bump), then slices
    the Release notes out of the matching section — no need to run it by hand
@@ -120,7 +140,7 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
    `generate_changelog.sh` (`min_freeze="v0.2"` for `ha-integration`) keeps
    that history frozen exactly as written on every regeneration, even
    without passing `--freeze-before` — do not lower it.
-5. `scripts/publish_mirror.sh --release`
+5. `scripts/publish_mirror.sh --component battery_soc --release`
    (regenerates + stages the changelog, commits + tags the mirror, pushes
    `main` + the tag, then `gh release create`s `vX.Y.Z` with the changelog
    section as the body). The version defaults to the `manifest.json` `version`
@@ -128,6 +148,15 @@ by domain from the browser, so the icon is blank there until `battery_soc` is in
    committed; pass `--version X.Y.Z` only to override (bootstrap, or a manual
    major/minor jump before the commit lands). Then commit the staged
    `integrations/homeassistant/CHANGELOG.md` in the monorepo.
+
+### For `energy_node_icons`:
+
+Same process; in step 3, 5: use `--component energy_node_icons`. The `CHANGELOG.md`
+is generated into `custom_components/energy_node_icons/CHANGELOG.md` (see the
+`release.env` `CHANGELOG_TARGET` and `CHANGELOG_PATH`).
+
+### General notes:
+
 6. HACS shows the update to users within a few hours (or immediately on a
    manual "Redownload"). An install that was made **before** the first Release
    existed is pinned to commit mode until its next **Redownload** in HACS —
@@ -139,3 +168,4 @@ before the real run; it cannot be combined with `--push` or `--release`.
 Without `--release` the script only syncs the tree into the mirror as a plain
 commit (no tag, no changelog, no Release); add `--push` to also push the
 branch. `--release` implies publishing, so `--push` is redundant with it.
+The `--component` flag defaults to `battery_soc` if not provided.

@@ -42,3 +42,4 @@
 - title: Integration
   items:
     - { label: "battery_soc HA mirror", url: "integration/ha-integration-hacs-release.md" }
+    - { label: "energy-node Icons for HA", url: "integration/energy-node-icons.md" }

@@ -118,7 +118,7 @@ Per-component `VERSION` files are patch-bumped on the PR branch by CI
 (`.github/workflows/version-bump.yml`); `major`/`minor` you bump by hand on the
 branch. CI (`.github/workflows/ci.yml`, the *Vendored artefacts in sync* job)
 also fails a PR that leaves the vendored `battery_soc_core` copy under
-`integrations/homeassistant/` or the vendored `battery-card-core.js` in the
-Lovelace card out of sync with its source — run
-`.venv/bin/python scripts/vendor_core.py` / `scripts/vendor_card.py` and commit
-the result if it fires.
+`integrations/homeassistant/`, the vendored `battery-card-core.js` in the
+Lovelace card, or the generated `energy-node-icons.js` out of sync with their
+sources — run `.venv/bin/python scripts/vendor_core.py` / `scripts/vendor_card.py` /
+`scripts/icons/flatten_icons.py` and commit the result if any fires.

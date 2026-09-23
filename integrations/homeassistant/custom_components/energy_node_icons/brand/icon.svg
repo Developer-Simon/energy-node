@@ -1,0 +1,6 @@
+<!-- TODO: Design a brand icon for the energy-node Icons set. For now, uses the battery_soc icon as a placeholder. -->
+<!-- Run: magick -background none -density 512 icon.svg -resize 256x256 -depth 8 -strip PNG32:icon.png -->
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+  <text x="12" y="12" text-anchor="middle" font-size="10" font-family="Arial">icons</text>
+</svg>
