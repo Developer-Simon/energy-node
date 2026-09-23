@@ -28,3 +28,11 @@ def test_every_catalogue_icon_reaches_the_module():
     for name in names:
         assert f'"{name}"' in source
     assert "mdi:" not in source
+
+
+def test_module_falls_back_to_chip_outline_for_unknown_icons():
+    """Verifies getIcon returns chip-outline as fallback for unknown icon names."""
+    source = MODULE.read_text(encoding="utf-8")
+    # Check that the fallback logic uses chip-outline
+    assert 'ICONS["chip-outline"]' in source, "chip-outline must be in the fallback logic"
+    assert "chip-outline" in source

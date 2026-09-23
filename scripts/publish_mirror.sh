@@ -12,28 +12,28 @@
 # Release (implies publishing -- needs `gh` authenticated as the mirror owner).
 set -euo pipefail
 
-# Local mirror checkout assembled into by default; override with --mirror-path.
-DEFAULT_MIRROR_PATH=""  # Will be set from release.env if not provided
+# Mirror checkout assembled into; determined from release.env (MIRROR_PATH).
 
 usage() {
   cat >&2 <<EOF
 publish_mirror.sh [--component NAME] [--mirror-path PATH] [--version X.Y.Z] [--dry-run] [--push] [--release]
 
---component defaults to 'battery_soc' (the other option: 'energy_node_icons').
---mirror-path defaults to the value in mirror/COMPONENT/release.env (MIRROR_PATH).
+--component defaults to 'battery_soc'. Valid components have a mirror/COMPONENT/ directory.
+--mirror-path defaults to the value in mirror/COMPONENT/release.env (MIRROR_PATH — the
+  absolute path where the mirror repo is checked out).
 --version defaults to the bare semver in the monorepo's
-  custom_components/battery_soc/manifest.json ("version" field), which the
+  custom_components/COMPONENT/manifest.json ("version" field), which the
   "Version bump" workflow patch-bumps on the PR branch. Pass it explicitly only
   to override that (first bootstrap release, or a manual major/minor jump).
 
 Assembles the public HACS repo tree at PATH from this monorepo:
   1. scripts/vendor_core.py --check                     (abort on drift)
-  2. rsync --delete custom_components/battery_soc/  ->  PATH/custom_components/battery_soc/
+  2. rsync --delete custom_components/COMPONENT/  ->  PATH/custom_components/COMPONENT/
   3. copy mirror/{hacs.json,README.md,info.md,LICENSE,AI-DISCLAIMER.md}  ->  PATH/
      copy mirror/.github                                ->  PATH/.github
      copy docs/img                                      ->  PATH/docs/img
      copy mirror/docs/*.md                              ->  PATH/docs/
-  4. merge mirror/manifest.overrides.json over PATH/custom_components/battery_soc/manifest.json
+  4. merge mirror/manifest.overrides.json over PATH/custom_components/COMPONENT/manifest.json
      (OWNER/REPO from mirror/release.env; version from --version)
   5. git -C PATH add -A && commit  (message and tag depend on --release)
 
@@ -83,9 +83,11 @@ ha="${repo_root}/integrations/homeassistant"
 src_cc="${ha}/custom_components/${component}"
 template="${ha}/mirror/${component}"
 
-# Read mirror-specific settings from release.env
+# Validate component and read mirror-specific settings from release.env
 if [[ ! -f "${template}/release.env" ]]; then
   echo "error: mirror template for '${component}' not found at ${template}" >&2
+  echo "Valid components:" >&2
+  ls -1 "${ha}/mirror/" 2>/dev/null | grep -E '^[a-z_]+$' | sed 's/^/  /' >&2
   exit 1
 fi
 # shellcheck source=/dev/null
@@ -120,8 +122,13 @@ if ! git -C "$mirror_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
-# 1. Never publish a stale vendored core.
+# 1. Never publish stale vendored artefacts.
 python3 "${repo_root}/scripts/vendor_core.py" --check
+
+# 1b. If this component requires icon checks, verify they pass.
+if [[ "${ICON_CHECK:-0}" == "1" ]]; then
+  python3 "${repo_root}/scripts/icons/flatten_icons.py" --check
+fi
 
 # 2. Integration source (drop caches).
 mkdir -p "${mirror_path}/custom_components/${component}"

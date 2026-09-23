@@ -52,7 +52,13 @@ const VIEW_BOX = "0 0 24 24";
 // Dashboard-Zeichnung sind deshalb schon zu Umrissen abgewickelt.
 const getIcon = async (name) => {
   const icon = ICONS[name];
-  return icon ? { path: icon.path, viewBox: VIEW_BOX } : undefined;
+  if (icon) {
+    return { path: icon.path, viewBox: VIEW_BOX };
+  }
+  // Unbekannter Icon-Name - benutze das Standard-Icon (chip-outline) als Fallback,
+  // damit Home Assistant nicht versucht, einen undefinieren Pfad zu zeichnen.
+  const fallback = ICONS["chip-outline"];
+  return fallback ? { path: fallback.path, viewBox: VIEW_BOX } : { path: "", viewBox: VIEW_BOX };
 };
 
 window.customIconsets = window.customIconsets || {};
@@ -106,6 +112,8 @@ def check() -> int:
         )
     have = dict(_ENTRY_RE.findall(module))
     want = {icon["ha_name"]: icon["sha256"] for icon in doc["icons"]}
+    want_labels = {icon["ha_name"]: icon["label"] for icon in doc["icons"]}
+
     for name in sorted(want.keys() - have.keys()):
         problems.append(f"{name}: fehlt im Modul")
     for name in sorted(have.keys() - want.keys()):
@@ -113,6 +121,18 @@ def check() -> int:
     for name in sorted(want.keys() & have.keys()):
         if want[name] != have[name]:
             problems.append(f"{name}: Zeichnung geaendert")
+
+    # Check labels in the module (parse label: "..." from module entries)
+    label_re = re.compile(r'^  "[^"]+": \{\n    label: ([^\n]+),', re.M)
+    for match in label_re.finditer(module):
+        entry_line = match.group(0)
+        name_match = re.match(r'^  "([^"]+)":', entry_line)
+        if name_match:
+            name = name_match.group(1)
+            label_in_module = match.group(1).strip().strip('"')
+            if name in want_labels and label_in_module != want_labels[name]:
+                problems.append(f"{name}: Label geaendert (Modul {label_in_module!r}, Quelle {want_labels[name]!r})")
+
     if list(have) != [n for n in want if n in have]:
         problems.append("Reihenfolge weicht vom Katalog ab")
 
