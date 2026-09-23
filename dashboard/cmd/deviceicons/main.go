@@ -96,11 +96,16 @@ func render() ([]byte, error) {
 		Icons:       icons,
 	}
 
-	out, err := json.MarshalIndent(doc, "", "  ")
-	if err != nil {
+	// Ohne SetEscapeHTML(false) stuende jedes < als < in der Datei und
+	// jede Aenderung an einer Zeichnung waere im Diff unlesbar.
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetEscapeHTML(false)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(doc); err != nil {
 		return nil, err
 	}
-	return append(out, '\n'), nil
+	return out.Bytes(), nil
 }
 
 // repoRoot walks up from the working directory until it finds a directory that
