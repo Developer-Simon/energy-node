@@ -1,6 +1,12 @@
-<!-- TODO: Design a brand icon for the energy-node Icons set. For now, uses the battery_soc icon as a placeholder. -->
-<!-- Run: magick -background none -density 512 icon.svg -resize 256x256 -depth 8 -strip PNG32:icon.png -->
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-  <text x="12" y="12" text-anchor="middle" font-size="10" font-family="Arial">icons</text>
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <title>energy-node Icons — the dashboard's device symbols for Home Assistant</title>
+  <!-- Haus und Blitz stammen aus dem Geraete-Icon-Katalog (mdi:home,
+       mdi:flash-circle), vergroessert auf 128er-Raster; Farben wie battery_soc.
+       PNGs: magick -background none -density 512 icon.svg -resize 256x256 -depth 8 -strip PNG32:icon@2x.png
+             magick -background none -density 512 icon.svg -resize 128x128 -depth 8 -strip PNG32:icon.png -->
+  <g transform="translate(64 64) scale(5.2) translate(-12 -12.4)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M4.6 11.2 12 3.4 19.4 11.2" stroke="#0f6da3" stroke-width="1.35"/>
+    <path d="M6 10v9.6h12V10" stroke="#1488c9" stroke-width="1.35"/>
+    <path d="M12.9 9.4 9.5 14.9h2.6l-.3 3.3 3.6-4.5h-2.6z" fill="#23b26b" stroke="#23b26b" stroke-width="0.7"/>
+  </g>
 </svg>
