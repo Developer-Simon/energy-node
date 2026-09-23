@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.0 (2026-09-23)
+## v0.1.1 (2026-09-23)
 
 ### Features
 
@@ -12,6 +12,10 @@
 ### Fixes
 
 - **homeassistant:** commit the regenerated icon module and check labels for drift (2a59cc8)
+
+### Chores
+
+- **homeassistant:** set energy_node_icons to 0.1.1 for the docs release (0a76704)
 
 ## Unversioniert (bis 2026-09-23)
 
