@@ -34,11 +34,13 @@ Playwright browser suite, all gated the same way.
 ## Trying the graphical UI
 
 Running the binary with no subcommand — or only flags — starts the web UI
-instead of the CLI. `scripts/dev/run-installer.sh` builds the binary if it is
-missing and starts it, passing its arguments through:
+instead of the CLI. `scripts/dev/run-installer.sh` builds the binary and starts
+it, passing its arguments through. `--no-build` skips the build and reuses the
+existing binary (it is still built if none exists yet):
 
 ```sh
-scripts/dev/run-installer.sh          # or: ./installer/installer
+scripts/dev/run-installer.sh              # or: ./installer/installer
+scripts/dev/run-installer.sh --no-build   # skip the go build
 ```
 
 The window opens in the first stage of a four-stage chain that works: an
@@ -84,11 +86,13 @@ backend. It is what the Playwright suite drives, and the source of the
 screenshots on [Deploying a node](../installer.md):
 
 ```sh
-cd installer/webui
-go run ./cmd/fakehost --lang en --port 8099
+scripts/dev/run-installer.sh --fakehost --lang en --port 8099
+# or: cd installer/webui && go run ./cmd/fakehost --lang en --port 8099
 ```
 
-`--scenario vorlage-update` serves the update preview, `--hold-step <id>`
+`--fakehost` makes `run-installer.sh` build and start the demo host instead of
+the installer (`--no-build` applies to it as well); every other argument goes to
+the demo host. `--scenario vorlage-update` serves the update preview, `--hold-step <id>`
 stops a run at that step, `--fail-step <id>:<CODE>` fails one, `--trusted`
 skips the fingerprint dialog and `--dashboard` plays the dashboard-hosted
 variant. `npm run test:e2e` in `installer/webui` runs the browser suite.
