@@ -108,7 +108,12 @@ const VIEW_BOX = "0 0 24 24";
 // Dashboard-Zeichnung sind deshalb schon zu Umrissen abgewickelt.
 const getIcon = async (name) => {
   const icon = ICONS[name];
-  return icon ? { path: icon.path, viewBox: VIEW_BOX } : undefined;
+  if (icon) {
+    return { path: icon.path, viewBox: VIEW_BOX };
+  }
+  // Unbekannter Name (Tippfehler, umbenanntes Icon): ha-icon liest .path ohne
+  // Pruefung - also das Standard-Symbol statt undefined.
+  return { path: ICONS["chip-outline"].path, viewBox: VIEW_BOX };
 };
 
 window.customIconsets = window.customIconsets || {};

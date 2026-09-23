@@ -18,7 +18,7 @@ Das Erzeugen braucht zwei Bibliotheken, die nur hier gebraucht werden:
     .venv/bin/pip install "svgelements==1.9.6" "shapely>=2.1"
 
 --check kommt ohne sie aus (nur Standardbibliothek): es vergleicht die
-Quell-Hashes und die Strichbreite im Modul mit icons.source.json. Deshalb
+Quell-Hashes, Labels und die Strichbreite im Modul mit icons.source.json. Deshalb
 werden svgelements und shapely erst in outline() importiert - der Test in
 integrations/homeassistant/tests laeuft in .venv-ha, wo sie fehlen.
 """
@@ -55,10 +55,9 @@ const getIcon = async (name) => {
   if (icon) {
     return { path: icon.path, viewBox: VIEW_BOX };
   }
-  // Unbekannter Icon-Name - benutze das Standard-Icon (chip-outline) als Fallback,
-  // damit Home Assistant nicht versucht, einen undefinieren Pfad zu zeichnen.
-  const fallback = ICONS["chip-outline"];
-  return fallback ? { path: fallback.path, viewBox: VIEW_BOX } : { path: "", viewBox: VIEW_BOX };
+  // Unbekannter Name (Tippfehler, umbenanntes Icon): ha-icon liest .path ohne
+  // Pruefung - also das Standard-Symbol statt undefined.
+  return { path: ICONS["chip-outline"].path, viewBox: VIEW_BOX };
 };
 
 window.customIconsets = window.customIconsets || {};
@@ -74,7 +73,7 @@ window.customIcons["energy-node"] = {
 };
 """
 
-_ENTRY_RE = re.compile(r'^  "([^"]+)": \{\n    label: .*\n    sourceHash: "([0-9a-f]{64})",$', re.M)
+_ENTRY_RE = re.compile(r'^  "([^"]+)": \{\n    label: (.*),\n    sourceHash: "([0-9a-f]{64})",$', re.M)
 _STROKE_RE = re.compile(r'^const SOURCE_STROKE_WIDTH = "([^"]+)";$', re.M)
 
 
@@ -110,10 +109,11 @@ def check() -> int:
         problems.append(
             f"Strichbreite: Modul {stroke.group(1) if stroke else 'fehlt'}, Quelle {doc['stroke_width']}"
         )
-    have = dict(_ENTRY_RE.findall(module))
+    entries = _ENTRY_RE.findall(module)
+    have = {name: digest for name, _label, digest in entries}
+    have_labels = {name: json.loads(label) for name, label, _digest in entries}
     want = {icon["ha_name"]: icon["sha256"] for icon in doc["icons"]}
     want_labels = {icon["ha_name"]: icon["label"] for icon in doc["icons"]}
-
     for name in sorted(want.keys() - have.keys()):
         problems.append(f"{name}: fehlt im Modul")
     for name in sorted(have.keys() - want.keys()):
@@ -121,18 +121,10 @@ def check() -> int:
     for name in sorted(want.keys() & have.keys()):
         if want[name] != have[name]:
             problems.append(f"{name}: Zeichnung geaendert")
-
-    # Check labels in the module (parse label: "..." from module entries)
-    label_re = re.compile(r'^  "[^"]+": \{\n    label: ([^\n]+),', re.M)
-    for match in label_re.finditer(module):
-        entry_line = match.group(0)
-        name_match = re.match(r'^  "([^"]+)":', entry_line)
-        if name_match:
-            name = name_match.group(1)
-            label_in_module = match.group(1).strip().strip('"')
-            if name in want_labels and label_in_module != want_labels[name]:
-                problems.append(f"{name}: Label geaendert (Modul {label_in_module!r}, Quelle {want_labels[name]!r})")
-
+        # Das Label ist das Suchwort in der Icon-Auswahl - eine reine
+        # Umbenennung muss deshalb genauso auffallen wie eine neue Zeichnung.
+        if want_labels[name] != have_labels[name]:
+            problems.append(f"{name}: Label geaendert ({have_labels[name]!r} -> {want_labels[name]!r})")
     if list(have) != [n for n in want if n in have]:
         problems.append("Reihenfolge weicht vom Katalog ab")
 
