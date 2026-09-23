@@ -114,6 +114,7 @@ takes the seed set of `energie` but the own fixture.
 | `geraete-kacheln` | `--fixture fixtures/geraete-kacheln.json --seed-data fixtures/seed/geraete-kacheln` — three device tiles with `span: "1"`, for visual checks of `.device-tile-entity` (slider width, title wrapping for `number`/`text`, value alignment, unchanged grid for all other entity types) |
 | `notification` | `--fixture fixtures/notification.json` (no seed) — simulates the automation topics (`outstation/automation/last_event` as `{at, message}`, plus `state` and `status/online`). `notifications.js` polls `/api/v1/automation/notification` from these and raises a warning toast on load; the `Energie-Automationen` device shows up on the overview |
 | `keine-optionalen-dienste` | `--fixture fixtures/battery-soc.json --installed-services-off` (no seed) — end-to-end check that the dashboard hides the Automationen tab and the Tailscale/TinyTuya settings subpages, including their own fragment routes, when every optional service is off (Installer-Spec E7, Abnahmekriterium 11) |
+| `shelly-ht` | `--fixture fixtures/shelly-ht.json --seed-data fixtures/seed/shelly-ht`, plus the Shelly configuration: schema and presets straight from `services/shelly/`, the device list from `fixtures/devices/shelly-ht/` — two sleepy H&T devices (Gen1 `ht_bad` online, Plus `ht_keller` offline after its grace period). Automated probes: both H&T presets are `sleepy`, `sleepy`/`offline_grace_s` survive schema validation and saving, `offline_grace_s: 0` is rejected, temperature/humidity arrive as samples |
 
 ## What is solved here
 
@@ -271,6 +272,24 @@ available. No seed:
 ```bash
 dashboard/test/smoke/run-local-dashboard.sh --keep --preset notification
 ```
+
+### Sleepy Shelly H&T (`shelly-ht`)
+
+Covers the sleepy-device support for the Shelly H&T (Gen1 and Plus): the
+dedicated `shelly_ht_gen1` preset, the `sleepy` flag with `offline_grace_s`,
+and how both devices render once one of them has been reported offline.
+`fixtures/shelly-ht.json` was generated from the real discovery code in
+`services/shelly/shelly_rpc_mqtt.py` (`publish_device_discovery`), so topics
+and payloads match what the service publishes on a node. The seed layout puts
+both devices side by side as device tiles.
+
+```bash
+dashboard/test/smoke/run-local-dashboard.sh --keep --preset shelly-ht
+```
+
+The optional wake webhook is not part of this preset: it is a listener in the
+Shelly service, not in the dashboard, and its firewall rule is an opt-in
+installer step (35).
 
 ## Seed data
 

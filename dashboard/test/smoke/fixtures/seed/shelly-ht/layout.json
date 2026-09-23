@@ -1,0 +1,20 @@
+{
+  "version": 2,
+  "pages": [
+    {
+      "id": "start",
+      "name": "Start",
+      "order": 0,
+      "groups": [
+        {
+          "id": "klima",
+          "name": "Klima",
+          "items": [
+            {"id": "device:ht_bad", "type": "device", "ref": "ht_bad", "span": "1", "visible": true, "x": 0, "y": 0, "w": 1, "h": 2},
+            {"id": "device:ht_keller", "type": "device", "ref": "ht_keller", "span": "1", "visible": true, "x": 1, "y": 0, "w": 1, "h": 2}
+          ]
+        }
+      ]
+    }
+  ]
+}

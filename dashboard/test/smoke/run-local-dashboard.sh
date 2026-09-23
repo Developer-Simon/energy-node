@@ -50,6 +50,13 @@
 #                    (Installer-Spec E7). Sichtpruefung + automatisierte
 #                    Probe, dass der Automationen-Tab sowie die
 #                    Tailscale-/TinyTuya-Unterseiten dann fehlen.
+#   shelly-ht        fixtures/shelly-ht.json + seed/shelly-ht, zusaetzlich die
+#                    Shelly-Konfiguration (services/shelly: Schema + Presets,
+#                    Geraete aus fixtures/devices/shelly-ht) - zwei schlafende
+#                    H&T (Gen1 online, Plus nach offline_grace_s offline).
+#                    Automatisierte Proben: H&T-Presets sind sleepy, sleepy/
+#                    offline_grace_s ueberstehen Schema-Validierung und
+#                    Speichern, Temperatur/Feuchte kommen als Proben an.
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
@@ -67,6 +74,9 @@ REPO_DIR="$(cd "$DASHBOARD_DIR/.." && pwd)"
 SCRIPT_ROOT="$(cd "$HERE/../../.." && pwd)"
 
 DEVICES_SOURCE="$REPO_DIR/services/battery_soc"
+# Weitere Konfigurationsverzeichnisse nach DEVICES_SOURCE, in dieser
+# Reihenfolge kopiert - eine spaetere Datei gleichen Namens gewinnt.
+EXTRA_DEVICES=()
 FIXTURE="$HERE/fixtures/battery-soc.json"
 SEED_DATA=""
 THEME=""
@@ -128,8 +138,15 @@ while [[ $# -gt 0 ]]; do
           FIXTURE="$HERE/fixtures/battery-soc.json"; SEED_DATA=""
           INSTALLED_SERVICES_OFF=1
           ;;
+        shelly-ht)
+          FIXTURE="$HERE/fixtures/shelly-ht.json"
+          SEED_DATA="$HERE/fixtures/seed/shelly-ht"
+          # Schema und Presets aus dem Dienst selbst, damit die Probe den
+          # Stand des Branches prueft; die Geraeteliste aus der Fixture.
+          EXTRA_DEVICES=("$REPO_DIR/services/shelly" "$HERE/fixtures/devices/shelly-ht")
+          ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, geraete-kacheln, notification, keine-optionalen-dienste)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht)" >&2
           exit 2
           ;;
       esac
@@ -259,6 +276,9 @@ free_port "$MQTT_PORT"
 mkdir -p "$WORK/devices" "$WORK/data"
 # Nur Paare aus *.json + *.schema.json sind fuer den Manager sichtbar.
 cp "$DEVICES_SOURCE"/*.json "$WORK/devices/" 2>/dev/null || true
+for extra in "${EXTRA_DEVICES[@]}"; do
+  cp "$extra"/*.json "$WORK/devices/" 2>/dev/null || true
+done
 echo "Konfigurationen: $(ls "$WORK/devices" | tr '\n' ' ')"
 
 # Dasselbe Muster wie --devices, nur fuer den Datenordner: settings.json,
@@ -569,6 +589,61 @@ if [[ "$code" == "400" || "$code" == "422" ]]; then
   echo "  OK   ungueltiger Wert 1.5 abgelehnt (HTTP $code)"
 else
   echo "  FEHL ungueltiger Wert 1.5 kam mit HTTP $code durch"; FAILED=1
+fi
+
+# --preset shelly-ht: die Unterstuetzung schlafender H&T-Geraete end-to-end.
+# Die Presets kommen unveraendert aus services/shelly - faellt dort das
+# sleepy-Flag weg, legt das Dashboard neue H&T wieder ohne Gnadenfrist an.
+if [[ "$(basename "$FIXTURE")" == "shelly-ht.json" ]]; then
+  check "shelly_devices ist als Konfiguration sichtbar" \
+    "any(c['name'] == 'shelly_devices' for c in data)" \
+    "$BASE/api/v1/configurations"
+  check "beide H&T-Presets (Gen1 und Plus) sind sleepy" \
+    "all(any(p['id'] == i and p['properties'].get('sleepy') is True for p in data) for i in ('shelly_ht_gen1', 'shelly_plus_ht'))" \
+    "$BASE/api/v1/shelly/presets"
+  check "Gen1-H&T-Preset ist Generation 1 mit Temperatur und Feuchte" \
+    "any(p['id'] == 'shelly_ht_gen1' and p['properties'].get('generation') == 1 and p['properties'].get('has_humidity') and p['properties'].get('has_temperature') for p in data)" \
+    "$BASE/api/v1/shelly/presets"
+  check "Luftfeuchte des Gen1-H&T ist als Probe abrufbar" \
+    "any(s['topic'] == 'outstation/ht_bad/humidity' and s.get('payload') == '58.2' for s in data)" \
+    "$BASE/api/v1/topics/samples"
+  check "Temperatur des offline gemeldeten Plus-H&T bleibt als Probe stehen" \
+    "any(s['topic'] == 'outstation/ht_keller/temperature' and s.get('payload') == '12.3' for s in data)" \
+    "$BASE/api/v1/topics/samples"
+
+  SHELLY_URL="$BASE/api/v1/configurations/shelly_devices"
+  api "$SHELLY_URL" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+keller = next(d for d in data if d['id'] == 'ht_keller')
+keller['offline_grace_s'] = 7200
+json.dump(data, open('$WORK/shelly-valid.json', 'w'))
+data[0]['offline_grace_s'] = 0
+json.dump(data, open('$WORK/shelly-invalid.json', 'w'))
+"
+  if curl -sf "${CURL_INSECURE[@]}" -m 5 -b "$COOKIES" -H "$SECURE_HEADER" -H 'Content-Type: application/json' \
+       -X PUT "$SHELLY_URL" --data-binary "@$WORK/shelly-valid.json" > /dev/null; then
+    stored=$(api "$SHELLY_URL" | python3 -c "
+import json, sys
+keller = next(d for d in json.load(sys.stdin) if d['id'] == 'ht_keller')
+print(keller.get('sleepy'), keller.get('offline_grace_s'))")
+    if [[ "$stored" == "True 7200" ]]; then
+      echo "  OK   sleepy und offline_grace_s gespeichert und zurueckgelesen"
+    else
+      echo "  FEHL sleepy/offline_grace_s kamen als '$stored' zurueck"; FAILED=1
+    fi
+  else
+    echo "  FEHL Speichern eines sleepy-H&T abgelehnt"; FAILED=1
+  fi
+  # Gegenprobe: exclusiveMinimum 0 - eine Gnadenfrist von 0 s waere wieder
+  # das alte "beim ersten verpassten Poll offline".
+  code=$(curl -s "${CURL_INSECURE[@]}" -m 5 -o /dev/null -w '%{http_code}' -b "$COOKIES" -H "$SECURE_HEADER" \
+    -H 'Content-Type: application/json' -X PUT "$SHELLY_URL" --data-binary "@$WORK/shelly-invalid.json")
+  if [[ "$code" == "400" || "$code" == "422" ]]; then
+    echo "  OK   offline_grace_s 0 abgelehnt (HTTP $code)"
+  else
+    echo "  FEHL offline_grace_s 0 kam mit HTTP $code durch"; FAILED=1
+  fi
 fi
 
 # Vorbelegte Daten pruefen: sonst faellt erst im Browser auf, dass ein Seed

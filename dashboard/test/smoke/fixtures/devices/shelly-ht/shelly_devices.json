@@ -1,0 +1,23 @@
+[
+    {
+        "id": "ht_bad",
+        "name": "Shelly H&T Bad",
+        "host": "192.0.2.21",
+        "generation": 1,
+        "switch_channels": 0,
+        "has_temperature": true,
+        "has_humidity": true,
+        "sleepy": true,
+        "offline_grace_s": 43200
+    },
+    {
+        "id": "ht_keller",
+        "name": "Shelly Plus H&T Keller",
+        "host": "192.0.2.22",
+        "generation": 2,
+        "switch_channels": 0,
+        "has_temperature": true,
+        "has_humidity": true,
+        "sleepy": true
+    }
+]
