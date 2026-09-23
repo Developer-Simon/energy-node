@@ -1,11 +1,36 @@
 # Changelog
 
-## v0.7.10 (2026-09-23)
+## v0.7.11 (2026-09-23)
+
+### Features
+
+- **dashboard:** store per-device icon and favourite preferences (490352a)
+- **dashboard:** let favourite entities drive the compact card rows (78749f7)
+- **dashboard:** add a device icon catalogue and render it on the cards (8c90408)
+- **dashboard:** serve device preferences to the tab, the stream and the modal (053972a)
+- **dashboard:** add the device preferences and icon catalogue endpoints (8a9256a)
+- **dashboard:** edit device icon and favourites in the device modal (1f32950)
+- **dashboard:** pin a device's favourite entities at the top of its modal (b385f9c)
+- **dashboard:** suggest device icons by type and polish the display prefs (1b14baa)
 
 ### Fixes
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
-- **redeploy:** keep following a run across the dashboard's self-update restart (0c69419)
+- **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **dashboard:** keep the pinned-favourites block from breaking the modal grid (c0876ee)
+
+### Documentation
+
+- **dashboard:** document the device preference endpoints and bump the assets (aed1eee)
+
+### Tests
+
+- **dashboard:** fix cross-realm deepEqual in the new prefsDraft test (02d2ef3)
+
+### Style
+
+- **dashboard:** gofmt the device-prefs struct fields (19d915e)
+- **dashboard:** draw device icons larger inside their frame (86f909c)
 
 ## v0.7.8 (2026-09-23)
 
