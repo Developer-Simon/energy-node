@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 #
-# Builds the installer and starts its graphical web UI.
+# Builds the installer and starts it: the graphical web UI, or the developer
+# CLI when the first passed argument is a subcommand.
 #
 # Usage:
 #   scripts/dev/run-installer.sh [--no-build] [--fakehost] [args...]
+#   scripts/dev/run-installer.sh [--no-build] <deploy|ensure-secrets|fetch-config|diagnose|help> [flags...]
 #
 #   --no-build   skip the build and start the existing binary (it is still
 #                built if it does not exist yet)

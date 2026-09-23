@@ -26,6 +26,15 @@ cd installer
 go build -o installer ./cmd/installer
 ```
 
+`scripts/dev/run-installer.sh` does the build for you and passes every
+argument on to the binary, so it runs the subcommands below as well
+(`--no-build` reuses the existing binary):
+
+```sh
+scripts/dev/run-installer.sh deploy --dev-unsigned --only dashboard
+scripts/dev/run-installer.sh diagnose
+```
+
 `go vet` and `go test` for `installer/` run in CI whenever `installer/` or
 `scripts/bootstrap/` change; `installer/webui/` (a further nested Go module,
 `replace`d in `installer/go.mod`) has its own Go and JS test suites, plus a

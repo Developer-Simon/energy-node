@@ -61,8 +61,8 @@ Usage:
   installer fetch-config [common flags]
   installer diagnose [common flags]
 
-Running without a subcommand only prints this message: the graphical
-installer (Plan C) is not part of this build yet.
+Running without a subcommand (or with flags only) starts the graphical
+installer instead.
 
 Common flags:
   --repo <path>            repository checkout (default: current directory)

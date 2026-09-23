@@ -94,14 +94,21 @@ dashboard/test/smoke/run-local-dashboard.sh                           # real das
 
 ## Deploying to your own node
 
-From a development machine you can ship changes to a node without the
-installer:
+The installer's developer CLI builds a bundle from your checkout and runs the
+same bootstrap steps on a node that the installer's UI runs.
+`scripts/dev/run-installer.sh` builds the installer and passes every argument
+through, so a subcommand works as well:
 
 ```sh
-./scripts/deploy/deploy_dashboard_to_remote.sh              # cross-compile + ship the Go dashboard
-./scripts/deploy/deploy_src_to_remote.sh                    # ship the Python services
-./scripts/deploy/deploy_src_to_remote.sh --service shelly   # or just one of them
+scripts/dev/run-installer.sh deploy --dev-unsigned --dry-run            # preview what would change
+scripts/dev/run-installer.sh deploy --dev-unsigned                      # full deploy
+scripts/dev/run-installer.sh deploy --dev-unsigned --only dashboard     # or a single step
+scripts/dev/run-installer.sh diagnose                                   # check the node
 ```
+
+The target node comes from `secrets/deploy-target.env`. For that file, SSH
+authentication and every subcommand, see
+[Installer developer CLI](docs/knowledge/installer-developer-cli.md).
 
 ## Secrets
 
