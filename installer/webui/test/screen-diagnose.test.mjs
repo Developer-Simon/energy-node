@@ -145,3 +145,49 @@ test('ein gescheiterter Aufruf landet im Banner', async () => {
   assert.deepEqual(plain(screen.cards), []);
   assert.equal(shell.bar.status, '');
 });
+
+// Shelly-Wake-Webhook: die Pruefungen kommen nur mit Opt-in (Schritt 35).
+const MANIFEST_WEBHOOK = Object.assign({}, MANIFEST, {
+  steps: MANIFEST.steps.concat([{ id: '35', optional: true, default: false, requires: '83' }]),
+});
+const withWebhook = (firewall, listening) => Object.assign({}, DIAGNOSE, {
+  checks: DIAGNOSE.checks.concat([
+    { name: 'shelly webhook firewall 8082', ok: firewall, detail: firewall ? 'allowed' : 'missing', retry_step_id: '35', group: 'system', subject: 'shelly-webhook-firewall:8082' },
+    { name: 'shelly webhook listener 8082', ok: listening, detail: listening ? 'listening' : 'not listening', group: 'system', subject: 'shelly-webhook-listener:8082', severity: 'warn' },
+  ]),
+});
+
+test('der Shelly-Webhook steht mit Port auf der System-Karte, getrennt von den Pflichtports', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withWebhook(true, true), 'GET /api/manifest': MANIFEST_WEBHOOK } });
+  const system = screen.rightCards[0];
+  const names = rows(system);
+  assert.ok(names.some(([name, value]) => name === 'Ports 443 · 1883 · 8080' && value === 'offen'));
+  assert.ok(names.some(([name, value]) => name === 'Shelly-Webhook-Port 8082' && value === 'freigegeben'));
+  assert.ok(names.some(([name, value]) => name === 'Shelly-Wake-Webhook' && value === 'lauscht'));
+  assert.deepEqual(plain(screen.tally), { ok: 16, warn: 0, bad: 1 });
+});
+
+test('Webhook im Dashboard aus: ein Hinweis mit eigenem Text, kein Fehler', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withWebhook(true, false), 'GET /api/manifest': MANIFEST_WEBHOOK } });
+  assert.deepEqual(plain(screen.tally), { ok: 15, warn: 1, bad: 1 });
+  const system = screen.rightCards[0];
+  const listener = system.parts.find((part) => part.name === 'Shelly-Wake-Webhook');
+  assert.equal(listener.value, 'im Dashboard aus');
+  assert.equal(listener.dot, 'd warn');
+  const box = system.parts[system.parts.indexOf(listener) + 1];
+  assert.equal(box.type, 'warnbox');
+  assert.match(box.text, /webhook_enabled/);
+  assert.match(box.text, /8082/);
+});
+
+test('fehlende Firewall-Regel: Fehler mit Reparatur ueber Schritt 35 unter der Firewall-Station', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withWebhook(false, false), 'GET /api/manifest': MANIFEST_WEBHOOK } });
+  const system = screen.rightCards[0];
+  const rule = system.parts.find((part) => part.name === 'Shelly-Webhook-Port 8082');
+  assert.equal(rule.value, 'nicht freigegeben');
+  assert.equal(rule.dot, 'd bad');
+  const fail = system.parts[system.parts.indexOf(rule) + 1];
+  assert.equal(fail.type, 'fail');
+  assert.equal(fail.title, 'Die Firewall-Freigabe fehlt');
+  assert.deepEqual(plain(fail.retry), { stepId: '35', label: 'Schritt 3 · Shelly-Wake-Webhook in der Firewall erneut ausführen' });
+});

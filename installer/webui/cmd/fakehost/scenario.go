@@ -53,6 +53,9 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 		if req.Only != "" && step.ID != req.Only {
 			continue
 		}
+		if step.ID == webhookStep && b.webhookChosen() {
+			step = hostapitest.FakeStep{ID: webhookStep, Log: []string{"Firewall: 8082/tcp fuer den Shelly-Wake-Webhook freigegeben"}}
+		}
 		if err := pause(ctx, b.opts.stepDelay); err != nil {
 			return err
 		}
@@ -78,6 +81,35 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 		sink.Marker(step.ID, state, step.Detail)
 	}
 	return nil
+}
+
+// webhookStep ist die Opt-in-Freigabe des Shelly-Wake-Webhooks; sie laeuft
+// nur mit dem Shelly-Dienst (83), wie auf einem echten Node.
+const webhookStep = "35"
+
+// webhookChosen folgt der zuletzt gespeicherten Auswahl, damit Ausfuehrung
+// und Diagnose zeigen, was die Konfiguration eingestellt hat.
+func (b *stagedBackend) webhookChosen() bool {
+	if b.SelectionView == nil {
+		return false
+	}
+	return b.SelectionView.Steps[webhookStep] && b.SelectionView.Steps["83"]
+}
+
+// Diagnose ergaenzt die feste Pruefliste um den Shelly-Wake-Webhook, sobald
+// er gewaehlt ist: Firewall-Regel gesetzt, der Webhook im Dashboard aber noch
+// aus - der Zustand direkt nach der Installation, also ein Hinweis.
+func (b *stagedBackend) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
+	view, err := b.FakeBackend.Diagnose(ctx)
+	if err != nil || view == nil || !b.webhookChosen() {
+		return view, err
+	}
+	out := *view
+	out.Checks = append(append([]hostapi.Check{}, view.Checks...),
+		hostapi.Check{Name: "shelly webhook firewall 8082", OK: true, Detail: "allowed", RetryStepID: webhookStep, Group: "system", Subject: "shelly-webhook-firewall:8082"},
+		hostapi.Check{Name: "shelly webhook listener 8082", OK: false, Detail: "not listening", Group: "system", Subject: "shelly-webhook-listener:8082", Severity: "warn"},
+	)
+	return &out, nil
 }
 
 func pause(ctx context.Context, d time.Duration) error {
