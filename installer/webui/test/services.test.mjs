@@ -87,7 +87,7 @@ test('Pflichtschritte sind immer gewaehlt, optionale nur mit true', () => {
 // Schritt 35 (Firewall-Freigabe fuer den Shelly-Wake-Webhook) ist Opt-in:
 // Manifest-Vorgabe aus, eigener Schalter in der Konfiguration, in der
 // Ausfuehrung aber Teil der Station "Firewall".
-const WEBHOOK_STEP = { id: '35', optional: true, default: false };
+const WEBHOOK_STEP = { id: '35', optional: true, default: false, requires: '83' };
 function withWebhookStep() {
   const steps = MANIFEST.steps.slice();
   steps.splice(steps.findIndex((step) => step.id === '30') + 1, 0, WEBHOOK_STEP);
@@ -107,7 +107,7 @@ test('der Shelly-Webhook ist ein eigener Schalter und ohne Zustimmung aus', () =
   const fromNode = S.toggles(manifest, { source: 'node', steps: SELECTION.steps }, shell).find((r) => r.ids[0] === '35');
   assert.equal(fromNode.on, false);
   assert.equal(fromNode.known, false);
-  const opted = S.toggles(manifest, { steps: { 35: true } }, shell).find((r) => r.ids[0] === '35');
+  const opted = S.toggles(manifest, { steps: { 35: true, 83: true } }, shell).find((r) => r.ids[0] === '35');
   assert.equal(opted.on, true);
 });
 
@@ -121,4 +121,27 @@ test('in der Ausfuehrung laeuft der Shelly-Webhook unter der Firewall', () => {
   assert.deepEqual(plain(groups[2].ids), ['30', '35']);
   assert.equal(S.groupOf(groups, '35').number, 3);
   assert.equal(S.stepLabel(manifest, '35', shell), 'Shelly-Wake-Webhook in der Firewall');
+});
+
+test('der Shelly-Webhook erscheint erst, wenn der Shelly-Dienst an ist', () => {
+  const { S, shell } = load();
+  const manifest = withWebhookStep();
+  const ids = (steps) => S.toggles(manifest, { steps }, shell).map((row) => row.ids[0]);
+  assert.ok(ids({ 83: true }).includes('35'));
+  assert.ok(!ids({ 83: false }).includes('35'), 'ohne Shelly kein Webhook-Schalter');
+  assert.ok(!ids({}).includes('35'), 'ein nicht genannter Shelly-Dienst ist aus');
+  const noShelly = Object.assign({}, manifest, { steps: manifest.steps.filter((step) => step.id !== '83') });
+  assert.ok(!S.toggles(noShelly, { steps: { 35: true } }, shell).some((row) => row.ids[0] === '35'),
+    'ein Bundle ohne Shelly-Dienst zeigt den Schalter nie');
+});
+
+test('dropUnmet nimmt das Opt-in zurueck, sobald der benoetigte Schritt aus ist', () => {
+  const { S } = load();
+  const manifest = withWebhookStep();
+  const steps = { 35: true, 83: false, 40: true };
+  S.dropUnmet(manifest, steps);
+  assert.deepEqual(plain(steps), { 35: false, 83: false, 40: true });
+  const kept = { 35: true, 83: true };
+  S.dropUnmet(manifest, kept);
+  assert.equal(kept['35'], true);
 });

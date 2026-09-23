@@ -31,6 +31,29 @@
       return !!(selection && selection.steps && selection.steps[step.id] === true);
     },
 
+    // requiresMet: ein Schritt mit "requires" (manifest.json) zaehlt nur,
+    // solange der benoetigte Schritt gewaehlt ist - 35 (Webhook-Port) nur
+    // mit dem Shelly-Dienst 83. Fehlt der benoetigte Schritt im Manifest,
+    // ist die Bedingung nicht erfuellt.
+    requiresMet: function (manifest, step, selection) {
+      if (!step.requires) {
+        return true;
+      }
+      var needed = ((manifest && manifest.steps) || []).filter(function (s) { return s.id === step.requires; })[0];
+      return !!needed && Services.isSelected(needed, selection);
+    },
+
+    // dropUnmet schaltet in der Auswahl jeden Schritt ab, dessen benoetigter
+    // Schritt aus ist - sonst bliebe nach dem Abwaehlen von Shelly ein
+    // unsichtbares Opt-in fuer den Webhook-Port gespeichert.
+    dropUnmet: function (manifest, steps) {
+      ((manifest && manifest.steps) || []).forEach(function (step) {
+        if (step.requires && steps[step.id] === true && !Services.requiresMet(manifest, step, { steps: steps })) {
+          steps[step.id] = false;
+        }
+      });
+    },
+
     isKnown: function (step, selection) {
       return !!(selection && selection.steps && Object.prototype.hasOwnProperty.call(selection.steps, step.id));
     },
@@ -83,6 +106,10 @@
         });
       }
       parts.system.forEach(function (step) {
+        // Erst sichtbar, wenn der benoetigte Schritt an ist (35 mit Shelly).
+        if (!Services.requiresMet(manifest, step, selection)) {
+          return;
+        }
         rows.push({
           key: 'step-' + step.id, kind: 'system', ids: [step.id],
           name: Services.stepName(step.id, shell),

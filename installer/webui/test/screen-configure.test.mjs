@@ -127,3 +127,36 @@ test('ein allgemeines Bundle ohne Ziel nimmt den SSH-Benutzer und sein Heimatver
   assert.equal(screen.targetBase, '/home/orgelbau');
   assert.equal(screen.mqttUser, 'orgelbau');
 });
+
+test('der Shelly-Webhook folgt dem Shelly-Chip: ausgeblendet und abgewaehlt ohne Shelly', async () => {
+  const steps = MANIFEST.steps.slice();
+  steps.splice(steps.findIndex((step) => step.id === '30') + 1, 0, { id: '35', optional: true, default: false, requires: '83' });
+  const manifest = Object.assign({}, MANIFEST, { steps });
+  const { screen } = await mount({ responses: {
+    'GET /api/manifest': manifest,
+    'GET /api/selection': SELECTION,
+    'PUT /api/selection': (body) => ({ source: 'node', steps: body.steps }),
+  } });
+  const webhook = () => screen.rows.find((row) => row.ids[0] === '35');
+  assert.equal(webhook().on, false, 'Opt-in: ohne Zustimmung aus');
+  screen.toggle(webhook());
+  assert.equal(screen.steps['35'], true);
+
+  const shellyChip = () => screen.rows.find((row) => row.kind === 'devices').chips.find((chip) => chip.id === '83');
+  screen.toggleChip(shellyChip());
+  assert.equal(screen.steps['83'], false);
+  assert.equal(webhook(), undefined, 'ohne Shelly ist der Schalter ausgeblendet');
+  assert.equal(screen.steps['35'], false, 'und das Opt-in zurueckgenommen');
+
+  screen.toggleChip(shellyChip());
+  assert.equal(webhook().on, false, 'wieder eingeblendet, aber nicht ungefragt an');
+});
+
+test('eine gespeicherte Auswahl mit Webhook, aber ohne Shelly wird beim Laden bereinigt', async () => {
+  const steps = MANIFEST.steps.concat([{ id: '35', optional: true, default: false, requires: '83' }]);
+  const { screen } = await mount({ responses: {
+    'GET /api/manifest': Object.assign({}, MANIFEST, { steps }),
+    'GET /api/selection': { source: 'node', steps: Object.assign({}, SELECTION.steps, { 35: true, 83: false }) },
+  } });
+  assert.equal(screen.steps['35'], false);
+});
