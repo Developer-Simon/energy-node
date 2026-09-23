@@ -1,6 +1,15 @@
 name: Bundle Release
 
 on:
+  # release.yml calls this after it has published a tag's release, so every
+  # release carries the signed bundles the dashboard update looks for.
+  workflow_call:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the bundles to"
+        required: true
+        type: string
+  # Manual run to (re)attach bundles to an existing release.
   workflow_dispatch:
     inputs:
       tag:

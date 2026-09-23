@@ -91,3 +91,11 @@ jobs:
             args+=(--notes-file "$NOTES_FILE")
           fi
           gh "${args[@]}"
+
+  bundles:
+    name: Signed bundles
+    needs: release
+    uses: ./.github/workflows/bundle-release.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
