@@ -34,7 +34,9 @@ test -f "$tmp/hacs.json"
 test -f "$tmp/AI-DISCLAIMER.md"
 test -f "$tmp/.github/pull_request_template.md"
 test -f "$tmp/custom_components/energy_node_icons/brand/icon.png"
-test -d "$tmp/docs/img"
+test -f "$tmp/docs/integration.md"
+# docs/img should NOT be present for energy_node_icons (no DOCS_IMG in release.env)
+[ ! -d "$tmp/docs/img" ] || { echo "docs/img should not be present for energy_node_icons"; exit 1; }
 # dry-run must NOT create a commit or tag
 [ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
 echo "OK energy_node_icons"

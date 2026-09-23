@@ -64,3 +64,18 @@ def test_check_mirror_manifest_passes(component):
         capture_output=True,
     )
     assert result.returncode == 0
+
+
+@pytest.mark.parametrize("component", ["battery_soc", "energy_node_icons"])
+def test_changelog_path_exists(component):
+    mirror = Path(__file__).resolve().parents[1] / "mirror" / component
+    release_env = (mirror / "release.env").read_text()
+    # Extract CHANGELOG_PATH from release.env
+    for line in release_env.split("\n"):
+        if line.startswith("CHANGELOG_PATH="):
+            changelog_path = line.split("=", 1)[1].strip()
+            repo_root = Path(__file__).resolve().parents[3]
+            changelog_file = repo_root / changelog_path
+            assert changelog_file.is_file(), f"Changelog file not found: {changelog_path}"
+            return
+    assert False, "CHANGELOG_PATH not found in release.env"

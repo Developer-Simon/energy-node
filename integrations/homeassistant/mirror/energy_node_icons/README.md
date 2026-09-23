@@ -2,9 +2,9 @@
 
 <img src="https://raw.githubusercontent.com/Developer-Simon/ha-energy-node-icons/main/custom_components/energy_node_icons/brand/icon.png" alt="energy-node Icons" width="88" align="right">
 
-A Home Assistant icon set of nineteen device symbols from the energy-node dashboard. Each icon is drawn as an outline so Home Assistant can fill it with your chosen theme color.
+A Home Assistant icon set of eighteen device symbols plus a generic fallback from the energy-node dashboard. Each icon is drawn as an outline so Home Assistant can fill it with your chosen theme color.
 
-The icons are designed for energy-management devices — batteries, solar panels, grid connections, heat pumps and more — and are already in use in the energy-node dashboard's compact energy-flow diagram.
+The icons are designed for energy-management devices — batteries, solar panels, grid connections, heat pumps and more — and appear throughout the energy-node dashboard's device cards and device modal.
 
 ## Install (HACS custom repository)
 
@@ -17,6 +17,7 @@ The button above pre-fills the custom-repository dialog. Or by hand:
    **Integration**. Add.
 3. HACS → search **energy-node Icons** → **Download**.
 4. **Restart Home Assistant.**
+5. **Settings → Devices & Services → Add Integration → "energy-node Icons"** (this loads the icon set into Home Assistant).
 
 ## Use
 
@@ -50,7 +51,7 @@ The icon names start with the `energy-node:` prefix (e.g. `energy-node:solar-pan
 
 ## About the drawings
 
-The icons are converted to **filled outlines** — Home Assistant renders them as silhouettes of the dashboard's stroked symbols, filled with your chosen icon color. This conversion is automatic, so an icon that relies on thin interior details may appear as a solid shape at badge size (the smallest size Home Assistant uses). This is a characteristic of the conversion process, not a bug in this integration — if an icon appears too solid, it will need to be redrawn with thicker strokes in the source.
+The icon strokes are converted to filled outlines at the dashboard's stroke width, so each icon takes Home Assistant's icon colour and looks like the dashboard's stroked symbol.
 
 ## Pull requests
 

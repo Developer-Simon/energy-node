@@ -1,6 +1,6 @@
 # energy-node Icons integration for Home Assistant
 
-The **energy-node Icons** integration is a Home Assistant custom icon set containing nineteen device symbols drawn for the energy-node dashboard. Each icon is an outline that Home Assistant fills with your chosen theme color — so an icon adapts to your dashboard's look.
+The **energy-node Icons** integration is a Home Assistant custom icon set containing eighteen device symbols plus a generic fallback drawn for the energy-node dashboard. Each icon is an outline that Home Assistant fills with your chosen theme color — so an icon adapts to your dashboard's look.
 
 The set includes batteries, solar panels, grid connections, heat pumps, meters, and infrastructure symbols — everything a household energy-management dashboard needs.
 
@@ -8,7 +8,7 @@ The set includes batteries, solar panels, grid connections, heat pumps, meters, 
 
 The icon set is a Home Assistant integration that lives alongside `energy_node_icons` in Home Assistant's custom integration picker. Once installed, you can assign icons from the set to any entity — click the entity's icon field, type `energy-node`, and pick from the catalogue.
 
-Each icon is named `energy-node:symbol-name`, where `symbol-name` is one of the nineteen names listed below.
+Each icon is named `energy-node:symbol-name`, where `symbol-name` is one of the icons listed below.
 
 ## Install via HACS
 
@@ -19,6 +19,7 @@ The easiest way is through [HACS](https://hacs.xyz/) as a custom repository:
 3. Category: **Integration** → **Add**.
 4. Search for **energy-node Icons** → **Download**.
 5. **Restart Home Assistant.**
+6. **Settings → Devices & Services → Add Integration → "energy-node Icons"** (this loads the icon set into Home Assistant).
 
 ### Manual install
 
@@ -64,9 +65,7 @@ The icon name (e.g., `energy-node:solar-panel`) is now assigned to that entity. 
 
 ## About the drawings
 
-The icons are **filled outlines** — Home Assistant renders them as silhouettes of the original dashboard symbols, colored with your chosen icon color. This is a result of the conversion process that makes outlines renderable by Home Assistant at any size.
-
-Because icons are now solid shapes rather than stroked lines, an icon with very thin interior details may appear as a solid blob at the smallest sizes (e.g., badges). If an icon reads poorly at badge size, it may need to be redrawn with thicker strokes — this is a characteristic of the conversion, not a bug. Feedback and redrawing suggestions are welcome in the main energy-node repository.
+The icon strokes are converted to filled outlines at the dashboard's stroke width, so each icon takes Home Assistant's icon colour and looks like the dashboard's stroked symbol.
 
 ## Support and feedback
 

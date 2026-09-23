@@ -144,9 +144,9 @@ Two integrations are published:
   transport-agnostic engine is shared with the MQTT service via
   `libs/battery_soc_core/`.
 
-- **`energy_node_icons`**: nineteen device symbols from the dashboard's icon
-  catalogue, usable in Home Assistant entity icon pickers. Each icon is an
-  outline that Home Assistant fills with your theme color.
+- **`energy_node_icons`**: eighteen device symbols plus a generic fallback from
+  the dashboard's icon catalogue, usable in Home Assistant entity icon pickers.
+  Each icon is an outline that Home Assistant fills with your theme color.
 
 Distribution uses separate public repos wired for HACS, assembled from this monorepo
 by `scripts/publish_mirror.sh`:

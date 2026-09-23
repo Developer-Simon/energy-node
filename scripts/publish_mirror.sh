@@ -83,14 +83,16 @@ ha="${repo_root}/integrations/homeassistant"
 src_cc="${ha}/custom_components/${component}"
 template="${ha}/mirror/${component}"
 
-# Read mirror-specific settings from release.env if mirror_path not explicitly provided
+# Read mirror-specific settings from release.env
+if [[ ! -f "${template}/release.env" ]]; then
+  echo "error: mirror template for '${component}' not found at ${template}" >&2
+  exit 1
+fi
+# shellcheck source=/dev/null
+source "${template}/release.env"
+
+# Default mirror_path to the value in release.env if not provided
 if [[ -z "$mirror_path" ]]; then
-  if [[ ! -f "${template}/release.env" ]]; then
-    echo "error: mirror template for '${component}' not found at ${template}" >&2
-    exit 1
-  fi
-  # shellcheck source=/dev/null
-  source "${template}/release.env"
   mirror_path="${MIRROR_PATH:?release.env must set MIRROR_PATH}"
 fi
 
@@ -133,12 +135,13 @@ rm -rf "${mirror_path}/.github"
 cp -r "${template}/.github" "${mirror_path}/.github"
 rm -rf "${mirror_path}/docs"
 mkdir -p "${mirror_path}/docs"
-cp -r "${ha}/docs/img" "${mirror_path}/docs/img"
+# Optional: copy docs/img if specified in release.env (e.g. battery_soc includes screenshots)
+if [[ -n "$DOCS_IMG" ]]; then
+  cp -r "${repo_root}/${DOCS_IMG}" "${mirror_path}/docs/img"
+fi
 cp "${template}"/docs/*.md "${mirror_path}/docs/"
 
 # 4. Rewrite the manifest's public fields (stdlib json, no jq).
-# shellcheck source=/dev/null
-source "${template}/release.env"
 OWNER="${OWNER:?release.env must set OWNER}" \
 REPO="${REPO:?release.env must set REPO}" \
 VERSION="$version" \
@@ -244,18 +247,9 @@ awk -v ver="v${version}" '
   grab { print }
 ' "${repo_root}/${CHANGELOG_PATH}" > "$notes_file"
 if [[ ! -s "$notes_file" ]]; then
-  # Fallback message depends on component
-  case "$component" in
-    battery_soc)
-      printf 'Release %s of the Battery SoC Home Assistant integration.\n' "v${version}" > "$notes_file"
-      ;;
-    energy_node_icons)
-      printf 'Release %s of the energy-node Icons integration.\n' "v${version}" > "$notes_file"
-      ;;
-    *)
-      printf 'Release %s.\n' "v${version}" > "$notes_file"
-      ;;
-  esac
+  # Fallback: use RELEASE_NAME from release.env
+  RELEASE_NAME="${RELEASE_NAME:?release.env must set RELEASE_NAME}"
+  printf 'Release %s of the %s.\n' "v${version}" "$RELEASE_NAME" > "$notes_file"
 fi
 
 gh release create "v${version}" \

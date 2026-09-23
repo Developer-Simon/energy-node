@@ -80,9 +80,9 @@ The service `battery_soc.apply_suggestion` (parameters: `entry_id`, `key`, optio
 
 <img src="custom_components/energy_node_icons/brand/icon.png" alt="energy-node Icons" width="88" align="right">
 
-A Home Assistant custom icon set of nineteen device symbols drawn for the energy-node dashboard. Each icon is an outline that Home Assistant fills with your chosen theme color.
+A Home Assistant custom icon set of eighteen device symbols plus a generic fallback drawn for the energy-node dashboard. Each icon is an outline that Home Assistant fills with your chosen theme color.
 
-The icon set includes batteries, solar panels, grid connections, heat pumps, meters, and infrastructure symbols.
+The icon set includes batteries, solar panels, grid connections, heat pumps, meters, and infrastructure symbols. The icons appear throughout the dashboard's device cards and device modal.
 
 ## About the icon source
 
