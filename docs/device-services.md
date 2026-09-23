@@ -160,7 +160,10 @@ wait for the shared cycle to happen to land inside its short wake window:
    also drops the opt-in and removes the rule. It opens the
    `webhook_port` from `config.json` if set, otherwise 8082. Unticking it
    later removes the rule again on the next run. Without the installer, run
-   `sudo ufw allow <port>/tcp` by hand.
+   `sudo ufw allow <port>/tcp` by hand. Once chosen, the installer's
+   diagnose checks the rule (an error, repaired by step 35) and whether the
+   service listens on the port (only a hint: it does not until step 1 is
+   done).
 3. On the device, under *Settings → Actions*, add a **Report URL** / sensor
    report action pointing at `http://<node-host>:<webhook_port>/shelly/wake/<device id>`
    (the `<device id>` is the `id` field from `shelly_devices.json`).
