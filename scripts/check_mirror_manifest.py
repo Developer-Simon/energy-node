@@ -5,12 +5,15 @@ Run before scripts/publish_mirror.sh. No Home Assistant source, no network --
 just the things hassfest / hacs/action would reject, checked locally. Prints
 every failure and exits non-zero.
 
-    .venv/bin/python scripts/check_mirror_manifest.py
+    .venv/bin/python scripts/check_mirror_manifest.py [--component NAME]
+
+--component defaults to 'battery_soc' (the other option: 'energy_node_icons').
 
 Stdlib only.
 """
 from __future__ import annotations
 
+import argparse
 import ast
 import json
 import re
@@ -46,9 +49,9 @@ def _key_tree(obj, prefix: str = "") -> set[str]:
     return out
 
 
-def check(root: Path) -> list[str]:
-    cc = root / "integrations/homeassistant/custom_components/battery_soc"
-    mirror = root / "integrations/homeassistant/mirror"
+def check(root: Path, component: str = "battery_soc") -> list[str]:
+    cc = root / f"integrations/homeassistant/custom_components/{component}"
+    mirror = root / f"integrations/homeassistant/mirror/{component}"
     fails: list[str] = []
 
     try:
@@ -108,36 +111,56 @@ def check(root: Path) -> list[str]:
     for asset in ("icon.png", "icon@2x.png"):
         if not (cc / "brand" / asset).is_file():
             fails.append(f"brand/{asset} is missing")
-    shot = root / "integrations/homeassistant/docs/img/IntegrationDemo.png"
-    if not shot.is_file():
-        fails.append("docs/img/IntegrationDemo.png (README screenshot) is missing")
+    # battery_soc has an IntegrationDemo screenshot; energy_node_icons doesn't
+    if component == "battery_soc":
+        shot = root / "integrations/homeassistant/docs/img/IntegrationDemo.png"
+        if not shot.is_file():
+            fails.append("docs/img/IntegrationDemo.png (README screenshot) is missing")
     try:
         readme = (mirror / "README.md").read_text()
-        for needle in ("brand/icon.png", "IntegrationDemo.png",
-                       "my.home-assistant.io/redirect/hacs_repository"):
+        readme_checks = ["my.home-assistant.io/redirect/hacs_repository"]
+        if component == "battery_soc":
+            readme_checks.extend(["brand/icon.png", "IntegrationDemo.png"])
+        else:
+            # energy_node_icons should reference the icon catalogue
+            readme_checks.append("Icon catalogue")
+        for needle in readme_checks:
             if needle not in readme:
                 fails.append(f"mirror/README.md no longer references {needle!r}")
     except OSError as exc:
         fails.append(f"mirror/README.md unreadable: {exc}")
 
-    vendored = cc / "battery_soc_core"
-    if not vendored.is_dir():
-        fails.append("vendored battery_soc_core/ is missing")
-    else:
-        if any(p.is_dir() for p in vendored.rglob("tests")):
-            fails.append("vendored battery_soc_core/ still contains a tests/ dir")
-        stdlib = set(sys.stdlib_module_names)
-        allowed_local = {"battery_soc_core"}
-        for py in sorted(vendored.rglob("*.py")):
-            bad = _imported_roots(py) - stdlib - allowed_local
-            if bad:
-                fails.append(f"vendored {py.name} imports non-stdlib: {sorted(bad)}")
+    # battery_soc has vendored battery_soc_core; energy_node_icons doesn't
+    if component == "battery_soc":
+        vendored = cc / "battery_soc_core"
+        if not vendored.is_dir():
+            fails.append("vendored battery_soc_core/ is missing")
+        else:
+            if any(p.is_dir() for p in vendored.rglob("tests")):
+                fails.append("vendored battery_soc_core/ still contains a tests/ dir")
+            stdlib = set(sys.stdlib_module_names)
+            allowed_local = {"battery_soc_core"}
+            for py in sorted(vendored.rglob("*.py")):
+                bad = _imported_roots(py) - stdlib - allowed_local
+                if bad:
+                    fails.append(f"vendored {py.name} imports non-stdlib: {sorted(bad)}")
 
     return fails
 
 
 def main() -> int:
-    fails = check(repo_root())
+    parser = argparse.ArgumentParser(
+        description="Offline pre-publish sanity checks for the HACS mirror."
+    )
+    parser.add_argument(
+        "--component",
+        default="battery_soc",
+        choices=["battery_soc", "energy_node_icons"],
+        help="Component to check (default: battery_soc)",
+    )
+    args = parser.parse_args()
+
+    fails = check(repo_root(), component=args.component)
     if fails:
         print("check_mirror_manifest: FAIL", file=sys.stderr)
         for failure in fails:

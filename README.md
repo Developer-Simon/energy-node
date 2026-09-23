@@ -120,7 +120,7 @@ in [`docs/dashboard.md`](docs/dashboard.md).
 | `services/battery_soc/` | Python | State of charge for two LiFePO4 banks by coulomb counting, with voltage recalibration at the ends of the curve and per-converter efficiency. Monitoring estimate, not a BMS. |
 | `services/automation/` | Python | Rule engine (conditions, hysteresis, hold times, cooldown, allowed publish prefixes). Deliberately a separate process from the dashboard, so the dashboard stays read-only. |
 | `libs/energy_node_common/` | Python | Installable package shared by all bridges: MQTT setup, Discovery, availability, scheduler, and the master/slave settings protocol. |
-| `integrations/homeassistant/` | Python | Separate track: a native Home Assistant custom integration that brings dashboard features into HA directly, starting with LiFePO4 state of charge (same `battery_soc_core` engine). Installed via HACS — see [Home Assistant integration (HACS)](#home-assistant-integration-hacs). |
+| `integrations/homeassistant/` | Python | Separate track: native Home Assistant custom integrations that bring dashboard features into HA directly, starting with LiFePO4 state of charge (same `battery_soc_core` engine) and the device icon set. Installed via HACS — see [Home Assistant integration (HACS)](#home-assistant-integration-hacs). |
 
 Everything couples through **exactly one local MQTT broker**. There is no
 direct HTTP path between the bridges and the dashboard.
@@ -130,24 +130,32 @@ direct HTTP path between the bridges and the dashboard.
 ## Home Assistant integration (HACS)
 
 Beyond the MQTT bridge, the plan is to make features that already exist in the
-dashboard available **inside Home Assistant itself**, as a native custom
-integration under
+dashboard available **inside Home Assistant itself**, as native custom
+integrations under
 [`integrations/homeassistant/`](integrations/homeassistant/), installed
 through HACS.
 
-It **starts with the LiFePO4 state-of-charge counter**: the same coulomb
-counting, voltage recalibration and per-converter efficiency that drive the
-dashboard's battery view, running as a config-flow integration with a
-`battery_soc.set_state_of_charge` action instead of MQTT topics. The
-dashboard's **battery tiles** are the next piece to follow. Both sides share
-the transport-agnostic `libs/battery_soc_core/` engine — the MQTT service and
-the HA integration are two adapters over one core.
+Two integrations are published:
 
-Distribution is a separate public repo (`ha-battery-soc`) wired for HACS,
-assembled from this monorepo by `scripts/publish_mirror.sh`; the vendored core
-inside the integration is kept in lockstep with `libs/battery_soc_core/` by
-`scripts/vendor_core.py` and a commit-time drift guard. Setup and the release
-runbook:
+- **`battery_soc`**: the LiFePO4 state-of-charge counter — the same coulomb
+  counting, voltage recalibration and per-converter efficiency that drive the
+  dashboard's battery view, running as a config-flow integration with a
+  `battery_soc.set_state_of_charge` action instead of MQTT topics. The
+  transport-agnostic engine is shared with the MQTT service via
+  `libs/battery_soc_core/`.
+
+- **`energy_node_icons`**: eighteen device symbols plus a generic fallback from
+  the dashboard's icon catalogue, usable in Home Assistant entity icon pickers.
+  Each icon is an outline that Home Assistant fills with your theme color.
+
+Distribution uses separate public repos wired for HACS, assembled from this monorepo
+by `scripts/publish_mirror.sh`:
+- [`ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc)
+- [`ha-energy-node-icons`](https://github.com/Developer-Simon/ha-energy-node-icons)
+
+The vendored core and generated icons inside the integrations are kept in lockstep
+with their sources by `scripts/vendor_core.py` / `scripts/icons/flatten_icons.py`
+and CI drift guards (Go test `TestCommittedCatalogueIsCurrent`, Python `flatten_icons.py --check`). Setup and the release runbook:
 [`docs/integration/ha-integration-hacs-release.md`](docs/integration/ha-integration-hacs-release.md).
 
 ---

@@ -1,0 +1,61 @@
+name: Bug report
+description: An icon is not showing correctly or not appearing in the picker.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for taking the time to file a report. This icon set provides outline
+        symbols for the energy-node dashboard; Home Assistant fills them with your
+        theme color. If an icon is missing or broken, please let us know where it
+        appears wrong and in which Home Assistant version.
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2025.1.0"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: energy-node Icons version
+      description: HACS → energy-node Icons → the installed version.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation method
+      options:
+        - HACS custom repository
+        - Manual (downloaded ZIP)
+    validations:
+      required: true
+  - type: input
+    id: icon_name
+    attributes:
+      label: Icon name (if known)
+      description: The `energy-node:icon-name` that is misbehaving, or leave blank if unknown.
+      placeholder: "energy-node:solar-panel"
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: Where does the icon show wrong or not appear? (e.g., in picker, on card, nowhere)
+    validations:
+      required: true
+  - type: textarea
+    id: browser_info
+    attributes:
+      label: Browser and OS
+      description: Browser type and version, and your OS (relevant for icon rendering).
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Settings → System → Logs, filtered to `energy_node_icons`. Include browser console errors if any.
+      render: text

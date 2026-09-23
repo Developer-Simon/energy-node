@@ -1,0 +1,124 @@
+name: HA Mirror Release
+
+# Publishes one Home Assistant integration to its public HACS mirror repo
+# (ha-battery-soc, ha-energy-node-icons) - the same scripts/publish_mirror.sh
+# a local release runs, so both paths stay identical. Manual only: a release
+# is a decision, not a side effect of a merge.
+#
+# Needs the repository secret HA_MIRROR_TOKEN: a fine-grained personal access
+# token with "Contents: read and write" on both mirror repos (the default
+# GITHUB_TOKEN cannot push to another repository or create its releases).
+on:
+  workflow_dispatch:
+    inputs:
+      component:
+        description: "Integration to publish"
+        required: true
+        type: choice
+        options:
+          - energy_node_icons
+          - battery_soc
+      version:
+        description: "Version X.Y.Z (empty = the component's manifest.json version)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Dry run: assemble and show the mirror tree, publish nothing"
+        required: true
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ha-mirror-release-${{ inputs.component }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish ${{ inputs.component }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Only release from main
+        if: ${{ !inputs.dry_run && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error::A real release must run on main (got ${GITHUB_REF}). Use dry run on other branches."
+          exit 1
+
+      - name: Check the mirror token
+        env:
+          HA_MIRROR_TOKEN: ${{ secrets.HA_MIRROR_TOKEN }}
+        run: |
+          if [ -z "$HA_MIRROR_TOKEN" ]; then
+            echo "::error::Secret HA_MIRROR_TOKEN is not set - see the comment at the top of this workflow."
+            exit 1
+          fi
+
+      # Full history: generate_changelog.sh builds the release notes from it.
+      - uses: actions/checkout@v4
+        with:
+          path: monorepo
+          fetch-depth: 0
+
+      - name: Read the mirror repo from release.env
+        id: target
+        working-directory: monorepo
+        run: |
+          env_file="integrations/homeassistant/mirror/${{ inputs.component }}/release.env"
+          owner="$(sed -n 's/^OWNER=//p' "$env_file")"
+          repo="$(sed -n 's/^REPO=//p' "$env_file")"
+          echo "repository=${owner}/${repo}" >> "$GITHUB_OUTPUT"
+
+      # Tags too: publish_mirror.sh refuses a version whose tag already exists.
+      - uses: actions/checkout@v4
+        with:
+          repository: ${{ steps.target.outputs.repository }}
+          token: ${{ secrets.HA_MIRROR_TOKEN }}
+          path: mirror
+          fetch-depth: 0
+
+      - name: Git identity for the mirror commit
+        working-directory: mirror
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Publish
+        working-directory: monorepo
+        env:
+          GH_TOKEN: ${{ secrets.HA_MIRROR_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          args=(--component "${{ inputs.component }}" --mirror-path "$GITHUB_WORKSPACE/mirror")
+          if [ -n "$VERSION" ]; then args+=(--version "$VERSION"); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); else args+=(--release); fi
+          scripts/publish_mirror.sh "${args[@]}"
+
+      # --release regenerates the component's CHANGELOG.md in the monorepo and
+      # only stages it; main is PR-protected, so the workflow hands it over as
+      # an artifact to be committed through a normal PR.
+      - name: Collect the regenerated changelog
+        if: ${{ !inputs.dry_run }}
+        id: changelog
+        working-directory: monorepo
+        run: |
+          path="$(sed -n 's/^CHANGELOG_PATH=//p' "integrations/homeassistant/mirror/${{ inputs.component }}/release.env")"
+          echo "path=monorepo/${path}" >> "$GITHUB_OUTPUT"
+          if git diff --cached --quiet -- "$path"; then
+            echo "Changelog \`${path}\` was already up to date." >> "$GITHUB_STEP_SUMMARY"
+          else
+            {
+              echo "Changelog \`${path}\` changed - commit the artifact **changelog** through a PR:"
+              echo '```diff'
+              git diff --cached -- "$path"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ !inputs.dry_run }}
+        with:
+          name: changelog
+          path: ${{ steps.changelog.outputs.path }}

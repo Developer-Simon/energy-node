@@ -74,14 +74,40 @@ The service `battery_soc.apply_suggestion` (parameters: `entry_id`, `key`, optio
 
 **Note:** nothing is applied automatically; suggestions are advisory and only take effect through the options flow or an explicit `apply_suggestion` call.
 
+---
+
+# energy_node_icons — Home Assistant Icon Set
+
+<img src="custom_components/energy_node_icons/brand/icon.png" alt="energy-node Icons" width="88" align="right">
+
+A Home Assistant custom icon set of eighteen device symbols plus a generic fallback drawn for the energy-node dashboard. Each icon is an outline that Home Assistant fills with your chosen theme color.
+
+The icon set includes batteries, solar panels, grid connections, heat pumps, meters, and infrastructure symbols. The icons appear throughout the dashboard's device cards and device modal.
+
+## About the icon source
+
+The icons are generated from the Go source in [`../../dashboard/internal/webui/deviceicons.go`](../../dashboard/internal/webui/deviceicons.go). The generation workflow is:
+
+1. Edit the device icon drawings in the Go source (`deviceicons.go`).
+2. Build the dashboard to generate `icons.source.json`: `cd dashboard && go run ./cmd/deviceicons`.
+3. Convert to Home Assistant format: `.venv/bin/python scripts/icons/flatten_icons.py`.
+   - This reads `integrations/homeassistant/icons.source.json` and strokes the SVG symbols as filled outlines, writing them to `custom_components/energy_node_icons/www/energy-node-icons.js`.
+4. Commit both the updated JS file and the Go sources.
+
+Drift guards ensure the icon set stays in sync:
+- **Go test** `TestCommittedCatalogueIsCurrent` (in `dashboard/cmd/deviceicons/`) verifies `icons.source.json` matches the drawings.
+- **Python check** `flatten_icons.py --check` verifies the JS module matches the source (also runs in CI as part of the icon mirror assembly).
+  - Runs in `.venv` (no HA deps needed); CI runs it before releasing the icon set.
+
 ## Manifest
 
-`manifest.json` carries the real public identifiers (`Developer-Simon` /
-`ha-battery-soc`). `scripts/publish_mirror.sh` re-applies them from
-`mirror/release.env` when it assembles the HACS mirror, and stamps the release
-version.
+Each integration's `manifest.json` carries the real public identifiers. `scripts/publish_mirror.sh` re-applies them from the component's `mirror/COMPONENT/release.env` when it assembles the HACS mirror.
 
-## Screenshot
+---
+
+# Shared
+
+## Screenshot (battery_soc)
 
 ![Battery SoC device page in Home Assistant](docs/img/IntegrationDemo.png)
 
