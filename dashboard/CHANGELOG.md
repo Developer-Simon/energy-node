@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.7.9 (2026-09-23)
+
+### Fixes
+
+- **dashboard:** pass service fields and previous versions to the redeploy preview (4b96844)
+
 ## v0.7.8 (2026-09-23)
 
 ### Features
@@ -25,6 +31,7 @@
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
 - **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
+- **shelly:** support sleepy H&T devices with an opt-in wake webhook (#49) (1e6d571)
 - render the system-action helper on the node, validate targets with fullmatch, register the new tests (e546498)
 - **dashboard:** hand the redeploy page the session's CSRF token (7bd8f3a)
 - **dashboard:** implement the new hostapi.Sink.Message method (8ae6af3)
