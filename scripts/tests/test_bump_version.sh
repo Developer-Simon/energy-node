@@ -96,12 +96,25 @@ bump "$r" main
 # --- manifest.json gets a bare semver, stays valid JSON --------------------
 r="$tmp/manifest"
 setup_repo "$r"
-echo x > "$r/integrations/homeassistant/thing.py"
+echo x > "$r/integrations/homeassistant/custom_components/battery_soc/thing.py"
 commit "$r" "feat: touch HA integration"
 bump "$r" main
 got="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
   "$r/integrations/homeassistant/custom_components/battery_soc/manifest.json")"
 [ "$got" = 9.9.10 ] || fail "manifest version not bare-bumped" "$got"
+
+# --- HA tests, README and mirror templates do not bump the integration -----
+r="$tmp/ha-outside-component"
+setup_repo "$r"
+mkdir -p "$r/integrations/homeassistant/tests" "$r/integrations/homeassistant/mirror/battery_soc"
+echo x > "$r/integrations/homeassistant/tests/test_thing.py"
+echo x > "$r/integrations/homeassistant/README.md"
+echo x > "$r/integrations/homeassistant/mirror/battery_soc/README.md"
+commit "$r" "docs: touch HA tests, README and mirror"
+bump "$r" main
+got="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["version"])' \
+  "$r/integrations/homeassistant/custom_components/battery_soc/manifest.json")"
+[ "$got" = 9.9.9 ] || fail "a change outside custom_components/battery_soc bumped it" "$got"
 
 # --- idempotent: a second run after committing the bump does nothing ------
 r="$tmp/idem"

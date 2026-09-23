@@ -636,8 +636,15 @@ generate_one() {
       history_prefixes=("integrations/homeassistant/")
       version_file_candidates=("integrations/homeassistant/custom_components/battery_soc/manifest.json")
       # Das Icon-Set hat sein eigenes Target (ha-icons) und seinen eigenen
-      # Changelog - hier nur die battery_soc-Integration.
-      exclude_prefixes=("integrations/homeassistant/custom_components/energy_node_icons/")
+      # Changelog - hier nur die battery_soc-Integration, ohne die Dateien,
+      # die allein dem Icon-Set gehoeren.
+      exclude_prefixes=(
+        "integrations/homeassistant/custom_components/energy_node_icons/"
+        "integrations/homeassistant/mirror/energy_node_icons/"
+        "integrations/homeassistant/icons.source.json"
+        "integrations/homeassistant/tests/test_icon_set.py"
+        "integrations/homeassistant/tests/test_icons_component.py"
+      )
       # v0.1.0-v0.1.4 wurden von Hand als 5 getrennte Abschnitte geschrieben,
       # bevor diese Komponente ab v0.2.0 auf automatische Generierung
       # umgestellt wurde - dauerhaft eingefroren, siehe Kommentar oben.

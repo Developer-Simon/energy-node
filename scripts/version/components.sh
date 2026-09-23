@@ -21,7 +21,10 @@ COMPONENTS=(
   "libs/energy_node_common/:libs/energy_node_common/VERSION"
   "libs/battery_soc_core/:libs/battery_soc_core/VERSION"
   "scripts/bootstrap/:scripts/bootstrap/VERSION"
-  "integrations/homeassistant/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
+  # Nur der ausgelieferte Integrationscode zaehlt: Tests, README, Mirror-
+  # Vorlagen und die Quellen des Icon-Sets unter integrations/homeassistant/
+  # aendern die battery_soc-Integration nicht und duerfen sie nicht bumpen.
+  "integrations/homeassistant/custom_components/battery_soc/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
   "integrations/homeassistant/custom_components/energy_node_icons/:integrations/homeassistant/custom_components/energy_node_icons/manifest.json"
   "installer/:installer/VERSION"
   "installer/webui/:installer/webui/VERSION"
