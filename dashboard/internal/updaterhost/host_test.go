@@ -223,3 +223,103 @@ func asHostapiError(err error, target **hostapi.Error) bool {
 	}
 	return false
 }
+
+// writeServiceNode replaces setupNode's manifests with a bundle that carries
+// a device service, a plain service and a library, and an installed
+// manifest from the previous package.
+func writeServiceNode(t *testing.T, cfg updaterhost.Config) {
+	t.Helper()
+	manifest := map[string]any{
+		"version": "1.5.0", "arch": "armv6",
+		"components": map[string]string{"dashboard": "1.5.0", "bootstrap": "0.2.0", "energy_node_common": "0.4.7"},
+		"steps": []map[string]any{
+			{"id": "60", "optional": false},
+			{"id": "83", "optional": true, "default": true, "service_id": "shelly", "kind": "device",
+				"dir": "shelly", "unit": "shelly-rpc.service", "version": "0.3.0"},
+			{"id": "88", "optional": true, "default": true, "service_id": "automation", "kind": "service",
+				"dir": "automation", "unit": "automation.service", "version": "0.1.0"},
+		},
+	}
+	raw, _ := json.Marshal(manifest)
+	os.WriteFile(filepath.Join(cfg.CandidateBundleDir, "manifest.json"), raw, 0o644)
+	os.WriteFile(cfg.InstalledManifestPath, []byte(`{"version":"1.4.0",
+		"components":{"dashboard":"1.4.0","bootstrap":"0.1.9"},
+		"steps":[{"id":"83","version":"0.2.0"}]}`), 0o644)
+	os.WriteFile(cfg.SelectionPath, []byte(`{"steps":{"83":true,"88":true}}`), 0o644)
+}
+
+func TestManifestCarriesTheServiceFieldsOfEachStep(t *testing.T) {
+	cfg := setupNode(t)
+	writeServiceNode(t, cfg)
+	host, _ := updaterhost.New(cfg)
+	view, err := host.Manifest(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := []hostapi.StepView{
+		{ID: "60"},
+		{ID: "83", ServiceID: "shelly", Kind: "device", Dir: "shelly", Unit: "shelly-rpc.service", Optional: true, Default: true},
+		{ID: "88", ServiceID: "automation", Kind: "service", Dir: "automation", Unit: "automation.service", Optional: true, Default: true},
+	}
+	if len(view.Steps) != len(want) {
+		t.Fatalf("steps = %+v, want %+v", view.Steps, want)
+	}
+	for i := range want {
+		if view.Steps[i] != want[i] {
+			t.Errorf("step %d = %+v, want %+v", i, view.Steps[i], want[i])
+		}
+	}
+}
+
+func TestPlanTakesComponentFromVersionsFromTheInstalledManifest(t *testing.T) {
+	cfg := setupNode(t)
+	writeServiceNode(t, cfg)
+	host, _ := updaterhost.New(cfg)
+	view, err := host.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{"dashboard": "1.4.0", "bootstrap": "0.1.9"} {
+		got := view.Components[name]
+		if got.From == nil || *got.From != want {
+			t.Errorf("%s from = %v, want %s", name, got.From, want)
+		}
+	}
+	if from := view.Components["energy_node_common"].From; from != nil {
+		t.Errorf("energy_node_common from = %q, want nil (not in the installed manifest)", *from)
+	}
+}
+
+func TestPlanLeavesComponentFromNilWithoutAnInstalledManifest(t *testing.T) {
+	cfg := setupNode(t)
+	writeServiceNode(t, cfg)
+	os.Remove(cfg.InstalledManifestPath)
+	host, _ := updaterhost.New(cfg)
+	view, err := host.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if from := view.Components["dashboard"].From; from != nil {
+		t.Errorf("dashboard from = %q, want nil", *from)
+	}
+}
+
+func TestPlanStepsCarryUnitAndVersions(t *testing.T) {
+	cfg := setupNode(t)
+	writeServiceNode(t, cfg)
+	host, _ := updaterhost.New(cfg)
+	view, err := host.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]hostapi.PlanStep{}
+	for _, s := range view.Steps {
+		byID[s.ID] = s
+	}
+	if s := byID["83"]; s.Unit != "shelly-rpc.service" || s.From != "0.2.0" || s.To != "0.3.0" {
+		t.Errorf("step 83 = %+v, want unit shelly-rpc.service, 0.2.0 -> 0.3.0", s)
+	}
+	if s := byID["88"]; s.Unit != "automation.service" || s.From != "" || s.To != "0.1.0" {
+		t.Errorf("step 88 = %+v, want unit automation.service, no from, to 0.1.0", s)
+	}
+}
