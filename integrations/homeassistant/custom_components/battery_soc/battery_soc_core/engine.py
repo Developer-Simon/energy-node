@@ -84,6 +84,22 @@ class EffectivePower:
     ac_fallback_active: bool
 
 
+def _side_power(params, inputs, now, dc_slot, ac_slot, ac_to_dc):
+    """DC-seitige Leistung einer Seite und ihre Quelle ("dc"/"ac").
+
+    Ohne AC-Slot ist DC die einzige Quelle, kein Override: sie gilt, bis
+    ihre Gruppe veraltet (stale_input_s, das regelt tick() ueber
+    groups_stale). dc_max_age_s greift nur, wo es einen AC-Rueckfall gibt."""
+    dc_configured = getattr(inputs, f"{dc_slot}_configured")
+    ac_configured = getattr(inputs, f"{ac_slot}_configured")
+    if dc_configured and not ac_configured:
+        return max(0.0, slot_power_w(params, inputs, dc_slot)), "dc"
+    if sample_is_fresh(dc_configured, effective_ts(params, inputs, dc_slot),
+                       now, params.dc_max_age_s):
+        return max(0.0, slot_power_w(params, inputs, dc_slot)), "dc"
+    return ac_to_dc(max(0.0, getattr(inputs, f"{ac_slot}_w"))), "ac"
+
+
 def effective_power(params, inputs, now, groups_stale) -> EffectivePower:
     """Netto-Batterieleistung nach Wandler-Wirkungsgrad.
 
@@ -95,26 +111,14 @@ def effective_power(params, inputs, now, groups_stale) -> EffectivePower:
 
     Liegt fuer eine Seite ein frischer DC-Messwert vor, ersetzt er die
     AC-Messung dieser Seite komplett - und OHNE Wirkungsgrad, denn er steht
-    schon auf dem Gleichstrombus. Beide Seiten entscheiden das unabhaengig."""
-    charger_power_w = inputs.charger_power_w
-    inverter_power_w = inputs.inverter_power_w
-
-    if sample_is_fresh(inputs.charger_dc_power_configured,
-                       effective_ts(params, inputs, "charger_dc_power"),
-                       now, params.dc_max_age_s):
-        dc_charge_w = max(0.0, slot_power_w(params, inputs, "charger_dc_power"))
-        charger_source = "dc"
-    else:
-        dc_charge_w = max(0.0, charger_power_w) * params.charger_ac_dc_efficiency
-        charger_source = "ac"
-    if sample_is_fresh(inputs.inverter_dc_power_configured,
-                       effective_ts(params, inputs, "inverter_dc_power"),
-                       now, params.dc_max_age_s):
-        dc_discharge_w = max(0.0, slot_power_w(params, inputs, "inverter_dc_power"))
-        inverter_source = "dc"
-    else:
-        dc_discharge_w = max(0.0, inverter_power_w) / params.inverter_dc_ac_efficiency
-        inverter_source = "ac"
+    schon auf dem Gleichstrombus. Beide Seiten entscheiden das unabhaengig.
+    Hat eine Seite nur DC, ist DC ihre einzige Quelle (siehe _side_power)."""
+    dc_charge_w, charger_source = _side_power(
+        params, inputs, now, "charger_dc_power", "charger_power",
+        lambda w: w * params.charger_ac_dc_efficiency)
+    dc_discharge_w, inverter_source = _side_power(
+        params, inputs, now, "inverter_dc_power", "inverter_power",
+        lambda w: w / params.inverter_dc_ac_efficiency)
 
     # Lenient-Modus (require_fresh_inputs=False, Standard): ein veralteter
     # Energiefluss-Eingang liefert keine verlaessliche Leistung mehr - 0 W ist
