@@ -157,7 +157,7 @@ def _sources_schema_dict(defaults: Mapping[str, Any]) -> dict[str, Any]:
 class BatterySocConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for battery_soc."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self):
         """Initialize config flow."""

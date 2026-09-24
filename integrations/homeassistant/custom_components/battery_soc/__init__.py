@@ -8,13 +8,17 @@ from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import config_validation as cv, entity_registry as er
 from homeassistant.helpers.service import async_extract_config_entry_ids
 import voluptuous as vol
 
-from .const import DOMAIN, PLATFORMS, SERVICE_SET_SOC, SERVICE_APPLY_SUGGESTION, ATTR_STATE_OF_CHARGE, ATTR_BANK, FRONTEND_URL_BASE, FRONTEND_CARD_FILES
+from .const import (
+    DOMAIN, PLATFORMS, SERVICE_SET_SOC, SERVICE_APPLY_SUGGESTION,
+    ATTR_STATE_OF_CHARGE, ATTR_BANK, FRONTEND_URL_BASE, FRONTEND_CARD_FILES,
+    CONF_SYSTEM_TYPE, SYSTEM_AC_COUPLED, INVERT_KEYS,
+)
 from .coordinator import BatterySocCoordinator
-from .battery_soc_core import set_state_of_charge
+from .battery_soc_core import set_state_of_charge, entity_specs
 
 # Service schema for set_state_of_charge
 SET_SOC_SCHEMA = cv.make_entity_service_schema({
@@ -96,6 +100,35 @@ def _make_apply_suggestion_handler(hass: HomeAssistant):
     return _async_apply_suggestion
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """v1 -> v2: system type and per-slot invert flags.
+
+    Every v1 entry measured AC-coupled; units need no migration, they are
+    read from the source entity at runtime."""
+    if entry.version > 2:
+        return False
+    if entry.version == 1:
+        data = {**entry.data, CONF_SYSTEM_TYPE: SYSTEM_AC_COUPLED}
+        for key in INVERT_KEYS:
+            data.setdefault(key, False)
+        hass.config_entries.async_update_entry(entry, data=data, version=2)
+    return True
+
+
+def _remove_orphaned_entities(hass: HomeAssistant, entry: ConfigEntry, coord) -> None:
+    """Drop registry entries this entry no longer provides.
+
+    Covers ac_fallback once no side has both AC and DC, and the per-bank
+    entities after a topology change."""
+    prefix = f"{entry.entry_id}_"
+    wanted = {prefix + d.object_id for d in entity_specs(coord.params, coord.sources)}
+    wanted |= {f"{prefix}open_suggestions_{unit.name}" for unit in coord.state.units}
+    registry = er.async_get(hass)
+    for ent in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if ent.unique_id not in wanted:
+            registry.async_remove(ent.entity_id)
+
+
 async def _async_register_frontend(hass: HomeAssistant) -> None:
     """Serve the Lovelace card and load it into the frontend.
 
@@ -125,6 +158,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coord = BatterySocCoordinator(hass, entry)
     await coord.async_load()
     coord.async_start_listeners()
+    _remove_orphaned_entities(hass, entry, coord)
     hass.data.setdefault(DOMAIN, {})[entry.entry_id] = coord
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
