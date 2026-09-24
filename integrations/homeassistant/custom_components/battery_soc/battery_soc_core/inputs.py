@@ -26,10 +26,14 @@ class SocInputs:
     charger_dc_power_w: float = 0.0
     charger_dc_power_ts: float = 0.0
     charger_dc_power_configured: bool = False
+    # Einheit "W" oder "A". Bei "A" steht in charger_dc_power_w ein Strom,
+    # den die Engine mit der Packspannung in Watt umrechnet.
+    charger_dc_power_unit: str = "W"
 
     inverter_dc_power_w: float = 0.0
     inverter_dc_power_ts: float = 0.0
     inverter_dc_power_configured: bool = False
+    inverter_dc_power_unit: str = "W"
 
     bank_a_voltage_v: Optional[float] = None
     bank_a_voltage_ts: float = 0.0
@@ -50,6 +54,49 @@ def sample_is_fresh(configured: bool, last_ts: float, now: float, max_age_s: flo
     return configured and (now - last_ts) <= max_age_s
 
 
+def pack_voltage_v(params, inputs) -> Optional[float]:
+    """Spannung, an der der Paketstrom haengt: parallel die Busspannung, in
+    Reihe die Summe beider Baenke. None, solange eine davon fehlt."""
+    if params.topology == "series":
+        a, b = inputs.bank_a_voltage_v, inputs.bank_b_voltage_v
+        return None if a is None or b is None else a + b
+    return inputs.bank_a_voltage_v
+
+
+def _pack_voltage_slots(params):
+    if params.topology == "series":
+        return ("bank_a_voltage", "bank_b_voltage")
+    return ("bank_a_voltage",)
+
+
+def effective_ts(params, inputs, slot: str) -> float:
+    """Zeitstempel, nach dem das Alter eines Slots bemessen wird.
+
+    Ein Strom-Slot (Einheit A) ist nur so frisch wie sein eigener Wert UND
+    die Spannung(en), mit denen er in Watt umgerechnet wird. Fehlt eine davon
+    ganz, gilt er als veraltet (0.0). So greift die vorhandene
+    Staleness-Logik ohne Sonderfall."""
+    ts = getattr(inputs, f"{slot}_ts")
+    if getattr(inputs, f"{slot}_unit", "W") != "A":
+        return ts
+    for voltage in _pack_voltage_slots(params):
+        if (not getattr(inputs, f"{voltage}_configured")
+                or getattr(inputs, f"{voltage}_v") is None):
+            return 0.0
+        ts = min(ts, getattr(inputs, f"{voltage}_ts"))
+    return ts
+
+
+def slot_power_w(params, inputs, slot: str) -> float:
+    """Leistung eines Leistungs-Slots in W; ein Strom-Slot wird mit der
+    Packspannung umgerechnet (ohne Wirkungsgrad, er misst schon am Bus)."""
+    value = getattr(inputs, f"{slot}_w")
+    if getattr(inputs, f"{slot}_unit", "W") != "A":
+        return value
+    voltage_v = pack_voltage_v(params, inputs)
+    return 0.0 if voltage_v is None else value * voltage_v
+
+
 def input_groups(params, inputs) -> tuple[tuple[str, list[tuple[bool, float]]], ...]:
     """Group inputs by their measurement source, with German names.
 
@@ -64,11 +111,13 @@ def input_groups(params, inputs) -> tuple[tuple[str, list[tuple[bool, float]]], 
     """
     groups = [
         ("Ladeleistung", [
-            (inputs.charger_dc_power_configured, inputs.charger_dc_power_ts),
+            (inputs.charger_dc_power_configured,
+             effective_ts(params, inputs, "charger_dc_power")),
             (inputs.charger_power_configured, inputs.charger_power_ts),
         ]),
         ("Umrichterleistung", [
-            (inputs.inverter_dc_power_configured, inputs.inverter_dc_power_ts),
+            (inputs.inverter_dc_power_configured,
+             effective_ts(params, inputs, "inverter_dc_power")),
             (inputs.inverter_power_configured, inputs.inverter_power_ts),
         ]),
     ]

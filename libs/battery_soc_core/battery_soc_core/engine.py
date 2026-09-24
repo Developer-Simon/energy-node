@@ -16,7 +16,7 @@ from .calibration import (
 )
 from .curves import MAX_TICK_HOURS, MIN_TIME_ESTIMATE_W
 from .electrical import estimate_current
-from .inputs import sample_is_fresh, stale_groups
+from .inputs import effective_ts, sample_is_fresh, slot_power_w, stale_groups
 
 
 # ---------------------------------------------------------------------------
@@ -100,15 +100,17 @@ def effective_power(params, inputs, now, groups_stale) -> EffectivePower:
     inverter_power_w = inputs.inverter_power_w
 
     if sample_is_fresh(inputs.charger_dc_power_configured,
-                       inputs.charger_dc_power_ts, now, params.dc_max_age_s):
-        dc_charge_w = max(0.0, inputs.charger_dc_power_w)
+                       effective_ts(params, inputs, "charger_dc_power"),
+                       now, params.dc_max_age_s):
+        dc_charge_w = max(0.0, slot_power_w(params, inputs, "charger_dc_power"))
         charger_source = "dc"
     else:
         dc_charge_w = max(0.0, charger_power_w) * params.charger_ac_dc_efficiency
         charger_source = "ac"
     if sample_is_fresh(inputs.inverter_dc_power_configured,
-                       inputs.inverter_dc_power_ts, now, params.dc_max_age_s):
-        dc_discharge_w = max(0.0, inputs.inverter_dc_power_w)
+                       effective_ts(params, inputs, "inverter_dc_power"),
+                       now, params.dc_max_age_s):
+        dc_discharge_w = max(0.0, slot_power_w(params, inputs, "inverter_dc_power"))
         inverter_source = "dc"
     else:
         dc_discharge_w = max(0.0, inverter_power_w) / params.inverter_dc_ac_efficiency
