@@ -37,6 +37,9 @@ coulomb-counting)”.**
 All of this can be changed later in the integration's **Configure** dialog,
 including the system type and the bank layout.
 
+Power sensors must report a unit. A reading without one, or with an
+unsupported unit, is ignored and logged once as a warning.
+
 ## Entities
 
 One device per configured battery. Highlights:
