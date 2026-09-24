@@ -15,7 +15,7 @@ from homeassistant.helpers.event import async_track_state_change_event, async_tr
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-from .battery_soc_core import SocInputs, SocState, SourceConfig, tick, analyse_calibration
+from .battery_soc_core import SocInputs, SocState, tick, analyse_calibration
 from .const import (
     CONF_BANK_A_VOLTAGE_SCALE,
     CONF_BANK_B_VOLTAGE_SCALE,
