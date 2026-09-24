@@ -248,8 +248,8 @@
         }
       },
       "tunables": {
-        "title": "Advanced Battery Parameters",
-        "description": "Configure advanced battery parameters",
+        "title": "Tunable Battery Parameters",
+        "description": "Fine-tune battery calculation parameters",
         "data": {
           "empty_v_per_cell": "Empty Voltage per Cell (V)",
           "full_v_per_cell": "Full Voltage per Cell (V)",

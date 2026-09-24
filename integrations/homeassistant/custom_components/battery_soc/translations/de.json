@@ -248,8 +248,8 @@
         }
       },
       "tunables": {
-        "title": "Erweiterte Batterieparameter",
-        "description": "Erweiterte Batterieparameter konfigurieren",
+        "title": "Einsteubare Batterieparameter",
+        "description": "Feinabstimmung der Batterieparameter",
         "data": {
           "empty_v_per_cell": "Leere Spannung pro Zelle (V)",
           "full_v_per_cell": "Volle Spannung pro Zelle (V)",
@@ -274,12 +274,12 @@
       }
     },
     "error": {
-      "bank_a_voltage_required": "Ein Spannungssensor fuer Bank A ist erforderlich.",
-      "bank_b_voltage_required": "Zwei Baenke in Reihe benoetigen einen Spannungssensor fuer Bank B.",
-      "charge_source_required": "Waehlen Sie einen Ladesensor (AC oder DC) aus.",
-      "discharge_source_required": "Waehlen Sie einen Entladesensor (AC oder DC) aus.",
-      "current_only_on_dc": "Stromsensoren (A) werden nur auf den DC-Eingaengen akzeptiert.",
-      "ac_source_in_dc_system": "Ein Nur-DC-System kann keine AC-Sensoren verwenden.",
+      "bank_a_voltage_required": "Fuer Bank A ist ein Spannungssensor erforderlich.",
+      "bank_b_voltage_required": "Zwei Baenke in Reihe brauchen einen Spannungssensor fuer Bank B.",
+      "charge_source_required": "Einen Ladesensor waehlen (AC oder DC).",
+      "discharge_source_required": "Einen Entladesensor waehlen (AC oder DC).",
+      "current_only_on_dc": "Stromsensoren (A) sind nur an den DC-Eingaengen erlaubt.",
+      "ac_source_in_dc_system": "Eine reine DC-Anlage kann keine AC-Sensoren verwenden.",
       "unknown": "Unbekannter Fehler",
       "invalid_config": "Ungueltige Konfiguration"
     }
