@@ -136,11 +136,12 @@ runs the same `scripts/publish_mirror.sh` as the local steps below, so a
 release looks the same whichever way you cut it.
 
 One-time setup: create a fine-grained personal access token with
-**Contents: read and write** and **Actions: read and write** on both mirror
-repos (`ha-battery-soc`, `ha-energy-node-icons`) and store it as the
-repository secret `HA_MIRROR_TOKEN` in this monorepo. The default
-`GITHUB_TOKEN` cannot push to another repository or start its release
-workflow.
+**Contents**, **Workflows** and **Actions** set to read and write on both
+mirror repos (`ha-battery-soc`, `ha-energy-node-icons`) and store it as the
+repository secret `HA_MIRROR_TOKEN` in this monorepo. Contents pushes the
+tree, Workflows lets it update the mirror's `.github/workflows`, and Actions
+starts the mirror's release workflow. The default `GITHUB_TOKEN` can do none
+of this in another repository.
 
 Per release:
 
