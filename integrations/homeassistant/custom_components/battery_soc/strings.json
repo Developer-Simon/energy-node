@@ -121,6 +121,27 @@
           "calibration_tolerance_full_v_per_cell": "Calibration Tolerance, Full (V/cell)",
           "calibration_grace_s": "Calibration Grace Period (s)",
           "fallback_interval_s": "Fallback Interval (s)"
+        },
+        "data_description": {
+          "empty_v_per_cell": "Resting voltage per cell at which the battery counts as empty and the counter is set to 0 %. Pick a value your inverter or BMS reaches before it cuts off, otherwise the 0 % calibration never happens.",
+          "full_v_per_cell": "Resting voltage per cell at which the battery counts as full and the counter is set to 100 %. If your charger stops below this voltage, the calibration tolerance still lets the 100 % calibration happen.",
+          "charger_ac_dc_efficiency": "Share of the charger's mains power that reaches the battery, from 0 to 1 (0 to 100 %). Typical chargers are around 0.9 (90 %).",
+          "inverter_dc_ac_efficiency": "Share of the power the inverter draws from the battery that comes out on the mains side, from 0 to 1 (0 to 100 %). Typical inverters are around 0.9 (90 %).",
+          "charge_efficiency": "Share of the charged energy the battery actually stores, from 0 to 1 (0 to 100 %). LiFePO4 cells usually keep about 0.98 (98 %).",
+          "calibration_tolerance_v_per_cell": "How far the empty and full thresholds may give way at low current, in volts per cell. At rest the measured voltage is close to the resting voltage, so a reading just short of the threshold still calibrates. At high current the exact threshold applies. 0 keeps the thresholds fixed.",
+          "calibration_hold_s": "How long the voltage has to stay past a threshold before the calibration is applied, in seconds.",
+          "voltage_soc_mismatch_warn_pct": "Difference in percentage points between the voltage-based estimate and the counted state of charge above which a warning can turn on. A generous value avoids false alarms, because the voltage says little in the flat middle of the LiFePO4 curve.",
+          "voltage_mismatch_hold_s": "How long the difference has to stay above the threshold before the warning turns on, in seconds.",
+          "imbalance_warn_v": "Voltage difference between bank A and bank B above which the imbalance warning turns on, in volts. Only used for banks in series.",
+          "stale_input_s": "Seconds without an update after which an input counts as stale.",
+          "dc_max_age_s": "How long a DC reading stays valid, in seconds. After that, the AC reading of the same side takes over again.",
+          "require_fresh_inputs": "When on, counting pauses as soon as any input is stale. When off, stale power inputs count as 0 W and voltages keep their last value. The 0 % and 100 % calibration always needs a fresh voltage.",
+          "internal_resistance_mohm_per_cell": "Internal resistance per cell in milliohms, used to correct the voltage under load. Leave empty to use the built-in table. The calibration analysis calculates a suggested value from the recorded calibrations, which you can apply from the open setting suggestions.",
+          "full_taper_c_rate": "The battery only counts as full when its current at full voltage stays below this C-rate. Leave empty to turn the check off. With solar surplus charging, a small current can also mean little sun, and this check stops the tolerance from calibrating too early. The cell data sheet usually lists this tail current, often around 0.05 C.",
+          "calibration_tolerance_empty_v_per_cell": "Tolerance for the empty threshold only. Leave empty to use the shared tolerance, 0 means none. A generous value helps when the BMS or inverter cuts off well above the empty voltage.",
+          "calibration_tolerance_full_v_per_cell": "Tolerance for the full threshold only. Leave empty to use the shared tolerance, 0 means none. Keep it small if your charger reaches the full voltage, so a battery that isn't full yet doesn't get set to 100 %.",
+          "calibration_grace_s": "How long a short dropout may interrupt the hold time without restarting it, in seconds. 0 restarts it on every dropout. If your charger pauses regularly, set this above the pause length. A stale voltage sensor always restarts the hold time.",
+          "fallback_interval_s": "How often the state of charge is recalculated when no sensor reports a change, in seconds."
         }
       }
     },
@@ -285,6 +306,27 @@
           "calibration_tolerance_full_v_per_cell": "Calibration Tolerance, Full (V/cell)",
           "calibration_grace_s": "Calibration Grace Period (s)",
           "fallback_interval_s": "Fallback Interval (s)"
+        },
+        "data_description": {
+          "empty_v_per_cell": "Resting voltage per cell at which the battery counts as empty and the counter is set to 0 %. Pick a value your inverter or BMS reaches before it cuts off, otherwise the 0 % calibration never happens.",
+          "full_v_per_cell": "Resting voltage per cell at which the battery counts as full and the counter is set to 100 %. If your charger stops below this voltage, the calibration tolerance still lets the 100 % calibration happen.",
+          "charger_ac_dc_efficiency": "Share of the charger's mains power that reaches the battery, from 0 to 1 (0 to 100 %). Typical chargers are around 0.9 (90 %).",
+          "inverter_dc_ac_efficiency": "Share of the power the inverter draws from the battery that comes out on the mains side, from 0 to 1 (0 to 100 %). Typical inverters are around 0.9 (90 %).",
+          "charge_efficiency": "Share of the charged energy the battery actually stores, from 0 to 1 (0 to 100 %). LiFePO4 cells usually keep about 0.98 (98 %).",
+          "calibration_tolerance_v_per_cell": "How far the empty and full thresholds may give way at low current, in volts per cell. At rest the measured voltage is close to the resting voltage, so a reading just short of the threshold still calibrates. At high current the exact threshold applies. 0 keeps the thresholds fixed.",
+          "calibration_hold_s": "How long the voltage has to stay past a threshold before the calibration is applied, in seconds.",
+          "voltage_soc_mismatch_warn_pct": "Difference in percentage points between the voltage-based estimate and the counted state of charge above which a warning can turn on. A generous value avoids false alarms, because the voltage says little in the flat middle of the LiFePO4 curve.",
+          "voltage_mismatch_hold_s": "How long the difference has to stay above the threshold before the warning turns on, in seconds.",
+          "imbalance_warn_v": "Voltage difference between bank A and bank B above which the imbalance warning turns on, in volts. Only used for banks in series.",
+          "stale_input_s": "Seconds without an update after which an input counts as stale.",
+          "dc_max_age_s": "How long a DC reading stays valid, in seconds. After that, the AC reading of the same side takes over again.",
+          "require_fresh_inputs": "When on, counting pauses as soon as any input is stale. When off, stale power inputs count as 0 W and voltages keep their last value. The 0 % and 100 % calibration always needs a fresh voltage.",
+          "internal_resistance_mohm_per_cell": "Internal resistance per cell in milliohms, used to correct the voltage under load. Leave empty to use the built-in table. The calibration analysis calculates a suggested value from the recorded calibrations, which you can apply from the open setting suggestions.",
+          "full_taper_c_rate": "The battery only counts as full when its current at full voltage stays below this C-rate. Leave empty to turn the check off. With solar surplus charging, a small current can also mean little sun, and this check stops the tolerance from calibrating too early. The cell data sheet usually lists this tail current, often around 0.05 C.",
+          "calibration_tolerance_empty_v_per_cell": "Tolerance for the empty threshold only. Leave empty to use the shared tolerance, 0 means none. A generous value helps when the BMS or inverter cuts off well above the empty voltage.",
+          "calibration_tolerance_full_v_per_cell": "Tolerance for the full threshold only. Leave empty to use the shared tolerance, 0 means none. Keep it small if your charger reaches the full voltage, so a battery that isn't full yet doesn't get set to 100 %.",
+          "calibration_grace_s": "How long a short dropout may interrupt the hold time without restarting it, in seconds. 0 restarts it on every dropout. If your charger pauses regularly, set this above the pause length. A stale voltage sensor always restarts the hold time.",
+          "fallback_interval_s": "How often the state of charge is recalculated when no sensor reports a change, in seconds."
         }
       }
     },

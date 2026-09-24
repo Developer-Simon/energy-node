@@ -18,6 +18,8 @@ Where each surface gets the icon from:
 
 The vendored core is at `custom_components/battery_soc/battery_soc_core/` — see `_VENDORED.md` there. Do not edit it directly; Plan 3 automates syncs from `libs/battery_soc_core`.
 
+Field descriptions that the MQTT service offers too (capacity, cell count, calibration tunables, ...) come from `services/battery_soc/battery_soc_devices.schema.json`. Edit them there and run `.venv/bin/python scripts/sync_ha_descriptions.py`, which writes them into `strings.json` and `translations/en.json`. The HA test suite and CI check that both are in sync. Descriptions of HA-only fields and the German translation are maintained in the integration.
+
 ## Running Tests
 
 This integration has a separate test environment (`.venv-ha`) to avoid conflicts between the plain core test suite and Home Assistant's pytest plugins.

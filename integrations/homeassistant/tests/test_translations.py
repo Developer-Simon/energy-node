@@ -55,7 +55,7 @@ def test_described_steps_describe_every_field_except_the_name():
         "bank_b": lambda: cf._bank_b_schema("series", {}),
         "advanced": lambda: cf._advanced_schema_dict({}, "ac_coupled"),
     }
-    DESCRIBED = {"user", "sources_ac", "sources_dc", "bank_b"}
+    DESCRIBED = {"user", "sources_ac", "sources_dc", "bank_b", "advanced"}
     for name in ("strings.json", "translations/en.json", "translations/de.json"):
         strings = _load(name)
         for step in DESCRIBED:
@@ -104,7 +104,7 @@ def test_error_codes_are_translated():
         assert codes <= set(_load(name)["config"]["error"]), name
 
 
-def test_every_options_field_has_a_label_and_the_sources_a_description():
+def test_every_options_field_has_a_label_and_a_description():
     from custom_components.battery_soc import config_flow as cf
 
     CONFIG_FORMS = {
@@ -126,5 +126,4 @@ def test_every_options_field_has_a_label_and_the_sources_a_description():
         for step, build in OPTIONS_FORMS.items():
             keys = {str(k) for k in build()}
             assert keys <= set(steps[step]["data"]), (name, step)
-            if step != "tunables":
-                assert keys <= set(steps[step]["data_description"]), (name, step)
+            assert keys <= set(steps[step]["data_description"]), (name, step)

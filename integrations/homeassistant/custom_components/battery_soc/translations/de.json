@@ -121,6 +121,27 @@
           "calibration_tolerance_full_v_per_cell": "Kalibrierungstoleranz, Voll (V/Zelle)",
           "calibration_grace_s": "Kalibrierungs-Gnadenfrist (s)",
           "fallback_interval_s": "Fallback-Intervall (s)"
+        },
+        "data_description": {
+          "empty_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als leer gilt und der Zaehler auf 0 % gesetzt wird. Waehle einen Wert, den Wechselrichter oder BMS vor dem Abschalten erreichen, sonst findet die 0-%-Kalibrierung nie statt.",
+          "full_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als voll gilt und der Zaehler auf 100 % gesetzt wird. Hoert das Ladegeraet unterhalb dieser Spannung auf, sorgt die Kalibriertoleranz dafuer, dass die 100-%-Kalibrierung trotzdem greift.",
+          "charger_ac_dc_efficiency": "Anteil der Netzleistung des Ladegeraets, der an der Batterie ankommt, von 0 bis 1 (0 bis 100 %). Uebliche Ladegeraete liegen bei etwa 0,9 (90 %).",
+          "inverter_dc_ac_efficiency": "Anteil der Leistung, die der Wechselrichter aus der Batterie zieht und netzseitig abgibt, von 0 bis 1 (0 bis 100 %). Uebliche Wechselrichter liegen bei etwa 0,9 (90 %).",
+          "charge_efficiency": "Anteil der geladenen Energie, den die Batterie tatsaechlich speichert, von 0 bis 1 (0 bis 100 %). LiFePO4-Zellen behalten meist etwa 0,98 (98 %).",
+          "calibration_tolerance_v_per_cell": "Wie weit Leer- und Vollschwelle bei kleinem Strom nachgeben duerfen, in Volt je Zelle. In Ruhe liegt die gemessene Spannung nahe an der Ruhespannung, deshalb kalibriert auch ein Wert knapp vor der Schwelle. Bei hohem Strom gilt die genaue Schwelle. 0 haelt die Schwellen fest.",
+          "calibration_hold_s": "Wie lange die Spannung jenseits einer Schwelle bleiben muss, bevor kalibriert wird, in Sekunden.",
+          "voltage_soc_mismatch_warn_pct": "Abweichung in Prozentpunkten zwischen spannungsbasierter Schaetzung und gezaehltem Ladezustand, ab der eine Warnung angehen kann. Ein grosszuegiger Wert vermeidet Fehlalarme, weil die Spannung im flachen Mittelteil der LiFePO4-Kurve wenig aussagt.",
+          "voltage_mismatch_hold_s": "Wie lange die Abweichung ueber der Schwelle bleiben muss, bevor die Warnung angeht, in Sekunden.",
+          "imbalance_warn_v": "Spannungsdifferenz zwischen Bank A und Bank B, ab der die Unsymmetrie-Warnung angeht, in Volt. Nur bei Baenken in Reihe.",
+          "stale_input_s": "Sekunden ohne Aktualisierung, nach denen ein Eingang als veraltet gilt.",
+          "dc_max_age_s": "Wie lange ein DC-Wert gueltig bleibt, in Sekunden. Danach uebernimmt wieder der AC-Wert derselben Seite.",
+          "require_fresh_inputs": "Eingeschaltet pausiert die Zaehlung, sobald ein Eingang veraltet ist. Ausgeschaltet zaehlen veraltete Leistungseingaenge als 0 W, und Spannungen behalten ihren letzten Wert. Die 0-%- und 100-%-Kalibrierung braucht immer eine frische Spannung.",
+          "internal_resistance_mohm_per_cell": "Innenwiderstand je Zelle in Milliohm, mit dem die Spannung unter Last korrigiert wird. Leer lassen nutzt die eingebaute Tabelle. Die Kalibrierauswertung berechnet aus den aufgezeichneten Kalibrierungen einen Vorschlag, den du aus den offenen Einstellungsvorschlaegen uebernehmen kannst.",
+          "full_taper_c_rate": "Die Batterie gilt erst als voll, wenn ihr Strom bei Vollspannung unter dieser C-Rate bleibt. Leer lassen schaltet die Pruefung ab. Beim Laden mit Solarueberschuss kann ein kleiner Strom auch wenig Sonne bedeuten, und diese Pruefung verhindert, dass die Toleranz zu frueh kalibriert. Das Zelldatenblatt nennt diesen Endstrom meist, oft um 0,05 C.",
+          "calibration_tolerance_empty_v_per_cell": "Toleranz nur fuer die Leerschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Ein grosszuegiger Wert hilft, wenn BMS oder Wechselrichter deutlich ueber der Leerspannung abschalten.",
+          "calibration_tolerance_full_v_per_cell": "Toleranz nur fuer die Vollschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Halte sie klein, wenn dein Ladegeraet die Vollspannung erreicht, damit eine noch nicht volle Batterie nicht auf 100 % gesetzt wird.",
+          "calibration_grace_s": "Wie lange ein kurzer Aussetzer die Haltezeit unterbrechen darf, ohne sie neu zu starten, in Sekunden. 0 startet sie bei jedem Aussetzer neu. Macht dein Ladegeraet regelmaessig Pausen, stelle den Wert ueber die Pausenlaenge. Ein veralteter Spannungssensor startet die Haltezeit immer neu.",
+          "fallback_interval_s": "Wie oft der Ladezustand neu berechnet wird, wenn kein Sensor eine Aenderung meldet, in Sekunden."
         }
       }
     },
@@ -285,6 +306,27 @@
           "calibration_tolerance_full_v_per_cell": "Kalibrierungstoleranz, Voll (V/Zelle)",
           "calibration_grace_s": "Kalibrierungs-Gnadenfrist (s)",
           "fallback_interval_s": "Fallback-Intervall (s)"
+        },
+        "data_description": {
+          "empty_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als leer gilt und der Zaehler auf 0 % gesetzt wird. Waehle einen Wert, den Wechselrichter oder BMS vor dem Abschalten erreichen, sonst findet die 0-%-Kalibrierung nie statt.",
+          "full_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als voll gilt und der Zaehler auf 100 % gesetzt wird. Hoert das Ladegeraet unterhalb dieser Spannung auf, sorgt die Kalibriertoleranz dafuer, dass die 100-%-Kalibrierung trotzdem greift.",
+          "charger_ac_dc_efficiency": "Anteil der Netzleistung des Ladegeraets, der an der Batterie ankommt, von 0 bis 1 (0 bis 100 %). Uebliche Ladegeraete liegen bei etwa 0,9 (90 %).",
+          "inverter_dc_ac_efficiency": "Anteil der Leistung, die der Wechselrichter aus der Batterie zieht und netzseitig abgibt, von 0 bis 1 (0 bis 100 %). Uebliche Wechselrichter liegen bei etwa 0,9 (90 %).",
+          "charge_efficiency": "Anteil der geladenen Energie, den die Batterie tatsaechlich speichert, von 0 bis 1 (0 bis 100 %). LiFePO4-Zellen behalten meist etwa 0,98 (98 %).",
+          "calibration_tolerance_v_per_cell": "Wie weit Leer- und Vollschwelle bei kleinem Strom nachgeben duerfen, in Volt je Zelle. In Ruhe liegt die gemessene Spannung nahe an der Ruhespannung, deshalb kalibriert auch ein Wert knapp vor der Schwelle. Bei hohem Strom gilt die genaue Schwelle. 0 haelt die Schwellen fest.",
+          "calibration_hold_s": "Wie lange die Spannung jenseits einer Schwelle bleiben muss, bevor kalibriert wird, in Sekunden.",
+          "voltage_soc_mismatch_warn_pct": "Abweichung in Prozentpunkten zwischen spannungsbasierter Schaetzung und gezaehltem Ladezustand, ab der eine Warnung angehen kann. Ein grosszuegiger Wert vermeidet Fehlalarme, weil die Spannung im flachen Mittelteil der LiFePO4-Kurve wenig aussagt.",
+          "voltage_mismatch_hold_s": "Wie lange die Abweichung ueber der Schwelle bleiben muss, bevor die Warnung angeht, in Sekunden.",
+          "imbalance_warn_v": "Spannungsdifferenz zwischen Bank A und Bank B, ab der die Unsymmetrie-Warnung angeht, in Volt. Nur bei Baenken in Reihe.",
+          "stale_input_s": "Sekunden ohne Aktualisierung, nach denen ein Eingang als veraltet gilt.",
+          "dc_max_age_s": "Wie lange ein DC-Wert gueltig bleibt, in Sekunden. Danach uebernimmt wieder der AC-Wert derselben Seite.",
+          "require_fresh_inputs": "Eingeschaltet pausiert die Zaehlung, sobald ein Eingang veraltet ist. Ausgeschaltet zaehlen veraltete Leistungseingaenge als 0 W, und Spannungen behalten ihren letzten Wert. Die 0-%- und 100-%-Kalibrierung braucht immer eine frische Spannung.",
+          "internal_resistance_mohm_per_cell": "Innenwiderstand je Zelle in Milliohm, mit dem die Spannung unter Last korrigiert wird. Leer lassen nutzt die eingebaute Tabelle. Die Kalibrierauswertung berechnet aus den aufgezeichneten Kalibrierungen einen Vorschlag, den du aus den offenen Einstellungsvorschlaegen uebernehmen kannst.",
+          "full_taper_c_rate": "Die Batterie gilt erst als voll, wenn ihr Strom bei Vollspannung unter dieser C-Rate bleibt. Leer lassen schaltet die Pruefung ab. Beim Laden mit Solarueberschuss kann ein kleiner Strom auch wenig Sonne bedeuten, und diese Pruefung verhindert, dass die Toleranz zu frueh kalibriert. Das Zelldatenblatt nennt diesen Endstrom meist, oft um 0,05 C.",
+          "calibration_tolerance_empty_v_per_cell": "Toleranz nur fuer die Leerschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Ein grosszuegiger Wert hilft, wenn BMS oder Wechselrichter deutlich ueber der Leerspannung abschalten.",
+          "calibration_tolerance_full_v_per_cell": "Toleranz nur fuer die Vollschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Halte sie klein, wenn dein Ladegeraet die Vollspannung erreicht, damit eine noch nicht volle Batterie nicht auf 100 % gesetzt wird.",
+          "calibration_grace_s": "Wie lange ein kurzer Aussetzer die Haltezeit unterbrechen darf, ohne sie neu zu starten, in Sekunden. 0 startet sie bei jedem Aussetzer neu. Macht dein Ladegeraet regelmaessig Pausen, stelle den Wert ueber die Pausenlaenge. Ein veralteter Spannungssensor startet die Haltezeit immer neu.",
+          "fallback_interval_s": "Wie oft der Ladezustand neu berechnet wird, wenn kein Sensor eine Aenderung meldet, in Sekunden."
         }
       }
     },
