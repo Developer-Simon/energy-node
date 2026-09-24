@@ -3,6 +3,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import entity_registry as er
 
 from custom_components.battery_soc.const import DOMAIN, INVERT_KEYS
+from custom_components.battery_soc.helpers import params_from_config, source_config
 from tests.conftest import (
     ADVANCED_DC, ADVANCED_DEFAULTS, AC_ONLY_TUNABLES, FLOW_BANK_B_PARALLEL,
     FLOW_BANK_B_SERIES, FLOW_SOURCES_AC, FLOW_SOURCES_DC, FLOW_USER_AC, FLOW_USER_DC,
@@ -147,47 +148,83 @@ async def test_advanced_step_rejects_bad_efficiency(hass):
     assert result["errors"]["base"]
 
 
-async def test_options_flow_updates_a_tunable(hass):
-    entry = await _create_entry(hass)
+def _default(result, key):
+    for marker in result["data_schema"].schema:
+        if str(marker) == key:
+            return marker.default()
+    raise KeyError(key)
+
+
+async def _options(hass, entry, *steps):
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {
-            "charger_power_entity": "sensor.meanwell_power",
-            "inverter_power_entity": "sensor.lumentree_power",
-            "bank_a_voltage_entity": "sensor.bank_voltage",
-            "bank_a_voltage_scale": 1.0, "bank_b_voltage_scale": 1.0,
-            "fallback_interval_s": 15,
-        })
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], dict(ADVANCED_DEFAULTS, calibration_hold_s=300))
+    for data in steps:
+        result = await hass.config_entries.options.async_configure(result["flow_id"], data)
+    return result
+
+
+async def test_options_start_with_the_stored_system_type_and_layout(hass):
+    entry = await _create_entry(hass)
+    result = await _options(hass, entry)
+    assert result["step_id"] == "init"
+    assert _default(result, "system_type") == "ac_coupled"
+    result = await _options(hass, entry, {"system_type": "ac_coupled"})
+    assert result["step_id"] == "sources_ac"
+    assert _default(result, "bank_layout") == "parallel"
+
+
+async def test_options_update_a_tunable(hass):
+    entry = await _create_entry(hass)
+    result = await _options(hass, entry, {"system_type": "ac_coupled"}, FLOW_SOURCES_AC,
+                            FLOW_BANK_B_PARALLEL,
+                            dict(ADVANCED_DEFAULTS, calibration_hold_s=300,
+                                 fallback_interval_s=15))
     assert result["type"] == FlowResultType.CREATE_ENTRY
     assert entry.options["calibration_hold_s"] == 300
     assert entry.options["fallback_interval_s"] == 15
 
 
-async def test_options_flow_accepts_new_calibration_tunables(hass):
-    """The four fields from Tasks 1-3 must go through the tunables step
-    and land unchanged in params_from_config."""
-    from custom_components.battery_soc.helpers import params_from_config
-
+async def test_options_switch_to_dc_only_blanks_the_ac_sources(hass):
+    """Review focus 3: AC entities from entry.data must not survive the merge."""
     entry = await _create_entry(hass)
-    result = await hass.config_entries.options.async_init(entry.entry_id)
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {
-            "charger_power_entity": "sensor.meanwell_power",
-            "inverter_power_entity": "sensor.lumentree_power",
-            "bank_a_voltage_entity": "sensor.bank_voltage",
-            "bank_a_voltage_scale": 1.0, "bank_b_voltage_scale": 1.0,
-            "fallback_interval_s": 15,
-        })
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"],
-        user_input={**ADVANCED_DEFAULTS,
-                    "full_taper_c_rate": 0.05,
-                    "calibration_tolerance_empty_v_per_cell": 0.20,
-                    "calibration_tolerance_full_v_per_cell": 0.02,
-                    "calibration_grace_s": 90},
-    )
+    assert entry.data["charger_power_entity"] == "sensor.meanwell_power"
+    result = await _options(hass, entry, {"system_type": "dc_only"},
+                            dict(FLOW_SOURCES_DC, bank_layout="parallel"),
+                            dict(FLOW_BANK_B_PARALLEL, bank_b_cell_count=5), ADVANCED_DC)
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    merged = {**entry.data, **entry.options}
+    assert merged["charger_power_entity"] == "" and merged["inverter_power_entity"] == ""
+    sources = source_config(merged)
+    assert sources.system_type == "dc_only"
+    assert sources.configured == {"charger_dc_power", "inverter_dc_power", "bank_a_voltage"}
+
+
+async def test_options_single_bank_overrides_the_stored_bank_b(hass):
+    entry = await _create_entry(hass)
+    result = await _options(hass, entry, {"system_type": "ac_coupled"},
+                            dict(FLOW_SOURCES_AC, bank_layout="single"), ADVANCED_DEFAULTS)
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    params = params_from_config({**entry.data, **entry.options})
+    assert params.bank_b_enabled is False
+    await hass.async_block_till_done()
+    coord = hass.data[DOMAIN][entry.entry_id]
+    assert coord.state.units[0].capacity_ah == 100  # bank B no longer added
+
+
+async def test_options_report_a_missing_source(hass):
+    entry = await _create_entry(hass)
+    sources = {k: v for k, v in FLOW_SOURCES_AC.items() if k != "charger_power_entity"}
+    result = await _options(hass, entry, {"system_type": "ac_coupled"}, sources)
+    assert result["step_id"] == "sources_ac"
+    assert result["errors"] == {"base": "charge_source_required"}
+
+
+async def test_options_accept_new_calibration_tunables(hass):
+    entry = await _create_entry(hass)
+    result = await _options(
+        hass, entry, {"system_type": "ac_coupled"}, FLOW_SOURCES_AC, FLOW_BANK_B_PARALLEL,
+        {**ADVANCED_DEFAULTS, "full_taper_c_rate": 0.05,
+         "calibration_tolerance_empty_v_per_cell": 0.20,
+         "calibration_tolerance_full_v_per_cell": 0.02, "calibration_grace_s": 90})
     assert result["type"] == FlowResultType.CREATE_ENTRY
     params = params_from_config({**entry.data, **result["data"]})
     assert params.full_taper_c_rate == 0.05
@@ -196,11 +233,7 @@ async def test_options_flow_accepts_new_calibration_tunables(hass):
     assert params.calibration_grace_s == 90
 
 
-async def test_options_flow_leaves_taper_and_overrides_unset_by_default(hass):
-    """Nothing entered -> None or dataclass default; the production Pi
-    guarantee also holds for HA users."""
-    from custom_components.battery_soc.helpers import params_from_config
-
+async def test_new_entry_leaves_taper_and_overrides_unset(hass):
     entry = await _create_entry(hass)
     params = params_from_config({**entry.data, **entry.options})
     assert params.full_taper_c_rate is None

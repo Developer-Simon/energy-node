@@ -365,122 +365,85 @@ class BatterySocConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return BatterySocOptionsFlow()
 
 
-def _sources_schema_dict(defaults: Mapping[str, Any]) -> dict[str, Any]:
-    """Get the sources/init step schema for options flow."""
-    schema = {
-        vol.Required(CONF_CHARGER_POWER_ENTITY, default=defaults.get(CONF_CHARGER_POWER_ENTITY)): EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="power")
-        ),
-        vol.Required(CONF_INVERTER_POWER_ENTITY, default=defaults.get(CONF_INVERTER_POWER_ENTITY)): EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="power")
-        ),
-        vol.Required(CONF_BANK_A_VOLTAGE_ENTITY, default=defaults.get(CONF_BANK_A_VOLTAGE_ENTITY)): EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="voltage")
-        ),
-    }
-
-    # Optional entity fields: use default if present in defaults, otherwise no default
-    if CONF_BANK_B_VOLTAGE_ENTITY in defaults and defaults[CONF_BANK_B_VOLTAGE_ENTITY]:
-        schema[vol.Optional(CONF_BANK_B_VOLTAGE_ENTITY, default=defaults[CONF_BANK_B_VOLTAGE_ENTITY])] = EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="voltage")
-        )
-    else:
-        schema[vol.Optional(CONF_BANK_B_VOLTAGE_ENTITY)] = EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="voltage")
-        )
-
-    if CONF_CHARGER_DC_POWER_ENTITY in defaults and defaults[CONF_CHARGER_DC_POWER_ENTITY]:
-        schema[vol.Optional(CONF_CHARGER_DC_POWER_ENTITY, default=defaults[CONF_CHARGER_DC_POWER_ENTITY])] = EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="power")
-        )
-    else:
-        schema[vol.Optional(CONF_CHARGER_DC_POWER_ENTITY)] = EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="power")
-        )
-
-    if CONF_INVERTER_DC_POWER_ENTITY in defaults and defaults[CONF_INVERTER_DC_POWER_ENTITY]:
-        schema[vol.Optional(CONF_INVERTER_DC_POWER_ENTITY, default=defaults[CONF_INVERTER_DC_POWER_ENTITY])] = EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="power")
-        )
-    else:
-        schema[vol.Optional(CONF_INVERTER_DC_POWER_ENTITY)] = EntitySelector(
-            EntitySelectorConfig(domain="sensor", device_class="power")
-        )
-
-    schema.update({
-        vol.Optional(CONF_BANK_A_VOLTAGE_SCALE, default=defaults.get(CONF_BANK_A_VOLTAGE_SCALE, 1.0)): NumberSelector(
-            NumberSelectorConfig(min=0.1, max=10.0, step=0.1)
-        ),
-        vol.Optional(CONF_BANK_B_VOLTAGE_SCALE, default=defaults.get(CONF_BANK_B_VOLTAGE_SCALE, 1.0)): NumberSelector(
-            NumberSelectorConfig(min=0.1, max=10.0, step=0.1)
-        ),
-        vol.Optional(CONF_FALLBACK_INTERVAL_S, default=defaults.get(CONF_FALLBACK_INTERVAL_S, 30)): NumberSelector(
-            NumberSelectorConfig(step=1)
-        ),
-    })
-
-    return schema
-
-
 class BatterySocOptionsFlow(config_entries.OptionsFlow):
-    """Options flow for battery_soc."""
+    """Options flow: init (system type) -> sources_ac|sources_dc -> [bank_b] -> tunables."""
 
     def __init__(self):
         """Initialize options flow."""
-        self._collected = {}
+        self._collected: dict[str, Any] = {}
+        self._layout = LAYOUT_SINGLE
+
+    @property
+    def _current(self) -> dict[str, Any]:
+        return {**self.config_entry.data, **self.config_entry.options}
 
     async def async_step_init(self, user_input=None):
-        """Handle the options init step (sources)."""
-        errors = {}
-
+        """System type, prefilled from the entry."""
         if user_input is not None:
-            # Stash sources and go to tunables
-            self._collected = user_input
-            return await self.async_step_tunables()
-
-        # Pre-fill from entry.data + entry.options
-        defaults = {**self.config_entry.data, **self.config_entry.options}
-        schema = vol.Schema(_sources_schema_dict(defaults))
+            self._collected = dict(user_input)
+            return await self._async_step_sources()
         return self.async_show_form(
-            step_id="init",
-            data_schema=schema,
+            step_id="init", data_schema=vol.Schema(_system_type_schema(self._current)))
+
+    async def async_step_sources_ac(self, user_input=None):
+        """Sources of an AC-coupled system."""
+        return await self._async_step_sources(user_input)
+
+    async def async_step_sources_dc(self, user_input=None):
+        """Sources of a DC-only system."""
+        return await self._async_step_sources(user_input)
+
+    async def _async_step_sources(self, user_input=None):
+        system_type = self._collected[CONF_SYSTEM_TYPE]
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._layout = user_input[CONF_BANK_LAYOUT]
+            candidate = _finalize({**self._collected, **user_input}, self._layout)
+            errors = _source_errors(self.hass, {**self._current, **candidate},
+                                    complete=self._layout == LAYOUT_SINGLE)
+            if not errors:
+                self._collected = candidate
+                if self._layout == LAYOUT_SINGLE:
+                    return await self.async_step_tunables()
+                return await self.async_step_bank_b()
+        step_id = "sources_ac" if system_type == SYSTEM_AC_COUPLED else "sources_dc"
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=vol.Schema(_sources_schema(system_type, user_input or self._current)),
+            errors=errors,
+        )
+
+    async def async_step_bank_b(self, user_input=None):
+        """Bank B, only for two banks."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            candidate = _finalize({**self._collected, **user_input}, self._layout)
+            errors = _source_errors(self.hass, {**self._current, **candidate}, complete=True)
+            if not errors:
+                self._collected = candidate
+                return await self.async_step_tunables()
+        defaults = user_input or {**self._current, **self._collected}
+        return self.async_show_form(
+            step_id="bank_b",
+            data_schema=vol.Schema(_bank_b_schema(self._layout, defaults)),
+            errors=errors,
         )
 
     async def async_step_tunables(self, user_input=None):
-        """Handle the tunables/advanced configuration step."""
-        errors = {}
-
+        """Tunables; AC-only ones are hidden for DC-only systems."""
+        system_type = self._collected[CONF_SYSTEM_TYPE]
+        errors: dict[str, str] = {}
         if user_input is not None:
-            # Merge collected sources with tunables, excluding fallback_interval_s from tunables
-            # (it's already set in sources step)
-            tunables_input = {k: v for k, v in user_input.items() if k != CONF_FALLBACK_INTERVAL_S}
-            merged = {**self._collected, **tunables_input}
-
-            # Validate using params_from_config
+            merged = {**self._collected, **user_input}
             try:
-                params_from_config({**self.config_entry.data, **merged})
+                params_from_config({**self._current, **merged})
             except ValueError as exc:
                 errors["base"] = str(exc)[:100]
-
             if not errors:
-                # Create entry with merged options
-                return self.async_create_entry(
-                    title="",
-                    data=merged,
-                )
-            else:
-                # Re-show form with errors
-                schema = vol.Schema(_advanced_schema_dict(user_input))
-                return self.async_show_form(
-                    step_id="tunables",
-                    data_schema=schema,
-                    errors=errors,
-                )
-
-        # Pre-fill from entry.data + entry.options
-        defaults = {**self.config_entry.data, **self.config_entry.options}
-        schema = vol.Schema(_advanced_schema_dict(defaults))
+                return self.async_create_entry(title="", data=merged)
+        defaults = user_input or {**self._current, **self._collected}
         return self.async_show_form(
             step_id="tunables",
-            data_schema=schema,
+            data_schema=vol.Schema(_advanced_schema_dict(defaults, system_type)),
+            errors=errors,
         )

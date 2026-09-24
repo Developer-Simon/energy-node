@@ -85,3 +85,29 @@ def test_error_codes_are_translated():
              "discharge_source_required", "current_only_on_dc", "ac_source_in_dc_system"}
     for name in ("strings.json", "translations/en.json", "translations/de.json"):
         assert codes <= set(_load(name)["config"]["error"]), name
+
+
+def test_every_options_field_has_a_label_and_the_sources_a_description():
+    from custom_components.battery_soc import config_flow as cf
+
+    CONFIG_FORMS = {
+        "user": lambda: cf._user_schema(),
+        "sources_ac": lambda: cf._sources_schema("ac_coupled", {}),
+        "sources_dc": lambda: cf._sources_schema("dc_only", {}),
+        "bank_b": lambda: cf._bank_b_schema("series", {}),
+        "advanced": lambda: cf._advanced_schema_dict({}, "ac_coupled"),
+    }
+    OPTIONS_FORMS = {
+        "init": lambda: cf._system_type_schema({}),
+        "sources_ac": CONFIG_FORMS["sources_ac"],
+        "sources_dc": CONFIG_FORMS["sources_dc"],
+        "bank_b": CONFIG_FORMS["bank_b"],
+        "tunables": CONFIG_FORMS["advanced"],
+    }
+    for name in ("strings.json", "translations/en.json", "translations/de.json"):
+        steps = _load(name)["options"]["step"]
+        for step, build in OPTIONS_FORMS.items():
+            keys = {str(k) for k in build()}
+            assert keys <= set(steps[step]["data"]), (name, step)
+            if step != "tunables":
+                assert keys <= set(steps[step]["data_description"]), (name, step)
