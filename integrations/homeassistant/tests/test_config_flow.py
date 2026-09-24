@@ -240,3 +240,26 @@ async def test_new_entry_leaves_taper_and_overrides_unset(hass):
     assert params.calibration_tolerance_empty_v_per_cell is None
     assert params.calibration_tolerance_full_v_per_cell is None
     assert params.calibration_grace_s == 0.0
+
+
+def _chemistry_marker(schema):
+    return next(k for k in schema if str(k) == "battery_chemistry")
+
+
+def test_battery_chemistry_is_a_single_option_radio_list():
+    from homeassistant.helpers.selector import SelectSelectorMode
+    from custom_components.battery_soc.config_flow import _sources_schema
+
+    schema = _sources_schema("dc_only", {})
+    marker = _chemistry_marker(schema)
+    config = schema[marker].config
+    assert config["options"] == ["lifepo4"]
+    assert config["mode"] == SelectSelectorMode.LIST
+    assert marker.default() == "lifepo4"
+
+
+def test_old_free_text_chemistry_falls_back_to_the_one_option():
+    from custom_components.battery_soc.config_flow import _sources_schema
+
+    schema = _sources_schema("ac_coupled", {"battery_chemistry": "LiFePO4 (Dyness)"})
+    assert _chemistry_marker(schema).default() == "lifepo4"

@@ -13,7 +13,7 @@ coulomb-counting)”.**
     (AC) side, optionally refined by DC measurements. Typical for
     grid-connected home batteries.
   - *DC-only system*: all power or current measurements sit on the
-    battery's DC bus. Typical for solar/12 V setups and embedded devices.
+    battery's DC bus. Typical for embedded devices.
 - **Sources and bank A** (`sources_ac` / `sources_dc`): the bank layout
   (*Single bank*, *Two banks in parallel*, *Two banks in series (A + B)*),
   one or more power sensors per side, bank A's voltage sensor and scale,

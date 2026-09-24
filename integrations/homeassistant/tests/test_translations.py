@@ -67,8 +67,9 @@ def test_described_steps_describe_every_field_except_the_name():
 def test_promised_descriptions_carry_the_spec_texts():
     en = _load("strings.json")["config"]["step"]
     assert "capacities add up" in en["sources_ac"]["data_description"]["bank_layout"]
-    assert "A 5S pack is 5" in en["sources_ac"]["data_description"]["bank_a_cell_count"]
-    assert "five 3.6 Ah cells in series are 3.6 Ah" in \
+    assert "Cells in parallel count as one" in \
+        en["sources_ac"]["data_description"]["bank_a_cell_count"]
+    assert "only cells in parallel do" in \
         en["sources_ac"]["data_description"]["bank_a_capacity_ah"]
     assert "Leave at 1.0" in en["sources_ac"]["data_description"]["bank_a_voltage_scale"]
     de = _load("translations/de.json")["config"]["step"]
@@ -78,6 +79,22 @@ def test_promised_descriptions_carry_the_spec_texts():
         for field in fields:
             assert de[step]["data_description"][field] != \
                 en[step]["data_description"][field], (step, field)
+
+
+def test_user_facing_texts_use_no_semicolons():
+    """House style: a comma or a full stop, never a semicolon."""
+    def texts(value):
+        if isinstance(value, dict):
+            for v in value.values():
+                yield from texts(v)
+        elif isinstance(value, str):
+            yield value
+
+    for name in ("strings.json", "translations/en.json", "translations/de.json"):
+        data = _load(name)
+        offending = [t for section in ("config", "options", "selector")
+                     for t in texts(data[section]) if ";" in t]
+        assert offending == [], (name, offending)
 
 
 def test_error_codes_are_translated():
