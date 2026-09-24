@@ -69,7 +69,7 @@ def test_promised_descriptions_carry_the_spec_texts():
     assert "capacities add up" in en["sources_ac"]["data_description"]["bank_layout"]
     assert "Cells in parallel count as one" in \
         en["sources_ac"]["data_description"]["bank_a_cell_count"]
-    assert "only cells in parallel do" in \
+    assert "enter the capacity of a single cell" in \
         en["sources_ac"]["data_description"]["bank_a_capacity_ah"]
     assert "Leave at 1.0" in en["sources_ac"]["data_description"]["bank_a_voltage_scale"]
     de = _load("translations/de.json")["config"]["step"]

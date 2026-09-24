@@ -44,7 +44,7 @@
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
-          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
           "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
           "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
@@ -74,7 +74,7 @@
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
-          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
           "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
           "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
@@ -91,7 +91,7 @@
           "bank_b_voltage_scale": "Spannungsskala Bank B"
         },
         "data_description": {
-          "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
+          "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
           "bank_b_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine. Parallele Baenke muessen dieselbe Zellzahl haben.",
           "bank_a_voltage_measures": "Misst der Bank-A-Sensor den ganzen Stapel, ergibt sich Bank A als Stapel minus Bank B.",
           "bank_b_voltage_entity": "Spannung von Bank B allein, von B+ bis B- (Mittelabgriff bis Minus des Stapels).",
@@ -208,7 +208,7 @@
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
-          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
           "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
           "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
@@ -238,7 +238,7 @@
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
-          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
           "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
           "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
@@ -255,7 +255,7 @@
           "bank_b_voltage_scale": "Spannungsskala Bank B"
         },
         "data_description": {
-          "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
+          "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
           "bank_b_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine. Parallele Baenke muessen dieselbe Zellzahl haben.",
           "bank_a_voltage_measures": "Misst der Bank-A-Sensor den ganzen Stapel, ergibt sich Bank A als Stapel minus Bank B.",
           "bank_b_voltage_entity": "Spannung von Bank B allein, von B+ bis B- (Mittelabgriff bis Minus des Stapels).",

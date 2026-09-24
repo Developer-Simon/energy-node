@@ -44,7 +44,7 @@
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
-          "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
+          "bank_a_capacity_ah": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
           "battery_chemistry": "Cell chemistry of the battery. LiFePO4 is the only one supported so far.",
           "soc_curve": "Voltage curve used for the voltage-based SoC estimate."
@@ -74,7 +74,7 @@
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
-          "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
+          "bank_a_capacity_ah": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
           "battery_chemistry": "Cell chemistry of the battery. LiFePO4 is the only one supported so far.",
           "soc_curve": "Voltage curve used for the voltage-based SoC estimate."
@@ -91,7 +91,7 @@
           "bank_b_voltage_scale": "Bank B voltage scale"
         },
         "data_description": {
-          "bank_b_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do. Banks in series must have the same capacity.",
+          "bank_b_capacity_ah": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same. Banks in series must have the same capacity.",
           "bank_b_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one. Banks in parallel must have the same cell count.",
           "bank_a_voltage_measures": "If the bank A sensor measures the whole stack, bank A is calculated as the stack minus bank B.",
           "bank_b_voltage_entity": "Voltage of bank B alone, from B+ to B- (the middle tap to the minus of the stack).",
@@ -208,7 +208,7 @@
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
-          "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
+          "bank_a_capacity_ah": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
           "battery_chemistry": "Cell chemistry of the battery. LiFePO4 is the only one supported so far.",
           "soc_curve": "Voltage curve used for the voltage-based SoC estimate."
@@ -238,7 +238,7 @@
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
-          "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
+          "bank_a_capacity_ah": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
           "battery_chemistry": "Cell chemistry of the battery. LiFePO4 is the only one supported so far.",
           "soc_curve": "Voltage curve used for the voltage-based SoC estimate."
@@ -255,7 +255,7 @@
           "bank_b_voltage_scale": "Bank B voltage scale"
         },
         "data_description": {
-          "bank_b_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do. Banks in series must have the same capacity.",
+          "bank_b_capacity_ah": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same. Banks in series must have the same capacity.",
           "bank_b_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one. Banks in parallel must have the same cell count.",
           "bank_a_voltage_measures": "If the bank A sensor measures the whole stack, bank A is calculated as the stack minus bank B.",
           "bank_b_voltage_entity": "Voltage of bank B alone, from B+ to B- (the middle tap to the minus of the stack).",
