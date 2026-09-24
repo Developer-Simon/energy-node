@@ -56,6 +56,6 @@ async def async_setup_entry(
     coordinator: BatterySocCoordinator = hass.data[DOMAIN][entry.entry_id]
     async_add_entities(
         BatterySocManualSoc(coordinator, d)
-        for d in entity_specs(coordinator.params)
+        for d in entity_specs(coordinator.params, coordinator.sources)
         if d.component == "number"
     )

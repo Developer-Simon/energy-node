@@ -9,6 +9,9 @@ from custom_components.battery_soc.const import DOMAIN
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
+# Power sensors must carry a unit: readings without one are discarded.
+W = {"unit_of_measurement": "W"}
+
 
 def pytest_configure(config):
     """Add custom_components to sys.path before any tests run."""
