@@ -64,3 +64,27 @@ def test_all_object_ids_superset_covers_every_generated_id():
         for d in entity_specs(p):
             if d.object_id not in calibration_ids:
                 assert d.object_id in ALL_OBJECT_IDS[d.component], (topo, d.component, d.object_id)
+
+
+from battery_soc_core.sources import SourceConfig
+
+
+def _ids(params, sources=None):
+    return {d.object_id for d in entity_specs(params, sources)}
+
+
+def test_ac_fallback_is_kept_without_source_info():
+    """The MQTT service passes no sources (until Plan 3) and keeps today's set."""
+    assert "ac_fallback" in _ids(make_params())
+
+
+def test_ac_fallback_only_when_a_side_has_ac_and_dc():
+    p = make_params()
+    ac_only = SourceConfig(configured=frozenset({"charger_power", "inverter_power",
+                                                 "bank_a_voltage"}))
+    dc_only = SourceConfig(configured=frozenset({"charger_dc_power", "inverter_dc_power",
+                                                 "bank_a_voltage"}), system_type="dc_only")
+    with_override = SourceConfig(configured=ac_only.configured | {"charger_dc_power"})
+    assert "ac_fallback" not in _ids(p, ac_only)
+    assert "ac_fallback" not in _ids(p, dc_only)
+    assert "ac_fallback" in _ids(p, with_override)

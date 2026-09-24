@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import List, Optional
 
 from .params import SocParams
+from .sources import SourceConfig
 from .state import build_units
 
 
@@ -31,11 +32,16 @@ class EntityDesc:
     state_topic_suffix: Optional[str] = None
 
 
-def entity_specs(params: SocParams) -> List[EntityDesc]:
+def entity_specs(params: SocParams,
+                 sources: Optional[SourceConfig] = None) -> List[EntityDesc]:
     """Generate the full list of entity specifications for the given topology.
 
     Reproduces exactly what battery_soc_mqtt.py::entities() yields,
     plus the new manual-SoC number entities.
+
+    `sources` decides whether `ac_fallback` exists: only where a side has
+    both an AC and a DC source can the engine fall back at all. Without
+    source info (None) it is always generated, as before.
     """
     series = params.topology == "series"
 
@@ -74,6 +80,9 @@ def entity_specs(params: SocParams) -> List[EntityDesc]:
             entity_category="diagnostic"
         ),
     ]
+
+    if sources is not None and not sources.fallback_possible():
+        items = [d for d in items if d.object_id != "ac_fallback"]
 
     # Per-unit block
     labels = {"pack": "", "bank_a": " Bank A", "bank_b": " Bank B"}

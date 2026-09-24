@@ -33,6 +33,10 @@ from .params import SocParams  # noqa: F401
 from .simulation import (  # noqa: F401
     simulated_bank_voltage_v,
 )
+from .sources import (  # noqa: F401
+    AC_POWER_SLOTS, DC_POWER_SLOTS, POWER_SLOTS, SYSTEM_TYPES, VOLTAGE_SLOTS,
+    SourceConfig, validate_sources,
+)
 from .state import (  # noqa: F401
     BankState, build_units, SocState, set_state_of_charge,
 )
@@ -52,7 +56,9 @@ __all__ = [
     "SocParams",
     "AvailabilityResult", "SocInputs", "availability", "input_groups",
     "sample_is_fresh", "stale_groups",
-    "BankState", "build_units", "SocState", "set_state_of_charge",
     "simulated_bank_voltage_v",
+    "AC_POWER_SLOTS", "DC_POWER_SLOTS", "POWER_SLOTS", "SYSTEM_TYPES", "VOLTAGE_SLOTS",
+    "SourceConfig", "validate_sources",
+    "BankState", "build_units", "SocState", "set_state_of_charge",
     "Finding", "Suggestion", "analyse_calibration",
 ]
