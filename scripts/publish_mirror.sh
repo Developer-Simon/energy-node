@@ -8,8 +8,9 @@
 # the mirror branch.
 #
 # --release: regenerate integrations/homeassistant/CHANGELOG.md from history,
-# commit + tag the mirror as vX.Y.Z, push branch + tag and cut the GitHub
-# Release (implies publishing -- needs `gh` authenticated as the mirror owner).
+# commit + tag the mirror as vX.Y.Z, push branch + tag and start the mirror's
+# release workflow, which cuts the GitHub Release (implies publishing -- needs
+# `gh` authenticated as the mirror owner).
 set -euo pipefail
 
 # Mirror checkout assembled into; determined from release.env (MIRROR_PATH).
@@ -29,6 +30,7 @@ publish_mirror.sh [--component NAME] [--mirror-path PATH] [--version X.Y.Z] [--d
 Assembles the public HACS repo tree at PATH from this monorepo:
   1. scripts/vendor_core.py --check                     (abort on drift)
   2. rsync --delete custom_components/COMPONENT/  ->  PATH/custom_components/COMPONENT/
+     render [%schema:...%] placeholders in its strings  (SCHEMA_DESCRIPTIONS in release.env)
   3. copy mirror/{hacs.json,README.md,info.md,LICENSE,AI-DISCLAIMER.md}  ->  PATH/
      copy mirror/.github                                ->  PATH/.github
      copy docs/img                                      ->  PATH/docs/img
@@ -46,10 +48,11 @@ branch to \`origin\`. HACS keeps showing the last released version.
 
 --release: regenerate integrations/homeassistant/CHANGELOG.md from history
 (staged in the monorepo for you to commit), commit the mirror as
-"release vX.Y.Z", tag vX.Y.Z, push branch + tag to \`origin\`, then create the
-GitHub Release with notes sliced from that CHANGELOG.md. Implies publishing
-(needs \`gh\` authenticated as the mirror repo's owner); --push is redundant
-with it. Without a Release, HACS treats the repo as commit-based and shows
+"release vX.Y.Z", tag vX.Y.Z, push branch + tag to \`origin\`, then start the
+mirror's release workflow (.github/workflows/release.yml) with notes sliced
+from that CHANGELOG.md and wait for it. The workflow creates the GitHub
+Release only if no placeholder is left. Implies publishing (needs \`gh\`
+authenticated as the mirror repo's owner); --push is redundant with it. Without a Release, HACS treats the repo as commit-based and shows
 bare commit SHAs instead of the version.
 EOF
   exit 2
@@ -134,6 +137,14 @@ fi
 mkdir -p "${mirror_path}/custom_components/${component}"
 rsync -a --delete --exclude '__pycache__/' --exclude '*.pyc' \
   "${src_cc}/" "${mirror_path}/custom_components/${component}/"
+
+# 2b. Shared field descriptions: the monorepo strings carry [%schema:...%]
+# placeholders, the mirror ships the rendered text.
+if [[ -n "${SCHEMA_DESCRIPTIONS:-}" ]]; then
+  python3 "${repo_root}/scripts/render_ha_descriptions.py" \
+    --render "${mirror_path}/custom_components/${component}" \
+    --schema "${repo_root}/${SCHEMA_DESCRIPTIONS}"
+fi
 
 # 3. Repo-root files + workflows + README screenshots.
 cp "${template}/hacs.json" "${template}/README.md" "${template}/info.md" \
@@ -229,8 +240,8 @@ else
   echo "note: ${CHANGELOG_PATH} regenerated and staged in the monorepo -- commit it with the release."
 fi
 
-# 6. Commit + tag the mirror, then publish: push branch + tag and cut the
-# GitHub Release. HACS only leaves commit mode (bare SHAs, dead "release
+# 6. Commit + tag the mirror, then publish: push branch + tag and let the
+# mirror's release workflow cut the GitHub Release. HACS only leaves commit mode (bare SHAs, dead "release
 # announcement" link) once a Release exists.
 if git -C "$mirror_path" rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
   echo "error: tag v${version} already exists in ${mirror_path}." >&2
@@ -263,8 +274,27 @@ if [[ ! -s "$notes_file" ]]; then
   printf 'Release %s of the %s.\n' "v${version}" "$RELEASE_NAME" > "$notes_file"
 fi
 
-gh release create "v${version}" \
+# The release workflow checks the tagged tree for unrendered placeholders
+# before it creates the Release, so nothing half-rendered gets published.
+dispatched_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+gh workflow run release.yml \
   --repo "${OWNER}/${REPO}" \
-  --title "v${version}" \
-  --notes-file "$notes_file"
-echo "pushed ${branch} + v${version} and created the GitHub Release"
+  --ref "$branch" \
+  -f tag="v${version}" \
+  -f notes="$(cat "$notes_file")" \
+  -f prerelease=false
+run_id=""
+for _ in $(seq 1 30); do
+  run_id="$(gh run list --repo "${OWNER}/${REPO}" --workflow release.yml \
+    --event workflow_dispatch --created ">=${dispatched_at}" \
+    --json databaseId --jq '.[0].databaseId // empty')"
+  [[ -n "$run_id" ]] && break
+  sleep 2
+done
+if [[ -z "$run_id" ]]; then
+  echo "error: started the release workflow in ${OWNER}/${REPO} but could not find its run." >&2
+  echo "       Check https://github.com/${OWNER}/${REPO}/actions -- tag v${version} is pushed." >&2
+  exit 1
+fi
+gh run watch "$run_id" --repo "${OWNER}/${REPO}" --exit-status
+echo "pushed ${branch} + v${version}; the release workflow created the GitHub Release"

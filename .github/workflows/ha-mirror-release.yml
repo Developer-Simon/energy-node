@@ -6,8 +6,9 @@ name: HA Mirror Release
 # is a decision, not a side effect of a merge.
 #
 # Needs the repository secret HA_MIRROR_TOKEN: a fine-grained personal access
-# token with "Contents: read and write" on both mirror repos (the default
-# GITHUB_TOKEN cannot push to another repository or create its releases).
+# token with "Contents: read and write" and "Actions: read and write" on both
+# mirror repos (the default GITHUB_TOKEN cannot push to another repository or
+# start its release workflow).
 on:
   workflow_dispatch:
     inputs:

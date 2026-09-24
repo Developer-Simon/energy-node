@@ -18,6 +18,14 @@ test -f "$tmp/.github/pull_request_template.md"
 test -f "$tmp/custom_components/battery_soc/brand/icon.png"
 test -f "$tmp/docs/img/IntegrationDemo.png"
 test -f "$tmp/docs/integration.md"
+test -f "$tmp/.github/workflows/release.yml"
+# the shared field descriptions are rendered from the service schema
+grep -q '\[%schema:' "$repo/integrations/homeassistant/custom_components/battery_soc/strings.json"
+if grep -rqE '\[%schema:[a-z0-9_]+%\]' "$tmp/custom_components"; then
+  echo "mirror still has [%schema:...%] placeholders"; exit 1
+fi
+grep -q '"bank_a_capacity_ah": "Capacity' "$tmp/custom_components/battery_soc/translations/en.json" \
+  || { echo "bank_a_capacity_ah description not rendered"; exit 1; }
 # dry-run must NOT create a commit or tag
 [ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
 echo "OK battery_soc"
@@ -38,6 +46,7 @@ test -f "$tmp/docs/integration.md"
 # docs/img should NOT be present for energy_node_icons (no DOCS_IMG in release.env)
 [ ! -d "$tmp/docs/img" ] || { echo "docs/img should not be present for energy_node_icons"; exit 1; }
 test -f "$tmp/docs/icons/solar-panel.svg" || { echo "docs/icons missing for energy_node_icons"; exit 1; }
+test -f "$tmp/.github/workflows/release.yml"
 # dry-run must NOT create a commit or tag
 [ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
 echo "OK energy_node_icons"

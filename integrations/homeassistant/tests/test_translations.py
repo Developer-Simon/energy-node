@@ -1,8 +1,15 @@
 """Tests for translations."""
 import json
+import sys
 from pathlib import Path
 
+REPO = Path(__file__).resolve().parents[3]
 BASE = Path(__file__).resolve().parents[1] / "custom_components/battery_soc"
+sys.path.insert(0, str(REPO / "scripts"))
+import render_ha_descriptions  # noqa: E402
+
+SCHEMA_DESCRIPTIONS = render_ha_descriptions.schema_descriptions(
+    REPO / render_ha_descriptions.SCHEMA_REL)
 
 
 def test_translation_keys_match_strings():
@@ -25,7 +32,9 @@ def test_translation_keys_match_strings():
 
 
 def _load(name):
-    return json.loads((BASE / name).read_text())
+    """A strings file as the mirror ships it, with schema placeholders rendered."""
+    return render_ha_descriptions.render_value(
+        json.loads((BASE / name).read_text()), SCHEMA_DESCRIPTIONS)
 
 
 def test_every_config_field_has_a_label():
