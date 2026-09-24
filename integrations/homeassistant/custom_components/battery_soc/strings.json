@@ -2,26 +2,98 @@
   "config": {
     "step": {
       "user": {
-        "title": "Battery Configuration",
-        "description": "Configure your battery bank setup",
+        "title": "Battery",
+        "description": "Name the battery and choose where its power or current is measured.",
         "data": {
           "name": "Name",
-          "topology": "Battery Topology",
-          "charger_power_entity": "Charger Power Sensor (AC)",
-          "inverter_power_entity": "Inverter Power Sensor (AC)",
-          "bank_a_voltage_entity": "Bank A Voltage Sensor",
-          "bank_b_voltage_entity": "Bank B Voltage Sensor",
-          "charger_dc_power_entity": "Charger Power Sensor (DC)",
-          "inverter_dc_power_entity": "Inverter Power Sensor (DC)",
-          "bank_a_voltage_scale": "Bank A Voltage Scale",
-          "bank_b_voltage_scale": "Bank B Voltage Scale",
-          "bank_a_capacity_ah": "Bank A Capacity (Ah)",
-          "bank_b_capacity_ah": "Bank B Capacity (Ah)",
-          "bank_a_cell_count": "Bank A Cell Count",
-          "bank_b_cell_count": "Bank B Cell Count",
-          "bank_b_enabled": "Bank B Enabled",
-          "battery_chemistry": "Battery Chemistry",
-          "soc_curve": "SOC Curve Profile"
+          "system_type": "System type"
+        },
+        "data_description": {
+          "system_type": "AC-coupled: charger and/or inverter are measured on the mains (AC) side, optionally refined by DC measurements. Typical for grid-connected home batteries. DC-only: all power or current measurements sit on the battery's DC bus. Typical for solar/12 V setups and embedded devices."
+        }
+      },
+      "sources_ac": {
+        "title": "Sources and bank A",
+        "description": "Each side needs at least one sensor, AC or DC. A fresh DC reading replaces the AC reading of its side.",
+        "data": {
+          "bank_layout": "Bank layout",
+          "charger_power_entity": "Charger power (AC)",
+          "charger_power_invert": "Invert charger power (AC)",
+          "inverter_power_entity": "Inverter power (AC)",
+          "inverter_power_invert": "Invert inverter power (AC)",
+          "charger_dc_power_entity": "Charger power (DC)",
+          "charger_dc_power_invert": "Invert charger power (DC)",
+          "inverter_dc_power_entity": "Inverter power (DC)",
+          "inverter_dc_power_invert": "Invert inverter power (DC)",
+          "bank_a_voltage_entity": "Bank A voltage",
+          "bank_a_voltage_scale": "Bank A voltage scale",
+          "bank_a_capacity_ah": "Bank A capacity (Ah)",
+          "bank_a_cell_count": "Bank A cells in series",
+          "battery_chemistry": "Battery chemistry",
+          "soc_curve": "SoC curve profile"
+        },
+        "data_description": {
+          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge; their capacities add up. Two banks in series each need their own voltage sensor.",
+          "charger_power_entity": "Power the charger draws from the mains (W or kW). Optional if a DC charging sensor is set.",
+          "charger_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging; negative values are ignored on each side.",
+          "inverter_power_entity": "Power the inverter delivers on the mains side (W or kW). Optional if a DC discharging sensor is set.",
+          "inverter_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging; negative values are ignored on each side.",
+          "charger_dc_power_entity": "Charging power on the battery's DC bus. Current sensors (A/mA) are accepted and converted with the pack voltage.",
+          "charger_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging; negative values are ignored on each side.",
+          "inverter_dc_power_entity": "Discharging power on the battery's DC bus. Current sensors (A/mA) are accepted and converted with the pack voltage.",
+          "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging; negative values are ignored on each side.",
+          "bank_a_voltage_entity": "Voltage at the terminals of bank A. With a single bank, this is the pack voltage.",
+          "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage; per-cell conversion happens via the cell count.",
+          "bank_a_capacity_ah": "Ah of the bank. Cells in series do not add up their Ah: five 3.6 Ah cells in series are 3.6 Ah.",
+          "bank_a_cell_count": "Cells connected in series in this bank. A 5S pack is 5, measured at the pack terminals.",
+          "battery_chemistry": "Stored with the configuration for reference.",
+          "soc_curve": "Voltage curve used for the voltage-based SoC estimate."
+        }
+      },
+      "sources_dc": {
+        "title": "Sources and bank A",
+        "description": "All measurements sit on the battery's DC bus. A single signed sensor can serve both sides: add it to both and invert one of them.",
+        "data": {
+          "bank_layout": "Bank layout",
+          "charger_dc_power_entity": "Charging (DC)",
+          "charger_dc_power_invert": "Invert charging",
+          "inverter_dc_power_entity": "Discharging / load (DC)",
+          "inverter_dc_power_invert": "Invert discharging / load",
+          "bank_a_voltage_entity": "Bank A voltage",
+          "bank_a_voltage_scale": "Bank A voltage scale",
+          "bank_a_capacity_ah": "Bank A capacity (Ah)",
+          "bank_a_cell_count": "Bank A cells in series",
+          "battery_chemistry": "Battery chemistry",
+          "soc_curve": "SoC curve profile"
+        },
+        "data_description": {
+          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge; their capacities add up. Two banks in series each need their own voltage sensor.",
+          "charger_dc_power_entity": "Power or current flowing into the battery. Current sensors (A/mA) are accepted and converted with the pack voltage.",
+          "charger_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging; negative values are ignored on each side.",
+          "inverter_dc_power_entity": "Power or current flowing out of the battery to the load. Current sensors (A/mA) are accepted and converted with the pack voltage.",
+          "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging; negative values are ignored on each side.",
+          "bank_a_voltage_entity": "Voltage at the terminals of bank A. With a single bank, this is the pack voltage.",
+          "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage; per-cell conversion happens via the cell count.",
+          "bank_a_capacity_ah": "Ah of the bank. Cells in series do not add up their Ah: five 3.6 Ah cells in series are 3.6 Ah.",
+          "bank_a_cell_count": "Cells connected in series in this bank. A 5S pack is 5, measured at the pack terminals.",
+          "battery_chemistry": "Stored with the configuration for reference.",
+          "soc_curve": "Voltage curve used for the voltage-based SoC estimate."
+        }
+      },
+      "bank_b": {
+        "title": "Bank B",
+        "description": "The second bank. Banks in parallel only need capacity and cell count; banks in series also need their own voltage sensor.",
+        "data": {
+          "bank_b_capacity_ah": "Bank B capacity (Ah)",
+          "bank_b_cell_count": "Bank B cells in series",
+          "bank_b_voltage_entity": "Bank B voltage",
+          "bank_b_voltage_scale": "Bank B voltage scale"
+        },
+        "data_description": {
+          "bank_b_capacity_ah": "Ah of the bank. Cells in series do not add up their Ah: five 3.6 Ah cells in series are 3.6 Ah. Banks in series must have the same capacity.",
+          "bank_b_cell_count": "Cells connected in series in this bank. A 5S pack is 5, measured at the pack terminals. Banks in parallel must have the same cell count.",
+          "bank_b_voltage_entity": "Voltage at the terminals of bank B alone, not of the whole stack.",
+          "bank_b_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage; per-cell conversion happens via the cell count."
         }
       },
       "advanced": {
@@ -51,12 +123,32 @@
       }
     },
     "error": {
-      "bank_b_voltage_required": "Bank B voltage sensor is required for series topology",
+      "bank_a_voltage_required": "A voltage sensor for bank A is required.",
+      "bank_b_voltage_required": "Two banks in series need a voltage sensor for bank B.",
+      "charge_source_required": "Select a charging sensor (AC or DC).",
+      "discharge_source_required": "Select a discharging sensor (AC or DC).",
+      "current_only_on_dc": "Current sensors (A) are only accepted on the DC inputs.",
+      "ac_source_in_dc_system": "A DC-only system cannot use AC sensors.",
       "unknown": "Unknown error",
       "invalid_config": "Invalid configuration"
     },
     "abort": {
       "already_configured": "Battery configuration already exists"
+    }
+  },
+  "selector": {
+    "system_type": {
+      "options": {
+        "ac_coupled": "AC-coupled system",
+        "dc_only": "DC-only system"
+      }
+    },
+    "bank_layout": {
+      "options": {
+        "single": "Single bank",
+        "parallel": "Two banks in parallel",
+        "series": "Two banks in series (A + B)"
+      }
     }
   },
   "options": {

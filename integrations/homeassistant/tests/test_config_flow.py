@@ -1,75 +1,154 @@
 from homeassistant import config_entries
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import entity_registry as er
 
-from custom_components.battery_soc.const import DOMAIN
-from tests.conftest import USER_PARALLEL, USER_SERIES, ADVANCED_DEFAULTS
+from custom_components.battery_soc.const import DOMAIN, INVERT_KEYS
+from tests.conftest import (
+    ADVANCED_DC, ADVANCED_DEFAULTS, AC_ONLY_TUNABLES, FLOW_BANK_B_PARALLEL,
+    FLOW_BANK_B_SERIES, FLOW_SOURCES_AC, FLOW_SOURCES_DC, FLOW_USER_AC, FLOW_USER_DC,
+)
 
 
-async def _create_entry(hass, user_data=USER_PARALLEL, advanced_data=ADVANCED_DEFAULTS):
-    """Helper that runs the full config flow and returns the entry."""
+async def _run(hass, *steps):
+    """Start a user flow and feed it the given step inputs in order."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], user_data)
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], advanced_data)
+    for data in steps:
+        result = await hass.config_entries.flow.async_configure(result["flow_id"], data)
+    return result
+
+
+async def _create_entry(hass):
+    """The AC-coupled, two banks in parallel entry the options tests start from."""
+    result = await _run(hass, FLOW_USER_AC, FLOW_SOURCES_AC, FLOW_BANK_B_PARALLEL,
+                        ADVANCED_DEFAULTS)
     assert result["type"] == FlowResultType.CREATE_ENTRY
     return hass.config_entries.async_entries(DOMAIN)[0]
 
 
-async def test_user_step_advances_to_advanced(hass):
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER})
-    assert result["type"] == FlowResultType.FORM
-    assert result["step_id"] == "user"
+def _schema_keys(result):
+    return {str(k) for k in result["data_schema"].schema}
 
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], USER_PARALLEL)
-    assert result["type"] == FlowResultType.FORM
+
+async def test_user_step_routes_by_system_type(hass):
+    assert (await _run(hass, FLOW_USER_AC))["step_id"] == "sources_ac"
+    assert (await _run(hass, dict(FLOW_USER_DC, name="Other")))["step_id"] == "sources_dc"
+
+
+async def test_dc_sources_step_has_no_ac_fields(hass):
+    keys = _schema_keys(await _run(hass, FLOW_USER_DC))
+    assert "charger_power_entity" not in keys and "inverter_power_invert" not in keys
+    assert {"charger_dc_power_entity", "inverter_dc_power_invert", "bank_layout"} <= keys
+
+
+async def test_ac_parallel_flow_creates_a_v2_entry(hass):
+    result = await _run(hass, FLOW_USER_AC, FLOW_SOURCES_AC, FLOW_BANK_B_PARALLEL,
+                        ADVANCED_DEFAULTS)
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Werkstatt Akku"
+    data = result["data"]
+    assert data["system_type"] == "ac_coupled"
+    assert (data["bank_b_enabled"], data["topology"]) == (True, "parallel")
+    assert "bank_layout" not in data
+    assert data["bank_b_voltage_entity"] == ""
+    assert all(data[key] is False for key in INVERT_KEYS)
+    assert hass.config_entries.async_entries(DOMAIN)[0].version == 2
+
+
+async def test_single_bank_skips_bank_b_and_disables_it(hass):
+    result = await _run(hass, FLOW_USER_AC, dict(FLOW_SOURCES_AC, bank_layout="single"))
     assert result["step_id"] == "advanced"
-
-
-async def test_user_step_rejects_impossible_efficiency(hass):
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER})
-    bad = dict(USER_PARALLEL, bank_a_cell_count=8, bank_b_cell_count=16)
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], bad)
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"]
-
-
-async def test_full_flow_creates_entry(hass):
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], USER_PARALLEL)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], ADVANCED_DEFAULTS)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Werkstatt Akku"
-    assert result["data"]["soc_curve"] == "dyness_ar2.5"
-    assert result["data"]["charger_power_entity"] == "sensor.meanwell_power"
+    data = result["data"]
+    assert (data["bank_b_enabled"], data["topology"]) == (False, "parallel")
+    assert "bank_b_capacity_ah" not in data and "bank_b_cell_count" not in data
 
 
-async def test_advanced_step_rejects_bad_efficiency(hass):
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], USER_PARALLEL)
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], dict(ADVANCED_DEFAULTS, charge_efficiency=1.4))
-    assert result["type"] == FlowResultType.FORM
-    assert result["errors"]["base"]
-
-
-async def test_series_flow_creates_entry(hass):
-    result = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER})
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], USER_SERIES)
+async def test_series_flow_asks_for_bank_b_voltage(hass):
+    result = await _run(hass, FLOW_USER_AC, dict(FLOW_SOURCES_AC, bank_layout="series"))
+    assert result["step_id"] == "bank_b"
+    assert {"bank_b_voltage_entity", "bank_b_voltage_scale"} <= _schema_keys(result)
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], FLOW_BANK_B_SERIES)
     result = await hass.config_entries.flow.async_configure(result["flow_id"], ADVANCED_DEFAULTS)
-    assert result["type"] == FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Werkstatt Akku"
     assert result["data"]["topology"] == "series"
     assert result["data"]["bank_b_voltage_entity"] == "sensor.bank_b_voltage"
 
 
+async def test_parallel_bank_b_step_has_no_voltage_fields(hass):
+    result = await _run(hass, FLOW_USER_AC, FLOW_SOURCES_AC)
+    assert result["step_id"] == "bank_b"
+    assert _schema_keys(result) == {"bank_b_capacity_ah", "bank_b_cell_count"}
+
+
+async def test_bank_b_rejects_a_mismatched_parallel_cell_count(hass):
+    result = await _run(hass, FLOW_USER_AC, FLOW_SOURCES_AC,
+                        dict(FLOW_BANK_B_PARALLEL, bank_b_cell_count=16))
+    assert result["step_id"] == "bank_b"
+    assert result["errors"]["base"]
+
+
+async def test_issue_scenario_dc_flow(hass):
+    """Review focus 4: 3.6 Ah and 5 cells must be enterable."""
+    result = await _run(hass, FLOW_USER_DC, FLOW_SOURCES_DC)
+    assert result["step_id"] == "advanced"
+    assert not (set(AC_ONLY_TUNABLES) & _schema_keys(result))
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], ADVANCED_DC)
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    data = result["data"]
+    assert data["system_type"] == "dc_only"
+    assert data["charger_power_entity"] == "" and data["inverter_power_entity"] == ""
+    assert data["inverter_dc_power_invert"] is True
+    assert data["charger_dc_power_invert"] is False
+    assert data["bank_a_capacity_ah"] == 3.6
+    assert data["bank_b_enabled"] is False
+
+
+async def test_missing_discharge_source_is_reported(hass):
+    sources = {k: v for k, v in FLOW_SOURCES_AC.items() if k != "inverter_power_entity"}
+    result = await _run(hass, FLOW_USER_AC, sources)
+    assert result["step_id"] == "sources_ac"
+    assert result["errors"] == {"base": "discharge_source_required"}
+
+
+async def test_current_sensor_on_an_ac_slot_is_rejected(hass):
+    hass.states.async_set("sensor.shunt", "1.2", {"unit_of_measurement": "A"})
+    result = await _run(hass, FLOW_USER_AC,
+                        dict(FLOW_SOURCES_AC, charger_power_entity="sensor.shunt"))
+    assert result["errors"] == {"base": "current_only_on_dc"}
+
+
+async def test_unit_falls_back_to_the_entity_registry(hass):
+    reg_entry = er.async_get(hass).async_get_or_create(
+        "sensor", "test", "shunt-1", suggested_object_id="shunt",
+        unit_of_measurement="mA")
+    result = await _run(hass, FLOW_USER_AC,
+                        dict(FLOW_SOURCES_AC, inverter_power_entity=reg_entry.entity_id))
+    assert result["errors"] == {"base": "current_only_on_dc"}
+
+
+async def test_unknown_unit_does_not_block_saving(hass):
+    """The entity exists nowhere yet: save anyway, the runtime rule applies."""
+    result = await _run(hass, FLOW_USER_DC,
+                        dict(FLOW_SOURCES_DC, charger_dc_power_entity="sensor.not_there_yet"))
+    assert result["step_id"] == "advanced"
+
+
+async def test_duplicate_name_aborts(hass):
+    await _create_entry(hass)
+    result = await _run(hass, FLOW_USER_AC)
+    assert result["type"] == FlowResultType.ABORT
+    assert result["reason"] == "already_configured"
+
+
+async def test_advanced_step_rejects_bad_efficiency(hass):
+    result = await _run(hass, FLOW_USER_AC, dict(FLOW_SOURCES_AC, bank_layout="single"),
+                        dict(ADVANCED_DEFAULTS, charge_efficiency=1.4))
+    assert result["type"] == FlowResultType.FORM
+    assert result["errors"]["base"]
+
+
 async def test_options_flow_updates_a_tunable(hass):
-    entry = await _create_entry(hass, USER_PARALLEL, ADVANCED_DEFAULTS)
+    entry = await _create_entry(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {
@@ -91,7 +170,7 @@ async def test_options_flow_accepts_new_calibration_tunables(hass):
     and land unchanged in params_from_config."""
     from custom_components.battery_soc.helpers import params_from_config
 
-    entry = await _create_entry(hass, USER_PARALLEL, ADVANCED_DEFAULTS)
+    entry = await _create_entry(hass)
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {
@@ -122,7 +201,7 @@ async def test_options_flow_leaves_taper_and_overrides_unset_by_default(hass):
     guarantee also holds for HA users."""
     from custom_components.battery_soc.helpers import params_from_config
 
-    entry = await _create_entry(hass, USER_PARALLEL, ADVANCED_DEFAULTS)
+    entry = await _create_entry(hass)
     params = params_from_config({**entry.data, **entry.options})
     assert params.full_taper_c_rate is None
     assert params.calibration_tolerance_empty_v_per_cell is None
