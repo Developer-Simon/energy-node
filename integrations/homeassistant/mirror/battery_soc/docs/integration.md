@@ -28,6 +28,12 @@ coulomb-counting)”.**
     ignored on each side, so each input only sees its own direction.
 - **Bank B** (`bank_b`, only with two banks): capacity and cell count, plus
   a voltage sensor and scale for banks in series.
+  - In series, bank A is the upper bank. The stack runs from A+ to B-, and
+    A- is connected to B+ (the middle tap).
+  - The bank B sensor measures bank B alone (B+ to B-). The bank A sensor
+    measures either bank A alone (A+ to A-) or the whole stack (A+ to B-).
+    For the whole stack, choose *The whole stack (A+ to B-)* in this step,
+    and bank A is calculated as the stack minus bank B.
 - **Advanced Battery Parameters** (`advanced` step): empty/full volts per
   cell, efficiencies, calibration tolerance and hold time, voltage/coulomb
   mismatch thresholds, imbalance threshold, stale-input and DC-age

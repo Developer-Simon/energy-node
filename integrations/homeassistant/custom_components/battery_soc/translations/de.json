@@ -33,7 +33,7 @@
           "soc_curve": "SoC-Kurvenprofil"
         },
         "data_description": {
-          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. Zwei Baenke in Reihe brauchen je einen eigenen Spannungssensor.",
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
           "charger_power_entity": "Leistung, die das Ladegeraet aus dem Netz bezieht (W oder kW). Optional, wenn ein DC-Ladesensor gesetzt ist.",
           "charger_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "inverter_power_entity": "Leistung, die der Wechselrichter netzseitig abgibt (W oder kW). Optional, wenn ein DC-Entladesensor gesetzt ist.",
@@ -42,7 +42,7 @@
           "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "inverter_dc_power_entity": "Entladeleistung am DC-Bus der Batterie. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
-          "bank_a_voltage_entity": "Spannung an den Polen von Bank A. Bei einer einzelnen Bank ist das die Packspannung.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
           "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
@@ -67,12 +67,12 @@
           "soc_curve": "SoC-Kurvenprofil"
         },
         "data_description": {
-          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. Zwei Baenke in Reihe brauchen je einen eigenen Spannungssensor.",
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
           "charger_dc_power_entity": "Leistung oder Strom in die Batterie hinein. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
           "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "inverter_dc_power_entity": "Leistung oder Strom aus der Batterie heraus. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
-          "bank_a_voltage_entity": "Spannung an den Polen von Bank A. Bei einer einzelnen Bank ist das die Packspannung.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
           "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
@@ -82,17 +82,19 @@
       },
       "bank_b": {
         "title": "Bank B",
-        "description": "Die zweite Bank. Parallele Baenke brauchen nur Kapazitaet und Zellzahl, Baenke in Reihe zusaetzlich einen eigenen Spannungssensor.",
+        "description": "Die zweite Bank. Parallele Baenke brauchen nur Kapazitaet und Zellzahl, Baenke in Reihe zusaetzlich einen Spannungssensor fuer Bank B.",
         "data": {
           "bank_b_capacity_ah": "Kapazitaet Bank B (Ah)",
           "bank_b_cell_count": "Zellen in Reihe, Bank B",
+          "bank_a_voltage_measures": "Bank-A-Sensor misst",
           "bank_b_voltage_entity": "Spannung Bank B",
           "bank_b_voltage_scale": "Spannungsskala Bank B"
         },
         "data_description": {
           "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
           "bank_b_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine. Parallele Baenke muessen dieselbe Zellzahl haben.",
-          "bank_b_voltage_entity": "Spannung an den Polen von Bank B allein, nicht des ganzen Stapels.",
+          "bank_a_voltage_measures": "Misst der Bank-A-Sensor den ganzen Stapel, ergibt sich Bank A als Stapel minus Bank B.",
+          "bank_b_voltage_entity": "Spannung von Bank B allein, von B+ bis B- (Mittelabgriff bis Minus des Stapels).",
           "bank_b_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl."
         }
       },
@@ -154,6 +156,12 @@
       "options": {
         "lifepo4": "LiFePO4"
       }
+    },
+    "bank_a_voltage_measures": {
+      "options": {
+        "bank_a": "Nur Bank A (A+ bis A-)",
+        "stack": "Den ganzen Stapel (A+ bis B-)"
+      }
     }
   },
   "options": {
@@ -189,7 +197,7 @@
           "soc_curve": "SoC-Kurvenprofil"
         },
         "data_description": {
-          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. Zwei Baenke in Reihe brauchen je einen eigenen Spannungssensor.",
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
           "charger_power_entity": "Leistung, die das Ladegeraet aus dem Netz bezieht (W oder kW). Optional, wenn ein DC-Ladesensor gesetzt ist.",
           "charger_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "inverter_power_entity": "Leistung, die der Wechselrichter netzseitig abgibt (W oder kW). Optional, wenn ein DC-Entladesensor gesetzt ist.",
@@ -198,7 +206,7 @@
           "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "inverter_dc_power_entity": "Entladeleistung am DC-Bus der Batterie. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
-          "bank_a_voltage_entity": "Spannung an den Polen von Bank A. Bei einer einzelnen Bank ist das die Packspannung.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
           "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
@@ -223,12 +231,12 @@
           "soc_curve": "SoC-Kurvenprofil"
         },
         "data_description": {
-          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. Zwei Baenke in Reihe brauchen je einen eigenen Spannungssensor.",
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
           "charger_dc_power_entity": "Leistung oder Strom in die Batterie hinein. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
           "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
           "inverter_dc_power_entity": "Leistung oder Strom aus der Batterie heraus. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
           "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
-          "bank_a_voltage_entity": "Spannung an den Polen von Bank A. Bei einer einzelnen Bank ist das die Packspannung.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
           "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
           "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete.",
           "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
@@ -238,17 +246,19 @@
       },
       "bank_b": {
         "title": "Bank B",
-        "description": "Die zweite Bank. Parallele Baenke brauchen nur Kapazitaet und Zellzahl, Baenke in Reihe zusaetzlich einen eigenen Spannungssensor.",
+        "description": "Die zweite Bank. Parallele Baenke brauchen nur Kapazitaet und Zellzahl, Baenke in Reihe zusaetzlich einen Spannungssensor fuer Bank B.",
         "data": {
           "bank_b_capacity_ah": "Kapazitaet Bank B (Ah)",
           "bank_b_cell_count": "Zellen in Reihe, Bank B",
+          "bank_a_voltage_measures": "Bank-A-Sensor misst",
           "bank_b_voltage_entity": "Spannung Bank B",
           "bank_b_voltage_scale": "Spannungsskala Bank B"
         },
         "data_description": {
           "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. In Reihe geschaltete Zellen addieren ihre Kapazitaet nicht, nur parallel geschaltete. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
           "bank_b_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine. Parallele Baenke muessen dieselbe Zellzahl haben.",
-          "bank_b_voltage_entity": "Spannung an den Polen von Bank B allein, nicht des ganzen Stapels.",
+          "bank_a_voltage_measures": "Misst der Bank-A-Sensor den ganzen Stapel, ergibt sich Bank A als Stapel minus Bank B.",
+          "bank_b_voltage_entity": "Spannung von Bank B allein, von B+ bis B- (Mittelabgriff bis Minus des Stapels).",
           "bank_b_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl."
         }
       },

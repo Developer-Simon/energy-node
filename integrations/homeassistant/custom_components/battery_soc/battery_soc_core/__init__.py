@@ -26,8 +26,8 @@ from .entities import (  # noqa: F401
     ALL_OBJECT_IDS, EntityDesc, entity_specs,
 )
 from .inputs import (  # noqa: F401
-    AvailabilityResult, SocInputs, availability, effective_ts, input_groups,
-    pack_voltage_v, sample_is_fresh, slot_power_w, stale_groups,
+    AvailabilityResult, SocInputs, availability, bank_voltages, effective_ts,
+    input_groups, pack_voltage_v, sample_is_fresh, slot_power_w, stale_groups,
 )
 from .params import SocParams  # noqa: F401
 from .simulation import (  # noqa: F401
@@ -54,9 +54,9 @@ __all__ = [
     "tick", "time_estimates", "unit_currents",
     "ALL_OBJECT_IDS", "EntityDesc", "entity_specs",
     "SocParams",
-    "AvailabilityResult", "SocInputs", "availability", "effective_ts",
-    "input_groups", "pack_voltage_v", "sample_is_fresh", "slot_power_w",
-    "stale_groups",
+    "AvailabilityResult", "SocInputs", "availability", "bank_voltages",
+    "effective_ts", "input_groups", "pack_voltage_v", "sample_is_fresh",
+    "slot_power_w", "stale_groups",
     "simulated_bank_voltage_v",
     "AC_POWER_SLOTS", "DC_POWER_SLOTS", "POWER_SLOTS", "SYSTEM_TYPES", "VOLTAGE_SLOTS",
     "SourceConfig", "validate_sources",

@@ -242,6 +242,33 @@ async def test_new_entry_leaves_taper_and_overrides_unset(hass):
     assert params.calibration_grace_s == 0.0
 
 
+async def test_series_flow_stores_what_the_bank_a_sensor_measures(hass):
+    result = await _run(hass, FLOW_USER_AC, dict(FLOW_SOURCES_AC, bank_layout="series"))
+    assert "bank_a_voltage_measures" in _schema_keys(result)
+    assert _default(result, "bank_a_voltage_measures") == "bank_a"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], dict(FLOW_BANK_B_SERIES, bank_a_voltage_measures="stack"))
+    result = await hass.config_entries.flow.async_configure(result["flow_id"], ADVANCED_DEFAULTS)
+    assert result["data"]["bank_a_voltage_measures"] == "stack"
+    assert params_from_config(result["data"]).bank_a_voltage_measures == "stack"
+
+
+async def test_parallel_resets_a_stored_stack_measurement(hass):
+    """Options overlay entry.data, so leaving series must write the default."""
+    entry = await _create_entry(hass)
+    hass.config_entries.async_update_entry(
+        entry, data={**entry.data, "topology": "series",
+                     "bank_b_voltage_entity": "sensor.bank_b_voltage",
+                     "bank_a_voltage_measures": "stack"})
+    await hass.async_block_till_done()
+    result = await _options(hass, entry, {"system_type": "ac_coupled"}, FLOW_SOURCES_AC,
+                            FLOW_BANK_B_PARALLEL, ADVANCED_DEFAULTS)
+    assert result["type"] == FlowResultType.CREATE_ENTRY
+    merged = {**entry.data, **entry.options}
+    assert merged["bank_a_voltage_measures"] == "bank_a"
+    assert merged["topology"] == "parallel"
+
+
 def _chemistry_marker(schema):
     return next(k for k in schema if str(k) == "battery_chemistry")
 

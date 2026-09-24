@@ -280,3 +280,22 @@ async def test_coordinator_exposes_its_sources(hass):
                                         "bank_a_voltage"}
     assert coord.sources.system_type == "dc_only"
     assert coord.sources.fallback_possible() is False
+
+
+async def test_stack_sensor_and_middle_tap_give_both_bank_voltages(hass):
+    """Stack A+ -> B- on the bank A field, B+ -> B- on the bank B field."""
+    entry = _mk_entry(hass, {
+        "topology": "series", "bank_a_voltage_measures": "stack",
+        "bank_b_voltage_entity": "sensor.bank_b_voltage",
+    })
+    coord = BatterySocCoordinator(hass, entry)
+    hass.states.async_set("sensor.meanwell_power", "0", W)
+    hass.states.async_set("sensor.lumentree_power", "0", W)
+    hass.states.async_set("sensor.bank_voltage", "52.0", V)
+    hass.states.async_set("sensor.bank_b_voltage", "27.0", V)
+    await coord.async_load()
+    try:
+        assert coord.data["bank_a_voltage_v"] == pytest.approx(25.0)
+        assert coord.data["bank_b_voltage_v"] == pytest.approx(27.0)
+    finally:
+        await coord.async_shutdown()

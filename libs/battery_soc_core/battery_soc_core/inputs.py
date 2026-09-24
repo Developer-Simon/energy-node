@@ -54,13 +54,37 @@ def sample_is_fresh(configured: bool, last_ts: float, now: float, max_age_s: flo
     return configured and (now - last_ts) <= max_age_s
 
 
+def _stack_mode(params) -> bool:
+    return params.topology == "series" and params.bank_a_voltage_measures == "stack"
+
+
+def bank_voltages(params, inputs) -> list:
+    """Spannung je gefuehrter Einheit: parallel [Bus], in Reihe [A, B].
+
+    Misst der Bank-A-Sensor den ganzen Stapel (A+ -> B-), ist Bank A der
+    Stapel minus Bank B - ohne Bank B also unbekannt."""
+    a, b = inputs.bank_a_voltage_v, inputs.bank_b_voltage_v
+    if params.topology != "series":
+        return [a]
+    if _stack_mode(params):
+        return [None, None] if a is None or b is None else [a - b, b]
+    return [a, b]
+
+
 def pack_voltage_v(params, inputs) -> Optional[float]:
     """Spannung, an der der Paketstrom haengt: parallel die Busspannung, in
     Reihe die Summe beider Baenke. None, solange eine davon fehlt."""
-    if params.topology == "series":
-        a, b = inputs.bank_a_voltage_v, inputs.bank_b_voltage_v
-        return None if a is None or b is None else a + b
-    return inputs.bank_a_voltage_v
+    voltages = bank_voltages(params, inputs)
+    return None if any(v is None for v in voltages) else sum(voltages)
+
+
+def _bank_a_voltage_ts(params, inputs) -> float:
+    """Aus dem Stapel abgeleitet ist Bank A nur so frisch wie beide Sensoren."""
+    if not _stack_mode(params):
+        return inputs.bank_a_voltage_ts
+    if not inputs.bank_b_voltage_configured:
+        return 0.0
+    return min(inputs.bank_a_voltage_ts, inputs.bank_b_voltage_ts)
 
 
 def _pack_voltage_slots(params):
@@ -129,7 +153,7 @@ def input_groups(params, inputs) -> tuple[tuple[str, list[tuple[bool, float]]], 
         ]))
     else:  # series
         groups.append(("Spannung Bank A", [
-            (inputs.bank_a_voltage_configured, inputs.bank_a_voltage_ts),
+            (inputs.bank_a_voltage_configured, _bank_a_voltage_ts(params, inputs)),
         ]))
         if params.bank_b_enabled:
             groups.append(("Spannung Bank B", [

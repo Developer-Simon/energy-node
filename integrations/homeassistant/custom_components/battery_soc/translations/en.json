@@ -33,7 +33,7 @@
           "soc_curve": "SoC curve profile"
         },
         "data_description": {
-          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. Two banks in series each need their own voltage sensor.",
+          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. In series, bank A is the upper bank: the stack runs from A+ to B-, and A- is connected to B+.",
           "charger_power_entity": "Power the charger draws from the mains (W or kW). Optional if a DC charging sensor is set.",
           "charger_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "inverter_power_entity": "Power the inverter delivers on the mains side (W or kW). Optional if a DC discharging sensor is set.",
@@ -42,7 +42,7 @@
           "charger_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "inverter_dc_power_entity": "Discharging power on the battery's DC bus. Current sensors (A/mA) are accepted and converted with the pack voltage.",
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
-          "bank_a_voltage_entity": "Voltage at the terminals of bank A. With a single bank, this is the pack voltage.",
+          "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
           "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
@@ -67,12 +67,12 @@
           "soc_curve": "SoC curve profile"
         },
         "data_description": {
-          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. Two banks in series each need their own voltage sensor.",
+          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. In series, bank A is the upper bank: the stack runs from A+ to B-, and A- is connected to B+.",
           "charger_dc_power_entity": "Power or current flowing into the battery. Current sensors (A/mA) are accepted and converted with the pack voltage.",
           "charger_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "inverter_dc_power_entity": "Power or current flowing out of the battery. Current sensors (A/mA) are accepted and converted with the pack voltage.",
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
-          "bank_a_voltage_entity": "Voltage at the terminals of bank A. With a single bank, this is the pack voltage.",
+          "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
           "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
@@ -82,17 +82,19 @@
       },
       "bank_b": {
         "title": "Bank B",
-        "description": "The second bank. Banks in parallel only need capacity and cell count, banks in series also need their own voltage sensor.",
+        "description": "The second bank. Banks in parallel only need capacity and cell count, banks in series also need a voltage sensor for bank B.",
         "data": {
           "bank_b_capacity_ah": "Bank B capacity (Ah)",
           "bank_b_cell_count": "Bank B cells in series",
+          "bank_a_voltage_measures": "Bank A sensor measures",
           "bank_b_voltage_entity": "Bank B voltage",
           "bank_b_voltage_scale": "Bank B voltage scale"
         },
         "data_description": {
           "bank_b_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do. Banks in series must have the same capacity.",
           "bank_b_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one. Banks in parallel must have the same cell count.",
-          "bank_b_voltage_entity": "Voltage at the terminals of bank B alone, not of the whole stack.",
+          "bank_a_voltage_measures": "If the bank A sensor measures the whole stack, bank A is calculated as the stack minus bank B.",
+          "bank_b_voltage_entity": "Voltage of bank B alone, from B+ to B- (the middle tap to the minus of the stack).",
           "bank_b_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count."
         }
       },
@@ -154,6 +156,12 @@
       "options": {
         "lifepo4": "LiFePO4"
       }
+    },
+    "bank_a_voltage_measures": {
+      "options": {
+        "bank_a": "Bank A alone (A+ to A-)",
+        "stack": "The whole stack (A+ to B-)"
+      }
     }
   },
   "options": {
@@ -189,7 +197,7 @@
           "soc_curve": "SoC curve profile"
         },
         "data_description": {
-          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. Two banks in series each need their own voltage sensor.",
+          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. In series, bank A is the upper bank: the stack runs from A+ to B-, and A- is connected to B+.",
           "charger_power_entity": "Power the charger draws from the mains (W or kW). Optional if a DC charging sensor is set.",
           "charger_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "inverter_power_entity": "Power the inverter delivers on the mains side (W or kW). Optional if a DC discharging sensor is set.",
@@ -198,7 +206,7 @@
           "charger_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "inverter_dc_power_entity": "Discharging power on the battery's DC bus. Current sensors (A/mA) are accepted and converted with the pack voltage.",
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
-          "bank_a_voltage_entity": "Voltage at the terminals of bank A. With a single bank, this is the pack voltage.",
+          "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
           "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
@@ -223,12 +231,12 @@
           "soc_curve": "SoC curve profile"
         },
         "data_description": {
-          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. Two banks in series each need their own voltage sensor.",
+          "bank_layout": "Two banks in parallel share one bus voltage and one state of charge, their capacities add up. In series, bank A is the upper bank: the stack runs from A+ to B-, and A- is connected to B+.",
           "charger_dc_power_entity": "Power or current flowing into the battery. Current sensors (A/mA) are accepted and converted with the pack voltage.",
           "charger_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
           "inverter_dc_power_entity": "Power or current flowing out of the battery. Current sensors (A/mA) are accepted and converted with the pack voltage.",
           "inverter_dc_power_invert": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side.",
-          "bank_a_voltage_entity": "Voltage at the terminals of bank A. With a single bank, this is the pack voltage.",
+          "bank_a_voltage_entity": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage. With two banks in series, it can also be the whole stack (A+ to B-), set in the bank B step.",
           "bank_a_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count.",
           "bank_a_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do.",
           "bank_a_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one.",
@@ -238,17 +246,19 @@
       },
       "bank_b": {
         "title": "Bank B",
-        "description": "The second bank. Banks in parallel only need capacity and cell count, banks in series also need their own voltage sensor.",
+        "description": "The second bank. Banks in parallel only need capacity and cell count, banks in series also need a voltage sensor for bank B.",
         "data": {
           "bank_b_capacity_ah": "Bank B capacity (Ah)",
           "bank_b_cell_count": "Bank B cells in series",
+          "bank_a_voltage_measures": "Bank A sensor measures",
           "bank_b_voltage_entity": "Bank B voltage",
           "bank_b_voltage_scale": "Bank B voltage scale"
         },
         "data_description": {
           "bank_b_capacity_ah": "Capacity of the bank in Ah. Cells in series do not add up their capacity, only cells in parallel do. Banks in series must have the same capacity.",
           "bank_b_cell_count": "Number of cells connected in series in this bank. Cells in parallel count as one. Banks in parallel must have the same cell count.",
-          "bank_b_voltage_entity": "Voltage at the terminals of bank B alone, not of the whole stack.",
+          "bank_a_voltage_measures": "If the bank A sensor measures the whole stack, bank A is calculated as the stack minus bank B.",
+          "bank_b_voltage_entity": "Voltage of bank B alone, from B+ to B- (the middle tap to the minus of the stack).",
           "bank_b_voltage_scale": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count."
         }
       },

@@ -21,6 +21,9 @@ CONF_FALLBACK_INTERVAL_S = "fallback_interval_s"
 CONF_SYSTEM_TYPE = "system_type"
 # Form-only: mapped onto bank_b_enabled + topology, never stored.
 CONF_BANK_LAYOUT = "bank_layout"
+# Series only: what the bank A sensor measures (SocParams field).
+CONF_BANK_A_VOLTAGE_MEASURES = "bank_a_voltage_measures"
+BANK_A_VOLTAGE_MEASURES = ("bank_a", "stack")
 
 DEFAULT_FALLBACK_INTERVAL_S = 30
 DEFAULT_VOLTAGE_SCALE = 1.0

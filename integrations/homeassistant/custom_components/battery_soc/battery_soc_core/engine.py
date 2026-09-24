@@ -16,7 +16,9 @@ from .calibration import (
 )
 from .curves import MAX_TICK_HOURS, MIN_TIME_ESTIMATE_W
 from .electrical import estimate_current
-from .inputs import effective_ts, sample_is_fresh, slot_power_w, stale_groups
+from .inputs import (
+    bank_voltages, effective_ts, sample_is_fresh, slot_power_w, stale_groups,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -176,10 +178,8 @@ def tick(params, state, inputs, now, *, dt_hours=None,
                 f"erwartet {len(units)}"
             )
         voltages = list(voltages_override)
-    elif series:
-        voltages = [inputs.bank_a_voltage_v, inputs.bank_b_voltage_v]
     else:
-        voltages = [inputs.bank_a_voltage_v]
+        voltages = bank_voltages(params, inputs)
 
     currents = unit_currents(params, net_power_w, voltages)
     corrected = [
