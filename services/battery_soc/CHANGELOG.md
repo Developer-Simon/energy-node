@@ -1,10 +1,12 @@
 # Changelog
 
-## v0.4.0 (2026-09-21)
+## v0.4.1 (2026-09-24)
 
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **battery_soc:** take shared HA field descriptions from the service schema (c6a4a29)
+- **battery_soc:** render shared HA descriptions at mirror time and release via the mirror's workflow (65b4a20)
 
 ## v0.3.2 (2026-09-15)
 
