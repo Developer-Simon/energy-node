@@ -1,9 +1,10 @@
 # Changelog
 
-## v0.2.0 (2026-09-24)
+## v0.2.0 (2026-09-25)
 
 ### Features
 
+- **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
 - **battery_soc_core:** validate source combinations and generate ac_fallback only where a fallback exists (8cdd7d1)
 - **battery_soc_core:** accept current (A) on DC slots, converted with the pack voltage (e2fd892)
 - **battery_soc_core:** treat a DC-only side as the sole source, not an override (55f1c62)

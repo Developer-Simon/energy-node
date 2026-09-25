@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.4.1 (2026-09-24)
+## v0.4.1 (2026-09-25)
 
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
 - **battery_soc:** take shared HA field descriptions from the service schema (c6a4a29)
 - **battery_soc:** render shared HA descriptions at mirror time and release via the mirror's workflow (65b4a20)
 
