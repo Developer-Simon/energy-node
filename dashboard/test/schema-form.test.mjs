@@ -306,3 +306,51 @@ test('the imbalance warning only shows for two banks in series', () => {
   choose(window, root, 'bank_b_enabled', false);
   assert.equal(field(root, 'imbalance_warn_v').hidden, true, 'single bank');
 });
+
+test('conditional fields animate out, and a leaving field is no longer saved', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const started = [];
+  window.HTMLElement.prototype.animate = function (frames, options) {
+    const animation = { frames, options, onfinish: null, cancel() { this.cancelled = true; } };
+    started.push({ element: this, animation });
+    return animation;
+  };
+  const motionCtx = { hooks: {}, motionOK: () => true };
+  const root = SchemaForm.renderNode(motionCtx, conditionalItemSchema, { id: 'b', ac_topic: 'shelly/p' }, 'Batterie');
+  document.body.append(root);
+  assert.equal(started.length, 0, 'the first render does not animate');
+
+  choose(window, root, 'system_type', 'dc_only');
+  const acField = field(root, 'ac_topic');
+  const exit = started.find(entry => entry.element === acField);
+  assert.ok(exit, 'the leaving field animates');
+  assert.equal(exit.animation.frames.at(-1).height, '0px');
+  assert.equal(acField.hidden, false, 'still in the layout while it animates out');
+  assert.equal(plain(SchemaForm.readNode(root)).ac_topic, undefined, 'but already not saved');
+  exit.animation.onfinish();
+  assert.equal(acField.hidden, true);
+
+  choose(window, root, 'system_type', 'ac_coupled');
+  const entry = started.filter(item => item.element === acField).at(-1);
+  assert.equal(entry.animation.frames[0].height, '0px', 'expands from nothing');
+  assert.equal(acField.hidden, false);
+  assert.equal(plain(SchemaForm.readNode(root)).ac_topic, 'shelly/p');
+});
+
+test('switching back mid-animation takes over the running animation', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const started = [];
+  window.HTMLElement.prototype.animate = function (frames) {
+    const animation = { frames, onfinish: null, cancel() { this.cancelled = true; } };
+    started.push(animation);
+    return animation;
+  };
+  const root = SchemaForm.renderNode({ hooks: {}, motionOK: () => true }, conditionalItemSchema, { id: 'b' }, 'Batterie');
+  document.body.append(root);
+  choose(window, root, 'system_type', 'dc_only');
+  const first = started.at(-1);
+  choose(window, root, 'system_type', 'ac_coupled');
+  assert.equal(first.cancelled, true);
+  first.onfinish && first.onfinish();
+  assert.equal(field(root, 'ac_topic').hidden, false, 'a late finish of the cancelled exit must not hide it');
+});

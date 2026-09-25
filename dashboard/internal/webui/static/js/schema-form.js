@@ -276,11 +276,70 @@
     return control.value;
   }
 
-  function applyConditions(objectNode, branches, conditional) {
+  // Expand/collapse of a conditional field. Height is animated (there is no
+  // transform equivalent for pushing the fields below), together with opacity
+  // and a small lift. The negative margin swallows the parent's grid gap, so
+  // nothing jumps when the field finally leaves the layout. readNode() looks
+  // at data-schema-inactive, which switches at once: a field on its way out
+  // is already not saved.
+  const CONDITION_MS = 240;
+
+  function conditionEase(field) {
+    const token = getComputedStyle(field).getPropertyValue('--config-ease').trim();
+    return token || 'cubic-bezier(.32, .72, 0, 1)';
+  }
+
+  function setFieldVisible(field, visible, animate, motionOK) {
+    const wasVisible = field.dataset.schemaInactive !== 'true';
+    field.dataset.schemaInactive = visible ? 'false' : 'true';
+    if (visible === wasVisible && !field.conditionAnimation) {
+      field.hidden = !visible;
+      return;
+    }
+    // A running animation is taken over from where it stands, not restarted.
+    const running = field.conditionAnimation;
+    const from = running ? field.getBoundingClientRect().height : null;
+    const fromOpacity = running ? Number(getComputedStyle(field).opacity) : null;
+    if (running) running.cancel();
+    field.conditionAnimation = null;
+    if (!animate || typeof field.animate !== 'function') {
+      field.hidden = !visible;
+      return;
+    }
+    field.hidden = false;
+    const full = field.scrollHeight;
+    const gap = parseFloat(getComputedStyle(field.parentElement).rowGap) || 0;
+    const shown = { height: `${full}px`, opacity: 1, marginTop: '0px', transform: 'none' };
+    const gone = { height: '0px', opacity: 0, marginTop: `${-gap}px`, transform: 'translateY(-0.35rem)' };
+    const start = from === null ? (visible ? gone : shown)
+      : { height: `${from}px`, opacity: fromOpacity, marginTop: `${-gap * (1 - from / (full || 1))}px`, transform: 'none' };
+    let frames = [start, visible ? shown : gone];
+    if (!motionOK()) {
+      // Reduced motion: only a short fade, the layout change itself is instant.
+      if (!visible) { field.hidden = true; return; }
+      frames = [{ opacity: from === null ? 0 : fromOpacity }, { opacity: 1 }];
+    }
+    field.style.overflow = 'hidden';
+    const animation = field.animate(frames, {
+      duration: motionOK() ? CONDITION_MS : 150,
+      easing: motionOK() ? conditionEase(field) : 'ease',
+    });
+    field.conditionAnimation = animation;
+    animation.onfinish = () => {
+      if (field.conditionAnimation !== animation) return; // superseded
+      field.conditionAnimation = null;
+      field.style.overflow = '';
+      field.hidden = field.dataset.schemaInactive === 'true';
+    };
+  }
+
+  function applyConditions(objectNode, branches, conditional, animate = false, motionOK = defaultMotionOK) {
     const values = {};
     objectFields(objectNode).forEach(field => { values[field.dataset.schemaKey] = currentValue(field); });
     const active = branches.map(branch => branchActive(branch, values));
-    conditional.forEach((indices, field) => { field.hidden = !indices.some(index => active[index]); });
+    conditional.forEach((indices, field) => {
+      setFieldVisible(field, indices.some(index => active[index]), animate, motionOK);
+    });
   }
 
   function renderNode(ctx, schema, value, label, required = false, key = '') {
@@ -331,9 +390,9 @@
         node.append(optionalGroup);
       }
       if (conditional.size) {
-        const refresh = () => applyConditions(node, branches, conditional);
+        const refresh = () => applyConditions(node, branches, conditional, true, motionOK);
         ['change', 'input', 'schema-reset'].forEach(type => node.addEventListener(type, refresh));
-        refresh();
+        applyConditions(node, branches, conditional);
       }
       if (ctx.hooks && ctx.hooks.afterObject) ctx.hooks.afterObject(node, schema, value);
       return node;
@@ -405,7 +464,7 @@
     if (type === 'object') {
       const result = {};
       objectFields(node).forEach(child => {
-        if (child.hidden) return;
+        if (child.hidden || child.dataset.schemaInactive === 'true') return;
         const value = readNode(child);
         if (value !== undefined) result[child.dataset.schemaKey] = value;
       });
