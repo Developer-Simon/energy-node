@@ -336,6 +336,7 @@ class TuyaService:
             node_device_id=self.node_device_id,
             on_config_reload=self.reload_config,
             on_poll_error=lambda exc: log.warning("Scheduler-Fehler: %s", exc),
+            config_store=self.config_store,
         )
         self.slave.register_devices([device.cfg.id for device in self.devices])
         self.client = common_mqtt.build_client(
@@ -370,7 +371,10 @@ def main() -> None:
     )
     devices_path = config.devices_config("tuya")
     config_store = common_config.ReloadableConfig(devices_path, load_devices)
-    devices = [TuyaDevice(cfg) for cfg in config_store.load()]
+    device_configs, load_error = config_store.load_or([])
+    if load_error is not None:
+        log.error("Geraetekonfiguration abgelehnt, warte auf config/reload: %s", load_error)
+    devices = [TuyaDevice(cfg) for cfg in device_configs]
     log.info("Geladen: %d Tuya-Geraete aus %s", len(devices), devices_path)
     TuyaService(devices, config_store, config, "tuya").run()
 

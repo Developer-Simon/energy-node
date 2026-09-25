@@ -868,6 +868,7 @@ class TruckiService:
             on_config_reload=self.reload_config,
             on_poll_error=self.on_poll_error,
             async_loop=self.loop,
+            config_store=self.config_store,
         )
         self.slave.register_devices([device.id for device in self.devices])
 
@@ -916,7 +917,9 @@ def main() -> None:
     logging.basicConfig(level=config.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     devices_path = config.devices_config("trucki")
     config_store = common_config.ReloadableConfig(devices_path, load_devices)
-    devices = config_store.load()
+    devices, load_error = config_store.load_or([])
+    if load_error is not None:
+        LOG.error("Geraetekonfiguration abgelehnt, warte auf config/reload: %s", load_error)
     LOG.info("Geladen: %d Trucki-Geraet(e) aus %s", len(devices), devices_path)
     TruckiService(devices, config_store, config, "trucki").run()
 
