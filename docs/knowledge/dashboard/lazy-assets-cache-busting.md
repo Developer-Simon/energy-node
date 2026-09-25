@@ -71,7 +71,8 @@ As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `21` |
+| `css/base.css` | `23` |
+| `js/i18n.js` | `1` |
 
 ### Deferred `<script>` block (channel 1)
 
@@ -94,7 +95,7 @@ As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `8` |
 | `js/notifications.js` | `1` |
-| `js/dashboard.js` | `14` |
+| `js/dashboard.js` | `16` |
 | `js/overview.page.js` | `5` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -233,6 +234,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.7.14 | `css/base.css` · `js/dashboard.js` · `js/i18n.js` | `23` · `16` · `1` (new) | 2026-09-25 |
 | v0.7.13 | `css/manager.css` (5 panels) · `js/schema-form.js` (config + settings panels) · `js/config-status.js` (config + automations panels) · `js/config.page.js` · `js/automations.page.js` | `23` · `1` (was unversioned) · `2` (new) · `3` · `3` | 2026-09-25 |
 | v0.7.0 | `css/base.css` · `js/dashboard.js` | `22` · `15` | 2026-09-22 |
 | v0.7.0 | `css/manager.css` (5 panels) | `22` | 2026-09-16 |
