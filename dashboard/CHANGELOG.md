@@ -14,6 +14,7 @@
 - **webui:** add the browser i18n runtime and language switch handler (1477fab)
 - **webui:** localize the login page with a language switcher (38221fb)
 - **webui:** localize the masthead and status bar, add the language switcher (981ff47)
+- **dashboard:** installer-style language pill and a formatting settings card (16aa9a8)
 - **dashboard:** validate conditional JSON schema entries (if/then/else) (56cb98e)
 - **dashboard:** expose each service's reload result per configuration (6f9f9ea)
 - **dashboard:** show and hide conditional schema fields in the config editor (ca8f760)
