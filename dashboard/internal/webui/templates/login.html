@@ -26,19 +26,31 @@
     button:disabled { cursor: wait; opacity: .6; }
     .actions { display: grid; gap: .6rem; margin-top: .4rem; }
     .message { min-height: 1.4rem; margin: .8rem 0 0; color: var(--bad); }
-    .lang-switch { display: flex; justify-content: flex-end; margin: 0 0 1rem; }
-    .lang-switch select { padding: .3rem .5rem; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+    .login-head { display: flex; align-items: center; justify-content: space-between; gap: .75rem; margin: 0 0 .35rem; }
+    .login-head h1 { margin: 0; }
+    /* Sprachwaehler wie in base.css (.lang-pill), hier ohne Stylesheet. Die
+       generischen label/input-Regeln oben muessen dafuer zurueckgenommen werden. */
+    .lang-pill { position: relative; flex: none; display: inline-grid; grid-template-columns: repeat(var(--lang-count, 2), 1fr); padding: .2rem; border: 1px solid var(--border); border-radius: 999px; background: var(--bg); isolation: isolate; }
+    .lang-pill[hidden] { display: none; }
+    .lang-pill-thumb { position: absolute; z-index: 0; top: .2rem; bottom: .2rem; left: .2rem; width: calc((100% - .4rem) / var(--lang-count, 2)); border-radius: 999px; background: var(--panel); box-shadow: inset 0 0 0 1px var(--border); transition: transform .3s cubic-bezier(.32, .72, 0, 1); }
+    .lang-pill:has(.lang-pill-option:nth-of-type(2) input:checked) .lang-pill-thumb { transform: translateX(100%); }
+    .lang-pill:has(.lang-pill-option:nth-of-type(3) input:checked) .lang-pill-thumb { transform: translateX(200%); }
+    .lang-pill:has(.lang-pill-option:nth-of-type(4) input:checked) .lang-pill-thumb { transform: translateX(300%); }
+    .lang-pill-option { position: relative; z-index: 1; display: grid; place-items: center; gap: 0; padding: .26rem .55rem; font-size: .72rem; font-weight: 600; letter-spacing: .02em; color: var(--text-subtle); opacity: .7; cursor: pointer; transition: color .2s ease-out, opacity .2s ease-out; }
+    .lang-pill-option:has(input:checked) { color: var(--text); opacity: 1; }
+    .lang-pill-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
+    .lang-pill-option input { position: absolute; width: 1px; height: 1px; margin: 0; padding: 0; opacity: 0; }
     .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+    @media (prefers-reduced-motion: reduce) { .lang-pill-thumb { transition: none; } }
     .admin-auth-warning { margin: 0 0 1rem; padding: .7rem .9rem; border: 1px solid var(--bad); border-left-width: 3px; color: var(--bad); font-size: .92rem; }
   </style>
 </head>
 <body>
   <main>
-    <label class="lang-switch">
-      <span class="visually-hidden">{{t "language.label"}}</span>
-      <select data-lang-select>{{range .Languages}}<option value="{{.Code}}"{{if .Active}} selected{{end}}>{{.Name}}</option>{{end}}</select>
-    </label>
-    <h1>Energy Node Dashboard</h1>
+    <div class="login-head">
+      <h1>Energy Node Dashboard</h1>
+      {{template "lang-pill" .}}
+    </div>
     {{if .AdminAuthWarning}}<p class="admin-auth-warning" role="alert">{{.AdminAuthWarning}}</p>{{end}}
     <p>{{if .GuestOnly}}{{t "login.guest_only_hint"}}{{else}}{{t "login.prompt"}}{{end}}</p>
     <form id="login-form">

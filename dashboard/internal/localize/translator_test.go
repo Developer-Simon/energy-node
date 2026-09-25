@@ -78,7 +78,7 @@ func TestFuncMapWorksInHTMLTemplates(t *testing.T) {
 
 func TestOptionsListEveryLanguageWithItsOwnName(t *testing.T) {
 	options := testTranslator(t).Options("en")
-	want := []Option{{Code: "de", Name: "Deutsch"}, {Code: "en", Name: "English", Active: true}}
+	want := []Option{{Code: "de", Short: "DE", Name: "Deutsch"}, {Code: "en", Short: "EN", Name: "English", Active: true}}
 	if len(options) != len(want) {
 		t.Fatalf("options = %+v", options)
 	}

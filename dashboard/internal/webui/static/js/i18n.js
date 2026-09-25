@@ -39,6 +39,9 @@
       return this.t(key + (n === 1 ? '.one' : '.other'), merged);
     },
 
+    // Matches the thumb's transition in base.css (.lang-pill-thumb).
+    settleMs: 300,
+
     // Kept as a method so tests can replace it; jsdom cannot reload.
     reload: function () {
       window.location.reload();
@@ -56,12 +59,23 @@
   window.I18n = I18n;
 
   // One delegated handler serves the switcher on every page, including the
-  // login page, which has no Alpine.
+  // login page, which has no Alpine. The pill's thumb starts moving the
+  // moment the radio changes; the reload waits until it has settled, so the
+  // choice is visibly confirmed before the page is replaced. With reduced
+  // motion there is no slide to wait for.
   document.addEventListener('change', function (event) {
     var target = event.target;
     if (target && target.matches && target.matches('[data-lang-select]')) {
-      I18n.setLanguage(target.value);
+      var lang = target.value;
+      var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      window.setTimeout(function () { I18n.setLanguage(lang); }, reduced ? 0 : I18n.settleMs);
     }
+  });
+
+  // The settings page toggles the masthead switcher without a reload.
+  document.addEventListener('language-switch-setting-changed', function (event) {
+    var visible = !(event.detail && event.detail.visible === false);
+    document.querySelectorAll('.lang-pill').forEach(function (pill) { pill.hidden = !visible; });
   });
 
   document.addEventListener('alpine:init', function () {

@@ -91,9 +91,12 @@ func (t *Translator) FuncMap(lang string) template.FuncMap {
 	}
 }
 
-// Option is one entry of the language switcher.
+// Option is one entry of the language switcher. Short is the upper-case
+// code the compact switcher shows ("DE"), Name the language's own name for
+// screen readers and the settings page.
 type Option struct {
 	Code   string
+	Short  string
 	Name   string
 	Active bool
 }
@@ -108,7 +111,7 @@ func (t *Translator) Options(active string) []Option {
 		if !ok {
 			name = code
 		}
-		options = append(options, Option{Code: code, Name: name, Active: code == active})
+		options = append(options, Option{Code: code, Short: strings.ToUpper(code), Name: name, Active: code == active})
 	}
 	return options
 }

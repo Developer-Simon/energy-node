@@ -6,7 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
 func renderLogin(t *testing.T, mutate func(*http.Request)) string {
@@ -116,9 +118,9 @@ func TestLoginTextsFollowTheLanguage(t *testing.T) {
 func TestLoginOffersTheLanguageSwitcher(t *testing.T) {
 	body := renderLogin(t, func(r *http.Request) { r.Header.Set("Accept-Language", "en") })
 	for _, want := range []string{
-		`<select data-lang-select>`,
-		`<option value="de">Deutsch</option>`,
-		`<option value="en" selected>English</option>`,
+		`<div class="lang-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
+		`<input type="radio" name="lang" value="de" data-lang-select><span aria-hidden="true">DE</span><span class="visually-hidden">Deutsch</span>`,
+		`<input type="radio" name="lang" value="en" data-lang-select checked><span aria-hidden="true">EN</span>`,
 		`static/js/i18n.js?v=1`,
 	} {
 		if !strings.Contains(body, want) {
@@ -179,8 +181,8 @@ func TestMastheadAndStatusBarFollowTheLanguage(t *testing.T) {
 func TestOverviewOffersTheLanguageSwitcherAndRuntime(t *testing.T) {
 	body := renderOverviewWithLang(t, "en")
 	for _, want := range []string{
-		`<select data-lang-select>`,
-		`<option value="en" selected>English</option>`,
+		`<div class="lang-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
+		`<input type="radio" name="lang" value="en" data-lang-select checked>`,
 		`<script src="/static/js/i18n.js?v=1"></script>`,
 	} {
 		if !strings.Contains(body, want) {
@@ -189,5 +191,61 @@ func TestOverviewOffersTheLanguageSwitcherAndRuntime(t *testing.T) {
 	}
 	if strings.Index(body, `/i18n/en.js`) > strings.Index(body, `static/js/i18n.js`) {
 		t.Error("the catalog script must load before i18n.js")
+	}
+}
+
+func storeWithHiddenLanguageSwitch(t *testing.T) *settings.Store {
+	t.Helper()
+	store := settings.NewStore(t.TempDir())
+	value := settings.Default()
+	value.LanguageSwitchHidden = true
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	return store
+}
+
+// The setting hides the switcher but keeps it in the page, so saving the
+// settings can show it again without a reload.
+func TestLanguageSwitchSettingHidesThePill(t *testing.T) {
+	store := storeWithHiddenLanguageSwitch(t)
+	hidden := `style="--lang-count: 2" hidden>`
+
+	overview := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), store).ServeHTTP(overview, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(overview.Body.String(), hidden) {
+		t.Errorf("masthead pill is not hidden: %s", overview.Body.String())
+	}
+
+	login := httptest.NewRecorder()
+	Login(false, store, "").ServeHTTP(login, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(login.Body.String(), hidden) {
+		t.Errorf("login pill is not hidden: %s", login.Body.String())
+	}
+
+	if visible := renderLogin(t, nil); strings.Contains(visible, hidden) {
+		t.Error("without the setting the pill must be visible")
+	}
+}
+
+func TestSettingsOfferAFormattingCardWithTheLanguage(t *testing.T) {
+	request := httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil)
+	request.AddCookie(&http.Cookie{Name: "lang", Value: "en"})
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(recorder, request)
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`<h3 class="setting-card-title">Formatting</h3>`,
+		`<input type="radio" name="ui-language" value="de" x-model="uiLanguage"><span>Deutsch</span>`,
+		`<input type="radio" name="ui-language" value="en" x-model="uiLanguage"><span>English</span>`,
+		`<span>Language switcher in masthead and sign-in</span>`,
+		`x-on:change="languageSwitchHidden = !$event.target.checked"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("settings panel lacks %q", want)
+		}
+	}
+	if strings.Contains(body, `name="ui-language" value="en" data-lang-select`) {
+		t.Error("the settings radios must not switch immediately")
 	}
 }

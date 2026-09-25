@@ -163,7 +163,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
-	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/settings-stepper.html", "templates/diagnostics.html"))
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/settings-stepper.html", "templates/diagnostics.html"))
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
@@ -464,7 +464,7 @@ func deviceTileForItem(dev registry.DeviceView, visibleCategories []string) regi
 }
 
 func buildLoginTemplate(lang string) *template.Template {
-	return template.Must(template.New("login.html").Funcs(translator.FuncMap(lang)).ParseFS(templateFS, "templates/login.html"))
+	return template.Must(template.New("login.html").Funcs(translator.FuncMap(lang)).ParseFS(templateFS, "templates/login.html", "templates/lang-pill.html"))
 }
 
 var loginSets = newTemplateSets(buildLoginTemplate)
@@ -699,6 +699,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		showDiagnosticEntitiesOnTile := false
 		widePanels := settings.Default().WidePanels
 		statusBarItems := settings.Default().StatusBarItems
+		showLanguageSwitch := true
 		if store != nil {
 			if value, err := store.LoadSettings(); err == nil {
 				showRuntimeStatus = value.ShowRuntimeStatus
@@ -708,6 +709,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 				showDiagnosticEntitiesOnTile = value.ShowDiagnosticEntitiesOnTile
 				widePanels = value.WidePanels
 				statusBarItems = value.StatusBarItems
+				showLanguageSwitch = !value.LanguageSwitchHidden
 			}
 		}
 		if requestedMode := r.URL.Query().Get("view_mode"); requestedMode == settings.DeviceViewModeControl || requestedMode == settings.DeviceViewModeCompact {
@@ -750,19 +752,20 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			resolvedInstalledServices[key] = value
 		}
 		view := map[string]any{
-			"BasePath":          basepath.From(r),
-			"Manager":           configs != nil && store != nil,
-			"CanEditLayout":     canEditLayout,
-			"ShowRuntimeStatus": showRuntimeStatus,
-			"DeviceViewMode":    deviceViewMode,
-			"Theme":             theme,
-			"IgnoredDevices":    []devicefilter.Summary{},
-			"WidePanels":        strings.Join(widePanels, ","),
-			"StatusBarItems":    strings.Join(statusBarItems, ","),
-			"InstalledServices": resolvedInstalledServices,
-			"Lang":              lang,
-			"Languages":         translator.Options(lang),
-			"CatalogVersion":    translator.Version(),
+			"BasePath":           basepath.From(r),
+			"Manager":            configs != nil && store != nil,
+			"CanEditLayout":      canEditLayout,
+			"ShowRuntimeStatus":  showRuntimeStatus,
+			"DeviceViewMode":     deviceViewMode,
+			"Theme":              theme,
+			"IgnoredDevices":     []devicefilter.Summary{},
+			"WidePanels":         strings.Join(widePanels, ","),
+			"StatusBarItems":     strings.Join(statusBarItems, ","),
+			"InstalledServices":  resolvedInstalledServices,
+			"Lang":               lang,
+			"Languages":          translator.Options(lang),
+			"CatalogVersion":     translator.Version(),
+			"ShowLanguageSwitch": showLanguageSwitch,
 		}
 		if needsDevices {
 			view["Devices"] = devices
@@ -840,14 +843,18 @@ func Static() http.Handler {
 func Login(guestOnly bool, store *settings.Store, adminAuthWarning string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		theme := settings.ThemeMint
+		showLanguageSwitch := true
 		if store != nil {
-			if value, err := store.LoadSettings(); err == nil && value.Theme != "" {
-				theme = value.Theme
+			if value, err := store.LoadSettings(); err == nil {
+				if value.Theme != "" {
+					theme = value.Theme
+				}
+				showLanguageSwitch = !value.LanguageSwitchHidden
 			}
 		}
 		lang := localize.Resolve(r, translator.Languages())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarning": adminAuthWarning, "Lang": lang, "Languages": translator.Options(lang)}
+		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarning": adminAuthWarning, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch}
 		if err := loginSets.get(lang).ExecuteTemplate(w, "login", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}

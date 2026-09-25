@@ -68,25 +68,54 @@ test('setLanguage writes the cookie under the base path and reloads', () => {
   assert.equal(reloads, 1);
 });
 
-test('changing a [data-lang-select] switches the language', () => {
-  const window = load({
-    boot: { lang: 'de', catalog },
-    body: '<select data-lang-select><option value="de" selected>Deutsch</option><option value="en">English</option></select>',
-  });
+const pill = '<div class="lang-pill" role="radiogroup">'
+  + '<label><input type="radio" name="lang" value="de" data-lang-select checked>DE</label>'
+  + '<label><input type="radio" name="lang" value="en" data-lang-select>EN</label></div>';
+
+const settle = (ms) => new Promise((resolve) => { setTimeout(resolve, ms); });
+
+test('choosing a language in the pill switches once the thumb has settled', async () => {
+  const window = load({ boot: { lang: 'de', catalog }, body: pill });
   let reloads = 0;
   window.I18n.reload = () => { reloads += 1; };
-  const select = window.document.querySelector('[data-lang-select]');
-  select.value = 'en';
-  select.dispatchEvent(new window.Event('change', { bubbles: true }));
+  window.I18n.settleMs = 20;
+  const english = window.document.querySelector('[data-lang-select][value="en"]');
+  english.checked = true;
+  english.dispatchEvent(new window.Event('change', { bubbles: true }));
+  assert.equal(reloads, 0, 'the reload waits for the thumb');
+  await settle(40);
   assert.match(window.document.cookie, /lang=en/);
   assert.equal(reloads, 1);
 });
 
-test('other selects do not touch the language', () => {
+test('with reduced motion the switch does not wait', async () => {
+  const window = load({ boot: { lang: 'de', catalog }, body: pill });
+  window.matchMedia = () => ({ matches: true });
+  let reloads = 0;
+  window.I18n.reload = () => { reloads += 1; };
+  window.I18n.settleMs = 10000;
+  const english = window.document.querySelector('[data-lang-select][value="en"]');
+  english.checked = true;
+  english.dispatchEvent(new window.Event('change', { bubbles: true }));
+  await settle(5);
+  assert.equal(reloads, 1);
+});
+
+test('the settings page can hide and show the pill without a reload', () => {
+  const window = load({ boot: { lang: 'de', catalog }, body: pill });
+  const element = window.document.querySelector('.lang-pill');
+  window.document.dispatchEvent(new window.CustomEvent('language-switch-setting-changed', { detail: { visible: false } }));
+  assert.equal(element.hidden, true);
+  window.document.dispatchEvent(new window.CustomEvent('language-switch-setting-changed', { detail: { visible: true } }));
+  assert.equal(element.hidden, false);
+});
+
+test('other selects do not touch the language', async () => {
   const window = load({ boot: { lang: 'de', catalog }, body: '<select id="other"><option value="x">x</option></select>' });
   let reloads = 0;
   window.I18n.reload = () => { reloads += 1; };
   window.document.getElementById('other').dispatchEvent(new window.Event('change', { bubbles: true }));
+  await settle(window.I18n.settleMs + 20);
   assert.equal(reloads, 0);
 });
 

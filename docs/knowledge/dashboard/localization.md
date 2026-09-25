@@ -11,6 +11,25 @@ per browser.
 2. The browser's `Accept-Language` header, by primary subtag.
 3. `de`.
 
+## Switching the language
+
+- **Masthead and login page:** a compact `DE | EN` pill
+  (`templates/lang-pill.html`), a radio group with a sliding thumb. The page
+  reloads once the thumb has settled, at once with reduced motion. The pill
+  shows the upper-case language code, screen readers hear the language's own
+  name. It stays usable without Alpine because `i18n.js` handles it with one
+  delegated `change` listener.
+- **Settings → Darstellung → Formatierung:** the same choice as a segmented
+  control. Like everything on that page it applies on *Speichern*, and the
+  reload happens only after the settings were stored.
+- The node setting `language_switch_hidden` hides the pill in the masthead and
+  on the login page for everyone. The language is then only switchable in the
+  settings. The pill stays in the page with `hidden`, so saving the settings
+  shows it again without a reload.
+
+The *Formatierung* card is also where the number format (and later the date
+format) belongs.
+
 ## Catalogs
 
 `dashboard/internal/webui/catalogs/<code>.json` — one flat JSON object per

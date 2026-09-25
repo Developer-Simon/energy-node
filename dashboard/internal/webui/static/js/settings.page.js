@@ -50,6 +50,11 @@
     historyExchangeStatus: '',
     historyViews: [],
     updateCheckDisabled: false,
+    languageSwitchHidden: false,
+    // Die Sprache ist keine Knoten-Einstellung, sondern das Cookie dieses
+    // Browsers (i18n.js). Die Kachel "Formatierung" zeigt sie trotzdem hier,
+    // uebernommen wird sie wie alles auf der Seite erst mit "Speichern".
+    uiLanguage: window.I18n ? window.I18n.lang : 'de',
     // Wird aus der IndexedDB nachgeladen; 6 ist die Zahl der Energie-Rollen
     // und damit der ehrliche Startwert, solange noch nichts aufgezeichnet ist.
     historySeriesCount: 6,
@@ -113,6 +118,8 @@
         this.historyExchangeDisabled = Boolean(value.history_exchange_disabled);
         this.historyViews = Array.isArray(value.history_views) ? [...value.history_views] : [];
         this.updateCheckDisabled = Boolean(value.update_check_disabled);
+        this.languageSwitchHidden = Boolean(value.language_switch_hidden);
+        this.uiLanguage = window.I18n ? window.I18n.lang : this.uiLanguage;
         this.loadHistoryUsage();
         this.canTuneLiveUpdates = Boolean(session && session.tune_live_updates);
         this.setChoicesSelection(this.widePanelsChoices, this.widePanels);
@@ -343,6 +350,7 @@
         history_exchange_disabled: Boolean(this.historyExchangeDisabled),
         history_views: [...this.historyViews],
         update_check_disabled: Boolean(this.updateCheckDisabled),
+        language_switch_hidden: Boolean(this.languageSwitchHidden),
       };
     },
 
@@ -386,7 +394,13 @@
           extraEntities: [...this.historyExtraEntities],
           exchangeDisabled: Boolean(this.historyExchangeDisabled),
         }}));
+        document.dispatchEvent(new CustomEvent('language-switch-setting-changed', {detail: {visible: !this.languageSwitchHidden}}));
         this.$store.toasts.push('Einstellungen gespeichert.');
+        // Erst nach dem erfolgreichen Speichern: der Sprachwechsel laedt neu,
+        // ungespeicherte Aenderungen gingen sonst verloren.
+        if (window.I18n && this.uiLanguage !== window.I18n.lang) {
+          window.I18n.setLanguage(this.uiLanguage);
+        }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
