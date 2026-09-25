@@ -581,4 +581,5 @@ def test_schema_branches_match_the_system_type_and_bank_layout():
     [series] = bank_b_branch["then"]["allOf"]
     assert series["if"] == {"required": ["topology"], "properties": {"topology": {"const": "series"}}}
     assert set(series["then"]["properties"]) == {
-        "bank_b_voltage_topic", "bank_b_voltage_json_key", "bank_b_voltage_scale", "bank_a_voltage_measures"}
+        "bank_b_voltage_topic", "bank_b_voltage_json_key", "bank_b_voltage_scale", "bank_a_voltage_measures",
+        "imbalance_warn_v"}

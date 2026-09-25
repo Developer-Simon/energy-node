@@ -293,3 +293,16 @@ test('the battery schema form hides AC fields for a DC-only system', () => {
   choose(window, root, 'topology', 'series');
   assert.equal(field(root, 'bank_a_voltage_measures').hidden, false);
 });
+
+test('the imbalance warning only shows for two banks in series', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const batterySchema = JSON.parse(fs.readFileSync(
+    path.join(here, '..', '..', 'services', 'battery_soc', 'battery_soc_devices.schema.json'), 'utf8'));
+  const root = SchemaForm.renderNode(ctx, batterySchema.items, { id: 'b', name: 'B' }, 'Batterie');
+  document.body.append(root);
+  assert.equal(field(root, 'imbalance_warn_v').hidden, true, 'default parallel');
+  choose(window, root, 'topology', 'series');
+  assert.equal(field(root, 'imbalance_warn_v').hidden, false);
+  choose(window, root, 'bank_b_enabled', false);
+  assert.equal(field(root, 'imbalance_warn_v').hidden, true, 'single bank');
+});
