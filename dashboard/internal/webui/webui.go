@@ -29,6 +29,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -41,6 +42,41 @@ var staticFS, _ = fs.Sub(templateFS, "static")
 // catalogFS is the root of the embedded message catalogs (de.json, en.json,
 // later more). One JSON file per language; the file name is the language code.
 var catalogFS, _ = fs.Sub(templateFS, "catalogs")
+
+// translator serves every UI text. The catalogs are embedded, so a load
+// failure is a build defect and stops the process at startup.
+var translator = mustTranslator()
+
+func mustTranslator() *localize.Translator {
+	value, err := localize.New(catalogFS)
+	if err != nil {
+		panic("webui: " + err.Error())
+	}
+	return value
+}
+
+// templateSets parses a template set once per language, on first use, so a
+// language nobody asks for costs no memory on the ARMv6 target.
+type templateSets struct {
+	build func(lang string) *template.Template
+	mu    sync.Mutex
+	sets  map[string]*template.Template
+}
+
+func newTemplateSets(build func(lang string) *template.Template) *templateSets {
+	return &templateSets{build: build, sets: map[string]*template.Template{}}
+}
+
+func (s *templateSets) get(lang string) *template.Template {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if set, ok := s.sets[lang]; ok {
+		return set
+	}
+	set := s.build(lang)
+	s.sets[lang] = set
+	return set
+}
 
 // cardStyle baut den Inline-Stil einer Rasterzelle: die Typ-Mindesthoehe
 // immer, die Zwangshoehe nur wenn gesetzt. Rueckgabetyp template.CSS, weil
@@ -89,40 +125,53 @@ func stripDeviceName(deviceName, entityName string) string {
 	return name
 }
 
-var overviewTmpl = template.Must(template.New("base.html").Funcs(template.FuncMap{
-	"iconFor":            iconFor,
-	"deviceIcon":         deviceIcon,
-	"add":                func(a, b int) int { return a + b },
-	"energySnapshotJSON": energySnapshotJSON,
-	"defaultHiddenCount": defaultHiddenCount,
-	"deviceAvailability": deviceAvailability,
-	"commandableCount":   commandableCount,
-	"localTimestamp":     localTimestamp,
-	"localDisplay":       localDisplay,
-	"priorityEntities":   priorityEntities,
-	"compactCardAuto":    compactCardAuto,
-	"compactCardForItem": compactCardForItem,
-	"deviceTileForItem":  deviceTileForItem,
-	"deviceTileStatus":   deviceTileStatus,
-	"entityGroupForItem": entityGroupForItem,
-	"cardStyle":          cardStyle,
-	"cardFillsHeight":    cardFillsHeight,
-	"stripDeviceName":    stripDeviceName,
-	"activePage": func(layout settings.Layout, id string) *settings.Page {
-		// Die Uebersicht rendert genau eine Seite. Ohne Treffer die erste, damit
-		// ein unbekannter Seitenname (alter Link, geloeschte Seite) nicht auf eine
-		// leere Uebersicht fuehrt.
-		for i := range layout.Pages {
-			if layout.Pages[i].Name == id {
-				return &layout.Pages[i]
+func buildOverviewTemplate(lang string) *template.Template {
+	funcs := template.FuncMap{
+		"iconFor":            iconFor,
+		"deviceIcon":         deviceIcon,
+		"add":                func(a, b int) int { return a + b },
+		"energySnapshotJSON": energySnapshotJSON,
+		"defaultHiddenCount": defaultHiddenCount,
+		"deviceAvailability": deviceAvailability,
+		"commandableCount":   commandableCount,
+		"localTimestamp":     localTimestamp,
+		"localDisplay":       localDisplay,
+		"priorityEntities":   priorityEntities,
+		"compactCardAuto":    compactCardAuto,
+		"compactCardForItem": compactCardForItem,
+		"deviceTileForItem":  deviceTileForItem,
+		"deviceTileStatus":   deviceTileStatus,
+		"entityGroupForItem": entityGroupForItem,
+		"cardStyle":          cardStyle,
+		"cardFillsHeight":    cardFillsHeight,
+		"stripDeviceName":    stripDeviceName,
+		"activePage": func(layout settings.Layout, id string) *settings.Page {
+			// Die Uebersicht rendert genau eine Seite. Ohne Treffer die erste, damit
+			// ein unbekannter Seitenname (alter Link, geloeschte Seite) nicht auf eine
+			// leere Uebersicht fuehrt.
+			for i := range layout.Pages {
+				if layout.Pages[i].Name == id {
+					return &layout.Pages[i]
+				}
 			}
-		}
-		if len(layout.Pages) > 0 {
-			return &layout.Pages[0]
-		}
-		return nil
-	},
-}).ParseFS(templateFS, "templates/base.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/settings-stepper.html", "templates/diagnostics.html"))
+			if len(layout.Pages) > 0 {
+				return &layout.Pages[0]
+			}
+			return nil
+		},
+	}
+	for name, fn := range translator.FuncMap(lang) {
+		funcs[name] = fn
+	}
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/settings-stepper.html", "templates/diagnostics.html"))
+}
+
+var overviewSets = newTemplateSets(buildOverviewTemplate)
+
+// overviewTmpl is the default-language set. Handlers pick the set for the
+// request's language via overviewSets; tests that render single partials
+// use this one.
+var overviewTmpl = overviewSets.get(localize.DefaultLanguage)
 
 // diagnosticTextPattern and configTextPattern mirror the fallback heuristics
 // in dashboard.js's entityCategory() for entities whose discovery payload
@@ -414,7 +463,11 @@ func deviceTileForItem(dev registry.DeviceView, visibleCategories []string) regi
 	return filtered
 }
 
-var loginTmpl = template.Must(template.ParseFS(templateFS, "templates/login.html"))
+func buildLoginTemplate(lang string) *template.Template {
+	return template.Must(template.New("login.html").Funcs(translator.FuncMap(lang)).ParseFS(templateFS, "templates/login.html"))
+}
+
+var loginSets = newTemplateSets(buildLoginTemplate)
 
 // entityGroupView is the render-ready shape of an "entity_group" item: the
 // user-chosen title plus the resolved entities, in the order they were
@@ -686,6 +739,8 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			}
 		}
 
+		lang := localize.Resolve(r, translator.Languages())
+
 		resolvedInstalledServices := map[string]bool{
 			"automation": true,
 			"tailscale":  true,
@@ -705,6 +760,9 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"WidePanels":        strings.Join(widePanels, ","),
 			"StatusBarItems":    strings.Join(statusBarItems, ","),
 			"InstalledServices": resolvedInstalledServices,
+			"Lang":              lang,
+			"Languages":         translator.Options(lang),
+			"CatalogVersion":    translator.Version(),
 		}
 		if needsDevices {
 			view["Devices"] = devices
@@ -762,7 +820,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			view["IgnoredDevices"] = ignored.Summaries()
 		}
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		if err := overviewTmpl.ExecuteTemplate(w, templateName, view); err != nil {
+		if err := overviewSets.get(lang).ExecuteTemplate(w, templateName, view); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	}
@@ -787,10 +845,14 @@ func Login(guestOnly bool, store *settings.Store, adminAuthWarning string) http.
 				theme = value.Theme
 			}
 		}
+		lang := localize.Resolve(r, translator.Languages())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarning": adminAuthWarning}
-		if err := loginTmpl.ExecuteTemplate(w, "login", data); err != nil {
+		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarning": adminAuthWarning, "Lang": lang, "Languages": translator.Options(lang)}
+		if err := loginSets.get(lang).ExecuteTemplate(w, "login", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
 	})
 }
+
+// I18nScript serves /i18n/<lang>.js, the catalog the browser runtime reads.
+func I18nScript() http.Handler { return translator.ScriptHandler() }
