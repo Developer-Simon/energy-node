@@ -160,6 +160,26 @@ Per release:
 
 A real release (dry run off) refuses to run on any branch other than `main`.
 
+### Pre-release (beta)
+
+A beta lets you test a change through HACS (**Show beta versions**) before
+the real release. Run **HA Mirror Release** on the monorepo branch that holds
+the change and set **Pre-release** to a mirror branch name, for example
+`prerelease/dc-systems`. The workflow then:
+
+- switches the mirror to that branch (continues it if it exists, else starts
+  it from the mirror's `main`),
+- sets the manifest version to `vX.Y.Z-bN`, where `X.Y.Z` comes from the
+  manifest (or **Version**) and `N` is the next free beta number,
+- commits, tags and pushes branch and tag, and creates a GitHub pre-release.
+
+The mirror's `main` and the component's changelog stay untouched. `X.Y.Z` must
+not be released yet. Pre-releases may run from any monorepo branch, and dry
+run shows the beta version it would publish. Locally the same is
+`scripts/publish_mirror.sh --component battery_soc --prerelease prerelease/dc-systems`.
+The mirror's release workflow must already be on the mirror's `main`, since
+GitHub only starts a workflow that the default branch knows.
+
 ### For `battery_soc`:
 
 1. Land the change in `libs/battery_soc_core/` (or directly in the integration),

@@ -11,13 +11,17 @@
 # commit + tag the mirror as vX.Y.Z, push branch + tag and start the mirror's
 # release workflow, which cuts the GitHub Release (implies publishing -- needs
 # `gh` authenticated as the mirror owner).
+#
+# --prerelease BRANCH: like --release, but publishes the next free beta
+# vX.Y.Z-bN to the mirror branch BRANCH and marks the Release as a
+# pre-release. The mirror's main stays untouched and no CHANGELOG is written.
 set -euo pipefail
 
 # Mirror checkout assembled into; determined from release.env (MIRROR_PATH).
 
 usage() {
   cat >&2 <<EOF
-publish_mirror.sh [--component NAME] [--mirror-path PATH] [--version X.Y.Z] [--dry-run] [--push] [--release]
+publish_mirror.sh [--component NAME] [--mirror-path PATH] [--version X.Y.Z] [--dry-run] [--push] [--release | --prerelease BRANCH]
 
 --component defaults to 'battery_soc'. Valid components have a mirror/COMPONENT/ directory.
 --mirror-path defaults to the value in mirror/COMPONENT/release.env (MIRROR_PATH — the
@@ -54,6 +58,15 @@ from that CHANGELOG.md and wait for it. The workflow creates the GitHub
 Release only if no placeholder is left. Implies publishing (needs \`gh\`
 authenticated as the mirror repo's owner); --push is redundant with it. Without a Release, HACS treats the repo as commit-based and shows
 bare commit SHAs instead of the version.
+
+--prerelease BRANCH: publish a beta for HACS "Show beta versions". Switches
+the mirror checkout to BRANCH (taken from origin if it exists there, else
+created from the current mirror HEAD; never main), sets the manifest version
+to vX.Y.Z-bN with the next free N, commits "release vX.Y.Z-bN", tags it,
+pushes branch + tag and starts the mirror's release workflow with
+prerelease=true. X.Y.Z must not be released yet. The CHANGELOG is left alone.
+The mirror checkout is switched back to its previous branch at the end. With
+--dry-run it only prints the beta version it would publish.
 EOF
   exit 2
 }
@@ -64,6 +77,7 @@ version=""
 dry_run=0
 push=0
 release=0
+prerelease_branch=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --component) component="${2:?--component needs a value}"; shift 2 ;;
@@ -72,12 +86,22 @@ while [[ $# -gt 0 ]]; do
     --dry-run) dry_run=1; shift ;;
     --push) push=1; shift ;;
     --release) release=1; shift ;;
+    --prerelease) prerelease_branch="${2:?--prerelease needs a branch name}"; shift 2 ;;
     -h|--help) usage ;;
     *) echo "unknown argument: $1" >&2; usage ;;
   esac
 done
 if [[ "$dry_run" -eq 1 && ( "$push" -eq 1 || "$release" -eq 1 ) ]]; then
   echo "error: --dry-run cannot be combined with --push or --release." >&2
+  exit 2
+fi
+if [[ -n "$prerelease_branch" && "$release" -eq 1 ]]; then
+  echo "error: --prerelease cannot be combined with --release." >&2
+  exit 2
+fi
+if [[ -n "$prerelease_branch" ]] && { [[ "$prerelease_branch" == "main" ]] \
+    || ! git check-ref-format --branch "$prerelease_branch" >/dev/null 2>&1; }; then
+  echo "error: --prerelease needs a valid branch name other than main (got '${prerelease_branch}')." >&2
   exit 2
 fi
 
@@ -125,6 +149,58 @@ if ! git -C "$mirror_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   exit 1
 fi
 
+# The version the mirror manifest, commit and tag carry: X.Y.Z, or the next
+# free beta X.Y.Z-bN for --prerelease (tags fetched first so a beta cut
+# elsewhere is not reused; offline is fine for a dry run).
+release_version="$version"
+if [[ -n "$prerelease_branch" ]]; then
+  git -C "$mirror_path" fetch -q --tags origin 2>/dev/null || true
+  if git -C "$mirror_path" rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
+    echo "error: v${version} is already released; a beta needs a newer version." >&2
+    echo "       Bump the manifest version or pass --version." >&2
+    exit 1
+  fi
+  beta=1
+  while git -C "$mirror_path" rev-parse -q --verify "refs/tags/v${version}-b${beta}" >/dev/null; do
+    beta=$((beta + 1))
+  done
+  release_version="${version}-b${beta}"
+fi
+
+# Undone on exit: the release-notes temp file and, for --prerelease, the
+# mirror checkout's switch to the pre-release branch.
+notes_file=""
+restore_ref=""
+cleanup() {
+  [[ -n "$notes_file" ]] && rm -f "$notes_file"
+  if [[ -n "$restore_ref" ]] && ! git -C "$mirror_path" checkout -q "$restore_ref"; then
+    echo "warning: could not switch ${mirror_path} back to ${restore_ref}." >&2
+  fi
+}
+trap cleanup EXIT
+
+# The pre-release branch: continue origin's copy if there is one, otherwise
+# start it from the current mirror HEAD. The assembled tree is derived from
+# the monorepo either way, so the start point only shapes the history.
+if [[ -n "$prerelease_branch" && "$dry_run" -eq 0 ]]; then
+  if [[ -n "$(git -C "$mirror_path" status --porcelain)" ]]; then
+    echo "error: ${mirror_path} has uncommitted changes; commit or discard them first." >&2
+    exit 1
+  fi
+  restore_ref="$(git -C "$mirror_path" symbolic-ref -q --short HEAD \
+    || git -C "$mirror_path" rev-parse HEAD)"
+  if git -C "$mirror_path" show-ref -q --verify "refs/heads/${prerelease_branch}"; then
+    git -C "$mirror_path" checkout -q "$prerelease_branch"
+    if git -C "$mirror_path" show-ref -q --verify "refs/remotes/origin/${prerelease_branch}"; then
+      git -C "$mirror_path" merge -q --ff-only "origin/${prerelease_branch}"
+    fi
+  elif git -C "$mirror_path" show-ref -q --verify "refs/remotes/origin/${prerelease_branch}"; then
+    git -C "$mirror_path" checkout -q -b "$prerelease_branch" --track "origin/${prerelease_branch}"
+  else
+    git -C "$mirror_path" checkout -q -b "$prerelease_branch"
+  fi
+fi
+
 # 1. Never publish stale vendored artefacts.
 python3 "${repo_root}/scripts/vendor_core.py" --check
 
@@ -166,7 +242,7 @@ cp "${template}"/docs/*.md "${mirror_path}/docs/"
 # 4. Rewrite the manifest's public fields (stdlib json, no jq).
 OWNER="${OWNER:?release.env must set OWNER}" \
 REPO="${REPO:?release.env must set REPO}" \
-VERSION="$version" \
+VERSION="$release_version" \
 python3 - "${template}/manifest.overrides.json" \
           "${mirror_path}/custom_components/${component}/manifest.json" <<'PY'
 import json, os, sys
@@ -202,13 +278,16 @@ if [[ "$dry_run" -eq 1 ]]; then
   git -C "$mirror_path" status --porcelain
   echo "--- custom_components/${component}/manifest.json ---"
   cat "${mirror_path}/custom_components/${component}/manifest.json"
+  if [[ -n "$prerelease_branch" ]]; then
+    echo "--- pre-release: would publish v${release_version} to mirror branch ${prerelease_branch} ---"
+  fi
   exit 0
 fi
 
 # 5a. Sync only (no --release): commit the assembled tree, optionally push the
 # branch. No tag, no CHANGELOG regen, no GitHub Release -- HACS keeps showing
 # the last released version until the next --release run.
-if [[ "$release" -eq 0 ]]; then
+if [[ "$release" -eq 0 && -z "$prerelease_branch" ]]; then
   if [[ -z "$(git -C "$mirror_path" status --porcelain)" ]]; then
     echo "mirror already in sync with the monorepo; nothing to commit."
   else
@@ -229,49 +308,57 @@ fi
 # 5b. Release (--release). First rebuild the component's CHANGELOG.md
 # from the monorepo history and stage it there -- it is a monorepo-tracked
 # file, so this script only stages it; you commit it alongside the version
-# bump.
+# bump. A pre-release leaves the CHANGELOG alone.
 CHANGELOG_TARGET="${CHANGELOG_TARGET:?release.env must set CHANGELOG_TARGET}" \
 CHANGELOG_PATH="${CHANGELOG_PATH:?release.env must set CHANGELOG_PATH}"
-"${repo_root}/scripts/generate_changelog.sh" "$CHANGELOG_TARGET"
-git -C "$repo_root" add "$CHANGELOG_PATH"
-if git -C "$repo_root" diff --cached --quiet -- "$CHANGELOG_PATH"; then
-  echo "${CHANGELOG_PATH} unchanged."
-else
-  echo "note: ${CHANGELOG_PATH} regenerated and staged in the monorepo -- commit it with the release."
+if [[ -z "$prerelease_branch" ]]; then
+  "${repo_root}/scripts/generate_changelog.sh" "$CHANGELOG_TARGET"
+  git -C "$repo_root" add "$CHANGELOG_PATH"
+  if git -C "$repo_root" diff --cached --quiet -- "$CHANGELOG_PATH"; then
+    echo "${CHANGELOG_PATH} unchanged."
+  else
+    echo "note: ${CHANGELOG_PATH} regenerated and staged in the monorepo -- commit it with the release."
+  fi
 fi
 
 # 6. Commit + tag the mirror, then publish: push branch + tag and let the
 # mirror's release workflow cut the GitHub Release. HACS only leaves commit mode (bare SHAs, dead "release
 # announcement" link) once a Release exists.
-if git -C "$mirror_path" rev-parse -q --verify "refs/tags/v${version}" >/dev/null; then
-  echo "error: tag v${version} already exists in ${mirror_path}." >&2
+if git -C "$mirror_path" rev-parse -q --verify "refs/tags/v${release_version}" >/dev/null; then
+  echo "error: tag v${release_version} already exists in ${mirror_path}." >&2
   echo "       Bump the manifest version (commit it) or pass --version." >&2
   exit 1
 fi
 if [[ -n "$(git -C "$mirror_path" status --porcelain)" ]]; then
   git -C "$mirror_path" add -A
-  git -C "$mirror_path" commit -q -m "release v${version}"
+  git -C "$mirror_path" commit -q -m "release v${release_version}"
 fi
-git -C "$mirror_path" tag "v${version}"
-echo "committed and tagged v${version} in ${mirror_path}"
+git -C "$mirror_path" tag "v${release_version}"
+echo "committed and tagged v${release_version} in ${mirror_path}"
 
 branch="$(git -C "$mirror_path" rev-parse --abbrev-ref HEAD)"
 git -C "$mirror_path" push origin "$branch"
-git -C "$mirror_path" push origin "v${version}"
+git -C "$mirror_path" push origin "v${release_version}"
 
 # Release notes: the "## vX.Y.Z ..." section of the changelog, up to the next
 # "## " heading. Falls back to a one-liner if that version has no section yet.
+# A pre-release has no changelog section; its notes name the monorepo source.
 notes_file="$(mktemp)"
-trap 'rm -f "$notes_file"' EXIT
-awk -v ver="v${version}" '
-  $0 ~ "^## " ver "( |$|\\()" { grab = 1; next }
-  grab && /^## / { exit }
-  grab { print }
-' "${repo_root}/${CHANGELOG_PATH}" > "$notes_file"
-if [[ ! -s "$notes_file" ]]; then
-  # Fallback: use RELEASE_NAME from release.env
-  RELEASE_NAME="${RELEASE_NAME:?release.env must set RELEASE_NAME}"
-  printf 'Release %s of the %s.\n' "v${version}" "$RELEASE_NAME" > "$notes_file"
+RELEASE_NAME="${RELEASE_NAME:?release.env must set RELEASE_NAME}"
+if [[ -n "$prerelease_branch" ]]; then
+  source_branch="${GITHUB_REF_NAME:-$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)}"
+  printf 'Pre-release %s of the %s, built from energy-node %s (%s).\n' \
+    "v${release_version}" "$RELEASE_NAME" "$source_branch" \
+    "$(git -C "$repo_root" rev-parse --short HEAD)" > "$notes_file"
+else
+  awk -v ver="v${release_version}" '
+    $0 ~ "^## " ver "( |$|\\()" { grab = 1; next }
+    grab && /^## / { exit }
+    grab { print }
+  ' "${repo_root}/${CHANGELOG_PATH}" > "$notes_file"
+  if [[ ! -s "$notes_file" ]]; then
+    printf 'Release %s of the %s.\n' "v${release_version}" "$RELEASE_NAME" > "$notes_file"
+  fi
 fi
 
 # The release workflow checks the tagged tree for unrendered placeholders
@@ -280,9 +367,9 @@ dispatched_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 gh workflow run release.yml \
   --repo "${OWNER}/${REPO}" \
   --ref "$branch" \
-  -f tag="v${version}" \
+  -f tag="v${release_version}" \
   -f notes="$(cat "$notes_file")" \
-  -f prerelease=false
+  -f prerelease="$([[ -n "$prerelease_branch" ]] && echo true || echo false)"
 run_id=""
 for _ in $(seq 1 30); do
   run_id="$(gh run list --repo "${OWNER}/${REPO}" --workflow release.yml \
@@ -293,8 +380,8 @@ for _ in $(seq 1 30); do
 done
 if [[ -z "$run_id" ]]; then
   echo "error: started the release workflow in ${OWNER}/${REPO} but could not find its run." >&2
-  echo "       Check https://github.com/${OWNER}/${REPO}/actions -- tag v${version} is pushed." >&2
+  echo "       Check https://github.com/${OWNER}/${REPO}/actions -- tag v${release_version} is pushed." >&2
   exit 1
 fi
 gh run watch "$run_id" --repo "${OWNER}/${REPO}" --exit-status
-echo "pushed ${branch} + v${version}; the release workflow created the GitHub Release"
+echo "pushed ${branch} + v${release_version}; the release workflow created the GitHub Release"

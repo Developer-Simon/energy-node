@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Tag to release, e.g. v0.3.0"
+        description: "Tag to release, e.g. v0.3.0 or the beta v0.3.0-b2"
         required: true
       notes:
         description: "Release notes (Markdown)"
