@@ -1,0 +1,12 @@
+{{/* Compact language switcher for the masthead and the login page, modelled
+   on the installer's DE | EN pill. A real radio group, so arrow keys and
+   screen readers work without script. The thumb slides via CSS; i18n.js
+   writes the cookie and reloads once it has settled. Hidden (not omitted)
+   when the setting language_switch_hidden is on, so the settings page can
+   show it again without a reload. */}}
+{{define "lang-pill"}}<div class="lang-pill" role="radiogroup" aria-label="{{t "language.label"}}" style="--lang-count: {{len .Languages}}"{{if not .ShowLanguageSwitch}} hidden{{end}}>
+  <span class="lang-pill-thumb" aria-hidden="true"></span>
+  {{- range .Languages}}
+  <label class="lang-pill-option" title="{{.Name}}"><input type="radio" name="lang" value="{{.Code}}" data-lang-select{{if .Active}} checked{{end}}><span aria-hidden="true">{{.Short}}</span><span class="visually-hidden">{{.Name}}</span></label>
+  {{- end}}
+</div>{{end}}

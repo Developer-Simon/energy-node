@@ -5,6 +5,7 @@
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **services:** start with an invalid device file and report it as rejected (029c604)
 
 ### Fixes

@@ -4,6 +4,7 @@
 
 ### Features
 
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **services:** start with an invalid device file and report it as rejected (029c604)
 
 ## v0.4.1 (2026-09-23)

@@ -86,6 +86,12 @@ type Settings struct {
 	// bedeuten, sonst waere ein bewusstes Abschalten von "nicht gesetzt"
 	// nicht zu unterscheiden.
 	UpdateCheckDisabled bool `json:"update_check_disabled"`
+
+	// LanguageSwitchHidden blendet den Sprachwaehler in der Kopfzeile und auf
+	// der Anmeldeseite aus. Die Sprache bleibt unter Einstellungen >
+	// Darstellung > Formatierung umschaltbar. Invertiert benannt wie
+	// UpdateCheckDisabled: der Nullwert heisst "Waehler sichtbar".
+	LanguageSwitchHidden bool `json:"language_switch_hidden"`
 }
 
 // HistoryView ist eine gespeicherte Verlaufssicht. Sie liegt serverseitig,

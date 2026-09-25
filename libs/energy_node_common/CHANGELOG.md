@@ -4,6 +4,7 @@
 
 ### Features
 
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **common:** track config file revisions and allow a fallback start (6f38c33)
 - **services:** start with an invalid device file and report it as rejected (029c604)
 

@@ -4,6 +4,10 @@
   // no-op) on direct access, so every generated URL stays byte-identical.
   const withBase = path => `${window.__DASHBOARD_BASE_PATH__ || ''}${path}`;
 
+  // Falls back to the key when i18n.js is absent (unit tests load this file
+  // alone), so a missing runtime shows a visible gap instead of throwing.
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const dashboardShell = () => ({
     activePanel: 'overview-panel',
     activePage: '',
@@ -310,9 +314,9 @@
     itemsChanged: null,
 
     get statusLabel() {
-      if (this.loading && !this.status) return 'Lade Status ...';
-      if (this.error && !this.status) return 'Status nicht verfügbar';
-      return this.status?.status === 'degraded' ? 'Beeinträchtigt' : 'Betriebsbereit';
+      if (this.loading && !this.status) return t('status.loading');
+      if (this.error && !this.status) return t('status.unavailable');
+      return this.status?.status === 'degraded' ? t('status.degraded') : t('status.ok');
     },
 
     get statusClass() {
@@ -326,9 +330,9 @@
       const days = Math.floor(value / 86400);
       const hours = Math.floor((value % 86400) / 3600);
       const minutes = Math.floor((value % 3600) / 60);
-      if (days) return `${days} T ${hours} h`;
-      if (hours) return `${hours} h ${minutes} min`;
-      return `${minutes} min`;
+      if (days) return t('status.uptime.days_hours', {days, hours});
+      if (hours) return t('status.uptime.hours_minutes', {hours, minutes});
+      return t('status.uptime.minutes', {minutes});
     },
 
     formatTemp(v) { return (v === null || v === undefined) ? '-' : `${v.toFixed(1)} °C`; },

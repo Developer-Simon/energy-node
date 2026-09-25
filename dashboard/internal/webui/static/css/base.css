@@ -248,6 +248,67 @@ body { font-family: system-ui, sans-serif; padding: 2rem 1.5rem; background: var
   font-size: .85rem;
   color: var(--text-muted);
 }
+/* Sprachwaehler (lang-pill.html): die DE | EN-Pille aus dem Installer als
+   echte Radiogruppe. Sitzt am Ende der Titelzeile (margin-left: auto) und
+   bricht auf schmalen Schirmen mit ihr um, statt absolut ueber dem Titel zu
+   liegen. Der Daumen gleitet mit derselben Kurve wie .segmented, Prozent-
+   Schritte beziehen sich auf die Daumenbreite = eine Option. */
+.lang-pill {
+  --lang-count: 2;
+  position: relative;
+  display: inline-grid;
+  grid-template-columns: repeat(var(--lang-count), 1fr);
+  align-self: center;
+  margin-left: auto;
+  padding: .2rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--sunken);
+  isolation: isolate;
+}
+.lang-pill[hidden] { display: none; }
+.lang-pill-thumb {
+  position: absolute;
+  z-index: 0;
+  top: .2rem;
+  bottom: .2rem;
+  left: .2rem;
+  width: calc((100% - .4rem) / var(--lang-count));
+  border-radius: 999px;
+  background: var(--panel-alt);
+  transition: transform .3s var(--layout-ease);
+}
+.lang-pill:has(.lang-pill-option:nth-of-type(2) input:checked) .lang-pill-thumb { transform: translateX(100%); }
+.lang-pill:has(.lang-pill-option:nth-of-type(3) input:checked) .lang-pill-thumb { transform: translateX(200%); }
+.lang-pill:has(.lang-pill-option:nth-of-type(4) input:checked) .lang-pill-thumb { transform: translateX(300%); }
+.lang-pill-option {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  padding: .26rem .55rem;
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: color .2s var(--ease-out);
+}
+.lang-pill-option:hover { color: var(--text-muted); }
+.lang-pill-option:has(input:checked) { color: var(--text-subtle); }
+.lang-pill-option:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 999px; }
+.lang-pill-option input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .lang-pill-thumb { transition: none; }
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
 /* Einmaliger Einzug beim ersten Paint - laeuft off-main-thread als
    CSS-Animation, waehrend Alpine und die Panels booten. Der Header wird beim
    Tab-Wechsel nie neu gerendert, die Animation also genau einmal pro

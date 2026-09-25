@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1664,5 +1665,42 @@ func TestLoadDevicePrefsSurvivesRoundTrip(t *testing.T) {
 	}
 	if len(reloaded.Devices) != 1 || reloaded.Devices[0].Icon != "mdi:raspberry-pi" || !reloaded.Devices[0].PinFavorites {
 		t.Fatalf("reloaded = %#v, want the saved record", reloaded.Devices)
+	}
+}
+
+func TestSprachwaehlerIstStandardmaessigSichtbar(t *testing.T) {
+	if Default().LanguageSwitchHidden {
+		t.Fatal("der Sprachwaehler muss in der Vorgabe sichtbar sein")
+	}
+	if normalizeSettings(Settings{}).LanguageSwitchHidden {
+		t.Fatal("nicht gesetzt muss 'sichtbar' bedeuten")
+	}
+	hidden := Default()
+	hidden.LanguageSwitchHidden = true
+	if !normalizeSettings(hidden).LanguageSwitchHidden {
+		t.Fatal("ein bewusstes Ausblenden darf nicht zurueckgedreht werden")
+	}
+	if err := validateSettings(hidden); err != nil {
+		t.Fatalf("ausgeblendeter Waehler ist ungueltig: %v", err)
+	}
+}
+
+func TestSchemaKenntDenSprachwaehlerSchalter(t *testing.T) {
+	var schema struct {
+		Required   []string `json:"required"`
+		Properties map[string]struct {
+			Type    string `json:"type"`
+			Default any    `json:"default"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(settingsSchema, &schema); err != nil {
+		t.Fatal(err)
+	}
+	property, ok := schema.Properties["language_switch_hidden"]
+	if !ok || property.Type != "boolean" || property.Default != false {
+		t.Fatalf("language_switch_hidden = %+v (vorhanden: %v), want boolean/false", property, ok)
+	}
+	if !slices.Contains(schema.Required, "language_switch_hidden") {
+		t.Fatal("language_switch_hidden fehlt in required")
 	}
 }

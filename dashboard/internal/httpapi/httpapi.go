@@ -235,6 +235,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
 	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
 	mux.Handle("/static/", webui.Static())
+	mux.Handle("/i18n/", webui.I18nScript())
 	if dependencies.Redeploy != nil {
 		mux.Handle("/redeploy/", requireSystemActions(dependencies.Auth, dependencies.Redeploy))
 	}
@@ -348,7 +349,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 
 func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarning string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if manager == nil || strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
+		if manager == nil || strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/i18n/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
 			next.ServeHTTP(w, r)
 			return
 		}
