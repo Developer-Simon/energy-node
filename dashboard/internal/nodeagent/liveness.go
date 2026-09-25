@@ -138,6 +138,8 @@ func (a *Agent) fresh(id string, st *serviceState, now time.Time) bool {
 	return now.Unix()-st.lastUpdate <= int64(window)
 }
 
+// ServiceStatus returns the last settings/status a service published.
+// Received stays false until one arrived.
 func (a *Agent) ServiceStatus(id string) ServiceRuntimeStatus {
 	a.live.mu.RLock()
 	defer a.live.mu.RUnlock()

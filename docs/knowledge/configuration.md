@@ -199,7 +199,7 @@ When the dashboard changes a reloadable value:
 
 The restart remains an explicit action performed through the dashboard interface.
 
-The service reports `error_code` and the checksums `config_revision` (the SHA-256 of the file that was in place when the service started) and `applied_revision` (the SHA-256 of the file it has loaded). A rejection stays until a reload succeeds: a service that starts with an invalid file keeps running in `rejected` and waits for `config/reload`.
+The service reports `error_code` and the checksums `config_revision` (the SHA-256 of the file of its last load attempt, successful or not) and `applied_revision` (the SHA-256 of the file it currently runs with). A rejection stays until a reload succeeds: a service that starts with an invalid file keeps running in `rejected` and waits for `config/reload`.
 
 ## `schema_version`
 
