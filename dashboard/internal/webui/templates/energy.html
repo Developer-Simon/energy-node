@@ -84,7 +84,7 @@
   {{if .Energy.Roles}}
   <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
     <dt title="{{.Sign}}">{{.Label}}</dt>
-    <dd>{{printf "%.0f %s" .Value .Unit}}</dd>
+    <dd>{{formatNumber .Value 0}} {{.Unit}}</dd>
     <ul class="energy-state-row">
       {{if eq .Quality "invalid"}}<li class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg>Ungültig</li>
       {{else if or (eq .Freshness "stale") (eq .Quality "stale")}}<li class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg>Veraltet</li>

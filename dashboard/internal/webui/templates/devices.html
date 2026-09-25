@@ -67,7 +67,7 @@
   {{if $priority}}
   <span class="compact-card-rows">
     {{range $priority}}
-    <span class="compact-card-row" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}"><span class="compact-card-row-label">{{stripDeviceName $device.Name .Name}}</span><span class="compact-card-row-value{{if .Stale}} stale{{end}}">{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{.Value}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}–{{end}}</span></span>
+    <span class="compact-card-row" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}"><span class="compact-card-row-label">{{stripDeviceName $device.Name .Name}}</span><span class="compact-card-row-value{{if .Stale}} stale{{end}}">{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{formatValue .Value .UnitOfMeasurement}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}–{{end}}</span></span>
     {{end}}
   </span>
   {{else}}
