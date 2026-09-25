@@ -6,6 +6,7 @@
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 - **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **services:** start with an invalid device file and report it as rejected (029c604)
 - **⚠ Breaking — battery_soc:** validate the MQTT service's sources with coded errors (e6e741e)
 - **battery_soc:** feed one MQTT topic into several slots with invert and unit (2735b3d)
