@@ -9,7 +9,7 @@
     "title": "Battery State-of-Charge Device",
     "description": "Configuration for one battery state-of-charge calculation.",
     "type": "object",
-    "required": ["id", "name"],
+    "required": ["id", "name", "bank_a_voltage_topic"],
     "unevaluatedProperties": false,
     "properties": {
       "id": { "type": "string", "minLength": 1, "default": "new_battery_soc", "title": "Identifier", "description": "Unique identifier used in MQTT topics and Home Assistant device IDs." },
@@ -24,7 +24,7 @@
       "inverter_dc_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Inverter DC power JSON key", "description": "JSON property containing DC inverter power. Leave empty when the topic carries a bare number." },
       "inverter_dc_power_unit": { "type": "string", "enum": ["W", "A"], "default": "W", "title": "Inverter DC unit", "description": "Unit of the DC discharging reading. Choose A for a current sensor, the service converts it to watts with the pack voltage." },
       "inverter_dc_power_invert": { "type": "boolean", "default": false, "title": "Invert inverter DC power", "description": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side." },
-      "bank_a_voltage_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Bank A voltage topic", "description": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage." },
+      "bank_a_voltage_topic": { "type": "string", "minLength": 1, "format": "mqtt-topic", "default": "", "title": "Bank A voltage topic", "description": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage." },
       "bank_a_voltage_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Bank A voltage JSON key", "description": "JSON property containing battery bank A voltage." },
       "bank_a_voltage_scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "title": "Bank A voltage scale", "description": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count." },
       "bank_a_cell_count": { "type": "integer", "exclusiveMinimum": 0, "default": 8, "title": "Bank A cell count", "description": "Number of cells connected in series in this bank. Cells in parallel count as one." },
