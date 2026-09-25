@@ -64,7 +64,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-09-16**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -233,6 +233,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.7.13 | `css/manager.css` (5 panels) · `js/schema-form.js` (config + settings panels) · `js/config-status.js` (config + automations panels) · `js/config.page.js` · `js/automations.page.js` | `23` · `1` (was unversioned) · `2` (new) · `3` · `3` | 2026-09-25 |
 | v0.7.0 | `css/base.css` · `js/dashboard.js` | `22` · `15` | 2026-09-22 |
 | v0.7.0 | `css/manager.css` (5 panels) | `22` | 2026-09-16 |
 | v0.7.0 | `css/base.css` · `css/manager.css` (5 panels) | `21` · `21` | 2026-09-16 |

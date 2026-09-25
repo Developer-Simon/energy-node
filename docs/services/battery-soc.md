@@ -24,15 +24,42 @@ It is a monitoring estimate, not a BMS.
 
 ## Configuration
 
-**System type.** `system_type`: `ac_coupled` (default) or `dc_only`. It only decides which fields the dashboard form shows. `dc_only` hides the AC inputs, their efficiencies and `dc_max_age_s`, and the service rejects a `dc_only` entry that still has AC inputs.
+**System type.** `system_type` is `ac_coupled` (default) or `dc_only`. It only
+decides which fields the dashboard form shows. `dc_only` hides the AC inputs,
+their efficiencies and `dc_max_age_s`, and the service rejects a `dc_only`
+entry that still has AC inputs.
 
-**Inputs.** Charger power, inverter power, and one voltage topic per bank — each as a topic plus an optional JSON key, because a Trucki stick publishes a bare number where a Shelly publishes an object. Every power input has `*_invert`. The same topic may sit in several power inputs, typically one signed sensor for charging and, inverted, for discharging. Negative values count as zero on each side. The DC inputs take `*_unit: "W"` or `"A"`, a current is converted with the pack voltage. A side with only a DC input uses it as its only source, there is no AC fallback then.
+**Inputs.** Charger power, inverter power, and one voltage topic per bank —
+each as a topic plus an optional JSON key, because a Trucki stick publishes a
+bare number where a Shelly publishes an object. Optional DC-side power topics
+take over from the AC measurements while they are fresh (`dc_max_age_s`), and
+fall back automatically when they go stale. A side with only a DC input uses
+it as its only source, there is no AC fallback then.
 
-**Validity.** Each side needs a source (AC or DC), and bank A needs a voltage. The service rejects anything else with a code, keeps running with its previous configuration and shows the reason on the dashboard's configuration page. Since this release a file without any charge or discharge source no longer loads.
+Every power input has an `*_invert` switch. The same topic may sit in several
+power inputs, typically one signed sensor for charging and, inverted, for
+discharging. Negative values count as zero on each side. The DC inputs take
+`*_unit: "W"` or `"A"`, a current is converted to watts with the pack voltage.
 
-**Topology.** `parallel` (both banks on one DC bus, one voltage) or `series`; `bank_b_enabled: false` for a single-bank installation. The entity list follows the topology — a series pack additionally gets per-bank SoC, the voltage difference between banks and an imbalance warning. Add `bank_a_voltage_measures` (`bank_a` or `stack`) for series banks.
+**Validity.** Each side needs a source (AC or DC), and bank A needs a voltage.
+The service rejects anything else with an error code, keeps running with its
+previous configuration and the dashboard's configuration page shows the
+reason. A file without any charge or discharge source no longer loads (it did
+before DC-only systems were supported).
 
-**Calibration and efficiency.** Cell count and capacity per bank; the open-circuit volts per cell that count as empty and full; how far those thresholds may soften at rest (`calibration_tolerance_v_per_cell`); how long a voltage must hold before calibration applies; charger AC→DC and inverter DC→AC efficiency; and the charge efficiency of the cells themselves.
+**Topology.** `parallel` (both banks on one DC bus, one voltage) or `series`;
+`bank_b_enabled: false` for a single-bank installation. The entity list
+follows the topology — a series pack additionally gets per-bank SoC, the
+voltage difference between banks and an imbalance warning. On a series pack,
+`bank_a_voltage_measures` says whether the bank A sensor measures bank A alone
+(`bank_a`, default) or the whole stack (`stack`), bank A is then the stack
+minus bank B.
+
+**Calibration and efficiency.** Cell count and capacity per bank; the
+open-circuit volts per cell that count as empty and full; how far those
+thresholds may soften at rest (`calibration_tolerance_v_per_cell`); how long a
+voltage must hold before calibration applies; charger AC→DC and inverter
+DC→AC efficiency; and the charge efficiency of the cells themselves.
 
 ## Entities
 
@@ -52,11 +79,8 @@ of these are disabled by default.
 | Time to full | `time_to_full_h` | h | diagnostic |
 | Time to empty | `time_to_empty_h` | h | diagnostic |
 
-**AC fallback active** is only announced where a side has both an AC and a DC input:
-
-| Entity | Field | Unit | Notes |
-|---|---|---|---|
-| AC fallback active | `ac_fallback_active` | — | `binary_sensor`, problem, diagnostic |
+**AC fallback active** (`ac_fallback_active`, `binary_sensor`, problem,
+diagnostic) is only announced where a side has both an AC and a DC input.
 
 **Per unit** — once for `pack`, or once each for `bank_a` / `bank_b` on a
 series topology (`<unit>` below stands for that unit's name):
