@@ -259,3 +259,93 @@ func TestConfigurationRevisionsAreCappedAtLimit(t *testing.T) {
 		t.Fatalf("oldest kept revision is %s, want value:3", data)
 	}
 }
+
+const conditionalSchema = `{
+  "type": "object",
+  "unevaluatedProperties": false,
+  "properties": {
+    "kind": {"type": "string", "enum": ["a", "b"], "default": "a"},
+    "shared": {"type": "string"},
+    "extra": {"type": "boolean", "default": true}
+  },
+  "allOf": [
+    {"if": {"properties": {"kind": {"const": "a"}}},
+     "then": {"properties": {"only_a": {"type": "integer"}}},
+     "else": {"properties": {"only_b": {"type": "integer"}}}},
+    {"if": {"properties": {"extra": {"const": true}}},
+     "then": {
+       "properties": {"mode": {"type": "string", "enum": ["x", "y"]}},
+       "allOf": [
+         {"if": {"required": ["mode"], "properties": {"mode": {"const": "y"}}},
+          "then": {"properties": {"only_y": {"type": "number", "minimum": 1}}}}
+       ]}}
+  ]
+}`
+
+func TestConditionalSchemaAcceptsFieldsOfActiveBranches(t *testing.T) {
+	for _, doc := range []string{
+		`{"only_a": 1}`,
+		`{"kind": "a", "only_a": 1, "shared": "s"}`,
+		`{"kind": "b", "only_b": 2}`,
+		`{"mode": "y", "only_y": 3}`,
+		`{"extra": true, "mode": "x"}`,
+	} {
+		if err := ValidateDocument([]byte(doc), []byte(conditionalSchema)); err != nil {
+			t.Errorf("%s: unexpected error %v", doc, err)
+		}
+	}
+}
+
+func TestConditionalSchemaRejectsFieldsOfInactiveBranches(t *testing.T) {
+	for doc, want := range map[string]string{
+		`{"kind": "b", "only_a": 1}`:    "$.only_a is not allowed",
+		`{"only_b": 1}`:                 "$.only_b is not allowed",
+		`{"extra": false, "mode": "x"}`: "$.mode is not allowed",
+		`{"only_y": 3}`:                 "$.only_y is not allowed",
+		`{"mode": "x", "only_y": 3}`:    "$.only_y is not allowed",
+		`{"unknown": 1}`:                "$.unknown is not allowed",
+		`{"mode": "y", "only_y": 0}`:    "$.only_y is below minimum",
+	} {
+		err := ValidateDocument([]byte(doc), []byte(conditionalSchema))
+		if err == nil || err.Error() != want {
+			t.Errorf("%s: got %v, want %q", doc, err, want)
+		}
+	}
+}
+
+func TestConstIsValidated(t *testing.T) {
+	schema := `{"type": "object", "properties": {"v": {"const": 2}}}`
+	if err := ValidateDocument([]byte(`{"v": 2}`), []byte(schema)); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateDocument([]byte(`{"v": 3}`), []byte(schema)); err == nil {
+		t.Fatal("const 2 accepted 3")
+	}
+}
+
+func TestUnsupportedSchemaKeywordsAreRejected(t *testing.T) {
+	for _, schema := range []string{
+		`{"oneOf": []}`,
+		`{"anyOf": []}`,
+		`{"not": {}}`,
+		`{"dependentSchemas": {}}`,
+		`{"properties": {"a": {"$ref": "#/x"}}}`,
+		`{"allOf": [{"then": {"anyOf": []}}]}`,
+		`{"additionalProperties": false, "unevaluatedProperties": false}`,
+	} {
+		err := ValidateDocument([]byte(`{}`), []byte(schema))
+		if err == nil || !strings.HasPrefix(err.Error(), "invalid schema: ") {
+			t.Errorf("%s: got %v, want an invalid schema error", schema, err)
+		}
+	}
+}
+
+func TestAdditionalPropertiesStillWorksWithoutConditions(t *testing.T) {
+	schema := `{"type": "object", "additionalProperties": false, "properties": {"a": {"type": "string"}}}`
+	if err := ValidateDocument([]byte(`{"a": "x"}`), []byte(schema)); err != nil {
+		t.Fatal(err)
+	}
+	if err := ValidateDocument([]byte(`{"b": 1}`), []byte(schema)); err == nil || err.Error() != "$.b is not allowed" {
+		t.Fatalf("got %v", err)
+	}
+}

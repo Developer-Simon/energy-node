@@ -19,6 +19,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"sort"
 	"strings"
 	"sync"
@@ -465,41 +466,99 @@ func ValidateDocument(data, schemaData []byte) error {
 	if err := json.Unmarshal(schemaData, &schema); err != nil {
 		return fmt.Errorf("invalid schema: %w", err)
 	}
+	if err := checkSchemaKeywords(schema, "schema"); err != nil {
+		return fmt.Errorf("invalid schema: %w", err)
+	}
 	return validateValue(value, schema, "$")
 }
 
-func validateValue(value, rawSchema any, path string) error {
-	schema, ok := rawSchema.(map[string]any)
+// unsupportedKeywords are JSON Schema keywords this validator does not
+// evaluate. A schema using one would validate silently wrong, so it is
+// refused instead of ignored. The conditional subset (if/then/else, allOf,
+// const, unevaluatedProperties) is what the schema editor understands too.
+var unsupportedKeywords = []string{"oneOf", "anyOf", "not", "dependentSchemas", "$ref"}
+
+func checkSchemaKeywords(raw any, path string) error {
+	schema, ok := raw.(map[string]any)
 	if !ok {
 		return nil
 	}
+	for _, keyword := range unsupportedKeywords {
+		if _, found := schema[keyword]; found {
+			return fmt.Errorf("%s uses unsupported keyword %s", path, keyword)
+		}
+	}
+	_, additional := schema["additionalProperties"]
+	_, unevaluated := schema["unevaluatedProperties"]
+	if additional && unevaluated {
+		return fmt.Errorf("%s mixes additionalProperties and unevaluatedProperties", path)
+	}
+	if properties, ok := schema["properties"].(map[string]any); ok {
+		for key, child := range properties {
+			if err := checkSchemaKeywords(child, path+".properties."+key); err != nil {
+				return err
+			}
+		}
+	}
+	for _, keyword := range []string{"items", "if", "then", "else"} {
+		if child, ok := schema[keyword]; ok {
+			if err := checkSchemaKeywords(child, path+"."+keyword); err != nil {
+				return err
+			}
+		}
+	}
+	if all, ok := schema["allOf"].([]any); ok {
+		for index, child := range all {
+			if err := checkSchemaKeywords(child, fmt.Sprintf("%s.allOf[%d]", path, index)); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func validateValue(value, rawSchema any, path string) error {
+	_, err := applySchema(value, rawSchema, path)
+	return err
+}
+
+// applySchema validates value against one schema. For an object it also
+// returns the property names this schema evaluated, including those of its
+// in-place subschemas (allOf entries, a matching if, the applied then/else).
+// unevaluatedProperties needs that set: a property is only known if some
+// applied branch declares it, so a field of an inactive branch is rejected.
+func applySchema(value, rawSchema any, path string) (map[string]bool, error) {
+	schema, ok := rawSchema.(map[string]any)
+	if !ok {
+		return nil, nil
+	}
 	if typ, ok := schema["type"].(string); ok && !matchesType(value, typ) {
-		return fmt.Errorf("%s must be %s", path, typ)
+		return nil, fmt.Errorf("%s must be %s", path, typ)
 	}
 	if min, ok := schema["minLength"].(float64); ok {
 		if text, isString := value.(string); isString && float64(len(text)) < min {
-			return fmt.Errorf("%s must not be empty", path)
+			return nil, fmt.Errorf("%s must not be empty", path)
 		}
 	}
 	if min, ok := schema["minimum"].(float64); ok && numberValue(value) < min {
-		return fmt.Errorf("%s is below minimum", path)
+		return nil, fmt.Errorf("%s is below minimum", path)
 	}
 	if max, ok := schema["maximum"].(float64); ok && numberValue(value) > max {
-		return fmt.Errorf("%s is above maximum", path)
+		return nil, fmt.Errorf("%s is above maximum", path)
 	}
 	// Guarded by the type assertion rather than numberValue(): that helper
 	// returns 0 for non-numbers, which would make a string fail an
 	// exclusiveMinimum of 0 with a misleading message.
 	if number, isNumber := value.(float64); isNumber {
 		if min, ok := schema["exclusiveMinimum"].(float64); ok && number <= min {
-			return fmt.Errorf("%s must be greater than %v", path, min)
+			return nil, fmt.Errorf("%s must be greater than %v", path, min)
 		}
 		if max, ok := schema["exclusiveMaximum"].(float64); ok && number >= max {
-			return fmt.Errorf("%s must be less than %v", path, max)
+			return nil, fmt.Errorf("%s must be less than %v", path, max)
 		}
 		if step, ok := schema["multipleOf"].(float64); ok && step > 0 {
 			if quotient := number / step; math.Abs(quotient-math.Round(quotient)) > 1e-9 {
-				return fmt.Errorf("%s must be a multiple of %v", path, step)
+				return nil, fmt.Errorf("%s must be a multiple of %v", path, step)
 			}
 		}
 	}
@@ -511,47 +570,101 @@ func validateValue(value, rawSchema any, path string) error {
 			}
 		}
 		if !valid {
-			return fmt.Errorf("%s has an unsupported value", path)
+			return nil, fmt.Errorf("%s has an unsupported value", path)
 		}
 	}
-	if object, ok := value.(map[string]any); ok {
+	if expected, ok := schema["const"]; ok && !reflect.DeepEqual(expected, value) {
+		return nil, fmt.Errorf("%s must be %v", path, expected)
+	}
+	evaluated := map[string]bool{}
+	object, isObject := value.(map[string]any)
+	if isObject {
 		properties, _ := schema["properties"].(map[string]any)
 		for _, required := range stringSlice(schema["required"]) {
 			if _, exists := object[required]; !exists {
-				return fmt.Errorf("%s.%s is required", path, required)
+				return nil, fmt.Errorf("%s.%s is required", path, required)
 			}
 		}
 		if additional, ok := schema["additionalProperties"].(bool); ok && !additional {
-			for key := range object {
+			for _, key := range sortedKeys(object) {
 				if _, exists := properties[key]; !exists {
-					return fmt.Errorf("%s.%s is not allowed", path, key)
+					return nil, fmt.Errorf("%s.%s is not allowed", path, key)
 				}
 			}
 		}
-		for key, item := range object {
+		for _, key := range sortedKeys(object) {
 			if property, exists := properties[key]; exists {
-				if err := validateValue(item, property, path+"."+key); err != nil {
-					return err
+				evaluated[key] = true
+				if err := validateValue(object[key], property, path+"."+key); err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+	if all, ok := schema["allOf"].([]any); ok {
+		for _, sub := range all {
+			keys, err := applySchema(value, sub, path)
+			if err != nil {
+				return nil, err
+			}
+			mergeKeys(evaluated, keys)
+		}
+	}
+	if condition, ok := schema["if"]; ok {
+		branch := schema["else"]
+		if keys, err := applySchema(value, condition, path); err == nil {
+			mergeKeys(evaluated, keys)
+			branch = schema["then"]
+		}
+		if branch != nil {
+			keys, err := applySchema(value, branch, path)
+			if err != nil {
+				return nil, err
+			}
+			mergeKeys(evaluated, keys)
+		}
+	}
+	if isObject {
+		if unevaluated, ok := schema["unevaluatedProperties"].(bool); ok && !unevaluated {
+			for _, key := range sortedKeys(object) {
+				if !evaluated[key] {
+					return nil, fmt.Errorf("%s.%s is not allowed", path, key)
 				}
 			}
 		}
 	}
 	if array, ok := value.([]any); ok {
 		if min, ok := schema["minItems"].(float64); ok && float64(len(array)) < min {
-			return fmt.Errorf("%s needs at least %v entries", path, min)
+			return nil, fmt.Errorf("%s needs at least %v entries", path, min)
 		}
 		if max, ok := schema["maxItems"].(float64); ok && float64(len(array)) > max {
-			return fmt.Errorf("%s allows at most %v entries", path, max)
+			return nil, fmt.Errorf("%s allows at most %v entries", path, max)
 		}
 		if itemSchema, exists := schema["items"]; exists {
 			for index, item := range array {
 				if err := validateValue(item, itemSchema, fmt.Sprintf("%s[%d]", path, index)); err != nil {
-					return err
+					return nil, err
 				}
 			}
 		}
 	}
-	return nil
+	return evaluated, nil
+}
+
+func mergeKeys(into, from map[string]bool) {
+	for key := range from {
+		into[key] = true
+	}
+}
+
+// sortedKeys keeps error messages deterministic: map order is random.
+func sortedKeys(object map[string]any) []string {
+	keys := make([]string, 0, len(object))
+	for key := range object {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func AtomicWrite(path string, data []byte, mode os.FileMode) error {
