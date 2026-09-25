@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Anmeldung | Energy Node Dashboard</title>
+  <title>{{t "login.title"}} | Energy Node Dashboard</title>
   <style>
     /* Eigene Kopie der Tokens: die Anmeldeseite rendert ohne base.html und
        lädt kein Stylesheet, damit sie auch bei kaputtem Asset-Pfad noch
@@ -26,24 +26,32 @@
     button:disabled { cursor: wait; opacity: .6; }
     .actions { display: grid; gap: .6rem; margin-top: .4rem; }
     .message { min-height: 1.4rem; margin: .8rem 0 0; color: var(--bad); }
+    .lang-switch { display: flex; justify-content: flex-end; margin: 0 0 1rem; }
+    .lang-switch select { padding: .3rem .5rem; border: 1px solid var(--border); border-radius: 3px; background: var(--bg); color: var(--text); font: inherit; font-size: .9rem; }
+    .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
     .admin-auth-warning { margin: 0 0 1rem; padding: .7rem .9rem; border: 1px solid var(--bad); border-left-width: 3px; color: var(--bad); font-size: .92rem; }
   </style>
 </head>
 <body>
   <main>
+    <label class="lang-switch">
+      <span class="visually-hidden">{{t "language.label"}}</span>
+      <select data-lang-select>{{range .Languages}}<option value="{{.Code}}"{{if .Active}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+    </label>
     <h1>Energy Node Dashboard</h1>
     {{if .AdminAuthWarning}}<p class="admin-auth-warning" role="alert">{{.AdminAuthWarning}}</p>{{end}}
-    <p>{{if .GuestOnly}}Über HTTP ist die Funktionalität reduziert. Die Administrator-Anmeldung ist nur über HTTPS möglich. Bitte als Gast fortfahren.{{else}}Bitte anmelden oder als Gast fortfahren.{{end}}</p>
+    <p>{{if .GuestOnly}}{{t "login.guest_only_hint"}}{{else}}{{t "login.prompt"}}{{end}}</p>
     <form id="login-form">
-      <label>Benutzername <input name="username" autocomplete="username" required{{if .GuestOnly}} disabled{{end}}></label>
-      <label>Passwort <input name="password" type="password" autocomplete="current-password" required{{if .GuestOnly}} disabled{{end}}></label>
+      <label>{{t "login.username"}} <input name="username" autocomplete="username" required{{if .GuestOnly}} disabled{{end}}></label>
+      <label>{{t "login.password"}} <input name="password" type="password" autocomplete="current-password" required{{if .GuestOnly}} disabled{{end}}></label>
       <div class="actions">
-        <button type="submit"{{if .GuestOnly}} disabled{{end}}>Anmelden</button>
-        <button class="secondary" id="guest-login" type="button">Als Gast fortfahren</button>
+        <button type="submit"{{if .GuestOnly}} disabled{{end}}>{{t "login.submit"}}</button>
+        <button class="secondary" id="guest-login" type="button">{{t "login.guest"}}</button>
       </div>
     </form>
-    <div class="message" id="login-message" role="alert"></div>
+    <div class="message" id="login-message" role="alert" data-failed="{{t "login.request_failed"}}"></div>
   </main>
+  <script src="{{.BasePath}}/static/js/i18n.js?v=1"></script>
   <script>
     (() => {
       const base = document.documentElement.dataset.basePath || '';
@@ -53,7 +61,7 @@
       const request = async (url, options) => {
         const response = await fetch(url, options);
         const body = await response.json();
-        if (!response.ok) throw new Error(body.message || 'Anfrage fehlgeschlagen');
+        if (!response.ok) throw new Error(body.message || message.dataset.failed);
         return body;
       };
       const busy = (value) => { if (form) form.querySelector('button[type="submit"]').disabled = value; guestButton.disabled = value; };
