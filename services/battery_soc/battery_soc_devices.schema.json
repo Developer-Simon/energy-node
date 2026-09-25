@@ -10,33 +10,25 @@
     "description": "Configuration for one battery state-of-charge calculation.",
     "type": "object",
     "required": ["id", "name"],
-    "additionalProperties": false,
+    "unevaluatedProperties": false,
     "properties": {
       "id": { "type": "string", "minLength": 1, "default": "new_battery_soc", "title": "Identifier", "description": "Unique identifier used in MQTT topics and Home Assistant device IDs." },
       "name": { "type": "string", "minLength": 1, "default": "New Battery SoC", "title": "Display name", "description": "Human-readable name for the battery state-of-charge device." },
       "via_device": { "type": "string", "minLength": 1, "default": "energy_node", "title": "Parent device", "description": "Home Assistant device identifier that provides the battery telemetry." },
-      "charger_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Charger power topic", "description": "Power the charger draws from the mains. Optional if a DC charging input is set." },
-      "charger_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Charger power JSON key", "description": "JSON property containing charger power in the charger message. Leave empty when the topic carries a bare number, as the Trucki sticks publish it; a Shelly reports an object and needs its key here, for example apower." },
-      "inverter_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Inverter power topic", "description": "Power the inverter delivers on the mains side. Optional if a DC discharging input is set." },
-      "inverter_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Inverter power JSON key", "description": "JSON property containing inverter power in the inverter message. Leave empty when the topic carries a bare number, as the Trucki sticks publish it; a Shelly reports an object and needs its key here, for example apower." },
-      "charger_dc_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Charger DC power topic", "description": "Power flowing into the battery on its DC bus. If an AC charger input is set too, a fresh DC reading replaces it." },
+      "system_type": { "type": "string", "enum": ["ac_coupled", "dc_only"], "default": "ac_coupled", "title": "System type", "description": "AC-coupled: charger and/or inverter are measured on the mains (AC) side, optionally refined by DC measurements. Typical for grid-connected home batteries. DC-only: all power or current measurements sit on the battery's DC bus. Typical for embedded devices." },
+      "charger_dc_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Charger DC power topic", "description": "Power or current flowing into the battery on its DC bus. If an AC charger input is set too, a fresh DC reading replaces it." },
       "charger_dc_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Charger DC power JSON key", "description": "JSON property containing DC charger power. Leave empty when the topic carries a bare number." },
-      "inverter_dc_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Inverter DC power topic", "description": "Power flowing out of the battery on its DC bus. If an AC inverter input is set too, a fresh DC reading replaces it." },
+      "charger_dc_power_unit": { "type": "string", "enum": ["W", "A"], "default": "W", "title": "Charger DC unit", "description": "Unit of the DC charging reading. Choose A for a current sensor, the service converts it to watts with the pack voltage." },
+      "charger_dc_power_invert": { "type": "boolean", "default": false, "title": "Invert charger DC power", "description": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side." },
+      "inverter_dc_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Inverter DC power topic", "description": "Power or current flowing out of the battery on its DC bus. If an AC inverter input is set too, a fresh DC reading replaces it." },
       "inverter_dc_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Inverter DC power JSON key", "description": "JSON property containing DC inverter power. Leave empty when the topic carries a bare number." },
-      "dc_max_age_s": { "type": "number", "minimum": 0, "default": 60, "title": "DC measurement maximum age", "description": "How long a DC reading stays valid, in seconds. After that, the AC reading of the same side takes over again." },
+      "inverter_dc_power_unit": { "type": "string", "enum": ["W", "A"], "default": "W", "title": "Inverter DC unit", "description": "Unit of the DC discharging reading. Choose A for a current sensor, the service converts it to watts with the pack voltage." },
+      "inverter_dc_power_invert": { "type": "boolean", "default": false, "title": "Invert inverter DC power", "description": "Flip the sign of this input. Use the same signed sensor for discharging and (inverted) for charging. Negative values are ignored on each side." },
       "bank_a_voltage_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Bank A voltage topic", "description": "Voltage of bank A, from A+ to A-. With a single bank, this is the pack voltage." },
       "bank_a_voltage_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Bank A voltage JSON key", "description": "JSON property containing battery bank A voltage." },
       "bank_a_voltage_scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "title": "Bank A voltage scale", "description": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count." },
-      "bank_b_voltage_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Bank B voltage topic", "description": "Voltage of bank B alone, from B+ to B- (the middle tap to the minus of the stack)." },
-      "bank_b_voltage_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Bank B voltage JSON key", "description": "JSON property containing battery bank B voltage." },
-      "bank_b_voltage_scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "title": "Bank B voltage scale", "description": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count." },
       "bank_a_cell_count": { "type": "integer", "exclusiveMinimum": 0, "default": 8, "title": "Bank A cell count", "description": "Number of cells connected in series in this bank. Cells in parallel count as one." },
       "bank_a_capacity_ah": { "type": "number", "exclusiveMinimum": 0, "default": 100, "title": "Bank A capacity", "description": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same." },
-      "bank_b_cell_count": { "type": "integer", "exclusiveMinimum": 0, "default": 8, "title": "Bank B cell count", "description": "Number of cells connected in series in this bank. Cells in parallel count as one. Banks in parallel must have the same cell count." },
-      "bank_b_capacity_ah": { "type": "number", "exclusiveMinimum": 0, "default": 100, "title": "Bank B capacity", "description": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same. Banks in series must have the same capacity." },
-      "topology": { "type": "string", "enum": ["parallel", "series"], "default": "parallel", "title": "Bank topology", "description": "How the two banks are wired. 'parallel' means both banks sit on the same DC bus and form one battery with a single bus voltage; a second voltage measurement is rejected because Kirchhoff forces both terminal voltages equal. 'series' means the banks are stacked, carry the same current and each needs its own voltage measurement." },
-      "charger_ac_dc_efficiency": { "type": "number", "minimum": 0.5, "maximum": 1, "default": 0.9, "title": "Charger AC/DC efficiency", "description": "Share of the charger's mains power that reaches the battery, from 0 to 1 (0 to 100 %). Typical chargers are around 0.9 (90 %)." },
-      "inverter_dc_ac_efficiency": { "type": "number", "minimum": 0.5, "maximum": 1, "default": 0.9, "title": "Inverter DC/AC efficiency", "description": "Share of the power the inverter draws from the battery that comes out on the mains side, from 0 to 1 (0 to 100 %). Typical inverters are around 0.9 (90 %)." },
       "charge_efficiency": { "type": "number", "exclusiveMinimum": 0, "maximum": 1, "default": 0.98, "title": "Charge efficiency", "description": "Share of the charged energy the battery actually stores, from 0 to 1 (0 to 100 %). LiFePO4 cells usually keep about 0.98 (98 %)." },
       "battery_chemistry": { "type": "string", "enum": ["lifepo4"], "default": "lifepo4", "title": "Battery chemistry", "description": "Cell chemistry of the battery. LiFePO4 is the only one supported so far." },
       "soc_curve": { "type": "string", "enum": ["generic_lifepo4", "dyness_ar2.5"], "default": "generic_lifepo4", "title": "State-of-charge curve", "description": "Voltage curve used for the voltage-based SoC estimate." },
@@ -58,6 +50,47 @@
       "require_fresh_inputs": { "type": "boolean", "default": false, "title": "Require fresh inputs", "description": "When on, counting pauses as soon as any input is stale. When off, stale power inputs count as 0 W and voltages keep their last value. The 0 % and 100 % calibration always needs a fresh voltage." },
       "simulation_charger_power_w": { "type": "number", "default": 200, "title": "Simulation charger power", "description": "Charger power in watts used by simulation mode." },
       "simulation_inverter_power_w": { "type": "number", "default": 50, "title": "Simulation inverter power", "description": "Inverter power in watts used by simulation mode." }
-    }
+    },
+    "allOf": [
+      {
+        "if": { "properties": { "system_type": { "const": "ac_coupled" } } },
+        "then": {
+          "properties": {
+            "charger_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Charger power topic", "description": "Power the charger draws from the mains. Optional if a DC charging input is set." },
+            "charger_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Charger power JSON key", "description": "JSON property containing charger power in the charger message. Leave empty when the topic carries a bare number, as the Trucki sticks publish it; a Shelly reports an object and needs its key here, for example apower." },
+            "charger_power_invert": { "type": "boolean", "default": false, "title": "Invert charger power", "description": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side." },
+            "inverter_power_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Inverter power topic", "description": "Power the inverter delivers on the mains side. Optional if a DC discharging input is set." },
+            "inverter_power_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Inverter power JSON key", "description": "JSON property containing inverter power in the inverter message. Leave empty when the topic carries a bare number, as the Trucki sticks publish it; a Shelly reports an object and needs its key here, for example apower." },
+            "inverter_power_invert": { "type": "boolean", "default": false, "title": "Invert inverter power", "description": "Flip the sign of this input. Use the same signed sensor for charging and (inverted) for discharging. Negative values are ignored on each side." },
+            "charger_ac_dc_efficiency": { "type": "number", "minimum": 0.5, "maximum": 1, "default": 0.9, "title": "Charger AC/DC efficiency", "description": "Share of the charger's mains power that reaches the battery, from 0 to 1 (0 to 100 %). Typical chargers are around 0.9 (90 %)." },
+            "inverter_dc_ac_efficiency": { "type": "number", "minimum": 0.5, "maximum": 1, "default": 0.9, "title": "Inverter DC/AC efficiency", "description": "Share of the power the inverter draws from the battery that comes out on the mains side, from 0 to 1 (0 to 100 %). Typical inverters are around 0.9 (90 %)." },
+            "dc_max_age_s": { "type": "number", "minimum": 0, "default": 60, "title": "DC measurement maximum age", "description": "How long a DC reading stays valid, in seconds. After that, the AC reading of the same side takes over again." }
+          }
+        }
+      },
+      {
+        "if": { "properties": { "bank_b_enabled": { "const": true } } },
+        "then": {
+          "properties": {
+            "topology": { "type": "string", "enum": ["parallel", "series"], "default": "parallel", "title": "Bank topology", "description": "How the two banks are wired. 'parallel' means both banks sit on the same DC bus and form one battery with a single bus voltage; a second voltage measurement is rejected because Kirchhoff forces both terminal voltages equal. 'series' means the banks are stacked, carry the same current and each needs its own voltage measurement." },
+            "bank_b_cell_count": { "type": "integer", "exclusiveMinimum": 0, "default": 8, "title": "Bank B cell count", "description": "Number of cells connected in series in this bank. Cells in parallel count as one. Banks in parallel must have the same cell count." },
+            "bank_b_capacity_ah": { "type": "number", "exclusiveMinimum": 0, "default": 100, "title": "Bank B capacity", "description": "Capacity of the bank in Ah. For cells connected in series, enter the capacity of a single cell, because a series connection raises the voltage and keeps the Ah the same. Banks in series must have the same capacity." }
+          },
+          "allOf": [
+            {
+              "if": { "required": ["topology"], "properties": { "topology": { "const": "series" } } },
+              "then": {
+                "properties": {
+                  "bank_b_voltage_topic": { "type": "string", "format": "mqtt-topic", "default": "", "title": "Bank B voltage topic", "description": "Voltage of bank B alone, from B+ to B- (the middle tap to the minus of the stack)." },
+                  "bank_b_voltage_json_key": { "type": "string", "format": "mqtt-json-key", "default": "", "title": "Bank B voltage JSON key", "description": "JSON property containing battery bank B voltage." },
+                  "bank_b_voltage_scale": { "type": "number", "exclusiveMinimum": 0, "default": 1.0, "title": "Bank B voltage scale", "description": "Correction factor for the sensor (e.g. a voltage divider). Leave at 1.0 when the sensor reports the real pack voltage. The per-cell conversion happens via the cell count." },
+                  "bank_a_voltage_measures": { "type": "string", "enum": ["bank_a", "stack"], "default": "bank_a", "title": "Bank A sensor measures", "description": "If the bank A sensor measures the whole stack, bank A is calculated as the stack minus bank B." }
+                }
+              }
+            }
+          ]
+        }
+      }
+    ]
   }
 }

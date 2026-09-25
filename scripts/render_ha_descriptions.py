@@ -46,9 +46,21 @@ PLACEHOLDER = re.compile(r"\[%schema:([a-z0-9_]+)%\]")
 NOT_SHARED = frozenset({"name"})
 
 
+def _properties(node: dict) -> dict:
+    """Properties of an object schema including its conditional branches
+    (allOf / then / else). The conditions themselves (if) do not count."""
+    props = dict(node.get("properties", {}))
+    for entry in node.get("allOf", []):
+        props.update(_properties(entry))
+    for key in ("then", "else"):
+        if key in node:
+            props.update(_properties(node[key]))
+    return props
+
+
 def schema_descriptions(schema_path: Path) -> dict[str, str]:
     """Property name -> description of one battery entry in the schema."""
-    props = json.loads(schema_path.read_text())["items"]["properties"]
+    props = _properties(json.loads(schema_path.read_text())["items"])
     return {key: prop["description"] for key, prop in props.items() if prop.get("description")}
 
 

@@ -277,3 +277,19 @@ test('findUnknownKeys knows the fields of every branch', () => {
   const found = SchemaForm.findUnknownKeys(conditionalItemSchema, { id: 'b', ac_topic: 'x', bank_b_topic: 'y', stray: 1 });
   assert.deepEqual(plain(found), ['stray']);
 });
+
+test('the battery schema form hides AC fields for a DC-only system', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const batterySchema = JSON.parse(fs.readFileSync(
+    path.join(here, '..', '..', 'services', 'battery_soc', 'battery_soc_devices.schema.json'), 'utf8'));
+  const root = SchemaForm.renderNode(ctx, batterySchema.items, { id: 'b', name: 'B', charger_power_topic: 'shelly/p' }, 'Batterie');
+  document.body.append(root);
+  assert.equal(field(root, 'charger_power_topic').hidden, false);
+  assert.equal(field(root, 'bank_b_voltage_topic').hidden, true);
+  choose(window, root, 'system_type', 'dc_only');
+  const saved = plain(SchemaForm.readNode(root));
+  assert.equal(saved.charger_power_topic, undefined);
+  assert.equal(field(root, 'charger_dc_power_unit').hidden, false);
+  choose(window, root, 'topology', 'series');
+  assert.equal(field(root, 'bank_a_voltage_measures').hidden, false);
+});

@@ -31,6 +31,18 @@ from energy_node_common.config import ConfigRejected
 MODULE_DIR = Path(__file__).resolve().parents[1]
 
 
+def schema_properties(node):
+    """Alle Properties eines Objekt-Schemas, auch die der bedingten Zweige
+    (allOf / then / else). Die Bedingungen selbst (if) zaehlen nicht."""
+    props = dict(node.get("properties", {}))
+    for entry in node.get("allOf", []):
+        props.update(schema_properties(entry))
+    for key in ("then", "else"):
+        if key in node:
+            props.update(schema_properties(node[key]))
+    return props
+
+
 class FakeClient:
     def __init__(self):
         self.published = []
@@ -304,7 +316,7 @@ def test_schema_properties_match_dataclass_fields():
     Richtungen - durch additionalProperties: false plus BatteryConfig(**values)
     waere das sonst ein harter Reload-Fehler erst auf dem Pi."""
     schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())
-    assert set(schema["items"]["properties"]) == set(battery_soc.BatteryConfig.__dataclass_fields__)
+    assert set(schema_properties(schema["items"])) == set(battery_soc.BatteryConfig.__dataclass_fields__)
 
 
 def test_json_key_defaults_mean_bare_number():
@@ -319,7 +331,7 @@ def test_json_key_defaults_mean_bare_number():
     verworfen, bis der Eingang als veraltet gilt. Vorschlaege gehoeren in die
     <datalist> aus dem echten Payload, nicht in den Default."""
     schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())
-    properties = schema["items"]["properties"]
+    properties = schema_properties(schema["items"])
     fields = battery_soc.BatteryConfig.__dataclass_fields__
 
     offenders = {}
@@ -345,10 +357,11 @@ def test_schema_defaults_match_dataclass_defaults():
     festgenagelt, obwohl die Trucki-Topics nackte Zahlen liefern: der Eingang
     wurde still verworfen und galt nach stale_input_s als veraltet."""
     schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())
+    properties = schema_properties(schema["items"])
     fields = battery_soc.BatteryConfig.__dataclass_fields__
 
     mismatches = {}
-    for key, prop in schema["items"]["properties"].items():
+    for key, prop in properties.items():
         if "default" not in prop:
             continue
         expected = fields[key].default
@@ -551,3 +564,21 @@ def test_compute_and_publish_emits_a_tuning_payload_per_unit():
         assert "suggestions" in unit and "findings" in unit
     tuning_idx = next(i for i, (t, _p) in enumerate(client.published) if t.endswith("/tuning"))
     assert client.published_kwargs[tuning_idx][1] is True  # retain=True
+
+
+def test_schema_branches_match_the_system_type_and_bank_layout():
+    schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())["items"]
+    assert schema.get("unevaluatedProperties") is False
+    assert "additionalProperties" not in schema
+    ac_branch, bank_b_branch = schema["allOf"]
+    assert ac_branch["if"] == {"properties": {"system_type": {"const": "ac_coupled"}}}
+    assert set(ac_branch["then"]["properties"]) == {
+        "charger_power_topic", "charger_power_json_key", "charger_power_invert",
+        "inverter_power_topic", "inverter_power_json_key", "inverter_power_invert",
+        "charger_ac_dc_efficiency", "inverter_dc_ac_efficiency", "dc_max_age_s"}
+    assert bank_b_branch["if"] == {"properties": {"bank_b_enabled": {"const": True}}}
+    assert set(bank_b_branch["then"]["properties"]) == {"topology", "bank_b_cell_count", "bank_b_capacity_ah"}
+    [series] = bank_b_branch["then"]["allOf"]
+    assert series["if"] == {"required": ["topology"], "properties": {"topology": {"const": "series"}}}
+    assert set(series["then"]["properties"]) == {
+        "bank_b_voltage_topic", "bank_b_voltage_json_key", "bank_b_voltage_scale", "bank_a_voltage_measures"}
