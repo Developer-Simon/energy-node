@@ -115,23 +115,31 @@ jobs:
           fi
           scripts/publish_mirror.sh "${args[@]}"
 
-      # --release regenerates the component's CHANGELOG.md in the monorepo and
-      # only stages it; main is PR-protected, so the workflow hands it over as
-      # an artifact to be committed through a normal PR.
-      - name: Collect the regenerated changelog
+      # --release regenerates the component's CHANGELOG.md in the monorepo and,
+      # when the version input differs from the manifest, sets the manifest
+      # version too. Both are only staged; main is PR-protected, so the
+      # workflow hands them over as an artifact to be committed through a
+      # normal PR.
+      - name: Collect the regenerated changelog and manifest
         if: ${{ !inputs.dry_run && inputs.prerelease_branch == '' }}
         id: changelog
         working-directory: monorepo
         run: |
-          path="$(sed -n 's/^CHANGELOG_PATH=//p' "integrations/homeassistant/mirror/${{ inputs.component }}/release.env")"
-          echo "path=monorepo/${path}" >> "$GITHUB_OUTPUT"
-          if git diff --cached --quiet -- "$path"; then
-            echo "Changelog \`${path}\` was already up to date." >> "$GITHUB_STEP_SUMMARY"
+          changelog="$(sed -n 's/^CHANGELOG_PATH=//p' "integrations/homeassistant/mirror/${{ inputs.component }}/release.env")"
+          manifest="integrations/homeassistant/custom_components/${{ inputs.component }}/manifest.json"
+          {
+            echo "paths<<EOF"
+            echo "monorepo/${changelog}"
+            echo "monorepo/${manifest}"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          if git diff --cached --quiet -- "$changelog" "$manifest"; then
+            echo "Changelog and manifest were already up to date." >> "$GITHUB_STEP_SUMMARY"
           else
             {
-              echo "Changelog \`${path}\` changed - commit the artifact **changelog** through a PR:"
+              echo "Changed files - commit the artifact **release-files** through a PR:"
               echo '```diff'
-              git diff --cached -- "$path"
+              git diff --cached -- "$changelog" "$manifest"
               echo '```'
             } >> "$GITHUB_STEP_SUMMARY"
           fi
@@ -139,5 +147,5 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: ${{ !inputs.dry_run && inputs.prerelease_branch == '' }}
         with:
-          name: changelog
-          path: ${{ steps.changelog.outputs.path }}
+          name: release-files
+          path: ${{ steps.changelog.outputs.paths }}

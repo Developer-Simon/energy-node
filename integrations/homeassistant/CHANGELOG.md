@@ -1,17 +1,22 @@
 # Changelog
 
-## [Unreleased]
+## v0.3.0 (2026-09-25)
 
 ### Features
 
-- calibration hardening: tail-current gate, per-side tolerances, hold-time grace period
-- calibration telemetry: per-anchor event ring, tuning suggestions, apply_suggestion service
+- **homeassistant:** ship the dashboard's device icons as an HA icon set (#54) (c4c196b)
+- **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
 
-## v0.2.8 (2026-09-06)
+### Refactors
+
+- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+
+## v0.2.9 (2026-09-06)
 
 ### Features
 
 - **docs:** update favicon and improve documentation (a7f25f4)
+- **battery_soc:** calibration hardening and guided tuning suggestions (#2) (b18974c)
 
 ### Chores
 

@@ -30,6 +30,8 @@ publish_mirror.sh [--component NAME] [--mirror-path PATH] [--version X.Y.Z] [--d
   custom_components/COMPONENT/manifest.json ("version" field), which the
   "Version bump" workflow patch-bumps on the PR branch. Pass it explicitly only
   to override that (first bootstrap release, or a manual major/minor jump).
+  With --release, a differing --version is written into that manifest and
+  staged next to the CHANGELOG, so the changelog section carries it.
 
 Assembles the public HACS repo tree at PATH from this monorepo:
   1. scripts/vendor_core.py --check                     (abort on drift)
@@ -312,12 +314,58 @@ fi
 CHANGELOG_TARGET="${CHANGELOG_TARGET:?release.env must set CHANGELOG_TARGET}" \
 CHANGELOG_PATH="${CHANGELOG_PATH:?release.env must set CHANGELOG_PATH}"
 if [[ -z "$prerelease_branch" ]]; then
+  # The changelog heads its open section with the monorepo manifest's version.
+  # An explicit --version that differs (a manual major/minor jump) goes into
+  # that manifest first, staged next to the changelog -- otherwise the section
+  # is named after the old version and the release notes below find nothing.
+  manifest_version="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("version",""))' \
+    "${src_cc}/manifest.json")"
+  if [[ "$manifest_version" != "$version" ]]; then
+    python3 - "${src_cc}/manifest.json" "$version" <<'PY'
+import re, sys
+
+path, version = sys.argv[1], sys.argv[2]
+with open(path) as fh:
+    text = fh.read()
+text, count = re.subn(r'("version"\s*:\s*")[^"]*(")', rf"\g<1>{version}\g<2>", text, count=1)
+if count != 1:
+    sys.exit(f"error: no \"version\" field in {path}")
+with open(path, "w") as fh:
+    fh.write(text)
+PY
+    git -C "$repo_root" add "${src_cc}/manifest.json"
+    echo "note: ${src_cc#"${repo_root}/"}/manifest.json set ${manifest_version} -> ${version} and staged -- commit it with the release."
+  fi
   "${repo_root}/scripts/generate_changelog.sh" "$CHANGELOG_TARGET"
   git -C "$repo_root" add "$CHANGELOG_PATH"
   if git -C "$repo_root" diff --cached --quiet -- "$CHANGELOG_PATH"; then
     echo "${CHANGELOG_PATH} unchanged."
   else
     echo "note: ${CHANGELOG_PATH} regenerated and staged in the monorepo -- commit it with the release."
+  fi
+fi
+
+# Release notes: the "## vX.Y.Z ..." section of the changelog, up to the next
+# "## " heading. Built before anything is tagged or pushed: a release without
+# its changelog section aborts here instead of going out with empty notes.
+# A pre-release has no changelog section; its notes name the monorepo source.
+notes_file="$(mktemp)"
+RELEASE_NAME="${RELEASE_NAME:?release.env must set RELEASE_NAME}"
+if [[ -n "$prerelease_branch" ]]; then
+  source_branch="${GITHUB_REF_NAME:-$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)}"
+  printf 'Pre-release %s of the %s, built from energy-node %s (%s).\n' \
+    "v${release_version}" "$RELEASE_NAME" "$source_branch" \
+    "$(git -C "$repo_root" rev-parse --short HEAD)" > "$notes_file"
+else
+  awk -v ver="v${release_version}" '
+    $0 ~ "^## " ver "( |$|\\()" { grab = 1; next }
+    grab && /^## / { exit }
+    grab { print }
+  ' "${repo_root}/${CHANGELOG_PATH}" > "$notes_file"
+  if ! grep -q '[^[:space:]]' "$notes_file"; then
+    echo "error: ${CHANGELOG_PATH} has no \"## v${release_version}\" section to use as release notes." >&2
+    echo "       Nothing was tagged or pushed. Check the manifest version and the changelog." >&2
+    exit 1
   fi
 fi
 
@@ -339,27 +387,6 @@ echo "committed and tagged v${release_version} in ${mirror_path}"
 branch="$(git -C "$mirror_path" rev-parse --abbrev-ref HEAD)"
 git -C "$mirror_path" push origin "$branch"
 git -C "$mirror_path" push origin "v${release_version}"
-
-# Release notes: the "## vX.Y.Z ..." section of the changelog, up to the next
-# "## " heading. Falls back to a one-liner if that version has no section yet.
-# A pre-release has no changelog section; its notes name the monorepo source.
-notes_file="$(mktemp)"
-RELEASE_NAME="${RELEASE_NAME:?release.env must set RELEASE_NAME}"
-if [[ -n "$prerelease_branch" ]]; then
-  source_branch="${GITHUB_REF_NAME:-$(git -C "$repo_root" rev-parse --abbrev-ref HEAD)}"
-  printf 'Pre-release %s of the %s, built from energy-node %s (%s).\n' \
-    "v${release_version}" "$RELEASE_NAME" "$source_branch" \
-    "$(git -C "$repo_root" rev-parse --short HEAD)" > "$notes_file"
-else
-  awk -v ver="v${release_version}" '
-    $0 ~ "^## " ver "( |$|\\()" { grab = 1; next }
-    grab && /^## / { exit }
-    grab { print }
-  ' "${repo_root}/${CHANGELOG_PATH}" > "$notes_file"
-  if [[ ! -s "$notes_file" ]]; then
-    printf 'Release %s of the %s.\n' "v${release_version}" "$RELEASE_NAME" > "$notes_file"
-  fi
-fi
 
 # The release workflow checks the tagged tree for unrendered placeholders
 # before it creates the Release, so nothing half-rendered gets published.
