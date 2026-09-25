@@ -4,6 +4,7 @@
 
 ### Features
 
+- **⚠ Breaking — installer:** replace scripts/deploy with the developer CLI (#55) (b7e313e)
 - **installer:** make the developer CLI a full replacement for scripts/deploy (167d2a4)
 
 ### Refactors

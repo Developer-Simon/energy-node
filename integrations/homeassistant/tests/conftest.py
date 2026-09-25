@@ -9,6 +9,9 @@ from custom_components.battery_soc.const import DOMAIN
 
 pytest_plugins = ["pytest_homeassistant_custom_component"]
 
+# Power sensors must carry a unit: readings without one are discarded.
+W = {"unit_of_measurement": "W"}
+
 
 def pytest_configure(config):
     """Add custom_components to sys.path before any tests run."""
@@ -20,9 +23,10 @@ def auto_enable_custom_integrations(enable_custom_integrations):
     yield
 
 
-# Test data — used in test_config_flow and test_coordinator
+# Test data — stored-data shape for coordinator tests (with system_type)
 USER_PARALLEL = {
     "name": "Werkstatt Akku",
+    "system_type": "ac_coupled",
     "topology": "parallel",
     "charger_power_entity": "sensor.meanwell_power",
     "inverter_power_entity": "sensor.lumentree_power",
@@ -49,6 +53,35 @@ ADVANCED_DEFAULTS = {
 
 USER_SERIES = dict(USER_PARALLEL, topology="series", bank_b_voltage_entity="sensor.bank_b_voltage")
 
+# Config-flow step inputs (not stored data)
+FLOW_USER_AC = {"name": "Werkstatt Akku", "system_type": "ac_coupled"}
+FLOW_SOURCES_AC = {
+    "bank_layout": "parallel",
+    "charger_power_entity": "sensor.meanwell_power",
+    "inverter_power_entity": "sensor.lumentree_power",
+    "bank_a_voltage_entity": "sensor.bank_voltage",
+    "bank_a_voltage_scale": 1.0, "bank_a_capacity_ah": 100, "bank_a_cell_count": 8,
+    "battery_chemistry": "lifepo4", "soc_curve": "dyness_ar2.5",
+}
+FLOW_BANK_B_PARALLEL = {"bank_b_capacity_ah": 100, "bank_b_cell_count": 8}
+FLOW_BANK_B_SERIES = {**FLOW_BANK_B_PARALLEL,
+                      "bank_b_voltage_entity": "sensor.bank_b_voltage",
+                      "bank_b_voltage_scale": 1.0}
+
+# Issue scenario: MeshCore repeater, 5S LiFePO4, 3.6 Ah, one signed INA219.
+FLOW_USER_DC = {"name": "MeshCore Repeater", "system_type": "dc_only"}
+FLOW_SOURCES_DC = {
+    "bank_layout": "single",
+    "charger_dc_power_entity": "sensor.ina219_current",
+    "inverter_dc_power_entity": "sensor.ina219_current",
+    "inverter_dc_power_invert": True,
+    "bank_a_voltage_entity": "sensor.ina219_voltage",
+    "bank_a_voltage_scale": 1.0, "bank_a_capacity_ah": 3.6, "bank_a_cell_count": 5,
+    "battery_chemistry": "lifepo4", "soc_curve": "generic_lifepo4",
+}
+AC_ONLY_TUNABLES = ("charger_ac_dc_efficiency", "inverter_dc_ac_efficiency", "dc_max_age_s")
+ADVANCED_DC = {k: v for k, v in ADVANCED_DEFAULTS.items() if k not in AC_ONLY_TUNABLES}
+
 
 def _mk_entry(hass, overrides=None):
     """Create and add a MockConfigEntry with merged data+options, return it.
@@ -62,7 +95,8 @@ def _mk_entry(hass, overrides=None):
     entry = MockConfigEntry(
         domain=DOMAIN,
         data=data,
-        unique_id="werkstatt-akku"
+        unique_id="werkstatt-akku",
+        version=2
     )
     entry.add_to_hass(hass)
     return entry
@@ -85,4 +119,5 @@ def _mk_config_entry(user_data=None, advanced_data=None, options=None):
         data={**user_data, **advanced_data},
         options=options,
         unique_id=slugify(user_data["name"]),
+        version=2
     )

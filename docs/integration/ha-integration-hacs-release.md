@@ -60,8 +60,8 @@ history is imported from here. Repeat this once for each component.
      and `gh release create v0.1.0 --repo Developer-Simon/ha-battery-soc --title v0.1.0 --notes-file <(...)`.
    - every later release: `scripts/publish_mirror.sh --component battery_soc --release` (version taken
      from `manifest.json`) regenerates the changelog, commits + tags the
-     mirror, pushes branch + tag **and** creates the GitHub Release in one
-     step. A plain `scripts/publish_mirror.sh --component battery_soc --push` (no `--release`) only
+     mirror, pushes branch + tag **and** starts the mirror's release
+     workflow, which creates the GitHub Release, in one step. A plain `scripts/publish_mirror.sh --component battery_soc --push` (no `--release`) only
      syncs the tree and pushes the branch — no tag, no Release.
 7. Set GitHub **repo topics** on the mirror (HACS rejects a repo with none):
    `gh repo edit Developer-Simon/ha-battery-soc --add-topic home-assistant --add-topic hacs --add-topic home-assistant-integration --add-topic lifepo4 --add-topic battery`
@@ -85,6 +85,17 @@ zero Releases HACS runs the repo in *commit mode* — the update entity shows a
 bare commit SHA instead of the version and the "Read release announcement" link
 just opens the repo homepage. `--release` creates the Release so this cannot be
 forgotten.
+
+The Release is created by the mirror's own **Release** workflow
+(`mirror/<component>/.github/workflows/release.yml`), which `--release` starts
+with `gh workflow run` and then follows with `gh run watch`. Before it creates
+the Release, the workflow checks the tagged tree for `[%schema:...%]`
+placeholders. In the monorepo, the English strings of `battery_soc` keep the
+field descriptions it shares with the MQTT service as such placeholders
+(source: `services/battery_soc/battery_soc_devices.schema.json`, see
+`scripts/render_ha_descriptions.py`). `publish_mirror.sh` renders them into the
+mirror tree when `release.env` sets `SCHEMA_DESCRIPTIONS`. A tree published
+some other way, with placeholders left, gets no Release.
 
 Brand assets ship in-tree at `custom_components/battery_soc/brand/icon.png`
 (+ `icon@2x.png`; `icon.svg` is the editable source). That local `brand/` folder
@@ -125,10 +136,12 @@ runs the same `scripts/publish_mirror.sh` as the local steps below, so a
 release looks the same whichever way you cut it.
 
 One-time setup: create a fine-grained personal access token with
-**Contents: read and write** on both mirror repos (`ha-battery-soc`,
-`ha-energy-node-icons`) and store it as the repository secret
-`HA_MIRROR_TOKEN` in this monorepo. The default `GITHUB_TOKEN` cannot push to
-another repository or create its releases.
+**Contents**, **Workflows** and **Actions** set to read and write on both
+mirror repos (`ha-battery-soc`, `ha-energy-node-icons`) and store it as the
+repository secret `HA_MIRROR_TOKEN` in this monorepo. Contents pushes the
+tree, Workflows lets it update the mirror's `.github/workflows`, and Actions
+starts the mirror's release workflow. The default `GITHUB_TOKEN` can do none
+of this in another repository.
 
 Per release:
 
@@ -139,13 +152,33 @@ Per release:
    component and leave **Dry run** on. The log shows the assembled mirror
    tree and manifest.
 3. Run it again with **Dry run** off. The workflow commits the mirror, tags
-   `vX.Y.Z`, pushes, and creates the GitHub Release. The release notes come
-   from the component's changelog.
+   `vX.Y.Z`, pushes, and starts the mirror's release workflow, which creates
+   the GitHub Release. The release notes come from the component's changelog.
 4. The run regenerates that changelog in the monorepo too. Its summary shows
    the diff, and the **changelog** artifact holds the file. Commit it through
    a normal PR, because `main` is protected.
 
 A real release (dry run off) refuses to run on any branch other than `main`.
+
+### Pre-release (beta)
+
+A beta lets you test a change through HACS (**Show beta versions**) before
+the real release. Run **HA Mirror Release** on the monorepo branch that holds
+the change and set **Pre-release** to a mirror branch name, for example
+`prerelease/dc-systems`. The workflow then:
+
+- switches the mirror to that branch (continues it if it exists, else starts
+  it from the mirror's `main`),
+- sets the manifest version to `vX.Y.Z-bN`, where `X.Y.Z` comes from the
+  manifest (or **Version**) and `N` is the next free beta number,
+- commits, tags and pushes branch and tag, and creates a GitHub pre-release.
+
+The mirror's `main` and the component's changelog stay untouched. `X.Y.Z` must
+not be released yet. Pre-releases may run from any monorepo branch, and dry
+run shows the beta version it would publish. Locally the same is
+`scripts/publish_mirror.sh --component battery_soc --prerelease prerelease/dc-systems`.
+The mirror's release workflow must already be on the mirror's `main`, since
+GitHub only starts a workflow that the default branch knows.
 
 ### For `battery_soc`:
 
@@ -173,8 +206,8 @@ A real release (dry run off) refuses to run on any branch other than `main`.
    without passing `--freeze-before` — do not lower it.
 5. `scripts/publish_mirror.sh --component battery_soc --release`
    (regenerates + stages the changelog, commits + tags the mirror, pushes
-   `main` + the tag, then `gh release create`s `vX.Y.Z` with the changelog
-   section as the body). The version defaults to the `manifest.json` `version`
+   `main` + the tag, then starts the mirror's release workflow, which creates
+   `vX.Y.Z` with the changelog section as the body). The version defaults to the `manifest.json` `version`
    field from step 4, so no `--version` is needed once the bump has been
    committed; pass `--version X.Y.Z` only to override (bootstrap, or a manual
    major/minor jump before the commit lands). Then commit the staged
@@ -193,7 +226,7 @@ The process is similar, but includes icon regeneration:
 3. Run the integration tests: `cd integrations/homeassistant && ../../.venv-ha/bin/pytest -q`.
 4. `.venv/bin/python scripts/check_mirror_manifest.py --component energy_node_icons`
 5. Version in `integrations/homeassistant/custom_components/energy_node_icons/manifest.json` follows the same auto-bump scheme as `battery_soc`.
-6. `scripts/publish_mirror.sh --component energy_node_icons --release` (regenerates the changelog, commits + tags the mirror, pushes branch + tag and creates the GitHub Release). The version defaults to the `manifest.json` `version` field; pass `--version X.Y.Z` only to override.
+6. `scripts/publish_mirror.sh --component energy_node_icons --release` (regenerates the changelog, commits + tags the mirror, pushes branch + tag and starts the mirror's release workflow). The version defaults to the `manifest.json` `version` field; pass `--version X.Y.Z` only to override.
 7. Then commit the staged `integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md` in the monorepo.
 
 The `CHANGELOG.md` is generated into `custom_components/energy_node_icons/CHANGELOG.md` (see the `release.env` `CHANGELOG_TARGET` and `CHANGELOG_PATH`).

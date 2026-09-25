@@ -5,7 +5,7 @@ import pytest
 from homeassistant.exceptions import ServiceValidationError
 
 from custom_components.battery_soc.const import DOMAIN
-from tests.conftest import USER_PARALLEL, USER_SERIES, ADVANCED_DEFAULTS, _mk_config_entry
+from tests.conftest import USER_PARALLEL, USER_SERIES, ADVANCED_DEFAULTS, _mk_config_entry, W
 
 
 async def test_service_sets_soc_parallel(hass):
@@ -15,8 +15,8 @@ async def test_service_sets_soc_parallel(hass):
     entry.add_to_hass(hass)
 
     # Set up source entity states
-    hass.states.async_set("sensor.meanwell_power", "300")
-    hass.states.async_set("sensor.lumentree_power", "40")
+    hass.states.async_set("sensor.meanwell_power", "300", W)
+    hass.states.async_set("sensor.lumentree_power", "40", W)
     hass.states.async_set("sensor.bank_voltage", "26.8")
 
     # Setup the integration
@@ -55,8 +55,8 @@ async def test_service_series_requires_bank(hass):
     entry.add_to_hass(hass)
 
     # Set up source entity states for series
-    hass.states.async_set("sensor.meanwell_power", "300")
-    hass.states.async_set("sensor.lumentree_power", "40")
+    hass.states.async_set("sensor.meanwell_power", "300", W)
+    hass.states.async_set("sensor.lumentree_power", "40", W)
     hass.states.async_set("sensor.bank_voltage", "26.8")
     hass.states.async_set("sensor.bank_b_voltage", "26.0")
 
@@ -93,8 +93,8 @@ async def test_service_series_targets_bank_b(hass):
     entry.add_to_hass(hass)
 
     # Set up source entity states for series
-    hass.states.async_set("sensor.meanwell_power", "300")
-    hass.states.async_set("sensor.lumentree_power", "40")
+    hass.states.async_set("sensor.meanwell_power", "300", W)
+    hass.states.async_set("sensor.lumentree_power", "40", W)
     hass.states.async_set("sensor.bank_voltage", "26.8")
     hass.states.async_set("sensor.bank_b_voltage", "26.0")
 
@@ -134,8 +134,8 @@ async def test_apply_suggestion_writes_option_and_reloads(hass):
     entry.add_to_hass(hass)
 
     # Set up source entity states
-    hass.states.async_set("sensor.meanwell_power", "300")
-    hass.states.async_set("sensor.lumentree_power", "40")
+    hass.states.async_set("sensor.meanwell_power", "300", W)
+    hass.states.async_set("sensor.lumentree_power", "40", W)
     hass.states.async_set("sensor.bank_voltage", "26.8")
 
     # Setup the integration
@@ -185,8 +185,8 @@ async def test_apply_suggestion_rejects_a_key_that_is_not_pending(hass):
     entry.add_to_hass(hass)
 
     # Set up source entity states
-    hass.states.async_set("sensor.meanwell_power", "300")
-    hass.states.async_set("sensor.lumentree_power", "40")
+    hass.states.async_set("sensor.meanwell_power", "300", W)
+    hass.states.async_set("sensor.lumentree_power", "40", W)
     hass.states.async_set("sensor.bank_voltage", "26.8")
 
     # Setup the integration

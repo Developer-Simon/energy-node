@@ -4,8 +4,8 @@ from homeassistant.helpers import entity_registry as er
 
 from custom_components.battery_soc.battery_soc_core import entity_specs, SocState, SocInputs, tick
 from custom_components.battery_soc.entity import _category
-from custom_components.battery_soc.helpers import params_from_config
-from tests.conftest import USER_PARALLEL, USER_SERIES, ADVANCED_DEFAULTS, _mk_config_entry
+from custom_components.battery_soc.helpers import params_from_config, source_config
+from tests.conftest import USER_PARALLEL, USER_SERIES, ADVANCED_DEFAULTS, _mk_config_entry, W
 
 
 @pytest.mark.parametrize("user,adv", [(USER_PARALLEL, ADVANCED_DEFAULTS), (USER_SERIES, ADVANCED_DEFAULTS)])
@@ -22,14 +22,17 @@ async def test_every_spec_entity_exists_with_matching_attrs(hass, user, adv):
     # Set up source entity states
     for e in ("sensor.meanwell_power", "sensor.lumentree_power",
               "sensor.bank_voltage", "sensor.bank_b_voltage"):
-        hass.states.async_set(e, "26.8" if "voltage" in e else "10")
+        hass.states.async_set(e, "26.8" if "voltage" in e else "10",
+                              {} if "voltage" in e else W)
 
     # Setup integration
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
     # Build params and get entity registry
-    params = params_from_config({**entry.data, **entry.options})
+    cfg = {**entry.data, **entry.options}
+    params = params_from_config(cfg)
+    sources = source_config(cfg)
     reg = er.async_get(hass)
 
     # Map unique_id suffix -> entity
@@ -41,7 +44,7 @@ async def test_every_spec_entity_exists_with_matching_attrs(hass, user, adv):
             by_oid[suffix] = ent
 
     # Verify each spec has a registered entity with matching attributes
-    for d in entity_specs(params):
+    for d in entity_specs(params, sources):
         assert d.object_id in by_oid, f"Missing entity: {d.object_id}"
         ent = by_oid[d.object_id]
         assert (ent.original_device_class or None) == (d.device_class or None), \
@@ -63,7 +66,8 @@ async def test_coordinator_data_has_no_missing_value_keys(hass, user, adv):
     # Set up source entity states
     for e in ("sensor.meanwell_power", "sensor.lumentree_power",
               "sensor.bank_voltage", "sensor.bank_b_voltage"):
-        hass.states.async_set(e, "26.8" if "voltage" in e else "10")
+        hass.states.async_set(e, "26.8" if "voltage" in e else "10",
+                              {} if "voltage" in e else W)
 
     # Setup integration
     assert await hass.config_entries.async_setup(entry.entry_id)
@@ -71,8 +75,10 @@ async def test_coordinator_data_has_no_missing_value_keys(hass, user, adv):
 
     # Get coordinator and check all needed keys are present
     coord = hass.data["battery_soc"][entry.entry_id]
-    params = params_from_config({**entry.data, **entry.options})
-    need = {d.value_key for d in entity_specs(params) if d.component in ("sensor", "binary_sensor")}
+    cfg = {**entry.data, **entry.options}
+    params = params_from_config(cfg)
+    sources = source_config(cfg)
+    need = {d.value_key for d in entity_specs(params, sources) if d.component in ("sensor", "binary_sensor")}
     assert need <= set(coord.data), \
         f"Missing keys in coordinator.data: {need - set(coord.data)}"
 
@@ -86,7 +92,8 @@ async def test_adapter_output_keyset_equals_core_tick(hass, user, adv):
     # Set up source entity states
     for e in ("sensor.meanwell_power", "sensor.lumentree_power",
               "sensor.bank_voltage", "sensor.bank_b_voltage"):
-        hass.states.async_set(e, "26.8" if "voltage" in e else "10")
+        hass.states.async_set(e, "26.8" if "voltage" in e else "10",
+                              {} if "voltage" in e else W)
 
     # Setup integration
     assert await hass.config_entries.async_setup(entry.entry_id)

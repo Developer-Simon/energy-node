@@ -18,6 +18,8 @@ Where each surface gets the icon from:
 
 The vendored core is at `custom_components/battery_soc/battery_soc_core/` — see `_VENDORED.md` there. Do not edit it directly; Plan 3 automates syncs from `libs/battery_soc_core`.
 
+Field descriptions that the MQTT service offers too (capacity, cell count, calibration tunables, ...) come from `services/battery_soc/battery_soc_devices.schema.json`. `strings.json` and `translations/en.json` only hold a placeholder such as `[%schema:bank_a_capacity_ah%]`, optionally followed by an HA-only sentence. Edit the text in the schema. `scripts/publish_mirror.sh` renders the placeholders into the mirror, and the mirror's release workflow refuses to release while one is left. `.venv/bin/python scripts/render_ha_descriptions.py --check` (also run by the HA test suite and CI) checks that every shared field uses its placeholder and that each one resolves. Descriptions of HA-only fields and the German translation are maintained in the integration.
+
 ## Running Tests
 
 This integration has a separate test environment (`.venv-ha`) to avoid conflicts between the plain core test suite and Home Assistant's pytest plugins.

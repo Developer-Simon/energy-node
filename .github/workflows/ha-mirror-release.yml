@@ -5,9 +5,16 @@ name: HA Mirror Release
 # a local release runs, so both paths stay identical. Manual only: a release
 # is a decision, not a side effect of a merge.
 #
+# With "prerelease_branch" set it publishes a beta instead: the next free
+# vX.Y.Z-bN goes to that mirror branch as a GitHub pre-release (HACS "Show
+# beta versions"), the mirror's main and the changelog stay untouched. Betas
+# may run from any monorepo branch, so a feature can be tested before merge.
+#
 # Needs the repository secret HA_MIRROR_TOKEN: a fine-grained personal access
-# token with "Contents: read and write" on both mirror repos (the default
-# GITHUB_TOKEN cannot push to another repository or create its releases).
+# token with "Contents", "Workflows" and "Actions" set to read and write on
+# both mirror repos. Contents pushes the tree, Workflows lets it update the
+# mirror's .github/workflows, Actions starts the mirror's release workflow.
+# The default GITHUB_TOKEN can do none of this in another repository.
 on:
   workflow_dispatch:
     inputs:
@@ -20,6 +27,10 @@ on:
           - battery_soc
       version:
         description: "Version X.Y.Z (empty = the component's manifest.json version)"
+        required: false
+        default: ""
+      prerelease_branch:
+        description: "Pre-release: mirror branch for a vX.Y.Z-bN beta, e.g. prerelease/dc-systems (empty = normal release)"
         required: false
         default: ""
       dry_run:
@@ -41,9 +52,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Only release from main
-        if: ${{ !inputs.dry_run && github.ref != 'refs/heads/main' }}
+        if: ${{ !inputs.dry_run && inputs.prerelease_branch == '' && github.ref != 'refs/heads/main' }}
         run: |
-          echo "::error::A real release must run on main (got ${GITHUB_REF}). Use dry run on other branches."
+          echo "::error::A real release must run on main (got ${GITHUB_REF}). Use dry run or a pre-release on other branches."
           exit 1
 
       - name: Check the mirror token
@@ -70,7 +81,9 @@ jobs:
           repo="$(sed -n 's/^REPO=//p' "$env_file")"
           echo "repository=${owner}/${repo}" >> "$GITHUB_OUTPUT"
 
-      # Tags too: publish_mirror.sh refuses a version whose tag already exists.
+      # Tags too: publish_mirror.sh refuses a version whose tag already exists
+      # and counts the betas already cut. All branches: a pre-release continues
+      # its mirror branch.
       - uses: actions/checkout@v4
         with:
           repository: ${{ steps.target.outputs.repository }}
@@ -90,17 +103,23 @@ jobs:
           GH_TOKEN: ${{ secrets.HA_MIRROR_TOKEN }}
           VERSION: ${{ inputs.version }}
           DRY_RUN: ${{ inputs.dry_run }}
+          PRERELEASE_BRANCH: ${{ inputs.prerelease_branch }}
         run: |
           args=(--component "${{ inputs.component }}" --mirror-path "$GITHUB_WORKSPACE/mirror")
           if [ -n "$VERSION" ]; then args+=(--version "$VERSION"); fi
-          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); else args+=(--release); fi
+          if [ "$DRY_RUN" = "true" ]; then args+=(--dry-run); fi
+          if [ -n "$PRERELEASE_BRANCH" ]; then
+            args+=(--prerelease "$PRERELEASE_BRANCH")
+          elif [ "$DRY_RUN" != "true" ]; then
+            args+=(--release)
+          fi
           scripts/publish_mirror.sh "${args[@]}"
 
       # --release regenerates the component's CHANGELOG.md in the monorepo and
       # only stages it; main is PR-protected, so the workflow hands it over as
       # an artifact to be committed through a normal PR.
       - name: Collect the regenerated changelog
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && inputs.prerelease_branch == '' }}
         id: changelog
         working-directory: monorepo
         run: |
@@ -118,7 +137,7 @@ jobs:
           fi
 
       - uses: actions/upload-artifact@v4
-        if: ${{ !inputs.dry_run }}
+        if: ${{ !inputs.dry_run && inputs.prerelease_branch == '' }}
         with:
           name: changelog
           path: ${{ steps.changelog.outputs.path }}

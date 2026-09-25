@@ -1,6 +1,6 @@
 """Tests for the battery_soc integration setup/unload/reload."""
 from custom_components.battery_soc.const import DOMAIN
-from tests.conftest import USER_PARALLEL, ADVANCED_DEFAULTS, _mk_config_entry
+from tests.conftest import USER_PARALLEL, ADVANCED_DEFAULTS, _mk_config_entry, W
 
 
 async def test_setup_and_unload(hass):
@@ -9,8 +9,8 @@ async def test_setup_and_unload(hass):
     entry.add_to_hass(hass)
 
     # Set the required sensor states
-    hass.states.async_set("sensor.meanwell_power", "100")
-    hass.states.async_set("sensor.lumentree_power", "0")
+    hass.states.async_set("sensor.meanwell_power", "100", W)
+    hass.states.async_set("sensor.lumentree_power", "0", W)
     hass.states.async_set("sensor.bank_voltage", "26.8")
 
     # Setup entry
@@ -38,8 +38,8 @@ async def test_options_update_triggers_reload(hass):
     entry.add_to_hass(hass)
 
     # Set the required sensor states
-    hass.states.async_set("sensor.meanwell_power", "0")
-    hass.states.async_set("sensor.lumentree_power", "0")
+    hass.states.async_set("sensor.meanwell_power", "0", W)
+    hass.states.async_set("sensor.lumentree_power", "0", W)
     hass.states.async_set("sensor.bank_voltage", "26.8")
 
     # Setup entry

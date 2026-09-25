@@ -1,0 +1,50 @@
+name: Release
+
+# Started by scripts/publish_mirror.sh in the energy-node monorepo after it
+# pushed the release commit and tag. The release is only created once the
+# tree is fully rendered: the monorepo keeps shared field descriptions as
+# [%schema:...%] placeholders, and publishing must have replaced every one.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release, e.g. v0.3.0 or the beta v0.3.0-b2"
+        required: true
+      notes:
+        description: "Release notes (Markdown)"
+        required: false
+        default: ""
+      prerelease:
+        description: "Mark as pre-release"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
+
+      - name: No unrendered schema placeholders
+        run: |
+          if grep -rnE '\[%schema:[a-z0-9_]+%\]' custom_components; then
+            echo "::error::Unrendered [%schema:...%] placeholders. Publish through scripts/publish_mirror.sh in the monorepo."
+            exit 1
+          fi
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          NOTES: ${{ inputs.notes }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          args=(--title "$TAG" --verify-tag --notes "${NOTES:-Release ${TAG}.}")
+          if [ "$PRERELEASE" = "true" ]; then args+=(--prerelease); fi
+          gh release create "$TAG" "${args[@]}"

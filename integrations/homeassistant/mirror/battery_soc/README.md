@@ -28,7 +28,7 @@ discharge-power sensor and one voltage sensor per bank.
    current, the measured voltage is corrected by a current-dependent offset
    (mΩ/cell) before it is compared with the resting-voltage curve.
 4. **Topology-aware.** *Parallel / single bank* → one SoC (Kirchhoff forces a
-   shared voltage; a per-bank split would be fictitious). *Series* → a per-bank
+   shared voltage, a per-bank split would be fictitious). *Series* → a per-bank
    SoC plus a combined "weakest bank" figure.
 
 ## Install (HACS custom repository)

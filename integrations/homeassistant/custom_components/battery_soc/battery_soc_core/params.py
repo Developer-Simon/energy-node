@@ -13,6 +13,11 @@ class SocParams:
     bank_b_cell_count: int = 8
     bank_b_capacity_ah: float = 100.0
     bank_b_enabled: bool = True
+    # Nur in Reihe: Bank A ist die obere Bank, der Stapel reicht von A+ bis
+    # B-, A- haengt an B+ (Mittelabgriff). "bank_a": der Bank-A-Sensor misst
+    # A+ -> A-. "stack": er misst den ganzen Stapel A+ -> B-, Bank A ergibt
+    # sich dann als Stapel minus Bank B (B+ -> B-).
+    bank_a_voltage_measures: str = "bank_a"
     charger_ac_dc_efficiency: float = 0.9
     inverter_dc_ac_efficiency: float = 0.9
     charge_efficiency: float = 0.98
@@ -86,6 +91,11 @@ class SocParams:
         if self.topology not in ("parallel", "series"):
             raise ValueError(
                 f"Ungueltige topology: {self.topology} (erlaubt: parallel, series)"
+            )
+        if self.bank_a_voltage_measures not in ("bank_a", "stack"):
+            raise ValueError(
+                f"Ungueltiges bank_a_voltage_measures: {self.bank_a_voltage_measures} "
+                "(erlaubt: bank_a, stack)"
             )
         if self.topology == "series":
             if not self.bank_b_enabled:

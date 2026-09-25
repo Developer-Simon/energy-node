@@ -2,26 +2,100 @@
   "config": {
     "step": {
       "user": {
-        "title": "Batteriekonfiguration",
-        "description": "Konfigurieren Sie Ihr Batteriebanksetup",
+        "title": "Batterie",
+        "description": "Batterie benennen und festlegen, wo Leistung oder Strom gemessen werden.",
         "data": {
           "name": "Name",
-          "topology": "Batterietopologie",
-          "charger_power_entity": "Ladegeraet Leistungssensor (AC)",
-          "inverter_power_entity": "Wechselrichter Leistungssensor (AC)",
-          "bank_a_voltage_entity": "Bank A Spannungssensor",
-          "bank_b_voltage_entity": "Bank B Spannungssensor",
-          "charger_dc_power_entity": "Ladegeraet Leistungssensor (DC)",
-          "inverter_dc_power_entity": "Wechselrichter Leistungssensor (DC)",
-          "bank_a_voltage_scale": "Bank A Spannungsskala",
-          "bank_b_voltage_scale": "Bank B Spannungsskala",
-          "bank_a_capacity_ah": "Bank A Kapazitaet (Ah)",
-          "bank_b_capacity_ah": "Bank B Kapazitaet (Ah)",
-          "bank_a_cell_count": "Bank A Zellenzahl",
-          "bank_b_cell_count": "Bank B Zellenzahl",
-          "bank_b_enabled": "Bank B aktiviert",
-          "battery_chemistry": "Batteriechemiologie",
-          "soc_curve": "SOC-Kurvenprofil"
+          "system_type": "Anlagentyp"
+        },
+        "data_description": {
+          "system_type": "AC-gekoppelt: Ladegeraet und/oder Wechselrichter werden auf der Netzseite (AC) gemessen, optional durch DC-Messungen verfeinert. Typisch fuer netzgekoppelte Heimspeicher. Nur DC: alle Leistungs- oder Strommessungen liegen am DC-Bus der Batterie. Typisch fuer Embedded-Geraete."
+        }
+      },
+      "sources_ac": {
+        "title": "Quellen und Bank A",
+        "description": "Jede Seite braucht mindestens einen Sensor, AC oder DC. Ein frischer DC-Wert ersetzt den AC-Wert seiner Seite.",
+        "data": {
+          "bank_layout": "Bank-Aufbau",
+          "charger_power_entity": "Ladegeraet Leistung (AC)",
+          "charger_power_invert": "Ladegeraet Leistung (AC) invertieren",
+          "inverter_power_entity": "Wechselrichter Leistung (AC)",
+          "inverter_power_invert": "Wechselrichter Leistung (AC) invertieren",
+          "charger_dc_power_entity": "Ladegeraet Leistung (DC)",
+          "charger_dc_power_invert": "Ladegeraet Leistung (DC) invertieren",
+          "inverter_dc_power_entity": "Wechselrichter Leistung (DC)",
+          "inverter_dc_power_invert": "Wechselrichter Leistung (DC) invertieren",
+          "bank_a_voltage_entity": "Spannung Bank A",
+          "bank_a_voltage_scale": "Spannungsskala Bank A",
+          "bank_a_capacity_ah": "Kapazitaet Bank A (Ah)",
+          "bank_a_cell_count": "Zellen in Reihe, Bank A",
+          "battery_chemistry": "Batteriechemie",
+          "soc_curve": "SoC-Kurvenprofil"
+        },
+        "data_description": {
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
+          "charger_power_entity": "Leistung, die das Ladegeraet aus dem Netz bezieht (W oder kW). Optional, wenn ein DC-Ladesensor gesetzt ist.",
+          "charger_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "inverter_power_entity": "Leistung, die der Wechselrichter netzseitig abgibt (W oder kW). Optional, wenn ein DC-Entladesensor gesetzt ist.",
+          "inverter_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "charger_dc_power_entity": "Ladeleistung am DC-Bus der Batterie. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "inverter_dc_power_entity": "Entladeleistung am DC-Bus der Batterie. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
+          "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
+          "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
+          "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
+          "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
+        }
+      },
+      "sources_dc": {
+        "title": "Quellen und Bank A",
+        "description": "Alle Messungen liegen am DC-Bus der Batterie. Ein einzelner vorzeichenbehafteter Sensor kann beide Seiten bedienen: in beide Felder eintragen und eines davon invertieren.",
+        "data": {
+          "bank_layout": "Bank-Aufbau",
+          "charger_dc_power_entity": "Laden (DC)",
+          "charger_dc_power_invert": "Laden invertieren",
+          "inverter_dc_power_entity": "Entladen (DC)",
+          "inverter_dc_power_invert": "Entladen invertieren",
+          "bank_a_voltage_entity": "Spannung Bank A",
+          "bank_a_voltage_scale": "Spannungsskala Bank A",
+          "bank_a_capacity_ah": "Kapazitaet Bank A (Ah)",
+          "bank_a_cell_count": "Zellen in Reihe, Bank A",
+          "battery_chemistry": "Batteriechemie",
+          "soc_curve": "SoC-Kurvenprofil"
+        },
+        "data_description": {
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
+          "charger_dc_power_entity": "Leistung oder Strom in die Batterie hinein. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "inverter_dc_power_entity": "Leistung oder Strom aus der Batterie heraus. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
+          "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
+          "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
+          "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
+          "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
+        }
+      },
+      "bank_b": {
+        "title": "Bank B",
+        "description": "Die zweite Bank. Parallele Baenke brauchen nur Kapazitaet und Zellzahl, Baenke in Reihe zusaetzlich einen Spannungssensor fuer Bank B.",
+        "data": {
+          "bank_b_capacity_ah": "Kapazitaet Bank B (Ah)",
+          "bank_b_cell_count": "Zellen in Reihe, Bank B",
+          "bank_a_voltage_measures": "Bank-A-Sensor misst",
+          "bank_b_voltage_entity": "Spannung Bank B",
+          "bank_b_voltage_scale": "Spannungsskala Bank B"
+        },
+        "data_description": {
+          "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
+          "bank_b_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine. Parallele Baenke muessen dieselbe Zellzahl haben.",
+          "bank_a_voltage_measures": "Misst der Bank-A-Sensor den ganzen Stapel, ergibt sich Bank A als Stapel minus Bank B.",
+          "bank_b_voltage_entity": "Spannung von Bank B allein, von B+ bis B- (Mittelabgriff bis Minus des Stapels).",
+          "bank_b_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl."
         }
       },
       "advanced": {
@@ -47,11 +121,37 @@
           "calibration_tolerance_full_v_per_cell": "Kalibrierungstoleranz, Voll (V/Zelle)",
           "calibration_grace_s": "Kalibrierungs-Gnadenfrist (s)",
           "fallback_interval_s": "Fallback-Intervall (s)"
+        },
+        "data_description": {
+          "empty_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als leer gilt und der Zaehler auf 0 % gesetzt wird. Waehle einen Wert, den Wechselrichter oder BMS vor dem Abschalten erreichen, sonst findet die 0-%-Kalibrierung nie statt.",
+          "full_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als voll gilt und der Zaehler auf 100 % gesetzt wird. Hoert das Ladegeraet unterhalb dieser Spannung auf, sorgt die Kalibriertoleranz dafuer, dass die 100-%-Kalibrierung trotzdem greift.",
+          "charger_ac_dc_efficiency": "Anteil der Netzleistung des Ladegeraets, der an der Batterie ankommt, von 0 bis 1 (0 bis 100 %). Uebliche Ladegeraete liegen bei etwa 0,9 (90 %).",
+          "inverter_dc_ac_efficiency": "Anteil der Leistung, die der Wechselrichter aus der Batterie zieht und netzseitig abgibt, von 0 bis 1 (0 bis 100 %). Uebliche Wechselrichter liegen bei etwa 0,9 (90 %).",
+          "charge_efficiency": "Anteil der geladenen Energie, den die Batterie tatsaechlich speichert, von 0 bis 1 (0 bis 100 %). LiFePO4-Zellen behalten meist etwa 0,98 (98 %).",
+          "calibration_tolerance_v_per_cell": "Wie weit Leer- und Vollschwelle bei kleinem Strom nachgeben duerfen, in Volt je Zelle. In Ruhe liegt die gemessene Spannung nahe an der Ruhespannung, deshalb kalibriert auch ein Wert knapp vor der Schwelle. Bei hohem Strom gilt die genaue Schwelle. 0 haelt die Schwellen fest.",
+          "calibration_hold_s": "Wie lange die Spannung jenseits einer Schwelle bleiben muss, bevor kalibriert wird, in Sekunden.",
+          "voltage_soc_mismatch_warn_pct": "Abweichung in Prozentpunkten zwischen spannungsbasierter Schaetzung und gezaehltem Ladezustand, ab der eine Warnung angehen kann. Ein grosszuegiger Wert vermeidet Fehlalarme, weil die Spannung im flachen Mittelteil der LiFePO4-Kurve wenig aussagt.",
+          "voltage_mismatch_hold_s": "Wie lange die Abweichung ueber der Schwelle bleiben muss, bevor die Warnung angeht, in Sekunden.",
+          "imbalance_warn_v": "Spannungsdifferenz zwischen Bank A und Bank B, ab der die Unsymmetrie-Warnung angeht, in Volt. Nur bei Baenken in Reihe.",
+          "stale_input_s": "Sekunden ohne Aktualisierung, nach denen ein Eingang als veraltet gilt.",
+          "dc_max_age_s": "Wie lange ein DC-Wert gueltig bleibt, in Sekunden. Danach uebernimmt wieder der AC-Wert derselben Seite.",
+          "require_fresh_inputs": "Eingeschaltet pausiert die Zaehlung, sobald ein Eingang veraltet ist. Ausgeschaltet zaehlen veraltete Leistungseingaenge als 0 W, und Spannungen behalten ihren letzten Wert. Die 0-%- und 100-%-Kalibrierung braucht immer eine frische Spannung.",
+          "internal_resistance_mohm_per_cell": "Innenwiderstand je Zelle in Milliohm, mit dem die Spannung unter Last korrigiert wird. Leer lassen nutzt die eingebaute Tabelle. Die Kalibrierauswertung berechnet aus den aufgezeichneten Kalibrierungen einen Vorschlag, den du aus den offenen Einstellungsvorschlaegen uebernehmen kannst.",
+          "full_taper_c_rate": "Die Batterie gilt erst als voll, wenn ihr Strom bei Vollspannung unter dieser C-Rate bleibt. Leer lassen schaltet die Pruefung ab. Beim Laden mit Solarueberschuss kann ein kleiner Strom auch wenig Sonne bedeuten, und diese Pruefung verhindert, dass die Toleranz zu frueh kalibriert. Das Zelldatenblatt nennt diesen Endstrom meist, oft um 0,05 C.",
+          "calibration_tolerance_empty_v_per_cell": "Toleranz nur fuer die Leerschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Ein grosszuegiger Wert hilft, wenn BMS oder Wechselrichter deutlich ueber der Leerspannung abschalten.",
+          "calibration_tolerance_full_v_per_cell": "Toleranz nur fuer die Vollschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Halte sie klein, wenn dein Ladegeraet die Vollspannung erreicht, damit eine noch nicht volle Batterie nicht auf 100 % gesetzt wird.",
+          "calibration_grace_s": "Wie lange ein kurzer Aussetzer die Haltezeit unterbrechen darf, ohne sie neu zu starten, in Sekunden. 0 startet sie bei jedem Aussetzer neu. Macht dein Ladegeraet regelmaessig Pausen, stelle den Wert ueber die Pausenlaenge. Ein veralteter Spannungssensor startet die Haltezeit immer neu.",
+          "fallback_interval_s": "Wie oft der Ladezustand neu berechnet wird, wenn kein Sensor eine Aenderung meldet, in Sekunden."
         }
       }
     },
     "error": {
-      "bank_b_voltage_required": "Bank B Spannungssensor ist fuer die Serientopologie erforderlich",
+      "bank_a_voltage_required": "Fuer Bank A ist ein Spannungssensor erforderlich.",
+      "bank_b_voltage_required": "Zwei Baenke in Reihe brauchen einen Spannungssensor fuer Bank B.",
+      "charge_source_required": "Einen Ladesensor waehlen (AC oder DC).",
+      "discharge_source_required": "Einen Entladesensor waehlen (AC oder DC).",
+      "current_only_on_dc": "Stromsensoren (A) sind nur an den DC-Eingaengen erlaubt.",
+      "ac_source_in_dc_system": "Eine reine DC-Anlage kann keine AC-Sensoren verwenden.",
       "unknown": "Unbekannter Fehler",
       "invalid_config": "Ungueltige Konfiguration"
     },
@@ -59,21 +159,128 @@
       "already_configured": "Batteriekonfiguration existiert bereits"
     }
   },
+  "selector": {
+    "system_type": {
+      "options": {
+        "ac_coupled": "AC-gekoppelte Anlage",
+        "dc_only": "Reine DC-Anlage"
+      }
+    },
+    "bank_layout": {
+      "options": {
+        "single": "Eine Bank",
+        "parallel": "Zwei Baenke parallel",
+        "series": "Zwei Baenke in Reihe (A + B)"
+      }
+    },
+    "battery_chemistry": {
+      "options": {
+        "lifepo4": "LiFePO4"
+      }
+    },
+    "bank_a_voltage_measures": {
+      "options": {
+        "bank_a": "Nur Bank A (A+ bis A-)",
+        "stack": "Den ganzen Stapel (A+ bis B-)"
+      }
+    }
+  },
   "options": {
     "step": {
       "init": {
-        "title": "Leistungs- und Spannungsquellen",
-        "description": "Konfigurieren Sie Leistungs- und Spannungsmessquellen",
+        "title": "Anlagentyp",
+        "description": "Wo Leistung oder Strom dieser Batterie gemessen werden.",
         "data": {
-          "charger_power_entity": "Ladegeraet Leistungssensor (AC)",
-          "inverter_power_entity": "Wechselrichter Leistungssensor (AC)",
-          "bank_a_voltage_entity": "Bank A Spannungssensor",
-          "bank_b_voltage_entity": "Bank B Spannungssensor",
-          "charger_dc_power_entity": "Ladegeraet Leistungssensor (DC)",
-          "inverter_dc_power_entity": "Wechselrichter Leistungssensor (DC)",
-          "bank_a_voltage_scale": "Bank A Spannungsskala",
-          "bank_b_voltage_scale": "Bank B Spannungsskala",
-          "fallback_interval_s": "Fallback-Intervall (s)"
+          "system_type": "Anlagentyp"
+        },
+        "data_description": {
+          "system_type": "AC-gekoppelt: Ladegeraet und/oder Wechselrichter werden auf der Netzseite (AC) gemessen, optional durch DC-Messungen verfeinert. Typisch fuer netzgekoppelte Heimspeicher. Nur DC: alle Leistungs- oder Strommessungen liegen am DC-Bus der Batterie. Typisch fuer Embedded-Geraete."
+        }
+      },
+      "sources_ac": {
+        "title": "Quellen und Bank A",
+        "description": "Jede Seite braucht mindestens einen Sensor, AC oder DC. Ein frischer DC-Wert ersetzt den AC-Wert seiner Seite.",
+        "data": {
+          "bank_layout": "Bank-Aufbau",
+          "charger_power_entity": "Ladegeraet Leistung (AC)",
+          "charger_power_invert": "Ladegeraet Leistung (AC) invertieren",
+          "inverter_power_entity": "Wechselrichter Leistung (AC)",
+          "inverter_power_invert": "Wechselrichter Leistung (AC) invertieren",
+          "charger_dc_power_entity": "Ladegeraet Leistung (DC)",
+          "charger_dc_power_invert": "Ladegeraet Leistung (DC) invertieren",
+          "inverter_dc_power_entity": "Wechselrichter Leistung (DC)",
+          "inverter_dc_power_invert": "Wechselrichter Leistung (DC) invertieren",
+          "bank_a_voltage_entity": "Spannung Bank A",
+          "bank_a_voltage_scale": "Spannungsskala Bank A",
+          "bank_a_capacity_ah": "Kapazitaet Bank A (Ah)",
+          "bank_a_cell_count": "Zellen in Reihe, Bank A",
+          "battery_chemistry": "Batteriechemie",
+          "soc_curve": "SoC-Kurvenprofil"
+        },
+        "data_description": {
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
+          "charger_power_entity": "Leistung, die das Ladegeraet aus dem Netz bezieht (W oder kW). Optional, wenn ein DC-Ladesensor gesetzt ist.",
+          "charger_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "inverter_power_entity": "Leistung, die der Wechselrichter netzseitig abgibt (W oder kW). Optional, wenn ein DC-Entladesensor gesetzt ist.",
+          "inverter_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "charger_dc_power_entity": "Ladeleistung am DC-Bus der Batterie. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "inverter_dc_power_entity": "Entladeleistung am DC-Bus der Batterie. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
+          "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
+          "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
+          "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
+          "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
+        }
+      },
+      "sources_dc": {
+        "title": "Quellen und Bank A",
+        "description": "Alle Messungen liegen am DC-Bus der Batterie. Ein einzelner vorzeichenbehafteter Sensor kann beide Seiten bedienen: in beide Felder eintragen und eines davon invertieren.",
+        "data": {
+          "bank_layout": "Bank-Aufbau",
+          "charger_dc_power_entity": "Laden (DC)",
+          "charger_dc_power_invert": "Laden invertieren",
+          "inverter_dc_power_entity": "Entladen (DC)",
+          "inverter_dc_power_invert": "Entladen invertieren",
+          "bank_a_voltage_entity": "Spannung Bank A",
+          "bank_a_voltage_scale": "Spannungsskala Bank A",
+          "bank_a_capacity_ah": "Kapazitaet Bank A (Ah)",
+          "bank_a_cell_count": "Zellen in Reihe, Bank A",
+          "battery_chemistry": "Batteriechemie",
+          "soc_curve": "SoC-Kurvenprofil"
+        },
+        "data_description": {
+          "bank_layout": "Zwei parallele Baenke teilen sich eine Busspannung und einen Ladezustand, ihre Kapazitaeten addieren sich. In Reihe ist Bank A die obere Bank: der Stapel reicht von A+ bis B-, A- ist mit B+ verbunden.",
+          "charger_dc_power_entity": "Leistung oder Strom in die Batterie hinein. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "charger_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "inverter_dc_power_entity": "Leistung oder Strom aus der Batterie heraus. Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet.",
+          "inverter_dc_power_invert": "Vorzeichen dieses Eingangs umdrehen. Denselben vorzeichenbehafteten Sensor fuer Laden und (invertiert) fuer Entladen verwenden. Negative Werte werden auf jeder Seite ignoriert.",
+          "bank_a_voltage_entity": "Spannung von Bank A, von A+ bis A-. Bei einer einzelnen Bank ist das die Packspannung. Bei zwei Baenken in Reihe kann es auch der ganze Stapel sein (A+ bis B-), einzustellen im Schritt Bank B.",
+          "bank_a_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl.",
+          "bank_a_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben.",
+          "bank_a_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine.",
+          "battery_chemistry": "Zellchemie der Batterie. Bisher wird nur LiFePO4 unterstuetzt.",
+          "soc_curve": "Spannungskurve fuer die spannungsbasierte SoC-Schaetzung."
+        }
+      },
+      "bank_b": {
+        "title": "Bank B",
+        "description": "Die zweite Bank. Parallele Baenke brauchen nur Kapazitaet und Zellzahl, Baenke in Reihe zusaetzlich einen Spannungssensor fuer Bank B.",
+        "data": {
+          "bank_b_capacity_ah": "Kapazitaet Bank B (Ah)",
+          "bank_b_cell_count": "Zellen in Reihe, Bank B",
+          "bank_a_voltage_measures": "Bank-A-Sensor misst",
+          "bank_b_voltage_entity": "Spannung Bank B",
+          "bank_b_voltage_scale": "Spannungsskala Bank B"
+        },
+        "data_description": {
+          "bank_b_capacity_ah": "Kapazitaet der Bank in Ah. Bei in Reihe geschalteten Zellen ist das die Kapazitaet einer einzelnen Zelle, weil eine Reihenschaltung die Spannung erhoeht und die Ah gleich bleiben. Baenke in Reihe muessen dieselbe Kapazitaet haben.",
+          "bank_b_cell_count": "Anzahl der in Reihe geschalteten Zellen dieser Bank. Parallel geschaltete Zellen zaehlen als eine. Parallele Baenke muessen dieselbe Zellzahl haben.",
+          "bank_a_voltage_measures": "Misst der Bank-A-Sensor den ganzen Stapel, ergibt sich Bank A als Stapel minus Bank B.",
+          "bank_b_voltage_entity": "Spannung von Bank B allein, von B+ bis B- (Mittelabgriff bis Minus des Stapels).",
+          "bank_b_voltage_scale": "Korrekturfaktor fuer den Sensor (z. B. ein Spannungsteiler). Auf 1.0 lassen, wenn der Sensor die echte Packspannung meldet. Die Umrechnung je Zelle erfolgt ueber die Zellzahl."
         }
       },
       "tunables": {
@@ -99,8 +306,39 @@
           "calibration_tolerance_full_v_per_cell": "Kalibrierungstoleranz, Voll (V/Zelle)",
           "calibration_grace_s": "Kalibrierungs-Gnadenfrist (s)",
           "fallback_interval_s": "Fallback-Intervall (s)"
+        },
+        "data_description": {
+          "empty_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als leer gilt und der Zaehler auf 0 % gesetzt wird. Waehle einen Wert, den Wechselrichter oder BMS vor dem Abschalten erreichen, sonst findet die 0-%-Kalibrierung nie statt.",
+          "full_v_per_cell": "Ruhespannung je Zelle, bei der die Batterie als voll gilt und der Zaehler auf 100 % gesetzt wird. Hoert das Ladegeraet unterhalb dieser Spannung auf, sorgt die Kalibriertoleranz dafuer, dass die 100-%-Kalibrierung trotzdem greift.",
+          "charger_ac_dc_efficiency": "Anteil der Netzleistung des Ladegeraets, der an der Batterie ankommt, von 0 bis 1 (0 bis 100 %). Uebliche Ladegeraete liegen bei etwa 0,9 (90 %).",
+          "inverter_dc_ac_efficiency": "Anteil der Leistung, die der Wechselrichter aus der Batterie zieht und netzseitig abgibt, von 0 bis 1 (0 bis 100 %). Uebliche Wechselrichter liegen bei etwa 0,9 (90 %).",
+          "charge_efficiency": "Anteil der geladenen Energie, den die Batterie tatsaechlich speichert, von 0 bis 1 (0 bis 100 %). LiFePO4-Zellen behalten meist etwa 0,98 (98 %).",
+          "calibration_tolerance_v_per_cell": "Wie weit Leer- und Vollschwelle bei kleinem Strom nachgeben duerfen, in Volt je Zelle. In Ruhe liegt die gemessene Spannung nahe an der Ruhespannung, deshalb kalibriert auch ein Wert knapp vor der Schwelle. Bei hohem Strom gilt die genaue Schwelle. 0 haelt die Schwellen fest.",
+          "calibration_hold_s": "Wie lange die Spannung jenseits einer Schwelle bleiben muss, bevor kalibriert wird, in Sekunden.",
+          "voltage_soc_mismatch_warn_pct": "Abweichung in Prozentpunkten zwischen spannungsbasierter Schaetzung und gezaehltem Ladezustand, ab der eine Warnung angehen kann. Ein grosszuegiger Wert vermeidet Fehlalarme, weil die Spannung im flachen Mittelteil der LiFePO4-Kurve wenig aussagt.",
+          "voltage_mismatch_hold_s": "Wie lange die Abweichung ueber der Schwelle bleiben muss, bevor die Warnung angeht, in Sekunden.",
+          "imbalance_warn_v": "Spannungsdifferenz zwischen Bank A und Bank B, ab der die Unsymmetrie-Warnung angeht, in Volt. Nur bei Baenken in Reihe.",
+          "stale_input_s": "Sekunden ohne Aktualisierung, nach denen ein Eingang als veraltet gilt.",
+          "dc_max_age_s": "Wie lange ein DC-Wert gueltig bleibt, in Sekunden. Danach uebernimmt wieder der AC-Wert derselben Seite.",
+          "require_fresh_inputs": "Eingeschaltet pausiert die Zaehlung, sobald ein Eingang veraltet ist. Ausgeschaltet zaehlen veraltete Leistungseingaenge als 0 W, und Spannungen behalten ihren letzten Wert. Die 0-%- und 100-%-Kalibrierung braucht immer eine frische Spannung.",
+          "internal_resistance_mohm_per_cell": "Innenwiderstand je Zelle in Milliohm, mit dem die Spannung unter Last korrigiert wird. Leer lassen nutzt die eingebaute Tabelle. Die Kalibrierauswertung berechnet aus den aufgezeichneten Kalibrierungen einen Vorschlag, den du aus den offenen Einstellungsvorschlaegen uebernehmen kannst.",
+          "full_taper_c_rate": "Die Batterie gilt erst als voll, wenn ihr Strom bei Vollspannung unter dieser C-Rate bleibt. Leer lassen schaltet die Pruefung ab. Beim Laden mit Solarueberschuss kann ein kleiner Strom auch wenig Sonne bedeuten, und diese Pruefung verhindert, dass die Toleranz zu frueh kalibriert. Das Zelldatenblatt nennt diesen Endstrom meist, oft um 0,05 C.",
+          "calibration_tolerance_empty_v_per_cell": "Toleranz nur fuer die Leerschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Ein grosszuegiger Wert hilft, wenn BMS oder Wechselrichter deutlich ueber der Leerspannung abschalten.",
+          "calibration_tolerance_full_v_per_cell": "Toleranz nur fuer die Vollschwelle. Leer lassen fuer die gemeinsame Toleranz, 0 heisst keine. Halte sie klein, wenn dein Ladegeraet die Vollspannung erreicht, damit eine noch nicht volle Batterie nicht auf 100 % gesetzt wird.",
+          "calibration_grace_s": "Wie lange ein kurzer Aussetzer die Haltezeit unterbrechen darf, ohne sie neu zu starten, in Sekunden. 0 startet sie bei jedem Aussetzer neu. Macht dein Ladegeraet regelmaessig Pausen, stelle den Wert ueber die Pausenlaenge. Ein veralteter Spannungssensor startet die Haltezeit immer neu.",
+          "fallback_interval_s": "Wie oft der Ladezustand neu berechnet wird, wenn kein Sensor eine Aenderung meldet, in Sekunden."
         }
       }
+    },
+    "error": {
+      "bank_a_voltage_required": "Fuer Bank A ist ein Spannungssensor erforderlich.",
+      "bank_b_voltage_required": "Zwei Baenke in Reihe brauchen einen Spannungssensor fuer Bank B.",
+      "charge_source_required": "Einen Ladesensor waehlen (AC oder DC).",
+      "discharge_source_required": "Einen Entladesensor waehlen (AC oder DC).",
+      "current_only_on_dc": "Stromsensoren (A) sind nur an den DC-Eingaengen erlaubt.",
+      "ac_source_in_dc_system": "Eine reine DC-Anlage kann keine AC-Sensoren verwenden.",
+      "unknown": "Unbekannter Fehler",
+      "invalid_config": "Ungueltige Konfiguration"
     }
   },
   "services": {
