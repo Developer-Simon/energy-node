@@ -33,10 +33,14 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
-//go:embed templates/*.html static/js/*.js static/js-deps/*.js static/css/*.css static/img/*
+//go:embed templates/*.html catalogs/*.json static/js/*.js static/js-deps/*.js static/css/*.css static/img/*
 var templateFS embed.FS
 
 var staticFS, _ = fs.Sub(templateFS, "static")
+
+// catalogFS is the root of the embedded message catalogs (de.json, en.json,
+// later more). One JSON file per language; the file name is the language code.
+var catalogFS, _ = fs.Sub(templateFS, "catalogs")
 
 // cardStyle baut den Inline-Stil einer Rasterzelle: die Typ-Mindesthoehe
 // immer, die Zwangshoehe nur wenn gesetzt. Rueckgabetyp template.CSS, weil
