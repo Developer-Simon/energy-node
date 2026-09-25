@@ -183,3 +183,174 @@ test('control hook can replace the rendered input', () => {
   assert.equal(host.tagName, 'SELECT');
   assert.equal(SchemaForm.readNode(node).host, 'localhost');
 });
+
+const conditionalItemSchema = {
+  type: 'object',
+  required: ['id'],
+  unevaluatedProperties: false,
+  properties: {
+    id: { type: 'string', title: 'ID' },
+    system_type: { type: 'string', enum: ['ac_coupled', 'dc_only'], default: 'ac_coupled' },
+    dc_topic: { type: 'string' },
+    bank_b_enabled: { type: 'boolean', default: true },
+  },
+  allOf: [
+    { if: { properties: { system_type: { const: 'ac_coupled' } } },
+      then: { properties: { ac_topic: { type: 'string' } } } },
+    { if: { properties: { bank_b_enabled: { const: true } } },
+      then: {
+        properties: { topology: { type: 'string', enum: ['parallel', 'series'], default: 'parallel' } },
+        allOf: [
+          { if: { required: ['topology'], properties: { topology: { const: 'series' } } },
+            then: { properties: { bank_b_topic: { type: 'string' } } } },
+        ],
+      } },
+  ],
+};
+
+function field(root, key) {
+  return root.querySelector(`[data-schema-key="${key}"]`);
+}
+
+function choose(window, root, key, value) {
+  const control = field(root, key).querySelector('.schema-control');
+  if (control.type === 'checkbox') control.checked = value; else control.value = value;
+  control.dispatchEvent(new window.Event('change', { bubbles: true }));
+}
+
+test('conditional fields follow their branch', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const root = SchemaForm.renderNode(ctx, conditionalItemSchema, { id: 'b', ac_topic: 'shelly/p' }, 'Batterie');
+  document.body.append(root);
+  assert.equal(field(root, 'ac_topic').hidden, false, 'default ac_coupled shows AC');
+  assert.equal(field(root, 'topology').hidden, false, 'default bank_b_enabled shows topology');
+  assert.equal(field(root, 'bank_b_topic').hidden, true, 'default parallel hides series fields');
+
+  choose(window, root, 'system_type', 'dc_only');
+  assert.equal(field(root, 'ac_topic').hidden, true);
+  choose(window, root, 'topology', 'series');
+  assert.equal(field(root, 'bank_b_topic').hidden, false);
+  choose(window, root, 'bank_b_enabled', false);
+  assert.equal(field(root, 'topology').hidden, true);
+  assert.equal(field(root, 'bank_b_topic').hidden, true, 'nested branch needs its parent');
+});
+
+test('hidden fields are not saved but keep their value until then', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const root = SchemaForm.renderNode(ctx, conditionalItemSchema, { id: 'b', ac_topic: 'shelly/p' }, 'Batterie');
+  document.body.append(root);
+  choose(window, root, 'system_type', 'dc_only');
+  assert.equal(plain(SchemaForm.readNode(root)).ac_topic, undefined);
+  choose(window, root, 'system_type', 'ac_coupled');
+  assert.equal(plain(SchemaForm.readNode(root)).ac_topic, 'shelly/p');
+});
+
+test('conditional fields render right behind the field they depend on', () => {
+  const { SchemaForm, document } = loadSchemaForm();
+  const root = SchemaForm.renderNode(ctx, conditionalItemSchema, { id: 'b' }, 'Batterie');
+  document.body.append(root);
+  const keys = [...root.querySelectorAll('.schema-node[data-schema-key]')].map(node => node.dataset.schemaKey);
+  assert.equal(keys.indexOf('ac_topic'), keys.indexOf('system_type') + 1);
+  assert.equal(keys.indexOf('topology'), keys.indexOf('bank_b_enabled') + 1);
+  assert.equal(keys.indexOf('bank_b_topic'), keys.indexOf('topology') + 1);
+});
+
+test('resetting an optional boolean re-evaluates the branches', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const root = SchemaForm.renderNode(ctx, conditionalItemSchema, { id: 'b', bank_b_enabled: false }, 'Batterie');
+  document.body.append(root);
+  assert.equal(field(root, 'topology').hidden, true);
+  field(root, 'bank_b_enabled').querySelector('.boolean-reset').click();
+  assert.equal(field(root, 'topology').hidden, false, 'unset means the default true');
+});
+
+test('conditionHolds treats an absent value like JSON Schema', () => {
+  const { SchemaForm } = loadSchemaForm();
+  const condition = { properties: { kind: { const: 'a' } } };
+  assert.equal(SchemaForm.conditionHolds(condition, {}), true);
+  assert.equal(SchemaForm.conditionHolds(condition, { kind: 'b' }), false);
+  assert.equal(SchemaForm.conditionHolds({ required: ['kind'], ...condition }, {}), false);
+});
+
+test('findUnknownKeys knows the fields of every branch', () => {
+  const { SchemaForm } = loadSchemaForm();
+  const found = SchemaForm.findUnknownKeys(conditionalItemSchema, { id: 'b', ac_topic: 'x', bank_b_topic: 'y', stray: 1 });
+  assert.deepEqual(plain(found), ['stray']);
+});
+
+test('the battery schema form hides AC fields for a DC-only system', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const batterySchema = JSON.parse(fs.readFileSync(
+    path.join(here, '..', '..', 'services', 'battery_soc', 'battery_soc_devices.schema.json'), 'utf8'));
+  const root = SchemaForm.renderNode(ctx, batterySchema.items, { id: 'b', name: 'B', charger_power_topic: 'shelly/p' }, 'Batterie');
+  document.body.append(root);
+  assert.equal(field(root, 'charger_power_topic').hidden, false);
+  assert.equal(field(root, 'bank_b_voltage_topic').hidden, true);
+  choose(window, root, 'system_type', 'dc_only');
+  const saved = plain(SchemaForm.readNode(root));
+  assert.equal(saved.charger_power_topic, undefined);
+  assert.equal(field(root, 'charger_dc_power_unit').hidden, false);
+  choose(window, root, 'topology', 'series');
+  assert.equal(field(root, 'bank_a_voltage_measures').hidden, false);
+});
+
+test('the imbalance warning only shows for two banks in series', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const batterySchema = JSON.parse(fs.readFileSync(
+    path.join(here, '..', '..', 'services', 'battery_soc', 'battery_soc_devices.schema.json'), 'utf8'));
+  const root = SchemaForm.renderNode(ctx, batterySchema.items, { id: 'b', name: 'B' }, 'Batterie');
+  document.body.append(root);
+  assert.equal(field(root, 'imbalance_warn_v').hidden, true, 'default parallel');
+  choose(window, root, 'topology', 'series');
+  assert.equal(field(root, 'imbalance_warn_v').hidden, false);
+  choose(window, root, 'bank_b_enabled', false);
+  assert.equal(field(root, 'imbalance_warn_v').hidden, true, 'single bank');
+});
+
+test('conditional fields animate out, and a leaving field is no longer saved', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const started = [];
+  window.HTMLElement.prototype.animate = function (frames, options) {
+    const animation = { frames, options, onfinish: null, cancel() { this.cancelled = true; } };
+    started.push({ element: this, animation });
+    return animation;
+  };
+  const motionCtx = { hooks: {}, motionOK: () => true };
+  const root = SchemaForm.renderNode(motionCtx, conditionalItemSchema, { id: 'b', ac_topic: 'shelly/p' }, 'Batterie');
+  document.body.append(root);
+  assert.equal(started.length, 0, 'the first render does not animate');
+
+  choose(window, root, 'system_type', 'dc_only');
+  const acField = field(root, 'ac_topic');
+  const exit = started.find(entry => entry.element === acField);
+  assert.ok(exit, 'the leaving field animates');
+  assert.equal(exit.animation.frames.at(-1).height, '0px');
+  assert.equal(acField.hidden, false, 'still in the layout while it animates out');
+  assert.equal(plain(SchemaForm.readNode(root)).ac_topic, undefined, 'but already not saved');
+  exit.animation.onfinish();
+  assert.equal(acField.hidden, true);
+
+  choose(window, root, 'system_type', 'ac_coupled');
+  const entry = started.filter(item => item.element === acField).at(-1);
+  assert.equal(entry.animation.frames[0].height, '0px', 'expands from nothing');
+  assert.equal(acField.hidden, false);
+  assert.equal(plain(SchemaForm.readNode(root)).ac_topic, 'shelly/p');
+});
+
+test('switching back mid-animation takes over the running animation', () => {
+  const { SchemaForm, window, document } = loadSchemaForm();
+  const started = [];
+  window.HTMLElement.prototype.animate = function (frames) {
+    const animation = { frames, onfinish: null, cancel() { this.cancelled = true; } };
+    started.push(animation);
+    return animation;
+  };
+  const root = SchemaForm.renderNode({ hooks: {}, motionOK: () => true }, conditionalItemSchema, { id: 'b' }, 'Batterie');
+  document.body.append(root);
+  choose(window, root, 'system_type', 'dc_only');
+  const first = started.at(-1);
+  choose(window, root, 'system_type', 'ac_coupled');
+  assert.equal(first.cancelled, true);
+  first.onfinish && first.onfinish();
+  assert.equal(field(root, 'ac_topic').hidden, false, 'a late finish of the cancelled exit must not hide it');
+});

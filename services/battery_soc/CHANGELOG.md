@@ -1,13 +1,27 @@
 # Changelog
 
-## v0.4.1 (2026-09-25)
+## v0.4.2 (2026-09-25)
 
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 - **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
+- **services:** start with an invalid device file and report it as rejected (029c604)
+- **⚠ Breaking — battery_soc:** validate the MQTT service's sources with coded errors (e6e741e)
+- **battery_soc:** feed one MQTT topic into several slots with invert and unit (2735b3d)
+- **battery_soc:** conditional battery schema for system type and bank layout (53943e9)
+- **battery_soc:** require the bank A voltage topic in the dashboard form (5573a33)
 - **battery_soc:** take shared HA field descriptions from the service schema (c6a4a29)
 - **battery_soc:** render shared HA descriptions at mirror time and release via the mirror's workflow (65b4a20)
+
+### Fixes
+
+- **battery_soc:** use the shared invert description for the inverter DC input (55d7040)
+- **battery_soc:** show the imbalance threshold only for two banks in series (f402372)
+
+### Documentation
+
+- **battery_soc:** document DC-only systems, signed inputs and current units (6c2df1f)
 
 ## v0.3.2 (2026-09-15)
 

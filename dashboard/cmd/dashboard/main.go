@@ -328,7 +328,7 @@ func main() {
 		client.SetBridgeWatch(bridgeCfg.Connections[0].RemoteClientID)
 	}
 	configManager.SetReloadFunc(func(name string, _ []byte) error {
-		if serviceID, ok := serviceIDForConfig(name); ok {
+		if serviceID, ok := config.ServiceIDForConfig(name); ok {
 			return client.ReloadService(serviceID)
 		}
 		return client.Reload()
@@ -580,18 +580,4 @@ func (a nodeSimAdapter) PublishNodeSimulation(active bool) {
 	if err := a.client.PublishRetained(a.topic, payload); err != nil {
 		log.Printf("energy-node-dashboard: node simulation publish skipped: %v", err)
 	}
-}
-
-func serviceIDForConfig(name string) (string, bool) {
-	aliases := map[string]string{
-		"automation_rules": "automation",
-	}
-	if id, ok := aliases[name]; ok {
-		return id, true
-	}
-	const suffix = "_devices"
-	if !strings.HasSuffix(name, suffix) {
-		return "", false
-	}
-	return strings.TrimSuffix(name, suffix), true
 }

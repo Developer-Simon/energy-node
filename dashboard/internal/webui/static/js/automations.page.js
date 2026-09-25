@@ -297,6 +297,7 @@
     lastStateAt: 0,
     hasAutomationsRole: false,
     nowTick: Date.now(),
+    statusPollMs: 1000,
 
     // Der Assistent fuehrt nur durch eine frisch angelegte Regel: Schritt 1
     // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
@@ -964,14 +965,14 @@
           ? { ...this.document.settings, publish_allowed_prefixes_auto: false }
           : { ...this.document.settings, publish_allowed_prefixes: this.computeAutoPublishPrefixes(),
               publish_allowed_prefixes_auto: true };
-        await requestJSON('/api/v1/configurations/automation_rules', {
+        const saved = await requestJSON('/api/v1/configurations/automation_rules', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken },
           body: JSON.stringify({ ...this.document, settings: settingsToSave }),
         });
         this.$store.toasts.push('Gespeichert.');
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
-        await this.pollRuntimeStatus();
+        await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -979,27 +980,18 @@
       }
     },
 
-    async pollRuntimeStatus() {
-      const deadline = Date.now() + 10000;
-      while (Date.now() < deadline) {
-        try {
-          const device = await requestJSON('/api/v1/devices/automation');
-          const statusEntity = (device.entities || []).find((entity) => entity.object_id === 'status');
-          if (statusEntity && statusEntity.value) {
-            const status = JSON.parse(statusEntity.value);
-            if (status.runtime_status === 'rejected') {
-              this.$store.toasts.push(`abgelehnt: ${status.error}`, 'critical');
-              return;
-            }
-            if (status.runtime_status === 'ok') {
-              this.$store.toasts.push('übernommen');
-              return;
-            }
-          }
-        } catch (error) {
-          // keep polling until the deadline; a transient fetch error here shouldn't abort the feedback loop
-        }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+    async pollRuntimeStatus(checksum) {
+      const result = await window.ConfigStatus.watch({
+        fetchStatus: () => requestJSON('/api/v1/configurations/automation_rules/status'),
+        revision: checksum,
+        intervalMs: this.statusPollMs ?? 1000,
+      });
+      if (result.state === 'rejected') {
+        this.$store.toasts.push(`abgelehnt: ${window.ConfigStatus.errorText(result.status)}`, 'critical');
+      } else if (result.state === 'applied') {
+        this.$store.toasts.push('übernommen');
+      } else {
+        this.$store.toasts.push('Dienst antwortet nicht', 'warning');
       }
     },
 

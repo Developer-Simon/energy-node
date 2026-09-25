@@ -26,8 +26,21 @@ import mqtt_discovery
 import soc_config
 import state_store
 from battery_soc_core.entities import entity_specs
+from energy_node_common.config import ConfigRejected
 
 MODULE_DIR = Path(__file__).resolve().parents[1]
+
+
+def schema_properties(node):
+    """Alle Properties eines Objekt-Schemas, auch die der bedingten Zweige
+    (allOf / then / else). Die Bedingungen selbst (if) zaehlen nicht."""
+    props = dict(node.get("properties", {}))
+    for entry in node.get("allOf", []):
+        props.update(schema_properties(entry))
+    for key in ("then", "else"):
+        if key in node:
+            props.update(schema_properties(node[key]))
+    return props
 
 
 class FakeClient:
@@ -167,8 +180,10 @@ def test_load_configs_accepts_both_topologies(tmp_path):
     path = tmp_path / "battery_soc_devices.json"
     path.write_text(json.dumps([
         {"id": "p", "name": "P", "topology": "parallel",
+         "charger_power_topic": "p/c", "inverter_power_topic": "p/i",
          "bank_a_voltage_topic": "bus/v"},
         {"id": "s", "name": "S", "topology": "series",
+         "charger_power_topic": "s/c", "inverter_power_topic": "s/i",
          "bank_a_voltage_topic": "bank_a/v", "bank_b_voltage_topic": "bank_b/v"},
     ]))
     configs = battery_soc.load_configs(path)
@@ -220,13 +235,13 @@ def test_series_requires_equal_capacities(tmp_path):
         battery_soc.load_configs(path)
 
 
-def test_duplicate_topic_inside_one_config_names_that_config_once(tmp_path):
-    """Regression: die Kollisionspruefung zaehlte Vorkommen statt Anlagen und
-    meldete dieselbe id doppelt als 'mehrere Batterieanlagen'."""
+def test_a_voltage_topic_may_not_double_as_a_power_topic(tmp_path):
+    """Regression (frueher: 'mehreren Batterieanlagen' fuer eine Anlage)."""
     path = tmp_path / "battery_soc_devices.json"
     path.write_text(json.dumps([{
         "id": "b", "name": "B", "topology": "parallel",
-        "charger_power_topic": "shelly/x", "inverter_power_topic": "shelly/x",
+        "charger_power_topic": "shelly/x", "inverter_power_topic": "shelly/y",
+        "bank_a_voltage_topic": "shelly/x",
     }]))
     with pytest.raises(ValueError) as excinfo:
         battery_soc.load_configs(path)
@@ -234,12 +249,74 @@ def test_duplicate_topic_inside_one_config_names_that_config_once(tmp_path):
     assert "shelly/x" in str(excinfo.value)
 
 
+def test_one_power_topic_may_feed_several_slots(tmp_path):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{
+        "id": "b", "name": "B", "system_type": "dc_only", "bank_b_enabled": False,
+        "charger_dc_power_topic": "ina219/current", "charger_dc_power_unit": "A",
+        "inverter_dc_power_topic": "ina219/current", "inverter_dc_power_unit": "A",
+        "inverter_dc_power_invert": True,
+        "bank_a_voltage_topic": "ina219/voltage",
+    }]))
+    [config] = battery_soc.load_configs(path)
+    assert battery_soc.input_topics(config).count("ina219/current") == 1
+
+
+def test_a_shared_topic_across_installations_is_still_rejected(tmp_path):
+    path = tmp_path / "battery_soc_devices.json"
+    entry = {"charger_power_topic": "p/c", "inverter_power_topic": "p/i"}
+    path.write_text(json.dumps([
+        {"id": "a", "name": "A", "bank_a_voltage_topic": "a/v", **entry},
+        {"id": "b", "name": "B", "bank_a_voltage_topic": "b/v", **entry},
+    ]))
+    with pytest.raises(ValueError, match="mehreren Batterieanlagen"):
+        battery_soc.load_configs(path)
+
+
+@pytest.mark.parametrize("entry,code", [
+    ({"inverter_power_topic": "p/i", "bank_a_voltage_topic": "v"}, "charge_source_required"),
+    ({"charger_power_topic": "p/c", "bank_a_voltage_topic": "v"}, "discharge_source_required"),
+    ({"charger_power_topic": "p/c", "inverter_power_topic": "p/i"}, "bank_a_voltage_required"),
+    ({"charger_power_topic": "p/c", "inverter_power_topic": "p/i", "bank_a_voltage_topic": "v",
+      "topology": "series"}, "bank_b_voltage_required"),
+    ({"system_type": "dc_only", "charger_power_topic": "p/c", "inverter_dc_power_topic": "p/i",
+      "bank_a_voltage_topic": "v"}, "ac_source_in_dc_system"),
+])
+def test_invalid_sources_are_rejected_with_their_code(tmp_path, entry, code):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{"id": "b", "name": "B", **entry}]))
+    with pytest.raises(ConfigRejected) as excinfo:
+        battery_soc.load_configs(path)
+    assert excinfo.value.code == code
+    assert "b" in str(excinfo.value) and code in str(excinfo.value)
+
+
+@pytest.mark.parametrize("field,value", [("system_type", "hybrid"), ("charger_dc_power_unit", "kW")])
+def test_unknown_enum_values_are_rejected(tmp_path, field, value):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{"id": "b", "name": "B", "charger_power_topic": "p/c",
+                                 "inverter_power_topic": "p/i", "bank_a_voltage_topic": "v",
+                                 field: value}]))
+    with pytest.raises(ValueError, match=field):
+        battery_soc.load_configs(path)
+
+
+def test_source_config_reflects_the_topics_and_units():
+    cfg = battery_soc.BatteryConfig(id="b", name="B", system_type="dc_only",
+                                    charger_dc_power_topic="t", charger_dc_power_unit="A",
+                                    bank_a_voltage_topic="v")
+    sources = cfg.source_config()
+    assert sources.configured == frozenset({"charger_dc_power", "bank_a_voltage"})
+    assert sources.units == {"charger_dc_power": "A", "inverter_dc_power": "W"}
+    assert sources.system_type == "dc_only"
+
+
 def test_schema_properties_match_dataclass_fields():
     """Faengt 'Schema-Key ergaenzt, Dataclass-Feld vergessen' in beide
     Richtungen - durch additionalProperties: false plus BatteryConfig(**values)
     waere das sonst ein harter Reload-Fehler erst auf dem Pi."""
     schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())
-    assert set(schema["items"]["properties"]) == set(battery_soc.BatteryConfig.__dataclass_fields__)
+    assert set(schema_properties(schema["items"])) == set(battery_soc.BatteryConfig.__dataclass_fields__)
 
 
 def test_json_key_defaults_mean_bare_number():
@@ -254,7 +331,7 @@ def test_json_key_defaults_mean_bare_number():
     verworfen, bis der Eingang als veraltet gilt. Vorschlaege gehoeren in die
     <datalist> aus dem echten Payload, nicht in den Default."""
     schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())
-    properties = schema["items"]["properties"]
+    properties = schema_properties(schema["items"])
     fields = battery_soc.BatteryConfig.__dataclass_fields__
 
     offenders = {}
@@ -280,10 +357,11 @@ def test_schema_defaults_match_dataclass_defaults():
     festgenagelt, obwohl die Trucki-Topics nackte Zahlen liefern: der Eingang
     wurde still verworfen und galt nach stale_input_s als veraltet."""
     schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())
+    properties = schema_properties(schema["items"])
     fields = battery_soc.BatteryConfig.__dataclass_fields__
 
     mismatches = {}
-    for key, prop in schema["items"]["properties"].items():
+    for key, prop in properties.items():
         if "default" not in prop:
             continue
         expected = fields[key].default
@@ -309,7 +387,9 @@ def test_load_configs_accepts_a_single_bank_installation(tmp_path):
     """Bank B abgeschaltet: die Bank-B-Pruefungen duerfen nicht mehr greifen."""
     path = tmp_path / "battery_soc_devices.json"
     path.write_text(json.dumps([
-        {"id": "b", "name": "B", "bank_b_enabled": False, "bank_b_capacity_ah": 0},
+        {"id": "b", "name": "B", "bank_b_enabled": False, "bank_b_capacity_ah": 0,
+         "charger_power_topic": "p/c", "inverter_power_topic": "p/i",
+         "bank_a_voltage_topic": "v"},
     ]))
     assert battery_soc.load_configs(path)[0].bank_b_enabled is False
 
@@ -484,3 +564,22 @@ def test_compute_and_publish_emits_a_tuning_payload_per_unit():
         assert "suggestions" in unit and "findings" in unit
     tuning_idx = next(i for i, (t, _p) in enumerate(client.published) if t.endswith("/tuning"))
     assert client.published_kwargs[tuning_idx][1] is True  # retain=True
+
+
+def test_schema_branches_match_the_system_type_and_bank_layout():
+    schema = json.loads((MODULE_DIR / "battery_soc_devices.schema.json").read_text())["items"]
+    assert schema.get("unevaluatedProperties") is False
+    assert "additionalProperties" not in schema
+    ac_branch, bank_b_branch = schema["allOf"]
+    assert ac_branch["if"] == {"properties": {"system_type": {"const": "ac_coupled"}}}
+    assert set(ac_branch["then"]["properties"]) == {
+        "charger_power_topic", "charger_power_json_key", "charger_power_invert",
+        "inverter_power_topic", "inverter_power_json_key", "inverter_power_invert",
+        "charger_ac_dc_efficiency", "inverter_dc_ac_efficiency", "dc_max_age_s"}
+    assert bank_b_branch["if"] == {"properties": {"bank_b_enabled": {"const": True}}}
+    assert set(bank_b_branch["then"]["properties"]) == {"topology", "bank_b_cell_count", "bank_b_capacity_ah"}
+    [series] = bank_b_branch["then"]["allOf"]
+    assert series["if"] == {"required": ["topology"], "properties": {"topology": {"const": "series"}}}
+    assert set(series["then"]["properties"]) == {
+        "bank_b_voltage_topic", "bank_b_voltage_json_key", "bank_b_voltage_scale", "bank_a_voltage_measures",
+        "imbalance_warn_v"}

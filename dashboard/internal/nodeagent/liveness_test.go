@@ -93,3 +93,21 @@ func TestLoadServiceIDsHappyPathSortsAndSkipsNonManifests(t *testing.T) {
 		t.Fatalf("LoadServiceIDs = %v, want %v", ids, want)
 	}
 }
+
+func TestServiceStatusKeepsTheFullStatus(t *testing.T) {
+	a := livenessAgent(t, time.Unix(10_000, 0))
+	if got := a.ServiceStatus("apsystems"); got.Received || got.ServiceID != "apsystems" {
+		t.Fatalf("before any message: %+v", got)
+	}
+	a.ObserveLiveness("outstation/apsystems/status/online", []byte("1"))
+	a.ObserveLiveness("outstation/apsystems/settings/status", []byte(`{"last_update":9700,"runtime_status":"rejected","error":"kaputt","error_code":"charge_source_required","config_revision":"abc","applied_revision":"def"}`))
+	got := a.ServiceStatus("apsystems")
+	want := ServiceRuntimeStatus{ServiceID: "apsystems", Received: true, Online: true, RuntimeStatus: "rejected",
+		Error: "kaputt", ErrorCode: "charge_source_required", ConfigRevision: "abc", AppliedRevision: "def"}
+	if got != want {
+		t.Fatalf("got %+v, want %+v", got, want)
+	}
+	if states := a.ServiceLiveness(time.Unix(10_000, 0)); states[0].State != "active" {
+		t.Fatalf("liveness unchanged: %+v", states)
+	}
+}

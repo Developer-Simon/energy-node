@@ -40,6 +40,11 @@
     formDirty: false,
     actionsCompact: false,
     actionsFloating: false,
+    runtimeState: '',
+    runtimeStatus: null,
+    statusWatch: null,
+    statusPollMs: 1000,
+    statusTimeoutMs: 15000,
 
     get configCount() {
       return `${this.configs.length} verwaltete Konfiguration(en)`;
@@ -76,6 +81,72 @@
       if (this.formDirty) return 'Ungespeicherte Änderungen';
       if (this.editorDirty) return 'JSON-Text geändert';
       return 'Alles gespeichert';
+    },
+
+    get runtimeStateLabel() {
+      return window.ConfigStatus.label(this.runtimeState);
+    },
+
+    get runtimeErrorText() {
+      return window.ConfigStatus.errorText(this.runtimeStatus);
+    },
+
+    // Kurzform wie in der Revisionsliste (revision.checksum.slice(0, 8)).
+    get appliedRevisionShort() {
+      const revision = this.runtimeStatus && this.runtimeStatus.applied_revision;
+      return revision ? revision.slice(0, 8) : '';
+    },
+
+    selectedDocument() {
+      return this.configs.find(config => config.name === this.selectedName);
+    },
+
+    fetchRuntimeStatus(name) {
+      return requestJSON(`/api/v1/configurations/${encodeURIComponent(name)}/status`);
+    },
+
+    // Beim Oeffnen: nur ein Status, der zur Datei auf der Platte gehoert,
+    // wird angezeigt. Ein aelterer sagt ueber diese Datei nichts aus.
+    async showRuntimeStatus(checksum) {
+      this.runtimeState = '';
+      this.runtimeStatus = null;
+      if (!checksum) return;
+      const name = this.selectedName;
+      try {
+        const status = await this.fetchRuntimeStatus(name);
+        const state = window.ConfigStatus.classify(status, checksum);
+        if (name !== this.selectedName || (state !== 'applied' && state !== 'rejected')) return;
+        this.runtimeState = state;
+        this.runtimeStatus = status;
+      } catch (error) {
+        // ohne Status bleibt das Feld leer, das Formular funktioniert trotzdem
+      }
+    },
+
+    // Nach dem Speichern auf den Status der eigenen Revision warten.
+    watchRuntimeStatus(checksum) {
+      if (!checksum) return null;
+      const name = this.selectedName;
+      this.runtimeState = 'pending';
+      this.runtimeStatus = null;
+      this.statusWatch = window.ConfigStatus.watch({
+        fetchStatus: () => this.fetchRuntimeStatus(name),
+        revision: checksum,
+        timeoutMs: this.statusTimeoutMs,
+        intervalMs: this.statusPollMs,
+      }).then(result => {
+        if (name !== this.selectedName) return;
+        this.runtimeState = result.state;
+        this.runtimeStatus = result.status;
+      });
+      return this.statusWatch;
+    },
+
+    openRevisions() {
+      const panel = document.querySelector('#config-panel .revision-panel');
+      if (!panel) return;
+      if (!panel.open) panel.querySelector('summary')?.click();
+      panel.scrollIntoView?.({ block: 'start' });
     },
 
     // Die Leiste klebt unten und schrumpft beim Scrollen auf Punkt plus
@@ -157,6 +228,7 @@
         }
         this.editorText = JSON.stringify(this.value, null, 2);
         this.renderForm();
+        this.showRuntimeStatus(this.selectedDocument()?.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -752,8 +824,11 @@
         this.value = value;
         this.editorText = JSON.stringify(value, null, 2);
         this.formDirty = false;
+        const selected = this.selectedDocument();
+        if (selected) selected.checksum = response.checksum;
         this.$store.toasts.push(this.reloadFailed ? 'Konfiguration gespeichert.' : 'Konfiguration gespeichert, Dienst neu geladen.');
         if (discardedEditorText) this.$store.toasts.push('Der JSON-Text wurde dabei durch den Formularstand ersetzt.', 'warning');
+        this.watchRuntimeStatus(response.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -791,7 +866,12 @@
         this.reloadFailed = Boolean(response.reload_failed);
         this.reloadError = response.reload_error || '';
         this.$store.toasts.push(this.reloadFailed ? 'Konfiguration gespeichert.' : 'Konfiguration gespeichert, Dienst neu geladen.');
+        const selected = this.selectedDocument();
+        if (selected) selected.checksum = response.checksum;
         await this.loadConfig();
+        // Erst nach loadConfig(): dessen showRuntimeStatus() setzt den Status
+        // zurueck und wuerde "Ausstehend" sofort wieder loeschen.
+        this.watchRuntimeStatus(response.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {

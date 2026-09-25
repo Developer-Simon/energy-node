@@ -199,6 +199,8 @@ When the dashboard changes a reloadable value:
 
 The restart remains an explicit action performed through the dashboard interface.
 
+The service reports `error_code` and the checksums `config_revision` (the SHA-256 of the file of its last load attempt, successful or not) and `applied_revision` (the SHA-256 of the file it currently runs with). A rejection stays until a reload succeeds: a service that starts with an invalid file keeps running in `rejected` and waits for `config/reload`.
+
 ## `schema_version`
 
 The integer `schema_version` is currently set to `2`. Every service (Python and Go) checks at startup that this version number matches the one it knows. A mismatch is a startup error:

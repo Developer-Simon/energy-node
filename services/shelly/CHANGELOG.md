@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.4.2 (2026-09-25)
+
+### Features
+
+- **services:** start with an invalid device file and report it as rejected (029c604)
+
 ## v0.4.1 (2026-09-23)
 
 ### Features

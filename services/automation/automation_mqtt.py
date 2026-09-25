@@ -24,7 +24,6 @@ from energy_node_common import appconfig
 from energy_node_common.config import ReloadableConfig
 from energy_node_common.discovery import entity_config, publish_discovery
 from energy_node_common.mqtt import build_client, publish_online_status, publish_json
-from energy_node_common.settings import SlaveStatus, settings_status_topic
 from energy_node_common.slave import Slave
 
 import ha_template
@@ -840,10 +839,8 @@ def discovery_object_ids(device_id: str, base_topic: str, device_block: dict) ->
 
 
 def load_initial_document(config_store: ReloadableConfig) -> tuple:
-    try:
-        return config_store.load(), None
-    except RuleValidationError as exc:
-        return RulesDocument(version=1, settings=Settings(), rules=[]), str(exc)
+    doc, error = config_store.load_or(RulesDocument(version=1, settings=Settings(), rules=[]))
+    return doc, (str(error) if error is not None else None)
 
 
 class AutomationService:
@@ -854,6 +851,8 @@ class AutomationService:
         self.app_config = app_config
         self.service_name = service_name
         self.doc, self.startup_error = load_initial_document(config_store)
+        if self.startup_error is not None:
+            LOG.error("Regeldatei abgelehnt, warte auf config/reload: %s", self.startup_error)
         self.base_topic = f"outstation/{service_config.service_id}"
         self.test_command_topic = f"{self.base_topic}/test/set"
         self.test_result_topic = f"{self.base_topic}/test/result"
@@ -910,13 +909,6 @@ class AutomationService:
             return
         self.history.record(rule_id, {**event, "at": time.time()}, limit=int(self.doc.settings.history_limit))
 
-    def _publish_startup_rejection(self, client, error: str) -> None:
-        status = SlaveStatus(poll_interval_s=self.doc.settings.tick_interval_s,
-                              diagnostic_poll_multiplier=1,
-                              actual_poll_interval_s=self.doc.settings.tick_interval_s,
-                              runtime_status="rejected", error=error)
-        publish_json(client, settings_status_topic(self.service_config.service_id), status.to_dict())
-
     def on_connect(self, client, userdata, flags, reason_code, properties=None):
         publish_online_status(client, self.base_topic, online=True, reason="connected")
         # clean_session=True: der Broker verwirft bei jedem (Re-)Connect alle
@@ -930,9 +922,6 @@ class AutomationService:
         for component, object_id, config in discovery_object_ids(self.service_config.service_id, self.base_topic, device_block):
             publish_discovery(client, self.service_config.service_id, component, object_id, config)
         self.slave.start(client)
-        if self.startup_error is not None:
-            self._publish_startup_rejection(client, self.startup_error)
-            self.startup_error = None  # only report once, on the first connect
 
     def on_message(self, client, userdata, msg):
         topic = msg.topic
@@ -1062,6 +1051,13 @@ class AutomationService:
         self.history.path = self._history_path if new_doc.settings.history_persist else None
         self.apply_subscriptions(new_doc)
 
+    def _make_slave(self) -> Slave:
+        return Slave(service_id=self.service_config.service_id, poll_core=self.poll_core,
+                     default_poll_interval_s=self.doc.settings.tick_interval_s,
+                     on_config_reload=self.reload_config,
+                     on_poll_error=lambda exc: LOG.error("Scheduler-Fehler: %s", exc),
+                     config_store=self.config_store)
+
     def run(self):
         self.client = build_client(client_id=f"{self.service_config.service_id}-service", host=self.mqtt_config.host, port=self.mqtt_config.port,
                                     user=self.mqtt_config.username, password=self.mqtt_config.password(), will_topic=f"{self.base_topic}/status/online")
@@ -1069,10 +1065,7 @@ class AutomationService:
         self.client.on_connect = self.on_connect
         self.client.on_message = self.on_message
 
-        self.slave = Slave(service_id=self.service_config.service_id, poll_core=self.poll_core,
-                            default_poll_interval_s=self.doc.settings.tick_interval_s,
-                            on_config_reload=self.reload_config,
-                            on_poll_error=lambda exc: LOG.error("Scheduler-Fehler: %s", exc))
+        self.slave = self._make_slave()
 
         self.client.loop_start()
         LOG.info("Automations-Dienst gestartet (%d Regeln, tick=%ss)", len(self.doc.rules), self.doc.settings.tick_interval_s)

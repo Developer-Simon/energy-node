@@ -1039,16 +1039,22 @@ def test_load_initial_document_falls_back_to_empty_rules_when_invalid(tmp_path):
     assert doc.rules == []
 
 
-def test_publish_startup_rejection_publishes_a_rejected_slave_status():
-    client = FakeClient()
+def test_an_invalid_rules_file_at_startup_is_reported_by_the_slave(tmp_path):
+    path = tmp_path / "automation_rules.json"
+    path.write_text("{not valid json")
+    config_store = ReloadableConfig(str(path), automation.load_and_validate)
     service = automation.AutomationService.__new__(automation.AutomationService)
-    service.client = client
-    service.doc = automation.RulesDocument(version=1, settings=automation.Settings(), rules=[])
+    service.config_store = config_store
+    service.doc, service.startup_error = automation.load_initial_document(config_store)
     service.service_config = type('obj', (object,), {'service_id': 'automation'})()
-    service._publish_startup_rejection(client, "bad json")
+    service.poll_core = lambda: None
+    slave = service._make_slave()
+    client = FakeClient()
+    slave.note_update(client, ts=1)
     payload = client.state_payload(suffix="/settings/status")
     assert payload["runtime_status"] == "rejected"
-    assert payload["error"] == "bad json"
+    assert "invalid JSON" in payload["error"]
+    assert payload["config_revision"] != ""
 
 
 def test_reload_config_swaps_the_document_on_success(tmp_path):
@@ -1182,6 +1188,7 @@ def _service_with(rules, *, prefixes=None, published=None, history_path=None, hi
     # Mock config_store that returns the test doc
     config_store = Mock()
     config_store.load.return_value = doc
+    config_store.load_or.return_value = (doc, None)
 
     service = automation.AutomationService(service_config, mqtt_config, config_store, history_path=history_path, started_at=0.0)
     sink = published if published is not None else []

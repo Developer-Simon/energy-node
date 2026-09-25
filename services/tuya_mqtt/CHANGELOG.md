@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.4.1 (2026-09-22)
+## v0.4.2 (2026-09-25)
 
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **services:** start with an invalid device file and report it as rejected (029c604)
 
 ### Fixes
 

@@ -1,6 +1,6 @@
 {
   "service_id": "apsystems",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "unit": "apsystems-ez1.service",
   "bootstrap_step": "81",
   "schema": "config.schema.json",

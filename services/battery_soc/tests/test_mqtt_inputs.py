@@ -64,3 +64,51 @@ def test_mark_configured_sets_flags_only_for_present_topics():
     mark_configured(cfg, i)
     assert i.charger_power_configured is True
     assert i.inverter_power_configured is False
+
+
+def _cfg(**overrides):
+    base = dict(id="b", name="B", bank_a_voltage_topic="v")
+    base.update(overrides)
+    return soc_config.BatteryConfig(**base)
+
+
+def test_one_signed_topic_feeds_both_slots_with_its_own_invert():
+    cfg = _cfg(charger_dc_power_topic="ina/i", inverter_dc_power_topic="ina/i",
+               inverter_dc_power_invert=True)
+    inputs = SocInputs()
+    assert apply_message(cfg, inputs, "ina/i", "-0.3", now=10.0) is True
+    assert inputs.charger_dc_power_w == -0.3
+    assert inputs.inverter_dc_power_w == 0.3
+    assert inputs.charger_dc_power_ts == inputs.inverter_dc_power_ts == 10.0
+
+
+def test_one_topic_with_two_json_keys_feeds_both_slots():
+    cfg = _cfg(charger_dc_power_topic="bms/state", charger_dc_power_json_key="charge_a",
+               inverter_dc_power_topic="bms/state", inverter_dc_power_json_key="discharge_a")
+    inputs = SocInputs()
+    apply_message(cfg, inputs, "bms/state", '{"charge_a": 1.5, "discharge_a": 0.2}', now=5.0)
+    assert (inputs.charger_dc_power_w, inputs.inverter_dc_power_w) == (1.5, 0.2)
+
+
+def test_invert_applies_to_ac_slots_too():
+    cfg = _cfg(charger_power_topic="grid", charger_power_invert=True)
+    inputs = SocInputs()
+    apply_message(cfg, inputs, "grid", "200", now=1.0)
+    assert inputs.charger_power_w == -200.0
+
+
+def test_a_slot_without_a_value_does_not_block_the_other():
+    cfg = _cfg(charger_dc_power_topic="bms/state", charger_dc_power_json_key="missing",
+               inverter_dc_power_topic="bms/state", inverter_dc_power_json_key="discharge_a")
+    inputs = SocInputs()
+    assert apply_message(cfg, inputs, "bms/state", '{"discharge_a": 0.4}', now=2.0) is True
+    assert inputs.inverter_dc_power_w == 0.4
+    assert inputs.charger_dc_power_ts == 0.0
+
+
+def test_mark_configured_copies_the_dc_units():
+    cfg = _cfg(charger_dc_power_topic="ina/i", charger_dc_power_unit="A")
+    inputs = SocInputs()
+    mark_configured(cfg, inputs)
+    assert inputs.charger_dc_power_unit == "A"
+    assert inputs.inverter_dc_power_unit == "W"

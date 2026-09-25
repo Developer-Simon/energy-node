@@ -348,7 +348,9 @@ def main() -> None:
     service_config = app_config.service(service_name)
     devices_path = app_config.devices_config("battery_soc")
     config_store = common_config.ReloadableConfig(devices_path, load_configs)
-    configs = config_store.load()
+    configs, load_error = config_store.load_or([])
+    if load_error is not None:
+        logging.error("Batterie-Konfiguration abgelehnt, warte auf config/reload: %s", load_error)
     runtimes = [BatteryRuntime(config) for config in configs]
     for runtime in runtimes:
         state_store.load_state(runtime.config, runtime.state)
@@ -412,6 +414,7 @@ def main() -> None:
         node_device_id=app_config.dashboard.node_device_id,
         on_config_reload=reload_config,
         on_poll_error=lambda exc: print(f"Scheduler-Fehler: {exc}"),
+        config_store=config_store,
     )
     slave.register_devices([config.id for config in configs])
 

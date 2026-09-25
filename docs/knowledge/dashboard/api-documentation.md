@@ -306,13 +306,14 @@ diagnostic_poll_multiplier + 60 s`, and `configured` otherwise.
 
 | Method | Path | Gate | Purpose |
 |---|---|---|---|
-| GET | `/api/v1/configurations` | – | All configuration documents |
+| GET | `/api/v1/configurations` | – | All configuration documents, each with `checksum` |
 | GET/PUT | `/api/v1/configurations/{name}` | PUT for `automation_rules`: `automations` + CSRF | Read/write content |
 | GET | `/api/v1/configurations/{name}/schema` | – | JSON schema |
 | GET | `/api/v1/configurations/{name}/revisions` | – | Revision list |
 | GET | `/api/v1/configurations/{name}/revisions/{revision}` | – | A single revision |
 | POST | `/api/v1/configurations/{name}/restore` | – | Restore a revision |
 | POST | `/api/v1/configurations/{name}/reload` | – | Trigger a reload via MQTT |
+| GET | `/api/v1/configurations/{name}/status` | – | Reload result of the owning service: `runtime_status`, `error`, `error_code`, `config_revision`, `applied_revision` |
 | POST | `/api/v1/automations/test` | `automations` + CSRF | Test a single rule action |
 | GET | `/api/v1/automations/history/{rule_id}` | – | Recorded fire events for one rule, read from `automation_history.json` in the devices directory (empty array if the file or rule is absent) |
 

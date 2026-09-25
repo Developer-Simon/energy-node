@@ -6,6 +6,8 @@ Diese Klasse uebernimmt Scheduler, geraeteweise + globale Simulation,
 `config/reload`, das retained `settings/status`-Publishing und `last_update`
 - keine geraetespezifische Fachlogik. Poll-Intervall und Diagnose-
 Multiplikator kommen aus der config.json (kein `/set`-Topic mehr).
+Ein rejected status aus einem config-Fehler bleibt sichtbar, bis ein
+spaeterer reload gelingt.
 """
 
 from __future__ import annotations
@@ -32,6 +34,17 @@ from .settings import (
 )
 
 
+def _error_code(exc: BaseException) -> str:
+    """Der stabile Code eines ConfigRejected; andere Fehler haben keinen."""
+    code = getattr(exc, "code", "")
+    return code if isinstance(code, str) else ""
+
+
+def _text_attr(obj, name: str) -> str:
+    value = getattr(obj, name, "")
+    return value if isinstance(value, str) else ""
+
+
 class Slave:
     """Gemeinsame Slave-Logik fuer einen Geraete-Service."""
 
@@ -48,6 +61,7 @@ class Slave:
         on_config_reload: Optional[Callable[[], None]] = None,
         on_poll_error: Optional[Callable[[Exception], None]] = None,
         async_loop=None,
+        config_store=None,
     ):
         self.service_id = service_id
         self.base_topic = f"outstation/{service_id}"
@@ -71,6 +85,15 @@ class Slave:
 
         self._status_topic = settings_status_topic(service_id)
         self._config_reload_topic = config_reload_topic(service_id)
+
+        self._config_store = config_store
+        # Ergebnis des letzten Ladeversuchs (runtime_status, error, error_code).
+        # Es bleibt stehen, bis ein spaeterer Reload gelingt: note_update()
+        # darf eine Ablehnung nicht nach einem Poll wieder mit "ok" ueberdecken.
+        self._config_result = ("ok", "", "")
+        startup_error = getattr(config_store, "load_error", None)
+        if isinstance(startup_error, BaseException):
+            self._config_result = ("rejected", str(startup_error), _error_code(startup_error))
 
         if async_loop is not None:
             self._scheduler = AsyncScheduler(
@@ -214,11 +237,17 @@ class Slave:
         if self._on_config_reload is None:
             self._publish_status(client, runtime_status="rejected", error="config_reload_not_supported")
             return
+        # Vor dem Laden festhalten, welche Datei jetzt dran ist - auch wenn
+        # der Reload schon vor load_candidate() scheitert (config.json).
+        mark_attempt = getattr(self._config_store, "mark_attempt", None)
+        if callable(mark_attempt):
+            mark_attempt()
         try:
             self._on_config_reload()
         except Exception as exc:
-            self._publish_status(client, runtime_status="rejected", error=str(exc))
-            return
+            self._config_result = ("rejected", str(exc), _error_code(exc))
+        else:
+            self._config_result = ("ok", "", "")
         self._publish_status(client)
 
     def apply_config_defaults(
@@ -240,7 +269,16 @@ class Slave:
     def _publish_simulation_ack(self, client: mqtt.Client, device_id: str, active: bool) -> None:
         mqtt_helpers.publish(client, self._simulation_state_topic(device_id), int(active))
 
-    def _publish_status(self, client: mqtt.Client, runtime_status: str = "ok", error: str = "") -> None:
+    def _publish_status(
+        self, client: mqtt.Client, runtime_status: Optional[str] = None, error: str = ""
+    ) -> None:
+        """Ohne runtime_status gilt das gemerkte Ergebnis des letzten
+        Ladeversuchs. Ein ausdruecklicher Wert (abgelehnter Befehl) gilt nur
+        fuer diese eine Meldung."""
+        if runtime_status is None:
+            runtime_status, error, error_code = self._config_result
+        else:
+            error_code = ""
         status = SlaveStatus(
             poll_interval_s=self.poll_interval_s,
             diagnostic_poll_multiplier=self.diagnostic_poll_multiplier,
@@ -249,6 +287,9 @@ class Slave:
             last_update=self._last_update_ts,
             runtime_status=runtime_status,
             error=error,
+            error_code=error_code,
+            config_revision=_text_attr(self._config_store, "attempted_revision"),
+            applied_revision=_text_attr(self._config_store, "applied_revision"),
         )
         mqtt_helpers.publish_json(client, self._status_topic, status.to_dict())
 

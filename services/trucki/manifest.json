@@ -1,6 +1,6 @@
 {
   "service_id": "trucki",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "unit": "trucki-http.service",
   "bootstrap_step": "84",
   "schema": "config.schema.json",

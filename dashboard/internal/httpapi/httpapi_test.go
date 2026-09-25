@@ -2015,3 +2015,41 @@ func TestDeviceDetailCarriesSuggestedIconWithoutStore(t *testing.T) {
 		t.Errorf("detail = %#v, want no saved icon and the power-plug suggestion", detail)
 	}
 }
+
+func TestConfigurationStatusEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "battery_soc_devices.json"), []byte(`[]`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "battery_soc_devices.schema.json"), []byte(`{"type":"array"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	agent := nodeagent.New(nodeagent.Options{NodeID: "energy_node"})
+	agent.SetServiceCatalog([]string{"battery_soc"}, nil)
+	agent.ObserveLiveness("outstation/battery_soc/settings/status", []byte(`{"runtime_status":"rejected","error_code":"charge_source_required","config_revision":"abc"}`))
+	router := NewRouterWithDependencies(registry.New(), config.NewManager(dir), settings.NewStore(t.TempDir()), nil, nil, nil, storagehealth.New(), nil, RouterDependencies{NodeAgent: agent})
+
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/v1/configurations/battery_soc_devices/status", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(recorder.Body.Bytes(), &got); err != nil {
+		t.Fatal(err)
+	}
+	if got["runtime_status"] != "rejected" || got["error_code"] != "charge_source_required" || got["config_revision"] != "abc" || got["received"] != true {
+		t.Fatalf("unexpected body %v", got)
+	}
+
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest("GET", "/api/v1/configurations/shelly_presets/status", nil))
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("unmapped name: status %d", recorder.Code)
+	}
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest("POST", "/api/v1/configurations/battery_soc_devices/status", nil))
+	if recorder.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST: status %d", recorder.Code)
+	}
+}

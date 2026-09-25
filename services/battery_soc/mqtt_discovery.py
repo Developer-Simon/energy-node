@@ -127,7 +127,7 @@ def publish_discovery(client, config, state) -> None:
     den uebrigen publish_*-Funktionen erhalten."""
     state_topic = f"{config.base_topic}/state"
     active = set()
-    for desc in entity_specs(config.soc_params()):
+    for desc in entity_specs(config.soc_params(), config.source_config()):
         component, object_id, payload = desc_to_discovery(config, desc, state_topic)
         common_publish_discovery(client, config.id, component, object_id, payload)
         active.add((component, object_id))

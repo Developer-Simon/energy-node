@@ -964,6 +964,7 @@ class APsystemsService:
             on_config_reload=self.reload_config,
             on_poll_error=self.on_poll_error,
             async_loop=self.loop,
+            config_store=self.config_store,
         )
         self.slave.register_devices([device.cfg.id for device in self.devices])
 
@@ -1027,7 +1028,10 @@ def main() -> None:
     )
     devices_path = config.devices_config("apsystems")
     config_store = common_config.ReloadableConfig(devices_path, load_devices)
-    devices = [APsystemsDevice(cfg, config.dashboard.node_device_id) for cfg in config_store.load()]
+    device_configs, load_error = config_store.load_or([])
+    if load_error is not None:
+        log.error("Geraetekonfiguration abgelehnt, warte auf config/reload: %s", load_error)
+    devices = [APsystemsDevice(cfg, config.dashboard.node_device_id) for cfg in device_configs]
     log.info("Geladen: %d EZ1-Geraete aus %s", len(devices), devices_path)
     APsystemsService(devices, config_store, config, "apsystems").run()
 

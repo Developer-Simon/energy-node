@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.4.8 (2026-09-25)
+
+### Features
+
+- **common:** track config file revisions and allow a fallback start (6f38c33)
+- **services:** start with an invalid device file and report it as rejected (029c604)
+
+### Fixes
+
+- **common:** keep a rejected config reload visible until a reload succeeds (26f1dcc)
+
 ## v0.4.7 (2026-09-23)
 
 ### Features

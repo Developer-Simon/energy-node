@@ -9,6 +9,17 @@
     <code x-text="reloadError"></code>
     <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading" x-text="reloading ? 'Lade Dienst ...' : 'Erneut versuchen'"></button>
   </div>
+  <div id="config-runtime-status" class="message" role="status" aria-live="polite" x-cloak x-show="runtimeState" x-bind:class="{ error: runtimeState === 'rejected' || runtimeState === 'no_response' }">
+    <strong x-text="`Dienststatus: ${runtimeStateLabel}`"></strong>
+    <span x-show="runtimeState === 'applied' && appliedRevisionShort" x-text="`Aktive Revision ${appliedRevisionShort}.`"></span>
+    <template x-if="runtimeState === 'rejected'">
+      <div>
+        <code x-text="runtimeErrorText"></code>
+        <p>Der Dienst läuft mit der vorherigen Konfiguration weiter. Die gespeicherte Datei ist ungültig: entweder die letzte gültige Revision wiederherstellen oder die Konfiguration korrigieren.</p>
+        <button type="button" x-on:click="openRevisions()">Revisionen öffnen</button>
+      </div>
+    </template>
+  </div>
   <form id="schema-form" class="schema-form" novalidate x-ref="schemaForm" x-on:submit.prevent="saveForm()" x-on:input="formDirty = true" x-on:change="formDirty = true"></form>
 
   <!-- Der Rohtext-Editor ist der seltenere Weg und liegt deshalb eine Ebene

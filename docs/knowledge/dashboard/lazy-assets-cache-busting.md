@@ -64,7 +64,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-09-16**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -116,11 +116,11 @@ As of **2026-09-16**, read from `base.html` and `overview.html`. "–" means: no
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` –, `js/history.js` `9` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
-| `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `22` |
-| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `22` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `22` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `7`, `js/mqtt.page.js` `3`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `22`, `css/settings-controls.css` `5` |
-| `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `22`, `css/automations.css` `3` |
+| `config-panel` | `js/revisions.js` –, `js/schema-form.js` `1`, `js/config-status.js` `2`, `js/config.page.js` `3` | `css/manager.css` `23` |
+| `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `23` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `23` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` `1`, `js/settings.page.js` `7`, `js/mqtt.page.js` `3`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `5` |
+| `automations-panel` | `js/config-status.js` `2`, `js/automations.page.js` `3` | `css/manager.css` `23`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -233,6 +233,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.7.13 | `css/manager.css` (5 panels) · `js/schema-form.js` (config + settings panels) · `js/config-status.js` (config + automations panels) · `js/config.page.js` · `js/automations.page.js` | `23` · `1` (was unversioned) · `2` (new) · `3` · `3` | 2026-09-25 |
 | v0.7.0 | `css/base.css` · `js/dashboard.js` | `22` · `15` | 2026-09-22 |
 | v0.7.0 | `css/manager.css` (5 panels) | `22` | 2026-09-16 |
 | v0.7.0 | `css/base.css` · `css/manager.css` (5 panels) | `21` · `21` | 2026-09-16 |
