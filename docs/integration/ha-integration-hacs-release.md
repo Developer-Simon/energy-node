@@ -154,9 +154,12 @@ Per release:
 3. Run it again with **Dry run** off. The workflow commits the mirror, tags
    `vX.Y.Z`, pushes, and starts the mirror's release workflow, which creates
    the GitHub Release. The release notes come from the component's changelog.
-4. The run regenerates that changelog in the monorepo too. Its summary shows
-   the diff, and the **changelog** artifact holds the file. Commit it through
-   a normal PR, because `main` is protected.
+   If the changelog has no section for that version, the run stops before
+   anything is tagged or pushed.
+4. The run regenerates that changelog in the monorepo too. If **Version**
+   differs from the manifest, it also writes that version into the manifest.
+   The summary shows the diff, and the **release-files** artifact holds both
+   files. Commit them through a normal PR, because `main` is protected.
 
 A real release (dry run off) refuses to run on any branch other than `main`.
 

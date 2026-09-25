@@ -4,7 +4,12 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(git -C "$here" rev-parse --show-toplevel)"
 
 tmp="$(mktemp -d)"
-trap 'rm -rf "$tmp"' EXIT
+wt=""
+cleanup() {
+  [[ -n "$wt" ]] && git -C "$repo" worktree remove --force "$wt" >/dev/null 2>&1
+  rm -rf "$tmp"
+}
+trap cleanup EXIT
 git -C "$tmp" init -q
 mkdir -p "$tmp/keep"; echo x > "$tmp/keep/x"; git -C "$tmp" add -A; git -C "$tmp" -c user.email=t@t -c user.name=t commit -qm init
 
@@ -107,3 +112,41 @@ if bash "$repo/scripts/publish_mirror.sh" --component battery_soc --mirror-path 
   echo "beta of a released version was accepted"; exit 1
 fi
 echo "OK prerelease"
+
+# --release with a --version above the manifest: the version goes into the
+# monorepo manifest before the changelog is built, so the changelog section
+# and the release notes carry it. Runs in a throwaway worktree (with this
+# checkout's scripts) because --release stages files in the monorepo.
+wt="$(mktemp -d)"
+git -C "$repo" worktree add -q --detach "$wt" HEAD
+cp "$repo/scripts/publish_mirror.sh" "$repo/scripts/generate_changelog.sh" "$wt/scripts/"
+git -C "$m" checkout -q main
+: > "$GH_LOG"
+PATH="$tmp/bin:$PATH" bash "$wt/scripts/publish_mirror.sh" --component battery_soc \
+  --mirror-path "$m" --version 9.10.0 --release >/dev/null
+wt_manifest="integrations/homeassistant/custom_components/battery_soc/manifest.json"
+git -C "$wt" diff --cached -- "$wt_manifest" | grep -q '^+  "version": "9.10.0"' \
+  || { echo "manifest version not set and staged"; exit 1; }
+grep -q '^## v9.10.0 ' "$wt/$changelog" || { echo "changelog section not named v9.10.0"; exit 1; }
+git -C "$tmp/origin.git" rev-parse -q --verify refs/tags/v9.10.0 >/dev/null || { echo "release tag not pushed"; exit 1; }
+grep -q 'workflow run release.yml .*-f tag=v9.10.0 .*-f notes=' "$GH_LOG" \
+  || { echo "release workflow not started for v9.10.0"; cat "$GH_LOG"; exit 1; }
+grep -q '^### ' "$GH_LOG" || { echo "release notes not taken from the changelog"; cat "$GH_LOG"; exit 1; }
+
+# A release whose changelog has no section for its version aborts before
+# anything is tagged or pushed.
+git -C "$wt" reset -q --hard
+cp "$repo/scripts/publish_mirror.sh" "$wt/scripts/"
+cat > "$wt/scripts/generate_changelog.sh" <<'NOOP'
+#!/usr/bin/env bash
+exit 0
+NOOP
+if PATH="$tmp/bin:$PATH" bash "$wt/scripts/publish_mirror.sh" --component battery_soc \
+    --mirror-path "$m" --version 9.11.0 --release >/dev/null 2>&1; then
+  echo "release without a changelog section was accepted"; exit 1
+fi
+git -C "$tmp/origin.git" rev-parse -q --verify refs/tags/v9.11.0 >/dev/null \
+  && { echo "tag pushed despite missing release notes"; exit 1; }
+git -C "$m" rev-parse -q --verify refs/tags/v9.11.0 >/dev/null \
+  && { echo "tag created despite missing release notes"; exit 1; }
+echo "OK release"
