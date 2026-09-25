@@ -1510,29 +1510,33 @@
   // eigenen Schreibens wird der MutationObserver getrennt, damit er nicht
   // rekursiv ausloest. Interruptierbar: ein neuer Zielwert startet von der
   // zuletzt *gezeigten* Zahl, nicht vom alten Ziel. Nicht-numerische Werte
-  // ("Ja", "-") werden sofort gesetzt.
+  // ("Ja", "-") werden sofort gesetzt. Den Rohwert liest die Direktive aus
+  // data-roll-value, weil der sichtbare Text schon im Zahlenformat steht
+  // (Tausenderpunkt und Dezimalkomma sind nicht eindeutig rueckwaerts lesbar).
   const registerRollDirective = Alpine => {
     Alpine.directive('roll', (el, meta, { cleanup }) => {
       const observeOptions = {childList: true, characterData: true, subtree: true};
-      const parse = value => {
-        const raw = String(value).trim().replace(',', '.');
-        if (!/^-?\d*\.?\d+$/.test(raw)) return null;
-        const number = Number(raw);
+      const parse = raw => {
+        const text = String(raw == null ? '' : raw).trim();
+        if (!/^-?\d*\.?\d+$/.test(text)) return null;
+        const number = Number(text);
         return Number.isFinite(number) ? number : null;
       };
-      let committed = parse(el.textContent);
+      let committed = parse(el.dataset.rollValue);
       let displayed = committed;
       let frame = 0;
       const observer = new MutationObserver(() => {
         const text = el.textContent;
-        const target = parse(text);
+        const raw = el.dataset.rollValue;
+        const target = parse(raw);
         if (prefersReducedMotion() || committed === null || target === null || target === committed) {
           committed = target;
           displayed = target;
           return;
         }
         const from = displayed === null ? committed : displayed;
-        const decimals = (text.split('.')[1] || '').length;
+        const decimals = (String(raw).split('.')[1] || '').length;
+        const unit = el.dataset.rollUnit || '';
         const startedAt = performance.now();
         const duration = 300;
         cancelAnimationFrame(frame);
@@ -1547,7 +1551,7 @@
           if (progress < 1) {
             const value = from + (target - from) * eased;
             displayed = value;
-            write(decimals ? value.toFixed(decimals) : String(Math.round(value)));
+            write(window.I18n.formatValue(value.toFixed(decimals), unit));
             frame = requestAnimationFrame(step);
           } else {
             write(text);

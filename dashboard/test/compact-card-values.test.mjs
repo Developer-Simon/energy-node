@@ -9,14 +9,16 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
 const primitives = read('entity-values.js');
 const source = read('compact-card-values.js');
 
-function load(html) {
+function load(html, options = {}) {
   const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`, { runScripts: 'outside-only' });
+  installI18n(dom.window, options);
   vm.runInContext(primitives, dom.getInternalVMContext());
   vm.runInContext(source, dom.getInternalVMContext());
   return dom.window;
@@ -87,4 +89,10 @@ test('im Delta-Modus werden nur die genannten Zeilen angefasst', () => {
   const [first, second] = window.document.querySelectorAll('.compact-card-row-value');
   assert.equal(first.textContent, '99 W');
   assert.equal(second.textContent, '10 W');
+});
+
+test('Messwerte mit Einheit folgen dem Zahlenformat', () => {
+  const window = load(cardRow('e1', { unit: 'kWh', value: '1' }), { format: 'comma' });
+  apply(window, { e1: { value: '12345.6', has_value: true } });
+  assert.equal(window.document.querySelector('.compact-card-row-value').textContent, '12.345,6 kWh');
 });

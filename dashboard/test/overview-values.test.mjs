@@ -9,14 +9,16 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
 const primitives = read('entity-values.js');
 const source = read('overview-values.js');
 
-function load(html) {
+function load(html, options = {}) {
   const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`, { runScripts: 'outside-only' });
+  installI18n(dom.window, options);
   vm.runInContext(primitives, dom.getInternalVMContext());
   vm.runInContext(source, dom.getInternalVMContext());
   return dom.window;
@@ -231,4 +233,24 @@ test('Voll-Modus (Vorgabe) fasst weiter alle Karten an', () => {
   });
   // e2 fehlt im Push -> im Voll-Modus MISSING -> "-"
   assert.equal(window.document.querySelector('[data-entity-id="e2"] .entity-value-num strong').textContent, '-');
+});
+
+test('Wertkarten mit Einheit folgen dem Zahlenformat', () => {
+  const window = load(valueCard('e1').replace('data-unit="W"', 'data-unit="kWh"'), { format: 'comma' });
+  window.overviewValues.applyEntityValues(window.document.body, {
+    e1: { value: '12345.6', has_value: true, available: true, has_availability: true },
+  });
+  assert.equal(window.document.querySelector('.entity-value-num strong').textContent, '12.345,6');
+});
+
+test('Gruppen-Chips mit Einheit folgen dem Zahlenformat', () => {
+  const window = load(`
+    <article class="entity-group-chip" data-entity-id="e1" data-device-class="power" data-unit="kWh">
+      <div class="entity-group-chip-top"><span class="entity-group-chip-dot entity-group-chip-dot-ok"></span></div>
+      <div class="entity-group-chip-val">1<span>kWh</span></div>
+    </article>`, { format: 'comma' });
+  window.overviewValues.applyEntityValues(window.document.body, {
+    e1: { value: '12345.6', has_value: true, available: true, has_availability: true },
+  });
+  assert.ok(window.document.querySelector('.entity-group-chip-val').textContent.startsWith('12.345,6'));
 });
