@@ -75,6 +75,12 @@ class SlaveStatus:
     last_update: Optional[int] = None
     runtime_status: str = "ok"  # "ok" | "rejected" | "pending"
     error: str = ""
+    # Stabiler Fehlercode (z. B. charge_source_required), den das Dashboard
+    # uebersetzt. Leer, wenn der Fehler keinen Code hat.
+    error_code: str = ""
+    # Pruefsumme der Datei des letzten Ladeversuchs bzw. der aktiven Datei.
+    config_revision: str = ""
+    applied_revision: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -85,6 +91,9 @@ class SlaveStatus:
             "last_update": self.last_update,
             "runtime_status": self.runtime_status,
             "error": self.error,
+            "error_code": self.error_code,
+            "config_revision": self.config_revision,
+            "applied_revision": self.applied_revision,
         }
 
     @classmethod
@@ -98,4 +107,7 @@ class SlaveStatus:
             last_update=data.get("last_update"),
             runtime_status=data.get("runtime_status", "ok"),
             error=data.get("error", ""),
+            error_code=data.get("error_code", ""),
+            config_revision=data.get("config_revision", ""),
+            applied_revision=data.get("applied_revision", ""),
         )
