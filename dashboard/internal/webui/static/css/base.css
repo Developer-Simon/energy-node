@@ -249,6 +249,14 @@ body { font-family: system-ui, sans-serif; padding: 2rem 1.5rem; background: var
   color: var(--text-muted);
 }
 .lang-switch { position: absolute; top: .6rem; right: 1rem; display: flex; align-items: center; }
+/* Platz fuer den absolut positionierten Sprachwaehler: das Update-Badge bricht
+   vorher um, statt unter den Waehler zu laufen. Schmal (<= 700px) steht der
+   Waehler im Fluss unter dem Untertitel, der Titel behaelt die volle Breite. */
+.masthead-title { padding-right: 7rem; }
+@media (max-width: 700px) {
+  .masthead-title { padding-right: 0; }
+  .lang-switch { position: static; margin-top: .6rem; }
+}
 .lang-switch select {
   padding: .25rem .5rem;
   border: 1px solid var(--border);
