@@ -1,6 +1,6 @@
 {
   "service_id": "battery_soc",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "unit": "battery-soc.service",
   "bootstrap_step": "82",
   "schema": "config.schema.json",

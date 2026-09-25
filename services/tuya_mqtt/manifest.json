@@ -1,6 +1,6 @@
 {
   "service_id": "tuya",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "unit": "tuya.service",
   "bootstrap_step": "85",
   "schema": "config.schema.json",
