@@ -6,6 +6,7 @@ declarative adapter.
 
 import json
 import re
+from collections import namedtuple
 
 NUMBER_RE = re.compile(r"-?\d+(\.\d+)?")
 
@@ -13,15 +14,27 @@ NUMBER_RE = re.compile(r"-?\d+(\.\d+)?")
 # warn_extraction_failed().
 extraction_warnings = {}
 
-# Mapping of config topic attribute -> (value field, ts field, json_key attr, scale attr)
-# scale_attr can be None for power fields (default scale 1.0)
+TopicField = namedtuple(
+    "TopicField",
+    "topic_attr value_field ts_field json_key_attr scale_attr invert_attr unit_attr",
+)
+
+# Eine Zeile je Eingangs-Slot. Dasselbe Topic darf in mehreren Leistungs-
+# Slots stehen (vorzeichenbehafteter Sensor), jede Zeile liest es mit ihrem
+# eigenen JSON-Key, Vorzeichen und ihrer Einheit.
 TOPIC_FIELDS = (
-    ("charger_power_topic",     "charger_power_w",     "charger_power_ts",     "charger_power_json_key",     None),
-    ("inverter_power_topic",    "inverter_power_w",    "inverter_power_ts",    "inverter_power_json_key",    None),
-    ("charger_dc_power_topic",  "charger_dc_power_w",  "charger_dc_power_ts",  "charger_dc_power_json_key",  None),
-    ("inverter_dc_power_topic", "inverter_dc_power_w", "inverter_dc_power_ts", "inverter_dc_power_json_key", None),
-    ("bank_a_voltage_topic",    "bank_a_voltage_v",    "bank_a_voltage_ts",    "bank_a_voltage_json_key",    "bank_a_voltage_scale"),
-    ("bank_b_voltage_topic",    "bank_b_voltage_v",    "bank_b_voltage_ts",    "bank_b_voltage_json_key",    "bank_b_voltage_scale"),
+    TopicField("charger_power_topic", "charger_power_w", "charger_power_ts",
+               "charger_power_json_key", None, "charger_power_invert", None),
+    TopicField("inverter_power_topic", "inverter_power_w", "inverter_power_ts",
+               "inverter_power_json_key", None, "inverter_power_invert", None),
+    TopicField("charger_dc_power_topic", "charger_dc_power_w", "charger_dc_power_ts",
+               "charger_dc_power_json_key", None, "charger_dc_power_invert", "charger_dc_power_unit"),
+    TopicField("inverter_dc_power_topic", "inverter_dc_power_w", "inverter_dc_power_ts",
+               "inverter_dc_power_json_key", None, "inverter_dc_power_invert", "inverter_dc_power_unit"),
+    TopicField("bank_a_voltage_topic", "bank_a_voltage_v", "bank_a_voltage_ts",
+               "bank_a_voltage_json_key", "bank_a_voltage_scale", None, None),
+    TopicField("bank_b_voltage_topic", "bank_b_voltage_v", "bank_b_voltage_ts",
+               "bank_b_voltage_json_key", "bank_b_voltage_scale", None, None),
 )
 
 
@@ -75,45 +88,35 @@ def warn_extraction_failed(context, json_key, payload_str, reason):
 
 
 def mark_configured(config, inputs):
-    """Sets each SocInputs.<field>_configured True when the matching
-    config.<topic> attr is non-empty."""
-    for topic_attr, _value_field, _ts_field, _json_key_attr, _scale_attr in TOPIC_FIELDS:
-        topic = getattr(config, topic_attr, "")
-        if topic:
-            # Map topic_attr to configured flag name
-            # e.g., "charger_power_topic" -> "charger_power_configured"
-            field_name = topic_attr.replace("_topic", "_configured")
-            setattr(inputs, field_name, True)
+    """Setzt SocInputs.<slot>_configured fuer jedes gesetzte Topic und
+    uebernimmt die Einheit der DC-Slots ("W" oder "A")."""
+    for field in TOPIC_FIELDS:
+        if getattr(config, field.topic_attr, ""):
+            setattr(inputs, field.topic_attr.replace("_topic", "_configured"), True)
+        if field.unit_attr:
+            setattr(inputs, field.unit_attr, getattr(config, field.unit_attr, "W"))
 
 
 def apply_message(config, inputs, topic, payload_str, now):
-    """Processes an MQTT message for a topic.
+    """Verarbeitet eine MQTT-Nachricht fuer ALLE Slots dieses Topics.
 
-    Finds the TOPIC_FIELDS row whose config.<topic attr> equals topic;
-    runs extract_value; on a value, writes value * scale to the value field
-    and now to the ts field; returns True if a value landed, else False.
-    """
-    for topic_attr, value_field, ts_field, json_key_attr, scale_attr in TOPIC_FIELDS:
-        config_topic = getattr(config, topic_attr, "")
-        if config_topic == topic:
-            # Extract the value
-            json_key = getattr(config, json_key_attr, "")
-            context = f"{topic} ({value_field.replace('_w', '').replace('_v', '')})"
-            value = extract_value(payload_str, json_key, context)
-
-            if value is not None:
-                # Determine scale
-                if scale_attr:
-                    scale = getattr(config, scale_attr, None)
-                    if not scale:  # Fall back to 1.0 if scale is falsy
-                        scale = 1.0
-                else:
-                    scale = 1.0
-
-                # Write scaled value and timestamp
-                setattr(inputs, value_field, value * scale)
-                setattr(inputs, ts_field, now)
-                return True
-            return False
-
-    return False
+    Je Slot: Wert lesen (eigener JSON-Key), skalieren (Spannung),
+    invertieren (Leistung), mit Zeitstempel schreiben. Liefert True, wenn
+    mindestens ein Slot einen Wert bekommen hat."""
+    landed = False
+    for field in TOPIC_FIELDS:
+        if getattr(config, field.topic_attr, "") != topic:
+            continue
+        json_key = getattr(config, field.json_key_attr, "")
+        context = f"{topic} ({field.value_field.replace('_w', '').replace('_v', '')})"
+        value = extract_value(payload_str, json_key, context)
+        if value is None:
+            continue
+        if field.scale_attr:
+            value *= getattr(config, field.scale_attr, None) or 1.0
+        if field.invert_attr and getattr(config, field.invert_attr, False):
+            value = -value
+        setattr(inputs, field.value_field, value)
+        setattr(inputs, field.ts_field, now)
+        landed = True
+    return landed

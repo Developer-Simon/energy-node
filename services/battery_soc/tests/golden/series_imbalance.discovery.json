@@ -1,25 +1,4 @@
 {
-  "homeassistant/binary_sensor/battery_soc/ac_fallback/config": {
-    "availability_topic": "outstation/battery_soc/status/online",
-    "device": {
-      "identifiers": [
-        "battery_soc"
-      ],
-      "manufacturer": "DIY",
-      "model": "LiFePO4 Dual-Bank Coulomb-Counter",
-      "name": "Batterie-Ladezustand",
-      "via_device": "energy_node"
-    },
-    "device_class": "problem",
-    "entity_category": "diagnostic",
-    "icon": "mdi:transmission-tower",
-    "name": "AC-Fallback aktiv",
-    "payload_available": "1",
-    "payload_not_available": "0",
-    "state_topic": "outstation/battery_soc/state",
-    "unique_id": "battery_soc_ac_fallback",
-    "value_template": "{{ 'ON' if value_json.ac_fallback_active else 'OFF' }}"
-  },
   "homeassistant/binary_sensor/battery_soc/imbalance_warning/config": {
     "availability_topic": "outstation/battery_soc/status/online",
     "device": {

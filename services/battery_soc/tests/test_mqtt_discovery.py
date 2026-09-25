@@ -92,3 +92,17 @@ def test_publish_discovery_removes_entities_of_the_other_topology():
     assert any(t.endswith("/imbalance_warning/config") for t in cleared)
     # Was zur aktuellen Topologie gehoert, darf nicht geloescht werden.
     assert not any(t.endswith("/soc_combined/config") for t in cleared)
+
+
+def test_ac_fallback_is_only_announced_where_a_fallback_is_possible():
+    from _capture_golden import base_config
+
+    def announced(cfg):
+        state = SocState(cfg.soc_params(), last_tick=time.time())
+        client = FakeClient()
+        mqtt_discovery.publish_discovery(client, cfg, state)
+        return {t: p for t, p in client.published if t.endswith("/ac_fallback/config")}
+
+    topic = "homeassistant/binary_sensor/battery_soc/ac_fallback/config"
+    assert announced(base_config())[topic] == "", "AC only: removed"
+    assert announced(base_config(charger_dc_power_topic="trucki/dc"))[topic] != "", "AC + DC: announced"
