@@ -1,11 +1,16 @@
 # Changelog
 
-## v0.7.12 (2026-09-23)
+## v0.7.13 (2026-09-25)
 
 ### Features
 
 - **dashboard:** per-device icons and pinned favourite entities (#53) (d649df3)
 - **homeassistant:** ship the dashboard's device icons as an HA icon set (#54) (c4c196b)
+- **dashboard:** validate conditional JSON schema entries (if/then/else) (56cb98e)
+- **dashboard:** expose each service's reload result per configuration (6f9f9ea)
+- **dashboard:** show and hide conditional schema fields in the config editor (ca8f760)
+- **dashboard:** show whether a service took over a saved configuration (304d813)
+- **battery_soc:** conditional battery schema for system type and bank layout (53943e9)
 - **dashboard:** export the device icon catalogue for Home Assistant (e7b3f40)
 - **dashboard:** store per-device icon and favourite preferences (490352a)
 - **dashboard:** let favourite entities drive the compact card rows (78749f7)
@@ -20,11 +25,16 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **dashboard:** hide conditional schema fields despite the grid display rule (e3225b3)
+- **dashboard:** start the status watch after the editor save reloads the config (11911c0)
+- **dashboard:** tolerate fields of inactive schema branches from older files (06071f4)
 - **dashboard:** keep the exported icon markup readable in diffs (dc5114a)
 - **dashboard:** keep the pinned-favourites block from breaking the modal grid (c0876ee)
 
 ### Documentation
 
+- **dashboard:** describe config_revision as the last load attempt (715dd30)
+- **battery_soc:** document DC-only systems, signed inputs and current units (6c2df1f)
 - **dashboard:** document the device preference endpoints and bump the assets (aed1eee)
 
 ### Tests
