@@ -10,6 +10,7 @@
 - **⚠ Breaking — battery_soc:** validate the MQTT service's sources with coded errors (e6e741e)
 - **battery_soc:** feed one MQTT topic into several slots with invert and unit (2735b3d)
 - **battery_soc:** conditional battery schema for system type and bank layout (53943e9)
+- **battery_soc:** require the bank A voltage topic in the dashboard form (5573a33)
 - **battery_soc:** take shared HA field descriptions from the service schema (c6a4a29)
 - **battery_soc:** render shared HA descriptions at mirror time and release via the mirror's workflow (65b4a20)
 

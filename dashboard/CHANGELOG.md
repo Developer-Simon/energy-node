@@ -12,6 +12,7 @@
 - **dashboard:** show whether a service took over a saved configuration (304d813)
 - **battery_soc:** conditional battery schema for system type and bank layout (53943e9)
 - **dashboard:** animate conditional schema fields in and out (90425d7)
+- **battery_soc:** require the bank A voltage topic in the dashboard form (5573a33)
 - **dashboard:** export the device icon catalogue for Home Assistant (e7b3f40)
 - **dashboard:** store per-device icon and favourite preferences (490352a)
 - **dashboard:** let favourite entities drive the compact card rows (78749f7)
