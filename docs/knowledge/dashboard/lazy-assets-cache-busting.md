@@ -116,11 +116,11 @@ As of **2026-09-16**, read from `base.html` and `overview.html`. "–" means: no
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` –, `js/history.js` `9` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
-| `config-panel` | `js/revisions.js` –, `js/schema-form.js` –, `js/config.page.js` `2` | `css/manager.css` `23` |
+| `config-panel` | `js/revisions.js` –, `js/schema-form.js` `1`, `js/config-status.js` `1`, `js/config.page.js` `3` | `css/manager.css` `23` |
 | `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `23` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `23` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` –, `js/settings.page.js` `7`, `js/mqtt.page.js` `3`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `5` |
-| `automations-panel` | `js/automations.page.js` `2` | `css/manager.css` `23`, `css/automations.css` `3` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` `1`, `js/settings.page.js` `7`, `js/mqtt.page.js` `3`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `5` |
+| `automations-panel` | `js/config-status.js` `1`, `js/automations.page.js` `3` | `css/manager.css` `23`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own

@@ -18,6 +18,7 @@ const staticJS = (name) => fs.readFileSync(
   'utf8',
 );
 const schemaFormSource = staticJS('schema-form.js');
+const configStatusSource = staticJS('config-status.js');
 const scriptSource = staticJS('config.page.js');
 
 // Evaluates config.page.js in a fresh jsdom window/VM context and returns the
@@ -29,6 +30,7 @@ function createConfigPanel() {
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(schemaFormSource, context);
+  vm.runInContext(configStatusSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -886,4 +888,31 @@ test('the success message says the service reloaded, unless it did not', async (
   await failing.component.saveForm();
   assert.equal(failing.component.reloadFailed, true);
   assert.doesNotMatch(failing.stores.toasts.last('info'), /Dienst neu geladen/, 'kein Neuladen behaupten, das fehlgeschlagen ist');
+});
+
+test('saving watches the status of its own revision', async () => {
+  const { component, window, document } = createConfigPanel();
+  component.statusPollMs = 0;
+  const statuses = [
+    { received: true, runtime_status: 'ok', config_revision: 'old' },
+    { received: true, runtime_status: 'rejected', config_revision: 'new', error: 'kaputt', applied_revision: 'old' },
+  ];
+  window.fetch = (url, options) => {
+    if (options && options.method === 'PUT') return Promise.resolve({ ok: true, json: async () => ({ checksum: 'new' }) });
+    if (String(url).endsWith('/status')) return Promise.resolve({ ok: true, json: async () => statuses.shift() });
+    return Promise.resolve({ ok: true, json: async () => ({}) });
+  };
+  mountForm(component, document, { value: { host: 'a' } });
+  await component.saveForm();
+  await component.statusWatch;
+  assert.equal(component.runtimeState, 'rejected');
+  assert.equal(component.runtimeStatus.error, 'kaputt');
+});
+
+test('a server without checksums does not start a status watch', async () => {
+  const { component, window, document } = createConfigPanel();
+  window.fetch = () => Promise.resolve({ ok: true, json: async () => ({}) });
+  mountForm(component, document, { value: { host: 'a' } });
+  await component.saveForm();
+  assert.equal(component.runtimeState, '');
 });

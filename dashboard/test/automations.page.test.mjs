@@ -12,6 +12,10 @@ import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const configStatusSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'config-status.js'),
+  'utf8',
+);
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -22,6 +26,7 @@ function createAutomationsPanel() {
   const context = dom.getInternalVMContext();
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
+  vm.runInContext(configStatusSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -915,19 +920,19 @@ test('eine Instanz ohne Automations-Dienst wird offline, nicht fehlerhaft', asyn
   assert.equal(stores.toasts.items.length, 0);
 });
 
-test('pollRuntimeStatus fragt die Einzelgeraete-Route', async () => {
+test('pollRuntimeStatus fragt die Konfigurationsstatus-Route', async () => {
   const { component, window, stores } = createAutomationsPanel();
   const calls = stubFetch(window, () => ({
-    id: 'automation',
-    entities: [{ object_id: 'status', value: JSON.stringify({ runtime_status: 'ok' }) }],
+    received: true, runtime_status: 'ok', config_revision: 'test-checksum'
   }));
-  await component.pollRuntimeStatus();
-  assert.deepEqual(calls, ['/api/v1/devices/automation']);
+  component.statusPollMs = 0;
+  await component.pollRuntimeStatus('test-checksum');
+  assert.deepEqual(calls, ['/api/v1/configurations/automation_rules/status']);
   assert.equal(stores.toasts.items[0].message, 'übernommen');
 });
 
 // save() ruft am Ende pollRuntimeStatus(), das bis zu 10 s lang pollt.
-// Deshalb liefert der Stub fuer /api/v1/devices/automation hier sofort ein
+// Deshalb liefert der Stub fuer /api/v1/configurations/automation_rules/status hier sofort ein
 // runtime_status: 'ok' - sonst laeuft der Test in den Deadline.
 test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', async () => {
   const { component, window } = createAutomationsPanel();
@@ -938,16 +943,17 @@ test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', a
   // Praefix-Satz gespeichert - ein fachlicher Fehler, kein Darstellungsproblem.
   component.devices = [];
   component.entities = [{ unique_id: 'wallbox_power', command_topic: 'werkstatt/alt/set' }];
+  component.statusPollMs = 0;
   let saved = null;
   stubFetch(window, (url, options) => {
     if (url === '/api/v1/devices') {
       return [{ id: 'wallbox', name: 'Wallbox', entities: [{ unique_id: 'wallbox_power', command_topic: 'werkstatt/neu/set' }] }];
     }
-    if (url === '/api/v1/devices/automation') {
-      return { id: 'automation', entities: [{ object_id: 'status', value: JSON.stringify({ runtime_status: 'ok' }) }] };
+    if (url === '/api/v1/configurations/automation_rules/status') {
+      return { received: true, runtime_status: 'ok', config_revision: 'test-checksum' };
     }
     saved = JSON.parse(options.body);
-    return {};
+    return { checksum: 'test-checksum' };
   });
   await component.save();
   assert.deepEqual(saved.settings.publish_allowed_prefixes, ['werkstatt/neu/set']);
@@ -1178,4 +1184,19 @@ test('applyHistoryDocument survives an unparseable payload', () => {
   const { component } = createAutomationsPanel();
   component.applyHistoryDocument('{kaputt');
   assert.deepEqual(JSON.parse(JSON.stringify(component.liveHistory)), {});
+});
+
+test('pollRuntimeStatus reports the result of its own revision', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  const statuses = [
+    { received: true, runtime_status: 'ok', config_revision: 'old' },
+    { received: true, runtime_status: 'ok', config_revision: 'new' },
+  ];
+  window.fetch = async url => {
+    assert.match(String(url), /\/api\/v1\/configurations\/automation_rules\/status$/);
+    return { ok: true, json: async () => statuses.shift() };
+  };
+  component.statusPollMs = 0;
+  await component.pollRuntimeStatus('new');
+  assert.equal(stores.toasts.last('info'), 'übernommen');
 });
