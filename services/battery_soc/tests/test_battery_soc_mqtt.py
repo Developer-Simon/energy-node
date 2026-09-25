@@ -26,6 +26,7 @@ import mqtt_discovery
 import soc_config
 import state_store
 from battery_soc_core.entities import entity_specs
+from energy_node_common.config import ConfigRejected
 
 MODULE_DIR = Path(__file__).resolve().parents[1]
 
@@ -167,8 +168,10 @@ def test_load_configs_accepts_both_topologies(tmp_path):
     path = tmp_path / "battery_soc_devices.json"
     path.write_text(json.dumps([
         {"id": "p", "name": "P", "topology": "parallel",
+         "charger_power_topic": "p/c", "inverter_power_topic": "p/i",
          "bank_a_voltage_topic": "bus/v"},
         {"id": "s", "name": "S", "topology": "series",
+         "charger_power_topic": "s/c", "inverter_power_topic": "s/i",
          "bank_a_voltage_topic": "bank_a/v", "bank_b_voltage_topic": "bank_b/v"},
     ]))
     configs = battery_soc.load_configs(path)
@@ -220,18 +223,80 @@ def test_series_requires_equal_capacities(tmp_path):
         battery_soc.load_configs(path)
 
 
-def test_duplicate_topic_inside_one_config_names_that_config_once(tmp_path):
-    """Regression: die Kollisionspruefung zaehlte Vorkommen statt Anlagen und
-    meldete dieselbe id doppelt als 'mehrere Batterieanlagen'."""
+def test_a_voltage_topic_may_not_double_as_a_power_topic(tmp_path):
+    """Regression (frueher: 'mehreren Batterieanlagen' fuer eine Anlage)."""
     path = tmp_path / "battery_soc_devices.json"
     path.write_text(json.dumps([{
         "id": "b", "name": "B", "topology": "parallel",
-        "charger_power_topic": "shelly/x", "inverter_power_topic": "shelly/x",
+        "charger_power_topic": "shelly/x", "inverter_power_topic": "shelly/y",
+        "bank_a_voltage_topic": "shelly/x",
     }]))
     with pytest.raises(ValueError) as excinfo:
         battery_soc.load_configs(path)
     assert "mehreren Batterieanlagen" not in str(excinfo.value)
     assert "shelly/x" in str(excinfo.value)
+
+
+def test_one_power_topic_may_feed_several_slots(tmp_path):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{
+        "id": "b", "name": "B", "system_type": "dc_only", "bank_b_enabled": False,
+        "charger_dc_power_topic": "ina219/current", "charger_dc_power_unit": "A",
+        "inverter_dc_power_topic": "ina219/current", "inverter_dc_power_unit": "A",
+        "inverter_dc_power_invert": True,
+        "bank_a_voltage_topic": "ina219/voltage",
+    }]))
+    [config] = battery_soc.load_configs(path)
+    assert battery_soc.input_topics(config).count("ina219/current") == 1
+
+
+def test_a_shared_topic_across_installations_is_still_rejected(tmp_path):
+    path = tmp_path / "battery_soc_devices.json"
+    entry = {"charger_power_topic": "p/c", "inverter_power_topic": "p/i"}
+    path.write_text(json.dumps([
+        {"id": "a", "name": "A", "bank_a_voltage_topic": "a/v", **entry},
+        {"id": "b", "name": "B", "bank_a_voltage_topic": "b/v", **entry},
+    ]))
+    with pytest.raises(ValueError, match="mehreren Batterieanlagen"):
+        battery_soc.load_configs(path)
+
+
+@pytest.mark.parametrize("entry,code", [
+    ({"inverter_power_topic": "p/i", "bank_a_voltage_topic": "v"}, "charge_source_required"),
+    ({"charger_power_topic": "p/c", "bank_a_voltage_topic": "v"}, "discharge_source_required"),
+    ({"charger_power_topic": "p/c", "inverter_power_topic": "p/i"}, "bank_a_voltage_required"),
+    ({"charger_power_topic": "p/c", "inverter_power_topic": "p/i", "bank_a_voltage_topic": "v",
+      "topology": "series"}, "bank_b_voltage_required"),
+    ({"system_type": "dc_only", "charger_power_topic": "p/c", "inverter_dc_power_topic": "p/i",
+      "bank_a_voltage_topic": "v"}, "ac_source_in_dc_system"),
+])
+def test_invalid_sources_are_rejected_with_their_code(tmp_path, entry, code):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{"id": "b", "name": "B", **entry}]))
+    with pytest.raises(ConfigRejected) as excinfo:
+        battery_soc.load_configs(path)
+    assert excinfo.value.code == code
+    assert "b" in str(excinfo.value) and code in str(excinfo.value)
+
+
+@pytest.mark.parametrize("field,value", [("system_type", "hybrid"), ("charger_dc_power_unit", "kW")])
+def test_unknown_enum_values_are_rejected(tmp_path, field, value):
+    path = tmp_path / "battery_soc_devices.json"
+    path.write_text(json.dumps([{"id": "b", "name": "B", "charger_power_topic": "p/c",
+                                 "inverter_power_topic": "p/i", "bank_a_voltage_topic": "v",
+                                 field: value}]))
+    with pytest.raises(ValueError, match=field):
+        battery_soc.load_configs(path)
+
+
+def test_source_config_reflects_the_topics_and_units():
+    cfg = battery_soc.BatteryConfig(id="b", name="B", system_type="dc_only",
+                                    charger_dc_power_topic="t", charger_dc_power_unit="A",
+                                    bank_a_voltage_topic="v")
+    sources = cfg.source_config()
+    assert sources.configured == frozenset({"charger_dc_power", "bank_a_voltage"})
+    assert sources.units == {"charger_dc_power": "A", "inverter_dc_power": "W"}
+    assert sources.system_type == "dc_only"
 
 
 def test_schema_properties_match_dataclass_fields():
@@ -309,7 +374,9 @@ def test_load_configs_accepts_a_single_bank_installation(tmp_path):
     """Bank B abgeschaltet: die Bank-B-Pruefungen duerfen nicht mehr greifen."""
     path = tmp_path / "battery_soc_devices.json"
     path.write_text(json.dumps([
-        {"id": "b", "name": "B", "bank_b_enabled": False, "bank_b_capacity_ah": 0},
+        {"id": "b", "name": "B", "bank_b_enabled": False, "bank_b_capacity_ah": 0,
+         "charger_power_topic": "p/c", "inverter_power_topic": "p/i",
+         "bank_a_voltage_topic": "v"},
     ]))
     assert battery_soc.load_configs(path)[0].bank_b_enabled is False
 

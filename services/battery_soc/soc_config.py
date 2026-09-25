@@ -9,7 +9,11 @@ from pathlib import Path
 from typing import Optional
 
 from energy_node_common import config as common_config
+from energy_node_common.config import ConfigRejected
 from battery_soc_core.params import SocParams
+from battery_soc_core.sources import (
+    DC_POWER_SLOTS, POWER_SLOTS, SYSTEM_TYPES, VOLTAGE_SLOTS, SourceConfig, validate_sources,
+)
 
 SOC_PARAM_FIELDS = frozenset(SocParams.field_names())
 
@@ -19,6 +23,9 @@ class BatteryConfig:
     id: str
     name: str
     via_device: str = "energy_node"
+    # Nur fuer die Formulare: welche Felder sichtbar sind. Die Engine liest
+    # ihn nie, load_configs nur als Sicherheitsnetz (ac_source_in_dc_system).
+    system_type: str = "ac_coupled"
     # Leerer json_key = das Payload ist eine nackte Zahl (so publizieren die
     # Trucki-Sticks jedes Feld). Hier steht bewusst KEIN Herstellername wie
     # "apower": das Dashboard speichert ein leeres optionales Feld als
@@ -29,6 +36,10 @@ class BatteryConfig:
     charger_power_json_key: str = ""
     inverter_power_topic: str = ""
     inverter_power_json_key: str = ""
+    # Vorzeichen beim Einlesen umdrehen, vor jeder Klemmung. So kann ein
+    # vorzeichenbehafteter Sensor in beiden Slots stehen, einmal invertiert.
+    charger_power_invert: bool = False
+    inverter_power_invert: bool = False
     # Optionale DC-seitige Leistungsmessung je Wandler (z. B. DCPOWER vom
     # Trucki T2MG). Ist sie konfiguriert und frisch, ersetzt sie den
     # AC-Eingang derselben Seite - ohne Wirkungsgradfaktor, denn dieser Wert
@@ -38,6 +49,13 @@ class BatteryConfig:
     charger_dc_power_json_key: str = ""
     inverter_dc_power_topic: str = ""
     inverter_dc_power_json_key: str = ""
+    # Vorzeichen beim Einlesen umdrehen, vor jeder Klemmung. So kann ein
+    # vorzeichenbehafteter Sensor in beiden Slots stehen, einmal invertiert.
+    charger_dc_power_invert: bool = False
+    inverter_dc_power_invert: bool = False
+    # "W" oder "A". Ein Strom wird mit der Packspannung in W umgerechnet.
+    charger_dc_power_unit: str = "W"
+    inverter_dc_power_unit: str = "W"
     dc_max_age_s: float = 60.0
     bank_a_voltage_topic: str = ""
     bank_a_voltage_json_key: str = ""
@@ -45,6 +63,8 @@ class BatteryConfig:
     bank_b_voltage_topic: str = ""
     bank_b_voltage_json_key: str = ""
     bank_b_voltage_scale: float = 1.0
+    # Nur in Reihe: misst der Bank-A-Sensor Bank A allein oder den Stapel?
+    bank_a_voltage_measures: str = "bank_a"
     bank_a_cell_count: int = 8
     bank_a_capacity_ah: float = 100.0
     bank_b_cell_count: int = 8
@@ -112,17 +132,32 @@ class BatteryConfig:
         (bank_*_voltage_topic, state_file, etc.) fallen weg."""
         return SocParams.from_dict(dataclasses.asdict(self))
 
+    def source_config(self) -> SourceConfig:
+        """Die schmale Sicht des Kerns auf die Quellen dieser Anlage."""
+        configured = frozenset(
+            slot for slot in POWER_SLOTS + VOLTAGE_SLOTS if getattr(self, f"{slot}_topic")
+        )
+        return SourceConfig(
+            configured=configured,
+            units={slot: getattr(self, f"{slot}_unit") for slot in DC_POWER_SLOTS},
+            topology=self.topology,
+            bank_b_enabled=self.bank_b_enabled,
+            system_type=self.system_type,
+        )
+
 
 def input_topics(config):
     """Alle Eingangs-Topics dieser Anlage. Bank B hat nur in Reihenschaltung
     eine eigene Spannung - parallel liegt beiden dieselbe Busspannung an, und
-    ein zweites Topic waere dort gar nicht erst erlaubt."""
+    ein zweites Topic waere dort gar nicht erst erlaubt. Ein Topic darf mehrere
+    Leistungs-Slots speisen (ein vorzeichenbehafteter Sensor in Lade- und
+    Entlade-Slot); es wird nur einmal abonniert."""
     topics = [config.charger_power_topic, config.charger_dc_power_topic,
               config.inverter_power_topic, config.inverter_dc_power_topic,
               config.bank_a_voltage_topic]
     if config.topology == "series" and config.bank_b_enabled:
         topics.append(config.bank_b_voltage_topic)
-    return topics
+    return list(dict.fromkeys(topics))
 
 
 def load_configs(path):
@@ -154,6 +189,16 @@ def load_configs(path):
         except ValueError as exc:
             raise ValueError(f"Ungueltige Batterie-Konfiguration in Eintrag {index}: {exc}") from exc
 
+        if config.system_type not in SYSTEM_TYPES:
+            raise ValueError(
+                f"Ungueltiger system_type in Eintrag {index}: {config.system_type} "
+                f"(erlaubt: {', '.join(SYSTEM_TYPES)})"
+            )
+        for slot in DC_POWER_SLOTS:
+            unit = getattr(config, f"{slot}_unit")
+            if unit not in ("W", "A"):
+                raise ValueError(f"Ungueltige Einheit {slot}_unit in Eintrag {index}: {unit} (erlaubt: W, A)")
+
         # Transport/Struktur-Checks: bleiben hier
         if config.topology == "parallel":
             if config.bank_b_voltage_topic:
@@ -164,16 +209,19 @@ def load_configs(path):
                     f"(bank_a_voltage_topic)."
                 )
         else:
-            if not config.bank_a_voltage_topic or not config.bank_b_voltage_topic:
-                raise ValueError(
-                    f"topology=series braucht beide Spannungs-Topics ({config.id}): "
-                    f"gestapelte Baenke haben je eine eigene, aussagekraeftige Spannung"
-                )
-            if config.bank_a_voltage_topic == config.bank_b_voltage_topic:
+            if config.bank_a_voltage_topic and config.bank_a_voltage_topic == config.bank_b_voltage_topic:
                 raise ValueError(
                     f"topology=series braucht verschiedene Spannungs-Topics "
                     f"({config.id}): {config.bank_a_voltage_topic}"
                 )
+
+        codes = validate_sources(config.source_config())
+        if codes:
+            raise ConfigRejected(
+                f"Ungueltige Batterie-Konfiguration {config.id}: {', '.join(codes)}",
+                code=codes[0],
+            )
+
         configs.append(config)
 
     ids = [config.id for config in configs]
@@ -183,19 +231,20 @@ def load_configs(path):
     for config in configs:
         for topic in input_topics(config):
             if topic:
-                topics.setdefault(topic, []).append(config.id)
-    # Zwei verschiedene Fehler, die frueher zusammenfielen: dasselbe Topic in
-    # ZWEI Anlagen (echte Kollision) und dasselbe Topic ZWEIMAL in derselben
-    # Anlage. Letzteres meldete frueher "mehreren Batterieanlagen" und nannte
-    # dieselbe id doppelt - eine irrefuehrende Meldung.
-    shared = {topic: sorted(set(ids)) for topic, ids in topics.items()
-              if len(set(ids)) > 1}
+                topics.setdefault(topic, set()).add(config.id)
+    shared = {topic: sorted(ids) for topic, ids in topics.items() if len(ids) > 1}
     if shared:
         raise ValueError(f"Eingangs-Topics mehreren Batterieanlagen zugeordnet: {shared}")
-    doubled = {topic: ids[0] for topic, ids in topics.items()
-               if len(ids) > 1 and len(set(ids)) == 1}
-    if doubled:
-        raise ValueError(
-            f"Dasselbe Topic mehrfach in derselben Batterieanlage: {doubled}"
-        )
+    # Innerhalb einer Anlage duerfen sich nur Leistungs-Topics wiederholen
+    # (ein vorzeichenbehafteter Sensor in Lade- und Entlade-Slot). Eine
+    # Spannung ist genau eine Messung und nie zugleich eine Leistung.
+    for config in configs:
+        voltages = [config.bank_a_voltage_topic]
+        if config.topology == "series" and config.bank_b_enabled:
+            voltages.append(config.bank_b_voltage_topic)
+        voltages = [topic for topic in voltages if topic]
+        powers = {getattr(config, f"{slot}_topic") for slot in POWER_SLOTS} - {""}
+        doubled = sorted({topic for topic in voltages if voltages.count(topic) > 1 or topic in powers})
+        if doubled:
+            raise ValueError(f"Dasselbe Topic mehrfach in derselben Batterieanlage ({config.id}): {doubled}")
     return configs
