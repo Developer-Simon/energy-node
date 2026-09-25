@@ -296,15 +296,30 @@ func TestConditionalSchemaAcceptsFieldsOfActiveBranches(t *testing.T) {
 	}
 }
 
-func TestConditionalSchemaRejectsFieldsOfInactiveBranches(t *testing.T) {
+// A field of an inactive branch is tolerated but still type-checked: files
+// written before the schema had conditions carry such fields (the Pi's
+// battery file has bank_b_voltage_scale on a parallel pack), and restoring
+// an old revision must keep working. The form drops them on the next save.
+func TestConditionalSchemaToleratesFieldsOfInactiveBranches(t *testing.T) {
+	for _, doc := range []string{
+		`{"kind": "b", "only_a": 1}`,
+		`{"only_b": 1}`,
+		`{"extra": false, "mode": "x"}`,
+		`{"only_y": 3}`,
+		`{"mode": "x", "only_y": 3}`,
+	} {
+		if err := ValidateDocument([]byte(doc), []byte(conditionalSchema)); err != nil {
+			t.Errorf("%s: unexpected error %v", doc, err)
+		}
+	}
+}
+
+func TestConditionalSchemaRejectsUnknownAndInvalidFields(t *testing.T) {
 	for doc, want := range map[string]string{
-		`{"kind": "b", "only_a": 1}`:    "$.only_a is not allowed",
-		`{"only_b": 1}`:                 "$.only_b is not allowed",
-		`{"extra": false, "mode": "x"}`: "$.mode is not allowed",
-		`{"only_y": 3}`:                 "$.only_y is not allowed",
-		`{"mode": "x", "only_y": 3}`:    "$.only_y is not allowed",
-		`{"unknown": 1}`:                "$.unknown is not allowed",
-		`{"mode": "y", "only_y": 0}`:    "$.only_y is below minimum",
+		`{"unknown": 1}`:               "$.unknown is not allowed",
+		`{"mode": "y", "only_y": 0}`:   "$.only_y is below minimum",
+		`{"only_y": 0}`:                "$.only_y is below minimum",
+		`{"kind": "b", "only_a": "x"}`: "$.only_a must be integer",
 	} {
 		err := ValidateDocument([]byte(doc), []byte(conditionalSchema))
 		if err == nil || err.Error() != want {

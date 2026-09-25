@@ -531,8 +531,9 @@ func validateValue(value, rawSchema any, path string) error {
 // applySchema validates value against one schema. For an object it also
 // returns the property names this schema evaluated, including those of its
 // in-place subschemas (allOf entries, a matching if, the applied then/else).
-// unevaluatedProperties needs that set: a property is only known if some
-// applied branch declares it, so a field of an inactive branch is rejected.
+// unevaluatedProperties needs that set. A property no applied branch
+// evaluated is checked against its declaration in an inactive branch (see
+// branchDeclarations) and rejected only if no branch declares it at all.
 func applySchema(value, rawSchema any, path string) (map[string]bool, error) {
 	schema, ok := rawSchema.(map[string]any)
 	if !ok {
@@ -633,8 +634,15 @@ func applySchema(value, rawSchema any, path string) (map[string]bool, error) {
 	if isObject {
 		if unevaluated, ok := schema["unevaluatedProperties"].(bool); ok && !unevaluated {
 			for _, key := range sortedKeys(object) {
-				if !evaluated[key] {
+				if evaluated[key] {
+					continue
+				}
+				declaration, declared := branchDeclarations(schema)[key]
+				if !declared {
 					return nil, fmt.Errorf("%s.%s is not allowed", path, key)
+				}
+				if err := validateValue(object[key], declaration, path+"."+key); err != nil {
+					return nil, err
 				}
 			}
 		}
@@ -655,6 +663,41 @@ func applySchema(value, rawSchema any, path string) (map[string]bool, error) {
 		}
 	}
 	return evaluated, nil
+}
+
+// branchDeclarations collects the properties of every then/else branch,
+// active or not, the first declaration winning (as allProperties in
+// schema-form.js). Deviating from JSON Schema on purpose: a field of an
+// inactive branch is tolerated, only type-checked. Files written before the
+// schema had conditions carry such fields, and restoring an old revision
+// must keep working. The form hides these fields and drops them on the next
+// save, and a service rejects a combination that really matters with its
+// own error code (battery_soc: ac_source_in_dc_system).
+func branchDeclarations(schema map[string]any) map[string]any {
+	declared := map[string]any{}
+	var visit func(node any, isBranch bool)
+	visit = func(node any, isBranch bool) {
+		object, ok := node.(map[string]any)
+		if !ok {
+			return
+		}
+		if properties, ok := object["properties"].(map[string]any); ok && isBranch {
+			for key, child := range properties {
+				if _, seen := declared[key]; !seen {
+					declared[key] = child
+				}
+			}
+		}
+		if all, ok := object["allOf"].([]any); ok {
+			for _, entry := range all {
+				visit(entry, isBranch)
+			}
+		}
+		visit(object["then"], true)
+		visit(object["else"], true)
+	}
+	visit(schema, false)
+	return declared
 }
 
 func mergeKeys(into, from map[string]bool) {
