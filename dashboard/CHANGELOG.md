@@ -28,6 +28,7 @@
 - **dashboard:** hide conditional schema fields despite the grid display rule (e3225b3)
 - **dashboard:** start the status watch after the editor save reloads the config (11911c0)
 - **dashboard:** tolerate fields of inactive schema branches from older files (06071f4)
+- **battery_soc:** show the imbalance threshold only for two banks in series (f402372)
 - **dashboard:** keep the exported icon markup readable in diffs (dc5114a)
 - **dashboard:** keep the pinned-favourites block from breaking the modal grid (c0876ee)
 

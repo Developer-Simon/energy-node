@@ -16,6 +16,7 @@
 ### Fixes
 
 - **battery_soc:** use the shared invert description for the inverter DC input (55d7040)
+- **battery_soc:** show the imbalance threshold only for two banks in series (f402372)
 
 ### Documentation
 
