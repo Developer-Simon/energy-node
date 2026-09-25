@@ -31,6 +31,7 @@
       // laesst dem Kern seinen Sechs-Stunden-Default.
       historyHours: opts.historyHours,
       forecastHours: opts.forecastHours,
+      formatNumber: window.I18n.formatNumber,
     };
   }
 

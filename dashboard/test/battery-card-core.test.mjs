@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CORE = path.join(here, '..', 'internal', 'webui', 'static', 'js', 'battery-card-core.js');
@@ -15,6 +16,7 @@ const CORE = path.join(here, '..', 'internal', 'webui', 'static', 'js', 'battery
 export function loadCore(extraGlobals = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   for (const [key, value] of Object.entries(extraGlobals)) dom.window[key] = value;
+  installI18n(dom.window);
   const context = dom.getInternalVMContext();
   vm.runInContext(fs.readFileSync(CORE, 'utf8'), context);
   return { core: dom.window.BatteryCardCore, window: dom.window, document: dom.window.document };
@@ -478,4 +480,18 @@ test('injectStyle legt genau ein style-Element an, auch bei mehreren Karten', ()
   core.injectStyle(document);
   core.injectStyle(document);
   assert.equal(document.head.querySelectorAll('style[data-battery-card-style]').length, 1);
+});
+
+test('viewFrom uses the formatNumber passed with the input', () => {
+  const { core } = loadCore();
+  const view = core.viewFrom({ ...evening, formatNumber: (value, digits) => `<${value.toFixed(digits)}>` });
+  assert.match(view.socLabel, /^<\d+> %$/);
+});
+
+test('viewFrom falls back to the page formatter, and to toLocaleString without one', () => {
+  const { core, window } = loadCore();
+  assert.match(core.viewFrom(evening).socLabel, /^62 %$/);
+  assert.match(core.viewFrom(evening).rows[2].value, /^12,8 kWh$/);
+  delete window.I18n;
+  assert.match(core.viewFrom(evening).rows[2].value, /^12[.,]8 kWh$/);
 });

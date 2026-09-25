@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
@@ -17,6 +18,7 @@ function load() {
   const context = dom.getInternalVMContext();
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  installI18n(dom.window);
   vm.runInContext(read('theme.js'), context);
   vm.runInContext(read('energy-model.js'), context);
   vm.runInContext(read('energy-presentation.js'), context);
