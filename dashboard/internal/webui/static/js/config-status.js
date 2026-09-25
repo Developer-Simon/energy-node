@@ -15,7 +15,15 @@
   };
 
   // error_code -> German text. Services fill in their codes (see battery_soc).
-  const ERROR_TEXTS = {};
+  const ERROR_TEXTS = {
+    // battery_soc (battery_soc_core.sources.validate_sources)
+    bank_a_voltage_required: 'Die Spannung von Bank A fehlt.',
+    bank_b_voltage_required: 'Zwei Bänke in Reihe brauchen auch die Spannung von Bank B.',
+    charge_source_required: 'Es fehlt eine Quelle für das Laden, AC oder DC.',
+    discharge_source_required: 'Es fehlt eine Quelle für das Entladen, AC oder DC.',
+    current_only_on_dc: 'Strom (A) ist nur auf den DC-Eingängen möglich.',
+    ac_source_in_dc_system: 'Eine reine DC-Anlage darf keine AC-Eingänge haben.',
+  };
 
   function classify(status, revision) {
     if (!status || !status.received || !revision || status.config_revision !== revision) return 'pending';

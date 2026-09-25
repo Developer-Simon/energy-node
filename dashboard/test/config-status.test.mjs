@@ -61,3 +61,12 @@ test('labels and error texts', () => {
   S.ERROR_TEXTS.demo_code = 'übersetzt';
   assert.equal(S.errorText({ error: 'roh', error_code: 'demo_code' }), 'übersetzt');
 });
+
+test('battery error codes have German texts', () => {
+  const S = load();
+  for (const code of ['bank_a_voltage_required', 'bank_b_voltage_required', 'charge_source_required',
+    'discharge_source_required', 'current_only_on_dc', 'ac_source_in_dc_system']) {
+    assert.ok(S.ERROR_TEXTS[code], code);
+    assert.doesNotMatch(S.ERROR_TEXTS[code], /;/, 'no semicolons in UI texts');
+  }
+});
