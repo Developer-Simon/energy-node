@@ -147,7 +147,7 @@
         if (sign === 1 && i === 0) continue;
         const y = baseline + sign * v * k;
         if (y < TOP - 1 || y > BOTTOM + 1) continue;
-        lines.push({y, label: (v / 1000).toFixed(1).replace('.', ','), strong: i === 0});
+        lines.push({y, label: window.I18n.formatNumber(v / 1000, 1), strong: i === 0});
       }
     }
     return lines;
@@ -215,8 +215,8 @@
       gridLinesMarkup: gridLinesMarkup(lines, width),
       supplyAreasMarkup: areasMarkup(supplyAreas),
       demandAreasMarkup: areasMarkup(demandAreas),
-      startLabel: new Date(series[0].timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
-      endLabel: new Date(last.timestamp).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'}),
+      startLabel: window.I18n.formatTime(series[0].timestamp, {hour: '2-digit', minute: '2-digit'}),
+      endLabel: window.I18n.formatTime(last.timestamp, {hour: '2-digit', minute: '2-digit'}),
       nowSupplyLabel, nowSupplyY, nowDemandLabel, nowDemandY,
       legend,
       description: `Verlauf über ${series.length} Messpunkte, Maximum ${model.formatPower(maxTotal)}, aktueller Wert ${model.formatPower(last.total)}.`,

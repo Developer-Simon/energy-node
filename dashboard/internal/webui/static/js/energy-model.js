@@ -53,19 +53,17 @@
     return hasValue(snapshot, 'grid') && grid < 0 ? Math.abs(grid) : 0;
   }
 
-  // "1.234 W" below 1000, "1,23 kW" from 1000 up - 1:1 with the prototype's
-  // fmt(w, unit). unit defaults to 'auto' (threshold at 1000 W); energy-
-  // band.js's "Einheit" option ('w'/'kw') can force one or the other.
+  // Watts below 1000, kilowatts with two decimals from 1000 up. unit forces 'w' or 'kw' (energy-band.js "Einheit"). Separators follow the number format setting via I18n.
   function formatPower(value, unit = 'auto') {
     const abs = Math.abs(value);
     const mode = unit === 'auto' ? (abs >= 1000 ? 'kw' : 'w') : unit;
-    if (mode === 'kw') return `${(value / 1000).toFixed(2).replace('.', ',')} kW`;
-    return `${Math.round(value).toLocaleString('de-DE')} W`;
+    if (mode === 'kw') return `${window.I18n.formatNumber(value / 1000, 2)} kW`;
+    return `${window.I18n.formatNumber(Math.round(value), 0)} W`;
   }
 
   function formatPercent(fraction) {
     const value = fraction * 100;
-    return `${value.toFixed(value < 10 ? 1 : 0).replace('.', ',')} %`;
+    return `${window.I18n.formatNumber(value, value < 10 ? 1 : 0)} %`;
   }
 
   // Card-local color palette. Die Werte kommen aus den Theme-Tokens in

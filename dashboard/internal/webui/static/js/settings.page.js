@@ -283,10 +283,11 @@
 
     formatBytes(bytes) {
       const value = Number(bytes) || 0;
-      if (value >= 1024 * 1024 * 1024) return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-      if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-      if (value >= 1024) return `${(value / 1024).toFixed(0)} kB`;
-      return `${value} B`;
+      const n = window.I18n.formatNumber;
+      if (value >= 1024 * 1024 * 1024) return `${n(value / (1024 * 1024 * 1024), 1)} GB`;
+      if (value >= 1024 * 1024) return `${n(value / (1024 * 1024), 1)} MB`;
+      if (value >= 1024) return `${n(value / 1024, 0)} kB`;
+      return `${n(value, 0)} B`;
     },
 
     get storageHealthBadgeClass() {
@@ -303,7 +304,7 @@
     },
 
     formatStorageHealthTime(value) {
-      return value ? new Date(value).toLocaleString() : '-';
+      return value ? window.I18n.formatDateTime(value) || '-' : '-';
     },
 
     formatStorageBytes(value) {
@@ -313,12 +314,12 @@
       let amount = bytes;
       let unit = 0;
       while (amount >= 1000 && unit < units.length - 1) { amount /= 1000; unit += 1; }
-      return `${amount.toFixed(unit > 1 ? 1 : 0)} ${units[unit]}`;
+      return `${window.I18n.formatNumber(amount, unit > 1 ? 1 : 0)} ${units[unit]}`;
     },
 
     formatStorageDays(value) {
       const days = Number(value);
-      return Number.isFinite(days) ? `${days.toFixed(1)} Tage` : '-';
+      return Number.isFinite(days) ? `${window.I18n.formatNumber(days, 1)} Tage` : '-';
     },
 
     get valid() {

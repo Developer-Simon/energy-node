@@ -257,7 +257,7 @@
     root.querySelectorAll('[data-local-timestamp]').forEach(node => {
       const timestamp = new Date(node.dateTime);
       if (Number.isNaN(timestamp.getTime())) return;
-      node.textContent = timestamp.toLocaleString();
+      node.textContent = window.I18n.formatDateTime(timestamp);
     });
   };
 
@@ -285,7 +285,7 @@
       const timestamp = timestampValueToMilliseconds(node.dataset.relativeTimestamp);
       if (timestamp === null) return;
       node.textContent = formatRelativeTimestamp(timestamp);
-      node.title = new Date(timestamp).toLocaleString();
+      node.title = window.I18n.formatDateTime(timestamp);
     });
   };
 
@@ -335,7 +335,7 @@
       return t('status.uptime.minutes', {minutes});
     },
 
-    formatTemp(v) { return (v === null || v === undefined) ? '-' : `${v.toFixed(1)} °C`; },
+    formatTemp(v) { return (v === null || v === undefined) ? '-' : `${window.I18n.formatNumber(v, 1)} °C`; },
     formatPct(v) { return (v === null || v === undefined) ? '-' : `${Math.round(v)} %`; },
 
     async load() {
@@ -741,8 +741,7 @@
 
     formatDetailTime(value) {
       if (!value) return '-';
-      const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+      return window.I18n.formatDateTime(value) || '-';
     },
 
     // Kurzform "vor Xs/min/h" fuer die Kurzinfo an den Modal-Trigger. now
@@ -1441,7 +1440,7 @@
     },
 
     get duplicateIDs() {
-      return Object.entries(this.discovery.duplicate_ids || {}).sort(([left], [right]) => left.localeCompare(right));
+      return Object.entries(this.discovery.duplicate_ids || {}).sort(([left], [right]) => window.I18n.compare(left, right));
     },
 
     get filteredHealthScores() {
@@ -1463,7 +1462,7 @@
       if (!value) return '-';
       const date = new Date(value);
       if (Number.isNaN(date.getTime()) || date.getUTCFullYear() <= 1) return '-';
-      return date.toLocaleString('de-DE');
+      return window.I18n.formatDateTime(date);
     },
 
     get filteredWarnings() {
@@ -1478,7 +1477,7 @@
         if (this.sortBy === 'severity') {
           comparison = (severityRank[left.severity] || 0) - (severityRank[right.severity] || 0);
         } else {
-          comparison = String(left[this.sortBy] || '').localeCompare(String(right[this.sortBy] || ''));
+          comparison = window.I18n.compare(left[this.sortBy] || '', right[this.sortBy] || '');
         }
         return this.sortDirection === 'asc' ? comparison : -comparison;
       });

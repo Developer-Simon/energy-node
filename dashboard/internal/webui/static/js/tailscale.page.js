@@ -175,7 +175,7 @@
     },
 
     formatTime(value) {
-      return value ? new Date(value).toLocaleString() : '-';
+      return value ? window.I18n.formatDateTime(value) || '-' : '-';
     },
 
     lastActionLabel() {

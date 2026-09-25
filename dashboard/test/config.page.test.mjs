@@ -10,6 +10,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 import { attachStores } from './helpers/notify-stores.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -29,6 +30,7 @@ function createConfigPanel() {
   const context = dom.getInternalVMContext();
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
+  installI18n(dom.window);
   vm.runInContext(schemaFormSource, context);
   vm.runInContext(configStatusSource, context);
   vm.runInContext(scriptSource, context);
@@ -515,8 +517,8 @@ test('battery form offers the measured cell voltage for both threshold fields (s
     assert.ok(block, `Messblock fehlt bei ${key}`);
     const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
     // 27.36 / 8 = 3.420 roh, 3.398 lastkorrigiert
-    assert.ok(labels.some(text => text.includes('roh 3.420')), labels.join(' | '));
-    assert.ok(labels.some(text => text.includes('lastkorrigiert 3.398')), labels.join(' | '));
+    assert.ok(labels.some(text => text.includes('roh 3,420')), labels.join(' | '));
+    assert.ok(labels.some(text => text.includes('lastkorrigiert 3,398')), labels.join(' | '));
   });
 });
 
@@ -532,8 +534,8 @@ test('battery form offers the measured cell voltage for the default parallel top
   assert.ok(block, 'Messblock fehlt');
   const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
   // 27.36 / 8 = 3.420 roh, 3.398 lastkorrigiert
-  assert.ok(labels.some(text => text.includes('roh 3.420')), labels.join(' | '));
-  assert.ok(labels.some(text => text.includes('lastkorrigiert 3.398')), labels.join(' | '));
+  assert.ok(labels.some(text => text.includes('roh 3,420')), labels.join(' | '));
+  assert.ok(labels.some(text => text.includes('lastkorrigiert 3,398')), labels.join(' | '));
 });
 
 test('applying a measured value writes it into the field and marks it as touched', () => {
@@ -544,7 +546,7 @@ test('applying a measured value writes it into the field and marks it as touched
   const fullField = node.querySelector('[data-schema-key="full_v_per_cell"]');
   const fullBlock = node.querySelector('.battery-tuning [data-threshold-key="full_v_per_cell"]');
   const applyCorrected = [...fullBlock.querySelectorAll('.battery-measure-apply')]
-    .find(button => button.textContent.includes('lastkorrigiert 3.398'));
+    .find(button => button.textContent.includes('lastkorrigiert 3,398'));
   applyCorrected.click();
 
   assert.equal(fullField.querySelector('.schema-control').value, '3.398');
@@ -566,7 +568,7 @@ test('measured value uses the cell count currently in the form, not the saved on
 
   const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
   // 27.36 / 16 = 1.710
-  assert.ok(labels.some(text => text.includes('roh 1.710')), labels.join(' | '));
+  assert.ok(labels.some(text => text.includes('roh 1,710')), labels.join(' | '));
 });
 
 test('battery form says so when no live values are available', () => {
