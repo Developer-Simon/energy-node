@@ -14,6 +14,32 @@ const livenessSlackSeconds = 60
 type serviceState struct {
 	online     bool
 	lastUpdate int64 // unix seconds aus settings/status
+	received   bool  // mindestens ein settings/status gesehen
+	status     statusPayload
+}
+
+// statusPayload ist der Teil von settings/status, den die
+// Konfigurationsseite nach dem Speichern auswertet.
+type statusPayload struct {
+	LastUpdate      *int64 `json:"last_update"`
+	RuntimeStatus   string `json:"runtime_status"`
+	Error           string `json:"error"`
+	ErrorCode       string `json:"error_code"`
+	ConfigRevision  string `json:"config_revision"`
+	AppliedRevision string `json:"applied_revision"`
+}
+
+// ServiceRuntimeStatus ist das Ergebnis des letzten Ladeversuchs eines
+// Dienstes, wie er es retained auf settings/status meldet.
+type ServiceRuntimeStatus struct {
+	ServiceID       string `json:"service_id"`
+	Received        bool   `json:"received"`
+	Online          bool   `json:"online"`
+	RuntimeStatus   string `json:"runtime_status"`
+	Error           string `json:"error"`
+	ErrorCode       string `json:"error_code"`
+	ConfigRevision  string `json:"config_revision"`
+	AppliedRevision string `json:"applied_revision"`
 }
 
 type liveness struct {
@@ -72,10 +98,13 @@ func (a *Agent) ObserveLiveness(topic string, payload []byte) {
 	case strings.HasSuffix(topic, "/status/online"):
 		st.online = strings.TrimSpace(string(payload)) == "1"
 	case strings.HasSuffix(topic, "/settings/status"):
-		var s struct {
-			LastUpdate *int64 `json:"last_update"`
+		var s statusPayload
+		if json.Unmarshal(payload, &s) != nil {
+			return
 		}
-		if json.Unmarshal(payload, &s) == nil && s.LastUpdate != nil {
+		st.received = true
+		st.status = s
+		if s.LastUpdate != nil {
 			st.lastUpdate = *s.LastUpdate
 		}
 	}
@@ -107,4 +136,22 @@ func (a *Agent) fresh(id string, st *serviceState, now time.Time) bool {
 	}
 	window += livenessSlackSeconds
 	return now.Unix()-st.lastUpdate <= int64(window)
+}
+
+func (a *Agent) ServiceStatus(id string) ServiceRuntimeStatus {
+	a.live.mu.RLock()
+	defer a.live.mu.RUnlock()
+	out := ServiceRuntimeStatus{ServiceID: id}
+	st := a.live.state[id]
+	if st == nil {
+		return out
+	}
+	out.Online = st.online
+	out.Received = st.received
+	out.RuntimeStatus = st.status.RuntimeStatus
+	out.Error = st.status.Error
+	out.ErrorCode = st.status.ErrorCode
+	out.ConfigRevision = st.status.ConfigRevision
+	out.AppliedRevision = st.status.AppliedRevision
+	return out
 }

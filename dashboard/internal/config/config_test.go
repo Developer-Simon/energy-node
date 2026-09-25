@@ -349,3 +349,37 @@ func TestAdditionalPropertiesStillWorksWithoutConditions(t *testing.T) {
 		t.Fatalf("got %v", err)
 	}
 }
+
+func TestSaveAndScanReportTheFileChecksum(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "x_devices.json"), []byte(`[]`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "x_devices.schema.json"), []byte(`{"type":"array"}`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	manager := NewManager(dir)
+	doc, err := manager.Save("x_devices", []byte(`[{"id":"a"}]`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := checksum([]byte(`[{"id":"a"}]`))
+	if doc.Checksum != want {
+		t.Fatalf("save checksum %q, want %q", doc.Checksum, want)
+	}
+	docs, err := manager.Scan()
+	if err != nil || len(docs) != 1 || docs[0].Checksum != want {
+		t.Fatalf("scan = %+v, %v", docs, err)
+	}
+}
+
+func TestServiceIDForConfig(t *testing.T) {
+	for name, want := range map[string]string{"battery_soc_devices": "battery_soc", "automation_rules": "automation", "shelly_devices": "shelly"} {
+		if got, ok := ServiceIDForConfig(name); !ok || got != want {
+			t.Errorf("%s = (%q, %v), want %q", name, got, ok, want)
+		}
+	}
+	if _, ok := ServiceIDForConfig("shelly_presets"); ok {
+		t.Error("shelly_presets is no service configuration")
+	}
+}

@@ -33,6 +33,7 @@ type Document struct {
 	SchemaPath    string    `json:"schema_path"`
 	RevisionCount int       `json:"revision_count"`
 	ModifiedAt    time.Time `json:"modified_at"`
+	Checksum      string    `json:"checksum"`
 	ReloadFailed  bool      `json:"reload_failed"`
 	ReloadError   string    `json:"reload_error,omitempty"`
 }
@@ -182,6 +183,9 @@ func (m *Manager) Scan() ([]Document, error) {
 			return nil, err
 		}
 		document := Document{Name: name, Label: displayName(name), Path: path, SchemaPath: schema, RevisionCount: len(revisions), ModifiedAt: info.ModTime()}
+		if data, readErr := os.ReadFile(path); readErr == nil {
+			document.Checksum = checksum(data)
+		}
 		m.applyReloadStateLocked(&document)
 		result = append(result, document)
 	}
@@ -280,6 +284,7 @@ func (m *Manager) Reload(name string) (Document, error) {
 	if err != nil {
 		return Document{}, err
 	}
+	doc.Checksum = checksum(data)
 	if err := Validate(data, doc.SchemaPath); err != nil {
 		return Document{}, err
 	}
@@ -326,6 +331,7 @@ func (m *Manager) Save(name string, data []byte) (Document, error) {
 	if err := AtomicWrite(doc.Path, data, 0640); err != nil {
 		return Document{}, err
 	}
+	doc.Checksum = checksum(data)
 	if m.reload != nil {
 		reloadErr := m.reload(name, data)
 		m.recordReloadLocked(name, reloadErr)
@@ -693,6 +699,21 @@ func AtomicWrite(path string, data []byte, mode os.FileMode) error {
 	}
 	return os.Rename(tmpName, path)
 }
+
+// ServiceIDForConfig maps a configuration document to the service that
+// loads it: automation_rules belongs to automation, every <x>_devices to <x>.
+// Other documents (presets and the like) belong to no service.
+func ServiceIDForConfig(name string) (string, bool) {
+	if name == "automation_rules" {
+		return "automation", true
+	}
+	const suffix = "_devices"
+	if !strings.HasSuffix(name, suffix) {
+		return "", false
+	}
+	return strings.TrimSuffix(name, suffix), true
+}
+
 func checksum(data []byte) string { sum := sha256.Sum256(data); return hex.EncodeToString(sum[:]) }
 func matchesType(value any, typ string) bool {
 	switch typ {

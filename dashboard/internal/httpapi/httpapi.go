@@ -292,7 +292,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	}
 	if configs != nil {
 		mux.HandleFunc("/api/v1/configurations", handleConfigurations(configs))
-		mux.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth))
+		mux.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth, dependencies.NodeAgent))
 		mux.HandleFunc("/api/v1/automations/test", handleAutomationTest(publisher, dependencies.Auth))
 		mux.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(configs))
 	}
@@ -1841,7 +1841,7 @@ func handleAutomationHistory(configs *config.Manager) http.HandlerFunc {
 	}
 }
 
-func handleConfiguration(manager *config.Manager, authManager *auth.Manager) http.HandlerFunc {
+func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nodeAgent *nodeagent.Agent) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimPrefix(r.URL.Path, "/api/v1/configurations/")
 		name = strings.TrimSuffix(name, "/")
@@ -1850,6 +1850,19 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager) htt
 			return
 		}
 		parts := strings.Split(name, "/")
+		if len(parts) == 2 && parts[1] == "status" {
+			if r.Method != http.MethodGet {
+				methodNotAllowed(w, http.MethodGet)
+				return
+			}
+			serviceID, ok := config.ServiceIDForConfig(parts[0])
+			if !ok || nodeAgent == nil {
+				writeError(w, http.StatusNotFound, "status_unavailable", "Für diese Konfiguration gibt es keinen Dienststatus")
+				return
+			}
+			writeJSON(w, nodeAgent.ServiceStatus(serviceID))
+			return
+		}
 		if len(parts) == 2 && parts[1] == "schema" && r.Method == http.MethodGet {
 			data, err := manager.ReadSchema(parts[0])
 			if err != nil {
