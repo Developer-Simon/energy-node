@@ -931,7 +931,7 @@ test('pollRuntimeStatus fragt die Konfigurationsstatus-Route', async () => {
   assert.equal(stores.toasts.items[0].message, 'übernommen');
 });
 
-// save() ruft am Ende pollRuntimeStatus(), das bis zu 10 s lang pollt.
+// save() ruft am Ende pollRuntimeStatus(), das bis zu 15 s lang pollt.
 // Deshalb liefert der Stub fuer /api/v1/configurations/automation_rules/status hier sofort ein
 // runtime_status: 'ok' - sonst laeuft der Test in den Deadline.
 test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', async () => {

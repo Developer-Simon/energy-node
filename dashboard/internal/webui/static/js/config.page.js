@@ -868,8 +868,10 @@
         this.$store.toasts.push(this.reloadFailed ? 'Konfiguration gespeichert.' : 'Konfiguration gespeichert, Dienst neu geladen.');
         const selected = this.selectedDocument();
         if (selected) selected.checksum = response.checksum;
-        this.watchRuntimeStatus(response.checksum);
         await this.loadConfig();
+        // Erst nach loadConfig(): dessen showRuntimeStatus() setzt den Status
+        // zurueck und wuerde "Ausstehend" sofort wieder loeschen.
+        this.watchRuntimeStatus(response.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
