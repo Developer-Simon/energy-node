@@ -49,7 +49,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=22">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=23">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -58,6 +58,7 @@
     window.dashboardPath = (p) => (typeof p === 'string' && p.startsWith('/') ? (window.__DASHBOARD_BASE_PATH__ || '') + p : p);
   </script>
   <script src="{{.BasePath}}/i18n/{{.Lang}}.js?v={{.CatalogVersion}}"></script>
+  <script src="{{.BasePath}}/static/js/i18n.js?v=1"></script>
 </head>
 <body x-data="dashboardShell()" x-init="initWidePanels()" data-wide-panels="{{.WidePanels}}">
   {{template "icon-sprite" .}}
@@ -66,26 +67,30 @@
       <h1>Energy Node Dashboard</h1>
       <a x-cloak x-show="available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-badge" x-bind:href="notesUrl" target="_blank" rel="noopener">
         <svg class="automation-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
-        <span x-text="'Update ' + latest + ' verfügbar'"></span>
+        <span x-text="$t('masthead.update_available', {version: latest})"></span>
       </a>
     </div>
-    <small>Discovery-getriebene Live-Ansicht und lokaler Gerätemanager</small>
+    <small>{{t "masthead.subtitle"}}</small>
+    <label class="lang-switch">
+      <span class="visually-hidden">{{t "language.label"}}</span>
+      <select data-lang-select>{{range .Languages}}<option value="{{.Code}}"{{if .Active}} selected{{end}}>{{.Name}}</option>{{end}}</select>
+    </label>
   </header>
   <div id="runtime-status" class="runtime-status" data-runtime-status-enabled="{{if .ShowRuntimeStatus}}true{{else}}false{{end}}" data-status-bar-items="{{.StatusBarItems}}" x-data="runtimeStatusPanel()" x-init="init()" x-cloak x-show="enabled" aria-live="polite" aria-atomic="true">
     <div class="runtime-status-summary">
-      <span class="runtime-status-label">Systemstatus</span>
+      <span class="runtime-status-label">{{t "status.title"}}</span>
       <span class="runtime-status-badge" x-bind:class="statusClass" x-text="statusLabel"></span>
     </div>
     <div class="runtime-status-details" x-show="status">
-      <span x-show="items.includes('mqtt')">MQTT: <strong x-text="status?.mqtt?.connected ? 'verbunden' : 'getrennt'"></strong></span>
-      <span x-show="items.includes('cache')">Cache: <strong x-text="status?.runtime_cache?.load_error || status?.runtime_cache?.write_error ? 'beeinträchtigt' : (status?.runtime_cache?.loaded ? 'geladen' : 'nicht geladen')"></strong></span>
-      <span x-show="items.includes('storage')">Storage: <strong x-text="status?.storage?.available ? 'verfügbar' : 'nicht verfügbar'"></strong></span>
+      <span x-show="items.includes('mqtt')">MQTT: <strong x-text="status?.mqtt?.connected ? $t('status.mqtt.connected') : $t('status.mqtt.disconnected')"></strong></span>
+      <span x-show="items.includes('cache')">Cache: <strong x-text="status?.runtime_cache?.load_error || status?.runtime_cache?.write_error ? $t('status.cache.impaired') : (status?.runtime_cache?.loaded ? $t('status.cache.loaded') : $t('status.cache.not_loaded'))"></strong></span>
+      <span x-show="items.includes('storage')">Storage: <strong x-text="status?.storage?.available ? $t('status.storage.available') : $t('status.storage.unavailable')"></strong></span>
       <span x-show="items.includes('uptime')">Uptime: <strong x-text="formatUptime(status?.uptime_seconds)"></strong></span>
       <span x-show="items.includes('version')">Version: <strong x-text="status?.version || '-'"></strong></span>
       <span x-show="items.includes('cpu_temp')">CPU: <strong x-text="formatTemp(status?.node?.telemetry?.cpu_temp_c)"></strong></span>
       <span x-show="items.includes('ram')">RAM: <strong x-text="formatPct(status?.node?.telemetry?.ram_used_pct)"></strong></span>
       <span x-show="items.includes('undervoltage')" x-bind:class="status?.node?.telemetry?.undervoltage_now ? 'runtime-status-degraded' : ''">
-        <strong x-text="status?.node?.telemetry?.undervoltage_now ? '⚠ Unterspannung' : 'Spannung ok'"></strong>
+        <strong x-text="status?.node?.telemetry?.undervoltage_now ? $t('status.undervoltage.now') : $t('status.undervoltage.ok')"></strong>
       </span>
     </div>
   </div>

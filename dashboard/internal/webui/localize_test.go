@@ -136,3 +136,58 @@ func TestLoginGuestOnlyHintFollowsTheLanguage(t *testing.T) {
 		t.Fatalf("guest-only hint is not English: %s", recorder.Body.String())
 	}
 }
+
+func renderOverviewWithLang(t *testing.T, lang string) string {
+	t.Helper()
+	request := httptest.NewRequest("GET", "/", nil)
+	if lang != "" {
+		request.AddCookie(&http.Cookie{Name: "lang", Value: lang})
+	}
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), nil, nil).ServeHTTP(recorder, request)
+	return recorder.Body.String()
+}
+
+func TestMastheadAndStatusBarFollowTheLanguage(t *testing.T) {
+	german := renderOverviewWithLang(t, "de")
+	for _, want := range []string{
+		"<small>Discovery-getriebene Live-Ansicht und lokaler Gerätemanager</small>",
+		`<span class="runtime-status-label">Systemstatus</span>`,
+		"$t('status.mqtt.connected')",
+		"$t('masthead.update_available', {version: latest})",
+	} {
+		if !strings.Contains(german, want) {
+			t.Errorf("German overview lacks %q", want)
+		}
+	}
+	english := renderOverviewWithLang(t, "en")
+	for _, want := range []string{
+		"<small>Discovery-driven live view and local device manager</small>",
+		`<span class="runtime-status-label">System status</span>`,
+	} {
+		if !strings.Contains(english, want) {
+			t.Errorf("English overview lacks %q", want)
+		}
+	}
+	for _, gone := range []string{"'verbunden'", "'nicht verfügbar'", "' verfügbar'", "'⚠ Unterspannung'"} {
+		if strings.Contains(german, gone) {
+			t.Errorf("overview still hard-codes %s in an Alpine expression", gone)
+		}
+	}
+}
+
+func TestOverviewOffersTheLanguageSwitcherAndRuntime(t *testing.T) {
+	body := renderOverviewWithLang(t, "en")
+	for _, want := range []string{
+		`<select data-lang-select>`,
+		`<option value="en" selected>English</option>`,
+		`<script src="/static/js/i18n.js?v=1"></script>`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("overview lacks %q", want)
+		}
+	}
+	if strings.Index(body, `/i18n/en.js`) > strings.Index(body, `static/js/i18n.js`) {
+		t.Error("the catalog script must load before i18n.js")
+	}
+}

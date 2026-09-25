@@ -1095,7 +1095,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=22"`,
+		`href="/node/static/css/base.css?v=23"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -1302,7 +1302,7 @@ func TestUpdateBadgeIconIsStyledAsSpriteIcon(t *testing.T) {
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	page := recorder.Body.String()
 	if !strings.Contains(page, `<svg class="automation-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
-        <span x-text="'Update '`) {
+        <span x-text="$t('masthead.update_available'`) {
 		t.Fatal("Das Icon der Update-Pille braucht class=\"automation-icon\" (fill:none, stroke:currentColor)")
 	}
 }
