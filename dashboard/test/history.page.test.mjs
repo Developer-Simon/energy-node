@@ -13,6 +13,7 @@ import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { IDBFactory as FDBFactory, IDBKeyRange as FDBKeyRange } from 'fake-indexeddb';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
@@ -25,9 +26,10 @@ const energyModelSource = read('energy-model.js');
 
 const HOUR = 3600 * 1000;
 
-function load({withEnergyModel = false} = {}) {
+function load({withEnergyModel = false, i18n = {}} = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div id="chart"></div></body></html>', {runScripts: 'outside-only', url: 'http://localhost/'});
   const context = dom.getInternalVMContext();
+  installI18n(dom.window, i18n);
   dom.window.indexedDB = new FDBFactory();
   dom.window.IDBKeyRange = FDBKeyRange;
   const charts = [];
@@ -849,4 +851,41 @@ test('eine Lieferung ohne Saetze erzeugt keine Notiz', async () => {
   }));
   assert.equal(component.exchangeNotice, '');
   dom.window.close();
+});
+
+// Builds the chart options for one series per row, with the real i18n
+// runtime installed in the given language and number format.
+async function chartOptionsWith(i18n, rows) {
+  const {dom, component} = panel({i18n});
+  const now = Date.now();
+  const names = rows.map((_, index) => `role:s${index}`);
+  await dom.window.HistoryStore.writeRaw(rows.map((row, index) => ({series: names[index], ts: now - HOUR, v: row.value, u: row.unit})));
+  await component.load();
+  component.selectedSeries = names;
+  const options = component.chartOptions;
+  // The formatters resolve the number style lazily from the document, so
+  // resolve it before the window goes away.
+  dom.window.I18n.numberStyle();
+  dom.window.close();
+  return options;
+}
+
+test('chart axis and tooltip follow the number format', async () => {
+  const options = await chartOptionsWith({lang: 'de', format: 'comma'}, [{unit: 'W', value: 12345.67}]);
+  assert.equal(options.yaxis.labels.formatter(12345), '12.345 W');
+  assert.equal(options.tooltip.y.formatter(1.25), '1,3 W');
+});
+
+test('chart uses a locale built from the UI language', async () => {
+  const options = await chartOptionsWith({lang: 'de'}, [{unit: 'W', value: 1}]);
+  assert.equal(options.chart.defaultLocale, 'de');
+  const locale = options.chart.locales.find(entry => entry.name === 'de');
+  assert.equal(locale.options.months[2], 'März');
+  assert.equal(locale.options.shortDays[0], 'So');
+  assert.equal(locale.options.toolbar.zoomIn, 'Vergrößern');
+});
+
+test('tooltip date follows the language', async () => {
+  const options = await chartOptionsWith({lang: 'en'}, [{unit: 'W', value: 1}]);
+  assert.match(options.tooltip.x.formatter(Date.UTC(2026, 8, 25, 12, 0, 0)), /^25\/09\/2026/);
 });
