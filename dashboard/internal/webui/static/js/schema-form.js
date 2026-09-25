@@ -7,6 +7,12 @@
   // voltage helpers, *_json_key linking) is injected through ctx.hooks; a
   // plain caller passes { hooks: {} } and gets object/array/primitive fields.
   //
+  // Supports JSON Schema 2020-12 if/then/else inside allOf: conditional fields
+  // exist only in branch schemas, are rendered once and hidden until their
+  // branch activates. readNode skips hidden fields, so they won't be saved
+  // unless reactivated. This keeps a typed value ready in case the operator
+  // switches back.
+  //
   //   ctx = {
   //     motionOK: () => boolean,                       // optional
   //     hooks: {                                       // every entry optional
@@ -66,6 +72,9 @@
     node.dataset.schemaType = schema.type || 'string';
     if (key) node.dataset.schemaKey = key;
     node.dataset.schemaRequired = required ? 'true' : 'false';
+    // The default a condition sees for a field left on it: saving omits the
+    // field, and the service then applies this very value.
+    if (schema.default !== undefined) node.dataset.schemaDefaultValue = JSON.stringify(schema.default);
     const defaulted = (value === undefined || value === null) && schema.default !== undefined;
     const locked = singleValueOf(schema);
     let displayedValue = defaulted ? schema.default : value;
@@ -154,6 +163,7 @@
           control.checked = false;
           node.dataset.booleanUnset = 'true';
           reset.hidden = true;
+          node.dispatchEvent(new Event('schema-reset', { bubbles: true }));
         });
         control.addEventListener('change', () => {
           node.dataset.booleanUnset = 'false';
@@ -176,6 +186,103 @@
     return node;
   }
 
+  // --- Conditional entries (JSON Schema 2020-12 if/then/else, allOf) -----
+  // A field that only exists in a then/else branch is rendered once and
+  // hidden while its branch does not apply. readNode() skips hidden fields,
+  // so they are not saved. Hiding instead of removing keeps a typed value
+  // until the next save, in case the operator switches back.
+
+  // Every then/else branch of an object schema, parents before children.
+  function conditionalBranches(schema) {
+    const branches = [];
+    const visit = (node, parent) => {
+      if (!node || typeof node !== 'object') return;
+      (node.allOf || []).forEach(entry => visit(entry, parent));
+      if (!node.if) return;
+      [[node.then, true], [node.else, false]].forEach(([target, when]) => {
+        if (!target) return;
+        const branch = { condition: node.if, when, parent, properties: target.properties || {} };
+        branches.push(branch);
+        visit(target, branch);
+      });
+    };
+    visit(schema, null);
+    return branches;
+  }
+
+  // Root properties plus every branch's properties (first declaration wins).
+  function allProperties(schema) {
+    const merged = { ...(schema.properties || {}) };
+    conditionalBranches(schema).forEach(branch => {
+      Object.entries(branch.properties).forEach(([key, child]) => {
+        if (!(key in merged)) merged[key] = child;
+      });
+    });
+    return merged;
+  }
+
+  // Decides a condition like the server validator for the subset the
+  // schemas use: required, const and enum. An absent value passes a
+  // property rule, as JSON Schema's properties keyword does.
+  function conditionHolds(condition, values) {
+    const present = key => values[key] !== undefined && values[key] !== '';
+    if ((condition.required || []).some(key => !present(key))) return false;
+    return Object.entries(condition.properties || {}).every(([key, rule]) => {
+      if (!present(key)) return true;
+      if (rule.const !== undefined) return values[key] === rule.const;
+      if (Array.isArray(rule.enum)) return rule.enum.includes(values[key]);
+      return true;
+    });
+  }
+
+  function branchActive(branch, values) {
+    if (branch.parent && !branchActive(branch.parent, values)) return false;
+    return conditionHolds(branch.condition, values) === branch.when;
+  }
+
+  // The field a branch depends on. Its conditional fields render behind it.
+  const anchorKey = condition =>
+    Object.keys(condition.properties || {})[0] || (condition.required || [])[0] || '';
+
+  // The direct field nodes of an object node, including the collapsed
+  // optional group.
+  function objectFields(node) {
+    const fields = [];
+    [...node.children].forEach(child => {
+      if (child.classList.contains('schema-node')) {
+        fields.push(child);
+      } else if (child.classList.contains('schema-optional-group')) {
+        fields.push(...[...child.querySelector('.schema-optional-fields').children]
+          .filter(entry => entry.classList.contains('schema-node')));
+      }
+    });
+    return fields;
+  }
+
+  // What a primitive field stands for right now, defaults included.
+  function currentValue(field) {
+    const type = field.dataset.schemaType;
+    if (type === 'object' || type === 'array') return undefined;
+    const control = field.querySelector('.schema-control');
+    if (!control) return undefined;
+    if (type === 'boolean') {
+      if (field.dataset.booleanUnset === 'true' && field.dataset.schemaDefaultValue !== undefined) {
+        return JSON.parse(field.dataset.schemaDefaultValue);
+      }
+      return control.checked;
+    }
+    if (control.value === '') return undefined;
+    if (type === 'integer' || type === 'number') return Number(control.value);
+    return control.value;
+  }
+
+  function applyConditions(objectNode, branches, conditional) {
+    const values = {};
+    objectFields(objectNode).forEach(field => { values[field.dataset.schemaKey] = currentValue(field); });
+    const active = branches.map(branch => branchActive(branch, values));
+    conditional.forEach((indices, field) => { field.hidden = !indices.some(index => active[index]); });
+  }
+
   function renderNode(ctx, schema, value, label, required = false, key = '') {
     schema = schema || { type: 'string' };
     const motionOK = ctx.motionOK || defaultMotionOK;
@@ -190,9 +297,30 @@
       const requiredFields = new Set(schema.required || []);
       const optionalFields = document.createElement('div');
       optionalFields.className = 'schema-optional-fields';
+      const rendered = new Map();
       Object.entries(schema.properties || {}).forEach(([propertyKey, childSchema]) => {
         const child = renderNode(ctx, childSchema, value && value[propertyKey], titleFor(childSchema, propertyKey), requiredFields.has(propertyKey), propertyKey);
+        rendered.set(propertyKey, child);
         if (requiredFields.has(propertyKey)) node.append(child); else optionalFields.append(child);
+      });
+      const branches = conditionalBranches(schema);
+      const conditional = new Map();
+      const lastBehind = new Map();
+      branches.forEach((branch, index) => {
+        Object.entries(branch.properties).forEach(([propertyKey, childSchema]) => {
+          if (schema.properties && propertyKey in schema.properties) return; // root fields always show
+          let child = rendered.get(propertyKey);
+          if (!child) {
+            child = renderNode(ctx, childSchema, value && value[propertyKey], titleFor(childSchema, propertyKey), false, propertyKey);
+            const anchor = anchorKey(branch.condition);
+            const behind = lastBehind.get(anchor) || rendered.get(anchor);
+            if (behind) behind.after(child); else optionalFields.append(child);
+            lastBehind.set(anchor, child);
+            rendered.set(propertyKey, child);
+          }
+          if (!conditional.has(child)) conditional.set(child, []);
+          conditional.get(child).push(index);
+        });
       });
       if (optionalFields.children.length) {
         const optionalGroup = document.createElement('details');
@@ -201,6 +329,11 @@
         summary.textContent = 'Optionale Eigenschaften';
         optionalGroup.append(summary, optionalFields);
         node.append(optionalGroup);
+      }
+      if (conditional.size) {
+        const refresh = () => applyConditions(node, branches, conditional);
+        ['change', 'input', 'schema-reset'].forEach(type => node.addEventListener(type, refresh));
+        refresh();
       }
       if (ctx.hooks && ctx.hooks.afterObject) ctx.hooks.afterObject(node, schema, value);
       return node;
@@ -271,18 +404,8 @@
     const type = node.dataset.schemaType;
     if (type === 'object') {
       const result = {};
-      const fields = [];
-      [...node.children].forEach(child => {
-        if (child.classList.contains('schema-node')) {
-          fields.push(child);
-        } else if (child.classList.contains('schema-optional-group')) {
-          // Optional properties render inside a collapsible <details> wrapper;
-          // their .schema-node elements are not direct children of `node` but
-          // must still be read and saved.
-          fields.push(...[...child.querySelector('.schema-optional-fields').children].filter(entry => entry.classList.contains('schema-node')));
-        }
-      });
-      fields.forEach(child => {
+      objectFields(node).forEach(child => {
+        if (child.hidden) return;
         const value = readNode(child);
         if (value !== undefined) result[child.dataset.schemaKey] = value;
       });
@@ -302,20 +425,20 @@
   }
 
   // Lists the dotted paths of keys present in `value` that the schema does
-  // not declare at an object with additionalProperties:false. The form would
-  // silently drop those on save, so the caller can fall back to a raw editor
-  // instead of quietly rewriting the file.
+  // not declare at an object with additionalProperties or unevaluatedProperties
+  // set to false. The form would silently drop those on save, so the caller can
+  // fall back to a raw editor instead of quietly rewriting the file.
   function findUnknownKeys(schema, value, path = '') {
     if (!schema || value === null || typeof value !== 'object') return [];
     const found = [];
     if (schema.type === 'object' && !Array.isArray(value)) {
-      const known = new Set(Object.keys(schema.properties || {}));
-      if (schema.additionalProperties === false) {
+      const known = new Set(Object.keys(allProperties(schema)));
+      if (schema.additionalProperties === false || schema.unevaluatedProperties === false) {
         Object.keys(value).forEach(childKey => {
           if (!known.has(childKey)) found.push(path ? `${path}.${childKey}` : childKey);
         });
       }
-      Object.entries(schema.properties || {}).forEach(([childKey, childSchema]) => {
+      Object.entries(allProperties(schema)).forEach(([childKey, childSchema]) => {
         if (value[childKey] !== undefined) {
           found.push(...findUnknownKeys(childSchema, value[childKey], path ? `${path}.${childKey}` : childKey));
         }
@@ -337,5 +460,8 @@
     titleFor,
     singleValueOf,
     findUnknownKeys,
+    conditionalBranches,
+    conditionHolds,
+    allProperties,
   };
 })();
