@@ -1704,3 +1704,48 @@ func TestSchemaKenntDenSprachwaehlerSchalter(t *testing.T) {
 		t.Fatal("language_switch_hidden fehlt in required")
 	}
 }
+
+func TestStoreDefaultsNumberFormatToAuto(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"health_score_threshold":3,"sweep_interval_seconds":300,"show_runtime_status":true,"device_view_mode":"control","theme":"mint"}`
+	if err := os.WriteFile(dir+"/settings.json", []byte(legacy), 0600); err != nil {
+		t.Fatal(err)
+	}
+	value, err := NewStore(dir).LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.NumberFormat != "auto" || value.NumberGrouping != "match" {
+		t.Fatalf("number format = %q/%q, want auto/match", value.NumberFormat, value.NumberGrouping)
+	}
+}
+
+func TestStorePersistsNumberFormat(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := Default()
+	value.NumberFormat = "comma"
+	value.NumberGrouping = "thin"
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := NewStore(store.dir).LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.NumberFormat != "comma" || loaded.NumberGrouping != "thin" {
+		t.Fatalf("number format = %q/%q, want comma/thin", loaded.NumberFormat, loaded.NumberGrouping)
+	}
+}
+
+func TestStoreRejectsUnknownNumberFormat(t *testing.T) {
+	for _, mutate := range []func(*Settings){
+		func(s *Settings) { s.NumberFormat = "de" },
+		func(s *Settings) { s.NumberGrouping = "space" },
+	} {
+		value := Default()
+		mutate(&value)
+		if err := NewStore(t.TempDir()).SaveSettings(value); err == nil {
+			t.Fatalf("accepted %q/%q", value.NumberFormat, value.NumberGrouping)
+		}
+	}
+}
