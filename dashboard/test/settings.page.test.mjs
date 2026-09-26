@@ -68,6 +68,7 @@ const settingsResponse = (overrides = {}) => ({
   show_runtime_status: true, device_view_mode: 'compact', theme: 'mint',
   show_config_entities_on_tile: false, show_diagnostic_entities_on_tile: false,
   live_update_interval_seconds: 3, wide_panels: [], status_bar_items: [],
+  number_format: 'auto', number_grouping: 'match',
   ...overrides,
 });
 
@@ -198,4 +199,53 @@ test('payload() reports widePanels/statusBarItems unchanged', () => {
   const payload = component.payload();
   assert.deepEqual(plain(payload.wide_panels), ['config', 'energy']);
   assert.deepEqual(plain(payload.status_bar_items), ['storage', 'uptime']);
+});
+
+test('load() and payload() carry the number format', async () => {
+  const { component, window } = createSettingsPanel();
+  window.fetch = stubbedLoadFetch({ number_format: 'comma', number_grouping: 'thin' });
+  await component.load();
+  assert.equal(component.numberFormat, 'comma');
+  assert.equal(component.numberGrouping, 'thin');
+  const payload = component.payload();
+  assert.equal(payload.number_format, 'comma');
+  assert.equal(payload.number_grouping, 'thin');
+});
+
+test('load() falls back to auto/match for unknown values', async () => {
+  const { component, window } = createSettingsPanel();
+  window.fetch = stubbedLoadFetch({ number_format: 'xx', number_grouping: undefined });
+  await component.load();
+  assert.equal(component.numberFormat, 'auto');
+  assert.equal(component.numberGrouping, 'match');
+});
+
+test('save() reloads the page only when the number format changed', async () => {
+  const { component, window } = createSettingsPanel();
+  window.fetch = stubbedLoadFetch({});
+  await component.load();
+  let reloads = 0;
+  component.reloadPage = () => { reloads += 1; };
+  window.fetch = async () => jsonResponse({});
+  await component.save();
+  assert.equal(reloads, 0);
+  component.numberFormat = 'point';
+  await component.save();
+  assert.equal(reloads, 1);
+});
+
+test('save() reloads only once when language and number format change together', async () => {
+  const { component, window } = createSettingsPanel();
+  window.fetch = stubbedLoadFetch({});
+  await component.load();
+  let reloads = 0;
+  let languageSwitches = 0;
+  window.I18n = { lang: 'de', setLanguage: () => { languageSwitches += 1; } };
+  component.reloadPage = () => { reloads += 1; };
+  window.fetch = async () => jsonResponse({});
+  component.uiLanguage = 'en';
+  component.numberFormat = 'point';
+  await component.save();
+  assert.equal(languageSwitches, 1);
+  assert.equal(reloads, 0);
 });

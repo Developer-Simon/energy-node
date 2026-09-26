@@ -168,14 +168,14 @@
 }
 
 /* --- Segmented Control ----------------------------------------------------
-   Zwei oder vier feste Optionen (.segmented--4 fuer vier). Der Thumb gleitet
+   Zwei, drei oder vier feste Optionen (.segmented--3/--4). Der Thumb gleitet
    in X mit Apples iOS-Drawer-Kurve (--layout-ease); die translateX-Schritte
    sind Prozent der Thumb-eigenen Breite, nicht der Kartenbreite - dieselbe
    Regel gilt also unabhaengig davon, ob der Thumb 50% oder 25% breit ist.
    Position rein per :has() ueber die Reihenfolge der Optionen, nicht ueber
    deren value - so tragen Verlaufs-Aufbewahrung (Zeit/Speicher),
-   Standardansicht (Kompakt/Steuerung) und Farbschema (vier Themes) dieselbe
-   Regel. */
+   Standardansicht (Kompakt/Steuerung), Zahlenformat (drei Optionen) und
+   Farbschema (vier Themes) dieselbe Regel. */
 .segmented {
   position: relative;
   display: grid;
@@ -187,6 +187,7 @@
   background: var(--sunken);
   isolation: isolate;
 }
+.segmented--3 { grid-template-columns: repeat(3, 1fr); }
 .segmented--4 { grid-template-columns: repeat(4, 1fr); }
 .segmented-thumb {
   position: absolute;
@@ -200,6 +201,7 @@
   background: var(--accent-bg);
   transition: transform .35s var(--layout-ease);
 }
+.segmented--3 .segmented-thumb { width: calc(33.333% - 2px); }
 .segmented--4 .segmented-thumb { width: calc(25% - 3px); }
 .segmented:has(.segmented-option:nth-of-type(2) input:checked) .segmented-thumb { transform: translateX(100%); }
 .segmented:has(.segmented-option:nth-of-type(3) input:checked) .segmented-thumb { transform: translateX(200%); }

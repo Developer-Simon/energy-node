@@ -34,6 +34,9 @@
     showRuntimeStatus: true,
     deviceViewMode: 'compact',
     theme: 'mint',
+    numberFormat: 'auto',
+    numberGrouping: 'match',
+    loadedNumberFormat: 'auto|match',
     showConfigEntitiesOnTile: false,
     showDiagnosticEntitiesOnTile: false,
     liveUpdateIntervalSeconds: 3,
@@ -103,6 +106,9 @@
         this.showRuntimeStatus = value.show_runtime_status !== false;
         this.deviceViewMode = value.device_view_mode === 'control' ? 'control' : 'compact';
         this.theme = ['mint', 'stromblau', 'signalgelb', 'tageslicht'].includes(value.theme) ? value.theme : 'mint';
+        this.numberFormat = ['auto', 'comma', 'point'].includes(value.number_format) ? value.number_format : 'auto';
+        this.numberGrouping = ['match', 'thin'].includes(value.number_grouping) ? value.number_grouping : 'match';
+        this.loadedNumberFormat = `${this.numberFormat}|${this.numberGrouping}`;
         this.showConfigEntitiesOnTile = Boolean(value.show_config_entities_on_tile);
         this.showDiagnosticEntitiesOnTile = Boolean(value.show_diagnostic_entities_on_tile);
         this.liveUpdateIntervalSeconds = value.live_update_interval_seconds || 3;
@@ -336,6 +342,8 @@
         show_runtime_status: Boolean(this.showRuntimeStatus),
         device_view_mode: this.deviceViewMode,
         theme: this.theme,
+        number_format: this.numberFormat,
+        number_grouping: this.numberGrouping,
         show_config_entities_on_tile: Boolean(this.showConfigEntitiesOnTile),
         show_diagnostic_entities_on_tile: Boolean(this.showDiagnosticEntitiesOnTile),
         live_update_interval_seconds: Number(this.liveUpdateIntervalSeconds),
@@ -353,6 +361,11 @@
         update_check_disabled: Boolean(this.updateCheckDisabled),
         language_switch_hidden: Boolean(this.languageSwitchHidden),
       };
+    },
+
+    // Kept as a method so tests can replace it, jsdom cannot reload.
+    reloadPage() {
+      window.location.reload();
     },
 
     revisionConfig() {
@@ -401,6 +414,10 @@
         // ungespeicherte Aenderungen gingen sonst verloren.
         if (window.I18n && this.uiLanguage !== window.I18n.lang) {
           window.I18n.setLanguage(this.uiLanguage);
+        } else if (`${this.numberFormat}|${this.numberGrouping}` !== this.loadedNumberFormat) {
+          // Numbers are rendered by the server and by many scripts, a reload
+          // applies a new format everywhere at once (like a language switch).
+          this.reloadPage();
         }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');

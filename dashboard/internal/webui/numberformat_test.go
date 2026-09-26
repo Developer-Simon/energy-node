@@ -89,3 +89,16 @@ func TestHistoryPanelLoadsTheFlatpickrLocaleOfTheLanguage(t *testing.T) {
 		t.Fatal("English page loads a flatpickr locale although flatpickr's default is English")
 	}
 }
+
+func TestSettingsPageOffersTheNumberFormat(t *testing.T) {
+	var out bytes.Buffer
+	if err := overviewSets.get("en").ExecuteTemplate(&out, "settings", map[string]any{"InstalledServices": map[string]bool{}}); err != nil {
+		t.Fatal(err)
+	}
+	body := out.String()
+	for _, want := range []string{`name="number-format" value="auto"`, `name="number-format" value="comma"`, `name="number-format" value="point"`, `name="number-grouping" value="thin"`, "Number format", "Digit grouping"} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("settings page lacks %s", want)
+		}
+	}
+}
