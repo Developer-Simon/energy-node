@@ -9,12 +9,14 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n, catalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'entity-values.js'), 'utf8');
 
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  installI18n(dom.window);
   vm.runInContext(source, dom.getInternalVMContext());
   return dom.window;
 }
@@ -39,8 +41,11 @@ test('merge macht aus undefined ein vollstaendiges Unbekannt', () => {
 
 test('statusMessage meldet pending und timeout, sonst nichts', () => {
   const { entityValues } = load();
-  assert.equal(entityValues.statusMessage(entityValues.merge({ pending: true })), entityValues.PENDING_MESSAGE);
-  assert.equal(entityValues.statusMessage(entityValues.merge({ last_command_result: 'timeout' })), entityValues.TIMEOUT_MESSAGE);
+  const de = catalog('de');
+  const pendingMsg = de['entity.command_status.awaiting'];
+  const timeoutMsg = de['entity.timeout'];
+  assert.equal(entityValues.statusMessage(entityValues.merge({ pending: true })), pendingMsg);
+  assert.equal(entityValues.statusMessage(entityValues.merge({ last_command_result: 'timeout' })), timeoutMsg);
   assert.equal(entityValues.statusMessage(entityValues.merge({ last_command_result: 'success' })), '');
 });
 

@@ -4,7 +4,6 @@ static/js/automations.page.js
 static/js/battery-card-core.js
 static/js/config-status.js
 static/js/config.page.js
-static/js/device-tile.js
 static/js/devicemap.page.js
 static/js/energy-band.js
 static/js/energy-board.js
@@ -16,7 +15,6 @@ static/js/energy-ring.js
 static/js/energy-schema.js
 static/js/energy-status.js
 static/js/energy.page.js
-static/js/entity-values.js
 static/js/history-exchange.js
 static/js/history-export.js
 static/js/history-recorder.js
@@ -24,7 +22,6 @@ static/js/history-store.js
 static/js/history.js
 static/js/layout-editor.js
 static/js/mqtt.page.js
-static/js/overview-values.js
 static/js/overview.page.js
 static/js/revisions.js
 static/js/schema-form.js

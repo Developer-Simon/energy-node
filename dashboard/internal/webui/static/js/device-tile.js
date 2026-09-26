@@ -1,11 +1,13 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || 'Anfrage fehlgeschlagen');
+    if (!response.ok) throw new Error(body.message || t('entity.request_failed'));
     return body;
   };
 
@@ -21,8 +23,9 @@
       const originalTitle = control.title;
       control.disabled = true;
       control.setAttribute('aria-busy', 'true');
-      control.title = 'Befehl wird gesendet ...';
-      this.commandStates[entityID] = 'Befehl wird gesendet ...';
+      const sendingMessage = t('entity.sending');
+      control.title = sendingMessage;
+      this.commandStates[entityID] = sendingMessage;
       let pending = false;
       try {
         const options = {method: 'POST'};
@@ -43,12 +46,12 @@
         // optimistic value is applied here.
         const result = await requestJSON(`/api/v1/entities/${encodeURIComponent(entityID)}/command`, options);
         pending = true;
-        control.title = 'Warte auf Bestätigung ...';
+        control.title = t('entity.awaiting_confirmation');
         this.commandStates[entityID] = '';
         this.schedulePendingTimeout(control, entityID, result.pending_deadline, originalTitle);
       } catch (error) {
         control.title = error.message;
-        this.commandStates[entityID] = `Fehler: ${error.message}`;
+        this.commandStates[entityID] = `${t('entity.error_prefix')}${error.message}`;
       } finally {
         if (!pending) {
           control.disabled = false;
@@ -76,7 +79,7 @@
         control.disabled = false;
         control.removeAttribute('aria-busy');
         control.title = originalTitle;
-        this.commandStates[entityID] = 'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.';
+        this.commandStates[entityID] = t('entity.timeout');
       }, delay);
     },
 
@@ -93,8 +96,8 @@
     commandStatusText(entity) {
       const explicit = this.commandStates[entity.unique_id];
       if (explicit) return explicit;
-      if (entity.pending) return 'Warte auf Bestätigung über MQTT ...';
-      if (entity.last_command_result === 'timeout') return 'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.';
+      if (entity.pending) return t('entity.command_status.awaiting');
+      if (entity.last_command_result === 'timeout') return t('entity.timeout');
       return '';
     },
   });
