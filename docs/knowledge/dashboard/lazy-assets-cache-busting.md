@@ -213,7 +213,10 @@ overrides a property the draft sets.
    table above) in **all** references at once.
 3. Add a row to the [change history](#change-history) table below: the
    `dashboard/VERSION` triple, the files touched, their new `?v=` values (same
-   order across both columns), and the date.
+   order across both columns), and the date. One row per version: if the
+   version already has a row, extend it (latest value per file, date range)
+   instead of adding a second one. Take the version CI bumped the branch to,
+   not the one on `main`.
 4. Bring the current-version-state section above up to date.
 5. `cd dashboard && go test ./...` and `npm test` — the template tests in
    [webui_test.go](../../../dashboard/internal/webui/webui_test.go) check some
@@ -235,12 +238,10 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.7.14 | `js/i18n.js` (base + login) · `js/dashboard.js` · `js/overview-values.js` · `js/device-tile-values.js` · `js/compact-card-values.js` · `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/battery-status.js` · `js/energy-day.js` · `js/history.js` · `js/config.page.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/automations.page.js` · `css/settings-controls.css` | `2` · `17` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `3` · `2` · `1` (was unversioned) · `10` · `4` · `9` · `4` · `2` · `4` · `7` | 2026-09-26 |
+| v0.7.15 | `js/i18n.js` (base + login) · `js/dashboard.js` · `js/overview-values.js` · `js/device-tile-values.js` · `js/compact-card-values.js` · `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/battery-status.js` · `js/energy-day.js` · `js/history.js` · `js/config.page.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/automations.page.js` · `css/settings-controls.css` | `2` · `17` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `3` · `2` · `1` (was unversioned) · `10` · `4` · `9` · `4` · `2` · `4` · `7` | 2026-09-26 |
 | v0.7.14 | `css/base.css` · `js/dashboard.js` · `js/i18n.js` · `js/settings.page.js` | `23` · `16` · `1` (new) · `8` | 2026-09-25 |
 | v0.7.13 | `css/manager.css` (5 panels) · `js/schema-form.js` (config + settings panels) · `js/config-status.js` (config + automations panels) · `js/config.page.js` · `js/automations.page.js` | `23` · `1` (was unversioned) · `2` (new) · `3` · `3` | 2026-09-25 |
-| v0.7.0 | `css/base.css` · `js/dashboard.js` | `22` · `15` | 2026-09-22 |
-| v0.7.0 | `css/manager.css` (5 panels) | `22` | 2026-09-16 |
-| v0.7.0 | `css/base.css` · `css/manager.css` (5 panels) | `21` · `21` | 2026-09-16 |
+| v0.7.0 | `css/base.css` · `css/manager.css` (5 panels) · `js/dashboard.js` | `22` · `22` · `15` | 2026-09-16 – 2026-09-22 |
 | v0.6.7 | `css/base.css` · `js/dashboard.js` · `js/settings.page.js` | `20` · `14` · `7` | 2026-09-16 |
 | v0.6.2 | `css/choices.css` (settings-panel + overview editor assets) · `css/settings-controls.css` | `2` · `1` (was unversioned) · `3` | 2026-09-11 |
 | v0.6.0 | `js/mqtt.page.js` · `js/dashboard.js` · `js/settings.page.js` · `js/energy.page.js` · `css/manager.css` (5 panels) | `2` · `13` · `6` · `2` · `19` | 2026-09-10 |
@@ -263,12 +264,17 @@ recomputable.
 | v0.3.15 | `css/base.css` · `css/manager.css` (5 panels) | `13` · `10` | 2026-09-03 |
 | v0.3.14 | baseline — `base.html` state at commit `d6cc3e0`, no bump | — | 2026-09-02 |
 
-The **2026-09-26** row is `feat/dashboard-localization-formats`, the number
+The **v0.7.15** row is `feat/dashboard-localization-formats`, the number
 format setting and locale-aware dates (localization A2): every script that
 formatted numbers, dates or sort order itself now goes through `I18n`,
 `settings-controls.css` gains the three-option `.segmented--3` for the number
 format picker. `energy-day.js` and `battery-status.js` carry their `?v=` in
 `energyCardScripts` in `webui.go`, not in `base.html`.
+
+The **v0.7.0** row merges three bumps that landed under the same version:
+`base.css` and `manager.css` went to `21` on 2026-09-16, `manager.css` to
+`22` later that day, `base.css` to `22` together with `dashboard.js` `15` on
+2026-09-22.
 
 The **v0.6.2** row: `choices.css` gets `box-sizing: border-box` on
 `.choices`/`.choices__inner`/`.choices__list--dropdown`/`.choices__input` —
