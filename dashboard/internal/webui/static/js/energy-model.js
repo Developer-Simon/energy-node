@@ -10,6 +10,8 @@
 // it ports the prototype's derive() from the six-proposals exploration into
 // a shape driven by a real energy.Snapshot instead of slider state.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   function roleValue(snapshot, role) {
     return (snapshot && snapshot.values && snapshot.values[role]) || 0;
   }
@@ -90,21 +92,38 @@
     });
   }
 
-  const LABELS = {
-    pv: 'PV',
-    gridImport: 'Netzbezug',
-    gridExport: 'Einspeisung',
-    batteryCharge: 'Batterie lädt',
-    batteryDischarge: 'Batterie entlädt',
-    base: 'Übriger Verbrauch',
-    baseCalculated: 'Übriger Verbrauch (berechnet)',
-    wallbox: 'Wallbox',
-    heatPump: 'Wärmepumpe',
-    loadMeasured: 'Gemessene Verbraucher',
-    loadMeasuredRest: 'Gemessene Verbraucher (Rest)',
-    rest: 'Nicht zugeordnet',
-    unknownGeneration: 'Unbekannte Erzeugung',
+  // Role labels are looked up lazily (getters, like COLORS above): the same
+  // balance is recomposed on every paint, and the active language can change
+  // between two paints (language switcher), so a value cached at module load
+  // would go stale.
+  // i18n-keys: energy.role.grid_import, energy.role.grid_export,
+  // energy.role.battery_charge, energy.role.battery_discharge,
+  // energy.role.base, energy.role.base_calculated, energy.role.wallbox,
+  // energy.role.heat_pump, energy.role.load_measured,
+  // energy.role.load_measured_rest, energy.role.unassigned,
+  // energy.role.unknown_generation
+  const LABEL_KEYS = {
+    gridImport: 'energy.role.grid_import',
+    gridExport: 'energy.role.grid_export',
+    batteryCharge: 'energy.role.battery_charge',
+    batteryDischarge: 'energy.role.battery_discharge',
+    base: 'energy.role.base',
+    baseCalculated: 'energy.role.base_calculated',
+    wallbox: 'energy.role.wallbox',
+    heatPump: 'energy.role.heat_pump',
+    loadMeasured: 'energy.role.load_measured',
+    loadMeasuredRest: 'energy.role.load_measured_rest',
+    rest: 'energy.role.unassigned',
+    unknownGeneration: 'energy.role.unknown_generation',
   };
+
+  const LABELS = {pv: 'PV'}; // PV is a technical abbreviation, not translated (E1).
+  for (const key of Object.keys(LABEL_KEYS)) {
+    Object.defineProperty(LABELS, key, {
+      enumerable: true,
+      get: () => t(LABEL_KEYS[key]),
+    });
+  }
 
   // Farben der Einzelpositionen bei measured_split "entities". Die
   // series-Tokens statt der flow-Tokens: die gemessenen Teilverbraucher sind

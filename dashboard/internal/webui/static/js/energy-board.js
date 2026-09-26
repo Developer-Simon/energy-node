@@ -9,6 +9,8 @@
 // (the role:<role> pseudo-entities history-recorder.js now also records),
 // not the prototype's synthetic noise profile.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const SPARK_WINDOW_MS = {15: 15 * 60 * 1000, 60: 60 * 60 * 1000};
 
   // Modul-Ebene, nicht je Instanz - dieselbe Begruendung wie energy-day.js:
@@ -42,37 +44,38 @@
     const pv = model.roleValue(snapshot, 'pv');
     const batteryNet = balance.charge - balance.discharge;
     const batteryValue = Math.abs(batteryNet);
-    const batteryDir = batteryNet > 0.5 ? 'Laden' : batteryNet < -0.5 ? 'Entladen' : 'Ruhe';
+    const battery_dir_rest = t('energy.board.dir_rest');
+    const batteryDir = batteryNet > 0.5 ? t('energy.board.dir.charging') : batteryNet < -0.5 ? t('energy.board.dir.discharging') : battery_dir_rest;
     const gridNet = balance.gridImport - balance.gridExport;
-    const gridDir = balance.gridImport > 0.5 ? 'Bezug' : balance.gridExport > 0.5 ? 'Einspeisung' : 'Ruhe';
+    const gridDir = balance.gridImport > 0.5 ? t('energy.board.dir.import') : balance.gridExport > 0.5 ? t('energy.board.dir.export') : battery_dir_rest;
     const wallbox = model.roleValue(snapshot, 'wallbox');
     const heatPump = model.roleValue(snapshot, 'heat_pump');
 
     const rows = [
-      {id: 'pv', label: 'PV', value: pv, color: model.COLORS.pv, dir: pv > 0.5 ? 'Erzeugung' : '—'},
-      {id: 'battery', label: 'Batterie', value: batteryValue, color: model.COLORS.batteryCharge, dir: batteryDir},
-      {id: 'grid', label: 'Netz', value: Math.abs(gridNet), color: model.COLORS.gridImport, dir: gridDir},
-      {id: 'load', label: balance.loadSource === 'calculated' || balance.loadSource === 'combined' ? 'Hausverbrauch (berechnet)' : 'Hausverbrauch',
-        value: balance.load, color: model.COLORS.base, dir: 'Verbrauch'},
+      {id: 'pv', label: 'PV', value: pv, color: model.COLORS.pv, dir: pv > 0.5 ? t('energy.board.dir.generation') : '—'},
+      {id: 'battery', label: t('energy.board.row.battery'), value: batteryValue, color: model.COLORS.batteryCharge, dir: batteryDir},
+      {id: 'grid', label: t('energy.board.row.grid'), value: Math.abs(gridNet), color: model.COLORS.gridImport, dir: gridDir},
+      {id: 'load', label: balance.loadSource === 'calculated' || balance.loadSource === 'combined' ? t('energy.role.consumption_calculated') : t('energy.role.consumption'),
+        value: balance.load, color: model.COLORS.base, dir: t('energy.board.dir.consumption')},
       // Die gemessenen Teilverbraucher stehen unter dem Hausverbrauch, nicht
       // daneben: sie sind ein Teil von ihm, kein weiterer Summand. Alle
       // beziehen ihre Frische aus der Rolle "load", aus der sie stammen.
       ...balance.measuredFlows.map(flow => ({
         id: flow.id, label: flow.label, value: flow.value, color: flow.color,
-        dir: 'Gemessen', staleRole: 'load',
+        dir: t('energy.measured_label'), staleRole: 'load',
       })),
-      {id: 'wallbox', label: 'Wallbox', value: wallbox, color: model.COLORS.wallbox, dir: wallbox > 0.5 ? 'Lädt' : 'Ruhe'},
-      {id: 'heat_pump', label: 'Wärmepumpe', value: heatPump, color: model.COLORS.heatPump, dir: heatPump > 0.5 ? 'Verbrauch' : 'Ruhe'},
+      {id: 'wallbox', label: t('energy.role.wallbox'), value: wallbox, color: model.COLORS.wallbox, dir: wallbox > 0.5 ? t('energy.board.dir.wallbox_charging') : battery_dir_rest},
+      {id: 'heat_pump', label: t('energy.role.heat_pump'), value: heatPump, color: model.COLORS.heatPump, dir: heatPump > 0.5 ? t('energy.board.dir.consumption') : battery_dir_rest},
     ];
     if (balance.unbalanced) {
       rows.push({
-        id: 'rest', label: 'Nicht zugeordnet', value: Math.abs(balance.gap), color: model.COLORS.rest,
-        dir: balance.gap > 0 ? 'Fehlt rechts' : 'Fehlt links', quality: 'gap',
+        id: 'rest', label: t('energy.role.unassigned'), value: Math.abs(balance.gap), color: model.COLORS.rest,
+        dir: balance.gap > 0 ? t('energy.board.dir.missing_right') : t('energy.board.dir.missing_left'), quality: 'gap',
       });
     } else if (Math.abs(balance.gapAbsorbed) > 0.5) {
       rows.push({
-        id: 'rest', label: 'Nicht zugeordnet (eingerechnet)', value: Math.abs(balance.gapAbsorbed), color: model.COLORS.rest,
-        dir: balance.gapAbsorbed > 0 ? 'Im Hausverbrauch' : 'Unbekannte Erzeugung', quality: 'gap-absorbed',
+        id: 'rest', label: t('energy.board.rest_absorbed_label'), value: Math.abs(balance.gapAbsorbed), color: model.COLORS.rest,
+        dir: balance.gapAbsorbed > 0 ? t('energy.board.dir.absorbed_in_consumption') : t('energy.role.unknown_generation'), quality: 'gap-absorbed',
       });
     }
     for (const row of rows) {
@@ -250,10 +253,10 @@
     },
 
     freshLabel(row) {
-      if (row.fresh === 'gap') return 'Bilanzlücke';
-      if (row.fresh === 'gap-absorbed') return 'eingerechnet';
-      if (row.fresh === 'stale') return 'veraltet';
-      return 'aktuell';
+      if (row.fresh === 'gap') return t('energy.board.fresh.gap');
+      if (row.fresh === 'gap-absorbed') return t('energy.board.fresh.gap_absorbed');
+      if (row.fresh === 'stale') return t('energy.board.fresh.stale');
+      return t('energy.board.fresh.fresh');
     },
 
     format(value) {

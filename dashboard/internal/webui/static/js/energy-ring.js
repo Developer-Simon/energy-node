@@ -10,6 +10,8 @@
 // for a CSS transition" trick - segment/label data is computed as plain
 // objects and the template binds to it declaratively via x-for/x-bind.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   // Pie-slice-with-a-hole path between radius r-thick/2 and r+thick/2,
   // spanning angle a0..a1 (radians, 0 = +x axis, clockwise).
   function annulusPath(cx, cy, r, thick, a0, a1) {
@@ -158,12 +160,12 @@
   function kpiValue(balance, key) {
     const model = window.EnergyModel;
     switch (key) {
-      case 'eigen': return {label: 'Eigenverbrauch', value: model.formatPercent(balance.kpi.eigen), sub: 'PV selbst genutzt'};
-      case 'netz': return {label: 'Netzbilanz', value: model.formatPower(balance.kpi.netz), sub: balance.kpi.netz >= 0 ? 'Bezug' : 'Einspeisung'};
-      case 'last': return {label: 'Hausverbrauch', value: model.formatPower(balance.kpi.last), sub: 'alle Verbraucher'};
+      case 'eigen': return {label: t('energy.ring.kpi.self_consumption.label'), value: model.formatPercent(balance.kpi.eigen), sub: t('energy.ring.kpi.self_consumption.sub')};
+      case 'netz': return {label: t('energy.ring.kpi.grid_balance.label'), value: model.formatPower(balance.kpi.netz), sub: balance.kpi.netz >= 0 ? t('energy.ring.kpi.grid_balance.sub_import') : t('energy.ring.kpi.grid_balance.sub_export')}; // i18n-ignore
+      case 'last': return {label: t('energy.ring.kpi.consumption.label'), value: model.formatPower(balance.kpi.last), sub: t('energy.ring.kpi.consumption.sub')};
       case 'autarkie':
       default:
-        return {label: 'Autarkiegrad', value: model.formatPercent(balance.kpi.autarkie), sub: 'Deckung ohne Netzbezug'};
+        return {label: t('energy.ring.kpi.autonomy.label'), value: model.formatPercent(balance.kpi.autarkie), sub: t('energy.ring.kpi.autonomy.sub')};
     }
   }
 
@@ -178,7 +180,7 @@
     sinkRows: [],
     kpi: {label: '', value: '', sub: ''},
     totalLabel: '',
-    description: 'Kein Energiefluss: alle zugeordneten Rollen melden 0 W.',
+    description: t('energy.no_flow'),
     reducedMotion: false,
     cardKey: 'energy-ring',
     presenter: null,
@@ -273,7 +275,7 @@
         this.sourceRows = [];
         this.sinkRows = [];
         this.rowOrder = {source: [], sink: []};
-        this.description = 'Kein Energiefluss: alle zugeordneten Rollen melden 0 W.';
+        this.description = t('energy.no_flow');
         return;
       }
       const suppressAnimation = this.reducedMotion || this.options.animate === 'off';
@@ -298,8 +300,8 @@
       this.sinkRows = readoutRows(rankedSinks, this.options.labelMode);
       if (before && this.$nextTick) this.$nextTick(() => this.playRowFlip(before));
       this.kpi = kpiValue(balance, this.options.kpi);
-      this.totalLabel = `${model.formatPower(balance.total)} gesamt`;
-      this.description = `${this.kpi.label} ${this.kpi.value}, Gesamtleistung ${model.formatPower(balance.total)}.`;
+      this.totalLabel = t('energy.ring.total_label', {power: model.formatPower(balance.total)});
+      this.description = t('energy.ring.description', {label: this.kpi.label, value: this.kpi.value, total: model.formatPower(balance.total)});
     },
   });
 

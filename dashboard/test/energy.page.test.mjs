@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -25,6 +26,7 @@ function createEnergyPanel({ fetchImpl, basePath } = {}) {
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
   if (basePath !== undefined) dom.window.__DASHBOARD_BASE_PATH__ = basePath;
+  installI18n(dom.window);
   vm.runInContext(scriptSource, context);
   const component = factories.energyRolesPanel();
   const stores = attachStores(component);

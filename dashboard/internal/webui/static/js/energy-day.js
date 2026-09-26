@@ -15,6 +15,8 @@
 // two options (display_mode, show_now) are read from the layout item's
 // data-* attributes.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const DEFAULT_WIDTH = 980;
   const H = 360;
   const PAD_L = 58;
@@ -60,11 +62,28 @@
   // der Verlaufsspeicher kennt nur Rollensummen, keine Entitaetswerte, eine
   // Aufteilung je Entitaet ist hier also gar nicht rekonstruierbar.
   const DEMAND_KEYS = ['base', 'load_measured', 'wallbox', 'heat_pump', 'grid_export', 'battery_charge', 'rest'];
-  const LABELS = {
-    pv: 'PV', battery_discharge: 'Batterie entlädt', grid_import: 'Netzbezug', rest: 'Nicht zugeordnet',
-    base: 'Übriger Verbrauch', load_measured: 'Gemessene Verbraucher', wallbox: 'Wallbox', heat_pump: 'Wärmepumpe',
-    grid_export: 'Einspeisung', battery_charge: 'Batterie lädt',
+  // Same role vocabulary as energy-model.js's LABELS (getters, evaluated at
+  // access time so a language switch is picked up on the next paint), keyed
+  // here by the snake_case Balance field name instead of camelCase.
+  // i18n-keys: energy.role.battery_discharge, energy.role.grid_import,
+  // energy.role.unassigned, energy.role.base, energy.role.load_measured,
+  // energy.role.wallbox, energy.role.heat_pump, energy.role.grid_export,
+  // energy.role.battery_charge
+  const LABEL_KEYS = {
+    battery_discharge: 'energy.role.battery_discharge',
+    grid_import: 'energy.role.grid_import',
+    rest: 'energy.role.unassigned',
+    base: 'energy.role.base',
+    load_measured: 'energy.role.load_measured',
+    wallbox: 'energy.role.wallbox',
+    heat_pump: 'energy.role.heat_pump',
+    grid_export: 'energy.role.grid_export',
+    battery_charge: 'energy.role.battery_charge',
   };
+  const LABELS = {pv: 'PV'}; // PV is a technical abbreviation, not translated (E1).
+  for (const key of Object.keys(LABEL_KEYS)) {
+    Object.defineProperty(LABELS, key, {enumerable: true, get: () => t(LABEL_KEYS[key])});
+  }
 
   // Runs each historical point through the same deriveBalance() the
   // snapshot-only cards use, so the stacked area chart closes its balance
@@ -191,17 +210,17 @@
     let supplyAreas = [], demandAreas = [], nowSupplyLabel = '', nowDemandLabel = '', nowSupplyY = 0, nowDemandY = 0;
     if (displayMode === 'supply') {
       supplyAreas = stackAreas(series, xs, 'supply', SUPPLY_KEYS, -1, k, baseline);
-      if (showNow !== 'off') { nowSupplyLabel = `Deckung ${model.formatPower(last.total)}`; nowSupplyY = baseline - last.total * k - 8; }
+      if (showNow !== 'off') { nowSupplyLabel = t('energy.day.now_supply', {power: model.formatPower(last.total)}); nowSupplyY = baseline - last.total * k - 8; }
     } else if (displayMode === 'demand') {
       demandAreas = stackAreas(series, xs, 'demand', DEMAND_KEYS, -1, k, baseline);
-      if (showNow !== 'off') { nowDemandLabel = `Verwendung ${model.formatPower(last.total)}`; nowDemandY = baseline - last.total * k - 8; }
+      if (showNow !== 'off') { nowDemandLabel = t('energy.day.now_demand', {power: model.formatPower(last.total)}); nowDemandY = baseline - last.total * k - 8; }
     } else {
       supplyAreas = stackAreas(series, xs, 'supply', SUPPLY_KEYS, -1, k, baseline);
       demandAreas = stackAreas(series, xs, 'demand', DEMAND_KEYS, 1, k, baseline);
       if (showNow !== 'off') {
-        nowSupplyLabel = `Deckung ${model.formatPower(last.total)}`;
+        nowSupplyLabel = t('energy.day.now_supply', {power: model.formatPower(last.total)});
         nowSupplyY = baseline - last.total * k - 8;
-        nowDemandLabel = `Verwendung ${model.formatPower(last.total)}`;
+        nowDemandLabel = t('energy.day.now_demand', {power: model.formatPower(last.total)});
         nowDemandY = baseline + last.total * k + 16;
       }
     }
@@ -219,7 +238,7 @@
       endLabel: window.I18n.formatTime(last.timestamp, {hour: '2-digit', minute: '2-digit'}),
       nowSupplyLabel, nowSupplyY, nowDemandLabel, nowDemandY,
       legend,
-      description: `Verlauf über ${series.length} Messpunkte, Maximum ${model.formatPower(maxTotal)}, aktueller Wert ${model.formatPower(last.total)}.`,
+      description: t('energy.day.description', {points: series.length, max: model.formatPower(maxTotal), current: model.formatPower(last.total)}),
     };
   }
 
