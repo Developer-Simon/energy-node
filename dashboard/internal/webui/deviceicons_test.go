@@ -33,6 +33,15 @@ func TestDeviceIconCatalogueIsComplete(t *testing.T) {
 	}
 }
 
+func TestEveryDeviceIconLabelKeyIsInTheCatalog(t *testing.T) {
+	de := readCatalogs(t)["de"]
+	for _, icon := range DeviceIconCatalogue() {
+		if text, ok := de[icon.LabelKey]; !ok || text != icon.Label {
+			t.Errorf("icon %s: de.json[%q] = %q, want %q", icon.Name, icon.LabelKey, text, icon.Label)
+		}
+	}
+}
+
 func TestDeviceIconFallsBackForUnknownAndEmptyNames(t *testing.T) {
 	fallback := string(deviceIcon(registry.DeviceView{ID: "node"}))
 	unknown := string(deviceIcon(registry.DeviceView{ID: "node", IconName: "mdi:does-not-exist"}))

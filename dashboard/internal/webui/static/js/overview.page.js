@@ -8,6 +8,8 @@
   // Waechter fragt also nicht erneut.
   let shell;
 
+  const t = key => (window.I18n ? window.I18n.t(key) : key);
+
   // Spaltenzahl aus der Breite - dieselbe auto-fill-Rechnung wie
   // repeat(auto-fill, minmax(18rem, 1fr)) mit gap .8rem in base.css.
   const columnsFor = width => {
@@ -121,7 +123,7 @@
         } catch (cause) {
           // Stehenbleiben statt halb umschalten - ohne Gridstack gibt es
           // keinen Editor, nur ein kaputtes Raster.
-          this.error = 'Der Editor konnte nicht geladen werden. Verbindung pruefen und erneut versuchen.';
+          this.error = t('overview.page.error.editor_load_failed');
           return;
         } finally {
           this.busy = false;
@@ -142,7 +144,7 @@
             if (!response.ok) throw new Error(String(response.status));
             markup = await response.text();
           } catch (cause) {
-            this.error = 'Der Editor konnte nicht geladen werden. Verbindung pruefen und erneut versuchen.';
+            this.error = t('overview.page.error.editor_load_failed');
             return;
           }
           const root = document.createElement('div');

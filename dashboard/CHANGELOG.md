@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.15 (2026-09-26)
+## v0.7.16 (2026-09-26)
 
 ### Features
 
@@ -9,6 +9,11 @@
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **dashboard:** localization foundation with language switcher (#59) (7f8ed9f)
 - **dashboard:** number format setting and locale-aware dates (localization A2) (#60) (6d8ba8b)
+- **webui:** move the dashboard shell texts into the catalogs (3ae8750)
+- **webui:** migrate base.html and dashboard.js shells into catalogs (580a662)
+- **webui:** add English texts for the dashboard shell (fef5eaa)
+- **webui:** move overview, tile and device list texts into the catalogs (7929c23)
+- **webui:** add English texts for overview, tiles and devices (5370ff3)
 - **numfmt:** format numbers with configurable separators (4798c3c)
 - **settings:** add number format and digit grouping settings (2c67fd6)
 - **webui:** render device values in the configured number format (5c5d50d)
@@ -46,6 +51,10 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **webui:** complete remaining base.html and dashboard.js migrations (5913fed)
+- **webui:** tidy the shell extraction keys and tests (e55ff9b)
+- **webui:** keep stored page and group names (13508e8)
+- **webui:** use plural keys for the entity and control counts (292a046)
 - **settings:** name the digit grouping option after the number format (37017c7)
 - **webui:** keep the language switcher clear of the masthead title (dba06da)
 - **dashboard:** hide conditional schema fields despite the grid display rule (e3225b3)
@@ -61,6 +70,7 @@
 
 ### Documentation
 
+- remove base.html and dashboard.js from i18n-pending.txt (57c5cad)
 - **localization:** document number and date formats and bump asset versions (252a88d)
 - **dashboard:** document localization and bump lazy asset versions (5181b2d)
 - **dashboard:** describe config_revision as the last load attempt (715dd30)
@@ -69,12 +79,18 @@
 
 ### Tests
 
+- **webui:** guard against UI text that bypasses the catalogs (458af28)
 - **dashboard:** fix cross-realm deepEqual in the new prefsDraft test (02d2ef3)
 
 ### Style
 
 - **dashboard:** gofmt the device-prefs struct fields (19d915e)
 - **dashboard:** draw device icons larger inside their frame (86f909c)
+
+### Chores
+
+- apply gofmt to test and main files (607f2f3)
+- **webui:** bump lazy asset versions for the localized shell (0ef9e36)
 
 ## v0.7.8 (2026-09-23)
 

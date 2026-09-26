@@ -1709,8 +1709,8 @@ func normalizeLayout(value Layout) Layout {
 					item.SpeedReferenceWatts = 0
 				}
 				if item.Type == "entity_group" {
-					if item.Title == "" {
-						item.Title = "Entitäten"
+					if item.Title == "Entitäten" {
+						item.Title = ""
 					}
 					if item.EntityRefs == nil {
 						item.EntityRefs = []string{}

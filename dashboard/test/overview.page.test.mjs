@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n, catalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(
@@ -23,8 +24,11 @@ function createOverview({ ready = () => Promise.resolve(), fetchImpl } = {}) {
     data: (name, f) => { if (name === 'overviewShell') factory = f; },
     store: () => ({}),
     initTree: () => {},
+    magic: () => {},
+    directive: () => {},
   };
   dom.window.fetch = fetchImpl || (() => Promise.resolve({ ok: true, text: () => Promise.resolve('') }));
+  installI18n(dom.window);
   vm.runInContext(source, dom.getInternalVMContext());
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   const shell = factory();
@@ -63,7 +67,7 @@ test('scheitert das Laden, bleibt die Ansicht stehen und meldet es', async () =>
   const { shell } = createOverview({ ready: () => Promise.reject(new Error('offline')) });
   await shell.enterEdit();
   assert.equal(shell.mode, 'view');
-  assert.match(shell.error, /Editor/);
+  assert.equal(shell.error, catalog('de')['overview.page.error.editor_load_failed']);
 });
 
 test('Editieren holt das Fragment, setzt es ein und initialisiert Alpine darauf', async () => {
@@ -97,7 +101,7 @@ test('scheitert der Fragment-Fetch, bleibt die Ansicht stehen und meldet es', as
   const { shell } = createOverview({ fetchImpl: () => Promise.resolve({ ok: false, status: 503, text: () => Promise.resolve('') }) });
   await shell.enterEdit();
   assert.equal(shell.mode, 'view');
-  assert.match(shell.error, /Editor/);
+  assert.equal(shell.error, catalog('de')['overview.page.error.editor_load_failed']);
 });
 
 test('Verlassen fragt den Waechter und entfernt das Fragment', async () => {

@@ -8,8 +8,10 @@
 // frueher oder spaeter auseinander; genau diese Doppelung kostet
 // classifyEntityCategory heute schon einmal (Go und JS).
 (() => {
-  const PENDING_MESSAGE = 'Warte auf Bestätigung über MQTT ...';
-  const TIMEOUT_MESSAGE = 'Zeitüberschreitung – keine Bestätigung erhalten, vorheriger Wert bleibt bestehen.';
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
+  const PENDING_MESSAGE_KEY = 'entity.command_status.awaiting';
+  const TIMEOUT_MESSAGE_KEY = 'entity.timeout';
 
   // Fehlt eine Entitaet im Push, gilt sie als unbekannt - nicht als
   // unveraendert. Sonst zeigte eine geloeschte Entitaet ihre letzte Zahl
@@ -19,8 +21,8 @@
   const merge = value => ({...MISSING, ...(value || {})});
 
   function statusMessage(value) {
-    if (value.pending) return PENDING_MESSAGE;
-    if (value.last_command_result === 'timeout') return TIMEOUT_MESSAGE;
+    if (value.pending) return t(PENDING_MESSAGE_KEY);
+    if (value.last_command_result === 'timeout') return t(TIMEOUT_MESSAGE_KEY);
     return '';
   }
 
@@ -45,5 +47,5 @@
     return time;
   }
 
-  window.entityValues = {PENDING_MESSAGE, TIMEOUT_MESSAGE, MISSING, merge, statusMessage, setDotClass, availabilityState, timestampNode};
+  window.entityValues = {PENDING_MESSAGE_KEY, TIMEOUT_MESSAGE_KEY, MISSING, merge, statusMessage, setDotClass, availabilityState, timestampNode};
 })();

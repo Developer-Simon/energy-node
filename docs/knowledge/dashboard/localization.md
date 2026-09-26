@@ -63,8 +63,29 @@ until the catalog is complete. The switcher picks it up automatically.
 ## Guards
 
 `internal/webui/catalogs_test.go` checks that all catalogs have the same keys
-and placeholders, that plural forms come in pairs, and that every key used in
-a template or script exists in `de.json`.
+and placeholders, that plural forms come in pairs, that every key used in a
+template or script exists in `de.json`, that the catalog files are sorted,
+and that no English text still starts with `TODO(en): `.
+
+`internal/webui/literals_test.go` rejects UI text that bypasses the catalogs:
+
+- **Templates** strictly: every text node and every `title`, `placeholder`,
+  `aria-label`, `alt` and `label` must come from `{{t}}`, unless it consists
+  of tokens from `testdata/i18n-allowed-tokens.txt` (product names, units,
+  protocols). `{{t}}` inside an Alpine attribute is an error too.
+- **Scripts and Alpine expressions** heuristically: a string literal with an
+  umlaut or a German word from the list in `literals_test.go`. A technical
+  string that trips it gets `// i18n-ignore` at the end of its line.
+- `testdata/i18n-pending.txt` lists files not migrated yet (removed once the
+  migration is complete).
+
+Listing the findings of a file: `I18N_INVENTORY=static/js/notify.js go test
+./internal/webui/ -run TestNoUntranslatedTextOutsidePendingFiles -v`
+(`I18N_INVENTORY=all` for everything, `I18N_WIDE=1` also lists sentence-like
+literals without a German feature).
+
+Sorting a catalog (from the repository root):
+`.venv/bin/python -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); open(p,"w").write(json.dumps(d, ensure_ascii=False, indent=2, sort_keys=True)+"\n")' dashboard/internal/webui/catalogs/de.json`
 
 ## Numbers, dates and sorting
 

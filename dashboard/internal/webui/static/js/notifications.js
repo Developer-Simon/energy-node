@@ -16,7 +16,7 @@
     // kein Fehler, sondern ein Dauerzustand. 204: der Dienst ist da, hat aber
     // noch kein Ereignis veroeffentlicht. Beide enden still.
     if (response.status === 404 || response.status === 204) return null;
-    if (!response.ok) throw new Error('Anfrage fehlgeschlagen');
+    if (!response.ok) throw new Error('Anfrage fehlgeschlagen'); // i18n-ignore: transient error, not displayed to user
     return response.json();
   };
 

@@ -12,6 +12,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(
@@ -26,13 +27,14 @@ function createDevicesPanel() {
   });
   const context = dom.getInternalVMContext();
   const factories = {};
-  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; }, magic() {}, directive() {} };
   // dashboard.js startet beim Laden ein Modul-Level-setInterval (die
   // Zeitstempel-Aktualisierung) - ein echtes window.setInterval wuerde den
   // Testprozess sonst am Leben halten, gleiche Loesung wie in
   // dashboard.nav.test.mjs.
   dom.window.setInterval = () => 0;
   dom.window.deviceTileMixin = () => ({});
+  installI18n(dom.window);
   vm.runInContext(source, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   const panel = factories.devicesPanel();

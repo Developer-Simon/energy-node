@@ -8,7 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
-import { installI18n } from './helpers/i18n.mjs';
+import { installI18n, catalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
@@ -170,7 +170,9 @@ test('ein Regler mit Fokus wird nicht angefasst', () => {
 test('die Statustexte kommen als Abbildung zurueck, nicht in die DOM', () => {
   const window = load(switchRow('e1'));
   const messages = apply(window, { e1: { value: 'ON', has_value: true, pending: true } });
-  assert.equal(messages.e1, window.entityValues.PENDING_MESSAGE);
+  const de = catalog('de');
+  const expectedMsg = de['entity.command_status.awaiting'];
+  assert.equal(messages.e1, expectedMsg);
   assert.equal(window.document.querySelector('.entity-command-status').textContent, '');
 });
 

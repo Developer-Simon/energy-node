@@ -2,6 +2,7 @@ package webui
 
 import (
 	"bytes"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1162,11 +1163,15 @@ func TestLoginPrefixesAuthEndpoints(t *testing.T) {
 }
 
 func TestLoginShowsAdminAuthWarningWhenSet(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	Login(false, nil, "Admin-Anmeldedaten konnten nicht geladen werden.").ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
-	body := recorder.Body.String()
-	if !strings.Contains(body, `<p class="admin-auth-warning" role="alert">Admin-Anmeldedaten konnten nicht geladen werden.</p>`) {
-		t.Fatalf("login page does not show the admin auth warning: %s", body)
+	for lang, texts := range readCatalogs(t) {
+		request := httptest.NewRequest("GET", "/", nil)
+		request.AddCookie(&http.Cookie{Name: "lang", Value: lang})
+		recorder := httptest.NewRecorder()
+		Login(false, nil, "login.admin_auth_unavailable").ServeHTTP(recorder, request)
+		want := `<p class="admin-auth-warning" role="alert">` + html.EscapeString(texts["login.admin_auth_unavailable"]) + `</p>`
+		if body := recorder.Body.String(); !strings.Contains(body, want) {
+			t.Errorf("%s login page does not show the admin auth warning %q", lang, want)
+		}
 	}
 }
 
@@ -2779,5 +2784,25 @@ func TestApplyDevicePrefsStampsSuggestedIconWithoutPrefs(t *testing.T) {
 	}
 	if devices[0].IconName != "" || devices[1].SuggestedIcon != "" {
 		t.Errorf("devices = %#v, want no saved icon and no suggestion for an unknown device", devices)
+	}
+}
+
+func TestOverviewEntityGroupCardFallsBackToDefaultTitleWhenStoredEmpty(t *testing.T) {
+	empty := settings.Layout{Version: 3, Pages: []settings.Page{{
+		ID: "p", Name: "P", Order: 0,
+		Groups: []settings.Group{{ID: "g", Name: "G", Items: []settings.Item{
+			{ID: "group", Type: "entity_group", Span: "1", Visible: true},
+		}}},
+	}}}
+	body := renderOverviewWithLayout(t, empty)
+	if !strings.Contains(body, `<h4>Entitäten</h4>`) {
+		t.Fatalf("entity_group card without a stored title does not show the catalog fallback \"Entitäten\":\n%s", body)
+	}
+
+	named := empty
+	named.Pages[0].Groups[0].Items[0].Title = "Mein Haus"
+	body = renderOverviewWithLayout(t, named)
+	if !strings.Contains(body, `<h4>Mein Haus</h4>`) {
+		t.Fatalf("entity_group card with a stored title does not show it:\n%s", body)
 	}
 }

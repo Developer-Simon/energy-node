@@ -1,0 +1,31 @@
+# Words that may stand in a template without a catalog key: product and
+# service names, protocols, units. Never ordinary words. One token per line.
+Energy Node Dashboard
+energy-node
+Home Assistant
+HA
+MQTT
+TLS
+HTTP
+HTTPS
+IPv4
+IP
+JSON
+CSV
+URL
+ID
+PV
+SoC
+kWh
+Wh
+kW
+TBW
+MMC
+TinyTuya
+Tuya
+Tailscale
+Shelly
+APsystems
+Trucki
+Mosquitto
+Raspberry Pi

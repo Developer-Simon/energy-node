@@ -11,6 +11,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -27,6 +28,7 @@ function loadNotify() {
   const timers = [];
   dom.window.setTimeout = (fn, ms) => { timers.push({ fn, ms, cleared: false }); return timers.length; };
   dom.window.clearTimeout = (id) => { if (timers[id - 1]) timers[id - 1].cleared = true; };
+  installI18n(dom.window);
   vm.runInContext(scriptSource, context);
   const { toasts, modal } = dom.window.__notifyStores;
   return { toasts, modal, timers, window: dom.window };

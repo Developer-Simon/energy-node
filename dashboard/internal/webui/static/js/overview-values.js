@@ -22,6 +22,7 @@
 // Die gemeinsamen Bausteine (fehlende Werte, Statustexte, Zeitstempel)
 // stehen in entity-values.js - base.html laedt sie davor.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const {merge, statusMessage, setDotClass, availabilityState, timestampNode} = window.entityValues;
 
   function valueMarkup(document, value, deviceClass, unit) {
@@ -126,17 +127,17 @@
     const wrap = document.createElement('div');
     wrap.className = 'diagnostics-summary-counts';
     const columns = [
-      ['bad', summary.critical, 'Kritisch'],
-      ['warn', summary.warning, 'Warnung'],
-      ['info', summary.info, 'Hinweis'],
+      ['bad', summary.critical, 'overview.diagnostics.critical_label'],
+      ['warn', summary.warning, 'overview.diagnostics.warning_label'],
+      ['info', summary.info, 'overview.diagnostics.info_label'],
     ];
-    for (const [kind, count, label] of columns) {
+    for (const [kind, count, labelKey] of columns) {
       const column = document.createElement('div');
       column.className = `diagnostics-summary-count diagnostics-summary-count-${kind}`;
       const strong = document.createElement('strong');
       strong.textContent = String(count ?? 0);
       const span = document.createElement('span');
-      span.textContent = label;
+      span.textContent = t(labelKey);
       column.append(strong, span);
       wrap.appendChild(column);
     }
@@ -170,7 +171,7 @@
     if ((summary.status_class || 'ok') === 'ok') {
       const paragraph = document.createElement('p');
       paragraph.className = 'diagnostics-summary-ok';
-      paragraph.textContent = 'Alles in Ordnung';
+      paragraph.textContent = t('overview.diagnostics.ok_label');
       body.push(paragraph);
     } else {
       body.push(countBlock(document, summary));

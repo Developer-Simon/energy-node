@@ -486,8 +486,10 @@ func TestNormalizeLayoutEntityGroupTitleAndRefsAreTypeScoped(t *testing.T) {
 		t.Fatal(err)
 	}
 	group, value := loaded.Pages[0].Groups[0].Items[0], loaded.Pages[0].Groups[0].Items[1]
-	if group.Title != "Entitäten" {
-		t.Fatalf("entity_group ohne Titel = %q, want den Default \"Entitäten\"", group.Title)
+	// Der Standardtitel wird seit der Lokalisierung (A3.2) leer gespeichert;
+	// die Anzeige uebersetzt den leeren Titel selbst (t('overview.entity_group.default_title')).
+	if group.Title != "" {
+		t.Fatalf("entity_group ohne Titel = %q, want \"\" (Anzeige uebernimmt den Rueckfall)", group.Title)
 	}
 	if value.Title != "" || len(value.EntityRefs) != 0 {
 		t.Fatalf("entity_value darf keine entity_group-Felder tragen: %#v", value)

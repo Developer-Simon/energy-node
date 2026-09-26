@@ -883,7 +883,7 @@ func Static() http.Handler {
 // Die Anmeldeseite rendert ohne base.html und braucht das Theme deshalb
 // selbst - der Store ist hier der einzige Weg daran, weil noch keine
 // Sitzung existiert.
-func Login(guestOnly bool, store *settings.Store, adminAuthWarning string) http.Handler {
+func Login(guestOnly bool, store *settings.Store, adminAuthWarningKey string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		theme := settings.ThemeMint
 		showLanguageSwitch := true
@@ -897,7 +897,7 @@ func Login(guestOnly bool, store *settings.Store, adminAuthWarning string) http.
 		}
 		lang := localize.Resolve(r, translator.Languages())
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarning": adminAuthWarning, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch}
+		data := map[string]any{"GuestOnly": guestOnly, "BasePath": basepath.From(r), "Theme": theme, "AdminAuthWarningKey": adminAuthWarningKey, "Lang": lang, "Languages": translator.Options(lang), "ShowLanguageSwitch": showLanguageSwitch}
 		if err := loginSets.get(lang).ExecuteTemplate(w, "login", data); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		}
