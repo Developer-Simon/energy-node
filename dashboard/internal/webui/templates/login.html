@@ -51,7 +51,7 @@
       <h1>Energy Node Dashboard</h1>
       {{template "lang-pill" .}}
     </div>
-    {{if .AdminAuthWarning}}<p class="admin-auth-warning" role="alert">{{.AdminAuthWarning}}</p>{{end}}
+    {{if .AdminAuthWarningKey}}<p class="admin-auth-warning" role="alert">{{/* i18n-keys: login.admin_auth_unavailable */}}{{t .AdminAuthWarningKey}}</p>{{end}}
     <p>{{if .GuestOnly}}{{t "login.guest_only_hint"}}{{else}}{{t "login.prompt"}}{{end}}</p>
     <form id="login-form">
       <label>{{t "login.username"}} <input name="username" autocomplete="username" required{{if .GuestOnly}} disabled{{end}}></label>

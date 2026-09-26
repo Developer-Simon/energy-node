@@ -103,10 +103,10 @@ func main() {
 		}
 	}
 	adminPassword, err := cfg.AdminPassword()
-	var adminAuthWarning string
+	var adminAuthWarningKey string
 	if err != nil {
 		log.Printf("energy-node-dashboard: Admin-Passwort nicht lesbar, Anmeldung eingeschraenkt: %v", err)
-		adminAuthWarning = "Admin-Anmeldedaten konnten nicht geladen werden (siehe Server-Log). Bitte die Konfiguration pruefen; bis dahin ist nur der Gastzugang verfuegbar."
+		adminAuthWarningKey = "login.admin_auth_unavailable"
 	}
 	authManager, err := auth.NewManager(filepath.Join(dataDir, "users.json"), cfg.Dashboard.AdminUsername, adminPassword)
 	if err != nil {
@@ -420,7 +420,7 @@ func main() {
 			MQTTCredentials:   mqttCredentialStore,
 			Reloader:          client,
 			Auth:              authManager,
-			AdminAuthWarning:  adminAuthWarning,
+			AdminAuthWarningKey: adminAuthWarningKey,
 			SystemActions:     systemExecutor,
 			StartedAt:         startedAt,
 			DeviceFilter:      deviceFilterStore,

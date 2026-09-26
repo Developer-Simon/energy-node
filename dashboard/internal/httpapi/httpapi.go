@@ -158,12 +158,12 @@ type RouterDependencies struct {
 	// config.json unter paths.services_version_file konfigurierten Datei.
 	// Leer, wenn nicht konfiguriert oder nicht lesbar.
 	ServicesVersion string
-	// AdminAuthWarning wird auf der Anmeldeseite angezeigt, wenn das
-	// Admin-Passwort beim Start nicht gelesen werden konnte (siehe
-	// main.go). Der Dienst startet trotzdem - fail-closed gilt fuer
-	// config.json selbst, nicht fuer eine einzelne Passwortdatei, die
-	// sonst ohne SSH-Zugriff niemand mehr reparieren koennte.
-	AdminAuthWarning string
+	// AdminAuthWarningKey is the catalog key for the admin auth warning message
+	// displayed on the login page when the admin password cannot be read at startup
+	// (see main.go). The service starts anyway - fail-closed applies to config.json
+	// itself, not to a single password file which would otherwise be unrecoverable
+	// without SSH access.
+	AdminAuthWarningKey string
 	// MQTTBase ist die Verbindung aus config.json - die zweite Stufe der
 	// Praezedenz, wenn keine aktivierte mqtt.json vorliegt.
 	MQTTBase mqttclient.Config
@@ -219,7 +219,7 @@ func NewRouterWithStorageHealthAndRuntimeCache(reg *registry.Registry, configs *
 }
 
 func NewAuthenticatedRouter(reg *registry.Registry, configs *config.Manager, store *settings.Store, probe tinytuya.Prober, credentialStore *tinytuya.CredentialStore, publisher CommandPublisher, storageProvider storagehealth.Provider, cache runtimecache.StatusProvider, dependencies RouterDependencies) http.Handler {
-	return authMiddleware(dependencies.Auth, store, dependencies.AdminAuthWarning, NewRouterWithDependencies(reg, configs, store, probe, credentialStore, publisher, storageProvider, cache, dependencies))
+	return authMiddleware(dependencies.Auth, store, dependencies.AdminAuthWarningKey, NewRouterWithDependencies(reg, configs, store, probe, credentialStore, publisher, storageProvider, cache, dependencies))
 }
 
 func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, store *settings.Store, probe tinytuya.Prober, credentialStore *tinytuya.CredentialStore, publisher CommandPublisher, storageProvider storagehealth.Provider, cache runtimecache.StatusProvider, dependencies RouterDependencies) *http.ServeMux {
@@ -347,7 +347,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	return mux
 }
 
-func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarning string, next http.Handler) http.Handler {
+func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarningKey string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if manager == nil || strings.HasPrefix(r.URL.Path, "/static/") || strings.HasPrefix(r.URL.Path, "/i18n/") || strings.HasPrefix(r.URL.Path, "/api/v1/auth/") {
 			next.ServeHTTP(w, r)
@@ -364,7 +364,7 @@ func authMiddleware(manager *auth.Manager, store *settings.Store, adminAuthWarni
 			}
 		}
 		if r.URL.Path == "/" && r.Method == http.MethodGet {
-			webui.Login(!secureRequest, store, adminAuthWarning).ServeHTTP(w, r)
+			webui.Login(!secureRequest, store, adminAuthWarningKey).ServeHTTP(w, r)
 			return
 		}
 		if strings.HasPrefix(r.URL.Path, "/api/") {

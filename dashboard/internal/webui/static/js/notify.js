@@ -7,6 +7,7 @@
 // modal.open als Wahrheitswert; eine x-effect-Zeile in base.html uebersetzt
 // ihn in showModal()/close().
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const AUTO_DISMISS_MS = 8000;
   const MAX_VISIBLE_TOASTS = 5;
   const SEVERITIES = ['info', 'warning', 'critical'];
@@ -68,8 +69,8 @@
     open: false,
     title: '',
     body: '',
-    confirmLabel: 'Bestätigen',
-    cancelLabel: 'Abbrechen',
+    confirmLabel: '',
+    cancelLabel: '',
     danger: false,
     _resolve: null,
 
@@ -78,13 +79,13 @@
       // await innerhalb eines Klick-Handlers. Still false zurueckzugeben
       // waere gefaehrlich, deshalb die Warnung.
       if (this.open) {
-        console.warn('notify: confirm() bei bereits offenem Modal - wird mit false beantwortet');
+        console.warn('notify: confirm() bei bereits offenem Modal - wird mit false beantwortet'); // i18n-ignore: debug message
         return Promise.resolve(false);
       }
       this.title = options.title || '';
       this.body = options.body || '';
-      this.confirmLabel = options.confirmLabel || 'Bestätigen';
-      this.cancelLabel = options.cancelLabel || 'Abbrechen';
+      this.confirmLabel = options.confirmLabel || t('common.confirm');
+      this.cancelLabel = options.cancelLabel || t('common.cancel');
       this.danger = options.danger === true;
       this.open = true;
       return new Promise((resolve) => { this._resolve = resolve; });
