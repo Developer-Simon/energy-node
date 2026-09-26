@@ -2,6 +2,7 @@ package webui
 
 import (
 	"bytes"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -1162,11 +1163,15 @@ func TestLoginPrefixesAuthEndpoints(t *testing.T) {
 }
 
 func TestLoginShowsAdminAuthWarningWhenSet(t *testing.T) {
-	recorder := httptest.NewRecorder()
-	Login(false, nil, "Admin-Anmeldedaten konnten nicht geladen werden.").ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
-	body := recorder.Body.String()
-	if !strings.Contains(body, `<p class="admin-auth-warning" role="alert">Admin-Anmeldedaten konnten nicht geladen werden.</p>`) {
-		t.Fatalf("login page does not show the admin auth warning: %s", body)
+	for lang, texts := range readCatalogs(t) {
+		request := httptest.NewRequest("GET", "/", nil)
+		request.AddCookie(&http.Cookie{Name: "lang", Value: lang})
+		recorder := httptest.NewRecorder()
+		Login(false, nil, "login.admin_auth_unavailable").ServeHTTP(recorder, request)
+		want := `<p class="admin-auth-warning" role="alert">` + html.EscapeString(texts["login.admin_auth_unavailable"]) + `</p>`
+		if body := recorder.Body.String(); !strings.Contains(body, want) {
+			t.Errorf("%s login page does not show the admin auth warning %q", lang, want)
+		}
 	}
 }
 
@@ -2779,41 +2784,5 @@ func TestApplyDevicePrefsStampsSuggestedIconWithoutPrefs(t *testing.T) {
 	}
 	if devices[0].IconName != "" || devices[1].SuggestedIcon != "" {
 		t.Errorf("devices = %#v, want no saved icon and no suggestion for an unknown device", devices)
-	}
-}
-
-func TestShellRendersInTheRequestLanguage(t *testing.T) {
-	request := httptest.NewRequest("GET", "/", nil)
-	request.Header.Set("Accept-Language", "en-GB,en;q=0.9")
-	recorder := httptest.NewRecorder()
-	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(recorder, request)
-	if recorder.Code != 200 {
-		t.Fatalf("got status %d", recorder.Code)
-	}
-	body := recorder.Body.String()
-
-	// Check that English nav tabs are rendered (template t() function translates at render time)
-	enNavValues := []string{"Overview", "Devices", "History", "Diagnostics", "Settings"}
-	for _, value := range enNavValues {
-		if !strings.Contains(body, value) {
-			t.Fatalf("page does not contain English nav value %q", value)
-		}
-	}
-}
-
-func TestLoginAdminAuthUnavailableInCatalogs(t *testing.T) {
-	// Simple test to verify overview page renders with German translations
-	request := httptest.NewRequest("GET", "/", nil)
-	request.Header.Set("Accept-Language", "de-DE,de;q=0.9")
-	recorder := httptest.NewRecorder()
-	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(recorder, request)
-	body := recorder.Body.String()
-
-	// Check that German nav tabs are present
-	deNavValues := []string{"Übersicht", "Geräte", "Verläufe", "Diagnose", "Einstellungen"}
-	for _, value := range deNavValues {
-		if !strings.Contains(body, value) {
-			t.Fatalf("page does not contain German nav value %q", value)
-		}
 	}
 }

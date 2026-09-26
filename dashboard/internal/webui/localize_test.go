@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -247,5 +248,17 @@ func TestSettingsOfferAFormattingCardWithTheLanguage(t *testing.T) {
 	}
 	if strings.Contains(body, `name="ui-language" value="en" data-lang-select`) {
 		t.Error("the settings radios must not switch immediately")
+	}
+}
+
+func TestShellRendersInTheRequestLanguage(t *testing.T) {
+	catalogs := readCatalogs(t)
+	for _, lang := range []string{"de", "en"} {
+		body := renderOverviewWithLang(t, lang)
+		for _, key := range []string{"nav.overview", "nav.devices", "nav.history", "panel.devices_loading"} {
+			if !strings.Contains(body, html.EscapeString(catalogs[lang][key])) {
+				t.Errorf("%s shell misses %s (%q)", lang, key, catalogs[lang][key])
+			}
+		}
 	}
 }

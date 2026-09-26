@@ -7,6 +7,7 @@
   // Falls back to the key when i18n.js is absent (unit tests load this file
   // alone), so a missing runtime shows a visible gap instead of throwing.
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
 
   const dashboardShell = () => ({
     activePanel: 'overview-panel',
@@ -248,7 +249,7 @@
     // withBase() is the single chokepoint for every URL literal below.
     const response = await fetch(withBase(url), options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || t('panel.request_failed'));
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
   const newID = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -271,14 +272,16 @@
   const formatRelativeTimestamp = timestamp => {
     const difference = Math.round((timestamp - Date.now()) / 1000);
     const absoluteDifference = Math.abs(difference);
-    if (absoluteDifference < 1) return t('time.ago.just_now');
-    const unitMap = absoluteDifference < 60 ? {key: 'seconds', divisor: 1}
-      : absoluteDifference < 3600 ? {key: 'minutes', divisor: 60}
-      : absoluteDifference < 86400 ? {key: 'hours', divisor: 3600}
-      : {key: 'days', divisor: 86400};
-    const amount = Math.round(absoluteDifference / unitMap.divisor);
-    const prefix = difference < 0 ? 'ago' : 'in';
-    return t(`time.${prefix}.${unitMap.key}`, {count: amount});
+    if (absoluteDifference < 1) return t('time.just_now');
+    const units = absoluteDifference < 60 ? ['seconds', 1]
+      : absoluteDifference < 3600 ? ['minutes', 60]
+      : absoluteDifference < 86400 ? ['hours', 3600]
+      : ['days', 86400];
+    const amount = Math.round(absoluteDifference / units[1]);
+    // i18n-keys: time.short.past.seconds, time.short.past.minutes, time.short.past.hours, time.short.past.days
+    // i18n-keys: time.short.future.seconds, time.short.future.minutes, time.short.future.hours, time.short.future.days
+    const direction = difference < 0 ? 'past' : 'future';
+    return t(`time.short.${direction}.${units[0]}`, {n: window.I18n ? window.I18n.formatNumber(amount) : amount});
   };
 
   const renderRelativeTimestamps = root => {
@@ -581,11 +584,11 @@
         removeItemButton: true,
         shouldSort: false,
         maxItemCount: 3,
-        maxItemText: count => t('panel.favorites_max', {count}),
+        maxItemText: count => t('devices.favourites.max', {count}),
         searchResultLimit: 30,
-        placeholderValue: t('panel.entity_search_placeholder'),
-        noResultsText: t('panel.no_results'),
-        noChoicesText: t('panel.no_entities_available'),
+        placeholderValue: t('devices.favourites.search_placeholder'),
+        noResultsText: t('devices.favourites.no_results'),
+        noChoicesText: t('devices.favourites.no_choices'),
         itemSelectText: '',
       });
       // Choices legt vorbelegte Chips in der Reihenfolge der Optionen an,
@@ -629,7 +632,7 @@
         this.prefsDraftFor = '';
         await this.loadDeviceDetail(this.selectedDeviceId);
         this.seedPrefsDraft();
-        this.prefsMessage = t('panel.saved');
+        this.prefsMessage = t('common.saved');
         await this.refreshAfterMutation();
       } catch (error) {
         this.prefsMessage = error.message;
@@ -670,8 +673,8 @@
     async ignoreDevice(deviceId) {
       if (!deviceId) return;
       const confirmed = await this.$store.modal.confirm({
-        title: t('dialog.ignore_device_title'),
-        confirmLabel: t('dialog.ignore_device_confirm'),
+        title: t('devices.ignore.title'),
+        confirmLabel: t('devices.ignore.confirm'),
         danger: true,
       });
       if (!confirmed) return;
@@ -723,8 +726,8 @@
     async confirmDiscoveryDelete() {
       if (!this.deletePreviewDeviceId || !this.deletePreview || this.deleteLoading) return;
       const confirmed = await this.$store.modal.confirm({
-        title: t('dialog.delete_discovery_title'),
-        confirmLabel: t('dialog.delete_discovery_confirm'),
+        title: t('devices.discovery_delete.title'),
+        confirmLabel: t('devices.discovery_delete.confirm'),
         danger: true,
       });
       if (!confirmed) return;
@@ -752,9 +755,9 @@
       const date = value instanceof Date ? value : new Date(value);
       if (Number.isNaN(date.getTime())) return '';
       const seconds = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
-      if (seconds < 60) return t('time.ago.seconds', {count: seconds});
-      if (seconds < 3600) return t('time.ago.minutes', {count: Math.round(seconds / 60)});
-      return t('time.ago.hours', {count: Math.round(seconds / 3600)});
+      if (seconds < 60) return tn('time.ago.seconds', seconds);
+      if (seconds < 3600) return tn('time.ago.minutes', Math.round(seconds / 60));
+      return tn('time.ago.hours', Math.round(seconds / 3600));
     },
 
     get sortedWarnings() {
@@ -826,7 +829,7 @@
       if (!message) return [];
       const raw = message.payload;
       if (raw === undefined || raw === null || String(raw).trim() === '') {
-        return [{label: message.topic || 'MQTT', value: t('panel.empty_message')}];
+        return [{label: message.topic || 'MQTT', value: t('devices.messages.empty_payload')}];
       }
       let parsed = null;
       try {
@@ -898,7 +901,7 @@
       const at = this.deviceDetail?.last_updated;
       if (!at) return '';
       const relative = this.relativeTime(at, this.nowTick ? new Date(this.nowTick) : new Date());
-      return relative ? `${t('panel.updated')}${relative}` : '';
+      return relative ? t('devices.detail.updated', {relative}) : '';
     },
 
     get measurementsTeaser() {
@@ -910,8 +913,8 @@
     get controlsTeaser() {
       const first = this.controlEntities[0];
       if (!first) return '';
-      if (!first.has_availability) return t('panel.availability_unknown');
-      return first.has_value ? first.value : (first.available ? t('panel.online') : t('panel.offline'));
+      if (!first.has_availability) return t('devices.controls.availability_unknown');
+      return first.has_value ? first.value : (first.available ? t('status.online') : t('status.offline'));
     },
 
     get configDiagTeaser() {
@@ -1166,7 +1169,7 @@
       try {
         const result = await requestJSON(`/api/v1/devices/${encodeURIComponent(this.selectedDeviceId)}/reload`, {method: 'POST'});
         await this.selectDevice(this.selectedDeviceId);
-        this.$store.toasts.push(t('panel.device_reloaded_toast', {scope: result.scope === 'all_devices' ? t('panel.all_devices') : t('panel.device')}));
+        this.$store.toasts.push(t(result.scope === 'all_devices' ? 'devices.reload.done_all' : 'devices.reload.done_device'));
         await this.refreshLiveFragment();
       } catch (error) {
         this.detailError = error.message;
@@ -1450,14 +1453,10 @@
     },
 
     healthStatusLabel(status) {
-      const labelKeys = {
-        healthy: 'panel.health_healthy',
-        degraded: 'panel.health_degraded',
-        unhealthy: 'panel.health_unhealthy',
-        critical: 'panel.health_critical',
-        unknown: 'panel.health_unknown',
-      };
-      return labelKeys[status] ? t(labelKeys[status]) : (status || t('panel.health_unknown'));
+      // i18n-keys: diagnostics.health.healthy, diagnostics.health.degraded, diagnostics.health.unhealthy, diagnostics.health.critical, diagnostics.health.unknown
+      const known = ['healthy', 'degraded', 'unhealthy', 'critical', 'unknown'];
+      if (known.includes(status)) return t(`diagnostics.health.${status}`);
+      return status || t('diagnostics.health.unknown');
     },
 
     formatHealthTime(value) {
@@ -1497,7 +1496,8 @@
 
     sortLabel(field) {
       if (this.sortBy !== field) return '';
-      return this.sortDirection === 'asc' ? t('panel.sort_ascending') : t('panel.sort_descending');
+      // Leading space: diagnostics.html appends this to its aria-label (A3.7 folds it into one key).
+      return ' ' + (this.sortDirection === 'asc' ? t('diagnostics.sort.ascending') : t('diagnostics.sort.descending'));
     },
   });
 
