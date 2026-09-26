@@ -109,7 +109,7 @@
             data-page-id="{{.Name}}"
             x-show="!hiddenPages.includes('{{.Name}}')"
             x-bind:class="{ active: activePanel === 'overview-panel' && activePage === '{{.Name}}' }"
-            x-on:click="setActivePage('{{.Name}}')"><i></i>{{.Name}}</button>
+            x-on:click="setActivePage('{{.Name}}')"><i></i>{{if .Name}}{{.Name}}{{else}}{{t "overview.page.default_name"}}{{end}}</button>
     {{end}}
     {{/* Im Editor mit "+ Seite" angelegte Seiten erscheinen sofort als Tab,
          noch vor dem Speichern. Nach echtem Speichern kommen sie serverseitig
@@ -223,7 +223,7 @@
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=8" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/dashboard.js?v=17" defer></script>
-  <script src="{{.BasePath}}/static/js/overview.page.js?v=5" defer></script>
+  <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine.min.js" defer></script>

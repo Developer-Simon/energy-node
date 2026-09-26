@@ -96,7 +96,7 @@ As of **2026-09-26**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-recorder.js` | `8` |
 | `js/notifications.js` | `1` |
 | `js/dashboard.js` | `17` |
-| `js/overview.page.js` | `5` |
+| `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
 | `js-deps/alpine.min.js` | – |
@@ -137,7 +137,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/layout-editor.js` `11` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/layout-editor.js` `12` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
@@ -238,6 +238,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.7.16 | `js/overview.page.js` · `js/layout-editor.js` | `6` · `12` | 2026-09-26 |
 | v0.7.15 | `js/i18n.js` (base + login) · `js/dashboard.js` · `js/overview-values.js` · `js/device-tile-values.js` · `js/compact-card-values.js` · `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/battery-status.js` · `js/energy-day.js` · `js/history.js` · `js/config.page.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/automations.page.js` · `css/settings-controls.css` | `2` · `17` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `3` · `2` · `1` (was unversioned) · `10` · `4` · `9` · `4` · `2` · `4` · `7` | 2026-09-26 |
 | v0.7.14 | `css/base.css` · `js/dashboard.js` · `js/i18n.js` · `js/settings.page.js` | `23` · `16` · `1` (new) · `8` | 2026-09-25 |
 | v0.7.13 | `css/manager.css` (5 panels) · `js/schema-form.js` (config + settings panels) · `js/config-status.js` (config + automations panels) · `js/config.page.js` · `js/automations.page.js` | `23` · `1` (was unversioned) · `2` (new) · `3` · `3` | 2026-09-25 |

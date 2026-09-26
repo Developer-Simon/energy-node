@@ -12,7 +12,7 @@
         "required": ["id", "name", "order", "groups"],
         "properties": {
           "id": {"type": "string", "minLength": 1},
-          "name": {"type": "string", "minLength": 1},
+          "name": {"type": "string"},
           "order": {"type": "integer", "minimum": 0},
           "groups": {
             "type": "array",
@@ -22,7 +22,7 @@
               "required": ["id", "name", "items"],
               "properties": {
                 "id": {"type": "string", "minLength": 1},
-                "name": {"type": "string", "minLength": 1},
+                "name": {"type": "string"},
                 "items": {
                   "type": "array",
                   "items": {

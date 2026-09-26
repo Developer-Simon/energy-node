@@ -1608,16 +1608,21 @@ func validateLayout(value Layout) error {
 	}
 	seen := map[string]bool{}
 	for _, page := range value.Pages {
-		if page.ID == "" || page.Name == "" {
-			return errors.New("layout pages require id and name")
+		// Name darf seit der Lokalisierung (A3.2) leer sein: ein gespeicherter
+		// Standardname war bisher wortgleich mit seinem Anzeige-Rueckfall
+		// ("Übersicht"/"Dashboard") und wird jetzt stattdessen leer abgelegt,
+		// die Anzeige uebersetzt ihn selbst. ID bleibt die eigentliche
+		// Identitaet und muss weiterhin gesetzt sein.
+		if page.ID == "" {
+			return errors.New("layout pages require an id")
 		}
 		if seen[page.ID] {
 			return fmt.Errorf("duplicate layout page %q", page.ID)
 		}
 		seen[page.ID] = true
 		for _, group := range page.Groups {
-			if group.ID == "" || group.Name == "" {
-				return errors.New("layout groups require id and name")
+			if group.ID == "" {
+				return errors.New("layout groups require an id")
 			}
 			for _, item := range group.Items {
 				if item.ID == "" || item.Type == "" {
@@ -1648,11 +1653,24 @@ func normalizeLayout(value Layout) Layout {
 		value.Pages = []Page{}
 	}
 	for pageIndex := range value.Pages {
+		// Ein gespeicherter Name, der wortgleich dem Rueckfallwert der Anzeige
+		// entspricht ("Uebersicht", "Dashboard", "Entitaeten"), wird beim Laden
+		// wieder auf "" normalisiert - so zeigt ein alter, vor dieser
+		// Aenderung gespeicherter Layout-Stand dieselbe UI wie ein frisches,
+		// das defaultLayout() schon leer anlegt. Die Anzeige uebernimmt den
+		// Rueckfalltext dann selbst (t('overview.page.default_name') usw.),
+		// statt ihn im Speicher zu verdoppeln.
+		if value.Pages[pageIndex].Name == "Übersicht" {
+			value.Pages[pageIndex].Name = ""
+		}
 		if value.Pages[pageIndex].Groups == nil {
 			value.Pages[pageIndex].Groups = []Group{}
 		}
 		for groupIndex := range value.Pages[pageIndex].Groups {
 			group := &value.Pages[pageIndex].Groups[groupIndex]
+			if group.Name == "Dashboard" {
+				group.Name = ""
+			}
 			if group.Items == nil {
 				group.Items = []Item{}
 			}
@@ -1709,8 +1727,8 @@ func normalizeLayout(value Layout) Layout {
 					item.SpeedReferenceWatts = 0
 				}
 				if item.Type == "entity_group" {
-					if item.Title == "" {
-						item.Title = "Entitäten"
+					if item.Title == "Entitäten" {
+						item.Title = ""
 					}
 					if item.EntityRefs == nil {
 						item.EntityRefs = []string{}

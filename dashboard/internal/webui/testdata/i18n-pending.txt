@@ -22,7 +22,6 @@ static/js/history-store.js
 static/js/history.js
 static/js/layout-editor.js
 static/js/mqtt.page.js
-static/js/overview.page.js
 static/js/revisions.js
 static/js/schema-form.js
 static/js/settings.page.js
@@ -30,14 +29,11 @@ static/js/systemconfig.page.js
 static/js/tailscale.page.js
 templates/automations.html
 templates/config.html
-templates/device-tile.html
 templates/devicemap.html
-templates/devices.html
 templates/diagnostics.html
 templates/energy.html
 templates/layout-editor.html
 templates/mqtt.html
-templates/overview.html
 templates/revisions.html
 templates/settings.html
 templates/tailscale.html

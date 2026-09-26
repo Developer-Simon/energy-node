@@ -1,4 +1,11 @@
 (() => {
+  // Nur fuer die Rueckfall-Anzeige des Standard-Seitennamens (Stored default
+  // names, siehe openPageOptions()): defaultLayout() und normalizeLayout()
+  // (webui.go/settings.go) speichern einen unveraenderten Standardnamen seit
+  // dieser Aenderung als "", die Anzeige uebernimmt den Katalogtext. Der Rest
+  // dieser Datei bleibt unuebersetzt (A3.5).
+  const t = key => (window.I18n ? window.I18n.t(key) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
@@ -1959,7 +1966,7 @@
       if (!scrim || !page) return;
       this.activePage = page.name;
       const input = scrim.querySelector('[data-page-name]');
-      if (input) input.value = page.name;
+      if (input) input.value = page.name || t('overview.page.default_name');
       // Die letzte Seite bleibt: ohne Seite gaebe es nach Spec 4.3 keinen
       // Editieren-Knopf mehr und damit keinen Weg zurueck in den Editor.
       const remove = scrim.querySelector('[data-page-remove]');
