@@ -496,30 +496,6 @@ func TestNormalizeLayoutEntityGroupTitleAndRefsAreTypeScoped(t *testing.T) {
 	}
 }
 
-// Stored default names (localization A3.2): a page or group name that is
-// exactly the old hard-coded default ("Übersicht" / "Dashboard") normalizes
-// to "" on load, the same as an already-empty name from a fresh install -
-// the display translates the empty name itself. A custom name such as
-// "Mein Haus" is left untouched.
-func TestNormalizeLayoutBlanksTheOldDefaultPageAndGroupNames(t *testing.T) {
-	layout := normalizeLayout(Layout{Version: 3, Pages: []Page{
-		{ID: "p1", Name: "Übersicht", Groups: []Group{{ID: "g1", Name: "Dashboard", Items: []Item{}}}},
-		{ID: "p2", Name: "Mein Haus", Groups: []Group{{ID: "g2", Name: "Mein Haus", Items: []Item{}}}},
-	}})
-	if layout.Pages[0].Name != "" {
-		t.Errorf("page name %q, want \"\" (was the old default \"Übersicht\")", layout.Pages[0].Name)
-	}
-	if layout.Pages[0].Groups[0].Name != "" {
-		t.Errorf("group name %q, want \"\" (was the old default \"Dashboard\")", layout.Pages[0].Groups[0].Name)
-	}
-	if layout.Pages[1].Name != "Mein Haus" {
-		t.Errorf("page name %q, want the custom name \"Mein Haus\" left alone", layout.Pages[1].Name)
-	}
-	if layout.Pages[1].Groups[0].Name != "Mein Haus" {
-		t.Errorf("group name %q, want the custom name \"Mein Haus\" left alone", layout.Pages[1].Groups[0].Name)
-	}
-}
-
 func TestNormalizeLayoutDefaultsBatteryStatusDisplay(t *testing.T) {
 	layout := normalizeLayout(Layout{Version: 3, Pages: []Page{{ID: "p", Name: "P", Groups: []Group{{
 		ID: "g", Name: "G", Items: []Item{

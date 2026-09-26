@@ -579,11 +579,11 @@ func defaultLayout(devices []registry.DeviceView) settings.Layout {
 		Version: 2,
 		Pages: []settings.Page{{
 			ID:    "overview",
-			Name:  "",
+			Name:  "Übersicht",
 			Order: 0,
 			Groups: []settings.Group{{
 				ID:    "dashboard",
-				Name:  "",
+				Name:  "Dashboard",
 				Items: items,
 			}},
 		}},

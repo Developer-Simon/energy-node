@@ -14,7 +14,6 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
-import { installI18n, catalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -1925,27 +1924,6 @@ test('das Seiten-Modal zeigt den Namen der aktiven Seite', () => {
   const scrim = dom.window.document.getElementById('layout-page-modal');
   assert.equal(scrim.classList.contains('open'), true);
   assert.equal(scrim.querySelector('[data-page-name]').value, 'Zuhause');
-});
-
-// Stored default names (localization A3.2): a page whose stored name is ""
-// (a fresh default layout, or an old default normalized away by
-// settings.go) shows the catalog fallback in the rename box, in German and
-// in English, instead of a blank field - the rest of layout-editor.js stays
-// untranslated (A3.5).
-test('das Seiten-Modal zeigt bei leerem Namen den Katalog-Rueckfall', () => {
-  const { dom, editor } = editorWithPages(['']);
-  installI18n(dom.window, {lang: 'de'});
-  editor.openPageOptions();
-  const scrim = dom.window.document.getElementById('layout-page-modal');
-  assert.equal(scrim.querySelector('[data-page-name]').value, catalog('de')['overview.page.default_name']);
-});
-
-test('das Seiten-Modal zeigt den englischen Katalog-Rueckfall bei leerem Namen', () => {
-  const { dom, editor } = editorWithPages(['']);
-  installI18n(dom.window, {lang: 'en'});
-  editor.openPageOptions();
-  const scrim = dom.window.document.getElementById('layout-page-modal');
-  assert.equal(scrim.querySelector('[data-page-name]').value, catalog('en')['overview.page.default_name']);
 });
 
 test('Umbenennen schreibt den Namen nach this.pages und meldet es der Navigation', () => {

@@ -2787,49 +2787,6 @@ func TestApplyDevicePrefsStampsSuggestedIconWithoutPrefs(t *testing.T) {
 	}
 }
 
-// Stored default names (localization A3.2): defaultLayout() no longer
-// hard-codes "Übersicht"/"Dashboard" - the display translates the empty
-// name itself (t('overview.page.default_name') / t('overview.group.default_name')),
-// so a fresh installation and an old, already-saved default look the same.
-func TestDefaultLayoutHasEmptyNames(t *testing.T) {
-	layout := defaultLayout(nil)
-	if len(layout.Pages) != 1 || layout.Pages[0].Name != "" {
-		t.Fatalf("defaultLayout() page name = %#v, want exactly one page with an empty name", layout.Pages)
-	}
-	if len(layout.Pages[0].Groups) != 1 || layout.Pages[0].Groups[0].Name != "" {
-		t.Fatalf("defaultLayout() group name = %#v, want exactly one group with an empty name", layout.Pages[0].Groups)
-	}
-}
-
-func TestOverviewNavFallsBackToDefaultPageNameWhenStoredEmpty(t *testing.T) {
-	reg := registry.New()
-	store := settings.NewStore(t.TempDir())
-	layout := settings.Layout{Version: 3, Pages: []settings.Page{{
-		ID: "p", Name: "", Order: 0,
-		Groups: []settings.Group{{ID: "g", Name: "", Items: []settings.Item{}}},
-	}}}
-	if err := store.SaveLayout(layout); err != nil {
-		t.Fatal(err)
-	}
-	recorder := httptest.NewRecorder()
-	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
-	body := recorder.Body.String()
-	if !strings.Contains(body, "<i></i>Übersicht</button>") {
-		t.Fatalf("nav tab of a stored, unnamed page does not show the catalog fallback \"Übersicht\":\n%s", body)
-	}
-
-	layout.Pages[0].Name = "Mein Haus"
-	if err := store.SaveLayout(layout); err != nil {
-		t.Fatal(err)
-	}
-	recorder = httptest.NewRecorder()
-	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
-	body = recorder.Body.String()
-	if !strings.Contains(body, "<i></i>Mein Haus</button>") {
-		t.Fatalf("nav tab of a named page does not show its stored name \"Mein Haus\":\n%s", body)
-	}
-}
-
 func TestOverviewEntityGroupCardFallsBackToDefaultTitleWhenStoredEmpty(t *testing.T) {
 	empty := settings.Layout{Version: 3, Pages: []settings.Page{{
 		ID: "p", Name: "P", Order: 0,

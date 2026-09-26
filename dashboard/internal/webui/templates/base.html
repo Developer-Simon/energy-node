@@ -109,7 +109,7 @@
             data-page-id="{{.Name}}"
             x-show="!hiddenPages.includes('{{.Name}}')"
             x-bind:class="{ active: activePanel === 'overview-panel' && activePage === '{{.Name}}' }"
-            x-on:click="setActivePage('{{.Name}}')"><i></i>{{if .Name}}{{.Name}}{{else}}{{t "overview.page.default_name"}}{{end}}</button>
+            x-on:click="setActivePage('{{.Name}}')"><i></i>{{.Name}}</button>
     {{end}}
     {{/* Im Editor mit "+ Seite" angelegte Seiten erscheinen sofort als Tab,
          noch vor dem Speichern. Nach echtem Speichern kommen sie serverseitig
