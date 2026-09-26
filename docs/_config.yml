@@ -1,8 +1,9 @@
 # GitHub Pages configuration for the documentation site.
 #
-# Enable it under Settings -> Pages -> "Deploy from a branch",
-# branch "main", folder "/docs". No workflow and no local build needed;
-# GitHub builds this with Jekyll.
+# Built and deployed by .github/workflows/pages.yml (Settings -> Pages ->
+# Source "GitHub Actions"), which only redeploys when a document in
+# _data/nav.yml or a build input changed. The workflow also generates
+# _data/doc_versions.yml for the version marker under each document.
 
 title: Energy Node
 description: >-

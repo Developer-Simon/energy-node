@@ -108,8 +108,6 @@ span the node, then the dashboard, then the device services under `src/`.
   under a sub-path behind another proxy
 - [Secrets and credentials](knowledge/dashboard/secrets-and-credentials.md) —
   where credentials live on the node and how they are installed
-- [Lazy assets and cache busting](knowledge/dashboard/lazy-assets-cache-busting.md)
-  — the frontend's manual `?v=` asset versioning
 - [Updater job protocol](knowledge/dashboard/updater-job-protocol.md) — how the
   dashboard hands a local redeploy to the root updater unit
 

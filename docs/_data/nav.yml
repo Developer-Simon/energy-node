@@ -34,7 +34,6 @@
         - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
         - { label: "Reverse proxy", url: "knowledge/dashboard/reverse-proxy.md" }
         - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
-        - { label: "Lazy assets & cache busting", url: "knowledge/dashboard/lazy-assets-cache-busting.md" }
     - label: Services
       items:
         - { label: "Battery state of charge", url: "knowledge/services/battery-soc-how-it-works.md" }

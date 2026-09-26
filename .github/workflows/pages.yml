@@ -1,0 +1,94 @@
+name: Pages
+
+# Builds docs/ with Jekyll and deploys it to GitHub Pages. Requires
+# Settings -> Pages -> Source "GitHub Actions".
+#
+# A push to main deploys only when a document in the sidebar navigation
+# (docs/_data/nav.yml) or a site build input changed, see
+# scripts/docs/pages-should-deploy.sh. A finished Release run redeploys as
+# well, so the version markers stop flagging pages as unreleased once their
+# version is tagged.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "docs/**"
+      - ".github/workflows/pages.yml"
+      - "scripts/docs/**"
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  changes:
+    name: Decide whether to deploy
+    runs-on: ubuntu-latest
+    outputs:
+      deploy: ${{ steps.decide.outputs.deploy }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+          RUN_CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+        run: |
+          set -euo pipefail
+          case "$EVENT" in
+            workflow_dispatch) deploy=true ;;
+            workflow_run)
+              if [ "$RUN_CONCLUSION" = success ]; then deploy=true; else deploy=false; fi ;;
+            push)
+              # A new branch or a rewritten history has no usable "before":
+              # deploy rather than guess.
+              if files="$(git diff --name-only "$BEFORE" "$AFTER" 2>/dev/null)"; then
+                echo "Changed files:"
+                printf '%s\n' "$files"
+                deploy="$(printf '%s\n' "$files" | scripts/docs/pages-should-deploy.sh docs)"
+              else
+                deploy=true
+              fi ;;
+            *) deploy=true ;;
+          esac
+          echo "deploy=$deploy"
+          echo "deploy=$deploy" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Build and deploy
+    needs: changes
+    if: needs.changes.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      # Full history and tags: the version markers are derived from the last
+      # commit that touched each document and from the latest release tag.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Generate version markers
+        run: scripts/docs/doc-versions.sh . > docs/_data/doc_versions.yml
+      - uses: actions/configure-pages@v5
+      - uses: actions/jekyll-build-pages@v1
+        with:
+          source: ./docs
+          destination: ./_site
+      - uses: actions/upload-pages-artifact@v3
+      - id: deployment
+        uses: actions/deploy-pages@v4
