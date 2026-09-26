@@ -52,6 +52,7 @@
       runtimeHours: Number.isFinite(Number(source.runtimeHours)) ? Number(source.runtimeHours) : null,
       historyHours,
       forecastHours: posNum(source.forecastHours, historyHours),
+      formatNumber: typeof source.formatNumber === 'function' ? source.formatNumber : defaultFormatNumber,
     };
   }
 
@@ -389,8 +390,13 @@
 
   const RING_CIRCUMFERENCE = 2 * Math.PI * 44;
 
-  const nf = (value, digits) =>
-    value.toLocaleString('de-DE', {minimumFractionDigits: digits, maximumFractionDigits: digits});
+  // The dashboard passes I18n.formatNumber (number format setting), the HA
+  // card a formatter for the HA user's locale. Without either (a bare page,
+  // an old HA card) the browser locale is the last resort.
+  function defaultFormatNumber(value, digits) {
+    if (window.I18n && window.I18n.formatNumber) return window.I18n.formatNumber(value, digits);
+    return value.toLocaleString(undefined, {minimumFractionDigits: digits, maximumFractionDigits: digits});
+  }
 
   function boundLabel(run) {
     if (run.kind === 'full') return 'bis voll';
@@ -398,7 +404,7 @@
     return 'bis Reserve';
   }
 
-  function rowsFor(state, run) {
+  function rowsFor(state, run, nf) {
     const coverage = !state.hasSoC
       ? {value: 'keine Speicher-Quelle', note: 'Erst eine Entität als Ladezustand zuordnen.'}
       : run.hours === null
@@ -423,6 +429,7 @@
 
   function viewFrom(rawInput) {
     const input = normalizeInput(rawInput);
+    const nf = input.formatNumber;
     const state = batteryState(input);
     const run = runtime(state, input.runtimeHours);
     const historySpanMs = input.historyHours * 3600000;
@@ -443,7 +450,7 @@
             : 'Ruht',
       ringOffset: RING_CIRCUMFERENCE * (1 - state.soc / 100),
       gauge: {fillScale: state.soc / 100, reserveHeight: state.reserve, showReserve: state.reserve > 0},
-      rows: rowsFor(state, run),
+      rows: rowsFor(state, run, nf),
       kpis: [
         {key: 'runtime', label: 'Restlaufzeit', value: run.hours === null ? '—' : `noch ${formatRuntime(run.hours)}`},
         {key: 'usable', label: 'Abrufbar', value: `${nf(state.usable, 1)} kWh`},

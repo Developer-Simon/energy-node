@@ -590,7 +590,7 @@
       const state = this.ruleState(rule);
       if (!state) return [];
       const parts = [`Sperrzeit ${this.formatSeconds(state.cooldown_remaining)} von ${this.formatSeconds(rule.cooldown_seconds)}`];
-      if (state.fired_at) parts.push(`zuletzt ausgelöst ${new Date(state.fired_at * 1000).toLocaleTimeString('de-DE')}`);
+      if (state.fired_at) parts.push(`zuletzt ausgelöst ${window.I18n.formatTime(state.fired_at * 1000)}`);
       parts.push(`bisher ${state.fire_count || 0}×`);
       return parts;
     },
@@ -1012,7 +1012,7 @@
     },
 
     historyTimestamp(event) {
-      return new Date(event.at * 1000).toLocaleString('de-DE');
+      return window.I18n.formatDateTime(event.at * 1000);
     },
   });
 

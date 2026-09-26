@@ -135,3 +135,20 @@ test('die Karte zeichnet nach dem ersten hass-Zustand in ihr Shadow-DOM', () => 
   assert.ok(root.querySelector('style[data-battery-card-style]'), 'Karten-CSS fehlt im Shadow-DOM');
   assert.equal(root.querySelector('.battery-column-pct').textContent, '62 %');
 });
+
+test('the HA card formats numbers in the HA user language', () => {
+  const { Card } = load();
+  const format = Card.numberFormatter({ locale: { language: 'en', number_format: 'language' } });
+  assert.equal(format(1.5, 1), '1.5');
+  const german = Card.numberFormatter({ locale: { language: 'de', number_format: 'language' } });
+  assert.equal(german(1.5, 1), '1,5');
+  const forced = Card.numberFormatter({ locale: { language: 'en', number_format: 'decimal_comma' } });
+  assert.equal(forced(1.5, 1), '1,5');
+  assert.equal(Card.numberFormatter({ locale: { language: 'en', number_format: 'none' } })(12345, 0), '12345');
+});
+
+test('inputFromHass passes the HA number formatter to the core', () => {
+  const { Card } = load();
+  const input = Card.inputFromHass({ ...hass, locale: { language: 'en', number_format: 'language' } }, config, [], Date.now());
+  assert.equal(input.formatNumber(1.5, 1), '1.5');
+});

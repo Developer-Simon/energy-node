@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
@@ -30,6 +31,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/numfmt"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -160,6 +162,8 @@ func buildOverviewTemplate(lang string) *template.Template {
 			return nil
 		},
 	}
+	funcs["formatValue"] = func(raw, unit string) string { return numberStyle(lang).Value(raw, unit) }
+	funcs["formatNumber"] = func(value float64, decimals int) string { return numberStyle(lang).Number(value, decimals) }
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
@@ -172,6 +176,38 @@ var overviewSets = newTemplateSets(buildOverviewTemplate)
 // request's language via overviewSets; tests that render single partials
 // use this one.
 var overviewTmpl = overviewSets.get(localize.DefaultLanguage)
+
+// numberSettings mirrors the operator's number format. The template sets
+// are parsed once per language, so formatValue/formatNumber cannot capture
+// a per-request value. The Overview handler stores the current setting here
+// before every render instead. The setting is global for the node, so
+// concurrent requests store the same value.
+type numberSettings struct{ format, grouping string }
+
+var currentNumberSettings atomic.Pointer[numberSettings]
+
+func setNumberSettings(value settings.Settings) {
+	currentNumberSettings.Store(&numberSettings{format: value.NumberFormat, grouping: value.NumberGrouping})
+}
+
+func numberStyle(lang string) numfmt.Style {
+	format, grouping := numfmt.FormatAuto, numfmt.GroupingMatch
+	if current := currentNumberSettings.Load(); current != nil {
+		format, grouping = current.format, current.grouping
+	}
+	return numfmt.Resolve(format, grouping, translator.T(lang, "meta.number.decimal"), translator.T(lang, "meta.number.group"))
+}
+
+// flatpickrLocaleScript names the embedded flatpickr locale for lang, or ""
+// when there is none. flatpickr's built-in default is English, so English
+// needs no file.
+func flatpickrLocaleScript(lang string) string {
+	name := "flatpickr-l10n-" + lang + ".js"
+	if _, err := fs.Stat(staticFS, "js-deps/"+name); err != nil {
+		return ""
+	}
+	return name
+}
 
 // diagnosticTextPattern and configTextPattern mirror the fallback heuristics
 // in dashboard.js's entityCategory() for entities whose discovery payload
@@ -563,10 +599,10 @@ var energyCardScripts = map[string]string{
 	"energy_band":    "/static/js/energy-band.js",
 	"energy_ring":    "/static/js/energy-ring.js",
 	"energy_board":   "/static/js/energy-board.js",
-	"energy_day":     "/static/js/energy-day.js",
+	"energy_day":     "/static/js/energy-day.js?v=1",
 	"energy_schema":  "/static/js/energy-schema.js",
 	"energy_status":  "/static/js/energy-status.js",
-	"battery_status": "/static/js/battery-status.js?v=1",
+	"battery_status": "/static/js/battery-status.js?v=2",
 }
 
 // requiredEnergyCardScripts returns the energy-<type>.js paths for whichever
@@ -695,6 +731,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		showRuntimeStatus := true
 		deviceViewMode := settings.DeviceViewModeCompact
 		theme := settings.ThemeMint
+		numberFormat, numberGrouping := numfmt.FormatAuto, numfmt.GroupingMatch
 		showConfigEntitiesOnTile := false
 		showDiagnosticEntitiesOnTile := false
 		widePanels := settings.Default().WidePanels
@@ -705,6 +742,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 				showRuntimeStatus = value.ShowRuntimeStatus
 				deviceViewMode = value.DeviceViewMode
 				theme = value.Theme
+				numberFormat, numberGrouping = value.NumberFormat, value.NumberGrouping
 				showConfigEntitiesOnTile = value.ShowConfigEntitiesOnTile
 				showDiagnosticEntitiesOnTile = value.ShowDiagnosticEntitiesOnTile
 				widePanels = value.WidePanels
@@ -751,6 +789,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		for key, value := range installedServices {
 			resolvedInstalledServices[key] = value
 		}
+		setNumberSettings(settings.Settings{NumberFormat: numberFormat, NumberGrouping: numberGrouping})
 		view := map[string]any{
 			"BasePath":           basepath.From(r),
 			"Manager":            configs != nil && store != nil,
@@ -766,6 +805,10 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			"Languages":          translator.Options(lang),
 			"CatalogVersion":     translator.Version(),
 			"ShowLanguageSwitch": showLanguageSwitch,
+
+			"NumberFormat":          numberFormat,
+			"NumberGrouping":        numberGrouping,
+			"FlatpickrLocaleScript": flatpickrLocaleScript(lang),
 		}
 		if needsDevices {
 			view["Devices"] = devices

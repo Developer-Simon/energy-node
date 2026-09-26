@@ -67,7 +67,7 @@
   {{if $priority}}
   <span class="compact-card-rows">
     {{range $priority}}
-    <span class="compact-card-row" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}"><span class="compact-card-row-label">{{stripDeviceName $device.Name .Name}}</span><span class="compact-card-row-value{{if .Stale}} stale{{end}}">{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{.Value}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}–{{end}}</span></span>
+    <span class="compact-card-row" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}"><span class="compact-card-row-label">{{stripDeviceName $device.Name .Name}}</span><span class="compact-card-row-value{{if .Stale}} stale{{end}}">{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{formatValue .Value .UnitOfMeasurement}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}–{{end}}</span></span>
     {{end}}
   </span>
   {{else}}
@@ -106,7 +106,7 @@
       <template x-for="entity in pinnedFavorites" :key="`pinned-${entity.unique_id}`">
         <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
           <div class="k" x-text="entityDisplayName(entity)"></div>
-          <div class="v"><span x-roll x-text="entity.has_value ? entity.value : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+          <div class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
         </article>
       </template>
     </div>
@@ -362,7 +362,7 @@
 <template x-for="entity in {{.}}" :key="entity.unique_id">
   <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
     <div class="k" x-text="entityDisplayName(entity)"></div>
-    <div class="v"><span x-roll x-text="entity.has_value ? entity.value : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+    <div class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
   </article>
 </template>
 {{end}}
@@ -372,7 +372,7 @@
   <article class="device-modal-control-card" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
     <div class="label" x-text="entityDisplayName(entity)"></div>
     <div x-show="entity.commandable && entity.component === 'number'" class="entity-number-control"><input type="range" class="entity-number-slider" data-command-type="number" x-model="entity.value" x-bind:data-entity-id="entity.unique_id" x-bind:min="entity.min_value ?? 0" x-bind:max="entity.max_value ?? 100" x-bind:step="entity.step ?? 'any'" x-bind:disabled="entity.pending" x-on:change="sendNumberCommand($el)" x-bind:aria-label="`${entity.name || entity.object_id} einstellen`"><output x-text="`${entity.value}${entity.unit_of_measurement ? ` ${entity.unit_of_measurement}` : ''}`"></output></div>
-    <div x-show="!(entity.commandable && entity.component === 'number')" class="v"><span x-roll x-text="entity.has_value ? entity.value : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+    <div x-show="!(entity.commandable && entity.component === 'number')" class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
     <button x-show="entity.commandable && entity.component !== 'number'" type="button" class="device-modal-control-action" x-bind:disabled="entity.pending" x-on:click="sendCommand($event)" x-bind:data-entity-id="entity.unique_id" x-bind:aria-label="`${entity.name || entity.object_id} schalten`">Schalten</button>
     <small class="entity-command-status" x-cloak x-show="commandStatusText(entity)" x-text="commandStatusText(entity)"></small>
   </article>

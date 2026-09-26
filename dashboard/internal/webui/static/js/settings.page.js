@@ -34,6 +34,9 @@
     showRuntimeStatus: true,
     deviceViewMode: 'compact',
     theme: 'mint',
+    numberFormat: 'auto',
+    numberGrouping: 'match',
+    loadedNumberFormat: 'auto|match',
     showConfigEntitiesOnTile: false,
     showDiagnosticEntitiesOnTile: false,
     liveUpdateIntervalSeconds: 3,
@@ -103,6 +106,9 @@
         this.showRuntimeStatus = value.show_runtime_status !== false;
         this.deviceViewMode = value.device_view_mode === 'control' ? 'control' : 'compact';
         this.theme = ['mint', 'stromblau', 'signalgelb', 'tageslicht'].includes(value.theme) ? value.theme : 'mint';
+        this.numberFormat = ['auto', 'comma', 'point'].includes(value.number_format) ? value.number_format : 'auto';
+        this.numberGrouping = ['match', 'thin'].includes(value.number_grouping) ? value.number_grouping : 'match';
+        this.loadedNumberFormat = `${this.numberFormat}|${this.numberGrouping}`;
         this.showConfigEntitiesOnTile = Boolean(value.show_config_entities_on_tile);
         this.showDiagnosticEntitiesOnTile = Boolean(value.show_diagnostic_entities_on_tile);
         this.liveUpdateIntervalSeconds = value.live_update_interval_seconds || 3;
@@ -283,10 +289,11 @@
 
     formatBytes(bytes) {
       const value = Number(bytes) || 0;
-      if (value >= 1024 * 1024 * 1024) return `${(value / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-      if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
-      if (value >= 1024) return `${(value / 1024).toFixed(0)} kB`;
-      return `${value} B`;
+      const n = window.I18n.formatNumber;
+      if (value >= 1024 * 1024 * 1024) return `${n(value / (1024 * 1024 * 1024), 1)} GB`;
+      if (value >= 1024 * 1024) return `${n(value / (1024 * 1024), 1)} MB`;
+      if (value >= 1024) return `${n(value / 1024, 0)} kB`;
+      return `${n(value, 0)} B`;
     },
 
     get storageHealthBadgeClass() {
@@ -303,7 +310,7 @@
     },
 
     formatStorageHealthTime(value) {
-      return value ? new Date(value).toLocaleString() : '-';
+      return value ? window.I18n.formatDateTime(value) || '-' : '-';
     },
 
     formatStorageBytes(value) {
@@ -313,12 +320,12 @@
       let amount = bytes;
       let unit = 0;
       while (amount >= 1000 && unit < units.length - 1) { amount /= 1000; unit += 1; }
-      return `${amount.toFixed(unit > 1 ? 1 : 0)} ${units[unit]}`;
+      return `${window.I18n.formatNumber(amount, unit > 1 ? 1 : 0)} ${units[unit]}`;
     },
 
     formatStorageDays(value) {
       const days = Number(value);
-      return Number.isFinite(days) ? `${days.toFixed(1)} Tage` : '-';
+      return Number.isFinite(days) ? `${window.I18n.formatNumber(days, 1)} Tage` : '-';
     },
 
     get valid() {
@@ -335,6 +342,8 @@
         show_runtime_status: Boolean(this.showRuntimeStatus),
         device_view_mode: this.deviceViewMode,
         theme: this.theme,
+        number_format: this.numberFormat,
+        number_grouping: this.numberGrouping,
         show_config_entities_on_tile: Boolean(this.showConfigEntitiesOnTile),
         show_diagnostic_entities_on_tile: Boolean(this.showDiagnosticEntitiesOnTile),
         live_update_interval_seconds: Number(this.liveUpdateIntervalSeconds),
@@ -352,6 +361,11 @@
         update_check_disabled: Boolean(this.updateCheckDisabled),
         language_switch_hidden: Boolean(this.languageSwitchHidden),
       };
+    },
+
+    // Kept as a method so tests can replace it, jsdom cannot reload.
+    reloadPage() {
+      window.location.reload();
     },
 
     revisionConfig() {
@@ -400,6 +414,10 @@
         // ungespeicherte Aenderungen gingen sonst verloren.
         if (window.I18n && this.uiLanguage !== window.I18n.lang) {
           window.I18n.setLanguage(this.uiLanguage);
+        } else if (`${this.numberFormat}|${this.numberGrouping}` !== this.loadedNumberFormat) {
+          // Numbers are rendered by the server and by many scripts, a reload
+          // applies a new format everywhere at once (like a language switch).
+          this.reloadPage();
         }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');

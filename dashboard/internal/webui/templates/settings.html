@@ -117,6 +117,20 @@
         <span>{{t "settings.language_switch.label"}}</span>
         <span class="settings-toggle"><input id="show-language-switch" type="checkbox" role="switch" x-bind:checked="!languageSwitchHidden" x-on:change="languageSwitchHidden = !$event.target.checked" x-bind:aria-checked="!languageSwitchHidden"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
       </label>
+      <span class="setting-row-label" id="lbl-number-format">{{t "settings.number_format.label"}}</span>
+      <div class="segmented segmented--3" role="radiogroup" aria-labelledby="lbl-number-format">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="number-format" value="auto" x-model="numberFormat"><span>{{t "settings.number_format.auto"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="number-format" value="comma" x-model="numberFormat"><span>{{t "settings.number_format.comma"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="number-format" value="point" x-model="numberFormat"><span>{{t "settings.number_format.point"}}</span></label>
+      </div>
+      <span class="setting-row-label" id="lbl-number-grouping">{{t "settings.number_format.grouping_label"}}</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="lbl-number-grouping">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="number-grouping" value="match" x-model="numberGrouping"><span>{{t "settings.number_format.grouping_match"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="number-grouping" value="thin" x-model="numberGrouping"><span>{{t "settings.number_format.grouping_thin"}}</span></label>
+      </div>
+      <p class="setting-note">{{t "settings.number_format.note"}}</p>
     </div>
 
     <div class="setting-card">

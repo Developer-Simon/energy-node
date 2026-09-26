@@ -24,14 +24,14 @@
 (() => {
   const {merge, statusMessage, setDotClass, availabilityState, timestampNode} = window.entityValues;
 
-  function valueMarkup(document, value, deviceClass) {
+  function valueMarkup(document, value, deviceClass, unit) {
     const strong = document.createElement('strong');
     if (!value.has_value) {
       strong.textContent = '-';
     } else if (deviceClass === 'timestamp') {
       strong.appendChild(timestampNode(document, value.value));
     } else {
-      strong.textContent = value.value;
+      strong.textContent = window.I18n.formatValue(value.value, unit);
     }
     return [strong];
   }
@@ -40,8 +40,8 @@
     const document = card.ownerDocument;
     const numeric = card.querySelector('.entity-value-num');
     if (numeric) {
-      numeric.replaceChildren(...valueMarkup(document, value, card.dataset.deviceClass || ''));
       const unit = card.dataset.unit || '';
+      numeric.replaceChildren(...valueMarkup(document, value, card.dataset.deviceClass || '', unit));
       if (value.has_value && unit) {
         const span = document.createElement('span');
         span.className = 'entity-value-unit';
@@ -56,14 +56,14 @@
     const document = chip.ownerDocument;
     const numeric = chip.querySelector('.entity-group-chip-val');
     if (numeric) {
+      const unit = chip.dataset.unit || '';
       if (!value.has_value) {
         numeric.textContent = '-';
       } else if ((chip.dataset.deviceClass || '') === 'timestamp') {
         numeric.replaceChildren(timestampNode(document, value.value));
       } else {
-        numeric.textContent = value.value;
+        numeric.textContent = window.I18n.formatValue(value.value, unit);
       }
-      const unit = chip.dataset.unit || '';
       if (value.has_value && unit) {
         const span = document.createElement('span');
         span.textContent = unit;

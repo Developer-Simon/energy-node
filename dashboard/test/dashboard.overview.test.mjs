@@ -17,6 +17,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
@@ -42,6 +43,7 @@ function load({ html = '<div id="overview-panel" class="panel active"></div>' } 
   // Set visibilityState to 'visible' so guards in components like refreshLiveFragment
   // don't return early during testing.
   Object.defineProperty(dom.window.document, 'visibilityState', { value: 'visible', writable: true });
+  installI18n(dom.window);
   vm.runInContext(entitySource, context);
   vm.runInContext(tileSource, context);
   vm.runInContext(valuesSource, context);

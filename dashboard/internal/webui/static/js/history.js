@@ -37,6 +37,38 @@
   // zeigen, nur ueber die Zeit.
   const DERIVED_HAUSVERBRAUCH_SERIES = 'berechnet:hausverbrauch';
 
+  // ApexCharts ships English month and day names. Instead of bundling one
+  // locale file per language, the names come from Intl for the catalog's
+  // meta.locale, the toolbar titles from the catalog.
+  function apexLocale() {
+    const I18n = window.I18n;
+    const monthName = (month, style) => I18n.formatDate(Date.UTC(2021, month, 15), {month: style, timeZone: 'UTC'});
+    // 2021-01-03 is a Sunday, ApexCharts starts its weeks on Sunday.
+    const dayName = (day, style) => I18n.formatDate(Date.UTC(2021, 0, 3 + day), {weekday: style, timeZone: 'UTC'});
+    const range = count => Array.from({length: count}, (_, index) => index);
+    return {
+      name: I18n.lang,
+      options: {
+        months: range(12).map(month => monthName(month, 'long')),
+        shortMonths: range(12).map(month => monthName(month, 'short')),
+        days: range(7).map(day => dayName(day, 'long')),
+        shortDays: range(7).map(day => dayName(day, 'short')),
+        toolbar: {
+          exportToSVG: I18n.t('chart.toolbar.export_svg'),
+          exportToPNG: I18n.t('chart.toolbar.export_png'),
+          exportToCSV: I18n.t('chart.toolbar.export_csv'),
+          menu: I18n.t('chart.toolbar.menu'),
+          selection: I18n.t('chart.toolbar.selection'),
+          selectionZoom: I18n.t('chart.toolbar.selection_zoom'),
+          zoomIn: I18n.t('chart.toolbar.zoom_in'),
+          zoomOut: I18n.t('chart.toolbar.zoom_out'),
+          pan: I18n.t('chart.toolbar.pan'),
+          reset: I18n.t('chart.toolbar.reset'),
+        },
+      },
+    };
+  }
+
   // Unsichtbarer Anhang (INVISIBLE SEPARATOR) an den Namen der blassen
   // Luecken-"Geist"-Serie. Sie teilt sich die Farbe mit ihrer echten Serie,
   // taucht aber weder in Legende noch Tooltip auf.
@@ -229,10 +261,11 @@
     // kein Ersatz - ohne window.flatpickr (Skript noch nicht geladen, oder
     // ein Test ohne Vendor-Skripte) bleiben die Presets voll nutzbar, nur der
     // eigene Zeitraum faellt weg. Gleicher Guard-Stil wie renderChart() bei
-    // window.ApexCharts.
+    // window.ApexCharts. Die Sprachdatei laedt base.html je Sprache mit
+    // (FlatpickrLocaleScript), Englisch ist flatpickrs eingebauter Standard.
     initRangePicker() {
       if (!window.flatpickr || !this.$refs?.rangeInput) return;
-      const locale = (window.flatpickr.l10ns && window.flatpickr.l10ns.de) || 'default';
+      const locale = (window.flatpickr.l10ns && window.flatpickr.l10ns[window.I18n.lang]) || 'default';
       this.rangePicker = window.flatpickr(this.$refs.rangeInput, {
         mode: 'range',
         enableTime: true,
@@ -482,14 +515,14 @@
         ...percentScale(axisUnit),
         labels: {
           style: axisLabelStyle,
-          formatter: value => `${Number(value).toFixed(0)}${axisUnit ? ` ${axisUnit}` : ''}`,
+          formatter: value => `${window.I18n.formatNumber(Number(value), 0)}${axisUnit ? ` ${axisUnit}` : ''}`,
         },
       });
       const singleYAxis = {
         ...percentScale(unit),
         labels: {
           style: axisLabelStyle,
-          formatter: value => `${Number(value).toFixed(0)}${unit ? ` ${unit}` : ''}`,
+          formatter: value => `${window.I18n.formatNumber(Number(value), 0)}${unit ? ` ${unit}` : ''}`,
         },
       };
       // Bei gemischten Einheiten nennt der geteilte Tooltip jeden Wert mit der
@@ -499,7 +532,7 @@
         const seriesName = index >= 0 && opts.w && opts.w.globals && opts.w.globals.seriesNames
           ? opts.w.globals.seriesNames[index] : null;
         const rowUnit = (seriesName && unitBySeries.get(seriesName)) || unit;
-        return `${Number(value).toFixed(1)}${rowUnit ? ` ${rowUnit}` : ''}`;
+        return `${window.I18n.formatNumber(Number(value), 1)}${rowUnit ? ` ${rowUnit}` : ''}`;
       };
 
       return {
@@ -513,6 +546,8 @@
           zoom: {enabled: true, type: 'x'},
           background: 'transparent',
           fontFamily: 'inherit',
+          locales: [apexLocale()],
+          defaultLocale: window.I18n.lang,
           // Gezoomt/geschoben: Ausschnitt merken, damit renderChart() ihn
           // beim Nachladen neuer Punkte wieder festhalten kann. Der
           // Home-Knopf feuert beforeResetZoom und raeumt beides ab.
@@ -555,10 +590,10 @@
         tooltip: {
           shared: true,
           enabledOnSeries: realSeries.map((_, index) => index),
-          x: {format: 'dd.MM.yyyy HH:mm:ss'},
+          x: {formatter: value => window.I18n.formatDateTime(value)},
           y: {formatter: units.length > 1
             ? tooltipValue
-            : value => `${Number(value).toFixed(1)}${unit ? ` ${unit}` : ''}`},
+            : value => `${window.I18n.formatNumber(Number(value), 1)}${unit ? ` ${unit}` : ''}`},
         },
         noData: {text: 'Keine Daten im gewählten Zeitraum'},
       };
@@ -609,8 +644,8 @@
     // ist - sonst bleibt das Eingabefeld leer und zeigt den Platzhalter.
     get customRangeLabel() {
       if (this.rangeMode !== 'custom' || !this.customFrom || !this.customTo) return '';
-      const format = new Intl.DateTimeFormat('de-DE', {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'});
-      return `${format.format(this.customFrom)} – ${format.format(this.customTo)}`;
+      const options = {day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'};
+      return `${window.I18n.formatDateTime(this.customFrom, options)} – ${window.I18n.formatDateTime(this.customTo, options)}`;
     },
 
     toggleSeries(name) {

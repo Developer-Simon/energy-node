@@ -330,7 +330,7 @@
       });
       const named = [...groups.entries()]
         .filter(([device]) => device)
-        .sort((a, b) => a[0].localeCompare(b[0], 'de'));
+        .sort((a, b) => window.I18n.compare(a[0], b[0]));
       const unnamed = groups.get('') || [];
       if (unnamed.length) named.push(['Sonstige', unnamed]);
       return named;
@@ -661,7 +661,7 @@
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'battery-measure-apply';
-          button.textContent = `${kind} ${value.toFixed(3)} V/Zelle übernehmen`;
+          button.textContent = `${kind} ${window.I18n.formatNumber(value, 3)} V/Zelle übernehmen`;
           button.addEventListener('click', () => {
             control.value = value.toFixed(3);
             // Ohne diese Events bliebe das Feld als "Default" markiert und

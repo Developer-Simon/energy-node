@@ -32,7 +32,8 @@
       span.replaceChildren(timestampNode(row.ownerDocument, value.value));
       if (unit) span.append(` ${unit}`);
     } else {
-      span.textContent = unit ? `${value.value} ${unit}` : value.value;
+      const text = window.I18n.formatValue(value.value, unit);
+      span.textContent = unit ? `${text} ${unit}` : text;
     }
     span.classList.toggle('stale', Boolean(value.stale));
   }

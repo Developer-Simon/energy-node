@@ -8,14 +8,16 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
 const primitives = read('entity-values.js');
 const source = read('device-tile-values.js');
 
-function load(html) {
+function load(html, options = {}) {
   const dom = new JSDOM(`<!doctype html><html><body>${html}</body></html>`, { runScripts: 'outside-only' });
+  installI18n(dom.window, options);
   vm.runInContext(primitives, dom.getInternalVMContext());
   vm.runInContext(source, dom.getInternalVMContext());
   return dom.window;
@@ -200,4 +202,16 @@ test('Voll-Modus (Vorgabe) fasst weiter alle Zeilen an', () => {
   });
   // e2 fehlt im Push -> im Voll-Modus MISSING -> "-"
   assert.equal(window.document.querySelector('[data-entity-id="e2"] .device-tile-entity-value').textContent, '-');
+});
+
+test('Messwerte mit Einheit folgen dem Zahlenformat', () => {
+  const window = load(sensorRow('e1', { unit: 'kWh', value: '1' }), { format: 'comma' });
+  apply(window, { e1: { value: '12345.6', has_value: true, has_availability: true, available: true } });
+  assert.equal(window.document.querySelector('.device-tile-entity-value').textContent, '12.345,6 kWh');
+});
+
+test('Messwerte ohne Einheit bleiben roh', () => {
+  const window = load(sensorRow('e1', { unit: '', deviceClass: '', value: '1' }), { format: 'comma' });
+  apply(window, { e1: { value: '10342.5', has_value: true, has_availability: true, available: true } });
+  assert.equal(window.document.querySelector('.device-tile-entity-value').textContent, '10342.5');
 });

@@ -55,6 +55,22 @@
     return Number.isFinite(value) ? value : null;
   };
 
+  // Mirrors Home Assistant's own number_format choices. "language" and
+  // "system" follow the user's language or browser, the others force a
+  // separator style regardless of language.
+  const HA_NUMBER_LOCALES = {comma_decimal: 'en-US', decimal_comma: 'de', space_comma: 'fr'};
+
+  function numberFormatter(hass) {
+    const locale = (hass && hass.locale) || {};
+    const choice = locale.number_format || 'language';
+    const tag = HA_NUMBER_LOCALES[choice] || (choice === 'system' ? undefined : locale.language || (hass && hass.language));
+    return (value, digits) => value.toLocaleString(tag, {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+      useGrouping: choice !== 'none',
+    });
+  }
+
   function inputFromHass(hass, config, history, nowTs) {
     const soc = numberState(hass, config.soc_entity);
     const rawWatts = numberState(hass, config.power_entity) || 0;
@@ -73,6 +89,7 @@
       runtimeHours: config.runtime_entity ? numberState(hass, config.runtime_entity) : null,
       historyHours: win.historyHours,
       forecastHours: win.forecastHours,
+      formatNumber: numberFormatter(hass),
     };
   }
 
@@ -173,6 +190,7 @@
   }
 
   BatterySocCard.inputFromHass = inputFromHass;
+  BatterySocCard.numberFormatter = numberFormatter;
   BatterySocCard.historyReader = historyReader;
   BatterySocCard.windowHours = windowHours;
 

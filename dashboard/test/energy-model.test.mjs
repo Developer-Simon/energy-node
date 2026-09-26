@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const themeSource = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'theme.js'), 'utf8');
@@ -18,6 +19,7 @@ const scriptSource = fs.readFileSync(
 
 function loadEnergyModel() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
+  installI18n(dom.window);
   vm.runInContext(themeSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   return dom.window.EnergyModel;
@@ -121,6 +123,7 @@ test('readEmbeddedSnapshot parses the embedded JSON script tag', () => {
     '<!doctype html><html><body><script type="application/json" id="energy-status-initial">{"values":{"pv":42}}</script></body></html>',
     { runScripts: 'outside-only', url: 'http://localhost/' },
   );
+  installI18n(dom.window);
   vm.runInContext(themeSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   const snapshot = dom.window.EnergyModel.readEmbeddedSnapshot('energy-status-initial');
@@ -132,6 +135,7 @@ test('readEmbeddedSnapshot returns null for a missing or malformed tag', () => {
     '<!doctype html><html><body><script type="application/json" id="broken">not json</script></body></html>',
     { runScripts: 'outside-only', url: 'http://localhost/' },
   );
+  installI18n(dom.window);
   vm.runInContext(themeSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   assert.equal(dom.window.EnergyModel.readEmbeddedSnapshot('missing'), null);
@@ -143,6 +147,7 @@ test('clearSvgChildren removes drawn nodes but keeps title/desc', () => {
     '<!doctype html><html><body><svg id="s"><title>T</title><desc>D</desc><path></path><circle></circle></svg></body></html>',
     { runScripts: 'outside-only', url: 'http://localhost/' },
   );
+  installI18n(dom.window);
   vm.runInContext(themeSource, dom.getInternalVMContext());
   vm.runInContext(scriptSource, dom.getInternalVMContext());
   const svg = dom.window.document.getElementById('s');
@@ -397,4 +402,13 @@ test('allocate("prorata") gibt jedem Verbraucher denselben Mix', () => {
   const base = result.find(e => e.id === 'base');
   const pvFraction = base.mix.find(m => m.label === 'PV').v / base.v;
   assert.ok(Math.abs(pvFraction - 2000 / 3000) < 0.01, 'prorata mix spiegelt den Quellenanteil am Durchsatz');
+});
+
+test('formatPower follows the number format setting', () => {
+  const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
+  installI18n(dom.window, { lang: 'de', format: 'point' });
+  vm.runInContext(themeSource, dom.getInternalVMContext());
+  vm.runInContext(scriptSource, dom.getInternalVMContext());
+  assert.equal(dom.window.EnergyModel.formatPower(1234), '1.23 kW');
+  assert.equal(dom.window.EnergyModel.formatPower(-12), '-12 W');
 });

@@ -9,6 +9,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 import { attachStores } from './helpers/notify-stores.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +23,7 @@ function load() {
   const factories = {};
   dom.window.Alpine = {data: (name, fn) => { factories[name] = fn; }};
   // settings.page.js registriert seine Komponenten ueber alpine:init.
+  installI18n(dom.window);
   vm.runInContext(rollupSource, context);
   vm.runInContext(settingsSource, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));

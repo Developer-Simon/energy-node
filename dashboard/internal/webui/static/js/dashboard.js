@@ -257,7 +257,7 @@
     root.querySelectorAll('[data-local-timestamp]').forEach(node => {
       const timestamp = new Date(node.dateTime);
       if (Number.isNaN(timestamp.getTime())) return;
-      node.textContent = timestamp.toLocaleString();
+      node.textContent = window.I18n.formatDateTime(timestamp);
     });
   };
 
@@ -285,7 +285,7 @@
       const timestamp = timestampValueToMilliseconds(node.dataset.relativeTimestamp);
       if (timestamp === null) return;
       node.textContent = formatRelativeTimestamp(timestamp);
-      node.title = new Date(timestamp).toLocaleString();
+      node.title = window.I18n.formatDateTime(timestamp);
     });
   };
 
@@ -335,7 +335,7 @@
       return t('status.uptime.minutes', {minutes});
     },
 
-    formatTemp(v) { return (v === null || v === undefined) ? '-' : `${v.toFixed(1)} °C`; },
+    formatTemp(v) { return (v === null || v === undefined) ? '-' : `${window.I18n.formatNumber(v, 1)} °C`; },
     formatPct(v) { return (v === null || v === undefined) ? '-' : `${Math.round(v)} %`; },
 
     async load() {
@@ -741,8 +741,7 @@
 
     formatDetailTime(value) {
       if (!value) return '-';
-      const date = new Date(value);
-      return Number.isNaN(date.getTime()) ? '-' : date.toLocaleString();
+      return window.I18n.formatDateTime(value) || '-';
     },
 
     // Kurzform "vor Xs/min/h" fuer die Kurzinfo an den Modal-Trigger. now
@@ -1441,7 +1440,7 @@
     },
 
     get duplicateIDs() {
-      return Object.entries(this.discovery.duplicate_ids || {}).sort(([left], [right]) => left.localeCompare(right));
+      return Object.entries(this.discovery.duplicate_ids || {}).sort(([left], [right]) => window.I18n.compare(left, right));
     },
 
     get filteredHealthScores() {
@@ -1463,7 +1462,7 @@
       if (!value) return '-';
       const date = new Date(value);
       if (Number.isNaN(date.getTime()) || date.getUTCFullYear() <= 1) return '-';
-      return date.toLocaleString('de-DE');
+      return window.I18n.formatDateTime(date);
     },
 
     get filteredWarnings() {
@@ -1478,7 +1477,7 @@
         if (this.sortBy === 'severity') {
           comparison = (severityRank[left.severity] || 0) - (severityRank[right.severity] || 0);
         } else {
-          comparison = String(left[this.sortBy] || '').localeCompare(String(right[this.sortBy] || ''));
+          comparison = window.I18n.compare(left[this.sortBy] || '', right[this.sortBy] || '');
         }
         return this.sortDirection === 'asc' ? comparison : -comparison;
       });
@@ -1510,29 +1509,33 @@
   // eigenen Schreibens wird der MutationObserver getrennt, damit er nicht
   // rekursiv ausloest. Interruptierbar: ein neuer Zielwert startet von der
   // zuletzt *gezeigten* Zahl, nicht vom alten Ziel. Nicht-numerische Werte
-  // ("Ja", "-") werden sofort gesetzt.
+  // ("Ja", "-") werden sofort gesetzt. Den Rohwert liest die Direktive aus
+  // data-roll-value, weil der sichtbare Text schon im Zahlenformat steht
+  // (Tausenderpunkt und Dezimalkomma sind nicht eindeutig rueckwaerts lesbar).
   const registerRollDirective = Alpine => {
     Alpine.directive('roll', (el, meta, { cleanup }) => {
       const observeOptions = {childList: true, characterData: true, subtree: true};
-      const parse = value => {
-        const raw = String(value).trim().replace(',', '.');
-        if (!/^-?\d*\.?\d+$/.test(raw)) return null;
-        const number = Number(raw);
+      const parse = raw => {
+        const text = String(raw == null ? '' : raw).trim();
+        if (!/^-?\d*\.?\d+$/.test(text)) return null;
+        const number = Number(text);
         return Number.isFinite(number) ? number : null;
       };
-      let committed = parse(el.textContent);
+      let committed = parse(el.dataset.rollValue);
       let displayed = committed;
       let frame = 0;
       const observer = new MutationObserver(() => {
         const text = el.textContent;
-        const target = parse(text);
+        const raw = el.dataset.rollValue;
+        const target = parse(raw);
         if (prefersReducedMotion() || committed === null || target === null || target === committed) {
           committed = target;
           displayed = target;
           return;
         }
         const from = displayed === null ? committed : displayed;
-        const decimals = (text.split('.')[1] || '').length;
+        const decimals = (String(raw).split('.')[1] || '').length;
+        const unit = el.dataset.rollUnit || '';
         const startedAt = performance.now();
         const duration = 300;
         cancelAnimationFrame(frame);
@@ -1547,7 +1550,7 @@
           if (progress < 1) {
             const value = from + (target - from) * eased;
             displayed = value;
-            write(decimals ? value.toFixed(decimals) : String(Math.round(value)));
+            write(window.I18n.formatValue(value.toFixed(decimals), unit));
             frame = requestAnimationFrame(step);
           } else {
             write(text);

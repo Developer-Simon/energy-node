@@ -102,7 +102,7 @@
     },
 
     formatTime(value) {
-      return value ? new Date(value).toLocaleString() : '-';
+      return value ? window.I18n.formatDateTime(value) || '-' : '-';
     },
 
     async loadStatus() {
@@ -383,7 +383,7 @@
     },
 
     formatTime(value) {
-      return value ? new Date(value).toLocaleString() : '-';
+      return value ? window.I18n.formatDateTime(value) || '-' : '-';
     },
 
     addTopic() {

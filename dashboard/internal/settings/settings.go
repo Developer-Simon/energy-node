@@ -26,6 +26,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/numfmt"
 )
 
 //go:embed settings.schema.json
@@ -50,11 +51,16 @@ var bridgeSchema []byte
 var devicePrefsSchema []byte
 
 type Settings struct {
-	HealthScoreThreshold         int      `json:"health_score_threshold"`
-	SweepIntervalSeconds         int      `json:"sweep_interval_seconds"`
-	ShowRuntimeStatus            bool     `json:"show_runtime_status"`
-	DeviceViewMode               string   `json:"device_view_mode"`
-	Theme                        string   `json:"theme"`
+	HealthScoreThreshold int    `json:"health_score_threshold"`
+	SweepIntervalSeconds int    `json:"sweep_interval_seconds"`
+	ShowRuntimeStatus    bool   `json:"show_runtime_status"`
+	DeviceViewMode       string `json:"device_view_mode"`
+	Theme                string `json:"theme"`
+	// NumberFormat and NumberGrouping choose the decimal and group
+	// separators for every number the dashboard shows (see internal/numfmt).
+	// They are global for the node like Theme, not tied to the UI language.
+	NumberFormat                 string   `json:"number_format"`
+	NumberGrouping               string   `json:"number_grouping"`
 	ShowConfigEntitiesOnTile     bool     `json:"show_config_entities_on_tile"`
 	ShowDiagnosticEntitiesOnTile bool     `json:"show_diagnostic_entities_on_tile"`
 	LiveUpdateIntervalSeconds    int      `json:"live_update_interval_seconds"`
@@ -401,6 +407,7 @@ func Default() Settings {
 	return Settings{
 		HealthScoreThreshold: 3, SweepIntervalSeconds: 300, ShowRuntimeStatus: true,
 		DeviceViewMode: DeviceViewModeCompact, Theme: ThemeMint,
+		NumberFormat: numfmt.FormatAuto, NumberGrouping: numfmt.GroupingMatch,
 		ShowConfigEntitiesOnTile: false, ShowDiagnosticEntitiesOnTile: false,
 		LiveUpdateIntervalSeconds: 3, WidePanels: []string{"overview", "devices", "history", "layout"},
 		StatusBarItems:               []string{"mqtt", "storage", "uptime", "version"},
@@ -1528,6 +1535,12 @@ func normalizeSettings(value Settings) Settings {
 	}
 	if value.Theme == "" {
 		value.Theme = ThemeMint
+	}
+	if value.NumberFormat == "" {
+		value.NumberFormat = numfmt.FormatAuto
+	}
+	if value.NumberGrouping == "" {
+		value.NumberGrouping = numfmt.GroupingMatch
 	}
 	if value.LiveUpdateIntervalSeconds == 0 {
 		value.LiveUpdateIntervalSeconds = Default().LiveUpdateIntervalSeconds
