@@ -117,7 +117,7 @@
         // template already emitted with the base prefix. Rule of thumb -
         // template URLs arrive prefixed, JS literals prefix themselves.
         const response = await fetch(source, {headers: {'X-Requested-With': 'XMLHttpRequest'}, signal: request.signal});
-        if (!response.ok) throw new Error(`Panel konnte nicht geladen werden (${response.status})`);
+        if (!response.ok) throw new Error(t('panel.load_failed', {code: response.status}));
         const html = await response.text();
         if (this.activePanel !== panel) return;
         await this.loadAsset(container.dataset.panelCss, 'style');
@@ -163,7 +163,7 @@
           (type === 'style' ? this.loadedStyles : this.loadedScripts).add(source);
           resolve();
         };
-        asset.onerror = () => reject(new Error(`Asset konnte nicht geladen werden: ${source}`));
+        asset.onerror = () => reject(new Error(t('panel.asset_load_failed', {url: source})));
         document.head.append(asset);
       });
     },
@@ -248,7 +248,7 @@
     // withBase() is the single chokepoint for every URL literal below.
     const response = await fetch(withBase(url), options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || 'Anfrage fehlgeschlagen');
+    if (!response.ok) throw new Error(body.message || t('panel.request_failed'));
     return body;
   };
   const newID = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -271,13 +271,14 @@
   const formatRelativeTimestamp = timestamp => {
     const difference = Math.round((timestamp - Date.now()) / 1000);
     const absoluteDifference = Math.abs(difference);
-    if (absoluteDifference < 1) return 'gerade eben';
-    const units = absoluteDifference < 60 ? ['s', 1]
-      : absoluteDifference < 3600 ? ['min', 60]
-      : absoluteDifference < 86400 ? ['h', 3600]
-      : ['T', 86400];
-    const amount = Math.round(absoluteDifference / units[1]);
-    return difference < 0 ? `vor ${amount}${units[0]}` : `in ${amount}${units[0]}`;
+    if (absoluteDifference < 1) return t('time.ago.just_now');
+    const unitMap = absoluteDifference < 60 ? {key: 'seconds', divisor: 1}
+      : absoluteDifference < 3600 ? {key: 'minutes', divisor: 60}
+      : absoluteDifference < 86400 ? {key: 'hours', divisor: 3600}
+      : {key: 'days', divisor: 86400};
+    const amount = Math.round(absoluteDifference / unitMap.divisor);
+    const prefix = difference < 0 ? 'ago' : 'in';
+    return t(`time.${prefix}.${unitMap.key}`, {count: amount});
   };
 
   const renderRelativeTimestamps = root => {
@@ -554,7 +555,7 @@
         const tag = document.createElement('script');
         tag.src = script;
         tag.onload = resolve;
-        tag.onerror = () => reject(new Error(`Asset konnte nicht geladen werden: ${script}`));
+        tag.onerror = () => reject(new Error(t('panel.asset_load_failed', {url: script})));
         document.head.append(tag);
       });
     },
@@ -580,11 +581,11 @@
         removeItemButton: true,
         shouldSort: false,
         maxItemCount: 3,
-        maxItemText: count => `Höchstens ${count} Favoriten`,
+        maxItemText: count => t('panel.favorites_max', {count}),
         searchResultLimit: 30,
-        placeholderValue: 'Entität suchen ...',
-        noResultsText: 'Keine Treffer',
-        noChoicesText: 'Keine Entitäten mehr verfügbar',
+        placeholderValue: t('panel.entity_search_placeholder'),
+        noResultsText: t('panel.no_results'),
+        noChoicesText: t('panel.no_entities_available'),
         itemSelectText: '',
       });
       // Choices legt vorbelegte Chips in der Reihenfolge der Optionen an,
@@ -669,8 +670,8 @@
     async ignoreDevice(deviceId) {
       if (!deviceId) return;
       const confirmed = await this.$store.modal.confirm({
-        title: 'Gerät wirklich ignorieren?',
-        confirmLabel: 'Ignorieren',
+        title: t('dialog.ignore_device_title'),
+        confirmLabel: t('dialog.ignore_device_confirm'),
         danger: true,
       });
       if (!confirmed) return;
@@ -722,8 +723,8 @@
     async confirmDiscoveryDelete() {
       if (!this.deletePreviewDeviceId || !this.deletePreview || this.deleteLoading) return;
       const confirmed = await this.$store.modal.confirm({
-        title: 'Discovery und alle aufgeführten retained Topics endgültig löschen?',
-        confirmLabel: 'Endgültig löschen',
+        title: t('dialog.delete_discovery_title'),
+        confirmLabel: t('dialog.delete_discovery_confirm'),
         danger: true,
       });
       if (!confirmed) return;
@@ -751,9 +752,9 @@
       const date = value instanceof Date ? value : new Date(value);
       if (Number.isNaN(date.getTime())) return '';
       const seconds = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
-      if (seconds < 60) return `vor ${seconds} s`;
-      if (seconds < 3600) return `vor ${Math.round(seconds / 60)} min`;
-      return `vor ${Math.round(seconds / 3600)} h`;
+      if (seconds < 60) return t('time.ago.seconds', {count: seconds});
+      if (seconds < 3600) return t('time.ago.minutes', {count: Math.round(seconds / 60)});
+      return t('time.ago.hours', {count: Math.round(seconds / 3600)});
     },
 
     get sortedWarnings() {
@@ -825,7 +826,7 @@
       if (!message) return [];
       const raw = message.payload;
       if (raw === undefined || raw === null || String(raw).trim() === '') {
-        return [{label: message.topic || 'MQTT', value: '(leer)'}];
+        return [{label: message.topic || 'MQTT', value: t('panel.empty_message')}];
       }
       let parsed = null;
       try {
@@ -909,8 +910,8 @@
     get controlsTeaser() {
       const first = this.controlEntities[0];
       if (!first) return '';
-      if (!first.has_availability) return 'Zustand unbekannt';
-      return first.has_value ? first.value : (first.available ? 'Online' : 'Offline');
+      if (!first.has_availability) return t('panel.availability_unknown');
+      return first.has_value ? first.value : (first.available ? t('panel.online') : t('panel.offline'));
     },
 
     get configDiagTeaser() {
@@ -1165,7 +1166,7 @@
       try {
         const result = await requestJSON(`/api/v1/devices/${encodeURIComponent(this.selectedDeviceId)}/reload`, {method: 'POST'});
         await this.selectDevice(this.selectedDeviceId);
-        this.$store.toasts.push(`Discovery-Registry für ${result.scope === 'all_devices' ? 'alle Geräte' : 'das Gerät'} neu geladen.`);
+        this.$store.toasts.push(t('panel.device_reloaded_toast', {scope: result.scope === 'all_devices' ? t('panel.all_devices') : t('panel.device')}));
         await this.refreshLiveFragment();
       } catch (error) {
         this.detailError = error.message;
@@ -1449,13 +1450,14 @@
     },
 
     healthStatusLabel(status) {
-      return {
-        healthy: 'Gesund',
-        degraded: 'Beeinträchtigt',
-        unhealthy: 'Ungesund',
-        critical: 'Kritisch',
-        unknown: 'Unbekannt',
-      }[status] || status || 'Unbekannt';
+      const labelKeys = {
+        healthy: 'panel.health_healthy',
+        degraded: 'panel.health_degraded',
+        unhealthy: 'panel.health_unhealthy',
+        critical: 'panel.health_critical',
+        unknown: 'panel.health_unknown',
+      };
+      return labelKeys[status] ? t(labelKeys[status]) : (status || t('panel.health_unknown'));
     },
 
     formatHealthTime(value) {
@@ -1495,7 +1497,7 @@
 
     sortLabel(field) {
       if (this.sortBy !== field) return '';
-      return this.sortDirection === 'asc' ? ' aufsteigend' : ' absteigend';
+      return this.sortDirection === 'asc' ? t('panel.sort_ascending') : t('panel.sort_descending');
     },
   });
 
