@@ -962,11 +962,11 @@ test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', a
 
 // --- Typ-Kacheln und Hilfetexte -------------------------------------------
 
-test('CONDITION_TYPES liefert genau die drei anbietbaren Bedingungstypen', () => {
+test('CONDITION_TYPES liefert genau die vier anbietbaren Bedingungstypen', () => {
   const types = view().CONDITION_TYPES;
   // Spread statt direktem .map()-Vergleich: das Array kommt aus dem vm-Sandbox-
   // Realm der Komponente, deepEqual vergleicht sonst auch das Array-Prototyp.
-  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time']);
+  assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun']);
   assert.equal(types[0].label, 'Energiewert');
   for (const entry of types) {
     assert.ok(entry.icon.startsWith('ico-'), `${entry.key} hat kein Sprite-Icon`);
@@ -1199,4 +1199,160 @@ test('pollRuntimeStatus reports the result of its own revision', async () => {
   component.statusPollMs = 0;
   await component.pollRuntimeStatus('new');
   assert.equal(stores.toasts.last('info'), 'übernommen');
+});
+
+// --- Wochentage, Sonnenzeit, Standort -------------------------------------
+
+test('formatWeekdays fasst zusammenhaengende Tage zu Spannen zusammen', () => {
+  assert.equal(view().formatWeekdays([]), 'täglich');
+  assert.equal(view().formatWeekdays([0, 1, 2, 3, 4, 5, 6]), 'täglich');
+  assert.equal(view().formatWeekdays([0, 1, 2, 3, 4]), 'Mo–Fr');
+  assert.equal(view().formatWeekdays([6, 5]), 'Sa, So');
+  assert.equal(view().formatWeekdays([0, 2, 3, 4]), 'Mo, Mi–Fr');
+  assert.equal(view().formatWeekdays([4]), 'Fr');
+});
+
+test('describeCondition nennt die gewaehlten Wochentage im Zeitfenster', () => {
+  const plain = view().describeCondition({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] });
+  assert.equal(plain.summary, '08:00 – 18:00');
+  const workdays = view().describeCondition({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [0, 1, 2, 3, 4] });
+  assert.equal(workdays.summary, '08:00 – 18:00, Mo–Fr');
+});
+
+test('describeCondition beschreibt ein Sonnenfenster mit Versatz', () => {
+  const described = view().describeCondition({
+    type: 'sun_window', from: 'sunset', from_offset_min: -30, to: 'sunrise', to_offset_min: 15, weekdays: [5, 6] });
+  assert.equal(described.title, 'Sonnenzeit');
+  assert.equal(described.icon, 'ico-sun');
+  assert.equal(described.summary, 'Sonnenuntergang −30 min – Sonnenaufgang +15 min, Sa, So');
+  const plain = view().describeCondition({
+    type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, weekdays: [] });
+  assert.equal(plain.summary, 'Sonnenaufgang – Sonnenuntergang');
+});
+
+test('addCondition legt fuer "sun" ein Tagfenster ohne Versatz an', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', conditions: [], actions: [] };
+  component.addCondition(rule, 'sun');
+  assert.deepEqual(JSON.parse(JSON.stringify(rule.conditions[0])), {
+    type: 'sun_window', from: 'sunrise', from_offset_min: 0, to: 'sunset', to_offset_min: 0, weekdays: [] });
+});
+
+test('toggleWeekday schaltet einen Tag um und haelt die Liste sortiert', () => {
+  const { component } = createAutomationsPanel();
+  const condition = { type: 'time_window', start: '08:00', end: '18:00', weekdays: [4] };
+  component.toggleWeekday(condition, 0);
+  assert.deepEqual([...condition.weekdays], [0, 4]);
+  component.toggleWeekday(condition, 4);
+  assert.deepEqual([...condition.weekdays], [0]);
+  const legacy = { type: 'time_window', start: '08:00', end: '18:00' };
+  component.toggleWeekday(legacy, 2);
+  assert.deepEqual([...legacy.weekdays], [2]);
+});
+
+test('conditionStateText erklaert ein Sonnenfenster ohne Standort', () => {
+  const component = panelWithState({ online: true, rules: { r1: { result: 'conditions_not_met',
+    conditions: [{ met: false, raw_met: false, value: null, target: null, since: null, hold_remaining: 0 }], actions: [] } } });
+  const rule = { id: 'r1', conditions: [{ type: 'sun_window', from: 'sunrise', to: 'sunset' }], actions: [] };
+  component.document = { version: 1, settings: {}, rules: [rule] };
+  assert.match(component.conditionStateText(rule, 0), /Standort/);
+});
+
+test('conditionStateText sagt bei Zeitfenstern "außerhalb" statt "Schwelle"', () => {
+  const component = panelWithState({ online: true, rules: { r1: { result: 'conditions_not_met',
+    conditions: [{ met: false, raw_met: false, value: '07:00', target: null, since: null, hold_remaining: 0 }], actions: [] } } });
+  const rule = { id: 'r1', conditions: [{ type: 'time_window', start: '08:00', end: '18:00' }], actions: [] };
+  assert.equal(component.conditionStateText(rule, 0), 'außerhalb des Zeitfensters');
+});
+
+test('needsLocation meldet eine Sonnenregel ohne Standort', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', conditions: [{ type: 'sun_window' }], actions: [] };
+  component.document = { version: 1, settings: {}, rules: [rule] };
+  assert.equal(component.needsLocation(rule), true);
+  component.document.settings = { latitude: 52.52, longitude: 13.4 };
+  assert.equal(component.needsLocation(rule), false);
+  assert.equal(component.needsLocation({ conditions: [{ type: 'time_window' }] }), false);
+});
+
+function saveCapturingBody(component, window) {
+  component.csrfToken = 'tok';
+  component.pollRuntimeStatus = async () => {};
+  const captured = {};
+  window.fetch = async (url, options) => {
+    if (options && options.method === 'PUT') { captured.body = JSON.parse(options.body); return { ok: true, json: async () => ({}) }; }
+    if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+    return { ok: true, json: async () => ({}) };
+  };
+  return captured;
+}
+
+test('save() laesst leere Standortfelder weg', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: { publish_allowed_prefixes: ['x/'], latitude: '', longitude: '' }, rules: [] };
+  const captured = saveCapturingBody(component, window);
+  await component.save();
+  assert.equal('latitude' in captured.body.settings, false);
+  assert.equal('longitude' in captured.body.settings, false);
+});
+
+test('save() speichert einen vollstaendigen Standort', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: { publish_allowed_prefixes: ['x/'], latitude: 52.52, longitude: 13.405 }, rules: [] };
+  const captured = saveCapturingBody(component, window);
+  await component.save();
+  assert.equal(captured.body.settings.latitude, 52.52);
+  assert.equal(captured.body.settings.longitude, 13.405);
+});
+
+test('save() lehnt einen halben Standort ab', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  component.document = { version: 1, settings: { publish_allowed_prefixes: ['x/'], latitude: 52.52, longitude: '' }, rules: [] };
+  const captured = saveCapturingBody(component, window);
+  await component.save();
+  assert.equal(captured.body, undefined);
+  assert.match(stores.toasts.last("critical"), /Breiten- und Längengrad/);
+});
+
+test('geolocationAvailable verlangt einen sicheren Kontext', () => {
+  const { component, window } = createAutomationsPanel();
+  Object.defineProperty(window.navigator, 'geolocation', { value: { getCurrentPosition() {} }, configurable: true });
+  Object.defineProperty(window, 'isSecureContext', { value: false, configurable: true });
+  assert.equal(component.geolocationAvailable(), false);
+  Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+  assert.equal(component.geolocationAvailable(), true);
+});
+
+test('useCurrentLocation uebernimmt die Position auf drei Nachkommastellen', async () => {
+  const { component, window } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [] };
+  Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+  Object.defineProperty(window.navigator, 'geolocation', { configurable: true, value: {
+    getCurrentPosition(ok) { ok({ coords: { latitude: 52.520008, longitude: 13.404954 } }); } } });
+  await component.useCurrentLocation();
+  assert.equal(component.document.settings.latitude, 52.52);
+  assert.equal(component.document.settings.longitude, 13.405);
+  assert.equal(component.locating, false);
+});
+
+test('useCurrentLocation meldet eine verweigerte Freigabe', async () => {
+  const { component, window, stores } = createAutomationsPanel();
+  component.document = { version: 1, settings: {}, rules: [] };
+  Object.defineProperty(window, 'isSecureContext', { value: true, configurable: true });
+  Object.defineProperty(window.navigator, 'geolocation', { configurable: true, value: {
+    getCurrentPosition(_ok, fail) { fail({ code: 1, message: 'denied' }); } } });
+  await component.useCurrentLocation();
+  assert.equal(component.document.settings.latitude, undefined);
+  assert.match(stores.toasts.last("critical"), /Standort/);
+});
+
+test('client-side validation verlangt ganze Minuten im Sonnenversatz', () => {
+  const { component } = createAutomationsPanel();
+  const rule = { id: 'r1', name: 'Nacht', cooldown_seconds: 0, actions: [{ type: 'notification' }],
+    conditions: [{ type: 'sun_window', from: 'sunset', from_offset_min: '', to: 'sunrise', to_offset_min: 0 }] };
+  assert.equal(component.validateRuleBeforeSave(rule).length, 1);
+  rule.conditions[0].from_offset_min = 300;
+  assert.equal(component.validateRuleBeforeSave(rule).length, 1);
+  rule.conditions[0].from_offset_min = -30;
+  assert.equal(component.validateRuleBeforeSave(rule).length, 0);
 });

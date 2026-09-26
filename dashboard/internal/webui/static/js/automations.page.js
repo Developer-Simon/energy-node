@@ -73,8 +73,41 @@
     { key: 'entity', icon: 'ico-thermo', label: 'Gerätewert',
       hint: 'Ein Messwert eines Geräts, zum Beispiel eine Temperatur oder ein Schaltzustand.' },
     { key: 'time', icon: 'ico-clock', label: 'Zeitfenster',
-      hint: 'Gilt nur zwischen zwei Uhrzeiten.' },
+      hint: 'Gilt nur zwischen zwei Uhrzeiten, auf Wunsch nur an bestimmten Wochentagen.' },
+    { key: 'sun', icon: 'ico-sun', label: 'Sonnenzeit',
+      hint: 'Gilt zwischen Sonnenaufgang und Sonnenuntergang oder umgekehrt, jeweils mit Versatz in Minuten. Braucht den Standort in den Einstellungen.' },
   ];
+
+  // Reihenfolge wie im Dienst: 0 = Montag ... 6 = Sonntag.
+  const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
+  const SUN_EVENT_LABELS = { sunrise: 'Sonnenaufgang', sunset: 'Sonnenuntergang' };
+
+  // "Mo–Fr", "Sa, So", "Mo, Mi–Fr": zusammenhaengende Tage ab drei als Spanne.
+  function formatWeekdays(weekdays) {
+    const days = [...new Set(weekdays || [])].filter((day) => day >= 0 && day <= 6).sort((a, b) => a - b);
+    if (days.length === 0 || days.length === 7) return 'täglich';
+    const runs = [];
+    for (const day of days) {
+      const run = runs[runs.length - 1];
+      if (run && day === run[run.length - 1] + 1) run.push(day);
+      else runs.push([day]);
+    }
+    return runs.flatMap((run) => (run.length >= 3
+      ? [`${WEEKDAY_LABELS[run[0]]}–${WEEKDAY_LABELS[run[run.length - 1]]}`]
+      : run.map((day) => WEEKDAY_LABELS[day]))).join(', ');
+  }
+
+  function formatSunPoint(event, offset) {
+    const label = SUN_EVENT_LABELS[event] || event;
+    if (!offset) return label;
+    return `${label} ${offset > 0 ? '+' : '−'}${Math.abs(offset)} min`;
+  }
+
+  function weekdaySuffix(condition) {
+    return (condition.weekdays || []).length ? `, ${formatWeekdays(condition.weekdays)}` : '';
+  }
+
+  const WINDOW_TYPES = new Set(['time_window', 'sun_window']);
 
   // "entity" legt keine Aktion an, sondern oeffnet den Geraete-Assistenten -
   // dort entscheidet erst die Wahl zwischen Ein/Aus/Umschalten/Sollwert,
@@ -101,6 +134,7 @@
     publish_allowed_prefixes: 'Leer gelassen erlaubt das Dashboard beim Speichern automatisch genau die command_topics aller aktuell bekannten Geräte-Entitäten — neu hinzukommende Geräte oder Entitäten brauchen dafür ein erneutes Speichern. Sobald hier etwas eingetragen wird, gilt nur noch diese Liste.',
     history_limit: 'Wie viele der letzten Auslösungen je Regel aufbewahrt werden — ältere fallen raus. Gilt nur für Regeln, bei denen unten im Regel-Editor „Verlauf speichern" aktiviert ist.',
     history_enabled: 'Verlauf speichern: Zeichnet die Auslösungen dieser Regel auf, damit sie hier unter „Verlauf anzeigen" erscheinen. Ist der Schalter aus, prüft die Regel weiter, führt aber keine Liste.',
+    location: 'Standort für die Sonnenzeiten, in Dezimalgrad (z. B. 52.52 und 13.405 für Berlin). Er verlässt das Gerät nicht: Auf- und Untergang rechnet der Dienst selbst aus.',
     history_persist: 'Bleibt der Haken gesetzt, übersteht der Verlauf einen Neustart des Dienstes (Datei im Geräteverzeichnis). Ausgeschaltet zeichnet der Dienst weiterhin auf — die Oberfläche zeigt den Verlauf weiter an —, schreibt ihn aber nie auf die Platte.',
     retain: 'Retained: Der Broker merkt sich die Nachricht und liefert sie an jeden neuen Abonnenten aus. Für Schaltbefehle meist unerwünscht.',
     scale: 'Skalierung: Der Bilanzwert wird mit diesem Faktor multipliziert, bevor er gesendet wird.',
@@ -139,7 +173,7 @@
   }
 
   function meterScale(condition, report, entity) {
-    if (condition.type === 'time_window') return { min: 0, max: 1440, kind: 'time' };
+    if (WINDOW_TYPES.has(condition.type)) return { min: 0, max: 1440, kind: 'time' };
     if (isPercentCondition(condition, entity)) return { min: 0, max: 100, kind: 'percent' };
     const value = isNumber(report && report.value) ? report.value : null;
     const target = isNumber(report && report.target) ? report.target : null;
@@ -206,9 +240,14 @@
                summary: `${COMPARISON_WORDS[condition.comparison] || condition.comparison} ${expected}` };
     }
     if (type === 'time_window') {
-      const days = (condition.weekdays || []).length ? ', nur an ausgewählten Tagen' : '';
       return { icon: 'ico-clock', title: 'Zeitfenster', unit: '',
-               summary: `${condition.start} – ${condition.end}${days}` };
+               summary: `${condition.start} – ${condition.end}${weekdaySuffix(condition)}` };
+    }
+    if (type === 'sun_window') {
+      const from = formatSunPoint(condition.from, condition.from_offset_min);
+      const to = formatSunPoint(condition.to, condition.to_offset_min);
+      return { icon: 'ico-sun', title: 'Sonnenzeit', unit: '',
+               summary: `${from} – ${to}${weekdaySuffix(condition)}` };
     }
     // Vorwaertskompatibilitaet: Spec A bringt weitere Typen. Bis dahin - und
     // falls je ein unbekannter Typ auftaucht - wird eine neutrale Karte
@@ -244,9 +283,10 @@
 
   window.__automationsView = {
     conditionState, meterScale, meterFraction, gateVerdict, isPercentCondition,
-    describeCondition, describeAction, formatSeconds, canTest,
+    describeCondition, describeAction, formatSeconds, canTest, formatWeekdays,
     historyResultInfo, historyActionText,
     BALANCE_FIELD_INFO, GATE_VERDICTS, CONDITION_TYPES, ACTION_TYPES, FIELD_HELP,
+    WEEKDAY_LABELS, SUN_EVENT_LABELS,
   };
 
   const BALANCE_FIELDS = [
@@ -298,6 +338,7 @@
     hasAutomationsRole: false,
     nowTick: Date.now(),
     statusPollMs: 1000,
+    locating: false,
 
     // Der Assistent fuehrt nur durch eine frisch angelegte Regel: Schritt 1
     // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
@@ -576,7 +617,12 @@
     conditionStateText(rule, index) {
       const report = this.conditionReport(rule, index);
       const state = this.conditionState(rule, index);
+      const condition = rule.conditions[index] || {};
+      if (state === 'novalue' && condition.type === 'sun_window') {
+        return this.hasLocation() ? 'die Sonne geht heute nicht auf oder unter' : 'kein Standort eingestellt';
+      }
       if (state === 'novalue') return 'kein Wert — Topic unbekannt oder Bilanz veraltet';
+      if (state === 'unmet' && WINDOW_TYPES.has(condition.type)) return 'außerhalb des Zeitfensters';
       if (state === 'unmet') return 'Schwelle nicht erreicht';
       const since = report.since ? ` seit ${this.formatSeconds((this.nowTick / 1000) - report.since)}` : '';
       if (state === 'pending') return `erfüllt${since} — noch ${this.formatSeconds(report.hold_remaining)} Haltedauer`;
@@ -840,6 +886,75 @@
       rule.conditions.push({ type: 'time_window', start: '08:00', end: '18:00', weekdays: [] });
     },
 
+    addSunWindowCondition(rule) {
+      rule.conditions.push({ type: 'sun_window', from: 'sunrise', from_offset_min: 0,
+                             to: 'sunset', to_offset_min: 0, weekdays: [] });
+    },
+
+    weekdayLabels() { return WEEKDAY_LABELS; },
+
+    hasWeekday(condition, day) {
+      return (condition.weekdays || []).includes(day);
+    },
+
+    toggleWeekday(condition, day) {
+      const days = new Set(condition.weekdays || []);
+      if (days.has(day)) days.delete(day);
+      else days.add(day);
+      condition.weekdays = [...days].sort((a, b) => a - b);
+    },
+
+    hasLocation() {
+      const settings = this.document.settings || {};
+      return isNumber(settings.latitude) && isNumber(settings.longitude);
+    },
+
+    needsLocation(rule) {
+      return (rule.conditions || []).some((condition) => condition.type === 'sun_window') && !this.hasLocation();
+    },
+
+    // Die Einstellungen liegen im eingeklappten Fortgeschrittenen-Bereich.
+    // Der Hinweis an der Sonnenzeit-Karte klappt ihn auf und springt hin.
+    openLocationSettings() {
+      const details = window.document.getElementById('automations-advanced');
+      if (details) details.open = true;
+      const field = window.document.getElementById('automations-latitude');
+      if (field) {
+        field.scrollIntoView({ block: 'center' });
+        field.focus();
+      }
+    },
+
+    // Der Browser gibt die Position nur in einem sicheren Kontext heraus:
+    // HTTPS (z. B. ueber Caddy) oder localhost. Unter reinem HTTP bleibt der
+    // Knopf aus und die Felder werden von Hand ausgefuellt.
+    geolocationAvailable() {
+      return Boolean(window.isSecureContext && window.navigator && window.navigator.geolocation);
+    },
+
+    async useCurrentLocation() {
+      if (!this.geolocationAvailable() || this.locating) return;
+      this.locating = true;
+      try {
+        const position = await new Promise((resolve, reject) => {
+          window.navigator.geolocation.getCurrentPosition(resolve, reject,
+            { enableHighAccuracy: false, timeout: 15000, maximumAge: 600000 });
+        });
+        // Drei Nachkommastellen sind rund 100 m - fuer Sonnenzeiten mehr als
+        // genug, und die gespeicherte Adresse bleibt unscharf.
+        const round = (value) => Math.round(value * 1000) / 1000;
+        this.document.settings.latitude = round(position.coords.latitude);
+        this.document.settings.longitude = round(position.coords.longitude);
+      } catch (error) {
+        const denied = error && error.code === 1;
+        this.$store.toasts.push(denied
+          ? 'Standort nicht freigegeben. Bitte im Browser erlauben oder die Werte von Hand eintragen.'
+          : 'Standort konnte nicht ermittelt werden. Bitte die Werte von Hand eintragen.', 'critical');
+      } finally {
+        this.locating = false;
+      }
+    },
+
     // Ein Dispatcher statt drei Knoepfen im Template: die Kacheln kommen aus
     // CONDITION_TYPES, also muss auch das Anlegen ueber denselben Schluessel
     // gehen. Unbekannter Schluessel legt bewusst nichts an.
@@ -847,6 +962,7 @@
       if (key === 'balance') return this.addBalanceCondition(rule);
       if (key === 'entity') return this.addEntityValueCondition(rule);
       if (key === 'time') return this.addTimeWindowCondition(rule);
+      if (key === 'sun') return this.addSunWindowCondition(rule);
     },
 
     // scope ist der x-data-Bereich der Regelzeile; "entity" legt keine Aktion
@@ -930,11 +1046,23 @@
           }
         }
       }
+      for (const condition of rule.conditions || []) {
+        if (condition.type !== 'sun_window') continue;
+        const offsets = [condition.from_offset_min, condition.to_offset_min];
+        if (offsets.some((offset) => !Number.isInteger(offset) || Math.abs(offset) > 240)) {
+          errors.push(`Regel ${rule.name}: der Versatz zur Sonnenzeit muss eine ganze Zahl zwischen −240 und 240 Minuten sein`);
+        }
+      }
       return errors;
     },
 
     validateDocumentBeforeSave() {
-      return (this.document.rules || []).flatMap((rule) => this.validateRuleBeforeSave(rule));
+      const errors = (this.document.rules || []).flatMap((rule) => this.validateRuleBeforeSave(rule));
+      const settings = this.document.settings || {};
+      if (isNumber(settings.latitude) !== isNumber(settings.longitude)) {
+        errors.push('Breiten- und Längengrad bitte nur gemeinsam angeben.');
+      }
+      return errors;
     },
 
     async save() {
@@ -965,6 +1093,12 @@
           ? { ...this.document.settings, publish_allowed_prefixes_auto: false }
           : { ...this.document.settings, publish_allowed_prefixes: this.computeAutoPublishPrefixes(),
               publish_allowed_prefixes_auto: true };
+        // Ein geleertes Zahlenfeld liefert '' - das Schema will eine Zahl oder
+        // gar nichts. Ohne Standort bleiben beide Felder weg.
+        if (!this.hasLocation()) {
+          delete settingsToSave.latitude;
+          delete settingsToSave.longitude;
+        }
         const saved = await requestJSON('/api/v1/configurations/automation_rules', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken },

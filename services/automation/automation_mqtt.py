@@ -27,6 +27,7 @@ from energy_node_common.mqtt import build_client, publish_online_status, publish
 from energy_node_common.slave import Slave
 
 import ha_template
+import sun
 
 LOG = logging.getLogger("automation_mqtt")
 
@@ -96,7 +97,9 @@ def validate_publish_topic(topic: str) -> Optional[str]:
 _ID_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 _TIME_RE = re.compile(r"^([01]\d|2[0-3]):[0-5]\d$")
 
-_CONDITION_TYPES = {"balance_threshold", "topic_value", "time_window", "entity_value"}
+_CONDITION_TYPES = {"balance_threshold", "topic_value", "time_window", "entity_value", "sun_window"}
+_SUN_EVENTS = ("sunrise", "sunset")
+_SUN_OFFSET_MAX_MIN = 240
 _ACTION_TYPES = {"publish", "notification"}
 
 
@@ -108,6 +111,14 @@ class Settings:
     publish_allowed_prefixes: list[str] = field(default_factory=list)
     history_limit: int = 10
     history_persist: bool = True
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+    @property
+    def location(self) -> Optional[tuple[float, float]]:
+        if self.latitude is None or self.longitude is None:
+            return None
+        return (self.latitude, self.longitude)
 
 
 @dataclass
@@ -168,11 +179,43 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
             errors.append(f"{prefix}: start must be HH:MM")
         if not _TIME_RE.match(str(result.get("end", ""))):
             errors.append(f"{prefix}: end must be HH:MM")
-        weekdays = result.get("weekdays", [])
-        if any(not isinstance(d, int) or d < 0 or d > 6 for d in weekdays):
-            errors.append(f"{prefix}: weekdays must all be 0..6")
-        result.setdefault("weekdays", [])
+        _validate_weekdays(result, prefix, errors)
+    elif ctype == "sun_window":
+        for key in ("from", "to"):
+            if result.get(key) not in _SUN_EVENTS:
+                errors.append(f"{prefix}: {key} must be 'sunrise' or 'sunset'")
+        for key in ("from_offset_min", "to_offset_min"):
+            offset = result.setdefault(key, 0)
+            if isinstance(offset, bool) or not isinstance(offset, int) \
+                    or abs(offset) > _SUN_OFFSET_MAX_MIN:
+                errors.append(f"{prefix}: {key} must be a whole number between "
+                              f"-{_SUN_OFFSET_MAX_MIN} and {_SUN_OFFSET_MAX_MIN}")
+        _validate_weekdays(result, prefix, errors)
     return result
+
+
+def _validate_weekdays(result: dict, prefix: str, errors: list[str]) -> None:
+    weekdays = result.get("weekdays", [])
+    if any(not isinstance(d, int) or isinstance(d, bool) or d < 0 or d > 6 for d in weekdays):
+        errors.append(f"{prefix}: weekdays must all be 0..6")
+    result.setdefault("weekdays", [])
+
+
+def _validate_location(settings_raw: dict, errors: list[str]) -> tuple[Optional[float], Optional[float]]:
+    """Breiten- und Laengengrad sind optional, aber nur gemeinsam sinnvoll.
+    Ohne Standort bleibt jede sun_window-Bedingung unerfuellt."""
+    latitude = settings_raw.get("latitude")
+    longitude = settings_raw.get("longitude")
+    if latitude is None and longitude is None:
+        return None, None
+    ok = True
+    for key, value, limit in (("latitude", latitude, 90), ("longitude", longitude, 180)):
+        if isinstance(value, bool) or not isinstance(value, (int, float)) or not -limit <= value <= limit:
+            errors.append(f"settings.{key} must be a number between -{limit} and {limit}")
+            ok = False
+    if not ok:
+        return None, None
+    return float(latitude), float(longitude)
 
 
 def _validate_action(action: dict, index: int, errors: list[str]) -> dict:
@@ -258,6 +301,7 @@ def load_and_validate(path: str) -> RulesDocument:
         history_limit = 10
     else:
         history_limit = int(history_limit_raw)
+    latitude, longitude = _validate_location(settings_raw, errors)
     settings = Settings(
         tick_interval_s=settings_raw.get("tick_interval_s", 10),
         settling_seconds=settings_raw.get("settling_seconds", 60),
@@ -265,6 +309,8 @@ def load_and_validate(path: str) -> RulesDocument:
         publish_allowed_prefixes=list(settings_raw.get("publish_allowed_prefixes", [])),
         history_limit=history_limit,
         history_persist=bool(settings_raw.get("history_persist", True)),
+        latitude=latitude,
+        longitude=longitude,
     )
 
     rules_raw = raw.get("rules", [])
@@ -318,23 +364,78 @@ def _compare(value: float, comparison: str, threshold: float) -> bool:
     return False
 
 
-def _time_window_met(cond: dict, now_ts: float, weekday: int) -> bool:
+def _local_at(day: datetime.date, clock: str) -> float:
+    hour, minute = (int(part) for part in clock.split(":"))
+    return datetime.datetime.combine(day, datetime.time(hour, minute)).timestamp()
+
+
+def _time_window_bounds(cond: dict, day: datetime.date, location) -> tuple:
+    start = _local_at(day, cond["start"])
+    end = _local_at(day, cond["end"])
+    if end < start:
+        # Ueber Mitternacht, z. B. 22:00 -> 06:00: das Ende liegt am Folgetag.
+        end = _local_at(day + datetime.timedelta(days=1), cond["end"])
+    return (start, end), ""
+
+
+def _sun_event(day: datetime.date, event: str, location) -> Optional[float]:
+    times = sun.sun_times(day, *location)
+    if times is None:
+        return None
+    return times[0] if event == "sunrise" else times[1]
+
+
+def _sun_window_bounds(cond: dict, day: datetime.date, location) -> tuple:
+    if location is None:
+        return None, "location_missing"
+    start_event = _sun_event(day, cond["from"], location)
+    end_event = _sun_event(day, cond["to"], location)
+    if start_event is None or end_event is None:
+        return None, "no_sun_event"
+    start = start_event + cond.get("from_offset_min", 0) * 60
+    end = end_event + cond.get("to_offset_min", 0) * 60
+    if end < start:
+        # Das naechste Ende nach dem Start, z. B. Untergang -> Aufgang am Folgetag.
+        next_event = _sun_event(day + datetime.timedelta(days=1), cond["to"], location)
+        if next_event is None:
+            return None, "no_sun_event"
+        end = next_event + cond.get("to_offset_min", 0) * 60
+    return (start, end), ""
+
+
+_WINDOW_BOUNDS = {"time_window": _time_window_bounds, "sun_window": _sun_window_bounds}
+
+
+def _active_window(cond: dict, now_ts: float, location) -> tuple:
+    """Liefert (bounds, reason) fuer das Fenster, das jetzt gilt, oder das
+    heutige, wenn keines gilt. Geprueft werden das heutige und das gestrige
+    Fenster - ein Fenster ueber Mitternacht gehoert zu seinem Starttag, und
+    nur dessen Wochentag zaehlt fuer "weekdays"."""
+    bounds_for = _WINDOW_BOUNDS[cond["type"]]
     weekdays = cond.get("weekdays") or []
-    if weekdays and weekday not in weekdays:
-        return False
-    local = time.localtime(now_ts)
-    minutes_now = local.tm_hour * 60 + local.tm_min
-    start_h, start_m = (int(part) for part in cond["start"].split(":"))
-    end_h, end_m = (int(part) for part in cond["end"].split(":"))
-    start_minutes = start_h * 60 + start_m
-    end_minutes = end_h * 60 + end_m
-    if start_minutes <= end_minutes:
-        return start_minutes <= minutes_now < end_minutes
-    # Crosses midnight, e.g. 22:00 -> 06:00.
-    return minutes_now >= start_minutes or minutes_now < end_minutes
+    today = datetime.date.fromtimestamp(now_ts)
+    today_bounds, today_reason = None, ""
+    for day in (today, today - datetime.timedelta(days=1)):
+        bounds, reason = bounds_for(cond, day, location)
+        if day == today:
+            today_bounds, today_reason = bounds, reason
+        if bounds is None:
+            continue
+        start, end = bounds
+        if start <= now_ts < end and (not weekdays or day.weekday() in weekdays):
+            return bounds, ""
+    return None, today_reason if today_bounds is None else ""
 
 
-def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values: dict, now_ts: float, weekday: int) -> tuple:
+def _window_display_bounds(cond: dict, now_ts: float, location) -> Optional[tuple]:
+    bounds, _ = _active_window(cond, now_ts, location)
+    if bounds is not None:
+        return bounds
+    return _WINDOW_BOUNDS[cond["type"]](cond, datetime.date.fromtimestamp(now_ts), location)[0]
+
+
+def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values: dict, now_ts: float,
+                           location: Optional[tuple] = None) -> tuple:
     ctype = cond["type"]
 
     if ctype == "balance_threshold":
@@ -382,13 +483,15 @@ def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values:
         equal = text == expected
         return (equal if comparison == "equals" else not equal), ""
 
-    if ctype == "time_window":
-        return _time_window_met(cond, now_ts, weekday), ""
+    if ctype in _WINDOW_BOUNDS:
+        bounds, reason = _active_window(cond, now_ts, location)
+        return bounds is not None, reason
 
     return False, "unknown_type"
 
 
-def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, now_ts: float) -> tuple:
+def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, now_ts: float,
+                    location: Optional[tuple] = None) -> tuple:
     """Liefert (value, target) fuer die Live-Anzeige im Dashboard.
 
     value ist der Wert, mit dem die Regel gerade gerechnet hat, oder None,
@@ -431,6 +534,13 @@ def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, 
     if ctype == "time_window":
         local = time.localtime(now_ts)
         return f"{local.tm_hour:02d}:{local.tm_min:02d}", None
+
+    if ctype == "sun_window":
+        bounds = _window_display_bounds(cond, now_ts, location)
+        if bounds is None:
+            return None, None
+        start, end = (time.strftime("%H:%M", time.localtime(ts)) for ts in bounds)
+        return f"{start} – {end}", None
 
     return None, None
 
@@ -569,8 +679,9 @@ class Engine:
             cond_rt.latched = (value <= threshold + hysteresis) if cond_rt.latched else (value < threshold)
         return cond_rt.latched
 
-    def _evaluate_one(self, cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, weekday):
-        raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts, weekday=weekday)
+    def _evaluate_one(self, cond: dict, cond_rt: ConditionRuntime, *, balance, topic_values, now_ts, location):
+        raw_met, reason = evaluate_condition_raw(cond, balance=balance, topic_values=topic_values, now_ts=now_ts,
+                                                 location=location)
         latched = self._apply_hysteresis(cond, cond_rt, balance)
         if latched is not None:
             raw_met = latched
@@ -586,7 +697,7 @@ class Engine:
         return raw_met, held_met, reason
 
     def tick(self, doc: RulesDocument, *, balance: Optional[dict], balance_age: Optional[float],
-              topic_values: dict, now_ts: float, weekday: int) -> dict:
+              topic_values: dict, now_ts: float) -> dict:
         settling = (now_ts - self.started_at) < doc.settings.settling_seconds
         balance_stale = balance_age is None or balance_age > doc.settings.balance_max_age_s
         effective_balance = None if balance_stale else balance
@@ -607,7 +718,8 @@ class Engine:
             saw_stale = False
             for cond, cond_rt in zip(rule["conditions"], rt.conditions):
                 raw_met, held_met, reason = self._evaluate_one(
-                    cond, cond_rt, balance=effective_balance, topic_values=topic_values, now_ts=now_ts, weekday=weekday)
+                    cond, cond_rt, balance=effective_balance, topic_values=topic_values, now_ts=now_ts,
+                    location=doc.settings.location)
                 if reason == "balance_stale":
                     saw_stale = True
                 all_raw = all_raw and raw_met
@@ -618,7 +730,8 @@ class Engine:
                 # docs/superpowers/specs/2026-08-09-automations-visueller-editor-design.md.
                 # met/since/hold_remaining bleiben unveraendert, darauf bauen Spec A und C auf.
                 value, target = condition_value(cond, balance=effective_balance,
-                                                 topic_values=topic_values, now_ts=now_ts)
+                                                 topic_values=topic_values, now_ts=now_ts,
+                                                 location=doc.settings.location)
                 condition_reports.append({"met": held_met, "raw_met": raw_met, "value": value,
                                           "target": target, "since": cond_rt.since,
                                           "hold_remaining": remaining})
@@ -1009,9 +1122,8 @@ class AutomationService:
     def poll_core(self):
         now = time.time()
         balance_age = None if self.last_balance_at is None else now - self.last_balance_at
-        weekday = time.localtime(now).tm_wday
         results = self.engine.tick(self.doc, balance=self.last_balance, balance_age=balance_age,
-                                    topic_values=self.topic_values, now_ts=now, weekday=weekday)
+                                    topic_values=self.topic_values, now_ts=now)
         state_doc = build_state_document(results, self.events.as_list(), at=now, online=True)
         self.state_publisher.maybe_publish(f"{self.base_topic}/state", state_doc, now)
         history_by_rule = {rule["id"]: self.history.as_list(rule["id"])

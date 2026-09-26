@@ -414,13 +414,64 @@
                     </template>
 
                     <template x-if="condition.type === 'time_window'">
-                      <div class="edit-sentence">
-                        <span class="edit-sentence-lead">WENN</span>
-                        <span>die Uhrzeit zwischen</span>
-                        <input type="time" x-model="condition.start" aria-label="Startzeit">
-                        <span>und</span>
-                        <input type="time" x-model="condition.end" aria-label="Endzeit">
-                        <span>liegt</span>
+                      <div>
+                        <div class="edit-sentence">
+                          <span class="edit-sentence-lead">WENN</span>
+                          <span>die Uhrzeit zwischen</span>
+                          <input type="time" x-model="condition.start" aria-label="Startzeit">
+                          <span>und</span>
+                          <input type="time" x-model="condition.end" aria-label="Endzeit">
+                          <span>liegt</span>
+                        </div>
+                        <div class="weekday-chips" role="group" aria-label="Wochentage">
+                          <span class="weekday-chips-label" x-text="(condition.weekdays || []).length ? 'nur an' : 'an jedem Tag, oder nur an'"></span>
+                          <template x-for="(label, day) in weekdayLabels()" x-bind:key="day">
+                            <button class="weekday-chip" type="button" x-text="label"
+                                    x-bind:class="{ active: hasWeekday(condition, day) }"
+                                    x-bind:aria-pressed="hasWeekday(condition, day)"
+                                    x-on:click="toggleWeekday(condition, day)"></button>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+
+                    <template x-if="condition.type === 'sun_window'">
+                      <div>
+                        <div class="edit-sentence">
+                          <span class="edit-sentence-lead">WENN</span>
+                          <span>es zwischen</span>
+                          <select x-model="condition.from" aria-label="Beginn">
+                            <option value="sunrise">Sonnenaufgang</option><option value="sunset">Sonnenuntergang</option>
+                          </select>
+                          <input type="number" min="-240" max="240" step="1" x-model.number="condition.from_offset_min"
+                                 aria-label="Versatz zum Beginn in Minuten">
+                          <span class="edit-unit">min</span>
+                          <span>und</span>
+                          <select x-model="condition.to" aria-label="Ende">
+                            <option value="sunrise">Sonnenaufgang</option><option value="sunset">Sonnenuntergang</option>
+                          </select>
+                          <input type="number" min="-240" max="240" step="1" x-model.number="condition.to_offset_min"
+                                 aria-label="Versatz zum Ende in Minuten">
+                          <span class="edit-unit">min</span>
+                          <span>ist</span>
+                        </div>
+                        <div class="weekday-chips" role="group" aria-label="Wochentage">
+                          <span class="weekday-chips-label" x-text="(condition.weekdays || []).length ? 'nur an' : 'an jedem Tag, oder nur an'"></span>
+                          <template x-for="(label, day) in weekdayLabels()" x-bind:key="day">
+                            <button class="weekday-chip" type="button" x-text="label"
+                                    x-bind:class="{ active: hasWeekday(condition, day) }"
+                                    x-bind:aria-pressed="hasWeekday(condition, day)"
+                                    x-on:click="toggleWeekday(condition, day)"></button>
+                          </template>
+                        </div>
+                        <div class="edit-card-warning" x-show="!hasLocation()">
+                          <span>Für Sonnenzeiten fehlt noch der Standort.</span>
+                          <button class="icon-button labeled" type="button" x-on:click="openLocationSettings()"
+                                  title="Standort in den Einstellungen festlegen" aria-label="Standort in den Einstellungen festlegen">
+                            <svg class="automation-icon"><use href="#ico-gear"></use></svg>
+                            <span>Standort festlegen</span>
+                          </button>
+                        </div>
                       </div>
                     </template>
                   </div>
@@ -660,13 +711,40 @@
         </template>
       </ul>
 
-      <details class="automations-advanced">
+      <details class="automations-advanced" id="automations-advanced">
         <summary>
           <svg class="automation-icon"><use href="#ico-gear"></use></svg>
           Für Fortgeschrittene — Einstellungen des Dienstes
         </summary>
         <div class="automations-advanced-body">
           <div class="form-grid">
+            <label for="automations-latitude">
+              Standort: Breitengrad
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="Erklärung zum Standort">
+                  <svg><use href="#ico-help"></use></svg>
+                </button>
+                <span class="field-help-text" role="tooltip" x-text="fieldHelp('location')"></span>
+              </span>
+            </label>
+            <input id="automations-latitude" type="number" min="-90" max="90" step="any"
+                   placeholder="z. B. 52.52" x-model.number="document.settings.latitude">
+
+            <label for="automations-longitude">Standort: Längengrad</label>
+            <div class="automations-location">
+              <input id="automations-longitude" type="number" min="-180" max="180" step="any"
+                     placeholder="z. B. 13.405" x-model.number="document.settings.longitude">
+              <button class="icon-button labeled" type="button" x-on:click="useCurrentLocation()"
+                      x-bind:disabled="!geolocationAvailable() || locating"
+                      title="Standort des Browsers übernehmen" aria-label="Standort des Browsers übernehmen">
+                <svg class="automation-icon"><use href="#ico-check"></use></svg>
+                <span x-text="locating ? 'Wird ermittelt ...' : 'Aktuellen Standort übernehmen'"></span>
+              </button>
+              <span class="field-hint" x-show="!geolocationAvailable()">
+                Der Browser gibt den Standort nur über HTTPS heraus. Hier bitte von Hand eintragen.
+              </span>
+            </div>
+
             <label for="automations-tick-interval">
               Tick-Intervall (s)
               <span class="field-help">
