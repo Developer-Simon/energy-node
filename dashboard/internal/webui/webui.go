@@ -599,10 +599,10 @@ var energyCardScripts = map[string]string{
 	"energy_band":    "/static/js/energy-band.js",
 	"energy_ring":    "/static/js/energy-ring.js",
 	"energy_board":   "/static/js/energy-board.js",
-	"energy_day":     "/static/js/energy-day.js",
+	"energy_day":     "/static/js/energy-day.js?v=1",
 	"energy_schema":  "/static/js/energy-schema.js",
 	"energy_status":  "/static/js/energy-status.js",
-	"battery_status": "/static/js/battery-status.js?v=1",
+	"battery_status": "/static/js/battery-status.js?v=2",
 }
 
 // requiredEnergyCardScripts returns the energy-<type>.js paths for whichever

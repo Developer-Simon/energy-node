@@ -27,8 +27,7 @@ per browser.
   settings. The pill stays in the page with `hidden`, so saving the settings
   shows it again without a reload.
 
-The *Formatierung* card is also where the number format (and later the date
-format) belongs.
+The *Formatierung* card also holds the number format (see below).
 
 ## Catalogs
 
@@ -54,11 +53,44 @@ the switcher).
 ## Adding a language
 
 Add `dashboard/internal/webui/catalogs/<code>.json` with every key of `de.json`
-and the same placeholders. `go test ./internal/webui/` fails until it is
-complete. The switcher picks it up automatically.
+and the same placeholders, plus `meta.locale`, `meta.number.decimal` and
+`meta.number.group`. Copy flatpickr's locale file for the language to
+`static/js-deps/flatpickr-l10n-<lang>.js` (from
+`node_modules/flatpickr/dist/l10n/<lang>.js`) and add it to
+`static/js-deps/THIRD-PARTY-NOTICES.md`. `go test ./internal/webui/` fails
+until the catalog is complete. The switcher picks it up automatically.
 
 ## Guards
 
 `internal/webui/catalogs_test.go` checks that all catalogs have the same keys
 and placeholders, that plural forms come in pairs, and that every key used in
 a template or script exists in `de.json`.
+
+## Numbers, dates and sorting
+
+Numbers do not follow the language. The operator picks a global number
+format in Settings → Darstellung (`number_format`: `auto`, `comma`, `point`,
+and `number_grouping`: `match`, `thin`, stored in `settings.json`).
+`auto` takes the separators from the active catalog's `meta.number.decimal`
+and `meta.number.group`. Groups start at five integer digits, so `1234 W`
+stays compact and `12.345 W` is grouped. A changed format reloads the page.
+
+Device values from MQTT are formatted only when they carry a unit and are a
+plain decimal (`-12.50`). Their decimals are kept exactly. Values without a
+unit (counters, years, IDs), text states and timestamps stay as reported.
+
+Dates, times and sorting follow the catalog's `meta.locale` through `Intl`.
+
+In code, never call `toLocaleString`, `localeCompare` or `Intl.*` directly.
+Use `I18n.formatNumber(value, decimals)`, `I18n.formatValue(raw, unit)`,
+`I18n.formatDateTime/formatDate/formatTime(value, options)` and
+`I18n.compare(a, b)`. In Go templates use `{{formatValue .Value .Unit}}` and
+`{{formatNumber .Value 0}}`. `dashboard/test/format-guard.test.mjs` enforces
+this. The Go package `internal/numfmt` and `i18n.js` share their test cases
+(`internal/numfmt/testdata/cases.json`), extend both together.
+
+A new catalog needs `meta.locale`, `meta.number.decimal` and
+`meta.number.group`. A test checks the separators against `Intl` for that
+locale. flatpickr loads `static/js-deps/flatpickr-l10n-<lang>.js` when that
+file exists (English is built in), ApexCharts builds its month and day
+names from `Intl`.

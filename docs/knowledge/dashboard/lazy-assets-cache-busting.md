@@ -64,7 +64,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-09-26**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -72,7 +72,7 @@ As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 | Asset | `?v=` |
 |---|---|
 | `css/base.css` | `23` |
-| `js/i18n.js` | `1` |
+| `js/i18n.js` | `2` (also `login.html`) |
 
 ### Deferred `<script>` block (channel 1)
 
@@ -83,9 +83,9 @@ As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 | `js/layout-fill.js` | – |
 | `js/device-tile.js` | – |
 | `js/entity-values.js` | – |
-| `js/overview-values.js` | `1` |
-| `js/device-tile-values.js` | – |
-| `js/compact-card-values.js` | – |
+| `js/overview-values.js` | `2` |
+| `js/device-tile-values.js` | `1` |
+| `js/compact-card-values.js` | `1` |
 | `js/energy-presentation.js` | – |
 | `js/energy-flow.js` | – |
 | `js/history-rollup.js` | `1` |
@@ -95,7 +95,7 @@ As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `8` |
 | `js/notifications.js` | `1` |
-| `js/dashboard.js` | `16` |
+| `js/dashboard.js` | `17` |
 | `js/overview.page.js` | `5` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -105,23 +105,24 @@ As of **2026-09-25**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `js/energy-model.js` | – |
-| `js/battery-card-core.js` | `2` |
-| `js/battery-status.js` | `1` |
-| `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-day.js`, `js/energy-schema.js`, `js/energy-status.js` | – |
+| `js/energy-model.js` | `1` |
+| `js/battery-card-core.js` | `3` |
+| `js/battery-status.js` | `2` |
+| `js/energy-day.js` | `1` |
+| `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js`, `js/energy-status.js` | – |
 
 ### Lazy panel assets (channel 2)
 
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` –, `js/history.js` `9` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` `1`, `js/history.js` `10` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
-| `config-panel` | `js/revisions.js` –, `js/schema-form.js` `1`, `js/config-status.js` `2`, `js/config.page.js` `3` | `css/manager.css` `23` |
+| `config-panel` | `js/revisions.js` –, `js/schema-form.js` `1`, `js/config-status.js` `2`, `js/config.page.js` `4` | `css/manager.css` `23` |
 | `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `2` | `css/manager.css` `23` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `23` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` `1`, `js/settings.page.js` `8`, `js/mqtt.page.js` `3`, `js/tailscale.page.js` `1`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `6` |
-| `automations-panel` | `js/config-status.js` `2`, `js/automations.page.js` `3` | `css/manager.css` `23`, `css/automations.css` `3` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` `1`, `js/settings.page.js` `9`, `js/mqtt.page.js` `4`, `js/tailscale.page.js` `2`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `7` |
+| `automations-panel` | `js/config-status.js` `2`, `js/automations.page.js` `4` | `css/manager.css` `23`, `css/automations.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -234,6 +235,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.7.14 | `js/i18n.js` (base + login) · `js/dashboard.js` · `js/overview-values.js` · `js/device-tile-values.js` · `js/compact-card-values.js` · `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/battery-status.js` · `js/energy-day.js` · `js/history.js` · `js/config.page.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/automations.page.js` · `css/settings-controls.css` | `2` · `17` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `3` · `2` · `1` (was unversioned) · `10` · `4` · `9` · `4` · `2` · `4` · `7` | 2026-09-26 |
 | v0.7.14 | `css/base.css` · `js/dashboard.js` · `js/i18n.js` · `js/settings.page.js` | `23` · `16` · `1` (new) · `8` | 2026-09-25 |
 | v0.7.13 | `css/manager.css` (5 panels) · `js/schema-form.js` (config + settings panels) · `js/config-status.js` (config + automations panels) · `js/config.page.js` · `js/automations.page.js` | `23` · `1` (was unversioned) · `2` (new) · `3` · `3` | 2026-09-25 |
 | v0.7.0 | `css/base.css` · `js/dashboard.js` | `22` · `15` | 2026-09-22 |
@@ -260,6 +262,13 @@ recomputable.
 | v0.3.19 | `css/base.css` · `js/dashboard.js` · `css/manager.css` (5 panels) · `css/history.css` · `css/automations.css` · `js/overview.page.js` · `js/layout-editor.js` · `css/layout-editor.css` | `16` · `8` · `12` · `3` · `3` · `5` · `6` · `6` | 2026-09-04 |
 | v0.3.15 | `css/base.css` · `css/manager.css` (5 panels) | `13` · `10` | 2026-09-03 |
 | v0.3.14 | baseline — `base.html` state at commit `d6cc3e0`, no bump | — | 2026-09-02 |
+
+The **2026-09-26** row is `feat/dashboard-localization-formats`, the number
+format setting and locale-aware dates (localization A2): every script that
+formatted numbers, dates or sort order itself now goes through `I18n`,
+`settings-controls.css` gains the three-option `.segmented--3` for the number
+format picker. `energy-day.js` and `battery-status.js` carry their `?v=` in
+`energyCardScripts` in `webui.go`, not in `base.html`.
 
 The **v0.6.2** row: `choices.css` gets `box-sizing: border-box` on
 `.choices`/`.choices__inner`/`.choices__list--dropdown`/`.choices__input` —
