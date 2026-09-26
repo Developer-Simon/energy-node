@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.16 (2026-09-26)
+## v0.7.17 (2026-09-26)
 
 ### Features
 
@@ -9,6 +9,8 @@
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **dashboard:** localization foundation with language switcher (#59) (7f8ed9f)
 - **dashboard:** number format setting and locale-aware dates (localization A2) (#60) (6d8ba8b)
+- **dashboard:** localize the shell and the overview (#62) (e96f396)
+- **automation:** weekdays in the editor and a sun_window condition (2c301a9)
 - **webui:** move the dashboard shell texts into the catalogs (3ae8750)
 - **webui:** migrate base.html and dashboard.js shells into catalogs (580a662)
 - **webui:** add English texts for the dashboard shell (fef5eaa)

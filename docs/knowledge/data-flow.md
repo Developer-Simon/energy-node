@@ -353,7 +353,7 @@ sequenceDiagram
 {% endraw %}
 
 Condition types: `balance_threshold`, `battery_soc`, `topic_value`,
-`time_window`, `entity_value`. Action types: `publish`, `notification`.
+`time_window`, `sun_window`, `entity_value`. Action types: `publish`, `notification`.
 
 ---
 

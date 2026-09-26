@@ -308,6 +308,15 @@ with up to 8 conditions and 8 actions.
 | `topic_value` | A raw MQTT topic, optionally a JSON key inside it |
 | `entity_value` | An entity, with a Home Assistant style value template |
 | `time_window` | Start/end time and weekdays |
+| `sun_window` | Sunrise or sunset, each with an offset in minutes, and weekdays |
+
+A window that crosses midnight belongs to the day it starts on: a `time_window`
+from 22:00 to 06:00 on Fridays also holds at 03:00 on Saturday. `sun_window`
+computes sunrise and sunset on the device itself from the location in
+`settings.latitude` and `settings.longitude`, with no internet access. Without
+a location, a `sun_window` condition stays unmet. The dashboard can fill the
+location in from the browser, which works over HTTPS (for example through Caddy)
+or on localhost.
 
 Threshold conditions carry `hysteresis` and `hold_seconds`, so a rule does not
 chatter around its threshold or fire on a single spike, and a rule carries

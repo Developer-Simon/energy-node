@@ -1,6 +1,6 @@
 {
   "service_id": "automation",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "unit": "automation.service",
   "bootstrap_step": "88",
   "schema": "config.schema.json",

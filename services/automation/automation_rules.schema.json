@@ -15,7 +15,9 @@
         "publish_allowed_prefixes": { "type": "array", "items": { "type": "string" }, "default": [] },
         "history_limit": { "type": "number", "minimum": 1, "maximum": 200, "default": 10 },
         "history_persist": { "type": "boolean", "default": true },
-        "publish_allowed_prefixes_auto": { "type": "boolean", "default": false }
+        "publish_allowed_prefixes_auto": { "type": "boolean", "default": false },
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90, "description": "Breitengrad des Standorts fuer sun_window, nur zusammen mit longitude" },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180, "description": "Laengengrad des Standorts fuer sun_window, nur zusammen mit latitude" }
       }
     },
     "rules": {
@@ -40,7 +42,7 @@
               "additionalProperties": true,
               "required": ["type"],
               "properties": {
-                "type": { "type": "string", "enum": ["balance_threshold", "topic_value", "time_window", "entity_value"] },
+                "type": { "type": "string", "enum": ["balance_threshold", "topic_value", "time_window", "entity_value", "sun_window"] },
                 "field": { "type": "string", "enum": ["grid_export", "grid_import", "pv", "load_total", "base", "wallbox", "heat_pump", "battery_charge", "battery_discharge", "gap_applied", "autarkie", "eigenverbrauch", "battery_soc", "battery_capacity_kwh", "battery_energy_kwh"] },
                 "comparison": { "type": "string", "enum": ["above", "below", "equals", "not_equals"] },
                 "threshold": { "type": "number" },
@@ -54,7 +56,11 @@
                 "text": { "type": "string" },
                 "start": { "type": "string" },
                 "end": { "type": "string" },
-                "weekdays": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 6 }, "description": "0=Montag ... 6=Sonntag (Python time.localtime().tm_wday); leer = jeden Tag" }
+                "from": { "type": "string", "enum": ["sunrise", "sunset"] },
+                "to": { "type": "string", "enum": ["sunrise", "sunset"] },
+                "from_offset_min": { "type": "integer", "minimum": -240, "maximum": 240, "default": 0 },
+                "to_offset_min": { "type": "integer", "minimum": -240, "maximum": 240, "default": 0 },
+                "weekdays": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 6 }, "description": "0=Montag ... 6=Sonntag; leer = jeden Tag. Es zaehlt der Tag, an dem das Fenster beginnt (auch ueber Mitternacht)." }
               }
             }
           },
