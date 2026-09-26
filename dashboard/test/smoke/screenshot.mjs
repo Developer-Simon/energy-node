@@ -12,6 +12,7 @@
 // Beispiele:
 //   node test/smoke/screenshot.mjs
 //   node test/smoke/screenshot.mjs --url http://localhost:18100/geraete --out /tmp/geraete.png
+//   node test/smoke/screenshot.mjs --lang de|en
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
@@ -28,6 +29,7 @@ function parseArgs(argv) {
     else if (flag === '--wait') args.wait = value;
     else if (flag === '--width') args.width = Number(value);
     else if (flag === '--height') args.height = Number(value);
+    else if (flag === '--lang') args.lang = value;
     else throw new Error(`unbekannte Option: ${flag}`);
   }
   return args;
@@ -37,6 +39,10 @@ const args = parseArgs(process.argv.slice(2));
 const browser = await chromium.launch({ args: ['--no-sandbox'] });
 try {
   const page = await browser.newPage({ viewport: { width: args.width, height: args.height } });
+  if (args.lang) {
+    const target = new URL(args.url);
+    await page.context().addCookies([{ name: 'lang', value: args.lang, domain: target.hostname, path: '/' }]);
+  }
   await page.goto(args.url, { waitUntil: 'networkidle' });
 
   const guestButton = page.locator('#guest-login');

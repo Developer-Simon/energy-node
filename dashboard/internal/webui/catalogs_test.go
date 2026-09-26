@@ -3,6 +3,7 @@ package webui
 import (
 	"encoding/json"
 	"io/fs"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -136,6 +137,47 @@ func TestKeyScannerRecognisesEveryCallForm(t *testing.T) {
 	for name, plural := range want {
 		if p, ok := got[name]; !ok || p != plural {
 			t.Fatalf("scanner found %v, want %v", got, want)
+		}
+	}
+}
+
+// pendingEnglishPrefix marks an en.json text that the extraction copied
+// from German and that still needs its English wording (localization A3).
+const pendingEnglishPrefix = "TODO(en): "
+
+func TestEnglishCatalogHasNoPendingTexts(t *testing.T) {
+	if os.Getenv("I18N_ALLOW_PENDING_EN") == "1" {
+		t.Skip("I18N_ALLOW_PENDING_EN=1: extraction in progress")
+	}
+	for key, text := range readCatalogs(t)["en"] {
+		if strings.HasPrefix(text, pendingEnglishPrefix) {
+			t.Errorf("en.json key %q still waits for its English text", key)
+		}
+	}
+}
+
+// Sorted catalogs keep diffs of parallel migrations small.
+func TestCatalogFilesAreSorted(t *testing.T) {
+	entries, err := fs.ReadDir(catalogFS, ".")
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyLine := regexp.MustCompile(`^\s*"([^"]+)":`)
+	for _, entry := range entries {
+		data, err := fs.ReadFile(catalogFS, entry.Name())
+		if err != nil {
+			t.Fatal(err)
+		}
+		previous := ""
+		for n, line := range strings.Split(string(data), "\n") {
+			m := keyLine.FindStringSubmatch(line)
+			if m == nil {
+				continue
+			}
+			if m[1] < previous {
+				t.Errorf("%s:%d: key %q is not sorted after %q", entry.Name(), n+1, m[1], previous)
+			}
+			previous = m[1]
 		}
 	}
 }
