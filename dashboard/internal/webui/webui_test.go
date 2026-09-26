@@ -2791,7 +2791,7 @@ func TestShellRendersInTheRequestLanguage(t *testing.T) {
 		t.Fatalf("got status %d", recorder.Code)
 	}
 	body := recorder.Body.String()
-	
+
 	// Check that English nav tabs are rendered (template t() function translates at render time)
 	enNavValues := []string{"Overview", "Devices", "History", "Diagnostics", "Settings"}
 	for _, value := range enNavValues {
@@ -2808,7 +2808,7 @@ func TestLoginAdminAuthUnavailableInCatalogs(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(recorder, request)
 	body := recorder.Body.String()
-	
+
 	// Check that German nav tabs are present
 	deNavValues := []string{"Übersicht", "Geräte", "Verläufe", "Diagnose", "Einstellungen"}
 	for _, value := range deNavValues {
