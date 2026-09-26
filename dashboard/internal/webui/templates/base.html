@@ -100,8 +100,8 @@
       <span x-text="activeTabLabel">{{t "nav.overview"}}</span>
       <span class="nav-menu-chevron" aria-hidden="true"></span>
     </button>
-    <nav id="dashboard-tabs" role="tablist" aria-label="Dashboard-Bereiche"
-         x-bind:class="{ 'nav-open': navOpen }">
+    <nav id="dashboard-tabs" role="tablist" aria-label="{{t "nav.tabs_label"}}"
+         x-bind:class="{ 'nav-open': navOpen }">{{/* i18n-keys: nav.tabs_label */}}
     {{range .Layout.Pages}}
     {{/* x-show statt Entfernen: der Knopf ist server-gerendert, aber der
          Editor kann die Seite umbenannt oder geloescht haben (hiddenPages). */}}
@@ -111,9 +111,6 @@
             x-bind:class="{ active: activePanel === 'overview-panel' && activePage === '{{.Name}}' }"
             x-on:click="setActivePage('{{.Name}}')"><i></i>{{.Name}}</button>
     {{end}}
-    {{/* Im Editor mit "+ Seite" angelegte Seiten erscheinen sofort als Tab,
-         noch vor dem Speichern. Nach echtem Speichern kommen sie serverseitig
-         aus {{range .Layout.Pages}} und extraPages wird geleert. */}}
     <template x-for="name in extraPages" x-bind:key="name">
       <button class="tab is-page is-fresh" role="tab" aria-controls="overview-panel" type="button"
               x-bind:data-page-id="name"

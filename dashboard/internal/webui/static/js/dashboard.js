@@ -629,7 +629,7 @@
         this.prefsDraftFor = '';
         await this.loadDeviceDetail(this.selectedDeviceId);
         this.seedPrefsDraft();
-        this.prefsMessage = 'Gespeichert';
+        this.prefsMessage = t('panel.saved');
         await this.refreshAfterMutation();
       } catch (error) {
         this.prefsMessage = error.message;
@@ -898,7 +898,7 @@
       const at = this.deviceDetail?.last_updated;
       if (!at) return '';
       const relative = this.relativeTime(at, this.nowTick ? new Date(this.nowTick) : new Date());
-      return relative ? `aktualisiert ${relative}` : '';
+      return relative ? `${t('panel.updated')}${relative}` : '';
     },
 
     get measurementsTeaser() {
