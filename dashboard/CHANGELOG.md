@@ -1,12 +1,21 @@
 # Changelog
 
-## v0.7.14 (2026-09-25)
+## v0.7.15 (2026-09-26)
 
 ### Features
 
 - **dashboard:** per-device icons and pinned favourite entities (#53) (d649df3)
 - **homeassistant:** ship the dashboard's device icons as an HA icon set (#54) (c4c196b)
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **dashboard:** localization foundation with language switcher (#59) (7f8ed9f)
+- **numfmt:** format numbers with configurable separators (4798c3c)
+- **settings:** add number format and digit grouping settings (2c67fd6)
+- **webui:** render device values in the configured number format (5c5d50d)
+- **webui:** add number, date and collation formats to the i18n runtime (0a80e55)
+- **webui:** show live device values in the configured number format (f23ebf5)
+- **history:** localize chart labels, tooltips and the date range picker (dcde8a1)
+- **battery-card:** take the number formatter from the host page (848952c)
+- **settings:** let the operator choose the number format (772317a)
 - **localize:** resolve the UI language from cookie and Accept-Language (1835383)
 - **localize:** add the translator, template funcs and catalog script handler (5f7c882)
 - **webui:** add the de/en message catalogs with drift tests (eba79e6)
@@ -44,8 +53,13 @@
 - **dashboard:** keep the exported icon markup readable in diffs (dc5114a)
 - **dashboard:** keep the pinned-favourites block from breaking the modal grid (c0876ee)
 
+### Refactors
+
+- **webui:** route number, date and sort formatting through I18n (cdd0420)
+
 ### Documentation
 
+- **localization:** document number and date formats and bump asset versions (252a88d)
 - **dashboard:** document localization and bump lazy asset versions (5181b2d)
 - **dashboard:** describe config_revision as the last load attempt (715dd30)
 - **battery_soc:** document DC-only systems, signed inputs and current units (6c2df1f)
