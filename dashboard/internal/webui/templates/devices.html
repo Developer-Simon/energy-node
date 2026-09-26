@@ -71,7 +71,7 @@
     {{end}}
   </span>
   {{else}}
-  <span class="compact-card-empty">{{len .Device.Entities}} {{t "devices.list_title"}}</span>
+  <span class="compact-card-empty">{{tn "devices.compact.entity_count" (len .Device.Entities)}}</span>
   {{end}}
 </button>
 {{end}}

@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"fmt"
 	"html"
 	"net/http"
 	"net/http/httptest"
@@ -258,6 +259,48 @@ func TestShellRendersInTheRequestLanguage(t *testing.T) {
 		for _, key := range []string{"nav.overview", "nav.devices", "nav.history", "panel.devices_loading"} {
 			if !strings.Contains(body, html.EscapeString(catalogs[lang][key])) {
 				t.Errorf("%s shell misses %s (%q)", lang, key, catalogs[lang][key])
+			}
+		}
+	}
+}
+
+// The tile count chips use plural keys: 0 sensors and 1 or 2 entities render
+// the catalog's .one/.other forms in both languages.
+func TestDeviceTileCountChipsUsePluralForms(t *testing.T) {
+	catalogs := readCatalogs(t)
+	for _, entityCount := range []int{1, 2} {
+		reg := registry.New()
+		for i := 0; i < entityCount; i++ {
+			reg.UpsertEntity(registry.Discovery{
+				Device: registry.DeviceInfo{ID: "node-1", Name: "Node One"},
+				Entity: registry.EntityInfo{UniqueID: fmt.Sprintf("node_power_%d", i), ObjectID: fmt.Sprintf("power_%d", i), Component: "sensor", Name: "Leistung"},
+			})
+		}
+		store := settings.NewStore(t.TempDir())
+		if err := store.SaveLayout(settings.Layout{Pages: []settings.Page{{
+			ID: "overview", Name: "Overview", Order: 0,
+			Groups: []settings.Group{{ID: "main", Name: "Main", Items: []settings.Item{
+				{ID: "device:node-1", Type: "device", Ref: "node-1", Span: "1", Visible: true},
+			}}},
+		}}}); err != nil {
+			t.Fatal(err)
+		}
+		for _, lang := range []string{"de", "en"} {
+			request := httptest.NewRequest("GET", "/?fragment=overview-live", nil)
+			request.AddCookie(&http.Cookie{Name: "lang", Value: lang})
+			recorder := httptest.NewRecorder()
+			Overview(reg, nil, store).ServeHTTP(recorder, request)
+			body := recorder.Body.String()
+			form := ".other"
+			if entityCount == 1 {
+				form = ".one"
+			}
+			wantEntities := strings.ReplaceAll(catalogs[lang]["tile.entity_count"+form], "{n}", fmt.Sprint(entityCount))
+			wantControls := strings.ReplaceAll(catalogs[lang]["tile.control_count.other"], "{n}", "0")
+			for _, want := range []string{wantEntities, wantControls} {
+				if !strings.Contains(body, `<span class="device-tile-chip">`+html.EscapeString(want)+`</span>`) {
+					t.Errorf("%s tile with %d entities misses chip %q", lang, entityCount, want)
+				}
 			}
 		}
 	}

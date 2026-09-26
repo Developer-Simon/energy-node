@@ -9,7 +9,7 @@
       </div>
       <div class="device-tile-actions"><button type="button" class="device-detail-trigger" data-device-id="{{.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" aria-label="{{t "tile.details.showing" "name" .Name}}">{{t "tile.details.link"}}</button></div>
     </header>
-    <div class="device-tile-status"><span class="device-tile-chip">{{len .Entities}} {{t "tile.entities"}}</span><span class="device-tile-chip">{{commandableCount .Entities}} {{t "tile.controls"}}</span></div>
+    <div class="device-tile-status"><span class="device-tile-chip">{{tn "tile.entity_count" (len .Entities)}}</span><span class="device-tile-chip">{{tn "tile.control_count" (commandableCount .Entities)}}</span></div>
     <div class="device-tile-entities">
       {{range .Entities}}{{if not .HiddenOnTile}}{{ $entity := . }}
       {{/* Sensoren ohne unit_of_measurement sind in HA-Konvention Status-/Text-
