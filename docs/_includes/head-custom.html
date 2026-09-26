@@ -68,6 +68,20 @@
   .doc-nav a:hover { text-decoration: underline; }
   .doc-nav a[aria-current="page"] { font-weight: 700; color: #159957; }
 
+  /* Version marker under each document (see _layouts/default.html). */
+  .doc-version {
+    margin-top: 2rem;
+    padding: 0.6rem 0.9rem;
+    border-left: 3px solid #159957;
+    background: #f3f6f6;
+    font-size: 0.9rem;
+    color: #42484d;
+  }
+  .doc-version-unreleased {
+    border-left-color: #d9822b;
+    background: #fdf5ec;
+  }
+
   @media screen and (min-width: 64em) {
     .doc-nav {
       position: sticky;

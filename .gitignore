@@ -23,3 +23,6 @@ dashboard/dashboard
 installer/installer
 installer/fakehost
 installer/bundle/**
+
+# Generated during the Pages build (scripts/docs/doc-versions.sh)
+/docs/_data/doc_versions.yml

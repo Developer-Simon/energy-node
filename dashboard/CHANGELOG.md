@@ -8,6 +8,7 @@
 - **homeassistant:** ship the dashboard's device icons as an HA icon set (#54) (c4c196b)
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **dashboard:** localization foundation with language switcher (#59) (7f8ed9f)
+- **dashboard:** number format setting and locale-aware dates (localization A2) (#60) (6d8ba8b)
 - **numfmt:** format numbers with configurable separators (4798c3c)
 - **settings:** add number format and digit grouping settings (2c67fd6)
 - **webui:** render device values in the configured number format (5c5d50d)
