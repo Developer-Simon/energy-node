@@ -45,6 +45,7 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **settings:** name the digit grouping option after the number format (37017c7)
 - **webui:** keep the language switcher clear of the masthead title (dba06da)
 - **dashboard:** hide conditional schema fields despite the grid display rule (e3225b3)
 - **dashboard:** start the status watch after the editor save reloads the config (11911c0)
