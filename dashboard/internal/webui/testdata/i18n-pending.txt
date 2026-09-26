@@ -4,7 +4,6 @@ static/js/automations.page.js
 static/js/battery-card-core.js
 static/js/config-status.js
 static/js/config.page.js
-static/js/dashboard.js
 static/js/device-tile.js
 static/js/devicemap.page.js
 static/js/energy-band.js
@@ -33,7 +32,6 @@ static/js/settings.page.js
 static/js/systemconfig.page.js
 static/js/tailscale.page.js
 templates/automations.html
-templates/base.html
 templates/config.html
 templates/device-tile.html
 templates/devicemap.html
