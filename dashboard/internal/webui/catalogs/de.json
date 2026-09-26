@@ -30,7 +30,7 @@
   "settings.number_format.auto": "Automatisch",
   "settings.number_format.comma": "1.234,5",
   "settings.number_format.grouping_label": "Tausendertrennung",
-  "settings.number_format.grouping_match": "Passend",
+  "settings.number_format.grouping_match": "Wie Zahlenformat",
   "settings.number_format.grouping_thin": "Schmales Leerzeichen",
   "settings.number_format.label": "Zahlenformat",
   "settings.number_format.note": "Gilt für alle Browser dieses Knotens. Automatisch folgt der Sprache der Oberfläche. Gruppiert wird ab fünf Stellen.",
