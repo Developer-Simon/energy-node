@@ -151,15 +151,18 @@ func buildOverviewTemplate(lang string) *template.Template {
 			// Overview renders exactly one page. Without a match, use the first page
 			// so that an unknown page ID (old bookmark, deleted page) does not result
 			// in an empty overview.
-			for i := range layout.Pages {
-				if layout.Pages[i].ID == id {
-					return &layout.Pages[i]
+			if id != "" {
+				// Try to find by ID first
+				for i := range layout.Pages {
+					if layout.Pages[i].ID == id {
+						return &layout.Pages[i]
+					}
 				}
-			}
-			// Fallback for old bookmarks using the page name instead of ID
-			for i := range layout.Pages {
-				if layout.Pages[i].Name == id {
-					return &layout.Pages[i]
+				// Fallback for old bookmarks using the page name instead of ID
+				for i := range layout.Pages {
+					if layout.Pages[i].Name == id {
+						return &layout.Pages[i]
+					}
 				}
 			}
 			if len(layout.Pages) > 0 {

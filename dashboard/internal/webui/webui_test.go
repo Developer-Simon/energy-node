@@ -2850,3 +2850,20 @@ func TestCustomPageNameRendersAsLabel(t *testing.T) {
 		t.Fatalf("custom page name should be rendered, got:\n%s", html)
 	}
 }
+
+func TestActivePageRendersFirstPageWhenNoQueryAndPageHasEmptyName(t *testing.T) {
+	layout := settings.Layout{Version: 3, Pages: []settings.Page{
+		{ID: "first", Name: "Foo", Order: 0, Groups: []settings.Group{{ID: "g", Name: "G", Items: []settings.Item{{ID: "i", Type: "device", Ref: "test_device", Span: "1", Visible: true}}}}},
+		{ID: "second", Name: "", Order: 1, Groups: []settings.Group{{ID: "g", Name: "G", Items: []settings.Item{}}}},
+	}}
+
+	html := renderOverview(t, layout, "")
+
+	// Without a ?page= query, the first page should render, not the one with empty name
+	if !strings.Contains(html, `data-layout-page="first"`) {
+		t.Fatalf("first page with non-empty name should render, got:\n%s", html)
+	}
+	if strings.Contains(html, `data-layout-page="second"`) {
+		t.Fatalf("second page with empty name should not render when no query specified:\n%s", html)
+	}
+}
