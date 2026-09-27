@@ -173,18 +173,18 @@
   // Als Konstante statt Komponenten-State: sie aendern sich nie zur Laufzeit,
   // eine reaktive Kopie je Instanz waere reine Verschwendung.
   const RANGE_PRESETS = [
-    {hours: 1, label: '1 h', labelKey: null},
-    {hours: 6, label: '6 h', labelKey: null},
-    {hours: 24, label: 'Tag', labelKey: 'history.range.day'},
-    {hours: 168, label: 'Woche', labelKey: 'history.range.week'},
-    {hours: 720, label: 'Monat', labelKey: 'history.range.month'},
+    {hours: 1, label: '1 h'},
+    {hours: 6, label: '6 h'},
+    {hours: 24, labelKey: 'history.range.day'},
+    {hours: 168, labelKey: 'history.range.week'},
+    {hours: 720, labelKey: 'history.range.month'},
   ];
   // i18n-keys: history.range.day, history.range.week, history.range.month
 
   const AGGREGATES = [
-    {value: 'avg', label: 'Mittelwert', labelKey: 'history.aggregate.average'},
-    {value: 'min', label: 'Minimum', labelKey: 'history.aggregate.minimum'},
-    {value: 'max', label: 'Maximum', labelKey: 'history.aggregate.maximum'},
+    {value: 'avg', labelKey: 'history.aggregate.average'},
+    {value: 'min', labelKey: 'history.aggregate.minimum'},
+    {value: 'max', labelKey: 'history.aggregate.maximum'},
   ];
   // i18n-keys: history.aggregate.average, history.aggregate.minimum, history.aggregate.maximum
 
@@ -405,11 +405,11 @@
       if (this.isEmpty) {
         return t('history.status.empty');
       }
-      const baseLine = `${this.tierLabel} · ${this.visibleRows.length} Punkte · ${this.selectedSeries.length} Serien`;
+      const params = {tier: this.tierLabel, points: this.visibleRows.length, series: this.selectedSeries.length};
       if (status.persisted === false) {
-        return `${baseLine}${t('history.status.not_persisted')}`;
+        return t('history.status.summary_not_persisted', params);
       }
-      return baseLine;
+      return t('history.status.summary', params);
     },
 
     // Der Wert, der gezeichnet wird. Bei Rohdaten sind min/max/avg gleich,

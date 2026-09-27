@@ -13,7 +13,7 @@
   <div id="history-range" class="history-chip-group" role="group" aria-label="{{t "overview.history.range_label"}}">
     <span class="history-chip-group-label"><svg class="history-chip-group-icon" aria-hidden="true"><use href="#ico-clock"></use></svg>{{t "overview.history.range_label"}}</span>
     <template x-for="preset in RANGE_PRESETS" x-bind:key="preset.hours">
-      <button type="button" class="history-chip" x-bind:class="{ active: rangeMode === 'relative' && rangeHours === preset.hours }" x-bind:aria-pressed="rangeMode === 'relative' && rangeHours === preset.hours" x-on:click="selectPreset(preset.hours)" x-text="preset.label"></button>
+      <button type="button" class="history-chip" x-bind:class="{ active: rangeMode === 'relative' && rangeHours === preset.hours }" x-bind:aria-pressed="rangeMode === 'relative' && rangeHours === preset.hours" x-on:click="selectPreset(preset.hours)" x-text="preset.labelKey ? $t(preset.labelKey) : preset.label"></button>
     </template>
     <label class="history-chip history-range-custom" x-bind:class="{ active: rangeMode === 'custom' }" for="history-range-custom">
       <svg class="history-chip-icon" aria-hidden="true"><use href="#ico-calendar"></use></svg>
@@ -27,7 +27,7 @@
   <div id="history-aggregate" class="history-chip-group" role="group" aria-label="{{t "overview.history.metric_label"}}">
     <span class="history-chip-group-label">{{t "overview.history.metric_label"}}</span>
     <template x-for="option in AGGREGATES" x-bind:key="option.value">
-      <button type="button" class="history-chip" x-bind:class="{ active: aggregate === option.value }" x-bind:aria-pressed="aggregate === option.value" x-on:click="aggregate = option.value; renderChart()" x-text="option.label"></button>
+      <button type="button" class="history-chip" x-bind:class="{ active: aggregate === option.value }" x-bind:aria-pressed="aggregate === option.value" x-on:click="aggregate = option.value; renderChart()" x-text="$t(option.labelKey)"></button>
     </template>
   </div>
 
