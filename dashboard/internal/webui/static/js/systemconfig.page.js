@@ -110,7 +110,7 @@
         try {
           payload = this.currentValue();
         } catch (err) {
-          this.error = t('systemconfig.error.invalid_json') + err.message;
+          this.error = t('systemconfig.error.invalid_json', {error: err.message});
           this.busy = false;
           return;
         }

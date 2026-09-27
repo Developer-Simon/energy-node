@@ -651,7 +651,7 @@
   "storage_health.reason.no_mmc": "Das Root-Dateisystem liegt nicht auf einem auslesbaren MMC-Medium.",
   "storage_health.remaining.days": "ca. {min} bis {max} Tage",
   "storage_health.remaining.years": "ca. {min} bis {max} Jahre",
-  "systemconfig.error.invalid_json": "Ungueltiges JSON: ",
+  "systemconfig.error.invalid_json": "Ungueltiges JSON: {error}",
   "systemconfig.error.save_failed": "Speichern fehlgeschlagen (HTTP {status})",
   "systemconfig.schema_title": "Konfiguration",
   "tailscale.help.no_auth_key": "Kein Auth-Key nötig: Dieser Assistent nutzt die interaktive Tailscale-Anmeldung, kein Zugangsschlüssel wird vom Dashboard gespeichert oder verarbeitet.",

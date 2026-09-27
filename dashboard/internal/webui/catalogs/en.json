@@ -651,7 +651,7 @@
   "storage_health.reason.no_mmc": "TODO(en): Das Root-Dateisystem liegt nicht auf einem auslesbaren MMC-Medium.",
   "storage_health.remaining.days": "TODO(en): ca. {min} bis {max} Tage",
   "storage_health.remaining.years": "TODO(en): ca. {min} bis {max} Jahre",
-  "systemconfig.error.invalid_json": "TODO(en): Ungueltiges JSON: ",
+  "systemconfig.error.invalid_json": "TODO(en): Ungueltiges JSON: {error}",
   "systemconfig.error.save_failed": "TODO(en): Speichern fehlgeschlagen (HTTP {status})",
   "systemconfig.schema_title": "TODO(en): Konfiguration",
   "tailscale.help.no_auth_key": "TODO(en): Kein Auth-Key nötig: Dieser Assistent nutzt die interaktive Tailscale-Anmeldung, kein Zugangsschlüssel wird vom Dashboard gespeichert oder verarbeitet.",
