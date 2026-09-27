@@ -1,4 +1,6 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
@@ -67,7 +69,7 @@
         this.canConfigure = Boolean(session && session.mqtt_config) && window.location.protocol === 'https:';
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.loading = false;
       }
@@ -152,16 +154,16 @@
           });
           this.status = result.status || this.status;
           if (result.ok) {
-            this.$store.toasts.push('Gespeichert und neu verbunden.');
+            this.$store.toasts.push(t('common.saved') + ' und neu verbunden.');
           } else {
             this.$store.toasts.push(`Neu verbinden fehlgeschlagen: ${result.error || ''}`, 'critical');
           }
         } else {
-          this.$store.toasts.push('Gespeichert.');
+          this.$store.toasts.push(t('common.saved') + '.');
         }
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }
@@ -182,10 +184,10 @@
         });
         this.$store.toasts.push(desired
           ? 'Energiewerte werden beim nächsten Verbinden als Home-Assistant-Gerät angeboten.'
-          : 'Das Home-Assistant-Energie-Gerät wird beim nächsten Verbinden entfernt.');
+          : 'Das Home-Assistant-Energie-Gerät wird beim nächsten Verbinden entfernt.', 'info'); // i18n-ignore: handled in Go
       } catch (error) {
         this.form.publish_energy_device = !desired;
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       }
     },
 
@@ -436,10 +438,10 @@
       this.busy = 'save';
       try {
         await this.saveInternal();
-        this.$store.toasts.push('Gespeichert.');
+        this.$store.toasts.push(t('common.saved') + '.');
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }
@@ -452,7 +454,7 @@
         body: 'Die Live-Anzeige setzt kurz aus.',
         confirmLabel: 'Anwenden und neu starten',
         danger: true,
-      });
+      }); // i18n-ignore: handled in Go or modal library
       if (!confirmed) return;
       this.busy = 'apply';
       try {
@@ -465,7 +467,7 @@
         this.$store.toasts.push('Bridge angewendet, Mosquitto wurde neu gestartet.');
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }
@@ -478,7 +480,7 @@
         body: 'Die Live-Anzeige setzt kurz aus.',
         confirmLabel: 'Neu starten',
         danger: true,
-      });
+      }); // i18n-ignore: handled in Go or modal library
       if (!confirmed) return;
       this.busy = 'restart';
       try {
@@ -489,7 +491,7 @@
         this.$store.toasts.push('Mosquitto wurde neu gestartet.');
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }

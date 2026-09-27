@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores, fakeModalStore } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -27,6 +28,8 @@ function createBridgePanel({ fetchImpl, url, confirmResult = true } = {}) {
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
+  // Initialize i18n with German catalog so t() calls return translated strings
+  installI18n(dom.window);
   vm.runInContext(scriptSource, context);
   const component = factories.mqttBridgePanel();
   const stores = attachStores(component, { modal: fakeModalStore({ answer: confirmResult }) });

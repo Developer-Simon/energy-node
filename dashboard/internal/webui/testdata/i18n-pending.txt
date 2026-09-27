@@ -21,7 +21,6 @@ templates/config.html
 templates/devicemap.html
 templates/diagnostics.html
 templates/layout-editor.html
-templates/mqtt.html
 templates/revisions.html
 templates/settings.html
 templates/tailscale.html

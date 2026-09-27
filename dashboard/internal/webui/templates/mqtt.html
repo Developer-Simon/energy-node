@@ -1,99 +1,99 @@
 {{define "mqtt"}}
 <section id="settings-mqtt" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'mqtt'" x-data="mqttPanel()" x-init="load()">
   <div class="setting-card">
-    <h3 class="setting-card-title">Verbindung
+    <h3 class="setting-card-title">{{t "mqtt.connection.title"}}
       <span class="field-help field-help-align-start">
-        <button class="field-help-trigger" type="button" aria-label="Erklärung zur Verbindung"><svg><use href="#ico-help"></use></svg></button>
-        <span class="field-help-text" role="tooltip">Verbindung des Dashboards zum MQTT-Broker. Ändern erfordert die Rolle <code>mqtt_config</code> und HTTPS.</span>
+        <button class="field-help-trigger" type="button" aria-label="{{t "mqtt.connection.help"}}"><svg><use href="#ico-help"></use></svg></button>
+        <span class="field-help-text" role="tooltip">{{t "mqtt.connection.help_text"}}</span>
       </span>
     </h3>
     <label class="switch-row" for="mqtt-enabled">
-      <span>Dashboard-Einstellungen statt Umgebungsvariablen verwenden
+      <span>{{t "mqtt.enabled.label"}}
         <span class="field-help">
-          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Dashboard-Einstellungen statt Umgebungsvariablen verwenden"><svg><use href="#ico-help"></use></svg></button>
-          <span class="field-help-text" role="tooltip">Ist dieser Schalter aus, gelten die <code>MQTT_*</code>-Umgebungsvariablen des Dienstes unverändert. Ist er an, gewinnt die hier gespeicherte Konfiguration vollständig - ohne feldweises Mischen.</span>
+          <button class="field-help-trigger" type="button" aria-label="{{t "mqtt.enabled.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "mqtt.enabled.help_text"}}</span>
         </span>
       </span>
       <span class="settings-toggle"><input id="mqtt-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
     </label>
     <div class="form-grid">
-      <label for="mqtt-host">Host</label><input id="mqtt-host" type="text" autocomplete="off" x-model.trim="form.host" x-bind:disabled="!canConfigure">
-      <label class="stepper-row" for="mqtt-port" id="lbl-mqtt-port">Port
+      <label for="mqtt-host">{{t "mqtt.host.label"}}</label><input id="mqtt-host" type="text" autocomplete="off" x-model.trim="form.host" x-bind:disabled="!canConfigure">
+      <label class="stepper-row" for="mqtt-port" id="lbl-mqtt-port">{{t "mqtt.port.label"}}
         <span class="stepper" role="group" aria-labelledby="lbl-mqtt-port">
-          <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "mqtt.port.decrease"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input id="mqtt-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
-          <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "mqtt.port.increase"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </label>
-      <label for="mqtt-client-id">Client-ID</label><input id="mqtt-client-id" type="text" autocomplete="off" x-model.trim="form.client_id" x-bind:disabled="!canConfigure">
-      <label for="mqtt-username">Benutzername</label><input id="mqtt-username" type="text" autocomplete="off" x-model.trim="form.username" x-bind:disabled="!canConfigure">
-      <label for="mqtt-password">Passwort</label><input id="mqtt-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
-      <label for="mqtt-discovery-prefix">Discovery-Präfix</label><input id="mqtt-discovery-prefix" type="text" autocomplete="off" x-model.trim="form.discovery_prefix" x-bind:disabled="!canConfigure">
-      <label class="stepper-row" for="mqtt-keepalive" id="lbl-mqtt-keepalive">Keepalive (Sekunden)
+      <label for="mqtt-client-id">{{t "mqtt.client_id.label"}}</label><input id="mqtt-client-id" type="text" autocomplete="off" x-model.trim="form.client_id" x-bind:disabled="!canConfigure">
+      <label for="mqtt-username">{{t "mqtt.username.label"}}</label><input id="mqtt-username" type="text" autocomplete="off" x-model.trim="form.username" x-bind:disabled="!canConfigure">
+      <label for="mqtt-password">{{t "mqtt.password.label"}}</label><input id="mqtt-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? $t('bridge.remote_password.configured') : ''" x-bind:disabled="!canConfigure">
+      <label for="mqtt-discovery-prefix">{{t "mqtt.discovery_prefix.label"}}</label><input id="mqtt-discovery-prefix" type="text" autocomplete="off" x-model.trim="form.discovery_prefix" x-bind:disabled="!canConfigure">
+      <label class="stepper-row" for="mqtt-keepalive" id="lbl-mqtt-keepalive">{{t "mqtt.keepalive.label"}}
         <span class="stepper" role="group" aria-labelledby="lbl-mqtt-keepalive">
-          <button type="button" class="stepper-btn" aria-label="Keepalive verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "mqtt.keepalive.decrease"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input id="mqtt-keepalive" class="stepper-input" type="number" min="5" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
-          <button type="button" class="stepper-btn" aria-label="Keepalive erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "mqtt.keepalive.increase"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </label>
-      <label class="stepper-row" for="mqtt-connect-timeout" id="lbl-mqtt-connect-timeout">Verbindungs-Timeout (Sekunden)
+      <label class="stepper-row" for="mqtt-connect-timeout" id="lbl-mqtt-connect-timeout">{{t "mqtt.connect_timeout.label"}}
         <span class="stepper" role="group" aria-labelledby="lbl-mqtt-connect-timeout">
-          <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', -1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "mqtt.connect_timeout.decrease"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', -1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input id="mqtt-connect-timeout" class="stepper-input" type="number" min="1" max="60" x-model.number="form.connect_timeout_seconds" x-bind:disabled="!canConfigure">
-          <button type="button" class="stepper-btn" aria-label="Verbindungs-Timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', 1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "mqtt.connect_timeout.increase"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('connect_timeout_seconds', 1)" x-on:pointerdown="startRepeat('connect_timeout_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </label>
       <label class="settings-toggle-label" for="mqtt-tls">TLS <span class="settings-toggle"><input id="mqtt-tls" type="checkbox" role="switch" x-model="form.tls" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.tls"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <label class="settings-toggle-label" for="mqtt-tls-insecure">TLS-Zertifikatsprüfung überspringen <span class="settings-toggle"><input id="mqtt-tls-insecure" type="checkbox" role="switch" x-model="form.tls_insecure" x-bind:disabled="!canConfigure || !form.tls" x-bind:aria-checked="form.tls_insecure"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      <label class="settings-toggle-label" for="mqtt-clean-session">Clean Session <span class="settings-toggle"><input id="mqtt-clean-session" type="checkbox" role="switch" x-model="form.clean_session" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.clean_session"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <label class="settings-toggle-label" for="mqtt-tls-insecure">{{t "mqtt.tls_insecure.label"}} <span class="settings-toggle"><input id="mqtt-tls-insecure" type="checkbox" role="switch" x-model="form.tls_insecure" x-bind:disabled="!canConfigure || !form.tls" x-bind:aria-checked="form.tls_insecure"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+      <label class="settings-toggle-label" for="mqtt-clean-session">{{t "mqtt.clean_session.label"}} <span class="settings-toggle"><input id="mqtt-clean-session" type="checkbox" role="switch" x-model="form.clean_session" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.clean_session"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
     </div>
-    <p class="setting-note" x-show="!canConfigure">Für Änderungen fehlt entweder die Rolle <code>mqtt_config</code> oder die Verbindung läuft nicht über HTTPS.</p>
+    <p class="setting-note" x-show="!canConfigure">{{t "mqtt.cannot_configure"}}</p>
     <div class="setting-actionbar-dock">
       <div class="setting-actionbar">
-        <button type="button" x-on:click="test()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'test' ? 'Teste ...' : 'Verbindung testen'"></button>
-        <button class="primary" type="button" x-on:click="save(false)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? 'Speichere ...' : 'Speichern'"></button>
-        <button type="button" x-on:click="save(true)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'reconnect' ? 'Verbinde ...' : 'Speichern und neu verbinden'"></button>
+        <button type="button" x-on:click="test()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'test' ? $t('mqtt.test.loading') : $t('mqtt.test')"></button>
+        <button class="primary" type="button" x-on:click="save(false)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? $t('mqtt.save.loading') : $t('common.save')"></button>
+        <button type="button" x-on:click="save(true)" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'reconnect' ? $t('mqtt.reconnect.loading') : $t('mqtt.reconnect')"></button>
       </div>
     </div>
-    <p class="setting-note" x-cloak x-show="busy === 'reconnect'">Broker startet neu, Verbindung wird wiederhergestellt. Die Live-Anzeige setzt kurz aus.</p>
+    <p class="setting-note" x-cloak x-show="busy === 'reconnect'">{{t "mqtt.reconnect.note"}}</p>
     <div class="message error" role="alert" x-cloak x-show="testResult && !testResult.ok" x-text="testResult && `${testResult.error_code}: ${testResult.message}`"></div>
-    <div class="message" role="status" x-cloak x-show="testResult && testResult.ok" x-text="testResult && `Verbindung erfolgreich (${testResult.duration_ms} ms, ${testResult.discovery_messages_seen} Discovery-Nachrichten gesehen)`"></div>
+    <div class="message" role="status" x-cloak x-show="testResult && testResult.ok" x-text="testResult && $t('mqtt.test.success', {duration_ms: testResult.duration_ms, discovery_messages_seen: testResult.discovery_messages_seen})"></div>
   </div>
 
   <section class="setting-card storage-health-panel" aria-labelledby="mqtt-status-heading" aria-live="polite">
-    <h3 class="setting-card-title" id="mqtt-status-heading">Status</h3>
+    <h3 class="setting-card-title" id="mqtt-status-heading">{{t "mqtt.status.title"}}</h3>
     <div class="table-scroll">
       <table class="storage-health-table">
       <tbody>
-        <tr><th scope="row">Verbunden</th><td x-text="status && status.connected ? 'Ja' : 'Nein'">-</td></tr>
-        <tr><th scope="row">Broker</th><td x-text="(status && status.broker_address) || '-'">-</td></tr>
-        <tr><th scope="row">Quelle</th><td x-text="sourceLabel(source)">-</td></tr>
-        <tr><th scope="row">Verbunden seit</th><td x-text="formatTime(status && status.last_connected_at)">-</td></tr>
-        <tr><th scope="row">Letzter Reconnect</th><td x-text="formatTime(status && status.last_reconfigured_at)">-</td></tr>
-        <tr><th scope="row">Fehlversuche</th><td x-text="(status && status.failed_attempts) || 0">0</td></tr>
-        <tr x-show="status && status.last_error"><th scope="row">Letzter Fehler</th><td x-text="status && status.last_error"></td></tr>
+        <tr><th scope="row">{{t "mqtt.status.connected"}}</th><td x-text="status && status.connected ? $t('mqtt.status.yes') : $t('mqtt.status.no')">-</td></tr>
+        <tr><th scope="row">{{t "mqtt.status.broker"}}</th><td x-text="(status && status.broker_address) || '-'">-</td></tr>
+        <tr><th scope="row">{{t "mqtt.status.source"}}</th><td x-text="sourceLabel(source)">-</td></tr>
+        <tr><th scope="row">{{t "mqtt.status.connected_since"}}</th><td x-text="formatTime(status && status.last_connected_at)">-</td></tr>
+        <tr><th scope="row">{{t "mqtt.status.last_reconfigured"}}</th><td x-text="formatTime(status && status.last_reconfigured_at)">-</td></tr>
+        <tr><th scope="row">{{t "mqtt.status.failed_attempts"}}</th><td x-text="(status && status.failed_attempts) || 0">0</td></tr>
+        <tr x-show="status && status.last_error"><th scope="row">{{t "mqtt.status.last_error"}}</th><td x-text="status && status.last_error"></td></tr>
       </tbody>
       </table>
     </div>
-    <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? 'Prüfe ...' : 'Status aktualisieren'"></button></div>
+    <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('mqtt.status.loading') : $t('mqtt.status.refresh')"></button></div>
   </section>
 
   <div class="setting-card" x-bind:class="{ 'setting-card--wide': !canConfigure }">
-    <h3 class="setting-card-title">Home Assistant &amp; Simulation</h3>
+    <h3 class="setting-card-title">{{t "mqtt.ha.title"}}</h3>
     <label class="switch-row" for="mqtt-publish-energy-device">
-      <span>Energiewerte als Home-Assistant-Gerät anbieten
+      <span>{{t "mqtt.energy_device.label"}}
         <span class="field-help">
-          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Energiewerte als Home-Assistant-Gerät anbieten"><svg><use href="#ico-help"></use></svg></button>
-          <span class="field-help-text" role="tooltip">Unabhängig von der Broker-Quelle und sofort beim Umschalten gespeichert. Ist dies an, meldet sich das Dashboard beim nächsten Verbinden per MQTT-Discovery als Gerät „Energy Node" mit PV-, Netz-, Batterie- und Hauslast-Sensoren. Aus entfernt die Discovery beim nächsten Verbinden wieder.</span>
+          <button class="field-help-trigger" type="button" aria-label="{{t "mqtt.energy_device.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "mqtt.energy_device.help_text"}}</span>
         </span>
       </span>
       <span class="settings-toggle"><input id="mqtt-publish-energy-device" type="checkbox" role="switch" x-model="form.publish_energy_device" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.publish_energy_device" x-on:change="saveEnergyDevice()"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
     </label>
     <label class="switch-row" for="mqtt-node-simulation">
-      <span>Simulationsmodus an alle Bridges senden
+      <span>{{t "mqtt.simulation.label"}}
         <span class="field-help">
-          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Simulationsmodus an alle Bridges senden"><svg><use href="#ico-help"></use></svg></button>
-          <span class="field-help-text" role="tooltip">Sofort beim Umschalten gespeichert und retained auf <code>outstation/&lt;node&gt;/settings/simulation_active/set</code> gelegt - unabhängig von der Broker-Quelle.</span>
+          <button class="field-help-trigger" type="button" aria-label="{{t "mqtt.simulation.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "mqtt.simulation.help_text"}}</span>
         </span>
       </span>
       <span class="settings-toggle"><input id="mqtt-node-simulation" type="checkbox" role="switch" x-model="form.simulation_active" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.simulation_active" x-on:change="saveNodeSettings()"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
@@ -101,7 +101,7 @@
   </div>
 
   <div class="setting-card" x-show="canConfigure">
-    <h3 class="setting-card-title">Systemmetriken publizieren</h3>
+    <h3 class="setting-card-title">{{t "mqtt.metrics.title"}}</h3>
     <template x-for="metric in metricKeys" x-bind:key="metric">
       <label class="switch-row">
         <span x-text="metricLabels[metric] || metric"></span>
@@ -112,112 +112,112 @@
 
   <section id="settings-mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
     <div class="setting-card">
-      <h3 class="setting-card-title">Bridge-Konfiguration</h3>
+      <h3 class="setting-card-title">{{t "bridge.config.title"}}</h3>
       <div class="form-grid">
-        <label for="bridge-name">Verbindungsname</label><input id="bridge-name" type="text" autocomplete="off" x-model.trim="form.name" x-bind:disabled="!canConfigure">
-        <label for="bridge-address">Adresse Hauptsystem</label><input id="bridge-address" type="text" autocomplete="off" x-model.trim="form.address" x-bind:disabled="!canConfigure">
-        <label class="stepper-row" for="bridge-port" id="lbl-bridge-port">Port
+        <label for="bridge-name">{{t "bridge.name.label"}}</label><input id="bridge-name" type="text" autocomplete="off" x-model.trim="form.name" x-bind:disabled="!canConfigure">
+        <label for="bridge-address">{{t "bridge.address.label"}}</label><input id="bridge-address" type="text" autocomplete="off" x-model.trim="form.address" x-bind:disabled="!canConfigure">
+        <label class="stepper-row" for="bridge-port" id="lbl-bridge-port">{{t "bridge.port.label"}}
           <span class="stepper" role="group" aria-labelledby="lbl-bridge-port">
-            <button type="button" class="stepper-btn" aria-label="Port verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "bridge.port.decrease"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('port', -1)" x-on:pointerdown="startRepeat('port', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
             <input id="bridge-port" class="stepper-input" type="number" min="1" max="65535" x-model.number="form.port" x-bind:disabled="!canConfigure">
-            <button type="button" class="stepper-btn" aria-label="Port erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "bridge.port.increase"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('port', 1)" x-on:pointerdown="startRepeat('port', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
           </span>
         </label>
-        <label for="bridge-remote-client-id">Remote-Client-ID</label><input id="bridge-remote-client-id" type="text" autocomplete="off" x-model.trim="form.remote_client_id" x-bind:disabled="!canConfigure">
-        <label for="bridge-remote-username">Remote-Benutzername</label><input id="bridge-remote-username" type="text" autocomplete="off" x-model.trim="form.remote_username" x-bind:disabled="!canConfigure">
-        <label for="bridge-remote-password">Remote-Passwort</label><input id="bridge-remote-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? 'gespeichert' : ''" x-bind:disabled="!canConfigure">
-        <label class="stepper-row" for="bridge-restart-timeout" id="lbl-bridge-restart-timeout">restart_timeout (Sekunden)
+        <label for="bridge-remote-client-id">{{t "bridge.remote_client_id.label"}}</label><input id="bridge-remote-client-id" type="text" autocomplete="off" x-model.trim="form.remote_client_id" x-bind:disabled="!canConfigure">
+        <label for="bridge-remote-username">{{t "bridge.remote_username.label"}}</label><input id="bridge-remote-username" type="text" autocomplete="off" x-model.trim="form.remote_username" x-bind:disabled="!canConfigure">
+        <label for="bridge-remote-password">{{t "bridge.remote_password.label"}}</label><input id="bridge-remote-password" type="password" autocomplete="off" x-model="password" x-bind:placeholder="passwordConfigured ? $t('bridge.remote_password.configured') : ''" x-bind:disabled="!canConfigure">
+        <label class="stepper-row" for="bridge-restart-timeout" id="lbl-bridge-restart-timeout">{{t "bridge.restart_timeout.label"}}
           <span class="stepper" role="group" aria-labelledby="lbl-bridge-restart-timeout">
-            <button type="button" class="stepper-btn" aria-label="restart_timeout verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', -1)" x-on:pointerdown="startRepeat('restart_timeout', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "bridge.restart_timeout.decrease"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', -1)" x-on:pointerdown="startRepeat('restart_timeout', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
             <input id="bridge-restart-timeout" class="stepper-input" type="number" min="5" max="600" x-model.number="form.restart_timeout" x-bind:disabled="!canConfigure">
-            <button type="button" class="stepper-btn" aria-label="restart_timeout erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', 1)" x-on:pointerdown="startRepeat('restart_timeout', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "bridge.restart_timeout.increase"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('restart_timeout', 1)" x-on:pointerdown="startRepeat('restart_timeout', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
           </span>
         </label>
-        <label class="stepper-row" for="bridge-keepalive" id="lbl-bridge-keepalive">keepalive_interval (Sekunden)
+        <label class="stepper-row" for="bridge-keepalive" id="lbl-bridge-keepalive">{{t "bridge.keepalive.label"}}
           <span class="stepper" role="group" aria-labelledby="lbl-bridge-keepalive">
-            <button type="button" class="stepper-btn" aria-label="keepalive_interval verringern" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "bridge.keepalive.decrease"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', -1)" x-on:pointerdown="startRepeat('keepalive_seconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
             <input id="bridge-keepalive" class="stepper-input" type="number" min="10" max="300" x-model.number="form.keepalive_seconds" x-bind:disabled="!canConfigure">
-            <button type="button" class="stepper-btn" aria-label="keepalive_interval erhöhen" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "bridge.keepalive.increase"}}" x-bind:disabled="!canConfigure" x-on:click="stepField('keepalive_seconds', 1)" x-on:pointerdown="startRepeat('keepalive_seconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
           </span>
         </label>
-        <label class="settings-toggle-label" for="bridge-enabled">Aktiv <span class="settings-toggle"><input id="bridge-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-        <label class="settings-toggle-label" for="bridge-try-private">try_private <span class="settings-toggle"><input id="bridge-try-private" type="checkbox" role="switch" x-model="form.try_private" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.try_private"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-        <label class="settings-toggle-label" for="bridge-start-type-auto">start_type automatic <span class="settings-toggle"><input id="bridge-start-type-auto" type="checkbox" role="switch" x-model="form.start_type_auto" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.start_type_auto"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-        <label class="settings-toggle-label" for="bridge-cleansession">cleansession <span class="settings-toggle"><input id="bridge-cleansession" type="checkbox" role="switch" x-model="form.cleansession" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.cleansession"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+        <label class="settings-toggle-label" for="bridge-enabled">{{t "bridge.enabled.label"}} <span class="settings-toggle"><input id="bridge-enabled" type="checkbox" role="switch" x-model="form.enabled" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.enabled"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+        <label class="settings-toggle-label" for="bridge-try-private">{{t "bridge.try_private.label"}} <span class="settings-toggle"><input id="bridge-try-private" type="checkbox" role="switch" x-model="form.try_private" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.try_private"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+        <label class="settings-toggle-label" for="bridge-start-type-auto">{{t "bridge.start_type_auto.label"}} <span class="settings-toggle"><input id="bridge-start-type-auto" type="checkbox" role="switch" x-model="form.start_type_auto" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.start_type_auto"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+        <label class="settings-toggle-label" for="bridge-cleansession">{{t "bridge.cleansession.label"}} <span class="settings-toggle"><input id="bridge-cleansession" type="checkbox" role="switch" x-model="form.cleansession" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.cleansession"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
       </div>
       {{/* i18n-keys: bridge.address_warning.not_ipv4, bridge.address_warning.outside_tailnet */}}
       <p class="setting-note" x-cloak x-show="addressWarningKey || addressWarning" x-text="addressWarningKey ? $t(addressWarningKey) : addressWarning"></p>
     </div>
 
     <section class="setting-card storage-health-panel" aria-labelledby="bridge-status-heading" aria-live="polite">
-      <h3 class="setting-card-title" id="bridge-status-heading">Mosquitto-Bridge – Status
+      <h3 class="setting-card-title" id="bridge-status-heading">{{t "bridge.status.title"}}
         <span class="field-help field-help-align-start">
-          <button class="field-help-trigger" type="button" aria-label="Erklärung zur Mosquitto-Bridge"><svg><use href="#ico-help"></use></svg></button>
-          <span class="field-help-text" role="tooltip">Bridge-Konfiguration in <code>/etc/mosquitto/conf.d/bridge.conf</code>. Speichern erfordert die Rolle <code>mqtt_config</code>, Anwenden zusätzlich <code>system_actions</code> - beides nur über HTTPS.</span>
+          <button class="field-help-trigger" type="button" aria-label="{{t "bridge.status.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "bridge.status.help_text"}}</span>
         </span>
       </h3>
       <div class="table-scroll">
         <table class="storage-health-table">
         <tbody>
-          <tr><th scope="row">Dienst mosquitto</th><td x-text="(status && status.service_state) || '-'">-</td></tr>
-          <tr><th scope="row">Bridge-Verbindung</th><td x-text="bridgeConnectionLabel()">-</td></tr>
-          <tr><th scope="row">Zuletzt geprüft</th><td x-text="formatTime(status && status.bridge && status.bridge.updated_at)">-</td></tr>
-          <tr><th scope="row">Installiert = gespeichert</th><td x-text="driftLabel()">-</td></tr>
-          <tr x-show="status && status.last_apply"><th scope="row">Letztes Anwenden</th><td x-text="lastApplyLabel()"></td></tr>
+          <tr><th scope="row">{{t "bridge.status.service"}}</th><td x-text="(status && status.service_state) || '-'">-</td></tr>
+          <tr><th scope="row">{{t "bridge.status.connection"}}</th><td x-text="bridgeConnectionLabel()">-</td></tr>
+          <tr><th scope="row">{{t "bridge.status.checked"}}</th><td x-text="formatTime(status && status.bridge && status.bridge.updated_at)">-</td></tr>
+          <tr><th scope="row">{{t "bridge.status.installed_matches"}}</th><td x-text="driftLabel()">-</td></tr>
+          <tr x-show="status && status.last_apply"><th scope="row">{{t "bridge.status.last_applied"}}</th><td x-text="lastApplyLabel()"></td></tr>
         </tbody>
         </table>
       </div>
-      <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? 'Prüfe ...' : 'Status aktualisieren'"></button></div>
+      <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('bridge.status.loading') : $t('bridge.status.refresh')"></button></div>
     </section>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Bridge-Topics
+      <h3 class="setting-card-title">{{t "bridge.topics.title"}}
         <span class="field-help field-help-align-start">
-          <button class="field-help-trigger" type="button" aria-label="Erklärung zu Bridge-Topics"><svg><use href="#ico-help"></use></svg></button>
-          <span class="field-help-text" role="tooltip">Welche Topic-Muster über die Bridge zum Hauptsystem weitergeleitet werden.</span>
+          <button class="field-help-trigger" type="button" aria-label="{{t "bridge.topics.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "bridge.topics.help_text"}}</span>
         </span>
       </h3>
       <div class="table-scroll">
         <table class="storage-health-table">
-        <thead><tr><th scope="col">Pattern</th><th scope="col">Richtung</th><th scope="col">QoS</th><th scope="col">Kommentar</th><th scope="col"></th></tr></thead>
+        <thead><tr><th scope="col">{{t "bridge.topics.pattern"}}</th><th scope="col">{{t "bridge.topics.direction"}}</th><th scope="col">{{t "bridge.topics.qos"}}</th><th scope="col">{{t "bridge.topics.comment"}}</th><th scope="col"></th></tr></thead>
         <tbody>
           <template x-for="(topic, index) in form.topics" x-bind:key="index">
             <tr>
-              <td><input type="text" autocomplete="off" x-model.trim="topic.pattern" x-bind:disabled="!canConfigure" placeholder="outstation/#"></td>
+              <td><input type="text" autocomplete="off" x-model.trim="topic.pattern" x-bind:disabled="!canConfigure" x-bind:placeholder="$t('bridge.topics.pattern_placeholder')"></td>
               <td>
                 <select x-model="topic.direction" x-bind:disabled="!canConfigure">
-                  <option value="out">out</option>
-                  <option value="in">in</option>
-                  <option value="both">both</option>
+                  <option value="out">{{t "bridge.topics.direction_out"}}</option>
+                  <option value="in">{{t "bridge.topics.direction_in"}}</option>
+                  <option value="both">{{t "bridge.topics.direction_both"}}</option>
                 </select>
               </td>
               <td><input type="number" min="0" max="2" x-model.number="topic.qos" x-bind:disabled="!canConfigure"></td>
               <td><input type="text" autocomplete="off" x-model.trim="topic.comment" x-bind:disabled="!canConfigure"></td>
-              <td><button type="button" x-on:click="removeTopic(index)" x-bind:disabled="!canConfigure">Entfernen</button></td>
+              <td><button type="button" x-on:click="removeTopic(index)" x-bind:disabled="!canConfigure">{{t "bridge.topics.remove"}}</button></td>
             </tr>
           </template>
         </tbody>
         </table>
       </div>
-      <div class="toolbar"><button type="button" x-on:click="addTopic()" x-bind:disabled="!canConfigure || form.topics.length >= 32">Topic hinzufügen</button></div>
+      <div class="toolbar"><button type="button" x-on:click="addTopic()" x-bind:disabled="!canConfigure || form.topics.length >= 32">{{t "bridge.topics.add"}}</button></div>
     </div>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Vorschau</h3>
+      <h3 class="setting-card-title">{{t "bridge.preview.title"}}</h3>
       <pre class="bridge-preview" x-show="preview" x-text="preview"></pre>
-      <p class="setting-note" x-show="!preview">Noch keine Bridge-Konfiguration gespeichert.</p>
+      <p class="setting-note" x-show="!preview">{{t "bridge.preview.empty"}}</p>
     </div>
 
-    <p class="setting-note" x-show="!canConfigure">Für Änderungen fehlt entweder die Rolle <code>mqtt_config</code> oder die Verbindung läuft nicht über HTTPS.</p>
-    <p class="setting-note" x-show="canConfigure && !canApply">Für das Anwenden fehlt zusätzlich die Rolle <code>system_actions</code>.</p>
+    <p class="setting-note" x-show="!canConfigure">{{t "bridge.cannot_configure"}}</p>
+    <p class="setting-note" x-show="canConfigure && !canApply">{{t "bridge.cannot_apply"}}</p>
     <div class="setting-actionbar-dock">
       <div class="setting-actionbar">
-        <button class="primary" type="button" x-on:click="save()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? 'Speichere ...' : 'Speichern'"></button>
-        <button class="system-action-danger" type="button" x-on:click="apply()" x-bind:disabled="!canApply || busy || !valid" x-text="busy === 'apply' ? 'Wende an ...' : 'Anwenden und Mosquitto neu starten'"></button>
-        <button type="button" x-on:click="restartOnly()" x-bind:disabled="!canRestart || busy" x-text="busy === 'restart' ? 'Starte neu ...' : 'Nur Mosquitto neu starten'"></button>
+        <button class="primary" type="button" x-on:click="save()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? $t('mqtt.save.loading') : $t('common.save')"></button>
+        <button class="system-action-danger" type="button" x-on:click="apply()" x-bind:disabled="!canApply || busy || !valid" x-text="busy === 'apply' ? $t('bridge.apply.loading') : $t('bridge.apply')"></button>
+        <button type="button" x-on:click="restartOnly()" x-bind:disabled="!canRestart || busy" x-text="busy === 'restart' ? $t('bridge.restart.loading') : $t('bridge.restart')"></button>
       </div>
     </div>
-    <p class="setting-note" x-cloak x-show="busy === 'apply' || busy === 'restart'">Mosquitto startet neu. Die Live-Anzeige des Dashboards setzt kurz aus und verbindet automatisch neu.</p>
+    <p class="setting-note" x-cloak x-show="busy === 'apply' || busy === 'restart'">{{t "bridge.apply.note"}}</p>
   </section>
 </section>
 {{end}}

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -32,6 +33,8 @@ function createMqttPanel({ fetchImpl, url, basePath } = {}) {
   // runs; leaving it undefined is the direct-access case every other test
   // here exercises.
   if (basePath !== undefined) dom.window.__DASHBOARD_BASE_PATH__ = basePath;
+  // Initialize i18n with German catalog so t() calls return translated strings
+  installI18n(dom.window);
   vm.runInContext(scriptSource, context);
   const component = factories.mqttPanel();
   const stores = attachStores(component);
