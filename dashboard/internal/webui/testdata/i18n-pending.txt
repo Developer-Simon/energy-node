@@ -5,5 +5,4 @@ static/js/history-export.js
 static/js/history-recorder.js
 static/js/history-store.js
 static/js/history.js
-templates/diagnostics.html
 templates/tiny-tuya.html
