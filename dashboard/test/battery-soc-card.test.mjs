@@ -185,9 +185,9 @@ test('texts() picks the German table for a de* language and English otherwise', 
   const { Card } = load();
   assert.equal(Card.texts({ language: 'de' })['battery.card.now'], 'jetzt');
   assert.equal(Card.texts({ language: 'de-DE' })['battery.card.now'], 'jetzt');
-  assert.equal(Card.texts({ language: 'en' })['battery.card.now'], 'TODO(en): jetzt');
-  assert.equal(Card.texts({ language: 'en-GB' })['battery.card.now'], 'TODO(en): jetzt');
-  assert.equal(Card.texts({})['battery.card.now'], 'TODO(en): jetzt');
+  assert.equal(Card.texts({ language: 'en' })['battery.card.now'], 'now');
+  assert.equal(Card.texts({ language: 'en-GB' })['battery.card.now'], 'now');
+  assert.equal(Card.texts({})['battery.card.now'], 'now');
 });
 
 test('inputFromHass passes a t() built from the HA language table', () => {
@@ -195,6 +195,6 @@ test('inputFromHass passes a t() built from the HA language table', () => {
   const german = Card.inputFromHass({ ...hass, language: 'de' }, config, [], 0);
   assert.equal(german.t('battery.card.now'), 'jetzt');
   const english = Card.inputFromHass({ ...hass, language: 'en' }, config, [], 0);
-  assert.equal(english.t('battery.card.now'), 'TODO(en): jetzt');
+  assert.equal(english.t('battery.card.now'), 'now');
   assert.equal(german.t('battery.card.remaining', { time: '4:51 h' }), 'noch 4:51 h');
 });
