@@ -78,7 +78,7 @@
         </tbody>
         </table>
       </div>
-      <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="storageHealth.reason_key ? $t(storageHealth.reason_key) : ((storageHealth && storageHealth.reason) || $t('storage_health.unavailable'))"></p>
+      <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="storageHealth && storageHealth.reason_key ? $t(storageHealth.reason_key) : ((storageHealth && storageHealth.reason) || $t('storage_health.unavailable'))"></p>
       <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
       <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
     </section>
