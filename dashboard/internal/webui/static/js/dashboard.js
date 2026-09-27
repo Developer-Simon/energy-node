@@ -1510,10 +1510,13 @@
       this.sortDirection = field === 'severity' ? 'desc' : 'asc';
     },
 
-    sortLabel(field) {
-      if (this.sortBy !== field) return '';
-      // Leading space: diagnostics.html appends this to its aria-label (A3.7 folds it into one key).
-      return ' ' + (this.sortDirection === 'asc' ? t('diagnostics.sort.ascending') : t('diagnostics.sort.descending'));
+    sortAria(field) {
+      // i18n-keys: diagnostics.sort.severity, diagnostics.sort.severity_asc, diagnostics.sort.severity_desc, diagnostics.sort.device, diagnostics.sort.device_asc, diagnostics.sort.device_desc, diagnostics.sort.entity, diagnostics.sort.entity_asc, diagnostics.sort.entity_desc, diagnostics.sort.rule, diagnostics.sort.rule_asc, diagnostics.sort.rule_desc
+      const columnMap = {severity: 'severity', device_id: 'device', entity_id: 'entity', rule_id: 'rule'};
+      const column = columnMap[field];
+      if (this.sortBy !== field) return t(`diagnostics.sort.${column}`);
+      const direction = this.sortDirection === 'asc' ? 'asc' : 'desc';
+      return t(`diagnostics.sort.${column}_${direction}`);
     },
   });
 

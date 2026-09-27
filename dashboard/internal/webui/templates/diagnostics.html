@@ -73,7 +73,7 @@
     <div x-show="duplicateIDs.length">
       <h4>{{t "diagnostics.mqtt_discovery.duplicate_ids_heading"}}</h4>
       <template x-for="item in duplicateIDs" :key="item[0]">
-        <article class="discovery-duplicate"><strong x-text="item[0]"></strong><span> {{t "diagnostics.discovery.found_in"}} </span><span x-text="item[1].join(', ')"></span></article>
+        <article class="discovery-duplicate"><span x-text="$t('diagnostics.discovery.duplicate_in', {id: item[0], sources: item[1].join(', ')})"></span></article>
       </template>
     </div>
   </section>
@@ -81,10 +81,10 @@
   <div class="table-scroll">
     <table>
     <thead><tr>
-      <th><button type="button" x-on:click="sort('severity')" x-bind:aria-label="$t('diagnostics.sort.by_severity_aria') + sortLabel('severity')">{{t "diagnostics.table.header.severity"}}</button></th>
-      <th><button type="button" x-on:click="sort('device_id')" x-bind:aria-label="$t('diagnostics.sort.by_device_aria') + sortLabel('device_id')">{{t "diagnostics.table.header.device"}}</button></th>
-      <th><button type="button" x-on:click="sort('entity_id')" x-bind:aria-label="$t('diagnostics.sort.by_entity_aria') + sortLabel('entity_id')">{{t "diagnostics.table.header.entity"}}</button></th>
-      <th><button type="button" x-on:click="sort('rule_id')" x-bind:aria-label="$t('diagnostics.sort.by_rule_aria') + sortLabel('rule_id')">{{t "diagnostics.table.header.rule"}}</button></th>
+      <th><button type="button" x-on:click="sort('severity')" x-bind:aria-label="sortAria('severity')">{{t "diagnostics.table.header.severity"}}</button></th>
+      <th><button type="button" x-on:click="sort('device_id')" x-bind:aria-label="sortAria('device_id')">{{t "diagnostics.table.header.device"}}</button></th>
+      <th><button type="button" x-on:click="sort('entity_id')" x-bind:aria-label="sortAria('entity_id')">{{t "diagnostics.table.header.entity"}}</button></th>
+      <th><button type="button" x-on:click="sort('rule_id')" x-bind:aria-label="sortAria('rule_id')">{{t "diagnostics.table.header.rule"}}</button></th>
       <th>{{t "diagnostics.table.header.reason"}}</th><th>{{t "diagnostics.table.header.action"}}</th>
     </tr></thead>
     <tbody id="diagnostics-list">
