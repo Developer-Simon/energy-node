@@ -419,7 +419,6 @@
                           <input type="time" x-model="condition.start" x-bind:aria-label="$t('automations.condition.time_window.start_aria')">
                           <span>{{t "automations.condition.time_window.and"}}</span>
                           <input type="time" x-model="condition.end" x-bind:aria-label="$t('automations.condition.time_window.end_aria')">
-                          <span>{{t "automations.condition.time_window.lies"}}</span>
                         </div>
                         <div class="weekday-chips" role="group" x-bind:aria-label="$t('automations.condition.time_window.weekdays_aria')">
                           <span class="weekday-chips-label" x-text="(condition.weekdays || []).length ? $t('automations.condition.time_window.specific_days') : $t('automations.condition.time_window.any_day')"></span>
@@ -451,7 +450,6 @@
                           <input type="number" min="-240" max="240" step="1" x-model.number="condition.to_offset_min"
                                  x-bind:aria-label="$t('automations.condition.sun_window.to_offset_aria')">
                           <span class="edit-unit">{{t "automations.condition.sun_window.unit_min"}}</span>
-                          <span>{{t "automations.condition.sun_window.is"}}</span>
                         </div>
                         <div class="weekday-chips" role="group" x-bind:aria-label="$t('automations.condition.sun_window.weekdays_aria')">
                           <span class="weekday-chips-label" x-text="(condition.weekdays || []).length ? $t('automations.condition.sun_window.specific_days') : $t('automations.condition.sun_window.any_day')"></span>

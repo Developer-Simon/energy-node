@@ -875,20 +875,10 @@ test('describeCondition renders a balance_threshold summary with hysteresis via 
 test('describeCondition renders a balance_threshold summary with hysteresis via i18n in English', () => {
   const { window } = createAutomationsPanel();
   installI18n(window, { lang: 'en' });
-  const enCatalog = JSON.parse(fs.readFileSync(
-    path.join(here, '..', 'internal', 'webui', 'catalogs', 'en.json'), 'utf8'));
   const view_en = window.__automationsView;
   const described = view_en.describeCondition(
     { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 500, hysteresis: 100 });
-  // Expected English summary from catalog with TODO(en): prefix replaced
-  const comparisonKey = 'automations.comparison.above';
-  const balanceKey = 'automations.metric.grid_export';
-  const summaryKey = 'automations.summary.balance_hysteresis';
-  // The placeholder template should resolve comparison, threshold, unit (W), and hysteresis values
-  assert.ok(described.summary, 'summary must be rendered');
-  assert.ok(described.summary.includes('500'), 'summary should contain threshold');
-  assert.ok(described.summary.includes('W'), 'summary should contain unit');
-  assert.ok(described.summary.includes('100'), 'summary should contain hysteresis');
+  assert.equal(described.summary, 'above 500 W, hysteresis 100');
 });
 
 // --- A6: der SSE-Tick zieht nicht mehr den ganzen Geraetepark ---------------
