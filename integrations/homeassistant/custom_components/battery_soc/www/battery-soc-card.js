@@ -100,7 +100,7 @@
       'battery.card.crossing.full': 'full',
       'battery.card.crossing.empty': 'empty',
       'battery.card.crossing.reserve': 'reserve',
-      'battery.card.hint.none': 'No history recorded — projection only.',
+      'battery.card.hint.none': 'No history recorded, projection only.',
       'battery.card.hint.partial': 'Only {hours} h recorded so far.',
       'battery.card.now': 'now',
       'battery.card.ticks.past': '−{hours} h',
