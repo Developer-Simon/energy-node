@@ -2374,3 +2374,43 @@ test('applyOptionChange: der Wechsel auf Detail und der Geraetewechsel leeren di
   component.applyOptionChange({target: {dataset: {role: 'device-ref'}, value: 'dev2'}});
   assert.deepEqual(JSON.parse(JSON.stringify(component._optionsItem.entityRefs)), []);
 });
+
+test('catalog() returns entries with titleKey for card types that translate to the loaded language', () => {
+  // Create a DOM with German catalog
+  const domDE = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
+  const contextDE = domDE.getInternalVMContext();
+  installI18n(domDE.window, { lang: 'de' });
+  let factoryDE;
+  domDE.window.Alpine = { data: (_name, fn) => { factoryDE = fn; } };
+  domDE.window.fetch = async () => { throw new Error('fetch should not be called'); };
+  vm.runInContext(scriptSource, contextDE);
+
+  // Create a DOM with English catalog
+  const domEN = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
+  const contextEN = domEN.getInternalVMContext();
+  installI18n(domEN.window, { lang: 'en' });
+  let factoryEN;
+  domEN.window.Alpine = { data: (_name, fn) => { factoryEN = fn; } };
+  domEN.window.fetch = async () => { throw new Error('fetch should not be called'); };
+  vm.runInContext(scriptSource, contextEN);
+
+  // Check that catalog entries have titleKey
+  const catDE = factoryDE.catalog([]);
+  const catEN = factoryEN.catalog([]);
+
+  // Verify one card type has titleKey
+  const energyFlowDE = catDE.karten.find(k => k.type === 'energy_flow');
+  const energyFlowEN = catEN.karten.find(k => k.type === 'energy_flow');
+
+  assert(energyFlowDE.titleKey, 'German catalog entry should have titleKey');
+  assert.equal(energyFlowDE.titleKey, 'layout_editor.card.energy_flow.title');
+  assert(energyFlowEN.titleKey, 'English catalog entry should have titleKey');
+  assert.equal(energyFlowEN.titleKey, 'layout_editor.card.energy_flow.title');
+
+  // Verify translation works
+  const deTitle = domDE.window.I18n.t('layout_editor.card.energy_flow.title');
+  const enTitle = domEN.window.I18n.t('layout_editor.card.energy_flow.title');
+
+  assert.equal(deTitle, 'Energie: Energiefluss', 'German title should be correct');
+  assert(enTitle.startsWith('TODO(en):'), 'English title should still be TODO placeholder');
+});
