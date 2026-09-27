@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.18 (2026-09-27)
+## v0.7.19 (2026-09-27)
 
 ### Features
 
@@ -12,6 +12,17 @@
 - **dashboard:** localize the shell and the overview (#62) (e96f396)
 - **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
 - **dashboard:** localize energy and settings (#64) (5445f5b)
+- **webui:** move layout editor template texts into the catalogs (bca8058)
+- **webui:** move layout editor script texts into the catalogs (part c) (1539968)
+- **webui:** move layout editor script texts into the catalogs (part d) (f63e641)
+- **webui:** move layout editor script texts into the catalogs (part e) (a003734)
+- **config:** deliver catalog keys for configuration display names (a123577)
+- **webui:** move configuration template and status texts into the catalogs (86c6dda)
+- **webui:** move configuration page script texts into the catalogs (part c) (7a4e636)
+- **webui:** move configuration page script texts into the catalogs (part d) (2640ab6)
+- **webui:** move revision and schema form texts into the catalogs (9fc1411)
+- **webui:** move device map texts into the catalogs (653a190)
+- **webui:** add English texts for configuration and the layout editor (254ea29)
 - **dashboard:** localize energy settings (6bc3685)
 - **webui:** move energy and battery card texts into the catalogs (e8549cd)
 - **webui:** add English texts for energy and the battery card (36308a8)
@@ -69,6 +80,15 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **webui:** render the first layout page when no page is requested (5500bb6)
+- **webui:** keep renamed layout page tabs in sync (623c4c8)
+- **webui:** keep the toolbox drop hint in one sentence (b590493)
+- **webui:** restore straight quotes in the toolbox markup (54d3b35)
+- **webui:** resolve card catalog texts when the catalog is built (55e6abb)
+- **webui:** finish the layout editor script extraction (part e) (24da2b6)
+- **webui:** key the remaining configuration status texts (e2bb345)
+- **webui:** keep the topic no-data text in one key (de81390)
+- **webui:** keep the battery measurement texts in whole sentences (a948e75)
 - **webui:** keep the MQTT reconnect toast one sentence (2a41803)
 - **webui:** use a placeholder in the invalid JSON message (02bc1e7)
 - **webui:** expose storageText and keep settings sentences whole (03cba87)
@@ -93,6 +113,9 @@
 
 ### Refactors
 
+- **webui:** identify layout pages by id (2aab5ba)
+- **webui:** track the active layout page by id in the shell and the editor (4d25b2d)
+- **config:** tidy the display name lookup (9c1a816)
 - **storagehealth:** keep catalog key test inside the package (a786299)
 - **settings:** derive the bridge warning text from its key (bde87c5)
 - **webui:** route number, date and sort formatting through I18n (cdd0420)
@@ -108,6 +131,8 @@
 
 ### Tests
 
+- **webui:** follow the page-object extraPages loop (ff90890)
+- **webui:** check card catalog titles per language (3b6b98c)
 - **webui:** guard against UI text that bypasses the catalogs (458af28)
 - **dashboard:** fix cross-realm deepEqual in the new prefsDraft test (02d2ef3)
 
@@ -119,6 +144,7 @@
 
 ### Chores
 
+- **webui:** bump asset versions for the localized configuration pages (c73410b)
 - **webui:** bump cache-busting for the localized settings scripts (ed1432e)
 - apply gofmt to test and main files (607f2f3)
 - **webui:** bump lazy asset versions for the localized shell (0ef9e36)
