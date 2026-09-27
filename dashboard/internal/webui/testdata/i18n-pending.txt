@@ -19,5 +19,4 @@ templates/devicemap.html
 templates/diagnostics.html
 templates/layout-editor.html
 templates/revisions.html
-templates/settings.html
 templates/tiny-tuya.html

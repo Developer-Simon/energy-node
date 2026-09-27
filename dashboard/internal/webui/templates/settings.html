@@ -157,7 +157,7 @@
         <label for="status-bar-items-select">
           {{t "settings.runtime_status.bar_items"}}
           <span class="field-help">
-            <button class="field-help-trigger" type="button" aria-label="Erklärung zu Angaben im Systemstatus">
+            <button class="field-help-trigger" type="button" aria-label="{{t "settings.runtime_status.bar_items_help_button"}}">
               <svg><use href="#ico-help"></use></svg>
             </button>
             <span class="field-help-text" role="tooltip">{{t "settings.runtime_status.bar_items_help"}}</span>
@@ -200,82 +200,82 @@
       <h3 class="setting-card-title">{{t "settings.history.title"}}</h3>
       <p class="setting-note">{{t "settings.history.note"}}</p>
       <div class="setting-row">
-        <span class="setting-row-label" id="lbl-history-interval">Abtastrate <span class="setting-row-unit">Sekunden</span></span>
+        <span class="setting-row-label" id="lbl-history-interval">{{t "settings.history.sample_interval.label"}} <span class="setting-row-unit">{{t "settings.history.sample_interval.unit"}}</span></span>
         <span class="stepper" role="group" aria-labelledby="lbl-history-interval">
-          <button type="button" class="stepper-btn" aria-label="Abtastrate verringern" x-on:click="stepField('historySampleIntervalSeconds', -1)" x-on:pointerdown="startRepeat('historySampleIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.history.sample_interval.decrease"}}" x-on:click="stepField('historySampleIntervalSeconds', -1)" x-on:pointerdown="startRepeat('historySampleIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input class="stepper-input" type="number" min="5" max="3600" step="5" x-model.number="historySampleIntervalSeconds" aria-labelledby="lbl-history-interval">
-          <button type="button" class="stepper-btn" aria-label="Abtastrate erhöhen" x-on:click="stepField('historySampleIntervalSeconds', 1)" x-on:pointerdown="startRepeat('historySampleIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.history.sample_interval.increase"}}" x-on:click="stepField('historySampleIntervalSeconds', 1)" x-on:pointerdown="startRepeat('historySampleIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </div>
       <div class="setting-row">
-        <span class="setting-row-label" id="lbl-history-raw">Rohdaten behalten <span class="setting-row-unit">Stunden</span></span>
+        <span class="setting-row-label" id="lbl-history-raw">{{t "settings.history.raw_window.label"}} <span class="setting-row-unit">{{t "settings.history.raw_window.unit"}}</span></span>
         <span class="stepper" role="group" aria-labelledby="lbl-history-raw">
-          <button type="button" class="stepper-btn" aria-label="Rohdaten-Fenster verringern" x-on:click="stepField('historyRawWindowHours', -1)" x-on:pointerdown="startRepeat('historyRawWindowHours', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.history.raw_window.decrease"}}" x-on:click="stepField('historyRawWindowHours', -1)" x-on:pointerdown="startRepeat('historyRawWindowHours', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input class="stepper-input" type="number" min="1" max="168" step="1" x-model.number="historyRawWindowHours" aria-labelledby="lbl-history-raw">
-          <button type="button" class="stepper-btn" aria-label="Rohdaten-Fenster erhöhen" x-on:click="stepField('historyRawWindowHours', 1)" x-on:pointerdown="startRepeat('historyRawWindowHours', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.history.raw_window.increase"}}" x-on:click="stepField('historyRawWindowHours', 1)" x-on:pointerdown="startRepeat('historyRawWindowHours', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </div>
       <div class="setting-row">
-        <span class="setting-row-label" id="lbl-history-minute">Minutenwerte behalten <span class="setting-row-unit">Tage</span></span>
+        <span class="setting-row-label" id="lbl-history-minute">{{t "settings.history.minute_window.label"}} <span class="setting-row-unit">{{t "settings.history.minute_window.unit"}}</span></span>
         <span class="stepper" role="group" aria-labelledby="lbl-history-minute">
-          <button type="button" class="stepper-btn" aria-label="Minutenwerte-Fenster verringern" x-on:click="stepField('historyMinuteWindowDays', -1)" x-on:pointerdown="startRepeat('historyMinuteWindowDays', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.history.minute_window.decrease"}}" x-on:click="stepField('historyMinuteWindowDays', -1)" x-on:pointerdown="startRepeat('historyMinuteWindowDays', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input class="stepper-input" type="number" min="1" max="365" step="1" x-model.number="historyMinuteWindowDays" aria-labelledby="lbl-history-minute">
-          <button type="button" class="stepper-btn" aria-label="Minutenwerte-Fenster erhöhen" x-on:click="stepField('historyMinuteWindowDays', 1)" x-on:pointerdown="startRepeat('historyMinuteWindowDays', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.history.minute_window.increase"}}" x-on:click="stepField('historyMinuteWindowDays', 1)" x-on:pointerdown="startRepeat('historyMinuteWindowDays', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </div>
       <p id="history-volume" class="setting-note setting-card-foot" x-text="historyVolumeText"></p>
     </div>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Aufbewahrung</h3>
-      <p class="setting-note">Ab wann ältere Werte verworfen werden — nach Alter oder nach dem Platz, den sie im Browser belegen dürfen.</p>
-      <div class="segmented" role="radiogroup" aria-label="Aufbewahrungsart">
+      <h3 class="setting-card-title">{{t "settings.history.retention.title"}}</h3>
+      <p class="setting-note">{{t "settings.history.retention.note"}}</p>
+      <div class="segmented" role="radiogroup" aria-label="{{t "settings.history.retention.mode.label"}}">
         <span class="segmented-thumb" aria-hidden="true"></span>
-        <label class="segmented-option"><input type="radio" name="history-retention-mode" value="time" x-model="historyRetentionMode"><span>Nach Zeit</span></label>
-        <label class="segmented-option"><input type="radio" name="history-retention-mode" value="size" x-model="historyRetentionMode"><span>Nach Speicher</span></label>
+        <label class="segmented-option"><input type="radio" name="history-retention-mode" value="time" x-model="historyRetentionMode"><span>{{t "settings.history.retention.mode.time"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="history-retention-mode" value="size" x-model="historyRetentionMode"><span>{{t "settings.history.retention.mode.size"}}</span></label>
       </div>
       <div class="retention-field">
         <div class="setting-row" x-show="historyRetentionMode === 'time'" x-transition.opacity.duration.150ms>
-          <span class="setting-row-label" id="lbl-history-retention">Aufbewahrung <span class="setting-row-unit">Stunden</span></span>
+          <span class="setting-row-label" id="lbl-history-retention">{{t "settings.history.retention.time.label"}} <span class="setting-row-unit">{{t "settings.history.retention.time.unit"}}</span></span>
           <span class="stepper" role="group" aria-labelledby="lbl-history-retention">
-            <button type="button" class="stepper-btn" aria-label="Aufbewahrung verringern" x-on:click="stepField('historyRetentionHours', -1)" x-on:pointerdown="startRepeat('historyRetentionHours', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "settings.history.retention.time.decrease"}}" x-on:click="stepField('historyRetentionHours', -1)" x-on:pointerdown="startRepeat('historyRetentionHours', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
             <input class="stepper-input" type="number" min="1" max="8760" step="1" x-model.number="historyRetentionHours" aria-labelledby="lbl-history-retention">
-            <button type="button" class="stepper-btn" aria-label="Aufbewahrung erhöhen" x-on:click="stepField('historyRetentionHours', 1)" x-on:pointerdown="startRepeat('historyRetentionHours', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "settings.history.retention.time.increase"}}" x-on:click="stepField('historyRetentionHours', 1)" x-on:pointerdown="startRepeat('historyRetentionHours', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
           </span>
         </div>
         <div class="setting-row" x-show="historyRetentionMode === 'size'" x-transition.opacity.duration.150ms>
-          <span class="setting-row-label" id="lbl-history-budget">Speicherbudget <span class="setting-row-unit">MB</span></span>
+          <span class="setting-row-label" id="lbl-history-budget">{{t "settings.history.retention.size.label"}} <span class="setting-row-unit">{{t "settings.history.retention.size.unit"}}</span></span>
           <span class="stepper" role="group" aria-labelledby="lbl-history-budget">
-            <button type="button" class="stepper-btn" aria-label="Budget verringern" x-on:click="stepField('historyBudgetMb', -1)" x-on:pointerdown="startRepeat('historyBudgetMb', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "settings.history.retention.size.decrease"}}" x-on:click="stepField('historyBudgetMb', -1)" x-on:pointerdown="startRepeat('historyBudgetMb', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
             <input class="stepper-input" type="number" min="16" max="8192" step="16" x-model.number="historyBudgetMb" aria-labelledby="lbl-history-budget">
-            <button type="button" class="stepper-btn" aria-label="Budget erhöhen" x-on:click="stepField('historyBudgetMb', 1)" x-on:pointerdown="startRepeat('historyBudgetMb', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+            <button type="button" class="stepper-btn" aria-label="{{t "settings.history.retention.size.increase"}}" x-on:click="stepField('historyBudgetMb', 1)" x-on:pointerdown="startRepeat('historyBudgetMb', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
           </span>
         </div>
       </div>
       <p id="history-budget-text" class="setting-note" x-text="historyBudgetText"></p>
       <p id="history-usage" class="setting-note" x-text="historyUsageText"></p>
-      <button type="button" class="setting-quiet-btn" x-on:click="loadHistoryUsage()">Speicherstand aktualisieren</button>
+      <button type="button" class="setting-quiet-btn" x-on:click="loadHistoryUsage()">{{t "settings.history.storage_status.button"}}</button>
     </div>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Geräteaustausch</h3>
-      <p class="setting-note">Gleichzeitig geöffnete Geräte ergänzen sich gegenseitig um fehlende Zeiträume — Minuten- und Fünf-Minuten-Werte, keine Rohdaten. Eigene Messwerte werden dabei nie überschrieben.</p>
+      <h3 class="setting-card-title">{{t "settings.history.exchange.title"}}</h3>
+      <p class="setting-note">{{t "settings.history.exchange.note"}}</p>
       <label class="switch-row" for="history-exchange">
-        <span>Verläufe mit anderen Geräten austauschen</span>
+        <span>{{t "settings.history.exchange.label"}}</span>
         <span class="settings-toggle">
           <input id="history-exchange" type="checkbox" role="switch" x-bind:checked="!historyExchangeDisabled" x-on:change="historyExchangeDisabled = !$event.target.checked" x-bind:aria-checked="(!historyExchangeDisabled).toString()">
           <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
         </span>
       </label>
       <p id="history-exchange-status" class="setting-note" x-text="historyExchangeStatus"></p>
-      <button type="button" class="setting-quiet-btn" x-on:click="refreshExchangeStatus()">Status aktualisieren</button>
+      <button type="button" class="setting-quiet-btn" x-on:click="refreshExchangeStatus()">{{t "settings.history.exchange.status.button"}}</button>
     </div>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Updates</h3>
-      <p class="setting-note">Einmal täglich still im Hintergrund geprüft, ob auf GitHub eine neuere Version liegt. Bei einem Fund erscheint ein Hinweis oben im Kopfbereich.</p>
+      <h3 class="setting-card-title">{{t "settings.history.updates.title"}}</h3>
+      <p class="setting-note">{{t "settings.history.updates.note"}}</p>
       <label class="switch-row" for="update-check">
-        <span>Automatisch auf Updates prüfen</span>
+        <span>{{t "settings.history.updates.check.label"}}</span>
         <span class="settings-toggle">
           <input id="update-check" type="checkbox" role="switch" x-bind:checked="!updateCheckDisabled" x-on:change="updateCheckDisabled = !$event.target.checked" x-bind:aria-checked="(!updateCheckDisabled).toString()">
           <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
@@ -283,81 +283,80 @@
       </label>
     </div>
 
-    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
     {{template "revisions" .}}
   </div>
   </div>
   <section id="settings-system" role="tabpanel" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
-    <h3>Systemzugriff</h3>
+    <h3>{{t "settings.system.title"}}</h3>
     <section class="system-access-panel">
-      <p class="settings-help">Angemeldet als <strong x-text="username || 'wird geladen'">wird geladen</strong>. Systemaktionen sind nur für registrierte Benutzer mit der Rolle <code>system_actions</code> freigegeben.</p>
-      <p class="settings-help">Dashboard-Version: <strong x-text="version || 'unbekannt'">unbekannt</strong></p>
-      <p class="settings-help">Services-Version: <strong x-text="servicesVersion || 'unbekannt'">unbekannt</strong></p>
+      <p class="settings-help">{{t "settings.system.access.label"}} <strong x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong>{{t "settings.system.access.note"}} <code>{{t "settings.system.access.role"}}</code> {{t "settings.system.access.enabled"}}</p>
+      <p class="settings-help">{{t "settings.system.dashboard_version.label"}} <strong x-text="version || $t('settings.system.dashboard_version.unknown')">{{t "settings.system.dashboard_version.unknown"}}</strong></p>
+      <p class="settings-help">{{t "settings.system.services_version.label"}} <strong x-text="servicesVersion || $t('settings.system.dashboard_version.unknown')">{{t "settings.system.dashboard_version.unknown"}}</strong></p>
       <div class="toolbar">
-        <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="Nach Updates suchen" aria-label="Nach Updates suchen">
+        <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="{{t "settings.system.check_updates.button"}}" aria-label="{{t "settings.system.check_updates.button"}}">
           <svg class="automation-icon"><use href="#ico-download"></use></svg>
-          <span x-text="checkingForUpdates ? 'Prüfe ...' : 'Nach Updates suchen'"></span>
+          <span x-text="checkingForUpdates ? $t('settings.system.check_updates.checking') : $t('settings.system.check_updates.button')"></span>
         </button>
         <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
           <svg class="automation-icon"><use href="#ico-download"></use></svg>
-          Update verfügbar: <strong x-text="updateStatus && updateStatus.latest"></strong>
-          <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">Jetzt aktualisieren →</a>
-          <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus && updateStatus.notes_url" target="_blank" rel="noopener">Änderungen ansehen</a>
+          {{t "settings.system.update_available.title"}} <strong x-text="updateStatus && updateStatus.latest"></strong>
+          <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">{{t "settings.system.update_available.cta"}}</a>
+          <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus && updateStatus.notes_url" target="_blank" rel="noopener">{{t "settings.system.update_available.notes"}}</a>
         </span>
-        <span x-show="updateStatus && !updateStatus.available" class="settings-help">Aktuell.</span>
+        <span x-show="updateStatus && !updateStatus.available" class="settings-help">{{t "settings.system.update_available.current"}}</span>
       </div>
       <div class="toolbar">
-        <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? 'Systemaktionen freigegeben' : 'Gastzugriff'">Wird geprüft</span>
-        <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="Abmelden" aria-label="Abmelden">
+        <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? 'Systemaktionen freigegeben' : 'Gastzugriff'">{{t "settings.system.access_badge.checking"}}</span>
+        <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
           <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
-          <span>Abmelden</span>
+          <span>{{t "settings.system.logout.button"}}</span>
         </button>
       </div>
     </section>
     <section class="system-actions-panel" aria-labelledby="system-actions-heading">
-      <h3 id="system-actions-heading">Systemaktionen</h3>
-      <p>Diese Befehle wirken direkt auf den Raspberry Pi und können die Verbindung zum Dashboard sofort unterbrechen.</p>
+      <h3 id="system-actions-heading">{{t "settings.system.actions.title"}}</h3>
+      <p>{{t "settings.system.actions.warning"}}</p>
       <div class="system-action-list">
-        <button class="system-action-danger" type="button" x-on:click="run('restart-dashboard', 'Dashboard-Service neu starten')" x-bind:disabled="!canSystemActions || busy">
+        <button class="system-action-danger" type="button" x-on:click="run('restart-dashboard', $t('settings.system.actions.restart_dashboard'))" x-bind:disabled="!canSystemActions || busy">
           <svg class="automation-icon"><use href="#ico-history"></use></svg>
-          <span>Dashboard-Service neu starten</span>
+          <span>{{t "settings.system.actions.restart_dashboard"}}</span>
         </button>
-        <button class="system-action-danger" type="button" x-on:click="run('reboot', 'System neu starten')" x-bind:disabled="!canSystemActions || busy">
+        <button class="system-action-danger" type="button" x-on:click="run('reboot', $t('settings.system.actions.reboot'))" x-bind:disabled="!canSystemActions || busy">
           <svg class="automation-icon"><use href="#ico-power-on"></use></svg>
-          <span>System neu starten</span>
+          <span>{{t "settings.system.actions.reboot"}}</span>
         </button>
-        <button class="system-action-danger" type="button" x-on:click="run('poweroff', 'System herunterfahren')" x-bind:disabled="!canSystemActions || busy">
+        <button class="system-action-danger" type="button" x-on:click="run('poweroff', $t('settings.system.actions.poweroff'))" x-bind:disabled="!canSystemActions || busy">
           <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
-          <span>System herunterfahren</span>
+          <span>{{t "settings.system.actions.poweroff"}}</span>
         </button>
       </div>
     </section>
     <section class="system-config-panel" aria-labelledby="system-config-heading" x-data="systemConfigPanel()" x-init="load()">
-      <h3 id="system-config-heading">Konfiguration</h3>
-      <p class="settings-help">Der Inhalt von <code>/etc/energy-node/config.json</code>. Passwoerter stehen nicht in dieser Datei, nur die Pfade der Dateien, die sie enthalten.</p>
+      <h3 id="system-config-heading">{{t "settings.system.config.title"}}</h3>
+      <p class="settings-help">{{t "settings.system.config.file_info"}} <code>{{t "settings.system.config.file_path"}}</code>{{t "settings.system.config.file_note"}}</p>
       <p class="settings-error" x-show="error" x-text="error"></p>
       <div class="settings-warning" x-cloak x-show="recoverMode && unknownKeys.length">
-        Diese Datei enthält Felder, die das Formular nicht kennt
-        (<span x-text="unknownKeys.join(', ')"></span>). Bearbeite sie als Rohtext,
-        bis sie wieder zum Schema passt.
+        {{t "settings.system.config.unknown_fields_warning"}}
+        (<span x-text="unknownKeys.join(', ')"></span>). {{t "settings.system.config.unknown_fields_help"}}
       </div>
-      <p class="settings-help" x-cloak x-show="recoverMode && !unknownKeys.length">Das Schema konnte nicht geladen werden — Bearbeitung als Rohtext.</p>
+      <p class="settings-help" x-cloak x-show="recoverMode && !unknownKeys.length">{{t "settings.system.config.schema_error"}}</p>
       <textarea class="system-config-editor" rows="24" spellcheck="false" x-model="text" x-bind:disabled="busy" x-cloak x-show="recoverMode"></textarea>
       <form x-ref="form" class="schema-form" novalidate x-show="!recoverMode" x-on:input="dirtyTick++" x-on:change="dirtyTick++" x-on:submit.prevent="save()"></form>
       <div class="system-config-actions">
-        <button class="icon-button labeled primary" type="button" x-on:click="save()" x-bind:disabled="!dirty || busy" title="Speichern" aria-label="Speichern">
+        <button class="icon-button labeled primary" type="button" x-on:click="save()" x-bind:disabled="!dirty || busy" title="{{t "common.save"}}" aria-label="{{t "common.save"}}">
           <svg class="automation-icon"><use href="#ico-save"></use></svg>
-          <span>Speichern</span>
+          <span>{{t "common.save"}}</span>
         </button>
-        <button class="icon-button labeled" type="button" x-on:click="discard()" x-bind:disabled="busy" title="Verwerfen" aria-label="Verwerfen">
+        <button class="icon-button labeled" type="button" x-on:click="discard()" x-bind:disabled="busy" title="{{t "settings.system.config.discard_button"}}" aria-label="{{t "settings.system.config.discard_button"}}">
           <svg class="automation-icon"><use href="#ico-close"></use></svg>
-          <span>Verwerfen</span>
+          <span>{{t "settings.system.config.discard_button"}}</span>
         </button>
       </div>
       <p class="settings-warning" x-show="restartRequired.length">
-        Neustart erforderlich fuer:
+        {{t "settings.system.config.restart_required"}}
         <span x-text="restartRequired.join(', ')"></span>
       </p>
       <template x-if="Object.keys(reloaded).length">
@@ -373,19 +372,17 @@
            mitgelieferte Namensliste. Vergleichen und Wiederherstellen bleiben
            zurueckgestellt - siehe P1.8 der Dashboard-Ideenliste. -->
       <details class="revision-panel">
-        <summary>Revisionen der Systemkonfiguration</summary>
+        <summary>{{t "settings.system.config.revisions.title"}}</summary>
         <div class="revision-panel-body">
           <p class="settings-help">
-            Jedes Speichern legt hier den vorherigen Stand ab (max. 20).
-            Vergleichen und Wiederherstellen sind fuer die Systemkonfiguration
-            noch nicht verfuegbar.
+            {{t "settings.system.config.revisions.note"}}
           </p>
           <ul class="revision-list" x-show="revisions.length">
             <template x-for="name in revisions" x-bind:key="name">
               <li x-text="revisionLabel(name)"></li>
             </template>
           </ul>
-          <span class="revision-panel-empty" x-show="revisions.length === 0" x-cloak>Noch keine Revisionen vorhanden.</span>
+          <span class="revision-panel-empty" x-show="revisions.length === 0" x-cloak>{{t "settings.system.config.revisions.empty"}}</span>
         </div>
       </details>
     </section>
@@ -393,8 +390,8 @@
   {{template "mqtt" .}}
   {{template "tailscale" .}}
   {{template "tiny-tuya" .}}
-  <footer class="license-footer" aria-label="Lizenzinformationen der verwendeten Bibliotheken">
-    <p>Verwendete Bibliotheken: <strong>HTMX 2.0.6</strong> (0BSD) · <strong>Alpine.js 3.14.9</strong> (MIT, Copyright Caleb Porzio) · <strong>Alpine.js Collapse-Plugin 3.14.9</strong> (MIT, Copyright Caleb Porzio) · <strong>ApexCharts 4.7.0</strong> (MIT, Copyright ApexCharts) · <strong>Popper.js 2.11.8</strong> (MIT) · <strong>Tippy.js 6.3.7</strong> (MIT) · <strong>Cytoscape.js 3.34.0</strong> (MIT, The Cytoscape Consortium) · <strong>Gridstack.js 13.0.2</strong> (MIT, Copyright Alain Dumesny) · <strong>Choices.js 11.2.3</strong> (MIT, Copyright Josh Johnson) · <strong>flatpickr 4.6.13</strong> (MIT, Copyright Gregory Petrosyan) · <a href="https://github.com/bigskysoftware/htmx/blob/v2.0.6/LICENSE" target="_blank" rel="noopener noreferrer">HTMX-Lizenz</a> · <a href="https://github.com/alpinejs/alpine/blob/v3.14.9/README.md" target="_blank" rel="noopener noreferrer">Alpine.js README</a> · <a href="https://github.com/apexcharts/apexcharts.js/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">ApexCharts-Lizenz</a> · <a href="https://github.com/popperjs/popper-core/blob/v2.11.8/LICENSE.md" target="_blank" rel="noopener noreferrer">Popper.js-Lizenz</a> · <a href="https://github.com/atomiks/tippyjs/blob/v6.3.7/LICENSE" target="_blank" rel="noopener noreferrer">Tippy.js-Lizenz</a> · <a href="https://github.com/cytoscape/cytoscape.js/blob/v3.34.0/LICENSE" target="_blank" rel="noopener noreferrer">Cytoscape.js-Lizenz</a> · <a href="https://github.com/gridstack/gridstack.js/blob/v13.0.2/LICENSE" target="_blank" rel="noopener noreferrer">Gridstack.js-Lizenz</a> · <a href="https://github.com/Choices-js/Choices/blob/v11.2.3/LICENSE" target="_blank" rel="noopener noreferrer">Choices.js-Lizenz</a> · <a href="https://github.com/flatpickr/flatpickr/blob/v4.6.13/LICENSE.md" target="_blank" rel="noopener noreferrer">flatpickr-Lizenz</a></p>
+  <footer class="license-footer" aria-label="{{t "settings.system.license.heading"}}">
+    <p>{{t "settings.system.license.label"}}<strong>{{t "settings.system.license.htmx_name"}}</strong> {{t "settings.system.license.htmx_license"}} <strong>{{t "settings.system.license.alpinejs_name"}}</strong> {{t "settings.system.license.alpinejs_license"}} <strong>{{t "settings.system.license.alpinejs_collapse_name"}}</strong> {{t "settings.system.license.alpinejs_collapse_license"}} <strong>{{t "settings.system.license.apexcharts_name"}}</strong> {{t "settings.system.license.apexcharts_license"}} <strong>{{t "settings.system.license.popperjs_name"}}</strong> {{t "settings.system.license.popperjs_license"}} <strong>{{t "settings.system.license.tippyjs_name"}}</strong> {{t "settings.system.license.tippyjs_license"}} <strong>{{t "settings.system.license.cytoscapejs_name"}}</strong> {{t "settings.system.license.cytoscapejs_license"}} <strong>{{t "settings.system.license.gridstackjs_name"}}</strong> {{t "settings.system.license.gridstackjs_license"}} <strong>{{t "settings.system.license.choicesjs_name"}}</strong> {{t "settings.system.license.choicesjs_license"}} <strong>{{t "settings.system.license.flatpickr_name"}}</strong> {{t "settings.system.license.flatpickr_license"}} <a href="https://github.com/bigskysoftware/htmx/blob/v2.0.6/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.htmx_license_link"}}</a> · <a href="https://github.com/alpinejs/alpine/blob/v3.14.9/README.md" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.alpinejs_readme_link"}}</a> · <a href="https://github.com/apexcharts/apexcharts.js/blob/main/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.apexcharts_license_link"}}</a> · <a href="https://github.com/popperjs/popper-core/blob/v2.11.8/LICENSE.md" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.popperjs_license_link"}}</a> · <a href="https://github.com/atomiks/tippyjs/blob/v6.3.7/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.tippyjs_license_link"}}</a> · <a href="https://github.com/cytoscape/cytoscape.js/blob/v3.34.0/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.cytoscapejs_license_link"}}</a> · <a href="https://github.com/gridstack/gridstack.js/blob/v13.0.2/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.gridstackjs_license_link"}}</a> · <a href="https://github.com/Choices-js/Choices/blob/v11.2.3/LICENSE" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.choicesjs_license_link"}}</a> · <a href="https://github.com/flatpickr/flatpickr/blob/v4.6.13/LICENSE.md" target="_blank" rel="noopener noreferrer">{{t "settings.system.license.flatpickr_license_link"}}</a></p>
   </footer>
 </section>
 {{end}}
