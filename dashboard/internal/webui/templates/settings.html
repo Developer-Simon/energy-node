@@ -165,7 +165,7 @@
         </label>
         <select id="status-bar-items-select" x-ref="statusBarItemsSelect" multiple x-on:change="statusBarItems = syncFromChoices(statusBarItemsChoices, statusBarItemOptions)">
           <template x-for="item in statusBarItemOptions" x-bind:key="item.key">
-            <option x-bind:value="item.key" x-text="item.label"></option>
+            <option x-bind:value="item.key" x-text="$t(item.label)"></option>
           </template>
         </select>
       </div>

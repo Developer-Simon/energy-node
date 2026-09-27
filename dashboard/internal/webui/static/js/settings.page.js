@@ -91,17 +91,16 @@
     ],
     statusBarItems: [],
     // Schluessel, wie sie runtimeStatusPanel() in dashboard.js interpretiert.
-    // Labels are translation keys for status bar item names (technical names stay untranslated).
     statusBarItemOptions: [
-      {key: 'mqtt', label: 'MQTT'},
-      {key: 'cache', label: 'Cache'},
-      {key: 'storage', label: 'Storage'},
-      {key: 'uptime', label: 'Uptime'},
-      {key: 'version', label: 'Dashboard-Version'},
-      {key: 'cpu_temp', label: 'CPU-Temperatur'},
-      {key: 'ram', label: 'RAM'},
-      {key: 'undervoltage', label: 'Unterspannung'},
-    ], // i18n-ignore: technical names (MQTT, Cache, Storage, Uptime, RAM, CPU-Temperatur, Unterspannung) stay as fallback for status bar items
+      {key: 'mqtt', label: 'settings.status_bar.item.mqtt'},
+      {key: 'cache', label: 'settings.status_bar.item.cache'},
+      {key: 'storage', label: 'settings.status_bar.item.storage'},
+      {key: 'uptime', label: 'settings.status_bar.item.uptime'},
+      {key: 'version', label: 'settings.status_bar.item.version'},
+      {key: 'cpu_temp', label: 'settings.status_bar.item.cpu_temp'},
+      {key: 'ram', label: 'settings.status_bar.item.ram'},
+      {key: 'undervoltage', label: 'settings.status_bar.item.undervoltage'},
+    ],
     loading: false,
     saving: false,
     storageHealth: null,
@@ -243,7 +242,7 @@
         return;
       }
       const others = status.peers.filter(peer => peer !== status.peerId).length;
-      const peers = others === 1 ? t('settings.history_exchange.connected_peers_one') : t('settings.history_exchange.connected_peers', {others});
+      const peers = tn('settings.history_exchange.peers', others, {n: others});
       this.historyExchangeStatus = status.addedRows
         ? t('settings.history_exchange.connected_rows_added', {peers, rows: status.addedRows})
         : t('settings.history_exchange.connected_rows_unchanged', {peers});
@@ -299,7 +298,7 @@
         return t('settings.history.budget_time', {hours: this.historyRetentionHours});
       }
       const perDay = this.historyBytesPerDay;
-      if (!perDay) return t('settings.history.budget_size', {mb: this.historyBudgetMb, days: '?'});
+      if (!perDay) return t('settings.history.budget_size_only', {mb: this.historyBudgetMb});
       const days = Math.floor((Number(this.historyBudgetMb) * 1024 * 1024) / perDay);
       return t('settings.history.budget_size', {mb: this.historyBudgetMb, days});
     },
@@ -548,7 +547,9 @@
       {id: 3, label: 'settings.tuya.step.dps'},
       {id: 4, label: 'settings.tuya.step.takeover'},
     ],
-    stepperLabel: 'TinyTuya-Schritte', // i18n-ignore: TinyTuya is a brand name
+    get stepperLabel() {
+      return t('settings.tuya.steps_label');
+    },
     currentStep: 1,
     direction: 'forward',
     region: 'eu',
