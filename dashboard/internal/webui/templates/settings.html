@@ -185,7 +185,7 @@
         </label>
         <select id="wide-panels-select" x-ref="widePanelsSelect" multiple x-on:change="widePanels = syncFromChoices(widePanelsChoices, widePanelOptions)">
           <template x-for="tab in widePanelOptions" x-bind:key="tab.key">
-            <option x-bind:value="tab.key" x-text="tab.label"></option>
+            <option x-bind:value="tab.key" x-text="$t(tab.label)"></option>
           </template>
         </select>
       </div>

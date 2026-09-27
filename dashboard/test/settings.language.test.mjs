@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -34,7 +35,9 @@ function load({ saveOk = true } = {}) {
   const factories = {};
   const switched = [];
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
-  dom.window.I18n = { lang: 'de', setLanguage: (lang) => { switched.push(lang); } };
+  const i18n = installI18n(dom.window);
+  const originalSetLanguage = i18n.setLanguage;
+  i18n.setLanguage = (lang) => { switched.push(lang); return originalSetLanguage.call(i18n, lang); };
   dom.window.fetch = async (url, options = {}) => {
     const target = String(url);
     if (target.includes('/api/v1/settings') && options.method === 'PUT') return jsonResponse({}, saveOk);

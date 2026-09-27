@@ -12,7 +12,6 @@ static/js/history.js
 static/js/layout-editor.js
 static/js/revisions.js
 static/js/schema-form.js
-static/js/settings.page.js
 templates/automations.html
 templates/config.html
 templates/devicemap.html

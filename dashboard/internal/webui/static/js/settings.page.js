@@ -6,7 +6,7 @@
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
     if (!response.ok) {
-      const error = new Error(body.message || 'Anfrage fehlgeschlagen');
+      const error = new Error(body.message || t('common.request_failed'));
       error.toolOutput = body.tool_output || '';
       throw error;
     }
@@ -76,21 +76,22 @@
     historyBytesUsed: 0,
     historyEstimate: null,
     // Beschriftungen aus der Tab-Leiste (base.html), Schluessel ist die
-    // Panel-ID ohne -panel.
+    // Panel-ID ohne -panel. Labels are translation keys, translated in template.
     widePanelOptions: [
-      {key: 'overview', label: 'Übersicht'},
-      {key: 'devices', label: 'Geräte'},
-      {key: 'history', label: 'Verläufe'},
-      {key: 'config', label: 'Konfiguration'},
-      {key: 'energy', label: 'Energie'},
-      {key: 'layout', label: 'Layout'},
-      {key: 'devicemap', label: 'Device-Map'},
-      {key: 'diagnostics', label: 'Diagnose'},
-      {key: 'settings', label: 'Einstellungen'},
-      {key: 'automations', label: 'Automationen'},
+      {key: 'overview', label: 'nav.overview'},
+      {key: 'devices', label: 'nav.devices'},
+      {key: 'history', label: 'nav.history'},
+      {key: 'config', label: 'nav.config'},
+      {key: 'energy', label: 'nav.energy'},
+      {key: 'layout', label: 'nav.layout'},
+      {key: 'devicemap', label: 'nav.devicemap'},
+      {key: 'diagnostics', label: 'nav.diagnostics'},
+      {key: 'settings', label: 'nav.settings'},
+      {key: 'automations', label: 'nav.automations'},
     ],
     statusBarItems: [],
     // Schluessel, wie sie runtimeStatusPanel() in dashboard.js interpretiert.
+    // Labels are translation keys for status bar item names (technical names stay untranslated).
     statusBarItemOptions: [
       {key: 'mqtt', label: 'MQTT'},
       {key: 'cache', label: 'Cache'},
@@ -100,7 +101,7 @@
       {key: 'cpu_temp', label: 'CPU-Temperatur'},
       {key: 'ram', label: 'RAM'},
       {key: 'undervoltage', label: 'Unterspannung'},
-    ],
+    ], // i18n-ignore: technical names (MQTT, Cache, Storage, Uptime, RAM, CPU-Temperatur, Unterspannung) stay as fallback for status bar items
     loading: false,
     saving: false,
     storageHealth: null,
@@ -172,7 +173,7 @@
 
     initChoices() {
       if (!window.Choices) return;
-      const options = {removeItemButton: true, searchEnabled: true, shouldSort: false, placeholderValue: 'Auswählen ...', noChoicesText: 'Keine Auswahl mehr verfügbar'};
+      const options = {removeItemButton: true, searchEnabled: true, shouldSort: false, placeholderValue: t('settings.choices.placeholder'), noChoicesText: t('settings.choices.no_results')};
       if (this.$refs.widePanelsSelect && !this.widePanelsChoices) {
         this.widePanelsChoices = new Choices(this.$refs.widePanelsSelect, options);
         this.setChoicesSelection(this.widePanelsChoices, this.widePanels);
@@ -233,19 +234,19 @@
     // woher Messwerte stammen, die er selbst nicht aufgezeichnet hat.
     refreshExchangeStatus() {
       if (!window.HistoryExchange) {
-        this.historyExchangeStatus = 'Der Austausch ist in diesem Tab nicht aktiv.';
+        this.historyExchangeStatus = t('settings.history_exchange.not_active');
         return;
       }
       const status = window.HistoryExchange.status();
       if (!status.connected) {
-        this.historyExchangeStatus = status.reason || 'Nicht verbunden.';
+        this.historyExchangeStatus = status.reason || t('settings.history_exchange.disconnected');
         return;
       }
       const others = status.peers.filter(peer => peer !== status.peerId).length;
-      const geraete = others === 1 ? '1 weiteres Gerät' : `${others} weitere Geräte`;
+      const peers = others === 1 ? t('settings.history_exchange.connected_peers_one') : t('settings.history_exchange.connected_peers', {others});
       this.historyExchangeStatus = status.addedRows
-        ? `Verbunden, ${geraete}. ${status.addedRows} Messwerte ergänzt.`
-        : `Verbunden, ${geraete}. Noch nichts ergänzt.`;
+        ? t('settings.history_exchange.connected_rows_added', {peers, rows: status.addedRows})
+        : t('settings.history_exchange.connected_rows_unchanged', {peers});
     },
 
     // Ein Klick auf - / + der Stepper. dir ist +1 oder -1; der Wert bleibt
@@ -290,25 +291,25 @@
     },
 
     get historyVolumeText() {
-      return `${this.formatBytes(this.historyBytesPerDay)}/Tag bei ${this.historySeriesCount} Serien`;
+      return t('settings.history.volume_per_day', {bytes: this.formatBytes(this.historyBytesPerDay), series: this.historySeriesCount});
     },
 
     get historyBudgetText() {
       if (this.historyRetentionMode !== 'size') {
-        return `Aufbewahrung ${this.historyRetentionHours} Stunden`;
+        return t('settings.history.budget_time', {hours: this.historyRetentionHours});
       }
       const perDay = this.historyBytesPerDay;
-      if (!perDay) return `Budget ${this.historyBudgetMb} MB`;
+      if (!perDay) return t('settings.history.budget_size', {mb: this.historyBudgetMb, days: '?'});
       const days = Math.floor((Number(this.historyBudgetMb) * 1024 * 1024) / perDay);
-      return `Budget ${this.historyBudgetMb} MB reicht für rund ${days} Tage`;
+      return t('settings.history.budget_size', {mb: this.historyBudgetMb, days});
     },
 
     get historyUsageText() {
-      const own = `belegt ${this.formatBytes(this.historyBytesUsed)}`;
+      const own = t('settings.history.usage_own', {bytes: this.formatBytes(this.historyBytesUsed)});
       if (!this.historyEstimate) return own;
       // Der eigene Zaehler regelt, die Browser-Angabe ist die Gegenprobe:
       // sie zaehlt das ganze Origin und rundet grob.
-      return `${own} · Browser meldet ${this.formatBytes(this.historyEstimate.usage)} für diese Seite, Kontingent ${this.formatBytes(this.historyEstimate.quota)}`;
+      return t('settings.history.usage_browser', {own, usage: this.formatBytes(this.historyEstimate.usage), quota: this.formatBytes(this.historyEstimate.quota)});
     },
 
     formatBytes(bytes) {
@@ -328,9 +329,9 @@
     },
 
     get storageHealthBadgeLabel() {
-      if (this.storageHealthLoading || !this.storageHealth) return 'Wird geprüft';
-      if (!this.storageHealth.available) return 'Nicht verfügbar';
-      return this.storageHealth.mode === 'estimated' ? 'Geschätzt' : 'Gemessen';
+      if (this.storageHealthLoading || !this.storageHealth) return t('storage_health.checking');
+      if (!this.storageHealth.available) return t('storage_health.badge.unavailable');
+      return this.storageHealth.mode === 'estimated' ? t('storage_health.badge.estimated') : t('storage_health.badge.measured');
     },
 
     formatStorageHealthTime(value) {
@@ -349,7 +350,7 @@
 
     formatStorageDays(value) {
       const days = Number(value);
-      return Number.isFinite(days) ? `${window.I18n.formatNumber(days, 1)} Tage` : '-';
+      return Number.isFinite(days) ? t('storage_health.days_format', {n: window.I18n.formatNumber(days, 1)}) : '-';
     },
 
     get valid() {
@@ -397,7 +398,7 @@
         basePath: '/api/v1/settings',
         current: () => this.payload(),
         reload: () => this.load(),
-        label: 'Revisionen der Einstellungen',
+        label: t('settings.revisions.label'),
       };
     },
 
@@ -405,7 +406,7 @@
       if (!this.valid) {
         // critical, damit die Meldung stehen bleibt, waehrend der Nutzer die
         // Felder korrigiert - sie steht jetzt oben rechts, nicht am Formular.
-        this.$store.toasts.push('Health-Schwellwert und Sweep-Intervall müssen mindestens 1 sein, das Live-Update-Intervall zwischen 1 und 60 Sekunden, die Verlaufs-Abtastrate zwischen 5 und 3600 Sekunden liegen.', 'critical');
+        this.$store.toasts.push(t('settings.validation_error'), 'critical');
         return;
       }
       this.saving = true;
@@ -433,7 +434,7 @@
           exchangeDisabled: Boolean(this.historyExchangeDisabled),
         }}));
         document.dispatchEvent(new CustomEvent('language-switch-setting-changed', {detail: {visible: !this.languageSwitchHidden}}));
-        this.$store.toasts.push('Einstellungen gespeichert.');
+        this.$store.toasts.push(t('settings.saved'));
         // Erst nach dem erfolgreichen Speichern: der Sprachwechsel laedt neu,
         // ungespeicherte Aenderungen gingen sonst verloren.
         if (window.I18n && this.uiLanguage !== window.I18n.lang) {
@@ -520,7 +521,7 @@
     async run(action, label) {
       if (!this.canSystemActions || this.busy) return;
       const confirmed = await this.$store.modal.confirm({
-        title: `${label} wirklich ausführen?`,
+        title: t('settings.system_action.confirm_title', {action: label}),
         confirmLabel: label,
         danger: true,
       });
@@ -531,7 +532,7 @@
           method: 'POST',
           headers: {'X-CSRF-Token': this.csrfToken},
         });
-        this.$store.toasts.push(`${label} wurde gestartet.`);
+        this.$store.toasts.push(t('settings.system_action.started', {action: label}));
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -542,12 +543,12 @@
 
   const tinyTuyaPanel = () => ({
     steps: [
-      {id: 1, label: 'Zugang'},
-      {id: 2, label: 'Gerät'},
-      {id: 3, label: 'DPS'},
-      {id: 4, label: 'Übernahme'},
+      {id: 1, label: 'settings.tuya.step.access'},
+      {id: 2, label: 'settings.tuya.step.device'},
+      {id: 3, label: 'settings.tuya.step.dps'},
+      {id: 4, label: 'settings.tuya.step.takeover'},
     ],
-    stepperLabel: 'TinyTuya-Schritte',
+    stepperLabel: 'TinyTuya-Schritte', // i18n-ignore: TinyTuya is a brand name
     currentStep: 1,
     direction: 'forward',
     region: 'eu',
@@ -628,7 +629,7 @@
             access_secret: this.accessSecret,
           }),
         });
-        if (!Array.isArray(this.devices) || this.devices.length === 0) throw new Error('Keine Tuya-Geräte gefunden.');
+        if (!Array.isArray(this.devices) || this.devices.length === 0) throw new Error(t('settings.tuya.no_devices_found'));
         if (this.saveCredentials && this.accessSecret) {
           const saved = await requestJSON('/api/v1/tiny-tuya/credentials', {
             method: 'POST',
@@ -685,9 +686,9 @@
           }),
         });
         if (result.reload_failed) {
-          this.$store.toasts.push(`Tuya-Gerät gespeichert, aber der Dienst konnte nicht neu geladen werden: ${result.reload_error || 'unbekannter Fehler'}`, 'critical');
+          this.$store.toasts.push(t('settings.tuya.save_error', {error: result.reload_error || t('common.unknown_error')}), 'critical');
         } else {
-          this.$store.toasts.push('Tuya-Gerät übernommen und Dienst neu geladen.');
+          this.$store.toasts.push(t('settings.tuya.save_success'));
         }
         this.accessSecret = '';
         this.device.local_key = '';
