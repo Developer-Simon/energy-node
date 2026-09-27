@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.17 (2026-09-26)
+## v0.7.18 (2026-09-27)
 
 ### Features
 
@@ -10,7 +10,21 @@
 - **dashboard:** localization foundation with language switcher (#59) (7f8ed9f)
 - **dashboard:** number format setting and locale-aware dates (localization A2) (#60) (6d8ba8b)
 - **dashboard:** localize the shell and the overview (#62) (e96f396)
-- **automation:** weekdays in the editor and a sun_window condition (2c301a9)
+- **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
+- **dashboard:** localize energy settings (6bc3685)
+- **webui:** move energy and battery card texts into the catalogs (e8549cd)
+- **webui:** add English texts for energy and the battery card (36308a8)
+- **storagehealth:** return catalog keys next to the German labels (8b8b464)
+- **settings:** return a catalog key for the bridge address warning (10d63fe)
+- **webui:** move MQTT page template texts into the catalogs (88ca9ef)
+- **webui:** move MQTT page script texts into the catalogs (86324f7)
+- **webui:** move Tailscale and system configuration texts into the catalogs (580bd0a)
+- **webui:** move the first half of the settings template into the catalogs (0dc225f)
+- **webui:** move the rest of the settings template into the catalogs (c53b9dc)
+- **webui:** move settings page script texts into the catalogs (eccf108)
+- **webui:** add English texts for settings, MQTT and Tailscale (bb974f3)
+- **energy:** return catalog keys for role labels and sign hints (a0e4fd6)
+- **webui:** add English texts for the energy role labels (f50d2cb)
 - **webui:** move the dashboard shell texts into the catalogs (3ae8750)
 - **webui:** migrate base.html and dashboard.js shells into catalogs (580a662)
 - **webui:** add English texts for the dashboard shell (fef5eaa)
@@ -53,6 +67,12 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **webui:** keep the MQTT reconnect toast one sentence (2a41803)
+- **webui:** use a placeholder in the invalid JSON message (02bc1e7)
+- **webui:** expose storageText and keep settings sentences whole (03cba87)
+- **webui:** translate settings status bar options and keep budget text (08cacd8)
+- **webui:** keep split settings and Tailscale sentences whole (ddfa126)
+- **webui:** guard the storage health reason against a missing report (3a1e9dd)
 - **webui:** complete remaining base.html and dashboard.js migrations (5913fed)
 - **webui:** tidy the shell extraction keys and tests (e55ff9b)
 - **webui:** keep stored page and group names (13508e8)
@@ -68,6 +88,8 @@
 
 ### Refactors
 
+- **storagehealth:** keep catalog key test inside the package (a786299)
+- **settings:** derive the bridge warning text from its key (bde87c5)
 - **webui:** route number, date and sort formatting through I18n (cdd0420)
 
 ### Documentation
@@ -91,6 +113,7 @@
 
 ### Chores
 
+- **webui:** bump cache-busting for the localized settings scripts (ed1432e)
 - apply gofmt to test and main files (607f2f3)
 - **webui:** bump lazy asset versions for the localized shell (0ef9e36)
 
