@@ -10,7 +10,6 @@ static/js/history-recorder.js
 static/js/history-store.js
 static/js/history.js
 static/js/layout-editor.js
-static/js/mqtt.page.js
 static/js/revisions.js
 static/js/schema-form.js
 static/js/settings.page.js
