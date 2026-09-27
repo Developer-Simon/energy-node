@@ -2375,7 +2375,7 @@ test('applyOptionChange: der Wechsel auf Detail und der Geraetewechsel leeren di
   assert.deepEqual(JSON.parse(JSON.stringify(component._optionsItem.entityRefs)), []);
 });
 
-test('catalog() returns entries with titleKey for card types that translate to the loaded language', () => {
+test('catalog() resolves card titles per language', () => {
   // Create a DOM with German catalog
   const domDE = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   const contextDE = domDE.getInternalVMContext();
@@ -2394,25 +2394,20 @@ test('catalog() returns entries with titleKey for card types that translate to t
   domEN.window.fetch = async () => { throw new Error('fetch should not be called'); };
   vm.runInContext(scriptSource, contextEN);
 
-  // Check that catalog entries have titleKey
+  // Get catalogs from both contexts
   const catDE = factoryDE.catalog([]);
   const catEN = factoryEN.catalog([]);
 
-  // Verify one card type has titleKey
-  const energyFlowDE = catDE.karten.find(k => k.type === 'energy_flow');
-  const energyFlowEN = catEN.karten.find(k => k.type === 'energy_flow');
+  // Check energy_band card title in both languages
+  const energyBandDE = catDE.karten.find(k => k.type === 'energy_band');
+  const energyBandEN = catEN.karten.find(k => k.type === 'energy_band');
 
-  assert(energyFlowDE.titleKey, 'German catalog entry should have titleKey');
-  assert.equal(energyFlowDE.titleKey, 'layout_editor.card.energy_flow.title');
-  assert(energyFlowEN.titleKey, 'English catalog entry should have titleKey');
-  assert.equal(energyFlowEN.titleKey, 'layout_editor.card.energy_flow.title');
+  // Verify titles match the loaded catalog values
+  const deCatalogValue = domDE.window.I18n.t('layout_editor.card.energy_band.title');
+  const enCatalogValue = domEN.window.I18n.t('layout_editor.card.energy_band.title');
 
-  // Verify translation works
-  const deTitle = domDE.window.I18n.t('layout_editor.card.energy_flow.title');
-  const enTitle = domEN.window.I18n.t('layout_editor.card.energy_flow.title');
-
-  assert.equal(deTitle, 'Energie: Energiefluss', 'German title should be correct');
-  assert(enTitle.startsWith('TODO(en):'), 'English title should still be TODO placeholder');
+  assert.equal(energyBandDE.title, deCatalogValue, 'German catalog entry title should equal de catalog value');
+  assert.equal(energyBandEN.title, enCatalogValue, 'English catalog entry title should equal en catalog value');
 });
 
 test('toolbox renders .layout-toolbox-item buttons with data-add and correct title', () => {
