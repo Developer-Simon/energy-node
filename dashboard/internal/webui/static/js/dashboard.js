@@ -192,6 +192,11 @@
       // Editor (layout-pages-changed) werden dagegen abgeglichen, damit nur
       // die wirklich neuen als extraPages erscheinen.
       this._basePages = [...document.querySelectorAll('.tab.is-page')].map(tab => tab.dataset.pageId).filter(Boolean);
+      // Speichere die server-seitigen Namen der Basis-Seiten, um Umbenennungen zu erkennen.
+      this._serverPageNames = new Map(
+        [...document.querySelectorAll('.tab.is-page')]
+          .map(tab => [tab.dataset.pageId, tab.dataset.pageName])
+      );
       // Ohne Vorgabe rendert der Server die erste Seite (activePage() in
       // webui.go). Damit der zugehoerige Tab von Anfang an als aktiv erscheint
       // - und der erste Klick auf ihn nicht wirkungslos aussieht - steht sie
@@ -200,11 +205,20 @@
       document.addEventListener('layout-pages-changed', event => {
         const pages = event.detail?.pages || [];
         const pageIds = pages.map(p => p.id);
-        this.extraPages = pages.filter(page => page.id && !this._basePages.includes(page.id));
-        // Umbenennen und Loeschen: ein server-gerenderter Tab, dessen ID in
-        // der gemeldeten Liste fehlt, gehoert nicht mehr in die Leiste. Ohne
-        // das stuenden nach einem Umbenennen alter und neuer Name nebeneinander.
-        this.hiddenPages = this._basePages.filter(id => !pageIds.includes(id));
+        // Eine server-seite ist "geaendert", wenn ihre ID fehlt ODER ihr Name
+        // sich vom server-namen unterscheidet.
+        const changedServerPages = pages.filter(page =>
+          this._basePages.includes(page.id) && this._serverPageNames.get(page.id) !== page.name
+        );
+        // Neue Seiten: im Editor angelegt, nicht auf dem Server.
+        const newPages = pages.filter(page => page.id && !this._basePages.includes(page.id));
+        // extraPages: neue Seiten PLUS umbenannte server-seiten.
+        this.extraPages = [...newPages, ...changedServerPages];
+        // hiddenPages: server-seiten, die nicht in der Editor-Liste stehen ODER
+        // die server-seiten, die umbenannt wurden (zeigt den alten Namen).
+        this.hiddenPages = this._basePages.filter(id =>
+          !pageIds.includes(id) || changedServerPages.some(p => p.id === id)
+        );
         // Der Editor sagt, welche Seite gemeint ist. Ohne Angabe bleibt die
         // alte Vermutung "die zuletzt hinzugekommene".
         if (event.detail?.active) this.activePage = event.detail.active;

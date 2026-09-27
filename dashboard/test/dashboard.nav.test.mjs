@@ -99,44 +99,79 @@ test('eine leere Freigabeliste deckelt jeden Tab', () => {
 
 test('layout-pages-changed nimmt nur wirklich neue Seiten in extraPages auf', () => {
   const { component, window } = createShell(`
-    <button class="tab is-page" data-page-id="Zuhause">Zuhause</button>
-    <button class="tab is-page" data-page-id="Werkstatt">Werkstatt</button>
+    <button class="tab is-page" data-page-id="p1" data-page-name="Zuhause">Zuhause</button>
+    <button class="tab is-page" data-page-id="p2" data-page-name="Werkstatt">Werkstatt</button>
   `);
   component.init();
   window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
-    detail: {pages: [{id: 'Zuhause', name: 'Zuhause'}, {id: 'Werkstatt', name: 'Werkstatt'}, {id: 'Garten', name: 'Garten'}]},
+    detail: {pages: [{id: 'p1', name: 'Zuhause'}, {id: 'p2', name: 'Werkstatt'}, {id: 'Garten', name: 'Garten'}]},
   }));
-  assert.deepEqual(component.extraPages, [{id: 'Garten', name: 'Garten'}]);
+  assert.equal(component.extraPages.length, 1);
+  assert.equal(component.extraPages[0].id, 'Garten');
+  assert.equal(component.extraPages[0].name, 'Garten');
   assert.equal(component.activePage, 'Garten');
 });
 
 test('eine umbenannte Seite ersetzt ihren Tab, statt einen zweiten zu erzeugen', () => {
-  // Ohne hiddenPages stuenden nach dem Umbenennen der server-gerenderte alte
-  // Name und der neue nebeneinander in der Leiste.
+  // Eine server-seite mit neuem Namen geht in extraPages (zeigt neuen Namen)
+  // und hiddenPages (versteckt alten Namen).
   const { component, window } = createShell(`
-    <button class="tab is-page" data-page-id="Zuhause">Zuhause</button>
-    <button class="tab is-page" data-page-id="Werkstatt">Werkstatt</button>
+    <button class="tab is-page" data-page-id="p1" data-page-name="Zuhause">Zuhause</button>
+    <button class="tab is-page" data-page-id="p2" data-page-name="Werkstatt">Werkstatt</button>
   `);
   component.init();
   window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
-    detail: {pages: [{id: 'Zuhause', name: 'Keller'}, {id: 'Werkstatt', name: 'Werkstatt'}], active: 'Zuhause'},
+    detail: {pages: [{id: 'p1', name: 'Keller'}, {id: 'p2', name: 'Werkstatt'}], active: 'p1'},
   }));
 
-  assert.deepEqual(component.extraPages, []);
-  assert.deepEqual([...component.hiddenPages], [], 'beide Seiten sind bekannt; der alte Name ist nur umbenannt');
-  assert.equal(component.activePage, 'Zuhause');
+  assert.equal(component.extraPages.length, 1, 'eine umbenannte seite in extraPages');
+  assert.equal(component.extraPages[0].id, 'p1');
+  assert.equal(component.extraPages[0].name, 'Keller');
+  assert.deepEqual([...component.hiddenPages], ['p1'], 'alter tab-name ist versteckt');
+  assert.equal(component.activePage, 'p1');
 });
 
 test('layout-pages-changed folgt der gemeldeten aktiven Seite', () => {
   const { component, window } = createShell(`
-    <button class="tab is-page" data-page-id="Zuhause">Zuhause</button>
-    <button class="tab is-page" data-page-id="Werkstatt">Werkstatt</button>
+    <button class="tab is-page" data-page-id="p1" data-page-name="Zuhause">Zuhause</button>
+    <button class="tab is-page" data-page-id="p2" data-page-name="Werkstatt">Werkstatt</button>
   `);
   component.init();
   window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
-    detail: {pages: [{id: 'Werkstatt', name: 'Werkstatt'}], active: 'Werkstatt'},
+    detail: {pages: [{id: 'p2', name: 'Werkstatt'}], active: 'p2'},
   }));
 
-  assert.deepEqual([...component.hiddenPages], ['Zuhause'], 'die geloeschte Seite verschwindet');
-  assert.equal(component.activePage, 'Werkstatt');
+  assert.deepEqual([...component.hiddenPages], ['p1'], 'die geloeschte Seite verschwindet');
+  assert.equal(component.activePage, 'p2');
 });
+
+test('Umbenennen einer server-Seite haelt activePage (die ID) und gibt event {id, name}', () => {
+  const { component, window } = createShell(`
+    <button class="tab is-page" data-page-id="p1" data-page-name="Zuhause">Zuhause</button>
+  `);
+  component.init();
+  component.activePage = 'p1';
+  window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
+    detail: {pages: [{id: 'p1', name: 'Keller'}], active: 'p1'},
+  }));
+
+  assert.equal(component.activePage, 'p1', 'activePage bleibt die ID');
+  assert.ok(component.extraPages.some(p => p.id === 'p1' && p.name === 'Keller'));
+});
+
+test('extraPages und hiddenPages arbeiten mit IDs', () => {
+  const { component, window } = createShell(`
+    <button class="tab is-page" data-page-id="server1" data-page-name="Alt">Alt</button>
+    <button class="tab is-page" data-page-id="server2" data-page-name="Beibehalten">Beibehalten</button>
+  `);
+  component.init();
+  // Eine neue Seite, eine umbenannte server-seite
+  window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
+    detail: {pages: [{id: 'server1', name: 'Neu'}, {id: 'server2', name: 'Beibehalten'}, {id: 'new1', name: 'Ganz neu'}]},
+  }));
+
+  assert.ok(component.extraPages.some(p => p.id === 'server1'), 'umbenannte server-seite in extra mit ID');
+  assert.ok(component.extraPages.some(p => p.id === 'new1'), 'neue seite in extra mit ID');
+  assert.ok(component.hiddenPages.includes('server1'), 'alter tab versteckt mit ID');
+});
+

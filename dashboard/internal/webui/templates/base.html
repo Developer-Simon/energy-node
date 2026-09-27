@@ -107,6 +107,7 @@
          Editor kann die Seite umbenannt oder geloescht haben (hiddenPages). */}}
     <button class="tab is-page" role="tab" aria-controls="overview-panel" type="button"
             data-page-id="{{.ID}}"
+            data-page-name="{{.Name}}"
             x-show="!hiddenPages.includes('{{.ID}}')"
             x-bind:class="{ active: activePanel === 'overview-panel' && activePage === '{{.ID}}' }"
             x-on:click="setActivePage('{{.ID}}')"><i></i>{{if .Name}}{{.Name}}{{else}}{{t "overview.page.default_name"}}{{end}}</button>

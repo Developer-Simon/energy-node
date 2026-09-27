@@ -1955,6 +1955,27 @@ test('ein leerer Name wird nicht uebernommen', () => {
   assert.equal(editor.pages[0].name, 'Zuhause');
 });
 
+test('eine Seite mit leerem Name zeigt "Übersicht" im Rename-Feld und Speichern des defaults haelt name leer', () => {
+  // This tests the fix: a page with empty name should show the default name
+  // in the input, and submitting that default value should keep the name empty.
+  const { dom, editor } = editorWithPages(['']);
+  editor.pages[0].name = ''; // Explicitly set empty name
+
+  // Mock I18n for this test
+  dom.window.I18n = {
+    t: (key) => key === 'overview.page.default_name' ? 'Übersicht' : key,
+  };
+
+  editor.openPageOptions();
+  const input = dom.window.document.querySelector('[data-page-name]');
+  assert.equal(input.value, 'Übersicht', 'leerer name zeigt default im feld');
+
+  // Typing the default name and submitting should keep it empty
+  input.value = 'Übersicht';
+  input.dispatchEvent(new dom.window.Event('input', {bubbles: true}));
+  assert.equal(editor.pages[0].name, '', 'submitting default name haelt name leer');
+});
+
 test('die Reihenfolge laesst sich im Modal verschieben', () => {
   const { dom, editor } = editorWithPages(['Zuhause', 'Werkstatt']);
   editor.openPageOptions();
