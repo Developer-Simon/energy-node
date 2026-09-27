@@ -127,11 +127,11 @@ test('state document results render to German badge labels', () => {
   assert.equal(component.badgeLabel('fired'), 'Ausgelöst');
   assert.equal(component.badgeLabel('conditions_not_met'), 'Bedingungen nicht erfüllt');
   assert.equal(component.badgeLabel('hold_pending'), 'Wartet auf Haltedauer');
-  assert.equal(component.badgeLabel('cooldown'), 'Sperrzeit läuft');
-  assert.equal(component.badgeLabel('settling'), 'Beruhigungsphase nach Dienststart');
-  assert.equal(component.badgeLabel('balance_stale'), 'Energie-Bilanz veraltet');
-  assert.equal(component.badgeLabel('blocked'), 'Aktion blockiert');
-  assert.equal(component.badgeLabel('disabled'), 'Regel ist aus');
+  assert.equal(component.badgeLabel('cooldown'), 'Sperrzeit');
+  assert.equal(component.badgeLabel('settling'), 'Beruhigungsphase');
+  assert.equal(component.badgeLabel('balance_stale'), 'Bilanz veraltet');
+  assert.equal(component.badgeLabel('blocked'), 'Blockiert');
+  assert.equal(component.badgeLabel('disabled'), 'Deaktiviert');
   assert.equal(component.badgeLabel('error'), 'Fehler');
 });
 
@@ -861,17 +861,34 @@ test('describeCondition bleibt für die drei Alt-Typen unverändert', () => {
     { type: 'balance_threshold', field: 'pv', comparison: 'above', threshold: 800 }).title, 'PV-Leistung');
 });
 
-test('describeCondition renders a balance_threshold summary with hysteresis via i18n', () => {
+test('describeCondition renders a balance_threshold summary with hysteresis via i18n in German', () => {
   const { window } = createAutomationsPanel();
-  const catalog = JSON.parse(fs.readFileSync(
+  const deCatalog = JSON.parse(fs.readFileSync(
     path.join(here, '..', 'internal', 'webui', 'catalogs', 'de.json'), 'utf8'));
   const described = view().describeCondition(
     { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 500, hysteresis: 100 });
-  // The summary key should be automations.summary.balance_hysteresis with placeholders
+  // German summary: "{comparison} {threshold} {unit}, Hysterese {hysteresis}"
+  // Should be: "über 500 W, Hysterese 100"
+  assert.equal(described.summary, 'über 500 W, Hysterese 100');
+});
+
+test('describeCondition renders a balance_threshold summary with hysteresis via i18n in English', () => {
+  const { window } = createAutomationsPanel();
+  installI18n(window, { lang: 'en' });
+  const enCatalog = JSON.parse(fs.readFileSync(
+    path.join(here, '..', 'internal', 'webui', 'catalogs', 'en.json'), 'utf8'));
+  const view_en = window.__automationsView;
+  const described = view_en.describeCondition(
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 500, hysteresis: 100 });
+  // Expected English summary from catalog with TODO(en): prefix replaced
+  const comparisonKey = 'automations.comparison.above';
+  const balanceKey = 'automations.metric.grid_export';
   const summaryKey = 'automations.summary.balance_hysteresis';
-  assert.ok(catalog[summaryKey], `${summaryKey} must exist in de.json`);
-  // The summary should contain comparison text, threshold, unit, and hysteresis value
-  assert.ok(described.summary.includes('über') || described.summary.includes('500') || described.summary.includes('W') || described.summary.includes('100'));
+  // The placeholder template should resolve comparison, threshold, unit (W), and hysteresis values
+  assert.ok(described.summary, 'summary must be rendered');
+  assert.ok(described.summary.includes('500'), 'summary should contain threshold');
+  assert.ok(described.summary.includes('W'), 'summary should contain unit');
+  assert.ok(described.summary.includes('100'), 'summary should contain hysteresis');
 });
 
 // --- A6: der SSE-Tick zieht nicht mehr den ganzen Geraetepark ---------------

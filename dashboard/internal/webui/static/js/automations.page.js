@@ -15,7 +15,7 @@
     return body;
   };
 
-  // i18n-keys: automations.metric.autarkie, automations.metric.base, automations.metric.battery_capacity_kwh, automations.metric.battery_charge, automations.metric.battery_discharge, automations.metric.battery_energy_kwh, automations.metric.battery_soc, automations.metric.eigenverbrauch, automations.metric.gap_applied, automations.metric.grid_export, automations.metric.grid_import, automations.metric.heat_pump, automations.metric.load_total, automations.metric.pv, automations.metric.wallbox, automations.summary.balance, automations.summary.balance_hysteresis, automations.summary.entity_value, automations.summary.topic_value, automations.action.notification, automations.action.mqtt_command, automations.action.unknown, automations.test.permission_required, automations.test.service_offline, automations.test.save_first, automations.test.blocked_action, automations.test.confirm, automations.test.trigger, automations.test.failed, automations.test.no_response, automations.test.published, automations.test.blocked, automations.test.error, automations.saved, automations.condition_state.sun_no_event, automations.condition_state.no_location, automations.condition_state.no_value, automations.condition_state.outside_window, automations.condition_state.threshold_not_reached, automations.condition_state.since, automations.condition_state.pending, automations.condition_state.met, automations.gate_meta.cooldown, automations.gate_meta.last_fired, automations.gate_meta.fire_count, automations.action_preview.no_preview, automations.action_preview.blocked, automations.new_rule, automations.delete_rule.title, automations.delete_rule.body, automations.geolocation.denied, automations.geolocation.failed, automations.gate_detail.hold_pending, automations.gate_detail.cooldown, automations.condition_type_unknown
+  // i18n-keys: automations.metric.autarkie, automations.metric.base, automations.metric.battery_capacity_kwh, automations.metric.battery_charge, automations.metric.battery_discharge, automations.metric.battery_energy_kwh, automations.metric.battery_soc, automations.metric.eigenverbrauch, automations.metric.gap_applied, automations.metric.grid_export, automations.metric.grid_import, automations.metric.heat_pump, automations.metric.load_total, automations.metric.pv, automations.metric.wallbox, automations.summary.balance, automations.summary.balance_hysteresis, automations.summary.entity_value, automations.summary.entity_value_unit, automations.summary.topic_value, automations.action.notification, automations.action.mqtt_command, automations.action.unknown, automations.test.permission_required, automations.test.service_offline, automations.test.save_first, automations.test.blocked_action, automations.test.confirm, automations.test.trigger, automations.test.failed, automations.test.no_response, automations.test.published, automations.test.blocked, automations.test.error, automations.saved, automations.condition_state.sun_no_event, automations.condition_state.no_location, automations.condition_state.no_value, automations.condition_state.outside_window, automations.condition_state.threshold_not_reached, automations.condition_state.met, automations.condition_state.met_since, automations.condition_state.pending, automations.condition_state.pending_since, automations.gate_meta.cooldown, automations.gate_meta.last_fired, automations.gate_meta.fire_count, automations.action_preview.no_preview, automations.action_preview.blocked, automations.new_rule, automations.delete_rule.title, automations.delete_rule.body, automations.geolocation.denied, automations.geolocation.failed, automations.gate_detail.hold_pending, automations.gate_detail.cooldown, automations.condition_type_unknown, automations.badge.balance_stale, automations.badge.blocked, automations.badge.cooldown, automations.badge.disabled, automations.badge.settling
   // Eine Tabelle je Bilanzfeld: Klartext, Icon-Symbol im Sprite, Einheit.
   const BALANCE_FIELD_INFO = {
     grid_export:       { label: 'automations.metric.grid_export',     icon: 'ico-grid',     unit: 'W' },
@@ -244,9 +244,9 @@
       const icon = (entity && DEVICE_CLASS_ICONS[entity.device_class]) || 'ico-topic';
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
       const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
-      const suffix = unit ? ` ${unit}` : '';
+      const summaryKey = unit ? 'automations.summary.entity_value_unit' : 'automations.summary.entity_value';
       return { icon, title: (entity && entity.name) || condition.topic || t('automations.entity_value'), unit,
-               summary: t('automations.summary.entity_value', { comparison, expected, unit: suffix.trim() }) };
+               summary: t(summaryKey, { comparison, expected, unit }) };
     }
     if (type === 'topic_value') {
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
@@ -639,9 +639,13 @@
       if (state === 'novalue') return t('automations.condition_state.no_value');
       if (state === 'unmet' && WINDOW_TYPES.has(condition.type)) return t('automations.condition_state.outside_window');
       if (state === 'unmet') return t('automations.condition_state.threshold_not_reached');
-      const since = report.since ? t('automations.condition_state.since', { duration: this.formatSeconds((this.nowTick / 1000) - report.since) }) : '';
-      if (state === 'pending') return t('automations.condition_state.pending', { since, remaining: this.formatSeconds(report.hold_remaining) });
-      return t('automations.condition_state.met', { since });
+      const duration = report.since ? this.formatSeconds((this.nowTick / 1000) - report.since) : null;
+      if (state === 'pending') {
+        const key = duration ? 'automations.condition_state.pending_since' : 'automations.condition_state.pending';
+        return t(key, { duration, remaining: this.formatSeconds(report.hold_remaining) });
+      }
+      if (duration) return t('automations.condition_state.met_since', { duration });
+      return t('automations.condition_state.met');
     },
 
     // Liefert eine Liste von Textbausteinen, keine HTML-Zeichenkette - das
@@ -1044,8 +1048,20 @@
     },
 
     badgeLabel(result) {
-      const entry = GATE_VERDICTS[result];
-      return entry ? t(entry.label) : result;
+      // Use badge keys where the text differs from gate verdicts (E8 requirement)
+      const badgeMap = {
+        fired: 'automations.history_result.fired',
+        conditions_not_met: 'automations.gate.conditions_not_met',
+        hold_pending: 'automations.gate.hold_pending',
+        cooldown: 'automations.badge.cooldown',
+        settling: 'automations.badge.settling',
+        balance_stale: 'automations.badge.balance_stale',
+        blocked: 'automations.history_result.blocked',
+        disabled: 'automations.badge.disabled',
+        error: 'automations.history_result.error',
+      };
+      const key = badgeMap[result];
+      return key ? t(key) : result;
     },
 
     validateRuleBeforeSave(rule) {
