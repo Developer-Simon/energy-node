@@ -619,6 +619,7 @@
   "layout_editor.options_section.location": "TODO(en): Ort",
   "layout_editor.options_section.space": "TODO(en): Platz",
   "layout_editor.page.new_name": "TODO(en): Neue Seite",
+  "layout_editor.page.new_name_numbered": "TODO(en): Neue Seite {n}",
   "layout_editor.page_modal.delete": "TODO(en): Seite löschen",
   "layout_editor.page_modal.done": "TODO(en): Fertig",
   "layout_editor.page_modal.kind": "TODO(en): Layout-Seite der Übersicht",

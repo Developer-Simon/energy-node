@@ -230,7 +230,7 @@ const LAYOUT_RESPONSE = {
   version: 3,
   card_types: CARD_TYPES,
   pages: [{
-    id: 'p', name: 'Übersicht', order: 0,
+    id: 'p', name: '', order: 0,
     groups: [{id: 'g', name: 'Dashboard', items: [
       {id: 'energy-band', type: 'energy_band', ref: '', span: '2', visible: true},
       {id: 'device:dev1', type: 'device', ref: 'dev1', span: '1', visible: true},
@@ -478,7 +478,7 @@ test('toGridNode()/fromGridNode() round-trip an entity_group title and entityRef
 
 test('load() fetches layout+devices, hydrates pages, and mounts a GridStack instance per group', async () => {
   const layout = {
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [{id: 'energy-flow', type: 'energy_flow', ref: '', span: 'full', visible: true, flow_scale: 'width'}],
     }]}],
@@ -539,7 +539,7 @@ test('itemOptions lists a single generic entity_value option (no per-entity ref)
 function componentWithMountedGroup(items = []) {
   const { component, document, initCalls } = loadLayoutPage();
   const group = {id: 'group-1', name: 'Dashboard', items};
-  const page = {id: 'page-1', name: 'Übersicht', order: 0, groups: [group]};
+  const page = {id: 'page-1', name: '', order: 0, groups: [group]};
   component.pages = [page];
   component.devices = [];
   const container = document.createElement('div');
@@ -769,7 +769,7 @@ test('save() renames visibleCategories/flowScale to snake_case, PUTs the layout,
   });
   component.unsaved = true;
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, visibleCategories: ['controls'], flowScale: ''},
       {id: 'b', type: 'energy_flow', ref: '', span: 'full', visible: true, visibleCategories: [], flowScale: 'speed'},
@@ -798,7 +798,7 @@ test('save() renames entityRefs to entity_refs, keeps title as-is, and omits an 
     },
   });
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {id: 'a', type: 'entity_group', ref: '', span: '1', visible: true, visibleCategories: [], flowScale: '', title: 'Sensoren', entityRefs: ['ent1', 'ent2']},
       {id: 'b', type: 'entity_group', ref: '', span: '1', visible: true, visibleCategories: [], flowScale: '', title: '', entityRefs: []},
@@ -823,7 +823,7 @@ test('save() renames energy-option camelCase fields to snake_case and omits empt
     },
   });
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {
         id: 'a', type: 'energy_band', ref: '', span: '2', visible: true, visibleCategories: [], flowScale: '',
@@ -855,7 +855,7 @@ test('save() serializes speedReferenceWatts as a JSON number and omits it when u
     },
   });
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {id: 'a', type: 'energy_flow', ref: '', span: 'full', visible: true, visibleCategories: [], flowScale: 'speed', speedReferenceMode: 'fixed', speedReferenceWatts: 2500},
       {id: 'b', type: 'energy_flow', ref: '', span: 'full', visible: true, visibleCategories: [], flowScale: 'width', speedReferenceMode: '', speedReferenceWatts: ''},
@@ -875,7 +875,7 @@ test('save() serializes speedReferenceWatts as a JSON number and omits it when u
 test('load() maps snake_case energy-option fields from the server back to camelCase item state', async () => {
   const layout = {
     version: 3,
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [{id: 'a', type: 'energy_ring', ref: '', span: '2', visible: true, kpi: 'eigen', label_mode: 'pct', animate: 'off'}],
     }]}],
@@ -893,7 +893,7 @@ test('load() maps snake_case energy-option fields from the server back to camelC
 test('load() maps the server-sent speed_reference_watts number back into speedReferenceWatts', async () => {
   const layout = {
     version: 3,
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [{id: 'energy-flow', type: 'energy_flow', ref: '', span: 'full', visible: true, flow_scale: 'speed', speed_reference_mode: 'fixed', speed_reference_watts: 2500}],
     }]}],
@@ -910,7 +910,7 @@ test('load() maps the server-sent speed_reference_watts number back into speedRe
 test('load() maps entity_refs/title from the server back into entityRefs/title, defaulting a missing entity_refs to []', async () => {
   const layout = {
     version: 3,
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [
         {id: 'a', type: 'entity_group', ref: '', span: '1', visible: true, title: 'Sensoren', entity_refs: ['ent1', 'ent2']},
@@ -1352,7 +1352,7 @@ test('das Auge toggelt Sichtbarkeit und markiert die Aenderung', () => {
 
 test('eine Option im Modal aendert das this.pages-Item und markiert ungespeichert (Weg A)', () => {
   const { dom, editor } = createEditorWithFragment('<div class="layout-grid"><div class="layout-grid-item" data-layout-item-id="ring-1" data-layout-item-kind="energy_ring"></div></div>');
-  editor.pages = [{id: 'p', name: 'Übersicht', groups: [{id: 'g', name: 'Energie', items: [
+  editor.pages = [{id: 'p', name: '', groups: [{id: 'g', name: 'Energie', items: [
     {id: 'ring-1', type: 'energy_ring', ref: '', span: '2', visible: true, kpi: 'autarkie', visibleCategories: [], entityRefs: []},
   ]}]}];
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));

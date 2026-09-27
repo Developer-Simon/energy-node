@@ -619,6 +619,7 @@
   "layout_editor.options_section.location": "Ort",
   "layout_editor.options_section.space": "Platz",
   "layout_editor.page.new_name": "Neue Seite",
+  "layout_editor.page.new_name_numbered": "Neue Seite {n}",
   "layout_editor.page_modal.delete": "Seite löschen",
   "layout_editor.page_modal.done": "Fertig",
   "layout_editor.page_modal.kind": "Layout-Seite der Übersicht",

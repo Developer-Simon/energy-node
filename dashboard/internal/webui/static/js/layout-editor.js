@@ -355,7 +355,7 @@
 
     energy_ring: item =>
       selectFieldHTML('kpi', 'layout_editor.energy_ring.kpi', item.kpi || 'autarkie',
-        [['autarkie', 'layout_editor.option.kpi.autarkie'], ['eigen', 'layout_editor.option.kpi.eigen'], ['netz', 'layout_editor.option.kpi.netz'], ['last', 'layout_editor.option.kpi.last']]) +
+        [['autarkie', 'layout_editor.option.kpi.autarkie'], ['eigen', 'layout_editor.option.kpi.eigen'], ['netz', 'layout_editor.option.kpi.netz'], ['last', 'layout_editor.option.kpi.last']]) + // i18n-ignore
       selectFieldHTML('label-mode', 'layout_editor.energy_ring.label_mode', item.labelMode || 'both',
         [['pct', 'layout_editor.option.label_mode.pct'], ['abs', 'layout_editor.option.label_mode.abs'], ['both', 'layout_editor.option.label_mode.both']]) +
       checkboxFieldHTML('animate', 'layout_editor.energy_ring.animate', item.animate !== 'off') +
@@ -1613,17 +1613,16 @@
     // Aenderung gespeichertes Layout weiter laedt - overview.html rendert
     // ein vorhandenes energy_summary-Item darum still, statt es abzulehnen.
     get itemOptions() {
-      // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title, layout_editor.device.label
       const options = [
-        {id: 'energy-flow', type: 'energy_flow', ref: '', label: 'Energie: Energiefluss'}, // i18n-ignore
-        {id: 'diagnostics', type: 'diagnostics', ref: '', label: 'Diagnosen'}, // i18n-ignore
-        {id: 'energy-band', type: 'energy_band', ref: '', label: 'Energie: Bilanzband'}, // i18n-ignore
-        {id: 'energy-ring', type: 'energy_ring', ref: '', label: 'Energie: Autarkie-Ring'}, // i18n-ignore
-        {id: 'energy-board', type: 'energy_board', ref: '', label: 'Energie: Datentafel'}, // i18n-ignore
-        {id: 'energy-day', type: 'energy_day', ref: '', label: 'Energie: Tagesband'}, // i18n-ignore
-        {id: 'energy-schema', type: 'energy_schema', ref: '', label: 'Energie: Anlagenschema'}, // i18n-ignore
-        {id: 'energy-status', type: 'energy_status', ref: '', label: 'Energie: Statuskarte'}, // i18n-ignore
-        {id: 'battery-status', type: 'battery_status', ref: '', label: 'Speicher: Statuskarte'}, // i18n-ignore
+        {id: 'energy-flow', type: 'energy_flow', ref: ''},
+        {id: 'diagnostics', type: 'diagnostics', ref: ''},
+        {id: 'energy-band', type: 'energy_band', ref: ''},
+        {id: 'energy-ring', type: 'energy_ring', ref: ''},
+        {id: 'energy-board', type: 'energy_board', ref: ''},
+        {id: 'energy-day', type: 'energy_day', ref: ''},
+        {id: 'energy-schema', type: 'energy_schema', ref: ''},
+        {id: 'energy-status', type: 'energy_status', ref: ''},
+        {id: 'battery-status', type: 'battery_status', ref: ''},
         // Kein Ref hier: eine einzelne, generische Auswahl fuer alle
         // Entitaeten statt einer Option je Entitaet - seit der Abschaffung
         // des Kartentyps 'entity' die einzige Entitaetenkarte mit einem
@@ -1631,10 +1630,10 @@
         // Widget selbst (siehe entityValuePicker in widgetHTML()) - addItem()
         // erzeugt darum fuer diese Option jedes Mal eine frische Karten-ID
         // statt die Option-ID wiederzuverwenden.
-        {id: 'entity-value', type: 'entity_value', ref: '', label: 'Wert-Karte'}, // i18n-ignore
+        {id: 'entity-value', type: 'entity_value', ref: ''},
       ];
       for (const device of this.devices) {
-        options.push({id: `device:${device.id}`, type: 'device', ref: device.id, label: `Gerät: ${device.name || device.id}`}); // i18n-ignore
+        options.push({id: `device:${device.id}`, type: 'device', ref: device.id});
       }
       return options;
     },
@@ -1660,7 +1659,7 @@
       // vorkommt. Die ID bleibt der letzte Rueckfall - fuer Layouts, die noch
       // aus der Zeit der Katalog-IDs stammen.
       const byKind = this.itemOptions.find(option => option.type === item.type && (option.ref || '') === (item.ref || ''));
-      if (byKind) return t(`layout_editor.card.${byKind.type}.title`);
+      if (byKind) return t(`layout_editor.card.${byKind.type}.title`); // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title
       const byID = this.itemOptions.find(option => option.id === item.id);
       if (byID) return t(`layout_editor.card.${byID.type}.title`);
       return item.ref || item.id;
@@ -1712,7 +1711,7 @@
       for (const device of this.devices) items.push(`device:${device.id}`);
       return [{
         id: newID('page'),
-        name: 'Übersicht', // i18n-ignore
+        name: '',
         order: 0,
         groups: [{
           id: newID('group'),
@@ -2030,7 +2029,7 @@
     // Tab teilen - die Tab-Leiste fuehrt Seiten ueber ihre ID.
     addPage() {
       let name = t('layout_editor.page.new_name');
-      for (let n = 2; this.pages.some(page => page.name === name); n++) name = `${t('layout_editor.page.new_name')} ${n}`;
+      for (let n = 2; this.pages.some(page => page.name === name); n++) name = t('layout_editor.page.new_name_numbered', {n});
       const newPageId = newID('page');
       this.pages.push({id: newPageId, name, order: this.pages.length, groups: [{id: newID('group'), name: 'Dashboard', items: []}]}); // i18n-ignore
       this.activePage = newPageId;
