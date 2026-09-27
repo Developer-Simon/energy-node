@@ -110,6 +110,7 @@
 
 ### Style
 
+- **dashboard:** gofmt the localization changes (5bcf62c)
 - **dashboard:** gofmt the device-prefs struct fields (19d915e)
 - **dashboard:** draw device icons larger inside their frame (86f909c)
 
