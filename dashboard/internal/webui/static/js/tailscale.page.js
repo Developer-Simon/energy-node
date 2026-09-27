@@ -183,11 +183,13 @@
     lastActionLabel() {
       if (!this.lastAction) return '-';
       const when = this.formatTime(this.lastAction.at);
-      const user = this.lastAction.user ? ` von ${this.lastAction.user}` : '';
+      const user = this.lastAction.user || '';
       if (this.lastAction.ok) {
-        return t('tailscale.last_action.succeeded', {action: this.lastAction.action, user, when});
+        const key = user ? 'tailscale.last_action.succeeded_by' : 'tailscale.last_action.succeeded';
+        return t(key, {action: this.lastAction.action, user, when});
       }
-      return t('tailscale.last_action.failed', {action: this.lastAction.action, user, when, error: this.lastAction.error || ''});
+      const key = user ? 'tailscale.last_action.failed_by' : 'tailscale.last_action.failed';
+      return t(key, {action: this.lastAction.action, user, when, error: this.lastAction.error || ''});
     },
   });
 

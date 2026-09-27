@@ -292,7 +292,7 @@
   <section id="settings-system" role="tabpanel" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
     <h3>{{t "settings.system.title"}}</h3>
     <section class="system-access-panel">
-      <p class="settings-help">{{t "settings.system.access.label"}} <strong x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong>{{t "settings.system.access.note"}} <code>{{t "settings.system.access.role"}}</code> {{t "settings.system.access.enabled"}}</p>
+      <p class="settings-help">{{t "settings.system.access.label"}} <strong x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong>. {{t "settings.system.access.note"}}</p>
       <p class="settings-help">{{t "settings.system.dashboard_version.label"}} <strong x-text="version || $t('settings.system.dashboard_version.unknown')">{{t "settings.system.dashboard_version.unknown"}}</strong></p>
       <p class="settings-help">{{t "settings.system.services_version.label"}} <strong x-text="servicesVersion || $t('settings.system.dashboard_version.unknown')">{{t "settings.system.dashboard_version.unknown"}}</strong></p>
       <div class="toolbar">
@@ -309,7 +309,7 @@
         <span x-show="updateStatus && !updateStatus.available" class="settings-help">{{t "settings.system.update_available.current"}}</span>
       </div>
       <div class="toolbar">
-        <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? 'Systemaktionen freigegeben' : 'Gastzugriff'">{{t "settings.system.access_badge.checking"}}</span>
+        <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? $t('settings.system.access_badge.granted') : $t('settings.system.access_badge.guest')">{{t "settings.system.access_badge.checking"}}</span>
         <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
           <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
           <span>{{t "settings.system.logout.button"}}</span>
@@ -336,7 +336,7 @@
     </section>
     <section class="system-config-panel" aria-labelledby="system-config-heading" x-data="systemConfigPanel()" x-init="load()">
       <h3 id="system-config-heading">{{t "settings.system.config.title"}}</h3>
-      <p class="settings-help">{{t "settings.system.config.file_info"}} <code>{{t "settings.system.config.file_path"}}</code>{{t "settings.system.config.file_note"}}</p>
+      <p class="settings-help">{{t "settings.system.config.file_info"}} {{t "settings.system.config.file_note"}}</p>
       <p class="settings-error" x-show="error" x-text="error"></p>
       <div class="settings-warning" x-cloak x-show="recoverMode && unknownKeys.length">
         {{t "settings.system.config.unknown_fields_warning"}}
