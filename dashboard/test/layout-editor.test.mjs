@@ -88,6 +88,7 @@ function fakeGridStackClass(initCalls) {
 function loadLayoutPage({ fetchImpl, gridstack = true } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   const context = dom.getInternalVMContext();
+  installI18n(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });

@@ -5,11 +5,12 @@
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || "Anfrage fehlgeschlagen");
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
   const newID = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
 
   // GridStack's default renderCB writes node.content via textContent (plain
   // text, XSS-safe by construction but useless for our interactive widgets).
@@ -75,15 +76,15 @@
       removeItemButton: true,
       shouldSort: false,
       searchResultLimit: 30,
-      placeholderValue: 'Entität suchen ...',
-      noResultsText: 'Keine Treffer',
-      noChoicesText: 'Keine Entitäten verfügbar',
+      placeholderValue: t('layout_editor.entity_chooser.placeholder'),
+      noResultsText: t('layout_editor.entity_chooser.no_results'),
+      noChoicesText: t('layout_editor.entity_chooser.no_choices'),
       itemSelectText: '',
     }));
   };
 
   const SPAN_OPTIONS = ['1', '2', '3', '4', '5', '6', 'full'];
-  const spanLabel = span => (span === 'full' ? 'voll' : span);
+  const spanLabel = span => (span === 'full' ? t('layout_editor.span.full') : span);
 
   // Spiegelt repeat(auto-fill, minmax(18rem, 1fr)) mit gap .8rem. Der Editor
   // zeigt damit dieselbe Spaltenzahl wie die Uebersicht bei gleicher Breite -
@@ -128,7 +129,7 @@
   const widthNote = (width, available) => {
     if (!width) return '';
     const cols = targetColumns(width);
-    let note = width + ' px · ' + cols + (cols === 1 ? ' Spalte' : ' Spalten');
+    let note = width + ' px · ' + tn('layout_editor.span.columns', cols);
     if (available < width) {
       const pct = Math.round((1 - available / width) * 100);
       note += ' · ' + pct + ' % verkleinert';
@@ -181,7 +182,7 @@
   // wechselt den Untertext: neu abgelegte Karten "erscheinen nach dem
   // Speichern", ausgeblendete (die der Server gar nicht erst rendert) tragen
   // stattdessen den Hinweis, sie ueber das Auge wieder einzublenden.
-  const placeholderHTML = (item, label, hint = 'erscheint nach dem Speichern') =>
+  const placeholderHTML = (item, label, hint = t('layout_editor.card_placeholder.new')) =>
     `<div class="layout-card-placeholder">`
     + `<span class="thumb">${THUMB[item.type] || THUMB.entity_value}</span>`
     + `<b>${escapeHTML(label ?? '')}</b>`
@@ -201,10 +202,10 @@
   };
 
   const CATEGORY_OPTIONS = [
-    {key: 'controls', label: 'Steuerungen'},
-    {key: 'measurements', label: 'Messwerte'},
-    {key: 'configuration', label: 'Konfiguration'},
-    {key: 'diagnostics', label: 'Diagnose'},
+    {key: 'controls', label: 'layout_editor.category.controls'},
+    {key: 'measurements', label: 'layout_editor.category.measurements'},
+    {key: 'configuration', label: 'layout_editor.category.configuration'},
+    {key: 'diagnostics', label: 'layout_editor.category.diagnostics'},
   ];
 
   const ICON = {
@@ -301,8 +302,8 @@
 
   function selectFieldHTML(role, label, value, options) {
     const opts = options.map(([v, text]) =>
-      `<option value="${v}"${value === v ? ' selected' : ''}>${escapeHTML(text)}</option>`).join('');
-    return `<div class="layout-modal-field"><label>${escapeHTML(label)}</label><select data-role="${role}">${opts}</select></div>`;
+      `<option value="${v}"${value === v ? ' selected' : ''}>${escapeHTML(t(text))}</option>`).join('');
+    return `<div class="layout-modal-field"><label>${escapeHTML(t(label))}</label><select data-role="${role}">${opts}</select></div>`;
   }
 
   // Wiederverwendet .settings-toggle/-track/-thumb aus base.css (siehe deren
@@ -318,11 +319,11 @@
   // durchsichtig (.settings-toggle in base.css). Ohne umschliessendes Label
   // rendert der Schalter zwar, laesst sich aber nicht umlegen.
   function checkboxFieldHTML(role, label, checked) {
-    return `<label class="layout-modal-switchrow">${escapeHTML(label)} ${toggleHTML(role, checked)}</label>`;
+    return `<label class="layout-modal-switchrow">${escapeHTML(t(label))} ${toggleHTML(role, checked)}</label>`;
   }
 
   function numberFieldHTML(role, label, value, min) {
-    return `<div class="layout-modal-field"><label>${escapeHTML(label)}</label><input type="number" data-role="${role}" min="${min}" value="${escapeHTML(String(value))}"></div>`;
+    return `<div class="layout-modal-field"><label>${escapeHTML(t(label))}</label><input type="number" data-role="${role}" min="${min}" value="${escapeHTML(String(value))}"></div>`;
   }
 
   // Eine Renderfunktion je Energiegrafik-Alternative, gebunden per Typname
@@ -333,73 +334,73 @@
     // im Modus "Linienstärke" hat die Referenzleistung keine Wirkung (siehe
     // energy-flow.js' render()).
     energy_flow: item =>
-      checkboxFieldHTML('hide-inactive', 'Inaktive Verbraucher ausblenden', item.hideInactive === 'on') +
+      checkboxFieldHTML('hide-inactive', 'layout_editor.energy_flow.hide_inactive', item.hideInactive === 'on') +
       (item.flowScale !== 'speed' ? '' :
-        selectFieldHTML('speed-reference-mode', 'Bezug für die Animationsgeschwindigkeit', item.speedReferenceMode || 'relative',
-          [['relative', 'relativ (größter aktiver Fluss)'], ['fixed', 'fest']]) +
-        numberFieldHTML('speed-reference-watts', 'Referenzleistung (W)', item.speedReferenceWatts || 1000, 1)),
+        selectFieldHTML('speed-reference-mode', 'layout_editor.energy_flow.speed_reference_mode', item.speedReferenceMode || 'relative',
+          [['relative', 'layout_editor.option.speed_reference_mode.relative'], ['fixed', 'layout_editor.option.speed_reference_mode.fixed']]) +
+        numberFieldHTML('speed-reference-watts', 'layout_editor.energy_flow.speed_reference_watts', item.speedReferenceWatts || 1000, 1)),
 
     energy_band: item =>
-      selectFieldHTML('height-reference', 'Höhenbezug', item.heightReference || 'fill',
-        [['fill', 'anteilig (füllt die Höhe)'], ['abs', 'absolut (Bezug 10 kW)']]) +
-      selectFieldHTML('scale-mode', 'Skalierung', item.scaleMode || 'linear',
-        [['linear', 'linear (echte Anteile)'], ['sqrt', 'Wurzel (kleine sichtbar)']]) +
-      selectFieldHTML('unit', 'Einheit', item.unit || 'auto',
-        [['auto', 'automatisch'], ['w', 'immer W'], ['kw', 'immer kW']]) +
-      selectFieldHTML('bundle-threshold', 'Kleinstflüsse', item.bundleThreshold || '0',
-        [['0', 'alle einzeln'], ['0.03', 'unter 3 % bündeln'], ['0.08', 'unter 8 % bündeln']]) +
-      checkboxFieldHTML('animate', 'Fluss animieren', item.animate !== 'off') +
-      selectFieldHTML('measured-split', 'Gemessene Verbraucher', item.measuredSplit || 'sum',
-        [['sum', 'gesammelt'], ['entities', 'einzeln je Entität']]),
+      selectFieldHTML('height-reference', 'layout_editor.energy_band.height_reference', item.heightReference || 'fill',
+        [['fill', 'layout_editor.option.height_reference.fill'], ['abs', 'layout_editor.option.height_reference.abs']]) +
+      selectFieldHTML('scale-mode', 'layout_editor.energy_band.scale_mode', item.scaleMode || 'linear',
+        [['linear', 'layout_editor.option.scale_mode.linear'], ['sqrt', 'layout_editor.option.scale_mode.sqrt']]) +
+      selectFieldHTML('unit', 'layout_editor.energy_band.unit', item.unit || 'auto',
+        [['auto', 'layout_editor.option.unit.auto'], ['w', 'layout_editor.option.unit.w'], ['kw', 'layout_editor.option.unit.kw']]) +
+      selectFieldHTML('bundle-threshold', 'layout_editor.energy_band.bundle_threshold', item.bundleThreshold || '0',
+        [['0', 'layout_editor.option.bundle_threshold.zero'], ['0.03', 'layout_editor.option.bundle_threshold.three'], ['0.08', 'layout_editor.option.bundle_threshold.eight']]) +
+      checkboxFieldHTML('animate', 'layout_editor.energy_band.animate', item.animate !== 'off') +
+      selectFieldHTML('measured-split', 'layout_editor.energy_band.measured_split', item.measuredSplit || 'sum',
+        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
 
     energy_ring: item =>
-      selectFieldHTML('kpi', 'Kennzahl in der Mitte', item.kpi || 'autarkie',
-        [['autarkie', 'Autarkiegrad'], ['eigen', 'Eigenverbrauchsquote'], ['netz', 'Netzbilanz'], ['last', 'Hausverbrauch']]) +
-      selectFieldHTML('label-mode', 'Beschriftung', item.labelMode || 'both',
-        [['pct', 'Prozent'], ['abs', 'Absolutwerte'], ['both', 'beides']]) +
-      checkboxFieldHTML('animate', 'Richtung animieren', item.animate !== 'off') +
-      selectFieldHTML('measured-split', 'Gemessene Verbraucher', item.measuredSplit || 'sum',
-        [['sum', 'gesammelt'], ['entities', 'einzeln je Entität']]),
+      selectFieldHTML('kpi', 'layout_editor.energy_ring.kpi', item.kpi || 'autarkie',
+        [['autarkie', 'layout_editor.option.kpi.autarkie'], ['eigen', 'layout_editor.option.kpi.eigen'], ['netz', 'layout_editor.option.kpi.netz'], ['last', 'layout_editor.option.kpi.last']]) +
+      selectFieldHTML('label-mode', 'layout_editor.energy_ring.label_mode', item.labelMode || 'both',
+        [['pct', 'layout_editor.option.label_mode.pct'], ['abs', 'layout_editor.option.label_mode.abs'], ['both', 'layout_editor.option.label_mode.both']]) +
+      checkboxFieldHTML('animate', 'layout_editor.energy_ring.animate', item.animate !== 'off') +
+      selectFieldHTML('measured-split', 'layout_editor.energy_ring.measured_split', item.measuredSplit || 'sum',
+        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
 
     energy_board: item =>
-      selectFieldHTML('sort', 'Sortierung', item.sort || 'fixed',
-        [['fixed', 'feste Reihenfolge'], ['power', 'nach Leistung']]) +
-      selectFieldHTML('spark-window', 'Verlauf', item.sparkWindow || '15',
-        [['15', '15 Minuten'], ['60', '60 Minuten'], ['off', 'aus']]) +
-      checkboxFieldHTML('dense', 'Kompakt', item.dense === 'on') +
-      checkboxFieldHTML('show-inactive', 'Inaktive Rollen zeigen', item.showInactive !== 'off') +
-      selectFieldHTML('measured-split', 'Gemessene Verbraucher', item.measuredSplit || 'sum',
-        [['sum', 'gesammelt'], ['entities', 'einzeln je Entität']]),
+      selectFieldHTML('sort', 'layout_editor.energy_board.sort', item.sort || 'fixed',
+        [['fixed', 'layout_editor.option.sort.fixed'], ['power', 'layout_editor.option.sort.power']]) +
+      selectFieldHTML('spark-window', 'layout_editor.energy_board.spark_window', item.sparkWindow || '15',
+        [['15', 'layout_editor.option.spark_window.fifteen'], ['60', 'layout_editor.option.spark_window.sixty'], ['off', 'layout_editor.option.spark_window.off']]) +
+      checkboxFieldHTML('dense', 'layout_editor.energy_board.dense', item.dense === 'on') +
+      checkboxFieldHTML('show-inactive', 'layout_editor.energy_board.show_inactive', item.showInactive !== 'off') +
+      selectFieldHTML('measured-split', 'layout_editor.energy_board.measured_split', item.measuredSplit || 'sum',
+        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
 
     energy_day: item =>
-      selectFieldHTML('display-mode', 'Darstellung', item.displayMode || 'mirror',
-        [['mirror', 'gespiegelt (Deckung / Verwendung)'], ['supply', 'nur Deckung'], ['demand', 'nur Verwendung']]) +
-      checkboxFieldHTML('show-now', 'Jetzt-Kante beschriften', item.showNow !== 'off'),
+      selectFieldHTML('display-mode', 'layout_editor.energy_day.display_mode', item.displayMode || 'mirror',
+        [['mirror', 'layout_editor.option.display_mode.mirror'], ['supply', 'layout_editor.option.display_mode.supply'], ['demand', 'layout_editor.option.display_mode.demand']]) +
+      checkboxFieldHTML('show-now', 'layout_editor.energy_day.show_now', item.showNow !== 'off'),
 
     energy_schema: item =>
-      selectFieldHTML('stroke-mode', 'Leitungsstärke', item.strokeMode || 'power',
-        [['const', 'konstant'], ['power', 'nach Leistung']]) +
-      selectFieldHTML('entity-labels', 'Beschriftung', item.entityLabels || 'power',
-        [['power', 'nur Leistung'], ['entity', 'Leistung + Entität']]) +
-      checkboxFieldHTML('hide-inactive', 'Inaktive Abzweige ausblenden', item.hideInactive === 'on') +
-      selectFieldHTML('display-size', 'Darstellungsgröße', item.displaySize || 'm',
-        [['xs', 'XS'], ['s', 'S'], ['m', 'M (Vorgabe)'], ['l', 'L'], ['xl', 'XL']]) +
-      checkboxFieldHTML('animate', 'Pfeil animieren', item.animate === 'on'),
+      selectFieldHTML('stroke-mode', 'layout_editor.energy_schema.stroke_mode', item.strokeMode || 'power',
+        [['const', 'layout_editor.option.stroke_mode.const'], ['power', 'layout_editor.option.stroke_mode.power']]) +
+      selectFieldHTML('entity-labels', 'layout_editor.energy_schema.entity_labels', item.entityLabels || 'power',
+        [['power', 'layout_editor.option.entity_labels.power'], ['entity', 'layout_editor.option.entity_labels.entity']]) +
+      checkboxFieldHTML('hide-inactive', 'layout_editor.energy_schema.hide_inactive', item.hideInactive === 'on') +
+      selectFieldHTML('display-size', 'layout_editor.energy_schema.display_size', item.displaySize || 'm',
+        [['xs', 'layout_editor.option.display_size.xs'], ['s', 'layout_editor.option.display_size.s'], ['m', 'layout_editor.option.display_size.m'], ['l', 'layout_editor.option.display_size.l'], ['xl', 'layout_editor.option.display_size.xl']]) +
+      checkboxFieldHTML('animate', 'layout_editor.energy_schema.animate', item.animate === 'on'),
 
     energy_status: item =>
-      selectFieldHTML('beam-span', 'Waagen-Endwert', item.beamSpan || '6000',
-        [['3000', '± 3 kW'], ['6000', '± 6 kW'], ['11000', '± 11 kW']]) +
-      checkboxFieldHTML('show-advice', 'Handlungsempfehlung', item.showAdvice !== 'off'),
+      selectFieldHTML('beam-span', 'layout_editor.energy_status.beam_span', item.beamSpan || '6000',
+        [['3000', 'layout_editor.option.beam_span.three'], ['6000', 'layout_editor.option.beam_span.six'], ['11000', 'layout_editor.option.beam_span.eleven']]) +
+      checkboxFieldHTML('show-advice', 'layout_editor.energy_status.show_advice', item.showAdvice !== 'off'),
 
     // Nur die Trajektorie hat eine Zeitachse - die Saeule bekommt kein Feld
     // (dieselbe Bedingung wie energy_flow bei der Speed-Referenz). Das
     // Verlaufsfenster gilt fuer beide Haelften, die Projektion ueberschreibt
     // optional nur die Fortschreibung ("" = wie Verlauf).
     battery_status: item => item.display !== 'trajectory' ? '' :
-      selectFieldHTML('battery-window', 'Zeitfenster', item.batteryWindow || '6',
-        [['3', '3 h'], ['6', '6 h'], ['12', '12 h'], ['24', '24 h']]) +
-      selectFieldHTML('battery-projection-window', 'Projektion (optional)', item.batteryProjectionWindow || '',
-        [['', 'wie Zeitfenster'], ['3', '3 h'], ['6', '6 h'], ['12', '12 h'], ['24', '24 h']]),
+      selectFieldHTML('battery-window', 'layout_editor.battery_status.battery_window', item.batteryWindow || '6',
+        [['3', 'layout_editor.option.battery_window.three'], ['6', 'layout_editor.option.battery_window.six'], ['12', 'layout_editor.option.battery_window.twelve'], ['24', 'layout_editor.option.battery_window.twentyfour']]) +
+      selectFieldHTML('battery-projection-window', 'layout_editor.battery_status.battery_projection_window', item.batteryProjectionWindow || '',
+        [['', 'layout_editor.option.battery_projection_window.like_window'], ['3', 'layout_editor.option.battery_projection_window.three'], ['6', 'layout_editor.option.battery_projection_window.six'], ['12', 'layout_editor.option.battery_projection_window.twelve'], ['24', 'layout_editor.option.battery_projection_window.twentyfour']]),
   };
 
   // Karten mit Typ-Minimum >= 2 (die fuenf Energiegrafik-Alternativen ausser
@@ -432,15 +433,15 @@
       const tooSmall = tracks < card.min_span;
       const overColumns = !tooSmall && span !== 'full' && tracks > columns;
       const title = tooSmall
-        ? `${label} braucht mindestens ${card.min_width}, das ist Spannweite ${card.min_span}`
-        : overColumns ? 'wirkt bei dieser Fensterbreite wie voll' : '';
+        ? t('layout_editor.span.too_small', {label: label, min_width: card.min_width, min_span: card.min_span})
+        : overColumns ? t('layout_editor.span.over_columns') : '';
       return `<option value="${span}"`
         + (item.span === span ? ' selected' : '')
         + (tooSmall ? ' disabled' : '')
         + (title ? ` title="${escapeHTML(title)}"` : '')
         + `>${escapeHTML(spanLabel(span))}</option>`;
     }).join('');
-    return `<div class="layout-modal-field"><label>Breite</label><select data-role="span">${options}</select></div>`;
+    return `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.span.width'))}</label><select data-role="span">${options}</select></div>`;
   }
 
   // Zwangshoehe: leer = keine, sonst 1-12 Einheiten a 7rem. Sie hebt an, sie
@@ -553,7 +554,7 @@
     if (item.display === 'compact') {
       return '<p class="layout-modal-hint">Die kompakte Kachel wählt ihre bis zu drei Zeilen selbst — die Kategorien wirken nur in der Detailansicht.</p>';
     }
-    return `<div class="layout-modal-field">${CATEGORY_OPTIONS.map(cat => `<label class="layout-modal-switchrow">${escapeHTML(cat.label)} ${toggleHTML('category', (item.visibleCategories || []).includes(cat.key), ` value="${cat.key}"`)}</label>`).join('')}</div>`;
+    return `<div class="layout-modal-field">${CATEGORY_OPTIONS.map(cat => `<label class="layout-modal-switchrow">${escapeHTML(t(cat.label))} ${toggleHTML('category', (item.visibleCategories || []).includes(cat.key), ` value="${cat.key}"`)}</label>`).join('')}</div>`;
   }
 
   function entityGroupHTML(item, devices) {
