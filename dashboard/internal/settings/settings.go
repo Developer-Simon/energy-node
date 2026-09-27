@@ -1621,8 +1621,8 @@ func validateLayout(value Layout) error {
 	}
 	seen := map[string]bool{}
 	for _, page := range value.Pages {
-		if page.ID == "" || page.Name == "" {
-			return errors.New("layout pages require id and name")
+		if page.ID == "" {
+			return errors.New("layout pages require id")
 		}
 		if seen[page.ID] {
 			return fmt.Errorf("duplicate layout page %q", page.ID)
@@ -1661,6 +1661,9 @@ func normalizeLayout(value Layout) Layout {
 		value.Pages = []Page{}
 	}
 	for pageIndex := range value.Pages {
+		if value.Pages[pageIndex].Name == "Übersicht" {
+			value.Pages[pageIndex].Name = ""
+		}
 		if value.Pages[pageIndex].Groups == nil {
 			value.Pages[pageIndex].Groups = []Group{}
 		}

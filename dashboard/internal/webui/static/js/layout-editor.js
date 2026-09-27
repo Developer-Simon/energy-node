@@ -5,10 +5,12 @@
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || "Anfrage fehlgeschlagen");
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
   const newID = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
 
   // GridStack's default renderCB writes node.content via textContent (plain
   // text, XSS-safe by construction but useless for our interactive widgets).
@@ -74,15 +76,15 @@
       removeItemButton: true,
       shouldSort: false,
       searchResultLimit: 30,
-      placeholderValue: 'Entität suchen ...',
-      noResultsText: 'Keine Treffer',
-      noChoicesText: 'Keine Entitäten verfügbar',
+      placeholderValue: t('layout_editor.entity_chooser.placeholder'),
+      noResultsText: t('layout_editor.entity_chooser.no_results'),
+      noChoicesText: t('layout_editor.entity_chooser.no_choices'),
       itemSelectText: '',
     }));
   };
 
   const SPAN_OPTIONS = ['1', '2', '3', '4', '5', '6', 'full'];
-  const spanLabel = span => (span === 'full' ? 'voll' : span);
+  const spanLabel = span => (span === 'full' ? t('layout_editor.span.full') : span);
 
   // Spiegelt repeat(auto-fill, minmax(18rem, 1fr)) mit gap .8rem. Der Editor
   // zeigt damit dieselbe Spaltenzahl wie die Uebersicht bei gleicher Breite -
@@ -127,7 +129,7 @@
   const widthNote = (width, available) => {
     if (!width) return '';
     const cols = targetColumns(width);
-    let note = width + ' px · ' + cols + (cols === 1 ? ' Spalte' : ' Spalten');
+    let note = width + ' px · ' + tn('layout_editor.span.columns', cols);
     if (available < width) {
       const pct = Math.round((1 - available / width) * 100);
       note += ' · ' + pct + ' % verkleinert';
@@ -180,7 +182,7 @@
   // wechselt den Untertext: neu abgelegte Karten "erscheinen nach dem
   // Speichern", ausgeblendete (die der Server gar nicht erst rendert) tragen
   // stattdessen den Hinweis, sie ueber das Auge wieder einzublenden.
-  const placeholderHTML = (item, label, hint = 'erscheint nach dem Speichern') =>
+  const placeholderHTML = (item, label, hint = t('layout_editor.card_placeholder.new')) =>
     `<div class="layout-card-placeholder">`
     + `<span class="thumb">${THUMB[item.type] || THUMB.entity_value}</span>`
     + `<b>${escapeHTML(label ?? '')}</b>`
@@ -200,10 +202,10 @@
   };
 
   const CATEGORY_OPTIONS = [
-    {key: 'controls', label: 'Steuerungen'},
-    {key: 'measurements', label: 'Messwerte'},
-    {key: 'configuration', label: 'Konfiguration'},
-    {key: 'diagnostics', label: 'Diagnose'},
+    {key: 'controls', label: 'layout_editor.category.controls'},
+    {key: 'measurements', label: 'layout_editor.category.measurements'},
+    {key: 'configuration', label: 'layout_editor.category.configuration'},
+    {key: 'diagnostics', label: 'layout_editor.category.diagnostics'},
   ];
 
   const ICON = {
@@ -300,8 +302,8 @@
 
   function selectFieldHTML(role, label, value, options) {
     const opts = options.map(([v, text]) =>
-      `<option value="${v}"${value === v ? ' selected' : ''}>${escapeHTML(text)}</option>`).join('');
-    return `<div class="layout-modal-field"><label>${escapeHTML(label)}</label><select data-role="${role}">${opts}</select></div>`;
+      `<option value="${v}"${value === v ? ' selected' : ''}>${escapeHTML(t(text))}</option>`).join('');
+    return `<div class="layout-modal-field"><label>${escapeHTML(t(label))}</label><select data-role="${role}">${opts}</select></div>`;
   }
 
   // Wiederverwendet .settings-toggle/-track/-thumb aus base.css (siehe deren
@@ -317,11 +319,11 @@
   // durchsichtig (.settings-toggle in base.css). Ohne umschliessendes Label
   // rendert der Schalter zwar, laesst sich aber nicht umlegen.
   function checkboxFieldHTML(role, label, checked) {
-    return `<label class="layout-modal-switchrow">${escapeHTML(label)} ${toggleHTML(role, checked)}</label>`;
+    return `<label class="layout-modal-switchrow">${escapeHTML(t(label))} ${toggleHTML(role, checked)}</label>`;
   }
 
   function numberFieldHTML(role, label, value, min) {
-    return `<div class="layout-modal-field"><label>${escapeHTML(label)}</label><input type="number" data-role="${role}" min="${min}" value="${escapeHTML(String(value))}"></div>`;
+    return `<div class="layout-modal-field"><label>${escapeHTML(t(label))}</label><input type="number" data-role="${role}" min="${min}" value="${escapeHTML(String(value))}"></div>`;
   }
 
   // Eine Renderfunktion je Energiegrafik-Alternative, gebunden per Typname
@@ -332,73 +334,73 @@
     // im Modus "Linienstärke" hat die Referenzleistung keine Wirkung (siehe
     // energy-flow.js' render()).
     energy_flow: item =>
-      checkboxFieldHTML('hide-inactive', 'Inaktive Verbraucher ausblenden', item.hideInactive === 'on') +
+      checkboxFieldHTML('hide-inactive', 'layout_editor.energy_flow.hide_inactive', item.hideInactive === 'on') +
       (item.flowScale !== 'speed' ? '' :
-        selectFieldHTML('speed-reference-mode', 'Bezug für die Animationsgeschwindigkeit', item.speedReferenceMode || 'relative',
-          [['relative', 'relativ (größter aktiver Fluss)'], ['fixed', 'fest']]) +
-        numberFieldHTML('speed-reference-watts', 'Referenzleistung (W)', item.speedReferenceWatts || 1000, 1)),
+        selectFieldHTML('speed-reference-mode', 'layout_editor.energy_flow.speed_reference_mode', item.speedReferenceMode || 'relative',
+          [['relative', 'layout_editor.option.speed_reference_mode.relative'], ['fixed', 'layout_editor.option.speed_reference_mode.fixed']]) +
+        numberFieldHTML('speed-reference-watts', 'layout_editor.energy_flow.speed_reference_watts', item.speedReferenceWatts || 1000, 1)),
 
     energy_band: item =>
-      selectFieldHTML('height-reference', 'Höhenbezug', item.heightReference || 'fill',
-        [['fill', 'anteilig (füllt die Höhe)'], ['abs', 'absolut (Bezug 10 kW)']]) +
-      selectFieldHTML('scale-mode', 'Skalierung', item.scaleMode || 'linear',
-        [['linear', 'linear (echte Anteile)'], ['sqrt', 'Wurzel (kleine sichtbar)']]) +
-      selectFieldHTML('unit', 'Einheit', item.unit || 'auto',
-        [['auto', 'automatisch'], ['w', 'immer W'], ['kw', 'immer kW']]) +
-      selectFieldHTML('bundle-threshold', 'Kleinstflüsse', item.bundleThreshold || '0',
-        [['0', 'alle einzeln'], ['0.03', 'unter 3 % bündeln'], ['0.08', 'unter 8 % bündeln']]) +
-      checkboxFieldHTML('animate', 'Fluss animieren', item.animate !== 'off') +
-      selectFieldHTML('measured-split', 'Gemessene Verbraucher', item.measuredSplit || 'sum',
-        [['sum', 'gesammelt'], ['entities', 'einzeln je Entität']]),
+      selectFieldHTML('height-reference', 'layout_editor.energy_band.height_reference', item.heightReference || 'fill',
+        [['fill', 'layout_editor.option.height_reference.fill'], ['abs', 'layout_editor.option.height_reference.abs']]) +
+      selectFieldHTML('scale-mode', 'layout_editor.energy_band.scale_mode', item.scaleMode || 'linear',
+        [['linear', 'layout_editor.option.scale_mode.linear'], ['sqrt', 'layout_editor.option.scale_mode.sqrt']]) +
+      selectFieldHTML('unit', 'layout_editor.energy_band.unit', item.unit || 'auto',
+        [['auto', 'layout_editor.option.unit.auto'], ['w', 'layout_editor.option.unit.w'], ['kw', 'layout_editor.option.unit.kw']]) +
+      selectFieldHTML('bundle-threshold', 'layout_editor.energy_band.bundle_threshold', item.bundleThreshold || '0',
+        [['0', 'layout_editor.option.bundle_threshold.zero'], ['0.03', 'layout_editor.option.bundle_threshold.three'], ['0.08', 'layout_editor.option.bundle_threshold.eight']]) +
+      checkboxFieldHTML('animate', 'layout_editor.energy_band.animate', item.animate !== 'off') +
+      selectFieldHTML('measured-split', 'layout_editor.energy_band.measured_split', item.measuredSplit || 'sum',
+        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
 
     energy_ring: item =>
-      selectFieldHTML('kpi', 'Kennzahl in der Mitte', item.kpi || 'autarkie',
-        [['autarkie', 'Autarkiegrad'], ['eigen', 'Eigenverbrauchsquote'], ['netz', 'Netzbilanz'], ['last', 'Hausverbrauch']]) +
-      selectFieldHTML('label-mode', 'Beschriftung', item.labelMode || 'both',
-        [['pct', 'Prozent'], ['abs', 'Absolutwerte'], ['both', 'beides']]) +
-      checkboxFieldHTML('animate', 'Richtung animieren', item.animate !== 'off') +
-      selectFieldHTML('measured-split', 'Gemessene Verbraucher', item.measuredSplit || 'sum',
-        [['sum', 'gesammelt'], ['entities', 'einzeln je Entität']]),
+      selectFieldHTML('kpi', 'layout_editor.energy_ring.kpi', item.kpi || 'autarkie',
+        [['autarkie', 'layout_editor.option.kpi.autarkie'], ['eigen', 'layout_editor.option.kpi.eigen'], ['netz', 'layout_editor.option.kpi.netz'], ['last', 'layout_editor.option.kpi.last']]) + // i18n-ignore
+      selectFieldHTML('label-mode', 'layout_editor.energy_ring.label_mode', item.labelMode || 'both',
+        [['pct', 'layout_editor.option.label_mode.pct'], ['abs', 'layout_editor.option.label_mode.abs'], ['both', 'layout_editor.option.label_mode.both']]) +
+      checkboxFieldHTML('animate', 'layout_editor.energy_ring.animate', item.animate !== 'off') +
+      selectFieldHTML('measured-split', 'layout_editor.energy_ring.measured_split', item.measuredSplit || 'sum',
+        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
 
     energy_board: item =>
-      selectFieldHTML('sort', 'Sortierung', item.sort || 'fixed',
-        [['fixed', 'feste Reihenfolge'], ['power', 'nach Leistung']]) +
-      selectFieldHTML('spark-window', 'Verlauf', item.sparkWindow || '15',
-        [['15', '15 Minuten'], ['60', '60 Minuten'], ['off', 'aus']]) +
-      checkboxFieldHTML('dense', 'Kompakt', item.dense === 'on') +
-      checkboxFieldHTML('show-inactive', 'Inaktive Rollen zeigen', item.showInactive !== 'off') +
-      selectFieldHTML('measured-split', 'Gemessene Verbraucher', item.measuredSplit || 'sum',
-        [['sum', 'gesammelt'], ['entities', 'einzeln je Entität']]),
+      selectFieldHTML('sort', 'layout_editor.energy_board.sort', item.sort || 'fixed',
+        [['fixed', 'layout_editor.option.sort.fixed'], ['power', 'layout_editor.option.sort.power']]) +
+      selectFieldHTML('spark-window', 'layout_editor.energy_board.spark_window', item.sparkWindow || '15',
+        [['15', 'layout_editor.option.spark_window.fifteen'], ['60', 'layout_editor.option.spark_window.sixty'], ['off', 'layout_editor.option.spark_window.off']]) +
+      checkboxFieldHTML('dense', 'layout_editor.energy_board.dense', item.dense === 'on') +
+      checkboxFieldHTML('show-inactive', 'layout_editor.energy_board.show_inactive', item.showInactive !== 'off') +
+      selectFieldHTML('measured-split', 'layout_editor.energy_board.measured_split', item.measuredSplit || 'sum',
+        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
 
     energy_day: item =>
-      selectFieldHTML('display-mode', 'Darstellung', item.displayMode || 'mirror',
-        [['mirror', 'gespiegelt (Deckung / Verwendung)'], ['supply', 'nur Deckung'], ['demand', 'nur Verwendung']]) +
-      checkboxFieldHTML('show-now', 'Jetzt-Kante beschriften', item.showNow !== 'off'),
+      selectFieldHTML('display-mode', 'layout_editor.energy_day.display_mode', item.displayMode || 'mirror',
+        [['mirror', 'layout_editor.option.display_mode.mirror'], ['supply', 'layout_editor.option.display_mode.supply'], ['demand', 'layout_editor.option.display_mode.demand']]) +
+      checkboxFieldHTML('show-now', 'layout_editor.energy_day.show_now', item.showNow !== 'off'),
 
     energy_schema: item =>
-      selectFieldHTML('stroke-mode', 'Leitungsstärke', item.strokeMode || 'power',
-        [['const', 'konstant'], ['power', 'nach Leistung']]) +
-      selectFieldHTML('entity-labels', 'Beschriftung', item.entityLabels || 'power',
-        [['power', 'nur Leistung'], ['entity', 'Leistung + Entität']]) +
-      checkboxFieldHTML('hide-inactive', 'Inaktive Abzweige ausblenden', item.hideInactive === 'on') +
-      selectFieldHTML('display-size', 'Darstellungsgröße', item.displaySize || 'm',
-        [['xs', 'XS'], ['s', 'S'], ['m', 'M (Vorgabe)'], ['l', 'L'], ['xl', 'XL']]) +
-      checkboxFieldHTML('animate', 'Pfeil animieren', item.animate === 'on'),
+      selectFieldHTML('stroke-mode', 'layout_editor.energy_schema.stroke_mode', item.strokeMode || 'power',
+        [['const', 'layout_editor.option.stroke_mode.const'], ['power', 'layout_editor.option.stroke_mode.power']]) +
+      selectFieldHTML('entity-labels', 'layout_editor.energy_schema.entity_labels', item.entityLabels || 'power',
+        [['power', 'layout_editor.option.entity_labels.power'], ['entity', 'layout_editor.option.entity_labels.entity']]) +
+      checkboxFieldHTML('hide-inactive', 'layout_editor.energy_schema.hide_inactive', item.hideInactive === 'on') +
+      selectFieldHTML('display-size', 'layout_editor.energy_schema.display_size', item.displaySize || 'm',
+        [['xs', 'layout_editor.option.display_size.xs'], ['s', 'layout_editor.option.display_size.s'], ['m', 'layout_editor.option.display_size.m'], ['l', 'layout_editor.option.display_size.l'], ['xl', 'layout_editor.option.display_size.xl']]) +
+      checkboxFieldHTML('animate', 'layout_editor.energy_schema.animate', item.animate === 'on'),
 
     energy_status: item =>
-      selectFieldHTML('beam-span', 'Waagen-Endwert', item.beamSpan || '6000',
-        [['3000', '± 3 kW'], ['6000', '± 6 kW'], ['11000', '± 11 kW']]) +
-      checkboxFieldHTML('show-advice', 'Handlungsempfehlung', item.showAdvice !== 'off'),
+      selectFieldHTML('beam-span', 'layout_editor.energy_status.beam_span', item.beamSpan || '6000',
+        [['3000', 'layout_editor.option.beam_span.three'], ['6000', 'layout_editor.option.beam_span.six'], ['11000', 'layout_editor.option.beam_span.eleven']]) +
+      checkboxFieldHTML('show-advice', 'layout_editor.energy_status.show_advice', item.showAdvice !== 'off'),
 
     // Nur die Trajektorie hat eine Zeitachse - die Saeule bekommt kein Feld
     // (dieselbe Bedingung wie energy_flow bei der Speed-Referenz). Das
     // Verlaufsfenster gilt fuer beide Haelften, die Projektion ueberschreibt
     // optional nur die Fortschreibung ("" = wie Verlauf).
     battery_status: item => item.display !== 'trajectory' ? '' :
-      selectFieldHTML('battery-window', 'Zeitfenster', item.batteryWindow || '6',
-        [['3', '3 h'], ['6', '6 h'], ['12', '12 h'], ['24', '24 h']]) +
-      selectFieldHTML('battery-projection-window', 'Projektion (optional)', item.batteryProjectionWindow || '',
-        [['', 'wie Zeitfenster'], ['3', '3 h'], ['6', '6 h'], ['12', '12 h'], ['24', '24 h']]),
+      selectFieldHTML('battery-window', 'layout_editor.battery_status.battery_window', item.batteryWindow || '6',
+        [['3', 'layout_editor.option.battery_window.three'], ['6', 'layout_editor.option.battery_window.six'], ['12', 'layout_editor.option.battery_window.twelve'], ['24', 'layout_editor.option.battery_window.twentyfour']]) +
+      selectFieldHTML('battery-projection-window', 'layout_editor.battery_status.battery_projection_window', item.batteryProjectionWindow || '',
+        [['', 'layout_editor.option.battery_projection_window.like_window'], ['3', 'layout_editor.option.battery_projection_window.three'], ['6', 'layout_editor.option.battery_projection_window.six'], ['12', 'layout_editor.option.battery_projection_window.twelve'], ['24', 'layout_editor.option.battery_projection_window.twentyfour']]),
   };
 
   // Karten mit Typ-Minimum >= 2 (die fuenf Energiegrafik-Alternativen ausser
@@ -431,22 +433,22 @@
       const tooSmall = tracks < card.min_span;
       const overColumns = !tooSmall && span !== 'full' && tracks > columns;
       const title = tooSmall
-        ? `${label} braucht mindestens ${card.min_width}, das ist Spannweite ${card.min_span}`
-        : overColumns ? 'wirkt bei dieser Fensterbreite wie voll' : '';
+        ? t('layout_editor.span.too_small', {label: label, min_width: card.min_width, min_span: card.min_span})
+        : overColumns ? t('layout_editor.span.over_columns') : '';
       return `<option value="${span}"`
         + (item.span === span ? ' selected' : '')
         + (tooSmall ? ' disabled' : '')
         + (title ? ` title="${escapeHTML(title)}"` : '')
         + `>${escapeHTML(spanLabel(span))}</option>`;
     }).join('');
-    return `<div class="layout-modal-field"><label>Breite</label><select data-role="span">${options}</select></div>`;
+    return `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.span.width'))}</label><select data-role="span">${options}</select></div>`;
   }
 
   // Zwangshoehe: leer = keine, sonst 1-12 Einheiten a 7rem. Sie hebt an, sie
   // deckelt nicht (min-height im CSS) - bei Typen ohne fills_height kommt der
   // Zugewinn als Leerraum an. Einstellbar bleibt es trotzdem.
   function heightFieldHTML(item) {
-    return `<div class="layout-modal-field"><label>Zwangshoehe</label>`
+    return `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.height.label'))}</label>`
       + `<input type="number" data-role="height" min="1" max="12" placeholder="auto" value="${item.height ? String(item.height) : ''}">`
       + `</div>`;
   }
@@ -454,7 +456,7 @@
   function heightHintHTML(item) {
     return cardType(item.type).fills_height
       ? ''
-      : '<p class="layout-modal-hint">Zusaetzliche Hoehe bleibt bei dieser Karte Leerraum.</p>';
+      : `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.height.hint'))}</p>`;
   }
 
   // Breite und Zwangshoehe stehen bei Karten mit Typ-Minimum >= 2
@@ -485,10 +487,14 @@
   // Groessen-Griff.
   function chromeButtonsHTML(item) {
     const visible = item.visible !== false;
-    return `<button class="layout-chip-btn grab" type="button" aria-label="Element verschieben" title="Element verschieben">${ICON.grab}</button>`
-      + `<button class="layout-chip-btn" type="button" data-role="visible-toggle" aria-pressed="${visible ? 'true' : 'false'}" aria-label="Sichtbarkeit umschalten" title="Sichtbarkeit umschalten">${visible ? ICON.eye : ICON.eyeOff}</button>`
-      + `<button class="layout-chip-btn" type="button" data-role="options" aria-label="Optionen" title="Optionen">${ICON.dots}</button>`
-      + `<button class="layout-chip-btn danger" type="button" data-role="remove" aria-label="Kachel entfernen" title="Kachel entfernen">${ICON.trash}</button>`;
+    const moveLabel = t('layout_editor.button.move');
+    const visibilityLabel = t('layout_editor.button.toggle_visibility');
+    const optionsLabel = t('layout_editor.button.options');
+    const removeLabel = t('layout_editor.button.remove');
+    return `<button class="layout-chip-btn grab" type="button" aria-label="${escapeHTML(moveLabel)}" title="${escapeHTML(moveLabel)}">${ICON.grab}</button>`
+      + `<button class="layout-chip-btn" type="button" data-role="visible-toggle" aria-pressed="${visible ? 'true' : 'false'}" aria-label="${escapeHTML(visibilityLabel)}" title="${escapeHTML(visibilityLabel)}">${visible ? ICON.eye : ICON.eyeOff}</button>`
+      + `<button class="layout-chip-btn" type="button" data-role="options" aria-label="${escapeHTML(optionsLabel)}" title="${escapeHTML(optionsLabel)}">${ICON.dots}</button>`
+      + `<button class="layout-chip-btn danger" type="button" data-role="remove" aria-label="${escapeHTML(removeLabel)}" title="${escapeHTML(removeLabel)}">${ICON.trash}</button>`;
   }
 
   function chromeHTML(item, label, missingRef) {
@@ -528,19 +534,20 @@
   // Helper-Funktionen fuer die Inline-Bausteine in optionsSheetHTML.
   function flowScaleHTML(item) {
     if (item.type !== 'energy_flow') return '';
-    return `<div class="layout-modal-field"><label>Leistungs-Darstellung</label><select data-role="flow-scale"><option value="width"${item.flowScale === 'speed' ? '' : ' selected'}>Linienstärke</option><option value="speed"${item.flowScale === 'speed' ? ' selected' : ''}>Animationsgeschwindigkeit</option></select></div>`;
+    return selectFieldHTML('flow-scale', 'layout_editor.flow_scale.label', item.flowScale === 'speed' ? 'speed' : 'width',
+      [['width', 'layout_editor.option.flow_scale.width'], ['speed', 'layout_editor.option.flow_scale.speed']]);
   }
 
   function deviceDisplayHTML(item) {
     if (item.type !== 'device') return '';
-    return selectFieldHTML('display', 'Darstellung', item.display === 'compact' ? 'compact' : 'detail',
-      [['detail', 'Detail (alle Entitäten)'], ['compact', 'Kompakt (bis zu drei Werte)']]);
+    return selectFieldHTML('display', 'layout_editor.device.display_label', item.display === 'compact' ? 'compact' : 'detail',
+      [['detail', 'layout_editor.option.device_display.detail'], ['compact', 'layout_editor.option.device_display.compact']]);
   }
 
   function batteryDisplayHTML(item) {
     if (item.type !== 'battery_status') return '';
-    return selectFieldHTML('display', 'Darstellung', item.display === 'trajectory' ? 'trajectory' : 'column',
-      [['column', 'Säule (Vorrat und Restlaufzeit)'], ['trajectory', 'Trajektorie (Verlauf und Fortschreibung)']]);
+    return selectFieldHTML('display', 'layout_editor.device.display_label', item.display === 'trajectory' ? 'trajectory' : 'column',
+      [['column', 'layout_editor.option.battery_display.column'], ['trajectory', 'layout_editor.option.battery_display.trajectory']]);
   }
 
   // Die Kategorieschalter wirken nur auf die Detailkachel: die kompakte
@@ -550,9 +557,9 @@
   function categoryHTML(item) {
     if (item.type !== 'device') return '';
     if (item.display === 'compact') {
-      return '<p class="layout-modal-hint">Die kompakte Kachel wählt ihre bis zu drei Zeilen selbst — die Kategorien wirken nur in der Detailansicht.</p>';
+      return `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.category.hint'))}</p>`;
     }
-    return `<div class="layout-modal-field">${CATEGORY_OPTIONS.map(cat => `<label class="layout-modal-switchrow">${escapeHTML(cat.label)} ${toggleHTML('category', (item.visibleCategories || []).includes(cat.key), ` value="${cat.key}"`)}</label>`).join('')}</div>`;
+    return `<div class="layout-modal-field">${CATEGORY_OPTIONS.map(cat => `<label class="layout-modal-switchrow">${escapeHTML(t(cat.label))} ${toggleHTML('category', (item.visibleCategories || []).includes(cat.key), ` value="${cat.key}"`)}</label>`).join('')}</div>`;
   }
 
   function entityGroupHTML(item, devices) {
@@ -560,8 +567,8 @@
     const entitySource = devices && devices.length ? devices : allDevices;
     const entityOptions = entitySource.flatMap(device =>
       (device.entities || []).map(entity => ({ref: entity.unique_id, label: `${device.name || device.id} / ${entity.name || entity.object_id}`})));
-    return `<div class="layout-modal-field"><label>Titel</label><input type="text" data-role="entity-group-title" value="${escapeHTML(item.title || '')}"></div>`
-      + `<div class="layout-modal-field"><label id="layout-item-entity-refs-label-${escapeHTML(item.id || '')}">Entitäten in dieser Liste</label>`
+    return `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.entity_group.title'))}</label><input type="text" data-role="entity-group-title" value="${escapeHTML(item.title || '')}"></div>`
+      + `<div class="layout-modal-field"><label id="layout-item-entity-refs-label-${escapeHTML(item.id || '')}">${escapeHTML(t('layout_editor.entity_group.entities_label'))}</label>`
       + `<select multiple data-role="entity-refs" aria-labelledby="layout-item-entity-refs-label-${escapeHTML(item.id || '')}">${entityOptions.map(entity => `<option value="${escapeHTML(entity.ref)}"${(item.entityRefs || []).includes(entity.ref) ? ' selected' : ''}>${escapeHTML(entity.label)}</option>`).join('')}</select></div>`;
   }
 
@@ -570,7 +577,7 @@
     const entitySource = devices && devices.length ? devices : allDevices;
     const entityOptions = entitySource.flatMap(device =>
       (device.entities || []).map(entity => ({ref: entity.unique_id, label: `${device.name || device.id} / ${entity.name || entity.object_id}`})));
-    return `<div class="layout-modal-field"><label>Entität</label><select data-role="entity-value-ref"><option value="">– wählen –</option>${entityOptions.map(entity => `<option value="${escapeHTML(entity.ref)}"${item.ref === entity.ref ? ' selected' : ''}>${escapeHTML(entity.label)}</option>`).join('')}</select></div>`;
+    return `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.entity_value.label'))}</label><select data-role="entity-value-ref"><option value="">${escapeHTML(t('layout_editor.entity_value.select'))}</option>${entityOptions.map(entity => `<option value="${escapeHTML(entity.ref)}"${item.ref === entity.ref ? ' selected' : ''}>${escapeHTML(entity.label)}</option>`).join('')}</select></div>`;
   }
 
   // Das Gegenstueck zu entityValuePickerHTML fuer die Geraetekachel: bis
@@ -579,7 +586,7 @@
   function deviceRefPickerHTML(item, devices) {
     if (item.type !== 'device') return '';
     const source = devices && devices.length ? devices : allDevices;
-    return `<div class="layout-modal-field"><label>Gerät</label><select data-role="device-ref"><option value="">– wählen –</option>${source.map(device => `<option value="${escapeHTML(device.id)}"${item.ref === device.id ? ' selected' : ''}>${escapeHTML(device.name || device.id)}</option>`).join('')}</select></div>`;
+    return `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.device.ref_label'))}</label><select data-role="device-ref"><option value="">${escapeHTML(t('layout_editor.entity_value.select'))}</option>${source.map(device => `<option value="${escapeHTML(device.id)}"${item.ref === device.id ? ' selected' : ''}>${escapeHTML(device.name || device.id)}</option>`).join('')}</select></div>`;
   }
 
   // Die feste Zeilenauswahl der Kompaktkachel: bis zu drei Entitaeten des
@@ -593,7 +600,7 @@
     const source = devices && devices.length ? devices : allDevices;
     const device = source.find(d => d.id === item.ref);
     if (!device) {
-      return '<p class="layout-modal-hint">Erst ein Gerät wählen, dann lassen sich bis zu drei seiner Werte fest anzeigen.</p>';
+      return `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.compact_rows.hint'))}</p>`;
     }
     const labelID = `layout-item-compact-rows-label-${escapeHTML(item.id || '')}`;
     const options = (device.entities || []).map(entity => {
@@ -601,7 +608,7 @@
       const selected = (item.entityRefs || []).includes(ref) ? ' selected' : '';
       return `<option value="${escapeHTML(ref)}"${selected}>${escapeHTML(entity.name || entity.object_id || ref)}</option>`;
     }).join('');
-    return `<div class="layout-modal-field"><label id="${labelID}">Angezeigte Werte (bis zu drei)</label>`
+    return `<div class="layout-modal-field"><label id="${labelID}">${escapeHTML(t('layout_editor.compact_rows.label'))}</label>`
       + `<select multiple data-role="entity-refs" aria-labelledby="${labelID}">${options}</select></div>`;
   }
 
@@ -618,12 +625,12 @@
   // die Sichtbarkeit haengt am Auge im Kachel-Chrome (data-role="visible-
   // toggle"), ein zweiter Schalter im Modal war dieselbe Einstellung doppelt.
   function optionsSheetHTML(item, devices, label, columns) {
-    const g = (title, body) => `<div class="layout-modal-fieldgroup"><h6>${title}</h6>${body}</div>`;
-    const platz = g('Platz', `<div class="layout-modal-field-row">${spanSelectHTML(item, label, columns)}${heightFieldHTML(item)}</div>` + heightHintHTML(item));
+    const g = (titleKey, body) => `<div class="layout-modal-fieldgroup"><h6>${escapeHTML(t(titleKey))}</h6>${body}</div>`;
+    const platz = g('layout_editor.options_section.space', `<div class="layout-modal-field-row">${spanSelectHTML(item, label, columns)}${heightFieldHTML(item)}</div>` + heightHintHTML(item));
     const darstellungBody = flowScaleHTML(item) + deviceDisplayHTML(item) + batteryDisplayHTML(item) + categoryHTML(item) + energyOptionsHTML(item);
-    const darstellung = g('Darstellung', darstellungBody || '<p class="layout-modal-hint">Fuer diese Karte gibt es keine Darstellungsoptionen.</p>');
+    const darstellung = g('layout_editor.options_section.appearance', darstellungBody || `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.options_hint.no_appearance'))}</p>`);
     const ortBody = entityGroupHTML(item, devices) + entityValuePickerHTML(item, devices) + deviceRefPickerHTML(item, devices) + compactRowsPickerHTML(item, devices);
-    const ort = g('Ort', ortBody || '<p class="layout-modal-hint">Diese Karte hat keine eigene Datenquelle.</p>');
+    const ort = g('layout_editor.options_section.location', ortBody || `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.options_hint.no_data_source'))}</p>`);
     return platz + darstellung + ort;
   }
 
@@ -706,24 +713,24 @@
   // Geraete, Entitaeten.
   function catalog(devices) {
     const karten = [
-      {id: 'energy-flow', type: 'energy_flow', ref: '', title: 'Energie: Energiefluss', desc: 'Energiefluss'},
-      {id: 'diagnostics', type: 'diagnostics', ref: '', title: 'Diagnosen', desc: 'Diagnosen'},
-      {id: 'energy-band', type: 'energy_band', ref: '', title: 'Energie: Bilanzband', desc: 'Bilanzband'},
-      {id: 'energy-ring', type: 'energy_ring', ref: '', title: 'Energie: Autarkie-Ring', desc: 'Autarkie-Ring'},
-      {id: 'energy-board', type: 'energy_board', ref: '', title: 'Energie: Datentafel', desc: 'Datentafel'},
-      {id: 'energy-day', type: 'energy_day', ref: '', title: 'Energie: Tagesband', desc: 'Tagesband'},
-      {id: 'energy-schema', type: 'energy_schema', ref: '', title: 'Energie: Anlagenschema', desc: 'Anlagenschema'},
-      {id: 'energy-status', type: 'energy_status', ref: '', title: 'Energie: Statuskarte', desc: 'Statuskarte'},
-      {id: 'battery-status', type: 'battery_status', ref: '', title: 'Speicher: Statuskarte', desc: 'Vorrat und Restlaufzeit'},
-      {id: 'entity-value', type: 'entity_value', ref: '', title: 'Wert-Karte', desc: 'Eine Entitaet als grosser Wert'},
+      {id: 'energy-flow', type: 'energy_flow', ref: '', title: t('layout_editor.card.energy_flow.title'), desc: t('layout_editor.card.energy_flow.description')},
+      {id: 'diagnostics', type: 'diagnostics', ref: '', title: t('layout_editor.card.diagnostics.title'), desc: t('layout_editor.card.diagnostics.description')},
+      {id: 'energy-band', type: 'energy_band', ref: '', title: t('layout_editor.card.energy_band.title'), desc: t('layout_editor.card.energy_band.description')},
+      {id: 'energy-ring', type: 'energy_ring', ref: '', title: t('layout_editor.card.energy_ring.title'), desc: t('layout_editor.card.energy_ring.description')},
+      {id: 'energy-board', type: 'energy_board', ref: '', title: t('layout_editor.card.energy_board.title'), desc: t('layout_editor.card.energy_board.description')},
+      {id: 'energy-day', type: 'energy_day', ref: '', title: t('layout_editor.card.energy_day.title'), desc: t('layout_editor.card.energy_day.description')},
+      {id: 'energy-schema', type: 'energy_schema', ref: '', title: t('layout_editor.card.energy_schema.title'), desc: t('layout_editor.card.energy_schema.description')},
+      {id: 'energy-status', type: 'energy_status', ref: '', title: t('layout_editor.card.energy_status.title'), desc: t('layout_editor.card.energy_status.description')},
+      {id: 'battery-status', type: 'battery_status', ref: '', title: t('layout_editor.card.battery_status.title'), desc: t('layout_editor.card.battery_status.description')},
+      {id: 'entity-value', type: 'entity_value', ref: '', title: t('layout_editor.card.entity_value.title'), desc: t('layout_editor.card.entity_value.description')},
       // Die Entitaetenliste hatte bis 2026-09 keinen Katalogeintrag: sie war
       // nur ueber den alten Panel-Editor erreichbar und fehlte in der Toolbox
       // damit ganz. Wie 'entity-value' ist sie generisch - die Entitaeten
       // waehlt man danach im Optionen-Modal, darum eine frische ID je Karte
       // (siehe addFromCatalog).
-      {id: 'entity-group', type: 'entity_group', ref: '', title: 'Entitätenliste', desc: 'Mehrere Entitäten in einer Karte'},
+      {id: 'entity-group', type: 'entity_group', ref: '', title: t('layout_editor.card.entity_group.title'), desc: t('layout_editor.card.entity_group.description')},
     ];
-    const geraete = (devices || []).map(d => ({id: 'device:'+d.id, type: 'device', ref: d.id, title: d.name || d.id, desc: 'Geraet'}));
+    const geraete = (devices || []).map(d => ({id: 'device:'+d.id, type: 'device', ref: d.id, title: d.name || d.id, desc: t('layout_editor.card.device.description')}));
     // Ein Eintrag je Entitaet: die Wert-Karte. Bis 2026-09 stand daneben ein
     // zweiter fuer die aeltere 'entity'-Karte ("Entität mit technischen
     // Details", die Zeile aus der Geraetetafel samt Quelle/Freshness/Zuletzt
@@ -733,7 +740,7 @@
     // normalizeLayout() schreibt bestehende Karten auf entity_value um.
     const entitaeten = (devices || []).flatMap(d => (d.entities || []).map(e => (
       {id: 'entity-value:'+e.unique_id, type: 'entity_value', ref: e.unique_id,
-       title: (d.name || d.id) + ' / ' + (e.name || e.object_id), desc: 'Wert-Karte'}
+       title: (d.name || d.id) + ' / ' + (e.name || e.object_id), desc: t('layout_editor.card.entity_value.title')}
     )));
     return { karten, geraete, entitaeten };
   }
@@ -749,7 +756,7 @@
     loading: false,
     saving: false,
     unsaved: false,
-    // Name der Seite, die die Uebersicht gerade rendert. Beim Mounten aus dem
+    // ID der Seite, die die Uebersicht gerade rendert. Beim Mounten aus dem
     // gerenderten [data-layout-page] uebernommen, danach vom Seiten-Modal
     // gepflegt.
     activePage: '',
@@ -774,7 +781,7 @@
     _optionsWired: false,
     _pageWired: false,
     _toolboxWired: false,
-    _tbTab: 'karten',
+    _tbTab: 'karten', // i18n-ignore
     onEditorMount: null,
     onEditorUnmount: null,
     onEditorKeydown: null,
@@ -896,7 +903,7 @@
       const toolbox = document.getElementById('toolbox');
       if (toolbox && !this._toolboxWired) {
         this._toolboxWired = true;
-        this._tbTab = 'karten';
+        this._tbTab = 'karten'; // i18n-ignore
         const list = toolbox.querySelector('[data-tb-list]');
         const search = toolbox.querySelector('[data-tb-search]');
         search?.addEventListener('input', () => this.renderToolbox());
@@ -951,7 +958,7 @@
 
       // Escape schliesst zuerst das Modal, sonst die Toolbox.
       this.onEditorKeydown = event => {
-        if (event.key !== 'Escape') return;
+        if (event.key !== 'Escape') return; // i18n-ignore
         const pageOpen = document.getElementById('layout-page-modal');
         if (pageOpen?.classList.contains('open')) { event.preventDefault(); this.closePageOptions(); return; }
         const openScrim = document.getElementById('layout-options-modal');
@@ -1080,7 +1087,7 @@
       for (const group of page.groups || []) {
         for (const item of group.items || []) {
           if (item.visible !== false || present.has(item.id)) continue;
-          const card = this.buildCard(item, 'über das Auge wieder einblenden');
+          const card = this.buildCard(item, t('layout_editor.sync_hidden_cards.hint'));
           host.appendChild(card);
           present.add(item.id);
           this.editItems.set(item.id, item);
@@ -1578,12 +1585,15 @@
       // ein fester Beispieltext aus dem Entwurf; jetzt nennt er die Seite, auf
       // der man wirklich gerade steht.
       const target = toolbox.querySelector('[data-tb-target]');
-      if (target) target.textContent = this.activePage || 'Übersicht';
+      if (target) {
+        const page = this.pages?.[this.activePageIndex()];
+        target.textContent = t('layout_editor.toolbox.drop_hint', {page: page?.name || t('overview.page.default_name')});
+      }
       const query = (toolbox.querySelector('[data-tb-search]')?.value || '').trim();
-      const cat = catalog(this.devices);
-      const hits = query ? filterCatalog(cat, query) : (cat[this._tbTab] || []);
+      const cat = catalog(this.devices || []);
+      const hits = query ? filterCatalog(cat, query) : (cat && cat[this._tbTab]) || [];
       if (!hits.length) {
-        list.innerHTML = `<p class="layout-toolbox-empty">Kein Baustein passt zu „${escapeHTML(query)}“.</p>`;
+        list.innerHTML = `<p class="layout-toolbox-empty">${escapeHTML(t('layout_editor.toolbox.no_match', {query}))}</p>`;
         list.dataset.hits = '[]';
         return;
       }
@@ -1604,15 +1614,15 @@
     // ein vorhandenes energy_summary-Item darum still, statt es abzulehnen.
     get itemOptions() {
       const options = [
-        {id: 'energy-flow', type: 'energy_flow', ref: '', label: 'Energie: Energiefluss'},
-        {id: 'diagnostics', type: 'diagnostics', ref: '', label: 'Diagnosen'},
-        {id: 'energy-band', type: 'energy_band', ref: '', label: 'Energie: Bilanzband'},
-        {id: 'energy-ring', type: 'energy_ring', ref: '', label: 'Energie: Autarkie-Ring'},
-        {id: 'energy-board', type: 'energy_board', ref: '', label: 'Energie: Datentafel'},
-        {id: 'energy-day', type: 'energy_day', ref: '', label: 'Energie: Tagesband'},
-        {id: 'energy-schema', type: 'energy_schema', ref: '', label: 'Energie: Anlagenschema'},
-        {id: 'energy-status', type: 'energy_status', ref: '', label: 'Energie: Statuskarte'},
-        {id: 'battery-status', type: 'battery_status', ref: '', label: 'Speicher: Statuskarte'},
+        {id: 'energy-flow', type: 'energy_flow', ref: ''},
+        {id: 'diagnostics', type: 'diagnostics', ref: ''},
+        {id: 'energy-band', type: 'energy_band', ref: ''},
+        {id: 'energy-ring', type: 'energy_ring', ref: ''},
+        {id: 'energy-board', type: 'energy_board', ref: ''},
+        {id: 'energy-day', type: 'energy_day', ref: ''},
+        {id: 'energy-schema', type: 'energy_schema', ref: ''},
+        {id: 'energy-status', type: 'energy_status', ref: ''},
+        {id: 'battery-status', type: 'battery_status', ref: ''},
         // Kein Ref hier: eine einzelne, generische Auswahl fuer alle
         // Entitaeten statt einer Option je Entitaet - seit der Abschaffung
         // des Kartentyps 'entity' die einzige Entitaetenkarte mit einem
@@ -1620,10 +1630,10 @@
         // Widget selbst (siehe entityValuePicker in widgetHTML()) - addItem()
         // erzeugt darum fuer diese Option jedes Mal eine frische Karten-ID
         // statt die Option-ID wiederzuverwenden.
-        {id: 'entity-value', type: 'entity_value', ref: '', label: 'Wert-Karte'},
+        {id: 'entity-value', type: 'entity_value', ref: ''},
       ];
       for (const device of this.devices) {
-        options.push({id: `device:${device.id}`, type: 'device', ref: device.id, label: `Gerät: ${device.name || device.id}`});
+        options.push({id: `device:${device.id}`, type: 'device', ref: device.id});
       }
       return options;
     },
@@ -1635,19 +1645,24 @@
     // dann eine frische newID(), keine der itemOptions-IDs) - der Name kommt
     // stattdessen aus dem gewaehlten ref selbst.
     itemLabel(item) {
-      if (item.type === 'entity_group') return item.title || 'Entitätenliste';
+      if (item.type === 'entity_group') return item.title || t('layout_editor.card.entity_group.title');
       if (item.type === 'entity_value') {
         const entity = allEntityOptions().find(option => option.ref === item.ref);
-        return entity ? entity.label : 'Wert-Karte';
+        return entity ? entity.label : t('layout_editor.card.entity_value.title');
+      }
+      if (item.type === 'device') {
+        const device = this.devices?.find(d => d.id === item.ref);
+        return t('layout_editor.device.label', {name: device?.name || device?.id || item.ref});
       }
       // Typ und Ref statt der ID: jede aus der Toolbox gelegte Karte bekommt
       // eine frische ID (siehe addFromCatalog), die in itemOptions gar nicht
       // vorkommt. Die ID bleibt der letzte Rueckfall - fuer Layouts, die noch
       // aus der Zeit der Katalog-IDs stammen.
       const byKind = this.itemOptions.find(option => option.type === item.type && (option.ref || '') === (item.ref || ''));
-      return byKind?.label
-        || this.itemOptions.find(option => option.id === item.id)?.label
-        || item.ref || item.id;
+      if (byKind) return t(`layout_editor.card.${byKind.type}.title`); // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title
+      const byID = this.itemOptions.find(option => option.id === item.id);
+      if (byID) return t(`layout_editor.card.${byID.type}.title`);
+      return item.ref || item.id;
     },
 
     async load() {
@@ -1696,11 +1711,11 @@
       for (const device of this.devices) items.push(`device:${device.id}`);
       return [{
         id: newID('page'),
-        name: 'Übersicht',
+        name: '',
         order: 0,
         groups: [{
           id: newID('group'),
-          name: 'Dashboard',
+          name: 'Dashboard', // i18n-ignore
           items: items.map(id => {
             const option = this.itemOptions.find(item => item.id === id);
             return {...option, span: cardType(option?.type).default_span, visible: true, visibleCategories: [], flowScale: option?.type === 'energy_flow' ? 'width' : '', height: 0, ...defaultEnergyOptions(option?.type)};
@@ -1860,30 +1875,30 @@
       grid.removeWidget(el);
     },
 
-    // Index der aktiven Seite; faellt auf die erste zurueck, wenn der Name
+    // Index der aktiven Seite; faellt auf die erste zurueck, wenn die ID
     // nicht (mehr) passt.
     activePageIndex() {
-      const at = (this.pages || []).findIndex(page => page.name === this.activePage);
+      const at = (this.pages || []).findIndex(page => page.id === this.activePage);
       return at < 0 ? 0 : at;
     },
 
     // Welche Layout-Seite ist gemeint? Gewaehlt wird sie in der Tab-Leiste
     // (dashboardShell.activePage), gerendert hat sie der Server in
-    // [data-layout-page]. Bis 2026-09 uebernahm mount() den Namen nur beim
+    // [data-layout-page]. Bis 2026-09 uebernahm mount() die ID nur beim
     // allerersten Mal ("this.activePage || ..."); nach einem Seitenwechsel
     // zeigte der Editor darum weiter auf die alte Seite - "Seite bearbeiten"
     // benannte die falsche um, und neue Bausteine landeten auf ihr.
     //
     // Auseinanderlaufen duerfen die beiden trotzdem: eine mit "+ Seite"
-    // angelegte Seite kennt der Server noch nicht und liefert auf ihren Namen
+    // angelegte Seite kennt der Server noch nicht und liefert auf ihrer ID
     // die erste gespeicherte zurueck. Dann rendert der Editor sie selbst.
     syncActivePage() {
       const host = document.querySelector('[data-layout-page]');
       const chosen = window.__dashboardShell__?.activePage
         || host?.dataset.layoutPage
-        || this.pages?.[0]?.name || '';
-      const known = !this.pages?.length || this.pages.some(page => page.name === chosen);
-      this.activePage = known ? chosen : (host?.dataset.layoutPage || this.pages[0].name);
+        || this.pages?.[0]?.id || '';
+      const known = !this.pages?.length || this.pages.some(page => page.id === chosen);
+      this.activePage = known ? chosen : (host?.dataset.layoutPage || this.pages[0]?.id || '');
       if (host && this.pages?.length && host.dataset.layoutPage !== this.activePage) this.renderLocalPage();
     },
 
@@ -1907,12 +1922,12 @@
         host = document.createElement('div');
         grid.appendChild(host);
       }
-      host.dataset.layoutPage = page.name;
+      host.dataset.layoutPage = page.id;
       host.textContent = '';
       this.editItems = this.editItems || new Map();
       for (const group of page.groups || []) {
         for (const item of group.items || []) {
-          const card = this.buildCard(item, item.visible === false ? 'über das Auge wieder einblenden' : undefined);
+          const card = this.buildCard(item, item.visible === false ? t('layout_editor.sync_hidden_cards.hint') : undefined);
           host.appendChild(card);
           this.editItems.set(item.id, item);
           this.dressCard(card, item);
@@ -1949,7 +1964,7 @@
     // sonst zeigte die Leiste den alten und den neuen Namen nebeneinander.
     announcePages() {
       document.dispatchEvent(new CustomEvent('layout-pages-changed', {
-        detail: {pages: this.pages.map(page => page.name), active: this.activePage},
+        detail: {pages: this.pages.map(page => ({id: page.id, name: page.name})), active: this.activePage},
       }));
     },
 
@@ -1957,9 +1972,9 @@
       const scrim = document.getElementById('layout-page-modal');
       const page = this.pages?.[this.activePageIndex()];
       if (!scrim || !page) return;
-      this.activePage = page.name;
+      this.activePage = page.id;
       const input = scrim.querySelector('[data-page-name]');
-      if (input) input.value = page.name;
+      if (input) input.value = page.name || t('overview.page.default_name');
       // Die letzte Seite bleibt: ohne Seite gaebe es nach Spec 4.3 keinen
       // Editieren-Knopf mehr und damit keinen Weg zurueck in den Editor.
       const remove = scrim.querySelector('[data-page-remove]');
@@ -1973,13 +1988,17 @@
 
     renamePage(value) {
       const name = String(value ?? '').trim();
-      if (!name) return;
       const page = this.pages?.[this.activePageIndex()];
-      if (!page || page.name === name) return;
-      page.name = name;
-      this.activePage = name;
-      const host = document.querySelector('[data-layout-page]');
-      if (host) host.dataset.layoutPage = name;
+      if (!page) return;
+      // Ein leerer Name wird nur akzeptiert, wenn der Nutzer bewusst den
+      // Default-Namen eingibt - dann wird er gespeichert als empty string.
+      // Alles andere bleibt unberuehrt.
+      if (!name && name !== t('overview.page.default_name')) return;
+      const newName = (name === t('overview.page.default_name')) ? '' : name;
+      if (page.name === newName) return;
+      page.name = newName;
+      this.activePage = page.id;
+      // host.dataset.layoutPage aendert sich nicht - es ist die ID, nicht der Name.
       this.announcePages();
       this.markUnsaved();
     },
@@ -1995,7 +2014,7 @@
     removeActivePage() {
       if ((this.pages?.length || 0) < 2) return;
       this.removePage(this.activePageIndex());
-      this.activePage = this.pages[0]?.name || '';
+      this.activePage = this.pages[0]?.id || '';
       // Im Raster stehen noch die Kacheln der geloeschten Seite - der Server
       // weiss von ihr ja nichts. Das Nachziehen macht der Editor selbst.
       this.renderLocalPage();
@@ -2006,15 +2025,16 @@
 
     // Die neue Seite kommt gleich mit einer Gruppe: ohne die haette
     // addFromCatalog() nichts, woran es die erste Kachel haengt. Der Name wird
-    // durchnummeriert, damit zwei neue Seiten nicht denselben Tab teilen -
-    // die Tab-Leiste fuehrt Seiten ueber ihren Namen.
+    // mit 'Neue Seite' durchnummeriert, damit zwei neue Seiten nicht denselben
+    // Tab teilen - die Tab-Leiste fuehrt Seiten ueber ihre ID.
     addPage() {
-      let name = 'Neue Seite';
-      for (let n = 2; this.pages.some(page => page.name === name); n++) name = `Neue Seite ${n}`;
-      this.pages.push({id: newID('page'), name, order: this.pages.length, groups: [{id: newID('group'), name: 'Dashboard', items: []}]});
-      this.activePage = name;
-      // Der Server kennt die Seite noch nicht - ein Fragment-Aufruf mit ihrem
-      // Namen brachte die erste gespeicherte zurueck. Also selbst rendern.
+      let name = t('layout_editor.page.new_name');
+      for (let n = 2; this.pages.some(page => page.name === name); n++) name = t('layout_editor.page.new_name_numbered', {n});
+      const newPageId = newID('page');
+      this.pages.push({id: newPageId, name, order: this.pages.length, groups: [{id: newID('group'), name: 'Dashboard', items: []}]}); // i18n-ignore
+      this.activePage = newPageId;
+      // Der Server kennt die Seite noch nicht - ein Fragment-Aufruf mit ihrer
+      // ID brachte die erste gespeicherte zurueck. Also selbst rendern.
       this.renderLocalPage();
       this.markUnsaved();
     },
@@ -2041,7 +2061,7 @@
     },
 
     addGroup(page) {
-      page.groups.push({id: newID('group'), name: 'Neue Gruppe', items: []});
+      page.groups.push({id: newID('group'), name: t('layout_editor.group.new_name'), items: []});
       this.$nextTick(() => this.renderGrids());
     },
 
@@ -2086,7 +2106,7 @@
       const item = {
         id: newID('entity-group'), type: 'entity_group', ref: '', visible: true, visibleCategories: [],
         flowScale: '', span: cardType('entity_group').default_span, height: 0,
-        title: 'Entitäten', entityRefs: [],
+        title: t('overview.entity_group.default_title'), entityRefs: [],
         ...defaultEnergyOptions('entity_group'),
       };
       const el = grid.addWidget(toGridNode(item, this.itemLabel(item), refMissing(item, this.devices), grid.getColumn()));
@@ -2104,7 +2124,7 @@
       // ueberhaupt keine Gruppe, dort fiel der Aufruf still durch.
       const page = this.pages?.[this.activePageIndex()];
       if (!page) return null;
-      if (!page.groups?.length) (page.groups = page.groups || []).push({id: newID('group'), name: 'Dashboard', items: []});
+      if (!page.groups?.length) (page.groups = page.groups || []).push({id: newID('group'), name: 'Dashboard', items: []}); // i18n-ignore
       const beforeID = before?.dataset?.layoutItemId || null;
       // In die Gruppe, in der die Nachbarkachel steht - sonst in die letzte,
       // damit die Reihenfolge im Modell der im DOM entspricht (die Uebersicht
@@ -2122,7 +2142,7 @@
         id: newID('item'),
         type: entry.type, ref: entry.ref || '',
         span: type.default_span, height: 0, visible: true,
-        ...(entry.type === 'entity_group' ? {title: 'Entitäten', entityRefs: []} : {}),
+        ...(entry.type === 'entity_group' ? {title: t('overview.entity_group.default_title'), entityRefs: []} : {}),
       };
 
       const host = document.querySelector('.layout-grid [data-layout-page]') || document.querySelector('.layout-grid');
@@ -2170,7 +2190,7 @@
         basePath: '/api/v1/layout',
         current: () => this.payload(),
         reload: () => this.load(),
-        label: 'Revisionen des Layouts',
+        label: t('layout_editor.revision_config.label'),
       };
     },
 
@@ -2182,7 +2202,7 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(this.payload()),
         });
-        this.$store.toasts.push('Layout gespeichert.');
+        this.$store.toasts.push(t('layout_editor.saved'));
         this.unsaved = false;
         // Die Uebersicht holt ein neues Layout nicht mehr beilaeufig beim
         // naechsten Fragment-Tausch ab - der faellt bei reinen Energierastern

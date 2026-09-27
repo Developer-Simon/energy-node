@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -87,6 +88,7 @@ function fakeGridStackClass(initCalls) {
 function loadLayoutPage({ fetchImpl, gridstack = true } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   const context = dom.getInternalVMContext();
+  installI18n(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
@@ -108,6 +110,7 @@ function loadLayoutPage({ fetchImpl, gridstack = true } = {}) {
 function createEditor(bodyHTML) {
   const dom = new JSDOM(`<!doctype html><html><body>${bodyHTML}</body></html>`, { runScripts: 'outside-only', url: 'http://localhost/' });
   const context = dom.getInternalVMContext();
+  installI18n(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = async () => { throw new Error('fetch should not be called'); };
@@ -153,7 +156,7 @@ const FRAGMENT_MARKUP = `
     <button class="layout-toolbox-tab" type="button" data-tb-tab="entitaeten">Entitäten</button>
   </div>
   <div class="layout-toolbox-list" data-tb-list></div>
-  <div class="layout-toolbox-foot">Klicken oder ziehen — landet auf <b data-tb-target>der aktiven Seite</b>.</div>
+  <div class="layout-toolbox-foot"><span data-tb-target>Klicken oder ziehen — landet auf der aktiven Seite.</span></div>
 </aside>
 <div class="layout-modal-scrim" id="layout-options-modal" data-modal>
   <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="Kartenoptionen">
@@ -227,7 +230,7 @@ const LAYOUT_RESPONSE = {
   version: 3,
   card_types: CARD_TYPES,
   pages: [{
-    id: 'p', name: 'Übersicht', order: 0,
+    id: 'p', name: '', order: 0,
     groups: [{id: 'g', name: 'Dashboard', items: [
       {id: 'energy-band', type: 'energy_band', ref: '', span: '2', visible: true},
       {id: 'device:dev1', type: 'device', ref: 'dev1', span: '1', visible: true},
@@ -358,7 +361,7 @@ test('widgetHTML() renders a single entity select for entity_value items, with t
   assert.ok(!html.includes('value="ent1" selected'));
 
   const empty = factory.widgetHTML({type: 'entity_value', visible: true, ref: ''}, 'Wert-Karte', true, 4);
-  assert.ok(empty.includes('<option value="">– wählen –</option>'));
+  assert.ok(empty.includes('<option value="">Bitte wählen</option>'));
 });
 
 test('widgetHTML()/energyOptionsHTML() only show the speed-reference fields for energy_flow items in "speed" scale mode', () => {
@@ -475,7 +478,7 @@ test('toGridNode()/fromGridNode() round-trip an entity_group title and entityRef
 
 test('load() fetches layout+devices, hydrates pages, and mounts a GridStack instance per group', async () => {
   const layout = {
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [{id: 'energy-flow', type: 'energy_flow', ref: '', span: 'full', visible: true, flow_scale: 'width'}],
     }]}],
@@ -536,7 +539,7 @@ test('itemOptions lists a single generic entity_value option (no per-entity ref)
 function componentWithMountedGroup(items = []) {
   const { component, document, initCalls } = loadLayoutPage();
   const group = {id: 'group-1', name: 'Dashboard', items};
-  const page = {id: 'page-1', name: 'Übersicht', order: 0, groups: [group]};
+  const page = {id: 'page-1', name: '', order: 0, groups: [group]};
   component.pages = [page];
   component.devices = [];
   const container = document.createElement('div');
@@ -766,7 +769,7 @@ test('save() renames visibleCategories/flowScale to snake_case, PUTs the layout,
   });
   component.unsaved = true;
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, visibleCategories: ['controls'], flowScale: ''},
       {id: 'b', type: 'energy_flow', ref: '', span: 'full', visible: true, visibleCategories: [], flowScale: 'speed'},
@@ -795,7 +798,7 @@ test('save() renames entityRefs to entity_refs, keeps title as-is, and omits an 
     },
   });
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {id: 'a', type: 'entity_group', ref: '', span: '1', visible: true, visibleCategories: [], flowScale: '', title: 'Sensoren', entityRefs: ['ent1', 'ent2']},
       {id: 'b', type: 'entity_group', ref: '', span: '1', visible: true, visibleCategories: [], flowScale: '', title: '', entityRefs: []},
@@ -820,7 +823,7 @@ test('save() renames energy-option camelCase fields to snake_case and omits empt
     },
   });
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {
         id: 'a', type: 'energy_band', ref: '', span: '2', visible: true, visibleCategories: [], flowScale: '',
@@ -852,7 +855,7 @@ test('save() serializes speedReferenceWatts as a JSON number and omits it when u
     },
   });
   component.pages = [{
-    id: 'page-1', name: 'Übersicht', order: 0,
+    id: 'page-1', name: '', order: 0,
     groups: [{id: 'group-1', name: 'Dashboard', items: [
       {id: 'a', type: 'energy_flow', ref: '', span: 'full', visible: true, visibleCategories: [], flowScale: 'speed', speedReferenceMode: 'fixed', speedReferenceWatts: 2500},
       {id: 'b', type: 'energy_flow', ref: '', span: 'full', visible: true, visibleCategories: [], flowScale: 'width', speedReferenceMode: '', speedReferenceWatts: ''},
@@ -872,7 +875,7 @@ test('save() serializes speedReferenceWatts as a JSON number and omits it when u
 test('load() maps snake_case energy-option fields from the server back to camelCase item state', async () => {
   const layout = {
     version: 3,
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [{id: 'a', type: 'energy_ring', ref: '', span: '2', visible: true, kpi: 'eigen', label_mode: 'pct', animate: 'off'}],
     }]}],
@@ -890,7 +893,7 @@ test('load() maps snake_case energy-option fields from the server back to camelC
 test('load() maps the server-sent speed_reference_watts number back into speedReferenceWatts', async () => {
   const layout = {
     version: 3,
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [{id: 'energy-flow', type: 'energy_flow', ref: '', span: 'full', visible: true, flow_scale: 'speed', speed_reference_mode: 'fixed', speed_reference_watts: 2500}],
     }]}],
@@ -907,7 +910,7 @@ test('load() maps the server-sent speed_reference_watts number back into speedRe
 test('load() maps entity_refs/title from the server back into entityRefs/title, defaulting a missing entity_refs to []', async () => {
   const layout = {
     version: 3,
-    pages: [{id: 'page-1', name: 'Übersicht', order: 0, groups: [{
+    pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
       items: [
         {id: 'a', type: 'entity_group', ref: '', span: '1', visible: true, title: 'Sensoren', entity_refs: ['ent1', 'ent2']},
@@ -1349,7 +1352,7 @@ test('das Auge toggelt Sichtbarkeit und markiert die Aenderung', () => {
 
 test('eine Option im Modal aendert das this.pages-Item und markiert ungespeichert (Weg A)', () => {
   const { dom, editor } = createEditorWithFragment('<div class="layout-grid"><div class="layout-grid-item" data-layout-item-id="ring-1" data-layout-item-kind="energy_ring"></div></div>');
-  editor.pages = [{id: 'p', name: 'Übersicht', groups: [{id: 'g', name: 'Energie', items: [
+  editor.pages = [{id: 'p', name: '', groups: [{id: 'g', name: 'Energie', items: [
     {id: 'ring-1', type: 'energy_ring', ref: '', span: '2', visible: true, kpi: 'autarkie', visibleCategories: [], entityRefs: []},
   ]}]}];
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
@@ -1489,7 +1492,7 @@ test('nach Speichern & schliessen laesst sich die Toolbox in der naechsten Sitzu
 // Die Uebersicht rendert die aktive Seite in einen [data-layout-page]-Traeger;
 // die Fixtures bilden das ab, damit sie dieselbe DOM-Form pruefen, die
 // overview.html tatsaechlich erzeugt.
-const PAGE_GRID = cards => `<div class="layout-grid"><div data-layout-page="Zuhause">${cards}</div></div>`;
+const PAGE_GRID = cards => `<div class="layout-grid"><div data-layout-page="p">${cards}</div></div>`;
 const CARD = (id, kind, span) =>
   `<div class="layout-grid-item layout-grid-item-${span}" data-layout-item-id="${id}" data-layout-item-kind="${kind}"></div>`;
 
@@ -1530,12 +1533,12 @@ test('unmount() gibt die Kachel unveraendert zurueck', () => {
   const { dom } = createEditor(PAGE_GRID(CARD('a', 'device', '1')));
   const card = dom.window.document.querySelector('.layout-grid-item');
   const classesBefore = card.className;
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
 
   assert.equal(card.className, classesBefore, 'die Klassenliste ist wieder die alte');
   assert.equal(card.querySelector('.layout-card-chrome, .layout-resize-grip'), null);
-  assert.equal(card.parentElement.getAttribute('data-layout-page'), 'Zuhause', 'die Kachel haengt noch in der Seite');
+  assert.equal(card.parentElement.getAttribute('data-layout-page'), 'p', 'die Kachel haengt noch in der Seite');
 });
 
 test('ausgeblendete Kacheln der aktiven Seite stehen im Editor, im Ansichtsmodus nicht', () => {
@@ -1913,7 +1916,7 @@ function editorWithPages(names) {
     id: `p${i}`, name, order: i,
     groups: [{id: `g${i}`, name: 'Dashboard', items: []}],
   }));
-  built.editor.activePage = names[0];
+  built.editor.activePage = `p0`;
   document.dispatchEvent(new built.dom.window.CustomEvent('layout-editor:mount'));
   return built;
 }
@@ -1929,7 +1932,7 @@ test('das Seiten-Modal zeigt den Namen der aktiven Seite', () => {
 test('Umbenennen schreibt den Namen nach this.pages und meldet es der Navigation', () => {
   const { dom, editor } = editorWithPages(['Zuhause', 'Werkstatt']);
   let announced = null;
-  document.addEventListener('layout-pages-changed', event => { announced = event.detail.pages; });
+  dom.window.document.addEventListener('layout-pages-changed', event => { announced = event.detail.pages; });
   editor.openPageOptions();
 
   const input = dom.window.document.querySelector('[data-page-name]');
@@ -1937,8 +1940,12 @@ test('Umbenennen schreibt den Namen nach this.pages und meldet es der Navigation
   input.dispatchEvent(new dom.window.Event('input', {bubbles: true}));
 
   assert.equal(editor.pages[0].name, 'Keller');
-  assert.equal(editor.activePage, 'Keller', 'die aktive Seite heisst jetzt auch so');
-  assert.deepEqual(announced, ['Keller', 'Werkstatt']);
+  assert.equal(editor.activePage, 'p0', 'die aktive Seite ist weiterhin die ID');
+  assert.ok(announced && announced.length === 2);
+  assert.equal(announced[0].id, 'p0');
+  assert.equal(announced[0].name, 'Keller');
+  assert.equal(announced[1].id, 'p1');
+  assert.equal(announced[1].name, 'Werkstatt');
   assert.equal(editor.unsaved, true);
 });
 
@@ -1949,6 +1956,27 @@ test('ein leerer Name wird nicht uebernommen', () => {
   input.value = '   ';
   input.dispatchEvent(new dom.window.Event('input', {bubbles: true}));
   assert.equal(editor.pages[0].name, 'Zuhause');
+});
+
+test('eine Seite mit leerem Name zeigt "Übersicht" im Rename-Feld und Speichern des defaults haelt name leer', () => {
+  // This tests the fix: a page with empty name should show the default name
+  // in the input, and submitting that default value should keep the name empty.
+  const { dom, editor } = editorWithPages(['']);
+  editor.pages[0].name = ''; // Explicitly set empty name
+
+  // Mock I18n for this test
+  dom.window.I18n = {
+    t: (key) => key === 'overview.page.default_name' ? 'Übersicht' : key,
+  };
+
+  editor.openPageOptions();
+  const input = dom.window.document.querySelector('[data-page-name]');
+  assert.equal(input.value, 'Übersicht', 'leerer name zeigt default im feld');
+
+  // Typing the default name and submitting should keep it empty
+  input.value = 'Übersicht';
+  input.dispatchEvent(new dom.window.Event('input', {bubbles: true}));
+  assert.equal(editor.pages[0].name, '', 'submitting default name haelt name leer');
 });
 
 test('die Reihenfolge laesst sich im Modal verschieben', () => {
@@ -1973,7 +2001,7 @@ test('Loeschen entfernt die Seite und schaltet auf die erste um', () => {
   editor.openPageOptions();
   dom.window.document.querySelector('[data-page-remove]').click();
   assert.deepEqual(editor.pages.map(page => page.name), ['Werkstatt']);
-  assert.equal(editor.activePage, 'Werkstatt');
+  assert.equal(editor.activePage, 'p1');
   assert.equal(dom.window.document.getElementById('layout-page-modal').classList.contains('open'), false);
 });
 
@@ -2017,9 +2045,9 @@ test('eine neue Seite bekommt eine Gruppe und nimmt die Bausteine auf', () => {
 
   dom.window.document.querySelector('[data-addpage]').click();
   assert.equal(editor.pages.length, 2);
-  assert.equal(editor.activePage, 'Neue Seite');
+  assert.equal(editor.activePage, editor.pages[1].id);
   const host = dom.window.document.querySelector('[data-layout-page]');
-  assert.equal(host.dataset.layoutPage, 'Neue Seite');
+  assert.equal(host.dataset.layoutPage, editor.pages[1].id);
   assert.equal(host.children.length, 0, 'die neue Seite startet leer');
 
   editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
@@ -2042,19 +2070,19 @@ test('mount() uebernimmt die Seite der Tab-Leiste, auch beim zweiten Mal', () =>
   const { dom, editor } = createEditorWithFragment(PAGE_GRID(CARD('a', 'device', '1')));
   editor.cardTypes = CARD_TYPES;
   editor.pages = [
-    {id: 'p1', name: 'Zuhause', groups: [{id: 'g1', items: [{id: 'a', type: 'device', ref: 'x', span: '1', visible: true}]}]},
+    {id: 'p', name: 'Zuhause', groups: [{id: 'g1', items: [{id: 'a', type: 'device', ref: 'x', span: '1', visible: true}]}]},
     {id: 'p2', name: 'Keller', groups: [{id: 'g2', items: []}]},
   ];
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
-  assert.equal(editor.activePage, 'Zuhause');
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  assert.equal(editor.activePage, 'p');
 
   // Der Seitenwechsel: die Tab-Leiste waehlt, der Server liefert das
   // Fragment, danach montiert die Huelle den Editor neu.
-  dom.window.__dashboardShell__ = {activePage: 'Keller'};
-  dom.window.document.querySelector('[data-layout-page]').dataset.layoutPage = 'Keller';
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
-  assert.equal(editor.activePage, 'Keller');
+  dom.window.__dashboardShell__ = {activePage: 'p2'};
+  dom.window.document.querySelector('[data-layout-page]').dataset.layoutPage = 'p2';
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  assert.equal(editor.activePage, 'p2');
 
   editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
   assert.equal(editor.pages[1].groups[0].items.length, 1, 'der Baustein landet auf der gewaehlten Seite');
@@ -2084,9 +2112,9 @@ test('der Fuss der Toolbox nennt die aktive Seite', () => {
   const { dom, editor } = createEditorWithFragment(PAGE_GRID(''));
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
   editor.pages = [{id: 'p1', name: 'Keller', groups: [{id: 'g1', items: []}]}];
-  editor.activePage = 'Keller';
+  editor.activePage = 'p1';
   editor.setToolbox(true);
-  assert.equal(dom.window.document.querySelector('[data-tb-target]').textContent, 'Keller');
+  assert.equal(dom.window.document.querySelector('[data-tb-target]').textContent, 'Klicken oder ziehen, der Baustein landet auf Keller.');
 });
 
 test('eine Entitaetenliste aus der Toolbox bekommt eine eigene ID', () => {
@@ -2127,9 +2155,9 @@ test('dieselbe Karte auf zwei Seiten teilt sich keine ID', () => {
   ];
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
 
-  editor.activePage = 'Zuhause';
+  editor.activePage = 'p1';
   const first = editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
-  editor.activePage = 'Keller';
+  editor.activePage = 'p2';
   const second = editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
 
   assert.notEqual(first.id, second.id);
@@ -2147,7 +2175,7 @@ test('die erste Seite im Leerzustand bekommt einen Traeger im Raster', () => {
 
   const host = dom.window.document.querySelector('.layout-grid [data-layout-page]');
   assert.ok(host, 'ohne Traeger haette die neue Seite keinen Platz fuer Kacheln');
-  assert.equal(host.dataset.layoutPage, 'Neue Seite');
+  assert.equal(host.dataset.layoutPage, editor.pages[0].id);
   assert.equal(dom.window.document.querySelector('.panel-empty'), null);
 
   editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
@@ -2345,4 +2373,76 @@ test('applyOptionChange: der Wechsel auf Detail und der Geraetewechsel leeren di
   component._optionsItem.entityRefs = ['e1'];
   component.applyOptionChange({target: {dataset: {role: 'device-ref'}, value: 'dev2'}});
   assert.deepEqual(JSON.parse(JSON.stringify(component._optionsItem.entityRefs)), []);
+});
+
+test('catalog() resolves card titles per language', () => {
+  // Create a DOM with German catalog
+  const domDE = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
+  const contextDE = domDE.getInternalVMContext();
+  installI18n(domDE.window, { lang: 'de' });
+  let factoryDE;
+  domDE.window.Alpine = { data: (_name, fn) => { factoryDE = fn; } };
+  domDE.window.fetch = async () => { throw new Error('fetch should not be called'); };
+  vm.runInContext(scriptSource, contextDE);
+
+  // Create a DOM with English catalog
+  const domEN = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
+  const contextEN = domEN.getInternalVMContext();
+  installI18n(domEN.window, { lang: 'en' });
+  let factoryEN;
+  domEN.window.Alpine = { data: (_name, fn) => { factoryEN = fn; } };
+  domEN.window.fetch = async () => { throw new Error('fetch should not be called'); };
+  vm.runInContext(scriptSource, contextEN);
+
+  // Get catalogs from both contexts
+  const catDE = factoryDE.catalog([]);
+  const catEN = factoryEN.catalog([]);
+
+  // Check energy_band card title in both languages
+  const energyBandDE = catDE.karten.find(k => k.type === 'energy_band');
+  const energyBandEN = catEN.karten.find(k => k.type === 'energy_band');
+
+  // Verify titles match the loaded catalog values
+  const deCatalogValue = domDE.window.I18n.t('layout_editor.card.energy_band.title');
+  const enCatalogValue = domEN.window.I18n.t('layout_editor.card.energy_band.title');
+
+  assert.equal(energyBandDE.title, deCatalogValue, 'German catalog entry title should equal de catalog value');
+  assert.equal(energyBandEN.title, enCatalogValue, 'English catalog entry title should equal en catalog value');
+});
+
+test('toolbox renders .layout-toolbox-item buttons with data-add and correct title', () => {
+  const { dom, editor } = createEditorWithFragment(PAGE_GRID(CARD('a', 'device', '1')));
+  editor.cardTypes = CARD_TYPES;
+  editor.pages = [{id: 'p', name: 'Zuhause', groups: [{id: 'g', items: []}]}];
+  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  editor.setToolbox(true);
+
+  // Find toolbox item with data-add attribute
+  const entry = dom.window.document.querySelector('[data-tb-list] .layout-toolbox-item[data-add="0"]');
+  assert(entry, 'should have .layout-toolbox-item[data-add="0"] button');
+  
+  // Check that the title is rendered
+  const title = entry.querySelector('b');
+  assert(title, 'should have <b> with title');
+  assert(title.textContent.length > 0, 'title should not be empty');
+});
+
+test('toolbox renders .layout-toolbox-empty for no matching search', () => {
+  const { dom, editor } = createEditorWithFragment(PAGE_GRID(CARD('a', 'device', '1')));
+  editor.cardTypes = CARD_TYPES;
+  editor.pages = [{id: 'p', name: 'Zuhause', groups: [{id: 'g', items: []}]}];
+  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  editor.setToolbox(true);
+
+  // Simulate search with no results
+  const search = dom.window.document.querySelector('[data-tb-search]');
+  if (search) {
+    search.value = 'xyz_no_match_xyz';
+    search.dispatchEvent(new dom.window.Event('input'));
+  }
+
+  // Find empty state message
+  const empty = dom.window.document.querySelector('[data-tb-list] .layout-toolbox-empty');
+  assert(empty, 'should show .layout-toolbox-empty when no results match');
+  assert(empty.textContent.includes('xyz_no_match_xyz'), 'empty message should include query');
 });

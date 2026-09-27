@@ -29,6 +29,7 @@ import (
 type Document struct {
 	Name          string    `json:"name"`
 	Label         string    `json:"label"`
+	LabelKey      string    `json:"label_key,omitempty"`
 	Path          string    `json:"path"`
 	SchemaPath    string    `json:"schema_path"`
 	RevisionCount int       `json:"revision_count"`
@@ -38,23 +39,28 @@ type Document struct {
 	ReloadError   string    `json:"reload_error,omitempty"`
 }
 
-// displayNames ordnet bekannten Konfigurationsdateien einen sprechenden
-// Servicenamen fuer die Dropdown-Anzeige zu. Unbekannte Dateien (z. B. neue
-// Geraetetypen ohne Eintrag hier) fallen auf ihren Dateinamen zurueck.
-var displayNames = map[string]string{
-	"apsystems_devices":   "APsystems Wechselrichter",
-	"battery_soc_devices": "Batterie-Ladezustand (SoC)",
-	"shelly_devices":      "Shelly Geräte",
-	"tuya_devices":        "Tuya Geräte",
-	"trucki_devices":      "Trucki GPS-Tracker",
-	"automation_rules":    "Automatisierungsregeln",
+// displayNameInfo holds the catalog key and German label for a known
+// configuration file. Unknown files (e.g. new device types without an entry here)
+// fall back to their file name.
+type displayNameInfo struct {
+	key   string
+	label string
 }
 
-func displayName(name string) string {
-	if label, ok := displayNames[name]; ok {
-		return label
+var displayNames = map[string]displayNameInfo{
+	"apsystems_devices":   {key: "config.file.apsystems_devices", label: "APsystems Wechselrichter"},
+	"battery_soc_devices": {key: "config.file.battery_soc_devices", label: "Batterie-Ladezustand (SoC)"},
+	"shelly_devices":      {key: "config.file.shelly_devices", label: "Shelly Geräte"},
+	"tuya_devices":        {key: "config.file.tuya_devices", label: "Tuya Geräte"},
+	"trucki_devices":      {key: "config.file.trucki_devices", label: "Trucki IoT-Sticks"},
+	"automation_rules":    {key: "config.file.automation_rules", label: "Automatisierungsregeln"},
+}
+
+func displayName(name string) (key, label string) {
+	if info, ok := displayNames[name]; ok {
+		return info.key, info.label
 	}
-	return name
+	return "", name
 }
 
 type Revision struct {
@@ -182,7 +188,8 @@ func (m *Manager) Scan() ([]Document, error) {
 		if err != nil {
 			return nil, err
 		}
-		document := Document{Name: name, Label: displayName(name), Path: path, SchemaPath: schema, RevisionCount: len(revisions), ModifiedAt: info.ModTime()}
+		labelKey, label := displayName(name)
+		document := Document{Name: name, Label: label, LabelKey: labelKey, Path: path, SchemaPath: schema, RevisionCount: len(revisions), ModifiedAt: info.ModTime()}
 		if data, readErr := os.ReadFile(path); readErr == nil {
 			document.Checksum = checksum(data)
 		}

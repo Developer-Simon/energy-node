@@ -13,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores, fakeModalStore } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const themeSource = fs.readFileSync(
@@ -31,6 +32,7 @@ function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl }
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
   if (cytoscapeImpl) dom.window.cytoscape = cytoscapeImpl;
+  installI18n(dom.window);
   vm.runInContext(themeSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();

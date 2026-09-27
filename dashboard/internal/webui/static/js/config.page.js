@@ -1,11 +1,14 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || "Anfrage fehlgeschlagen");
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
 
@@ -47,7 +50,7 @@
     statusTimeoutMs: 15000,
 
     get configCount() {
-      return `${this.configs.length} verwaltete Konfiguration(en)`;
+      return tn('config.count', this.configs.length);
     },
 
     // Der Rohtext-Editor traegt seinen eigenen Speichern-Button, deshalb
@@ -59,6 +62,7 @@
 
     get selectedLabel() {
       const selected = this.configs.find(config => config.name === this.selectedName);
+      if (selected && selected.label_key) return t(selected.label_key);
       return (selected && selected.label) || this.selectedName;
     },
 
@@ -68,19 +72,19 @@
     // Frage nach etwas, das schon geschehen ist.
     async confirmSave() {
       return this.$store.modal.confirm({
-        title: 'Speichern und Dienst neu laden?',
-        body: `„${this.selectedLabel}“ wird überschrieben. Der zugehörige Dienst übernimmt die neue Konfiguration sofort und baut seine Verbindungen neu auf.`,
-        confirmLabel: 'Speichern',
-        cancelLabel: 'Abbrechen',
+        title: t('config.confirm.title'),
+        body: t('config.confirm.body', {name: this.selectedLabel}),
+        confirmLabel: t('common.save'),
+        cancelLabel: t('common.cancel'),
       });
     },
 
     get actionStatusText() {
-      if (this.loading) return 'Wird geladen ...';
-      if (this.saving) return 'Speichert ...';
-      if (this.formDirty) return 'Ungespeicherte Änderungen';
-      if (this.editorDirty) return 'JSON-Text geändert';
-      return 'Alles gespeichert';
+      if (this.loading) return t('config.action_status.loading');
+      if (this.saving) return t('config.action_status.saving');
+      if (this.formDirty) return t('config.action_status.form_dirty');
+      if (this.editorDirty) return t('config.action_status.editor_dirty');
+      return t('config.action_status.saved');
     },
 
     get runtimeStateLabel() {
@@ -266,11 +270,11 @@
         if (currentValue[identityKey] !== undefined) merged[identityKey] = currentValue[identityKey];
       });
       Object.assign(merged, preset.properties || {});
-      schemaNode.replaceWith(this.renderNode(itemSchema, merged, 'Eintrag'));
+      schemaNode.replaceWith(this.renderNode(itemSchema, merged, t('config.item_label')));
       this.formDirty = true;
       // warning statt info: das ist eine Handlungsanweisung, sie darf nicht
       // nach acht Sekunden verschwinden.
-      this.$store.toasts.push(`Preset "${preset.name || preset.id}" übernommen. Zum Sichern „Speichern“ in der Leiste unten klicken.`, 'warning');
+      this.$store.toasts.push(t('config.preset.applied', {name: preset.name || preset.id}), 'warning');
     },
 
     async reloadService() {
@@ -281,7 +285,7 @@
         const response = await requestJSON(`/api/v1/configurations/${name}/reload`, {method: 'POST'});
         this.reloadFailed = Boolean(response.reload_failed);
         this.reloadError = response.reload_error || '';
-        this.$store.toasts.push('Dienst-Konfiguration neu geladen.');
+        this.$store.toasts.push(t('config.service.reloaded'));
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -332,7 +336,7 @@
         .filter(([device]) => device)
         .sort((a, b) => window.I18n.compare(a[0], b[0]));
       const unnamed = groups.get('') || [];
-      if (unnamed.length) named.push(['Sonstige', unnamed]);
+      if (unnamed.length) named.push([t('config.topics.others'), unnamed]);
       return named;
     },
 
@@ -349,7 +353,7 @@
           control.append(target);
         }
         topics.forEach(topic => target.append(new Option(
-          this.hasTopicSample(topic) ? topic : `${topic} (noch keine Daten)`,
+          this.hasTopicSample(topic) ? topic : t('config.topics.no_data', {topic}),
           topic, false, topic === displayedValue)));
       });
     },
@@ -424,17 +428,17 @@
       if (!(key === '' && this.selectedName === 'shelly_devices')) return;
       const presetSelect = document.createElement('select');
       presetSelect.className = 'shelly-preset-select';
-      presetSelect.setAttribute('aria-label', 'Shelly-Preset auswählen');
+      presetSelect.setAttribute('aria-label', t('config.preset.select_label'));
       presetSelect.disabled = this.shellyPresets.length === 0;
-      presetSelect.add(new Option('Preset wählen…', ''));
+      presetSelect.add(new Option(t('config.preset.select_placeholder'), ''));
       this.shellyPresets.forEach(preset => presetSelect.add(new Option(preset.name || preset.id, preset.id)));
       const matchingPreset = this.findMatchingShellyPreset(itemValue, itemSchema);
       if (matchingPreset) presetSelect.value = matchingPreset.id;
       const applyPreset = document.createElement('button');
       applyPreset.type = 'button';
       applyPreset.className = 'shelly-preset-apply';
-      applyPreset.textContent = 'Preset übernehmen';
-      applyPreset.setAttribute('aria-label', 'Ausgewähltes Shelly-Preset auf diesen Eintrag anwenden');
+      applyPreset.textContent = t('config.preset.apply_button');
+      applyPreset.setAttribute('aria-label', t('config.preset.apply_label'));
       applyPreset.addEventListener('click', () => {
         const preset = this.shellyPresets.find(candidate => candidate.id === presetSelect.value);
         if (preset) this.applyShellyPreset(itemEl, itemSchema, preset);
@@ -534,11 +538,11 @@
       const topology = (topologyControl && topologyControl.value) || 'parallel';
       if (topology === 'series') {
         return [
-          {name: 'bank_a', label: 'Bank A', cellKey: 'bank_a_cell_count'},
-          {name: 'bank_b', label: 'Bank B', cellKey: 'bank_b_cell_count'},
+          {name: 'bank_a', label: t('config.battery.bank_a'), cellKey: 'bank_a_cell_count'},
+          {name: 'bank_b', label: t('config.battery.bank_b'), cellKey: 'bank_b_cell_count'},
         ];
       }
-      return [{name: 'pack', label: 'Bus', cellKey: 'bank_a_cell_count'}];
+      return [{name: 'pack', label: t('config.battery.bank_parallel'), cellKey: 'bank_a_cell_count'}];
     },
 
     batteryCellVoltages(objectNode, unit) {
@@ -559,9 +563,8 @@
     },
 
     measuredAgo(at) {
-      if (!at) return '';
-      const seconds = Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000));
-      return seconds < 90 ? ` (vor ${seconds} s)` : ` (vor ${Math.round(seconds / 60)} min)`;
+      if (!at) return null;
+      return Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000));
     },
 
     async refreshTopicSamples() {
@@ -581,7 +584,7 @@
         details.className = 'battery-tuning';
         details.open = true;
         const summary = document.createElement('summary');
-        summary.textContent = 'Kalibrierung & Abstimmung';
+        summary.textContent = t('config.tuning.title');
         details.append(summary);
         objectNode.prepend(details);
       }
@@ -614,26 +617,36 @@
       block.replaceChildren();
       const control = objectNode.querySelector(`[data-schema-key="${key}"] .schema-control`);
       if (!control) return;
-      const fieldLabel = key === 'full_v_per_cell' ? 'Vollschwelle' : 'Leerschwelle';
+      const fieldKey = key === 'full_v_per_cell' ? 'config.battery.full_threshold_label' : 'config.battery.empty_threshold_label';
+      const field = t(fieldKey);
       const live = this.batteryLiveState(objectNode);
       const head = document.createElement('div');
       head.className = 'battery-measure-head';
       const caption = document.createElement('span');
-      caption.textContent = live
-        ? `${fieldLabel} · aktuell gemessen${this.measuredAgo(live.at)}:`
-        : `${fieldLabel} · Keine Live-Daten für diese Anlage.`;
+      if (live) {
+        const seconds = this.measuredAgo(live.at);
+        if (seconds === null) {
+          caption.textContent = t('config.battery.measure_header_live', {field});
+        } else if (seconds < 90) {
+          caption.textContent = t('config.battery.measure_header_live_seconds', {field, n: seconds});
+        } else {
+          caption.textContent = t('config.battery.measure_header_live_minutes', {field, n: Math.round(seconds / 60)});
+        }
+      } else {
+        caption.textContent = t('config.battery.measure_header_no_data', {field});
+      }
       head.append(caption);
       const source = this.batterySampleSource(objectNode, 'state');
       if (live && source && source !== 'live') {
         const cached = document.createElement('span');
         cached.className = 'battery-measure-cached';
-        cached.textContent = 'zwischengespeicherter Stand';
+        cached.textContent = t('config.battery.cached');
         head.append(cached);
       }
       const refresh = document.createElement('button');
       refresh.type = 'button';
       refresh.className = 'battery-measure-refresh';
-      refresh.textContent = 'Aktualisieren';
+      refresh.textContent = t('config.battery.refresh');
       refresh.addEventListener('click', () => {
         // Erst mit dem vorhandenen Stand neu zeichnen: dann folgt der Block
         // sofort einer geaenderten Zellzahl, auch wenn der Abruf scheitert.
@@ -656,12 +669,12 @@
         const name = document.createElement('span');
         name.textContent = unit.label;
         row.append(name);
-        [['roh', values.raw], ['lastkorrigiert', values.corrected]].forEach(([kind, value]) => {
+        [['config.battery.measure_apply_raw', values.raw], ['config.battery.measure_apply_corrected', values.corrected]].forEach(([applyKey, value]) => {
           if (value === null) return;
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'battery-measure-apply';
-          button.textContent = `${kind} ${window.I18n.formatNumber(value, 3)} V/Zelle übernehmen`;
+          button.textContent = t(applyKey, {value: window.I18n.formatNumber(value, 3)});
           button.addEventListener('click', () => {
             control.value = value.toFixed(3);
             // Ohne diese Events bliebe das Feld als "Default" markiert und
@@ -682,7 +695,7 @@
       const section = document.createElement('div');
       section.className = 'battery-tuning-suggestions';
       if (!tuning) {
-        section.textContent = 'Noch keine Auswertung.';
+        section.textContent = t('config.tuning.no_evaluation');
         body.append(section);
         return;
       }
@@ -692,12 +705,11 @@
         (unitData.suggestions || []).forEach(s => {
           const row = document.createElement('div');
           row.className = 'battery-tuning-row';
-          row.textContent = `${s.key}: ${s.current_value ?? '–'} → ${s.suggested_value} `
-            + `(Konfidenz ${s.confidence}, n=${s.sample_count}, Streuung ±${s.spread})`;
+          row.textContent = t('config.tuning.suggestion_row', {key: s.key, current: s.current_value ?? '–', suggested: s.suggested_value, confidence: s.confidence, count: s.sample_count, spread: s.spread});
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'battery-tuning-apply';
-          button.textContent = 'übernehmen';
+          button.textContent = t('config.tuning.apply');
           button.addEventListener('click', () => {
             const control = objectNode.querySelector(`[data-schema-key="${s.key}"] .schema-control`);
             if (!control) return;
@@ -711,7 +723,7 @@
         });
         (unitData.findings || []).forEach(f => {
           const row = document.createElement('div');
-          row.className = `battery-tuning-finding battery-tuning-finding--${f.severity}`;
+          row.className = `battery-tuning-finding battery-tuning-finding--${f.severity}`; // i18n-ignore
           row.textContent = f.message;
           section.append(row);
         });
@@ -740,19 +752,19 @@
           hint = document.createElement('p');
           keyNode.append(hint);
         }
-        hint.className = warn ? 'schema-hint warn' : 'schema-hint';
+        hint.className = warn ? 'schema-hint warn' : 'schema-hint'; // i18n-ignore
         hint.textContent = text;
       };
       datalist.replaceChildren();
       control.placeholder = '';
       if (!topic) {
-        control.placeholder = 'Erst Topic auswählen';
+        control.placeholder = t('config.topic_key.placeholder_select');
         setHint('');
         return;
       }
       const sample = this.topicSamples.get(topic);
       if (!sample || !sample.payload) {
-        setHint('Auf diesem Topic lag noch keine Nachricht — Key kann nicht vorgeschlagen werden.');
+        setHint(t('config.topic_key.no_message'));
         return;
       }
       let payload;
@@ -764,7 +776,7 @@
       if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
         // json.loads() succeeds on a bare number too, and data[key] then
         // raises - the service reads nothing at all and never says so.
-        setHint(`Payload ist kein JSON-Objekt (${this.shortPayload(sample.payload)}) — Feld leer lassen, dann wird die erste Zahl aus dem Payload gelesen.`, true);
+        setHint(t('config.topic_key.no_json_object', {payload: this.shortPayload(sample.payload)}), true);
         return;
       }
       const keys = Object.keys(payload);
@@ -772,13 +784,13 @@
       const otherKeys = keys.filter(candidate => !numericKeys.includes(candidate));
       [...numericKeys, ...otherKeys].forEach(candidate => datalist.append(new Option(candidate, candidate)));
       control.placeholder = numericKeys[0] || '';
-      const available = numericKeys.length ? numericKeys.join(', ') : '(keine)';
+      const available = numericKeys.length ? numericKeys.join(', ') : t('config.topic_key.no_fields');
       if (control.value) {
-        setHint(`Payload: ${this.shortPayload(sample.payload)} — verfügbare Zahlenfelder: ${available}`);
+        setHint(t('config.topic_key.payload_info', {payload: this.shortPayload(sample.payload), available}));
       } else {
         // Without a key extract_value() regexes the first number out of the
         // raw text - on {"id":0,"apower":12.5} that is the 0.
-        setHint(`Payload ist JSON — ohne Key wird die erste Zahl im Rohtext gelesen, das ist meist der falsche Wert. Verfügbare Zahlenfelder: ${available}`, true);
+        setHint(t('config.topic_key.payload_json_warning', {available}), true);
       }
     },
 
@@ -799,7 +811,7 @@
       const invalid = this.$refs.schemaForm.querySelector('.schema-control:invalid');
       if (invalid) {
         invalid.closest('details')?.setAttribute('open', 'open');
-        this.$store.toasts.push(`Eingabe prüfen (${invalid.previousElementSibling?.textContent?.trim() || ''}): ${invalid.validationMessage}`, 'critical');
+        this.$store.toasts.push(t('config.validation.input_check', {label: invalid.previousElementSibling?.textContent?.trim() || '', error: invalid.validationMessage}), 'critical');
         invalid.focus();
         // focus() scrollt nur so weit, dass das Feld gerade am Rand steht -
         // unter der schwebenden Aktionsleiste waere es damit halb verdeckt.
@@ -813,7 +825,7 @@
         const value = this.readNode(this.$refs.schemaForm.querySelector('.schema-node'));
         const response = await requestJSON(`/api/v1/configurations/${encodeURIComponent(this.selectedName)}`, {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json'}, // i18n-ignore
           body: JSON.stringify(value),
         });
         this.reloadFailed = Boolean(response.reload_failed);
@@ -826,8 +838,8 @@
         this.formDirty = false;
         const selected = this.selectedDocument();
         if (selected) selected.checksum = response.checksum;
-        this.$store.toasts.push(this.reloadFailed ? 'Konfiguration gespeichert.' : 'Konfiguration gespeichert, Dienst neu geladen.');
-        if (discardedEditorText) this.$store.toasts.push('Der JSON-Text wurde dabei durch den Formularstand ersetzt.', 'warning');
+        this.$store.toasts.push(this.reloadFailed ? t('config.toast.saved') : t('config.toast.saved_and_reloaded'));
+        if (discardedEditorText) this.$store.toasts.push(t('config.toast.editor_text_replaced'), 'warning');
         this.watchRuntimeStatus(response.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -838,12 +850,12 @@
 
     resetForm() {
       this.renderForm();
-      this.$store.toasts.push('Formular zurückgesetzt.');
+      this.$store.toasts.push(t('config.toast.form_reset'));
     },
 
     resetEditor() {
       this.editorText = JSON.stringify(this.value, null, 2);
-      this.$store.toasts.push('JSON-Text zurückgesetzt.');
+      this.$store.toasts.push(t('config.toast.editor_reset'));
     },
 
     async saveEditor() {
@@ -860,12 +872,12 @@
       try {
         const response = await requestJSON(`/api/v1/configurations/${encodeURIComponent(this.selectedName)}`, {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json'}, // i18n-ignore
           body: this.editorText,
         });
         this.reloadFailed = Boolean(response.reload_failed);
         this.reloadError = response.reload_error || '';
-        this.$store.toasts.push(this.reloadFailed ? 'Konfiguration gespeichert.' : 'Konfiguration gespeichert, Dienst neu geladen.');
+        this.$store.toasts.push(this.reloadFailed ? t('config.toast.saved') : t('config.toast.saved_and_reloaded'));
         const selected = this.selectedDocument();
         if (selected) selected.checksum = response.checksum;
         await this.loadConfig();
@@ -884,7 +896,7 @@
         basePath: () => `/api/v1/configurations/${encodeURIComponent(this.selectedName)}`,
         current: () => this.value,
         reload: () => this.loadConfig(),
-        label: 'Revisionen dieser Konfiguration',
+        label: t('config.revisions_label'),
       };
     },
   });

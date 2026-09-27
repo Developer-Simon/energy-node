@@ -1,11 +1,13 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const requestJSON = async (url, options) => {
     // Einziger Ort mit einem URL-Literal in dieser Datei: hinter einem
     // Reverse-Proxy-Unterpfad legt base.html das Praefix in
     // __DASHBOARD_BASE_PATH__, bei Direktzugriff ist es leer.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || "Anfrage fehlgeschlagen");
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
 
@@ -31,7 +33,7 @@
     getBasePath: typeof config.basePath === 'function' ? config.basePath : () => config.basePath || '',
     currentValue: typeof config.current === 'function' ? config.current : () => null,
     reloadOwner: typeof config.reload === 'function' ? config.reload : async () => {},
-    label: config.label || 'Revisionen',
+    label: config.label || t('revisions.default_label'),
 
     revisions: [],
     selectedRevision: '',
@@ -123,7 +125,7 @@
       const currentLines = JSON.stringify(currentValue, null, 2).split('\n');
       const table = Array.from({length: revisionLines.length + 1}, () => Array(currentLines.length + 1).fill(0));
       for (let revisionIndex = revisionLines.length - 1; revisionIndex >= 0; revisionIndex--) for (let currentIndex = currentLines.length - 1; currentIndex >= 0; currentIndex--) table[revisionIndex][currentIndex] = revisionLines[revisionIndex] === currentLines[currentIndex] ? table[revisionIndex + 1][currentIndex + 1] + 1 : Math.max(table[revisionIndex + 1][currentIndex], table[revisionIndex][currentIndex + 1]);
-      const result = [{text: '--- Revision', className: 'diff-removed', reference: true}, {text: '+++ Aktueller Stand', className: 'diff-added', reference: true}];
+      const result = [{text: '--- Revision', className: 'diff-removed', reference: true}, {text: t('revisions.diff.current'), className: 'diff-added', reference: true}];
       let revisionIndex = 0; let currentIndex = 0; let revisionLine = 1; let currentLine = 1;
       while (revisionIndex < revisionLines.length || currentIndex < currentLines.length) {
         if (revisionIndex < revisionLines.length && currentIndex < currentLines.length && revisionLines[revisionIndex] === currentLines[currentIndex]) { result.push({text: `  ${revisionLines[revisionIndex]}`, className: '', oldLine: revisionLine++, newLine: currentLine++}); revisionIndex++; currentIndex++; }
@@ -166,9 +168,9 @@
     async restoreRevision() {
       if (!this.selectedRevision) return;
       const confirmed = await this.$store.modal.confirm({
-        title: 'Revision wiederherstellen?',
-        body: 'Der aktuelle Stand wird überschrieben. Er bleibt als neue Revision erhalten.',
-        confirmLabel: 'Wiederherstellen',
+        title: t('revisions.modal.title'),
+        body: t('revisions.modal.body'),
+        confirmLabel: t('revisions.modal.confirm_label'),
         danger: true,
       });
       if (!confirmed) return;
@@ -176,10 +178,10 @@
       try {
         await requestJSON(`${this.basePath}/restore`, {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json'}, // i18n-ignore
           body: JSON.stringify({revision: this.selectedRevision}),
         });
-        this.$store.toasts.push('Revision wiederhergestellt.');
+        this.$store.toasts.push(t('revisions.restored'));
         await this.reloadOwner();
         await this.load();
       } catch (error) {

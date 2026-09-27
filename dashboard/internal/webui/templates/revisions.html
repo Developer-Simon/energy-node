@@ -3,26 +3,26 @@
   <summary x-on:click.prevent="toggle()" x-text="label"></summary>
   <div class="revision-panel-body">
     <div class="toolbar">
-      <label>Revision
+      <label>{{t "revisions.select_label"}}
         <select x-model="selectedRevision" x-on:change="previewRevision()">
-          <option value="">Revision auswählen</option>
+          <option value="">{{t "revisions.select_placeholder"}}</option>
           <template x-for="revision in revisions" x-bind:key="revision.name">
             <option x-bind:value="revision.name" x-text="`${revision.name} (${revision.checksum.slice(0, 8)})`"></option>
           </template>
         </select>
       </label>
-      <button type="button" x-on:click="load()" x-bind:disabled="loading" x-text="loading ? 'Lade ...' : 'Aktualisieren'"></button>
-      <button type="button" x-on:click="restoreRevision()" x-bind:disabled="restoring || !selectedRevision">Wiederherstellen</button>
-      <span class="revision-panel-empty" x-show="loaded && revisions.length === 0" x-cloak>Noch keine Revisionen vorhanden.</span>
+      <button type="button" x-on:click="load()" x-bind:disabled="loading" x-text="loading ? $t('revisions.loading') : $t('revisions.refresh')"></button>
+      <button type="button" x-on:click="restoreRevision()" x-bind:disabled="restoring || !selectedRevision">{{t "revisions.restore_button"}}</button>
+      <span class="revision-panel-empty" x-show="loaded && revisions.length === 0" x-cloak>{{t "revisions.empty"}}</span>
     </div>
-    <div class="revision-view-toolbar" role="group" aria-label="Ansicht der Revisionsvorschau">
-      <span>Ansicht</span>
-      <button type="button" x-on:click="setRevisionView('preview')" x-bind:aria-pressed="revisionView === 'preview'">Vorschau</button>
-      <button type="button" x-on:click="setRevisionView('diff')" x-bind:aria-pressed="revisionView === 'diff'">Diff</button>
-      <label><input type="checkbox" x-model="cropDiff" x-on:change="previewRevision()"> Nur Änderungen</label>
+    <div class="revision-view-toolbar" role="group" aria-label="{{t "revisions.view_title_aria"}}">
+      <span>{{t "revisions.view_label"}}</span>
+      <button type="button" x-on:click="setRevisionView('preview')" x-bind:aria-pressed="revisionView === 'preview'">{{t "revisions.change_view_preview"}}</button>
+      <button type="button" x-on:click="setRevisionView('diff')" x-bind:aria-pressed="revisionView === 'diff'">{{t "revisions.change_view_diff"}}</button>
+      <label><input type="checkbox" x-model="cropDiff" x-on:change="previewRevision()"> {{t "revisions.crop_diff_check"}}</label>
     </div>
-    <textarea class="revision-preview" aria-label="Revisionsvorschau" readonly placeholder="Revision auswählen und Vorschau öffnen" x-model="revisionText" x-bind:hidden="revisionView !== 'preview'"></textarea>
-    <pre class="revision-diff" aria-label="Änderungen zwischen Revision und aktuellem Stand" x-ref="revisionDiff" x-bind:hidden="revisionView !== 'diff'"></pre>
+    <textarea class="revision-preview" aria-label="{{t "revisions.preview_aria"}}" readonly placeholder="{{t "revisions.preview_placeholder"}}" x-model="revisionText" x-bind:hidden="revisionView !== 'preview'"></textarea>
+    <pre class="revision-diff" aria-label="{{t "revisions.crop_diff_title"}}" x-ref="revisionDiff" x-bind:hidden="revisionView !== 'diff'"></pre>
   </div>
 </details>
 {{end}}

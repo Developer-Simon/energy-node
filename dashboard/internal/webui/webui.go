@@ -148,12 +148,21 @@ func buildOverviewTemplate(lang string) *template.Template {
 		"cardFillsHeight":    cardFillsHeight,
 		"stripDeviceName":    stripDeviceName,
 		"activePage": func(layout settings.Layout, id string) *settings.Page {
-			// Die Uebersicht rendert genau eine Seite. Ohne Treffer die erste, damit
-			// ein unbekannter Seitenname (alter Link, geloeschte Seite) nicht auf eine
-			// leere Uebersicht fuehrt.
-			for i := range layout.Pages {
-				if layout.Pages[i].Name == id {
-					return &layout.Pages[i]
+			// Overview renders exactly one page. Without a match, use the first page
+			// so that an unknown page ID (old bookmark, deleted page) does not result
+			// in an empty overview.
+			if id != "" {
+				// Try to find by ID first
+				for i := range layout.Pages {
+					if layout.Pages[i].ID == id {
+						return &layout.Pages[i]
+					}
+				}
+				// Fallback for old bookmarks using the page name instead of ID
+				for i := range layout.Pages {
+					if layout.Pages[i].Name == id {
+						return &layout.Pages[i]
+					}
 				}
 			}
 			if len(layout.Pages) > 0 {
@@ -579,7 +588,7 @@ func defaultLayout(devices []registry.DeviceView) settings.Layout {
 		Version: 2,
 		Pages: []settings.Page{{
 			ID:    "overview",
-			Name:  "Übersicht",
+			Name:  "",
 			Order: 0,
 			Groups: []settings.Group{{
 				ID:    "dashboard",

@@ -7,12 +7,14 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'config-status.js'), 'utf8');
 
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  installI18n(dom.window);
   vm.runInContext(source, dom.getInternalVMContext());
   return dom.window.ConfigStatus;
 }
@@ -69,4 +71,11 @@ test('battery error codes have German texts', () => {
     assert.ok(S.ERROR_TEXTS[code], code);
     assert.doesNotMatch(S.ERROR_TEXTS[code], /;/, 'no semicolons in UI texts');
   }
+});
+
+test('unknown error_code falls back to status.error', () => {
+  const S = load();
+  assert.equal(S.errorText({ error: 'custom error message', error_code: 'unknown_code' }), 'custom error message');
+  assert.equal(S.errorText({ error_code: 'unknown_code' }), '');
+  assert.equal(S.errorText(null), '');
 });

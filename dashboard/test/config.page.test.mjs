@@ -25,12 +25,12 @@ const scriptSource = staticJS('config.page.js');
 // Evaluates config.page.js in a fresh jsdom window/VM context and returns the
 // Alpine component instance it registers, without touching Node's real
 // globals (each test gets its own isolated DOM).
-function createConfigPanel() {
+function createConfigPanel({ lang = 'de' } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
-  installI18n(dom.window);
+  installI18n(dom.window, { lang });
   vm.runInContext(schemaFormSource, context);
   vm.runInContext(configStatusSource, context);
   vm.runInContext(scriptSource, context);
@@ -64,6 +64,20 @@ function setControl(node, window, key, value, isCheckbox) {
   control.dispatchEvent(new window.Event('input', { bubbles: true }));
   control.dispatchEvent(new window.Event('change', { bubbles: true }));
 }
+
+test('the save confirmation names the service in the page language', () => {
+  const { component } = createConfigPanel({ lang: 'en' });
+  component.configs = [{ name: 'battery_soc_devices', label: 'Batterie-Ladezustand (SoC)', label_key: 'config.file.battery_soc_devices' }];
+  component.selectedName = 'battery_soc_devices';
+  assert.equal(component.selectedLabel, 'Battery state of charge (SoC)');
+});
+
+test('a configuration without label_key keeps its label', () => {
+  const { component } = createConfigPanel({ lang: 'en' });
+  component.configs = [{ name: 'unmapped_devices', label: 'unmapped_devices' }];
+  component.selectedName = 'unmapped_devices';
+  assert.equal(component.selectedLabel, 'unmapped_devices');
+});
 
 test('readNode saves optional properties the user touched, in the top-level form', () => {
   const { component, window, document } = createConfigPanel();
@@ -517,8 +531,8 @@ test('battery form offers the measured cell voltage for both threshold fields (s
     assert.ok(block, `Messblock fehlt bei ${key}`);
     const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
     // 27.36 / 8 = 3.420 roh, 3.398 lastkorrigiert
-    assert.ok(labels.some(text => text.includes('roh 3,420')), labels.join(' | '));
-    assert.ok(labels.some(text => text.includes('lastkorrigiert 3,398')), labels.join(' | '));
+    assert.ok(labels.some(text => text.includes('Rohwert 3,420')), labels.join(' | '));
+    assert.ok(labels.some(text => text.includes('Lastkorrigiert 3,398')), labels.join(' | '));
   });
 });
 
@@ -534,8 +548,8 @@ test('battery form offers the measured cell voltage for the default parallel top
   assert.ok(block, 'Messblock fehlt');
   const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
   // 27.36 / 8 = 3.420 roh, 3.398 lastkorrigiert
-  assert.ok(labels.some(text => text.includes('roh 3,420')), labels.join(' | '));
-  assert.ok(labels.some(text => text.includes('lastkorrigiert 3,398')), labels.join(' | '));
+  assert.ok(labels.some(text => text.includes('Rohwert 3,420')), labels.join(' | '));
+  assert.ok(labels.some(text => text.includes('Lastkorrigiert 3,398')), labels.join(' | '));
 });
 
 test('applying a measured value writes it into the field and marks it as touched', () => {
@@ -546,7 +560,7 @@ test('applying a measured value writes it into the field and marks it as touched
   const fullField = node.querySelector('[data-schema-key="full_v_per_cell"]');
   const fullBlock = node.querySelector('.battery-tuning [data-threshold-key="full_v_per_cell"]');
   const applyCorrected = [...fullBlock.querySelectorAll('.battery-measure-apply')]
-    .find(button => button.textContent.includes('lastkorrigiert 3,398'));
+    .find(button => button.textContent.includes('Lastkorrigiert 3,398'));
   applyCorrected.click();
 
   assert.equal(fullField.querySelector('.schema-control').value, '3.398');
@@ -568,7 +582,7 @@ test('measured value uses the cell count currently in the form, not the saved on
 
   const labels = [...block.querySelectorAll('.battery-measure-apply')].map(button => button.textContent);
   // 27.36 / 16 = 1.710
-  assert.ok(labels.some(text => text.includes('roh 1,710')), labels.join(' | '));
+  assert.ok(labels.some(text => text.includes('Rohwert 1,710')), labels.join(' | '));
 });
 
 test('battery form says so when no live values are available', () => {
