@@ -152,3 +152,49 @@ test('inputFromHass passes the HA number formatter to the core', () => {
   const input = Card.inputFromHass({ ...hass, locale: { language: 'en', number_format: 'language' } }, config, [], Date.now());
   assert.equal(input.formatNumber(1.5, 1), '1.5');
 });
+
+// --- Text table (battery.card.*) --------------------------------------------
+
+function builtinTextKeys() {
+  const core = fs.readFileSync(path.join(WWW, 'battery-card-core.js'), 'utf8');
+  const pattern = /'(battery\.card\.[\w.]+)':\s*'([^']*)'/g;
+  const keys = new Set();
+  let match;
+  while ((match = pattern.exec(core))) keys.add(match[1]);
+  assert.ok(keys.size > 0, 'no battery.card.* entries found in the vendored core');
+  return keys;
+}
+
+test('CARD_TEXTS.de, CARD_TEXTS.en and BUILTIN_TEXTS share the same keys', () => {
+  const { Card } = load();
+  const builtin = builtinTextKeys();
+  const de = new Set(Object.keys(Card.CARD_TEXTS.de));
+  const en = new Set(Object.keys(Card.CARD_TEXTS.en));
+  assert.deepEqual(de, builtin, 'CARD_TEXTS.de has different keys than BUILTIN_TEXTS');
+  assert.deepEqual(en, builtin, 'CARD_TEXTS.en has different keys than BUILTIN_TEXTS');
+});
+
+test('CARD_TEXTS.en has no TODO(en) value once English is filled in', { skip: process.env.I18N_ALLOW_PENDING_EN === '1' }, () => {
+  const { Card } = load();
+  for (const [key, text] of Object.entries(Card.CARD_TEXTS.en)) {
+    assert.ok(!text.startsWith('TODO(en): '), `CARD_TEXTS.en[${key}] is still pending: ${text}`);
+  }
+});
+
+test('texts() picks the German table for a de* language and English otherwise', () => {
+  const { Card } = load();
+  assert.equal(Card.texts({ language: 'de' })['battery.card.now'], 'jetzt');
+  assert.equal(Card.texts({ language: 'de-DE' })['battery.card.now'], 'jetzt');
+  assert.equal(Card.texts({ language: 'en' })['battery.card.now'], 'TODO(en): jetzt');
+  assert.equal(Card.texts({ language: 'en-GB' })['battery.card.now'], 'TODO(en): jetzt');
+  assert.equal(Card.texts({})['battery.card.now'], 'TODO(en): jetzt');
+});
+
+test('inputFromHass passes a t() built from the HA language table', () => {
+  const { Card } = load();
+  const german = Card.inputFromHass({ ...hass, language: 'de' }, config, [], 0);
+  assert.equal(german.t('battery.card.now'), 'jetzt');
+  const english = Card.inputFromHass({ ...hass, language: 'en' }, config, [], 0);
+  assert.equal(english.t('battery.card.now'), 'TODO(en): jetzt');
+  assert.equal(german.t('battery.card.remaining', { time: '4:51 h' }), 'noch 4:51 h');
+});

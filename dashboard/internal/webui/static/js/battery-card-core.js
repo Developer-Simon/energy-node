@@ -291,7 +291,7 @@
   // (Dashboard) und in ein Shadow-DOM (Lovelace) legen kann. Jede Farbe
   // faellt durch drei Stufen: Werkstatt-Dashboard, Home Assistant, Literal.
   // Keine font-family - beide Wirte geben ihre eigene vor.
-  const CARD_CSS = `
+  const CARD_CSS = /* i18n-ignore */ `
 .battery-card {
   --battery-surface: var(--panel, var(--ha-card-background, var(--card-background-color, #fff)));
   --battery-ink: var(--text-strong, var(--primary-text-color, #16181d));
