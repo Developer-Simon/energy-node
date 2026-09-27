@@ -1087,7 +1087,7 @@
       for (const group of page.groups || []) {
         for (const item of group.items || []) {
           if (item.visible !== false || present.has(item.id)) continue;
-          const card = this.buildCard(item, 'über das Auge wieder einblenden');
+          const card = this.buildCard(item, t('layout_editor.sync_hidden_cards.hint'));
           host.appendChild(card);
           present.add(item.id);
           this.editItems.set(item.id, item);
@@ -1613,16 +1613,17 @@
     // Aenderung gespeichertes Layout weiter laedt - overview.html rendert
     // ein vorhandenes energy_summary-Item darum still, statt es abzulehnen.
     get itemOptions() {
+      // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title, layout_editor.device.label
       const options = [
-        {id: 'energy-flow', type: 'energy_flow', ref: '', label: 'Energie: Energiefluss'},
-        {id: 'diagnostics', type: 'diagnostics', ref: '', label: 'Diagnosen'},
-        {id: 'energy-band', type: 'energy_band', ref: '', label: 'Energie: Bilanzband'},
-        {id: 'energy-ring', type: 'energy_ring', ref: '', label: 'Energie: Autarkie-Ring'},
-        {id: 'energy-board', type: 'energy_board', ref: '', label: 'Energie: Datentafel'},
-        {id: 'energy-day', type: 'energy_day', ref: '', label: 'Energie: Tagesband'},
-        {id: 'energy-schema', type: 'energy_schema', ref: '', label: 'Energie: Anlagenschema'},
-        {id: 'energy-status', type: 'energy_status', ref: '', label: 'Energie: Statuskarte'},
-        {id: 'battery-status', type: 'battery_status', ref: '', label: 'Speicher: Statuskarte'},
+        {id: 'energy-flow', type: 'energy_flow', ref: '', label: 'Energie: Energiefluss'}, // i18n-ignore
+        {id: 'diagnostics', type: 'diagnostics', ref: '', label: 'Diagnosen'}, // i18n-ignore
+        {id: 'energy-band', type: 'energy_band', ref: '', label: 'Energie: Bilanzband'}, // i18n-ignore
+        {id: 'energy-ring', type: 'energy_ring', ref: '', label: 'Energie: Autarkie-Ring'}, // i18n-ignore
+        {id: 'energy-board', type: 'energy_board', ref: '', label: 'Energie: Datentafel'}, // i18n-ignore
+        {id: 'energy-day', type: 'energy_day', ref: '', label: 'Energie: Tagesband'}, // i18n-ignore
+        {id: 'energy-schema', type: 'energy_schema', ref: '', label: 'Energie: Anlagenschema'}, // i18n-ignore
+        {id: 'energy-status', type: 'energy_status', ref: '', label: 'Energie: Statuskarte'}, // i18n-ignore
+        {id: 'battery-status', type: 'battery_status', ref: '', label: 'Speicher: Statuskarte'}, // i18n-ignore
         // Kein Ref hier: eine einzelne, generische Auswahl fuer alle
         // Entitaeten statt einer Option je Entitaet - seit der Abschaffung
         // des Kartentyps 'entity' die einzige Entitaetenkarte mit einem
@@ -1630,10 +1631,10 @@
         // Widget selbst (siehe entityValuePicker in widgetHTML()) - addItem()
         // erzeugt darum fuer diese Option jedes Mal eine frische Karten-ID
         // statt die Option-ID wiederzuverwenden.
-        {id: 'entity-value', type: 'entity_value', ref: '', label: 'Wert-Karte'},
+        {id: 'entity-value', type: 'entity_value', ref: '', label: 'Wert-Karte'}, // i18n-ignore
       ];
       for (const device of this.devices) {
-        options.push({id: `device:${device.id}`, type: 'device', ref: device.id, label: `Gerät: ${device.name || device.id}`});
+        options.push({id: `device:${device.id}`, type: 'device', ref: device.id, label: `Gerät: ${device.name || device.id}`}); // i18n-ignore
       }
       return options;
     },
@@ -1645,19 +1646,24 @@
     // dann eine frische newID(), keine der itemOptions-IDs) - der Name kommt
     // stattdessen aus dem gewaehlten ref selbst.
     itemLabel(item) {
-      if (item.type === 'entity_group') return item.title || 'Entitätenliste';
+      if (item.type === 'entity_group') return item.title || t('layout_editor.card.entity_group.title');
       if (item.type === 'entity_value') {
         const entity = allEntityOptions().find(option => option.ref === item.ref);
-        return entity ? entity.label : 'Wert-Karte';
+        return entity ? entity.label : t('layout_editor.card.entity_value.title');
+      }
+      if (item.type === 'device') {
+        const device = this.devices?.find(d => d.id === item.ref);
+        return t('layout_editor.device.label', {name: device?.name || device?.id || item.ref});
       }
       // Typ und Ref statt der ID: jede aus der Toolbox gelegte Karte bekommt
       // eine frische ID (siehe addFromCatalog), die in itemOptions gar nicht
       // vorkommt. Die ID bleibt der letzte Rueckfall - fuer Layouts, die noch
       // aus der Zeit der Katalog-IDs stammen.
       const byKind = this.itemOptions.find(option => option.type === item.type && (option.ref || '') === (item.ref || ''));
-      return byKind?.label
-        || this.itemOptions.find(option => option.id === item.id)?.label
-        || item.ref || item.id;
+      if (byKind) return t(`layout_editor.card.${byKind.type}.title`);
+      const byID = this.itemOptions.find(option => option.id === item.id);
+      if (byID) return t(`layout_editor.card.${byID.type}.title`);
+      return item.ref || item.id;
     },
 
     async load() {
@@ -1706,11 +1712,11 @@
       for (const device of this.devices) items.push(`device:${device.id}`);
       return [{
         id: newID('page'),
-        name: 'Übersicht',
+        name: 'Übersicht', // i18n-ignore
         order: 0,
         groups: [{
           id: newID('group'),
-          name: 'Dashboard',
+          name: 'Dashboard', // i18n-ignore
           items: items.map(id => {
             const option = this.itemOptions.find(item => item.id === id);
             return {...option, span: cardType(option?.type).default_span, visible: true, visibleCategories: [], flowScale: option?.type === 'energy_flow' ? 'width' : '', height: 0, ...defaultEnergyOptions(option?.type)};
@@ -1922,7 +1928,7 @@
       this.editItems = this.editItems || new Map();
       for (const group of page.groups || []) {
         for (const item of group.items || []) {
-          const card = this.buildCard(item, item.visible === false ? 'über das Auge wieder einblenden' : undefined);
+          const card = this.buildCard(item, item.visible === false ? t('layout_editor.sync_hidden_cards.hint') : undefined);
           host.appendChild(card);
           this.editItems.set(item.id, item);
           this.dressCard(card, item);
@@ -2023,10 +2029,10 @@
     // mit 'Neue Seite' durchnummeriert, damit zwei neue Seiten nicht denselben
     // Tab teilen - die Tab-Leiste fuehrt Seiten ueber ihre ID.
     addPage() {
-      let name = 'Neue Seite';
-      for (let n = 2; this.pages.some(page => page.name === name); n++) name = `Neue Seite ${n}`;
+      let name = t('layout_editor.page.new_name');
+      for (let n = 2; this.pages.some(page => page.name === name); n++) name = `${t('layout_editor.page.new_name')} ${n}`;
       const newPageId = newID('page');
-      this.pages.push({id: newPageId, name, order: this.pages.length, groups: [{id: newID('group'), name: 'Dashboard', items: []}]});
+      this.pages.push({id: newPageId, name, order: this.pages.length, groups: [{id: newID('group'), name: 'Dashboard', items: []}]}); // i18n-ignore
       this.activePage = newPageId;
       // Der Server kennt die Seite noch nicht - ein Fragment-Aufruf mit ihrer
       // ID brachte die erste gespeicherte zurueck. Also selbst rendern.
@@ -2056,7 +2062,7 @@
     },
 
     addGroup(page) {
-      page.groups.push({id: newID('group'), name: 'Neue Gruppe', items: []});
+      page.groups.push({id: newID('group'), name: t('layout_editor.group.new_name'), items: []});
       this.$nextTick(() => this.renderGrids());
     },
 
@@ -2101,7 +2107,7 @@
       const item = {
         id: newID('entity-group'), type: 'entity_group', ref: '', visible: true, visibleCategories: [],
         flowScale: '', span: cardType('entity_group').default_span, height: 0,
-        title: 'Entitäten', entityRefs: [],
+        title: t('overview.entity_group.default_title'), entityRefs: [],
         ...defaultEnergyOptions('entity_group'),
       };
       const el = grid.addWidget(toGridNode(item, this.itemLabel(item), refMissing(item, this.devices), grid.getColumn()));
@@ -2119,7 +2125,7 @@
       // ueberhaupt keine Gruppe, dort fiel der Aufruf still durch.
       const page = this.pages?.[this.activePageIndex()];
       if (!page) return null;
-      if (!page.groups?.length) (page.groups = page.groups || []).push({id: newID('group'), name: 'Dashboard', items: []});
+      if (!page.groups?.length) (page.groups = page.groups || []).push({id: newID('group'), name: 'Dashboard', items: []}); // i18n-ignore
       const beforeID = before?.dataset?.layoutItemId || null;
       // In die Gruppe, in der die Nachbarkachel steht - sonst in die letzte,
       // damit die Reihenfolge im Modell der im DOM entspricht (die Uebersicht
@@ -2137,7 +2143,7 @@
         id: newID('item'),
         type: entry.type, ref: entry.ref || '',
         span: type.default_span, height: 0, visible: true,
-        ...(entry.type === 'entity_group' ? {title: 'Entitäten', entityRefs: []} : {}),
+        ...(entry.type === 'entity_group' ? {title: t('overview.entity_group.default_title'), entityRefs: []} : {}),
       };
 
       const host = document.querySelector('.layout-grid [data-layout-page]') || document.querySelector('.layout-grid');
@@ -2185,7 +2191,7 @@
         basePath: '/api/v1/layout',
         current: () => this.payload(),
         reload: () => this.load(),
-        label: 'Revisionen des Layouts',
+        label: t('layout_editor.revision_config.label'),
       };
     },
 
@@ -2197,7 +2203,7 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify(this.payload()),
         });
-        this.$store.toasts.push('Layout gespeichert.');
+        this.$store.toasts.push(t('layout_editor.saved'));
         this.unsaved = false;
         // Die Uebersicht holt ein neues Layout nicht mehr beilaeufig beim
         // naechsten Fragment-Tausch ab - der faellt bei reinen Energierastern
