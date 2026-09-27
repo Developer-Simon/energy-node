@@ -352,7 +352,7 @@
           control.append(target);
         }
         topics.forEach(topic => target.append(new Option(
-          this.hasTopicSample(topic) ? topic : `${topic}${t('config.topics.suffix_no_data')}`,
+          this.hasTopicSample(topic) ? topic : t('config.topics.no_data', {topic}),
           topic, false, topic === displayedValue)));
       });
     },
