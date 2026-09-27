@@ -56,7 +56,7 @@ var displayNames = map[string]displayNameInfo{
 	"automation_rules":    {key: "config.file.automation_rules", label: "Automatisierungsregeln"},
 }
 
-func displayNameInfo_(name string) (string, string) {
+func displayName(name string) (key, label string) {
 	if info, ok := displayNames[name]; ok {
 		return info.key, info.label
 	}
@@ -188,7 +188,7 @@ func (m *Manager) Scan() ([]Document, error) {
 		if err != nil {
 			return nil, err
 		}
-		labelKey, label := displayNameInfo_(name)
+		labelKey, label := displayName(name)
 		document := Document{Name: name, Label: label, LabelKey: labelKey, Path: path, SchemaPath: schema, RevisionCount: len(revisions), ModifiedAt: info.ModTime()}
 		if data, readErr := os.ReadFile(path); readErr == nil {
 			document.Checksum = checksum(data)

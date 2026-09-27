@@ -410,7 +410,6 @@ func TestServiceIDForConfig(t *testing.T) {
 }
 
 func TestDisplayNamesCatalogKeysExistInDeCatalog(t *testing.T) {
-	// Read the de.json catalog
 	catalogPath := filepath.Join("..", "webui", "catalogs", "de.json")
 	catalogData, err := os.ReadFile(catalogPath)
 	if err != nil {
@@ -422,14 +421,11 @@ func TestDisplayNamesCatalogKeysExistInDeCatalog(t *testing.T) {
 		t.Fatalf("failed to parse de.json: %v", err)
 	}
 
-	// Verify every displayNames key exists in the catalog
 	for fileName, info := range displayNames {
-		if info.key == "" {
-			continue // Skip if no key is set
-		}
 		catalogValue, exists := catalog[info.key]
 		if !exists {
 			t.Errorf("catalog key %q for %q does not exist in de.json", info.key, fileName)
+			continue
 		}
 		if catalogValue != info.label {
 			t.Errorf("catalog key %q has value %q, want %q", info.key, catalogValue, info.label)
