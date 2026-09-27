@@ -14,6 +14,8 @@
 // Verdichtungsstufen an absoluten Epoch-Vielfachen aus, und erst dadurch
 // fallen die Saetze zweier Geraete auf identische Schluessel.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const PROTOCOL = 1;
   const RECONNECT_MIN_MS = 2000;
   const RECONNECT_MAX_MS = 60000;
@@ -38,7 +40,7 @@
   const post = async (suffix, body) => {
     const response = await fetcher(url(suffix), {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
+      headers: {'Content-Type': 'application/json'}, // i18n-ignore
       body: JSON.stringify({peer: peerId, ...body}),
     });
     return response.ok;
@@ -150,23 +152,23 @@
       return;
     }
     Promise.resolve(fn(payload)).catch(error => {
-      state.reason = `${name} fehlgeschlagen: ${error.message}`;
+      state.reason = t('history.exchange.handler_failed', {name, message: error.message});
       // QuotaExceededError ist kein voruebergehender Fehler - weiterlaufen
       // hiesse, im Minutentakt Fehler zu erzeugen.
-      if (error && error.name === 'QuotaExceededError') stop();
+      if (error && error.name === 'QuotaExceededError') stop(); // i18n-ignore
     });
   };
 
   const connect = () => {
     const EventSourceImpl = options.eventSourceImpl || window.EventSource;
     if (!EventSourceImpl) {
-      state.reason = 'Der Browser kennt keine Server-Sent-Events.';
+      state.reason = t('history.exchange.no_sse_support');
       return;
     }
     source = new EventSourceImpl(url('/stream'));
     source.addEventListener('hello', handler('hello', async payload => {
       if (Number(payload.protocol) !== PROTOCOL) {
-        state.reason = 'Der Server spricht eine andere Protokollversion.';
+        state.reason = t('history.exchange.wrong_protocol');
         stop();
         return;
       }
@@ -207,18 +209,18 @@
     try {
       const response = await fetcher(url(''));
       if (!response.ok) {
-        state.reason = 'Der Server bietet keinen Verlauf-Austausch an.';
+        state.reason = t('history.exchange.no_server_support');
         stopped = true;
         return false;
       }
       announcement = await response.json();
     } catch (error) {
-      state.reason = `Ankuendigung nicht lesbar: ${error.message}`;
+      state.reason = t('history.exchange.announcement_unreadable', {message: error.message});
       stopped = true;
       return false;
     }
     if (Number(announcement.protocol) !== PROTOCOL) {
-      state.reason = 'Der Server spricht eine andere Protokollversion.';
+      state.reason = t('history.exchange.wrong_protocol');
       stopped = true;
       return false;
     }

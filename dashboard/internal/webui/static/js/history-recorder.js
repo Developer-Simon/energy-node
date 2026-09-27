@@ -14,6 +14,8 @@
 //    des Tabs gehalten; die uebrigen Tabs lesen nur und werden ueber einen
 //    BroadcastChannel benachrichtigt.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const LOCK_NAME = 'energy-node-historizer';
   const CHANNEL_NAME = 'energy-node-history';
   const DEFAULT_READ_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -63,7 +65,7 @@
       const result = await window.HistoryMaintenance.run(config, Date.now());
       await afterMaintenance(result.compacted || {});
     } catch (error) {
-      announceError(`Verdichtung der Historie fehlgeschlagen: ${error.message}`);
+      announceError(t('history.recorder.maintenance_failed', {message: error.message}));
     }
   };
 
@@ -79,7 +81,7 @@
     } catch (error) {
       // Der Austausch ist eine Ergaenzung, kein Betriebskriterium: seine
       // Fehler duerfen die Aufzeichnung nicht anhalten.
-      announceError(`Verlauf-Austausch: ${error.message}`);
+      announceError(t('history.recorder.exchange_failed', {message: error.message}));
     }
   };
 
@@ -165,7 +167,7 @@
   const extraSamples = async at => {
     if (!config.extraEntities.length) return [];
     const response = await fetch(`${basePath()}/api/v1/history/entities`);
-    if (!response.ok) throw new Error('Zusätzliche Verlaufs-Entitäten konnten nicht gelesen werden');
+    if (!response.ok) throw new Error(t('history.recorder.extra_entities_failed'));
     const body = await response.json();
     const ts = Date.parse(body.at || at);
     return (body.samples || [])
@@ -178,7 +180,7 @@
     collecting = true;
     try {
       const response = await fetch(`${basePath()}/api/v1/energy`);
-      if (!response.ok) throw new Error('Energie-Historie konnte Live-Daten nicht laden');
+      if (!response.ok) throw new Error(t('history.recorder.energy_load_failed'));
       const snapshot = await response.json();
       const rows = roleSamples(snapshot).concat(await extraSamples(snapshot.at));
       if (rows.length) await window.HistoryStore.writeRaw(rows);
@@ -188,9 +190,9 @@
       // Schreibversuch scheitert genauso. Weiterlaufen hiesse, im Sekunden-
       // takt Fehler zu erzeugen und dem Nutzer vorzuspielen, es werde noch
       // aufgezeichnet.
-      if (error && error.name === 'QuotaExceededError') {
+      if (error && error.name === 'QuotaExceededError') { // i18n-ignore
         paused = true;
-        pauseReason = 'Der Browser-Speicher ist voll. Die Aufzeichnung ist angehalten — Budget verkleinern oder Aufbewahrung verkürzen, dann fortsetzen.';
+        pauseReason = t('history.recorder.storage_full');
         window.dispatchEvent(new CustomEvent('dashboard-history-paused', {detail: {reason: pauseReason}}));
         try { await window.HistoryStore.setMeta('recording_paused', true); } catch (metaError) { /* Metadaten sind hier nachrangig */ }
       }
@@ -217,7 +219,7 @@
     persisted = await window.HistoryStore.persist();
     paused = Boolean(await window.HistoryStore.meta('recording_paused'));
     if (paused) {
-      pauseReason = 'Die Aufzeichnung wurde wegen vollem Browser-Speicher angehalten.';
+      pauseReason = t('history.recorder.storage_full_paused');
       window.dispatchEvent(new CustomEvent('dashboard-history-paused', {detail: {reason: pauseReason}}));
     }
     await collect();

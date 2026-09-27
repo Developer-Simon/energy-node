@@ -9,6 +9,8 @@
 // Version 1 wird nicht migriert, sondern verworfen - sie hielt hoechstens
 // sechs Stunden Browser-Daten.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const databaseName = 'energy-node-dashboard';
   const databaseVersion = 2;
 
@@ -40,14 +42,14 @@
         if (!database.objectStoreNames.contains(META_STORE)) database.createObjectStore(META_STORE, {keyPath: 'key'});
       };
       request.onsuccess = () => resolve(request.result);
-      request.onerror = () => reject(request.error || new Error('IndexedDB konnte nicht geöffnet werden'));
+      request.onerror = () => reject(request.error || new Error(t('history.store.open_failed')));
     });
     return databasePromise;
   };
 
   const storeNameFor = tier => {
     const name = TIERS[tier];
-    if (!name) throw new Error(`Unbekannte Verdichtungsstufe: ${tier}`);
+    if (!name) throw new Error(t('history.store.unknown_tier', {level: tier}));
     return name;
   };
 
@@ -96,7 +98,7 @@
       rows.push(cursor.value);
       cursor.continue();
     };
-    request.onerror = () => reject(request.error || new Error('Historie konnte nicht gelesen werden'));
+    request.onerror = () => reject(request.error || new Error(t('history.store.read_failed')));
   });
 
   const readRange = async (tier, series, fromTs, toTs) => {
@@ -107,14 +109,14 @@
         .objectStore(storeNameFor(tier))
         .getAll(rangeFor(series, fromTs, toTs));
       request.onsuccess = () => resolve(request.result || []);
-      request.onerror = () => reject(request.error || new Error('Historie konnte nicht gelesen werden'));
+      request.onerror = () => reject(request.error || new Error(t('history.store.read_failed')));
     });
   };
 
   const metaGet = (database, key) => new Promise((resolve, reject) => {
     const request = database.transaction(META_STORE, 'readonly').objectStore(META_STORE).get(key);
     request.onsuccess = () => resolve(request.result ? request.result.value : undefined);
-    request.onerror = () => reject(request.error || new Error('Historie-Metadaten konnten nicht gelesen werden'));
+    request.onerror = () => reject(request.error || new Error(t('history.store.meta_read_failed')));
   });
 
   const meta = async key => metaGet(await open(), key);
@@ -125,7 +127,7 @@
       const transaction = database.transaction(META_STORE, 'readwrite');
       transaction.objectStore(META_STORE).put({key, value});
       transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error || new Error('Historie-Metadaten konnten nicht geschrieben werden'));
+      transaction.onerror = () => reject(transaction.error || new Error(t('history.store.meta_write_failed')));
     });
   };
 
@@ -160,8 +162,8 @@
         };
       });
       transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error || new Error('Historie konnte nicht geschrieben werden'));
-      transaction.onabort = () => reject(transaction.error || new Error('Historie konnte nicht geschrieben werden'));
+      transaction.onerror = () => reject(transaction.error || new Error(t('history.store.write_failed')));
+      transaction.onabort = () => reject(transaction.error || new Error(t('history.store.write_failed')));
     });
   };
 
@@ -197,7 +199,7 @@
         };
       };
       transaction.oncomplete = () => resolve(removed);
-      transaction.onerror = () => reject(transaction.error || new Error('Historie konnte nicht bereinigt werden'));
+      transaction.onerror = () => reject(transaction.error || new Error(t('history.store.delete_failed')));
     });
   };
 
@@ -233,7 +235,7 @@
         };
       });
       transaction.oncomplete = () => resolve(removed);
-      transaction.onerror = () => reject(transaction.error || new Error('Historie konnte nicht bereinigt werden'));
+      transaction.onerror = () => reject(transaction.error || new Error(t('history.store.delete_failed')));
     });
   };
 
@@ -266,7 +268,7 @@
         }
         cursor.continue();
       };
-      request.onerror = () => reject(request.error || new Error('Deckung konnte nicht ermittelt werden'));
+      request.onerror = () => reject(request.error || new Error(t('history.store.coverage_failed')));
     });
   };
 
@@ -303,8 +305,8 @@
         };
       });
       transaction.oncomplete = () => resolve(added);
-      transaction.onerror = () => reject(transaction.error || new Error('Historie konnte nicht ergaenzt werden'));
-      transaction.onabort = () => reject(transaction.error || new Error('Historie konnte nicht ergaenzt werden'));
+      transaction.onerror = () => reject(transaction.error || new Error(t('history.store.merge_failed')));
+      transaction.onabort = () => reject(transaction.error || new Error(t('history.store.merge_failed')));
     });
   };
 
@@ -329,7 +331,7 @@
           }
           cursor.continue();
         };
-        request.onerror = () => reject(request.error || new Error('Serien konnten nicht gelesen werden'));
+        request.onerror = () => reject(request.error || new Error(t('history.store.series_read_failed')));
       });
     }
     return names;
@@ -354,7 +356,7 @@
           if (newest === null || ts > newest) newest = ts;
           cursor.continue();
         };
-        request.onerror = () => reject(request.error || new Error('Zeitgrenzen konnten nicht gelesen werden'));
+        request.onerror = () => reject(request.error || new Error(t('history.store.bounds_read_failed')));
       });
     }
     return {oldest, newest};

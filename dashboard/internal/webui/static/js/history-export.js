@@ -22,18 +22,18 @@
   };
 
   const headerLines = meta => [
-    '# Energy Node Verlaufs-Export',
-    `# erzeugt: ${isoOf(Date.now())}`,
-    `# zeitraum: ${isoOf(meta.from)} bis ${isoOf(meta.to)}`,
-    `# stufe: ${meta.tier} (${meta.tierLabel})`,
-    `# kennwert: ${meta.aggregate}`,
-    `# abtastung: ${meta.intervalSeconds} s`,
-    `# zeitzone: ${meta.timezone}`,
-    `# quelle: ${meta.source}`,
+    '# Energy Node Verlaufs-Export', // i18n-ignore
+    `# erzeugt: ${isoOf(Date.now())}`, // i18n-ignore
+    `# zeitraum: ${isoOf(meta.from)} bis ${isoOf(meta.to)}`, // i18n-ignore
+    `# stufe: ${meta.tier} (${meta.tierLabel})`, // i18n-ignore
+    `# kennwert: ${meta.aggregate}`, // i18n-ignore
+    `# abtastung: ${meta.intervalSeconds} s`, // i18n-ignore
+    `# zeitzone: ${meta.timezone}`, // i18n-ignore
+    `# quelle: ${meta.source}`, // i18n-ignore
     // '#' statt '' als Trennzeile: eine leere Zeile hier waere selbst keine
     // Kommentarzeile mehr und wuerde in jeder Zaehlung "Zeilen ohne '#'"
     // faelschlich als Datenzeile mitzaehlen.
-    '#',
+    '#', // i18n-ignore
   ].map(line => `${line}\n`).join('');
 
   const toCSV = ({rows, meta}) => {
