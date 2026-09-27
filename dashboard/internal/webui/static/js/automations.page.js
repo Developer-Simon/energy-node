@@ -15,7 +15,7 @@
     return body;
   };
 
-  // i18n-keys: automations.metric.autarkie, automations.metric.base, automations.metric.battery_capacity_kwh, automations.metric.battery_charge, automations.metric.battery_discharge, automations.metric.battery_energy_kwh, automations.metric.battery_soc, automations.metric.eigenverbrauch, automations.metric.gap_applied, automations.metric.grid_export, automations.metric.grid_import, automations.metric.heat_pump, automations.metric.load_total, automations.metric.pv, automations.metric.wallbox
+  // i18n-keys: automations.metric.autarkie, automations.metric.base, automations.metric.battery_capacity_kwh, automations.metric.battery_charge, automations.metric.battery_discharge, automations.metric.battery_energy_kwh, automations.metric.battery_soc, automations.metric.eigenverbrauch, automations.metric.gap_applied, automations.metric.grid_export, automations.metric.grid_import, automations.metric.heat_pump, automations.metric.load_total, automations.metric.pv, automations.metric.wallbox, automations.summary.balance, automations.summary.balance_hysteresis, automations.summary.entity_value, automations.summary.topic_value, automations.action.notification, automations.action.mqtt_command, automations.action.unknown, automations.test.permission_required, automations.test.service_offline, automations.test.save_first, automations.test.blocked_action, automations.test.confirm, automations.test.trigger, automations.test.failed, automations.test.no_response, automations.test.published, automations.test.blocked, automations.test.error, automations.saved, automations.condition_state.sun_no_event, automations.condition_state.no_location, automations.condition_state.no_value, automations.condition_state.outside_window, automations.condition_state.threshold_not_reached, automations.condition_state.since, automations.condition_state.pending, automations.condition_state.met, automations.gate_meta.cooldown, automations.gate_meta.last_fired, automations.gate_meta.fire_count, automations.action_preview.no_preview, automations.action_preview.blocked, automations.new_rule, automations.delete_rule.title, automations.delete_rule.body, automations.geolocation.denied, automations.geolocation.failed, automations.gate_detail.hold_pending, automations.gate_detail.cooldown, automations.condition_type_unknown
   // Eine Tabelle je Bilanzfeld: Klartext, Icon-Symbol im Sprite, Einheit.
   const BALANCE_FIELD_INFO = {
     grid_export:       { label: 'automations.metric.grid_export',     icon: 'ico-grid',     unit: 'W' },
@@ -208,9 +208,9 @@
       const remaining = (ruleState.conditions || [])
         .map((entry) => (isNumber(entry.hold_remaining) ? entry.hold_remaining : 0))
         .reduce((highest, current) => Math.max(highest, current), 0);
-      return `Noch ${formatSeconds(remaining)} bis zum Auslösen.`;
+      return t('automations.gate_detail.hold_pending', { duration: formatSeconds(remaining) });
     }
-    if (ruleState.result === 'cooldown') return `Noch ${formatSeconds(ruleState.cooldown_remaining)}.`;
+    if (ruleState.result === 'cooldown') return t('automations.gate_detail.cooldown', { duration: formatSeconds(ruleState.cooldown_remaining) });
     if (ruleState.reason) return ruleState.reason;
     return '';
   }
@@ -231,9 +231,10 @@
     const type = condition && condition.type;
     if (type === 'balance_threshold') {
       const info = BALANCE_FIELD_INFO[condition.field] || { label: condition.field, icon: 'ico-flash', unit: '' };
-      const hysteresis = condition.hysteresis ? `, Hysterese ${condition.hysteresis}` : '';
+      const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
+      const summaryKey = condition.hysteresis ? 'automations.summary.balance_hysteresis' : 'automations.summary.balance';
       return { icon: info.icon, title: t(info.label), unit: info.unit,
-               summary: `${t(COMPARISON_WORDS[condition.comparison] || condition.comparison)} ${condition.threshold} ${info.unit}${hysteresis}` };
+               summary: t(summaryKey, { comparison, threshold: condition.threshold, unit: info.unit, hysteresis: condition.hysteresis }) };
     }
     if (type === 'entity_value') {
       // Fehlt die Entitaet - noch nicht geladen, oder aus dem Register
@@ -242,14 +243,16 @@
       const unit = (entity && entity.unit_of_measurement) || '';
       const icon = (entity && DEVICE_CLASS_ICONS[entity.device_class]) || 'ico-topic';
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
+      const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
       const suffix = unit ? ` ${unit}` : '';
       return { icon, title: (entity && entity.name) || condition.topic || t('automations.entity_value'), unit,
-               summary: `${t(COMPARISON_WORDS[condition.comparison] || condition.comparison)} ${expected}${suffix}` };
+               summary: t('automations.summary.entity_value', { comparison, expected, unit: suffix.trim() }) };
     }
     if (type === 'topic_value') {
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
+      const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
       return { icon: 'ico-topic', title: condition.topic || t('automations.topic_value'), unit: '',
-               summary: `${t(COMPARISON_WORDS[condition.comparison] || condition.comparison)} ${expected}` };
+               summary: t('automations.summary.topic_value', { comparison, expected }) };
     }
     if (type === 'time_window') {
       return { icon: 'ico-clock', title: t('automations.time_window'), unit: '',
@@ -264,13 +267,13 @@
     // Vorwaertskompatibilitaet: Spec A bringt weitere Typen. Bis dahin - und
     // falls je ein unbekannter Typ auftaucht - wird eine neutrale Karte
     // gezeichnet, statt die ganze Ansicht scheitern zu lassen.
-    return { icon: 'ico-flash', title: type ? `Bedingung (${type})` : t('automations.unknown_condition'),
+    return { icon: 'ico-flash', title: type ? t('automations.condition_type_unknown', { type }) : t('automations.unknown_condition'),
              unit: '', summary: '' };
   }
 
   function describeAction(action, entity) {
     if (action && action.type === 'notification') {
-      return { icon: 'ico-bell', kind: 'notify', title: action.title || 'Benachrichtigung' };
+      return { icon: 'ico-bell', kind: 'notify', title: action.title || t('automations.action.notification') };
     }
     if (action && action.type === 'publish') {
       // Steht hinter der Aktion eine bekannte Entitaet (entity_id gesetzt und
@@ -278,18 +281,18 @@
       // wie eine entity_value-Bedingung - fehlt die Entitaet, bleibt das
       // rohe Topic als Titel stehen, die Regel laeuft unveraendert weiter.
       const icon = (entity && DEVICE_CLASS_ICONS[entity.device_class]) || 'ico-switch';
-      const title = (entity && entity.name) || action.topic || 'MQTT-Befehl';
+      const title = (entity && entity.name) || action.topic || t('automations.action.mqtt_command');
       return { icon, kind: 'command', title };
     }
-    return { icon: 'ico-flash', kind: 'command', title: 'Unbekannte Aktion' };
+    return { icon: 'ico-flash', kind: 'command', title: t('automations.action.unknown') };
   }
 
   function canTest(context) {
     if (!context || context.hasRole === false) {
-      return { allowed: false, reason: 'Für Automations-Tests fehlt die Berechtigung.' };
+      return { allowed: false, reason: t('automations.test.permission_required') };
     }
-    if (!context.online) return { allowed: false, reason: 'Der Automations-Dienst ist offline.' };
-    if (context.dirty) return { allowed: false, reason: 'Erst speichern — getestet wird die gespeicherte Regel.' };
+    if (!context.online) return { allowed: false, reason: t('automations.test.service_offline') };
+    if (context.dirty) return { allowed: false, reason: t('automations.test.save_first') };
     return { allowed: true, reason: '' };
   }
 
@@ -301,26 +304,23 @@
     WEEKDAY_LABELS, SUN_EVENT_LABELS,
   };
 
-  const BALANCE_FIELDS = [
-    ['grid_export', 'Netzeinspeisung'], ['grid_import', 'Netzbezug'], ['pv', 'PV-Leistung'],
-    ['load_total', 'Hausverbrauch'], ['base', 'Übriger Verbrauch'], ['wallbox', 'Wallbox'],
-    ['heat_pump', 'Wärmepumpe'], ['battery_charge', 'Batterie laden'], ['battery_discharge', 'Batterie entladen'],
-    ['gap_applied', 'Bilanzlücke'], ['autarkie', 'Autarkiegrad'], ['eigenverbrauch', 'Eigenverbrauchsquote'],
-    ['battery_soc', 'Batterie-Füllstand'], ['battery_capacity_kwh', 'Speicher-Kapazität'],
-    ['battery_energy_kwh', 'Gespeicherte Energie'],
+  const BALANCE_FIELDS_BASE = [
+    ['grid_export', 'automations.metric.grid_export'],
+    ['grid_import', 'automations.metric.grid_import'],
+    ['pv', 'automations.metric.pv'],
+    ['load_total', 'automations.metric.load_total'],
+    ['base', 'automations.metric.base'],
+    ['wallbox', 'automations.metric.wallbox'],
+    ['heat_pump', 'automations.metric.heat_pump'],
+    ['battery_charge', 'automations.metric.battery_charge'],
+    ['battery_discharge', 'automations.metric.battery_discharge'],
+    ['gap_applied', 'automations.metric.gap_applied'],
+    ['autarkie', 'automations.metric.autarkie'],
+    ['eigenverbrauch', 'automations.metric.eigenverbrauch'],
+    ['battery_soc', 'automations.metric.battery_soc'],
+    ['battery_capacity_kwh', 'automations.metric.battery_capacity_kwh'],
+    ['battery_energy_kwh', 'automations.metric.battery_energy_kwh'],
   ];
-
-  const RESULT_LABELS = {
-    fired: 'Ausgelöst',
-    conditions_not_met: 'Bedingungen nicht erfüllt',
-    hold_pending: 'Wartet auf Haltedauer',
-    cooldown: 'Sperrzeit',
-    settling: 'Beruhigungsphase',
-    balance_stale: 'Bilanz veraltet',
-    blocked: 'Blockiert',
-    disabled: 'Deaktiviert',
-    error: 'Fehler',
-  };
 
   const emptyDocument = () => ({
     version: 1,
@@ -340,7 +340,6 @@
     runtimeState: null,
     online: false,
     csrfToken: '',
-    balanceFields: BALANCE_FIELDS,
     expanded: {},
     liveHistory: {},
     historyExpanded: {},
@@ -356,6 +355,10 @@
     // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
     // Datenmodell an - er blendet nur, was schon da ist, schrittweise ein.
     wizard: { active: false, step: 1, ruleId: '' },
+
+    get balanceFields() {
+      return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
+    },
 
     get publishAllowedPrefixesText() {
       return (this.document.settings.publish_allowed_prefixes || []).join('\n');
@@ -631,14 +634,14 @@
       const state = this.conditionState(rule, index);
       const condition = rule.conditions[index] || {};
       if (state === 'novalue' && condition.type === 'sun_window') {
-        return this.hasLocation() ? 'die Sonne geht heute nicht auf oder unter' : 'kein Standort eingestellt';
+        return this.hasLocation() ? t('automations.condition_state.sun_no_event') : t('automations.condition_state.no_location');
       }
-      if (state === 'novalue') return 'kein Wert — Topic unbekannt oder Bilanz veraltet';
-      if (state === 'unmet' && WINDOW_TYPES.has(condition.type)) return 'außerhalb des Zeitfensters';
-      if (state === 'unmet') return 'Schwelle nicht erreicht';
-      const since = report.since ? ` seit ${this.formatSeconds((this.nowTick / 1000) - report.since)}` : '';
-      if (state === 'pending') return `erfüllt${since} — noch ${this.formatSeconds(report.hold_remaining)} Haltedauer`;
-      return `erfüllt${since}`;
+      if (state === 'novalue') return t('automations.condition_state.no_value');
+      if (state === 'unmet' && WINDOW_TYPES.has(condition.type)) return t('automations.condition_state.outside_window');
+      if (state === 'unmet') return t('automations.condition_state.threshold_not_reached');
+      const since = report.since ? t('automations.condition_state.since', { duration: this.formatSeconds((this.nowTick / 1000) - report.since) }) : '';
+      if (state === 'pending') return t('automations.condition_state.pending', { since, remaining: this.formatSeconds(report.hold_remaining) });
+      return t('automations.condition_state.met', { since });
     },
 
     // Liefert eine Liste von Textbausteinen, keine HTML-Zeichenkette - das
@@ -647,9 +650,9 @@
     gateMeta(rule) {
       const state = this.ruleState(rule);
       if (!state) return [];
-      const parts = [`Sperrzeit ${this.formatSeconds(state.cooldown_remaining)} von ${this.formatSeconds(rule.cooldown_seconds)}`];
-      if (state.fired_at) parts.push(`zuletzt ausgelöst ${window.I18n.formatTime(state.fired_at * 1000)}`);
-      parts.push(`bisher ${state.fire_count || 0}×`);
+      const parts = [t('automations.gate_meta.cooldown', { remaining: this.formatSeconds(state.cooldown_remaining), total: this.formatSeconds(rule.cooldown_seconds) })];
+      if (state.fired_at) parts.push(t('automations.gate_meta.last_fired', { time: window.I18n.formatTime(state.fired_at * 1000) }));
+      parts.push(t('automations.gate_meta.fire_count', { count: state.fire_count || 0 }));
       return parts;
     },
 
@@ -675,8 +678,8 @@
     actionPreview(rule, index) {
       const state = this.ruleState(rule);
       const preview = state && state.actions && state.actions[index];
-      if (!preview) return { blocked: false, text: 'noch keine Vorschau' };
-      if (preview.blocked) return { blocked: true, text: preview.reason || 'blockiert' };
+      if (!preview) return { blocked: false, text: t('automations.action_preview.no_preview') };
+      if (preview.blocked) return { blocked: true, text: preview.reason || t('automations.action_preview.blocked') };
       if (rule.actions[index] && rule.actions[index].type === 'notification') {
         return { blocked: false, text: `„${preview.title || ''}" — ${preview.message || ''}` };
       }
@@ -712,7 +715,7 @@
       });
       if (!base.allowed) return base;
       if (preview.blocked) {
-        return { allowed: true, reason: 'Die Aktion ist blockiert — der Test zeigt nur die Begründung.' };
+        return { allowed: true, reason: t('automations.test.blocked_action') };
       }
       return base;
     },
@@ -723,7 +726,7 @@
       const preview = this.actionPreview(rule, index);
       return {
         required: true,
-        question: `Diese Aktion wird jetzt wirklich ausgeführt:\n\n${preview.text}\n\nFortfahren?`,
+        question: t('automations.test.confirm', { action: preview.text }),
       };
     },
 
@@ -769,7 +772,7 @@
         if (question.required) {
           const confirmed = await this.$store.modal.confirm({
             title: question.question,
-            confirmLabel: 'Test auslösen',
+            confirmLabel: t('automations.test.trigger'),
           });
           if (!confirmed) return;
         }
@@ -782,20 +785,20 @@
           body: JSON.stringify({ rule_id: rule.id, action_index: index }),
         });
       } catch (error) {
-        this.notify(`Test fehlgeschlagen: ${error.message}`, 'critical');
+        this.notify(t('automations.test.failed', { reason: error.message }), 'critical');
         return;
       }
       const result = await this.awaitTestResult(rule.id, index, sentAt, options);
       if (!result) {
-        this.notify('Keine Rückmeldung vom Automations-Dienst.', 'warning');
+        this.notify(t('automations.test.no_response'), 'warning');
         return;
       }
       if (result.status === 'published') {
-        this.notify(`Test ausgeführt: ${result.topic} → ${result.payload}`, 'info');
+        this.notify(t('automations.test.published', { topic: result.topic, payload: result.payload }), 'info');
       } else if (result.status === 'blocked') {
-        this.notify(`Test blockiert: ${result.reason}`, 'warning');
+        this.notify(t('automations.test.blocked', { reason: result.reason }), 'warning');
       } else {
-        this.notify(`Test fehlgeschlagen: ${result.reason}`, 'critical');
+        this.notify(t('automations.test.error', { reason: result.reason }), 'critical');
       }
     },
 
@@ -805,7 +808,7 @@
 
     addRule() {
       const id = `regel_${Date.now()}`;
-      this.document.rules.push({ id, name: 'Neue Regel', enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
+      this.document.rules.push({ id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
     },
 
     startRuleWizard() {
@@ -872,9 +875,9 @@
     async removeRule(ruleId) {
       const rule = this.document.rules.find((entry) => entry.id === ruleId);
       const confirmed = await this.$store.modal.confirm({
-        title: `Regel „${(rule && rule.name) || ruleId}" löschen?`,
-        body: 'Die Regel verschwindet aus der Liste und ist mit dem nächsten Speichern endgültig weg.',
-        confirmLabel: 'Löschen',
+        title: t('automations.delete_rule.title', { name: (rule && rule.name) || ruleId }),
+        body: t('automations.delete_rule.body'),
+        confirmLabel: t('common.delete'),
         danger: true,
       });
       if (!confirmed) return;
@@ -960,8 +963,8 @@
       } catch (error) {
         const denied = error && error.code === 1;
         this.$store.toasts.push(denied
-          ? 'Standort nicht freigegeben. Bitte im Browser erlauben oder die Werte von Hand eintragen.'
-          : 'Standort konnte nicht ermittelt werden. Bitte die Werte von Hand eintragen.', 'critical');
+          ? t('automations.geolocation.denied')
+          : t('automations.geolocation.failed'), 'critical');
       } finally {
         this.locating = false;
       }
@@ -1041,7 +1044,8 @@
     },
 
     badgeLabel(result) {
-      return RESULT_LABELS[result] || result;
+      const entry = GATE_VERDICTS[result];
+      return entry ? t(entry.label) : result;
     },
 
     validateRuleBeforeSave(rule) {
@@ -1116,7 +1120,7 @@
           headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken },
           body: JSON.stringify({ ...this.document, settings: settingsToSave }),
         });
-        this.$store.toasts.push('Gespeichert.');
+        this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {

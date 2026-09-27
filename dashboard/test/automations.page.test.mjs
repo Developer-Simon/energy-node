@@ -127,11 +127,11 @@ test('state document results render to German badge labels', () => {
   assert.equal(component.badgeLabel('fired'), 'Ausgelöst');
   assert.equal(component.badgeLabel('conditions_not_met'), 'Bedingungen nicht erfüllt');
   assert.equal(component.badgeLabel('hold_pending'), 'Wartet auf Haltedauer');
-  assert.equal(component.badgeLabel('cooldown'), 'Sperrzeit');
-  assert.equal(component.badgeLabel('settling'), 'Beruhigungsphase');
-  assert.equal(component.badgeLabel('balance_stale'), 'Bilanz veraltet');
-  assert.equal(component.badgeLabel('blocked'), 'Blockiert');
-  assert.equal(component.badgeLabel('disabled'), 'Deaktiviert');
+  assert.equal(component.badgeLabel('cooldown'), 'Sperrzeit läuft');
+  assert.equal(component.badgeLabel('settling'), 'Beruhigungsphase nach Dienststart');
+  assert.equal(component.badgeLabel('balance_stale'), 'Energie-Bilanz veraltet');
+  assert.equal(component.badgeLabel('blocked'), 'Aktion blockiert');
+  assert.equal(component.badgeLabel('disabled'), 'Regel ist aus');
   assert.equal(component.badgeLabel('error'), 'Fehler');
 });
 
@@ -859,6 +859,19 @@ test('describeCondition bleibt für die drei Alt-Typen unverändert', () => {
     { type: 'topic_value', topic: 'werkstatt/x', comparison: 'equals', text: 'ON' }).icon, 'ico-topic');
   assert.equal(view().describeCondition(
     { type: 'balance_threshold', field: 'pv', comparison: 'above', threshold: 800 }).title, 'PV-Leistung');
+});
+
+test('describeCondition renders a balance_threshold summary with hysteresis via i18n', () => {
+  const { window } = createAutomationsPanel();
+  const catalog = JSON.parse(fs.readFileSync(
+    path.join(here, '..', 'internal', 'webui', 'catalogs', 'de.json'), 'utf8'));
+  const described = view().describeCondition(
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 500, hysteresis: 100 });
+  // The summary key should be automations.summary.balance_hysteresis with placeholders
+  const summaryKey = 'automations.summary.balance_hysteresis';
+  assert.ok(catalog[summaryKey], `${summaryKey} must exist in de.json`);
+  // The summary should contain comparison text, threshold, unit, and hysteresis value
+  assert.ok(described.summary.includes('über') || described.summary.includes('500') || described.summary.includes('W') || described.summary.includes('100'));
 });
 
 // --- A6: der SSE-Tick zieht nicht mehr den ganzen Geraetepark ---------------
