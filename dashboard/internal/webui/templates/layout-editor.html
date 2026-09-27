@@ -7,114 +7,114 @@
   Toolbox und Options-Modal haengen sich an die Seite. Nur fuer Manager.
 */}}
 <div data-editor-toolbar hidden>
-  <div class="layout-widths" role="group" aria-label="Zielbreite" data-edit-only>
-    <button class="layout-width-chip active" type="button" data-w="0">Editorbreite</button>
-    <button class="layout-width-chip" type="button" data-w="390">Handy</button>
-    <button class="layout-width-chip" type="button" data-w="834">Tablet</button>
-    <button class="layout-width-chip" type="button" data-w="1280">Monitor</button>
+  <div class="layout-widths" role="group" aria-label="{{t "layout_editor.toolbar.widths_label"}}" data-edit-only>
+    <button class="layout-width-chip active" type="button" data-w="0">{{t "layout_editor.toolbar.width_editor"}}</button>
+    <button class="layout-width-chip" type="button" data-w="390">{{t "layout_editor.toolbar.width_mobile"}}</button>
+    <button class="layout-width-chip" type="button" data-w="834">{{t "layout_editor.toolbar.width_tablet"}}</button>
+    <button class="layout-width-chip" type="button" data-w="1280">{{t "layout_editor.toolbar.width_desktop"}}</button>
   </div>
   <span class="layout-modehint" data-widthnote data-edit-only></span>
   <button class="layout-btn" type="button" data-edit-only data-pageopts aria-haspopup="dialog">
     <svg class="automation-icon" aria-hidden="true"><use href="#ico-pencil"></use></svg>
-    Seite bearbeiten
+    {{t "layout_editor.toolbar.edit_page"}}
   </button>
   <button class="layout-btn" type="button" data-edit-only data-addpage>
     <svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg>
-    Seite
+    {{t "layout_editor.toolbar.add_page"}}
   </button>
   <button class="layout-btn" type="button" data-edit-only data-toolbox-toggle aria-expanded="false" aria-controls="toolbox">
     <svg class="automation-icon" aria-hidden="true"><use href="#ico-plus"></use></svg>
-    Baustein
+    {{t "layout_editor.toolbar.add_block"}}
   </button>
-  <span class="layout-status" data-status data-edit-only><i></i> Ungespeichert</span>
+  <span class="layout-status" data-status data-edit-only><i></i> {{t "layout_editor.toolbar.unsaved"}}</span>
   {{/* Steht nur bei ungespeicherten Aenderungen in der Leiste (updateStatus()
        schaltet [hidden]). Fuehrt ueber denselben Waechter wie das Verlassen. */}}
   <button class="layout-btn danger" type="button" data-edit-only data-mode-discard hidden>
     <svg class="automation-icon" aria-hidden="true"><use href="#ico-trash"></use></svg>
-    Änderungen verwerfen
+    {{t "layout_editor.toolbar.discard_changes"}}
   </button>
   {{/* Ikone aus dem Sprite statt eines eigenen Pfades: derselbe Speicher-
        Knopf wie in den Verlaufssichten und den Managerseiten. */}}
   <button class="layout-btn primary" type="button" data-edit-only data-mode-save>
     <svg class="automation-icon" aria-hidden="true"><use href="#ico-save"></use></svg>
-    Speichern &amp; schließen
+    {{t "layout_editor.toolbar.save_close"}}
   </button>
 </div>
 
-<aside class="layout-toolbox" id="toolbox" aria-hidden="true" aria-label="Bausteine">
+<aside class="layout-toolbox" id="toolbox" aria-hidden="true" aria-label="{{t "layout_editor.toolbox.title"}}">
   <div class="layout-toolbox-head">
-    <b>Bausteine</b>
+    <b>{{t "layout_editor.toolbox.title"}}</b>
     <span class="layout-spacer"></span>
-    <button class="layout-chip-btn" type="button" data-toolbox-close aria-label="Toolbox schließen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
+    <button class="layout-chip-btn" type="button" data-toolbox-close aria-label="{{t "layout_editor.toolbox.close"}}"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
   </div>
-  <div class="layout-toolbox-search"><input type="search" placeholder="Suchen — Karte, Gerät, Entität" data-tb-search aria-label="Bausteine durchsuchen"></div>
-  <div class="layout-toolbox-tabs" role="group" aria-label="Art">
-    <button class="layout-toolbox-tab active" type="button" data-tb-tab="karten">Karten</button>
-    <button class="layout-toolbox-tab" type="button" data-tb-tab="geraete">Geräte</button>
-    <button class="layout-toolbox-tab" type="button" data-tb-tab="entitaeten">Entitäten</button>
+  <div class="layout-toolbox-search"><input type="search" placeholder="{{t "layout_editor.toolbox.search_placeholder"}}" data-tb-search aria-label="{{t "layout_editor.toolbox.search_label"}}"></div>
+  <div class="layout-toolbox-tabs" role="group" aria-label="{{t "layout_editor.toolbox.type_label"}}">
+    <button class="layout-toolbox-tab active" type="button" data-tb-tab="karten">{{t "layout_editor.toolbox.type_cards"}}</button>
+    <button class="layout-toolbox-tab" type="button" data-tb-tab="geraete">{{t "layout_editor.toolbox.type_devices"}}</button>
+    <button class="layout-toolbox-tab" type="button" data-tb-tab="entitaeten">{{t "layout_editor.toolbox.type_entities"}}</button>
   </div>
   <div class="layout-toolbox-list" data-tb-list></div>
   {{/* Der Seitenname kommt aus renderToolbox(); der Text hier ist nur der
        Stand vor dem ersten Oeffnen. */}}
   <div class="layout-toolbox-foot">
-    Klicken oder ziehen — landet auf <b data-tb-target>der aktiven Seite</b>.
+    {{t "layout_editor.toolbox.drop_instruction"}} <b data-tb-target>{{t "layout_editor.toolbox.drop_target"}}</b>.
   </div>
 </aside>
 
 <div class="layout-modal-scrim" id="layout-options-modal" data-modal>
-  <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="Kartenoptionen">
+  <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="{{t "layout_editor.card_options.title"}}">
     <div class="layout-modal-sheet-head">
-      <div><b data-modal-title>Speicher</b><div class="kind" data-modal-kind>energy_ring</div></div>
+      <div><b data-modal-title>{{t "layout_editor.card_options.sample_title"}}</b><div class="kind" data-modal-kind="energy_ring"></div></div>
       <span class="layout-spacer"></span>
-      <button class="layout-chip-btn" type="button" data-close aria-label="Schließen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
+      <button class="layout-chip-btn" type="button" data-close aria-label="{{t "layout_editor.close"}}"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
     </div>
     <div class="layout-modal-sheet-body" data-modal-body></div>
     <div class="layout-modal-sheet-foot">
-      <button class="layout-btn" type="button" data-close>Abbrechen</button>
+      <button class="layout-btn" type="button" data-close>{{t "common.cancel"}}</button>
       <button class="layout-btn primary" type="button" data-close>
         <svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
-        Übernehmen
+        {{t "layout_editor.apply"}}
       </button>
     </div>
   </div>
 </div>
 
 <div class="layout-modal-scrim" id="layout-page-modal" data-modal>
-  <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="Seite">
+  <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="{{t "layout_editor.page_modal.title"}}">
     <div class="layout-modal-sheet-head">
-      <div><b>Seite</b><div class="kind">Layout-Seite der Übersicht</div></div>
+      <div><b>{{t "layout_editor.page_modal.title"}}</b><div class="kind">{{t "layout_editor.page_modal.kind"}}</div></div>
       <span class="layout-spacer"></span>
-      <button class="layout-chip-btn" type="button" data-page-close aria-label="Schließen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
+      <button class="layout-chip-btn" type="button" data-page-close aria-label="{{t "layout_editor.close"}}"><svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg></button>
     </div>
     <div class="layout-modal-sheet-body">
-      <div class="layout-modal-field"><label for="layout-page-name">Name</label>
+      <div class="layout-modal-field"><label for="layout-page-name">{{t "layout_editor.page_modal.name_label"}}</label>
         <input id="layout-page-name" type="text" data-page-name autocomplete="off"></div>
-      <div class="layout-modal-field"><label>Reihenfolge</label>
+      <div class="layout-modal-field"><label>{{t "layout_editor.page_modal.order_label"}}</label>
         <div class="layout-page-order">
-          <button class="layout-btn" type="button" data-page-move="-1" aria-label="Seite nach vorn">Nach vorn</button>
-          <button class="layout-btn" type="button" data-page-move="1" aria-label="Seite nach hinten">Nach hinten</button>
+          <button class="layout-btn" type="button" data-page-move="-1" aria-label="{{t "layout_editor.page_modal.move_up_label"}}">{{t "layout_editor.page_modal.move_up"}}</button>
+          <button class="layout-btn" type="button" data-page-move="1" aria-label="{{t "layout_editor.page_modal.move_down_label"}}">{{t "layout_editor.page_modal.move_down"}}</button>
         </div></div>
     </div>
     <div class="layout-modal-sheet-foot">
       <button class="layout-btn danger" type="button" data-page-remove>
         <svg class="automation-icon" aria-hidden="true"><use href="#ico-trash"></use></svg>
-        Seite löschen
+        {{t "layout_editor.page_modal.delete"}}
       </button>
       <span class="layout-spacer"></span>
       <button class="layout-btn primary" type="button" data-page-close>
         <svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
-        Fertig
+        {{t "layout_editor.page_modal.done"}}
       </button>
     </div>
   </div>
 </div>
 
 <dialog id="layout-guard-modal" class="app-modal app-modal-danger" aria-labelledby="layout-guard-title">
-  <h2 class="app-modal-title" id="layout-guard-title">Ungespeicherte Änderungen</h2>
-  <p class="app-modal-body">Es gibt Änderungen am Layout, die noch nicht gespeichert sind.</p>
+  <h2 class="app-modal-title" id="layout-guard-title">{{t "layout_editor.unsaved_changes.title"}}</h2>
+  <p class="app-modal-body">{{t "layout_editor.unsaved_changes.message"}}</p>
   <div class="app-modal-actions">
-    <button type="button" data-guard-cancel>Weiter bearbeiten</button>
-    <button type="button" class="app-modal-danger-button" data-guard-discard>Verwerfen</button>
+    <button type="button" data-guard-cancel>{{t "layout_editor.unsaved_changes.continue"}}</button>
+    <button type="button" class="app-modal-danger-button" data-guard-discard>{{t "layout_editor.unsaved_changes.discard"}}</button>
   </div>
 </dialog>
 

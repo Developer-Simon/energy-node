@@ -16,6 +16,5 @@ templates/automations.html
 templates/config.html
 templates/devicemap.html
 templates/diagnostics.html
-templates/layout-editor.html
 templates/revisions.html
 templates/tiny-tuya.html
