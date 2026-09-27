@@ -1,11 +1,14 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || "Anfrage fehlgeschlagen");
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
 
@@ -47,7 +50,7 @@
     statusTimeoutMs: 15000,
 
     get configCount() {
-      return `${this.configs.length} verwaltete Konfiguration(en)`;
+      return tn('config.count', this.configs.length);
     },
 
     // Der Rohtext-Editor traegt seinen eigenen Speichern-Button, deshalb
@@ -68,19 +71,19 @@
     // Frage nach etwas, das schon geschehen ist.
     async confirmSave() {
       return this.$store.modal.confirm({
-        title: 'Speichern und Dienst neu laden?',
-        body: `„${this.selectedLabel}“ wird überschrieben. Der zugehörige Dienst übernimmt die neue Konfiguration sofort und baut seine Verbindungen neu auf.`,
-        confirmLabel: 'Speichern',
-        cancelLabel: 'Abbrechen',
+        title: t('config.confirm.title'),
+        body: t('config.confirm.body', {name: this.selectedLabel}),
+        confirmLabel: t('common.save'),
+        cancelLabel: t('common.cancel'),
       });
     },
 
     get actionStatusText() {
-      if (this.loading) return 'Wird geladen ...';
-      if (this.saving) return 'Speichert ...';
-      if (this.formDirty) return 'Ungespeicherte Änderungen';
-      if (this.editorDirty) return 'JSON-Text geändert';
-      return 'Alles gespeichert';
+      if (this.loading) return t('config.action_status.loading');
+      if (this.saving) return t('config.action_status.saving');
+      if (this.formDirty) return t('config.action_status.form_dirty');
+      if (this.editorDirty) return t('config.action_status.editor_dirty');
+      return t('config.action_status.saved');
     },
 
     get runtimeStateLabel() {
@@ -266,11 +269,11 @@
         if (currentValue[identityKey] !== undefined) merged[identityKey] = currentValue[identityKey];
       });
       Object.assign(merged, preset.properties || {});
-      schemaNode.replaceWith(this.renderNode(itemSchema, merged, 'Eintrag'));
+      schemaNode.replaceWith(this.renderNode(itemSchema, merged, t('config.item_label')));
       this.formDirty = true;
       // warning statt info: das ist eine Handlungsanweisung, sie darf nicht
       // nach acht Sekunden verschwinden.
-      this.$store.toasts.push(`Preset "${preset.name || preset.id}" übernommen. Zum Sichern „Speichern“ in der Leiste unten klicken.`, 'warning');
+      this.$store.toasts.push(t('config.preset.applied', {name: preset.name || preset.id}), 'warning');
     },
 
     async reloadService() {
@@ -281,7 +284,7 @@
         const response = await requestJSON(`/api/v1/configurations/${name}/reload`, {method: 'POST'});
         this.reloadFailed = Boolean(response.reload_failed);
         this.reloadError = response.reload_error || '';
-        this.$store.toasts.push('Dienst-Konfiguration neu geladen.');
+        this.$store.toasts.push(t('config.service.reloaded'));
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -332,7 +335,7 @@
         .filter(([device]) => device)
         .sort((a, b) => window.I18n.compare(a[0], b[0]));
       const unnamed = groups.get('') || [];
-      if (unnamed.length) named.push(['Sonstige', unnamed]);
+      if (unnamed.length) named.push([t('config.topics.others'), unnamed]);
       return named;
     },
 
@@ -349,7 +352,7 @@
           control.append(target);
         }
         topics.forEach(topic => target.append(new Option(
-          this.hasTopicSample(topic) ? topic : `${topic} (noch keine Daten)`,
+          this.hasTopicSample(topic) ? topic : `${topic}${t('config.topics.suffix_no_data')}`,
           topic, false, topic === displayedValue)));
       });
     },
@@ -424,17 +427,17 @@
       if (!(key === '' && this.selectedName === 'shelly_devices')) return;
       const presetSelect = document.createElement('select');
       presetSelect.className = 'shelly-preset-select';
-      presetSelect.setAttribute('aria-label', 'Shelly-Preset auswählen');
+      presetSelect.setAttribute('aria-label', t('config.preset.select_label'));
       presetSelect.disabled = this.shellyPresets.length === 0;
-      presetSelect.add(new Option('Preset wählen…', ''));
+      presetSelect.add(new Option(t('config.preset.select_placeholder'), ''));
       this.shellyPresets.forEach(preset => presetSelect.add(new Option(preset.name || preset.id, preset.id)));
       const matchingPreset = this.findMatchingShellyPreset(itemValue, itemSchema);
       if (matchingPreset) presetSelect.value = matchingPreset.id;
       const applyPreset = document.createElement('button');
       applyPreset.type = 'button';
       applyPreset.className = 'shelly-preset-apply';
-      applyPreset.textContent = 'Preset übernehmen';
-      applyPreset.setAttribute('aria-label', 'Ausgewähltes Shelly-Preset auf diesen Eintrag anwenden');
+      applyPreset.textContent = t('config.preset.apply_button');
+      applyPreset.setAttribute('aria-label', t('config.preset.apply_label'));
       applyPreset.addEventListener('click', () => {
         const preset = this.shellyPresets.find(candidate => candidate.id === presetSelect.value);
         if (preset) this.applyShellyPreset(itemEl, itemSchema, preset);
