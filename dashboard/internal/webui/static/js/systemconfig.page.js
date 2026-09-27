@@ -1,4 +1,6 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const withBase = (url) => `${window.__DASHBOARD_BASE_PATH__ || ''}${url}`;
 
   const requestJSON = async (url, options) => {
@@ -8,7 +10,7 @@
     const response = await fetch(withBase(url), options);
     const body = await response.json();
     if (!response.ok) {
-      throw new Error(body.message || 'Anfrage fehlgeschlagen');
+      throw new Error(body.message || t('common.request_failed'));
     }
     return body;
   };
@@ -78,7 +80,7 @@
           { hooks: {} },
           this.schema,
           this.value,
-          window.SchemaForm.titleFor(this.schema, 'Konfiguration'),
+          window.SchemaForm.titleFor(this.schema, t('systemconfig.schema_title')),
         ));
         this.dirtyTick += 1;
       },
@@ -108,7 +110,7 @@
         try {
           payload = this.currentValue();
         } catch (err) {
-          this.error = `Ungueltiges JSON: ${err.message}`;
+          this.error = t('systemconfig.error.invalid_json', {error: err.message});
           this.busy = false;
           return;
         }
@@ -117,12 +119,12 @@
           const csrfToken = (session && session.csrf_token) || '';
           const response = await fetch(withBase('/api/v1/system/config'), {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken },
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken }, // i18n-ignore
             body: JSON.stringify(payload),
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) {
-            this.error = data.message || `Speichern fehlgeschlagen (HTTP ${response.status})`;
+            this.error = data.message || t('systemconfig.error.save_failed', {status: response.status});
             this.busy = false;
             return;
           }

@@ -1751,3 +1751,87 @@ func TestStoreRejectsUnknownNumberFormat(t *testing.T) {
 		}
 	}
 }
+
+func TestBridgeAddressWarningKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		address string
+		key     string
+	}{
+		{
+			name:    "IPv4 tailnet address",
+			address: "100.64.1.2",
+			key:     "",
+		},
+		{
+			name:    "IPv4 tailnet address with port",
+			address: "100.64.1.2:1883",
+			key:     "",
+		},
+		{
+			name:    "private RFC1918 address",
+			address: "192.168.1.2",
+			key:     "",
+		},
+		{
+			name:    "private RFC1918 address with port",
+			address: "192.168.1.2:1883",
+			key:     "",
+		},
+		{
+			name:    "public IPv4 address",
+			address: "8.8.8.8",
+			key:     "bridge.address_warning.outside_tailnet",
+		},
+		{
+			name:    "public IPv4 address with port",
+			address: "8.8.8.8:1883",
+			key:     "bridge.address_warning.outside_tailnet",
+		},
+		{
+			name:    "non-IPv4 hostname",
+			address: "host.local",
+			key:     "bridge.address_warning.not_ipv4",
+		},
+		{
+			name:    "non-IPv4 hostname with port",
+			address: "host.local:1883",
+			key:     "bridge.address_warning.not_ipv4",
+		},
+	}
+
+	// Load de.json to verify keys exist
+	var de map[string]string
+	deData, err := os.ReadFile("../webui/catalogs/de.json")
+	if err != nil {
+		t.Fatalf("failed to read de.json: %v", err)
+	}
+	if err := json.Unmarshal(deData, &de); err != nil {
+		t.Fatalf("failed to parse de.json: %v", err)
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := BridgeAddressWarningKey(tt.address)
+			if got != tt.key {
+				t.Errorf("BridgeAddressWarningKey(%q) = %q, want %q", tt.address, got, tt.key)
+			}
+
+			// Verify that the returned key (if non-empty) exists in de.json
+			if got != "" {
+				if _, ok := de[got]; !ok {
+					t.Errorf("BridgeAddressWarningKey(%q) returned %q but key not found in de.json", tt.address, got)
+				}
+
+				// Verify that the German text matches what BridgeAddressWarning returns
+				warning := BridgeAddressWarning(tt.address)
+				if warning == "" {
+					t.Errorf("BridgeAddressWarning(%q) returned empty but key was %q", tt.address, got)
+				}
+				if catalogText := de[got]; catalogText != warning {
+					t.Errorf("BridgeAddressWarningKey(%q): de.json text %q != BridgeAddressWarning text %q", tt.address, catalogText, warning)
+				}
+			}
+		})
+	}
+}

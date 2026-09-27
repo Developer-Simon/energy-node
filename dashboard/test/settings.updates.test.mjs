@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -30,6 +31,7 @@ function load({ fetchImpl } = {}) {
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
+  installI18n(dom.window);
   vm.runInContext(scriptSource, context);
   return { dom, factories };
 }

@@ -22,6 +22,106 @@
   const DEFAULT_WINDOW_HOURS = 6;
   const REFRESH_MS = 60000;
 
+  // The core's own texts (BUILTIN_TEXTS in battery-card-core.js) are the
+  // fallback for a bare page. This card knows hass.language, so it passes
+  // its own table through instead - de word-for-word as BUILTIN_TEXTS, en
+  // filled in once localization reaches the HA card (task 8).
+  const CARD_TEXTS = {
+    de: {
+      'battery.card.no_source': 'keine Speicher-Quelle',
+      'battery.card.no_source_note': 'Erst eine Entität als Ladezustand zuordnen.',
+      'battery.card.holding': 'hält den Stand',
+      'battery.card.idle_note': 'Weder Laden noch Entladen.',
+      'battery.card.no_capacity_note': 'Ohne nutzbare Kapazität keine Restlaufzeit.',
+      'battery.card.remaining': 'noch {time}',
+      'battery.card.remaining_note': '{bound} bei {power} kW',
+      'battery.card.bound.full': 'bis voll',
+      'battery.card.bound.empty': 'bis leer',
+      'battery.card.bound.reserve': 'bis Reserve',
+      'battery.card.reserve_label': 'Reserve',
+      'battery.card.reserve_note': 'bleibt für den Netzausfall stehen',
+      'battery.card.stock_label': 'Vorrat',
+      'battery.card.stock_note': 'bis 0 % nutzbar, keine Reserve gesetzt',
+      'battery.card.coverage_label': 'Deckung',
+      'battery.card.capacity_label': 'Kapazität',
+      'battery.card.capacity_segment_note': 'ein Segment {value} kWh',
+      'battery.card.capacity_missing_note': 'Kapazität hinterlegen',
+      'battery.card.reserve_value': 'Reserve {value} %',
+      'battery.card.stale': 'Werte veraltet',
+      'battery.card.charging': 'Lädt · {power} kW',
+      'battery.card.discharging': 'Entlädt · {power} kW',
+      'battery.card.idle': 'Ruht',
+      'battery.card.kpi.runtime_label': 'Restlaufzeit',
+      'battery.card.kpi.usable_label': 'Abrufbar',
+      'battery.card.kpi.flow_label': 'Fluss',
+      'battery.card.crossing.full': 'voll',
+      'battery.card.crossing.empty': 'leer',
+      'battery.card.crossing.reserve': 'Reserve',
+      'battery.card.hint.none': 'Kein Verlauf aufgezeichnet, nur die Fortschreibung.',
+      'battery.card.hint.partial': 'Erst {hours} h aufgezeichnet.',
+      'battery.card.now': 'jetzt',
+      'battery.card.ticks.past': '−{hours} h',
+      'battery.card.ticks.future': '+{hours} h',
+      'battery.card.title.column': 'Speicher',
+      'battery.card.title.trajectory': 'Speicher · Verlauf und Fortschreibung',
+      'battery.card.percent_soc': '% Ladestand',
+      'battery.card.forecast_footer': 'Fortschreibung bei konstanter Leistung',
+      'battery.card.soc_aria': 'Ladestand {value}',
+      'battery.card.chart_aria': 'Ladestand {value}. {hint}',
+      'battery.card.chart_hint_default': 'Verlauf und Fortschreibung des Ladestands.',
+    },
+    en: {
+      'battery.card.no_source': 'no battery source',
+      'battery.card.no_source_note': 'Assign an entity as state of charge first.',
+      'battery.card.holding': 'holding steady',
+      'battery.card.idle_note': 'Neither charging nor discharging.',
+      'battery.card.no_capacity_note': 'No runtime without usable capacity.',
+      'battery.card.remaining': '{time} left',
+      'battery.card.remaining_note': '{bound} at {power} kW',
+      'battery.card.bound.full': 'until full',
+      'battery.card.bound.empty': 'until empty',
+      'battery.card.bound.reserve': 'until reserve',
+      'battery.card.reserve_label': 'Reserve',
+      'battery.card.reserve_note': 'kept back for a power cut',
+      'battery.card.stock_label': 'Stored',
+      'battery.card.stock_note': 'usable down to 0 %, no reserve set',
+      'battery.card.coverage_label': 'Coverage',
+      'battery.card.capacity_label': 'Capacity',
+      'battery.card.capacity_segment_note': 'one segment {value} kWh',
+      'battery.card.capacity_missing_note': 'Enter capacity',
+      'battery.card.reserve_value': 'Reserve {value} %',
+      'battery.card.stale': 'Values stale',
+      'battery.card.charging': 'Charging · {power} kW',
+      'battery.card.discharging': 'Discharging · {power} kW',
+      'battery.card.idle': 'Idle',
+      'battery.card.kpi.runtime_label': 'Runtime left',
+      'battery.card.kpi.usable_label': 'Usable',
+      'battery.card.kpi.flow_label': 'Flow',
+      'battery.card.crossing.full': 'full',
+      'battery.card.crossing.empty': 'empty',
+      'battery.card.crossing.reserve': 'reserve',
+      'battery.card.hint.none': 'No history recorded, projection only.',
+      'battery.card.hint.partial': 'Only {hours} h recorded so far.',
+      'battery.card.now': 'now',
+      'battery.card.ticks.past': '−{hours} h',
+      'battery.card.ticks.future': '+{hours} h',
+      'battery.card.title.column': 'Battery',
+      'battery.card.title.trajectory': 'Battery · history and projection',
+      'battery.card.percent_soc': '% state of charge',
+      'battery.card.forecast_footer': 'Projection at constant power',
+      'battery.card.soc_aria': 'State of charge {value}',
+      'battery.card.chart_aria': 'State of charge {value}. {hint}',
+      'battery.card.chart_hint_default': 'History and projection of the state of charge.',
+    },
+  };
+
+  function cardT(table) {
+    return (key, params) => {
+      const text = table[key] || key;
+      return params ? text.replace(/\{(\w+)\}/g, (m, name) => (name in params ? String(params[name]) : m)) : text;
+    };
+  }
+
   // window gilt fuer beide Haelften, projection_window ueberschreibt nur die
   // Fortschreibung. Ungueltiges oder fehlendes window -> {} und der Kern
   // nimmt seinen Sechs-Stunden-Default.
@@ -90,6 +190,7 @@
       historyHours: win.historyHours,
       forecastHours: win.forecastHours,
       formatNumber: numberFormatter(hass),
+      t: cardT(BatterySocCard.texts(hass)),
     };
   }
 
@@ -115,6 +216,14 @@
   }
 
   class BatterySocCard extends HTMLElement {
+    // hass.language is a bare tag ("de", "en-GB", ...). Only German is its
+    // own table for now; every other tag falls back to English (task 8
+    // fills CARD_TEXTS.en in, this only routes to it).
+    static texts(hass) {
+      const lang = ((hass && hass.language) || '').toLowerCase();
+      return CARD_TEXTS[lang.startsWith('de') ? 'de' : 'en'];
+    }
+
     static getStubConfig(hass) {
       const soc = Object.keys((hass && hass.states) || {})
         .find(id => id.startsWith('sensor.') && hass.states[id].attributes.device_class === 'battery');
@@ -193,6 +302,7 @@
   BatterySocCard.numberFormatter = numberFormatter;
   BatterySocCard.historyReader = historyReader;
   BatterySocCard.windowHours = windowHours;
+  BatterySocCard.CARD_TEXTS = CARD_TEXTS;
 
   if (!window.customElements.get('battery-soc-card')) {
     window.customElements.define('battery-soc-card', BatterySocCard);

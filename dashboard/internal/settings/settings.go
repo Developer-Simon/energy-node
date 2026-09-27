@@ -1433,18 +1433,17 @@ func ValidateBridgeConnection(value BridgeConnection) error {
 	return validateBridgeConnection(value)
 }
 
-// BridgeAddressWarning returns a non-fatal hint (not a validation error)
-// when an address is neither a Tailscale CGNAT address (100.64.0.0/10) nor
-// an RFC1918 private address - the bridge is meant to run inside the
-// Tailnet. Empty means no warning.
-func BridgeAddressWarning(address string) string {
+// BridgeAddressWarningKey returns the localization key for the address warning,
+// or an empty string if there is no warning. Contains the only copy of the IP
+// classification logic.
+func BridgeAddressWarningKey(address string) string {
 	host := address
 	if h, _, err := net.SplitHostPort(address); err == nil {
 		host = h
 	}
 	ip := net.ParseIP(host)
 	if ip == nil || ip.To4() == nil {
-		return "Adresse konnte nicht als IPv4-Adresse erkannt werden - die Warnung bezieht sich nur auf Tailscale-/private Adressen."
+		return "bridge.address_warning.not_ipv4"
 	}
 	v4 := ip.To4()
 	if v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
@@ -1453,7 +1452,21 @@ func BridgeAddressWarning(address string) string {
 	if ip.IsPrivate() {
 		return ""
 	}
-	return "Adresse liegt weder im Tailscale-Bereich (100.64.0.0/10) noch in einem privaten Netz (RFC 1918) - die Bridge erwartet eine Verbindung im Tailnet."
+	return "bridge.address_warning.outside_tailnet"
+}
+
+// BridgeAddressWarning returns a non-fatal hint (not a validation error)
+// when an address is neither a Tailscale CGNAT address (100.64.0.0/10) nor
+// an RFC1918 private address - the bridge is meant to run inside the
+// Tailnet. Empty means no warning. Derives the text from the key returned
+// by BridgeAddressWarningKey.
+func BridgeAddressWarning(address string) string {
+	key := BridgeAddressWarningKey(address)
+	texts := map[string]string{
+		"bridge.address_warning.not_ipv4":        "Die Adresse ist keine erkennbare IPv4-Adresse. Die Warnung gilt nur für Tailscale- und private Adressen.",
+		"bridge.address_warning.outside_tailnet": "Die Adresse liegt weder im Tailscale-Bereich (100.64.0.0/10) noch in einem privaten Netz (RFC 1918). Die Bridge erwartet eine Verbindung im Tailnet.",
+	}
+	return texts[key]
 }
 
 func (s *Store) loadJSONLocked(name string, target any) error {

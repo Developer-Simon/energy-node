@@ -9,6 +9,9 @@
 // the item's data-* attributes. See
 // knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+
   const DEFAULT_SURPLUS_THRESHOLD = 800;
   const DEFAULT_IMPORT_THRESHOLD = 1500;
 
@@ -31,30 +34,30 @@
       return {
         state: 'kritisch',
         color: stateColors().kritisch,
-        title: hasGap ? `Bilanzlücke ${model.formatPower(Math.abs(balance.gap))}` : `${staleCount} Rolle${staleCount > 1 ? 'n' : ''} veraltet`,
+        title: hasGap ? t('energy.status.gap_title', {power: model.formatPower(Math.abs(balance.gap))}) : tn('energy.status.stale_roles_title', staleCount),
         sub: hasGap
-          ? 'Erzeugung und Verbrauch gehen nicht auf. Ein Zähler fehlt oder ist falsch zugeordnet - die Werte unten sind mit Vorsicht zu lesen.'
-          : 'Mindestens eine Rolle meldet keine frischen Werte. Angezeigt wird der letzte bekannte Stand.',
+          ? t('energy.status.gap_sub')
+          : t('energy.status.stale_sub'),
       };
     }
     if (balance.gridExport >= thresholds.surplus && balance.gridExport > 0.5) {
       return {
         state: 'gut', color: stateColors().gut,
-        title: `${model.formatPower(balance.gridExport)} Überschuss`,
-        sub: showAdvice ? 'Guter Zeitpunkt für Wallbox, Warmwasser oder Werkstattgeräte - der Strom ginge sonst ins Netz.' : 'Die Anlage speist ins Netz ein.',
+        title: t('energy.status.surplus_title', {power: model.formatPower(balance.gridExport)}),
+        sub: showAdvice ? t('energy.status.surplus_advice') : t('energy.status.surplus_note'),
       };
     }
     if (balance.gridImport >= thresholds.import && balance.gridImport > 0.5) {
       return {
-        state: 'Hinweis', color: stateColors().Hinweis,
-        title: `${model.formatPower(balance.gridImport)} aus dem Netz`,
-        sub: showAdvice ? 'Verschiebbare Verbraucher später einplanen. Batterie und PV decken den Bedarf gerade nicht.' : 'Der Bedarf wird überwiegend aus dem Netz gedeckt.',
+        state: 'Hinweis', color: stateColors().Hinweis, // i18n-ignore
+        title: t('energy.status.import_title', {power: model.formatPower(balance.gridImport)}),
+        sub: showAdvice ? t('energy.status.import_advice') : t('energy.status.import_note'),
       };
     }
     return {
       state: 'gut', color: stateColors().gut,
-      title: 'Ausgeglichen',
-      sub: `Hausverbrauch ${model.formatPower(balance.load)}, Netzaustausch unter den eingestellten Schwellen.`,
+      title: t('energy.status.balanced_title'),
+      sub: t('energy.status.balanced_sub', {power: model.formatPower(balance.load)}),
     };
   }
 
@@ -77,7 +80,7 @@
     const fillTo = Math.max(mid, x);
     const isImport = net > 0;
     const model = window.EnergyModel;
-    const label = Math.abs(net) < 0.5 ? 'ausgeglichen' : `${isImport ? 'Bezug ' : 'Einspeisung '}${model.formatPower(Math.abs(net))}`;
+    const label = Math.abs(net) < 0.5 ? t('energy.status.beam_balanced') : t(isImport ? 'energy.grid_import_label' : 'energy.grid_export_label', {power: model.formatPower(Math.abs(net))});
     return {x, mid, fillFrom, fillTo, width: Math.max(fillTo - fillFrom, 2), isImport, label};
   }
 
@@ -86,37 +89,39 @@
     const hasGap = balance.unbalanced;
     const batteryNet = balance.charge - balance.discharge;
     const batteryValue = Math.abs(batteryNet);
-    const batteryNote = batteryNet > 0.5 ? 'lädt' : batteryNet < -0.5 ? 'entlädt' : 'ruht';
+    const batteryNote = batteryNet > 0.5 ? t('energy.status.battery_note.charging') : batteryNet < -0.5 ? t('energy.status.battery_note.discharging') : t('energy.idle_label');
     const batteryStale = model.isStale(snapshot, 'battery') || model.isStale(snapshot, 'battery_charge') || model.isStale(snapshot, 'battery_discharge');
     const surplusOk = balance.gridExport >= thresholds.surplus && balance.gridExport > 0.5;
     const importOk = balance.gridImport >= thresholds.import && balance.gridImport > 0.5;
     const tiles = [
       {
-        label: 'Überschuss',
+        label: t('energy.status.tile.surplus_label'),
         value: balance.gridExport > 0.5 ? model.formatPower(balance.gridExport) : '—',
-        note: surplusOk ? `über der Schwelle von ${model.formatPower(thresholds.surplus)}` : `Schwelle ${model.formatPower(thresholds.surplus)}`,
+        note: surplusOk ? t('energy.status.tile.above_threshold', {threshold: model.formatPower(thresholds.surplus)}) : t('energy.status.tile.threshold', {threshold: model.formatPower(thresholds.surplus)}),
         state: surplusOk ? 'gut' : 'neutral',
       },
       {
-        label: 'Netzbezug',
+        label: t('energy.role.grid_import'),
         value: balance.gridImport > 0.5 ? model.formatPower(balance.gridImport) : '—',
-        note: importOk ? `über der Schwelle von ${model.formatPower(thresholds.import)}` : `Schwelle ${model.formatPower(thresholds.import)}`,
-        state: importOk ? 'Hinweis' : 'neutral',
+        note: importOk ? t('energy.status.tile.above_threshold', {threshold: model.formatPower(thresholds.import)}) : t('energy.status.tile.threshold', {threshold: model.formatPower(thresholds.import)}),
+        state: importOk ? 'Hinweis' : 'neutral', // i18n-ignore
       },
       {
-        label: 'Batterie',
+        label: t('energy.board.row.battery'),
         value: batteryValue > 0.5 ? model.formatPower(batteryValue) : '—',
         note: batteryNote,
-        state: batteryStale ? 'veraltet' : 'neutral',
+        state: batteryStale ? 'veraltet' : 'neutral', // i18n-ignore
       },
       {
-        label: 'Datenqualität',
-        value: hasGap ? model.formatPower(Math.abs(balance.gap)) : staleCount ? String(staleCount) : 'vollständig',
-        note: hasGap ? 'nicht zugeordnet' : staleCount ? 'veraltete Rollen' : 'alle Rollen frisch',
-        state: hasGap ? 'kritisch' : staleCount ? 'Hinweis' : 'gut',
+        label: t('energy.status.tile.quality_label'),
+        value: hasGap ? model.formatPower(Math.abs(balance.gap)) : staleCount ? String(staleCount) : t('energy.status.tile.complete'),
+        note: hasGap ? t('energy.status.tile.unassigned_note') : staleCount ? t('energy.status.tile.stale_roles_note') : t('energy.status.tile.all_fresh_note'),
+        state: hasGap ? 'kritisch' : staleCount ? 'Hinweis' : 'gut', // i18n-ignore
       },
     ];
-    return tiles.map(tile => ({...tile, color: stateColors()[tile.state], stateLabel: tile.state === 'neutral' ? '' : tile.state}));
+    // i18n-keys: energy.status.state_label.gut, energy.status.state_label.hinweis, energy.status.state_label.kritisch, energy.status.state_label.veraltet
+    const STATE_LABEL_KEYS = {gut: 'energy.status.state_label.gut', Hinweis: 'energy.status.state_label.hinweis', kritisch: 'energy.status.state_label.kritisch', veraltet: 'energy.status.state_label.veraltet'}; // i18n-ignore
+    return tiles.map(tile => ({...tile, color: stateColors()[tile.state], stateLabel: tile.state === 'neutral' ? '' : t(STATE_LABEL_KEYS[tile.state])}));
   }
 
   const BEAM_HEIGHT = 52;
@@ -130,7 +135,7 @@
 
     return {
       snapshot: null,
-      lead: {state: 'neutral', color: stateColors().neutral, title: 'Kein Energiefluss', sub: 'Alle zugeordneten Rollen melden 0 W.'},
+      lead: {state: 'neutral', color: stateColors().neutral, title: t('energy.status.no_flow_title'), sub: t('energy.status.no_flow_body')},
       tiles: [],
       options: {beamSpan: '6000', showAdvice: 'on'},
       presenter: null,
@@ -219,7 +224,7 @@
           }, geometry.label),
         );
         const desc = svg.querySelector('desc');
-        if (desc) desc.textContent = `Netzbilanz ${model.formatPower(balance.gridImport - balance.gridExport)} bei einem Skalenende von ${model.formatPower(span)}.`;
+        if (desc) desc.textContent = t('energy.status.beam_description', {balance: model.formatPower(balance.gridImport - balance.gridExport), span: model.formatPower(span)});
       },
     };
   };

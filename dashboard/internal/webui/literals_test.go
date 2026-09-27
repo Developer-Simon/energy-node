@@ -163,7 +163,7 @@ var (
 	widePattern       = regexp.MustCompile(`^\p{Lu}\p{Ll}{2,}|\p{L}{2,}\s+\p{L}{2,}`)
 	letterRunPattern  = regexp.MustCompile(`\p{L}{2,}`)
 	templateAction    = regexp.MustCompile(`(?s)\{\{.*?\}\}`)
-	templateSkip      = regexp.MustCompile(`(?is)<!--.*?-->|<script\b.*?</script>|<style\b.*?</style>|<svg\b.*?</svg>`)
+	templateSkip      = regexp.MustCompile(`(?is)<!--.*?-->|<script\b.*?</script>|<style\b.*?</style>`)
 	attributePattern  = regexp.MustCompile(`([^\s=/>"'<]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>"']+)))?`)
 	visibleAttributes = map[string]bool{"title": true, "placeholder": true, "aria-label": true, "alt": true, "label": true, "aria-description": true, "aria-placeholder": true, "aria-valuetext": true}
 	// {{t ...}} inside an Alpine attribute value (E4).
@@ -477,6 +477,7 @@ func TestTemplateTextScanner(t *testing.T) {
 		{line: 3, kind: "alpine", name: "x-text", text: "Prüfe ..."},
 		{line: 3, kind: "text", text: "MQTT"},
 		{line: 4, kind: "text", text: "Hallo"},
+		{line: 5, kind: "text", text: "Icon"},
 		{line: 6, kind: "attr", name: "placeholder", text: "z. B. 192.168.1.10"},
 	}
 	if !reflect.DeepEqual(got, want) {

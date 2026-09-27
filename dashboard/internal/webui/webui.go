@@ -596,12 +596,12 @@ func defaultLayout(devices []registry.DeviceView) settings.Layout {
 // energy-flow.js and isn't part of this - only the six newer, singleton
 // "compare a Vorschlag" cards are optional enough to be worth gating.
 var energyCardScripts = map[string]string{
-	"energy_band":    "/static/js/energy-band.js",
-	"energy_ring":    "/static/js/energy-ring.js",
-	"energy_board":   "/static/js/energy-board.js",
-	"energy_day":     "/static/js/energy-day.js?v=1",
-	"energy_schema":  "/static/js/energy-schema.js",
-	"energy_status":  "/static/js/energy-status.js",
+	"energy_band":    "/static/js/energy-band.js?v=1",
+	"energy_ring":    "/static/js/energy-ring.js?v=1",
+	"energy_board":   "/static/js/energy-board.js?v=1",
+	"energy_day":     "/static/js/energy-day.js?v=2",
+	"energy_schema":  "/static/js/energy-schema.js?v=1",
+	"energy_status":  "/static/js/energy-status.js?v=1",
 	"battery_status": "/static/js/battery-status.js?v=2",
 }
 

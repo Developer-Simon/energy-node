@@ -6,7 +6,7 @@
         <svg x-show="currentStep > step.id" x-cloak viewBox="0 0 16 16" class="settings-stepper-check"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <span x-show="currentStep <= step.id" x-text="step.id"></span>
       </span>
-      <span class="settings-stepper-label" x-text="step.label"></span>
+      <span class="settings-stepper-label" x-text="$t(step.label)"></span>
       <span class="settings-stepper-connector" x-show="index < steps.length - 1" x-bind:class="{ filled: currentStep > step.id }" aria-hidden="true"></span>
     </div>
   </template>

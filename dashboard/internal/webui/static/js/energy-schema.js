@@ -16,6 +16,8 @@
 // short bar at its bus end showing which sources cover it - allocate() in
 // energy-model.js does that Quelle->Verbraucher assignment.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const BUS_TOP = 92;
   const BUS_BOT = 312;
   const BUS_WIDTH = 14;
@@ -30,24 +32,31 @@
   // rechts einen vierten Zweig braucht. Die Zusage der Karte bleibt: das Bild
   // bewegt sich nicht, was immer die Werte tun. Es wechselt nur, wenn der
   // Nutzer den load_mode aendert - und dann sichtbar und vollstaendig.
+  // label is a getter (evaluated at access time, like energy-model.js's
+  // LABELS) so a branch built once at module load still shows the active
+  // language on every paint.
+  function branch(id, side, y, labelKey) {
+    return {id, side, y, get label() { return t(labelKey); }};
+  }
+
   const BRANCHES = [
-    {id: 'pv', side: 'left', y: 122, label: 'PV-Wechselrichter'},
-    {id: 'battery', side: 'left', y: 246, label: 'Batteriespeicher'},
-    {id: 'wallbox', side: 'right', y: 122, label: 'Wallbox'},
-    {id: 'heat_pump', side: 'right', y: 196, label: 'Wärmepumpe'},
-    {id: 'base', side: 'right', y: 276, label: 'Übrige Verbraucher'},
+    branch('pv', 'left', 122, 'energy.schema.branch.pv'),
+    branch('battery', 'left', 246, 'energy.schema.branch.battery'),
+    branch('wallbox', 'right', 122, 'energy.role.wallbox'),
+    branch('heat_pump', 'right', 196, 'energy.role.heat_pump'),
+    branch('base', 'right', 276, 'energy.schema.branch.base'),
   ];
 
   // Vier Kaesten a 46px zwischen BUS_TOP (92) und BUS_BOT (312): 122/176/230/284
   // laesst 8px Luft zwischen den Kaesten und endet bei 307, knapp ueber der
   // Sammelschienen-Unterkante.
   const BRANCHES_WITH_MEASURED = [
-    {id: 'pv', side: 'left', y: 122, label: 'PV-Wechselrichter'},
-    {id: 'battery', side: 'left', y: 246, label: 'Batteriespeicher'},
-    {id: 'wallbox', side: 'right', y: 122, label: 'Wallbox'},
-    {id: 'heat_pump', side: 'right', y: 176, label: 'Wärmepumpe'},
-    {id: 'load_measured', side: 'right', y: 230, label: 'Gemessene Verbraucher'},
-    {id: 'base', side: 'right', y: 284, label: 'Übrige Verbraucher'},
+    branch('pv', 'left', 122, 'energy.schema.branch.pv'),
+    branch('battery', 'left', 246, 'energy.schema.branch.battery'),
+    branch('wallbox', 'right', 122, 'energy.role.wallbox'),
+    branch('heat_pump', 'right', 176, 'energy.role.heat_pump'),
+    branch('load_measured', 'right', 230, 'energy.role.load_measured'),
+    branch('base', 'right', 284, 'energy.schema.branch.base'),
   ];
 
   const branchesFor = hasMeasured => (hasMeasured ? BRANCHES_WITH_MEASURED : BRANCHES);
@@ -303,7 +312,7 @@
       busMixMarkup: '',
       exportBarMarkup: '',
       legendMarkup: '',
-      grid: {active: false, stale: false, strokeWidth: 1.2, label: 'ruht', arrowPoints: ''},
+      grid: {active: false, stale: false, strokeWidth: 1.2, label: t('energy.idle_label'), arrowPoints: ''},
       throughputLabel: '',
       description: '',
       width: DEFAULT_WIDTH,
@@ -394,7 +403,7 @@
             let entityLabel = '';
             if (withEntities) {
               const entities = branchEntities(this.snapshot, branch.id);
-              entityLabel = entities === null ? 'abgeleitet aus Hausverbrauch' : entities.length ? entities.join(', ') : '';
+              entityLabel = entities === null ? t('energy.schema.derived_from_consumption') : entities.length ? entities.join(', ') : '';
             }
             const color = bg.stale ? theme.bad : bg.active ? colorFor[branch.id] : theme.line;
             const consumerID = branch.id === 'battery' ? 'battery_charge' : branch.id;
@@ -408,7 +417,7 @@
             const duration = clamp(1.0, 3.6 - 2.5 * Math.sqrt(value.value / peak), 3.6);
             return {
               ...bg,
-              color, valueLabel: stale ? 'veraltet' : bg.active ? model.formatPower(value.value) : '—',
+              color, valueLabel: stale ? t('energy.stale_label') : bg.active ? model.formatPower(value.value) : '—',
               socLabel: branch.id === 'battery' ? soc.label : '',
               socStale: branch.id === 'battery' ? soc.stale : false,
               entityLabel, barSegments,
@@ -429,15 +438,17 @@
           stale: gridStale,
           strokeWidth: gridActive ? widthFor(gridPower, peak) : 1.2,
           down: balance.gridImport > 0.5,
-          label: gridActive ? `${balance.gridImport > 0.5 ? 'Bezug ' : 'Einspeisung '}${model.formatPower(gridPower)}` : 'ruht',
+          label: gridActive ? t(balance.gridImport > 0.5 ? 'energy.grid_import_label' : 'energy.grid_export_label', {power: model.formatPower(gridPower)}) : t('energy.idle_label'),
           arrowPoints: gridActive ? (balance.gridImport > 0.5 ? `${gp - 6},72 ${gp + 6},72 ${gp},84` : `${gp - 6},84 ${gp + 6},84 ${gp},72`) : '',
         };
 
         const exportEntry = allocation.find(a => a.id === 'grid_export');
         this.exportBarMarkup = exportBarMarkup(exportEntry, geom, balance.total);
 
-        this.throughputLabel = `${model.formatPower(balance.total)} Durchsatz`;
-        this.description = `Einlinien-Schaltbild: ${branchDefs.map(b => `${b.label} ${values[b.id].value > 0.5 ? model.formatPower(values[b.id].value) : 'ruht'}`).join(', ')}.`;
+        this.throughputLabel = t('energy.schema.throughput_label', {power: model.formatPower(balance.total)});
+        this.description = t('energy.schema.description', {
+          parts: branchDefs.map(b => `${b.label} ${values[b.id].value > 0.5 ? model.formatPower(values[b.id].value) : t('energy.idle_label')}`).join(', '),
+        });
       },
     };
   };

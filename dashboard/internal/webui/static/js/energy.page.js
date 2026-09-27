@@ -1,4 +1,7 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+
   const HIDDEN_IDS_STORAGE_KEY = 'energy-roles-hidden-ids';
 
   // Das Dashboard veröffentlicht seine eigene Bilanz als HA-MQTT-Gerät und
@@ -30,7 +33,7 @@
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || "Anfrage fehlgeschlagen");
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
 
@@ -39,18 +42,18 @@
     assignments: {},
     powerRoleOptions: [
       {value: 'pv', label: 'PV'},
-      {value: 'battery', label: 'Batterie'},
-      {value: 'battery_charge', label: 'Batterie laden'},
-      {value: 'battery_discharge', label: 'Batterie entladen'},
-      {value: 'grid', label: 'Netz'},
-      {value: 'grid_import', label: 'Grid-Import / Netzbezug'},
-      {value: 'grid_export', label: 'Grid-Export / Einspeisung'},
-      {value: 'load', label: 'Hausverbrauch'},
-      {value: 'wallbox', label: 'Wallbox'},
-      {value: 'heat_pump', label: 'Wärmepumpe'},
+      {value: 'battery', label: t('energy.board.row.battery')},
+      {value: 'battery_charge', label: t('energy.page.role_option.battery_charge')},
+      {value: 'battery_discharge', label: t('energy.page.role_option.battery_discharge')},
+      {value: 'grid', label: t('energy.board.row.grid')},
+      {value: 'grid_import', label: t('energy.page.role_option.grid_import')},
+      {value: 'grid_export', label: t('energy.page.role_option.grid_export')},
+      {value: 'load', label: t('energy.role.consumption')},
+      {value: 'wallbox', label: t('energy.role.wallbox')},
+      {value: 'heat_pump', label: t('energy.role.heat_pump')},
     ],
     socRoleOptions: [
-      {value: 'battery_soc', label: 'Batterie-Füllstand'},
+      {value: 'battery_soc', label: t('energy.page.role_option.battery_soc')},
     ],
     socWithoutCapacity: 0,
     hiddenIds: {},
@@ -141,15 +144,15 @@
     get loadModeNote() {
       switch (this.interpretation.load_mode) {
         case 'measured':
-          return 'Hausverbrauch kommt direkt von der Entität mit der Rolle „Hausverbrauch".';
+          return t('energy.page.load_mode_note.measured');
         case 'calculated':
-          return 'Hausverbrauch = PV + Netzbezug + Entladen − Einspeisung − Laden. „Übriger Verbrauch" ist dabei ein Rest, keine Messung — er nimmt jeden nicht separat erfassten Verbraucher auf.';
+          return t('energy.page.load_mode_note.calculated');
         case 'combined':
-          return 'Berechnet, gemessene Verbraucher aber separat ausgewiesen. „Hausverbrauch" meint hier den gemessenen Teilverbraucher, nicht den Gesamtwert — ein Hauszähler auf dieser Rolle würde doppelt gezählt. „Übriger Verbrauch" bleibt ein Rest, keine Messung.';
+          return t('energy.page.load_mode_note.combined');
         case 'auto':
           return this.hasLoadRole
-            ? 'Gemessen, weil eine Entität die Rolle „Hausverbrauch" trägt — sonst würde berechnet.'
-            : 'Keine Entität trägt die Rolle „Hausverbrauch", daher berechnet: PV + Netzbezug + Entladen − Einspeisung − Laden. „Übriger Verbrauch" ist dann ein Rest, keine Messung.';
+            ? t('energy.page.load_mode_note.auto_measured')
+            : t('energy.page.load_mode_note.auto_calculated');
         default:
           return '';
       }
@@ -213,8 +216,7 @@
     },
 
     get socCapacityWarning() {
-      const count = this.socWithoutCapacity;
-      return `${count} ${count === 1 ? 'Batterie' : 'Batterien'} ohne Kapazität — ${count === 1 ? 'sie geht' : 'sie gehen'} nicht in den Füllstand ein.`;
+      return tn('energy.page.soc_capacity_warning', this.socWithoutCapacity);
     },
 
     payload() {
@@ -251,7 +253,7 @@
         basePath: '/api/v1/energy',
         current: () => this.payload(),
         reload: () => this.load(),
-        label: 'Revisionen der Energie-Rollen',
+        label: t('energy.page.revisions_label'),
       };
     },
 
@@ -264,7 +266,7 @@
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({assignments, interpretation}),
         });
-        this.$store.toasts.push('Energie-Rollen und Interpretation gespeichert.');
+        this.$store.toasts.push(t('energy.page.saved'));
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {

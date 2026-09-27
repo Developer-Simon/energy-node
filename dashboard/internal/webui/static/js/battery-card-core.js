@@ -50,6 +50,7 @@
       historyHours,
       forecastHours: posNum(source.forecastHours, historyHours),
       formatNumber: typeof source.formatNumber === 'function' ? source.formatNumber : defaultFormatNumber,
+      t: typeof source.t === 'function' ? source.t : defaultT,
     };
   }
 
@@ -232,6 +233,7 @@
   // Renderer misst die Karte und rechnet die Geometrie bei jedem Resize mit
   // der neuen Breite neu - so wird eine breite Karte breiter statt hoeher.
   function chartGeometry(state, run, windowed, mode, opts = {}) {
+    const t = opts.t || defaultT;
     const forecastHours = posNum(opts.forecastHours, FORECAST_HOURS);
     const forecastMs = forecastHours * 3600000;
     const x1 = posNum(opts.width, VIEW.x1 + VIEW.x0) - VIEW.x0;
@@ -269,17 +271,17 @@
       crossing: !showCrossing ? null : {
         x: nowX + (x1 - nowX) * (crossingHours / forecastHours),
         y: py(run.bound),
-        label: run.kind === 'full' ? 'voll' : run.kind === 'empty' ? 'leer' : 'Reserve',
+        label: run.kind === 'full' ? t('battery.card.crossing.full') : run.kind === 'empty' ? t('battery.card.crossing.empty') : t('battery.card.crossing.reserve'),
       },
       hint: mode.mode === 'none'
-        ? 'Kein Verlauf aufgezeichnet — nur die Fortschreibung.'
+        ? t('battery.card.hint.none')
         : mode.mode === 'partial'
-          ? `Erst ${roundHours(mode.spanMs)} h aufgezeichnet.`
+          ? t('battery.card.hint.partial', {hours: roundHours(mode.spanMs)})
           : null,
       ticks: {
-        left: mode.mode === 'none' ? 'jetzt' : `−${roundHours(mode.spanMs)} h`,
-        center: mode.mode === 'none' ? '' : 'jetzt',
-        right: `+${roundHours(forecastMs)} h`,
+        left: mode.mode === 'none' ? t('battery.card.now') : t('battery.card.ticks.past', {hours: roundHours(mode.spanMs)}),
+        center: mode.mode === 'none' ? '' : t('battery.card.now'),
+        right: t('battery.card.ticks.future', {hours: roundHours(forecastMs)}),
       },
       view,
     };
@@ -289,7 +291,7 @@
   // (Dashboard) und in ein Shadow-DOM (Lovelace) legen kann. Jede Farbe
   // faellt durch drei Stufen: Werkstatt-Dashboard, Home Assistant, Literal.
   // Keine font-family - beide Wirte geben ihre eigene vor.
-  const CARD_CSS = `
+  const CARD_CSS = /* i18n-ignore */ `
 .battery-card {
   --battery-surface: var(--panel, var(--ha-card-background, var(--card-background-color, #fff)));
   --battery-ink: var(--text-strong, var(--primary-text-color, #16181d));
@@ -395,31 +397,84 @@
     return value.toLocaleString(undefined, {minimumFractionDigits: digits, maximumFractionDigits: digits});
   }
 
-  function boundLabel(run) {
-    if (run.kind === 'full') return 'bis voll';
-    if (run.kind === 'empty') return 'bis leer';
-    return 'bis Reserve';
+  // Texts come from the input: the dashboard passes I18n.t, the HA card its
+  // own table for hass.language. BUILTIN_TEXTS keeps a bare page readable.
+  // i18n-keys: battery.card.no_source, battery.card.no_source_note, battery.card.holding, battery.card.idle_note, battery.card.no_capacity_note, battery.card.remaining, battery.card.remaining_note, battery.card.bound.full, battery.card.bound.empty, battery.card.bound.reserve, battery.card.reserve_label, battery.card.reserve_note, battery.card.stock_label, battery.card.stock_note, battery.card.coverage_label, battery.card.capacity_label, battery.card.capacity_segment_note, battery.card.capacity_missing_note, battery.card.reserve_value, battery.card.stale, battery.card.charging, battery.card.discharging, battery.card.idle, battery.card.kpi.runtime_label, battery.card.kpi.usable_label, battery.card.kpi.flow_label, battery.card.crossing.full, battery.card.crossing.empty, battery.card.crossing.reserve, battery.card.hint.none, battery.card.hint.partial, battery.card.now, battery.card.ticks.past, battery.card.ticks.future, battery.card.title.column, battery.card.title.trajectory, battery.card.percent_soc, battery.card.forecast_footer, battery.card.soc_aria, battery.card.chart_aria, battery.card.chart_hint_default
+  const BUILTIN_TEXTS = {
+    'battery.card.no_source': 'keine Speicher-Quelle', // i18n-ignore
+    'battery.card.no_source_note': 'Erst eine Entität als Ladezustand zuordnen.', // i18n-ignore
+    'battery.card.holding': 'hält den Stand', // i18n-ignore
+    'battery.card.idle_note': 'Weder Laden noch Entladen.', // i18n-ignore
+    'battery.card.no_capacity_note': 'Ohne nutzbare Kapazität keine Restlaufzeit.', // i18n-ignore
+    'battery.card.remaining': 'noch {time}', // i18n-ignore
+    'battery.card.remaining_note': '{bound} bei {power} kW', // i18n-ignore
+    'battery.card.bound.full': 'bis voll', // i18n-ignore
+    'battery.card.bound.empty': 'bis leer', // i18n-ignore
+    'battery.card.bound.reserve': 'bis Reserve', // i18n-ignore
+    'battery.card.reserve_label': 'Reserve', // i18n-ignore
+    'battery.card.reserve_note': 'bleibt für den Netzausfall stehen', // i18n-ignore
+    'battery.card.stock_label': 'Vorrat', // i18n-ignore
+    'battery.card.stock_note': 'bis 0 % nutzbar, keine Reserve gesetzt', // i18n-ignore
+    'battery.card.coverage_label': 'Deckung', // i18n-ignore
+    'battery.card.capacity_label': 'Kapazität', // i18n-ignore
+    'battery.card.capacity_segment_note': 'ein Segment {value} kWh', // i18n-ignore
+    'battery.card.capacity_missing_note': 'Kapazität hinterlegen', // i18n-ignore
+    'battery.card.reserve_value': 'Reserve {value} %', // i18n-ignore
+    'battery.card.stale': 'Werte veraltet', // i18n-ignore
+    'battery.card.charging': 'Lädt · {power} kW', // i18n-ignore
+    'battery.card.discharging': 'Entlädt · {power} kW', // i18n-ignore
+    'battery.card.idle': 'Ruht', // i18n-ignore
+    'battery.card.kpi.runtime_label': 'Restlaufzeit', // i18n-ignore
+    'battery.card.kpi.usable_label': 'Abrufbar', // i18n-ignore
+    'battery.card.kpi.flow_label': 'Fluss', // i18n-ignore
+    'battery.card.crossing.full': 'voll', // i18n-ignore
+    'battery.card.crossing.empty': 'leer', // i18n-ignore
+    'battery.card.crossing.reserve': 'Reserve', // i18n-ignore
+    'battery.card.hint.none': 'Kein Verlauf aufgezeichnet, nur die Fortschreibung.', // i18n-ignore
+    'battery.card.hint.partial': 'Erst {hours} h aufgezeichnet.', // i18n-ignore
+    'battery.card.now': 'jetzt', // i18n-ignore
+    'battery.card.ticks.past': '−{hours} h', // i18n-ignore
+    'battery.card.ticks.future': '+{hours} h', // i18n-ignore
+    'battery.card.title.column': 'Speicher', // i18n-ignore
+    'battery.card.title.trajectory': 'Speicher · Verlauf und Fortschreibung', // i18n-ignore
+    'battery.card.percent_soc': '% Ladestand', // i18n-ignore
+    'battery.card.forecast_footer': 'Fortschreibung bei konstanter Leistung', // i18n-ignore
+    'battery.card.soc_aria': 'Ladestand {value}', // i18n-ignore
+    'battery.card.chart_aria': 'Ladestand {value}. {hint}', // i18n-ignore
+    'battery.card.chart_hint_default': 'Verlauf und Fortschreibung des Ladestands.', // i18n-ignore
+  };
+
+  function defaultT(key, params) {
+    if (window.I18n && window.I18n.t) return window.I18n.t(key, params);
+    const text = BUILTIN_TEXTS[key] || key;
+    return params ? text.replace(/\{(\w+)\}/g, (m, name) => (name in params ? String(params[name]) : m)) : text;
   }
 
-  function rowsFor(state, run, nf) {
+  function boundLabel(run, t) {
+    if (run.kind === 'full') return t('battery.card.bound.full');
+    if (run.kind === 'empty') return t('battery.card.bound.empty');
+    return t('battery.card.bound.reserve');
+  }
+
+  function rowsFor(state, run, nf, t) {
     const coverage = !state.hasSoC
-      ? {value: 'keine Speicher-Quelle', note: 'Erst eine Entität als Ladezustand zuordnen.'}
+      ? {value: t('battery.card.no_source'), note: t('battery.card.no_source_note')}
       : run.hours === null
-        ? {value: 'hält den Stand', note: state.hasCapacity ? 'Weder Laden noch Entladen.' : 'Ohne nutzbare Kapazität keine Restlaufzeit.'}
-        : {value: `noch ${formatRuntime(run.hours)}`, note: `${boundLabel(run)} bei ${nf(Math.abs(state.watts) / 1000, 2)} kW`};
+        ? {value: t('battery.card.holding'), note: state.hasCapacity ? t('battery.card.idle_note') : t('battery.card.no_capacity_note')}
+        : {value: t('battery.card.remaining', {time: formatRuntime(run.hours)}), note: t('battery.card.remaining_note', {bound: boundLabel(run, t), power: nf(Math.abs(state.watts) / 1000, 2)})};
 
     const second = state.reserve > 0
-      ? {key: 'reserve', label: 'Reserve', value: `${nf(state.reserve, 0)} % · ${nf(state.reserveKWh, 1)} kWh`, note: 'bleibt für den Netzausfall stehen'}
-      : {key: 'stock', label: 'Vorrat', value: `${nf(state.stored, 1)} kWh`, note: 'bis 0 % nutzbar, keine Reserve gesetzt'};
+      ? {key: 'reserve', label: t('battery.card.reserve_label'), value: `${nf(state.reserve, 0)} % · ${nf(state.reserveKWh, 1)} kWh`, note: t('battery.card.reserve_note')}
+      : {key: 'stock', label: t('battery.card.stock_label'), value: `${nf(state.stored, 1)} kWh`, note: t('battery.card.stock_note')};
 
     return [
-      {key: 'coverage', label: 'Deckung', value: coverage.value, note: coverage.note},
+      {key: 'coverage', label: t('battery.card.coverage_label'), value: coverage.value, note: coverage.note},
       second,
       {
         key: 'capacity',
-        label: 'Kapazität',
+        label: t('battery.card.capacity_label'),
         value: state.hasCapacity ? `${nf(state.capacity, 1)} kWh` : '—',
-        note: state.hasCapacity ? `ein Segment ${nf(state.capacity / 10, 2)} kWh` : 'Kapazität hinterlegen',
+        note: state.hasCapacity ? t('battery.card.capacity_segment_note', {value: nf(state.capacity / 10, 2)}) : t('battery.card.capacity_missing_note'),
       },
     ];
   }
@@ -427,6 +482,7 @@
   function viewFrom(rawInput) {
     const input = normalizeInput(rawInput);
     const nf = input.formatNumber;
+    const t = input.t;
     const state = batteryState(input);
     const run = runtime(state, input.runtimeHours);
     const historySpanMs = input.historyHours * 3600000;
@@ -435,25 +491,26 @@
     // chartInputs reicht die Zutaten an den Renderer weiter, damit er die
     // Geometrie beim Resize mit der gemessenen Breite neu rechnen kann, ohne
     // den ganzen Schnappschuss noch einmal durch viewFrom zu schicken.
-    const chartInputs = {state, run, windowed, mode, forecastHours: input.forecastHours};
+    const chartInputs = {state, run, windowed, mode, forecastHours: input.forecastHours, t};
     return {
+      t,
       tone: toneOf(state, run),
       socLabel: state.hasSoC ? `${nf(state.soc, 0)} %` : '—',
       socNumber: state.hasSoC ? nf(state.soc, 0) : '—',
-      reserveLabel: state.reserve > 0 ? `Reserve ${nf(state.reserve, 0)} %` : '',
-      stateLabel: state.stale ? 'Werte veraltet'
-        : state.mode === 'charge' ? `Lädt · ${nf(Math.abs(state.watts) / 1000, 2)} kW`
-          : state.mode === 'discharge' ? `Entlädt · ${nf(Math.abs(state.watts) / 1000, 2)} kW`
-            : 'Ruht',
+      reserveLabel: state.reserve > 0 ? t('battery.card.reserve_value', {value: nf(state.reserve, 0)}) : '',
+      stateLabel: state.stale ? t('battery.card.stale')
+        : state.mode === 'charge' ? t('battery.card.charging', {power: nf(Math.abs(state.watts) / 1000, 2)})
+          : state.mode === 'discharge' ? t('battery.card.discharging', {power: nf(Math.abs(state.watts) / 1000, 2)})
+            : t('battery.card.idle'),
       ringOffset: RING_CIRCUMFERENCE * (1 - state.soc / 100),
       gauge: {fillScale: state.soc / 100, reserveHeight: state.reserve, showReserve: state.reserve > 0},
-      rows: rowsFor(state, run, nf),
+      rows: rowsFor(state, run, nf, t),
       kpis: [
-        {key: 'runtime', label: 'Restlaufzeit', value: run.hours === null ? '—' : `noch ${formatRuntime(run.hours)}`},
-        {key: 'usable', label: 'Abrufbar', value: `${nf(state.usable, 1)} kWh`},
-        {key: 'flow', label: 'Fluss', value: `${state.watts >= 0 ? '+' : '−'}${nf(Math.abs(state.watts) / 1000, 2)} kW`},
+        {key: 'runtime', label: t('battery.card.kpi.runtime_label'), value: run.hours === null ? '—' : t('battery.card.remaining', {time: formatRuntime(run.hours)})},
+        {key: 'usable', label: t('battery.card.kpi.usable_label'), value: `${nf(state.usable, 1)} kWh`},
+        {key: 'flow', label: t('battery.card.kpi.flow_label'), value: `${state.watts >= 0 ? '+' : '−'}${nf(Math.abs(state.watts) / 1000, 2)} kW`},
       ],
-      chart: chartGeometry(state, run, windowed, mode, {forecastHours: input.forecastHours}),
+      chart: chartGeometry(state, run, windowed, mode, {forecastHours: input.forecastHours, t}),
       chartInputs,
     };
   }
@@ -472,19 +529,20 @@
     return node;
   };
 
-  function head(title) {
+  function head() {
     const header = el('header', 'battery-head');
-    header.append(el('h3', null, title));
+    const titleEl = el('h3');
+    header.append(titleEl);
     const state = el('span', 'battery-state');
     state.append(el('i', 'battery-dot'), el('span'));
     header.append(state);
-    return {header, stateText: state.lastChild};
+    return {header, titleEl, stateText: state.lastChild};
   }
 
   function mountColumn(root) {
     root.classList.add('battery-card');
     root.textContent = '';
-    const {header, stateText} = head('Speicher');
+    const {header, titleEl, stateText} = head();
 
     const fill = el('div', 'battery-column-fill');
     const reserve = el('div', 'battery-column-reserve');
@@ -514,10 +572,12 @@
 
     return {
       update(view) {
+        const t = view.t || defaultT;
+        titleEl.textContent = t('battery.card.title.column');
         root.dataset.tone = view.tone;
         stateText.textContent = view.stateLabel;
         pct.textContent = view.socLabel;
-        gauge.setAttribute('aria-label', `Ladestand ${view.socLabel}`);
+        gauge.setAttribute('aria-label', t('battery.card.soc_aria', {value: view.socLabel}));
         fill.style.transform = `scaleY(${view.gauge.fillScale})`;
         reserve.hidden = !view.gauge.showReserve;
         reserve.style.height = `${view.gauge.reserveHeight}%`;
@@ -535,7 +595,7 @@
   function mountTrajectory(root) {
     root.classList.add('battery-card');
     root.textContent = '';
-    const {header, stateText} = head('Speicher · Verlauf und Fortschreibung');
+    const {header, titleEl, stateText} = head();
 
     const ringSvg = svgEl('svg', {viewBox: '0 0 104 104', 'aria-hidden': 'true', focusable: 'false'});
     const arc = svgEl('circle', {
@@ -544,8 +604,9 @@
     });
     ringSvg.append(svgEl('circle', {class: 'battery-ring-track', cx: 52, cy: 52, r: 44}), arc);
     const ringNumber = el('b');
+    const ringUnit = el('span');
     const ringLabel = el('div', 'battery-ring-label');
-    ringLabel.append(ringNumber, el('span', null, '% Ladestand'));
+    ringLabel.append(ringNumber, ringUnit);
     const ring = el('div', 'battery-ring');
     ring.append(ringSvg, ringLabel);
 
@@ -562,7 +623,6 @@
     const tickRight = svgEl('text', {class: 'battery-tick', x: VIEW.x1, y: VIEW.tickY, 'text-anchor': 'end'});
     const bandLabel = svgEl('text', {class: 'battery-tick', x: VIEW.x0 + 4, y: VIEW.y1 - 3});
     const foot = svgEl('text', {class: 'battery-foot', x: VIEW.x1, y: VIEW.footY, 'text-anchor': 'end'});
-    foot.textContent = 'Fortschreibung bei konstanter Leistung';
     chartSvg.append(band, axis, nowLine, histGroup, forecastLine, crossDot, nowDot, tickLeft, tickCenter, tickRight, bandLabel, foot);
 
     const hint = el('p', 'battery-hint');
@@ -593,6 +653,7 @@
     let plotWidth = BASE_WIDTH;
     let lastInputs = null;
     let lastSocLabel = '—';
+    let lastT = defaultT;
 
     const widthForPixels = px =>
       px > 0 ? Math.max(BASE_WIDTH, Math.round(130 * px / CHART_HEIGHT)) : BASE_WIDTH;
@@ -640,8 +701,10 @@
       hint.textContent = geometry.hint || '';
       hint.hidden = !geometry.hint;
 
-      chartSvg.setAttribute('aria-label',
-        `Ladestand ${lastSocLabel}. ${geometry.hint || 'Verlauf und Fortschreibung des Ladestands.'}`);
+      chartSvg.setAttribute('aria-label', lastT('battery.card.chart_aria', {
+        value: lastSocLabel,
+        hint: geometry.hint || lastT('battery.card.chart_hint_default'),
+      }));
     }
 
     function renderChart() {
@@ -664,6 +727,11 @@
 
     return {
       update(view) {
+        const t = view.t || defaultT;
+        lastT = t;
+        titleEl.textContent = t('battery.card.title.trajectory');
+        ringUnit.textContent = t('battery.card.percent_soc');
+        foot.textContent = t('battery.card.forecast_footer');
         root.dataset.tone = view.tone;
         stateText.textContent = view.stateLabel;
         ringNumber.textContent = view.socNumber;

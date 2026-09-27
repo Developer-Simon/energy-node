@@ -13,6 +13,8 @@
 // EnergyPresentation.present(), genau wie die sechs anderen Energiekarten,
 // nur mit dem rohen statt dem schon gefederten Wert (siehe dort).
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   // Die moeglichen Icon-Zustandsklassen, eine davon setzt step() je Knoten aus
@@ -281,11 +283,11 @@
       const exportPower = gridExportPower(snapshot);
       const stale = isStale(snapshot, 'grid') || isStale(snapshot, 'grid_import') || isStale(snapshot, 'grid_export');
       const dir = importPower > 0 ? 'importing' : exportPower > 0 ? 'exporting' : 'idle';
-      if (importPower > 0) return {text: formatPower(importPower), stale, dir, full: `Bezug ${formatPower(importPower)}`};
-      if (exportPower > 0) return {text: formatPower(exportPower), stale, dir, full: `Einspeisung ${formatPower(exportPower)}`};
+      if (importPower > 0) return {text: formatPower(importPower), stale, dir, full: t('energy.grid_import_label', {power: formatPower(importPower)})};
+      if (exportPower > 0) return {text: formatPower(exportPower), stale, dir, full: t('energy.grid_export_label', {power: formatPower(exportPower)})};
       if (hasValue(snapshot, 'grid')) return {text: formatPower(0), stale, dir};
-      if (hasValue(snapshot, 'grid_import')) return {text: formatPower(0), stale, dir, full: `Bezug ${formatPower(0)}`};
-      if (hasValue(snapshot, 'grid_export')) return {text: formatPower(0), stale, dir, full: `Einspeisung ${formatPower(0)}`};
+      if (hasValue(snapshot, 'grid_import')) return {text: formatPower(0), stale, dir, full: t('energy.grid_import_label', {power: formatPower(0)})};
+      if (hasValue(snapshot, 'grid_export')) return {text: formatPower(0), stale, dir, full: t('energy.grid_export_label', {power: formatPower(0)})};
       return {text: '--', stale: false, dir: 'idle'};
     }
     if (id === 'home') {
@@ -309,11 +311,11 @@
       let dir = 'idle';
       let word = '';
       let text;
-      if (net < 0) { dir = 'discharging'; word = 'Entladen'; text = formatPower(-net); }
-      else if (net > 0) { dir = 'charging'; word = 'Laden'; text = formatPower(net); }
+      if (net < 0) { dir = 'discharging'; word = t('energy.flow.battery_discharging_word'); text = formatPower(-net); }
+      else if (net > 0) { dir = 'charging'; word = t('energy.flow.battery_charging_word'); text = formatPower(net); }
       else if (hasValue(snapshot, 'battery')) text = formatPower(0);
-      else if (hasValue(snapshot, 'battery_discharge')) { dir = 'discharging'; word = 'Entladen'; text = formatPower(0); }
-      else if (hasValue(snapshot, 'battery_charge')) { dir = 'charging'; word = 'Laden'; text = formatPower(0); }
+      else if (hasValue(snapshot, 'battery_discharge')) { dir = 'discharging'; word = t('energy.flow.battery_discharging_word'); text = formatPower(0); }
+      else if (hasValue(snapshot, 'battery_charge')) { dir = 'charging'; word = t('energy.flow.battery_charging_word'); text = formatPower(0); }
       else text = '--';
       // battery_soc (Fuellstand) is independent of the power flow above - only
       // present in snapshot.values when at least one entity carries a
@@ -327,7 +329,7 @@
         stale = stale || isStale(snapshot, 'battery_soc');
       }
       const label = word ? `${word} ${text}` : text;
-      const full = soc ? (text === '--' ? `Füllstand ${soc}` : `${label} · Füllstand ${soc}`) : label;
+      const full = soc ? (text === '--' ? t('energy.flow.battery_fill_level', {soc}) : t('energy.flow.battery_label_with_fill', {label, soc})) : label;
       return {text, stale, dir, soc, full};
     }
     // load node ("Lasten")
@@ -340,22 +342,22 @@
     // sonst nirgends, Wallbox und Waermepumpe haben ihre eigenen Knoten.
     if (loadMeasured(snapshot) > 0.5) {
       const power = loadMeasured(snapshot);
-      return {text: formatPower(power), stale: isStale(snapshot, 'load'), dir: 'drawing', icon: 'generic', full: `Gemessen ${formatPower(power)}`};
+      return {text: formatPower(power), stale: isStale(snapshot, 'load'), dir: 'drawing', icon: 'generic', full: t('energy.flow.label_with_power', {label: t('energy.measured_label'), power: formatPower(power)})};
     }
     const named = [
-      {label: 'Wallbox', role: 'wallbox', icon: 'wallbox'},
-      {label: 'Wärmepumpe', role: 'heat_pump', icon: 'heatpump'},
+      {label: t('energy.role.wallbox'), role: 'wallbox', icon: 'wallbox'},
+      {label: t('energy.role.heat_pump'), role: 'heat_pump', icon: 'heatpump'},
     ].filter(consumer => hasValue(snapshot, consumer.role));
     if (named.length) {
       const top = named.reduce((a, b) =>
         (Math.abs(roleValue(snapshot, b.role)) > Math.abs(roleValue(snapshot, a.role)) ? b : a));
       const power = roleValue(snapshot, top.role);
-      return {text: formatPower(power), stale: isStale(snapshot, top.role), dir: drawingIf(power), icon: top.icon, full: `${top.label} ${formatPower(power)}`};
+      return {text: formatPower(power), stale: isStale(snapshot, top.role), dir: drawingIf(power), icon: top.icon, full: t('energy.flow.label_with_power', {label: top.label, power: formatPower(power)})};
     }
     if (hasValue(snapshot, 'load')) {
       // Kein eigener Verbraucher, nur die rohe load-Rolle: hier stand noch nie
       // eine Zahl (die traegt der Haus-Knoten), das Wort bleibt.
-      return {text: 'Hausverbrauch', stale: isStale(snapshot, 'load'), dir: drawingIf(roleValue(snapshot, 'load')), icon: 'generic'};
+      return {text: t('energy.role.consumption'), stale: isStale(snapshot, 'load'), dir: drawingIf(roleValue(snapshot, 'load')), icon: 'generic'};
     }
     return {text: '--', stale: false, dir: 'idle', icon: 'generic'};
   }
@@ -376,10 +378,10 @@
       rows.push({label, icon, power: drawing ? power : 0, dir: drawing ? 'drawing' : 'idle', stale: isStale(snapshot, role)});
     };
     const measured = loadMeasured(snapshot);
-    if (measured > 0.5) add('Gemessen', 'load', 'generic', measured);
+    if (measured > 0.5) add(t('energy.measured_label'), 'load', 'generic', measured);
     const named = [
-      {label: 'Wallbox', role: 'wallbox', icon: 'wallbox'},
-      {label: 'Wärmepumpe', role: 'heat_pump', icon: 'heatpump'},
+      {label: t('energy.role.wallbox'), role: 'wallbox', icon: 'wallbox'},
+      {label: t('energy.role.heat_pump'), role: 'heat_pump', icon: 'heatpump'},
     ].filter(consumer => hasValue(snapshot, consumer.role));
     let namedSum = 0;
     for (const consumer of named) {
@@ -389,10 +391,10 @@
     }
     if (loadSource(snapshot) !== 'missing') {
       const rest = loadTotal(snapshot) - namedSum - Math.max(measured, 0);
-      if (rows.length === 0) add('Hausverbrauch', 'load', 'generic', loadTotal(snapshot));
-      else if (rest > MIN_FLOW_W) add('Übriger Verbrauch', 'load', 'generic', rest);
+      if (rows.length === 0) add(t('energy.role.consumption'), 'load', 'generic', loadTotal(snapshot));
+      else if (rest > MIN_FLOW_W) add(t('energy.role.base'), 'load', 'generic', rest);
     }
-    if (rows.length === 0) rows.push({label: 'Hausverbrauch', icon: 'generic', power: 0, dir: 'idle', stale: false, missing: true});
+    if (rows.length === 0) rows.push({label: t('energy.role.consumption'), icon: 'generic', power: 0, dir: 'idle', stale: false, missing: true});
     rows.sort((a, b) => b.power - a.power);
     return rows;
   }
@@ -421,7 +423,7 @@
       const text = row.missing ? '--' : formatPower(row.power);
       if (textEl.textContent !== text) textEl.textContent = text;
       li.classList.toggle('energy-flow-value-stale', row.stale);
-      const label = row.dir === 'drawing' ? `${row.label} ${formatPower(row.power)}` : row.label;
+      const label = row.dir === 'drawing' ? t('energy.flow.label_with_power', {label: row.label, power: formatPower(row.power)}) : row.label;
       if (li.getAttribute('aria-label') !== label) li.setAttribute('aria-label', label);
     });
   }

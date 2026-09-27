@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const staticJS = (name) => fs.readFileSync(
@@ -58,6 +59,7 @@ function createPanel({ fetchImpl } = {}) {
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error(`unexpected fetch`); });
+  installI18n(dom.window);
   vm.runInContext(schemaFormSource, context);
   vm.runInContext(scriptSource, context);
 

@@ -1,4 +1,6 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
@@ -6,7 +8,7 @@
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
     if (!response.ok) {
-      throw new Error(body.message || 'Anfrage fehlgeschlagen');
+      throw new Error(body.message || t('common.request_failed'));
     }
     return body;
   };
@@ -67,7 +69,7 @@
         this.canConfigure = Boolean(session && session.mqtt_config) && window.location.protocol === 'https:';
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.loading = false;
       }
@@ -95,10 +97,10 @@
     },
 
     sourceLabel(source) {
-      if (source === 'settings') return 'Dashboard-Einstellungen';
-      if (source === 'config') return 'Zentrale Konfigurationsdatei';
+      if (source === 'settings') return t('mqtt.source_label.dashboard_settings');
+      if (source === 'config') return t('mqtt.source_label.central_config');
       if (!source) return '-';
-      return 'unbekannt';
+      return t('mqtt.source_label.unknown');
     },
 
     formatTime(value) {
@@ -152,16 +154,16 @@
           });
           this.status = result.status || this.status;
           if (result.ok) {
-            this.$store.toasts.push('Gespeichert und neu verbunden.');
+            this.$store.toasts.push(t('mqtt.saved_and_reconnected'));
           } else {
-            this.$store.toasts.push(`Neu verbinden fehlgeschlagen: ${result.error || ''}`, 'critical');
+            this.$store.toasts.push(t('mqtt.reconnect_failed', {error: result.error || ''}), 'critical');
           }
         } else {
-          this.$store.toasts.push('Gespeichert.');
+          this.$store.toasts.push(t('common.saved') + '.');
         }
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }
@@ -181,11 +183,11 @@
           body: JSON.stringify({publish_energy_device: desired}),
         });
         this.$store.toasts.push(desired
-          ? 'Energiewerte werden beim nächsten Verbinden als Home-Assistant-Gerät angeboten.'
-          : 'Das Home-Assistant-Energie-Gerät wird beim nächsten Verbinden entfernt.');
+          ? t('mqtt.energy_device.enabled_toast')
+          : t('mqtt.energy_device.disabled_toast'), 'info');
       } catch (error) {
         this.form.publish_energy_device = !desired;
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       }
     },
 
@@ -193,11 +195,21 @@
     // (order does not matter, the set does) - webui.TestMetricKeysMatchNodeagent
     // enforces it.
     metricKeys: ['cpu_temp', 'cpu_load', 'ram', 'disk', 'wifi_signal', 'undervoltage', 'throttled', 'last_boot', 'ip_address', 'mosquitto', 'tailscale', 'apt_updates'],
-    metricLabels: {
-      cpu_temp: 'CPU-Temperatur', cpu_load: 'CPU-Auslastung', ram: 'RAM', disk: 'Speicherplatz',
-      wifi_signal: 'WLAN-Signal', undervoltage: 'Unterspannung', throttled: 'CPU-Drosselung',
-      last_boot: 'Letzter Neustart', ip_address: 'IP-Adresse', mosquitto: 'Mosquitto',
-      tailscale: 'Tailscale', apt_updates: 'Paket-Updates',
+    get metricLabels() {
+      return {
+        cpu_temp: t('mqtt.metric_labels.cpu_temp'),
+        cpu_load: t('mqtt.metric_labels.cpu_load'),
+        ram: t('mqtt.metric_labels.ram'),
+        disk: t('mqtt.metric_labels.disk'),
+        wifi_signal: t('mqtt.metric_labels.wifi_signal'),
+        undervoltage: t('mqtt.metric_labels.undervoltage'),
+        throttled: t('mqtt.metric_labels.throttled'),
+        last_boot: t('mqtt.metric_labels.last_boot'),
+        ip_address: t('mqtt.metric_labels.ip_address'),
+        mosquitto: t('mqtt.metric_labels.mosquitto'),
+        tailscale: t('mqtt.metric_labels.tailscale'),
+        apt_updates: t('mqtt.metric_labels.apt_updates'),
+      };
     },
 
     metricEnabled(metric) {
@@ -297,6 +309,7 @@
     passwordConfigured: false,
     configured: false,
     addressWarning: '',
+    addressWarningKey: '',
     preview: '',
     status: null,
     csrfToken: '',
@@ -349,6 +362,7 @@
       };
       this.passwordConfigured = Boolean(config.password_configured);
       this.addressWarning = config.address_warning || '';
+      this.addressWarningKey = config.address_warning_key || '';
       this.preview = config.preview || '';
     },
 
@@ -364,22 +378,29 @@
     },
 
     bridgeConnectionLabel() {
-      if (!this.status || !this.status.bridge || !this.status.bridge.configured) return 'nicht konfiguriert';
-      return this.status.bridge.connected ? 'verbunden' : 'getrennt';
+      if (!this.status || !this.status.bridge || !this.status.bridge.configured) return t('bridge.connection.not_configured');
+      return this.status.bridge.connected ? t('bridge.connection.connected') : t('bridge.connection.disconnected');
     },
 
     driftLabel() {
       const drift = this.status && this.status.drift;
-      if (!drift || !drift.known) return 'unbekannt';
-      return drift.matches ? 'ja' : 'nein, abweichend';
+      if (!drift || !drift.known) return t('bridge.drift.unknown');
+      return drift.matches ? t('bridge.drift.yes') : t('bridge.drift.no_match');
     },
 
     lastApplyLabel() {
       const record = this.status && this.status.last_apply;
       if (!record) return '-';
       const when = this.formatTime(record.at);
-      const who = record.user ? ` von ${record.user}` : '';
-      return record.ok ? `Erfolgreich${who}, ${when}` : `Fehlgeschlagen${who}, ${when}: ${record.error || ''}`;
+      if (record.ok) {
+        return record.user
+          ? t('bridge.last_apply.successful_with_user', {user: record.user, time: when})
+          : t('bridge.last_apply.successful_no_user', {time: when});
+      } else {
+        return record.user
+          ? t('bridge.last_apply.failed_with_user', {user: record.user, time: when, error: record.error || ''})
+          : t('bridge.last_apply.failed_no_user', {time: when, error: record.error || ''});
+      }
     },
 
     formatTime(value) {
@@ -434,10 +455,10 @@
       this.busy = 'save';
       try {
         await this.saveInternal();
-        this.$store.toasts.push('Gespeichert.');
+        this.$store.toasts.push(t('common.saved') + '.');
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }
@@ -446,9 +467,9 @@
     async apply() {
       if (!this.canApply || !this.valid || this.busy) return;
       const confirmed = await this.$store.modal.confirm({
-        title: 'Bridge anwenden und Mosquitto neu starten?',
-        body: 'Die Live-Anzeige setzt kurz aus.',
-        confirmLabel: 'Anwenden und neu starten',
+        title: t('bridge.apply_confirm.title'),
+        body: t('bridge.apply_confirm.body'),
+        confirmLabel: t('bridge.apply_confirm.label'),
         danger: true,
       });
       if (!confirmed) return;
@@ -460,10 +481,10 @@
           headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
           body: JSON.stringify({confirm: true}),
         });
-        this.$store.toasts.push('Bridge angewendet, Mosquitto wurde neu gestartet.');
+        this.$store.toasts.push(t('bridge.apply_success'));
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }
@@ -472,9 +493,9 @@
     async restartOnly() {
       if (!this.canRestart || this.busy) return;
       const confirmed = await this.$store.modal.confirm({
-        title: 'Mosquitto jetzt neu starten?',
-        body: 'Die Live-Anzeige setzt kurz aus.',
-        confirmLabel: 'Neu starten',
+        title: t('bridge.restart_confirm.title'),
+        body: t('bridge.restart_confirm.body'),
+        confirmLabel: t('bridge.restart_confirm.label'),
         danger: true,
       });
       if (!confirmed) return;
@@ -484,10 +505,10 @@
           method: 'POST',
           headers: {'X-CSRF-Token': this.csrfToken},
         });
-        this.$store.toasts.push('Mosquitto wurde neu gestartet.');
+        this.$store.toasts.push(t('bridge.restart_success'));
         await this.loadStatus();
       } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
+        this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
         this.busy = false;
       }

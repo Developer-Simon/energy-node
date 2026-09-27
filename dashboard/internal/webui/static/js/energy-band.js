@@ -6,6 +6,8 @@
 // bundle_threshold, animate) are read from the layout item's data-*
 // attributes, see knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const DEFAULT_WIDTH = 980;
   const H = 430;
   const PAD_Y = 26;
@@ -47,7 +49,7 @@
     const small = flows.filter(f => f.value / total < threshold);
     if (small.length > 1) {
       keep.push({
-        id: 'sonstiges', label: `Sonstiges (${small.length})`,
+        id: 'sonstiges', label: t('energy.band.other_count', {count: small.length}),
         value: small.reduce((sum, f) => sum + f.value, 0), color: window.EnergyModel.COLORS.rest,
       });
     } else {
@@ -160,11 +162,11 @@
     const centerX = geometry.width / 2;
     return ribbonsMarkup(geometry.sourceRibbons, suppressAnimation, key) + ribbonsMarkup(geometry.sinkRibbons, suppressAnimation, key) +
       `<rect x="${geometry.busX}" y="${geometry.busY}" width="${geometry.busWidth}" height="${geometry.busHeight}" rx="3" fill="${theme.bus}" stroke="${theme.line}"></rect>` +
-      `<text x="${centerX}" y="${geometry.busMidY - 6}" text-anchor="middle" font-size="15" font-weight="600" fill="${theme.text}" transform="rotate(-90 ${centerX} ${geometry.busMidY})">HAUS</text>` +
+      `<text x="${centerX}" y="${geometry.busMidY - 6}" text-anchor="middle" font-size="15" font-weight="600" fill="${theme.text}" transform="rotate(-90 ${centerX} ${geometry.busMidY})">${t('energy.band.house_label')}</text>` +
       `<text x="${centerX}" y="${geometry.busMidY + 10}" text-anchor="middle" font-size="13" fill="${theme.muted}" transform="rotate(-90 ${centerX} ${geometry.busMidY})">${totalLabel}</text>` +
       labelsMarkup(geometry.sourceLabels) + labelsMarkup(geometry.sinkLabels) +
-      `<text x="20" y="20" font-size="13" letter-spacing="1.4" fill="${theme.muted}">ERZEUGUNG</text>` +
-      `<text x="${geometry.width - 20}" y="20" text-anchor="end" font-size="13" letter-spacing="1.4" fill="${theme.muted}">VERWENDUNG</text>`;
+      `<text x="20" y="20" font-size="13" letter-spacing="1.4" fill="${theme.muted}">${t('energy.band.generation_label')}</text>` +
+      `<text x="${geometry.width - 20}" y="20" text-anchor="end" font-size="13" letter-spacing="1.4" fill="${theme.muted}">${t('energy.band.usage_label')}</text>`;
   }
 
   // Nennleistung fuer den "absolut"-Hoehenbezug - dieselbe feste 10-kW-
@@ -242,7 +244,7 @@
       geometry: null,
       svgMarkup: '',
       totalLabel: '',
-      description: 'Kein Energiefluss: alle zugeordneten Rollen melden 0 W.',
+      description: t('energy.no_flow'),
       legend: [],
       reducedMotion: false,
       cardKey: 'energy-band',
@@ -310,14 +312,18 @@
         this.geometry = bandGeometry(balance, width, this.options);
         if (!this.geometry) {
           this.svgMarkup = '';
-          this.description = 'Kein Energiefluss: alle zugeordneten Rollen melden 0 W.';
+          this.description = t('energy.no_flow');
           this.legend = [];
           return;
         }
         this.totalLabel = model.formatPower(balance.total, unit);
         const suppressAnimation = this.reducedMotion || this.options.animate === 'off';
         this.svgMarkup = bandMarkup(this.geometry, this.totalLabel, suppressAnimation, this.cardKey);
-        this.description = `Gesamtleistung ${model.formatPower(balance.total, unit)}. Quellen: ${balance.sources.map(f => `${f.label} ${model.formatPower(f.value, unit)}`).join(', ')}. Senken: ${balance.sinks.map(f => `${f.label} ${model.formatPower(f.value, unit)}`).join(', ')}.`;
+        this.description = t('energy.band.description', {
+          total: model.formatPower(balance.total, unit),
+          sources: balance.sources.map(f => `${f.label} ${model.formatPower(f.value, unit)}`).join(', '),
+          sinks: balance.sinks.map(f => `${f.label} ${model.formatPower(f.value, unit)}`).join(', '),
+        });
         const seen = new Map();
         [...balance.sources, ...balance.sinks].forEach(f => seen.set(f.color, f));
         this.legend = [...seen.values()];

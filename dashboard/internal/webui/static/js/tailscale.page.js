@@ -1,4 +1,6 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
@@ -6,7 +8,7 @@
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
     if (!response.ok) {
-      throw new Error(body.message || 'Anfrage fehlgeschlagen');
+      throw new Error(body.message || t('common.request_failed'));
     }
     return body;
   };
@@ -28,11 +30,11 @@
 
   const tailscalePanel = () => ({
     steps: [
-      {id: 1, label: 'Voraussetzungen prüfen'},
-      {id: 2, label: 'Anmeldung starten'},
-      {id: 3, label: 'Ergebnis prüfen'},
+      {id: 1, label: 'tailscale.step1.title'},
+      {id: 2, label: 'tailscale.step2.title'},
+      {id: 3, label: 'tailscale.step3.title'},
     ],
-    stepperLabel: 'Tailscale-Schritte',
+    get stepperLabel() { return t('tailscale.steps_label'); },
     currentStep: 1,
     direction: 'forward',
     prereqs: {installed: false, version: '', service_active: '', service_enabled: ''},
@@ -83,7 +85,7 @@
         if (this.currentStep === 2 && this.status.backend_state && this.status.backend_state !== 'NeedsLogin' && this.status.online) {
           this.stopPolling();
           this.goToStep(3);
-          this.$store.toasts.push('Anmeldung erfolgreich.');
+          this.$store.toasts.push(t('tailscale.login_successful'));
         }
       } catch (error) {
         // Status is a best-effort display; keep whatever was shown before.
@@ -121,7 +123,7 @@
       try {
         await requestJSON('/api/v1/tailscale/login', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken}, // i18n-ignore
           body: JSON.stringify({confirm: true}),
         });
         this.startPolling();
@@ -136,8 +138,8 @@
     async logout() {
       if (!this.canSystemActions || this.busy) return;
       const confirmed = await this.$store.modal.confirm({
-        title: 'Von diesem Tailnet abmelden?',
-        confirmLabel: 'Abmelden',
+        title: t('tailscale.logout_confirm_title'),
+        confirmLabel: t('tailscale.logout_confirm_button'),
         danger: true,
       });
       if (!confirmed) return;
@@ -145,10 +147,10 @@
       try {
         await requestJSON('/api/v1/tailscale/logout', {
           method: 'POST',
-          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken}, // i18n-ignore
           body: JSON.stringify({confirm: true}),
         });
-        this.$store.toasts.push('Abgemeldet.');
+        this.$store.toasts.push(t('tailscale.logout_success'));
         await this.loadStatus();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -163,9 +165,9 @@
       try {
         await requestJSON('/api/v1/tailscale/restart', {
           method: 'POST',
-          headers: {'X-CSRF-Token': this.csrfToken},
+          headers: {'X-CSRF-Token': this.csrfToken}, // i18n-ignore
         });
-        this.$store.toasts.push('Dienst wurde neu gestartet.');
+        this.$store.toasts.push(t('tailscale.restart_success'));
         await this.loadStatus();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -181,8 +183,13 @@
     lastActionLabel() {
       if (!this.lastAction) return '-';
       const when = this.formatTime(this.lastAction.at);
-      const who = this.lastAction.user ? ` von ${this.lastAction.user}` : '';
-      return this.lastAction.ok ? `${this.lastAction.action} erfolgreich${who}, ${when}` : `${this.lastAction.action} fehlgeschlagen${who}, ${when}: ${this.lastAction.error || ''}`;
+      const user = this.lastAction.user || '';
+      if (this.lastAction.ok) {
+        const key = user ? 'tailscale.last_action.succeeded_by' : 'tailscale.last_action.succeeded';
+        return t(key, {action: this.lastAction.action, user, when});
+      }
+      const key = user ? 'tailscale.last_action.failed_by' : 'tailscale.last_action.failed';
+      return t(key, {action: this.lastAction.action, user, when, error: this.lastAction.error || ''});
     },
   });
 

@@ -13,10 +13,10 @@ import { installI18n } from './helpers/i18n.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const CORE = path.join(here, '..', 'internal', 'webui', 'static', 'js', 'battery-card-core.js');
 
-export function loadCore(extraGlobals = {}) {
+export function loadCore(extraGlobals = {}, { i18n = true } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   for (const [key, value] of Object.entries(extraGlobals)) dom.window[key] = value;
-  installI18n(dom.window);
+  if (i18n) installI18n(dom.window);
   const context = dom.getInternalVMContext();
   vm.runInContext(fs.readFileSync(CORE, 'utf8'), context);
   return { core: dom.window.BatteryCardCore, window: dom.window, document: dom.window.document };
@@ -494,4 +494,16 @@ test('viewFrom falls back to the page formatter, and to toLocaleString without o
   assert.match(core.viewFrom(evening).rows[2].value, /^12,8 kWh$/);
   delete window.I18n;
   assert.match(core.viewFrom(evening).rows[2].value, /^12[.,]8 kWh$/);
+});
+
+// Without window.I18n and without an injected t(), the core is not helpless
+// on a bare page: it falls back to its own German BUILTIN_TEXTS table
+// (word-for-word the same as de.json, guarded by catalogs_test.go).
+test('the core without t and without window.I18n falls back to its own German text', () => {
+  const { core } = loadCore({}, { i18n: false });
+  const view = core.viewFrom({ capacity: 12.8 });
+  assert.equal(view.rows[0].value, 'keine Speicher-Quelle');
+  assert.equal(view.rows[0].note, 'Erst eine Entität als Ladezustand zuordnen.');
+  const evening_view = core.viewFrom(evening);
+  assert.match(evening_view.stateLabel, /^Entlädt · 1[.,]24 kW$/);
 });

@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -51,6 +52,7 @@ function createSettingsPanel({ fetchImpl, withChoices = true } = {}) {
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
   if (withChoices) dom.window.Choices = FakeChoices;
+  installI18n(dom.window);
   vm.runInContext(scriptSource, context);
   const component = factories.settingsPanel();
   const stores = attachStores(component);
@@ -240,7 +242,13 @@ test('save() reloads only once when language and number format change together',
   await component.load();
   let reloads = 0;
   let languageSwitches = 0;
-  window.I18n = { lang: 'de', setLanguage: () => { languageSwitches += 1; } };
+  const originalI18n = window.I18n;
+  window.I18n = {
+    lang: 'de',
+    setLanguage: () => { languageSwitches += 1; },
+    t: (key, params) => originalI18n.t(key, params),
+    formatNumber: originalI18n.formatNumber,
+  };
   component.reloadPage = () => { reloads += 1; };
   window.fetch = async () => jsonResponse({});
   component.uiLanguage = 'en';
@@ -248,4 +256,22 @@ test('save() reloads only once when language and number format change together',
   await component.save();
   assert.equal(languageSwitches, 1);
   assert.equal(reloads, 0);
+});
+
+test('storageText() formats numeric params before translation', async () => {
+  const { component, window } = createSettingsPanel();
+  // Mock I18n with German formatting (comma decimal, period thousands)
+  window.I18n = {
+    lang: 'de',
+    formatNumber: (n) => n.toString().replace('.', ','),
+    t: (key, params) => {
+      if (key === 'storage_health.remaining.years' && params) {
+        return `ca. ${params.min} bis ${params.max} Jahre`;
+      }
+      return key;
+    },
+  };
+  
+  const result = component.storageText('storage_health.remaining.years', { min: 1.5, max: 2 });
+  assert.match(result, /1,5.*2/); // German format: 1,5 and 2
 });

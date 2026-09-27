@@ -211,3 +211,28 @@ func TestEveryLiteralKeyExistsInTheGermanCatalog(t *testing.T) {
 		}
 	}
 }
+
+// battery-card-core.js falls back to its own German BUILTIN_TEXTS table when
+// neither an injected t() nor window.I18n is available (a bare page). That
+// fallback text must stay byte-identical to de.json, or the two hosts (the
+// dashboard and Home Assistant without hass.language yet) would show
+// different German wording for the same key.
+var batteryCardTextPattern = regexp.MustCompile(`'(battery\.card\.[\w.]+)':\s*'([^']*)'`)
+
+func TestBatteryCardCoreBuiltinTextsMatchGerman(t *testing.T) {
+	data, err := fs.ReadFile(templateFS, "static/js/battery-card-core.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	de := readCatalogs(t)["de"]
+	matches := batteryCardTextPattern.FindAllStringSubmatch(string(data), -1)
+	if len(matches) == 0 {
+		t.Fatal("no battery.card.* entries found in battery-card-core.js's BUILTIN_TEXTS")
+	}
+	for _, match := range matches {
+		key, text := match[1], match[2]
+		if de[key] != text {
+			t.Errorf("battery-card-core.js BUILTIN_TEXTS[%q] = %q, de.json has %q", key, text, de[key])
+		}
+	}
+}
