@@ -361,7 +361,7 @@ test('widgetHTML() renders a single entity select for entity_value items, with t
   assert.ok(!html.includes('value="ent1" selected'));
 
   const empty = factory.widgetHTML({type: 'entity_value', visible: true, ref: ''}, 'Wert-Karte', true, 4);
-  assert.ok(empty.includes('<option value="">– wählen –</option>'));
+  assert.ok(empty.includes('<option value="">Bitte wählen</option>'));
 });
 
 test('widgetHTML()/energyOptionsHTML() only show the speed-reference fields for energy_flow items in "speed" scale mode', () => {
@@ -2114,7 +2114,7 @@ test('der Fuss der Toolbox nennt die aktive Seite', () => {
   editor.pages = [{id: 'p1', name: 'Keller', groups: [{id: 'g1', items: []}]}];
   editor.activePage = 'p1';
   editor.setToolbox(true);
-  assert.equal(dom.window.document.querySelector('[data-tb-target]').textContent, 'Klicken oder ziehen — landet auf Keller.');
+  assert.equal(dom.window.document.querySelector('[data-tb-target]').textContent, 'Klicken oder ziehen, der Baustein landet auf Keller.');
 });
 
 test('eine Entitaetenliste aus der Toolbox bekommt eine eigene ID', () => {
