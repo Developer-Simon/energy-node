@@ -2205,7 +2205,7 @@ func TestJedeLayoutSeiteWirdEinTab(t *testing.T) {
 	}
 	// Neue, noch nicht gespeicherte Editor-Seiten rendern zur Laufzeit aus
 	// dashboardShell.extraPages.
-	if !strings.Contains(html, `x-for="name in extraPages"`) {
+	if !strings.Contains(html, `x-for="page in extraPages"`) {
 		t.Fatal("die Laufzeit-Vorlage fuer neue Seiten-Tabs fehlt")
 	}
 }
