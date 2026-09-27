@@ -1,4 +1,7 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
@@ -6,7 +9,7 @@
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     if (response.status === 204) return null;
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.message || "Anfrage fehlgeschlagen");
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
   const relationKey = (a, b) => [a, b].sort().join('::');
@@ -92,7 +95,7 @@
           basePath: '/api/v1/device/map',
           current: () => this.deviceMap,
           reload: () => this.load(),
-          label: 'Revisionen der Device-Map',
+          label: t('devicemap.revisions_label'),
         };
       },
 
@@ -161,7 +164,7 @@
           const element = {
             data: {
               id: device.id,
-              label: `${device.name || device.id}\n${entityCount} Entität${entityCount === 1 ? '' : 'en'}`,
+              label: `${device.name || device.id}\n${tn('devicemap.entity_count', entityCount, {n: entityCount})}`,
             },
             classes: statusClass(device),
           };
@@ -393,8 +396,8 @@
         this.connectSourceLabel = '';
         if (childId === parentId) return;
         const confirmed = await this.$store.modal.confirm({
-          title: `${this.deviceLabel(childId)} als Untergerät von ${this.deviceLabel(parentId)} verbinden?`,
-          confirmLabel: 'Verbinden',
+          title: t('devicemap.connect_confirmation_title', {child_name: this.deviceLabel(childId), parent_name: this.deviceLabel(parentId)}),
+          confirmLabel: t('devicemap.connect_button'),
         });
         if (!confirmed) return;
         try {
@@ -408,7 +411,7 @@
           // positions) - fold the change into the snapshot too, so a later
           // discardChanges() only reverts still-unsaved positions/view.
           this.savedDeviceMap = {...this.savedDeviceMap, edges: this.deviceMap.edges};
-          this.$store.toasts.push('Beziehung verbunden.');
+          this.$store.toasts.push(t('devicemap.relation_connected'));
           this.renderGraph();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
@@ -440,8 +443,8 @@
       async removeSelectedRelation() {
         if (!this.selectedEdge || !this.selectedEdge.overrideId) return;
         const confirmed = await this.$store.modal.confirm({
-          title: `Verbindung "${this.selectedEdgeLabel}" lösen?`,
-          confirmLabel: 'Lösen',
+          title: t('devicemap.disconnect_confirmation_title', {label: this.selectedEdgeLabel}),
+          confirmLabel: t('devicemap.disconnect_confirm'),
           danger: true,
         });
         if (!confirmed) return;
@@ -449,7 +452,7 @@
           await requestJSON(`/api/v1/device/map/relations/${this.selectedEdge.overrideId}`, {method: 'DELETE'});
           this.deviceMap = {...this.deviceMap, edges: (this.deviceMap.edges || []).filter(edge => edge.id !== this.selectedEdge.overrideId)};
           this.savedDeviceMap = {...this.savedDeviceMap, edges: this.deviceMap.edges};
-          this.$store.toasts.push('Verbindung gelöst.');
+          this.$store.toasts.push(t('devicemap.relation_disconnected'));
           this.renderGraph();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
@@ -476,7 +479,7 @@
           this.deviceMap = value;
           this.savedDeviceMap = JSON.parse(JSON.stringify(value));
           this.unsaved = false;
-          this.$store.toasts.push('Positionen gespeichert.');
+          this.$store.toasts.push(t('devicemap.positions_saved'));
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
         } finally {
@@ -492,7 +495,7 @@
       discardChanges() {
         this.deviceMap = JSON.parse(JSON.stringify(this.savedDeviceMap));
         this.unsaved = false;
-        this.$store.toasts.push('Änderungen verworfen.');
+        this.$store.toasts.push(t('devicemap.changes_discarded'));
         this.renderGraph();
       },
 
@@ -500,6 +503,20 @@
         if (!this.unsaved) return;
         event.preventDefault();
         event.returnValue = '';
+      },
+
+      saveButtonLabel() {
+        return this.saving ? t('devicemap.saving') : t('devicemap.save_button');
+      },
+
+      connectHintText() {
+        return this.connectSourceLabel
+          ? t('devicemap.connect_hint_selecting', {name: this.connectSourceLabel})
+          : t('devicemap.connect_hint_initial');
+      },
+
+      placedHintText() {
+        return tn('devicemap.placed_hint', this.placedCount, {n: this.placedCount});
       },
     };
   };
