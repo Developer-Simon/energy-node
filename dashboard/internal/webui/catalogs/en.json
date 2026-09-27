@@ -622,6 +622,7 @@
   "overview.history.view_select": "View",
   "overview.history.views_label": "Saved history views",
   "overview.installation.title": "Installation",
+  "overview.page.default_name": "TODO(en): Übersicht",
   "overview.page.error.editor_load_failed": "The editor could not be loaded. Check the connection and try again.",
   "overview.roles_history.title": "Roles & history",
   "overview.status.title": "Status",

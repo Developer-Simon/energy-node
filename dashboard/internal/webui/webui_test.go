@@ -2125,10 +2125,10 @@ func TestUebersichtRendertNurDieAktiveSeite(t *testing.T) {
 	// aneinander, sonst zeigte der Bearbeitungsmodus ein Raster, das es so
 	// nirgends gibt.
 	html := renderOverview(t, layoutWithPages("Zuhause", "Werkstatt"), "Werkstatt")
-	if strings.Contains(html, "data-layout-page=\"Zuhause\"") {
+	if strings.Contains(html, "data-layout-page=\"page_Zuhause\"") {
 		t.Fatal("die inaktive Seite darf nicht mitgerendert werden")
 	}
-	if !strings.Contains(html, "data-layout-page=\"Werkstatt\"") {
+	if !strings.Contains(html, "data-layout-page=\"page_Werkstatt\"") {
 		t.Fatal("die aktive Seite fehlt")
 	}
 }
@@ -2804,5 +2804,49 @@ func TestOverviewEntityGroupCardFallsBackToDefaultTitleWhenStoredEmpty(t *testin
 	body = renderOverviewWithLayout(t, named)
 	if !strings.Contains(body, `<h4>Mein Haus</h4>`) {
 		t.Fatalf("entity_group card with a stored title does not show it:\n%s", body)
+	}
+}
+
+func TestActivePageFindsByID(t *testing.T) {
+	layout := settings.Layout{Version: 3, Pages: []settings.Page{
+		{ID: "overview", Name: "", Order: 0, Groups: []settings.Group{}},
+		{ID: "rooms", Name: "Räume", Order: 1, Groups: []settings.Group{}},
+	}}
+
+	// Render base to get the activePage function set up
+	html := renderBase(t, layout)
+
+	// Test that the page with ID "rooms" is rendered
+	if !strings.Contains(html, `data-page-id="rooms"`) {
+		t.Fatalf("page with ID \"rooms\" not rendered with correct data-page-id:\n%s", html)
+	}
+	if !strings.Contains(html, `data-page-id="overview"`) {
+		t.Fatalf("page with ID \"overview\" not rendered with correct data-page-id:\n%s", html)
+	}
+}
+
+func TestDefaultPageNameRendersLocalization(t *testing.T) {
+	layout := settings.Layout{Version: 3, Pages: []settings.Page{
+		{ID: "overview", Name: "", Order: 0, Groups: []settings.Group{{ID: "g", Name: "G", Items: []settings.Item{}}}},
+	}}
+
+	html := renderBase(t, layout)
+
+	// The template should render the German translation for the default page name when Name is empty
+	if !strings.Contains(html, `data-page-id="overview"`) || !strings.Contains(html, `>Übersicht</button>`) {
+		t.Fatalf("default page name should render as Übersicht, got:\n%s", html)
+	}
+}
+
+func TestCustomPageNameRendersAsLabel(t *testing.T) {
+	layout := settings.Layout{Version: 3, Pages: []settings.Page{
+		{ID: "p1", Name: "Wohnzimmer", Order: 0, Groups: []settings.Group{{ID: "g", Name: "G", Items: []settings.Item{}}}},
+	}}
+
+	html := renderBase(t, layout)
+
+	// The template should render the custom page name directly
+	if !strings.Contains(html, `>Wohnzimmer</button>`) {
+		t.Fatalf("custom page name should be rendered, got:\n%s", html)
 	}
 }

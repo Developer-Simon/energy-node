@@ -37,6 +37,60 @@ func TestStorePersistsSettingsAndLayout(t *testing.T) {
 	}
 }
 
+func TestPageWithEmptyNameValidates(t *testing.T) {
+	store := NewStore(t.TempDir())
+	layout := Layout{Pages: []Page{{ID: "overview", Name: "", Groups: []Group{{ID: "main", Name: "Main"}}}}}
+	if err := store.SaveLayout(layout); err != nil {
+		t.Fatalf("page with empty name should validate, got error: %v", err)
+	}
+}
+
+func TestPageIDIsRequired(t *testing.T) {
+	store := NewStore(t.TempDir())
+	layout := Layout{Pages: []Page{{ID: "", Name: "Overview", Groups: []Group{{ID: "main", Name: "Main"}}}}}
+	err := store.SaveLayout(layout)
+	if err == nil {
+		t.Fatal("page without ID should be rejected")
+	}
+}
+
+func TestLoadLayoutNormalizesDefaultPageName(t *testing.T) {
+	dir := t.TempDir()
+	stored := `{"version":2,"pages":[{"id":"overview","name":"Übersicht","order":0,"groups":[{"id":"dashboard","name":"Dashboard","items":[]}]}]}`
+	if err := os.WriteFile(dir+"/layout.json", []byte(stored), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	layout, err := NewStore(dir).LoadLayout()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if layout.Pages[0].Name != "" {
+		t.Fatalf("page with Name %q should be normalized to empty string", layout.Pages[0].Name)
+	}
+	if layout.Pages[0].ID != "overview" {
+		t.Fatalf("page ID should remain %q, got %q", "overview", layout.Pages[0].ID)
+	}
+}
+
+func TestLoadLayoutKeepsCustomPageNames(t *testing.T) {
+	dir := t.TempDir()
+	stored := `{"version":2,"pages":[{"id":"p1","name":"Custom Page","order":0,"groups":[{"id":"g1","name":"Group","items":[]}]}]}`
+	if err := os.WriteFile(dir+"/layout.json", []byte(stored), 0600); err != nil {
+		t.Fatal(err)
+	}
+
+	layout, err := NewStore(dir).LoadLayout()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if layout.Pages[0].Name != "Custom Page" {
+		t.Fatalf("custom page name should remain unchanged, got %q", layout.Pages[0].Name)
+	}
+}
+
 func TestLoadLayoutMigratesLegacyEntityIDs(t *testing.T) {
 	dir := t.TempDir()
 	legacy := `{"pages":[{"id":"overview","name":"Overview","order":0,"groups":[{"id":"main","name":"Main","entity_ids":["sensor.power"]}]}],"favorites":[]}`
