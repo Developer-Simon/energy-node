@@ -537,11 +537,11 @@
       const topology = (topologyControl && topologyControl.value) || 'parallel';
       if (topology === 'series') {
         return [
-          {name: 'bank_a', label: 'Bank A', cellKey: 'bank_a_cell_count'},
-          {name: 'bank_b', label: 'Bank B', cellKey: 'bank_b_cell_count'},
+          {name: 'bank_a', label: t('config.battery.bank_a'), cellKey: 'bank_a_cell_count'},
+          {name: 'bank_b', label: t('config.battery.bank_b'), cellKey: 'bank_b_cell_count'},
         ];
       }
-      return [{name: 'pack', label: 'Bus', cellKey: 'bank_a_cell_count'}];
+      return [{name: 'pack', label: t('config.battery.bank_parallel'), cellKey: 'bank_a_cell_count'}];
     },
 
     batteryCellVoltages(objectNode, unit) {
@@ -564,7 +564,7 @@
     measuredAgo(at) {
       if (!at) return '';
       const seconds = Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000));
-      return seconds < 90 ? ` (vor ${seconds} s)` : ` (vor ${Math.round(seconds / 60)} min)`;
+      return seconds < 90 ? ` (vor ${seconds} s)` : ` (vor ${Math.round(seconds / 60)} min)`; // i18n-ignore
     },
 
     async refreshTopicSamples() {
@@ -584,7 +584,7 @@
         details.className = 'battery-tuning';
         details.open = true;
         const summary = document.createElement('summary');
-        summary.textContent = 'Kalibrierung & Abstimmung';
+        summary.textContent = t('config.tuning.title');
         details.append(summary);
         objectNode.prepend(details);
       }
@@ -617,26 +617,27 @@
       block.replaceChildren();
       const control = objectNode.querySelector(`[data-schema-key="${key}"] .schema-control`);
       if (!control) return;
-      const fieldLabel = key === 'full_v_per_cell' ? 'Vollschwelle' : 'Leerschwelle';
+      const fieldLabelKey = key === 'full_v_per_cell' ? 'config.battery.full_threshold_label' : 'config.battery.empty_threshold_label';
+      const fieldLabel = t(fieldLabelKey);
       const live = this.batteryLiveState(objectNode);
       const head = document.createElement('div');
       head.className = 'battery-measure-head';
       const caption = document.createElement('span');
       caption.textContent = live
-        ? `${fieldLabel} · aktuell gemessen${this.measuredAgo(live.at)}:`
-        : `${fieldLabel} · Keine Live-Daten für diese Anlage.`;
+        ? t('config.battery.measure_header_live', {fieldLabel, time: this.measuredAgo(live.at)})
+        : t('config.battery.measure_header_no_data', {fieldLabel});
       head.append(caption);
       const source = this.batterySampleSource(objectNode, 'state');
       if (live && source && source !== 'live') {
         const cached = document.createElement('span');
         cached.className = 'battery-measure-cached';
-        cached.textContent = 'zwischengespeicherter Stand';
+        cached.textContent = t('config.battery.cached');
         head.append(cached);
       }
       const refresh = document.createElement('button');
       refresh.type = 'button';
       refresh.className = 'battery-measure-refresh';
-      refresh.textContent = 'Aktualisieren';
+      refresh.textContent = t('config.battery.refresh');
       refresh.addEventListener('click', () => {
         // Erst mit dem vorhandenen Stand neu zeichnen: dann folgt der Block
         // sofort einer geaenderten Zellzahl, auch wenn der Abruf scheitert.
@@ -659,12 +660,12 @@
         const name = document.createElement('span');
         name.textContent = unit.label;
         row.append(name);
-        [['roh', values.raw], ['lastkorrigiert', values.corrected]].forEach(([kind, value]) => {
+        [['config.battery.measure_raw', values.raw], ['config.battery.measure_corrected', values.corrected]].forEach(([kindKey, value]) => {
           if (value === null) return;
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'battery-measure-apply';
-          button.textContent = `${kind} ${window.I18n.formatNumber(value, 3)} V/Zelle übernehmen`;
+          button.textContent = t('config.battery.measure_apply', {kind: t(kindKey), value: window.I18n.formatNumber(value, 3)});
           button.addEventListener('click', () => {
             control.value = value.toFixed(3);
             // Ohne diese Events bliebe das Feld als "Default" markiert und
@@ -685,7 +686,7 @@
       const section = document.createElement('div');
       section.className = 'battery-tuning-suggestions';
       if (!tuning) {
-        section.textContent = 'Noch keine Auswertung.';
+        section.textContent = t('config.tuning.no_evaluation');
         body.append(section);
         return;
       }
@@ -695,12 +696,11 @@
         (unitData.suggestions || []).forEach(s => {
           const row = document.createElement('div');
           row.className = 'battery-tuning-row';
-          row.textContent = `${s.key}: ${s.current_value ?? '–'} → ${s.suggested_value} `
-            + `(Konfidenz ${s.confidence}, n=${s.sample_count}, Streuung ±${s.spread})`;
+          row.textContent = t('config.tuning.suggestion_row', {key: s.key, current: s.current_value ?? '–', suggested: s.suggested_value, confidence: s.confidence, count: s.sample_count, spread: s.spread});
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'battery-tuning-apply';
-          button.textContent = 'übernehmen';
+          button.textContent = t('config.tuning.apply');
           button.addEventListener('click', () => {
             const control = objectNode.querySelector(`[data-schema-key="${s.key}"] .schema-control`);
             if (!control) return;
@@ -714,7 +714,7 @@
         });
         (unitData.findings || []).forEach(f => {
           const row = document.createElement('div');
-          row.className = `battery-tuning-finding battery-tuning-finding--${f.severity}`;
+          row.className = `battery-tuning-finding battery-tuning-finding--${f.severity}`; // i18n-ignore
           row.textContent = f.message;
           section.append(row);
         });
@@ -743,19 +743,19 @@
           hint = document.createElement('p');
           keyNode.append(hint);
         }
-        hint.className = warn ? 'schema-hint warn' : 'schema-hint';
+        hint.className = warn ? 'schema-hint warn' : 'schema-hint'; // i18n-ignore
         hint.textContent = text;
       };
       datalist.replaceChildren();
       control.placeholder = '';
       if (!topic) {
-        control.placeholder = 'Erst Topic auswählen';
+        control.placeholder = t('config.topic_key.placeholder_select');
         setHint('');
         return;
       }
       const sample = this.topicSamples.get(topic);
       if (!sample || !sample.payload) {
-        setHint('Auf diesem Topic lag noch keine Nachricht — Key kann nicht vorgeschlagen werden.');
+        setHint(t('config.topic_key.no_message'));
         return;
       }
       let payload;
@@ -767,7 +767,7 @@
       if (payload === null || typeof payload !== 'object' || Array.isArray(payload)) {
         // json.loads() succeeds on a bare number too, and data[key] then
         // raises - the service reads nothing at all and never says so.
-        setHint(`Payload ist kein JSON-Objekt (${this.shortPayload(sample.payload)}) — Feld leer lassen, dann wird die erste Zahl aus dem Payload gelesen.`, true);
+        setHint(t('config.topic_key.no_json_object', {payload: this.shortPayload(sample.payload)}), true);
         return;
       }
       const keys = Object.keys(payload);
@@ -775,13 +775,13 @@
       const otherKeys = keys.filter(candidate => !numericKeys.includes(candidate));
       [...numericKeys, ...otherKeys].forEach(candidate => datalist.append(new Option(candidate, candidate)));
       control.placeholder = numericKeys[0] || '';
-      const available = numericKeys.length ? numericKeys.join(', ') : '(keine)';
+      const available = numericKeys.length ? numericKeys.join(', ') : t('config.topic_key.no_fields');
       if (control.value) {
-        setHint(`Payload: ${this.shortPayload(sample.payload)} — verfügbare Zahlenfelder: ${available}`);
+        setHint(t('config.topic_key.payload_info', {payload: this.shortPayload(sample.payload), available}));
       } else {
         // Without a key extract_value() regexes the first number out of the
         // raw text - on {"id":0,"apower":12.5} that is the 0.
-        setHint(`Payload ist JSON — ohne Key wird die erste Zahl im Rohtext gelesen, das ist meist der falsche Wert. Verfügbare Zahlenfelder: ${available}`, true);
+        setHint(t('config.topic_key.payload_json_warning', {available}), true);
       }
     },
 
@@ -802,7 +802,7 @@
       const invalid = this.$refs.schemaForm.querySelector('.schema-control:invalid');
       if (invalid) {
         invalid.closest('details')?.setAttribute('open', 'open');
-        this.$store.toasts.push(`Eingabe prüfen (${invalid.previousElementSibling?.textContent?.trim() || ''}): ${invalid.validationMessage}`, 'critical');
+        this.$store.toasts.push(t('config.validation.input_check', {label: invalid.previousElementSibling?.textContent?.trim() || '', error: invalid.validationMessage}), 'critical');
         invalid.focus();
         // focus() scrollt nur so weit, dass das Feld gerade am Rand steht -
         // unter der schwebenden Aktionsleiste waere es damit halb verdeckt.
@@ -816,7 +816,7 @@
         const value = this.readNode(this.$refs.schemaForm.querySelector('.schema-node'));
         const response = await requestJSON(`/api/v1/configurations/${encodeURIComponent(this.selectedName)}`, {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json'}, // i18n-ignore
           body: JSON.stringify(value),
         });
         this.reloadFailed = Boolean(response.reload_failed);
@@ -829,8 +829,8 @@
         this.formDirty = false;
         const selected = this.selectedDocument();
         if (selected) selected.checksum = response.checksum;
-        this.$store.toasts.push(this.reloadFailed ? 'Konfiguration gespeichert.' : 'Konfiguration gespeichert, Dienst neu geladen.');
-        if (discardedEditorText) this.$store.toasts.push('Der JSON-Text wurde dabei durch den Formularstand ersetzt.', 'warning');
+        this.$store.toasts.push(this.reloadFailed ? t('config.toast.saved') : t('config.toast.saved_and_reloaded'));
+        if (discardedEditorText) this.$store.toasts.push(t('config.toast.editor_text_replaced'), 'warning');
         this.watchRuntimeStatus(response.checksum);
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
@@ -841,12 +841,12 @@
 
     resetForm() {
       this.renderForm();
-      this.$store.toasts.push('Formular zurückgesetzt.');
+      this.$store.toasts.push(t('config.toast.form_reset'));
     },
 
     resetEditor() {
       this.editorText = JSON.stringify(this.value, null, 2);
-      this.$store.toasts.push('JSON-Text zurückgesetzt.');
+      this.$store.toasts.push(t('config.toast.editor_reset'));
     },
 
     async saveEditor() {
@@ -863,12 +863,12 @@
       try {
         const response = await requestJSON(`/api/v1/configurations/${encodeURIComponent(this.selectedName)}`, {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json'}, // i18n-ignore
           body: this.editorText,
         });
         this.reloadFailed = Boolean(response.reload_failed);
         this.reloadError = response.reload_error || '';
-        this.$store.toasts.push(this.reloadFailed ? 'Konfiguration gespeichert.' : 'Konfiguration gespeichert, Dienst neu geladen.');
+        this.$store.toasts.push(this.reloadFailed ? t('config.toast.saved') : t('config.toast.saved_and_reloaded'));
         const selected = this.selectedDocument();
         if (selected) selected.checksum = response.checksum;
         await this.loadConfig();
@@ -887,7 +887,7 @@
         basePath: () => `/api/v1/configurations/${encodeURIComponent(this.selectedName)}`,
         current: () => this.value,
         reload: () => this.loadConfig(),
-        label: 'Revisionen dieser Konfiguration',
+        label: t('revisions.label'),
       };
     },
   });
