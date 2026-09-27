@@ -13,7 +13,7 @@ import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { IDBFactory as FDBFactory, IDBKeyRange as FDBKeyRange } from 'fake-indexeddb';
 import { attachStores } from './helpers/notify-stores.mjs';
-import { installI18n } from './helpers/i18n.mjs';
+import { installI18n, catalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
@@ -485,6 +485,15 @@ test('ohne Daten meldet das Panel Leere statt einer leeren Zeichenflaeche', asyn
   await component.load();
   assert.equal(component.isEmpty, true);
   assert.match(component.statusText, /keine|Keine/);
+  dom.window.close();
+});
+
+test('der leere-Zustand-Text matches die en-Katalog mit installI18n', async () => {
+  const {dom, component} = panel({i18n: {lang: 'en'}});
+  await component.load();
+  assert.equal(component.isEmpty, true);
+  const enCatalog = catalog('en');
+  assert.equal(component.statusText, enCatalog['history.status.empty']);
   dom.window.close();
 });
 
