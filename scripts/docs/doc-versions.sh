@@ -10,6 +10,11 @@
 # latest release tag (vMAJOR.MINOR.PATCH), i.e. the page already describes
 # changes that no release ships yet. Needs the full history and the tags
 # (actions/checkout with fetch-depth: 0).
+#
+# A document that describes one component (a service, the installer, a Home
+# Assistant integration) names it in its front matter, `component: <id>` with
+# an id from scripts/version/components.json. The marker then also carries
+# that component's version, read from its version file at the same commit.
 set -euo pipefail
 
 root="${1:-.}"
@@ -18,6 +23,41 @@ cd "$root"
 version_file=dashboard/VERSION
 
 latest_release="$(git tag -l 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
+
+components=scripts/version/components.json
+
+# component_of FILE: the `component:` value from FILE's front matter, if any.
+component_of() {
+  awk 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit }
+       NR > 1 && sub(/^component:[ \t]*/, "") { gsub(/["\047\r]/, ""); sub(/[ \t]+$/, ""); print; exit }' "$1"
+}
+
+# component_version ID COMMIT: "<label>\t<vX.Y.Z>" for component ID as of
+# COMMIT, empty when the id is unknown or its version file did not exist yet.
+component_version() {
+  python3 - "$1" "$2" "$components" <<'PY'
+import json, subprocess, sys
+
+cid, commit, registry = sys.argv[1:]
+entry = next((c for c in json.load(open(registry))["components"] if c["id"] == cid), None)
+if entry is None:
+    sys.exit(f"doc-versions: unknown component {cid!r}")
+shown = subprocess.run(["git", "show", f"{commit}:{entry['version_file']}"],
+                       capture_output=True, text=True)
+if shown.returncode != 0:
+    sys.exit(0)
+if entry["version_file"].endswith(".json"):
+    version = str(json.loads(shown.stdout).get("version", "")).strip()
+else:
+    version = shown.stdout.strip()
+if not version:
+    sys.exit(0)
+if not version.startswith("v"):
+    version = "v" + version
+label = entry["label"] + (" service" if entry["kind"] == "service" else "")
+print(f"{label}\t{version}")
+PY
+}
 
 # newer A B: true when version A sorts strictly after version B.
 newer() {
@@ -33,6 +73,7 @@ git ls-files -- 'docs/*.md' | sort | while IFS= read -r file; do
   if [ -n "$commit" ]; then
     version="$(git show "$commit:$version_file" 2>/dev/null | tr -d '[:space:]' || true)"
   else
+    commit=HEAD
     version="$(tr -d '[:space:]' < "$version_file")"
   fi
   [ -n "$version" ] || continue
@@ -42,5 +83,14 @@ git ls-files -- 'docs/*.md' | sort | while IFS= read -r file; do
     unreleased=true
   fi
 
-  echo "  \"${file#docs/}\": { version: \"$version\", unreleased: $unreleased }"
+  extra=""
+  component="$(component_of "$file")"
+  if [ -n "$component" ]; then
+    found="$(component_version "$component" "$commit")"
+    if [ -n "$found" ]; then
+      extra=", component: \"${found%%$'\t'*}\", component_version: \"${found#*$'\t'}\""
+    fi
+  fi
+
+  echo "  \"${file#docs/}\": { version: \"$version\", unreleased: $unreleased$extra }"
 done

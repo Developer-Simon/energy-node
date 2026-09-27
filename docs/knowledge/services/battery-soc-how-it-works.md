@@ -1,5 +1,6 @@
 ---
 title: "Battery State of Charge (SoC) — How It Works"
+component: service:battery_soc
 ---
 
 # Battery State of Charge (SoC) — How It Works

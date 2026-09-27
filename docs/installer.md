@@ -1,5 +1,6 @@
 ---
 title: "Deploying a node"
+component: installer
 ---
 
 # Deploying a node

@@ -109,6 +109,11 @@ Notes:
   `config/manifests/<service_id>.json`, so the version ships with it, and
   `make_bundle.sh` additionally writes it into the bundle manifest's step
   entry (`steps[].version`).
+* A documentation page about one component names it in its front matter,
+  `component: <id>` with an `id` from `components.json`. The version marker at
+  the bottom of the page then shows that component's version next to the
+  Energy Node version (`scripts/docs/doc-versions.sh`). An unknown id fails the
+  Pages build.
 * Per-service versioning started at **v0.4.0**; `services/VERSION` was moved to
   `v0.4.0` at the same time so no version appears to go backwards. Commits from
   before that point fall back to `services/VERSION` when the changelog

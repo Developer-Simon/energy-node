@@ -1,5 +1,6 @@
 ---
 title: "APsystems EZ1"
+component: service:apsystems_ez1
 ---
 
 # APsystems EZ1
