@@ -620,18 +620,18 @@ func (p *OSProvider) persistStateLocked(now time.Time) error {
 	return nil
 }
 
-type RemainingLabelResult struct {
+type remainingLabelResult struct {
 	Label  string
 	Key    string
 	Params map[string]any
 }
 
-func remainingLabel(minDays, maxDays float64) RemainingLabelResult {
+func remainingLabel(minDays, maxDays float64) remainingLabelResult {
 	if maxDays < 365 {
 		minRounded := math.Round(minDays)
 		maxRounded := math.Round(maxDays)
 		label := fmt.Sprintf("ca. %.0f bis %.0f Tage", minRounded, maxRounded)
-		return RemainingLabelResult{
+		return remainingLabelResult{
 			Label: label,
 			Key:   "storage_health.remaining.days",
 			Params: map[string]any{
@@ -643,7 +643,7 @@ func remainingLabel(minDays, maxDays float64) RemainingLabelResult {
 	minYears := math.Round(minDays/365*10) / 10
 	maxYears := math.Round(maxDays/365*10) / 10
 	label := fmt.Sprintf("ca. %.1f bis %.1f Jahre", minYears, maxYears)
-	return RemainingLabelResult{
+	return remainingLabelResult{
 		Label: label,
 		Key:   "storage_health.remaining.years",
 		Params: map[string]any{
@@ -796,26 +796,4 @@ func unescape(value string) string {
 	value = strings.ReplaceAll(value, `\011`, "\t")
 	value = strings.ReplaceAll(value, `\012`, "\n")
 	return value
-}
-
-// Testable* functions export internal functions for testing.
-
-// TestableLifeTime is exported for testing purposes.
-func TestableLifeTime(code int) (LifeTime, bool) {
-	return lifeTime(code)
-}
-
-// TestablePreEOL is exported for testing purposes.
-func TestablePreEOL(code int) (PreEOL, bool) {
-	return preEOL(code)
-}
-
-// TestableRemainingLabel is exported for testing purposes.
-func TestableRemainingLabel(minDays, maxDays float64) RemainingLabelResult {
-	return remainingLabel(minDays, maxDays)
-}
-
-// TestableConsumedPercent is exported for testing purposes.
-func TestableConsumedPercent(hostWritesBytes, enduranceMinBytes, enduranceMaxBytes float64) (float64, float64, string, string, map[string]any) {
-	return consumedPercent(hostWritesBytes, enduranceMinBytes, enduranceMaxBytes)
 }
