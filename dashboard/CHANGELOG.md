@@ -11,6 +11,7 @@
 - **dashboard:** number format setting and locale-aware dates (localization A2) (#60) (6d8ba8b)
 - **dashboard:** localize the shell and the overview (#62) (e96f396)
 - **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
+- **dashboard:** localize energy and settings (#64) (5445f5b)
 - **dashboard:** localize energy settings (6bc3685)
 - **webui:** move energy and battery card texts into the catalogs (e8549cd)
 - **webui:** add English texts for energy and the battery card (36308a8)
