@@ -615,7 +615,7 @@
   "settings.health_threshold.decrease": "Health-Schwellwert verringern",
   "settings.health_threshold.increase": "Health-Schwellwert erhöhen",
   "settings.health_threshold.label": "Health-Schwellwert",
-  "settings.history.description": "aufgezeichnet wird — das gilt geräteübergreifend, die Daten selbst bleiben lokal.",
+  "settings.history.hint": "Alle Messwerte liegen nur im Browser dieses Geräts. Hier steht, wie aufgezeichnet wird — das gilt geräteübergreifend, die Daten selbst bleiben lokal.",
   "settings.history.note": "Wie oft ein Messpunkt entsteht und wie lange die feinen Auflösungen erhalten bleiben, bevor sie zu gröberen Mittelwerten zusammenfallen.",
   "settings.history.title": "Aufzeichnung",
   "settings.language_switch.label": "Sprachwähler in Kopfzeile und Anmeldung",

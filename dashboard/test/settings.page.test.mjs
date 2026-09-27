@@ -249,3 +249,21 @@ test('save() reloads only once when language and number format change together',
   assert.equal(languageSwitches, 1);
   assert.equal(reloads, 0);
 });
+
+test('storageText() formats numeric params before translation', async () => {
+  const { component, window } = createSettingsPanel();
+  // Mock I18n with German formatting (comma decimal, period thousands)
+  window.I18n = {
+    lang: 'de',
+    formatNumber: (n) => n.toString().replace('.', ','),
+    t: (key, params) => {
+      if (key === 'storage_health.remaining.years' && params) {
+        return `ca. ${params.min} bis ${params.max} Jahre`;
+      }
+      return key;
+    },
+  };
+  
+  const result = component.storageText('storage_health.remaining.years', { min: 1.5, max: 2 });
+  assert.match(result, /1,5.*2/); // German format: 1,5 and 2
+});

@@ -615,7 +615,7 @@
   "settings.health_threshold.decrease": "TODO(en): Health-Schwellwert verringern",
   "settings.health_threshold.increase": "TODO(en): Health-Schwellwert erhöhen",
   "settings.health_threshold.label": "TODO(en): Health-Schwellwert",
-  "settings.history.description": "TODO(en): aufgezeichnet wird — das gilt geräteübergreifend, die Daten selbst bleiben lokal.",
+  "settings.history.hint": "TODO(en): Alle Messwerte liegen nur im Browser dieses Geräts. Hier steht, wie aufgezeichnet wird — das gilt geräteübergreifend, die Daten selbst bleiben lokal.",
   "settings.history.note": "TODO(en): Wie oft ein Messpunkt entsteht und wie lange die feinen Auflösungen erhalten bleiben, bevor sie zu gröberen Mittelwerten zusammenfallen.",
   "settings.history.title": "TODO(en): Aufzeichnung",
   "settings.language_switch.label": "Language switcher in masthead and sign-in",

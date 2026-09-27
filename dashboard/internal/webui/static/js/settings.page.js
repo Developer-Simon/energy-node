@@ -196,6 +196,18 @@
       }
     },
 
+    storageText(key, params, fallback) {
+      // Format numeric parameters with number formatting before translation,
+      // then translate the key. Used for storage health remaining/consumed fields
+      // that come from the server with numeric params needing locale formatting.
+      if (!params) return t(key, params);
+      const formattedParams = {};
+      for (const [k, v] of Object.entries(params)) {
+        formattedParams[k] = typeof v === 'number' && window.I18n ? window.I18n.formatNumber(v) : v;
+      }
+      return t(key, formattedParams) || fallback;
+    },
+
     // Liest den tatsaechlichen Stand aus der Browser-Historie. Bewusst ohne
     // await im Aufrufer: die Seite soll nicht auf die IndexedDB warten, die
     // Zahlen tragen sich nach.
