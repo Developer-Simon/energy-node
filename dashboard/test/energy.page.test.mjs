@@ -327,7 +327,7 @@ test('"Übriger Verbrauch ist ein Rest"-Hinweis gilt auch im Kombiniert-Modus', 
   const { component } = createEnergyPanel();
   component.assignments = {b: {role: 'load'}};
   component.interpretation = {load_mode: 'combined'};
-  assert.match(component.loadModeNote, /„Übriger Verbrauch" bleibt ein Rest/);
+  assert.match(component.loadModeNote, /„Übriger Verbrauch“ bleibt ein Rest/);
 });
 
 test('payload trägt die Batterie-Reserve mit', () => {

@@ -412,9 +412,9 @@ func semanticsFor(role Role) roleSemantics {
 	case RoleWallbox:
 		return roleSemantics{Label: "Wallbox", LabelKey: "energy.role_label.wallbox", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
 	case RoleHeatPump:
-		return roleSemantics{Label: "Waermepumpe", LabelKey: "energy.role_label.heat_pump", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
+		return roleSemantics{Label: "Wärmepumpe", LabelKey: "energy.role_label.heat_pump", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
 	case RoleBatterySoC:
-		return roleSemantics{Label: "Batterie-Fuellstand", LabelKey: "energy.role_label.battery_soc", Sign: "positiv = Ladezustand", SignKey: "energy.role_sign.state_of_charge"}
+		return roleSemantics{Label: "Batterie-Füllstand", LabelKey: "energy.role_label.battery_soc", Sign: "positiv = Ladezustand", SignKey: "energy.role_sign.state_of_charge"}
 	default:
 		return roleSemantics{Label: string(role), LabelKey: "", Sign: "positiv = Rohwert", SignKey: "energy.role_sign.raw"}
 	}

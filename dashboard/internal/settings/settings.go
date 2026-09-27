@@ -1463,8 +1463,8 @@ func BridgeAddressWarningKey(address string) string {
 func BridgeAddressWarning(address string) string {
 	key := BridgeAddressWarningKey(address)
 	texts := map[string]string{
-		"bridge.address_warning.not_ipv4":        "Adresse konnte nicht als IPv4-Adresse erkannt werden - die Warnung bezieht sich nur auf Tailscale-/private Adressen.",
-		"bridge.address_warning.outside_tailnet": "Adresse liegt weder im Tailscale-Bereich (100.64.0.0/10) noch in einem privaten Netz (RFC 1918) - die Bridge erwartet eine Verbindung im Tailnet.",
+		"bridge.address_warning.not_ipv4":        "Die Adresse ist keine erkennbare IPv4-Adresse. Die Warnung gilt nur für Tailscale- und private Adressen.",
+		"bridge.address_warning.outside_tailnet": "Die Adresse liegt weder im Tailscale-Bereich (100.64.0.0/10) noch in einem privaten Netz (RFC 1918). Die Bridge erwartet eine Verbindung im Tailnet.",
 	}
 	return texts[key]
 }

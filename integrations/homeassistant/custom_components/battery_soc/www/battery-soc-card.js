@@ -57,7 +57,7 @@
       'battery.card.crossing.full': 'voll',
       'battery.card.crossing.empty': 'leer',
       'battery.card.crossing.reserve': 'Reserve',
-      'battery.card.hint.none': 'Kein Verlauf aufgezeichnet — nur die Fortschreibung.',
+      'battery.card.hint.none': 'Kein Verlauf aufgezeichnet, nur die Fortschreibung.',
       'battery.card.hint.partial': 'Erst {hours} h aufgezeichnet.',
       'battery.card.now': 'jetzt',
       'battery.card.ticks.past': '−{hours} h',

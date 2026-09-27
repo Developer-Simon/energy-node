@@ -47,7 +47,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(settingsRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
 	body += settingsRecorder.Body.String()
 	markers := []string{
-		"Energie", "Freshness", "Quelle", "energy-panel", "energy-roles", "dashboard.js",
+		"Energie", "Aktualität", "Quelle", "energy-panel", "energy-roles", "dashboard.js",
 		"Energie-Verläufe", "history-state", "history-series-picker", "historyPanel", "tab-history", "history-panel", "energy-history-chart", "history-aggregate", "history-range", "toggleSeries", "/static/js/history.js", "/static/js-deps/htmx.min.js", "/static/js-deps/alpine.min.js", "/static/js/dashboard.js",
 		"id=\"overview-live\"", "dashboardShell", "setActivePanel('history-panel')", "x-on:click", "x-bind:class", "x-show=\"activePanel === 'config-panel'\"", "role=\"tablist\"", "role=\"tab\"", "role=\"tabpanel\"", "aria-controls=\"overview-panel\"",
 		"id=\"overview-panel\" class=\"panel\" role=\"tabpanel\"", "x-bind:class=\"{ active: activePanel === 'overview-panel' }\"",
@@ -225,7 +225,7 @@ func TestOverviewRendersTailscaleSettingsWorkflow(t *testing.T) {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(settingsRecorder, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
 	body += settingsRecorder.Body.String()
 	for _, marker := range []string{
-		"/static/js/tailscale.page.js", "tailscalePanel", "Voraussetzungen prüfen", "Anmeldung starten", "Ergebnis prüfen", "Aktiv ist reiner Geräte-Zugang", "knowhow/tailscale-setup.md", "Kein Auth-Key nötig",
+		"/static/js/tailscale.page.js", "tailscalePanel", "Voraussetzungen prüfen", "Anmeldung starten", "Ergebnis prüfen", "Aktiv ist reiner Gerätezugang", "knowhow/tailscale-setup.md", "Kein Auth-Key nötig",
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("page does not contain %q", marker)

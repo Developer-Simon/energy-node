@@ -430,7 +430,7 @@
     'battery.card.crossing.full': 'voll', // i18n-ignore
     'battery.card.crossing.empty': 'leer', // i18n-ignore
     'battery.card.crossing.reserve': 'Reserve', // i18n-ignore
-    'battery.card.hint.none': 'Kein Verlauf aufgezeichnet — nur die Fortschreibung.', // i18n-ignore
+    'battery.card.hint.none': 'Kein Verlauf aufgezeichnet, nur die Fortschreibung.', // i18n-ignore
     'battery.card.hint.partial': 'Erst {hours} h aufgezeichnet.', // i18n-ignore
     'battery.card.now': 'jetzt', // i18n-ignore
     'battery.card.ticks.past': '−{hours} h', // i18n-ignore
