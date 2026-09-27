@@ -52,7 +52,7 @@ var displayNames = map[string]displayNameInfo{
 	"battery_soc_devices": {key: "config.file.battery_soc_devices", label: "Batterie-Ladezustand (SoC)"},
 	"shelly_devices":      {key: "config.file.shelly_devices", label: "Shelly Geräte"},
 	"tuya_devices":        {key: "config.file.tuya_devices", label: "Tuya Geräte"},
-	"trucki_devices":      {key: "config.file.trucki_devices", label: "Trucki GPS-Tracker"},
+	"trucki_devices":      {key: "config.file.trucki_devices", label: "Trucki IoT-Sticks"},
 	"automation_rules":    {key: "config.file.automation_rules", label: "Automatisierungsregeln"},
 }
 

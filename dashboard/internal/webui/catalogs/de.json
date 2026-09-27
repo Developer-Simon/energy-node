@@ -163,7 +163,7 @@
   "config.file.automation_rules": "Automatisierungsregeln",
   "config.file.battery_soc_devices": "Batterie-Ladezustand (SoC)",
   "config.file.shelly_devices": "Shelly Geräte",
-  "config.file.trucki_devices": "Trucki GPS-Tracker",
+  "config.file.trucki_devices": "Trucki IoT-Sticks",
   "config.file.tuya_devices": "Tuya Geräte",
   "config.item_label": "Eintrag",
   "config.load": "Laden",
