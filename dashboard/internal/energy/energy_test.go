@@ -1,7 +1,9 @@
 package energy
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -412,5 +414,64 @@ func TestAggregateLabelsResolvedEntitiesWithDeviceAndEntityName(t *testing.T) {
 	}
 	if got := snapshot.Entities[0].Label; got != "Werkstatt / Leistung" {
 		t.Fatalf("Label = %q, want %q", got, "Werkstatt / Leistung")
+	}
+}
+
+func TestRoleSemanticsKeysExistInGermanCatalog(t *testing.T) {
+	// Read the German catalog.
+	catalogPath := "../webui/catalogs/de.json"
+	data, err := os.ReadFile(catalogPath)
+	if err != nil {
+		t.Fatalf("failed to read catalog %s: %v", catalogPath, err)
+	}
+	var catalog map[string]string
+	if err := json.Unmarshal(data, &catalog); err != nil {
+		t.Fatalf("failed to parse catalog %s: %v", catalogPath, err)
+	}
+
+	// Test each known role (exclude the combined battery/grid roles and the default case).
+	roles := []Role{RolePV, RoleBatteryCharge, RoleBatteryDischarge, RoleGridImport, RoleGridExport, RoleLoad, RoleWallbox, RoleHeatPump, RoleBatterySoC}
+	for _, role := range roles {
+		semantics := semanticsFor(role)
+
+		// Check LabelKey exists and matches the German text.
+		if semantics.LabelKey == "" {
+			t.Errorf("role %q has empty LabelKey", role)
+			continue
+		}
+		labelValue, ok := catalog[semantics.LabelKey]
+		if !ok {
+			t.Errorf("role %q: key %q not found in catalog", role, semantics.LabelKey)
+			continue
+		}
+		if labelValue != semantics.Label {
+			t.Errorf("role %q: key %q = %q, want %q", role, semantics.LabelKey, labelValue, semantics.Label)
+		}
+
+		// Check SignKey exists and matches the German text.
+		if semantics.SignKey == "" {
+			t.Errorf("role %q has empty SignKey", role)
+			continue
+		}
+		signValue, ok := catalog[semantics.SignKey]
+		if !ok {
+			t.Errorf("role %q: key %q not found in catalog", role, semantics.SignKey)
+			continue
+		}
+		if signValue != semantics.Sign {
+			t.Errorf("role %q: key %q = %q, want %q", role, semantics.SignKey, signValue, semantics.Sign)
+		}
+	}
+
+	// Test the default case (unknown role) separately.
+	unknownSemantics := semanticsFor("unknown")
+	if unknownSemantics.LabelKey != "" {
+		t.Errorf("unknown role should have empty LabelKey, got %q", unknownSemantics.LabelKey)
+	}
+	signValue, ok := catalog[unknownSemantics.SignKey]
+	if !ok {
+		t.Errorf("unknown role: key %q not found in catalog", unknownSemantics.SignKey)
+	} else if signValue != unknownSemantics.Sign {
+		t.Errorf("unknown role: key %q = %q, want %q", unknownSemantics.SignKey, signValue, unknownSemantics.Sign)
 	}
 }

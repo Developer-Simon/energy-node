@@ -83,7 +83,8 @@
 
   {{if .Energy.Roles}}
   <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
-    <dt title="{{.Sign}}">{{.Label}}</dt>
+    {{/* i18n-keys: energy.role_label.pv, energy.role_label.battery_charge, energy.role_label.battery_discharge, energy.role_label.grid_import, energy.role_label.grid_export, energy.role_label.load, energy.role_label.wallbox, energy.role_label.heat_pump, energy.role_label.battery_soc, energy.role_sign.generation, energy.role_sign.charging, energy.role_sign.discharging, energy.role_sign.grid_import, energy.role_sign.feed_in, energy.role_sign.consumption, energy.role_sign.state_of_charge, energy.role_sign.raw */}}
+    <dt title="{{if .SignKey}}{{t .SignKey}}{{else}}{{.Sign}}{{end}}">{{if .LabelKey}}{{t .LabelKey}}{{else}}{{.Label}}{{end}}</dt>
     <dd>{{formatNumber .Value 0}} {{.Unit}}</dd>
     <ul class="energy-state-row">
       {{if eq .Quality "invalid"}}<li class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg>{{t "energy.roles.quality.invalid"}}</li>

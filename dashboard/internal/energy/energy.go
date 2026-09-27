@@ -61,15 +61,17 @@ type ResolvedAssignment struct {
 }
 
 type RoleState struct {
-	Role      Role     `json:"role"`
-	Label     string   `json:"label"`
-	Value     float64  `json:"value"`
-	Unit      string   `json:"unit"`
-	Sign      string   `json:"sign"`
-	Quality   string   `json:"quality"`
-	Freshness string   `json:"freshness"`
-	Source    string   `json:"source"`
-	Entities  []string `json:"entities"`
+	Role       Role     `json:"role"`
+	Label      string   `json:"label"`
+	LabelKey   string   `json:"label_key,omitempty"`
+	Value      float64  `json:"value"`
+	Unit       string   `json:"unit"`
+	Sign       string   `json:"sign"`
+	SignKey    string   `json:"sign_key,omitempty"`
+	Quality    string   `json:"quality"`
+	Freshness  string   `json:"freshness"`
+	Source     string   `json:"source"`
+	Entities   []string `json:"entities"`
 }
 
 type Snapshot struct {
@@ -131,6 +133,7 @@ type ResolvedEntity struct {
 	Unit      string             `json:"unit"`
 	Role      ResolvedAssignment `json:"role"`
 	Sign      string             `json:"sign"`
+	SignKey   string             `json:"sign_key,omitempty"`
 	Quality   string             `json:"quality"`
 	Freshness string             `json:"freshness"`
 	Source    string             `json:"source"`
@@ -319,7 +322,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				}
 				state, ok := roleStates[RoleBatterySoC]
 				if !ok {
-					state = &RoleState{Role: RoleBatterySoC, Label: semantics.Label, Unit: "%", Sign: semantics.Sign, Quality: quality, Freshness: freshness, Source: source, Entities: []string{}}
+					state = &RoleState{Role: RoleBatterySoC, Label: semantics.Label, LabelKey: semantics.LabelKey, Unit: "%", Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, Entities: []string{}}
 					roleStates[RoleBatterySoC] = state
 				} else {
 					state.Quality = mergeQuality(state.Quality, quality)
@@ -330,7 +333,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				// von Prozentwerten waere Unsinn. Er wird nach der Schleife
 				// auf den gewichteten Mittelwert gesetzt.
 				state.Entities = append(state.Entities, entity.UniqueID)
-				snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: entityLabel(device, entity), Value: value, Unit: "%", Role: assignment, Sign: semantics.Sign, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
+				snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: entityLabel(device, entity), Value: value, Unit: "%", Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
 				continue
 			}
 			value, unit, err := powerValue(entity.Value, entity.UnitOfMeasurement)
@@ -357,7 +360,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 			}
 			state, ok := roleStates[assignment.Role]
 			if !ok {
-				state = &RoleState{Role: assignment.Role, Label: semantics.Label, Unit: unit, Sign: semantics.Sign, Quality: quality, Freshness: freshness, Source: source, Entities: []string{}}
+				state = &RoleState{Role: assignment.Role, Label: semantics.Label, LabelKey: semantics.LabelKey, Unit: unit, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, Entities: []string{}}
 				roleStates[assignment.Role] = state
 			} else {
 				state.Quality = mergeQuality(state.Quality, quality)
@@ -366,7 +369,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 			}
 			state.Value += value
 			state.Entities = append(state.Entities, entity.UniqueID)
-			snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: entityLabel(device, entity), Value: value, Unit: unit, Role: assignment, Sign: semantics.Sign, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
+			snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: entityLabel(device, entity), Value: value, Unit: unit, Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
 		}
 	}
 	if socCapacity > 0 {
@@ -386,32 +389,34 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 }
 
 type roleSemantics struct {
-	Label string
-	Sign  string
+	Label    string
+	LabelKey string
+	Sign     string
+	SignKey  string
 }
 
 func semanticsFor(role Role) roleSemantics {
 	switch role {
 	case RolePV:
-		return roleSemantics{Label: "PV", Sign: "positiv = Erzeugung"}
+		return roleSemantics{Label: "PV", LabelKey: "energy.role_label.pv", Sign: "positiv = Erzeugung", SignKey: "energy.role_sign.generation"}
 	case RoleBatteryCharge:
-		return roleSemantics{Label: "Batterie laden", Sign: "positiv = Laden"}
+		return roleSemantics{Label: "Batterie laden", LabelKey: "energy.role_label.battery_charge", Sign: "positiv = Laden", SignKey: "energy.role_sign.charging"}
 	case RoleBatteryDischarge:
-		return roleSemantics{Label: "Batterie entladen", Sign: "positiv = Entladen"}
+		return roleSemantics{Label: "Batterie entladen", LabelKey: "energy.role_label.battery_discharge", Sign: "positiv = Entladen", SignKey: "energy.role_sign.discharging"}
 	case RoleGridImport:
-		return roleSemantics{Label: "Grid-Import", Sign: "positiv = Netzbezug"}
+		return roleSemantics{Label: "Grid-Import", LabelKey: "energy.role_label.grid_import", Sign: "positiv = Netzbezug", SignKey: "energy.role_sign.grid_import"}
 	case RoleGridExport:
-		return roleSemantics{Label: "Grid-Export", Sign: "positiv = Einspeisung"}
+		return roleSemantics{Label: "Grid-Export", LabelKey: "energy.role_label.grid_export", Sign: "positiv = Einspeisung", SignKey: "energy.role_sign.feed_in"}
 	case RoleLoad:
-		return roleSemantics{Label: "Hausverbrauch", Sign: "positiv = Verbrauch"}
+		return roleSemantics{Label: "Hausverbrauch", LabelKey: "energy.role_label.load", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
 	case RoleWallbox:
-		return roleSemantics{Label: "Wallbox", Sign: "positiv = Verbrauch"}
+		return roleSemantics{Label: "Wallbox", LabelKey: "energy.role_label.wallbox", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
 	case RoleHeatPump:
-		return roleSemantics{Label: "Waermepumpe", Sign: "positiv = Verbrauch"}
+		return roleSemantics{Label: "Waermepumpe", LabelKey: "energy.role_label.heat_pump", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
 	case RoleBatterySoC:
-		return roleSemantics{Label: "Batterie-Fuellstand", Sign: "positiv = Ladezustand"}
+		return roleSemantics{Label: "Batterie-Fuellstand", LabelKey: "energy.role_label.battery_soc", Sign: "positiv = Ladezustand", SignKey: "energy.role_sign.state_of_charge"}
 	default:
-		return roleSemantics{Label: string(role), Sign: "positiv = Rohwert"}
+		return roleSemantics{Label: string(role), LabelKey: "", Sign: "positiv = Rohwert", SignKey: "energy.role_sign.raw"}
 	}
 }
 
