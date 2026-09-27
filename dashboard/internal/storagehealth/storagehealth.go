@@ -43,23 +43,23 @@ type Report struct {
 }
 
 type Estimate struct {
-	HostWritesBytes        uint64            `json:"host_writes_bytes"`
-	HostWritesPerDayBytes  float64           `json:"host_writes_per_day_bytes"`
-	ObservationDays        float64           `json:"observation_days"`
-	SystemUptimeSeconds    float64           `json:"system_uptime_seconds"`
-	AssumedEnduranceTBWMin float64           `json:"assumed_endurance_tbw_min"`
-	AssumedEnduranceTBWMax float64           `json:"assumed_endurance_tbw_max"`
-	RemainingDaysMin       float64           `json:"remaining_days_min,omitempty"`
-	RemainingDaysMax       float64           `json:"remaining_days_max,omitempty"`
-	RemainingLabel         string            `json:"remaining_label"`
-	RemainingKey           string            `json:"remaining_key"`
-	RemainingParams        map[string]any    `json:"remaining_params,omitempty"`
-	ConsumedPercentMin     float64           `json:"consumed_percent_min,omitempty"`
-	ConsumedPercentMax     float64           `json:"consumed_percent_max,omitempty"`
-	ConsumedLabel          string            `json:"consumed_label,omitempty"`
-	ConsumedKey            string            `json:"consumed_key,omitempty"`
-	ConsumedParams         map[string]any    `json:"consumed_params,omitempty"`
-	Method                 string            `json:"method"`
+	HostWritesBytes        uint64         `json:"host_writes_bytes"`
+	HostWritesPerDayBytes  float64        `json:"host_writes_per_day_bytes"`
+	ObservationDays        float64        `json:"observation_days"`
+	SystemUptimeSeconds    float64        `json:"system_uptime_seconds"`
+	AssumedEnduranceTBWMin float64        `json:"assumed_endurance_tbw_min"`
+	AssumedEnduranceTBWMax float64        `json:"assumed_endurance_tbw_max"`
+	RemainingDaysMin       float64        `json:"remaining_days_min,omitempty"`
+	RemainingDaysMax       float64        `json:"remaining_days_max,omitempty"`
+	RemainingLabel         string         `json:"remaining_label"`
+	RemainingKey           string         `json:"remaining_key"`
+	RemainingParams        map[string]any `json:"remaining_params,omitempty"`
+	ConsumedPercentMin     float64        `json:"consumed_percent_min,omitempty"`
+	ConsumedPercentMax     float64        `json:"consumed_percent_max,omitempty"`
+	ConsumedLabel          string         `json:"consumed_label,omitempty"`
+	ConsumedKey            string         `json:"consumed_key,omitempty"`
+	ConsumedParams         map[string]any `json:"consumed_params,omitempty"`
+	Method                 string         `json:"method"`
 }
 
 type LifeTime struct {

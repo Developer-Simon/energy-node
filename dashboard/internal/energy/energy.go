@@ -61,17 +61,17 @@ type ResolvedAssignment struct {
 }
 
 type RoleState struct {
-	Role       Role     `json:"role"`
-	Label      string   `json:"label"`
-	LabelKey   string   `json:"label_key,omitempty"`
-	Value      float64  `json:"value"`
-	Unit       string   `json:"unit"`
-	Sign       string   `json:"sign"`
-	SignKey    string   `json:"sign_key,omitempty"`
-	Quality    string   `json:"quality"`
-	Freshness  string   `json:"freshness"`
-	Source     string   `json:"source"`
-	Entities   []string `json:"entities"`
+	Role      Role     `json:"role"`
+	Label     string   `json:"label"`
+	LabelKey  string   `json:"label_key,omitempty"`
+	Value     float64  `json:"value"`
+	Unit      string   `json:"unit"`
+	Sign      string   `json:"sign"`
+	SignKey   string   `json:"sign_key,omitempty"`
+	Quality   string   `json:"quality"`
+	Freshness string   `json:"freshness"`
+	Source    string   `json:"source"`
+	Entities  []string `json:"entities"`
 }
 
 type Snapshot struct {

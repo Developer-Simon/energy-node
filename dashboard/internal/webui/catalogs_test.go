@@ -236,4 +236,3 @@ func TestBatteryCardCoreBuiltinTextsMatchGerman(t *testing.T) {
 		}
 	}
 }
-
