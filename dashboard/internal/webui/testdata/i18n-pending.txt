@@ -1,6 +1,5 @@
 # Files whose UI texts are not in the catalogs yet (localization A3).
 # A migrated file is removed from this list. See literals_test.go.
-static/js/automations.page.js
 static/js/history-exchange.js
 static/js/history-export.js
 static/js/history-recorder.js

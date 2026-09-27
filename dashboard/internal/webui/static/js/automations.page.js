@@ -435,7 +435,7 @@
     commandableEntityGroups() {
       const groups = new Map();
       for (const entity of this.entities || []) {
-        const name = entity.deviceName || 'Ohne Gerät';
+        const name = entity.deviceName || t('automations.wizard.device_without_name');
         if (!groups.has(name)) groups.set(name, []);
         groups.get(name).push(entity);
       }
@@ -473,7 +473,7 @@
     readableEntityGroups() {
       const groups = new Map();
       for (const entity of this.readableEntities || []) {
-        const name = entity.deviceName || 'Ohne Gerät';
+        const name = entity.deviceName || t('automations.wizard.device_without_name');
         if (!groups.has(name)) groups.set(name, []);
         groups.get(name).push(entity);
       }
@@ -785,7 +785,7 @@
       try {
         await requestJSON('/api/v1/automations/test', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
           body: JSON.stringify({ rule_id: rule.id, action_index: index }),
         });
       } catch (error) {
@@ -1066,15 +1066,15 @@
 
     validateRuleBeforeSave(rule) {
       const errors = [];
-      if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(rule.id || '')) errors.push(`Regel ${rule.name}: ungültige ID`);
-      if (!rule.conditions || rule.conditions.length < 1 || rule.conditions.length > 8) errors.push(`Regel ${rule.name}: 1-8 Bedingungen nötig`);
-      if (!rule.actions || rule.actions.length < 1 || rule.actions.length > 8) errors.push(`Regel ${rule.name}: 1-8 Aktionen nötig`);
+      if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(rule.id || '')) errors.push(t('automations.validation.invalid_id', { name: rule.name }));
+      if (!rule.conditions || rule.conditions.length < 1 || rule.conditions.length > 8) errors.push(t('automations.validation.condition_count', { name: rule.name }));
+      if (!rule.actions || rule.actions.length < 1 || rule.actions.length > 8) errors.push(t('automations.validation.action_count', { name: rule.name }));
       const hasPublish = (rule.actions || []).some((action) => action.type === 'publish');
       if (hasPublish) {
-        if ((rule.cooldown_seconds || 0) < 30) errors.push(`Regel ${rule.name}: cooldown_seconds muss >= 30 sein (Regel mit Publish-Aktion)`);
+        if ((rule.cooldown_seconds || 0) < 30) errors.push(t('automations.validation.cooldown_too_short', { name: rule.name }));
         for (const condition of rule.conditions || []) {
           if ('hold_seconds' in condition && condition.hold_seconds < 30) {
-            errors.push(`Regel ${rule.name}: hold_seconds muss >= 30 sein (Regel mit Publish-Aktion)`);
+            errors.push(t('automations.validation.hold_seconds_too_short', { name: rule.name }));
           }
         }
       }
@@ -1082,7 +1082,7 @@
         if (condition.type !== 'sun_window') continue;
         const offsets = [condition.from_offset_min, condition.to_offset_min];
         if (offsets.some((offset) => !Number.isInteger(offset) || Math.abs(offset) > 240)) {
-          errors.push(`Regel ${rule.name}: der Versatz zur Sonnenzeit muss eine ganze Zahl zwischen −240 und 240 Minuten sein`);
+          errors.push(t('automations.validation.sun_offset_invalid', { name: rule.name }));
         }
       }
       return errors;
@@ -1092,7 +1092,7 @@
       const errors = (this.document.rules || []).flatMap((rule) => this.validateRuleBeforeSave(rule));
       const settings = this.document.settings || {};
       if (isNumber(settings.latitude) !== isNumber(settings.longitude)) {
-        errors.push('Breiten- und Längengrad bitte nur gemeinsam angeben.');
+        errors.push(t('automations.validation.location_incomplete'));
       }
       return errors;
     },
@@ -1133,7 +1133,7 @@
         }
         const saved = await requestJSON('/api/v1/configurations/automation_rules', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
           body: JSON.stringify({ ...this.document, settings: settingsToSave }),
         });
         this.$store.toasts.push(t('automations.saved'));
@@ -1153,11 +1153,11 @@
         intervalMs: this.statusPollMs ?? 1000,
       });
       if (result.state === 'rejected') {
-        this.$store.toasts.push(`abgelehnt: ${window.ConfigStatus.errorText(result.status)}`, 'critical');
+        this.$store.toasts.push(t('automations.save_status.rejected', { reason: window.ConfigStatus.errorText(result.status) }), 'critical');
       } else if (result.state === 'applied') {
-        this.$store.toasts.push('übernommen');
+        this.$store.toasts.push(t('automations.save_status.applied'));
       } else {
-        this.$store.toasts.push('Dienst antwortet nicht', 'warning');
+        this.$store.toasts.push(t('automations.save_status.no_response'), 'warning');
       }
     },
 
