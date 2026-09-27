@@ -121,7 +121,7 @@ As of **2026-09-27**, read from `base.html` and `overview.html`. "–" means: no
 | `config-panel` | `js/revisions.js` –, `js/schema-form.js` `1`, `js/config-status.js` `2`, `js/config.page.js` `4` | `css/manager.css` `23` |
 | `energy-panel` | `js/revisions.js` –, `js/energy.page.js` `3` | `css/manager.css` `23` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` –, `js/devicemap.page.js` `7` | `css/manager.css` `23` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` `1`, `js/settings.page.js` `9`, `js/mqtt.page.js` `4`, `js/tailscale.page.js` `2`, `js/systemconfig.page.js` `2` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `7` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` –, `js/schema-form.js` `1`, `js/settings.page.js` `10`, `js/mqtt.page.js` `5`, `js/tailscale.page.js` `3`, `js/systemconfig.page.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `7` |
 | `automations-panel` | `js/config-status.js` `2`, `js/automations.page.js` `5` | `css/manager.css` `23`, `css/automations.css` `4` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -238,7 +238,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.7.18 | `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/energy.page.js` · `js/energy-day.js` · `js/energy-presentation.js` · `js/energy-flow.js` · `js/energy-band.js` · `js/energy-ring.js` · `js/energy-board.js` · `js/energy-schema.js` · `js/energy-status.js` | `2` · `4` · `3` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) | 2026-09-27 |
+| v0.7.18 | `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/energy.page.js` · `js/energy-day.js` · `js/energy-presentation.js` · `js/energy-flow.js` · `js/energy-band.js` · `js/energy-ring.js` · `js/energy-board.js` · `js/energy-schema.js` · `js/energy-status.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/systemconfig.page.js` | `2` · `4` · `3` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `10` · `5` · `3` · `3` | 2026-09-27 |
 | v0.7.17 | `js/automations.page.js` · `css/automations.css` | `5` · `4` | 2026-09-26 |
 | v0.7.16 | `js/notify.js` · `js/notifications.js` · `js/dashboard.js` · `js/device-tile.js` · `js/entity-values.js` · `js/overview-values.js` · `js/overview.page.js` | `1` (was unversioned) · `2` · `18` · `1` (was unversioned) · `1` (was unversioned) · `3` · `6` | 2026-09-26 |
 | v0.7.15 | `js/i18n.js` (base + login) · `js/dashboard.js` · `js/overview-values.js` · `js/device-tile-values.js` · `js/compact-card-values.js` · `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/battery-status.js` · `js/energy-day.js` · `js/history.js` · `js/config.page.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/automations.page.js` · `css/settings-controls.css` | `2` · `17` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `3` · `2` · `1` (was unversioned) · `10` · `4` · `9` · `4` · `2` · `4` · `7` | 2026-09-26 |
