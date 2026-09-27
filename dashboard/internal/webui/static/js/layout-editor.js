@@ -713,24 +713,24 @@
   // Geraete, Entitaeten.
   function catalog(devices) {
     const karten = [
-      {id: 'energy-flow', type: 'energy_flow', ref: '', titleKey: 'layout_editor.card.energy_flow.title', descKey: 'layout_editor.card.energy_flow.description'},
-      {id: 'diagnostics', type: 'diagnostics', ref: '', titleKey: 'layout_editor.card.diagnostics.title', descKey: 'layout_editor.card.diagnostics.description'},
-      {id: 'energy-band', type: 'energy_band', ref: '', titleKey: 'layout_editor.card.energy_band.title', descKey: 'layout_editor.card.energy_band.description'},
-      {id: 'energy-ring', type: 'energy_ring', ref: '', titleKey: 'layout_editor.card.energy_ring.title', descKey: 'layout_editor.card.energy_ring.description'},
-      {id: 'energy-board', type: 'energy_board', ref: '', titleKey: 'layout_editor.card.energy_board.title', descKey: 'layout_editor.card.energy_board.description'},
-      {id: 'energy-day', type: 'energy_day', ref: '', titleKey: 'layout_editor.card.energy_day.title', descKey: 'layout_editor.card.energy_day.description'},
-      {id: 'energy-schema', type: 'energy_schema', ref: '', titleKey: 'layout_editor.card.energy_schema.title', descKey: 'layout_editor.card.energy_schema.description'},
-      {id: 'energy-status', type: 'energy_status', ref: '', titleKey: 'layout_editor.card.energy_status.title', descKey: 'layout_editor.card.energy_status.description'},
-      {id: 'battery-status', type: 'battery_status', ref: '', titleKey: 'layout_editor.card.battery_status.title', descKey: 'layout_editor.card.battery_status.description'},
-      {id: 'entity-value', type: 'entity_value', ref: '', titleKey: 'layout_editor.card.entity_value.title', descKey: 'layout_editor.card.entity_value.description'},
+      {id: 'energy-flow', type: 'energy_flow', ref: '', title: t('layout_editor.card.energy_flow.title'), desc: t('layout_editor.card.energy_flow.description')},
+      {id: 'diagnostics', type: 'diagnostics', ref: '', title: t('layout_editor.card.diagnostics.title'), desc: t('layout_editor.card.diagnostics.description')},
+      {id: 'energy-band', type: 'energy_band', ref: '', title: t('layout_editor.card.energy_band.title'), desc: t('layout_editor.card.energy_band.description')},
+      {id: 'energy-ring', type: 'energy_ring', ref: '', title: t('layout_editor.card.energy_ring.title'), desc: t('layout_editor.card.energy_ring.description')},
+      {id: 'energy-board', type: 'energy_board', ref: '', title: t('layout_editor.card.energy_board.title'), desc: t('layout_editor.card.energy_board.description')},
+      {id: 'energy-day', type: 'energy_day', ref: '', title: t('layout_editor.card.energy_day.title'), desc: t('layout_editor.card.energy_day.description')},
+      {id: 'energy-schema', type: 'energy_schema', ref: '', title: t('layout_editor.card.energy_schema.title'), desc: t('layout_editor.card.energy_schema.description')},
+      {id: 'energy-status', type: 'energy_status', ref: '', title: t('layout_editor.card.energy_status.title'), desc: t('layout_editor.card.energy_status.description')},
+      {id: 'battery-status', type: 'battery_status', ref: '', title: t('layout_editor.card.battery_status.title'), desc: t('layout_editor.card.battery_status.description')},
+      {id: 'entity-value', type: 'entity_value', ref: '', title: t('layout_editor.card.entity_value.title'), desc: t('layout_editor.card.entity_value.description')},
       // Die Entitaetenliste hatte bis 2026-09 keinen Katalogeintrag: sie war
       // nur ueber den alten Panel-Editor erreichbar und fehlte in der Toolbox
       // damit ganz. Wie 'entity-value' ist sie generisch - die Entitaeten
       // waehlt man danach im Optionen-Modal, darum eine frische ID je Karte
       // (siehe addFromCatalog).
-      {id: 'entity-group', type: 'entity_group', ref: '', titleKey: 'layout_editor.card.entity_group.title', descKey: 'layout_editor.card.entity_group.description'},
+      {id: 'entity-group', type: 'entity_group', ref: '', title: t('layout_editor.card.entity_group.title'), desc: t('layout_editor.card.entity_group.description')},
     ];
-    const geraete = (devices || []).map(d => ({id: 'device:'+d.id, type: 'device', ref: d.id, title: d.name || d.id, descKey: 'layout_editor.card.device.description'}));
+    const geraete = (devices || []).map(d => ({id: 'device:'+d.id, type: 'device', ref: d.id, title: d.name || d.id, desc: t('layout_editor.card.device.description')}));
     // Ein Eintrag je Entitaet: die Wert-Karte. Bis 2026-09 stand daneben ein
     // zweiter fuer die aeltere 'entity'-Karte ("Entität mit technischen
     // Details", die Zeile aus der Geraetetafel samt Quelle/Freshness/Zuletzt
@@ -740,17 +740,14 @@
     // normalizeLayout() schreibt bestehende Karten auf entity_value um.
     const entitaeten = (devices || []).flatMap(d => (d.entities || []).map(e => (
       {id: 'entity-value:'+e.unique_id, type: 'entity_value', ref: e.unique_id,
-       title: (d.name || d.id) + ' / ' + (e.name || e.object_id), descKey: 'layout_editor.card.entity_value.description'}
+       title: (d.name || d.id) + ' / ' + (e.name || e.object_id), desc: t('layout_editor.card.entity_value.title')}
     )));
     return { karten, geraete, entitaeten };
   }
 
   // Durchsucht alle drei Register des Katalogs mit case-insensitiver Substring-Suche.
   function filterCatalog(cat, query) {
-    return [...cat.karten, ...cat.geraete, ...cat.entitaeten].filter(e => {
-      const title = e.titleKey ? t(e.titleKey) : e.title;
-      return title.toLowerCase().includes(String(query || '').toLowerCase());
-    });
+    return [...cat.karten, ...cat.geraete, ...cat.entitaeten].filter(e => e.title.toLowerCase().includes(String(query || '').toLowerCase()));
   }
 
   const layoutEditor = () => ({
@@ -1600,14 +1597,11 @@
         list.dataset.hits = '[]';
         return;
       }
-      list.innerHTML = hits.map((entry, index) => {
-        const title = entry.titleKey ? t(entry.titleKey) : entry.title;
-        const desc = entry.descKey ? t(entry.descKey) : (entry.desc || '');
-        return `<button class="layout-toolbox-item" type="button" data-add="${index}">`
-          + `<span class="thumb">${THUMB[entry.type] || THUMB.entity_value}</span>`
-          + `<span class="tx"><b>${escapeHTML(title)}</b><span>${escapeHTML(desc)}</span></span>`
-          + `</button>`;
-      }).join('');
+      list.innerHTML = hits.map((entry, index) =>
+        `<button class="layout-toolbox-item" type="button" data-add="${index}">`
+        + `<span class="thumb">${THUMB[entry.type] || THUMB.entity_value}</span>`
+        + `<span class="tx"><b>${escapeHTML(entry.title)}</b><span>${escapeHTML(entry.desc || '')}</span></span>`
+        + `</button>`).join('');
       // Klick und Ziehen fuehren zum selben addFromCatalog(); der Klick legt
       // ans Ende ab, das Ziehen an die Zeigerposition.
       for (const btn of list.querySelectorAll('[data-add]')) btn.draggable = true;
