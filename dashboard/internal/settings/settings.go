@@ -1456,6 +1456,27 @@ func BridgeAddressWarning(address string) string {
 	return "Adresse liegt weder im Tailscale-Bereich (100.64.0.0/10) noch in einem privaten Netz (RFC 1918) - die Bridge erwartet eine Verbindung im Tailnet."
 }
 
+// BridgeAddressWarningKey returns the localization key for the address warning,
+// or an empty string if there is no warning.
+func BridgeAddressWarningKey(address string) string {
+	host := address
+	if h, _, err := net.SplitHostPort(address); err == nil {
+		host = h
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.To4() == nil {
+		return "bridge.address_warning.not_ipv4"
+	}
+	v4 := ip.To4()
+	if v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
+		return ""
+	}
+	if ip.IsPrivate() {
+		return ""
+	}
+	return "bridge.address_warning.outside_tailnet"
+}
+
 func (s *Store) loadJSONLocked(name string, target any) error {
 	data, err := os.ReadFile(filepath.Join(s.dir, name))
 	if err != nil {

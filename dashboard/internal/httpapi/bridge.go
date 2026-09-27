@@ -85,6 +85,7 @@ type bridgeConnectionPayload struct {
 	CleanSession       bool                 `json:"cleansession"`
 	PasswordConfigured bool                 `json:"password_configured"`
 	AddressWarning     string               `json:"address_warning,omitempty"`
+	AddressWarningKey  string               `json:"address_warning_key,omitempty"`
 	Preview            string               `json:"preview,omitempty"`
 }
 
@@ -185,6 +186,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			payload.PasswordConfigured = bridgeCredentialsConfigured(credentials)
 			if configured {
 				payload.AddressWarning = settings.BridgeAddressWarning(connection.Address)
+				payload.AddressWarningKey = settings.BridgeAddressWarningKey(connection.Address)
 				user, _ := auth.UserFromContext(r.Context())
 				if rendered, err := mqttbridge.Render(mqttbridge.Input{
 					Connection: connection,
@@ -224,6 +226,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			response.Configured = true
 			response.PasswordConfigured = bridgeCredentialsConfigured(credentials)
 			response.AddressWarning = settings.BridgeAddressWarning(connection.Address)
+			response.AddressWarningKey = settings.BridgeAddressWarningKey(connection.Address)
 			user, _ := auth.UserFromContext(r.Context())
 			if rendered, err := mqttbridge.Render(mqttbridge.Input{
 				Connection: connection,

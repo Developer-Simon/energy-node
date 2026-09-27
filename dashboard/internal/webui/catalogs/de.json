@@ -40,6 +40,8 @@
   "battery.card.ticks.past": "−{hours} h",
   "battery.card.title.column": "Speicher",
   "battery.card.title.trajectory": "Speicher · Verlauf und Fortschreibung",
+  "bridge.address_warning.not_ipv4": "Adresse konnte nicht als IPv4-Adresse erkannt werden - die Warnung bezieht sich nur auf Tailscale-/private Adressen.",
+  "bridge.address_warning.outside_tailnet": "Adresse liegt weder im Tailscale-Bereich (100.64.0.0/10) noch in einem privaten Netz (RFC 1918) - die Bridge erwartet eine Verbindung im Tailnet.",
   "chart.toolbar.export_csv": "Als CSV herunterladen",
   "chart.toolbar.export_png": "Als PNG herunterladen",
   "chart.toolbar.export_svg": "Als SVG herunterladen",

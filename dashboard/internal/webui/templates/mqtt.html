@@ -145,7 +145,8 @@
         <label class="settings-toggle-label" for="bridge-start-type-auto">start_type automatic <span class="settings-toggle"><input id="bridge-start-type-auto" type="checkbox" role="switch" x-model="form.start_type_auto" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.start_type_auto"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
         <label class="settings-toggle-label" for="bridge-cleansession">cleansession <span class="settings-toggle"><input id="bridge-cleansession" type="checkbox" role="switch" x-model="form.cleansession" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.cleansession"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
       </div>
-      <p class="setting-note" x-cloak x-show="addressWarning" x-text="addressWarning"></p>
+      {{/* i18n-keys: bridge.address_warning.not_ipv4, bridge.address_warning.outside_tailnet */}}
+      <p class="setting-note" x-cloak x-show="addressWarningKey || addressWarning" x-text="addressWarningKey ? $t(addressWarningKey) : addressWarning"></p>
     </div>
 
     <section class="setting-card storage-health-panel" aria-labelledby="bridge-status-heading" aria-live="polite">

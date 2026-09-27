@@ -297,6 +297,7 @@
     passwordConfigured: false,
     configured: false,
     addressWarning: '',
+    addressWarningKey: '',
     preview: '',
     status: null,
     csrfToken: '',
@@ -349,6 +350,7 @@
       };
       this.passwordConfigured = Boolean(config.password_configured);
       this.addressWarning = config.address_warning || '';
+      this.addressWarningKey = config.address_warning_key || '';
       this.preview = config.preview || '';
     },
 
