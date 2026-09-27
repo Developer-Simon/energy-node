@@ -76,6 +76,7 @@
 - **webui:** guard the storage health reason against a missing report (3a1e9dd)
 - **webui:** check SVG texts in the guardrail and localize the energy card labels (d2c9d77)
 - **dashboard:** clean up the German UI texts (0fec5ba)
+- **webui:** replace dashes in the English UI texts (a4b074b)
 - **webui:** complete remaining base.html and dashboard.js migrations (5913fed)
 - **webui:** tidy the shell extraction keys and tests (e55ff9b)
 - **webui:** keep stored page and group names (13508e8)
