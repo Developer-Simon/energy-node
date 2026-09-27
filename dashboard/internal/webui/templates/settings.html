@@ -3,103 +3,104 @@
   <svg style="position:absolute;width:0;height:0" aria-hidden="true">
     <symbol id="ico-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3 2.45V14"/><path d="M12 17.2h.01"/></symbol>
   </svg>
-  <h2>Dashboard-Einstellungen</h2>
-  <nav class="settings-nav" role="tablist" aria-label="Einstellungsbereiche">
-    <button type="button" role="tab" aria-controls="settings-general" x-bind:class="{ active: activeSettingsPage === 'general' }" x-bind:aria-selected="activeSettingsPage === 'general'" x-on:click="activeSettingsPage = 'general'">Allgemein</button>
-    <button type="button" role="tab" aria-controls="settings-display" x-bind:class="{ active: activeSettingsPage === 'display' }" x-bind:aria-selected="activeSettingsPage === 'display'" x-on:click="activeSettingsPage = 'display'">Darstellung</button>
-    <button type="button" role="tab" aria-controls="settings-history" x-bind:class="{ active: activeSettingsPage === 'history' }" x-bind:aria-selected="activeSettingsPage === 'history'" x-on:click="activeSettingsPage = 'history'">Verläufe</button>
+  <h2>{{t "settings.title"}}</h2>
+  <nav class="settings-nav" role="tablist" aria-label="{{t "settings.nav.label"}}">
+    <button type="button" role="tab" aria-controls="settings-general" x-bind:class="{ active: activeSettingsPage === 'general' }" x-bind:aria-selected="activeSettingsPage === 'general'" x-on:click="activeSettingsPage = 'general'">{{t "settings.nav.general"}}</button>
+    <button type="button" role="tab" aria-controls="settings-display" x-bind:class="{ active: activeSettingsPage === 'display' }" x-bind:aria-selected="activeSettingsPage === 'display'" x-on:click="activeSettingsPage = 'display'">{{t "settings.nav.display"}}</button>
+    <button type="button" role="tab" aria-controls="settings-history" x-bind:class="{ active: activeSettingsPage === 'history' }" x-bind:aria-selected="activeSettingsPage === 'history'" x-on:click="activeSettingsPage = 'history'">{{t "settings.nav.history"}}</button>
     <button type="button" role="tab" aria-controls="settings-mqtt" x-bind:class="{ active: activeSettingsPage === 'mqtt' }" x-bind:aria-selected="activeSettingsPage === 'mqtt'" x-on:click="activeSettingsPage = 'mqtt'">MQTT</button>
     {{if index .InstalledServices "tailscale"}}<button type="button" role="tab" aria-controls="settings-tailscale" x-bind:class="{ active: activeSettingsPage === 'tailscale' }" x-bind:aria-selected="activeSettingsPage === 'tailscale'" x-on:click="activeSettingsPage = 'tailscale'">Tailscale</button>{{end}}
     {{if index .InstalledServices "tuya"}}<button type="button" role="tab" aria-controls="settings-tiny-tuya" x-bind:class="{ active: activeSettingsPage === 'tiny-tuya' }" x-bind:aria-selected="activeSettingsPage === 'tiny-tuya'" x-on:click="activeSettingsPage = 'tiny-tuya'">TinyTuya</button>{{end}}
-    <button type="button" role="tab" aria-controls="settings-system" x-bind:class="{ active: activeSettingsPage === 'system' }" x-bind:aria-selected="activeSettingsPage === 'system'" x-on:click="activeSettingsPage = 'system'">System</button>
+    <button type="button" role="tab" aria-controls="settings-system" x-bind:class="{ active: activeSettingsPage === 'system' }" x-bind:aria-selected="activeSettingsPage === 'system'" x-on:click="activeSettingsPage = 'system'">{{t "settings.nav.system"}}</button>
   </nav>
   <div class="settings-panel-body" x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); load()">
   <section id="settings-general" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'general'">
     <div class="setting-card">
-      <h3 class="setting-card-title">Betrieb</h3>
-      <p class="setting-note">Wie schnell ein stiller Wert als veraltet gilt, wie oft der Speicher aufgeräumt wird und in welchem Takt die Live-Ansicht nachlädt.</p>
+      <h3 class="setting-card-title">{{t "settings.operation.title"}}</h3>
+      <p class="setting-note">{{t "settings.operation.note"}}</p>
       <div class="setting-row">
-        <span class="setting-row-label" id="lbl-health-threshold">Health-Schwellwert <span class="setting-row-unit">Sekunden</span></span>
+        <span class="setting-row-label" id="lbl-health-threshold">{{t "settings.health_threshold.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
         <span class="stepper" role="group" aria-labelledby="lbl-health-threshold">
-          <button type="button" class="stepper-btn" aria-label="Health-Schwellwert verringern" x-on:click="stepField('healthScoreThreshold', -1)" x-on:pointerdown="startRepeat('healthScoreThreshold', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.health_threshold.decrease"}}" x-on:click="stepField('healthScoreThreshold', -1)" x-on:pointerdown="startRepeat('healthScoreThreshold', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input class="stepper-input" type="number" min="1" max="600" step="1" x-model.number="healthScoreThreshold" aria-labelledby="lbl-health-threshold">
-          <button type="button" class="stepper-btn" aria-label="Health-Schwellwert erhöhen" x-on:click="stepField('healthScoreThreshold', 1)" x-on:pointerdown="startRepeat('healthScoreThreshold', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.health_threshold.increase"}}" x-on:click="stepField('healthScoreThreshold', 1)" x-on:pointerdown="startRepeat('healthScoreThreshold', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </div>
       <div class="setting-row">
-        <span class="setting-row-label" id="lbl-sweep-interval">Sweep-Intervall <span class="setting-row-unit">Sekunden</span></span>
+        <span class="setting-row-label" id="lbl-sweep-interval">{{t "settings.sweep_interval.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
         <span class="stepper" role="group" aria-labelledby="lbl-sweep-interval">
-          <button type="button" class="stepper-btn" aria-label="Sweep-Intervall verringern" x-on:click="stepField('sweepIntervalSeconds', -1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.sweep_interval.decrease"}}" x-on:click="stepField('sweepIntervalSeconds', -1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input class="stepper-input" type="number" min="30" max="3600" step="30" x-model.number="sweepIntervalSeconds" aria-labelledby="lbl-sweep-interval">
-          <button type="button" class="stepper-btn" aria-label="Sweep-Intervall erhöhen" x-on:click="stepField('sweepIntervalSeconds', 1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.sweep_interval.increase"}}" x-on:click="stepField('sweepIntervalSeconds', 1)" x-on:pointerdown="startRepeat('sweepIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </div>
       <div class="setting-row">
-        <span class="setting-row-label" id="lbl-live-update">Live-Update-Intervall <span class="setting-row-unit">Sekunden</span></span>
-        <span class="stepper" role="group" aria-labelledby="lbl-live-update" x-bind:title="canTuneLiveUpdates ? '' : 'Erfordert die Berechtigung tune_live_updates'">
-          <button type="button" class="stepper-btn" aria-label="Live-Update-Intervall verringern" x-bind:disabled="!canTuneLiveUpdates" x-on:click="stepField('liveUpdateIntervalSeconds', -1)" x-on:pointerdown="startRepeat('liveUpdateIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
+        <span class="setting-row-label" id="lbl-live-update">{{t "settings.live_update_interval.label"}} <span class="setting-row-unit">{{t "settings.unit.seconds"}}</span></span>
+        <span class="stepper" role="group" aria-labelledby="lbl-live-update" x-bind:title="canTuneLiveUpdates ? '' : $t('settings.live_update_interval.disabled_title')">
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.live_update_interval.decrease"}}" x-bind:disabled="!canTuneLiveUpdates" x-on:click="stepField('liveUpdateIntervalSeconds', -1)" x-on:pointerdown="startRepeat('liveUpdateIntervalSeconds', -1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">&minus;</button>
           <input class="stepper-input" type="number" min="1" max="60" step="1" x-model.number="liveUpdateIntervalSeconds" x-bind:disabled="!canTuneLiveUpdates" aria-labelledby="lbl-live-update">
-          <button type="button" class="stepper-btn" aria-label="Live-Update-Intervall erhöhen" x-bind:disabled="!canTuneLiveUpdates" x-on:click="stepField('liveUpdateIntervalSeconds', 1)" x-on:pointerdown="startRepeat('liveUpdateIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
+          <button type="button" class="stepper-btn" aria-label="{{t "settings.live_update_interval.increase"}}" x-bind:disabled="!canTuneLiveUpdates" x-on:click="stepField('liveUpdateIntervalSeconds', 1)" x-on:pointerdown="startRepeat('liveUpdateIntervalSeconds', 1)" x-on:pointerup="releaseStep()" x-on:pointerleave="releaseStep()" x-on:pointercancel="releaseStep()">+</button>
         </span>
       </div>
     </div>
     <section class="setting-card storage-health-panel" aria-labelledby="storage-health-heading" aria-live="polite">
       <div class="storage-health-header">
         <div>
-          <h3 id="storage-health-heading">Speicherzustand
+          <h3 id="storage-health-heading">{{t "storage_health.title"}}
             <span class="field-help field-help-align-start">
-              <button class="field-help-trigger" type="button" aria-label="Erklärung zum Speicherzustand"><svg><use href="#ico-help"></use></svg></button>
-              <span class="field-help-text" role="tooltip">Gesundheit und voraussichtliche Haltbarkeit des Systemmediums. Gemessene Werte stammen direkt vom Medium. Die Schätzung für Medien ohne Herstellerdaten basiert auf Host-Schreiblast und einer anfangs konservativen Annahme von 1 bis 3 TBW, die sich mit Herstellermessungen anderer Zeiträume fortlaufend kalibriert; sie ist kein Ausfalldatum.</span>
+              <button class="field-help-trigger" type="button" aria-label="{{t "storage_health.help_button"}}"><svg><use href="#ico-help"></use></svg></button>
+              <span class="field-help-text" role="tooltip">{{t "storage_health.help_text"}}</span>
             </span>
           </h3>
         </div>
-        <span class="storage-health-badge storage-health-badge-unavailable" x-bind:class="storageHealthBadgeClass" x-text="storageHealthBadgeLabel">Wird geprüft</span>
+        <span class="storage-health-badge storage-health-badge-unavailable" x-bind:class="storageHealthBadgeClass" x-text="storageHealthBadgeLabel">{{t "storage_health.checking"}}</span>
       </div>
-      <div class="toolbar"><button type="button" x-on:click="loadStorageHealth()" x-bind:disabled="storageHealthLoading" x-text="storageHealthLoading ? 'Prüfe ...' : 'Aktualisieren'"></button></div>
-      <p x-show="storageHealthLoading">Gesundheitsdaten werden gelesen ...</p>
+      <div class="toolbar"><button type="button" x-on:click="loadStorageHealth()" x-bind:disabled="storageHealthLoading" x-text="storageHealthLoading ? $t('storage_health.checking_progress') : $t('storage_health.refresh')"></button></div>
+      <p x-show="storageHealthLoading">{{t "storage_health.reading"}}</p>
       <div class="table-scroll">
+        {{/* i18n-keys: storage_health.life_time.range, storage_health.life_time.exceeded, storage_health.pre_eol.normal, storage_health.pre_eol.warning, storage_health.pre_eol.critical, storage_health.remaining.days, storage_health.remaining.years, storage_health.consumed, storage_health.reason.no_mmc */}}
         <table class="storage-health-table" x-cloak x-show="storageHealth && storageHealth.available">
         <tbody>
-          <tr><th scope="row">Medium</th><td x-text="(storageHealth && storageHealth.medium) || '-'">-</td></tr>
-          <tr><th scope="row">Gerät</th><td x-text="(storageHealth && storageHealth.device) || '-'">-</td></tr>
-          <tr><th scope="row">Datenquelle</th><td x-text="(storageHealth && storageHealth.source) || '-'">-</td></tr>
-          <template x-if="storageHealth && storageHealth.mode === 'measured'"><tr><th scope="row">Herstellerstatus</th><td>Vom Medium gemeldet</td></tr></template>
-          <template x-if="storageHealth && storageHealth.life_time_a"><tr><th scope="row">Ausdauerbereich A</th><td x-text="storageHealth.life_time_a.label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.life_time_b"><tr><th scope="row">Ausdauerbereich B</th><td x-text="storageHealth.life_time_b.label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.pre_eol"><tr><th scope="row">Pre-EOL-Status</th><td x-text="storageHealth.pre_eol.label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Geschätzte Restlaufzeit</th><td x-text="storageHealth.estimate.remaining_label"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Verbrauchte Schreibzyklen</th><td x-text="storageHealth.estimate.consumed_label || `ca. ${Math.round(storageHealth.estimate.consumed_percent_min || 0)}-${Math.round(storageHealth.estimate.consumed_percent_max || 0)} % des Ausdauerbudgets verbraucht`"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Host-Schreibvolumen</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_bytes)"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Schreiblast pro Tag</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_per_day_bytes)"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Beobachtungszeitraum</th><td x-text="formatStorageDays(storageHealth.estimate.observation_days)"></td></tr></template>
-          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">Annahme</th><td x-text="`${storageHealth.estimate.assumed_endurance_tbw_min}-${storageHealth.estimate.assumed_endurance_tbw_max} TBW`"></td></tr></template>
-          <tr><th scope="row">Zuletzt gelesen</th><td x-text="formatStorageHealthTime(storageHealth && storageHealth.read_at)">-</td></tr>
+          <tr><th scope="row">{{t "storage_health.medium"}}</th><td x-text="(storageHealth && storageHealth.medium) || '-'">-</td></tr>
+          <tr><th scope="row">{{t "storage_health.device"}}</th><td x-text="(storageHealth && storageHealth.device) || '-'">-</td></tr>
+          <tr><th scope="row">{{t "storage_health.source"}}</th><td x-text="(storageHealth && storageHealth.source) || '-'">-</td></tr>
+          <template x-if="storageHealth && storageHealth.mode === 'measured'"><tr><th scope="row">{{t "storage_health.vendor_status"}}</th><td>{{t "storage_health.vendor_status_measured"}}</td></tr></template>
+          <template x-if="storageHealth && storageHealth.life_time_a"><tr><th scope="row">{{t "storage_health.life_time_a"}}</th><td x-text="storageHealth.life_time_a.label_key ? $t(storageHealth.life_time_a.label_key, storageHealth.life_time_a.label_params) : storageHealth.life_time_a.label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.life_time_b"><tr><th scope="row">{{t "storage_health.life_time_b"}}</th><td x-text="storageHealth.life_time_b.label_key ? $t(storageHealth.life_time_b.label_key, storageHealth.life_time_b.label_params) : storageHealth.life_time_b.label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.pre_eol"><tr><th scope="row">{{t "storage_health.pre_eol"}}</th><td x-text="storageHealth.pre_eol.label_key ? $t(storageHealth.pre_eol.label_key, storageHealth.pre_eol.label_params) : storageHealth.pre_eol.label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.remaining"}}</th><td x-text="storageHealth.estimate.remaining_key ? storageText(storageHealth.estimate.remaining_key, storageHealth.estimate.remaining_params) : storageHealth.estimate.remaining_label"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.consumed_label"}}</th><td x-text="storageHealth.estimate.consumed_key ? storageText(storageHealth.estimate.consumed_key, storageHealth.estimate.consumed_params) : (storageHealth.estimate.consumed_label || $t('storage_health.consumed_fallback', {min: Math.round(storageHealth.estimate.consumed_percent_min || 0), max: Math.round(storageHealth.estimate.consumed_percent_max || 0)}))"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_bytes)"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.host_writes_per_day"}}</th><td x-text="formatStorageBytes(storageHealth.estimate.host_writes_per_day_bytes)"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.observation_period"}}</th><td x-text="formatStorageDays(storageHealth.estimate.observation_days)"></td></tr></template>
+          <template x-if="storageHealth && storageHealth.estimate"><tr><th scope="row">{{t "storage_health.assumption"}}</th><td x-text="`${storageHealth.estimate.assumed_endurance_tbw_min}-${storageHealth.estimate.assumed_endurance_tbw_max} TBW`"></td></tr></template>
+          <tr><th scope="row">{{t "storage_health.last_read"}}</th><td x-text="formatStorageHealthTime(storageHealth && storageHealth.read_at)">-</td></tr>
         </tbody>
         </table>
       </div>
-      <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="(storageHealth && storageHealth.reason) || 'Dieses Medium stellt keine verwertbaren Gesundheitsdaten bereit.'"></p>
-      <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">Die SD-Schätzung wird nach mindestens 24 Stunden Beobachtung verfügbar.</p>
+      <p x-cloak x-show="storageHealth && !storageHealth.available" x-text="(storageHealth && storageHealth.reason) || $t('storage_health.unavailable')"></p>
+      <p x-cloak x-show="storageHealth && storageHealth.available && !storageHealth.estimate && storageHealth.mode === 'estimated'">{{t "storage_health.sd_estimation_notice"}}</p>
       <p class="message error storage-health-error" role="alert" x-cloak x-show="storageHealthError" x-text="storageHealthError"></p>
     </section>
-    <div class="setting-actions"><button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+    <div class="setting-actions"><button class="primary" id="settings-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
   <section id="settings-display" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'display'">
     <div class="setting-card">
-      <h3 class="setting-card-title">Anzeige</h3>
-      <p class="setting-note">Wie die Geräteliste startet und welches Farbschema das Dashboard trägt.</p>
-      <span class="setting-row-label" id="lbl-device-view">Standardansicht Geräte</span>
+      <h3 class="setting-card-title">{{t "settings.display.title"}}</h3>
+      <p class="setting-note">{{t "settings.display.note"}}</p>
+      <span class="setting-row-label" id="lbl-device-view">{{t "settings.device_view.label"}}</span>
       <div class="segmented" role="radiogroup" aria-labelledby="lbl-device-view">
         <span class="segmented-thumb" aria-hidden="true"></span>
-        <label class="segmented-option"><input type="radio" name="device-view-mode" value="compact" x-model="deviceViewMode"><span>Kompakt</span></label>
-        <label class="segmented-option"><input type="radio" name="device-view-mode" value="control" x-model="deviceViewMode"><span>Steuerung</span></label>
+        <label class="segmented-option"><input type="radio" name="device-view-mode" value="compact" x-model="deviceViewMode"><span>{{t "settings.device_view.compact"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="device-view-mode" value="control" x-model="deviceViewMode"><span>{{t "settings.device_view.control"}}</span></label>
       </div>
-      <span class="setting-row-label" id="lbl-theme">Farbschema</span>
+      <span class="setting-row-label" id="lbl-theme">{{t "settings.theme.label"}}</span>
       <div class="segmented segmented--4" role="radiogroup" aria-labelledby="lbl-theme">
         <span class="segmented-thumb" aria-hidden="true"></span>
-        <label class="segmented-option"><input type="radio" name="theme" value="mint" x-model="theme"><span>Mint</span></label>
-        <label class="segmented-option"><input type="radio" name="theme" value="stromblau" x-model="theme"><span>Stromblau</span></label>
-        <label class="segmented-option"><input type="radio" name="theme" value="signalgelb" x-model="theme"><span>Signalgelb</span></label>
-        <label class="segmented-option"><input type="radio" name="theme" value="tageslicht" x-model="theme"><span>Tageslicht</span></label>
+        <label class="segmented-option"><input type="radio" name="theme" value="mint" x-model="theme"><span>{{t "settings.theme.mint"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="theme" value="stromblau" x-model="theme"><span>{{t "settings.theme.stromblau"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="theme" value="signalgelb" x-model="theme"><span>{{t "settings.theme.signalgelb"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="theme" value="tageslicht" x-model="theme"><span>{{t "settings.theme.tageslicht"}}</span></label>
       </div>
     </div>
 
@@ -134,32 +135,32 @@
     </div>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Auf Kacheln anzeigen</h3>
-      <p class="setting-note">Zusätzliche Werteklassen, die sonst nur im Gerätedetail stehen.</p>
+      <h3 class="setting-card-title">{{t "settings.tiles.title"}}</h3>
+      <p class="setting-note">{{t "settings.tiles.note"}}</p>
       <label class="switch-row" for="show-config-entities-on-tile">
-        <span>Konfigurationswerte</span>
+        <span>{{t "settings.tiles.config"}}</span>
         <span class="settings-toggle"><input id="show-config-entities-on-tile" type="checkbox" role="switch" x-model="showConfigEntitiesOnTile" x-bind:aria-checked="showConfigEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
       </label>
       <label class="switch-row" for="show-diagnostic-entities-on-tile">
-        <span>Diagnosewerte</span>
+        <span>{{t "settings.tiles.diagnostic"}}</span>
         <span class="settings-toggle"><input id="show-diagnostic-entities-on-tile" type="checkbox" role="switch" x-model="showDiagnosticEntitiesOnTile" x-bind:aria-checked="showDiagnosticEntitiesOnTile"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
       </label>
     </div>
 
     <div class="setting-card setting-card--wide">
-      <h3 class="setting-card-title">Systemstatus</h3>
+      <h3 class="setting-card-title">{{t "settings.runtime_status.title"}}</h3>
       <label class="switch-row" for="show-runtime-status">
-        <span>Globalen Systemstatus anzeigen</span>
+        <span>{{t "settings.runtime_status.show"}}</span>
         <span class="settings-toggle"><input id="show-runtime-status" type="checkbox" role="switch" x-model="showRuntimeStatus" x-bind:aria-checked="showRuntimeStatus"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
       </label>
       <div class="settings-multiselect-row settings-status-bar-items">
         <label for="status-bar-items-select">
-          Angaben im Systemstatus
+          {{t "settings.runtime_status.bar_items"}}
           <span class="field-help">
             <button class="field-help-trigger" type="button" aria-label="Erklärung zu Angaben im Systemstatus">
               <svg><use href="#ico-help"></use></svg>
             </button>
-            <span class="field-help-text" role="tooltip">Nur wirksam, wenn "Globalen Systemstatus anzeigen" oben aktiv ist.</span>
+            <span class="field-help-text" role="tooltip">{{t "settings.runtime_status.bar_items_help"}}</span>
           </span>
         </label>
         <select id="status-bar-items-select" x-ref="statusBarItemsSelect" multiple x-on:change="statusBarItems = syncFromChoices(statusBarItemsChoices, statusBarItemOptions)">
@@ -171,15 +172,15 @@
     </div>
 
     <div class="setting-card setting-card--wide">
-      <h3 class="setting-card-title">Tab-Breite</h3>
+      <h3 class="setting-card-title">{{t "settings.wide_tabs.title"}}</h3>
       <div class="settings-multiselect-row settings-wide-panels">
         <label for="wide-panels-select">
-          Tabs ohne Breitendeckelung
+          {{t "settings.wide_tabs.label"}}
           <span class="field-help">
-            <button class="field-help-trigger" type="button" aria-label="Erklärung zu Tabs ohne Breitendeckelung">
+            <button class="field-help-trigger" type="button" aria-label="{{t "settings.wide_tabs.help"}}">
               <svg><use href="#ico-help"></use></svg>
             </button>
-            <span class="field-help-text" role="tooltip">Freigegebene Tabs nutzen die volle Fensterbreite statt der 1180px-Lesebreite fuer ihren Inhalt. Überschrift und Tab-Leiste sind immer volle Breite.</span>
+            <span class="field-help-text" role="tooltip">{{t "settings.wide_tabs.help_text"}}</span>
           </span>
         </label>
         <select id="wide-panels-select" x-ref="widePanelsSelect" multiple x-on:change="widePanels = syncFromChoices(widePanelsChoices, widePanelOptions)">
@@ -190,14 +191,14 @@
       </div>
     </div>
 
-    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? 'Speichere ...' : 'Speichern'"></button></div>
+    <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
   <section id="settings-history" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'history'">
-    <p class="settings-hint">Alle Messwerte liegen nur im Browser dieses Geräts. Hier steht, <em>wie</em> aufgezeichnet wird — das gilt geräteübergreifend, die Daten selbst bleiben lokal.</p>
+    <p class="settings-hint">Alle Messwerte liegen nur im Browser dieses Geräts. Hier steht, <em>wie</em> {{t "settings.history.description"}}</p>
 
     <div class="setting-card">
-      <h3 class="setting-card-title">Aufzeichnung</h3>
-      <p class="setting-note">Wie oft ein Messpunkt entsteht und wie lange die feinen Auflösungen erhalten bleiben, bevor sie zu gröberen Mittelwerten zusammenfallen.</p>
+      <h3 class="setting-card-title">{{t "settings.history.title"}}</h3>
+      <p class="setting-note">{{t "settings.history.note"}}</p>
       <div class="setting-row">
         <span class="setting-row-label" id="lbl-history-interval">Abtastrate <span class="setting-row-unit">Sekunden</span></span>
         <span class="stepper" role="group" aria-labelledby="lbl-history-interval">

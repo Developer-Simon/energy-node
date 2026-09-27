@@ -13,6 +13,18 @@
     return body;
   };
 
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+  const storageText = (key, params) => {
+    // Format numeric parameters with number formatting before translation
+    if (!params) return t(key, params);
+    const formattedParams = {};
+    for (const [k, v] of Object.entries(params)) {
+      formattedParams[k] = typeof v === 'number' && window.I18n ? window.I18n.formatNumber(v) : v;
+    }
+    return t(key, formattedParams);
+  };
+
   // Schrittweite und Grenzen der Stepper auf den Einstellungs-Tabs (Allgemein
   // und Verlaeufe). Die Grenzen decken sich mit den min/max der Formularfelder
   // und mit dem, was valid() unten prueft - der Stepper kann also nie einen
