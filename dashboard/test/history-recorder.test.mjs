@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { IDBFactory as FDBFactory, IDBKeyRange as FDBKeyRange } from 'fake-indexeddb';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
@@ -25,6 +26,7 @@ const recorderSource = read('history-recorder.js');
 function load({withEnergyModel = true} = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {runScripts: 'outside-only', url: 'http://localhost/'});
   const context = dom.getInternalVMContext();
+  installI18n(dom.window);
   dom.window.fetch = () => Promise.reject(new Error('kein Netz im Test'));
   dom.window.setInterval = () => 0;
   dom.window.indexedDB = new FDBFactory();

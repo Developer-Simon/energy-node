@@ -50,6 +50,21 @@ the switcher).
   `i18n-keys: status.ok, status.error` listing every possible key, so the drift
   test can check them.
 
+## Adding a text
+
+When you write a new UI text, follow these rules:
+
+1. **Semantic keys:** lowercase, dot-separated, never the German text. Example: `settings.storage_health.title`.
+2. **German text:** must be correct German with real umlauts and „…" quotes, no semicolons, no dashes as connectors. Write English immediately in British English, sentence case. Both languages are ready when you commit.
+3. **Reuse `common.*`:** only for words used identically on several pages (Save, Cancel, Yes, No). Create namespace keys instead (e.g. `settings.title`).
+4. **Dynamically built keys:** add a comment `i18n-keys: status.ok, status.error` listing every possible key so the drift test can check them.
+5. **Go delivers keys:** Go functions give a field `…Key` and optional `…Params map[string]any` alongside the old German field. Templates use `{{t .LabelKey}}` with a comment listing all possible keys.
+6. **One sentence, one key:** never concatenate `t()` results or mix `t()` with other text. Optional parts get their own key variant (e.g. `status.succeeded` and `status.succeeded_by`).
+7. **Plurals:** use `tn('key', n)` with keys ending in `.one` and `.other`. Don't write `n === 1 ? ... : ...` by hand.
+8. **Composite text:** use placeholders `{name}` instead of string concatenation. Pass formatted numbers separately: `tn('x', n, {count: I18n.formatNumber(n)})`.
+9. **Technical strings:** CSS classes, error codes, HTTP headers, event names, storage keys, MQTT topics. If the guard flags them, add `// i18n-ignore` at the line end. Never use `i18n-ignore` for visible text, aria-label counts as visible.
+10. **Keep both catalogs sorted** after adding new keys.
+
 ## Adding a language
 
 Add `dashboard/internal/webui/catalogs/<code>.json` with every key of `de.json`
@@ -76,11 +91,9 @@ and that no English text still starts with `TODO(en): `.
 - **Scripts and Alpine expressions** heuristically: a string literal with an
   umlaut or a German word from the list in `literals_test.go`. A technical
   string that trips it gets `// i18n-ignore` at the end of its line.
-- `testdata/i18n-pending.txt` lists files not migrated yet (removed once the
-  migration is complete).
 
 Listing the findings of a file: `I18N_INVENTORY=static/js/notify.js go test
-./internal/webui/ -run TestNoUntranslatedTextOutsidePendingFiles -v`
+./internal/webui/ -run TestNoUntranslatedUIText -v`
 (`I18N_INVENTORY=all` for everything, `I18N_WIDE=1` also lists sentence-like
 literals without a German feature).
 

@@ -8,6 +8,8 @@
 // Zeit in grobe Raster geschnitten und je Raster nur die ANZAHL vorhandener
 // Saetze gemeldet. Sieben Tage Minutenwerte sind so 168 Zahlen je Serie.
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const RASTER = {
     '1m': {stepMs: 3600000, windowMs: 7 * 24 * 3600000},
     '5m': {stepMs: 21600000, windowMs: 30 * 24 * 3600000},
@@ -17,7 +19,7 @@
 
   const rasterWindow = (tier, now) => {
     const raster = RASTER[tier];
-    if (!raster) throw new Error(`Unbekannte Verdichtungsstufe: ${tier}`);
+    if (!raster) throw new Error(t('history.store.unknown_tier', {level: tier}));
     const from = Math.floor((now - raster.windowMs) / raster.stepMs) * raster.stepMs;
     return {from, to: now, stepMs: raster.stepMs, buckets: Math.ceil((now - from) / raster.stepMs)};
   };

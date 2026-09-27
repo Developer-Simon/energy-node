@@ -89,13 +89,13 @@ As of **2026-09-27**, read from `base.html` and `overview.html`. "–" means: no
 | `js/energy-presentation.js` | `1` |
 | `js/energy-flow.js` | `1` |
 | `js/history-rollup.js` | `1` |
-| `js/history-store.js` | `2` |
-| `js/history-coverage.js` | `1` |
-| `js/history-exchange.js` | `1` |
+| `js/history-store.js` | `3` |
+| `js/history-coverage.js` | `2` |
+| `js/history-exchange.js` | `2` |
 | `js/history-maintenance.js` | `1` |
-| `js/history-recorder.js` | `8` |
+| `js/history-recorder.js` | `9` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `19` |
+| `js/dashboard.js` | `20` |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -116,13 +116,13 @@ As of **2026-09-27**, read from `base.html` and `overview.html`. "–" means: no
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `1`, `js/energy-model.js` `2`, `js/history.js` `10` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `2`, `js/history.js` `11` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
 | `config-panel` | `js/revisions.js` `1`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `5` | `css/manager.css` `23` |
 | `energy-panel` | `js/revisions.js` `1`, `js/energy.page.js` `3` | `css/manager.css` `23` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `1`, `js/devicemap.page.js` `8` | `css/manager.css` `23` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `1`, `js/schema-form.js` `2`, `js/settings.page.js` `10`, `js/mqtt.page.js` `5`, `js/tailscale.page.js` `3`, `js/systemconfig.page.js` `3` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `7` |
-| `automations-panel` | `js/config-status.js` `3`, `js/automations.page.js` `5` | `css/manager.css` `23`, `css/automations.css` `4` |
+| `automations-panel` | `js/config-status.js` `3`, `js/automations.page.js` `6` | `css/manager.css` `23`, `css/automations.css` `4` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -238,6 +238,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.7.20 | `js/automations.page.js` · `js/history.js` · `js/history-export.js` (history panel) · `js/history-store.js` · `js/history-coverage.js` · `js/history-exchange.js` · `js/history-recorder.js` · `js/dashboard.js` | `6` · `11` · `2` · `3` · `2` · `2` · `9` · `20` | 2026-09-27 |
 | v0.7.19 | `js/revisions.js` (config, energy, device map, settings panels + layout editor) · `js/schema-form.js` (config + settings panels) · `js/config-status.js` (config + automations panels) · `js/config.page.js` · `js/devicemap.page.js` · `js/dashboard.js` · `js/layout-editor.js` | `1` (was unversioned) · `2` · `3` · `5` · `8` · `19` · `12` | 2026-09-27 |
 | v0.7.18 | `js/energy-model.js` (energy cards + history panel) · `js/battery-card-core.js` · `js/energy.page.js` · `js/energy-day.js` · `js/energy-presentation.js` · `js/energy-flow.js` · `js/energy-band.js` · `js/energy-ring.js` · `js/energy-board.js` · `js/energy-schema.js` · `js/energy-status.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/systemconfig.page.js` | `2` · `4` · `3` · `2` · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `1` (was unversioned) · `10` · `5` · `3` · `3` | 2026-09-27 |
 | v0.7.17 | `js/automations.page.js` · `css/automations.css` | `5` · `4` | 2026-09-26 |

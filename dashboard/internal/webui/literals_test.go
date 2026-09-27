@@ -16,8 +16,7 @@ import (
 // attribute must come from {{t}} unless it consists of allowed tokens only.
 // Scripts and Alpine expressions can only be checked heuristically, for
 // German features (umlauts, a word list). A line with "i18n-ignore" is
-// skipped. Files still waiting for their migration are listed in
-// testdata/i18n-pending.txt.
+// skipped.
 
 type literal struct {
 	line int
@@ -375,26 +374,13 @@ func hardFindings(list []finding) []finding {
 	return hard
 }
 
-func TestNoUntranslatedTextOutsidePendingFiles(t *testing.T) {
+func TestNoUntranslatedUIText(t *testing.T) {
 	findings := scanUITexts(t)
 	files := make([]string, 0, len(findings))
 	for file := range findings {
 		files = append(files, file)
 	}
 	sort.Strings(files)
-
-	if os.Getenv("I18N_WRITE_PENDING") == "1" {
-		var b strings.Builder
-		b.WriteString("# Files whose UI texts are not in the catalogs yet (localization A3).\n# A migrated file is removed from this list. See literals_test.go.\n")
-		for _, file := range files {
-			if len(hardFindings(findings[file])) > 0 {
-				b.WriteString(file + "\n")
-			}
-		}
-		if err := os.WriteFile("testdata/i18n-pending.txt", []byte(b.String()), 0o644); err != nil {
-			t.Fatal(err)
-		}
-	}
 
 	if filter := os.Getenv("I18N_INVENTORY"); filter != "" {
 		wide := os.Getenv("I18N_WIDE") == "1"
@@ -410,19 +396,7 @@ func TestNoUntranslatedTextOutsidePendingFiles(t *testing.T) {
 		}
 	}
 
-	pending := map[string]bool{}
-	for _, file := range readList(t, "testdata/i18n-pending.txt") {
-		pending[file] = true
-		if _, err := fs.Stat(templateFS, file); err != nil {
-			t.Errorf("testdata/i18n-pending.txt lists %s, which does not exist", file)
-		} else if len(hardFindings(findings[file])) == 0 {
-			t.Errorf("%s has no untranslated text left, remove it from testdata/i18n-pending.txt", file)
-		}
-	}
 	for _, file := range files {
-		if pending[file] {
-			continue
-		}
 		for _, f := range hardFindings(findings[file]) {
 			t.Errorf("%s:%d: text %q is not from the catalog (use {{t}}, $t() or I18n.t, see docs/knowledge/dashboard/localization.md)", file, f.line, f.text)
 		}

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.19 (2026-09-27)
+## v0.7.20 (2026-09-27)
 
 ### Features
 
@@ -12,6 +12,18 @@
 - **dashboard:** localize the shell and the overview (#62) (e96f396)
 - **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
 - **dashboard:** localize energy and settings (#64) (5445f5b)
+- **dashboard:** localize configuration and the layout editor (#67) (9609a2d)
+- **webui:** move automation text tables into the catalogs (df43c54)
+- **webui:** move automation summary and status texts into the catalogs (0799c6b)
+- **webui:** move automation page messages into the catalogs (25bb3d6)
+- **webui:** move automation list and rule editor texts into the catalogs (part 1) (f6df3d9)
+- **webui:** move automation list and rule editor texts into the catalogs (part 2) (e38326f)
+- **webui:** add English texts for automations (9fb1710)
+- **webui:** move diagnostics texts into the catalogs (91f1b92)
+- **webui:** move TinyTuya page texts into the catalogs (54f7923)
+- **webui:** move history page texts into the catalogs (e2634f5)
+- **webui:** move history recorder and exchange texts into the catalogs (2c67cf3)
+- **webui:** add English texts for history, diagnostics and TinyTuya (22ae7d1)
 - **webui:** move layout editor template texts into the catalogs (bca8058)
 - **webui:** move layout editor script texts into the catalogs (part c) (1539968)
 - **webui:** move layout editor script texts into the catalogs (part d) (f63e641)
@@ -80,6 +92,11 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **webui:** correct automation summary texts (e138511)
+- **webui:** keep automation sentences in one key (3e85957)
+- **webui:** keep diagnostics sort labels in one key (589af0d)
+- **webui:** keep history status texts in one key (d472455)
+- **webui:** translate the last history error and tighten the text rules (130c723)
 - **webui:** render the first layout page when no page is requested (5500bb6)
 - **webui:** keep renamed layout page tabs in sync (623c4c8)
 - **webui:** keep the toolbox drop hint in one sentence (b590493)
@@ -133,6 +150,7 @@
 
 ### Tests
 
+- **webui:** make the UI text guard cover every template and script (69f5a3b)
 - **webui:** follow the page-object extraPages loop (ff90890)
 - **webui:** check card catalog titles per language (3b6b98c)
 - **webui:** guard against UI text that bypasses the catalogs (458af28)
@@ -146,6 +164,7 @@
 
 ### Chores
 
+- **webui:** bump asset versions for the localized automation and history scripts (e8e20d1)
 - **webui:** bump asset versions for the localized configuration pages (c73410b)
 - **webui:** bump cache-busting for the localized settings scripts (ed1432e)
 - apply gofmt to test and main files (607f2f3)

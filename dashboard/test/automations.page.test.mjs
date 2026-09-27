@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const configStatusSource = fs.readFileSync(
@@ -24,6 +25,7 @@ const scriptSource = fs.readFileSync(
 function createAutomationsPanel() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
+  installI18n(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
@@ -859,6 +861,26 @@ test('describeCondition bleibt für die drei Alt-Typen unverändert', () => {
     { type: 'balance_threshold', field: 'pv', comparison: 'above', threshold: 800 }).title, 'PV-Leistung');
 });
 
+test('describeCondition renders a balance_threshold summary with hysteresis via i18n in German', () => {
+  const { window } = createAutomationsPanel();
+  const deCatalog = JSON.parse(fs.readFileSync(
+    path.join(here, '..', 'internal', 'webui', 'catalogs', 'de.json'), 'utf8'));
+  const described = view().describeCondition(
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 500, hysteresis: 100 });
+  // German summary: "{comparison} {threshold} {unit}, Hysterese {hysteresis}"
+  // Should be: "über 500 W, Hysterese 100"
+  assert.equal(described.summary, 'über 500 W, Hysterese 100');
+});
+
+test('describeCondition renders a balance_threshold summary with hysteresis via i18n in English', () => {
+  const { window } = createAutomationsPanel();
+  installI18n(window, { lang: 'en' });
+  const view_en = window.__automationsView;
+  const described = view_en.describeCondition(
+    { type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 500, hysteresis: 100 });
+  assert.equal(described.summary, 'above 500 W, hysteresis 100');
+});
+
 // --- A6: der SSE-Tick zieht nicht mehr den ganzen Geraetepark ---------------
 
 function stubFetch(window, handler) {
@@ -963,7 +985,8 @@ test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', a
 // --- Typ-Kacheln und Hilfetexte -------------------------------------------
 
 test('CONDITION_TYPES liefert genau die vier anbietbaren Bedingungstypen', () => {
-  const types = view().CONDITION_TYPES;
+  const { component } = createAutomationsPanel();
+  const types = component.conditionTypes();
   // Spread statt direktem .map()-Vergleich: das Array kommt aus dem vm-Sandbox-
   // Realm der Komponente, deepEqual vergleicht sonst auch das Array-Prototyp.
   assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun']);
@@ -975,7 +998,8 @@ test('CONDITION_TYPES liefert genau die vier anbietbaren Bedingungstypen', () =>
 });
 
 test('ACTION_TYPES markiert den rohen MQTT-Befehl als fortgeschritten', () => {
-  const types = view().ACTION_TYPES;
+  const { component } = createAutomationsPanel();
+  const types = component.actionTypes();
   assert.deepEqual([...types.map((entry) => entry.key)], ['entity', 'notify', 'mqtt']);
   assert.equal(types.find((entry) => entry.key === 'mqtt').advanced, true);
   assert.equal(types.find((entry) => entry.key === 'entity').advanced, false);

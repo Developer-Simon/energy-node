@@ -1,4 +1,8 @@
 (() => {
+  // i18n helper functions - called at runtime only, never on module level
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+
   // Mehr Punkte kann ein Bildschirm nicht aufloesen, und ApexCharts wird
   // darueber auf ARM-Hardware spuerbar traege.
   const MAX_POINTS = 2000;
@@ -13,11 +17,12 @@
   // ausloesen.
   const EXPORT_CONFIRM_ROWS = 200000;
 
-  const TIER_LABELS = {
-    raw: 'Rohdaten',
-    '1m': 'Minutenmittel',
-    '5m': 'Fünf-Minuten-Mittel',
+  const TIER_LABEL_KEYS = {
+    raw: 'history.resolution.raw',
+    '1m': 'history.resolution.1m',
+    '5m': 'history.resolution.5m',
   };
+  // i18n-keys: history.resolution.raw, history.resolution.1m, history.resolution.5m
 
   // Energie-Rollen bekommen dieselbe Farbe wie ihre Kachel in der Übersicht
   // (siehe COLOR_TOKENS in energy-model.js) - history.js dupliziert die
@@ -103,7 +108,7 @@
   const requestJSON = async (url, options) => {
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
-    if (!response.ok) throw new Error(body.message || 'Anfrage fehlgeschlagen');
+    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
     return body;
   };
 
@@ -170,16 +175,18 @@
   const RANGE_PRESETS = [
     {hours: 1, label: '1 h'},
     {hours: 6, label: '6 h'},
-    {hours: 24, label: 'Tag'},
-    {hours: 168, label: 'Woche'},
-    {hours: 720, label: 'Monat'},
+    {hours: 24, labelKey: 'history.range.day'},
+    {hours: 168, labelKey: 'history.range.week'},
+    {hours: 720, labelKey: 'history.range.month'},
   ];
+  // i18n-keys: history.range.day, history.range.week, history.range.month
 
   const AGGREGATES = [
-    {value: 'avg', label: 'Mittelwert'},
-    {value: 'min', label: 'Minimum'},
-    {value: 'max', label: 'Maximum'},
+    {value: 'avg', labelKey: 'history.aggregate.average'},
+    {value: 'min', labelKey: 'history.aggregate.minimum'},
+    {value: 'max', labelKey: 'history.aggregate.maximum'},
   ];
+  // i18n-keys: history.aggregate.average, history.aggregate.minimum, history.aggregate.maximum
 
   const historyPanel = () => ({
     MAX_POINTS,
@@ -246,8 +253,7 @@
         const rows = Number(detail.rows) || 0;
         if (!rows) return;
         this.exchangedRows += rows;
-        const werte = this.exchangedRows === 1 ? '1 Messwert' : `${this.exchangedRows} Messwerte`;
-        this.exchangeNotice = `${werte} von einem anderen Gerät ergänzt.`;
+        this.exchangeNotice = tn('history.exchange_notice', this.exchangedRows, {count: this.exchangedRows});
         this.renderChart();
       };
       window.addEventListener('dashboard-history-exchanged', this.historyExchanged);
@@ -387,19 +393,23 @@
     },
 
     get tierLabel() {
-      return TIER_LABELS[this.tier] || this.tier;
+      const key = TIER_LABEL_KEYS[this.tier];
+      return key ? t(key) : this.tier;
     },
 
     get statusText() {
-      if (this.loading) return 'Verläufe werden geladen ...';
+      if (this.loading) return t('history.status.loading');
       if (this.error) return this.error;
       const status = this.recorderStatus;
-      if (status.paused) return status.reason || 'Die Aufzeichnung ist angehalten.';
+      if (status.paused) return status.reason || t('history.status.paused');
       if (this.isEmpty) {
-        return 'Für diesen Zeitraum liegen in diesem Browser keine Daten. Die Historie wird pro Gerät aufgezeichnet — auf einem Gerät, das noch nicht aufgezeichnet hat, ist sie leer.';
+        return t('history.status.empty');
       }
-      const persisted = status.persisted === false ? ' · Browser-Speicher nicht als dauerhaft zugesagt' : '';
-      return `${this.tierLabel} · ${this.visibleRows.length} Punkte · ${this.selectedSeries.length} Serien${persisted}`;
+      const params = {tier: this.tierLabel, points: this.visibleRows.length, series: this.selectedSeries.length};
+      if (status.persisted === false) {
+        return t('history.status.summary_not_persisted', params);
+      }
+      return t('history.status.summary', params);
     },
 
     // Der Wert, der gezeichnet wird. Bei Rohdaten sind min/max/avg gleich,
@@ -595,7 +605,7 @@
             ? tooltipValue
             : value => `${window.I18n.formatNumber(Number(value), 1)}${unit ? ` ${unit}` : ''}`},
         },
-        noData: {text: 'Keine Daten im gewählten Zeitraum'},
+        noData: {text: t('history.status.no_data')},
       };
     },
 
@@ -670,7 +680,7 @@
         intervalSeconds: Number(this.recorderConfig.intervalSeconds) || 10,
         // Die Zeitstempel im Export sind UTC; die Zeitzone steht daneben,
         // damit sich die Werte spaeter noch einordnen lassen.
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'unbekannt',
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || t('history.export.unknown_timezone'),
         source: 'browser',
       };
     },
@@ -678,13 +688,13 @@
     async exportAs(format) {
       const rows = this.visibleRows;
       if (!rows.length) {
-        this.$store.toasts.push('Für den gewählten Zeitraum gibt es nichts zu exportieren.', 'critical');
+        this.$store.toasts.push(t('history.export.empty'), 'critical');
         return;
       }
       if (rows.length > EXPORT_CONFIRM_ROWS) {
         const confirmed = await this.$store.modal.confirm({
-          title: 'Großer Export',
-          message: `Der Export umfasst ${rows.length} Zeilen und kann mehrere hundert Megabyte groß werden. Fortfahren?`,
+          title: t('history.export.large_title'),
+          message: t('history.export.large_message', {rows: rows.length}),
         });
         if (!confirmed) return;
       }
@@ -696,7 +706,7 @@
         const mime = format === 'json' ? 'application/json' : 'text/csv;charset=utf-8';
         window.HistoryExport.download(chunks, window.HistoryExport.filename(meta, format), mime);
       } catch (error) {
-        this.$store.toasts.push(`Export fehlgeschlagen: ${error.message}`, 'critical');
+        this.$store.toasts.push(t('history.export.failed', {message: error.message}), 'critical');
       }
     },
 
@@ -735,7 +745,7 @@
       const next = {...current, history_views: views};
       await requestJSON('/api/v1/settings', {
         method: 'PUT',
-        headers: {'Content-Type': 'application/json'},
+        headers: {'Content-Type': 'application/json'}, // i18n-ignore
         body: JSON.stringify(next),
       });
       this.views = views;
@@ -744,7 +754,7 @@
     async saveView() {
       const name = String(this.viewName || '').trim();
       if (!name) {
-        this.$store.toasts.push('Die Sicht braucht einen Namen.', 'critical');
+        this.$store.toasts.push(t('history.view.needs_name'), 'critical');
         return;
       }
       const view = {
@@ -766,9 +776,9 @@
       try {
         await this.persistViews([...this.views, view]);
         this.viewName = '';
-        this.$store.toasts.push(`Sicht „${name}" gespeichert.`);
+        this.$store.toasts.push(t('history.view.saved', {name: name}));
       } catch (error) {
-        this.$store.toasts.push(`Sicht konnte nicht gespeichert werden: ${error.message}`, 'critical');
+        this.$store.toasts.push(t('history.view.save_failed', {message: error.message}), 'critical');
       }
     },
 
@@ -803,7 +813,7 @@
         await this.persistViews(this.views.filter(view => view.id !== id));
         if (this.selectedViewId === id) this.selectedViewId = '';
       } catch (error) {
-        this.$store.toasts.push(`Sicht konnte nicht gelöscht werden: ${error.message}`, 'critical');
+        this.$store.toasts.push(t('history.view.delete_failed', {message: error.message}), 'critical');
       }
     },
   });

@@ -1,9 +1,11 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+
   const requestJSON = async (url, options) => {
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json();
     if (!response.ok) {
-      const error = new Error(body.message || 'Anfrage fehlgeschlagen');
+      const error = new Error(body.message || t('common.request_failed'));
       // Der Status wandert mit, damit Aufrufer ein 404 vom Netzwerkfehler
       // unterscheiden koennen: fehlt das Geraet "automation", ist das ein
       // Dauerzustand (kein Automations-Dienst), kein voruebergehender Fehler.
@@ -13,47 +15,53 @@
     return body;
   };
 
+  // i18n-keys: automations.metric.autarkie, automations.metric.base, automations.metric.battery_capacity_kwh, automations.metric.battery_charge, automations.metric.battery_discharge, automations.metric.battery_energy_kwh, automations.metric.battery_soc, automations.metric.eigenverbrauch, automations.metric.gap_applied, automations.metric.grid_export, automations.metric.grid_import, automations.metric.heat_pump, automations.metric.load_total, automations.metric.pv, automations.metric.wallbox, automations.summary.balance, automations.summary.balance_hysteresis, automations.summary.entity_value, automations.summary.entity_value_unit, automations.summary.topic_value, automations.action.notification, automations.action.mqtt_command, automations.action.unknown, automations.test.permission_required, automations.test.service_offline, automations.test.save_first, automations.test.blocked_action, automations.test.confirm, automations.test.trigger, automations.test.failed, automations.test.no_response, automations.test.published, automations.test.blocked, automations.test.error, automations.saved, automations.condition_state.sun_no_event, automations.condition_state.no_location, automations.condition_state.no_value, automations.condition_state.outside_window, automations.condition_state.threshold_not_reached, automations.condition_state.met, automations.condition_state.met_since, automations.condition_state.pending, automations.condition_state.pending_since, automations.gate_meta.cooldown, automations.gate_meta.last_fired, automations.gate_meta.fire_count, automations.action_preview.no_preview, automations.action_preview.blocked, automations.new_rule, automations.delete_rule.title, automations.delete_rule.body, automations.geolocation.denied, automations.geolocation.failed, automations.gate_detail.hold_pending, automations.gate_detail.cooldown, automations.condition_type_unknown, automations.badge.balance_stale, automations.badge.blocked, automations.badge.cooldown, automations.badge.disabled, automations.badge.settling
   // Eine Tabelle je Bilanzfeld: Klartext, Icon-Symbol im Sprite, Einheit.
   const BALANCE_FIELD_INFO = {
-    grid_export:       { label: 'Netzeinspeisung',     icon: 'ico-grid',     unit: 'W' },
-    grid_import:       { label: 'Netzbezug',           icon: 'ico-grid',     unit: 'W' },
-    pv:                { label: 'PV-Leistung',         icon: 'ico-sun',      unit: 'W' },
-    load_total:        { label: 'Hausverbrauch',       icon: 'ico-load',     unit: 'W' },
-    base:              { label: 'Übriger Verbrauch',   icon: 'ico-load',     unit: 'W' },
-    wallbox:           { label: 'Wallbox',             icon: 'ico-wallbox',  unit: 'W' },
-    heat_pump:         { label: 'Wärmepumpe',          icon: 'ico-heatpump', unit: 'W' },
-    battery_charge:    { label: 'Batterie laden',      icon: 'ico-battery',  unit: 'W' },
-    battery_discharge: { label: 'Batterie entladen',   icon: 'ico-battery',  unit: 'W' },
-    gap_applied:       { label: 'Bilanzlücke',         icon: 'ico-warning',  unit: 'W' },
-    autarkie:          { label: 'Autarkiegrad',        icon: 'ico-flash',    unit: '%' },
-    eigenverbrauch:    { label: 'Eigenverbrauchsquote', icon: 'ico-flash',   unit: '%' },
-    battery_soc:          { label: 'Batterie-Füllstand',    icon: 'ico-battery', unit: '%' },
-    battery_capacity_kwh: { label: 'Speicher-Kapazität',    icon: 'ico-battery', unit: 'kWh' },
-    battery_energy_kwh:   { label: 'Gespeicherte Energie',  icon: 'ico-battery', unit: 'kWh' },
+    grid_export:       { label: 'automations.metric.grid_export',     icon: 'ico-grid',     unit: 'W' },
+    grid_import:       { label: 'automations.metric.grid_import',     icon: 'ico-grid',     unit: 'W' },
+    pv:                { label: 'automations.metric.pv',              icon: 'ico-sun',      unit: 'W' },
+    load_total:        { label: 'automations.metric.load_total',      icon: 'ico-load',     unit: 'W' },
+    base:              { label: 'automations.metric.base',            icon: 'ico-load',     unit: 'W' },
+    wallbox:           { label: 'automations.metric.wallbox',         icon: 'ico-wallbox',  unit: 'W' },
+    heat_pump:         { label: 'automations.metric.heat_pump',       icon: 'ico-heatpump', unit: 'W' },
+    battery_charge:    { label: 'automations.metric.battery_charge',  icon: 'ico-battery',  unit: 'W' },
+    battery_discharge: { label: 'automations.metric.battery_discharge', icon: 'ico-battery', unit: 'W' },
+    gap_applied:       { label: 'automations.metric.gap_applied',     icon: 'ico-warning',  unit: 'W' },
+    autarkie:          { label: 'automations.metric.autarkie',        icon: 'ico-flash',    unit: '%' },
+    eigenverbrauch:    { label: 'automations.metric.eigenverbrauch',  icon: 'ico-flash',    unit: '%' },
+    battery_soc:          { label: 'automations.metric.battery_soc',        icon: 'ico-battery', unit: '%' },
+    battery_capacity_kwh: { label: 'automations.metric.battery_capacity_kwh', icon: 'ico-battery', unit: 'kWh' },
+    battery_energy_kwh:   { label: 'automations.metric.battery_energy_kwh',   icon: 'ico-battery', unit: 'kWh' },
   };
 
-  const COMPARISON_WORDS = { above: 'über', below: 'unter', equals: 'gleich', not_equals: 'ungleich' };
+  // i18n-keys: automations.comparison.above, automations.comparison.below, automations.comparison.equals, automations.comparison.not_equals
+  const COMPARISON_WORDS = { above: 'automations.comparison.above', below: 'automations.comparison.below', equals: 'automations.comparison.equals', not_equals: 'automations.comparison.not_equals' };
 
+  // i18n-keys: automations.gate.balance_stale, automations.gate.blocked, automations.gate.conditions_not_met, automations.gate.cooldown, automations.gate.disabled, automations.gate.error, automations.gate.fired, automations.gate.hold_pending, automations.gate.settling
   const GATE_VERDICTS = {
-    fired:              { tone: 'ok',   label: 'Ausgelöst' },
-    hold_pending:       { tone: 'wait', label: 'Wartet auf Haltedauer' },
-    cooldown:           { tone: 'info', label: 'Sperrzeit läuft' },
-    conditions_not_met: { tone: 'off',  label: 'Bedingungen nicht erfüllt' },
-    settling:           { tone: 'off',  label: 'Beruhigungsphase nach Dienststart' },
-    balance_stale:      { tone: 'bad',  label: 'Energie-Bilanz veraltet' },
-    blocked:            { tone: 'bad',  label: 'Aktion blockiert' },
-    error:              { tone: 'bad',  label: 'Fehler' },
-    disabled:           { tone: 'off',  label: 'Regel ist aus' },
+    fired:              { tone: 'ok',   label: 'automations.gate.fired' },
+    hold_pending:       { tone: 'wait', label: 'automations.gate.hold_pending' },
+    cooldown:           { tone: 'info', label: 'automations.gate.cooldown' },
+    conditions_not_met: { tone: 'off',  label: 'automations.gate.conditions_not_met' },
+    settling:           { tone: 'off',  label: 'automations.gate.settling' },
+    balance_stale:      { tone: 'bad',  label: 'automations.gate.balance_stale' },
+    blocked:            { tone: 'bad',  label: 'automations.gate.blocked' },
+    error:              { tone: 'bad',  label: 'automations.gate.error' },
+    disabled:           { tone: 'off',  label: 'automations.gate.disabled' },
   };
 
+  // i18n-keys: automations.history_result.blocked, automations.history_result.error, automations.history_result.fired
   const HISTORY_RESULT_INFO = {
-    fired:   { tone: 'ok',  label: 'Ausgelöst' },
-    blocked: { tone: 'bad', label: 'Blockiert' },
-    error:   { tone: 'bad', label: 'Fehler' },
+    fired:   { tone: 'ok',  label: 'automations.history_result.fired' },
+    blocked: { tone: 'bad', label: 'automations.history_result.blocked' },
+    error:   { tone: 'bad', label: 'automations.history_result.error' },
   };
 
   function historyResultInfo(result) {
-    return HISTORY_RESULT_INFO[result] || { tone: 'off', label: result || 'Unbekannt' };
+    const entry = HISTORY_RESULT_INFO[result];
+    if (entry) return { tone: entry.tone, label: t(entry.label) };
+    return { tone: 'off', label: result || t('automations.unknown') };
   }
 
   function historyActionText(action) {
@@ -63,29 +71,31 @@
     return `${action.topic} → ${action.payload}`;
   }
 
+  // i18n-keys: automations.condition_type.balance.hint, automations.condition_type.balance.label, automations.condition_type.entity.hint, automations.condition_type.entity.label, automations.condition_type.sun.hint, automations.condition_type.sun.label, automations.condition_type.time.hint, automations.condition_type.time.label
   // Was der Bearbeiten-Modus als Bedingung anbieten darf. "balance" heisst
   // bewusst Energiewert und nicht PV-Ueberschuss: der Typ balance_threshold
   // deckt jedes Bilanzfeld ab - Netzbezug, Autarkiegrad, Batterie-Fuellstand -,
   // die PV-Einspeisung ist nur die haeufigste Vorbelegung.
   const CONDITION_TYPES = [
-    { key: 'balance', icon: 'ico-sun', label: 'Energiewert',
-      hint: 'Ein Wert aus der Energiebilanz, zum Beispiel Netzeinspeisung, Hausverbrauch oder Batterie-Füllstand.' },
-    { key: 'entity', icon: 'ico-thermo', label: 'Gerätewert',
-      hint: 'Ein Messwert eines Geräts, zum Beispiel eine Temperatur oder ein Schaltzustand.' },
-    { key: 'time', icon: 'ico-clock', label: 'Zeitfenster',
-      hint: 'Gilt nur zwischen zwei Uhrzeiten, auf Wunsch nur an bestimmten Wochentagen.' },
-    { key: 'sun', icon: 'ico-sun', label: 'Sonnenzeit',
-      hint: 'Gilt zwischen Sonnenaufgang und Sonnenuntergang oder umgekehrt, jeweils mit Versatz in Minuten. Braucht den Standort in den Einstellungen.' },
+    { key: 'balance', icon: 'ico-sun', label: 'automations.condition_type.balance.label',
+      hint: 'automations.condition_type.balance.hint' },
+    { key: 'entity', icon: 'ico-thermo', label: 'automations.condition_type.entity.label',
+      hint: 'automations.condition_type.entity.hint' },
+    { key: 'time', icon: 'ico-clock', label: 'automations.condition_type.time.label',
+      hint: 'automations.condition_type.time.hint' },
+    { key: 'sun', icon: 'ico-sun', label: 'automations.condition_type.sun.label',
+      hint: 'automations.condition_type.sun.hint' },
   ];
 
+  // i18n-keys: automations.sun_event.sunrise, automations.sun_event.sunset
   // Reihenfolge wie im Dienst: 0 = Montag ... 6 = Sonntag.
-  const WEEKDAY_LABELS = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
-  const SUN_EVENT_LABELS = { sunrise: 'Sonnenaufgang', sunset: 'Sonnenuntergang' };
+  const WEEKDAY_LABELS = ['automations.weekday.0', 'automations.weekday.1', 'automations.weekday.2', 'automations.weekday.3', 'automations.weekday.4', 'automations.weekday.5', 'automations.weekday.6'];
+  const SUN_EVENT_LABELS = { sunrise: 'automations.sun_event.sunrise', sunset: 'automations.sun_event.sunset' };
 
   // "Mo–Fr", "Sa, So", "Mo, Mi–Fr": zusammenhaengende Tage ab drei als Spanne.
   function formatWeekdays(weekdays) {
     const days = [...new Set(weekdays || [])].filter((day) => day >= 0 && day <= 6).sort((a, b) => a - b);
-    if (days.length === 0 || days.length === 7) return 'täglich';
+    if (days.length === 0 || days.length === 7) return t('automations.weekdays_daily');
     const runs = [];
     for (const day of days) {
       const run = runs[runs.length - 1];
@@ -93,12 +103,12 @@
       else runs.push([day]);
     }
     return runs.flatMap((run) => (run.length >= 3
-      ? [`${WEEKDAY_LABELS[run[0]]}–${WEEKDAY_LABELS[run[run.length - 1]]}`]
-      : run.map((day) => WEEKDAY_LABELS[day]))).join(', ');
+      ? [`${t(WEEKDAY_LABELS[run[0]])}–${t(WEEKDAY_LABELS[run[run.length - 1]])}`]
+      : run.map((day) => t(WEEKDAY_LABELS[day])))).join(', ');
   }
 
   function formatSunPoint(event, offset) {
-    const label = SUN_EVENT_LABELS[event] || event;
+    const label = t(SUN_EVENT_LABELS[event] || event);
     if (!offset) return label;
     return `${label} ${offset > 0 ? '+' : '−'}${Math.abs(offset)} min`;
   }
@@ -109,39 +119,41 @@
 
   const WINDOW_TYPES = new Set(['time_window', 'sun_window']);
 
+  // i18n-keys: automations.action_type.entity.hint, automations.action_type.entity.label, automations.action_type.mqtt.hint, automations.action_type.mqtt.label, automations.action_type.notify.hint, automations.action_type.notify.label
   // "entity" legt keine Aktion an, sondern oeffnet den Geraete-Assistenten -
   // dort entscheidet erst die Wahl zwischen Ein/Aus/Umschalten/Sollwert,
   // welche publish-Aktion daraus wird.
   const ACTION_TYPES = [
-    { key: 'entity', icon: 'ico-switch', label: 'Gerät schalten', advanced: false,
-      hint: 'Ein bekanntes Gerät ein- oder ausschalten oder einen Sollwert setzen.' },
-    { key: 'notify', icon: 'ico-bell', label: 'Benachrichtigung', advanced: false,
-      hint: 'Eine Meldung im Dashboard anzeigen, ohne etwas zu schalten.' },
-    { key: 'mqtt', icon: 'ico-topic', label: 'MQTT-Befehl', advanced: true,
-      hint: 'Topic und Payload von Hand eintragen — nur nötig für Geräte, die das Dashboard nicht kennt.' },
+    { key: 'entity', icon: 'ico-switch', label: 'automations.action_type.entity.label', advanced: false,
+      hint: 'automations.action_type.entity.hint' },
+    { key: 'notify', icon: 'ico-bell', label: 'automations.action_type.notify.label', advanced: false,
+      hint: 'automations.action_type.notify.hint' },
+    { key: 'mqtt', icon: 'ico-topic', label: 'automations.action_type.mqtt.label', advanced: true,
+      hint: 'automations.action_type.mqtt.hint' },
   ];
 
+  // i18n-keys: automations.field_help.balance_max_age_s, automations.field_help.cooldown_seconds, automations.field_help.history_enabled, automations.field_help.history_limit, automations.field_help.history_persist, automations.field_help.hold_seconds, automations.field_help.hysteresis, automations.field_help.json_key, automations.field_help.location, automations.field_help.offset, automations.field_help.payload, automations.field_help.publish_allowed_prefixes, automations.field_help.retain, automations.field_help.scale, automations.field_help.settling_seconds, automations.field_help.tick_interval_s, automations.field_help.topic
   // Die Erklaerungen zu den Fachbegriffen. Die Begriffe selbst bleiben in der
   // Oberflaeche stehen, damit sie in der Doku und in der rules.json
   // wiederzufinden sind - erklaert wird daneben.
   const FIELD_HELP = {
-    hysteresis: 'Rückschaltabstand: Erst wenn der Wert um diesen Betrag wieder unter die Schwelle fällt, gilt die Bedingung als nicht mehr erfüllt. Verhindert dauerndes Ein- und Ausschalten dicht an der Schwelle.',
-    hold_seconds: 'Haltedauer: So lange muss die Bedingung ununterbrochen erfüllt sein, bevor die Regel auslöst. Bei Regeln mit Schaltbefehl mindestens 30 Sekunden.',
-    cooldown_seconds: 'Sperrzeit: Nach dem Auslösen pausiert die Regel so lange, bevor sie erneut auslösen darf. Bei Regeln mit Schaltbefehl mindestens 30 Sekunden.',
-    tick_interval_s: 'Tick-Intervall: So oft prüft der Dienst alle Regeln.',
-    settling_seconds: 'Beruhigungsfenster: Nach einem Neustart des Dienstes wartet er so lange, bevor die erste Regel auslösen darf — die Messwerte sind direkt nach dem Start noch unvollständig.',
-    balance_max_age_s: 'Maximales Bilanzalter: Ist die letzte Energiebilanz älter als das, gilt sie als veraltet und Regeln mit Energiewert-Bedingung lösen nicht aus.',
-    publish_allowed_prefixes: 'Leer gelassen erlaubt das Dashboard beim Speichern automatisch genau die command_topics aller aktuell bekannten Geräte-Entitäten — neu hinzukommende Geräte oder Entitäten brauchen dafür ein erneutes Speichern. Sobald hier etwas eingetragen wird, gilt nur noch diese Liste.',
-    history_limit: 'Wie viele der letzten Auslösungen je Regel aufbewahrt werden — ältere fallen raus. Gilt nur für Regeln, bei denen unten im Regel-Editor „Verlauf speichern" aktiviert ist.',
-    history_enabled: 'Verlauf speichern: Zeichnet die Auslösungen dieser Regel auf, damit sie hier unter „Verlauf anzeigen" erscheinen. Ist der Schalter aus, prüft die Regel weiter, führt aber keine Liste.',
-    location: 'Standort für die Sonnenzeiten, in Dezimalgrad (z. B. 52.52 und 13.405 für Berlin). Er verlässt das Gerät nicht: Auf- und Untergang rechnet der Dienst selbst aus.',
-    history_persist: 'Bleibt der Haken gesetzt, übersteht der Verlauf einen Neustart des Dienstes (Datei im Geräteverzeichnis). Ausgeschaltet zeichnet der Dienst weiterhin auf — die Oberfläche zeigt den Verlauf weiter an —, schreibt ihn aber nie auf die Platte.',
-    retain: 'Retained: Der Broker merkt sich die Nachricht und liefert sie an jeden neuen Abonnenten aus. Für Schaltbefehle meist unerwünscht.',
-    scale: 'Skalierung: Der Bilanzwert wird mit diesem Faktor multipliziert, bevor er gesendet wird.',
-    offset: 'Offset: Dieser Betrag wird nach der Skalierung addiert — mit einem negativen Wert hält man zum Beispiel eine Reserve zurück.',
-    json_key: 'JSON-Key: Ist der Payload ein JSON-Dokument, wird der Wert unter diesem Schlüssel gelesen.',
-    topic: 'Topic: Die MQTT-Adresse, unter der die Nachricht veröffentlicht wird.',
-    payload: 'Payload: Der Inhalt, der unter dem Topic gesendet wird — bei einem Schalter typischerweise ON oder OFF.',
+    hysteresis: 'automations.field_help.hysteresis',
+    hold_seconds: 'automations.field_help.hold_seconds',
+    cooldown_seconds: 'automations.field_help.cooldown_seconds',
+    tick_interval_s: 'automations.field_help.tick_interval_s',
+    settling_seconds: 'automations.field_help.settling_seconds',
+    balance_max_age_s: 'automations.field_help.balance_max_age_s',
+    publish_allowed_prefixes: 'automations.field_help.publish_allowed_prefixes',
+    history_limit: 'automations.field_help.history_limit',
+    history_enabled: 'automations.field_help.history_enabled',
+    location: 'automations.field_help.location',
+    history_persist: 'automations.field_help.history_persist',
+    retain: 'automations.field_help.retain',
+    scale: 'automations.field_help.scale',
+    offset: 'automations.field_help.offset',
+    json_key: 'automations.field_help.json_key',
+    topic: 'automations.field_help.topic',
+    payload: 'automations.field_help.payload',
   };
 
   const SERVICE_TEST_TIMEOUT_MS = 10000;
@@ -196,18 +208,18 @@
       const remaining = (ruleState.conditions || [])
         .map((entry) => (isNumber(entry.hold_remaining) ? entry.hold_remaining : 0))
         .reduce((highest, current) => Math.max(highest, current), 0);
-      return `Noch ${formatSeconds(remaining)} bis zum Auslösen.`;
+      return t('automations.gate_detail.hold_pending', { duration: formatSeconds(remaining) });
     }
-    if (ruleState.result === 'cooldown') return `Noch ${formatSeconds(ruleState.cooldown_remaining)}.`;
+    if (ruleState.result === 'cooldown') return t('automations.gate_detail.cooldown', { duration: formatSeconds(ruleState.cooldown_remaining) });
     if (ruleState.reason) return ruleState.reason;
     return '';
   }
 
   function gateVerdict(ruleState, online) {
-    if (!online) return { tone: 'off', label: 'Dienst offline', detail: 'Es liegen keine Live-Werte vor.' };
+    if (!online) return { tone: 'off', label: t('automations.service_offline'), detail: t('automations.no_live_values') };
     const entry = GATE_VERDICTS[ruleState && ruleState.result];
-    if (!entry) return { tone: 'off', label: 'Zustand unbekannt', detail: '' };
-    return { tone: entry.tone, label: entry.label, detail: gateDetail(ruleState) };
+    if (!entry) return { tone: 'off', label: t('automations.state_unknown'), detail: '' };
+    return { tone: entry.tone, label: t(entry.label), detail: gateDetail(ruleState) };
   }
 
   const DEVICE_CLASS_ICONS = {
@@ -219,9 +231,10 @@
     const type = condition && condition.type;
     if (type === 'balance_threshold') {
       const info = BALANCE_FIELD_INFO[condition.field] || { label: condition.field, icon: 'ico-flash', unit: '' };
-      const hysteresis = condition.hysteresis ? `, Hysterese ${condition.hysteresis}` : '';
-      return { icon: info.icon, title: info.label, unit: info.unit,
-               summary: `${COMPARISON_WORDS[condition.comparison] || condition.comparison} ${condition.threshold} ${info.unit}${hysteresis}` };
+      const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
+      const summaryKey = condition.hysteresis ? 'automations.summary.balance_hysteresis' : 'automations.summary.balance';
+      return { icon: info.icon, title: t(info.label), unit: info.unit,
+               summary: t(summaryKey, { comparison, threshold: condition.threshold, unit: info.unit, hysteresis: condition.hysteresis }) };
     }
     if (type === 'entity_value') {
       // Fehlt die Entitaet - noch nicht geladen, oder aus dem Register
@@ -230,35 +243,37 @@
       const unit = (entity && entity.unit_of_measurement) || '';
       const icon = (entity && DEVICE_CLASS_ICONS[entity.device_class]) || 'ico-topic';
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
-      const suffix = unit ? ` ${unit}` : '';
-      return { icon, title: (entity && entity.name) || condition.topic || 'Entitätswert', unit,
-               summary: `${COMPARISON_WORDS[condition.comparison] || condition.comparison} ${expected}${suffix}` };
+      const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
+      const summaryKey = unit ? 'automations.summary.entity_value_unit' : 'automations.summary.entity_value';
+      return { icon, title: (entity && entity.name) || condition.topic || t('automations.entity_value'), unit,
+               summary: t(summaryKey, { comparison, expected, unit }) };
     }
     if (type === 'topic_value') {
       const expected = condition.text !== undefined && condition.text !== '' ? condition.text : condition.value;
-      return { icon: 'ico-topic', title: condition.topic || 'Topic-Wert', unit: '',
-               summary: `${COMPARISON_WORDS[condition.comparison] || condition.comparison} ${expected}` };
+      const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
+      return { icon: 'ico-topic', title: condition.topic || t('automations.topic_value'), unit: '',
+               summary: t('automations.summary.topic_value', { comparison, expected }) };
     }
     if (type === 'time_window') {
-      return { icon: 'ico-clock', title: 'Zeitfenster', unit: '',
+      return { icon: 'ico-clock', title: t('automations.time_window'), unit: '',
                summary: `${condition.start} – ${condition.end}${weekdaySuffix(condition)}` };
     }
     if (type === 'sun_window') {
       const from = formatSunPoint(condition.from, condition.from_offset_min);
       const to = formatSunPoint(condition.to, condition.to_offset_min);
-      return { icon: 'ico-sun', title: 'Sonnenzeit', unit: '',
+      return { icon: 'ico-sun', title: t('automations.sun_window'), unit: '',
                summary: `${from} – ${to}${weekdaySuffix(condition)}` };
     }
     // Vorwaertskompatibilitaet: Spec A bringt weitere Typen. Bis dahin - und
     // falls je ein unbekannter Typ auftaucht - wird eine neutrale Karte
     // gezeichnet, statt die ganze Ansicht scheitern zu lassen.
-    return { icon: 'ico-flash', title: type ? `Bedingung (${type})` : 'Unbekannte Bedingung',
+    return { icon: 'ico-flash', title: type ? t('automations.condition_type_unknown', { type }) : t('automations.unknown_condition'),
              unit: '', summary: '' };
   }
 
   function describeAction(action, entity) {
     if (action && action.type === 'notification') {
-      return { icon: 'ico-bell', kind: 'notify', title: action.title || 'Benachrichtigung' };
+      return { icon: 'ico-bell', kind: 'notify', title: action.title || t('automations.action.notification') };
     }
     if (action && action.type === 'publish') {
       // Steht hinter der Aktion eine bekannte Entitaet (entity_id gesetzt und
@@ -266,18 +281,18 @@
       // wie eine entity_value-Bedingung - fehlt die Entitaet, bleibt das
       // rohe Topic als Titel stehen, die Regel laeuft unveraendert weiter.
       const icon = (entity && DEVICE_CLASS_ICONS[entity.device_class]) || 'ico-switch';
-      const title = (entity && entity.name) || action.topic || 'MQTT-Befehl';
+      const title = (entity && entity.name) || action.topic || t('automations.action.mqtt_command');
       return { icon, kind: 'command', title };
     }
-    return { icon: 'ico-flash', kind: 'command', title: 'Unbekannte Aktion' };
+    return { icon: 'ico-flash', kind: 'command', title: t('automations.action.unknown') };
   }
 
   function canTest(context) {
     if (!context || context.hasRole === false) {
-      return { allowed: false, reason: 'Für Automations-Tests fehlt die Berechtigung.' };
+      return { allowed: false, reason: t('automations.test.permission_required') };
     }
-    if (!context.online) return { allowed: false, reason: 'Der Automations-Dienst ist offline.' };
-    if (context.dirty) return { allowed: false, reason: 'Erst speichern — getestet wird die gespeicherte Regel.' };
+    if (!context.online) return { allowed: false, reason: t('automations.test.service_offline') };
+    if (context.dirty) return { allowed: false, reason: t('automations.test.save_first') };
     return { allowed: true, reason: '' };
   }
 
@@ -289,26 +304,23 @@
     WEEKDAY_LABELS, SUN_EVENT_LABELS,
   };
 
-  const BALANCE_FIELDS = [
-    ['grid_export', 'Netzeinspeisung'], ['grid_import', 'Netzbezug'], ['pv', 'PV-Leistung'],
-    ['load_total', 'Hausverbrauch'], ['base', 'Übriger Verbrauch'], ['wallbox', 'Wallbox'],
-    ['heat_pump', 'Wärmepumpe'], ['battery_charge', 'Batterie laden'], ['battery_discharge', 'Batterie entladen'],
-    ['gap_applied', 'Bilanzlücke'], ['autarkie', 'Autarkiegrad'], ['eigenverbrauch', 'Eigenverbrauchsquote'],
-    ['battery_soc', 'Batterie-Füllstand'], ['battery_capacity_kwh', 'Speicher-Kapazität'],
-    ['battery_energy_kwh', 'Gespeicherte Energie'],
+  const BALANCE_FIELDS_BASE = [
+    ['grid_export', 'automations.metric.grid_export'],
+    ['grid_import', 'automations.metric.grid_import'],
+    ['pv', 'automations.metric.pv'],
+    ['load_total', 'automations.metric.load_total'],
+    ['base', 'automations.metric.base'],
+    ['wallbox', 'automations.metric.wallbox'],
+    ['heat_pump', 'automations.metric.heat_pump'],
+    ['battery_charge', 'automations.metric.battery_charge'],
+    ['battery_discharge', 'automations.metric.battery_discharge'],
+    ['gap_applied', 'automations.metric.gap_applied'],
+    ['autarkie', 'automations.metric.autarkie'],
+    ['eigenverbrauch', 'automations.metric.eigenverbrauch'],
+    ['battery_soc', 'automations.metric.battery_soc'],
+    ['battery_capacity_kwh', 'automations.metric.battery_capacity_kwh'],
+    ['battery_energy_kwh', 'automations.metric.battery_energy_kwh'],
   ];
-
-  const RESULT_LABELS = {
-    fired: 'Ausgelöst',
-    conditions_not_met: 'Bedingungen nicht erfüllt',
-    hold_pending: 'Wartet auf Haltedauer',
-    cooldown: 'Sperrzeit',
-    settling: 'Beruhigungsphase',
-    balance_stale: 'Bilanz veraltet',
-    blocked: 'Blockiert',
-    disabled: 'Deaktiviert',
-    error: 'Fehler',
-  };
 
   const emptyDocument = () => ({
     version: 1,
@@ -328,7 +340,6 @@
     runtimeState: null,
     online: false,
     csrfToken: '',
-    balanceFields: BALANCE_FIELDS,
     expanded: {},
     liveHistory: {},
     historyExpanded: {},
@@ -344,6 +355,10 @@
     // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
     // Datenmodell an - er blendet nur, was schon da ist, schrittweise ein.
     wizard: { active: false, step: 1, ruleId: '' },
+
+    get balanceFields() {
+      return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
+    },
 
     get publishAllowedPrefixesText() {
       return (this.document.settings.publish_allowed_prefixes || []).join('\n');
@@ -420,7 +435,7 @@
     commandableEntityGroups() {
       const groups = new Map();
       for (const entity of this.entities || []) {
-        const name = entity.deviceName || 'Ohne Gerät';
+        const name = entity.deviceName || t('automations.wizard.device_without_name');
         if (!groups.has(name)) groups.set(name, []);
         groups.get(name).push(entity);
       }
@@ -458,7 +473,7 @@
     readableEntityGroups() {
       const groups = new Map();
       for (const entity of this.readableEntities || []) {
-        const name = entity.deviceName || 'Ohne Gerät';
+        const name = entity.deviceName || t('automations.wizard.device_without_name');
         if (!groups.has(name)) groups.set(name, []);
         groups.get(name).push(entity);
       }
@@ -619,14 +634,18 @@
       const state = this.conditionState(rule, index);
       const condition = rule.conditions[index] || {};
       if (state === 'novalue' && condition.type === 'sun_window') {
-        return this.hasLocation() ? 'die Sonne geht heute nicht auf oder unter' : 'kein Standort eingestellt';
+        return this.hasLocation() ? t('automations.condition_state.sun_no_event') : t('automations.condition_state.no_location');
       }
-      if (state === 'novalue') return 'kein Wert — Topic unbekannt oder Bilanz veraltet';
-      if (state === 'unmet' && WINDOW_TYPES.has(condition.type)) return 'außerhalb des Zeitfensters';
-      if (state === 'unmet') return 'Schwelle nicht erreicht';
-      const since = report.since ? ` seit ${this.formatSeconds((this.nowTick / 1000) - report.since)}` : '';
-      if (state === 'pending') return `erfüllt${since} — noch ${this.formatSeconds(report.hold_remaining)} Haltedauer`;
-      return `erfüllt${since}`;
+      if (state === 'novalue') return t('automations.condition_state.no_value');
+      if (state === 'unmet' && WINDOW_TYPES.has(condition.type)) return t('automations.condition_state.outside_window');
+      if (state === 'unmet') return t('automations.condition_state.threshold_not_reached');
+      const duration = report.since ? this.formatSeconds((this.nowTick / 1000) - report.since) : null;
+      if (state === 'pending') {
+        const key = duration ? 'automations.condition_state.pending_since' : 'automations.condition_state.pending';
+        return t(key, { duration, remaining: this.formatSeconds(report.hold_remaining) });
+      }
+      if (duration) return t('automations.condition_state.met_since', { duration });
+      return t('automations.condition_state.met');
     },
 
     // Liefert eine Liste von Textbausteinen, keine HTML-Zeichenkette - das
@@ -635,9 +654,9 @@
     gateMeta(rule) {
       const state = this.ruleState(rule);
       if (!state) return [];
-      const parts = [`Sperrzeit ${this.formatSeconds(state.cooldown_remaining)} von ${this.formatSeconds(rule.cooldown_seconds)}`];
-      if (state.fired_at) parts.push(`zuletzt ausgelöst ${window.I18n.formatTime(state.fired_at * 1000)}`);
-      parts.push(`bisher ${state.fire_count || 0}×`);
+      const parts = [t('automations.gate_meta.cooldown', { remaining: this.formatSeconds(state.cooldown_remaining), total: this.formatSeconds(rule.cooldown_seconds) })];
+      if (state.fired_at) parts.push(t('automations.gate_meta.last_fired', { time: window.I18n.formatTime(state.fired_at * 1000) }));
+      parts.push(t('automations.gate_meta.fire_count', { count: state.fire_count || 0 }));
       return parts;
     },
 
@@ -663,8 +682,8 @@
     actionPreview(rule, index) {
       const state = this.ruleState(rule);
       const preview = state && state.actions && state.actions[index];
-      if (!preview) return { blocked: false, text: 'noch keine Vorschau' };
-      if (preview.blocked) return { blocked: true, text: preview.reason || 'blockiert' };
+      if (!preview) return { blocked: false, text: t('automations.action_preview.no_preview') };
+      if (preview.blocked) return { blocked: true, text: preview.reason || t('automations.action_preview.blocked') };
       if (rule.actions[index] && rule.actions[index].type === 'notification') {
         return { blocked: false, text: `„${preview.title || ''}" — ${preview.message || ''}` };
       }
@@ -700,7 +719,7 @@
       });
       if (!base.allowed) return base;
       if (preview.blocked) {
-        return { allowed: true, reason: 'Die Aktion ist blockiert — der Test zeigt nur die Begründung.' };
+        return { allowed: true, reason: t('automations.test.blocked_action') };
       }
       return base;
     },
@@ -711,7 +730,7 @@
       const preview = this.actionPreview(rule, index);
       return {
         required: true,
-        question: `Diese Aktion wird jetzt wirklich ausgeführt:\n\n${preview.text}\n\nFortfahren?`,
+        question: t('automations.test.confirm', { action: preview.text }),
       };
     },
 
@@ -757,7 +776,7 @@
         if (question.required) {
           const confirmed = await this.$store.modal.confirm({
             title: question.question,
-            confirmLabel: 'Test auslösen',
+            confirmLabel: t('automations.test.trigger'),
           });
           if (!confirmed) return;
         }
@@ -766,24 +785,24 @@
       try {
         await requestJSON('/api/v1/automations/test', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
           body: JSON.stringify({ rule_id: rule.id, action_index: index }),
         });
       } catch (error) {
-        this.notify(`Test fehlgeschlagen: ${error.message}`, 'critical');
+        this.notify(t('automations.test.failed', { reason: error.message }), 'critical');
         return;
       }
       const result = await this.awaitTestResult(rule.id, index, sentAt, options);
       if (!result) {
-        this.notify('Keine Rückmeldung vom Automations-Dienst.', 'warning');
+        this.notify(t('automations.test.no_response'), 'warning');
         return;
       }
       if (result.status === 'published') {
-        this.notify(`Test ausgeführt: ${result.topic} → ${result.payload}`, 'info');
+        this.notify(t('automations.test.published', { topic: result.topic, payload: result.payload }), 'info');
       } else if (result.status === 'blocked') {
-        this.notify(`Test blockiert: ${result.reason}`, 'warning');
+        this.notify(t('automations.test.blocked', { reason: result.reason }), 'warning');
       } else {
-        this.notify(`Test fehlgeschlagen: ${result.reason}`, 'critical');
+        this.notify(t('automations.test.error', { reason: result.reason }), 'critical');
       }
     },
 
@@ -793,7 +812,7 @@
 
     addRule() {
       const id = `regel_${Date.now()}`;
-      this.document.rules.push({ id, name: 'Neue Regel', enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
+      this.document.rules.push({ id, name: t('automations.new_rule'), enabled: false, cooldown_seconds: 60, conditions: [], actions: [] });
     },
 
     startRuleWizard() {
@@ -860,9 +879,9 @@
     async removeRule(ruleId) {
       const rule = this.document.rules.find((entry) => entry.id === ruleId);
       const confirmed = await this.$store.modal.confirm({
-        title: `Regel „${(rule && rule.name) || ruleId}" löschen?`,
-        body: 'Die Regel verschwindet aus der Liste und ist mit dem nächsten Speichern endgültig weg.',
-        confirmLabel: 'Löschen',
+        title: t('automations.delete_rule.title', { name: (rule && rule.name) || ruleId }),
+        body: t('automations.delete_rule.body'),
+        confirmLabel: t('common.delete'),
         danger: true,
       });
       if (!confirmed) return;
@@ -874,9 +893,9 @@
       if (rule) rule.enabled = !rule.enabled;
     },
 
-    conditionTypes() { return CONDITION_TYPES; },
-    actionTypes() { return ACTION_TYPES; },
-    fieldHelp(key) { return FIELD_HELP[key] || ''; },
+    conditionTypes() { return CONDITION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint) })); },
+    actionTypes() { return ACTION_TYPES.map((type) => ({ ...type, label: t(type.label), hint: t(type.hint) })); },
+    fieldHelp(key) { return FIELD_HELP[key] ? t(FIELD_HELP[key]) : ''; },
 
     addBalanceCondition(rule) {
       rule.conditions.push({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 800, hysteresis: 100, hold_seconds: 300 });
@@ -891,7 +910,7 @@
                              to: 'sunset', to_offset_min: 0, weekdays: [] });
     },
 
-    weekdayLabels() { return WEEKDAY_LABELS; },
+    weekdayLabels() { return WEEKDAY_LABELS.map((key) => t(key)); },
 
     hasWeekday(condition, day) {
       return (condition.weekdays || []).includes(day);
@@ -948,8 +967,8 @@
       } catch (error) {
         const denied = error && error.code === 1;
         this.$store.toasts.push(denied
-          ? 'Standort nicht freigegeben. Bitte im Browser erlauben oder die Werte von Hand eintragen.'
-          : 'Standort konnte nicht ermittelt werden. Bitte die Werte von Hand eintragen.', 'critical');
+          ? t('automations.geolocation.denied')
+          : t('automations.geolocation.failed'), 'critical');
       } finally {
         this.locating = false;
       }
@@ -1029,20 +1048,33 @@
     },
 
     badgeLabel(result) {
-      return RESULT_LABELS[result] || result;
+      // Use badge keys where the text differs from gate verdicts (E8 requirement)
+      const badgeMap = {
+        fired: 'automations.history_result.fired',
+        conditions_not_met: 'automations.gate.conditions_not_met',
+        hold_pending: 'automations.gate.hold_pending',
+        cooldown: 'automations.badge.cooldown',
+        settling: 'automations.badge.settling',
+        balance_stale: 'automations.badge.balance_stale',
+        blocked: 'automations.history_result.blocked',
+        disabled: 'automations.badge.disabled',
+        error: 'automations.history_result.error',
+      };
+      const key = badgeMap[result];
+      return key ? t(key) : result;
     },
 
     validateRuleBeforeSave(rule) {
       const errors = [];
-      if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(rule.id || '')) errors.push(`Regel ${rule.name}: ungültige ID`);
-      if (!rule.conditions || rule.conditions.length < 1 || rule.conditions.length > 8) errors.push(`Regel ${rule.name}: 1-8 Bedingungen nötig`);
-      if (!rule.actions || rule.actions.length < 1 || rule.actions.length > 8) errors.push(`Regel ${rule.name}: 1-8 Aktionen nötig`);
+      if (!/^[a-z0-9][a-z0-9_-]{0,63}$/.test(rule.id || '')) errors.push(t('automations.validation.invalid_id', { name: rule.name }));
+      if (!rule.conditions || rule.conditions.length < 1 || rule.conditions.length > 8) errors.push(t('automations.validation.condition_count', { name: rule.name }));
+      if (!rule.actions || rule.actions.length < 1 || rule.actions.length > 8) errors.push(t('automations.validation.action_count', { name: rule.name }));
       const hasPublish = (rule.actions || []).some((action) => action.type === 'publish');
       if (hasPublish) {
-        if ((rule.cooldown_seconds || 0) < 30) errors.push(`Regel ${rule.name}: cooldown_seconds muss >= 30 sein (Regel mit Publish-Aktion)`);
+        if ((rule.cooldown_seconds || 0) < 30) errors.push(t('automations.validation.cooldown_too_short', { name: rule.name }));
         for (const condition of rule.conditions || []) {
           if ('hold_seconds' in condition && condition.hold_seconds < 30) {
-            errors.push(`Regel ${rule.name}: hold_seconds muss >= 30 sein (Regel mit Publish-Aktion)`);
+            errors.push(t('automations.validation.hold_seconds_too_short', { name: rule.name }));
           }
         }
       }
@@ -1050,7 +1082,7 @@
         if (condition.type !== 'sun_window') continue;
         const offsets = [condition.from_offset_min, condition.to_offset_min];
         if (offsets.some((offset) => !Number.isInteger(offset) || Math.abs(offset) > 240)) {
-          errors.push(`Regel ${rule.name}: der Versatz zur Sonnenzeit muss eine ganze Zahl zwischen −240 und 240 Minuten sein`);
+          errors.push(t('automations.validation.sun_offset_invalid', { name: rule.name }));
         }
       }
       return errors;
@@ -1060,7 +1092,7 @@
       const errors = (this.document.rules || []).flatMap((rule) => this.validateRuleBeforeSave(rule));
       const settings = this.document.settings || {};
       if (isNumber(settings.latitude) !== isNumber(settings.longitude)) {
-        errors.push('Breiten- und Längengrad bitte nur gemeinsam angeben.');
+        errors.push(t('automations.validation.location_incomplete'));
       }
       return errors;
     },
@@ -1101,10 +1133,10 @@
         }
         const saved = await requestJSON('/api/v1/configurations/automation_rules', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken },
+          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken }, // i18n-ignore
           body: JSON.stringify({ ...this.document, settings: settingsToSave }),
         });
-        this.$store.toasts.push('Gespeichert.');
+        this.$store.toasts.push(t('automations.saved'));
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
         await this.pollRuntimeStatus(saved.checksum);
       } catch (error) {
@@ -1121,11 +1153,11 @@
         intervalMs: this.statusPollMs ?? 1000,
       });
       if (result.state === 'rejected') {
-        this.$store.toasts.push(`abgelehnt: ${window.ConfigStatus.errorText(result.status)}`, 'critical');
+        this.$store.toasts.push(t('automations.save_status.rejected', { reason: window.ConfigStatus.errorText(result.status) }), 'critical');
       } else if (result.state === 'applied') {
-        this.$store.toasts.push('übernommen');
+        this.$store.toasts.push(t('automations.save_status.applied'));
       } else {
-        this.$store.toasts.push('Dienst antwortet nicht', 'warning');
+        this.$store.toasts.push(t('automations.save_status.no_response'), 'warning');
       }
     },
 
