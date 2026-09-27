@@ -1,5 +1,7 @@
 (() => {
-  'use strict';
+  'use strict'; // i18n-ignore
+
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
 
   // Generic JSON-Schema form engine. Extracted from config.page.js so the
   // Systemkonfiguration on the Einstellungsseite renders the same widgets.
@@ -157,7 +159,7 @@
         const reset = document.createElement('button');
         reset.type = 'button';
         reset.className = 'boolean-reset';
-        reset.textContent = 'Zurücksetzen';
+        reset.textContent = t('schema_form.reset');
         reset.hidden = node.dataset.booleanUnset === 'true';
         reset.addEventListener('click', () => {
           control.checked = false;
@@ -347,7 +349,7 @@
     const motionOK = ctx.motionOK || defaultMotionOK;
     if (schema.type === 'object') {
       const node = document.createElement('fieldset');
-      node.className = 'schema-node schema-object';
+      node.className = 'schema-node schema-object'; // i18n-ignore
       node.dataset.schemaType = 'object';
       if (key) node.dataset.schemaKey = key;
       const legend = document.createElement('legend');
@@ -385,7 +387,7 @@
         const optionalGroup = document.createElement('details');
         optionalGroup.className = 'schema-optional-group';
         const summary = document.createElement('summary');
-        summary.textContent = 'Optionale Eigenschaften';
+        summary.textContent = t('schema_form.optional_properties');
         optionalGroup.append(summary, optionalFields);
         node.append(optionalGroup);
       }
@@ -399,7 +401,7 @@
     }
     if (schema.type === 'array') {
       const node = document.createElement('fieldset');
-      node.className = 'schema-node schema-array';
+      node.className = 'schema-node schema-array'; // i18n-ignore
       node.dataset.schemaType = 'array';
       if (key) node.dataset.schemaKey = key;
       const legend = document.createElement('legend');
@@ -423,7 +425,7 @@
         }
         const remove = document.createElement('button');
         remove.type = 'button';
-        remove.textContent = 'Entfernen';
+        remove.textContent = t('schema_form.remove_entry');
         remove.addEventListener('click', () => {
           const finalize = () => {
             item.remove();
@@ -438,7 +440,7 @@
           setTimeout(finalizeOnce, 400);
         });
         header.append(remove);
-        item.append(header, renderNode(ctx, itemSchema, itemValue, 'Eintrag'));
+        item.append(header, renderNode(ctx, itemSchema, itemValue, t('schema_form.entry_label')));
         items.append(item);
         if (animateIn && motionOK()) {
           item.classList.add('is-entering');
@@ -448,7 +450,7 @@
       (Array.isArray(value) ? value : []).forEach(entry => appendItem(entry));
       const addButton = document.createElement('button');
       addButton.type = 'button';
-      addButton.textContent = 'Eintrag hinzufügen';
+      addButton.textContent = t('schema_form.add_entry');
       addButton.addEventListener('click', () => {
         appendItem(undefined, true);
         markDirty();

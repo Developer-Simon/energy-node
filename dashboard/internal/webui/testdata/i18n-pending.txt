@@ -7,10 +7,7 @@ static/js/history-export.js
 static/js/history-recorder.js
 static/js/history-store.js
 static/js/history.js
-static/js/revisions.js
-static/js/schema-form.js
 templates/automations.html
 templates/devicemap.html
 templates/diagnostics.html
-templates/revisions.html
 templates/tiny-tuya.html
