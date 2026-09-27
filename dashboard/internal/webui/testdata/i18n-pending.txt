@@ -1,7 +1,6 @@
 # Files whose UI texts are not in the catalogs yet (localization A3).
 # A migrated file is removed from this list. See literals_test.go.
 static/js/automations.page.js
-static/js/config-status.js
 static/js/config.page.js
 static/js/devicemap.page.js
 static/js/history-exchange.js
@@ -12,7 +11,6 @@ static/js/history.js
 static/js/revisions.js
 static/js/schema-form.js
 templates/automations.html
-templates/config.html
 templates/devicemap.html
 templates/diagnostics.html
 templates/revisions.html

@@ -1,13 +1,13 @@
 {{define "config"}}
 <section id="config-panel" class="panel config-panel" role="tabpanel" aria-labelledby="tab-config" x-bind:class="{ active: activePanel === 'config-panel' }" x-show="activePanel === 'config-panel'" x-data="configPanel()" x-init="load(); initActionBar()">
-  <h2>Konfigurationen</h2>
+  <h2>{{t "config.title"}}</h2>
   <p class="config-meta" id="config-count" x-text="configCount"></p>
   <div id="config-presets-error" class="message error" role="alert" x-cloak x-show="presetsError" x-text="presetsError"></div>
   <div id="config-reload-error" class="message error" role="alert" x-cloak x-show="reloadFailed">
-    <strong>Dienst nicht neu geladen.</strong>
-    <span>Die Datei ist gespeichert, aber der zugehörige Dienst hat die Änderung nicht übernommen. Bis zum nächsten erfolgreichen Neuladen arbeitet er mit dem alten Stand.</span>
+    <strong>{{t "config.reload_failed.title"}}</strong>
+    <span>{{t "config.reload_failed.description"}}</span>
     <code x-text="reloadError"></code>
-    <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading" x-text="reloading ? 'Lade Dienst ...' : 'Erneut versuchen'"></button>
+    <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading" x-text="reloading ? $t('config.reload_failed.retry_loading') : $t('config.reload_failed.retry')"></button>
   </div>
   <div id="config-runtime-status" class="message" role="status" aria-live="polite" x-cloak x-show="runtimeState" x-bind:class="{ error: runtimeState === 'rejected' || runtimeState === 'no_response' }">
     <strong x-text="`Dienststatus: ${runtimeStateLabel}`"></strong>
@@ -15,8 +15,8 @@
     <template x-if="runtimeState === 'rejected'">
       <div>
         <code x-text="runtimeErrorText"></code>
-        <p>Der Dienst läuft mit der vorherigen Konfiguration weiter. Die gespeicherte Datei ist ungültig: entweder die letzte gültige Revision wiederherstellen oder die Konfiguration korrigieren.</p>
-        <button type="button" x-on:click="openRevisions()">Revisionen öffnen</button>
+        <p>{{t "config.runtime_error.description"}}</p>
+        <button type="button" x-on:click="openRevisions()">{{t "config.runtime_error.open_revisions"}}</button>
       </div>
     </template>
   </div>
@@ -27,15 +27,15 @@
        schwebenden Leiste, damit dort genau eine primaere Aktion bleibt. -->
   <details id="config-json" class="config-json">
     <summary class="config-json-summary">
-      <span class="config-json-summary-label">JSON direkt bearbeiten</span>
-      <span class="config-json-dirty" x-cloak x-show="editorDirty">geändert</span>
+      <span class="config-json-summary-label">{{t "config.editor.label"}}</span>
+      <span class="config-json-dirty" x-cloak x-show="editorDirty">{{t "config.editor.dirty"}}</span>
     </summary>
     <div class="config-json-body">
-      <p class="config-json-note">Speichert den Text so, wie er hier steht. Das Formular oben wird danach neu aus der gespeicherten Datei aufgebaut.</p>
-      <textarea id="config-editor" aria-label="JSON-Konfiguration" x-model="editorText"></textarea>
+      <p class="config-json-note">{{t "config.editor.note"}}</p>
+      <textarea id="config-editor" aria-label="{{t "config.editor.aria_label"}}" x-model="editorText"></textarea>
       <div class="config-json-actions">
-        <button id="config-editor-reset" type="button" x-on:click="resetEditor()" x-bind:disabled="!editorDirty">JSON zurücksetzen</button>
-        <button class="primary" id="config-save" type="button" x-on:click="saveEditor()" x-bind:disabled="saving || loading">JSON speichern</button>
+        <button id="config-editor-reset" type="button" x-on:click="resetEditor()" x-bind:disabled="!editorDirty">{{t "config.editor.reset"}}</button>
+        <button class="primary" id="config-save" type="button" x-on:click="saveEditor()" x-bind:disabled="saving || loading">{{t "config.editor.save"}}</button>
       </div>
     </div>
   </details>
@@ -51,16 +51,16 @@
   <div class="config-actionbar-dock" x-bind:class="{ 'is-floating': actionsFloating }">
     <div class="config-actionbar" x-bind:class="{ 'is-compact': actionsCompact }" x-on:click="expandActions()" x-on:focusin="expandActions()">
       <span class="config-actionbar-lead">
-        <select id="config-name" aria-label="Service" x-model="selectedName" x-on:change="loadConfig()"><template x-for="config in configs" x-bind:key="config.name"><option x-bind:value="config.name" x-text="config.label"></option></template></select>
-        <button id="config-load" type="button" x-on:click="loadConfig()" x-bind:disabled="loading || reloading">Laden</button>
+        <select id="config-name" aria-label="{{t "config.service.aria_label"}}" x-model="selectedName" x-on:change="loadConfig()"><template x-for="config in configs" x-bind:key="config.name"><option x-bind:value="config.name" x-text="config.label_key ? $t(config.label_key) : config.label"></option></template></select>
+        <button id="config-load" type="button" x-on:click="loadConfig()" x-bind:disabled="loading || reloading">{{t "config.load"}}</button>
         <span class="config-actionbar-divider" aria-hidden="true"></span>
       </span>
       <span class="config-actionbar-status" x-bind:class="{ 'is-dirty': formDirty, 'is-note': !formDirty && editorDirty }">
         <span class="config-actionbar-dot" aria-hidden="true"></span>
         <span class="config-actionbar-text" x-text="actionStatusText" aria-live="polite"></span>
       </span>
-      <button id="config-form-reset" type="button" class="config-actionbar-secondary" x-on:click="resetForm()" x-bind:disabled="loading || saving">Zurücksetzen</button>
-      <button class="primary" id="config-form-save" type="submit" form="schema-form" x-bind:disabled="saving || loading" x-text="saving ? 'Speichert ...' : 'Speichern'">Speichern</button>
+      <button id="config-form-reset" type="button" class="config-actionbar-secondary" x-on:click="resetForm()" x-bind:disabled="loading || saving">{{t "config.reset"}}</button>
+      <button class="primary" id="config-form-save" type="submit" form="schema-form" x-bind:disabled="saving || loading" x-text="saving ? $t('common.save_loading') : $t('common.save')">{{t "common.save"}}</button>
     </div>
   </div>
   <div class="config-actionbar-sentinel" x-ref="actionSentinel" aria-hidden="true"></div>

@@ -7,12 +7,14 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'config-status.js'), 'utf8');
 
 function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  installI18n(dom.window);
   vm.runInContext(source, dom.getInternalVMContext());
   return dom.window.ConfigStatus;
 }
