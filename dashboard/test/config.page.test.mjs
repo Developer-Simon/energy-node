@@ -25,12 +25,12 @@ const scriptSource = staticJS('config.page.js');
 // Evaluates config.page.js in a fresh jsdom window/VM context and returns the
 // Alpine component instance it registers, without touching Node's real
 // globals (each test gets its own isolated DOM).
-function createConfigPanel() {
+function createConfigPanel({ lang = 'de' } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
-  installI18n(dom.window);
+  installI18n(dom.window, { lang });
   vm.runInContext(schemaFormSource, context);
   vm.runInContext(configStatusSource, context);
   vm.runInContext(scriptSource, context);
@@ -64,6 +64,20 @@ function setControl(node, window, key, value, isCheckbox) {
   control.dispatchEvent(new window.Event('input', { bubbles: true }));
   control.dispatchEvent(new window.Event('change', { bubbles: true }));
 }
+
+test('the save confirmation names the service in the page language', () => {
+  const { component } = createConfigPanel({ lang: 'en' });
+  component.configs = [{ name: 'battery_soc_devices', label: 'Batterie-Ladezustand (SoC)', label_key: 'config.file.battery_soc_devices' }];
+  component.selectedName = 'battery_soc_devices';
+  assert.equal(component.selectedLabel, 'Battery state of charge (SoC)');
+});
+
+test('a configuration without label_key keeps its label', () => {
+  const { component } = createConfigPanel({ lang: 'en' });
+  component.configs = [{ name: 'unmapped_devices', label: 'unmapped_devices' }];
+  component.selectedName = 'unmapped_devices';
+  assert.equal(component.selectedLabel, 'unmapped_devices');
+});
 
 test('readNode saves optional properties the user touched, in the top-level form', () => {
   const { component, window, document } = createConfigPanel();

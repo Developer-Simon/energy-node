@@ -62,6 +62,7 @@
 
     get selectedLabel() {
       const selected = this.configs.find(config => config.name === this.selectedName);
+      if (selected && selected.label_key) return t(selected.label_key);
       return (selected && selected.label) || this.selectedName;
     },
 
