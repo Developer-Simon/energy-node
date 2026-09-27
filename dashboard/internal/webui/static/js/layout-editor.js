@@ -1581,7 +1581,7 @@
       const target = toolbox.querySelector('[data-tb-target]');
       if (target) {
         const page = this.pages?.[this.activePageIndex()];
-        target.textContent = page?.name || t('overview.page.default_name');
+        target.textContent = t('layout_editor.toolbox.drop_hint', {page: page?.name || t('overview.page.default_name')});
       }
       const query = (toolbox.querySelector('[data-tb-search]')?.value || '').trim();
       const cat = catalog(this.devices);

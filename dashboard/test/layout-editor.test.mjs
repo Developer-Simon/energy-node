@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -108,6 +109,7 @@ function loadLayoutPage({ fetchImpl, gridstack = true } = {}) {
 function createEditor(bodyHTML) {
   const dom = new JSDOM(`<!doctype html><html><body>${bodyHTML}</body></html>`, { runScripts: 'outside-only', url: 'http://localhost/' });
   const context = dom.getInternalVMContext();
+  installI18n(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = async () => { throw new Error('fetch should not be called'); };
@@ -153,7 +155,7 @@ const FRAGMENT_MARKUP = `
     <button class="layout-toolbox-tab" type="button" data-tb-tab="entitaeten">Entitäten</button>
   </div>
   <div class="layout-toolbox-list" data-tb-list></div>
-  <div class="layout-toolbox-foot">Klicken oder ziehen — landet auf <b data-tb-target>der aktiven Seite</b>.</div>
+  <div class="layout-toolbox-foot"><span data-tb-target>Klicken oder ziehen — landet auf der aktiven Seite.</span></div>
 </aside>
 <div class="layout-modal-scrim" id="layout-options-modal" data-modal>
   <div class="layout-modal-sheet" role="dialog" aria-modal="true" aria-label="Kartenoptionen">
@@ -2111,7 +2113,7 @@ test('der Fuss der Toolbox nennt die aktive Seite', () => {
   editor.pages = [{id: 'p1', name: 'Keller', groups: [{id: 'g1', items: []}]}];
   editor.activePage = 'p1';
   editor.setToolbox(true);
-  assert.equal(dom.window.document.querySelector('[data-tb-target]').textContent, 'Keller');
+  assert.equal(dom.window.document.querySelector('[data-tb-target]').textContent, 'Klicken oder ziehen — landet auf Keller.');
 });
 
 test('eine Entitaetenliste aus der Toolbox bekommt eine eigene ID', () => {
