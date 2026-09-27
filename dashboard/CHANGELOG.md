@@ -89,6 +89,7 @@
 - **webui:** key the remaining configuration status texts (e2bb345)
 - **webui:** keep the topic no-data text in one key (de81390)
 - **webui:** keep the battery measurement texts in whole sentences (a948e75)
+- **config:** name Trucki devices as IoT sticks (2a16239)
 - **webui:** keep the MQTT reconnect toast one sentence (2a41803)
 - **webui:** use a placeholder in the invalid JSON message (02bc1e7)
 - **webui:** expose storageText and keep settings sentences whole (03cba87)
