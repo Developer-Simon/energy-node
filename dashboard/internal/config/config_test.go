@@ -1,6 +1,7 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -85,15 +86,24 @@ func TestScanAppliesDisplayNamesWithFallbackToFileName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	labels := make(map[string]string, len(documents))
+	docsByName := make(map[string]Document, len(documents))
 	for _, document := range documents {
-		labels[document.Name] = document.Label
+		docsByName[document.Name] = document
 	}
-	if labels["shelly_devices"] != "Shelly Geräte" {
-		t.Fatalf("got label %q for shelly_devices, want the mapped display name", labels["shelly_devices"])
+	shellyDoc := docsByName["shelly_devices"]
+	unmappedDoc := docsByName["unmapped_devices"]
+
+	if shellyDoc.Label != "Shelly Geräte" {
+		t.Fatalf("got label %q for shelly_devices, want the mapped display name", shellyDoc.Label)
 	}
-	if labels["unmapped_devices"] != "unmapped_devices" {
-		t.Fatalf("got label %q for unmapped_devices, want fallback to the file name", labels["unmapped_devices"])
+	if shellyDoc.LabelKey != "config.file.shelly_devices" {
+		t.Fatalf("got LabelKey %q for shelly_devices, want config.file.shelly_devices", shellyDoc.LabelKey)
+	}
+	if unmappedDoc.Label != "unmapped_devices" {
+		t.Fatalf("got label %q for unmapped_devices, want fallback to the file name", unmappedDoc.Label)
+	}
+	if unmappedDoc.LabelKey != "" {
+		t.Fatalf("got LabelKey %q for unmapped_devices, want empty string", unmappedDoc.LabelKey)
 	}
 }
 
@@ -396,5 +406,33 @@ func TestServiceIDForConfig(t *testing.T) {
 	}
 	if _, ok := ServiceIDForConfig("shelly_presets"); ok {
 		t.Error("shelly_presets is no service configuration")
+	}
+}
+
+func TestDisplayNamesCatalogKeysExistInDeCatalog(t *testing.T) {
+	// Read the de.json catalog
+	catalogPath := filepath.Join("..", "webui", "catalogs", "de.json")
+	catalogData, err := os.ReadFile(catalogPath)
+	if err != nil {
+		t.Fatalf("failed to read de.json: %v", err)
+	}
+
+	var catalog map[string]string
+	if err := json.Unmarshal(catalogData, &catalog); err != nil {
+		t.Fatalf("failed to parse de.json: %v", err)
+	}
+
+	// Verify every displayNames key exists in the catalog
+	for fileName, info := range displayNames {
+		if info.key == "" {
+			continue // Skip if no key is set
+		}
+		catalogValue, exists := catalog[info.key]
+		if !exists {
+			t.Errorf("catalog key %q for %q does not exist in de.json", info.key, fileName)
+		}
+		if catalogValue != info.label {
+			t.Errorf("catalog key %q has value %q, want %q", info.key, catalogValue, info.label)
+		}
 	}
 }
