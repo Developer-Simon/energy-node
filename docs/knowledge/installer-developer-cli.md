@@ -1,5 +1,6 @@
 ---
 title: "Installer developer CLI"
+component: installer
 ---
 
 # Installer developer CLI

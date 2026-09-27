@@ -88,4 +88,33 @@ out=$("$doc_versions" "$repo")
 grep -qxF '  "index.md": { version: "v0.10.0", unreleased: true }' <<<"$out" \
   || fail "v0.10.0 should be newer than v0.2.0" "$out"
 
+# A page naming a component in its front matter carries that component's
+# version as of the page's last commit. JSON manifests hold bare semver.
+mkdir -p "$repo/scripts/version" "$repo/services/foo" "$repo/docs/services"
+cat > "$repo/scripts/version/components.json" <<'EOF'
+{"components": [
+  {"id": "service:foo", "label": "Foo", "kind": "service", "version_file": "services/foo/manifest.json"},
+  {"id": "tool", "label": "Tool", "kind": "app", "version_file": "tool/VERSION"}
+]}
+EOF
+echo '{"version": "0.3.1"}' > "$repo/services/foo/manifest.json"
+printf -- '---\ntitle: "Foo"\ncomponent: service:foo\n---\n\n# Foo\n' > "$repo/docs/services/foo.md"
+printf -- '---\ntitle: "Tool"\ncomponent: tool\n---\n' > "$repo/docs/tool.md"
+commit four
+echo '{"version": "0.3.2"}' > "$repo/services/foo/manifest.json"
+commit five
+out=$("$doc_versions" "$repo")
+grep -qxF '  "services/foo.md": { version: "v0.10.0", unreleased: true, component: "Foo service", component_version: "v0.3.1" }' <<<"$out" \
+  || fail "foo.md should carry the Foo service version of its last commit" "$out"
+# A component whose version file did not exist yet adds nothing.
+grep -qxF '  "tool.md": { version: "v0.10.0", unreleased: true }' <<<"$out" \
+  || fail "tool.md should have no component version" "$out"
+
+# An unknown component id fails the build instead of silently dropping it.
+printf -- '---\ncomponent: nope\n---\n' > "$repo/docs/bad.md"
+commit six
+if "$doc_versions" "$repo" >/dev/null 2>&1; then
+  fail "unknown component id should fail"
+fi
+
 echo "PASS: docs pages scripts"

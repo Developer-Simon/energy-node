@@ -1,5 +1,6 @@
 ---
 title: "Battery State of Charge (SoC)"
+component: service:battery_soc
 ---
 
 # Battery State of Charge (SoC)

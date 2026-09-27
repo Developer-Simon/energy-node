@@ -1,3 +1,8 @@
+---
+title: "energy-node Icons for Home Assistant"
+component: ha-icons
+---
+
 # energy-node Icons integration for Home Assistant
 
 The **energy-node Icons** integration is a Home Assistant custom icon set containing eighteen device symbols plus a generic fallback drawn for the energy-node dashboard. Each icon is an outline that Home Assistant fills with your chosen theme color — so an icon adapts to your dashboard's look.
