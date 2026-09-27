@@ -361,6 +361,25 @@ Below that, the content of `/etc/energy-node/config.json` as a generated form,
 same mechanism as the configuration tab. Passwords are never in that file,
 only the paths of the files that hold them.
 
+### Updating from the dashboard
+
+![Update notice in the header](images/dashboard-update-available.png)
+
+When a newer release is out on GitHub, the header shows a notice next to the
+title (`Update … verfügbar`). It links to the release notes. The same notice
+appears under *Settings → System*, next to the button that checks for updates
+on demand (`Nach Updates suchen`).
+
+![Update preview](images/dashboard-update-preview.png)
+
+From that notice, a registered user with the `system_actions` role opens the
+update page (`/redeploy/`). It first downloads the newest signed release
+package for the node's architecture, then shows the same preview as the
+[desktop installer](installer.md#updating-a-node): which components change,
+which services restart, and which services the node runs. **Aktualisieren**
+runs the pending steps on the node itself, without the installer and without
+SSH.
+
 ---
 
 ## Colour schemes
@@ -402,7 +421,9 @@ node dashboard/test/smoke/screenshot.mjs --out /tmp/overview.png
 ```
 
 Add `--theme tageslicht` to the first command for the light theme,
-`--width 390 --height 844` to the second for a phone-sized viewport. The full
+`--width 390 --height 844` to the second for a phone-sized viewport. Add
+`--simulate-package` to the first command for the update screenshots: a fake
+GitHub then offers version 9.9.9 with a small package to download. The full
 option list, the other presets and the fixtures behind them are documented in
 `dashboard/test/smoke/README.md` in the repository.
 
