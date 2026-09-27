@@ -154,7 +154,7 @@
           });
           this.status = result.status || this.status;
           if (result.ok) {
-            this.$store.toasts.push(t('common.saved') + t('mqtt.reconnect_success_suffix'));
+            this.$store.toasts.push(t('mqtt.saved_and_reconnected'));
           } else {
             this.$store.toasts.push(t('mqtt.reconnect_failed', {error: result.error || ''}), 'critical');
           }
