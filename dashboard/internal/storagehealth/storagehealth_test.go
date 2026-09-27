@@ -419,7 +419,7 @@ func TestOSProviderCalibratedEnduranceAppliesToDisplayedEstimate(t *testing.T) {
 	if report.Estimate.AssumedEnduranceTBWMin != 0.5 || report.Estimate.AssumedEnduranceTBWMax != 1.5 {
 		t.Fatalf("expected calibrated endurance bounds, got %#v", report.Estimate)
 	}
-	wantMin, wantMax, wantLabel := consumedPercent(7*512.0, 500_000_000_000.0, 1_500_000_000_000.0)
+	wantMin, wantMax, wantLabel, _, _ := consumedPercent(7*512.0, 500_000_000_000.0, 1_500_000_000_000.0)
 	if report.Estimate.ConsumedPercentMin != wantMin || report.Estimate.ConsumedPercentMax != wantMax || report.Estimate.ConsumedLabel != wantLabel {
 		t.Fatalf("unexpected consumed-percent fields: %#v", report.Estimate)
 	}
@@ -440,7 +440,7 @@ func TestConsumedPercentFormatting(t *testing.T) {
 	}
 	for _, testCase := range cases {
 		t.Run(testCase.name, func(t *testing.T) {
-			min, max, label := consumedPercent(testCase.hostWritesBytes, testCase.enduranceMinBytes, testCase.enduranceMaxBytes)
+			min, max, label, _, _ := consumedPercent(testCase.hostWritesBytes, testCase.enduranceMinBytes, testCase.enduranceMaxBytes)
 			if min != testCase.wantMin || max != testCase.wantMax || label != testCase.wantLabel {
 				t.Fatalf("consumedPercent(%v, %v, %v) = (%v, %v, %q), want (%v, %v, %q)", testCase.hostWritesBytes, testCase.enduranceMinBytes, testCase.enduranceMaxBytes, min, max, label, testCase.wantMin, testCase.wantMax, testCase.wantLabel)
 			}

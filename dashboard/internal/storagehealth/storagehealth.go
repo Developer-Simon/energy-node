@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -38,32 +39,41 @@ type Report struct {
 	PreEOL     *PreEOL   `json:"pre_eol,omitempty"`
 	Estimate   *Estimate `json:"estimate,omitempty"`
 	Reason     string    `json:"reason,omitempty"`
+	ReasonKey  string    `json:"reason_key,omitempty"`
 }
 
 type Estimate struct {
-	HostWritesBytes        uint64  `json:"host_writes_bytes"`
-	HostWritesPerDayBytes  float64 `json:"host_writes_per_day_bytes"`
-	ObservationDays        float64 `json:"observation_days"`
-	SystemUptimeSeconds    float64 `json:"system_uptime_seconds"`
-	AssumedEnduranceTBWMin float64 `json:"assumed_endurance_tbw_min"`
-	AssumedEnduranceTBWMax float64 `json:"assumed_endurance_tbw_max"`
-	RemainingDaysMin       float64 `json:"remaining_days_min,omitempty"`
-	RemainingDaysMax       float64 `json:"remaining_days_max,omitempty"`
-	RemainingLabel         string  `json:"remaining_label"`
-	ConsumedPercentMin     float64 `json:"consumed_percent_min,omitempty"`
-	ConsumedPercentMax     float64 `json:"consumed_percent_max,omitempty"`
-	ConsumedLabel          string  `json:"consumed_label,omitempty"`
-	Method                 string  `json:"method"`
+	HostWritesBytes        uint64            `json:"host_writes_bytes"`
+	HostWritesPerDayBytes  float64           `json:"host_writes_per_day_bytes"`
+	ObservationDays        float64           `json:"observation_days"`
+	SystemUptimeSeconds    float64           `json:"system_uptime_seconds"`
+	AssumedEnduranceTBWMin float64           `json:"assumed_endurance_tbw_min"`
+	AssumedEnduranceTBWMax float64           `json:"assumed_endurance_tbw_max"`
+	RemainingDaysMin       float64           `json:"remaining_days_min,omitempty"`
+	RemainingDaysMax       float64           `json:"remaining_days_max,omitempty"`
+	RemainingLabel         string            `json:"remaining_label"`
+	RemainingKey           string            `json:"remaining_key"`
+	RemainingParams        map[string]any    `json:"remaining_params,omitempty"`
+	ConsumedPercentMin     float64           `json:"consumed_percent_min,omitempty"`
+	ConsumedPercentMax     float64           `json:"consumed_percent_max,omitempty"`
+	ConsumedLabel          string            `json:"consumed_label,omitempty"`
+	ConsumedKey            string            `json:"consumed_key,omitempty"`
+	ConsumedParams         map[string]any    `json:"consumed_params,omitempty"`
+	Method                 string            `json:"method"`
 }
 
 type LifeTime struct {
-	Code  int    `json:"code"`
-	Label string `json:"label"`
+	Code        int            `json:"code"`
+	Label       string         `json:"label"`
+	LabelKey    string         `json:"label_key"`
+	LabelParams map[string]any `json:"label_params,omitempty"`
 }
 
 type PreEOL struct {
-	Code  int    `json:"code"`
-	Label string `json:"label"`
+	Code        int            `json:"code"`
+	Label       string         `json:"label"`
+	LabelKey    string         `json:"label_key"`
+	LabelParams map[string]any `json:"label_params,omitempty"`
 }
 
 type OSProvider struct {
@@ -200,7 +210,7 @@ func cloneReport(report Report) Report {
 func (p *OSProvider) check(ctx context.Context) (Report, error) {
 	device, err := p.rootMMCDevice()
 	if err != nil {
-		return unavailableReport("Das Root-Dateisystem liegt nicht auf einem auslesbaren MMC-Medium."), nil
+		return unavailableReport("Das Root-Dateisystem liegt nicht auf einem auslesbaren MMC-Medium.", "storage_health.reason.no_mmc"), nil
 	}
 
 	now := p.now().UTC()
@@ -392,11 +402,12 @@ func (p *OSProvider) estimate(ctx context.Context, device string, now time.Time,
 	if remainingMax < 0 {
 		remainingMax = 0
 	}
-	consumedMin, consumedMax, consumedLabel := consumedPercent(p.state.AccumulatedHostWriteBytes, enduranceMinBytes, enduranceMaxBytes)
+	consumedMin, consumedMax, consumedLabel, consumedKey, consumedParams := consumedPercent(p.state.AccumulatedHostWriteBytes, enduranceMinBytes, enduranceMaxBytes)
 	method := "Host-Schreiblast seit erster Messung; konservative Annahme 1-3 TBW"
 	if p.state.Calibration != nil && p.state.Calibration.SampleCount > 0 {
 		method = fmt.Sprintf("Host-Schreiblast seit erster Messung; aus %d Herstellermessung(en) kalibrierte Ausdauerannahme", p.state.Calibration.SampleCount)
 	}
+	remainingResult := remainingLabel(remainingMin/writesPerDay, remainingMax/writesPerDay)
 	return &Estimate{
 		HostWritesBytes:        uint64(p.state.AccumulatedHostWriteBytes),
 		HostWritesPerDayBytes:  writesPerDay,
@@ -406,10 +417,14 @@ func (p *OSProvider) estimate(ctx context.Context, device string, now time.Time,
 		AssumedEnduranceTBWMax: enduranceMaxBytes / 1_000_000_000_000.0,
 		RemainingDaysMin:       remainingMin / writesPerDay,
 		RemainingDaysMax:       remainingMax / writesPerDay,
-		RemainingLabel:         remainingLabel(remainingMin/writesPerDay, remainingMax/writesPerDay),
+		RemainingLabel:         remainingResult.Label,
+		RemainingKey:           remainingResult.Key,
+		RemainingParams:        remainingResult.Params,
 		ConsumedPercentMin:     consumedMin,
 		ConsumedPercentMax:     consumedMax,
 		ConsumedLabel:          consumedLabel,
+		ConsumedKey:            consumedKey,
+		ConsumedParams:         consumedParams,
 		Method:                 method,
 	}, nil
 }
@@ -484,9 +499,9 @@ func (p *OSProvider) enduranceBoundsLocked() (min, max float64) {
 // consumedPercent formats the share of the assumed endurance budget that has
 // already been written, mirroring the style of the vendor-reported life-time
 // labels (see lifeTime()).
-func consumedPercent(hostWritesBytes, enduranceMinBytes, enduranceMaxBytes float64) (min, max float64, label string) {
+func consumedPercent(hostWritesBytes, enduranceMinBytes, enduranceMaxBytes float64) (min, max float64, label, key string, params map[string]any) {
 	if enduranceMinBytes <= 0 || enduranceMaxBytes <= 0 {
-		return 0, 0, ""
+		return 0, 0, "", "", nil
 	}
 	min = hostWritesBytes / enduranceMaxBytes * 100
 	max = hostWritesBytes / enduranceMinBytes * 100
@@ -502,7 +517,13 @@ func consumedPercent(hostWritesBytes, enduranceMinBytes, enduranceMaxBytes float
 	if max > 100 {
 		max = 100
 	}
-	return min, max, fmt.Sprintf("ca. %.0f-%.0f %% des Ausdauerbudgets verbraucht", min, max)
+	label = fmt.Sprintf("ca. %.0f-%.0f %% des Ausdauerbudgets verbraucht", min, max)
+	minRounded := math.Round(min)
+	maxRounded := math.Round(max)
+	return min, max, label, "storage_health.consumed", map[string]any{
+		"min": int(minRounded),
+		"max": int(maxRounded),
+	}
 }
 
 func (p *OSProvider) sectorsWritten(device string) (uint64, error) {
@@ -599,11 +620,37 @@ func (p *OSProvider) persistStateLocked(now time.Time) error {
 	return nil
 }
 
-func remainingLabel(minDays, maxDays float64) string {
+type RemainingLabelResult struct {
+	Label  string
+	Key    string
+	Params map[string]any
+}
+
+func remainingLabel(minDays, maxDays float64) RemainingLabelResult {
 	if maxDays < 365 {
-		return fmt.Sprintf("ca. %.0f bis %.0f Tage", minDays, maxDays)
+		minRounded := math.Round(minDays)
+		maxRounded := math.Round(maxDays)
+		label := fmt.Sprintf("ca. %.0f bis %.0f Tage", minRounded, maxRounded)
+		return RemainingLabelResult{
+			Label: label,
+			Key:   "storage_health.remaining.days",
+			Params: map[string]any{
+				"min": int(minRounded),
+				"max": int(maxRounded),
+			},
+		}
 	}
-	return fmt.Sprintf("ca. %.1f bis %.1f Jahre", minDays/365, maxDays/365)
+	minYears := math.Round(minDays/365*10) / 10
+	maxYears := math.Round(maxDays/365*10) / 10
+	label := fmt.Sprintf("ca. %.1f bis %.1f Jahre", minYears, maxYears)
+	return RemainingLabelResult{
+		Label: label,
+		Key:   "storage_health.remaining.years",
+		Params: map[string]any{
+			"min": minYears,
+			"max": maxYears,
+		},
+	}
 }
 
 type ParsedEXTCSD struct {
@@ -706,9 +753,21 @@ func parseHexCode(raw string) (int, bool) {
 func lifeTime(code int) (LifeTime, bool) {
 	switch {
 	case code >= 1 && code <= 10:
-		return LifeTime{Code: code, Label: fmt.Sprintf("%d-%d %% des Ausdauerbudgets verbraucht", (code-1)*10, code*10)}, true
+		label := fmt.Sprintf("%d-%d %% des Ausdauerbudgets verbraucht", (code-1)*10, code*10)
+		from := (code - 1) * 10
+		to := code * 10
+		return LifeTime{
+			Code:        code,
+			Label:       label,
+			LabelKey:    "storage_health.life_time.range",
+			LabelParams: map[string]any{"from": from, "to": to},
+		}, true
 	case code == 11:
-		return LifeTime{Code: code, Label: "Ausdauerbudget überschritten"}, true
+		return LifeTime{
+			Code:     code,
+			Label:    "Ausdauerbudget überschritten",
+			LabelKey: "storage_health.life_time.exceeded",
+		}, true
 	default:
 		return LifeTime{}, false
 	}
@@ -716,15 +775,20 @@ func lifeTime(code int) (LifeTime, bool) {
 
 func preEOL(code int) (PreEOL, bool) {
 	labels := map[int]string{1: "normal", 2: "Warnung", 3: "kritisch"}
+	keys := map[int]string{1: "storage_health.pre_eol.normal", 2: "storage_health.pre_eol.warning", 3: "storage_health.pre_eol.critical"}
 	label, ok := labels[code]
 	if !ok {
 		return PreEOL{}, false
 	}
-	return PreEOL{Code: code, Label: label}, true
+	return PreEOL{Code: code, Label: label, LabelKey: keys[code]}, true
 }
 
-func unavailableReport(reason string) Report {
-	return Report{Available: false, Reason: reason}
+func unavailableReport(reason string, reasonKey ...string) Report {
+	report := Report{Available: false, Reason: reason}
+	if len(reasonKey) > 0 {
+		report.ReasonKey = reasonKey[0]
+	}
+	return report
 }
 
 func unescape(value string) string {
@@ -732,4 +796,26 @@ func unescape(value string) string {
 	value = strings.ReplaceAll(value, `\011`, "\t")
 	value = strings.ReplaceAll(value, `\012`, "\n")
 	return value
+}
+
+// Testable* functions export internal functions for testing.
+
+// TestableLifeTime is exported for testing purposes.
+func TestableLifeTime(code int) (LifeTime, bool) {
+	return lifeTime(code)
+}
+
+// TestablePreEOL is exported for testing purposes.
+func TestablePreEOL(code int) (PreEOL, bool) {
+	return preEOL(code)
+}
+
+// TestableRemainingLabel is exported for testing purposes.
+func TestableRemainingLabel(minDays, maxDays float64) RemainingLabelResult {
+	return remainingLabel(minDays, maxDays)
+}
+
+// TestableConsumedPercent is exported for testing purposes.
+func TestableConsumedPercent(hostWritesBytes, enduranceMinBytes, enduranceMaxBytes float64) (float64, float64, string, string, map[string]any) {
+	return consumedPercent(hostWritesBytes, enduranceMinBytes, enduranceMaxBytes)
 }
