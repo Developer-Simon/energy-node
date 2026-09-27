@@ -29,3 +29,6 @@ APsystems
 Trucki
 Mosquitto
 Raspberry Pi
+iot.tuya.com
+github.com/jasonacox/tinytuya
+pypi.org/project/tinytuya
