@@ -54,15 +54,16 @@ the switcher).
 
 When you write a new UI text, follow these rules:
 
-1. **Use semantic key names** in lowercase, dot-separated: `status.mqtt.connected`, never the German text as a key.
-2. **German text goes into `catalogs/de.json`**, word for word (no corrections yet). English gets `"TODO(en): "` + German.
-3. **Templates:** `{{t "key"}}` for static text, `{{t "key" "name" .Name}}` for parameters.
-4. **Alpine expressions:** `$t('key')` or `$tn('key', n)`, never `{{t}}` in attributes (that breaks as JavaScript).
-5. **JavaScript:** use the file-local helper `const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);`
-6. **Plurals:** use `tn()` with keys ending in `.one` and `.other` instead of hand-written conditionals.
-7. **Composite text:** use placeholders `{name}` instead of string concatenation.
-8. **Technical strings:** CSS classes, error codes, HTTP headers — add `// i18n-ignore` at the line end if the guard flags them.
-9. **Keep both catalogs sorted** after adding new keys.
+1. **Semantic keys:** lowercase, dot-separated, never the German text. Example: `settings.storage_health.title`.
+2. **German text:** must be correct German with real umlauts and „…" quotes, no semicolons, no dashes as connectors. Write English immediately in British English, sentence case. Both languages are ready when you commit.
+3. **Reuse `common.*`:** only for words used identically on several pages (Save, Cancel, Yes, No). Create namespace keys instead (e.g. `settings.title`).
+4. **Dynamically built keys:** add a comment `i18n-keys: status.ok, status.error` listing every possible key so the drift test can check them.
+5. **Go delivers keys:** Go functions give a field `…Key` and optional `…Params map[string]any` alongside the old German field. Templates use `{{t .LabelKey}}` with a comment listing all possible keys.
+6. **One sentence, one key:** never concatenate `t()` results or mix `t()` with other text. Optional parts get their own key variant (e.g. `status.succeeded` and `status.succeeded_by`).
+7. **Plurals:** use `tn('key', n)` with keys ending in `.one` and `.other`. Don't write `n === 1 ? ... : ...` by hand.
+8. **Composite text:** use placeholders `{name}` instead of string concatenation. Pass formatted numbers separately: `tn('x', n, {count: I18n.formatNumber(n)})`.
+9. **Technical strings:** CSS classes, error codes, HTTP headers, event names, storage keys, MQTT topics. If the guard flags them, add `// i18n-ignore` at the line end. Never use `i18n-ignore` for visible text, aria-label counts as visible.
+10. **Keep both catalogs sorted** after adding new keys.
 
 ## Adding a language
 
