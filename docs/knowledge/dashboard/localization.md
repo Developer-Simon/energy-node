@@ -50,6 +50,20 @@ the switcher).
   `i18n-keys: status.ok, status.error` listing every possible key, so the drift
   test can check them.
 
+## Adding a text
+
+When you write a new UI text, follow these rules:
+
+1. **Use semantic key names** in lowercase, dot-separated: `status.mqtt.connected`, never the German text as a key.
+2. **German text goes into `catalogs/de.json`**, word for word (no corrections yet). English gets `"TODO(en): "` + German.
+3. **Templates:** `{{t "key"}}` for static text, `{{t "key" "name" .Name}}` for parameters.
+4. **Alpine expressions:** `$t('key')` or `$tn('key', n)`, never `{{t}}` in attributes (that breaks as JavaScript).
+5. **JavaScript:** use the file-local helper `const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);`
+6. **Plurals:** use `tn()` with keys ending in `.one` and `.other` instead of hand-written conditionals.
+7. **Composite text:** use placeholders `{name}` instead of string concatenation.
+8. **Technical strings:** CSS classes, error codes, HTTP headers — add `// i18n-ignore` at the line end if the guard flags them.
+9. **Keep both catalogs sorted** after adding new keys.
+
 ## Adding a language
 
 Add `dashboard/internal/webui/catalogs/<code>.json` with every key of `de.json`
@@ -76,11 +90,9 @@ and that no English text still starts with `TODO(en): `.
 - **Scripts and Alpine expressions** heuristically: a string literal with an
   umlaut or a German word from the list in `literals_test.go`. A technical
   string that trips it gets `// i18n-ignore` at the end of its line.
-- `testdata/i18n-pending.txt` lists files not migrated yet (removed once the
-  migration is complete).
 
 Listing the findings of a file: `I18N_INVENTORY=static/js/notify.js go test
-./internal/webui/ -run TestNoUntranslatedTextOutsidePendingFiles -v`
+./internal/webui/ -run TestNoUntranslatedUIText -v`
 (`I18N_INVENTORY=all` for everything, `I18N_WIDE=1` also lists sentence-like
 literals without a German feature).
 
