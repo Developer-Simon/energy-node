@@ -562,9 +562,8 @@
     },
 
     measuredAgo(at) {
-      if (!at) return '';
-      const seconds = Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000));
-      return seconds < 90 ? ` (vor ${seconds} s)` : ` (vor ${Math.round(seconds / 60)} min)`; // i18n-ignore
+      if (!at) return null;
+      return Math.max(0, Math.round((Date.now() - new Date(at).getTime()) / 1000));
     },
 
     async refreshTopicSamples() {
@@ -617,15 +616,24 @@
       block.replaceChildren();
       const control = objectNode.querySelector(`[data-schema-key="${key}"] .schema-control`);
       if (!control) return;
-      const fieldLabelKey = key === 'full_v_per_cell' ? 'config.battery.full_threshold_label' : 'config.battery.empty_threshold_label';
-      const fieldLabel = t(fieldLabelKey);
+      const fieldKey = key === 'full_v_per_cell' ? 'config.battery.full_threshold_label' : 'config.battery.empty_threshold_label';
+      const field = t(fieldKey);
       const live = this.batteryLiveState(objectNode);
       const head = document.createElement('div');
       head.className = 'battery-measure-head';
       const caption = document.createElement('span');
-      caption.textContent = live
-        ? t('config.battery.measure_header_live', {fieldLabel, time: this.measuredAgo(live.at)})
-        : t('config.battery.measure_header_no_data', {fieldLabel});
+      if (live) {
+        const seconds = this.measuredAgo(live.at);
+        if (seconds === null) {
+          caption.textContent = t('config.battery.measure_header_live', {field});
+        } else if (seconds < 90) {
+          caption.textContent = t('config.battery.measure_header_live_seconds', {field, n: seconds});
+        } else {
+          caption.textContent = t('config.battery.measure_header_live_minutes', {field, n: Math.round(seconds / 60)});
+        }
+      } else {
+        caption.textContent = t('config.battery.measure_header_no_data', {field});
+      }
       head.append(caption);
       const source = this.batterySampleSource(objectNode, 'state');
       if (live && source && source !== 'live') {
@@ -660,12 +668,12 @@
         const name = document.createElement('span');
         name.textContent = unit.label;
         row.append(name);
-        [['config.battery.measure_raw', values.raw], ['config.battery.measure_corrected', values.corrected]].forEach(([kindKey, value]) => {
+        [['config.battery.measure_apply_raw', values.raw], ['config.battery.measure_apply_corrected', values.corrected]].forEach(([applyKey, value]) => {
           if (value === null) return;
           const button = document.createElement('button');
           button.type = 'button';
           button.className = 'battery-measure-apply';
-          button.textContent = t('config.battery.measure_apply', {kind: t(kindKey), value: window.I18n.formatNumber(value, 3)});
+          button.textContent = t(applyKey, {value: window.I18n.formatNumber(value, 3)});
           button.addEventListener('click', () => {
             control.value = value.toFixed(3);
             // Ohne diese Events bliebe das Feld als "Default" markiert und
@@ -887,7 +895,7 @@
         basePath: () => `/api/v1/configurations/${encodeURIComponent(this.selectedName)}`,
         current: () => this.value,
         reload: () => this.loadConfig(),
-        label: t('revisions.label'),
+        label: t('config.revisions_label'),
       };
     },
   });
