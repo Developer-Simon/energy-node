@@ -2414,3 +2414,40 @@ test('catalog() returns entries with titleKey for card types that translate to t
   assert.equal(deTitle, 'Energie: Energiefluss', 'German title should be correct');
   assert(enTitle.startsWith('TODO(en):'), 'English title should still be TODO placeholder');
 });
+
+test('toolbox renders .layout-toolbox-item buttons with data-add and correct title', () => {
+  const { dom, editor } = createEditorWithFragment(PAGE_GRID(CARD('a', 'device', '1')));
+  editor.cardTypes = CARD_TYPES;
+  editor.pages = [{id: 'p', name: 'Zuhause', groups: [{id: 'g', items: []}]}];
+  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  editor.setToolbox(true);
+
+  // Find toolbox item with data-add attribute
+  const entry = dom.window.document.querySelector('[data-tb-list] .layout-toolbox-item[data-add="0"]');
+  assert(entry, 'should have .layout-toolbox-item[data-add="0"] button');
+  
+  // Check that the title is rendered
+  const title = entry.querySelector('b');
+  assert(title, 'should have <b> with title');
+  assert(title.textContent.length > 0, 'title should not be empty');
+});
+
+test('toolbox renders .layout-toolbox-empty for no matching search', () => {
+  const { dom, editor } = createEditorWithFragment(PAGE_GRID(CARD('a', 'device', '1')));
+  editor.cardTypes = CARD_TYPES;
+  editor.pages = [{id: 'p', name: 'Zuhause', groups: [{id: 'g', items: []}]}];
+  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  editor.setToolbox(true);
+
+  // Simulate search with no results
+  const search = dom.window.document.querySelector('[data-tb-search]');
+  if (search) {
+    search.value = 'xyz_no_match_xyz';
+    search.dispatchEvent(new dom.window.Event('input'));
+  }
+
+  // Find empty state message
+  const empty = dom.window.document.querySelector('[data-tb-list] .layout-toolbox-empty');
+  assert(empty, 'should show .layout-toolbox-empty when no results match');
+  assert(empty.textContent.includes('xyz_no_match_xyz'), 'empty message should include query');
+});

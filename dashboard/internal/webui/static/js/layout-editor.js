@@ -1596,16 +1596,16 @@
       const cat = catalog(this.devices || []);
       const hits = query ? filterCatalog(cat, query) : (cat && cat[this._tbTab]) || [];
       if (!hits.length) {
-        list.innerHTML = `<p class=”layout-toolbox-empty”>${escapeHTML(t('layout_editor.toolbox.no_match', {query}))}</p>`;
+        list.innerHTML = `<p class="layout-toolbox-empty">${escapeHTML(t('layout_editor.toolbox.no_match', {query}))}</p>`;
         list.dataset.hits = '[]';
         return;
       }
       list.innerHTML = hits.map((entry, index) => {
         const title = entry.titleKey ? t(entry.titleKey) : entry.title;
         const desc = entry.descKey ? t(entry.descKey) : (entry.desc || '');
-        return `<button class=”layout-toolbox-item” type=”button” data-add=”${index}”>`
-          + `<span class=”thumb”>${THUMB[entry.type] || THUMB.entity_value}</span>`
-          + `<span class=”tx”><b>${escapeHTML(title)}</b><span>${escapeHTML(desc)}</span></span>`
+        return `<button class="layout-toolbox-item" type="button" data-add="${index}">`
+          + `<span class="thumb">${THUMB[entry.type] || THUMB.entity_value}</span>`
+          + `<span class="tx"><b>${escapeHTML(title)}</b><span>${escapeHTML(desc)}</span></span>`
           + `</button>`;
       }).join('');
       // Klick und Ziehen fuehren zum selben addFromCatalog(); der Klick legt
