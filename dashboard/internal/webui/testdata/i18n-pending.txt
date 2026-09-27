@@ -13,8 +13,6 @@ static/js/layout-editor.js
 static/js/revisions.js
 static/js/schema-form.js
 static/js/settings.page.js
-static/js/systemconfig.page.js
-static/js/tailscale.page.js
 templates/automations.html
 templates/config.html
 templates/devicemap.html
@@ -22,5 +20,4 @@ templates/diagnostics.html
 templates/layout-editor.html
 templates/revisions.html
 templates/settings.html
-templates/tailscale.html
 templates/tiny-tuya.html
