@@ -15,8 +15,7 @@
     {{t "automations.list.offline_message"}}
   </p>
   <p class="sub" x-cloak x-show="!loading && online && lastStateAt">
-    {{t "automations.list.online_since"}}
-    <span x-text="formatSeconds((Date.now() - lastStateAt) / 1000)"></span>.
+    <span x-text="$t('automations.list.online_since', {age: formatSeconds((Date.now() - lastStateAt) / 1000)})"></span>
   </p>
 
   <template x-if="!loading">
@@ -512,12 +511,10 @@
                             </span>
                           </template>
                           <span x-show="action.payload_source === 'balance'">
-                            {{t "automations.action.publish.balance_field"}} <strong x-text="action.field"></strong>
+                            <span x-text="$t('automations.action.publish.balance_field', {field: action.field})"></span>
                           </span>
                           <span x-show="action.payload_source === 'toggle'">
-                            {{t "automations.action.publish.toggle_between"}} <strong x-text="action.payload_on"></strong>
-                            {{t "automations.action.publish.toggle_and"}} <strong x-text="action.payload_off"></strong>
-                            {{t "automations.action.publish.toggle_state_from"}} <span x-text="action.source_topic"></span>)
+                            <span x-text="$t('automations.action.publish.toggle_sentence', {on: action.payload_on, off: action.payload_off, topic: action.source_topic})"></span>
                           </span>
                         </div>
 
