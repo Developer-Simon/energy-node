@@ -40,10 +40,11 @@
     // base.html rendert daraus zusaetzliche .tab.is-page-Knoepfe (x-for).
     // Nach echtem Speichern kommen die Seiten serverseitig und die Liste
     // wird beim naechsten Anstrich leer.
+    // Enthaelt Objekte mit {id, name}.
     extraPages: [],
 
     // Server-gerenderte Seiten-Tabs, die der Editor inzwischen umbenannt oder
-    // geloescht hat.
+    // geloescht hat. Enthaelt Seiten-IDs.
     hiddenPages: [],
     // Genau ein Besitzer fuer das Uebersichts-Fragment: der
     // registry-updated-Zuhoerer in devicesPanel(). Der laedt ueber
@@ -69,19 +70,19 @@
       window.dispatchEvent(new CustomEvent('dashboard-panel-changed', {detail: {panel}}));
     },
 
-    async setActivePage(name) {
+    async setActivePage(id) {
       // Aendert die aktive Layout-Seite und zeigt die Uebersicht an. Ein
       // Seitenwechsel wirft den Editor-Inhalt ebenso um wie ein Tab-Wechsel -
       // darum derselbe Waechter.
       const editor = window.__layoutEditor__;
-      if (editor && editor.unsaved && name !== this.activePage && !(await editor.confirmLeave('tab'))) return;
-      this.activePage = name;
+      if (editor && editor.unsaved && id !== this.activePage && !(await editor.confirmLeave('tab'))) return;
+      this.activePage = id;
       this.setActivePanel('overview-panel');
       // Die Seite steckt im server-gerenderten Fragment, nicht in einer
       // CSS-Klasse: ohne diesen Anstoss bliebe nach dem Tab-Klick genau
       // dieselbe Seite stehen. devicesPanel() hoert darauf und laedt
       // #overview-live mit dem neuen page= nach.
-      window.dispatchEvent(new CustomEvent('layout-page-changed', {detail: {page: name}}));
+      window.dispatchEvent(new CustomEvent('layout-page-changed', {detail: {page: id}}));
     },
 
     initWidePanels() {
@@ -197,16 +198,17 @@
       // hier auch im Zustand.
       if (!this.activePage && this._basePages.length) this.activePage = this._basePages[0];
       document.addEventListener('layout-pages-changed', event => {
-        const names = event.detail?.pages || [];
-        this.extraPages = names.filter(name => name && !this._basePages.includes(name));
-        // Umbenennen und Loeschen: ein server-gerenderter Tab, dessen Name in
+        const pages = event.detail?.pages || [];
+        const pageIds = pages.map(p => p.id);
+        this.extraPages = pages.filter(page => page.id && !this._basePages.includes(page.id));
+        // Umbenennen und Loeschen: ein server-gerenderter Tab, dessen ID in
         // der gemeldeten Liste fehlt, gehoert nicht mehr in die Leiste. Ohne
         // das stuenden nach einem Umbenennen alter und neuer Name nebeneinander.
-        this.hiddenPages = this._basePages.filter(name => !names.includes(name));
+        this.hiddenPages = this._basePages.filter(id => !pageIds.includes(id));
         // Der Editor sagt, welche Seite gemeint ist. Ohne Angabe bleibt die
         // alte Vermutung "die zuletzt hinzugekommene".
         if (event.detail?.active) this.activePage = event.detail.active;
-        else if (this.extraPages.length) this.activePage = this.extraPages[this.extraPages.length - 1];
+        else if (this.extraPages.length) this.activePage = this.extraPages[this.extraPages.length - 1].id;
       });
 
       // Die Huelle muss auch ohne EventSource erreichbar sein (der Waechter

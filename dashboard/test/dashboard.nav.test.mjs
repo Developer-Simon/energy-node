@@ -104,9 +104,9 @@ test('layout-pages-changed nimmt nur wirklich neue Seiten in extraPages auf', ()
   `);
   component.init();
   window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
-    detail: {pages: ['Zuhause', 'Werkstatt', 'Garten']},
+    detail: {pages: [{id: 'Zuhause', name: 'Zuhause'}, {id: 'Werkstatt', name: 'Werkstatt'}, {id: 'Garten', name: 'Garten'}]},
   }));
-  assert.deepEqual(component.extraPages, ['Garten']);
+  assert.deepEqual(component.extraPages, [{id: 'Garten', name: 'Garten'}]);
   assert.equal(component.activePage, 'Garten');
 });
 
@@ -119,12 +119,12 @@ test('eine umbenannte Seite ersetzt ihren Tab, statt einen zweiten zu erzeugen',
   `);
   component.init();
   window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
-    detail: {pages: ['Keller', 'Werkstatt'], active: 'Keller'},
+    detail: {pages: [{id: 'Zuhause', name: 'Keller'}, {id: 'Werkstatt', name: 'Werkstatt'}], active: 'Zuhause'},
   }));
 
-  assert.deepEqual(component.extraPages, ['Keller']);
-  assert.deepEqual([...component.hiddenPages], ['Zuhause'], 'der alte Tab verschwindet');
-  assert.equal(component.activePage, 'Keller');
+  assert.deepEqual(component.extraPages, []);
+  assert.deepEqual([...component.hiddenPages], [], 'beide Seiten sind bekannt; der alte Name ist nur umbenannt');
+  assert.equal(component.activePage, 'Zuhause');
 });
 
 test('layout-pages-changed folgt der gemeldeten aktiven Seite', () => {
@@ -134,7 +134,7 @@ test('layout-pages-changed folgt der gemeldeten aktiven Seite', () => {
   `);
   component.init();
   window.document.dispatchEvent(new window.CustomEvent('layout-pages-changed', {
-    detail: {pages: ['Werkstatt'], active: 'Werkstatt'},
+    detail: {pages: [{id: 'Werkstatt', name: 'Werkstatt'}], active: 'Werkstatt'},
   }));
 
   assert.deepEqual([...component.hiddenPages], ['Zuhause'], 'die geloeschte Seite verschwindet');

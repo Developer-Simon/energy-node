@@ -9,6 +9,7 @@
     return body;
   };
   const newID = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
 
   // GridStack's default renderCB writes node.content via textContent (plain
   // text, XSS-safe by construction but useless for our interactive widgets).
@@ -749,7 +750,7 @@
     loading: false,
     saving: false,
     unsaved: false,
-    // Name der Seite, die die Uebersicht gerade rendert. Beim Mounten aus dem
+    // ID der Seite, die die Uebersicht gerade rendert. Beim Mounten aus dem
     // gerenderten [data-layout-page] uebernommen, danach vom Seiten-Modal
     // gepflegt.
     activePage: '',
@@ -1578,7 +1579,10 @@
       // ein fester Beispieltext aus dem Entwurf; jetzt nennt er die Seite, auf
       // der man wirklich gerade steht.
       const target = toolbox.querySelector('[data-tb-target]');
-      if (target) target.textContent = this.activePage || 'Übersicht';
+      if (target) {
+        const page = this.pages?.[this.activePageIndex()];
+        target.textContent = page?.name || t('overview.page.default_name');
+      }
       const query = (toolbox.querySelector('[data-tb-search]')?.value || '').trim();
       const cat = catalog(this.devices);
       const hits = query ? filterCatalog(cat, query) : (cat[this._tbTab] || []);
@@ -1860,30 +1864,30 @@
       grid.removeWidget(el);
     },
 
-    // Index der aktiven Seite; faellt auf die erste zurueck, wenn der Name
+    // Index der aktiven Seite; faellt auf die erste zurueck, wenn die ID
     // nicht (mehr) passt.
     activePageIndex() {
-      const at = (this.pages || []).findIndex(page => page.name === this.activePage);
+      const at = (this.pages || []).findIndex(page => page.id === this.activePage);
       return at < 0 ? 0 : at;
     },
 
     // Welche Layout-Seite ist gemeint? Gewaehlt wird sie in der Tab-Leiste
     // (dashboardShell.activePage), gerendert hat sie der Server in
-    // [data-layout-page]. Bis 2026-09 uebernahm mount() den Namen nur beim
+    // [data-layout-page]. Bis 2026-09 uebernahm mount() die ID nur beim
     // allerersten Mal ("this.activePage || ..."); nach einem Seitenwechsel
     // zeigte der Editor darum weiter auf die alte Seite - "Seite bearbeiten"
     // benannte die falsche um, und neue Bausteine landeten auf ihr.
     //
     // Auseinanderlaufen duerfen die beiden trotzdem: eine mit "+ Seite"
-    // angelegte Seite kennt der Server noch nicht und liefert auf ihren Namen
+    // angelegte Seite kennt der Server noch nicht und liefert auf ihrer ID
     // die erste gespeicherte zurueck. Dann rendert der Editor sie selbst.
     syncActivePage() {
       const host = document.querySelector('[data-layout-page]');
       const chosen = window.__dashboardShell__?.activePage
         || host?.dataset.layoutPage
-        || this.pages?.[0]?.name || '';
-      const known = !this.pages?.length || this.pages.some(page => page.name === chosen);
-      this.activePage = known ? chosen : (host?.dataset.layoutPage || this.pages[0].name);
+        || this.pages?.[0]?.id || '';
+      const known = !this.pages?.length || this.pages.some(page => page.id === chosen);
+      this.activePage = known ? chosen : (host?.dataset.layoutPage || this.pages[0]?.id || '');
       if (host && this.pages?.length && host.dataset.layoutPage !== this.activePage) this.renderLocalPage();
     },
 
@@ -1907,7 +1911,7 @@
         host = document.createElement('div');
         grid.appendChild(host);
       }
-      host.dataset.layoutPage = page.name;
+      host.dataset.layoutPage = page.id;
       host.textContent = '';
       this.editItems = this.editItems || new Map();
       for (const group of page.groups || []) {
@@ -1949,7 +1953,7 @@
     // sonst zeigte die Leiste den alten und den neuen Namen nebeneinander.
     announcePages() {
       document.dispatchEvent(new CustomEvent('layout-pages-changed', {
-        detail: {pages: this.pages.map(page => page.name), active: this.activePage},
+        detail: {pages: this.pages.map(page => ({id: page.id, name: page.name})), active: this.activePage},
       }));
     },
 
@@ -1957,9 +1961,9 @@
       const scrim = document.getElementById('layout-page-modal');
       const page = this.pages?.[this.activePageIndex()];
       if (!scrim || !page) return;
-      this.activePage = page.name;
+      this.activePage = page.id;
       const input = scrim.querySelector('[data-page-name]');
-      if (input) input.value = page.name;
+      if (input) input.value = page.name || t('overview.page.default_name');
       // Die letzte Seite bleibt: ohne Seite gaebe es nach Spec 4.3 keinen
       // Editieren-Knopf mehr und damit keinen Weg zurueck in den Editor.
       const remove = scrim.querySelector('[data-page-remove]');
@@ -1973,13 +1977,17 @@
 
     renamePage(value) {
       const name = String(value ?? '').trim();
-      if (!name) return;
       const page = this.pages?.[this.activePageIndex()];
-      if (!page || page.name === name) return;
-      page.name = name;
-      this.activePage = name;
-      const host = document.querySelector('[data-layout-page]');
-      if (host) host.dataset.layoutPage = name;
+      if (!page) return;
+      // Ein leerer Name wird nur akzeptiert, wenn der Nutzer bewusst den
+      // Default-Namen eingibt - dann wird er gespeichert als empty string.
+      // Alles andere bleibt unberuehrt.
+      if (!name && name !== t('overview.page.default_name')) return;
+      const newName = (name === t('overview.page.default_name')) ? '' : name;
+      if (page.name === newName) return;
+      page.name = newName;
+      this.activePage = page.id;
+      // host.dataset.layoutPage aendert sich nicht - es ist die ID, nicht der Name.
       this.announcePages();
       this.markUnsaved();
     },
@@ -1995,7 +2003,7 @@
     removeActivePage() {
       if ((this.pages?.length || 0) < 2) return;
       this.removePage(this.activePageIndex());
-      this.activePage = this.pages[0]?.name || '';
+      this.activePage = this.pages[0]?.id || '';
       // Im Raster stehen noch die Kacheln der geloeschten Seite - der Server
       // weiss von ihr ja nichts. Das Nachziehen macht der Editor selbst.
       this.renderLocalPage();
@@ -2006,15 +2014,16 @@
 
     // Die neue Seite kommt gleich mit einer Gruppe: ohne die haette
     // addFromCatalog() nichts, woran es die erste Kachel haengt. Der Name wird
-    // durchnummeriert, damit zwei neue Seiten nicht denselben Tab teilen -
-    // die Tab-Leiste fuehrt Seiten ueber ihren Namen.
+    // mit 'Neue Seite' durchnummeriert, damit zwei neue Seiten nicht denselben
+    // Tab teilen - die Tab-Leiste fuehrt Seiten ueber ihre ID.
     addPage() {
       let name = 'Neue Seite';
       for (let n = 2; this.pages.some(page => page.name === name); n++) name = `Neue Seite ${n}`;
-      this.pages.push({id: newID('page'), name, order: this.pages.length, groups: [{id: newID('group'), name: 'Dashboard', items: []}]});
-      this.activePage = name;
-      // Der Server kennt die Seite noch nicht - ein Fragment-Aufruf mit ihrem
-      // Namen brachte die erste gespeicherte zurueck. Also selbst rendern.
+      const newPageId = newID('page');
+      this.pages.push({id: newPageId, name, order: this.pages.length, groups: [{id: newID('group'), name: 'Dashboard', items: []}]});
+      this.activePage = newPageId;
+      // Der Server kennt die Seite noch nicht - ein Fragment-Aufruf mit ihrer
+      // ID brachte die erste gespeicherte zurueck. Also selbst rendern.
       this.renderLocalPage();
       this.markUnsaved();
     },

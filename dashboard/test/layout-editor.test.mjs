@@ -1489,7 +1489,7 @@ test('nach Speichern & schliessen laesst sich die Toolbox in der naechsten Sitzu
 // Die Uebersicht rendert die aktive Seite in einen [data-layout-page]-Traeger;
 // die Fixtures bilden das ab, damit sie dieselbe DOM-Form pruefen, die
 // overview.html tatsaechlich erzeugt.
-const PAGE_GRID = cards => `<div class="layout-grid"><div data-layout-page="Zuhause">${cards}</div></div>`;
+const PAGE_GRID = cards => `<div class="layout-grid"><div data-layout-page="p">${cards}</div></div>`;
 const CARD = (id, kind, span) =>
   `<div class="layout-grid-item layout-grid-item-${span}" data-layout-item-id="${id}" data-layout-item-kind="${kind}"></div>`;
 
@@ -1530,12 +1530,12 @@ test('unmount() gibt die Kachel unveraendert zurueck', () => {
   const { dom } = createEditor(PAGE_GRID(CARD('a', 'device', '1')));
   const card = dom.window.document.querySelector('.layout-grid-item');
   const classesBefore = card.className;
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
 
   assert.equal(card.className, classesBefore, 'die Klassenliste ist wieder die alte');
   assert.equal(card.querySelector('.layout-card-chrome, .layout-resize-grip'), null);
-  assert.equal(card.parentElement.getAttribute('data-layout-page'), 'Zuhause', 'die Kachel haengt noch in der Seite');
+  assert.equal(card.parentElement.getAttribute('data-layout-page'), 'p', 'die Kachel haengt noch in der Seite');
 });
 
 test('ausgeblendete Kacheln der aktiven Seite stehen im Editor, im Ansichtsmodus nicht', () => {
@@ -1913,7 +1913,7 @@ function editorWithPages(names) {
     id: `p${i}`, name, order: i,
     groups: [{id: `g${i}`, name: 'Dashboard', items: []}],
   }));
-  built.editor.activePage = names[0];
+  built.editor.activePage = `p0`;
   document.dispatchEvent(new built.dom.window.CustomEvent('layout-editor:mount'));
   return built;
 }
@@ -1929,7 +1929,7 @@ test('das Seiten-Modal zeigt den Namen der aktiven Seite', () => {
 test('Umbenennen schreibt den Namen nach this.pages und meldet es der Navigation', () => {
   const { dom, editor } = editorWithPages(['Zuhause', 'Werkstatt']);
   let announced = null;
-  document.addEventListener('layout-pages-changed', event => { announced = event.detail.pages; });
+  dom.window.document.addEventListener('layout-pages-changed', event => { announced = event.detail.pages; });
   editor.openPageOptions();
 
   const input = dom.window.document.querySelector('[data-page-name]');
@@ -1937,8 +1937,12 @@ test('Umbenennen schreibt den Namen nach this.pages und meldet es der Navigation
   input.dispatchEvent(new dom.window.Event('input', {bubbles: true}));
 
   assert.equal(editor.pages[0].name, 'Keller');
-  assert.equal(editor.activePage, 'Keller', 'die aktive Seite heisst jetzt auch so');
-  assert.deepEqual(announced, ['Keller', 'Werkstatt']);
+  assert.equal(editor.activePage, 'p0', 'die aktive Seite ist weiterhin die ID');
+  assert.ok(announced && announced.length === 2);
+  assert.equal(announced[0].id, 'p0');
+  assert.equal(announced[0].name, 'Keller');
+  assert.equal(announced[1].id, 'p1');
+  assert.equal(announced[1].name, 'Werkstatt');
   assert.equal(editor.unsaved, true);
 });
 
@@ -1973,7 +1977,7 @@ test('Loeschen entfernt die Seite und schaltet auf die erste um', () => {
   editor.openPageOptions();
   dom.window.document.querySelector('[data-page-remove]').click();
   assert.deepEqual(editor.pages.map(page => page.name), ['Werkstatt']);
-  assert.equal(editor.activePage, 'Werkstatt');
+  assert.equal(editor.activePage, 'p1');
   assert.equal(dom.window.document.getElementById('layout-page-modal').classList.contains('open'), false);
 });
 
@@ -2017,9 +2021,9 @@ test('eine neue Seite bekommt eine Gruppe und nimmt die Bausteine auf', () => {
 
   dom.window.document.querySelector('[data-addpage]').click();
   assert.equal(editor.pages.length, 2);
-  assert.equal(editor.activePage, 'Neue Seite');
+  assert.equal(editor.activePage, editor.pages[1].id);
   const host = dom.window.document.querySelector('[data-layout-page]');
-  assert.equal(host.dataset.layoutPage, 'Neue Seite');
+  assert.equal(host.dataset.layoutPage, editor.pages[1].id);
   assert.equal(host.children.length, 0, 'die neue Seite startet leer');
 
   editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
@@ -2042,19 +2046,19 @@ test('mount() uebernimmt die Seite der Tab-Leiste, auch beim zweiten Mal', () =>
   const { dom, editor } = createEditorWithFragment(PAGE_GRID(CARD('a', 'device', '1')));
   editor.cardTypes = CARD_TYPES;
   editor.pages = [
-    {id: 'p1', name: 'Zuhause', groups: [{id: 'g1', items: [{id: 'a', type: 'device', ref: 'x', span: '1', visible: true}]}]},
+    {id: 'p', name: 'Zuhause', groups: [{id: 'g1', items: [{id: 'a', type: 'device', ref: 'x', span: '1', visible: true}]}]},
     {id: 'p2', name: 'Keller', groups: [{id: 'g2', items: []}]},
   ];
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
-  assert.equal(editor.activePage, 'Zuhause');
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  assert.equal(editor.activePage, 'p');
 
   // Der Seitenwechsel: die Tab-Leiste waehlt, der Server liefert das
   // Fragment, danach montiert die Huelle den Editor neu.
-  dom.window.__dashboardShell__ = {activePage: 'Keller'};
-  dom.window.document.querySelector('[data-layout-page]').dataset.layoutPage = 'Keller';
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
-  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
-  assert.equal(editor.activePage, 'Keller');
+  dom.window.__dashboardShell__ = {activePage: 'p2'};
+  dom.window.document.querySelector('[data-layout-page]').dataset.layoutPage = 'p2';
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:unmount'));
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  assert.equal(editor.activePage, 'p2');
 
   editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
   assert.equal(editor.pages[1].groups[0].items.length, 1, 'der Baustein landet auf der gewaehlten Seite');
@@ -2084,7 +2088,7 @@ test('der Fuss der Toolbox nennt die aktive Seite', () => {
   const { dom, editor } = createEditorWithFragment(PAGE_GRID(''));
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
   editor.pages = [{id: 'p1', name: 'Keller', groups: [{id: 'g1', items: []}]}];
-  editor.activePage = 'Keller';
+  editor.activePage = 'p1';
   editor.setToolbox(true);
   assert.equal(dom.window.document.querySelector('[data-tb-target]').textContent, 'Keller');
 });
@@ -2127,9 +2131,9 @@ test('dieselbe Karte auf zwei Seiten teilt sich keine ID', () => {
   ];
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
 
-  editor.activePage = 'Zuhause';
+  editor.activePage = 'p1';
   const first = editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
-  editor.activePage = 'Keller';
+  editor.activePage = 'p2';
   const second = editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});
 
   assert.notEqual(first.id, second.id);
@@ -2147,7 +2151,7 @@ test('die erste Seite im Leerzustand bekommt einen Traeger im Raster', () => {
 
   const host = dom.window.document.querySelector('.layout-grid [data-layout-page]');
   assert.ok(host, 'ohne Traeger haette die neue Seite keinen Platz fuer Kacheln');
-  assert.equal(host.dataset.layoutPage, 'Neue Seite');
+  assert.equal(host.dataset.layoutPage, editor.pages[0].id);
   assert.equal(dom.window.document.querySelector('.panel-empty'), null);
 
   editor.addFromCatalog({id: 'diagnostics', type: 'diagnostics', title: 'Diagnosen'});

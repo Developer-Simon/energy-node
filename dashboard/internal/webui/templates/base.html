@@ -114,11 +114,11 @@
     {{/* Im Editor mit "+ Seite" angelegte Seiten erscheinen sofort als Tab,
          noch vor dem Speichern. Nach echtem Speichern kommen sie serverseitig
          aus dem range ueber .Layout.Pages und extraPages wird geleert. */}}
-    <template x-for="name in extraPages" x-bind:key="name">
+    <template x-for="page in extraPages" x-bind:key="page.id">
       <button class="tab is-page is-fresh" role="tab" aria-controls="overview-panel" type="button"
-              x-bind:data-page-id="name"
-              x-bind:class="{ active: activePanel === 'overview-panel' && activePage === name }"
-              x-on:click="setActivePage(name)"><i></i><span x-text="name"></span></button>
+              x-bind:data-page-id="page.id"
+              x-bind:class="{ active: activePanel === 'overview-panel' && activePage === page.id }"
+              x-on:click="setActivePage(page.id)"><i></i><span x-text="page.name || $t('overview.page.default_name')"></span></button>
     </template>
     <span class="tab-divider" aria-hidden="true"></span>
     {{/* Der feste Uebersicht-Tab ist nur der Rueckweg, solange es keine
