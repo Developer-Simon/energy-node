@@ -38,11 +38,11 @@
     return 'applied';
   }
 
-  const label = state => t(LABELS[state]) || '';
+  const label = state => LABELS[state] ? t(LABELS[state]) : '';
 
   function errorText(status) {
     if (!status) return '';
-    return t(ERROR_TEXTS[status.error_code]) || status.error || '';
+    return ERROR_TEXTS[status.error_code] ? t(ERROR_TEXTS[status.error_code]) : (status.error || '');
   }
 
   const defaultSleep = ms => new Promise(resolve => setTimeout(resolve, ms));

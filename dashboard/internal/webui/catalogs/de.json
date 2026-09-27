@@ -151,6 +151,8 @@
   "config.reset": "Zurücksetzen",
   "config.runtime_error.description": "Der Dienst läuft mit der vorherigen Konfiguration weiter. Die gespeicherte Datei ist ungültig: entweder die letzte gültige Revision wiederherstellen oder die Konfiguration korrigieren.",
   "config.runtime_error.open_revisions": "Revisionen öffnen",
+  "config.runtime_status.active_revision": "Aktive Revision {revision}.",
+  "config.runtime_status.label": "Dienststatus: {state}",
   "config.service.aria_label": "Service",
   "config.status.applied": "Übernommen",
   "config.status.no_response": "Dienst antwortet nicht",

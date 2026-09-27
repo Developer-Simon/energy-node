@@ -72,3 +72,10 @@ test('battery error codes have German texts', () => {
     assert.doesNotMatch(S.ERROR_TEXTS[code], /;/, 'no semicolons in UI texts');
   }
 });
+
+test('unknown error_code falls back to status.error', () => {
+  const S = load();
+  assert.equal(S.errorText({ error: 'custom error message', error_code: 'unknown_code' }), 'custom error message');
+  assert.equal(S.errorText({ error_code: 'unknown_code' }), '');
+  assert.equal(S.errorText(null), '');
+});

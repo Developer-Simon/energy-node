@@ -10,8 +10,8 @@
     <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading" x-text="reloading ? $t('config.reload_failed.retry_loading') : $t('config.reload_failed.retry')"></button>
   </div>
   <div id="config-runtime-status" class="message" role="status" aria-live="polite" x-cloak x-show="runtimeState" x-bind:class="{ error: runtimeState === 'rejected' || runtimeState === 'no_response' }">
-    <strong x-text="`Dienststatus: ${runtimeStateLabel}`"></strong>
-    <span x-show="runtimeState === 'applied' && appliedRevisionShort" x-text="`Aktive Revision ${appliedRevisionShort}.`"></span>
+    <strong x-text="$t('config.runtime_status.label', {state: runtimeStateLabel})"></strong>
+    <span x-show="runtimeState === 'applied' && appliedRevisionShort" x-text="$t('config.runtime_status.active_revision', {revision: appliedRevisionShort})"></span>
     <template x-if="runtimeState === 'rejected'">
       <div>
         <code x-text="runtimeErrorText"></code>
