@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
+import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const configStatusSource = fs.readFileSync(
@@ -24,6 +25,7 @@ const scriptSource = fs.readFileSync(
 function createAutomationsPanel() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   const context = dom.getInternalVMContext();
+  installI18n(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
@@ -963,7 +965,8 @@ test('save frischt den Geraetekatalog auf, bevor es die Auto-Praefixe bildet', a
 // --- Typ-Kacheln und Hilfetexte -------------------------------------------
 
 test('CONDITION_TYPES liefert genau die vier anbietbaren Bedingungstypen', () => {
-  const types = view().CONDITION_TYPES;
+  const { component } = createAutomationsPanel();
+  const types = component.conditionTypes();
   // Spread statt direktem .map()-Vergleich: das Array kommt aus dem vm-Sandbox-
   // Realm der Komponente, deepEqual vergleicht sonst auch das Array-Prototyp.
   assert.deepEqual([...types.map((entry) => entry.key)], ['balance', 'entity', 'time', 'sun']);
@@ -975,7 +978,8 @@ test('CONDITION_TYPES liefert genau die vier anbietbaren Bedingungstypen', () =>
 });
 
 test('ACTION_TYPES markiert den rohen MQTT-Befehl als fortgeschritten', () => {
-  const types = view().ACTION_TYPES;
+  const { component } = createAutomationsPanel();
+  const types = component.actionTypes();
   assert.deepEqual([...types.map((entry) => entry.key)], ['entity', 'notify', 'mqtt']);
   assert.equal(types.find((entry) => entry.key === 'mqtt').advanced, true);
   assert.equal(types.find((entry) => entry.key === 'entity').advanced, false);
