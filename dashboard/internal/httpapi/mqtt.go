@@ -52,7 +52,7 @@ func ResolveMQTTConfig(store *settings.Store, credentials *mqttclient.Credential
 	return base, "config", nil
 }
 
-func requireRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager, role, code, message string) bool {
+func requireRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager, role, code, key, message string) bool {
 	if manager == nil {
 		writeError(w, http.StatusNotImplemented, "authentication_unavailable", "Anmeldung ist nicht konfiguriert")
 		return false
@@ -63,7 +63,7 @@ func requireRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager, 
 		return false
 	}
 	if !auth.HasRole(user, role) {
-		writeError(w, http.StatusForbidden, code, message)
+		writeErrorKey(w, http.StatusForbidden, code, key, nil, message)
 		return false
 	}
 	return true
@@ -145,7 +145,7 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 				PasswordConfigured:  mqttPasswordConfigured(credentials),
 			})
 		case http.MethodPut:
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Einstellungen fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.settings", "Für MQTT-Einstellungen fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -182,7 +182,7 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 			methodNotAllowed(w, http.MethodPut)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Einstellungen fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.settings", "Für MQTT-Einstellungen fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -227,7 +227,7 @@ func handleMQTTNodeSettings(store *settings.Store, authManager *auth.Manager, pu
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Einstellungen fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.settings", "Für MQTT-Einstellungen fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -285,7 +285,7 @@ func handleMQTTCredentials(credentials *mqttclient.CredentialStore, authManager 
 			writeError(w, http.StatusNotImplemented, "mqtt_unavailable", "MQTT-Zugangsdaten sind nicht verfügbar")
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Zugangsdaten fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.credentials", "Für MQTT-Zugangsdaten fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -345,7 +345,7 @@ func handleMQTTTest(credentials *mqttclient.CredentialStore, authManager *auth.M
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für den Verbindungstest fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.test", "Für den Verbindungstest fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -406,7 +406,7 @@ func handleMQTTReconnect(store *settings.Store, credentials *mqttclient.Credenti
 			writeError(w, http.StatusNotImplemented, "mqtt_unavailable", "MQTT-Reconnect ist nicht verfügbar")
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für den Reconnect fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.reconnect", "Für den Reconnect fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {

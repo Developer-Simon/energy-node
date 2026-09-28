@@ -170,7 +170,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.config", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -200,7 +200,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			}
 			writeJSON(w, payload)
 		case http.MethodPut:
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.config", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -254,7 +254,7 @@ func handleBridgeCredentials(credentials *mqttclient.CredentialStore, authManage
 			writeError(w, http.StatusNotImplemented, "bridge_unavailable", "Bridge-Zugangsdaten sind nicht verfügbar")
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für Bridge-Zugangsdaten fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.credentials", "Für Bridge-Zugangsdaten fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -347,10 +347,10 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für das Anwenden der Bridge fehlt die Berechtigung mqtt_config") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.apply_mqtt_config", "Für das Anwenden der Bridge fehlt die Berechtigung mqtt_config") {
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "Für das Anwenden der Bridge fehlt die Berechtigung system_actions") {
+		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "error.bridge_forbidden.apply_system_actions", "Für das Anwenden der Bridge fehlt die Berechtigung system_actions") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -435,7 +435,7 @@ func handleBridgeRestart(authManager *auth.Manager, executor SystemActionExecuto
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "Für den Mosquitto-Neustart fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "error.bridge_forbidden.restart", "Für den Mosquitto-Neustart fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -528,7 +528,7 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/mqtt/bridge/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
 		if len(parts) == 1 && parts[0] == "revisions" && r.Method == http.MethodGet {
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für Bridge-Revisionen fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.revisions", "Für Bridge-Revisionen fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -543,7 +543,7 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 			return
 		}
 		if len(parts) == 2 && parts[0] == "revisions" && r.Method == http.MethodGet {
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für Bridge-Revisionen fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.revisions", "Für Bridge-Revisionen fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -558,7 +558,7 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 			return
 		}
 		if len(parts) == 1 && parts[0] == "restore" && r.Method == http.MethodPost {
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für die Bridge-Wiederherstellung fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.restore", "Für die Bridge-Wiederherstellung fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {

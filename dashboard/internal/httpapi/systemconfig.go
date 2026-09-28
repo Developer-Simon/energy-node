@@ -58,7 +58,7 @@ func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloade
 			if !requireHTTPS(w, r) {
 				return
 			}
-			if !requireRole(w, r, authManager, "system_actions", "forbidden", "Konfiguration darf nur mit Systemrechten geaendert werden") {
+			if !requireRole(w, r, authManager, "system_actions", "forbidden", "error.forbidden.system_config", "Konfiguration darf nur mit Systemrechten geaendert werden") {
 				return
 			}
 			if !requireCSRF(w, r, authManager) {

@@ -89,7 +89,7 @@ func handleTailscaleAction(authManager *auth.Manager, executor SystemActionExecu
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleSystemActions, "tailscale_forbidden", "Für diese Tailscale-Aktion fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleSystemActions, "tailscale_forbidden", "error.tailscale_forbidden.action", "Für diese Tailscale-Aktion fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
