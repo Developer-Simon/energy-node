@@ -27,6 +27,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/numfmt"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
 )
 
 //go:embed settings.schema.json
@@ -1194,13 +1195,19 @@ func validateMQTT(value MQTTConfig) error {
 		return err
 	}
 	if value.Host != "" && !isCleanHost(value.Host) {
-		return errors.New("mqtt: host must not contain whitespace, control characters or slashes")
+		return uierror.New("error.mqtt_rejected.host",
+			"mqtt: host must not contain whitespace, control characters or slashes",
+			nil)
 	}
 	if value.ClientID != "" && !mqttClientIDPattern.MatchString(value.ClientID) {
-		return errors.New("mqtt: client_id must match ^[A-Za-z0-9._-]{1,64}$")
+		return uierror.New("error.mqtt_rejected.client_id",
+			"mqtt: client_id must match ^[A-Za-z0-9._-]{1,64}$",
+			nil)
 	}
 	if hasControlChars(value.Username) {
-		return errors.New("mqtt: username must not contain control characters")
+		return uierror.New("error.mqtt_rejected.username",
+			"mqtt: username must not contain control characters",
+			nil)
 	}
 	if err := validateDiscoveryPrefix(value.DiscoveryPrefix); err != nil {
 		return err
@@ -1233,16 +1240,24 @@ func hasControlChars(value string) bool {
 
 func validateDiscoveryPrefix(value string) error {
 	if value == "" {
-		return errors.New("mqtt: discovery_prefix must not be empty")
+		return uierror.New("error.mqtt_rejected.discovery_prefix_empty",
+			"mqtt: discovery_prefix must not be empty",
+			nil)
 	}
 	if strings.HasPrefix(value, "/") || strings.HasSuffix(value, "/") {
-		return errors.New("mqtt: discovery_prefix must not start or end with '/'")
+		return uierror.New("error.mqtt_rejected.discovery_prefix_slash",
+			"mqtt: discovery_prefix must not start or end with '/'",
+			nil)
 	}
 	if strings.ContainsAny(value, "#+ \t\r\n") {
-		return errors.New("mqtt: discovery_prefix must not contain '#', '+' or whitespace")
+		return uierror.New("error.mqtt_rejected.discovery_prefix_wildcard",
+			"mqtt: discovery_prefix must not contain '#', '+' or whitespace",
+			nil)
 	}
 	if hasControlChars(value) {
-		return errors.New("mqtt: discovery_prefix must not contain control characters")
+		return uierror.New("error.mqtt_rejected.discovery_prefix_control",
+			"mqtt: discovery_prefix must not contain control characters",
+			nil)
 	}
 	return nil
 }
@@ -1362,7 +1377,9 @@ func validateBridge(value BridgeConfig) error {
 		return err
 	}
 	if len(value.Connections) > maxBridgeConnections {
-		return fmt.Errorf("bridge: only %d connection(s) are supported today", maxBridgeConnections)
+		return uierror.New("error.bridge_rejected.max_connections",
+			fmt.Sprintf("bridge: only %d connection(s) are supported today", maxBridgeConnections),
+			map[string]any{"max": maxBridgeConnections})
 	}
 	for _, connection := range value.Connections {
 		if err := validateBridgeConnection(connection); err != nil {
@@ -1374,22 +1391,34 @@ func validateBridge(value BridgeConfig) error {
 
 func validateBridgeConnection(value BridgeConnection) error {
 	if !bridgeNamePattern.MatchString(value.Name) {
-		return errors.New("bridge: name must match ^[A-Za-z0-9._-]{1,64}$")
+		return uierror.New("error.bridge_rejected.name",
+			"bridge: name must match ^[A-Za-z0-9._-]{1,64}$",
+			nil)
 	}
 	if !bridgeNamePattern.MatchString(value.RemoteClientID) {
-		return errors.New("bridge: remote_client_id must match ^[A-Za-z0-9._-]{1,64}$")
+		return uierror.New("error.bridge_rejected.remote_client_id",
+			"bridge: remote_client_id must match ^[A-Za-z0-9._-]{1,64}$",
+			nil)
 	}
 	if value.Address == "" || !isCleanHost(value.Address) {
-		return errors.New("bridge: address must not be empty, contain whitespace, control characters or slashes")
+		return uierror.New("error.bridge_rejected.address",
+			"bridge: address must not be empty, contain whitespace, control characters or slashes",
+			nil)
 	}
 	if hasControlChars(value.RemoteUsername) {
-		return errors.New("bridge: remote_username must not contain control characters")
+		return uierror.New("error.bridge_rejected.remote_username",
+			"bridge: remote_username must not contain control characters",
+			nil)
 	}
 	if len(value.Topics) == 0 {
-		return errors.New("bridge: at least one topic is required")
+		return uierror.New("error.bridge_rejected.topics_empty",
+			"bridge: at least one topic is required",
+			nil)
 	}
 	if len(value.Topics) > 32 {
-		return errors.New("bridge: at most 32 topics are supported")
+		return uierror.New("error.bridge_rejected.topics_max",
+			"bridge: at most 32 topics are supported",
+			nil)
 	}
 	for _, topic := range value.Topics {
 		if err := validateBridgeTopic(topic); err != nil {
@@ -1401,26 +1430,38 @@ func validateBridgeConnection(value BridgeConnection) error {
 
 func validateBridgeTopic(value BridgeTopic) error {
 	if value.Pattern == "" || !bridgeTopicPattern.MatchString(value.Pattern) {
-		return errors.New("bridge: topic pattern must only contain [A-Za-z0-9/_+#.-] and must not be empty")
+		return uierror.New("error.bridge_rejected.topic_pattern",
+			"bridge: topic pattern must only contain [A-Za-z0-9/_+#.-] and must not be empty",
+			nil)
 	}
 	if value.Pattern == "#" {
-		return errors.New("bridge: topic pattern must not be the bare broker-wide wildcard '#'")
+		return uierror.New("error.bridge_rejected.topic_wildcard",
+			"bridge: topic pattern must not be the bare broker-wide wildcard '#'",
+			nil)
 	}
 	for i, segment := range strings.Split(value.Pattern, "/") {
 		if strings.Contains(segment, "#") && (segment != "#" || i != len(strings.Split(value.Pattern, "/"))-1) {
-			return errors.New("bridge: '#' is only allowed as the last topic segment")
+			return uierror.New("error.bridge_rejected.topic_hash_position",
+				"bridge: '#' is only allowed as the last topic segment",
+				nil)
 		}
 	}
 	switch value.Direction {
 	case "in", "out", "both":
 	default:
-		return errors.New("bridge: direction must be one of in, out, both")
+		return uierror.New("error.bridge_rejected.direction",
+			"bridge: direction must be one of in, out, both",
+			nil)
 	}
 	if value.QoS < 0 || value.QoS > 2 {
-		return errors.New("bridge: qos must be between 0 and 2")
+		return uierror.New("error.bridge_rejected.qos",
+			"bridge: qos must be between 0 and 2",
+			nil)
 	}
 	if hasControlChars(value.Comment) {
-		return errors.New("bridge: comment must not contain control characters")
+		return uierror.New("error.bridge_rejected.comment",
+			"bridge: comment must not contain control characters",
+			nil)
 	}
 	return nil
 }
