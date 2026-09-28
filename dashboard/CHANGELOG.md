@@ -155,6 +155,7 @@
 
 ### Refactors
 
+- **dashboard:** stop reading the services VERSION file on the node (c1e19de)
 - **dashboard:** report passed-through API errors as detail (aa941d5)
 - **dashboard:** catalog keys for permission errors (a1fb933)
 - **dashboard:** catalog keys for error variants (1af4489)

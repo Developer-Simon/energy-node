@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.1.11 (2026-09-28)
+
+### Refactors
+
+- **dashboard:** stop reading the services VERSION file on the node (c1e19de)
+
 ## v0.1.10 (2026-09-23)
 
 ### Features
