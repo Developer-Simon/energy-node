@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.20 (2026-09-27)
+## v0.7.21 (2026-09-28)
 
 ### Features
 
@@ -13,6 +13,13 @@
 - **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
 - **dashboard:** localize energy and settings (#64) (5445f5b)
 - **dashboard:** localize configuration and the layout editor (#67) (9609a2d)
+- **dashboard:** localize automations and history, guard every UI text (#68) (cce3f4f)
+- **dashboard:** translatable fields in API error responses (b1afd64)
+- **dashboard:** catalog texts for every API error code (306adfa)
+- **dashboard:** I18n.error for API error bodies (d07c831)
+- **dashboard:** translate API errors in the shell (1ddc76d)
+- **dashboard:** translate API errors in page scripts (ba5732f)
+- **dashboard:** English texts for API errors, tidy German variants (7961976)
 - **webui:** move automation text tables into the catalogs (df43c54)
 - **webui:** move automation summary and status texts into the catalogs (0799c6b)
 - **webui:** move automation page messages into the catalogs (25bb3d6)
@@ -132,6 +139,9 @@
 
 ### Refactors
 
+- **dashboard:** report passed-through API errors as detail (aa941d5)
+- **dashboard:** catalog keys for permission errors (a1fb933)
+- **dashboard:** catalog keys for error variants (1af4489)
 - **webui:** identify layout pages by id (2aab5ba)
 - **webui:** track the active layout page by id in the shell and the editor (4d25b2d)
 - **config:** tidy the display name lookup (9c1a816)
@@ -141,6 +151,7 @@
 
 ### Documentation
 
+- **dashboard:** document translatable API errors, bump script versions (13cac48)
 - remove base.html and dashboard.js from i18n-pending.txt (57c5cad)
 - **localization:** document number and date formats and bump asset versions (252a88d)
 - **dashboard:** document localization and bump lazy asset versions (5181b2d)
