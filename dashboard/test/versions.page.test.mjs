@@ -90,7 +90,7 @@ test('an unknown or missing kind is listed under "other" instead of vanishing', 
     ],
   });
   const last = component.groups[component.groups.length - 1];
-  assert.equal(last.title, de['settings.versions.kind.other']);
+  assert.equal(last.title, de['settings.versions.kind_other']);
   assert.deepEqual(plain(last.components.map((c) => c.id)), ['x', 'y']);
 });
 
@@ -170,4 +170,5 @@ test('groupTitle translates known change types and keeps the label of unknown on
   assert.equal(component.groupTitle({ type: 'feat', label: 'Features' }), de['settings.versions.change_type.feat']);
   assert.equal(component.groupTitle({ type: 'wibble', label: 'Wibble' }), 'Wibble');
   assert.equal(component.groupTitle({ label: 'Features' }), 'Features');
+  assert.equal(component.groupTitle({ type: 'other', label: 'Other' }), de['settings.versions.change_type_other']);
 });

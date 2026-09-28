@@ -16,12 +16,12 @@
 
   // Order of the cards. A kind this list does not know (a new value in
   // components.json) is listed under "other" instead of vanishing.
-  // i18n-keys: settings.versions.kind.app, settings.versions.kind.shared, settings.versions.kind.service, settings.versions.kind.library, settings.versions.kind.tool, settings.versions.kind.integration, settings.versions.kind.other
+  // i18n-keys: settings.versions.kind.app, settings.versions.kind.shared, settings.versions.kind.service, settings.versions.kind.library, settings.versions.kind.tool, settings.versions.kind.integration, settings.versions.kind_other
   const KIND_ORDER = ['app', 'shared', 'service', 'library', 'tool', 'integration'];
 
   // Change types of changelog.json (TYPE_BY_LABEL in make_changelog_json.py).
-  // i18n-keys: settings.versions.change_type.feat, settings.versions.change_type.fix, settings.versions.change_type.perf, settings.versions.change_type.refactor, settings.versions.change_type.docs, settings.versions.change_type.test, settings.versions.change_type.style, settings.versions.change_type.chore, settings.versions.change_type.dev, settings.versions.change_type.build, settings.versions.change_type.ci, settings.versions.change_type.other
-  const CHANGE_TYPES = ['feat', 'fix', 'perf', 'refactor', 'docs', 'test', 'style', 'chore', 'dev', 'build', 'ci', 'other'];
+  // i18n-keys: settings.versions.change_type.feat, settings.versions.change_type.fix, settings.versions.change_type.perf, settings.versions.change_type.refactor, settings.versions.change_type.docs, settings.versions.change_type.test, settings.versions.change_type.style, settings.versions.change_type.chore, settings.versions.change_type.dev, settings.versions.change_type.build, settings.versions.change_type.ci, settings.versions.change_type_other
+  const CHANGE_TYPES = ['feat', 'fix', 'perf', 'refactor', 'docs', 'test', 'style', 'chore', 'dev', 'build', 'ci'];
 
   // "v0.7.5-dev" and "v0.7.5" are the same version: only X.Y.Z counts when
   // checking whether the running dashboard differs from the package.
@@ -29,6 +29,8 @@
     const match = /^v?(\d+\.\d+\.\d+)/.exec(version || '');
     return match ? match[1] : '';
   };
+
+  const kindTitle = (kind) => t(kind === 'other' ? 'settings.versions.kind_other' : `settings.versions.kind.${kind}`);
 
   const versionsPanel = () => ({
     loading: false,
@@ -66,7 +68,7 @@
       }
       return [...KIND_ORDER, 'other']
         .filter((kind) => byKind.has(kind))
-        .map((kind) => ({kind, title: t(`settings.versions.kind.${kind}`), components: byKind.get(kind)}));
+        .map((kind) => ({kind, title: kindTitle(kind), components: byKind.get(kind)}));
     },
 
     get dashboardDiffers() {
@@ -108,6 +110,7 @@
     // A known change type gets the catalog title, anything else keeps the
     // heading the changelog itself carries.
     groupTitle(group) {
+      if (group.type === 'other') return t('settings.versions.change_type_other');
       return CHANGE_TYPES.includes(group.type) ? t(`settings.versions.change_type.${group.type}`) : group.label;
     },
   });
