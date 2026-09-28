@@ -429,8 +429,8 @@ func TestRoleSemanticsKeysExistInGermanCatalog(t *testing.T) {
 		t.Fatalf("failed to parse catalog %s: %v", catalogPath, err)
 	}
 
-	// Test each known role (exclude the combined battery/grid roles and the default case).
-	roles := []Role{RolePV, RoleBatteryCharge, RoleBatteryDischarge, RoleGridImport, RoleGridExport, RoleLoad, RoleWallbox, RoleHeatPump, RoleBatterySoC}
+	// Test each known role, the signed battery/grid roles included (the default case follows).
+	roles := []Role{RolePV, RoleBattery, RoleGrid, RoleBatteryCharge, RoleBatteryDischarge, RoleGridImport, RoleGridExport, RoleLoad, RoleWallbox, RoleHeatPump, RoleBatterySoC}
 	for _, role := range roles {
 		semantics := semanticsFor(role)
 
