@@ -19,7 +19,7 @@ def test_render_leaves_no_placeholder_and_uses_the_schema_text(tmp_path):
     target = tmp_path / "battery_soc"
     shutil.copytree(COMPONENT, target, ignore=shutil.ignore_patterns("__pycache__"))
     rendered = rhd.render_tree(target, REPO / rhd.SCHEMA_REL)
-    assert {p.name for p in rendered} == {"strings.json", "en.json"}
+    assert {p.name for p in rendered} == {"strings.json", "en.json", "de.json"}
 
     for path in [target / "strings.json", *(target / "translations").glob("*.json")]:
         assert not rhd.PLACEHOLDER.search(path.read_text()), path
@@ -32,6 +32,14 @@ def test_render_leaves_no_placeholder_and_uses_the_schema_text(tmp_path):
     assert steps["sources_dc"]["data_description"]["charger_dc_power_entity"] == \
         schema["charger_dc_power_topic"] + \
         " Current sensors (A/mA) are accepted and converted with the pack voltage."
+
+    german = rhd.catalog_descriptions(REPO / rhd.CATALOG_REL)
+    steps_de = json.loads((target / "translations/de.json").read_text())["config"]["step"]
+    assert steps_de["sources_ac"]["data_description"]["bank_a_capacity_ah"] == \
+        german["bank_a_capacity_ah"]
+    assert steps_de["sources_dc"]["data_description"]["charger_dc_power_entity"] == \
+        german["charger_dc_power_topic"] + \
+        " Stromsensoren (A/mA) werden akzeptiert und mit der Packspannung umgerechnet."
 
 
 def test_render_rejects_an_unknown_placeholder(tmp_path):
