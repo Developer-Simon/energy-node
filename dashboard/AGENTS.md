@@ -47,7 +47,7 @@ Use `../scripts/deploy/deploy_dashboard_to_remote.sh` for the established remote
 
 `VERSION` holds the release triple shown on the settings page (`major.minor` hand-edited, `patch` bumped on the PR branch by the `Version bump` workflow, `../scripts/version/bump-patch.sh`). The build binds it via `-ldflags "-X main.buildVersion=..."`; see `scripts/deploy/deploy_dashboard_to_remote.sh` for how the branch prerelease suffix is computed. A plain `go build` without that flag reports version `dev`.
 
-The Python services' own `../services/VERSION` (same auto-bump workflow, independent counter) is shown next to it, read at runtime from the path in `config.json`'s `paths.services_version_file` — see [Konfiguration](../docs/knowledge/configuration.md). Empty/unset shows "unbekannt" instead of failing to start.
+The settings page Versionen shows every component version from the installer's `installed-manifest.json`. `../services/VERSION` (same auto-bump workflow, independent counter) is the "Shared services" component version shown there.
 
 ## Invariants
 

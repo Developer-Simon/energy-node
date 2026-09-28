@@ -92,9 +92,10 @@ target="${EN_ROOT}${EN_TARGET_BASE}/dashboard"
 devices="${EN_ROOT}${EN_TARGET_BASE}/devices"
 mkdir -p "${target}" "${devices}"
 install -m 0755 "${dash}/${BINARY_NAME}" "${target}/${BINARY_NAME}"
-if [[ -f "${EN_BUNDLE_DIR}/config/services-VERSION" ]]; then
-  install -m 0644 "${EN_BUNDLE_DIR}/config/services-VERSION" "${devices}/VERSION"
-fi
+# Frueher lag hier eine Kopie von services/VERSION fuer die Services-Version
+# in den Einstellungen. Die Versionen stehen jetzt im Installer-Manifest,
+# die alte Datei wird entfernt.
+rm -f "${devices}/VERSION"
 
 # --- systemd, Helfer, Sudoers --------------------------------------------
 "${SUDO[@]}" mkdir -p "${EN_ROOT}/etc/systemd/system" "${EN_ROOT}/usr/local/sbin" \

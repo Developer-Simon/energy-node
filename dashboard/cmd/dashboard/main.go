@@ -94,14 +94,6 @@ func main() {
 	// stattdessen startet der Dienst mit leerem Bootstrap-Passwort (keine
 	// Wirkung auf einen bereits bestehenden Admin-Nutzer in users.json) und
 	// zeigt den Fehler auf der Anmeldeseite an.
-	servicesVersion := ""
-	if cfg.Paths.ServicesVersionFile != "" {
-		if data, err := os.ReadFile(cfg.Paths.ServicesVersionFile); err != nil {
-			log.Printf("energy-node-dashboard: services version file unreadable: %v", err)
-		} else {
-			servicesVersion = strings.TrimSpace(string(data))
-		}
-	}
 	adminPassword, err := cfg.AdminPassword()
 	var adminAuthWarningKey string
 	if err != nil {
@@ -427,7 +419,6 @@ func main() {
 			DeviceActions:       client,
 			ShellyPresets:       shellyPresetsStore,
 			Version:             buildVersion,
-			ServicesVersion:     servicesVersion,
 			BridgeCredentials:   bridgeCredentialStore,
 			MQTTBridgeWatcher:   client,
 			DataDir:             dataDir,

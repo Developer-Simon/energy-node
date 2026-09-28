@@ -47,7 +47,7 @@ The file follows this JSON structure:
 {
   "schema_version": 2,
   "mqtt": { "host": "...", "port": 1883, "username": "...", "password_file": "..." },
-  "paths": { "devices_dir": "...", "data_dir": "...", "services_version_file": "..." },
+  "paths": { "devices_dir": "...", "data_dir": "..." },
   "logging": { "level": "INFO" },
   "services": { "apsystems": {...}, "battery_soc": {...}, "shelly": {...}, "trucki": {...}, "tuya": {...}, "automation": {...} },
   "installed_services": { "apsystems": true, "automation": true, "battery_soc": true, "shelly": true, "tailscale": true, "trucki": true, "tuya": true },
@@ -72,7 +72,7 @@ The file follows this JSON structure:
 | **Paths (base directories)** | | | |
 | `paths.devices_dir` | String | Python, Go | Base path for `*_devices.json` and other device configurations |
 | `paths.data_dir` | String | Go | Path for `settings.json`, `mqtt.json`, `bridge.json`, `layout.json` (dashboard operating state) |
-| `paths.services_version_file` | String | Go | Optional: path to the `services/VERSION` file the installer places on the node (bootstrap step 60), shown on the settings page. Empty/missing = not configured. |
+| `paths.services_version_file` | String | Go | Deprecated and ignored. Kept only so older config files stay valid. Versions are shown under Settings > Versions. |
 | | | | |
 | **Logging** | | | |
 | `logging.level` | String | Python | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |

@@ -55,7 +55,7 @@ for path in \
   services/shelly/devices/shelly_devices.json \
   services/shelly/devices/shelly_devices.schema.json \
   services/shelly/devices/shelly_presets.json \
-  config/config.json config/manifests/shelly.json config/services-VERSION \
+  config/config.json config/manifests/shelly.json \
   tailscale/ts.tgz
 do
   [ -e "$out/$path" ] || fail "fehlt im Bundle: $path" "$(find "$out" -type f | sort)"

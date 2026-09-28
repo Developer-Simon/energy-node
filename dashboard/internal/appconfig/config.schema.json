@@ -209,8 +209,8 @@
           "type": "string"
         },
         "services_version_file": {
-          "description": "Optionaler Pfad zur von scripts/deploy/deploy_src_to_remote.sh deployten services/VERSION-Datei. Leer = nicht konfiguriert.",
-          "title": "Services-Versionsdatei",
+          "description": "Wird nicht mehr verwendet und ignoriert. Die Versionen stehen unter Einstellungen \u003e Versionen.",
+          "title": "Services-Versionsdatei (veraltet)",
           "type": "string"
         }
       },

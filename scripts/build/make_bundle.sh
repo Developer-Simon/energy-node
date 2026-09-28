@@ -202,7 +202,6 @@ done
 
 # --- config/ ---------------------------------------------------------------
 cp "${REPO_ROOT}/services/energy-node.config.json" "${STAGE}/config/config.json"
-cp "${REPO_ROOT}/services/VERSION" "${STAGE}/config/services-VERSION"
 
 # --- wheels/ ---------------------------------------------------------------
 mkdir -p "${STAGE}/wheels"

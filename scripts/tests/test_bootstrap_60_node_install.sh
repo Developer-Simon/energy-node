@@ -38,7 +38,6 @@ printf 'test-key\n'     > "$bundle/dashboard/signing_key.pub.pem"
 printf '#!/bin/sh\n'    > "$bundle/bootstrap/verify_bundle.sh"
 chmod +x "$bundle/bootstrap/verify_bundle.sh"
 printf '{"mqtt":{},"devices_dir":"/home/energynode/devices","username":"energynode_client"}\n' > "$bundle/config/config.json"
-printf 'v1.4.0\n'       > "$bundle/config/services-VERSION"
 printf '{"service_id":"shelly"}\n'  > "$bundle/config/manifests/shelly.json"
 printf '{"service_id":"tuya"}\n'    > "$bundle/config/manifests/tuya.json"
 
@@ -59,6 +58,7 @@ run() {
 }
 
 # --- erster Lauf legt alles an --------------------------------------------
+mkdir -p "$base/devices" && printf 'v1.4.0\n' > "$base/devices/VERSION"
 out="$(run)"
 grep -q '^##STEP 60 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 [ -x "$base/dashboard/energy-node-dashboard" ] || fail "Binary fehlt oder nicht ausfuehrbar"
@@ -70,7 +70,7 @@ grep -q '^##STEP 60 ok$' <<<"$out" || fail "kein ok-Marker" "$out"
 [ -f "$etc/manifests/tuya.json" ] || fail "Manifest tuya fehlt"
 [ -f "$etc/mqtt.pw" ] || fail "mqtt.pw fehlt"
 [ -f "$tmp/root/etc/energy-node-dashboard/auth.pw" ] || fail "auth.pw fehlt"
-[ -f "$base/devices/VERSION" ] || fail "services-VERSION fehlt"
+[ ! -e "$base/devices/VERSION" ] || fail "alte devices/VERSION wurde nicht entfernt"
 grep -q 'systemctl enable --now energy-node-dashboard.service' "$SYSTEMCTL_LOG" \
   || fail "Dashboard nicht gestartet" "$(cat "$SYSTEMCTL_LOG")"
 

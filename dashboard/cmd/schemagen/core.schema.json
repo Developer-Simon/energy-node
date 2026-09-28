@@ -24,7 +24,7 @@
       "properties": {
         "devices_dir": {"type": "string", "minLength": 1, "title": "Geraetekonfigurationen"},
         "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard-Daten"},
-        "services_version_file": {"type": "string", "title": "Services-Versionsdatei", "description": "Optionaler Pfad zur von scripts/deploy/deploy_src_to_remote.sh deployten services/VERSION-Datei. Leer = nicht konfiguriert."}
+        "services_version_file": {"type": "string", "title": "Services-Versionsdatei (veraltet)", "description": "Wird nicht mehr verwendet und ignoriert. Die Versionen stehen unter Einstellungen > Versionen."}
       }
     },
     "logging": {

@@ -8,8 +8,7 @@
   },
   "paths": {
     "devices_dir": "/home/energynode/devices",
-    "data_dir": "/home/energynode/dashboard/data",
-    "services_version_file": "/home/energynode/devices/VERSION"
+    "data_dir": "/home/energynode/dashboard/data"
   },
   "logging": { "level": "INFO" },
   "services": {
