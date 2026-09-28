@@ -19,7 +19,7 @@ var ruleTexts = map[string]ruleText{
 	"no_state_update":                {"Seit dem letzten State-Update ist der Schwellwert überschritten.", "Bridge, MQTT-State-Topic und Polling prüfen"},
 	"offline":                        {"Gerät meldet sich als offline.", "Stromversorgung, Netzwerk und Bridge prüfen"},
 	"empty_state_payload":            {"State-Payload ist leer.", "Payload-Format und Value-Template prüfen"},
-	"invalid_discovery_payload":      {"Discovery-Payload ist ungueltig.", "Discovery-Payload, JSON-Struktur und Availability-Definition pruefen"},
+	"invalid_discovery_payload":      {"Discovery-Payload ist ungültig.", "Discovery-Payload, JSON-Struktur und Availability-Definition prüfen"},
 	"ignored_device_discovery_stale": {"Ignoriertes Gerät besitzt keine bekannte Discovery mehr.", "Gerät reaktivieren, falls es wieder benötigt wird, oder Discovery endgültig löschen"},
 	"configured_device_missing":      {"Konfiguriertes Gerät ist in der Discovery nicht vorhanden.", "Bridge-Dienst neu starten oder Discovery erneut veröffentlichen lassen"},
 }
