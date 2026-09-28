@@ -9,12 +9,6 @@ import (
 	"testing"
 )
 
-// pendingSchemas are shipped schemas whose German texts are not in the
-// catalog yet. PR 2 of A5 empties and then deletes this list.
-var pendingSchemas = map[string]bool{
-	"battery_soc_devices": true,
-}
-
 // shippedSchemas maps every schema the dashboard renders as a form to its
 // file: the composed central schema and every services/*/*.schema.json
 // except the config.schema.json fragments, which live inside "system".
@@ -51,9 +45,6 @@ func TestEveryShippedSchemaTextHasAGermanEntry(t *testing.T) {
 	german := germanCatalog(t)
 	var missing []string
 	for id, file := range shippedSchemas(t) {
-		if pendingSchemas[id] {
-			continue
-		}
 		raw, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
@@ -93,15 +84,6 @@ func TestGermanCatalogHasNoOrphans(t *testing.T) {
 	for key := range germanCatalog(t) {
 		if !known[key] {
 			t.Errorf("catalogs/de.json: %s matches no schema text (renamed or removed field?)", key)
-		}
-	}
-}
-
-func TestPendingSchemasExist(t *testing.T) {
-	shipped := shippedSchemas(t)
-	for id := range pendingSchemas {
-		if _, ok := shipped[id]; !ok {
-			t.Errorf("pendingSchemas lists %s, which is no longer shipped", id)
 		}
 	}
 }
