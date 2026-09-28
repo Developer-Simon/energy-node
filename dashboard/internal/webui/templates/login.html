@@ -72,8 +72,8 @@
       const message = document.getElementById('login-message');
       const request = async (url, options) => {
         const response = await fetch(url, options);
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || message.dataset.failed);
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(window.I18n ? window.I18n.error(body, 'login.request_failed') : (body.message || message.dataset.failed));
         return body;
       };
       const busy = (value) => { if (form) form.querySelector('button[type="submit"]').disabled = value; guestButton.disabled = value; };
