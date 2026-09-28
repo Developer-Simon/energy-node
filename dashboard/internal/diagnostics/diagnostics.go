@@ -30,6 +30,7 @@ const (
 
 type Warning struct {
 	RuleID   string         `json:"rule_id"`
+	Key      string         `json:"key,omitempty"`
 	Severity Severity       `json:"severity"`
 	DeviceID string         `json:"device_id"`
 	EntityID string         `json:"entity_id,omitempty"`
@@ -277,12 +278,13 @@ func healthStatus(score int) string {
 	}
 }
 
-func warning(rule string, severity Severity, deviceID string, entity registry.EntityView, message, hint string, at time.Time) Warning {
-	return Warning{RuleID: rule, Severity: severity, DeviceID: deviceID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Message: message, Hint: hint, At: at}
+func warning(rule, key string, severity Severity, deviceID string, entity registry.EntityView, at time.Time) Warning {
+	text := ruleTexts[key]
+	return Warning{RuleID: rule, Key: key, Severity: severity, DeviceID: deviceID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Message: text.Message, Hint: text.Hint, At: at}
 }
 
-func warningWithDetails(rule string, severity Severity, deviceID string, entity registry.EntityView, message, hint string, details map[string]any, at time.Time) Warning {
-	result := warning(rule, severity, deviceID, entity, message, hint, at)
+func warningWithDetails(rule, key string, severity Severity, deviceID string, entity registry.EntityView, details map[string]any, at time.Time) Warning {
+	result := warning(rule, key, severity, deviceID, entity, at)
 	result.Details = details
 	return result
 }
@@ -346,11 +348,12 @@ func (e *Engine) Device(deviceID string, now time.Time) []Warning {
 				if len(missing) > 0 {
 					topic = missing[0]
 				}
+				text := ruleTexts["ignored_device_discovery_stale"]
 				warnings = append(warnings, Warning{
-					RuleID: "IgnoredDeviceDiscoveryStale", Severity: SeverityWarning,
+					RuleID: "IgnoredDeviceDiscoveryStale", Key: "ignored_device_discovery_stale", Severity: SeverityWarning,
 					DeviceID: deviceID, Topic: topic,
-					Message: "Ignoriertes Gerät besitzt keine bekannte Discovery mehr.",
-					Hint:    "Gerät reaktivieren, falls es wieder benötigt wird, oder Discovery endgültig löschen",
+					Message: text.Message,
+					Hint:    text.Hint,
 					Details: map[string]any{
 						"ignored":                  true,
 						"missing_discovery_topics": missing,
@@ -377,7 +380,7 @@ func (rule DuplicateUniqueIDRule) Evaluate(device registry.DeviceView, ctx Conte
 		if len(deviceIDs) < 2 {
 			continue
 		}
-		result = append(result, warningWithDetails(rule.RuleID(), SeverityCritical, device.ID, entity, "Unique-ID ist mehreren Geräten zugeordnet.", "Unique-ID in der Discovery-Konfiguration eindeutig vergeben", map[string]any{
+		result = append(result, warningWithDetails(rule.RuleID(), "duplicate_unique_id", SeverityCritical, device.ID, entity, map[string]any{
 			"unique_id":  entity.UniqueID,
 			"device_ids": deviceIDs,
 		}, ctx.Now))
@@ -397,11 +400,11 @@ func (rule DiscoveryMismatchRule) Evaluate(device registry.DeviceView, ctx Conte
 		}
 		var payload map[string]any
 		if err := json.Unmarshal([]byte(entity.DiscoveryJSON), &payload); err != nil {
-			result = append(result, warningWithDetails(rule.RuleID(), SeverityCritical, device.ID, entity, "Discovery-Payload ist kein gültiges JSON.", "Discovery-Payload und Retain-Zustand prüfen", map[string]any{"error": err.Error()}, ctx.Now))
+			result = append(result, warningWithDetails(rule.RuleID(), "discovery_invalid_json", SeverityCritical, device.ID, entity, map[string]any{"error": err.Error()}, ctx.Now))
 			continue
 		}
 		if mismatch := compareDiscovery(payload, device, entity); mismatch != nil {
-			result = append(result, warningWithDetails(rule.RuleID(), SeverityWarning, device.ID, entity, "Discovery-Daten stimmen nicht mit dem normalisierten Entitätsmodell überein.", "Discovery-Payload und Registry-Zustand vergleichen", mismatch, ctx.Now))
+			result = append(result, warningWithDetails(rule.RuleID(), "discovery_mismatch", SeverityWarning, device.ID, entity, mismatch, ctx.Now))
 		}
 	}
 	return result
@@ -470,7 +473,7 @@ func (rule DiscoveryRetainedRule) Evaluate(device registry.DeviceView, ctx Conte
 	var result []Warning
 	for _, entity := range device.Entities {
 		if entity.DiscoveryTopic != "" && !entity.DiscoveryRetained {
-			result = append(result, warningWithDetails(rule.RuleID(), SeverityWarning, device.ID, entity, "Discovery-Payload wurde nicht retained veröffentlicht.", "Discovery-Topic retained veröffentlichen", map[string]any{
+			result = append(result, warningWithDetails(rule.RuleID(), "discovery_not_retained", SeverityWarning, device.ID, entity, map[string]any{
 				"discovery_topic": entity.DiscoveryTopic,
 				"retained":        entity.DiscoveryRetained,
 			}, ctx.Now))
@@ -485,7 +488,7 @@ func (rule MissingTopicRule) Evaluate(device registry.DeviceView, ctx Context) [
 	var result []Warning
 	for _, entity := range device.Entities {
 		if entity.StateTopic == "" {
-			result = append(result, warning(rule.RuleID(), SeverityCritical, device.ID, entity, "State-Topic fehlt.", "Discovery-Konfiguration prüfen", ctx.Now))
+			result = append(result, warning(rule.RuleID(), "missing_topic", SeverityCritical, device.ID, entity, ctx.Now))
 		}
 	}
 	return result
@@ -508,7 +511,7 @@ func (rule MissingAvailabilityRule) Evaluate(device registry.DeviceView, ctx Con
 		if entity.Component == "binary_sensor" && entity.DeviceClass == "connectivity" {
 			continue
 		}
-		result = append(result, warning(rule.RuleID(), SeverityWarning, device.ID, entity, "Kein Availability-Topic konfiguriert.", "Availability-Topic und Online-/Offline-Payload ergänzen", ctx.Now))
+		result = append(result, warning(rule.RuleID(), "missing_availability", SeverityWarning, device.ID, entity, ctx.Now))
 	}
 	return result
 }
@@ -521,7 +524,7 @@ func (rule WrongUnitRule) Evaluate(device registry.DeviceView, ctx Context) []Wa
 	var result []Warning
 	for _, entity := range device.Entities {
 		if entity.Component == "sensor" && strings.TrimSpace(entity.UnitOfMeasurement) == "" {
-			result = append(result, warning(rule.RuleID(), SeverityWarning, device.ID, entity, "Sensor hat keine Einheit.", "Einheit in der Discovery-Konfiguration setzen", ctx.Now))
+			result = append(result, warning(rule.RuleID(), "missing_unit", SeverityWarning, device.ID, entity, ctx.Now))
 		}
 	}
 	return result
@@ -535,7 +538,7 @@ func (rule NoStateUpdateRule) Evaluate(device registry.DeviceView, ctx Context) 
 	var result []Warning
 	for _, entity := range device.Entities {
 		if !entity.HasValue || entity.LastSeen.IsZero() || ctx.Now.Sub(entity.LastSeen) > ctx.NoStateUpdateAfter {
-			result = append(result, warning(rule.RuleID(), SeverityWarning, device.ID, entity, "Seit dem letzten State-Update ist der Schwellwert überschritten.", "Bridge, MQTT-State-Topic und Polling prüfen", ctx.Now))
+			result = append(result, warning(rule.RuleID(), "no_state_update", SeverityWarning, device.ID, entity, ctx.Now))
 		}
 	}
 	return result
@@ -549,7 +552,7 @@ func (rule OfflineRule) Evaluate(device registry.DeviceView, ctx Context) []Warn
 	var result []Warning
 	for _, entity := range device.Entities {
 		if entity.HasAvailability && !entity.Available {
-			result = append(result, warning(rule.RuleID(), SeverityCritical, device.ID, entity, "Gerät meldet sich als offline.", "Stromversorgung, Netzwerk und Bridge prüfen", ctx.Now))
+			result = append(result, warning(rule.RuleID(), "offline", SeverityCritical, device.ID, entity, ctx.Now))
 		}
 	}
 	return result
@@ -563,7 +566,7 @@ func (rule InvalidPayloadRule) Evaluate(device registry.DeviceView, ctx Context)
 	var result []Warning
 	for _, entity := range device.Entities {
 		if entity.HasValue && (!entity.PayloadValid || strings.TrimSpace(entity.Value) == "") {
-			result = append(result, warningWithDetails(rule.RuleID(), SeverityWarning, device.ID, entity, "State-Payload ist leer.", "Payload-Format und Value-Template prüfen", map[string]any{
+			result = append(result, warningWithDetails(rule.RuleID(), "empty_state_payload", SeverityWarning, device.ID, entity, map[string]any{
 				"value":  entity.Value,
 				"source": entity.Source,
 				"error":  entity.PayloadError,
@@ -580,12 +583,14 @@ func (InvalidDiscoveryErrorRule) RuleID() string { return "InvalidPayload" }
 func (InvalidDiscoveryErrorRule) Evaluate(snapshot registry.DiagnosticsSnapshot, ctx SnapshotContext) []Warning {
 	var result []Warning
 	for _, issue := range snapshot.DiscoveryErrors {
+		text := ruleTexts["invalid_discovery_payload"]
 		result = append(result, Warning{
 			RuleID:   "InvalidPayload",
+			Key:      "invalid_discovery_payload",
 			Severity: SeverityCritical,
 			Topic:    issue.Topic,
-			Message:  "Discovery-Payload ist ungueltig.",
-			Hint:     "Discovery-Payload, JSON-Struktur und Availability-Definition pruefen",
+			Message:  text.Message,
+			Hint:     text.Hint,
 			Details: map[string]any{
 				"kind":     "discovery",
 				"error":    issue.Error,
@@ -618,11 +623,12 @@ func (rule IgnoredDeviceDiscoveryStaleRule) Evaluate(snapshot registry.Diagnosti
 		if len(missing) > 0 {
 			topic = missing[0]
 		}
+		text := ruleTexts["ignored_device_discovery_stale"]
 		result = append(result, Warning{
-			RuleID: rule.RuleID(), Severity: SeverityWarning,
+			RuleID: rule.RuleID(), Key: "ignored_device_discovery_stale", Severity: SeverityWarning,
 			DeviceID: record.DeviceID, Topic: topic,
-			Message: "Ignoriertes Gerät besitzt keine bekannte Discovery mehr.",
-			Hint:    "Gerät reaktivieren, falls es wieder benötigt wird, oder Discovery endgültig löschen",
+			Message: text.Message,
+			Hint:    text.Hint,
 			Details: map[string]any{
 				"ignored":                  true,
 				"missing_discovery_topics": missing,
@@ -682,12 +688,14 @@ func (rule ConfiguredDeviceMissingRule) Evaluate(snapshot registry.DiagnosticsSn
 				continue
 			}
 			name, _ := entry["name"].(string)
+			text := ruleTexts["configured_device_missing"]
 			result = append(result, Warning{
 				RuleID:   rule.RuleID(),
+				Key:      "configured_device_missing",
 				Severity: SeverityWarning,
 				DeviceID: id,
-				Message:  "Konfiguriertes Gerät ist in der Discovery nicht vorhanden.",
-				Hint:     "Bridge-Dienst neu starten oder Discovery erneut veröffentlichen lassen",
+				Message:  text.Message,
+				Hint:     text.Hint,
 				Details: map[string]any{
 					"config_file":     document.Name + ".json",
 					"configured_id":   id,

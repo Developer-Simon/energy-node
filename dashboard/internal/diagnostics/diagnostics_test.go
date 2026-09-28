@@ -115,7 +115,7 @@ func (duplicateWarningRule) RuleID() string { return "DuplicateTest" }
 
 func (rule duplicateWarningRule) Evaluate(device registry.DeviceView, ctx Context) []Warning {
 	entity := device.Entities[0]
-	item := warning(rule.RuleID(), SeverityWarning, device.ID, entity, "same", "same", ctx.Now)
+	item := warning(rule.RuleID(), "missing_topic", SeverityWarning, device.ID, entity, ctx.Now)
 	return []Warning{item, item}
 }
 
