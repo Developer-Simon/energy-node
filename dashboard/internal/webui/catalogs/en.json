@@ -1738,8 +1738,6 @@
   "settings.system.config.title": "Configuration",
   "settings.system.config.unknown_fields_help": "Edit it as raw text until it matches the schema again.",
   "settings.system.config.unknown_fields_warning": "This file contains fields the form does not know",
-  "settings.system.dashboard_version.label": "Dashboard version:",
-  "settings.system.dashboard_version.unknown": "unknown",
   "settings.system.license.alpinejs_collapse_license": "(MIT, Copyright Caleb Porzio) ·",
   "settings.system.license.alpinejs_collapse_name": "Alpine.js Collapse plugin 3.14.9",
   "settings.system.license.alpinejs_license": "(MIT, Copyright Caleb Porzio) ·",

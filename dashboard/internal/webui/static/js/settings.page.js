@@ -460,7 +460,6 @@
     username: '',
     canSystemActions: false,
     csrfToken: '',
-    version: '',
     loading: false,
     busy: false,
     updateStatus: null,
@@ -477,12 +476,6 @@
         this.$store.toasts.push(error.message, 'critical');
       } finally {
         this.loading = false;
-      }
-      try {
-        const health = await requestJSON('/api/v1/health');
-        this.version = health.version || '';
-      } catch (error) {
-        this.version = '';
       }
       try {
         const status = await requestJSON('/api/v1/updates/status');

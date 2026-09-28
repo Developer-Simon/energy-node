@@ -1738,8 +1738,6 @@
   "settings.system.config.title": "Konfiguration",
   "settings.system.config.unknown_fields_help": "Bearbeite sie als Rohtext, bis sie wieder zum Schema passt.",
   "settings.system.config.unknown_fields_warning": "Diese Datei enthält Felder, die das Formular nicht kennt",
-  "settings.system.dashboard_version.label": "Dashboard-Version:",
-  "settings.system.dashboard_version.unknown": "unbekannt",
   "settings.system.license.alpinejs_collapse_license": "(MIT, Copyright Caleb Porzio) ·",
   "settings.system.license.alpinejs_collapse_name": "Alpine.js Collapse-Plugin 3.14.9",
   "settings.system.license.alpinejs_license": "(MIT, Copyright Caleb Porzio) ·",

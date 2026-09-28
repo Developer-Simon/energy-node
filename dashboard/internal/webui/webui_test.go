@@ -61,7 +61,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"diagnosticsPanel", "diagnostics-health-heading", "filteredHealthScores", "diagnostics-health-status", "sort('entity_id')", "settingsPanel", "x-model.number=\"healthScoreThreshold\"", "item.entity_id || '-'", "storage-health-heading", "Speicherzustand", "Geschätzte Restlaufzeit", "loadStorageHealth()",
 		"settings-wide-panels", "Tabs ohne Breitendeckelung", "widePanelOptions", "wide-panels-select", "initChoices()",
 		"settings-status-bar-items", "Angaben im Systemstatus", "statusBarItemOptions", "status-bar-items-select",
-		"Dashboard-Version", "Alle Versionen und Änderungen ansehen",
+		"Alle Versionen und Änderungen ansehen",
 	}
 	for _, marker := range markers {
 		if !strings.Contains(body, marker) {
@@ -2883,8 +2883,8 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 			t.Fatalf("settings panel does not contain %q", marker)
 		}
 	}
-	if strings.Contains(body, "Services-Version") || strings.Contains(body, "servicesVersion") {
-		t.Fatal("the single Services-Version line is gone: every service has its own version now")
+	if strings.Contains(body, "Services-Version") || strings.Contains(body, "servicesVersion") || strings.Contains(body, "Dashboard-Version") {
+		t.Fatal("the System panel shows no versions any more: they live on the Versionen page")
 	}
 
 	page := httptest.NewRecorder()
