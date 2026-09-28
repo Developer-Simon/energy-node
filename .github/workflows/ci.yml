@@ -104,7 +104,7 @@ jobs:
           # replace directive (its local Re-Deploy screen implements
           # hostapi.Backend), so a change there can break the dashboard build
           # without touching a single file under dashboard/.
-          emit dashboard '^dashboard/|^installer/webui/'
+          emit dashboard '^dashboard/|^installer/webui/|^services/[^/]+/[^/]+\.schema\.json$'
           emit installer_webui '^installer/webui/'
           emit installer  '^installer/|^scripts/bootstrap/'
           emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'

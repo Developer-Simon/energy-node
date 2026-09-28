@@ -73,7 +73,7 @@ def test_manifest_and_fragment_are_wellformed(dir_name, service_id):
     assert fragment["additionalProperties"] is False
     assert fragment["required"] == manifest["required"]
     assert set(fragment["properties"]) >= set(fragment["required"])
-    assert fragment["properties"]["service_id"]["title"] == "Dienst-ID"
+    assert fragment["properties"]["service_id"]["title"] == "Service ID"
 
 
 def test_no_unexpected_service_dir_has_a_manifest():

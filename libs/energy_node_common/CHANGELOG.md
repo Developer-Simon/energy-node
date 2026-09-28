@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.4.8 (2026-09-25)
+## v0.4.9 (2026-09-28)
 
 ### Features
 
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **dashboard:** write the central schema in English and move German to the catalog (bd26f60)
 - **common:** track config file revisions and allow a fallback start (6f38c33)
 - **services:** start with an invalid device file and report it as rejected (029c604)
 

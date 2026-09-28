@@ -1,11 +1,13 @@
 # Changelog
 
-## v0.4.1 (2026-09-25)
+## v0.4.2 (2026-09-28)
 
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **dashboard:** write the central schema in English and move German to the catalog (bd26f60)
+- **dashboard:** describe every field of the system configuration form (012ea1c)
 - **services:** start with an invalid device file and report it as rejected (029c604)
 
 ## v0.3.2 (2026-09-15)

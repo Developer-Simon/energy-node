@@ -17,6 +17,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -859,6 +860,25 @@ func TestConfigurationSchemaEndpoint(t *testing.T) {
 	}
 	if !strings.Contains(recorder.Body.String(), `"type":"array"`) {
 		t.Fatalf("schema was not returned: %s", recorder.Body.String())
+	}
+}
+
+func TestConfigurationSchemaServesUnparsableSchemaUnchanged(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "devices.json"), []byte(`[]`), 0600); err != nil {
+		t.Fatal(err)
+	}
+	broken := `{"type":"array","title":"Devices"` // cut off
+	if err := os.WriteFile(filepath.Join(dir, "devices.schema.json"), []byte(broken), 0600); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), config.NewManager(dir), settings.NewStore(t.TempDir()))
+	request := httptest.NewRequest("GET", "/api/v1/configurations/devices/schema", nil)
+	request.AddCookie(&http.Cookie{Name: localize.CookieName, Value: "de"})
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != 200 || recorder.Body.String() != broken {
+		t.Fatalf("got %d %q, want the file unchanged", recorder.Code, recorder.Body.String())
 	}
 }
 

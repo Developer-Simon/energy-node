@@ -2,6 +2,10 @@
 
 ## v0.1.11 (2026-09-28)
 
+### Features
+
+- **dashboard:** show installed component versions under settings (#71) (c8ef59b)
+
 ### Refactors
 
 - **dashboard:** stop reading the services VERSION file on the node (c1e19de)

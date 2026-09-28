@@ -13,6 +13,8 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/schemaloc"
 )
 
 // restartRequiredFields listet die JSON-Pfade, deren Aenderung ein
@@ -110,10 +112,23 @@ func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloade
 	}
 }
 
+// writeLocalizedSchema serves a form schema with its titles and
+// descriptions in the request's language. A schema that cannot be rewritten
+// goes out unchanged: an English form beats no form.
+func writeLocalizedSchema(w http.ResponseWriter, r *http.Request, schemaID string, raw []byte) {
+	lang := localize.Resolve(r, schemaloc.Default.Languages())
+	if localized, err := schemaloc.Default.Localize(schemaID, lang, raw); err == nil {
+		raw = localized
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = w.Write(raw)
+}
+
 // handleSystemConfigSchema liefert das eingebettete config.schema.json, aus
 // dem die Einstellungsseite ihr Formular fuer /etc/energy-node/config.json
 // baut. Wie GET /api/v1/system/config nicht rollengeschuetzt - das Schema
 // steht ohnehin im Quellcode.
+// Titles and descriptions follow the request language (schemaloc).
 func handleSystemConfigSchema() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -121,8 +136,7 @@ func handleSystemConfigSchema() http.HandlerFunc {
 			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Nur GET")
 			return
 		}
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(appconfig.Schema())
+		writeLocalizedSchema(w, r, schemaloc.SystemSchemaID, appconfig.Schema())
 	}
 }
 

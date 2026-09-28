@@ -1,89 +1,105 @@
 {
   "additionalProperties": false,
-  "description": "Ersetzt die frueheren *.env-Dateien aller Dienste. Liegt auf dem Zielgeraet unter /etc/energy-node/config.json.",
+  "description": "Replaces the former *.env files of all services. Lives on the target device at /etc/energy-node/config.json.",
   "properties": {
     "dashboard": {
       "additionalProperties": false,
       "properties": {
         "admin_password_file": {
-          "title": "Admin-Passwortdatei",
+          "description": "Path to the file that holds the admin password. Allowed below /etc/energy-node/ and /etc/energy-node-dashboard/.",
+          "title": "Admin password file",
           "type": "string"
         },
         "admin_username": {
+          "description": "Username of the dashboard administrator.",
           "minLength": 1,
-          "title": "Admin-Benutzername",
+          "title": "Admin username",
           "type": "string"
         },
         "bind_address": {
+          "description": "Network address the dashboard listens on. 0.0.0.0 accepts connections on every network interface.",
           "minLength": 1,
-          "title": "Bind-Adresse",
+          "title": "Bind address",
           "type": "string"
         },
         "client_id": {
+          "description": "Client ID of the dashboard at the broker, unique per broker. A connection saved on the MQTT settings page replaces it.",
           "minLength": 1,
-          "title": "MQTT-Client-ID",
+          "title": "MQTT client ID",
           "type": "string"
         },
         "device_identifier": {
+          "description": "Currently not read by any component. Kept so that existing files stay valid.",
           "minLength": 1,
-          "title": "Eigener Geraetebezeichner",
+          "title": "Own device identifier",
           "type": "string"
         },
         "log_level": {
+          "description": "Log level of the dashboard: debug, info, warn or error.",
           "minLength": 1,
-          "title": "Log-Level",
+          "title": "Log level",
           "type": "string"
         },
         "mosquitto_bridge_target": {
+          "description": "File to which the dashboard writes the Mosquitto bridge configuration. Mosquitto reads it from there.",
           "minLength": 1,
-          "title": "Bridge-Zieldatei",
+          "title": "Bridge target file",
           "type": "string"
         },
         "node_device_id": {
+          "description": "ID under which the node itself appears as a device in MQTT and Home Assistant. Must be energy_node.",
           "minLength": 1,
-          "title": "Node-Geraete-ID",
+          "title": "Node device ID",
           "type": "string"
         },
         "node_device_name": {
+          "description": "Name under which the node appears as a device in Home Assistant.",
           "minLength": 1,
-          "title": "Node-Anzeigename",
+          "title": "Node display name",
           "type": "string"
         },
         "node_diagnostic_poll_multiplier": {
+          "description": "Diagnostic values of the node are read less often than its other values. The factor multiplies the node poll interval.",
           "exclusiveMinimum": 0,
-          "title": "Node-Diagnose-Multiplikator",
+          "title": "Node diagnostics multiplier",
           "type": "number"
         },
         "node_poll_interval_s": {
+          "description": "Seconds between two readings of the node's system values.",
           "exclusiveMinimum": 0,
-          "title": "Node-Abfrageintervall",
+          "title": "Node poll interval",
           "type": "number"
         },
         "port": {
+          "description": "Port on which the dashboard serves its web pages.",
           "maximum": 65535,
           "minimum": 1,
-          "title": "HTTP-Port",
+          "title": "HTTP port",
           "type": "integer"
         },
         "sweep_interval_seconds": {
+          "description": "Seconds between two saves of the last known device values to disk, so that they are shown again after a restart. A value set under Settings \u003e General takes precedence.",
           "minimum": 1,
-          "title": "Sweep-Intervall",
+          "title": "Sweep interval",
           "type": "integer"
         },
         "system_action_helper": {
+          "description": "Path to the helper program that the dashboard runs with sudo for system actions such as restarting services.",
           "minLength": 1,
-          "title": "Systemaktions-Helfer",
+          "title": "System action helper",
           "type": "string"
         },
         "tls": {
           "additionalProperties": false,
           "properties": {
             "cert_file": {
-              "title": "Zertifikat",
+              "description": "Path to the certificate file for HTTPS. If certificate and key stay empty, the dashboard serves plain HTTP.",
+              "title": "Certificate",
               "type": "string"
             },
             "key_file": {
-              "title": "Schluessel",
+              "description": "Path to the private key that belongs to the certificate.",
+              "title": "Key",
               "type": "string"
             }
           },
@@ -91,6 +107,7 @@
             "cert_file",
             "key_file"
           ],
+          "title": "TLS",
           "type": "object"
         }
       },
@@ -111,6 +128,7 @@
         "node_poll_interval_s",
         "node_diagnostic_poll_multiplier"
       ],
+      "title": "Dashboard",
       "type": "object"
     },
     "installed_services": {
@@ -119,71 +137,84 @@
       },
       "properties": {
         "apsystems": {
+          "description": "Shows the APsystems pages in the dashboard. Set by the installer.",
           "title": "APsystems",
           "type": "boolean"
         },
         "automation": {
-          "title": "Automationen",
+          "description": "Shows the automation pages in the dashboard. Set by the installer.",
+          "title": "Automations",
           "type": "boolean"
         },
         "battery_soc": {
-          "title": "Batterie-SoC",
+          "description": "Shows the battery SoC pages in the dashboard. Set by the installer.",
+          "title": "Battery SoC",
           "type": "boolean"
         },
         "shelly": {
+          "description": "Shows the Shelly pages in the dashboard. Set by the installer.",
           "title": "Shelly",
           "type": "boolean"
         },
         "tailscale": {
+          "description": "Shows the Tailscale page in the settings. Set by the installer.",
           "title": "Tailscale",
           "type": "boolean"
         },
         "trucki": {
+          "description": "Shows the Trucki pages in the dashboard. Set by the installer.",
           "title": "Trucki",
           "type": "boolean"
         },
         "tuya": {
+          "description": "Shows the TinyTuya pages in the dashboard. Set by the installer.",
           "title": "TinyTuya",
           "type": "boolean"
         }
       },
-      "title": "Installierte Dienste",
+      "title": "Installed services",
       "type": "object"
     },
     "logging": {
       "additionalProperties": false,
       "properties": {
         "level": {
+          "description": "Log level of all Python services: DEBUG, INFO, WARNING, ERROR or CRITICAL.",
           "minLength": 1,
-          "title": "Log-Level der Python-Dienste",
+          "title": "Log level of the Python services",
           "type": "string"
         }
       },
       "required": [
         "level"
       ],
+      "title": "Logging",
       "type": "object"
     },
     "mqtt": {
       "additionalProperties": false,
       "properties": {
         "host": {
+          "description": "Host name or IP address of the broker that all services and the dashboard use.",
           "minLength": 1,
-          "title": "Broker-Host",
+          "title": "Broker host",
           "type": "string"
         },
         "password_file": {
-          "title": "Passwortdatei",
+          "description": "Path to the file that holds the broker password. Allowed below /etc/energy-node/ and /etc/energy-node-dashboard/.",
+          "title": "Password file",
           "type": "string"
         },
         "port": {
+          "description": "TCP port of the broker, usually 1883.",
           "maximum": 65535,
           "minimum": 1,
-          "title": "Broker-Port",
+          "title": "Broker port",
           "type": "integer"
         },
         "username": {
-          "title": "Benutzername",
+          "description": "Username for logging in to the broker.",
+          "title": "Username",
           "type": "string"
         }
       },
@@ -193,24 +224,27 @@
         "username",
         "password_file"
       ],
+      "title": "MQTT broker",
       "type": "object"
     },
     "paths": {
       "additionalProperties": false,
       "properties": {
         "data_dir": {
+          "description": "Directory where the dashboard keeps its own state, such as settings, layout and revisions.",
           "minLength": 1,
-          "title": "Dashboard-Daten",
+          "title": "Dashboard data",
           "type": "string"
         },
         "devices_dir": {
+          "description": "Directory with the device configurations of all services, for example shelly_devices.json.",
           "minLength": 1,
-          "title": "Geraetekonfigurationen",
+          "title": "Device configurations",
           "type": "string"
         },
         "services_version_file": {
-          "description": "Wird nicht mehr verwendet und ignoriert. Die Versionen stehen unter Einstellungen \u003e Versionen.",
-          "title": "Services-Versionsdatei (veraltet)",
+          "description": "No longer used and ignored. The versions are shown under Settings \u003e Versions.",
+          "title": "Services version file (deprecated)",
           "type": "string"
         }
       },
@@ -218,12 +252,14 @@
         "devices_dir",
         "data_dir"
       ],
+      "title": "Paths",
       "type": "object"
     },
     "schema_version": {
+      "description": "Format version of this file. Services refuse to start with a version they do not know.",
       "maximum": 2,
       "minimum": 2,
-      "title": "Schemaversion",
+      "title": "Schema version",
       "type": "integer"
     },
     "services": {
@@ -233,18 +269,21 @@
           "additionalProperties": false,
           "properties": {
             "diagnostic_poll_multiplier": {
+              "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval.",
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "poll_interval_s": {
+              "description": "Seconds between two regular query rounds of the service.",
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
+              "description": "Identifies the service in its MQTT topics.",
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -253,38 +292,44 @@
             "poll_interval_s",
             "diagnostic_poll_multiplier"
           ],
+          "title": "APsystems",
           "type": "object"
         },
         "automation": {
           "additionalProperties": false,
           "properties": {
             "service_id": {
+              "description": "Identifies the service in its MQTT topics.",
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
           "required": [
             "service_id"
           ],
+          "title": "Automations",
           "type": "object"
         },
         "battery_soc": {
           "additionalProperties": false,
           "properties": {
             "diagnostic_poll_multiplier": {
+              "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval.",
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "poll_interval_s": {
+              "description": "Seconds between two regular query rounds of the service.",
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
+              "description": "Identifies the service in its MQTT topics.",
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -293,43 +338,48 @@
             "poll_interval_s",
             "diagnostic_poll_multiplier"
           ],
+          "title": "Battery SoC",
           "type": "object"
         },
         "shelly": {
           "additionalProperties": false,
           "properties": {
             "diagnostic_poll_multiplier": {
+              "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval.",
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "http_timeout_s": {
+              "description": "Seconds the service waits for the HTTP response of a device before the query counts as failed.",
               "exclusiveMinimum": 0,
-              "title": "HTTP-Timeout",
+              "title": "HTTP timeout",
               "type": "number"
             },
             "poll_interval_s": {
+              "description": "Seconds between two regular query rounds of the service.",
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
+              "description": "Identifies the service in its MQTT topics.",
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             },
             "webhook_enabled": {
               "default": false,
-              "description": "Optionaler eingehender HTTP-Endpunkt, den ein Gen1-Shelly-Geraet beim Aufwachen per Action/Report-URL aufrufen kann, damit ein sleepy-Geraet sofort als online erkannt wird statt erst beim naechsten zufaelligen Poll-Treffer. Standardmaessig aus.",
-              "title": "Wake-Webhook aktiv",
+              "description": "Optional incoming HTTP endpoint that a Gen1 Shelly device can call through its action or report URL when it wakes up, so a sleepy device is recognised as online at once instead of at the next poll that happens to reach it. Off by default.",
+              "title": "Wake webhook enabled",
               "type": "boolean"
             },
             "webhook_port": {
               "default": 8082,
-              "description": "Port des Wake-Webhook-Listeners, nur relevant wenn webhook_enabled true ist.",
+              "description": "Port of the wake webhook listener, only relevant when webhook_enabled is true.",
               "maximum": 65535,
               "minimum": 1,
-              "title": "Wake-Webhook Port",
+              "title": "Wake webhook port",
               "type": "integer"
             }
           },
@@ -339,29 +389,34 @@
             "diagnostic_poll_multiplier",
             "http_timeout_s"
           ],
+          "title": "Shelly",
           "type": "object"
         },
         "trucki": {
           "additionalProperties": false,
           "properties": {
             "diagnostic_poll_multiplier": {
+              "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval.",
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "http_timeout_s": {
+              "description": "Seconds the service waits for the HTTP response of a device before the query counts as failed.",
               "exclusiveMinimum": 0,
-              "title": "HTTP-Timeout",
+              "title": "HTTP timeout",
               "type": "number"
             },
             "poll_interval_s": {
+              "description": "Seconds between two regular query rounds of the service.",
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
+              "description": "Identifies the service in its MQTT topics.",
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -371,24 +426,28 @@
             "diagnostic_poll_multiplier",
             "http_timeout_s"
           ],
+          "title": "Trucki",
           "type": "object"
         },
         "tuya": {
           "additionalProperties": false,
           "properties": {
             "diagnostic_poll_multiplier": {
+              "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval.",
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "poll_interval_s": {
+              "description": "Seconds between two regular query rounds of the service.",
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
+              "description": "Identifies the service in its MQTT topics.",
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -397,6 +456,7 @@
             "poll_interval_s",
             "diagnostic_poll_multiplier"
           ],
+          "title": "TinyTuya",
           "type": "object"
         }
       },
@@ -408,19 +468,22 @@
         "trucki",
         "tuya"
       ],
+      "title": "Services",
       "type": "object"
     },
     "tailscale": {
       "additionalProperties": false,
       "properties": {
         "bin": {
+          "description": "Path to the tailscale program.",
           "minLength": 1,
-          "title": "tailscale-Binary",
+          "title": "tailscale binary",
           "type": "string"
         },
         "status_timeout_s": {
+          "description": "Seconds the dashboard waits for tailscale status before the query counts as failed.",
           "minimum": 1,
-          "title": "Status-Timeout",
+          "title": "Status timeout",
           "type": "integer"
         }
       },
@@ -428,24 +491,28 @@
         "bin",
         "status_timeout_s"
       ],
+      "title": "Tailscale",
       "type": "object"
     },
     "tinytuya": {
       "additionalProperties": false,
       "properties": {
         "probe_python": {
+          "description": "Python interpreter that runs the probe script of the TinyTuya assistant. It needs the tinytuya package.",
           "minLength": 1,
-          "title": "Python-Interpreter",
+          "title": "Python interpreter",
           "type": "string"
         },
         "probe_script": {
+          "description": "Path to the script with which the TinyTuya assistant reaches the Tuya cloud and the devices.",
           "minLength": 1,
-          "title": "Probe-Skript",
+          "title": "Probe script",
           "type": "string"
         },
         "probe_timeout_s": {
+          "description": "Seconds the TinyTuya assistant waits for the probe script.",
           "minimum": 1,
-          "title": "Probe-Timeout",
+          "title": "Probe timeout",
           "type": "integer"
         }
       },
@@ -454,6 +521,7 @@
         "probe_script",
         "probe_timeout_s"
       ],
+      "title": "TinyTuya",
       "type": "object"
     }
   },
@@ -467,6 +535,6 @@
     "tailscale",
     "tinytuya"
   ],
-  "title": "Energy Node zentrale Konfiguration",
+  "title": "Energy Node central configuration",
   "type": "object"
 }

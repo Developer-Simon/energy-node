@@ -4,6 +4,7 @@
 
 ### Features
 
+- **dashboard:** show installed component versions under settings (#71) (c8ef59b)
 - **webui:** add hostapi helpers that read changelog.json and installed component versions (17e0f19)
 
 ### Fixes
