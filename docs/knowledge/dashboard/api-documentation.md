@@ -287,6 +287,25 @@ Other codes: `peer_gone` (404, the target left), `tier_unknown` (400),
 | GET | `/api/v1/diagnostics/rules` | – | IDs of the diagnostic rules |
 | GET | `/api/v1/diagnostics/health` | – | Health score |
 
+Each warning names its rule and the text variant it uses:
+
+```json
+{
+  "rule_id": "Offline",
+  "key": "offline",
+  "severity": "critical",
+  "device_id": "node",
+  "entity_id": "temp",
+  "message": "Gerät meldet sich als offline.",
+  "hint": "Stromversorgung, Netzwerk und Bridge prüfen"
+}
+```
+
+`key` selects the catalog texts `diagnostics.rule.<key>.message` and
+`.hint`, which the dashboard shows in the page language. `message` and `hint`
+are the German fallback for clients that do not know the key. `key` is not
+`rule_id`, because one rule can produce more than one text.
+
 `GET /api/v1/health` combines several sources:
 
 ```json
