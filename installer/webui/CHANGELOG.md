@@ -1,6 +1,10 @@
 # Changelog
 
-## v0.1.9 (2026-09-23)
+## v0.1.10 (2026-09-28)
+
+### Features
+
+- **webui:** add hostapi helpers that read changelog.json and installed component versions (17e0f19)
 
 ### Fixes
 
