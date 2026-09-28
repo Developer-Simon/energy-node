@@ -20,6 +20,7 @@
 - **dashboard:** add read-only /api/v1/versions and /api/v1/changelog (637efd3)
 - **dashboard:** add the versionsPanel component and its texts (56c0ffa)
 - **dashboard:** add a versions page under Einstellungen (d2c90cf)
+- **dashboard:** drop the dashboard version from the System panel (5d446fb)
 - **dashboard:** catalog keys for MQTT and bridge validation (a4dff4b)
 - **dashboard:** translate MQTT connection test errors (e4fe45e)
 - **dashboard:** catalog keys for diagnostics warnings (f412fb4)
