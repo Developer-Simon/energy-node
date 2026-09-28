@@ -172,9 +172,11 @@ real node, but there is no 1.0 release yet. Until then, configuration formats
 and screens can still change between 0.x versions, and the changelogs say when
 they do.
 
-The **dashboard's UI is German-only** for now, as are most comments in the
-code. This README and the documentation are in English. A localization layer
-for the dashboard is planned.
+The **dashboard speaks German and English.** Each browser picks its language
+from the `DE | EN` switch in the header or from its own language setting, see
+[docs/knowledge/dashboard/localization.md](docs/knowledge/dashboard/localization.md).
+This README and the documentation are in English. Most comments in the code
+are still German.
 
 ## Contributing
 
