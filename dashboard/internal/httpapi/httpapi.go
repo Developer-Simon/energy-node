@@ -1875,7 +1875,7 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 				writeErrorDetail(w, http.StatusNotFound, "schema_not_found", err)
 				return
 			}
-			writeJSON(w, json.RawMessage(data))
+			writeLocalizedSchema(w, r, parts[0], data)
 			return
 		}
 		if len(parts) == 3 && parts[1] == "revisions" {

@@ -11,6 +11,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -278,5 +279,26 @@ func TestSystemConfigPutReportsRestartRequiredFields(t *testing.T) {
 	}
 	if len(payload.RestartRequired) == 0 {
 		t.Fatal("restart_required ist leer, erwartet den Eintrag mqtt")
+	}
+}
+
+func TestSystemConfigSchemaFollowsTheLanguage(t *testing.T) {
+	router, _, _ := newSystemConfigTestRouter(t)
+	session := loginAsGuest(t, router)
+	for lang, want := range map[string]string{"de": "Broker-Host", "en": "Broker host"} {
+		request := httptest.NewRequest(http.MethodGet, "/api/v1/system/config/schema", nil)
+		request.AddCookie(session)
+		request.AddCookie(&http.Cookie{Name: localize.CookieName, Value: lang})
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("%s: status %d", lang, recorder.Code)
+		}
+		if !strings.Contains(recorder.Body.String(), `"title":"`+want+`"`) {
+			t.Errorf("%s: schema lacks %q", lang, want)
+		}
+		if strings.Index(recorder.Body.String(), `"schema_version"`) > strings.Index(recorder.Body.String(), `"mqtt"`) {
+			t.Errorf("%s: property order changed", lang)
+		}
 	}
 }
