@@ -1,89 +1,89 @@
 {
   "additionalProperties": false,
-  "description": "Ersetzt die frueheren *.env-Dateien aller Dienste. Liegt auf dem Zielgeraet unter /etc/energy-node/config.json.",
+  "description": "Replaces the former *.env files of all services. Lives on the target device at /etc/energy-node/config.json.",
   "properties": {
     "dashboard": {
       "additionalProperties": false,
       "properties": {
         "admin_password_file": {
-          "title": "Admin-Passwortdatei",
+          "title": "Admin password file",
           "type": "string"
         },
         "admin_username": {
           "minLength": 1,
-          "title": "Admin-Benutzername",
+          "title": "Admin username",
           "type": "string"
         },
         "bind_address": {
           "minLength": 1,
-          "title": "Bind-Adresse",
+          "title": "Bind address",
           "type": "string"
         },
         "client_id": {
           "minLength": 1,
-          "title": "MQTT-Client-ID",
+          "title": "MQTT client ID",
           "type": "string"
         },
         "device_identifier": {
           "minLength": 1,
-          "title": "Eigener Geraetebezeichner",
+          "title": "Own device identifier",
           "type": "string"
         },
         "log_level": {
           "minLength": 1,
-          "title": "Log-Level",
+          "title": "Log level",
           "type": "string"
         },
         "mosquitto_bridge_target": {
           "minLength": 1,
-          "title": "Bridge-Zieldatei",
+          "title": "Bridge target file",
           "type": "string"
         },
         "node_device_id": {
           "minLength": 1,
-          "title": "Node-Geraete-ID",
+          "title": "Node device ID",
           "type": "string"
         },
         "node_device_name": {
           "minLength": 1,
-          "title": "Node-Anzeigename",
+          "title": "Node display name",
           "type": "string"
         },
         "node_diagnostic_poll_multiplier": {
           "exclusiveMinimum": 0,
-          "title": "Node-Diagnose-Multiplikator",
+          "title": "Node diagnostics multiplier",
           "type": "number"
         },
         "node_poll_interval_s": {
           "exclusiveMinimum": 0,
-          "title": "Node-Abfrageintervall",
+          "title": "Node poll interval",
           "type": "number"
         },
         "port": {
           "maximum": 65535,
           "minimum": 1,
-          "title": "HTTP-Port",
+          "title": "HTTP port",
           "type": "integer"
         },
         "sweep_interval_seconds": {
           "minimum": 1,
-          "title": "Sweep-Intervall",
+          "title": "Sweep interval",
           "type": "integer"
         },
         "system_action_helper": {
           "minLength": 1,
-          "title": "Systemaktions-Helfer",
+          "title": "System action helper",
           "type": "string"
         },
         "tls": {
           "additionalProperties": false,
           "properties": {
             "cert_file": {
-              "title": "Zertifikat",
+              "title": "Certificate",
               "type": "string"
             },
             "key_file": {
-              "title": "Schluessel",
+              "title": "Key",
               "type": "string"
             }
           },
@@ -123,11 +123,11 @@
           "type": "boolean"
         },
         "automation": {
-          "title": "Automationen",
+          "title": "Automations",
           "type": "boolean"
         },
         "battery_soc": {
-          "title": "Batterie-SoC",
+          "title": "Battery SoC",
           "type": "boolean"
         },
         "shelly": {
@@ -147,7 +147,7 @@
           "type": "boolean"
         }
       },
-      "title": "Installierte Dienste",
+      "title": "Installed services",
       "type": "object"
     },
     "logging": {
@@ -155,7 +155,7 @@
       "properties": {
         "level": {
           "minLength": 1,
-          "title": "Log-Level der Python-Dienste",
+          "title": "Log level of the Python services",
           "type": "string"
         }
       },
@@ -169,21 +169,21 @@
       "properties": {
         "host": {
           "minLength": 1,
-          "title": "Broker-Host",
+          "title": "Broker host",
           "type": "string"
         },
         "password_file": {
-          "title": "Passwortdatei",
+          "title": "Password file",
           "type": "string"
         },
         "port": {
           "maximum": 65535,
           "minimum": 1,
-          "title": "Broker-Port",
+          "title": "Broker port",
           "type": "integer"
         },
         "username": {
-          "title": "Benutzername",
+          "title": "Username",
           "type": "string"
         }
       },
@@ -200,17 +200,17 @@
       "properties": {
         "data_dir": {
           "minLength": 1,
-          "title": "Dashboard-Daten",
+          "title": "Dashboard data",
           "type": "string"
         },
         "devices_dir": {
           "minLength": 1,
-          "title": "Geraetekonfigurationen",
+          "title": "Device configurations",
           "type": "string"
         },
         "services_version_file": {
-          "description": "Wird nicht mehr verwendet und ignoriert. Die Versionen stehen unter Einstellungen \u003e Versionen.",
-          "title": "Services-Versionsdatei (veraltet)",
+          "description": "No longer used and ignored. The versions are shown under Settings \u003e Versions.",
+          "title": "Services version file (deprecated)",
           "type": "string"
         }
       },
@@ -223,7 +223,7 @@
     "schema_version": {
       "maximum": 2,
       "minimum": 2,
-      "title": "Schemaversion",
+      "title": "Schema version",
       "type": "integer"
     },
     "services": {
@@ -234,17 +234,17 @@
           "properties": {
             "diagnostic_poll_multiplier": {
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "poll_interval_s": {
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -260,7 +260,7 @@
           "properties": {
             "service_id": {
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -274,17 +274,17 @@
           "properties": {
             "diagnostic_poll_multiplier": {
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "poll_interval_s": {
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -300,36 +300,36 @@
           "properties": {
             "diagnostic_poll_multiplier": {
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "http_timeout_s": {
               "exclusiveMinimum": 0,
-              "title": "HTTP-Timeout",
+              "title": "HTTP timeout",
               "type": "number"
             },
             "poll_interval_s": {
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             },
             "webhook_enabled": {
               "default": false,
-              "description": "Optionaler eingehender HTTP-Endpunkt, den ein Gen1-Shelly-Geraet beim Aufwachen per Action/Report-URL aufrufen kann, damit ein sleepy-Geraet sofort als online erkannt wird statt erst beim naechsten zufaelligen Poll-Treffer. Standardmaessig aus.",
-              "title": "Wake-Webhook aktiv",
+              "description": "Optional incoming HTTP endpoint that a Gen1 Shelly device can call through its action or report URL when it wakes up, so a sleepy device is recognised as online at once instead of at the next poll that happens to reach it. Off by default.",
+              "title": "Wake webhook enabled",
               "type": "boolean"
             },
             "webhook_port": {
               "default": 8082,
-              "description": "Port des Wake-Webhook-Listeners, nur relevant wenn webhook_enabled true ist.",
+              "description": "Port of the wake webhook listener, only relevant when webhook_enabled is true.",
               "maximum": 65535,
               "minimum": 1,
-              "title": "Wake-Webhook Port",
+              "title": "Wake webhook port",
               "type": "integer"
             }
           },
@@ -346,22 +346,22 @@
           "properties": {
             "diagnostic_poll_multiplier": {
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "http_timeout_s": {
               "exclusiveMinimum": 0,
-              "title": "HTTP-Timeout",
+              "title": "HTTP timeout",
               "type": "number"
             },
             "poll_interval_s": {
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -378,17 +378,17 @@
           "properties": {
             "diagnostic_poll_multiplier": {
               "exclusiveMinimum": 0,
-              "title": "Diagnose-Multiplikator",
+              "title": "Diagnostics multiplier",
               "type": "number"
             },
             "poll_interval_s": {
               "exclusiveMinimum": 0,
-              "title": "Abfrageintervall",
+              "title": "Poll interval",
               "type": "number"
             },
             "service_id": {
               "minLength": 1,
-              "title": "Dienst-ID",
+              "title": "Service ID",
               "type": "string"
             }
           },
@@ -415,12 +415,12 @@
       "properties": {
         "bin": {
           "minLength": 1,
-          "title": "tailscale-Binary",
+          "title": "tailscale binary",
           "type": "string"
         },
         "status_timeout_s": {
           "minimum": 1,
-          "title": "Status-Timeout",
+          "title": "Status timeout",
           "type": "integer"
         }
       },
@@ -435,17 +435,17 @@
       "properties": {
         "probe_python": {
           "minLength": 1,
-          "title": "Python-Interpreter",
+          "title": "Python interpreter",
           "type": "string"
         },
         "probe_script": {
           "minLength": 1,
-          "title": "Probe-Skript",
+          "title": "Probe script",
           "type": "string"
         },
         "probe_timeout_s": {
           "minimum": 1,
-          "title": "Probe-Timeout",
+          "title": "Probe timeout",
           "type": "integer"
         }
       },
@@ -467,6 +467,6 @@
     "tailscale",
     "tinytuya"
   ],
-  "title": "Energy Node zentrale Konfiguration",
+  "title": "Energy Node central configuration",
   "type": "object"
 }

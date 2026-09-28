@@ -1,20 +1,20 @@
 {
-  "title": "Energy Node zentrale Konfiguration",
-  "description": "Ersetzt die frueheren *.env-Dateien aller Dienste. Liegt auf dem Zielgeraet unter /etc/energy-node/config.json.",
+  "title": "Energy Node central configuration",
+  "description": "Replaces the former *.env files of all services. Lives on the target device at /etc/energy-node/config.json.",
   "type": "object",
   "additionalProperties": false,
   "required": ["schema_version", "mqtt", "paths", "logging", "services", "dashboard", "tailscale", "tinytuya"],
   "properties": {
-    "schema_version": {"type": "integer", "minimum": 2, "maximum": 2, "title": "Schemaversion"},
+    "schema_version": {"type": "integer", "minimum": 2, "maximum": 2, "title": "Schema version"},
     "mqtt": {
       "type": "object",
       "additionalProperties": false,
       "required": ["host", "port", "username", "password_file"],
       "properties": {
-        "host": {"type": "string", "minLength": 1, "title": "Broker-Host"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "Broker-Port"},
-        "username": {"type": "string", "title": "Benutzername"},
-        "password_file": {"type": "string", "title": "Passwortdatei"}
+        "host": {"type": "string", "minLength": 1, "title": "Broker host"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "Broker port"},
+        "username": {"type": "string", "title": "Username"},
+        "password_file": {"type": "string", "title": "Password file"}
       }
     },
     "paths": {
@@ -22,16 +22,16 @@
       "additionalProperties": false,
       "required": ["devices_dir", "data_dir"],
       "properties": {
-        "devices_dir": {"type": "string", "minLength": 1, "title": "Geraetekonfigurationen"},
-        "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard-Daten"},
-        "services_version_file": {"type": "string", "title": "Services-Versionsdatei (veraltet)", "description": "Wird nicht mehr verwendet und ignoriert. Die Versionen stehen unter Einstellungen > Versionen."}
+        "devices_dir": {"type": "string", "minLength": 1, "title": "Device configurations"},
+        "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard data"},
+        "services_version_file": {"type": "string", "title": "Services version file (deprecated)", "description": "No longer used and ignored. The versions are shown under Settings > Versions."}
       }
     },
     "logging": {
       "type": "object",
       "additionalProperties": false,
       "required": ["level"],
-      "properties": {"level": {"type": "string", "minLength": 1, "title": "Log-Level der Python-Dienste"}}
+      "properties": {"level": {"type": "string", "minLength": 1, "title": "Log level of the Python services"}}
     },
     "services": {
       "type": "object",
@@ -41,12 +41,12 @@
     },
     "installed_services": {
       "type": "object",
-      "title": "Installierte Dienste",
+      "title": "Installed services",
       "additionalProperties": {"type": "boolean"},
       "properties": {
         "apsystems": {"type": "boolean", "title": "APsystems"},
-        "automation": {"type": "boolean", "title": "Automationen"},
-        "battery_soc": {"type": "boolean", "title": "Batterie-SoC"},
+        "automation": {"type": "boolean", "title": "Automations"},
+        "battery_soc": {"type": "boolean", "title": "Battery SoC"},
         "shelly": {"type": "boolean", "title": "Shelly"},
         "tailscale": {"type": "boolean", "title": "Tailscale"},
         "trucki": {"type": "boolean", "title": "Trucki"},
@@ -58,29 +58,29 @@
       "additionalProperties": false,
       "required": ["bind_address", "port", "client_id", "device_identifier", "log_level", "sweep_interval_seconds", "admin_username", "admin_password_file", "tls", "system_action_helper", "mosquitto_bridge_target", "node_device_id", "node_device_name", "node_poll_interval_s", "node_diagnostic_poll_multiplier"],
       "properties": {
-        "bind_address": {"type": "string", "minLength": 1, "title": "Bind-Adresse"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "HTTP-Port"},
-        "client_id": {"type": "string", "minLength": 1, "title": "MQTT-Client-ID"},
-        "device_identifier": {"type": "string", "minLength": 1, "title": "Eigener Geraetebezeichner"},
-        "log_level": {"type": "string", "minLength": 1, "title": "Log-Level"},
-        "sweep_interval_seconds": {"type": "integer", "minimum": 1, "title": "Sweep-Intervall"},
-        "admin_username": {"type": "string", "minLength": 1, "title": "Admin-Benutzername"},
-        "admin_password_file": {"type": "string", "title": "Admin-Passwortdatei"},
+        "bind_address": {"type": "string", "minLength": 1, "title": "Bind address"},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "HTTP port"},
+        "client_id": {"type": "string", "minLength": 1, "title": "MQTT client ID"},
+        "device_identifier": {"type": "string", "minLength": 1, "title": "Own device identifier"},
+        "log_level": {"type": "string", "minLength": 1, "title": "Log level"},
+        "sweep_interval_seconds": {"type": "integer", "minimum": 1, "title": "Sweep interval"},
+        "admin_username": {"type": "string", "minLength": 1, "title": "Admin username"},
+        "admin_password_file": {"type": "string", "title": "Admin password file"},
         "tls": {
           "type": "object",
           "additionalProperties": false,
           "required": ["cert_file", "key_file"],
           "properties": {
-            "cert_file": {"type": "string", "title": "Zertifikat"},
-            "key_file": {"type": "string", "title": "Schluessel"}
+            "cert_file": {"type": "string", "title": "Certificate"},
+            "key_file": {"type": "string", "title": "Key"}
           }
         },
-        "system_action_helper": {"type": "string", "minLength": 1, "title": "Systemaktions-Helfer"},
-        "mosquitto_bridge_target": {"type": "string", "minLength": 1, "title": "Bridge-Zieldatei"},
-        "node_device_id": {"type": "string", "minLength": 1, "title": "Node-Geraete-ID"},
-        "node_device_name": {"type": "string", "minLength": 1, "title": "Node-Anzeigename"},
-        "node_poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Node-Abfrageintervall"},
-        "node_diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Node-Diagnose-Multiplikator"}
+        "system_action_helper": {"type": "string", "minLength": 1, "title": "System action helper"},
+        "mosquitto_bridge_target": {"type": "string", "minLength": 1, "title": "Bridge target file"},
+        "node_device_id": {"type": "string", "minLength": 1, "title": "Node device ID"},
+        "node_device_name": {"type": "string", "minLength": 1, "title": "Node display name"},
+        "node_poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Node poll interval"},
+        "node_diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Node diagnostics multiplier"}
       }
     },
     "tailscale": {
@@ -88,8 +88,8 @@
       "additionalProperties": false,
       "required": ["bin", "status_timeout_s"],
       "properties": {
-        "bin": {"type": "string", "minLength": 1, "title": "tailscale-Binary"},
-        "status_timeout_s": {"type": "integer", "minimum": 1, "title": "Status-Timeout"}
+        "bin": {"type": "string", "minLength": 1, "title": "tailscale binary"},
+        "status_timeout_s": {"type": "integer", "minimum": 1, "title": "Status timeout"}
       }
     },
     "tinytuya": {
@@ -97,9 +97,9 @@
       "additionalProperties": false,
       "required": ["probe_python", "probe_script", "probe_timeout_s"],
       "properties": {
-        "probe_python": {"type": "string", "minLength": 1, "title": "Python-Interpreter"},
-        "probe_script": {"type": "string", "minLength": 1, "title": "Probe-Skript"},
-        "probe_timeout_s": {"type": "integer", "minimum": 1, "title": "Probe-Timeout"}
+        "probe_python": {"type": "string", "minLength": 1, "title": "Python interpreter"},
+        "probe_script": {"type": "string", "minLength": 1, "title": "Probe script"},
+        "probe_timeout_s": {"type": "integer", "minimum": 1, "title": "Probe timeout"}
       }
     }
   }
