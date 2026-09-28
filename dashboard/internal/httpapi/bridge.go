@@ -251,7 +251,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 func handleBridgeCredentials(credentials *mqttclient.CredentialStore, authManager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if credentials == nil {
-			writeError(w, http.StatusNotImplemented, "bridge_unavailable", "Bridge-Zugangsdaten sind nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "bridge_unavailable", "error.bridge_unavailable.credentials", nil, "Bridge-Zugangsdaten sind nicht verfügbar")
 			return
 		}
 		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.credentials", "Für Bridge-Zugangsdaten fehlt die Berechtigung") {
@@ -273,7 +273,7 @@ func handleBridgeCredentials(credentials *mqttclient.CredentialStore, authManage
 				return
 			}
 			if strings.TrimSpace(body.Password) == "" {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", "Passwort darf nicht leer sein")
+				writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.password_empty", nil, "Passwort darf nicht leer sein")
 				return
 			}
 			if err := credentials.Save(mqttclient.Credentials{Password: body.Password}); err != nil {
@@ -360,7 +360,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			return
 		}
 		if executor == nil {
-			writeError(w, http.StatusNotImplemented, "bridge_unavailable", "Bridge-Anwendung ist nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "bridge_unavailable", "error.bridge_unavailable.apply", nil, "Bridge-Anwendung ist nicht verfügbar")
 			return
 		}
 		var body struct {
@@ -371,7 +371,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			return
 		}
 		if !body.Confirm {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", "confirm muss true sein")
+			writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.confirm", nil, "confirm muss true sein")
 			return
 		}
 		connection, configured, err := loadBridgeConnection(store)
@@ -380,7 +380,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			return
 		}
 		if !configured {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", "keine Bridge-Konfiguration gespeichert")
+			writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.no_config", nil, "keine Bridge-Konfiguration gespeichert")
 			return
 		}
 		user, _ := auth.UserFromContext(r.Context())
@@ -445,7 +445,7 @@ func handleBridgeRestart(authManager *auth.Manager, executor SystemActionExecuto
 			return
 		}
 		if executor == nil {
-			writeError(w, http.StatusNotImplemented, "bridge_unavailable", "Mosquitto-Neustart ist nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "bridge_unavailable", "error.bridge_unavailable.restart", nil, "Mosquitto-Neustart ist nicht verfügbar")
 			return
 		}
 		if err := executor.Execute(r.Context(), systemactions.RestartMosquitto); err != nil {

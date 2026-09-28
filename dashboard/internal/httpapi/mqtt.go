@@ -282,7 +282,7 @@ func mqttPasswordConfigured(credentials *mqttclient.CredentialStore) bool {
 func handleMQTTCredentials(credentials *mqttclient.CredentialStore, authManager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if credentials == nil {
-			writeError(w, http.StatusNotImplemented, "mqtt_unavailable", "MQTT-Zugangsdaten sind nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "mqtt_unavailable", "error.mqtt_unavailable.credentials", nil, "MQTT-Zugangsdaten sind nicht verfügbar")
 			return
 		}
 		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.credentials", "Für MQTT-Zugangsdaten fehlt die Berechtigung") {
@@ -304,7 +304,7 @@ func handleMQTTCredentials(credentials *mqttclient.CredentialStore, authManager 
 				return
 			}
 			if strings.TrimSpace(body.Password) == "" {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", "Passwort darf nicht leer sein")
+				writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.password_empty", nil, "Passwort darf nicht leer sein")
 				return
 			}
 			if err := credentials.Save(mqttclient.Credentials{Password: body.Password}); err != nil {
@@ -360,11 +360,11 @@ func handleMQTTTest(credentials *mqttclient.CredentialStore, authManager *auth.M
 			return
 		}
 		if strings.TrimSpace(body.Host) == "" {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", "host darf nicht leer sein")
+			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.host_empty", nil, "host darf nicht leer sein")
 			return
 		}
 		if body.Port < 1 || body.Port > 65535 {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", "port muss zwischen 1 und 65535 liegen")
+			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.port_range", nil, "port muss zwischen 1 und 65535 liegen")
 			return
 		}
 		password := body.Password
@@ -403,7 +403,7 @@ func handleMQTTReconnect(store *settings.Store, credentials *mqttclient.Credenti
 			return
 		}
 		if reconfigurer == nil {
-			writeError(w, http.StatusNotImplemented, "mqtt_unavailable", "MQTT-Reconnect ist nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "mqtt_unavailable", "error.mqtt_unavailable.reconnect", nil, "MQTT-Reconnect ist nicht verfügbar")
 			return
 		}
 		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.reconnect", "Für den Reconnect fehlt die Berechtigung") {
@@ -441,7 +441,7 @@ func handleMQTTStatus(statusProvider mqttclient.StatusProvider) http.HandlerFunc
 			return
 		}
 		if statusProvider == nil {
-			writeError(w, http.StatusServiceUnavailable, "mqtt_unavailable", "MQTT-Client ist nicht verfügbar")
+			writeErrorKey(w, http.StatusServiceUnavailable, "mqtt_unavailable", "error.mqtt_unavailable.client", nil, "MQTT-Client ist nicht verfügbar")
 			return
 		}
 		writeJSON(w, statusProvider.Status())

@@ -382,7 +382,7 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		if !isSecureRequest(r) {
-			writeError(w, http.StatusForbidden, "secure_login_required", "Admin-Anmeldung ist nur über HTTPS verfügbar")
+			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.login", nil, "Admin-Anmeldung ist nur über HTTPS verfügbar")
 			return
 		}
 		var request struct {
@@ -440,7 +440,7 @@ func handleAuthSession(manager *auth.Manager) http.HandlerFunc {
 			return
 		}
 		if !isSecureRequest(r) && auth.HasRole(session.User, auth.RoleSystemActions) {
-			writeError(w, http.StatusForbidden, "secure_login_required", "Admin-Sitzungen sind nur über HTTPS verfügbar")
+			writeErrorKey(w, http.StatusForbidden, "secure_login_required", "error.secure_login_required.sessions", nil, "Admin-Sitzungen sind nur über HTTPS verfügbar")
 			return
 		}
 		writeAuthSession(w, session)
@@ -1384,7 +1384,7 @@ func handleAutomationNotification(reg *registry.Registry) http.HandlerFunc {
 		}
 		device, ok := reg.Get("automation")
 		if !ok {
-			writeError(w, http.StatusNotFound, "automation_not_found", "Kein Automations-Dienst auf dieser Instanz")
+			writeErrorKey(w, http.StatusNotFound, "automation_not_found", "error.automation_not_found.no_service", nil, "Kein Automations-Dienst auf dieser Instanz")
 			return
 		}
 		var stateTopic string
@@ -1395,7 +1395,7 @@ func handleAutomationNotification(reg *registry.Registry) http.HandlerFunc {
 			}
 		}
 		if stateTopic == "" {
-			writeError(w, http.StatusNotFound, "automation_not_found", "Automations-Dienst ohne last_event-Topic")
+			writeErrorKey(w, http.StatusNotFound, "automation_not_found", "error.automation_not_found.no_last_event_topic", nil, "Automations-Dienst ohne last_event-Topic")
 			return
 		}
 		samples := reg.TopicSamplesFor([]string{stateTopic})
@@ -1440,7 +1440,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/devices/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
 		if len(parts) == 0 || parts[0] == "" {
-			writeError(w, http.StatusNotFound, "device_not_found", "Gerät wurde nicht gefunden")
+			writeErrorKey(w, http.StatusNotFound, "device_not_found", "error.device_not_found.device", nil, "Gerät wurde nicht gefunden")
 			return
 		}
 		id, err := url.PathUnescape(parts[0])
@@ -1454,7 +1454,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if _, ok := reg.Get(id); !ok {
-				writeError(w, http.StatusNotFound, "device_not_found", "Gerät wurde nicht gefunden")
+				writeErrorKey(w, http.StatusNotFound, "device_not_found", "error.device_not_found.device", nil, "Gerät wurde nicht gefunden")
 				return
 			}
 			writeJSON(w, engine.Device(id, now()))
@@ -1469,7 +1469,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if _, ok := reg.Get(id); !ok {
-				writeError(w, http.StatusNotFound, "device_not_found", "Gerät wurde nicht gefunden")
+				writeErrorKey(w, http.StatusNotFound, "device_not_found", "error.device_not_found.device", nil, "Gerät wurde nicht gefunden")
 				return
 			}
 			if actions == nil {
@@ -1492,7 +1492,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if filter == nil || !filter.IsIgnored(id) {
-				writeError(w, http.StatusNotFound, "device_not_found", "Ignoriertes Gerät wurde nicht gefunden")
+				writeErrorKey(w, http.StatusNotFound, "device_not_found", "error.device_not_found.ignored", nil, "Ignoriertes Gerät wurde nicht gefunden")
 				return
 			}
 			if actions == nil {
@@ -1583,7 +1583,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 		}
 		dev, ok := reg.Get(id)
 		if !ok {
-			writeError(w, http.StatusNotFound, "device_not_found", "Gerät wurde nicht gefunden")
+			writeErrorKey(w, http.StatusNotFound, "device_not_found", "error.device_not_found.device", nil, "Gerät wurde nicht gefunden")
 			return
 		}
 		// Damit das Modal Icon, Favoriten und den Pin-Schalter kennt, ohne
@@ -1763,7 +1763,7 @@ func handleAutomationTest(publisher CommandPublisher, authManager *auth.Manager)
 			return
 		}
 		if !auth.HasRole(user, auth.RoleAutomations) {
-			writeError(w, http.StatusForbidden, "automations_forbidden", "Für Automations-Tests fehlt die Berechtigung")
+			writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.tests", nil, "Für Automations-Tests fehlt die Berechtigung")
 			return
 		}
 		cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
@@ -1931,7 +1931,7 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 				return
 			}
 			if !auth.HasRole(user, auth.RoleAutomations) {
-				writeError(w, http.StatusForbidden, "automations_forbidden", "Für Automations-Regeln fehlt die Berechtigung")
+				writeErrorKey(w, http.StatusForbidden, "automations_forbidden", "error.automations_forbidden.rules", nil, "Für Automations-Regeln fehlt die Berechtigung")
 				return
 			}
 			cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
