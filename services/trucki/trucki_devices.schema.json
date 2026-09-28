@@ -6,7 +6,7 @@
   "type": "array",
   "items": {
     "title": "Trucki Device",
-    "description": "Configuration for one Trucki-Stick (any of the T2SG/T2MG/T2HG variants; the bridge publishes whatever fields it finds dynamically).",
+    "description": "Configuration for one Trucki-Stick, any of the T2SG/T2MG/T2HG variants. The bridge publishes whatever fields it finds dynamically.",
     "type": "object",
     "required": ["id", "name", "host"],
     "additionalProperties": false,

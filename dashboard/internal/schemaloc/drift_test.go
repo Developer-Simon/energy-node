@@ -111,3 +111,31 @@ func TestPendingSchemasExist(t *testing.T) {
 		}
 	}
 }
+
+// Operator-facing texts use a comma or a full stop, never a semicolon or a
+// connecting dash, in every language.
+func TestSchemaTextsFollowTheStyleRules(t *testing.T) {
+	bad := func(text string) bool {
+		return strings.Contains(text, ";") || strings.Contains(text, " – ") || strings.Contains(text, " — ") || strings.Contains(text, " - ")
+	}
+	for id, file := range shippedSchemas(t) {
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		entries, err := Entries(id, raw)
+		if err != nil {
+			t.Fatalf("%s: %v", file, err)
+		}
+		for _, entry := range entries {
+			if bad(entry.Text) {
+				t.Errorf("%s: %s: %q", file, entry.Key, entry.Text)
+			}
+		}
+	}
+	for key, text := range germanCatalog(t) {
+		if bad(text) {
+			t.Errorf("catalogs/de.json: %s: %q", key, text)
+		}
+	}
+}
