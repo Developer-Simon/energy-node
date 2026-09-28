@@ -431,6 +431,7 @@ func main() {
 			BridgeCredentials:   bridgeCredentialStore,
 			MQTTBridgeWatcher:   client,
 			DataDir:             dataDir,
+			InstallerStateDir:   installerStateDir,
 			AppConfigPath:       *configPath,
 			BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,
 			Tailscale:           tailscaleClient,
