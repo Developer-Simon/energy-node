@@ -42,6 +42,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
+	dashwebui "github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
 // updatesRepo is the GitHub repository internal/updatecheck asks about. It
@@ -146,6 +147,7 @@ func main() {
 		jobDir:                jobDir,
 		prepare:               prepare,
 		pageToken:             httpapi.SessionCSRFToken(authManager),
+		languages:             dashwebui.Languages(),
 	})
 	if err != nil {
 		log.Printf("redeploy: could not start the local update handler: %v", err)

@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch/bundlefetchtest"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
 
@@ -136,5 +138,53 @@ func TestResumedRunKeepsTheRunIDOfTheStagedJob(t *testing.T) {
 	}
 	if !strings.Contains(body, "event: run-started") {
 		t.Fatalf("the restored bus has no run-started for the page to pick up: %s", body)
+	}
+}
+
+func TestTheRedeployScreenFollowsTheDashboardLanguage(t *testing.T) {
+	root := t.TempDir()
+	candidate := filepath.Join(root, "candidate")
+	os.MkdirAll(candidate, 0o755)
+	os.WriteFile(filepath.Join(candidate, "manifest.json"), []byte(`{"version":"1.5.0","steps":[]}`), 0o644)
+	os.WriteFile(filepath.Join(root, "installed-manifest.json"), []byte(`{"version":"1.4.0"}`), 0o644)
+	os.WriteFile(filepath.Join(root, "selection.json"), []byte(`{"steps":{}}`), 0o644)
+	jobDir := filepath.Join(root, "job")
+	os.MkdirAll(jobDir, 0o755)
+
+	handler, err := buildRedeployHandler(redeployConfig{
+		candidateBundleDir: candidate, installedManifestPath: filepath.Join(root, "installed-manifest.json"),
+		selectionPath: filepath.Join(root, "selection.json"), jobDir: jobDir,
+		languages: []string{"de", "en"},
+	})
+	if err != nil {
+		t.Fatalf("buildRedeployHandler: %v", err)
+	}
+
+	cases := []struct {
+		name, cookie, accept, want string
+	}{
+		{"no cookie, no header", "", "", "de"},
+		{"browser language", "", "en-GB,en;q=0.9", "en"},
+		{"cookie beats the browser", "de", "en-GB,en;q=0.9", "de"},
+		{"cookie alone", "en", "", "en"},
+		{"unknown cookie is ignored", "xx", "en", "en"},
+	}
+	for _, c := range cases {
+		req := httptest.NewRequest(http.MethodGet, "/redeploy/api/bootstrap", nil)
+		if c.cookie != "" {
+			req.AddCookie(&http.Cookie{Name: localize.CookieName, Value: c.cookie})
+		}
+		if c.accept != "" {
+			req.Header.Set("Accept-Language", c.accept)
+		}
+		rec := httptest.NewRecorder()
+		handler.ServeHTTP(rec, req)
+		var got hostapi.Bootstrap
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("%s: body is not JSON: %v", c.name, err)
+		}
+		if got.Language != c.want || !got.LanguageFixed {
+			t.Errorf("%s: language=%q fixed=%v, want %s and no own switch", c.name, got.Language, got.LanguageFixed, c.want)
+		}
 	}
 }

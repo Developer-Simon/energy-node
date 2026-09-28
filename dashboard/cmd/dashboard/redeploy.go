@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterhost"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 	webui "github.com/Developer-Simon/energy-node-webui"
@@ -34,6 +35,10 @@ type redeployConfig struct {
 	// value the /redeploy/ gate expects on every non-GET request (see
 	// httpapi.SessionCSRFToken). Nil leaves the token empty.
 	pageToken func(*http.Request) string
+	// languages are the dashboard's UI languages. The screen resolves its
+	// language per request against them, exactly like every dashboard page
+	// (localize.Resolve). Nil leaves the screen in the catalogs' fallback.
+	languages []string
 }
 
 var timeNowUnixNano = func() int64 { return time.Now().UnixNano() }
@@ -52,12 +57,12 @@ func prepareFunc(f *bundlefetch.Fetcher) func(context.Context, func(string, map[
 }
 
 // buildRedeployHandler builds the mounted /redeploy/ handler. Token is
-// empty and LanguageFixed is true throughout: the dashboard's own session
-// auth already gates every request that reaches here (E8's "dieselbe
-// Authentifizierung wie das Dashboard"; that gate wants the session's CSRF
-// token on writes, which the page gets through pageToken), and the language
-// switch stays off
-// until P2.9 localizes the rest of the dashboard.
+// empty: the dashboard's own session auth already gates every request that
+// reaches here (E8's "dieselbe Authentifizierung wie das Dashboard"; that
+// gate wants the session's CSRF token on writes, which the page gets
+// through pageToken). The screen follows the dashboard's language per
+// request (cookie, then Accept-Language) and shows no switch of its own,
+// hence LanguageFixed: the switch in the dashboard header decides.
 func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
 	backend, err := updaterhost.New(updaterhost.Config{
 		CandidateBundleDir: cfg.candidateBundleDir, InstalledManifestPath: cfg.installedManifestPath,
@@ -72,8 +77,12 @@ func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
 	}
 
 	opts := hostapi.Options{
-		Backend: backend, Catalogs: catalogs, Language: "de", LanguageFixed: true,
+		Backend: backend, Catalogs: catalogs, LanguageFixed: true,
 		BasePath: "/redeploy", PageToken: cfg.pageToken,
+	}
+	if len(cfg.languages) > 0 {
+		languages := cfg.languages
+		opts.LanguageFor = func(r *http.Request) string { return localize.Resolve(r, languages) }
 	}
 
 	// Resume across a self-update restart (Plan D, E10): if the updater
