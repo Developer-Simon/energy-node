@@ -9,6 +9,7 @@
 ### Fixes
 
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **webui:** add the changelog error codes to the installer web UI catalogs (6f23aff)
 
 ## v0.1.8 (2026-09-23)
 
