@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.21 (2026-09-28)
+## v0.7.22 (2026-09-28)
 
 ### Features
 
@@ -14,6 +14,12 @@
 - **dashboard:** localize energy and settings (#64) (5445f5b)
 - **dashboard:** localize configuration and the layout editor (#67) (9609a2d)
 - **dashboard:** localize automations and history, guard every UI text (#68) (cce3f4f)
+- **dashboard:** localize API error messages (#69) (368214a)
+- **dashboard:** catalog keys for MQTT and bridge validation (a4dff4b)
+- **dashboard:** translate MQTT connection test errors (e4fe45e)
+- **dashboard:** catalog keys for diagnostics warnings (f412fb4)
+- **dashboard:** translate diagnostics warnings (70a1e95)
+- **dashboard:** English texts for validation, MQTT test and diagnostics (8d7f87c)
 - **dashboard:** translatable fields in API error responses (b1afd64)
 - **dashboard:** catalog texts for every API error code (306adfa)
 - **dashboard:** I18n.error for API error bodies (d07c831)
@@ -151,6 +157,7 @@
 
 ### Documentation
 
+- **dashboard:** document diagnostics keys and typed validation errors (450cf75)
 - **dashboard:** document translatable API errors, bump script versions (13cac48)
 - remove base.html and dashboard.js from i18n-pending.txt (57c5cad)
 - **localization:** document number and date formats and bump asset versions (252a88d)
@@ -161,6 +168,7 @@
 
 ### Tests
 
+- **dashboard:** assert the MQTT test detail on a refused connection (ba4adac)
 - **webui:** make the UI text guard cover every template and script (69f5a3b)
 - **webui:** follow the page-object extraPages loop (ff90890)
 - **webui:** check card catalog titles per language (3b6b98c)

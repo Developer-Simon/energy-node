@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { attachStores } from './helpers/notify-stores.mjs';
-import { installI18n } from './helpers/i18n.mjs';
+import { installI18n, catalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -320,4 +320,45 @@ test('every request goes through the reverse-proxy base path when one is set', a
     ['/node/api/v1/auth/session', '/node/api/v1/mqtt', '/node/api/v1/mqtt/status'],
   );
   assert.equal(component.form.host, 'broker.local');
+});
+
+test('testErrorText() formats error with detail using error.with_detail', () => {
+  const { component, window } = createMqttPanel();
+  const catalogDe = catalog('de');
+  component.testResult = {ok: false, error_code: 'auth_failed', message: 'x', detail: 'not authorized'};
+  const result = component.testErrorText();
+  const expectedMessage = catalogDe['mqtt.test.error.auth_failed'];
+  const expectedFormat = catalogDe['error.with_detail'];
+  const expected = expectedFormat.replace('{message}', expectedMessage).replace('{detail}', 'not authorized');
+  assert.equal(result, expected);
+});
+
+test('testErrorText() formats error without detail', () => {
+  const { component, window } = createMqttPanel();
+  const catalogDe = catalog('de');
+  component.testResult = {ok: false, error_code: 'timeout', message: 'Verbindungsaufbau hat das Zeitlimit überschritten'};
+  const result = component.testErrorText();
+  const expected = catalogDe['mqtt.test.error.timeout'];
+  assert.equal(result, expected);
+});
+
+test('testErrorText() falls back to error code and message for unknown error codes', () => {
+  const { component, window } = createMqttPanel();
+  component.testResult = {ok: false, error_code: 'weird', message: 'boom'};
+  const result = component.testErrorText();
+  assert.equal(result, 'weird: boom');
+});
+
+test('testErrorText() returns empty string when testResult is null', () => {
+  const { component, window } = createMqttPanel();
+  component.testResult = null;
+  const result = component.testErrorText();
+  assert.equal(result, '');
+});
+
+test('testErrorText() returns empty string when testResult.ok is true', () => {
+  const { component, window } = createMqttPanel();
+  component.testResult = {ok: true};
+  const result = component.testErrorText();
+  assert.equal(result, '');
 });

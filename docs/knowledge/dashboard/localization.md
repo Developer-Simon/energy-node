@@ -94,6 +94,34 @@ translates them by code.
   a local `apiError` helper and read the body with
   `response.json().catch(() => ({}))`, so an HTML error page from a proxy
   shows the fallback text instead of a `SyntaxError`.
+- **Typed validation errors:** form checks that operators trip themselves
+  return a `uierror` instead of `errors.New`, so the dashboard shows a
+  translated sentence instead of the English Go text. The MQTT and bridge
+  checks in `internal/settings` do this, one key per check:
+
+  ```go
+  return uierror.New("error.bridge_rejected.max_connections",
+  	fmt.Sprintf("bridge: only %d connection(s) are supported today", maxBridgeConnections),
+  	map[string]any{"max": maxBridgeConnections})
+  ```
+
+  `internal/settings/uierror_keys_test.go` checks that the keys exist in
+  `de.json` and that every placeholder has a parameter. Schema errors from
+  `config.ValidateDocument` stay untyped and arrive as `detail`.
+- **MQTT connection test:** `/api/v1/mqtt/test` answers with `error_code`,
+  `message` and, for a failed connection, `detail`. The page shows
+  `mqtt.test.error.<error_code>` with the detail appended, and the raw
+  `error_code: message` only for a code the catalog does not know.
+
+### Diagnostics
+
+Diagnostic warnings carry `key`. `internal/diagnostics/texts.go` holds the
+German `message` and `hint` for every key, and `texts_test.go` fails when a
+text differs from `diagnostics.rule.<key>.message`/`.hint` in `de.json` or
+when a rule sets a text literal instead of using the table. The page calls
+`warningText(item, 'message' | 'hint')`, which falls back to the API text
+for a warning without a known key. The device modal groups warnings by
+`rule_id` and `key`, so grouping does not depend on the page language.
 
 ## Adding a language
 

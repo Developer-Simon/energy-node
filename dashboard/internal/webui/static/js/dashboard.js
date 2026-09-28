@@ -787,7 +787,7 @@
     get groupedWarnings() {
       const groups = new Map();
       for (const warning of this.sortedWarnings) {
-        const key = `${warning.rule_id}\u0000${warning.message}\u0000${warning.hint}`;
+        const key = `${warning.rule_id}\u0000${warning.key || warning.message}\u0000${warning.key ? '' : warning.hint}`;
         let group = groups.get(key);
         if (!group) {
           group = {...warning, affectedEntityIds: [], count: 0};
@@ -834,6 +834,13 @@
       if (value === null || value === undefined) return '–';
       if (typeof value === 'object') return JSON.stringify(value);
       return String(value);
+    },
+
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint
+    warningText(item, part) {
+      const key = item && item.key ? `diagnostics.rule.${item.key}.${part}` : '';
+      if (key && window.I18n && window.I18n.has(key)) return t(key);
+      return (item && item[part]) || '';
     },
 
     // Eine empfangene MQTT-Nachricht wird als Liste einzelner Zustaende
@@ -1518,6 +1525,13 @@
       if (this.sortBy !== field) return t(`diagnostics.sort.${column}`);
       const direction = this.sortDirection === 'asc' ? 'asc' : 'desc';
       return t(`diagnostics.sort.${column}_${direction}`);
+    },
+
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint
+    warningText(item, part) {
+      const key = item && item.key ? `diagnostics.rule.${item.key}.${part}` : '';
+      if (key && window.I18n && window.I18n.has(key)) return t(key);
+      return (item && item[part]) || '';
     },
   });
 

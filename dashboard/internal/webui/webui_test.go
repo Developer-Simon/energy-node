@@ -140,7 +140,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=2,/static/js/history.js?v=12",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=2,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=11,/static/js/mqtt.page.js?v=6,/static/js/tailscale.page.js?v=4,/static/js/systemconfig.page.js?v=4",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=2,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=11,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/systemconfig.page.js?v=4",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
