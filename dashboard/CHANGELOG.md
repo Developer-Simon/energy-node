@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.26 (2026-09-28)
+## v0.7.27 (2026-09-28)
 
 ### Features
 
@@ -62,6 +62,7 @@
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
 - **dashboard:** tidy localization texts after the final review (c2b5853)
+- **dashboard:** drop two unused catalog keys (b1e01ca)
 - **dashboard:** keep plural-reserved .other off the versions catalog keys (e4e2b09)
 - **dashboard:** wrap version rows on narrow screens and localize release dates (036591f)
 - **config:** name Trucki devices as IoT sticks (2a16239)
