@@ -574,12 +574,12 @@ action is already running, `409` with `system_action_busy` is returned.
 | Method | Path | Gate | Purpose |
 |---|---|---|---|
 | GET | `/api/v1/versions` | signed-in session | The installed bundle and the version of every component |
-| GET | `/api/v1/changelog` | signed-in session | The installed `changelog.json`; `?component=<id>` (repeatable) keeps only those components |
+| GET | `/api/v1/changelog` | signed-in session | The installed `changelog.json`, `?component=<id>` (repeatable) keeps only those components |
 
 Both read the installer's state directory (`/var/lib/energy-node-installer`:
 `installed-manifest.json`, `selection.json`, `changelog.json`) and never write.
 On a node the installer never touched, `versions` answers `200` with
-`"bundle": null` and `"components": []`; `changelog` answers `404` with code
+`"bundle": null` and `"components": []`. `changelog` answers `404` with code
 `no_changelog` (also for a bundle from before `changelog.json` existed).
 
 `versions` response:
