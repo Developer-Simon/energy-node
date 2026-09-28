@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.23 (2026-09-28)
+## v0.7.24 (2026-09-28)
 
 ### Features
 
@@ -16,6 +16,10 @@
 - **dashboard:** localize automations and history, guard every UI text (#68) (cce3f4f)
 - **dashboard:** localize API error messages (#69) (368214a)
 - **dashboard:** localize validation errors and diagnostics (#70) (9827111)
+- **dashboard:** show installed component versions under settings (#71) (c8ef59b)
+- **dashboard:** add a catalog for schema form texts (da7b863)
+- **dashboard:** write the central schema in English and move German to the catalog (bd26f60)
+- **dashboard:** serve form schemas in the operator's language (2a3bb9d)
 - **dashboard:** add a versions package that reads what the installer left on the node (0dee5e2)
 - **dashboard:** add read-only /api/v1/versions and /api/v1/changelog (637efd3)
 - **dashboard:** add the versionsPanel component and its texts (56c0ffa)
@@ -113,6 +117,7 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **dashboard:** keep the schema generator unchanged, compare key order in the test (5911dab)
 - **dashboard:** keep plural-reserved .other off the versions catalog keys (e4e2b09)
 - **dashboard:** wrap version rows on narrow screens and localize release dates (036591f)
 - **webui:** correct automation summary texts (e138511)
