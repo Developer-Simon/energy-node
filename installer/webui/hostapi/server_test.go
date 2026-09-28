@@ -263,3 +263,67 @@ func TestNewSeedsTheBusFromOptionsInitialBus(t *testing.T) {
 		t.Fatalf("Seq() = %d, want 1 (seeded, not a fresh empty bus)", server.Bus().Seq())
 	}
 }
+
+func TestLanguageForPicksTheLanguagePerRequest(t *testing.T) {
+	server, fake := newTestServer(t, func(o *hostapi.Options) {
+		o.Language = ""
+		o.LanguageFixed = true
+		o.LanguageFor = func(r *http.Request) string { return r.Header.Get("X-Test-Lang") }
+	})
+	fake.Description.Host = hostapi.HostDashboard
+
+	for _, want := range []string{"en", "de"} {
+		req := httptest.NewRequest(http.MethodGet, "/api/bootstrap", nil)
+		req.Header.Set("X-Installer-Token", testToken)
+		req.Header.Set("X-Test-Lang", want)
+		rec := httptest.NewRecorder()
+		server.Handler().ServeHTTP(rec, req)
+		var got hostapi.Bootstrap
+		if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+			t.Fatalf("body is not JSON: %v", err)
+		}
+		if got.Language != want || !got.LanguageFixed {
+			t.Errorf("bootstrap for %s: language=%q fixed=%v", want, got.Language, got.LanguageFixed)
+		}
+
+		req = httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("X-Installer-Token", testToken)
+		req.Header.Set("X-Test-Lang", want)
+		rec = httptest.NewRecorder()
+		server.Handler().ServeHTTP(rec, req)
+		if !strings.Contains(rec.Body.String(), `<html lang="`+want+`">`) {
+			t.Errorf("shell for %s does not carry <html lang=%q>", want, want)
+		}
+	}
+}
+
+func TestLanguageForFallsBackForALanguageWithoutACatalog(t *testing.T) {
+	server, _ := newTestServer(t, func(o *hostapi.Options) {
+		o.Language = ""
+		o.LanguageFor = func(*http.Request) string { return "fr" }
+	})
+	rec := do(t, server, http.MethodGet, "/api/bootstrap", "")
+	var got hostapi.Bootstrap
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	if got.Language != "en" {
+		t.Errorf("language = %q, want the fallback en for a language the catalogs lack", got.Language)
+	}
+}
+
+func TestWithoutLanguageForTheConfiguredLanguageStays(t *testing.T) {
+	server, _ := newTestServer(t, nil) // Language "de", LanguageFor nil: the installer
+	req := httptest.NewRequest(http.MethodGet, "/api/bootstrap", nil)
+	req.Header.Set("X-Installer-Token", testToken)
+	req.Header.Set("Accept-Language", "en")
+	rec := httptest.NewRecorder()
+	server.Handler().ServeHTTP(rec, req)
+	var got hostapi.Bootstrap
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("body is not JSON: %v", err)
+	}
+	if got.Language != "de" {
+		t.Errorf("language = %q, want de: without LanguageFor the request must not matter", got.Language)
+	}
+}
