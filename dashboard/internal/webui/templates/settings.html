@@ -294,7 +294,6 @@
     <h3>{{t "settings.system.title"}}</h3>
     <section class="system-access-panel">
       <p class="settings-help">{{t "settings.system.access.label"}} <strong x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong>. {{t "settings.system.access.note"}}</p>
-      <p class="settings-help"><a href="#settings-versions" x-on:click.prevent="activeSettingsPage = 'versions'">{{t "settings.system.versions_link"}}</a></p>
       <div class="toolbar">
         <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="{{t "settings.system.check_updates.button"}}" aria-label="{{t "settings.system.check_updates.button"}}">
           <svg class="automation-icon"><use href="#ico-download"></use></svg>

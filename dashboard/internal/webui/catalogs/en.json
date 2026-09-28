@@ -1775,7 +1775,6 @@
   "settings.system.update_available.current": "Up to date.",
   "settings.system.update_available.notes": "View changes",
   "settings.system.update_available.title": "Update available:",
-  "settings.system.versions_link": "View all versions and changes",
   "settings.system_action.confirm_title": "Really run {action}?",
   "settings.system_action.started": "{action} has been started.",
   "settings.theme.label": "Colour scheme",

@@ -61,7 +61,6 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"diagnosticsPanel", "diagnostics-health-heading", "filteredHealthScores", "diagnostics-health-status", "sort('entity_id')", "settingsPanel", "x-model.number=\"healthScoreThreshold\"", "item.entity_id || '-'", "storage-health-heading", "Speicherzustand", "Geschätzte Restlaufzeit", "loadStorageHealth()",
 		"settings-wide-panels", "Tabs ohne Breitendeckelung", "widePanelOptions", "wide-panels-select", "initChoices()",
 		"settings-status-bar-items", "Angaben im Systemstatus", "statusBarItemOptions", "status-bar-items-select",
-		"Alle Versionen und Änderungen ansehen",
 	}
 	for _, marker := range markers {
 		if !strings.Contains(body, marker) {
@@ -2877,7 +2876,7 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 	newHandler().ServeHTTP(panel, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
 	body := panel.Body.String()
 	for _, marker := range []string{
-		`aria-controls="settings-versions"`, `versionsPanel()`, "Installiertes Paket", "Alle Versionen und Änderungen ansehen",
+		`aria-controls="settings-versions"`, `versionsPanel()`, "Installiertes Paket",
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("settings panel does not contain %q", marker)
