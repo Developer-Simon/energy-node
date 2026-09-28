@@ -1,6 +1,7 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+  const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
@@ -9,7 +10,7 @@
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     if (response.status === 204) return null;
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
+    if (!response.ok) throw new Error(apiError(body));
     return body;
   };
   const relationKey = (a, b) => [a, b].sort().join('::');

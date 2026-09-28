@@ -105,10 +105,12 @@
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   };
 
+  const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
+
   const requestJSON = async (url, options) => {
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(apiError(body));
     return body;
   };
 

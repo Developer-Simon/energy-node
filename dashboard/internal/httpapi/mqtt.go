@@ -52,7 +52,7 @@ func ResolveMQTTConfig(store *settings.Store, credentials *mqttclient.Credential
 	return base, "config", nil
 }
 
-func requireRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager, role, code, message string) bool {
+func requireRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager, role, code, key, message string) bool {
 	if manager == nil {
 		writeError(w, http.StatusNotImplemented, "authentication_unavailable", "Anmeldung ist nicht konfiguriert")
 		return false
@@ -63,7 +63,7 @@ func requireRole(w http.ResponseWriter, r *http.Request, manager *auth.Manager, 
 		return false
 	}
 	if !auth.HasRole(user, role) {
-		writeError(w, http.StatusForbidden, code, message)
+		writeErrorKey(w, http.StatusForbidden, code, key, nil, message)
 		return false
 	}
 	return true
@@ -117,12 +117,12 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 		case http.MethodGet:
 			cfg, source, err := ResolveMQTTConfig(store, credentials, base)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 				return
 			}
 			stored, err := store.LoadMQTT()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 				return
 			}
 			port, _ := strconv.Atoi(cfg.Port)
@@ -145,7 +145,7 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 				PasswordConfigured:  mqttPasswordConfigured(credentials),
 			})
 		case http.MethodPut:
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Einstellungen fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.settings", "Für MQTT-Einstellungen fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -156,11 +156,11 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 			}
 			var value settings.MQTTConfig
 			if err := decodeBody(r, &value); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			if err := store.SaveMQTT(value); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -182,7 +182,7 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 			methodNotAllowed(w, http.MethodPut)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Einstellungen fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.settings", "Für MQTT-Einstellungen fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -195,17 +195,17 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 			PublishEnergyDevice bool `json:"publish_energy_device"`
 		}
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		stored, err := store.LoadMQTT()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 			return
 		}
 		stored.PublishEnergyDevice = body.PublishEnergyDevice
 		if err := store.SaveMQTT(stored); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		writeJSON(w, map[string]bool{"publish_energy_device": body.PublishEnergyDevice})
@@ -227,7 +227,7 @@ func handleMQTTNodeSettings(store *settings.Store, authManager *auth.Manager, pu
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Einstellungen fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.settings", "Für MQTT-Einstellungen fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -241,12 +241,12 @@ func handleMQTTNodeSettings(store *settings.Store, authManager *auth.Manager, pu
 			Metrics          map[string]bool `json:"metrics"`
 		}
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		stored, err := store.LoadMQTT()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 			return
 		}
 		if body.SimulationActive != nil {
@@ -258,7 +258,7 @@ func handleMQTTNodeSettings(store *settings.Store, authManager *auth.Manager, pu
 			stored.Metrics = body.Metrics
 		}
 		if err := store.SaveMQTT(stored); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		if publisher != nil && body.SimulationActive != nil {
@@ -282,10 +282,10 @@ func mqttPasswordConfigured(credentials *mqttclient.CredentialStore) bool {
 func handleMQTTCredentials(credentials *mqttclient.CredentialStore, authManager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if credentials == nil {
-			writeError(w, http.StatusNotImplemented, "mqtt_unavailable", "MQTT-Zugangsdaten sind nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "mqtt_unavailable", "error.mqtt_unavailable.credentials", nil, "MQTT-Zugangsdaten sind nicht verfügbar")
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für MQTT-Zugangsdaten fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.credentials", "Für MQTT-Zugangsdaten fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -300,21 +300,21 @@ func handleMQTTCredentials(credentials *mqttclient.CredentialStore, authManager 
 				Password string `json:"password"`
 			}
 			if err := decodeBody(r, &body); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			if strings.TrimSpace(body.Password) == "" {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", "Passwort darf nicht leer sein")
+				writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.password_empty", nil, "Passwort darf nicht leer sein")
 				return
 			}
 			if err := credentials.Save(mqttclient.Credentials{Password: body.Password}); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": true})
 		case http.MethodDelete:
 			if err := credentials.Delete(); err != nil {
-				writeError(w, http.StatusInternalServerError, "mqtt_credentials_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "mqtt_credentials_failed", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": false})
@@ -345,7 +345,7 @@ func handleMQTTTest(credentials *mqttclient.CredentialStore, authManager *auth.M
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für den Verbindungstest fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.test", "Für den Verbindungstest fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -356,15 +356,15 @@ func handleMQTTTest(credentials *mqttclient.CredentialStore, authManager *auth.M
 		}
 		var body mqttTestRequest
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		if strings.TrimSpace(body.Host) == "" {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", "host darf nicht leer sein")
+			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.host_empty", nil, "Host darf nicht leer sein")
 			return
 		}
 		if body.Port < 1 || body.Port > 65535 {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", "port muss zwischen 1 und 65535 liegen")
+			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.port_range", nil, "Port muss zwischen 1 und 65535 liegen")
 			return
 		}
 		password := body.Password
@@ -403,10 +403,10 @@ func handleMQTTReconnect(store *settings.Store, credentials *mqttclient.Credenti
 			return
 		}
 		if reconfigurer == nil {
-			writeError(w, http.StatusNotImplemented, "mqtt_unavailable", "MQTT-Reconnect ist nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "mqtt_unavailable", "error.mqtt_unavailable.reconnect", nil, "MQTT-Reconnect ist nicht verfügbar")
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "Für den Reconnect fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "mqtt_config_forbidden", "error.mqtt_config_forbidden.reconnect", "Für den Reconnect fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -417,7 +417,7 @@ func handleMQTTReconnect(store *settings.Store, credentials *mqttclient.Credenti
 		}
 		cfg, _, err := ResolveMQTTConfig(store, credentials, base)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 			return
 		}
 		reconfigureErr := reconfigurer.Reconfigure(cfg)
@@ -441,7 +441,7 @@ func handleMQTTStatus(statusProvider mqttclient.StatusProvider) http.HandlerFunc
 			return
 		}
 		if statusProvider == nil {
-			writeError(w, http.StatusServiceUnavailable, "mqtt_unavailable", "MQTT-Client ist nicht verfügbar")
+			writeErrorKey(w, http.StatusServiceUnavailable, "mqtt_unavailable", "error.mqtt_unavailable.client", nil, "MQTT-Client ist nicht verfügbar")
 			return
 		}
 		writeJSON(w, statusProvider.Status())

@@ -45,7 +45,7 @@ func handleHistoryEntities(reg *registry.Registry, store *settings.Store) http.H
 		}
 		value, err := store.LoadSettings()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "settings_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
 			return
 		}
 		if len(value.HistoryExtraEntities) == 0 {

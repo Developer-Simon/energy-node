@@ -170,7 +170,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.config", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -178,7 +178,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			}
 			connection, configured, err := loadBridgeConnection(store)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "bridge_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "bridge_invalid", err)
 				return
 			}
 			payload := bridgeConnectionToPayload(connection)
@@ -200,7 +200,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			}
 			writeJSON(w, payload)
 		case http.MethodPut:
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.config", "Für die Bridge-Konfiguration fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -211,12 +211,12 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			}
 			var body bridgeConnectionPayload
 			if err := decodeBody(r, &body); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			connection := bridgeConnectionFromPayload(body)
 			if err := store.SaveBridge(settings.BridgeConfig{Connections: []settings.BridgeConnection{connection}}); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			if watcher != nil {
@@ -251,10 +251,10 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 func handleBridgeCredentials(credentials *mqttclient.CredentialStore, authManager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if credentials == nil {
-			writeError(w, http.StatusNotImplemented, "bridge_unavailable", "Bridge-Zugangsdaten sind nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "bridge_unavailable", "error.bridge_unavailable.credentials", nil, "Bridge-Zugangsdaten sind nicht verfügbar")
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für Bridge-Zugangsdaten fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.credentials", "Für Bridge-Zugangsdaten fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -269,21 +269,21 @@ func handleBridgeCredentials(credentials *mqttclient.CredentialStore, authManage
 				Password string `json:"password"`
 			}
 			if err := decodeBody(r, &body); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			if strings.TrimSpace(body.Password) == "" {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", "Passwort darf nicht leer sein")
+				writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.password_empty", nil, "Passwort darf nicht leer sein")
 				return
 			}
 			if err := credentials.Save(mqttclient.Credentials{Password: body.Password}); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": true})
 		case http.MethodDelete:
 			if err := credentials.Delete(); err != nil {
-				writeError(w, http.StatusInternalServerError, "bridge_credentials_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "bridge_credentials_failed", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": false})
@@ -347,10 +347,10 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für das Anwenden der Bridge fehlt die Berechtigung mqtt_config") {
+		if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.apply_mqtt_config", "Für das Anwenden der Bridge fehlt die Berechtigung mqtt_config") {
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "Für das Anwenden der Bridge fehlt die Berechtigung system_actions") {
+		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "error.bridge_forbidden.apply_system_actions", "Für das Anwenden der Bridge fehlt die Berechtigung system_actions") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -360,27 +360,27 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			return
 		}
 		if executor == nil {
-			writeError(w, http.StatusNotImplemented, "bridge_unavailable", "Bridge-Anwendung ist nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "bridge_unavailable", "error.bridge_unavailable.apply", nil, "Bridge-Anwendung ist nicht verfügbar")
 			return
 		}
 		var body struct {
 			Confirm bool `json:"confirm"`
 		}
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 			return
 		}
 		if !body.Confirm {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", "confirm muss true sein")
+			writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.confirm", nil, "confirm muss true sein")
 			return
 		}
 		connection, configured, err := loadBridgeConnection(store)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "bridge_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "bridge_invalid", err)
 			return
 		}
 		if !configured {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", "keine Bridge-Konfiguration gespeichert")
+			writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.no_config", nil, "Keine Bridge-Konfiguration gespeichert")
 			return
 		}
 		user, _ := auth.UserFromContext(r.Context())
@@ -392,13 +392,13 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			RenderedAt: time.Now(),
 		})
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 			return
 		}
 
 		stagedPath := filepath.Join(dataDir, bridgeStagedFileName)
 		if err := writeStagedBridgeFile(stagedPath, rendered); err != nil {
-			writeError(w, http.StatusInternalServerError, "bridge_stage_failed", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "bridge_stage_failed", err)
 			return
 		}
 
@@ -417,7 +417,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 				writeError(w, http.StatusConflict, "bridge_busy", "Eine Systemaktion läuft bereits")
 				return
 			}
-			writeError(w, http.StatusBadGateway, bridgeApplyErrorCode(applyErr), applyErr.Error())
+			writeErrorDetail(w, http.StatusBadGateway, bridgeApplyErrorCode(applyErr), applyErr)
 			return
 		}
 		record.OK = true
@@ -435,7 +435,7 @@ func handleBridgeRestart(authManager *auth.Manager, executor SystemActionExecuto
 			methodNotAllowed(w, http.MethodPost)
 			return
 		}
-		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "Für den Mosquitto-Neustart fehlt die Berechtigung") {
+		if !requireRole(w, r, authManager, auth.RoleSystemActions, "bridge_forbidden", "error.bridge_forbidden.restart", "Für den Mosquitto-Neustart fehlt die Berechtigung") {
 			return
 		}
 		if !requireHTTPS(w, r) {
@@ -445,7 +445,7 @@ func handleBridgeRestart(authManager *auth.Manager, executor SystemActionExecuto
 			return
 		}
 		if executor == nil {
-			writeError(w, http.StatusNotImplemented, "bridge_unavailable", "Mosquitto-Neustart ist nicht verfügbar")
+			writeErrorKey(w, http.StatusNotImplemented, "bridge_unavailable", "error.bridge_unavailable.restart", nil, "Mosquitto-Neustart ist nicht verfügbar")
 			return
 		}
 		if err := executor.Execute(r.Context(), systemactions.RestartMosquitto); err != nil {
@@ -453,7 +453,7 @@ func handleBridgeRestart(authManager *auth.Manager, executor SystemActionExecuto
 				writeError(w, http.StatusConflict, "bridge_busy", "Eine Systemaktion läuft bereits")
 				return
 			}
-			writeError(w, http.StatusBadGateway, "bridge_restart_failed", err.Error())
+			writeErrorDetail(w, http.StatusBadGateway, "bridge_restart_failed", err)
 			return
 		}
 		writeJSON(w, map[string]any{"ok": true})
@@ -528,7 +528,7 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/mqtt/bridge/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
 		if len(parts) == 1 && parts[0] == "revisions" && r.Method == http.MethodGet {
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für Bridge-Revisionen fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.revisions", "Für Bridge-Revisionen fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -536,14 +536,14 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 			}
 			revisions, err := store.BridgeRevisions()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "bridge_revisions_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "bridge_revisions_failed", err)
 				return
 			}
 			writeJSON(w, revisions)
 			return
 		}
 		if len(parts) == 2 && parts[0] == "revisions" && r.Method == http.MethodGet {
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für Bridge-Revisionen fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.revisions", "Für Bridge-Revisionen fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -551,14 +551,14 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 			}
 			data, err := store.ReadBridgeRevision(parts[1])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "bridge_revision_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "bridge_revision_not_found", err)
 				return
 			}
 			writeJSON(w, data)
 			return
 		}
 		if len(parts) == 1 && parts[0] == "restore" && r.Method == http.MethodPost {
-			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "Für die Bridge-Wiederherstellung fehlt die Berechtigung") {
+			if !requireRole(w, r, authManager, auth.RoleMQTTConfig, "bridge_forbidden", "error.bridge_forbidden.restore", "Für die Bridge-Wiederherstellung fehlt die Berechtigung") {
 				return
 			}
 			if !requireHTTPS(w, r) {
@@ -571,12 +571,12 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 				Revision string `json:"revision"`
 			}
 			if err := decodeBody(r, &request); err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			value, err := store.RestoreBridge(request.Revision)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_restore_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_restore_rejected", err)
 				return
 			}
 			if watcher != nil {

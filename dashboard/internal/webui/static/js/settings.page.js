@@ -1,19 +1,20 @@
 (() => {
+  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
-    const body = await response.json();
+    const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(body.message || t('common.request_failed'));
+      const error = new Error(apiError(body));
       error.toolOutput = body.tool_output || '';
       throw error;
     }
     return body;
   };
-
-  const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
   const storageText = (key, params) => {
     // Format numeric parameters with number formatting before translation

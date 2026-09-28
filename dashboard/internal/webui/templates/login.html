@@ -63,7 +63,7 @@
     </form>
     <div class="message" id="login-message" role="alert" data-failed="{{t "login.request_failed"}}"></div>
   </main>
-  <script src="{{.BasePath}}/static/js/i18n.js?v=2"></script>
+  <script src="{{.BasePath}}/static/js/i18n.js?v=3"></script>
   <script>
     (() => {
       const base = document.documentElement.dataset.basePath || '';
@@ -72,8 +72,8 @@
       const message = document.getElementById('login-message');
       const request = async (url, options) => {
         const response = await fetch(url, options);
-        const body = await response.json();
-        if (!response.ok) throw new Error(body.message || message.dataset.failed);
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(window.I18n ? window.I18n.error(body, 'login.request_failed') : (body.message || message.dataset.failed));
         return body;
       };
       const busy = (value) => { if (form) form.querySelector('button[type="submit"]').disabled = value; guestButton.disabled = value; };

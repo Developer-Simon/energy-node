@@ -8,6 +8,7 @@ import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
+import { catalog as getCatalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const source = fs.readFileSync(
@@ -126,4 +127,29 @@ test('alpine:init registers the $t and $tn magics', () => {
   window.document.dispatchEvent(new window.Event('alpine:init'));
   assert.equal(magics.t()('greet', { name: 'Sam' }), 'Hallo Sam');
   assert.equal(magics.tn()('file', 2), '2 Dateien');
+});
+
+test('I18n.error prefers message_key, then error.<code>, then the server text', () => {
+  const enCatalog = { ...getCatalog('en') };
+  enCatalog['error.demo'] = 'Demo failed';
+  enCatalog['error.demo.variant'] = 'Demo variant failed for {name}';
+  enCatalog['error.with_detail'] = '{message}: {detail}';
+  const { I18n } = load({ boot: { lang: 'en', catalog: enCatalog } });
+  // 1. known message_key with params
+  assert.equal(I18n.error({ code: 'demo', message: 'x', message_key: 'error.demo.variant', params: { name: 'A' } }), 'Demo variant failed for A');
+  // 2. message_key unknown to this catalog: falls back to the code
+  assert.equal(I18n.error({ code: 'demo', message: 'x', message_key: 'error.demo.missing' }), 'Demo failed');
+  // 2b. detail is appended to the code text
+  assert.equal(I18n.error({ code: 'demo', message: 'boom', detail: 'boom' }), 'Demo failed: boom');
+  // 3. unknown code: the server text
+  assert.equal(I18n.error({ code: 'newer_code', message: 'Server says no' }), 'Server says no');
+  // 4. nothing usable: the fallback key, default common.request_failed
+  assert.equal(I18n.error(null), I18n.t('common.request_failed'));
+  assert.equal(I18n.error({}, 'login.request_failed'), I18n.t('login.request_failed'));
+});
+
+test('I18n.has is false for missing and empty entries', () => {
+  const { I18n } = load({ boot: { lang: 'de', catalog: getCatalog('de') } });
+  assert.equal(I18n.has('common.save'), true);
+  assert.equal(I18n.has('no.such.key'), false);
 });

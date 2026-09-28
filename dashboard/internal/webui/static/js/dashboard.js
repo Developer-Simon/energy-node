@@ -8,6 +8,7 @@
   // alone), so a missing runtime shows a visible gap instead of throwing.
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
+  const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
   const dashboardShell = () => ({
     activePanel: 'overview-panel',
@@ -264,8 +265,8 @@
   const requestJSON = async (url, options) => {
     // withBase() is the single chokepoint for every URL literal below.
     const response = await fetch(withBase(url), options);
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(apiError(body));
     return body;
   };
   const newID = prefix => `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
