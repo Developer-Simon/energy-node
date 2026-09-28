@@ -40,6 +40,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/versions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
@@ -150,6 +151,10 @@ type RouterDependencies struct {
 	// tuya. main.go fuellt sie ueber Config.ServiceInstalled; nil heisst
 	// hier wie dort "alles an".
 	InstalledServices map[string]bool
+	// InstallerStateDir ist das Zustandsverzeichnis von Installer und Updater
+	// (installed-manifest.json, selection.json, changelog.json), aus dem die
+	// Versionsseite liest. Leer heisst versions.DefaultStateDir.
+	InstallerStateDir string
 	// Version ist die aus dashboard/VERSION plus Branch-Suffix gebaute
 	// Versionskennung (siehe main.buildVersion), leer bzw. "dev" ausserhalb
 	// von Release-Builds.
@@ -239,6 +244,12 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.Redeploy != nil {
 		mux.Handle("/redeploy/", requireSystemActions(dependencies.Auth, dependencies.Redeploy))
 	}
+	stateDir := dependencies.InstallerStateDir
+	if stateDir == "" {
+		stateDir = versions.DefaultStateDir
+	}
+	mux.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
+	mux.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
 	if dependencies.UpdatesCache != nil {
 		mux.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
 		mux.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
