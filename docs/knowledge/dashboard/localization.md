@@ -65,6 +65,36 @@ When you write a new UI text, follow these rules:
 9. **Technical strings:** CSS classes, error codes, HTTP headers, event names, storage keys, MQTT topics. If the guard flags them, add `// i18n-ignore` at the line end. Never use `i18n-ignore` for visible text, aria-label counts as visible.
 10. **Keep both catalogs sorted** after adding new keys.
 
+## API errors
+
+API errors keep their `{"code","message"}` form (see
+[API documentation](api-documentation.md#response-format)). The dashboard
+translates them by code.
+
+- **Go:** `writeError(w, status, code, message)` for a code with one text.
+  `writeErrorKey(w, status, code, "error.<code>.<variant>", params, message)`
+  when a code has several texts, `message` is the German fallback and must
+  equal `de.json` for that key. `writeErrorDetail(w, status, code, err)` for a
+  passed-through error: `err.Error()` travels as `detail`, unless the chain
+  holds a `*uierror.Error`, whose `Key` and `Params` become `message_key`
+  and `params`. `requireRole` takes the variant key before its message.
+- **`internal/uierror`:** `uierror.New(key, text, params)` is an error whose
+  `Error()` is exactly `text`, so logs and tests keep the old wording.
+  `uierror.From(err)` finds it through `fmt.Errorf("…: %w", err)` wrapping.
+- **Keys:** `error.<code>` for every code (the general text), plus
+  `error.<code>.<variant>` for each variant. `error.with_detail` is
+  `{message}: {detail}`.
+- **Guard:** `internal/httpapi/error_catalog_test.go` scans every error writer
+  and `requireRole` call and fails when a code or key is missing in `de` or
+  `en`, or when a Go fallback differs from `de.json`. A code passed through a
+  variable must be listed in `dynamicErrorCodes`.
+- **Browser:** `I18n.error(body, fallbackKey)` picks `message_key`, then
+  `error.<code>` (with `detail` appended), then the server's `message`, then
+  the fallback key (default `common.request_failed`). Page scripts wrap it in
+  a local `apiError` helper and read the body with
+  `response.json().catch(() => ({}))`, so an HTML error page from a proxy
+  shows the fallback text instead of a `SyntaxError`.
+
 ## Adding a language
 
 Add `dashboard/internal/webui/catalogs/<code>.json` with every key of `de.json`

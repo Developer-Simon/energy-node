@@ -123,7 +123,7 @@ func TestLoginOffersTheLanguageSwitcher(t *testing.T) {
 		`<div class="lang-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
 		`<input type="radio" name="lang" value="de" data-lang-select><span aria-hidden="true">DE</span><span class="visually-hidden">Deutsch</span>`,
 		`<input type="radio" name="lang" value="en" data-lang-select checked><span aria-hidden="true">EN</span>`,
-		`static/js/i18n.js?v=2`,
+		`static/js/i18n.js?v=3`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("login page lacks %q", want)
@@ -185,7 +185,7 @@ func TestOverviewOffersTheLanguageSwitcherAndRuntime(t *testing.T) {
 	for _, want := range []string{
 		`<div class="lang-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
 		`<input type="radio" name="lang" value="en" data-lang-select checked>`,
-		`<script src="/static/js/i18n.js?v=2"></script>`,
+		`<script src="/static/js/i18n.js?v=3"></script>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("overview lacks %q", want)

@@ -36,8 +36,25 @@ All responses are `application/json`. Errors always take this form:
 { "code": "device_not_found", "message": "Gerät wurde nicht gefunden" }
 ```
 
-`code` is stable and machine-readable, `message` is human-readable German text
-for the UI. On `405` the server additionally sets the `Allow` header.
+`code` is stable and machine-readable. `message` is a German fallback text.
+The dashboard shows the catalog text for `code` or `message_key` and uses
+`message` only for codes it does not know. On `405` the server additionally
+sets the `Allow` header.
+
+Some errors carry additional fields, all optional:
+
+```json
+{ "code": "bridge_forbidden", "message": "Für Bridge-Revisionen fehlt die Berechtigung",
+  "message_key": "error.bridge_forbidden.revisions" }
+{ "code": "settings_rejected", "message": "layout: page id is empty",
+  "detail": "layout: page id is empty" }
+```
+
+- `message_key` and `params` name a catalog text for a code with several
+  variants, with the values for its placeholders.
+- `detail` carries a passed-through technical error, usually in English. The
+  dashboard appends it to the translated text of `code`.
+- `tool_output` (TinyTuya only) is the output of the helper tool.
 
 ### Common error codes
 
