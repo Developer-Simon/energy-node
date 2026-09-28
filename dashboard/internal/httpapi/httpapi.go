@@ -2688,14 +2688,7 @@ func methodNotAllowed(w http.ResponseWriter, allowed ...string) {
 	w.Header().Set("Allow", strings.Join(allowed, ", "))
 	writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "method is not supported")
 }
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	writeJSONStatus(w, status, map[string]any{"code": code, "message": message})
-}
 
-func writeTinyTuyaError(w http.ResponseWriter, status int, code string, err error) {
-	message := err.Error()
-	writeJSONStatus(w, status, map[string]any{"code": code, "message": message, "tool_output": message})
-}
 func writeJSONStatus(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
