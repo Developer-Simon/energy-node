@@ -20,6 +20,7 @@
 - **dashboard:** add a catalog for schema form texts (da7b863)
 - **dashboard:** write the central schema in English and move German to the catalog (bd26f60)
 - **dashboard:** serve form schemas in the operator's language (2a3bb9d)
+- **dashboard:** describe every field of the system configuration form (012ea1c)
 - **dashboard:** add a versions package that reads what the installer left on the node (0dee5e2)
 - **dashboard:** add read-only /api/v1/versions and /api/v1/changelog (637efd3)
 - **dashboard:** add the versionsPanel component and its texts (56c0ffa)

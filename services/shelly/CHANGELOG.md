@@ -6,6 +6,7 @@
 
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **dashboard:** write the central schema in English and move German to the catalog (bd26f60)
+- **dashboard:** describe every field of the system configuration form (012ea1c)
 - **services:** start with an invalid device file and report it as rejected (029c604)
 
 ## v0.4.1 (2026-09-23)
