@@ -1,0 +1,17 @@
+{
+  "version": "v0.7.5",
+  "built_at": "2026-09-21T10:00:00+02:00",
+  "arch": "armv6",
+  "components": {
+    "bootstrap": "v0.1.6",
+    "dashboard": "v0.7.5",
+    "services": "v0.4.0",
+    "energy_node_common": "v0.4.5",
+    "battery_soc_core": "v0.1.9"
+  },
+  "steps": [
+    {"id": "10", "optional": false},
+    {"id": "82", "optional": true, "default": true, "service_id": "battery_soc", "dir": "battery_soc", "version": "v0.4.0"},
+    {"id": "83", "optional": true, "default": true, "service_id": "shelly", "dir": "shelly", "version": "v0.4.2"}
+  ]
+}

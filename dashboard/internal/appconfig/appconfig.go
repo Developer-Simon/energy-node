@@ -64,10 +64,9 @@ type MQTTSection struct {
 type PathsSection struct {
 	DevicesDir string `json:"devices_dir"`
 	DataDir    string `json:"data_dir"`
-	// ServicesVersionFile ist optional und zeigt, falls gesetzt, auf die von
-	// scripts/deploy/deploy_src_to_remote.sh deployte services/VERSION-Datei. Leer bedeutet
-	// "nicht konfiguriert", nicht "Fehler" - die Settings-Seite zeigt dann
-	// "unbekannt" statt den Start zu verhindern.
+	// ServicesVersionFile ist veraltet und wird ignoriert. Das Feld bleibt,
+	// weil bestehende config.json-Dateien den Schluessel noch tragen und das
+	// Schema zusaetzliche Schluessel in "paths" ablehnt.
 	ServicesVersionFile string `json:"services_version_file"`
 }
 

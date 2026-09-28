@@ -375,3 +375,43 @@
   .segmented-thumb { transition: none; }
   .stepper-btn:active { transform: none; }
 }
+
+/* --- Versions page -----------------------------------------------------------
+   One card per kind (applications, services, libraries ...), one row per
+   component, the changelog expandable below it. Existing tokens only. */
+.version-item + .version-item { border-top: 1px solid var(--border-soft); }
+.version-row {
+  display: flex;
+  align-items: center;
+  gap: .6rem;
+  padding: .6rem 0;
+  flex-wrap: wrap;
+}
+.version-name { flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; color: var(--text); font-size: .92rem; }
+.version-name.is-off { color: var(--text-faint); }
+.version-tag { color: var(--text-strong); font-variant-numeric: tabular-nums; font-weight: 600; font-size: .9rem; }
+.version-chip {
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--text-muted);
+  font-size: .72rem;
+  white-space: nowrap;
+}
+.version-note { color: var(--warn); }
+.release-list { padding: 0 0 .7rem; }
+.release + .release { margin-top: .8rem; }
+.release-title { margin: 0; font-size: .9rem; color: var(--text-strong); }
+.release-date { margin-left: .35rem; color: var(--text-faint); font-size: .78rem; font-weight: 450; }
+.release-group { margin: .5rem 0 .15rem; color: var(--text-subtle); font-size: .78rem; font-weight: 600; letter-spacing: .02em; text-transform: uppercase; }
+.release-entries { margin: 0; padding-left: 1.1rem; color: var(--text); font-size: .88rem; line-height: 1.5; }
+.release-breaking {
+  padding: .05rem .4rem;
+  border-radius: 999px;
+  background: var(--bad-bg);
+  color: var(--bad-ink);
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.versions-cards > .settings-help { grid-column: 1 / -1; }

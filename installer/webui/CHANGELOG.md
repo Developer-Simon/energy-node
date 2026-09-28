@@ -1,10 +1,15 @@
 # Changelog
 
-## v0.1.9 (2026-09-23)
+## v0.1.10 (2026-09-28)
+
+### Features
+
+- **webui:** add hostapi helpers that read changelog.json and installed component versions (17e0f19)
 
 ### Fixes
 
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **webui:** add the changelog error codes to the installer web UI catalogs (6f23aff)
 
 ## v0.1.8 (2026-09-23)
 

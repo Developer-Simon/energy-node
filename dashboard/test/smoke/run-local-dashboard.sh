@@ -11,6 +11,11 @@
 #   ./run-local-dashboard.sh --simulate         # PV/Netz/Batterie/Last "leben" lassen
 #   ./run-local-dashboard.sh --installed-services-off  # installed_services: alle Dienste aus
 #   ./run-local-dashboard.sh --https             # echtes TLS statt X-Forwarded-Proto-Trick
+#   ./run-local-dashboard.sh --simulate-installed  # legt einen Installer-Zustand
+#                                                # (fixtures/installed-state: Manifest,
+#                                                # Changelog, Auswahl) an, Sichtpruefung
+#                                                # fuer Einstellungen > Versionen. Nicht
+#                                                # mit --simulate-package kombinierbar
 #   ./run-local-dashboard.sh --simulate-update  # Update-Pruefung meldet immer v9.9.9
 #                                                # verfuegbar (fake_github_releases.py statt
 #                                                # der echten GitHub-API) - Sichtpruefung fuer
@@ -86,6 +91,7 @@ INSTALLED_SERVICES_OFF=0
 HTTPS=0
 SIMULATE_UPDATE=0
 SIMULATE_PACKAGE=0
+SIMULATE_INSTALLED=0
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
 UPDATES_API_PORT="${DASHBOARD_SMOKE_UPDATES_API_PORT:-18884}"
@@ -160,10 +166,15 @@ while [[ $# -gt 0 ]]; do
     --https) HTTPS=1; shift ;;
     --simulate-update) SIMULATE_UPDATE=1; shift ;;
     --simulate-package) SIMULATE_UPDATE=1; SIMULATE_PACKAGE=1; shift ;;
+    --simulate-installed) SIMULATE_INSTALLED=1; shift ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
 done
+
+if [[ $SIMULATE_INSTALLED -eq 1 && $SIMULATE_PACKAGE -eq 1 ]]; then
+  echo "--simulate-installed und --simulate-package schreiben beide installed-manifest.json, bitte nur eins" >&2; exit 2
+fi
 
 if [[ ! -f "$FIXTURE" ]]; then
   echo "Fixture nicht gefunden: $FIXTURE" >&2; exit 2
@@ -274,6 +285,11 @@ free_port "$MQTT_PORT"
 [[ $SIMULATE_UPDATE -eq 1 ]] && free_port "$UPDATES_API_PORT"
 
 mkdir -p "$WORK/devices" "$WORK/data"
+# --simulate-installed: dasselbe Zustandsverzeichnis, das Installer und Updater
+# auf einem echten Knoten unter /var/lib/energy-node-installer hinterlassen.
+if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
+  cp -r "$HERE/fixtures/installed-state" "$WORK/installer-state"
+fi
 # Nur Paare aus *.json + *.schema.json sind fuer den Manager sichtbar.
 cp "$DEVICES_SOURCE"/*.json "$WORK/devices/" 2>/dev/null || true
 for extra in "${EXTRA_DEVICES[@]}"; do
@@ -452,7 +468,7 @@ DASHBOARD_VERSION="$(tr -d '[:space:]' < "$DASHBOARD_DIR/VERSION")-dev"
   if [[ $SIMULATE_UPDATE -eq 1 ]]; then
     export ENERGY_NODE_UPDATES_API_BASE="http://127.0.0.1:$UPDATES_API_PORT"
   fi
-  if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
+  if [[ $SIMULATE_PACKAGE -eq 1 || $SIMULATE_INSTALLED -eq 1 ]]; then
     export ENERGY_NODE_INSTALLER_STATE_DIR="$WORK/installer-state"
   fi
   go run -ldflags "-X main.buildVersion=${DASHBOARD_VERSION}" ./cmd/dashboard --config "$WORK/config.json"
@@ -810,6 +826,26 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
     echo "  FEHL das Bundle wurde trotz gleicher Version neu geschrieben"; FAILED=1
   fi
   rm -rf "$CANDIDATE"
+fi
+
+# --simulate-installed: die Versionsseite liest genau die Dateien, die Installer
+# und Updater ablegen. Shelly ist in selection.json abgewaehlt (Schritt 83).
+if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
+  check "Versionen: Paket und laufendes Dashboard" \
+    "data['bundle']['version'] == 'v0.7.5' and data['bundle']['arch'] == 'armv6' and data['running']['dashboard'].startswith('v')" \
+    "$BASE/api/v1/versions"
+  check "Versionen: Komponenten mit Art, Reihenfolge wie im Changelog" \
+    "[c['id'] for c in data['components']] == ['dashboard', 'service:battery_soc', 'service:shelly', 'energy_node_common'] and data['has_changelog'] is True" \
+    "$BASE/api/v1/versions"
+  check "Versionen: abgewaehlter Dienst gilt als nicht installiert" \
+    "{c['id']: c['installed'] for c in data['components']} == {'dashboard': True, 'service:battery_soc': True, 'service:shelly': False, 'energy_node_common': True}" \
+    "$BASE/api/v1/versions"
+  check "Changelog: nach Komponente gefiltert" \
+    "[c['id'] for c in data['components']] == ['service:battery_soc']" \
+    "$BASE/api/v1/changelog?component=service:battery_soc"
+  check "Changelog: Breaking-Eintrag bleibt als solcher erhalten" \
+    "any(e['breaking'] for r in data['components'][0]['releases'] for g in r['groups'] for e in g['entries'])" \
+    "$BASE/api/v1/changelog?component=dashboard"
 fi
 
 check_history_exchange || FAILED=1

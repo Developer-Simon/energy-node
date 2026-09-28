@@ -40,6 +40,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/versions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
@@ -150,14 +151,14 @@ type RouterDependencies struct {
 	// tuya. main.go fuellt sie ueber Config.ServiceInstalled; nil heisst
 	// hier wie dort "alles an".
 	InstalledServices map[string]bool
+	// InstallerStateDir ist das Zustandsverzeichnis von Installer und Updater
+	// (installed-manifest.json, selection.json, changelog.json), aus dem die
+	// Versionsseite liest. Leer heisst versions.DefaultStateDir.
+	InstallerStateDir string
 	// Version ist die aus dashboard/VERSION plus Branch-Suffix gebaute
 	// Versionskennung (siehe main.buildVersion), leer bzw. "dev" ausserhalb
 	// von Release-Builds.
 	Version string
-	// ServicesVersion ist der Inhalt von services/VERSION, gelesen von der in
-	// config.json unter paths.services_version_file konfigurierten Datei.
-	// Leer, wenn nicht konfiguriert oder nicht lesbar.
-	ServicesVersion string
 	// AdminAuthWarningKey is the catalog key for the admin auth warning message
 	// displayed on the login page when the admin password cannot be read at startup
 	// (see main.go). The service starts anyway - fail-closed applies to config.json
@@ -232,13 +233,19 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if now == nil {
 		now = func() time.Time { return time.Now().UTC() }
 	}
-	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, dependencies.ServicesVersion, now))
+	mux.HandleFunc("/api/v1/health", handleHealth(cache, storageProvider, dependencies.MQTT, dependencies.NodeAgent, dependencies.StartedAt, dependencies.Version, now))
 	mux.HandleFunc("/api/v1/runtime-cache", handleRuntimeCache(cache))
 	mux.Handle("/static/", webui.Static())
 	mux.Handle("/i18n/", webui.I18nScript())
 	if dependencies.Redeploy != nil {
 		mux.Handle("/redeploy/", requireSystemActions(dependencies.Auth, dependencies.Redeploy))
 	}
+	stateDir := dependencies.InstallerStateDir
+	if stateDir == "" {
+		stateDir = versions.DefaultStateDir
+	}
+	mux.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
+	mux.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
 	if dependencies.UpdatesCache != nil {
 		mux.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
 		mux.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
@@ -945,13 +952,12 @@ func handleShellyPresets(store *shellypresets.Store) http.HandlerFunc {
 }
 
 type healthResponse struct {
-	Status          string              `json:"status"`
-	RuntimeCache    runtimecache.Status `json:"runtime_cache"`
-	Version         string              `json:"version"`
-	ServicesVersion string              `json:"services_version"`
-	UptimeSeconds   *int64              `json:"uptime_seconds,omitempty"`
-	MQTT            *mqttclient.Status  `json:"mqtt,omitempty"`
-	Storage         map[string]any      `json:"storage"`
+	Status        string              `json:"status"`
+	RuntimeCache  runtimecache.Status `json:"runtime_cache"`
+	Version       string              `json:"version"`
+	UptimeSeconds *int64              `json:"uptime_seconds,omitempty"`
+	MQTT          *mqttclient.Status  `json:"mqtt,omitempty"`
+	Storage       map[string]any      `json:"storage"`
 	// Features nennt Faehigkeiten, die ueber den Grundbetrieb hinausgehen,
 	// mit ihrer Protokollversion. Der Verlauf-Austausch hat daneben eine
 	// eigene, ausfuehrliche Ankuendigung unter /api/v1/history/exchange -
@@ -970,7 +976,7 @@ type nodeStatus struct {
 }
 
 // nodeAgent is threaded through for Task 6/7 (healthResponse.Node).
-func handleHealth(cache runtimecache.StatusProvider, storageProvider storagehealth.Provider, mqttStatus mqttclient.StatusProvider, nodeAgent *nodeagent.Agent, startedAt time.Time, version string, servicesVersion string, now func() time.Time) http.HandlerFunc {
+func handleHealth(cache runtimecache.StatusProvider, storageProvider storagehealth.Provider, mqttStatus mqttclient.StatusProvider, nodeAgent *nodeagent.Agent, startedAt time.Time, version string, now func() time.Time) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w)
@@ -989,10 +995,9 @@ func handleHealth(cache runtimecache.StatusProvider, storageProvider storageheal
 			version = "dev"
 		}
 		response := healthResponse{
-			Status:          result,
-			RuntimeCache:    status,
-			Version:         version,
-			ServicesVersion: servicesVersion,
+			Status:       result,
+			RuntimeCache: status,
+			Version:      version,
 		}
 		if !startedAt.IsZero() {
 			uptime := currentTime.Sub(startedAt)

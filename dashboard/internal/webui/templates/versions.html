@@ -1,0 +1,70 @@
+{{define "versions"}}
+<section id="settings-versions" role="tabpanel" class="settings-cards versions-cards" x-show="activeSettingsPage === 'versions'" x-data="versionsPanel()" x-init="load()">
+  <p class="settings-help" x-show="error" x-text="error"></p>
+  <div class="setting-card">
+    <h3 class="setting-card-title">{{t "settings.versions.package.title"}}</h3>
+    <p class="setting-note" x-show="!loading && !bundle">{{t "settings.versions.package.none"}}</p>
+    <div x-show="bundle">
+      <div class="setting-row"><span class="setting-row-label">{{t "settings.versions.package.version"}}</span><strong class="version-tag" x-text="bundle ? bundle.version : ''"></strong></div>
+      <div class="setting-row" x-show="builtAt"><span class="setting-row-label">{{t "settings.versions.package.built_at"}}</span><span x-text="builtAt"></span></div>
+      <div class="setting-row" x-show="bundle && bundle.arch"><span class="setting-row-label">{{t "settings.versions.package.arch"}}</span><span x-text="bundle ? bundle.arch : ''"></span></div>
+      <div class="setting-row"><span class="setting-row-label">{{t "settings.versions.package.running"}}</span><strong class="version-tag" x-text="running.dashboard || $t('settings.versions.unknown')"></strong></div>
+    </div>
+    <p class="setting-note version-note" x-show="dashboardDiffers">{{t "settings.versions.package.differs"}}</p>
+    <p class="setting-note" x-show="bundle && !hasChangelog">{{t "settings.versions.package.no_changelog"}}</p>
+  </div>
+  <div class="setting-card">
+    <h3 class="setting-card-title">{{t "settings.versions.updates.title"}}</h3>
+    <div class="toolbar">
+      <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="{{t "settings.versions.updates.check"}}" aria-label="{{t "settings.versions.updates.check"}}">
+        <svg class="automation-icon"><use href="#ico-download"></use></svg>
+        <span x-text="checkingForUpdates ? $t('settings.versions.updates.checking') : $t('settings.versions.updates.check')"></span>
+      </button>
+      <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
+        <svg class="automation-icon"><use href="#ico-download"></use></svg>
+        {{t "settings.versions.updates.available"}} <strong x-text="updateStatus ? updateStatus.latest : ''"></strong>
+        <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">{{t "settings.versions.updates.cta"}}</a>
+        <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus ? updateStatus.notes_url : ''" target="_blank" rel="noopener">{{t "settings.versions.updates.notes"}}</a>
+      </span>
+      <span x-show="updateStatus && !updateStatus.available" class="settings-help">{{t "settings.versions.updates.current"}}</span>
+    </div>
+  </div>
+  <template x-for="group in groups" :key="group.kind">
+    <div class="setting-card">
+      <h3 class="setting-card-title" x-text="group.title"></h3>
+      <template x-for="component in group.components" :key="component.id">
+        <div class="version-item">
+          <div class="version-row">
+            <span class="version-name" x-bind:class="{ 'is-off': !component.installed }" x-text="component.label"></span>
+            <span class="version-chip" x-show="!component.installed">{{t "settings.versions.not_installed"}}</span>
+            <span class="version-tag" x-text="component.version"></span>
+            <button type="button" class="icon-button labeled" x-show="hasChangelog" x-on:click="toggle(component.id)" x-bind:aria-expanded="Boolean(open[component.id])">
+              <svg class="automation-icon"><use href="#ico-history"></use></svg>
+              <span x-text="open[component.id] ? $t('settings.versions.changes.hide') : $t('settings.versions.changes.show')"></span>
+            </button>
+          </div>
+          <div class="release-list" x-show="open[component.id]" x-cloak>
+            <p class="setting-note" x-show="releaseErrors[component.id]" x-text="releaseErrors[component.id] || ''"></p>
+            <p class="setting-note" x-show="releases[component.id] && releases[component.id].length === 0">{{t "settings.versions.changes.empty"}}</p>
+            <template x-for="release in releases[component.id] || []" :key="release.version">
+              <section class="release">
+                <h4 class="release-title"><span x-text="release.version"></span> <span class="release-date" x-text="releaseDate(release.date)"></span></h4>
+                <template x-for="entryGroup in release.groups || []" :key="entryGroup.type + entryGroup.label">
+                  <div>
+                    <p class="release-group" x-text="groupTitle(entryGroup)"></p>
+                    <ul class="release-entries">
+                      <template x-for="(entry, index) in entryGroup.entries || []" :key="index">
+                        <li x-bind:class="{ 'is-breaking': entry.breaking }"><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></li>
+                      </template>
+                    </ul>
+                  </div>
+                </template>
+              </section>
+            </template>
+          </div>
+        </div>
+      </template>
+    </div>
+  </template>
+</section>
+{{end}}

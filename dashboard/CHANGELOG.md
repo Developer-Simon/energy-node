@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.22 (2026-09-28)
+## v0.7.23 (2026-09-28)
 
 ### Features
 
@@ -15,6 +15,14 @@
 - **dashboard:** localize configuration and the layout editor (#67) (9609a2d)
 - **dashboard:** localize automations and history, guard every UI text (#68) (cce3f4f)
 - **dashboard:** localize API error messages (#69) (368214a)
+- **dashboard:** localize validation errors and diagnostics (#70) (9827111)
+- **dashboard:** add a versions package that reads what the installer left on the node (0dee5e2)
+- **dashboard:** add read-only /api/v1/versions and /api/v1/changelog (637efd3)
+- **dashboard:** add the versionsPanel component and its texts (56c0ffa)
+- **dashboard:** add a versions page under Einstellungen (d2c90cf)
+- **dashboard:** drop the dashboard version from the System panel (5d446fb)
+- **dashboard:** drop the link to the Versionen tab from the System panel (be8b2ee)
+- **dashboard:** move the update check into its own card on the Versionen page (643fa05)
 - **dashboard:** catalog keys for MQTT and bridge validation (a4dff4b)
 - **dashboard:** translate MQTT connection test errors (e4fe45e)
 - **dashboard:** catalog keys for diagnostics warnings (f412fb4)
@@ -105,6 +113,8 @@
 
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **dashboard:** keep plural-reserved .other off the versions catalog keys (e4e2b09)
+- **dashboard:** wrap version rows on narrow screens and localize release dates (036591f)
 - **webui:** correct automation summary texts (e138511)
 - **webui:** keep automation sentences in one key (3e85957)
 - **webui:** keep diagnostics sort labels in one key (589af0d)
@@ -145,6 +155,7 @@
 
 ### Refactors
 
+- **dashboard:** stop reading the services VERSION file on the node (c1e19de)
 - **dashboard:** report passed-through API errors as detail (aa941d5)
 - **dashboard:** catalog keys for permission errors (a1fb933)
 - **dashboard:** catalog keys for error variants (1af4489)
@@ -168,6 +179,7 @@
 
 ### Tests
 
+- **dashboard:** add --simulate-installed to the smoke test and check the versions API with it (25c06ff)
 - **dashboard:** assert the MQTT test detail on a refused connection (ba4adac)
 - **webui:** make the UI text guard cover every template and script (69f5a3b)
 - **webui:** follow the page-object extraPages loop (ff90890)

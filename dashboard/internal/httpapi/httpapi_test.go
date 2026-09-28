@@ -495,12 +495,11 @@ func TestDeviceDetailReloadAndHealthUseRuntimeDependencies(t *testing.T) {
 	now := startedAt.Add(90 * time.Second)
 	reloader := &fakeDeviceReloader{}
 	router := NewRouterWithDependencies(reg, nil, nil, nil, nil, nil, nil, nil, RouterDependencies{
-		MQTT:            fakeMQTTStatusProvider{status: mqttclient.Status{Connected: true}},
-		Reloader:        reloader,
-		StartedAt:       startedAt,
-		Now:             func() time.Time { return now },
-		Version:         "v0.1.7-dev-new-charts.42",
-		ServicesVersion: "v0.1.12",
+		MQTT:      fakeMQTTStatusProvider{status: mqttclient.Status{Connected: true}},
+		Reloader:  reloader,
+		StartedAt: startedAt,
+		Now:       func() time.Time { return now },
+		Version:   "v0.1.7-dev-new-charts.42",
 	})
 
 	detail := httptest.NewRecorder()
@@ -523,8 +522,11 @@ func TestDeviceDetailReloadAndHealthUseRuntimeDependencies(t *testing.T) {
 
 	health := httptest.NewRecorder()
 	router.ServeHTTP(health, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
-	if health.Code != http.StatusOK || !strings.Contains(health.Body.String(), `"uptime_seconds":90`) || !strings.Contains(health.Body.String(), `"connected":true`) || !strings.Contains(health.Body.String(), `"version":"v0.1.7-dev-new-charts.42"`) || !strings.Contains(health.Body.String(), `"services_version":"v0.1.12"`) {
+	if health.Code != http.StatusOK || !strings.Contains(health.Body.String(), `"uptime_seconds":90`) || !strings.Contains(health.Body.String(), `"connected":true`) || !strings.Contains(health.Body.String(), `"version":"v0.1.7-dev-new-charts.42"`) {
 		t.Fatalf("health response %d: %s", health.Code, health.Body.String())
+	}
+	if strings.Contains(health.Body.String(), "services_version") {
+		t.Fatalf("health still reports services_version: %s", health.Body.String())
 	}
 }
 
@@ -542,7 +544,7 @@ func TestHealthVersionDefaultsToDev(t *testing.T) {
 func TestHealthReportsServiceLiveness(t *testing.T) {
 	a := nodeagent.New(nodeagent.Options{NodeID: "energy_node"})
 	a.SetServiceCatalog([]string{"apsystems"}, map[string]appconfig.ServicePoll{"apsystems": {PollIntervalS: 60, DiagnosticPollMultiplier: 10}})
-	h := handleHealth(nil, nil, nil, a, time.Now(), "test", "svc", time.Now)
+	h := handleHealth(nil, nil, nil, a, time.Now(), "test", time.Now)
 	rec := httptest.NewRecorder()
 	h(rec, httptest.NewRequest(http.MethodGet, "/api/v1/health", nil))
 	var body map[string]any
