@@ -523,6 +523,7 @@
   "config.topic_key.payload_info": "Payload: {payload}. Available number fields: {available}",
   "config.topic_key.payload_json_warning": "Payload is JSON. Without a key the first number in the raw text is read, which is usually the wrong value. Available number fields: {available}",
   "config.topic_key.placeholder_select": "Select a topic first",
+  "config.topics.current": "{topic} (current)",
   "config.topics.no_data": "{topic} (no data yet)",
   "config.topics.others": "Other",
   "config.tuning.apply": "Apply",

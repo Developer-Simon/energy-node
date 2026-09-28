@@ -405,7 +405,7 @@
         const control = document.createElement('select');
         if (!required) control.add(new Option('', ''));
         this.appendGroupedTopicOptions(control, displayedValue);
-        if (displayedValue && !this.topics.includes(displayedValue)) control.add(new Option(`${displayedValue} (aktuell)`, displayedValue, true, true));
+        if (displayedValue && !this.topics.includes(displayedValue)) control.add(new Option(t('config.topics.current', {topic: displayedValue}), displayedValue, true, true));
         return control;
       }
       if (this.isJsonKeyField(schema, key)) {

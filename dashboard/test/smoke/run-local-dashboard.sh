@@ -358,8 +358,8 @@ manifest = {
         {"id": "65", "optional": False}, {"id": "70", "optional": True},
         # Zwei Dienstschritte, damit die Vorschau etwas zum Neustart-Vergleich
         # hat: battery_soc geaendert (Neustart), apsystems unveraendert.
-        {"id": "81", "optional": True, "dir": "apsystems_ez1", "unit": "apsystems-ez1.service", "version": "v0.4.0"},
-        {"id": "82", "optional": True, "dir": "battery_soc", "unit": "battery-soc.service", "version": "v0.5.0"},
+        {"id": "81", "optional": True, "service_id": "apsystems", "dir": "apsystems_ez1", "unit": "apsystems-ez1.service", "version": "v0.4.0"},
+        {"id": "82", "optional": True, "service_id": "battery_soc", "dir": "battery_soc", "unit": "battery-soc.service", "version": "v0.5.0"},
     ],
 }
 files = {
