@@ -569,6 +569,41 @@ Error codes: `config_unreadable`, `invalid_body`, `schema_violation`,
 Response `202 Accepted` with `{"action":"…","status":"accepted"}`. If a system
 action is already running, `409` with `system_action_busy` is returned.
 
+### Versions and changelog
+
+| Method | Path | Gate | Purpose |
+|---|---|---|---|
+| GET | `/api/v1/versions` | signed-in session | The installed bundle and the version of every component |
+| GET | `/api/v1/changelog` | signed-in session | The installed `changelog.json`; `?component=<id>` (repeatable) keeps only those components |
+
+Both read the installer's state directory (`/var/lib/energy-node-installer`:
+`installed-manifest.json`, `selection.json`, `changelog.json`) and never write.
+On a node the installer never touched, `versions` answers `200` with
+`"bundle": null` and `"components": []`; `changelog` answers `404` with code
+`no_changelog` (also for a bundle from before `changelog.json` existed).
+
+`versions` response:
+
+```json
+{
+  "bundle": {"version": "v0.7.5", "built_at": "2026-09-21T10:00:00+02:00", "arch": "armv6"},
+  "running": {"dashboard": "v0.7.5"},
+  "has_changelog": true,
+  "components": [
+    {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "v0.7.5", "installed": true},
+    {"id": "service:shelly", "label": "Shelly", "kind": "service", "version": "v0.4.2", "installed": false}
+  ]
+}
+```
+
+`installed` is `false` for an optional service the operator deselected
+(`selection.json`). `running.dashboard` is the running binary's build version,
+which can differ from `bundle.version` after a dashboard self-update. Without
+a `changelog.json`, `components` falls back to what the manifest knows, with
+labels and kinds from a table in `internal/versions` that mirrors
+`scripts/version/components.json` (a test keeps them in step). `ENERGY_NODE_INSTALLER_STATE_DIR` overrides the directory (used only by the
+local smoke test).
+
 ### Tailscale
 
 | Method | Path | Gate | Purpose |
