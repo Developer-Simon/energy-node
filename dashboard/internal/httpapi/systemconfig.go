@@ -127,7 +127,8 @@ func writeLocalizedSchema(w http.ResponseWriter, r *http.Request, schemaID strin
 // handleSystemConfigSchema liefert das eingebettete config.schema.json, aus
 // dem die Einstellungsseite ihr Formular fuer /etc/energy-node/config.json
 // baut. Wie GET /api/v1/system/config nicht rollengeschuetzt - das Schema
-// steht ohnehin im Quellcode. Titles and descriptions follow the request language (schemaloc).
+// steht ohnehin im Quellcode.
+// Titles and descriptions follow the request language (schemaloc).
 func handleSystemConfigSchema() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {

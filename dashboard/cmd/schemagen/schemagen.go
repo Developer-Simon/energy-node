@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -124,70 +123,9 @@ func compose(root string) ([]byte, error) {
 	}
 	services["required"] = required
 
-	var buf bytes.Buffer
-	if err := encodeOrdered(&buf, core); err != nil {
+	out, err := json.MarshalIndent(core, "", "  ")
+	if err != nil {
 		return nil, err
 	}
-	return append(buf.Bytes(), '\n'), nil
-}
-
-func encodeOrdered(buf *bytes.Buffer, v any) error {
-	switch val := v.(type) {
-	case map[string]any:
-		buf.WriteString("{")
-		// Get keys in required order if available
-		var keys []string
-		seen := map[string]bool{}
-		if required, ok := val["required"].([]any); ok {
-			for _, r := range required {
-				if k, ok := r.(string); ok {
-					keys = append(keys, k)
-					seen[k] = true
-				}
-			}
-		}
-		// Add remaining keys sorted
-		var remaining []string
-		for k := range val {
-			if !seen[k] {
-				remaining = append(remaining, k)
-			}
-		}
-		sort.Strings(remaining)
-		keys = append(keys, remaining...)
-
-		for i, k := range keys {
-			if i > 0 {
-				buf.WriteString(",")
-			}
-			if b, err := json.Marshal(k); err != nil {
-				return err
-			} else {
-				buf.Write(b)
-			}
-			buf.WriteString(":")
-			if err := encodeOrdered(buf, val[k]); err != nil {
-				return err
-			}
-		}
-		buf.WriteString("}")
-	case []any:
-		buf.WriteString("[")
-		for i, item := range val {
-			if i > 0 {
-				buf.WriteString(",")
-			}
-			if err := encodeOrdered(buf, item); err != nil {
-				return err
-			}
-		}
-		buf.WriteString("]")
-	default:
-		b, err := json.Marshal(v)
-		if err != nil {
-			return err
-		}
-		buf.Write(b)
-	}
-	return nil
+	return append(out, '\n'), nil
 }

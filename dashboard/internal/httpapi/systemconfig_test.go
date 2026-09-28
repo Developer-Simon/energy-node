@@ -1,14 +1,18 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
@@ -285,6 +289,12 @@ func TestSystemConfigPutReportsRestartRequiredFields(t *testing.T) {
 func TestSystemConfigSchemaFollowsTheLanguage(t *testing.T) {
 	router, _, _ := newSystemConfigTestRouter(t)
 	session := loginAsGuest(t, router)
+	keys := regexp.MustCompile(`"[A-Za-z_]+":`)
+	var source bytes.Buffer
+	if err := json.Compact(&source, appconfig.Schema()); err != nil {
+		t.Fatal(err)
+	}
+	wantKeys := keys.FindAllString(source.String(), -1)
 	for lang, want := range map[string]string{"de": "Broker-Host", "en": "Broker host"} {
 		request := httptest.NewRequest(http.MethodGet, "/api/v1/system/config/schema", nil)
 		request.AddCookie(session)
@@ -294,11 +304,15 @@ func TestSystemConfigSchemaFollowsTheLanguage(t *testing.T) {
 		if recorder.Code != http.StatusOK {
 			t.Fatalf("%s: status %d", lang, recorder.Code)
 		}
-		if !strings.Contains(recorder.Body.String(), `"title":"`+want+`"`) {
+		var body bytes.Buffer
+		if err := json.Compact(&body, recorder.Body.Bytes()); err != nil {
+			t.Fatalf("%s: %v", lang, err)
+		}
+		if !strings.Contains(body.String(), `"title":"`+want+`"`) {
 			t.Errorf("%s: schema lacks %q", lang, want)
 		}
-		if strings.Index(recorder.Body.String(), `"schema_version"`) > strings.Index(recorder.Body.String(), `"mqtt"`) {
-			t.Errorf("%s: property order changed", lang)
+		if got := keys.FindAllString(body.String(), -1); !reflect.DeepEqual(got, wantKeys) {
+			t.Errorf("%s: keys or key order changed", lang)
 		}
 	}
 }
