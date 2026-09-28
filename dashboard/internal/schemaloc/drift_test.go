@@ -12,13 +12,7 @@ import (
 // pendingSchemas are shipped schemas whose German texts are not in the
 // catalog yet. PR 2 of A5 empties and then deletes this list.
 var pendingSchemas = map[string]bool{
-	"apsystems_devices":   true,
-	"automation_rules":    true,
 	"battery_soc_devices": true,
-	"shelly_devices":      true,
-	"shelly_presets":      true,
-	"trucki_devices":      true,
-	"tuya_devices":        true,
 }
 
 // shippedSchemas maps every schema the dashboard renders as a form to its
