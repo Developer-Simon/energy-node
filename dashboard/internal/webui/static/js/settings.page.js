@@ -461,7 +461,6 @@
     canSystemActions: false,
     csrfToken: '',
     version: '',
-    servicesVersion: '',
     loading: false,
     busy: false,
     updateStatus: null,
@@ -482,10 +481,8 @@
       try {
         const health = await requestJSON('/api/v1/health');
         this.version = health.version || '';
-        this.servicesVersion = health.services_version || '';
       } catch (error) {
         this.version = '';
-        this.servicesVersion = '';
       }
       try {
         const status = await requestJSON('/api/v1/updates/status');

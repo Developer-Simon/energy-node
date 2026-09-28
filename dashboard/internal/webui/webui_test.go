@@ -61,7 +61,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"diagnosticsPanel", "diagnostics-health-heading", "filteredHealthScores", "diagnostics-health-status", "sort('entity_id')", "settingsPanel", "x-model.number=\"healthScoreThreshold\"", "item.entity_id || '-'", "storage-health-heading", "Speicherzustand", "Geschätzte Restlaufzeit", "loadStorageHealth()",
 		"settings-wide-panels", "Tabs ohne Breitendeckelung", "widePanelOptions", "wide-panels-select", "initChoices()",
 		"settings-status-bar-items", "Angaben im Systemstatus", "statusBarItemOptions", "status-bar-items-select",
-		"Dashboard-Version", "Services-Version", "servicesVersion",
+		"Dashboard-Version", "Alle Versionen und Änderungen ansehen",
 	}
 	for _, marker := range markers {
 		if !strings.Contains(body, marker) {
@@ -99,6 +99,7 @@ func TestManagerAssetsLoadIndependently(t *testing.T) {
 		"/static/js/energy.page.js":    {"energyRolesPanel", "/api/v1/energy/roles", "/api/v1/energy"},
 		"/static/js/layout-editor.js":  {"layoutEditor", "/api/v1/layout", "newID"},
 		"/static/js/tailscale.page.js": {"tailscalePanel", "/api/v1/tailscale/status", "/api/v1/tailscale/prereqs", "/api/v1/tailscale/login", "/api/v1/tailscale/logout", "/api/v1/tailscale/restart"},
+		"/static/js/versions.page.js":  {"versionsPanel", "/api/v1/versions", "/api/v1/changelog"},
 		"/static/css/manager.css":      {".schema-form", ".energy-role-row", ".energy-actionbar-dock", ".checkbox-list", ".config-actionbar", ".config-json"},
 	}
 	for path, markers := range assets {
@@ -140,7 +141,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=2,/static/js/history.js?v=12",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=2,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=11,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/systemconfig.page.js?v=4",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=2,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=12,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=1,/static/js/systemconfig.page.js?v=4",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -153,7 +154,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	if !strings.Contains(body, `data-panel-css="/static/css/tippy.css"`) {
 		t.Fatal("devices-panel does not declare lazy tippy.css")
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=23,/static/css/settings-controls.css?v=7"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=23,/static/css/settings-controls.css?v=8"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1102,7 +1103,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
 		`data-panel-script="/node/static/js-deps/popper.min.js,/node/static/js-deps/tippy.umd.min.js"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=23,/node/static/css/settings-controls.css?v=7"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=23,/node/static/css/settings-controls.css?v=8"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -2865,5 +2866,30 @@ func TestActivePageRendersFirstPageWhenNoQueryAndPageHasEmptyName(t *testing.T) 
 	}
 	if strings.Contains(html, `data-layout-page="second"`) {
 		t.Fatalf("second page with empty name should not render when no query specified:\n%s", html)
+	}
+}
+
+func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
+	newHandler := func() http.Handler {
+		return Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+	}
+	panel := httptest.NewRecorder()
+	newHandler().ServeHTTP(panel, httptest.NewRequest("GET", "/?fragment=panel&panel=settings", nil))
+	body := panel.Body.String()
+	for _, marker := range []string{
+		`aria-controls="settings-versions"`, `versionsPanel()`, "Installiertes Paket", "Alle Versionen und Änderungen ansehen",
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("settings panel does not contain %q", marker)
+		}
+	}
+	if strings.Contains(body, "Services-Version") || strings.Contains(body, "servicesVersion") {
+		t.Fatal("the single Services-Version line is gone: every service has its own version now")
+	}
+
+	page := httptest.NewRecorder()
+	newHandler().ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=1") {
+		t.Fatal("base.html must lazy-load versions.page.js with the settings panel")
 	}
 }
