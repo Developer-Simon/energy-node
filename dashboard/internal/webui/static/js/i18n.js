@@ -39,6 +39,26 @@
       return this.t(key + (n === 1 ? '.one' : '.other'), merged);
     },
 
+    has: function (key) {
+      var text = this.catalog[key];
+      return text !== undefined && text !== null && text !== '';
+    },
+
+    // Text for an API error body ({code, message, message_key?, params?,
+    // detail?}). A catalog text wins over the server's German message; the
+    // message is shown only for codes this catalog does not know.
+    error: function (body, fallbackKey) {
+      var data = body || {};
+      if (data.message_key && this.has(data.message_key)) {
+        return this.t(data.message_key, data.params);
+      }
+      if (data.code && this.has('error.' + data.code)) {
+        var text = this.t('error.' + data.code, data.params);
+        return data.detail ? this.t('error.with_detail', { message: text, detail: data.detail }) : text;
+      }
+      return data.message || this.t(fallbackKey || 'common.request_failed');
+    },
+
     // Matches the thumb's transition in base.css (.lang-pill-thumb).
     settleMs: 300,
 
