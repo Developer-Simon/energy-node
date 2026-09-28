@@ -48,7 +48,7 @@ func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloade
 		case http.MethodGet:
 			data, err := os.ReadFile(path)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "config_unreadable", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "config_unreadable", err)
 				return
 			}
 			var document json.RawMessage = data
@@ -66,24 +66,24 @@ func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloade
 			}
 			body, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			if err := config.ValidateDocument(body, appconfig.Schema()); err != nil {
-				writeError(w, http.StatusBadRequest, "schema_violation", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "schema_violation", err)
 				return
 			}
 			if err := appconfig.ValidateSecretPaths(body); err != nil {
-				writeError(w, http.StatusBadRequest, "path_not_allowed", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "path_not_allowed", err)
 				return
 			}
 			previous, _ := os.ReadFile(path)
 			if err := writeSystemConfigRevision(dataDir, previous); err != nil {
-				writeError(w, http.StatusInternalServerError, "revision_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "revision_failed", err)
 				return
 			}
 			if err := config.AtomicWrite(path, body, 0o664); err != nil {
-				writeError(w, http.StatusInternalServerError, "config_not_writable", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "config_not_writable", err)
 				return
 			}
 			restart := changedRestartFields(previous, body)

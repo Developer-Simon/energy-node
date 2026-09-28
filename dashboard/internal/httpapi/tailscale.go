@@ -54,7 +54,7 @@ func handleTailscaleStatus(client *tailscale.Client, state *tailscaleActionState
 		}
 		status, err := client.Status(r.Context())
 		if err != nil {
-			writeError(w, http.StatusBadGateway, "tailscale_status_failed", err.Error())
+			writeErrorDetail(w, http.StatusBadGateway, "tailscale_status_failed", err)
 			return
 		}
 		response := map[string]any{"status": status}
@@ -107,7 +107,7 @@ func handleTailscaleAction(authManager *auth.Manager, executor SystemActionExecu
 				Confirm bool `json:"confirm"`
 			}
 			if err := decodeBody(r, &body); err != nil {
-				writeError(w, http.StatusBadRequest, "tailscale_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "tailscale_rejected", err)
 				return
 			}
 			if !body.Confirm {
@@ -124,7 +124,7 @@ func handleTailscaleAction(authManager *auth.Manager, executor SystemActionExecu
 				writeError(w, http.StatusConflict, "tailscale_busy", "Eine Systemaktion läuft bereits")
 				return
 			}
-			writeError(w, http.StatusBadGateway, "tailscale_action_failed", err.Error())
+			writeErrorDetail(w, http.StatusBadGateway, "tailscale_action_failed", err)
 			return
 		}
 		record.OK = true

@@ -117,12 +117,12 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 		case http.MethodGet:
 			cfg, source, err := ResolveMQTTConfig(store, credentials, base)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 				return
 			}
 			stored, err := store.LoadMQTT()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 				return
 			}
 			port, _ := strconv.Atoi(cfg.Port)
@@ -156,11 +156,11 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 			}
 			var value settings.MQTTConfig
 			if err := decodeBody(r, &value); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			if err := store.SaveMQTT(value); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -195,17 +195,17 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 			PublishEnergyDevice bool `json:"publish_energy_device"`
 		}
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		stored, err := store.LoadMQTT()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 			return
 		}
 		stored.PublishEnergyDevice = body.PublishEnergyDevice
 		if err := store.SaveMQTT(stored); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		writeJSON(w, map[string]bool{"publish_energy_device": body.PublishEnergyDevice})
@@ -241,12 +241,12 @@ func handleMQTTNodeSettings(store *settings.Store, authManager *auth.Manager, pu
 			Metrics          map[string]bool `json:"metrics"`
 		}
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		stored, err := store.LoadMQTT()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 			return
 		}
 		if body.SimulationActive != nil {
@@ -258,7 +258,7 @@ func handleMQTTNodeSettings(store *settings.Store, authManager *auth.Manager, pu
 			stored.Metrics = body.Metrics
 		}
 		if err := store.SaveMQTT(stored); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		if publisher != nil && body.SimulationActive != nil {
@@ -300,7 +300,7 @@ func handleMQTTCredentials(credentials *mqttclient.CredentialStore, authManager 
 				Password string `json:"password"`
 			}
 			if err := decodeBody(r, &body); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			if strings.TrimSpace(body.Password) == "" {
@@ -308,13 +308,13 @@ func handleMQTTCredentials(credentials *mqttclient.CredentialStore, authManager 
 				return
 			}
 			if err := credentials.Save(mqttclient.Credentials{Password: body.Password}); err != nil {
-				writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": true})
 		case http.MethodDelete:
 			if err := credentials.Delete(); err != nil {
-				writeError(w, http.StatusInternalServerError, "mqtt_credentials_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "mqtt_credentials_failed", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": false})
@@ -356,7 +356,7 @@ func handleMQTTTest(credentials *mqttclient.CredentialStore, authManager *auth.M
 		}
 		var body mqttTestRequest
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "mqtt_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
 		if strings.TrimSpace(body.Host) == "" {
@@ -417,7 +417,7 @@ func handleMQTTReconnect(store *settings.Store, credentials *mqttclient.Credenti
 		}
 		cfg, _, err := ResolveMQTTConfig(store, credentials, base)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "mqtt_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "mqtt_invalid", err)
 			return
 		}
 		reconfigureErr := reconfigurer.Reconfigure(cfg)

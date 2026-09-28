@@ -390,7 +390,7 @@ func handleAuthLogin(manager *auth.Manager) http.HandlerFunc {
 			Password string `json:"password"`
 		}
 		if err := decodeBody(r, &request); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 			return
 		}
 		session, err := manager.Login(request.Username, request.Password)
@@ -760,7 +760,7 @@ func handleEntityCommand(reg *registry.Registry, publisher CommandPublisher, his
 			action.Result = "error"
 			action.Error = err.Error()
 			history.add(deviceID, action)
-			writeError(w, http.StatusBadGateway, "command_publish_failed", err.Error())
+			writeErrorDetail(w, http.StatusBadGateway, "command_publish_failed", err)
 			return
 		}
 		history.add(deviceID, action)
@@ -799,7 +799,7 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver) http.Ha
 		case http.MethodGet:
 			value, err := store.LoadEnergy()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "energy_roles_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "energy_roles_invalid", err)
 				return
 			}
 			writeJSON(w, value)
@@ -813,16 +813,16 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver) http.Ha
 			// role assignments.
 			value, err := store.LoadEnergy()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "energy_roles_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "energy_roles_invalid", err)
 				return
 			}
 			value.Assignments = nil
 			if err := decodeBody(r, &value); err != nil {
-				writeError(w, http.StatusBadRequest, "energy_roles_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
 			}
 			if err := store.SaveEnergy(value); err != nil {
-				writeError(w, http.StatusBadRequest, "energy_roles_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
 			}
 			resolver.SetOverrides(value.Assignments)
@@ -844,24 +844,24 @@ func handleEnergyInterpretation(store *settings.Store, resolver *energy.Resolver
 		case http.MethodGet:
 			value, err := store.LoadEnergy()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "energy_interpretation_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "energy_interpretation_invalid", err)
 				return
 			}
 			writeJSON(w, value.Interpretation)
 		case http.MethodPut:
 			current, err := store.LoadEnergy()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "energy_interpretation_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "energy_interpretation_invalid", err)
 				return
 			}
 			var interpretation energy.Interpretation
 			if err := decodeBody(r, &interpretation); err != nil {
-				writeError(w, http.StatusBadRequest, "energy_interpretation_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "energy_interpretation_rejected", err)
 				return
 			}
 			current.Interpretation = interpretation
 			if err := store.SaveEnergy(current); err != nil {
-				writeError(w, http.StatusBadRequest, "energy_interpretation_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "energy_interpretation_rejected", err)
 				return
 			}
 			resolver.SetInterpretation(current.Interpretation)
@@ -914,7 +914,7 @@ func handleStorageHealth(provider storagehealth.Provider) http.HandlerFunc {
 		}
 		report, err := provider.Check(r.Context())
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "storage_health_failed", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "storage_health_failed", err)
 			return
 		}
 		writeJSON(w, report)
@@ -937,7 +937,7 @@ func handleShellyPresets(store *shellypresets.Store) http.HandlerFunc {
 		}
 		presets, err := store.List()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "shelly_presets_failed", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "shelly_presets_failed", err)
 			return
 		}
 		writeJSON(w, presets)
@@ -1477,7 +1477,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if err := actions.IgnoreDevice(id); err != nil {
-				writeError(w, http.StatusBadGateway, "device_ignore_failed", err.Error())
+				writeErrorDetail(w, http.StatusBadGateway, "device_ignore_failed", err)
 				return
 			}
 			writeJSON(w, map[string]any{"device_id": id, "status": "ignored"})
@@ -1500,7 +1500,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if err := actions.UnignoreDevice(id); err != nil {
-				writeError(w, http.StatusBadGateway, "device_unignore_failed", err.Error())
+				writeErrorDetail(w, http.StatusBadGateway, "device_unignore_failed", err)
 				return
 			}
 			writeJSON(w, map[string]any{"device_id": id, "status": "active_reload_requested"})
@@ -1516,7 +1516,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 			}
 			response, err := deviceDiscoveryPreview(reg, configs, filter, id)
 			if err != nil {
-				writeError(w, http.StatusNotFound, "device_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "device_not_found", err)
 				return
 			}
 			writeJSON(w, response)
@@ -1538,7 +1538,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if _, err := deviceDiscoveryPreview(reg, configs, filter, id); err != nil {
-				writeError(w, http.StatusNotFound, "device_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "device_not_found", err)
 				return
 			}
 			if actions == nil {
@@ -1546,7 +1546,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if err := actions.DeleteDeviceDiscovery(id); err != nil {
-				writeError(w, http.StatusBadGateway, "discovery_delete_failed", err.Error())
+				writeErrorDetail(w, http.StatusBadGateway, "discovery_delete_failed", err)
 				return
 			}
 			writeJSON(w, map[string]any{"device_id": id, "status": "discovery_deleted"})
@@ -1567,7 +1567,7 @@ func handleDevice(reg *registry.Registry, engine *diagnostics.Engine, store *set
 				return
 			}
 			if err := reloader.Reload(); err != nil {
-				writeError(w, http.StatusBadGateway, "reload_failed", err.Error())
+				writeErrorDetail(w, http.StatusBadGateway, "reload_failed", err)
 				return
 			}
 			writeJSON(w, map[string]any{"device_id": id, "mode": "registry", "scope": "all_devices", "reloaded_at": now()})
@@ -1733,7 +1733,7 @@ func handleConfigurations(manager *config.Manager) http.HandlerFunc {
 		}
 		documents, err := manager.Scan()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "scan_failed", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "scan_failed", err)
 			return
 		}
 		writeJSON(w, documents)
@@ -1780,7 +1780,7 @@ func handleAutomationTest(publisher CommandPublisher, authManager *auth.Manager)
 			ActionIndex *int   `json:"action_index"`
 		}
 		if err := decodeBody(r, &request); err != nil {
-			writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 			return
 		}
 		if request.RuleID == "" || request.ActionIndex == nil || *request.ActionIndex < 0 {
@@ -1789,11 +1789,11 @@ func handleAutomationTest(publisher CommandPublisher, authManager *auth.Manager)
 		}
 		payload, err := json.Marshal(map[string]any{"rule_id": request.RuleID, "action_index": *request.ActionIndex})
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "encode_failed", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "encode_failed", err)
 			return
 		}
 		if err := publisher.Publish(automationTestTopic, string(payload)); err != nil {
-			writeError(w, http.StatusBadGateway, "command_publish_failed", err.Error())
+			writeErrorDetail(w, http.StatusBadGateway, "command_publish_failed", err)
 			return
 		}
 		writeJSON(w, map[string]string{"status": "requested"})
@@ -1824,12 +1824,12 @@ func handleAutomationHistory(configs *config.Manager) http.HandlerFunc {
 			return
 		}
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "history_read_failed", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "history_read_failed", err)
 			return
 		}
 		var byRule map[string]json.RawMessage
 		if err := json.Unmarshal(data, &byRule); err != nil {
-			writeError(w, http.StatusBadGateway, "history_corrupt", err.Error())
+			writeErrorDetail(w, http.StatusBadGateway, "history_corrupt", err)
 			return
 		}
 		events, ok := byRule[ruleID]
@@ -1867,7 +1867,7 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 		if len(parts) == 2 && parts[1] == "schema" && r.Method == http.MethodGet {
 			data, err := manager.ReadSchema(parts[0])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "schema_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "schema_not_found", err)
 				return
 			}
 			writeJSON(w, json.RawMessage(data))
@@ -1876,7 +1876,7 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 		if len(parts) == 3 && parts[1] == "revisions" {
 			data, err := manager.ReadRevision(parts[0], parts[2])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "revision_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "revision_not_found", err)
 				return
 			}
 			writeJSON(w, json.RawMessage(data))
@@ -1885,7 +1885,7 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 		if len(parts) == 2 && parts[1] == "revisions" && r.Method == http.MethodGet {
 			revisions, err := manager.Revisions(parts[0])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "configuration_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "configuration_not_found", err)
 				return
 			}
 			writeJSON(w, revisions)
@@ -1896,12 +1896,12 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 				Revision string `json:"revision"`
 			}
 			if err := decodeBody(r, &request); err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			document, err := manager.Restore(parts[0], request.Revision)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "restore_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "restore_rejected", err)
 				return
 			}
 			writeJSON(w, document)
@@ -1944,19 +1944,19 @@ func handleConfiguration(manager *config.Manager, authManager *auth.Manager, nod
 		case http.MethodGet:
 			data, err := manager.Read(name)
 			if err != nil {
-				writeError(w, http.StatusNotFound, "configuration_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "configuration_not_found", err)
 				return
 			}
 			writeJSON(w, json.RawMessage(data))
 		case http.MethodPut:
 			data, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			document, err := manager.Save(name, data)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "configuration_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "configuration_rejected", err)
 				return
 			}
 			writeJSON(w, document)
@@ -1972,7 +1972,7 @@ func handleLayout(store *settings.Store) http.HandlerFunc {
 		case http.MethodGet:
 			value, err := store.LoadLayout()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "layout_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "layout_invalid", err)
 				return
 			}
 			// Der Kartentyp-Katalog reist mit dem Layout mit: der Editor
@@ -1986,11 +1986,11 @@ func handleLayout(store *settings.Store) http.HandlerFunc {
 		case http.MethodPut:
 			var value settings.Layout
 			if err := decodeBody(r, &value); err != nil {
-				writeError(w, http.StatusBadRequest, "layout_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "layout_rejected", err)
 				return
 			}
 			if err := store.SaveLayout(value); err != nil {
-				writeError(w, http.StatusBadRequest, "layout_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "layout_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -2007,7 +2007,7 @@ func handleLayoutRevision(store *settings.Store) http.HandlerFunc {
 		if len(parts) == 1 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			revisions, err := store.LayoutRevisions()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "layout_revisions_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "layout_revisions_failed", err)
 				return
 			}
 			writeJSON(w, revisions)
@@ -2016,7 +2016,7 @@ func handleLayoutRevision(store *settings.Store) http.HandlerFunc {
 		if len(parts) == 2 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			data, err := store.ReadLayoutRevision(parts[1])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "layout_revision_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "layout_revision_not_found", err)
 				return
 			}
 			writeJSON(w, json.RawMessage(data))
@@ -2027,12 +2027,12 @@ func handleLayoutRevision(store *settings.Store) http.HandlerFunc {
 				Revision string `json:"revision"`
 			}
 			if err := decodeBody(r, &request); err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			value, err := store.RestoreLayout(request.Revision)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "layout_restore_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "layout_restore_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -2049,7 +2049,7 @@ func handleSettingsRevision(store *settings.Store) http.HandlerFunc {
 		if len(parts) == 1 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			revisions, err := store.SettingsRevisions()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "settings_revisions_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "settings_revisions_failed", err)
 				return
 			}
 			writeJSON(w, revisions)
@@ -2058,7 +2058,7 @@ func handleSettingsRevision(store *settings.Store) http.HandlerFunc {
 		if len(parts) == 2 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			data, err := store.ReadSettingsRevision(parts[1])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "settings_revision_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "settings_revision_not_found", err)
 				return
 			}
 			writeJSON(w, json.RawMessage(data))
@@ -2069,12 +2069,12 @@ func handleSettingsRevision(store *settings.Store) http.HandlerFunc {
 				Revision string `json:"revision"`
 			}
 			if err := decodeBody(r, &request); err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			value, err := store.RestoreSettings(request.Revision)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "settings_restore_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "settings_restore_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -2091,7 +2091,7 @@ func handleEnergyRevision(store *settings.Store) http.HandlerFunc {
 		if len(parts) == 1 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			revisions, err := store.EnergyRevisions()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "energy_revisions_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "energy_revisions_failed", err)
 				return
 			}
 			writeJSON(w, revisions)
@@ -2100,7 +2100,7 @@ func handleEnergyRevision(store *settings.Store) http.HandlerFunc {
 		if len(parts) == 2 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			data, err := store.ReadEnergyRevision(parts[1])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "energy_revision_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "energy_revision_not_found", err)
 				return
 			}
 			writeJSON(w, json.RawMessage(data))
@@ -2111,12 +2111,12 @@ func handleEnergyRevision(store *settings.Store) http.HandlerFunc {
 				Revision string `json:"revision"`
 			}
 			if err := decodeBody(r, &request); err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			value, err := store.RestoreEnergy(request.Revision)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "energy_restore_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "energy_restore_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -2132,18 +2132,18 @@ func handleDeviceMap(store *settings.Store) http.HandlerFunc {
 		case http.MethodGet:
 			value, err := store.LoadDeviceMap()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "device_map_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
 				return
 			}
 			writeJSON(w, value)
 		case http.MethodPut:
 			var value settings.DeviceMap
 			if err := decodeBody(r, &value); err != nil {
-				writeError(w, http.StatusBadRequest, "device_map_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return
 			}
 			if err := store.SaveDeviceMap(value); err != nil {
-				writeError(w, http.StatusBadRequest, "device_map_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -2160,7 +2160,7 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry) http.Hand
 		if len(parts) == 1 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			revisions, err := store.DeviceMapRevisions()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "device_map_revisions_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_revisions_failed", err)
 				return
 			}
 			writeJSON(w, revisions)
@@ -2169,7 +2169,7 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry) http.Hand
 		if len(parts) == 2 && parts[0] == "revisions" && r.Method == http.MethodGet {
 			data, err := store.ReadDeviceMapRevision(parts[1])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "device_map_revision_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "device_map_revision_not_found", err)
 				return
 			}
 			writeJSON(w, json.RawMessage(data))
@@ -2180,12 +2180,12 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry) http.Hand
 				Revision string `json:"revision"`
 			}
 			if err := decodeBody(r, &request); err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			value, err := store.RestoreDeviceMap(request.Revision)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "device_map_restore_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "device_map_restore_rejected", err)
 				return
 			}
 			applyRelationOverrides(reg, value)
@@ -2222,7 +2222,7 @@ func handleDevicePrefs(store *settings.Store) http.HandlerFunc {
 		}
 		value, err := store.LoadDevicePrefs()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "device_prefs_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "device_prefs_invalid", err)
 			return
 		}
 		writeJSON(w, value)
@@ -2249,7 +2249,7 @@ func handleDevicePrefsEntry(store *settings.Store, manager *auth.Manager) http.H
 		}
 		var entry settings.DevicePrefsEntry
 		if err := decodeBody(r, &entry); err != nil {
-			writeError(w, http.StatusBadRequest, "device_prefs_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "device_prefs_rejected", err)
 			return
 		}
 		// Die ID kommt aus dem Pfad, nie aus dem Rumpf - sonst koennte ein
@@ -2257,7 +2257,7 @@ func handleDevicePrefsEntry(store *settings.Store, manager *auth.Manager) http.H
 		entry.DeviceID = deviceID
 		value, err := store.SaveDevicePrefsEntry(entry)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "device_prefs_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "device_prefs_rejected", err)
 			return
 		}
 		writeJSON(w, value)
@@ -2275,7 +2275,7 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 		Kind     string `json:"kind"`
 	}
 	if err := decodeBody(r, &request); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+		writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 		return
 	}
 	if request.Kind == "" {
@@ -2306,7 +2306,7 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 
 	deviceMap, err := store.LoadDeviceMap()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "device_map_invalid", err.Error())
+		writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
 		return
 	}
 	for _, edge := range deviceMap.Edges {
@@ -2319,7 +2319,7 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 
 	id, err := newRelationID()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "relation_id_failed", err.Error())
+		writeErrorDetail(w, http.StatusInternalServerError, "relation_id_failed", err)
 		return
 	}
 	override := settings.RelationOverride{
@@ -2331,7 +2331,7 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 	}
 	deviceMap.Edges = append(deviceMap.Edges, override)
 	if err := store.SaveDeviceMap(deviceMap); err != nil {
-		writeError(w, http.StatusBadRequest, "device_map_rejected", err.Error())
+		writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 		return
 	}
 	applyRelationOverrides(reg, deviceMap)
@@ -2341,7 +2341,7 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 func handleDeleteDeviceMapRelation(store *settings.Store, reg *registry.Registry, w http.ResponseWriter, id string) {
 	deviceMap, err := store.LoadDeviceMap()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "device_map_invalid", err.Error())
+		writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
 		return
 	}
 	kept := make([]settings.RelationOverride, 0, len(deviceMap.Edges))
@@ -2359,7 +2359,7 @@ func handleDeleteDeviceMapRelation(store *settings.Store, reg *registry.Registry
 	}
 	deviceMap.Edges = kept
 	if err := store.SaveDeviceMap(deviceMap); err != nil {
-		writeError(w, http.StatusBadRequest, "device_map_rejected", err.Error())
+		writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 		return
 	}
 	applyRelationOverrides(reg, deviceMap)
@@ -2409,19 +2409,19 @@ func handleSettings(store *settings.Store, authManager *auth.Manager) http.Handl
 		case http.MethodGet:
 			value, err := store.LoadSettings()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "settings_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
 				return
 			}
 			writeJSON(w, value)
 		case http.MethodPut:
 			var value settings.Settings
 			if err := decodeBody(r, &value); err != nil {
-				writeError(w, http.StatusBadRequest, "settings_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "settings_rejected", err)
 				return
 			}
 			current, err := store.LoadSettings()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "settings_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "settings_invalid", err)
 				return
 			}
 			if value.LiveUpdateIntervalSeconds != current.LiveUpdateIntervalSeconds {
@@ -2440,7 +2440,7 @@ func handleSettings(store *settings.Store, authManager *auth.Manager) http.Handl
 				}
 			}
 			if err := store.SaveSettings(value); err != nil {
-				writeError(w, http.StatusBadRequest, "settings_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "settings_rejected", err)
 				return
 			}
 			writeJSON(w, value)
@@ -2499,18 +2499,18 @@ func handleTinyTuyaCredentials(store *tinytuya.CredentialStore) http.HandlerFunc
 				return
 			}
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "tiny_tuya_credentials_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "tiny_tuya_credentials_failed", err)
 				return
 			}
 			writeJSON(w, tinyTuyaCredentialMetadata{Configured: true, Region: credentials.Region, AccessIDHint: maskAccessID(credentials.AccessID)})
 		case http.MethodPost:
 			var credentials tinytuya.CloudRequest
 			if err := decodeBody(r, &credentials); err != nil {
-				writeError(w, http.StatusBadRequest, "tiny_tuya_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "tiny_tuya_rejected", err)
 				return
 			}
 			if err := store.Save(tinytuya.Credentials{Region: credentials.Region, AccessID: credentials.AccessID, AccessSecret: credentials.AccessSecret}); err != nil {
-				writeError(w, http.StatusBadRequest, "tiny_tuya_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "tiny_tuya_rejected", err)
 				return
 			}
 			writeJSON(w, tinyTuyaCredentialMetadata{Configured: true, Region: credentials.Region, AccessIDHint: maskAccessID(credentials.AccessID)})
@@ -2604,21 +2604,21 @@ func handleTinyTuyaConfigure(manager *config.Manager) http.HandlerFunc {
 		}
 		var request tinyTuyaConfigRequest
 		if err := decodeBody(r, &request); err != nil {
-			writeError(w, http.StatusBadRequest, "tiny_tuya_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "tiny_tuya_rejected", err)
 			return
 		}
 		if err := validateTinyTuyaConfig(request); err != nil {
-			writeError(w, http.StatusBadRequest, "tiny_tuya_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "tiny_tuya_rejected", err)
 			return
 		}
 		data, err := mergeTinyTuyaConfig(manager, request)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "tiny_tuya_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "tiny_tuya_rejected", err)
 			return
 		}
 		document, err := manager.Save("tuya_devices", data)
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "tiny_tuya_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "tiny_tuya_rejected", err)
 			return
 		}
 		writeJSON(w, map[string]any{

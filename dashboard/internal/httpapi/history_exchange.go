@@ -216,7 +216,7 @@ func (x *historyExchange) decodeExchange(w http.ResponseWriter, r *http.Request,
 		return "", false
 	}
 	if err := json.Unmarshal(body, target); err != nil {
-		writeError(w, http.StatusBadRequest, "invalid_json", err.Error())
+		writeErrorDetail(w, http.StatusBadRequest, "invalid_json", err)
 		return "", false
 	}
 	var envelope struct {
@@ -258,7 +258,7 @@ func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 	}
 	data, err := json.Marshal(map[string]any{"peer": from, "coverage": payload.Coverage})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "encode_failed", err.Error())
+		writeErrorDetail(w, http.StatusInternalServerError, "encode_failed", err)
 		return
 	}
 	x.hub.Broadcast(from, historyexchange.Message{Event: "offer", Data: data})
@@ -295,7 +295,7 @@ func (x *historyExchange) handleRequest(w http.ResponseWriter, r *http.Request) 
 		"series": payload.Series, "ranges": payload.Ranges,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "encode_failed", err.Error())
+		writeErrorDetail(w, http.StatusInternalServerError, "encode_failed", err)
 		return
 	}
 	relay(w, x.hub.SendTo(payload.To, historyexchange.Message{Event: "request", Data: data}))
@@ -369,7 +369,7 @@ func (x *historyExchange) handleDeliver(w http.ResponseWriter, r *http.Request) 
 		"final": payload.Final, "tier": payload.Tier, "rows": payload.Rows,
 	})
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "encode_failed", err.Error())
+		writeErrorDetail(w, http.StatusInternalServerError, "encode_failed", err)
 		return
 	}
 	relay(w, x.hub.SendTo(payload.To, historyexchange.Message{Event: "deliver", Data: data}))

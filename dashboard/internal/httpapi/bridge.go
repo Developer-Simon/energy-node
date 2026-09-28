@@ -178,7 +178,7 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			}
 			connection, configured, err := loadBridgeConnection(store)
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "bridge_invalid", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "bridge_invalid", err)
 				return
 			}
 			payload := bridgeConnectionToPayload(connection)
@@ -211,12 +211,12 @@ func handleBridgeConfig(store *settings.Store, credentials *mqttclient.Credentia
 			}
 			var body bridgeConnectionPayload
 			if err := decodeBody(r, &body); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			connection := bridgeConnectionFromPayload(body)
 			if err := store.SaveBridge(settings.BridgeConfig{Connections: []settings.BridgeConnection{connection}}); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			if watcher != nil {
@@ -269,7 +269,7 @@ func handleBridgeCredentials(credentials *mqttclient.CredentialStore, authManage
 				Password string `json:"password"`
 			}
 			if err := decodeBody(r, &body); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			if strings.TrimSpace(body.Password) == "" {
@@ -277,13 +277,13 @@ func handleBridgeCredentials(credentials *mqttclient.CredentialStore, authManage
 				return
 			}
 			if err := credentials.Save(mqttclient.Credentials{Password: body.Password}); err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": true})
 		case http.MethodDelete:
 			if err := credentials.Delete(); err != nil {
-				writeError(w, http.StatusInternalServerError, "bridge_credentials_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "bridge_credentials_failed", err)
 				return
 			}
 			writeJSON(w, map[string]bool{"password_configured": false})
@@ -367,7 +367,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			Confirm bool `json:"confirm"`
 		}
 		if err := decodeBody(r, &body); err != nil {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 			return
 		}
 		if !body.Confirm {
@@ -376,7 +376,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 		}
 		connection, configured, err := loadBridgeConnection(store)
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "bridge_invalid", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "bridge_invalid", err)
 			return
 		}
 		if !configured {
@@ -392,13 +392,13 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			RenderedAt: time.Now(),
 		})
 		if err != nil {
-			writeError(w, http.StatusBadRequest, "bridge_rejected", err.Error())
+			writeErrorDetail(w, http.StatusBadRequest, "bridge_rejected", err)
 			return
 		}
 
 		stagedPath := filepath.Join(dataDir, bridgeStagedFileName)
 		if err := writeStagedBridgeFile(stagedPath, rendered); err != nil {
-			writeError(w, http.StatusInternalServerError, "bridge_stage_failed", err.Error())
+			writeErrorDetail(w, http.StatusInternalServerError, "bridge_stage_failed", err)
 			return
 		}
 
@@ -417,7 +417,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 				writeError(w, http.StatusConflict, "bridge_busy", "Eine Systemaktion läuft bereits")
 				return
 			}
-			writeError(w, http.StatusBadGateway, bridgeApplyErrorCode(applyErr), applyErr.Error())
+			writeErrorDetail(w, http.StatusBadGateway, bridgeApplyErrorCode(applyErr), applyErr)
 			return
 		}
 		record.OK = true
@@ -453,7 +453,7 @@ func handleBridgeRestart(authManager *auth.Manager, executor SystemActionExecuto
 				writeError(w, http.StatusConflict, "bridge_busy", "Eine Systemaktion läuft bereits")
 				return
 			}
-			writeError(w, http.StatusBadGateway, "bridge_restart_failed", err.Error())
+			writeErrorDetail(w, http.StatusBadGateway, "bridge_restart_failed", err)
 			return
 		}
 		writeJSON(w, map[string]any{"ok": true})
@@ -536,7 +536,7 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 			}
 			revisions, err := store.BridgeRevisions()
 			if err != nil {
-				writeError(w, http.StatusInternalServerError, "bridge_revisions_failed", err.Error())
+				writeErrorDetail(w, http.StatusInternalServerError, "bridge_revisions_failed", err)
 				return
 			}
 			writeJSON(w, revisions)
@@ -551,7 +551,7 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 			}
 			data, err := store.ReadBridgeRevision(parts[1])
 			if err != nil {
-				writeError(w, http.StatusNotFound, "bridge_revision_not_found", err.Error())
+				writeErrorDetail(w, http.StatusNotFound, "bridge_revision_not_found", err)
 				return
 			}
 			writeJSON(w, data)
@@ -571,12 +571,12 @@ func handleBridgeSub(store *settings.Store, authManager *auth.Manager, watcher B
 				Revision string `json:"revision"`
 			}
 			if err := decodeBody(r, &request); err != nil {
-				writeError(w, http.StatusBadRequest, "invalid_body", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
 			value, err := store.RestoreBridge(request.Revision)
 			if err != nil {
-				writeError(w, http.StatusBadRequest, "bridge_restore_rejected", err.Error())
+				writeErrorDetail(w, http.StatusBadRequest, "bridge_restore_rejected", err)
 				return
 			}
 			if watcher != nil {
