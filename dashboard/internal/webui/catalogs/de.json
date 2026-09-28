@@ -1211,6 +1211,7 @@
   "history.resolution.1m": "Minutenmittel",
   "history.resolution.5m": "Fünf-Minuten-Mittel",
   "history.resolution.raw": "Rohdaten",
+  "history.series.derived_load": "Hausverbrauch (berechnet)",
   "history.status.empty": "Für diesen Zeitraum liegen in diesem Browser keine Daten. Die Historie wird pro Gerät aufgezeichnet, auf einem Gerät, das noch nicht aufgezeichnet hat, ist sie leer.",
   "history.status.loading": "Verläufe werden geladen ...",
   "history.status.no_data": "Keine Daten im gewählten Zeitraum",

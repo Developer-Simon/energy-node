@@ -1211,6 +1211,7 @@
   "history.resolution.1m": "1-minute average",
   "history.resolution.5m": "5-minute average",
   "history.resolution.raw": "Raw data",
+  "history.series.derived_load": "House consumption (calculated)",
   "history.status.empty": "There is no data for this period in this browser. History is recorded per device, so it is empty on a device that has not recorded yet.",
   "history.status.loading": "Loading history ...",
   "history.status.no_data": "No data in the selected period",

@@ -116,7 +116,7 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `2`, `js/history.js` `12` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `2`, `js/history.js` `13` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/diagnostics.css` `1` |
 | `config-panel` | `js/revisions.js` `2`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `7` | `css/manager.css` `23` |
 | `energy-panel` | `js/revisions.js` `2`, `js/energy.page.js` `4` | `css/manager.css` `23` |
@@ -238,7 +238,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.7.27 | `js/config.page.js` | `7` | 2026-09-28 |
+| v0.8.0 | `js/config.page.js` · `js/history.js` | `7` · `13` | 2026-09-28 |
 | v0.7.23 | `js/versions.page.js` (new) · `js/settings.page.js` · `css/settings-controls.css` | `1` · `12` · `8` | 2026-09-28 |
 | v0.7.22 | `js/dashboard.js` · `js/mqtt.page.js` | `22` · `7` | 2026-09-28 |
 | v0.7.21 | `js/i18n.js` (also `login.html`) · `js/revisions.js` (config, energy, device map, settings panels + layout editor) · `js/dashboard.js` · `js/device-tile.js` · `js/config.page.js` · `js/energy.page.js` · `js/devicemap.page.js` · `js/settings.page.js` · `js/mqtt.page.js` · `js/tailscale.page.js` · `js/systemconfig.page.js` · `js/automations.page.js` · `js/history.js` · `js/layout-editor.js` | `3` · `2` · `21` · `2` · `6` · `4` · `9` · `11` · `6` · `4` · `4` · `7` · `12` · `13` | 2026-09-28 |
