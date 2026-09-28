@@ -107,6 +107,13 @@
       return entry.scope ? `${entry.scope}: ${entry.text}` : entry.text;
     },
 
+    // Release dates are plain YYYY-MM-DD; shown in the page language's format.
+    releaseDate(date) {
+      if (!date) return '';
+      const formatted = window.I18n ? window.I18n.formatDate(`${date}T00:00:00`, {dateStyle: 'medium'}) : '';
+      return formatted || date;
+    },
+
     // A known change type gets the catalog title, anything else keeps the
     // heading the changelog itself carries.
     groupTitle(group) {

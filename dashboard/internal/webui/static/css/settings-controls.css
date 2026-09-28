@@ -385,8 +385,9 @@
   align-items: center;
   gap: .6rem;
   padding: .6rem 0;
+  flex-wrap: wrap;
 }
-.version-name { flex: 1 1 auto; min-width: 0; color: var(--text); font-size: .92rem; }
+.version-name { flex: 1 1 8rem; min-width: 0; overflow-wrap: anywhere; color: var(--text); font-size: .92rem; }
 .version-name.is-off { color: var(--text-faint); }
 .version-tag { color: var(--text-strong); font-variant-numeric: tabular-nums; font-weight: 600; font-size: .9rem; }
 .version-chip {

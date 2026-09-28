@@ -32,7 +32,7 @@
             <p class="setting-note" x-show="releases[component.id] && releases[component.id].length === 0">{{t "settings.versions.changes.empty"}}</p>
             <template x-for="release in releases[component.id] || []" :key="release.version">
               <section class="release">
-                <h4 class="release-title"><span x-text="release.version"></span> <span class="release-date" x-text="release.date || ''"></span></h4>
+                <h4 class="release-title"><span x-text="release.version"></span> <span class="release-date" x-text="releaseDate(release.date)"></span></h4>
                 <template x-for="entryGroup in release.groups || []" :key="entryGroup.type + entryGroup.label">
                   <div>
                     <p class="release-group" x-text="groupTitle(entryGroup)"></p>

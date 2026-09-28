@@ -165,6 +165,14 @@ test('entryText prefixes the scope when there is one', async () => {
   assert.equal(component.entryText({ text: 'fix it' }), 'fix it');
 });
 
+test('releaseDate formats a plain date through I18n and keeps an empty one empty', async () => {
+  const { component } = createVersionsPanel();
+  const shown = component.releaseDate('2026-09-21');
+  assert.notEqual(shown, '2026-09-21');
+  assert.match(shown, /2026/);
+  assert.equal(component.releaseDate(''), '');
+});
+
 test('groupTitle translates known change types and keeps the label of unknown ones', async () => {
   const { component } = createVersionsPanel();
   assert.equal(component.groupTitle({ type: 'feat', label: 'Features' }), de['settings.versions.change_type.feat']);
