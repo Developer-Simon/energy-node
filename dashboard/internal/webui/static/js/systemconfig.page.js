@@ -1,5 +1,6 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
   const withBase = (url) => `${window.__DASHBOARD_BASE_PATH__ || ''}${url}`;
 
@@ -8,9 +9,9 @@
     // reverse-proxy subpath base.html puts the prefix into
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(withBase(url), options);
-    const body = await response.json();
+    const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(body.message || t('common.request_failed'));
+      throw new Error(apiError(body));
     }
     return body;
   };
@@ -124,7 +125,7 @@
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) {
-            this.error = data.message || t('systemconfig.error.save_failed', {status: response.status});
+            this.error = data.code ? (window.I18n ? window.I18n.error(data) : data.message) : t('systemconfig.error.save_failed', {status: response.status});
             this.busy = false;
             return;
           }

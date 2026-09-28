@@ -1,11 +1,12 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
+  const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
   const requestJSON = async (url, options) => {
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
-    const body = await response.json();
+    const body = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(body.message || t('common.request_failed'));
+      const error = new Error(apiError(body));
       // Der Status wandert mit, damit Aufrufer ein 404 vom Netzwerkfehler
       // unterscheiden koennen: fehlt das Geraet "automation", ist das ein
       // Dauerzustand (kein Automations-Dienst), kein voruebergehender Fehler.

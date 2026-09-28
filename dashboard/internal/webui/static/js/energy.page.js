@@ -27,13 +27,15 @@
     return entity;
   };
 
+  const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
+
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
     const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
-    const body = await response.json();
-    if (!response.ok) throw new Error(body.message || t('common.request_failed'));
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(apiError(body));
     return body;
   };
 
