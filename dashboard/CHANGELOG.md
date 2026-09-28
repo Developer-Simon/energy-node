@@ -21,6 +21,8 @@
 - **dashboard:** add the versionsPanel component and its texts (56c0ffa)
 - **dashboard:** add a versions page under Einstellungen (d2c90cf)
 - **dashboard:** drop the dashboard version from the System panel (5d446fb)
+- **dashboard:** drop the link to the Versionen tab from the System panel (be8b2ee)
+- **dashboard:** move the update check into its own card on the Versionen page (643fa05)
 - **dashboard:** catalog keys for MQTT and bridge validation (a4dff4b)
 - **dashboard:** translate MQTT connection test errors (e4fe45e)
 - **dashboard:** catalog keys for diagnostics warnings (f412fb4)
