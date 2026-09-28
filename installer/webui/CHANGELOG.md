@@ -1,10 +1,13 @@
 # Changelog
 
-## v0.1.10 (2026-09-28)
+## v0.1.11 (2026-09-28)
 
 ### Features
 
 - **dashboard:** show installed component versions under settings (#71) (c8ef59b)
+- **installer-webui:** resolve the host language per request (af62b5c)
+- **installer-webui:** translate the dashboard host's error codes (0f8a231)
+- **dashboard:** note the bundle download in catalog keys (a158773)
 - **webui:** add hostapi helpers that read changelog.json and installed component versions (17e0f19)
 
 ### Fixes

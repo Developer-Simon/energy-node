@@ -69,6 +69,9 @@ function errorCodes() {
     read(repo, 'installer', 'internal', 'host', 'host.go'),
     read(repo, 'installer', 'internal', 'host', 'package.go'),
     ...list(path.join(repo, 'installer', 'internal', 'bundlesource'), /\.go$/).filter((name) => !name.endsWith('_test.go')).map((name) => read(repo, 'installer', 'internal', 'bundlesource', name)),
+    // Der Dashboard-Wirt (Plan D) zeigt denselben Bildschirm, seine Codes brauchen dieselben Texte.
+    ...list(path.join(repo, 'dashboard', 'internal', 'updaterhost'), /\.go$/).filter((name) => !name.endsWith('_test.go')).map((name) => read(repo, 'dashboard', 'internal', 'updaterhost', name)),
+    ...list(path.join(repo, 'dashboard', 'internal', 'bundlefetch'), /\.go$/).filter((name) => !name.endsWith('_test.go')).map((name) => read(repo, 'dashboard', 'internal', 'bundlefetch', name)),
   ];
   const patterns = [/writeError\(\s*w,\s*http\.\w+,\s*"([A-Z_]+)"/g, /Code:\s*"([A-Z_]+)"/g, /Code\w+\s*=\s*"([A-Z_]+)"/g, /payload\["code"\]\s*=\s*"([A-Z_]+)"/g];
   const codes = new Set();
@@ -138,6 +141,13 @@ function composedKeys() {
     'package.log.arch_detected', 'package.log.cached', 'package.log.detect_arch', 'package.log.download', 'package.log.github_search');
   for (const state of ['active', 'failed', 'inactive', 'activating']) {
     keys.push(`diagnose.unit.${state}`);
+  }
+  // Der Dashboard-Wirt notiert seinen Download in package.log.*-Schluesseln
+  // (dashboard/internal/bundlefetch), der Bildschirm uebersetzt sie.
+  for (const name of list(path.join(repo, 'dashboard', 'internal', 'bundlefetch'), /\.go$/).filter((file) => !file.endsWith('_test.go'))) {
+    for (const match of read(repo, 'dashboard', 'internal', 'bundlefetch', name).matchAll(/"(package\.log\.[a-z_]+)"/g)) {
+      keys.push(match[1]);
+    }
   }
   return keys;
 }

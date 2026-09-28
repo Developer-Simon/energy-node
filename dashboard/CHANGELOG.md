@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.25 (2026-09-28)
+## v0.7.26 (2026-09-28)
 
 ### Features
 
@@ -18,6 +18,9 @@
 - **dashboard:** localize validation errors and diagnostics (#70) (9827111)
 - **dashboard:** show installed component versions under settings (#71) (c8ef59b)
 - **dashboard:** localize the system configuration form (#72) (c716d05)
+- **dashboard:** localize the device configuration forms (#73) (180110d)
+- **dashboard:** note the bundle download in catalog keys (a158773)
+- **dashboard:** show the redeploy screen in the dashboard language (18ac978)
 - **dashboard:** German texts for the device schemas (0a75d8d)
 - **dashboard:** German texts for the battery SoC schema (f26574d)
 - **dashboard:** add a catalog for schema form texts (da7b863)
@@ -189,6 +192,7 @@
 
 ### Tests
 
+- **dashboard:** check the redeploy language in the smoke test (5bdb019)
 - **dashboard:** add --simulate-installed to the smoke test and check the versions API with it (25c06ff)
 - **dashboard:** assert the MQTT test detail on a refused connection (ba4adac)
 - **webui:** make the UI text guard cover every template and script (69f5a3b)

@@ -45,10 +45,10 @@ type Config struct {
 	JobDir                string
 	// Prepare fetches the newest package into CandidateBundleDir (see
 	// internal/bundlefetch). It is called for hostapi.ModePrepare and gets a
-	// callback for one human-readable log line at a time. Nil means this host
+	// callback that notes each stage as a catalog key. Nil means this host
 	// cannot fetch: Describe does not advertise AutoPrepare and ModePrepare
 	// answers NOT_SUPPORTED. Errors of type *hostapi.Error keep their code.
-	Prepare func(ctx context.Context, log func(line string)) error
+	Prepare func(ctx context.Context, note func(key string, args map[string]string)) error
 }
 
 // candidateManifest is the handful of manifest.json fields this package
@@ -300,7 +300,7 @@ func (h *Host) runPrepare(ctx context.Context, sink hostapi.Sink) error {
 	}
 
 	sink.Marker("package", "begin", "")
-	err := h.cfg.Prepare(ctx, func(line string) { sink.Log("package", line) })
+	err := h.cfg.Prepare(ctx, func(key string, args map[string]string) { sink.Message("package", key, args) })
 	if err == nil {
 		sink.Marker("package", "ok", "")
 		return nil

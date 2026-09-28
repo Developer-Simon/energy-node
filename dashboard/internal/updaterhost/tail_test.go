@@ -56,6 +56,24 @@ func TestTailJobLogReportsAFailStatusAsAnError(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error for a failed job")
 	}
+	var typed *hostapi.Error
+	if !errors.As(err, &typed) || typed.Code != "DASHBOARD_START_FAILED" || typed.Detail != "" {
+		t.Fatalf("err = %#v, want DASHBOARD_START_FAILED without a detail (the step is in step_id)", err)
+	}
+}
+
+func TestTailJobLogReportsARejectionWithoutADetail(t *testing.T) {
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "log")
+	statusPath := filepath.Join(dir, "status.json")
+	os.WriteFile(logPath, []byte(""), 0o644)
+	os.WriteFile(statusPath, []byte(`{"result":"rejected","code":"BUNDLE_SIGNATURE_INVALID"}`), 0o644)
+
+	err := tailJobLog(context.Background(), logPath, statusPath, 0, &recordingSink{}, 10*time.Millisecond, 0)
+	var typed *hostapi.Error
+	if !errors.As(err, &typed) || typed.Code != "BUNDLE_SIGNATURE_INVALID" || typed.Detail != "" {
+		t.Fatalf("err = %#v, want BUNDLE_SIGNATURE_INVALID without a detail", err)
+	}
 }
 
 func TestTailJobLogWaitsForNewLinesBeforeTheStatusAppears(t *testing.T) {
@@ -98,7 +116,7 @@ func TestTailJobLogGivesUpOnAStatusThatNeverArrives(t *testing.T) {
 	err := tailJobLog(context.Background(), logPath, filepath.Join(dir, "status.json"), 0,
 		&recordingSink{}, 5*time.Millisecond, 20*time.Millisecond)
 	var typed *hostapi.Error
-	if !errors.As(err, &typed) || typed.Code != "UPDATER_TIMEOUT" {
+	if !errors.As(err, &typed) || typed.Code != "UPDATER_TIMEOUT" || typed.Detail != "" {
 		t.Fatalf("err = %v, want an UPDATER_TIMEOUT hostapi.Error", err)
 	}
 }

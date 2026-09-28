@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -102,25 +103,25 @@ func (c *Client) FindAsset(ctx context.Context, arch string) (Asset, error) {
 	return Asset{}, &Error{Code: CodeGitHubNoRelease, Detail: arch}
 }
 
-// progress logs a line at every 20 % of a download of known size.
+// progress notes every 20 % of a download of known size.
 type progress struct {
 	size, seen, next int64
-	log              func(string)
+	note             Note
 }
 
 func (p *progress) Write(b []byte) (int, error) {
 	p.seen += int64(len(b))
 	for p.size > 0 && p.next <= 100 && p.seen*100 >= p.size*p.next {
-		p.log(fmt.Sprintf("%d %% geladen", p.next))
+		p.note("package.log.download_progress", map[string]string{"percent": strconv.FormatInt(p.next, 10)})
 		p.next += 20
 	}
 	return len(b), nil
 }
 
 // Download streams asset to dest, refusing more than maxArchiveBytes.
-func (c *Client) Download(ctx context.Context, asset Asset, dest string, log func(string)) error {
-	if log == nil {
-		log = func(string) {}
+func (c *Client) Download(ctx context.Context, asset Asset, dest string, note Note) error {
+	if note == nil {
+		note = func(string, map[string]string) {}
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, asset.URL, nil)
 	if err != nil {
@@ -141,7 +142,7 @@ func (c *Client) Download(ctx context.Context, asset Asset, dest string, log fun
 	if err != nil {
 		return installFailed(err)
 	}
-	prog := &progress{size: resp.ContentLength, next: 20, log: log}
+	prog := &progress{size: resp.ContentLength, next: 20, note: note}
 	n, err := io.Copy(io.MultiWriter(out, prog), io.LimitReader(resp.Body, maxArchiveBytes+1))
 	if cerr := out.Close(); err == nil {
 		err = cerr

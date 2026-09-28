@@ -42,6 +42,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
+	dashwebui "github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
 // updatesRepo is the GitHub repository internal/updatecheck asks about. It
@@ -110,7 +111,7 @@ func main() {
 	// Fetching the newest bundle needs to know which architecture to ask
 	// for; an unknown GOARCH leaves prepare nil and the redeploy screen as
 	// before (the candidate directory is then filled by hand).
-	var prepare func(context.Context, func(string)) error
+	var prepare func(context.Context, func(string, map[string]string)) error
 	if arch, ok := bundlefetch.ArchForGo(runtime.GOARCH); ok {
 		client := &bundlefetch.Client{
 			Repo: updatesRepo,
@@ -146,6 +147,7 @@ func main() {
 		jobDir:                jobDir,
 		prepare:               prepare,
 		pageToken:             httpapi.SessionCSRFToken(authManager),
+		languages:             dashwebui.Languages(),
 	})
 	if err != nil {
 		log.Printf("redeploy: could not start the local update handler: %v", err)

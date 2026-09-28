@@ -915,3 +915,7 @@ func Login(guestOnly bool, store *settings.Store, adminAuthWarningKey string) ht
 
 // I18nScript serves /i18n/<lang>.js, the catalog the browser runtime reads.
 func I18nScript() http.Handler { return translator.ScriptHandler() }
+
+// Languages lists the UI languages the dashboard ships catalogs for. The
+// redeploy screen resolves its language against the same list.
+func Languages() []string { return translator.Languages() }

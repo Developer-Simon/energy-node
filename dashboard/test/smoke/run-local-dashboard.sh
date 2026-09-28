@@ -784,6 +784,13 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
   else
     echo "  FEHL die Redeploy-Seite hat keinen Token (data-token ist leer)"; FAILED=1
   fi
+  echo "==> Redeploy folgt der Dashboard-Sprache"
+  redeploy_lang() { api "$@" "$BASE/redeploy/api/bootstrap" | python3 -c 'import json,sys; print(json.load(sys.stdin)["language"])'; }
+  if [[ "$(redeploy_lang)" == "de" && "$(redeploy_lang -H 'Accept-Language: en-GB,en;q=0.9')" == "en" ]]; then
+    echo "  OK   Redeploy-Bildschirm ohne Wahl deutsch, mit englischem Browser englisch"
+  else
+    echo "  FEHL Redeploy-Bildschirm folgt der Sprache nicht"; FAILED=1
+  fi
   start_prepare() {
     api -H "X-Installer-Token: $page_token" -H 'Content-Type: application/json' -X POST \
       "$BASE/redeploy/api/run" -d '{"mode":"prepare"}' > /dev/null
@@ -799,6 +806,13 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
     echo "  OK   Bundle liegt in redeploy-candidate/"
   else
     echo "  FEHL Bundle wurde nicht heruntergeladen (siehe $WORK/dashboard.log)"; FAILED=1
+  fi
+  # Der Ereignisstrom bleibt offen, curl bricht nach zwei Sekunden ab.
+  events="$(api -m 2 "$BASE/redeploy/api/events?since=0" || true)"
+  if grep -q 'package.log.ready' <<<"$events"; then
+    echo "  OK   Download-Protokoll kommt als Katalogschlüssel"
+  else
+    echo "  FEHL Download-Protokoll ohne package.log-Schlüssel"; FAILED=1
   fi
   check "Vorschau nennt Version und alle Schritte des heruntergeladenen Bundles" \
     "data['bundle_version'] == 'v9.9.9' and [s['id'] for s in data['steps']] == ['10','20','30','40','50','60','65','70','81','82']" \

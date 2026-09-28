@@ -8,6 +8,7 @@
 - **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **dashboard:** localize the system configuration form (#72) (c716d05)
+- **dashboard:** localize the device configuration forms (#73) (180110d)
 - **dashboard:** write the central schema in English and move German to the catalog (bd26f60)
 - **dashboard:** describe every field of the system configuration form (012ea1c)
 - **services:** start with an invalid device file and report it as rejected (029c604)

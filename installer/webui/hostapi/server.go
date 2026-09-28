@@ -20,9 +20,15 @@ type Options struct {
 	// Rueckfallsprache.
 	Language string
 	// LanguageFixed schaltet den Umschalter in der Oberflaeche ab. Der
-	// Dashboard-Wirt setzt das (E8): derselbe Katalog, derselbe Code, nur eine
-	// feste statt einer sichtbaren Wahl.
+	// Dashboard-Wirt setzt das (E8): die Sprache waehlt der Betreiber in der
+	// Kopfzeile des Dashboards, nicht in diesem Bildschirm.
 	LanguageFixed bool
+	// LanguageFor loest die Sprache je Anfrage auf, wenn gesetzt. Der
+	// Dashboard-Wirt uebergibt hier seine eigene Erkennung (Cookie, dann
+	// Accept-Language), damit der Bildschirm der Dashboard-Sprache folgt.
+	// Eine Sprache ohne Katalog faellt auf Language zurueck. Nil heisst:
+	// immer Language.
+	LanguageFor func(*http.Request) string
 	// Token ist das Einmal-Token aus der geoeffneten URL. Leer schaltet die
 	// Pruefung ab - fuer einen Wirt, der selbst authentifiziert.
 	Token string
@@ -159,6 +165,17 @@ func (s *Server) tokenOK(r *http.Request) bool {
 	return subtle.ConstantTimeCompare([]byte(given), []byte(s.opts.Token)) == 1
 }
 
+// language ist die Sprache dieser Anfrage: LanguageFor, wenn gesetzt und
+// ein Katalog dafuer geladen ist, sonst Language.
+func (s *Server) language(r *http.Request) string {
+	if s.opts.LanguageFor != nil {
+		if lang := s.opts.LanguageFor(r); lang != "" && s.opts.Catalogs.Has(lang) {
+			return lang
+		}
+	}
+	return s.opts.Language
+}
+
 func (s *Server) handleShell(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Path != "/" {
 		writeError(w, http.StatusNotFound, "NOT_FOUND", r.URL.Path)
@@ -168,14 +185,15 @@ func (s *Server) handleShell(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", r.Method)
 		return
 	}
-	title, _ := s.opts.Catalogs.Lookup(s.opts.Language, "app.title")
+	lang := s.language(r)
+	title, _ := s.opts.Catalogs.Lookup(lang, "app.title")
 	token := s.opts.Token
 	if token == "" && s.opts.PageToken != nil {
 		token = s.opts.PageToken(r)
 	}
 	data := map[string]any{
 		"Title":        title,
-		"Language":     s.opts.Language,
+		"Language":     lang,
 		"Token":        token,
 		"BasePath":     s.opts.BasePath,
 		"AssetVersion": webui.AssetVersion(),
@@ -201,7 +219,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		BundleVersion:   description.BundleVersion,
 		BundleArch:      description.BundleArch,
 		AssetVersion:    webui.AssetVersion(),
-		Language:        s.opts.Language,
+		Language:        s.language(r),
 		LanguageFixed:   s.opts.LanguageFixed,
 		Languages:       s.opts.Catalogs.Languages(),
 		BasePath:        s.opts.BasePath,
