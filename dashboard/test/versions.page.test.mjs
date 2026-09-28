@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { catalog, installI18n } from './helpers/i18n.mjs';
+import { attachStores } from './helpers/notify-stores.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const scriptSource = fs.readFileSync(
@@ -179,4 +180,65 @@ test('groupTitle translates known change types and keeps the label of unknown on
   assert.equal(component.groupTitle({ type: 'wibble', label: 'Wibble' }), 'Wibble');
   assert.equal(component.groupTitle({ label: 'Features' }), 'Features');
   assert.equal(component.groupTitle({ type: 'other', label: 'Other' }), de['settings.versions.change_type_other']);
+});
+
+test('load() also reads the cached update status and the system_actions flag', async () => {
+  const panel = createVersionsPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/versions') return jsonResponse(SNAPSHOT);
+      if (url === '/api/v1/auth/session') return jsonResponse({ system_actions: true });
+      if (url === '/api/v1/updates/status') return jsonResponse({ available: true, latest: '1.4.2', notes_url: 'https://example.invalid' });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  await panel.component.load();
+  assert.equal(panel.component.updateStatus.available, true);
+  assert.equal(panel.component.updateStatus.latest, '1.4.2');
+  assert.equal(panel.component.canSystemActions, true);
+});
+
+test('an update status that was never checked counts as no result', async () => {
+  const panel = createVersionsPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/versions') return jsonResponse(SNAPSHOT);
+      if (url === '/api/v1/auth/session') return jsonResponse({});
+      if (url === '/api/v1/updates/status') return jsonResponse({ checked: false });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  await panel.component.load();
+  assert.equal(panel.component.updateStatus, null);
+  assert.equal(panel.component.canSystemActions, false);
+});
+
+test('checkForUpdates() stores the answer and ignores a second click while running', async () => {
+  let calls = 0;
+  const panel = createVersionsPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/updates/check') {
+        calls += 1;
+        return jsonResponse({ available: false, latest: '1.4.1' });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  attachStores(panel.component);
+  panel.component.checkingForUpdates = true;
+  await panel.component.checkForUpdates();
+  assert.equal(calls, 0, 'a running check must not start a second one');
+  panel.component.checkingForUpdates = false;
+  await panel.component.checkForUpdates();
+  assert.equal(calls, 1);
+  assert.equal(panel.component.updateStatus.available, false);
+  assert.equal(panel.component.checkingForUpdates, false);
+});
+
+test('checkForUpdates() reports a failure through the toast store', async () => {
+  const panel = createVersionsPanel({
+    fetchImpl: async () => jsonResponse({ code: 'updates_check_failed', message: 'server text' }, false),
+  });
+  const stores = attachStores(panel.component);
+  await panel.component.checkForUpdates();
+  assert.equal(stores.toasts.items.length, 1);
+  assert.equal(stores.toasts.items[0].message, de['error.updates_check_failed']);
 });

@@ -295,19 +295,6 @@
     <section class="system-access-panel">
       <p class="settings-help">{{t "settings.system.access.label"}} <strong x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong>. {{t "settings.system.access.note"}}</p>
       <div class="toolbar">
-        <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="{{t "settings.system.check_updates.button"}}" aria-label="{{t "settings.system.check_updates.button"}}">
-          <svg class="automation-icon"><use href="#ico-download"></use></svg>
-          <span x-text="checkingForUpdates ? $t('settings.system.check_updates.checking') : $t('settings.system.check_updates.button')"></span>
-        </button>
-        <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
-          <svg class="automation-icon"><use href="#ico-download"></use></svg>
-          {{t "settings.system.update_available.title"}} <strong x-text="updateStatus && updateStatus.latest"></strong>
-          <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">{{t "settings.system.update_available.cta"}}</a>
-          <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus && updateStatus.notes_url" target="_blank" rel="noopener">{{t "settings.system.update_available.notes"}}</a>
-        </span>
-        <span x-show="updateStatus && !updateStatus.available" class="settings-help">{{t "settings.system.update_available.current"}}</span>
-      </div>
-      <div class="toolbar">
         <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? $t('settings.system.access_badge.granted') : $t('settings.system.access_badge.guest')">{{t "settings.system.access_badge.checking"}}</span>
         <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
           <svg class="automation-icon"><use href="#ico-power-off"></use></svg>

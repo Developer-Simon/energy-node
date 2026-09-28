@@ -462,8 +462,6 @@
     csrfToken: '',
     loading: false,
     busy: false,
-    updateStatus: null,
-    checkingForUpdates: false,
 
     async load() {
       this.loading = true;
@@ -476,24 +474,6 @@
         this.$store.toasts.push(error.message, 'critical');
       } finally {
         this.loading = false;
-      }
-      try {
-        const status = await requestJSON('/api/v1/updates/status');
-        this.updateStatus = status.checked === false ? null : status;
-      } catch (error) {
-        this.updateStatus = null;
-      }
-    },
-
-    async checkForUpdates() {
-      if (this.checkingForUpdates) return;
-      this.checkingForUpdates = true;
-      try {
-        this.updateStatus = await requestJSON('/api/v1/updates/check');
-      } catch (error) {
-        this.$store.toasts.push(error.message, 'critical');
-      } finally {
-        this.checkingForUpdates = false;
       }
     },
 

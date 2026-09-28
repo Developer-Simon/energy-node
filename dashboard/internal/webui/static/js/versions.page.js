@@ -42,6 +42,9 @@
     open: {},
     releases: {},
     releaseErrors: {},
+    updateStatus: null,
+    checkingForUpdates: false,
+    canSystemActions: false,
 
     async load() {
       this.loading = true;
@@ -56,6 +59,34 @@
         this.error = error.message;
       } finally {
         this.loading = false;
+      }
+      await this.loadUpdates();
+    },
+
+    async loadUpdates() {
+      try {
+        const session = await requestJSON('/api/v1/auth/session');
+        this.canSystemActions = Boolean(session.system_actions);
+      } catch (error) {
+        this.canSystemActions = false;
+      }
+      try {
+        const status = await requestJSON('/api/v1/updates/status');
+        this.updateStatus = status.checked === false ? null : status;
+      } catch (error) {
+        this.updateStatus = null;
+      }
+    },
+
+    async checkForUpdates() {
+      if (this.checkingForUpdates) return;
+      this.checkingForUpdates = true;
+      try {
+        this.updateStatus = await requestJSON('/api/v1/updates/check');
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.checkingForUpdates = false;
       }
     },
 

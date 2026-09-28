@@ -13,6 +13,22 @@
     <p class="setting-note version-note" x-show="dashboardDiffers">{{t "settings.versions.package.differs"}}</p>
     <p class="setting-note" x-show="bundle && !hasChangelog">{{t "settings.versions.package.no_changelog"}}</p>
   </div>
+  <div class="setting-card">
+    <h3 class="setting-card-title">{{t "settings.versions.updates.title"}}</h3>
+    <div class="toolbar">
+      <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="{{t "settings.versions.updates.check"}}" aria-label="{{t "settings.versions.updates.check"}}">
+        <svg class="automation-icon"><use href="#ico-download"></use></svg>
+        <span x-text="checkingForUpdates ? $t('settings.versions.updates.checking') : $t('settings.versions.updates.check')"></span>
+      </button>
+      <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
+        <svg class="automation-icon"><use href="#ico-download"></use></svg>
+        {{t "settings.versions.updates.available"}} <strong x-text="updateStatus ? updateStatus.latest : ''"></strong>
+        <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">{{t "settings.versions.updates.cta"}}</a>
+        <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus ? updateStatus.notes_url : ''" target="_blank" rel="noopener">{{t "settings.versions.updates.notes"}}</a>
+      </span>
+      <span x-show="updateStatus && !updateStatus.available" class="settings-help">{{t "settings.versions.updates.current"}}</span>
+    </div>
+  </div>
   <template x-for="group in groups" :key="group.kind">
     <div class="setting-card">
       <h3 class="setting-card-title" x-text="group.title"></h3>

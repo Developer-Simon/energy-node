@@ -2877,6 +2877,7 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 	body := panel.Body.String()
 	for _, marker := range []string{
 		`aria-controls="settings-versions"`, `versionsPanel()`, "Installiertes Paket",
+		"checkForUpdates()", "Nach Updates suchen",
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("settings panel does not contain %q", marker)
