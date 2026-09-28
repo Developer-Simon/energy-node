@@ -5,26 +5,27 @@ import (
 	"time"
 )
 
-func TestConnectionDetailPopulatedOnConnectError(t *testing.T) {
-	// Test that when a connection error occurs (not a timeout), the Detail
-	// field is populated with the error message. We connect to an unreachable
-	// host with a short timeout to trigger a connection error rather than a
-	// timeout (on most systems).
+func TestConnectionRefusedOnClosedPort(t *testing.T) {
 	cfg := Config{
-		Host:        "192.0.2.1", // TEST-NET-1, unreachable address per RFC 5737
-		Port:        "1883",
+		Host:        "127.0.0.1",
+		Port:        "1",
 		ClientID:    "test-client",
 		Username:    "",
 		Password:    "",
 		TLS:         false,
 		TLSInsecure: false,
 	}
-	result := TestConnection(cfg, 500*time.Millisecond)
-	if result.OK {
-		t.Fatalf("expected OK=false, got OK=true")
+	result := TestConnection(cfg, 2*time.Second)
+	if result.OK != false {
+		t.Errorf("expected OK=false, got OK=%v", result.OK)
 	}
-	// When an error occurs (not a timeout), Detail should be populated
-	if result.ErrorCode != "timeout" && result.Detail == "" {
-		t.Fatalf("expected Detail to be populated for error_code=%s", result.ErrorCode)
+	if result.ErrorCode != "connection_refused" {
+		t.Errorf("expected ErrorCode=connection_refused, got ErrorCode=%s", result.ErrorCode)
+	}
+	if result.Detail == "" {
+		t.Errorf("expected Detail to be non-empty, got empty string")
+	}
+	if result.Detail != result.Message {
+		t.Errorf("expected Detail==Message, got Detail=%q Message=%q", result.Detail, result.Message)
 	}
 }
