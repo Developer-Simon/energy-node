@@ -44,3 +44,36 @@ def test_render_rejects_an_unknown_placeholder(tmp_path):
         assert "no_such_field" in str(err)
     else:
         raise AssertionError("an unknown placeholder must not render silently")
+
+
+def test_catalog_descriptions_reads_the_battery_schema_keys(tmp_path):
+    catalog = tmp_path / "de.json"
+    catalog.write_text(json.dumps({
+        "schema.battery_soc_devices.items.bank_a_capacity_ah.description": "Kapazität von Bank A",
+        "schema.battery_soc_devices.items.bank_a_capacity_ah.title": "ignoriert",
+        "schema.system.mqtt.host.title": "ignoriert",
+    }, ensure_ascii=False))
+    assert rhd.catalog_descriptions(catalog) == {"bank_a_capacity_ah": "Kapazität von Bank A"}
+
+
+def test_render_tree_fills_german_from_the_catalog(tmp_path):
+    component = tmp_path / "battery_soc"
+    (component / "translations").mkdir(parents=True)
+    body = {"config": {"step": {"user": {"data_description": {"bank_a_capacity_ah": "[%schema:bank_a_capacity_ah%] Nur in HA."}}}}}
+    for name in ("strings.json", "translations/en.json", "translations/de.json"):
+        (component / name).write_text(json.dumps(body))
+    schema = tmp_path / "schema.json"
+    schema.write_text(json.dumps({"items": {"properties": {"bank_a_capacity_ah": {"description": "Capacity of bank A."}}}}))
+    catalog = tmp_path / "de.json"
+    catalog.write_text(json.dumps({"schema.battery_soc_devices.items.bank_a_capacity_ah.description": "Kapazität von Bank A."}, ensure_ascii=False))
+
+    rhd.render_tree(component, schema, catalog)
+
+    text = lambda name: json.loads((component / name).read_text())["config"]["step"]["user"]["data_description"]["bank_a_capacity_ah"]
+    assert text("translations/en.json") == "Capacity of bank A. Nur in HA."
+    assert text("translations/de.json") == "Kapazität von Bank A. Nur in HA."
+
+
+def test_lint_requires_placeholders_in_german_too():
+    problems = rhd.lint()
+    assert not any("only allowed in" in p for p in problems)

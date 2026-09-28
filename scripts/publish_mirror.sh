@@ -221,7 +221,8 @@ rsync -a --delete --exclude '__pycache__/' --exclude '*.pyc' \
 if [[ -n "${SCHEMA_DESCRIPTIONS:-}" ]]; then
   python3 "${repo_root}/scripts/render_ha_descriptions.py" \
     --render "${mirror_path}/custom_components/${component}" \
-    --schema "${repo_root}/${SCHEMA_DESCRIPTIONS}"
+    --schema "${repo_root}/${SCHEMA_DESCRIPTIONS}" \
+    --catalog "${repo_root}/dashboard/internal/schemaloc/catalogs/de.json"
 fi
 
 # 3. Repo-root files + workflows + README screenshots.
