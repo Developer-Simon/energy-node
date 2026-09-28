@@ -97,7 +97,7 @@ func TestPrepareRunFetchesTheNewestBundleIntoTheCandidateDirectory(t *testing.T)
 
 func TestPrepareFuncKeepsTheErrorCodeOfABundlefetchError(t *testing.T) {
 	fetcher := &bundlefetch.Fetcher{Client: &bundlefetch.Client{APIBase: "http://127.0.0.1:1", Repo: "o/r"}, Arch: "armv6", DestDir: filepath.Join(t.TempDir(), "c")}
-	err := prepareFunc(fetcher)(context.Background(), func(string) {})
+	err := prepareFunc(fetcher)(context.Background(), func(string, map[string]string) {})
 	var typed *hostapi.Error
 	if !errors.As(err, &typed) || typed.Code != bundlefetch.CodeGitHubUnreachable {
 		t.Fatalf("err = %v, want a hostapi error with code %s", err, bundlefetch.CodeGitHubUnreachable)

@@ -142,6 +142,13 @@ function composedKeys() {
   for (const state of ['active', 'failed', 'inactive', 'activating']) {
     keys.push(`diagnose.unit.${state}`);
   }
+  // Der Dashboard-Wirt notiert seinen Download in package.log.*-Schluesseln
+  // (dashboard/internal/bundlefetch), der Bildschirm uebersetzt sie.
+  for (const name of list(path.join(repo, 'dashboard', 'internal', 'bundlefetch'), /\.go$/).filter((file) => !file.endsWith('_test.go'))) {
+    for (const match of read(repo, 'dashboard', 'internal', 'bundlefetch', name).matchAll(/"(package\.log\.[a-z_]+)"/g)) {
+      keys.push(match[1]);
+    }
+  }
   return keys;
 }
 

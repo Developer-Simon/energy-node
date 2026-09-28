@@ -73,16 +73,20 @@ func TestDownloadWritesTheFileAndLogsProgress(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { _, _ = w.Write([]byte(body)) }))
 	t.Cleanup(srv.Close)
 	dest := filepath.Join(t.TempDir(), "a.tar.gz")
-	var lines []string
-	err := (&Client{}).Download(context.Background(), Asset{URL: srv.URL}, dest, func(l string) { lines = append(lines, l) })
+	var percents []string
+	err := (&Client{}).Download(context.Background(), Asset{URL: srv.URL}, dest, func(key string, args map[string]string) {
+		if key == "package.log.download_progress" {
+			percents = append(percents, args["percent"])
+		}
+	})
 	if err != nil {
 		t.Fatalf("Download: %v", err)
 	}
 	if got, _ := os.ReadFile(dest); string(got) != body {
 		t.Errorf("downloaded %d bytes, want %d", len(got), len(body))
 	}
-	if len(lines) == 0 || lines[len(lines)-1] != "100 % geladen" {
-		t.Errorf("progress lines = %q, want them to end at 100 %%", lines)
+	if len(percents) == 0 || percents[len(percents)-1] != "100" {
+		t.Errorf("progress = %q, want it to end at 100", percents)
 	}
 }
 
@@ -102,7 +106,7 @@ func TestDownloadRefusesAnArchiveOverTheCap(t *testing.T) {
 	t.Cleanup(chunked.Close)
 
 	for name, url := range map[string]string{"content-length": sized.URL, "chunked": chunked.URL} {
-		err := (&Client{}).Download(context.Background(), Asset{URL: url}, filepath.Join(t.TempDir(), "a"), func(string) {})
+		err := (&Client{}).Download(context.Background(), Asset{URL: url}, filepath.Join(t.TempDir(), "a"), func(string, map[string]string) {})
 		if e := asError(err); e == nil || e.Code != CodeBundleTooLarge {
 			t.Errorf("%s: err = %v, want %s", name, err, CodeBundleTooLarge)
 		}

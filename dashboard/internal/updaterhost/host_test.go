@@ -137,7 +137,7 @@ func TestDescribeAdvertisesAutoPrepareOnlyWithAPrepareFunc(t *testing.T) {
 	if host.Describe().AutoPrepare {
 		t.Errorf("AutoPrepare without Config.Prepare")
 	}
-	cfg.Prepare = func(context.Context, func(string)) error { return nil }
+	cfg.Prepare = func(context.Context, func(string, map[string]string)) error { return nil }
 	host, _ = updaterhost.New(cfg)
 	if !host.Describe().AutoPrepare {
 		t.Errorf("AutoPrepare must be true when Config.Prepare is set")
@@ -146,8 +146,8 @@ func TestDescribeAdvertisesAutoPrepareOnlyWithAPrepareFunc(t *testing.T) {
 
 func TestRunPrepareStreamsTheFetchLogAndMarksThePackageStep(t *testing.T) {
 	cfg := setupNode(t)
-	cfg.Prepare = func(_ context.Context, log func(string)) error {
-		log("Lade paket")
+	cfg.Prepare = func(_ context.Context, note func(string, map[string]string)) error {
+		note("package.log.extract", nil)
 		return nil
 	}
 	host, _ := updaterhost.New(cfg)
@@ -158,8 +158,8 @@ func TestRunPrepareStreamsTheFetchLogAndMarksThePackageStep(t *testing.T) {
 	if strings.Join(sink.markers, ",") != "package begin,package ok" {
 		t.Errorf("markers = %v", sink.markers)
 	}
-	if len(sink.logs) != 1 || sink.logs[0] != "Lade paket" {
-		t.Errorf("logs = %v", sink.logs)
+	if len(sink.logs) != 1 || sink.logs[0] != "package.log.extract" {
+		t.Errorf("logs = %v, want the note as a keyed message", sink.logs)
 	}
 }
 
@@ -167,7 +167,7 @@ func TestRunPrepareKeepsATypedErrorAndWrapsAnUntypedOne(t *testing.T) {
 	cfg := setupNode(t)
 	host, _ := updaterhost.New(cfg)
 
-	cfg.Prepare = func(context.Context, func(string)) error {
+	cfg.Prepare = func(context.Context, func(string, map[string]string)) error {
 		return &hostapi.Error{Code: "GITHUB_UNREACHABLE", Detail: "HTTP 403"}
 	}
 	host, _ = updaterhost.New(cfg)
@@ -177,7 +177,7 @@ func TestRunPrepareKeepsATypedErrorAndWrapsAnUntypedOne(t *testing.T) {
 		t.Fatalf("err = %v, want the typed GITHUB_UNREACHABLE", err)
 	}
 
-	cfg.Prepare = func(context.Context, func(string)) error { return errors.New("boom") }
+	cfg.Prepare = func(context.Context, func(string, map[string]string)) error { return errors.New("boom") }
 	host, _ = updaterhost.New(cfg)
 	sink := &recordingSink{}
 	err = host.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, sink)
@@ -192,7 +192,7 @@ func TestRunPrepareKeepsATypedErrorAndWrapsAnUntypedOne(t *testing.T) {
 func TestRunPrepareRefusesWhileAJobIsPendingAndDoesNotFetch(t *testing.T) {
 	cfg := setupNode(t)
 	called := false
-	cfg.Prepare = func(context.Context, func(string)) error { called = true; return nil }
+	cfg.Prepare = func(context.Context, func(string, map[string]string)) error { called = true; return nil }
 	if err := os.WriteFile(filepath.Join(cfg.JobDir, "pending.json"), []byte("{}"), 0o644); err != nil {
 		t.Fatal(err)
 	}

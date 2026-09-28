@@ -13,21 +13,26 @@ type Fetcher struct {
 	DestDir string
 }
 
-// Fetch finds, downloads, unpacks, validates and installs the bundle, logging
-// one human-readable line per stage. If DestDir already holds the newest
-// version it does nothing else. Any failure leaves DestDir as it was.
-func (f *Fetcher) Fetch(ctx context.Context, log func(line string)) error {
-	if log == nil {
-		log = func(string) {}
+// Note reports one stage of a fetch as a catalog key of the installer web
+// UI (package.log.*) with its placeholder values. The redeploy screen
+// translates it, so nothing here is user-facing text.
+type Note func(key string, args map[string]string)
+
+// Fetch finds, downloads, unpacks, validates and installs the bundle,
+// noting each stage. If DestDir already holds the newest version it does
+// nothing else. Any failure leaves DestDir as it was.
+func (f *Fetcher) Fetch(ctx context.Context, note Note) error {
+	if note == nil {
+		note = func(string, map[string]string) {}
 	}
-	log("Suche das neueste Release fuer " + f.Arch)
+	note("package.log.github_search", map[string]string{"arch": f.Arch})
 	asset, err := f.Client.FindAsset(ctx, f.Arch)
 	if err != nil {
 		return err
 	}
-	log("Neueste Version: " + asset.Version)
+	note("package.log.latest", map[string]string{"version": asset.Version})
 	if candidateVersion(f.DestDir, f.Arch) == asset.Version {
-		log("Version " + asset.Version + " liegt bereits bereit")
+		note("package.log.already_ready", map[string]string{"version": asset.Version})
 		return nil
 	}
 
@@ -43,12 +48,12 @@ func (f *Fetcher) Fetch(ctx context.Context, log func(line string)) error {
 	defer os.RemoveAll(work)
 
 	archive := filepath.Join(work, asset.Name)
-	log("Lade " + asset.Name)
-	if err := f.Client.Download(ctx, asset, archive, log); err != nil {
+	note("package.log.download", map[string]string{"name": asset.Name})
+	if err := f.Client.Download(ctx, asset, archive, note); err != nil {
 		return err
 	}
 
-	log("Entpacke das Paket")
+	note("package.log.extract", nil)
 	staged := filepath.Join(work, "bundle")
 	if err := extractArchive(archive, staged); err != nil {
 		return err
@@ -57,10 +62,10 @@ func (f *Fetcher) Fetch(ctx context.Context, log func(line string)) error {
 		return err
 	}
 
-	log("Lege das Paket bereit")
+	note("package.log.stage", nil)
 	if err := swapIn(staged, f.DestDir); err != nil {
 		return err
 	}
-	log("Paket " + asset.Version + " liegt bereit")
+	note("package.log.ready", map[string]string{"version": asset.Version})
 	return nil
 }

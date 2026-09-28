@@ -22,8 +22,8 @@ func newFetcher(t *testing.T, archive []byte) (*Fetcher, string, func() int32) {
 
 func TestFetchDownloadsExtractsAndInstallsTheBundle(t *testing.T) {
 	f, dest, downloads := newFetcher(t, bundlefetchtest.BundleArchive(t, "v9.9.9", "armv6", true))
-	var lines []string
-	if err := f.Fetch(context.Background(), func(l string) { lines = append(lines, l) }); err != nil {
+	var keys []string
+	if err := f.Fetch(context.Background(), func(key string, _ map[string]string) { keys = append(keys, key) }); err != nil {
 		t.Fatalf("Fetch: %v", err)
 	}
 	if got := candidateVersion(dest, "armv6"); got != "v9.9.9" {
@@ -35,8 +35,24 @@ func TestFetchDownloadsExtractsAndInstallsTheBundle(t *testing.T) {
 	if downloads() != 1 {
 		t.Errorf("downloads = %d, want 1", downloads())
 	}
-	if len(lines) < 3 || !strings.Contains(strings.Join(lines, "\n"), "liegt bereit") {
-		t.Errorf("log = %q", lines)
+	want := "package.log.github_search,package.log.latest,package.log.download"
+	if got := strings.Join(keys, ","); !strings.HasPrefix(got, want) || keys[len(keys)-1] != "package.log.ready" {
+		t.Errorf("notes = %q, want %s ... package.log.ready", keys, want)
+	}
+}
+
+func TestFetchNotesTheAlreadyReadyVersionWithItsArgs(t *testing.T) {
+	f, _, _ := newFetcher(t, bundlefetchtest.BundleArchive(t, "v9.9.9", "armv6", true))
+	if err := f.Fetch(context.Background(), nil); err != nil {
+		t.Fatalf("first Fetch: %v", err)
+	}
+	var last string
+	var lastArgs map[string]string
+	if err := f.Fetch(context.Background(), func(key string, args map[string]string) { last, lastArgs = key, args }); err != nil {
+		t.Fatalf("second Fetch: %v", err)
+	}
+	if last != "package.log.already_ready" || lastArgs["version"] != "v9.9.9" {
+		t.Errorf("last note = %q %v, want package.log.already_ready with version v9.9.9", last, lastArgs)
 	}
 }
 

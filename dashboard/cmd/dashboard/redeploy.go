@@ -29,7 +29,7 @@ type redeployConfig struct {
 	jobDir                string
 	// prepare fetches the newest package into candidateBundleDir; nil
 	// disables the download and the redeploy screen starts at the preview.
-	prepare func(ctx context.Context, log func(line string)) error
+	prepare func(ctx context.Context, note func(key string, args map[string]string)) error
 	// pageToken renders the screen's page with the session's CSRF token, the
 	// value the /redeploy/ gate expects on every non-GET request (see
 	// httpapi.SessionCSRFToken). Nil leaves the token empty.
@@ -40,9 +40,9 @@ var timeNowUnixNano = func() int64 { return time.Now().UnixNano() }
 
 // prepareFunc adapts a bundlefetch.Fetcher to updaterhost's Prepare seam:
 // its typed errors become hostapi errors the UI translates (error.<code>).
-func prepareFunc(f *bundlefetch.Fetcher) func(context.Context, func(string)) error {
-	return func(ctx context.Context, log func(string)) error {
-		err := f.Fetch(ctx, log)
+func prepareFunc(f *bundlefetch.Fetcher) func(context.Context, func(string, map[string]string)) error {
+	return func(ctx context.Context, note func(string, map[string]string)) error {
+		err := f.Fetch(ctx, note)
 		var fetchErr *bundlefetch.Error
 		if errors.As(err, &fetchErr) {
 			return &hostapi.Error{Code: fetchErr.Code, Detail: fetchErr.Detail}

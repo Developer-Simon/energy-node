@@ -110,7 +110,7 @@ func main() {
 	// Fetching the newest bundle needs to know which architecture to ask
 	// for; an unknown GOARCH leaves prepare nil and the redeploy screen as
 	// before (the candidate directory is then filled by hand).
-	var prepare func(context.Context, func(string)) error
+	var prepare func(context.Context, func(string, map[string]string)) error
 	if arch, ok := bundlefetch.ArchForGo(runtime.GOARCH); ok {
 		client := &bundlefetch.Client{
 			Repo: updatesRepo,

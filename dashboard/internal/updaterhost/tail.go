@@ -65,17 +65,14 @@ func tailJobLog(ctx context.Context, logPath, statusPath string, fromOffset int6
 			if status.Result == "ok" {
 				return nil
 			}
-			// A rejection carries no step -- "Schritt " with nothing
-			// after it would be the worst of both.
-			detail := "Bundle abgelehnt"
-			if status.Step != "" {
-				detail = "Schritt " + status.Step
-			}
-			return &hostapi.Error{Code: status.Code, Detail: detail}
+			// No detail: the code has its own text (fault.<CODE> or
+			// error.<CODE>) and the failed step travels as step_id in
+			// run-finished. A detail here would be untranslated German.
+			return &hostapi.Error{Code: status.Code}
 		}
 
 		if maxWait > 0 && time.Since(started) > maxWait {
-			return &hostapi.Error{Code: "UPDATER_TIMEOUT", Detail: "Der Auftrag hat sich nicht mehr gemeldet."}
+			return &hostapi.Error{Code: "UPDATER_TIMEOUT"}
 		}
 
 		select {
