@@ -5,36 +5,40 @@
   "additionalProperties": false,
   "required": ["schema_version", "mqtt", "paths", "logging", "services", "dashboard", "tailscale", "tinytuya"],
   "properties": {
-    "schema_version": {"type": "integer", "minimum": 2, "maximum": 2, "title": "Schema version"},
+    "schema_version": {"type": "integer", "minimum": 2, "maximum": 2, "title": "Schema version", "description": "Format version of this file. Services refuse to start with a version they do not know."},
     "mqtt": {
       "type": "object",
+      "title": "MQTT broker",
       "additionalProperties": false,
       "required": ["host", "port", "username", "password_file"],
       "properties": {
-        "host": {"type": "string", "minLength": 1, "title": "Broker host"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "Broker port"},
-        "username": {"type": "string", "title": "Username"},
-        "password_file": {"type": "string", "title": "Password file"}
+        "host": {"type": "string", "minLength": 1, "title": "Broker host", "description": "Host name or IP address of the broker that all services and the dashboard use."},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "Broker port", "description": "TCP port of the broker, usually 1883."},
+        "username": {"type": "string", "title": "Username", "description": "Username for logging in to the broker."},
+        "password_file": {"type": "string", "title": "Password file", "description": "Path to the file that holds the broker password. Allowed below /etc/energy-node/ and /etc/energy-node-dashboard/."}
       }
     },
     "paths": {
       "type": "object",
+      "title": "Paths",
       "additionalProperties": false,
       "required": ["devices_dir", "data_dir"],
       "properties": {
-        "devices_dir": {"type": "string", "minLength": 1, "title": "Device configurations"},
-        "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard data"},
+        "devices_dir": {"type": "string", "minLength": 1, "title": "Device configurations", "description": "Directory with the device configurations of all services, for example shelly_devices.json."},
+        "data_dir": {"type": "string", "minLength": 1, "title": "Dashboard data", "description": "Directory where the dashboard keeps its own state, such as settings, layout and revisions."},
         "services_version_file": {"type": "string", "title": "Services version file (deprecated)", "description": "No longer used and ignored. The versions are shown under Settings > Versions."}
       }
     },
     "logging": {
       "type": "object",
+      "title": "Logging",
       "additionalProperties": false,
       "required": ["level"],
-      "properties": {"level": {"type": "string", "minLength": 1, "title": "Log level of the Python services"}}
+      "properties": {"level": {"type": "string", "minLength": 1, "title": "Log level of the Python services", "description": "Log level of all Python services: DEBUG, INFO, WARNING, ERROR or CRITICAL."}}
     },
     "services": {
       "type": "object",
+      "title": "Services",
       "additionalProperties": false,
       "required": [],
       "properties": {}
@@ -44,62 +48,66 @@
       "title": "Installed services",
       "additionalProperties": {"type": "boolean"},
       "properties": {
-        "apsystems": {"type": "boolean", "title": "APsystems"},
-        "automation": {"type": "boolean", "title": "Automations"},
-        "battery_soc": {"type": "boolean", "title": "Battery SoC"},
-        "shelly": {"type": "boolean", "title": "Shelly"},
-        "tailscale": {"type": "boolean", "title": "Tailscale"},
-        "trucki": {"type": "boolean", "title": "Trucki"},
-        "tuya": {"type": "boolean", "title": "TinyTuya"}
+        "apsystems": {"type": "boolean", "title": "APsystems", "description": "Shows the APsystems pages in the dashboard. Set by the installer."},
+        "automation": {"type": "boolean", "title": "Automations", "description": "Shows the automation pages in the dashboard. Set by the installer."},
+        "battery_soc": {"type": "boolean", "title": "Battery SoC", "description": "Shows the battery SoC pages in the dashboard. Set by the installer."},
+        "shelly": {"type": "boolean", "title": "Shelly", "description": "Shows the Shelly pages in the dashboard. Set by the installer."},
+        "tailscale": {"type": "boolean", "title": "Tailscale", "description": "Shows the Tailscale page in the settings. Set by the installer."},
+        "trucki": {"type": "boolean", "title": "Trucki", "description": "Shows the Trucki pages in the dashboard. Set by the installer."},
+        "tuya": {"type": "boolean", "title": "TinyTuya", "description": "Shows the TinyTuya pages in the dashboard. Set by the installer."}
       }
     },
     "dashboard": {
       "type": "object",
+      "title": "Dashboard",
       "additionalProperties": false,
       "required": ["bind_address", "port", "client_id", "device_identifier", "log_level", "sweep_interval_seconds", "admin_username", "admin_password_file", "tls", "system_action_helper", "mosquitto_bridge_target", "node_device_id", "node_device_name", "node_poll_interval_s", "node_diagnostic_poll_multiplier"],
       "properties": {
-        "bind_address": {"type": "string", "minLength": 1, "title": "Bind address"},
-        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "HTTP port"},
-        "client_id": {"type": "string", "minLength": 1, "title": "MQTT client ID"},
-        "device_identifier": {"type": "string", "minLength": 1, "title": "Own device identifier"},
-        "log_level": {"type": "string", "minLength": 1, "title": "Log level"},
-        "sweep_interval_seconds": {"type": "integer", "minimum": 1, "title": "Sweep interval"},
-        "admin_username": {"type": "string", "minLength": 1, "title": "Admin username"},
-        "admin_password_file": {"type": "string", "title": "Admin password file"},
+        "bind_address": {"type": "string", "minLength": 1, "title": "Bind address", "description": "Network address the dashboard listens on. 0.0.0.0 accepts connections on every network interface."},
+        "port": {"type": "integer", "minimum": 1, "maximum": 65535, "title": "HTTP port", "description": "Port on which the dashboard serves its web pages."},
+        "client_id": {"type": "string", "minLength": 1, "title": "MQTT client ID", "description": "Client ID of the dashboard at the broker, unique per broker. A connection saved on the MQTT settings page replaces it."},
+        "device_identifier": {"type": "string", "minLength": 1, "title": "Own device identifier", "description": "Currently not read by any component. Kept so that existing files stay valid."},
+        "log_level": {"type": "string", "minLength": 1, "title": "Log level", "description": "Log level of the dashboard: debug, info, warn or error."},
+        "sweep_interval_seconds": {"type": "integer", "minimum": 1, "title": "Sweep interval", "description": "Seconds between two saves of the last known device values to disk, so that they are shown again after a restart. A value set under Settings > General takes precedence."},
+        "admin_username": {"type": "string", "minLength": 1, "title": "Admin username", "description": "Username of the dashboard administrator."},
+        "admin_password_file": {"type": "string", "title": "Admin password file", "description": "Path to the file that holds the admin password. Allowed below /etc/energy-node/ and /etc/energy-node-dashboard/."},
         "tls": {
           "type": "object",
+          "title": "TLS",
           "additionalProperties": false,
           "required": ["cert_file", "key_file"],
           "properties": {
-            "cert_file": {"type": "string", "title": "Certificate"},
-            "key_file": {"type": "string", "title": "Key"}
+            "cert_file": {"type": "string", "title": "Certificate", "description": "Path to the certificate file for HTTPS. If certificate and key stay empty, the dashboard serves plain HTTP."},
+            "key_file": {"type": "string", "title": "Key", "description": "Path to the private key that belongs to the certificate."}
           }
         },
-        "system_action_helper": {"type": "string", "minLength": 1, "title": "System action helper"},
-        "mosquitto_bridge_target": {"type": "string", "minLength": 1, "title": "Bridge target file"},
-        "node_device_id": {"type": "string", "minLength": 1, "title": "Node device ID"},
-        "node_device_name": {"type": "string", "minLength": 1, "title": "Node display name"},
-        "node_poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Node poll interval"},
-        "node_diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Node diagnostics multiplier"}
+        "system_action_helper": {"type": "string", "minLength": 1, "title": "System action helper", "description": "Path to the helper program that the dashboard runs with sudo for system actions such as restarting services."},
+        "mosquitto_bridge_target": {"type": "string", "minLength": 1, "title": "Bridge target file", "description": "File to which the dashboard writes the Mosquitto bridge configuration. Mosquitto reads it from there."},
+        "node_device_id": {"type": "string", "minLength": 1, "title": "Node device ID", "description": "ID under which the node itself appears as a device in MQTT and Home Assistant. Must be energy_node."},
+        "node_device_name": {"type": "string", "minLength": 1, "title": "Node display name", "description": "Name under which the node appears as a device in Home Assistant."},
+        "node_poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Node poll interval", "description": "Seconds between two readings of the node's system values."},
+        "node_diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Node diagnostics multiplier", "description": "Diagnostic values of the node are read less often than its other values. The factor multiplies the node poll interval."}
       }
     },
     "tailscale": {
       "type": "object",
+      "title": "Tailscale",
       "additionalProperties": false,
       "required": ["bin", "status_timeout_s"],
       "properties": {
-        "bin": {"type": "string", "minLength": 1, "title": "tailscale binary"},
-        "status_timeout_s": {"type": "integer", "minimum": 1, "title": "Status timeout"}
+        "bin": {"type": "string", "minLength": 1, "title": "tailscale binary", "description": "Path to the tailscale program."},
+        "status_timeout_s": {"type": "integer", "minimum": 1, "title": "Status timeout", "description": "Seconds the dashboard waits for tailscale status before the query counts as failed."}
       }
     },
     "tinytuya": {
       "type": "object",
+      "title": "TinyTuya",
       "additionalProperties": false,
       "required": ["probe_python", "probe_script", "probe_timeout_s"],
       "properties": {
-        "probe_python": {"type": "string", "minLength": 1, "title": "Python interpreter"},
-        "probe_script": {"type": "string", "minLength": 1, "title": "Probe script"},
-        "probe_timeout_s": {"type": "integer", "minimum": 1, "title": "Probe timeout"}
+        "probe_python": {"type": "string", "minLength": 1, "title": "Python interpreter", "description": "Python interpreter that runs the probe script of the TinyTuya assistant. It needs the tinytuya package."},
+        "probe_script": {"type": "string", "minLength": 1, "title": "Probe script", "description": "Path to the script with which the TinyTuya assistant reaches the Tuya cloud and the devices."},
+        "probe_timeout_s": {"type": "integer", "minimum": 1, "title": "Probe timeout", "description": "Seconds the TinyTuya assistant waits for the probe script."}
       }
     }
   }

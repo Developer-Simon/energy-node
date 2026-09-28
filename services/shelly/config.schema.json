@@ -1,12 +1,13 @@
 {
+  "title": "Shelly",
   "type": "object",
   "additionalProperties": false,
   "required": ["service_id", "poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s"],
   "properties": {
-    "service_id": {"type": "string", "minLength": 1, "title": "Service ID"},
-    "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Poll interval"},
-    "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnostics multiplier"},
-    "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP timeout"},
+    "service_id": {"type": "string", "minLength": 1, "title": "Service ID", "description": "Identifies the service in its MQTT topics."},
+    "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Poll interval", "description": "Seconds between two regular query rounds of the service."},
+    "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnostics multiplier", "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval."},
+    "http_timeout_s": {"type": "number", "exclusiveMinimum": 0, "title": "HTTP timeout", "description": "Seconds the service waits for the HTTP response of a device before the query counts as failed."},
     "webhook_enabled": {
       "type": "boolean",
       "default": false,

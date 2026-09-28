@@ -1,8 +1,9 @@
 {
+  "title": "Automations",
   "type": "object",
   "additionalProperties": false,
   "required": ["service_id"],
   "properties": {
-    "service_id": {"type": "string", "minLength": 1, "title": "Service ID"}
+    "service_id": {"type": "string", "minLength": 1, "title": "Service ID", "description": "Identifies the service in its MQTT topics."}
   }
 }
