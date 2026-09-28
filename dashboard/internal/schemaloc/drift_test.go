@@ -9,18 +9,6 @@ import (
 	"testing"
 )
 
-// pendingSchemas are shipped schemas whose German texts are not in the
-// catalog yet. PR 2 of A5 empties and then deletes this list.
-var pendingSchemas = map[string]bool{
-	"apsystems_devices":   true,
-	"automation_rules":    true,
-	"battery_soc_devices": true,
-	"shelly_devices":      true,
-	"shelly_presets":      true,
-	"trucki_devices":      true,
-	"tuya_devices":        true,
-}
-
 // shippedSchemas maps every schema the dashboard renders as a form to its
 // file: the composed central schema and every services/*/*.schema.json
 // except the config.schema.json fragments, which live inside "system".
@@ -57,9 +45,6 @@ func TestEveryShippedSchemaTextHasAGermanEntry(t *testing.T) {
 	german := germanCatalog(t)
 	var missing []string
 	for id, file := range shippedSchemas(t) {
-		if pendingSchemas[id] {
-			continue
-		}
 		raw, err := os.ReadFile(file)
 		if err != nil {
 			t.Fatal(err)
@@ -103,11 +88,30 @@ func TestGermanCatalogHasNoOrphans(t *testing.T) {
 	}
 }
 
-func TestPendingSchemasExist(t *testing.T) {
-	shipped := shippedSchemas(t)
-	for id := range pendingSchemas {
-		if _, ok := shipped[id]; !ok {
-			t.Errorf("pendingSchemas lists %s, which is no longer shipped", id)
+// Operator-facing texts use a comma or a full stop, never a semicolon or a
+// connecting dash, in every language.
+func TestSchemaTextsFollowTheStyleRules(t *testing.T) {
+	bad := func(text string) bool {
+		return strings.Contains(text, ";") || strings.Contains(text, " – ") || strings.Contains(text, " — ") || strings.Contains(text, " - ")
+	}
+	for id, file := range shippedSchemas(t) {
+		raw, err := os.ReadFile(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		entries, err := Entries(id, raw)
+		if err != nil {
+			t.Fatalf("%s: %v", file, err)
+		}
+		for _, entry := range entries {
+			if bad(entry.Text) {
+				t.Errorf("%s: %s: %q", file, entry.Key, entry.Text)
+			}
+		}
+	}
+	for key, text := range germanCatalog(t) {
+		if bad(text) {
+			t.Errorf("catalogs/de.json: %s: %q", key, text)
 		}
 	}
 }

@@ -1,15 +1,20 @@
 # Changelog
 
-## v0.4.3 (2026-09-28)
+## v0.4.4 (2026-09-28)
 
 ### Features
 
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
+- **dashboard:** localize the system configuration form (#72) (c716d05)
 - **dashboard:** write the central schema in English and move German to the catalog (bd26f60)
 - **dashboard:** describe every field of the system configuration form (012ea1c)
 - **services:** start with an invalid device file and report it as rejected (029c604)
+
+### Fixes
+
+- **services:** write every schema text in English without semicolons (e3cbcf6)
 
 ## v0.3.2 (2026-09-15)
 

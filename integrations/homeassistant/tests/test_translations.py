@@ -10,6 +10,8 @@ import render_ha_descriptions  # noqa: E402
 
 SCHEMA_DESCRIPTIONS = render_ha_descriptions.schema_descriptions(
     REPO / render_ha_descriptions.SCHEMA_REL)
+CATALOG_DESCRIPTIONS = render_ha_descriptions.catalog_descriptions(
+    REPO / render_ha_descriptions.CATALOG_REL)
 
 
 def test_translation_keys_match_strings():
@@ -33,8 +35,9 @@ def test_translation_keys_match_strings():
 
 def _load(name):
     """A strings file as the mirror ships it, with schema placeholders rendered."""
+    texts = CATALOG_DESCRIPTIONS if name == render_ha_descriptions.GERMAN_FILE else SCHEMA_DESCRIPTIONS
     return render_ha_descriptions.render_value(
-        json.loads((BASE / name).read_text()), SCHEMA_DESCRIPTIONS)
+        json.loads((BASE / name).read_text()), texts)
 
 
 def test_every_config_field_has_a_label():

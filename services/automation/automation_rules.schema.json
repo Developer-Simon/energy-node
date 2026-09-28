@@ -16,8 +16,8 @@
         "history_limit": { "type": "number", "minimum": 1, "maximum": 200, "default": 10 },
         "history_persist": { "type": "boolean", "default": true },
         "publish_allowed_prefixes_auto": { "type": "boolean", "default": false },
-        "latitude": { "type": "number", "minimum": -90, "maximum": 90, "description": "Breitengrad des Standorts fuer sun_window, nur zusammen mit longitude" },
-        "longitude": { "type": "number", "minimum": -180, "maximum": 180, "description": "Laengengrad des Standorts fuer sun_window, nur zusammen mit latitude" }
+        "latitude": { "type": "number", "minimum": -90, "maximum": 90, "description": "Latitude of the site for sun_window, only together with longitude" },
+        "longitude": { "type": "number", "minimum": -180, "maximum": 180, "description": "Longitude of the site for sun_window, only together with latitude" }
       }
     },
     "rules": {
@@ -60,7 +60,7 @@
                 "to": { "type": "string", "enum": ["sunrise", "sunset"] },
                 "from_offset_min": { "type": "integer", "minimum": -240, "maximum": 240, "default": 0 },
                 "to_offset_min": { "type": "integer", "minimum": -240, "maximum": 240, "default": 0 },
-                "weekdays": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 6 }, "description": "0=Montag ... 6=Sonntag; leer = jeden Tag. Es zaehlt der Tag, an dem das Fenster beginnt (auch ueber Mitternacht)." }
+                "weekdays": { "type": "array", "items": { "type": "integer", "minimum": 0, "maximum": 6 }, "description": "0 = Monday … 6 = Sunday. Empty means every day. The day on which the window starts counts, even across midnight." }
               }
             }
           },
