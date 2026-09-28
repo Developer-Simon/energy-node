@@ -104,6 +104,15 @@
       return t('mqtt.source_label.unknown');
     },
 
+    // i18n-keys: mqtt.test.error.auth_failed, mqtt.test.error.connection_refused, mqtt.test.error.timeout, mqtt.test.error.tls_failed
+    testErrorText() {
+      const result = this.testResult;
+      if (!result || result.ok) return '';
+      const key = `mqtt.test.error.${result.error_code}`;
+      if (!window.I18n || !window.I18n.has(key)) return `${result.error_code}: ${result.message}`; // i18n-ignore: unknown code, server text
+      return result.detail ? t('error.with_detail', {message: t(key), detail: result.detail}) : t(key);
+    },
+
     formatTime(value) {
       return value ? window.I18n.formatDateTime(value) || '-' : '-';
     },

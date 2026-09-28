@@ -17,6 +17,7 @@ type TestResult struct {
 	Broker                string `json:"broker"`
 	ErrorCode             string `json:"error_code,omitempty"`
 	Message               string `json:"message,omitempty"`
+	Detail                string `json:"detail,omitempty"`
 }
 
 // discoveryObservationWindow is how long TestConnection waits for retained
@@ -67,7 +68,7 @@ func TestConnection(cfg Config, timeout time.Duration) TestResult {
 		return TestResult{OK: false, Broker: broker, ErrorCode: "timeout", Message: "Verbindungsaufbau hat das Zeitlimit überschritten"}
 	}
 	if err := token.Error(); err != nil {
-		return TestResult{OK: false, Broker: broker, ErrorCode: classifyConnectError(err), Message: err.Error()}
+		return TestResult{OK: false, Broker: broker, ErrorCode: classifyConnectError(err), Message: err.Error(), Detail: err.Error()}
 	}
 	defer client.Disconnect(250)
 
