@@ -360,11 +360,11 @@ func handleMQTTTest(credentials *mqttclient.CredentialStore, authManager *auth.M
 			return
 		}
 		if strings.TrimSpace(body.Host) == "" {
-			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.host_empty", nil, "host darf nicht leer sein")
+			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.host_empty", nil, "Host darf nicht leer sein")
 			return
 		}
 		if body.Port < 1 || body.Port > 65535 {
-			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.port_range", nil, "port muss zwischen 1 und 65535 liegen")
+			writeErrorKey(w, http.StatusBadRequest, "mqtt_rejected", "error.mqtt_rejected.port_range", nil, "Port muss zwischen 1 und 65535 liegen")
 			return
 		}
 		password := body.Password

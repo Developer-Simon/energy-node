@@ -380,7 +380,7 @@ func handleBridgeApply(store *settings.Store, credentials *mqttclient.Credential
 			return
 		}
 		if !configured {
-			writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.no_config", nil, "keine Bridge-Konfiguration gespeichert")
+			writeErrorKey(w, http.StatusBadRequest, "bridge_rejected", "error.bridge_rejected.no_config", nil, "Keine Bridge-Konfiguration gespeichert")
 			return
 		}
 		user, _ := auth.UserFromContext(r.Context())

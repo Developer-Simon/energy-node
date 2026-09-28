@@ -1641,7 +1641,7 @@ func requireDeviceMutation(w http.ResponseWriter, r *http.Request, manager *auth
 		return false
 	}
 	if roleRequired && !auth.HasRole(user, auth.RoleDeleteDeviceDiscovery) {
-		writeError(w, http.StatusForbidden, "device_discovery_forbidden", "Für Discovery-Löschen fehlt die Berechtigung")
+		writeError(w, http.StatusForbidden, "device_discovery_forbidden", "Für das Löschen der Discovery fehlt die Berechtigung")
 		return false
 	}
 	if csrfRequired {
