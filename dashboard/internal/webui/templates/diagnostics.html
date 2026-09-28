@@ -95,8 +95,8 @@
           <td x-text="item.device_id"></td>
           <td x-text="item.entity_id || '-'"></td>
           <td x-text="item.rule_id"></td>
-          <td x-text="item.message"></td>
-          <td x-text="item.hint"></td>
+          <td x-text="warningText(item, 'message')"></td>
+          <td x-text="warningText(item, 'hint')"></td>
         </tr>
       </template>
     </tbody>

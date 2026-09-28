@@ -383,3 +383,28 @@ test('pinnedFavorites zeigt nur bei gesetztem Schalter und überspringt verwaist
     ['node_relay', 'node_temp'],
   );
 });
+
+test('groupedWarnings groups warnings with the same key and rule_id', () => {
+  const panel = createDevicesPanel();
+  installI18n(panel.testWindow, {lang: 'en'});
+  const enCatalog = panel.testWindow.I18n.catalog;
+  panel.deviceDetail = {
+    name: 'test device',
+    warnings: [
+      {rule_id: 'Offline', key: 'offline', severity: 'critical', message: 'Gerät meldet sich als offline.', hint: 'Stromversorgung, Netzwerk und Bridge prüfen', entity_id: 'a'},
+      {rule_id: 'Offline', key: 'offline', severity: 'critical', message: 'Gerät meldet sich als offline.', hint: 'Stromversorgung, Netzwerk und Bridge prüfen', entity_id: 'b'},
+    ],
+  };
+  const grouped = panel.groupedWarnings;
+  assert.equal(grouped.length, 1);
+  assert.equal(grouped[0].count, 2);
+  assert.deepEqual(Array.from(grouped[0].affectedEntityIds), ['a', 'b']);
+  assert.equal(panel.warningText(grouped[0], 'message'), enCatalog['diagnostics.rule.offline.message']);
+});
+
+test('warningText shows raw message for warnings without key', () => {
+  const panel = createDevicesPanel();
+  const rawWarning = {rule_id: 'X', message: 'raw message', hint: 'raw hint'};
+  assert.equal(panel.warningText(rawWarning, 'message'), 'raw message');
+  assert.equal(panel.warningText(rawWarning, 'hint'), 'raw hint');
+});

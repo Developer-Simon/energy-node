@@ -225,14 +225,14 @@
 
           <h4>{{t "devices.warnings.title"}}</h4>
           <p x-show="!groupedWarnings.length">{{t "devices.warnings.empty"}}</p>
-          <template x-for="warning in groupedWarnings" :key="`${warning.rule_id}-${warning.message}-${warning.hint}`">
+          <template x-for="warning in groupedWarnings" :key="`${warning.rule_id}-${warning.key || warning.message}`">
             <div class="device-modal-warning" x-bind:class="{ 'is-critical': warning.severity === 'critical' }">
               <span aria-hidden="true" x-text="warning.severity === 'critical' ? '⛔' : '⚠'"></span>
               <div>
-                <b x-text="warning.message"></b>
+                <b x-text="warningText(warning, 'message')"></b>
                 <small x-show="warning.count > 1" x-text="$t('devices.warnings.affected_entities', {count: warning.count})"></small>
                 <small x-show="warning.affectedEntityIds.length" x-text="$t('devices.warnings.affected_entities_label') + warning.affectedEntityIds.map(id => entityLabel(id)).join(', ')"></small>
-                <small x-show="warning.hint" x-text="$t('devices.warnings.note_prefix') + warning.hint"></small>
+                <small x-show="warning.hint" x-text="$t('devices.warnings.note_prefix') + warningText(warning, 'hint')"></small>
               </div>
             </div>
           </template>
