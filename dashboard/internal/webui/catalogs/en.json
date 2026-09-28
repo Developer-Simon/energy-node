@@ -33,7 +33,6 @@
   "automations.action.publish.topic_aria": "Topic",
   "automations.action.publish.topic_placeholder": "werkstatt/x/set",
   "automations.action.remove_aria": "Remove this action",
-  "automations.action.remove_button.tooltip": "Remove this action",
   "automations.action.test_button.aria_label": "Test action now",
   "automations.action.test_button.label": "Test now",
   "automations.action.test_button.tooltip_allowed": "Really run this action now",

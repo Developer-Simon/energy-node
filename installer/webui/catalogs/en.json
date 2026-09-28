@@ -19,7 +19,6 @@
   "action.show_password": "Show password",
   "action.start_install": "Start installation",
   "action.update": "Update",
-  "app.loading": "Loading…",
   "app.title": "Energy Node installer",
   "app.title.diagnose": "Diagnostics",
   "app.title.install": "Set up Energy Node",
