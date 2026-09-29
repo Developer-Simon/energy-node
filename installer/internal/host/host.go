@@ -466,6 +466,7 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		Units:         report.Units,
 		Ports:         report.Ports,
 	}
+	view.Versions, view.Devices = installedInfo(report)
 	for _, check := range report.Checklist(manifest.Steps) {
 		view.Checks = append(view.Checks, hostapi.Check{
 			Name: check.Name, OK: check.OK, Detail: check.Detail, RetryStepID: check.RetryStepID,
@@ -473,6 +474,32 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		})
 	}
 	return view, nil
+}
+
+// installedInfo carries diagnose.sh's information parts into the view:
+// Versions stays nil without an installed manifest, and a device list stays
+// nil (JSON null) when its device file was unreadable, so the UI can tell
+// that apart from a service without devices.
+func installedInfo(report *diag.Report) (*hostapi.DiagnoseVersions, map[string][]hostapi.DeviceEntry) {
+	var versions *hostapi.DiagnoseVersions
+	if len(report.Versions.Components) > 0 || len(report.Versions.Services) > 0 {
+		versions = &hostapi.DiagnoseVersions{Components: report.Versions.Components, Services: report.Versions.Services}
+	}
+	if len(report.Devices) == 0 {
+		return versions, nil
+	}
+	devices := map[string][]hostapi.DeviceEntry{}
+	for unit, list := range report.Devices {
+		var entries []hostapi.DeviceEntry
+		if list != nil {
+			entries = []hostapi.DeviceEntry{}
+			for _, device := range list {
+				entries = append(entries, hostapi.DeviceEntry{ID: device.ID, Name: device.Name})
+			}
+		}
+		devices[unit] = entries
+	}
+	return versions, devices
 }
 
 func (h *Host) connected() (*transport.Client, error) {

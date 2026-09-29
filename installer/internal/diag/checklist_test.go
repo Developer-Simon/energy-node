@@ -54,6 +54,28 @@ func TestChecklistResolvesADeviceServiceUnitViaSteps(t *testing.T) {
 	}
 }
 
+func TestChecklistLeavesANotInstalledServiceOut(t *testing.T) {
+	report := &diag.Report{
+		Units: map[string]string{"shelly-rpc.service": diag.UnitNotInstalled, "caddy.service": diag.UnitNotInstalled},
+	}
+	var names []string
+	for _, c := range report.Checklist(testSteps()) {
+		names = append(names, c.Name)
+	}
+	for _, name := range names {
+		if name == "unit shelly-rpc.service" {
+			t.Fatalf("a service that was never installed is no check, got %v", names)
+		}
+	}
+	found := false
+	for _, name := range names {
+		found = found || name == "unit caddy.service"
+	}
+	if !found {
+		t.Errorf("a fixed unit stays a check whatever its state, got %v", names)
+	}
+}
+
 func TestChecklistCoversPortsConfigAndTailscale(t *testing.T) {
 	report := &diag.Report{
 		Ports:     map[string]bool{"1883": true, "8080": false},

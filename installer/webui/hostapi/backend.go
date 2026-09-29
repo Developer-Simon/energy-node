@@ -234,6 +234,24 @@ type DiagnoseView struct {
 	Units         map[string]string `json:"units"`
 	Ports         map[string]bool   `json:"ports"`
 	Checks        []Check           `json:"checks"`
+	// Versions und Devices sind Information, keine Pruefung: was laut
+	// installed-manifest.json installiert ist, und die konfigurierten
+	// Geraete je Dienst-Unit (nil = Geraetedatei nicht lesbar).
+	Versions *DiagnoseVersions        `json:"versions,omitempty"`
+	Devices  map[string][]DeviceEntry `json:"devices,omitempty"`
+}
+
+// DiagnoseVersions sind die installierten Versionen: Components wie im
+// Manifest (bootstrap, services, Wheels, Abhaengigkeiten), Services je Unit.
+type DiagnoseVersions struct {
+	Components map[string]string `json:"components"`
+	Services   map[string]string `json:"services"`
+}
+
+// DeviceEntry ist ein Geraet aus der *_devices.json eines Dienstes.
+type DeviceEntry struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // Sink nimmt entgegen, was waehrend eines Laufs passiert. Der Server baut
