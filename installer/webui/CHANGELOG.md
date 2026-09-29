@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.1.11 (2026-09-28)
+## v0.1.12 (2026-09-28)
 
 ### Features
 
 - **dashboard:** show installed component versions under settings (#71) (c8ef59b)
+- **dashboard:** show the redeploy screen in the dashboard language (#74) (6542022)
 - **installer-webui:** resolve the host language per request (af62b5c)
 - **installer-webui:** translate the dashboard host's error codes (0f8a231)
 - **dashboard:** note the bundle download in catalog keys (a158773)
@@ -13,6 +14,8 @@
 ### Fixes
 
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
+- **dashboard:** tidy localization texts after the final review (c2b5853)
+- **dashboard:** drop two unused catalog keys (b1e01ca)
 - **webui:** add the changelog error codes to the installer web UI catalogs (6f23aff)
 
 ## v0.1.8 (2026-09-23)

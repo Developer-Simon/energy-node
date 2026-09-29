@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "settings": {
+    "tick_interval_s": 10,
+    "settling_seconds": 60,
+    "balance_max_age_s": 30,
+    "publish_allowed_prefixes": ["outstation/apsystems_dach/"]
+  },
+  "rules": [
+    {
+      "id": "regel_pv_surplus",
+      "name": "Inverter on at PV surplus",
+      "enabled": true,
+      "cooldown_seconds": 60,
+      "conditions": [
+        {"type": "balance_threshold", "field": "pv", "comparison": "above", "threshold": 800, "hysteresis": 100}
+      ],
+      "actions": [
+        {"type": "publish", "entity_id": "apsystems_dach_power_status", "topic": "outstation/apsystems_dach/power_status/set", "payload_source": "constant", "payload": "ON"}
+      ]
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "theme": "mint",
+  "show_runtime_status": true,
+  "device_view_mode": "analysis",
+  "show_config_entities_on_tile": true,
+  "show_diagnostic_entities_on_tile": true,
+  "show_discovery_tooltips": true
+}

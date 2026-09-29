@@ -42,6 +42,19 @@
   // zeigen, nur ueber die Zeit.
   const DERIVED_HAUSVERBRAUCH_SERIES = 'berechnet:hausverbrauch';
 
+  // Anzeigename einer Serie. Die Kennung (role:pv, berechnet:hausverbrauch)
+  // bleibt der Schluessel im Browser-Speicher und erscheint nie selbst.
+  // i18n-keys: energy.role_label.pv, energy.role_label.battery, energy.role_label.battery_charge, energy.role_label.battery_discharge, energy.role_label.battery_soc, energy.role_label.grid, energy.role_label.grid_import, energy.role_label.grid_export, energy.role_label.load, energy.role_label.wallbox, energy.role_label.heat_pump
+  function seriesLabel(name) {
+    if (name === DERIVED_HAUSVERBRAUCH_SERIES) return t('history.series.derived_load');
+    if (name.startsWith('role:')) {
+      const key = `energy.role_label.${name.slice('role:'.length)}`;
+      const label = t(key);
+      if (label !== key) return label;
+    }
+    return name;
+  }
+
   // ApexCharts ships English month and day names. Instead of bundling one
   // locale file per language, the names come from Intl for the catalog's
   // meta.locale, the toolbar titles from the catalog.
@@ -434,6 +447,10 @@
     // zyklische Palette zaehlt ueber seriesOptions (alle bekannten Serien),
     // nicht nur die gerade sichtbaren - sonst verschieben sich Farben, sobald
     // eine Serie aus- oder eingeblendet wird.
+    seriesLabel(name) {
+      return seriesLabel(name);
+    },
+
     seriesColor(name) {
       const theme = window.DashboardTheme;
       if (name === DERIVED_HAUSVERBRAUCH_SERIES) return theme.color('flow-load');
@@ -603,7 +620,7 @@
           shared: true,
           enabledOnSeries: realSeries.map((_, index) => index),
           x: {formatter: value => window.I18n.formatDateTime(value)},
-          y: {formatter: units.length > 1
+          y: {title: {formatter: seriesName => seriesLabel(seriesName)}, formatter: units.length > 1
             ? tooltipValue
             : value => `${window.I18n.formatNumber(Number(value), 1)}${unit ? ` ${unit}` : ''}`},
         },

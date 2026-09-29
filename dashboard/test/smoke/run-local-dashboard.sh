@@ -43,6 +43,10 @@
 #                    schmale device-Kacheln mit Slider, span "1" auf der
 #                    18rem-Untergrenze - Sichtpruefung fuer Slider-Breite und
 #                    Titel-Umbruch in .device-tile-entity)
+#   docs-screenshots fixtures/alle-funktionen.json + seed/docs-screenshots, dazu
+#                    die Automationsregeln (Schema aus services/automation,
+#                    eine Beispielregel aus fixtures/devices/docs-screenshots);
+#                    Grundlage fuer docs-screenshots.mjs und docs/images/
 #   notification     fixtures/notification.json, kein Seed - simuliert die
 #                    Automations-Topics (last_event {at, message}, state,
 #                    status/online). notifications.js pollt daraus
@@ -137,6 +141,14 @@ while [[ $# -gt 0 ]]; do
           FIXTURE="$HERE/fixtures/geraete-kacheln.json"
           SEED_DATA="$HERE/fixtures/seed/geraete-kacheln"
           ;;
+        docs-screenshots)
+          FIXTURE="$HERE/fixtures/alle-funktionen.json"
+          SEED_DATA="$HERE/fixtures/seed/docs-screenshots"
+          # Ohne das Schema meldet das Dashboard "configuration
+          # automation_rules has no matching schema"; die Regel aus der
+          # Fixture ueberschreibt die leere Vorgabe des Dienstes.
+          EXTRA_DEVICES=("$REPO_DIR/services/automation" "$HERE/fixtures/devices/docs-screenshots")
+          ;;
         notification)
           FIXTURE="$HERE/fixtures/notification.json"; SEED_DATA=""
           ;;
@@ -152,7 +164,7 @@ while [[ $# -gt 0 ]]; do
           EXTRA_DEVICES=("$REPO_DIR/services/shelly" "$HERE/fixtures/devices/shelly-ht")
           ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht)" >&2
           exit 2
           ;;
       esac
@@ -358,8 +370,8 @@ manifest = {
         {"id": "65", "optional": False}, {"id": "70", "optional": True},
         # Zwei Dienstschritte, damit die Vorschau etwas zum Neustart-Vergleich
         # hat: battery_soc geaendert (Neustart), apsystems unveraendert.
-        {"id": "81", "optional": True, "dir": "apsystems_ez1", "unit": "apsystems-ez1.service", "version": "v0.4.0"},
-        {"id": "82", "optional": True, "dir": "battery_soc", "unit": "battery-soc.service", "version": "v0.5.0"},
+        {"id": "81", "optional": True, "service_id": "apsystems", "dir": "apsystems_ez1", "unit": "apsystems-ez1.service", "version": "v0.4.0"},
+        {"id": "82", "optional": True, "service_id": "battery_soc", "dir": "battery_soc", "unit": "battery-soc.service", "version": "v0.5.0"},
     ],
 }
 files = {

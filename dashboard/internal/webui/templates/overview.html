@@ -35,7 +35,7 @@
     <template x-for="name in seriesOptions" x-bind:key="name">
       <button type="button" class="history-chip history-series-chip" x-bind:class="{ active: selectedSeries.includes(name) }" x-bind:aria-pressed="selectedSeries.includes(name)" x-on:click="toggleSeries(name)">
         <i class="history-series-dot" x-bind:style="`border-color:${seriesColor(name)};background:${selectedSeries.includes(name) ? seriesColor(name) : 'transparent'}`"></i>
-        <span x-text="name"></span>
+        <span x-text="seriesLabel(name)"></span>
       </button>
     </template>
   </div>

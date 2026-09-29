@@ -1,7 +1,7 @@
 # Localization
 
 The dashboard's UI texts come from message catalogs, not from string literals.
-German (`de`) is the default; English (`en`) is complete. A language is chosen
+German (`de`) is the default and English (`en`) is complete. A language is chosen
 per browser.
 
 ## How a language is chosen
@@ -123,6 +123,48 @@ when a rule sets a text literal instead of using the table. The page calls
 for a warning without a known key. The device modal groups warnings by
 `rule_id` and `key`, so grouping does not depend on the page language.
 
+## Schema form texts
+
+The configuration forms render the `title` and `description` of JSON
+schemas: the central schema (`internal/appconfig/config.schema.json`) and
+the service schemas (`services/*/config.schema.json`,
+`services/*/*_devices.schema.json`). English is the source language of every
+schema. The schema text is the English text and the fallback.
+
+- **Catalog:** `internal/schemaloc/catalogs/<lang>.json`, separate from the
+  web UI catalog. The key is `schema.<schema-id>.<path>.<field>`. The path
+  joins property names with dots, an array element adds `items`,
+  `allOf`/`then`/`else` add nothing. `en.json` stays empty.
+- **Where it is translated:** on the server, in the schema endpoints. The
+  browser receives a schema in the page language, so `schema-form.js` needs
+  no catalog lookup.
+- **Guards:** `internal/schemaloc/drift_test.go` fails when a shipped schema
+  text has no German entry, when the German catalog holds a key no schema
+  has, or when a text breaks the style rules. `schemaloc_test.go` checks
+  that every UI language has a schema catalog.
+- **Home Assistant:** the German HA strings of `battery_soc` take the shared
+  field descriptions from this catalog (see
+  `scripts/render_ha_descriptions.py`).
+
+## Redeploy screen
+
+`/redeploy/` is the installer web UI (`installer/webui`) mounted into the
+dashboard. It uses the installer catalogs, not the dashboard ones.
+
+- **Language:** the dashboard passes `hostapi.Options.LanguageFor`, which
+  resolves the language per request exactly like every dashboard page
+  (`localize.Resolve` against the dashboard's languages). A dashboard
+  language without an installer catalog falls back to English.
+- **No switch of its own:** `LanguageFixed` stays `true`. The switch in the
+  dashboard masthead decides.
+- **Texts from the dashboard host:** the bundle download (`bundlefetch`)
+  notes its stages as `package.log.*` keys, and the host's error codes have
+  `error.<CODE>` texts in the installer catalogs. The coverage test of
+  `installer/webui` (`test/catalog-coverage.test.mjs`) reads
+  `dashboard/internal/updaterhost` and `dashboard/internal/bundlefetch` too.
+- Output of the bootstrap scripts in the updater log stays as the scripts
+  write it.
+
 ## Adding a language
 
 Add `dashboard/internal/webui/catalogs/<code>.json` with every key of `de.json`
@@ -132,6 +174,10 @@ and the same placeholders, plus `meta.locale`, `meta.number.decimal` and
 `node_modules/flatpickr/dist/l10n/<lang>.js`) and add it to
 `static/js-deps/THIRD-PARTY-NOTICES.md`. `go test ./internal/webui/` fails
 until the catalog is complete. The switcher picks it up automatically.
+
+Add `internal/schemaloc/catalogs/<code>.json` for the form texts as well,
+`go test ./internal/schemaloc/` fails without it. For the redeploy screen add
+`installer/webui/catalogs/<code>.json`. Without it the screen shows English.
 
 ## Guards
 

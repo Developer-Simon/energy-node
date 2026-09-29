@@ -399,6 +399,10 @@ func semanticsFor(role Role) roleSemantics {
 	switch role {
 	case RolePV:
 		return roleSemantics{Label: "PV", LabelKey: "energy.role_label.pv", Sign: "positiv = Erzeugung", SignKey: "energy.role_sign.generation"}
+	case RoleBattery:
+		return roleSemantics{Label: "Batterie", LabelKey: "energy.role_label.battery", Sign: "positiv = Laden", SignKey: "energy.role_sign.charging"}
+	case RoleGrid:
+		return roleSemantics{Label: "Netz", LabelKey: "energy.role_label.grid", Sign: "positiv = Netzbezug", SignKey: "energy.role_sign.grid_import"}
 	case RoleBatteryCharge:
 		return roleSemantics{Label: "Batterie laden", LabelKey: "energy.role_label.battery_charge", Sign: "positiv = Laden", SignKey: "energy.role_sign.charging"}
 	case RoleBatteryDischarge:

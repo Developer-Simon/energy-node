@@ -1,0 +1,12 @@
+{
+  "assignments": {
+    "apsystems_dach_pv1_power": { "role": "pv" },
+    "apsystems_dach_pv2_power": { "role": "pv" },
+    "netz_zaehler_power": { "role": "grid" },
+    "batterie_power": { "role": "battery" },
+    "batterie_soc": { "role": "battery_soc", "capacity_kwh": 10 },
+    "haus_last_power": { "role": "load" },
+    "wallbox_power": { "role": "wallbox" },
+    "waermepumpe_power": { "role": "heat_pump" }
+  }
+}

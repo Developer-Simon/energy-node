@@ -34,6 +34,44 @@ node dashboard/test/smoke/screenshot.mjs --out /tmp/tiles.png
 | `--out PATH` | default `test/smoke/.run/screenshot.png` (already `.gitignore`d) |
 | `--wait SELECTOR` | also wait for an element before the screenshot is written |
 | `--width` / `--height` | viewport, default 1280×900 (e.g. 390×844 for an iPhone 13 Pro) |
+| `--lang de\|en` | sets the `lang` cookie before loading, so the page renders in that language |
+
+## Documentation screenshots
+
+`docs-screenshots.mjs` retakes the English dashboard screenshots in
+`docs/images/`. It logs in as admin, sets the `lang=en` cookie and walks
+through every tab, settings subpage, the layout editor, the update preview and
+the four colour schemes. The `docs-screenshots` preset provides the data. Two
+runs are needed because `--simulate-installed` and `--simulate-package` cannot
+be combined:
+
+```bash
+# run A: everything except the versions page
+dashboard/test/smoke/run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package &
+node dashboard/test/smoke/docs-screenshots.mjs
+node dashboard/test/smoke/docs-screenshots.mjs --history   # records for about 12 minutes
+
+# run B: Settings, Versions
+dashboard/test/smoke/run-local-dashboard.sh --keep --preset docs-screenshots --simulate-installed &
+node dashboard/test/smoke/docs-screenshots.mjs dashboard-settings-versions
+```
+
+Without names the script writes every image except `dashboard-history` and
+`dashboard-settings-versions`. Image names as arguments limit the run to
+exactly those images. The history is recorded in the browser (IndexedDB), so
+`--history` keeps one page open for `--record-minutes` (default 12) and then
+takes the history tab from the same browser context.
+
+| Option | Effect |
+|---|---|
+| `--url URL` | default `http://localhost:18100` |
+| `--out DIR` | default `docs/images` in the repository |
+| `--password PW` | admin password, default the smoke test password |
+| `--history` | record the history, then write `dashboard-history.png` |
+| `--record-minutes N` | recording time for `--history`, default 12 |
+
+The versions page of run B shows the hint that the running dashboard differs
+from the package. That is expected, the local build reports `<VERSION>-dev`.
 
 | Option | Effect |
 |---|---|
@@ -112,6 +150,7 @@ takes the seed set of `energie` but the own fixture.
 | `energie-kombiniert` | `--fixture fixtures/energie-kombiniert.json --seed-data fixtures/seed/energie-kombiniert` — `load_mode "combined"`, band and board per entity, ring collected |
 | `alle-funktionen` | `--fixture fixtures/alle-funktionen.json --seed-data fixtures/seed/alle-funktionen` |
 | `geraete-kacheln` | `--fixture fixtures/geraete-kacheln.json --seed-data fixtures/seed/geraete-kacheln` — three device tiles with `span: "1"`, for visual checks of `.device-tile-entity` (slider width, title wrapping for `number`/`text`, value alignment, unchanged grid for all other entity types) |
+| `docs-screenshots` | `--fixture fixtures/alle-funktionen.json --seed-data fixtures/seed/docs-screenshots`, plus the automation rules: schema from `services/automation/`, one example rule from `fixtures/devices/docs-screenshots/`. The seed layout puts status, battery and energy flow in the first row, then self-sufficiency and installation. Used by `docs-screenshots.mjs` |
 | `notification` | `--fixture fixtures/notification.json` (no seed) — simulates the automation topics (`outstation/automation/last_event` as `{at, message}`, plus `state` and `status/online`). `notifications.js` polls `/api/v1/automation/notification` from these and raises a warning toast on load; the `Energie-Automationen` device shows up on the overview |
 | `keine-optionalen-dienste` | `--fixture fixtures/battery-soc.json --installed-services-off` (no seed) — end-to-end check that the dashboard hides the Automationen tab and the Tailscale/TinyTuya settings subpages, including their own fragment routes, when every optional service is off (Installer-Spec E7, Abnahmekriterium 11) |
 | `shelly-ht` | `--fixture fixtures/shelly-ht.json --seed-data fixtures/seed/shelly-ht`, plus the Shelly configuration: schema and presets straight from `services/shelly/`, the device list from `fixtures/devices/shelly-ht/` — two sleepy H&T devices (Gen1 `ht_bad` online, Plus `ht_keller` offline after its grace period). Automated probes: both H&T presets are `sleepy`, `sleepy`/`offline_grace_s` survive schema validation and saving, `offline_grace_s: 0` is rejected, temperature/humidity arrive as samples |

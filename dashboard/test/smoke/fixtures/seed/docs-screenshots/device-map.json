@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "nodes": [
+    {"device_id": "apsystems_dach", "x": 0, "y": 0},
+    {"device_id": "netz_zaehler", "x": 220, "y": 0},
+    {"device_id": "batterie_wr", "x": 440, "y": 0},
+    {"device_id": "haus_zaehler", "x": 220, "y": 160},
+    {"device_id": "wallbox", "x": 440, "y": 160},
+    {"device_id": "waermepumpe", "x": 660, "y": 160},
+    {"device_id": "netz_meanwell", "x": 0, "y": 320},
+    {"device_id": "netz_lumentree", "x": 220, "y": 320},
+    {"device_id": "bms_bank_a", "x": 440, "y": 320},
+    {"device_id": "bms_bank_b", "x": 660, "y": 320}
+  ],
+  "edges": [
+    {"id": "apsystems_dach-netz_zaehler", "child_id": "apsystems_dach", "parent_id": "netz_zaehler", "kind": "mqtt", "created_at": "2026-08-13T00:00:00Z"}
+  ],
+  "view": {
+    "snap_to_grid": true,
+    "show_grid": true,
+    "grid_size": 20,
+    "edge_style": "elbow"
+  }
+}

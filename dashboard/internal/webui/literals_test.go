@@ -153,6 +153,7 @@ var germanWords = []string{
 	"Anmelden", "Abmelden", "Passwort", "Benutzer", "Zeitraum", "Stand",
 	"veraltet", "unbekannt", "Neu", "neue", "neuer", "neues", "Nein",
 	"Zeile", "Spalte", "Breite", "Hoehe", "Titel", "Quelle", "Ziel", "Anzeige",
+	"aktuell", "aktuelle", "aktueller",
 }
 
 var (

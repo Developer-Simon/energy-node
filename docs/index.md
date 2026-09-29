@@ -131,11 +131,13 @@ outdated version first and updated afterwards.
 ## A note on language
 
 The project started as a single-site tool before it was made public. The
-dashboard's UI — templates, JS strings, the automation editor — is currently
-**German-only**, as are most in-code comments across the Go and Python source.
-This documentation is written in English. A localization layer is planned but
-not yet implemented; until then, changing the displayed language means editing
-the embedded templates.
+dashboard's UI is available in **German and English**. Each browser chooses
+its language, either with the `DE | EN` switch in the header or from the
+browser's language setting. German stays the default. How the catalogs work
+and how to add a language is described in
+[`knowledge/dashboard/localization.md`](knowledge/dashboard/localization.md).
+This documentation is written in English. Most in-code comments across the Go
+and Python source are still German.
 
 ---
 

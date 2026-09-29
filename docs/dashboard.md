@@ -9,15 +9,18 @@ CSS and JavaScript are compiled into it with `go:embed`; there is no build
 step, no CDN and no server-side database. It renders HTML on the server,
 updates values over an SSE push, and keeps chart history in the browser.
 
-> **Language note:** the UI is currently **German-only** — see the language
-> note in the repository's README. The screenshots below therefore show German
-> labels; the German term is given in parentheses wherever this page names a
-> control.
+The UI speaks German and English, chosen per browser with the `DE | EN`
+switch in the header (see
+[`knowledge/dashboard/localization.md`](knowledge/dashboard/localization.md)).
+The screenshots and the labels quoted on this page are the English ones.
+Device and entity names are not translated. They come from MQTT Discovery and
+stay in the language the devices announce them in, which is German for the
+fixture devices in the screenshots.
 
 Every screenshot on this page comes from the local smoke test with the
-`alle-funktionen` preset — the real dashboard against a fixture broker, no
-Raspberry Pi and no device involved. [Reproduce them yourself](#reproducing-these-screenshots)
-in two commands.
+`docs-screenshots` preset. That is the real dashboard against a fixture
+broker, with no Raspberry Pi and no device involved.
+[Reproduce them yourself](#reproducing-these-screenshots) with one script.
 
 ---
 
@@ -27,7 +30,7 @@ in two commands.
 
 Three things are always present, on every tab:
 
-- **The system status bar** (`Systemstatus`) — broker connection, storage
+- **The system status bar** — broker connection, storage
   health, uptime and dashboard version. Which of these fields appear is
   configurable, and the whole bar can be switched off.
 - **The tab bar.** The first entries are the *layout pages* — user-defined
@@ -55,19 +58,19 @@ Raspberry Pi 1.
 The start tab is not a fixed screen but a **grid of cards you arrange
 yourself**. Above, the fixture's cards:
 
-- **Status card** (`Statuskarte`) — the current situation in one sentence
-  ("1.25 kW surplus — good moment for the wallbox"), a bar showing where the
+- **Status card** — the current situation in one sentence
+  ("1.25 kW surplus. Good time for the wallbox …"), a bar showing where the
   balance sits between grid import and feed-in, and the surplus / grid draw /
   battery / data-quality tiles with their thresholds.
-- **Battery status card** (`Speicher: Statuskarte`) — segmented charge column,
+- **Battery status card** — segmented charge column,
   time to full or empty, the reserve kept back for a grid outage, and the
   usable capacity.
-- **Energy flow** (`Energiefluss`) — PV, storage, building, grid and the
+- **Energy flow** — PV, storage, building, grid and the
   individual loads as animated flows whose speed follows the actual watts.
-- **Self-sufficiency ring** (`Autarkie-Ring`) — coverage versus use, split by
+- **Self-sufficiency ring** — coverage versus use, split by
   source and by consumer.
-- **Plant schema** (`Anlagenschema`) — a wiring-style diagram of the site with
-  the live power on each leg.
+- **System diagram** (titled *Installation* on the card) — a wiring-style
+  diagram of the site with the live power on each leg.
 
 Every card is driven purely by MQTT Discovery data plus the role assignment
 from the Energy tab. Nothing here is hard-coded to a particular device.
@@ -76,24 +79,24 @@ from the Energy tab. Nothing here is hard-coded to a particular device.
 
 ![Layout editor with the block picker open](images/dashboard-layout-editor.png)
 
-`Editieren` turns the overview into an editor: drag and resize cards, add
+**Edit** turns the overview into an editor: drag and resize cards, add
 pages, and pick new blocks from the panel on the right. The picker has three
 tabs — **cards**, **devices** and **entities** — so a layout page can mix
 computed energy cards with a raw device tile or a single measured value.
 
-| Block (German label) | Layout type | What it shows |
+| Block | Layout type | What it shows |
 |---|---|---|
-| Energie: Statuskarte | `energy_status` | Situation, thresholds, data quality |
-| Energie: Energiefluss | `energy_flow` | Animated flow graph |
-| Energie: Autarkie-Ring | `energy_ring` | Coverage/use ring |
-| Energie: Anlagenschema | `energy_schema` | Plant diagram |
-| Energie: Bilanzband | `energy_band` | Balance over time as a band |
-| Energie: Tagesband | `energy_day` | The day's curve |
-| Energie: Datentafel | `energy_board` | The balance as a plain number board |
-| Speicher: Statuskarte | `battery_status` | Charge column or projection |
-| Diagnosen | `diagnostics` | Health summary of all devices |
-| Wert-Karte | `entity_value` | One entity as a large value |
-| Entitätenliste | `entity_group` | Several entities in one card |
+| Energy: status card | `energy_status` | Situation, thresholds, data quality |
+| Energy: energy flow | `energy_flow` | Animated flow graph |
+| Energy: self-sufficiency ring | `energy_ring` | Coverage/use ring |
+| Energy: system diagram | `energy_schema` | Plant diagram |
+| Energy: balance band | `energy_band` | Balance over time as a band |
+| Energy: day band | `energy_day` | The day's curve |
+| Energy: data board | `energy_board` | The balance as a plain number board |
+| Battery: status card | `battery_status` | Charge column or projection |
+| Diagnostics | `diagnostics` | Health summary of all devices |
+| Value card | `entity_value` | One entity as a large value |
+| Entity list | `entity_group` | Several entities in one card |
 | (Devices tab) | `device` | A full device tile with its controls |
 
 Editor width can be previewed as phone, tablet or monitor. Layouts are
@@ -101,7 +104,7 @@ versioned — every save is a revision that can be restored.
 
 ---
 
-## Devices (`Geräte`)
+## Devices
 
 Everything the node has seen through MQTT Discovery, grouped by device. Two
 view modes, switched with the button in the top right:
@@ -127,7 +130,7 @@ into compact mode.
 
 ---
 
-## History (`Verläufe`)
+## History
 
 ![History charts](images/dashboard-history.png)
 
@@ -136,9 +139,9 @@ The node stores **no** history. The browser records it: a recorder samples
 the Pi's SD card and RAM out of the loop entirely.
 
 - **Time range** — 1 h, 6 h, day, week, month, or a custom range.
-- **Statistic** — mean, minimum or maximum per bucket.
+- **Metric** — average, minimum or maximum per bucket.
 - **Series** — every energy role plus computed series such as
-  `berechnet:hausverbrauch`. Click a chip to show or hide it.
+  *House consumption (calculated)*. Click a chip to show or hide it.
 - **Advanced: views & export** — save a set of series as a named view, and
   export the visible data as CSV or JSON.
 
@@ -152,7 +155,7 @@ series, and whether the browser has promised the storage as persistent.
 
 ---
 
-## Configuration (`Konfiguration`)
+## Configuration
 
 ![Configuration editor for the battery service](images/dashboard-config.png)
 
@@ -179,7 +182,7 @@ additionally requires the `automations` role and a CSRF token.
 
 ---
 
-## Energy (`Energie`)
+## Energy
 
 ![Energy roles and balance interpretation](images/dashboard-energy.png)
 
@@ -194,10 +197,10 @@ unassigned power sensor is the usual cause of a balance that does not add up.
 
 | Mode | Meaning |
 |---|---|
-| Measured (`Gemessen`) | Take the entity carrying the house-load role |
-| Computed (`Berechnet`) | PV + grid draw + discharge − feed-in − charge |
-| Combined (`Kombiniert`) | Computed, with measured consumers shown separately |
-| Automatic (default) | Measured if available, otherwise computed |
+| Measured | Take the entity carrying the house consumption role |
+| Calculated | PV + grid import + discharging − feed-in − charging |
+| Combined | Calculated, with measured consumers shown separately |
+| Automatic (default) | Measured if available, otherwise calculated |
 
 Below that sit the knobs that the status card reads: whether a remaining
 balance gap is folded into house consumption, the tolerance threshold in watts
@@ -209,7 +212,7 @@ two flags: whether the value is fresh, and whether it is arriving live.
 
 ---
 
-## Device map (`Device-Map`)
+## Device map
 
 ![Device map](images/dashboard-device-map.png)
 
@@ -224,7 +227,7 @@ an accidental drag can be rolled back.
 
 ---
 
-## Diagnostics (`Diagnose`)
+## Diagnostics
 
 ![Diagnostics](images/dashboard-diagnosis.png)
 
@@ -245,7 +248,7 @@ Both can be filtered by severity, rule and device.
 
 ---
 
-## Automations (`Automationen`)
+## Automations
 
 ![Automation rules](images/dashboard-automation.png)
 
@@ -262,37 +265,42 @@ the dashboard **never** executes rules itself. It only edits the JSON, and the
 Python service owns evaluation and publishing. See
 [Device services → Automations](device-services.md#automations).
 
-The `Assistent` button walks through building a rule; `Verlauf anzeigen`
+The **Assistant** button walks through building a rule. **Show history**
 shows the last triggers of a single rule.
 
 ---
 
-## Settings (`Einstellungen`)
+## Settings
 
-Seven sub-tabs.
+Eight sub-tabs: General, Appearance, History, MQTT, Tailscale, TinyTuya,
+Versions and System. Tailscale and TinyTuya only appear when the matching
+service is installed.
 
-### General (`Allgemein`)
+### General
 
 ![General settings](images/dashboard-settings-general.png)
 
 Health threshold, sweep interval and live-update interval, plus the storage
 health check — on a Pi this reads the SD card's wear counters, and it says so
 plainly when the root filesystem is not a readable MMC medium. Settings are
-versioned; `Revisionen der Einstellungen` restores an earlier state. The
+versioned. **Settings revisions** restores an earlier state. The
 footer lists every bundled JavaScript library with its version, license and
 license link.
 
-### Display (`Darstellung`)
+### Appearance
 
-![Display settings](images/dashboard-settings-display.png)
+![Appearance settings](images/dashboard-settings-display.png)
 
 Default device view mode, colour scheme, and what extra information the UI
 shows: discovery JSON tooltips, the global status bar, configuration and
-diagnostic values on tiles. `Tabs ohne Breitendeckelung` lets chosen tabs use
-the full window width instead of the centred column, and
-`Angaben im Systemstatus` picks the fields in the status bar.
+diagnostic values on tiles. **Tabs without a width limit** lets chosen tabs
+use the full window width instead of the centred column, and
+**Items in the system status** picks the fields in the status bar.
 
-### History (`Verläufe`)
+The **Formatting** card holds the language of this browser, the switch that
+shows or hides the `DE | EN` pill for everyone, and the number format.
+
+### History
 
 ![History settings](images/dashboard-settings-history.png)
 
@@ -305,17 +313,6 @@ The last block switches the device-to-device exchange off.
 Note the wording on the page: the setting applies to every browser, the
 recorded data does not — the measurements live only in the browser that
 recorded them.
-
-### TinyTuya setup (`TinyTuya einrichten`)
-
-![TinyTuya wizard](images/dashboard-settings-tinytuya.png)
-
-A four-step wizard — credentials, device, data points, apply — around the
-`tinytuya` cloud lookup: enter the Tuya region and API credentials, list the
-devices on the account, probe the device's data points locally, and write the
-result into `tuya_devices.json`. The data point number for a switch is not
-reliably `1`, which is the whole reason the probe step exists. Credentials are
-only stored when explicitly asked for.
 
 ### MQTT
 
@@ -336,7 +333,7 @@ Two switches worth calling out:
 Further down the same tab configures the **Mosquitto bridge to the main site**
 and can apply and restart it.
 
-### Tailscale setup (`Tailscale einrichten`)
+### Tailscale
 
 ![Tailscale wizard](images/dashboard-settings-tailscale.png)
 
@@ -347,15 +344,40 @@ buttons to re-check, log out or restart the service. It exists because
 bringing a headless Pi onto a tailnet otherwise means an SSH session and a
 copied login URL.
 
+### TinyTuya
+
+![TinyTuya wizard](images/dashboard-settings-tinytuya.png)
+
+A four-step wizard — credentials, device, data points, apply — around the
+`tinytuya` cloud lookup: enter the Tuya region and API credentials, list the
+devices on the account, probe the device's data points locally, and write the
+result into `tuya_devices.json`. The data point number for a switch is not
+reliably `1`, which is the whole reason the probe step exists. Credentials are
+only stored when explicitly asked for.
+
+### Versions
+
+![Versions settings](images/dashboard-settings-versions.png)
+
+What is installed on the node. The top card shows the installed package with
+its version, build date and architecture, and the version the dashboard itself
+runs as. If the two differ, the page says so, which happens when the
+dashboard was updated on its own after the installation. Below that every
+application, service and library is listed with its version. **Changes**
+opens its changelog, and a service that is not installed is marked as such.
+
+The **Updates** card checks GitHub for a newer release on demand
+(**Check for updates**).
+
 ### System
 
 ![System settings](images/dashboard-settings-system.png)
 
-Who you are logged in as and with which role, the dashboard and services
-versions, and the system actions: restart the dashboard service, reboot,
-power off. They are greyed out above because the session is a guest session —
-system actions need a registered user with the `system_actions` role **and**
-HTTPS.
+Who you are logged in as and with which role, and the system actions:
+restart the dashboard service, restart the system, shut it down. The
+screenshot shows an admin session, so the actions are enabled. In a guest
+session they are greyed out, because system actions need a registered user
+with the `system_actions` role **and** HTTPS.
 
 Below that, the content of `/etc/energy-node/config.json` as a generated form,
 same mechanism as the configuration tab. Passwords are never in that file,
@@ -366,9 +388,9 @@ only the paths of the files that hold them.
 ![Update notice in the header](images/dashboard-update-available.png)
 
 When a newer release is out on GitHub, the header shows a notice next to the
-title (`Update … verfügbar`). It links to the release notes. The same notice
-appears under *Settings → System*, next to the button that checks for updates
-on demand (`Nach Updates suchen`).
+title (**Update … available**). It links to the release notes. The same notice
+appears under *Settings → Versions*, next to the button that checks for
+updates on demand (**Check for updates**).
 
 ![Update preview](images/dashboard-update-preview.png)
 
@@ -376,7 +398,7 @@ From that notice, a registered user with the `system_actions` role opens the
 update page (`/redeploy/`). It first downloads the newest signed release
 package for the node's architecture, then shows the same preview as the
 [desktop installer](installer.md#updating-a-node): which components change,
-which services restart, and which services the node runs. **Aktualisieren**
+which services restart, and which services the node runs. **Update**
 runs the pending steps on the node itself, without the installer and without
 SSH.
 
@@ -384,48 +406,55 @@ SSH.
 
 ## Colour schemes
 
-Four themes ship with the dashboard, chosen in *Settings → Display*:
+Four themes ship with the dashboard, chosen in *Settings → Appearance*:
 
-| Mint (default) | Stromblau |
+| Mint (default) | Power blue |
 |---|---|
-| ![Mint theme](images/dashboard-theme-default-mint.png) | ![Stromblau theme](images/dashboard-theme-blue.png) |
+| ![Mint theme](images/dashboard-theme-default-mint.png) | ![Power blue theme](images/dashboard-theme-blue.png) |
 
-| Signalgelb | Tageslicht |
+| Signal yellow | Daylight |
 |---|---|
-| ![Signalgelb theme](images/dashboard-theme-yellow.png) | ![Tageslicht theme](images/dashboard-theme-light.png) |
+| ![Signal yellow theme](images/dashboard-theme-yellow.png) | ![Daylight theme](images/dashboard-theme-light.png) |
 
-Three are dark; `Tageslicht` is the light one, meant for a screen in a bright
+Three are dark. **Daylight** is the light one, meant for a screen in a bright
 workshop.
 
 ---
 
 ## Reproducing these screenshots
 
-The smoke test starts the real dashboard against a fixture broker — no
-Raspberry Pi, no Mosquitto, no devices:
-
-```bash
-dashboard/test/smoke/run-local-dashboard.sh --keep --preset alle-funktionen
-```
-
-It prints a URL and credentials and stays up until Ctrl-C. The
-`alle-funktionen` preset is the near-complete one: battery SoC devices, the
+The smoke test starts the real dashboard against a fixture broker, with no
+Raspberry Pi, no Mosquitto and no devices. The `docs-screenshots` preset is
+built on the near-complete `alle-funktionen` fixture: battery SoC devices, the
 seven energy entities of a sunny moment, a fully modelled APsystems EZ1 with
-two strings and a writable power limit, plus a seeded layout, role assignment
-and device map.
-
-For a screenshot without clicking anything, drive it with headless Chromium:
+two strings and a writable power limit. It adds the layout, role assignment,
+device map and the automation rule seen above.
 
 ```bash
-node dashboard/test/smoke/screenshot.mjs --out /tmp/overview.png
+dashboard/test/smoke/run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package &
+node dashboard/test/smoke/docs-screenshots.mjs
 ```
 
-Add `--theme tageslicht` to the first command for the light theme,
-`--width 390 --height 844` to the second for a phone-sized viewport. Add
-`--simulate-package` to the first command for the update screenshots: a fake
-GitHub then offers version 9.9.9 with a small package to download. The full
-option list, the other presets and the fixtures behind them are documented in
-`dashboard/test/smoke/README.md` in the repository.
+The first command prints a URL and credentials and stays up until Ctrl-C.
+`--simulate-package` makes a fake GitHub offer version 9.9.9 with a small
+package, which is what the update screenshots show. The second command writes
+every image on this page into `docs/images/`. Two images need their own run:
+
+- **History:** `docs-screenshots.mjs --history` keeps the dashboard open for
+  about twelve minutes so the browser records enough history, then takes the
+  History tab.
+- **Versions:** restart the first command with `--simulate-installed` instead
+  of `--simulate-package`, then run
+  `docs-screenshots.mjs dashboard-settings-versions`.
+
+For a single screenshot of any page, `screenshot.mjs` is the simpler tool:
+
+```bash
+node dashboard/test/smoke/screenshot.mjs --out /tmp/overview.png --lang en
+```
+
+The full option list, the other presets and the fixtures behind them are
+documented in `dashboard/test/smoke/README.md` in the repository.
 
 ---
 

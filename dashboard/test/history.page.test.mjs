@@ -898,3 +898,17 @@ test('tooltip date follows the language', async () => {
   const options = await chartOptionsWith({lang: 'en'}, [{unit: 'W', value: 1}]);
   assert.match(options.tooltip.x.formatter(Date.UTC(2026, 8, 25, 12, 0, 0)), /^25\/09\/2026/);
 });
+
+test('Serien-Chips und Tooltip zeigen Namen statt Serienkennungen', async () => {
+  const {dom, component} = panel({i18n: {lang: 'en'}});
+  assert.equal(component.seriesLabel('role:pv'), 'PV');
+  assert.equal(component.seriesLabel('role:battery'), 'Battery');
+  assert.equal(component.seriesLabel('berechnet:hausverbrauch'), 'House consumption (calculated)');
+  assert.equal(component.seriesLabel('sensor:unknown'), 'sensor:unknown');
+  const now = Date.now();
+  await dom.window.HistoryStore.writeRaw([{series: 'role:grid', ts: now - HOUR, v: -1250, u: 'W'}]);
+  await component.load();
+  component.selectedSeries = ['role:grid'];
+  assert.equal(component.chartOptions.tooltip.y.title.formatter('role:grid'), 'Grid');
+  dom.window.close();
+});
