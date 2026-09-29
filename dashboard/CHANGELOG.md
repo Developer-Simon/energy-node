@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.7.27 (2026-09-28)
+## v0.8.0 (2026-09-28)
 
 ### Features
 
@@ -59,6 +59,8 @@
 
 ### Fixes
 
+- **dashboard:** name the signed battery and grid energy roles (99a5cb4)
+- **dashboard:** name history series instead of showing their ids (84753a7)
 - **dashboard:** pass service fields and previous versions to the redeploy preview (#51) (0c07bc1)
 - **redeploy:** keep following a run across the dashboard's self-update restart (#52) (38a0609)
 - **dashboard:** tidy localization texts after the final review (c2b5853)
@@ -80,6 +82,7 @@
 
 ### Documentation
 
+- **dashboard:** English screenshots and docs for the bilingual UI (85caf1c)
 - **dashboard:** describe config_revision as the last load attempt (715dd30)
 - **battery_soc:** document DC-only systems, signed inputs and current units (6c2df1f)
 - **dashboard:** document the device preference endpoints and bump the assets (aed1eee)
