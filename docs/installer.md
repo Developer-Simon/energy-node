@@ -169,7 +169,10 @@ file.
 
 Choose **Update** and connect. The preview compares each component's version
 against the stamp on the Pi and lists what changes, which services restart, and
-which steps are skipped because their work is done. By default, only a service
+which steps are skipped because their work is done. Every selected service
+shows its own version, and every unit that restarts names its reason: a new
+version, a changed shared library, a first install or an unknown installed
+version. By default, only a service
 whose own version changed restarts; a change to `energy_node_common` restarts
 every service, and a change to `battery_soc_core` restarts `battery_soc` alone.
 Tick **Restart all services** to restart every service unit regardless. A unit
@@ -194,8 +197,12 @@ dashboard's header shows a notice when a newer release is out.
 **Diagnose** reads the installed package version from the Pi and runs a
 checklist: every systemd unit, the open ports, the Tailscale login and the
 presence of `config.json`. A failing check comes with a button that repeats
-exactly the step responsible — nothing else runs. **Save report** writes the
-result to a file, which is what to attach to a bug report.
+exactly the step responsible — nothing else runs. Next to the checks, the
+screen shows what is installed: each service with its version and the devices
+configured for it, services that were never chosen as not installed, and a
+card with the package, bootstrap and wheel versions. These are information
+only and do not count as checks. **Save report** writes the result to a file,
+which is what to attach to a bug report.
 
 ---
 
