@@ -4,9 +4,7 @@
 (function () {
   'use strict';
 
-  // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels baut.
-  // Ein Test haelt die Liste gegen das Skript.
-  var WHEEL_COMPONENTS = ['energy_node_common', 'battery_soc_core'];
+  var WHEEL_COMPONENTS = window.Services.WHEEL_COMPONENTS;
   // dashboard traegt die Bundle-Version (make_bundle.sh) - sie steht in der
   // Versionsleiste, nicht in der Liste.
   var PACKAGE = 'dashboard';
@@ -19,8 +17,34 @@
   var PreviewModel = {
     WHEEL_COMPONENTS: WHEEL_COMPONENTS,
 
-    components: function (plan, shell) {
+    // serviceVersions: je gewaehltem Dienst seine eigene Version aus dem
+    // Plan (von/nach) - sie ersetzt die Sammelzeile "services". Ein fehlendes
+    // "von" ist neu, ausser der Plan nennt die Version unbekannt (ein
+    // installiertes Manifest von vor den Dienstversionen).
+    serviceVersions: function (plan, manifest, shell) {
+      var byId = {};
+      ((manifest && manifest.steps) || []).forEach(function (step) { byId[step.id] = step; });
+      var rows = [];
+      ((plan && plan.steps) || []).forEach(function (step) {
+        var entry = byId[step.id];
+        if (!entry || !entry.service_id || step.state === 'deselected' || !step.to) {
+          return;
+        }
+        var from = step.from ? plain(step.from) : null;
+        var to = plain(step.to);
+        rows.push({
+          key: 'service-' + step.id, changed: from !== to,
+          label: window.Services.serviceName(entry, shell), em: '',
+          from: from !== null ? from : shell.t(step.restart === 'unknown' ? 'component.unknown' : 'component.new'),
+          to: to,
+        });
+      });
+      return rows;
+    },
+
+    components: function (plan, shell, manifest) {
       var all = (plan && plan.components) || {};
+      var services = PreviewModel.serviceVersions(plan, manifest, shell);
       var rank = function (name) {
         if (PLAIN.indexOf(name) >= 0) {
           return PLAIN.indexOf(name);
@@ -33,6 +57,10 @@
       var rows = [];
       var unchangedDependencies = 0;
       names.forEach(function (name) {
+        if (name === 'services' && services.length) {
+          rows.push.apply(rows, services);
+          return;
+        }
         var delta = all[name];
         var from = delta.from === null || delta.from === undefined ? null : plain(delta.from);
         var to = plain(delta.to);
@@ -56,28 +84,30 @@
       return rows;
     },
 
-    // restart: die Units, die neu starten. Ein Dienst startet nur neu, wenn der
-    // Plan ihm einen Grund gibt (step.restart) oder "Alle neu starten" an ist.
-    // Der Schritt, der die Dienst-Station anfuehrt (60), hat keine Unit im
-    // Manifest - er ist das Dashboard und laeuft wie bisher immer mit.
+    // restart: die Units, die neu starten, je mit ihrem Grund. Ein Dienst
+    // startet nur neu, wenn der Plan ihm einen Grund gibt (step.restart,
+    // restart_rule.py) oder "Alle neu starten" an ist. Der Schritt, der die
+    // Dienst-Station anfuehrt (60), hat keine Unit im Manifest - er ist das
+    // Dashboard und laeuft wie bisher immer mit.
     restart: function (plan, manifest, shell, restartAll) {
       var group = window.Services.runGroups(manifest, { steps: {} }, shell).filter(function (g) { return g.subs; })[0];
       var core = group ? group.ids[0] : '';
-      var units = [];
+      var rows = [];
+      var seen = {};
       ((plan && plan.steps) || []).forEach(function (step) {
         if (step.state !== 'pending') {
           return;
         }
         var unit = step.unit || (step.id === core ? window.Services.DASHBOARD_UNIT : '');
         var isService = !!step.unit;
-        if (!unit || (isService && !restartAll && !step.restart)) {
+        if (!unit || seen[unit] || (isService && !restartAll && !step.restart)) {
           return;
         }
-        if (units.indexOf(unit) < 0) {
-          units.push(unit);
-        }
+        seen[unit] = true;
+        var reason = isService ? step.restart || 'all' : 'package';
+        rows.push({ unit: unit, reason: shell.t('preview.restart.reason.' + reason) });
       });
-      return units;
+      return rows;
     },
 
     kept: function (plan, manifest, shell) {
@@ -163,7 +193,7 @@
       },
 
       get components() {
-        return this.plan ? PreviewModel.components(this.plan, this.shell) : [];
+        return this.plan ? PreviewModel.components(this.plan, this.shell, this.manifest) : [];
       },
 
       get restart() {

@@ -45,11 +45,12 @@ test('die Versionsleiste zeigt von und nach, ohne Installationsdauer (A7)', asyn
   assert.equal(screen.note, 'armv6 · Auswahl unverändert');
 });
 
-test('Was sich aendert: je Komponente von/nach, unveraenderte Abhaengigkeiten zusammengefasst', async () => {
+test('Was sich aendert: je Komponente und je Dienst von/nach, unveraenderte Abhaengigkeiten zusammengefasst', async () => {
   const { screen } = await mount();
   assert.deepEqual(plain(screen.components.map((row) => [row.label, row.em, row.changed, row.from, row.to])), [
     ['Bootstrap', '', true, '1.0.4', '1.0.5'],
-    ['Dienste (Repo)', '', true, '3.6.0', '3.7.1'],
+    ['Tuya', '', true, '1.0.0', '1.0.1'],
+    ['Automation', '', false, '1.0.0', '1.0.0'],
     ['Wheel', 'energy_node_common', true, '1.4.0', '1.4.2'],
     ['Wheel', 'battery_soc_core', false, '0.9.3', '0.9.3'],
     ['Abhängigkeit', 'tinytuya', true, '1.15.1', '1.16.0'],
@@ -64,19 +65,54 @@ test('eine Komponente ohne Vorzustand ist neu', async () => {
   assert.equal(screen.fromVersion, '', 'ohne dashboard kein "von"');
 });
 
+test('ohne Dienstversionen im Plan bleibt die Sammelzeile der Dienste', async () => {
+  const steps = PLAN_UPDATE.steps.map((step) => { const copy = Object.assign({}, step); delete copy.from; delete copy.to; return copy; });
+  const { screen } = await mount({ responses: { 'GET /api/plan': Object.assign({}, PLAN_UPDATE, { steps }) } });
+  assert.deepEqual(plain(screen.components.slice(0, 2).map((row) => [row.label, row.from, row.to])), [
+    ['Bootstrap', '1.0.4', '1.0.5'],
+    ['Dienste (Repo)', '3.6.0', '3.7.1'],
+  ]);
+});
+
+test('ein Dienst ohne installierte Version ist neu, bei unbekanntem Stand unbekannt', async () => {
+  const steps = PLAN_UPDATE.steps.map((step) => {
+    if (step.id === '85') { return Object.assign({}, step, { from: undefined, restart: 'first' }); }
+    if (step.id === '88') { return Object.assign({}, step, { from: undefined, restart: 'unknown' }); }
+    return step;
+  });
+  const { screen } = await mount({ responses: { 'GET /api/plan': Object.assign({}, PLAN_UPDATE, { steps }) } });
+  const services = plain(screen.components.filter((row) => row.key.startsWith('service-')).map((row) => [row.label, row.from, row.to]));
+  assert.deepEqual(services, [['Tuya', 'neu', '1.0.1'], ['Automation', 'unbekannt', '1.0.0']]);
+});
+
 test('Startet neu und Bleibt stehen folgen dem Plan (A17)', async () => {
   const { screen } = await mount();
-  assert.deepEqual(plain(screen.restart), ['energy-node-dashboard.service', 'tuya.service']);
+  assert.deepEqual(plain(screen.restart), [
+    { unit: 'energy-node-dashboard.service', reason: 'neues Paket' },
+    { unit: 'tuya.service', reason: 'neue Version' },
+  ]);
   assert.equal(screen.keepNames, 'Systempakete · MQTT-Broker · Firewall · Tailscale · HTTPS über Caddy');
 });
 
 test('nur Dienste mit Aenderung stehen unter Neustarts, "Alle neu starten" nimmt alle dazu', async () => {
   const { screen } = await mount();
-  const units = plain(screen.restart);
+  const units = plain(screen.restart).map((row) => row.unit);
   assert.ok(units.includes('tuya.service'), 'geaenderter Dienst fehlt');
   assert.ok(!units.includes('automation.service'), 'unveraenderter Dienst darf nicht neu starten');
   screen.restartAll = true;
-  assert.ok(plain(screen.restart).includes('automation.service'), 'mit "alle" muss auch automation dabei sein');
+  const all = plain(screen.restart);
+  assert.deepEqual(all.find((row) => row.unit === 'automation.service'), { unit: 'automation.service', reason: 'auf Wunsch' }, 'mit "alle" muss auch automation dabei sein');
+  assert.equal(all.find((row) => row.unit === 'tuya.service').reason, 'neue Version', 'ein echter Grund bleibt auch mit "alle" stehen');
+});
+
+test('jeder Neustartgrund aus restart_rule hat einen Text', async () => {
+  const reasons = ['version', 'library', 'first', 'unknown'];
+  const steps = PLAN_UPDATE.steps.map((step) => step.id === '85' ? Object.assign({}, step, { restart: 'library' }) : step);
+  const { screen } = await mount({ responses: { 'GET /api/plan': Object.assign({}, PLAN_UPDATE, { steps }) } });
+  assert.equal(plain(screen.restart).find((row) => row.unit === 'tuya.service').reason, 'gemeinsame Bibliothek geändert');
+  for (const reason of reasons) {
+    assert.notEqual(screen.shell.t('preview.restart.reason.' + reason), 'preview.restart.reason.' + reason, reason);
+  }
 });
 
 test('start sendet restart_all nur, wenn der Schalter an ist', async () => {

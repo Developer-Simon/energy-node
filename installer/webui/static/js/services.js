@@ -21,6 +21,9 @@
 
   var Services = {
     DASHBOARD_UNIT: DASHBOARD_UNIT,
+    // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels
+    // baut (Vorschau und Diagnose). Ein Test haelt die Liste gegen das Skript.
+    WHEEL_COMPONENTS: ['energy_node_common', 'battery_soc_core'],
 
     // isSelected: ein fehlender Schluessel ist "aus", nie "default". Sonst
     // braechte ein Update einen neuen Dienst ungefragt mit.
