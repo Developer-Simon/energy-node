@@ -18,6 +18,8 @@
 - **⚠ Breaking:** move node telemetry into the dashboard, delete the energy-node service (540eac6)
 - **appconfig:** add dashboard.node_* alongside the node block (e1c73d1)
 - **docs:** Add comprehensive documentation on dashboard and services (35cce56)
+- make device services self-describing with per-service manifests (#12) (2e8c911)
+- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
 
 ### Refactors
 
@@ -26,6 +28,7 @@
 - **appconfig:** derive the service set from manifests/, not a table (652345c)
 - rename product Werkstatt-IoT to Energy Node repo-wide (3978730)
 - rename Werkstatt-IoT to Energy Node, externalize deploy config, and document pi migration (daf06da)
+- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
 
 ### Documentation
 
@@ -48,17 +51,6 @@
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
-
-## v0.2.10 (2026-09-09)
-
-### Features
-
-- make device services self-describing with per-service manifests (#12) (2e8c911)
-- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
-
-### Refactors
-
-- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
 
 ## v0.1.24 (2026-08-30)
 
