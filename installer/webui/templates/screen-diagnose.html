@@ -8,6 +8,7 @@
     <template x-if="part.type === 'fail'"><p class="fail-p" x-text="part.text"></p></template>
     <template x-if="part.type === 'fail' && part.retry"><div class="acts"><button type="button" class="primary small" :disabled="busy" @click="retry(part)" x-text="part.retry.label"></button></div></template>
     <template x-if="part.type === 'warnbox'"><p x-text="part.text"></p></template>
+    <template x-if="part.type === 'devs'"><span x-text="part.text"></span></template>
   </div>
 </template>{{end}}
 

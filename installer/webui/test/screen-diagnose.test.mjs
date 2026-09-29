@@ -191,3 +191,68 @@ test('fehlende Firewall-Regel: Fehler mit Reparatur ueber Schritt 35 unter der F
   assert.equal(fail.title, 'Die Firewall-Freigabe fehlt');
   assert.deepEqual(plain(fail.retry), { stepId: '35', label: 'Schritt 3 · Shelly-Wake-Webhook in der Firewall erneut ausführen' });
 });
+
+// Versionen und Geraete: reine Information aus installed-manifest.json und
+// den *_devices.json, sie zaehlen nicht in der Bilanz.
+const DIAGNOSE_INFO = Object.assign({}, DIAGNOSE, {
+  units: { 'battery-soc.service': 'not-installed' },
+  checks: DIAGNOSE.checks.filter((check) => check.name !== 'unit battery-soc.service'),
+  versions: {
+    components: { dashboard: 'v1.4.2', bootstrap: 'v1.0.5', services: 'v3.7.1', energy_node_common: 'v1.4.2', battery_soc_core: 'v0.9.3', tinytuya: '1.16.0', 'paho-mqtt': '2.1.0' },
+    services: { 'shelly-rpc.service': 'v0.4.3', 'tuya.service': 'v0.4.2' },
+  },
+  devices: {
+    'shelly-rpc.service': [{ id: 'plug', name: 'Plug S+' }, { id: 'em3', name: '3EM Hauptzähler' }],
+    'tuya.service': [],
+    'trucki-http.service': null,
+    'apsystems-ez1.service': [{ id: 'ez1', name: 'EZ1 Dach' }],
+  },
+});
+
+test('die Dienste-Karte zeigt Version, Geraete und nicht installierte Dienste', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': DIAGNOSE_INFO } });
+  const [card] = screen.leftCards;
+  assert.deepEqual(plain(card.parts.filter((part) => part.type !== 'fail').map((part) => part.type === 'r' ? [part.name, part.value, part.dot] : [part.type, part.text])), [
+    ['apsystems-ez1', 'aktiv', 'd'], ['devs', '1 Gerät: EZ1 Dach'],
+    ['automation', 'aktiv', 'd'],
+    ['shelly-rpc · 0.4.3', 'fehlgeschlagen', 'd bad'], ['devs', '2 Geräte: Plug S+, 3EM Hauptzähler'],
+    ['trucki-http', 'aktiv', 'd'], ['devs', 'Gerätedatei nicht lesbar'],
+    ['tuya · 0.4.2', 'aktiv', 'd'], ['devs', 'keine Geräte eingerichtet'],
+    ['battery-soc', 'nicht installiert', 'd off'],
+  ]);
+  assert.deepEqual(plain(screen.tally), { ok: 13, warn: 0, bad: 1 }, 'Information zaehlt nicht mit');
+});
+
+test('die Versionskarte nennt Paket, Bootstrap und Wheels, der Rest ist gezaehlt', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': DIAGNOSE_INFO } });
+  const card = screen.rightCards.find((c) => c.key === 'versions');
+  assert.equal(card.heading, 'Installierte Versionen');
+  assert.deepEqual(plain(rows(card)), [
+    ['Paket', '1.4.2'], ['Bootstrap', '1.0.5'],
+    ['Wheel energy_node_common', '1.4.2'], ['Wheel battery_soc_core', '0.9.3'],
+    ['übrige Abhängigkeiten', '2'],
+  ]);
+  assert.ok(card.parts.every((part) => part.dot === 'd off'));
+});
+
+test('ohne installiertes Manifest gibt es keine Versionskarte und die Sammelversion bleibt ohne Dienstversionen', async () => {
+  const bare = await mount();
+  assert.equal(bare.screen.rightCards.some((c) => c.key === 'versions'), false);
+  const view = Object.assign({}, DIAGNOSE, { versions: { components: { services: 'v3.7.1' }, services: {} } });
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': view } });
+  assert.deepEqual(plain(rows(screen.rightCards.find((c) => c.key === 'versions'))), [['Dienste (Repo)', '3.7.1']]);
+});
+
+test('der Bericht nimmt Versionen, Geraete und nicht installierte Dienste mit', async () => {
+  const { screen, window } = await mount({ responses: { 'GET /api/diagnose': DIAGNOSE_INFO } });
+  const saved = [];
+  window.Download.text = (name, content) => saved.push({ name, content });
+  screen.save();
+  const text = saved[0].content;
+  assert.ok(text.includes('INFO  unit battery-soc.service  not-installed\n'), text);
+  assert.ok(text.includes('INFO  service shelly-rpc.service  v0.4.3\n'), text);
+  assert.ok(text.includes('INFO  component bootstrap  v1.0.5\n'), text);
+  assert.ok(text.includes('INFO  devices shelly-rpc.service  plug,em3\n'), text);
+  assert.ok(text.includes('INFO  devices trucki-http.service  unreadable\n'), text);
+  assert.ok(text.includes('INFO  devices tuya.service  -\n'), text);
+});
