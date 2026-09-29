@@ -196,12 +196,12 @@ func newScenario(name string, opts options) *stagedBackend {
 				{ID: "40", State: "done", Optional: true, Selected: true},
 				{ID: "50", State: "pending"}, {ID: "60", State: "pending"},
 				{ID: "70", State: "done", Optional: true, Selected: true},
-				{ID: "81", State: "done", Optional: true, Selected: true, Unit: "apsystems-ez1.service"},
+				{ID: "81", State: "done", Optional: true, Selected: true, Unit: "apsystems-ez1.service", From: "v1.0.2", To: "v1.0.2"},
 				{ID: "82", State: "deselected", Optional: true, Unit: "battery-soc.service"},
-				{ID: "83", State: "done", Optional: true, Selected: true, Unit: "shelly-rpc.service"},
-				{ID: "84", State: "done", Optional: true, Selected: true, Unit: "trucki-http.service"},
-				{ID: "85", State: "pending", Optional: true, Selected: true, Unit: "tuya.service"},
-				{ID: "88", State: "pending", Optional: true, Selected: true, Unit: "automation.service"},
+				{ID: "83", State: "done", Optional: true, Selected: true, Unit: "shelly-rpc.service", From: "v1.0.4", To: "v1.0.4"},
+				{ID: "84", State: "done", Optional: true, Selected: true, Unit: "trucki-http.service", From: "v1.0.1", To: "v1.0.1"},
+				{ID: "85", State: "pending", Optional: true, Selected: true, Unit: "tuya.service", From: "v1.0.0", To: "v1.0.1", Restart: "version"},
+				{ID: "88", State: "pending", Optional: true, Selected: true, Unit: "automation.service", From: "v1.0.0", To: "v1.0.0", Restart: "library"},
 				{ID: "89", State: "deselected", Optional: true, Unit: "modbus.service"},
 			},
 			Components: map[string]hostapi.ComponentDelta{
@@ -241,6 +241,24 @@ func newScenario(name string, opts options) *stagedBackend {
 			{Name: "port 8080", OK: true, Detail: "open", RetryStepID: "60", Group: "system", Subject: "8080"},
 			{Name: "config.json", OK: true, Detail: "present=true", RetryStepID: "60", Group: "config", Subject: "config.json"},
 			{Name: "tailscale login", OK: true, Detail: "angemeldet=true", RetryStepID: "40", Group: "system", Subject: "tailscale"},
+		},
+		Versions: &hostapi.DiagnoseVersions{
+			Components: map[string]string{
+				"dashboard": "1.4.2", "bootstrap": "v1.0.5", "services": "3.7.1",
+				"energy_node_common": "1.4.2", "battery_soc_core": "0.9.3",
+				"tinytuya": "1.16.0", "paho-mqtt": "2.1.0",
+			},
+			Services: map[string]string{
+				"apsystems-ez1.service": "v1.0.2", "automation.service": "v1.0.0", "battery-soc.service": "v1.1.0",
+				"shelly-rpc.service": "v1.0.4", "trucki-http.service": "v1.0.1", "tuya.service": "v1.0.1",
+			},
+		},
+		Devices: map[string][]hostapi.DeviceEntry{
+			"apsystems-ez1.service": {{ID: "ez1_dach", Name: "EZ1 Dach"}},
+			"battery-soc.service":   {{ID: "battery_soc", Name: "Batterie-Ladezustand"}},
+			"shelly-rpc.service":    {{ID: "plug_kueche", Name: "Plug S+ Küche"}, {ID: "hauptzaehler", Name: "3EM Hauptzähler"}, {ID: "relais_1", Name: "Relais 1"}},
+			"trucki-http.service":   {{ID: "trucki", Name: "Trucki Stick"}},
+			"tuya.service":          {},
 		},
 	}
 
