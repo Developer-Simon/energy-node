@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.0 (2026-09-28)
+## v0.8.0 (2026-09-29)
 
 ### Features
 
@@ -82,6 +82,7 @@
 
 ### Documentation
 
+- **dashboard:** final review of the localization (#75) (ea05c63)
 - **dashboard:** English screenshots and docs for the bilingual UI (85caf1c)
 - **dashboard:** describe config_revision as the last load attempt (715dd30)
 - **battery_soc:** document DC-only systems, signed inputs and current units (6c2df1f)
@@ -164,6 +165,8 @@
 - **dashboard:** add Config.ServiceInstalled with the default-on rule Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (faa9300)
 - **dashboard:** thread a resolved installed_services map into the overview handler (9dbaa36)
 - **dashboard:** hide the automations tab and tailscale/tuya settings subpages when deselected Co-Authored-By: Claude Haiku 4.5 <noreply@anthropic.com> (106aa98)
+- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
+- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
 
 ### Fixes
 
@@ -186,13 +189,6 @@
 
 - **dashboard:** bump cache-busted asset versions (d8d2094)
 - **dashboard:** depend on the energy-node-webui module (0ed9456)
-
-## v0.6.7 (2026-09-16)
-
-### Features
-
-- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
-- **installer:** add the dashboard's local self-update path (Plan D) (#33) (e50d236)
 
 ## v0.6.5 (2026-09-13)
 

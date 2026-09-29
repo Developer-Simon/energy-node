@@ -94,7 +94,11 @@
 #   der In-Branch-Commit vor einem Squash-Merge, dessen Titel der neue
 #   "(#NN)"-Eintrag der Merge-Referenz wiederholt). Bloecke <= Cap (getaggte
 #   und vor einem Tag geschriebene aeltere), "## Unversioniert" und
-#   Nicht-"vX.Y.Z"-Ueberschriften bleiben unberuehrt. Gibt es keinen
+#   Nicht-"vX.Y.Z"-Ueberschriften bleiben unberuehrt. Ausnahme: ein gebauter
+#   Abschnitt, dessen Version an keinem Tag stand, wandert in den gebauten
+#   Abschnitt des naechsthoeheren getaggten Release, mit dem er erschienen ist
+#   (Minor-Bump und Tag im selben Commit: v0.7.26 -> v0.8.0), sofern er nicht
+#   schon eingefroren in der Datei steht. Gibt es keinen
 #   erreichbaren Tag (tagloses Repo), gilt der alte Fallback: nur derselbe Minor
 #   wie der offene Abschnitt, neuer als der naechste getaggte Release darunter.
 #
@@ -850,10 +854,14 @@ except Exception:
   # bleibt es beim Same-Minor-Fallback in in_open_span.
   local cap_major="" cap_minor="" cap_patch=""
   local _tag _tv
+  # tagged_vers: jede Version dieser Komponente, die an einem erreichbaren Tag
+  # stand ("vX.Y.Z"), fuer Fall 0b der Release-Cap-Zusammenfuehrung.
+  local -a tagged_vers=()
   while IFS= read -r _tag; do
     [[ -z "$_tag" ]] && continue
     _tv="$(version_at_ref "$_tag" "${version_file_candidates[@]}")" || continue
     [[ "$_tv" =~ $VERSION_RE ]] || continue
+    tagged_vers+=("$_tv")
     if [[ -z "$cap_major" ]] || ver_gt "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" \
                                         "$cap_major" "$cap_minor" "$cap_patch"; then
       cap_major="${BASH_REMATCH[1]}"
@@ -1009,6 +1017,53 @@ except Exception:
       done
       frozen_tail="$kept_tail"
     fi
+  fi
+
+  # Fall 0b (nach Fall 1 und 2, damit frozen_tail nur noch die Bloecke haelt,
+  # die wirklich eingefroren stehen bleiben): ein gebauter Abschnitt, dessen
+  # Version an keinem Tag stand, ist
+  # mit dem naechsthoeheren getaggten Release erschienen und wird in dessen
+  # gebauten Abschnitt gezogen. Typisch: der Minor-/Major-Bump und der Tag
+  # landen im selben Commit (v0.7.26 -> v0.8.0 getaggt). Vor dem Tag hat
+  # Fall 0 die v0.7.x-Arbeit in den offenen v0.8.0 gezogen, danach liegt
+  # v0.7.26 unter dem Cap und stuende sonst wieder als eigener Abschnitt da.
+  if (( nsec > 1 && ${#tagged_vers[@]} > 0 )); then
+    local -A _built_by_ver=() _fold_0b=()
+    for (( k = 0; k < nsec; k++ )); do
+      [[ -n "${SECTION_FOLDED[$k]:-}" || "${SECTION_UNVER[$k]}" == "1" ]] && continue
+      [[ "${SECTION_VER[$k]}" =~ $VERSION_RE ]] && _built_by_ver["${SECTION_VER[$k]}"]=$k
+    done
+    local _sv _sM _sm _sp _t _next _nM _nm _np _is_tagged _to
+    for (( k = 0; k < nsec; k++ )); do
+      [[ -n "${SECTION_FOLDED[$k]:-}" || "${SECTION_UNVER[$k]}" == "1" ]] && continue
+      [[ "${SECTION_VER[$k]}" =~ $VERSION_RE ]] || continue
+      _sv="${SECTION_VER[$k]}"
+      _sM="${BASH_REMATCH[1]}"; _sm="${BASH_REMATCH[2]}"; _sp="${BASH_REMATCH[3]}"
+      _is_tagged=false _next=""
+      for _t in "${tagged_vers[@]}"; do
+        [[ "$_t" == "$_sv" ]] && { _is_tagged=true; break; }
+        [[ "$_t" =~ $VERSION_RE ]] || continue
+        ver_gt "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}" "$_sM" "$_sm" "$_sp" || continue
+        if [[ -z "$_next" ]] || ver_gt "$_nM" "$_nm" "$_np" "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"; then
+          _next="$_t"; _nM="${BASH_REMATCH[1]}"; _nm="${BASH_REMATCH[2]}"; _np="${BASH_REMATCH[3]}"
+        fi
+      done
+      $_is_tagged && continue
+      [[ -n "$_next" ]] || continue
+      # Alte Geschichte, die schon eingefroren in der Datei steht, bleibt wo
+      # sie ist - die Endausgabe verwirft diesen Abschnitt ohnehin als Doppel.
+      [[ -n "$frozen_tail" ]] && section_covered_by "${SECTIONS[$k]}" "$frozen_tail" && continue
+      _to="${_built_by_ver[$_next]:-}"
+      [[ -n "$_to" && "$_to" != "$k" ]] || continue
+      _fold_0b[$_to]+="${SECTIONS[$k]}"$'\0'
+      SECTION_FOLDED[$k]=1
+    done
+    for _to in "${!_fold_0b[@]}"; do
+      local -a _extra_0b=()
+      mapfile -d '' -t _extra_0b < <(printf '%s' "${_fold_0b[$_to]}")
+      merge_section_blocks "${SECTIONS[$_to]}" "${_extra_0b[@]}"
+      SECTIONS[_to]="$MERGED_BLOCK"
+    done
   fi
 
   local final_blocks=()

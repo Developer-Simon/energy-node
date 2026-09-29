@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.1.12 (2026-09-28)
+## v0.1.12 (2026-09-29)
 
 ### Features
 
@@ -17,6 +17,10 @@
 - **dashboard:** tidy localization texts after the final review (c2b5853)
 - **dashboard:** drop two unused catalog keys (b1e01ca)
 - **webui:** add the changelog error codes to the installer web UI catalogs (6f23aff)
+
+### Documentation
+
+- **dashboard:** final review of the localization (#75) (ea05c63)
 
 ## v0.1.8 (2026-09-23)
 

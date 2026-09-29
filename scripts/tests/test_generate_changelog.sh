@@ -410,4 +410,45 @@ grep -q "dial the node"    "$wcl" && fail "installer-webui listed an installer c
 grep -q "retry apt"        "$bcl" || fail "bootstrap lost its own commit"
 grep -q "^## v0.1.0 "      "$icl" || fail "installer section not headed by installer/VERSION"
 
+# --- minor bump and tag in one commit: the untagged patch run joins it -----
+# v0.7.x work is never tagged itself; the release is the commit that bumps to
+# v0.8.0 and carries the tag. Before the fix the v0.7.x commits came back as
+# their own "## v0.7.2" section under the tagged v0.8.0, although they already
+# stood in it - and they must not return once v0.8.1 is open either.
+rel="$(mktemp -d)"
+git -C "$rel" init -q
+git -C "$rel" config user.email t@t
+git -C "$rel" config user.name t
+mkdir -p "$rel/scripts" "$rel/dashboard"
+cp "$repo/scripts/generate_changelog.sh" "$rel/scripts/generate_changelog.sh"
+rgen() { ( cd "$rel" && bash scripts/generate_changelog.sh "$@" ) >/dev/null; }
+rcommit() { git -C "$rel" add -A && git -C "$rel" commit -qm "$1"; }
+rcl="$rel/dashboard/CHANGELOG.md"
+echo v0.7.0 > "$rel/dashboard/VERSION"; echo a > "$rel/dashboard/a.js"
+rcommit "feat(dashboard): first release"
+git -C "$rel" tag v0.7.0
+echo v0.7.1 > "$rel/dashboard/VERSION"; echo b > "$rel/dashboard/b.js"
+rcommit "feat(dashboard): untagged patch work (#1)"
+echo v0.7.2 > "$rel/dashboard/VERSION"; echo c > "$rel/dashboard/c.js"
+rcommit "fix(dashboard): more untagged patch work (#2)"
+rgen dashboard
+echo v0.8.0 > "$rel/dashboard/VERSION"; echo d > "$rel/dashboard/d.js"
+rcommit "docs(dashboard): release review (#3)"
+git -C "$rel" tag v0.8.0
+rgen dashboard
+[ "$(grep -c "^## v0.7.2 " "$rcl")" -eq 0 ] || { rm -rf "$rel"; fail "untagged v0.7.2 stands next to the tagged v0.8.0"; }
+[ "$(grep -c "untagged patch work (#1)" "$rcl")" -eq 1 ] || { rm -rf "$rel"; fail "patch work lost or duplicated at the tagged release"; }
+v8="$(awk '/^## v0.8.0 /{on=1;next} /^## /{on=0} on' "$rcl")"
+grep -q "more untagged patch work (#2)" <<<"$v8" || { rm -rf "$rel"; fail "patch work not in the release that shipped it"; }
+grep -q "^## v0.7.0 " "$rcl" || { rm -rf "$rel"; fail "the tagged v0.7.0 section went missing"; }
+echo v0.8.1 > "$rel/dashboard/VERSION"; echo e > "$rel/dashboard/e.js"
+rcommit "feat(dashboard): after the release (#4)"
+rgen dashboard
+[ "$(grep -c "^## v0.7.2 " "$rcl")" -eq 0 ] || { rm -rf "$rel"; fail "v0.7.2 came back once v0.8.1 was open"; }
+[ "$(grep -c "untagged patch work (#1)" "$rcl")" -eq 1 ] || { rm -rf "$rel"; fail "patch work duplicated once v0.8.1 was open"; }
+grep -q "^## v0.8.1 " "$rcl" || { rm -rf "$rel"; fail "open v0.8.1 section missing"; }
+cp "$rcl" "$rel/before.md"; rgen dashboard
+cmp -s "$rcl" "$rel/before.md" || { rm -rf "$rel"; fail "second run after the release is not idempotent"; }
+rm -rf "$rel"
+
 echo "OK"
