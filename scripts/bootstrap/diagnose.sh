@@ -9,6 +9,9 @@
 # Bash sammelt Zeilen der Form "art<TAB>schluessel<TAB>wert", Python baut
 # daraus das JSON. So steckt das Escaping an genau einer Stelle.
 set -uo pipefail
+# Vor step.sh merken: step.sh setzt EN_TARGET_BASE ohne Vorgabe auf $HOME,
+# die Diagnose nimmt dann lieber target_base aus dem installierten Manifest.
+DIAG_TARGET_BASE="${EN_TARGET_BASE:-}"
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
 # shellcheck source=scripts/bootstrap/lib/shelly_webhook.sh
@@ -37,10 +40,11 @@ collect() {
   done
 
   # Units: die festen plus jede unit aus der Schrittliste des Manifests.
-  local units=("${FIXED_UNITS[@]}") unit
+  local units=("${FIXED_UNITS[@]}") unit state
+  local service_units=()
   if [[ -f "${EN_BUNDLE_DIR}/manifest.json" ]]; then
     while IFS= read -r unit; do
-      [[ -n "${unit}" ]] && units+=("${unit}")
+      [[ -n "${unit}" ]] && units+=("${unit}") && service_units+=("${unit}")
     done < <(python3 -c '
 import json, sys
 try:
@@ -52,9 +56,16 @@ for entry in data.get("steps", []):
         print(entry["unit"])
 ' "${EN_BUNDLE_DIR}/manifest.json")
   fi
+  # Eine Dienst-Unit, die nicht laeuft und deren Unit-Datei fehlt (die legt
+  # service_step.sh an), ist nicht installiert - der Dienst wurde nie
+  # gewaehlt. Das ist kein Fehler, sondern "not-installed".
   for unit in "${units[@]}"; do
-    printf 'unit%s%s%s%s\n' "$tab" "${unit}" "$tab" \
-      "$(systemctl is-active "${unit}" 2>/dev/null || true)"
+    state="$(systemctl is-active "${unit}" 2>/dev/null || true)"
+    if [[ "${state}" != active && " ${service_units[*]} " == *" ${unit} "* \
+          && ! -f "${EN_ROOT}/etc/systemd/system/${unit}" ]]; then
+      state=not-installed
+    fi
+    printf 'unit%s%s%s%s\n' "$tab" "${unit}" "$tab" "${state}"
   done
 
   # Lauschende Ports. ss fehlt auf manchen Minimal-Images; dann gilt nichts
@@ -99,6 +110,57 @@ for entry in data.get("steps", []):
     printf 'manifest%s%s%s\n' "$tab" "$(basename "${manifest}" .json)" "$tab"
   done
 
+  # Installierte Versionen (aus installed-manifest.json, das der Installer
+  # nach jedem vollstaendigen Lauf ablegt) und die konfigurierten Geraete je
+  # Dienst. Welche *_devices.json zu welchem Dienst gehoert, steht im Bundle
+  # unter services/<dir>/devices/. Beides ist reine Information, keine
+  # Pruefung. JSON in der dritten Spalte enthaelt nie einen rohen Tab.
+  python3 - "${EN_STATE_DIR}/installed-manifest.json" "${EN_BUNDLE_DIR}" \
+    "${DIAG_TARGET_BASE}" "${EN_ROOT}" "${HOME:-}" <<'PY'
+import json, pathlib, sys
+
+installed_path, bundle_dir, explicit_base, root, home = sys.argv[1:6]
+
+def load(path):
+    try:
+        return json.loads(pathlib.Path(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+installed = load(installed_path)
+bundle = load(pathlib.Path(bundle_dir) / "manifest.json") or {}
+if isinstance(installed, dict):
+    for name, version in sorted((installed.get("components") or {}).items()):
+        print("version\tcomponent:%s\t%s" % (name, version))
+    for step in installed.get("steps") or []:
+        if step.get("unit") and step.get("version"):
+            print("version\tservice:%s\t%s" % (step["unit"], step["version"]))
+
+base = explicit_base or (installed or {}).get("target_base") or bundle.get("target_base") or home
+devices_dir = pathlib.Path(root + base) / "devices"
+for step in bundle.get("steps") or []:
+    unit, directory = step.get("unit"), step.get("dir")
+    if not unit or not directory:
+        continue
+    source = pathlib.Path(bundle_dir) / "services" / directory / "devices"
+    names = sorted(p.name for p in source.glob("*_devices.json")) if source.is_dir() else []
+    items, readable, found = [], True, False
+    for name in names:
+        path = devices_dir / name
+        if not path.is_file():
+            continue
+        found = True
+        data = load(path)
+        if not isinstance(data, list):
+            readable = False
+            continue
+        for entry in data:
+            if isinstance(entry, dict) and entry.get("id"):
+                items.append({"id": str(entry["id"]), "name": str(entry.get("name") or entry["id"])})
+    if found:
+        print("devices\t%s\t%s" % (unit, json.dumps(items if readable else None, ensure_ascii=False)))
+PY
+
   # tailscale liegt in /usr/sbin, das im PATH einer nicht-interaktiven
   # SSH-Sitzung fehlt (Debian: /usr/local/bin:/usr/bin:/bin:/usr/games). Ein
   # "command -v" fand es dort nie und meldete einen angemeldeten Node als
@@ -123,6 +185,10 @@ report = {
     "ports": {},
     "config": {"config.json": False, "manifests": []},
     "tailscale": {"angemeldet": False},
+    # installierte Versionen: components wie im Manifest, services je Unit.
+    "versions": {"components": {}, "services": {}},
+    # Geraete je Unit: Liste aus id/name, null = Geraetedatei nicht lesbar.
+    "devices": {},
 }
 
 for line in sys.stdin:
@@ -143,6 +209,11 @@ for line in sys.stdin:
         report["config"]["manifests"].append(key)
     elif kind == "tailscale":
         report["tailscale"][key] = value == "true"
+    elif kind == "version":
+        group, _, name = key.partition(":")
+        report["versions"]["components" if group == "component" else "services"][name] = value
+    elif kind == "devices":
+        report["devices"][key] = json.loads(value)
     elif kind == "webhook":
         # Nur vorhanden, wenn die Freigabe gewaehlt ist (Schritt 35).
         hook = report.setdefault("shelly_webhook", {})
