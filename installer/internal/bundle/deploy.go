@@ -44,6 +44,8 @@ func stagingTag(remoteDir string) string {
 	return replacer.Replace(strings.Trim(remoteDir, "/"))
 }
 
+const VerifiedManifestName = ".verified-manifest.json"
+
 // Deploy uploads the archive at localArchivePath to the node and extracts
 // it under remoteDir, replacing whatever was there. remoteDir ends up
 // holding exactly the layout Vertrag 1 describes -- manifest.json,
@@ -92,6 +94,26 @@ func DeployProgress(ctx context.Context, client *transport.Client, localArchiveP
 	return nil
 }
 
+// verifyBundleErrorMessage constructs the error message for a verify_bundle.sh
+// FEHLER result, including stderr output when available.
+func verifyBundleErrorMessage(stderr string) string {
+	msg := "verify_bundle.sh rejected the bundle on the node"
+	lines := strings.Split(strings.TrimSpace(stderr), "\n")
+	var nonEmptyLines []string
+	for _, line := range lines {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			nonEmptyLines = append(nonEmptyLines, trimmed)
+		}
+	}
+	if len(nonEmptyLines) > 0 {
+		if len(nonEmptyLines) > 10 {
+			nonEmptyLines = nonEmptyLines[:10]
+		}
+		msg += ": " + strings.Join(nonEmptyLines, ", ")
+	}
+	return msg
+}
+
 // VerifyRemote runs verify_bundle.sh --target against an already-deployed
 // bundle: it re-checks signature and hashes on the exact bytes that landed
 // on the node, and -- the reason this cannot be a purely local Go check --
@@ -129,7 +151,7 @@ func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir strin
 		return nil
 	}
 	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: "verify_bundle.sh rejected the bundle on the node"}
+		return &Error{Code: FaultCode(code), Message: verifyBundleErrorMessage(stderr.String())}
 	}
 	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
 }
@@ -155,7 +177,7 @@ func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir st
 		return nil
 	}
 	if code, ok := strings.CutPrefix(result, "FEHLER "); ok {
-		return &Error{Code: FaultCode(code), Message: "verify_bundle.sh rejected the bundle on the node"}
+		return &Error{Code: FaultCode(code), Message: verifyBundleErrorMessage(stderr.String())}
 	}
 	return fmt.Errorf("verify_bundle.sh failed unexpectedly: %w (stdout: %q, stderr: %q)", runErr, stdout.String(), stderr.String())
 }
@@ -174,22 +196,24 @@ func LastLine(s string) string {
 	return s
 }
 
-// ReadInstalledManifest downloads <remoteStateDir>/installed-manifest.json
-// (written by steps.RecordInstalled after every full run since #43) and
-// parses it. Any problem -- the node has never completed a full run, the
+// ReadVerifiedManifest downloads <remoteBundleDir>/.verified-manifest.json
+// and parses it. The file is a copy of manifest.json that MarkVerified writes
+// only after verify_bundle.sh accepted the directory, and every transfer
+// removes it before changing the directory, so it describes exactly the last
+// verified content. Any problem -- the directory has never been verified, the
 // file is unreadable, or its JSON is corrupt -- is reported as nil, not an
 // error: DeployDelta's caller treats "no trustworthy record" as "do a full
 // transfer", exactly as internal/host/host.go's currentSelection already
 // does for the same node's selection.json.
-func ReadInstalledManifest(ctx context.Context, client *transport.Client, remoteStateDir string) *Manifest {
-	tmp, err := os.CreateTemp("", "energy-node-installer-installed-manifest-*.json")
+func ReadVerifiedManifest(ctx context.Context, client *transport.Client, remoteBundleDir string) *Manifest {
+	tmp, err := os.CreateTemp("", "energy-node-installer-verified-manifest-*.json")
 	if err != nil {
 		return nil
 	}
 	tmp.Close()
 	defer os.Remove(tmp.Name())
 
-	if err := client.DownloadFile(path.Join(remoteStateDir, "installed-manifest.json"), tmp.Name()); err != nil {
+	if err := client.DownloadFile(path.Join(remoteBundleDir, VerifiedManifestName), tmp.Name()); err != nil {
 		return nil
 	}
 	raw, err := os.ReadFile(tmp.Name())
@@ -201,6 +225,85 @@ func ReadInstalledManifest(ctx context.Context, client *transport.Client, remote
 		return nil
 	}
 	return &m
+}
+
+// MarkVerified copies <dir>/manifest.json to <dir>/.verified-manifest.json
+// to mark the directory as having passed verification. The operation is
+// atomic: the temp file is moved into place after the copy completes.
+func MarkVerified(ctx context.Context, client *transport.Client, remoteBundleDir string) error {
+	tmpName := VerifiedManifestName + ".tmp"
+	command := fmt.Sprintf(
+		"cp %s %s && mv -f %s %s",
+		transport.ShellQuote(path.Join(remoteBundleDir, "manifest.json")),
+		transport.ShellQuote(path.Join(remoteBundleDir, tmpName)),
+		transport.ShellQuote(path.Join(remoteBundleDir, tmpName)),
+		transport.ShellQuote(path.Join(remoteBundleDir, VerifiedManifestName)),
+	)
+	var stdout, stderr bytes.Buffer
+	if err := client.Run(ctx, command, &stdout, &stderr); err != nil {
+		// Best-effort cleanup of temp file
+		cleanupCmd := fmt.Sprintf("rm -f %s", transport.ShellQuote(path.Join(remoteBundleDir, tmpName)))
+		_ = client.Run(ctx, cleanupCmd, &bytes.Buffer{}, &bytes.Buffer{})
+		return fmt.Errorf("MarkVerified: %w (stderr: %q)", err, stderr.String())
+	}
+	return nil
+}
+
+// HashRemoteDir returns a Manifest whose Files maps every regular file under
+// the directory (with relpaths using forward slashes, no leading "./") to its
+// sha256, EXCLUDING manifest.json, manifest.json.sig, and .verified-manifest.json(.tmp)
+// at the top level. A missing directory is not an error: it returns an empty
+// Files map. Malformed output or a command error is reported as an error.
+func HashRemoteDir(ctx context.Context, client *transport.Client, remoteBundleDir string) (*Manifest, error) {
+	command := fmt.Sprintf(
+		"if [ -d %s ]; then cd %s && find . -type f ! -path ./manifest.json ! -path ./manifest.json.sig ! -path './.verified-manifest.json*' -print0 | xargs -0 -r sha256sum; fi",
+		transport.ShellQuote(remoteBundleDir),
+		transport.ShellQuote(remoteBundleDir),
+	)
+	var stdout, stderr bytes.Buffer
+	if err := client.Run(ctx, command, &stdout, &stderr); err != nil {
+		return nil, fmt.Errorf("HashRemoteDir: %w (stderr: %q)", err, stderr.String())
+	}
+
+	files := make(map[string]string)
+	for _, line := range strings.Split(strings.TrimSpace(stdout.String()), "\n") {
+		if line == "" {
+			continue
+		}
+		// Skip lines that start with a backslash (escaped filenames)
+		if strings.HasPrefix(line, "\\") {
+			continue
+		}
+		// Parse "<64 hex>  ./rel"
+		parts := strings.Fields(line)
+		if len(parts) < 2 {
+			return nil, fmt.Errorf("HashRemoteDir: malformed sha256sum line: %q", line)
+		}
+		hash := parts[0]
+		relPath := parts[1]
+		// Remove leading "./"
+		if strings.HasPrefix(relPath, "./") {
+			relPath = relPath[2:]
+		}
+		files[relPath] = hash
+	}
+
+	return &Manifest{Files: files}, nil
+}
+
+// DeltaBase returns the best available diff base for computing what must
+// change in the next incremental transfer. It tries ReadVerifiedManifest first;
+// if that returns nil, it falls back to HashRemoteDir; if that errors, it
+// returns an empty manifest. source is "verified", "hashed", or "none".
+// DeltaBase never returns nil.
+func DeltaBase(ctx context.Context, client *transport.Client, remoteBundleDir string) (base *Manifest, source string) {
+	if base := ReadVerifiedManifest(ctx, client, remoteBundleDir); base != nil {
+		return base, "verified"
+	}
+	if base, err := HashRemoteDir(ctx, client, remoteBundleDir); err == nil {
+		return base, "hashed"
+	}
+	return &Manifest{Files: map[string]string{}}, "none"
 }
 
 // isSafeRelPath rejects a manifest-listed relpath that would escape
@@ -227,7 +330,10 @@ func isSafeRelPath(rel string) bool {
 // whole contents. bundleDir is the unpacked, already-verified new bundle
 // changed's relpaths are read from (bundlesource.Resolved.Dir, or the
 // developer CLI's own extracted build directory); removed's relpaths name
-// files the *previous* bundle had that the new one no longer does.
+// files the *previous* bundle had that the new one no longer does. The diff
+// base comes from DeltaBase: it tries the .verified-manifest.json marker
+// (if present), falls back to hashing the current remoteDir, and returns an
+// empty manifest if neither is available.
 //
 // manifest.json and manifest.json.sig are always handled by DeployDelta
 // even though they are not listed in any manifest's own "files" map:
@@ -242,8 +348,17 @@ func isSafeRelPath(rel string) bool {
 // what lets it skip re-sending a file whose content did not change between
 // bundle versions. It relies on tar creating a file entry's missing parent
 // directories on extraction by itself (see PackFiles's own doc comment), so
-// a brand-new subdirectory in the new bundle needs no special handling.
+// a brand-new subdirectory in the new bundle needs no special handling. It
+// removes .verified-manifest.json at the start so a new verification must
+// run before the next incremental transfer.
 func DeployDelta(ctx context.Context, client *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
+	// Remove .verified-manifest.json marker as the first remote action,
+	// before any other changes, so a transfer is always atomic from the
+	// verification perspective.
+	if err := client.Run(ctx, "rm -f "+transport.ShellQuote(path.Join(remoteDir, VerifiedManifestName)), &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		return fmt.Errorf("removing %s before transfer: %w", VerifiedManifestName, err)
+	}
+
 	for _, rel := range changed {
 		if !isSafeRelPath(rel) {
 			return fmt.Errorf("bundle manifest lists an unsafe path: %q", rel)

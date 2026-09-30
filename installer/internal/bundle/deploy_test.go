@@ -305,65 +305,353 @@ func TestVerifyRemoteDevDoesNotUploadAPublicKey(t *testing.T) {
 	}
 }
 
-func TestReadInstalledManifestParsesAnExistingFile(t *testing.T) {
+func TestMarkVerifiedThenReadVerifiedManifestRoundTrips(t *testing.T) {
 	requireSFTPServerForBundle(t)
 	sshd := transporttest.Start(t)
 	client := dialForBundleTest(t, sshd)
-	remoteStateDir := "/tmp/energy-node-installer-installed-manifest-test/" + t.Name()
+	remoteBundleDir := "/tmp/energy-node-installer-verified-manifest-test/" + t.Name()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := client.Run(ctx, "mkdir -p "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
-		t.Fatalf("mkdir remoteStateDir: %v", err)
+	if err := client.Run(ctx, "mkdir -p "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("mkdir remoteBundleDir: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = client.Run(context.Background(), "rm -rf "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{})
+		_ = client.Run(context.Background(), "rm -rf "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{})
 	})
 	manifestJSON := `{"version":"v1.4.2","files":{"a":"1"}}`
-	if err := client.UploadBytes([]byte(manifestJSON), remoteStateDir+"/installed-manifest.json", 0o644); err != nil {
-		t.Fatalf("uploading installed-manifest.json: %v", err)
+	if err := client.UploadBytes([]byte(manifestJSON), remoteBundleDir+"/manifest.json", 0o644); err != nil {
+		t.Fatalf("uploading manifest.json: %v", err)
 	}
 
-	got := bundle.ReadInstalledManifest(ctx, client, remoteStateDir)
+	if err := bundle.MarkVerified(ctx, client, remoteBundleDir); err != nil {
+		t.Fatalf("MarkVerified: %v", err)
+	}
+
+	got := bundle.ReadVerifiedManifest(ctx, client, remoteBundleDir)
 	if got == nil || got.Version != "v1.4.2" || got.Files["a"] != "1" {
-		t.Fatalf("ReadInstalledManifest = %+v", got)
+		t.Fatalf("ReadVerifiedManifest = %+v", got)
 	}
 }
 
-func TestReadInstalledManifestReturnsNilWhenTheFileIsMissing(t *testing.T) {
+func TestReadVerifiedManifestReturnsNilWhenTheFileIsMissing(t *testing.T) {
 	requireSFTPServerForBundle(t)
 	sshd := transporttest.Start(t)
 	client := dialForBundleTest(t, sshd)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	got := bundle.ReadInstalledManifest(ctx, client, "/tmp/energy-node-installer-never-installed/"+t.Name())
+	got := bundle.ReadVerifiedManifest(ctx, client, "/tmp/energy-node-installer-never-verified/"+t.Name())
 	if got != nil {
-		t.Fatalf("ReadInstalledManifest = %+v, want nil", got)
+		t.Fatalf("ReadVerifiedManifest = %+v, want nil", got)
 	}
 }
 
-func TestReadInstalledManifestReturnsNilOnCorruptJSON(t *testing.T) {
+func TestReadVerifiedManifestReturnsNilOnCorruptJSON(t *testing.T) {
 	requireSFTPServerForBundle(t)
 	sshd := transporttest.Start(t)
 	client := dialForBundleTest(t, sshd)
-	remoteStateDir := "/tmp/energy-node-installer-corrupt-manifest-test/" + t.Name()
+	remoteBundleDir := "/tmp/energy-node-installer-corrupt-verified-manifest-test/" + t.Name()
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if err := client.Run(ctx, "mkdir -p "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
-		t.Fatalf("mkdir remoteStateDir: %v", err)
+	if err := client.Run(ctx, "mkdir -p "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("mkdir remoteBundleDir: %v", err)
 	}
 	t.Cleanup(func() {
-		_ = client.Run(context.Background(), "rm -rf "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{})
+		_ = client.Run(context.Background(), "rm -rf "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{})
 	})
-	if err := client.UploadBytes([]byte("not json"), remoteStateDir+"/installed-manifest.json", 0o644); err != nil {
-		t.Fatalf("uploading corrupt manifest: %v", err)
+	if err := client.UploadBytes([]byte("not json"), remoteBundleDir+"/.verified-manifest.json", 0o644); err != nil {
+		t.Fatalf("uploading corrupt verified manifest: %v", err)
 	}
 
-	got := bundle.ReadInstalledManifest(ctx, client, remoteStateDir)
+	got := bundle.ReadVerifiedManifest(ctx, client, remoteBundleDir)
 	if got != nil {
-		t.Fatalf("ReadInstalledManifest = %+v, want nil for corrupt JSON", got)
+		t.Fatalf("ReadVerifiedManifest = %+v, want nil for corrupt JSON", got)
+	}
+}
+
+func TestHashRemoteDirWithSeededFiles(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteBundleDir := "/tmp/energy-node-installer-hash-test/" + t.Name()
+
+	// Seed remoteDir with Deploy to populate it with files
+	seed := buildTestArchive(t, map[string]string{
+		"manifest.json":       `{"version":"v1"}`,
+		"manifest.json.sig":   "signature",
+		"bootstrap/10-apt.sh": "apt content",
+		"wheels/lib.whl":      "wheel content",
+		"nested/deep/file":    "nested content",
+	})
+	if err := bundle.Deploy(context.Background(), client, seed, remoteBundleDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = client.Run(context.Background(), "rm -rf "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{})
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := bundle.HashRemoteDir(ctx, client, remoteBundleDir)
+	if err != nil {
+		t.Fatalf("HashRemoteDir: %v", err)
+	}
+
+	// Verify manifest.json and manifest.json.sig are excluded
+	if _, ok := result.Files["manifest.json"]; ok {
+		t.Errorf("manifest.json should not be in HashRemoteDir results")
+	}
+	if _, ok := result.Files["manifest.json.sig"]; ok {
+		t.Errorf("manifest.json.sig should not be in HashRemoteDir results")
+	}
+
+	// Verify other files are included with correct hash
+	expectedHash := func(content string) string {
+		sum := sha256.Sum256([]byte(content))
+		return hex.EncodeToString(sum[:])
+	}
+	if result.Files["bootstrap/10-apt.sh"] != expectedHash("apt content") {
+		t.Errorf("bootstrap/10-apt.sh hash mismatch")
+	}
+	if result.Files["wheels/lib.whl"] != expectedHash("wheel content") {
+		t.Errorf("wheels/lib.whl hash mismatch")
+	}
+	if result.Files["nested/deep/file"] != expectedHash("nested content") {
+		t.Errorf("nested/deep/file hash mismatch")
+	}
+}
+
+func TestHashRemoteDirWithMissingDirectory(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteBundleDir := "/tmp/energy-node-installer-hash-missing-test/" + t.Name()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	result, err := bundle.HashRemoteDir(ctx, client, remoteBundleDir)
+	if err != nil {
+		t.Fatalf("HashRemoteDir for missing dir: %v", err)
+	}
+	if result == nil || len(result.Files) != 0 {
+		t.Fatalf("HashRemoteDir for missing dir should return empty Files map, got %+v", result)
+	}
+}
+
+func TestDeltaBaseWithVerifiedMarker(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteBundleDir := "/tmp/energy-node-installer-delta-base-verified-test/" + t.Name()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.Run(ctx, "mkdir -p "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("mkdir remoteBundleDir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = client.Run(context.Background(), "rm -rf "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{})
+	})
+
+	manifestJSON := `{"version":"v1.4.2","files":{"a":"1"}}`
+	if err := client.UploadBytes([]byte(manifestJSON), remoteBundleDir+"/manifest.json", 0o644); err != nil {
+		t.Fatalf("uploading manifest.json: %v", err)
+	}
+	if err := bundle.MarkVerified(ctx, client, remoteBundleDir); err != nil {
+		t.Fatalf("MarkVerified: %v", err)
+	}
+
+	base, source := bundle.DeltaBase(ctx, client, remoteBundleDir)
+	if source != "verified" {
+		t.Fatalf("DeltaBase source = %q, want 'verified'", source)
+	}
+	if base == nil || base.Version != "v1.4.2" {
+		t.Fatalf("DeltaBase returned nil or wrong manifest: %+v", base)
+	}
+}
+
+func TestDeltaBaseWithoutVerifiedMarker(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteBundleDir := "/tmp/energy-node-installer-delta-base-hashed-test/" + t.Name()
+
+	// Seed with files but no .verified-manifest.json
+	seed := buildTestArchive(t, map[string]string{
+		"manifest.json":       `{"version":"v1"}`,
+		"bootstrap/10-apt.sh": "apt content",
+	})
+	if err := bundle.Deploy(context.Background(), client, seed, remoteBundleDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = client.Run(context.Background(), "rm -rf "+remoteBundleDir, &bytes.Buffer{}, &bytes.Buffer{})
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	base, source := bundle.DeltaBase(ctx, client, remoteBundleDir)
+	if source != "hashed" {
+		t.Fatalf("DeltaBase source = %q, want 'hashed'", source)
+	}
+	if base == nil || len(base.Files) == 0 {
+		t.Fatalf("DeltaBase should return hashed files: %+v", base)
+	}
+	// bootstrap/10-apt.sh should be in the hashed result
+	if _, ok := base.Files["bootstrap/10-apt.sh"]; !ok {
+		t.Errorf("bootstrap/10-apt.sh not in hashed results")
+	}
+}
+
+func TestDeployDeltaRemovesVerifiedManifest(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-delta-remove-verified-test/" + t.Name()
+
+	// Seed remoteDir with .verified-manifest.json
+	seed := buildTestArchive(t, map[string]string{
+		"manifest.json":       `{"version":"v1"}`,
+		"bootstrap/10-apt.sh": "old content",
+	})
+	if err := bundle.Deploy(context.Background(), client, seed, remoteDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Manually create .verified-manifest.json to simulate a verified state
+	if err := client.UploadBytes([]byte(`{"version":"v1"}`), remoteDir+"/.verified-manifest.json", 0o644); err != nil {
+		t.Fatalf("uploading .verified-manifest.json: %v", err)
+	}
+
+	// Verify it exists before DeployDelta
+	if got := remoteFileState(t, ctx, client, remoteDir+"/.verified-manifest.json"); got != "present" {
+		t.Fatalf("setup: .verified-manifest.json = %q, want present", got)
+	}
+
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "manifest.json"), []byte(`{"version":"v2"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := bundle.DeployDelta(context.Background(), client, src, nil, nil, remoteDir, nil); err != nil {
+		t.Fatalf("DeployDelta: %v", err)
+	}
+
+	// Verify .verified-manifest.json is gone
+	if got := remoteFileState(t, ctx, client, remoteDir+"/.verified-manifest.json"); got != "gone" {
+		t.Fatalf(".verified-manifest.json = %q, want gone after DeployDelta", got)
+	}
+}
+
+func TestDeltaFromAnUnverifiedDirWithTheSameVersionStillVerifies(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not available; the real verify_bundle.sh needs it")
+	}
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-delta-unverified-e2e-test/" + t.Name()
+
+	verifyScript, err := os.ReadFile(realVerifyBundlePath(t))
+	if err != nil {
+		t.Fatalf("reading real verify_bundle.sh: %v", err)
+	}
+	uname, err := exec.Command("uname", "-m").Output()
+	if err != nil {
+		t.Fatalf("uname -m: %v", err)
+	}
+	machine := strings.TrimSpace(string(uname))
+
+	// Seed remoteDir with content A via Deploy (no .verified-manifest.json yet)
+	contentA := map[string]string{
+		"bootstrap/verify_bundle.sh":      string(verifyScript),
+		"bootstrap/10-apt.sh":             "apt step",
+		"bootstrap/lib/__pycache__/x.pyc": "cache",
+	}
+	manifestA := buildManifestFor(t, machine, "v1", contentA)
+	filesA := map[string]string{"manifest.json": manifestA}
+	for rel, body := range contentA {
+		filesA[rel] = body
+	}
+	seed := buildTestArchive(t, filesA)
+	if err := bundle.Deploy(context.Background(), client, seed, remoteDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// DeltaBase should return hashed (no .verified-manifest.json)
+	base, source := bundle.DeltaBase(ctx, client, remoteDir)
+	if source != "hashed" {
+		t.Fatalf("DeltaBase source = %q, want 'hashed', got %+v", source, base)
+	}
+
+	// Content B: same version but different files (and drop the .pyc)
+	contentB := map[string]string{
+		"bootstrap/verify_bundle.sh": string(verifyScript),
+		"bootstrap/10-apt.sh":        "new apt step",
+	}
+	manifestB := buildManifestFor(t, machine, "v1", contentB)
+
+	var oldM, newM bundle.Manifest
+	if err := json.Unmarshal([]byte(manifestA), &oldM); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(manifestB), &newM); err != nil {
+		t.Fatal(err)
+	}
+	changed, removed := bundle.DiffManifest(base, &newM)
+
+	newDir := t.TempDir()
+	for rel, body := range contentB {
+		full := filepath.Join(newDir, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(full, []byte(body), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(newDir, "manifest.json"), []byte(manifestB), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := bundle.DeployDelta(context.Background(), client, newDir, changed, removed, remoteDir, nil); err != nil {
+		t.Fatalf("DeployDelta to content B: %v", err)
+	}
+
+	// VerifyRemoteDev should pass with the new content
+	if err := bundle.VerifyRemoteDev(ctx, client, remoteDir); err != nil {
+		t.Fatalf("VerifyRemoteDev after delta transfer: %v", err)
+	}
+
+	// .pyc should be gone
+	if got := remoteFileState(t, ctx, client, remoteDir+"/bootstrap/lib/__pycache__/x.pyc"); got != "gone" {
+		t.Fatalf("__pycache__/x.pyc = %q, want gone", got)
+	}
+
+	// MarkVerified and verify we get "verified" next time
+	if err := bundle.MarkVerified(ctx, client, remoteDir); err != nil {
+		t.Fatalf("MarkVerified: %v", err)
+	}
+
+	base2, source2 := bundle.DeltaBase(ctx, client, remoteDir)
+	if source2 != "verified" {
+		t.Fatalf("DeltaBase after MarkVerified = %q, want 'verified'", source2)
+	}
+	if base2 == nil {
+		t.Fatalf("DeltaBase after MarkVerified returned nil")
 	}
 }
 
