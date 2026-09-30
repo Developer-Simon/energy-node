@@ -37,6 +37,24 @@ type Report struct {
 	// fuer den Shelly-Wake-Webhook gewaehlt hat (Schritt 35) und der
 	// Shelly-Dienst installiert ist.
 	ShellyWebhook *ShellyWebhookReport `json:"shelly_webhook,omitempty"`
+	// Versions and Devices are information, not checks: the installed
+	// versions from installed-manifest.json and the configured devices per
+	// service unit. A nil device list means the device file was unreadable.
+	Versions VersionsReport      `json:"versions"`
+	Devices  map[string][]Device `json:"devices"`
+}
+
+// VersionsReport mirrors diagnose.sh's "versions" object: Components as in
+// the installed manifest, Services keyed by unit.
+type VersionsReport struct {
+	Components map[string]string `json:"components"`
+	Services   map[string]string `json:"services"`
+}
+
+// Device is one entry of a service's *_devices.json.
+type Device struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }
 
 // ShellyWebhookReport mirrors diagnose.sh's "shelly_webhook" object:

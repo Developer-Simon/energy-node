@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.12 (2026-09-29)
+
+### Features
+
+- **⚠ Breaking — installer:** replace scripts/deploy with the developer CLI (#55) (b7e313e)
+- **installer:** carry installed versions and devices into the diagnose view (4e6937b)
+
 ## v0.1.11 (2026-09-23)
 
 ### Features

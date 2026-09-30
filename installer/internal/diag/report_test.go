@@ -45,7 +45,9 @@ cat <<JSON
   "units": {"mosquitto.service": "active", "caddy.service": "inactive"},
   "ports": {"1883": true, "8080": false},
   "config": {"config.json": true, "manifests": ["shelly", "tuya"]},
-  "tailscale": {"angemeldet": true}
+  "tailscale": {"angemeldet": true},
+  "versions": {"components": {"bootstrap": "v0.1.10"}, "services": {"shelly-rpc.service": "v0.4.2"}},
+  "devices": {"shelly-rpc.service": [{"id": "plug", "name": "Plug"}], "tuya.service": null}
 }
 JSON
 `
@@ -86,6 +88,15 @@ func TestRunParsesTheDiagnoseReport(t *testing.T) {
 	}
 	if !report.Tailscale.Angemeldet {
 		t.Errorf("expected tailscale to be reported logged in")
+	}
+	if report.Versions.Components["bootstrap"] != "v0.1.10" || report.Versions.Services["shelly-rpc.service"] != "v0.4.2" {
+		t.Errorf("unexpected versions: %+v", report.Versions)
+	}
+	if devices := report.Devices["shelly-rpc.service"]; len(devices) != 1 || devices[0].Name != "Plug" {
+		t.Errorf("unexpected shelly devices: %+v", devices)
+	}
+	if devices, ok := report.Devices["tuya.service"]; !ok || devices != nil {
+		t.Errorf("an unreadable device file must stay a nil list, got %+v (present %v)", devices, ok)
 	}
 }
 

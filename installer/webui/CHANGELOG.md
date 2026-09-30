@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.1.13 (2026-09-29)
+
+### Features
+
+- **installer-webui:** break down service versions and restart reasons in the update preview (6a96afd)
+- **installer:** carry installed versions and devices into the diagnose view (4e6937b)
+- **installer-webui:** show versions, devices and not-installed services in diagnostics (2225623)
+
+### Tests
+
+- **installer-webui:** per-service versions and devices in the fakehost scenarios (e8fed9a)
+
 ## v0.1.12 (2026-09-29)
 
 ### Features

@@ -76,6 +76,43 @@
         parts.push({ key: key, type: 'r', cls: 'r', name: name, value: value, dot: 'd' + suffix, valueCls: 'r-v' + suffix });
       }
 
+      // info: eine Zeile ohne Pruefung (Version, nicht installiert) mit
+      // neutralem Punkt - sie zaehlt nicht in der Bilanz oben.
+      function info(parts, key, name, value) {
+        parts.push({ key: key, type: 'r', cls: 'r', name: name, value: value, dot: 'd off', valueCls: 'r-v' });
+      }
+
+      var versions = view.versions || {};
+      var serviceVersions = versions.services || {};
+
+      // serviceLabel: der Unit-Name ohne .service, dahinter die installierte
+      // Version des Dienstes, sofern installed-manifest.json sie kennt.
+      function serviceLabel(unit) {
+        var version = serviceVersions[unit];
+        return stripService(unit) + (version ? ' · ' + window.Format.plainVersion(version) : '');
+      }
+
+      // devices: die konfigurierten Geraete eines Dienstes unter seiner Zeile.
+      // null heisst, die Geraetedatei war nicht lesbar.
+      function devices(parts, unit) {
+        var all = view.devices || {};
+        if (!Object.prototype.hasOwnProperty.call(all, unit)) {
+          return;
+        }
+        var list = all[unit];
+        var text;
+        if (list === null) {
+          text = t('diagnose.devices.unreadable');
+        } else if (!list.length) {
+          text = t('diagnose.devices.none');
+        } else {
+          text = shell.tn('diagnose.devices.list', list.length, {
+            names: list.map(function (device) { return device.name || device.id; }).join(', '),
+          });
+        }
+        parts.push({ key: 'devs-' + unit, type: 'devs', cls: 'devs', text: text });
+      }
+
       function follow(parts, check, title, text, warnText) {
         var level = levelOf(check);
         if (level === 'ok') {
@@ -114,9 +151,12 @@
             }
             case 'unit': {
               var name = check.group === 'services'
-                ? stripService(check.subject)
+                ? serviceLabel(check.subject)
                 : optional(shell, 'unit.' + check.subject) || stripService(check.subject);
               row(parts, check.name, name, optional(shell, 'diagnose.unit.' + check.detail) || check.detail, levelOf(check));
+              if (check.group === 'services') {
+                devices(parts, check.subject);
+              }
               follow(parts, check, t('diagnose.fail.unit.title'), t('diagnose.fail.unit.text', { unit: check.subject }));
               return;
             }
@@ -146,11 +186,57 @@
         return parts;
       }
 
-      return ['services', 'system', 'config']
-        .filter(function (group) { return byGroup[group].length; })
-        .map(function (group) {
-          return { key: group, heading: t('diagnose.group.' + group), side: group === 'services' ? 'left' : 'right', parts: build(byGroup[group]) };
+      // Dienste, die nie gewaehlt wurden (diagnose.sh: "not-installed"), in
+      // Manifest-Reihenfolge unter den geprueften - Platz fuer ein spaeteres
+      // "nachinstallieren".
+      function notInstalled() {
+        var parts = [];
+        ((manifest && manifest.steps) || []).forEach(function (step) {
+          if (step.service_id && step.unit && (view.units || {})[step.unit] === 'not-installed') {
+            info(parts, 'missing-' + step.unit, stripService(step.unit), t('diagnose.unit.not_installed'));
+          }
         });
+        return parts;
+      }
+
+      // versionParts: installierte Versionen ohne die Dienste (die stehen an
+      // ihrer Zeile). Die Sammelversion "services" entfaellt, sobald es
+      // Dienstversionen gibt; uebrige Abhaengigkeiten sind nur gezaehlt.
+      function versionParts() {
+        var components = versions.components || {};
+        var parts = [];
+        var wheels = window.Services.WHEEL_COMPONENTS;
+        var known = ['dashboard', 'bootstrap', 'services'].concat(wheels);
+        known.forEach(function (name) {
+          if (!components[name] || (name === 'services' && Object.keys(serviceVersions).length)) {
+            return;
+          }
+          var label = wheels.indexOf(name) >= 0
+            ? t('component.wheel') + ' ' + name
+            : t(name === 'dashboard' ? 'diagnose.versions.package' : 'component.' + name);
+          info(parts, 'version-' + name, label, window.Format.plainVersion(components[name]));
+        });
+        var rest = Object.keys(components).filter(function (name) { return known.indexOf(name) < 0; }).length;
+        if (rest) {
+          info(parts, 'version-rest', t('component.rest'), String(rest));
+        }
+        return parts;
+      }
+
+      var cards = ['services', 'system', 'config']
+        .map(function (group) {
+          var parts = build(byGroup[group]);
+          if (group === 'services') {
+            parts = parts.concat(notInstalled());
+          }
+          return { key: group, heading: t('diagnose.group.' + group), side: group === 'services' ? 'left' : 'right', parts: parts };
+        })
+        .filter(function (card) { return card.parts.length; });
+      var installed = versionParts();
+      if (installed.length) {
+        cards.push({ key: 'versions', heading: t('diagnose.group.versions'), side: 'right', parts: installed });
+      }
+      return cards;
     },
 
     // reportText: der gespeicherte Bericht ist ein Arbeitsdokument fuer den
@@ -160,6 +246,21 @@
       (view.checks || []).forEach(function (check) {
         var mark = check.ok ? 'OK  ' : check.severity === 'warn' ? 'WARN' : 'FAIL';
         lines.push(mark + '  ' + check.name + '  ' + check.detail);
+      });
+      Object.keys(view.units || {}).sort().forEach(function (unit) {
+        if (view.units[unit] === 'not-installed') {
+          lines.push('INFO  unit ' + unit + '  not-installed');
+        }
+      });
+      var versions = view.versions || {};
+      [['component', versions.components || {}], ['service', versions.services || {}]].forEach(function (pair) {
+        Object.keys(pair[1]).sort().forEach(function (name) {
+          lines.push('INFO  ' + pair[0] + ' ' + name + '  ' + pair[1][name]);
+        });
+      });
+      Object.keys(view.devices || {}).sort().forEach(function (unit) {
+        var list = view.devices[unit];
+        lines.push('INFO  devices ' + unit + '  ' + (list === null ? 'unreadable' : list.map(function (device) { return device.id; }).join(',') || '-'));
       });
       return lines.join('\n') + '\n';
     },

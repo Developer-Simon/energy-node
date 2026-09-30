@@ -37,7 +37,9 @@ cat > "$bundle/manifest.json" <<'JSON'
   "steps": [
     { "id": "10", "optional": false },
     { "id": "83", "optional": true, "service_id": "shelly", "dir": "shelly",
-      "unit": "shelly-rpc.service" }
+      "unit": "shelly-rpc.service" },
+    { "id": "85", "optional": true, "service_id": "tuya", "dir": "tuya_mqtt",
+      "unit": "tuya.service" }
   ]
 }
 JSON
@@ -64,6 +66,16 @@ get() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv
 [ "$(get 'd["units"]["caddy.service"]')" = inactive ] || fail "caddy nicht inaktiv" "$out"
 # Die Unit aus der Schrittliste muss ohne Codeaenderung auftauchen.
 [ "$(get 'd["units"]["shelly-rpc.service"]')" = active ] || fail "Dienst-Unit fehlt" "$out"
+# Ohne Unit-Datei und nicht aktiv: nie installiert. Eine feste Unit bleibt
+# "inactive", auch ohne Datei unter /etc/systemd/system.
+[ "$(get 'd["units"]["tuya.service"]')" = not-installed ] || fail "nicht installierter Dienst nicht erkannt" "$out"
+mkdir -p "$tmp/root/etc/systemd/system"
+touch "$tmp/root/etc/systemd/system/tuya.service"
+out="$(ACTIVE="mosquitto.service" bash "$script")"
+[ "$(get 'd["units"]["tuya.service"]')" = inactive ] || fail "installierter, gestoppter Dienst nicht inactive" "$out"
+rm "$tmp/root/etc/systemd/system/tuya.service"
+out="$(ACTIVE="mosquitto.service shelly-rpc.service" LISTENING="1883" \
+       TS_STATUS_RC=0 bash "$script")"
 [ "$(get 'd["ports"]["1883"]')" = True ] || fail "1883 nicht als offen erkannt" "$out"
 [ "$(get 'd["ports"]["8080"]')" = False ] || fail "8080 faelschlich offen" "$out"
 [ "$(get 'd["config"]["config.json"]')" = True ] || fail "config.json nicht erkannt" "$out"
@@ -130,6 +142,51 @@ out="$(UFW_ALLOWED="9090" LISTENING="9090" bash "$script")"
 [ "$(get 'd["shelly_webhook"]["port"]')" = 9090 ] || fail "webhook_port aus config.json ignoriert" "$out"
 [ "$(get 'd["shelly_webhook"]["firewall"]')" = True ] || fail "Regel fuer 9090 nicht erkannt" "$out"
 rm -f "$EN_STATE_DIR/selection.json"
+
+# --- installierte Versionen und Geraete je Dienst ------------------------
+# Ohne installed-manifest.json: leere Versionen, und das Geraeteverzeichnis
+# kommt aus dem Bundle-Manifest (target_base) bzw. $HOME.
+[ "$(get 'd["versions"]')" = "{'components': {}, 'services': {}}" ] || fail "Versionen ohne installiertes Manifest nicht leer" "$out"
+[ "$(get 'd["devices"]')" = "{}" ] || fail "Geraete ohne Geraetedatei gemeldet" "$out"
+
+mkdir -p "$bundle/services/shelly/devices"
+printf '[]\n' > "$bundle/services/shelly/devices/shelly_devices.json"
+printf '{}\n' > "$bundle/services/shelly/devices/shelly_devices.schema.json"
+cat > "$EN_STATE_DIR/installed-manifest.json" <<'JSON'
+{
+  "version": "v0.1.0",
+  "target_base": "/home/en",
+  "components": { "bootstrap": "v0.1.10", "energy_node_common": "v0.4.7" },
+  "steps": [
+    { "id": "10", "optional": false },
+    { "id": "83", "dir": "shelly", "unit": "shelly-rpc.service", "version": "v0.4.2" }
+  ]
+}
+JSON
+mkdir -p "$tmp/root/home/en/devices"
+cat > "$tmp/root/home/en/devices/shelly_devices.json" <<'JSON'
+[
+  { "id": "plug", "name": "Plug S+ Küche" },
+  { "id": "em3" },
+  "kein Objekt"
+]
+JSON
+out="$(bash "$script")"
+[ "$(get 'd["versions"]["components"]["energy_node_common"]')" = v0.4.7 ] || fail "Komponentenversion fehlt" "$out"
+[ "$(get 'd["versions"]["services"]["shelly-rpc.service"]')" = v0.4.2 ] || fail "Dienstversion fehlt" "$out"
+[ "$(get '[(x["id"], x["name"]) for x in d["devices"]["shelly-rpc.service"]]')" = "[('plug', 'Plug S+ Küche'), ('em3', 'em3')]" ] \
+  || fail "Geraete falsch gelesen" "$out"
+
+# EN_TARGET_BASE schlaegt target_base aus dem Manifest.
+mkdir -p "$tmp/root/other/devices"
+printf '[{"id":"x","name":"Anderes"}]\n' > "$tmp/root/other/devices/shelly_devices.json"
+out="$(EN_TARGET_BASE=/other bash "$script")"
+[ "$(get 'd["devices"]["shelly-rpc.service"][0]["name"]')" = Anderes ] || fail "EN_TARGET_BASE ignoriert" "$out"
+
+# Eine kaputte Geraetedatei ist null, kein Abbruch.
+printf '{kaputt' > "$tmp/root/home/en/devices/shelly_devices.json"
+out="$(bash "$script")"
+[ "$(get 'd["devices"]["shelly-rpc.service"]')" = None ] || fail "kaputte Geraetedatei nicht als null gemeldet" "$out"
 
 # --- kaputter Node: trotzdem Exit 0 und vollstaendiges JSON --------------
 rm -rf "$tmp/root" "$tmp/state"

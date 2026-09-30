@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.1.12 (2026-09-29)
+
+### Features
+
+- **dashboard:** show installed component versions under settings (#71) (c8ef59b)
+- **bootstrap:** report installed versions, devices and never-installed services in diagnose.sh (1f57d70)
+
 ## v0.1.11 (2026-09-28)
 
 ### Features

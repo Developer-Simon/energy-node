@@ -269,3 +269,8 @@
 .app[data-screen="diagnose"] .warnbox{margin:.4rem 0 .15rem;padding:.6rem .7rem;border-radius:var(--radius-sm); border:1px solid var(--warn-line);background:var(--warn-bg)}
 .app[data-screen="diagnose"] .warnbox p{margin:0;font-size:.775rem;line-height:1.45;color:var(--text-subtle)}
 /* == Ende Vorlage == */
+/* Ergaenzung Diagnose: Information ohne Pruefung (installierte Versionen,
+   nicht installierte Dienste) bekommt einen neutralen Punkt, die Geraete
+   eines Dienstes stehen eingerueckt unter seiner Zeile. */
+.app[data-screen="diagnose"] .d.off{background:var(--text-faint)}
+.app[data-screen="diagnose"] .devs{margin:-.15rem 0 .3rem 1.15rem;font-size:.75rem;line-height:1.45;color:var(--text-muted)}

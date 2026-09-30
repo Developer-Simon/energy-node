@@ -25,6 +25,10 @@ type Check struct {
 	Severity string
 }
 
+// UnitNotInstalled is diagnose.sh's state for a service unit that is not
+// active and has no unit file: the service was never installed.
+const UnitNotInstalled = "not-installed"
+
 // shellyWebhookStep opens the wake webhook's firewall rule (opt-in).
 const shellyWebhookStep = "35"
 
@@ -68,6 +72,11 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 	sort.Strings(unitNames)
 	for _, name := range unitNames {
 		state := r.Units[name]
+		// A service that was never chosen is information, not a failure; the
+		// UI lists it from Units as "not installed".
+		if state == UnitNotInstalled && unitGroup(name) == "services" {
+			continue
+		}
 		retry := fixedUnitSteps[name]
 		if retry == "" {
 			retry = unitStep[name]
