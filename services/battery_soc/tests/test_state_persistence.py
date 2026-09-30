@@ -3,6 +3,7 @@ import json
 import sys
 import threading
 import time
+import types
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -77,6 +78,13 @@ def saves(monkeypatch):
     return calls
 
 
+def fake_clock(monkeypatch, values):
+    """Ersetzt nur die time-Referenz des Dienstes - logging behaelt die echte Uhr."""
+    clock = iter(values)
+    monkeypatch.setattr(battery_soc, "time", types.SimpleNamespace(
+        time=lambda: next(clock), strftime=time.strftime, sleep=time.sleep))
+
+
 def test_schema_default_matches_the_service_default():
     schema = json.loads((SERVICE_DIR / "config.schema.json").read_text())
     prop = schema["properties"]["state_save_interval_s"]
@@ -94,8 +102,7 @@ def test_save_interval_falls_back_to_the_default():
 def test_ticks_save_at_most_once_per_interval(tmp_path, saves, monkeypatch):
     runtime = make_runtime(tmp_path)
     battery_soc.load_runtime_state(runtime, now=1000.0)
-    clock = iter([1010.0, 1100.0, 1299.0, 1300.0, 1310.0])
-    monkeypatch.setattr(battery_soc.time, "time", lambda: next(clock))
+    fake_clock(monkeypatch, [1010.0, 1100.0, 1299.0, 1300.0, 1310.0])
     for _ in range(5):
         battery_soc.compute_and_publish(FakeClient(), runtime, 0.0)
     assert len(saves) == 1 and saves[0]["now"] == 1300.0
@@ -202,8 +209,7 @@ def test_without_retained_state_the_counter_is_extrapolated_after_the_wait(
     runtime = make_runtime(tmp_path)
     monkeypatch.setattr(battery_soc, "state_save_interval_s", 300.0)
     battery_soc.load_runtime_state(runtime, now=start)
-    clock = iter([start + 1, start + battery_soc.RECOVERY_WAIT_S + 1, start + 20])
-    monkeypatch.setattr(battery_soc.time, "time", lambda: next(clock))
+    fake_clock(monkeypatch, [start + 1, start + battery_soc.RECOVERY_WAIT_S + 1, start + 20])
     battery_soc.compute_and_publish(FakeClient(), runtime, 0.0)
     assert runtime.recovery_pending is True
     battery_soc.compute_and_publish(FakeClient(), runtime, 0.0)
