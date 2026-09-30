@@ -130,7 +130,7 @@ def series_runtime(**overrides):
 def _no_state_persistence(monkeypatch):
     # save_state() schluckt Fehler ohnehin, aber ein Schreibversuch pro Tick
     # ist unnoetig - und load_state() darf keine echte Datei finden.
-    monkeypatch.setattr(state_store, "save_state", lambda *a: None)
+    monkeypatch.setattr(state_store, "save_state", lambda *a, **k: True)
 
 
 # ---------------------------------------------------------------------------

@@ -246,3 +246,15 @@ def test_missing_manifests_dir_is_rejected(tmp_path):
     with pytest.raises(appconfig.ConfigError) as excinfo:
         appconfig.load(str(path))
     assert "manifests" in str(excinfo.value)
+
+
+def test_state_save_interval_defaults_to_none(tmp_path):
+    config = appconfig.load(write_config(tmp_path))
+    assert config.service("battery_soc").state_save_interval_s is None
+
+
+def test_state_save_interval_is_read_when_present(tmp_path):
+    document = valid_document()
+    document["services"]["battery_soc"]["state_save_interval_s"] = 120
+    config = appconfig.load(write_config(tmp_path, document))
+    assert config.service("battery_soc").state_save_interval_s == 120.0

@@ -22,7 +22,7 @@ from typing import Dict, Optional, Sequence, Tuple
 DEFAULT_CONFIG_PATH = "/etc/energy-node/config.json"
 SCHEMA_VERSION = 2
 
-_NUMERIC_SERVICE_FIELDS = ("poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s", "webhook_port")
+_NUMERIC_SERVICE_FIELDS = ("poll_interval_s", "diagnostic_poll_multiplier", "http_timeout_s", "webhook_port", "state_save_interval_s")
 _BOOL_SERVICE_FIELDS = ("webhook_enabled",)
 
 
@@ -108,6 +108,7 @@ class ServiceConfig:
     http_timeout_s: Optional[float] = None
     webhook_port: Optional[float] = None
     webhook_enabled: Optional[bool] = None
+    state_save_interval_s: Optional[float] = None
 
 
 @dataclass(frozen=True)

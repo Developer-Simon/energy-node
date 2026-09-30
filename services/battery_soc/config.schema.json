@@ -6,6 +6,7 @@
   "properties": {
     "service_id": {"type": "string", "minLength": 1, "title": "Service ID", "description": "Identifies the service in its MQTT topics."},
     "poll_interval_s": {"type": "number", "exclusiveMinimum": 0, "title": "Poll interval", "description": "Seconds between two regular query rounds of the service."},
-    "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnostics multiplier", "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval."}
+    "diagnostic_poll_multiplier": {"type": "number", "exclusiveMinimum": 0, "title": "Diagnostics multiplier", "description": "Diagnostic values are queried less often than the other values. The factor multiplies the poll interval."},
+    "state_save_interval_s": {"type": "number", "exclusiveMinimum": 0, "default": 300, "title": "Save interval", "description": "How often the state of charge is written to the SD card at most, in seconds. After a calibration, after a manually set state of charge and when the service stops it is saved immediately."}
   }
 }

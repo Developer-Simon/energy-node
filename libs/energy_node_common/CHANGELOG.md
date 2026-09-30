@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.4.10 (2026-09-30)
+
+### Features
+
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **dashboard:** localize the system configuration form (#72) (c716d05)
+- **common:** read an optional state_save_interval_s per service (0fb6a35)
+
 ## v0.4.9 (2026-09-28)
 
 ### Features

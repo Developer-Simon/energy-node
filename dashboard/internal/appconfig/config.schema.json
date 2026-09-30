@@ -331,6 +331,13 @@
               "minLength": 1,
               "title": "Service ID",
               "type": "string"
+            },
+            "state_save_interval_s": {
+              "default": 300,
+              "description": "How often the state of charge is written to the SD card at most, in seconds. After a calibration, after a manually set state of charge and when the service stops it is saved immediately.",
+              "exclusiveMinimum": 0,
+              "title": "Save interval",
+              "type": "number"
             }
           },
           "required": [
