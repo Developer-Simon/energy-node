@@ -5,7 +5,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"os"
 	"path"
 	"strings"
 
@@ -169,4 +171,33 @@ func LastLine(s string) string {
 		return s[idx+1:]
 	}
 	return s
+}
+
+// ReadInstalledManifest downloads <remoteStateDir>/installed-manifest.json
+// (written by steps.RecordInstalled after every full run since #43) and
+// parses it. Any problem -- the node has never completed a full run, the
+// file is unreadable, or its JSON is corrupt -- is reported as nil, not an
+// error: DeployDelta's caller treats "no trustworthy record" as "do a full
+// transfer", exactly as internal/host/host.go's currentSelection already
+// does for the same node's selection.json.
+func ReadInstalledManifest(ctx context.Context, client *transport.Client, remoteStateDir string) *Manifest {
+	tmp, err := os.CreateTemp("", "energy-node-installer-installed-manifest-*.json")
+	if err != nil {
+		return nil
+	}
+	tmp.Close()
+	defer os.Remove(tmp.Name())
+
+	if err := client.DownloadFile(path.Join(remoteStateDir, "installed-manifest.json"), tmp.Name()); err != nil {
+		return nil
+	}
+	raw, err := os.ReadFile(tmp.Name())
+	if err != nil {
+		return nil
+	}
+	var m Manifest
+	if err := json.Unmarshal(raw, &m); err != nil {
+		return nil
+	}
+	return &m
 }

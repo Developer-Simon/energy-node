@@ -300,3 +300,65 @@ func TestVerifyRemoteDevDoesNotUploadAPublicKey(t *testing.T) {
 		t.Fatalf("VerifyRemoteDev must never upload a public key, found %d matching files", n)
 	}
 }
+
+func TestReadInstalledManifestParsesAnExistingFile(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteStateDir := "/tmp/energy-node-installer-installed-manifest-test/" + t.Name()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.Run(ctx, "mkdir -p "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("mkdir remoteStateDir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = client.Run(context.Background(), "rm -rf "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{})
+	})
+	manifestJSON := `{"version":"v1.4.2","files":{"a":"1"}}`
+	if err := client.UploadBytes([]byte(manifestJSON), remoteStateDir+"/installed-manifest.json", 0o644); err != nil {
+		t.Fatalf("uploading installed-manifest.json: %v", err)
+	}
+
+	got := bundle.ReadInstalledManifest(ctx, client, remoteStateDir)
+	if got == nil || got.Version != "v1.4.2" || got.Files["a"] != "1" {
+		t.Fatalf("ReadInstalledManifest = %+v", got)
+	}
+}
+
+func TestReadInstalledManifestReturnsNilWhenTheFileIsMissing(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	got := bundle.ReadInstalledManifest(ctx, client, "/tmp/energy-node-installer-never-installed/"+t.Name())
+	if got != nil {
+		t.Fatalf("ReadInstalledManifest = %+v, want nil", got)
+	}
+}
+
+func TestReadInstalledManifestReturnsNilOnCorruptJSON(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteStateDir := "/tmp/energy-node-installer-corrupt-manifest-test/" + t.Name()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := client.Run(ctx, "mkdir -p "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Fatalf("mkdir remoteStateDir: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = client.Run(context.Background(), "rm -rf "+remoteStateDir, &bytes.Buffer{}, &bytes.Buffer{})
+	})
+	if err := client.UploadBytes([]byte("not json"), remoteStateDir+"/installed-manifest.json", 0o644); err != nil {
+		t.Fatalf("uploading corrupt manifest: %v", err)
+	}
+
+	got := bundle.ReadInstalledManifest(ctx, client, remoteStateDir)
+	if got != nil {
+		t.Fatalf("ReadInstalledManifest = %+v, want nil for corrupt JSON", got)
+	}
+}
