@@ -32,7 +32,7 @@
       },
 
       async init() {
-        await this.start({ mode: 'prepare' });
+        await this.start({ mode: 'prepare', force_full_transfer: !!this.shell.shared.forceFullTransfer });
       },
 
       // start posts /api/run and opens the event stream; init() and

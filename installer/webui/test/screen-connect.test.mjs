@@ -273,3 +273,19 @@ test('ohne bootstrap.package: nichts ändert sich, keine package-Calls, endet au
   assert.equal(packageCalls.length, 0, 'keine package-Calls');
   assert.equal(shell.screen, 'precheck', 'endet auf precheck statt prepare');
 });
+
+test('connect kopiert forceFullTransfer=true in shell.shared.forceFullTransfer', async () => {
+  const { screen, shell } = mount({ responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR } });
+  fill(screen);
+  screen.forceFullTransfer = true;
+  await screen.connect();
+  assert.equal(shell.shared.forceFullTransfer, true);
+});
+
+test('connect kopiert forceFullTransfer=false in shell.shared.forceFullTransfer wenn nicht gesetzt', async () => {
+  const { screen, shell } = mount({ responses: { 'POST /api/connect': CONNECTED, 'POST /api/keypair': KEYPAIR } });
+  fill(screen);
+  assert.equal(screen.forceFullTransfer, false);
+  await screen.connect();
+  assert.equal(shell.shared.forceFullTransfer, false);
+});

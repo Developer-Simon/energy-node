@@ -26,7 +26,7 @@ const BOOTSTRAP_UNSIGNED = { bundle_version: 'v1.4.2', bundle_arch: 'armv6', pac
 test('prepare starts the prepare run and collects the package log', async () => {
   const { screen, calls, sources } = mount();
   await screen.init();
-  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare' } });
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: false } });
   sources[0].emit('run-started', { run_id: 'run-1', mode: 'prepare' }, 4);
   sources[0].emit('log', { step_id: 'package', line: 'Lade energy-node-v1-armv6.tar.gz' }, 5);
   sources[0].emit('log', { step_id: 'other', line: 'not ours' }, 6);
@@ -176,4 +176,17 @@ test('forceFull() posts /api/run with body {mode:prepare, force_full_transfer:tr
   assert.equal(screen.state, 'working');
   assert.deepEqual(JSON.parse(JSON.stringify(screen.lines)), []);
   assert.equal(screen.lastErrorCode, null);
+});
+
+test('init() posts {mode:prepare, force_full_transfer:false} by default', async () => {
+  const { screen, calls } = mount();
+  await screen.init();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: false } });
+});
+
+test('init() posts {mode:prepare, force_full_transfer:true} when shell.shared.forceFullTransfer is true', async () => {
+  const { screen, shell, calls } = mount();
+  shell.shared.forceFullTransfer = true;
+  await screen.init();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: true } });
 });
