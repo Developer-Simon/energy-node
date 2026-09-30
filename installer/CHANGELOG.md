@@ -1,11 +1,28 @@
 # Changelog
 
-## v0.1.12 (2026-09-29)
+## v0.1.13 (2026-09-30)
 
 ### Features
 
 - **⚠ Breaking — installer:** replace scripts/deploy with the developer CLI (#55) (b7e313e)
+- **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
+- **installer:** add DiffManifest, comparing two bundle manifests' file hashes (209e407)
+- **installer:** add PackFiles, packing a named subset of a bundle directory (2fa4de9)
+- **installer:** add ReadInstalledManifest, downloading the node's last-applied manifest (3fb2d03)
+- **installer:** add DeployDelta, an incremental counterpart to Deploy (004fc07)
+- **installer:** stage the dev CLI's deploy incrementally, with a confirmed full-retransfer fallback (6ddd357)
+- **installer:** add --force-full to the deploy subcommand (42902cb)
+- **installer:** stage the web UI host's prepare step incrementally (ee2f587)
 - **installer:** carry installed versions and devices into the diagnose view (4e6937b)
+
+### Fixes
+
+- **installer:** use a local path join for the delta signature check (1231471)
+- **installer:** stage the dev CLI's delta from the local build directory (b2f22d0)
+
+### Tests
+
+- **installer:** prove a delta transfer verifies exactly like a full one (195d7c0)
 
 ## v0.1.11 (2026-09-23)
 
