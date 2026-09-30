@@ -24,7 +24,11 @@ var (
 	stageBundle   = func(ctx context.Context, c *transport.Client, archive, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployProgress(ctx, c, archive, remoteDir, onProgress)
 	}
-	verifyStaged = defaultVerifyStaged
+	verifyStaged          = defaultVerifyStaged
+	readInstalledManifest = bundle.ReadInstalledManifest
+	stageDelta            = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
+		return bundle.DeployDelta(ctx, c, bundleDir, changed, removed, remoteDir, onProgress)
+	}
 )
 
 // uploadProgress turns byte counts into one note per 5 % step, so the UI
@@ -163,7 +167,7 @@ func (h *Host) Close() error {
 // prepare loest die gewaehlte Quelle fuer die Architektur des Node auf,
 // uebertraegt das Paket und prueft es dort. Erst danach kennen Manifest,
 // Vorpruefung und Vorschau ein Paket.
-func (h *Host) prepare(ctx context.Context, sink hostapi.Sink) error {
+func (h *Host) prepare(ctx context.Context, sink hostapi.Sink, forceFull bool) error {
 	client, err := h.connected()
 	if err != nil {
 		return err
@@ -171,7 +175,7 @@ func (h *Host) prepare(ctx context.Context, sink hostapi.Sink) error {
 	sink.Marker("package", "begin", "")
 	logf := func(line string) { sink.Log("package", line) }
 	notef := func(key string, args map[string]string) { sink.Message("package", key, args) }
-	if err := h.doPrepare(ctx, client, logf, notef); err != nil {
+	if err := h.doPrepare(ctx, client, logf, notef, forceFull); err != nil {
 		apiErr := packageError(err)
 		var typed *hostapi.Error
 		if errors.As(apiErr, &typed) {
@@ -185,7 +189,7 @@ func (h *Host) prepare(ctx context.Context, sink hostapi.Sink) error {
 	return nil
 }
 
-func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf func(string), notef func(string, map[string]string)) error {
+func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf func(string), notef func(string, map[string]string), forceFull bool) error {
 	if h.cfg.Resolver == nil {
 		return &hostapi.Error{Code: "NO_PACKAGE", Status: http.StatusConflict}
 	}
@@ -247,11 +251,15 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
 	notef("package.log.upload", map[string]string{})
-	if err := stageBundle(ctx, client, archive, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
+	usedDelta, err := h.stage(ctx, client, resolved, archive, forceFull, notef)
+	if err != nil {
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
 	notef("package.log.verify", map[string]string{})
 	if err := verifyStaged(ctx, client, h.cfg.RemoteBundleDir, resolved.Signed); err != nil {
+		if usedDelta {
+			return &hostapi.Error{Code: "PACKAGE_VERIFY_FAILED_DELTA", Detail: err.Error(), Status: http.StatusConflict}
+		}
 		return err
 	}
 
@@ -294,4 +302,27 @@ func packageError(err error) error {
 	default:
 		return &hostapi.Error{Code: "PACKAGE_FAILED", Detail: err.Error()}
 	}
+}
+
+// stage transfers the resolved bundle to the node: an incremental delta
+// against installed-manifest.json by default, or the existing full replace
+// when forceFull was asked for or there is no installed manifest to diff
+// against (a first-ever prepare). It reports whether it took the delta
+// path -- doPrepare needs that to decide how to react if verifyStaged then
+// fails: PACKAGE_VERIFY_FAILED_DELTA only for the delta path, never for a
+// full transfer's own (unrelated) verify failure.
+func (h *Host) stage(ctx context.Context, client *transport.Client, resolved *bundlesource.Resolved, archive string, forceFull bool, notef func(string, map[string]string)) (usedDelta bool, err error) {
+	if !forceFull {
+		if installed := readInstalledManifest(ctx, client, h.cfg.RemoteStateDir); installed != nil {
+			changed, removed := bundle.DiffManifest(installed, resolved.Manifest)
+			if err := stageDelta(ctx, client, resolved.Dir, changed, removed, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
+				return false, err
+			}
+			return true, nil
+		}
+	}
+	if err := stageBundle(ctx, client, archive, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
+		return false, err
+	}
+	return false, nil
 }

@@ -35,8 +35,10 @@ type staged struct {
 func stubSeams(t *testing.T, machine string) *staged {
 	t.Helper()
 	origDetect, origStage, origVerify, origProvision := detectMachine, stageBundle, verifyStaged, provisionRemoteStateDir
+	origReadInstalled, origStageDelta := readInstalledManifest, stageDelta
 	t.Cleanup(func() {
 		detectMachine, stageBundle, verifyStaged, provisionRemoteStateDir = origDetect, origStage, origVerify, origProvision
+		readInstalledManifest, stageDelta = origReadInstalled, origStageDelta
 	})
 	rec := &staged{}
 	detectMachine = func(context.Context, *transport.Client) (string, error) { return machine, nil }
@@ -53,6 +55,14 @@ func stubSeams(t *testing.T, machine string) *staged {
 	verifyStaged = func(_ context.Context, _ *transport.Client, _ string, signed bool) error {
 		rec.verifyCalls++
 		rec.signed = signed
+		return nil
+	}
+	// Every pre-existing test in this file exercises the full-transfer path
+	// (stageBundle) and knows nothing about delta -- nil here is what makes
+	// that keep working unchanged, exactly like devcli's own default fake.
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest { return nil }
+	stageDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		t.Fatalf("stageDelta must not run when no installed manifest is faked")
 		return nil
 	}
 	return rec
@@ -255,5 +265,92 @@ func TestPrepareReportsTheUploadProgress(t *testing.T) {
 	}
 	if !found {
 		t.Errorf("notes = %v, want an upload_progress note", sink.notes)
+	}
+}
+
+func TestPrepareUsesDeltaWhenAnInstalledManifestExists(t *testing.T) {
+	stubSeams(t, "armv6l")
+	h := hostWithBundled(t)
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest {
+		return &bundle.Manifest{Files: map[string]string{}}
+	}
+	deltaCallBundleDir, deltaCallRemoteDir := "", ""
+	stageDelta = func(_ context.Context, _ *transport.Client, bundleDir string, changed, removed []string, remoteDir string, _ func(int64, int64)) error {
+		deltaCallBundleDir, deltaCallRemoteDir = bundleDir, remoteDir
+		return nil
+	}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{}); err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if deltaCallBundleDir == "" {
+		t.Fatalf("expected stageDelta to run")
+	}
+	if deltaCallBundleDir == h.cfg.RemoteBundleDir {
+		t.Fatalf("stageDelta bundleDir = %q, must not be the remote bundle dir", deltaCallBundleDir)
+	}
+	if deltaCallRemoteDir != h.cfg.RemoteBundleDir {
+		t.Fatalf("stageDelta remoteDir = %q, want %q", deltaCallRemoteDir, h.cfg.RemoteBundleDir)
+	}
+}
+
+func TestPrepareForceFullTransferSkipsTheDiff(t *testing.T) {
+	rec := stubSeams(t, "armv6l")
+	h := hostWithBundled(t)
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest {
+		t.Fatalf("ForceFullTransfer must not even look for an installed manifest")
+		return nil
+	}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare, ForceFullTransfer: true}, &recordingSink{})
+	if err != nil {
+		t.Fatalf("prepare: %v", err)
+	}
+	if rec.remoteDir == "" {
+		t.Fatalf("expected the full transfer (stageBundle) to run")
+	}
+}
+
+func TestPrepareADeltaVerifyFailureReportsADistinctCode(t *testing.T) {
+	stubSeams(t, "armv6l")
+	h := hostWithBundled(t)
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest {
+		return &bundle.Manifest{Files: map[string]string{}}
+	}
+	stageDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
+	verifyStaged = func(context.Context, *transport.Client, string, bool) error { return errors.New("hash mismatch") }
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "PACKAGE_VERIFY_FAILED_DELTA" {
+		t.Fatalf("err = %v, want PACKAGE_VERIFY_FAILED_DELTA", err)
+	}
+}
+
+func TestPrepareAFullTransferVerifyFailureUsesTheUsualBundleFaultCode(t *testing.T) {
+	stubSeams(t, "armv6l")
+	h := hostWithBundled(t)
+	verifyStaged = func(context.Context, *transport.Client, string, bool) error {
+		return &bundle.Error{Code: bundle.FaultHashMismatch, Message: "boom"}
+	}
+
+	if err := h.SelectPackage(context.Background(), hostapi.PackageSelection{Kind: "bundled"}); err != nil {
+		t.Fatalf("SelectPackage: %v", err)
+	}
+	err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModePrepare}, &recordingSink{})
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != string(bundle.FaultHashMismatch) {
+		t.Fatalf("err = %v, want %s (a full transfer's own verify failure must not become PACKAGE_VERIFY_FAILED_DELTA)", err, bundle.FaultHashMismatch)
 	}
 }

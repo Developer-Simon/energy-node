@@ -383,7 +383,7 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 
 func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
 	if req.Mode == hostapi.ModePrepare {
-		return h.prepare(ctx, sink)
+		return h.prepare(ctx, sink, req.ForceFullTransfer)
 	}
 	client, err := h.connected()
 	if err != nil {
