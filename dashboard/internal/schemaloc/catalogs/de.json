@@ -278,6 +278,8 @@
   "schema.system.services.battery_soc.poll_interval_s.title": "Abfrageintervall",
   "schema.system.services.battery_soc.service_id.description": "Kennzeichnet den Dienst in seinen MQTT-Topics.",
   "schema.system.services.battery_soc.service_id.title": "Dienst-ID",
+  "schema.system.services.battery_soc.state_save_interval_s.description": "Wie oft der Ladezustand höchstens auf die SD-Karte geschrieben wird, in Sekunden. Nach einer Kalibrierung, nach einem manuell gesetzten Ladezustand und beim Beenden des Dienstes wird sofort gespeichert.",
+  "schema.system.services.battery_soc.state_save_interval_s.title": "Speicherintervall",
   "schema.system.services.battery_soc.title": "Batterie-SoC",
   "schema.system.services.shelly.diagnostic_poll_multiplier.description": "Diagnosewerte werden seltener abgefragt als die übrigen Werte. Der Faktor vervielfacht das Abfrageintervall.",
   "schema.system.services.shelly.diagnostic_poll_multiplier.title": "Diagnose-Multiplikator",

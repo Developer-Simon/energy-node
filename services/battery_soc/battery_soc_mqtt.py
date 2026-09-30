@@ -95,6 +95,10 @@ from battery_soc_core.inputs import SocInputs, availability, sample_is_fresh, st
 from battery_soc_core.simulation import simulated_bank_voltage_v
 from battery_soc_core.state import SocState, set_state_of_charge
 
+# Wie oft state.json hoechstens geschrieben wird, wenn die Dienst-Konfiguration
+# nichts vorgibt. Muss mit dem default in config.schema.json uebereinstimmen.
+DEFAULT_STATE_SAVE_INTERVAL_S = 300.0
+
 # ---------------------------------------------------------------------------
 # Laufzeit-Zustand
 # ---------------------------------------------------------------------------
