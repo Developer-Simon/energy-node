@@ -41,7 +41,10 @@ def _run_new(name):
 def test_state_payload_matches_golden(name):
     got, _ = _run_new(name)
     want = json.loads((GOLDEN / f"{name}.state.json").read_text())
-    assert got == want
+    # recovery (Wiederherstellungs-Snapshot) ist nicht im Golden enthalten,
+    # da die Extraktion neu ist.
+    got_without_recovery = {k: v for k, v in got.items() if k != "recovery"}
+    assert got_without_recovery == want
 
 
 @pytest.mark.parametrize("name", [s[0] for s in SCENARIOS])

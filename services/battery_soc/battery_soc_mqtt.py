@@ -68,13 +68,16 @@ Die eigentliche SoC-Fachlogik (Coulomb-Zaehlung, Kalibrierung, Spannungs-
 korrektur, Entity-Spec) lebt seit der Core-Extraktion transport-frei in
 battery_soc_core - siehe docs/knowledge/services/battery-soc-how-it-works.md.
 Dieses Skript bleibt der duenne MQTT-Adapter: Eingangs-Subscriptions,
-State-Persistenz, Discovery-Publishing und der Aufruf von engine.tick().
+State-Persistenz (Speicherintervall, Flush beim Beenden, Wiederherstellung,
+siehe recovery.py), Discovery-Publishing und der Aufruf von engine.tick().
 """
 
 import dataclasses
 import json
 import logging
+import signal
 import sys
+import threading
 import time
 
 import paho.mqtt.client as mqtt
@@ -85,6 +88,7 @@ from energy_node_common import config as common_config
 from energy_node_common import mqtt as common_mqtt
 
 import mqtt_discovery
+import recovery
 import state_store
 from mqtt_inputs import apply_message, mark_configured
 from soc_config import BatteryConfig, SOC_PARAM_FIELDS, input_topics, load_configs
@@ -99,6 +103,18 @@ from battery_soc_core.state import SocState, set_state_of_charge
 # nichts vorgibt. Muss mit dem default in config.schema.json uebereinstimmen.
 DEFAULT_STATE_SAVE_INTERVAL_S = 300.0
 
+# Wie lange nach dem Start auf den eigenen retained State gewartet wird, bevor
+# nach einem unsauberen Ende extrapoliert wird. Der Broker liefert ihn direkt
+# nach dem SUBACK, 5 s sind reichlich.
+RECOVERY_WAIT_S = 5.0
+
+state_save_interval_s = DEFAULT_STATE_SAVE_INTERVAL_S
+
+
+def save_interval(service_config):
+    value = getattr(service_config, "state_save_interval_s", None)
+    return DEFAULT_STATE_SAVE_INTERVAL_S if value is None else float(value)
+
 # ---------------------------------------------------------------------------
 # Laufzeit-Zustand
 # ---------------------------------------------------------------------------
@@ -110,11 +126,93 @@ class BatteryRuntime:
         self.state = SocState(config.soc_params())
         self.logged_calibration = {}
         self.last_tuning_json = None
+        self.last_save_ts = None
+        self.last_currents = {}
+        self.stored = None
+        self.baseline = None
+        self.recovery_pending = False
+        self.started_at = time.time()
+        # on_message (paho-Thread) und poll_core (Scheduler-Thread) koennen
+        # beide die Wiederherstellung aufloesen - genau einer darf es.
+        self.lock = threading.Lock()
 
 
 configs = []
 runtimes = []
 slave: Slave = None
+
+
+# ---------------------------------------------------------------------------
+# Persistenz
+# ---------------------------------------------------------------------------
+def state_topic(config):
+    return f"{config.base_topic}/state"
+
+
+def load_runtime_state(runtime, now=None):
+    """Datei laden und merken, ob nach einem unsauberen Ende wiederhergestellt
+    werden muss. Die Datei gilt als frisch, das naechste Speichern ist
+    erst nach einem vollen Intervall faellig."""
+    now = time.time() if now is None else now
+    runtime.started_at = now
+    runtime.stored = state_store.load_state(runtime.config, runtime.state)
+    runtime.baseline = recovery.counters(runtime.state)
+    runtime.recovery_pending = runtime.stored is not None and not runtime.stored.clean
+    runtime.last_save_ts = now
+    # Schon gespeicherte Ereignisse sind keine neue Kalibrierung - sonst
+    # braeche der erste Tick jede Wiederherstellung ab.
+    runtime.logged_calibration = {u.name: u.events[-1].iso
+                                  for u in runtime.state.units if u.events}
+
+
+def persist(runtime, now, *, clean=False):
+    if state_store.save_state(runtime.config, runtime.state, now=now, clean=clean,
+                              last_current_a=runtime.last_currents):
+        runtime.last_save_ts = now
+
+
+def persist_if_due(runtime, now, *, force=False):
+    if force or runtime.last_save_ts is None \
+            or now - runtime.last_save_ts >= state_save_interval_s:
+        persist(runtime, now)
+
+
+def flush_all():
+    """Vor dem Beenden und vor einem Reload: alles sauber wegschreiben."""
+    now = time.time()
+    for runtime in runtimes:
+        persist(runtime, now, clean=True)
+
+
+def cancel_recovery(runtime):
+    """Ein absoluter Wert (manueller SoC, Kalibrierung) schlaegt jede
+    Wiederherstellung."""
+    with runtime.lock:
+        runtime.recovery_pending = False
+
+
+def resolve_recovery(runtime, snap, now):
+    with runtime.lock:
+        if not runtime.recovery_pending:
+            return
+        runtime.recovery_pending = False
+        stored = runtime.stored
+        if recovery.apply_snapshot(runtime.state, runtime.baseline, snap,
+                                   stored.saved_at, runtime.started_at):
+            logging.warning("Zaehler %s aus dem retained State wiederhergestellt",
+                            runtime.config.id)
+        else:
+            span_h = recovery.extrapolate(runtime.config.soc_params(), runtime.state,
+                                          stored, now, state_save_interval_s)
+            logging.warning("Zaehler %s nach unsauberem Ende um %.0f s extrapoliert",
+                            runtime.config.id, span_h * 3600)
+    persist(runtime, now)
+
+
+def _raise_system_exit(signum, frame):
+    """systemd stoppt mit SIGTERM (auch der Updater per systemctl restart).
+    Ohne Handler stirbt Python ohne finally - und damit ohne flush_all()."""
+    raise SystemExit(0)
 
 
 # ---------------------------------------------------------------------------
@@ -214,6 +312,8 @@ def _simulation_inputs(config, params, inputs, now):
 
 def compute_and_publish(client, runtime, dt_hours, simulation_active=False):
     now = time.time()
+    if runtime.recovery_pending and now - runtime.started_at >= RECOVERY_WAIT_S:
+        resolve_recovery(runtime, None, now)
     config = runtime.config
     params = config.soc_params()
 
@@ -235,10 +335,12 @@ def compute_and_publish(client, runtime, dt_hours, simulation_active=False):
     else:
         result = tick(params, runtime.state, runtime.inputs, now, dt_hours=dt_hours)
 
+    calibrated = False
     for unit in runtime.state.units:
         if unit.events and unit.events[-1].iso != runtime.logged_calibration.get(unit.name):
             event = unit.events[-1]
             runtime.logged_calibration[unit.name] = event.iso
+            calibrated = True
             # Eine Zeile je Kalibrierung ins Journal - ein Sprung im
             # SoC-Verlauf soll ohne MQTT-Mitschnitt nachvollziehbar sein.
             logging.warning(
@@ -250,9 +352,18 @@ def compute_and_publish(client, runtime, dt_hours, simulation_active=False):
                 event.corrected_v_per_cell, event.current_a,
                 event.threshold_v_per_cell, event.hold_s, event.taper_met,
                 event.charged_ah, event.discharged_ah)
+    if calibrated:
+        cancel_recovery(runtime)
 
-    client.publish(f"{config.base_topic}/state", json.dumps(result.outputs),
-                   retain=True, qos=0)
+    params_strict = params.require_fresh_inputs and result.outputs.get("inputs_stale")
+    runtime.last_currents = {
+        unit.name: result.outputs.get(f"{unit.name}_current_a")
+        for unit in runtime.state.units
+        if not params_strict and result.outputs.get(f"{unit.name}_current_a") is not None
+    }
+    payload = dict(result.outputs)
+    payload["recovery"] = recovery.snapshot(runtime.state, now)
+    client.publish(state_topic(config), json.dumps(payload), retain=True, qos=0)
 
     tuning_payload = {
         "generated_iso": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
@@ -273,7 +384,7 @@ def compute_and_publish(client, runtime, dt_hours, simulation_active=False):
         runtime.last_tuning_json = tuning_json
 
     publish_online_status(client, runtime, now, simulation_active)
-    state_store.save_state(config, runtime.state)
+    persist_if_due(runtime, now, force=calibrated)
 
 
 # ---------------------------------------------------------------------------
@@ -307,6 +418,8 @@ def on_connect(client, userdata, flags, reason_code, properties=None):
         mqtt_discovery.publish_discovery(client, config, runtime.state)
         mqtt_discovery.publish_simulation_discovery(client, config, slave)
         _subscribe_runtime_topics(client, config)
+        if runtime.recovery_pending:
+            client.subscribe(state_topic(config))
     slave.start(client)
 
 
@@ -320,15 +433,26 @@ def on_message(client, userdata, msg):
     for runtime in runtimes:
         config = runtime.config
 
+        if msg.topic == state_topic(config):
+            if runtime.recovery_pending:
+                try:
+                    snap = json.loads(payload_str).get("recovery")
+                except (ValueError, AttributeError):
+                    snap = None
+                resolve_recovery(runtime, snap, now)
+            client.unsubscribe(msg.topic)
+            return
+
         for topic, unit_name in _manual_soc_topics(config):
             if msg.topic == topic:
                 try:
                     pct = float(payload_str)
                 except ValueError:
                     return
+                cancel_recovery(runtime)
                 set_state_of_charge(runtime.state, config.soc_params(), pct,
                                     unit_name=unit_name)
-                state_store.save_state(config, runtime.state)
+                persist(runtime, time.time())
                 compute_and_publish(client, runtime, 0.0,
                                     slave.simulation_active_for(config.id))
                 return
@@ -340,7 +464,7 @@ def on_message(client, userdata, msg):
 
 
 def main() -> None:
-    global configs, runtimes, slave, app_config, service_name
+    global configs, runtimes, slave, app_config, service_name, state_save_interval_s
     try:
         app_config = appconfig.load(appconfig.config_path_from_argv())
     except appconfig.ConfigError as exc:
@@ -350,6 +474,7 @@ def main() -> None:
     logging.basicConfig(level=app_config.log_level, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
     service_name = "battery_soc"
     service_config = app_config.service(service_name)
+    state_save_interval_s = save_interval(service_config)
     devices_path = app_config.devices_config("battery_soc")
     config_store = common_config.ReloadableConfig(devices_path, load_configs)
     configs, load_error = config_store.load_or([])
@@ -357,7 +482,7 @@ def main() -> None:
         logging.error("Batterie-Konfiguration abgelehnt, warte auf config/reload: %s", load_error)
     runtimes = [BatteryRuntime(config) for config in configs]
     for runtime in runtimes:
-        state_store.load_state(runtime.config, runtime.state)
+        load_runtime_state(runtime)
     client = mqtt.Client(
         callback_api_version=mqtt.CallbackAPIVersion.VERSION2,
         client_id="battery-soc-bridge",
@@ -382,23 +507,25 @@ def main() -> None:
         slave.note_update(client)
 
     def reload_config():
-        global configs, runtimes, app_config, service_config
+        global configs, runtimes, app_config, service_config, state_save_interval_s
         new_app_config = appconfig.load(app_config.path)
         new_service_config = new_app_config.service(service_name)
         new_configs = config_store.load_candidate()
 
         app_config = new_app_config
         service_config = new_service_config
+        state_save_interval_s = save_interval(new_service_config)
         config_store.commit(new_configs)
         logging.getLogger().setLevel(new_app_config.log_level)
         slave.apply_config_defaults(
             poll_interval_s=new_service_config.poll_interval_s,
             diagnostic_multiplier=new_service_config.diagnostic_poll_multiplier,
         )
+        flush_all()
         new_runtimes = [BatteryRuntime(config) for config in new_configs]
         slave.register_devices([config.id for config in new_configs], client)
         for runtime in new_runtimes:
-            state_store.load_state(runtime.config, runtime.state)
+            load_runtime_state(runtime)
             publish_online_status(
                 client,
                 runtime,
@@ -425,6 +552,7 @@ def main() -> None:
     client.on_connect = on_connect
     client.on_message = on_message
 
+    signal.signal(signal.SIGTERM, _raise_system_exit)
     client.connect(app_config.mqtt.host, app_config.mqtt.port, keepalive=60)
     client.loop_start()
 
@@ -435,6 +563,7 @@ def main() -> None:
         pass
     finally:
         slave.stop()
+        flush_all()
         for config in configs:
             client.publish(f"{config.base_topic}/status/online", "0", retain=True, qos=1)
         client.loop_stop()
