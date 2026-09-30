@@ -135,6 +135,8 @@
   "package.log.already_ready": "Version {version} is already in place",
   "package.log.arch_detected": "Device reports {machine}, package for {arch}",
   "package.log.cached": "{name} is already in the cache",
+  "package.log.compare": "Comparing files on the device",
+  "package.log.delta": "Transferring {changed} files, removing {removed}",
   "package.log.detect_arch": "Detecting the device's processor architecture",
   "package.log.download": "Downloading {name}",
   "package.log.download_progress": "{percent} % downloaded",

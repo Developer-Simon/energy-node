@@ -135,6 +135,8 @@
   "package.log.already_ready": "Version {version} liegt bereits bereit",
   "package.log.arch_detected": "Gerät meldet {machine}, Paket für {arch}",
   "package.log.cached": "{name} liegt bereits im Zwischenspeicher",
+  "package.log.compare": "Dateien auf dem Gerät abgleichen",
+  "package.log.delta": "{changed} Dateien übertragen, {removed} entfernen",
   "package.log.detect_arch": "Prozessorarchitektur des Geräts ermitteln",
   "package.log.download": "Lade {name}",
   "package.log.download_progress": "{percent} % geladen",
