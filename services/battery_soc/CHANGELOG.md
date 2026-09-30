@@ -17,6 +17,7 @@
 ### Tests
 
 - **battery_soc:** clarify why the recovery key is left out of the golden (a5ae656)
+- **battery_soc:** patch only the service clock so logging keeps the real time (862d802)
 
 ## v0.4.4 (2026-09-28)
 
