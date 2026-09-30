@@ -16,20 +16,20 @@ func TestParseDeployFlagsAppliesDefaults(t *testing.T) {
 	if cfg.common.arch != "armv6" {
 		t.Errorf("expected the default arch to be armv6, got %q", cfg.common.arch)
 	}
-	if cfg.only != "" || cfg.dryRun || cfg.forceConfig {
+	if cfg.only != "" || cfg.dryRun || cfg.forceConfig || cfg.forceFull {
 		t.Errorf("expected zero-value flags by default, got %+v", cfg)
 	}
 }
 
 func TestParseDeployFlagsAppliesOverrides(t *testing.T) {
 	cfg, err := parseDeployFlags([]string{
-		"--only", "dashboard", "--dry-run", "--force-config",
+		"--only", "dashboard", "--dry-run", "--force-config", "--force-full",
 		"--arch", "arm64", "--host", "10.0.0.5", "--repo", "/other",
 	}, "/repo")
 	if err != nil {
 		t.Fatalf("parseDeployFlags: %v", err)
 	}
-	if cfg.only != "dashboard" || !cfg.dryRun || !cfg.forceConfig {
+	if cfg.only != "dashboard" || !cfg.dryRun || !cfg.forceConfig || !cfg.forceFull {
 		t.Errorf("expected the given flags to apply, got %+v", cfg)
 	}
 	if cfg.common.arch != "arm64" || cfg.common.host != "10.0.0.5" || cfg.common.repoRoot != "/other" {
@@ -95,6 +95,26 @@ func TestParseRestartFlagsAppliesOnly(t *testing.T) {
 	}
 	if cfg.only != "shelly" {
 		t.Errorf("got only %q, want shelly", cfg.only)
+	}
+}
+
+func TestParseDeployFlagsForceFull(t *testing.T) {
+	cfg, err := parseDeployFlags([]string{"--force-full"}, "/repo")
+	if err != nil {
+		t.Fatalf("parseDeployFlags: %v", err)
+	}
+	if !cfg.forceFull {
+		t.Fatalf("expected --force-full to set forceFull")
+	}
+}
+
+func TestParseDeployFlagsForceFullDefaultsToFalse(t *testing.T) {
+	cfg, err := parseDeployFlags(nil, "/repo")
+	if err != nil {
+		t.Fatalf("parseDeployFlags: %v", err)
+	}
+	if cfg.forceFull {
+		t.Fatalf("expected forceFull to default to false")
 	}
 }
 

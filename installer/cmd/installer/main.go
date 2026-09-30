@@ -59,7 +59,7 @@ func printUsage() {
 	fmt.Fprint(os.Stderr, `energy-node-installer developer CLI (E12)
 
 Usage:
-  installer deploy [--only <dashboard|wheels|<service>>] [--dry-run] [--force-config] [--dev-unsigned] [common flags]
+  installer deploy [--only <dashboard|wheels|<service>>] [--dry-run] [--force-config] [--force-full] [--dev-unsigned] [common flags]
   installer ensure-secrets [--dev-unsigned] [common flags]
   installer fetch-config [--devices] [common flags]
   installer diagnose [common flags]
@@ -148,6 +148,7 @@ type deployConfig struct {
 	only        string
 	dryRun      bool
 	forceConfig bool
+	forceFull   bool
 }
 
 func parseDeployFlags(args []string, repoRootDefault string) (deployConfig, error) {
@@ -163,6 +164,7 @@ func parseDeployFlags(args []string, repoRootDefault string) (deployConfig, erro
 	fs.StringVar(&cfg.only, "only", "", `deploy just "dashboard", "wheels", or a device service id`)
 	fs.BoolVar(&cfg.dryRun, "dry-run", false, "preview changes without touching the node")
 	fs.BoolVar(&cfg.forceConfig, "force-config", false, "overwrite the node's existing config.json (asks first)")
+	fs.BoolVar(&cfg.forceFull, "force-full", false, "skip the incremental transfer, always replace the whole bundle directory on the node")
 	if err := fs.Parse(args); err != nil {
 		return deployConfig{}, err
 	}
@@ -202,6 +204,7 @@ func runDeployCmd(args []string) error {
 		Only:        cfg.only,
 		DryRun:      cfg.dryRun,
 		ForceConfig: cfg.forceConfig,
+		ForceFull:   cfg.forceFull,
 		Stdout:      os.Stdout,
 	})
 }
