@@ -41,8 +41,8 @@ def _run_new(name):
 def test_state_payload_matches_golden(name):
     got, _ = _run_new(name)
     want = json.loads((GOLDEN / f"{name}.state.json").read_text())
-    # recovery (Wiederherstellungs-Snapshot) ist nicht im Golden enthalten,
-    # da die Extraktion neu ist.
+    # recovery ist ein Adapter-Schluessel (Snapshot fuer die Wiederherstellung
+    # nach Absturz), er gehoert nicht zum Core-Golden.
     got_without_recovery = {k: v for k, v in got.items() if k != "recovery"}
     assert got_without_recovery == want
 

@@ -115,6 +115,7 @@ def save_interval(service_config):
     value = getattr(service_config, "state_save_interval_s", None)
     return DEFAULT_STATE_SAVE_INTERVAL_S if value is None else float(value)
 
+
 # ---------------------------------------------------------------------------
 # Laufzeit-Zustand
 # ---------------------------------------------------------------------------
