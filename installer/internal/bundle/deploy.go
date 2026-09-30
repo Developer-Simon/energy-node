@@ -201,3 +201,127 @@ func ReadInstalledManifest(ctx context.Context, client *transport.Client, remote
 	}
 	return &m
 }
+
+// isSafeRelPath rejects a manifest-listed relpath that would escape
+// remoteDir. Every relpath DeployDelta acts on comes from a manifest.json
+// already verified (signed, or hash-checked by VerifyDev) before it
+// reaches here, so this should never actually trigger -- it exists as
+// defence in depth, the same reasoning transport.ShellQuote's own callers
+// already apply to every remote path they build.
+func isSafeRelPath(rel string) bool {
+	if rel == "" || strings.HasPrefix(rel, "/") {
+		return false
+	}
+	for _, part := range strings.Split(rel, "/") {
+		if part == ".." {
+			return false
+		}
+	}
+	return true
+}
+
+// DeployDelta uploads only the files in changed and deletes only the files
+// in removed under remoteDir, leaving every other file there untouched --
+// the incremental counterpart to Deploy, which always replaces remoteDir's
+// whole contents. bundleDir is the unpacked, already-verified new bundle
+// changed's relpaths are read from (bundlesource.Resolved.Dir, or the
+// developer CLI's own extracted build directory); removed's relpaths name
+// files the *previous* bundle had that the new one no longer does.
+//
+// manifest.json and manifest.json.sig are always handled by DeployDelta
+// even though they are not listed in any manifest's own "files" map:
+// scripts/build/lib/manifest.sh never includes them, because the manifest
+// itself cannot verify itself. DeployDelta always packs and uploads
+// manifest.json (alongside any changed files); if manifest.json.sig exists
+// in bundleDir, it packs and uploads that too; if not, it removes any
+// manifest.json.sig that might linger on the node from a previous release.
+// This ensures a delta transfer leaves the node with a current manifest.
+//
+// Unlike Deploy, DeployDelta never clears remoteDir first: that is exactly
+// what lets it skip re-sending a file whose content did not change between
+// bundle versions. It relies on tar creating a file entry's missing parent
+// directories on extraction by itself (see PackFiles's own doc comment), so
+// a brand-new subdirectory in the new bundle needs no special handling.
+func DeployDelta(ctx context.Context, client *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
+	for _, rel := range changed {
+		if !isSafeRelPath(rel) {
+			return fmt.Errorf("bundle manifest lists an unsafe path: %q", rel)
+		}
+	}
+	for _, rel := range removed {
+		if !isSafeRelPath(rel) {
+			return fmt.Errorf("bundle manifest lists an unsafe path: %q", rel)
+		}
+	}
+
+	// Build the list of files to pack: changed + manifest.json + manifest.json.sig (if it exists)
+	toPackPaths := make([]string, len(changed))
+	copy(toPackPaths, changed)
+
+	// Always add manifest.json if not already in changed
+	hasManifest := false
+	for _, rel := range toPackPaths {
+		if rel == "manifest.json" {
+			hasManifest = true
+			break
+		}
+	}
+	if !hasManifest {
+		toPackPaths = append(toPackPaths, "manifest.json")
+	}
+
+	// Add manifest.json.sig if it exists locally, otherwise add it to the remove list
+	sigPath := path.Join(bundleDir, "manifest.json.sig")
+	toRemove := make([]string, len(removed))
+	copy(toRemove, removed)
+
+	if _, err := os.Stat(sigPath); err == nil {
+		// Signature exists, add it to the pack list
+		toPackPaths = append(toPackPaths, "manifest.json.sig")
+	} else {
+		// Signature doesn't exist, add it to the remove list
+		toRemove = append(toRemove, "manifest.json.sig")
+	}
+
+	// Pack and upload the changed files + manifest files
+	local, err := os.CreateTemp("", "energy-node-installer-delta-*.tar.gz")
+	if err != nil {
+		return fmt.Errorf("creating a delta archive: %w", err)
+	}
+	local.Close()
+	defer os.Remove(local.Name())
+	if err := PackFiles(bundleDir, toPackPaths, local.Name()); err != nil {
+		return fmt.Errorf("packing changed files: %w", err)
+	}
+
+	remoteArchive := fmt.Sprintf("/tmp/energy-node-installer-delta-%s-%s.tar.gz", stagingTag(remoteDir), randomSuffix())
+	if err := client.UploadFileProgress(local.Name(), remoteArchive, 0o600, onProgress); err != nil {
+		return fmt.Errorf("uploading delta archive: %w", err)
+	}
+	defer client.RemoveRemote(remoteArchive)
+
+	command := fmt.Sprintf(
+		"mkdir -p %s && tar -xzf %s --no-same-owner -C %s",
+		transport.ShellQuote(remoteDir),
+		transport.ShellQuote(remoteArchive),
+		transport.ShellQuote(remoteDir),
+	)
+	var stdout, stderr bytes.Buffer
+	if err := client.Run(ctx, command, &stdout, &stderr); err != nil {
+		return fmt.Errorf("extracting delta archive on the node: %w (stdout: %q, stderr: %q)", err, stdout.String(), stderr.String())
+	}
+
+	if len(toRemove) > 0 {
+		var cmd strings.Builder
+		cmd.WriteString("rm -f")
+		for _, rel := range toRemove {
+			cmd.WriteString(" ")
+			cmd.WriteString(transport.ShellQuote(path.Join(remoteDir, rel)))
+		}
+		var stdout, stderr bytes.Buffer
+		if err := client.Run(ctx, cmd.String(), &stdout, &stderr); err != nil {
+			return fmt.Errorf("removing files dropped from the bundle: %w (stdout: %q, stderr: %q)", err, stdout.String(), stderr.String())
+		}
+	}
+	return nil
+}

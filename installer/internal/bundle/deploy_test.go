@@ -362,3 +362,153 @@ func TestReadInstalledManifestReturnsNilOnCorruptJSON(t *testing.T) {
 		t.Fatalf("ReadInstalledManifest = %+v, want nil for corrupt JSON", got)
 	}
 }
+
+func TestDeployDeltaAddsChangesFilesAndRemovesDroppedOnesWithoutTouchingOthers(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-delta-test/" + t.Name()
+
+	// Seed remoteDir as if a previous full Deploy had already run.
+	seed := buildTestArchive(t, map[string]string{
+		"manifest.json":       `{"version":"v1"}`,
+		"bootstrap/10-apt.sh": "old content",
+		"wheels/drop-me.whl":  "will be removed",
+	})
+	if err := bundle.Deploy(context.Background(), client, seed, remoteDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	// bundleDir holds the *new* version's own files -- only the changed and
+	// brand-new ones need to exist for DeployDelta's purposes, but a real
+	// bundle directory holds everything; unrelated extra files must be
+	// ignored since they are not named in changed.
+	src := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(src, "bootstrap"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "bootstrap/10-apt.sh"), []byte("new content"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "manifest.json"), []byte(`{"version":"v2"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var progressCalled bool
+	err := bundle.DeployDelta(context.Background(), client, src,
+		[]string{"bootstrap/10-apt.sh"}, []string{"wheels/drop-me.whl"},
+		remoteDir, func(done, total int64) { progressCalled = true })
+	if err != nil {
+		t.Fatalf("DeployDelta: %v", err)
+	}
+	if !progressCalled {
+		t.Errorf("expected onProgress to be called for the changed-files upload")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var stdout bytes.Buffer
+	if err := client.Run(ctx, "cat "+remoteDir+"/manifest.json", &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatalf("reading manifest.json: %v", err)
+	}
+	if stdout.String() != `{"version":"v2"}` {
+		t.Fatalf("manifest.json was not updated: %q", stdout.String())
+	}
+	stdout.Reset()
+	if err := client.Run(ctx, "cat "+remoteDir+"/bootstrap/10-apt.sh", &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatalf("reading bootstrap/10-apt.sh: %v", err)
+	}
+	if stdout.String() != "new content" {
+		t.Fatalf("bootstrap/10-apt.sh was not updated: %q", stdout.String())
+	}
+	if got := remoteFileState(t, ctx, client, remoteDir+"/wheels/drop-me.whl"); got != "gone" {
+		t.Fatalf("wheels/drop-me.whl = %q, want gone", got)
+	}
+}
+
+func TestDeployDeltaWithNothingChangedStillRefreshesTheManifest(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-delta-noop-test/" + t.Name()
+	seed := buildTestArchive(t, map[string]string{
+		"manifest.json":     `{"version":"v1"}`,
+		"manifest.json.sig": "old-sig",
+	})
+	if err := bundle.Deploy(context.Background(), client, seed, remoteDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "manifest.json"), []byte(`{"version":"v2"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := bundle.DeployDelta(context.Background(), client, src, nil, nil, remoteDir, nil); err != nil {
+		t.Fatalf("DeployDelta with nothing to do: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var stdout bytes.Buffer
+	if err := client.Run(ctx, "cat "+remoteDir+"/manifest.json", &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatalf("reading manifest.json: %v", err)
+	}
+	if stdout.String() != `{"version":"v2"}` {
+		t.Fatalf("manifest.json was not updated: %q", stdout.String())
+	}
+	if got := remoteFileState(t, ctx, client, remoteDir+"/manifest.json.sig"); got != "gone" {
+		t.Fatalf("manifest.json.sig = %q, want gone", got)
+	}
+}
+
+func TestDeployDeltaShipsTheSignatureWhenTheBundleHasOne(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-delta-sig-test/" + t.Name()
+	seed := buildTestArchive(t, map[string]string{
+		"manifest.json": `{"version":"v1"}`,
+	})
+	if err := bundle.Deploy(context.Background(), client, seed, remoteDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	src := t.TempDir()
+	if err := os.WriteFile(filepath.Join(src, "manifest.json"), []byte(`{"version":"v2"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(src, "manifest.json.sig"), []byte("new-sig"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := bundle.DeployDelta(context.Background(), client, src, nil, nil, remoteDir, nil); err != nil {
+		t.Fatalf("DeployDelta: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var stdout bytes.Buffer
+	if err := client.Run(ctx, "cat "+remoteDir+"/manifest.json.sig", &stdout, &bytes.Buffer{}); err != nil {
+		t.Fatalf("reading manifest.json.sig: %v", err)
+	}
+	if stdout.String() != "new-sig" {
+		t.Fatalf("manifest.json.sig content = %q, want 'new-sig'", stdout.String())
+	}
+}
+
+func TestDeployDeltaRejectsAPathThatEscapesRemoteDir(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-delta-unsafe-test/" + t.Name()
+
+	err := bundle.DeployDelta(context.Background(), client, t.TempDir(), nil, []string{"../../etc/passwd"}, remoteDir, nil)
+	if err == nil {
+		t.Fatalf("expected an error for a path escaping remoteDir")
+	}
+}
