@@ -157,15 +157,15 @@ func VerifyRemote(ctx context.Context, client *transport.Client, remoteDir strin
 }
 
 // VerifyRemoteDev is VerifyRemote's --dev-unsigned counterpart: it runs
-// verify_bundle.sh --target-only, which checks architecture and Python ABI
-// against the node but skips the signature and hash checks entirely (see
-// verify_bundle.sh's own --target-only doc comment) -- there is no key to
-// check a signature against, since a developer build made with --dev-
-// unsigned never has one. It never uploads a public key, unlike
+// verify_bundle.sh --no-signature --target, which checks every file's hash,
+// architecture and Python ABI against the node but skips the cryptographic
+// signature check (see verify_bundle.sh's own --no-signature doc comment) --
+// there is no key to check a signature against, since a developer build made
+// with --dev-unsigned never has one. It never uploads a public key, unlike
 // VerifyRemote, because none is needed.
 func VerifyRemoteDev(ctx context.Context, client *transport.Client, remoteDir string) error {
 	command := fmt.Sprintf(
-		"bash %s --bundle %s --target-only",
+		"bash %s --bundle %s --no-signature --target",
 		transport.ShellQuote(path.Join(remoteDir, "bootstrap", "verify_bundle.sh")),
 		transport.ShellQuote(remoteDir),
 	)

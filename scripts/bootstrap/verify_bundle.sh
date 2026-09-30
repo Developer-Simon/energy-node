@@ -13,15 +13,18 @@
 #
 # Usage:
 #   verify_bundle.sh --bundle <dir> --pubkey <datei> [--target]
+#   verify_bundle.sh --bundle <dir> --no-signature [--target]
 #   verify_bundle.sh --bundle <dir> --target-only
 #
 #   --target       zusaetzlich Architektur und Python-ABI des laufenden
 #                  Systems gegen das Manifest pruefen.
-#   --target-only  NUR diese Pruefung, ohne Signatur und ohne Schluessel.
-#                  Das ist die Form, die ein einzelner Schritt auf dem Node
-#                  benutzt: Signatur und Hashes prueft, wer das Bundle
-#                  entgegennimmt (Installer, Updater), nicht jeder Schritt
-#                  aufs Neue.
+#   --no-signature Ueberspringt Signaturpruefung und Schluessel, prueft aber
+#                  alle Datei-Hashes. Fuer unsignierte Bundles (dev-unsigned).
+#   --target-only  NUR Zielarchitektur-Pruefung, ohne Signatur und ohne
+#                  Hash-Checks. Das ist die Form, die ein einzelner Schritt
+#                  auf dem Node benutzt: Signatur und Hashes prueft, wer das
+#                  Bundle entgegennimmt (Installer, Updater), nicht jeder
+#                  Schritt aufs Neue.
 #
 # Ausgabe: "OK" und Exit 0, oder "FEHLER <CODE>" als letzte Zeile und Exit 1.
 set -euo pipefail
@@ -30,12 +33,14 @@ BUNDLE=""
 PUBKEY=""
 CHECK_TARGET=false
 TARGET_ONLY=false
+NO_SIGNATURE=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --bundle) BUNDLE="${2:-}"; shift 2 ;;
     --pubkey) PUBKEY="${2:-}"; shift 2 ;;
     --target) CHECK_TARGET=true; shift ;;
     --target-only) CHECK_TARGET=true; TARGET_ONLY=true; shift ;;
+    --no-signature) NO_SIGNATURE=true; shift ;;
     *) shift ;;
   esac
 done
@@ -46,7 +51,8 @@ manifest="${BUNDLE}/manifest.json"
 signature="${manifest}.sig"
 [[ -n "${BUNDLE}" && -f "${manifest}" ]] || die BUNDLE_MANIFEST_MISSING
 
-if [[ "${TARGET_ONLY}" != true ]]; then
+# Signature check: runs when neither TARGET_ONLY nor NO_SIGNATURE
+if [[ "${TARGET_ONLY}" != true && "${NO_SIGNATURE}" != true ]]; then
   [[ -f "${signature}" ]] || die BUNDLE_SIGNATURE_INVALID
   [[ -n "${PUBKEY}" && -f "${PUBKEY}" ]] || die BUNDLE_SIGNATURE_INVALID
 
@@ -55,7 +61,10 @@ if [[ "${TARGET_ONLY}" != true ]]; then
   openssl pkeyutl -verify -pubin -inkey "${PUBKEY}" -rawin \
     -in "${manifest}" -sigfile "${signature}" >/dev/null 2>&1 \
     || die BUNDLE_SIGNATURE_INVALID
+fi
 
+# Hash check: runs when not TARGET_ONLY (runs for both signed and --no-signature modes)
+if [[ "${TARGET_ONLY}" != true ]]; then
 python3 - "${BUNDLE}" <<'PY' || die BUNDLE_HASH_MISMATCH
 import hashlib, json, pathlib, sys
 root = pathlib.Path(sys.argv[1])

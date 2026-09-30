@@ -123,6 +123,34 @@ set -e
 [ "$rc" -eq 1 ] || fail "fehlendes Manifest nicht gemeldet" "$rc"
 [ "${out##*$'\n'}" = "FEHLER BUNDLE_MANIFEST_MISSING" ] || fail "falscher Code" "$out"
 
+# --- --no-signature akzeptiert intaktes unsigned Bundle ohne Schluessel ----
+write_manifest "[\"$machine\"]" "$abi"
+rm -f "$bundle/manifest.json.sig"
+out="$(bash "$script" --bundle "$bundle" --no-signature)" \
+  || fail "--no-signature lehnt intaktes unsigned Bundle ab" "$out"
+[ "${out##*$'\n'}" = OK ] || fail "--no-signature ohne OK" "$out"
+
+# --- --no-signature lehnt verfaelschte Datei ab ---------------------------
+printf 'echo boese\n' >> "$bundle/bootstrap/10-apt.sh"
+set +e
+out="$(bash "$script" --bundle "$bundle" --no-signature 2>&1)"; rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "--no-signature uebersah verfaelschte Datei" "$rc"
+[ "${out##*$'\n'}" = "FEHLER BUNDLE_HASH_MISMATCH" ] || fail "--no-signature falscher Code" "$out"
+grep -q "verfaelscht: bootstrap/10-apt.sh" <<<"$out" || fail "--no-signature stderr hat kein verfaelscht" "$out"
+
+# --- --target-only ignoriert verfaelschte Dateien (ungeaendertes Verhalten) -
+# Stelle ein frisches Bundle her
+rm -rf "$bundle"
+mkdir -p "$bundle/bootstrap"
+printf 'echo hallo\n' > "$bundle/bootstrap/10-apt.sh"
+write_manifest "[\"$machine\"]" "$abi"
+# Manipuliere die Datei, aber lass das Manifest mit dem alten Hash
+printf 'echo boese\n' > "$bundle/bootstrap/10-apt.sh"
+out="$(bash "$script" --bundle "$bundle" --target-only)" \
+  || fail "--target-only lehnt verfaelschte Datei ab (sollte ignorieren)" "$out"
+[ "${out##*$'\n'}" = OK ] || fail "--target-only zeigt nicht OK trotz verfaelschter Datei" "$out"
+
 # --- kein ##STEP-Marker in der Ausgabe -----------------------------------
 grep -q '^##STEP' <<<"$out" && fail "verify_bundle gibt Schritt-Marker aus" "$out"
 

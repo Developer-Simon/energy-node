@@ -244,7 +244,11 @@ func TestVerifyRemoteDevAcceptsAnUnsignedBundleAgainstTheRealScript(t *testing.T
 		t.Fatalf("uname -m: %v", err)
 	}
 	machine := strings.TrimSpace(string(uname))
-	manifest := fmt.Sprintf(`{"version":"v0.1.0","uname_machine":["%s"]}`, machine)
+	// Use buildManifestFor to create a manifest with proper file hashes
+	content := map[string]string{
+		"bootstrap/verify_bundle.sh": string(verifyScript),
+	}
+	manifest := buildManifestFor(t, machine, "v0.1.0", content)
 	archive := buildTestArchive(t, map[string]string{
 		"bootstrap/verify_bundle.sh": string(verifyScript),
 		"manifest.json":              manifest,
@@ -302,6 +306,134 @@ func TestVerifyRemoteDevDoesNotUploadAPublicKey(t *testing.T) {
 	// moment.
 	if n := remoteGlobCount(t, ctx, client, "energy-node-installer-pubkey-"+testStagingTag(remoteDir)+"-*.pem"); n != 0 {
 		t.Fatalf("VerifyRemoteDev must never upload a public key, found %d matching files", n)
+	}
+}
+
+func TestVerifyRemoteDevChecksTamperedFiles(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not available; the real verify_bundle.sh needs it")
+	}
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-verify-dev-hash-test/" + t.Name()
+
+	verifyScript, err := os.ReadFile(realVerifyBundlePath(t))
+	if err != nil {
+		t.Fatalf("reading real verify_bundle.sh: %v", err)
+	}
+	uname, err := exec.Command("uname", "-m").Output()
+	if err != nil {
+		t.Fatalf("uname -m: %v", err)
+	}
+	machine := strings.TrimSpace(string(uname))
+
+	// Build a bundle with correct hashes using buildManifestFor
+	content := map[string]string{
+		"bootstrap/verify_bundle.sh": string(verifyScript),
+		"bootstrap/10-apt.sh":        "original content",
+	}
+	manifestJSON := buildManifestFor(t, machine, "v1", content)
+	files := map[string]string{"manifest.json": manifestJSON}
+	for rel, body := range content {
+		files[rel] = body
+	}
+	seed := buildTestArchive(t, files)
+	if err := bundle.Deploy(context.Background(), client, seed, remoteDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// First verify it passes with the original content
+	if err := bundle.VerifyRemoteDev(ctx, client, remoteDir); err != nil {
+		t.Fatalf("VerifyRemoteDev should pass with original content: %v", err)
+	}
+
+	// Now tamper with a file on the remote side
+	if err := client.UploadBytes([]byte("tampered content"), remoteDir+"/bootstrap/10-apt.sh", 0o755); err != nil {
+		t.Fatalf("uploading tampered content: %v", err)
+	}
+
+	// VerifyRemoteDev should now fail with BUNDLE_HASH_MISMATCH and error containing "verfaelscht"
+	err = bundle.VerifyRemoteDev(ctx, client, remoteDir)
+	var bundleErr *bundle.Error
+	if !errors.As(err, &bundleErr) {
+		t.Fatalf("expected a *bundle.Error, got %v", err)
+	}
+	if bundleErr.Code != bundle.FaultHashMismatch {
+		t.Fatalf("expected FaultHashMismatch, got %s", bundleErr.Code)
+	}
+	if !strings.Contains(err.Error(), "verfaelscht: bootstrap/10-apt.sh") {
+		t.Fatalf("error message should contain 'verfaelscht: bootstrap/10-apt.sh', got: %v", err)
+	}
+}
+
+func TestVerifyRemoteDevCatchesAStaleFileAfterAManifestOnlyDelta(t *testing.T) {
+	requireSFTPServerForBundle(t)
+	if _, err := exec.LookPath("python3"); err != nil {
+		t.Skip("python3 not available; the real verify_bundle.sh needs it")
+	}
+	sshd := transporttest.Start(t)
+	client := dialForBundleTest(t, sshd)
+	remoteDir := "/tmp/energy-node-installer-stale-file-test/" + t.Name()
+
+	verifyScript, err := os.ReadFile(realVerifyBundlePath(t))
+	if err != nil {
+		t.Fatalf("reading real verify_bundle.sh: %v", err)
+	}
+	uname, err := exec.Command("uname", "-m").Output()
+	if err != nil {
+		t.Fatalf("uname -m: %v", err)
+	}
+	machine := strings.TrimSpace(string(uname))
+
+	// Seed with content A
+	contentA := map[string]string{
+		"bootstrap/verify_bundle.sh": string(verifyScript),
+		"bootstrap/10-apt.sh":        "content A",
+	}
+	manifestA := buildManifestFor(t, machine, "v1", contentA)
+	filesA := map[string]string{"manifest.json": manifestA}
+	for rel, body := range contentA {
+		filesA[rel] = body
+	}
+	seed := buildTestArchive(t, filesA)
+	if err := bundle.Deploy(context.Background(), client, seed, remoteDir); err != nil {
+		t.Fatalf("seeding Deploy: %v", err)
+	}
+	t.Cleanup(func() { _ = client.Run(context.Background(), "rm -rf "+remoteDir, &bytes.Buffer{}, &bytes.Buffer{}) })
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Verify A passes
+	if err := bundle.VerifyRemoteDev(ctx, client, remoteDir); err != nil {
+		t.Fatalf("VerifyRemoteDev on seeded content A: %v", err)
+	}
+
+	// Now simulate a manifest-only delta: B's manifest.json with different file hash
+	contentB := map[string]string{
+		"bootstrap/verify_bundle.sh": string(verifyScript),
+		"bootstrap/10-apt.sh":        "content B",
+	}
+	manifestB := buildManifestFor(t, machine, "v1", contentB)
+
+	// Upload only B's manifest.json without updating the actual file
+	if err := client.UploadBytes([]byte(manifestB), remoteDir+"/manifest.json", 0o644); err != nil {
+		t.Fatalf("uploading new manifest: %v", err)
+	}
+
+	// VerifyRemoteDev should now fail because the file hash doesn't match the new manifest
+	err = bundle.VerifyRemoteDev(ctx, client, remoteDir)
+	var bundleErr *bundle.Error
+	if !errors.As(err, &bundleErr) {
+		t.Fatalf("expected a *bundle.Error on stale file, got %v", err)
+	}
+	if bundleErr.Code != bundle.FaultHashMismatch {
+		t.Fatalf("expected FaultHashMismatch on stale file, got %s", bundleErr.Code)
 	}
 }
 
