@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
@@ -254,11 +255,9 @@ func DeployDelta(ctx context.Context, client *transport.Client, bundleDir string
 		}
 	}
 
-	// Build the list of files to pack: changed + manifest.json + manifest.json.sig (if it exists)
 	toPackPaths := make([]string, len(changed))
 	copy(toPackPaths, changed)
 
-	// Always add manifest.json if not already in changed
 	hasManifest := false
 	for _, rel := range toPackPaths {
 		if rel == "manifest.json" {
@@ -270,20 +269,16 @@ func DeployDelta(ctx context.Context, client *transport.Client, bundleDir string
 		toPackPaths = append(toPackPaths, "manifest.json")
 	}
 
-	// Add manifest.json.sig if it exists locally, otherwise add it to the remove list
-	sigPath := path.Join(bundleDir, "manifest.json.sig")
+	sigPath := filepath.Join(bundleDir, "manifest.json.sig")
 	toRemove := make([]string, len(removed))
 	copy(toRemove, removed)
 
 	if _, err := os.Stat(sigPath); err == nil {
-		// Signature exists, add it to the pack list
 		toPackPaths = append(toPackPaths, "manifest.json.sig")
 	} else {
-		// Signature doesn't exist, add it to the remove list
 		toRemove = append(toRemove, "manifest.json.sig")
 	}
 
-	// Pack and upload the changed files + manifest files
 	local, err := os.CreateTemp("", "energy-node-installer-delta-*.tar.gz")
 	if err != nil {
 		return fmt.Errorf("creating a delta archive: %w", err)
