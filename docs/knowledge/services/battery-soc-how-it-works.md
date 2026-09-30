@@ -378,9 +378,19 @@ return `null`.
 
 ## 12. Persistence, Simulation, Operation
 
-- **Persistence:** the coulomb counter and calibration timestamps live in
-  `state_file` (`/home/energynode/battery_soc/state.json`), so a restart does
-  not discard the counter value. Write/read errors are deliberately not fatal.
+- **Persistence:** the coulomb counter, the charge balances and the calibration
+  events live in `state_file` (`/home/energynode/battery_soc/state.json`). The
+  service writes it at most every `state_save_interval_s` seconds (service
+  setting, default 300), and at once after a calibration, after a manually set
+  state of charge, before a config reload and when it stops (SIGTERM, which is
+  also how the updater restarts it). Writes are atomic (temp file, fsync,
+  rename). Write and read errors are deliberately not fatal.
+- **Recovery after an unexpected end:** a file that was not written on a clean
+  stop triggers recovery at the next start. The retained `{base}/state` carries
+  an unrounded `recovery` snapshot. If it is newer than the file, the difference
+  is booked onto the counter. Otherwise, after 5 s, the last saved current is
+  extrapolated over half the unsaved window (`min(gap, interval) / 2`). A
+  manual state of charge or a calibration in the meantime wins.
 - **Simulation:** via the master/slave switch
   (`settings/simulation_active/set`) the service computes with substitute values
   instead of real MQTT inputs; "stale" is then off by definition. Real
