@@ -15,6 +15,13 @@
       state: 'working',
       unsigned: false,
       runId: null,
+      // lastErrorCode is the run-finished event's code when state is
+      // 'failed' -- canForceFull reads it to decide whether to offer the
+      // recommendation dialog, without shell.fail ever seeing this
+      // particular code (mirrors screen-connect's own handling of
+      // HOSTKEY_UNKNOWN: a dedicated inline recovery UI, not the generic
+      // error banner).
+      lastErrorCode: null,
       // armed: erst ab unserem eigenen run-started zaehlen Ereignisse. Der
       // Strom beginnt bei seq 0 und traegt auch Aelteres.
       armed: false,
@@ -25,10 +32,18 @@
       },
 
       async init() {
+        await this.start({ mode: 'prepare' });
+      },
+
+      // start posts /api/run and opens the event stream; init() and
+      // forceFull() both begin a run this same way, differing only in the
+      // request body.
+      async start(body) {
         var self = this;
         try {
-          var started = await window.Api.post('/api/run', { mode: 'prepare' });
+          var started = await window.Api.post('/api/run', body);
           this.runId = started.run_id;
+          this.armed = false;
           this.stream = window.Events.open({
             since: 0,
             onEvent: function (type, data) { self.onEvent(type, data); },
@@ -62,7 +77,14 @@
         this.stop();
         if (!data.ok) {
           this.state = 'failed';
-          this.shell.fail({ code: data.code, detail: data.detail });
+          this.lastErrorCode = data.code || null;
+          if (data.code === 'PACKAGE_VERIFY_FAILED_DELTA') {
+            if (data.detail) {
+              this.lines.push(data.detail);
+            }
+          } else {
+            this.shell.fail({ code: data.code, detail: data.detail });
+          }
           return;
         }
         try {
@@ -85,6 +107,21 @@
 
       next() {
         this.shell.afterPrepare();
+      },
+
+      // canForceFull is true only right after a delta transfer's own verify
+      // failure -- the one case where retrying makes sense without the
+      // operator re-choosing anything else.
+      get canForceFull() {
+        return this.state === 'failed' && this.lastErrorCode === 'PACKAGE_VERIFY_FAILED_DELTA';
+      },
+
+      async forceFull() {
+        this.state = 'working';
+        this.lines = [];
+        this.lastErrorCode = null;
+        this.shell.error = null;
+        await this.start({ mode: 'prepare', force_full_transfer: true });
       },
 
       // Ein Wirt, der sein Paket selbst besorgt, hat keinen Verbindungs-

@@ -138,3 +138,42 @@ test('ohne vorhandenes Paket wird "Weiter mit vorhandenem Paket" nicht angeboten
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(screen.canUseExisting, false);
 });
+
+test('finish({ok:false, code:PACKAGE_VERIFY_FAILED_DELTA, detail:x}) sets state failed, canForceFull true, does NOT call shell.fail, pushes detail into lines', async () => {
+  const { screen, shell } = mount();
+  await screen.init();
+  let shellFailCalled = false;
+  const originalFail = shell.fail;
+  shell.fail = () => { shellFailCalled = true; };
+  screen.finish({ ok: false, code: 'PACKAGE_VERIFY_FAILED_DELTA', detail: 'delta transfer verification failed' });
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canForceFull, true);
+  assert.equal(shellFailCalled, false);
+  assert.ok(screen.lines.includes('delta transfer verification failed'));
+  shell.fail = originalFail;
+});
+
+test('finish({ok:false, code:PACKAGE_STAGE_FAILED}) calls shell.fail and canForceFull is false', async () => {
+  const { screen, shell } = mount();
+  await screen.init();
+  let shellFailCalled = false;
+  const originalFail = shell.fail;
+  shell.fail = () => { shellFailCalled = true; };
+  screen.finish({ ok: false, code: 'PACKAGE_STAGE_FAILED', detail: 'stage failed' });
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canForceFull, false);
+  assert.equal(shellFailCalled, true);
+  shell.fail = originalFail;
+});
+
+test('forceFull() posts /api/run with body {mode:prepare, force_full_transfer:true} and resets state/lines/lastErrorCode', async () => {
+  const { screen, calls } = mount();
+  screen.state = 'failed';
+  screen.lines = ['old line'];
+  screen.lastErrorCode = 'PACKAGE_VERIFY_FAILED_DELTA';
+  await screen.forceFull();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: true } });
+  assert.equal(screen.state, 'working');
+  assert.deepEqual(JSON.parse(JSON.stringify(screen.lines)), []);
+  assert.equal(screen.lastErrorCode, null);
+});
