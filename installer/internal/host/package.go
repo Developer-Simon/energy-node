@@ -24,9 +24,10 @@ var (
 	stageBundle   = func(ctx context.Context, c *transport.Client, archive, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployProgress(ctx, c, archive, remoteDir, onProgress)
 	}
-	verifyStaged          = defaultVerifyStaged
-	readInstalledManifest = bundle.ReadInstalledManifest
-	stageDelta            = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
+	verifyStaged = defaultVerifyStaged
+	deltaBase    = bundle.DeltaBase
+	markVerified = bundle.MarkVerified
+	stageDelta   = func(ctx context.Context, c *transport.Client, bundleDir string, changed, removed []string, remoteDir string, onProgress func(done, total int64)) error {
 		return bundle.DeployDelta(ctx, c, bundleDir, changed, removed, remoteDir, onProgress)
 	}
 )
@@ -230,28 +231,10 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 		}
 	}()
 
-	archive := resolved.ArchivePath
-	if archive == "" {
-		if err := os.MkdirAll(h.workDir(), 0o755); err != nil {
-			return err
-		}
-		packed, err := os.CreateTemp(h.workDir(), "bundled-*.tar.gz")
-		if err != nil {
-			return err
-		}
-		packed.Close()
-		defer os.Remove(packed.Name())
-		if err := bundle.PackDir(resolved.Dir, packed.Name()); err != nil {
-			return err
-		}
-		archive = packed.Name()
-	}
-
 	if err := provisionRemoteStateDir(ctx, client, h.cfg.RemoteStateDir); err != nil {
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
-	notef("package.log.upload", map[string]string{})
-	usedDelta, err := h.stage(ctx, client, resolved, archive, forceFull, notef)
+	usedDelta, err := h.stage(ctx, client, resolved, forceFull, notef)
 	if err != nil {
 		return &hostapi.Error{Code: "PACKAGE_STAGE_FAILED", Detail: err.Error()}
 	}
@@ -261,6 +244,11 @@ func (h *Host) doPrepare(ctx context.Context, client *transport.Client, logf fun
 			return &hostapi.Error{Code: "PACKAGE_VERIFY_FAILED_DELTA", Detail: err.Error(), Status: http.StatusConflict}
 		}
 		return err
+	}
+
+	// After successful verification, record the verified bundle state for future delta calculation
+	if err := markVerified(ctx, client, h.cfg.RemoteBundleDir); err != nil {
+		// Ignore the error; the next prepare falls back to hashing the directory
 	}
 
 	h.adopt(resolved, choice.Kind)
@@ -305,22 +293,40 @@ func packageError(err error) error {
 }
 
 // stage transfers the resolved bundle to the node: an incremental delta
-// against installed-manifest.json by default, or the existing full replace
-// when forceFull was asked for or there is no installed manifest to diff
-// against (a first-ever prepare). It reports whether it took the delta
-// path -- doPrepare needs that to decide how to react if verifyStaged then
+// against the last verified base by default, or a full replace when
+// forceFull was asked for. It reports whether it took the delta path
+// -- doPrepare needs that to decide how to react if verifyStaged then
 // fails: PACKAGE_VERIFY_FAILED_DELTA only for the delta path, never for a
 // full transfer's own (unrelated) verify failure.
-func (h *Host) stage(ctx context.Context, client *transport.Client, resolved *bundlesource.Resolved, archive string, forceFull bool, notef func(string, map[string]string)) (usedDelta bool, err error) {
+func (h *Host) stage(ctx context.Context, client *transport.Client, resolved *bundlesource.Resolved, forceFull bool, notef func(string, map[string]string)) (usedDelta bool, err error) {
 	if !forceFull {
-		if installed := readInstalledManifest(ctx, client, h.cfg.RemoteStateDir); installed != nil {
-			changed, removed := bundle.DiffManifest(installed, resolved.Manifest)
-			if err := stageDelta(ctx, client, resolved.Dir, changed, removed, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
-				return false, err
-			}
-			return true, nil
+		notef("package.log.compare", map[string]string{})
+		base, _ := deltaBase(ctx, client, h.cfg.RemoteBundleDir)
+		changed, removed := bundle.DiffManifest(base, resolved.Manifest)
+		notef("package.log.delta", map[string]string{"changed": strconv.Itoa(len(changed)), "removed": strconv.Itoa(len(removed))})
+		notef("package.log.upload", map[string]string{})
+		if err := stageDelta(ctx, client, resolved.Dir, changed, removed, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
+			return false, err
 		}
+		return true, nil
 	}
+	archive := resolved.ArchivePath
+	if archive == "" {
+		if err := os.MkdirAll(h.workDir(), 0o755); err != nil {
+			return false, err
+		}
+		packed, err := os.CreateTemp(h.workDir(), "bundled-*.tar.gz")
+		if err != nil {
+			return false, err
+		}
+		packed.Close()
+		defer os.Remove(packed.Name())
+		if err := bundle.PackDir(resolved.Dir, packed.Name()); err != nil {
+			return false, err
+		}
+		archive = packed.Name()
+	}
+	notef("package.log.upload", map[string]string{})
 	if err := stageBundle(ctx, client, archive, h.cfg.RemoteBundleDir, uploadProgress(notef)); err != nil {
 		return false, err
 	}
