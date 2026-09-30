@@ -384,6 +384,7 @@ func TestHashRemoteDirWithSeededFiles(t *testing.T) {
 		"bootstrap/10-apt.sh": "apt content",
 		"wheels/lib.whl":      "wheel content",
 		"nested/deep/file":    "nested content",
+		"services/a b.txt":    "file with spaces",
 	})
 	if err := bundle.Deploy(context.Background(), client, seed, remoteBundleDir); err != nil {
 		t.Fatalf("seeding Deploy: %v", err)
@@ -421,6 +422,9 @@ func TestHashRemoteDirWithSeededFiles(t *testing.T) {
 	}
 	if result.Files["nested/deep/file"] != expectedHash("nested content") {
 		t.Errorf("nested/deep/file hash mismatch")
+	}
+	if result.Files["services/a b.txt"] != expectedHash("file with spaces") {
+		t.Errorf("services/a b.txt hash mismatch")
 	}
 }
 

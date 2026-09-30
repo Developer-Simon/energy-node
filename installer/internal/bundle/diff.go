@@ -9,10 +9,11 @@ import "sort"
 // file whose hash did not change between the two.
 //
 // old must not be nil: callers check DeltaBase's result (which never returns
-// nil) before ever calling this. Both manifests come from a manifest.json
-// that was itself verified (signed, or hash-checked by VerifyDev) before it
-// reached this function, so the relpaths are trusted -- DeployDelta still
-// refuses one that escapes remoteDir, as defence in depth.
+// nil) before ever calling this. new comes from a verified manifest.json
+// (signed, or hash-checked by VerifyDev) before it reached this function;
+// old either comes from the node's last verified manifest or from hashing
+// the node's own file listing. The relpaths in new are trusted -- DeployDelta
+// still refuses any relpath that escapes remoteDir, as defence in depth.
 func DiffManifest(old, new *Manifest) (changed, removed []string) {
 	for rel, hash := range new.Files {
 		if old.Files[rel] != hash {

@@ -274,17 +274,21 @@ func HashRemoteDir(ctx context.Context, client *transport.Client, remoteBundleDi
 		if strings.HasPrefix(line, "\\") {
 			continue
 		}
-		// Parse "<64 hex>  ./rel"
-		parts := strings.Fields(line)
-		if len(parts) < 2 {
+		// Parse "<64 hex>  ./rel" strictly
+		// sha256sum format: exactly 64 hex chars, two spaces, then filename
+		if len(line) <= 66 {
 			return nil, fmt.Errorf("HashRemoteDir: malformed sha256sum line: %q", line)
 		}
-		hash := parts[0]
-		relPath := parts[1]
-		// Remove leading "./"
-		if strings.HasPrefix(relPath, "./") {
-			relPath = relPath[2:]
+		hash := line[:64]
+		// Validate hash is lowercase hex
+		if _, err := hex.DecodeString(hash); err != nil {
+			return nil, fmt.Errorf("HashRemoteDir: malformed sha256sum line: %q", line)
 		}
+		// Validate two-space separator
+		if line[64:66] != "  " {
+			return nil, fmt.Errorf("HashRemoteDir: malformed sha256sum line: %q", line)
+		}
+		relPath := strings.TrimPrefix(line[66:], "./")
 		files[relPath] = hash
 	}
 
