@@ -38,7 +38,8 @@ var (
 	verifyBundleRemoteDev     = bundle.VerifyRemoteDev
 	provisionRemoteStateDir   = defaultProvisionRemoteStateDir
 	recordInstalled           = steps.RecordInstalled
-	readInstalledManifest     = bundle.ReadInstalledManifest
+	deltaBase                 = bundle.DeltaBase
+	markVerified              = bundle.MarkVerified
 	deployDelta               = bundle.DeployDelta
 )
 
@@ -157,6 +158,10 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		}
 	}
 
+	if err := markVerified(ctx, args.Client, DefaultRemoteBundleDir); err != nil {
+		fmt.Fprintf(args.Stdout, "warning: could not record the verified bundle state: %v\n", err)
+	}
+
 	if args.ForceConfig {
 		confirm := args.Confirm
 		if confirm == nil {
@@ -220,22 +225,21 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 }
 
 // stageForDeploy stages the built bundle on the node: an incremental delta
-// against installed-manifest.json by default, or a full replace when
-// args.ForceFull was asked for or there is no installed manifest to diff
-// against at all (a first-ever deploy). It reports whether it took the
-// delta path -- RunDeploy needs that to decide how to react if
-// verifyRemote then fails: a full transfer's own verify failure is
-// reported as-is, but a delta transfer's asks before retrying as a full
-// one (Global Constraints: never silently switch).
+// against the last verified base by default, or a full replace when
+// args.ForceFull was asked for. It reports whether it took the delta path
+// -- RunDeploy needs that to decide how to react if verifyRemote then fails:
+// a full transfer's own verify failure is reported as-is, but a delta
+// transfer's asks before retrying as a full one (Global Constraints: never
+// silently switch).
 func stageForDeploy(ctx context.Context, args DeployArgs, archivePath, bundleDir string, manifest *bundle.Manifest) (usedDelta bool, err error) {
 	if !args.ForceFull {
-		if installed := readInstalledManifest(ctx, args.Client, DefaultRemoteStateDir); installed != nil {
-			changed, removed := bundle.DiffManifest(installed, manifest)
-			if err := deployDelta(ctx, args.Client, bundleDir, changed, removed, DefaultRemoteBundleDir, nil); err != nil {
-				return false, err
-			}
-			return true, nil
+		base, source := deltaBase(ctx, args.Client, DefaultRemoteBundleDir)
+		changed, removed := bundle.DiffManifest(base, manifest)
+		fmt.Fprintf(args.Stdout, "incremental transfer (base: %s): %d changed, %d removed\n", source, len(changed), len(removed))
+		if err := deployDelta(ctx, args.Client, bundleDir, changed, removed, DefaultRemoteBundleDir, nil); err != nil {
+			return false, err
 		}
+		return true, nil
 	}
 	if err := deployBundle(ctx, args.Client, archivePath, DefaultRemoteBundleDir); err != nil {
 		return false, err
