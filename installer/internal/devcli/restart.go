@@ -37,7 +37,7 @@ type RestartArgs struct {
 // With --only the one unit is restarted unconditionally. Without it every
 // unit gets try-restart: a service the operator deselected stays stopped.
 func RunRestart(ctx context.Context, args RestartArgs) error {
-	manifest, err := readInstalledManifest(ctx, args.Client, args.RemoteBundleDir)
+	manifest, err := readInstalledBundleManifest(ctx, args.Client, args.RemoteBundleDir)
 	if err != nil {
 		return err
 	}
@@ -73,9 +73,9 @@ func unitForStep(entry bundle.StepEntry) (string, bool) {
 	return entry.Unit, entry.Unit != ""
 }
 
-// readInstalledManifest reads manifest.json of the bundle currently deployed
+// readInstalledBundleManifest reads manifest.json of the bundle currently deployed
 // on the node.
-func readInstalledManifest(ctx context.Context, client *transport.Client, remoteBundleDir string) (*bundle.Manifest, error) {
+func readInstalledBundleManifest(ctx context.Context, client *transport.Client, remoteBundleDir string) (*bundle.Manifest, error) {
 	manifestPath := path.Join(remoteBundleDir, "manifest.json")
 	var stdout, stderr bytes.Buffer
 	cmd := "cat " + transport.ShellQuote(manifestPath)

@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
@@ -38,8 +39,8 @@ func swapDeployCollaborators(t *testing.T) {
 	origProvision := provisionRemoteStateDir
 	origRecord := recordInstalled
 	origClearStamp, origRestart := clearRemoteStepStamp, restartUnits
+	origReadInstalled, origDeployDelta := readInstalledManifest, deployDelta
 	t.Cleanup(func() {
-		clearRemoteStepStamp, restartUnits = origClearStamp, origRestart
 		buildViaRepo, extractArchive = origBuild, origExtract
 		verifyBundleLocal, deployBundle = origVerifyLocal, origDeploy
 		verifyBundleRemote, previewRun = origVerifyRemote, origPreview
@@ -48,6 +49,8 @@ func swapDeployCollaborators(t *testing.T) {
 		verifyBundleLocalDev, verifyBundleRemoteDev = origVerifyLocalDev, origVerifyRemoteDev
 		provisionRemoteStateDir = origProvision
 		recordInstalled = origRecord
+		clearRemoteStepStamp, restartUnits = origClearStamp, origRestart
+		readInstalledManifest, deployDelta = origReadInstalled, origDeployDelta
 	})
 
 	buildViaRepo = func(context.Context, bundle.BuildArgs) (string, error) { return "/fake/archive.tar.gz", nil }
@@ -66,6 +69,15 @@ func swapDeployCollaborators(t *testing.T) {
 		for _, u := range units {
 			restarted = append(restarted, verb+" "+u)
 		}
+		return nil
+	}
+	// Every pre-existing test in this file exercises the full-transfer path
+	// (deployBundle) and knows nothing about delta -- nil here is what makes
+	// that keep working unchanged: no installed manifest means no diff, so
+	// stageForDeploy falls through to deployBundle exactly as before.
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(done, total int64)) error {
+		t.Fatalf("deployDelta must not run when no installed manifest is faked")
 		return nil
 	}
 }
@@ -496,9 +508,139 @@ func TestRunDeployWithoutDevUnsignedUsesTheSignedVerifiers(t *testing.T) {
 	}
 }
 
+func TestRunDeployPrefersDeltaWhenAnInstalledManifestExists(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) {
+		return &bundle.Manifest{Version: "v0.3.0", Files: map[string]string{"a": "new"}}, nil
+	}
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest {
+		return &bundle.Manifest{Files: map[string]string{"a": "old"}}
+	}
+	deltaCalled, fullCalled := false, false
+	deployDelta = func(_ context.Context, _ *transport.Client, _ string, changed, removed []string, _ string, _ func(int64, int64)) error {
+		deltaCalled = true
+		if len(changed) != 1 || changed[0] != "a" {
+			t.Errorf("changed = %v, want [a]", changed)
+		}
+		return nil
+	}
+	deployBundle = func(context.Context, *transport.Client, string, string) error { fullCalled = true; return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !deltaCalled || fullCalled {
+		t.Fatalf("deltaCalled=%v fullCalled=%v, want delta only", deltaCalled, fullCalled)
+	}
+}
+
+func TestRunDeployForceFullSkipsTheDiffEvenWithAnInstalledManifest(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest {
+		t.Fatalf("--force-full must not even look for an installed manifest")
+		return nil
+	}
+	fullCalled := false
+	deployBundle = func(context.Context, *transport.Client, string, string) error { fullCalled = true; return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	if err := RunDeploy(context.Background(), DeployArgs{ForceFull: true, Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !fullCalled {
+		t.Fatalf("expected the full transfer to run")
+	}
+}
+
+func TestRunDeployAsksBeforeRetransferringAfterADeltaVerifyFailure(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest {
+		return &bundle.Manifest{Files: map[string]string{}}
+	}
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
+	fullCalled := false
+	deployBundle = func(context.Context, *transport.Client, string, string) error { fullCalled = true; return nil }
+	verifyCalls := 0
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error {
+		verifyCalls++
+		if verifyCalls == 1 {
+			return errors.New("hash mismatch")
+		}
+		return nil // the retry, after a confirmed full retransfer, succeeds
+	}
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	confirmed := false
+	err := RunDeploy(context.Background(), DeployArgs{
+		Stdout: &bytes.Buffer{},
+		Confirm: func(prompt string) (bool, error) {
+			confirmed = true
+			if !strings.Contains(prompt, "full") {
+				t.Errorf("prompt = %q, expected it to recommend a full retransfer", prompt)
+			}
+			return true, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !confirmed || !fullCalled || verifyCalls != 2 {
+		t.Fatalf("confirmed=%v fullCalled=%v verifyCalls=%d, want all true/2", confirmed, fullCalled, verifyCalls)
+	}
+}
+
+func TestRunDeployDeclinedRetransferKeepsTheOriginalVerifyError(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	readInstalledManifest = func(context.Context, *transport.Client, string) *bundle.Manifest {
+		return &bundle.Manifest{Files: map[string]string{}}
+	}
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
+	deployBundle = func(context.Context, *transport.Client, string, string) error {
+		t.Fatalf("must not retransfer when the operator declines")
+		return nil
+	}
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return errors.New("hash mismatch") }
+
+	err := RunDeploy(context.Background(), DeployArgs{
+		Stdout:  &bytes.Buffer{},
+		Confirm: func(string) (bool, error) { return false, nil },
+	})
+	if err == nil || !strings.Contains(err.Error(), "hash mismatch") {
+		t.Fatalf("err = %v, want it to name the original verify failure", err)
+	}
+}
+
+func TestRunDeployAFullTransferVerifyFailureNeverAsksToConfirm(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return errors.New("hash mismatch") }
+
+	err := RunDeploy(context.Background(), DeployArgs{
+		Stdout: &bytes.Buffer{},
+		Confirm: func(string) (bool, error) {
+			t.Fatalf("a full transfer's own verify failure must not ask to confirm anything")
+			return false, nil
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+}
+
 func containsAll(s string, substrings ...string) bool {
 	for _, sub := range substrings {
-		if !bytes.Contains([]byte(s), []byte(sub)) {
+		if !strings.Contains(s, sub) {
 			return false
 		}
 	}

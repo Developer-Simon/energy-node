@@ -26,7 +26,7 @@ type DiagnoseArgs struct {
 // (via internal/diag) and prints a checklist with a retry hint for every
 // failing check.
 func RunDiagnose(ctx context.Context, args DiagnoseArgs) error {
-	manifest, err := readInstalledManifest(ctx, args.Client, args.RemoteBundleDir)
+	manifest, err := readInstalledBundleManifest(ctx, args.Client, args.RemoteBundleDir)
 	if err != nil {
 		return err
 	}
