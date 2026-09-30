@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -517,8 +518,11 @@ func TestRunDeployPrefersDeltaWhenAnInstalledManifestExists(t *testing.T) {
 		return &bundle.Manifest{Files: map[string]string{"a": "old"}}
 	}
 	deltaCalled, fullCalled := false, false
-	deployDelta = func(_ context.Context, _ *transport.Client, _ string, changed, removed []string, _ string, _ func(int64, int64)) error {
+	var capturedBundleDir, capturedRemoteDir string
+	deployDelta = func(_ context.Context, _ *transport.Client, bundleDir string, changed, removed []string, remoteDir string, _ func(int64, int64)) error {
 		deltaCalled = true
+		capturedBundleDir = bundleDir
+		capturedRemoteDir = remoteDir
 		if len(changed) != 1 || changed[0] != "a" {
 			t.Errorf("changed = %v, want [a]", changed)
 		}
@@ -533,6 +537,12 @@ func TestRunDeployPrefersDeltaWhenAnInstalledManifestExists(t *testing.T) {
 	}
 	if !deltaCalled || fullCalled {
 		t.Fatalf("deltaCalled=%v fullCalled=%v, want delta only", deltaCalled, fullCalled)
+	}
+	if !strings.HasSuffix(capturedBundleDir, string(filepath.Separator)+"extracted") {
+		t.Errorf("bundleDir = %q, want to end with /extracted", capturedBundleDir)
+	}
+	if capturedRemoteDir != DefaultRemoteBundleDir {
+		t.Errorf("remoteDir = %q, want %q", capturedRemoteDir, DefaultRemoteBundleDir)
 	}
 }
 

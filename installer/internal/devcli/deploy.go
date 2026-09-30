@@ -129,7 +129,7 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		return fmt.Errorf("provisioning %s on the node: %w", DefaultRemoteStateDir, err)
 	}
 
-	usedDelta, err := stageForDeploy(ctx, args, archivePath, DefaultRemoteBundleDir, manifest)
+	usedDelta, err := stageForDeploy(ctx, args, archivePath, extractDir, manifest)
 	if err != nil {
 		return fmt.Errorf("uploading bundle: %w", err)
 	}
