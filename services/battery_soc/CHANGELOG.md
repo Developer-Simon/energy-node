@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.4.5 (2026-09-30)
+
+### Features
+
+- **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **dashboard:** localize the system configuration form (#72) (c716d05)
+- **dashboard:** localize the device configuration forms (#73) (180110d)
+- **battery_soc:** add the save interval setting to the service schema (df73211)
+- **battery_soc:** write the state file atomically with save metadata (646ac60)
+- **battery_soc:** recover the counter from the retained state or by extrapolation (01db8e3)
+- **battery_soc:** save the state on an interval and flush it on shutdown (63c771e)
+
+### Tests
+
+- **battery_soc:** clarify why the recovery key is left out of the golden (a5ae656)
+
 ## v0.4.4 (2026-09-28)
 
 ### Features

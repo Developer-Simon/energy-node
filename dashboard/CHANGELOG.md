@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.8.1 (2026-09-30)
+
+### Features
+
+- **battery_soc:** add the save interval setting to the service schema (df73211)
+
 ## v0.8.0 (2026-09-29)
 
 ### Features
