@@ -1,11 +1,13 @@
 package steps_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
+	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/steps"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport/transporttest"
 )
@@ -34,7 +36,7 @@ func TestPreviewParsesThePlanReport(t *testing.T) {
 
 	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"plan.sh": fakePlanScript})
 
-	plan, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0")
+	plan, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0", nil)
 	if err != nil {
 		t.Fatalf("Preview: %v", err)
 	}
@@ -69,12 +71,83 @@ func TestPreviewReportsAMissingManifest(t *testing.T) {
 	const failScript = "#!/bin/sh\necho diagnostic noise on its own line\nprintf 'FEHLER BUNDLE_MANIFEST_MISSING\\n'\nexit 1\n"
 	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"plan.sh": failScript})
 
-	_, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0")
+	_, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0", nil)
 	var bundleErr *bundle.Error
 	if !errors.As(err, &bundleErr) {
 		t.Fatalf("expected a *bundle.Error, got %v", err)
 	}
 	if bundleErr.Code != bundle.FaultManifestMissing {
 		t.Fatalf("expected FaultManifestMissing, got %s", bundleErr.Code)
+	}
+}
+
+// selectionEchoScript reports step 83 as pending when the selection file it
+// was handed switches 83 on, deselected otherwise. json.Marshal writes the
+// map without spaces, so the grep pattern matches exactly.
+const selectionEchoScript = `#!/bin/sh
+if grep -q '"83":true' "$EN_SELECTION" 2>/dev/null; then
+  state=pending; sel=true
+else
+  state=deselected; sel=false
+fi
+cat <<JSON
+{"bundle_version": "v0.2.0", "steps": [{"id": "83", "optional": true, "selected": $sel, "state": "$state"}], "components": {}}
+JSON
+`
+
+func TestPreviewRunsAgainstAGivenSelectionAndLeavesTheNodeFileAlone(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"plan.sh": selectionEchoScript})
+
+	nodeSelection := []byte(`{"steps":{"83":false}}`)
+	if err := client.UploadBytes(nodeSelection, stateDir+"/selection.json", 0o644); err != nil {
+		t.Fatalf("upload node selection: %v", err)
+	}
+
+	plan, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0", nil)
+	if err != nil {
+		t.Fatalf("Preview without selection: %v", err)
+	}
+	if plan.Steps[0].State != "deselected" {
+		t.Fatalf("without a selection Preview must read the node's selection.json, got %+v", plan.Steps[0])
+	}
+
+	pending := &selection.Selection{Steps: map[string]bool{"83": true}}
+	plan, err = steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0", pending)
+	if err != nil {
+		t.Fatalf("Preview with selection: %v", err)
+	}
+	if plan.Steps[0].State != "pending" || !plan.Steps[0].Selected {
+		t.Fatalf("with a selection Preview must plan against it, got %+v", plan.Steps[0])
+	}
+
+	var out bytes.Buffer
+	if err := client.Run(context.Background(), "cat "+stateDir+"/selection.json", &out, &bytes.Buffer{}); err != nil {
+		t.Fatalf("read node selection: %v", err)
+	}
+	if out.String() != string(nodeSelection) {
+		t.Errorf("node selection.json = %q, Preview must never touch it", out.String())
+	}
+	if err := client.Run(context.Background(), "test ! -e "+stateDir+"/selection.preview.json", &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Errorf("staged selection.preview.json is still on the node")
+	}
+}
+
+func TestPreviewRemovesTheStagedSelectionEvenWhenPlanFails(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	const failScript = "#!/bin/sh\nprintf 'FEHLER BUNDLE_MANIFEST_MISSING\\n'\nexit 1\n"
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{"plan.sh": failScript})
+
+	pending := &selection.Selection{Steps: map[string]bool{"83": true}}
+	if _, err := steps.Preview(context.Background(), client, bundleDir, stateDir, "v0.2.0", pending); err == nil {
+		t.Fatalf("Preview must report the plan.sh fault")
+	}
+	if err := client.Run(context.Background(), "test ! -e "+stateDir+"/selection.preview.json", &bytes.Buffer{}, &bytes.Buffer{}); err != nil {
+		t.Errorf("staged selection.preview.json survived a failing plan.sh")
 	}
 }

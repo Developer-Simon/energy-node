@@ -167,14 +167,22 @@ func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi
 		return hostapi.ConnectResult{}, &hostapi.Error{Code: "AUTH_FAILED", Detail: err.Error(), Status: http.StatusUnauthorized}
 	}
 
+	h.attachClient(client)
+
+	return hostapi.ConnectResult{Connected: true, Host: req.Host, User: req.User}, nil
+}
+
+// attachClient macht client zur aktuellen Verbindung. Eine noch nicht
+// gelaufene Auswahl gehoert zum vorigen Geraet und faellt weg, sonst
+// zeigte die Vorschau eines anderen Nodes dessen Aenderung an.
+func (h *Host) attachClient(client *transport.Client) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	if h.client != nil {
 		_ = h.client.Close()
 	}
 	h.client = client
-	h.mu.Unlock()
-
-	return hostapi.ConnectResult{Connected: true, Host: req.Host, User: req.User}, nil
+	h.pending = nil
 }
 
 func (h *Host) GenerateKeypair(ctx context.Context) (hostapi.KeypairResult, error) {
@@ -332,6 +340,12 @@ func (h *Host) Manifest(ctx context.Context) (*hostapi.ManifestView, error) {
 }
 
 func (h *Host) Selection(ctx context.Context) (*hostapi.SelectionView, error) {
+	// Eine per PUT gespeicherte Auswahl gilt bis zum naechsten Lauf, der sie
+	// erst auf das Geraet schreibt. Ohne diesen Zweig zeigte die Vorschau
+	// nach "Auswahl uebernehmen" wieder den alten Stand vom Node.
+	if pending := h.pendingSelection(); pending != nil {
+		return &hostapi.SelectionView{Steps: pending.Steps, Source: "pending"}, nil
+	}
 	if current := h.currentSelection(); current != nil {
 		return current, nil
 	}
@@ -341,6 +355,14 @@ func (h *Host) Selection(ctx context.Context) (*hostapi.SelectionView, error) {
 	}
 	defaults := selection.DefaultFor(manifest)
 	return &hostapi.SelectionView{Steps: defaults.Steps, Source: "manifest-default"}, nil
+}
+
+// pendingSelection liefert die gespeicherte, noch nicht gelaufene Auswahl
+// oder nil.
+func (h *Host) pendingSelection() *selection.Selection {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	return h.pending
 }
 
 func (h *Host) SaveSelection(ctx context.Context, stepsMap map[string]bool) error {
@@ -359,7 +381,7 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	if err != nil {
 		return nil, err
 	}
-	preview, err := steps.Preview(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version)
+	preview, err := steps.Preview(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version, h.pendingSelection())
 	if err != nil {
 		return nil, &hostapi.Error{Code: "PLAN_FAILED", Detail: err.Error()}
 	}
@@ -543,10 +565,7 @@ func (h *Host) currentSelection() *hostapi.SelectionView {
 // die in dieser Sitzung gemerkte (PUT /api/selection), sonst die vom Node,
 // sonst die Vorgaben des Manifests.
 func (h *Host) selectionForRun() *selection.Selection {
-	h.mu.Lock()
-	pending := h.pending
-	h.mu.Unlock()
-	if pending != nil {
+	if pending := h.pendingSelection(); pending != nil {
 		return pending
 	}
 	if current := h.currentSelection(); current != nil {

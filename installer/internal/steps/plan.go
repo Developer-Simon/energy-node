@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
+	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
 
@@ -44,17 +45,37 @@ type Plan struct {
 	Components    map[string]ComponentVersions `json:"components"`
 }
 
+// previewSelectionName is the file Preview stages an unsaved selection in.
+// It sits next to selection.json, never replaces it: the run stays the only
+// writer of selection.json, and a root-owned one from a manual install is
+// left alone.
+const previewSelectionName = "selection.preview.json"
+
 // Preview runs plan.sh on the node and parses its report. It changes
 // nothing -- the same guarantee plan.sh itself gives -- so it is safe to
 // call at any time, including before Deploy/VerifyRemote against a node
 // that already has a bundle from a previous run. Plan C's Re-Deploy
 // "Vorschau" screen (AK8) calls this before the operator confirms anything.
-func Preview(ctx context.Context, client *transport.Client, remoteBundleDir, remoteStateDir, bundleVersion string) (*Plan, error) {
+// A non-nil sel is planned against instead of the node's selection.json, so
+// the preview matches the selection the next run will upload.
+func Preview(ctx context.Context, client *transport.Client, remoteBundleDir, remoteStateDir, bundleVersion string, sel *selection.Selection) (*Plan, error) {
+	selectionPath := path.Join(remoteStateDir, "selection.json")
+	if sel != nil {
+		raw, err := json.Marshal(sel)
+		if err != nil {
+			return nil, fmt.Errorf("encoding selection: %w", err)
+		}
+		selectionPath = path.Join(remoteStateDir, previewSelectionName)
+		if err := client.UploadBytes(raw, selectionPath, 0o644); err != nil {
+			return nil, fmt.Errorf("uploading %s: %w", previewSelectionName, err)
+		}
+		defer func() { _ = client.RemoveRemote(selectionPath) }()
+	}
 	env := map[string]string{
 		"EN_STATE_DIR":      remoteStateDir,
 		"EN_BUNDLE_DIR":     remoteBundleDir,
 		"EN_BUNDLE_VERSION": bundleVersion,
-		"EN_SELECTION":      path.Join(remoteStateDir, "selection.json"),
+		"EN_SELECTION":      selectionPath,
 	}
 	scriptPath := path.Join(remoteBundleDir, "bootstrap", "plan.sh")
 	command := transport.BuildCommand(env, "bash "+transport.ShellQuote(scriptPath))

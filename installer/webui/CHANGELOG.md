@@ -1,10 +1,11 @@
 # Changelog
 
-## v0.1.14 (2026-09-30)
+## v0.1.15 (2026-10-01)
 
 ### Features
 
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
+- **installer:** transfer only changed bundle files to the node (#79) (f782acd)
 - **installer:** add catalog entries for the partial transfer UI (a07a73a)
 - **installer:** stage the web UI host's prepare step incrementally (ee2f587)
 - **installer:** offer a full retransfer after a delta verify failure (e0f7fb1)
@@ -14,6 +15,10 @@
 - **installer-webui:** break down service versions and restart reasons in the update preview (6a96afd)
 - **installer:** carry installed versions and devices into the diagnose view (4e6937b)
 - **installer-webui:** show versions, devices and not-installed services in diagnostics (2225623)
+
+### Fixes
+
+- **installer:** show the saved service selection in the update preview (83fe286)
 
 ### Tests
 

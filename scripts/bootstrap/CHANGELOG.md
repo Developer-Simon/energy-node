@@ -1,11 +1,12 @@
 # Changelog
 
-## v0.1.13 (2026-09-30)
+## v0.1.13 (2026-10-01)
 
 ### Features
 
 - **dashboard:** show installed component versions under settings (#71) (c8ef59b)
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
+- **installer:** transfer only changed bundle files to the node (#79) (f782acd)
 - **bootstrap:** report installed versions, devices and never-installed services in diagnose.sh (1f57d70)
 
 ### Fixes

@@ -1,11 +1,12 @@
 # Changelog
 
-## v0.1.13 (2026-09-30)
+## v0.1.14 (2026-10-01)
 
 ### Features
 
 - **⚠ Breaking — installer:** replace scripts/deploy with the developer CLI (#55) (b7e313e)
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
+- **installer:** transfer only changed bundle files to the node (#79) (f782acd)
 - **installer:** add DiffManifest, comparing two bundle manifests' file hashes (209e407)
 - **installer:** add PackFiles, packing a named subset of a bundle directory (2fa4de9)
 - **installer:** add ReadInstalledManifest, downloading the node's last-applied manifest (3fb2d03)
@@ -20,6 +21,8 @@
 
 ### Fixes
 
+- **installer:** show the saved service selection in the update preview (83fe286)
+- **installer:** plan the update preview against the saved service selection (c2e38f3)
 - **installer:** use a local path join for the delta signature check (1231471)
 - **installer:** stage the dev CLI's delta from the local build directory (b2f22d0)
 - **installer:** parse hashed file names exactly and test the verify error detail (b00dfd4)

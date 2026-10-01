@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
+	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/steps"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
@@ -280,7 +281,7 @@ func TestRunDeployOnlyDryRunClearsNothing(t *testing.T) {
 		t.Fatalf("--dry-run must not call deltaBase")
 		return nil, ""
 	}
-	previewRun = func(_ context.Context, _ *transport.Client, _, _, v string) (*steps.Plan, error) {
+	previewRun = func(_ context.Context, _ *transport.Client, _, _, v string, _ *selection.Selection) (*steps.Plan, error) {
 		return &steps.Plan{BundleVersion: v}, nil
 	}
 
@@ -322,7 +323,7 @@ func TestRunDeployDryRunSkipsDeployAndRun(t *testing.T) {
 	runSteps = func(context.Context, steps.RunOptions) error { runCalled = true; return nil }
 
 	var previewedVersion string
-	previewRun = func(_ context.Context, _ *transport.Client, _, _, bundleVersion string) (*steps.Plan, error) {
+	previewRun = func(_ context.Context, _ *transport.Client, _, _, bundleVersion string, _ *selection.Selection) (*steps.Plan, error) {
 		previewedVersion = bundleVersion
 		return &steps.Plan{BundleVersion: bundleVersion}, nil
 	}
@@ -477,7 +478,7 @@ func TestRunDeployDryRunDoesNotProvisionTheRemoteStateDir(t *testing.T) {
 		t.Fatalf("--dry-run must not touch the node at all")
 		return nil, ""
 	}
-	previewRun = func(context.Context, *transport.Client, string, string, string) (*steps.Plan, error) {
+	previewRun = func(context.Context, *transport.Client, string, string, string, *selection.Selection) (*steps.Plan, error) {
 		return &steps.Plan{}, nil
 	}
 	provisionRemoteStateDir = func(context.Context, *transport.Client) error {
