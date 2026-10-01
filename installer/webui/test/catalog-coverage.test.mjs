@@ -20,7 +20,7 @@ const catalogs = Object.fromEntries(
 
 // Die Praefixe aus Vertrag 6.
 const PREFIXES = ['app', 'entry', 'language', 'stepper', 'connect', 'prepare', 'precheck', 'configure', 'run', 'result', 'preview',
-  'diagnose', 'field', 'action', 'step', 'service', 'component', 'unit', 'number', 'warning', 'fault', 'error'];
+  'diagnose', 'field', 'action', 'step', 'service', 'component', 'unit', 'number', 'warning', 'fault', 'error', 'changelog'];
 const KEY = new RegExp(`^(?:${PREFIXES.join('|')})(?:\\.[A-Za-z0-9_-]+)+$`);
 
 function present(catalog, key) {

@@ -16,7 +16,7 @@
   };
   // Auf diesen Bildschirmen ist noch nichts veraendert - nur dort steht der
   // Einstiegs-Umschalter.
-  var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose'];
+  var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose', 'changelog'];
 
   function emptyBar() {
     return { lead: '', sub: '', status: '', action: null };
