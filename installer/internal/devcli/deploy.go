@@ -118,7 +118,7 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 	}
 
 	if args.DryRun {
-		plan, err := previewRun(ctx, args.Client, DefaultRemoteBundleDir, DefaultRemoteStateDir, manifest.Version)
+		plan, err := previewRun(ctx, args.Client, DefaultRemoteBundleDir, DefaultRemoteStateDir, manifest.Version, nil)
 		if err != nil {
 			return fmt.Errorf("previewing the run (does this node have an existing installation to compare against?): %w", err)
 		}

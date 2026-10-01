@@ -381,7 +381,7 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	if err != nil {
 		return nil, err
 	}
-	preview, err := steps.Preview(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version)
+	preview, err := steps.Preview(ctx, client, h.cfg.RemoteBundleDir, h.cfg.RemoteStateDir, manifest.Version, h.pendingSelection())
 	if err != nil {
 		return nil, &hostapi.Error{Code: "PLAN_FAILED", Detail: err.Error()}
 	}
