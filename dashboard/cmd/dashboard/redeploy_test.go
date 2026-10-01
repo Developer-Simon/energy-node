@@ -188,3 +188,42 @@ func TestTheRedeployScreenFollowsTheDashboardLanguage(t *testing.T) {
 		}
 	}
 }
+
+// The changelog endpoint is found by a type assertion on the backend, so a
+// wrong method signature would not fail to compile -- it would answer 501. This
+// walks the real handler chain (hostapi.Server over updaterhost.Host).
+func TestRedeployHandlerServesTheCandidatesChangelogWithWhatIsInstalled(t *testing.T) {
+	root := t.TempDir()
+	candidate := filepath.Join(root, "candidate")
+	os.MkdirAll(candidate, 0o755)
+	os.WriteFile(filepath.Join(candidate, "manifest.json"), []byte(`{"version":"v0.7.5","steps":[]}`), 0o644)
+	os.WriteFile(filepath.Join(candidate, "changelog.json"), []byte(`{"schema_version":1,"components":[]}`), 0o644)
+	os.WriteFile(filepath.Join(root, "installed-manifest.json"), []byte(`{"version":"v0.7.4","components":{"dashboard":"v0.7.4"}}`), 0o644)
+	os.WriteFile(filepath.Join(root, "selection.json"), []byte(`{"steps":{}}`), 0o644)
+	jobDir := filepath.Join(root, "job")
+	os.MkdirAll(jobDir, 0o755)
+
+	handler, err := buildRedeployHandler(redeployConfig{
+		candidateBundleDir: candidate, installedManifestPath: filepath.Join(root, "installed-manifest.json"),
+		selectionPath: filepath.Join(root, "selection.json"), jobDir: jobDir,
+	})
+	if err != nil {
+		t.Fatalf("buildRedeployHandler: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/redeploy/api/changelog", nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		BundleVersion string            `json:"bundle_version"`
+		Installed     map[string]string `json:"installed"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if body.BundleVersion != "v0.7.5" || body.Installed["dashboard"] != "v0.7.4" {
+		t.Fatalf("body = %s", rec.Body.String())
+	}
+}
