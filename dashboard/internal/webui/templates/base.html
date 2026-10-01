@@ -206,7 +206,7 @@
        EnergyCardScripts unten). defer-Skripte laufen in Dokumentreihenfolge,
        damit steht window.EnergyPresentation, bevor irgendeine Karte montiert. */}}
   <script src="{{.BasePath}}/static/js/energy-presentation.js?v=1" defer></script>
-  <script src="{{.BasePath}}/static/js/energy-flow.js?v=1" defer></script>
+  <script src="{{.BasePath}}/static/js/energy-flow.js?v=2" defer></script>
   {{if .EnergyCardScripts}}<script src="{{.BasePath}}/static/js/energy-model.js?v=2" defer></script>
   {{/* Der Kern der Batteriekarte. Vor battery-status.js, das im gleichen
        EnergyCardScripts-Bereich folgt und window.BatteryCardCore beim Laden

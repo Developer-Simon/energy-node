@@ -21,6 +21,7 @@
 
 ### Fixes
 
+- **installer:** keep the changed service selection in the update preview (#80) (2341643)
 - **installer:** show the saved service selection in the update preview (83fe286)
 - **installer:** plan the update preview against the saved service selection (c2e38f3)
 - **installer:** use a local path join for the delta signature check (1231471)

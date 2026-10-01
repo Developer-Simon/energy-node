@@ -18,6 +18,7 @@
 
 ### Fixes
 
+- **installer:** keep the changed service selection in the update preview (#80) (2341643)
 - **installer:** show the saved service selection in the update preview (83fe286)
 
 ### Tests
