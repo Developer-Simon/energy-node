@@ -45,3 +45,21 @@ func RecordInstalled(ctx context.Context, client *transport.Client, remoteBundle
 	}
 	return nil
 }
+
+// ReadInstalledManifest returns the installed-manifest.json copy from the node's
+// state directory -- the "from" side of every component. It returns nil, nil
+// when there is no copy yet (a node the installer has never finished a run on),
+// which callers treat as "nothing installed", not as an error.
+func ReadInstalledManifest(ctx context.Context, client *transport.Client, remoteStateDir string) ([]byte, error) {
+	target := transport.ShellQuote(path.Join(remoteStateDir, "installed-manifest.json"))
+	command := fmt.Sprintf("if [ -f %s ]; then cat %s; fi", target, target)
+
+	var stdout, stderr bytes.Buffer
+	if err := client.Run(ctx, command, &stdout, &stderr); err != nil {
+		return nil, fmt.Errorf("reading installed-manifest.json: %w (stderr: %s)", err, stderr.String())
+	}
+	if stdout.Len() == 0 {
+		return nil, nil
+	}
+	return stdout.Bytes(), nil
+}
