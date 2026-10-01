@@ -19,12 +19,25 @@ import (
 // The copy goes through a .tmp file and mv so an interrupted connection
 // never leaves a half-written file behind. The state directory belongs to
 // the connecting user (provisionRemoteStateDir), so no sudo is needed.
+// When the bundle carries a changelog.json it is copied next to it the same way (best effort) so the dashboard can show what the installed version contains.
 func RecordInstalled(ctx context.Context, client *transport.Client, remoteBundleDir, remoteStateDir string) error {
 	src := transport.ShellQuote(path.Join(remoteBundleDir, "manifest.json"))
 	dst := path.Join(remoteStateDir, "installed-manifest.json")
 	tmp := transport.ShellQuote(dst + ".tmp")
-	command := fmt.Sprintf("cp %s %s && mv -f %s %s || { rm -f %s; exit 1; }",
-		src, tmp, tmp, transport.ShellQuote(dst), tmp)
+
+	logSrc := transport.ShellQuote(path.Join(remoteBundleDir, "changelog.json"))
+	logDst := path.Join(remoteStateDir, "changelog.json")
+	logTmp := transport.ShellQuote(logDst + ".tmp")
+
+	// The manifest copy is the record and must succeed (exit 1 otherwise). The
+	// changelog copy that follows is best effort: an older bundle has no
+	// changelog.json, and a missing changelog must never turn a fully applied
+	// run into a failure.
+	command := fmt.Sprintf(
+		"cp %s %s && mv -f %s %s || { rm -f %s; exit 1; }; "+
+			"if [ -f %s ]; then cp %s %s && mv -f %s %s || rm -f %s; fi",
+		src, tmp, tmp, transport.ShellQuote(dst), tmp,
+		logSrc, logSrc, logTmp, logTmp, transport.ShellQuote(logDst), logTmp)
 
 	var stderr bytes.Buffer
 	if err := client.Run(ctx, command, io.Discard, &stderr); err != nil {

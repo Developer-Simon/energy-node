@@ -61,3 +61,42 @@ func TestRecordInstalledFailsWhenTheBundleHasNoManifest(t *testing.T) {
 		t.Fatal("RecordInstalled must fail when manifest.json is missing")
 	}
 }
+
+func TestRecordInstalledAlsoCopiesTheChangelogWhenTheBundleHasOne(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"10-apt.sh": scriptBody("10", okScript),
+	})
+	const changelog = `{"schema_version":1,"components":[]}`
+	if err := client.UploadBytes([]byte(`{"version":"v1.2.3"}`), bundleDir+"/manifest.json", 0o644); err != nil {
+		t.Fatalf("upload manifest: %v", err)
+	}
+	if err := client.UploadBytes([]byte(changelog), bundleDir+"/changelog.json", 0o644); err != nil {
+		t.Fatalf("upload changelog: %v", err)
+	}
+	if err := client.Run(context.Background(), "mkdir -p '"+stateDir+"'", os.Stderr, os.Stderr); err != nil {
+		t.Fatalf("mkdir state: %v", err)
+	}
+
+	if err := steps.RecordInstalled(context.Background(), client, bundleDir, stateDir); err != nil {
+		t.Fatalf("RecordInstalled: %v", err)
+	}
+
+	local := filepath.Join(t.TempDir(), "changelog.json")
+	if err := client.DownloadFile(stateDir+"/changelog.json", local); err != nil {
+		t.Fatalf("download: %v", err)
+	}
+	got, err := os.ReadFile(local)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if string(got) != changelog {
+		t.Fatalf("changelog.json = %q, want %q", got, changelog)
+	}
+	if err := client.DownloadFile(stateDir+"/changelog.json.tmp", filepath.Join(t.TempDir(), "x")); err == nil {
+		t.Fatal("the changelog .tmp file must not be left behind")
+	}
+}
