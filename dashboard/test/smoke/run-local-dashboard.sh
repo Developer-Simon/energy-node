@@ -374,8 +374,43 @@ manifest = {
         {"id": "82", "optional": True, "service_id": "battery_soc", "dir": "battery_soc", "unit": "battery-soc.service", "version": "v0.5.0"},
     ],
 }
+def entry(text, scope, pr, breaking=False):
+    return {"text": text, "breaking": breaking, "scope": scope, "pr": pr}
+
+# Was-ist-neu: installiert sind Dashboard 9.9.7, Bootstrap 1.1.0 und
+# battery_soc v0.4.0 (siehe installed-manifest.json unten). Die Seite zeigt nur,
+# was darueber liegt, mit dem Breaking Change von 9.9.8 oben.
+changelog = {
+    "schema_version": 1,
+    "generated_at": "2026-10-01T12:00:00+02:00",
+    "bundle_version": "v9.9.9",
+    "components": [
+        {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "9.9.9", "releases": [
+            {"version": "9.9.9", "date": "2026-10-01", "groups": [
+                {"type": "feat", "label": "Features", "entries": [
+                    entry("show what is new before an update", "redeploy", 82)]},
+                {"type": "fix", "label": "Fixes", "entries": [
+                    entry("rest the battery flow icon on its fill level at 0 W", "energy", 81)]}]},
+            {"version": "9.9.8", "date": "2026-09-28", "groups": [
+                {"type": "feat", "label": "Features", "entries": [
+                    entry("add a versions page", "settings", 71),
+                    entry("fold the config.json node block into dashboard.node_*", "config", 70, True)]}]},
+            {"version": "9.9.7", "date": "2026-09-20", "groups": [
+                {"type": "feat", "label": "Features", "entries": [
+                    entry("already installed, must not appear", "settings", 60)]}]}]},
+        {"id": "service:battery_soc", "label": "Batterie-SoC", "kind": "service", "version": "v0.5.0", "releases": [
+            {"version": "v0.5.0", "date": "2026-09-30", "groups": [
+                {"type": "feat", "label": "Features", "entries": [
+                    entry("save the state on an interval and recover after a crash", "battery_soc", 78)]}]}]},
+        {"id": "bootstrap", "label": "Bootstrap", "kind": "tool", "version": "1.2.0", "releases": [
+            {"version": "1.2.0", "date": "2026-09-29", "groups": [
+                {"type": "fix", "label": "Fixes", "entries": [
+                    entry("keep the changed service selection in the update preview", "installer", 80)]}]}]},
+    ],
+}
 files = {
     "./manifest.json": json.dumps(manifest).encode(),
+    "./changelog.json": json.dumps(changelog).encode(),
     "./manifest.json.sig": b"smoke-test-not-a-real-signature",
     "./bootstrap/10-apt.sh": b"#!/bin/sh\n",
     # Nicht komprimierbar, damit der Download ein paar Sekunden dauert und der
@@ -391,10 +426,10 @@ with tarfile.open(archive, "w:gz") as tar:
 json.dump({"steps": {"40": True, "70": False, "81": True, "82": True}}, open(os.path.join(state, "selection.json"), "w"))
 json.dump({
     "version": "v0.7.0",
-    "components": {},
+    "components": {"bootstrap": "1.1.0", "dashboard": "9.9.7", "services": "3.4.0"},
     "steps": [
-        {"id": "82", "version": "v0.4.0"},
-        {"id": "81", "version": "v0.4.0"},
+        {"id": "82", "dir": "battery_soc", "version": "v0.4.0"},
+        {"id": "81", "dir": "apsystems_ez1", "version": "v0.4.0"},
     ],
 }, open(os.path.join(state, "installed-manifest.json"), "w"))
 PY
@@ -838,6 +873,9 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
   check "unveraenderter Dienst (apsystems) hat keinen Neustartgrund" \
     "not next(s for s in data['steps'] if s['id'] == '81').get('restart')" \
     "$BASE/redeploy/api/plan"
+  check "Was ist neu: Changelog des Pakets neben den installierten Versionen" \
+    "data['bundle_version'] == 'v9.9.9' and data['installed']['dashboard'] == '9.9.7' and data['installed']['service:battery_soc'] == 'v0.4.0' and len(data['document']['components']) == 3" \
+    "$BASE/redeploy/api/changelog"
   check "Die Oberflaeche kennt jetzt das bereitliegende Paket" \
     "data['auto_prepare'] is True and data['bundle_version'] == 'v9.9.9'" \
     "$BASE/redeploy/api/bootstrap"
