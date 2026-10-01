@@ -183,6 +183,14 @@ in the package stays off until you tick it (**Change services**). **Update**
 runs exactly the steps that are pending — the same code path as a fresh
 install, so there is no separate "partial" update to go wrong.
 
+When the package carries a changelog, the first card adds a line such as
+"3 new features · 2 fixes · 1 breaking change" and a **View changes** button.
+The page behind it lists, per component, only what is newer than the version on
+the Pi. Breaking changes come first, then one card per component. You can
+filter by kind (applications, services, libraries and so on), by area, or
+search the text. The page works offline and changes nothing. A package without
+a changelog shows no such line.
+
 The dashboard serves the same page under `/redeploy/`, behind its login, and
 runs the same steps on the node itself, without this program and without SSH.
 It can download the newest signed release package from GitHub itself, and the
