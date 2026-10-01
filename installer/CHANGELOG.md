@@ -13,12 +13,17 @@
 - **installer:** stage the dev CLI's deploy incrementally, with a confirmed full-retransfer fallback (6ddd357)
 - **installer:** add --force-full to the deploy subcommand (42902cb)
 - **installer:** stage the web UI host's prepare step incrementally (ee2f587)
+- **installer:** diff deltas against the verified bundle dir, hashing it as fallback (6671680)
+- **devcli:** update bundle API callers for incremental transfers (297326a)
+- **host:** update bundle API callers for incremental transfers (466d314)
 - **installer:** carry installed versions and devices into the diagnose view (4e6937b)
 
 ### Fixes
 
 - **installer:** use a local path join for the delta signature check (1231471)
 - **installer:** stage the dev CLI's delta from the local build directory (b2f22d0)
+- **installer:** parse hashed file names exactly and test the verify error detail (b00dfd4)
+- **bootstrap:** hash-check unsigned bundles on the node with --no-signature (e0c8380)
 
 ### Tests
 
