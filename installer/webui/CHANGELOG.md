@@ -1,11 +1,15 @@
 # Changelog
 
-## v0.1.15 (2026-10-01)
+## v0.1.16 (2026-10-01)
 
 ### Features
 
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
 - **installer:** transfer only changed bundle files to the node (#79) (f782acd)
+- **webui:** add GET /api/changelog as an optional backend capability (7a3aeea)
+- **webui:** add a model that slices a changelog against the installed versions (471ea80)
+- **webui:** add the changelog screen with breaking changes and filters (611854f)
+- **webui:** summarise what is new in the update preview (c44a811)
 - **installer:** add catalog entries for the partial transfer UI (a07a73a)
 - **installer:** stage the web UI host's prepare step incrementally (ee2f587)
 - **installer:** offer a full retransfer after a delta verify failure (e0f7fb1)
@@ -19,11 +23,19 @@
 ### Fixes
 
 - **installer:** keep the changed service selection in the update preview (#80) (2341643)
+- **webui:** keep the existing error texts and the catalog word (3fb6426)
+- **webui:** spell the fixes group as Korrekturen (e0a6654)
+- **webui:** style the entry switch on the changelog screen (d876035)
 - **installer:** show the saved service selection in the update preview (83fe286)
 
 ### Tests
 
+- **webui:** give the dev host a changelog and cover the screen in the browser (65ad1f5)
 - **installer-webui:** per-service versions and devices in the fakehost scenarios (e8fed9a)
+
+### Chores
+
+- **webui:** fix a word in a model comment (75e2631)
 
 ## v0.1.12 (2026-09-29)
 

@@ -1,15 +1,22 @@
 # Changelog
 
-## v0.8.2 (2026-10-01)
+## v0.8.3 (2026-10-01)
 
 ### Features
 
 - **battery_soc:** save the state on an interval and recover after a crash (#78) (dc62037)
+- **updater:** record changelog.json next to the installed manifest (a823aa6)
+- **dashboard:** lead the update pill to the update screen for users who may update (70fd1b0)
 - **battery_soc:** add the save interval setting to the service schema (df73211)
 
 ### Fixes
 
-- **dashboard:** rest the battery flow icon on its fill level at 0 W (ebdd829)
+- **dashboard:** rest the battery flow icon on its fill level at 0 W (#81) (295ab6a)
+- **dashboard:** report the installed version as from in the redeploy preview (adcdc18)
+
+### Tests
+
+- **dashboard:** cover /redeploy/api/changelog through the real handler chain (4977691)
 
 ## v0.8.0 (2026-09-29)
 
