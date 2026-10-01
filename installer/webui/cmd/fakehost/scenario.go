@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"sync"
 	"time"
@@ -216,6 +217,8 @@ func newScenario(name string, opts options) *stagedBackend {
 		}
 	}
 
+	fake.ChangelogView = fixtureChangelog(update)
+
 	units := map[string]string{
 		"apsystems-ez1.service": "active", "battery-soc.service": "active", "shelly-rpc.service": "failed",
 		"trucki-http.service": "active", "tuya.service": "active", "automation.service": "active",
@@ -294,4 +297,41 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 
 	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted}
+}
+
+// fixtureChangelog is what "Was ist neu" shows. Two components with several
+// releases, one breaking change and a scope per entry -- enough to exercise the
+// summary, the breaking block, every filter and the "already installed" cut. On a
+// first install (update == false) nothing is installed, so only the newest
+// release of each component is offered.
+func fixtureChangelog(update bool) *hostapi.ChangelogView {
+	installed := map[string]string{}
+	if update {
+		installed = map[string]string{"dashboard": "v1.4.1", "service:shelly": "v0.3.0"}
+	}
+	return &hostapi.ChangelogView{
+		BundleVersion: "v1.4.2",
+		Installed:     installed,
+		Document: json.RawMessage(`{
+  "schema_version": 1,
+  "bundle_version": "v1.4.2",
+  "components": [
+    {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "v1.4.2", "releases": [
+      {"version": "v1.4.2", "date": "2026-09-21", "groups": [
+        {"type": "feat", "label": "Features", "entries": [
+          {"text": "add a versions page", "breaking": false, "scope": "dashboard", "pr": 51},
+          {"text": "fold the config.json node block into dashboard.node_*", "breaking": true, "scope": "dashboard", "pr": 14}]},
+        {"type": "fix", "label": "Fixes", "entries": [
+          {"text": "stop duplicate energy card mounts from fighting over springs", "breaking": false, "scope": "dashboard", "pr": 41},
+          {"text": "show the download icon in the masthead update badge", "breaking": false, "scope": "dashboard", "pr": 40}]}]},
+      {"version": "v1.4.1", "date": "2026-09-16", "groups": [
+        {"type": "fix", "label": "Fixes", "entries": [
+          {"text": "an older fix the node already has", "breaking": false, "scope": "dashboard", "pr": 30}]}]}]},
+    {"id": "service:shelly", "label": "Shelly", "kind": "service", "version": "v0.4.0", "releases": [
+      {"version": "v0.4.0", "date": "2026-09-15", "groups": [
+        {"type": "feat", "label": "Features", "entries": [
+          {"text": "make device services self-describing with per-service manifests", "breaking": false, "pr": 12}]}]}]}
+  ]
+}`),
+	}
 }

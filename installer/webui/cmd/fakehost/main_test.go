@@ -104,3 +104,20 @@ func TestTheDiagnoseShowsTheShellyWebhookOnlyWhenChosen(t *testing.T) {
 		t.Fatalf("without the Shelly service the webhook is gone again, got %+v", got)
 	}
 }
+
+func TestBothScenariosServeAChangelogTheScreenCanSlice(t *testing.T) {
+	update, err := newScenario("vorlage-update", options{}).Changelog(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if update.Installed["dashboard"] != "v1.4.1" || len(update.Document) == 0 {
+		t.Fatalf("update scenario view = %+v", update)
+	}
+	first, err := newScenario("vorlage", options{}).Changelog(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if first.Installed == nil || len(first.Installed) != 0 {
+		t.Fatalf("a first install has nothing installed: %#v", first.Installed)
+	}
+}
