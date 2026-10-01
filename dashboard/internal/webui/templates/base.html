@@ -67,7 +67,7 @@
   <header class="masthead" x-data="updateBadge()" x-init="init()">
     <div class="masthead-title">
       <h1>Energy Node Dashboard</h1>
-      <a x-cloak x-show="available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-badge" x-bind:href="notesUrl" target="_blank" rel="noopener">
+      <a x-cloak x-show="available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-badge" x-bind:href="href" x-bind:target="external ? '_blank' : null" x-bind:rel="external ? 'noopener' : null">
         <svg class="automation-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
         <span x-text="$t('masthead.update_available', {version: latest})"></span>
       </a>
@@ -223,7 +223,7 @@
   <script src="{{.BasePath}}/static/js/history-maintenance.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=9" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/dashboard.js?v=22" defer></script>
+  <script src="{{.BasePath}}/static/js/dashboard.js?v=23" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>

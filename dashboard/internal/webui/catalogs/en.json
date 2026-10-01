@@ -1832,7 +1832,7 @@
   "settings.versions.updates.checking": "Checking ...",
   "settings.versions.updates.cta": "Update now →",
   "settings.versions.updates.current": "Up to date.",
-  "settings.versions.updates.notes": "View changes",
+  "settings.versions.updates.notes": "Release notes on GitHub",
   "settings.versions.updates.title": "Updates",
   "settings.wide_tabs.help": "About tabs without a width limit",
   "settings.wide_tabs.help_text": "Selected tabs use the full window width for their content instead of the 1180px reading width. The heading and tab bar are always full width.",

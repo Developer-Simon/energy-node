@@ -1832,7 +1832,7 @@
   "settings.versions.updates.checking": "Prüfe ...",
   "settings.versions.updates.cta": "Jetzt aktualisieren →",
   "settings.versions.updates.current": "Aktuell.",
-  "settings.versions.updates.notes": "Änderungen ansehen",
+  "settings.versions.updates.notes": "Release-Notizen auf GitHub",
   "settings.versions.updates.title": "Updates",
   "settings.wide_tabs.help": "Erklärung zu Tabs ohne Breitendeckelung",
   "settings.wide_tabs.help_text": "Freigegebene Tabs nutzen für ihren Inhalt die volle Fensterbreite statt der Lesebreite von 1180px. Überschrift und Tab-Leiste haben immer die volle Breite.",
