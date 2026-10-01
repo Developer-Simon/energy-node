@@ -1,11 +1,15 @@
 # Changelog
 
-## v0.8.1 (2026-09-30)
+## v0.8.2 (2026-10-01)
 
 ### Features
 
 - **battery_soc:** save the state on an interval and recover after a crash (#78) (dc62037)
 - **battery_soc:** add the save interval setting to the service schema (df73211)
+
+### Fixes
+
+- **dashboard:** rest the battery flow icon on its fill level at 0 W (ebdd829)
 
 ## v0.8.0 (2026-09-29)
 
