@@ -107,7 +107,7 @@ jobs:
           emit dashboard '^dashboard/|^installer/webui/|^services/[^/]+/[^/]+\.schema\.json$'
           emit installer_webui '^installer/webui/'
           emit installer  '^installer/|^scripts/bootstrap/'
-          emit python    '^(services|libs)/|^scripts/tests/|^requirements-dev\.txt$'
+          emit python    '^(services|libs)/|^scripts/tests/|^scripts/version/|^scripts/generate_changelog\.sh$|^scripts/changelog_prune\.py$|^scripts/build/make_changelog_json\.py$|^requirements-dev\.txt$'
           emit shell     '^scripts/'
           emit vendored  '^dashboard/|^libs/battery_soc_core/|^integrations/homeassistant/|^services/battery_soc/battery_soc_devices\.schema\.json$|^docs/(images/device-icons/|integration/energy-node-icons\.md$)|^scripts/(vendor_(core|card)|render_ha_descriptions|icons/flatten_icons)\.py$|^dashboard/internal/schemaloc/catalogs/'
           emit ha        '^integrations/homeassistant/|^libs/battery_soc_core/|^dashboard/internal/schemaloc/catalogs/'

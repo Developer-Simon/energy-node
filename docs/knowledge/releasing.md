@@ -121,6 +121,18 @@ Notes:
 * Work inside one service bumps only that service. Work directly under
   `services/` (shared config, shared tests) bumps only `services/VERSION`.
 
+### `changelog.json`
+
+Every bundle carries a `changelog.json` (built by
+`scripts/build/make_changelog_json.py` from the `CHANGELOG.md` of every component
+with `bundle: true` in `scripts/version/components.json`, newest 20 releases
+each). `make_bundle.sh` writes it before the manifest is hashed, so it is covered
+by `manifest.files` and the signature. The updater and the installer copy it to
+`/var/lib/energy-node-installer/changelog.json` next to `installed-manifest.json`
+once a bundle counts as applied, the dashboard's version page reads it there.
+It is optional everywhere: a bundle from before this file existed installs and
+displays normally, just without a changelog.
+
 ## One-time setup: the `BUMP_TOKEN` secret
 
 The [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
