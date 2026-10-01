@@ -17,6 +17,7 @@
 ### Tests
 
 - **dashboard:** cover /redeploy/api/changelog through the real handler chain (4977691)
+- **dashboard:** ship a changelog in the simulated package so the smoke run shows what is new (9829d3b)
 
 ## v0.8.0 (2026-09-29)
 
