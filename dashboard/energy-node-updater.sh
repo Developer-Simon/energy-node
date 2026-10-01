@@ -360,5 +360,18 @@ if ! { install -m 0644 "${BUNDLE}/manifest.json" "${installed}.tmp" \
   log_line "WARN INSTALLED_MANIFEST_FAILED"
 fi
 
+# changelog.json: was dieses Paket gegenueber frueheren geaendert hat; die
+# Dashboard-Versionsseite zeigt es an. Nur eine Warnung, wenn das Ablegen
+# scheitert - ein fehlender Changelog macht ein sonst vollstaendig angewandtes
+# Bundle nicht ungueltig, und aeltere Bundles haben die Datei gar nicht.
+changelog="${STATE_DIR}/changelog.json"
+if [[ -f "${BUNDLE}/changelog.json" ]]; then
+  if ! { install -m 0644 "${BUNDLE}/changelog.json" "${changelog}.tmp" \
+         && mv -f "${changelog}.tmp" "${changelog}"; }; then
+    rm -f "${changelog}.tmp"
+    log_line "WARN CHANGELOG_RECORD_FAILED"
+  fi
+fi
+
 write_status "ok" "" ""
 exit 0
