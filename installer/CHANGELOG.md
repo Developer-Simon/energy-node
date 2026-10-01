@@ -1,12 +1,14 @@
 # Changelog
 
-## v0.1.14 (2026-10-01)
+## v0.1.15 (2026-10-01)
 
 ### Features
 
 - **⚠ Breaking — installer:** replace scripts/deploy with the developer CLI (#55) (b7e313e)
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
 - **installer:** transfer only changed bundle files to the node (#79) (f782acd)
+- **installer:** record changelog.json next to the installed manifest (30629c9)
+- **installer:** serve the package changelog next to the node's installed versions (948f4a6)
 - **installer:** add DiffManifest, comparing two bundle manifests' file hashes (209e407)
 - **installer:** add PackFiles, packing a named subset of a bundle directory (2fa4de9)
 - **installer:** add ReadInstalledManifest, downloading the node's last-applied manifest (3fb2d03)

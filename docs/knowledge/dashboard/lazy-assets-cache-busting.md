@@ -95,7 +95,7 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `9` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `22` |
+| `js/dashboard.js` | `23` |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -238,6 +238,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.8.3 | `js/dashboard.js` | `23` | 2026-10-01 |
 | v0.8.2 | `js/energy-flow.js` | `2` | 2026-10-01 |
 | v0.8.0 | `js/config.page.js` · `js/history.js` | `7` · `13` | 2026-09-28 |
 | v0.7.23 | `js/versions.page.js` (new) · `js/settings.page.js` · `css/settings-controls.css` | `1` · `12` · `8` | 2026-09-28 |

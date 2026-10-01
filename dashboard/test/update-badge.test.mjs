@@ -64,13 +64,66 @@ test('updateBadge init() schluckt einen Fehler ohne die Seite zu stoeren', async
 });
 
 test('updateBadge init() fragt bei einem zweiten Aufruf nicht erneut nach (x-init + Alpine-Hook)', async () => {
-  let calls = 0;
+  const urls = [];
   const { factories, window } = load({
-    fetchImpl: async () => { calls += 1; return jsonResponse({ available: true, latest: '1.4.2' }); },
+    fetchImpl: async (url) => { urls.push(url); return jsonResponse({ available: true, latest: '1.4.2' }); },
   });
   const component = factories.updateBadge();
   await component.init();
   await component.init();
-  assert.equal(calls, 1);
+  assert.deepEqual(urls, ['/api/v1/updates/status', '/api/v1/auth/session'], 'einmal Status, einmal Sitzung - der zweite init() fragt nichts');
+  window.close();
+});
+
+const sessionAware = (session, status = { available: true, latest: '1.4.2', notes_url: 'https://example.invalid/release' }) =>
+  async (url) => {
+    if (url.endsWith('/api/v1/updates/status')) return jsonResponse(status);
+    if (url.endsWith('/api/v1/auth/session')) return session instanceof Error ? Promise.reject(session) : jsonResponse(session);
+    throw new Error(`unexpected fetch ${url}`);
+  };
+
+test('wer Systemaktionen darf, wird von der Pille in den Aktualisieren-Bildschirm gefuehrt', async () => {
+  const { factories, window } = load({ fetchImpl: sessionAware({ system_actions: true }) });
+  const component = factories.updateBadge();
+  await component.init();
+  assert.equal(component.href, '/redeploy/');
+  assert.equal(component.external, false, 'kein neuer Tab fuer eine Seite des Dashboards');
+  window.close();
+});
+
+test('die Pille beachtet einen Unterpfad hinter dem Reverse-Proxy', async () => {
+  const { factories, window } = load({ fetchImpl: sessionAware({ system_actions: true }) });
+  window.__DASHBOARD_BASE_PATH__ = '/node';
+  const component = factories.updateBadge();
+  await component.init();
+  assert.equal(component.href, '/node/redeploy/');
+  window.close();
+});
+
+test('ein Gast behaelt den GitHub-Link in einem neuen Tab', async () => {
+  const { factories, window } = load({ fetchImpl: sessionAware({ system_actions: false }) });
+  const component = factories.updateBadge();
+  await component.init();
+  assert.equal(component.href, 'https://example.invalid/release');
+  assert.equal(component.external, true);
+  window.close();
+});
+
+test('faellt die Sitzungsabfrage aus, bleibt der GitHub-Link', async () => {
+  const { factories, window } = load({ fetchImpl: sessionAware(new Error('offline')) });
+  const component = factories.updateBadge();
+  await assert.doesNotReject(() => component.init());
+  assert.equal(component.href, 'https://example.invalid/release');
+  window.close();
+});
+
+test('ohne verfuegbares Update fragt die Pille die Sitzung gar nicht erst ab', async () => {
+  const urls = [];
+  const { factories, window } = load({
+    fetchImpl: async (url) => { urls.push(url); return jsonResponse({ available: false, latest: '1.4.1' }); },
+  });
+  const component = factories.updateBadge();
+  await component.init();
+  assert.deepEqual(urls, ['/api/v1/updates/status']);
   window.close();
 });

@@ -78,6 +78,9 @@ cat > "$fixture/manifest.json" <<'JSON'
  "steps":[{"id":"20","optional":false},{"id":"50","optional":false},{"id":"60","optional":false}]}
 JSON
 
+# changelog.json faehrt im Bundle mit; der Updater legt es neben das Manifest.
+printf '{"schema_version":1,"components":[]}\n' > "$fixture/changelog.json"
+
 # Benutzername und Passwortpfad stehen schon auf dem Knoten - der Auftrag
 # traegt keine Geheimnisse.
 mkdir -p "$tmp/root/etc/energy-node"
@@ -122,6 +125,9 @@ grep -q '"result":"ok"' "$job/status.json" || fail "status.json must report ok: 
 cmp -s "$fixture/manifest.json" "$job/state/installed-manifest.json" \
   || fail "installed-manifest.json must be a copy of the applied manifest: $(cat "$job/state/installed-manifest.json" 2>&1)"
 [ ! -e "$job/state/installed-manifest.json.tmp" ] || fail "the .tmp file must not be left behind"
+cmp -s "$fixture/changelog.json" "$job/state/changelog.json" \
+  || fail "changelog.json must be copied next to the installed manifest: $(cat "$job/state/changelog.json" 2>&1)"
+[ ! -e "$job/state/changelog.json.tmp" ] || fail "the changelog .tmp file must not be left behind"
 
 # --- zweiter Fall: die Signatur ist ungueltig -----------------------------
 job2="$tmp/job2"
@@ -136,6 +142,7 @@ fi
 grep -q '"result":"rejected"' "$job2/status.json" || fail "status.json must report rejected: $(cat "$job2/status.json")"
 grep -q '"code":"BUNDLE_SIGNATURE_INVALID"' "$job2/status.json" || fail "status.json must carry the fault code"
 [ ! -e "$job2/state/installed-manifest.json" ] || fail "a rejected bundle must not be recorded as installed"
+[ ! -e "$job2/state/changelog.json" ] || fail "a rejected bundle must not leave its changelog behind"
 accept_bundle
 
 # --- dritter Fall: eine Kennung, die das gepruefte Manifest nicht kennt ---
@@ -157,6 +164,14 @@ fi
 grep -q '"code":"STEP_NOT_IN_MANIFEST"' "$job3/status.json" \
   || fail "status.json must name the rejected step id: $(cat "$job3/status.json")"
 [ ! -e "$job3/state/installed-manifest.json" ] || fail "a failed job must not be recorded as installed"
+
+# --- ein aelteres Bundle ohne changelog.json ist kein Fehler ---------------
+job3b="$tmp/job3b"
+stage_job "$job3b" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["50"]}'
+rm -f "$job3b/bundle/changelog.json"
+run_updater "$job3b" || fail "a bundle without changelog.json must still apply: $(cat "$job3b/log" 2>/dev/null)"
+grep -q '"result":"ok"' "$job3b/status.json" || fail "status.json must report ok without a changelog: $(cat "$job3b/status.json")"
+[ ! -e "$job3b/state/changelog.json" ] || fail "no changelog.json may appear when the bundle has none"
 
 # --- vierter Fall: ein Auftrag ohne Schritte darf nicht "ok" melden -------
 job4="$tmp/job4"

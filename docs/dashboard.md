@@ -388,9 +388,12 @@ only the paths of the files that hold them.
 ![Update notice in the header](images/dashboard-update-available.png)
 
 When a newer release is out on GitHub, the header shows a notice next to the
-title (**Update … available**). It links to the release notes. The same notice
-appears under *Settings → Versions*, next to the button that checks for
-updates on demand (**Check for updates**).
+title (**Update … available**). For a registered user with the
+`system_actions` role it opens the update page (`/redeploy/`), where
+**View changes** lists what the new package changes. Everyone else gets the
+release notes on GitHub in a new tab. The same notice appears under
+*Settings → Versions*, next to the button that checks for updates on demand
+(**Check for updates**) and the link **Release notes on GitHub**.
 
 ![Update preview](images/dashboard-update-preview.png)
 

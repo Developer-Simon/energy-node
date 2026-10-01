@@ -17,6 +17,10 @@ import (
 var _ hostapi.Backend = (*host.Host)(nil)
 var _ hostapi.PackageBackend = (*host.Host)(nil)
 
+// The changelog endpoint finds this capability by type assertion: a wrong
+// signature would not fail to compile, it would silently answer 501.
+var _ hostapi.ChangelogProvider = (*host.Host)(nil)
+
 func writeManifest(t *testing.T, dir string) {
 	t.Helper()
 	manifest := map[string]any{

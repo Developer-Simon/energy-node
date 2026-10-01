@@ -16,6 +16,16 @@
         <h2 class="card-h" x-text="t('preview.changes.heading')"></h2>
         <p class="card-p" x-text="t('preview.changes.text')"></p>
 
+        <template x-if="whatsNew">
+          <div class="whatsnew">
+            <div class="whatsnew-b">
+              <span class="whatsnew-t" x-text="t('preview.whatsnew.text')"></span>
+              <span class="whatsnew-l" :class="{ 'has-breaking': changelog.breaking > 0 }" x-text="whatsNewLine"></span>
+            </div>
+            <button type="button" class="small" @click="openChangelog()" x-text="t('changelog.open')"></button>
+          </div>
+        </template>
+
         <template x-for="row in components" :key="row.key">
           <div class="vr">
             <span class="vr-d" :class="{ rep: row.changed }"></span>

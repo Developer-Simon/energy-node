@@ -418,10 +418,16 @@
   // "Jetzt pruefen" in den Einstellungen fuellt ihn), fragt selbst nie live
   // bei GitHub nach. loaded schuetzt vor dem doppelten Aufruf aus x-init plus
   // Alpines eigenem init()-Hook, wie bei runtimeStatusPanel oben.
+  //
+  // Wohin die Pille fuehrt: wer Systemaktionen darf, geht in den
+  // Aktualisieren-Bildschirm (/redeploy/), auf dem der Changelog des Pakets
+  // steht; alle anderen behalten den GitHub-Link, denn /redeploy/ ist fuer sie
+  // gesperrt. Die Sitzung wird nur abgefragt, wenn es ueberhaupt ein Update gibt.
   const updateBadge = () => ({
     available: false,
     latest: '',
     notesUrl: '',
+    canRedeploy: false,
     loaded: false,
 
     async init() {
@@ -435,7 +441,24 @@
       } catch (error) {
         // Kein Toast fuer einen Hintergrund-Status, der ohnehin taeglich
         // neu versucht wird.
+        return;
       }
+      if (!this.available) return;
+      try {
+        const session = await requestJSON('/api/v1/auth/session');
+        this.canRedeploy = Boolean(session && session.system_actions);
+      } catch (error) {
+        // Ohne Sitzungsauskunft bleibt es beim GitHub-Link.
+      }
+    },
+
+    get href() {
+      return this.canRedeploy ? withBase('/redeploy/') : this.notesUrl;
+    },
+
+    // Nur der GitHub-Link oeffnet in einem neuen Tab.
+    get external() {
+      return !this.canRedeploy;
     },
   });
 

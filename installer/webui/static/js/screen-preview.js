@@ -126,6 +126,8 @@
       plan: null,
       manifest: null,
       busy: false,
+      // Zaehlzeile "Was ist neu" (aus /api/changelog); null, solange sie fehlt.
+      changelog: null,
       restartAll: false,
 
       get shell() {
@@ -163,6 +165,44 @@
           this.busy = false;
           this.shell.progress = null;
         }
+        await this.loadChangelog();
+      },
+
+      // Best effort: ein Paket ohne Changelog, ein Wirt ohne die Faehigkeit oder
+      // ein Lesefehler nehmen der Vorschau nur die Zusammenfassung, nie mehr.
+      async loadChangelog() {
+        this.changelog = null;
+        try {
+          var view = await window.Api.get('/api/changelog');
+          this.changelog = window.ChangelogModel.summarize(window.ChangelogModel.slice(view));
+        } catch (err) {
+          this.changelog = null;
+        }
+      },
+
+      get whatsNew() {
+        return !!this.changelog && this.changelog.total > 0;
+      },
+
+      // "3 Neuerungen · 2 Korrekturen · 1 Breaking Change"
+      get whatsNewLine() {
+        if (!this.changelog) {
+          return '';
+        }
+        var shell = this.shell;
+        var summary = this.changelog;
+        var out = [];
+        [['feat', 'changelog.count.feat'], ['fix', 'changelog.count.fix'], ['other', 'changelog.count.other'], ['breaking', 'changelog.count.breaking']].forEach(function (pair) {
+          if (summary[pair[0]] > 0) {
+            out.push(shell.tn(pair[1], summary[pair[0]]));
+          }
+        });
+        return out.join(' · ');
+      },
+
+      openChangelog() {
+        this.shell.shared.changelogFrom = 'preview';
+        this.shell.go('changelog');
       },
 
       get fromVersion() {

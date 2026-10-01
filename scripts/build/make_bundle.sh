@@ -348,6 +348,13 @@ if os.environ.get("CADDY_FILE"):
 print(json.dumps(head, indent=2, ensure_ascii=False))
 PY
 
+# --- changelog.json ---------------------------------------------------------
+# Was sich in welcher Version geaendert hat - Dashboard-Versionsseite und
+# Installer-Oberflaeche lesen es. Vor write_bundle_manifest, damit die Datei
+# ihren SHA-256 in manifest.files bekommt und von verify_bundle.sh gedeckt ist.
+python3 "${BUILD_DIR}/make_changelog_json.py" --repo "${REPO_ROOT}" \
+  --out "${STAGE}/changelog.json" --bundle-version "${VERSION}"
+
 write_bundle_manifest "${STAGE}"
 if [[ -n "${SIGN_KEY}" ]]; then
   sign_bundle_manifest "${STAGE}" "${SIGN_KEY}"

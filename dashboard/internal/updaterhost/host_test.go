@@ -346,3 +346,102 @@ func TestRunWritesTheRunIDIntoTheJob(t *testing.T) {
 		t.Fatalf("current.json = %s, want the run id", raw)
 	}
 }
+
+func writeManifests(t *testing.T, cfg updaterhost.Config, candidate, installed string) {
+	t.Helper()
+	if err := os.WriteFile(filepath.Join(cfg.CandidateBundleDir, "manifest.json"), []byte(candidate), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg.InstalledManifestPath, []byte(installed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestPlanReportsTheInstalledVersionAsFrom(t *testing.T) {
+	cfg := setupNode(t)
+	writeManifests(t, cfg,
+		`{"version":"v0.7.5","arch":"armv6","components":{"dashboard":"v0.7.5","services":"v0.4.0","bootstrap":"v0.1.6"},"steps":[{"id":"60","optional":false}]}`,
+		`{"version":"v0.7.4","components":{"dashboard":"v0.7.4","services":"v0.4.0"}}`)
+	h, err := updaterhost.New(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	plan, err := h.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	dashboard := plan.Components["dashboard"]
+	if dashboard.From == nil || *dashboard.From != "v0.7.4" || dashboard.To != "v0.7.5" {
+		t.Fatalf("dashboard = %+v, want from v0.7.4 to v0.7.5", dashboard)
+	}
+	if services := plan.Components["services"]; services.From == nil || *services.From != "v0.4.0" {
+		t.Fatalf("an unchanged component still has a from: %+v", services)
+	}
+	if bootstrap := plan.Components["bootstrap"]; bootstrap.From != nil {
+		t.Fatalf("a component the installed manifest does not list must have no from (null = new): %+v", bootstrap)
+	}
+}
+
+func TestPlanWithoutAnInstalledManifestHasNoFrom(t *testing.T) {
+	cfg := setupNode(t)
+	if err := os.Remove(cfg.InstalledManifestPath); err != nil {
+		t.Fatal(err)
+	}
+	h, _ := updaterhost.New(cfg)
+	plan, err := h.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Components["dashboard"].From != nil {
+		t.Fatalf("from = %v, want nil", *plan.Components["dashboard"].From)
+	}
+}
+
+func TestChangelogReadsTheCandidateAndTheInstalledManifest(t *testing.T) {
+	cfg := setupNode(t)
+	writeManifests(t, cfg,
+		`{"version":"v0.7.5","arch":"armv6","components":{"dashboard":"v0.7.5"},"steps":[]}`,
+		`{"version":"v0.7.4","components":{"dashboard":"v0.7.4"},"steps":[{"id":"83","dir":"shelly","version":"v0.4.0"}]}`)
+	const document = `{"schema_version":1,"components":[{"id":"dashboard"}]}`
+	if err := os.WriteFile(filepath.Join(cfg.CandidateBundleDir, "changelog.json"), []byte(document), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h, _ := updaterhost.New(cfg)
+	view, err := h.Changelog(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.BundleVersion != "v0.7.5" || string(view.Document) != document {
+		t.Fatalf("view = %+v", view)
+	}
+	if view.Installed["dashboard"] != "v0.7.4" || view.Installed["service:shelly"] != "v0.4.0" {
+		t.Fatalf("installed = %v, want the components and the service version", view.Installed)
+	}
+}
+
+func TestChangelogWithoutAnInstalledManifestHasNothingInstalled(t *testing.T) {
+	cfg := setupNode(t)
+	if err := os.Remove(cfg.InstalledManifestPath); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cfg.CandidateBundleDir, "changelog.json"), []byte(`{}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	h, _ := updaterhost.New(cfg)
+	view, err := h.Changelog(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.Installed == nil || len(view.Installed) != 0 {
+		t.Fatalf("installed = %#v, want an empty non-nil map", view.Installed)
+	}
+}
+
+func TestChangelogOfACandidateWithoutOneIsNoChangelog(t *testing.T) {
+	h, _ := updaterhost.New(setupNode(t))
+	_, err := h.Changelog(context.Background())
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "NO_CHANGELOG" {
+		t.Fatalf("err = %#v, want NO_CHANGELOG", err)
+	}
+}

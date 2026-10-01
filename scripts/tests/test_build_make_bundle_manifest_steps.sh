@@ -64,3 +64,29 @@ if by_id.get("30", {}).get("optional"):
 
 print("ok")
 PY
+
+# changelog.json faehrt mit, ist von manifest.files gedeckt, und seine
+# Versionen stimmen mit denen im Manifest ueberein - sonst zeigte die
+# Oberflaeche einen Changelog zu einer anderen Version als der installierten.
+python3 - "$extract" <<'PY'
+import json, pathlib, sys
+
+root = pathlib.Path(sys.argv[1])
+manifest = json.loads((root / "manifest.json").read_text(encoding="utf-8"))
+document = json.loads((root / "changelog.json").read_text(encoding="utf-8"))
+
+if "changelog.json" not in manifest["files"]:
+    sys.exit("changelog.json fehlt in manifest.files (kein SHA-256, nicht von der Signatur gedeckt)")
+if document["bundle_version"] != manifest["version"]:
+    sys.exit("bundle_version %r != manifest.version %r" % (document["bundle_version"], manifest["version"]))
+
+versions = {c["id"]: c["version"] for c in document["components"]}
+for name, version in manifest["components"].items():
+    if versions.get(name) != version:
+        sys.exit("components[%s] = %r, changelog.json sagt %r" % (name, version, versions.get(name)))
+for step in manifest["steps"]:
+    if step.get("dir") and versions.get("service:" + step["dir"]) != step.get("version"):
+        sys.exit("Dienst %s: steps[].version = %r, changelog.json sagt %r"
+                 % (step["dir"], step.get("version"), versions.get("service:" + step["dir"])))
+print("ok changelog.json")
+PY

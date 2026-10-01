@@ -403,6 +403,41 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	return view, nil
 }
 
+// readInstalledManifest is a seam for tests; production always runs
+// steps.ReadInstalledManifest.
+var readInstalledManifest = steps.ReadInstalledManifest
+
+// Changelog implements hostapi.ChangelogProvider: what the loaded package
+// changes (its changelog.json, read from the local copy of the bundle) next to
+// what the node has installed (the installed-manifest.json on the node). The
+// second half needs the connection; the preview screen that asks is only
+// reachable after connecting.
+func (h *Host) Changelog(ctx context.Context) (*hostapi.ChangelogView, error) {
+	client, err := h.connected()
+	if err != nil {
+		return nil, err
+	}
+	manifest, bundleDir, err := h.loaded()
+	if err != nil {
+		return nil, err
+	}
+	document, err := hostapi.ReadChangelogDocument(bundleDir)
+	if err != nil {
+		return nil, err
+	}
+	raw, err := readInstalledManifest(ctx, client, h.cfg.RemoteStateDir)
+	if err != nil {
+		return nil, &hostapi.Error{Code: "CHANGELOG_FAILED", Detail: err.Error()}
+	}
+	view := &hostapi.ChangelogView{BundleVersion: manifest.Version, Installed: map[string]string{}, Document: document}
+	if raw != nil {
+		if installed, err := hostapi.InstalledVersions(raw); err == nil {
+			view.Installed = installed
+		}
+	}
+	return view, nil
+}
+
 func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sink) error {
 	if req.Mode == hostapi.ModePrepare {
 		return h.prepare(ctx, sink, req.ForceFullTransfer)

@@ -90,6 +90,10 @@ type Host struct {
 	cfg Config
 }
 
+// The changelog endpoint finds this capability by type assertion, so a wrong
+// signature would not fail to compile -- it would silently answer 501.
+var _ hostapi.ChangelogProvider = (*Host)(nil)
+
 func New(cfg Config) (*Host, error) {
 	return &Host{cfg: cfg}, nil
 }
@@ -188,10 +192,11 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 	}
 
 	view := &hostapi.PlanView{BundleVersion: candidate.Version, Components: map[string]hostapi.ComponentDelta{}}
-	// From mirrors plan.sh: the installed manifest's version of the
-	// component, nil when there is no installed manifest or it lacks one.
 	for name, to := range candidate.Components {
 		delta := hostapi.ComponentDelta{To: to}
+		// The installed manifest is the "from" side of every component. Without
+		// it (or for a component it does not list) From stays nil, which the
+		// preview shows as "new" -- the same rule plan.sh applies on the node.
 		if installed != nil {
 			if from, ok := installed.Components[name]; ok {
 				delta.From = &from
@@ -219,6 +224,29 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 			}
 		}
 		view.Steps = append(view.Steps, ps)
+	}
+	return view, nil
+}
+
+// Changelog implements hostapi.ChangelogProvider: what the candidate bundle
+// changes, next to what is installed now. Both come from local files -- the
+// candidate directory and installed-manifest.json -- so nothing here needs the
+// network. A candidate without changelog.json (a bundle from before it
+// existed) is NO_CHANGELOG, which the UI turns into "no changelog available".
+func (h *Host) Changelog(context.Context) (*hostapi.ChangelogView, error) {
+	candidate, err := h.loadCandidateManifest()
+	if err != nil {
+		return nil, &hostapi.Error{Code: "MANIFEST_UNREADABLE", Detail: err.Error()}
+	}
+	document, err := hostapi.ReadChangelogDocument(h.cfg.CandidateBundleDir)
+	if err != nil {
+		return nil, err
+	}
+	view := &hostapi.ChangelogView{BundleVersion: candidate.Version, Installed: map[string]string{}, Document: document}
+	if raw, err := os.ReadFile(h.cfg.InstalledManifestPath); err == nil {
+		if installed, err := hostapi.InstalledVersions(raw); err == nil {
+			view.Installed = installed
+		}
 	}
 	return view, nil
 }

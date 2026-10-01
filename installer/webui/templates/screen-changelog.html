@@ -1,0 +1,77 @@
+{{define "screen-changelog-entry"}}<li class="cl-entry" :class="{ breaking: entry.breaking }">
+  <template x-if="entry.breaking"><span class="cl-tag" x-text="t('changelog.breaking.tag')"></span></template>
+  <template x-if="entry.scope"><span class="cl-scope" x-text="entry.scope"></span></template>
+  <span class="cl-text" x-text="entry.text"></span>
+  <template x-if="entry.pr"><span class="cl-ref" x-text="'#' + entry.pr"></span></template>
+</li>{{end}}
+
+{{define "screen-changelog"}}<template x-if="screen === 'changelog'">
+<div class="screen" x-data="screenChangelog">
+  <div class="body">
+    <div class="cl-head">
+      <span class="cl-lbl" x-text="t('changelog.title')"></span>
+      <template x-if="installedVersion"><span class="cl-from" x-text="installedVersion"></span></template>
+      <template x-if="installedVersion"><span class="cl-arr">{{template "icon-arrow"}}</span></template>
+      <span class="cl-to" x-text="packageVersion"></span>
+      <span class="cl-note" x-text="countLine"></span>
+    </div>
+
+    <template x-if="missing"><section class="card"><p class="card-p" x-text="t('changelog.missing')"></p></section></template>
+    <template x-if="!loading && !missing && !hasRows"><section class="card"><p class="card-p" x-text="t('changelog.empty')"></p></section></template>
+
+    <template x-if="breaking.length">
+      <section class="card cl-breaking">
+        <h2 class="card-h" x-text="t('changelog.breaking.heading')"></h2>
+        <p class="card-p" x-text="t('changelog.breaking.text')"></p>
+        <template x-for="(item, index) in breaking" :key="index">
+          <div class="cl-brk">
+            <span class="cl-brk-n"><span x-text="item.component"></span> <em x-text="item.version"></em></span>
+            <span class="cl-brk-t"><template x-if="item.scope"><span class="cl-scope" x-text="item.scope"></span></template> <span x-text="item.text"></span></span>
+          </div>
+        </template>
+      </section>
+    </template>
+
+    <template x-if="hasRows">
+      <div class="cl-filters">
+        <template x-for="k in kinds" :key="k"><button type="button" class="cl-chip" :class="{ on: kind === k }" @click="toggleKind(k)" x-text="kindLabel(k)"></button></template>
+        <select class="cl-scope-sel" x-model="scope" :aria-label="t('changelog.filter.scope')">
+          <option value="" x-text="t('changelog.filter.all_scopes')"></option>
+          <template x-for="s in scopes" :key="s"><option :value="s" x-text="s"></option></template>
+        </select>
+        <input class="cl-search" type="search" x-model="query" :placeholder="t('changelog.filter.search')" :aria-label="t('changelog.filter.search')">
+      </div>
+    </template>
+
+    <template x-if="nothingMatches"><section class="card"><p class="card-p" x-text="t('changelog.filtered_empty')"></p></section></template>
+
+    <template x-for="row in visible" :key="row.id">
+      <section class="card cl-comp">
+        <h2 class="card-h"><span x-text="row.label"></span>
+          <template x-if="row.isNew"><span class="cl-vers"><span class="n" x-text="row.to"></span> <span class="cl-newtag" x-text="t('component.new')"></span></span></template>
+          <template x-if="!row.isNew"><span class="cl-vers"><span class="o" x-text="row.from"></span> → <span class="n" x-text="row.to"></span></span></template>
+        </h2>
+        <template x-for="rel in row.releases" :key="rel.version">
+          <div class="cl-rel">
+            <p class="cl-rel-h"><span x-text="rel.version"></span> <span class="cl-date" x-text="rel.date"></span></p>
+            <template x-for="grp in rel.groups" :key="grp.type + grp.label">
+              <div class="cl-grp">
+                <p class="cl-grp-h" x-text="groupLabel(grp)"></p>
+                <ul class="cl-list">
+                  <template x-for="(entry, index) in grp.entries" :key="index">{{template "screen-changelog-entry"}}</template>
+                </ul>
+              </div>
+            </template>
+          </div>
+        </template>
+      </section>
+    </template>
+  </div>
+
+  <footer class="foot">
+    <button type="button" class="ghost" @click="back()" x-text="t('action.back')"></button>
+    <span class="foot-spacer"></span>
+    <span class="foot-hint" x-text="t('changelog.hint')"></span>
+  </footer>
+</div>
+</template>{{end}}

@@ -50,6 +50,10 @@ type FakeBackend struct {
 	PlanErr       error
 	DiagnoseView  *hostapi.DiagnoseView
 	DiagnoseErr   error
+	// ChangelogView und ChangelogErr steuern GET /api/changelog. Ein nil-View
+	// ohne Fehler heisst "dieses Paket hat keinen Changelog".
+	ChangelogView *hostapi.ChangelogView
+	ChangelogErr  error
 
 	// Steps ist das Drehbuch eines Laufs.
 	Steps []FakeStep
@@ -180,6 +184,10 @@ func (f *FakeBackend) SaveSelection(ctx context.Context, steps map[string]bool) 
 		f.SelectionView.Steps = steps
 	}
 	return nil
+}
+
+func (f *FakeBackend) Changelog(ctx context.Context) (*hostapi.ChangelogView, error) {
+	return f.ChangelogView, f.ChangelogErr
 }
 
 func (f *FakeBackend) Plan(ctx context.Context) (*hostapi.PlanView, error) {
