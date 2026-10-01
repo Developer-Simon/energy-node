@@ -90,7 +90,7 @@
     });
   }
 
-  // summarize: die Zaehlzeile "3 Neuerungen · 12 Korrektionen · 1 Breaking".
+  // summarize: die Zaehlzeile "3 Neuerungen · 12 Korrekturen · 1 Breaking".
   // "breaking" zaehlt zusaetzlich zu feat/fix/other; total zaehlt jeden Eintrag
   // genau einmal.
   function summarize(rows) {
