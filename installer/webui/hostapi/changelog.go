@@ -1,6 +1,7 @@
 package hostapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io/fs"
@@ -56,4 +57,51 @@ func InstalledVersions(manifest []byte) (map[string]string, error) {
 		}
 	}
 	return out, nil
+}
+
+// ChangelogView ist die Antwort von GET /api/changelog: was das Paket, das
+// installiert werden soll, an Aenderungen mitbringt, und was auf dem Node
+// schon installiert ist. Die Oberflaeche schneidet daraus "seit deiner Version".
+type ChangelogView struct {
+	BundleVersion string `json:"bundle_version"`
+	// Installed bildet Komponenten-Id auf Version ab (siehe InstalledVersions).
+	// Leer, aber nie null, wenn auf dem Node noch nichts aufgezeichnet ist.
+	Installed map[string]string `json:"installed"`
+	// Document ist die changelog.json des Pakets, unveraendert.
+	Document json.RawMessage `json:"document"`
+}
+
+// ChangelogProvider ist eine optionale Faehigkeit eines Backends. Der Server
+// prueft sie per Typzusicherung, damit weder jedes Backend noch jede Attrappe
+// die Methode tragen muss; ein Backend ohne sie antwortet mit 501.
+type ChangelogProvider interface {
+	Changelog(ctx context.Context) (*ChangelogView, error)
+}
+
+func (s *Server) handleChangelog(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED", r.Method)
+		return
+	}
+	if !s.requireConnection(w) {
+		return
+	}
+	provider, ok := s.opts.Backend.(ChangelogProvider)
+	if !ok {
+		writeError(w, http.StatusNotImplemented, "NOT_SUPPORTED", "")
+		return
+	}
+	view, err := provider.Changelog(r.Context())
+	if err != nil {
+		writeBackendError(w, err)
+		return
+	}
+	if view == nil {
+		writeError(w, http.StatusNotFound, "NO_CHANGELOG", "")
+		return
+	}
+	if view.Installed == nil {
+		view.Installed = map[string]string{}
+	}
+	writeJSON(w, http.StatusOK, view)
 }
