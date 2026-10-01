@@ -13,7 +13,7 @@ const plain = (value) => JSON.parse(JSON.stringify(value));
 
 async function mount(options = {}) {
   const mounted = mountScreen('screen-preview.js', 'screenPreview', Object.assign({
-    scripts: ['services.js'],
+    scripts: ['services.js', 'changelog-model.js'],
     catalog: realCatalog('de'),
     responses: Object.assign({
       'GET /api/manifest': MANIFEST_UPDATE,
@@ -191,4 +191,44 @@ test('die Wheel-Liste entspricht dem Bundle-Bau', async () => {
   const match = /for lib in ([a-z0-9_ ]+); do/.exec(script);
   assert.ok(match, 'build_local_wheels in scripts/build/lib/wheels.sh no longer lists its libraries in one for loop');
   assert.deepEqual([...window.PreviewModel.WHEEL_COMPONENTS], match[1].trim().split(/\s+/));
+});
+
+// --- "Was ist neu": Zusammenfassung ueber der Vorschau -------------------------
+const CHANGELOG_VIEW = {
+  bundle_version: 'v1.4.2',
+  installed: { dashboard: 'v1.4.0' },
+  document: { schema_version: 1, components: [
+    { id: 'dashboard', label: 'Dashboard', kind: 'app', version: 'v1.4.2', releases: [
+      { version: 'v1.4.2', date: '2026-09-21', groups: [
+        { type: 'feat', label: 'Features', entries: [{ text: 'a', breaking: false }] },
+        { type: 'fix', label: 'Fixes', entries: [{ text: 'b', breaking: false }, { text: 'c', breaking: true }] },
+      ] },
+    ] },
+  ] },
+};
+
+test('die Vorschau zeigt eine Zaehlzeile, wenn das Paket einen Changelog mitbringt', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/changelog': CHANGELOG_VIEW } });
+  assert.equal(screen.whatsNew, true);
+  assert.equal(screen.whatsNewLine, '1 Neuerung · 2 Korrekturen · 1 Breaking Change');
+});
+
+test('ohne Changelog (404) bleibt die Vorschau ohne Zaehlzeile und ohne Fehler', async () => {
+  const { screen, shell } = await mount({ errors: { 'GET /api/changelog': { status: 404, code: 'NO_CHANGELOG' } } });
+  assert.equal(screen.whatsNew, false);
+  assert.equal(screen.whatsNewLine, '');
+  assert.equal(shell.error, null);
+});
+
+test('die Zaehlzeile faellt weg, wenn nichts neuer ist als das Installierte', async () => {
+  const upToDate = { ...CHANGELOG_VIEW, installed: { dashboard: 'v1.4.2' } };
+  const { screen } = await mount({ responses: { 'GET /api/changelog': upToDate } });
+  assert.equal(screen.whatsNew, false);
+});
+
+test('openChangelog merkt sich die Vorschau als Rueckweg und wechselt den Bildschirm', async () => {
+  const { screen, shell } = await mount({ responses: { 'GET /api/changelog': CHANGELOG_VIEW } });
+  screen.openChangelog();
+  assert.equal(shell.screen, 'changelog');
+  assert.equal(shell.shared.changelogFrom, 'preview');
 });
