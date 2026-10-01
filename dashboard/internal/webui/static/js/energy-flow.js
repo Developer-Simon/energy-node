@@ -311,11 +311,11 @@
       let dir = 'idle';
       let word = '';
       let text;
-      if (net < 0) { dir = 'discharging'; word = t('energy.flow.battery_discharging_word'); text = formatPower(-net); }
-      else if (net > 0) { dir = 'charging'; word = t('energy.flow.battery_charging_word'); text = formatPower(net); }
-      else if (hasValue(snapshot, 'battery')) text = formatPower(0);
-      else if (hasValue(snapshot, 'battery_discharge')) { dir = 'discharging'; word = t('energy.flow.battery_discharging_word'); text = formatPower(0); }
-      else if (hasValue(snapshot, 'battery_charge')) { dir = 'charging'; word = t('energy.flow.battery_charging_word'); text = formatPower(0); }
+      // Same MIN_FLOW_W threshold as the battery line: at 0 W or standby
+      // noise the icon stays 'idle' and rests on the fill level (base.css).
+      if (net < -MIN_FLOW_W) { dir = 'discharging'; word = t('energy.flow.battery_discharging_word'); text = formatPower(-net); }
+      else if (net > MIN_FLOW_W) { dir = 'charging'; word = t('energy.flow.battery_charging_word'); text = formatPower(net); }
+      else if (hasValue(snapshot, 'battery') || hasValue(snapshot, 'battery_charge') || hasValue(snapshot, 'battery_discharge')) text = formatPower(Math.abs(net));
       else text = '--';
       // battery_soc (Fuellstand) is independent of the power flow above - only
       // present in snapshot.values when at least one entity carries a

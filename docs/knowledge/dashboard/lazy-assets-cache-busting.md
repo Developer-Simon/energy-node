@@ -87,7 +87,7 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 | `js/device-tile-values.js` | `1` |
 | `js/compact-card-values.js` | `1` |
 | `js/energy-presentation.js` | `1` |
-| `js/energy-flow.js` | `1` |
+| `js/energy-flow.js` | `2` |
 | `js/history-rollup.js` | `1` |
 | `js/history-store.js` | `3` |
 | `js/history-coverage.js` | `2` |
@@ -238,6 +238,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.8.2 | `js/energy-flow.js` | `2` | 2026-10-01 |
 | v0.8.0 | `js/config.page.js` · `js/history.js` | `7` · `13` | 2026-09-28 |
 | v0.7.23 | `js/versions.page.js` (new) · `js/settings.page.js` · `css/settings-controls.css` | `1` · `12` · `8` | 2026-09-28 |
 | v0.7.22 | `js/dashboard.js` · `js/mqtt.page.js` | `22` · `7` | 2026-09-28 |

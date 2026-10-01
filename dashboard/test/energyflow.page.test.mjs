@@ -243,6 +243,25 @@ test('nodeText("battery") picks the actually active role by power, not just by w
   );
 });
 
+test('nodeText("battery") stays idle at 0 W and below MIN_FLOW_W, so the icon rests on the fill level', () => {
+  const { factory } = loadEnergyFlow();
+  const plain = result => JSON.parse(JSON.stringify(result));
+  // Split sensors both reporting 0 W: no direction, the icon must not animate.
+  assert.deepEqual(
+    plain(factory.nodeText('battery', snapshotWith({ battery_charge: 0, battery_discharge: 0, battery_soc: 70 }))),
+    { text: '0 W', stale: false, dir: 'idle', soc: '70 %', full: '0 W · Füllstand 70 %' },
+  );
+  assert.deepEqual(
+    plain(factory.nodeText('battery', snapshotWith({ battery_discharge: 0 }))),
+    { text: '0 W', stale: false, dir: 'idle', soc: '', full: '0 W' },
+  );
+  // Standby noise below the line threshold keeps the value but not the animation.
+  assert.deepEqual(
+    plain(factory.nodeText('battery', snapshotWith({ battery: -3 }))),
+    { text: '3 W', stale: false, dir: 'idle', soc: '', full: '3 W' },
+  );
+});
+
 test('nodeText("battery") nets simultaneous charge and discharge instead of reporting the discharge side alone', () => {
   const { factory } = loadEnergyFlow();
   const plain = result => JSON.parse(JSON.stringify(result));
