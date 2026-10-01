@@ -142,8 +142,9 @@ type ManifestView struct {
 // SelectionView ist die aktuelle Dienstauswahl samt ihrer Herkunft.
 type SelectionView struct {
 	Steps map[string]bool `json:"steps"`
-	// Source ist "node" (selection.json lag auf dem Geraet) oder
-	// "manifest-default" (Erstinstallation: die Vorgaben des Manifests).
+	// Source ist "node" (selection.json lag auf dem Geraet),
+	// "manifest-default" (Erstinstallation: die Vorgaben des Manifests)
+	// oder "pending" (per PUT gespeichert, laeuft mit dem naechsten Lauf).
 	Source string `json:"source"`
 }
 
