@@ -77,6 +77,28 @@ scratch space under `~/.energy-node/work/`. A bundle without a signature is
 accepted (except from GitHub) and flagged "unsigned" in the UI; a bundle with
 a signature that does not verify is always refused.
 
+### How the package reaches the node
+
+Both the CLI (`deploy`) and the web UI send only what changed. The installer
+compares the new bundle's `manifest.json` with what already lies in the
+node's bundle directory and uploads a small archive of the changed files,
+then deletes the files the new bundle no longer has. `manifest.json` and
+`manifest.json.sig` always go along.
+
+What lies on the node comes from `.verified-manifest.json` in the bundle
+directory. The installer writes it after every successful check on the node
+and removes it before every transfer, so it always describes the last
+verified content. Without it (first run after an update of the installer,
+an interrupted transfer, a node that never had a bundle) the installer
+hashes the bundle directory on the node instead. That takes a few seconds on
+a Pi 1. The node then checks every file hash with `verify_bundle.sh`, signed
+or not.
+
+The whole bundle directory is only replaced when you ask for it: with
+`--force-full`, with the switch "Transfer whole package again" on the
+connect screen, or when the check after a partial transfer fails and you
+confirm the full retransfer the installer then recommends.
+
 | Flag | Purpose |
 | --- | --- |
 | `--port` | Port on 127.0.0.1; 0 (default) lets the OS pick one |
@@ -164,6 +186,7 @@ restart rule alone would not notice.
 | `--only <target>` | Deploy just one step: `dashboard`, `wheels`, or a device service id (`apsystems`, `battery-soc`, `shelly`, `trucki`, `tuya`, `automation`). The step runs even if it already ran for this version (its stamp is cleared first), and its unit restarts afterwards. `wheels` has no unit of its own; follow it with `restart` |
 | `--dry-run` | Preview what would change without touching the node |
 | `--force-config` | Overwrite the node's existing `config.json` (asks for confirmation first) |
+| `--force-full` | Replace the node's whole bundle directory instead of sending only the changed files |
 | `--arch` | Target architecture: `armv6` (default, Pi 1 / Pi Zero W), `arm64`, `amd64` |
 | `--python-minor`, `--abi` | Override the bundle's Python version / wheel ABI tag |
 

@@ -26,7 +26,7 @@ const BOOTSTRAP_UNSIGNED = { bundle_version: 'v1.4.2', bundle_arch: 'armv6', pac
 test('prepare starts the prepare run and collects the package log', async () => {
   const { screen, calls, sources } = mount();
   await screen.init();
-  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare' } });
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: false } });
   sources[0].emit('run-started', { run_id: 'run-1', mode: 'prepare' }, 4);
   sources[0].emit('log', { step_id: 'package', line: 'Lade energy-node-v1-armv6.tar.gz' }, 5);
   sources[0].emit('log', { step_id: 'other', line: 'not ours' }, 6);
@@ -137,4 +137,56 @@ test('ohne vorhandenes Paket wird "Weiter mit vorhandenem Paket" nicht angeboten
   sources[0].emit('run-finished', { run_id: 'run-1', ok: false, code: 'GITHUB_NO_RELEASE' }, 5);
   await new Promise((resolve) => setTimeout(resolve, 0));
   assert.equal(screen.canUseExisting, false);
+});
+
+test('finish({ok:false, code:PACKAGE_VERIFY_FAILED_DELTA, detail:x}) sets state failed, canForceFull true, does NOT call shell.fail, pushes detail into lines', async () => {
+  const { screen, shell } = mount();
+  await screen.init();
+  let shellFailCalled = false;
+  const originalFail = shell.fail;
+  shell.fail = () => { shellFailCalled = true; };
+  screen.finish({ ok: false, code: 'PACKAGE_VERIFY_FAILED_DELTA', detail: 'delta transfer verification failed' });
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canForceFull, true);
+  assert.equal(shellFailCalled, false);
+  assert.ok(screen.lines.includes('delta transfer verification failed'));
+  shell.fail = originalFail;
+});
+
+test('finish({ok:false, code:PACKAGE_STAGE_FAILED}) calls shell.fail and canForceFull is false', async () => {
+  const { screen, shell } = mount();
+  await screen.init();
+  let shellFailCalled = false;
+  const originalFail = shell.fail;
+  shell.fail = () => { shellFailCalled = true; };
+  screen.finish({ ok: false, code: 'PACKAGE_STAGE_FAILED', detail: 'stage failed' });
+  assert.equal(screen.state, 'failed');
+  assert.equal(screen.canForceFull, false);
+  assert.equal(shellFailCalled, true);
+  shell.fail = originalFail;
+});
+
+test('forceFull() posts /api/run with body {mode:prepare, force_full_transfer:true} and resets state/lines/lastErrorCode', async () => {
+  const { screen, calls } = mount();
+  screen.state = 'failed';
+  screen.lines = ['old line'];
+  screen.lastErrorCode = 'PACKAGE_VERIFY_FAILED_DELTA';
+  await screen.forceFull();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: true } });
+  assert.equal(screen.state, 'working');
+  assert.deepEqual(JSON.parse(JSON.stringify(screen.lines)), []);
+  assert.equal(screen.lastErrorCode, null);
+});
+
+test('init() posts {mode:prepare, force_full_transfer:false} by default', async () => {
+  const { screen, calls } = mount();
+  await screen.init();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: false } });
+});
+
+test('init() posts {mode:prepare, force_full_transfer:true} when shell.shared.forceFullTransfer is true', async () => {
+  const { screen, shell, calls } = mount();
+  shell.shared.forceFullTransfer = true;
+  await screen.init();
+  assert.deepEqual(calls[0], { key: 'POST /api/run', body: { mode: 'prepare', force_full_transfer: true } });
 });

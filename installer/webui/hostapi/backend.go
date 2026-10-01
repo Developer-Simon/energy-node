@@ -192,6 +192,13 @@ type RunRequest struct {
 	Mode RunMode `json:"mode"`
 	// Only faehrt genau einen Schritt - der Reparaturknopf der Diagnose.
 	Only string `json:"only,omitempty"`
+	// ForceFullTransfer skips the incremental delta transfer for mode
+	// "prepare" and always replaces the node's bundle directory whole --
+	// either because the operator asked for it up front (the connect
+	// screen's checkbox) or because a previous delta attempt's
+	// verification failed and they confirmed the retry (the prepare
+	// screen's recommendation dialog, on PACKAGE_VERIFY_FAILED_DELTA).
+	ForceFullTransfer bool `json:"force_full_transfer,omitempty"`
 	// Secrets gehen hinein und nie wieder hinaus.
 	MQTTPassword  string `json:"mqtt_password,omitempty"`
 	AdminPassword string `json:"admin_password,omitempty"`

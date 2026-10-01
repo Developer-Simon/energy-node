@@ -22,6 +22,7 @@
       packageKind: '',
       repoPath: '',
       packageFile: null,
+      forceFullTransfer: false,
 
       get shell() {
         return window.Installer.shell;
@@ -132,6 +133,7 @@
           }
           this.secret = '';
           await this.submitPackage();
+          this.shell.shared.forceFullTransfer = this.forceFullTransfer;
           this.shell.afterConnect({ host: result.host || this.host, user: result.user || this.user });
           if (keypairError) {
             // erst nach dem Wechsel: go() raeumt das Banner sonst gleich weg

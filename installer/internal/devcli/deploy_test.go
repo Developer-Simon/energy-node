@@ -6,6 +6,8 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"io"
+	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
@@ -14,8 +16,12 @@ import (
 )
 
 // recordCalls counts how often RunDeploy recorded the installed manifest;
-// swapDeployCollaborators resets it and installs the counting fake.
-var recordCalls int
+// markCalls counts how often markVerified was called.
+// swapDeployCollaborators resets them and installs counting fakes.
+var (
+	recordCalls int
+	markCalls   int
+)
 
 // clearedStamps and restarted record what RunDeploy asked the node to do
 // around an --only run; swapDeployCollaborators resets both.
@@ -38,8 +44,9 @@ func swapDeployCollaborators(t *testing.T) {
 	origProvision := provisionRemoteStateDir
 	origRecord := recordInstalled
 	origClearStamp, origRestart := clearRemoteStepStamp, restartUnits
+	origDeltaBase, origMarkVerified := deltaBase, markVerified
+	origDeployDelta := deployDelta
 	t.Cleanup(func() {
-		clearRemoteStepStamp, restartUnits = origClearStamp, origRestart
 		buildViaRepo, extractArchive = origBuild, origExtract
 		verifyBundleLocal, deployBundle = origVerifyLocal, origDeploy
 		verifyBundleRemote, previewRun = origVerifyRemote, origPreview
@@ -48,6 +55,9 @@ func swapDeployCollaborators(t *testing.T) {
 		verifyBundleLocalDev, verifyBundleRemoteDev = origVerifyLocalDev, origVerifyRemoteDev
 		provisionRemoteStateDir = origProvision
 		recordInstalled = origRecord
+		clearRemoteStepStamp, restartUnits = origClearStamp, origRestart
+		deltaBase, markVerified = origDeltaBase, origMarkVerified
+		deployDelta = origDeployDelta
 	})
 
 	buildViaRepo = func(context.Context, bundle.BuildArgs) (string, error) { return "/fake/archive.tar.gz", nil }
@@ -57,6 +67,8 @@ func swapDeployCollaborators(t *testing.T) {
 	provisionRemoteStateDir = func(context.Context, *transport.Client) error { return nil }
 	recordCalls = 0
 	recordInstalled = func(context.Context, *transport.Client, string, string) error { recordCalls++; return nil }
+	markCalls = 0
+	markVerified = func(context.Context, *transport.Client, string) error { markCalls++; return nil }
 	clearedStamps, restarted = nil, nil
 	clearRemoteStepStamp = func(_ context.Context, _ *transport.Client, _, stepID string) error {
 		clearedStamps = append(clearedStamps, stepID)
@@ -66,6 +78,15 @@ func swapDeployCollaborators(t *testing.T) {
 		for _, u := range units {
 			restarted = append(restarted, verb+" "+u)
 		}
+		return nil
+	}
+	// Default deltaBase returns an empty base (matching no files), so the default
+	// path is delta. Tests that want the full path must either set ForceFull: true
+	// or override deltaBase.
+	deltaBase = func(context.Context, *transport.Client, string) (*bundle.Manifest, string) {
+		return &bundle.Manifest{Files: map[string]string{}}, "none"
+	}
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(done, total int64)) error {
 		return nil
 	}
 }
@@ -91,7 +112,7 @@ func TestRunDeployFullRunUsesEveryManifestStep(t *testing.T) {
 	var gotOpts steps.RunOptions
 	runSteps = func(_ context.Context, opts steps.RunOptions) error { gotOpts = opts; return nil }
 
-	err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}})
+	err := RunDeploy(context.Background(), DeployArgs{ForceFull: true, Stdout: &bytes.Buffer{}})
 	if err != nil {
 		t.Fatalf("RunDeploy: %v", err)
 	}
@@ -113,7 +134,7 @@ func TestRunDeployFullRunRecordsTheInstalledManifest(t *testing.T) {
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 	runSteps = func(context.Context, steps.RunOptions) error { return nil }
 
-	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+	if err := RunDeploy(context.Background(), DeployArgs{ForceFull: true, Stdout: &bytes.Buffer{}}); err != nil {
 		t.Fatalf("RunDeploy: %v", err)
 	}
 	if recordCalls != 1 {
@@ -130,7 +151,7 @@ func TestRunDeployRecordFailureIsOnlyAWarning(t *testing.T) {
 	recordInstalled = func(context.Context, *transport.Client, string, string) error { return errors.New("disk full") }
 
 	var out bytes.Buffer
-	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &out}); err != nil {
+	if err := RunDeploy(context.Background(), DeployArgs{ForceFull: true, Stdout: &out}); err != nil {
 		t.Fatalf("a failed record must not fail the run: %v", err)
 	}
 	if !containsAll(out.String(), "warning", "disk full") {
@@ -141,7 +162,9 @@ func TestRunDeployRecordFailureIsOnlyAWarning(t *testing.T) {
 func TestRunDeployOnlyFiltersToASingleStep(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 
 	var gotOpts steps.RunOptions
@@ -168,7 +191,7 @@ func TestRunDeployBuildsWithADevVersion(t *testing.T) {
 		return "/fake/archive.tar.gz", nil
 	}
 
-	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+	if err := RunDeploy(context.Background(), DeployArgs{ForceFull: true, Stdout: &bytes.Buffer{}}); err != nil {
 		t.Fatalf("RunDeploy: %v", err)
 	}
 	if !gotBuild.DevVersion {
@@ -184,7 +207,7 @@ func TestRunDeployFullRunRestartsEveryServiceThroughTheSteps(t *testing.T) {
 	var gotOpts steps.RunOptions
 	runSteps = func(_ context.Context, opts steps.RunOptions) error { gotOpts = opts; return nil }
 
-	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+	if err := RunDeploy(context.Background(), DeployArgs{ForceFull: true, Stdout: &bytes.Buffer{}}); err != nil {
 		t.Fatalf("RunDeploy: %v", err)
 	}
 	if !gotOpts.RestartAll {
@@ -203,7 +226,9 @@ func TestRunDeployOnlyRedoesTheStepAndRestartsItsUnit(t *testing.T) {
 		t.Run(tc.only, func(t *testing.T) {
 			swapDeployCollaborators(t)
 			verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-			deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+			deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+				return nil
+			}
 			verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 			var gotOpts steps.RunOptions
 			runSteps = func(_ context.Context, opts steps.RunOptions) error {
@@ -230,7 +255,9 @@ func TestRunDeployOnlyRedoesTheStepAndRestartsItsUnit(t *testing.T) {
 func TestRunDeployOnlyWheelsRestartsNothingAndSaysSo(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 	runSteps = func(context.Context, steps.RunOptions) error { return nil }
 
@@ -249,6 +276,10 @@ func TestRunDeployOnlyWheelsRestartsNothingAndSaysSo(t *testing.T) {
 func TestRunDeployOnlyDryRunClearsNothing(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deltaBase = func(context.Context, *transport.Client, string) (*bundle.Manifest, string) {
+		t.Fatalf("--dry-run must not call deltaBase")
+		return nil, ""
+	}
 	previewRun = func(_ context.Context, _ *transport.Client, _, _, v string) (*steps.Plan, error) {
 		return &steps.Plan{BundleVersion: v}, nil
 	}
@@ -264,7 +295,9 @@ func TestRunDeployOnlyDryRunClearsNothing(t *testing.T) {
 func TestRunDeployOnlyDoesNotRecordTheInstalledManifest(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 	runSteps = func(context.Context, steps.RunOptions) error { return nil }
 
@@ -280,8 +313,12 @@ func TestRunDeployDryRunSkipsDeployAndRun(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
 
-	deployCalled, runCalled := false, false
+	deployCalled, runCalled, deltaCalled := false, false, false
 	deployBundle = func(context.Context, *transport.Client, string, string) error { deployCalled = true; return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		deltaCalled = true
+		return nil
+	}
 	runSteps = func(context.Context, steps.RunOptions) error { runCalled = true; return nil }
 
 	var previewedVersion string
@@ -294,8 +331,8 @@ func TestRunDeployDryRunSkipsDeployAndRun(t *testing.T) {
 	if err := RunDeploy(context.Background(), DeployArgs{DryRun: true, Stdout: &out}); err != nil {
 		t.Fatalf("RunDeploy: %v", err)
 	}
-	if deployCalled || runCalled {
-		t.Fatalf("--dry-run must not call Deploy or Run")
+	if deployCalled || runCalled || deltaCalled {
+		t.Fatalf("--dry-run must not call Deploy, Run, or DeployDelta")
 	}
 	if previewedVersion != "v0.3.0" {
 		t.Fatalf("expected Preview to be called with the freshly built version, got %q", previewedVersion)
@@ -308,7 +345,7 @@ func TestRunDeployDryRunSkipsDeployAndRun(t *testing.T) {
 func TestRunDeployForceConfigRequiresStep60InTheRunList(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error {
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
 		t.Fatalf("must not deploy before the --force-config validation error")
 		return nil
 	}
@@ -322,7 +359,9 @@ func TestRunDeployForceConfigRequiresStep60InTheRunList(t *testing.T) {
 func TestRunDeployForceConfigDeclinedAbortsBeforeRunning(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 	runSteps = func(context.Context, steps.RunOptions) error {
 		t.Fatalf("must not run any step when --force-config is declined")
@@ -341,7 +380,9 @@ func TestRunDeployForceConfigDeclinedAbortsBeforeRunning(t *testing.T) {
 func TestRunDeployForceConfigConfirmedClearsRemoteStateBeforeRunning(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 
 	var order []string
@@ -369,7 +410,9 @@ func TestRunDeployForceConfigConfirmedClearsRemoteStateBeforeRunning(t *testing.
 func TestRunDeployTranslatesAStepFailureThroughFaults(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
 	runSteps = func(context.Context, steps.RunOptions) error {
 		return &steps.StepFailure{StepID: "50", Code: "PIP_EXTERNALLY_MANAGED"}
@@ -398,7 +441,7 @@ func TestRunDeployProvisionsTheRemoteStateDirBeforeDeployingTheBundle(t *testing
 		order = append(order, "provision")
 		return nil
 	}
-	deployBundle = func(context.Context, *transport.Client, string, string) error {
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
 		order = append(order, "deploy")
 		return nil
 	}
@@ -416,7 +459,7 @@ func TestRunDeployAbortsBeforeDeployingWhenProvisioningFails(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
 	provisionRemoteStateDir = func(context.Context, *transport.Client) error { return errors.New("no sudo") }
-	deployBundle = func(context.Context, *transport.Client, string, string) error {
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
 		t.Fatalf("must not deploy when provisioning the remote state dir fails")
 		return nil
 	}
@@ -430,6 +473,10 @@ func TestRunDeployAbortsBeforeDeployingWhenProvisioningFails(t *testing.T) {
 func TestRunDeployDryRunDoesNotProvisionTheRemoteStateDir(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deltaBase = func(context.Context, *transport.Client, string) (*bundle.Manifest, string) {
+		t.Fatalf("--dry-run must not touch the node at all")
+		return nil, ""
+	}
 	previewRun = func(context.Context, *transport.Client, string, string, string) (*steps.Plan, error) {
 		return &steps.Plan{}, nil
 	}
@@ -460,7 +507,9 @@ func TestRunDeployDevUnsignedSkipsSignatureVerificationLocallyAndRemotely(t *tes
 	localCalled, remoteCalled := false, false
 	verifyBundleLocalDev = func(string) (*bundle.Manifest, error) { localCalled = true; return fakeManifest(), nil }
 	verifyBundleRemoteDev = func(context.Context, *transport.Client, string) error { remoteCalled = true; return nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	runSteps = func(context.Context, steps.RunOptions) error { return nil }
 
 	var out bytes.Buffer
@@ -480,7 +529,9 @@ func TestRunDeployWithoutDevUnsignedUsesTheSignedVerifiers(t *testing.T) {
 	swapDeployCollaborators(t)
 	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
 	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
-	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
 	runSteps = func(context.Context, steps.RunOptions) error { return nil }
 	verifyBundleLocalDev = func(string) (*bundle.Manifest, error) {
 		t.Fatalf("must not use the unsigned local verifier by default")
@@ -496,9 +547,177 @@ func TestRunDeployWithoutDevUnsignedUsesTheSignedVerifiers(t *testing.T) {
 	}
 }
 
+func TestRunDeployDeltaByDefault(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) {
+		return &bundle.Manifest{Version: "v0.3.0", Files: map[string]string{"a": "new"}}, nil
+	}
+	deltaCalled, fullCalled := false, false
+	var capturedBundleDir, capturedRemoteDir string
+	deployDelta = func(_ context.Context, _ *transport.Client, bundleDir string, changed, removed []string, remoteDir string, _ func(int64, int64)) error {
+		deltaCalled = true
+		capturedBundleDir = bundleDir
+		capturedRemoteDir = remoteDir
+		if len(changed) != 1 || changed[0] != "a" {
+			t.Errorf("changed = %v, want [a]", changed)
+		}
+		return nil
+	}
+	deployBundle = func(context.Context, *transport.Client, string, string) error { fullCalled = true; return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !deltaCalled || fullCalled {
+		t.Fatalf("deltaCalled=%v fullCalled=%v, want delta only", deltaCalled, fullCalled)
+	}
+	if !strings.HasSuffix(capturedBundleDir, string(filepath.Separator)+"extracted") {
+		t.Errorf("bundleDir = %q, want to end with /extracted", capturedBundleDir)
+	}
+	if capturedRemoteDir != DefaultRemoteBundleDir {
+		t.Errorf("remoteDir = %q, want %q", capturedRemoteDir, DefaultRemoteBundleDir)
+	}
+	if markCalls != 1 {
+		t.Errorf("markCalls = %d, want 1", markCalls)
+	}
+}
+
+func TestRunDeployForceFullSkipsTheDiffEvenWithAnInstalledManifest(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deltaBase = func(context.Context, *transport.Client, string) (*bundle.Manifest, string) {
+		t.Fatalf("--force-full must not call deltaBase")
+		return nil, ""
+	}
+	fullCalled := false
+	deployBundle = func(context.Context, *transport.Client, string, string) error { fullCalled = true; return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	if err := RunDeploy(context.Background(), DeployArgs{ForceFull: true, Stdout: &bytes.Buffer{}}); err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !fullCalled {
+		t.Fatalf("expected the full transfer to run")
+	}
+	if markCalls != 1 {
+		t.Errorf("markCalls = %d, want 1", markCalls)
+	}
+}
+
+func TestRunDeployAsksBeforeRetransferringAfterADeltaVerifyFailure(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deltaBase = func(context.Context, *transport.Client, string) (*bundle.Manifest, string) {
+		return &bundle.Manifest{Files: map[string]string{}}, "none"
+	}
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
+	fullCalled := false
+	deployBundle = func(context.Context, *transport.Client, string, string) error { fullCalled = true; return nil }
+	verifyCalls := 0
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error {
+		verifyCalls++
+		if verifyCalls == 1 {
+			return errors.New("hash mismatch")
+		}
+		return nil // the retry, after a confirmed full retransfer, succeeds
+	}
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+
+	confirmed := false
+	err := RunDeploy(context.Background(), DeployArgs{
+		Stdout: &bytes.Buffer{},
+		Confirm: func(prompt string) (bool, error) {
+			confirmed = true
+			if !strings.Contains(prompt, "full") {
+				t.Errorf("prompt = %q, expected it to recommend a full retransfer", prompt)
+			}
+			return true, nil
+		},
+	})
+	if err != nil {
+		t.Fatalf("RunDeploy: %v", err)
+	}
+	if !confirmed || !fullCalled || verifyCalls != 2 {
+		t.Fatalf("confirmed=%v fullCalled=%v verifyCalls=%d, want all true/2", confirmed, fullCalled, verifyCalls)
+	}
+	if markCalls != 1 {
+		t.Errorf("markCalls = %d, want 1 (only after second verify succeeds)", markCalls)
+	}
+}
+
+func TestRunDeployDeclinedRetransferKeepsTheOriginalVerifyError(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deltaBase = func(context.Context, *transport.Client, string) (*bundle.Manifest, string) {
+		return &bundle.Manifest{Files: map[string]string{}}, "none"
+	}
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
+	deployBundle = func(context.Context, *transport.Client, string, string) error {
+		t.Fatalf("must not retransfer when the operator declines")
+		return nil
+	}
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return errors.New("hash mismatch") }
+
+	err := RunDeploy(context.Background(), DeployArgs{
+		Stdout:  &bytes.Buffer{},
+		Confirm: func(string) (bool, error) { return false, nil },
+	})
+	if err == nil || !strings.Contains(err.Error(), "hash mismatch") {
+		t.Fatalf("err = %v, want it to name the original verify failure", err)
+	}
+	if markCalls != 0 {
+		t.Errorf("markCalls = %d, want 0 (never called when verify fails)", markCalls)
+	}
+}
+
+func TestRunDeployAFullTransferVerifyFailureNeverAsksToConfirm(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployBundle = func(context.Context, *transport.Client, string, string) error { return nil }
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return errors.New("hash mismatch") }
+
+	err := RunDeploy(context.Background(), DeployArgs{
+		ForceFull: true,
+		Stdout:    &bytes.Buffer{},
+		Confirm: func(string) (bool, error) {
+			t.Fatalf("a full transfer's own verify failure must not ask to confirm anything")
+			return false, nil
+		},
+	})
+	if err == nil {
+		t.Fatalf("expected an error")
+	}
+}
+
+func TestRunDeployMarkVerifiedErrorIsOnlyAWarning(t *testing.T) {
+	swapDeployCollaborators(t)
+	verifyBundleLocal = func(string, ed25519.PublicKey) (*bundle.Manifest, error) { return fakeManifest(), nil }
+	deployDelta = func(context.Context, *transport.Client, string, []string, []string, string, func(int64, int64)) error {
+		return nil
+	}
+	verifyBundleRemote = func(context.Context, *transport.Client, string, []byte) error { return nil }
+	runSteps = func(context.Context, steps.RunOptions) error { return nil }
+	markVerified = func(context.Context, *transport.Client, string) error { return errors.New("storage unavailable") }
+
+	var out bytes.Buffer
+	if err := RunDeploy(context.Background(), DeployArgs{Stdout: &out}); err != nil {
+		t.Fatalf("a failed markVerified must not fail the run: %v", err)
+	}
+	if !containsAll(out.String(), "warning", "could not record the verified bundle state", "storage unavailable") {
+		t.Fatalf("expected a warning naming the cause, got: %q", out.String())
+	}
+}
+
 func containsAll(s string, substrings ...string) bool {
 	for _, sub := range substrings {
-		if !bytes.Contains([]byte(s), []byte(sub)) {
+		if !strings.Contains(s, sub) {
 			return false
 		}
 	}

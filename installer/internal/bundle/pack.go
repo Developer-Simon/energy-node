@@ -86,3 +86,59 @@ func PackDir(srcDir, archivePath string) (err error) {
 	}
 	return gz.Close()
 }
+
+// PackFiles writes exactly the files at relpaths (forward-slash, relative
+// to srcDir -- as manifest.json's "files" keys spell them) into archivePath
+// as a .tar.gz. It is DeployDelta's counterpart to PackDir, which packs a
+// whole directory; only regular files are accepted, since a manifest never
+// lists anything else. Unlike PackDir it writes no directory entries: GNU
+// tar creates a file entry's missing parent directories on extraction by
+// itself, and DeployDelta always extracts into a directory that already
+// exists (see Deploy's own doc comment on why remoteDir is never wiped for
+// a delta transfer).
+func PackFiles(srcDir string, relpaths []string, archivePath string) (err error) {
+	out, err := os.Create(archivePath)
+	if err != nil {
+		return fmt.Errorf("creating %s: %w", archivePath, err)
+	}
+	defer func() {
+		if cerr := out.Close(); err == nil && cerr != nil {
+			err = cerr
+		}
+	}()
+	gz := gzip.NewWriter(out)
+	tw := tar.NewWriter(gz)
+
+	for _, rel := range relpaths {
+		p := filepath.Join(srcDir, filepath.FromSlash(rel))
+		info, statErr := os.Lstat(p)
+		if statErr != nil {
+			return fmt.Errorf("packing %s: %w", rel, statErr)
+		}
+		if !info.Mode().IsRegular() {
+			return fmt.Errorf("packing %s: not a regular file", rel)
+		}
+		hdr, hdrErr := tar.FileInfoHeader(info, "")
+		if hdrErr != nil {
+			return hdrErr
+		}
+		hdr.Name = rel
+		hdr.Uid, hdr.Gid, hdr.Uname, hdr.Gname = 0, 0, "", ""
+		if err := tw.WriteHeader(hdr); err != nil {
+			return err
+		}
+		f, openErr := os.Open(p)
+		if openErr != nil {
+			return openErr
+		}
+		_, copyErr := io.Copy(tw, f)
+		f.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+	}
+	if err := tw.Close(); err != nil {
+		return err
+	}
+	return gz.Close()
+}

@@ -56,6 +56,11 @@
         servicesOnly: false,
         run: null,
         lastRun: null,
+        // forceFullTransfer: the connect screen's checkbox, read by
+        // screen-prepare's very first /api/run call. It is a plain
+        // per-session default, not something a screen ever needs to
+        // persist across a reload.
+        forceFullTransfer: false,
       },
 
       async init() {

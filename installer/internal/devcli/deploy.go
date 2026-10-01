@@ -38,6 +38,9 @@ var (
 	verifyBundleRemoteDev     = bundle.VerifyRemoteDev
 	provisionRemoteStateDir   = defaultProvisionRemoteStateDir
 	recordInstalled           = steps.RecordInstalled
+	deltaBase                 = bundle.DeltaBase
+	markVerified              = bundle.MarkVerified
+	deployDelta               = bundle.DeployDelta
 )
 
 // DeployArgs configures one call to RunDeploy: which node, which repo
@@ -54,6 +57,7 @@ type DeployArgs struct {
 	DevUnsigned bool   // skip signature verification (local and remote); there is no private key matching the embedded release public key outside CI
 	Only        string // "" for a full deploy
 	DryRun      bool
+	ForceFull   bool // skip the incremental diff, always replace the whole bundle directory
 	ForceConfig bool
 	Confirm     func(prompt string) (bool, error) // nil uses a real terminal prompt
 	Stdout      io.Writer
@@ -125,11 +129,37 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 	if err := provisionRemoteStateDir(ctx, args.Client); err != nil {
 		return fmt.Errorf("provisioning %s on the node: %w", DefaultRemoteStateDir, err)
 	}
-	if err := deployBundle(ctx, args.Client, archivePath, DefaultRemoteBundleDir); err != nil {
+
+	usedDelta, err := stageForDeploy(ctx, args, archivePath, extractDir, manifest)
+	if err != nil {
 		return fmt.Errorf("uploading bundle: %w", err)
 	}
 	if err := verifyRemote(ctx, args.Client, args.DevUnsigned); err != nil {
-		return fmt.Errorf("verifying bundle on the node: %w", err)
+		if !usedDelta {
+			return fmt.Errorf("verifying bundle on the node: %w", err)
+		}
+		fmt.Fprintf(args.Stdout, "warning: the incremental transfer could not be verified on the node: %v\n", err)
+		confirm := args.Confirm
+		if confirm == nil {
+			confirm = defaultConfirm
+		}
+		ok, confirmErr := confirm("Recommendation: retransfer the full bundle. Continue?")
+		if confirmErr != nil {
+			return fmt.Errorf("confirming the full retransfer: %w", confirmErr)
+		}
+		if !ok {
+			return fmt.Errorf("verifying bundle on the node: %w", err)
+		}
+		if err := deployBundle(ctx, args.Client, archivePath, DefaultRemoteBundleDir); err != nil {
+			return fmt.Errorf("retransferring bundle: %w", err)
+		}
+		if err := verifyRemote(ctx, args.Client, args.DevUnsigned); err != nil {
+			return fmt.Errorf("verifying bundle on the node after a full retransfer: %w", err)
+		}
+	}
+
+	if err := markVerified(ctx, args.Client, DefaultRemoteBundleDir); err != nil {
+		fmt.Fprintf(args.Stdout, "warning: could not record the verified bundle state: %v\n", err)
 	}
 
 	if args.ForceConfig {
@@ -192,6 +222,29 @@ func RunDeploy(ctx context.Context, args DeployArgs) error {
 		fmt.Fprintf(args.Stdout, "warning: could not record installed-manifest.json: %v\n", err)
 	}
 	return nil
+}
+
+// stageForDeploy stages the built bundle on the node: an incremental delta
+// against the last verified base by default, or a full replace when
+// args.ForceFull was asked for. It reports whether it took the delta path
+// -- RunDeploy needs that to decide how to react if verifyRemote then fails:
+// a full transfer's own verify failure is reported as-is, but a delta
+// transfer's asks before retrying as a full one (Global Constraints: never
+// silently switch).
+func stageForDeploy(ctx context.Context, args DeployArgs, archivePath, bundleDir string, manifest *bundle.Manifest) (usedDelta bool, err error) {
+	if !args.ForceFull {
+		base, source := deltaBase(ctx, args.Client, DefaultRemoteBundleDir)
+		changed, removed := bundle.DiffManifest(base, manifest)
+		fmt.Fprintf(args.Stdout, "incremental transfer (base: %s): %d changed, %d removed\n", source, len(changed), len(removed))
+		if err := deployDelta(ctx, args.Client, bundleDir, changed, removed, DefaultRemoteBundleDir, nil); err != nil {
+			return false, err
+		}
+		return true, nil
+	}
+	if err := deployBundle(ctx, args.Client, archivePath, DefaultRemoteBundleDir); err != nil {
+		return false, err
+	}
+	return false, nil
 }
 
 // verifyLocal picks the signed or unsigned local verifier: the default path

@@ -9,6 +9,7 @@
 - **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
 - **dashboard:** localize the system configuration form (#72) (c716d05)
 - **dashboard:** localize the device configuration forms (#73) (180110d)
+- **battery_soc:** save the state on an interval and recover after a crash (#78) (dc62037)
 - **battery_soc:** add the save interval setting to the service schema (df73211)
 - **battery_soc:** write the state file atomically with save metadata (646ac60)
 - **battery_soc:** recover the counter from the retained state or by extrapolation (01db8e3)

@@ -125,6 +125,19 @@
             </div>
           </div>
         </template>
+
+        <template x-if="packageInfo">
+          <label class="force-full">
+            <span class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="forceFullTransfer" :aria-label="t('connect.package.force_full.title')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </span>
+            <span>
+              <span class="check-t" x-text="t('connect.package.force_full.title')"></span>
+              <span class="check-s" x-text="t('connect.package.force_full.hint')"></span>
+            </span>
+          </label>
+        </template>
       </section>
     </div>
 
