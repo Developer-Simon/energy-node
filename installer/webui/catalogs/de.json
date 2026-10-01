@@ -45,7 +45,7 @@
   "changelog.group.dev": "Entwicklung",
   "changelog.group.docs": "Dokumentation",
   "changelog.group.feat": "Neuerungen",
-  "changelog.group.fix": "Korrektionen",
+  "changelog.group.fix": "Korrekturen",
   "changelog.group.other": "Weiteres",
   "changelog.group.perf": "Leistung",
   "changelog.group.refactor": "Umbauten",
