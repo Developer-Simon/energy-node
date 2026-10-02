@@ -124,3 +124,28 @@ func TestADashboardHostNeedsNoConnection(t *testing.T) {
 		t.Fatalf("a host without a connection screen must not be blocked by NOT_CONNECTED")
 	}
 }
+
+func TestConnectPassesTheCredentialFlagsToTheBackend(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	rec := do(t, server, http.MethodPost, "/api/connect",
+		`{"host":"node.local","user":"pi","kind":"password","secret":"","remember":true,"use_saved_secret":true}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d: %s", rec.Code, rec.Body.String())
+	}
+	if !fake.LastConnect.Remember || !fake.LastConnect.UseSavedSecret {
+		t.Errorf("the backend got %+v", fake.LastConnect)
+	}
+}
+
+func TestConnectReportsACredentialStoreFailure(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	fake.ConnectResult = hostapi.ConnectResult{Connected: true, Host: "node.local", User: "pi", CredentialsError: "CREDENTIALS_STORE_FAILED"}
+	rec := do(t, server, http.MethodPost, "/api/connect", `{"host":"node.local","user":"pi","kind":"password","secret":"x"}`)
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got["credentials_error"] != "CREDENTIALS_STORE_FAILED" || got["connected"] != true {
+		t.Errorf("response = %v", got)
+	}
+}
