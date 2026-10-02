@@ -40,7 +40,7 @@ func loadCredentials(store credstore.Store) *savedCredentials {
 	return &creds
 }
 
-func (s savedCredentials) view() *hostapi.SavedCredentials {
+func (s *savedCredentials) view() *hostapi.SavedCredentials {
 	if !s.available {
 		return nil
 	}
@@ -55,7 +55,7 @@ func (s savedCredentials) view() *hostapi.SavedCredentials {
 
 // secret liefert das gemerkte Passwort nur fuer genau den gemerkten Host und
 // Benutzer. Ein anderer Node bekommt es nie.
-func (s savedCredentials) secret(host, user string) (string, bool) {
+func (s *savedCredentials) secret(host, user string) (string, bool) {
 	if s.saved == nil || s.saved.Secret == "" || s.saved.Host != host || s.saved.User != user {
 		return "", false
 	}
