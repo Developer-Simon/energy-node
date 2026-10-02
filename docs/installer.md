@@ -93,6 +93,14 @@ file. With a password, leave **Create and install a key** ticked: the installer
 generates a key pair, installs the public half on the Pi, and every later run
 — updates, diagnostics — connects without asking for the password again.
 
+Switch on **Remember access details** to keep the address, the user and the
+password or key file in your computer's keychain: Windows Credential Manager,
+macOS Keychain or the Secret Service on Linux. The next start fills the form
+in and the password field shows **Saved password**, so you only press
+**Connect**. The saved password is only used for the same address and user.
+Switch it off and connect once to delete the entry. Without a keychain, for
+example on a Linux desktop without a Secret Service, the switch is not shown.
+
 The right-hand card shows which installation package is used and for which
 architecture. It has to match the Pi; the next step checks that.
 
