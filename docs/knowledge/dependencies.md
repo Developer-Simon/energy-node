@@ -34,6 +34,7 @@ packages `battery_soc_core` and `energy_node_common`.
 |---|---|---|
 | [`eclipse/paho.mqtt.golang`](https://github.com/eclipse/paho.mqtt.golang) | `dashboard/` | MQTT client (direct dependency; `gorilla/websocket`, `golang.org/x/net` and `golang.org/x/sync` come in transitively) |
 | [`pkg/sftp`](https://github.com/pkg/sftp) | `installer/` | file transfer to the target Pi over SSH |
+| [`zalando/go-keyring`](https://github.com/zalando/go-keyring) | `installer/` | remembers the node access details in the OS keychain |
 | `golang.org/x/crypto`, `golang.org/x/term` | `installer/` | SSH client and terminal handling for the provisioning flow |
 
 `installer/webui/` (`github.com/Developer-Simon/energy-node-webui`) has no
