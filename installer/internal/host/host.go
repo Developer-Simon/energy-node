@@ -18,6 +18,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/bundlesource"
+	"github.com/Developer-Simon/energy-node-installer/internal/credstore"
 	"github.com/Developer-Simon/energy-node-installer/internal/diag"
 	"github.com/Developer-Simon/energy-node-installer/internal/selection"
 	"github.com/Developer-Simon/energy-node-installer/internal/steps"
@@ -48,6 +49,9 @@ type Config struct {
 	// RepoPath ist der erkannte Checkout, mit dem das Feld
 	// "Aus Repository bauen" vorbelegt wird.
 	RepoPath string
+	// Credentials ist die Ablage fuer "Zugangsdaten merken". nil schaltet die
+	// Funktion ab.
+	Credentials credstore.Store
 }
 
 // Host erfuellt hostapi.Backend ueber SSH.
@@ -64,6 +68,8 @@ type Host struct {
 
 	client  *transport.Client
 	pending *selection.Selection
+
+	creds *savedCredentials
 }
 
 // New liest das Manifest des Bundles und baut den Wirt.
@@ -75,6 +81,7 @@ func New(cfg Config) (*Host, error) {
 		cfg.RemoteStateDir = "/var/lib/energy-node-installer"
 	}
 	h := &Host{cfg: cfg, bundleDir: cfg.BundleDir}
+	h.creds = loadCredentials(cfg.Credentials)
 	manifest, err := bundle.LoadManifest(cfg.BundleDir)
 	switch {
 	case err == nil:
@@ -95,12 +102,13 @@ func isManifestMissing(err error) bool {
 
 func (h *Host) Describe() hostapi.Description {
 	h.mu.Lock()
-	manifest, resolved := h.manifest, h.resolved
+	manifest, resolved, creds := h.manifest, h.resolved, h.creds.view()
 	h.mu.Unlock()
 	description := hostapi.Description{
 		Host:            hostapi.HostInstaller,
 		EntryPoints:     []string{"install", "redeploy", "diagnose"},
 		NeedsConnection: true,
+		Credentials:     creds,
 	}
 	if manifest != nil {
 		description.BundleVersion, description.BundleArch = manifest.Version, manifest.Arch
@@ -144,6 +152,17 @@ func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi
 		return hostapi.ConnectResult{}, &hostapi.Error{Code: "BACKEND_ERROR", Detail: err.Error()}
 	}
 
+	secret := req.Secret
+	if req.UseSavedSecret && req.Kind != hostapi.AuthKey {
+		h.mu.Lock()
+		saved, ok := h.creds.secret(req.Host, req.User)
+		h.mu.Unlock()
+		if !ok {
+			return hostapi.ConnectResult{}, &hostapi.Error{Code: CodeCredentialsMissing, Status: http.StatusBadRequest}
+		}
+		secret = saved
+	}
+
 	cfg := transport.Config{Host: req.Host, User: req.User, HostKeyCallback: callback}
 	switch req.Kind {
 	case hostapi.AuthKey:
@@ -153,7 +172,7 @@ func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi
 		}
 		cfg.PrivateKeyPEM = key
 	default:
-		cfg.Password = req.Secret
+		cfg.Password = secret
 	}
 
 	client, err := transport.Dial(ctx, cfg)
@@ -169,7 +188,13 @@ func (h *Host) Connect(ctx context.Context, req hostapi.ConnectRequest) (hostapi
 
 	h.attachClient(client)
 
-	return hostapi.ConnectResult{Connected: true, Host: req.Host, User: req.User}, nil
+	// Erst nach der gelungenen Anmeldung merken: ein falsches Passwort landet
+	// nie im Schluesselbund.
+	h.mu.Lock()
+	notice := h.creds.remember(req, secret)
+	h.mu.Unlock()
+
+	return hostapi.ConnectResult{Connected: true, Host: req.Host, User: req.User, CredentialsError: notice}, nil
 }
 
 // attachClient macht client zur aktuellen Verbindung. Eine noch nicht
