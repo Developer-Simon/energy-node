@@ -35,7 +35,7 @@
         <template x-if="kind === 'password'">
           <div class="field">
             <span class="lbl" id="connect-password" x-text="t('field.password')"></span>
-            <input type="password" x-model="secret" aria-labelledby="connect-password" autocomplete="off" @keydown.enter="connect()">
+            <input type="password" x-model="secret" :placeholder="passwordPlaceholder" aria-labelledby="connect-password" autocomplete="off" @keydown.enter="connect()">
           </div>
         </template>
         <template x-if="kind === 'key'">
@@ -54,6 +54,19 @@
               <span class="check-s" x-text="t('connect.keypair.text')"></span>
             </span>
           </div>
+        </template>
+
+        <template x-if="credentialsAvailable">
+          <label class="remember">
+            <span class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="remember" :aria-label="t('connect.remember.title')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </span>
+            <span>
+              <span class="check-t" x-text="t('connect.remember.title')"></span>
+              <span class="check-s" x-text="t('connect.remember.hint')"></span>
+            </span>
+          </label>
         </template>
       </section>
 

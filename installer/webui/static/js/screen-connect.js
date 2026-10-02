@@ -23,6 +23,7 @@
       repoPath: '',
       packageFile: null,
       forceFullTransfer: false,
+      remember: false,
 
       get shell() {
         return window.Installer.shell;
@@ -32,11 +33,42 @@
         return (this.shell.bootstrap || {}).package || null;
       },
 
+      // credentialsAvailable: der Wirt hat einen nutzbaren Schluesselbund.
+      get credentialsAvailable() {
+        return !!(this.shell.bootstrap || {}).credentials;
+      },
+
+      // saved ist der gemerkte Zugang, null wenn nichts gemerkt ist. Das
+      // Passwort selbst kommt nie hier an, nur has_secret.
+      get saved() {
+        var credentials = (this.shell.bootstrap || {}).credentials;
+        return credentials && credentials.host ? credentials : null;
+      },
+
+      get usesSavedSecret() {
+        var saved = this.saved;
+        return this.kind === 'password' && this.secret === '' && !!saved && saved.has_secret &&
+          this.host === saved.host && this.user === saved.user;
+      },
+
+      get passwordPlaceholder() {
+        return this.usesSavedSecret ? this.shell.t('connect.remember.saved_placeholder') : '';
+      },
+
       init() {
-        try {
-          this.host = window.localStorage.getItem(HOST_KEY) || '';
-        } catch (err) {
-          this.host = '';
+        var saved = this.saved;
+        if (saved) {
+          this.host = saved.host;
+          this.user = saved.user;
+          this.kind = saved.kind || 'password';
+          this.keyPath = saved.key_path || '';
+          this.remember = true;
+        } else {
+          try {
+            this.host = window.localStorage.getItem(HOST_KEY) || '';
+          } catch (err) {
+            this.host = '';
+          }
         }
         var info = this.packageInfo;
         if (info) {
@@ -49,7 +81,7 @@
         if (this.busy || this.fingerprint || !this.host || !this.user) {
           return false;
         }
-        if (!(this.kind === 'password' ? this.secret !== '' : this.keyPath !== '')) {
+        if (!(this.kind === 'password' ? (this.secret !== '' || this.usesSavedSecret) : this.keyPath !== '')) {
           return false;
         }
         if (this.packageInfo) {
@@ -109,6 +141,8 @@
         this.shell.error = null;
         this.shell.progress = 'connect.progress.connecting';
         try {
+          var useSaved = this.usesSavedSecret;
+          var remember = this.credentialsAvailable && this.remember;
           var result = await window.Api.post('/api/connect', {
             host: this.host,
             user: this.user,
@@ -116,12 +150,20 @@
             secret: this.kind === 'password' ? this.secret : '',
             key_path: this.kind === 'key' ? this.keyPath : '',
             accept_fingerprint: acceptFingerprint,
+            remember: remember,
+            use_saved_secret: useSaved,
           });
           this.fingerprint = '';
           try {
             window.localStorage.setItem(HOST_KEY, this.host);
           } catch (err) {
             // ohne gemerkte Adresse laesst sich trotzdem arbeiten
+          }
+          if (this.credentialsAvailable && !result.credentials_error) {
+            // Kehrt der Betreiber zu diesem Bildschirm zurueck, gilt der neue Stand.
+            this.shell.bootstrap.credentials = remember
+              ? { host: this.host, user: this.user, kind: this.kind, key_path: this.kind === 'key' ? this.keyPath : '', has_secret: this.kind === 'password' }
+              : { host: '', user: '', kind: '', key_path: '', has_secret: false };
           }
           var keypairError = null;
           if (this.makeKey && this.kind === 'password') {
@@ -135,9 +177,10 @@
           await this.submitPackage();
           this.shell.shared.forceFullTransfer = this.forceFullTransfer;
           this.shell.afterConnect({ host: result.host || this.host, user: result.user || this.user });
-          if (keypairError) {
+          var notice = keypairError || (result.credentials_error ? { code: result.credentials_error } : null);
+          if (notice) {
             // erst nach dem Wechsel: go() raeumt das Banner sonst gleich weg
-            this.shell.fail(keypairError);
+            this.shell.fail(notice);
           }
         } catch (err) {
           if (err.code === 'HOSTKEY_UNKNOWN' && err.detail) {
