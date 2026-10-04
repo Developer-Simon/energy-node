@@ -89,7 +89,7 @@ details, such as a quicker package build for a first try.
 ![The connection screen](images/installer-connect.png)
 
 Enter the Pi's address and the SSH user, then either the password or a key
-file. With a password, leave **Create and install a key** ticked: the installer
+file. With a password, leave **Create and install a key** switched on: the installer
 generates a key pair, installs the public half on the Pi, and every later run
 — updates, diagnostics — connects without asking for the password again.
 

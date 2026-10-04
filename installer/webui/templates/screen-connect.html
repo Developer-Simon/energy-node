@@ -46,14 +46,16 @@
         </template>
 
         <template x-if="kind === 'password'">
-          <div class="check" role="checkbox" tabindex="0" :aria-checked="makeKey"
-               @click="makeKey = !makeKey" @keydown.space.prevent="makeKey = !makeKey">
-            <span class="box" :class="{ on: makeKey }"><template x-if="makeKey">{{template "icon-ok"}}</template></span>
+          <label class="keypair">
+            <span class="settings-toggle">
+              <input type="checkbox" role="switch" x-model="makeKey" :aria-label="t('connect.keypair.title')">
+              <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+            </span>
             <span>
               <span class="check-t" x-text="t('connect.keypair.title')"></span>
               <span class="check-s" x-text="t('connect.keypair.text')"></span>
             </span>
-          </div>
+          </label>
         </template>
 
         <template x-if="credentialsAvailable">
