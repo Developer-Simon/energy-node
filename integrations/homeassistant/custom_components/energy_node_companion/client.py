@@ -7,6 +7,7 @@ erst nach einem 401 neu geholt, nie bei jedem Wiederverbinden.
 """
 from __future__ import annotations
 
+import asyncio
 import json
 from collections.abc import AsyncIterator
 from http.cookies import SimpleCookie
@@ -37,10 +38,21 @@ class DashboardClient:
         # Cookies von IP-Adressen, und die Node ist oft nur per IP erreichbar.
         # Die Sitzung dazu laeuft mit DummyCookieJar (siehe __init__.py).
         self._cookie = ""
+        # Rohwert des Sitzungscookies. Der Panel-Proxy setzt ihn unter dem
+        # Cookienamen ein, den das Dashboard fuer die jeweilige Anfrage erwartet.
+        self._token = ""
+        # Peer und Panel-Proxy teilen sich diese Sitzung. Das Schloss sorgt
+        # dafuer, dass gleichzeitige Aufrufer nur eine Gastanmeldung ausloesen
+        # (jede schreibt users.json auf die SD-Karte).
+        self._login_lock = asyncio.Lock()
 
     @property
     def has_session(self) -> bool:
         return bool(self._cookie)
+
+    @property
+    def session_token(self) -> str:
+        return self._token
 
     def _url(self, path: str) -> str:
         return f"{self._base}{path}"
@@ -51,18 +63,39 @@ class DashboardClient:
     def _check(self, response: aiohttp.ClientResponse, what: str) -> None:
         if response.status == 401:
             self._cookie = ""
+            self._token = ""
             raise AuthRequired(what)
 
     async def login(self) -> None:
-        async with self._session.post(self._url("/api/v1/auth/guest"), timeout=CALL_TIMEOUT) as response:
-            if response.status != 200:
-                raise ExchangeError(f"guest login: HTTP {response.status}")
-            jar: SimpleCookie = SimpleCookie()
-            for header in response.headers.getall("Set-Cookie", []):
-                jar.load(header)
-            if not jar:
-                raise ExchangeError("guest login: no session cookie")
-            self._cookie = "; ".join(f"{name}={morsel.value}" for name, morsel in jar.items())
+        """Gastanmeldung, aber nur, solange keine Sitzung besteht."""
+        async with self._login_lock:
+            if self._cookie:
+                return
+            async with self._session.post(self._url("/api/v1/auth/guest"), timeout=CALL_TIMEOUT) as response:
+                if response.status != 200:
+                    raise ExchangeError(f"guest login: HTTP {response.status}")
+                jar: SimpleCookie = SimpleCookie()
+                for header in response.headers.getall("Set-Cookie", []):
+                    jar.load(header)
+                if not jar:
+                    raise ExchangeError("guest login: no session cookie")
+                self._cookie = "; ".join(f"{name}={morsel.value}" for name, morsel in jar.items())
+                self._token = next(iter(jar.values())).value
+
+    async def ensure_session(self) -> str:
+        """Den Rohwert der Sitzung, notfalls nach einer Gastanmeldung."""
+        await self.login()
+        return self._token
+
+    def drop_session(self, token: str) -> None:
+        """Sitzung verwerfen, wenn sie noch die ist, die abgelehnt wurde.
+
+        Hat inzwischen ein anderer Aufrufer neu angemeldet, bleibt die neue
+        Sitzung stehen.
+        """
+        if token and token == self._token:
+            self._cookie = ""
+            self._token = ""
 
     async def announcement(self) -> dict:
         async with self._session.get(
