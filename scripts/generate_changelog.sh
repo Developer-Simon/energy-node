@@ -369,6 +369,10 @@ PR_TITLE="${CHANGELOG_PR_TITLE:-}"
 PR_BODY_FILE="${CHANGELOG_PR_BODY_FILE:-}"
 PR_BASE="${CHANGELOG_PR_BASE:-}"
 
+# classify_and_append <hash> <subject> [<body>]
+# <hash> leer: der Eintrag des offenen PRs (ohne Hash, den gibt es noch nicht).
+# <body>: Commit-Nachricht ohne Betreff, Quelle einer eigenen Highlight-Zeile;
+# fehlt sie, wird sie fuer einen Squash-Commit ("(#NN)") aus Git gelesen.
 classify_and_append() {
   local hash="$1" subject="$2" body="${3-}"
   local type="other" scope="" rest="$subject" raw_type="" breaking=""
