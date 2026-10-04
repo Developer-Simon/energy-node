@@ -41,7 +41,7 @@ PANEL_ELEMENT = "energy-node-panel"
 PANEL_TITLE = "Energy Node"
 PANEL_ICON = "mdi:solar-power-variant"
 # Bei jeder Aenderung an www/energy-node-panel.js hochzaehlen (Cache-Bust).
-PANEL_JS_VERSION = 1
+PANEL_JS_VERSION = 2
 STATIC_URL = "/energy_node_static"
 
 

@@ -100,6 +100,15 @@ def test_panel_script_refreshes_on_reconnect():
     assert "REFRESH_MS = 30 * 60 * 1000" in source
 
 
+def test_panel_script_fills_the_viewport():
+    # ha-panel-custom hat keine feste Hoehe. Mit height: 100% blieb der
+    # iframe bei seinen 150px Standardhoehe.
+    source = PANEL_JS.read_text(encoding="utf-8")
+    host = source[source.index(":host {"):source.index("}", source.index(":host {"))]
+    assert "height: 100%" not in host
+    assert "100dvh" in host
+
+
 def test_manifest_keeps_frontend_optional():
     manifest = json.loads((BASE / "manifest.json").read_text())
     assert "http" in manifest["dependencies"]
