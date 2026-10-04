@@ -117,7 +117,7 @@ selbst** als ein HA-Gerät für seine server-seitig berechneten Energiewerte
   (gleiches Pfadsegment, kollisionsfreie `object_id`s).
   Sobald Tailscale einen MagicDNS-Namen liefert, trägt der Block außerdem
   `configuration_url: http://<name>/` (Caddy, Port 80). Home Assistant zeigt
-  dafür auf der Geräteseite „Gerät besuchen". Das Dashboard fragt den Namen
+  dafür auf der Geräteseite „Gerät besuchen“. Das Dashboard fragt den Namen
   beim Start und dann alle 5 Minuten ab und publiziert die sieben Configs nur
   bei einem neuen Namen neu. Ohne Namen fehlt das Feld. Der `nodeagent`-Block
   sendet kein `configuration_url`, ein fehlendes Feld löscht den Link in HA
