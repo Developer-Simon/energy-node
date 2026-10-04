@@ -54,6 +54,15 @@ async def test_unavailable_and_nan_are_gaps(hass, freezer):
     assert [ts for ts, *_ in _short(rows)] == [0]
 
 
+async def test_value_set_before_the_window_is_held(hass, freezer):
+    await _record(hass, freezer, "sensor.pv", [(-600, "7")], "W")
+    freezer.move_to(T0 + timedelta(seconds=200))
+
+    rows = await async_rows(hass, SeriesSource("role:pv", "W", "sensor.pv"), "1m", MS, MS + 120_000)
+
+    assert _short(rows) == [(0, 7.0, 7.0, 7.0), (60_000, 7.0, 7.0, 7.0)]
+
+
 async def test_incompatible_unit_skips_the_series(hass, freezer):
     await _record(hass, freezer, "sensor.temp", [(0, "21")], "°C")
     freezer.move_to(T0 + timedelta(seconds=200))

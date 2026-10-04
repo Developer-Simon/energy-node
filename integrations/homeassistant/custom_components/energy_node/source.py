@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from homeassistant.components.recorder import get_instance
 from homeassistant.components.recorder.history import state_changes_during_period
@@ -65,12 +65,12 @@ def _at(ms: int) -> datetime:
 
 
 def _changes(hass: HomeAssistant, entity_id: str, start: datetime, end: datetime, convert: Convert) -> list[Change]:
-    from datetime import timedelta
-    # state_changes_during_period uses > for the start time, not >=, so we query from 1 second before
-    # to ensure we get the state at the start time
+    # Der Recorder liefert einen State genau zum Startzeitpunkt weder als
+    # Startzustand (< start) noch als Aenderung (> start). Eine Sekunde frueher
+    # beginnen, der Startzustand haelt den Wert von davor.
     start_before = start - timedelta(seconds=1)
     found = state_changes_during_period(
-        hass, start_before, end, entity_id, no_attributes=True, include_start_time_state=False
+        hass, start_before, end, entity_id, no_attributes=True, include_start_time_state=True
     )
     changes: list[Change] = []
     for state in found.get(entity_id, []):
