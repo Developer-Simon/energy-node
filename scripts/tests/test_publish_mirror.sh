@@ -56,6 +56,20 @@ test -f "$tmp/.github/workflows/release.yml"
 [ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
 echo "OK energy_node_icons"
 
+rm -rf "$tmp/custom_components" "$tmp/.github" "$tmp/docs"
+
+bash "$repo/scripts/publish_mirror.sh" --component energy_node_companion --mirror-path "$tmp" --version 9.9.9 --dry-run
+
+test -f "$tmp/custom_components/energy_node_companion/manifest.json"
+grep -q '"version": "9.9.9"' "$tmp/custom_components/energy_node_companion/manifest.json"
+grep -q '"documentation": "https://github.com/Developer-Simon/ha-energy-node-companion"' "$tmp/custom_components/energy_node_companion/manifest.json"
+test -f "$tmp/custom_components/energy_node_companion/brand/icon.png"
+test -f "$tmp/docs/integration.md"
+[ ! -d "$tmp/docs/icons" ] || { echo "docs/icons should not be present for energy_node_companion"; exit 1; }
+[ ! -d "$tmp/custom_components/energy_node_companion/__pycache__" ] || { echo "__pycache__ leaked into the mirror"; exit 1; }
+[ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
+echo "OK energy_node_companion"
+
 # --prerelease: next free beta onto a mirror branch, main and CHANGELOG untouched.
 # A bare repo stands in for the mirror's origin, a stub for gh.
 rm -rf "${tmp:?}"/*; mkdir -p "$tmp/origin.git" "$tmp/bin"

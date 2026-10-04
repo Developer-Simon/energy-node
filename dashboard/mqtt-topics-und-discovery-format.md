@@ -115,6 +115,13 @@ selbst** als ein HA-Gerät für seine server-seitig berechneten Energiewerte
   Version nicht mehr überschreiben kann. Die sieben Energie-Sensoren sind
   damit Teil desselben Geräts wie die Systemdiagnose aus `internal/nodeagent`
   (gleiches Pfadsegment, kollisionsfreie `object_id`s).
+  Sobald Tailscale einen MagicDNS-Namen liefert, trägt der Block außerdem
+  `configuration_url: http://<name>/` (Caddy, Port 80). Home Assistant zeigt
+  dafür auf der Geräteseite „Gerät besuchen“. Das Dashboard fragt den Namen
+  beim Start und dann alle 5 Minuten ab und publiziert die sieben Configs nur
+  bei einem neuen Namen neu. Ohne Namen fehlt das Feld. Der `nodeagent`-Block
+  sendet kein `configuration_url`, ein fehlendes Feld löscht den Link in HA
+  nicht.
 - **Discovery-Topics:** `<discovery_prefix>/sensor/energy_node/<object_id>/config`,
   retained, `qos=0`, `unique_id: energy_node_<object_id>`.
 - **Sieben Sensoren** (`state_class: measurement`), alle mit

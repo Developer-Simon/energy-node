@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Energy Node Companion",
+        "description": "Home Assistant supplies the energy-node dashboard with history from its recorder. Enter the dashboard address in the tailnet with the dashboard port, for example http://energy-node.tail1234.ts.net:8080.",
+        "data": {
+          "url": "Dashboard address",
+          "verify_ssl": "Verify certificate"
+        }
+      },
+      "reconfigure": {
+        "title": "Energy Node Companion",
+        "description": "Change the dashboard address or port.",
+        "data": {
+          "url": "Dashboard address",
+          "verify_ssl": "Verify certificate"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "The address must start with http:// or https://.",
+      "cannot_connect": "The dashboard cannot be reached at this address.",
+      "wrong_protocol": "The dashboard speaks a different version of the history exchange.",
+      "dashboard_too_old": "The dashboard is too old. Update the energy-node first."
+    },
+    "abort": {
+      "already_configured": "This dashboard is already set up.",
+      "reconfigure_successful": "The dashboard address has been changed."
+    }
+  }
+}

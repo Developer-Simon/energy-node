@@ -273,8 +273,17 @@ carries the message flow; `offer` / `request` / `deliver` are the POST
 counterparts a peer uses to talk back; `buffer` feeds a 24 h in-memory ring
 buffer that participates as the pseudo-peer `server`. Every POST must carry a
 `peer` field matching a currently connected stream, else `peer_unknown` (403).
-Other codes: `peer_gone` (404, the target left), `tier_unknown` (400),
+Other codes: `peer_gone` (404, the target left), `tier_unknown` (400), `label_too_long` (400),
 `body_too_large` / `too_many_rows` (413).
+
+The announcement also lists `series`, the series this dashboard records
+(`[{ "id": "role:pv", "unit": "W" }, …]`: the energy roles that currently have a
+value, plus `history_extra_entities` with their unit). A foreign peer offers
+only these. An `offer` may carry an optional `label` (at most 64 characters,
+else `label_too_long`, 400), which the server relays and the settings page
+shows as the source of added rows. The Home Assistant integration
+`energy_node_companion` (Energy Node Companion) is such a peer: it supplies `1m` and `5m` rows from the
+HA recorder and never requests anything.
 
 ### Diagnostics and health
 

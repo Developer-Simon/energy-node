@@ -27,7 +27,7 @@ func TestLegacyCleanupClearsDashboardTree(t *testing.T) {
 }
 
 func TestConfigsUseEnergyNodeIdentity(t *testing.T) {
-	for _, m := range Configs("homeassistant", "v1", true) {
+	for _, m := range Configs("homeassistant", "v1", "", true) {
 		var payload map[string]any
 		json.Unmarshal(m.Payload, &payload)
 		if payload["state_topic"] != "outstation/energy_node/energy/balance" {

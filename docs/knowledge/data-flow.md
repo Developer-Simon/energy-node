@@ -438,6 +438,12 @@ flowchart LR
   ranges. Only the `1m` and `5m` tiers are exchanged — never raw, whose offset
   timestamps would not deduplicate. Protocol version 1; limits are 500 rows per
   delivery, 20 000 per request, 1 MiB per body.
+  Home Assistant can join as a permanent supplying peer through the
+  `energy_node_companion` integration (guest session, labelled "Home
+  Assistant"). It answers from its recorder (states for `1m`, 5-minute
+  statistics for `5m`) and only offers the series the announcement lists.
+  `role:load` is never supplied: HA's `house_load` sensor carries
+  `load_total`, not the measured `load` role.
 
 ---
 

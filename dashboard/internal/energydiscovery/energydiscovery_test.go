@@ -15,7 +15,7 @@ import (
 func configByObjectID(t *testing.T, prefix, sw string, enabled bool, objectID string) map[string]any {
 	t.Helper()
 	want := energydiscovery.DiscoveryTopic(prefix, objectID)
-	for _, m := range energydiscovery.Configs(prefix, sw, enabled) {
+	for _, m := range energydiscovery.Configs(prefix, sw, "", enabled) {
 		if m.Topic != want {
 			continue
 		}
@@ -51,7 +51,7 @@ func TestConfigsMatchGolden(t *testing.T) {
 }
 
 func TestConfigsInvariants(t *testing.T) {
-	msgs := energydiscovery.Configs("ha-test", "9.9.9", true)
+	msgs := energydiscovery.Configs("ha-test", "9.9.9", "", true)
 	if len(msgs) != 7 {
 		t.Fatalf("Configs returned %d messages, want 7", len(msgs))
 	}
@@ -83,8 +83,8 @@ func TestConfigsInvariants(t *testing.T) {
 }
 
 func TestConfigsDisabledProducesRemovals(t *testing.T) {
-	enabled := energydiscovery.Configs("homeassistant", "1", true)
-	disabled := energydiscovery.Configs("homeassistant", "1", false)
+	enabled := energydiscovery.Configs("homeassistant", "1", "", true)
+	disabled := energydiscovery.Configs("homeassistant", "1", "", false)
 	if len(enabled) != len(disabled) {
 		t.Fatalf("enabled/disabled length mismatch: %d vs %d", len(enabled), len(disabled))
 	}
@@ -105,7 +105,7 @@ func TestConfigsDisabledProducesRemovals(t *testing.T) {
 // Nutzlast statt als aufgelösten Wert.
 func TestValueTemplatesResolveThroughSharedParser(t *testing.T) {
 	reg := registry.New()
-	for _, m := range energydiscovery.Configs("homeassistant", "1.2.3-test", true) {
+	for _, m := range energydiscovery.Configs("homeassistant", "1.2.3-test", "", true) {
 		if len(m.Payload) == 0 {
 			t.Fatalf("enabled config %s has empty payload", m.Topic)
 		}
@@ -174,5 +174,66 @@ func TestValueTemplateFieldsExistInBalance(t *testing.T) {
 		if tmpl != exp {
 			t.Fatalf("%s: value_template = %q, want %q", objectID, tmpl, exp)
 		}
+	}
+}
+
+func TestConfigurationURLFromDNSName(t *testing.T) {
+	cases := map[string]string{
+		"energy-node.tail1234.ts.net.": "http://energy-node.tail1234.ts.net/",
+		"Energy-Node.tail1234.ts.net":  "http://energy-node.tail1234.ts.net/",
+		"":                             "",
+		"   ":                          "",
+		"node.ts.net/evil":             "",
+		"node\".ts.net":                "",
+		"node.ts.net:8080":             "",
+	}
+	for in, want := range cases {
+		if got := energydiscovery.ConfigurationURL(in); got != want {
+			t.Errorf("ConfigurationURL(%q) = %q, want %q", in, got, want)
+		}
+	}
+}
+
+func TestDeviceCarriesConfigurationURL(t *testing.T) {
+	for _, m := range energydiscovery.Configs("homeassistant", "1", "http://node.tail1234.ts.net/", true) {
+		var payload map[string]any
+		if err := json.Unmarshal(m.Payload, &payload); err != nil {
+			t.Fatal(err)
+		}
+		device := payload["device"].(map[string]any)
+		if device["configuration_url"] != "http://node.tail1234.ts.net/" {
+			t.Fatalf("%s: configuration_url = %v", m.Topic, device["configuration_url"])
+		}
+	}
+}
+
+func TestDeviceOmitsEmptyConfigurationURL(t *testing.T) {
+	got := configByObjectID(t, "homeassistant", "1", true, "pv_power")
+	if _, ok := got["device"].(map[string]any)["configuration_url"]; ok {
+		t.Fatalf("configuration_url present without a Tailscale name: %v", got["device"])
+	}
+}
+
+func TestDisabledConfigsStayEmptyWithURL(t *testing.T) {
+	for _, m := range energydiscovery.Configs("homeassistant", "1", "http://node.tail1234.ts.net/", false) {
+		if len(m.Payload) != 0 {
+			t.Fatalf("%s: removal carries a payload", m.Topic)
+		}
+	}
+}
+
+func TestAddressReportsOnlyChanges(t *testing.T) {
+	var address energydiscovery.Address
+	if address.URL() != "" {
+		t.Fatalf("zero Address has URL %q", address.URL())
+	}
+	if !address.Set("http://a.ts.net/") {
+		t.Fatal("first Set must report a change")
+	}
+	if address.Set("http://a.ts.net/") {
+		t.Fatal("same URL must not report a change")
+	}
+	if !address.Set("http://b.ts.net/") || address.URL() != "http://b.ts.net/" {
+		t.Fatalf("second URL not taken over: %q", address.URL())
 	}
 }

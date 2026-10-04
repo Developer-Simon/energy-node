@@ -268,3 +268,39 @@ test('stop schliesst den Strom und meldet getrennt', async () => {
   assert.equal(dom.window.HistoryExchange.status().connected, false);
   dom.window.close();
 });
+
+test('eine Lieferung merkt sich die Bezeichnung des liefernden Peers', async () => {
+  const dom = load();
+  const {source} = await startExchange(dom);
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  stream.emit('offer', {peer: 'p-ha', label: 'Home Assistant', coverage: {}});
+  await new Promise(resolve => setTimeout(resolve, 20));
+  stream.emit('deliver', {
+    peer: 'p-ha', req_id: 'r1', seq: 0, final: true, tier: '1m',
+    rows: [{series: 'role:pv', ts: NOW - 3 * HOUR, min: 7, max: 7, avg: 7, n: 1, u: 'W'}],
+  });
+  await new Promise(resolve => setTimeout(resolve, 30));
+
+  assert.equal(dom.window.HistoryExchange.status().lastSource, 'Home Assistant');
+  dom.window.close();
+});
+
+test('ohne Bezeichnung bleibt die Quelle leer', async () => {
+  const dom = load();
+  const {source} = await startExchange(dom);
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await new Promise(resolve => setTimeout(resolve, 20));
+
+  stream.emit('deliver', {
+    peer: 'p-fremd', req_id: 'r1', seq: 0, final: true, tier: '1m',
+    rows: [{series: 'role:pv', ts: NOW - 3 * HOUR, min: 7, max: 7, avg: 7, n: 1, u: 'W'}],
+  });
+  await new Promise(resolve => setTimeout(resolve, 30));
+
+  assert.equal(dom.window.HistoryExchange.status().lastSource, '');
+  dom.window.close();
+});

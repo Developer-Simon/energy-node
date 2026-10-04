@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 )
@@ -37,9 +38,19 @@ const (
 	exchangePingInterval = 25 * time.Second
 	// Der Puffer ist die einzige Stufe, die der Client nachliefert.
 	bufferTier = "1m"
+	// Ein Name wie "Home Assistant", kein Freitext. Die Grenze haelt die
+	// Statuszeile im Browser lesbar.
+	maxOfferLabelRunes = 64
 )
 
 var exchangeTiers = []string{"1m", "5m"}
+
+// exchangeSeries ist eine Serie, die das Dashboard aufzeichnet (siehe
+// history_exchange_series.go).
+type exchangeSeries struct {
+	ID   string `json:"id"`
+	Unit string `json:"unit"`
+}
 
 // rasterFor spiegelt RASTER aus history-coverage.js. Beide Seiten muessen
 // dieselben Zahlen fuehren, sonst passen die Raster nicht aufeinander.
@@ -58,16 +69,30 @@ type historyExchange struct {
 	hub    *historyexchange.Hub
 	buffer *historyexchange.Buffer
 	now    func() time.Time
+	series func() []exchangeSeries
 }
 
-func newHistoryExchange() *historyExchange {
+func newHistoryExchange(series func() []exchangeSeries) *historyExchange {
 	return &historyExchange{
 		// Vier Nachrichten Vorlauf reichen: ein Client, der nicht mitkommt,
 		// soll getrennt werden und neu beginnen, nicht gepuffert werden.
 		hub:    historyexchange.NewHub(8),
 		buffer: historyexchange.NewBuffer(bufferRetentionHours*time.Hour, bufferMaxRows),
 		now:    func() time.Time { return time.Now().UTC() },
+		series: series,
 	}
+}
+
+// recordedSeries liefert nie nil: ein Fremd-Peer unterscheidet "nichts
+// aufgezeichnet" ([]) von "Dashboard zu alt" (Feld fehlt).
+func (x *historyExchange) recordedSeries() []exchangeSeries {
+	if x.series == nil {
+		return []exchangeSeries{}
+	}
+	if list := x.series(); list != nil {
+		return list
+	}
+	return []exchangeSeries{}
 }
 
 func (x *historyExchange) routes(mux *http.ServeMux) {
@@ -94,6 +119,7 @@ type exchangeAnnouncement struct {
 	RequestTimeoutSeconds int                `json:"request_timeout_seconds"`
 	Peers                 int                `json:"peers"`
 	Buffer                exchangeBufferInfo `json:"buffer"`
+	Series                []exchangeSeries   `json:"series"`
 }
 
 // Announcement ist die selbstbeschreibende Adresse der Schnittstelle: ein
@@ -117,6 +143,7 @@ func (x *historyExchange) handleAnnounce(w http.ResponseWriter, r *http.Request)
 			RetentionHours: x.buffer.RetentionHours(),
 			Rows:           x.buffer.Len(),
 		},
+		Series: x.recordedSeries(),
 	})
 }
 
@@ -244,10 +271,15 @@ func relay(w http.ResponseWriter, sent bool) {
 func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Peer     string                                       `json:"peer"`
+		Label    string                                       `json:"label"`
 		Coverage map[string]map[string]historyexchange.Census `json:"coverage"`
 	}
 	from, ok := x.decodeExchange(w, r, &payload)
 	if !ok {
+		return
+	}
+	if utf8.RuneCountInString(payload.Label) > maxOfferLabelRunes {
+		writeError(w, http.StatusBadRequest, "label_too_long", "Die Bezeichnung des Absenders ist zu lang")
 		return
 	}
 	for tier := range payload.Coverage {
@@ -256,7 +288,13 @@ func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	data, err := json.Marshal(map[string]any{"peer": from, "coverage": payload.Coverage})
+	// Die Bezeichnung zeigt dem Nutzer, woher ergaenzte Messwerte stammen.
+	// Browser-Peers senden keine, ihr Angebot bleibt unveraendert.
+	message := map[string]any{"peer": from, "coverage": payload.Coverage}
+	if payload.Label != "" {
+		message["label"] = payload.Label
+	}
+	data, err := json.Marshal(message)
 	if err != nil {
 		writeErrorDetail(w, http.StatusInternalServerError, "encode_failed", err)
 		return

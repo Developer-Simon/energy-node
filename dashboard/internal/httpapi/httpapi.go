@@ -277,7 +277,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver))
 	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver))
 	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store))
-	newHistoryExchange().routes(mux)
+	newHistoryExchange(recordedExchangeSeries(reg, store, resolver)).routes(mux)
 	mux.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))
 	mux.HandleFunc("/api/v1/diagnostics/rules", handleDiagnosticRules(engine))
 	mux.HandleFunc("/api/v1/diagnostics/health", handleDiagnosticHealth(engine))

@@ -116,3 +116,34 @@ Each integration's `manifest.json` carries the real public identifiers. `scripts
 Captured on a German-language Home Assistant; the integration ships `en` and `de`
 translations and follows the HA language setting. `publish_mirror.sh` copies
 `docs/img/` into the mirror so the public README can reference it.
+
+---
+
+## energy_node_companion
+
+`custom_components/energy_node_companion/` lets Home Assistant fill gaps in the
+energy-node dashboard's browser history. It connects to the dashboard's
+history exchange (`/api/v1/history/exchange`, protocol 1) as a permanent peer
+with a guest session and answers backfill requests from the HA recorder.
+
+- **Setup:** add the integration. HA and the node talk only through Tailscale.
+  The address field is pre-filled from the node's HA device link (the
+  dashboard announces its MagicDNS name as `configuration_url`) with the
+  dashboard port, for example `http://energy-node.tail1234.ts.net:8080`. Use
+  the dashboard's own port, not Caddy on port 80: Caddy rewrites
+  `X-Forwarded-Proto`. If the dashboard runs on another port, change it in the
+  field, or later through "Reconfigure".
+- **What is supplied:** only the series the dashboard announces. Roles map to
+  the dashboard's own MQTT sensors (`energy_node_pv_power`, grid import minus
+  export, battery charge minus discharge, `energy_node_battery_soc`); every
+  other series is matched by MQTT `unique_id`. `role:load`, `role:wallbox` and
+  `role:heat_pump` are not supplied.
+- **Reach:** the recorder's `purge_keep_days` (HA default 10 days). `1m` rows
+  come from states, `5m` rows from 5-minute statistics where the entity has a
+  `state_class`, else from states.
+- **Units:** values are converted to the dashboard's unit (kW → W and so on).
+  Series with incompatible units are skipped.
+- **Distribution:** users install it through HACS from the public mirror
+  `Developer-Simon/ha-energy-node-companion`, assembled by
+  `scripts/publish_mirror.sh --component energy_node_companion` or the **HA Mirror
+  Release** workflow (see `docs/integration/ha-integration-hacs-release.md`).
