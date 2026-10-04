@@ -107,3 +107,73 @@ def test_cli_writes_the_document(tmp_path):
     doc = json.loads(out.read_text(encoding="utf-8"))
     assert doc["bundle_version"] == "v9.9.9"
     assert doc["generated_at"]
+
+
+def _flags(release):
+    return [(e["text"], e["highlight"]) for g in release["groups"] for e in g["entries"]]
+
+
+def test_highlights_in_a_release_with_pr_entries_are_its_squash_entries_and_breaking_changes():
+    release = mcj.mark_highlights(mcj.parse_changelog(CHANGELOG))[0]
+    assert _flags(release) == [
+        ("add a thing", True),
+        ("drop the legacy block", True),
+        ("plain breaking entry", True),
+        ("an entry from the old repo with no reference", False),
+        ("a heading the generator does not know", False),
+    ]
+
+
+def test_highlights_in_a_release_without_pr_entries_are_its_features_and_fixes():
+    text = """## v0.3.0 (2026-07-01)
+
+### Features
+
+- **dashboard:** a feature from the old repo (1234567)
+
+### Fixes
+
+- a fix from the old repo
+
+### Tests
+
+- **dashboard:** a test (7654321)
+"""
+    release = mcj.mark_highlights(mcj.parse_changelog(text))[0]
+    assert _flags(release) == [
+        ("a feature from the old repo", True),
+        ("a fix from the old repo", True),
+        ("a test", False),
+    ]
+
+
+def test_a_pr_entry_that_is_not_feat_fix_or_perf_is_no_highlight():
+    text = """## v0.3.1 (2026-07-02)
+
+### Features
+
+- **dashboard:** the feature (#3) (1234567)
+
+### Tests
+
+- **dashboard:** the tests of the feature (#4) (7654321)
+
+### Performance
+
+- **dashboard:** faster (#5) (abcdef0)
+"""
+    release = mcj.mark_highlights(mcj.parse_changelog(text))[0]
+    assert _flags(release) == [
+        ("the feature", True),
+        ("the tests of the feature", False),
+        ("faster", True),
+    ]
+
+
+def test_the_document_carries_the_flags(tmp_path):
+    repo = _repo(tmp_path)
+    table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
+    doc = mcj.build_document(repo, table, bundle_version="v0.7.5", max_releases=20, generated_at="t")
+    entries = [e for r in doc["components"][0]["releases"] for g in r["groups"] for e in g["entries"]]
+    assert all(isinstance(e["highlight"], bool) for e in entries)
+    assert doc["schema_version"] == 1, "the flag is additive, readers ignore unknown keys"
