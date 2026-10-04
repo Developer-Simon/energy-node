@@ -1,4 +1,6 @@
 """Der Client gegen ein kleines Fake-Dashboard ueber Loopback."""
+import asyncio
+
 import aiohttp
 import pytest
 from aiohttp import web
@@ -101,3 +103,37 @@ async def test_post_sends_json_with_the_session(dashboard):
     status = await client.post("/offer", {"peer": "p-ha", "coverage": {}})
     assert status == 204
     assert state["offers"] == [("energy_node_session=token-1", {"peer": "p-ha", "coverage": {}})]
+
+
+async def test_concurrent_callers_share_one_guest_login(dashboard):
+    state, client = dashboard
+    tokens = await asyncio.gather(client.ensure_session(), client.ensure_session())
+    assert tokens == ["token-1", "token-1"]
+    assert state["logins"] == 1
+    assert client.session_token == "token-1"
+
+
+async def test_login_is_a_noop_while_a_session_exists(dashboard):
+    state, client = dashboard
+    await client.login()
+    await client.login()
+    assert state["logins"] == 1
+
+
+async def test_drop_session_ignores_a_stale_token(dashboard):
+    state, client = dashboard
+    await client.ensure_session()
+    client.drop_session("token-0")
+    assert client.has_session
+    client.drop_session("token-1")
+    assert not client.has_session
+    assert await client.ensure_session() == "token-2"
+
+
+async def test_401_also_forgets_the_token(dashboard):
+    state, client = dashboard
+    await client.login()
+    state["expire"] = True
+    with pytest.raises(AuthRequired):
+        await client.announcement()
+    assert client.session_token == ""

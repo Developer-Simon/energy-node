@@ -183,6 +183,18 @@ precedence over `X-Forwarded-Prefix`. So far only the nginx path has been
 tested; the ingress path is implemented and unit-tested, but not verified on a
 live system.
 
+### Home Assistant integration panel
+
+The `energy_node_companion` integration proxies the dashboard itself under
+`/api/energy_node_companion/proxy/<entry_id>` and sets `X-Forwarded-Prefix` to that
+path, so the same prefix logic applies. `X-Forwarded-Proto` is the scheme
+of the Home Assistant request. The integration talks to the dashboard port
+directly (`http://<MagicDNS name>:8080`), not through Caddy, because Caddy
+replaces an incoming `X-Forwarded-Proto` with `http` and the password login
+would never be offered. Session cookies get the path
+`/api/energy_node_companion/proxy/<entry_id>/` through `basepath.CookiePath`. See
+`integrations/homeassistant/README.md`.
+
 ## Performance
 
 Measured on the development machine (not on the Pi), middleware in isolation:
