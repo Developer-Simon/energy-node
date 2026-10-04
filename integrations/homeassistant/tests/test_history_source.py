@@ -5,12 +5,12 @@ from unittest.mock import patch
 import pytest
 from pytest_homeassistant_custom_component.components.recorder.common import async_wait_recording_done
 
-from custom_components.energy_node.series_map import SeriesSource
-from custom_components.energy_node.source import async_rows, converter_for
+from custom_components.energy_node_companion.series_map import SeriesSource
+from custom_components.energy_node_companion.source import async_rows, converter_for
 
 T0 = datetime(2026, 9, 30, 12, 0, tzinfo=timezone.utc)
 MS = int(T0.timestamp() * 1000)
-SOURCE = "custom_components.energy_node.source"
+SOURCE = "custom_components.energy_node_companion.source"
 
 
 @pytest.fixture(autouse=True)

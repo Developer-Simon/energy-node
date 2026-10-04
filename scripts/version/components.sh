@@ -26,7 +26,7 @@ COMPONENTS=(
   # aendern die battery_soc-Integration nicht und duerfen sie nicht bumpen.
   "integrations/homeassistant/custom_components/battery_soc/:integrations/homeassistant/custom_components/battery_soc/manifest.json"
   "integrations/homeassistant/custom_components/energy_node_icons/:integrations/homeassistant/custom_components/energy_node_icons/manifest.json"
-  "integrations/homeassistant/custom_components/energy_node/:integrations/homeassistant/custom_components/energy_node/manifest.json"
+  "integrations/homeassistant/custom_components/energy_node_companion/:integrations/homeassistant/custom_components/energy_node_companion/manifest.json"
   "installer/:installer/VERSION"
   "installer/webui/:installer/webui/VERSION"
 )

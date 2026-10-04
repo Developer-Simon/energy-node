@@ -2,7 +2,7 @@
   "config": {
     "step": {
       "user": {
-        "title": "Energy Node",
+        "title": "Energy Node Companion",
         "description": "Home Assistant supplies the energy-node dashboard with history from its recorder. Enter the dashboard address in the tailnet with the dashboard port, for example http://energy-node.tail1234.ts.net:8080.",
         "data": {
           "url": "Dashboard address",
@@ -10,7 +10,7 @@
         }
       },
       "reconfigure": {
-        "title": "Energy Node",
+        "title": "Energy Node Companion",
         "description": "Change the dashboard address or port.",
         "data": {
           "url": "Dashboard address",

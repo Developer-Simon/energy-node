@@ -9,10 +9,10 @@ from homeassistant.config_entries import ConfigEntryState
 from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.energy_node.const import CONF_URL, CONF_VERIFY_SSL, DOMAIN
+from custom_components.energy_node_companion.const import CONF_URL, CONF_VERIFY_SSL, DOMAIN
 
-BASE = Path(__file__).resolve().parents[1] / "custom_components/energy_node"
-FLOW = "custom_components.energy_node.config_flow.DashboardClient"
+BASE = Path(__file__).resolve().parents[1] / "custom_components/energy_node_companion"
+FLOW = "custom_components.energy_node_companion.config_flow.DashboardClient"
 GOOD = {"protocol": 1, "series": []}
 
 
@@ -33,7 +33,7 @@ async def test_flow_creates_entry_with_normalised_url(hass):
     with (
         patch(f"{FLOW}.login", AsyncMock()),
         patch(f"{FLOW}.announcement", AsyncMock(return_value=GOOD)),
-        patch("custom_components.energy_node.async_setup_entry", AsyncMock(return_value=True)),
+        patch("custom_components.energy_node_companion.async_setup_entry", AsyncMock(return_value=True)),
     ):
         result = await _submit(hass)
     assert result["type"] == "create_entry"
@@ -115,7 +115,7 @@ async def test_reconfigure_changes_url_and_keeps_the_entry(hass):
     with (
         patch(f"{FLOW}.login", AsyncMock()),
         patch(f"{FLOW}.announcement", AsyncMock(return_value=GOOD)),
-        patch("custom_components.energy_node.async_setup_entry", AsyncMock(return_value=True)),
+        patch("custom_components.energy_node_companion.async_setup_entry", AsyncMock(return_value=True)),
     ):
         result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {CONF_URL: "http://new.tail1234.ts.net:8081/", CONF_VERIFY_SSL: True}
@@ -144,7 +144,7 @@ async def test_setup_starts_the_peer_and_unload_stops_it(hass):
         data={CONF_URL: "https://node.local:8443", CONF_VERIFY_SSL: True},
     )
     entry.add_to_hass(hass)
-    with patch("custom_components.energy_node.HistoryPeer.run", AsyncMock()) as run:
+    with patch("custom_components.energy_node_companion.HistoryPeer.run", AsyncMock()) as run:
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
         run.assert_awaited_once()

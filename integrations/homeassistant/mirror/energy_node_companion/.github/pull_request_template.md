@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to the Energy Node integration. -->
+<!-- Thanks for contributing to Energy Node Companion. -->
 
 ## What does this change?
 

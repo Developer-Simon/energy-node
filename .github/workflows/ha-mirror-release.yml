@@ -1,7 +1,7 @@
 name: HA Mirror Release
 
 # Publishes one Home Assistant integration to its public HACS mirror repo
-# (ha-battery-soc, ha-energy-node-icons, ha-energy-node) - the same scripts/publish_mirror.sh
+# (ha-battery-soc, ha-energy-node-icons, ha-energy-node-companion) - the same scripts/publish_mirror.sh
 # a local release runs, so both paths stay identical. Manual only: a release
 # is a decision, not a side effect of a merge.
 #
@@ -25,7 +25,7 @@ on:
         options:
           - energy_node_icons
           - battery_soc
-          - energy_node
+          - energy_node_companion
       version:
         description: "Version X.Y.Z (empty = the component's manifest.json version)"
         required: false

@@ -1,6 +1,6 @@
 """Konstanten der Verlauf-Integration."""
 
-DOMAIN = "energy_node"
+DOMAIN = "energy_node_companion"
 CONF_URL = "url"
 CONF_VERIFY_SSL = "verify_ssl"
 

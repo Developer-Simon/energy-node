@@ -19,8 +19,8 @@ body:
   - type: input
     id: integration_version
     attributes:
-      label: Energy Node integration version
-      description: HACS → Energy Node → the installed version.
+      label: Energy Node Companion version
+      description: HACS → Energy Node Companion → the installed version.
       placeholder: "0.1.0"
     validations:
       required: true
@@ -52,5 +52,5 @@ body:
     id: logs
     attributes:
       label: Relevant log output
-      description: Settings → System → Logs, filtered to `energy_node`. Debug logging for `custom_components.energy_node` helps with connection problems.
+      description: Settings → System → Logs, filtered to `energy_node_companion`. Debug logging for `custom_components.energy_node_companion` helps with connection problems.
       render: text

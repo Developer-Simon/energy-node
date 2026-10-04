@@ -7,7 +7,7 @@ every failure and exits non-zero.
 
     .venv/bin/python scripts/check_mirror_manifest.py [--component NAME]
 
---component defaults to 'battery_soc' (the others: 'energy_node_icons', 'energy_node').
+--component defaults to 'battery_soc' (the others: 'energy_node_icons', 'energy_node_companion').
 
 Stdlib only.
 """
@@ -125,7 +125,7 @@ def check(root: Path, component: str = "battery_soc") -> list[str]:
             # energy_node_icons should reference the icon catalogue
             readme_checks.append("Icon catalogue")
         else:
-            # energy_node: Voraussetzungen und Einrichtung muessen drinstehen
+            # energy_node_companion: Voraussetzungen und Einrichtung muessen drinstehen
             readme_checks.extend(["## Requirements", "## Setup"])
         for needle in readme_checks:
             if needle not in readme:
@@ -158,7 +158,7 @@ def main() -> int:
     parser.add_argument(
         "--component",
         default="battery_soc",
-        choices=["battery_soc", "energy_node_icons", "energy_node"],
+        choices=["battery_soc", "energy_node_icons", "energy_node_companion"],
         help="Component to check (default: battery_soc)",
     )
     args = parser.parse_args()

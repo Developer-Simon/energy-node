@@ -119,9 +119,9 @@ translations and follows the HA language setting. `publish_mirror.sh` copies
 
 ---
 
-## energy_node
+## energy_node_companion
 
-`custom_components/energy_node/` lets Home Assistant fill gaps in the
+`custom_components/energy_node_companion/` lets Home Assistant fill gaps in the
 energy-node dashboard's browser history. It connects to the dashboard's
 history exchange (`/api/v1/history/exchange`, protocol 1) as a permanent peer
 with a guest session and answers backfill requests from the HA recorder.
@@ -144,6 +144,6 @@ with a guest session and answers backfill requests from the HA recorder.
 - **Units:** values are converted to the dashboard's unit (kW → W and so on).
   Series with incompatible units are skipped.
 - **Distribution:** users install it through HACS from the public mirror
-  `Developer-Simon/ha-energy-node`, assembled by
-  `scripts/publish_mirror.sh --component energy_node` or the **HA Mirror
+  `Developer-Simon/ha-energy-node-companion`, assembled by
+  `scripts/publish_mirror.sh --component energy_node_companion` or the **HA Mirror
   Release** workflow (see `docs/integration/ha-integration-hacs-release.md`).

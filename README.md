@@ -149,7 +149,7 @@ HACS integrations add dashboard features that run inside HA directly:
   node, set up through a config flow.
 - [**`ha-energy-node-icons`**](https://github.com/Developer-Simon/ha-energy-node-icons):
   the dashboard's device icons as an icon set for Home Assistant's icon pickers.
-- [**`ha-energy-node`**](docs/integration/energy-node-ha.md):
+- [**`ha-energy-node-companion`**](docs/integration/energy-node-companion.md):
   fills gaps in the dashboard's browser history from the Home Assistant
   recorder.
 

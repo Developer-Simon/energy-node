@@ -1,7 +1,7 @@
 """Rechenlogik ohne Home Assistant: Halteverlauf, Differenz, Raster."""
 import math
 
-from custom_components.energy_node.buckets import (
+from custom_components.energy_node_companion.buckets import (
     bucketize,
     census,
     combine,

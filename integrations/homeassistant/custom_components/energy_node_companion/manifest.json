@@ -1,6 +1,6 @@
 {
-  "domain": "energy_node",
-  "name": "Energy Node",
+  "domain": "energy_node_companion",
+  "name": "Energy Node Companion",
   "after_dependencies": ["mqtt"],
   "codeowners": ["@Developer-Simon"],
   "config_flow": true,

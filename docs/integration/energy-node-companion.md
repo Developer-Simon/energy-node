@@ -1,11 +1,11 @@
 ---
-title: "Energy Node integration for Home Assistant"
-component: ha-energy-node
+title: "Energy Node Companion for Home Assistant"
+component: ha-energy-node-companion
 ---
 
-# Energy Node integration for Home Assistant
+# Energy Node Companion for Home Assistant
 
-The **Energy Node** integration lets Home Assistant fill gaps in the dashboard's history charts.
+**Energy Node Companion** is a Home Assistant integration that works alongside your node. It does not create sensors (those come from MQTT discovery). Today it lets Home Assistant fill gaps in the dashboard's history charts.
 
 The dashboard keeps its history in each browser. A browser only knows the hours it was open itself, so a phone that was closed overnight shows an empty chart for the night. Home Assistant already stores the node's sensors in its recorder. The integration joins the dashboard's history exchange as a permanent peer and supplies the missing hours and days from there.
 
@@ -21,20 +21,20 @@ The integration only supplies data. It never asks the dashboard for anything, ne
 ## Install via HACS
 
 1. Open **HACS** → **⋮** (top right) → **Custom repositories**.
-2. Repository URL: `https://github.com/Developer-Simon/ha-energy-node`
+2. Repository URL: `https://github.com/Developer-Simon/ha-energy-node-companion`
 3. Category: **Integration** → **Add**.
-4. Search for **Energy Node** → **Download**.
+4. Search for **Energy Node Companion** → **Download**.
 5. **Restart Home Assistant.**
 
 ### Manual install
 
-1. Download the latest release from [ha-energy-node](https://github.com/Developer-Simon/ha-energy-node/releases).
-2. Extract it to `<config>/custom_components/energy_node/`.
+1. Download the latest release from [ha-energy-node-companion](https://github.com/Developer-Simon/ha-energy-node-companion/releases).
+2. Extract it to `<config>/custom_components/energy_node_companion/`.
 3. Restart Home Assistant.
 
 ## Set up
 
-1. **Settings → Devices & Services → Add Integration → "Energy Node"**.
+1. **Settings → Devices & Services → Add Integration → "Energy Node Companion"**.
 2. Check the address. It is pre-filled from the node's device link in Home Assistant, for example `http://energy-node.tail1234.ts.net:8080`.
 3. Submit. The integration checks that the dashboard answers and speaks the same exchange version, then connects.
 
@@ -89,13 +89,13 @@ If the connection drops, the integration reconnects on its own, with a growing p
 
 - **"The dashboard is too old. Update the energy-node first.":** update the node to v0.8.5 or newer.
 - **"The dashboard cannot be reached at this address.":** check the Tailscale name and the port, and open the address in a browser on the Home Assistant host.
-- **Nothing is filled in:** the missing time must lie within the recorder's `purge_keep_days`. For details, enable debug logging for `custom_components.energy_node` under **Settings → System → Logs**.
+- **Nothing is filled in:** the missing time must lie within the recorder's `purge_keep_days`. For details, enable debug logging for `custom_components.energy_node_companion` under **Settings → System → Logs**.
 
 ## Support and feedback
 
-- **Problems with the integration:** open an issue in [ha-energy-node](https://github.com/Developer-Simon/ha-energy-node/issues).
-- **Development:** the integration is developed in this repository under `integrations/homeassistant/custom_components/energy_node/`. Pull requests belong here, not in the mirror.
+- **Problems with the integration:** open an issue in [ha-energy-node-companion](https://github.com/Developer-Simon/ha-energy-node-companion/issues).
+- **Development:** the integration is developed in this repository under `integrations/homeassistant/custom_components/energy_node_companion/`. Pull requests belong here, not in the mirror.
 
 ## License
 
-MIT, see [LICENSE](https://github.com/Developer-Simon/ha-energy-node/blob/main/LICENSE).
+MIT, see [LICENSE](https://github.com/Developer-Simon/ha-energy-node-companion/blob/main/LICENSE).

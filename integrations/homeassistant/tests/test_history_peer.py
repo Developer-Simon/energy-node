@@ -7,10 +7,10 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from custom_components.energy_node.buckets import raster_window
-from custom_components.energy_node.client import DashboardClient, ExchangeError
-from custom_components.energy_node.peer import HistoryPeer
-from custom_components.energy_node.series_map import SeriesSource
+from custom_components.energy_node_companion.buckets import raster_window
+from custom_components.energy_node_companion.client import DashboardClient, ExchangeError
+from custom_components.energy_node_companion.peer import HistoryPeer
+from custom_components.energy_node_companion.series_map import SeriesSource
 
 HOUR = 3_600_000
 NOW = 1_800_000_000_000 + HOUR // 2  # halb nach einer vollen Stunde

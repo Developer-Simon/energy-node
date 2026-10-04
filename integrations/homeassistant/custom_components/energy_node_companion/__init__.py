@@ -25,7 +25,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     peer = HistoryPeer(DashboardClient(session, entry.data[CONF_URL]), partial(resolve, hass), partial(async_rows, hass))
     # Hintergrundaufgaben eines Eintrags bricht Home Assistant beim Entladen
     # selbst ab.
-    entry.async_create_background_task(hass, peer.run(), name=f"energy_node {entry.data[CONF_URL]}")
+    entry.async_create_background_task(hass, peer.run(), name=f"energy_node_companion {entry.data[CONF_URL]}")
     return True
 
 

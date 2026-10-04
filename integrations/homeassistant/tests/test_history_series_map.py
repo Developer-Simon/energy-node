@@ -1,7 +1,7 @@
 """Dashboard-Serie -> Home-Assistant-Entitaet ueber die MQTT-unique_id."""
 from homeassistant.helpers import entity_registry as er
 
-from custom_components.energy_node.series_map import SeriesSource, resolve
+from custom_components.energy_node_companion.series_map import SeriesSource, resolve
 
 
 def _mqtt(hass, unique_id, object_id, domain="sensor", platform="mqtt"):

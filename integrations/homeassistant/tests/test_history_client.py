@@ -4,7 +4,7 @@ import pytest
 from aiohttp import web
 from aiohttp.test_utils import TestServer
 
-from custom_components.energy_node.client import AuthRequired, DashboardClient, ExchangeError
+from custom_components.energy_node_companion.client import AuthRequired, DashboardClient, ExchangeError
 
 pytestmark = pytest.mark.enable_socket
 

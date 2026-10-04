@@ -1,4 +1,4 @@
-# Energy Node: how the history exchange works
+# Energy Node Companion: how the history exchange works
 
 The energy-node dashboard lets browsers swap history with each other (the history exchange, protocol 1). This integration takes part as a permanent peer that only supplies data.
 
@@ -27,4 +27,4 @@ Derived roles subtract two sensors: grid is import minus export, battery is char
 
 - **Setup says the dashboard is too old:** update the node. The dashboard must announce its recorded series.
 - **No address is suggested:** Home Assistant has no `energy_node` MQTT device yet, or the node has no Tailscale name. Enter the address by hand.
-- **Nothing is filled in:** enable debug logging for `custom_components.energy_node` and check that the browser's missing range lies within the recorder's `purge_keep_days`.
+- **Nothing is filled in:** enable debug logging for `custom_components.energy_node_companion` and check that the browser's missing range lies within the recorder's `purge_keep_days`.

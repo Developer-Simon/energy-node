@@ -5,7 +5,7 @@ component: ha-integration
 
 # Home Assistant integration — HACS mirror repo & release runbook
 
-Home Assistant integrations in this monorepo (`battery_soc`, `energy_node_icons` and `energy_node`) are
+Home Assistant integrations in this monorepo (`battery_soc`, `energy_node_icons` and `energy_node_companion`) are
 distributed to users through **separate, public GitHub repos** wired for HACS. Those mirror
 repos are *derived artifacts*: they are assembled from this monorepo by
 `scripts/publish_mirror.sh` and never edited by hand.
@@ -14,9 +14,9 @@ repos are *derived artifacts*: they are assembled from this monorepo by
 - **Mirror repos:** 
   - [`Developer-Simon/ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc) — the public, HACS-facing repo for `battery_soc`.
   - [`Developer-Simon/ha-energy-node-icons`](https://github.com/Developer-Simon/ha-energy-node-icons) — the public, HACS-facing repo for `energy_node_icons`.
-  - [`Developer-Simon/ha-energy-node`](https://github.com/Developer-Simon/ha-energy-node) — the public, HACS-facing repo for `energy_node` (history exchange peer).
+  - [`Developer-Simon/ha-energy-node-companion`](https://github.com/Developer-Simon/ha-energy-node-companion) — the public, HACS-facing repo for `energy_node_companion` (history exchange peer, later the dashboard panel).
   
-  All are assembled from here by `scripts/publish_mirror.sh` (pass `--component battery_soc`, `--component energy_node_icons` or `--component energy_node`).
+  All are assembled from here by `scripts/publish_mirror.sh` (pass `--component battery_soc`, `--component energy_node_icons` or `--component energy_node_companion`).
 - **Shared core:** `libs/battery_soc_core/` → vendored into the integration by
   `scripts/vendor_core.py` (drift-guarded by the CI job *Vendored artefacts in
   sync* and `integrations/homeassistant/tests/test_vendor_sync.py`).
@@ -27,7 +27,7 @@ repos are *derived artifacts*: they are assembled from this monorepo by
 - **Public identifiers:** each component has its own `release.env` file:
   - `integrations/homeassistant/mirror/battery_soc/release.env` — `OWNER=Developer-Simon`, `REPO=ha-battery-soc`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-battery-soc` (absolute path where the mirror repo is checked out), `CHANGELOG_TARGET=ha-integration`, `CHANGELOG_PATH=integrations/homeassistant/CHANGELOG.md`.
   - `integrations/homeassistant/mirror/energy_node_icons/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node-icons`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-energy-node-icons` (absolute path where the mirror repo is checked out), `CHANGELOG_TARGET=ha-icons`, `CHANGELOG_PATH=integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md` (monorepo-rooted path).
-  - `integrations/homeassistant/mirror/energy_node/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-energy-node`, `CHANGELOG_TARGET=ha-energy-node`, `CHANGELOG_PATH=integrations/homeassistant/custom_components/energy_node/CHANGELOG.md`.
+  - `integrations/homeassistant/mirror/energy_node_companion/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node-companion`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-energy-node-companion`, `CHANGELOG_TARGET=ha-energy-node-companion`, `CHANGELOG_PATH=integrations/homeassistant/custom_components/energy_node_companion/CHANGELOG.md`.
 - **Real HACS/hassfest validation:** runs as GitHub Actions **in the mirror
   repo** (`.github/workflows/validate.yml`), not here.
   `scripts/check_mirror_manifest.py` is only a fast offline pre-check.
@@ -83,17 +83,17 @@ Repeat steps 1–8 above with:
 - Step 7 topics: `--add-topic home-assistant --add-topic hacs --add-topic icons`
 - Mirror path: `../ha-energy-node-icons` (inferred from `release.env`).
 
-### For `energy_node`:
+### For `energy_node_companion`:
 
 Repeat steps 1–8 above with:
-- Step 1: `mkdir -p ../ha-energy-node && cd ../ha-energy-node && git init && git branch -m main`
-- Step 2: repo name `Developer-Simon/ha-energy-node`
-- Step 3: `git remote add origin git@github.com:Developer-Simon/ha-energy-node.git`
-- Step 4: `integrations/homeassistant/mirror/energy_node/release.env`
+- Step 1: `mkdir -p ../ha-energy-node-companion && cd ../ha-energy-node-companion && git init && git branch -m main`
+- Step 2: repo name `Developer-Simon/ha-energy-node-companion`
+- Step 3: `git remote add origin git@github.com:Developer-Simon/ha-energy-node-companion.git`
+- Step 4: `integrations/homeassistant/mirror/energy_node_companion/release.env`
 - Step 5: the base manifest already carries the real values.
-- Step 6 & 7: replace `battery_soc` with `energy_node` in the commands.
+- Step 6 & 7: replace `battery_soc` with `energy_node_companion` in the commands.
 - Step 7 topics: `--add-topic home-assistant --add-topic hacs --add-topic home-assistant-integration --add-topic energy`
-- Add `Developer-Simon/ha-energy-node` to the fine-grained token behind the
+- Add `Developer-Simon/ha-energy-node-companion` to the fine-grained token behind the
   `HA_MIRROR_TOKEN` secret (Contents, Workflows, Actions: read and write),
   otherwise the **HA Mirror Release** workflow cannot push to it.
 
@@ -154,7 +154,7 @@ release looks the same whichever way you cut it.
 
 One-time setup: create a fine-grained personal access token with
 **Contents**, **Workflows** and **Actions** set to read and write on both
-mirror repos (`ha-battery-soc`, `ha-energy-node-icons`) and store it as the
+mirror repos (`ha-battery-soc`, `ha-energy-node-icons`, `ha-energy-node-companion`) and store it as the
 repository secret `HA_MIRROR_TOKEN` in this monorepo. Contents pushes the
 tree, Workflows lets it update the mirror's `.github/workflows`, and Actions
 starts the mirror's release workflow. The default `GITHUB_TOKEN` can do none

@@ -282,7 +282,7 @@ value, plus `history_extra_entities` with their unit). A foreign peer offers
 only these. An `offer` may carry an optional `label` (at most 64 characters,
 else `label_too_long`, 400), which the server relays and the settings page
 shows as the source of added rows. The Home Assistant integration
-`energy_node` is such a peer: it supplies `1m` and `5m` rows from the
+`energy_node_companion` (Energy Node Companion) is such a peer: it supplies `1m` and `5m` rows from the
 HA recorder and never requests anything.
 
 ### Diagnostics and health

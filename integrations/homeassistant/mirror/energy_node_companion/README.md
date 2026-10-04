@@ -1,8 +1,8 @@
-# Energy Node
+# Energy Node Companion
 
-<img src="https://raw.githubusercontent.com/Developer-Simon/ha-energy-node/main/custom_components/energy_node/brand/icon.png" alt="Energy Node" width="88" align="right">
+<img src="https://raw.githubusercontent.com/Developer-Simon/ha-energy-node-companion/main/custom_components/energy_node_companion/brand/icon.png" alt="Energy Node Companion" width="88" align="right">
 
-A Home Assistant integration for the [energy-node](https://github.com/Developer-Simon/energy-node) dashboard.
+A Home Assistant integration that works alongside the [energy-node](https://github.com/Developer-Simon/energy-node) dashboard. It does not create sensors, those come from MQTT discovery.
 
 The dashboard keeps its history charts in each browser. A browser only knows the hours it was open itself. Home Assistant already stores the node's sensors in its recorder, so this integration joins the dashboard's history exchange as a permanent peer and supplies the missing hours and days from there. It only supplies data. It never asks the dashboard for anything and never changes the node.
 
@@ -15,15 +15,15 @@ The dashboard keeps its history charts in each browser. A browser only knows the
 
 ## Install (HACS custom repository)
 
-[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Developer-Simon&repository=ha-energy-node&category=integration)
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Developer-Simon&repository=ha-energy-node-companion&category=integration)
 
 The button above pre-fills the custom repository dialog. Or by hand:
 
 1. HACS → ⋮ (top right) → **Custom repositories**.
-2. Repository: `https://github.com/Developer-Simon/ha-energy-node`, category **Integration**. Add.
-3. HACS → search **Energy Node** → **Download**.
+2. Repository: `https://github.com/Developer-Simon/ha-energy-node-companion`, category **Integration**. Add.
+3. HACS → search **Energy Node Companion** → **Download**.
 4. **Restart Home Assistant.**
-5. **Settings → Devices & Services → Add Integration → "Energy Node"**.
+5. **Settings → Devices & Services → Add Integration → "Energy Node Companion"**.
 
 ## Setup
 
