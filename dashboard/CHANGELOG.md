@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.8.4 (2026-10-04)
+
+### Features
+
+- **dashboard:** switch the versions page between highlights and everything (25b7c01)
+- The changelog pages open on the highlights, the switch at the top shows everything. (#84)
+
+### Documentation
+
+- highlights and details, screenshot script for the installer (105e72e)
+
+### Tests
+
+- **dashboard:** smoke fixtures carry highlight flags (0fadf49)
+
 ## v0.8.3 (2026-10-01)
 
 ### Features

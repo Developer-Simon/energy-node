@@ -365,6 +365,8 @@ runs as. If the two differ, the page says so, which happens when the
 dashboard was updated on its own after the installation. Below that every
 application, service and library is listed with its version. **Changes**
 opens its changelog, and a service that is not installed is marked as such.
+The switch in the package card chooses between the **Highlights** of each
+release and **Everything**, every single commit included.
 
 The **Updates** card checks GitHub for a newer release on demand
 (**Check for updates**).

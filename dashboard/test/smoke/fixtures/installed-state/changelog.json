@@ -6,16 +6,19 @@
     {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "v0.7.5", "releases": [
       {"version": "v0.7.5", "date": "2026-09-21", "groups": [
         {"type": "feat", "label": "Features", "entries": [
-          {"text": "add a versions page", "breaking": false, "scope": "dashboard", "pr": 51, "hash": "1234567"}]},
+          {"text": "add a versions page", "breaking": false, "scope": "dashboard", "pr": 51, "hash": "1234567", "highlight": true},
+          {"text": "show the package card above the component list", "breaking": false, "scope": "dashboard", "hash": "2345678", "highlight": false}]},
         {"type": "fix", "label": "Fixes", "entries": [
-          {"text": "stop duplicate energy card mounts from fighting over springs", "breaking": false, "scope": "dashboard", "pr": 41, "hash": "3d3d7a8"}]}]},
+          {"text": "stop duplicate energy card mounts from fighting over springs", "breaking": false, "scope": "dashboard", "pr": 41, "hash": "3d3d7a8", "highlight": true}]},
+        {"type": "test", "label": "Tests", "entries": [
+          {"text": "cover a missing changelog.json", "breaking": false, "scope": "dashboard", "hash": "3456789", "highlight": false}]}]},
       {"version": "v0.7.0", "date": "2026-09-16", "groups": [
         {"type": "feat", "label": "Features", "entries": [
-          {"text": "drop the legacy node block", "breaking": true, "scope": "dashboard", "pr": 14, "hash": "e7f4ba1"}]}]}]},
+          {"text": "drop the legacy node block", "breaking": true, "scope": "dashboard", "pr": 14, "hash": "e7f4ba1", "highlight": true}]}]}]},
     {"id": "service:battery_soc", "label": "Battery SoC", "kind": "service", "version": "v0.4.0", "releases": [
       {"version": "v0.4.0", "date": "2026-09-15", "groups": [
         {"type": "feat", "label": "Features", "entries": [
-          {"text": "make device services self-describing with per-service manifests", "breaking": false, "pr": 12, "hash": "2e8c911"}]}]}]},
+          {"text": "make device services self-describing with per-service manifests", "breaking": false, "pr": 12, "hash": "2e8c911", "highlight": true}]}]}]},
     {"id": "service:shelly", "label": "Shelly", "kind": "service", "version": "v0.4.2", "releases": []},
     {"id": "energy_node_common", "label": "energy_node_common", "kind": "library", "version": "v0.4.5", "releases": []}
   ]

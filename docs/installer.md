@@ -194,10 +194,15 @@ install, so there is no separate "partial" update to go wrong.
 When the package carries a changelog, the first card adds a line such as
 "3 new features · 2 fixes · 1 breaking change" and a **View changes** button.
 The page behind it lists, per component, only what is newer than the version on
-the Pi. Breaking changes come first, then one card per component. You can
+the Pi. Breaking changes come first, then one card per component. The page
+opens on the **Highlights**, one line per merged change that matters to an
+operator, and the switch at the top shows **Everything**, down to every single
+commit. The counts in the first card follow the highlights too. You can
 filter by kind (applications, services, libraries and so on), by area, or
 search the text. The page works offline and changes nothing. A package without
 a changelog shows no such line.
+
+![What's new](images/installer-changelog.png)
 
 The dashboard serves the same page under `/redeploy/`, behind its login, and
 runs the same steps on the node itself, without this program and without SSH.
@@ -261,6 +266,14 @@ go run ./cmd/fakehost --lang en --port 8099
 Open the printed address and connect with any address, user and password.
 `--scenario vorlage-update` serves the update preview, `--hold-step <id>` stops
 a run at that step, and `--fail-step <id>:<CODE>` makes one fail.
+
+The update preview and the changelog page are taken by a script that drives
+the demo host itself (it needs Go and Playwright):
+
+```sh
+cd installer/webui
+node test/e2e/docs-screenshots.mjs
+```
 
 ---
 

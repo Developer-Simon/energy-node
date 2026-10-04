@@ -178,14 +178,20 @@ async function all() {
     ['dashboard-settings-mqtt', 'settings-mqtt', 988],
     ['dashboard-settings-tailscale', 'settings-tailscale', 988],
     ['dashboard-settings-system', 'settings-system', 997],
-    ['dashboard-settings-versions', 'settings-versions', 997],
+    // Die Aenderungen des Dashboards aufgeklappt, damit der Schalter
+    // Highlights/Alles etwas zu zeigen hat.
+    ['dashboard-settings-versions', 'settings-versions', 1200, async (page) => {
+      await page.locator('#settings-versions .version-item button').first().click();
+      await page.waitForTimeout(1500);
+    }],
   ];
-  for (const [name, id, height] of subpages) {
+  for (const [name, id, height, prepare] of subpages) {
     if (!want(name)) continue;
     s = await session(1110, height);
     await tab(s.page, 'settings');
     await s.page.locator(`#settings-panel [role="tab"][aria-controls="${id}"]`).click();
     await s.page.waitForTimeout(2000);
+    if (prepare) await prepare(s.page);
     await scrollToTabs(s.page);
     await shot(s.page, name);
     await s.ctx.close();

@@ -132,3 +132,42 @@ test('an empty filter returns everything', () => {
   const rows = M.slice(view({ dashboard: 'v0.7.3', 'service:shelly': 'v0.4.1' }));
   assert.equal(M.summarize(M.filter(rows, {})).total, M.summarize(rows).total);
 });
+
+// Highlights: changelog.json flags every entry (scripts/build/make_changelog_json.py).
+// Bundles from before the flag carry none; then there is nothing to switch.
+const FLAGGED = {
+  schema_version: 1,
+  components: [
+    { id: 'dashboard', label: 'Dashboard', kind: 'app', version: 'v0.8.0', releases: [
+      release('v0.8.0', [
+        group('feat', [
+          entry('show what is new before an update', { pr: 82, highlight: true }),
+          entry('add the switch to the screen', { highlight: false }),
+        ]),
+        group('test', [entry('cover the switch', { highlight: false })]),
+      ]),
+    ] },
+    { id: 'battery_soc_core', label: 'battery_soc_core', kind: 'library', version: 'v0.2.0', releases: [
+      release('v0.2.0', [group('refactor', [entry('move a helper', { pr: 80, highlight: false })])]),
+    ] },
+  ],
+};
+const flagged = () => M.slice({ bundle_version: 'v0.8.0', installed: { dashboard: 'v0.7.9', battery_soc_core: 'v0.1.9' }, document: FLAGGED });
+
+test('hasHighlights is true only when an entry in view is flagged as one', () => {
+  assert.equal(M.hasHighlights(flagged()), true);
+  assert.equal(M.hasHighlights(M.slice(view({ dashboard: 'v0.7.3' }))), false, 'a document without flags has none');
+  assert.equal(M.hasHighlights([]), false);
+});
+
+test('filter with highlights keeps flagged entries only and drops components left empty', () => {
+  const rows = M.filter(flagged(), { highlights: true });
+  assert.deepEqual(plain(rows.map((r) => r.id)), ['dashboard']);
+  assert.deepEqual(plain(rows[0].releases[0].groups.map((g) => g.entries.map((e) => e.text))), [['show what is new before an update']]);
+});
+
+test('focus is the highlights when there are any, else everything', () => {
+  assert.equal(M.summarize(M.focus(flagged())).total, 1);
+  const unflagged = M.slice(view({ dashboard: 'v0.7.3' }));
+  assert.equal(M.summarize(M.focus(unflagged)).total, M.summarize(unflagged).total);
+});

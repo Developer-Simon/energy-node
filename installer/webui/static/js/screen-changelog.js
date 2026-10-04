@@ -15,6 +15,9 @@
       kind: '',
       scope: '',
       query: '',
+      // 'highlights' oder 'all'. Greift nur, wenn canSwitch - ohne Highlights
+      // im Ausschnitt zeigt der Bildschirm immer alles.
+      mode: 'highlights',
 
       get shell() {
         return window.Installer.shell;
@@ -53,8 +56,30 @@
         return this.model.slice(this.view);
       },
 
+      get canSwitch() {
+        return this.model.hasHighlights(this.rows);
+      },
+
+      get highlightsOnly() {
+        return this.canSwitch && this.mode === 'highlights';
+      },
+
       get visible() {
-        return this.model.filter(this.rows, { kind: this.kind, scope: this.scope, query: this.query });
+        return this.model.filter(this.rows, { kind: this.kind, scope: this.scope, query: this.query, highlights: this.highlightsOnly });
+      },
+
+      // Wie viele Komponenten der Highlights-Ansicht nur deshalb fehlen, weil
+      // sie (unter den gesetzten Filtern) nur Details tragen.
+      get detailsOnly() {
+        if (!this.highlightsOnly) {
+          return 0;
+        }
+        var all = this.model.filter(this.rows, { kind: this.kind, scope: this.scope, query: this.query });
+        return all.length - this.visible.length;
+      },
+
+      setMode(mode) {
+        this.mode = mode;
       },
 
       get breaking() {
@@ -88,7 +113,7 @@
 
       // "3 Neuerungen · 12 Korrekturen · 1 Breaking Change" - Nullen entfallen.
       get countLine() {
-        var summary = this.model.summarize(this.rows);
+        var summary = this.model.summarize(this.highlightsOnly ? this.model.focus(this.rows) : this.rows);
         var shell = this.shell;
         var out = [];
         [['feat', 'changelog.count.feat'], ['fix', 'changelog.count.fix'], ['other', 'changelog.count.other'], ['breaking', 'changelog.count.breaking']].forEach(function (pair) {

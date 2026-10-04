@@ -1,11 +1,11 @@
 # Changelog
 
-## v0.1.16 (2026-10-02)
+## v0.1.16 (2026-10-04)
 
 ### Features
 
+- **installer:** remember the access details in the OS keychain (#83) (a0d7a72)
 - **installer:** add a keychain store for the node access details (5c44a23)
-- **installer:** remember the access details in the OS keychain (5097e5a)
 
 ### Refactors
 

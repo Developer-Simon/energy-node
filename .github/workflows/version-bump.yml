@@ -19,7 +19,9 @@ name: Version bump
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened]
+    # edited: a changed PR title or description changes the PR's own changelog
+    # entry (see CHANGELOG_PR_* below), so it regenerates too.
+    types: [opened, synchronize, reopened, edited]
     branches: [main]
 
 permissions:
@@ -42,6 +44,13 @@ jobs:
       # the job still runs, in check-only mode.
       HAS_TOKEN: ${{ secrets.BUMP_TOKEN != '' }}
       BASE_REF: origin/${{ github.event.pull_request.base.ref }}
+      # The PR's own changelog entry (scripts/generate_changelog.sh, "PR-Kontext"):
+      # the squash commit does not exist yet, so number, title and description
+      # stand in for it. Passed through env, never interpolated into a script.
+      CHANGELOG_PR_NUMBER: ${{ github.event.pull_request.number }}
+      CHANGELOG_PR_TITLE: ${{ github.event.pull_request.title }}
+      PR_BODY: ${{ github.event.pull_request.body }}
+      EVENT_ACTION: ${{ github.event.action }}
       # generate_changelog.sh targets. "ha-integration" is intentionally left
       # out: its version stream is manifest.json (v0.2.x) and it has its own
       # HACS/mirror release flow (scripts/publish_mirror.sh); the repo-wide
@@ -61,12 +70,20 @@ jobs:
       - name: Fetch base branch
         run: git fetch origin "${{ github.event.pull_request.base.ref }}" --quiet
 
+      - name: Write the PR description for the changelog
+        run: |
+          printf '%s\n' "$PR_BODY" > "$RUNNER_TEMP/pr-body.txt"
+          echo "CHANGELOG_PR_BODY_FILE=$RUNNER_TEMP/pr-body.txt" >> "$GITHUB_ENV"
+          echo "CHANGELOG_PR_BASE=$BASE_REF" >> "$GITHUB_ENV"
+
+      # An edit of title or description is no push, so it cannot loop; it must
+      # run even when the last push was the bot's own.
       - name: Skip when HEAD is already a bot commit
         id: guard
         run: |
           author="$(git log -1 --format='%an')"
           subject="$(git log -1 --format='%s')"
-          if [ "$author" = "energy-node-bot" ] && {
+          if [ "$EVENT_ACTION" != "edited" ] && [ "$author" = "energy-node-bot" ] && {
                [ "$subject" = "chore(release): bump component versions" ] ||
                [ "$subject" = "docs(changelog): update changelogs" ]; }; then
             echo "HEAD is \"$subject\" by $author - nothing to do."

@@ -133,6 +133,45 @@ once a bundle counts as applied. The dashboard's version page reads it there.
 It is optional everywhere: a bundle from before this file existed installs and
 displays normally, just without a changelog.
 
+### Highlights and details
+
+Every entry in `changelog.json` carries `highlight` (true or false). The
+installer's changelog page and the dashboard's version page open on the
+highlights and switch to the full list with **Everything**. The flag is derived, the
+`CHANGELOG.md` files stay as they are:
+
+* A release that contains entries with a PR number (`(#NN)`, one per squash
+  merge) highlights those PR entries of type `feat`, `fix` and `perf`. The
+  commits inside the PR are details.
+* A release without any PR number (sections from before the repository moved
+  to squash merges) highlights every `feat`, `fix` and `perf` entry.
+* A breaking change is always a highlight.
+
+The highlight text is the PR title. To word it differently, add a paragraph
+to the squash commit message (the fenced block in the PR description):
+
+```text
+Highlights:
+- The battery state survives a crash.
+- dashboard: The version page opens on the highlights.
+```
+
+A line `- <target>: text` applies to that component only, with the target
+names of `scripts/generate_changelog.sh` (`dashboard`, `installer`,
+`service:battery_soc` and so on). A line without a target applies to every
+other component the PR touches. The paragraph ends at the first line that
+does not start with `- `. The text replaces the PR title in the entry, the
+PR number stays.
+
+While a PR is open, its squash commit does not exist yet. The
+[`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
+workflow therefore passes the PR number, title and description to the
+generator (`CHANGELOG_PR_NUMBER`, `CHANGELOG_PR_TITLE`,
+`CHANGELOG_PR_BODY_FILE`, `CHANGELOG_PR_BASE`), which adds the PR's own entry
+to the open section of every component the PR changes. Editing the title or
+the description reruns the workflow, so the entry follows. A release cut right
+after the merge therefore already lists the PR.
+
 ## One-time setup: the `BUMP_TOKEN` secret
 
 The [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)

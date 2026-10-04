@@ -121,7 +121,7 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 | `config-panel` | `js/revisions.js` `2`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `7` | `css/manager.css` `23` |
 | `energy-panel` | `js/revisions.js` `2`, `js/energy.page.js` `4` | `css/manager.css` `23` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `2`, `js/devicemap.page.js` `9` | `css/manager.css` `23` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `2`, `js/schema-form.js` `2`, `js/settings.page.js` `12`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `1`, `js/systemconfig.page.js` `4` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `8` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `2`, `js/schema-form.js` `2`, `js/settings.page.js` `12`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `2`, `js/systemconfig.page.js` `4` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `23`, `css/settings-controls.css` `8` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations.page.js` `7` | `css/manager.css` `23`, `css/automations.css` `4` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -238,6 +238,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.8.4 | `js/versions.page.js` | `2` | 2026-10-04 |
 | v0.8.3 | `js/dashboard.js` | `23` | 2026-10-01 |
 | v0.8.2 | `js/energy-flow.js` | `2` | 2026-10-01 |
 | v0.8.0 | `js/config.page.js` · `js/history.js` | `7` · `13` | 2026-09-28 |

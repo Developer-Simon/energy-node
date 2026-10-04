@@ -81,6 +81,29 @@ def parse_changelog(text):
     return releases
 
 
+HIGHLIGHT_TYPES = {"feat", "fix", "perf"}
+
+
+def mark_highlights(releases):
+    """Setzt an jedem Eintrag "highlight" (bool) und gibt releases zurueck.
+
+    Highlights sind, was ein Betreiber lesen soll; der Rest sind Details.
+    Traegt ein Release Eintraege mit PR-Nummer, sind das seine Squash-Merges
+    (bzw. die eigene Highlight-Zeile aus der PR-Nachricht, siehe
+    scripts/generate_changelog.sh): Highlight ist ein PR-Eintrag vom Typ
+    feat/fix/perf. Ohne jede PR-Nummer (Abschnitte aus dem Vorgaenger-Repo)
+    zaehlt jeder feat/fix/perf-Eintrag. Ein Breaking Change ist immer eins.
+    """
+    for release in releases:
+        entries = [e for g in release["groups"] for e in g["entries"]]
+        has_pr = any("pr" in e for e in entries)
+        for group in release["groups"]:
+            for entry in group["entries"]:
+                wanted = group["type"] in HIGHLIGHT_TYPES and ("pr" in entry or not has_pr)
+                entry["highlight"] = bool(entry.get("breaking")) or wanted
+    return releases
+
+
 def read_version(path):
     """Version einer Komponente als "vX.Y.Z" - aus VERSION oder manifest.json."""
     raw = path.read_text(encoding="utf-8")
@@ -95,7 +118,7 @@ def build_document(repo, table, *, bundle_version, max_releases, generated_at):
         if not row["bundle"]:
             continue
         changelog = repo / row["changelog"]
-        releases = parse_changelog(changelog.read_text(encoding="utf-8")) if changelog.is_file() else []
+        releases = mark_highlights(parse_changelog(changelog.read_text(encoding="utf-8"))) if changelog.is_file() else []
         components.append({
             "id": row["id"],
             "label": row["label"],

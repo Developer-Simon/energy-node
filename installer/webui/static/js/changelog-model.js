@@ -144,9 +144,28 @@
     });
   }
 
-  // filter: Art, Scope und Suchtext ("query" trifft Text und Scope, ohne
-  // Gross-/Kleinschreibung). Ergebnis sind Kopien; leere Gruppen, Releases und
-  // Komponenten fallen weg.
+  // hasHighlights: ob in rows ein Eintrag als Highlight markiert ist. Ein
+  // changelog.json von vor der Markierung (und ein Ausschnitt, der nur Details
+  // traegt) hat keins - dann gibt es nichts umzuschalten.
+  function hasHighlights(rows) {
+    var found = false;
+    eachEntry(rows, function (entry) {
+      if (entry.highlight === true) {
+        found = true;
+      }
+    });
+    return found;
+  }
+
+  // focus: die Highlights, wenn es welche gibt, sonst alles - Grundlage der
+  // Zaehlzeile in der Vorschau und auf dem Bildschirm.
+  function focus(rows) {
+    return hasHighlights(rows) ? filter(rows, { highlights: true }) : rows;
+  }
+
+  // filter: Art, Scope, Suchtext ("query" trifft Text und Scope, ohne
+  // Gross-/Kleinschreibung) und "highlights" (nur markierte Eintraege).
+  // Ergebnis sind Kopien; leere Gruppen, Releases und Komponenten fallen weg.
   function filter(rows, options) {
     var wanted = options || {};
     var query = String(wanted.query || '').trim().toLowerCase();
@@ -160,6 +179,9 @@
         var groups = [];
         (release.groups || []).forEach(function (group) {
           var entries = (group.entries || []).filter(function (entry) {
+            if (wanted.highlights && entry.highlight !== true) {
+              return false;
+            }
             if (wanted.scope && entry.scope !== wanted.scope) {
               return false;
             }
@@ -189,5 +211,7 @@
     scopes: scopes,
     kinds: kinds,
     filter: filter,
+    hasHighlights: hasHighlights,
+    focus: focus,
   };
 })();
