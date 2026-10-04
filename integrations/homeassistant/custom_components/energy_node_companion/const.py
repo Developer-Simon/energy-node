@@ -23,3 +23,33 @@ PEER_LABEL = "Home Assistant"
 REFRESH_SECONDS = 600
 RECONNECT_MIN_S = 2
 RECONNECT_MAX_S = 60
+
+# Panel in der Seitenleiste (Plan 2026-10-04-ha-dashboard-panel).
+CONF_PANEL = "panel"
+PANEL_ALL = "all"
+PANEL_ADMINS = "admins"
+PANEL_OFF = "off"
+PANEL_MODES = (PANEL_ALL, PANEL_ADMINS, PANEL_OFF)
+
+# Cookie, mit dem der Browser dem Proxy zeigt, dass ein HA-Benutzer das Panel
+# geoeffnet hat. Gilt nur unter dem Proxy-Pfad des Eintrags.
+PANEL_COOKIE = "energy_node_panel"
+# Das Panel erneuert die Sitzung alle 30 Minuten (REFRESH_MS in
+# www/energy-node-panel.js), lange bevor sie ablaeuft.
+PANEL_SESSION_TTL_S = 7200
+PANEL_ELEMENT = "energy-node-panel"
+PANEL_TITLE = "Energy Node"
+PANEL_ICON = "mdi:solar-power-variant"
+# Bei jeder Aenderung an www/energy-node-panel.js hochzaehlen (Cache-Bust).
+PANEL_JS_VERSION = 1
+STATIC_URL = "/energy_node_static"
+
+
+def proxy_prefix(entry_id: str) -> str:
+    """Pfad, unter dem HA das Dashboard dieses Eintrags durchreicht."""
+    return f"/api/energy_node_companion/proxy/{entry_id}"
+
+
+def panel_url_path(entry_id: str) -> str:
+    """URL des Panels in der Seitenleiste, stabil fuer einen Eintrag."""
+    return f"energy-node-{entry_id[-8:].lower()}"
