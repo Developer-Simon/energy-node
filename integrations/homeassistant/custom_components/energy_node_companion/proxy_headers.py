@@ -6,6 +6,7 @@ dort mitschickt, faellt weg: das Dashboard glaubt X-Forwarded-Proto
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping
 from http.cookies import CookieError, SimpleCookie
 
@@ -15,6 +16,10 @@ from multidict import CIMultiDict
 # dashboard/internal/httpapi/httpapi.go.
 SECURE_SESSION_COOKIE = "energy_node_session"
 GUEST_SESSION_COOKIE = "energy_node_guest_session"
+# Wie localize.CookieName in dashboard/internal/localize/resolve.go. Die
+# Sprachumschaltung schreibt es im Browser, das Dashboard prueft den Wert.
+LANGUAGE_COOKIE = "lang"
+_LANGUAGE = re.compile(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})?")
 
 _DROP_REQUEST = frozenset(name.lower() for name in (
     "Host", "Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization",
@@ -34,18 +39,23 @@ def session_cookie_name(secure: bool) -> str:
     return SECURE_SESSION_COOKIE if secure else GUEST_SESSION_COOKIE
 
 
-def own_session(cookie_header: str, secure: bool) -> str | None:
-    """Das eigene Dashboard-Sitzungscookie des Browsers als "name=wert"."""
+def _cookie(cookie_header: str, name: str) -> str | None:
     jar: SimpleCookie = SimpleCookie()
     try:
         jar.load(cookie_header or "")
     except CookieError:
         return None
-    name = session_cookie_name(secure)
     morsel = jar.get(name)
     if morsel is None or not morsel.value:
         return None
-    return f"{name}={morsel.value}"
+    return morsel.value
+
+
+def own_session(cookie_header: str, secure: bool) -> str | None:
+    """Das eigene Dashboard-Sitzungscookie des Browsers als "name=wert"."""
+    name = session_cookie_name(secure)
+    value = _cookie(cookie_header, name)
+    return None if value is None else f"{name}={value}"
 
 
 def guest_cookie(token: str, secure: bool) -> str:
@@ -64,13 +74,18 @@ def upstream_headers(
 ) -> CIMultiDict[str]:
     """Header fuer die Anfrage an das Dashboard.
 
-    Cookie enthaelt genau eine Dashboard-Sitzung: HA-Cookies und das
-    Panel-Cookie bleiben im Browser, ebenso der HA-Token aus Authorization.
+    Cookie enthaelt genau eine Dashboard-Sitzung und hoechstens die
+    gewaehlte Sprache: HA-Cookies und das Panel-Cookie bleiben im Browser,
+    ebenso der HA-Token aus Authorization.
     """
+    cookies = [session_cookie]
+    lang = _cookie(incoming.get("Cookie", ""), LANGUAGE_COOKIE)
+    if lang is not None and _LANGUAGE.fullmatch(lang):
+        cookies.append(f"{LANGUAGE_COOKIE}={lang}")
     headers: CIMultiDict[str] = CIMultiDict(
         (name, value) for name, value in incoming.items() if name.lower() not in _DROP_REQUEST
     )
-    headers["Cookie"] = session_cookie
+    headers["Cookie"] = "; ".join(cookies)
     headers["X-Forwarded-Prefix"] = prefix
     headers["X-Forwarded-Proto"] = scheme
     headers["X-Forwarded-Host"] = host

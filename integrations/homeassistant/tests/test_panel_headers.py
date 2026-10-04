@@ -104,3 +104,15 @@ def test_logout_path():
     assert is_logout("api/v1/auth/logout")
     assert is_logout("/api/v1/auth/logout/")
     assert not is_logout("api/v1/auth/login")
+
+
+def test_language_cookie_reaches_the_dashboard():
+    # Die Sprachumschaltung setzt "lang" im Browser und laedt neu. Ohne das
+    # Cookie rendert das Dashboard weiter in der alten Sprache.
+    headers = _up({"Cookie": "energy_node_panel=p; lang=en; other=x"})
+    assert headers.getall("Cookie") == ["energy_node_guest_session=g; lang=en"]
+
+
+def test_unusual_language_cookie_is_dropped():
+    headers = _up({"Cookie": 'lang="en, evil"'})
+    assert headers.getall("Cookie") == ["energy_node_guest_session=g"]

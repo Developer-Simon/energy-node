@@ -17,10 +17,14 @@ class EnergyNodePanel extends HTMLElement {
     this.attachShadow({ mode: 'open' });
     this.shadowRoot.innerHTML = `
       <style>
-        :host { display: flex; flex-direction: column; height: 100%; background: var(--primary-background-color); }
+        /* ha-panel-custom hat keine feste Hoehe, 100% liefe ins Leere und der
+           iframe bliebe bei 150px. Das Safe-Area-Padding setzt ha-panel-custom. */
+        :host { display: flex; flex-direction: column; background: var(--primary-background-color);
+          height: calc(100vh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px));
+          height: calc(100dvh - var(--safe-area-inset-top, 0px) - var(--safe-area-inset-bottom, 0px)); }
         .toolbar { display: flex; align-items: center; gap: 12px; height: var(--header-height, 56px); padding: 0 12px;
           background: var(--app-header-background-color); color: var(--app-header-text-color, #fff); font-size: 20px; }
-        iframe { flex: 1; width: 100%; border: 0; }
+        iframe { flex: 1; min-height: 0; width: 100%; border: 0; display: block; }
         .message { padding: 16px; color: var(--error-color); }
       </style>
       <div class="toolbar"><ha-menu-button></ha-menu-button><span>Energy Node</span></div>
