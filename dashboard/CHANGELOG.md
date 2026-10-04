@@ -9,7 +9,7 @@
 - **dashboard:** relay an optional sender label with history exchange offers (e4dc868)
 - **dashboard:** name the source of exchanged history rows in the settings (6a5d816)
 - **dashboard:** link the HA device to the node's Tailscale address (7c6d6ab)
-- **homeassistant:** add energy_node as a history exchange peer (#85)
+- **homeassistant:** add Energy Node Companion as a history exchange peer (#85)
 - **dashboard:** switch the versions page between highlights and everything (25b7c01)
 
 ### Documentation
