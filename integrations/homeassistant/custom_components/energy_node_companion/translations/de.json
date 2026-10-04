@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Energy Node Companion",
-        "description": "Home Assistant liefert dem Dashboard der energy-node Verläufe aus seinem Recorder. Gib die Adresse des Dashboards im Tailnet mit dem Port des Dashboards an, zum Beispiel http://energy-node.tail1234.ts.net:8080.",
+        "description": "Home Assistant liefert dem Dashboard der energy-node Verläufe aus seinem Recorder. Gib die Adresse des Dashboards im Tailnet mit dem Port des Dashboards an, zum Beispiel {example_url}.",
         "data": {
           "url": "Adresse des Dashboards",
           "verify_ssl": "Zertifikat prüfen"

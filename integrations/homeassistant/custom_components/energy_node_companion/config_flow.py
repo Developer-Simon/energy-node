@@ -20,6 +20,8 @@ from .const import CONF_URL, CONF_VERIFY_SSL, DOMAIN, PROTOCOL
 # fuer die Anmeldung ueber HTTPS weiterreichen muss.
 MQTT_DEVICE = ("mqtt", "energy_node")
 DEFAULT_PORT = 8080
+# hassfest verbietet URLs in strings.json, das Beispiel kommt als Platzhalter.
+EXAMPLE_URL = "http://energy-node.tail1234.ts.net:8080"
 
 SCHEMA = vol.Schema({
     vol.Required(CONF_URL): str,
@@ -79,7 +81,10 @@ class EnergyNodeConfigFlow(ConfigFlow, domain=DOMAIN):
             suggested = suggested_url(self.hass)
             suggestion = {CONF_URL: suggested} if suggested else {}
         return self.async_show_form(
-            step_id="user", data_schema=self.add_suggested_values_to_schema(SCHEMA, suggestion), errors=errors
+            step_id="user",
+            data_schema=self.add_suggested_values_to_schema(SCHEMA, suggestion),
+            errors=errors,
+            description_placeholders={"example_url": EXAMPLE_URL},
         )
 
     async def async_step_reconfigure(self, user_input: dict | None = None) -> ConfigFlowResult:
