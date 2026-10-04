@@ -147,3 +147,23 @@ with a guest session and answers backfill requests from the HA recorder.
   `Developer-Simon/ha-energy-node-companion`, assembled by
   `scripts/publish_mirror.sh --component energy_node_companion` or the **HA Mirror
   Release** workflow (see `docs/integration/ha-integration-hacs-release.md`).
+
+### Dashboard in the sidebar
+
+The integration adds "Energy Node" to the Home Assistant sidebar. Home
+Assistant proxies the dashboard under `/api/energy_node_companion/proxy/<entry_id>/`,
+so it opens wherever Home Assistant opens, without a second login.
+
+- **Who sees it:** integration options, "Sidebar": all users (default),
+  administrators only, or off.
+- **Session:** everybody uses the dashboard as guest, through the same guest
+  session the history peer holds. The panel never logs that session out.
+- **Own login:** if Home Assistant itself is served over HTTPS (for example
+  `tailscale serve`), the dashboard's password login works inside the panel.
+  Home Assistant must then know it is behind HTTPS: `http:` with
+  `use_x_forwarded_for: true` and `trusted_proxies` for the local proxy, so
+  that the request scheme is `https`. A browser that logged in keeps its own
+  session, everybody else stays guest.
+- **Address:** the proxy uses the integration's dashboard URL, i.e. the
+  dashboard port (`8080`) and not Caddy, because Caddy rewrites
+  `X-Forwarded-Proto`.

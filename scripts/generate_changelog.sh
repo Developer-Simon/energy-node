@@ -711,6 +711,7 @@ generate_one() {
         "integrations/homeassistant/tests/test_icons_component.py"
         "integrations/homeassistant/custom_components/energy_node_companion/"
         "integrations/homeassistant/tests/test_history_"
+        "integrations/homeassistant/tests/test_panel_"
       )
       # v0.1.0-v0.1.4 wurden von Hand als 5 getrennte Abschnitte geschrieben,
       # bevor diese Komponente ab v0.2.0 auf automatische Generierung
