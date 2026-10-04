@@ -324,8 +324,53 @@ flush_group() {
   SECTION_VER+=("$group_version")
 }
 
+# 0, wenn $1 ein Target-Name ist (siehe ALL_TARGETS, plus service:<dir>).
+is_target() {
+  local t
+  [[ "$1" == service:* ]] && return 0
+  for t in "${ALL_TARGETS[@]}"; do [[ "$t" == "$1" ]] && return 0; done
+  return 1
+}
+
+# Eigene Highlight-Zeile einer Commit-Nachricht ($2) fuer die Komponente $1.
+# Der Block beginnt mit einer Zeile "Highlights:" und endet an der ersten
+# Zeile, die nicht mit "- " beginnt; jede Zeile darin ist "- <target>: Text"
+# (nur diese Komponente) oder "- Text" (jede Komponente ohne eigene Zeile).
+# Gibt den Text aus, oder nichts, wenn es fuer diese Komponente keine Zeile gibt.
+custom_highlight() {
+  local comp="$1" body="$2" line text fallback="" in_block=false
+  while IFS= read -r line; do
+    line="${line%$'\r'}"
+    if ! $in_block; then
+      [[ "$line" =~ ^[[:space:]]*Highlights:[[:space:]]*$ ]] && in_block=true
+      continue
+    fi
+    [[ "$line" =~ ^[[:space:]]*-[[:space:]]+(.*[^[:space:]])[[:space:]]*$ ]] || break
+    text="${BASH_REMATCH[1]}"
+    if [[ "$text" =~ ^([a-z_:-]+):[[:space:]]+(.+)$ ]] && is_target "${BASH_REMATCH[1]}"; then
+      if [[ "${BASH_REMATCH[1]}" == "$comp" ]]; then
+        printf '%s' "${BASH_REMATCH[2]}"
+        return 0
+      fi
+    elif [[ -z "$fallback" ]]; then
+      fallback="$text"
+    fi
+  done <<< "$body"
+  printf '%s' "$fallback"
+}
+
+# PR-Kontext aus dem Version-bump-Workflow (.github/workflows/version-bump.yml).
+# Auf dem PR-Branch gibt es den Squash-Commit noch nicht; mit diesen Werten
+# bekommt der offene Abschnitt den Eintrag, den der Squash tragen wird -
+# "Titel (#NN)" bzw. die eigene Highlight-Zeile aus dem PR-Text. Ohne
+# CHANGELOG_PR_NUMBER (lokaler Lauf) passiert nichts.
+PR_NUMBER="${CHANGELOG_PR_NUMBER:-}"
+PR_TITLE="${CHANGELOG_PR_TITLE:-}"
+PR_BODY_FILE="${CHANGELOG_PR_BODY_FILE:-}"
+PR_BASE="${CHANGELOG_PR_BASE:-}"
+
 classify_and_append() {
-  local hash="$1" subject="$2"
+  local hash="$1" subject="$2" body="${3-}"
   local type="other" scope="" rest="$subject" raw_type="" breaking=""
   if [[ "$subject" =~ $COMMIT_RE_SCOPED ]]; then
     raw_type="${BASH_REMATCH[1],,}"
@@ -344,6 +389,17 @@ classify_and_append() {
   rest="$(sed -E 's/[[:space:]]*(Co-[Aa]uthored-[Bb]y|Signed-off-by|Reviewed-by|🤖 Generated with):?.*$//' <<< "$rest")"
   rest="${rest%"${rest##*[![:space:]]}"}"
 
+  # Ein Squash-Commit (PR-Nummer am Ende) kann eine eigene Highlight-Zeile
+  # mitbringen; sie ersetzt den PR-Titel, die PR-Nummer bleibt.
+  if [[ "$rest" =~ ^(.*[^[:space:]])[[:space:]]+(\(#[0-9]+\))$ ]]; then
+    local pr_ref="${BASH_REMATCH[2]}" custom
+    if [[ $# -lt 3 && -n "$hash" ]]; then
+      body="$(git -C "$repo_root" log -1 --format=%b "$hash")"
+    fi
+    custom="$(custom_highlight "$comp" "$body")"
+    [[ -n "$custom" ]] && rest="${custom} ${pr_ref}"
+  fi
+
   local entry="- "
   if [[ -n "$breaking" && -n "$scope" ]]; then
     entry+="**⚠ Breaking — ${scope}:** "
@@ -352,7 +408,8 @@ classify_and_append() {
   elif [[ -n "$scope" ]]; then
     entry+="**${scope}:** "
   fi
-  entry+="${rest} (${hash})"
+  entry+="${rest}"
+  [[ -n "$hash" ]] && entry+=" (${hash})"
   GBUCKET[$type]+="${entry}"$'\n'
 }
 
@@ -817,6 +874,23 @@ except Exception:
     --invert-grep \
     --grep='^docs(changelog): ' \
     "${pathspec[@]}"; printf '\n')
+
+  # Der Eintrag des offenen PRs (siehe PR_NUMBER oben), nur fuer Komponenten,
+  # an denen der PR selbst etwas aendert - die Bot-Commits zaehlen nicht. Er
+  # landet im offenen Abschnitt, dem der PR-Commits; ohne Tag auf dem letzten
+  # Commit ist das die laufende Gruppe.
+  # Ohne "grep -q": das bricht beim ersten Treffer ab, git log bekommt SIGPIPE,
+  # und pipefail machte daraus "kein Treffer".
+  local pr_own=""
+  if [[ -n "$PR_NUMBER" && -n "$PR_TITLE" && -n "$PR_BASE" && -n "$group_date" && -z "$group_tag" ]]; then
+    pr_own="$(git -C "$repo_root" log --format=%s "${PR_BASE}..HEAD" "${pathspec[@]}" \
+      | grep -v -e '^docs(changelog): ' -e '^chore(release): bump component versions$' || true)"
+  fi
+  if [[ -n "$pr_own" ]]; then
+    local pr_body=""
+    [[ -n "$PR_BODY_FILE" && -f "$PR_BODY_FILE" ]] && pr_body="$(cat "$PR_BODY_FILE")"
+    classify_and_append "" "${PR_TITLE} (#${PR_NUMBER})" "$pr_body"
+  fi
 
   # Ueberschrift des offenen Abschnitts: der reine Bump-Commit faellt aus dem
   # Pathspec (er fasst nur die Versionsdatei an), also kommt die Version des

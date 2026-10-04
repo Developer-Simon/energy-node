@@ -451,4 +451,108 @@ cp "$rcl" "$rel/before.md"; rgen dashboard
 cmp -s "$rcl" "$rel/before.md" || { rm -rf "$rel"; fail "second run after the release is not idempotent"; }
 rm -rf "$rel"
 
+# --- highlights: a custom line from the squash message replaces the title ----
+# A squash commit ("(#NN)" in the subject) may carry a "Highlights:" block in
+# its body: "- <target>: text" for one component, "- text" for every other one.
+# The changelog entry then reads like that line instead of the PR title.
+hl="$(mktemp -d)"
+git -C "$hl" init -q
+git -C "$hl" config user.email t@t
+git -C "$hl" config user.name t
+mkdir -p "$hl/scripts" "$hl/dashboard" "$hl/installer"
+cp "$repo/scripts/generate_changelog.sh" "$hl/scripts/generate_changelog.sh"
+hgen() { ( cd "$hl" && bash scripts/generate_changelog.sh "$@" ) >/dev/null; }
+hcommit() { git -C "$hl" add -A && git -C "$hl" commit -qm "$@"; }
+hfail() { rm -rf "$hl"; fail "$1"; }
+hcl="$hl/dashboard/CHANGELOG.md"
+icl="$hl/installer/CHANGELOG.md"
+echo v0.1.0 > "$hl/dashboard/VERSION"
+echo v0.1.0 > "$hl/installer/VERSION"
+hcommit "chore: initial"
+echo a > "$hl/dashboard/a.js"
+echo a > "$hl/installer/a.go"
+hcommit "feat(dashboard): wire the screen into the shell (#5)" \
+  -m $'Highlights:\n- dashboard: The update page lists what is new since your version.\n- Every other component gets this line.\n\nMore body text that is not a highlight.'
+echo b > "$hl/dashboard/b.js"
+hcommit "fix(dashboard): plain squash without a highlights block (#6)" -m "Only a body."
+hgen dashboard
+hgen installer
+grep -qF "**dashboard:** The update page lists what is new since your version. (#5) (" "$hcl" \
+  || hfail "custom highlight for the component did not replace the squash title"
+grep -q "wire the screen into the shell" "$hcl" && hfail "the replaced squash title is still listed"
+grep -qF "Every other component gets this line. (#5) (" "$icl" \
+  || hfail "the unprefixed highlight line did not reach another component"
+grep -q "More body text" "$hcl" "$icl" && hfail "body text after the highlights block leaked"
+grep -qF "plain squash without a highlights block (#6) (" "$hcl" \
+  || hfail "a squash without a highlights block must keep its title"
+
+# --- the open PR's own entry comes from the PR context ------------------------
+# On the PR branch the squash commit does not exist yet. The version-bump
+# workflow passes number, title, body and base; the open section then carries
+# the entry the squash will have, so a release cut right after the merge lists it.
+pr_base="$(git -C "$hl" rev-parse HEAD)"
+echo c > "$hl/dashboard/c.js"
+hcommit "feat(dashboard): split the changelog into highlights and details"
+echo d > "$hl/dashboard/d.js"
+hcommit "fix(dashboard): style the switch on the new screen"
+printf 'Highlights:\n- dashboard: Choose highlights or everything at the top of the page.\n' > "$hl/pr-body.txt"
+prgen() {
+  ( cd "$hl" && CHANGELOG_PR_NUMBER=9 \
+      CHANGELOG_PR_TITLE="feat(dashboard): split the changelog into highlights and details" \
+      CHANGELOG_PR_BODY_FILE="$hl/pr-body.txt" CHANGELOG_PR_BASE="$pr_base" \
+      bash scripts/generate_changelog.sh "$@" ) >/dev/null
+}
+prgen dashboard
+prgen installer
+grep -qxF -- "- **dashboard:** Choose highlights or everything at the top of the page. (#9)" "$hcl" \
+  || hfail "the open PR's entry is missing or carries a hash"
+grep -qF "style the switch on the new screen (" "$hcl" || hfail "branch commits must stay listed"
+grep -q "(#9)" "$icl" && hfail "a component the PR does not touch got the PR entry"
+cp "$hcl" "$hl/before.md"
+prgen dashboard
+cmp -s "$hcl" "$hl/before.md" || hfail "a second run with the PR context is not idempotent"
+printf 'No highlights here.\n' > "$hl/pr-body.txt"
+prgen dashboard
+[ "$(grep -c "split the changelog into highlights and details" "$hcl")" -eq 1 ] \
+  || hfail "without a custom line the PR title must replace the same-titled branch commit"
+grep -qxF -- "- **dashboard:** split the changelog into highlights and details (#9)" "$hcl" \
+  || hfail "without a custom line the PR entry must read like the title"
+
+# --- after the squash merge the PR entry is not listed twice -----------------
+printf 'Highlights:\n- dashboard: Choose highlights or everything at the top of the page.\n' > "$hl/pr-body.txt"
+prgen dashboard
+cp "$hcl" "$hl/branch-changelog.md"
+git -C "$hl" reset -q --hard "$pr_base"
+echo c > "$hl/dashboard/c.js"
+echo d > "$hl/dashboard/d.js"
+cp "$hl/branch-changelog.md" "$hcl"
+hcommit "feat(dashboard): split the changelog into highlights and details (#9)" \
+  -m $'Highlights:\n- dashboard: Choose highlights or everything at the top of the page.'
+hgen dashboard
+[ "$(grep -c "(#9)" "$hcl")" -eq 1 ] || hfail "the PR entry is listed twice after the squash merge"
+grep -qF "Choose highlights or everything at the top of the page. (#9)" "$hcl" \
+  || hfail "the custom highlight was lost after the squash merge"
+
+# --- edge cases of the PR context ---------------------------------------------
+# GitHub sends the PR description with CRLF line ends; a "Word:" prefix that is
+# no target name is plain text; the block ends at the first line without "- ";
+# a title with shell syntax lands in the changelog literally.
+pr_base="$(git -C "$hl" rev-parse HEAD)"
+echo e > "$hl/dashboard/e.js"
+hcommit "feat(dashboard): edge cases"
+printf 'Highlights:\r\n- Note: the colon is part of the text.\r\nThis line ends the block.\r\n- dashboard: never read\r\n' > "$hl/pr-body.txt"
+( cd "$hl" && CHANGELOG_PR_NUMBER=10 CHANGELOG_PR_TITLE='feat(dashboard): edge cases' \
+    CHANGELOG_PR_BODY_FILE="$hl/pr-body.txt" CHANGELOG_PR_BASE="$pr_base" \
+    bash scripts/generate_changelog.sh dashboard ) >/dev/null
+grep -qxF -- "- **dashboard:** Note: the colon is part of the text. (#10)" "$hcl" \
+  || hfail "a CRLF body or an unknown prefix broke the custom highlight"
+grep -q "never read" "$hcl" && hfail "a line after the end of the block was read"
+( cd "$hl" && CHANGELOG_PR_NUMBER=10 CHANGELOG_PR_TITLE='feat(dashboard): keep `$(touch pwned)` and "quotes"' \
+    CHANGELOG_PR_BODY_FILE="$hl/missing.txt" CHANGELOG_PR_BASE="$pr_base" \
+    bash scripts/generate_changelog.sh dashboard ) >/dev/null
+[ -e "$hl/pwned" ] && hfail "the PR title was executed"
+grep -qxF -- '- **dashboard:** keep `$(touch pwned)` and "quotes" (#10)' "$hcl" \
+  || hfail "a title with shell syntax did not land literally"
+rm -rf "$hl"
+
 echo "OK"

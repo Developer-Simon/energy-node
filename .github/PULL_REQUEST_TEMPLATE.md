@@ -15,6 +15,13 @@
   Put the rationale in the body. Note breaking changes as a
   `BREAKING CHANGE:` footer and link issues with `Closes #123`.
 
+  The PR title becomes the highlight of this release in the changelogs.
+  To word it differently, add a paragraph to the body whose first line is
+  the word Highlights followed by a colon, and below it one `- text` line
+  (every component) or `- <target>: text` line (one component, e.g.
+  `- dashboard: ...`, `- service:battery_soc: ...`). The paragraph ends at
+  the first line that does not start with `- `. Details: docs/releasing.md.
+
   `scripts/dev/create-pr.sh` pre-fills this block from your branch commits and
   opens it in your editor; the first line also becomes the PR title.
 -->
