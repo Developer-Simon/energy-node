@@ -55,7 +55,23 @@
         return this.usesSavedSecret ? this.shell.t('connect.remember.saved_placeholder') : '';
       },
 
+      // Die Shell startet auf 'connect', dieser Bildschirm laeuft also schon
+      // durch init(), bevor /api/bootstrap geantwortet hat. Was vom Bootstrap
+      // abhaengt, kommt darum erst mit ihm.
       init() {
+        try {
+          this.host = window.localStorage.getItem(HOST_KEY) || '';
+        } catch (err) {
+          this.host = '';
+        }
+        if (this.shell.bootstrap) {
+          this.applyBootstrap();
+        } else if (this.$watch) {
+          this.$watch('shell.bootstrap', () => this.applyBootstrap());
+        }
+      },
+
+      applyBootstrap() {
         var saved = this.saved;
         if (saved) {
           this.host = saved.host;
@@ -63,12 +79,6 @@
           this.kind = saved.kind || 'password';
           this.keyPath = saved.key_path || '';
           this.remember = true;
-        } else {
-          try {
-            this.host = window.localStorage.getItem(HOST_KEY) || '';
-          } catch (err) {
-            this.host = '';
-          }
         }
         var info = this.packageInfo;
         if (info) {

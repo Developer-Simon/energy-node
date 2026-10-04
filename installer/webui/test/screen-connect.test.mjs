@@ -319,6 +319,28 @@ test('ein gemerkter Zugang fuellt das Formular vor und braucht kein Passwort', (
   assert.equal(screen.passwordPlaceholder, realCatalog('de')['connect.remember.saved_placeholder']);
 });
 
+// Die Shell startet auf 'connect': der Bildschirm haengt am DOM und laeuft
+// durch init(), bevor /api/bootstrap geantwortet hat.
+test('ein spaet eintreffender Bootstrap fuellt das Formular noch vor', () => {
+  const { screen, shell, window } = mountScreen('screen-connect.js', 'screenConnect', { catalog: realCatalog('de') });
+  window.localStorage.setItem('energy-node-installer.host', 'alt.fritz.box');
+  shell.bootstrap = null;
+  const watchers = [];
+  screen.$watch = (expression, callback) => watchers.push({ expression, callback });
+  screen.init();
+  assert.equal(screen.host, 'alt.fritz.box');
+  assert.equal(screen.remember, false);
+
+  shell.bootstrap = { credentials: SAVED, package: { bundled: true, repo: { path: '/src/energy-node' } } };
+  watchers.forEach((watcher) => watcher.callback(shell.bootstrap));
+  assert.equal(screen.host, 'energy-node.local');
+  assert.equal(screen.user, 'pi');
+  assert.equal(screen.remember, true);
+  assert.equal(screen.canConnect, true);
+  assert.equal(screen.packageKind, 'bundled');
+  assert.equal(screen.repoPath, '/src/energy-node');
+});
+
 test('mit gemerktem Passwort geht keins mit, nur use_saved_secret', async () => {
   const { screen, calls } = mountSaved(SAVED, { responses: { 'POST /api/connect': CONNECTED } });
   screen.makeKey = false;
