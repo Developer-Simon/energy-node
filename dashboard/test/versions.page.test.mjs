@@ -242,3 +242,48 @@ test('checkForUpdates() reports a failure through the toast store', async () => 
   assert.equal(stores.toasts.items.length, 1);
   assert.equal(stores.toasts.items[0].message, de['error.updates_check_failed']);
 });
+
+// Highlights / Alles: changelog.json flags every entry. Highlights is the default.
+const FLAGGED_RELEASES = [
+  { version: 'v0.8.0', date: '2026-10-01', groups: [
+    { type: 'feat', label: 'Features', entries: [
+      { text: 'show what is new before an update', breaking: false, pr: 82, highlight: true },
+      { text: 'add the switch to the screen', breaking: false, highlight: false },
+    ] },
+    { type: 'test', label: 'Tests', entries: [{ text: 'cover the switch', breaking: false, highlight: false }] },
+  ] },
+  { version: 'v0.7.9', date: '2026-09-30', groups: [
+    { type: 'refactor', label: 'Refactors', entries: [{ text: 'move a helper', breaking: false, pr: 80, highlight: false }] },
+  ] },
+];
+const shownTexts = (component, id) => plain(component.shownReleases(id).map((r) => [r.version, r.groups.flatMap((g) => g.entries.map((e) => e.text))]));
+
+test('shownReleases keeps the highlights by default and everything on "all"', async () => {
+  const { component } = await loaded();
+  component.releases = { dashboard: FLAGGED_RELEASES };
+  assert.equal(component.mode, 'highlights');
+  assert.deepEqual(shownTexts(component, 'dashboard'), [['v0.8.0', ['show what is new before an update']]]);
+  assert.equal(component.noHighlights('dashboard'), false);
+  component.mode = 'all';
+  assert.deepEqual(shownTexts(component, 'dashboard'), [
+    ['v0.8.0', ['show what is new before an update', 'add the switch to the screen', 'cover the switch']],
+    ['v0.7.9', ['move a helper']],
+  ]);
+});
+
+test('a component with details only says so in the highlights view', async () => {
+  const { component } = await loaded();
+  component.releases = { 'service:trucki': [FLAGGED_RELEASES[1]] };
+  assert.deepEqual(shownTexts(component, 'service:trucki'), []);
+  assert.equal(component.noHighlights('service:trucki'), true);
+  component.mode = 'all';
+  assert.equal(component.noHighlights('service:trucki'), false);
+});
+
+test('a changelog without flags is shown in full in either view', async () => {
+  const { component } = await loaded();
+  const unflagged = [{ version: 'v0.4.0', date: '2026-09-15', groups: [{ type: 'test', label: 'Tests', entries: [{ text: 'old', breaking: false }] }] }];
+  component.releases = { 'service:shelly': unflagged };
+  assert.deepEqual(shownTexts(component, 'service:shelly'), [['v0.4.0', ['old']]]);
+  assert.equal(component.noHighlights('service:shelly'), false);
+});

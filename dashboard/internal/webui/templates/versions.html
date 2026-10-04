@@ -12,6 +12,14 @@
     </div>
     <p class="setting-note version-note" x-show="dashboardDiffers">{{t "settings.versions.package.differs"}}</p>
     <p class="setting-note" x-show="bundle && !hasChangelog">{{t "settings.versions.package.no_changelog"}}</p>
+    <div x-show="hasChangelog">
+      <span class="setting-row-label" id="lbl-versions-changes-mode">{{t "settings.versions.changes.mode.label"}}</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="lbl-versions-changes-mode">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="versions-changes-mode" value="highlights" x-model="mode"><span>{{t "settings.versions.changes.mode.highlights"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="versions-changes-mode" value="all" x-model="mode"><span>{{t "settings.versions.changes.mode.all"}}</span></label>
+      </div>
+    </div>
   </div>
   <div class="setting-card">
     <h3 class="setting-card-title">{{t "settings.versions.updates.title"}}</h3>
@@ -46,7 +54,8 @@
           <div class="release-list" x-show="open[component.id]" x-cloak>
             <p class="setting-note" x-show="releaseErrors[component.id]" x-text="releaseErrors[component.id] || ''"></p>
             <p class="setting-note" x-show="releases[component.id] && releases[component.id].length === 0">{{t "settings.versions.changes.empty"}}</p>
-            <template x-for="release in releases[component.id] || []" :key="release.version">
+            <p class="setting-note" x-show="noHighlights(component.id)">{{t "settings.versions.changes.no_highlights"}}</p>
+            <template x-for="release in shownReleases(component.id)" :key="release.version">
               <section class="release">
                 <h4 class="release-title"><span x-text="release.version"></span> <span class="release-date" x-text="releaseDate(release.date)"></span></h4>
                 <template x-for="entryGroup in release.groups || []" :key="entryGroup.type + entryGroup.label">

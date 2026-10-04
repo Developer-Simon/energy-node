@@ -30,6 +30,20 @@
     return match ? match[1] : '';
   };
 
+  // changelog.json flags every entry as a highlight or a detail
+  // (make_changelog_json.py). A file from before the flag carries none.
+  const isFlagged = (releases) => releases.some((release) => (release.groups || [])
+    .some((group) => (group.entries || []).some((entry) => 'highlight' in entry)));
+
+  const onlyHighlights = (releases) => releases
+    .map((release) => ({
+      ...release,
+      groups: (release.groups || [])
+        .map((group) => ({...group, entries: (group.entries || []).filter((entry) => entry.highlight === true)}))
+        .filter((group) => group.entries.length > 0),
+    }))
+    .filter((release) => release.groups.length > 0);
+
   const kindTitle = (kind) => t(kind === 'other' ? 'settings.versions.kind_other' : `settings.versions.kind.${kind}`);
 
   const versionsPanel = () => ({
@@ -42,6 +56,8 @@
     open: {},
     releases: {},
     releaseErrors: {},
+    // 'highlights' or 'all', switched at the top of the page for every component.
+    mode: 'highlights',
     updateStatus: null,
     checkingForUpdates: false,
     canSystemActions: false,
@@ -131,6 +147,21 @@
       } catch (error) {
         this.releaseErrors = {...this.releaseErrors, [id]: error.message};
       }
+    },
+
+    // The releases of a component as the current view shows them. An
+    // unflagged file is shown in full, there is nothing to pick from.
+    shownReleases(id) {
+      const releases = this.releases[id] || [];
+      if (this.mode === 'all' || !isFlagged(releases)) return releases;
+      return onlyHighlights(releases);
+    },
+
+    // True when the highlights view leaves a flagged component empty.
+    noHighlights(id) {
+      const releases = this.releases[id] || [];
+      return this.mode === 'highlights' && releases.length > 0 && isFlagged(releases)
+        && this.shownReleases(id).length === 0;
     },
 
     // "scope: text", the scope is its own field in the changelog.
