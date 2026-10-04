@@ -375,7 +375,10 @@ manifest = {
     ],
 }
 def entry(text, scope, pr, breaking=False):
-    return {"text": text, "breaking": breaking, "scope": scope, "pr": pr}
+    return {"text": text, "breaking": breaking, "scope": scope, "pr": pr, "highlight": True}
+# Ein Commit innerhalb eines PRs: Detail, kein Highlight (make_changelog_json.py).
+def detail(text, scope, sha):
+    return {"text": text, "breaking": False, "scope": scope, "hash": sha, "highlight": False}
 
 # Was-ist-neu: installiert sind Dashboard 9.9.7, Bootstrap 1.1.0 und
 # battery_soc v0.4.0 (siehe installed-manifest.json unten). Die Seite zeigt nur,
@@ -388,9 +391,13 @@ changelog = {
         {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "9.9.9", "releases": [
             {"version": "9.9.9", "date": "2026-10-01", "groups": [
                 {"type": "feat", "label": "Features", "entries": [
-                    entry("show what is new before an update", "redeploy", 82)]},
+                    entry("show what is new before an update", "redeploy", 82),
+                    detail("count the changes per type in the preview card", "redeploy", "a1b2c3d")]},
                 {"type": "fix", "label": "Fixes", "entries": [
-                    entry("rest the battery flow icon on its fill level at 0 W", "energy", 81)]}]},
+                    entry("rest the battery flow icon on its fill level at 0 W", "energy", 81),
+                    detail("keep the changelog filter when the language switches", "redeploy", "b2c3d4e")]},
+                {"type": "refactor", "label": "Refactors", "entries": [
+                    detail("share the changelog model between installer and dashboard", "redeploy", "c3d4e5f")]}]},
             {"version": "9.9.8", "date": "2026-09-28", "groups": [
                 {"type": "feat", "label": "Features", "entries": [
                     entry("add a versions page", "settings", 71),
@@ -401,7 +408,9 @@ changelog = {
         {"id": "service:battery_soc", "label": "Batterie-SoC", "kind": "service", "version": "v0.5.0", "releases": [
             {"version": "v0.5.0", "date": "2026-09-30", "groups": [
                 {"type": "feat", "label": "Features", "entries": [
-                    entry("save the state on an interval and recover after a crash", "battery_soc", 78)]}]}]},
+                    entry("save the state on an interval and recover after a crash", "battery_soc", 78)]},
+                {"type": "test", "label": "Tests", "entries": [
+                    detail("cover a crash between two saves", "battery_soc", "d4e5f6a")]}]}]},
         {"id": "bootstrap", "label": "Bootstrap", "kind": "tool", "version": "1.2.0", "releases": [
             {"version": "1.2.0", "date": "2026-09-29", "groups": [
                 {"type": "fix", "label": "Fixes", "entries": [
@@ -876,6 +885,9 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
   check "Was ist neu: Changelog des Pakets neben den installierten Versionen" \
     "data['bundle_version'] == 'v9.9.9' and data['installed']['dashboard'] == '9.9.7' and data['installed']['service:battery_soc'] == 'v0.4.0' and len(data['document']['components']) == 3" \
     "$BASE/redeploy/api/changelog"
+  check "Was ist neu: Highlight-Markierung kommt unveraendert an" \
+    "sorted({e['highlight'] for c in data['document']['components'] for r in c['releases'] for g in r['groups'] for e in g['entries']}) == [False, True]" \
+    "$BASE/redeploy/api/changelog"
   check "Die Oberflaeche kennt jetzt das bereitliegende Paket" \
     "data['auto_prepare'] is True and data['bundle_version'] == 'v9.9.9'" \
     "$BASE/redeploy/api/bootstrap"
@@ -909,6 +921,9 @@ if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
     "$BASE/api/v1/changelog?component=service:battery_soc"
   check "Changelog: Breaking-Eintrag bleibt als solcher erhalten" \
     "any(e['breaking'] for r in data['components'][0]['releases'] for g in r['groups'] for e in g['entries'])" \
+    "$BASE/api/v1/changelog?component=dashboard"
+  check "Changelog: Highlights und Details markiert" \
+    "[e['highlight'] for g in data['components'][0]['releases'][0]['groups'] for e in g['entries']] == [True, False, True, False]" \
     "$BASE/api/v1/changelog?component=dashboard"
 fi
 
