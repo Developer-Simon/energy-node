@@ -1097,6 +1097,7 @@
   "error.invalid_json": "The request is not valid JSON",
   "error.invalid_relation": "child_id and parent_id are required",
   "error.invalid_test_request": "rule_id and action_index are required",
+  "error.label_too_long": "The sender's label is too long",
   "error.layout_invalid": "The layout is invalid",
   "error.layout_rejected": "The layout was rejected",
   "error.layout_restore_rejected": "The layout revision could not be restored",

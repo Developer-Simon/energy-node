@@ -150,6 +150,9 @@ func TestAngebotErreichtDenAnderenPeerNichtDenAbsender(t *testing.T) {
 		if payload["peer"] != sender {
 			t.Fatalf("Angebot von %v, want %v", payload["peer"], sender)
 		}
+		if _, labelled := payload["label"]; labelled {
+			t.Fatalf("Angebot ohne Bezeichnung traegt label: %v", payload)
+		}
 		_ = senderReader
 		return
 	}
@@ -335,5 +338,41 @@ func TestNichtErlaubteMethodenWerdenAbgewiesen(t *testing.T) {
 	defer response.Body.Close()
 	if response.StatusCode != http.StatusMethodNotAllowed {
 		t.Fatalf("GET auf /offer = %d, want 405", response.StatusCode)
+	}
+}
+
+func TestAngebotTraegtDieBezeichnungDesAbsenders(t *testing.T) {
+	server := exchangeServer(t)
+	sender, _, closeSender := joinStream(t, server)
+	defer closeSender()
+	_, otherReader, closeOther := joinStream(t, server)
+	defer closeOther()
+
+	coverage := map[string]any{"1m": map[string]any{"role:pv": map[string]any{"from": 0, "step": 3600000, "n": []int{60}}}}
+	body := map[string]any{"peer": sender, "label": "Home Assistant", "coverage": coverage}
+	if code := post(t, server, "/api/v1/history/exchange/offer", body); code != http.StatusNoContent {
+		t.Fatalf("offer = %d, want 204", code)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		event, payload := readEvent(t, otherReader)
+		if event != "offer" || payload["peer"] != sender {
+			continue
+		}
+		if payload["label"] != "Home Assistant" {
+			t.Fatalf("label = %v, want Home Assistant", payload["label"])
+		}
+		return
+	}
+	t.Fatal("Angebot kam beim anderen Peer nicht an")
+}
+
+func TestAngebotMitZuLangerBezeichnungWirdAbgelehnt(t *testing.T) {
+	server := exchangeServer(t)
+	sender, _, closeSender := joinStream(t, server)
+	defer closeSender()
+	body := map[string]any{"peer": sender, "label": strings.Repeat("ä", maxOfferLabelRunes+1), "coverage": map[string]any{}}
+	if code := post(t, server, "/api/v1/history/exchange/offer", body); code != http.StatusBadRequest {
+		t.Fatalf("offer = %d, want 400", code)
 	}
 }

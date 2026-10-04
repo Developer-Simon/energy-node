@@ -16,6 +16,7 @@ import (
 	"io"
 	"net/http"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 )
@@ -37,6 +38,9 @@ const (
 	exchangePingInterval = 25 * time.Second
 	// Der Puffer ist die einzige Stufe, die der Client nachliefert.
 	bufferTier = "1m"
+	// Ein Name wie "Home Assistant", kein Freitext. Die Grenze haelt die
+	// Statuszeile im Browser lesbar.
+	maxOfferLabelRunes = 64
 )
 
 var exchangeTiers = []string{"1m", "5m"}
@@ -267,10 +271,15 @@ func relay(w http.ResponseWriter, sent bool) {
 func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Peer     string                                       `json:"peer"`
+		Label    string                                       `json:"label"`
 		Coverage map[string]map[string]historyexchange.Census `json:"coverage"`
 	}
 	from, ok := x.decodeExchange(w, r, &payload)
 	if !ok {
+		return
+	}
+	if utf8.RuneCountInString(payload.Label) > maxOfferLabelRunes {
+		writeError(w, http.StatusBadRequest, "label_too_long", "Die Bezeichnung des Absenders ist zu lang")
 		return
 	}
 	for tier := range payload.Coverage {
@@ -279,7 +288,13 @@ func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	data, err := json.Marshal(map[string]any{"peer": from, "coverage": payload.Coverage})
+	// Die Bezeichnung zeigt dem Nutzer, woher ergaenzte Messwerte stammen.
+	// Browser-Peers senden keine, ihr Angebot bleibt unveraendert.
+	message := map[string]any{"peer": from, "coverage": payload.Coverage}
+	if payload.Label != "" {
+		message["label"] = payload.Label
+	}
+	data, err := json.Marshal(message)
 	if err != nil {
 		writeErrorDetail(w, http.StatusInternalServerError, "encode_failed", err)
 		return
