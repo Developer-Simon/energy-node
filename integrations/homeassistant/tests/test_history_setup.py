@@ -1,5 +1,6 @@
 """Einrichtung: Config Flow und Start des Peers."""
 import json
+import re
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -14,6 +15,12 @@ from custom_components.energy_node_companion.const import CONF_URL, CONF_VERIFY_
 BASE = Path(__file__).resolve().parents[1] / "custom_components/energy_node_companion"
 FLOW = "custom_components.energy_node_companion.config_flow.DashboardClient"
 GOOD = {"protocol": 1, "series": []}
+# RE_URL aus script/hassfest/translations.py (home-assistant/core). Ein Text,
+# auf den sie passt, laesst hassfest im Mirror scheitern.
+HASSFEST_URL = re.compile(
+    r"(((ftp|ftps|scp|http|https|mqtt|mqtts|socket|socks5):\/\/|www\.)"
+    r"[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?)",
+)
 
 
 @pytest.fixture(autouse=True)
@@ -173,3 +180,22 @@ def test_manifest():
     assert manifest["domain"] == DOMAIN
     assert manifest["requirements"] == []
     assert "recorder" in manifest["dependencies"]
+
+
+@pytest.mark.parametrize("name", ["strings.json", "translations/en.json", "translations/de.json"])
+def test_texts_carry_no_urls(name):
+    # hassfest lehnt URLs in Texten ab. Beispieladressen kommen als
+    # description_placeholders aus dem Config Flow.
+    def walk(node):
+        if isinstance(node, dict):
+            for value in node.values():
+                yield from walk(value)
+        elif isinstance(node, str):
+            yield node
+    texts = list(walk(json.loads((BASE / name).read_text())))
+    assert not [text for text in texts if HASSFEST_URL.search(text)]
+
+
+async def test_user_form_fills_the_example_address(hass):
+    result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
+    assert result["description_placeholders"]["example_url"].startswith("http://")

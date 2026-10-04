@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Energy Node Companion",
-        "description": "Home Assistant supplies the energy-node dashboard with history from its recorder. Enter the dashboard address in the tailnet with the dashboard port, for example http://energy-node.tail1234.ts.net:8080.",
+        "description": "Home Assistant supplies the energy-node dashboard with history from its recorder. Enter the dashboard address in the tailnet with the dashboard port, for example {example_url}.",
         "data": {
           "url": "Dashboard address",
           "verify_ssl": "Verify certificate"
