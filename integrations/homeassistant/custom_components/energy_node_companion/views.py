@@ -109,7 +109,6 @@ class DashboardProxyView(HomeAssistantView):
     delete = _handle
     patch = _handle
     head = _handle
-    options = _handle
 
     async def _send(
         self, data: EnergyNodeData, request: web.Request, url: str, body: bytes | None, cookie: str

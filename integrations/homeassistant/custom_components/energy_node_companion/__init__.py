@@ -39,11 +39,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Eine eigene Sitzung je Eintrag. Cookies fuehrt der DashboardClient von
     # Hand. DummyCookieJar ist hier Pflicht: der Panel-Proxy nutzt dieselbe
     # Sitzung, und ein echter Jar wuerde das Admin-Cookie eines Browsers fuer
-    # alle anderen aufheben.
+    # alle anderen aufheben. Schliessen muss man sie nicht: HA trennt eine
+    # Sitzung aus async_create_clientsession beim Entladen des Eintrags.
     session = async_create_clientsession(
         hass, verify_ssl=entry.data.get(CONF_VERIFY_SSL, True), cookie_jar=aiohttp.DummyCookieJar()
     )
-    entry.async_on_unload(session.close)
     client = DashboardClient(session, entry.data[CONF_URL])
     entry.runtime_data = EnergyNodeData(
         client=client,
