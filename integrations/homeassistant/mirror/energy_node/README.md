@@ -29,7 +29,7 @@ The button above pre-fills the custom repository dialog. Or by hand:
 
 The address field is pre-filled from the node's device link in Home Assistant, for example `http://energy-node.tail1234.ts.net:8080`. Use the dashboard's own port (8080 by default), not port 80. If the dashboard runs on another port, change it in the field, or later through **Reconfigure**.
 
-Once connected, open the dashboard's settings under **Verlauf**. After the first backfill it shows "Zuletzt ergänzt von Home Assistant."
+Once connected, open the dashboard's settings under **History** (German: **Verläufe**). After the first backfill it shows "Last filled in by Home Assistant."
 
 ## What is supplied
 

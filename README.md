@@ -141,7 +141,7 @@ Raspberry Pi OS needs.
 
 ## Home Assistant integrations
 
-With the MQTT bridge, every device already shows up in Home Assistant. Two
+With the MQTT bridge, every device already shows up in Home Assistant. Three
 HACS integrations add dashboard features that run inside HA directly:
 
 - [**`ha-battery-soc`**](https://github.com/Developer-Simon/ha-battery-soc):
@@ -149,8 +149,11 @@ HACS integrations add dashboard features that run inside HA directly:
   node, set up through a config flow.
 - [**`ha-energy-node-icons`**](https://github.com/Developer-Simon/ha-energy-node-icons):
   the dashboard's device icons as an icon set for Home Assistant's icon pickers.
+- [**`ha-energy-node`**](docs/integration/energy-node-ha.md):
+  fills gaps in the dashboard's browser history from the Home Assistant
+  recorder.
 
-Both are published from [`integrations/homeassistant/`](integrations/homeassistant/)
+All three are published from [`integrations/homeassistant/`](integrations/homeassistant/)
 in this repository.
 
 ## Documentation
