@@ -9,6 +9,10 @@
 - **installer:** add a remember switch for the access details to the connect screen (ba9d513)
 - **installer:** make the key option on the connect screen a switch (58c9837)
 
+### Fixes
+
+- **installer:** prefill the connect form once the bootstrap has arrived (32cd044)
+
 ## v0.1.16 (2026-10-01)
 
 ### Features
