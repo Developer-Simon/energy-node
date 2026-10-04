@@ -1675,6 +1675,7 @@
   "settings.history_exchange.connected_rows_added": "Verbunden, {peers}. {rows} Messwerte ergänzt.",
   "settings.history_exchange.connected_rows_unchanged": "Verbunden, {peers}. Noch nichts ergänzt.",
   "settings.history_exchange.disconnected": "Nicht verbunden.",
+  "settings.history_exchange.last_source": "Zuletzt ergänzt von {source}.",
   "settings.history_exchange.not_active": "Der Austausch ist in diesem Tab nicht aktiv.",
   "settings.history_exchange.peers.one": "1 weiteres Gerät",
   "settings.history_exchange.peers.other": "{n} weitere Geräte",

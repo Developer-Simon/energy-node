@@ -196,3 +196,27 @@ test('stepField ignoriert ein unbekanntes Feld, statt NaN zu schreiben', () => {
   assert.equal(component.nichtVorhanden, undefined);
   dom.window.close();
 });
+
+test('refreshExchangeStatus nennt die Quelle ergaenzter Messwerte', () => {
+  const {dom, component} = panel();
+  dom.window.HistoryExchange = {
+    status: () => ({
+      connected: true, peerId: 'p-selbst', peers: ['p-selbst', 'p-ha'],
+      addedRows: 42, lastPeer: 'p-ha', lastSource: 'Home Assistant', lastAt: 0, reason: '',
+    }),
+  };
+  component.refreshExchangeStatus();
+  assert.equal(component.historyExchangeSource, 'Zuletzt ergänzt von Home Assistant.');
+  dom.window.close();
+});
+
+test('ohne bekannte Quelle bleibt die Quellenzeile leer', () => {
+  const {dom, component} = panel();
+  component.historyExchangeSource = 'alt';
+  dom.window.HistoryExchange = {
+    status: () => ({connected: false, peerId: '', peers: [], addedRows: 0, lastPeer: '', lastSource: '', lastAt: 0, reason: ''}),
+  };
+  component.refreshExchangeStatus();
+  assert.equal(component.historyExchangeSource, '');
+  dom.window.close();
+});

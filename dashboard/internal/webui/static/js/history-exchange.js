@@ -26,12 +26,13 @@
   let peerId = '';
   let peers = [];
   let offers = {};
+  let labels = {};
   let lastOffer = '';
   let stopped = true;
   let reconnectDelay = RECONNECT_MIN_MS;
   let reconnectTimer = null;
   let pending = new Set();
-  const state = {addedRows: 0, lastPeer: '', lastAt: 0, reason: ''};
+  const state = {addedRows: 0, lastPeer: '', lastSource: '', lastAt: 0, reason: ''};
 
   const fetcher = (...args) => (options.fetchImpl || window.fetch.bind(window))(...args);
   const url = suffix => `${options.basePath}/api/v1/history/exchange${suffix}`;
@@ -89,6 +90,8 @@
   const onOffer = async payload => {
     if (!payload.peer || payload.peer === peerId) return;
     offers[payload.peer] = payload.coverage || {};
+    // Fremd-Peers wie Home Assistant nennen sich, Browser nicht.
+    if (payload.label) labels[payload.peer] = String(payload.label);
     const jobs = window.HistoryCoverage.plan(await ownCoverage(), offers, now());
     for (const job of jobs) {
       // eslint-disable-next-line no-await-in-loop
@@ -130,6 +133,7 @@
       const added = await window.HistoryStore.writeMissing(payload.tier, rows);
       state.addedRows += added;
       state.lastPeer = payload.peer || '';
+      state.lastSource = labels[payload.peer] || '';
       state.lastAt = now();
       if (added) {
         window.dispatchEvent(new CustomEvent('dashboard-history-exchanged', {
@@ -192,6 +196,7 @@
     source.addEventListener('peer-left', handler('peer-left', payload => {
       peers = peers.filter(name => name !== payload.peer);
       delete offers[payload.peer];
+      delete labels[payload.peer];
     }));
     source.addEventListener('error', () => {
       if (stopped) return;
@@ -237,6 +242,7 @@
     peerId = '';
     peers = [];
     offers = {};
+    labels = {};
     lastOffer = '';
     pending = new Set();
   }
@@ -258,6 +264,7 @@
     peers: [...peers],
     addedRows: state.addedRows,
     lastPeer: state.lastPeer,
+    lastSource: state.lastSource,
     lastAt: state.lastAt,
     reason: state.reason,
   });

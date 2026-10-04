@@ -1675,6 +1675,7 @@
   "settings.history_exchange.connected_rows_added": "Connected, {peers}. {rows} measurements added.",
   "settings.history_exchange.connected_rows_unchanged": "Connected, {peers}. Nothing added yet.",
   "settings.history_exchange.disconnected": "Not connected.",
+  "settings.history_exchange.last_source": "Last filled in by {source}.",
   "settings.history_exchange.not_active": "The exchange is not active in this tab.",
   "settings.history_exchange.peers.one": "1 other device",
   "settings.history_exchange.peers.other": "{n} other devices",

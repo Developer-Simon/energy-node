@@ -64,6 +64,7 @@
     historyExtraEntities: [],
     historyExchangeDisabled: false,
     historyExchangeStatus: '',
+    historyExchangeSource: '',
     historyViews: [],
     updateCheckDisabled: false,
     languageSwitchHidden: false,
@@ -233,6 +234,7 @@
     // Der Austausch ist absichtlich sichtbar: der Nutzer soll erkennen,
     // woher Messwerte stammen, die er selbst nicht aufgezeichnet hat.
     refreshExchangeStatus() {
+      this.historyExchangeSource = '';
       if (!window.HistoryExchange) {
         this.historyExchangeStatus = t('settings.history_exchange.not_active');
         return;
@@ -247,6 +249,11 @@
       this.historyExchangeStatus = status.addedRows
         ? t('settings.history_exchange.connected_rows_added', {peers, rows: status.addedRows})
         : t('settings.history_exchange.connected_rows_unchanged', {peers});
+      // Eigene Zeile statt angehaengtem Satz: zusammengesetzte Saetze
+      // lassen sich nicht sauber uebersetzen.
+      if (status.lastSource) {
+        this.historyExchangeSource = t('settings.history_exchange.last_source', {source: status.lastSource});
+      }
     },
 
     // Ein Klick auf - / + der Stepper. dir ist +1 oder -1; der Wert bleibt
