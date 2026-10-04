@@ -38,7 +38,7 @@ func readEvent(t *testing.T, reader *bufio.Reader) (string, map[string]any) {
 func exchangeServer(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
-	newHistoryExchange().routes(mux)
+	newHistoryExchange(nil).routes(mux)
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 	return server
