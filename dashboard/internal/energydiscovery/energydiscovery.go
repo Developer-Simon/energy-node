@@ -8,7 +8,11 @@
 // Discovery-Publisher".
 package energydiscovery
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"strings"
+	"sync"
+)
 
 const (
 	// DeviceID ist die device_id-Ebene des 3-Ebenen-Discovery-Topics und
@@ -78,23 +82,30 @@ func DiscoveryTopic(prefix, objectID string) string {
 	return prefix + "/sensor/" + DeviceID + "/" + objectID + "/config"
 }
 
-func deviceBlock(swVersion string) map[string]any {
-	return map[string]any{
+func deviceBlock(swVersion, configurationURL string) map[string]any {
+	device := map[string]any{
 		"identifiers":  []string{DeviceIdentifier},
 		"name":         deviceName,
 		"manufacturer": deviceManufacturer,
 		"model":        deviceModel,
 		"sw_version":   swVersion,
 	}
+	// Ohne Tailscale-Namen fehlt das Feld ganz. HA loescht einen einmal
+	// gesetzten Link dadurch nicht, ein fehlendes Feld aendert nichts.
+	if configurationURL != "" {
+		device["configuration_url"] = configurationURL
+	}
+	return device
 }
 
 // Configs liefert die sieben retained Discovery-Config-Nachrichten. prefix
 // ist der HA-Discovery-Präfix (z. B. "homeassistant"), swVersion die
-// Dashboard-Build-Version. Bei enabled == false trägt jede Nachricht ein
-// leeres Payload (Removal), die Topics bleiben unverändert.
-func Configs(prefix, swVersion string, enabled bool) []Message {
+// Dashboard-Build-Version, configurationURL der Geraete-Link aus
+// ConfigurationURL ("" laesst ihn weg). Bei enabled == false trägt jede
+// Nachricht ein leeres Payload (Removal), die Topics bleiben unverändert.
+func Configs(prefix, swVersion, configurationURL string, enabled bool) []Message {
 	out := make([]Message, 0, len(sensors))
-	device := deviceBlock(swVersion)
+	device := deviceBlock(swVersion, configurationURL)
 	for _, s := range sensors {
 		msg := Message{Topic: DiscoveryTopic(prefix, s.objectID)}
 		if enabled {
@@ -137,4 +148,50 @@ func LegacyCleanupMessages(prefix string) []Message {
 		out = append(out, Message{Topic: prefix + "/sensor/dashboard_energy/" + s.objectID + "/config"})
 	}
 	return out
+}
+
+// ConfigurationURL baut den Geraete-Link ("Geraet besuchen" in Home
+// Assistant) aus dem MagicDNS-Namen der Node. Er zeigt auf Caddy (Port 80),
+// also auf denselben Weg, den ein Mensch im Browser nimmt. Leer, wenn der
+// Name fehlt oder Zeichen enthaelt, die in einem Hostnamen nichts zu suchen
+// haben (der Wert landet unveraendert in einem Link).
+func ConfigurationURL(dnsName string) string {
+	name := strings.TrimSuffix(strings.TrimSpace(dnsName), ".")
+	if name == "" {
+		return ""
+	}
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if !(c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9' || c == '-' || c == '.') {
+			return ""
+		}
+	}
+	return "http://" + strings.ToLower(name) + "/"
+}
+
+// Address haelt den zuletzt ermittelten Geraete-Link. cmd/dashboard fragt
+// Tailscale periodisch ab und publiziert die Configs nur neu, wenn Set eine
+// Aenderung meldet.
+type Address struct {
+	mu  sync.Mutex
+	url string
+}
+
+// Set uebernimmt url und meldet, ob sie sich vom bisherigen Wert
+// unterscheidet.
+func (a *Address) Set(url string) bool {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	if a.url == url {
+		return false
+	}
+	a.url = url
+	return true
+}
+
+// URL liefert den aktuellen Geraete-Link oder "".
+func (a *Address) URL() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	return a.url
 }

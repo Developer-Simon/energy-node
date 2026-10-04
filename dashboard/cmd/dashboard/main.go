@@ -271,16 +271,20 @@ func main() {
 	nodeSimTopic := "outstation/" + cfg.Dashboard.NodeDeviceID + "/settings/simulation_active/set"
 	nodeSimPublisher := nodeSimAdapter{client: client, topic: nodeSimTopic}
 
-	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
-	// Der Schalter wird bei jedem Aufruf frisch gelesen, damit ein
-	// "Speichern und neu verbinden" ihn sofort anwendet; bei false trägt
-	// energydiscovery.Configs leere Payloads (Removal) auf dieselben Topics.
-	client.SetConnectPublisher(func() []mqttclient.OutboundMessage {
+	// Geraete-Link fuer Home Assistant, gefuellt von der Tailscale-Abfrage
+	// weiter unten. Leer, bis Tailscale einen Namen liefert.
+	discoveryAddress := &energydiscovery.Address{}
+
+	// energyDiscovery baut die sieben Energie-Discovery-Configs. Der Schalter
+	// wird bei jedem Aufruf frisch gelesen, damit ein "Speichern und neu
+	// verbinden" ihn sofort anwendet; bei false trägt energydiscovery.Configs
+	// leere Payloads (Removal) auf dieselben Topics.
+	energyDiscovery := func() []mqttclient.OutboundMessage {
 		publish := true
 		if stored, err := settingsStore.LoadMQTT(); err == nil {
 			publish = stored.PublishEnergyDevice
 		}
-		configs := energydiscovery.Configs(client.DiscoveryPrefix(), buildVersion, publish)
+		configs := energydiscovery.Configs(client.DiscoveryPrefix(), buildVersion, discoveryAddress.URL(), publish)
 		msgs := make([]mqttclient.OutboundMessage, 0, len(configs))
 		for _, cfg := range configs {
 			msgs = append(msgs, mqttclient.OutboundMessage{
@@ -289,6 +293,12 @@ func main() {
 				Retain:  true,
 			})
 		}
+		return msgs
+	}
+
+	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
+	client.SetConnectPublisher(func() []mqttclient.OutboundMessage {
+		msgs := energyDiscovery()
 
 		// Node-Systemdiagnose (energy_node) + einmalige Abraeumung des alten,
 		// mit Bindestrich benannten energy-node-Geraets des geloeschten
@@ -315,6 +325,31 @@ func main() {
 		})
 		return msgs
 	})
+
+	// Der MagicDNS-Name ist beim Start oft noch unbekannt (Tailscale verbindet
+	// spaeter) und kann sich aendern. Deshalb sofort und dann alle 5 Minuten
+	// nachsehen und nur bei einem neuen Namen neu publizieren. Ein leerer Name
+	// (CLI-Zeitueberschreitung, abgemeldet) behaelt den letzten Link.
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for {
+			status, err := tailscaleClient.Status(ctx)
+			if url := energydiscovery.ConfigurationURL(status.DNSName); err == nil && url != "" && discoveryAddress.Set(url) {
+				for _, msg := range energyDiscovery() {
+					if err := client.PublishRetained(msg.Topic, msg.Payload); err != nil {
+						// Getrennt: der naechste Connect publiziert ohnehin neu.
+						break
+					}
+				}
+			}
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+			}
+		}
+	}()
 
 	if bridgeCfg, err := settingsStore.LoadBridge(); err != nil {
 		log.Printf("energy-node-dashboard: bridge config ignored: %v", err)
