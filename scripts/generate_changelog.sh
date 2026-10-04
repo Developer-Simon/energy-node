@@ -120,7 +120,7 @@
 set -euo pipefail
 
 ALL_TARGETS=(
-  dashboard services common battery_soc_core ha-integration ha-icons
+  dashboard services common battery_soc_core ha-integration ha-icons ha-energy-node
   installer installer-webui bootstrap
   service:apsystems_ez1 service:automation service:battery_soc
   service:shelly service:trucki service:tuya_mqtt
@@ -247,7 +247,7 @@ while [[ $# -gt 0 ]]; do
       rebuild=true
       shift
       ;;
-    dashboard|services|common|battery_soc_core|ha-integration|ha-icons|installer|installer-webui|bootstrap|all|service:*)
+    dashboard|services|common|battery_soc_core|ha-integration|ha-icons|ha-energy-node|installer|installer-webui|bootstrap|all|service:*)
       if [[ -n "$target" ]]; then
         usage
         exit 1
@@ -709,6 +709,8 @@ generate_one() {
         "integrations/homeassistant/icons.source.json"
         "integrations/homeassistant/tests/test_icon_set.py"
         "integrations/homeassistant/tests/test_icons_component.py"
+        "integrations/homeassistant/custom_components/energy_node/"
+        "integrations/homeassistant/tests/test_history_"
       )
       # v0.1.0-v0.1.4 wurden von Hand als 5 getrennte Abschnitte geschrieben,
       # bevor diese Komponente ab v0.2.0 auf automatische Generierung
@@ -719,6 +721,11 @@ generate_one() {
       out_dir_prefix="integrations/homeassistant/custom_components/energy_node_icons/"
       history_prefixes=("integrations/homeassistant/custom_components/energy_node_icons/")
       version_file_candidates=("integrations/homeassistant/custom_components/energy_node_icons/manifest.json")
+      ;;
+    ha-energy-node)
+      out_dir_prefix="integrations/homeassistant/custom_components/energy_node/"
+      history_prefixes=("integrations/homeassistant/custom_components/energy_node/")
+      version_file_candidates=("integrations/homeassistant/custom_components/energy_node/manifest.json")
       ;;
   esac
 

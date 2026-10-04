@@ -32,6 +32,9 @@
      "changelog": "integrations/homeassistant/CHANGELOG.md", "bundle": false, "ci": false},
     {"id": "ha-icons", "label": "Home Assistant icon set", "kind": "integration", "target": "ha-icons",
      "version_file": "integrations/homeassistant/custom_components/energy_node_icons/manifest.json",
-     "changelog": "integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md", "bundle": false, "ci": false}
+     "changelog": "integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md", "bundle": false, "ci": false},
+    {"id": "ha-energy-node", "label": "Home Assistant energy-node integration", "kind": "integration", "target": "ha-energy-node",
+     "version_file": "integrations/homeassistant/custom_components/energy_node/manifest.json",
+     "changelog": "integrations/homeassistant/custom_components/energy_node/CHANGELOG.md", "bundle": false, "ci": false}
   ]
 }
