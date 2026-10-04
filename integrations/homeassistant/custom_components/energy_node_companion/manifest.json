@@ -1,14 +1,20 @@
 {
   "domain": "energy_node_companion",
   "name": "Energy Node Companion",
-  "after_dependencies": ["mqtt"],
-  "codeowners": ["@Developer-Simon"],
+  "after_dependencies": [
+    "mqtt"
+  ],
+  "codeowners": [
+    "@Developer-Simon"
+  ],
   "config_flow": true,
-  "dependencies": ["recorder"],
+  "dependencies": [
+    "recorder"
+  ],
   "documentation": "https://github.com/Developer-Simon/energy-node",
   "integration_type": "service",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Developer-Simon/energy-node/issues",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.1"
 }
