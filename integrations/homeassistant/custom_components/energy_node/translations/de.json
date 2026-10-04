@@ -1,0 +1,32 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Energy Node",
+        "description": "Home Assistant liefert dem Dashboard der energy-node Verläufe aus seinem Recorder. Gib die Adresse des Dashboards im Tailnet mit dem Port des Dashboards an, zum Beispiel http://energy-node.tail1234.ts.net:8080.",
+        "data": {
+          "url": "Adresse des Dashboards",
+          "verify_ssl": "Zertifikat prüfen"
+        }
+      },
+      "reconfigure": {
+        "title": "Energy Node",
+        "description": "Adresse oder Port des Dashboards ändern.",
+        "data": {
+          "url": "Adresse des Dashboards",
+          "verify_ssl": "Zertifikat prüfen"
+        }
+      }
+    },
+    "error": {
+      "invalid_url": "Die Adresse muss mit http:// oder https:// beginnen.",
+      "cannot_connect": "Das Dashboard ist unter dieser Adresse nicht erreichbar.",
+      "wrong_protocol": "Das Dashboard spricht eine andere Version des Verlauf-Austauschs.",
+      "dashboard_too_old": "Das Dashboard ist zu alt. Bitte zuerst die energy-node aktualisieren."
+    },
+    "abort": {
+      "already_configured": "Dieses Dashboard ist bereits eingerichtet.",
+      "reconfigure_successful": "Die Adresse des Dashboards wurde geändert."
+    }
+  }
+}
