@@ -1,0 +1,56 @@
+name: Bug report
+description: The integration does not connect to the dashboard or does not fill history gaps.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: >
+        Thanks for taking the time to file a report. This integration connects
+        Home Assistant to the history exchange of an energy-node dashboard and
+        supplies history from the Home Assistant recorder. Please tell us what
+        you expected and what happened instead.
+  - type: input
+    id: ha_version
+    attributes:
+      label: Home Assistant version
+      placeholder: "2026.9.0"
+    validations:
+      required: true
+  - type: input
+    id: integration_version
+    attributes:
+      label: Energy Node integration version
+      description: HACS → Energy Node → the installed version.
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: dashboard_version
+    attributes:
+      label: energy-node dashboard version
+      description: Shown in the dashboard under Settings → Versions.
+      placeholder: "0.8.5"
+    validations:
+      required: true
+  - type: dropdown
+    id: install_method
+    attributes:
+      label: Installation method
+      options:
+        - HACS custom repository
+        - Manual (downloaded ZIP)
+    validations:
+      required: true
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened?
+      description: For example the setup fails with an error, or the dashboard never shows "Zuletzt ergänzt von Home Assistant."
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Settings → System → Logs, filtered to `energy_node`. Debug logging for `custom_components.energy_node` helps with connection problems.
+      render: text

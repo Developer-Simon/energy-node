@@ -7,7 +7,7 @@ every failure and exits non-zero.
 
     .venv/bin/python scripts/check_mirror_manifest.py [--component NAME]
 
---component defaults to 'battery_soc' (the other option: 'energy_node_icons').
+--component defaults to 'battery_soc' (the others: 'energy_node_icons', 'energy_node').
 
 Stdlib only.
 """
@@ -121,9 +121,12 @@ def check(root: Path, component: str = "battery_soc") -> list[str]:
         readme_checks = ["my.home-assistant.io/redirect/hacs_repository"]
         if component == "battery_soc":
             readme_checks.extend(["brand/icon.png", "IntegrationDemo.png"])
-        else:
+        elif component == "energy_node_icons":
             # energy_node_icons should reference the icon catalogue
             readme_checks.append("Icon catalogue")
+        else:
+            # energy_node: Voraussetzungen und Einrichtung muessen drinstehen
+            readme_checks.extend(["## Requirements", "## Setup"])
         for needle in readme_checks:
             if needle not in readme:
                 fails.append(f"mirror/README.md no longer references {needle!r}")
@@ -155,7 +158,7 @@ def main() -> int:
     parser.add_argument(
         "--component",
         default="battery_soc",
-        choices=["battery_soc", "energy_node_icons"],
+        choices=["battery_soc", "energy_node_icons", "energy_node"],
         help="Component to check (default: battery_soc)",
     )
     args = parser.parse_args()

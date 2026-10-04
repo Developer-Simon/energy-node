@@ -5,7 +5,7 @@ component: ha-integration
 
 # Home Assistant integration — HACS mirror repo & release runbook
 
-Home Assistant integrations in this monorepo (`battery_soc` and `energy_node_icons`) are
+Home Assistant integrations in this monorepo (`battery_soc`, `energy_node_icons` and `energy_node`) are
 distributed to users through **separate, public GitHub repos** wired for HACS. Those mirror
 repos are *derived artifacts*: they are assembled from this monorepo by
 `scripts/publish_mirror.sh` and never edited by hand.
@@ -14,8 +14,9 @@ repos are *derived artifacts*: they are assembled from this monorepo by
 - **Mirror repos:** 
   - [`Developer-Simon/ha-battery-soc`](https://github.com/Developer-Simon/ha-battery-soc) — the public, HACS-facing repo for `battery_soc`.
   - [`Developer-Simon/ha-energy-node-icons`](https://github.com/Developer-Simon/ha-energy-node-icons) — the public, HACS-facing repo for `energy_node_icons`.
+  - [`Developer-Simon/ha-energy-node`](https://github.com/Developer-Simon/ha-energy-node) — the public, HACS-facing repo for `energy_node` (history exchange peer).
   
-  Both are assembled from here by `scripts/publish_mirror.sh` (pass `--component battery_soc` or `--component energy_node_icons`).
+  All are assembled from here by `scripts/publish_mirror.sh` (pass `--component battery_soc`, `--component energy_node_icons` or `--component energy_node`).
 - **Shared core:** `libs/battery_soc_core/` → vendored into the integration by
   `scripts/vendor_core.py` (drift-guarded by the CI job *Vendored artefacts in
   sync* and `integrations/homeassistant/tests/test_vendor_sync.py`).
@@ -26,6 +27,7 @@ repos are *derived artifacts*: they are assembled from this monorepo by
 - **Public identifiers:** each component has its own `release.env` file:
   - `integrations/homeassistant/mirror/battery_soc/release.env` — `OWNER=Developer-Simon`, `REPO=ha-battery-soc`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-battery-soc` (absolute path where the mirror repo is checked out), `CHANGELOG_TARGET=ha-integration`, `CHANGELOG_PATH=integrations/homeassistant/CHANGELOG.md`.
   - `integrations/homeassistant/mirror/energy_node_icons/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node-icons`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-energy-node-icons` (absolute path where the mirror repo is checked out), `CHANGELOG_TARGET=ha-icons`, `CHANGELOG_PATH=integrations/homeassistant/custom_components/energy_node_icons/CHANGELOG.md` (monorepo-rooted path).
+  - `integrations/homeassistant/mirror/energy_node/release.env` — `OWNER=Developer-Simon`, `REPO=ha-energy-node`, `HA_MIN_VERSION`, `MIRROR_PATH=/home/simon/dev/ha-energy-node`, `CHANGELOG_TARGET=ha-energy-node`, `CHANGELOG_PATH=integrations/homeassistant/custom_components/energy_node/CHANGELOG.md`.
 - **Real HACS/hassfest validation:** runs as GitHub Actions **in the mirror
   repo** (`.github/workflows/validate.yml`), not here.
   `scripts/check_mirror_manifest.py` is only a fast offline pre-check.
@@ -80,6 +82,20 @@ Repeat steps 1–8 above with:
 - Step 6 & 7: replace `battery_soc` with `energy_node_icons` in the commands.
 - Step 7 topics: `--add-topic home-assistant --add-topic hacs --add-topic icons`
 - Mirror path: `../ha-energy-node-icons` (inferred from `release.env`).
+
+### For `energy_node`:
+
+Repeat steps 1–8 above with:
+- Step 1: `mkdir -p ../ha-energy-node && cd ../ha-energy-node && git init && git branch -m main`
+- Step 2: repo name `Developer-Simon/ha-energy-node`
+- Step 3: `git remote add origin git@github.com:Developer-Simon/ha-energy-node.git`
+- Step 4: `integrations/homeassistant/mirror/energy_node/release.env`
+- Step 5: the base manifest already carries the real values.
+- Step 6 & 7: replace `battery_soc` with `energy_node` in the commands.
+- Step 7 topics: `--add-topic home-assistant --add-topic hacs --add-topic home-assistant-integration --add-topic energy`
+- Add `Developer-Simon/ha-energy-node` to the fine-grained token behind the
+  `HA_MIRROR_TOKEN` secret (Contents, Workflows, Actions: read and write),
+  otherwise the **HA Mirror Release** workflow cannot push to it.
 
 A GitHub **Release** (not just a tag) is mandatory, not optional polish: with
 zero Releases HACS runs the repo in *commit mode* — the update entity shows a
