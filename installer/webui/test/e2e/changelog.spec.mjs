@@ -76,3 +76,35 @@ test('Zurueck fuehrt in die Vorschau, mit ihrer Zaehlzeile', () => withHost(UPDA
   await page.locator('.app[data-screen="preview"] .whatsnew').waitFor();
   await context.close();
 }));
+
+test('der Umschalter oben zeigt erst die Highlights und auf Wunsch alles', () => withHost(UPDATE, async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await page.getByRole('button', { name: 'Änderungen ansehen' }).click();
+  await page.locator('.app[data-screen="changelog"] .cl-comp').first().waitFor();
+  const detail = page.locator('.app[data-screen="changelog"]').getByText('cover the versions page in the browser');
+
+  assert.equal(await page.getByRole('radio', { name: 'Highlights' }).getAttribute('aria-checked'), 'true');
+  assert.equal(await detail.count(), 0, 'ein Detail steht nicht in den Highlights');
+  await page.getByRole('radio', { name: 'Alles' }).click();
+  await detail.waitFor();
+  assert.equal(await page.locator('.cl-grp-h', { hasText: 'Tests' }).count(), 1);
+  await page.getByRole('radio', { name: 'Highlights' }).click();
+  assert.equal(await detail.count(), 0);
+  await context.close();
+}));
+
+test('der Umschalter laesst sich mit der Tastatur bedienen', () => withHost(UPDATE, async (host) => {
+  const { page, context } = await openPage(browser, host.url);
+  await page.getByRole('button', { name: 'Änderungen ansehen' }).click();
+  await page.locator('.app[data-screen="changelog"] .cl-comp').first().waitFor();
+  const detail = page.locator('.app[data-screen="changelog"]').getByText('cover the versions page in the browser');
+
+  await page.getByRole('radio', { name: 'Alles' }).focus();
+  await page.keyboard.press('Enter');
+  await detail.waitFor();
+  await page.getByRole('radio', { name: 'Highlights' }).focus();
+  await page.keyboard.press('Space');
+  assert.equal(await page.getByRole('radio', { name: 'Highlights' }).getAttribute('aria-checked'), 'true');
+  assert.equal(await detail.count(), 0);
+  await context.close();
+}));

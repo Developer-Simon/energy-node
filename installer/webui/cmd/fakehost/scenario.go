@@ -319,18 +319,20 @@ func fixtureChangelog(update bool) *hostapi.ChangelogView {
     {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "v1.4.2", "releases": [
       {"version": "v1.4.2", "date": "2026-09-21", "groups": [
         {"type": "feat", "label": "Features", "entries": [
-          {"text": "add a versions page", "breaking": false, "scope": "dashboard", "pr": 51},
-          {"text": "fold the config.json node block into dashboard.node_*", "breaking": true, "scope": "dashboard", "pr": 14}]},
+          {"text": "add a versions page", "breaking": false, "scope": "dashboard", "pr": 51, "highlight": true},
+          {"text": "fold the config.json node block into dashboard.node_*", "breaking": true, "scope": "dashboard", "pr": 14, "highlight": true}]},
         {"type": "fix", "label": "Fixes", "entries": [
-          {"text": "stop duplicate energy card mounts from fighting over springs", "breaking": false, "scope": "dashboard", "pr": 41},
-          {"text": "show the download icon in the masthead update badge", "breaking": false, "scope": "dashboard", "pr": 40}]}]},
+          {"text": "stop duplicate energy card mounts from fighting over springs", "breaking": false, "scope": "dashboard", "pr": 41, "highlight": true},
+          {"text": "show the download icon in the masthead update badge", "breaking": false, "scope": "dashboard", "pr": 40, "highlight": true}]},
+        {"type": "test", "label": "Tests", "entries": [
+          {"text": "cover the versions page in the browser", "breaking": false, "scope": "dashboard", "highlight": false}]}]},
       {"version": "v1.4.1", "date": "2026-09-16", "groups": [
         {"type": "fix", "label": "Fixes", "entries": [
-          {"text": "an older fix the node already has", "breaking": false, "scope": "dashboard", "pr": 30}]}]}]},
+          {"text": "an older fix the node already has", "breaking": false, "scope": "dashboard", "pr": 30, "highlight": true}]}]}]},
     {"id": "service:shelly", "label": "Shelly", "kind": "service", "version": "v0.4.0", "releases": [
       {"version": "v0.4.0", "date": "2026-09-15", "groups": [
         {"type": "feat", "label": "Features", "entries": [
-          {"text": "make device services self-describing with per-service manifests", "breaking": false, "pr": 12}]}]}]}
+          {"text": "make device services self-describing with per-service manifests", "breaking": false, "pr": 12, "highlight": true}]}]}]}
   ]
 }`),
 	}

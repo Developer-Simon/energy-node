@@ -232,3 +232,13 @@ test('openChangelog merkt sich die Vorschau als Rueckweg und wechselt den Bildsc
   assert.equal(shell.screen, 'changelog');
   assert.equal(shell.shared.changelogFrom, 'preview');
 });
+
+test('die Zaehlzeile zaehlt nur die Highlights, wenn der Changelog welche markiert', async () => {
+  const flagged = JSON.parse(JSON.stringify(CHANGELOG_VIEW));
+  const [feat, fix] = flagged.document.components[0].releases[0].groups;
+  feat.entries[0].highlight = true;
+  fix.entries[0].highlight = false;
+  fix.entries[1].highlight = true;
+  const { screen } = await mount({ responses: { 'GET /api/changelog': flagged } });
+  assert.equal(screen.whatsNewLine, '1 Neuerung · 1 Korrektur · 1 Breaking Change');
+});

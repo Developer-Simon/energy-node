@@ -158,3 +158,44 @@ test('back returns to the screen that opened it, the preview by default', async 
   plainMount.screen.back();
   assert.equal(plainMount.shell.screen, 'preview');
 });
+
+// Highlights / Alles: changelog.json flags every entry. Shelly's only entry is
+// a detail, so in the highlights view Shelly is left out and counted instead.
+const FLAGGED = JSON.parse(JSON.stringify(CHANGELOG));
+FLAGGED.document.components[0].releases[0].groups[0].entries[0].highlight = true;
+FLAGGED.document.components[0].releases[0].groups[1].entries[0].highlight = false;
+FLAGGED.document.components[0].releases[1].groups[0].entries[0].highlight = true;
+FLAGGED.document.components[1].releases[0].groups[0].entries[0].highlight = false;
+const mountFlagged = () => mount({ responses: { 'GET /api/changelog': FLAGGED } });
+const visibleTexts = (screen) => plain(screen.visible.map((row) => [row.id, row.releases.flatMap((r) => r.groups.flatMap((g) => g.entries.map((e) => e.text)))]));
+
+test('a flagged changelog opens on the highlights and can switch to everything', async () => {
+  const { screen } = await mountFlagged();
+  assert.equal(screen.canSwitch, true);
+  assert.equal(screen.mode, 'highlights');
+  assert.deepEqual(visibleTexts(screen), [['dashboard', ['add a versions page', 'drop the legacy node block']]]);
+  assert.equal(screen.detailsOnly, 1, 'Shelly has details only');
+  assert.equal(screen.countLine, '2 Neuerungen · 1 Breaking Change');
+  screen.setMode('all');
+  assert.deepEqual(visibleTexts(screen), [
+    ['dashboard', ['add a versions page', 'stop duplicate mounts', 'drop the legacy node block']],
+    ['service:shelly', ['retry the rpc call']],
+  ]);
+  assert.equal(screen.detailsOnly, 0);
+  assert.equal(screen.countLine, '2 Neuerungen · 2 Korrekturen · 1 Breaking Change');
+});
+
+test('the filters work inside the highlights view too', async () => {
+  const { screen } = await mountFlagged();
+  screen.query = 'versions';
+  assert.deepEqual(visibleTexts(screen), [['dashboard', ['add a versions page']]]);
+  screen.query = 'retry';
+  assert.equal(screen.nothingMatches, true, 'a detail does not match in the highlights view');
+});
+
+test('a changelog without flags has nothing to switch and shows everything', async () => {
+  const { screen } = await mount();
+  assert.equal(screen.canSwitch, false);
+  assert.equal(screen.visible.length, 2);
+  assert.equal(screen.detailsOnly, 0);
+});

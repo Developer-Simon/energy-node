@@ -13,6 +13,15 @@
       <template x-if="installedVersion"><span class="cl-from" x-text="installedVersion"></span></template>
       <template x-if="installedVersion"><span class="cl-arr">{{template "icon-arrow"}}</span></template>
       <span class="cl-to" x-text="packageVersion"></span>
+      <template x-if="canSwitch">
+        <div class="mode cl-mode" role="radiogroup" :aria-label="t('changelog.mode.label')">
+          <template x-for="name in ['highlights', 'all']" :key="name">
+            <div class="mode-i" :class="{ on: mode === name }" role="radio" tabindex="0" :aria-checked="mode === name"
+                 @click="setMode(name)" @keydown.enter.prevent="setMode(name)" @keydown.space.prevent="setMode(name)"
+                 x-text="t('changelog.mode.' + name)"></div>
+          </template>
+        </div>
+      </template>
       <span class="cl-note" x-text="countLine"></span>
     </div>
 
@@ -66,6 +75,8 @@
         </template>
       </section>
     </template>
+
+    <template x-if="detailsOnly > 0"><p class="cl-details-only" x-text="tn('changelog.details_only', detailsOnly)"></p></template>
   </div>
 
   <footer class="foot">

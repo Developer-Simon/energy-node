@@ -174,7 +174,10 @@
         this.changelog = null;
         try {
           var view = await window.Api.get('/api/changelog');
-          this.changelog = window.ChangelogModel.summarize(window.ChangelogModel.slice(view));
+          // Gezaehlt werden die Highlights, sofern der Changelog welche markiert
+          // (die Seite oeffnet auch auf ihnen), sonst alle Eintraege.
+          var model = window.ChangelogModel;
+          this.changelog = model.summarize(model.focus(model.slice(view)));
         } catch (err) {
           this.changelog = null;
         }
