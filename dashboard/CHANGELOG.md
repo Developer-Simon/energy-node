@@ -5,6 +5,7 @@
 ### Features
 
 - **battery_soc:** save the state on an interval and recover after a crash (#78) (dc62037)
+- ship changelog.json in the bundle and show what is new before an update (#82) (d862195)
 - **updater:** record changelog.json next to the installed manifest (a823aa6)
 - **dashboard:** lead the update pill to the update screen for users who may update (70fd1b0)
 - **battery_soc:** add the save interval setting to the service schema (df73211)
