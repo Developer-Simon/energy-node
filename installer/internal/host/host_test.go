@@ -3,11 +3,13 @@ package host_test
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/Developer-Simon/energy-node-installer/internal/credstore"
 	"github.com/Developer-Simon/energy-node-installer/internal/host"
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
@@ -212,5 +214,39 @@ func TestAUTCTimezoneIsAWarning(t *testing.T) {
 	}
 	if view.Timezone != "Etc/UTC" || view.OSPrettyName == "" || view.DiskTotalMB != 29700 {
 		t.Errorf("the facts were not copied: %+v", view)
+	}
+}
+
+func TestDescribeReportsTheSavedCredentials(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir)
+	store := &credstore.Memory{Saved: &credstore.Credentials{Host: "node.local", User: "pi", Kind: "password", Secret: "hunter2"}}
+	h, err := host.New(host.Config{BundleDir: dir, IdentityDir: t.TempDir(), KnownHostsPath: filepath.Join(t.TempDir(), "known_hosts"), Credentials: store})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	got := h.Describe().Credentials
+	if got == nil || got.Host != "node.local" || !got.HasSecret {
+		t.Fatalf("Describe().Credentials = %+v", got)
+	}
+}
+
+func TestConnectWithAMissingSavedPasswordFailsBeforeDialing(t *testing.T) {
+	dir := t.TempDir()
+	writeManifest(t, dir)
+	store := &credstore.Memory{}
+	h, err := host.New(host.Config{BundleDir: dir, IdentityDir: t.TempDir(), KnownHostsPath: filepath.Join(t.TempDir(), "known_hosts"), Credentials: store})
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	_, err = h.Connect(context.Background(), hostapi.ConnectRequest{
+		Host: "203.0.113.1", User: "pi", Kind: hostapi.AuthPassword, UseSavedSecret: true, Remember: true,
+	})
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "CREDENTIALS_MISSING" {
+		t.Fatalf("Connect error = %v, want CREDENTIALS_MISSING", err)
+	}
+	if store.Saves != 0 || store.Deletes != 0 {
+		t.Fatalf("a failed connect touched the keychain: %+v", store)
 	}
 }

@@ -17,6 +17,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-installer/internal/bundle"
 	"github.com/Developer-Simon/energy-node-installer/internal/bundlesource"
+	"github.com/Developer-Simon/energy-node-installer/internal/credstore"
 	"github.com/Developer-Simon/energy-node-installer/internal/host"
 	"github.com/Developer-Simon/energy-node-installer/internal/shell"
 	webui "github.com/Developer-Simon/energy-node-webui"
@@ -99,6 +100,7 @@ func runUI(cfg uiConfig) error {
 		KnownHostsPath: filepath.Join(stateHome, ".energy-node", "known_hosts"),
 		IdentityDir:    filepath.Join(stateHome, ".energy-node"),
 		RepoPath:       bundlesource.DetectRepo(cwd, exeDir),
+		Credentials:    credstore.Keyring{Service: "energy-node-installer", Account: "last"},
 		Resolver: &bundlesource.Resolver{
 			BundledDir: bundleDir,
 			WorkDir:    dirs.work,

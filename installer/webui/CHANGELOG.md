@@ -1,11 +1,25 @@
 # Changelog
 
+## v0.1.17 (2026-10-04)
+
+### Features
+
+- **webui:** carry saved access details through bootstrap and connect (b903522)
+- **installer:** remember the access details in the OS keychain (5097e5a)
+- **installer:** add a remember switch for the access details to the connect screen (ba9d513)
+- **installer:** make the key option on the connect screen a switch (58c9837)
+
+### Fixes
+
+- **installer:** prefill the connect form once the bootstrap has arrived (32cd044)
+
 ## v0.1.16 (2026-10-01)
 
 ### Features
 
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
 - **installer:** transfer only changed bundle files to the node (#79) (f782acd)
+- ship changelog.json in the bundle and show what is new before an update (#82) (d862195)
 - **webui:** add GET /api/changelog as an optional backend capability (7a3aeea)
 - **webui:** add a model that slices a changelog against the installed versions (471ea80)
 - **webui:** add the changelog screen with breaking changes and filters (611854f)

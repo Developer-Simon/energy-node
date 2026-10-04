@@ -327,3 +327,29 @@ func TestWithoutLanguageForTheConfiguredLanguageStays(t *testing.T) {
 		t.Errorf("language = %q, want de: without LanguageFor the request must not matter", got.Language)
 	}
 }
+
+func TestBootstrapCarriesTheSavedCredentialsWithoutASecret(t *testing.T) {
+	server, fake := newTestServer(t, nil)
+	fake.Description.Credentials = &hostapi.SavedCredentials{Host: "node.local", User: "pi", Kind: hostapi.AuthPassword, HasSecret: true}
+	rec := do(t, server, http.MethodGet, "/api/bootstrap", "")
+	var got struct {
+		Credentials map[string]any `json:"credentials"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.Credentials["host"] != "node.local" || got.Credentials["has_secret"] != true {
+		t.Errorf("credentials = %v", got.Credentials)
+	}
+	if _, ok := got.Credentials["secret"]; ok {
+		t.Errorf("bootstrap must never carry a secret field: %v", got.Credentials)
+	}
+}
+
+func TestBootstrapOmitsCredentialsWithoutAKeychain(t *testing.T) {
+	server, _ := newTestServer(t, nil)
+	rec := do(t, server, http.MethodGet, "/api/bootstrap", "")
+	if strings.Contains(rec.Body.String(), `"credentials"`) {
+		t.Errorf("bootstrap = %s, want no credentials key", rec.Body.String())
+	}
+}

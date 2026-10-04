@@ -29,6 +29,10 @@ type Description struct {
 	// Redeploy den Bildschirm "Paket vorbereiten", der POST /api/run mit
 	// mode "prepare" ausloest.
 	AutoPrepare bool `json:"auto_prepare,omitempty"`
+	// Credentials ist der im Schluesselbund gemerkte Zugang, ohne Passwort.
+	// nil heisst: dieser Wirt hat keinen nutzbaren Schluesselbund, der
+	// Schalter "Zugangsdaten merken" bleibt verborgen.
+	Credentials *SavedCredentials `json:"credentials,omitempty"`
 }
 
 // AuthKind ist die Art, wie sich der Installer am Node anmeldet.
@@ -39,6 +43,18 @@ const (
 	AuthKey      AuthKind = "key"
 	AuthAgent    AuthKind = "agent"
 )
+
+// SavedCredentials ist der gemerkte Zugang, wie ihn die Oberflaeche sieht.
+// Ein leerer Host heisst: Schluesselbund nutzbar, aber nichts gemerkt.
+type SavedCredentials struct {
+	Host    string   `json:"host"`
+	User    string   `json:"user"`
+	Kind    AuthKind `json:"kind"`
+	KeyPath string   `json:"key_path"`
+	// HasSecret sagt nur, dass ein Passwort gemerkt ist. Das Passwort selbst
+	// verlaesst den Wirt nie.
+	HasSecret bool `json:"has_secret"`
+}
 
 // ConnectRequest ist der Rumpf von POST /api/connect.
 type ConnectRequest struct {
@@ -54,6 +70,12 @@ type ConnectRequest struct {
 	// AcceptFingerprint ist der Fingerabdruck, den der Betreiber im
 	// TOFU-Dialog bestaetigt hat. Leer beim ersten Versuch.
 	AcceptFingerprint string `json:"accept_fingerprint"`
+	// Remember merkt den Zugang nach einer gelungenen Anmeldung im
+	// Schluesselbund; false loescht einen gemerkten Eintrag.
+	Remember bool `json:"remember"`
+	// UseSavedSecret laesst den Wirt das gemerkte Passwort nehmen. Secret
+	// ist dann leer.
+	UseSavedSecret bool `json:"use_saved_secret"`
 }
 
 // ConnectResult meldet den Ausgang eines Verbindungsversuchs.
@@ -64,6 +86,9 @@ type ConnectResult struct {
 	// Fingerprint ist gesetzt, wenn der Host-Key unbekannt ist und der
 	// Betreiber ihn bestaetigen soll.
 	Fingerprint string `json:"fingerprint,omitempty"`
+	// CredentialsError ist ein Fehlercode, wenn die Anmeldung gelang, das
+	// Merken oder Loeschen im Schluesselbund aber nicht.
+	CredentialsError string `json:"credentials_error,omitempty"`
 }
 
 // KeypairResult beschreibt ein frisch erzeugtes und auf dem Node hinterlegtes

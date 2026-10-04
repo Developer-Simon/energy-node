@@ -62,18 +62,19 @@ type Server struct {
 // Bootstrap ist die Antwort von GET /api/bootstrap: alles, was die Oberflaeche
 // braucht, bevor sie das erste Mal zeichnet.
 type Bootstrap struct {
-	Host            HostKind     `json:"host"`
-	EntryPoints     []string     `json:"entry_points"`
-	NeedsConnection bool         `json:"needs_connection"`
-	BundleVersion   string       `json:"bundle_version"`
-	BundleArch      string       `json:"bundle_arch"`
-	AssetVersion    string       `json:"asset_version"`
-	Language        string       `json:"language"`
-	LanguageFixed   bool         `json:"language_fixed"`
-	Languages       []string     `json:"languages"`
-	BasePath        string       `json:"base_path"`
-	Package         *PackageInfo `json:"package,omitempty"`
-	AutoPrepare     bool         `json:"auto_prepare,omitempty"`
+	Host            HostKind          `json:"host"`
+	EntryPoints     []string          `json:"entry_points"`
+	NeedsConnection bool              `json:"needs_connection"`
+	BundleVersion   string            `json:"bundle_version"`
+	BundleArch      string            `json:"bundle_arch"`
+	AssetVersion    string            `json:"asset_version"`
+	Language        string            `json:"language"`
+	LanguageFixed   bool              `json:"language_fixed"`
+	Languages       []string          `json:"languages"`
+	BasePath        string            `json:"base_path"`
+	Package         *PackageInfo      `json:"package,omitempty"`
+	AutoPrepare     bool              `json:"auto_prepare,omitempty"`
+	Credentials     *SavedCredentials `json:"credentials,omitempty"`
 }
 
 // New baut den Server und registriert alle Routen.
@@ -226,6 +227,7 @@ func (s *Server) handleBootstrap(w http.ResponseWriter, r *http.Request) {
 		BasePath:        s.opts.BasePath,
 		Package:         description.Package,
 		AutoPrepare:     description.AutoPrepare,
+		Credentials:     description.Credentials,
 	})
 }
 

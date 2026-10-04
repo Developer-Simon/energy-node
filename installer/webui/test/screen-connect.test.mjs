@@ -28,7 +28,7 @@ test('connect schickt Host, Benutzer und Passwort und fuehrt in die Vorpruefung'
 
   assert.deepEqual(calls[0], {
     key: 'POST /api/connect',
-    body: { host: 'energy-node.local', user: 'pi', kind: 'password', secret: 'hunter2', key_path: '', accept_fingerprint: '' },
+    body: { host: 'energy-node.local', user: 'pi', kind: 'password', secret: 'hunter2', key_path: '', accept_fingerprint: '', remember: false, use_saved_secret: false },
   });
   assert.equal(shell.connected, true);
   assert.equal(shell.screen, 'precheck');
@@ -288,4 +288,120 @@ test('connect kopiert forceFullTransfer=false in shell.shared.forceFullTransfer 
   assert.equal(screen.forceFullTransfer, false);
   await screen.connect();
   assert.equal(shell.shared.forceFullTransfer, false);
+});
+
+const SAVED = { host: 'energy-node.local', user: 'pi', kind: 'password', key_path: '', has_secret: true };
+const EMPTY_SAVED = { host: '', user: '', kind: '', key_path: '', has_secret: false };
+
+function mountSaved(credentials, options = {}) {
+  return mount(Object.assign({ shell: { bootstrap: { credentials } } }, options));
+}
+
+test('ohne Schluesselbund gibt es keinen Merken-Schalter und keine Merk-Flags', async () => {
+  const { screen, calls } = mount({ responses: { 'POST /api/connect': CONNECTED } });
+  assert.equal(screen.credentialsAvailable, false);
+  fill(screen);
+  screen.makeKey = false;
+  screen.remember = true;
+  await screen.connect();
+  assert.equal(calls[0].body.remember, false, 'ohne Schluesselbund wird nie gemerkt');
+  assert.equal(calls[0].body.use_saved_secret, false);
+});
+
+test('ein gemerkter Zugang fuellt das Formular vor und braucht kein Passwort', () => {
+  const { screen } = mountSaved(SAVED);
+  assert.equal(screen.host, 'energy-node.local');
+  assert.equal(screen.user, 'pi');
+  assert.equal(screen.kind, 'password');
+  assert.equal(screen.remember, true);
+  assert.equal(screen.secret, '');
+  assert.equal(screen.canConnect, true);
+  assert.equal(screen.passwordPlaceholder, realCatalog('de')['connect.remember.saved_placeholder']);
+});
+
+// Die Shell startet auf 'connect': der Bildschirm haengt am DOM und laeuft
+// durch init(), bevor /api/bootstrap geantwortet hat.
+test('ein spaet eintreffender Bootstrap fuellt das Formular noch vor', () => {
+  const { screen, shell, window } = mountScreen('screen-connect.js', 'screenConnect', { catalog: realCatalog('de') });
+  window.localStorage.setItem('energy-node-installer.host', 'alt.fritz.box');
+  shell.bootstrap = null;
+  const watchers = [];
+  screen.$watch = (expression, callback) => watchers.push({ expression, callback });
+  screen.init();
+  assert.equal(screen.host, 'alt.fritz.box');
+  assert.equal(screen.remember, false);
+
+  shell.bootstrap = { credentials: SAVED, package: { bundled: true, repo: { path: '/src/energy-node' } } };
+  watchers.forEach((watcher) => watcher.callback(shell.bootstrap));
+  assert.equal(screen.host, 'energy-node.local');
+  assert.equal(screen.user, 'pi');
+  assert.equal(screen.remember, true);
+  assert.equal(screen.canConnect, true);
+  assert.equal(screen.packageKind, 'bundled');
+  assert.equal(screen.repoPath, '/src/energy-node');
+});
+
+test('mit gemerktem Passwort geht keins mit, nur use_saved_secret', async () => {
+  const { screen, calls } = mountSaved(SAVED, { responses: { 'POST /api/connect': CONNECTED } });
+  screen.makeKey = false;
+  await screen.connect();
+  assert.equal(calls[0].body.secret, '');
+  assert.equal(calls[0].body.use_saved_secret, true);
+  assert.equal(calls[0].body.remember, true);
+});
+
+test('eine andere Adresse oder ein anderer Benutzer nutzt das gemerkte Passwort nicht', () => {
+  const host = mountSaved(SAVED);
+  host.screen.host = 'other.local';
+  assert.equal(host.screen.usesSavedSecret, false);
+  assert.equal(host.screen.canConnect, false);
+  assert.equal(host.screen.passwordPlaceholder, '');
+
+  const user = mountSaved(SAVED);
+  user.screen.user = 'root';
+  assert.equal(user.screen.usesSavedSecret, false);
+});
+
+test('ein eingetipptes Passwort geht vor dem gemerkten', async () => {
+  const { screen, calls } = mountSaved(SAVED, { responses: { 'POST /api/connect': CONNECTED } });
+  screen.makeKey = false;
+  screen.secret = 'neu';
+  await screen.connect();
+  assert.equal(calls[0].body.secret, 'neu');
+  assert.equal(calls[0].body.use_saved_secret, false);
+});
+
+test('ein leerer Schluesselbund zeigt den Schalter aus und fuellt nichts vor', () => {
+  const { screen } = mountSaved(EMPTY_SAVED);
+  assert.equal(screen.credentialsAvailable, true);
+  assert.equal(screen.saved, null);
+  assert.equal(screen.remember, false);
+  assert.equal(screen.user, '');
+});
+
+test('ein gescheitertes Merken haelt nicht auf und steht danach im Banner', async () => {
+  const { screen, shell } = mountSaved(EMPTY_SAVED, {
+    responses: { 'POST /api/connect': Object.assign({}, CONNECTED, { credentials_error: 'CREDENTIALS_STORE_FAILED' }) },
+  });
+  fill(screen);
+  screen.makeKey = false;
+  screen.remember = true;
+  await screen.connect();
+  assert.equal(shell.screen, 'precheck');
+  assert.equal(shell.error.code, 'CREDENTIALS_STORE_FAILED');
+});
+
+test('nach dem Verbinden spiegelt bootstrap den neuen gemerkten Stand', async () => {
+  const on = mountSaved(EMPTY_SAVED, { responses: { 'POST /api/connect': CONNECTED } });
+  fill(on.screen);
+  on.screen.makeKey = false;
+  on.screen.remember = true;
+  await on.screen.connect();
+  assert.deepEqual(plain(on.shell.bootstrap.credentials), SAVED);
+
+  const off = mountSaved(SAVED, { responses: { 'POST /api/connect': CONNECTED } });
+  off.screen.makeKey = false;
+  off.screen.remember = false;
+  await off.screen.connect();
+  assert.deepEqual(plain(off.shell.bootstrap.credentials), EMPTY_SAVED);
 });

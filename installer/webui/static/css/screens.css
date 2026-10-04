@@ -37,6 +37,8 @@
 /* == Ende Vorlage == */
 .app[data-screen="connect"] .opt.off { opacity: .5; cursor: not-allowed; }
 .app[data-screen="connect"] .force-full { display: flex; gap: .6rem; align-items: flex-start; margin-top: .9rem; cursor: pointer; }
+.app[data-screen="connect"] .keypair,
+.app[data-screen="connect"] .remember { display: flex; gap: .6rem; align-items: flex-start; margin-top: .9rem; cursor: pointer; }
 /* == Vorlage: Vorpruefung == */
 .app[data-screen="precheck"] .mode{flex:none;display:flex;gap:.2rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
 .app[data-screen="precheck"] .mode-i{padding:.26rem .62rem;text-align:center;font-size:.74rem;color:var(--text-muted);border-radius:999px;white-space:nowrap}

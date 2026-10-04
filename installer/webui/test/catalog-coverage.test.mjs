@@ -67,6 +67,7 @@ function errorCodes() {
   const sources = [
     ...list(path.join(webui, 'hostapi'), /\.go$/).filter((name) => !name.endsWith('_test.go')).map((name) => read(webui, 'hostapi', name)),
     read(repo, 'installer', 'internal', 'host', 'host.go'),
+    read(repo, 'installer', 'internal', 'host', 'credentials.go'),
     read(repo, 'installer', 'internal', 'host', 'package.go'),
     ...list(path.join(repo, 'installer', 'internal', 'bundlesource'), /\.go$/).filter((name) => !name.endsWith('_test.go')).map((name) => read(repo, 'installer', 'internal', 'bundlesource', name)),
     // Der Dashboard-Wirt (Plan D) zeigt denselben Bildschirm, seine Codes brauchen dieselben Texte.
