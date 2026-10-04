@@ -1,18 +1,26 @@
 # Changelog
 
-## v0.8.4 (2026-10-04)
+## v0.8.5 (2026-10-04)
 
 ### Features
 
+- The changelog pages open on the highlights, the switch at the top shows everything. (#84) (5cc1cfb)
+- **dashboard:** list the recorded series in the history exchange announcement (58c59a2)
+- **dashboard:** relay an optional sender label with history exchange offers (e4dc868)
+- **dashboard:** name the source of exchanged history rows in the settings (6a5d816)
+- **dashboard:** link the HA device to the node's Tailscale address (7c6d6ab)
+- **homeassistant:** add energy_node as a history exchange peer (#85)
 - **dashboard:** switch the versions page between highlights and everything (25b7c01)
-- The changelog pages open on the highlights, the switch at the top shows everything. (#84)
 
 ### Documentation
 
+- **dashboard:** use matching German quotes for the device link note (7f5a20f)
+- describe the Home Assistant history exchange peer (793aad8)
 - highlights and details, screenshot script for the installer (105e72e)
 
 ### Tests
 
+- **dashboard:** follow the settings and history exchange cache-bust (979e317)
 - **dashboard:** smoke fixtures carry highlight flags (0fadf49)
 
 ## v0.8.3 (2026-10-01)

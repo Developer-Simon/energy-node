@@ -5,9 +5,9 @@
 ### Features
 
 - **installer:** remember the access details in the OS keychain (#83) (a0d7a72)
+- The changelog pages open on the highlights, the switch at the top shows everything. (#84) (5cc1cfb)
 - **installer:** changelog model knows highlights (3f23a46)
 - **installer:** open what's new on the highlights with a switch to everything (a45f21d)
-- The changelog pages open on the highlights, the switch at the top shows everything. (#84)
 - **webui:** carry saved access details through bootstrap and connect (b903522)
 - **installer:** add a remember switch for the access details to the connect screen (ba9d513)
 - **installer:** make the key option on the connect screen a switch (58c9837)
