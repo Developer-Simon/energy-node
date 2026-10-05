@@ -1,6 +1,5 @@
 ---
 title: "Home Assistant integration — HACS mirror repo & release runbook"
-component: ha-integration
 ---
 
 # Home Assistant integration — HACS mirror repo & release runbook

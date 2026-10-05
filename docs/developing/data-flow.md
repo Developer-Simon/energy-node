@@ -1,5 +1,7 @@
 ---
 title: "Data flows in the Energy Node system"
+redirect_from:
+  - /knowledge/data-flow.html
 ---
 
 # Data flows in the Energy Node system

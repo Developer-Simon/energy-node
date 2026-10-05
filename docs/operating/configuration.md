@@ -1,5 +1,7 @@
 ---
 title: "Central configuration file `/etc/energy-node/config.json`"
+redirect_from:
+  - /knowledge/configuration.html
 ---
 
 # Central configuration file `/etc/energy-node/config.json`

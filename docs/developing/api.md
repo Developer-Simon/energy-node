@@ -1,5 +1,7 @@
 ---
 title: "Dashboard API Documentation"
+redirect_from:
+  - /knowledge/dashboard/api-documentation.html
 ---
 
 # Dashboard API Documentation
@@ -9,10 +11,10 @@ HTTP interface of the Energy Node dashboard (Go binary
 
 Related documents:
 
-- System-wide data flows → [../data-flow.md](../data-flow.md)
-- Reverse proxy / sub-path operation → [reverse-proxy.md](reverse-proxy.md)
-- Secrets, passwords, credential files → [secrets-and-credentials.md](secrets-and-credentials.md)
-- Frontend asset cache-busting → [lazy-assets-cache-busting.md](lazy-assets-cache-busting.md)
+- System-wide data flows → [data-flow.md](data-flow.md)
+- Reverse proxy / sub-path operation → [../operating/reverse-proxy.md](../operating/reverse-proxy.md)
+- Secrets, passwords, credential files → [../operating/secrets.md](../operating/secrets.md)
+- Frontend asset cache-busting: see the cache-busting notes in the repository
 
 The source of truth is the routing table in
 `dashboard/internal/httpapi/httpapi.go` (`NewRouterWithDependencies`).
@@ -246,7 +248,7 @@ The balance is additionally published every 10 s to
 | POST | `/api/v1/history/exchange/buffer` | – | Feed rows into the server's 24 h ring buffer |
 
 The dashboard keeps **no history on disk** — samples live in each browser's
-IndexedDB (see [../data-flow.md](../data-flow.md) §10). These endpoints only
+IndexedDB (see [data-flow.md](data-flow.md) §10). These endpoints only
 support the browser-side recorder.
 
 **`GET /api/v1/history/entities`** returns the current value of exactly the

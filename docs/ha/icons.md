@@ -1,6 +1,8 @@
 ---
 title: "energy-node Icons for Home Assistant"
 component: ha-icons
+redirect_from:
+  - /integration/energy-node-icons.html
 ---
 
 # energy-node Icons integration for Home Assistant

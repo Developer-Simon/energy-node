@@ -1,6 +1,8 @@
 ---
 title: "Energy Node Companion for Home Assistant"
 component: ha-energy-node-companion
+redirect_from:
+  - /integration/energy-node-companion.html
 ---
 
 # Energy Node Companion for Home Assistant
@@ -76,7 +78,7 @@ The history chart then shows the hours the browser had missed.
 
 ## How it works
 
-The integration is an ordinary peer of the dashboard's history exchange (protocol 1). The [HTTP API](../knowledge/dashboard/api-documentation.md) describes the endpoints, and [Data flows](../knowledge/data-flow.md) describes the exchange between devices.
+The integration is an ordinary peer of the dashboard's history exchange (protocol 1). The [HTTP API](../developing/api.md) describes the endpoints, and [Data flows](../developing/data-flow.md) describes the exchange between devices.
 
 1. **Login.** The integration logs in as a guest and keeps the session cookie. It logs in again only after the dashboard answers 401, for example after a dashboard restart. Every guest login is written to the node's SD card, so a plain network reconnect does not log in again.
 2. **Announcement.** It reads which series the dashboard records and matches them to Home Assistant entities.

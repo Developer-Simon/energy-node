@@ -1,5 +1,7 @@
 ---
 title: "Credentials and Secrets"
+redirect_from:
+  - /knowledge/dashboard/secrets-and-credentials.html
 ---
 
 # Credentials and Secrets
@@ -45,7 +47,7 @@ are only created when missing; an existing file stays untouched.
 
 The graphical installer asks for the password on its configuration screen.
 From a checkout, `installer ensure-secrets` (see
-[Installer developer CLI](../installer-developer-cli.md)) does the same:
+[Installer developer CLI](../developing/installer-cli.md)) does the same:
 
 1. If the local staging copy `secrets/mqtt.pw` is missing (never versioned,
    thanks to the `.gitignore` entry `/secrets/`), it prompts interactively for

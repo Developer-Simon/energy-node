@@ -1,5 +1,7 @@
 ---
 title: "Third-Party Sources"
+redirect_from:
+  - /knowledge/dependencies.html
 ---
 
 # Third-Party Sources

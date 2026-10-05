@@ -18,22 +18,24 @@
     - label: "Battery state of charge"
       url: "services/battery-soc.md"
       children:
-        - { label: "How it works", url: "knowledge/services/battery-soc-how-it-works.md" }
+        - { label: "How it works", url: "services/battery-soc-how-it-works.md" }
 
-- title: Knowledge
+- title: Operating
   items:
-    - { label: "Data flows", url: "knowledge/data-flow.md" }
-    - { label: "Configuration file", url: "knowledge/configuration.md" }
-    - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
-    - { label: "Cutting a release", url: "knowledge/releasing.md" }
-    - { label: "Installer developer CLI", url: "knowledge/installer-developer-cli.md" }
-    - { label: "Third-party sources", url: "knowledge/dependencies.md" }
-    - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
-    - { label: "Reverse proxy", url: "knowledge/dashboard/reverse-proxy.md" }
-    - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
+    - { label: "Configuration file", url: "operating/configuration.md" }
+    - { label: "Reverse proxy", url: "operating/reverse-proxy.md" }
+    - { label: "Secrets & credentials", url: "operating/secrets.md" }
+    - { label: "Resources on a Pi 1", url: "operating/performance.md" }
 
-- title: Integration
+- title: Home Assistant
   items:
-    - { label: "battery_soc HA mirror", url: "integration/ha-integration-hacs-release.md" }
-    - { label: "energy-node Icons for HA", url: "integration/energy-node-icons.md" }
-    - { label: "Energy Node Companion for HA", url: "integration/energy-node-companion.md" }
+    - { label: "Energy Node Companion", url: "ha/companion.md" }
+    - { label: "energy-node Icons", url: "ha/icons.md" }
+
+- title: Developing
+  items:
+    - { label: "Data flows", url: "developing/data-flow.md" }
+    - { label: "HTTP API", url: "developing/api.md" }
+    - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
+    - { label: "Cutting a release", url: "developing/releasing.md" }
+    - { label: "Third-party sources", url: "developing/dependencies.md" }

@@ -1,5 +1,7 @@
 ---
 title: "Performance & Resources on the Pi 1 Node"
+redirect_from:
+  - /knowledge/performance-and-resources.html
 ---
 
 # Performance & Resources on the Pi 1 Node

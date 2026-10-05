@@ -1,5 +1,7 @@
 ---
 title: "Dashboard behind a reverse proxy under a sub-path (`/node/`)"
+redirect_from:
+  - /knowledge/dashboard/reverse-proxy.html
 ---
 
 # Dashboard behind a reverse proxy under a sub-path (`/node/`)

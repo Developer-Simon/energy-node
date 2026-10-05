@@ -1,6 +1,8 @@
 ---
 title: "Installer developer CLI"
 component: installer
+redirect_from:
+  - /knowledge/installer-developer-cli.html
 ---
 
 # Installer developer CLI

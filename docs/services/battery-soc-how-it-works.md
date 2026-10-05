@@ -1,6 +1,8 @@
 ---
 title: "Battery State of Charge (SoC) — How It Works"
 component: service:battery_soc
+redirect_from:
+  - /knowledge/services/battery-soc-how-it-works.html
 ---
 
 # Battery State of Charge (SoC) — How It Works
@@ -8,7 +10,7 @@ component: service:battery_soc
 What `services/battery_soc/battery_soc_mqtt.py` does, why it computes the way it
 does, and which setting turns which screw. Supplements the general
 description in [`services/battery-soc.md`](../../services/battery-soc.md) and
-the installation steps in [INSTALLATION.md](../../../INSTALLATION.md).
+the installation steps in [install/index.md](../install/index.md).
 
 **Explicitly a monitoring/diagnostic estimate, not a BMS function.** Do not use
 for automatic shutdowns without additional safeguards.
@@ -425,30 +427,3 @@ integration keep running even with idle inputs. The state is stored in
 no import of the MQTT service state. A `battery_soc.set_state_of_charge` service
 plus a `number` entity "Set manual SoC" form the calibration anchors.
 **Simulation mode is not carried over** — only real operation.
-
-## 13. Tests
-
-The pure SoC domain logic has its own test suite in the core package; the
-adapter now only covers MQTT wiring, config loading, and golden-fixture parity:
-
-```bash
-.venv/bin/pytest libs/battery_soc_core/tests -v   # coulomb counting, calibration, entity spec, …
-.venv/bin/pytest services/battery_soc/tests -v        # MQTT adapter + parity with pre-refactor behavior
-```
-
-Three tests are structural rather than behavioral checks and are worth
-mentioning:
-
-- `test_schema_properties_match_dataclass_fields` — catches "schema key added,
-  dataclass field forgotten" in both directions. With
-  `additionalProperties: false` plus `BatteryConfig(**values)` this would
-  otherwise only surface as a hard reload error on the Pi.
-- `test_*_entities_do_not_reference_missing_payload_keys` — every `value_key`
-  from `entity_specs()` must be present in the published `/state` payload. A
-  typo in between is otherwise just a silent "unknown" entity in Home
-  Assistant.
-- `services/battery_soc/tests/test_core_parity.py` — drives a scenario matrix
-  (parallel/series, fresh/stale, simulation, …) through the core + adapter and
-  compares `/state` and discovery configs byte-for-byte with the
-  `golden/*.json` fixtures recorded before the core extraction. A deviation
-  there is a real behavior change, not a test artifact.

@@ -1,5 +1,7 @@
 ---
 title: "Cutting a release"
+redirect_from:
+  - /knowledge/releasing.html
 ---
 
 # Cutting a release
