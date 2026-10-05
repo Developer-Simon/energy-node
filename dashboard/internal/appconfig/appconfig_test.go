@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
 )
 
 func validDocument() map[string]any {
@@ -233,6 +234,34 @@ func TestValidateSecretPaths(t *testing.T) {
 	raw, _ = json.Marshal(empty)
 	if err := appconfig.ValidateSecretPaths(raw); err != nil {
 		t.Fatalf("leerer Pfad abgelehnt: %v", err)
+	}
+}
+
+// Die Ablehnung muss einen Katalogschluessel mit den Rohwerten tragen, damit
+// die Oberflaeche sie uebersetzen kann (statt eines festen deutschen Satzes).
+func TestValidateSecretPathsErrorsCarryCatalogKeys(t *testing.T) {
+	cases := []struct {
+		value   string
+		wantKey string
+	}{
+		{"/etc/shadow", "error.path_not_allowed.outside"},
+		{"relativ.pw", "error.path_not_allowed.relative"},
+	}
+	for _, tc := range cases {
+		document := validDocument()
+		document["dashboard"].(map[string]any)["admin_password_file"] = tc.value
+		raw, _ := json.Marshal(document)
+		err := appconfig.ValidateSecretPaths(raw)
+		typed, ok := uierror.From(err)
+		if !ok {
+			t.Fatalf("%q: err = %v, want *uierror.Error", tc.value, err)
+		}
+		if typed.Key != tc.wantKey {
+			t.Fatalf("%q: key = %q, want %q", tc.value, typed.Key, tc.wantKey)
+		}
+		if typed.Params["field"] != "dashboard.admin_password_file" || typed.Params["path"] != tc.value {
+			t.Fatalf("%q: params = %v", tc.value, typed.Params)
+		}
 	}
 }
 

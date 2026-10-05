@@ -1130,6 +1130,8 @@
   "error.mqtt_unavailable.reconnect": "MQTT reconnect is not available",
   "error.no_changelog": "This package contains no changelog",
   "error.path_not_allowed": "This path is not allowed",
+  "error.path_not_allowed.outside": "{field}: {path} is outside of {allowed}",
+  "error.path_not_allowed.relative": "{field}: An absolute path is required, found: {path}",
   "error.peer_gone": "The addressed peer is no longer connected",
   "error.peer_missing": "The message names no sender",
   "error.peer_unknown": "The sender is not connected",
