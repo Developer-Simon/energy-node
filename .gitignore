@@ -28,6 +28,6 @@ installer/bundle/**
 /docs/_data/doc_versions.yml
 
 /_site/
-/.cache/docs-gems/
+/.cache/
 /docs/Gemfile.lock
 /docs/.jekyll-cache/
