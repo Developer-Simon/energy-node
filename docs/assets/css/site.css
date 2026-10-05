@@ -261,7 +261,7 @@ img { max-width: 100%; height: auto; }
 .doc-body img[src$=".svg"] { border: 0; }
 
 code, pre { font-family: var(--mono); font-size: .88em; }
-:not(pre) > code { padding: .1em .35em; border-radius: 4px; background: var(--sunken); }
+:not(pre) > code { padding: .1em .35em; border-radius: 4px; background: var(--sunken); overflow-wrap: anywhere; }
 pre, .highlight { overflow-x: auto; }
 .doc-body pre {
   padding: .9rem 1rem; border-radius: var(--radius-sm);
