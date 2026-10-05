@@ -2,7 +2,9 @@ package httpapi
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -18,12 +20,18 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 )
 
 // newSystemConfigTestRouter folgt newMQTTTestRouter aus mqtt_test.go:
 // derselbe Bootstrap-Admin ("admin"/"secret"), der zugleich die Rolle
 // system_actions haelt, und derselbe Router-Konstruktor.
 func newSystemConfigTestRouter(t *testing.T) (http.Handler, string, string) {
+	t.Helper()
+	return newSystemConfigTestRouterWith(t, nil)
+}
+
+func newSystemConfigTestRouterWith(t *testing.T, executor SystemActionExecutor) (http.Handler, string, string) {
 	t.Helper()
 	dataDir := t.TempDir()
 	configPath := filepath.Join(t.TempDir(), "config.json")
@@ -39,7 +47,7 @@ func newSystemConfigTestRouter(t *testing.T) (http.Handler, string, string) {
 		t.Fatal(err)
 	}
 	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(dataDir), nil, nil, nil, nil, nil, RouterDependencies{
-		Auth: manager, DataDir: dataDir, AppConfigPath: configPath,
+		Auth: manager, DataDir: dataDir, AppConfigPath: configPath, SystemActions: executor,
 	})
 	return router, configPath, dataDir
 }
@@ -314,5 +322,118 @@ func TestSystemConfigSchemaFollowsTheLanguage(t *testing.T) {
 		if got := keys.FindAllString(body.String(), -1); !reflect.DeepEqual(got, wantKeys) {
 			t.Errorf("%s: keys or key order changed", lang)
 		}
+	}
+}
+
+// installingExecutor steht fuer apply-app-config: es merkt sich die
+// gestagete Datei zum Aufrufzeitpunkt.
+type installingExecutor struct {
+	stagedPath string
+	staged     string
+	calls      []systemactions.Action
+	err        error
+}
+
+func (e *installingExecutor) Execute(_ context.Context, action systemactions.Action) error {
+	e.calls = append(e.calls, action)
+	data, _ := os.ReadFile(e.stagedPath)
+	e.staged = string(data)
+	return e.err
+}
+
+// readOnlyConfigDir macht das Verzeichnis der config.json so unbeschreibbar
+// wie /etc/energy-node mit 0755 fuer die Dienstgruppe. Als root greift das
+// nicht, dann ueberspringt der Test.
+func readOnlyConfigDir(t *testing.T, configPath string) {
+	t.Helper()
+	if os.Geteuid() == 0 {
+		t.Skip("als root blockiert chmod 0555 nichts")
+	}
+	dir := filepath.Dir(configPath)
+	if err := os.Chmod(dir, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(dir, 0o755) })
+}
+
+func TestSystemConfigPutUsesHelperWhenDirectWriteIsDenied(t *testing.T) {
+	executor := &installingExecutor{}
+	router, configPath, dataDir := newSystemConfigTestRouterWith(t, executor)
+	executor.stagedPath = filepath.Join(dataDir, systemactions.StagedAppConfigName)
+	readOnlyConfigDir(t, configPath)
+
+	body := documentWith(t, configPath, func(doc map[string]any) {})
+	recorder := putSystemConfig(t, router, body)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body %s", recorder.Code, recorder.Body.String())
+	}
+	if len(executor.calls) != 1 || executor.calls[0] != systemactions.ApplyAppConfig {
+		t.Fatalf("calls = %v, want [apply-app-config]", executor.calls)
+	}
+	if executor.staged != body {
+		t.Fatalf("gestagete Datei weicht vom Request-Body ab")
+	}
+	if _, err := os.Stat(executor.stagedPath); !os.IsNotExist(err) {
+		t.Fatalf("Staging-Datei nicht aufgeraeumt (%v)", err)
+	}
+}
+
+func TestSystemConfigPutDoesNotCallHelperWhenDirectWriteWorks(t *testing.T) {
+	executor := &installingExecutor{}
+	router, configPath, _ := newSystemConfigTestRouterWith(t, executor)
+
+	recorder := putSystemConfig(t, router, documentWith(t, configPath, func(doc map[string]any) {}))
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body %s", recorder.Code, recorder.Body.String())
+	}
+	if len(executor.calls) != 0 {
+		t.Fatalf("Helper darf nicht laufen, calls = %v", executor.calls)
+	}
+}
+
+func TestSystemConfigPutReportsHelperFailureAndLeavesNoStagingFile(t *testing.T) {
+	executor := &installingExecutor{err: errors.New("exit status 65")}
+	router, configPath, dataDir := newSystemConfigTestRouterWith(t, executor)
+	executor.stagedPath = filepath.Join(dataDir, systemactions.StagedAppConfigName)
+	readOnlyConfigDir(t, configPath)
+
+	recorder := putSystemConfig(t, router, documentWith(t, configPath, func(doc map[string]any) {}))
+
+	if recorder.Code != http.StatusInternalServerError || !strings.Contains(recorder.Body.String(), "config_not_writable") {
+		t.Fatalf("status = %d, body %s, want 500 config_not_writable", recorder.Code, recorder.Body.String())
+	}
+	if _, err := os.Stat(executor.stagedPath); !os.IsNotExist(err) {
+		t.Fatalf("Staging-Datei nach Helper-Fehler nicht aufgeraeumt (%v)", err)
+	}
+}
+
+func TestSystemConfigPutWithoutExecutorKeepsConfigNotWritable(t *testing.T) {
+	router, configPath, _ := newSystemConfigTestRouter(t)
+	readOnlyConfigDir(t, configPath)
+
+	recorder := putSystemConfig(t, router, documentWith(t, configPath, func(doc map[string]any) {}))
+
+	if recorder.Code != http.StatusInternalServerError || !strings.Contains(recorder.Body.String(), "config_not_writable") {
+		t.Fatalf("status = %d, body %s, want 500 config_not_writable", recorder.Code, recorder.Body.String())
+	}
+}
+
+func TestSystemConfigPutDoesNotCallHelperForNonPermissionErrors(t *testing.T) {
+	executor := &installingExecutor{}
+	dataDir := t.TempDir()
+	// Elternpfad ist eine Datei: der direkte Schreibversuch scheitert mit
+	// ENOTDIR, nicht mit einem Rechtefehler.
+	blocker := filepath.Join(t.TempDir(), "blocker")
+	if err := os.WriteFile(blocker, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	err := writeSystemConfig(context.Background(), filepath.Join(blocker, "config.json"), dataDir, []byte(`{}`), executor)
+	if err == nil {
+		t.Fatal("erwartet Fehler")
+	}
+	if len(executor.calls) != 0 {
+		t.Fatalf("Helper darf bei Nicht-Rechtefehler nicht laufen, calls = %v", executor.calls)
 	}
 }

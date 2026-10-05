@@ -1,8 +1,11 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -15,6 +18,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/schemaloc"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 )
 
 // restartRequiredFields listet die JSON-Pfade, deren Aenderung ein
@@ -44,7 +48,7 @@ type ConfigReloader interface {
 	ReloadService(deviceID string) error
 }
 
-func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloader ConfigReloader) http.HandlerFunc {
+func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloader ConfigReloader, executor SystemActionExecutor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -84,7 +88,7 @@ func handleSystemConfig(path, dataDir string, authManager *auth.Manager, reloade
 				writeErrorDetail(w, http.StatusInternalServerError, "revision_failed", err)
 				return
 			}
-			if err := config.AtomicWrite(path, body, 0o664); err != nil {
+			if err := writeSystemConfig(r.Context(), path, dataDir, body, executor); err != nil {
 				writeErrorDetail(w, http.StatusInternalServerError, "config_not_writable", err)
 				return
 			}
@@ -122,6 +126,20 @@ func writeLocalizedSchema(w http.ResponseWriter, r *http.Request, schemaID strin
 	}
 	w.Header().Set("Content-Type", "application/json")
 	_, _ = w.Write(raw)
+}
+
+// writeSystemConfig schreibt die config.json direkt und weicht nur bei einem
+// Rechtefehler auf den privilegierten apply-app-config-Helper aus. Auf einer
+// 0755-Box darf die Dienstgruppe im Verzeichnis keine Temp-Datei anlegen,
+// dann installiert der root-eigene Helper die gestagete Datei. Ohne Executor
+// (Dev- und Smoke-Laeufe) und bei allen anderen Fehlern bleibt es beim
+// direkten Fehler.
+func writeSystemConfig(ctx context.Context, path, dataDir string, body []byte, executor SystemActionExecutor) error {
+	err := config.AtomicWrite(path, body, 0o664)
+	if err == nil || executor == nil || !errors.Is(err, fs.ErrPermission) {
+		return err
+	}
+	return systemactions.StageAndApplyAppConfig(ctx, executor, dataDir, body)
 }
 
 // handleSystemConfigSchema liefert das eingebettete config.schema.json, aus
