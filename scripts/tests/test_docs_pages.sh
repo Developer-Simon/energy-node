@@ -3,6 +3,7 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+repo_root="$(cd "$here/../.." && pwd)"
 should_deploy="$here/../docs/pages-should-deploy.sh"
 doc_versions="$here/../docs/doc-versions.sh"
 tmp=$(mktemp -d)
@@ -131,5 +132,12 @@ commit six
 if "$doc_versions" "$repo" >/dev/null 2>&1; then
   fail "unknown component id should fail"
 fi
+
+# --- docs colours follow the dashboard ----------------------------------------
+
+python3 "$repo_root/scripts/docs/check_tokens.py" \
+  "$repo_root/docs/assets/css/site.css" \
+  "$repo_root/dashboard/internal/webui/static/css/base.css" \
+  || fail "docs colours drifted from the dashboard (see above)"
 
 echo "PASS: docs pages scripts"
