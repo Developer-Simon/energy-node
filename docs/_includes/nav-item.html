@@ -1,0 +1,24 @@
+{%- comment -%}
+  One navigation entry with optional children (up to grandchildren).
+  include.item, include.current (page.path of the page being rendered).
+  An entry is open when it or one of its descendants is the current page.
+{%- endcomment -%}
+{%- assign it = include.item -%}
+{%- assign href = it.url | replace: 'index.md', '' | replace: '.md', '.html' | prepend: '/' | relative_url -%}
+{%- capture subtree -%}|{%- for c in it.children -%}{{ c.url }}|{%- for g in c.children -%}{{ g.url }}|{%- endfor -%}{%- endfor -%}{%- endcapture -%}
+{%- assign needle = '|' | append: include.current | append: '|' -%}
+{%- assign is_current = false -%}{%- if it.url == include.current -%}{%- assign is_current = true -%}{%- endif -%}
+<li class="nav-item{% if is_current %} nav-item--current{% endif %}">
+  {%- if it.children -%}
+    <details{% if is_current or subtree contains needle %} open{% endif %}>
+      <summary><a href="{{ href }}"{% if is_current %} aria-current="page"{% endif %}>{{ it.label }}</a></summary>
+      <ul class="nav-sub">
+        {%- for child in it.children -%}
+          {%- include nav-item.html item=child current=include.current -%}
+        {%- endfor -%}
+      </ul>
+    </details>
+  {%- else -%}
+    <a href="{{ href }}"{% if is_current %} aria-current="page"{% endif %}>{{ it.label }}</a>
+  {%- endif -%}
+</li>

@@ -1,11 +1,9 @@
-# Sidebar navigation for the documentation site (see _layouts/default.html).
-# `url` is the source path relative to /docs; the layout turns it into the
-# generated URL and marks the current page. Keep this in the reading order
-# a newcomer should follow.
-#
-# A group carries either `items` (a flat list) or `sections` (labelled
-# sub-groups, each with its own `items`) - the layout renders the group
-# title as <h2> and each section label as <h3>.
+# Sidebar navigation for the documentation site (see _includes/nav.html).
+# `url` is the source path relative to /docs, always in double quotes
+# (scripts/docs/pages-should-deploy.sh greps for url: "..."). An entry may
+# carry `children`, up to grandchildren. Keep the reading order a newcomer
+# should follow. scripts/docs/check_site.py fails on a missing source file,
+# a published page without an entry, or a deeper tree.
 
 - title: Overview
   items:
@@ -17,26 +15,22 @@
 - title: Services
   items:
     - { label: "APsystems EZ1", url: "services/apsystems-ez1.md" }
-    - { label: "Battery state of charge", url: "services/battery-soc.md" }
+    - label: "Battery state of charge"
+      url: "services/battery-soc.md"
+      children:
+        - { label: "How it works", url: "knowledge/services/battery-soc-how-it-works.md" }
 
 - title: Knowledge
-  sections:
-    - label: General
-      items:
-        - { label: "Data flows", url: "knowledge/data-flow.md" }
-        - { label: "Configuration file", url: "knowledge/configuration.md" }
-        - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
-        - { label: "Cutting a release", url: "knowledge/releasing.md" }
-        - { label: "Installer developer CLI", url: "knowledge/installer-developer-cli.md" }
-        - { label: "Third-party sources", url: "knowledge/dependencies.md" }
-    - label: Dashboard
-      items:
-        - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
-        - { label: "Reverse proxy", url: "knowledge/dashboard/reverse-proxy.md" }
-        - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
-    - label: Services
-      items:
-        - { label: "Battery state of charge", url: "knowledge/services/battery-soc-how-it-works.md" }
+  items:
+    - { label: "Data flows", url: "knowledge/data-flow.md" }
+    - { label: "Configuration file", url: "knowledge/configuration.md" }
+    - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
+    - { label: "Cutting a release", url: "knowledge/releasing.md" }
+    - { label: "Installer developer CLI", url: "knowledge/installer-developer-cli.md" }
+    - { label: "Third-party sources", url: "knowledge/dependencies.md" }
+    - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
+    - { label: "Reverse proxy", url: "knowledge/dashboard/reverse-proxy.md" }
+    - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
 
 - title: Integration
   items:
