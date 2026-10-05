@@ -114,7 +114,10 @@
     document.addEventListener("keydown", function (e) { if (e.key === "Escape") set(false); });
     sidebar.addEventListener("click", function (e) { if (e.target.closest("a")) set(false); });
     var cur = sidebar.querySelector('[aria-current="page"]');
-    if (cur && cur.scrollIntoView) cur.scrollIntoView({ block: "center" });
+    if (cur) {
+      var sr = sidebar.getBoundingClientRect(), cr = cur.getBoundingClientRect();
+      sidebar.scrollTop += cr.top - sr.top - sidebar.clientHeight / 2 + cr.height / 2;
+    }
   }
 
   // ---- Search (Pagefind) -----------------------------------------------------

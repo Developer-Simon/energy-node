@@ -98,6 +98,17 @@ for (const scheme of ["light", "dark"]) {
   await ctx.close();
 }
 
+// ha/companion.html loads without scrolling the window.
+{
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 800 } });
+  const page = await ctx.newPage();
+  await page.goto(base + "ha/companion.html", { waitUntil: "networkidle" });
+  const scrollY = await page.evaluate(() => window.scrollY);
+  if (scrollY !== 0) fail(`ha/companion.html loads scrolled by ${scrollY}px`);
+  const sidebarScroll = await page.evaluate(() => document.querySelector(".sidebar").scrollTop);
+  await ctx.close();
+}
+
 await browser.close();
 if (failures.length) process.exit(1);
 console.log(`PASS: visual check, screenshots in ${out}`);
