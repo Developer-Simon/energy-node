@@ -178,6 +178,11 @@ PY
   else
     printf 'reboot%srequired%sfalse\n' "$tab" "$tab"
   fi
+
+  # Ausstehende Systempakete, letzter Stand der Paketlisten (ohne apt-get
+  # update). Eine Zeile JSON oder null.
+  printf 'apt%spending%s%s\n' "$tab" "$tab" \
+    "$(EN_ROOT="${EN_ROOT}" python3 "$(dirname "${BASH_SOURCE[0]}")/lib/apt_pending.py")"
 }
 
 tmp_py="$(mktemp)"
@@ -198,6 +203,7 @@ report = {
     # Geraete je Unit: Liste aus id/name, null = Geraetedatei nicht lesbar.
     "devices": {},
     "reboot_required": False,
+    "system_updates": None,
 }
 
 for line in sys.stdin:
@@ -223,6 +229,8 @@ for line in sys.stdin:
         report["versions"]["components" if group == "component" else "services"][name] = value
     elif kind == "devices":
         report["devices"][key] = json.loads(value)
+    elif kind == "apt":
+        report["system_updates"] = json.loads(value)
     elif kind == "reboot":
         report["reboot_required"] = value == "true"
     elif kind == "webhook":

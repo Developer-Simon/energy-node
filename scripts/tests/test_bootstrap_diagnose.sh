@@ -46,6 +46,13 @@ JSON
 
 export EN_STATE_DIR="$tmp/state" EN_ROOT="$tmp/root" EN_BUNDLE_DIR="$bundle"
 export EN_BUNDLE_VERSION=v0.2.0 EN_SUDO=""
+# Systempakete: eine Attrappe statt des echten apt-get auf dem Testrechner.
+cat > "$tmp/bin/apt-get" <<'SH'
+#!/usr/bin/env bash
+for p in ${UPGRADABLE:-}; do printf 'Inst %s [1.0] (1.1 Debian:12/stable [armhf])\n' "$p"; done
+SH
+chmod +x "$tmp/bin/apt-get"
+export EN_APT_GET="$tmp/bin/apt-get"
 
 mkdir -p "$EN_STATE_DIR/steps" "$tmp/root/etc/energy-node/manifests"
 printf 'bundle=v0.2.0\n' > "$EN_STATE_DIR/steps/10"
@@ -81,6 +88,18 @@ out="$(ACTIVE="mosquitto.service shelly-rpc.service" LISTENING="1883" \
 [ "$(get 'd["config"]["config.json"]')" = True ] || fail "config.json nicht erkannt" "$out"
 [ "$(get 'sorted(d["config"]["manifests"])')" = "['shelly', 'tuya']" ] || fail "Manifeste falsch" "$out"
 [ "$(get 'd["tailscale"]["angemeldet"]')" = True ] || fail "tailscale nicht angemeldet" "$out"
+
+# --- ausstehende Systempakete mit Liste -------------------------------------
+out="$(UPGRADABLE="libssl3 openssl" bash "$script")"
+python3 -c '
+import json, sys
+r = json.load(sys.stdin)["system_updates"]
+assert r["count"] == 2, r
+assert r["packages"][1] == {"name": "openssl", "from": "1.0", "to": "1.1"}, r
+' <<<"$out" || fail "system_updates fehlt oder falsch" "$out"
+out="$(EN_APT_GET="$tmp/bin/gibt-es-nicht" bash "$script")"
+python3 -c 'import json,sys; sys.exit(0 if json.load(sys.stdin)["system_updates"] is None else 1)' <<<"$out" \
+  || fail "ohne apt-get nicht null" "$out"
 
 # --- Neustart-Markierung ----------------------------------------------------
 out="$(bash "$script")"
