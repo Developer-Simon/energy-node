@@ -43,15 +43,19 @@ step_begin() {
   printf '##STEP %s begin\n' "${STEP_ID}"
 }
 
-# step_ok [zusatz]: der Zusatz ist ein festes Wort fuer die Oberflaeche
-# (15: "neustart noetig"), kein Menschentext.
-step_ok() {
-  local stamp detail="${1:-}"
+step_ok() { step_ok_with ""; }
+
+# step_ok_with <zusatz>: wie step_ok, der Zusatz ist ein festes Wort fuer
+# die Oberflaeche (15: "neustart noetig"), kein Menschentext. Eine eigene
+# Funktion statt eines optionalen Arguments von step_ok - shellcheck 0.9
+# meldet sonst SC2119 an jedem Aufruf ohne Argument.
+step_ok_with() {
+  local stamp
   stamp="$(step_stamp_path "${STEP_ID}")"
   mkdir -p "$(dirname "${stamp}")"
   printf 'bundle=%s\nzeit=%s\n' "${EN_BUNDLE_VERSION}" "$(date -Is)" > "${stamp}"
-  if [[ -n "${detail}" ]]; then
-    printf '##STEP %s ok %s\n' "${STEP_ID}" "${detail}"
+  if [[ -n "$1" ]]; then
+    printf '##STEP %s ok %s\n' "${STEP_ID}" "$1"
   else
     printf '##STEP %s ok\n' "${STEP_ID}"
   fi

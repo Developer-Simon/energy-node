@@ -103,7 +103,7 @@ fi
 
 if [[ -f "${REBOOT_FLAG}" ]]; then
   step_log "Ein Neustart des Node ist noetig, damit alle Updates wirken."
-  step_ok "neustart noetig"
+  step_ok_with "neustart noetig"
 else
   step_ok
 fi
