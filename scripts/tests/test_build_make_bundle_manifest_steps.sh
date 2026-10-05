@@ -40,7 +40,7 @@ for step_id, want in expect_keyed.items():
     if got != want:
         sys.exit("step %s: dashboard_key = %r, erwartet %r" % (step_id, got, want))
 
-expect_none = ["10", "20", "30", "35", "50", "60", "70"]
+expect_none = ["10", "15", "20", "30", "35", "50", "60", "70"]
 for step_id in expect_none:
     got = by_id.get(step_id, {}).get("dashboard_key")
     if got:
@@ -59,6 +59,13 @@ if [s["id"] for s in manifest["steps"] if s.get("requires")] != ["35"]:
 for step in manifest["steps"]:
     if step["optional"] and step["id"] != "35" and step.get("default") is not True:
         sys.exit("step %s: optionaler Schritt ohne default true" % step["id"])
+# 15 aktualisiert die Systempakete: optional, Vorgabe an, direkt nach 10.
+step15 = by_id.get("15")
+if not step15 or step15.get("optional") is not True or step15.get("default") is not True:
+    sys.exit("step 15: erwartet optional mit default true, gefunden %r" % step15)
+ids = [s["id"] for s in manifest["steps"]]
+if ids.index("15") != ids.index("10") + 1:
+    sys.exit("step 15 steht nicht direkt nach 10: %r" % ids)
 if by_id.get("30", {}).get("optional"):
     sys.exit("step 30 ist nicht mehr Kern")
 

@@ -43,12 +43,18 @@ step_begin() {
   printf '##STEP %s begin\n' "${STEP_ID}"
 }
 
+# step_ok [zusatz]: der Zusatz ist ein festes Wort fuer die Oberflaeche
+# (15: "neustart noetig"), kein Menschentext.
 step_ok() {
-  local stamp
+  local stamp detail="${1:-}"
   stamp="$(step_stamp_path "${STEP_ID}")"
   mkdir -p "$(dirname "${stamp}")"
   printf 'bundle=%s\nzeit=%s\n' "${EN_BUNDLE_VERSION}" "$(date -Is)" > "${stamp}"
-  printf '##STEP %s ok\n' "${STEP_ID}"
+  if [[ -n "${detail}" ]]; then
+    printf '##STEP %s ok %s\n' "${STEP_ID}" "${detail}"
+  else
+    printf '##STEP %s ok\n' "${STEP_ID}"
+  fi
 }
 
 step_skip() { printf '##STEP %s skip %s\n' "${STEP_ID}" "$*"; }

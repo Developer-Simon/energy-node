@@ -108,4 +108,10 @@ ge "" 1.62.0 && fail "leere Version gilt als bekannt"
 ge 1.62.0 "" && fail "leere Vergleichsversion gilt als bekannt"
 ge unbekannt 1.62.0 && fail "Text gilt als Version"
 
+# --- step_ok traegt optional einen Zusatz ----------------------------------
+out="$(bash -c 'source "$1"; step_begin 15; step_ok "neustart noetig"' _ "$lib")"
+grep -qx '##STEP 15 ok neustart noetig' <<<"$out" || fail "step_ok ohne Zusatz" "$out"
+out="$(bash -c 'source "$1"; step_begin 16; step_ok' _ "$lib")"
+grep -qx '##STEP 16 ok' <<<"$out" || fail "step_ok ohne Argument veraendert" "$out"
+
 echo "OK: $(basename "$0")"
