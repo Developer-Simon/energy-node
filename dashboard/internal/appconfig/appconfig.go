@@ -18,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
 )
 
 // DefaultPath ist der feste Ort der Datei. Abweichungen nur ueber -config.
@@ -248,7 +249,9 @@ func checkSecretPath(name, value string) error {
 		return nil
 	}
 	if !filepath.IsAbs(value) {
-		return fmt.Errorf("%s: erwartet absoluten Pfad, gefunden %q", name, value)
+		return uierror.New("error.path_not_allowed.relative",
+			fmt.Sprintf("%s: erwartet absoluten Pfad, gefunden %q", name, value),
+			map[string]any{"field": name, "path": value})
 	}
 	cleaned := filepath.Clean(value)
 	for _, prefix := range secretPathPrefixes {
@@ -256,5 +259,8 @@ func checkSecretPath(name, value string) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("%s: %q liegt ausserhalb von %s", name, value, strings.Join(secretPathPrefixes, " und "))
+	allowed := strings.Join(secretPathPrefixes, " und ")
+	return uierror.New("error.path_not_allowed.outside",
+		fmt.Sprintf("%s: %q liegt ausserhalb von %s", name, value, allowed),
+		map[string]any{"field": name, "path": value, "allowed": strings.Join(secretPathPrefixes, ", ")})
 }

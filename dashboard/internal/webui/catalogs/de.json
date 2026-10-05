@@ -1130,6 +1130,8 @@
   "error.mqtt_unavailable.reconnect": "MQTT-Reconnect ist nicht verfügbar",
   "error.no_changelog": "Dieses Paket enthält keinen Changelog",
   "error.path_not_allowed": "Dieser Pfad ist nicht erlaubt",
+  "error.path_not_allowed.outside": "{field}: {path} liegt außerhalb von {allowed}",
+  "error.path_not_allowed.relative": "{field}: Erwartet wird ein absoluter Pfad, gefunden: {path}",
   "error.peer_gone": "Der angesprochene Peer ist nicht mehr verbunden",
   "error.peer_missing": "Die Nachricht nennt keinen Absender",
   "error.peer_unknown": "Der Absender ist nicht verbunden",
