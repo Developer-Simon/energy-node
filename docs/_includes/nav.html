@@ -1,0 +1,15 @@
+{%- assign current = include.current | replace: 'index.md', 'index.html' | replace: '.md', '.html' -%}
+<details class="doc-nav-details" open>
+  <summary>Documentation</summary>
+  {%- for group in site.data.nav -%}
+    <h2>{{ group.title }}</h2>
+    {%- if group.sections -%}
+      {%- for section in group.sections -%}
+        <h3>{{ section.label }}</h3>
+        {%- include nav-items.html items=section.items current=current -%}
+      {%- endfor -%}
+    {%- else -%}
+      {%- include nav-items.html items=group.items current=current -%}
+    {%- endif -%}
+  {%- endfor -%}
+</details>

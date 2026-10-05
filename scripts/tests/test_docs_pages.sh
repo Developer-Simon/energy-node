@@ -133,6 +133,11 @@ if "$doc_versions" "$repo" >/dev/null 2>&1; then
   fail "unknown component id should fail"
 fi
 
+# --- the docs logo is the dashboard's -----------------------------------------
+
+cmp -s "$repo_root/docs/assets/logo.svg" "$repo_root/dashboard/internal/webui/static/img/favicon.svg" \
+  || fail "docs/assets/logo.svg differs from the dashboard favicon"
+
 # --- docs colours follow the dashboard ----------------------------------------
 
 python3 "$repo_root/scripts/docs/check_tokens.py" \
