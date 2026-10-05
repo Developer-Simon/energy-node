@@ -259,6 +259,7 @@ img { max-width: 100%; height: auto; }
 .doc-body blockquote > :last-child { margin-bottom: 0; }
 .doc-body img { border-radius: var(--radius-sm); border: 1px solid var(--border-soft); }
 .doc-body img[src$=".svg"] { border: 0; }
+.doc-body img.page-icon { float: right; width: 72px; height: 72px; margin: 0 0 .75rem 1rem; border: 0; border-radius: 0; }
 
 code, pre { font-family: var(--mono); font-size: .88em; }
 :not(pre) > code { padding: .1em .35em; border-radius: 4px; background: var(--sunken); overflow-wrap: anywhere; }
@@ -367,4 +368,5 @@ pre.mermaid { background: none; border: 0; text-align: center; }
   .hero { grid-template-columns: 1fr; padding: 1.25rem 1.25rem 0; }
   .hero__text { padding-bottom: 0; }
   .entry-cards { grid-template-columns: 1fr; }
+  .doc-body img.page-icon { width: 56px; height: 56px; }
 }

@@ -5,6 +5,8 @@ redirect_from:
   - /integration/energy-node-companion.html
 ---
 
+<img class="page-icon" src="../images/ha/companion.svg" alt="" width="72" height="72">
+
 # Energy Node Companion for Home Assistant
 
 **Energy Node Companion** is a Home Assistant integration that works alongside your node. It does not create sensors (those come from MQTT discovery). Today it lets Home Assistant fill gaps in the dashboard's history charts.

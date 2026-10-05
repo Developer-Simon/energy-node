@@ -1,0 +1,24 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <title>Energy Node Companion — fills the dashboard's history from Home Assistant</title>
+  <!-- Ein Fenster (das Dashboard, spaeter als Panel in HA) mit einem Verlauf,
+       dessen Luecke gruen nachgetragen ist. Unten rechts der Energie-Knoten
+       der Icon-Familie (energy_node_icons, battery_soc).
+       PNGs: magick -background none -density 512 icon.svg -resize 256x256 -depth 8 -strip PNG32:icon@2x.png
+             magick -background none -density 512 icon.svg -resize 128x128 -depth 8 -strip PNG32:icon.png -->
+  <rect x="12" y="22" width="100" height="80" rx="12" fill="#1488c9"/>
+  <circle cx="23" cy="31" r="2.8" fill="#fff"/>
+  <circle cx="31" cy="31" r="2.8" fill="#fff"/>
+  <circle cx="39" cy="31" r="2.8" fill="#fff"/>
+  <rect x="19" y="39" width="86" height="56" rx="6" fill="#fff"/>
+  <g transform="translate(27.5 44) scale(0.72) translate(-16 -30)">
+    <path d="M44 70 L58 54 L72 58 L84 44 L84 100 L44 100 Z" fill="#23b26b" opacity=".22"/>
+    <path d="M16 100 H112" stroke="#0f6da3" stroke-width="5" stroke-linecap="round"/>
+    <path d="M18 82 L32 66 L44 70" fill="none" stroke="#1488c9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M84 44 L98 52 L110 30" fill="none" stroke="#1488c9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M44 70 L58 54 L72 58 L84 44" fill="none" stroke="#23b26b" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="58" cy="54" r="5.5" fill="#fff" stroke="#23b26b" stroke-width="4"/>
+    <circle cx="72" cy="58" r="5.5" fill="#fff" stroke="#23b26b" stroke-width="4"/>
+  </g>
+  <circle cx="100" cy="98" r="19" fill="#23b26b" stroke="#fff" stroke-width="4"/>
+  <path transform="translate(100 98) scale(2.2) translate(-12.4 -11.5)" d="M12.7 6.6 9.3 12.1h2.6l-.3 4.3 4.4-5.3h-2.6z" fill="#fff" stroke="#fff" stroke-width="0.6" stroke-linejoin="round"/>
+</svg>

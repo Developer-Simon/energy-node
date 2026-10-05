@@ -145,6 +145,17 @@ fi
 cmp -s "$repo_root/docs/assets/logo.svg" "$repo_root/dashboard/internal/webui/static/img/favicon.svg" \
   || fail "docs/assets/logo.svg differs from the dashboard favicon"
 
+# --- the Home Assistant integration icons are copied from source ------------------
+
+cmp -s "$repo_root/docs/images/ha/battery-soc.svg" "$repo_root/integrations/homeassistant/custom_components/battery_soc/brand/icon.svg" \
+  || fail "docs/images/ha/battery-soc.svg differs from the battery_soc brand icon"
+
+cmp -s "$repo_root/docs/images/ha/companion.svg" "$repo_root/integrations/homeassistant/custom_components/energy_node_companion/brand/icon.svg" \
+  || fail "docs/images/ha/companion.svg differs from the energy_node_companion brand icon"
+
+cmp -s "$repo_root/docs/images/ha/icons.svg" "$repo_root/integrations/homeassistant/custom_components/energy_node_icons/brand/icon.svg" \
+  || fail "docs/images/ha/icons.svg differs from the energy_node_icons brand icon"
+
 # --- docs colours follow the dashboard ----------------------------------------
 
 python3 "$repo_root/scripts/docs/check_tokens.py" \

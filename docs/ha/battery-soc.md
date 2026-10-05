@@ -3,6 +3,8 @@ title: "Battery SoC integration for Home Assistant"
 component: ha-integration
 ---
 
+<img class="page-icon" src="../images/ha/battery-soc.svg" alt="" width="72" height="72">
+
 # Battery SoC (LiFePO4 coulomb-counting)
 
 The same engine also runs on the node as the [battery state of charge service](../services/battery-soc.md).
