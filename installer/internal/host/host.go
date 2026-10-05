@@ -425,6 +425,7 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	for name, versions := range preview.Components {
 		view.Components[name] = hostapi.ComponentDelta{From: versions.From, To: versions.To}
 	}
+	view.SystemUpdates = systemUpdatesView(preview.SystemUpdates)
 	return view, nil
 }
 
@@ -548,6 +549,7 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		Units:          report.Units,
 		Ports:          report.Ports,
 		RebootRequired: report.RebootRequired,
+		SystemUpdates:  systemUpdatesView(report.SystemUpdates),
 	}
 	view.Versions, view.Devices = installedInfo(report)
 	for _, check := range report.Checklist(manifest.Steps) {
@@ -583,6 +585,20 @@ func installedInfo(report *diag.Report) (*hostapi.DiagnoseVersions, map[string][
 		devices[unit] = entries
 	}
 	return versions, devices
+}
+
+// systemUpdatesView carries apt_pending.py's report into the views. nil
+// (apt-get missing or failed) stays nil, so the UI shows no count instead of
+// a wrong "up to date".
+func systemUpdatesView(updates *steps.SystemUpdates) *hostapi.SystemUpdates {
+	if updates == nil {
+		return nil
+	}
+	view := &hostapi.SystemUpdates{Count: updates.Count, CheckedAt: updates.CheckedAt}
+	for _, p := range updates.Packages {
+		view.Packages = append(view.Packages, hostapi.SystemPackage{Name: p.Name, From: p.From, To: p.To})
+	}
+	return view
 }
 
 func (h *Host) connected() (*transport.Client, error) {

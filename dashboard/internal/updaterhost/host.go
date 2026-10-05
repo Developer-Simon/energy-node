@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
@@ -174,7 +176,7 @@ func (h *Host) SaveSelection(context.Context, map[string]bool) error {
 	return &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
 }
 
-func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
+func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	candidate, err := h.loadCandidateManifest()
 	if err != nil {
 		return nil, &hostapi.Error{Code: "MANIFEST_UNREADABLE", Detail: err.Error()}
@@ -225,7 +227,35 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 		}
 		view.Steps = append(view.Steps, ps)
 	}
+	view.SystemUpdates = h.systemUpdates(ctx)
 	return view, nil
+}
+
+// systemUpdatesTimeout begrenzt die Simulation. apt_pending.py bricht
+// selbst nach 120 s ab; das hier faengt nur ein haengendes python3 ab.
+const systemUpdatesTimeout = 150 * time.Second
+
+// systemUpdates fragt bootstrap/lib/apt_pending.py aus dem Kandidaten-Bundle,
+// dasselbe Skript wie plan.sh: was apt-get upgrade (Schritt 15) jetzt
+// einspielen wuerde, simuliert auf den vorhandenen Paketlisten. Fehlt das
+// Skript oder scheitert es, bleibt die Zahl unbekannt (nil) - die Vorschau
+// laeuft trotzdem.
+func (h *Host) systemUpdates(ctx context.Context) *hostapi.SystemUpdates {
+	script := filepath.Join(h.cfg.CandidateBundleDir, "bootstrap", "lib", "apt_pending.py")
+	if _, err := os.Stat(script); err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, systemUpdatesTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "python3", script).Output()
+	if err != nil {
+		return nil
+	}
+	var updates *hostapi.SystemUpdates
+	if json.Unmarshal(out, &updates) != nil {
+		return nil
+	}
+	return updates
 }
 
 // Changelog implements hostapi.ChangelogProvider: what the candidate bundle

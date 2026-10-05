@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path"
 
+	"github.com/Developer-Simon/energy-node-installer/internal/steps"
 	"github.com/Developer-Simon/energy-node-installer/internal/transport"
 )
 
@@ -45,6 +46,9 @@ type Report struct {
 	// RebootRequired ist Debians /run/reboot-required (Schritt 15 setzt es
 	// nach Kernel- oder Firmware-Updates). Ein Neustart loescht es.
 	RebootRequired bool `json:"reboot_required"`
+	// SystemUpdates: ausstehende Systempakete (apt_pending.py), Information
+	// und keine Pruefung. nil = apt-get fehlte oder scheiterte.
+	SystemUpdates *steps.SystemUpdates `json:"system_updates"`
 }
 
 // VersionsReport mirrors diagnose.sh's "versions" object: Components as in
