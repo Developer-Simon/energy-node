@@ -17,11 +17,15 @@ cat > "$tmp/site/docs/_data/nav.yml" <<'EOF'
 - title: Overview
   items:
     - { label: "Home", url: "index.md" }
-- title: Knowledge
-  sections:
-    - label: General
-      items:
-        - { label: "Data flows", url: "knowledge/data-flow.md" }
+- title: Using
+  items:
+    - label: "Dashboard"
+      url: "dashboard/index.md"
+      children:
+        - { label: "Settings", url: "dashboard/settings.md" }
+- title: Developing
+  items:
+    - { label: "Data flows", url: "knowledge/data-flow.md" }
 EOF
 
 expect() {
@@ -31,6 +35,12 @@ expect() {
 }
 
 expect true  "docs/index.md"
+expect true  "docs/dashboard/index.md"
+expect true  "docs/dashboard/settings.md"
+expect true  "docs/assets/css/site.css"
+# Internal notes and redirect stubs never deploy on their own.
+expect false "docs/_internal/localization.md"
+expect false "docs/redirects/localization.md"
 expect true  "docs/knowledge/data-flow.md"
 expect true  "docs/_layouts/default.html"
 expect true  "docs/_data/nav.yml"
@@ -61,9 +71,14 @@ git -C "$repo" tag v0.1.0
 
 echo v0.2.0 > "$repo/dashboard/VERSION"
 echo b > "$repo/docs/knowledge/new.md"
+mkdir -p "$repo/docs/_internal" "$repo/docs/redirects"
+echo x > "$repo/docs/_internal/notes.md"
+echo y > "$repo/docs/redirects/old.md"
 commit two
 
 out=$("$doc_versions" "$repo")
+grep -q '_internal/' <<<"$out" && fail "_internal pages must not get a version marker" "$out"
+grep -q 'redirects/' <<<"$out" && fail "redirect stubs must not get a version marker" "$out"
 grep -qx 'latest_release: "v0.1.0"' <<<"$out" || fail "latest release not v0.1.0" "$out"
 grep -qxF '  "index.md": { version: "v0.1.0", unreleased: false }' <<<"$out" \
   || fail "index.md should be released v0.1.0" "$out"
