@@ -242,3 +242,20 @@ test('die Zaehlzeile zaehlt nur die Highlights, wenn der Changelog welche markie
   const { screen } = await mount({ responses: { 'GET /api/changelog': flagged } });
   assert.equal(screen.whatsNewLine, '1 Neuerung · 1 Korrektur · 1 Breaking Change');
 });
+
+// Schritt 15: die Zeile nennt die ausstehenden Systempakete samt Stand.
+test('die Zeile Systempakete aktualisieren nennt die Zahl der Updates', async () => {
+  const manifest = Object.assign({}, MANIFEST_UPDATE, {
+    steps: [MANIFEST_UPDATE.steps[0], { id: '15', optional: true, default: true }].concat(MANIFEST_UPDATE.steps.slice(1)),
+  });
+  const plan = Object.assign({}, PLAN_UPDATE, { system_updates: { count: 12, checked_at: '2026-10-04T06:12:00+00:00', packages: [] } });
+  const { screen } = await mount({ responses: { 'GET /api/manifest': manifest, 'GET /api/plan': plan } });
+  const row = screen.serviceParts.find((part) => part.key === 'step-15');
+  assert.ok(row, 'Zeile fuer Schritt 15 fehlt');
+  assert.equal(row.on, true);
+  assert.equal(row.detail, '12 Updates · Stand 04.10.');
+  assert.ok(screen.serviceParts.filter((part) => part.key !== 'step-15').every((part) => !part.detail));
+
+  const unknown = await mount({ responses: { 'GET /api/manifest': manifest } });
+  assert.equal(unknown.screen.serviceParts.find((part) => part.key === 'step-15').detail, '');
+});

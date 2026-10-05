@@ -21,6 +21,8 @@ type options struct {
 	failStep  string
 	failCode  string
 	stepDelay time.Duration
+	// systemUpdates: Vorschau und Diagnose nennen ausstehende Systempakete.
+	systemUpdates bool
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -311,6 +313,18 @@ func newScenario(name string, opts options) *stagedBackend {
 			{ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83", State: "skip", Detail: "bereits erledigt"},
 			{ID: "84", State: "skip", Detail: "bereits erledigt"}, {ID: "85"}, {ID: "88"},
 		}
+	}
+
+	if opts.systemUpdates {
+		updates := &hostapi.SystemUpdates{Count: 3, CheckedAt: "2026-10-04T06:12:00+00:00", Packages: []hostapi.SystemPackage{
+			{Name: "libssl3", From: "3.0.11-1~deb12u2", To: "3.0.13-1~deb12u1"},
+			{Name: "openssl", From: "3.0.11-1~deb12u2", To: "3.0.13-1~deb12u1"},
+			{Name: "raspberrypi-kernel", From: "1:1.20240529-1", To: "1:1.20240924-1"},
+		}}
+		if fake.PlanResult != nil {
+			fake.PlanResult.SystemUpdates = updates
+		}
+		fake.DiagnoseView.SystemUpdates = updates
 	}
 
 	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted}

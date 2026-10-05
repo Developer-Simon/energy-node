@@ -207,6 +207,22 @@
         return parts;
       }
 
+      // systemUpdateParts: ausstehende Systempakete als Info mit Liste. Sie
+      // zaehlen nicht in der Bilanz, irgendein Update steht fast immer aus.
+      function systemUpdateParts() {
+        var updates = view.system_updates;
+        if (!updates) {
+          return [];
+        }
+        var parts = [];
+        info(parts, 'system-updates', t('diagnose.system_updates'), window.Services.systemUpdatesText(updates, shell));
+        var list = window.Services.systemPackagesText(updates);
+        if (list) {
+          parts.push({ key: 'devs-system-updates', type: 'devs', cls: 'devs', text: list });
+        }
+        return parts;
+      }
+
       // versionParts: installierte Versionen ohne die Dienste (die stehen an
       // ihrer Zeile). Die Sammelversion "services" entfaellt, sobald es
       // Dienstversionen gibt; uebrige Abhaengigkeiten sind nur gezaehlt.
@@ -236,6 +252,9 @@
           var parts = build(byGroup[group]);
           if (group === 'services') {
             parts = parts.concat(notInstalled());
+          }
+          if (group === 'system') {
+            parts = parts.concat(systemUpdateParts());
           }
           return { key: group, heading: t('diagnose.group.' + group), side: group === 'services' ? 'left' : 'right', parts: parts };
         })
@@ -270,6 +289,13 @@
         var list = view.devices[unit];
         lines.push('INFO  devices ' + unit + '  ' + (list === null ? 'unreadable' : list.map(function (device) { return device.id; }).join(',') || '-'));
       });
+      var updates = view.system_updates;
+      if (updates) {
+        lines.push('INFO  system-updates  ' + updates.count + '  ' + (updates.checked_at || '-'));
+        (updates.packages || []).forEach(function (pkg) {
+          lines.push('INFO  system-update ' + pkg.name + '  ' + (pkg.from || '-') + ' -> ' + pkg.to);
+        });
+      }
       return lines.join('\n') + '\n';
     },
   };

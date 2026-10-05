@@ -252,10 +252,13 @@
           return [];
         }
         var parts = [];
+        // Schritt 15 nennt die ausstehenden Systempakete samt Stand.
+        var updates = window.Services.systemUpdatesText(this.plan && this.plan.system_updates, this.shell);
         window.Services.toggles(this.manifest, this.selection, this.shell).forEach(function (row) {
           parts.push({
             key: row.key, type: 'svc', cls: 'svc' + (row.on ? '' : ' off'),
             name: row.name, on: row.on, isNew: row.kind !== 'devices' && !row.known, chips: null,
+            detail: row.key === 'step-15' ? updates : '',
           });
           if (row.chips) {
             parts.push({ key: row.key + '-chips', type: 'chips', cls: 'chips', chips: row.chips });

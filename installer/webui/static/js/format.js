@@ -7,6 +7,8 @@
     return (n < 10 ? '0' : '') + n;
   }
 
+  var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
   function number(value, lang, digits) {
     return new Intl.NumberFormat(lang === 'de' ? 'de-DE' : 'en-GB', {
       minimumFractionDigits: digits,
@@ -17,6 +19,19 @@
   window.Format = {
     plainVersion: function (version) {
       return version ? String(version).replace(/^v/, '') : '';
+    },
+
+    // day: der Tag eines Zeitstempels kurz, "04.10." bzw. "4 Oct". Leer bei
+    // fehlendem oder unlesbarem Wert.
+    day: function (at, lang) {
+      var d = new Date(at);
+      if (!at || isNaN(d.getTime())) {
+        return '';
+      }
+      if (lang === 'de') {
+        return pad(d.getDate()) + '.' + pad(d.getMonth() + 1) + '.';
+      }
+      return d.getDate() + ' ' + MONTHS[d.getMonth()];
     },
 
     clock: function (at) {

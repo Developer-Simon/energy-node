@@ -121,3 +121,20 @@ func TestBothScenariosServeAChangelogTheScreenCanSlice(t *testing.T) {
 		t.Fatalf("a first install has nothing installed: %#v", first.Installed)
 	}
 }
+
+// --system-updates zeigt ausstehende Systempakete in Vorschau und Diagnose.
+// Ohne den Schalter bleiben beide wie ihre Vorlagen.
+func TestSystemUpdatesAppearOnlyWithTheirFlag(t *testing.T) {
+	plain := newScenario("vorlage-update", options{})
+	plan, _ := plain.Plan(context.Background())
+	view, _ := plain.Diagnose(context.Background())
+	if plan.SystemUpdates != nil || view.SystemUpdates != nil {
+		t.Fatalf("without the flag no system updates may appear")
+	}
+	shown := newScenario("vorlage-update", options{systemUpdates: true})
+	plan, _ = shown.Plan(context.Background())
+	view, _ = shown.Diagnose(context.Background())
+	if plan.SystemUpdates == nil || plan.SystemUpdates.Count != 3 || view.SystemUpdates == nil || len(view.SystemUpdates.Packages) != 3 {
+		t.Fatalf("plan %+v, diagnose %+v, want three pending packages in both", plan.SystemUpdates, view.SystemUpdates)
+	}
+}

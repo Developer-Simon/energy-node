@@ -41,3 +41,10 @@ test('bits leitet die Wortbreite aus uname -m ab', () => {
   assert.equal(F.bits('x86_64'), 64);
   assert.equal(F.bits('mips'), 0);
 });
+
+test('day schreibt den Tag eines Zeitstempels kurz, in der Sprache der Oberflaeche', () => {
+  assert.equal(F.day('2026-10-04T06:12:00+00:00', 'de'), '04.10.');
+  assert.equal(F.day('2026-10-04T06:12:00+00:00', 'en'), '4 Oct');
+  assert.equal(F.day('', 'de'), '');
+  assert.equal(F.day('kein Datum', 'de'), '');
+});
