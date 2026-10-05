@@ -1911,6 +1911,7 @@
   "systemconfig.error.invalid_json": "Invalid JSON: {error}",
   "systemconfig.error.save_failed": "Saving failed (HTTP {status})",
   "systemconfig.schema_title": "Configuration",
+  "systemconfig.toast.reload_failed": "Service {service} was not reloaded: {error}",
   "tailscale.help.no_auth_key": "No auth key needed: this assistant uses the interactive Tailscale sign-in, and the dashboard neither stores nor processes an access key.",
   "tailscale.help.setup_account": "Create an account and a tailnet on tailscale.com if you do not have one yet.",
   "tailscale.help.setup_installation": "Tailscale must already be installed and set up as a service on this target system. This assistant does not install anything. For the ARMv6 installation on this Pi, see the internal note knowhow/tailscale-setup.md.",
