@@ -34,6 +34,10 @@
     if (/^shelly-webhook-listener:/.test(subject)) {
       return 'webhook-listener';
     }
+    // Ausstehender Neustart (Schritt 15), nur ein Hinweis.
+    if (subject === 'reboot') {
+      return 'reboot';
+    }
     if (/\.service$/.test(subject)) {
       return 'unit';
     }
@@ -169,6 +173,10 @@
               row(parts, check.name, t('diagnose.webhook.listener'),
                 t(check.ok ? 'diagnose.webhook.listener.on' : 'diagnose.webhook.listener.off'), levelOf(check));
               follow(parts, check, '', '', t('diagnose.warn.webhook', { port: portOf(check) }));
+              return;
+            case 'reboot':
+              row(parts, check.name, t('diagnose.reboot'), t('diagnose.reboot.required'), levelOf(check));
+              follow(parts, check, '', '', t('diagnose.warn.reboot'));
               return;
             case 'tailscale':
               row(parts, check.name, t('diagnose.tailscale'), t(check.ok ? 'diagnose.tailscale.in' : 'diagnose.tailscale.out'), levelOf(check));

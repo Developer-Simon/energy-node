@@ -25,13 +25,19 @@
     // baut (Vorschau und Diagnose). Ein Test haelt die Liste gegen das Skript.
     WHEEL_COMPONENTS: ['energy_node_common', 'battery_soc_core'],
 
-    // isSelected: ein fehlender Schluessel ist "aus", nie "default". Sonst
-    // braechte ein Update einen neuen Dienst ungefragt mit.
+    // isSelected: fuer Dienste ist ein fehlender Schluessel "aus", nie
+    // "default" - sonst braechte ein Update einen neuen Dienst ungefragt
+    // mit. Ein Systemschritt ohne Schluessel folgt dagegen der
+    // Manifest-Vorgabe, wie step_selected und plan.sh (15 kam per Update).
     isSelected: function (step, selection) {
       if (!step.optional) {
         return true;
       }
-      return !!(selection && selection.steps && selection.steps[step.id] === true);
+      var steps = (selection && selection.steps) || null;
+      if (steps && Object.prototype.hasOwnProperty.call(steps, step.id)) {
+        return steps[step.id] === true;
+      }
+      return !step.service_id && !!steps && step.default === true;
     },
 
     // requiresMet: ein Schritt mit "requires" (manifest.json) zaehlt nur,

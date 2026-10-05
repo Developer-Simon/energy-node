@@ -150,3 +150,19 @@ test('ein Abbruch ohne Schritt traegt sein detail in outcome', () => {
   assert.equal(outcome.stepId, '');
   assert.equal(outcome.detail, 'no bootstrap script found for step 10');
 });
+
+test('ok mit neustart noetig wird gemerkt und kommt ins Ergebnis', () => {
+  const { M } = setup();
+  const model = M.create('run-1');
+  play(M, model, DRAFT_RUN.concat([['step', { id: '15', state: 'ok', detail: 'neustart noetig' }, 253]]));
+  assert.equal(model.rebootPending, true);
+  assert.equal(model.steps['15'].detail, 'neustart noetig');
+  assert.equal(M.outcome(model, []).rebootPending, true);
+});
+
+test('ein ok ohne Zusatz verlangt keinen Neustart', () => {
+  const { M } = setup();
+  const model = M.create('run-1');
+  play(M, model, DRAFT_RUN);
+  assert.equal(model.rebootPending, false);
+});

@@ -77,11 +77,24 @@ test('groupOf und stepLabel liefern Nummer und Namen fuer die Diagnose', () => {
   assert.equal(S.stepLabel(MANIFEST, '50', shell), 'Python-Pakete');
 });
 
-test('Pflichtschritte sind immer gewaehlt, optionale nur mit true', () => {
+test('Pflichtschritte sind immer gewaehlt, Dienste nur mit true', () => {
   const { S } = load();
   assert.equal(S.isSelected({ id: '10' }, { steps: {} }), true);
-  assert.equal(S.isSelected({ id: '40', optional: true, default: true }, { steps: {} }), false);
+  const service = { id: '83', service_id: 'shelly', optional: true, default: true };
+  assert.equal(S.isSelected(service, { steps: {} }), false);
+  assert.equal(S.isSelected(service, { steps: { 83: true } }), true);
   assert.equal(S.isSelected({ id: '40', optional: true }, { steps: { 40: true } }), true);
+});
+
+// Ein Systemschritt, den die Auswahl auf dem Node noch nicht kennt (15 kam
+// mit einem Update), gilt wie in step.sh und plan.sh mit seiner
+// Manifest-Vorgabe. Sonst schriebe das erste Speichern "15": false.
+test('ein unbekannter Systemschritt folgt der Manifest-Vorgabe', () => {
+  const { S } = load();
+  assert.equal(S.isSelected({ id: '15', optional: true, default: true }, { steps: {} }), true);
+  assert.equal(S.isSelected({ id: '35', optional: true, default: false }, { steps: {} }), false);
+  assert.equal(S.isSelected({ id: '15', optional: true, default: true }, { steps: { 15: false } }), false);
+  assert.equal(S.isSelected({ id: '70', optional: true }, null), false);
 });
 
 // Schritt 35 (Firewall-Freigabe fuer den Shelly-Wake-Webhook) ist Opt-in:

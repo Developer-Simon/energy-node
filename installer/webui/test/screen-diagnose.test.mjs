@@ -256,3 +256,24 @@ test('der Bericht nimmt Versionen, Geraete und nicht installierte Dienste mit', 
   assert.ok(text.includes('INFO  devices trucki-http.service  unreadable\n'), text);
   assert.ok(text.includes('INFO  devices tuya.service  -\n'), text);
 });
+
+// Ausstehender Neustart (Schritt 15): ein Hinweis auf der System-Karte,
+// ohne Reparatur, bis der Node neu gestartet ist.
+test('ein ausstehender Neustart ist ein Hinweis ohne Reparatur', async () => {
+  const withReboot = Object.assign({}, DIAGNOSE, {
+    checks: DIAGNOSE.checks.concat([
+      { name: 'reboot required', ok: false, detail: 'required', group: 'system', subject: 'reboot', severity: 'warn' },
+    ]),
+  });
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withReboot } });
+  assert.deepEqual(plain(screen.tally), { ok: 14, warn: 1, bad: 1 });
+  const system = screen.rightCards[0];
+  const reboot = system.parts.find((part) => part.name === 'Neustart');
+  assert.ok(reboot, 'Zeile Neustart fehlt');
+  assert.equal(reboot.value, 'ausstehend');
+  assert.equal(reboot.dot, 'd warn');
+  const box = system.parts[system.parts.indexOf(reboot) + 1];
+  assert.equal(box.type, 'warnbox');
+  assert.equal(box.text, 'Ein Update braucht einen Neustart des Node. Starte ihn neu, wenn es passt, zum Beispiel mit sudo reboot.');
+  assert.ok(!system.parts.some((part) => part.type === 'fail' && part.key === 'fail-reboot required'));
+});

@@ -145,3 +145,15 @@ test('ohne Verbindungsziel ist die Adresse die des Browsers', async () => {
   const { screen } = await mount({ shared: { target: { host: '', user: '' } } });
   assert.equal(screen.primaryUrl, 'https://127.0.0.1');
 });
+
+test('ein Kernel-Update setzt den Neustart als ersten Punkt', async () => {
+  const { screen } = await mount({ outcome: { rebootPending: true } });
+  assert.equal(screen.todos[0].title, 'Den Node neu starten');
+  assert.equal(screen.todos[0].text, 'Ein Kernel- oder Firmware-Update wirkt erst danach. Das Programm startet den Node nicht selbst neu.');
+  assert.equal(screen.todos.length, 4);
+});
+
+test('auch nach einem Update steht der Neustart in der Liste', async () => {
+  const { screen } = await mount({ outcome: { mode: 'redeploy', rebootPending: true } });
+  assert.equal(screen.todos[0].key, 'reboot');
+});
