@@ -149,6 +149,19 @@ func (r *Report) Checklist(steps []bundle.StepEntry) []Check {
 		})
 	}
 
+	// Ausstehender Neustart (Schritt 15): nur ein Hinweis, kein Schritt
+	// behebt ihn - das macht der Betreiber mit einem Neustart.
+	if r.RebootRequired {
+		checks = append(checks, Check{
+			Name:     "reboot required",
+			OK:       false,
+			Detail:   "required",
+			Group:    "system",
+			Subject:  "reboot",
+			Severity: "warn",
+		})
+	}
+
 	checks = append(checks, Check{
 		Name:        "config.json",
 		OK:          r.Config.ConfigJSON,

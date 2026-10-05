@@ -34,6 +34,10 @@
     if (/^shelly-webhook-listener:/.test(subject)) {
       return 'webhook-listener';
     }
+    // Ausstehender Neustart (Schritt 15), nur ein Hinweis.
+    if (subject === 'reboot') {
+      return 'reboot';
+    }
     if (/\.service$/.test(subject)) {
       return 'unit';
     }
@@ -64,7 +68,7 @@
         : shell.t('diagnose.retry_plain', { name: name });
     },
 
-    cards: function (view, manifest, shell) {
+    cards: function (view, manifest, shell, updatesState) {
       var t = shell.t.bind(shell);
       var byGroup = { services: [], system: [], config: [] };
       ((view && view.checks) || []).forEach(function (check) {
@@ -170,6 +174,10 @@
                 t(check.ok ? 'diagnose.webhook.listener.on' : 'diagnose.webhook.listener.off'), levelOf(check));
               follow(parts, check, '', '', t('diagnose.warn.webhook', { port: portOf(check) }));
               return;
+            case 'reboot':
+              row(parts, check.name, t('diagnose.reboot'), t('diagnose.reboot.required'), levelOf(check));
+              follow(parts, check, '', '', t('diagnose.warn.reboot'));
+              return;
             case 'tailscale':
               row(parts, check.name, t('diagnose.tailscale'), t(check.ok ? 'diagnose.tailscale.in' : 'diagnose.tailscale.out'), levelOf(check));
               follow(parts, check, t('diagnose.fail.tailscale.title'), t('diagnose.fail.tailscale.text'));
@@ -195,6 +203,33 @@
           if (step.service_id && step.unit && (view.units || {})[step.unit] === 'not-installed') {
             info(parts, 'missing-' + step.unit, stripService(step.unit), t('diagnose.unit.not_installed'));
           }
+        });
+        return parts;
+      }
+
+      // systemUpdateParts: ausstehende Systempakete als Info mit Liste und
+      // dem Knopf "Jetzt neu abrufen". Sie zaehlen nicht in der Bilanz,
+      // irgendein Update steht fast immer aus. undefined = der Bericht kennt
+      // sie nicht (aelteres Paket), null = nicht ermittelbar.
+      function systemUpdateParts() {
+        var updates = view.system_updates;
+        if (updates === undefined) {
+          return [];
+        }
+        var state = updatesState || {};
+        var parts = [];
+        info(parts, 'system-updates', t('diagnose.system_updates'),
+          updates ? window.Services.systemUpdatesText(updates, shell) : t('system_updates.unknown'));
+        var list = window.Services.systemPackagesText(updates);
+        if (list) {
+          parts.push({ key: 'devs-system-updates', type: 'devs', cls: 'devs', text: list });
+        }
+        if (state.error) {
+          parts.push({ key: 'system-updates-error', type: 'devs', cls: 'devs', text: state.error });
+        }
+        parts.push({
+          key: 'system-updates-refresh', type: 'act', cls: 'acts', busy: !!state.busy,
+          label: t(state.busy ? 'system_updates.refreshing' : 'system_updates.refresh'),
         });
         return parts;
       }
@@ -229,6 +264,9 @@
           if (group === 'services') {
             parts = parts.concat(notInstalled());
           }
+          if (group === 'system') {
+            parts = parts.concat(systemUpdateParts());
+          }
           return { key: group, heading: t('diagnose.group.' + group), side: group === 'services' ? 'left' : 'right', parts: parts };
         })
         .filter(function (card) { return card.parts.length; });
@@ -262,6 +300,13 @@
         var list = view.devices[unit];
         lines.push('INFO  devices ' + unit + '  ' + (list === null ? 'unreadable' : list.map(function (device) { return device.id; }).join(',') || '-'));
       });
+      var updates = view.system_updates;
+      if (updates) {
+        lines.push('INFO  system-updates  ' + updates.count + '  ' + (updates.checked_at || '-'));
+        (updates.packages || []).forEach(function (pkg) {
+          lines.push('INFO  system-update ' + pkg.name + '  ' + (pkg.from || '-') + ' -> ' + pkg.to);
+        });
+      }
       return lines.join('\n') + '\n';
     },
   };
@@ -273,6 +318,8 @@
       view: null,
       manifest: null,
       busy: false,
+      updatesBusy: false,
+      updatesError: '',
       checkedAt: 0,
       timer: null,
 
@@ -328,7 +375,9 @@
       },
 
       get cards() {
-        return this.view && this.manifest ? DiagnoseModel.cards(this.view, this.manifest, this.shell) : [];
+        return this.view && this.manifest
+          ? DiagnoseModel.cards(this.view, this.manifest, this.shell, { busy: this.updatesBusy, error: this.updatesError })
+          : [];
       },
 
       get leftCards() {
@@ -357,6 +406,30 @@
           this.shell.fail(err);
         } finally {
           this.busy = false;
+        }
+      },
+
+      // refreshUpdates holt die Paketlisten jetzt frisch (apt-get update) und
+      // zaehlt neu. Ein Fehler bleibt an der Zeile, der alte Stand sichtbar.
+      async refreshUpdates() {
+        if (this.updatesBusy) {
+          return;
+        }
+        var t = this.shell.t.bind(this.shell);
+        this.updatesBusy = true;
+        this.updatesError = '';
+        try {
+          var fresh = await window.Api.post('/api/system-updates/refresh');
+          this.view = Object.assign({}, this.view, { system_updates: fresh });
+        } catch (err) {
+          var key = 'error.' + err.code;
+          var message = t(key);
+          if (message === key) {
+            message = t('system_updates.refresh_failed');
+          }
+          this.updatesError = err.detail ? message + ' ' + err.detail : message;
+        } finally {
+          this.updatesBusy = false;
         }
       },
 

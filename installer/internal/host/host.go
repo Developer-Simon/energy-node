@@ -544,9 +544,11 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		return nil, &hostapi.Error{Code: "DIAGNOSE_FAILED", Detail: err.Error()}
 	}
 	view := &hostapi.DiagnoseView{
-		BundleVersion: report.BundleVersion,
-		Units:         report.Units,
-		Ports:         report.Ports,
+		BundleVersion:  report.BundleVersion,
+		Units:          report.Units,
+		Ports:          report.Ports,
+		RebootRequired: report.RebootRequired,
+		SystemUpdates:  systemUpdatesView(report.SystemUpdates),
 	}
 	view.Versions, view.Devices = installedInfo(report)
 	for _, check := range report.Checklist(manifest.Steps) {
@@ -582,6 +584,46 @@ func installedInfo(report *diag.Report) (*hostapi.DiagnoseVersions, map[string][
 		devices[unit] = entries
 	}
 	return versions, devices
+}
+
+// SystemUpdates implements hostapi.SystemUpdatesProvider: the bundle's
+// apt_pending.py on the node, asked only when the operator wants it (the
+// preview does not wait for it). refresh runs apt-get update through sudo
+// first.
+func (h *Host) SystemUpdates(ctx context.Context, refresh bool) (*hostapi.SystemUpdates, error) {
+	client, err := h.connected()
+	if err != nil {
+		return nil, err
+	}
+	return systemUpdatesResult(steps.QuerySystemUpdates(ctx, client, h.cfg.RemoteBundleDir, refresh))
+}
+
+// systemUpdatesResult maps the helper's answer: a failed apt-get update
+// becomes APT_UPDATE_FAILED with apt's message (the same fault text step 15
+// uses), any other failure SYSTEM_UPDATES_FAILED.
+func systemUpdatesResult(updates *steps.SystemUpdates, err error) (*hostapi.SystemUpdates, error) {
+	var refreshFailed *steps.RefreshFailedError
+	if errors.As(err, &refreshFailed) {
+		return nil, &hostapi.Error{Code: "APT_UPDATE_FAILED", Detail: refreshFailed.Detail, Status: http.StatusBadGateway}
+	}
+	if err != nil {
+		return nil, &hostapi.Error{Code: "SYSTEM_UPDATES_FAILED", Detail: err.Error(), Status: http.StatusBadGateway}
+	}
+	return systemUpdatesView(updates), nil
+}
+
+// systemUpdatesView carries apt_pending.py's report into the views. nil
+// (apt-get missing or failed) stays nil, so the UI shows no count instead of
+// a wrong "up to date".
+func systemUpdatesView(updates *steps.SystemUpdates) *hostapi.SystemUpdates {
+	if updates == nil {
+		return nil
+	}
+	view := &hostapi.SystemUpdates{Count: updates.Count, CheckedAt: updates.CheckedAt}
+	for _, p := range updates.Packages {
+		view.Packages = append(view.Packages, hostapi.SystemPackage{Name: p.Name, From: p.From, To: p.To})
+	}
+	return view
 }
 
 func (h *Host) connected() (*transport.Client, error) {

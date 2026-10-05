@@ -40,6 +40,7 @@ const (
 	CodeSudoRequired            Code = "SUDO_REQUIRED"
 	CodeAptInstallFailed        Code = "APT_INSTALL_FAILED"
 	CodeAptUpdateFailed         Code = "APT_UPDATE_FAILED"
+	CodeAptUpgradeFailed        Code = "APT_UPGRADE_FAILED"
 	CodeBundleIncomplete        Code = "BUNDLE_INCOMPLETE"
 	CodeCaddyBinaryMissing      Code = "CADDY_BINARY_MISSING"
 	CodeCaddyConfigInvalid      Code = "CADDY_CONFIG_INVALID"
@@ -73,6 +74,7 @@ var allCodes = []Code{
 	CodeAptFailed,
 	CodeAptInstallFailed,
 	CodeAptUpdateFailed,
+	CodeAptUpgradeFailed,
 	CodeArchMismatch,
 	CodeBundleHashMismatch,
 	CodeBundleIncomplete,

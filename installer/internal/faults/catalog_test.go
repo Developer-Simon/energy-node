@@ -69,6 +69,7 @@ func TestCatalogCoversTheStableCodeInventory(t *testing.T) {
 		"APT_FAILED",
 		"APT_INSTALL_FAILED",
 		"APT_UPDATE_FAILED",
+		"APT_UPGRADE_FAILED",
 		"ARCH_MISMATCH",
 		"BUNDLE_HASH_MISMATCH",
 		"BUNDLE_INCOMPLETE",

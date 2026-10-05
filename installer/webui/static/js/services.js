@@ -25,13 +25,19 @@
     // baut (Vorschau und Diagnose). Ein Test haelt die Liste gegen das Skript.
     WHEEL_COMPONENTS: ['energy_node_common', 'battery_soc_core'],
 
-    // isSelected: ein fehlender Schluessel ist "aus", nie "default". Sonst
-    // braechte ein Update einen neuen Dienst ungefragt mit.
+    // isSelected: fuer Dienste ist ein fehlender Schluessel "aus", nie
+    // "default" - sonst braechte ein Update einen neuen Dienst ungefragt
+    // mit. Ein Systemschritt ohne Schluessel folgt dagegen der
+    // Manifest-Vorgabe, wie step_selected und plan.sh (15 kam per Update).
     isSelected: function (step, selection) {
       if (!step.optional) {
         return true;
       }
-      return !!(selection && selection.steps && selection.steps[step.id] === true);
+      var steps = (selection && selection.steps) || null;
+      if (steps && Object.prototype.hasOwnProperty.call(steps, step.id)) {
+        return steps[step.id] === true;
+      }
+      return !step.service_id && !!steps && step.default === true;
     },
 
     // requiresMet: ein Schritt mit "requires" (manifest.json) zaehlt nur,
@@ -160,6 +166,26 @@
         groups.push(servicesGroup);
       }
       return groups;
+    },
+
+    // systemUpdatesText: die ausstehenden Systempakete (Schritt 15) mit dem
+    // Stand der Paketlisten, "12 Updates · Stand 04.10.". Ohne Bericht
+    // (apt-get fehlte oder scheiterte) leer, nie ein falsches "aktuell".
+    systemUpdatesText: function (updates, shell) {
+      if (!updates) {
+        return '';
+      }
+      var text = updates.count ? shell.tn('system_updates.count', updates.count) : shell.t('system_updates.none');
+      var day = window.Format.day(updates.checked_at, shell.lang);
+      return day ? text + ' · ' + shell.t('system_updates.as_of', { day: day }) : text;
+    },
+
+    // systemPackagesText: "libssl3 3.0.11 → 3.0.13, openssl …" fuer die
+    // Diagnose. Ein Paket ohne alte Version kaeme neu dazu.
+    systemPackagesText: function (updates) {
+      return ((updates && updates.packages) || []).map(function (pkg) {
+        return pkg.name + ' ' + (pkg.from ? pkg.from + ' → ' : '') + pkg.to;
+      }).join(', ');
     },
 
     groupOf: function (groups, stepId) {

@@ -21,6 +21,8 @@ type options struct {
 	failStep  string
 	failCode  string
 	stepDelay time.Duration
+	// systemUpdates: Vorschau und Diagnose nennen ausstehende Systempakete.
+	systemUpdates bool
 }
 
 // stagedBackend ist die Attrappe aus hostapitest mit zwei Zusaetzen, die nur
@@ -83,6 +85,14 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 	}
 	return nil
 }
+
+// systemUpgrade spielt im Update einen neuen Kernel ein, damit Ergebnis und
+// Lauf den Neustart-Hinweis zeigen (scripts/bootstrap/15-system-upgrade.sh).
+// Die Erstinstallation bleibt ohne, ihr Ergebnis liegt wie die Vorlage.
+var systemUpgrade = hostapitest.FakeStep{ID: "15", Detail: "neustart noetig", Log: []string{
+	"Aktualisiere 3 Pakete: libssl3 openssl raspberrypi-kernel",
+	"Ein Neustart des Node ist noetig, damit alle Updates wirken.",
+}}
 
 // webhookStep ist die Opt-in-Freigabe des Shelly-Wake-Webhooks; sie laeuft
 // nur mit dem Shelly-Dienst (83), wie auf einem echten Node.
@@ -155,7 +165,9 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 
 	steps := []hostapi.StepView{
-		{ID: "10"}, {ID: "20"}, {ID: "30"},
+		{ID: "10"},
+		{ID: "15", Optional: true, Default: true},
+		{ID: "20"}, {ID: "30"},
 		{ID: "35", Optional: true, Default: false, Requires: "83"},
 		{ID: "40", Optional: true, Default: true},
 		{ID: "50"}, {ID: "60"},
@@ -182,17 +194,22 @@ func newScenario(name string, opts options) *stagedBackend {
 		BundleBytes: 41 * 1024 * 1024, WheelCount: 12, UnitCount: 8, TemplateCount: 7,
 	}
 
-	selected := map[string]bool{"35": false, "40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true}
+	selected := map[string]bool{"15": true, "35": false, "40": true, "70": true, "81": true, "82": false, "83": true, "84": true, "85": true, "88": true}
 	fake.SelectionView = &hostapi.SelectionView{Steps: selected, Source: "manifest-default"}
 
 	if update {
 		fake.PrecheckView.Installed = true
 		fake.PrecheckView.InstalledBundleVersion = "v1.4.1"
 		fake.SelectionView.Source = "node"
+		// Die Auswahl auf dem Node stammt von vor Schritt 15: der Schalter
+		// steht trotzdem an (Manifest-Vorgabe eines Systemschritts).
+		delete(selected, "15")
 		fake.PlanResult = &hostapi.PlanView{
 			BundleVersion: "v1.4.2",
 			Steps: []hostapi.PlanStep{
-				{ID: "10", State: "done"}, {ID: "20", State: "done"}, {ID: "30", State: "done"},
+				{ID: "10", State: "done"},
+				{ID: "15", State: "pending", Optional: true, Selected: true},
+				{ID: "20", State: "done"}, {ID: "30", State: "done"},
 				{ID: "35", State: "deselected", Optional: true},
 				{ID: "40", State: "done", Optional: true, Selected: true},
 				{ID: "50", State: "pending"}, {ID: "60", State: "pending"},
@@ -267,6 +284,7 @@ func newScenario(name string, opts options) *stagedBackend {
 
 	fake.Steps = []hostapitest.FakeStep{
 		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-venv", "12 Pakete installiert"}},
+		{ID: "15", Log: []string{"Alle Systempakete sind aktuell."}},
 		{ID: "20", Log: []string{"mosquitto_passwd -b energynode ***", "/etc/mosquitto/conf.d/default.conf geschrieben", "mosquitto neu gestartet, Testnachricht zugestellt"}},
 		{ID: "30", Log: []string{"Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp", "ufw aktiv"}},
 		{ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
@@ -286,7 +304,8 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 	if update {
 		fake.Steps = []hostapitest.FakeStep{
-			{ID: "10", State: "skip", Detail: "bereits erledigt"}, {ID: "20", State: "skip", Detail: "bereits erledigt"},
+			{ID: "10", State: "skip", Detail: "bereits erledigt"}, systemUpgrade,
+			{ID: "20", State: "skip", Detail: "bereits erledigt"},
 			{ID: "30", State: "skip", Detail: "bereits erledigt"}, {ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
 			{ID: "40", State: "skip", Detail: "bereits erledigt"},
 			{ID: "50", Log: []string{"tinytuya 1.15.1 -> 1.16.0"}}, {ID: "60", Log: []string{"energy-node-dashboard 1.4.1 -> 1.4.2"}},
@@ -294,6 +313,16 @@ func newScenario(name string, opts options) *stagedBackend {
 			{ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83", State: "skip", Detail: "bereits erledigt"},
 			{ID: "84", State: "skip", Detail: "bereits erledigt"}, {ID: "85"}, {ID: "88"},
 		}
+	}
+
+	if opts.systemUpdates {
+		updates := &hostapi.SystemUpdates{Count: 3, CheckedAt: "2026-10-04T06:12:00+00:00", Packages: []hostapi.SystemPackage{
+			{Name: "libssl3", From: "3.0.11-1~deb12u2", To: "3.0.13-1~deb12u1"},
+			{Name: "openssl", From: "3.0.11-1~deb12u2", To: "3.0.13-1~deb12u1"},
+			{Name: "raspberrypi-kernel", From: "1:1.20240529-1", To: "1:1.20240924-1"},
+		}}
+		fake.SystemUpdatesView = updates
+		fake.DiagnoseView.SystemUpdates = updates
 	}
 
 	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted}

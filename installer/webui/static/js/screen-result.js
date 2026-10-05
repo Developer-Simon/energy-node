@@ -149,6 +149,10 @@
         var t = this.shell.t.bind(this.shell);
         var outcome = this.outcome;
         var list = [];
+        // Schritt 15 hat einen Kernel oder Firmware eingespielt.
+        if (outcome.rebootPending) {
+          list.push({ key: 'reboot', title: t('result.todo.reboot.title'), text: t('result.todo.reboot.text') });
+        }
         if (outcome.loginPending && outcome.loginUrl) {
           list.push({ key: 'login', title: t('result.todo.login.title'), text: outcome.loginUrl });
         }

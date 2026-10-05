@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -443,5 +444,113 @@ func TestChangelogOfACandidateWithoutOneIsNoChangelog(t *testing.T) {
 	var apiErr *hostapi.Error
 	if !errors.As(err, &apiErr) || apiErr.Code != "NO_CHANGELOG" {
 		t.Fatalf("err = %#v, want NO_CHANGELOG", err)
+	}
+}
+
+// Ein Systemschritt, den die Auswahl auf dem Node noch nicht kennt (15 kam
+// mit einem Update), gilt mit seiner Manifest-Vorgabe, wie in step.sh,
+// plan.sh und der Oberflaeche. Ein Dienst ohne Schluessel bleibt aus.
+func TestASystemStepMissingFromTheSelectionFollowsItsDefault(t *testing.T) {
+	cfg := setupNode(t)
+	writeManifests(t, cfg,
+		`{"version":"1.5.0","arch":"armv6","steps":[
+			{"id":"10","optional":false},
+			{"id":"15","optional":true,"default":true},
+			{"id":"35","optional":true,"default":false},
+			{"id":"89","optional":true,"default":true,"service_id":"modbus"}]}`,
+		`{"version":"1.4.0"}`)
+	os.WriteFile(cfg.SelectionPath, []byte(`{"steps":{"10":true}}`), 0o644)
+	h, _ := updaterhost.New(cfg)
+
+	view, err := h.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]hostapi.PlanStep{}
+	for _, s := range view.Steps {
+		byID[s.ID] = s
+	}
+	if s := byID["15"]; !s.Selected || s.State != "pending" {
+		t.Errorf("step 15 = %+v, want selected and pending", s)
+	}
+	for _, id := range []string{"35", "89"} {
+		if s := byID[id]; s.Selected || s.State != "deselected" {
+			t.Errorf("step %s = %+v, want deselected", id, s)
+		}
+	}
+
+	go func() {
+		for {
+			if _, err := os.Stat(filepath.Join(cfg.JobDir, "pending.json")); err == nil {
+				break
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+		os.Rename(filepath.Join(cfg.JobDir, "pending.json"), filepath.Join(cfg.JobDir, "current.json"))
+		os.WriteFile(filepath.Join(cfg.JobDir, "status.json"), []byte(`{"result":"ok"}`), 0o644)
+	}()
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModeRedeploy, RunID: "run-6"}, &recordingSink{}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(cfg.JobDir, "current.json"))
+	if !strings.Contains(string(raw), `"steps":["10","15"]`) {
+		t.Fatalf("current.json = %s, want steps 10 and 15", raw)
+	}
+}
+
+// Die Systempakete zaehlt das Dashboard auf Abfrage mit demselben Skript wie
+// der Installer: bootstrap/lib/apt_pending.py aus dem Kandidaten-Bundle. Die
+// Vorschau (Plan) wartet nicht darauf.
+func TestSystemUpdatesCountWithTheCandidateHelperOnlyWhenAsked(t *testing.T) {
+	cfg := setupNode(t)
+	lib := filepath.Join(cfg.CandidateBundleDir, "bootstrap", "lib")
+	os.MkdirAll(lib, 0o755)
+	os.WriteFile(filepath.Join(lib, "apt_pending.py"), []byte(`print('{"count": 2, "checked_at": "2026-10-04T06:12:00+00:00", "packages": [{"name": "libssl3", "from": "3.0.11", "to": "3.0.13"}, {"name": "openssl", "from": "3.0.11", "to": "3.0.13"}]}')
+`), 0o644)
+	h, _ := updaterhost.New(cfg)
+	if _, err := h.Plan(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	u, err := h.SystemUpdates(context.Background(), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if u == nil || u.Count != 2 || u.CheckedAt != "2026-10-04T06:12:00+00:00" || len(u.Packages) != 2 || u.Packages[1].Name != "openssl" {
+		t.Fatalf("system updates = %+v", u)
+	}
+}
+
+func TestSystemUpdatesWithoutAWorkingHelperAreUnknown(t *testing.T) {
+	for name, script := range map[string]string{
+		"missing": "",
+		"null":    "print('null')\n",
+		"broken":  "raise SystemExit(3)\n",
+		"garbage": "print('kein json')\n",
+	} {
+		cfg := setupNode(t)
+		if script != "" {
+			lib := filepath.Join(cfg.CandidateBundleDir, "bootstrap", "lib")
+			os.MkdirAll(lib, 0o755)
+			os.WriteFile(filepath.Join(lib, "apt_pending.py"), []byte(script), 0o644)
+		}
+		h, _ := updaterhost.New(cfg)
+		u, err := h.SystemUpdates(context.Background(), false)
+		if err != nil {
+			t.Fatalf("%s: must not fail: %v", name, err)
+		}
+		if u != nil {
+			t.Errorf("%s: system updates = %+v, want nil", name, u)
+		}
+	}
+}
+
+// Frisch abrufen braucht root (apt-get update); das Dashboard laeuft als
+// Dienstbenutzer und bietet es nicht an.
+func TestSystemUpdatesRefreshIsNotSupportedOnTheDashboard(t *testing.T) {
+	h, _ := updaterhost.New(setupNode(t))
+	_, err := h.SystemUpdates(context.Background(), true)
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "NOT_SUPPORTED" || apiErr.Status != http.StatusNotImplemented {
+		t.Fatalf("err = %#v, want NOT_SUPPORTED 501", err)
 	}
 }

@@ -39,7 +39,9 @@ BINARY_NAME="energy-node-dashboard"
 
 # Kern laeuft immer; optional ist waehlbar, Vorgabe an (E7).
 CORE_STEPS=(10 20 30 50 60 65)
-OPTIONAL_STEPS=(35 40 70)
+OPTIONAL_STEPS=(15 35 40 70)
+# 15 (Systempakete aktualisieren) ist optional mit Vorgabe an: abwaehlen
+# laesst nur die Pruefung uebrig (scripts/bootstrap/15-system-upgrade.sh).
 # Opt-in: optionale Schritte mit Vorgabe aus. 35 gibt den Port des Shelly-
 # Wake-Webhooks in der Firewall frei - das muss der Betreiber ausdruecklich
 # waehlen (scripts/bootstrap/35-ufw-shelly-webhook.sh).

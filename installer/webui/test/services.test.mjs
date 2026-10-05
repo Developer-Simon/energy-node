@@ -77,11 +77,24 @@ test('groupOf und stepLabel liefern Nummer und Namen fuer die Diagnose', () => {
   assert.equal(S.stepLabel(MANIFEST, '50', shell), 'Python-Pakete');
 });
 
-test('Pflichtschritte sind immer gewaehlt, optionale nur mit true', () => {
+test('Pflichtschritte sind immer gewaehlt, Dienste nur mit true', () => {
   const { S } = load();
   assert.equal(S.isSelected({ id: '10' }, { steps: {} }), true);
-  assert.equal(S.isSelected({ id: '40', optional: true, default: true }, { steps: {} }), false);
+  const service = { id: '83', service_id: 'shelly', optional: true, default: true };
+  assert.equal(S.isSelected(service, { steps: {} }), false);
+  assert.equal(S.isSelected(service, { steps: { 83: true } }), true);
   assert.equal(S.isSelected({ id: '40', optional: true }, { steps: { 40: true } }), true);
+});
+
+// Ein Systemschritt, den die Auswahl auf dem Node noch nicht kennt (15 kam
+// mit einem Update), gilt wie in step.sh und plan.sh mit seiner
+// Manifest-Vorgabe. Sonst schriebe das erste Speichern "15": false.
+test('ein unbekannter Systemschritt folgt der Manifest-Vorgabe', () => {
+  const { S } = load();
+  assert.equal(S.isSelected({ id: '15', optional: true, default: true }, { steps: {} }), true);
+  assert.equal(S.isSelected({ id: '35', optional: true, default: false }, { steps: {} }), false);
+  assert.equal(S.isSelected({ id: '15', optional: true, default: true }, { steps: { 15: false } }), false);
+  assert.equal(S.isSelected({ id: '70', optional: true }, null), false);
 });
 
 // Schritt 35 (Firewall-Freigabe fuer den Shelly-Wake-Webhook) ist Opt-in:
@@ -144,4 +157,35 @@ test('dropUnmet nimmt das Opt-in zurueck, sobald der benoetigte Schritt aus ist'
   const kept = { 35: true, 83: true };
   S.dropUnmet(manifest, kept);
   assert.equal(kept['35'], true);
+});
+
+function loadWithFormat(lang = 'de') {
+  const { window } = loadScripts(['i18n.js', 'format.js', 'services.js']);
+  window.I18n.catalog = realCatalog(lang);
+  const shell = { lang, t: (key, params) => window.I18n.t(key, params), tn: (key, n, params) => window.I18n.tn(key, n, params) };
+  return { S: window.Services, shell };
+}
+
+// Ausstehende Systempakete (Schritt 15), wie Vorschau und Diagnose sie nennen.
+test('systemUpdatesText nennt Zahl und Stand, ohne Bericht nichts', () => {
+  const { S, shell } = loadWithFormat();
+  const at = '2026-10-04T06:12:00+00:00';
+  assert.equal(S.systemUpdatesText({ count: 12, checked_at: at }, shell), '12 Updates · Stand 04.10.');
+  assert.equal(S.systemUpdatesText({ count: 1, checked_at: at }, shell), '1 Update · Stand 04.10.');
+  assert.equal(S.systemUpdatesText({ count: 0, checked_at: at }, shell), 'aktuell · Stand 04.10.');
+  assert.equal(S.systemUpdatesText({ count: 3 }, shell), '3 Updates');
+  assert.equal(S.systemUpdatesText(null, shell), '');
+  assert.equal(S.systemUpdatesText(undefined, shell), '');
+  const en = loadWithFormat('en');
+  assert.equal(en.S.systemUpdatesText({ count: 2, checked_at: at }, en.shell), '2 updates · as of 4 Oct');
+});
+
+test('systemPackagesText listet Paket und Versionen', () => {
+  const { S } = loadWithFormat();
+  assert.equal(S.systemPackagesText({ count: 2, packages: [
+    { name: 'libssl3', from: '3.0.11', to: '3.0.13' },
+    { name: 'linux-image-6.6', to: '6.6.51' },
+  ] }), 'libssl3 3.0.11 → 3.0.13, linux-image-6.6 6.6.51');
+  assert.equal(S.systemPackagesText({ count: 0, packages: [] }), '');
+  assert.equal(S.systemPackagesText(null), '');
 });

@@ -46,6 +46,8 @@ cat <<JSON
   "ports": {"1883": true, "8080": false},
   "config": {"config.json": true, "manifests": ["shelly", "tuya"]},
   "tailscale": {"angemeldet": true},
+  "reboot_required": true,
+  "system_updates": {"count": 1, "checked_at": "", "packages": [{"name": "openssl", "from": "3.0.11", "to": "3.0.13"}]},
   "versions": {"components": {"bootstrap": "v0.1.10"}, "services": {"shelly-rpc.service": "v0.4.2"}},
   "devices": {"shelly-rpc.service": [{"id": "plug", "name": "Plug"}], "tuya.service": null}
 }
@@ -97,6 +99,12 @@ func TestRunParsesTheDiagnoseReport(t *testing.T) {
 	}
 	if devices, ok := report.Devices["tuya.service"]; !ok || devices != nil {
 		t.Errorf("an unreadable device file must stay a nil list, got %+v (present %v)", devices, ok)
+	}
+	if !report.RebootRequired {
+		t.Errorf("expected reboot_required to be parsed")
+	}
+	if u := report.SystemUpdates; u == nil || u.Count != 1 || u.Packages[0].Name != "openssl" {
+		t.Errorf("unexpected system updates: %+v", u)
 	}
 }
 

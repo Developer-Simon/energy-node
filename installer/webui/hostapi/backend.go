@@ -203,6 +203,23 @@ type PlanView struct {
 	Components    map[string]ComponentDelta `json:"components"`
 }
 
+// SystemUpdates sind die ausstehenden Systempakete, simuliert auf den
+// vorhandenen Paketlisten (scripts/bootstrap/lib/apt_pending.py, ohne
+// apt-get update). CheckedAt ist deren Stand, leer = unbekannt.
+type SystemUpdates struct {
+	Count     int             `json:"count"`
+	CheckedAt string          `json:"checked_at,omitempty"`
+	Packages  []SystemPackage `json:"packages,omitempty"`
+}
+
+// SystemPackage ist ein ausstehendes Update. From ist leer bei einem Paket,
+// das apt neu installieren wuerde.
+type SystemPackage struct {
+	Name string `json:"name"`
+	From string `json:"from,omitempty"`
+	To   string `json:"to"`
+}
+
 // RunMode unterscheidet die drei Einstiegspunkte. Sie fuehren nicht zu
 // verschiedenen Codepfaden, sondern nur zu verschiedenen Schrittlisten.
 type RunMode string
@@ -272,6 +289,10 @@ type DiagnoseView struct {
 	// Geraete je Dienst-Unit (nil = Geraetedatei nicht lesbar).
 	Versions *DiagnoseVersions        `json:"versions,omitempty"`
 	Devices  map[string][]DeviceEntry `json:"devices,omitempty"`
+	// RebootRequired: der Node wartet auf einen Neustart (Schritt 15).
+	RebootRequired bool `json:"reboot_required,omitempty"`
+	// SystemUpdates: ausstehende Systempakete samt Liste, nur Information.
+	SystemUpdates *SystemUpdates `json:"system_updates,omitempty"`
 }
 
 // DiagnoseVersions sind die installierten Versionen: Components wie im

@@ -15,11 +15,18 @@
     'login ausstehend': 'login_pending',
   };
 
+  // Zusaetze an ok-Markern (scripts/bootstrap/lib/step.sh, step_ok):
+  // uebersetzt ueber run.ok.<slug>.
+  var OK_REASONS = {
+    'neustart noetig': 'reboot',
+  };
+
   function create(runId) {
     return {
       runId: runId, started: false, finished: false, ok: null, code: '', detail: '', failedStep: '',
       mode: '', only: '', startedAt: 0, finishedAt: 0, lastAt: 0,
       steps: {}, log: [], logCount: 0, loginUrl: '', loginStep: '', loginPending: false,
+      rebootPending: false,
     };
   }
 
@@ -74,6 +81,9 @@
       }
       if (data.state === 'skip' && data.detail === 'login ausstehend') {
         model.loginPending = true;
+      }
+      if (data.state === 'ok' && data.detail === 'neustart noetig') {
+        model.rebootPending = true;
       }
       push(model, { at: at, stepId: data.id, marker: true, text: '##STEP ' + data.id + ' ' + data.state + (data.detail ? ' ' + data.detail : '') });
       return true;
@@ -170,6 +180,11 @@
     return Math.max(0, (model.finished ? model.finishedAt : now) - model.startedAt);
   }
 
+  function okText(detail, t) {
+    var slug = OK_REASONS[detail];
+    return slug ? t('run.ok.' + slug) : '';
+  }
+
   function skipText(detail, t) {
     var slug = SKIP_REASONS[detail];
     return slug ? t('run.skip.' + slug) : detail || '';
@@ -219,7 +234,7 @@
     return {
       ok: model.ok, code: model.code, detail: model.detail, stepId: model.failedStep, mode: model.mode, only: model.only,
       startedAt: model.startedAt, finishedAt: model.finishedAt,
-      loginUrl: model.loginUrl, loginPending: model.loginPending,
+      loginUrl: model.loginUrl, loginPending: model.loginPending, rebootPending: model.rebootPending,
       steps: JSON.parse(JSON.stringify(model.steps)), groups: groups,
       lastLines: model.failedStep ? lastLines(model, model.failedStep, 8) : [],
       logText: logText(model),
@@ -227,9 +242,9 @@
   }
 
   window.RunModel = {
-    SKIP_REASONS: SKIP_REASONS,
+    SKIP_REASONS: SKIP_REASONS, OK_REASONS: OK_REASONS,
     create: create, apply: apply, groupState: groupState, groupDuration: groupDuration,
-    current: current, progress: progress, elapsed: elapsed, skipText: skipText,
+    current: current, progress: progress, elapsed: elapsed, skipText: skipText, okText: okText,
     faultText: faultText, segments: segments, lastLines: lastLines, logText: logText, outcome: outcome,
   };
 })();

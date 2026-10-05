@@ -87,6 +87,14 @@ sudo raspi-config      # timezone
 A full `apt upgrade` on a Pi 1 takes a long while. Let it finish before
 continuing — half-upgraded systems make every later error harder to read.
 
+The installer also updates the node's system packages (`apt-get update`, then
+`apt-get upgrade`) once per installer version. You can switch this off on its
+configuration screen (**Update system packages**). Switched off, it still
+checks and writes the number of available updates to the log. It never removes
+packages and never reboots. When a kernel or firmware update needs a reboot,
+the result screen and the diagnose say so. Reboot the node yourself with
+`sudo reboot`.
+
 ---
 
 ## 3. Packages you must install outdated first

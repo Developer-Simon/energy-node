@@ -325,3 +325,9 @@
 .app[data-screen="changelog"] .mode{flex:none;display:flex;gap:.2rem;padding:.2rem;border-radius:999px; border:1px solid var(--border-soft);background:var(--sunken)}
 .app[data-screen="changelog"] .mode-i{padding:.26rem .62rem;text-align:center;font-size:.74rem;color:var(--text-muted);border-radius:999px;white-space:nowrap}
 .app[data-screen="changelog"] .mode-i.on{background:var(--accent-bg);color:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent-line);font-weight:600}
+/* Ergaenzung Aktualisieren: Zusatz an einer Zeile (Schritt 15: ausstehende
+   Systempakete samt Stand), nicht in der Vorlage. */
+.app[data-screen="preview"] .svc-d{margin-left:.45rem;font-size:.72rem;font-weight:400;color:var(--text-muted)}
+/* Ergaenzung Aktualisieren: Systempakete auf Abfrage (Schritt 15), ein
+   Textknopf in der Zeile statt eines vollen Knopfs. */
+.app[data-screen="preview"] .svc-check{margin-left:.45rem;padding:0;border:0;background:none;font:inherit;font-size:.72rem;font-weight:400;color:var(--accent-soft);cursor:pointer;text-decoration:underline;text-underline-offset:2px}

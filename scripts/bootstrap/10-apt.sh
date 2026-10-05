@@ -32,7 +32,8 @@ fi
 
 step_log "Fehlende Pakete: ${missing[*]}"
 "${SUDO[@]}" apt-get update -qq || step_fail APT_UPDATE_FAILED
-DEBIAN_FRONTEND=noninteractive "${SUDO[@]}" apt-get install -y "${missing[@]}" \
+# DEBIAN_FRONTEND hinter sudo, env_reset verwirft es sonst.
+"${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get install -y "${missing[@]}" \
   || step_fail APT_INSTALL_FAILED
 
 step_ok

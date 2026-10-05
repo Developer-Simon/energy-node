@@ -28,6 +28,12 @@ JSON
 
 export EN_STATE_DIR="$tmp/state" EN_BUNDLE_DIR="$bundle"
 export EN_BUNDLE_VERSION=v0.2.0 EN_SELECTION="$tmp/selection.json"
+# Die Vorschau fragt apt nie: auf einem Pi 1 dauert schon die Simulation
+# lange. Die Systempakete holt die Oberflaeche erst auf Abfrage.
+mkdir -p "$tmp/bin"
+printf '#!/bin/sh\necho called >> "%s/apt.log"\n' "$tmp" > "$tmp/bin/apt-get"
+chmod +x "$tmp/bin/apt-get"
+export EN_APT_GET="$tmp/bin/apt-get" PATH="$tmp/bin:$PATH"
 
 mkdir -p "$EN_STATE_DIR/steps"
 printf 'bundle=v0.2.0\n' > "$EN_STATE_DIR/steps/10"   # erledigt
@@ -54,6 +60,8 @@ get() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv
 [ "$(get 'd["components"]["dashboard"]["von"]')" = "v0.6.0" ] || fail "von falsch" "$out"
 [ "$(get 'd["components"]["dashboard"]["nach"]')" = "v0.6.1" ] || fail "nach falsch" "$out"
 [ "$(get 'd["components"]["services"]["von"]')" = "None" ] || fail "unbekanntes von nicht null" "$out"
+[ "$(get '"system_updates" in d')" = False ] || fail "Vorschau zaehlt Systempakete" "$out"
+[ -e "$tmp/apt.log" ] && fail "Vorschau ruft apt-get"
 
 python3 - "$out" <<'PY' || fail "Vorschau meldet den Neustart des Dienstes falsch"
 import json, sys

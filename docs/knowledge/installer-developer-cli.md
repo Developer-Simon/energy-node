@@ -127,8 +127,9 @@ scripts/dev/run-installer.sh --fakehost --lang en --port 8099
 the installer (`--no-build` applies to it as well); every other argument goes to
 the demo host. `--scenario vorlage-update` serves the update preview, `--hold-step <id>`
 stops a run at that step, `--fail-step <id>:<CODE>` fails one, `--trusted`
-skips the fingerprint dialog and `--dashboard` plays the dashboard-hosted
-variant. `npm run test:e2e` in `installer/webui` runs the browser suite.
+skips the fingerprint dialog, `--dashboard` plays the dashboard-hosted
+variant and `--system-updates` answers the preview's "Check for updates" and
+the diagnose with three pending system packages. `npm run test:e2e` in `installer/webui` runs the browser suite.
 
 ### Publishing release binaries
 

@@ -124,6 +124,10 @@
   window.Screens.screenPreview = function screenPreview() {
     return {
       plan: null,
+      // Systempakete (Schritt 15) auf Abfrage: '' = nicht gefragt, 'busy',
+      // 'done'. updatesView null heisst nicht ermittelbar.
+      updatesState: '',
+      updatesView: null,
       manifest: null,
       busy: false,
       // Zaehlzeile "Was ist neu" (aus /api/changelog); null, solange sie fehlt.
@@ -252,16 +256,47 @@
           return [];
         }
         var parts = [];
+        // Schritt 15 nennt die ausstehenden Systempakete erst auf Abfrage.
+        var updates = this.updatesPart();
         window.Services.toggles(this.manifest, this.selection, this.shell).forEach(function (row) {
+          var own = row.key === 'step-15';
           parts.push({
             key: row.key, type: 'svc', cls: 'svc' + (row.on ? '' : ' off'),
             name: row.name, on: row.on, isNew: row.kind !== 'devices' && !row.known, chips: null,
+            detail: own ? updates.detail : '', check: own && updates.check,
           });
           if (row.chips) {
             parts.push({ key: row.key + '-chips', type: 'chips', cls: 'chips', chips: row.chips });
           }
         });
         return parts;
+      },
+
+      updatesPart() {
+        var shell = this.shell;
+        if (this.updatesState === 'busy') {
+          return { detail: shell.t('system_updates.checking'), check: false };
+        }
+        if (this.updatesState === 'done' && this.updatesView) {
+          return { detail: window.Services.systemUpdatesText(this.updatesView, shell), check: false };
+        }
+        if (this.updatesState === 'done') {
+          return { detail: shell.t('system_updates.unknown'), check: true };
+        }
+        return { detail: '', check: true };
+      },
+
+      // checkUpdates zaehlt auf dem letzten Stand der Paketlisten. Ein Fehler
+      // ist nur "nicht ermittelbar", kein Banner: die Vorschau stimmt sonst.
+      async checkUpdates() {
+        this.updatesState = 'busy';
+        try {
+          this.updatesView = await window.Api.get('/api/system-updates');
+        } catch (err) {
+          this.updatesView = null;
+        } finally {
+          this.updatesState = 'done';
+        }
       },
 
       get canStart() {

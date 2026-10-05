@@ -15,6 +15,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
@@ -205,9 +207,9 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 		view.Components[name] = delta
 	}
 	for _, s := range candidate.Steps {
-		selected := !s.Optional || sel.Steps[s.ID]
+		selected := stepChosen(s.ID, s.Optional, s.Default, s.ServiceID, sel.Steps)
 		state := "pending"
-		if s.Optional && !sel.Steps[s.ID] {
+		if !selected {
 			state = "deselected"
 		}
 		ps := hostapi.PlanStep{ID: s.ID, Optional: s.Optional, Selected: selected, State: state, Unit: s.Unit, To: s.Version}
@@ -226,6 +228,43 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 		view.Steps = append(view.Steps, ps)
 	}
 	return view, nil
+}
+
+// systemUpdatesTimeout begrenzt die Simulation. apt_pending.py bricht
+// selbst nach 120 s ab; das hier faengt nur ein haengendes python3 ab.
+const systemUpdatesTimeout = 150 * time.Second
+
+// SystemUpdates implementiert hostapi.SystemUpdatesProvider, nur auf
+// Abfrage: die Vorschau wartet nicht darauf. Frisch abrufen (apt-get update)
+// braucht root, das Dashboard laeuft als Dienstbenutzer und bietet es nicht
+// an.
+func (h *Host) SystemUpdates(ctx context.Context, refresh bool) (*hostapi.SystemUpdates, error) {
+	if refresh {
+		return nil, &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
+	}
+	return h.systemUpdates(ctx), nil
+}
+
+// systemUpdates fragt bootstrap/lib/apt_pending.py aus dem Kandidaten-Bundle,
+// dasselbe Skript wie der Installer: was apt-get upgrade (Schritt 15) jetzt
+// einspielen wuerde, simuliert auf den vorhandenen Paketlisten. Fehlt das
+// Skript oder scheitert es, bleibt die Zahl unbekannt (nil).
+func (h *Host) systemUpdates(ctx context.Context) *hostapi.SystemUpdates {
+	script := filepath.Join(h.cfg.CandidateBundleDir, "bootstrap", "lib", "apt_pending.py")
+	if _, err := os.Stat(script); err != nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(ctx, systemUpdatesTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "python3", script).Output()
+	if err != nil {
+		return nil
+	}
+	var updates *hostapi.SystemUpdates
+	if json.Unmarshal(out, &updates) != nil {
+		return nil
+	}
+	return updates
 }
 
 // Changelog implements hostapi.ChangelogProvider: what the candidate bundle
@@ -278,7 +317,7 @@ func (h *Host) Run(ctx context.Context, req hostapi.RunRequest, sink hostapi.Sin
 		stepIDs = []string{req.Only}
 	} else {
 		for _, s := range candidate.Steps {
-			if !s.Optional || sel.Steps[s.ID] {
+			if stepChosen(s.ID, s.Optional, s.Default, s.ServiceID, sel.Steps) {
 				stepIDs = append(stepIDs, s.ID)
 			}
 		}
@@ -349,4 +388,18 @@ func (h *Host) runPrepare(ctx context.Context, sink hostapi.Sink) error {
 func (h *Host) Diagnose(context.Context) (*hostapi.DiagnoseView, error) {
 	// TODO(Plan D follow-up): implement Diagnose locally
 	return nil, &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
+}
+
+// stepChosen: ein fehlender Schluessel ist fuer Dienste "aus" -- sonst
+// braechte ein Update einen neuen Dienst ungefragt mit. Ein Systemschritt
+// ohne Schluessel folgt dagegen der Manifest-Vorgabe, wie step_selected,
+// plan.sh und die Oberflaeche (15 kam per Update).
+func stepChosen(id string, optional, def bool, serviceID string, steps map[string]bool) bool {
+	if !optional {
+		return true
+	}
+	if on, known := steps[id]; known {
+		return on
+	}
+	return serviceID == "" && def
 }

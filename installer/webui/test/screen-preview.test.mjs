@@ -242,3 +242,45 @@ test('die Zaehlzeile zaehlt nur die Highlights, wenn der Changelog welche markie
   const { screen } = await mount({ responses: { 'GET /api/changelog': flagged } });
   assert.equal(screen.whatsNewLine, '1 Neuerung · 1 Korrektur · 1 Breaking Change');
 });
+
+// Schritt 15: die Vorschau zaehlt die Systempakete nicht von sich aus (auf
+// einem Pi 1 dauert schon die Simulation), erst auf Abfrage.
+const MANIFEST_15 = Object.assign({}, MANIFEST_UPDATE, {
+  steps: [MANIFEST_UPDATE.steps[0], { id: '15', optional: true, default: true }].concat(MANIFEST_UPDATE.steps.slice(1)),
+});
+
+test('die Zeile Systempakete aktualisieren zaehlt die Updates erst auf Abfrage', async () => {
+  const { screen, calls } = await mount({ responses: {
+    'GET /api/manifest': MANIFEST_15,
+    'GET /api/system-updates': { count: 12, checked_at: '2026-10-04T06:12:00+00:00', packages: [] },
+  } });
+  assert.ok(!calls.some((call) => call.key === 'GET /api/system-updates'), 'die Vorschau fragt nicht von sich aus');
+  let row = screen.serviceParts.find((part) => part.key === 'step-15');
+  assert.ok(row, 'Zeile fuer Schritt 15 fehlt');
+  assert.equal(row.check, true);
+  assert.equal(row.detail, '');
+  assert.ok(screen.serviceParts.filter((part) => part.key !== 'step-15').every((part) => !part.check && !part.detail));
+
+  const pending = screen.checkUpdates();
+  row = screen.serviceParts.find((part) => part.key === 'step-15');
+  assert.equal(row.check, false);
+  assert.equal(row.detail, 'prüft …');
+  await pending;
+  row = screen.serviceParts.find((part) => part.key === 'step-15');
+  assert.equal(row.detail, '12 Updates · Stand 04.10.');
+  assert.equal(row.check, false);
+});
+
+test('eine unbekannte Zahl oder ein Fehler heisst nicht ermittelbar, erneut pruefbar', async () => {
+  const unknown = await mount({ responses: { 'GET /api/manifest': MANIFEST_15, 'GET /api/system-updates': null } });
+  await unknown.screen.checkUpdates();
+  let row = unknown.screen.serviceParts.find((part) => part.key === 'step-15');
+  assert.equal(row.detail, 'nicht ermittelbar');
+  assert.equal(row.check, true);
+
+  const failed = await mount({ responses: { 'GET /api/manifest': MANIFEST_15 }, errors: { 'GET /api/system-updates': { code: 'SYSTEM_UPDATES_FAILED', status: 502 } } });
+  await failed.screen.checkUpdates();
+  row = failed.screen.serviceParts.find((part) => part.key === 'step-15');
+  assert.equal(row.detail, 'nicht ermittelbar');
+  assert.equal(failed.shell.error, null, 'kein Banner fuer eine Zusatzinfo');
+});

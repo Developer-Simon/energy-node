@@ -179,6 +179,12 @@
         if (state === 'skip') {
           return window.RunModel.skipText(model.steps[group.ids[0]].detail, t);
         }
+        var reboot = group.ids.filter(function (id) {
+          return model.steps[id] && model.steps[id].state === 'ok' && model.steps[id].detail;
+        })[0];
+        if (state === 'ok' && reboot) {
+          return window.RunModel.okText(model.steps[reboot].detail, t);
+        }
         if (group.subs) {
           var on = group.subs.filter(function (sub) { return sub.on; }).length;
           return t('run.services.selection', { selected: on, total: group.subs.length });

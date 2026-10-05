@@ -256,3 +256,104 @@ test('der Bericht nimmt Versionen, Geraete und nicht installierte Dienste mit', 
   assert.ok(text.includes('INFO  devices trucki-http.service  unreadable\n'), text);
   assert.ok(text.includes('INFO  devices tuya.service  -\n'), text);
 });
+
+// Ausstehender Neustart (Schritt 15): ein Hinweis auf der System-Karte,
+// ohne Reparatur, bis der Node neu gestartet ist.
+test('ein ausstehender Neustart ist ein Hinweis ohne Reparatur', async () => {
+  const withReboot = Object.assign({}, DIAGNOSE, {
+    checks: DIAGNOSE.checks.concat([
+      { name: 'reboot required', ok: false, detail: 'required', group: 'system', subject: 'reboot', severity: 'warn' },
+    ]),
+  });
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withReboot } });
+  assert.deepEqual(plain(screen.tally), { ok: 14, warn: 1, bad: 1 });
+  const system = screen.rightCards[0];
+  const reboot = system.parts.find((part) => part.name === 'Neustart');
+  assert.ok(reboot, 'Zeile Neustart fehlt');
+  assert.equal(reboot.value, 'ausstehend');
+  assert.equal(reboot.dot, 'd warn');
+  const box = system.parts[system.parts.indexOf(reboot) + 1];
+  assert.equal(box.type, 'warnbox');
+  assert.equal(box.text, 'Ein Update braucht einen Neustart des Node. Starte ihn neu, wenn es passt, zum Beispiel mit sudo reboot.');
+  assert.ok(!system.parts.some((part) => part.type === 'fail' && part.key === 'fail-reboot required'));
+});
+
+// Ausstehende Systempakete: eine Infozeile mit Liste auf der System-Karte,
+// keine Pruefung und kein Hinweis.
+const withUpdates = (updates) => Object.assign({}, DIAGNOSE, { system_updates: updates });
+
+test('ausstehende Systempakete stehen als Info mit Liste auf der System-Karte', async () => {
+  const { screen } = await mount({ responses: { 'GET /api/diagnose': withUpdates({
+    count: 2, checked_at: '2026-10-04T06:12:00+00:00',
+    packages: [{ name: 'libssl3', from: '3.0.11', to: '3.0.13' }, { name: 'openssl', from: '3.0.11', to: '3.0.13' }],
+  }) } });
+  assert.deepEqual(plain(screen.tally), { ok: 14, warn: 0, bad: 1 });
+  const system = screen.rightCards[0];
+  const row = system.parts.find((part) => part.name === 'Systempakete');
+  assert.ok(row, 'Zeile Systempakete fehlt');
+  assert.equal(row.value, '2 Updates · Stand 04.10.');
+  assert.equal(row.dot, 'd off');
+  const list = system.parts[system.parts.indexOf(row) + 1];
+  assert.equal(list.type, 'devs');
+  assert.equal(list.text, 'libssl3 3.0.11 → 3.0.13, openssl 3.0.11 → 3.0.13');
+  const act = system.parts[system.parts.indexOf(row) + 2];
+  assert.equal(act.type, 'act');
+  assert.equal(act.label, 'Jetzt neu abrufen');
+});
+
+test('Jetzt neu abrufen holt die Paketlisten frisch und ersetzt die Zeile', async () => {
+  const { screen, calls } = await mount({ responses: {
+    'GET /api/diagnose': withUpdates({ count: 2, checked_at: '2026-10-01T06:12:00+00:00', packages: [] }),
+    'POST /api/system-updates/refresh': { count: 1, checked_at: '2026-10-05T17:40:00+00:00', packages: [{ name: 'tzdata', from: '2024a-0', to: '2024b-0' }] },
+  } });
+  const pending = screen.refreshUpdates();
+  let system = screen.rightCards[0];
+  let act = system.parts.find((part) => part.type === 'act');
+  assert.equal(act.label, 'Ruft ab …');
+  assert.equal(act.busy, true);
+  await pending;
+  assert.equal(calls.filter((call) => call.key === 'POST /api/system-updates/refresh').length, 1);
+  system = screen.rightCards[0];
+  assert.equal(system.parts.find((part) => part.name === 'Systempakete').value, '1 Update · Stand 05.10.');
+  assert.equal(system.parts.find((part) => part.key === 'devs-system-updates').text, 'tzdata 2024a-0 → 2024b-0');
+  act = system.parts.find((part) => part.type === 'act');
+  assert.equal(act.label, 'Jetzt neu abrufen');
+  assert.equal(act.busy, false);
+});
+
+test('ein gescheiterter Abruf nennt den Fehler an der Zeile und behaelt den alten Stand', async () => {
+  const { screen, shell } = await mount({
+    responses: { 'GET /api/diagnose': withUpdates({ count: 2, checked_at: '2026-10-01T06:12:00+00:00', packages: [] }) },
+    errors: { 'POST /api/system-updates/refresh': { code: 'APT_UPDATE_FAILED', status: 502, detail: 'E: Failed to fetch' } },
+  });
+  await screen.refreshUpdates();
+  assert.equal(shell.error, null, 'kein Banner, der Rest der Diagnose stimmt ja');
+  const system = screen.rightCards[0];
+  assert.equal(system.parts.find((part) => part.name === 'Systempakete').value, '2 Updates · Stand 01.10.');
+  const note = system.parts.find((part) => part.key === 'system-updates-error');
+  assert.equal(note.type, 'devs');
+  assert.equal(note.text, 'Die Paketlisten ließen sich nicht abrufen. E: Failed to fetch');
+});
+
+test('ohne ausstehende Systempakete keine Liste, ohne Bericht keine Zeile', async () => {
+  const none = await mount({ responses: { 'GET /api/diagnose': withUpdates({ count: 0, checked_at: '', packages: [] }) } });
+  const system = none.screen.rightCards[0];
+  const row = system.parts.find((part) => part.name === 'Systempakete');
+  assert.equal(row.value, 'aktuell');
+  const next = system.parts[system.parts.indexOf(row) + 1];
+  assert.ok(!next || next.type !== 'devs');
+  const bare = await mount();
+  assert.ok(!bare.screen.rightCards[0].parts.some((part) => part.name === 'Systempakete'));
+});
+
+test('der Bericht nennt die ausstehenden Systempakete', async () => {
+  const { screen, window } = await mount({ responses: { 'GET /api/diagnose': withUpdates({
+    count: 1, checked_at: '2026-10-04T06:12:00+00:00', packages: [{ name: 'libssl3', from: '3.0.11', to: '3.0.13' }],
+  }) } });
+  const saved = [];
+  window.Download.text = (name, content) => saved.push({ name, content });
+  screen.save();
+  const text = saved[0].content;
+  assert.ok(text.includes('INFO  system-updates  1  2026-10-04T06:12:00+00:00\n'), text);
+  assert.ok(text.includes('INFO  system-update libssl3  3.0.11 -> 3.0.13\n'), text);
+});

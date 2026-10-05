@@ -184,3 +184,27 @@ func TestChecklistSplitsTheShellyWebhookIntoRuleAndListener(t *testing.T) {
 		}
 	}
 }
+
+func TestChecklistWarnsAboutAPendingRebootOnlyWhenRequired(t *testing.T) {
+	report := &diag.Report{}
+	for _, c := range report.Checklist(testSteps()) {
+		if c.Subject == "reboot" {
+			t.Fatalf("without the flag no reboot check may appear, got %+v", c)
+		}
+	}
+
+	report.RebootRequired = true
+	var found *diag.Check
+	for _, c := range report.Checklist(testSteps()) {
+		if c.Subject == "reboot" {
+			c := c
+			found = &c
+		}
+	}
+	if found == nil {
+		t.Fatalf("expected a reboot check")
+	}
+	if found.OK || found.Severity != "warn" || found.RetryStepID != "" || found.Group != "system" || found.Detail != "required" {
+		t.Errorf("a pending reboot is a hint without a retry step, got %+v", *found)
+	}
+}
