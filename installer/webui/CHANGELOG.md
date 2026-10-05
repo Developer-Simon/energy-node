@@ -1,11 +1,26 @@
 # Changelog
 
-## v0.1.18 (2026-10-04)
+## v0.2.0 (2026-10-05)
+
+### Features
+
+- **installer:** carry pending system updates into the preview and diagnose (6ad251f)
+- **installer:** show pending system updates in the preview and diagnose (300f77d)
+- **installer:** check system updates on request and refresh them in the diagnose (b00f687)
+- **installer:** check and install system package updates (opt-out) (#90)
+
+### Documentation
+
+- **installer:** describe the system update step (d8c6071)
+
+## v0.1.18 (2026-10-05)
 
 ### Features
 
 - **installer:** remember the access details in the OS keychain (#83) (a0d7a72)
 - The changelog pages open on the highlights, the switch at the top shows everything. (#84) (5cc1cfb)
+- **installer:** report a pending reboot in the diagnose and add APT_UPGRADE_FAILED (982395f)
+- **installer:** offer the system update step and show a pending reboot (10568b2)
 - **installer:** changelog model knows highlights (3f23a46)
 - **installer:** open what's new on the highlights with a switch to everything (a45f21d)
 - **webui:** carry saved access details through bootstrap and connect (b903522)

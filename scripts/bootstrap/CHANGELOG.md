@@ -1,12 +1,27 @@
 # Changelog
 
-## v0.1.13 (2026-10-01)
+## v0.2.0 (2026-10-05)
+
+### Features
+
+- **bootstrap:** report pending system package updates in plan and diagnose (670b080)
+- **installer:** check system updates on request and refresh them in the diagnose (b00f687)
+- **installer:** check and install system package updates (opt-out) (#90)
+
+### Fixes
+
+- **installer:** harden step 15 and select it on dashboard updates (bab88e1)
+- **bootstrap:** give the ok detail its own function for shellcheck 0.9 (9c1a8b5)
+
+## v0.1.13 (2026-10-05)
 
 ### Features
 
 - **dashboard:** show installed component versions under settings (#71) (c8ef59b)
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
 - **installer:** transfer only changed bundle files to the node (#79) (f782acd)
+- **bootstrap:** check and install system package updates in an opt-out step 15 (49f9389)
+- **installer:** report a pending reboot in the diagnose and add APT_UPGRADE_FAILED (982395f)
 - **bootstrap:** report installed versions, devices and never-installed services in diagnose.sh (1f57d70)
 
 ### Fixes

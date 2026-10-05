@@ -1,10 +1,19 @@
 # Changelog
 
-## v0.1.16 (2026-10-04)
+## v0.2.0 (2026-10-05)
+
+### Features
+
+- **installer:** carry pending system updates into the preview and diagnose (6ad251f)
+- **installer:** check system updates on request and refresh them in the diagnose (b00f687)
+- **installer:** check and install system package updates (opt-out) (#90)
+
+## v0.1.16 (2026-10-05)
 
 ### Features
 
 - **installer:** remember the access details in the OS keychain (#83) (a0d7a72)
+- **installer:** report a pending reboot in the diagnose and add APT_UPGRADE_FAILED (982395f)
 - **installer:** add a keychain store for the node access details (5c44a23)
 
 ### Refactors

@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.8.6 (2026-10-05)
+
+### Features
+
+- The changelog pages open on the highlights, the switch at the top shows everything. (#84) (5cc1cfb)
+- **homeassistant:** add Energy Node Companion as a history exchange peer (#85) (5bd7f48)
+- **installer:** carry pending system updates into the preview and diagnose (6ad251f)
+- **installer:** check system updates on request and refresh them in the diagnose (b00f687)
+- **installer:** check and install system package updates (opt-out) (#90)
+
+### Fixes
+
+- **installer:** harden step 15 and select it on dashboard updates (bab88e1)
+
 ## v0.8.5 (2026-10-04)
 
 ### Features
