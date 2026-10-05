@@ -445,3 +445,54 @@ func TestChangelogOfACandidateWithoutOneIsNoChangelog(t *testing.T) {
 		t.Fatalf("err = %#v, want NO_CHANGELOG", err)
 	}
 }
+
+// Ein Systemschritt, den die Auswahl auf dem Node noch nicht kennt (15 kam
+// mit einem Update), gilt mit seiner Manifest-Vorgabe, wie in step.sh,
+// plan.sh und der Oberflaeche. Ein Dienst ohne Schluessel bleibt aus.
+func TestASystemStepMissingFromTheSelectionFollowsItsDefault(t *testing.T) {
+	cfg := setupNode(t)
+	writeManifests(t, cfg,
+		`{"version":"1.5.0","arch":"armv6","steps":[
+			{"id":"10","optional":false},
+			{"id":"15","optional":true,"default":true},
+			{"id":"35","optional":true,"default":false},
+			{"id":"89","optional":true,"default":true,"service_id":"modbus"}]}`,
+		`{"version":"1.4.0"}`)
+	os.WriteFile(cfg.SelectionPath, []byte(`{"steps":{"10":true}}`), 0o644)
+	h, _ := updaterhost.New(cfg)
+
+	view, err := h.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]hostapi.PlanStep{}
+	for _, s := range view.Steps {
+		byID[s.ID] = s
+	}
+	if s := byID["15"]; !s.Selected || s.State != "pending" {
+		t.Errorf("step 15 = %+v, want selected and pending", s)
+	}
+	for _, id := range []string{"35", "89"} {
+		if s := byID[id]; s.Selected || s.State != "deselected" {
+			t.Errorf("step %s = %+v, want deselected", id, s)
+		}
+	}
+
+	go func() {
+		for {
+			if _, err := os.Stat(filepath.Join(cfg.JobDir, "pending.json")); err == nil {
+				break
+			}
+			time.Sleep(2 * time.Millisecond)
+		}
+		os.Rename(filepath.Join(cfg.JobDir, "pending.json"), filepath.Join(cfg.JobDir, "current.json"))
+		os.WriteFile(filepath.Join(cfg.JobDir, "status.json"), []byte(`{"result":"ok"}`), 0o644)
+	}()
+	if err := h.Run(context.Background(), hostapi.RunRequest{Mode: hostapi.ModeRedeploy, RunID: "run-6"}, &recordingSink{}); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	raw, _ := os.ReadFile(filepath.Join(cfg.JobDir, "current.json"))
+	if !strings.Contains(string(raw), `"steps":["10","15"]`) {
+		t.Fatalf("current.json = %s, want steps 10 and 15", raw)
+	}
+}

@@ -30,24 +30,51 @@ APT_OPTS=(
 REBOOT_PACKAGES='^(linux-image-|raspberrypi-kernel|raspberrypi-bootloader|raspi-firmware)'
 REBOOT_FLAG="${EN_ROOT}/run/reboot-required"
 
+# Pause zwischen zwei Versuchen, wenn ein anderes apt den Listen-Lock haelt.
+EN_APT_LOCK_PAUSE="${EN_APT_LOCK_PAUSE:-10}"
+
 # DEBIAN_FRONTEND muss hinter sudo stehen - env_reset verwirft es sonst.
+# LC_ALL=C haelt die apt-Meldungen englisch, apt_update erkennt den Lock
+# an seinem Text.
 apt_get() {
-  "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive apt-get "${APT_OPTS[@]}" "$@"
+  "${SUDO[@]}" env DEBIAN_FRONTEND=noninteractive LC_ALL=C apt-get "${APT_OPTS[@]}" "$@"
+}
+
+# DPkg::Lock::Timeout gilt nur fuer den dpkg-Lock. apt-get update nimmt den
+# Lock auf /var/lib/apt/lists ohne Wartezeit - und apt-daily laeuft gerade
+# nach dem Booten. Deshalb bis zu 60 Versuche (Vorgabe zehn Minuten).
+apt_update() {
+  local attempt err
+  for attempt in $(seq 1 60); do
+    if err="$(apt_get -qq update 2>&1)"; then
+      [[ -z "${err}" ]] || step_log "${err}"
+      return 0
+    fi
+    step_log "${err}"
+    grep -q 'Could not get lock' <<<"${err}" || return 1
+    [[ "${attempt}" -lt 60 ]] || return 1
+    step_log "Ein anderer apt-Prozess haelt die Paketlisten, neuer Versuch."
+    sleep "${EN_APT_LOCK_PAUSE}"
+  done
 }
 
 # Namen der Pakete, die apt-get upgrade jetzt aktualisieren wuerde.
+# Scheitert die Simulation (dpkg unterbrochen, kaputte Abhaengigkeiten),
+# scheitert auch die Funktion - sonst hiesse ein kaputtes System "aktuell".
 pending_packages() {
-  apt_get -s upgrade 2>/dev/null | sed -n 's/^Inst \([^ ]*\) .*/\1/p'
+  local sim
+  sim="$(apt_get -s upgrade)" || return 1
+  sed -n 's/^Inst \([^ ]*\) .*/\1/p' <<<"${sim}"
 }
 
 step_begin 15
 
 if ! step_selected 15; then
-  if apt_get -qq update; then
-    count="$(pending_packages | grep -c . || true)"
+  if apt_update && pending="$(pending_packages)"; then
+    count="$(grep -c . <<<"${pending}" || true)"
     step_log "Systempakete geprueft: ${count} Pakete koennten aktualisiert werden."
   else
-    step_log "apt-get update ist fehlgeschlagen, die Pruefung entfaellt."
+    step_log "apt-get ist fehlgeschlagen, die Pruefung entfaellt."
   fi
   step_skip "nicht ausgewaehlt"
   exit 0
@@ -57,8 +84,9 @@ if step_done 15; then
   exit 0
 fi
 
-apt_get -qq update || step_fail APT_UPDATE_FAILED
-mapfile -t packages < <(pending_packages)
+apt_update || step_fail APT_UPDATE_FAILED
+pending="$(pending_packages)" || step_fail APT_UPGRADE_FAILED
+mapfile -t packages < <(grep . <<<"${pending}" || true)
 
 if [[ "${#packages[@]}" -eq 0 ]]; then
   step_log "Alle Systempakete sind aktuell."

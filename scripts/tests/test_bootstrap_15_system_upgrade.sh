@@ -17,8 +17,19 @@ cat > "$tmp/bin/apt-get" <<'SH'
 #!/usr/bin/env bash
 printf 'FRONTEND=%s apt-get %s\n' "${DEBIAN_FRONTEND:-}" "$*" >> "$APT_LOG"
 case " $* " in
-  *" update "*) exit "${APT_RC:-0}" ;;
+  *" update "*)
+    # LOCKED_TIMES: so oft haelt ein anderes apt den Listen-Lock.
+    if [ -n "${LOCKED_TIMES:-}" ]; then
+      n="$(cat "$APT_LOG.locks" 2>/dev/null || echo 0)"
+      if [ "$n" -lt "$LOCKED_TIMES" ]; then
+        echo $((n + 1)) > "$APT_LOG.locks"
+        echo "E: Could not get lock /var/lib/apt/lists/lock. It is held by process 812 (apt-get)" >&2
+        exit 100
+      fi
+    fi
+    exit "${APT_RC:-0}" ;;
   *" -s "*)
+    [ -n "${SIM_RC:-}" ] && { echo "E: dpkg was interrupted" >&2; exit "$SIM_RC"; }
     for p in ${UPGRADABLE:-}; do printf 'Inst %s [1.0] (1.1 Debian:12/stable [armhf])\n' "$p"; done
     exit 0 ;;
   *" upgrade "*) exit "${UPGRADE_RC:-0}" ;;
@@ -29,11 +40,11 @@ chmod +x "$tmp/bin/apt-get"
 
 export PATH="$tmp/bin:$PATH"
 export EN_STATE_DIR="$tmp/state" EN_ROOT="$tmp/root" EN_BUNDLE_VERSION=v1.0.0 EN_SUDO=""
-export EN_SELECTION="$tmp/selection.json" APT_LOG="$tmp/apt.log"
+export EN_SELECTION="$tmp/selection.json" APT_LOG="$tmp/apt.log" EN_APT_LOCK_PAUSE=0
 mkdir -p "$tmp/root/run"
 flag="$tmp/root/run/reboot-required"
 
-reset() { rm -rf "$tmp/state" "$flag" "$flag.pkgs"; : > "$APT_LOG"; rm -f "$EN_SELECTION"; }
+reset() { rm -rf "$tmp/state" "$flag" "$flag.pkgs" "$APT_LOG.locks"; : > "$APT_LOG"; rm -f "$EN_SELECTION"; }
 
 # --- ohne Auswahl-Eintrag: gewaehlt, aktualisiert --------------------------
 reset
@@ -115,5 +126,31 @@ set -e
 [ "$rc" -eq 1 ] || fail "upgrade-Fehler nicht weitergereicht" "$rc"
 grep -qx '##STEP 15 fail APT_UPGRADE_FAILED' <<<"$out" || fail "falscher Code fuer upgrade" "$out"
 [ -e "$tmp/state/steps/15" ] && fail "Stempel trotz Fehler"
+
+# --- Listen-Lock von apt-daily: warten statt abbrechen -----------------------
+# DPkg::Lock::Timeout gilt nur fuer den dpkg-Lock, nicht fuer den Lock, den
+# apt-get update auf /var/lib/apt/lists nimmt.
+reset
+out="$(LOCKED_TIMES=2 UPGRADABLE="mosquitto" bash "$script" 2>&1)"
+grep -qx '##STEP 15 ok' <<<"$out" || fail "Lock nicht abgewartet" "$out"
+[ "$(grep -c ' update' "$APT_LOG")" -eq 3 ] || fail "update nicht wiederholt" "$(cat "$APT_LOG")"
+
+reset
+set +e
+out="$(LOCKED_TIMES=1000 bash "$script" 2>&1)"; rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "dauerhafter Lock nicht als Fehler gemeldet" "$rc"
+grep -qx '##STEP 15 fail APT_UPDATE_FAILED' <<<"$out" || fail "falscher Code bei dauerhaftem Lock" "$out"
+[ "$(grep -c ' update' "$APT_LOG")" -eq 60 ] || fail "nicht genau 60 Versuche" "$(grep -c ' update' "$APT_LOG")"
+
+# --- Simulation scheitert (dpkg unterbrochen): Fehler statt "aktuell" -------
+reset
+set +e
+out="$(SIM_RC=100 bash "$script" 2>&1)"; rc=$?
+set -e
+[ "$rc" -eq 1 ] || fail "Simulationsfehler nicht weitergereicht" "$rc $out"
+grep -qx '##STEP 15 fail APT_UPGRADE_FAILED' <<<"$out" || fail "falscher Code fuer Simulation" "$out"
+grep -q 'dpkg was interrupted' <<<"$out" || fail "apt-Fehler fehlt im Log" "$out"
+[ -e "$tmp/state/steps/15" ] && fail "Stempel trotz Simulationsfehler"
 
 echo "OK: $(basename "$0")"
