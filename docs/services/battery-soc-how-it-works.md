@@ -311,7 +311,7 @@ There is **no fallback** from the key path to the regex path: whoever
 configured a key wants that key. Silently taking the first number in the raw
 text would again be a wrong value instead of a visible error. As a preventive
 measure, the dashboard form suggests the keys from the last payload — see the
-configuration editor in [dashboard.md](../dashboard.md).
+configuration editor in [dashboard configuration](../dashboard/configuration.md).
 
 **All six `*_json_key` have `""` as their default**, and that is not
 carelessness but a requirement: the dashboard stores a field that is empty *or

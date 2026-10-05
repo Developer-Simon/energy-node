@@ -62,7 +62,7 @@ Three things are always present, on every tab:
   protected actions — the MQTT and bridge configuration (`mqtt_config`),
   restart/reboot/shutdown (`system_actions`) — need a registered user with the
   matching role **and** HTTPS. See
-  [`knowledge/dashboard/secrets-and-credentials.md`](../knowledge/dashboard/secrets-and-credentials.md).
+  [operating/secrets](../operating/secrets.md).
 
 Panels are lazily loaded: only the active tab's HTML fragment, scripts and
 stylesheets are fetched, which is what keeps the first paint cheap on a
@@ -82,7 +82,7 @@ Raspberry Pi 1.
 
 ## See also
 
-- [Device services](../device-services.md) — what fills the dashboard with data
-- [`knowledge/dashboard/api-documentation.md`](../knowledge/dashboard/api-documentation.md) — the `/api/v1` HTTP API behind every page
-- [`knowledge/data-flow.md`](../knowledge/data-flow.md) — where each value comes from
-- [`knowledge/dashboard/reverse-proxy.md`](../knowledge/dashboard/reverse-proxy.md) — running the dashboard under a sub-path
+- [Device services](../services/index.md) — what fills the dashboard with data
+- [HTTP API](../developing/api.md) — the `/api/v1` HTTP API behind every page
+- [Data flows](../developing/data-flow.md) — where each value comes from
+- [Reverse proxy](../operating/reverse-proxy.md) — running the dashboard under a sub-path

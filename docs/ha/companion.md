@@ -17,7 +17,7 @@ The integration only supplies data. It never asks the dashboard for anything, ne
 
 - Energy Node dashboard **v0.8.5 or newer**. Older dashboards do not announce which series they record, and the setup stops with "The dashboard is too old. Update the energy-node first."
 - Home Assistant and the node in the **same Tailscale tailnet**.
-- The node's energy sensors in Home Assistant through MQTT discovery. The dashboard publishes them itself as the device "Energy Node" (see [Dashboard](../dashboard.md)).
+- The node's energy sensors in Home Assistant through MQTT discovery. The dashboard publishes them itself as the device "Energy Node" (see [Dashboard](../dashboard/index.md)).
 - The Home Assistant **recorder**, which is on by default. How far back the integration can fill depends on the recorder's `purge_keep_days`, 10 days by default.
 
 ## Install via HACS
