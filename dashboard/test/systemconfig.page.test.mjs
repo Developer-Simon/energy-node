@@ -9,6 +9,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { JSDOM } from 'jsdom';
 import { installI18n } from './helpers/i18n.mjs';
+import { attachStores } from './helpers/notify-stores.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const staticJS = (name) => fs.readFileSync(
@@ -68,7 +69,8 @@ function createPanel({ fetchImpl } = {}) {
   dom.window.document.body.append(form);
   component.$refs = { form };
   component.$nextTick = (fn) => { fn(); };
-  return { component, window: dom.window, document: dom.window.document, form };
+  const { toasts } = attachStores(component);
+  return { component, toasts, t: (key, params) => dom.window.I18n.t(key, params), window: dom.window, document: dom.window.document, form };
 }
 
 const defaultFetch = (overrides = {}) => async (url) => {
@@ -79,11 +81,11 @@ const defaultFetch = (overrides = {}) => async (url) => {
 };
 
 test('load() builds the schema form from the file and schema', async () => {
-  const { component, form } = createPanel({ fetchImpl: defaultFetch() });
+  const { component, form, toasts } = createPanel({ fetchImpl: defaultFetch() });
   await component.load();
 
   assert.equal(component.recoverMode, false);
-  assert.equal(component.error, '');
+  assert.deepEqual(toasts.items, []);
   assert.equal(form.querySelector('[data-schema-key="host"] .schema-control').value, 'localhost');
   assert.equal(form.querySelector('[data-schema-key="port"] .schema-control').value, '1883');
   // schema_version is pinned (min === max) and must render locked.
@@ -101,7 +103,7 @@ test('save() reads the form, sends the CSRF token, and applies the response', as
     }
     return defaultFetch()(url, options);
   };
-  const { component, form } = createPanel({ fetchImpl });
+  const { component, form, toasts, t } = createPanel({ fetchImpl });
   await component.load();
 
   const host = form.querySelector('[data-schema-key="host"] .schema-control');
@@ -112,9 +114,91 @@ test('save() reads the form, sends the CSRF token, and applies the response', as
 
   assert.equal(putHeaders['X-CSRF-Token'], 'tok-1');
   assert.equal(putBody.mqtt.host, 'broker.local');
-  assert.deepEqual(JSON.parse(JSON.stringify(component.restartRequired)), ['mqtt']);
   assert.equal(component.value.mqtt.host, 'broker.local');
-  assert.equal(component.error, '');
+  assert.deepEqual(toasts.criticals, []);
+  assert.match(toasts.last('warning'), /mqtt/, 'restart-required fields must reach the user as a warning toast');
+  assert.equal(toasts.last('info'), t('config.toast.saved'));
+});
+
+test('save() reports a plain success as an info toast without warnings', async () => {
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/api/v1/system/config') && options && options.method === 'PUT') {
+      return jsonResponse({ config: JSON.parse(options.body), restart_required: [], reloaded: { 'svc-a': 'ok' } });
+    }
+    return defaultFetch()(url, options);
+  };
+  const { component, form, toasts, t } = createPanel({ fetchImpl });
+  await component.load();
+  form.querySelector('[data-schema-key="host"] .schema-control').value = 'b.local';
+
+  await component.save();
+
+  assert.equal(toasts.last('info'), t('config.toast.saved'));
+  assert.deepEqual(toasts.items.filter((item) => item.severity !== 'info'), []);
+});
+
+test('save() warns per service whose reload failed', async () => {
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/api/v1/system/config') && options && options.method === 'PUT') {
+      return jsonResponse({ config: JSON.parse(options.body), restart_required: [], reloaded: { 'svc-a': 'ok', 'svc-b': 'timeout' } });
+    }
+    return defaultFetch()(url, options);
+  };
+  const { component, form, toasts } = createPanel({ fetchImpl });
+  await component.load();
+  form.querySelector('[data-schema-key="host"] .schema-control').value = 'b.local';
+
+  await component.save();
+
+  const warnings = toasts.items.filter((item) => item.severity === 'warning').map((item) => item.message);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /svc-b/);
+  assert.match(warnings[0], /timeout/);
+});
+
+test('save() reports a rejected save as a critical toast and no success', async () => {
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/api/v1/system/config') && options && options.method === 'PUT') {
+      return jsonResponse({ code: 'config_not_writable', message: 'nope' }, false);
+    }
+    return defaultFetch()(url, options);
+  };
+  const { component, form, toasts } = createPanel({ fetchImpl });
+  await component.load();
+  form.querySelector('[data-schema-key="host"] .schema-control').value = 'b.local';
+
+  await component.save();
+
+  assert.notEqual(toasts.last('critical'), '');
+  assert.equal(toasts.last('info'), '', 'no "saved" for something that was not saved');
+});
+
+test('save() reports broken raw JSON as a critical toast', async () => {
+  const drifted = JSON.parse(JSON.stringify(configValue));
+  drifted.mqtt.legacy_ca = '/etc/ca.pem';
+  const { component, toasts } = createPanel({ fetchImpl: defaultFetch({ config: drifted }) });
+  await component.load();
+  component.text = '{ not json';
+
+  await component.save();
+
+  assert.match(toasts.last('critical'), /JSON/);
+});
+
+test('discard() confirms the reset with an info toast', async () => {
+  const { component, toasts, t } = createPanel({ fetchImpl: defaultFetch() });
+  await component.load();
+
+  component.discard();
+
+  assert.equal(toasts.last('info'), t('config.toast.form_reset'));
+});
+
+test('load() reports a failing request as a critical toast', async () => {
+  const { component, toasts } = createPanel({ fetchImpl: async () => { throw new Error('boom'); } });
+  await component.load();
+
+  assert.equal(toasts.last('critical'), 'boom');
 });
 
 test('dirty flips once a field is edited', async () => {
@@ -145,10 +229,10 @@ test('an unreachable schema endpoint drops to recover mode without an error bann
     if (url.endsWith('/api/v1/system/config/schema')) return jsonResponse({ message: 'nope' }, false);
     return defaultFetch()(url, options);
   };
-  const { component } = createPanel({ fetchImpl });
+  const { component, toasts } = createPanel({ fetchImpl });
   await component.load();
 
   assert.equal(component.recoverMode, true);
   assert.equal(component.schema, null);
-  assert.equal(component.error, '');
+  assert.deepEqual(toasts.items, []);
 });

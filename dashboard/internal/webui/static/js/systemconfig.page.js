@@ -27,13 +27,10 @@
       schema: null,
       value: null,
       text: '',
-      error: '',
       busy: false,
       loading: false,
       recoverMode: false,
       unknownKeys: [],
-      restartRequired: [],
-      reloaded: {},
       // Nur-Lese-Liste der Revisions-Dateinamen, wie GET /api/v1/system/config
       // sie inline liefert. Die Systemkonfiguration hat serverseitig keine
       // /revisions-, /revisions/{name}- und /restore-Routen, also kein Diff und
@@ -46,7 +43,6 @@
 
       async load() {
         this.loading = true;
-        this.error = '';
         try {
           const [document, schema] = await Promise.all([
             requestJSON('/api/v1/system/config'),
@@ -58,7 +54,7 @@
           this.schema = schema;
           this.applyLoaded();
         } catch (err) {
-          this.error = err.message;
+          this.$store.toasts.push(err.message, 'critical');
         } finally {
           this.loading = false;
         }
@@ -106,12 +102,11 @@
 
       async save() {
         this.busy = true;
-        this.error = '';
         let payload;
         try {
           payload = this.currentValue();
         } catch (err) {
-          this.error = t('systemconfig.error.invalid_json', {error: err.message});
+          this.$store.toasts.push(t('systemconfig.error.invalid_json', {error: err.message}), 'critical');
           this.busy = false;
           return;
         }
@@ -125,19 +120,32 @@
           });
           const data = await response.json().catch(() => ({}));
           if (!response.ok) {
-            this.error = data.code ? (window.I18n ? window.I18n.error(data) : data.message) : t('systemconfig.error.save_failed', {status: response.status});
+            this.$store.toasts.push(data.code ? (window.I18n ? window.I18n.error(data) : data.message) : t('systemconfig.error.save_failed', {status: response.status}), 'critical');
             this.busy = false;
             return;
           }
           this.value = data.config;
           this.text = JSON.stringify(this.value, null, 2);
-          this.restartRequired = data.restart_required || [];
-          this.reloaded = data.reloaded || {};
           this.applyLoaded();
+          this.announceSaved(data.restart_required || [], data.reloaded || {});
         } catch (err) {
-          this.error = err.message;
+          this.$store.toasts.push(err.message, 'critical');
         } finally {
           this.busy = false;
+        }
+      },
+
+      // Meldet das Ergebnis eines erfolgreichen Speicherns: eine Erfolgsmeldung,
+      // dazu je eine Warnung fuer Pflicht-Neustarts und fehlgeschlagene
+      // Dienst-Reloads (Warnungen bleiben stehen, bis sie geschlossen werden).
+      announceSaved(restartRequired, reloaded) {
+        this.$store.toasts.push(t('config.toast.saved'));
+        if (restartRequired.length) {
+          this.$store.toasts.push(`${t('settings.system.config.restart_required')} ${restartRequired.join(', ')}`, 'warning');
+        }
+        for (const [service, status] of Object.entries(reloaded)) {
+          if (status === 'ok') continue;
+          this.$store.toasts.push(t('systemconfig.toast.reload_failed', {service, error: status}), 'warning');
         }
       },
 
@@ -145,6 +153,7 @@
         this.text = JSON.stringify(this.value, null, 2);
         if (!this.recoverMode) this.renderForm();
         this.dirtyTick += 1;
+        this.$store.toasts.push(t('config.toast.form_reset'));
       },
 
       // Der Dateiname ist ein UTC-Zeitstempel plus '.json'

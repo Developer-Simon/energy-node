@@ -324,7 +324,6 @@
     <section class="system-config-panel" aria-labelledby="system-config-heading" x-data="systemConfigPanel()" x-init="load()">
       <h3 id="system-config-heading">{{t "settings.system.config.title"}}</h3>
       <p class="settings-help">{{t "settings.system.config.file_info"}} {{t "settings.system.config.file_note"}}</p>
-      <p class="settings-error" x-show="error" x-text="error"></p>
       <div class="settings-warning" x-cloak x-show="recoverMode && unknownKeys.length">
         {{t "settings.system.config.unknown_fields_warning"}}
         (<span x-text="unknownKeys.join(', ')"></span>). {{t "settings.system.config.unknown_fields_help"}}
@@ -342,17 +341,6 @@
           <span>{{t "settings.system.config.discard_button"}}</span>
         </button>
       </div>
-      <p class="settings-warning" x-show="restartRequired.length">
-        {{t "settings.system.config.restart_required"}}
-        <span x-text="restartRequired.join(', ')"></span>
-      </p>
-      <template x-if="Object.keys(reloaded).length">
-        <ul class="system-config-reload-list">
-          <template x-for="[service, status] in Object.entries(reloaded)" :key="service">
-            <li><span x-text="service"></span>: <span x-text="status"></span></li>
-          </template>
-        </ul>
-      </template>
       <!-- Nur-Lese-Liste: die Systemkonfiguration hat serverseitig keine
            /revisions-, /revisions/{name}- und /restore-Routen wie die anderen
            Konfigurationsabschnitte, nur die inline in GET /api/v1/system/config
