@@ -142,6 +142,9 @@ img { max-width: 100%; height: auto; }
   :root:not([data-theme="light"]) .theme-toggle .icon-sun { display: block; }
   :root:not([data-theme="light"]) .theme-toggle .icon-moon { display: none; }
 }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .entry-card__icon img { filter: invert(1); }
+}
 
 /* Pagefind UI inside the header. */
 .site-header__search .pagefind-ui {
@@ -356,6 +359,7 @@ pre.mermaid { background: none; border: 0; text-align: center; }
 .entry-card:hover { border-color: var(--accent); }
 .entry-card__icon { display: inline-flex; width: 32px; height: 32px; align-items: center; justify-content: center; border-radius: 8px; background: var(--accent-bg); margin-bottom: .5rem; }
 .entry-card__icon img { width: 20px; height: 20px; border: 0; }
+:root[data-theme="dark"] .entry-card__icon img { filter: invert(1); }
 .entry-card strong { display: block; color: var(--text-strong); }
 .entry-card span { font-size: .88rem; color: var(--text-muted); }
 

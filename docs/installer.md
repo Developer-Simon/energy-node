@@ -20,7 +20,7 @@ It has three entry points, switchable in the top bar of the window:
 > **Status: beta.** The installer sets up, updates and diagnoses real nodes
 > today; what is still missing is the 1.0 release. Until then, screens and
 > steps can still change between versions, and
-> [INSTALLATION.md](https://github.com/Developer-Simon/energy-node/blob/main/INSTALLATION.md)
+> [Manual installation](install/index.md)
 > documents what the installer automates and why.
 
 Every screenshot on this page comes from the installer's demo host, not from a
@@ -77,7 +77,7 @@ scripts/dev/run-installer.sh
 `--arch` is the Pi's architecture: `armv6` for a Pi 1 or Pi Zero (the default
 target), `arm64` or `amd64` otherwise. `run-installer.sh` builds the program
 and starts it (`--no-build` skips the build). The
-[Installer developer CLI](knowledge/installer-developer-cli.md) page has the
+[Installer developer CLI](developing/installer-cli.md) page has the
 details, such as a quicker package build for a first try.
 
 ---
@@ -140,7 +140,7 @@ Two passwords and the services you want.
   services (APsystems, Battery SoC, Shelly, Trucki, Tuya), Tailscale and HTTPS
   via Caddy. A service you deselect is also hidden in the dashboard. The Pi
   remembers the selection in `config.json`
-  (`installed_services`, see [Configuration file](knowledge/configuration.md)),
+  (`installed_services`, see [Configuration file](operating/configuration.md)),
   and an update applies exactly that selection again.
   **Update system packages** is on by default. It installs pending Debian
   updates once per installer version and tells you when the node needs a
@@ -263,4 +263,4 @@ The interface language can also be switched in the top bar.
 
 The installer also has a command-line mode that builds a bundle from your
 checkout and deploys it to a Pi over SSH. See
-[Installer developer CLI](knowledge/installer-developer-cli.md).
+[Installer developer CLI](developing/installer-cli.md).

@@ -5,10 +5,14 @@
 # should follow. scripts/docs/check_site.py fails on a missing source file,
 # a published page without an entry, or a deeper tree.
 
-- title: Overview
+- title: Getting started
   items:
     - { label: "What is Energy Node?", url: "index.md" }
-    - { label: "Deploying a node", url: "installer.md" }
+    - { label: "Deploying with the installer", url: "installer.md" }
+    - label: "Manual installation"
+      url: "install/index.md"
+      children:
+        - { label: "Deploying & verifying", url: "install/deploy.md" }
 
 - title: Using
   items:
@@ -42,11 +46,13 @@
     - { label: "Configuration file", url: "operating/configuration.md" }
     - { label: "Reverse proxy", url: "operating/reverse-proxy.md" }
     - { label: "Secrets & credentials", url: "operating/secrets.md" }
+    - { label: "Troubleshooting", url: "operating/troubleshooting.md" }
     - { label: "Resources on a Pi 1", url: "operating/performance.md" }
 
 - title: Home Assistant
   items:
     - { label: "Energy Node Companion", url: "ha/companion.md" }
+    - { label: "Battery SoC integration", url: "ha/battery-soc.md" }
     - { label: "energy-node Icons", url: "ha/icons.md" }
 
 - title: Developing
