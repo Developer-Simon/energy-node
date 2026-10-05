@@ -82,6 +82,17 @@ out="$(ACTIVE="mosquitto.service shelly-rpc.service" LISTENING="1883" \
 [ "$(get 'sorted(d["config"]["manifests"])')" = "['shelly', 'tuya']" ] || fail "Manifeste falsch" "$out"
 [ "$(get 'd["tailscale"]["angemeldet"]')" = True ] || fail "tailscale nicht angemeldet" "$out"
 
+# --- Neustart-Markierung ----------------------------------------------------
+out="$(bash "$script")"
+python3 -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r["reboot_required"] is False else 1)' <<<"$out" \
+  || fail "reboot_required ohne Markierung nicht false" "$out"
+mkdir -p "$tmp/root/run"
+touch "$tmp/root/run/reboot-required"
+out="$(bash "$script")"
+python3 -c 'import json,sys; r=json.load(sys.stdin); sys.exit(0 if r["reboot_required"] is True else 1)' <<<"$out" \
+  || fail "reboot_required mit Markierung nicht true" "$out"
+rm -f "$tmp/root/run/reboot-required"
+
 # --- tailscale liegt in /usr/sbin, das im PATH einer SSH-Sitzung fehlt ----
 # Eine nicht-interaktive Sitzung auf Debian hat nur /usr/local/bin:/usr/bin:
 # /bin:/usr/games im PATH. "command -v tailscale" fand das Programm dort nie

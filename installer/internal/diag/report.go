@@ -42,6 +42,9 @@ type Report struct {
 	// service unit. A nil device list means the device file was unreadable.
 	Versions VersionsReport      `json:"versions"`
 	Devices  map[string][]Device `json:"devices"`
+	// RebootRequired ist Debians /run/reboot-required (Schritt 15 setzt es
+	// nach Kernel- oder Firmware-Updates). Ein Neustart loescht es.
+	RebootRequired bool `json:"reboot_required"`
 }
 
 // VersionsReport mirrors diagnose.sh's "versions" object: Components as in

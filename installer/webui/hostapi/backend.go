@@ -272,6 +272,8 @@ type DiagnoseView struct {
 	// Geraete je Dienst-Unit (nil = Geraetedatei nicht lesbar).
 	Versions *DiagnoseVersions        `json:"versions,omitempty"`
 	Devices  map[string][]DeviceEntry `json:"devices,omitempty"`
+	// RebootRequired: der Node wartet auf einen Neustart (Schritt 15).
+	RebootRequired bool `json:"reboot_required,omitempty"`
 }
 
 // DiagnoseVersions sind die installierten Versionen: Components wie im

@@ -544,9 +544,10 @@ func (h *Host) Diagnose(ctx context.Context) (*hostapi.DiagnoseView, error) {
 		return nil, &hostapi.Error{Code: "DIAGNOSE_FAILED", Detail: err.Error()}
 	}
 	view := &hostapi.DiagnoseView{
-		BundleVersion: report.BundleVersion,
-		Units:         report.Units,
-		Ports:         report.Ports,
+		BundleVersion:  report.BundleVersion,
+		Units:          report.Units,
+		Ports:          report.Ports,
+		RebootRequired: report.RebootRequired,
 	}
 	view.Versions, view.Devices = installedInfo(report)
 	for _, check := range report.Checklist(manifest.Steps) {

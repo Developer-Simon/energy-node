@@ -170,6 +170,14 @@ PY
   else
     printf 'tailscale%sangemeldet%sfalse\n' "$tab" "$tab"
   fi
+
+  # Debians Markierung (Schritt 15 legt sie nach Kernel-Updates an). Sie
+  # liegt in /run und verschwindet beim Neustart von selbst.
+  if [[ -f "${EN_ROOT}/run/reboot-required" ]]; then
+    printf 'reboot%srequired%strue\n' "$tab" "$tab"
+  else
+    printf 'reboot%srequired%sfalse\n' "$tab" "$tab"
+  fi
 }
 
 tmp_py="$(mktemp)"
@@ -189,6 +197,7 @@ report = {
     "versions": {"components": {}, "services": {}},
     # Geraete je Unit: Liste aus id/name, null = Geraetedatei nicht lesbar.
     "devices": {},
+    "reboot_required": False,
 }
 
 for line in sys.stdin:
@@ -214,6 +223,8 @@ for line in sys.stdin:
         report["versions"]["components" if group == "component" else "services"][name] = value
     elif kind == "devices":
         report["devices"][key] = json.loads(value)
+    elif kind == "reboot":
+        report["reboot_required"] = value == "true"
     elif kind == "webhook":
         # Nur vorhanden, wenn die Freigabe gewaehlt ist (Schritt 35).
         hook = report.setdefault("shelly_webhook", {})
