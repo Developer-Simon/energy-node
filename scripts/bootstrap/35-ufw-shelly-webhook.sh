@@ -4,7 +4,7 @@
 #
 # Der Shelly-Dienst kann einen eingehenden HTTP-Endpunkt oeffnen, den ein
 # schlafendes Gen1-Geraet (H&T) beim Aufwachen aufruft (services/shelly/
-# config.schema.json, webhook_enabled/webhook_port, docs/device-services.md).
+# config.schema.json, webhook_enabled/webhook_port, docs/services/index.md).
 # Das ist ein zusaetzlicher, aus dem LAN erreichbarer Port - deshalb gibt
 # ihn dieser Schritt nur frei, wenn der Betreiber ihn im Installer
 # ausdruecklich gewaehlt hat (Manifest-Vorgabe "aus", step_opted_in: ein

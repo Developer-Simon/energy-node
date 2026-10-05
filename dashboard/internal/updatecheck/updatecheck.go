@@ -1,7 +1,7 @@
 // Package updatecheck answers one question: is there a newer energy-node
 // release on GitHub than the one currently running? It never downloads or
 // stages anything -- getting a new bundle onto the node is a separate,
-// larger piece of work (see docs/knowledge/dashboard/updater-job-protocol.md,
+// larger piece of work (see docs/_internal/updater-job-protocol.md,
 // "What an OTA delivery still has to add"). This package only produces the
 // version comparison a badge or an on-demand button can show.
 package updatecheck

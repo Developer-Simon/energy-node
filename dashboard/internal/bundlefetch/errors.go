@@ -2,7 +2,7 @@
 // node's architecture into the candidate directory the dashboard's redeploy
 // host stages from. It never verifies the signature: that happens only in
 // energy-node-updater.sh, as root, after the bundle has left the
-// dashboard-writable directory (docs/knowledge/dashboard/updater-job-protocol.md).
+// dashboard-writable directory (docs/_internal/updater-job-protocol.md).
 // What it does check is structural, so a wrong or damaged download fails
 // early with a readable error instead of a rejected job.
 package bundlefetch

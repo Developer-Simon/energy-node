@@ -115,7 +115,7 @@ DESCRIPTIONS = {
 # (publish_mirror.sh kopiert ICON_SVG_DIR dorthin nach docs/icons/).
 MIRROR_ICON_URL = "https://raw.githubusercontent.com/Developer-Simon/ha-energy-node-icons/main/docs/icons/{}.svg"
 DOC_TABLES = {
-    "docs/integration/energy-node-icons.md": "../images/device-icons/{}.svg",
+    "docs/ha/icons.md": "../images/device-icons/{}.svg",
     "integrations/homeassistant/mirror/energy_node_icons/README.md": MIRROR_ICON_URL,
     "integrations/homeassistant/mirror/energy_node_icons/docs/integration.md": MIRROR_ICON_URL,
 }

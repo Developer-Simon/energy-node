@@ -121,10 +121,38 @@
 
   function initSearch() {
     var box = document.getElementById("doc-search");
-    if (!box || !window.fetch) return;
+    var trigger = document.getElementById("search-trigger");
+    if (!box || !trigger || !window.fetch) return;
     fetch(base + "pagefind/pagefind-entry.json", { method: "HEAD" }).then(function (r) {
       if (r.ok) box.hidden = false;
     }).catch(function () {});
+
+    var loaded = false;
+    function load() {
+      if (loaded) return;
+      loaded = true;
+      var css = document.createElement("link");
+      css.rel = "stylesheet";
+      css.href = base + "pagefind/pagefind-ui.css";
+      document.head.appendChild(css);
+      var s = document.createElement("script");
+      s.src = base + "pagefind/pagefind-ui.js";
+      s.onload = function () {
+        trigger.remove();
+        /* global PagefindUI */
+        new PagefindUI({ element: "#doc-search", showSubResults: true, showImages: false, resetStyles: false });
+        var input = box.querySelector("input");
+        if (input) input.focus();
+      };
+      document.head.appendChild(s);
+    }
+    trigger.addEventListener("click", load);
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "/" && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)) {
+        e.preventDefault();
+        load();
+      }
+    });
   }
 
   // ---- Start -----------------------------------------------------------------

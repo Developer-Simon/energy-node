@@ -133,6 +133,13 @@ if "$doc_versions" "$repo" >/dev/null 2>&1; then
   fail "unknown component id should fail"
 fi
 
+# --- nothing in the repository points at the old documentation paths --------
+
+old_paths='docs/knowledge/|docs/integration/|docs/dashboard\.md|docs/device-services\.md|knowledge/konfiguration\.md|secrets-und-zugangsdaten\.md'
+if hits="$(git -C "$repo_root" grep -nE "$old_paths" -- ':!docs/superpowers' ':!*CHANGELOG.md' ':!scripts/tests/test_docs_pages.sh' ':!docs/redirects')"; then
+  fail "old documentation paths are still referenced" "$hits"
+fi
+
 # --- the docs logo is the dashboard's -----------------------------------------
 
 cmp -s "$repo_root/docs/assets/logo.svg" "$repo_root/dashboard/internal/webui/static/img/favicon.svg" \

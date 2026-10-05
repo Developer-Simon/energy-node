@@ -4,7 +4,7 @@
 #
 # Hintergrund: MQTT-Zugangsdaten gehören in die nicht versionierte
 # /etc/energy-node/mqtt.pw auf dem Zielgerät, nicht in die *.env-Dateien
-# im Repo (siehe docs/knowledge/konfiguration.md). Auch die zentrale
+# im Repo (siehe docs/operating/configuration.md). Auch die zentrale
 # Konfigurationsvorlage services/energy-node.config.json darf nie Zugangs­daten
 # enthalten - diese gehören ausschliesslich in die per password_file /
 # admin_password_file referenzierten Dateien auf dem Zielgeraet.
@@ -76,7 +76,7 @@ done < <(git ls-files -- '*.env' '*.conf' 'services/energy-node.config.json')
 # Zusaetzliche Regel fuer die Konfigurationsvorlage: Zugangsdaten gehoeren
 # nie in die Datei selbst, sondern ausschliesslich in die per
 # password_file / admin_password_file referenzierten Dateien auf dem
-# Zielgeraet (siehe docs/knowledge/konfiguration.md).
+# Zielgeraet (siehe docs/operating/configuration.md).
 CONFIG_TEMPLATE="services/energy-node.config.json"
 if [[ -f "${CONFIG_TEMPLATE}" ]]; then
   template_findings="$(python3 - "${CONFIG_TEMPLATE}" <<'PY'
@@ -118,7 +118,7 @@ fi
 
 if [[ "${findings}" -gt 0 ]]; then
   printf '\n%s Klartext-Zugangsdaten in versionierten Dateien gefunden.\n' "${findings}" >&2
-  printf 'Siehe docs/knowledge/dashboard/secrets-und-zugangsdaten.md\n' >&2
+  printf 'Siehe docs/operating/secrets.md\n' >&2
   exit 1
 fi
 

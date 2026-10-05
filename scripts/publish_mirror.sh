@@ -147,7 +147,7 @@ mirror_path="$(cd "$mirror_path" && pwd)"
 
 if ! git -C "$mirror_path" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
   echo "error: '$mirror_path' is not a git repo." >&2
-  echo "Create it once via docs/integration/ha-integration-hacs-release.md." >&2
+  echo "Create it once via docs/_internal/ha-mirror-release.md." >&2
   exit 1
 fi
 

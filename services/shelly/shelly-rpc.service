@@ -11,7 +11,7 @@ User=energynode
 # Passwortdatei. Fehlt die Datei, bricht der Dienst mit einer Meldung ab,
 # statt ohne Zugangsdaten hochzufahren - dieselbe Fail-closed-Regel wie
 # frueher beim EnvironmentFile ohne fuehrendes '-'.
-# Einrichtung: docs/knowledge/konfiguration.md
+# Einrichtung: docs/operating/configuration.md
 ExecStart=/usr/bin/python3 /home/energynode/shelly/shelly_rpc_mqtt.py --config /etc/energy-node/config.json
 Restart=on-failure
 RestartSec=10
