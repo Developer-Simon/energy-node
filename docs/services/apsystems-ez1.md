@@ -7,15 +7,28 @@ component: service:apsystems_ez1
 
 What `services/apsystems_ez1/apsystems_ez1_mqtt.py` publishes for each
 configured EZ1 microinverter, and how it protects the inverter's flash memory
-while changing the power limit. See
-[device-services.md](../device-services.md#apsystems-ez1) for where this
+while changing the power limit. See [Device services](index.md) for where this
 service sits among the others.
 
-One service instance handles every configured inverter over its **local**
-REST API (`host`, `port`, default `8050`) — no cloud account, no vendor app in
-the loop. Each inverter keeps its own topic prefix
-(`outstation/<id>/…`), entities and availability, following the conventions
-described in [device-services.md](../device-services.md#what-every-service-has-in-common).
+## At a glance
+
+One service for all configured EZ1 microinverters, over their **local** REST
+API (`host`, `port`, default 8050) — no cloud account. Each inverter keeps its
+own topic prefix, entities and availability.
+
+**Entities published:** power, daily yield and lifetime yield, each for string
+PV1, string PV2 and the total — nine sensors, with `total_increasing` state
+class on the lifetime counters so Home Assistant's energy dashboard accepts
+them; a power-limit `number` and an operating-status `switch`; and a set of
+diagnostic sensors disabled by default, including extended electrical
+readings (PV input voltage/current, grid voltage/frequency, temperature)
+where the inverter's firmware supports them.
+
+The EZ1 can store its power limit in flash, and frequent writes wear flash
+out over time. The service detects per inverter whether its firmware instead
+keeps the limit in RAM and, if so, changes the write strategy accordingly;
+inverters without that support keep a service-enforced **minimum of five
+minutes between two writes**, no matter who publishes the command.
 
 ## Enabling local mode
 

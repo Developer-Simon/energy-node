@@ -8,7 +8,6 @@
 - title: Overview
   items:
     - { label: "What is Energy Node?", url: "index.md" }
-    - { label: "Device services", url: "device-services.md" }
     - { label: "Deploying a node", url: "installer.md" }
 
 - title: Using
@@ -25,14 +24,18 @@
         - { label: "Configuration editor", url: "dashboard/configuration.md" }
         - { label: "Settings", url: "dashboard/settings.md" }
         - { label: "Colour schemes", url: "dashboard/themes.md" }
-
-- title: Services
-  items:
-    - { label: "APsystems EZ1", url: "services/apsystems-ez1.md" }
-    - label: "Battery state of charge"
-      url: "services/battery-soc.md"
+    - label: "Device services"
+      url: "services/index.md"
       children:
-        - { label: "How it works", url: "services/battery-soc-how-it-works.md" }
+        - { label: "Shelly", url: "services/shelly.md" }
+        - { label: "APsystems EZ1", url: "services/apsystems-ez1.md" }
+        - { label: "Trucki stick", url: "services/trucki.md" }
+        - { label: "Tuya", url: "services/tuya.md" }
+        - label: "Battery state of charge"
+          url: "services/battery-soc.md"
+          children:
+            - { label: "How it works", url: "services/battery-soc-how-it-works.md" }
+        - { label: "Automations engine", url: "services/automations.md" }
 
 - title: Operating
   items:

@@ -6,22 +6,27 @@ component: service:battery_soc
 # Battery State of Charge (SoC)
 
 What `services/battery_soc/` publishes and how it is configured. See
-[device-services.md](../device-services.md#battery-state-of-charge) for where
-this service sits among the others, and
+[Device services](index.md#battery-state-of-charge) for where this service sits among the others, and
 [`battery-soc-how-it-works.md`](battery-soc-how-it-works.md)
 for the coulomb-counting algorithm itself — the calibration math, the AC/DC
 efficiency handling and why it works the way it does.
+
+## At a glance
 
 `services/battery_soc/` + `libs/battery_soc_core/` · `battery-soc.service` ·
 `battery_soc_devices.json`
 
 The one service that polls nothing. It **subscribes** to power and voltage
-topics that the other bridges already publish, and computes the state of
-charge of one or two LiFePO4 banks by coulomb counting — with voltage
-recalibration at the ends of the curve, per-converter efficiency, and load
-compensation on the measured cell voltage.
+topics that the other bridges already publish, and computes the state of charge
+of one or two LiFePO4 banks by coulomb counting — with voltage recalibration at
+the ends of the curve, per-converter efficiency, and load compensation on the
+measured cell voltage.
 
-It is a monitoring estimate, not a BMS.
+It is a monitoring estimate, not a BMS. Inputs are power and voltage topics
+from the other bridges (with optional DC-side topics taking over from AC
+measurements while fresh); entities published cover combined and per-bank
+SoC, net battery power, problem sensors for stale inputs, time to full/empty,
+and a `number` entity to set the SoC by hand after an outage.
 
 ## Configuration
 
@@ -123,7 +128,5 @@ payload rather than left behind as ghost entities.
 
 ## Also available as a native Home Assistant integration
 
-The same engine is also available as a **native Home Assistant integration**
-under `integrations/homeassistant/`, installable through HACS — the same core
-with a config flow instead of MQTT topics. See
-[`ha/battery-soc.md`](../ha/battery-soc.md).
+The same engine is also available as a **native Home Assistant integration**,
+installable through HACS. See [`ha/battery-soc.md`](../ha/battery-soc.md) for details.

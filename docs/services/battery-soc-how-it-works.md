@@ -412,7 +412,7 @@ return `null`.
 - **Device coupling:** its own HA device, linked via `via_device` under
   `energy_node`. The Trucki stick in turn points via `via_device` to this
   device — deliberately no discovery merge (see the Trucki section in
-  [device-services.md](../device-services.md)).
+  [services/trucki.md](trucki.md)).
 
 ## 12a. Home Assistant Integration
 

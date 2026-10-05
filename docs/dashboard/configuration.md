@@ -8,7 +8,7 @@ title: "Configuration editor"
 
 This is the editor for the **Python services' device JSON files** — the same
 `*_devices.json` files described in
-[Device services](../device-services.md). The form is generated from the JSON
+[Device services](../services/index.md). The form is generated from the JSON
 schema that sits next to each config file, so field names, help texts,
 required markers and value ranges all come from one source.
 

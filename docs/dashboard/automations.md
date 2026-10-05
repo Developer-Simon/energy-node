@@ -17,7 +17,7 @@ screenshot it is offline — the smoke-test harness does not start it — so the
 rules render from their saved state with no live values. That is deliberate:
 the dashboard **never** executes rules itself. It only edits the JSON, and the
 Python service owns evaluation and publishing. See
-[Device services → Automations](../device-services.md#automations).
+[Device services → Automations](../services/automations.md).
 
 The **Assistant** button walks through building a rule. **Show history**
 shows the last triggers of a single rule.
