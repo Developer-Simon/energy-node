@@ -18,6 +18,9 @@ engine="$(command -v podman || command -v docker || true)"
 [ -n "$engine" ] || { echo "podman or docker required" >&2; exit 1; }
 
 mkdir -p "$root/.cache/docs-gems" "$root/_site"
+# Override the URL in the Jekyll config so local redirects point at the local server
+# instead of https://github.com, allowing deep-link tests to work
+printf 'url: "%s"\n' "${DOCS_LOCAL_URL:-http://localhost:4000}" > "$root/.cache/docs-local.yml"
 "$engine" run --rm \
   -v "$root:/repo:Z" \
   -v "$root/.cache/docs-gems:/usr/local/bundle:Z" \
@@ -25,7 +28,7 @@ mkdir -p "$root/.cache/docs-gems" "$root/_site"
   -e JEKYLL_ENV=production \
   -e PAGES_REPO_NWO=Developer-Simon/energy-node \
   docker.io/library/ruby:3.3 \
-  sh -c 'bundle install --quiet && bundle exec jekyll build --source /repo/docs --destination /repo/_site --baseurl /energy-node'
+  sh -c 'bundle install --quiet && bundle exec jekyll build --source /repo/docs --destination /repo/_site --baseurl /energy-node --config _config.yml,/repo/.cache/docs-local.yml'
 
 if [ "${1:-}" = "--pagefind" ]; then
   npx --yes pagefind@1.3.0 --site "$root/_site"
