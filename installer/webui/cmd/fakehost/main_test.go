@@ -126,15 +126,15 @@ func TestBothScenariosServeAChangelogTheScreenCanSlice(t *testing.T) {
 // Ohne den Schalter bleiben beide wie ihre Vorlagen.
 func TestSystemUpdatesAppearOnlyWithTheirFlag(t *testing.T) {
 	plain := newScenario("vorlage-update", options{})
-	plan, _ := plain.Plan(context.Background())
+	asked, _ := plain.SystemUpdates(context.Background(), false)
 	view, _ := plain.Diagnose(context.Background())
-	if plan.SystemUpdates != nil || view.SystemUpdates != nil {
+	if asked != nil || view.SystemUpdates != nil {
 		t.Fatalf("without the flag no system updates may appear")
 	}
 	shown := newScenario("vorlage-update", options{systemUpdates: true})
-	plan, _ = shown.Plan(context.Background())
+	asked, _ = shown.SystemUpdates(context.Background(), true)
 	view, _ = shown.Diagnose(context.Background())
-	if plan.SystemUpdates == nil || plan.SystemUpdates.Count != 3 || view.SystemUpdates == nil || len(view.SystemUpdates.Packages) != 3 {
-		t.Fatalf("plan %+v, diagnose %+v, want three pending packages in both", plan.SystemUpdates, view.SystemUpdates)
+	if asked == nil || asked.Count != 3 || view.SystemUpdates == nil || len(view.SystemUpdates.Packages) != 3 {
+		t.Fatalf("asked %+v, diagnose %+v, want three pending packages in both", asked, view.SystemUpdates)
 	}
 }

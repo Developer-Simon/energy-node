@@ -24,9 +24,7 @@ cat <<'JSON'
   "components": {
     "dashboard": {"von": "v0.6.0", "nach": "v0.6.1"},
     "services":  {"von": null,     "nach": "v1.4.0"}
-  },
-  "system_updates": {"count": 1, "checked_at": "2026-10-04T06:12:00+00:00",
-    "packages": [{"name": "libssl3", "from": "3.0.11", "to": "3.0.13"}]}
+  }
 }
 JSON
 `
@@ -62,11 +60,6 @@ func TestPreviewParsesThePlanReport(t *testing.T) {
 	services, ok := plan.Components["services"]
 	if !ok || services.From != nil || services.To != "v1.4.0" {
 		t.Fatalf(`unexpected services component ("von" must be nil, not ""): %+v`, services)
-	}
-	updates := plan.SystemUpdates
-	if updates == nil || updates.Count != 1 || updates.CheckedAt != "2026-10-04T06:12:00+00:00" ||
-		len(updates.Packages) != 1 || updates.Packages[0] != (steps.SystemPackage{Name: "libssl3", From: "3.0.11", To: "3.0.13"}) {
-		t.Fatalf("unexpected system updates: %+v", updates)
 	}
 }
 

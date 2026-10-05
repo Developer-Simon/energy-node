@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -497,26 +498,29 @@ func TestASystemStepMissingFromTheSelectionFollowsItsDefault(t *testing.T) {
 	}
 }
 
-// Die Vorschau im Dashboard zaehlt die Systempakete mit demselben Skript wie
-// plan.sh: bootstrap/lib/apt_pending.py aus dem Kandidaten-Bundle.
-func TestPlanCarriesThePendingSystemUpdatesFromTheCandidateHelper(t *testing.T) {
+// Die Systempakete zaehlt das Dashboard auf Abfrage mit demselben Skript wie
+// der Installer: bootstrap/lib/apt_pending.py aus dem Kandidaten-Bundle. Die
+// Vorschau (Plan) wartet nicht darauf.
+func TestSystemUpdatesCountWithTheCandidateHelperOnlyWhenAsked(t *testing.T) {
 	cfg := setupNode(t)
 	lib := filepath.Join(cfg.CandidateBundleDir, "bootstrap", "lib")
 	os.MkdirAll(lib, 0o755)
 	os.WriteFile(filepath.Join(lib, "apt_pending.py"), []byte(`print('{"count": 2, "checked_at": "2026-10-04T06:12:00+00:00", "packages": [{"name": "libssl3", "from": "3.0.11", "to": "3.0.13"}, {"name": "openssl", "from": "3.0.11", "to": "3.0.13"}]}')
 `), 0o644)
 	h, _ := updaterhost.New(cfg)
-	view, err := h.Plan(context.Background())
+	if _, err := h.Plan(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	u, err := h.SystemUpdates(context.Background(), false)
 	if err != nil {
 		t.Fatal(err)
 	}
-	u := view.SystemUpdates
 	if u == nil || u.Count != 2 || u.CheckedAt != "2026-10-04T06:12:00+00:00" || len(u.Packages) != 2 || u.Packages[1].Name != "openssl" {
 		t.Fatalf("system updates = %+v", u)
 	}
 }
 
-func TestPlanWithoutAWorkingHelperHasNoSystemUpdates(t *testing.T) {
+func TestSystemUpdatesWithoutAWorkingHelperAreUnknown(t *testing.T) {
 	for name, script := range map[string]string{
 		"missing": "",
 		"null":    "print('null')\n",
@@ -530,12 +534,23 @@ func TestPlanWithoutAWorkingHelperHasNoSystemUpdates(t *testing.T) {
 			os.WriteFile(filepath.Join(lib, "apt_pending.py"), []byte(script), 0o644)
 		}
 		h, _ := updaterhost.New(cfg)
-		view, err := h.Plan(context.Background())
+		u, err := h.SystemUpdates(context.Background(), false)
 		if err != nil {
-			t.Fatalf("%s: Plan must not fail: %v", name, err)
+			t.Fatalf("%s: must not fail: %v", name, err)
 		}
-		if view.SystemUpdates != nil {
-			t.Errorf("%s: system updates = %+v, want nil", name, view.SystemUpdates)
+		if u != nil {
+			t.Errorf("%s: system updates = %+v, want nil", name, u)
 		}
+	}
+}
+
+// Frisch abrufen braucht root (apt-get update); das Dashboard laeuft als
+// Dienstbenutzer und bietet es nicht an.
+func TestSystemUpdatesRefreshIsNotSupportedOnTheDashboard(t *testing.T) {
+	h, _ := updaterhost.New(setupNode(t))
+	_, err := h.SystemUpdates(context.Background(), true)
+	var apiErr *hostapi.Error
+	if !errors.As(err, &apiErr) || apiErr.Code != "NOT_SUPPORTED" || apiErr.Status != http.StatusNotImplemented {
+		t.Fatalf("err = %#v, want NOT_SUPPORTED 501", err)
 	}
 }

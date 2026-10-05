@@ -28,11 +28,12 @@ JSON
 
 export EN_STATE_DIR="$tmp/state" EN_BUNDLE_DIR="$bundle"
 export EN_BUNDLE_VERSION=v0.2.0 EN_SELECTION="$tmp/selection.json"
-# Systempakete: eine Attrappe statt des echten apt-get auf dem Testrechner.
+# Die Vorschau fragt apt nie: auf einem Pi 1 dauert schon die Simulation
+# lange. Die Systempakete holt die Oberflaeche erst auf Abfrage.
 mkdir -p "$tmp/bin"
-printf '#!/bin/sh\nprintf "Inst libssl3 [3.0.11] (3.0.13 Debian:12/stable [armhf])\\n"\n' > "$tmp/bin/apt-get"
+printf '#!/bin/sh\necho called >> "%s/apt.log"\n' "$tmp" > "$tmp/bin/apt-get"
 chmod +x "$tmp/bin/apt-get"
-export EN_APT_GET="$tmp/bin/apt-get" EN_ROOT="$tmp/root"
+export EN_APT_GET="$tmp/bin/apt-get" PATH="$tmp/bin:$PATH"
 
 mkdir -p "$EN_STATE_DIR/steps"
 printf 'bundle=v0.2.0\n' > "$EN_STATE_DIR/steps/10"   # erledigt
@@ -59,8 +60,8 @@ get() { python3 -c 'import json,sys; d=json.load(sys.stdin); print(eval(sys.argv
 [ "$(get 'd["components"]["dashboard"]["von"]')" = "v0.6.0" ] || fail "von falsch" "$out"
 [ "$(get 'd["components"]["dashboard"]["nach"]')" = "v0.6.1" ] || fail "nach falsch" "$out"
 [ "$(get 'd["components"]["services"]["von"]')" = "None" ] || fail "unbekanntes von nicht null" "$out"
-[ "$(get 'd["system_updates"]["count"]')" = 1 ] || fail "Systempakete fehlen in der Vorschau" "$out"
-[ "$(get 'd["system_updates"]["packages"][0]["to"]')" = "3.0.13" ] || fail "Paketversion fehlt" "$out"
+[ "$(get '"system_updates" in d')" = False ] || fail "Vorschau zaehlt Systempakete" "$out"
+[ -e "$tmp/apt.log" ] && fail "Vorschau ruft apt-get"
 
 python3 - "$out" <<'PY' || fail "Vorschau meldet den Neustart des Dienstes falsch"
 import json, sys

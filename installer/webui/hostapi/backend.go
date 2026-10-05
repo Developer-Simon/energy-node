@@ -201,9 +201,6 @@ type PlanView struct {
 	BundleVersion string                    `json:"bundle_version"`
 	Steps         []PlanStep                `json:"steps"`
 	Components    map[string]ComponentDelta `json:"components"`
-	// SystemUpdates: was apt-get upgrade (Schritt 15) jetzt einspielen
-	// wuerde. nil = unbekannt, die Vorschau zeigt dann keine Zahl.
-	SystemUpdates *SystemUpdates `json:"system_updates,omitempty"`
 }
 
 // SystemUpdates sind die ausstehenden Systempakete, simuliert auf den

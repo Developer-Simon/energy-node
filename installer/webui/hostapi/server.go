@@ -139,6 +139,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("/api/events", s.handleEvents)
 	s.mux.HandleFunc("/api/diagnose", s.handleDiagnose)
 	s.mux.HandleFunc("/api/changelog", s.handleChangelog)
+	s.mux.HandleFunc("/api/system-updates", s.handleSystemUpdates)
+	s.mux.HandleFunc("/api/system-updates/refresh", s.handleSystemUpdatesRefresh)
 	s.mux.HandleFunc("/api/package", s.handlePackage)
 	s.mux.HandleFunc("/api/package/upload", s.handlePackageUpload)
 }

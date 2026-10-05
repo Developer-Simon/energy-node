@@ -68,7 +68,7 @@
         : shell.t('diagnose.retry_plain', { name: name });
     },
 
-    cards: function (view, manifest, shell) {
+    cards: function (view, manifest, shell, updatesState) {
       var t = shell.t.bind(shell);
       var byGroup = { services: [], system: [], config: [] };
       ((view && view.checks) || []).forEach(function (check) {
@@ -207,19 +207,30 @@
         return parts;
       }
 
-      // systemUpdateParts: ausstehende Systempakete als Info mit Liste. Sie
-      // zaehlen nicht in der Bilanz, irgendein Update steht fast immer aus.
+      // systemUpdateParts: ausstehende Systempakete als Info mit Liste und
+      // dem Knopf "Jetzt neu abrufen". Sie zaehlen nicht in der Bilanz,
+      // irgendein Update steht fast immer aus. undefined = der Bericht kennt
+      // sie nicht (aelteres Paket), null = nicht ermittelbar.
       function systemUpdateParts() {
         var updates = view.system_updates;
-        if (!updates) {
+        if (updates === undefined) {
           return [];
         }
+        var state = updatesState || {};
         var parts = [];
-        info(parts, 'system-updates', t('diagnose.system_updates'), window.Services.systemUpdatesText(updates, shell));
+        info(parts, 'system-updates', t('diagnose.system_updates'),
+          updates ? window.Services.systemUpdatesText(updates, shell) : t('system_updates.unknown'));
         var list = window.Services.systemPackagesText(updates);
         if (list) {
           parts.push({ key: 'devs-system-updates', type: 'devs', cls: 'devs', text: list });
         }
+        if (state.error) {
+          parts.push({ key: 'system-updates-error', type: 'devs', cls: 'devs', text: state.error });
+        }
+        parts.push({
+          key: 'system-updates-refresh', type: 'act', cls: 'acts', busy: !!state.busy,
+          label: t(state.busy ? 'system_updates.refreshing' : 'system_updates.refresh'),
+        });
         return parts;
       }
 
@@ -307,6 +318,8 @@
       view: null,
       manifest: null,
       busy: false,
+      updatesBusy: false,
+      updatesError: '',
       checkedAt: 0,
       timer: null,
 
@@ -362,7 +375,9 @@
       },
 
       get cards() {
-        return this.view && this.manifest ? DiagnoseModel.cards(this.view, this.manifest, this.shell) : [];
+        return this.view && this.manifest
+          ? DiagnoseModel.cards(this.view, this.manifest, this.shell, { busy: this.updatesBusy, error: this.updatesError })
+          : [];
       },
 
       get leftCards() {
@@ -391,6 +406,30 @@
           this.shell.fail(err);
         } finally {
           this.busy = false;
+        }
+      },
+
+      // refreshUpdates holt die Paketlisten jetzt frisch (apt-get update) und
+      // zaehlt neu. Ein Fehler bleibt an der Zeile, der alte Stand sichtbar.
+      async refreshUpdates() {
+        if (this.updatesBusy) {
+          return;
+        }
+        var t = this.shell.t.bind(this.shell);
+        this.updatesBusy = true;
+        this.updatesError = '';
+        try {
+          var fresh = await window.Api.post('/api/system-updates/refresh');
+          this.view = Object.assign({}, this.view, { system_updates: fresh });
+        } catch (err) {
+          var key = 'error.' + err.code;
+          var message = t(key);
+          if (message === key) {
+            message = t('system_updates.refresh_failed');
+          }
+          this.updatesError = err.detail ? message + ' ' + err.detail : message;
+        } finally {
+          this.updatesBusy = false;
         }
       },
 

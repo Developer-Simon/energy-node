@@ -21,7 +21,6 @@ EN_BUNDLE_DIR="${EN_BUNDLE_DIR}" \
 EN_BUNDLE_VERSION="${EN_BUNDLE_VERSION}" \
 EN_SELECTION="${EN_SELECTION}" \
 EN_PLAN_LIB_DIR="${SCRIPT_LIB_DIR}" \
-EN_ROOT="${EN_ROOT}" \
 python3 <<'PY'
 import json, os, pathlib, sys
 
@@ -31,7 +30,6 @@ version = os.environ["EN_BUNDLE_VERSION"]
 
 sys.path.insert(0, os.environ["EN_PLAN_LIB_DIR"])
 import restart_rule
-import apt_pending
 
 manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
 
@@ -114,7 +112,5 @@ print(json.dumps({
     "bundle_version": manifest.get("version", version),
     "steps": steps,
     "components": components,
-    # Letzter Stand der Paketlisten, ohne apt-get update (apt_pending.py).
-    "system_updates": apt_pending.pending(),
 }, indent=2, ensure_ascii=False))
 PY

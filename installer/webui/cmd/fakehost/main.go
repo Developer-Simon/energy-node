@@ -45,7 +45,7 @@ func main() {
 	hold := flag.String("hold-step", "", "an diesem Schritt bis zum Abbrechen warten")
 	failStep := flag.String("fail-step", "", "diesen Schritt fehlschlagen lassen, Format <id>:<CODE>")
 	delay := flag.Duration("step-delay", 150*time.Millisecond, "Pause je Schritt")
-	systemUpdates := flag.Bool("system-updates", false, "Vorschau und Diagnose nennen ausstehende Systempakete")
+	systemUpdates := flag.Bool("system-updates", false, "Systempakete auf Abfrage und in der Diagnose: drei ausstehende Updates")
 	flag.Parse()
 
 	catalogs, err := i18n.Load(webui.Catalogs())

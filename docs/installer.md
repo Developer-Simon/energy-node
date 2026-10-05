@@ -144,9 +144,10 @@ Two passwords and the services you want.
   and an update applies exactly that selection again.
   **Update system packages** is on by default. It installs pending Debian
   updates once per installer version and tells you when the node needs a
-  reboot. The update preview shows how many updates are pending, and the
-  diagnose lists them. Both count on the package lists as the node last
-  refreshed them (daily by apt-daily) and say when that was.
+  reboot. In the update preview, **Check for updates** counts the pending
+  updates, and the diagnose lists them. Both count on the package lists as
+  the node last refreshed them (daily by apt-daily) and say when that was.
+  **Fetch again now** in the diagnose refreshes the lists first.
 - **Target system.** The service user and its base directory on the Pi.
 
 **Start installation** is the point of no return: from here on, the Pi is

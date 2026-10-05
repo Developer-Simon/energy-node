@@ -176,7 +176,7 @@ func (h *Host) SaveSelection(context.Context, map[string]bool) error {
 	return &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
 }
 
-func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
+func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 	candidate, err := h.loadCandidateManifest()
 	if err != nil {
 		return nil, &hostapi.Error{Code: "MANIFEST_UNREADABLE", Detail: err.Error()}
@@ -227,7 +227,6 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 		}
 		view.Steps = append(view.Steps, ps)
 	}
-	view.SystemUpdates = h.systemUpdates(ctx)
 	return view, nil
 }
 
@@ -235,11 +234,21 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 // selbst nach 120 s ab; das hier faengt nur ein haengendes python3 ab.
 const systemUpdatesTimeout = 150 * time.Second
 
+// SystemUpdates implementiert hostapi.SystemUpdatesProvider, nur auf
+// Abfrage: die Vorschau wartet nicht darauf. Frisch abrufen (apt-get update)
+// braucht root, das Dashboard laeuft als Dienstbenutzer und bietet es nicht
+// an.
+func (h *Host) SystemUpdates(ctx context.Context, refresh bool) (*hostapi.SystemUpdates, error) {
+	if refresh {
+		return nil, &hostapi.Error{Code: "NOT_SUPPORTED", Status: http.StatusNotImplemented}
+	}
+	return h.systemUpdates(ctx), nil
+}
+
 // systemUpdates fragt bootstrap/lib/apt_pending.py aus dem Kandidaten-Bundle,
-// dasselbe Skript wie plan.sh: was apt-get upgrade (Schritt 15) jetzt
+// dasselbe Skript wie der Installer: was apt-get upgrade (Schritt 15) jetzt
 // einspielen wuerde, simuliert auf den vorhandenen Paketlisten. Fehlt das
-// Skript oder scheitert es, bleibt die Zahl unbekannt (nil) - die Vorschau
-// laeuft trotzdem.
+// Skript oder scheitert es, bleibt die Zahl unbekannt (nil).
 func (h *Host) systemUpdates(ctx context.Context) *hostapi.SystemUpdates {
 	script := filepath.Join(h.cfg.CandidateBundleDir, "bootstrap", "lib", "apt_pending.py")
 	if _, err := os.Stat(script); err != nil {

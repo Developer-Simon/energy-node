@@ -128,8 +128,8 @@ the installer (`--no-build` applies to it as well); every other argument goes to
 the demo host. `--scenario vorlage-update` serves the update preview, `--hold-step <id>`
 stops a run at that step, `--fail-step <id>:<CODE>` fails one, `--trusted`
 skips the fingerprint dialog, `--dashboard` plays the dashboard-hosted
-variant and `--system-updates` lists pending system packages in the preview
-and the diagnose. `npm run test:e2e` in `installer/webui` runs the browser suite.
+variant and `--system-updates` answers the preview's "Check for updates" and
+the diagnose with three pending system packages. `npm run test:e2e` in `installer/webui` runs the browser suite.
 
 ### Publishing release binaries
 

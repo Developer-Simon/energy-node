@@ -37,32 +37,12 @@ type ComponentVersions struct {
 	To   string  `json:"nach"`
 }
 
-// SystemUpdates mirrors scripts/bootstrap/lib/apt_pending.py: the packages
-// apt-get upgrade would update now, simulated on the node's existing package
-// lists (no apt-get update). CheckedAt is the lists' age, "" when unknown.
-// plan.sh and diagnose.sh report null when apt-get is missing or fails,
-// which callers keep as nil.
-type SystemUpdates struct {
-	Count     int             `json:"count"`
-	CheckedAt string          `json:"checked_at"`
-	Packages  []SystemPackage `json:"packages"`
-}
-
-// SystemPackage is one pending update. From is "" for a package apt would
-// install new.
-type SystemPackage struct {
-	Name string `json:"name"`
-	From string `json:"from"`
-	To   string `json:"to"`
-}
-
 // Plan mirrors plan.sh's JSON report exactly (Plan A-II, Task 14): what a
 // run would do, computed without changing anything on the node.
 type Plan struct {
 	BundleVersion string                       `json:"bundle_version"`
 	Steps         []StepPreview                `json:"steps"`
 	Components    map[string]ComponentVersions `json:"components"`
-	SystemUpdates *SystemUpdates               `json:"system_updates"`
 }
 
 // previewSelectionName is the file Preview stages an unsaved selection in.

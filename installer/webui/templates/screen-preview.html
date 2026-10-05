@@ -60,7 +60,7 @@
           <template x-for="part in serviceParts" :key="part.key">
             <div :class="part.cls">
               <template x-if="part.type === 'svc'"><span class="svc-c" :class="{ on: part.on }"><template x-if="part.on">{{template "icon-ok"}}</template></span></template>
-              <template x-if="part.type === 'svc'"><span class="svc-n"><span x-text="part.name"></span><template x-if="part.isNew"><span class="svc-tag" x-text="t('preview.scope.new')"></span></template><template x-if="part.detail"><span class="svc-d" x-text="part.detail"></span></template></span></template>
+              <template x-if="part.type === 'svc'"><span class="svc-n"><span x-text="part.name"></span><template x-if="part.isNew"><span class="svc-tag" x-text="t('preview.scope.new')"></span></template><template x-if="part.detail"><span class="svc-d" x-text="part.detail"></span></template><template x-if="part.check"><button type="button" class="svc-check" @click="checkUpdates()" x-text="t('system_updates.check')"></button></template></span></template>
               <template x-for="chip in part.chips || []" :key="chip.id"><span class="chipk" :class="{ on: chip.on }" x-text="chip.name"></span></template>
             </div>
           </template>

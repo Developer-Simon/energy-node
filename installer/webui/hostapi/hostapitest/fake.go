@@ -54,6 +54,11 @@ type FakeBackend struct {
 	// ohne Fehler heisst "dieses Paket hat keinen Changelog".
 	ChangelogView *hostapi.ChangelogView
 	ChangelogErr  error
+	// SystemUpdatesView und SystemUpdatesErr steuern /api/system-updates;
+	// SystemUpdatesCalls haelt je Abfrage fest, ob frisch abgerufen wurde.
+	SystemUpdatesView  *hostapi.SystemUpdates
+	SystemUpdatesErr   error
+	SystemUpdatesCalls []bool
 
 	// Steps ist das Drehbuch eines Laufs.
 	Steps []FakeStep
@@ -188,6 +193,13 @@ func (f *FakeBackend) SaveSelection(ctx context.Context, steps map[string]bool) 
 
 func (f *FakeBackend) Changelog(ctx context.Context) (*hostapi.ChangelogView, error) {
 	return f.ChangelogView, f.ChangelogErr
+}
+
+func (f *FakeBackend) SystemUpdates(ctx context.Context, refresh bool) (*hostapi.SystemUpdates, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.SystemUpdatesCalls = append(f.SystemUpdatesCalls, refresh)
+	return f.SystemUpdatesView, f.SystemUpdatesErr
 }
 
 func (f *FakeBackend) Plan(ctx context.Context) (*hostapi.PlanView, error) {

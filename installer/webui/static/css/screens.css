@@ -328,3 +328,6 @@
 /* Ergaenzung Aktualisieren: Zusatz an einer Zeile (Schritt 15: ausstehende
    Systempakete samt Stand), nicht in der Vorlage. */
 .app[data-screen="preview"] .svc-d{margin-left:.45rem;font-size:.72rem;font-weight:400;color:var(--text-muted)}
+/* Ergaenzung Aktualisieren: Systempakete auf Abfrage (Schritt 15), ein
+   Textknopf in der Zeile statt eines vollen Knopfs. */
+.app[data-screen="preview"] .svc-check{margin-left:.45rem;padding:0;border:0;background:none;font:inherit;font-size:.72rem;font-weight:400;color:var(--accent-soft);cursor:pointer;text-decoration:underline;text-underline-offset:2px}

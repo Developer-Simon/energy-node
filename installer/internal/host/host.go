@@ -425,7 +425,6 @@ func (h *Host) Plan(ctx context.Context) (*hostapi.PlanView, error) {
 	for name, versions := range preview.Components {
 		view.Components[name] = hostapi.ComponentDelta{From: versions.From, To: versions.To}
 	}
-	view.SystemUpdates = systemUpdatesView(preview.SystemUpdates)
 	return view, nil
 }
 
@@ -585,6 +584,32 @@ func installedInfo(report *diag.Report) (*hostapi.DiagnoseVersions, map[string][
 		devices[unit] = entries
 	}
 	return versions, devices
+}
+
+// SystemUpdates implements hostapi.SystemUpdatesProvider: the bundle's
+// apt_pending.py on the node, asked only when the operator wants it (the
+// preview does not wait for it). refresh runs apt-get update through sudo
+// first.
+func (h *Host) SystemUpdates(ctx context.Context, refresh bool) (*hostapi.SystemUpdates, error) {
+	client, err := h.connected()
+	if err != nil {
+		return nil, err
+	}
+	return systemUpdatesResult(steps.QuerySystemUpdates(ctx, client, h.cfg.RemoteBundleDir, refresh))
+}
+
+// systemUpdatesResult maps the helper's answer: a failed apt-get update
+// becomes APT_UPDATE_FAILED with apt's message (the same fault text step 15
+// uses), any other failure SYSTEM_UPDATES_FAILED.
+func systemUpdatesResult(updates *steps.SystemUpdates, err error) (*hostapi.SystemUpdates, error) {
+	var refreshFailed *steps.RefreshFailedError
+	if errors.As(err, &refreshFailed) {
+		return nil, &hostapi.Error{Code: "APT_UPDATE_FAILED", Detail: refreshFailed.Detail, Status: http.StatusBadGateway}
+	}
+	if err != nil {
+		return nil, &hostapi.Error{Code: "SYSTEM_UPDATES_FAILED", Detail: err.Error(), Status: http.StatusBadGateway}
+	}
+	return systemUpdatesView(updates), nil
 }
 
 // systemUpdatesView carries apt_pending.py's report into the views. nil

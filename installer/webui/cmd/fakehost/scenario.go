@@ -321,9 +321,7 @@ func newScenario(name string, opts options) *stagedBackend {
 			{Name: "openssl", From: "3.0.11-1~deb12u2", To: "3.0.13-1~deb12u1"},
 			{Name: "raspberrypi-kernel", From: "1:1.20240529-1", To: "1:1.20240924-1"},
 		}}
-		if fake.PlanResult != nil {
-			fake.PlanResult.SystemUpdates = updates
-		}
+		fake.SystemUpdatesView = updates
 		fake.DiagnoseView.SystemUpdates = updates
 	}
 

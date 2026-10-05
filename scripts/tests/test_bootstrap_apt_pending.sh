@@ -14,7 +14,20 @@ mkdir -p "$tmp/bin"
 # Simulation scheitern, UPGRADABLE nennt die Pakete.
 cat > "$tmp/bin/apt-get" <<'SH'
 #!/usr/bin/env bash
-printf 'LC_ALL=%s apt-get %s\n' "${LC_ALL:-}" "$*" >> "$APT_LOG"
+printf 'LC_ALL=%s FRONTEND=%s apt-get %s\n' "${LC_ALL:-}" "${DEBIAN_FRONTEND:-}" "$*" >> "$APT_LOG"
+case " $* " in
+  *" update "*)
+    if [ -n "${LOCKED_TIMES:-}" ]; then
+      n="$(cat "$APT_LOG.locks" 2>/dev/null || echo 0)"
+      if [ "$n" -lt "$LOCKED_TIMES" ]; then
+        echo $((n + 1)) > "$APT_LOG.locks"
+        echo "E: Could not get lock /var/lib/apt/lists/lock" >&2
+        exit 100
+      fi
+    fi
+    [ -n "${UPDATE_RC:-}" ] && { echo "E: Failed to fetch http://deb.debian.org" >&2; exit "$UPDATE_RC"; }
+    exit 0 ;;
+esac
 [ -n "${SIM_RC:-}" ] && { echo "E: dpkg was interrupted" >&2; exit "$SIM_RC"; }
 echo "NOTE: This is only a simulation!"
 for p in ${UPGRADABLE:-}; do
@@ -27,7 +40,7 @@ done
 exit 0
 SH
 chmod +x "$tmp/bin/apt-get"
-export EN_APT_GET="$tmp/bin/apt-get" EN_ROOT="$tmp/root" APT_LOG="$tmp/apt.log"
+export EN_APT_GET="$tmp/bin/apt-get" EN_ROOT="$tmp/root" APT_LOG="$tmp/apt.log" EN_SUDO="" EN_APT_LOCK_PAUSE=0
 run() { python3 "$helper"; }
 get() { python3 -c 'import json,sys; d=json.loads(sys.argv[2]); print(eval(sys.argv[1], {"d": d}))' "$1" "$2"; }
 
@@ -69,6 +82,39 @@ out="$(SIM_RC=100 run)" || fail "Simulationsfehler bricht ab"
 [ "$out" = null ] || fail "Simulationsfehler nicht null" "$out"
 out="$(EN_APT_GET="$tmp/bin/gibt-es-nicht" run)" || fail "fehlendes apt-get bricht ab"
 [ "$out" = null ] || fail "fehlendes apt-get nicht null" "$out"
+
+# --- --refresh: erst apt-get update (nichtinteraktiv), dann zaehlen ---------
+: > "$APT_LOG"
+out="$(UPGRADABLE="mosquitto" python3 "$helper" --refresh)"
+[ "$(get 'd["count"]' "$out")" = 1 ] || fail "refresh zaehlt nicht" "$out"
+head -n1 "$APT_LOG" | grep -q '^LC_ALL=C FRONTEND=noninteractive apt-get .*update' \
+  || fail "refresh ruft nicht zuerst apt-get update" "$(cat "$APT_LOG")"
+
+# Lock von apt-daily: warten, dann weiter.
+: > "$APT_LOG"; rm -f "$APT_LOG.locks"
+out="$(LOCKED_TIMES=2 python3 "$helper" --refresh)" || fail "refresh bricht beim Lock ab"
+[ "$(grep -c ' update' "$APT_LOG")" -eq 3 ] || fail "update nicht wiederholt" "$(cat "$APT_LOG")"
+
+# update scheitert (offline): Exit 2, Fehler auf stderr, nichts auf stdout.
+set +e
+out="$(UPDATE_RC=100 python3 "$helper" --refresh 2>"$tmp/err")"; rc=$?
+set -e
+[ "$rc" -eq 2 ] || fail "gescheitertes update nicht mit Exit 2" "$rc"
+[ -z "$out" ] || fail "gescheitertes update schreibt stdout" "$out"
+grep -q 'Failed to fetch' "$tmp/err" || fail "apt-Fehler fehlt auf stderr" "$(cat "$tmp/err")"
+
+# sudo: EN_SUDO steht vor dem Aufruf, nie fuer die Simulation.
+cat > "$tmp/bin/fakesudo" <<'SH'
+#!/usr/bin/env bash
+printf 'SUDO %s\n' "$*" >> "$APT_LOG"
+[ "$1" = -n ] && shift
+exec "$@"
+SH
+chmod +x "$tmp/bin/fakesudo"
+: > "$APT_LOG"
+EN_SUDO="$tmp/bin/fakesudo -n" python3 "$helper" --refresh >/dev/null
+grep -q '^SUDO -n env .*update' "$APT_LOG" || fail "update nicht ueber sudo -n" "$(cat "$APT_LOG")"
+[ "$(grep -c '^SUDO' "$APT_LOG")" -eq 1 ] || fail "Simulation laeuft ueber sudo" "$(cat "$APT_LOG")"
 
 # --- als Modul: pending() liefert dasselbe ----------------------------------
 out="$(UPGRADABLE="mosquitto" python3 -c 'import sys; sys.path.insert(0, sys.argv[1]); import apt_pending, json; print(json.dumps(apt_pending.pending()))' "$(dirname "$helper")")"

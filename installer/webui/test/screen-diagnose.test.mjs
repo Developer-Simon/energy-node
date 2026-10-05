@@ -296,6 +296,43 @@ test('ausstehende Systempakete stehen als Info mit Liste auf der System-Karte', 
   const list = system.parts[system.parts.indexOf(row) + 1];
   assert.equal(list.type, 'devs');
   assert.equal(list.text, 'libssl3 3.0.11 → 3.0.13, openssl 3.0.11 → 3.0.13');
+  const act = system.parts[system.parts.indexOf(row) + 2];
+  assert.equal(act.type, 'act');
+  assert.equal(act.label, 'Jetzt neu abrufen');
+});
+
+test('Jetzt neu abrufen holt die Paketlisten frisch und ersetzt die Zeile', async () => {
+  const { screen, calls } = await mount({ responses: {
+    'GET /api/diagnose': withUpdates({ count: 2, checked_at: '2026-10-01T06:12:00+00:00', packages: [] }),
+    'POST /api/system-updates/refresh': { count: 1, checked_at: '2026-10-05T17:40:00+00:00', packages: [{ name: 'tzdata', from: '2024a-0', to: '2024b-0' }] },
+  } });
+  const pending = screen.refreshUpdates();
+  let system = screen.rightCards[0];
+  let act = system.parts.find((part) => part.type === 'act');
+  assert.equal(act.label, 'Ruft ab …');
+  assert.equal(act.busy, true);
+  await pending;
+  assert.equal(calls.filter((call) => call.key === 'POST /api/system-updates/refresh').length, 1);
+  system = screen.rightCards[0];
+  assert.equal(system.parts.find((part) => part.name === 'Systempakete').value, '1 Update · Stand 05.10.');
+  assert.equal(system.parts.find((part) => part.key === 'devs-system-updates').text, 'tzdata 2024a-0 → 2024b-0');
+  act = system.parts.find((part) => part.type === 'act');
+  assert.equal(act.label, 'Jetzt neu abrufen');
+  assert.equal(act.busy, false);
+});
+
+test('ein gescheiterter Abruf nennt den Fehler an der Zeile und behaelt den alten Stand', async () => {
+  const { screen, shell } = await mount({
+    responses: { 'GET /api/diagnose': withUpdates({ count: 2, checked_at: '2026-10-01T06:12:00+00:00', packages: [] }) },
+    errors: { 'POST /api/system-updates/refresh': { code: 'APT_UPDATE_FAILED', status: 502, detail: 'E: Failed to fetch' } },
+  });
+  await screen.refreshUpdates();
+  assert.equal(shell.error, null, 'kein Banner, der Rest der Diagnose stimmt ja');
+  const system = screen.rightCards[0];
+  assert.equal(system.parts.find((part) => part.name === 'Systempakete').value, '2 Updates · Stand 01.10.');
+  const note = system.parts.find((part) => part.key === 'system-updates-error');
+  assert.equal(note.type, 'devs');
+  assert.equal(note.text, 'Die Paketlisten ließen sich nicht abrufen. E: Failed to fetch');
 });
 
 test('ohne ausstehende Systempakete keine Liste, ohne Bericht keine Zeile', async () => {
