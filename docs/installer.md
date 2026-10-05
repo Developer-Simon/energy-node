@@ -142,6 +142,9 @@ Two passwords and the services you want.
   remembers the selection in `config.json`
   (`installed_services`, see [Configuration file](knowledge/configuration.md)),
   and an update applies exactly that selection again.
+  **Update system packages** is on by default. It installs pending Debian
+  updates once per installer version and tells you when the node needs a
+  reboot.
 - **Target system.** The service user and its base directory on the Pi.
 
 **Start installation** is the point of no return: from here on, the Pi is

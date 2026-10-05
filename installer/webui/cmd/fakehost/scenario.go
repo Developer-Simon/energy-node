@@ -84,8 +84,9 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 	return nil
 }
 
-// systemUpgrade spielt einen neuen Kernel ein, damit Ergebnis und Lauf den
-// Neustart-Hinweis zeigen (scripts/bootstrap/15-system-upgrade.sh).
+// systemUpgrade spielt im Update einen neuen Kernel ein, damit Ergebnis und
+// Lauf den Neustart-Hinweis zeigen (scripts/bootstrap/15-system-upgrade.sh).
+// Die Erstinstallation bleibt ohne, ihr Ergebnis liegt wie die Vorlage.
 var systemUpgrade = hostapitest.FakeStep{ID: "15", Detail: "neustart noetig", Log: []string{
 	"Aktualisiere 3 Pakete: libssl3 openssl raspberrypi-kernel",
 	"Ein Neustart des Node ist noetig, damit alle Updates wirken.",
@@ -281,7 +282,7 @@ func newScenario(name string, opts options) *stagedBackend {
 
 	fake.Steps = []hostapitest.FakeStep{
 		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-venv", "12 Pakete installiert"}},
-		systemUpgrade,
+		{ID: "15", Log: []string{"Alle Systempakete sind aktuell."}},
 		{ID: "20", Log: []string{"mosquitto_passwd -b energynode ***", "/etc/mosquitto/conf.d/default.conf geschrieben", "mosquitto neu gestartet, Testnachricht zugestellt"}},
 		{ID: "30", Log: []string{"Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp", "ufw aktiv"}},
 		{ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
