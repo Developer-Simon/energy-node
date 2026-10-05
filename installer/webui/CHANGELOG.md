@@ -4,16 +4,16 @@
 
 ### Features
 
+- **installer:** check and install system package updates (opt-out) (#90) (d898a63)
 - **installer:** carry pending system updates into the preview and diagnose (6ad251f)
 - **installer:** show pending system updates in the preview and diagnose (300f77d)
 - **installer:** check system updates on request and refresh them in the diagnose (b00f687)
-- **installer:** check and install system package updates (opt-out) (#90)
 
 ### Documentation
 
 - **installer:** describe the system update step (d8c6071)
 
-## v0.1.18 (2026-10-05)
+## v0.1.18 (2026-10-04)
 
 ### Features
 

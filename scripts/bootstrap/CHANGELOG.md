@@ -4,16 +4,16 @@
 
 ### Features
 
+- **installer:** check and install system package updates (opt-out) (#90) (d898a63)
 - **bootstrap:** report pending system package updates in plan and diagnose (670b080)
 - **installer:** check system updates on request and refresh them in the diagnose (b00f687)
-- **installer:** check and install system package updates (opt-out) (#90)
 
 ### Fixes
 
 - **installer:** harden step 15 and select it on dashboard updates (bab88e1)
 - **bootstrap:** give the ok detail its own function for shellcheck 0.9 (9c1a8b5)
 
-## v0.1.13 (2026-10-05)
+## v0.1.13 (2026-10-01)
 
 ### Features
 

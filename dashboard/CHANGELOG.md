@@ -1,18 +1,26 @@
 # Changelog
 
-## v0.8.6 (2026-10-05)
+## v0.8.7 (2026-10-05)
 
 ### Features
 
 - The changelog pages open on the highlights, the switch at the top shows everything. (#84) (5cc1cfb)
 - **homeassistant:** add Energy Node Companion as a history exchange peer (#85) (5bd7f48)
+- **installer:** check and install system package updates (opt-out) (#90) (d898a63)
 - **installer:** carry pending system updates into the preview and diagnose (6ad251f)
 - **installer:** check system updates on request and refresh them in the diagnose (b00f687)
-- **installer:** check and install system package updates (opt-out) (#90)
 
 ### Fixes
 
+- **dashboard:** save the system config through the privileged helper (478744f)
+- **dashboard:** report system config save results as toasts (4e6e8fb)
+- **dashboard:** translate the secret path rejection message (a03eee6)
+- **dashboard:** make saving the system configuration work and report it properly (#91)
 - **installer:** harden step 15 and select it on dashboard updates (bab88e1)
+
+### Refactors
+
+- **dashboard:** share app config staging between migration and handler (073acf3)
 
 ## v0.8.5 (2026-10-04)
 
