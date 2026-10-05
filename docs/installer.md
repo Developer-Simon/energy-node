@@ -25,8 +25,8 @@ It has three entry points, switchable in the top bar of the window:
 
 Every screenshot on this page comes from the installer's demo host, not from a
 real Pi: the real window and the real screens, backed by canned data. The
-version numbers, the service states and the log lines are made up. You can
-[run the demo yourself](#reproducing-these-screenshots).
+version numbers, the service states and the log lines are made up. See the
+screenshot notes in the repository for how to run the demo yourself.
 
 ---
 

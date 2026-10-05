@@ -79,7 +79,7 @@ Observed drivers:
 - **`live_update_interval_seconds: 3`** (default) — every connected client
   polls the registry state every 3 s; on a change, a full
   `GET /api/v1/devices` follows (SSE itself only transmits `{version: N}`, see
-  [`data-flow.md`](data-flow.md) §4).
+  [`data-flow.md`](../developing/data-flow.md) §4).
 - **18 open connections on `:8080`** at the time of measurement. Whether these
   are several real clients or an EventSource reconnect leak from a long-lived
   tab is open — 18 × full serialization of the device list every 3 s explains
@@ -158,7 +158,7 @@ firing them simultaneously → the 22 % spike would become several small ones.
 
 `read_apt_updates_pending()` in the then-standalone `energy_node_mqtt.py`
 (since folded into the dashboard as
-[`internal/nodeagent`](../../dashboard/internal/nodeagent/))
+[`internal/nodeagent`](https://github.com/Developer-Simon/energy-node/tree/main/dashboard/internal/nodeagent))
 ran on the diagnostic cycle (every ~10 min).
 
 **Implementation:** a TTL cache around the call, `APT_UPDATES_TTL_S = 86400`
@@ -175,7 +175,7 @@ Per re-measurement 2.1, the dashboard is the most expensive process on the node
 
 1. **`live_update_interval_seconds` from 3 s to 10 s.** It lives in
    `data/settings.json` and takes effect without a reconnect
-   ([`data-flow.md`](data-flow.md) §4). Cuts the poll/serialization rate by a
+   ([`data-flow.md`](../developing/data-flow.md) §4). Cuts the poll/serialization rate by a
    factor of ~3.
 2. **Clarify the 18 connections on `:8080`.** If this is one client with an
    EventSource reconnect leak (each reconnect leaves the old SSE connection

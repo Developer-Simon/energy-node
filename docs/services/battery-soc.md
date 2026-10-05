@@ -8,7 +8,7 @@ component: service:battery_soc
 What `services/battery_soc/` publishes and how it is configured. See
 [device-services.md](../device-services.md#battery-state-of-charge) for where
 this service sits among the others, and
-[`knowledge/services/battery-soc-how-it-works.md`](../knowledge/services/battery-soc-how-it-works.md)
+[`battery-soc-how-it-works.md`](battery-soc-how-it-works.md)
 for the coulomb-counting algorithm itself — the calibration math, the AC/DC
 efficiency handling and why it works the way it does.
 
@@ -126,4 +126,4 @@ payload rather than left behind as ghost entities.
 The same engine is also available as a **native Home Assistant integration**
 under `integrations/homeassistant/`, installable through HACS — the same core
 with a config flow instead of MQTT topics. See
-[`integration/ha-integration-hacs-release.md`](../integration/ha-integration-hacs-release.md).
+[`ha/battery-soc.md`](../ha/battery-soc.md).

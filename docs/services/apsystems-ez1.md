@@ -157,4 +157,4 @@ were adapted from ideas documented by the community-maintained
 Home Assistant integration. Both projects talk to the same inverter family
 through the same underlying `apsystems-ez1` PyPI package — no code was
 copied, only the endpoint behavior and the flash-protection strategy. See also
-[Third-party sources](../knowledge/dependencies.md#apsystems-ez1).
+[Third-party sources](../developing/dependencies.md#apsystems-ez1).

@@ -9,7 +9,7 @@ redirect_from:
 
 What `services/battery_soc/battery_soc_mqtt.py` does, why it computes the way it
 does, and which setting turns which screw. Supplements the general
-description in [`services/battery-soc.md`](../../services/battery-soc.md) and
+description in [`battery-soc.md`](battery-soc.md) and
 the installation steps in [install/index.md](../install/index.md).
 
 **Explicitly a monitoring/diagnostic estimate, not a BMS function.** Do not use
@@ -311,7 +311,7 @@ There is **no fallback** from the key path to the regex path: whoever
 configured a key wants that key. Silently taking the first number in the raw
 text would again be a wrong value instead of a visible error. As a preventive
 measure, the dashboard form suggests the keys from the last payload — see the
-configuration editor in [dashboard.md](../../dashboard.md).
+configuration editor in [dashboard.md](../dashboard.md).
 
 **All six `*_json_key` have `""` as their default**, and that is not
 carelessness but a requirement: the dashboard stores a field that is empty *or
@@ -412,7 +412,7 @@ return `null`.
 - **Device coupling:** its own HA device, linked via `via_device` under
   `energy_node`. The Trucki stick in turn points via `via_device` to this
   device — deliberately no discovery merge (see the Trucki section in
-  [device-services.md](../../device-services.md)).
+  [device-services.md](../device-services.md)).
 
 ## 12a. Home Assistant Integration
 

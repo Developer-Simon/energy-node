@@ -68,7 +68,7 @@ stay unchanged and root-relative** — they still see `/api/v1/...`. Only the
 | `CookiePath(r) string` | `base + "/"` or `"/"` |
 
 `Middleware` is wrapped around `httpapi.NewAuthenticatedRouter(...)` in
-[`cmd/dashboard/main.go`](../../../dashboard/cmd/dashboard/main.go) — that is the
+[`cmd/dashboard/main.go`](https://github.com/Developer-Simon/energy-node/blob/main/dashboard/cmd/dashboard/main.go) — that is the
 only change there. Behavior:
 
 - Prefix from `X-Ingress-Path`, otherwise `X-Forwarded-Prefix`.
@@ -100,7 +100,7 @@ only change there. Behavior:
    `settings.page.js`.
 3. **Cookies** — `Path` becomes `basepath.CookiePath(r)` in `setSessionCookie`
    and `handleAuthLogout`
-   ([`internal/httpapi/httpapi.go`](../../../dashboard/internal/httpapi/httpapi.go)),
+   ([`internal/httpapi/httpapi.go`](https://github.com/Developer-Simon/energy-node/blob/main/dashboard/internal/httpapi/httpapi.go)),
    i.e. `/node/` instead of `/`. Otherwise the browser does not send the session
    back to `/node/…`, and the cookie would sit in the scope of every other app
    on the proxy host.
@@ -170,7 +170,7 @@ Important here:
   solely from this header. If it is missing, only guest access remains.
 - **`proxy_buffering off`** for the event stream `/api/v1/events` — same
   rationale as the `not path /api/v1/events` exception in the
-  [Caddyfile](../../../dashboard/Caddyfile): buffered SSE never reaches the
+  [Caddyfile](https://github.com/Developer-Simon/energy-node/blob/main/dashboard/Caddyfile): buffered SSE never reaches the
   browser, and the live update would stall.
 - The **trailing slash** in `proxy_pass http://…:8080/` already removes `/node`
   from the path. Both variants are fine — the middleware strips the prefix only
