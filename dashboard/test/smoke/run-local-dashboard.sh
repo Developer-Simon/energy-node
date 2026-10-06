@@ -70,6 +70,8 @@
 #                    Automatisierte Proben: H&T-Presets sind sleepy, sleepy/
 #                    offline_grace_s ueberstehen Schema-Validierung und
 #                    Speichern, Temperatur/Feuchte kommen als Proben an.
+   verlauf-kachel   wie energie-simulate, mit einer gebundenen und einer
+                    eigenen history_view-Kachel; Pruefung mit history-view-tile.mjs
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
@@ -168,8 +170,13 @@ while [[ $# -gt 0 ]]; do
           # Stand des Branches prueft; die Geraeteliste aus der Fixture.
           EXTRA_DEVICES=("$REPO_DIR/services/shelly" "$HERE/fixtures/devices/shelly-ht")
           ;;
+        verlauf-kachel)
+          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
+          SEED_DATA="$HERE/fixtures/seed/verlauf-kachel"
+          SIMULATE=1
+          ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht, verlauf-kachel)" >&2
           exit 2
           ;;
       esac

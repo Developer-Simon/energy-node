@@ -1,0 +1,10 @@
+{
+  "assignments": {
+    "pv_wr_power": { "role": "pv" },
+    "netz_zaehler_power": { "role": "grid" },
+    "batterie_power": { "role": "battery" },
+    "haus_last_power": { "role": "load" },
+    "wallbox_power": { "role": "wallbox" },
+    "waermepumpe_power": { "role": "heat_pump" }
+  }
+}

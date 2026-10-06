@@ -1,0 +1,14 @@
+{
+  "version": 3,
+  "pages": [{
+    "id": "start", "name": "", "order": 0,
+    "groups": [{
+      "id": "g", "name": "Dashboard",
+      "items": [
+        {"id": "energy-flow", "type": "energy_flow", "span": "2", "visible": true, "flow_scale": "width"},
+        {"id": "hv-bound", "type": "history_view", "ref": "view-pv", "span": "2", "visible": true},
+        {"id": "hv-own", "type": "history_view", "span": "2", "visible": true, "title": "Alle Serien", "history_range_hours": "1", "history_aggregate": "max"}
+      ]
+    }]
+  }]
+}
