@@ -14,7 +14,10 @@ from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.typing import ConfigType
 
 from .client import DashboardClient
-from .const import CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS, PANEL_ALL, PANEL_OFF, PANEL_ELEMENT, PANEL_ICON, PANEL_JS_VERSION, PANEL_TITLE, STATIC_URL, panel_url_path
+from .const import (
+    CONF_HISTORY, CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS,
+    PANEL_ALL, PANEL_OFF, PANEL_ELEMENT, PANEL_ICON, PANEL_JS_VERSION, PANEL_TITLE, STATIC_URL, panel_url_path,
+)
 from .panel_access import PanelSessions
 from .peer import HistoryPeer
 from .runtime import EnergyNodeData
@@ -53,10 +56,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         panel_mode=entry.options.get(CONF_PANEL, PANEL_ALL),
         panel_sessions=PanelSessions(),
     )
-    peer = HistoryPeer(client, partial(resolve, hass), partial(async_rows, hass))
-    # Hintergrundaufgaben eines Eintrags bricht Home Assistant beim Entladen
-    # selbst ab.
-    entry.async_create_background_task(hass, peer.run(), name=f"energy_node_companion {entry.data[CONF_URL]}")
+    if entry.options.get(CONF_HISTORY, True):
+        peer = HistoryPeer(client, partial(resolve, hass), partial(async_rows, hass))
+        # Hintergrundaufgaben eines Eintrags bricht Home Assistant beim
+        # Entladen selbst ab.
+        entry.async_create_background_task(hass, peer.run(), name=f"energy_node_companion {entry.data[CONF_URL]}")
 
     mode = entry.runtime_data.panel_mode
     if mode != PANEL_OFF:

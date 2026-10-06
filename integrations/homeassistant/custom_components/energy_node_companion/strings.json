@@ -33,11 +33,19 @@
     "step": {
       "init": {
         "title": "Energy Node Companion",
-        "description": "Who sees the dashboard in the Home Assistant sidebar.",
+        "description": "Choose what the integration does. History or sidebar must stay on.",
         "data": {
+          "history": "Supply history",
           "panel": "Sidebar"
+        },
+        "data_description": {
+          "history": "Fills gaps in the dashboard's history charts from the recorder.",
+          "panel": "Shows the dashboard in the Home Assistant sidebar, for all users or only for administrators."
         }
       }
+    },
+    "error": {
+      "nothing_enabled": "Turn on history or the sidebar. With both off the integration does nothing."
     }
   },
   "selector": {

@@ -33,11 +33,19 @@
     "step": {
       "init": {
         "title": "Energy Node Companion",
-        "description": "Wer das Dashboard in der Seitenleiste von Home Assistant sieht.",
+        "description": "Wähle, was die Integration tut. Verläufe oder Seitenleiste muss eingeschaltet bleiben.",
         "data": {
+          "history": "Verläufe liefern",
           "panel": "Seitenleiste"
+        },
+        "data_description": {
+          "history": "Füllt Lücken in den Verlaufsdiagrammen des Dashboards aus dem Recorder.",
+          "panel": "Zeigt das Dashboard in der Seitenleiste von Home Assistant, für alle Benutzer oder nur für Administratoren."
         }
       }
+    },
+    "error": {
+      "nothing_enabled": "Schalte Verläufe oder die Seitenleiste ein. Sind beide aus, tut die Integration nichts."
     }
   },
   "selector": {

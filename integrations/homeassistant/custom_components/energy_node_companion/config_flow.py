@@ -12,7 +12,9 @@ from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode
 
 from .client import AuthRequired, DashboardClient, ExchangeError
-from .const import CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ALL, PANEL_MODES, PROTOCOL
+from .const import (
+    CONF_HISTORY, CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ALL, PANEL_MODES, PANEL_OFF, PROTOCOL,
+)
 
 # Das Geraet, das das Dashboard per MQTT Discovery anlegt
 # (energydiscovery.DeviceIdentifier). Sein configuration_url zeigt auf Caddy
@@ -113,16 +115,27 @@ class EnergyNodeConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
+OPTIONS_SCHEMA = vol.Schema({
+    vol.Required(CONF_HISTORY, default=True): bool,
+    vol.Required(CONF_PANEL, default=PANEL_ALL): SelectSelector(SelectSelectorConfig(
+        options=list(PANEL_MODES), translation_key="panel", mode=SelectSelectorMode.LIST,
+    )),
+})
+
+
 class EnergyNodeOptionsFlow(OptionsFlowWithReload):
-    """Wer das Dashboard in der Seitenleiste sieht. Speichern laedt den Eintrag neu."""
+    """Verlaeufe und Panel in der Seitenleiste. Speichern laedt den Eintrag neu."""
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
-        current = self.config_entry.options.get(CONF_PANEL, PANEL_ALL)
-        schema = vol.Schema({
-            vol.Required(CONF_PANEL, default=current): SelectSelector(SelectSelectorConfig(
-                options=list(PANEL_MODES), translation_key="panel", mode=SelectSelectorMode.LIST,
-            )),
-        })
-        return self.async_show_form(step_id="init", data_schema=schema)
+            if not user_input[CONF_HISTORY] and user_input[CONF_PANEL] == PANEL_OFF:
+                errors["base"] = "nothing_enabled"
+            else:
+                return self.async_create_entry(data=user_input)
+        current = {CONF_HISTORY: True, CONF_PANEL: PANEL_ALL, **self.config_entry.options}
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(OPTIONS_SCHEMA, user_input or current),
+            errors=errors,
+        )

@@ -8,7 +8,7 @@ from homeassistant.components.frontend import DATA_PANELS
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.energy_node_companion.const import (
-    CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS, PANEL_ALL, PANEL_OFF, panel_url_path,
+    CONF_HISTORY, CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS, PANEL_ALL, PANEL_OFF, panel_url_path,
 )
 
 BASE = Path(__file__).resolve().parents[1] / "custom_components/energy_node_companion"
@@ -20,13 +20,13 @@ def auto_enable_custom_integrations(recorder_mock, enable_custom_integrations):
     yield
 
 
-async def _setup(hass, options=None):
+async def _setup(hass, options=None, run=None):
     entry = MockConfigEntry(
         domain=DOMAIN, unique_id="http://node.tail1234.ts.net:8080", options=options or {},
         data={CONF_URL: "http://node.tail1234.ts.net:8080", CONF_VERIFY_SSL: True},
     )
     entry.add_to_hass(hass)
-    with patch("custom_components.energy_node_companion.HistoryPeer.run", AsyncMock()):
+    with patch("custom_components.energy_node_companion.HistoryPeer.run", run or AsyncMock()):
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
     return entry
@@ -66,23 +66,62 @@ async def test_unload_removes_the_panel(hass):
     assert _panel(hass, entry) is None
 
 
-async def test_options_flow_switches_visibility(hass):
-    entry = await _setup(hass)
+async def _options(hass, entry, data):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] == "form"
     with patch("custom_components.energy_node_companion.HistoryPeer.run", AsyncMock()):
-        result = await hass.config_entries.options.async_configure(result["flow_id"], {CONF_PANEL: PANEL_ADMINS})
+        result = await hass.config_entries.options.async_configure(result["flow_id"], data)
         await hass.async_block_till_done()
+    return result
+
+
+def _suggested(result, key):
+    field = next(field for field in result["data_schema"].schema if field == key)
+    return (field.description or {}).get("suggested_value")
+
+
+async def test_options_flow_switches_visibility(hass):
+    entry = await _setup(hass)
+    result = await _options(hass, entry, {CONF_PANEL: PANEL_ADMINS})
     assert result["type"] == "create_entry"
-    assert entry.options == {CONF_PANEL: PANEL_ADMINS}
+    assert entry.options == {CONF_HISTORY: True, CONF_PANEL: PANEL_ADMINS}
     assert _panel(hass, entry).require_admin is True
 
 
-async def test_options_flow_defaults_to_the_current_value(hass):
-    entry = await _setup(hass, {CONF_PANEL: PANEL_OFF})
+async def test_options_flow_shows_the_current_values(hass):
+    entry = await _setup(hass, {CONF_HISTORY: False, CONF_PANEL: PANEL_ADMINS})
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    field = next(key for key in result["data_schema"].schema if key == CONF_PANEL)
-    assert field.default() == PANEL_OFF
+    assert _suggested(result, CONF_HISTORY) is False
+    assert _suggested(result, CONF_PANEL) == PANEL_ADMINS
+
+
+async def test_options_flow_starts_with_everything_on(hass):
+    entry = await _setup(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert _suggested(result, CONF_HISTORY) is True
+    assert _suggested(result, CONF_PANEL) == PANEL_ALL
+
+
+async def test_options_flow_needs_history_or_panel(hass):
+    entry = await _setup(hass)
+    result = await _options(hass, entry, {CONF_HISTORY: False, CONF_PANEL: PANEL_OFF})
+    assert result["type"] == "form"
+    assert result["errors"] == {"base": "nothing_enabled"}
+    assert entry.options == {}
+
+
+async def test_history_off_starts_no_peer(hass):
+    run = AsyncMock()
+    entry = await _setup(hass, {CONF_HISTORY: False}, run=run)
+    run.assert_not_awaited()
+    assert _panel(hass, entry) is not None
+
+
+async def test_panel_only_off_still_supplies_history(hass):
+    run = AsyncMock()
+    entry = await _setup(hass, {CONF_PANEL: PANEL_OFF}, run=run)
+    run.assert_awaited_once()
+    assert _panel(hass, entry) is None
 
 
 def test_panel_script_defines_the_element():
