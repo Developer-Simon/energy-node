@@ -153,6 +153,13 @@
     // therefore already prefixed by the template.
     loadSingleAsset(source, type) {
       if ((type === 'style' ? this.loadedStyles : this.loadedScripts).has(source)) return Promise.resolve();
+      // Kartenskripte (EnergyCardScripts) stehen als feste <script src> in
+      // base.html und kennt loadedScripts nicht. Gleiche URL heisst gleiche
+      // Datei - ein zweites Ausfuehren von ApexCharts waere nur teuer.
+      if (type === 'script' && [...document.scripts].some(script => script.getAttribute('src') === source)) {
+        this.loadedScripts.add(source);
+        return Promise.resolve();
+      }
       return new Promise((resolve, reject) => {
         const asset = document.createElement(type === 'style' ? 'link' : 'script');
         if (type === 'style') {
@@ -1247,12 +1254,18 @@
         diagnostics: 'diagnostics',
         device: 'entities',
       };
+      // Kacheln, die sich selbst versorgen: die Verlaufskachel liest den
+      // Browser-Speicher in ihrem eigenen Takt (history-view-card.js) und
+      // braucht keinen Push-Zweig. Ohne diesen Eintrag erzwaenge eine
+      // einzige Verlaufskachel den teuren Tausch bei jedem Tick.
+      const selfServed = new Set(['history_view']);
       const items = [...this.$root.querySelectorAll('[data-layout-item-kind]')];
       // Leeres Raster heisst hier "nicht die Uebersicht" (das Geraete-Panel
       // benutzt dieselbe Komponente) oder "noch nichts geladen". Beide Male
       // ist der Tausch das Richtige.
       if (items.length === 0) return false;
       const covered = items.every(item => {
+        if (selfServed.has(item.dataset.layoutItemKind)) return true;
         const branch = branchForKind[item.dataset.layoutItemKind];
         return branch !== undefined && detail?.[branch] !== undefined && detail[branch] !== null;
       });
