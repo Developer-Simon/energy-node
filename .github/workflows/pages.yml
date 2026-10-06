@@ -78,12 +78,15 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       # Full history and tags: the version markers are derived from the last
-      # commit that touched each document and from the latest release tag.
+      # commit that touched each document and from the latest release tag,
+      # the version overview from the component versions at every tag.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - name: Generate version markers
-        run: scripts/docs/doc-versions.sh . > docs/_data/doc_versions.yml
+        run: |
+          scripts/docs/doc-versions.sh . > docs/_data/doc_versions.yml
+          python3 scripts/docs/release-versions.py . > docs/_data/release_versions.yml
       - uses: actions/configure-pages@v5
       - uses: actions/jekyll-build-pages@v1
         with:

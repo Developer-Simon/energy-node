@@ -285,6 +285,16 @@ pre.mermaid { background: none; border: 0; text-align: center; }
 .doc-body th, .doc-body td { padding: .45rem .7rem; border: 1px solid var(--border-soft); text-align: left; vertical-align: top; }
 .doc-body th { background: var(--panel-alt); color: var(--text-strong); }
 
+/* Version overview (developing/versions.md) */
+.release-versions { margin: .5rem 0; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+.release-versions > summary { padding: .5rem .8rem; cursor: pointer; }
+.release-versions[open] > summary { border-bottom: 1px solid var(--border-soft); }
+.release-versions > .table-wrap { margin: .6rem .8rem; }
+.release-versions__date { margin-left: .5rem; color: var(--text-muted); font-size: .9rem; }
+.release-versions__status { padding: .05rem .45rem; border-radius: 999px; font-size: .8rem; font-weight: 600; }
+.release-versions__status--new { background: var(--accent-bg); color: var(--text-strong); }
+.release-versions__status--changed { border: 1px solid var(--accent-line); color: var(--text-strong); }
+
 /* Rouge, light: github-like */
 .highlight .c, .highlight .c1, .highlight .cm, .highlight .cs { color: #6a737d; font-style: italic; }
 .highlight .k, .highlight .kd, .highlight .kn, .highlight .kr, .highlight .kt { color: #b5245a; }
