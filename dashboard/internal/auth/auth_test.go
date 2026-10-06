@@ -3,6 +3,7 @@ package auth
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
@@ -116,5 +117,118 @@ func TestManagerBackfillsRolesForExistingAdmin(t *testing.T) {
 	defer reloaded.mu.Unlock()
 	if !HasRole(reloaded.users["admin"], RoleCheckUpdates) {
 		t.Error("backfilled roles were not persisted to users.json")
+	}
+}
+
+func TestManagerSessionsSurviveRestart(t *testing.T) {
+	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	clock := func() time.Time { return now }
+	path := filepath.Join(t.TempDir(), "users.json")
+	manager, err := newManager(path, "admin", "secret", clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Login("admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest, err := manager.ContinueAsGuest()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	sessionsPath := filepath.Join(filepath.Dir(path), "sessions.json")
+	raw, err := os.ReadFile(sessionsPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), session.Token) || strings.Contains(string(raw), guest.Token) {
+		t.Fatal("sessions.json holds a raw session token")
+	}
+	if info, err := os.Stat(sessionsPath); err != nil {
+		t.Fatal(err)
+	} else if info.Mode().Perm() != 0600 {
+		t.Fatalf("sessions file mode = %o, want 600", info.Mode().Perm())
+	}
+
+	restarted, err := newManager(path, "admin", "secret", clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	restored, ok := restarted.Session(session.Token)
+	if !ok || restored.User.Username != "admin" || restored.Token != session.Token || !HasRole(restored.User, RoleSystemActions) {
+		t.Fatalf("admin session not restored: %#v ok=%v", restored, ok)
+	}
+	if !restarted.ValidateCSRF(session.Token, session.CSRFToken) {
+		t.Fatal("restored session lost its CSRF token")
+	}
+	if _, ok := restarted.Session(guest.Token); !ok {
+		t.Fatal("guest session not restored")
+	}
+
+	restarted.Logout(session.Token)
+	again, err := newManager(path, "admin", "secret", clock)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := again.Session(session.Token); ok {
+		t.Fatal("logged-out session came back after a restart")
+	}
+	if _, ok := again.Session(guest.Token); !ok {
+		t.Fatal("logout of one session dropped another")
+	}
+}
+
+func TestManagerDropsExpiredAndOrphanedSessionsOnLoad(t *testing.T) {
+	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
+	path := filepath.Join(t.TempDir(), "users.json")
+	manager, err := newManager(path, "admin", "secret", func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.Login("admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest, err := manager.ContinueAsGuest()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// A day later the admin session has run out, the guest session not.
+	later := now.Add(sessionLifetime + time.Minute)
+	restarted, err := newManager(path, "admin", "secret", func() time.Time { return later })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := restarted.Session(session.Token); ok {
+		t.Fatal("expired session restored")
+	}
+	if _, ok := restarted.Session(guest.Token); !ok {
+		t.Fatal("live guest session not restored")
+	}
+
+	// Past the guest lifetime the guest user itself is cleaned up.
+	muchLater := now.Add(guestLifetime + time.Hour)
+	cleaned, err := newManager(path, "admin", "secret", func() time.Time { return muchLater })
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := cleaned.Session(guest.Token); ok {
+		t.Fatal("session of a removed guest restored")
+	}
+}
+
+func TestManagerStartsWithBrokenSessionsFile(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "sessions.json"), []byte("{not json"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := newManager(filepath.Join(dir, "users.json"), "admin", "secret", time.Now)
+	if err != nil {
+		t.Fatalf("broken sessions.json blocked the start: %v", err)
+	}
+	if _, err := manager.Login("admin", "secret"); err != nil {
+		t.Fatal(err)
 	}
 }

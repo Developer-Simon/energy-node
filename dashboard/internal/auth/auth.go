@@ -57,6 +57,21 @@ type userFile struct {
 	Users []User `json:"users"`
 }
 
+// sessionFile is what survives a restart of the dashboard, so an update
+// that restarts it (or a reboot) does not log everyone out. It holds only
+// a hash of each session token: the file alone never yields a cookie
+// that would be accepted.
+type sessionFile struct {
+	Sessions []storedSession `json:"sessions"`
+}
+
+type storedSession struct {
+	TokenHash string    `json:"token_sha256"`
+	CSRFToken string    `json:"csrf_token"`
+	Username  string    `json:"username"`
+	ExpiresAt time.Time `json:"expires_at"`
+}
+
 type Session struct {
 	Token     string
 	CSRFToken string
@@ -65,9 +80,12 @@ type Session struct {
 }
 
 type Manager struct {
-	mu       sync.Mutex
-	path     string
-	users    map[string]User
+	mu           sync.Mutex
+	path         string
+	sessionsPath string
+	users        map[string]User
+	// sessions is keyed by tokenHash(token), the same key sessions.json
+	// stores, so a session loaded from disk is found like a fresh one.
 	sessions map[string]Session
 	now      func() time.Time
 }
@@ -85,10 +103,11 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 		bootstrapUsername = "admin"
 	}
 	manager := &Manager{
-		path:     filepath.Clean(path),
-		users:    map[string]User{},
-		sessions: map[string]Session{},
-		now:      now,
+		path:         filepath.Clean(path),
+		sessionsPath: filepath.Join(filepath.Dir(filepath.Clean(path)), "sessions.json"),
+		users:        map[string]User{},
+		sessions:     map[string]Session{},
+		now:          now,
 	}
 	changed, err := manager.load()
 	if err != nil {
@@ -124,6 +143,10 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 			return nil, err
 		}
 	}
+	// Sessions come last: they are rebuilt from the users loaded above, so
+	// one whose user is gone (a cleaned-up guest) is dropped. An unreadable
+	// sessions.json only costs a new login, never the start.
+	manager.loadSessionsLocked()
 	manager.mu.Unlock()
 	return manager, nil
 }
@@ -171,7 +194,7 @@ func (m *Manager) Login(username, password string) (Session, error) {
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
 	}
-	return m.newSessionLocked(user), nil
+	return m.newSessionLocked(user)
 }
 
 func (m *Manager) ContinueAsGuest() (Session, error) {
@@ -193,32 +216,39 @@ func (m *Manager) ContinueAsGuest() (Session, error) {
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
 	}
-	return m.newSessionLocked(user), nil
+	return m.newSessionLocked(user)
 }
 
 func (m *Manager) Session(token string) (Session, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	session, ok := m.sessions[token]
+	key := tokenHash(token)
+	session, ok := m.sessions[key]
 	if !ok || !session.ExpiresAt.After(m.now()) {
 		if ok {
-			delete(m.sessions, token)
+			delete(m.sessions, key)
 		}
 		return Session{}, false
 	}
+	session.Token = token
 	return session, true
 }
 
 func (m *Manager) Logout(token string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	delete(m.sessions, token)
+	key := tokenHash(token)
+	if _, ok := m.sessions[key]; !ok {
+		return
+	}
+	delete(m.sessions, key)
+	_ = m.saveSessionsLocked()
 }
 
 func (m *Manager) ValidateCSRF(token, csrfToken string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	session, ok := m.sessions[token]
+	session, ok := m.sessions[tokenHash(token)]
 	if !ok || !session.ExpiresAt.After(m.now()) || csrfToken == "" {
 		return false
 	}
@@ -237,22 +267,70 @@ func (m *Manager) cleanupGuestsLocked() bool {
 	return changed
 }
 
-func (m *Manager) newSessionLocked(user User) Session {
-	token, _ := randomID("session-")
-	csrfToken, _ := randomID("csrf-")
+func (m *Manager) newSessionLocked(user User) (Session, error) {
+	token, err := randomID("session-")
+	if err != nil {
+		return Session{}, err
+	}
+	csrfToken, err := randomID("csrf-")
+	if err != nil {
+		return Session{}, err
+	}
 	lifetime := sessionLifetime
 	if user.Guest {
 		lifetime = guestSessionLife
 	}
 	session := Session{Token: token, CSRFToken: csrfToken, User: user, ExpiresAt: m.now().Add(lifetime)}
-	m.sessions[token] = session
-	return session
+	m.sessions[tokenHash(token)] = session
+	if err := m.saveSessionsLocked(); err != nil {
+		delete(m.sessions, tokenHash(token))
+		return Session{}, err
+	}
+	return session, nil
+}
+
+// loadSessionsLocked restores the sessions saved by saveSessionsLocked.
+// Expired ones and ones whose user no longer exists are skipped; the user
+// itself comes from users.json, so a role change made since still applies.
+func (m *Manager) loadSessionsLocked() {
+	data, err := os.ReadFile(m.sessionsPath)
+	if err != nil {
+		return
+	}
+	var file sessionFile
+	if err := json.Unmarshal(data, &file); err != nil {
+		return
+	}
+	now := m.now()
+	for _, stored := range file.Sessions {
+		user, ok := m.users[stored.Username]
+		if !ok || stored.TokenHash == "" || !stored.ExpiresAt.After(now) {
+			continue
+		}
+		m.sessions[stored.TokenHash] = Session{CSRFToken: stored.CSRFToken, User: user, ExpiresAt: stored.ExpiresAt}
+	}
+}
+
+// saveSessionsLocked writes every live session to sessions.json, dropping
+// the expired ones on the way.
+func (m *Manager) saveSessionsLocked() error {
+	now := m.now()
+	sessions := make([]storedSession, 0, len(m.sessions))
+	for key, session := range m.sessions {
+		if !session.ExpiresAt.After(now) {
+			delete(m.sessions, key)
+			continue
+		}
+		sessions = append(sessions, storedSession{TokenHash: key, CSRFToken: session.CSRFToken, Username: session.User.Username, ExpiresAt: session.ExpiresAt})
+	}
+	data, err := json.MarshalIndent(sessionFile{Sessions: sessions}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return writeFileAtomic(m.sessionsPath, data)
 }
 
 func (m *Manager) saveLocked() error {
-	if err := os.MkdirAll(filepath.Dir(m.path), 0700); err != nil {
-		return err
-	}
 	users := make([]User, 0, len(m.users))
 	for _, user := range m.users {
 		users = append(users, user)
@@ -261,7 +339,16 @@ func (m *Manager) saveLocked() error {
 	if err != nil {
 		return err
 	}
-	temporary, err := os.CreateTemp(filepath.Dir(m.path), ".users-*.tmp")
+	return writeFileAtomic(m.path, data)
+}
+
+// writeFileAtomic writes data as a 0600 file through a temporary file and a
+// rename, so a crash never leaves a half-written file behind.
+func writeFileAtomic(path string, data []byte) error {
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+	temporary, err := os.CreateTemp(filepath.Dir(path), "."+strings.TrimSuffix(filepath.Base(path), ".json")+"-*.tmp")
 	if err != nil {
 		return err
 	}
@@ -282,7 +369,7 @@ func (m *Manager) saveLocked() error {
 	if err := temporary.Close(); err != nil {
 		return err
 	}
-	return os.Rename(temporaryName, m.path)
+	return os.Rename(temporaryName, path)
 }
 
 func hashPassword(password string) (string, error) {
@@ -338,6 +425,11 @@ func deriveKey(password, salt []byte, rounds int) []byte {
 		}
 	}
 	return result[:keyLength]
+}
+
+func tokenHash(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }
 
 func randomID(prefix string) (string, error) {

@@ -88,6 +88,12 @@ There are two cookies, depending on the transport:
 Both are `HttpOnly` and `SameSite=Lax`. A request counts as HTTPS if the server
 terminates TLS itself or if `X-Forwarded-Proto: https` is set.
 
+Sessions survive a restart of the dashboard, so an update from the
+Re-Deploy screen keeps the operator logged in. They live in `sessions.json`
+next to `users.json` (mode 0600). The file stores a SHA-256 hash of each
+session token, never the token itself. Expired sessions and sessions of
+deleted users are dropped when the dashboard starts.
+
 In practice the transport decides the session type. Password login only works
 over HTTPS, guest access also over HTTP.
 
@@ -669,7 +675,7 @@ For tests, `-config <path>` points to a different file.
 ### Files in the data directory
 
 `settings.json`, `layout.json`, `energy.json`, `mqtt.json`, `bridge.json`,
-`users.json`, `runtime.json`, `ignored_devices.json` and the separate secret
+`users.json`, `sessions.json`, `runtime.json`, `ignored_devices.json` and the separate secret
 files `mqtt_credentials.json`, `mqtt_bridge_credentials.json`, and
 `tinytuya_credentials.json`.
 
