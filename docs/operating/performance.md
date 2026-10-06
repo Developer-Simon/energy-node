@@ -1,96 +1,89 @@
 ---
-title: "Performance & Resources on the Pi 1 Node"
+title: "Performance and resources on the Pi 1 node"
 redirect_from:
   - /knowledge/performance-and-resources.html
 ---
 
-# Performance & Resources on the Pi 1 Node
+# Performance and resources on the Pi 1 node
 
-This document records the node's resource analysis: **how much CPU and RAM the
-individual services actually need**, how they were measured, and which
-optimizations follow from that.
+This page records how much CPU and RAM each service on the node needs, how
+that was measured and which optimisations came out of it.
 
-Measurement: **2026-08-29**, live node (Raspberry Pi 1 Model B Rev 2, ARMv6,
-single-core, 512 MB — of which 427 MB usable, the rest GPU reserve). Uptime at
-the time of measurement: 11 days. Raw logs are not in the repo; the numbers
-below are the distilled state.
+The measurement was taken on 2026-08-29 on the live node, a Raspberry Pi 1
+Model B Rev 2 (ARMv6, single core, 512 MB of which 427 MB are usable and the
+rest is reserved for the GPU). The node had been up for 11 days. The raw logs
+are not in the repo. The numbers below are a summary.
 
-This is a **point-in-time snapshot**, not a figure that is kept in sync with the
-code. Everything below (service list, rule counts, CPU/RAM shares, the open
-items in §5) describes the node on that date; treat it as a baseline to
-re-measure against, not as the current state.
-
----
+The numbers describe the node on that date and are not kept in sync with the
+code. That applies to the service list, the rule counts, the CPU and RAM shares
+and the open items in §5. Use them as a baseline to measure against.
 
 ## 1. Measurement method
 
 | Metric | Source | Why |
 |---|---|---|
-| CPU per service | `systemctl show <unit> -p CPUUsageNSec` divided by runtime since `ActiveEnterTimestamp` | cgroup-accurate, incl. all child processes — more honest than `ps` `TIME` |
-| RAM per process | `Pss:` from `/proc/<pid>/smaps_rollup` | PSS counts shared pages proportionally — the only fair per-process figure |
-| Idle baseline | `vmstat 2` over several seconds | averages out short polling spikes |
-| Live spikes | `top -b -d 3 -n N` | shows which service is currently burning |
+| CPU per service | `systemctl show <unit> -p CPUUsageNSec` divided by runtime since `ActiveEnterTimestamp` | Exact per cgroup, including all child processes, so more accurate than `ps` `TIME` |
+| RAM per process | `Pss:` from `/proc/<pid>/smaps_rollup` | PSS splits shared pages between processes, so it is the only fair figure per process |
+| Idle baseline | `vmstat 2` over several seconds | Averages out short polling spikes |
+| Live spikes | `top -b -d 3 -n N` | Shows which service is busy right now |
 
-Values are normalized to **"% of one core"** (single-core, so = % of the whole
-system) and extrapolated linearly to **7 days**, so that freshly restarted
-services become comparable.
+Values are given as a percentage of one core. The Pi 1 has a single core, so
+that is also the share of the whole system. They are extrapolated linearly to
+7 days so that services restarted recently can be compared with the others.
 
----
-
-## 2. CPU — 7-day extrapolation
+## 2. CPU, extrapolated to 7 days
 
 | Unit | Ø % / 1 core | Projection 7 d | Measurement basis | Assessment |
 |---|---:|---:|---|---|
-| **dashboard** | **~20–30 %** | **~2000–3000 min** | 75 min, NRestarts=0 | **By far the largest consumer.** Re-measured 2026-08-29 22:35 (see 2.1) — *not* a startup effect, real sustained load |
-| tailscaled | 3.19 % | ~321 min | 11 d | Fixed cost (WireGuard crypto, possibly a DERP relay) — hardly reducible |
-| **shelly-rpc** | **2.83 %** | **~285 min** | 7.5 d | Largest real consumer **among the bridges.** Spikes up to ~22 % when all devices are polled at once |
-| nodeagent (measured as a standalone service; now `internal/nodeagent` in the dashboard) | 1.12 % | ~113 min | 8 d | Contains the expensive `apt list --upgradable` call on the diagnostic cycle |
+| dashboard | ~20–30 % | ~2000–3000 min | 75 min, NRestarts=0 | By far the largest consumer. Measured again on 2026-08-29 at 22:35 (see 2.1). This is sustained load and not a startup effect |
+| tailscaled | 3.19 % | ~321 min | 11 d | Fixed cost (WireGuard crypto, possibly a DERP relay), hard to reduce |
+| shelly-rpc | 2.83 % | ~285 min | 7.5 d | Largest consumer among the bridges. Spikes up to ~22 % when all devices are polled at once |
+| nodeagent (measured as a separate service, now `internal/nodeagent` in the dashboard) | 1.12 % | ~113 min | 8 d | Runs the expensive `apt list --upgradable` call on the diagnostic cycle |
 | trucki-http | 0.86 % | ~86 min | 8 d | |
-| mosquitto | 0.78 % | ~78 min | 11 d | Inconspicuous at ~3–10 msg/s |
+| mosquitto | 0.78 % | ~78 min | 11 d | Unremarkable at ~3–10 msg/s |
 | battery-soc | 0.36 % | ~37 min | 28 h | |
 | caddy | 0.30 % | ~30 min | 11 d | |
-| **automation** | **0.28 %** | **~29 min** | 3.9 h | Third-lightest service. Only **3 rules** (2× `balance_threshold`, 1× `time_window`), evaluated per balance message. **Not an optimization target.** |
+| automation | 0.28 % | ~29 min | 3.9 h | Third lightest service. Only 3 rules (2× `balance_threshold`, 1× `time_window`), evaluated per balance message. Not worth optimising |
 | apsystems-ez1 | 0.14 % | ~15 min | 8 d | |
 | tuya | 0.11 % | ~11 min | 8 d | |
 
-The 1094 lines of the automation rule engine
+The automation rule engine
 ([`services/automation/automation_mqtt.py`](../../services/automation/automation_mqtt.py))
-are large in the code but irrelevant to load, as long as only a handful of
-rules are configured.
+has 1094 lines, but that does not matter for the load as long as only a handful
+of rules are configured.
 
-### 2.1 dashboard — re-measurement 2026-08-29 22:35
+### 2.1 dashboard: second measurement on 2026-08-29 at 22:35
 
-The first value (18 %, 19 min uptime) had been dismissed as a startup artifact.
-The re-measurement after **75 min of uninterrupted runtime** (`NRestarts=0`)
-disproves that:
+The first value (18 % after 19 min of uptime) looked like a startup effect. A
+second measurement after 75 minutes of uninterrupted runtime (`NRestarts=0`)
+showed it was not:
 
 | Method | CPU | 7-day projection |
 |---|---:|---:|
 | Ø since start (868.8 CPU-s / 4509 s) | 19.3 % / 1 core | ~1940 min |
-| Delta rate over a 150 s window | **29.8 % / 1 core** | **~3005 min** |
+| Delta rate over a 150 s window | 29.8 % / 1 core | ~3005 min |
 
-In that window `top` shows the dashboard process as the clear main CPU user
-(`us` 57–82 %). This is **not burst load but baseline load** — the dashboard is
-the most expensive single process on the node, well ahead of `tailscaled` and
-`shelly`.
+In that window `top` shows the dashboard process as by far the largest CPU user
+(`us` 57–82 %). The load is constant, not bursty. The dashboard is the most
+expensive single process on the node, well ahead of `tailscaled` and `shelly`.
 
-Observed drivers:
+Three causes showed up.
 
-- **`live_update_interval_seconds: 3`** (default) — every connected client
-  polls the registry state every 3 s; on a change, a full
-  `GET /api/v1/devices` follows (SSE itself only transmits `{version: N}`, see
-  [`data-flow.md`](../developing/data-flow.md) §4).
-- **18 open connections on `:8080`** at the time of measurement. Whether these
-  are several real clients or an EventSource reconnect leak from a long-lived
-  tab is open — 18 × full serialization of the device list every 3 s explains
-  the order of magnitude.
-- **Fan-out amplification:** every retained state publication of a bridge
-  (shelly ~20 topics / 10 s, balance / 10 s, …) bumps `registry.version`,
-  whereupon *every* client re-fetches the complete device list.
+`live_update_interval_seconds` defaults to 3. Every connected client polls the
+registry state every 3 s and fetches the full `GET /api/v1/devices` after a
+change. SSE itself only sends `{version: N}`, see
+[`data-flow.md`](../developing/data-flow.md) §4.
 
----
+There were 18 open connections on `:8080` during the measurement. It is still
+unclear whether these were several real clients or an EventSource reconnect
+leak from a tab left open for a long time. Serialising the full device list 18
+times every 3 s explains the order of magnitude.
 
-## 3. RAM — PSS per process
+Every retained state message from a bridge (shelly ~20 topics every 10 s,
+balance every 10 s and so on) bumps `registry.version`, and then every client
+fetches the complete device list again.
+
+## 3. RAM: PSS per process
 
 | Process | PSS (MB) | RSS (MB) |
 |---|---:|---:|
@@ -106,123 +99,125 @@ Observed drivers:
 | caddy | ~25 | 29.6 |
 | tailscaled | — | 27.0 |
 
-System state at the time of measurement: **116 MB free**, 153 MB buff/cache
-(reclaimable), **74 MB swap used — but stable** (`vmstat` si/so = 0, nothing is
-being swapped right now).
-
----
+During the measurement the system had 116 MB free and 153 MB in buff/cache
+(reclaimable). 74 MB of swap were in use but stable: `vmstat` showed si/so = 0,
+so nothing was being swapped at the time.
 
 ## 4. Interpretation
 
-- **The sustained-load driver is the dashboard** (~20–30 % of one core,
-  re-measurement 2.1) — ahead of `tailscaled` (~3 %) and all bridges combined.
-  Originally misjudged as a startup artifact.
-- **The rest is bursts**, not baseline load:
-  1. **shelly poll** — all 6 devices are queried *simultaneously* per cycle via
-     `asyncio.gather` → short spike up to ~22 %.
-  2. **`apt list --upgradable`** in the node service — parses the entire APT
-     package cache every time, ran on the diagnostic cycle (every ~10 min) and
-     was caught at 40–72 % CPU.
-- **Without the dashboard**, the sum of all remaining services except
-  `tailscaled` is ~6.6 % of one core; `vmstat` then shows 93–98 % idle. With
-  the dashboard, idle time drops to 30–50 %.
-- **RAM is tight, but not critical.** The swap level is old and stable.
-- `tailscaled`, at ~321 min/7 d, is the second-largest item after the
-  dashboard, but essentially a fixed cost — a poor cost/benefit ratio for
-  tackling it.
+The dashboard causes the sustained load (~20–30 % of one core, see 2.1). That
+is more than `tailscaled` (~3 %) and all bridges together.
 
----
+Everything else comes in bursts. The shelly service queries all 6 devices at
+the same time each cycle via `asyncio.gather`, which causes a short spike of up
+to ~22 %. The node service ran `apt list --upgradable` on the diagnostic cycle
+(every ~10 min). It parses the whole APT package cache each time and was seen
+at 40–72 % CPU.
+
+Without the dashboard, all other services except `tailscaled` add up to ~6.6 %
+of one core, and `vmstat` shows 93–98 % idle. With the dashboard, idle time
+drops to 30–50 %.
+
+RAM is tight but not critical. The swap usage is old and stable.
+
+`tailscaled` is the second largest item after the dashboard at ~321 min per 7
+days. It is mostly a fixed cost, so reducing it would take a lot of work for
+little gain.
 
 ## 5. Optimization options (sorted by impact)
 
-### 5.1 shelly: reuse HTTP connections — implemented 2026-08-29
+### 5.1 shelly: reuse HTTP connections (done 2026-08-29)
 
 [`shelly_rpc_mqtt.py`](../../services/shelly/shelly_rpc_mqtt.py) opened a new TCP
-connection on *every* poll (`requests.get`/`requests.post` directly). On ARMv6,
-establishing the connection is the most expensive part of a poll.
+connection on every poll (`requests.get` and `requests.post` called directly).
+On ARMv6, setting up the connection is the most expensive part of a poll.
 
-**Implementation:** a module-wide `requests.Session` with `HTTPAdapter` +
-`Retry`. Keep-alive holds the TCP connection open per device; if a pooled
-connection drops (device restarted, Wi-Fi gone), urllib3 discards it and builds
-a new one on demand, and `Retry(connect≥1, allowed_methods=None)` covers the
-case where the drop is only noticed on send — including for the Gen2 RPC POSTs.
+The fix is a module wide `requests.Session` with `HTTPAdapter` and `Retry`.
+Keep-alive holds one TCP connection open per device. If a pooled connection
+drops (device restarted, Wi-Fi gone), urllib3 discards it and opens a new one
+when needed. `Retry(connect≥1, allowed_methods=None)` covers the case where the
+drop is only noticed while sending, including the Gen2 RPC POSTs.
 
-**Not changed:** the poll intervals. The 10 s for the fastest channel is
-explicitly wanted by the operator and lives in `shelly_devices.json` /
-`config.json` anyway, not in the code.
+The poll intervals stay as they are. The operator wants 10 s for the fastest
+channel, and the intervals live in `shelly_devices.json` and `config.json`, not
+in the code.
 
-Open (later, optional): stagger the 6 device polls within a cycle instead of
-firing them simultaneously → the 22 % spike would become several small ones.
+Still open and optional: spread the 6 device polls over the cycle instead of
+firing them at once. The 22 % spike would then become several small ones.
 
-### 5.2 node: decouple `apt list --upgradable` — implemented 2026-08-29
+### 5.2 node: decouple `apt list --upgradable` (done 2026-08-29)
 
-`read_apt_updates_pending()` in the then-standalone `energy_node_mqtt.py`
-(since folded into the dashboard as
-[`internal/nodeagent`](https://github.com/Developer-Simon/energy-node/tree/main/dashboard/internal/nodeagent))
+`read_apt_updates_pending()` in `energy_node_mqtt.py`, which was a separate
+service then and is now part of the dashboard as
+[`internal/nodeagent`](https://github.com/Developer-Simon/energy-node/tree/main/dashboard/internal/nodeagent),
 ran on the diagnostic cycle (every ~10 min).
 
-**Implementation:** a TTL cache around the call, `APT_UPDATES_TTL_S = 86400`
-(once per day). Between two real calls, the last determined value is returned. A
-failed call is not cached (the next cycle tries again); if a later call fails,
-the last good value is passed on instead of flickering to `None`. The
-diagnostic cycle still calls the function every ~10 min, but it is now usually
-just a dict lookup.
+The fix is a TTL cache around the call with `APT_UPDATES_TTL_S = 86400`, so the
+real call runs once per day. In between, the last value is returned. A failed
+call is not cached, so the next cycle tries again. If a later call fails, the
+last good value is passed on instead of switching to `None`. The diagnostic
+cycle still calls the function every ~10 min, but usually that is only a dict
+lookup.
 
-### 5.3 dashboard: reduce live-update load — **now the biggest lever**
+### 5.3 dashboard: reduce the live update load
 
-Per re-measurement 2.1, the dashboard is the most expensive process on the node
-(~20–30 % of one core, sustained). Starting points, roughly by expected impact:
+According to 2.1, the dashboard is the most expensive process on the node at
+~20–30 % of one core, all the time. These are the options, roughly ordered by
+expected effect:
 
-1. **`live_update_interval_seconds` from 3 s to 10 s.** It lives in
+1. Raise `live_update_interval_seconds` from 3 s to 10 s. It lives in
    `data/settings.json` and takes effect without a reconnect
-   ([`data-flow.md`](../developing/data-flow.md) §4). Cuts the poll/serialization rate by a
-   factor of ~3.
-2. **Clarify the 18 connections on `:8080`.** If this is one client with an
-   EventSource reconnect leak (each reconnect leaves the old SSE connection
-   open), a fix in the browser JS or a server-side timeout on orphaned SSE
-   streams is enough. If there really are that many clients, point 1 applies
-   all the more strongly.
-3. **Decouple the fan-out.** Currently *every* client re-fetches the complete
-   device list on *every* `registry.version` bump. Options: coalesce balance
-   and state updates in the server into a single tick (e.g. at most one version
-   bump every 2–3 s instead of one per MQTT message), or have the SSE message
-   carry the changed entities directly, so that the `GET /api/v1/devices` round
-   trip is eliminated.
-4. **Check restarts:** `systemctl show energy-node-dashboard -p NRestarts` (0 at
-   the time of measurement). Frequent deploys add up to ~180 CPU-s each.
+   ([`data-flow.md`](../developing/data-flow.md) §4). That cuts the poll and
+   serialisation rate by about a factor of 3.
+2. Find out what the 18 connections on `:8080` are. If it is one client with an
+   EventSource reconnect leak, where each reconnect leaves the old SSE
+   connection open, a fix in the browser JS or a server side timeout for
+   orphaned SSE streams is enough. If there really are that many clients,
+   point 1 matters even more.
+3. Reduce the fan-out. Right now every client fetches the complete device list
+   again on every `registry.version` bump. The server could combine balance and
+   state updates into one tick, for example at most one version bump every
+   2–3 s instead of one per MQTT message. Or the SSE message could carry the
+   changed entities itself, which removes the `GET /api/v1/devices` round trip.
+4. Check the restarts with `systemctl show energy-node-dashboard -p NRestarts`
+   (0 during the measurement). Each deploy costs about 180 CPU seconds, which
+   adds up with frequent deploys.
 
 ### 5.4 tailscaled
 
-`tailscale status` shows whether the connection is direct or via DERP (relay =
-permanently more crypto + copy). Disable unused features (SSH/serve/funnel,
-`--accept-routes`). Overall low ROI.
+`tailscale status` shows whether the connection is direct or goes through a
+DERP relay, which permanently costs more crypto and copying. Unused features
+(SSH, serve, funnel, `--accept-routes`) can be turned off. The gain is small.
 
 ### 5.5 Merge the bridges into one process
 
-7 interpreters → 1 saves roughly **25–35 MB** by PSS and removes 6
-idle-polling paho clients. **This is a RAM gain, not a meaningful CPU gain.**
-Two ways:
+Going from 7 interpreters to 1 saves roughly 25–35 MB of PSS and removes 6 idle
+paho clients. That helps RAM but does little for CPU. There are two ways to do
+it.
 
-- **One Python process** (threads/asyncio, one paho client): almost zero
-  rewrite risk, `tinytuya` and the pytest suites stay. It costs the per-service
-  systemd fault isolation (in-process supervision as a replacement).
-- **One Go central service with a central scheduler**: net ~30–35 MB PSS,
-  enables a staggered poll fan-out and global rate limiting in one place.
-  Counter-cost: porting ~7,700 lines of tested Python domain logic, plus
-  rebuilding the local protocol for Tuya without a `tinytuya` equivalent. Only
-  worthwhile if there is also a wish to standardize on Go long-term. Automation
-  would remain a separate process in any case (dashboard-read-only property).
+One Python process (threads or asyncio, one paho client) carries almost no
+rewrite risk, and `tinytuya` and the pytest suites stay. It gives up the
+systemd fault isolation per service, which in-process supervision would have
+to replace.
 
-A Go central service is **not urgently** justified by the current state: the
-~30 MB alone do not carry the porting effort.
+One central Go service with a central scheduler saves ~30–35 MB of PSS net and
+allows staggered polls and global rate limiting in one place. It means porting
+about 7,700 lines of tested Python domain logic and rewriting the local Tuya
+protocol, because Go has no `tinytuya` equivalent. That only pays off if the
+project wants to move to Go in the long run anyway. Automation would stay a
+separate process either way, because the dashboard only reads its rules.
 
----
+The current numbers do not make a central Go service urgent. About 30 MB alone
+do not justify the porting work.
 
 ## 6. Conclusion
 
-- 5.1 + 5.2 (shelly keep-alive, apt cache) — small, low-risk, one file each,
-  **done 2026-08-29**. Addresses the burst load.
-- **5.3 (dashboard) is now the actual lever** for more idle time: the sustained
-  load is there, not with the bridges. Next step: `live_update_interval_seconds`
-  to 10 s and clarify the 18 open `:8080` connections.
-- 5.5 (merge the bridges) remains a RAM topic, to be decided separately.
+5.1 and 5.2 (shelly keep-alive, apt cache) were small, low risk changes of one
+file each and were done on 2026-08-29. They deal with the bursts.
+
+More idle time has to come from 5.3, because the sustained load is in the
+dashboard and not in the bridges. The next steps are raising
+`live_update_interval_seconds` to 10 s and finding out what the 18 open
+`:8080` connections are.
+
+5.5 (merging the bridges) is about RAM and needs a separate decision.
