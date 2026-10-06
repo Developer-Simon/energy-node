@@ -4,7 +4,7 @@ title: "Colour schemes"
 
 # Colour schemes
 
-Four themes ship with the dashboard, chosen in *Settings → Appearance*:
+The dashboard has four themes. You pick one in *Settings → Appearance*:
 
 | Mint (default) | Power blue |
 |---|---|

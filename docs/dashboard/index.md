@@ -28,44 +28,46 @@ anchor_moves:
 # The dashboard, page by page
 
 The Energy Node dashboard is a single statically linked Go binary. Templates,
-CSS and JavaScript are compiled into it with `go:embed`; there is no build
-step, no CDN and no server-side database. It renders HTML on the server,
-updates values over an SSE push, and keeps chart history in the browser.
+CSS and JavaScript are compiled into it with `go:embed`. There is no build
+step, no CDN and no server side database. The dashboard renders HTML on the
+server, pushes value updates over SSE and keeps chart history in the browser.
 
-The UI speaks German and English, chosen per browser with the `DE | EN`
-switch in the header (see the localization notes in the repository).
-The screenshots and the labels quoted on this page are the English ones.
-Device and entity names are not translated. They come from MQTT Discovery and
-stay in the language the devices announce them in, which is German for the
-fixture devices in the screenshots.
+The UI is in German and English. Each browser picks its language with the
+`DE | EN` switch in the header (see the localization notes in the repository).
+The screenshots and the labels quoted here are the English ones. Device and
+entity names are not translated. They come from MQTT Discovery in whatever
+language the devices announce them, which is German for the fixture devices in
+the screenshots.
 
-Every screenshot on this page comes from the local smoke test with the
-`docs-screenshots` preset. That is the real dashboard against a fixture
-broker, with no Raspberry Pi and no device involved.
+All screenshots come from the local smoke test with the `docs-screenshots`
+preset: the real dashboard against a fixture broker, without a Raspberry Pi or
+any device.
 
 ## The window frame
 
 ![The dashboard on a wide screen](../images/dashboard.png)
 
-Three things are always present, on every tab:
+Every tab has the same frame.
 
-- **The system status bar** — broker connection, storage
-  health, uptime and dashboard version. Which of these fields appear is
-  configurable, and the whole bar can be switched off.
-- **The tab bar.** The first entries are the *layout pages* — user-defined
-  overview pages, named in the layout editor. After the divider come the
-  fixed tabs: Devices, History, Configuration, Energy, Device Map,
-  Diagnostics, Automations, Settings.
-- **Who you are logged in as.** Over plain HTTP only *continue as guest* is
-  offered; the admin login is refused unless the request arrives over HTTPS.
-  A guest can look at everything, edit layouts and automation rules, but the
-  protected actions — the MQTT and bridge configuration (`mqtt_config`),
-  restart/reboot/shutdown (`system_actions`) — need a registered user with the
-  matching role **and** HTTPS. See
-  [operating/secrets](../operating/secrets.md).
+The system status bar shows the broker connection, storage health, uptime and
+dashboard version. You can choose which of these fields appear or switch the
+bar off.
 
-Panels are lazily loaded: only the active tab's HTML fragment, scripts and
-stylesheets are fetched, which is what keeps the first paint cheap on a
+The tab bar starts with the layout pages, which are your own overview pages
+named in the layout editor. After the divider come the fixed tabs: Devices,
+History, Configuration, Energy, Device Map, Diagnostics, Automations and
+Settings.
+
+The frame also shows who you are logged in as. Over plain HTTP the dashboard
+only offers *continue as guest* and refuses the admin login unless the request
+arrives over HTTPS. A guest can look at everything and edit layouts and
+automation rules. The protected actions need a registered user with the
+matching role and HTTPS: the MQTT and bridge configuration (`mqtt_config`) and
+restart, reboot and shutdown (`system_actions`). See
+[operating/secrets](../operating/secrets.md).
+
+Panels load lazily. The browser only fetches the HTML fragment, scripts and
+stylesheets of the active tab, which keeps the first paint cheap on a
 Raspberry Pi 1.
 
 ## Pages
@@ -82,7 +84,7 @@ Raspberry Pi 1.
 
 ## See also
 
-- [Device services](../services/index.md) — what fills the dashboard with data
-- [HTTP API](../developing/api.md) — the `/api/v1` HTTP API behind every page
-- [Data flows](../developing/data-flow.md) — where each value comes from
-- [Reverse proxy](../operating/reverse-proxy.md) — running the dashboard under a sub-path
+- [Device services](../services/index.md): where the dashboard's data comes from
+- [HTTP API](../developing/api.md): the `/api/v1` API behind every page
+- [Data flows](../developing/data-flow.md): where each value comes from
+- [Reverse proxy](../operating/reverse-proxy.md): running the dashboard under a sub-path
