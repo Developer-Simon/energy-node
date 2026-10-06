@@ -617,7 +617,7 @@
     return source
       + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.title'))}</label><input type="text" data-role="history-title" value="${escapeHTML(item.title || '')}" placeholder="${escapeHTML(t('overview.history_view.default_title'))}"></div>`
       + selectFieldHTML('history-range-hours', 'layout_editor.history_view.range', item.historyRangeHours || '24',
-        [['1', 'layout_editor.option.history_range.one'], ['6', 'layout_editor.option.history_range.six'], ['24', 'history.range.day'], ['168', 'history.range.week'], ['720', 'history.range.month']])
+        [['1', 'layout_editor.option.history_range.hour_1'], ['6', 'layout_editor.option.history_range.hour_6'], ['24', 'history.range.day'], ['168', 'history.range.week'], ['720', 'history.range.month']])
       + selectFieldHTML('history-aggregate', 'layout_editor.history_view.aggregate', item.historyAggregate || 'avg',
         [['avg', 'history.aggregate.average'], ['min', 'history.aggregate.minimum'], ['max', 'history.aggregate.maximum']])
       + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.series'))}</label>${series}<p class="layout-modal-hint">${escapeHTML(t('layout_editor.history_view.series_hint'))}</p></div>`;
