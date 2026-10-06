@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.10 (2026-10-06)
+## v0.8.11 (2026-10-06)
 
 ### Features
 
@@ -21,6 +21,9 @@
 ### Fixes
 
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
+- **dashboard:** keep sessions across a dashboard restart (db7eefd)
+- **installer:** skip unchanged steps on an update (446e9d2)
+- **installer:** skip unchanged update steps and keep the session across the restart (#102)
 - **dashboard:** keep the fixed date range of a saved history view (1c5ccb1)
 - **dashboard:** keep the overview swap-free with history view tiles (802f50c)
 - **dashboard:** rename the history range catalog keys (b0a90ca)
