@@ -295,7 +295,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/system/poweroff", handleSystemAction(dependencies.Auth, dependencies.SystemActions, systemactions.Poweroff))
 	}
 	if dependencies.AppConfigPath != "" {
-		mux.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil))
+		mux.HandleFunc("/api/v1/system/config", handleSystemConfig(dependencies.AppConfigPath, dependencies.DataDir, dependencies.Auth, nil, dependencies.SystemActions))
 		mux.HandleFunc("/api/v1/system/config/schema", handleSystemConfigSchema())
 	}
 	if configs != nil {

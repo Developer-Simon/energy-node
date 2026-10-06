@@ -13,7 +13,7 @@ BRIDGE_OWNER="energynode"
 # App-config staging paths for apply-app-config. Hardcoded for the same
 # reason as the bridge paths above - this script runs as root via sudo,
 # without the dashboard service's environment. The staged file name matches
-# stagedAppConfigName in dashboard/cmd/dashboard/configmigrate.go.
+# StagedAppConfigName in dashboard/internal/systemactions/appconfig.go.
 APP_CONFIG_STAGED="/home/energynode/dashboard/data/energy-node.config.staged.json"
 APP_CONFIG_TARGET="/etc/energy-node/config.json"
 APP_CONFIG_BACKUP="/etc/energy-node/.config.json.bak"

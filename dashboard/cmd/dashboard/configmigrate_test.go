@@ -39,7 +39,7 @@ func TestPersistV1MigrationStagesAndCallsTheHelper(t *testing.T) {
 	dataDir := t.TempDir()
 	target := filepath.Join(t.TempDir(), "config.json")
 	runner := &fakeHelperRunner{
-		stagedPath: filepath.Join(dataDir, stagedAppConfigName),
+		stagedPath: filepath.Join(dataDir, systemactions.StagedAppConfigName),
 		targetPath: target,
 	}
 	executor := systemactions.NewExecutor(runner, "/usr/local/sbin/energy-node-dashboard-system-action")
@@ -67,7 +67,7 @@ func TestPersistV1MigrationStagesAndCallsTheHelper(t *testing.T) {
 func TestPersistV1MigrationReturnsHelperErrorAndClearsStaging(t *testing.T) {
 	dataDir := t.TempDir()
 	runner := &fakeHelperRunner{
-		stagedPath: filepath.Join(dataDir, stagedAppConfigName),
+		stagedPath: filepath.Join(dataDir, systemactions.StagedAppConfigName),
 		failWith:   errors.New("exit status 65"),
 	}
 	executor := systemactions.NewExecutor(runner, "/usr/local/sbin/energy-node-dashboard-system-action")
