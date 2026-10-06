@@ -140,6 +140,17 @@ Mark a breaking change with a `!` before the colon (`feat!: …`,
 `fix(dashboard)!: …`). The generated component changelog keeps the commit in
 its normal section but prefixes the entry with **⚠ Breaking**.
 
+### Opening and merging a PR
+
+Open PRs with `scripts/dev/create-pr.sh` and merge them with
+`scripts/dev/merge-pr.sh`. The script fills the whole PR template, so nothing
+is maintained by hand afterwards. The PR title is the squash subject. The
+fenced block in the description is the squash body: it never repeats the title
+and ends with `Co-authored-by: Claude Sonnet|Opus x.y <noreply@anthropic.com>`,
+never Haiku. Pass the model as `PR_AI_MODEL="Sonnet 5.5"`, the test suites you
+ran as `PR_SUITES`, and optionally `PR_SUMMARY`, `PR_ISSUE` or
+`PR_MESSAGE_FILE`. `merge-pr.sh --check` validates the message without merging.
+
 Per-component `VERSION` files are patch-bumped on the PR branch by CI
 (`.github/workflows/version-bump.yml`); `major`/`minor` you bump by hand on the
 branch. CI (`.github/workflows/ci.yml`, the *Vendored artefacts in sync* job)
