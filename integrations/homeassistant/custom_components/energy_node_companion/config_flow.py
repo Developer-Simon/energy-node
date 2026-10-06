@@ -9,10 +9,15 @@ from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResu
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig, SelectSelectorMode
+from homeassistant.helpers.selector import (
+    IconSelector, SelectSelector, SelectSelectorConfig, SelectSelectorMode, TextSelector,
+)
 
 from .client import AuthRequired, DashboardClient, ExchangeError
-from .const import CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ALL, PANEL_MODES, PROTOCOL
+from .const import (
+    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ALL,
+    PANEL_ICON, PANEL_MODES, PANEL_OFF, PANEL_TITLE, PROTOCOL,
+)
 
 # Das Geraet, das das Dashboard per MQTT Discovery anlegt
 # (energydiscovery.DeviceIdentifier). Sein configuration_url zeigt auf Caddy
@@ -113,16 +118,34 @@ class EnergyNodeConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
 
+OPTIONS_SCHEMA = vol.Schema({
+    vol.Required(CONF_HISTORY, default=True): bool,
+    vol.Required(CONF_PANEL, default=PANEL_ALL): SelectSelector(SelectSelectorConfig(
+        options=list(PANEL_MODES), translation_key="panel", mode=SelectSelectorMode.LIST,
+    )),
+    # Optional mit Vorschlag statt Standardwert: ein geleertes Feld fehlt
+    # beim Speichern, und das Panel nimmt wieder Name und Symbol ab Werk.
+    vol.Optional(CONF_PANEL_TITLE): TextSelector(),
+    vol.Optional(CONF_PANEL_ICON): IconSelector(),
+})
+
+
 class EnergyNodeOptionsFlow(OptionsFlowWithReload):
-    """Wer das Dashboard in der Seitenleiste sieht. Speichern laedt den Eintrag neu."""
+    """Verlaeufe, Panel in der Seitenleiste und dessen Name und Symbol. Speichern laedt den Eintrag neu."""
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
         if user_input is not None:
-            return self.async_create_entry(data=user_input)
-        current = self.config_entry.options.get(CONF_PANEL, PANEL_ALL)
-        schema = vol.Schema({
-            vol.Required(CONF_PANEL, default=current): SelectSelector(SelectSelectorConfig(
-                options=list(PANEL_MODES), translation_key="panel", mode=SelectSelectorMode.LIST,
-            )),
-        })
-        return self.async_show_form(step_id="init", data_schema=schema)
+            if not user_input[CONF_HISTORY] and user_input[CONF_PANEL] == PANEL_OFF:
+                errors["base"] = "nothing_enabled"
+            else:
+                return self.async_create_entry(data=user_input)
+        current = {
+            CONF_HISTORY: True, CONF_PANEL: PANEL_ALL, CONF_PANEL_TITLE: PANEL_TITLE, CONF_PANEL_ICON: PANEL_ICON,
+            **self.config_entry.options,
+        }
+        return self.async_show_form(
+            step_id="init",
+            data_schema=self.add_suggested_values_to_schema(OPTIONS_SCHEMA, user_input or current),
+            errors=errors,
+        )

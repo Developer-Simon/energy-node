@@ -31,6 +31,16 @@ The address field is pre-filled from the node's device link in Home Assistant, f
 
 Once connected, open the dashboard's settings under **History** (German: **Verläufe**). After the first backfill it shows "Last filled in by Home Assistant."
 
+## Options
+
+Open the integration and choose **Configure** to change what it does. Saving reloads the integration.
+
+- **Supply history**: fills gaps in the dashboard's history charts from the recorder. On by default.
+- **Sidebar**: shows the dashboard in the Home Assistant sidebar, for all users (default), only for administrators, or off.
+- **Name in the sidebar** and **Icon in the sidebar**: the sidebar entry's label and icon. Clear a field to go back to "Energy Node" and the solar icon.
+
+History or the sidebar must stay on. With both off the integration would do nothing, so the form refuses to save.
+
 ## What is supplied
 
 - Only the series the dashboard announces as recorded.

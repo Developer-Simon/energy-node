@@ -48,6 +48,16 @@ To change the address later, open the integration and choose **Reconfigure**.
 
 The address is only suggested when Home Assistant knows the MQTT device "Energy Node" and the node has a Tailscale name. Otherwise the field is empty and you enter the address by hand.
 
+## Options
+
+Open the integration and choose **Configure** to change what it does. Saving reloads the integration.
+
+- **Supply history**: fills gaps in the dashboard's history charts from the recorder. On by default.
+- **Sidebar**: shows the dashboard in the Home Assistant sidebar, for all users (default), only for administrators, or off.
+- **Name in the sidebar** and **Icon in the sidebar**: the sidebar entry's label and icon. Clear a field to go back to "Energy Node" and the solar icon.
+
+History or the sidebar must stay on. With both off the integration would do nothing, so the form refuses to save.
+
 ## What it supplies
 
 The integration offers only the series the dashboard announces as recorded.

@@ -199,3 +199,11 @@ def test_texts_carry_no_urls(name):
 async def test_user_form_fills_the_example_address(hass):
     result = await hass.config_entries.flow.async_init(DOMAIN, context={"source": "user"})
     assert result["description_placeholders"]["example_url"].startswith("http://")
+    assert result["description_placeholders"]["example_url"].endswith(":8080")
+
+
+@pytest.mark.parametrize("name", ["strings.json", "translations/de.json"])
+def test_setup_texts_insist_on_port_8080(name):
+    steps = json.loads((BASE / name).read_text())["config"]["step"]
+    assert "8080" in steps["user"]["description"]
+    assert "8080" in steps["reconfigure"]["description"]

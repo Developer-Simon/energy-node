@@ -30,6 +30,12 @@ PANEL_ALL = "all"
 PANEL_ADMINS = "admins"
 PANEL_OFF = "off"
 PANEL_MODES = (PANEL_ALL, PANEL_ADMINS, PANEL_OFF)
+# Name und Symbol des Panels in der Seitenleiste, frei waehlbar.
+CONF_PANEL_TITLE = "panel_title"
+CONF_PANEL_ICON = "panel_icon"
+# Verlaeufe an das Dashboard liefern. Mindestens Verlaeufe oder Panel muss an
+# sein, sonst tut der Eintrag nichts.
+CONF_HISTORY = "history"
 
 # Cookie, mit dem der Browser dem Proxy zeigt, dass ein HA-Benutzer das Panel
 # geoeffnet hat. Gilt nur unter dem Proxy-Pfad des Eintrags.
