@@ -1578,6 +1578,8 @@
   "overview.history.view_save": "Sicht speichern",
   "overview.history.view_select": "Sicht",
   "overview.history.views_label": "Gespeicherte Verlaufssichten",
+  "overview.history_view.default_title": "Verlauf",
+  "overview.history_view.missing": "Diese Verlaufssicht gibt es nicht mehr. Im Baukasten eine andere wählen.",
   "overview.installation.title": "Anlage",
   "overview.page.default_name": "Übersicht",
   "overview.page.error.editor_load_failed": "Der Editor konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.",
