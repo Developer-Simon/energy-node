@@ -1,20 +1,31 @@
 # Changelog
 
-## v0.8.9 (2026-10-06)
+## v0.8.10 (2026-10-06)
 
 ### Features
 
 - The changelog pages open on the highlights, the switch at the top shows everything. (#84) (5cc1cfb)
 - **homeassistant:** add Energy Node Companion as a history exchange peer (#85) (5bd7f48)
 - **installer:** check and install system package updates (opt-out) (#90) (d898a63)
+- **dashboard:** show the config service status as a pill (#98) (d639c36)
+- **dashboard:** add the history_view layout item type (32d4476)
+- **dashboard:** render history_view tiles on the overview (bfd09b7)
+- **dashboard:** add shared history chart module (2a1738f)
+- **dashboard:** draw history view tiles with a preserved ApexCharts instance (a7fde99)
+- **dashboard:** place and configure history view tiles in the layout editor (5686c7d)
+- **dashboard:** add history view tiles to the overview layout (#99)
 - **dashboard:** show the config service status as a pill and move the revision into the revision panel (52b235d)
-- **dashboard:** show the config service status as a pill (#98)
 - **installer:** carry pending system updates into the preview and diagnose (6ad251f)
 - **installer:** check system updates on request and refresh them in the diagnose (b00f687)
 
 ### Fixes
 
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
+- **dashboard:** keep the fixed date range of a saved history view (1c5ccb1)
+- **dashboard:** keep the overview swap-free with history view tiles (802f50c)
+- **dashboard:** rename the history range catalog keys (b0a90ca)
+- **dashboard:** comment out the verlauf-kachel preset description in the smoke script (037e9f1)
+- **dashboard:** stop the history tile tooltip from causing scrollbars and flicker (27dcdcb)
 - **dashboard:** save the system config through the privileged helper (478744f)
 - **dashboard:** report system config save results as toasts (4e6e8fb)
 - **dashboard:** translate the secret path rejection message (a03eee6)
@@ -22,16 +33,24 @@
 
 ### Refactors
 
+- **dashboard:** wire history.js to use the shared chart module (b7a2f0d)
 - **dashboard:** share app config staging between migration and handler (073acf3)
 
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
+- **dashboard:** describe the history tile and bump its cache busting (06a1194)
 - point the repository at the new pages and add site search (72fa46e)
 
 ### Tests
 
+- **dashboard:** smoke-check that history view tiles survive the live swap (09dbc4c)
+- **dashboard:** make the history tile smoke check rerunnable (e7229e1)
 - **dashboard:** simulate service status in the local smoke test (78e15c8)
+
+### Style
+
+- **dashboard:** gofmt settings test (cf9b0c1)
 
 ## v0.8.5 (2026-10-04)
 
