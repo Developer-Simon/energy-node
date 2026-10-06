@@ -97,3 +97,18 @@ for step in manifest["steps"]:
                  % (step["dir"], step.get("version"), versions.get("service:" + step["dir"])))
 print("ok changelog.json")
 PY
+
+# Fingerabdruecke: jeder Schritt hat einen, nur die, die bewusst je
+# Bundle-Version laufen, nicht (15 Systemupdates, 35 haengt am Port aus
+# config.json, 65 schreibt immer).
+python3 - "$extract" <<'PY'
+import json, pathlib, sys
+
+manifest = json.loads((pathlib.Path(sys.argv[1]) / "manifest.json").read_text(encoding="utf-8"))
+per_version = {"15", "35", "65"}
+for step in manifest["steps"]:
+    has = bool(step.get("fingerprint"))
+    if has == (step["id"] in per_version):
+        sys.exit("Schritt %s: fingerprint=%r" % (step["id"], step.get("fingerprint")))
+print("ok fingerprints")
+PY

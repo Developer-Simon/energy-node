@@ -1,12 +1,17 @@
 # Changelog
 
-## v0.2.0 (2026-10-05)
+## v0.2.1 (2026-10-06)
 
 ### Features
 
 - **installer:** check and install system package updates (opt-out) (#90) (d898a63)
 - **installer:** carry pending system updates into the preview and diagnose (6ad251f)
 - **installer:** check system updates on request and refresh them in the diagnose (b00f687)
+
+### Fixes
+
+- **installer:** skip unchanged steps on an update (446e9d2)
+- **installer:** skip unchanged update steps and keep the session across the restart (#102)
 
 ## v0.1.16 (2026-10-04)
 

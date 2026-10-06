@@ -62,6 +62,49 @@ out="$(bash "$verify" --bundle "$bundle" --pubkey "$tmp/pub.pem")"
 set -e
 [ "${out##*$'\n'}" = "FEHLER BUNDLE_HASH_MISMATCH" ] || fail "Verfaelschung nicht erkannt" "$out"
 
+# --- Fingerabdruck: Skript und genannte Eingaben, sonst nichts -------------
+fp_bundle="$tmp/fp"
+# fingerprint_of <aenderung>: baut ein kleines Bundle, wendet die Aenderung
+# an und gibt "<Fingerabdruck 50> <Fingerabdruck 15 oder ->" aus.
+fingerprint_of() {
+  rm -rf "$fp_bundle"
+  mkdir -p "$fp_bundle/bootstrap/lib" "$fp_bundle/wheels" "$fp_bundle/dashboard"
+  printf '# step-inputs: bootstrap/lib/step.sh wheels/\necho a\n' > "$fp_bundle/bootstrap/50-python-deps.sh"
+  printf 'echo ohne\n' > "$fp_bundle/bootstrap/15-system-upgrade.sh"
+  printf 'lib\n' > "$fp_bundle/bootstrap/lib/step.sh"
+  printf 'rad\n' > "$fp_bundle/wheels/x-1.0-py3-none-any.whl"
+  printf 'bin\n' > "$fp_bundle/dashboard/energy-node-dashboard"
+  "$1"
+  printf '{"version":"%s","steps":[{"id":"15"},{"id":"50"}]}\n' "${FP_VERSION:-v1.0.0}" \
+    > "$fp_bundle/manifest.head.json"
+  run write_bundle_manifest "$fp_bundle" >/dev/null
+  python3 -c 'import json,sys; s={x["id"]: x for x in json.load(open(sys.argv[1]))["steps"]}; print(s["50"].get("fingerprint",""), s["15"].get("fingerprint","-"))' \
+    "$fp_bundle/manifest.json"
+}
+unchanged() { :; }
+other_file() { printf neu > "$fp_bundle/dashboard/energy-node-dashboard"; }
+changed_input() { printf neu > "$fp_bundle/wheels/x-1.0-py3-none-any.whl"; }
+new_input() { printf neu > "$fp_bundle/wheels/y-1.0-py3-none-any.whl"; }
+changed_lib() { printf neu > "$fp_bundle/bootstrap/lib/step.sh"; }
+changed_script() { printf '\n' >> "$fp_bundle/bootstrap/50-python-deps.sh"; }
+typo_input() { printf '# step-inputs: gibtsnicht/\n' >> "$fp_bundle/bootstrap/50-python-deps.sh"; }
+
+base="$(fingerprint_of unchanged)"
+[ "${base% *}" != "" ] || fail "Schritt mit step-inputs ohne Fingerabdruck" "$base"
+[ "${base#* }" = "-" ] || fail "Schritt ohne step-inputs hat einen Fingerabdruck" "$base"
+[ "$(FP_VERSION=v2.0.0 fingerprint_of unchanged)" = "$base" ] || fail "Fingerabdruck haengt an der Bundle-Version"
+[ "$(fingerprint_of other_file)" = "$base" ] || fail "nicht genannte Datei aendert den Fingerabdruck"
+[ "$(fingerprint_of changed_input)" != "$base" ] || fail "geaenderte Eingabe aendert den Fingerabdruck nicht"
+[ "$(fingerprint_of new_input)" != "$base" ] || fail "neue Datei unter einem Eingabe-Verzeichnis aendert den Fingerabdruck nicht"
+[ "$(fingerprint_of changed_lib)" != "$base" ] || fail "geaenderte Bibliothek aendert den Fingerabdruck nicht"
+[ "$(fingerprint_of changed_script)" != "$base" ] || fail "geaendertes Skript aendert den Fingerabdruck nicht"
+
+set +e
+out="$(fingerprint_of typo_input 2>&1)"
+rc=$?
+set -e
+[ "$rc" -ne 0 ] || fail "Tippfehler in step-inputs nicht bemaengelt" "$out"
+
 # --- fehlende Kopfdatei ---------------------------------------------------
 set +e
 run write_bundle_manifest "$tmp/leer" 2>/dev/null

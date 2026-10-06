@@ -144,6 +144,7 @@ func main() {
 		candidateBundleDir:    candidateDir,
 		installedManifestPath: filepath.Join(installerStateDir, "installed-manifest.json"),
 		selectionPath:         filepath.Join(installerStateDir, "selection.json"),
+		stepsDir:              filepath.Join(installerStateDir, "steps"),
 		jobDir:                jobDir,
 		prepare:               prepare,
 		pageToken:             httpapi.SessionCSRFToken(authManager),

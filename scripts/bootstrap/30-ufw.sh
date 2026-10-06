@@ -8,6 +8,9 @@
 # Shelly-Wake-Webhooks steht bewusst NICHT hier: er nimmt Anfragen aus dem
 # LAN an, die Freigabe muss der Betreiber im Installer ausdruecklich erteilen
 # (Opt-in-Schritt 35).
+# Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
+# sie gleich bleiben, ueberspringt ein Update diesen Schritt.
+# step-inputs: bootstrap/lib/step.sh
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"

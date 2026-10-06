@@ -42,7 +42,10 @@ service_step() {
     step_skip "nicht ausgewaehlt"
     return 0
   fi
-  if step_done "${id}"; then
+  # "Alle Dienste neu starten" (EN_RESTART=all) muss auch einen Dienst
+  # erreichen, dessen Eingaben sich nicht geaendert haben. Der Lauf ist
+  # idempotent, er legt nur dieselben Dateien noch einmal ab.
+  if [[ "${EN_RESTART:-}" != all ]] && step_done "${id}"; then
     step_skip "bereits erledigt"
     return 0
   fi
@@ -93,7 +96,8 @@ service_step() {
   # ein Update laesst laufende Dienste in Ruhe, die sich nicht geaendert haben
   # (restart_rule.py). Eine gestoppte Unit wird immer gestartet - restart tut
   # das ebenfalls, ein Lauf ist also fuer Erstinstallation und Update derselbe.
-  # Der Koerper laeuft nur einmal je Bundle-Version (step_done).
+  # Der Koerper laeuft nur, wenn sich die Eingaben des Schritts geaendert
+  # haben (step_done, Fingerabdruck) oder EN_RESTART=all gesetzt ist.
   local reason
   reason="$(service_restart_reason "${id}")"
   "${SUDO[@]}" systemctl enable "${unit}" || step_fail SERVICE_START_FAILED

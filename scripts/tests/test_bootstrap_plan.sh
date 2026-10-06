@@ -109,4 +109,22 @@ set -e
 [ "$rc" -eq 1 ] || fail "fehlendes Manifest nicht gemeldet" "$rc"
 [ "${out##*$'\n'}" = "FEHLER BUNDLE_MANIFEST_MISSING" ] || fail "falscher Code" "$out"
 
+# --- Fingerabdruck: ein gleicher haelt den Stempel ueber ein Update ---------
+fp="$tmp/fp"
+mkdir -p "$fp/bundle" "$fp/state/steps"
+cat > "$fp/bundle/manifest.json" <<'JSON'
+{ "version": "v0.3.0", "steps": [
+  { "id": "20", "optional": false, "fingerprint": "aaa" },
+  { "id": "30", "optional": false, "fingerprint": "ccc" },
+  { "id": "65", "optional": false } ] }
+JSON
+printf 'bundle=v0.2.0\nfingerprint=aaa\n' > "$fp/state/steps/20"
+printf 'bundle=v0.2.0\nfingerprint=bbb\n' > "$fp/state/steps/30"
+printf 'bundle=v0.2.0\n' > "$fp/state/steps/65"
+out="$(EN_STATE_DIR="$fp/state" EN_BUNDLE_DIR="$fp/bundle" EN_BUNDLE_VERSION=v0.3.0 \
+  EN_SELECTION="$fp/none.json" bash "$script")"
+[ "$(get 'd["steps"][0]["state"]')" = "done" ] || fail "gleicher Fingerabdruck nicht done" "$out"
+[ "$(get 'd["steps"][1]["state"]')" = "pending" ] || fail "anderer Fingerabdruck nicht pending" "$out"
+[ "$(get 'd["steps"][2]["state"]')" = "pending" ] || fail "ohne Fingerabdruck alter Stempel nicht pending" "$out"
+
 echo "OK: $(basename "$0")"

@@ -8,6 +8,9 @@
 # aufzurufen: das kennt keinen stdin-Weg - das Passwort kommt vom Terminal
 # oder mit -b als Argument, und ein Argument stuende in /proc/<pid>/cmdline
 # und waere fuer jeden lokalen Benutzer lesbar.
+# Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
+# sie gleich bleiben, ueberspringt ein Update diesen Schritt.
+# step-inputs: bootstrap/lib/step.sh
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"

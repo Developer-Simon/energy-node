@@ -554,3 +554,36 @@ func TestSystemUpdatesRefreshIsNotSupportedOnTheDashboard(t *testing.T) {
 		t.Fatalf("err = %#v, want NOT_SUPPORTED 501", err)
 	}
 }
+
+func TestPlanReportsStepsWhoseStampStillHoldsAsDone(t *testing.T) {
+	cfg := setupNode(t)
+	manifest := `{"version":"1.5.0","components":{},"steps":[
+		{"id":"20","optional":false,"fingerprint":"aaa"},
+		{"id":"30","optional":false,"fingerprint":"ccc"},
+		{"id":"65","optional":false},
+		{"id":"70","optional":false}]}`
+	if err := os.WriteFile(filepath.Join(cfg.CandidateBundleDir, "manifest.json"), []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg.StepsDir = filepath.Join(t.TempDir(), "steps")
+	os.MkdirAll(cfg.StepsDir, 0o755)
+	for id, stamp := range map[string]string{
+		"20": "bundle=1.4.0\nzeit=x\nfingerprint=aaa\n", // same inputs, older bundle
+		"30": "bundle=1.4.0\nzeit=x\nfingerprint=bbb\n", // inputs changed
+		"65": "bundle=1.5.0\nzeit=x\n",                  // no fingerprint, same bundle
+		"70": "bundle=1.4.0\nzeit=x\n",                  // no fingerprint, older bundle
+	} {
+		os.WriteFile(filepath.Join(cfg.StepsDir, id), []byte(stamp), 0o644)
+	}
+	host, _ := updaterhost.New(cfg)
+	view, err := host.Plan(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]string{"20": "done", "30": "pending", "65": "done", "70": "pending"}
+	for _, s := range view.Steps {
+		if s.State != want[s.ID] {
+			t.Errorf("step %s state = %q, want %q", s.ID, s.State, want[s.ID])
+		}
+	}
+}

@@ -17,6 +17,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
@@ -45,6 +46,11 @@ type Config struct {
 	InstalledManifestPath string
 	SelectionPath         string
 	JobDir                string
+	// StepsDir holds the step stamps the bootstrap scripts write
+	// (lib/step.sh). Plan reads them to report a step whose stamp still
+	// holds as "done", the same rule plan.sh applies. Empty reports every
+	// selected step as pending.
+	StepsDir string
 	// Prepare fetches the newest package into CandidateBundleDir (see
 	// internal/bundlefetch). It is called for hostapi.ModePrepare and gets a
 	// callback that notes each stage as a catalog key. Nil means this host
@@ -71,6 +77,10 @@ type candidateManifest struct {
 		Unit      string `json:"unit"`
 		Version   string `json:"version"`
 		Requires  string `json:"requires,omitempty"`
+		// Fingerprint covers the step's script and inputs (see
+		// scripts/build/lib/manifest.sh). Empty for steps that run once per
+		// bundle version.
+		Fingerprint string `json:"fingerprint,omitempty"`
 	} `json:"steps"`
 }
 
@@ -211,6 +221,8 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 		state := "pending"
 		if !selected {
 			state = "deselected"
+		} else if h.stamped(s.ID, s.Fingerprint, candidate.Version) {
+			state = "done"
 		}
 		ps := hostapi.PlanStep{ID: s.ID, Optional: s.Optional, Selected: selected, State: state, Unit: s.Unit, To: s.Version}
 		if s.Dir != "" {
@@ -228,6 +240,29 @@ func (h *Host) Plan(context.Context) (*hostapi.PlanView, error) {
 		view.Steps = append(view.Steps, ps)
 	}
 	return view, nil
+}
+
+// stamped mirrors step_done in lib/step.sh: with a fingerprint the stamp
+// holds while it carries the same one, without one only a stamp of the
+// same bundle version counts. An unreadable stamp counts as not done.
+func (h *Host) stamped(id, fingerprint, bundleVersion string) bool {
+	if h.cfg.StepsDir == "" {
+		return false
+	}
+	raw, err := os.ReadFile(filepath.Join(h.cfg.StepsDir, id))
+	if err != nil {
+		return false
+	}
+	want := "bundle=" + bundleVersion
+	if fingerprint != "" {
+		want = "fingerprint=" + fingerprint
+	}
+	for _, line := range strings.Split(string(raw), "\n") {
+		if line == want {
+			return true
+		}
+	}
+	return false
 }
 
 // systemUpdatesTimeout begrenzt die Simulation. apt_pending.py bricht
