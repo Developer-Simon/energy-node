@@ -1580,6 +1580,8 @@
   "overview.history.views_label": "Saved history views",
   "overview.history_view.default_title": "History",
   "overview.history_view.missing": "This history view no longer exists. Choose another one in the layout editor.",
+  "overview.history_view.no_store": "This browser does not store any history.",
+  "overview.history_view.read_failed": "Could not read the history: {message}",
   "overview.installation.title": "Installation",
   "overview.page.default_name": "Overview",
   "overview.page.error.editor_load_failed": "The editor could not be loaded. Check the connection and try again.",

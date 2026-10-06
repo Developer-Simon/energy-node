@@ -1058,6 +1058,14 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
 .energy-day-legend { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: .6rem; color: var(--text-subtle); font-size: .85rem; }
 .energy-day-legend span { display: inline-flex; gap: .35rem; align-items: center; }
 .energy-day-legend i { width: .7rem; height: .7rem; border-radius: 2px; display: inline-block; }
+/* history_view: Verlaufskachel. Die Hoehe kommt aus dem Raster
+   (FillsHeight), ApexCharts zeichnet mit height:'100%' in .history-view-plot. */
+.history-view-card { height: 100%; box-sizing: border-box; display: flex; flex-direction: column; gap: .5rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
+.history-view-head { display: flex; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.history-view-head h3 { margin: 0; font-size: 1rem; overflow-wrap: anywhere; }
+.history-view-range { color: var(--text-muted); font-size: .8rem; white-space: nowrap; }
+.history-view-status { margin: 0; color: var(--text-muted); font-size: .85rem; }
+.history-view-plot { flex: 1 1 auto; min-height: 10rem; }
 .license-footer { margin-top: 2.5rem; padding-top: .75rem; border-top: 1px solid var(--border-soft); color: var(--text-muted); font-size: .8rem; }
 .license-footer p { margin: 0; }
 /* Systemstatus-Zeile (base.html). Ambientes Panel zwischen Masthead und Nav -

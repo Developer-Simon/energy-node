@@ -1580,6 +1580,8 @@
   "overview.history.views_label": "Gespeicherte Verlaufssichten",
   "overview.history_view.default_title": "Verlauf",
   "overview.history_view.missing": "Diese Verlaufssicht gibt es nicht mehr. Im Baukasten eine andere wählen.",
+  "overview.history_view.no_store": "Dieser Browser speichert keinen Verlauf.",
+  "overview.history_view.read_failed": "Der Verlauf konnte nicht gelesen werden: {message}",
   "overview.installation.title": "Anlage",
   "overview.page.default_name": "Übersicht",
   "overview.page.error.editor_load_failed": "Der Editor konnte nicht geladen werden. Verbindung prüfen und erneut versuchen.",
