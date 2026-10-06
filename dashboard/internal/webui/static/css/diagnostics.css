@@ -1,21 +1,340 @@
-/* Diagnose-Panel: die Gesundheits-Tabelle (diagnostics.html). Aus base.css
-   verlagert (CSS-Split 2026-09) - wird per data-panel-css nur mit dem
-   Diagnose-Tab geladen. .table-scroll bleibt in base.css (auch die
-   Geraeteseite nutzt es).
+/* Diagnose-Panel (diagnostics.html). Wird per data-panel-css nur mit dem
+   Diagnose-Tab geladen, zusammen mit settings-controls.css (.segmented).
+   .table-scroll bleibt in base.css (auch die Geraeteseite nutzt es).
 
    .diagnostics-summary-* (die Overview-Kachel) ist bewusst NICHT hier - die
-   steht weiter in base.css, weil die Uebersicht sie sofort braucht. */
-.diagnostics-health { margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--accent); background: var(--panel); }
-.diagnostics-health-header { display: flex; justify-content: space-between; gap: 1rem; align-items: flex-start; flex-wrap: wrap; }
-.diagnostics-health-header h3 { margin: 0 0 .25rem; color: var(--text); }
-.diagnostics-health-subtitle { margin: 0; color: var(--text-muted); }
-.diagnostics-health-count { color: var(--text-subtle); font-size: .9rem; }
-.diagnostics-health-table { margin: 1rem 0 0; min-width: 42rem; }
-.diagnostics-health-table th { color: var(--text-subtle); font-weight: 500; text-align: left; }
-.diagnostics-health-table td, .diagnostics-health-table th { padding: .55rem .65rem; }
-.diagnostics-device-link { padding: 0; border: 0; background: transparent; color: var(--accent); cursor: pointer; text-decoration: underline; }
-.diagnostics-health-status { display: inline-block; padding: .25rem .5rem; border-radius: 999px; font-size: .82rem; font-weight: 600; white-space: nowrap; }
-.diagnostics-health-status-healthy { color: var(--ok); background: var(--ok-bg); }
-.diagnostics-health-status-degraded { color: var(--warn); background: var(--warn-bg); }
-.diagnostics-health-status-unhealthy, .diagnostics-health-status-critical { color: var(--bad); background: var(--bad-bg); }
-.diagnostics-health-status-unknown { color: var(--text-subtle); background: var(--track); }
+   steht weiter in base.css, weil die Uebersicht sie sofort braucht.
+
+   Aufbau nach Dringlichkeit: Kopfzeile mit einem Satz zum Gesamtzustand,
+   darunter die Geraete als Karten (schlechtestes zuerst) und die Meldungen
+   nach Ursache gruppiert. Nur Theme-Tokens aus base.css. */
+
+#diagnostics-panel { container: diagnostics / inline-size; }
+
+/* --- Kopf ----------------------------------------------------------------- */
+.diag-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: .6rem 1rem;
+  flex-wrap: wrap;
+}
+.diag-head h2 { margin-bottom: .3rem; }
+.diag-headline {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin: 0;
+  color: var(--text-strong);
+  font-size: 1.05rem;
+  font-weight: 500;
+  letter-spacing: -.01em;
+}
+.diag-headline-dot {
+  flex: none;
+  width: .6rem;
+  height: .6rem;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background-color .3s var(--ease-out), box-shadow .3s var(--ease-out);
+}
+.diag-tone-ok .diag-headline-dot { background: var(--ok); box-shadow: 0 0 0 .22rem color-mix(in srgb, var(--ok) 22%, transparent); }
+.diag-tone-warn .diag-headline-dot { background: var(--warn); box-shadow: 0 0 0 .22rem color-mix(in srgb, var(--warn) 22%, transparent); }
+.diag-tone-bad .diag-headline-dot { background: var(--bad); box-shadow: 0 0 0 .22rem color-mix(in srgb, var(--bad) 22%, transparent); }
+
+.diag-head-actions { display: flex; align-items: center; gap: .75rem; }
+.diag-checked { color: var(--text-muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+
+/* Pillenknopf wie .layout-btn. Das Icon dreht sich nur, solange geladen
+   wird, und haelt danach an derselben Stelle an (kein Zuruckspringen). */
+.diag-refresh {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .38rem .85rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text-subtle);
+  font-size: .88rem;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background-color .15s ease, transform .11s var(--layout-ease);
+}
+.diag-refresh:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--accent-line); color: var(--accent-soft); }
+.diag-refresh:active:not(:disabled) { transform: scale(.97); }
+.diag-refresh:disabled { opacity: 1; cursor: progress; }
+.diag-refresh.is-loading .automation-icon { animation: diag-spin .9s linear infinite; }
+@keyframes diag-spin { to { transform: rotate(-360deg); } }
+
+/* --- Status-Chips (Discovery) -------------------------------------------- */
+.diag-chips { display: flex; flex-wrap: wrap; gap: .5rem; margin: .9rem 0 0; }
+.diag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem .7rem .3rem .55rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--text);
+  font-size: .84rem;
+}
+.diag-chip .automation-icon { width: 1rem; height: 1rem; }
+.diag-chip-ok .automation-icon { color: var(--ok); }
+.diag-chip-bad { border-color: var(--bad-line); background: var(--bad-bg); }
+.diag-chip-bad .automation-icon { color: var(--bad); }
+.diag-chip-detail { color: var(--text-muted); }
+
+/* --- Glas-Karte (wie .setting-card) --------------------------------------- */
+.diag-card,
+.diag-device,
+.diag-group {
+  box-sizing: border-box;
+  border: 1px solid var(--border-soft);
+  border-top-color: rgba(255, 255, 255, .13);
+  border-radius: var(--radius-lg);
+  background: var(--panel);
+  background: color-mix(in srgb, var(--panel) 68%, transparent);
+  backdrop-filter: blur(18px) saturate(150%);
+  -webkit-backdrop-filter: blur(18px) saturate(150%);
+  box-shadow: 0 .3rem 1rem rgba(0, 0, 0, .12);
+}
+.diag-card { margin-top: 1rem; padding: 1rem 1.1rem 1.1rem; border-left: 3px solid var(--bad-line); }
+.diag-card-title { margin: 0 0 .4rem; font-size: 1rem; font-weight: 600; color: var(--text-strong); }
+.discovery-diagnostics-summary { display: flex; gap: 1rem; color: var(--text-muted); font-size: .88rem; }
+
+/* --- Abschnitte ---------------------------------------------------------- */
+.diag-section { margin-top: 1.8rem; }
+.diag-section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; }
+.diag-section-head h3 { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -.01em; color: var(--text-strong); }
+.diag-section-meta { color: var(--text-muted); font-size: .85rem; font-variant-numeric: tabular-nums; }
+.diag-section-note { margin: .25rem 0 0; color: var(--text-subtle); font-size: .85rem; font-weight: 450; letter-spacing: .01em; }
+.diag-empty { display: flex; align-items: center; gap: .5rem; margin: 1rem 0 0; color: var(--text-muted); }
+.diag-empty .automation-icon { color: var(--ok); }
+
+/* --- Geraetekarten ------------------------------------------------------- */
+.diag-device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+  gap: .75rem;
+  margin-top: .9rem;
+}
+.diag-device {
+  --ring: var(--text-faint);
+  display: flex;
+  align-items: center;
+  gap: .8rem;
+  width: 100%;
+  padding: .8rem .9rem;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color .2s var(--ease-out), background-color .2s var(--ease-out), transform .12s var(--layout-ease);
+}
+.diag-device.diagnostics-health-status-healthy { --ring: var(--ok); }
+.diag-device.diagnostics-health-status-degraded { --ring: var(--warn); }
+.diag-device.diagnostics-health-status-unhealthy,
+.diag-device.diagnostics-health-status-critical { --ring: var(--bad); }
+.diag-device:hover:not(:disabled) { border-color: var(--accent-line); background: color-mix(in srgb, var(--panel-alt) 80%, transparent); color: var(--text); }
+/* Rueckmeldung schon beim Druecken, nicht erst beim Loslassen. */
+.diag-device:active { transform: scale(.98); transition-duration: .08s; }
+.diag-device.is-selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), 0 .3rem 1rem rgba(0, 0, 0, .12); }
+
+/* Score als Ring: conic-gradient fuellt den Anteil, die Maske stanzt die
+   Mitte aus. Der Wert selbst steht darin, damit die Zahl nicht nur ueber
+   Farbe lesbar ist. */
+.diag-ring {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  color: var(--text-strong);
+  font-size: .82rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.diag-ring::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(var(--ring) calc(var(--score, 0) * 1%), var(--track) 0);
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 4px), #000 calc(100% - 3px));
+}
+.diag-device-body { display: flex; flex-direction: column; align-items: flex-start; gap: .25rem; min-width: 0; }
+.diag-device-name { max-width: 100%; overflow: hidden; color: var(--text-strong); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.diag-device-meta { display: flex; flex-wrap: wrap; gap: 0 .6rem; color: var(--text-muted); font-size: .78rem; font-variant-numeric: tabular-nums; }
+
+.diag-device-seen { display: inline-flex; align-items: center; gap: .25rem; }
+.diag-device-seen .automation-icon { width: .8rem; height: .8rem; }
+
+.diagnostics-health-status { display: inline-block; padding: .12rem .5rem; border-radius: 999px; font-size: .74rem; font-weight: 600; white-space: nowrap; }
+.diagnostics-health-status.diagnostics-health-status-healthy { color: var(--ok); background: var(--ok-bg); }
+.diagnostics-health-status.diagnostics-health-status-degraded { color: var(--warn); background: var(--warn-bg); }
+.diagnostics-health-status.diagnostics-health-status-unhealthy,
+.diagnostics-health-status.diagnostics-health-status-critical { color: var(--bad); background: var(--bad-bg); }
+.diagnostics-health-status.diagnostics-health-status-unknown { color: var(--text-subtle); background: var(--track); }
+
+/* --- Werkzeugleiste ------------------------------------------------------ */
+.diag-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: .6rem .8rem; margin-top: .9rem; }
+.diag-toolbar .segmented { margin-top: 0; }
+.diag-severity { min-width: min(100%, 22rem); }
+.diag-view { margin-left: auto; min-width: 12rem; }
+.diag-count { margin-left: .2rem; color: var(--text-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.segmented-option:has(input:checked) .diag-count { color: inherit; opacity: .75; }
+
+.diag-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  padding: .32rem .45rem .32rem .75rem;
+  border: 1px solid var(--accent-line);
+  border-radius: 999px;
+  background: var(--accent-bg);
+  color: var(--accent-soft);
+  font-size: .85rem;
+  cursor: pointer;
+}
+.diag-filter-chip .automation-icon { width: .95rem; height: .95rem; }
+.diag-filter-chip:hover:not(:disabled) { background: var(--accent-bg); border-color: var(--accent); color: var(--accent); }
+.diag-filter-chip:active { transform: scale(.97); }
+
+/* --- Schweregrad-Farben -------------------------------------------------- */
+.diag-severity-critical { --sev: var(--bad); --sev-bg: var(--bad-bg); --sev-line: var(--bad-line); }
+.diag-severity-warning { --sev: var(--warn); --sev-bg: var(--warn-bg); --sev-line: var(--warn-line); }
+.diag-severity-info { --sev: var(--info); --sev-bg: var(--info-bg); --sev-line: var(--info-line); }
+.diag-severity-pill {
+  display: inline-block;
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  background: var(--sev-bg, var(--track));
+  color: var(--sev, var(--text-subtle));
+  font-size: .72rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  white-space: nowrap;
+}
+
+/* --- Gruppen nach Ursache ------------------------------------------------ */
+.diag-groups { display: grid; gap: .75rem; margin-top: 1rem; }
+.diag-group { overflow: hidden; border-left: 3px solid var(--sev-line, var(--border)); }
+.diag-group-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: .85rem;
+  padding: .85rem 1rem;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.diag-group-head::-webkit-details-marker { display: none; }
+.diag-group-head:hover { background: color-mix(in srgb, var(--panel-alt) 60%, transparent); }
+.diag-group-head:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: var(--radius-lg); }
+.diag-group-icon {
+  display: grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-sm);
+  background: var(--sev-bg, var(--track));
+  color: var(--sev, var(--text-subtle));
+}
+.diag-group-text { display: flex; flex-direction: column; gap: .15rem; min-width: 0; }
+.diag-group-title { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; color: var(--text-strong); font-weight: 600; }
+.diag-group-message { color: var(--text-subtle); font-size: .86rem; }
+.diag-group-count { color: var(--text-muted); font-size: .85rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.diag-group-chevron { color: var(--text-muted); transition: transform .3s var(--layout-ease); }
+.diag-group[open] .diag-group-chevron { transform: rotate(90deg); }
+
+/* Aufklappen mit Hoehe statt Teleport, wo der Browser es kann
+   (interpolate-size + ::details-content). Ohne Unterstuetzung klappt es
+   einfach ohne Bewegung auf. */
+.diag-group { interpolate-size: allow-keywords; }
+.diag-group::details-content {
+  block-size: 0;
+  overflow: clip;
+  transition: block-size .32s var(--layout-ease), content-visibility .32s allow-discrete;
+}
+.diag-group[open]::details-content { block-size: auto; }
+
+.diag-group-body { padding: 0 1rem 1rem calc(1rem + 2rem + .85rem); }
+.diag-group-hint { display: flex; flex-wrap: wrap; gap: .2rem .6rem; margin: 0 0 .75rem; color: var(--text); font-size: .9rem; }
+.diag-group-hint-label { color: var(--text-muted); font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; line-height: 1.6rem; }
+.diag-group-devices { display: grid; gap: .55rem; margin: 0; padding: 0; list-style: none; }
+.diag-group-device { display: grid; grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr); gap: .3rem .8rem; align-items: baseline; padding-top: .55rem; border-top: 1px solid var(--border-soft); }
+.diag-device-link {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--accent-soft);
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+}
+.diag-device-link:hover:not(:disabled) { background: transparent; color: var(--accent); text-decoration: underline; }
+.diag-device-link[aria-pressed="true"] { color: var(--accent); text-decoration: underline; }
+.diag-entities { display: flex; flex-wrap: wrap; gap: .35rem; }
+.diag-entity {
+  padding: .12rem .45rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 6px;
+  background: var(--sunken);
+  color: var(--text-subtle);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .78rem;
+  overflow-wrap: anywhere;
+}
+
+/* --- Liste --------------------------------------------------------------- */
+.diag-list { margin-top: 1rem; border: 1px solid var(--border-soft); border-radius: var(--radius-lg); }
+.diag-list table { min-width: 44rem; margin: 0; }
+.diag-list th, .diag-list td { border: 0; border-bottom: 1px solid var(--border-soft); padding: .6rem .75rem; vertical-align: top; }
+.diag-list tbody tr:last-child td { border-bottom: 0; }
+.diag-list th { background: transparent; color: var(--text-muted); font-size: .72rem; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.diag-sort { padding: 0; border: 0; background: transparent; color: inherit; font: inherit; letter-spacing: inherit; text-transform: inherit; cursor: pointer; }
+.diag-sort:hover:not(:disabled) { background: transparent; color: var(--text); }
+th[aria-sort="ascending"] .diag-sort::after { content: " \2191"; }
+th[aria-sort="descending"] .diag-sort::after { content: " \2193"; }
+th[aria-sort="ascending"], th[aria-sort="descending"] { color: var(--text); }
+.diag-list .diag-entity { white-space: nowrap; overflow-wrap: normal; }
+.diag-list-rule { display: block; color: var(--text-strong); font-weight: 500; }
+.diag-list-message { display: block; color: var(--text-muted); font-size: .84rem; }
+
+/* --- Schmal -------------------------------------------------------------- */
+@container diagnostics (max-width: 40rem) {
+  .diag-view { margin-left: 0; }
+  .diag-severity, .diag-view { box-sizing: border-box; width: 100%; min-width: 0; }
+  /* Karten werden zu kompakten Zeilen: Name und Status nebeneinander,
+     sonst ergeben zehn Geraete eine Saeule ueber mehrere Bildschirme. */
+  .diag-device-grid { grid-template-columns: 1fr; gap: .45rem; }
+  .diag-device { gap: .7rem; padding: .55rem .75rem; border-radius: var(--radius-md); }
+  .diag-ring { width: 2.2rem; height: 2.2rem; font-size: .74rem; }
+  .diag-device-body { flex-direction: row; flex-wrap: wrap; align-items: center; gap: .15rem .5rem; }
+  .diag-device-meta { flex-basis: 100%; }
+  .diag-group-head { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .diag-group-count { grid-column: 2; grid-row: 2; }
+  .diag-group-chevron { grid-column: 3; grid-row: 1; }
+  .diag-group-body { padding-left: 1rem; }
+  .diag-group-device { grid-template-columns: 1fr; }
+}
+
+/* --- Barrierefreiheit ---------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  .diag-refresh.is-loading .automation-icon { animation: none; }
+  .diag-group::details-content { transition: none; }
+  .diag-group-chevron, .diag-device, .diag-refresh { transition: none; }
+  .diag-device:active, .diag-refresh:active:not(:disabled), .diag-filter-chip:active { transform: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .diag-card, .diag-device, .diag-group { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft); }
+}
+@media (prefers-contrast: more) {
+  .diag-card, .diag-device, .diag-group { background: var(--panel); border-color: var(--border); }
+}

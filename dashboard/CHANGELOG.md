@@ -9,6 +9,7 @@
 - **installer:** check and install system package updates (opt-out) (#90) (d898a63)
 - **dashboard:** show the config service status as a pill (#98) (d639c36)
 - **dashboard:** add history view tiles to the overview layout (#99) (4c2ee2a)
+- **dashboard:** redesign the diagnostics tab (#101)
 - **dashboard:** add the history_view layout item type (32d4476)
 - **dashboard:** render history_view tiles on the overview (bfd09b7)
 - **dashboard:** add shared history chart module (2a1738f)
