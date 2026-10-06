@@ -8,7 +8,8 @@ from homeassistant.components.frontend import DATA_PANELS
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.energy_node_companion.const import (
-    CONF_HISTORY, CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS, PANEL_ALL, PANEL_OFF, panel_url_path,
+    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS,
+    PANEL_ALL, PANEL_OFF, panel_url_path,
 )
 
 BASE = Path(__file__).resolve().parents[1] / "custom_components/energy_node_companion"
@@ -42,6 +43,7 @@ async def test_panel_for_all_users(hass):
     assert panel is not None
     assert panel.require_admin is False
     assert panel.sidebar_title == "Energy Node"
+    assert panel.sidebar_icon == "mdi:solar-power-variant"
     assert panel.config["entry_id"] == entry.entry_id
     custom = panel.config["_panel_custom"]
     assert custom["name"] == "energy-node-panel"
@@ -89,10 +91,12 @@ async def test_options_flow_switches_visibility(hass):
 
 
 async def test_options_flow_shows_the_current_values(hass):
-    entry = await _setup(hass, {CONF_HISTORY: False, CONF_PANEL: PANEL_ADMINS})
+    entry = await _setup(hass, {CONF_HISTORY: False, CONF_PANEL: PANEL_ADMINS, CONF_PANEL_TITLE: "Strom"})
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert _suggested(result, CONF_HISTORY) is False
     assert _suggested(result, CONF_PANEL) == PANEL_ADMINS
+    assert _suggested(result, CONF_PANEL_TITLE) == "Strom"
+    assert _suggested(result, CONF_PANEL_ICON) == "mdi:solar-power-variant"
 
 
 async def test_options_flow_starts_with_everything_on(hass):
@@ -100,6 +104,7 @@ async def test_options_flow_starts_with_everything_on(hass):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert _suggested(result, CONF_HISTORY) is True
     assert _suggested(result, CONF_PANEL) == PANEL_ALL
+    assert _suggested(result, CONF_PANEL_TITLE) == "Energy Node"
 
 
 async def test_options_flow_needs_history_or_panel(hass):
@@ -108,6 +113,21 @@ async def test_options_flow_needs_history_or_panel(hass):
     assert result["type"] == "form"
     assert result["errors"] == {"base": "nothing_enabled"}
     assert entry.options == {}
+
+
+async def test_options_flow_sets_name_and_icon(hass):
+    entry = await _setup(hass)
+    await _options(hass, entry, {CONF_PANEL: PANEL_ALL, CONF_PANEL_TITLE: "Strom", CONF_PANEL_ICON: "mdi:flash"})
+    panel = _panel(hass, entry)
+    assert panel.sidebar_title == "Strom"
+    assert panel.sidebar_icon == "mdi:flash"
+
+
+async def test_empty_name_and_icon_fall_back_to_the_defaults(hass):
+    entry = await _setup(hass, {CONF_PANEL_TITLE: "", CONF_PANEL_ICON: ""})
+    panel = _panel(hass, entry)
+    assert panel.sidebar_title == "Energy Node"
+    assert panel.sidebar_icon == "mdi:solar-power-variant"
 
 
 async def test_history_off_starts_no_peer(hass):

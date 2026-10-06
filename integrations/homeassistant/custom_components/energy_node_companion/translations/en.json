@@ -33,14 +33,18 @@
     "step": {
       "init": {
         "title": "Energy Node Companion",
-        "description": "Choose what the integration does. History or sidebar must stay on.",
+        "description": "Choose what the integration does. History or sidebar must stay on. Name and icon apply to the sidebar entry.",
         "data": {
           "history": "Supply history",
-          "panel": "Sidebar"
+          "panel": "Sidebar",
+          "panel_title": "Name in the sidebar",
+          "panel_icon": "Icon in the sidebar"
         },
         "data_description": {
           "history": "Fills gaps in the dashboard's history charts from the recorder.",
-          "panel": "Shows the dashboard in the Home Assistant sidebar, for all users or only for administrators."
+          "panel": "Shows the dashboard in the Home Assistant sidebar, for all users or only for administrators.",
+          "panel_title": "Empty uses Energy Node.",
+          "panel_icon": "Empty uses the solar icon."
         }
       }
     },

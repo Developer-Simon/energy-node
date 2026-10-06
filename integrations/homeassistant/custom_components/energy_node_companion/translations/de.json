@@ -33,14 +33,18 @@
     "step": {
       "init": {
         "title": "Energy Node Companion",
-        "description": "Wähle, was die Integration tut. Verläufe oder Seitenleiste muss eingeschaltet bleiben.",
+        "description": "Wähle, was die Integration tut. Verläufe oder Seitenleiste muss eingeschaltet bleiben. Name und Symbol gelten für den Eintrag in der Seitenleiste.",
         "data": {
           "history": "Verläufe liefern",
-          "panel": "Seitenleiste"
+          "panel": "Seitenleiste",
+          "panel_title": "Name in der Seitenleiste",
+          "panel_icon": "Symbol in der Seitenleiste"
         },
         "data_description": {
           "history": "Füllt Lücken in den Verlaufsdiagrammen des Dashboards aus dem Recorder.",
-          "panel": "Zeigt das Dashboard in der Seitenleiste von Home Assistant, für alle Benutzer oder nur für Administratoren."
+          "panel": "Zeigt das Dashboard in der Seitenleiste von Home Assistant, für alle Benutzer oder nur für Administratoren.",
+          "panel_title": "Leer bedeutet Energy Node.",
+          "panel_icon": "Leer bedeutet das Solar-Symbol."
         }
       }
     },

@@ -15,7 +15,7 @@ from homeassistant.helpers.typing import ConfigType
 
 from .client import DashboardClient
 from .const import (
-    CONF_HISTORY, CONF_PANEL, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS,
+    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS,
     PANEL_ALL, PANEL_OFF, PANEL_ELEMENT, PANEL_ICON, PANEL_JS_VERSION, PANEL_TITLE, STATIC_URL, panel_url_path,
 )
 from .panel_access import PanelSessions
@@ -69,8 +69,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass,
             frontend_url_path=url_path,
             webcomponent_name=PANEL_ELEMENT,
-            sidebar_title=PANEL_TITLE,
-            sidebar_icon=PANEL_ICON,
+            # Ein leeres Feld faellt auf den Standard zurueck.
+            sidebar_title=entry.options.get(CONF_PANEL_TITLE) or PANEL_TITLE,
+            sidebar_icon=entry.options.get(CONF_PANEL_ICON) or PANEL_ICON,
             module_url=f"{STATIC_URL}/energy-node-panel.js?v={PANEL_JS_VERSION}",
             config={"entry_id": entry.entry_id},
             require_admin=mode == PANEL_ADMINS,
