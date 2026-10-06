@@ -20,6 +20,7 @@ Weiterleitung zwischen Clients, keine Authentifizierung. Nichts davon wird fuer
 den Smoke-Test gebraucht. Nicht ausserhalb von Tests verwenden.
 
     python3 minibroker.py [PORT] [FIXTURE.json] [--simulate]
+                          [--service-status DEVICES_DIR] [--reject-config NAME ...]
 
 PORT       Standard 18883.
 FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
@@ -34,7 +35,20 @@ FIXTURE    JSON-Liste aus {"topic": ..., "payload": ...}; payload darf ein
            Browser eine echte Bewegung statt einer flachen Linie. Topics, die
            die geladene Fixture nicht kennt, werden stillschweigend
            uebersprungen - mit anderen Fixtures ist --simulate ein No-Op.
+--service-status DEVICES_DIR
+           Spielt die Dienste, die ihre Konfiguration laden: liest jede
+           Sekunde die *_devices.json und automation_rules.json im Ordner
+           und meldet je Dienst retained outstation/<id>/settings/status mit
+           der SHA-256 der Datei als config_revision, dazu status/online "1".
+           So zeigt die Konfigurationsseite ihren Dienststatus, auch nach
+           einem Speichern (erst Ausstehend, dann Angewendet). Ein Herzschlag
+           alle SERVICE_HEARTBEAT Sekunden haelt die Dienste "active".
+--reject-config NAME
+           Meldet die Konfiguration NAME (z. B. battery_soc_devices) als
+           abgelehnt: runtime_status "rejected", applied_revision bleibt die
+           zuletzt angenommene Fassung. Mehrfach angebbar.
 """
+import hashlib
 import json
 import math
 import socket
@@ -47,6 +61,9 @@ from pathlib import Path
 DEFAULT_PORT = 18883
 DEFAULT_FIXTURE = Path(__file__).resolve().parent / "fixtures" / "battery-soc.json"
 SIMULATE_INTERVAL = 3.0
+SERVICE_SCAN_INTERVAL = 1.0
+SERVICE_HEARTBEAT = 30.0
+REJECT_ERROR = "simulated rejection (minibroker --reject-config)"
 
 # Amplitude/Periode/Phase je Topic, um die Basiswerte aus
 # fixtures/energie-ueberschuss.json herum - unabhaengige Sinuskurven statt
@@ -135,13 +152,13 @@ def handle(conn, messages, connections):
                 packet_id = struct.unpack("!H", body[:2])[0]
                 with lock:
                     conn.sendall(b"\x90" + encode_remaining(3) + struct.pack("!H", packet_id) + b"\x00")
-                    for topic, payload in messages.items():
+                    for topic, payload in list(messages.items()):
                         conn.sendall(publish_packet(topic, payload))
                     # Jedes State-/Verfuegbarkeits-Topic noch einmal als nicht
                     # retained PUBLISH: so fuehrt die Registry den Wert als
                     # "live" statt "mqtt-replay" und das Dashboard zeigt ihn
                     # nicht als "veraltet". Discovery bleibt retained (s. o.).
-                    for topic, payload in messages.items():
+                    for topic, payload in list(messages.items()):
                         if topic.startswith("homeassistant/"):
                             continue
                         conn.sendall(publish_packet(topic, payload, retain=False))
@@ -176,19 +193,93 @@ def simulate_loop(messages, connections):
                 continue
             state = json.loads(messages[topic])
             state["apower"] = round(base + amplitude * math.sin(t / period + phase))
-            payload = json.dumps(state).encode("utf-8")
-            messages[topic] = payload
-            for conn, lock in list(connections.items()):
-                try:
-                    with lock:
-                        conn.sendall(publish_packet(topic, payload, retain=False))
-                except OSError:
-                    connections.pop(conn, None)
+            broadcast(messages, connections, topic, json.dumps(state).encode("utf-8"), False)
+
+
+def broadcast(messages, connections, topic, payload, retain):
+    """Ablegen fuer kuenftige Abonnenten und an jede offene Verbindung senden."""
+    messages[topic] = payload
+    for conn, lock in list(connections.items()):
+        try:
+            with lock:
+                conn.sendall(publish_packet(topic, payload, retain=retain))
+        except OSError:
+            connections.pop(conn, None)
+
+
+def service_id_for_config(name):
+    # Spiegel von config.ServiceIDForConfig (internal/config/config.go).
+    if name == "automation_rules":
+        return "automation"
+    if name.endswith("_devices"):
+        return name[: -len("_devices")]
+    return None
+
+
+def service_status_loop(devices_dir, rejected, messages, connections):
+    # Ein Dienst liest seine Datei, meldet das Ergebnis retained auf
+    # settings/status und nennt dabei die Pruefsumme der Datei. Genau diese
+    # vergleicht die Konfigurationsseite mit der Datei, die sie geschrieben
+    # hat - deshalb hier die echte SHA-256 der Bytes auf der Platte.
+    seen = {}      # config -> zuletzt gemeldete Pruefsumme
+    applied = {}   # config -> zuletzt angenommene Pruefsumme
+    last_beat = 0.0
+    while True:
+        now = time.time()
+        beat = now - last_beat >= SERVICE_HEARTBEAT
+        for path in sorted(Path(devices_dir).glob("*.json")):
+            name = path.stem
+            if name.endswith(".schema"):
+                continue
+            service_id = service_id_for_config(name)
+            if not service_id:
+                continue
+            try:
+                revision = hashlib.sha256(path.read_bytes()).hexdigest()
+            except OSError:
+                continue
+            if seen.get(name) == revision and not beat:
+                continue
+            seen[name] = revision
+            status = {"last_update": int(now), "config_revision": revision}
+            if name in rejected:
+                status.update(runtime_status="rejected", error=REJECT_ERROR,
+                              applied_revision=applied.get(name, ""))
+            else:
+                applied[name] = revision
+                status.update(runtime_status="ok", error="", applied_revision=revision)
+            base = f"outstation/{service_id}"
+            broadcast(messages, connections, f"{base}/status/online", b"1", True)
+            broadcast(messages, connections, f"{base}/settings/status",
+                      json.dumps(status).encode("utf-8"), True)
+        if beat:
+            last_beat = now
+        time.sleep(SERVICE_SCAN_INTERVAL)
+
+
+def parse_args(argv):
+    opts = {"simulate": False, "service_status": None, "rejected": set(), "positional": []}
+    i = 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--simulate":
+            opts["simulate"] = True
+        elif arg == "--service-status":
+            i += 1
+            opts["service_status"] = argv[i]
+        elif arg == "--reject-config":
+            i += 1
+            opts["rejected"].add(argv[i])
+        else:
+            opts["positional"].append(arg)
+        i += 1
+    return opts
 
 
 def main():
-    args = [a for a in sys.argv[1:] if a != "--simulate"]
-    simulate = "--simulate" in sys.argv[1:]
+    opts = parse_args(sys.argv[1:])
+    args = opts["positional"]
+    simulate = opts["simulate"]
     port = int(args[0]) if len(args) > 0 else DEFAULT_PORT
     fixture = args[1] if len(args) > 1 else DEFAULT_FIXTURE
     messages = load_fixture(fixture)
@@ -196,13 +287,18 @@ def main():
 
     if simulate:
         threading.Thread(target=simulate_loop, args=(messages, connections), daemon=True).start()
+    if opts["service_status"]:
+        threading.Thread(target=service_status_loop,
+                         args=(opts["service_status"], opts["rejected"], messages, connections),
+                         daemon=True).start()
 
     server = socket.socket()
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind(("127.0.0.1", port))
     server.listen(5)
     print(f"minibroker: port {port}, {len(messages)} retained message(s) "
-          f"from {fixture}{', simulating' if simulate else ''}", flush=True)
+          f"from {fixture}{', simulating' if simulate else ''}"
+          f"{', service status from ' + opts['service_status'] if opts['service_status'] else ''}", flush=True)
     while True:
         conn, _ = server.accept()
         threading.Thread(target=handle, args=(conn, messages, connections), daemon=True).start()
