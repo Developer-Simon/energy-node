@@ -123,10 +123,18 @@ img { max-width: 100%; height: auto; }
   border: 1px solid #333333; border-radius: var(--radius-sm);
   background: var(--brand-bar-field); color: var(--brand-bar-muted); font: inherit; font-size: .9rem; cursor: text;
 }
-.site-header__pill {
-  padding: .1rem .55rem; border-radius: 999px; font-size: .78rem; font-weight: 700;
-  background: var(--brand-mint); color: var(--brand-bar);
+/* Same height and corner radius as the search field. The `.site-header`
+   prefix outranks `.site-header a { color: inherit }`. */
+.site-header .site-header__pill {
+  display: inline-flex; align-items: center; gap: .4rem;
+  height: 32px; padding: 0 .65rem; border: 1px solid #333333; border-radius: var(--radius-sm);
+  background: var(--brand-bar-field); color: var(--brand-bar-text);
+  font-family: var(--mono); font-size: .8rem; white-space: nowrap;
 }
+.site-header__pill::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--brand-mint);
+}
+.site-header .site-header__pill:hover { border-color: var(--brand-mint); color: var(--brand-mint); }
 .icon-btn {
   display: inline-flex; align-items: center; justify-content: center;
   width: 34px; height: 34px; border: 0; border-radius: var(--radius-sm);
@@ -197,7 +205,7 @@ img { max-width: 100%; height: auto; }
   .layout { display: block; padding: 0 16px; }
   .nav-toggle { display: inline-flex; }
   .site-header { padding: 0 8px 0 4px; gap: .4rem; }
-  .site-header__pill { display: none; }
+  .site-header .site-header__pill { display: none; }
   .site-header__search { width: auto; }
   .search-trigger { width: 34px; padding: 0; color: transparent; background: transparent url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="%23e6e6e6" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>') center / 20px no-repeat; border: 0; }
   .sidebar {
