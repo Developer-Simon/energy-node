@@ -1889,3 +1889,93 @@ func TestBridgeAddressWarningKey(t *testing.T) {
 		})
 	}
 }
+
+// Bis 2026-10 kannte HistoryView die drei Felder nicht: history.js schickte
+// sie mit, der Server warf sie beim Dekodieren weg, und eine Sicht mit
+// festem Datumsbereich kam als relativer Zeitraum zurueck.
+func TestHistoryViewKeepsAFixedDateRange(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := Default()
+	value.HistoryViews = []HistoryView{
+		{ID: "fest", Name: "Fest", Series: []string{"role:pv"}, RangeHours: 6, RangeMode: HistoryRangeModeCustom, RangeFrom: 1_700_000_000_000, RangeTo: 1_700_086_400_000, Aggregate: "avg"},
+		// relativ: from/to sind bedeutungslos und werden geleert
+		{ID: "rel", Name: "Relativ", Series: []string{}, RangeHours: 24, RangeMode: HistoryRangeModeRelative, RangeFrom: 5, RangeTo: 9, Aggregate: "max"},
+		// custom ohne Ende: kein gueltiger Bereich, faellt auf relativ zurueck
+		{ID: "halb", Name: "Halb", Series: []string{}, RangeHours: 24, RangeMode: HistoryRangeModeCustom, RangeFrom: 5, Aggregate: "min"},
+		// Altbestand ohne range_mode bleibt ohne
+		{ID: "alt", Name: "Alt", Series: []string{}, RangeHours: 168, Aggregate: "avg"},
+	}
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	views := loaded.HistoryViews
+	if views[0].RangeMode != HistoryRangeModeCustom || views[0].RangeFrom != 1_700_000_000_000 || views[0].RangeTo != 1_700_086_400_000 {
+		t.Fatalf("fester Bereich verloren: %#v", views[0])
+	}
+	if views[1].RangeMode != HistoryRangeModeRelative || views[1].RangeFrom != 0 || views[1].RangeTo != 0 {
+		t.Fatalf("relative Sicht traegt Grenzen: %#v", views[1])
+	}
+	if views[2].RangeMode != HistoryRangeModeRelative || views[2].RangeFrom != 0 || views[2].RangeTo != 0 {
+		t.Fatalf("halber custom-Bereich nicht zurueckgesetzt: %#v", views[2])
+	}
+	if views[3].RangeMode != "" || views[3].RangeHours != 168 {
+		t.Fatalf("Altbestand veraendert: %#v", views[3])
+	}
+}
+
+func TestHistoryViewRejectsAnUnknownRangeMode(t *testing.T) {
+	value := Default()
+	value.HistoryViews = []HistoryView{{ID: "x", Name: "X", Series: []string{}, RangeHours: 6, RangeMode: "absolute", Aggregate: "avg"}}
+	if err := NewStore(t.TempDir()).SaveSettings(value); err == nil {
+		t.Fatal("unbekannter range_mode wurde angenommen")
+	}
+}
+
+func TestManualValidation(t *testing.T) {
+	s := Default()
+	t.Logf("Default HistoryViews: %#v", s.HistoryViews)
+	
+	// Validate
+	if err := validateSettings(s); err != nil {
+		t.Fatalf("Validation failed: %v", err)
+	}
+	
+	t.Logf("Validation passed")
+}
+
+func TestPrintMarshaledJSON(t *testing.T) {
+	s := Default()
+	normalized := normalizeSettings(s)
+	
+	data, err := json.Marshal(normalized)
+	if err != nil {
+		t.Fatal(err)
+	}
+	
+	t.Logf("Marshaled JSON:\n%s", string(data))
+	
+	// Check if history_views is in the JSON
+	var obj map[string]interface{}
+	json.Unmarshal(data, &obj)
+	if v, ok := obj["history_views"]; ok {
+		t.Logf("history_views found: %T = %v", v, v)
+	} else {
+		t.Logf("history_views NOT found in JSON")
+	}
+}
+
+func TestNormalizeSettingsDebug(t *testing.T) {
+	s := Default()
+	t.Logf("Before normalize: HistoryViews=%#v, HistoryViews==nil: %v", s.HistoryViews, s.HistoryViews == nil)
+	
+	normalized := normalizeSettings(s)
+	t.Logf("After normalize: HistoryViews=%#v, HistoryViews==nil: %v", normalized.HistoryViews, normalized.HistoryViews == nil)
+	
+	if normalized.HistoryViews == nil {
+		t.Fatal("HistoryViews became nil after normalization!")
+	}
+}

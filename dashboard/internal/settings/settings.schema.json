@@ -160,6 +160,9 @@
           "name": {"type": "string", "minLength": 1},
           "series": {"type": "array", "items": {"type": "string"}},
           "range_hours": {"type": "integer", "minimum": 1, "maximum": 8760},
+          "range_mode": {"type": "string", "enum": ["relative", "custom"]},
+          "range_from": {"type": "integer", "minimum": 1},
+          "range_to": {"type": "integer", "minimum": 1},
           "aggregate": {"type": "string", "enum": ["avg", "min", "max"]}
         }
       }

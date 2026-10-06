@@ -104,11 +104,18 @@ type Settings struct {
 // HistoryView ist eine gespeicherte Verlaufssicht. Sie liegt serverseitig,
 // damit eine am Rechner angelegte Sicht auch am Telefon aufgeht - die Daten
 // dahinter sind aber pro Browser, eine Sicht kann dort also leer sein.
+//
+// RangeHours bleibt auch im custom-Modus gesetzt: eine aeltere Fassung, die
+// RangeMode nicht kennt, faellt so auf einen sinnvollen relativen Zeitraum
+// zurueck. RangeFrom/RangeTo sind Millisekunden und nur bei custom belegt.
 type HistoryView struct {
 	ID         string   `json:"id"`
 	Name       string   `json:"name"`
 	Series     []string `json:"series"`
 	RangeHours int      `json:"range_hours"`
+	RangeMode  string   `json:"range_mode,omitempty"`
+	RangeFrom  int64    `json:"range_from,omitempty"`
+	RangeTo    int64    `json:"range_to,omitempty"`
 	Aggregate  string   `json:"aggregate"`
 }
 
@@ -126,6 +133,9 @@ const (
 
 	HistoryRetentionModeTime = "time"
 	HistoryRetentionModeSize = "size"
+
+	HistoryRangeModeRelative = "relative"
+	HistoryRangeModeCustom   = "custom"
 )
 
 type EnergyConfig struct {
@@ -1628,6 +1638,19 @@ func normalizeSettings(value Settings) Settings {
 	}
 	if value.HistoryViews == nil {
 		value.HistoryViews = []HistoryView{}
+	}
+	// Ein fester Bereich braucht beide Grenzen in der richtigen Reihenfolge.
+	// Fehlt eine, gilt die Sicht als relativ - range_hours ist ja immer da.
+	value.HistoryViews = append(make([]HistoryView, 0, len(value.HistoryViews)), value.HistoryViews...)
+	for index := range value.HistoryViews {
+		view := &value.HistoryViews[index]
+		if view.RangeMode == HistoryRangeModeCustom && view.RangeFrom > 0 && view.RangeTo > view.RangeFrom {
+			continue
+		}
+		if view.RangeMode == HistoryRangeModeCustom {
+			view.RangeMode = HistoryRangeModeRelative
+		}
+		view.RangeFrom, view.RangeTo = 0, 0
 	}
 	return value
 }
