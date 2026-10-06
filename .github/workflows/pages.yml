@@ -89,6 +89,15 @@ jobs:
         with:
           source: ./docs
           destination: ./_site
+      # Static search index for the header search box (docs/assets/js/site.js).
+      # The Jekyll action runs in a container and leaves _site owned by root.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build search index
+        run: |
+          sudo chown -R "$(id -u):$(id -g)" _site
+          npx --yes pagefind@1.3.0 --site _site
       - uses: actions/upload-pages-artifact@v3
       - id: deployment
         uses: actions/deploy-pages@v4

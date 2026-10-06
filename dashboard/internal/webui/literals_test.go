@@ -399,7 +399,7 @@ func TestNoUntranslatedUIText(t *testing.T) {
 
 	for _, file := range files {
 		for _, f := range hardFindings(findings[file]) {
-			t.Errorf("%s:%d: text %q is not from the catalog (use {{t}}, $t() or I18n.t, see docs/knowledge/dashboard/localization.md)", file, f.line, f.text)
+			t.Errorf("%s:%d: text %q is not from the catalog (use {{t}}, $t() or I18n.t, see docs/_internal/localization.md)", file, f.line, f.text)
 		}
 	}
 }

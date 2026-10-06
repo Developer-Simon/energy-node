@@ -20,13 +20,13 @@ It has three entry points, switchable in the top bar of the window:
 > **Status: beta.** The installer sets up, updates and diagnoses real nodes
 > today; what is still missing is the 1.0 release. Until then, screens and
 > steps can still change between versions, and
-> [INSTALLATION.md](https://github.com/Developer-Simon/energy-node/blob/main/INSTALLATION.md)
+> [Manual installation](install/index.md)
 > documents what the installer automates and why.
 
 Every screenshot on this page comes from the installer's demo host, not from a
 real Pi: the real window and the real screens, backed by canned data. The
-version numbers, the service states and the log lines are made up. You can
-[run the demo yourself](#reproducing-these-screenshots).
+version numbers, the service states and the log lines are made up. See the
+screenshot notes in the repository for how to run the demo yourself.
 
 ---
 
@@ -77,7 +77,7 @@ scripts/dev/run-installer.sh
 `--arch` is the Pi's architecture: `armv6` for a Pi 1 or Pi Zero (the default
 target), `arm64` or `amd64` otherwise. `run-installer.sh` builds the program
 and starts it (`--no-build` skips the build). The
-[Installer developer CLI](knowledge/installer-developer-cli.md) page has the
+[Installer developer CLI](developing/installer-cli.md) page has the
 details, such as a quicker package build for a first try.
 
 ---
@@ -140,7 +140,7 @@ Two passwords and the services you want.
   services (APsystems, Battery SoC, Shelly, Trucki, Tuya), Tailscale and HTTPS
   via Caddy. A service you deselect is also hidden in the dashboard. The Pi
   remembers the selection in `config.json`
-  (`installed_services`, see [Configuration file](knowledge/configuration.md)),
+  (`installed_services`, see [Configuration file](operating/configuration.md)),
   and an update applies exactly that selection again.
   **Update system packages** is on by default. It installs pending Debian
   updates once per installer version and tells you when the node needs a
@@ -259,32 +259,8 @@ The interface language can also be switched in the top bar.
 
 ---
 
-## Reproducing these screenshots
-
-The installer's web UI has a demo host that serves the real screens against a
-fake backend, so no Pi is needed:
-
-```sh
-cd installer/webui
-go run ./cmd/fakehost --lang en --port 8099
-```
-
-Open the printed address and connect with any address, user and password.
-`--scenario vorlage-update` serves the update preview, `--hold-step <id>` stops
-a run at that step, and `--fail-step <id>:<CODE>` makes one fail.
-
-The update preview and the changelog page are taken by a script that drives
-the demo host itself (it needs Go and Playwright):
-
-```sh
-cd installer/webui
-node test/e2e/docs-screenshots.mjs
-```
-
----
-
 ## For developers
 
 The installer also has a command-line mode that builds a bundle from your
 checkout and deploys it to a Pi over SSH. See
-[Installer developer CLI](knowledge/installer-developer-cli.md).
+[Installer developer CLI](developing/installer-cli.md).

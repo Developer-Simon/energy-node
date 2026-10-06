@@ -1,0 +1,12 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <title>Battery SoC — coulomb-counting state of charge</title>
+  <defs><clipPath id="cell"><rect x="17" y="37" width="82" height="54" rx="9"/></clipPath></defs>
+  <g transform="translate(64 64) scale(1.12) translate(-64 -64)">
+    <g clip-path="url(#cell)">
+      <path d="M17 91 L17 82 C 40 78 51 61 63 52 C 75 43 86 41 99 40 L99 91 Z" fill="#23b26b"/>
+    </g>
+    <rect x="14" y="34" width="88" height="60" rx="13" fill="none" stroke="#1488c9" stroke-width="6"/>
+    <rect x="103" y="52" width="13" height="24" rx="4" fill="#0f6da3"/>
+    <path d="M77 39 V90" stroke="#0f6da3" stroke-width="3.4" stroke-linecap="round" stroke-dasharray="2 7"/>
+  </g>
+</svg>

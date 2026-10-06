@@ -3,6 +3,7 @@
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
+repo_root="$(cd "$here/../.." && pwd)"
 should_deploy="$here/../docs/pages-should-deploy.sh"
 doc_versions="$here/../docs/doc-versions.sh"
 tmp=$(mktemp -d)
@@ -17,11 +18,15 @@ cat > "$tmp/site/docs/_data/nav.yml" <<'EOF'
 - title: Overview
   items:
     - { label: "Home", url: "index.md" }
-- title: Knowledge
-  sections:
-    - label: General
-      items:
-        - { label: "Data flows", url: "knowledge/data-flow.md" }
+- title: Using
+  items:
+    - label: "Dashboard"
+      url: "dashboard/index.md"
+      children:
+        - { label: "Settings", url: "dashboard/settings.md" }
+- title: Developing
+  items:
+    - { label: "Data flows", url: "knowledge/data-flow.md" }
 EOF
 
 expect() {
@@ -31,6 +36,12 @@ expect() {
 }
 
 expect true  "docs/index.md"
+expect true  "docs/dashboard/index.md"
+expect true  "docs/dashboard/settings.md"
+expect true  "docs/assets/css/site.css"
+# Internal notes and redirect stubs never deploy on their own.
+expect false "docs/_internal/localization.md"
+expect false "docs/redirects/localization.md"
 expect true  "docs/knowledge/data-flow.md"
 expect true  "docs/_layouts/default.html"
 expect true  "docs/_data/nav.yml"
@@ -61,9 +72,14 @@ git -C "$repo" tag v0.1.0
 
 echo v0.2.0 > "$repo/dashboard/VERSION"
 echo b > "$repo/docs/knowledge/new.md"
+mkdir -p "$repo/docs/_internal" "$repo/docs/redirects"
+echo x > "$repo/docs/_internal/notes.md"
+echo y > "$repo/docs/redirects/old.md"
 commit two
 
 out=$("$doc_versions" "$repo")
+grep -q '_internal/' <<<"$out" && fail "_internal pages must not get a version marker" "$out"
+grep -q 'redirects/' <<<"$out" && fail "redirect stubs must not get a version marker" "$out"
 grep -qx 'latest_release: "v0.1.0"' <<<"$out" || fail "latest release not v0.1.0" "$out"
 grep -qxF '  "index.md": { version: "v0.1.0", unreleased: false }' <<<"$out" \
   || fail "index.md should be released v0.1.0" "$out"
@@ -116,5 +132,35 @@ commit six
 if "$doc_versions" "$repo" >/dev/null 2>&1; then
   fail "unknown component id should fail"
 fi
+
+# --- nothing in the repository points at the old documentation paths --------
+
+old_paths='docs/knowledge/|docs/integration/|docs/dashboard\.md|docs/device-services\.md|knowledge/konfiguration\.md|secrets-und-zugangsdaten\.md'
+if hits="$(git -C "$repo_root" grep -nE "$old_paths" -- ':!docs/superpowers' ':!*CHANGELOG.md' ':!scripts/tests/test_docs_pages.sh' ':!docs/redirects')"; then
+  fail "old documentation paths are still referenced" "$hits"
+fi
+
+# --- the docs logo is the dashboard's -----------------------------------------
+
+cmp -s "$repo_root/docs/assets/logo.svg" "$repo_root/dashboard/internal/webui/static/img/favicon.svg" \
+  || fail "docs/assets/logo.svg differs from the dashboard favicon"
+
+# --- the Home Assistant integration icons are copied from source ------------------
+
+cmp -s "$repo_root/docs/images/ha/battery-soc.svg" "$repo_root/integrations/homeassistant/custom_components/battery_soc/brand/icon.svg" \
+  || fail "docs/images/ha/battery-soc.svg differs from the battery_soc brand icon"
+
+cmp -s "$repo_root/docs/images/ha/companion.svg" "$repo_root/integrations/homeassistant/custom_components/energy_node_companion/brand/icon.svg" \
+  || fail "docs/images/ha/companion.svg differs from the energy_node_companion brand icon"
+
+cmp -s "$repo_root/docs/images/ha/icons.svg" "$repo_root/integrations/homeassistant/custom_components/energy_node_icons/brand/icon.svg" \
+  || fail "docs/images/ha/icons.svg differs from the energy_node_icons brand icon"
+
+# --- docs colours follow the dashboard ----------------------------------------
+
+python3 "$repo_root/scripts/docs/check_tokens.py" \
+  "$repo_root/docs/assets/css/site.css" \
+  "$repo_root/dashboard/internal/webui/static/css/base.css" \
+  || fail "docs colours drifted from the dashboard (see above)"
 
 echo "PASS: docs pages scripts"

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.7 (2026-10-05)
+## v0.8.8 (2026-10-05)
 
 ### Features
 
@@ -12,15 +12,20 @@
 
 ### Fixes
 
+- **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
 - **dashboard:** save the system config through the privileged helper (478744f)
 - **dashboard:** report system config save results as toasts (4e6e8fb)
 - **dashboard:** translate the secret path rejection message (a03eee6)
-- **dashboard:** make saving the system configuration work and report it properly (#91)
 - **installer:** harden step 15 and select it on dashboard updates (bab88e1)
 
 ### Refactors
 
 - **dashboard:** share app config staging between migration and handler (073acf3)
+
+### Documentation
+
+- point the repository at the new pages and add site search (72fa46e)
+- redesign the documentation site with an Energy Node layout (#94)
 
 ## v0.8.5 (2026-10-04)
 

@@ -11,13 +11,14 @@ description: >-
   switchable loads on a single small Linux box, mirrored to Home Assistant
   over a VPN.
 
-theme: jekyll-theme-cayman
-
-# jekyll-relative-links is enabled by default on GitHub Pages and rewrites
-# the .md links between these documents to their generated URLs. Listing it
-# keeps a local `bundle exec jekyll serve` behaving the same way.
+# All three are on the GitHub Pages allow-list (actions/jekyll-build-pages).
+# jekyll-relative-links rewrites the .md links between documents to their
+# generated URLs, jekyll-redirect-from keeps the URLs of moved pages alive
+# (with _layouts/redirect.html, which carries the #anchor along).
 plugins:
+  - jekyll-seo-tag
   - jekyll-relative-links
+  - jekyll-redirect-from
 
 relative_links:
   enabled: true
@@ -27,3 +28,9 @@ exclude:
   - Gemfile
   - Gemfile.lock
   - vendor
+  - _internal
+  - superpowers
+
+# Repository used for "Edit on GitHub" and the header link when the build
+# has no site.github metadata (local builds).
+repository: Developer-Simon/energy-node

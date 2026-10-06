@@ -65,7 +65,7 @@ import/export. Without Home Assistant, the dashboard works on its own.
 </table>
 
 Every page of the dashboard, including all settings tabs and the four colour
-schemes, has a screenshot in [**the dashboard, page by page**](docs/dashboard.md).
+schemes, has a screenshot in [**the dashboard, page by page**](docs/dashboard/index.md).
 The screenshots come from a local smoke test against a fixture broker, so you
 can reproduce them without a Pi.
 
@@ -82,7 +82,7 @@ All devices are polled locally, and none of them needs a cloud account.
 | **LiFePO4 battery banks** | computed from other devices (coulomb counting) | state of charge |
 | **The node itself** | CPU, RAM, disk, throttling, Mosquitto/Tailscale status, pending updates | read |
 
-Each family is one small Python service. [Device services](docs/device-services.md)
+Each family is one small Python service. [Device services](docs/services/index.md)
 covers what each one publishes. A new device family is added as another
 service; [CONTRIBUTING.md](CONTRIBUTING.md#new-device-services) explains how.
 
@@ -149,7 +149,7 @@ HACS integrations add dashboard features that run inside HA directly:
   node, set up through a config flow.
 - [**`ha-energy-node-icons`**](https://github.com/Developer-Simon/ha-energy-node-icons):
   the dashboard's device icons as an icon set for Home Assistant's icon pickers.
-- [**`ha-energy-node-companion`**](docs/integration/energy-node-companion.md):
+- [**`ha-energy-node-companion`**](docs/ha/companion.md):
   fills gaps in the dashboard's browser history from the Home Assistant
   recorder.
 
@@ -161,12 +161,12 @@ in this repository.
 The [documentation site](docs/index.md) collects all pages. These are the
 main entry points:
 
-- [The dashboard, page by page](docs/dashboard.md): every screen with a screenshot
+- [The dashboard, page by page](docs/dashboard/index.md): every screen with a screenshot
 - [Deploying a node](docs/installer.md): the installer, screen by screen
-- [Device services](docs/device-services.md): what each service talks to and publishes
-- [Data flow](docs/knowledge/data-flow.md) and [configuration](docs/knowledge/configuration.md) reference
-- [Performance on the Pi 1](docs/knowledge/performance-and-resources.md): measured CPU and RAM per service
-- [Releasing](docs/knowledge/releasing.md): how versions and releases are cut
+- [Device services](docs/services/index.md): what each service talks to and publishes
+- [Data flow](docs/developing/data-flow.md) and [configuration](docs/operating/configuration.md) reference
+- [Performance on the Pi 1](docs/operating/performance.md): measured CPU and RAM per service
+- [Releasing](docs/developing/releasing.md): how versions and releases are cut
 
 ## Status
 
@@ -177,7 +177,7 @@ they do.
 
 The **dashboard speaks German and English.** Each browser picks its language
 from the `DE | EN` switch in the header or from its own language setting, see
-[docs/knowledge/dashboard/localization.md](docs/knowledge/dashboard/localization.md).
+[docs/_internal/localization.md](docs/_internal/localization.md).
 This README and the documentation are in English. Most comments in the code
 are still German.
 

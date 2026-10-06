@@ -1,45 +1,64 @@
-# Sidebar navigation for the documentation site (see _layouts/default.html).
-# `url` is the source path relative to /docs; the layout turns it into the
-# generated URL and marks the current page. Keep this in the reading order
-# a newcomer should follow.
-#
-# A group carries either `items` (a flat list) or `sections` (labelled
-# sub-groups, each with its own `items`) - the layout renders the group
-# title as <h2> and each section label as <h3>.
+# Sidebar navigation for the documentation site (see _includes/nav.html).
+# `url` is the source path relative to /docs, always in double quotes
+# (scripts/docs/pages-should-deploy.sh greps for url: "..."). An entry may
+# carry `children`, up to grandchildren. Keep the reading order a newcomer
+# should follow. scripts/docs/check_site.py fails on a missing source file,
+# a published page without an entry, or a deeper tree.
 
-- title: Overview
+- title: Getting started
   items:
     - { label: "What is Energy Node?", url: "index.md" }
-    - { label: "The dashboard, page by page", url: "dashboard.md" }
-    - { label: "Device services", url: "device-services.md" }
-    - { label: "Deploying a node", url: "installer.md" }
+    - { label: "Deploying with the installer", url: "installer.md" }
+    - label: "Manual installation"
+      url: "install/index.md"
+      children:
+        - { label: "Deploying & verifying", url: "install/deploy.md" }
 
-- title: Services
+- title: Using
   items:
-    - { label: "APsystems EZ1", url: "services/apsystems-ez1.md" }
-    - { label: "Battery state of charge", url: "services/battery-soc.md" }
+    - label: "Dashboard"
+      url: "dashboard/index.md"
+      children:
+        - { label: "Overview & layout editor", url: "dashboard/overview.md" }
+        - { label: "Devices & device map", url: "dashboard/devices.md" }
+        - { label: "History", url: "dashboard/history.md" }
+        - { label: "Energy", url: "dashboard/energy.md" }
+        - { label: "Automations", url: "dashboard/automations.md" }
+        - { label: "Diagnostics", url: "dashboard/diagnostics.md" }
+        - { label: "Configuration editor", url: "dashboard/configuration.md" }
+        - { label: "Settings", url: "dashboard/settings.md" }
+        - { label: "Colour schemes", url: "dashboard/themes.md" }
+    - label: "Device services"
+      url: "services/index.md"
+      children:
+        - { label: "Shelly", url: "services/shelly.md" }
+        - { label: "APsystems EZ1", url: "services/apsystems-ez1.md" }
+        - { label: "Trucki stick", url: "services/trucki.md" }
+        - { label: "Tuya", url: "services/tuya.md" }
+        - label: "Battery state of charge"
+          url: "services/battery-soc.md"
+          children:
+            - { label: "How it works", url: "services/battery-soc-how-it-works.md" }
+        - { label: "Automations engine", url: "services/automations.md" }
 
-- title: Knowledge
-  sections:
-    - label: General
-      items:
-        - { label: "Data flows", url: "knowledge/data-flow.md" }
-        - { label: "Configuration file", url: "knowledge/configuration.md" }
-        - { label: "Performance & resources", url: "knowledge/performance-and-resources.md" }
-        - { label: "Cutting a release", url: "knowledge/releasing.md" }
-        - { label: "Installer developer CLI", url: "knowledge/installer-developer-cli.md" }
-        - { label: "Third-party sources", url: "knowledge/dependencies.md" }
-    - label: Dashboard
-      items:
-        - { label: "HTTP API", url: "knowledge/dashboard/api-documentation.md" }
-        - { label: "Reverse proxy", url: "knowledge/dashboard/reverse-proxy.md" }
-        - { label: "Secrets & credentials", url: "knowledge/dashboard/secrets-and-credentials.md" }
-    - label: Services
-      items:
-        - { label: "Battery state of charge", url: "knowledge/services/battery-soc-how-it-works.md" }
-
-- title: Integration
+- title: Operating
   items:
-    - { label: "battery_soc HA mirror", url: "integration/ha-integration-hacs-release.md" }
-    - { label: "energy-node Icons for HA", url: "integration/energy-node-icons.md" }
-    - { label: "Energy Node Companion for HA", url: "integration/energy-node-companion.md" }
+    - { label: "Configuration file", url: "operating/configuration.md" }
+    - { label: "Reverse proxy", url: "operating/reverse-proxy.md" }
+    - { label: "Secrets & credentials", url: "operating/secrets.md" }
+    - { label: "Troubleshooting", url: "operating/troubleshooting.md" }
+    - { label: "Resources on a Pi 1", url: "operating/performance.md" }
+
+- title: Home Assistant
+  items:
+    - { label: "Energy Node Companion", url: "ha/companion.md" }
+    - { label: "Battery SoC integration", url: "ha/battery-soc.md" }
+    - { label: "energy-node Icons", url: "ha/icons.md" }
+
+- title: Developing
+  items:
+    - { label: "Data flows", url: "developing/data-flow.md" }
+    - { label: "HTTP API", url: "developing/api.md" }
+    - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
+    - { label: "Cutting a release", url: "developing/releasing.md" }
+    - { label: "Third-party sources", url: "developing/dependencies.md" }

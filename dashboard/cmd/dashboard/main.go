@@ -46,7 +46,7 @@ import (
 )
 
 // updatesRepo is the GitHub repository internal/updatecheck asks about. It
-// is the same repository docs/knowledge/releasing.md publishes tagged
+// is the same repository docs/developing/releasing.md publishes tagged
 // releases to.
 const updatesRepo = "Developer-Simon/energy-node"
 

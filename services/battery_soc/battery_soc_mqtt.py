@@ -66,7 +66,7 @@ den Poll-Scheduler.
 
 Die eigentliche SoC-Fachlogik (Coulomb-Zaehlung, Kalibrierung, Spannungs-
 korrektur, Entity-Spec) lebt seit der Core-Extraktion transport-frei in
-battery_soc_core - siehe docs/knowledge/services/battery-soc-how-it-works.md.
+battery_soc_core - siehe docs/services/battery-soc-how-it-works.md.
 Dieses Skript bleibt der duenne MQTT-Adapter: Eingangs-Subscriptions,
 State-Persistenz (Speicherintervall, Flush beim Beenden, Wiederherstellung,
 siehe recovery.py), Discovery-Publishing und der Aufruf von engine.tick().

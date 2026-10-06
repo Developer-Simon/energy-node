@@ -83,7 +83,7 @@ type deviceIconSuggestion struct {
 // someone saves an icon for the device. Manufacturer and model are what the
 // services put into their Home Assistant discovery device block; the Shelly
 // codes are the hardware IDs from Shelly.GetDeviceInfo (gen1 SH*, Plus SN*,
-// Pro SP*, gen3 S3*). Documented in docs/knowledge/dashboard/device-icons.md.
+// Pro SP*, gen3 S3*). Documented in docs/_internal/device-icons.md.
 var deviceIconSuggestions = []deviceIconSuggestion{
 	{Manufacturer: "APsystems", Icon: "mdi:solar-panel"},
 	{Manufacturer: "Trucki (Community-Firmware)", Icon: "mdi:current-ac"},

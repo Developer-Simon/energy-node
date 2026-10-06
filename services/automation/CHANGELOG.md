@@ -1,5 +1,20 @@
 # Changelog
 
+## v0.4.5 (2026-10-06)
+
+### Features
+
+- **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
+- **dashboard:** localize the system configuration form (#72) (c716d05)
+- **dashboard:** localize the device configuration forms (#73) (180110d)
+
+### Documentation
+
+- point the repository at the new pages and add site search (72fa46e)
+- redesign the documentation site with an Energy Node layout (#94)
+
 ## v0.4.4 (2026-09-28)
 
 ### Features

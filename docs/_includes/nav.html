@@ -1,0 +1,13 @@
+{%- comment -%}
+  Sidebar from _data/nav.yml. include.current is page.path.
+{%- endcomment -%}
+{%- for group in site.data.nav -%}
+<section class="sidebar__group">
+  <h2>{{ group.title }}</h2>
+  <ul class="nav-list">
+    {%- for item in group.items -%}
+      {%- include nav-item.html item=item current=include.current -%}
+    {%- endfor -%}
+  </ul>
+</section>
+{%- endfor -%}

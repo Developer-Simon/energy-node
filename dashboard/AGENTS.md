@@ -63,5 +63,5 @@ The settings page Versionen shows every component version from the installer's `
 
 - [MQTT and Discovery format](mqtt-topics-und-discovery-format.md) records the verified bridge conventions; it is not a replacement for the Home Assistant Discovery contract.
 - [Service unit](energy-node-dashboard.service) and [deployment script](../scripts/deploy/deploy_dashboard_to_remote.sh) define runtime paths and remote installation behavior.
-- [Reverse proxy subpath](../docs/knowledge/dashboard/reverse-proxy.md) documents `internal/basepath`: how a proxy-supplied prefix reaches templates, JS and cookies, and the rule that template URLs arrive prefixed while JS literals prefix themselves.
+- [Reverse proxy subpath](../docs/operating/reverse-proxy.md) documents `internal/basepath`: how a proxy-supplied prefix reaches templates, JS and cookies, and the rule that template URLs arrive prefixed while JS literals prefix themselves.
 - If the target is online, it is reachable at its configured hostname or LAN IP on port 8080.

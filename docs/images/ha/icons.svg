@@ -1,0 +1,18 @@
+<svg viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <title>energy-node Icons — the dashboard's device symbols for Home Assistant</title>
+  <!-- Ein Energie-Knoten: Blitz in der Mitte, daran Solarpanel, Ladegeraet und
+       Batterie - alle drei aus dem Geraete-Icon-Katalog (deviceicons.go).
+       PNGs: magick -background none -density 512 icon.svg -resize 256x256 -depth 8 -strip PNG32:icon@2x.png
+             magick -background none -density 512 icon.svg -resize 128x128 -depth 8 -strip PNG32:icon.png -->
+  <g stroke="#0f6da3" stroke-width="5" stroke-linecap="round">
+    <path d="M64 64 64 22M64 64 27.6 85M64 64 100.4 85"/>
+  </g>
+  <circle cx="64" cy="22" r="19" fill="#1488c9"/>
+  <circle cx="27.6" cy="85" r="19" fill="#1488c9"/>
+  <circle cx="100.4" cy="85" r="19" fill="#1488c9"/>
+  <g transform="translate(64 22) scale(1.15) translate(-12 -12)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"><path d="M3.5 16 7 6h13.5L17 16Z"/><path d="M5.25 11h13.5"/><path d="M11.5 6 8 16"/><path d="M16 6l-3.5 10"/><path d="M10.2 16v4"/><path d="M7 20h6.5"/></g>
+  <g transform="translate(27.6 85) scale(1.15) translate(-12 -12)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"><rect x="3" y="7" width="18" height="10" rx="2.5"/><path d="M6 10.4h5"/><path d="M6 13.6h.01M8.5 13.6h.01"/><path d="M16.6 9.5 14.6 13h1.7l-.3 2.4 2.1-3.6h-1.7z"/><path d="M3 12H1.2M21 12h1.8"/></g>
+  <g transform="translate(100.4 85) scale(1.15) translate(-12 -12)" fill="none" stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.1"><rect x="5" y="2.5" width="14" height="18" rx="2"/><path d="M5 6.2h14"/><rect x="10.9" y="8.2" width="2.2" height="1.3" rx="0.45"/><rect x="9.3" y="9.5" width="5.4" height="8" rx="1.2"/><path d="M10.7 15.2h2.6M10.7 12.9h2.6"/><path d="M8 20.5V22M16 20.5V22"/></g>
+  <circle cx="64" cy="64" r="22" fill="#23b26b" stroke="#fff" stroke-width="4"/>
+  <path transform="translate(64 64) scale(2.6) translate(-12.4 -11.5)" d="M12.7 6.6 9.3 12.1h2.6l-.3 4.3 4.4-5.3h-2.6z" fill="#fff" stroke="#fff" stroke-width="0.6" stroke-linejoin="round"/>
+</svg>

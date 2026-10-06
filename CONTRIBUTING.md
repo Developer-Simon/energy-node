@@ -24,6 +24,7 @@ upstream that work — but it is no longer the assumed way to use this.)
 - Bridge- or dashboard-specific conventions live next to the code
   (`dashboard/AGENTS.md`, the module docstrings under `services/` and `libs/`). Read the one
   for the area you're touching before changing it.
+- Maintainer notes that are not on the documentation site live in [docs/_internal/](docs/_internal/README.md).
 
 ## New device services
 
@@ -54,7 +55,7 @@ architecture:
   never publish credentials, and support the MQTT simulation mode every
   other slave has.
 
-[`docs/device-services.md`](docs/device-services.md) describes every
+[`docs/services/index.md`](docs/services/index.md) describes every
 existing service and the conventions they share — read it before starting.
 Open an issue naming the hardware first, so the maintainer can flag anything
 site-specific that would block a merge.
@@ -109,13 +110,13 @@ scripts/dev/run-installer.sh restart --only shelly                      # restar
 
 The target node comes from `secrets/deploy-target.env`. For that file, SSH
 authentication and every subcommand, see
-[Installer developer CLI](docs/knowledge/installer-developer-cli.md).
+[Installer developer CLI](docs/developing/installer-cli.md).
 
 ## Secrets
 
 Never commit real credentials, IPs from your own site's private range, or
 device serials — see
-[`docs/knowledge/dashboard/secrets-and-credentials.md`](docs/knowledge/dashboard/secrets-and-credentials.md).
+[`docs/operating/secrets.md`](docs/operating/secrets.md).
 `./scripts/dev/check_tracked_secrets.sh` scans tracked files for obvious
 leaks; run it before pushing.
 

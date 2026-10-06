@@ -12,7 +12,7 @@ Where each surface gets the icon from:
 |---|---|---|
 | Home Assistant UI (device page, config flow) | local `custom_components/battery_soc/brand/` (HA 2025.x+ serves it at `/api/brands/integration/…`) | ✅ ships in-tree |
 | HACS / hassfest validation (`brands` check) | local `brand/icon.png` | ✅ ships in-tree |
-| HACS **store list**, **update-entity dialog**, README header | `brands.home-assistant.io` CDN, by domain (fetched by the browser) | ❌ needs a [`home-assistant/brands`](https://github.com/home-assistant/brands) PR — `custom_integrations/battery_soc/{icon,icon@2x}.png`. Checklist in [`.docs/knowledge/integration/hacs-brands-pr.md`](../../.docs/knowledge/integration/hacs-brands-pr.md). |
+| HACS **store list**, **update-entity dialog**, README header | `brands.home-assistant.io` CDN, by domain (fetched by the browser) | ❌ needs a [`home-assistant/brands`](https://github.com/home-assistant/brands) PR — `custom_integrations/battery_soc/{icon,icon@2x}.png`. Checklist in [`.docs/_internal/hacs-brands-pr.md`](../../.docs/_internal/hacs-brands-pr.md). |
 
 ## Setup
 
@@ -146,7 +146,7 @@ with a guest session and answers backfill requests from the HA recorder.
 - **Distribution:** users install it through HACS from the public mirror
   `Developer-Simon/ha-energy-node-companion`, assembled by
   `scripts/publish_mirror.sh --component energy_node_companion` or the **HA Mirror
-  Release** workflow (see `docs/integration/ha-integration-hacs-release.md`).
+  Release** workflow (see `docs/_internal/ha-mirror-release.md`).
 
 ### Dashboard in the sidebar
 

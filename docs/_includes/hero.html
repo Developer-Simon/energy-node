@@ -1,0 +1,32 @@
+<section class="hero" aria-label="Energy Node">
+  <div class="hero__text">
+    <img src="{{ '/assets/logo.svg' | relative_url }}" alt="" width="56" height="56">
+    <p class="hero__claim">Your remote site,<br><span>one small node.</span></p>
+    <p class="hero__lead">Solar, battery and switchable loads on a Raspberry Pi, mirrored to Home Assistant over a VPN.</p>
+    <div class="hero__actions">
+      <a class="btn btn--primary" href="{{ '/installer.html' | relative_url }}">Get started</a>
+      <a class="btn btn--ghost" href="https://github.com/{{ site.repository }}">GitHub</a>
+    </div>
+  </div>
+  <div class="hero__shot">
+    <img src="{{ '/images/dashboard.png' | relative_url }}" alt="The Energy Node dashboard">
+  </div>
+</section>
+
+<div class="entry-cards">
+  <a class="entry-card" href="{{ '/installer.html' | relative_url }}">
+    <span class="entry-card__icon"><img src="{{ '/images/device-icons/raspberry-pi.svg' | relative_url }}" alt=""></span>
+    <strong>Deploy a node</strong>
+    <span>The installer, screen by screen</span>
+  </a>
+  <a class="entry-card" href="{{ '/dashboard/' | relative_url }}">
+    <span class="entry-card__icon"><img src="{{ '/images/device-icons/chip-outline.svg' | relative_url }}" alt=""></span>
+    <strong>Dashboard</strong>
+    <span>Every page of the web UI</span>
+  </a>
+  <a class="entry-card" href="{{ '/services/' | relative_url }}">
+    <span class="entry-card__icon"><img src="{{ '/images/device-icons/solar-panel.svg' | relative_url }}" alt=""></span>
+    <strong>Device services</strong>
+    <span>Shelly, APsystems EZ1, Trucki, Tuya and more</span>
+  </a>
+</div>

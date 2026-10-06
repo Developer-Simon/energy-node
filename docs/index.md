@@ -1,8 +1,11 @@
 ---
 title: Energy Node
+description: Solar, battery and switchable loads on a Raspberry Pi, mirrored to Home Assistant over a VPN.
 ---
 
-# Energy Node
+{% include hero.html %}
+
+# What is Energy Node?
 
 Energy monitoring and automation for a **remote site** — a workshop, barn,
 garage or second property that has its own solar, battery and switchable loads,
@@ -17,28 +20,6 @@ the main site.
 It is developed and run on a **Raspberry Pi 1 Model B** (ARMv6, single core,
 512 MB RAM). Newer models work as well; the Pi 1 is the floor every design
 decision is measured against.
-
-![The Energy Node dashboard](images/dashboard.png)
-
----
-
-## Start here
-
-**[The dashboard, page by page](dashboard.md)** — every screen of the web UI
-with a screenshot: overview cards and the layout editor, devices, browser-side
-history, the configuration editor, energy roles, device map, diagnostics,
-automations, all seven settings tabs and the four colour schemes.
-
-**[Device services](device-services.md)** — what each service talks to and what
-it publishes: Shelly, APsystems EZ1, Trucki sticks, Tuya, the computed battery
-state of charge, the automation engine and the node's own diagnostics — plus
-the conventions they all share.
-
-**[Deploying a node](installer.md)** — the installer, a desktop program that
-sets a node up on a Raspberry Pi, updates it and diagnoses it, screen by
-screen.
-
----
 
 ## How it fits together
 
@@ -91,40 +72,38 @@ span the node, then the dashboard, then the device services under `src/`.
 
 **General**
 
-- [Data flows](knowledge/data-flow.md) — what data is produced where, which
+- [Data flows](developing/data-flow.md) — what data is produced where, which
   channels it travels through, and who consumes it
-- [Configuration](knowledge/configuration.md) — every field of the central
+- [Configuration](operating/configuration.md) — every field of the central
   `config.json`
-- [Performance and resources](knowledge/performance-and-resources.md) —
+- [Performance and resources](operating/performance.md) —
   measured CPU/RAM per service on the Pi 1, and the optimisations that follow
-- [Cutting a release](knowledge/releasing.md) — the tag-driven build-and-publish
+- [Cutting a release](developing/releasing.md) — the tag-driven build-and-publish
   workflow and how to publish `vX.Y.Z`
 
 **Dashboard**
 
-- [HTTP API](knowledge/dashboard/api-documentation.md) — the dashboard's
+- [HTTP API](developing/api.md) — the dashboard's
   `/api/v1`, endpoint by endpoint
-- [Reverse proxy](knowledge/dashboard/reverse-proxy.md) — running the dashboard
+- [Reverse proxy](operating/reverse-proxy.md) — running the dashboard
   under a sub-path behind another proxy
-- [Secrets and credentials](knowledge/dashboard/secrets-and-credentials.md) —
+- [Secrets and credentials](operating/secrets.md) —
   where credentials live on the node and how they are installed
-- [Updater job protocol](knowledge/dashboard/updater-job-protocol.md) — how the
+- Updater job protocol (see the architecture notes in the repository) — how the
   dashboard hands a local redeploy to the root updater unit
 
 **Services**
 
-- [Battery state of charge](knowledge/services/battery-soc-how-it-works.md) — how
+- [Battery state of charge](services/battery-soc-how-it-works.md) — how
   the LiFePO4 engine works
 
 ## Integration
 
-- [battery_soc HA mirror](integration/ha-integration-hacs-release.md) — the
-  `battery_soc` custom integration, its public HACS mirror repo and release
+- [Battery SoC integration](ha/battery-soc.md) — the
+  `battery_soc` custom integration, its Home Assistant mirror repo and release
   runbook
 
-Installation is documented in `INSTALLATION.md` in the repository; it covers
-the ARMv6 specifics, including the packages that must be installed in an
-outdated version first and updated afterwards.
+[Manual installation](install/index.md) covers the ARMv6 specifics, including the packages that must be installed in an outdated version first and updated afterwards.
 
 ---
 
@@ -134,8 +113,7 @@ The project started as a single-site tool before it was made public. The
 dashboard's UI is available in **German and English**. Each browser chooses
 its language, either with the `DE | EN` switch in the header or from the
 browser's language setting. German stays the default. How the catalogs work
-and how to add a language is described in
-[`knowledge/dashboard/localization.md`](knowledge/dashboard/localization.md).
+and how to add a language is described in the localization notes in the repository.
 This documentation is written in English. Most in-code comments across the Go
 and Python source are still German.
 
