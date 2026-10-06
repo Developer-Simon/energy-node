@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.4.4 (2026-10-06)
+
+### Features
+
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **dashboard:** localize the system configuration form (#72) (c716d05)
+
+### Documentation
+
+- point the repository at the new pages and add site search (72fa46e)
+- redesign the documentation site with an Energy Node layout (#94)
+
 ## v0.4.3 (2026-09-28)
 
 ### Features

@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.4.6 (2026-10-06)
+
+### Features
+
+- **services:** give every service its own version and changelog (#45) (5bc91b8)
+- **battery_soc:** support DC-only systems and current sensors in HA (#56) (776bfdc)
+- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
+- **dashboard:** localize the system configuration form (#72) (c716d05)
+- **dashboard:** localize the device configuration forms (#73) (180110d)
+- **battery_soc:** save the state on an interval and recover after a crash (#78) (dc62037)
+
+### Documentation
+
+- point the repository at the new pages and add site search (72fa46e)
+- redesign the documentation site with an Energy Node layout (#94)
+
 ## v0.4.5 (2026-09-30)
 
 ### Features

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.0 (2026-10-05)
+## v0.2.1 (2026-10-05)
 
 ### Features
 
@@ -12,6 +12,11 @@
 
 - **installer:** harden step 15 and select it on dashboard updates (bab88e1)
 - **bootstrap:** give the ok detail its own function for shellcheck 0.9 (9c1a8b5)
+
+### Documentation
+
+- point the repository at the new pages and add site search (72fa46e)
+- redesign the documentation site with an Energy Node layout (#94)
 
 ## v0.1.13 (2026-10-01)
 
