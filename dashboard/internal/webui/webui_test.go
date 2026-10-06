@@ -54,7 +54,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=2,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=3,/static/js/config.page.js?v=7\"", "data-panel-script=\"/static/js/revisions.js?v=2,/static/js/energy.page.js?v=4\"", "data-panel-css=\"/static/css/manager.css?v=23\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=3,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=3,/static/js/config.page.js?v=8\"", "data-panel-script=\"/static/js/revisions.js?v=3,/static/js/energy.page.js?v=4\"", "data-panel-css=\"/static/css/manager.css?v=24\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -140,7 +140,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=2,/static/js/history.js?v=13",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=2,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=13,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=2,/static/js/systemconfig.page.js?v=5",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=3,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=13,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=2,/static/js/systemconfig.page.js?v=5",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -153,7 +153,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	if !strings.Contains(body, `data-panel-css="/static/css/tippy.css"`) {
 		t.Fatal("devices-panel does not declare lazy tippy.css")
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=23,/static/css/settings-controls.css?v=8"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=24,/static/css/settings-controls.css?v=8"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1102,7 +1102,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
 		`data-panel-script="/node/static/js-deps/popper.min.js,/node/static/js-deps/tippy.umd.min.js"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=23,/node/static/css/settings-controls.css?v=8"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=24,/node/static/css/settings-controls.css?v=8"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)

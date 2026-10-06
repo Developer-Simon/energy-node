@@ -2,6 +2,7 @@
 <details class="revision-panel" x-data="revisionPanel(revisionConfig())" x-bind:open="open">
   <summary x-on:click.prevent="toggle()" x-text="label"></summary>
   <div class="revision-panel-body">
+    <p class="revision-panel-active" x-cloak x-show="activeRevision" x-text="activeRevisionText"></p>
     <div class="toolbar">
       <label>{{t "revisions.select_label"}}
         <select x-model="selectedRevision" x-on:change="previewRevision()">

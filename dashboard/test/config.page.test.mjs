@@ -932,3 +932,16 @@ test('a server without checksums does not start a status watch', async () => {
   await component.saveForm();
   assert.equal(component.runtimeState, '');
 });
+
+test('the revision panel learns the active revision only while it is applied', () => {
+  const { component } = createConfigPanel({ lang: 'en' });
+  const config = component.revisionConfig();
+  assert.equal(config.activeRevision(), '');
+
+  component.runtimeState = 'applied';
+  component.runtimeStatus = { applied_revision: '7e757377aabbccdd' };
+  assert.equal(config.activeRevision(), '7e757377');
+
+  component.runtimeState = 'rejected';
+  assert.equal(config.activeRevision(), '', 'a rejected file is not the active revision');
+});

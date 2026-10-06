@@ -25,6 +25,10 @@
   // config.reload    Funktion, die die besitzende Seite nach einem Restore
   //                  neu laedt.
   // config.label     Optionale Beschriftung im Ausklapper.
+  // config.activeRevision
+  //                  Optionale Funktion, die die Kurzform der Revision
+  //                  liefert, mit der der Dienst gerade laeuft. Leer
+  //                  blendet die Zeile aus.
   const revisionPanel = (config = {}) => ({
     // config.basePath kann ein fester String oder - wenn die besitzende
     // Seite zwischen mehreren Konfigurationen umschalten kann (z. B. die
@@ -35,6 +39,7 @@
     currentValue: typeof config.current === 'function' ? config.current : () => null,
     reloadOwner: typeof config.reload === 'function' ? config.reload : async () => {},
     label: config.label || t('revisions.default_label'),
+    getActiveRevision: typeof config.activeRevision === 'function' ? config.activeRevision : () => '',
 
     revisions: [],
     selectedRevision: '',
@@ -48,6 +53,16 @@
 
     get basePath() {
       return this.getBasePath();
+    },
+
+    // Die laufende Fassung steht nicht in der Liste (eine Revision ist immer
+    // der Stand VOR einem Speichern), deshalb eine eigene Zeile darueber.
+    get activeRevision() {
+      return this.getActiveRevision() || '';
+    },
+
+    get activeRevisionText() {
+      return this.activeRevision ? t('config.runtime_status.active_revision', {revision: this.activeRevision}) : '';
     },
 
     // Wechselt die besitzende Seite die zugrunde liegende Konfiguration

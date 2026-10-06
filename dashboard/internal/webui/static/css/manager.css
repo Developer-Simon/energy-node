@@ -475,7 +475,41 @@ select.schema-control {
 
 /* Uebersichtszahl unter der Ueberschrift. War eine .toolbar, solange dort
    noch Buttons standen - jetzt ist es nur noch eine Angabe. */
-.config-meta { margin: .35rem 0 1.25rem; color: var(--text-muted); font-size: .85rem; letter-spacing: .01em; }
+.config-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem;
+  margin: .35rem 0 1.25rem; color: var(--text-muted); font-size: .85rem; letter-spacing: .01em;
+}
+
+/* Dienststatus als Pill hinter dem Zaehler. Nur der Zustand, keine
+   Pruefsumme: die steht im Revisionsbereich. Farbe und Text blenden beim
+   Wechsel kurz ueber, ohne Bewegung, weil kein Finger etwas angestossen hat. */
+.config-status {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .12rem .6rem .12rem .5rem;
+  border: 1px solid var(--border-soft); border-radius: 999px;
+  background: var(--panel-alt);
+  color: var(--text-subtle); font-size: .78rem; font-weight: 500; letter-spacing: .02em; white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease, color .15s ease;
+}
+.config-status-dot {
+  flex: none; width: .5rem; height: .5rem; border-radius: 50%;
+  background: var(--text-faint);
+  transition: background .15s ease, box-shadow .15s ease;
+}
+.config-status[data-state="applied"] .config-status-dot { background: var(--ok); }
+/* Ausstehend: halb gefuellter Ring statt Pulsieren. Ein langsames Wabern
+   zieht den Blick, obwohl es nichts zu tun gibt. */
+.config-status[data-state="pending"] .config-status-dot {
+  background: linear-gradient(90deg, var(--text-muted) 50%, transparent 50%);
+  box-shadow: inset 0 0 0 1.5px var(--text-muted);
+}
+.config-status[data-state="rejected"],
+.config-status[data-state="no_response"] { border-color: var(--bad-line); background: var(--bad-bg); color: var(--bad-ink); }
+.config-status[data-state="rejected"] .config-status-dot,
+.config-status[data-state="no_response"] .config-status-dot { background: var(--bad); }
+
+.config-runtime-error { display: grid; justify-items: start; gap: .5rem; margin: 0 0 1.25rem; }
+.config-runtime-error p { margin: 0; }
 
 .config-actionbar-dock {
   position: sticky; bottom: 0; z-index: 20;
@@ -620,6 +654,8 @@ select.schema-control {
   .config-actionbar-text,
   .config-actionbar-secondary,
   .config-actionbar-dot,
+  .config-status,
+  .config-status-dot,
   .config-actionbar-dock::before,
   .config-json-summary::before { transition-duration: .01ms; }
   .config-actionbar button:active:not(:disabled) { transform: none; }
@@ -660,6 +696,7 @@ select.schema-control {
 .revision-panel > summary:hover { color: var(--text); }
 .revision-panel-body { padding-top: .75rem; }
 .revision-panel-empty { color: var(--text-faint); }
+.revision-panel-active { margin: 0 0 .6rem; color: var(--text-muted); font-size: .8rem; letter-spacing: .01em; }
 .revision-list { display: grid; gap: .3rem; margin: .75rem 0 0; padding-left: 1.2rem; color: var(--text-subtle); font-size: .85rem; font-variant-numeric: tabular-nums; }
 #config-reload-error code { display: block; margin: .5rem 0; color: var(--text-subtle); font-size: .9em; }
 .form-grid { display: grid; grid-template-columns: minmax(12rem, 20rem) minmax(12rem, 20rem); gap: .8rem 1rem; align-items: center; }
