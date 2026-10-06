@@ -531,6 +531,16 @@ test('ein unbekannter Kartentyp im Raster erzwingt den Tausch', () => {
   assert.equal(calls.length, 1);
 });
 
+test('liveGridPushCovers treats history_view as covered, it needs no push data', () => {
+  const { panel } = overviewPanel(['energy_day', 'history_view']);
+  assert.equal(panel.liveGridPushCovers({energy: {}}), true);
+});
+
+test('liveGridPushCovers still swaps when only history_view is present but another kind is uncovered', () => {
+  const { panel } = overviewPanel(['diagnostics', 'history_view']);
+  assert.equal(panel.liveGridPushCovers({energy: {}}), false);
+});
+
 test('ein entities_delta fasst nur die genannte Karte an und tauscht nicht', () => {
   const html = `<div id="overview-panel" class="panel active"><div id="overview-live" data-structure="fp1">
     <div class="layout-grid"><div data-layout-item-kind="entity_value"></div></div>

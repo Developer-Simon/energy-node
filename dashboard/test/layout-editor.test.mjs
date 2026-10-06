@@ -2446,3 +2446,107 @@ test('toolbox renders .layout-toolbox-empty for no matching search', () => {
   assert(empty, 'should show .layout-toolbox-empty when no results match');
   assert(empty.textContent.includes('xyz_no_match_xyz'), 'empty message should include query');
 });
+
+// Helper for JSON round-trip
+const plain = value => JSON.parse(JSON.stringify(value));
+
+const VIEWS = [
+  {id: 'v1', name: 'PV', series: ['role:pv'], range_hours: 6, aggregate: 'max'},
+  {id: 'v2', name: 'Fest', series: ['role:grid'], range_hours: 6, range_mode: 'custom', range_from: 0, range_to: 30 * 3600 * 1000, aggregate: 'min'},
+];
+
+async function editorWithHistoryTile(item) {
+  const layout = {version: 3, card_types: {history_view: {min_span: 1, min_width: '16rem', min_height: '14rem', fills_height: true, default_span: '2'}},
+    pages: [{id: 'p', name: '', order: 0, groups: [{id: 'g', name: 'Dashboard', items: [item]}]}]};
+  const fetchImpl = async url => jsonResponse(
+    url.endsWith('/api/v1/devices') ? [] : url.endsWith('/api/v1/settings') ? {history_views: VIEWS} : layout);
+  const loaded = loadLayoutPage({fetchImpl});
+  loaded.document.body.innerHTML = '<div id="layout-grid-g"></div>';
+  await loaded.component.load();
+  return loaded;
+}
+
+test('the catalog offers a history_view card with its own thumbnail', () => {
+  const {factory} = loadLayoutPage();
+  assert.ok(factory.THUMB.history_view.includes('var(--flow-pv)'));
+  assert.ok(factory.THUMB.history_view.includes('var(--flow-load)'));
+});
+
+test('load() maps history fields and fetches the saved views once', async () => {
+  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, title: 'Netz', history_series: ['role:grid'], history_range_hours: '168', history_aggregate: 'min'});
+  const item = component.pages[0].groups[0].items[0];
+  assert.deepEqual(plain(item.historySeries), ['role:grid']);
+  assert.equal(item.historyRangeHours, '168');
+  assert.equal(item.historyAggregate, 'min');
+  assert.equal(component.itemLabel(item), 'Netz');
+});
+
+test('itemLabel of a bound tile is the view name', async () => {
+  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: 'v1', span: '2', visible: true});
+  assert.equal(component.itemLabel(component.pages[0].groups[0].items[0]), 'PV');
+});
+
+test('the source picker lists the saved views and own settings', async () => {
+  const {factory, component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: 'v1', span: '2', visible: true});
+  const html = factory.optionsSheetHTML(component.pages[0].groups[0].items[0], [], 'PV', 2);
+  assert.match(html, /data-role="history-source"/);
+  assert.match(html, /<option value="v1" selected>PV<\/option>/);
+  assert.match(html, /<option value="">/);
+  assert.doesNotMatch(html, /data-role="history-range-hours"/, 'gebunden: keine eigenen Felder');
+});
+
+test('deleted view stays selectable as "Gelöschte Sicht"', async () => {
+  const {factory, component, window} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: 'weg', span: '2', visible: true});
+  const html = factory.optionsSheetHTML(component.pages[0].groups[0].items[0], [], 'x', 2);
+  assert.ok(html.includes(`<option value="weg" selected>${window.I18n.t('layout_editor.history_view.deleted')}</option>`));
+});
+
+test('switching from a view to own settings copies series, range and aggregate', async () => {
+  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: 'v1', span: '2', visible: true});
+  const item = component.pages[0].groups[0].items[0];
+  component._optionsItem = item;
+  component.applyOptionChange({target: {dataset: {role: 'history-source'}, value: ''}});
+  assert.equal(item.ref, '');
+  assert.deepEqual(plain(item.historySeries), ['role:pv']);
+  assert.equal(item.historyRangeHours, '6');
+  assert.equal(item.historyAggregate, 'max');
+  assert.equal(component.unsaved, true);
+});
+
+test('nearestPreset rounds a fixed range up to the next preset, at most 720 h', () => {
+  const {factory} = loadLayoutPage();
+  assert.equal(factory.nearestPreset({range_mode: 'custom', range_from: 0, range_to: 30 * 3600 * 1000, range_hours: 6}), '168');
+  assert.equal(factory.nearestPreset({range_mode: 'custom', range_from: 0, range_to: 90 * 24 * 3600 * 1000, range_hours: 6}), '720');
+  assert.equal(factory.nearestPreset({range_mode: 'relative', range_hours: 24}), '24');
+  assert.equal(factory.nearestPreset({range_hours: 2}), '6');
+});
+
+test('switching to a view clears the own fields', async () => {
+  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv'], history_range_hours: '6', history_aggregate: 'max'});
+  const item = component.pages[0].groups[0].items[0];
+  component._optionsItem = item;
+  component.applyOptionChange({target: {dataset: {role: 'history-source'}, value: 'v2'}});
+  assert.equal(item.ref, 'v2');
+  assert.deepEqual(plain(item.historySeries), []);
+  assert.equal(item.historyRangeHours, '');
+  assert.equal(item.historyAggregate, '');
+});
+
+test('the series checkboxes update historySeries', async () => {
+  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv']});
+  const item = component.pages[0].groups[0].items[0];
+  component._optionsItem = item;
+  component.applyOptionChange({target: {dataset: {role: 'history-series'}, value: 'role:grid', checked: true}});
+  component.applyOptionChange({target: {dataset: {role: 'history-series'}, value: 'role:pv', checked: false}});
+  assert.deepEqual(plain(item.historySeries), ['role:grid']);
+});
+
+test('payload() writes history_series and the two option fields in snake_case', async () => {
+  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, title: 'Netz', history_series: ['role:grid'], history_range_hours: '168', history_aggregate: 'min'});
+  const item = component.payload().pages[0].groups[0].items[0];
+  assert.deepEqual(plain(item.history_series), ['role:grid']);
+  assert.equal(item.history_range_hours, '168');
+  assert.equal(item.history_aggregate, 'min');
+  assert.equal(item.title, 'Netz');
+  assert.equal(item.historySeries, undefined, 'kein camelCase im PUT-Rumpf');
+});

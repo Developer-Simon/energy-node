@@ -17,7 +17,6 @@ import (
 	"io/fs"
 	"net/http"
 	"regexp"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -147,6 +146,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 		"cardStyle":          cardStyle,
 		"cardFillsHeight":    cardFillsHeight,
 		"stripDeviceName":    stripDeviceName,
+		"historyViewCard":    historyViewCard,
 		"activePage": func(layout settings.Layout, id string) *settings.Page {
 			// Overview renders exactly one page. Without a match, use the first page
 			// so that an unknown page ID (old bookmark, deleted page) does not result
@@ -599,30 +599,29 @@ func defaultLayout(devices []registry.DeviceView) settings.Layout {
 	}
 }
 
-// energyCardScripts maps each of the six alternative energy-graphic layout
-// item types (energiegrafiken-sechs-varianten.md) to the static/js file that
-// implements its Alpine component. energy_flow keeps its own always-loaded
-// energy-flow.js and isn't part of this - only the six newer, singleton
-// "compare a Vorschlag" cards are optional enough to be worth gating.
-var energyCardScripts = map[string]string{
-	"energy_band":    "/static/js/energy-band.js?v=1",
-	"energy_ring":    "/static/js/energy-ring.js?v=1",
-	"energy_board":   "/static/js/energy-board.js?v=1",
-	"energy_day":     "/static/js/energy-day.js?v=2",
-	"energy_schema":  "/static/js/energy-schema.js?v=1",
-	"energy_status":  "/static/js/energy-status.js?v=1",
-	"battery_status": "/static/js/battery-status.js?v=2",
+// energyCardScripts ordnet jedem nachladbaren Kartentyp seine Skripte zu,
+// in Ladereihenfolge. energy_flow fehlt: energy-flow.js laedt immer.
+// history_view braucht ApexCharts und das gemeinsame Diagramm-Modul vor dem
+// eigenen Controller. energy-model.js steht nicht in der Liste, base.html
+// laedt es fuer jede Karte dieser Gruppe ohnehin mit. Die URLs muessen
+// buchstabengleich mit data-panel-script des Verlaufs-Panels sein, sonst
+// laedt das Panel sie ein zweites Mal (loadSingleAsset, dashboard.js).
+var energyCardScripts = map[string][]string{
+	"energy_band":    {"/static/js/energy-band.js?v=1"},
+	"energy_ring":    {"/static/js/energy-ring.js?v=1"},
+	"energy_board":   {"/static/js/energy-board.js?v=1"},
+	"energy_day":     {"/static/js/energy-day.js?v=2"},
+	"energy_schema":  {"/static/js/energy-schema.js?v=1"},
+	"energy_status":  {"/static/js/energy-status.js?v=1"},
+	"battery_status": {"/static/js/battery-status.js?v=2"},
+	"history_view":   {"/static/js-deps/apexcharts.min.js", "/static/js/history-chart.js?v=1", "/static/js/history-view-card.js?v=1"},
 }
 
-// requiredEnergyCardScripts returns the energy-<type>.js paths for whichever
-// of the six alternative energy-graphic card types are actually visible
-// somewhere in layout, sorted for a stable script order. Each of those cards
-// fully re-mounts on every #overview-live refresh instead of patching an
-// existing SVG in place (see the comment atop energy-band.js), so its script
-// has to already be loaded by the time that first mount happens - but there
-// is no reason to ship all six to every browser when a given layout only
-// ever selects one or two of them. basePath prefixes the returned <script src>
-// values; it is "" for direct access.
+// requiredEnergyCardScripts liefert die Skripte aller sichtbaren Karten
+// dieser Gruppe, in Layout-Reihenfolge und ohne Doppelte. Frueher sortiert -
+// seit history_view eine Liste mit Abhaengigkeiten mitbringt, waere eine
+// Sortierung falsch (history-chart.js vor apexcharts.min.js). basePath
+// prefixes the returned <script src> values; it is "" for direct access.
 func requiredEnergyCardScripts(layout settings.Layout, basePath string) []string {
 	seen := map[string]bool{}
 	var scripts []string
@@ -632,16 +631,16 @@ func requiredEnergyCardScripts(layout settings.Layout, basePath string) []string
 				if !item.Visible {
 					continue
 				}
-				script, ok := energyCardScripts[item.Type]
-				if !ok || seen[script] {
-					continue
+				for _, script := range energyCardScripts[item.Type] {
+					if seen[script] {
+						continue
+					}
+					seen[script] = true
+					scripts = append(scripts, basepath.Join(basePath, script))
 				}
-				seen[script] = true
-				scripts = append(scripts, basepath.Join(basePath, script))
 			}
 		}
 	}
-	sort.Strings(scripts)
 	return scripts
 }
 
@@ -746,6 +745,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		widePanels := settings.Default().WidePanels
 		statusBarItems := settings.Default().StatusBarItems
 		showLanguageSwitch := true
+		historyViews := []settings.HistoryView{}
 		if store != nil {
 			if value, err := store.LoadSettings(); err == nil {
 				showRuntimeStatus = value.ShowRuntimeStatus
@@ -757,6 +757,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 				widePanels = value.WidePanels
 				statusBarItems = value.StatusBarItems
 				showLanguageSwitch = !value.LanguageSwitchHidden
+				historyViews = value.HistoryViews
 			}
 		}
 		if requestedMode := r.URL.Query().Get("view_mode"); requestedMode == settings.DeviceViewModeControl || requestedMode == settings.DeviceViewModeCompact {
@@ -867,6 +868,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			view["ActivePage"] = r.URL.Query().Get("page")
 			view["LayoutDevices"] = devicesByID(devices)
 			view["LayoutEntities"] = entitiesByID(devices)
+			view["HistoryViews"] = historyViews
 			view["EnergyCardScripts"] = requiredEnergyCardScripts(layout, basepath.From(r))
 			now := time.Now().UTC()
 			view["Diagnostics"] = diagnostics.Summarize(engine.Evaluate(now), engine.Health(now), devices)

@@ -55,3 +55,13 @@ test('nach einem Fehlschlag ist ein zweiter Versuch moeglich', async () => {
   await shell.editorAssetsReady();
   assert.ok(attempts > 1, 'das verworfene Promise muss einen neuen Versuch zulassen');
 });
+
+test('loadSingleAsset skips a script that the page already loaded as a static <script src>', async () => {
+  const { dom, shell } = createShell();
+  const script = dom.window.document.createElement('script');
+  script.src = '/static/js-deps/apexcharts.min.js';
+  dom.window.document.head.append(script);
+  const before = dom.window.document.querySelectorAll('script[src="/static/js-deps/apexcharts.min.js"]').length;
+  await shell.loadSingleAsset('/static/js-deps/apexcharts.min.js', 'script');
+  assert.equal(dom.window.document.querySelectorAll('script[src="/static/js-deps/apexcharts.min.js"]').length, before);
+});

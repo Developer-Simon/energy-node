@@ -85,6 +85,12 @@
     }));
   };
 
+  // Gespeicherte Verlaufssichten und die in diesem Browser bekannten
+  // Serien - beide einmal in load() geholt, wie allDevices. Plattform-
+  // Zustand, kein View-Zustand.
+  let historyViews = [];
+  let historySeriesNames = [];
+
   const SPAN_OPTIONS = ['1', '2', '3', '4', '5', '6', 'full'];
   const spanLabel = span => (span === 'full' ? t('layout_editor.span.full') : span);
 
@@ -247,6 +253,8 @@
     entity_group: '<svg viewBox="0 0 40 20"><g fill="var(--text-subtle)"><rect x="6" y="5" width="19" height="2.2" rx="1"/><rect x="6" y="9" width="24" height="2.2" rx="1"/><rect x="6" y="13" width="15" height="2.2" rx="1"/></g><g fill="var(--accent)"><rect x="31" y="5" width="3" height="2.2" rx="1"/><rect x="31" y="9" width="3" height="2.2" rx="1"/></g></svg>',
     device:       '<svg viewBox="0 0 40 20"><rect x="8" y="5" width="14" height="10" rx="2" fill="none" stroke="var(--text-subtle)" stroke-width="1.4"/><rect x="26" y="7" width="8" height="5" rx="2.5" fill="var(--accent)"/></svg>',
     diagnostics:  '<svg viewBox="0 0 40 20"><path d="M5 12h6l3-6 4 10 3-5h14" fill="none" stroke="var(--accent)" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    // Zwei Serien ueber einem Raster - die Verlaufskachel.
+    history_view: '<svg viewBox="0 0 40 20"><g stroke="var(--track)" stroke-width=".6"><path d="M5 5.5h30M5 10h30M5 14.5h30"/></g><path d="M5 16 C10 16 12 6 20 5 S29 15 35 15.5" fill="none" stroke="var(--flow-pv)" stroke-width="1.5" stroke-linecap="round"/><path d="M5 11.5 C8 9 10 13 14 11.5 S20 8 24 10.5 S31 12 35 8.5" fill="none" stroke="var(--flow-load)" stroke-width="1.5" stroke-linecap="round"/></svg>',
   };
 
   // Konfigurationsoptionen der sechs Energiegrafiken-Alternativen plus
@@ -280,6 +288,8 @@
     {role: 'battery-projection-window', field: 'batteryProjectionWindow', json: 'battery_projection_window', kind: 'select'},
     {role: 'speed-reference-mode', field: 'speedReferenceMode', json: 'speed_reference_mode', kind: 'select'},
     {role: 'speed-reference-watts', field: 'speedReferenceWatts', json: 'speed_reference_watts', kind: 'number'},
+    {role: 'history-range-hours', field: 'historyRangeHours', json: 'history_range_hours', kind: 'select'},
+    {role: 'history-aggregate', field: 'historyAggregate', json: 'history_aggregate', kind: 'select'},
   ];
   const ENERGY_OPTION_BY_ROLE = Object.fromEntries(ENERGY_OPTIONS.map(o => [o.role, o]));
   const ENERGY_OPTION_FIELDS = ENERGY_OPTIONS.map(o => o.field);
@@ -527,6 +537,7 @@
       height: 0,
       title: '',
       entityRefs: [],
+      historySeries: [],
     };
     // data-speed-reference-mode -> dataset.speedReferenceMode === ENERGY_OPTION.field
     for (const {field} of ENERGY_OPTIONS) item[field] = d[field] || '';
@@ -572,6 +583,44 @@
     return `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.entity_group.title'))}</label><input type="text" data-role="entity-group-title" value="${escapeHTML(item.title || '')}"></div>`
       + `<div class="layout-modal-field"><label id="layout-item-entity-refs-label-${escapeHTML(item.id || '')}">${escapeHTML(t('layout_editor.entity_group.entities_label'))}</label>`
       + `<select multiple data-role="entity-refs" aria-labelledby="layout-item-entity-refs-label-${escapeHTML(item.id || '')}">${entityOptions.map(entity => `<option value="${escapeHTML(entity.ref)}"${(item.entityRefs || []).includes(entity.ref) ? ' selected' : ''}>${escapeHTML(entity.label)}</option>`).join('')}</select></div>`;
+  }
+
+  const HISTORY_RANGE_HOURS = ['1', '6', '24', '168', '720'];
+
+  // Fester Datumsbereich -> naechstgroesseres Preset, hoechstens ein Monat.
+  // Eigene Einstellung kennt keinen festen Bereich (Spec: nicht Teil dieser
+  // Arbeit), aufrunden zeigt mindestens alles, was die Sicht zeigte.
+  function nearestPreset(view) {
+    const hours = view.range_mode === 'custom' && view.range_from >= 0 && view.range_to > view.range_from
+      ? Math.ceil((view.range_to - view.range_from) / 3600000)
+      : Number(view.range_hours) || 24;
+    return HISTORY_RANGE_HOURS.find(preset => Number(preset) >= hours) || '720';
+  }
+
+  const historySeriesLabel = name => (window.HistoryChart ? window.HistoryChart.seriesLabel(name)
+    : name === 'berechnet:hausverbrauch' ? t('history.series.derived_load') : name);
+
+  function historyViewHTML(item) {
+    if (item.type !== 'history_view') return '';
+    const known = historyViews.some(view => view.id === item.ref);
+    const options = historyViews.map(view =>
+      `<option value="${escapeHTML(view.id)}"${view.id === item.ref ? ' selected' : ''}>${escapeHTML(view.name)}</option>`).join('')
+      + (item.ref && !known ? `<option value="${escapeHTML(item.ref)}" selected>${escapeHTML(t('layout_editor.history_view.deleted'))}</option>` : '')
+      + `<option value=""${item.ref ? '' : ' selected'}>${escapeHTML(t('layout_editor.history_view.own'))}</option>`;
+    const source = `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.source'))}</label><select data-role="history-source">${options}</select></div>`;
+    if (item.ref) return source;
+    // Serien dieses Browsers, die berechnete Zeile und alles schon Gewaehlte -
+    // eine auf einem anderen Geraet gewaehlte Serie darf hier nicht verschwinden.
+    const names = [...new Set([...historySeriesNames, 'berechnet:hausverbrauch', ...(item.historySeries || [])])].sort();
+    const series = names.map(name =>
+      `<label class="layout-modal-switchrow">${escapeHTML(historySeriesLabel(name))} ${toggleHTML('history-series', (item.historySeries || []).includes(name), ` value="${escapeHTML(name)}"`)}</label>`).join('');
+    return source
+      + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.title'))}</label><input type="text" data-role="history-title" value="${escapeHTML(item.title || '')}" placeholder="${escapeHTML(t('overview.history_view.default_title'))}"></div>`
+      + selectFieldHTML('history-range-hours', 'layout_editor.history_view.range', item.historyRangeHours || '24',
+        [['1', 'layout_editor.option.history_range.hour_1'], ['6', 'layout_editor.option.history_range.hour_6'], ['24', 'history.range.day'], ['168', 'history.range.week'], ['720', 'history.range.month']])
+      + selectFieldHTML('history-aggregate', 'layout_editor.history_view.aggregate', item.historyAggregate || 'avg',
+        [['avg', 'history.aggregate.average'], ['min', 'history.aggregate.minimum'], ['max', 'history.aggregate.maximum']])
+      + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.series'))}</label>${series}<p class="layout-modal-hint">${escapeHTML(t('layout_editor.history_view.series_hint'))}</p></div>`;
   }
 
   function entityValuePickerHTML(item, devices) {
@@ -631,7 +680,7 @@
     const platz = g('layout_editor.options_section.space', `<div class="layout-modal-field-row">${spanSelectHTML(item, label, columns)}${heightFieldHTML(item)}</div>` + heightHintHTML(item));
     const darstellungBody = flowScaleHTML(item) + deviceDisplayHTML(item) + batteryDisplayHTML(item) + categoryHTML(item) + energyOptionsHTML(item);
     const darstellung = g('layout_editor.options_section.appearance', darstellungBody || `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.options_hint.no_appearance'))}</p>`);
-    const ortBody = entityGroupHTML(item, devices) + entityValuePickerHTML(item, devices) + deviceRefPickerHTML(item, devices) + compactRowsPickerHTML(item, devices);
+    const ortBody = historyViewHTML(item) + entityGroupHTML(item, devices) + entityValuePickerHTML(item, devices) + deviceRefPickerHTML(item, devices) + compactRowsPickerHTML(item, devices);
     const ort = g('layout_editor.options_section.location', ortBody || `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.options_hint.no_data_source'))}</p>`);
     return platz + darstellung + ort;
   }
@@ -663,6 +712,7 @@
       display: item.display || '',
       title: item.title || '',
       entityRefs: item.entityRefs || [],
+      historySeries: item.historySeries || [],
     };
     for (const field of ENERGY_OPTION_FIELDS) node[field] = item[field] || '';
     node.content = widgetHTML({...item, span}, label, missingRef, columns);
@@ -683,6 +733,7 @@
       height: node.height || 0,
       title: node.title || '',
       entityRefs: node.entityRefs || [],
+      historySeries: node.historySeries || [],
     };
     for (const field of ENERGY_OPTION_FIELDS) item[field] = node[field] || '';
     return item;
@@ -731,6 +782,9 @@
       // waehlt man danach im Optionen-Modal, darum eine frische ID je Karte
       // (siehe addFromCatalog).
       {id: 'entity-group', type: 'entity_group', ref: '', title: t('layout_editor.card.entity_group.title'), desc: t('layout_editor.card.entity_group.description')},
+      // Generisch wie entity-group: Quelle, Serien und Zeitraum waehlt man
+      // im Optionen-Modal, mehrere Verlaufskacheln je Seite sind erlaubt.
+      {id: 'history-view', type: 'history_view', ref: '', title: t('layout_editor.card.history_view.title'), desc: t('layout_editor.card.history_view.description')},
     ];
     const geraete = (devices || []).map(d => ({id: 'device:'+d.id, type: 'device', ref: d.id, title: d.name || d.id, desc: t('layout_editor.card.device.description')}));
     // Ein Eintrag je Entitaet: die Wert-Karte. Bis 2026-09 stand daneben ein
@@ -1463,6 +1517,32 @@
         if (item.type === 'device' && item.display !== 'compact') item.entityRefs = [];
         this.syncSlotForItem(item);
         this.refillOptionsBody();
+      } else if (role === 'history-source') {
+        if (t.value) {
+          item.ref = t.value;
+          item.historySeries = [];
+          item.historyRangeHours = '';
+          item.historyAggregate = '';
+          item.title = '';
+        } else {
+          // Aus einer Sicht heraus: deren Werte sind der Startpunkt.
+          const view = historyViews.find(entry => entry.id === item.ref);
+          item.ref = '';
+          if (view) {
+            item.historySeries = [...(view.series || [])];
+            item.historyRangeHours = nearestPreset(view);
+            item.historyAggregate = view.aggregate || 'avg';
+          }
+        }
+        this.syncSlotForItem(item);
+        this.refillOptionsBody();
+      } else if (role === 'history-series') {
+        const set = new Set(item.historySeries || []);
+        if (t.checked) set.add(t.value); else set.delete(t.value);
+        item.historySeries = [...set];
+      } else if (role === 'history-title') {
+        item.title = t.value;
+        this.syncSlotForItem(item);
       } else if (role === 'span') {
         item.span = t.value;
       } else if (role === 'height') {
@@ -1633,6 +1713,7 @@
         // erzeugt darum fuer diese Option jedes Mal eine frische Karten-ID
         // statt die Option-ID wiederzuverwenden.
         {id: 'entity-value', type: 'entity_value', ref: ''},
+        {id: 'history-view', type: 'history_view', ref: ''},
       ];
       for (const device of this.devices) {
         options.push({id: `device:${device.id}`, type: 'device', ref: device.id});
@@ -1647,6 +1728,12 @@
     // dann eine frische newID(), keine der itemOptions-IDs) - der Name kommt
     // stattdessen aus dem gewaehlten ref selbst.
     itemLabel(item) {
+      if (item.type === 'history_view') {
+        const view = item.ref && historyViews.find(entry => entry.id === item.ref);
+        if (view) return view.name;
+        if (item.ref) return t('layout_editor.history_view.deleted');
+        return item.title || t('layout_editor.card.history_view.title');
+      }
       if (item.type === 'entity_group') return item.title || t('layout_editor.card.entity_group.title');
       if (item.type === 'entity_value') {
         const entity = allEntityOptions().find(option => option.ref === item.ref);
@@ -1661,7 +1748,7 @@
       // vorkommt. Die ID bleibt der letzte Rueckfall - fuer Layouts, die noch
       // aus der Zeit der Katalog-IDs stammen.
       const byKind = this.itemOptions.find(option => option.type === item.type && (option.ref || '') === (item.ref || ''));
-      if (byKind) return t(`layout_editor.card.${byKind.type}.title`); // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title
+      if (byKind) return t(`layout_editor.card.${byKind.type}.title`); // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title, layout_editor.card.history_view.title
       const byID = this.itemOptions.find(option => option.id === item.id);
       if (byID) return t(`layout_editor.card.${byID.type}.title`);
       return item.ref || item.id;
@@ -1687,12 +1774,18 @@
             items: (group.items || (group.entity_ids || []).map(entityID => ({id: `entity:${entityID}`, type: 'entity_value', ref: entityID, span: '1', visible: true})))
               .map(item => ({
                 ...item, visibleCategories: item.visible_categories || [], flowScale: item.flow_scale || '', display: item.display || '', height: item.height || 0,
-                title: item.title || '', entityRefs: item.entity_refs || [],
+                title: item.title || '', entityRefs: item.entity_refs || [], historySeries: item.history_series || [],
                 ...Object.fromEntries(ENERGY_OPTIONS.map(({field, json}) => [field, item[json] || ''])),
               })),
           })),
         }));
         if (!this.pages.length) this.pages = this.defaultPages();
+        // Fuer das Quellen-Auswahlfeld der Verlaufskachel. Ein Fehler hier
+        // darf den Editor nicht blockieren, dann gibt es eben nur
+        // "Eigene Einstellung".
+        const settingsValue = await requestJSON('/api/v1/settings').catch(() => null);
+        historyViews = Array.isArray(settingsValue?.history_views) ? settingsValue.history_views : [];
+        historySeriesNames = window.HistoryStore ? await window.HistoryStore.seriesNames().catch(() => []) : [];
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -2170,7 +2263,7 @@
         groups: page.groups.map(group => ({
           ...group,
           items: group.items.map(source => {
-            const {visibleCategories, flowScale, height, entityRefs, display, ...item} = source;
+            const {visibleCategories, flowScale, height, entityRefs, display, historySeries, ...item} = source;
             for (const field of ENERGY_OPTION_FIELDS) delete item[field];
             return {
               ...item,
@@ -2179,6 +2272,7 @@
               ...(height ? {height} : {}),
               ...(entityRefs && entityRefs.length ? {entity_refs: entityRefs} : {}),
               ...(display ? {display} : {}),
+              ...(historySeries && historySeries.length ? {history_series: historySeries} : {}),
               ...Object.fromEntries(ENERGY_OPTIONS.filter(({field}) => source[field]).map(({field, json}) => [json, source[field]])),
             };
           }),
@@ -2292,6 +2386,7 @@
   layoutEditor.applyTargetWidth = applyTargetWidth;
   layoutEditor.widthNote = widthNote;
   layoutEditor.THUMB = THUMB;
+  layoutEditor.nearestPreset = nearestPreset;
 
   const register = () => {
     if (window.Alpine) window.Alpine.data("layoutEditor", layoutEditor);

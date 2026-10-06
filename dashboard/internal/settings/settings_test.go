@@ -1889,3 +1889,116 @@ func TestBridgeAddressWarningKey(t *testing.T) {
 		})
 	}
 }
+
+// Bis 2026-10 kannte HistoryView die drei Felder nicht: history.js schickte
+// sie mit, der Server warf sie beim Dekodieren weg, und eine Sicht mit
+// festem Datumsbereich kam als relativer Zeitraum zurueck.
+func TestHistoryViewKeepsAFixedDateRange(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := Default()
+	value.HistoryViews = []HistoryView{
+		{ID: "fest", Name: "Fest", Series: []string{"role:pv"}, RangeHours: 6, RangeMode: HistoryRangeModeCustom, RangeFrom: 1_700_000_000_000, RangeTo: 1_700_086_400_000, Aggregate: "avg"},
+		// relativ: from/to sind bedeutungslos und werden geleert
+		{ID: "rel", Name: "Relativ", Series: []string{}, RangeHours: 24, RangeMode: HistoryRangeModeRelative, RangeFrom: 5, RangeTo: 9, Aggregate: "max"},
+		// custom ohne Ende: kein gueltiger Bereich, faellt auf relativ zurueck
+		{ID: "halb", Name: "Halb", Series: []string{}, RangeHours: 24, RangeMode: HistoryRangeModeCustom, RangeFrom: 5, Aggregate: "min"},
+		// Altbestand ohne range_mode bleibt ohne
+		{ID: "alt", Name: "Alt", Series: []string{}, RangeHours: 168, Aggregate: "avg"},
+	}
+	if err := store.SaveSettings(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadSettings()
+	if err != nil {
+		t.Fatal(err)
+	}
+	views := loaded.HistoryViews
+	if views[0].RangeMode != HistoryRangeModeCustom || views[0].RangeFrom != 1_700_000_000_000 || views[0].RangeTo != 1_700_086_400_000 {
+		t.Fatalf("fester Bereich verloren: %#v", views[0])
+	}
+	if views[1].RangeMode != HistoryRangeModeRelative || views[1].RangeFrom != 0 || views[1].RangeTo != 0 {
+		t.Fatalf("relative Sicht traegt Grenzen: %#v", views[1])
+	}
+	if views[2].RangeMode != HistoryRangeModeRelative || views[2].RangeFrom != 0 || views[2].RangeTo != 0 {
+		t.Fatalf("halber custom-Bereich nicht zurueckgesetzt: %#v", views[2])
+	}
+	if views[3].RangeMode != "" || views[3].RangeHours != 168 {
+		t.Fatalf("Altbestand veraendert: %#v", views[3])
+	}
+}
+
+func TestNormalizeLayoutHistoryView(t *testing.T) {
+	layout := normalizeLayout(Layout{Version: 3, Pages: []Page{{ID: "p", Name: "P", Groups: []Group{{
+		ID: "g", Name: "G", Items: []Item{
+			// gebunden: die Sicht liefert alles, die eigenen Felder fallen weg
+			{ID: "a", Type: "history_view", Ref: "view-1", Span: "2", Visible: true, Title: "weg", HistorySeries: []string{"role:pv"}, HistoryRangeHours: "6", HistoryAggregate: "max"},
+			// eigene Einstellung ohne Werte: Defaults, Titel bleibt
+			{ID: "b", Type: "history_view", Span: "2", Visible: true, Title: "PV heute"},
+			// eigene Einstellung mit ungueltigen Werten: Defaults
+			{ID: "c", Type: "history_view", Span: "2", Visible: true, HistorySeries: []string{"role:pv", "role:grid"}, HistoryRangeHours: "48", HistoryAggregate: "median"},
+			// fremder Typ: alle drei Felder weg
+			{ID: "d", Type: "energy_day", Span: "2", Visible: true, HistorySeries: []string{"role:pv"}, HistoryRangeHours: "6", HistoryAggregate: "min"},
+		},
+	}}}}})
+	items := layout.Pages[0].Groups[0].Items
+	if items[0].Title != "" || items[0].HistorySeries != nil || items[0].HistoryRangeHours != "" || items[0].HistoryAggregate != "" {
+		t.Fatalf("gebundene Kachel traegt eigene Felder: %#v", items[0])
+	}
+	if items[1].Title != "PV heute" || items[1].HistoryRangeHours != "24" || items[1].HistoryAggregate != "avg" {
+		t.Fatalf("eigene Einstellung ohne Werte: %#v", items[1])
+	}
+	if len(items[2].HistorySeries) != 2 || items[2].HistoryRangeHours != "24" || items[2].HistoryAggregate != "avg" {
+		t.Fatalf("eigene Einstellung mit ungueltigen Werten: %#v", items[2])
+	}
+	if items[3].HistorySeries != nil || items[3].HistoryRangeHours != "" || items[3].HistoryAggregate != "" {
+		t.Fatalf("energy_day traegt history-Felder: %#v", items[3])
+	}
+}
+
+func TestSaveLayoutAcceptsAHistoryViewAndRoundTripsIt(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveLayout(Layout{Version: 3, Pages: []Page{{ID: "p", Name: "P", Groups: []Group{{
+		ID: "g", Name: "G", Items: []Item{
+			{ID: "own", Type: "history_view", Span: "2", Visible: true, Title: "Netz", HistorySeries: []string{"role:grid"}, HistoryRangeHours: "168", HistoryAggregate: "min"},
+			{ID: "bound", Type: "history_view", Ref: "view-gone", Span: "1", Visible: true},
+		},
+	}}}}}); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadLayout()
+	if err != nil {
+		t.Fatal(err)
+	}
+	own, bound := loaded.Pages[0].Groups[0].Items[0], loaded.Pages[0].Groups[0].Items[1]
+	if own.Title != "Netz" || len(own.HistorySeries) != 1 || own.HistorySeries[0] != "role:grid" || own.HistoryRangeHours != "168" || own.HistoryAggregate != "min" {
+		t.Fatalf("eigene Kachel nicht erhalten: %#v", own)
+	}
+	// Ein Ref auf eine nicht (mehr) existierende Sicht bleibt stehen - Layout
+	// und Settings sind getrennte Dokumente.
+	if bound.Ref != "view-gone" {
+		t.Fatalf("Ref verloren: %#v", bound)
+	}
+}
+
+func TestCloneLayoutCopiesHistorySeries(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveLayout(Layout{Version: 3, Pages: []Page{{ID: "p", Name: "P", Groups: []Group{{
+		ID: "g", Name: "G", Items: []Item{{ID: "own", Type: "history_view", Span: "2", Visible: true, HistorySeries: []string{"role:pv"}}},
+	}}}}}); err != nil {
+		t.Fatal(err)
+	}
+	first, _ := store.LoadLayout()
+	first.Pages[0].Groups[0].Items[0].HistorySeries[0] = "veraendert"
+	second, _ := store.LoadLayout()
+	if second.Pages[0].Groups[0].Items[0].HistorySeries[0] != "role:pv" {
+		t.Fatal("LoadLayout teilt das Serien-Slice mit dem Cache")
+	}
+}
+
+func TestHistoryViewRejectsAnUnknownRangeMode(t *testing.T) {
+	value := Default()
+	value.HistoryViews = []HistoryView{{ID: "x", Name: "X", Series: []string{}, RangeHours: 6, RangeMode: "absolute", Aggregate: "avg"}}
+	if err := NewStore(t.TempDir()).SaveSettings(value); err == nil {
+		t.Fatal("unbekannter range_mode wurde angenommen")
+	}
+}

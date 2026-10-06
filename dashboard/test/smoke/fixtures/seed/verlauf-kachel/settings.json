@@ -1,0 +1,5 @@
+{
+  "theme": "mint",
+  "show_runtime_status": true,
+  "history_views": [{"id": "view-pv", "name": "PV und Netz", "series": ["role:pv", "role:grid"], "range_hours": 1, "range_mode": "relative", "aggregate": "avg"}]
+}

@@ -155,6 +155,7 @@ takes the seed set of `energie` but the own fixture.
 | `notification` | `--fixture fixtures/notification.json` (no seed) — simulates the automation topics (`outstation/automation/last_event` as `{at, message}`, plus `state` and `status/online`). `notifications.js` polls `/api/v1/automation/notification` from these and raises a warning toast on load; the `Energie-Automationen` device shows up on the overview |
 | `keine-optionalen-dienste` | `--fixture fixtures/battery-soc.json --installed-services-off` (no seed) — end-to-end check that the dashboard hides the Automationen tab and the Tailscale/TinyTuya settings subpages, including their own fragment routes, when every optional service is off (Installer-Spec E7, Abnahmekriterium 11) |
 | `shelly-ht` | `--fixture fixtures/shelly-ht.json --seed-data fixtures/seed/shelly-ht`, plus the Shelly configuration: schema and presets straight from `services/shelly/`, the device list from `fixtures/devices/shelly-ht/` — two sleepy H&T devices (Gen1 `ht_bad` online, Plus `ht_keller` offline after its grace period). Automated probes: both H&T presets are `sleepy`, `sleepy`/`offline_grace_s` survive schema validation and saving, `offline_grace_s: 0` is rejected, temperature/humidity arrive as samples |
+| `verlauf-kachel` | like `energie-simulate`, with one bound history view (tied to a saved view) and one own history view (with inline settings). Automated check: both tiles survive two live swaps as the same DOM node (hx-preserve); changing the bound view's range creates a new node for that tile only |
 
 ## What is solved here
 
@@ -343,6 +344,26 @@ dashboard/test/smoke/run-local-dashboard.sh --keep --preset shelly-ht
 The optional wake webhook is not part of this preset: it is a listener in the
 Shelly service, not in the dashboard, and its firewall rule is an opt-in
 installer step (35).
+
+### History view tiles (`verlauf-kachel`)
+
+Checks that history view tiles preserve their DOM nodes when the page swaps live
+— the `hx-preserve` attribute ensures a bound tile stays the same node when its
+configuration changes (e.g. the saved view is renamed), while an inline tile also
+stays the same node unless its own settings change. The preset provides two
+tiles, one bound to a saved view and one with inline settings.
+
+```bash
+dashboard/test/smoke/run-local-dashboard.sh --keep --preset verlauf-kachel &
+cd dashboard && node test/smoke/history-view-tile.mjs
+node test/smoke/screenshot.mjs --wait .history-view-card --out test/smoke/.run/history-view-tile.png
+```
+
+The check logs in as admin (password `smoketest1234` from the smoke script),
+marks both tiles, triggers two live swaps and verifies both nodes remain. Then
+it changes the bound view's range from 1 to 24 hours via the API and triggers a
+layout reload, expecting the bound tile to be replaced but the inline tile to
+survive. Both `ok:` lines are printed on success.
 
 ## Seed data
 
