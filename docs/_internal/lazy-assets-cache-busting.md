@@ -110,6 +110,12 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 | `js/battery-status.js` | `2` |
 | `js/energy-day.js` | `2` |
 | `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js`, `js/energy-status.js` | `1` |
+| `js/history-chart.js`, `js/history-view-card.js` | `1` |
+
+Card scripts in `energyCardScripts` (`webui.go`) carry their own `?v=`. A
+script shared with a panel (`history-chart.js`, `apexcharts.min.js`) must use
+the identical URL string in both places, because `loadSingleAsset` now also
+skips scripts already present as `<script src>`.
 
 ### Lazy panel assets (channel 2)
 
