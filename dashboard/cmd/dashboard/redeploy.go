@@ -27,6 +27,7 @@ type redeployConfig struct {
 	candidateBundleDir    string
 	installedManifestPath string
 	selectionPath         string
+	stepsDir              string
 	jobDir                string
 	// prepare fetches the newest package into candidateBundleDir; nil
 	// disables the download and the redeploy screen starts at the preview.
@@ -66,7 +67,7 @@ func prepareFunc(f *bundlefetch.Fetcher) func(context.Context, func(string, map[
 func buildRedeployHandler(cfg redeployConfig) (http.Handler, error) {
 	backend, err := updaterhost.New(updaterhost.Config{
 		CandidateBundleDir: cfg.candidateBundleDir, InstalledManifestPath: cfg.installedManifestPath,
-		SelectionPath: cfg.selectionPath, JobDir: cfg.jobDir, Prepare: cfg.prepare,
+		SelectionPath: cfg.selectionPath, StepsDir: cfg.stepsDir, JobDir: cfg.jobDir, Prepare: cfg.prepare,
 	})
 	if err != nil {
 		return nil, err

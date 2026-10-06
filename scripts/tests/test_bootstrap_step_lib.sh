@@ -26,6 +26,29 @@ grep -qx "bundle=v1.0.0" "$tmp/state/steps/10" || fail "Bundle-Version fehlt im 
 ( EN_BUNDLE_VERSION=v2.0.0; source "$lib"; step_done 10 ) && fail "step_done ignoriert Versionswechsel"
 ( source "$lib"; step_done 99 ) && fail "step_done meldet fremden Schritt als erledigt"
 
+# --- mit Fingerabdruck haelt der Stempel ueber ein Update hinweg ------------
+fp_bundle="$tmp/fp-bundle"
+mkdir -p "$fp_bundle"
+fp_manifest() { printf '{"steps":[{"id":"20","fingerprint":"%s"},{"id":"21"}]}\n' "$1" > "$fp_bundle/manifest.json"; }
+fp_run() { EN_BUNDLE_DIR="$fp_bundle" bash -c 'source "$1"; shift; "$@"' _ "$lib" "$@"; }
+fp_manifest aaa
+fp_run eval 'step_begin 20; step_ok' >/dev/null
+grep -qx "fingerprint=aaa" "$tmp/state/steps/20" || fail "Fingerabdruck fehlt im Stempel" "$(cat "$tmp/state/steps/20")"
+EN_BUNDLE_VERSION=v2.0.0 fp_run step_done 20 \
+  || fail "gleicher Fingerabdruck, neue Bundle-Version: Schritt laeuft erneut"
+grep -qx "bundle=v2.0.0" "$tmp/state/steps/20" || fail "Stempel nicht auf die neue Bundle-Version gehoben"
+grep -qx "fingerprint=aaa" "$tmp/state/steps/20" || fail "Anheben hat den Fingerabdruck verloren"
+fp_manifest bbb
+EN_BUNDLE_VERSION=v2.0.0 fp_run step_done 20 && fail "geaenderter Fingerabdruck gilt als erledigt"
+# Ein alter Stempel ohne Fingerabdruck zaehlt nicht, sobald das Manifest einen hat.
+printf 'bundle=v2.0.0\nzeit=x\n' > "$tmp/state/steps/20"
+EN_BUNDLE_VERSION=v2.0.0 fp_run step_done 20 && fail "Stempel ohne Fingerabdruck gilt als erledigt"
+# Ein Schritt ohne Fingerabdruck im Manifest bleibt bei der Bundle-Version.
+fp_run eval 'step_begin 21; step_ok' >/dev/null
+grep -q "^fingerprint=" "$tmp/state/steps/21" && fail "Schritt ohne Fingerabdruck stempelt einen"
+EN_BUNDLE_VERSION=v2.0.0 fp_run step_done 21 && fail "Schritt ohne Fingerabdruck ueberlebt den Versionswechsel"
+rm -f "$tmp/state/steps/20" "$tmp/state/steps/21"
+
 # --- skip und fail ---------------------------------------------------------
 out="$( set -euo pipefail; source "$lib"; step_begin 40; step_skip "login ausstehend" )"
 [ "${out##*$'\n'}" = "##STEP 40 skip login ausstehend" ] || fail "skip-Marker falsch" "$out"

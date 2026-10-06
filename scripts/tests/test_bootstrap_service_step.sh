@@ -68,6 +68,13 @@ out="$(run)"
 grep -q '^##STEP 81 skip bereits erledigt$' <<<"$out" || fail "nicht uebersprungen" "$out"
 [ -s "$SYSTEMCTL_LOG" ] && fail "zweiter Lauf hat systemctl aufgerufen"
 
+# --- "Alle Dienste neu starten" erreicht auch einen erledigten Dienst -------
+out="$(EN_RESTART=all UNIT_ACTIVE=1 run)"
+grep -q '^##STEP 81 ok$' <<<"$out" || fail "EN_RESTART=all hat den erledigten Schritt uebersprungen" "$out"
+grep -qx 'systemctl restart demo.service' "$SYSTEMCTL_LOG" \
+  || fail "EN_RESTART=all startete den erledigten Dienst nicht neu" "$(cat "$SYSTEMCTL_LOG")"
+: > "$SYSTEMCTL_LOG"
+
 # --- Betreiberdaten bleiben, Artefakte werden erneuert --------------------
 # Das ist der Kern des Tasks: die Geraetedatei bearbeitet das Dashboard live,
 # das Schema liefern wir aus. Ein Bundle-Wechsel darf genau eine der beiden

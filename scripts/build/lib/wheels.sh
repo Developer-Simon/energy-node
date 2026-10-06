@@ -115,6 +115,12 @@ fetch_thirdparty_wheels() {
 #
 # Baut die beiden eigenen Pakete. Ein im dist/-Verzeichnis liegendes Rad
 # derselben Version wird wiederverwendet.
+#
+# SOURCE_DATE_EPOCH macht den Bau reproduzierbar: ohne ihn traegt jedes Rad
+# die Bauzeit in seinen Zip-Eintraegen, der SHA-256 aendert sich bei jedem
+# frischen Bau (CI), und mit ihm der Fingerabdruck von Schritt 50 und jedem
+# Dienstschritt (scripts/build/lib/manifest.sh). Dann liefen sie bei jedem
+# Update, obwohl sich nichts geaendert hat.
 build_local_wheels() {
   local target="$1"
   local repo_root lib dist version cached built
@@ -142,7 +148,8 @@ build_local_wheels() {
     echo "Baue ${lib} ${version}"
     mkdir -p "${dist}"
     rm -f "${dist}"/*.whl
-    "${WHEELS_PIP[@]}" wheel "${repo_root}/libs/${lib}" --no-deps --wheel-dir "${dist}" >/dev/null
+    SOURCE_DATE_EPOCH=315532800 \
+      "${WHEELS_PIP[@]}" wheel "${repo_root}/libs/${lib}" --no-deps --wheel-dir "${dist}" >/dev/null
     built="$(find "${dist}" -maxdepth 1 -name '*.whl' | head -n 1)"
     if [[ -z "${built}" ]]; then
       echo "Kein Wheel fuer ${lib} entstanden." >&2

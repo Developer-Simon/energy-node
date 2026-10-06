@@ -30,6 +30,11 @@ type StepEntry struct {
 	// plan.sh, das Schritt-Skript und die Oberflaeche behandeln ihn dann als
 	// abgewaehlt.
 	Requires string `json:"requires,omitempty"`
+	// Fingerprint deckt das Skript des Schritts und die Eingaben, die es in
+	// "# step-inputs:" nennt (scripts/build/lib/manifest.sh). Solange er
+	// gleich bleibt, gilt der Stempel auf dem Node auch ueber ein Update
+	// hinweg. Leer: der Schritt laeuft einmal je Bundle-Version.
+	Fingerprint string `json:"fingerprint,omitempty"`
 }
 
 // CaddyInfo mirrors manifest.json's "caddy" object, present only when the

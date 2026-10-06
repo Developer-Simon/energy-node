@@ -127,9 +127,9 @@ stage_template() {
 # eigener Eintrag in components (siehe Manifest-Kopf unten).
 VERSION="$(tr -d '[:space:]' < "${REPO_ROOT}/dashboard/VERSION")"
 # --dev-version: ein Bau aus dem Arbeitsstand (Entwickler-CLI) bekommt eine
-# eigene Version. Die Schritt-Stempel auf dem Node haengen an der
-# Bundle-Version - ohne Suffix liefe ein erneuter Deploy mit unveraenderter
-# VERSION ins Leere. Das Dashboard zeigt den Commit an, und fuer den
+# eigene Version. Die Schritte mit Fingerabdruck laufen ohnehin, sobald sich
+# ihre Eingaben aendern, 15, 35 und 65 haengen aber weiter an der
+# Bundle-Version. Das Dashboard zeigt den Commit an, und fuer den
 # Update-Check bleibt v0.7.9-dev.* kleiner als das Release v0.7.9.
 if [[ "${DEV_VERSION}" == true ]]; then
   VERSION="${VERSION}-dev.$(git -C "${REPO_ROOT}" rev-parse --short HEAD)"

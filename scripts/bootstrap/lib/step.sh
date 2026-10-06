@@ -9,8 +9,8 @@
 #   EN_STATE_DIR      Stempelverzeichnis (Vorgabe /var/lib/energy-node-installer)
 #   EN_ROOT           Praefix vor allen Systempfaden (Vorgabe leer)
 #   EN_BUNDLE_DIR     entpacktes Bundle (Vorgabe /var/lib/energy-node-installer/bundle)
-#   EN_BUNDLE_VERSION Version im Stempel; ein Stempel einer anderen Version
-#                     gilt als nicht erledigt
+#   EN_BUNDLE_VERSION Version im Stempel; ohne Fingerabdruck im Manifest gilt
+#                     ein Stempel einer anderen Version als nicht erledigt
 #   EN_SUDO           Kommando-Praefix fuer privilegierte Aufrufe. "" = keines.
 
 EN_STATE_DIR="${EN_STATE_DIR:-/var/lib/energy-node-installer}"
@@ -34,6 +34,33 @@ STEP_ID="${STEP_ID:-}"
 
 step_stamp_path() { printf '%s/steps/%s' "${EN_STATE_DIR}" "$1"; }
 
+# step_fingerprint <id>: der Fingerabdruck des Schritts aus dem Manifest des
+# Bundles (siehe scripts/build/lib/manifest.sh), leer ohne einen.
+step_fingerprint() {
+  [[ -f "${EN_BUNDLE_DIR}/manifest.json" ]] || return 0
+  python3 - "${EN_BUNDLE_DIR}/manifest.json" "$1" 2>/dev/null <<'PY' || true
+import json, sys
+try:
+    steps = json.load(open(sys.argv[1], encoding="utf-8")).get("steps") or []
+except (OSError, ValueError):
+    sys.exit(0)
+for step in steps:
+    if str(step.get("id")) == sys.argv[2]:
+        print(step.get("fingerprint") or "")
+PY
+}
+
+step_write_stamp() {
+  local stamp fingerprint
+  stamp="$(step_stamp_path "$1")"
+  fingerprint="$(step_fingerprint "$1")"
+  mkdir -p "$(dirname "${stamp}")"
+  {
+    printf 'bundle=%s\nzeit=%s\n' "${EN_BUNDLE_VERSION}" "$(date -Is)"
+    [[ -z "${fingerprint}" ]] || printf 'fingerprint=%s\n' "${fingerprint}"
+  } > "${stamp}"
+}
+
 # Menschentext fuers Log. Nie in Spalte 1 mit ## beginnen - das ist die
 # Grenze, an der der Markerparser der Anwendung trennt.
 step_log() { printf '%s\n' "$*"; }
@@ -50,10 +77,7 @@ step_ok() { step_ok_with ""; }
 # Funktion statt eines optionalen Arguments von step_ok - shellcheck 0.9
 # meldet sonst SC2119 an jedem Aufruf ohne Argument.
 step_ok_with() {
-  local stamp
-  stamp="$(step_stamp_path "${STEP_ID}")"
-  mkdir -p "$(dirname "${stamp}")"
-  printf 'bundle=%s\nzeit=%s\n' "${EN_BUNDLE_VERSION}" "$(date -Is)" > "${stamp}"
+  step_write_stamp "${STEP_ID}"
   if [[ -n "$1" ]]; then
     printf '##STEP %s ok %s\n' "${STEP_ID}" "$1"
   else
@@ -70,11 +94,22 @@ step_fail() {
   exit 1
 }
 
+# step_done: traegt der Schritt im Manifest einen Fingerabdruck, gilt sein
+# Stempel, solange der Fingerabdruck darin gleich ist, auch ueber ein Update
+# hinweg. Der Stempel wird dann auf die neue Bundle-Version gehoben, damit
+# Vorpruefung und Diagnose sehen, dass der Schritt zu ihr passt. Ohne
+# Fingerabdruck zaehlt wie bisher nur ein Stempel derselben Bundle-Version.
 step_done() {
-  local stamp
+  local stamp fingerprint
   stamp="$(step_stamp_path "$1")"
   [[ -f "${stamp}" ]] || return 1
-  grep -qx "bundle=${EN_BUNDLE_VERSION}" "${stamp}"
+  fingerprint="$(step_fingerprint "$1")"
+  if [[ -z "${fingerprint}" ]]; then
+    grep -qx "bundle=${EN_BUNDLE_VERSION}" "${stamp}"
+    return
+  fi
+  grep -qx "fingerprint=${fingerprint}" "${stamp}" || return 1
+  grep -qx "bundle=${EN_BUNDLE_VERSION}" "${stamp}" || step_write_stamp "$1"
 }
 
 # step_selected entscheidet fuer optionale Schritte, ob sie laufen.

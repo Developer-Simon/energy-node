@@ -176,6 +176,16 @@ service shows its own version, and every unit that restarts names the reason:
 a new version, a changed shared library, a first install or an unknown
 installed version.
 
+A step counts as done while nothing it uses has changed since its last
+successful run: its own script, the helpers it loads and the files it takes
+from the package. An update with a new dashboard therefore skips Mosquitto,
+the firewall, Tailscale and every unchanged service. Three steps still run
+once per package version. System updates bring in new packages, the Shelly
+webhook rule follows the port set in the dashboard, and the dashboard
+configuration is written on every run. The first update after this rule was
+introduced still runs every step once, because older stamps carry no record
+of the inputs.
+
 By default only a service whose own version changed restarts. A change to
 `energy_node_common` restarts every service, and a change to
 `battery_soc_core` restarts only `battery_soc`. **Restart all services**

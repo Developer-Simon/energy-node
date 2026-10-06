@@ -50,12 +50,15 @@ if sel_path.is_file():
     except ValueError as exc:
         sys.exit("selection.json nicht lesbar: %s" % exc)
 
-def stamped(step_id):
-    """Wie step_done: ein Stempel einer anderen Bundle-Version zaehlt nicht."""
-    path = state / "steps" / str(step_id)
+def stamped(entry):
+    """Wie step_done: mit Fingerabdruck zaehlt der, sonst die Bundle-Version."""
+    path = state / "steps" / str(entry.get("id"))
     if not path.is_file():
         return False
-    return ("bundle=%s" % version) in path.read_text(encoding="utf-8").splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
+    if entry.get("fingerprint"):
+        return ("fingerprint=%s" % entry["fingerprint"]) in lines
+    return ("bundle=%s" % version) in lines
 
 def chosen(entry):
     if not entry.get("optional"):
@@ -77,7 +80,7 @@ for entry in manifest.get("steps", []):
         selected = False
     if not selected:
         state_name = "deselected"
-    elif stamped(step_id):
+    elif stamped(entry):
         state_name = "done"
     else:
         state_name = "pending"

@@ -10,6 +10,11 @@
 #
 # Passwoerter kommen ausschliesslich als Pfad zu einer 0600-Datei. Ein
 # Argument mit dem Passwort selbst stuende in /proc/<pid>/cmdline.
+# Eingaben fuer den Fingerabdruck (scripts/build/lib/manifest.sh): solange
+# sie gleich bleiben, ueberspringt ein Update diesen Schritt.
+# step-inputs: bootstrap/lib/step.sh bootstrap/lib/render.sh
+# step-inputs: bootstrap/verify_bundle.sh dashboard/ config/
+# step-inputs: manifest:target_user manifest:target_base
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/step.sh"
