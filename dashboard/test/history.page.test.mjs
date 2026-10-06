@@ -17,7 +17,7 @@ import { installI18n, catalog } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
-const sources = ['theme.js', 'history-rollup.js', 'history-store.js', 'history.js'].map(read);
+const sources = ['theme.js', 'history-rollup.js', 'history-store.js', 'history-chart.js', 'history.js'].map(read);
 // energy-model.js wird nur geladen, wenn ein Test die abgeleitete
 // Hausverbrauch-Serie prueft - ein eigener Test deckt gerade den Fall ab,
 // dass das Panel auch ohne dieses Skript funktionieren muss (siehe
