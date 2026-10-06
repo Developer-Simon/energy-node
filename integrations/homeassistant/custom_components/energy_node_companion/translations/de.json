@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Energy Node Companion",
-        "description": "Home Assistant liefert dem Dashboard der energy-node Verläufe aus seinem Recorder. Gib die Adresse des Dashboards im Tailnet mit dem Port des Dashboards an, zum Beispiel {example_url}.",
+        "description": "Home Assistant liefert dem Dashboard der energy-node Verläufe aus seinem Recorder und zeigt das Dashboard in seiner Seitenleiste. Gib die Adresse des Dashboards im Tailnet mit Port 8080 an, zum Beispiel {example_url}.\n\nPort 8080 ist Pflicht. Das ist der eigene Port des Dashboards. Port 80 gehört dem Reverse Proxy, und über ihn scheitert die Anmeldung in der Seitenleiste.",
         "data": {
           "url": "Adresse des Dashboards",
           "verify_ssl": "Zertifikat prüfen"
@@ -11,7 +11,7 @@
       },
       "reconfigure": {
         "title": "Energy Node Companion",
-        "description": "Adresse oder Port des Dashboards ändern.",
+        "description": "Adresse oder Port des Dashboards ändern. Nimm Port 8080, den eigenen Port des Dashboards, nicht Port 80.",
         "data": {
           "url": "Adresse des Dashboards",
           "verify_ssl": "Zertifikat prüfen"
