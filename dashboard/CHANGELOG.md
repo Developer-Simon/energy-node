@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.8 (2026-10-05)
+## v0.8.8 (2026-10-06)
 
 ### Features
 
@@ -24,8 +24,8 @@
 
 ### Documentation
 
+- redesign the documentation site with an Energy Node layout (#94) (5a7080f)
 - point the repository at the new pages and add site search (72fa46e)
-- redesign the documentation site with an Energy Node layout (#94)
 
 ## v0.8.5 (2026-10-04)
 
