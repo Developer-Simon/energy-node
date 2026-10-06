@@ -35,7 +35,7 @@ try {
   const changed = await page.evaluate(async () => {
     const base = document.documentElement.dataset.basePath || '';
     const current = await (await fetch(`${base}/api/v1/settings`)).json();
-    current.history_views[0].range_hours = 24;
+    current.history_views[0].range_hours = current.history_views[0].range_hours === 24 ? 6 : 24;
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
     const response = await fetch(`${base}/api/v1/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf }, body: JSON.stringify(current) });
     return response.ok;
