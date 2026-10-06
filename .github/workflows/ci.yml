@@ -31,6 +31,7 @@ jobs:
       ha: ${{ steps.filter.outputs.ha }}
       installer: ${{ steps.filter.outputs.installer }}
       installer_webui: ${{ steps.filter.outputs.installer_webui }}
+      docs_scripts: ${{ steps.filter.outputs.docs_scripts }}
     steps:
       # The Version bump workflow keeps the changelog and per-component patch
       # bump current on the PR branch; its bot commit re-triggers CI. Block
@@ -82,24 +83,31 @@ jobs:
           echo "Changed files:"
           printf '%s\n' "$files"
 
-          all() { for o in dashboard installer_webui installer python shell vendored ha; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
+          all() { for o in dashboard installer_webui installer python shell vendored ha docs_scripts; do echo "$o=true"; done >> "$GITHUB_OUTPUT"; }
 
           # No diff (post-merge run, or it could not be computed) or a change to
-          # the workflow itself: run everything. This check runs against the
-          # unfiltered diff so a docs-only PR does not land here.
-          if [ -z "$files" ] || grep -qE '^\.github/workflows/' <<<"$files"; then
+          # a workflow: run everything. This check runs against the unfiltered
+          # diff so a docs-only PR does not land here. pages.yml only deploys
+          # the documentation site and is exempt.
+          wf="$(grep -E '^\.github/workflows/' <<<"$files" | grep -vE '/pages\.yml$' || true)"
+          if [ -z "$files" ] || [ -n "$wf" ]; then
             all
             exit 0
           fi
 
-          # Documentation-only changes affect no job. Drop Markdown paths before
-          # matching: a docs-only PR has a non-empty diff but nothing left here,
-          # so every emit below marks its area false and all jobs skip.
-          files="$(printf '%s\n' "$files" | grep -vE '\.md$' || true)"
-          echo "Changed files (excluding Markdown):"
+          # Documentation-only changes affect no job. Drop Markdown paths
+          # (this covers every CHANGELOG.md) and the VERSION files the Version
+          # bump workflow rewrites before matching: a PR that only touches those
+          # has a non-empty diff but nothing left here, so every emit below
+          # marks its area false and all jobs skip. The docs site tooling under
+          # scripts/docs/ is split off and only runs its own small job.
+          files="$(printf '%s\n' "$files" | grep -vE '\.md$|(^|/)VERSION$' || true)"
+          echo "Changed files (excluding Markdown and VERSION):"
           printf '%s\n' "$files"
 
           emit() { if grep -qE "$2" <<<"$files"; then echo "$1=true"; else echo "$1=false"; fi >> "$GITHUB_OUTPUT"; }
+          emit docs_scripts '^scripts/docs/|^docs/_data/nav\.yml$|^scripts/tests/test_docs_pages\.sh$'
+          files="$(printf '%s\n' "$files" | grep -vE '^scripts/docs/' || true)"
           # installer/webui too: the dashboard module depends on it through a
           # replace directive (its local Re-Deploy screen implements
           # hostapi.Backend), so a change there can break the dashboard build
@@ -278,7 +286,6 @@ jobs:
       - run: bash scripts/tests/test_generate_changelog_cap.sh
       - run: bash scripts/tests/test_extract_changelog.sh
       - run: bash scripts/tests/test_bump_version.sh
-      - run: bash scripts/tests/test_docs_pages.sh
       - name: shellcheck
         run: |
           sudo apt-get update -qq
@@ -345,6 +352,18 @@ jobs:
           pip install -e ../../libs/battery_soc_core -r requirements-test.txt
       - run: pytest
 
+  docs-scripts:
+    name: Docs site scripts
+    needs: changes
+    if: needs.changes.outputs.docs_scripts == 'true' || github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: bash scripts/tests/test_docs_pages.sh
+
   bootstrap-chain:
     name: Bootstrap chain (double run)
     needs: changes
@@ -382,6 +401,7 @@ jobs:
       - installer-cross
       - python-bridges
       - shell-scripts
+      - docs-scripts
       - bootstrap-chain
       - vendored-artefacts
       - home-assistant-integration
