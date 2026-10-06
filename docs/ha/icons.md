@@ -9,19 +9,26 @@ redirect_from:
 
 # energy-node Icons integration for Home Assistant
 
-The **energy-node Icons** integration is a Home Assistant custom icon set containing eighteen device symbols plus a generic fallback drawn for the energy-node dashboard. Each icon is an outline that Home Assistant fills with your chosen theme color — so an icon adapts to your dashboard's look.
+energy-node Icons is a custom icon set for Home Assistant with the eighteen
+device symbols of the energy-node dashboard plus a generic fallback. Each icon
+is an outline that Home Assistant fills with your theme's icon colour, so the
+icons match the rest of your dashboard.
 
-The set includes batteries, solar panels, grid connections, heat pumps, meters, and infrastructure symbols — everything a household energy-management dashboard needs.
+The set covers batteries, solar panels, the grid, heat pumps, meters and a few
+infrastructure symbols.
 
 ## What is energy-node Icons?
 
-The icon set is a Home Assistant integration that lives alongside `energy_node_icons` in Home Assistant's custom integration picker. Once installed, you can assign icons from the set to any entity — click the entity's icon field, type `energy-node`, and pick from the catalogue.
+The icon set is installed as a Home Assistant integration (`energy_node_icons`).
+After that you can give any entity an icon from the set: click the entity's
+icon field, type `energy-node` and pick one from the catalogue.
 
-Each icon is named `energy-node:symbol-name`, where `symbol-name` is one of the icons listed below.
+Each icon is named `energy-node:symbol-name`, where `symbol-name` is one of the
+icons listed below.
 
 ## Install via HACS
 
-The easiest way is through [HACS](https://hacs.xyz/) as a custom repository:
+The easiest way is [HACS](https://hacs.xyz/) with a custom repository:
 
 1. Open **HACS** → **⋮** (top right) → **Custom repositories**.
 2. Repository URL: `https://github.com/Developer-Simon/ha-energy-node-icons`
@@ -31,8 +38,6 @@ The easiest way is through [HACS](https://hacs.xyz/) as a custom repository:
 6. **Settings → Devices & Services → Add Integration → "energy-node Icons"** (this loads the icon set into Home Assistant).
 
 ### Manual install
-
-If you prefer not to use HACS:
 
 1. Download the latest release from [ha-energy-node-icons](https://github.com/Developer-Simon/ha-energy-node-icons/releases).
 2. Extract to `<config>/custom_components/energy_node_icons/`.
@@ -67,13 +72,12 @@ If you prefer not to use HACS:
 
 ## How to use
 
-Click the **icon** field on any entity card or sensor:
+Click the **icon** field of an entity card or sensor. The icon picker opens.
+Type `energy-node` to show only this set, then click the icon you want.
 
-1. The icon picker opens.
-2. Type `energy-node` to filter to this set.
-3. Scroll to the icon you want and click to select it.
-
-The icon name (e.g., `energy-node:solar-panel`) is now assigned to that entity. Home Assistant will display the icon in your dashboard, badges, and entity rows — filled with the icon color from your theme.
+The entity now has the icon name, for example `energy-node:solar-panel`. Home
+Assistant shows the icon in your dashboard, badges and entity rows, filled with
+the icon colour of your theme.
 
 ## About the drawings
 
@@ -81,12 +85,14 @@ The icon strokes are converted to filled outlines at the dashboard's stroke widt
 
 ## Support and feedback
 
-The icon set is maintained alongside the energy-node project. For:
-
-- **Icon suggestions or redraws**: open an issue in [energy-node](https://github.com/Developer-Simon/energy-node/issues).
-- **Home Assistant integration problems**: open an issue in [ha-energy-node-icons](https://github.com/Developer-Simon/ha-energy-node-icons/issues).
-- **Pull requests**: the icons belong in the [energy-node monorepo](https://github.com/Developer-Simon/energy-node/), not in the mirror — they are regenerated with each release.
+The icon set is maintained as part of the energy-node project. Suggest new
+icons or redraws in the [energy-node issues](https://github.com/Developer-Simon/energy-node/issues).
+Report problems with the Home Assistant integration in the
+[ha-energy-node-icons issues](https://github.com/Developer-Simon/ha-energy-node-icons/issues).
+Pull requests belong in the
+[energy-node monorepo](https://github.com/Developer-Simon/energy-node/) and not
+in the mirror, because the mirror is regenerated with each release.
 
 ## License
 
-MIT — see [LICENSE](https://github.com/Developer-Simon/ha-energy-node-icons/blob/main/LICENSE).
+MIT, see [LICENSE](https://github.com/Developer-Simon/ha-energy-node-icons/blob/main/LICENSE).

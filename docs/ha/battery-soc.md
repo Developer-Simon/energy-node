@@ -9,39 +9,40 @@ component: ha-integration
 
 The same engine also runs on the node as the [battery state of charge service](../services/battery-soc.md).
 
-A Home Assistant custom integration that estimates the **state of charge** of
-one or two LiFePO4 battery banks from sensors you already have. It does not talk
-to a BMS and needs no extra hardware — you point it at a charge-power sensor, a
-discharge-power sensor and one voltage sensor per bank.
+This Home Assistant custom integration estimates the state of charge of one or
+two LiFePO4 battery banks from sensors you already have. It does not talk to a
+BMS and needs no extra hardware. You point it at a charge power sensor, a
+discharge power sensor and one voltage sensor per bank.
 
-> **This is a monitoring/diagnostic estimate, not a safety-critical BMS
-> function.** Do not use it for automatic shutdowns without independent
-> protection (cell-level monitoring in the charger/BMS itself). Mirrors the
-> disclaimer in the upstream MQTT service.
+> The result is an estimate for monitoring and diagnostics, not a safety
+> function of a BMS. Do not use it for automatic shutdowns without independent
+> protection, such as cell monitoring in the charger or BMS. The MQTT service
+> carries the same warning.
 
 ## How it works
 
-1. **Coulomb counting (base SoC).** Net battery power — charger power minus
-   inverter power, AC or DC — is integrated over time (Ah). This is the primary
-   SoC source. It is accurate short-term but drifts slowly (measurement error,
-   efficiency, self-discharge).
+1. **Coulomb counting.** The net battery power (charger power minus inverter
+   power, AC or DC) is integrated over time in Ah. This is the main SoC
+   source. It is accurate in the short term but drifts slowly because of
+   measurement errors, efficiency and self-discharge.
 2. **Voltage recalibration at the ends.** A LiFePO4 cell's voltage curve is
-   almost flat between roughly 15–85 % SoC, so mid-range voltage is useless for
-   SoC. Only near empty and near full does voltage move measurably. There the
-   coulomb counter is snapped back to 0 % / 100 % once the load-corrected
-   voltage crosses a threshold and the current is low enough for the reading to
-   pass as a resting voltage.
+   almost flat between roughly 15 and 85 % SoC, so the voltage says nothing
+   about the SoC in that range. It only moves noticeably near empty and near
+   full. There the coulomb counter is reset to 0 % or 100 % once the load
+   corrected voltage crosses a threshold and the current is low enough for the
+   reading to count as a resting voltage.
 3. **Load compensation.** Instead of a family of voltage curves per load
-   current, the measured voltage is corrected by a current-dependent offset
-   (mΩ/cell) before it is compared with the resting-voltage curve.
-4. **Topology-aware.** *Parallel / single bank* → one SoC (Kirchhoff forces a
-   shared voltage, a per-bank split would be fictitious). *Series* → a per-bank
-   SoC plus a combined "weakest bank" figure.
+   current, the measured voltage is corrected by an offset that depends on the
+   current (mΩ per cell) before it is compared with the resting voltage curve.
+4. **Topology.** A single bank or two banks in parallel get one SoC, because
+   parallel banks share one voltage and a split per bank would be made up. Two
+   banks in series get a SoC per bank plus a combined figure for the weakest
+   bank.
 
 ## Requirements
 
 - Home Assistant with HACS (Home Assistant Community Store)
-- Access to your charger/inverter power sensors
+- Power sensors for your charger and inverter
 - One voltage sensor per battery bank
 
 ## Install via HACS
@@ -62,37 +63,40 @@ discharge-power sensor and one voltage sensor per bank.
 
 **Settings → Devices & Services → Add Integration → "Battery SoC (LiFePO4 coulomb-counting)".**
 
-- **Battery** (`user` step): a name and the **system type**.
-  - *AC-coupled system*: charger and/or inverter are measured on the mains
-    (AC) side, optionally refined by DC measurements. Typical for
-    grid-connected home batteries.
-  - *DC-only system*: all power or current measurements sit on the
-    battery's DC bus. Typical for embedded devices.
-- **Sources and bank A** (`sources_ac` / `sources_dc`): the bank layout
-  (*Single bank*, *Two banks in parallel*, *Two banks in series (A + B)*),
-  one or more power sensors per side, bank A's voltage sensor and scale,
-  capacity, cells in series, chemistry and SoC curve. Each side (charging,
-  discharging) needs at least one sensor.
-  - DC inputs accept **power (W, kW, mW) or current (A, mA)**. Current is
-    converted with the pack voltage. Units are read from the sensor, so
-    nothing has to be set.
-  - Every power input has an **invert** switch. A single signed sensor (for
-    example an INA219 shunt) goes into both the charging and the
-    discharging input, inverted in one of them. Negative values are
-    ignored on each side, so each input only sees its own direction.
-- **Bank B** (`bank_b`, only with two banks): capacity and cell count, plus
-  a voltage sensor and scale for banks in series.
-  - In series, bank A is the upper bank. The stack runs from A+ to B-, and
-    A- is connected to B+ (the middle tap).
-  - The bank B sensor measures bank B alone (B+ to B-). The bank A sensor
-    measures either bank A alone (A+ to A-) or the whole stack (A+ to B-).
-    For the whole stack, choose *The whole stack (A+ to B-)* in this step,
-    and bank A is calculated as the stack minus bank B.
-- **Advanced Battery Parameters** (`advanced` step): empty/full volts per
-  cell, efficiencies, calibration tolerance and hold time, voltage/coulomb
-  mismatch thresholds, imbalance threshold, stale-input and DC-age
-  timeouts, internal resistance (mΩ/cell), fallback interval. DC-only
-  systems do not show the AC converter efficiencies or the DC-age timeout.
+The setup has four steps.
+
+**Battery** (`user` step) asks for a name and the system type. In an
+*AC-coupled system* the charger, the inverter or both are measured on the
+mains (AC) side, optionally refined by DC measurements. That is typical for
+grid connected home batteries. In a *DC-only system* all power or current
+measurements sit on the battery's DC bus, which is typical for embedded
+devices.
+
+**Sources and bank A** (`sources_ac` / `sources_dc`) asks for the bank layout
+(*Single bank*, *Two banks in parallel*, *Two banks in series (A + B)*), one or
+more power sensors per side, bank A's voltage sensor and scale, capacity, cells
+in series, chemistry and SoC curve. Charging and discharging each need at least
+one sensor. DC inputs accept power (W, kW, mW) or current (A, mA). A current is
+converted with the pack voltage. The unit is read from the sensor, so you do
+not set it. Every power input has an **invert** switch. A single signed sensor,
+for example an INA219 shunt, goes into both the charging and the discharging
+input, inverted in one of them. Each side ignores negative values, so each
+input only sees its own direction.
+
+**Bank B** (`bank_b`, only with two banks) asks for capacity and cell count,
+and for banks in series also a voltage sensor and scale. In series, bank A is
+the upper bank. The stack runs from A+ to B-, and A- is connected to B+ (the
+middle tap). The bank B sensor measures bank B alone (B+ to B-). The bank A
+sensor measures either bank A alone (A+ to A-) or the whole stack (A+ to B-).
+For the whole stack, choose *The whole stack (A+ to B-)* in this step. Bank A
+is then calculated as the stack minus bank B.
+
+**Advanced Battery Parameters** (`advanced` step) holds the empty and full
+volts per cell, efficiencies, calibration tolerance and hold time, thresholds
+for the voltage/coulomb mismatch and the imbalance, timeouts for stale inputs
+and DC age, the internal resistance (mΩ per cell) and the fallback interval.
+DC-only systems do not show the AC converter efficiencies or the DC age
+timeout.
 
 All of this can be changed later in the integration's **Configure** dialog,
 including the system type and the bank layout.
@@ -102,37 +106,37 @@ unsupported unit, is ignored and logged once as a warning.
 
 ## What it supplies
 
-One device per configured battery. Highlights:
+Each configured battery becomes one device. The main entities:
 
 | Entity | Meaning |
 |---|---|
-| `sensor` **SoC** (`soc_combined`) | Primary state of charge (%). In series: the weakest bank. |
-| `sensor` **Net battery power** (`net_power`) | Charge (+) / discharge (−) power (W). |
-| `sensor` **Time to full / Time to empty** | Projection at the current rate (h, diagnostic). |
-| `binary_sensor` **Inputs stale** | A source sensor stopped updating. |
-| `binary_sensor` **AC fallback active** | Running on AC power sensors because a DC sensor went stale. Only exists when one side has both an AC and a DC sensor. |
-| `sensor` **Voltage / Current / Remaining Ah / Load-corrected cell voltage** | Per unit (pack / bank A / bank B), diagnostic. |
-| `sensor` **Calibration thresholds / Last calibration** | When and at what voltage the counter was last snapped. |
-| `sensor` **Voltage-based SoC (uncertain)** + `binary_sensor` **Voltage/coulomb mismatch** | Sanity cross-check against the coulomb count. |
-| series only: `sensor` **SoC Bank A/B**, **Voltage delta A/B**, `binary_sensor` **Banks imbalanced** | |
-| `number` **Set manual SoC** (per bank in series) | Write a known SoC to anchor the counter. |
+| `sensor` SoC (`soc_combined`) | Main state of charge (%). In series, the weakest bank. |
+| `sensor` Net battery power (`net_power`) | Charge (+) or discharge (−) power (W). |
+| `sensor` Time to full / Time to empty | Projection at the current rate (h, diagnostic). |
+| `binary_sensor` Inputs stale | A source sensor stopped updating. |
+| `binary_sensor` AC fallback active | Running on AC power sensors because a DC sensor went stale. Only exists when one side has both an AC and a DC sensor. |
+| `sensor` Voltage / Current / Remaining Ah / Load-corrected cell voltage | Per unit (pack, bank A, bank B), diagnostic. |
+| `sensor` Calibration thresholds / Last calibration | When and at what voltage the counter was last reset. |
+| `sensor` Voltage-based SoC (uncertain) and `binary_sensor` Voltage/coulomb mismatch | Plausibility check against the coulomb count. |
+| Series only: `sensor` SoC Bank A/B, Voltage delta A/B, `binary_sensor` Banks imbalanced | |
+| `number` Set manual SoC (per bank in series) | Writes a known SoC to anchor the counter. |
 
-The integration also ships its own Lovelace card, `custom:battery-soc-card`, and
-registers it with the frontend itself — no manual resource entry under
-**Settings → Dashboards → Resources** is needed. It offers two displays: a
-column (stock and time remaining) and a trajectory (ring plus a six-hour
-history and six-hour projection).
+The integration comes with its own Lovelace card, `custom:battery-soc-card`,
+and registers it with the frontend itself, so you do not need a resource entry
+under **Settings → Dashboards → Resources**. The card has two displays: a
+column (stored energy and time remaining) and a trajectory (a ring with six
+hours of history and a six hour projection).
 
 | `display: column` | `display: trajectory` |
 |---|---|
 | ![Battery SoC Lovelace card, column display](https://raw.githubusercontent.com/Developer-Simon/ha-battery-soc/main/docs/img/LovelaceColumn.png) | ![Battery SoC Lovelace card, trajectory display](https://raw.githubusercontent.com/Developer-Simon/ha-battery-soc/main/docs/img/LovelaceTrajectory.png) |
 
-> **The card only appears once the integration is set up as a device.** It is
-> registered with the frontend from `async_setup_entry`, so you must add a
+> The card only appears once the integration is set up as a device. It is
+> registered with the frontend from `async_setup_entry`, so add a
 > **Battery SoC** entry under *Settings → Devices & Services* first and then
-> **restart Home Assistant**. Until then Lovelace reports *Custom element
-> doesn't exist: battery-soc-card*. If it still fails after the restart, hard-
-> reload the browser (Ctrl+Shift+R) to drop the cached dashboard.
+> restart Home Assistant. Until then Lovelace reports *Custom element doesn't
+> exist: battery-soc-card*. If it still fails after the restart, reload the
+> browser with Ctrl+Shift+R to drop the cached dashboard.
 
 ```yaml
 type: custom:battery-soc-card
@@ -147,13 +151,15 @@ runtime_entity: sensor.speicher_time_to_empty   # optional, wins over the linear
 
 `soc_entity` is the only required option. Without a Recorder history for
 `soc_entity` (Recorder disabled, or retention shorter than six hours) the
-trajectory display falls back to showing only the projection — that's the
-normal case after a restart, not an error.
+trajectory display only shows the projection. That is normal after a restart.
 
 ## Support and feedback
 
-- **Problems with the integration:** open an issue in [ha-battery-soc](https://github.com/Developer-Simon/ha-battery-soc/issues).
-- **Development:** the integration is developed in this repository under `integrations/homeassistant/mirror/battery_soc/`. Pull requests belong to the mirror, not here.
+Report problems with the integration as an issue in
+[ha-battery-soc](https://github.com/Developer-Simon/ha-battery-soc/issues). The
+integration is developed in this repository under
+`integrations/homeassistant/mirror/battery_soc/`. Pull requests belong in the
+mirror, not here.
 
 ## License
 

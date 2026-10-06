@@ -9,7 +9,7 @@ redirect_from:
 
 # Energy Node Companion for Home Assistant
 
-**Energy Node Companion** is a Home Assistant integration that works alongside your node. It does not create sensors (those come from MQTT discovery). Today it lets Home Assistant fill gaps in the dashboard's history charts.
+Energy Node Companion is a Home Assistant integration that runs alongside your node. It creates no sensors, because those come from MQTT discovery. For now its only job is to let Home Assistant fill gaps in the dashboard's history charts.
 
 The dashboard keeps its history in each browser. A browser only knows the hours it was open itself, so a phone that was closed overnight shows an empty chart for the night. Home Assistant already stores the node's sensors in its recorder. The integration joins the dashboard's history exchange as a permanent peer and supplies the missing hours and days from there.
 
@@ -62,11 +62,15 @@ The integration offers only the series the dashboard announces as recorded.
 
 Load, wallbox and heat pump are **not** supplied. The dashboard's load series is the measured load, while the Home Assistant sensor carries the total load including the computed part. Wallbox and heat pump have no sensor of their own in Home Assistant.
 
-- **Minute values** come from the recorder's states, weighted by how long each value held.
-- **5-minute values** come from the 5-minute statistics where the entity has a `state_class`, otherwise from the states.
-- **Units** are converted to the dashboard's unit, for example kW to W. A series whose unit cannot be converted (°C instead of W) is skipped.
-- **Unavailable values** stay gaps and never become zeros.
-- The current, incomplete minute is never delivered. The browser never overwrites a value, so a half minute would stay half for good.
+Minute values come from the recorder's states, weighted by how long each value
+held. 5-minute values come from the 5-minute statistics where the entity has a
+`state_class`, otherwise from the states. Units are converted to the
+dashboard's unit, for example kW to W. A series whose unit cannot be converted
+(°C instead of W) is skipped. Unavailable values stay gaps and never become
+zeros.
+
+The current minute is never delivered while it is incomplete. The browser
+never overwrites a value, so a half minute would stay half for good.
 
 ## How you see it working
 
@@ -91,14 +95,19 @@ If the connection drops, the integration reconnects on its own, with a growing p
 
 ## Troubleshooting
 
-- **"The dashboard is too old. Update the energy-node first.":** update the node to v0.8.5 or newer.
-- **"The dashboard cannot be reached at this address.":** check the Tailscale name and the port, and open the address in a browser on the Home Assistant host.
-- **Nothing is filled in:** the missing time must lie within the recorder's `purge_keep_days`. For details, enable debug logging for `custom_components.energy_node_companion` under **Settings → System → Logs**.
+| Message or symptom | What to do |
+|---|---|
+| "The dashboard is too old. Update the energy-node first." | Update the node to v0.8.5 or newer. |
+| "The dashboard cannot be reached at this address." | Check the Tailscale name and the port, and open the address in a browser on the Home Assistant host. |
+| Nothing is filled in | The missing time must lie within the recorder's `purge_keep_days`. For details, enable debug logging for `custom_components.energy_node_companion` under **Settings → System → Logs**. |
 
 ## Support and feedback
 
-- **Problems with the integration:** open an issue in [ha-energy-node-companion](https://github.com/Developer-Simon/ha-energy-node-companion/issues).
-- **Development:** the integration is developed in this repository under `integrations/homeassistant/custom_components/energy_node_companion/`. Pull requests belong here, not in the mirror.
+Report problems with the integration as an issue in
+[ha-energy-node-companion](https://github.com/Developer-Simon/ha-energy-node-companion/issues).
+The integration is developed in this repository under
+`integrations/homeassistant/custom_components/energy_node_companion/`, so pull
+requests belong here and not in the mirror.
 
 ## License
 
