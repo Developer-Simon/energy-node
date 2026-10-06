@@ -1,53 +1,35 @@
 ## Squash-merge commit message
 
 <!--
-  `main` uses squash merge, so ONE commit lands on `main` per PR. The fenced
-  block below is that commit message — it is copied verbatim into GitHub's
-  squash dialog at merge time (or flows through automatically when the repo
-  defaults the squash message to the PR title and body).
+  `scripts/dev/create-pr.sh` fills every field of this template. Do not edit
+  the placeholders by hand. Change the inputs and run the script again, or
+  edit the PR description once and let `scripts/dev/merge-pr.sh` check it.
 
-  Keep it Conventional Commits, matching `git log`:
-    type(scope): imperative summary under ~72 chars
+  `main` uses squash merge. The subject of the merge commit is the PR title
+  (Conventional Commits: `type(scope): imperative summary`), so the fenced
+  block below holds only the BODY. It never repeats the title and always ends
+  with a `Co-authored-by: Claude Sonnet|Opus x.y <noreply@anthropic.com>`
+  trailer. Haiku is never named there.
 
-  type  = feat | fix | docs | test | refactor | chore | ci | build | perf
-  scope = area touched (dashboard, shelly, battery-soc, docs, …)
+  `scripts/dev/merge-pr.sh` takes this block as the merge body. GitHub's own
+  merge button would use the commit list instead, so merge with the script.
 
-  Put the rationale in the body. Note breaking changes as a
-  `BREAKING CHANGE:` footer and link issues with `Closes #123`.
-
-  The PR title becomes the highlight of this release in the changelogs.
-  To word it differently, add a paragraph to the body whose first line is
-  the word Highlights followed by a colon, and below it one `- text` line
-  (every component) or `- <target>: text` line (one component, e.g.
-  `- dashboard: ...`, `- service:battery_soc: ...`). The paragraph ends at
-  the first line that does not start with `- `. Details: docs/releasing.md.
-
-  `scripts/dev/create-pr.sh` pre-fills this block from your branch commits and
-  opens it in your editor; the first line also becomes the PR title.
+  Release highlights: add a paragraph to the body whose first line is
+  `Highlights:` followed by `- text` lines (see docs/developing/releasing.md).
 -->
 
 ```text
-type(scope): imperative summary under ~72 chars
-
-Why this change is needed and what it does. Wrap the body at ~72 columns.
-
-Closes #
+{{MESSAGE}}
 ```
 
 ## Summary
 
-<!-- 1–3 sentences of context for the reviewer. Not the commit message. -->
+{{SUMMARY}}
 
-## Checklist
+## Checks
 
-- [ ] Subject line follows [Conventional Commits](https://www.conventionalcommits.org)
-      (`type(scope): summary`) and matches the style in `git log`.
-- [ ] Relevant checks from
-      [CONTRIBUTING.md → Running the checks](../blob/main/CONTRIBUTING.md#running-the-checks)
-      pass locally (Python bridges, HA integration, Go dashboard, dashboard JS,
-      dashboard smoke test — whichever the change touches).
-- [ ] `./scripts/dev/check_tracked_secrets.sh` is clean — no real
-      credentials, private-range IPs, or device serials.
-- [ ] AI assistance, if any, is disclosed per
-      [AI-DISCLAIMER.md](../blob/main/AI-DISCLAIMER.md).
-- [ ] For anything beyond a small fix: a linked issue describing the change.
+- [{{CHECK_TITLE}}] The title is a Conventional Commits subject.
+- [{{CHECK_SECRETS}}] `scripts/dev/check_tracked_secrets.sh` is clean.
+- [{{CHECK_AI}}] AI assistance disclosed per [AI-DISCLAIMER.md](../blob/main/AI-DISCLAIMER.md): {{AI_MODEL}}
+- [{{CHECK_SUITES}}] Suites run locally: {{SUITES}}
+- Linked issue: {{ISSUE}}
