@@ -1,64 +1,37 @@
 {{define "diagnostics"}}
 <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" x-data="diagnosticsPanel()" x-init="load()">
-  <h2>{{t "diagnostics.title"}}</h2>
-  <div class="toolbar" role="group" aria-label="{{t "diagnostics.filter_label"}}">
-    <label for="diagnostics-severity">{{t "diagnostics.filter.severity_label"}}</label>
-    <select id="diagnostics-severity" x-model="severity">
-      <option value="all">{{t "diagnostics.filter.all"}}</option>
-      <template x-for="item in severities" :key="item"><option x-bind:value="item" x-text="item"></option></template>
-    </select>
-    <label for="diagnostics-rule">{{t "diagnostics.filter.rule_label"}}</label>
-    <select id="diagnostics-rule" x-model="rule">
-      <option value="all">{{t "diagnostics.filter.all"}}</option>
-      <template x-for="item in rules" :key="item"><option x-bind:value="item" x-text="item"></option></template>
-    </select>
-    <label for="diagnostics-device">{{t "diagnostics.filter.device_label"}}</label>
-    <select id="diagnostics-device" x-model="device">
-      <option value="all">{{t "diagnostics.filter.all"}}</option>
-      <template x-for="item in devices" :key="item"><option x-bind:value="item" x-text="item"></option></template>
-    </select>
-    <button type="button" x-on:click="load()" x-bind:disabled="loading" x-text="loading ? $t('diagnostics.loading') : $t('diagnostics.refresh')"></button>
+  <header class="diag-head">
+    <div class="diag-head-text">
+      <h2>{{t "diagnostics.title"}}</h2>
+      <p class="diag-headline" x-bind:class="`diag-tone-${headlineTone}`" aria-live="polite">
+        <span class="diag-headline-dot" aria-hidden="true"></span>
+        <span x-text="headline"></span>
+      </p>
+    </div>
+    <div class="diag-head-actions">
+      <span class="diag-checked" x-cloak x-show="checkedAt" x-text="checkedAtLabel"></span>
+      <button type="button" class="diag-refresh" x-on:click="load()" x-bind:disabled="loading" x-bind:aria-busy="loading" x-bind:class="{ 'is-loading': loading }">
+        <svg class="automation-icon" aria-hidden="true"><use href="#ico-history"></use></svg>
+        <span x-text="loading ? $t('diagnostics.loading') : $t('diagnostics.refresh')"></span>
+      </button>
+    </div>
+  </header>
+
+  <div class="diag-chips">
+    <span class="diag-chip" x-bind:class="discoveryHasIssues ? 'diag-chip-bad' : 'diag-chip-ok'">
+      <svg class="automation-icon" aria-hidden="true"><use x-bind:href="discoveryHasIssues ? '#ico-warning' : '#ico-check'"></use></svg>
+      <span>{{t "diagnostics.mqtt_discovery.heading"}}</span>
+      <span class="diag-chip-detail" x-text="`${$tn('diagnostics.mqtt_discovery.device_count', discovery.deviceCount)}, ${$tn('diagnostics.mqtt_discovery.entity_count', discovery.entityCount)}`"></span>
+    </span>
   </div>
-  <section class="diagnostics-health" aria-labelledby="diagnostics-health-heading">
-    <div class="diagnostics-health-header">
-      <div>
-        <h3 id="diagnostics-health-heading">{{t "diagnostics.health_score.heading"}}</h3>
-        <p class="diagnostics-health-subtitle">{{t "diagnostics.health_score.description"}}</p>
-      </div>
-      <span class="diagnostics-health-count" x-text="$tn('diagnostics.health_score.device_count', filteredHealthScores.length)"></span>
-    </div>
-    <p x-show="loading && healthScores.length === 0">{{t "diagnostics.health_scores.loading"}}</p>
-    <p x-cloak x-show="!loading && filteredHealthScores.length === 0">{{t "diagnostics.health_scores.empty"}}</p>
-    <div class="table-scroll" x-show="filteredHealthScores.length > 0">
-      <table class="diagnostics-health-table">
-        <thead><tr>
-          <th>{{t "diagnostics.health_table.header.device"}}</th><th>{{t "diagnostics.health_table.header.score"}}</th><th>{{t "diagnostics.health_table.header.status"}}</th><th>{{t "diagnostics.health_table.header.last_signal"}}</th><th>{{t "diagnostics.health_table.header.threshold"}}</th><th>{{t "diagnostics.health_table.header.warnings"}}</th>
-        </tr></thead>
-        <tbody>
-          <template x-for="item in filteredHealthScores" :key="item.device_id">
-            <tr>
-              <td><button type="button" class="diagnostics-device-link" x-on:click="device = item.device_id" x-text="item.device_id" x-bind:aria-label="$t('diagnostics.health_table.show_warnings_aria', {device: item.device_id})"></button></td>
-              <td><strong x-text="`${item.score}/100`"></strong></td>
-              <td><span class="diagnostics-health-status" x-bind:class="`diagnostics-health-status-${item.status}`" x-text="healthStatusLabel(item.status)"></span></td>
-              <td x-text="formatHealthTime(item.last_seen)"></td>
-              <td x-text="`${item.threshold_seconds} s`"></td>
-              <td x-text="item.warning_count"></td>
-            </tr>
-          </template>
-        </tbody>
-      </table>
-    </div>
-  </section>
-  <section class="discovery-diagnostics" aria-labelledby="discovery-diagnostics-heading">
-    <h3 id="discovery-diagnostics-heading">{{t "diagnostics.mqtt_discovery.heading"}}</h3>
+
+  <section class="diag-card discovery-diagnostics" aria-labelledby="discovery-diagnostics-heading" x-cloak x-show="discoveryHasIssues">
+    <h3 id="discovery-diagnostics-heading" class="diag-card-title">{{t "diagnostics.mqtt_discovery.heading"}}</h3>
     <div class="discovery-diagnostics-summary">
-      <span x-text="$tn('diagnostics.mqtt_discovery.device_count', discovery.deviceCount)"></span>
-      <span x-text="$tn('diagnostics.mqtt_discovery.entity_count', discovery.entityCount)"></span>
       <span x-text="$tn('diagnostics.mqtt_discovery.parser_errors_count', discovery.discovery_errors.length)"></span>
       <span x-text="$tn('diagnostics.mqtt_discovery.duplicate_ids_count', duplicateIDs.length)"></span>
     </div>
-    <p class="message error" x-cloak x-show="discoveryError" x-text="discoveryError"></p>
-    <p x-show="!discoveryError && !discovery.discovery_errors.length && !duplicateIDs.length">{{t "diagnostics.mqtt_discovery.no_issues"}}</p>
+    <p class="message error" x-show="discoveryError" x-text="discoveryError"></p>
     <div x-show="discovery.discovery_errors.length">
       <h4>{{t "diagnostics.mqtt_discovery.parser_errors_heading"}}</h4>
       <template x-for="item in discovery.discovery_errors" :key="`${item.topic}-${item.at}`">
@@ -77,30 +50,117 @@
       </template>
     </div>
   </section>
-  <p id="diagnostics-message" x-show="!loading && filteredWarnings.length === 0">{{t "diagnostics.no_matching"}}</p>
-  <div class="table-scroll">
-    <table>
-    <thead><tr>
-      <th><button type="button" x-on:click="sort('severity')" x-bind:aria-label="sortAria('severity')">{{t "diagnostics.table.header.severity"}}</button></th>
-      <th><button type="button" x-on:click="sort('device_id')" x-bind:aria-label="sortAria('device_id')">{{t "diagnostics.table.header.device"}}</button></th>
-      <th><button type="button" x-on:click="sort('entity_id')" x-bind:aria-label="sortAria('entity_id')">{{t "diagnostics.table.header.entity"}}</button></th>
-      <th><button type="button" x-on:click="sort('rule_id')" x-bind:aria-label="sortAria('rule_id')">{{t "diagnostics.table.header.rule"}}</button></th>
-      <th>{{t "diagnostics.table.header.reason"}}</th><th>{{t "diagnostics.table.header.action"}}</th>
-    </tr></thead>
-    <tbody id="diagnostics-list">
-      <tr x-show="loading"><td colspan="6">{{t "diagnostics.diagnostics_table.loading"}}</td></tr>
-      <template x-for="item in filteredWarnings" :key="`${item.rule_id}-${item.device_id}-${item.entity_id}-${item.at}`">
-        <tr>
-          <td x-text="item.severity"></td>
-          <td x-text="item.device_id"></td>
-          <td x-text="item.entity_id || '-'"></td>
-          <td x-text="item.rule_id"></td>
-          <td x-text="warningText(item, 'message')"></td>
-          <td x-text="warningText(item, 'hint')"></td>
-        </tr>
+
+  <section class="diag-section diagnostics-health" aria-labelledby="diagnostics-health-heading">
+    <div class="diag-section-head">
+      <h3 id="diagnostics-health-heading">{{t "diagnostics.health_score.heading"}}</h3>
+      <span class="diag-section-meta" x-text="$tn('diagnostics.health_score.device_count', healthScores.length)"></span>
+    </div>
+    <p class="diag-section-note">{{t "diagnostics.health_score.description"}}</p>
+    <p class="diag-empty" x-show="loading && healthScores.length === 0">{{t "diagnostics.health_scores.loading"}}</p>
+    <p class="diag-empty" x-cloak x-show="!loading && healthScores.length === 0">{{t "diagnostics.health_scores.empty"}}</p>
+    <div class="diag-device-grid" x-show="healthScores.length > 0">
+      <template x-for="item in sortedHealthScores" :key="item.device_id">
+        <button type="button" class="diag-device" x-bind:class="{ [`diagnostics-health-status-${item.status}`]: true, 'is-selected': device === item.device_id }" x-on:click="selectDevice(item.device_id)" x-bind:aria-pressed="device === item.device_id" x-bind:aria-label="$t('diagnostics.health_table.show_warnings_aria', {device: item.device_id})">
+          <span class="diag-ring" x-bind:style="`--score: ${Math.max(0, Math.min(100, Number(item.score) || 0))}`" aria-hidden="true"><span x-text="item.score"></span></span>
+          <span class="diag-device-body">
+            <span class="diag-device-name" x-text="item.device_id"></span>
+            <span class="diagnostics-health-status" x-bind:class="`diagnostics-health-status-${item.status}`" x-text="healthStatusLabel(item.status)"></span>
+            <span class="diag-device-meta">
+              <span class="diag-device-seen"><svg class="automation-icon" aria-hidden="true"><use href="#ico-clock"></use></svg><span x-text="formatHealthTime(item.last_seen)"></span></span>
+              <span x-show="item.warning_count > 0" x-text="$tn('diagnostics.device.warning_count', item.warning_count)"></span>
+            </span>
+          </span>
+        </button>
       </template>
-    </tbody>
-    </table>
-  </div>
+    </div>
+  </section>
+
+  <section class="diag-section" aria-labelledby="diagnostics-warnings-heading">
+    <div class="diag-section-head">
+      <h3 id="diagnostics-warnings-heading">{{t "diagnostics.warnings.heading"}}</h3>
+    </div>
+    <div class="diag-toolbar" role="group" aria-label="{{t "diagnostics.filter_label"}}">
+      <div class="segmented segmented--3 diag-severity" role="radiogroup" aria-label="{{t "diagnostics.filter.severity_label"}}">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="all" x-model="severity"><span>{{t "diagnostics.filter.all"}} <span class="diag-count" x-text="severityCount('all')"></span></span></label>
+        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="critical" x-model="severity"><span>{{t "diagnostics.severity.critical"}} <span class="diag-count" x-text="severityCount('critical')"></span></span></label>
+        <label class="segmented-option"><input type="radio" name="diagnostics-severity" value="warning" x-model="severity"><span>{{t "diagnostics.severity.warning"}} <span class="diag-count" x-text="severityCount('warning')"></span></span></label>
+      </div>
+      <button type="button" class="diag-filter-chip" x-cloak x-show="device !== 'all'" x-on:click="device = 'all'" x-bind:aria-label="$t('diagnostics.filter.clear_device_aria', {device})">
+        <span x-text="device"></span>
+        <svg class="automation-icon" aria-hidden="true"><use href="#ico-close"></use></svg>
+      </button>
+      <div class="segmented diag-view" role="radiogroup" aria-label="{{t "diagnostics.view.label"}}">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="diagnostics-view" value="grouped" x-model="view"><span>{{t "diagnostics.view.grouped"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="diagnostics-view" value="list" x-model="view"><span>{{t "diagnostics.view.list"}}</span></label>
+      </div>
+    </div>
+
+    <p class="diag-empty" x-show="loading && warnings.length === 0">{{t "diagnostics.diagnostics_table.loading"}}</p>
+    <p id="diagnostics-message" class="diag-empty" x-cloak x-show="loaded && !loading && filteredWarnings.length === 0">
+      <svg class="automation-icon" aria-hidden="true"><use href="#ico-check"></use></svg>
+      <span>{{t "diagnostics.no_matching"}}</span>
+    </p>
+
+    <div class="diag-groups" x-show="view === 'grouped' && filteredWarnings.length > 0">
+      <template x-for="group in warningGroups" :key="group.id">
+        <details class="diag-group" x-bind:class="`diag-severity-${group.severity}`" x-bind:open="isGroupOpen(group)" x-on:toggle="rememberGroup(group, $event.target.open)">
+          <summary class="diag-group-head">
+            <span class="diag-group-icon" aria-hidden="true"><svg class="automation-icon"><use href="#ico-warning"></use></svg></span>
+            <span class="diag-group-text">
+              <span class="diag-group-title">
+                <span x-text="group.title"></span>
+                <span class="diag-severity-pill" x-text="severityLabel(group.severity)"></span>
+              </span>
+              <span class="diag-group-message" x-text="group.message"></span>
+            </span>
+            <span class="diag-group-count" x-text="$tn('diagnostics.group.count', group.count)"></span>
+            <svg class="automation-icon diag-group-chevron" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+          </summary>
+          <div class="diag-group-body">
+            <p class="diag-group-hint" x-show="group.hint">
+              <span class="diag-group-hint-label">{{t "diagnostics.table.header.action"}}</span>
+              <span x-text="group.hint"></span>
+            </p>
+            <ul class="diag-group-devices">
+              <template x-for="entry in group.devices" :key="entry.deviceID">
+                <li class="diag-group-device">
+                  <button type="button" class="diag-device-link" x-on:click="selectDevice(entry.deviceID)" x-bind:aria-pressed="device === entry.deviceID" x-text="entry.deviceID || '-'"></button>
+                  <span class="diag-entities">
+                    <template x-for="entity in entry.entities" :key="entity"><code class="diag-entity" x-text="entity"></code></template>
+                  </span>
+                </li>
+              </template>
+            </ul>
+          </div>
+        </details>
+      </template>
+    </div>
+
+    <div class="table-scroll diag-list" x-cloak x-show="view === 'list' && filteredWarnings.length > 0">
+      <table>
+        <thead><tr>
+          <th x-bind:aria-sort="sortState('severity')"><button type="button" class="diag-sort" x-on:click="sort('severity')" x-bind:aria-label="sortAria('severity')">{{t "diagnostics.table.header.severity"}}</button></th>
+          <th x-bind:aria-sort="sortState('device_id')"><button type="button" class="diag-sort" x-on:click="sort('device_id')" x-bind:aria-label="sortAria('device_id')">{{t "diagnostics.table.header.device"}}</button></th>
+          <th x-bind:aria-sort="sortState('entity_id')"><button type="button" class="diag-sort" x-on:click="sort('entity_id')" x-bind:aria-label="sortAria('entity_id')">{{t "diagnostics.table.header.entity"}}</button></th>
+          <th x-bind:aria-sort="sortState('rule_id')"><button type="button" class="diag-sort" x-on:click="sort('rule_id')" x-bind:aria-label="sortAria('rule_id')">{{t "diagnostics.table.header.rule"}}</button></th>
+          <th>{{t "diagnostics.table.header.action"}}</th>
+        </tr></thead>
+        <tbody id="diagnostics-list">
+          <template x-for="item in filteredWarnings" :key="`${item.rule_id}-${item.device_id}-${item.entity_id}-${item.at}`">
+            <tr>
+              <td><span class="diag-severity-pill" x-bind:class="`diag-severity-${item.severity}`" x-text="severityLabel(item.severity)"></span></td>
+              <td x-text="item.device_id"></td>
+              <td><code class="diag-entity" x-text="item.entity_id || '-'"></code></td>
+              <td><span class="diag-list-rule" x-text="ruleTitle(item)"></span><span class="diag-list-message" x-text="warningText(item, 'message')"></span></td>
+              <td x-text="warningText(item, 'hint')"></td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </section>
 </section>
 {{end}}

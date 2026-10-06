@@ -58,7 +58,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
-		"diagnosticsPanel", "diagnostics-health-heading", "filteredHealthScores", "diagnostics-health-status", "sort('entity_id')", "settingsPanel", "x-model.number=\"healthScoreThreshold\"", "item.entity_id || '-'", "storage-health-heading", "Speicherzustand", "Geschätzte Restlaufzeit", "loadStorageHealth()",
+		"diagnosticsPanel", "diagnostics-health-heading", "sortedHealthScores", "diagnostics-health-status", "sort('entity_id')", "settingsPanel", "x-model.number=\"healthScoreThreshold\"", "item.entity_id || '-'", "storage-health-heading", "Speicherzustand", "Geschätzte Restlaufzeit", "loadStorageHealth()",
 		"settings-wide-panels", "Tabs ohne Breitendeckelung", "widePanelOptions", "wide-panels-select", "initChoices()",
 		"settings-status-bar-items", "Angaben im Systemstatus", "statusBarItemOptions", "status-bar-items-select",
 	}
@@ -78,13 +78,13 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 	}
 }
 
-func TestDiagnosticsAssetLoadsRuleCatalog(t *testing.T) {
+func TestDiagnosticsAssetLoadsHealthScores(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Static().ServeHTTP(recorder, httptest.NewRequest("GET", "/static/js/dashboard.js", nil))
 	if recorder.Code != 200 {
 		t.Fatalf("got status %d: %s", recorder.Code, recorder.Body.String())
 	}
-	for _, marker := range []string{"ruleCatalog", "/api/v1/diagnostics/rules", "healthScores", "/api/v1/diagnostics/health", "filteredHealthScores", "runtimeStatusPanel", "/api/v1/health", "/api/v1/discovery", "selectDevice", "reloadDevice", "measurementEntities", "controlEntities", "configDiagEntities", "configEntities", "diagnosticEntities", "Promise.allSettled", "sortedWarnings", "groupedWarnings", "affectedEntityIds", "entityLabel", "runtime-status-setting-changed", "registry-updated", "dashboard-panel-changed", "setActivePanel"} {
+	for _, marker := range []string{"warningGroups", "healthScores", "/api/v1/diagnostics/health", "sortedHealthScores", "runtimeStatusPanel", "/api/v1/health", "/api/v1/discovery", "selectDevice", "reloadDevice", "measurementEntities", "controlEntities", "configDiagEntities", "configEntities", "diagnosticEntities", "Promise.allSettled", "sortedWarnings", "groupedWarnings", "affectedEntityIds", "entityLabel", "runtime-status-setting-changed", "registry-updated", "dashboard-panel-changed", "setActivePanel"} {
 		if !strings.Contains(recorder.Body.String(), marker) {
 			t.Fatalf("diagnostics asset does not contain %q", marker)
 		}

@@ -1433,35 +1433,45 @@
     },
   });
 
+  // Rangfolgen fuer die Diagnose: hoeher = dringender. Gruppen, Karten und
+  // die Liste sortieren alle nach derselben Skala, damit das Dringendste
+  // ueberall oben steht.
+  const DIAGNOSTIC_SEVERITY_RANK = {critical: 3, warning: 2, info: 1};
+  const DEVICE_HEALTH_RANK = {critical: 4, unhealthy: 3, degraded: 2, unknown: 1, healthy: 0};
+
   const diagnosticsPanel = () => ({
     warnings: [],
-    ruleCatalog: [],
     healthScores: [],
     // deviceCount/entityCount statt der ganzen Geraeteliste: das Panel hat
     // aus den 448 KB von /api/v1/discovery ohnehin nur diese beiden Zahlen
     // gelesen. Die Vollansicht bleibt unter /api/v1/discovery bestehen.
     discovery: {deviceCount: 0, entityCount: 0, discovery_errors: [], duplicate_ids: {}},
     severity: 'all',
-    rule: 'all',
     device: 'all',
+    // 'grouped' fasst Meldungen nach Ursache zusammen (Ursache und Handlung
+    // nur einmal), 'list' ist die flache, sortierbare Tabelle.
+    view: 'grouped',
+    // Auf/Zu je Gruppe, sobald der Nutzer sie einmal umgeschaltet hat. Ohne
+    // Eintrag gilt der Standard aus groupOpenByDefault().
+    openGroups: {},
     sortBy: 'severity',
     sortDirection: 'desc',
     loading: false,
+    loaded: false,
+    checkedAt: null,
     discoveryError: '',
 
     async load() {
       this.loading = true;
       this.discoveryError = '';
       try {
-        const [warnings, rules, healthScores, discovery] = await Promise.allSettled([
+        const [warnings, healthScores, discovery] = await Promise.allSettled([
           requestJSON('/api/v1/diagnostics'),
-          requestJSON('/api/v1/diagnostics/rules'),
           requestJSON('/api/v1/diagnostics/health'),
           requestJSON('/api/v1/discovery/summary'),
         ]);
         if (warnings.status === 'rejected') throw warnings.reason;
         this.warnings = Array.isArray(warnings.value) ? warnings.value : [];
-        this.ruleCatalog = rules.status === 'fulfilled' && Array.isArray(rules.value) ? rules.value : [];
         this.healthScores = healthScores.status === 'fulfilled' && Array.isArray(healthScores.value) ? healthScores.value : [];
         if (discovery.status === 'fulfilled') {
           this.discovery = {
@@ -1474,42 +1484,39 @@
           this.discoveryError = discovery.reason.message;
           this.discovery = {deviceCount: 0, entityCount: 0, discovery_errors: [], duplicate_ids: {}};
         }
+        this.checkedAt = new Date();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
         this.warnings = [];
-        this.ruleCatalog = [];
         this.healthScores = [];
         this.discovery = {deviceCount: 0, entityCount: 0, discovery_errors: [], duplicate_ids: {}};
       } finally {
         this.loading = false;
+        this.loaded = true;
       }
-    },
-
-    get severities() {
-      return [...new Set(this.warnings.map(item => item.severity).filter(Boolean))].sort();
-    },
-
-    get rules() {
-      return [...new Set([
-        ...this.ruleCatalog,
-        ...this.warnings.map(item => item.rule_id).filter(Boolean),
-      ])].sort();
-    },
-
-    get devices() {
-      return [...new Set([
-        ...this.healthScores.map(item => item.device_id).filter(Boolean),
-        ...this.warnings.map(item => item.device_id).filter(Boolean),
-      ])].sort();
     },
 
     get duplicateIDs() {
       return Object.entries(this.discovery.duplicate_ids || {}).sort(([left], [right]) => window.I18n.compare(left, right));
     },
 
-    get filteredHealthScores() {
-      if (this.device === 'all') return this.healthScores;
-      return this.healthScores.filter(item => item.device_id === this.device);
+    get discoveryHasIssues() {
+      return Boolean(this.discoveryError) || this.discovery.discovery_errors.length > 0 || this.duplicateIDs.length > 0;
+    },
+
+    // Die Karten zeigen immer alle Geraete, das schlechteste zuerst. Der
+    // Geraetefilter markiert nur eine Karte, statt die anderen zu verstecken,
+    // damit man von dort aus direkt zum naechsten Geraet springen kann.
+    get sortedHealthScores() {
+      return [...this.healthScores].sort((left, right) =>
+        (DEVICE_HEALTH_RANK[right.status] ?? 1) - (DEVICE_HEALTH_RANK[left.status] ?? 1) ||
+        (Number(left.score) || 0) - (Number(right.score) || 0) ||
+        window.I18n.compare(left.device_id, right.device_id)
+      );
+    },
+
+    selectDevice(deviceID) {
+      this.device = this.device === deviceID ? 'all' : deviceID;
     },
 
     healthStatusLabel(status) {
@@ -1519,30 +1526,122 @@
       return status || t('diagnostics.health.unknown');
     },
 
-    formatHealthTime(value) {
-      if (!value) return '-';
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime()) || date.getUTCFullYear() <= 1) return '-';
+    // Signal von heute nur mit Uhrzeit, aelteres mit Datum. Ohne Signal ein
+    // Satz statt eines nackten Strichs.
+    formatHealthTime(value, now = new Date()) {
+      const date = value ? new Date(value) : null;
+      if (!date || Number.isNaN(date.getTime()) || date.getUTCFullYear() <= 1) return t('diagnostics.device.never_seen');
+      if (date.toDateString() === now.toDateString()) return window.I18n.formatTime(date);
       return window.I18n.formatDateTime(date);
     },
 
+    severityLabel(severity) {
+      // i18n-keys: diagnostics.severity.critical, diagnostics.severity.warning, diagnostics.severity.info
+      const key = `diagnostics.severity.${severity}`;
+      return window.I18n.has(key) ? t(key) : (severity || '');
+    },
+
+    // Meldungen nach Geraetefilter, aber noch ohne Schweregradfilter: daraus
+    // zaehlt der Schweregrad-Umschalter, damit seine Zahlen zeigen, was ein
+    // Klick bringen wuerde.
+    get deviceWarnings() {
+      if (this.device === 'all') return this.warnings;
+      return this.warnings.filter(item => item.device_id === this.device);
+    },
+
+    severityCount(severity) {
+      if (severity === 'all') return this.deviceWarnings.length;
+      return this.deviceWarnings.filter(item => item.severity === severity).length;
+    },
+
+    get headline() {
+      // i18n-keys: diagnostics.headline.critical.one, diagnostics.headline.critical.other, diagnostics.headline.warnings.one, diagnostics.headline.warnings.other, diagnostics.headline.info.one, diagnostics.headline.info.other
+      if (!this.loaded) return t('diagnostics.headline.checking');
+      if (this.warnings.length === 0) return t('diagnostics.headline.ok');
+      const count = severity => this.warnings.filter(item => item.severity === severity).length;
+      const parts = [];
+      for (const [severity, key] of [['critical', 'critical'], ['warning', 'warnings'], ['info', 'info']]) {
+        const n = count(severity);
+        if (n > 0) parts.push(tn(`diagnostics.headline.${key}`, n));
+      }
+      const devices = new Set(this.warnings.map(item => item.device_id).filter(Boolean)).size;
+      return t('diagnostics.headline.summary', {counts: parts.join(', '), devices: tn('diagnostics.headline.devices', devices)});
+    },
+
+    get headlineTone() {
+      if (this.warnings.some(item => item.severity === 'critical')) return 'bad';
+      if (this.warnings.length > 0) return 'warn';
+      return this.loaded ? 'ok' : 'idle';
+    },
+
+    get checkedAtLabel() {
+      return this.checkedAt ? t('diagnostics.checked_at', {time: window.I18n.formatTime(this.checkedAt)}) : '';
+    },
+
     get filteredWarnings() {
-      const severityRank = {critical: 3, warning: 2, info: 1};
-      const result = this.warnings.filter(item =>
-        (this.severity === 'all' || item.severity === this.severity) &&
-        (this.rule === 'all' || item.rule_id === this.rule) &&
-        (this.device === 'all' || item.device_id === this.device)
-      );
+      const result = this.deviceWarnings.filter(item => this.severity === 'all' || item.severity === this.severity);
       result.sort((left, right) => {
         let comparison;
         if (this.sortBy === 'severity') {
-          comparison = (severityRank[left.severity] || 0) - (severityRank[right.severity] || 0);
+          comparison = (DIAGNOSTIC_SEVERITY_RANK[left.severity] || 0) - (DIAGNOSTIC_SEVERITY_RANK[right.severity] || 0);
         } else {
           comparison = window.I18n.compare(left[this.sortBy] || '', right[this.sortBy] || '');
         }
         return this.sortDirection === 'asc' ? comparison : -comparison;
       });
       return result;
+    },
+
+    // Eine Gruppe je Ursache (Warning.key, sonst rule_id): Ursache und
+    // Handlung stehen einmal, die betroffenen Entitaeten haengen je Geraet
+    // darunter. Dringendste Gruppe zuerst, bei Gleichstand die groessere.
+    get warningGroups() {
+      const groups = new Map();
+      for (const item of this.filteredWarnings) {
+        const id = item.key || item.rule_id || '';
+        let group = groups.get(id);
+        if (!group) {
+          group = {id, sample: item, severity: item.severity, count: 0, devices: new Map()};
+          groups.set(id, group);
+        }
+        group.count += 1;
+        if ((DIAGNOSTIC_SEVERITY_RANK[item.severity] || 0) > (DIAGNOSTIC_SEVERITY_RANK[group.severity] || 0)) group.severity = item.severity;
+        const deviceID = item.device_id || '';
+        if (!group.devices.has(deviceID)) group.devices.set(deviceID, []);
+        if (item.entity_id) group.devices.get(deviceID).push(item.entity_id);
+      }
+      return [...groups.values()]
+        .map(group => ({
+          id: group.id,
+          severity: group.severity,
+          count: group.count,
+          title: this.ruleTitle(group.sample),
+          message: this.warningText(group.sample, 'message'),
+          hint: this.warningText(group.sample, 'hint'),
+          devices: [...group.devices.entries()]
+            .map(([deviceID, entities]) => ({deviceID, entities: [...new Set(entities)].sort(window.I18n.compare)}))
+            .sort((left, right) => window.I18n.compare(left.deviceID, right.deviceID)),
+        }))
+        .sort((left, right) =>
+          (DIAGNOSTIC_SEVERITY_RANK[right.severity] || 0) - (DIAGNOSTIC_SEVERITY_RANK[left.severity] || 0) ||
+          right.count - left.count ||
+          window.I18n.compare(left.title, right.title)
+        );
+    },
+
+    // Kritische Gruppen stehen offen, ebenso eine einzelne Gruppe: dann gibt
+    // es nichts zu ueberblicken und der Klick zum Aufklappen waere nur Arbeit.
+    groupOpenByDefault(group) {
+      return group.severity === 'critical' || this.warningGroups.length === 1;
+    },
+
+    isGroupOpen(group) {
+      return Object.hasOwn(this.openGroups, group.id) ? this.openGroups[group.id] : this.groupOpenByDefault(group);
+    },
+
+    rememberGroup(group, open) {
+      if (open === this.isGroupOpen(group)) return;
+      this.openGroups[group.id] = open;
     },
 
     sort(field) {
@@ -1554,6 +1653,11 @@
       this.sortDirection = field === 'severity' ? 'desc' : 'asc';
     },
 
+    sortState(field) {
+      if (this.sortBy !== field) return 'none';
+      return this.sortDirection === 'asc' ? 'ascending' : 'descending';
+    },
+
     sortAria(field) {
       // i18n-keys: diagnostics.sort.severity, diagnostics.sort.severity_asc, diagnostics.sort.severity_desc, diagnostics.sort.device, diagnostics.sort.device_asc, diagnostics.sort.device_desc, diagnostics.sort.entity, diagnostics.sort.entity_asc, diagnostics.sort.entity_desc, diagnostics.sort.rule, diagnostics.sort.rule_asc, diagnostics.sort.rule_desc
       const columnMap = {severity: 'severity', device_id: 'device', entity_id: 'entity', rule_id: 'rule'};
@@ -1561,6 +1665,16 @@
       if (this.sortBy !== field) return t(`diagnostics.sort.${column}`);
       const direction = this.sortDirection === 'asc' ? 'asc' : 'desc';
       return t(`diagnostics.sort.${column}_${direction}`);
+    },
+
+    // Kurzer Name der Ursache fuer Gruppenkopf und Listenzeile. Ohne
+    // Katalogtext bleibt die rohe rule_id stehen, damit neue Regeln aus dem
+    // Backend sichtbar sind, bevor ihr Text nachgezogen ist.
+    // i18n-keys: diagnostics.rule.duplicate_unique_id.title, diagnostics.rule.discovery_invalid_json.title, diagnostics.rule.discovery_mismatch.title, diagnostics.rule.discovery_not_retained.title, diagnostics.rule.missing_topic.title, diagnostics.rule.missing_availability.title, diagnostics.rule.missing_unit.title, diagnostics.rule.no_state_update.title, diagnostics.rule.offline.title, diagnostics.rule.empty_state_payload.title, diagnostics.rule.invalid_discovery_payload.title, diagnostics.rule.ignored_device_discovery_stale.title, diagnostics.rule.configured_device_missing.title
+    ruleTitle(item) {
+      const key = item && item.key ? `diagnostics.rule.${item.key}.title` : '';
+      if (key && window.I18n && window.I18n.has(key)) return t(key);
+      return (item && item.rule_id) || '';
     },
 
     // i18n-keys: diagnostics.rule.duplicate_unique_id.message, diagnostics.rule.duplicate_unique_id.hint, diagnostics.rule.discovery_invalid_json.message, diagnostics.rule.discovery_invalid_json.hint, diagnostics.rule.discovery_mismatch.message, diagnostics.rule.discovery_mismatch.hint, diagnostics.rule.discovery_not_retained.message, diagnostics.rule.discovery_not_retained.hint, diagnostics.rule.missing_topic.message, diagnostics.rule.missing_topic.hint, diagnostics.rule.missing_availability.message, diagnostics.rule.missing_availability.hint, diagnostics.rule.missing_unit.message, diagnostics.rule.missing_unit.hint, diagnostics.rule.no_state_update.message, diagnostics.rule.no_state_update.hint, diagnostics.rule.offline.message, diagnostics.rule.offline.hint, diagnostics.rule.empty_state_payload.message, diagnostics.rule.empty_state_payload.hint, diagnostics.rule.invalid_discovery_payload.message, diagnostics.rule.invalid_discovery_payload.hint, diagnostics.rule.ignored_device_discovery_stale.message, diagnostics.rule.ignored_device_discovery_stale.hint, diagnostics.rule.configured_device_missing.message, diagnostics.rule.configured_device_missing.hint

@@ -119,7 +119,7 @@ async function all() {
     ['dashboard-config', 'config', 997],
     ['dashboard-energy', 'energy', 997],
     ['dashboard-device-map', 'devicemap', 928],
-    ['dashboard-diagnosis', 'diagnostics', 952],
+    ['dashboard-diagnosis', 'diagnostics', 1175],
   ];
   for (const [name, id, height] of tabs) {
     if (!want(name)) continue;
