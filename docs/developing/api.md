@@ -1,34 +1,32 @@
 ---
-title: "Dashboard API Documentation"
+title: "Dashboard API documentation"
 redirect_from:
   - /knowledge/dashboard/api-documentation.html
 ---
 
-# Dashboard API Documentation
+# Dashboard API documentation
 
-HTTP interface of the Energy Node dashboard (Go binary
+This is the HTTP interface of the Energy Node dashboard (Go binary
 `energy-node-dashboard`). All endpoints live under `/api/v1/`.
 
-Related documents:
+Related pages:
 
-- System-wide data flows → [data-flow.md](data-flow.md)
-- Reverse proxy / sub-path operation → [../operating/reverse-proxy.md](../operating/reverse-proxy.md)
-- Secrets, passwords, credential files → [../operating/secrets.md](../operating/secrets.md)
-- Frontend asset cache-busting: see the cache-busting notes in the repository
+- [data-flow.md](data-flow.md): data flows across the whole system
+- [../operating/reverse-proxy.md](../operating/reverse-proxy.md): running under a sub-path behind a reverse proxy
+- [../operating/secrets.md](../operating/secrets.md): secrets, passwords and credential files
+- The cache-busting notes in the repository cover frontend assets.
 
-The source of truth is the routing table in
-`dashboard/internal/httpapi/httpapi.go` (`NewRouterWithDependencies`).
-
----
+When in doubt, the routing table in `dashboard/internal/httpapi/httpapi.go`
+(`NewRouterWithDependencies`) is authoritative.
 
 ## Fundamentals
 
 ### Base URL and subpath
 
-The default is `http://<host>:8080/`. If the dashboard runs behind a reverse
-proxy under a subpath, `basepath.Middleware` strips the path before the router
-sees it — so the router only ever knows root-relative paths. Clients simply
-prepend the subpath to `/api/v1/...`.
+The default is `http://<host>:8080/`. Behind a reverse proxy under a subpath,
+`basepath.Middleware` strips the subpath before the router sees the request, so
+the router only knows root-relative paths. Clients put the subpath in front of
+`/api/v1/...`.
 
 ### Response format
 
@@ -38,10 +36,10 @@ All responses are `application/json`. Errors always take this form:
 { "code": "device_not_found", "message": "Gerät wurde nicht gefunden" }
 ```
 
-`code` is stable and machine-readable. `message` is a German fallback text.
-The dashboard shows the catalog text for `code` or `message_key` and uses
-`message` only for codes it does not know. On `405` the server additionally
-sets the `Allow` header.
+`code` is stable and meant for programs. `message` is a German fallback text.
+The dashboard shows the catalog text for `code` or `message_key` and only uses
+`message` for codes it does not know. On `405` the server also sets the `Allow`
+header.
 
 Some errors carry additional fields, all optional:
 
@@ -71,15 +69,14 @@ Some errors carry additional fields, all optional:
 | `*_busy` | 409 | A system action is already running |
 | `*_rejected` | 400 | Input rejected (validation, schema) |
 
----
 
 ## Authentication and permissions
 
 ### Sessions
 
-A middleware wrapper (`authMiddleware`) protects **everything except**
-`/static/*` and `/api/v1/auth/*`. Without a valid session, `GET /` returns the
-login page, whereas any `/api/*` call returns `401`.
+A middleware (`authMiddleware`) protects everything except `/static/*` and
+`/api/v1/auth/*`. Without a valid session, `GET /` returns the login page and
+any `/api/*` call returns `401`.
 
 There are two cookies, depending on the transport:
 
@@ -88,15 +85,15 @@ There are two cookies, depending on the transport:
 | `energy_node_session` | HTTPS requests | 24 h (password login) |
 | `energy_node_guest_session` | HTTP requests | 7 days (guest session) |
 
-Both are `HttpOnly` and `SameSite=Lax`. A request counts as HTTPS if TLS is
-terminated at the server *or* if `X-Forwarded-Proto: https` is set.
+Both are `HttpOnly` and `SameSite=Lax`. A request counts as HTTPS if the server
+terminates TLS itself or if `X-Forwarded-Proto: https` is set.
 
-In practice, transport and session type coincide: password login is HTTPS-only,
-while guest access also works over HTTP.
+In practice the transport decides the session type. Password login only works
+over HTTPS, guest access also over HTTP.
 
-**Important:** A session with the `system_actions` role is worthless over plain
-HTTP — the middleware discards it and demands authentication. Admin operation
-requires HTTPS.
+A session with the `system_actions` role is useless over plain HTTP. The
+middleware discards it and asks for authentication again, so admin work needs
+HTTPS.
 
 ### Roles
 
@@ -107,28 +104,26 @@ requires HTTPS.
 | `automations` | Write and test automation rules |
 | `delete_device_discovery` | Delete a device's discovery entries |
 | `tune_live_updates` | Change `live_update_interval_seconds` |
-| `edit_layout` | Reserved for layout editing — reported in the session payload but **not currently enforced**: `PUT /api/v1/layout` has no gate |
+| `edit_layout` | Reserved for layout editing. Reported in the session payload but not enforced yet: `PUT /api/v1/layout` has no gate |
 
-Logged in but without a role: everything read-only, plus layout, device card,
-energy roles, switch commands, and the remaining settings.
+A session without a role can read everything and change the layout, the device
+card, the energy roles, switch commands and the remaining settings.
 
 ### CSRF
 
-Privileged write endpoints require the `X-CSRF-Token` header carrying the value
-from `GET /api/v1/auth/session` (field `csrf_token`). It is checked against the
+Privileged write endpoints need the `X-CSRF-Token` header with the value from
+`GET /api/v1/auth/session` (field `csrf_token`). It is checked against the
 cookie's session.
 
 ### Three-stage pattern
 
-The security-critical endpoints (bridge, MQTT configuration, Tailscale) check
-consistently in this order: **role → HTTPS → CSRF**.
-
----
+The security critical endpoints (bridge, MQTT configuration, Tailscale) always
+check in this order: role, then HTTPS, then CSRF.
 
 ## Endpoint overview
 
-Legend for the *Gate* column: `–` means session only, otherwise a role or
-additional requirements.
+In the *Gate* column, `–` means a session is enough. Otherwise the column names
+the role or other requirements.
 
 ### Auth
 
@@ -179,22 +174,22 @@ additional requirements.
 | POST | `/api/v1/entities/{unique_id}/command` | – | Switch an entity or set a value |
 
 **`GET /api/v1/devices`** returns `ETag: "registry-N"`. With a matching
-`If-None-Match`, the server responds `304 Not Modified` with no body — the
-recommended way to poll repeatedly.
+`If-None-Match` the server answers `304 Not Modified` without a body. Use this
+when you poll repeatedly.
 
-**`GET /api/v1/events`** is a Server-Sent Events stream and deliberately carries
-no payload:
+**`GET /api/v1/events`** is a Server-Sent Events stream and carries no values on
+purpose:
 
 ```
 event: registry
 data: {"version":42}
 ```
 
-When the version changes, the client fetches the devices via
+When the version changes, the client fetches the devices with
 `GET /api/v1/devices`. The send interval comes from `settings.json` and takes
 effect without a reconnect.
 
-**`POST /api/v1/entities/{unique_id}/command`** — `{unique_id}` is URL-encoded.
+**`POST /api/v1/entities/{unique_id}/command`**, with `{unique_id}` URL-encoded.
 The body depends on the component:
 
 ```jsonc
@@ -210,8 +205,8 @@ Error codes: `command_not_supported` (404), `invalid_command_value`,
 `command_value_out_of_range`, `invalid_command_step`,
 `invalid_command_payload` (all 400), `command_publish_failed` (502).
 
-The dashboard publishes exclusively to `command_topic`s from discovery —
-arbitrary topics are not reachable through the API.
+The dashboard only publishes to `command_topic`s from discovery. The API cannot
+reach arbitrary topics.
 
 ### Energy
 
@@ -228,12 +223,12 @@ Available roles: `pv`, `battery`, `battery_charge`, `battery_discharge`,
 `battery_soc`, `grid`, `grid_import`, `grid_export`, `load`, `wallbox`,
 `heat_pump`.
 
-`PUT /api/v1/energy/roles` replaces `assignments` **completely**. If the body
-omits `interpretation`, the stored interpretation is kept — this is intentional,
-so that saving roles alone does not reset the interpretation.
+`PUT /api/v1/energy/roles` replaces all of `assignments`. If the body has no
+`interpretation`, the stored one is kept, so saving only the roles does not
+reset the interpretation.
 
-The balance is additionally published every 10 s to
-`outstation/energy_node/energy/balance`; the automations build on that.
+The balance is also published every 10 s to
+`outstation/energy_node/energy/balance`, which the automations use.
 
 ### History
 
@@ -247,13 +242,13 @@ The balance is additionally published every 10 s to
 | POST | `/api/v1/history/exchange/deliver` | – | Hand rows to one peer, answering a request |
 | POST | `/api/v1/history/exchange/buffer` | – | Feed rows into the server's 24 h ring buffer |
 
-The dashboard keeps **no history on disk** — samples live in each browser's
-IndexedDB (see [data-flow.md](data-flow.md) §10). These endpoints only
-support the browser-side recorder.
+The dashboard keeps no history on disk. Samples live in each browser's
+IndexedDB (see [data-flow.md](data-flow.md) §10), and these endpoints only
+serve the recorder in the browser.
 
-**`GET /api/v1/history/entities`** returns the current value of exactly the
-entities named in `settings.json` under `history_extra_entities` (a server-side
-allowlist; the browser cannot poll arbitrary IDs):
+**`GET /api/v1/history/entities`** returns the current value of the entities
+named in `settings.json` under `history_extra_entities`. That list is an
+allowlist on the server, so the browser cannot poll arbitrary IDs:
 
 ```json
 {
@@ -266,26 +261,26 @@ allowlist; the browser cannot poll arbitrary IDs):
 
 `value` is `null` when the entity currently has no numeric value.
 
-**`/api/v1/history/exchange/*`** is a device-to-device transfer channel; the
-server is a **relay, not a store**. Browsers on the same broker exchange their
-recorded `1m` and `5m` tiers (never raw) so a freshly opened dashboard can
-backfill. `GET /api/v1/history/exchange` describes the protocol (version 1; 500
-rows per delivery, 20 000 per request, 1 MiB per body). The `.../stream` SSE
-carries the message flow; `offer` / `request` / `deliver` are the POST
-counterparts a peer uses to talk back; `buffer` feeds a 24 h in-memory ring
-buffer that participates as the pseudo-peer `server`. Every POST must carry a
-`peer` field matching a currently connected stream, else `peer_unknown` (403).
-Other codes: `peer_gone` (404, the target left), `tier_unknown` (400), `label_too_long` (400),
-`body_too_large` / `too_many_rows` (413).
+**`/api/v1/history/exchange/*`** transfers history between devices. The server
+only relays and stores nothing. Browsers on the same broker exchange their
+recorded `1m` and `5m` tiers (never raw), so a dashboard that was just opened
+can fill its gaps. `GET /api/v1/history/exchange` describes the protocol
+(version 1, 500 rows per delivery, 20 000 per request, 1 MiB per body). The
+`.../stream` SSE carries the messages. A peer answers with the POST endpoints
+`offer`, `request` and `deliver`. `buffer` feeds a 24 h ring buffer in memory
+that takes part as the pseudo-peer `server`. Every POST must carry a `peer`
+field that matches a connected stream, otherwise the answer is `peer_unknown`
+(403). Other codes are `peer_gone` (404, the target left), `tier_unknown`
+(400), `label_too_long` (400) and `body_too_large` / `too_many_rows` (413).
 
 The announcement also lists `series`, the series this dashboard records
 (`[{ "id": "role:pv", "unit": "W" }, …]`: the energy roles that currently have a
-value, plus `history_extra_entities` with their unit). A foreign peer offers
-only these. An `offer` may carry an optional `label` (at most 64 characters,
-else `label_too_long`, 400), which the server relays and the settings page
-shows as the source of added rows. The Home Assistant integration
-`energy_node_companion` (Energy Node Companion) is such a peer: it supplies `1m` and `5m` rows from the
-HA recorder and never requests anything.
+value, plus `history_extra_entities` with their unit). Other peers only offer
+these series. An `offer` can carry an optional `label` of at most 64
+characters (otherwise `label_too_long`, 400). The server relays it, and the
+settings page shows it as the source of added rows. The Home Assistant
+integration `energy_node_companion` (Energy Node Companion) is such a peer. It
+supplies `1m` and `5m` rows from the HA recorder and never requests anything.
 
 ### Diagnostics and health
 
@@ -336,18 +331,18 @@ are the German fallback for clients that do not know the key. `key` is not
 }
 ```
 
-`status` is set to `degraded` as soon as the runtime cache is degraded, the
-MQTT connection is missing, or the storage check fails.
+`status` becomes `degraded` when the runtime cache is degraded, the MQTT
+connection is missing or the storage check fails.
 
-`node` reports the Pi node the dashboard's node agent (`internal/nodeagent`)
-publishes; it is present only when that agent is wired, and omitted otherwise.
-`node.telemetry` is itself omitted until the first reading arrives and then
-carries `cpu_temp_c` and `ram_used_pct` (each a number or `null`) plus the
-`undervoltage_now` flag. `node.services` has one entry per configured device
-service, `{ "id": "<service_id>", "state": … }`: `state` is `active` when that
-service's `outstation/<id>/status/online` is `1` **and** the `last_update` in
-its `outstation/<id>/settings/status` is no older than `poll_interval_s *
-diagnostic_poll_multiplier + 60 s`, and `configured` otherwise.
+`node` reports what the dashboard's node agent (`internal/nodeagent`) publishes
+about the Pi. It is only present when the agent is wired in. `node.telemetry`
+is missing until the first reading arrives and then carries `cpu_temp_c` and
+`ram_used_pct` (each a number or `null`) and the `undervoltage_now` flag.
+`node.services` has one entry per configured device service,
+`{ "id": "<service_id>", "state": … }`. `state` is `active` when the service's
+`outstation/<id>/status/online` is `1` and the `last_update` in its
+`outstation/<id>/settings/status` is no older than `poll_interval_s *
+diagnostic_poll_multiplier + 60 s`. Otherwise it is `configured`.
 
 ### Configurations (device JSONs)
 
@@ -364,11 +359,11 @@ diagnostic_poll_multiplier + 60 s`, and `configured` otherwise.
 | POST | `/api/v1/automations/test` | `automations` + CSRF | Test a single rule action |
 | GET | `/api/v1/automations/history/{rule_id}` | – | Recorded fire events for one rule, read from `automation_history.json` in the devices directory (empty array if the file or rule is absent) |
 
-`PUT` validates against the schema, writes atomically, and creates a revision
-beforehand; afterwards a reload command goes out via MQTT to the responsible
-service. If the reload fails, the endpoint still responds with the saved
-document and the fields `reload_failed` / `reload_error` — the file has been
-written in that case, only the service has not picked it up yet.
+`PUT` validates against the schema, creates a revision, writes atomically and
+then sends a reload command over MQTT to the service. If the reload fails, the
+endpoint still answers with the saved document plus `reload_failed` and
+`reload_error`. The file is written in that case, but the service has not
+loaded it yet.
 
 Body limit for `PUT`: 2 MiB.
 
@@ -378,9 +373,9 @@ Body limit for `PUT`: 2 MiB.
 { "rule_id": "pv-ueberschuss", "action_index": 0 }
 ```
 
-The dashboard then publishes to the hard-wired topic
-`outstation/automation/test/set`. All domain-level checks (rule exists, index
-valid, topic allowed) are done by the automation service, not the dashboard.
+The dashboard then publishes to the fixed topic
+`outstation/automation/test/set`. The automation service does all checks
+(rule exists, index valid, topic allowed), not the dashboard.
 
 ### Settings, layout, device card
 
@@ -404,17 +399,17 @@ valid, topic allowed) are done by the automation service, not the dashboard.
 | DELETE | `/api/v1/device/map/relations/{id}` | – | Delete a relation (204) |
 | GET | `/api/v1/shelly/presets` | – | Shelly presets (read-only) |
 
-`PUT /api/v1/settings` checks the `tune_live_updates` role **only when**
-`live_update_interval_seconds` actually changes relative to the stored value.
-Every other field may be changed by any logged-in session.
+`PUT /api/v1/settings` only checks the `tune_live_updates` role when
+`live_update_interval_seconds` differs from the stored value. Any logged-in
+session can change every other field.
 
-`GET /api/v1/layout` additionally returns `card_types` since layout v3 (Spec F):
-a mapping of item type → `{min_span, min_width, min_height, fills_height,
-default_span}` from `internal/settings/cardcatalog.go`, the single source of
-truth about the space requirements per card type. An item carries `span` (size
-class `"1"`–`"6"`/`"full"`) and optionally `height` (forced height, 1–12 units
-of 7 rem) instead of coordinates. `card_types` is output only and is ignored by
-`PUT`.
+Since layout v3 (Spec F), `GET /api/v1/layout` also returns `card_types`. It
+maps each item type to `{min_span, min_width, min_height, fills_height,
+default_span}` from `internal/settings/cardcatalog.go`, the one place that
+defines how much space each card type needs. Instead of coordinates, an item
+carries `span` (size class `"1"`–`"6"` or `"full"`) and optionally `height` (a
+fixed height of 1–12 units of 7 rem). `card_types` is only output, and `PUT`
+ignores it.
 
 `GET /api/v1/device/icons` returns the full icon catalogue as an array:
 
@@ -425,15 +420,15 @@ of 7 rem) instead of coordinates. `card_types` is output only and is ignored by
 ]
 ```
 
-`markup` is the inner SVG of a 24×24 stroked icon and may be used directly in a
-`<symbol>` or rendered to a canvas.
+`markup` is the inner SVG of a 24×24 stroked icon. You can use it directly in a
+`<symbol>` or draw it on a canvas.
 
-**`GET /api/v1/device/prefs`** returns the complete `device-prefs.json`
-document containing the `icon`, `favorite_refs`, and `pin_favorites` state for
-every device (shared across all browser sessions).
+**`GET /api/v1/device/prefs`** returns the complete `device-prefs.json` with the
+`icon`, `favorite_refs` and `pin_favorites` of every device. All browser
+sessions share it.
 
-**`PUT /api/v1/device/prefs/{device_id}`** — `{device_id}` is URL-encoded.
-The body is a partial device preferences object:
+**`PUT /api/v1/device/prefs/{device_id}`**, with `{device_id}` URL-encoded.
+The body contains the fields to change:
 
 ```json
 {
@@ -444,17 +439,16 @@ The body is a partial device preferences object:
 ```
 
 The server merges the changes into the saved document and returns the updated
-`device-prefs.json`. Validation:
+`device-prefs.json`. It validates:
 
-- `icon`: must match `^mdi:[a-z0-9-]+$` (names from the icon catalogue), or be
-  `null` or omitted (clears the custom icon).
-- `favorite_refs`: array of entity IDs, max. 3 entries. Omit to clear.
-- `pin_favorites`: boolean, or omit to clear.
+- `icon` must match `^mdi:[a-z0-9-]+$` (names from the icon catalogue). `null`
+  or a missing field clears the custom icon.
+- `favorite_refs` is an array of at most 3 entity IDs. Leave it out to clear it.
+- `pin_favorites` is a boolean. Leave it out to clear it.
 
-On validation failure: `400` with `device_prefs_rejected`.
-
-Requires `edit_layout` role and CSRF token when authentication is active (like
-all layout-modifying endpoints).
+A validation error returns `400` with `device_prefs_rejected`. With
+authentication active, the endpoint needs the `edit_layout` role and a CSRF
+token, like every endpoint that changes the layout.
 
 `POST /api/v1/device/map/relations` expects
 `{"child_id":"…","parent_id":"…","kind":"via_device"}` and rejects
@@ -474,22 +468,21 @@ self-references (`relation_self_reference`), unknown IDs (`unknown_device`,
 | PUT | `/api/v1/mqtt/energy-device` | `mqtt_config` + HTTPS + CSRF | Toggle `publish_energy_device` in `mqtt.json`, body `{"publish_energy_device": true}` |
 | GET | `/api/v1/mqtt/status` | – | Connection status |
 
-**Precedence rule:** A saved and activated `mqtt.json` wins *completely* over
-the central configuration (`config.json`) — there is no per-field merge.
-`GET /api/v1/mqtt` returns the configuration that is actually in effect and
-names its origin in the `source` field: `settings` or `config`.
+A saved and activated `mqtt.json` replaces the central configuration
+(`config.json`) completely. Fields are not merged. `GET /api/v1/mqtt` returns
+the configuration in effect and names its origin in `source`: `settings` or
+`config`.
 
-Three separate operations, deliberately not merged:
+Saving, testing and reconnecting are three separate operations on purpose.
+`PUT /api/v1/mqtt` only saves and leaves the running connection alone.
+`POST /api/v1/mqtt/test` opens a short, separate connection.
+`POST /api/v1/mqtt/reconnect` switches to the saved configuration and falls
+back to the previous one if that fails. The response always contains the
+resulting status, also after a failure.
 
-- `PUT /api/v1/mqtt` only saves — the running connection is left untouched.
-- `POST /api/v1/mqtt/test` opens a short-lived, separate connection.
-- `POST /api/v1/mqtt/reconnect` adopts the saved configuration and falls back
-  to the previous one on failure. The response always contains the resulting
-  status, even on failure.
-
-The password lives in `mqtt_credentials.json`, separate from `mqtt.json`, so
-that it does not end up in revision copies. It is never returned; the API only
-reports `password_configured`.
+The password lives in `mqtt_credentials.json`, separate from `mqtt.json`, so it
+does not end up in revision copies. The API never returns it and only reports
+`password_configured`.
 
 ### Mosquitto bridge
 
@@ -505,18 +498,18 @@ reports `password_configured`.
 | GET | `/api/v1/mqtt/bridge/revisions` | `mqtt_config` + HTTPS | Revisions |
 | POST | `/api/v1/mqtt/bridge/restore` | `mqtt_config` + HTTPS + CSRF | Restore a revision |
 
-The API works with **one** connection; internally `bridge.json` stores a list,
-and the HTTP layer hides it. `GET`/`PUT` return a `preview` with a masked
+The API works with one connection. `bridge.json` stores a list internally, and
+the HTTP layer hides that. `GET` and `PUT` return a `preview` with a masked
 password.
 
-`POST .../apply` requires `{"confirm": true}` and is the only privileged path
-to `/etc/mosquitto/conf.d/bridge.conf`: the dashboard renders the
-configuration, places it in its own data directory, and calls the root helper,
-which installs it and rolls back on failure. Error codes:
-`bridge_helper_failed` (file rejected), `bridge_restart_failed` (restart
-failed, rolled back), `bridge_busy` (409).
+`POST .../apply` requires `{"confirm": true}` and is the only privileged way to
+`/etc/mosquitto/conf.d/bridge.conf`. The dashboard renders the configuration,
+puts it into its own data directory and calls the root helper, which installs
+it and rolls back on failure. Error codes: `bridge_helper_failed` (file
+rejected), `bridge_restart_failed` (restart failed, rolled back), `bridge_busy`
+(409).
 
-`GET .../status` bundles three independent sources:
+`GET .../status` combines three sources:
 
 ```json
 {
@@ -527,9 +520,9 @@ failed, rolled back), `bridge_busy` (409).
 }
 ```
 
-`drift.matches` compares checksums over the directives — comments, and thus the
-timestamp in the header, are ignored. `last_apply` exists only in memory and is
-absent after a restart.
+`drift.matches` compares checksums over the directives and ignores comments,
+including the timestamp in the header. `last_apply` only exists in memory and is
+gone after a restart.
 
 ### System configuration
 
@@ -539,9 +532,8 @@ absent after a restart.
 | PUT | `/api/v1/system/config` | `system_actions` + HTTPS + CSRF | Validate and save configuration |
 | GET | `/api/v1/system/config/schema` | – | The embedded `config.schema.json`, composed by `dashboard/cmd/schemagen` from the per-service fragments (the settings form is built from it) |
 
-There are **no** separate `/revisions` or `/restore` routes for the central
-config — the revision list is returned inline by `GET`, and there is currently
-no restore endpoint.
+The central config has no `/revisions` or `/restore` routes. `GET` returns the
+revision list inline, and there is no restore endpoint yet.
 
 **`GET /api/v1/system/config`** returns
 `{"config": {…}, "revisions": ["<UTC timestamp>.json", …]}`. All `*_file`
@@ -550,21 +542,21 @@ fields contain only the path, never the password itself. Not role-gated.
 **`PUT /api/v1/system/config`** (body limit 1 MiB):
 
 1. schema-validates the document against `config.schema.json`;
-2. checks every `*_file` value against the allowlist — only paths under
-   `/etc/energy-node/` and `/etc/energy-node-dashboard/` are accepted;
+2. checks every `*_file` value against the allowlist (only paths under
+   `/etc/energy-node/` and `/etc/energy-node-dashboard/` are accepted);
 3. writes a revision of the *previous* file (kept under
    `data_dir/revisions/system-config/`, max 20);
 4. writes the new file atomically.
 
 Response: `{"config": {…}, "restart_required": [...], "reloaded": {…}}`.
 `restart_required` lists the changed fields that need a unit restart (`mqtt`,
-`paths`, `dashboard.node_device_id`, any `services.*.service_id`, `dashboard.port`,
-`.bind_address`, `.tls`, `.admin_username`, `.admin_password_file`); everything
-else is picked up by the services over `outstation/<id>/config/reload`.
-`reloaded` maps a service's ID to `"ok"` or an error string, and is populated
-only when a reload
-dispatcher is wired into the router — in the current build it is passed as
-`nil`, so `reloaded` comes back empty and no reload command is sent.
+`paths`, `dashboard.node_device_id`, any `services.*.service_id`,
+`dashboard.port`, `.bind_address`, `.tls`, `.admin_username`,
+`.admin_password_file`). The services pick up everything else over
+`outstation/<id>/config/reload`. `reloaded` maps a service ID to `"ok"` or an
+error string. It is only filled when a reload dispatcher is wired into the
+router. The current build passes `nil`, so `reloaded` comes back empty and no
+reload command is sent.
 
 Error codes: `config_unreadable`, `invalid_body`, `schema_violation`,
 `path_not_allowed`, `revision_failed`, `config_not_writable`.
@@ -577,8 +569,9 @@ Error codes: `config_unreadable`, `invalid_body`, `schema_violation`,
 | POST | `/api/v1/system/reboot` | `system_actions` + CSRF | Reboot the Pi |
 | POST | `/api/v1/system/poweroff` | `system_actions` + CSRF | Shut down the Pi |
 
-Response `202 Accepted` with `{"action":"…","status":"accepted"}`. If a system
-action is already running, `409` with `system_action_busy` is returned.
+The response is `202 Accepted` with `{"action":"…","status":"accepted"}`. If a
+system action is already running, the answer is `409` with
+`system_action_busy`.
 
 ### Versions and changelog
 
@@ -608,12 +601,13 @@ On a node the installer never touched, `versions` answers `200` with
 ```
 
 `installed` is `false` for an optional service the operator deselected
-(`selection.json`). `running.dashboard` is the running binary's build version,
-which can differ from `bundle.version` after a dashboard self-update. Without
-a `changelog.json`, `components` falls back to what the manifest knows, with
-labels and kinds from a table in `internal/versions` that mirrors
-`scripts/version/components.json` (a test keeps them in step). `ENERGY_NODE_INSTALLER_STATE_DIR` overrides the directory (used only by the
-local smoke test).
+(`selection.json`). `running.dashboard` is the build version of the running
+binary, which can differ from `bundle.version` after the dashboard updated
+itself. Without a `changelog.json`, `components` falls back to what the manifest
+knows, with labels and kinds from a table in `internal/versions` that mirrors
+`scripts/version/components.json` (a test keeps them in step).
+`ENERGY_NODE_INSTALLER_STATE_DIR` overrides the directory. Only the local smoke
+test uses it.
 
 ### Tailscale
 
@@ -625,8 +619,8 @@ local smoke test).
 | POST | `/api/v1/tailscale/logout` | `system_actions` + HTTPS + CSRF | `tailscale logout` |
 | POST | `/api/v1/tailscale/restart` | `system_actions` + HTTPS + CSRF | Restart `tailscaled` |
 
-`login` and `logout` require `{"confirm": true}`. `login` responds immediately
-with `202` and starts the CLI in the background; the auth URL then appears in
+`login` and `logout` require `{"confirm": true}`. `login` answers right away with
+`202` and starts the CLI in the background. The auth URL then appears in
 `GET /api/v1/tailscale/status`, so the client has to poll.
 
 ### TinyTuya
@@ -638,8 +632,8 @@ with `202` and starts the CLI in the background; the auth URL then appears in
 | POST | `/api/v1/tiny-tuya/configure` | – | Add a device to `tuya_devices.json` |
 | GET/POST | `/api/v1/tiny-tuya/credentials` | – | Read/set cloud credentials |
 
-Error responses in this group additionally contain `tool_output` with the
-output of the Python helper. `GET .../credentials` returns metadata only:
+Error responses in this group also contain `tool_output` with the output of the
+Python helper. `GET .../credentials` returns metadata only:
 `{"configured":true,"region":"eu","access_id_hint":"****abcd"}`.
 
 `POST .../devices` uses stored credentials if the body contains no
@@ -648,10 +642,8 @@ server rejects it.
 
 `POST .../configure` validates all fields, merges the entry into
 `tuya_devices.json` (matching by `id` or `device_id`, otherwise appended) and
-saves it through the same path as
-`PUT /api/v1/configurations/tuya_devices` — including revision and reload.
-
----
+saves it the same way as `PUT /api/v1/configurations/tuya_devices`, with
+revision and reload.
 
 ## Not under `/api/v1/`
 
@@ -660,36 +652,34 @@ saves it through the same path as
 | `/` | Server-side rendered overview or login page |
 | `/static/*` | Embedded assets (CSS, JS, icons) |
 
----
 
 ## Operational notes
 
 ### Configuration
 
-The dashboard is configured entirely through the central configuration file
-`/etc/energy-node/config.json`. Environment variables are no longer read.
-
-On startup:
+The dashboard is configured only through the central configuration file
+`/etc/energy-node/config.json`. It reads no environment variables. Start it
+with:
 ```bash
 ./dashboard -config /etc/energy-node/config.json
 ```
 
-For tests, a different path can be given via `-config <path>`.
+For tests, `-config <path>` points to a different file.
 
 ### Files in the data directory
 
 `settings.json`, `layout.json`, `energy.json`, `mqtt.json`, `bridge.json`,
-`users.json`, `runtime.json`, `ignored_devices.json`, as well as the separate
-secret files `mqtt_credentials.json`, `mqtt_bridge_credentials.json`, and
+`users.json`, `runtime.json`, `ignored_devices.json` and the separate secret
+files `mqtt_credentials.json`, `mqtt_bridge_credentials.json`, and
 `tinytuya_credentials.json`.
 
 ### Deliberate limits
 
-- The server persists **no history**: the per-device command history (max. 12
-  entries) and the history-exchange ring buffer (24 h) are in memory only, and
-  the rolling measurement history lives in each browser's IndexedDB, not on the
-  Pi (see the History section above). No server-side time series, no persistent
-  event list.
+- The server stores no history. The command history per device (at most 12
+  entries) and the ring buffer of the history exchange (24 h) only exist in
+  memory. The rolling measurement history lives in each browser's IndexedDB,
+  not on the Pi (see History above). There is no time series and no persistent
+  event list on the server.
 - Write endpoints limit the body to 2 MiB, commands to 4 KiB.
-- There is **no rate limiting** — the dashboard is designed for a trusted
-  network plus Tailscale, not for open exposure.
+- There is no rate limiting. The dashboard is built for a trusted network and
+  Tailscale and should not be exposed openly.

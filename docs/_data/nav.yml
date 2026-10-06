@@ -61,4 +61,5 @@
     - { label: "HTTP API", url: "developing/api.md" }
     - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
     - { label: "Cutting a release", url: "developing/releasing.md" }
+    - { label: "Version overview", url: "developing/versions.md" }
     - { label: "Third-party sources", url: "developing/dependencies.md" }

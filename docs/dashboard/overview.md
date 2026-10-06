@@ -6,34 +6,37 @@ title: "Overview and layout editor"
 
 ![Overview page](../images/dashboard-overview.png)
 
-The start tab is not a fixed screen but a **grid of cards you arrange
-yourself**. Above, the fixture's cards:
+The start tab is a grid of cards that you arrange yourself. The screenshot
+shows the fixture's cards.
 
-- **Status card** — the current situation in one sentence
-  ("1.25 kW surplus. Good time for the wallbox …"), a bar showing where the
-  balance sits between grid import and feed-in, and the surplus / grid draw /
-  battery / data-quality tiles with their thresholds.
-- **Battery status card** — segmented charge column,
-  time to full or empty, the reserve kept back for a grid outage, and the
-  usable capacity.
-- **Energy flow** — PV, storage, building, grid and the
-  individual loads as animated flows whose speed follows the actual watts.
-- **Self-sufficiency ring** — coverage versus use, split by
-  source and by consumer.
-- **System diagram** (titled *Installation* on the card) — a wiring-style
-  diagram of the site with the live power on each leg.
+The status card sums up the current situation in one sentence ("1.25 kW
+surplus. Good time for the wallbox …"). Below it a bar shows where the balance
+sits between grid import and feed-in, followed by tiles for surplus, grid draw,
+battery and data quality with their thresholds.
 
-Every card is driven purely by MQTT Discovery data plus the role assignment
-from the Energy tab. Nothing here is hard-coded to a particular device.
+The battery status card has a segmented charge column, the time to full or
+empty, the reserve held back for a grid outage and the usable capacity.
+
+The energy flow card draws PV, storage, building, grid and the individual loads
+as animated flows. The animation speed follows the actual watts.
+
+The self-sufficiency ring shows coverage against use, split by source and by
+consumer.
+
+The system diagram (titled *Installation* on the card) is a wiring style
+diagram of the site with the live power on each leg.
+
+All cards work only from MQTT Discovery data and the role assignment on the
+Energy tab. None of them is hard-coded to a particular device.
 
 ## The layout editor
 
 ![Layout editor with the block picker open](../images/dashboard-layout-editor.png)
 
-**Edit** turns the overview into an editor: drag and resize cards, add
-pages, and pick new blocks from the panel on the right. The picker has three
-tabs — **cards**, **devices** and **entities** — so a layout page can mix
-computed energy cards with a raw device tile or a single measured value.
+**Edit** turns the overview into an editor. You can drag and resize cards, add
+pages and pick new blocks from the panel on the right. The picker has the tabs
+**cards**, **devices** and **entities**, so one layout page can mix computed
+energy cards with a raw device tile or a single measured value.
 
 | Block | Layout type | What it shows |
 |---|---|---|
@@ -50,5 +53,5 @@ computed energy cards with a raw device tile or a single measured value.
 | Entity list | `entity_group` | Several entities in one card |
 | (Devices tab) | `device` | A full device tile with its controls |
 
-Editor width can be previewed as phone, tablet or monitor. Layouts are
-versioned — every save is a revision that can be restored.
+The editor can preview the layout at phone, tablet or monitor width. Layouts
+are versioned. Every save is a revision you can restore.

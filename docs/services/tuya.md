@@ -7,16 +7,16 @@ component: service:tuya_mqtt
 
 `services/tuya_mqtt/` · `tuya.service` · `tuya_devices.json`
 
-Local Tuya devices through `tinytuya` — local key, local IP, local protocol,
-no cloud at runtime. A device needs `device_id`, `local_key`, `ip` and the
-protocol `version` (default 3.3), all of which come out of
-`python3 -m tinytuya wizard` once.
+This service talks to Tuya devices locally through `tinytuya`, with the local
+key, local IP and local protocol. It uses no cloud at runtime. A device needs
+`device_id`, `local_key`, `ip` and the protocol `version` (default 3.3). You
+get all of them by running `python3 -m tinytuya wizard` once.
 
 `datapoints` maps a logical function to a Tuya data point number. The switch
-data point is **not** reliably `1`, which is why the dashboard ships a
-[TinyTuya wizard](../dashboard/settings.md#tinytuya) that probes
-the device and fills the number in.
+is not always data point `1`, so the dashboard has a
+[TinyTuya wizard](../dashboard/settings.md#tinytuya) that probes the device and
+fills in the number.
 
-**Entities published:** a `switch` per device, state on
-`outstation/<id>/switch`, commands on `outstation/<id>/set/switch`. A device
-that cannot be reached publishes `UNKNOWN` rather than a stale on/off.
+Each device gets a `switch` entity with its state on `outstation/<id>/switch`
+and commands on `outstation/<id>/set/switch`. A device that cannot be reached
+publishes `UNKNOWN` instead of an outdated on or off.

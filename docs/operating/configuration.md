@@ -6,35 +6,30 @@ redirect_from:
 
 # Central configuration file `/etc/energy-node/config.json`
 
-The central configuration file replaces the previously scattered environment variables: instead of seven different `*.env` files, there is now a single JSON document that holds all the values needed by the Python services, the Go dashboard, and the system components.
+One JSON document holds all values the Python services, the Go dashboard and
+the system components need.
 
 ## What the file is for
 
-Previously the configuration was spread across seven files:
-- `services/apsystems_ez1/apsystems.env`
-- `services/automation/automation.env`
-- `services/battery_soc/battery_soc.env`
-- `services/shelly/shelly_rpc.env`
-- `services/trucki/trucki.env`
-- `services/tuya_mqtt/tuya.env`
-- `dashboard/energy_node_dashboard.env`
-
-This led to duplication (for example `MQTT_HOST` in all seven files), naming inconsistencies, and maintenance problems. The central file creates a **single source of truth** for 49 values. It is mandatory — there is no fallback to environment variables.
+The file is the single place for 49 values that used to be spread over seven
+`*.env` files, one per service plus one for the dashboard. Those files repeated
+values such as `MQTT_HOST` and named them inconsistently. The file is
+mandatory. There is no fallback to environment variables.
 
 ## Location and override
 
 The file is located at `/etc/energy-node/config.json`.
 
-The directory and the file are owned by user `root` and group `energynode`:
-- **Directory:** `root:energynode` with permissions `0755`
-- **File:** `root:energynode` with permissions `0664`
+The directory and the file belong to user `root` and group `energynode`. The
+directory has mode `0755`, the file `0664`.
 
-For local tests or non-standard paths, the `--config <path>` parameter can be passed when starting a Python service or the dashboard, for example:
+For local tests or other paths, pass `--config <path>` when you start a Python
+service, for example:
 ```bash
 .venv/bin/python3 -m src.shelly.shelly_rpc_mqtt --config /home/test/my-config.json
 ```
 
-The Go dashboard server accepts `-config`:
+The Go dashboard takes `-config`:
 ```bash
 ./cmd/dashboard/dashboard -config /path/to/config.json
 ```
@@ -63,7 +58,7 @@ The file follows this JSON structure:
 
 | Field | Type | Read by | Meaning |
 |---|---|---|---|
-| `schema_version` | Integer | Python, Go | Version control of the file; must be 2 |
+| `schema_version` | Integer | Python, Go | Version of the file format. Must be 2 |
 | | | | |
 | **MQTT broker (shared)** | | | |
 | `mqtt.host` | String | Python, Go | IP or hostname of the broker |
@@ -74,50 +69,50 @@ The file follows this JSON structure:
 | **Paths (base directories)** | | | |
 | `paths.devices_dir` | String | Python, Go | Base path for `*_devices.json` and other device configurations |
 | `paths.data_dir` | String | Go | Path for `settings.json`, `mqtt.json`, `bridge.json`, `layout.json` (dashboard operating state) |
-| `paths.services_version_file` | String | Go | Deprecated and ignored. Kept only so older config files stay valid. Versions are shown under Settings > Versions. |
+| `paths.services_version_file` | String | Go | Ignored. Accepted so older config files stay valid. Versions are shown under Settings > Versions. |
 | | | | |
 | **Logging** | | | |
 | `logging.level` | String | Python | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
 | | | | |
 | **Services (service-specific values)** | | | |
-| `services.<name>.service_id` | String | Python | unique ID of the service (e.g. `apsystems`, `shelly`) |
-| `services.<name>.poll_interval_s` | Integer | Python | poll interval of this service in seconds |
-| `services.<name>.diagnostic_poll_multiplier` | Integer | Python | factor for diagnostic polls of this service |
-| `services.<name>.http_timeout_s` | Integer | Python | HTTP timeout for HTTP-based services (Shelly, Trucki) |
+| `services.<name>.service_id` | String | Python | Unique ID of the service (for example `apsystems`, `shelly`) |
+| `services.<name>.poll_interval_s` | Integer | Python | Poll interval of this service in seconds |
+| `services.<name>.diagnostic_poll_multiplier` | Integer | Python | Factor for the diagnostic polls of this service |
+| `services.<name>.http_timeout_s` | Integer | Python | HTTP timeout for the HTTP based services (Shelly, Trucki) |
 | | | | |
 | **Installed services (optional)** | | | |
-| `installed_services.<key>` | Boolean | Go | one boolean per service (`apsystems`, `automation`, `battery_soc`, `shelly`, `tailscale`, `trucki`, `tuya`); the dashboard hides that service's tab/subpage when `false`. A missing block, or a missing key within it, both mean the service is **on** — the same default-on rule as everywhere else in this file. Written by the installer's bootstrap step `65-dashboard-config.sh` from the service selection; do not hand-edit it, the next install or re-deploy run overwrites it. |
+| `installed_services.<key>` | Boolean | Go | One boolean per service (`apsystems`, `automation`, `battery_soc`, `shelly`, `tailscale`, `trucki`, `tuya`). The dashboard hides the service's tab or subpage when it is `false`. A missing block or a missing key means the service is on, as everywhere else in this file. The installer's bootstrap step `65-dashboard-config.sh` writes it from the service selection. Do not edit it by hand, because the next install or redeploy overwrites it. |
 | | | | |
 | **Dashboard (Go)** | | | |
-| `dashboard.bind_address` | String | Go | bind address (normally `0.0.0.0` for both local and network access) |
+| `dashboard.bind_address` | String | Go | Bind address (usually `0.0.0.0` for local and network access) |
 | `dashboard.port` | Integer | Go | HTTP port of the dashboard (default: 8080) |
-| `dashboard.client_id` | String | Go | unique MQTT client ID of the dashboard |
-| `dashboard.device_identifier` | String | Go | device identifier for the dashboard's MQTT communication |
-| `dashboard.log_level` | String | Go | log level: debug, info, warn, error |
-| `dashboard.sweep_interval_seconds` | Integer | Go | interval for periodic UI refreshes (default: 300) |
-| `dashboard.admin_username` | String | Go | admin username for dashboard access |
-| `dashboard.admin_password_file` | String | Go | path to the file containing the admin password |
-| `dashboard.tls.cert_file` | String | Go | path to the TLS certificate file (empty = no TLS) |
-| `dashboard.tls.key_file` | String | Go | path to the TLS key file (empty = no TLS) |
-| `dashboard.system_action_helper` | String | Go | path to the helper program for system actions (e.g. reboot) |
-| `dashboard.mosquitto_bridge_target` | String | Go | target path for `bridge.conf` on the target device |
-| `dashboard.node_device_id` | String | Go | unique ID of the central node (must be `energy_node`); read by `internal/nodeagent` |
-| `dashboard.node_device_name` | String | Go | human-readable name for display |
-| `dashboard.node_poll_interval_s` | Integer | Go | poll interval of the node in seconds (default: 60) |
-| `dashboard.node_diagnostic_poll_multiplier` | Integer | Go | factor for the diagnostic poll interval (default: 10) |
+| `dashboard.client_id` | String | Go | Unique MQTT client ID of the dashboard |
+| `dashboard.device_identifier` | String | Go | Device identifier for the dashboard's MQTT communication |
+| `dashboard.log_level` | String | Go | Log level: debug, info, warn, error |
+| `dashboard.sweep_interval_seconds` | Integer | Go | Interval for periodic UI refreshes (default: 300) |
+| `dashboard.admin_username` | String | Go | Admin username for dashboard access |
+| `dashboard.admin_password_file` | String | Go | Path to the file containing the admin password |
+| `dashboard.tls.cert_file` | String | Go | Path to the TLS certificate file (empty means no TLS) |
+| `dashboard.tls.key_file` | String | Go | Path to the TLS key file (empty means no TLS) |
+| `dashboard.system_action_helper` | String | Go | Path to the helper program for system actions such as reboot |
+| `dashboard.mosquitto_bridge_target` | String | Go | Target path for `bridge.conf` on the target device |
+| `dashboard.node_device_id` | String | Go | Unique ID of the central node (must be `energy_node`), read by `internal/nodeagent` |
+| `dashboard.node_device_name` | String | Go | Display name of the node |
+| `dashboard.node_poll_interval_s` | Integer | Go | Poll interval of the node in seconds (default: 60) |
+| `dashboard.node_diagnostic_poll_multiplier` | Integer | Go | Factor for the diagnostic poll interval (default: 10) |
 | | | | |
 | **Tailscale integration** | | | |
-| `tailscale.bin` | String | Go | path to the `tailscale` binary |
-| `tailscale.status_timeout_s` | Integer | Go | timeout for `tailscale status` queries |
+| `tailscale.bin` | String | Go | Path to the `tailscale` binary |
+| `tailscale.status_timeout_s` | Integer | Go | Timeout for `tailscale status` queries |
 | | | | |
 | **TinyTuya probe** | | | |
-| `tinytuya.probe_python` | String | Python | path to the Python interpreter for the TinyTuya probe |
-| `tinytuya.probe_script` | String | Python | path to the TinyTuya probe script |
-| `tinytuya.probe_timeout_s` | Integer | Python | timeout for the probe in seconds |
+| `tinytuya.probe_python` | String | Python | Path to the Python interpreter for the TinyTuya probe |
+| `tinytuya.probe_script` | String | Python | Path to the TinyTuya probe script |
+| `tinytuya.probe_timeout_s` | Integer | Python | Timeout for the probe in seconds |
 
 ## Conventions
 
-The file follows fixed conventions for paths and file names:
+Paths and file names follow fixed conventions:
 
 | Purpose | Convention | Example |
 |---|---|---|
@@ -129,40 +124,37 @@ The file follows fixed conventions for paths and file names:
 | MQTT password | `{mqtt.password_file}` | `/etc/energy-node/mqtt.pw` |
 | Admin password | `{dashboard.admin_password_file}` | `/etc/energy-node-dashboard/auth.pw` |
 
-The `<name>` key under `services` is consistent with the first part of the corresponding file names. A service must be defined under `services` in order to start — there is no implicit default name.
+The `<name>` key under `services` matches the first part of the service's file
+names. A service only starts when it is defined under `services`. There is no
+implicit default name.
 
 ## Service manifests delivery
 
-Service manifests are delivered to the node by the installer: the bundle
-carries the complete set from `services/*/manifest.json`, and bootstrap step 60
+The installer delivers the service manifests. The bundle carries the complete
+set from `services/*/manifest.json`, and on every run bootstrap step 60
 (`scripts/bootstrap/60-node-install.sh`) installs it as
-`/etc/energy-node/manifests/<service_id>.json` on every run, removing orphaned
-manifests. The set matches the `services` block in `config.json`;
-`energy_node_common` validates this on the node in both directions.
+`/etc/energy-node/manifests/<service_id>.json` and removes orphaned manifests.
+The set matches the `services` block in `config.json`, and `energy_node_common`
+checks that on the node in both directions.
 
 ## Credentials
 
 ### Why passwords live in separate files
 
-Passwords are **not** stored in `config.json` itself, only as file paths in the `*_file` fields:
-- `mqtt.password_file` for the broker password
-- `dashboard.admin_password_file` for the dashboard's admin password
+`config.json` holds no passwords, only the paths to them in the `*_file`
+fields: `mqtt.password_file` for the broker password and
+`dashboard.admin_password_file` for the dashboard's admin password.
 
-**Reason for the ownership change:** Previously systemd read the `*.env` files as root and passed the values to a process started as `energynode`. Without `EnvironmentFile`, the process must now open the password file itself — so the `energynode` group needs read permission.
+The units have no `EnvironmentFile`. Each process opens its password file
+itself, so the `energynode` group needs read permission.
 
 ### Password files: permissions and content
 
-**MQTT password** (`/etc/energy-node/mqtt.pw`):
-- Owner: `root:energynode`
-- Permissions: `0640`
-- Content: only the password itself, with no trailing whitespace
+The MQTT password (`/etc/energy-node/mqtt.pw`) and the admin password
+(`/etc/energy-node-dashboard/auth.pw`) both belong to `root:energynode` with
+mode `0640`. Each contains only the password, without trailing whitespace.
 
-**Admin password** (`/etc/energy-node-dashboard/auth.pw`):
-- Owner: `root:energynode`
-- Permissions: `0640`
-- Content: only the password itself, with no trailing whitespace
-
-Example of how to create one:
+To create one:
 ```bash
 sudo install -o root -g energynode -m 0640 /dev/null /etc/energy-node/mqtt.pw
 echo -n "my_mqtt_password" | sudo tee /etc/energy-node/mqtt.pw
@@ -170,15 +162,15 @@ echo -n "my_mqtt_password" | sudo tee /etc/energy-node/mqtt.pw
 
 ### Path allowlist when writing
 
-When saving, the dashboard checks every `*_file` field against an allowlist. Only paths below the following directories are permitted:
-- `/etc/energy-node/`
-- `/etc/energy-node-dashboard/`
+When saving, the dashboard checks every `*_file` field against an allowlist.
+Only paths below `/etc/energy-node/` and `/etc/energy-node-dashboard/` are
+allowed.
 
-A missing or unreadable path is a startup error with a descriptive message.
+A missing or unreadable path is a startup error with a message that names it.
 
 ## Reload versus restart
 
-The file contains two classes of values:
+Some values can be reloaded at runtime, others need a restart:
 
 | Reloadable (no restart) | Restart required |
 |---|---|
@@ -188,49 +180,55 @@ The file contains two classes of values:
 | `services.*.http_timeout_s` | `dashboard.port`, `.bind_address`, `.tls.*` |
 | `tinytuya.*`, `tailscale.*` | `dashboard.admin_*` |
 
-**The dividing line:** A value belongs on the right-hand side if it determines the identity of a connection, a topic, or a listening port.
+A value needs a restart when it defines the identity of a connection, a topic
+or a listening port.
 
 ### Reload sequence
 
 When the dashboard changes a reloadable value:
 
 1. It writes `config.json` atomically (to a temp file, then `rename`) and stores a revision in `data_dir/revisions/`.
-2. For each affected service, a message is published on `outstation/<service_id>/config/reload`.
-3. The service loads the new configuration; on an error it keeps the old values and reports `runtime_status: rejected` with a reason.
-4. If the change includes a field from the right-hand column, the dashboard shows "restart required" together with the list of units.
+2. It publishes a message on `outstation/<service_id>/config/reload` for each affected service.
+3. The service loads the new configuration. On an error it keeps the old values and reports `runtime_status: rejected` with a reason.
+4. If the change includes a field from the right-hand column, the dashboard shows "restart required" with the list of units.
 
-The restart remains an explicit action performed through the dashboard interface.
+You start the restart yourself in the dashboard.
 
-The service reports `error_code` and the checksums `config_revision` (the SHA-256 of the file of its last load attempt, successful or not) and `applied_revision` (the SHA-256 of the file it currently runs with). A rejection stays until a reload succeeds: a service that starts with an invalid file keeps running in `rejected` and waits for `config/reload`.
+The service reports `error_code` and two checksums. `config_revision` is the
+SHA-256 of the file from its last load attempt, successful or not.
+`applied_revision` is the SHA-256 of the file it currently runs with. A
+rejection stays until a reload succeeds. A service that starts with an invalid
+file keeps running in `rejected` and waits for `config/reload`.
 
 ## `schema_version`
 
-The integer `schema_version` is currently set to `2`. Every service (Python and Go) checks at startup that this version number matches the one it knows. A mismatch is a startup error:
+`schema_version` is `2`. Every service, Python and Go, checks at startup that
+the number matches the one it knows. A mismatch is a startup error:
 
 ```
 error loading config.json: schema_version 3 found, but only 2 supported
 ```
 
-A `schema_version` of `1` is migrated automatically by the **dashboard** on
-startup. Version 2 dissolved the former top-level `node` block into flat
-`dashboard.node_*` fields, so `internal/appconfig` transforms an old file
-in memory as it loads it: moving the four surviving `node.*` fields,
-dropping `node.managed_bridges`, normalising `node_device_id` to
-`energy_node`, and — for a file predating the service-level `device_id` →
-`service_id` rename — renaming that key in each `services.*` entry.
+The dashboard migrates a `schema_version` of `1` on startup. Version 2 replaced
+the top-level `node` block with flat `dashboard.node_*` fields, so
+`internal/appconfig` converts an old file in memory while loading it. It moves
+the four remaining `node.*` fields, drops `node.managed_bridges`, sets
+`node_device_id` to `energy_node` and, in files older than the rename of
+`device_id` to `service_id`, renames that key in each `services.*` entry.
 
-The dashboard then persists the migrated file through the privileged
-system-action helper (`apply-app-config`), which backs the old file up to
-`/etc/energy-node/.config.json.bak` before installing the new one — a
-direct write fails because `60-node-install.sh` creates
-`/etc/energy-node` as mode `0755` and the service group cannot create files
-there. If the helper is not reachable (not installed, no sudoers entry),
-the dashboard still starts on the in-memory config, logs a warning, and
-retries on the next start. The Python services do **not** migrate — they
-still reject `schema_version 1` and expect the dashboard to have upgraded
-the file first; restart them once it has.
+The dashboard then saves the migrated file through the privileged system action
+helper (`apply-app-config`). The helper backs up the old file to
+`/etc/energy-node/.config.json.bak` before installing the new one. A direct
+write would fail, because `60-node-install.sh` creates `/etc/energy-node` with
+mode `0755` and the service group cannot create files there. If the helper is
+not available (not installed or no sudoers entry), the dashboard still starts
+on the config in memory, logs a warning and tries again on the next start. The
+Python services do not migrate. They reject `schema_version 1` and expect the
+dashboard to have upgraded the file, so restart them after it has.
 
-This concept ensures that a deployment in which the dashboard and the Python services come from different versions of the repository is noticed immediately — instead of surfacing as a subtle misconfiguration.
+The version check makes a deployment with dashboard and Python services from
+different versions of the repository fail at once, so it cannot show up later
+as a hard to find misconfiguration.
 
 ## Error handling
 
@@ -245,23 +243,37 @@ This concept ensures that a deployment in which the dashboard and the Python ser
 | Runtime reload fails | The error is logged, the old values stay active, the dashboard shows `runtime_status: rejected` with a reason |
 | Dashboard cannot write `config.json` | HTTP error with a descriptive reason, the file stays unchanged |
 
-**Principle:** "Fail-closed" at startup — the service does not start without a valid configuration. At runtime, a faulty change is rejected and the previous state is kept.
+At startup a service fails closed and does not start without a valid
+configuration. At runtime a faulty change is rejected and the previous state
+stays active.
 
 ## Exceptions
 
 ### The Mosquitto bridge stays in `bridge.conf`
 
-The Mosquitto MQTT bridge is still configured through the file `/etc/mosquitto/conf.d/bridge.conf` in ini format, not through JSON. The reason: Mosquitto reads this file, not `config.json`.
+The Mosquitto bridge is configured in `/etc/mosquitto/conf.d/bridge.conf`,
+because Mosquitto reads that file and not `config.json`.
 
-`config.json` only contains the target path (`dashboard.mosquitto_bridge_target`) so that the dashboard knows where to write the configuration rendered from `bridge.json`. The bridge configuration itself is maintained in `bridge.json` or through the dashboard, not by any location in `config.json`.
+`config.json` only contains the target path (`dashboard.mosquitto_bridge_target`),
+so the dashboard knows where to write the configuration it renders from
+`bridge.json`. The bridge settings themselves live in `bridge.json` and are
+edited in the dashboard.
 
 ### Operating state stays in separate files
 
-The files `settings.json`, `mqtt.json`, and `bridge.json` in `data_dir` are the operating state and do not belong to `config.json`. They contain settings that the user saves at runtime through the dashboard:
-- `settings.json`: general dashboard settings
-- `mqtt.json`: MQTT settings (broker alternatives). Two optional fields beyond the broker connection:
-  - `metrics`: map `metric-name → bool`. A missing key means the metric is published (default on); setting a key to `false` stops the dashboard's node agent from publishing that individual system metric.
-  - `simulation_active`: bool, default `false`. When `true`, the dashboard retained-broadcasts simulation mode to all bridges on `outstation/energy_node/settings/simulation_active/set`.
-- `bridge.json`: Mosquitto bridge settings
+`settings.json`, `mqtt.json` and `bridge.json` in `data_dir` hold the
+operating state and are not part of `config.json`. They contain what users save
+in the dashboard at runtime:
 
-This separation stays in place — `config.json` is only for settings that are set by the admin (locally or via deployment), not for runtime operating state.
+- `settings.json`: general dashboard settings.
+- `mqtt.json`: MQTT settings (alternative broker settings), with two optional
+  fields besides the broker connection. `metrics` maps a metric name to a bool.
+  A missing key means the metric is published. Setting it to `false` stops the
+  dashboard's node agent from publishing that system metric.
+  `simulation_active` is a bool, default `false`. When it is `true`, the
+  dashboard sends simulation mode as a retained message to all bridges on
+  `outstation/energy_node/settings/simulation_active/set`.
+- `bridge.json`: Mosquitto bridge settings.
+
+`config.json` only holds settings the admin sets, locally or through a deploy.
+Runtime state stays in these files.

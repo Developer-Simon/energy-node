@@ -12,8 +12,8 @@
 
 ### Documentation
 
+- redesign the documentation site with an Energy Node layout (#94) (5a7080f)
 - point the repository at the new pages and add site search (72fa46e)
-- redesign the documentation site with an Energy Node layout (#94)
 
 ## v0.4.4 (2026-09-28)
 
