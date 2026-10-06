@@ -9,6 +9,7 @@ convincingly cover (registry → HTTP API → form).
 dashboard/test/smoke/run-local-dashboard.sh            # check, then tear down
 dashboard/test/smoke/run-local-dashboard.sh --keep     # leave running, view in the browser
 dashboard/test/smoke/run-local-dashboard.sh --devices services/tuya_mqtt
+dashboard/test/smoke/run-local-dashboard.sh --keep --reject-config battery_soc_devices
 ```
 
 `--keep` prints the URL and credentials and leaves everything up until Ctrl-C
@@ -157,7 +158,7 @@ takes the seed set of `energie` but the own fixture.
 
 ## What is solved here
 
-Four hurdles stand in the way of a local start; all four are handled in the script:
+Five hurdles stand in the way of a local start; all five are handled in the script:
 
 1. **The dashboard exits when no broker is reachable at startup.**
    → `minibroker.py`, a deliberately incomplete MQTT 3.1.1 broker
@@ -176,6 +177,19 @@ Four hurdles stand in the way of a local start; all four are handled in the scri
    on the first start, the script logs in and uses the session cookies.
 4. **The login requires HTTPS.** → `isSecureRequest()` accepts, besides TLS,
    `X-Forwarded-Proto: https`; the script sets exactly that header.
+5. **No service reports a status.** The configuration page only shows its
+   status pill when a service reports `outstation/<id>/settings/status` with the
+   SHA-256 of the file on disk, and the dashboard only watches services named
+   in a manifest next to `config.json`.
+   → The script writes one manifest per configuration into `manifests/`, and
+   `minibroker.py --service-status DEVICES_DIR` plays the services. Every
+   second it hashes each `*_devices.json` and `automation_rules.json` and
+   reports the result retained, plus `status/online` `1`. After a save the page
+   therefore goes from "Pending" to "Applied" like on the Pi, and a heartbeat
+   every 30 s keeps the services `active` in `/api/v1/health`.
+   `--reject-config NAME` (repeatable) makes the simulated service reject that
+   file: `runtime_status` `rejected`, `applied_revision` stays the last
+   accepted one. That is the way to see the "Rejected" pill and its error block.
 
 Also: configurations are copied into a throwaway directory (the real files
 under `src/` are **not** changed), and ports held by an aborted run are cleared
@@ -185,7 +199,7 @@ The throwaway directory lives locally under `test/smoke/.run/` (excluded from
 git via `.gitignore`) instead of the system `/tmp` — easier to clean up and
 without side effects outside the repo.
 
-On top of that comes a fifth hurdle that `--seed-data`/`--theme` solve: **every
+On top of that comes a sixth hurdle that `--seed-data`/`--theme` solve: **every
 run gets a fresh `mktemp` directory.** Layout, color scheme and energy roles
 are not in it — `--keep` does not carry them over a restart either, because the
 working directory is a different one on the next start. Without pre-seeding you
@@ -390,6 +404,9 @@ login already fails.
 - **decimal numbers can be saved and read back** (`charge_efficiency` at 0.95)
   — the regression this harness was created for
 - the server rejects a value outside the schema (1.5) with HTTP 400
+- the service status of `battery_soc` carries the checksum of the file, as
+  `ok` (or `rejected` with `--reject-config battery_soc_devices`), before and
+  after the saves above, and the service counts as `active` in `/api/v1/health`
 
 The first two points name topics from `fixtures/battery-soc.json` and therefore
 only run without `--fixture`. On top of that come checks once pre-seeding has

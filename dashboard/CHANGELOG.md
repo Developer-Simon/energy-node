@@ -1,12 +1,14 @@
 # Changelog
 
-## v0.8.8 (2026-10-06)
+## v0.8.9 (2026-10-06)
 
 ### Features
 
 - The changelog pages open on the highlights, the switch at the top shows everything. (#84) (5cc1cfb)
 - **homeassistant:** add Energy Node Companion as a history exchange peer (#85) (5bd7f48)
 - **installer:** check and install system package updates (opt-out) (#90) (d898a63)
+- **dashboard:** show the config service status as a pill and move the revision into the revision panel (52b235d)
+- **dashboard:** show the config service status as a pill (#98)
 - **installer:** carry pending system updates into the preview and diagnose (6ad251f)
 - **installer:** check system updates on request and refresh them in the diagnose (b00f687)
 
@@ -26,6 +28,10 @@
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
 - point the repository at the new pages and add site search (72fa46e)
+
+### Tests
+
+- **dashboard:** simulate service status in the local smoke test (78e15c8)
 
 ## v0.8.5 (2026-10-04)
 

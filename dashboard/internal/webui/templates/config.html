@@ -1,7 +1,15 @@
 {{define "config"}}
 <section id="config-panel" class="panel config-panel" role="tabpanel" aria-labelledby="tab-config" x-bind:class="{ active: activePanel === 'config-panel' }" x-show="activePanel === 'config-panel'" x-data="configPanel()" x-init="load(); initActionBar()">
   <h2>{{t "config.title"}}</h2>
-  <p class="config-meta" id="config-count" x-text="configCount"></p>
+  <!-- Zaehler und Dienststatus teilen sich eine Zeile. Die Revision steht
+       nicht hier, sondern im Revisionsbereich, wo man sie vergleicht. -->
+  <div class="config-meta">
+    <span id="config-count" x-text="configCount"></span>
+    <span id="config-runtime-status" class="config-status" role="status" aria-live="polite" x-cloak x-show="runtimeState" x-bind:data-state="runtimeState" x-bind:aria-label="$t('config.runtime_status.label', {state: runtimeStateLabel})">
+      <span class="config-status-dot" aria-hidden="true"></span>
+      <span class="config-status-text" x-text="runtimeStateLabel"></span>
+    </span>
+  </div>
   <div id="config-presets-error" class="message error" role="alert" x-cloak x-show="presetsError" x-text="presetsError"></div>
   <div id="config-reload-error" class="message error" role="alert" x-cloak x-show="reloadFailed">
     <strong>{{t "config.reload_failed.title"}}</strong>
@@ -9,17 +17,13 @@
     <code x-text="reloadError"></code>
     <button type="button" x-on:click="reloadService()" x-bind:disabled="reloading" x-text="reloading ? $t('config.reload_failed.retry_loading') : $t('config.reload_failed.retry')"></button>
   </div>
-  <div id="config-runtime-status" class="message" role="status" aria-live="polite" x-cloak x-show="runtimeState" x-bind:class="{ error: runtimeState === 'rejected' || runtimeState === 'no_response' }">
-    <strong x-text="$t('config.runtime_status.label', {state: runtimeStateLabel})"></strong>
-    <span x-show="runtimeState === 'applied' && appliedRevisionShort" x-text="$t('config.runtime_status.active_revision', {revision: appliedRevisionShort})"></span>
-    <template x-if="runtimeState === 'rejected'">
-      <div>
-        <code x-text="runtimeErrorText"></code>
-        <p>{{t "config.runtime_error.description"}}</p>
-        <button type="button" x-on:click="openRevisions()">{{t "config.runtime_error.open_revisions"}}</button>
-      </div>
-    </template>
-  </div>
+  <template x-if="runtimeState === 'rejected'">
+    <div id="config-runtime-error" class="message error config-runtime-error" role="alert">
+      <p>{{t "config.runtime_error.description"}}</p>
+      <code x-show="runtimeErrorText" x-text="runtimeErrorText"></code>
+      <button type="button" x-on:click="openRevisions()">{{t "config.runtime_error.open_revisions"}}</button>
+    </div>
+  </template>
   <form id="schema-form" class="schema-form" novalidate x-ref="schemaForm" x-on:submit.prevent="saveForm()" x-on:input="formDirty = true" x-on:change="formDirty = true"></form>
 
   <!-- Der Rohtext-Editor ist der seltenere Weg und liegt deshalb eine Ebene

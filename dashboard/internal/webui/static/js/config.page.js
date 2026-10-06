@@ -898,6 +898,7 @@
         current: () => this.value,
         reload: () => this.loadConfig(),
         label: t('config.revisions_label'),
+        activeRevision: () => (this.runtimeState === 'applied' ? this.appliedRevisionShort : ''),
       };
     },
   });

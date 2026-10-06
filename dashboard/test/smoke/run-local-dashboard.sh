@@ -11,6 +11,10 @@
 #   ./run-local-dashboard.sh --simulate         # PV/Netz/Batterie/Last "leben" lassen
 #   ./run-local-dashboard.sh --installed-services-off  # installed_services: alle Dienste aus
 #   ./run-local-dashboard.sh --https             # echtes TLS statt X-Forwarded-Proto-Trick
+#   ./run-local-dashboard.sh --reject-config NAME  # der simulierte Dienst lehnt NAME
+#                                                # (z. B. battery_soc_devices) ab -
+#                                                # Sichtpruefung fuer "Abgelehnt" auf
+#                                                # der Konfigurationsseite. Mehrfach angebbar
 #   ./run-local-dashboard.sh --simulate-installed  # legt einen Installer-Zustand
 #                                                # (fixtures/installed-state: Manifest,
 #                                                # Changelog, Auswahl) an, Sichtpruefung
@@ -96,6 +100,7 @@ HTTPS=0
 SIMULATE_UPDATE=0
 SIMULATE_PACKAGE=0
 SIMULATE_INSTALLED=0
+REJECT_CONFIGS=()
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
 UPDATES_API_PORT="${DASHBOARD_SMOKE_UPDATES_API_PORT:-18884}"
@@ -179,6 +184,7 @@ while [[ $# -gt 0 ]]; do
     --simulate-update) SIMULATE_UPDATE=1; shift ;;
     --simulate-package) SIMULATE_UPDATE=1; SIMULATE_PACKAGE=1; shift ;;
     --simulate-installed) SIMULATE_INSTALLED=1; shift ;;
+    --reject-config) REJECT_CONFIGS+=("$2"); shift 2 ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
   esac
@@ -309,6 +315,25 @@ for extra in "${EXTRA_DEVICES[@]}"; do
 done
 echo "Konfigurationen: $(ls "$WORK/devices" | tr '\n' ' ')"
 
+# Je Konfiguration ein Dienst-Manifest neben config.json, wie es der Installer
+# unter manifests/ ablegt. Nur fuer die dort genannten Dienste beobachtet das
+# Dashboard outstation/<id>/settings/status - und genau diese Topics meldet
+# minibroker.py --service-status unten fuer jede Datei im devices-Ordner.
+mkdir -p "$WORK/manifests"
+python3 - "$WORK/devices" "$WORK/manifests" <<'PY'
+import json, pathlib, sys
+devices, manifests = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+for path in devices.glob("*.json"):
+    name = path.stem
+    if name.endswith(".schema"):
+        continue
+    # Spiegel von config.ServiceIDForConfig (internal/config/config.go).
+    service_id = "automation" if name == "automation_rules" else (name[:-len("_devices")] if name.endswith("_devices") else "")
+    if service_id:
+        (manifests / f"{service_id}.json").write_text(json.dumps({"service_id": service_id}) + "\n", encoding="utf-8")
+PY
+echo "Dienste: $(ls "$WORK/manifests" | sed 's/\.json$//' | tr '\n' ' ')"
+
 # Dasselbe Muster wie --devices, nur fuer den Datenordner: settings.json,
 # layout.json, energy.json, device-map.json werden gelesen, bevor das
 # Dashboard sie das erste Mal selbst schreibt.
@@ -335,8 +360,11 @@ PY
 fi
 
 echo "Fixture: $FIXTURE"
-BROKER_ARGS=("$MQTT_PORT" "$FIXTURE")
+BROKER_ARGS=("$MQTT_PORT" "$FIXTURE" "--service-status" "$WORK/devices")
 [[ $SIMULATE -eq 1 ]] && BROKER_ARGS+=("--simulate")
+for name in "${REJECT_CONFIGS[@]}"; do
+  BROKER_ARGS+=("--reject-config" "$name")
+done
 python3 "$HERE/minibroker.py" "${BROKER_ARGS[@]}" > "$WORK/broker.log" 2>&1 &
 BROKER_PID=$!
 sleep 1
@@ -606,8 +634,39 @@ check "battery_soc_devices ist als Konfiguration sichtbar" \
   "any(c['name'] == 'battery_soc_devices' for c in data)" \
   "$BASE/api/v1/configurations"
 
-# Der gemeldete Bug: Kommazahlen muessen gespeichert werden koennen.
+# Dienststatus: minibroker.py --service-status meldet je Datei die SHA-256,
+# die auch das Dashboard berechnet. Erwartet wird der Status genau dieser
+# Datei - so prueft die Konfigurationsseite ihn nach dem Oeffnen und Speichern.
 CONFIG_URL="$BASE/api/v1/configurations/battery_soc_devices"
+BATTERY_STATE="ok"
+for name in "${REJECT_CONFIGS[@]}"; do
+  [[ "$name" == "battery_soc_devices" ]] && BATTERY_STATE="rejected"
+done
+check_service_status() { # name
+  local name="$1" revision
+  revision=$(sha256sum "$WORK/devices/battery_soc_devices.json" | cut -d' ' -f1)
+  for _ in $(seq 1 10); do
+    if api "$CONFIG_URL/status" | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+sys.exit(0 if data['received'] and data['online'] and data['runtime_status'] == '$BATTERY_STATE' and data['config_revision'] == '$revision' else 1)
+" 2>/dev/null; then
+      echo "  OK   $name"
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "  FEHL $name"
+  api "$CONFIG_URL/status" || true
+  echo
+  FAILED=1
+}
+check_service_status "Dienststatus battery_soc: $BATTERY_STATE mit der Pruefsumme der Datei"
+check "Dienst battery_soc gilt im Health-Endpunkt als aktiv" \
+  "any(s['id'] == 'battery_soc' and s['state'] == 'active' for s in data['node']['services'])" \
+  "$BASE/api/v1/health"
+
+# Der gemeldete Bug: Kommazahlen muessen gespeichert werden koennen.
 api "$CONFIG_URL" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
@@ -662,6 +721,7 @@ if [[ "$code" == "400" || "$code" == "422" ]]; then
 else
   echo "  FEHL ungueltiger Wert 1.5 kam mit HTTP $code durch"; FAILED=1
 fi
+check_service_status "nach dem Speichern meldet der Dienst die neue Pruefsumme"
 
 # --preset shelly-ht: die Unterstuetzung schlafender H&T-Geraete end-to-end.
 # Die Presets kommen unveraendert aus services/shelly - faellt dort das
