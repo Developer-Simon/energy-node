@@ -70,8 +70,8 @@
 #                    Automatisierte Proben: H&T-Presets sind sleepy, sleepy/
 #                    offline_grace_s ueberstehen Schema-Validierung und
 #                    Speichern, Temperatur/Feuchte kommen als Proben an.
-   verlauf-kachel   wie energie-simulate, mit einer gebundenen und einer
-                    eigenen history_view-Kachel; Pruefung mit history-view-tile.mjs
+#   verlauf-kachel   wie energie-simulate, mit einer gebundenen und einer
+#                    eigenen history_view-Kachel; Pruefung mit history-view-tile.mjs
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
