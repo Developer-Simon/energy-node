@@ -45,6 +45,9 @@ var cardCatalog = map[string]CardType{
 	"entity_value":   {MinSpan: 1, MinWidth: "10rem", MinHeight: "6rem", FillsHeight: false, DefaultSpan: "1"},
 	"entity_group":   {MinSpan: 1, MinWidth: "18rem", MinHeight: "10rem", FillsHeight: true, DefaultSpan: "1"},
 	"battery_status": {MinSpan: 1, MinWidth: "16rem", MinHeight: "17rem", FillsHeight: false, DefaultSpan: "1"},
+	// Ein ApexCharts-Liniendiagramm. Unter 16rem werden die Achsenbeschriftungen
+	// unleserlich, und es nutzt jede zusaetzliche Hoehe.
+	"history_view": {MinSpan: 1, MinWidth: "16rem", MinHeight: "14rem", FillsHeight: true, DefaultSpan: "2"},
 }
 
 // fallbackCardType haelt jeden Aufrufer beantwortbar, auch wenn ein Typ ohne

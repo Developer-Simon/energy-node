@@ -45,6 +45,7 @@ func TestCardCatalogValues(t *testing.T) {
 		{"energy_band", 2, "2"},
 		{"entity_value", 1, "1"},
 		{"entity_group", 1, "1"},
+		{"history_view", 1, "2"},
 	} {
 		card, ok := CardTypeFor(testCase.itemType)
 		if !ok {

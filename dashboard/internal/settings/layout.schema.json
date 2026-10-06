@@ -31,7 +31,7 @@
                     "required": ["id", "type", "span", "visible"],
                     "properties": {
                       "id": {"type": "string", "minLength": 1},
-                      "type": {"type": "string", "enum": ["device", "entity_value", "entity_group", "energy_flow", "energy_summary", "diagnostics", "energy_band", "energy_ring", "energy_board", "energy_day", "energy_schema", "energy_status", "battery_status"]},
+                      "type": {"type": "string", "enum": ["device", "entity_value", "entity_group", "energy_flow", "energy_summary", "diagnostics", "energy_band", "energy_ring", "energy_board", "energy_day", "energy_schema", "energy_status", "battery_status", "history_view"]},
                       "ref": {"type": "string"},
                       "entity_refs": {
                         "type": "array",
@@ -70,7 +70,10 @@
                       "beam_span": {"type": "string", "enum": ["3000", "6000", "11000"]},
                       "show_advice": {"type": "string", "enum": ["on", "off"]},
                       "battery_window": {"type": "string", "enum": ["3", "6", "12", "24"]},
-                      "battery_projection_window": {"type": "string", "enum": ["3", "6", "12", "24"]}
+                      "battery_projection_window": {"type": "string", "enum": ["3", "6", "12", "24"]},
+                      "history_series": {"type": "array", "items": {"type": "string", "minLength": 1}},
+                      "history_range_hours": {"type": "string", "enum": ["1", "6", "24", "168", "720"]},
+                      "history_aggregate": {"type": "string", "enum": ["avg", "min", "max"]}
                     }
                   }
                 }

@@ -218,12 +218,20 @@ type Item struct {
 	BatteryWindow           string `json:"battery_window,omitempty"`            // "3" | "6" | "12" | "24"
 	BatteryProjectionWindow string `json:"battery_projection_window,omitempty"` // "" | "3" | "6" | "12" | "24"
 
-	// entity_group: frei zusammengestellte Liste an Entitaeten - anders als
+	// entity_group, history_view: frei zusammengestellte Liste an Entitaeten - anders als
 	// Ref (ein einzelner Bezug) braucht dieser Typ mehrere. Title ist der
 	// einzige Item-Typ mit freiem Anzeigetext statt eines vom Ref
 	// abgeleiteten Namens.
 	EntityRefs []string `json:"entity_refs,omitempty"` // entity_group
-	Title      string   `json:"title,omitempty"`       // entity_group
+	Title      string   `json:"title,omitempty"`       // entity_group, history_view
+
+	// history_view: Ref ist die ID einer gespeicherten Verlaufssicht
+	// (Settings.HistoryViews). Ohne Ref traegt die Kachel ihre Einstellung
+	// selbst - dann gelten die drei Felder unten, Title ist frei ("" heisst
+	// Standardtitel). Mit Ref leert normalizeLayout alle vier.
+	HistorySeries     []string `json:"history_series,omitempty"`      // leer = alle aufgezeichneten
+	HistoryRangeHours string   `json:"history_range_hours,omitempty"` // "1" | "6" | "24" | "168" | "720"
+	HistoryAggregate  string   `json:"history_aggregate,omitempty"`   // "avg" | "min" | "max"
 
 	// device: welche der beiden Geraetekacheln die Uebersicht rendert -
 	// "detail" ist die device-tile mit allen Entitaeten, "compact" die
@@ -732,6 +740,9 @@ func cloneLayout(value Layout) Layout {
 					EntityRefs:              append([]string(nil), item.EntityRefs...),
 					Title:                   item.Title,
 					Display:                 item.Display,
+					HistorySeries:           append([]string(nil), item.HistorySeries...),
+					HistoryRangeHours:       item.HistoryRangeHours,
+					HistoryAggregate:        item.HistoryAggregate,
 				}
 			}
 			clonedPage.Groups[groupIndex] = clonedGroup
@@ -1796,7 +1807,12 @@ func normalizeLayout(value Layout) Layout {
 						item.EntityRefs = []string{}
 					}
 				} else {
-					item.Title = ""
+					// history_view traegt einen freien Titel wie entity_group,
+					// aber keine Entitaeten. Ob er bleibt, entscheidet
+					// normalizeEnergyGraphicOptions (nur ohne Ref).
+					if item.Type != "history_view" {
+						item.Title = ""
+					}
 					// device: die kompakte Kachel darf bis zu drei Entitaeten
 					// ihres Geraets fest zeigen (entity_refs, dasselbe Feld wie
 					// entity_group). Leer heisst "priorityEntities-Automatik" -
@@ -1940,6 +1956,23 @@ func normalizeEnergyGraphicOptions(item *Item) {
 		}
 	} else {
 		item.BatteryWindow, item.BatteryProjectionWindow = "", ""
+	}
+
+	// history_view: gebunden (Ref gesetzt) liefert die Sicht Serien, Zeitraum,
+	// Kennwert und Namen - die Kachel traegt nichts davon selbst. Ohne Ref
+	// fuellt defaultString die beiden Enums, die Serienliste bleibt wie sie
+	// ist (leer heisst alle aufgezeichneten).
+	if item.Type == "history_view" && item.Ref == "" {
+		defaultString(&item.HistoryRangeHours, []string{"1", "6", "24", "168", "720"}, "24")
+		defaultString(&item.HistoryAggregate, []string{"avg", "min", "max"}, "avg")
+		if len(item.HistorySeries) == 0 {
+			item.HistorySeries = nil
+		}
+	} else {
+		if item.Type == "history_view" {
+			item.Title = ""
+		}
+		item.HistorySeries, item.HistoryRangeHours, item.HistoryAggregate = nil, "", ""
 	}
 }
 
