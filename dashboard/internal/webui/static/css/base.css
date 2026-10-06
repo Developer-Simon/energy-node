@@ -1066,6 +1066,11 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
 .history-view-range { color: var(--text-muted); font-size: .8rem; white-space: nowrap; }
 .history-view-status { margin: 0; color: var(--text-muted); font-size: .85rem; }
 .history-view-plot { flex: 1 1 auto; min-height: 10rem; }
+/* Der ApexCharts-Tooltip ist absolut positioniert und ragt beim Hovern ueber
+   den Plot hinaus. In der scrollbaren Rasterzelle erzeugte das Scrollbalken,
+   deren Breite das Chart verschob und den Tooltip flackern liess. */
+.layout-grid-item[data-layout-item-kind="history_view"] { overflow: hidden; }
+.history-view-plot { position: relative; overflow: hidden; }
 .license-footer { margin-top: 2.5rem; padding-top: .75rem; border-top: 1px solid var(--border-soft); color: var(--text-muted); font-size: .8rem; }
 .license-footer p { margin: 0; }
 /* Systemstatus-Zeile (base.html). Ambientes Panel zwischen Masthead und Nav -
