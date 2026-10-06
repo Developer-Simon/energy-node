@@ -62,7 +62,7 @@ bash "$repo/scripts/publish_mirror.sh" --component energy_node_companion --mirro
 
 test -f "$tmp/custom_components/energy_node_companion/manifest.json"
 grep -q '"version": "9.9.9"' "$tmp/custom_components/energy_node_companion/manifest.json"
-grep -q '"documentation": "https://github.com/Developer-Simon/ha-energy-node-companion"' "$tmp/custom_components/energy_node_companion/manifest.json"
+grep -q '"documentation": "https://developer-simon.github.io/energy-node/ha/companion.html"' "$tmp/custom_components/energy_node_companion/manifest.json"
 test -f "$tmp/custom_components/energy_node_companion/brand/icon.png"
 test -f "$tmp/docs/integration.md"
 [ ! -d "$tmp/docs/icons" ] || { echo "docs/icons should not be present for energy_node_companion"; exit 1; }

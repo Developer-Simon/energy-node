@@ -8,7 +8,7 @@
     "@Developer-Simon"
   ],
   "config_flow": true,
-  "documentation": "https://github.com/Developer-Simon/ha-battery-soc",
+  "documentation": "https://developer-simon.github.io/energy-node/ha/battery-soc.html",
   "integration_type": "device",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/Developer-Simon/ha-battery-soc/issues",

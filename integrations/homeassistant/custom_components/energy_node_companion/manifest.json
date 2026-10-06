@@ -14,7 +14,7 @@
     "http",
     "recorder"
   ],
-  "documentation": "https://github.com/Developer-Simon/energy-node",
+  "documentation": "https://developer-simon.github.io/energy-node/ha/companion.html",
   "integration_type": "service",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/Developer-Simon/energy-node/issues",
