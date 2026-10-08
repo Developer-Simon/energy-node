@@ -2,6 +2,7 @@ package settings
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -2081,5 +2082,47 @@ func TestDeviceMapRejectsPartialLayers(t *testing.T) {
 	data := []byte(`{"version":1,"nodes":[],"view":{"grid_size":40,"edge_style":"straight","layers":{"wiring":true}}}`)
 	if err := config.ValidateDocument(data, deviceMapSchema); err == nil {
 		t.Fatal("expected layers without all four keys to be rejected")
+	}
+}
+
+func TestPatchEnergyMergesUnderOneLockAndWritesARevision(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{"a": {Role: energy.RolePV}}}); err != nil {
+		t.Fatal(err)
+	}
+	value, err := store.PatchEnergy(func(current *EnergyConfig) error {
+		current.Assignments["b"] = energy.Assignment{Role: energy.RoleLoad}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if value.Assignments["a"].Role != energy.RolePV || value.Assignments["b"].Role != energy.RoleLoad {
+		t.Fatalf("merged assignments = %+v", value.Assignments)
+	}
+	revisions, err := store.EnergyRevisions()
+	if err != nil || len(revisions) != 1 {
+		t.Fatalf("revisions = %v, %v, want exactly one", revisions, err)
+	}
+}
+
+func TestPatchEnergyKeepsTheFileWhenMutateOrValidationFails(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{"a": {Role: energy.RolePV}}}); err != nil {
+		t.Fatal(err)
+	}
+	sentinel := errors.New("stop")
+	if _, err := store.PatchEnergy(func(*EnergyConfig) error { return sentinel }); !errors.Is(err, sentinel) {
+		t.Fatalf("err = %v, want sentinel", err)
+	}
+	if _, err := store.PatchEnergy(func(current *EnergyConfig) error {
+		current.Assignments["a"] = energy.Assignment{Role: "nonsense"}
+		return nil
+	}); err == nil {
+		t.Fatal("an invalid role must be rejected")
+	}
+	value, _ := store.LoadEnergy()
+	if value.Assignments["a"].Role != energy.RolePV {
+		t.Fatalf("stored role changed to %q", value.Assignments["a"].Role)
 	}
 }

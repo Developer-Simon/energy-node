@@ -632,6 +632,10 @@ func (s *Store) RestoreSettings(revision string) (Settings, error) {
 func (s *Store) LoadEnergy() (EnergyConfig, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	return s.loadEnergyLocked()
+}
+
+func (s *Store) loadEnergyLocked() (EnergyConfig, error) {
 	if s.energyLoaded {
 		return cloneEnergyConfig(s.energyValue), nil
 	}
@@ -643,6 +647,33 @@ func (s *Store) LoadEnergy() (EnergyConfig, error) {
 	}
 	value = normalizeEnergy(value)
 	if err := validateEnergy(value); err != nil {
+		return EnergyConfig{}, err
+	}
+	s.energyValue = cloneEnergyConfig(value)
+	s.energyLoaded = true
+	return cloneEnergyConfig(value), nil
+}
+
+// PatchEnergy laedt energy.json, laesst mutate den Stand aendern und
+// schreibt ihn validiert zurueck, alles unter einer Sperre. Zwei
+// gleichzeitige PATCH-Anfragen koennen sich so nicht gegenseitig
+// ueberschreiben. Scheitert mutate oder die Validierung, bleibt die Datei
+// unberuehrt.
+func (s *Store) PatchEnergy(mutate func(*EnergyConfig) error) (EnergyConfig, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	value, err := s.loadEnergyLocked()
+	if err != nil {
+		return EnergyConfig{}, err
+	}
+	if err := mutate(&value); err != nil {
+		return EnergyConfig{}, err
+	}
+	value = normalizeEnergy(value)
+	if err := validateEnergy(value); err != nil {
+		return EnergyConfig{}, err
+	}
+	if err := s.saveJSONLocked("energy.json", value); err != nil {
 		return EnergyConfig{}, err
 	}
 	s.energyValue = cloneEnergyConfig(value)
@@ -1706,8 +1737,28 @@ func validateEnergy(value EnergyConfig) error {
 	if err := config.ValidateDocument(data, energySchema); err != nil {
 		return err
 	}
+	// config.ValidateDocument does not evaluate the schema of
+	// additionalProperties, so the assignment values are checked here.
+	for id, assignment := range value.Assignments {
+		if !validAssignmentRoles[assignment.Role] {
+			return fmt.Errorf("assignment %q has unknown role %q", id, assignment.Role)
+		}
+		if assignment.Scale < 0 || assignment.CapacityKWh < 0 {
+			return fmt.Errorf("assignment %q has a negative scale or capacity", id)
+		}
+	}
 	return value.Interpretation.Validate()
 }
+
+// validAssignmentRoles lists what an assignment may carry. The empty role is
+// the explicit "no role" override.
+var validAssignmentRoles = map[energy.Role]bool{
+	"": true, energy.RolePV: true, energy.RoleBattery: true, energy.RoleBatteryCharge: true,
+	energy.RoleBatteryDischarge: true, energy.RoleGrid: true, energy.RoleGridImport: true,
+	energy.RoleGridExport: true, energy.RoleLoad: true, energy.RoleWallbox: true,
+	energy.RoleHeatPump: true, energy.RoleBatterySoC: true,
+}
+
 func validateLayout(value Layout) error {
 	value = normalizeLayout(value)
 	data, err := json.Marshal(value)
