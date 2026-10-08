@@ -175,3 +175,16 @@ test('extraPages und hiddenPages arbeiten mit IDs', () => {
   assert.ok(component.hiddenPages.includes('server1'), 'alter tab versteckt mit ID');
 });
 
+
+test('dashboard-open-panel switches the tab and asks the energy page to focus rows', async () => {
+  const { component, window } = createShell();
+  component.loadPanel = () => {};
+  component.init();
+  const focused = [];
+  window.addEventListener('energy-focus-rows', event => focused.push(event.detail.ids));
+  window.dispatchEvent(new window.CustomEvent('dashboard-open-panel', { detail: { panel: 'energy-panel', energyFocus: ['a'] } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.activePanel, 'energy-panel');
+  assert.deepEqual(JSON.parse(JSON.stringify(window.__energyFocusRequest__)), ['a']);
+  assert.deepEqual(focused, [['a']]);
+});

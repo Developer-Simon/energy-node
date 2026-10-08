@@ -104,7 +104,7 @@ func TestManagerBackfillsRolesForExistingAdmin(t *testing.T) {
 	manager.mu.Lock()
 	admin := manager.users["admin"]
 	manager.mu.Unlock()
-	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates} {
+	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy} {
 		if !HasRole(admin, role) {
 			t.Errorf("existing admin was not backfilled with %q", role)
 		}
@@ -230,5 +230,43 @@ func TestManagerStartsWithBrokenSessionsFile(t *testing.T) {
 	}
 	if _, err := manager.Login("admin", "secret"); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestManagerBackfillsEditEnergyForExistingAdminAndGuests(t *testing.T) {
+	now := time.Date(2026, 10, 8, 12, 0, 0, 0, time.UTC)
+	path := filepath.Join(t.TempDir(), "users.json")
+	stored := `{"users":[` +
+		`{"username":"admin","password_hash":"x","roles":["system_actions"],"created_at":"2026-10-01T00:00:00Z","last_login_at":"2026-10-08T00:00:00Z"},` +
+		`{"username":"guest-old","guest":true,"roles":["automations","edit_layout","check_updates"],"created_at":"2026-10-07T00:00:00Z","last_login_at":"2026-10-08T00:00:00Z"}]}`
+	if err := os.WriteFile(path, []byte(stored), 0600); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := newManager(path, "admin", "secret", func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Lock()
+	admin, guest := manager.users["admin"], manager.users["guest-old"]
+	manager.mu.Unlock()
+	if !HasRole(admin, RoleEditEnergy) {
+		t.Error("existing admin was not backfilled with edit_energy")
+	}
+	if !HasRole(guest, RoleEditEnergy) {
+		t.Error("existing guest was not backfilled with edit_energy")
+	}
+}
+
+func TestNewGuestsGetEditEnergy(t *testing.T) {
+	manager, err := newManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret", time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	session, err := manager.ContinueAsGuest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !HasRole(session.User, RoleEditEnergy) {
+		t.Fatal("a new guest must get edit_energy until there is a user management")
 	}
 }

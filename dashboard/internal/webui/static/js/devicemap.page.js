@@ -60,6 +60,12 @@
       energyUnavailable: false,
       focusId: null,
       focusRelated: new Set(),
+      panelId: null,
+      drafts: {},
+      savedAssignments: {},
+      canEditEnergy: true,
+      csrfToken: '',
+      panelSaving: false,
       registryOff: null,
       _energyTimer: null,
       _energyPending: false,
@@ -98,11 +104,18 @@
         }
         this.loading = true;
         try {
-          const [devices, deviceMap, energy] = await Promise.all([
+          const [devices, deviceMap, energy, roles, session] = await Promise.all([
             requestJSON('/api/v1/devices'),
             requestJSON('/api/v1/device/map'),
             requestJSON('/api/v1/energy').catch(() => null),
+            requestJSON('/api/v1/energy/roles').catch(() => null),
+            requestJSON('/api/v1/auth/session').catch(() => null),
           ]);
+          this.savedAssignments = (roles && roles.assignments) || {};
+          // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung, dann
+          // laesst requireEnergyMutation den Schreibzugriff durch.
+          this.csrfToken = (session && session.csrf_token) || '';
+          this.canEditEnergy = !session || session.edit_energy !== false;
           this.devices = devices || [];
           this.deviceMap = deviceMap || {version: 1, nodes: [], edges: []};
           this.energy = energy;
@@ -277,8 +290,136 @@
         this.applyEnergy();
       },
 
+      previewEnergy() {
+        return window.DeviceMapModel.applyDrafts(this.energy, this.drafts, this.devices);
+      },
+
       energyByDevice() {
-        return window.DeviceMapModel.deviceEnergy(this.energy);
+        return window.DeviceMapModel.deviceEnergy(this.previewEnergy());
+      },
+
+      setDraft(entityId, field, value) {
+        const model = window.DeviceMapModel;
+        const base = model.baseAssignment(entityId, this.savedAssignments, this.energy);
+        const current = this.drafts[entityId] || {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh};
+        let next = {...current, [field]: value};
+        if (field === 'scale') next.scale = Math.max(0.01, Number(value) || 1);
+        if (field === 'capacity_kwh') next.capacity_kwh = Math.max(0, Number(value) || 0);
+        if (field === 'role' && current.pin) next = {...next, pin: false};
+        const drafts = {...this.drafts};
+        if (model.isDraftChange(base, next)) drafts[entityId] = next; else delete drafts[entityId];
+        this.drafts = drafts;
+        this.applyEnergy();
+      },
+
+      get panelView() {
+        if (!this.panelId) return null;
+        const device = this.devices.find(candidate => candidate.id === this.panelId);
+        if (!device) return null;
+        const {rows, others} = window.DeviceMapModel.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts});
+        let empty = '';
+        if (!rows.length && !others.length) empty = 'no_values';
+        else if (!rows.length) empty = 'no_power';
+        return {
+          title: device.name || device.id,
+          health: t(`devicemap.panel.health.${window.DeviceMapModel.deviceHealth(device)}`),
+          rows, others, empty,
+        };
+      },
+
+      openPanel(id) {
+        this.panelId = id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID ? null : id;
+      },
+
+      closePanel() {
+        this.panelId = null;
+      },
+
+      panelDirty() {
+        return Object.keys(this.drafts).length > 0;
+      },
+
+      discardPanel() {
+        this.drafts = {};
+        this.applyEnergy();
+      },
+
+      // Every way out of a panel with drafts goes through here: the shared
+      // confirm modal, "Weiter bearbeiten" keeps everything, "Verwerfen"
+      // drops the drafts. Resolves true when leaving may proceed.
+      async leavePanel() {
+        if (!this.panelDirty()) return true;
+        const ok = await this.$store.modal.confirm({
+          title: t('devicemap.panel.guard_title'),
+          body: t('devicemap.panel.guard_body', {name: this.deviceLabel(this.panelId)}),
+          cancelLabel: t('devicemap.panel.guard_continue'),
+          confirmLabel: t('devicemap.panel.guard_discard'),
+          danger: true,
+        });
+        if (ok) this.discardPanel();
+        return ok;
+      },
+
+      roleOptionsFor(unit) {
+        return window.DeviceMapModel.roleOptions(unit);
+      },
+
+      pinAssignment(entityId) {
+        const base = window.DeviceMapModel.baseAssignment(entityId, this.savedAssignments, this.energy);
+        this.drafts = {...this.drafts, [entityId]: {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh, pin: true}};
+        this.applyEnergy();
+      },
+
+      panelStatusText() {
+        const n = Object.keys(this.drafts).length;
+        return n ? tn('devicemap.panel.status', n, {n}) : '';
+      },
+
+      async savePanel() {
+        if (!this.panelDirty() || this.panelSaving) return;
+        this.panelSaving = true;
+        const assignments = Object.fromEntries(Object.entries(this.drafts)
+          .map(([id, draft]) => [id, window.DeviceMapModel.assignmentPayload(draft)]));
+        try {
+          const saved = await requestJSON('/api/v1/energy/roles', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+            body: JSON.stringify({assignments}),
+          });
+          this.savedAssignments = (saved && saved.assignments) || {};
+          this.drafts = {};
+          await this.refreshEnergy();
+          window.dispatchEvent(new CustomEvent('energy-roles-changed'));
+          this.$store.toasts.push(t('devicemap.panel.saved'));
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        } finally {
+          this.panelSaving = false;
+        }
+      },
+
+      showInRoleTable() {
+        const view = this.panelView;
+        if (!view) return;
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {
+          detail: {panel: 'energy-panel', energyFocus: view.rows.map(row => row.id)},
+        }));
+      },
+
+      async requestClosePanel() {
+        if (!(await this.leavePanel())) return;
+        this.closePanel();
+        this.clearFocus();
+      },
+
+      async onBackgroundTap() {
+        this.clearEdgeSelection();
+        await this.requestClosePanel();
+      },
+
+      async onEscape() {
+        if (this.$store.modal.open) return;
+        await this.requestClosePanel();
       },
 
       themeColor() {
@@ -557,7 +698,7 @@
         cy.on('dragfree', 'node', event => this.onNodeDragFree(event));
         cy.on('tap', 'node', event => this.onNodeTap(event));
         cy.on('tap', 'edge', event => { if (!this.connectMode) this.onEdgeTap(event); });
-        cy.on('tap', event => { if (event.target === cy) { this.clearEdgeSelection(); this.clearFocus(); } });
+        cy.on('tap', event => { if (event.target === cy) this.onBackgroundTap(); });
         cy.on('viewport', () => this.syncGridBackground());
         this.syncGridBackground();
         if (this.$refs.labels && !labels) labels = window.DeviceMapLabels.create(this.$refs.labels);
@@ -643,7 +784,11 @@
         canvas.style.setProperty('--devicemap-grid-y', `${pan.y}px`);
       },
 
-      toggleConnectMode() {
+      async toggleConnectMode() {
+        if (!this.connectMode && this.panelId) {
+          if (!(await this.leavePanel())) return;
+          this.closePanel();
+        }
         this.connectMode = !this.connectMode;
         if (this.focusId) this.clearFocus();
         this.connectSourceId = null;
@@ -660,7 +805,11 @@
       // gesture plus a confirmation dialog - never as a side effect of drag.
       async onNodeTap(event) {
         if (!this.connectMode) {
-          this.setFocus(this.focusId === event.target.id() ? null : event.target.id());
+          const id = event.target.id();
+          if (this.panelId === id || (this.focusId === id && !this.panelId && id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID)) return;
+          if (!(await this.leavePanel())) return;
+          this.setFocus(id);
+          this.openPanel(id);
           return;
         }
         const node = event.target;
@@ -781,7 +930,7 @@
       },
 
       confirmUnsavedUnload(event) {
-        if (!this.unsaved) return;
+        if (!this.unsaved && !this.panelDirty()) return;
         event.preventDefault();
         event.returnValue = '';
       },

@@ -25,6 +25,8 @@
   // config.reload    Funktion, die die besitzende Seite nach einem Restore
   //                  neu laedt.
   // config.label     Optionale Beschriftung im Ausklapper.
+  // config.headers   Optionale Funktion mit zusaetzlichen Kopfzeilen fuer das
+  //                  Wiederherstellen, z. B. das CSRF-Token.
   // config.activeRevision
   //                  Optionale Funktion, die die Kurzform der Revision
   //                  liefert, mit der der Dienst gerade laeuft. Leer
@@ -40,6 +42,7 @@
     reloadOwner: typeof config.reload === 'function' ? config.reload : async () => {},
     label: config.label || t('revisions.default_label'),
     getActiveRevision: typeof config.activeRevision === 'function' ? config.activeRevision : () => '',
+    getHeaders: typeof config.headers === 'function' ? config.headers : () => ({}),
 
     revisions: [],
     selectedRevision: '',
@@ -194,7 +197,7 @@
       try {
         await requestJSON(`${this.basePath}/restore`, {
           method: 'POST',
-          headers: {'Content-Type': 'application/json'}, // i18n-ignore
+          headers: {'Content-Type': 'application/json', ...this.getHeaders()}, // i18n-ignore
           body: JSON.stringify({revision: this.selectedRevision}),
         });
         this.$store.toasts.push(t('revisions.restored'));

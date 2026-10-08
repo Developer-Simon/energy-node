@@ -95,7 +95,7 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `9` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `25` |
+| `js/dashboard.js` | `26` |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -124,11 +124,11 @@ skips scripts already present as `<script src>`.
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `2`, `js/history.js` `13` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `8`, `css/diagnostics.css` `2` |
-| `config-panel` | `js/revisions.js` `3`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `8` | `css/manager.css` `26` |
-| `energy-panel` | `js/revisions.js` `3`, `js/energy.page.js` `4` | `css/manager.css` `26` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `3`, `js/devicemap-model.js` `2`, `js/devicemap-node-svg.js` `1`, `js/devicemap-labels.js` `1`, `js/devicemap.page.js` `11` | `css/manager.css` `26` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `3`, `js/schema-form.js` `2`, `js/settings.page.js` `13`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `2`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `26`, `css/settings-controls.css` `8` |
-| `automations-panel` | `js/config-status.js` `3`, `js/automations.page.js` `7` | `css/manager.css` `26`, `css/automations.css` `4` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `8` | `css/manager.css` `27` |
+| `energy-panel` | `js/revisions.js` `4`, `js/energy.page.js` `5` | `css/manager.css` `27` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `3`, `js/devicemap-node-svg.js` `1`, `js/devicemap-labels.js` `1`, `js/devicemap.page.js` `12` | `css/manager.css` `27` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `13`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `2`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `27`, `css/settings-controls.css` `8` |
+| `automations-panel` | `js/config-status.js` `3`, `js/automations.page.js` `7` | `css/manager.css` `27`, `css/automations.css` `4` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -143,7 +143,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `3`, `js/layout-editor.js` `13` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `13` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
@@ -244,6 +244,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.8.14 | `css/manager.css` (5 panels) · `js/dashboard.js` · `js/revisions.js` (config, energy, device map, settings panels + layout editor) · `js/energy.page.js` · `js/devicemap.page.js` · `js/devicemap-model.js` | `27` · `26` · `4` · `5` · `12` · `3` | 2026-10-08 |
 | v0.8.13 | `css/manager.css` (5 panels) · `js/devicemap.page.js` · `js/devicemap-model.js` | `26` · `11` · `2` | 2026-10-08 |
 | v0.8.12 | `css/manager.css` (5 panels) · `js/devicemap.page.js` · `js/devicemap-model.js` (new) · `js/devicemap-node-svg.js` (new) · `js/devicemap-labels.js` (new) | `25` · `10` · `1` · `1` · `1` | 2026-10-08 |
 | v0.8.11 | `js/dashboard.js` · `css/diagnostics.css` (diagnostics panel, now also loads `css/settings-controls.css` `8`) | `25` · `2` | 2026-10-06 |

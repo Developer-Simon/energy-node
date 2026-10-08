@@ -52,6 +52,12 @@ func TestAuthenticatedRouterSupportsGuestModeButProtectsSystemActions(t *testing
 	if guest.Code != http.StatusOK {
 		t.Fatalf("guest login status %d: %s", guest.Code, guest.Body.String())
 	}
+	var guestSession struct {
+		EditEnergy bool `json:"edit_energy"`
+	}
+	if err := json.Unmarshal(guest.Body.Bytes(), &guestSession); err != nil || !guestSession.EditEnergy {
+		t.Fatalf("guest session must report edit_energy: %s", guest.Body.String())
+	}
 	guestCookie := guest.Result().Cookies()[0]
 	guestRequest := httptest.NewRequest(http.MethodPost, "/api/v1/system/reboot", nil)
 	guestRequest.AddCookie(guestCookie)

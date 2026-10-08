@@ -38,6 +38,11 @@ const (
 	// es noch keine Rollen-Oberflaeche gibt, ueber die man das gezielt
 	// wieder entziehen koennte.
 	RoleCheckUpdates = "check_updates"
+	// RoleEditEnergy schaltet das Schreiben der Energie-Konfiguration frei:
+	// Rollen, Interpretation, Gruppen, Kategorien und das Wiederherstellen
+	// ihrer Revisionen. Wie RoleEditLayout bekommt sie vorlaeufig jeder, auch
+	// jeder Gast, bis es eine Benutzerverwaltung gibt.
+	RoleEditEnergy   = "edit_energy"
 	guestLifetime    = 7 * 24 * time.Hour
 	sessionLifetime  = 24 * time.Hour
 	guestSessionLife = 7 * 24 * time.Hour
@@ -98,6 +103,11 @@ func NewManager(path, bootstrapUsername, bootstrapPassword string) (*Manager, er
 	return newManager(path, bootstrapUsername, bootstrapPassword, time.Now)
 }
 
+// guestRoles bekommt jeder Gast, solange es keine Rollen-Oberflaeche gibt
+// (siehe ContinueAsGuest). Die Nachruestung in newManager gibt sie auch
+// Gaesten, deren Konto vor einer neuen Rolle angelegt wurde.
+var guestRoles = []string{RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy}
+
 func newManager(path, bootstrapUsername, bootstrapPassword string, now func() time.Time) (*Manager, error) {
 	if bootstrapUsername == "" {
 		bootstrapUsername = "admin"
@@ -118,12 +128,24 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 	// since an existing users.json keeps the role list it was written with.
 	// Every new role that the bootstrap admin gets below belongs in this list
 	// too, or the already-installed node is the one that stays locked out.
-	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates} {
+	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy} {
 		if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, role) {
 			user.Roles = append(user.Roles, role)
 			manager.users[bootstrapUsername] = user
 			changed = true
 		}
+	}
+	for name, user := range manager.users {
+		if !user.Guest {
+			continue
+		}
+		for _, role := range guestRoles {
+			if !HasRole(user, role) {
+				user.Roles = append(user.Roles, role)
+				changed = true
+			}
+		}
+		manager.users[name] = user
 	}
 	if bootstrapPassword != "" {
 		if _, exists := manager.users[bootstrapUsername]; !exists {
@@ -133,7 +155,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 				return nil, hashErr
 			}
 			nowValue := manager.now().UTC()
-			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates}, CreatedAt: nowValue, LastLoginAt: nowValue}
+			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy}, CreatedAt: nowValue, LastLoginAt: nowValue}
 			changed = true
 		}
 	}
@@ -211,7 +233,7 @@ func (m *Manager) ContinueAsGuest() (Session, error) {
 	// locking either behind an admin-only login would make the feature
 	// unusable for the primary user. Revisit once role management grows a
 	// UI (knowhow/dashboard/automationen-tab.md).
-	user := User{Username: username, Guest: true, Roles: []string{RoleAutomations, RoleEditLayout, RoleCheckUpdates}, CreatedAt: nowValue, LastLoginAt: nowValue}
+	user := User{Username: username, Guest: true, Roles: append([]string(nil), guestRoles...), CreatedAt: nowValue, LastLoginAt: nowValue}
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {
 		return Session{}, err
