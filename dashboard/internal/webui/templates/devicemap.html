@@ -1,5 +1,5 @@
 {{define "devicemap"}}
-<section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)">
+<section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)" x-on:keydown.escape.window="clearFocus()">
   <h2>
     {{t "devicemap.title"}}
     <span class="field-help field-help-align-start">
@@ -57,6 +57,11 @@
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>{{t "devicemap.layer.data"}}
         </button>
       </div>
+      <div class="devicemap-focus-chip" role="status" x-bind:data-open="focusId ? 'true' : 'false'">
+        <span x-text="focusSummary()"></span>
+        <button class="devicemap-focus-clear" type="button" x-on:click="clearFocus()">{{t "devicemap.focus.clear"}}</button>
+      </div>
+      <p class="devicemap-energy-hint" x-cloak x-show="energyUnavailable">{{t "devicemap.energy_unavailable"}}</p>
       <p class="devicemap-connect-hint" x-cloak x-show="connectMode" x-text="connectHintText()"></p>
       <p class="devicemap-placed-hint" x-cloak x-show="placedCount > 0" x-text="placedHintText()"></p>
       <div class="toolbar devicemap-edge-toolbar" x-cloak x-show="selectedEdge">

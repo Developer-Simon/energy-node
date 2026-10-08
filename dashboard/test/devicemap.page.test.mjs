@@ -744,3 +744,62 @@ test('save() sends the layers with the view', async () => {
   assert.deepEqual(body.view.layers, { wiring: false, energy: true, balance: false, data: false });
   assert.equal(body.view.width_by_power, false);
 });
+
+test('tapping a node outside connect mode focuses it and its direct neighbours', async () => {
+  const { component } = createDevicemapPanel();
+  component.devices = [
+    { id: 'netz', name: 'Netz', relations: [] },
+    { id: 'uv', name: 'UV', relations: [{ kind: 'parent', id: 'netz' }] },
+    { id: 'wb', name: 'Wallbox', relations: [{ kind: 'parent', id: 'uv' }] },
+    { id: 'pv', name: 'PV', relations: [{ kind: 'parent', id: 'netz' }] },
+  ];
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  await component.onNodeTap({ target: fakeNode('uv') });
+  assert.equal(component.focusId, 'uv');
+  assert.deepEqual([...component.focusRelated].sort(), ['netz', 'uv', 'wb']);
+  assert.match(component.focusSummary(), /^UV · 2 verbunden/);
+  component.clearFocus();
+  assert.equal(component.focusId, null);
+});
+
+test('connect mode taps never set a focus', async () => {
+  const { component } = createDevicemapPanel({ confirmAnswer: false });
+  component.devices = [{ id: 'a', name: 'A', relations: [] }, { id: 'b', name: 'B', relations: [] }];
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.connectMode = true;
+  await component.onNodeTap({ target: fakeNode('a') });
+  assert.equal(component.focusId, null);
+});
+
+test('registry updates refresh the energy snapshot at most once per second, only while visible', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let energyCalls = 0;
+  const fetchImpl = async url => {
+    if (url.endsWith('/api/v1/energy')) energyCalls += 1;
+    return { ok: true, status: 200, json: async () => ({ entities: [] }) };
+  };
+  const { component, window } = createDevicemapPanel({ fetchImpl });
+  // The script runs in jsdom's VM context, whose setTimeout is not the one
+  // node:test mocks - hand the component Node's (mocked) timer instead.
+  component._setTimeout = (fn, ms) => setTimeout(fn, ms);
+  component.$root = { classList: { contains: name => name === 'active' } };
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  component.onRegistryUpdated();
+  component.onRegistryUpdated();
+  component.onRegistryUpdated();
+  await Promise.resolve();
+  assert.equal(energyCalls, 1, 'burst collapses into one request');
+  t.mock.timers.tick(1000);
+  await Promise.resolve();
+  assert.equal(energyCalls, 2, 'one trailing request after the window');
+  Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
+  t.mock.timers.tick(1000);
+  component.onRegistryUpdated();
+  await Promise.resolve();
+  assert.equal(energyCalls, 2, 'no requests from a background tab');
+  component.$root = { classList: { contains: () => false } };
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  component.onRegistryUpdated();
+  await Promise.resolve();
+  assert.equal(energyCalls, 2, 'no requests while another dashboard tab is active');
+});

@@ -428,20 +428,30 @@ select.schema-control {
 }
 .devicemap-edge-toolbar { align-items: center; }
 .devicemap-unsaved-badge { color: var(--warn); font-size: .85rem; align-self: center; }
-.devicemap-connect-hint, .devicemap-placed-hint {
+.devicemap-connect-hint, .devicemap-placed-hint, .devicemap-energy-hint {
   margin: 0; padding: .35rem .7rem; border-radius: var(--radius-md);
   background: var(--panel); background: color-mix(in srgb, var(--panel) 72%, transparent);
   backdrop-filter: blur(14px) saturate(150%); -webkit-backdrop-filter: blur(14px) saturate(150%);
 }
 .devicemap-connect-hint { color: var(--accent); font-size: .9rem; }
-.devicemap-placed-hint { color: var(--text-muted); font-size: .85rem; }
+.devicemap-placed-hint, .devicemap-energy-hint { color: var(--text-muted); font-size: .85rem; }
+/* Focus hint (draft .focus-chip), centred at the top of the stage. */
+.devicemap-focus-chip { position: absolute; left: 50%; top: 0; transform: translateX(-50%); display: flex; gap: 10px; align-items: center; padding: 6px 8px 6px 14px; border-radius: 999px; font-size: .84rem; white-space: nowrap;
+  background: color-mix(in srgb, var(--panel) 74%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--accent-line); color: var(--text-strong);
+  transition: opacity 180ms var(--ease-out), transform 180ms var(--ease-out); }
+.devicemap-focus-chip[data-open="false"] { opacity: 0; transform: translate(-50%, -6px); pointer-events: none; }
+.devicemap-focus-clear { border: 1px solid var(--border); background: var(--panel); color: var(--text-strong); font: inherit; font-size: .86rem; font-weight: 600; padding: 7px 12px; border-radius: 9px; cursor: pointer;
+  transition: background-color 150ms ease, opacity 150ms ease, transform 100ms ease-out; }
+.devicemap-focus-clear:active { transform: scale(.97); }
+.devicemap-focus-clear:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .devicemap-focus-chip, .devicemap-focus-chip[data-open="false"] { transform: translateX(-50%); } }
 .devicemap-edge-style-group { display: inline-flex; gap: .3rem; align-items: center; }
 .devicemap-edge-label { color: var(--text-subtle); font-size: .9rem; }
 .devicemap-edge-readonly-hint { color: var(--text-muted); font-size: .85rem; font-style: italic; }
 /* Durchscheinendes Material ist eine Darstellungsentscheidung, keine
    Information - siehe dasselbe Muster fuer .energy-flow-node in base.css. */
 @media (prefers-reduced-transparency: reduce) {
-  .devicemap-toolbar, .devicemap-edge-toolbar, .devicemap-connect-hint, .devicemap-placed-hint {
+  .devicemap-toolbar, .devicemap-edge-toolbar, .devicemap-connect-hint, .devicemap-placed-hint, .devicemap-energy-hint, .devicemap-focus-chip {
     background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; border-top-color: var(--border-soft);
   }
 }

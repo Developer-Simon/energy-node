@@ -15,6 +15,8 @@
   };
   const relationKey = (a, b) => [a, b].sort().join('::');
 
+  const ENERGY_REFRESH_MS = 1000;
+
   const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight', width_by_power: false};
 
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
@@ -56,6 +58,12 @@
       themeOff: null,
       energy: null,
       energyUnavailable: false,
+      focusId: null,
+      focusRelated: new Set(),
+      registryOff: null,
+      _energyTimer: null,
+      _energyPending: false,
+      _setTimeout: (fn, ms) => setTimeout(fn, ms),
 
       async load() {
         // load() läuft nach jedem Speichern erneut, die Registrierung darf
@@ -66,6 +74,11 @@
             if (cy) cy.style(this.graphStyle());
             this.applyEnergy();
           });
+        }
+        if (!this.registryOff) {
+          const listener = () => this.onRegistryUpdated();
+          window.addEventListener('registry-updated', listener);
+          this.registryOff = () => window.removeEventListener('registry-updated', listener);
         }
         this.loading = true;
         try {
@@ -98,7 +111,70 @@
 
       destroy() {
         if (this.themeOff) this.themeOff();
+        if (this.registryOff) this.registryOff();
+        clearTimeout(this._energyTimer);
         if (labels) { labels.destroy(); labels = null; }
+      },
+
+      wiringPairs() {
+        return this.buildElements()
+          .filter(element => element.data.source && element.data.target)
+          .map(element => ({parent: element.data.source, child: element.data.target}));
+      },
+
+      setFocus(id) {
+        this.focusId = id;
+        this.focusRelated = id ? window.DeviceMapModel.relatedIds(id, this.wiringPairs()) : new Set();
+        if (labels) labels.setDimmed(id ? this.focusRelated : null);
+        if (!cy) return;
+        cy.batch(() => {
+          cy.elements().removeClass('devicemap-dimmed devicemap-focused');
+          if (!id) return;
+          cy.nodes().forEach(node => { if (!this.focusRelated.has(node.id())) node.addClass('devicemap-dimmed'); });
+          cy.edges().forEach(edge => {
+            if (!(this.focusRelated.has(edge.data('source')) && this.focusRelated.has(edge.data('target')))) edge.addClass('devicemap-dimmed');
+          });
+          cy.getElementById(id).addClass('devicemap-focused');
+        });
+      },
+
+      clearFocus() {
+        this.setFocus(null);
+      },
+
+      focusSummary() {
+        if (!this.focusId) return '';
+        const n = this.focusRelated.size - 1;
+        return tn('devicemap.focus.summary', n, {name: this.deviceLabel(this.focusId), n});
+      },
+
+      isPanelActive() {
+        return Boolean(this.$root && this.$root.classList && this.$root.classList.contains('active'));
+      },
+
+      // dashboard.js publishes every registry update (SSE, 30 s fallback) as
+      // "registry-updated". Leading call plus one trailing call per window,
+      // and nothing at all from a hidden browser tab or another dashboard tab
+      // (Pi kiosk tablets, see the plan's review focus).
+      onRegistryUpdated() {
+        if (document.visibilityState !== 'visible' || !this.isPanelActive()) return;
+        if (this._energyTimer) { this._energyPending = true; return; }
+        this.refreshEnergy();
+        this._energyTimer = this._setTimeout(() => {
+          this._energyTimer = null;
+          if (this._energyPending) { this._energyPending = false; this.onRegistryUpdated(); }
+        }, ENERGY_REFRESH_MS);
+      },
+
+      async refreshEnergy() {
+        try {
+          this.energy = await requestJSON('/api/v1/energy');
+          this.energyUnavailable = false;
+        } catch (error) {
+          this.energy = null;
+          this.energyUnavailable = true;
+        }
+        this.applyEnergy();
       },
 
       energyByDevice() {
@@ -283,6 +359,9 @@
             ...(EDGE_STYLES[this.view.edge_style] || EDGE_STYLES.straight),
           }},
           {selector: 'edge.devicemap-wiring', style: this.wiringEdgeStyle(theme)},
+          {selector: 'node, edge', style: {'transition-property': 'opacity', 'transition-duration': '200ms', 'transition-timing-function': 'ease-out'}},
+          {selector: '.devicemap-dimmed', style: {opacity: 0.18}},
+          {selector: 'node.devicemap-focused', style: {'outline-width': 2.5}},
           {selector: 'edge.devicemap-selected-edge', style: {width: 3, 'line-color': theme.accent, 'target-arrow-color': theme.accent}},
         ];
       },
@@ -342,7 +421,7 @@
         cy.on('dragfree', 'node', event => this.onNodeDragFree(event));
         cy.on('tap', 'node', event => this.onNodeTap(event));
         cy.on('tap', 'edge', event => { if (!this.connectMode) this.onEdgeTap(event); });
-        cy.on('tap', event => { if (event.target === cy) this.clearEdgeSelection(); });
+        cy.on('tap', event => { if (event.target === cy) { this.clearEdgeSelection(); this.clearFocus(); } });
         cy.on('viewport', () => this.syncGridBackground());
         this.syncGridBackground();
         if (this.$refs.labels && !labels) labels = window.DeviceMapLabels.create(this.$refs.labels);
@@ -351,6 +430,7 @@
           cy.on('render', () => labels.sync(cy));
           labels.sync(cy);
         }
+        if (this.focusId) this.setFocus(this.focusId);
       },
 
       // Continuous feedback while the pointer is still down (apple-design
@@ -428,6 +508,7 @@
 
       toggleConnectMode() {
         this.connectMode = !this.connectMode;
+        if (this.focusId) this.clearFocus();
         this.connectSourceId = null;
         this.connectSourceLabel = '';
         this.clearEdgeSelection();
@@ -441,7 +522,10 @@
       // relation is only ever created here, after an explicit two-click
       // gesture plus a confirmation dialog - never as a side effect of drag.
       async onNodeTap(event) {
-        if (!this.connectMode) return;
+        if (!this.connectMode) {
+          this.setFocus(this.focusId === event.target.id() ? null : event.target.id());
+          return;
+        }
         const node = event.target;
         if (!this.connectSourceId) {
           this.connectSourceId = node.id();
