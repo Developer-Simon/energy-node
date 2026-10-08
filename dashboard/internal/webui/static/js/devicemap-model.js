@@ -27,6 +27,20 @@
     battery_soc: {color: 'flow-battery', icon: 'soc', toward: null},
   });
 
+  const BASE_TOWARD = Object.freeze({
+    consumer: v => Math.abs(v),
+    producer: v => -Math.abs(v),
+    storage: v => v,
+  });
+
+  const roleMeta = (role, categories) => {
+    if (ROLE_META[role]) return ROLE_META[role];
+    if (!role || !role.startsWith('custom:')) return null;
+    const def = (categories || {})[role.slice('custom:'.length)];
+    if (!def) return null;
+    return {color: `flow-${String(def.color || 'cat_1').replace('_', '-')}`, icon: `cat:${def.icon}`, toward: BASE_TOWARD[def.base] || BASE_TOWARD.consumer};
+  };
+
   const POWER_ROLES = Object.freeze(['pv', 'battery', 'battery_charge', 'battery_discharge', 'grid', 'grid_import', 'grid_export', 'load', 'wallbox', 'heat_pump']);
   // The dashboard's own balance device, read back from discovery. The energy
   // page hides it from the role editor, the panel does the same.
@@ -36,8 +50,14 @@
 
   const roleLabel = role => (role ? t(`energy.role_label.${role}`) : t('energy.roles.no_role'));
 
-  const roleOptions = unit => (unit === '%' ? ['', 'battery_soc'] : ['', ...POWER_ROLES])
-    .map(value => ({value, label: roleLabel(value)}));
+  const roleOptions = (unit, categories = {}) => {
+    if (unit === '%') return ['', 'battery_soc'].map(value => ({value, label: roleLabel(value), group: 'standard'}));
+    const standard = ['', ...POWER_ROLES].map(value => ({value, label: roleLabel(value), group: 'standard'}));
+    const custom = Object.entries(categories)
+      .sort(([, a], [, b]) => window.I18n.compare(a.label, b.label))
+      .map(([id, def]) => ({value: `custom:${id}`, label: def.label, group: 'custom'}));
+    return [...standard, ...custom];
+  };
 
   const normalizeAssignment = value => ({
     role: (value && value.role) || '',
@@ -158,7 +178,7 @@
     let best = null;
     let bestAbs = -1;
     for (const role of entry.roles) {
-      if (!ROLE_META[role].toward) continue;
+      if (!entry.meta[role].toward) continue;
       const abs = Math.abs(entry.byRole[role] || 0);
       if (abs > bestAbs) { best = role; bestAbs = abs; }
     }
@@ -169,14 +189,15 @@
     const byDevice = new Map();
     for (const entity of (snapshot && snapshot.entities) || []) {
       const role = entity.role && entity.role.role;
-      const meta = role && ROLE_META[role];
+      const meta = role && roleMeta(role, snapshot && snapshot.categories);
       if (!meta) continue;
       let entry = byDevice.get(entity.device_id);
       if (!entry) {
-        entry = {roles: [], heuristic: false, power: null, soc: null, byRole: {}, primaryRole: null};
+        entry = {roles: [], heuristic: false, power: null, soc: null, byRole: {}, primaryRole: null, meta: {}};
         byDevice.set(entity.device_id, entry);
       }
       if (!entry.roles.includes(role)) entry.roles.push(role);
+      entry.meta[role] = meta;
       if (entity.role.source === 'heuristic') entry.heuristic = true;
       const value = Number(entity.value) || 0;
       if (meta.toward) {
@@ -220,15 +241,18 @@
     return value;
   };
 
-  const ringSpec = (entry, health, hasEntities) => {
+  const ringSpec = (entry, health, hasEntities, iconMarkup = {}) => {
     const role = entry && entry.primaryRole;
-    return {
-      segments: entry ? entry.roles.map(r => ROLE_META[r].color) : [],
+    const meta = role ? entry.meta[role] : null;
+    const spec = {
+      segments: entry ? entry.roles.map(r => entry.meta[r].color) : [],
       dashed: Boolean(entry && entry.heuristic),
-      icon: role ? ROLE_META[role].icon : (hasEntities ? 'sensor' : 'box'),
-      iconColor: role ? ROLE_META[role].color : 'text-muted',
+      icon: meta ? meta.icon : (hasEntities ? 'sensor' : 'box'),
+      iconColor: meta ? meta.color : 'text-muted',
       health,
     };
+    if (spec.icon.startsWith('cat:')) spec.iconMarkup = iconMarkup[spec.icon.slice(4)] || '';
+    return spec;
   };
 
   const relatedIds = (id, pairs) => {
@@ -275,7 +299,57 @@
   const speedBucket = abs => (abs < 300 ? 'slow' : abs < 1200 ? 'mid' : 'fast');
   const flowWidth = (abs, byPower) => (byPower ? Number((1.8 + 3.6 * Math.min(1, abs / 2500)).toFixed(2)) : 2.6);
   const flowLabel = flow => `${flow.sum ? 'Σ ' : ''}${flow.value < 0 ? '↑' : '↓'} ${formatPower(flow.value)}`;
-  const flowColorToken = (flow, entry) => (flow.sum || !entry || !entry.primaryRole ? 'flow-rest' : ROLE_META[entry.primaryRole].color);
+  const flowColorToken = (flow, entry) => (flow.sum || !entry || !entry.primaryRole ? 'flow-rest' : entry.meta[entry.primaryRole].color);
+
+  const GROUP_PREFIX = 'group:';
+  const isGroupId = id => typeof id === 'string' && id.startsWith(GROUP_PREFIX);
+
+  const membershipPairs = groups => {
+    const pairs = [];
+    for (const [id, group] of Object.entries(groups || {})) {
+      const members = (group && group.members) || {};
+      for (const device of members.devices || []) pairs.push({parent: GROUP_PREFIX + id, child: device});
+      for (const child of members.groups || []) pairs.push({parent: GROUP_PREFIX + id, child: GROUP_PREFIX + child});
+    }
+    return pairs;
+  };
+
+  const groupValueText = flow => (flow ? t('devicemap.group.value', {value: formatPower(flow.value)}) : t('devicemap.group.no_value'));
+
+  const TRANSLIT = {ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss'};
+  const slugId = (label, existing) => {
+    const base = String(label || '').toLowerCase()
+      .replace(/[äöüß]/g, char => TRANSLIT[char])
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '') || 'gruppe';
+    const taken = new Set(existing || []);
+    if (!taken.has(base)) return base;
+    for (let n = 2; ; n += 1) if (!taken.has(`${base}_${n}`)) return `${base}_${n}`;
+  };
+
+  const PLACE_STEP_X = 140;
+  const PLACE_STEP_Y = 110;
+  const PLACE_CLEARANCE = 60;
+
+  // Spec "Automatische Einordnung": a group sits centred above its members,
+  // one row above the highest one, and moves right while the spot is taken.
+  // Without members it goes right of the existing arrangement.
+  const placeGroup = ({memberPositions, allPositions, snap}) => {
+    const all = allPositions || [];
+    let x = 0;
+    let y = 0;
+    if (memberPositions && memberPositions.length) {
+      x = memberPositions.reduce((sum, p) => sum + p.x, 0) / memberPositions.length;
+      y = Math.min(...memberPositions.map(p => p.y)) - PLACE_STEP_Y;
+    } else if (all.length) {
+      x = Math.max(...all.map(p => p.x)) + PLACE_STEP_X;
+      y = Math.min(...all.map(p => p.y));
+    }
+    const taken = (px, py) => all.some(p => Math.abs(p.x - px) < PLACE_CLEARANCE && Math.abs(p.y - py) < PLACE_CLEARANCE);
+    let spot = {x: snap(x), y: snap(y)};
+    while (taken(spot.x, spot.y)) spot = {x: snap(spot.x + PLACE_STEP_X), y: spot.y};
+    return spot;
+  };
 
   window.DeviceMapModel = {
     DEFAULT_LAYERS, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
@@ -283,5 +357,6 @@
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload,
+    roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup,
   };
 })();

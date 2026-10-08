@@ -579,6 +579,8 @@
   "devicemap.focus.clear": "Clear focus",
   "devicemap.focus.summary.one": "{name} · {n} connected · Esc clears",
   "devicemap.focus.summary.other": "{name} · {n} connected · Esc clears",
+  "devicemap.group.no_value": "Group",
+  "devicemap.group.value": "Group · Σ {value}",
   "devicemap.help_button_aria": "About the device map",
   "devicemap.help_text": "Arrange devices by drag and drop. Relationships (e.g. “connect as sub-device”) only change in connect mode and after explicit confirmation. Moving a device never changes a relationship. Click an existing connection to select it. If it was created manually, you can then disconnect it again.",
   "devicemap.layer.balance": "Energy balance",

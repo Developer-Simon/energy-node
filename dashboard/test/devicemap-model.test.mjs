@@ -27,7 +27,7 @@ test('deviceEnergy groups roles per device and signs power toward the device', (
     entity('soc', 'soc_1', 'battery_soc', 64, 'override', '%'),
     entity('bkw', 'bkw_p', 'pv', 600, 'heuristic'),
   ] });
-  assert.deepEqual(plain(energy.get('pv')), { roles: ['pv'], heuristic: false, power: -2400, soc: null, byRole: { pv: 2400 }, primaryRole: 'pv' });
+  assert.deepEqual(plain(energy.get('pv')), { roles: ['pv'], heuristic: false, power: -2400, soc: null, byRole: { pv: 2400 }, primaryRole: 'pv', meta: { pv: { color: 'flow-pv', icon: 'pv' } } });
   assert.equal(energy.get('bat').power, -400, 'discharging battery pushes power away from the device');
   assert.equal(energy.get('soc').power, null, 'battery_soc is not a power role');
   assert.equal(energy.get('soc').soc, 64);
@@ -190,4 +190,55 @@ test('assignmentPayload keeps only the fields of the role kind', () => {
   assert.deepEqual({...model.assignmentPayload({role: 'battery_soc', scale: 3, invert: true, capacity_kwh: 10})}, {role: 'battery_soc', capacity_kwh: 10});
   assert.deepEqual({...model.assignmentPayload({role: '', scale: 3, invert: true, capacity_kwh: 0})}, {role: ''});
   assert.deepEqual({...model.assignmentPayload({role: 'pv', scale: 1.5, invert: true, capacity_kwh: 0, pin: true})}, {role: 'pv', scale: 1.5, invert: true});
+});
+
+test('custom categories get their palette colour, icon and the sign of their base', () => {
+  const model = loadModel();
+  const categories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_3', icon: 'mdi:home'}, bkw: {label: 'BKW', base: 'producer', color: 'cat_1', icon: 'mdi:solar-panel'}};
+  assert.equal(model.roleMeta('custom:werkstatt', categories).color, 'flow-cat-3');
+  assert.equal(model.roleMeta('custom:bkw', categories).toward(600), -600);
+  assert.equal(model.roleMeta('custom:fehlt', categories), null);
+  const energy = model.deviceEnergy({categories, entities: [{entity_id: 'w', device_id: 'w', value: 350, role: {role: 'custom:werkstatt', source: 'override'}}]});
+  const entry = energy.get('w');
+  assert.equal(entry.power, 350);
+  const spec = model.ringSpec(entry, 'ok', true, {'mdi:home': '<path d="M1 1"/>'});
+  assert.deepEqual([...spec.segments], ['flow-cat-3']);
+  assert.equal(spec.iconMarkup, '<path d="M1 1"/>');
+});
+
+test('roleOptions lists custom categories after the standard roles, only for power', () => {
+  const model = loadModel();
+  const categories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}};
+  const options = model.roleOptions('W', categories);
+  assert.equal(options[options.length - 1].value, 'custom:werkstatt');
+  assert.equal(options[options.length - 1].group, 'custom');
+  assert.equal(model.roleOptions('%', categories).some(option => option.group === 'custom'), false);
+});
+
+test('membershipPairs turns groups into parent/child pairs', () => {
+  const model = loadModel();
+  const pairs = model.membershipPairs({garage: {members: {devices: ['wb'], groups: ['bank']}}, bank: {members: {devices: ['saege'], groups: []}}});
+  assert.deepEqual(JSON.parse(JSON.stringify(pairs)).sort((a, b) => a.child.localeCompare(b.child)), [
+    {parent: 'group:garage', child: 'group:bank'},
+    {parent: 'group:bank', child: 'saege'},
+    {parent: 'group:garage', child: 'wb'},
+  ]);
+});
+
+test('slugId transliterates and avoids collisions', () => {
+  const model = loadModel();
+  assert.equal(model.slugId('UV Garage', []), 'uv_garage');
+  assert.equal(model.slugId('Küche & Bad', []), 'kueche_bad');
+  assert.equal(model.slugId('UV Garage', ['uv_garage']), 'uv_garage_2');
+  assert.equal(model.slugId('!!!', []), 'gruppe');
+});
+
+test('placeGroup centres above its members and moves right when taken', () => {
+  const model = loadModel();
+  const snap = value => value;
+  const members = [{x: 400, y: 400}, {x: 600, y: 420}];
+  assert.deepEqual({...model.placeGroup({memberPositions: members, allPositions: members, snap})}, {x: 500, y: 290});
+  const taken = [...members, {x: 500, y: 290}];
+  assert.deepEqual({...model.placeGroup({memberPositions: members, allPositions: taken, snap})}, {x: 640, y: 290});
+  assert.deepEqual({...model.placeGroup({memberPositions: [], allPositions: members, snap})}, {x: 740, y: 400});
 });
