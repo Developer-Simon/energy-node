@@ -88,3 +88,38 @@ test('relatedIds returns the node with its direct parents and children', () => {
   const pairs = [{ parent: 'netz', child: 'uv' }, { parent: 'uv', child: 'wallbox' }, { parent: 'netz', child: 'pv' }];
   assert.deepEqual([...model.relatedIds('uv', pairs)].sort(), ['netz', 'uv', 'wallbox']);
 });
+
+test('edgeFlow uses the child measurement, otherwise the signed subtree sum', () => {
+  const model = loadModel();
+  const energy = model.deviceEnergy({ entities: [
+    entity('wallbox', 'w', 'wallbox', 1100), entity('bkw', 'b', 'pv', 600), entity('bat', 'p', 'battery', -300),
+  ] });
+  const children = model.childrenIndex([{ parent: 'netz', child: 'uv' }, { parent: 'uv', child: 'wallbox' }, { parent: 'uv', child: 'bkw' }, { parent: 'netz', child: 'bat' }]);
+  assert.deepEqual(plain(model.edgeFlow('wallbox', energy, children)), { value: 1100, sum: false });
+  assert.deepEqual(plain(model.edgeFlow('uv', energy, children)), { value: 500, sum: true });
+  assert.deepEqual(plain(model.edgeFlow('bat', energy, children)), { value: -300, sum: false });
+  assert.equal(model.edgeFlow('bms', energy, children), null, 'no data, no flow');
+});
+
+test('edgeFlow terminates on relation cycles and ignores flows below one watt', () => {
+  const model = loadModel();
+  const energy = model.deviceEnergy({ entities: [entity('c', 'x', 'load', 0.4)] });
+  const children = model.childrenIndex([{ parent: 'a', child: 'b' }, { parent: 'b', child: 'a' }, { parent: 'b', child: 'c' }]);
+  assert.equal(model.edgeFlow('a', energy, children), null);
+});
+
+test('speed buckets, widths, labels and colours follow the draft', () => {
+  const model = loadModel();
+  assert.equal(model.speedBucket(299), 'slow');
+  assert.equal(model.speedBucket(300), 'mid');
+  assert.equal(model.speedBucket(1199), 'mid');
+  assert.equal(model.speedBucket(1200), 'fast');
+  assert.equal(model.flowWidth(5000, false), 2.6);
+  assert.equal(model.flowWidth(0, true), 1.8);
+  assert.equal(model.flowWidth(2500, true), 5.4);
+  assert.equal(model.flowLabel({ value: 1100, sum: false }), '↓ 1,1 kW');
+  assert.equal(model.flowLabel({ value: -532, sum: true }), 'Σ ↑ 532 W');
+  const energy = model.deviceEnergy({ entities: [entity('pv', 'p', 'pv', 100)] });
+  assert.equal(model.flowColorToken({ value: -100, sum: false }, energy.get('pv')), 'flow-pv');
+  assert.equal(model.flowColorToken({ value: 100, sum: true }, undefined), 'flow-rest');
+});

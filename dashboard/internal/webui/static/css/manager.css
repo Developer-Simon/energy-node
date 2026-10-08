@@ -407,12 +407,22 @@ select.schema-control {
 .devicemap-layer-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; padding-inline: 6px 2px; }
 .devicemap-layer-button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-soft); background: var(--panel); color: var(--text-subtle); font: inherit; font-size: .84rem; padding: 5px 10px; border-radius: 8px; cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, transform 100ms ease-out; }
+.devicemap-layer-separator { width: 1px; align-self: stretch; background: var(--border-soft); margin-inline: 2px; }
 .devicemap-layer-button svg { width: 16px; height: 16px; }
 .devicemap-layer-button[aria-pressed="true"] { background: var(--accent-bg); color: var(--text-strong); border-color: var(--accent-line); }
 .devicemap-layer-button:active:not(:disabled) { transform: scale(.97); }
 .devicemap-layer-button:disabled { opacity: .45; cursor: default; }
 .devicemap-layer-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-transparency: reduce) { .devicemap-layer-toolbar { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; } }
+.devicemap-legend { position: absolute; right: 12px; top: 12px; max-width: min(300px, calc(100% - 24px)); display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px; border-radius: 10px; font-size: .76rem; color: var(--text-subtle); pointer-events: none;
+  background: color-mix(in srgb, var(--panel) 74%, transparent); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border: 1px solid var(--border-soft); }
+.devicemap-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.devicemap-legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; border-radius: 2px; }
+.devicemap-legend i.dashed { border-top-style: dashed; border-top-width: 2px; }
+/* Approved deviation from the draft: on a phone the toolbars cover the top
+   right corner, so the legend moves to the bottom right of the map. */
+@media (max-width: 700px) { .devicemap-legend { top: auto; bottom: 12px; } }
+@media (prefers-reduced-transparency: reduce) { .devicemap-legend { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; } }
 .devicemap-overlay {
   position: absolute; inset: .75rem .75rem auto .75rem; z-index: 2;
   display: flex; flex-direction: column; align-items: flex-start; gap: .55rem;

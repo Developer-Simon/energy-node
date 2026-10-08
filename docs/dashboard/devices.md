@@ -57,5 +57,18 @@ background, the button in the hint or Esc ends the focus. If the energy values
 cannot be loaded, the map still opens with devices, connections and
 availability and shows a short note.
 
+With Live energy on, the connections carry the live power flow. Moving dashes
+run in the direction of the flow, faster for more power, and a label at the
+child end shows the value and the direction. An arrow down means power flows
+toward the child device, an arrow up means it flows toward the parent, so a
+discharging battery or a PV system flips the flow automatically. A connection
+shows the measurement of the child device if it has one. Otherwise it shows the
+signed sum of everything below it, marked with a Σ, and a connection without
+any data shows no flow. The line colour follows the role of the child, the
+sums are grey. The switch Width by power makes stronger flows thicker. With
+reduced motion enabled in the system, the lines stand still and carry an arrow
+instead. The animation stops while the browser tab is hidden or another
+dashboard tab is open, and a legend in the corner explains the colours.
+
 Positions, edges and the layer choice are stored on the server and versioned
 like the layout, so you can roll back an accidental drag.
