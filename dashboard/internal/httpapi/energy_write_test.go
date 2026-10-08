@@ -45,9 +45,9 @@ func TestEnergyRolesPatchMergesAndRemovesAssignments(t *testing.T) {
 	}
 }
 
-func TestEnergyRolesPatchRejectsGroupsUntilPhase4AndUnknownRoles(t *testing.T) {
+func TestEnergyRolesPatchRejectsUnknownRoles(t *testing.T) {
 	router := NewRouter(registry.New(), nil, settings.NewStore(t.TempDir()))
-	for _, body := range []string{`{"groups":{}}`, `{"assignments":{"x":{"role":"nonsense"}}}`} {
+	for _, body := range []string{`{"assignments":{"x":{"role":"nonsense"}}}`} {
 		recorder := httptest.NewRecorder()
 		request := httptest.NewRequest(http.MethodPatch, "/api/v1/energy/roles", strings.NewReader(body))
 		router.ServeHTTP(recorder, request)

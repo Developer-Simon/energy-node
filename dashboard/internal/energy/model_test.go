@@ -1,6 +1,11 @@
 package energy
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
+)
 
 func testModel() Model {
 	return Model{
@@ -80,5 +85,19 @@ func TestResolverModelIsACopy(t *testing.T) {
 	m.Groups["garage"].Members.Devices[0] = "changed"
 	if resolver.Model().Groups["garage"].Members.Devices[0] != "wallbox" {
 		t.Fatal("SetModel must deep-copy")
+	}
+}
+
+func TestValidateMemberRolesRejectsALoadInAGroupWithARole(t *testing.T) {
+	m := testModel()
+	devices := []registry.DeviceView{powerDevice("wallbox", "wallbox_power", "1100"), powerDevice("saege", "saege_power", "300")}
+	valid := map[string]Assignment{"wallbox_power": {Role: RoleWallbox}, "saege_power": {Role: CustomRole("werkstatt")}}
+	if err := ValidateMemberRoles(devices, valid, m); err != nil {
+		t.Fatalf("valid members rejected: %v", err)
+	}
+	bad := map[string]Assignment{"wallbox_power": {Role: RoleWallbox}, "saege_power": {Role: RoleLoad}}
+	typed, isUI := uierror.From(ValidateMemberRoles(devices, bad, m))
+	if !isUI || typed.Key != "error.energy_roles_rejected.group_member_role" || typed.Params["entity"] != "saege_power" {
+		t.Fatalf("err = %+v", typed)
 	}
 }

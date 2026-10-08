@@ -1,9 +1,13 @@
 package energy
 
 import (
+	"fmt"
 	"math"
 	"sort"
 	"strings"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
 )
 
 // CategoryBase is what a user-defined category counts as in the balance.
@@ -134,6 +138,34 @@ func (m Model) Remappable(role Role) bool {
 	}
 	base, ok := m.base(role)
 	return ok && base == CategoryConsumer
+}
+
+// ValidateMemberRoles checks the members of every group with a role: their
+// power entities may only carry wallbox, heat_pump, a consumer category or
+// no role, since the group books their consumption under its own category.
+// It needs the registry to know which entities a device has, so it runs in
+// the HTTP layer, not in internal/settings.
+func ValidateMemberRoles(devices []registry.DeviceView, assignments map[string]Assignment, m Model) error {
+	resolver := NewResolver(assignments)
+	resolver.SetModel(m)
+	index := m.RoleGroupIndex()
+	for _, device := range devices {
+		groupRole, inRoleGroup := index[device.ID]
+		if !inRoleGroup {
+			continue
+		}
+		for _, entity := range device.Entities {
+			assignment, ok := resolver.Resolve(entity)
+			if !ok || assignment.Role == "" || m.Remappable(assignment.Role) {
+				continue
+			}
+			categoryID, _ := groupRole.CategoryID()
+			return uierror.New("error.energy_roles_rejected.group_member_role",
+				fmt.Sprintf("energy: %s in a group with role %s has role %s", entity.UniqueID, groupRole, assignment.Role),
+				map[string]any{"entity": entity.UniqueID, "role": string(assignment.Role), "category": m.Categories[categoryID].Label})
+		}
+	}
+	return nil
 }
 
 func Toward(role Role, value float64, m Model) (float64, bool) {
