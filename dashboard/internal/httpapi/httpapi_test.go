@@ -1086,6 +1086,41 @@ func TestDeviceMapRelationsEndpoints(t *testing.T) {
 	}
 }
 
+func TestRelationsAcceptAGroupFeedAndKeepItOutOfTheRegistry(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "netz"}, Entity: registry.EntityInfo{UniqueID: "netz_p"}})
+	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "wallbox"}, Entity: registry.EntityInfo{UniqueID: "wallbox_p"}})
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Assignments: map[string]energy.Assignment{}, Groups: map[string]energy.Group{"garage": {Label: "Garage", Members: energy.GroupMembers{Devices: []string{"wallbox"}, Groups: []string{}}}}}); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(reg, nil, store)
+	post := func(body string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/device/map/relations", strings.NewReader(body)))
+		return recorder
+	}
+	if rec := post(`{"child_id":"group:garage","parent_id":"netz"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("group feed: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := post(`{"child_id":"group:fehlt","parent_id":"netz"}`); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown group: %d", rec.Code)
+	}
+	if rec := post(`{"child_id":"wallbox","parent_id":"group:garage"}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("group as parent must be a membership, not a relation: %d", rec.Code)
+	}
+	if rec := post(`{"child_id":"netz","parent_id":"wallbox"}`); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "relation_cycle") {
+		t.Fatalf("cycle through the group membership not detected: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, device := range reg.Snapshot() {
+		for _, relation := range device.Relations {
+			if strings.HasPrefix(relation.ID, "group:") {
+				t.Fatalf("registry got a group relation: %+v", relation)
+			}
+		}
+	}
+}
+
 func TestDeviceMapRevisionEndpoints(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	if err := store.SaveDeviceMap(settings.DeviceMap{Nodes: []settings.DeviceMapNode{{DeviceID: "first", X: 1, Y: 1}}}); err != nil {
@@ -2073,5 +2108,76 @@ func TestConfigurationStatusEndpoint(t *testing.T) {
 	router.ServeHTTP(recorder, httptest.NewRequest("POST", "/api/v1/configurations/battery_soc_devices/status", nil))
 	if recorder.Code != http.StatusMethodNotAllowed {
 		t.Fatalf("POST: status %d", recorder.Code)
+	}
+}
+
+func TestEnergyRolesPatchManagesCategoriesAndGroups(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router := NewRouter(registry.New(), nil, store)
+	patch := func(body string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPatch, "/api/v1/energy/roles", strings.NewReader(body)))
+		return recorder
+	}
+	if rec := patch(`{"categories":{"werkstatt":{"label":"Werkstatt","base":"consumer","color":"cat_1","icon":"mdi:home"}},"groups":{"garage":{"label":"Garage","members":{"devices":["wallbox"],"groups":[]}}}}`); rec.Code != 200 {
+		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := patch(`{"assignments":{"x":{"role":"custom:werkstatt"}}}`); rec.Code != 200 {
+		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())
+	}
+	rec := patch(`{"categories":{"werkstatt":null}}`)
+	if rec.Code != 400 || !strings.Contains(rec.Body.String(), "error.energy_roles_rejected.category_in_use") || !strings.Contains(rec.Body.String(), `"users":"x"`) {
+		t.Fatalf("in use: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := patch(`{"categories":{"bad":{"label":"B","base":"consumer","color":"cat_1","icon":"mdi:gibtsnicht"}}}`); !strings.Contains(rec.Body.String(), "category_icon_unknown") {
+		t.Fatalf("icon: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := patch(`{"groups":{"garage":null}}`); rec.Code != 200 {
+		t.Fatalf("delete group: %d %s", rec.Code, rec.Body.String())
+	}
+	saved, _ := store.LoadEnergy()
+	if _, ok := saved.Groups["garage"]; ok {
+		t.Fatal("group not deleted")
+	}
+}
+
+func TestDeletingAGroupRemovesItsFeedRelation(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Assignments: map[string]energy.Assignment{}, Groups: map[string]energy.Group{"garage": {Label: "Garage", Members: energy.GroupMembers{Devices: []string{}, Groups: []string{}}}}}); err != nil {
+		t.Fatal(err)
+	}
+	deviceMap := settings.NewDeviceMap()
+	deviceMap.Edges = []settings.RelationOverride{{ID: "r1", ChildID: "group:garage", ParentID: "netz", Kind: "via_device", CreatedAt: time.Now().UTC()}}
+	if err := store.SaveDeviceMap(deviceMap); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), nil, store)
+	router.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodPatch, "/api/v1/energy/roles", strings.NewReader(`{"groups":{"garage":null}}`)))
+	loaded, _ := store.LoadDeviceMap()
+	if len(loaded.Edges) != 0 {
+		t.Fatalf("feed relation of a deleted group survived: %+v", loaded.Edges)
+	}
+}
+
+func TestEnergyRolesPutReplacesGroupsOnlyWhenSent(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router := NewRouter(registry.New(), nil, store)
+	put := func(body string) {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPut, "/api/v1/energy/roles", strings.NewReader(body)))
+		if recorder.Code != 200 {
+			t.Fatalf("put %s: %d %s", body, recorder.Code, recorder.Body.String())
+		}
+	}
+	put(`{"assignments":{},"groups":{"a":{"label":"A","members":{"devices":[],"groups":[]}},"b":{"label":"B","members":{"devices":[],"groups":[]}}}}`)
+	put(`{"assignments":{}}`)
+	saved, _ := store.LoadEnergy()
+	if len(saved.Groups) != 2 {
+		t.Fatalf("a PUT without groups must keep them: %v", saved.Groups)
+	}
+	put(`{"assignments":{},"groups":{"a":{"label":"A","members":{"devices":[],"groups":[]}}}}`)
+	saved, _ = store.LoadEnergy()
+	if _, ok := saved.Groups["b"]; ok || len(saved.Groups) != 1 {
+		t.Fatalf("a PUT with groups must replace them: %v", saved.Groups)
 	}
 }

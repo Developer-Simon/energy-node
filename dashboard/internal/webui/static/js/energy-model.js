@@ -160,6 +160,32 @@
     };
   }
 
+  // Mirrors sumCategories() in balance.go. snapshot.categories carries the
+  // category objects from the server or, for history points, just the base.
+  function categorySums(snapshot) {
+    const categories = (snapshot && snapshot.categories) || {};
+    const sums = {consumers: 0, producers: 0, charge: 0, discharge: 0, perCategory: {}};
+    for (const [key, raw] of Object.entries((snapshot && snapshot.values) || {})) {
+      if (!key.startsWith('custom:')) continue;
+      const id = key.slice('custom:'.length);
+      const def = categories[id];
+      const base = typeof def === 'string' ? def : def && def.base;
+      const value = Number(raw) || 0;
+      if (base === 'consumer') {
+        const v = Math.max(value, 0);
+        sums.consumers += v;
+        sums.perCategory[id] = v;
+      } else if (base === 'producer') {
+        sums.producers += value;
+        sums.perCategory[id] = value;
+      } else if (base === 'storage') {
+        if (value > 0) sums.charge += value; else sums.discharge -= value;
+        sums.perCategory[id] = value;
+      }
+    }
+    return sums;
+  }
+
   // JS mirror of internal/energy/balance.go's DeriveBalance() - same
   // arithmetic, same field names (snake_case, matching the Go JSON tags) so
   // composeBalance() below can render either this or the server's real
@@ -172,9 +198,10 @@
   // from the Go original.
   function deriveBalanceCore(snapshot, interpretation) {
     const cfg = normalizeInterpretation(interpretation);
-    const pv = roleValue(snapshot, 'pv');
-    const charge = batteryChargePower(snapshot);
-    const discharge = batteryDischargePower(snapshot);
+    const cats = categorySums(snapshot);
+    const pv = roleValue(snapshot, 'pv') + cats.producers;
+    const charge = batteryChargePower(snapshot) + cats.charge;
+    const discharge = batteryDischargePower(snapshot) + cats.discharge;
     const gridImport = gridImportPower(snapshot);
     const gridExport = gridExportPower(snapshot);
     const wallbox = Math.max(roleValue(snapshot, 'wallbox'), 0);
@@ -204,11 +231,11 @@
       loadSource = hasMeasured ? 'measured' : 'calculated';
     }
 
-    let base = Math.max(loadTotal - wallbox - heatPump - loadMeasured, 0);
-    const gapRaw = (pv + gridImport + discharge) - (base + loadMeasured + wallbox + heatPump + gridExport + charge);
+    let base = Math.max(loadTotal - wallbox - heatPump - loadMeasured - cats.consumers, 0);
+    const gapRaw = (pv + gridImport + discharge) - (base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge);
 
     const sumSources = pv + gridImport + discharge;
-    const sumSinks = base + loadMeasured + wallbox + heatPump + gridExport + charge;
+    const sumSinks = base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge;
     const total = Math.max(sumSources, sumSinks);
 
     const toleranceW = cfg.gap_tolerance_mode === 'percent' ? (cfg.gap_tolerance_percent / 100) * total : cfg.gap_tolerance_w;
@@ -244,6 +271,7 @@
       battery_soc: roleValue(snapshot, 'battery_soc'),
       battery_capacity_kwh: roleValue(snapshot, 'battery_capacity_kwh'),
       battery_energy_kwh: roleValue(snapshot, 'battery_energy_kwh'),
+      categories: cats.perCategory,
     };
   }
 
@@ -277,6 +305,22 @@
     return flows;
   }
 
+  // Eine Senke je Verbraucher-Kategorie. Die Farbe kommt aus dem Token
+  // cat_1..cat_6 der Kategorie, fehlt sie, bleibt es bei der Restfarbe.
+  function categorySinks(n, snapshot) {
+    const defs = (snapshot && snapshot.categories) || {};
+    return Object.entries(n.categories || {})
+      .filter(([id]) => {
+        const def = defs[id];
+        return (typeof def === 'string' ? def : def && def.base) === 'consumer';
+      })
+      .map(([id, value]) => {
+        const def = typeof defs[id] === 'object' ? defs[id] : {};
+        const token = def.color ? `flow-${def.color.replace('_', '-')}` : 'flow-rest';
+        return {id: `custom:${id}`, label: def.label || id, value, color: window.DashboardTheme.color(token)};
+      });
+  }
+
   // Turns a Balance-shaped object (either the server's real snapshot.balance
   // or deriveBalanceCore()'s JS mirror - both use the same snake_case field
   // names) into the render shape the six cards actually consume: source/sink
@@ -300,6 +344,7 @@
       ...measuredFlows,
       {id: 'wallbox', label: LABELS.wallbox, value: n.wallbox, color: COLORS.wallbox},
       {id: 'heat_pump', label: LABELS.heatPump, value: n.heat_pump, color: COLORS.heatPump},
+      ...categorySinks(n, options.snapshot),
       {id: 'grid_export', label: LABELS.gridExport, value: n.grid_export, color: COLORS.gridExport},
       {id: 'battery_charge', label: LABELS.batteryCharge, value: n.battery_charge, color: COLORS.batteryCharge},
     ].filter(f => f.value > 0.5);
@@ -406,6 +451,7 @@
   // IndexedDB-Speicher (die Entitaets-Samples des Verlauf-Tabs) nicht
   // versehentlich als Rolle einsammelt.
   const HISTORY_ROLES = ['pv', 'battery', 'grid', 'load', 'wallbox', 'heat_pump'];
+  const CUSTOM_SERIES = /^custom:(consumer|producer|storage):([a-z0-9_]+)$/;
 
   // Gruppiert die flache role:<role>-Sampleliste zurueck zu einem Punkt je
   // Abfrage - die Samples einer collect()-Runde teilen sich snapshot.at als
@@ -416,17 +462,33 @@
   // Kein Vollstaendigkeitsfilter auf "pv" mehr: seit history-recorder.js nur
   // noch zugeordnete Rollen schreibt, waere das Fehlen von PV eine Aussage
   // ueber die Anlage, kein Zeichen fuer eine halb geschriebene Abfrage.
+  //
+  // Eigene Kategorien kommen als role:custom:<basis>:<id> und tragen ihren
+  // Basistyp mit: point.categories = {<id>: '<basis>'} bleibt also auch dann
+  // richtig, wenn die Kategorie spaeter umgestellt oder geloescht wird.
   function groupRoleSamples(samples) {
     const groups = new Map();
+    const point = timestamp => {
+      if (!groups.has(timestamp)) groups.set(timestamp, {timestamp, categories: {}});
+      return groups.get(timestamp);
+    };
     for (const sample of samples || []) {
       if (!sample.entity_id || !sample.entity_id.startsWith('role:')) continue;
       const role = sample.entity_id.slice('role:'.length);
+      const custom = CUSTOM_SERIES.exec(role);
+      if (custom) {
+        const target = point(sample.timestamp);
+        target[`custom:${custom[2]}`] = Number(sample.value);
+        target.categories[custom[2]] = custom[1];
+        continue;
+      }
       if (!HISTORY_ROLES.includes(role)) continue;
-      if (!groups.has(sample.timestamp)) groups.set(sample.timestamp, {timestamp: sample.timestamp});
-      groups.get(sample.timestamp)[role] = Number(sample.value);
+      point(sample.timestamp)[role] = Number(sample.value);
     }
+    const hasValue = item => HISTORY_ROLES.some(role => Number.isFinite(item[role]))
+      || Object.keys(item.categories).length > 0;
     return [...groups.values()]
-      .filter(point => HISTORY_ROLES.some(role => Number.isFinite(point[role])))
+      .filter(hasValue)
       .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   }
 
@@ -435,12 +497,16 @@
   // wirklich traegt: ein vorhandener, aber nullter "load"-Schluessel macht
   // hasMeasured in deriveBalanceCore() wahr und laesst load_total im Modus
   // "auto" auf 0 fallen, obwohl gar nichts gemessen wurde.
+  // Eigene Kategorien uebernimmt er mit ihrem Basistyp aus dem Punkt.
   function snapshotFromPoint(point) {
     const values = {};
     for (const role of HISTORY_ROLES) {
       if (Number.isFinite(point[role])) values[role] = point[role];
     }
-    return {values, roles: []};
+    for (const key of Object.keys(point)) {
+      if (key.startsWith('custom:') && Number.isFinite(point[key])) values[key] = point[key];
+    }
+    return {values, roles: [], categories: {...(point.categories || {})}};
   }
 
   // Reads and JSON-parses one of the <script type="application/json"> tags

@@ -117,6 +117,17 @@
     if (has('battery_soc')) {
       rows.push({series: 'role:battery_soc', ts, v: model.roleValue(snapshot, 'battery_soc'), u: '%'});
     }
+    // Eigene Kategorien: der Basistyp steht im Seriennamen, damit ein
+    // Verlaufspunkt ihn auch dann kennt, wenn die Kategorie spaeter
+    // geaendert oder geloescht wird.
+    const categories = snapshot.categories || {};
+    for (const [key, value] of Object.entries(snapshot.values || {})) {
+      if (!key.startsWith('custom:')) continue;
+      const id = key.slice('custom:'.length);
+      const def = categories[id];
+      if (!def || !def.base) continue;
+      rows.push({series: `role:custom:${def.base}:${id}`, ts, v: Number(value) || 0, u: 'W'});
+    }
     return rows;
   };
 

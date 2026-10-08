@@ -63,6 +63,15 @@
   --series-5: #a8d08d;
   --series-6: #e9cf68;
 
+  /* Eigene Energiekategorien (energy.json "categories", color cat_1..cat_6):
+     Aliasse auf die Serienfarben, damit jedes Theme sie mitbringt. */
+  --flow-cat-1: var(--series-1);
+  --flow-cat-2: var(--series-2);
+  --flow-cat-3: var(--series-3);
+  --flow-cat-4: var(--series-4);
+  --flow-cat-5: var(--series-5);
+  --flow-cat-6: var(--series-6);
+
   /* Radius-Skala, bisher nur als Literale (4px/9px/12px) verstreut. Neu
      eingefuehrt fuer die Geraete-Kacheln; andere Stellen bleiben
      unangetastet, um den Umbau auf die Geraete-Seite zu begrenzen. */

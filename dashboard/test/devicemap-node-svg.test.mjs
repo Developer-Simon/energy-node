@@ -44,3 +44,20 @@ test('dataUri is an encoded svg image', () => {
   const uri = svg.dataUri({ segments: [], dashed: false, icon: 'box', iconColor: 'text-muted', health: 'ok' }, colorOf);
   assert.match(uri, /^data:image\/svg\+xml;utf8,%3Csvg/);
 });
+
+test('a category icon is drawn from the catalogue markup with the device icon stroke', () => {
+  const { svg } = load();
+  const markup = svg.markup({segments: ['flow-cat-1'], dashed: false, icon: 'cat:mdi:home', iconMarkup: '<path d="M6 11 12 4 18 11"/>', iconColor: 'flow-cat-1', health: 'ok'}, token => `#${token}`);
+  assert.match(markup, /<path d="M6 11 12 4 18 11"\/>/);
+  assert.match(markup, /stroke-width="1\.6"/);
+  assert.match(markup, /#flow-cat-1/);
+});
+
+test('a group node is a dashed circle with a sigma', () => {
+  const { svg } = load();
+  const markup = svg.groupMarkup(token => `#${token}`);
+  assert.match(markup, /stroke-dasharray/);
+  assert.match(markup, /Σ/);
+  assert.match(markup, /#flow-rest/);
+  assert.match(svg.groupDataUri(token => `#${token}`), /^data:image\/svg\+xml;utf8,/);
+});

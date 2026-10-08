@@ -336,7 +336,7 @@ test('tapping an edge selects it and exposes a human-readable label, without tou
 
   component.onEdgeTap({ target: fakeEdge({ id: 'edge-1', source: 'device_b', target: 'device_a', overrideId: 'relation-1' }) });
 
-  assert.deepEqual(JSON.parse(JSON.stringify(component.selectedEdge)), { id: 'edge-1', source: 'device_b', target: 'device_a', overrideId: 'relation-1' });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.selectedEdge)), { id: 'edge-1', source: 'device_b', target: 'device_a', overrideId: 'relation-1', membership: null });
   assert.equal(component.selectedEdgeLabel, 'Kind → Eltern');
 });
 
@@ -679,6 +679,7 @@ test('save() updates the discard snapshot, so a later discardChanges() keeps the
   const { component } = createDevicemapPanel({
     fetchImpl: async (_url, options) => ({ ok: true, status: 200, json: async () => JSON.parse(options.body) }),
   });
+  component.devices = [{ id: 'device_a', name: 'A', relations: [], entities: [] }];
   component.deviceMap = { version: 1, nodes: [{ device_id: 'device_a', x: 5, y: 5 }], edges: [] };
   component.savedDeviceMap = { version: 1, nodes: [], edges: [] }; // stale on purpose
 
@@ -1065,4 +1066,163 @@ test('panelStatusText counts the drafts', async () => {
   assert.equal(component.panelStatusText(), '');
   component.setDraft('bkw_p', 'role', 'load');
   assert.equal(component.panelStatusText(), '1 Änderung nicht gespeichert');
+});
+
+const groupFixture = component => {
+  component.devices = panelDevices();
+  component.deviceMap = {version: 2, nodes: [{device_id: 'bkw', x: 400, y: 400}, {device_id: 'wb', x: 600, y: 420}], edges: []};
+  component.savedGroups = {garage: {label: 'Garage', members: {devices: ['wb'], groups: []}}};
+  component.savedCategories = {};
+};
+
+test('groups become nodes and their memberships wiring edges', () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  const elements = component.buildElements();
+  assert.ok(elements.some(element => element.data.id === 'group:garage'));
+  const membership = elements.find(element => element.data.source === 'group:garage' && element.data.target === 'wb');
+  assert.ok(membership);
+  assert.deepEqual({...membership.data.membership}, {group: 'garage', member: 'wb'});
+});
+
+test('connecting a device under a group patches the membership and moves it out of its old group', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    if (options.method === 'PATCH') return {ok: true, status: 200, json: async () => ({assignments: {}, groups: JSON.parse(options.body).groups})};
+    return {ok: true, status: 200, json: async () => ({entities: []})};
+  };
+  const {component, stores} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  component.savedGroups.werkstatt = {label: 'Werkstatt', members: {devices: [], groups: []}};
+  component.connectMode = true;
+  await component.onNodeTap({target: fakeNode('wb')});
+  await component.onNodeTap({target: fakeNode('group:werkstatt')});
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(patch.groups.garage.members.devices, []);
+  assert.deepEqual(patch.groups.werkstatt.members.devices, ['wb']);
+  assert.match(stores.modal.calls[0].body, /Garage/);
+});
+
+test('connecting a group under a device creates a feed relation', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    return {ok: true, status: 201, json: async () => ({id: 'r1', child_id: 'group:garage', parent_id: 'bkw', kind: 'via_device'})};
+  };
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  component.connectMode = true;
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  await component.onNodeTap({target: fakeNode('bkw')});
+  const post = calls.find(call => call.options.method === 'POST');
+  assert.ok(post.url.endsWith('/api/v1/device/map/relations'));
+  assert.deepEqual(JSON.parse(post.options.body), {child_id: 'group:garage', parent_id: 'bkw', kind: 'via_device'});
+});
+
+test('removing a selected membership edge patches the group', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    return {ok: true, status: 200, json: async () => ({assignments: {}, groups: {garage: {label: 'Garage', members: {devices: [], groups: []}}}})};
+  };
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  component.selectedEdge = {id: 'edge-x', source: 'group:garage', target: 'wb', overrideId: null, membership: {group: 'garage', member: 'wb'}};
+  await component.removeSelectedRelation();
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(patch.groups.garage.members.devices, []);
+});
+
+test('save writes version 2 with virtual group nodes and drops vanished groups', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => { calls.push({url, options}); return {ok: true, status: 200, json: async () => ({})}; };
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  component.deviceMap.nodes.push({virtual_id: 'group:garage', x: 500, y: 290}, {virtual_id: 'group:weg', x: 1, y: 1});
+  await component.save();
+  const body = JSON.parse(calls.find(call => call.options.method === 'PUT').options.body);
+  assert.equal(body.version, 2);
+  assert.deepEqual(body.nodes.filter(node => node.virtual_id), [{virtual_id: 'group:garage', x: 500, y: 290}]);
+});
+
+test('a new group is placed above its members', () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.savedGroups.garage.members.devices = ['bkw', 'wb'];
+  assert.equal(component.placeNewGroups(), 1);
+  const node = component.deviceMap.nodes.find(item => item.virtual_id === 'group:garage');
+  assert.deepEqual({...node}, {virtual_id: 'group:garage', x: 500, y: 290});
+});
+
+test('createGroup derives an id from the label and patches it', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    return {ok: true, status: 200, json: async () => ({assignments: {}, groups: {...JSON.parse(options.body || '{}').groups}})};
+  };
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  await component.createGroup('Garage');
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(Object.keys(patch.groups), ['garage_2']);
+  assert.deepEqual(patch.groups.garage_2, {label: 'Garage', members: {devices: [], groups: []}});
+});
+
+test('tapping a group opens its panel with members, addable devices and categories', async () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.savedCategories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}};
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  const view = component.panelView;
+  assert.equal(view.kind, 'group');
+  assert.deepEqual(JSON.parse(JSON.stringify(view.members.map(member => member.id))), ['wb']);
+  assert.ok(view.addable.some(item => item.id === 'bkw'));
+  assert.ok(!view.addable.some(item => item.id === 'energy_node'));
+  assert.deepEqual(JSON.parse(JSON.stringify(view.roleOptions.map(option => option.value))), ['', 'custom:werkstatt']);
+});
+
+test('group name and role are drafts, guarded like device drafts and saved together', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    return {ok: true, status: 200, json: async () => ({assignments: {}, groups: JSON.parse(options.body || '{}').groups || {}})};
+  };
+  const {component, stores} = createDevicemapPanel({fetchImpl, confirmAnswer: false});
+  groupFixture(component);
+  component.savedCategories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}};
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  component.setGroupDraft('label', 'Garage Nord');
+  component.setGroupDraft('role', 'custom:werkstatt');
+  assert.equal(component.panelDirty(), true);
+  await component.onBackgroundTap();
+  assert.equal(stores.modal.calls.length, 1);
+  assert.equal(component.panelId, 'group:garage');
+  await component.saveGroupPanel();
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(patch.groups.garage, {label: 'Garage Nord', members: {devices: ['wb'], groups: []}, role: 'custom:werkstatt'});
+  assert.equal(component.groupDraft, null);
+});
+
+test('deleteGroup asks, patches null and closes the panel', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => { calls.push({url, options}); return {ok: true, status: 200, json: async () => ({assignments: {}, groups: {}})}; };
+  const {component} = createDevicemapPanel({fetchImpl, confirmAnswer: true});
+  groupFixture(component);
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  await component.deleteGroup();
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(patch, {groups: {garage: null}});
+  assert.equal(component.panelId, null);
+});
+
+test('createCategory derives an id and offers the category in the device role select', async () => {
+  const fetchImpl = async (url, options = {}) => ({ok: true, status: 200, json: async () => ({assignments: {}, categories: JSON.parse(options.body).categories})});
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  component.categoryForm = {label: 'Werkstatt', base: 'consumer', color: 'cat_2', icon: 'mdi:home'};
+  await component.createCategory();
+  assert.equal(component.savedCategories.werkstatt.color, 'cat_2');
+  const options = component.roleOptionsFor('W');
+  assert.equal(options[options.length - 1].value, 'custom:werkstatt');
 });

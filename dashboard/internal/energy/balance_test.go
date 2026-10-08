@@ -129,10 +129,11 @@ func TestDeriveBalanceMeasuredModeReportsAMissingLoadRole(t *testing.T) {
 // shared with test/energy-model.test.mjs so the Go DeriveBalance and its JS
 // mirror in energy-model.js cannot silently drift apart.
 type balanceCase struct {
-	Name           string         `json:"name"`
-	Values         map[string]any `json:"values"`
-	Interpretation Interpretation `json:"interpretation"`
-	Expect         map[string]any `json:"expect"`
+	Name           string                  `json:"name"`
+	Values         map[string]any          `json:"values"`
+	Categories     map[string]CategoryBase `json:"categories"`
+	Interpretation Interpretation          `json:"interpretation"`
+	Expect         map[string]any          `json:"expect"`
 }
 
 func TestDeriveBalanceMatchesTheSharedFixture(t *testing.T) {
@@ -153,7 +154,11 @@ func TestDeriveBalanceMatchesTheSharedFixture(t *testing.T) {
 			for role, value := range c.Values {
 				values[Role(role)] = value.(float64)
 			}
-			snapshot := Snapshot{Values: values}
+			categories := make(map[string]Category, len(c.Categories))
+			for id, base := range c.Categories {
+				categories[id] = Category{Base: base}
+			}
+			snapshot := Snapshot{Values: values, Categories: categories}
 			balance := DeriveBalance(snapshot, c.Interpretation)
 
 			got, err := json.Marshal(balance)
@@ -175,6 +180,17 @@ func TestDeriveBalanceMatchesTheSharedFixture(t *testing.T) {
 					gotNumber, ok := gotValue.(float64)
 					if !ok || !almostEqual(gotNumber, wantValue) {
 						t.Fatalf("%s = %v, want %v", key, gotValue, wantValue)
+					}
+				case map[string]any:
+					gotMap, ok := gotValue.(map[string]any)
+					if !ok || len(gotMap) != len(wantValue) {
+						t.Fatalf("%s = %v, want %v", key, gotValue, wantValue)
+					}
+					for name, wantNumber := range wantValue {
+						gotNumber, ok := gotMap[name].(float64)
+						if !ok || !almostEqual(gotNumber, wantNumber.(float64)) {
+							t.Fatalf("%s.%s = %v, want %v", key, name, gotMap[name], wantNumber)
+						}
 					}
 				default:
 					if gotValue != want {

@@ -27,6 +27,11 @@ func TestFormValidationErrorsCarryCatalogKeys(t *testing.T) {
 		"bridge_qos":   validateBridgeTopic(BridgeTopic{Pattern: "a/b", Direction: "in", QoS: 3}),
 		"bridge_max":   validateBridge(BridgeConfig{Connections: []BridgeConnection{{Name: "a", Address: "host", RemoteClientID: "id", Port: 1883, Topics: []BridgeTopic{{Pattern: "a", Direction: "in", QoS: 0}}, RestartTimeout: 30, KeepaliveSeconds: 60}, {Name: "b", Address: "host", RemoteClientID: "id", Port: 1883, Topics: []BridgeTopic{{Pattern: "a", Direction: "in", QoS: 0}}, RestartTimeout: 30, KeepaliveSeconds: 60}}}),
 	}
+	for name, mutate := range invalidEnergyCases() {
+		value := validEnergyWithModel()
+		mutate(&value)
+		cases["energy_"+name] = validateEnergy(normalizeEnergy(value))
+	}
 	for name, err := range cases {
 		typed, ok := uierror.From(err)
 		if !ok {

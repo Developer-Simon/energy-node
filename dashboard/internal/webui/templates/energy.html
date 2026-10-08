@@ -1,4 +1,4 @@
-{{define "energy-role-row"}}<div class="energy-role-row" x-bind:data-entity-id="entity.id" x-bind:class="{ 'is-assigned': assignments[entity.id].role, 'is-flash': flash[entity.id] }" x-bind:style="`--row-index: ${index}`"><label x-bind:for="`energy-role-${entity.id}`" x-text="entity.label"></label><select class="energy-role" x-bind:disabled="!canEdit" x-bind:id="`energy-role-${entity.id}`" x-model="assignments[entity.id].role" x-init="$nextTick(() => $el.value = assignments[entity.id].role)"><option value="">{{t "energy.roles.no_role"}}</option><template x-for="option in roleOptionsFor(entity.unit)" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template></select><input class="energy-scale" x-bind:disabled="!canEdit" type="number" min="0.01" step="0.01" title="{{t "energy.roles.scale_title"}}" x-model.number="assignments[entity.id].scale" x-show="!isSocRow(entity.id)"><label x-show="!isSocRow(entity.id)"><input class="energy-invert" x-bind:disabled="!canEdit" type="checkbox" x-model="assignments[entity.id].invert"> {{t "energy.roles.invert_label"}}</label><label class="energy-role-capacity" x-show="isSocRow(entity.id)" x-cloak>{{t "energy.roles.capacity_label"}} <input class="energy-capacity" x-bind:disabled="!canEdit" type="number" min="0" step="0.1" title="{{t "energy.roles.capacity_title"}}" x-model.number="assignments[entity.id].capacity_kwh"> kWh</label><button type="button" class="energy-role-hide-toggle" x-on:click="toggleHidden(entity.id)" x-text="isHidden(entity.id) ? $t('energy.roles.show') : $t('energy.roles.hide')" x-bind:title="isHidden(entity.id) ? $t('energy.roles.show_title') : $t('energy.roles.hide_title')"></button></div>{{end}}
+{{define "energy-role-row"}}<div class="energy-role-row" x-bind:data-entity-id="entity.id" x-bind:class="{ 'is-assigned': assignments[entity.id].role, 'is-flash': flash[entity.id] }" x-bind:style="`--row-index: ${index}`"><label x-bind:for="`energy-role-${entity.id}`" x-text="entity.label"></label><select class="energy-role" x-bind:disabled="!canEdit" x-bind:id="`energy-role-${entity.id}`" x-model="assignments[entity.id].role" x-init="$nextTick(() => $el.value = assignments[entity.id].role)"><option value="">{{t "energy.roles.no_role"}}</option><template x-for="option in roleOptionsFor(entity.unit)" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template><template x-if="entity.unit !== '%' && customRoleOptions().length"><optgroup label="{{t "energy.roles.custom_group"}}"><template x-for="option in customRoleOptions()" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template></optgroup></template></select><input class="energy-scale" x-bind:disabled="!canEdit" type="number" min="0.01" step="0.01" title="{{t "energy.roles.scale_title"}}" x-model.number="assignments[entity.id].scale" x-show="!isSocRow(entity.id)"><label x-show="!isSocRow(entity.id)"><input class="energy-invert" x-bind:disabled="!canEdit" type="checkbox" x-model="assignments[entity.id].invert"> {{t "energy.roles.invert_label"}}</label><label class="energy-role-capacity" x-show="isSocRow(entity.id)" x-cloak>{{t "energy.roles.capacity_label"}} <input class="energy-capacity" x-bind:disabled="!canEdit" type="number" min="0" step="0.1" title="{{t "energy.roles.capacity_title"}}" x-model.number="assignments[entity.id].capacity_kwh"> kWh</label><button type="button" class="energy-role-hide-toggle" x-on:click="toggleHidden(entity.id)" x-text="isHidden(entity.id) ? $t('energy.roles.show') : $t('energy.roles.hide')" x-bind:title="isHidden(entity.id) ? $t('energy.roles.show_title') : $t('energy.roles.hide_title')"></button></div>{{end}}
 {{define "energy"}}
 <section id="energy-panel" class="panel" role="tabpanel" aria-labelledby="tab-energy" x-bind:class="{ active: activePanel === 'energy-panel' }" x-show="activePanel === 'energy-panel'" x-data="energyRolesPanel()" x-init="load()">
   <h2 class="energy-title">{{t "energy.roles.title"}}
@@ -120,6 +120,60 @@
     <div class="energy-roles-group" x-show="hiddenCount > 0" x-cloak>
       <button class="entity-accordion-toggle" type="button" x-on:click="hiddenExpanded = !hiddenExpanded" x-bind:aria-expanded="hiddenExpanded" x-bind:aria-controls="$id('energy-hidden-rows')">{{t "energy.roles.hidden_entries"}} (<span x-text="hiddenCount"></span>)</button>
       <div class="entity-accordion-panel energy-roles" x-cloak x-bind:id="$id('energy-hidden-rows')" x-show="hiddenExpanded" x-collapse><template x-for="(entity, index) in hiddenEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
+    </div>
+  </div>
+
+  <div class="energy-roles-groups energy-groups-sections">
+    <div class="energy-roles-group">
+      <h3 class="energy-roles-group-title">{{t "energy.groups.title"}}</h3>
+      <template x-for="(group, id) in groups" x-bind:key="id">
+        <div class="energy-groups-card">
+          <div class="energy-groups-head">
+            <label class="energy-groups-name">{{t "energy.groups.name"}} <input type="text" x-bind:disabled="!canEdit" x-model="group.label"></label>
+            <label>{{t "energy.groups.role"}}
+              <select x-bind:disabled="!canEdit" x-model="group.role" x-init="$nextTick(() => $el.value = group.role || '')">
+                <option value="">{{t "energy.groups.no_role"}}</option>
+                <template x-for="option in consumerRoleOptions()" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template>
+              </select>
+            </label>
+            <button type="button" class="energy-role-hide-toggle" x-bind:disabled="!canEdit" x-on:click="removeGroup(id)">{{t "energy.groups.remove"}}</button>
+          </div>
+          <fieldset class="energy-groups-members">
+            <legend>{{t "energy.groups.members"}}</legend>
+            <template x-for="device in devicesList" x-bind:key="device.id">
+              <label><input type="checkbox" x-bind:disabled="!canEdit" x-bind:checked="group.members.devices.includes(device.id)" x-on:change="toggleGroupMember(id, 'devices', device.id)"> <span x-text="device.name"></span></label>
+            </template>
+            <template x-for="otherId in Object.keys(groups).filter(key => key !== id)" x-bind:key="otherId">
+              <label><input type="checkbox" x-bind:disabled="!canEdit" x-bind:checked="group.members.groups.includes(otherId)" x-on:change="toggleGroupMember(id, 'groups', otherId)"> <span x-text="groups[otherId].label"></span></label>
+            </template>
+          </fieldset>
+        </div>
+      </template>
+      <button type="button" class="energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()">{{t "energy.groups.add"}}</button>
+    </div>
+
+    <div class="energy-roles-group">
+      <h3 class="energy-roles-group-title">{{t "energy.categories.title"}}</h3>
+      <template x-for="(category, id) in categories" x-bind:key="id">
+        <div class="energy-categories-row">
+          <input type="text" aria-label="{{t "energy.categories.name"}}" x-bind:disabled="!canEdit" x-model="category.label">
+          <select aria-label="{{t "energy.categories.base"}}" x-bind:disabled="!canEdit" x-model="category.base">
+            <option value="consumer">{{t "devicemap.category.base.consumer"}}</option>
+            <option value="producer">{{t "devicemap.category.base.producer"}}</option>
+            <option value="storage">{{t "devicemap.category.base.storage"}}</option>
+          </select>
+          <span class="energy-categories-colors" role="radiogroup" aria-label="{{t "energy.categories.color"}}">
+            <template x-for="n in 6" x-bind:key="n">
+              <label><input type="radio" x-bind:name="`energy-cat-color-${id}`" x-bind:value="`cat_${n}`" x-bind:disabled="!canEdit" x-model="category.color"><span class="devicemap-cat-dot" x-bind:class="`cat-${n}`"></span></label>
+            </template>
+          </span>
+          <select aria-label="{{t "energy.categories.icon"}}" x-bind:disabled="!canEdit" x-model="category.icon">
+            <template x-for="icon in iconCatalogue" x-bind:key="icon.name"><option x-bind:value="icon.name" x-text="$t(icon.labelKey)"></option></template>
+          </select>
+          <button type="button" class="energy-role-hide-toggle" x-bind:disabled="!canEdit" x-on:click="removeCategory(id)">{{t "energy.categories.remove"}}</button>
+        </div>
+      </template>
+      <button type="button" class="energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()">{{t "energy.categories.add"}}</button>
     </div>
   </div>
 

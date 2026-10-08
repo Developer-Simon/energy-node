@@ -14,6 +14,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
 )
 
 func TestStorePersistsSettingsAndLayout(t *testing.T) {
@@ -2085,6 +2086,39 @@ func TestDeviceMapRejectsPartialLayers(t *testing.T) {
 	}
 }
 
+func TestDeviceMapVersion2AcceptsVirtualNodesAndReadsVersion1(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.Version = 1
+	value.Nodes = []DeviceMapNode{{DeviceID: "netz", X: 1, Y: 2}, {VirtualID: "group:garage", X: 3, Y: 4}}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, _ := store.LoadDeviceMap()
+	if loaded.Version != 2 || loaded.Nodes[1].VirtualID != "group:garage" {
+		t.Fatalf("loaded = %+v", loaded)
+	}
+}
+
+func TestDeviceMapRejectsBadNodes(t *testing.T) {
+	for name, node := range map[string]DeviceMapNode{
+		"both":    {DeviceID: "a", VirtualID: "group:a"},
+		"none":    {},
+		"pattern": {VirtualID: "garage"},
+	} {
+		value := NewDeviceMap()
+		value.Nodes = []DeviceMapNode{node}
+		if err := NewStore(t.TempDir()).SaveDeviceMap(value); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	value := NewDeviceMap()
+	value.Nodes = []DeviceMapNode{{VirtualID: "group:a"}, {VirtualID: "group:a"}}
+	if err := NewStore(t.TempDir()).SaveDeviceMap(value); err == nil {
+		t.Error("duplicate virtual node accepted")
+	}
+}
+
 func TestPatchEnergyMergesUnderOneLockAndWritesARevision(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{"a": {Role: energy.RolePV}}}); err != nil {
@@ -2124,5 +2158,68 @@ func TestPatchEnergyKeepsTheFileWhenMutateOrValidationFails(t *testing.T) {
 	value, _ := store.LoadEnergy()
 	if value.Assignments["a"].Role != energy.RolePV {
 		t.Fatalf("stored role changed to %q", value.Assignments["a"].Role)
+	}
+}
+
+func validEnergyWithModel() EnergyConfig {
+	return EnergyConfig{
+		Assignments: map[string]energy.Assignment{"werkstatt_power": {Role: energy.CustomRole("werkstatt")}},
+		Categories:  map[string]energy.Category{"werkstatt": {Label: "Werkstatt", Base: energy.CategoryConsumer, Color: "cat_1", Icon: "mdi:home"}},
+		Groups: map[string]energy.Group{
+			"garage": {Label: "Garage", Members: energy.GroupMembers{Devices: []string{"wallbox"}, Groups: []string{"bank"}}, Role: energy.CustomRole("werkstatt")},
+			"bank":   {Label: "Bank", Members: energy.GroupMembers{Devices: []string{"saege"}, Groups: []string{}}},
+		},
+	}
+}
+
+func TestSaveEnergyAcceptsCategoriesAndGroups(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveEnergy(validEnergyWithModel()); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadEnergy()
+	if err != nil || loaded.Groups["garage"].Members.Groups[0] != "bank" || loaded.Model().Categories["werkstatt"].Base != energy.CategoryConsumer {
+		t.Fatalf("loaded = %+v, %v", loaded, err)
+	}
+}
+
+func invalidEnergyCases() map[string]func(*EnergyConfig) {
+	return map[string]func(*EnergyConfig){
+		"role_unknown":       func(c *EnergyConfig) { c.Assignments["x"] = energy.Assignment{Role: "nonsense"} },
+		"category_unknown":   func(c *EnergyConfig) { c.Assignments["x"] = energy.Assignment{Role: energy.CustomRole("fehlt")} },
+		"id_invalid":         func(c *EnergyConfig) { c.Categories["Groß"] = c.Categories["werkstatt"] },
+		"group_role_invalid": func(c *EnergyConfig) { g := c.Groups["bank"]; g.Role = energy.RoleWallbox; c.Groups["bank"] = g },
+		"group_duplicate_member": func(c *EnergyConfig) {
+			g := c.Groups["bank"]
+			g.Members.Devices = append(g.Members.Devices, "wallbox")
+			c.Groups["bank"] = g
+		},
+		"group_unknown_member": func(c *EnergyConfig) {
+			g := c.Groups["bank"]
+			g.Members.Groups = []string{"fehlt"}
+			c.Groups["bank"] = g
+		},
+		"group_cycle": func(c *EnergyConfig) {
+			g := c.Groups["bank"]
+			g.Members.Groups = []string{"garage"}
+			c.Groups["bank"] = g
+		},
+		"group_nested_role": func(c *EnergyConfig) {
+			g := c.Groups["bank"]
+			g.Role = energy.CustomRole("werkstatt")
+			c.Groups["bank"] = g
+		},
+	}
+}
+
+func TestSaveEnergyRejectsInvalidModels(t *testing.T) {
+	for name, mutate := range invalidEnergyCases() {
+		value := validEnergyWithModel()
+		mutate(&value)
+		err := NewStore(t.TempDir()).SaveEnergy(value)
+		typed, ok := uierror.From(err)
+		if !ok || typed.Key != "error.energy_roles_rejected."+name {
+			t.Errorf("%s: err = %v", name, err)
+		}
 	}
 }

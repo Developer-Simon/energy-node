@@ -137,5 +137,30 @@
       "gap_raw": 0, "gap_applied": 0, "gap_absorbed": 0, "gap_tolerance_w": 25, "gap_ignored": true,
       "unbalanced": false, "autarkie": 0.8, "eigenverbrauch": 1, "netz": 500, "total": 2500
     }
+  },
+  {
+    "name": "custom_categories_by_base",
+    "values": {"pv": 2000, "custom:bkw": 600, "grid": -300, "custom:akku2": 500, "load": 1500, "custom:werkstatt": 350, "wallbox": 400},
+    "categories": {"bkw": "producer", "akku2": "storage", "werkstatt": "consumer"},
+    "interpretation": {"gap_mode": "diagnostic", "load_mode": "auto", "gap_tolerance_mode": "absolute", "gap_tolerance_w": 25, "gap_tolerance_percent": 2},
+    "expect": {
+      "pv": 2600, "grid_import": 0, "grid_export": 300, "battery_charge": 500, "battery_discharge": 0,
+      "wallbox": 400, "heat_pump": 0, "load_total": 1500, "load_source": "measured", "base": 750, "load_measured": 0,
+      "gap_raw": 300, "gap_applied": 300, "gap_absorbed": 0, "gap_tolerance_w": 25, "gap_ignored": false,
+      "unbalanced": true, "autarkie": 1, "eigenverbrauch": 0.8846153846153846, "netz": -300, "total": 2600,
+      "categories": {"bkw": 600, "akku2": 500, "werkstatt": 350}
+    }
+  },
+  {
+    "name": "custom_storage_discharges_and_unknown_category_is_ignored",
+    "values": {"pv": 1000, "custom:akku2": -800, "custom:geist": 999, "grid": 0},
+    "categories": {"akku2": "storage"},
+    "interpretation": {"gap_mode": "unknown_consumer", "load_mode": "calculated", "gap_tolerance_mode": "absolute", "gap_tolerance_w": 25, "gap_tolerance_percent": 2},
+    "expect": {
+      "pv": 1000, "grid_import": 0, "grid_export": 0, "battery_charge": 0, "battery_discharge": 800,
+      "load_total": 1800, "load_source": "calculated", "base": 1800, "gap_raw": 0, "gap_ignored": true,
+      "unbalanced": false, "autarkie": 1, "eigenverbrauch": 1, "netz": 0, "total": 1800,
+      "categories": {"akku2": -800}
+    }
   }
 ]

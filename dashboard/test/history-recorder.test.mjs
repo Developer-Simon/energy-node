@@ -349,3 +349,19 @@ test('ein Fehler des Austauschs haelt die Aufzeichnung nicht an', async () => {
   assert.match(seen[0], /Verlauf-Austausch/);
   dom.window.close();
 });
+
+test('roleSamples schreibt eigene Kategorien mit ihrem Basistyp in den Seriennamen', () => {
+  const dom = load();
+  const samples = dom.window.dashboardHistorizer.roleSamples({
+    at: '2026-10-08T10:00:00Z',
+    values: {'custom:werkstatt': 350, 'custom:geist': 5},
+    categories: {werkstatt: {base: 'consumer'}},
+    roles: [],
+  });
+  assert.equal(samples.length, 1);
+  assert.deepEqual(
+    {series: samples[0].series, v: samples[0].v, u: samples[0].u},
+    {series: 'role:custom:consumer:werkstatt', v: 350, u: 'W'},
+  );
+  dom.window.close();
+});

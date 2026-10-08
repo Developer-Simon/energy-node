@@ -64,14 +64,14 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-10-08**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `23` |
+| `css/base.css` | `26` |
 | `js/i18n.js` | `3` (also `login.html`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -93,7 +93,7 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-coverage.js` | `2` |
 | `js/history-exchange.js` | `3` |
 | `js/history-maintenance.js` | `1` |
-| `js/history-recorder.js` | `9` |
+| `js/history-recorder.js` | `10` |
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `26` |
 | `js/overview.page.js` | `6` |
@@ -105,7 +105,7 @@ As of **2026-09-28**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `js/energy-model.js` | `2` |
+| `js/energy-model.js` | `3` |
 | `js/battery-card-core.js` | `4` |
 | `js/battery-status.js` | `2` |
 | `js/energy-day.js` | `2` |
@@ -122,13 +122,13 @@ skips scripts already present as `<script src>`.
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `2`, `js/history.js` `13` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `13` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `8`, `css/diagnostics.css` `2` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `8` | `css/manager.css` `27` |
-| `energy-panel` | `js/revisions.js` `4`, `js/energy.page.js` `5` | `css/manager.css` `27` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `3`, `js/devicemap-node-svg.js` `1`, `js/devicemap-labels.js` `1`, `js/devicemap.page.js` `12` | `css/manager.css` `27` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `13`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `2`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `27`, `css/settings-controls.css` `8` |
-| `automations-panel` | `js/config-status.js` `3`, `js/automations.page.js` `7` | `css/manager.css` `27`, `css/automations.css` `4` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `8` | `css/manager.css` `28` |
+| `energy-panel` | `js/revisions.js` `4`, `js/energy.page.js` `6` | `css/manager.css` `28` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `4`, `js/devicemap-node-svg.js` `2`, `js/devicemap-labels.js` `1`, `js/devicemap.page.js` `13` | `css/manager.css` `28` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `13`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `2`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `28`, `css/settings-controls.css` `8` |
+| `automations-panel` | `js/config-status.js` `3`, `js/automations.page.js` `7` | `css/manager.css` `28`, `css/automations.css` `4` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -244,6 +244,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.8.15 | `css/base.css` · `css/manager.css` (5 panels) · `js/devicemap-model.js` · `js/devicemap-node-svg.js` · `js/devicemap.page.js` · `js/energy-model.js` (history panel + energy cards) · `js/history-recorder.js` · `js/energy.page.js` | `26` · `28` · `4` · `2` · `13` · `3` · `10` · `6` | 2026-10-08 |
 | v0.8.14 | `css/manager.css` (5 panels) · `js/dashboard.js` · `js/revisions.js` (config, energy, device map, settings panels + layout editor) · `js/energy.page.js` · `js/devicemap.page.js` · `js/devicemap-model.js` | `27` · `26` · `4` · `5` · `12` · `3` | 2026-10-08 |
 | v0.8.13 | `css/manager.css` (5 panels) · `js/devicemap.page.js` · `js/devicemap-model.js` | `26` · `11` · `2` | 2026-10-08 |
 | v0.8.12 | `css/manager.css` (5 panels) · `js/devicemap.page.js` · `js/devicemap-model.js` (new) · `js/devicemap-node-svg.js` (new) · `js/devicemap-labels.js` (new) | `25` · `10` · `1` · `1` · `1` | 2026-10-08 |

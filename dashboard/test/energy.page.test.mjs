@@ -407,3 +407,46 @@ test('energy-roles-changed reloads the page and focusRows flashes and unhides ro
   t.mock.timers.tick(1600);
   assert.equal(component.flash.socket_power, undefined);
 });
+
+test('the page loads categories and groups, offers custom roles and saves both', async () => {
+  const calls = [];
+  const devices = [{...devicesResponse[0], id: 'inverter'}];
+  const roles = {...rolesResponse,
+    categories: {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}},
+    groups: {garage: {label: 'Garage', members: {devices: ['inverter'], groups: []}}}};
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({edit_energy: true, csrf_token: 't'});
+    if (url.endsWith('/api/v1/device/icons')) return jsonResponse([{name: 'mdi:home', labelKey: 'device_icon.home'}]);
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(devices);
+    if (url.endsWith('/api/v1/energy/roles')) return jsonResponse(roles);
+    return jsonResponse(energyResponse);
+  };
+  const {component} = createEnergyPanel({fetchImpl});
+  await component.load();
+  assert.deepEqual(JSON.parse(JSON.stringify(component.customRoleOptions().map(option => option.value))), ['custom:werkstatt']);
+  component.addGroup();
+  const newId = Object.keys(component.groups).find(id => id !== 'garage');
+  component.groups[newId].label = 'Werkstatt Nord';
+  await component.save();
+  const body = JSON.parse(calls.find(call => call.options.method === 'PUT').options.body);
+  assert.ok(body.categories.werkstatt);
+  assert.ok(body.groups.garage);
+  assert.equal(Object.keys(body.groups).length, 2);
+});
+
+test('saving after removing a used category shows the server error', async () => {
+  const fetchImpl = async (url, options = {}) => {
+    if (options.method === 'PUT') return jsonResponse({code: 'energy_roles_rejected', message: 'x', message_key: 'error.energy_roles_rejected.category_unknown', params: {category: 'werkstatt'}}, false);
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({edit_energy: true});
+    if (url.endsWith('/api/v1/device/icons')) return jsonResponse([]);
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(devicesResponse);
+    if (url.endsWith('/api/v1/energy/roles')) return jsonResponse({...rolesResponse, categories: {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}}});
+    return jsonResponse(energyResponse);
+  };
+  const {component, stores} = createEnergyPanel({fetchImpl});
+  await component.load();
+  component.removeCategory('werkstatt');
+  await component.save();
+  assert.equal(stores.toasts.criticals.length, 1);
+});

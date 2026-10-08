@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -39,6 +40,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/systemactions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tailscale"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/tinytuya"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updatecheck"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/versions"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
@@ -273,7 +275,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	}
 	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine))
 	mux.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
-	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth))
+	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store))
 	newHistoryExchange(recordedExchangeSeries(reg, store, resolver)).routes(mux)
@@ -796,7 +798,7 @@ func handleEnergy(reg *registry.Registry, resolver *energy.Resolver) http.Handle
 	}
 }
 
-func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager *auth.Manager) http.HandlerFunc {
+func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager *auth.Manager, reg *registry.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, http.StatusNotImplemented, "energy_roles_unavailable", "Energie-Rollen sind ohne Datenverzeichnis nicht verfügbar")
@@ -814,20 +816,43 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 			if !requireEnergyMutation(w, r, manager) {
 				return
 			}
+			defer r.Body.Close()
 			// Decoding into the stored config (not a zero value) means a body
 			// that omits "interpretation" entirely keeps the saved
 			// interpretation instead of resetting it - see
 			// knowhow/dashboard/energie-interpretation.md. Assignments is
 			// reset to nil first so the map is fully replaced rather than
 			// merged, preserving the pre-existing full-replace semantics for
-			// role assignments.
+			// role assignments. Categories and groups are replaced only when
+			// the body sends them, so an older client keeps them.
 			value, err := store.LoadEnergy()
 			if err != nil {
 				writeErrorDetail(w, http.StatusInternalServerError, "energy_roles_invalid", err)
 				return
 			}
+			raw, err := io.ReadAll(io.LimitReader(r.Body, 2<<20))
+			if err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+				return
+			}
+			var keys map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &keys); err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+				return
+			}
+			previousGroups := mapKeysOf(value.Groups)
 			value.Assignments = nil
-			if err := decodeBody(r, &value); err != nil {
+			if _, ok := keys["groups"]; ok {
+				value.Groups = nil
+			}
+			if _, ok := keys["categories"]; ok {
+				value.Categories = nil
+			}
+			if err := json.Unmarshal(raw, &value); err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+				return
+			}
+			if err := checkEnergyModel(reg, value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
 			}
@@ -835,6 +860,7 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
 			}
+			pruneGroupRelations(store, reg, missingFrom(previousGroups, value.Groups))
 			applyEnergyConfig(resolver, value)
 			writeJSON(w, value)
 		case http.MethodPatch:
@@ -844,6 +870,8 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 			defer r.Body.Close()
 			var patch struct {
 				Assignments map[string]*energy.Assignment `json:"assignments"`
+				Categories  map[string]*energy.Category   `json:"categories"`
+				Groups      map[string]*energy.Group      `json:"groups"`
 			}
 			decoder := json.NewDecoder(io.LimitReader(r.Body, 2<<20))
 			decoder.DisallowUnknownFields()
@@ -851,6 +879,7 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
 			}
+			removedGroups := []string{}
 			value, err := store.PatchEnergy(func(current *settings.EnergyConfig) error {
 				for id, assignment := range patch.Assignments {
 					if assignment == nil {
@@ -859,12 +888,43 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 					}
 					current.Assignments[id] = *assignment
 				}
-				return nil
+				if current.Categories == nil {
+					current.Categories = map[string]energy.Category{}
+				}
+				if current.Groups == nil {
+					current.Groups = map[string]energy.Group{}
+				}
+				for id, category := range patch.Categories {
+					if category != nil {
+						current.Categories[id] = *category
+						continue
+					}
+					if users := categoryUsers(*current, id); len(users) > 0 {
+						return uierror.New("error.energy_roles_rejected.category_in_use",
+							fmt.Sprintf("energy: category %q is still used by %s", id, strings.Join(users, ", ")),
+							map[string]any{"category": current.Categories[id].Label, "users": strings.Join(users, ", ")})
+					}
+					delete(current.Categories, id)
+				}
+				for id, group := range patch.Groups {
+					if group != nil {
+						current.Groups[id] = *group
+						continue
+					}
+					delete(current.Groups, id)
+					removedGroups = append(removedGroups, id)
+					for otherID, other := range current.Groups {
+						other.Members.Groups = slices.DeleteFunc(other.Members.Groups, func(child string) bool { return child == id })
+						current.Groups[otherID] = other
+					}
+				}
+				return checkEnergyModel(reg, *current)
 			})
 			if err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
 			}
+			pruneGroupRelations(store, reg, removedGroups)
 			applyEnergyConfig(resolver, value)
 			writeJSON(w, value)
 		default:
@@ -1700,7 +1760,94 @@ func requireEnergyMutation(w http.ResponseWriter, r *http.Request, manager *auth
 // behind the file.
 func applyEnergyConfig(resolver *energy.Resolver, value settings.EnergyConfig) {
 	resolver.SetOverrides(value.Assignments)
+	resolver.SetModel(value.Model())
 	resolver.SetInterpretation(value.Interpretation)
+}
+
+// checkEnergyModel runs the checks that need more than energy.json: member
+// roles against the registry and category icons against the catalogue.
+func checkEnergyModel(reg *registry.Registry, value settings.EnergyConfig) error {
+	known := map[string]bool{}
+	for _, icon := range webui.DeviceIconCatalogue() {
+		known[icon.Name] = true
+	}
+	for _, id := range mapKeysOf(value.Categories) {
+		category := value.Categories[id]
+		if !known[category.Icon] {
+			return uierror.New("error.energy_roles_rejected.category_icon_unknown",
+				fmt.Sprintf("energy: category %q has unknown icon %q", id, category.Icon), map[string]any{"category": category.Label})
+		}
+	}
+	return energy.ValidateMemberRoles(reg.Snapshot(), value.Assignments, value.Model())
+}
+
+// pruneGroupRelations drops the feed relations of deleted groups from
+// device-map.json, so no edge points at a node that no longer exists.
+func pruneGroupRelations(store *settings.Store, reg *registry.Registry, removed []string) {
+	if len(removed) == 0 {
+		return
+	}
+	deviceMap, err := store.LoadDeviceMap()
+	if err != nil {
+		return
+	}
+	gone := map[string]bool{}
+	for _, id := range removed {
+		gone["group:"+id] = true
+	}
+	kept := []settings.RelationOverride{}
+	for _, edge := range deviceMap.Edges {
+		if !gone[edge.ChildID] && !gone[edge.ParentID] {
+			kept = append(kept, edge)
+		}
+	}
+	if len(kept) == len(deviceMap.Edges) {
+		return
+	}
+	deviceMap.Edges = kept
+	if err := store.SaveDeviceMap(deviceMap); err == nil {
+		applyRelationOverrides(reg, deviceMap)
+	}
+}
+
+// categoryUsers names what still refers to a category: entity ids with the
+// role and labels of groups that use it as their role.
+func categoryUsers(value settings.EnergyConfig, id string) []string {
+	role := energy.CustomRole(id)
+	users := []string{}
+	for entityID, assignment := range value.Assignments {
+		if assignment.Role == role {
+			users = append(users, entityID)
+		}
+	}
+	for _, group := range value.Groups {
+		if group.Role == role {
+			users = append(users, group.Label)
+		}
+	}
+	sort.Strings(users)
+	return users
+}
+
+// mapKeysOf returns the keys of m sorted, so error messages stay stable.
+func mapKeysOf[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
+}
+
+// missingFrom returns the ids of before that are no longer keys of after.
+func missingFrom[V any](before []string, after map[string]V) []string {
+	removed := []string{}
+	for _, id := range before {
+		if _, ok := after[id]; !ok {
+			removed = append(removed, id)
+		}
+	}
+	return removed
 }
 
 func requireDeviceMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager, roleRequired, csrfRequired bool) bool {
@@ -2366,6 +2513,15 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 		writeError(w, http.StatusBadRequest, "relation_self_reference", "a device cannot be its own parent")
 		return
 	}
+	if strings.HasPrefix(request.ParentID, "group:") {
+		writeError(w, http.StatusBadRequest, "invalid_relation", "a group is joined through its membership, not through a relation")
+		return
+	}
+	energyConfig, err := store.LoadEnergy()
+	if err != nil {
+		writeErrorDetail(w, http.StatusInternalServerError, "energy_roles_invalid", err)
+		return
+	}
 
 	devices := reg.Snapshot()
 	deviceExists := make(map[string]bool, len(devices))
@@ -2374,6 +2530,19 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 		deviceExists[device.ID] = true
 		if device.ViaDevice != "" {
 			parentOf[device.ID] = device.ViaDevice
+		}
+	}
+	// Group memberships live in energy.json. Registered here so the cycle
+	// check sees a path through a group. parentOf keeps one parent per node:
+	// a manual relation entered afterwards wins over a membership, which is
+	// enough to catch every cycle a single new relation can close.
+	for id, group := range energyConfig.Groups {
+		deviceExists["group:"+id] = true
+		for _, device := range group.Members.Devices {
+			parentOf[device] = "group:" + id
+		}
+		for _, child := range group.Members.Groups {
+			parentOf["group:"+child] = "group:" + id
 		}
 	}
 	if !deviceExists[request.ChildID] || !deviceExists[request.ParentID] {
@@ -2463,6 +2632,11 @@ func relationCreatesCycle(parentOf map[string]string, childID, parentID string) 
 func applyRelationOverrides(reg *registry.Registry, deviceMap settings.DeviceMap) {
 	overrides := make([]registry.RelationOverride, 0, len(deviceMap.Edges))
 	for _, edge := range deviceMap.Edges {
+		// The registry only knows devices. Group feeds are kept in the
+		// device map and never reach the device tree.
+		if strings.HasPrefix(edge.ChildID, "group:") || strings.HasPrefix(edge.ParentID, "group:") {
+			continue
+		}
 		overrides = append(overrides, registry.RelationOverride{ID: edge.ID, ChildID: edge.ChildID, ParentID: edge.ParentID, Kind: edge.Kind})
 	}
 	reg.SetRelationOverrides(overrides)

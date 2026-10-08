@@ -292,6 +292,30 @@ select.schema-control {
 .energy-roles-group-title { margin: 0; font-size: 1rem; font-weight: 600; letter-spacing: -.01em; color: var(--text-strong); }
 .energy-roles { display: grid; gap: .55rem; }
 
+/* Gruppen und eigene Kategorien: gleiche Flaechen wie die Rollenzeilen. */
+.energy-groups-card {
+  display: grid; gap: .6rem;
+  padding: .6rem .7rem;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel-alt);
+}
+.energy-groups-head { display: flex; flex-wrap: wrap; gap: .55rem; align-items: center; }
+.energy-groups-head > label { display: inline-flex; gap: .4rem; align-items: center; font-size: .9rem; color: var(--text); }
+.energy-groups-name input { min-width: 12rem; }
+.energy-groups-members { display: flex; flex-wrap: wrap; gap: .35rem .9rem; margin: 0; padding: 0; border: 0; }
+.energy-groups-members legend { font-size: .82rem; color: var(--text-subtle); margin-bottom: .3rem; }
+.energy-groups-members label { display: inline-flex; gap: .35rem; align-items: center; font-size: .88rem; color: var(--text); }
+.energy-groups-add { justify-self: start; }
+.energy-categories-row {
+  display: flex; flex-wrap: wrap; gap: .55rem; align-items: center;
+  padding: .6rem .7rem;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--panel-alt);
+}
+.energy-categories-colors { display: inline-flex; gap: .35rem; align-items: center; }
+.energy-categories-colors label { display: inline-flex; align-items: center; cursor: pointer; }
+.energy-categories-colors input[type="radio"] { position: absolute; opacity: 0; pointer-events: none; }
+.energy-categories-colors input[type="radio"]:checked + .devicemap-cat-dot { box-shadow: 0 0 0 2px var(--panel-alt), 0 0 0 4px var(--accent-line); }
+.energy-categories-colors input[type="radio"]:focus-visible + .devicemap-cat-dot { outline: 2px solid var(--accent-line); outline-offset: 2px; }
+
 /* Rollenzeile im Stil von .array-item: ruhige Flaeche, Haarlinie,
    Akzent-Linkskante NUR bei zugewiesener Rolle - "zugeordnet vs. offen" auf
    einen Blick. Beim ersten Aufbau materialisieren die Zeilen gestaffelt. */
@@ -955,3 +979,21 @@ select.schema-control {
 @media (max-width: 700px) {
   .form-grid { grid-template-columns: 1fr; }
 }
+
+.devicemap-panel-member { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--border-soft); font-size: .88rem; }
+.devicemap-panel-member:last-of-type { border-bottom: 0; }
+.devicemap-panel-member span:nth-child(2) { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-subtle); }
+.devicemap-panel-category { display: flex; gap: 8px; align-items: center; font-size: .86rem; }
+.devicemap-panel-category .muted { color: var(--text-muted); }
+.devicemap-cat-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+.devicemap-cat-dot.cat-1 { background: var(--flow-cat-1); }
+.devicemap-cat-dot.cat-2 { background: var(--flow-cat-2); }
+.devicemap-cat-dot.cat-3 { background: var(--flow-cat-3); }
+.devicemap-cat-dot.cat-4 { background: var(--flow-cat-4); }
+.devicemap-cat-dot.cat-5 { background: var(--flow-cat-5); }
+.devicemap-cat-dot.cat-6 { background: var(--flow-cat-6); }
+.devicemap-legend i.devicemap-cat-line { border-color: var(--flow-cat-1); }
+.devicemap-legend i.devicemap-group-line { border-color: var(--flow-rest); }
+.devicemap-panel-title-input { font: inherit; font-size: 1.05rem; font-weight: 600; color: var(--text-strong); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 2px 4px; margin-left: -5px; width: 100%; }
+.devicemap-panel-title-input:hover, .devicemap-panel-title-input:focus { border-color: var(--border-soft); background: var(--sunken); }
+.devicemap-panel-link.danger { color: var(--bad-strong); }

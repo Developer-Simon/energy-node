@@ -6,6 +6,7 @@
 package httpapi
 
 import (
+	"sort"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -14,9 +15,10 @@ import (
 )
 
 // exchangeSeriesFrom spiegelt roleSamples() in history-recorder.js: eine
-// Rolle zaehlt, sobald eine ihrer Teilrollen einen Wert hat. Weicht die
-// Liste vom Recorder ab, bietet Home Assistant Serien an, die kein Browser
-// fuehrt, oder verschweigt welche, die er fuehrt.
+// Rolle zaehlt, sobald eine ihrer Teilrollen einen Wert hat, und eine eigene
+// Kategorie kuendigt `role:custom:<basis>:<id>` an. Weicht die Liste vom
+// Recorder ab, bietet Home Assistant Serien an, die kein Browser fuehrt,
+// oder verschweigt welche, die er fuehrt.
 func exchangeSeriesFrom(snapshot energy.Snapshot, extras []registry.EntityValue) []exchangeSeries {
 	has := func(roles ...energy.Role) bool {
 		for _, role := range roles {
@@ -50,6 +52,20 @@ func exchangeSeriesFrom(snapshot energy.Snapshot, extras []registry.EntityValue)
 	}
 	if has(energy.RoleBatterySoC) {
 		add("battery_soc", "%")
+	}
+	custom := []string{}
+	for role := range snapshot.Values {
+		id, ok := role.CategoryID()
+		if !ok {
+			continue
+		}
+		if category, known := snapshot.Categories[id]; known {
+			custom = append(custom, "custom:"+string(category.Base)+":"+id)
+		}
+	}
+	sort.Strings(custom)
+	for _, name := range custom {
+		add(name, "W")
 	}
 	for _, entity := range extras {
 		list = append(list, exchangeSeries{ID: entity.UniqueID, Unit: entity.Unit})

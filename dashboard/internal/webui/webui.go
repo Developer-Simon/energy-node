@@ -844,6 +844,7 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 					resolverMu.Lock()
 					resolver.SetOverrides(value.Assignments)
 					resolver.SetInterpretation(value.Interpretation)
+					resolver.SetModel(value.Model())
 					resolverMu.Unlock()
 				}
 			}
