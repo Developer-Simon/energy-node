@@ -1478,6 +1478,15 @@ func TestDeviceMapPanelEmbedsRevisionPartial(t *testing.T) {
 	}
 }
 
+func TestDeviceMapPanelRendersTheRolePanel(t *testing.T) {
+	body := renderPanel(t, "devicemap")
+	for _, want := range []string{`class="devicemap-panel"`, `data-panel-save`, `x-text="panelView.title"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("device map fragment misses %q", want)
+		}
+	}
+}
+
 func TestSettingsPanelEmbedsRevisionPartial(t *testing.T) {
 	body := renderPanel(t, "settings")
 	// Nur der allgemeine Einstellungsbereich nutzt die geteilte Revisions-
