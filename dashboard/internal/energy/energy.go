@@ -212,6 +212,7 @@ type Resolver struct {
 	mu             sync.RWMutex
 	overrides      map[string]Assignment
 	interpretation Interpretation
+	model          Model
 }
 
 func NewResolver(overrides map[string]Assignment) *Resolver {
@@ -222,7 +223,22 @@ func NewResolver(overrides map[string]Assignment) *Resolver {
 		}
 		copy[id] = assignment
 	}
-	return &Resolver{overrides: copy, interpretation: DefaultInterpretation()}
+	return &Resolver{overrides: copy, interpretation: DefaultInterpretation(), model: Model{}.clone()}
+}
+
+// SetModel/Model share the categories and groups from energy.json, same
+// mutex pattern as SetOverrides.
+func (r *Resolver) SetModel(m Model) {
+	next := m.clone()
+	r.mu.Lock()
+	r.model = next
+	r.mu.Unlock()
+}
+
+func (r *Resolver) Model() Model {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.model.clone()
 }
 
 func (r *Resolver) Resolve(entity registry.EntityView) (ResolvedAssignment, bool) {
