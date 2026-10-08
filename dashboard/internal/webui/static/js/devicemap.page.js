@@ -360,6 +360,52 @@
         return ok;
       },
 
+      roleOptionsFor(unit) {
+        return window.DeviceMapModel.roleOptions(unit);
+      },
+
+      pinAssignment(entityId) {
+        const base = window.DeviceMapModel.baseAssignment(entityId, this.savedAssignments, this.energy);
+        this.drafts = {...this.drafts, [entityId]: {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh, pin: true}};
+        this.applyEnergy();
+      },
+
+      panelStatusText() {
+        const n = Object.keys(this.drafts).length;
+        return n ? tn('devicemap.panel.status', n, {n}) : '';
+      },
+
+      async savePanel() {
+        if (!this.panelDirty() || this.panelSaving) return;
+        this.panelSaving = true;
+        const assignments = Object.fromEntries(Object.entries(this.drafts)
+          .map(([id, draft]) => [id, window.DeviceMapModel.assignmentPayload(draft)]));
+        try {
+          const saved = await requestJSON('/api/v1/energy/roles', {
+            method: 'PATCH',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+            body: JSON.stringify({assignments}),
+          });
+          this.savedAssignments = (saved && saved.assignments) || {};
+          this.drafts = {};
+          await this.refreshEnergy();
+          window.dispatchEvent(new CustomEvent('energy-roles-changed'));
+          this.$store.toasts.push(t('devicemap.panel.saved'));
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        } finally {
+          this.panelSaving = false;
+        }
+      },
+
+      showInRoleTable() {
+        const view = this.panelView;
+        if (!view) return;
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {
+          detail: {panel: 'energy-panel', energyFocus: view.rows.map(row => row.id)},
+        }));
+      },
+
       async requestClosePanel() {
         if (!(await this.leavePanel())) return;
         this.closePanel();
