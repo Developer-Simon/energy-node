@@ -811,3 +811,70 @@ test('toggleWidthByPower flips the view flag and marks the map unsaved', () => {
   assert.equal(component.view.width_by_power, true);
   assert.equal(component.unsaved, true);
 });
+
+function flowFixture(component, batteryValue = 800) {
+  component.devices = [
+    { id: 'netz', name: 'Netz', relations: [] },
+    { id: 'bat', name: 'Batterie', relations: [{ kind: 'parent', id: 'netz' }] },
+    { id: 'bms', name: 'BMS', relations: [{ kind: 'parent', id: 'bat' }] },
+  ];
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.energy = { entities: [{ device_id: 'bat', entity_id: 'p', value: batteryValue, unit: 'W', role: { role: 'battery', source: 'override' } }] };
+}
+
+test('flowElements draws one flow per wiring edge with data, in flow direction', () => {
+  const { component } = createDevicemapPanel();
+  flowFixture(component);
+  const flows = JSON.parse(JSON.stringify(component.flowElements()));
+  assert.equal(flows.length, 1, 'the BMS edge has no data and gets no flow');
+  assert.deepEqual(flows[0].data, { id: 'flow-netz::bat', source: 'netz', target: 'bat', label: '↓ 800 W', color: 'flow-battery', width: 2.6, speed: 'mid', reverse: false });
+});
+
+test('a discharging battery flips the flow toward the parent', () => {
+  const { component } = createDevicemapPanel();
+  flowFixture(component, -1500);
+  const [flow] = JSON.parse(JSON.stringify(component.flowElements()));
+  assert.equal(flow.data.source, 'bat');
+  assert.equal(flow.data.target, 'netz');
+  assert.equal(flow.data.reverse, true);
+  assert.equal(flow.data.label, '↑ 1,5 kW');
+  assert.equal(flow.data.speed, 'fast');
+});
+
+test('flowElements is empty while the energy layer is off or the snapshot is missing', () => {
+  const { component } = createDevicemapPanel();
+  flowFixture(component);
+  component.toggleLayer('energy');
+  assert.equal(component.flowElements().length, 0);
+  component.toggleLayer('energy');
+  component.energy = null;
+  assert.equal(component.flowElements().length, 0);
+});
+
+test('applyFlows replaces a flow whose direction changed instead of duplicating it', () => {
+  const { component } = createDevicemapPanel();
+  flowFixture(component, 800);
+  const store = new Map();
+  const fakeCy = {
+    batch: fn => fn(),
+    edges: selector => ({ forEach: fn => [...store.values()].forEach(fn) }),
+    getElementById: id => store.get(id) || { empty: () => true },
+    add: element => {
+      const data = { ...element.data };
+      store.set(data.id, {
+        empty: () => false,
+        id: () => data.id,
+        data: (key, value) => { if (value !== undefined) data[key] = value; return key ? data[key] : data; },
+        remove: () => store.delete(data.id),
+      });
+    },
+    style: () => {},
+  };
+  component._cyForTest = fakeCy;
+  component.applyFlows();
+  assert.equal(store.get('flow-netz::bat').data('target'), 'bat');
+  component.energy.entities[0].value = -800;
+  component.applyFlows();
+  assert.equal(store.size, 1);
+  assert.equal(store.get('flow-netz::bat').data('target'), 'netz');
+});

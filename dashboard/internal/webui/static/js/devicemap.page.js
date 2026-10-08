@@ -64,6 +64,7 @@
       _energyTimer: null,
       _energyPending: false,
       _setTimeout: (fn, ms) => setTimeout(fn, ms),
+      _cyForTest: null,
 
       async load() {
         // load() läuft nach jedem Speichern erneut, die Registrierung darf
@@ -116,9 +117,59 @@
         if (labels) { labels.destroy(); labels = null; }
       },
 
+      flowElements() {
+        const model = window.DeviceMapModel;
+        if (!this.view.layers.energy || !this.energy) return [];
+        const energy = this.energyByDevice();
+        const pairs = this.wiringPairs();
+        const children = model.childrenIndex(pairs);
+        const byPower = this.view.width_by_power;
+        const flows = [];
+        for (const {parent, child} of pairs) {
+          const flow = model.edgeFlow(child, energy, children);
+          if (!flow) continue;
+          const reverse = flow.value < 0;
+          const abs = Math.abs(flow.value);
+          flows.push({
+            group: 'edges',
+            classes: 'devicemap-flow',
+            data: {
+              id: `flow-${parent}::${child}`,
+              source: reverse ? child : parent,
+              target: reverse ? parent : child,
+              label: model.flowLabel(flow),
+              color: model.flowColorToken(flow, energy.get(child)),
+              width: model.flowWidth(abs, byPower),
+              speed: model.speedBucket(abs),
+              reverse,
+            },
+          });
+        }
+        return flows;
+      },
+
+      applyFlows() {
+        const graph = cy || this._cyForTest;
+        if (!graph) return;
+        const wanted = new Map(this.flowElements().map(element => [element.data.id, element]));
+        graph.batch(() => {
+          graph.edges('.devicemap-flow').forEach(edge => {
+            const next = wanted.get(edge.id());
+            if (!next || next.data.source !== edge.data('source')) { edge.remove(); return; }
+            for (const key of ['label', 'color', 'width', 'speed']) edge.data(key, next.data[key]);
+            wanted.delete(edge.id());
+          });
+          for (const element of wanted.values()) graph.add(element);
+        });
+        if (this.focusId) this.setFocus(this.focusId);
+      },
+
+      reducedMotion() {
+        return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      },
+
       wiringPairs() {
-        return this.buildElements()
-          .filter(element => element.data.source && element.data.target)
+        return this.buildEdgeElements()
           .map(element => ({parent: element.data.source, child: element.data.target}));
       },
 
@@ -218,6 +269,7 @@
           }
         });
         if (labels) labels.sync(cy);
+        this.applyFlows();
       },
 
       positionFor(deviceId) {
@@ -281,7 +333,7 @@
       toggleWidthByPower() {
         this.deviceMap = {...this.deviceMap, view: {...this.view, width_by_power: !this.view.width_by_power}};
         this.unsaved = true;
-        if (typeof this.applyFlows === 'function') this.applyFlows();
+        this.applyFlows();
       },
 
       toggleLayer(name) {
@@ -290,13 +342,14 @@
         this.deviceMap = {...this.deviceMap, view: {...this.view, layers}};
         this.unsaved = true;
         if (cy) cy.style(this.graphStyle());
+        this.applyFlows();
       },
 
+      // Nodes, wiring edges and, with the energy layer on, the flow edges.
       buildElements() {
-        const nodeIds = new Set(this.devices.map(device => device.id));
         const energy = this.energyByDevice();
         const colorOf = this.themeColor();
-        const elements = this.devices.map(device => {
+        const nodes = this.devices.map(device => {
           const position = this.positionFor(device.id);
           const element = {
             data: {id: device.id, name: device.name || device.id, svg: this.nodeSvg(device, energy, colorOf)},
@@ -305,6 +358,14 @@
           if (position) element.position = {x: position.x, y: position.y};
           return element;
         });
+        return [...nodes, ...this.buildEdgeElements(), ...this.flowElements()];
+      },
+
+      // Wiring edges only. wiringPairs() and flowElements() build on this, so
+      // they never render node images or recurse into the flows.
+      buildEdgeElements() {
+        const nodeIds = new Set(this.devices.map(device => device.id));
+        const elements = [];
         const seenEdges = new Set();
         // overrideId is only set for manually created relations (settings.RelationOverride) -
         // those are the only ones removeSelectedRelation() is allowed to delete.
@@ -340,7 +401,7 @@
       graphStyle() {
         // Cytoscape malt auf Canvas und kann kein var(--token) auflösen -
         // die Farben müssen deshalb als fertige Werte hereingereicht werden.
-        const theme = window.DashboardTheme.colors({line: 'border', accent: 'accent'});
+        const theme = window.DashboardTheme.colors({line: 'border', accent: 'accent', labelStrong: 'text-strong', panel: 'panel'});
         return [
           {selector: 'node', style: {
             label: '', width: window.DeviceMapNodeSvg.SIZE, height: window.DeviceMapNodeSvg.SIZE,
@@ -365,6 +426,24 @@
             ...(EDGE_STYLES[this.view.edge_style] || EDGE_STYLES.straight),
           }},
           {selector: 'edge.devicemap-wiring', style: this.wiringEdgeStyle(theme)},
+          {selector: 'edge.devicemap-flow', style: {
+            ...(EDGE_STYLES[this.view.edge_style] || EDGE_STYLES.straight),
+            'line-color': edge => this.themeColor()(edge.data('color')),
+            width: 'data(width)',
+            'line-style': this.reducedMotion() ? 'solid' : 'dashed',
+            'line-dash-pattern': window.DeviceMapModel.DASH_PATTERN,
+            'line-cap': 'round',
+            'target-arrow-shape': this.reducedMotion() ? 'triangle' : 'none',
+            'target-arrow-color': edge => this.themeColor()(edge.data('color')),
+            'arrow-scale': 0.7,
+            events: 'no',
+            'font-size': '10px', 'font-weight': 600, 'font-family': 'system-ui, sans-serif', color: theme.labelStrong,
+            'text-background-color': theme.panel, 'text-background-opacity': 1, 'text-background-shape': 'round-rectangle', 'text-background-padding': '3px',
+            'text-border-width': 1.2, 'text-border-opacity': 1, 'text-border-color': edge => this.themeColor()(edge.data('color')),
+          }},
+          {selector: 'edge.devicemap-flow[!reverse]', style: {'target-label': 'data(label)', 'target-text-offset': 32}},
+          {selector: 'edge.devicemap-flow[?reverse]', style: {'source-label': 'data(label)', 'source-text-offset': 32}},
+          ...(this.view.edge_style === 'curved' ? [{selector: 'edge.devicemap-flow[?reverse]', style: {'control-point-distances': [-40]}}] : []),
           {selector: 'node, edge', style: {'transition-property': 'opacity', 'transition-duration': '200ms', 'transition-timing-function': 'ease-out'}},
           {selector: '.devicemap-dimmed', style: {opacity: 0.18}},
           {selector: 'node.devicemap-focused', style: {'outline-width': 2.5}},
