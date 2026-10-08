@@ -1,5 +1,5 @@
 {{define "devicemap"}}
-<section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)" x-on:keydown.escape.window="clearFocus()">
+<section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)" x-on:keydown.escape.window="onEscape()">
   <h2>
     {{t "devicemap.title"}}
     <span class="field-help field-help-align-start">

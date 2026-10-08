@@ -909,3 +909,99 @@ test('the animation loop only runs while it makes sense', () => {
   component.stopFlowAnimation();
   assert.equal(component._raf, null);
 });
+
+const panelDevices = () => ([
+  {id: 'bkw', name: 'Balkonkraftwerk', relations: [], entities: [{unique_id: 'bkw_p', name: 'Leistung', unit_of_measurement: 'W', value: '600'}]},
+  {id: 'wb', name: 'Wallbox', relations: [], entities: [{unique_id: 'wb_p', name: 'Ladeleistung', unit_of_measurement: 'W', value: '1100'}]},
+  {id: 'energy_node', name: 'Energy Node', relations: [], entities: []},
+]);
+
+test('tapping a device focuses it and opens its panel, tapping it again keeps both', async () => {
+  const {component} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.deviceMap = {version: 1, nodes: [], edges: []};
+  await component.onNodeTap({target: fakeNode('bkw')});
+  assert.equal(component.panelId, 'bkw');
+  assert.equal(component.focusId, 'bkw');
+  await component.onNodeTap({target: fakeNode('bkw')});
+  assert.equal(component.panelId, 'bkw');
+  assert.equal(component.focusId, 'bkw');
+});
+
+test('the own energy device gets a focus but no panel', async () => {
+  const {component} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.deviceMap = {version: 1, nodes: [], edges: []};
+  await component.onNodeTap({target: fakeNode('energy_node')});
+  assert.equal(component.panelId, null);
+  assert.equal(component.focusId, 'energy_node');
+});
+
+for (const [name, leave] of [
+  ['another node', c => c.onNodeTap({target: fakeNode('wb')})],
+  ['the background', c => c.onBackgroundTap()],
+  ['Escape', c => c.onEscape()],
+  ['the close button', c => c.requestClosePanel()],
+  ['connect mode', c => c.toggleConnectMode()],
+]) {
+  test(`leaving a dirty panel via ${name} asks the guard and keeps the panel on "continue"`, async () => {
+    const {component, stores} = createDevicemapPanel({confirmAnswer: false});
+    component.devices = panelDevices();
+    component.deviceMap = {version: 1, nodes: [], edges: []};
+    await component.onNodeTap({target: fakeNode('bkw')});
+    component.setDraft('bkw_p', 'role', 'load');
+    await leave(component);
+    assert.equal(stores.modal.calls.length, 1);
+    assert.equal(stores.modal.calls[0].danger, true);
+    assert.equal(component.panelId, 'bkw');
+    assert.equal(Object.keys(component.drafts).length, 1);
+  });
+
+  test(`leaving a dirty panel via ${name} discards the drafts on "discard"`, async () => {
+    const {component} = createDevicemapPanel({confirmAnswer: true});
+    component.devices = panelDevices();
+    component.deviceMap = {version: 1, nodes: [], edges: []};
+    await component.onNodeTap({target: fakeNode('bkw')});
+    component.setDraft('bkw_p', 'role', 'load');
+    await leave(component);
+    assert.deepEqual(Object.keys(component.drafts), []);
+    assert.notEqual(component.panelId, 'bkw');
+  });
+}
+
+test('Escape does nothing while the confirm modal is open', async () => {
+  const {component, stores} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.deviceMap = {version: 1, nodes: [], edges: []};
+  await component.onNodeTap({target: fakeNode('bkw')});
+  stores.modal.open = true;
+  await component.onEscape();
+  assert.equal(component.panelId, 'bkw');
+});
+
+test('a clean panel closes without asking and beforeunload covers panel drafts', async () => {
+  const {component, stores} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.deviceMap = {version: 1, nodes: [], edges: []};
+  await component.onNodeTap({target: fakeNode('bkw')});
+  await component.onBackgroundTap();
+  assert.equal(stores.modal.calls.length, 0);
+  assert.equal(component.panelId, null);
+  await component.onNodeTap({target: fakeNode('bkw')});
+  component.setDraft('bkw_p', 'role', 'load');
+  let prevented = false;
+  component.confirmUnsavedUnload({preventDefault: () => { prevented = true; }});
+  assert.equal(prevented, true);
+});
+
+test('drafts feed the preview energy the ring and flows are drawn from', async () => {
+  const {component} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.deviceMap = {version: 1, nodes: [], edges: []};
+  component.energy = {entities: [{entity_id: 'bkw_p', device_id: 'bkw', value: 600, unit: 'W', role: {role: 'pv', scale: 1, source: 'heuristic'}}]};
+  await component.onNodeTap({target: fakeNode('bkw')});
+  assert.equal(component.energyByDevice().get('bkw').primaryRole, 'pv');
+  component.setDraft('bkw_p', 'role', 'heat_pump');
+  assert.equal(component.energyByDevice().get('bkw').primaryRole, 'heat_pump');
+  assert.equal(component.energyByDevice().get('bkw').heuristic, false);
+});
