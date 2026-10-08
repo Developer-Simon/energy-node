@@ -1125,6 +1125,7 @@
   "error.device_unignore_failed": "Gerät konnte nicht reaktiviert werden",
   "error.discovery_delete_failed": "Discovery konnte nicht gelöscht werden",
   "error.encode_failed": "Antwort konnte nicht erzeugt werden",
+  "error.energy_forbidden": "Für das Ändern der Energie-Konfiguration fehlt die Berechtigung",
   "error.energy_interpretation_invalid": "Energie-Interpretation ist ungültig",
   "error.energy_interpretation_rejected": "Energie-Interpretation wurde abgelehnt",
   "error.energy_interpretation_unavailable": "Energie-Interpretation ist ohne Datenverzeichnis nicht verfügbar",

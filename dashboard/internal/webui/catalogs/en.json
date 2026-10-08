@@ -1125,6 +1125,7 @@
   "error.device_unignore_failed": "The device could not be reactivated",
   "error.discovery_delete_failed": "The discovery could not be deleted",
   "error.encode_failed": "The response could not be created",
+  "error.energy_forbidden": "You are not allowed to change the energy configuration",
   "error.energy_interpretation_invalid": "The energy interpretation is invalid",
   "error.energy_interpretation_rejected": "The energy interpretation was rejected",
   "error.energy_interpretation_unavailable": "Energy interpretation is not available without a data directory",

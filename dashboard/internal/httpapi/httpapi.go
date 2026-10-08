@@ -268,14 +268,13 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	}
 	if store != nil {
 		if value, err := store.LoadEnergy(); err == nil {
-			resolver.SetOverrides(value.Assignments)
-			resolver.SetInterpretation(value.Interpretation)
+			applyEnergyConfig(resolver, value)
 		}
 	}
 	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine))
 	mux.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
-	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver))
-	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver))
+	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth))
+	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store))
 	newHistoryExchange(recordedExchangeSeries(reg, store, resolver)).routes(mux)
 	mux.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))
@@ -309,7 +308,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/layout/", handleLayoutRevision(store))
 		mux.HandleFunc("/api/v1/settings", handleSettings(store, dependencies.Auth))
 		mux.HandleFunc("/api/v1/settings/", handleSettingsRevision(store))
-		mux.HandleFunc("/api/v1/energy/", handleEnergyRevision(store))
+		mux.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
 		if deviceMap, err := store.LoadDeviceMap(); err == nil {
 			applyRelationOverrides(reg, deviceMap)
 		}
@@ -797,7 +796,7 @@ func handleEnergy(reg *registry.Registry, resolver *energy.Resolver) http.Handle
 	}
 }
 
-func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver) http.HandlerFunc {
+func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, http.StatusNotImplemented, "energy_roles_unavailable", "Energie-Rollen sind ohne Datenverzeichnis nicht verfügbar")
@@ -812,6 +811,9 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver) http.Ha
 			}
 			writeJSON(w, value)
 		case http.MethodPut:
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			// Decoding into the stored config (not a zero value) means a body
 			// that omits "interpretation" entirely keeps the saved
 			// interpretation instead of resetting it - see
@@ -833,8 +835,37 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver) http.Ha
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
 			}
-			resolver.SetOverrides(value.Assignments)
-			resolver.SetInterpretation(value.Interpretation)
+			applyEnergyConfig(resolver, value)
+			writeJSON(w, value)
+		case http.MethodPatch:
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
+			defer r.Body.Close()
+			var patch struct {
+				Assignments map[string]*energy.Assignment `json:"assignments"`
+			}
+			decoder := json.NewDecoder(io.LimitReader(r.Body, 2<<20))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(&patch); err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+				return
+			}
+			value, err := store.PatchEnergy(func(current *settings.EnergyConfig) error {
+				for id, assignment := range patch.Assignments {
+					if assignment == nil {
+						delete(current.Assignments, id)
+						continue
+					}
+					current.Assignments[id] = *assignment
+				}
+				return nil
+			})
+			if err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
+				return
+			}
+			applyEnergyConfig(resolver, value)
 			writeJSON(w, value)
 		default:
 			methodNotAllowed(w)
@@ -842,7 +873,7 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver) http.Ha
 	}
 }
 
-func handleEnergyInterpretation(store *settings.Store, resolver *energy.Resolver) http.HandlerFunc {
+func handleEnergyInterpretation(store *settings.Store, resolver *energy.Resolver, manager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if store == nil {
 			writeError(w, http.StatusNotImplemented, "energy_interpretation_unavailable", "Energie-Interpretation ist ohne Datenverzeichnis nicht verfügbar")
@@ -857,6 +888,9 @@ func handleEnergyInterpretation(store *settings.Store, resolver *energy.Resolver
 			}
 			writeJSON(w, value.Interpretation)
 		case http.MethodPut:
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			current, err := store.LoadEnergy()
 			if err != nil {
 				writeErrorDetail(w, http.StatusInternalServerError, "energy_interpretation_invalid", err)
@@ -1636,6 +1670,39 @@ func requireLayoutMutation(w http.ResponseWriter, r *http.Request, manager *auth
 	return true
 }
 
+// requireEnergyMutation gates every write of energy.json (roles,
+// interpretation, groups, categories, restore). Same shape as
+// requireLayoutMutation: without an auth manager everything passes,
+// otherwise the caller needs edit_energy plus a valid CSRF token.
+func requireEnergyMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager) bool {
+	if manager == nil {
+		return true
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+		return false
+	}
+	if !auth.HasRole(user, auth.RoleEditEnergy) {
+		writeError(w, http.StatusForbidden, "energy_forbidden", "Für das Ändern der Energie-Konfiguration fehlt die Berechtigung")
+		return false
+	}
+	cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
+	if err != nil || !manager.ValidateCSRF(cookie.Value, r.Header.Get("X-CSRF-Token")) {
+		writeError(w, http.StatusForbidden, "csrf_failed", "Sicherheitsprüfung fehlgeschlagen")
+		return false
+	}
+	return true
+}
+
+// applyEnergyConfig hands a saved energy.json to the shared resolver. Every
+// write path calls it, restore included, so the live snapshot never lags
+// behind the file.
+func applyEnergyConfig(resolver *energy.Resolver, value settings.EnergyConfig) {
+	resolver.SetOverrides(value.Assignments)
+	resolver.SetInterpretation(value.Interpretation)
+}
+
 func requireDeviceMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager, roleRequired, csrfRequired bool) bool {
 	if manager == nil {
 		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
@@ -2090,7 +2157,7 @@ func handleSettingsRevision(store *settings.Store) http.HandlerFunc {
 	}
 }
 
-func handleEnergyRevision(store *settings.Store) http.HandlerFunc {
+func handleEnergyRevision(store *settings.Store, resolver *energy.Resolver, manager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/energy/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
@@ -2113,6 +2180,9 @@ func handleEnergyRevision(store *settings.Store) http.HandlerFunc {
 			return
 		}
 		if len(parts) == 1 && parts[0] == "restore" && r.Method == http.MethodPost {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			var request struct {
 				Revision string `json:"revision"`
 			}
@@ -2125,6 +2195,7 @@ func handleEnergyRevision(store *settings.Store) http.HandlerFunc {
 				writeErrorDetail(w, http.StatusBadRequest, "energy_restore_rejected", err)
 				return
 			}
+			applyEnergyConfig(resolver, value)
 			writeJSON(w, value)
 			return
 		}
