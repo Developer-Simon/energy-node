@@ -18,17 +18,18 @@ anchor_moves:
 # Energy Node Companion for Home Assistant
 
 Energy Node Companion connects Home Assistant with the dashboard of your node.
-It creates no sensors, because those already come from MQTT discovery. It does
-two things.
+The sensors themselves come from MQTT discovery, so the integration creates
+none of its own.
 
-- **Dashboard in the sidebar.** The node's dashboard opens as a page in the
-  Home Assistant sidebar. Home Assistant passes it through, so it works
-  wherever you can open Home Assistant. See
-  [Dashboard in the sidebar](companion-sidebar.md).
-- **History backfill.** The dashboard keeps its history in each browser, so a
-  phone that was closed overnight shows an empty chart for the night. Home
-  Assistant already stores the node's sensors in its recorder and fills the
-  missing hours and days from there. See [History backfill](companion-history.md).
+It puts the node's dashboard into the Home Assistant sidebar. Home Assistant
+passes the page through, so it opens wherever you can open Home Assistant, see
+[Dashboard in the sidebar](companion-sidebar.md).
+
+It also fills gaps in the dashboard's history charts. The dashboard keeps its
+history in each browser, and a phone that was closed overnight shows an empty
+chart for the night. Home Assistant has the node's sensors in its recorder and
+supplies the missing hours and days from there, see
+[History backfill](companion-history.md).
 
 ![The energy-node dashboard, as it opens in the Home Assistant sidebar](../images/dashboard-overview.png)
 
@@ -49,6 +50,10 @@ entities.
   default.
 
 ## Install via HACS
+
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Developer-Simon&repository=ha-energy-node-companion&category=integration)
+
+The button opens HACS in your Home Assistant with the repository pre-filled. Or add it by hand:
 
 1. Open **HACS** → **⋮** (top right) → **Custom repositories**.
 2. Repository URL: `https://github.com/Developer-Simon/ha-energy-node-companion`

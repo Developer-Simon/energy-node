@@ -25,7 +25,11 @@ icon with its name.
 
 ## Install via HACS
 
-The easiest way is [HACS](https://hacs.xyz/) with a custom repository:
+Install the set through [HACS](https://hacs.xyz/) as a custom repository.
+
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Developer-Simon&repository=ha-energy-node-icons&category=integration)
+
+The button opens HACS in your Home Assistant with the repository pre-filled. Or add it by hand:
 
 1. Open **HACS** → **⋮** (top right) → **Custom repositories**.
 2. Repository URL: `https://github.com/Developer-Simon/ha-energy-node-icons`

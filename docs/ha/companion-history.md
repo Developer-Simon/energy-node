@@ -9,7 +9,7 @@ The dashboard keeps its history in each browser. A browser only knows the
 hours it was open itself, so a phone that was closed overnight shows an empty
 chart for the night. With **Supply history** on, Home Assistant fills these
 gaps from its recorder. It joins the dashboard's history exchange as a
-permanent peer that only supplies data and never asks for any.
+permanent peer. It answers requests for data but never sends any of its own.
 
 ## What it supplies
 

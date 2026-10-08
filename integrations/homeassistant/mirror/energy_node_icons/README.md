@@ -11,7 +11,7 @@ The eighteen device symbols of the [energy-node](https://github.com/Developer-Si
 ### In the icon picker
 
 Click the icon field of any entity and type `energy-node`. The set appears in the list, and you pick an icon like any built-in one.
-[How to use →](https://developer-simon.github.io/energy-node/ha/icons.html#how-to-use)
+See [How to use](https://developer-simon.github.io/energy-node/ha/icons.html#how-to-use).
 
 <img src="https://developer-simon.github.io/energy-node/images/ha/icons/picker.png" alt="The icon picker filtered by energy-node" width="264">
 
@@ -25,9 +25,9 @@ entity: sensor.energy_node_pv_power
 icon: energy-node:solar-panel
 ```
 
-[Icon catalogue →](https://developer-simon.github.io/energy-node/ha/icons-catalogue.html)
+See [Icon catalogue](https://developer-simon.github.io/energy-node/ha/icons-catalogue.html).
 
-### Same look as the dashboard
+### Drawn like the dashboard
 
 The icons are generated from the dashboard's own drawings. The strokes are converted to filled outlines at the dashboard's stroke width, so they look the same in Home Assistant.
 

@@ -324,7 +324,9 @@ def splice_table(text: str, table: str, rel: str) -> str:
     start, end = text.find(TABLE_START), text.find(TABLE_END)
     if start < 0 or end < start:
         raise SystemExit(f"{rel}: Markierungen {TABLE_START!r} / {TABLE_END!r} fehlen")
-    return text[: start + len(TABLE_START)] + "\n" + table + "\n" + text[end:]
+    # Leerzeilen um die Tabelle: ohne sie liest kramdown (GitHub Pages) den
+    # Kommentar und die Tabellenzeilen als einen HTML-Block.
+    return text[: start + len(TABLE_START)] + "\n\n" + table + "\n\n" + text[end:]
 
 
 def doc_artifacts(doc: dict, paths: dict[str, str]) -> dict[str, str]:

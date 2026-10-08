@@ -12,23 +12,23 @@ Brings the [energy-node](https://github.com/Developer-Simon/energy-node) dashboa
 
 <img src="https://developer-simon.github.io/energy-node/images/ha/companion/sidebar-entry.png" alt="The Energy Node entry in the Home Assistant sidebar" width="257" align="right">
 
-The node's dashboard opens as its own page in the Home Assistant sidebar. Home Assistant passes it through, so it also works on a phone outside your tailnet. You choose whether all users or only administrators see it, and you set its name and icon.
-[Details →](https://developer-simon.github.io/energy-node/ha/companion-sidebar.html)
+The node's dashboard opens as its own page in the Home Assistant sidebar. Home Assistant passes it through, so it also works on a phone outside your tailnet. You choose whether all users or only administrators see it.
+See [Dashboard in the sidebar](https://developer-simon.github.io/energy-node/ha/companion-sidebar.html).
 <br clear="right">
 
 ### History backfill
 
-The dashboard keeps its history in each browser, so a phone that was closed overnight shows an empty chart for the night. Home Assistant already stores the node's sensors in its recorder and supplies the missing hours and days from there. It only supplies data, it never writes to the node.
-[Details →](https://developer-simon.github.io/energy-node/ha/companion-history.html)
+The dashboard keeps its history in each browser, so a phone that was closed overnight shows an empty chart for the night. Home Assistant already stores the node's sensors in its recorder and supplies the missing hours and days from there. The integration never writes to the node.
+See [History backfill](https://developer-simon.github.io/energy-node/ha/companion-history.html).
 
 <img src="https://developer-simon.github.io/energy-node/images/dashboard-settings-history.png" alt="The History settings of the dashboard with the device exchange" width="560">
 
-### Set up in one step
+### Setup and options
 
 <img src="https://developer-simon.github.io/energy-node/images/ha/companion/options.png" alt="The options dialog" width="360" align="right">
 
-The dashboard address is pre-filled from the node's device in Home Assistant. One switch each turns history backfill and the sidebar entry on or off.
-[Details →](https://developer-simon.github.io/energy-node/ha/companion-setup.html)
+Home Assistant pre-fills the dashboard address from the node's device. In the options you turn history backfill and the sidebar entry on or off, and you set the entry's name and icon.
+See [Setup & options](https://developer-simon.github.io/energy-node/ha/companion-setup.html).
 <br clear="right">
 
 ## Requirements

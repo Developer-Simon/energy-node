@@ -2,7 +2,7 @@
 
 <img src="https://raw.githubusercontent.com/Developer-Simon/ha-battery-soc/main/custom_components/battery_soc/brand/icon.png" alt="Battery SoC icon" width="88" align="right">
 
-Estimates the state of charge of one or two LiFePO4 battery banks from sensors you already have. No BMS connection and no extra hardware: a charge power sensor, a discharge power sensor and one voltage sensor per bank are enough.
+Estimates the state of charge of one or two LiFePO4 battery banks from sensors you already have. It needs no BMS connection and no extra hardware. A charge power sensor, a discharge power sensor and one voltage sensor per bank are enough.
 
 | `display: column` | `display: trajectory` |
 |---|---|
@@ -14,32 +14,32 @@ Estimates the state of charge of one or two LiFePO4 battery banks from sensors y
 
 ### Coulomb counting with voltage recalibration
 
-The net battery power is integrated over time. Near empty and near full, where the LiFePO4 voltage curve actually moves, the counter is reset to 0 % or 100 % using the load corrected voltage. In the flat middle of the curve the voltage is not trusted.
-[How it works →](https://developer-simon.github.io/energy-node/ha/battery-soc.html#how-it-works)
+The net battery power is integrated over time. Near empty and near full, where the LiFePO4 voltage curve actually moves, the counter is reset to 0 % or 100 % using the load corrected voltage. In the flat middle of the curve the counter ignores the voltage.
+See [How it works](https://developer-simon.github.io/energy-node/ha/battery-soc.html#how-it-works).
 
 ### One device per battery
 
 State of charge, net power, time to full or empty and diagnostic values such as the load corrected cell voltage and the last calibration. Banks in series get a value per bank plus the weakest bank as the combined figure. The action `battery_soc.set_state_of_charge` anchors the counter to a known value.
-[Entities & actions →](https://developer-simon.github.io/energy-node/ha/battery-soc-entities.html)
+See [Entities & actions](https://developer-simon.github.io/energy-node/ha/battery-soc-entities.html).
 
 <img src="https://developer-simon.github.io/energy-node/images/ha/battery-soc/device-page.png" alt="The Battery SoC device page in Home Assistant" width="640">
 
-### AC, DC, single, parallel or series
+### Fits your wiring
 
-AC-coupled home batteries and DC-only systems, power or current inputs, one signed sensor or separate ones, a single bank or two banks in parallel or in series. Everything is set in the UI and can be changed later.
+It handles AC-coupled home batteries and DC-only systems, power or current inputs, and one signed sensor as well as separate ones per direction. You set everything in the UI and can change it later.
 
 <img src="https://developer-simon.github.io/energy-node/images/ha/battery-soc/setup-source.png" alt="The setup step Sources and bank A" width="360">
-[Setup →](https://developer-simon.github.io/energy-node/ha/battery-soc-setup.html)
+See [Setup](https://developer-simon.github.io/energy-node/ha/battery-soc-setup.html).
 
-### Own Lovelace card
+### Lovelace card
 
 `custom:battery-soc-card` is registered by the integration itself. It shows the stored energy and time remaining as a column, or the state of charge as a ring with six hours of history and a six hour projection.
-[Lovelace card →](https://developer-simon.github.io/energy-node/ha/battery-soc-card.html)
+See [Lovelace card](https://developer-simon.github.io/energy-node/ha/battery-soc-card.html).
 
 ### Calibration suggestions
 
 The integration watches its own calibrations and suggests better values for the inverter efficiency and the internal resistance. Nothing is applied automatically.
-[Calibration suggestions →](https://developer-simon.github.io/energy-node/ha/battery-soc-suggestions.html)
+See [Calibration suggestions](https://developer-simon.github.io/energy-node/ha/battery-soc-suggestions.html).
 
 ## Install
 

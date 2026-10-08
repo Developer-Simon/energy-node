@@ -31,18 +31,19 @@ The same engine also runs on the node as the
 
 ## What it does
 
-- **State of charge from existing sensors.** One device per battery with the
-  state of charge, net power, time to full or empty and diagnostic values. See
-  [Entities & actions](battery-soc-entities.md).
-- **Single bank, parallel or series.** Parallel banks share one state of
-  charge. Banks in series get one per bank plus the weakest bank as the
-  combined value. See [Setup](battery-soc-setup.md).
-- **Own Lovelace card.** A column with stored energy and time remaining, or a
-  ring with six hours of history and a six hour projection. See
-  [Lovelace card](battery-soc-card.md).
-- **Calibration suggestions.** The integration watches its own calibrations
-  and suggests better values for the inverter efficiency and the internal
-  resistance. See [Calibration suggestions](battery-soc-suggestions.md).
+Each battery becomes one device with the state of charge, net power, time to
+full or empty and a set of diagnostic values
+([Entities & actions](battery-soc-entities.md)). A single bank and two banks in
+parallel share one state of charge. Two banks in series get one per bank, and
+the weakest bank becomes the combined value ([Setup](battery-soc-setup.md)).
+
+The integration brings its own Lovelace card. It shows the stored energy and
+time remaining as a column, or a ring with six hours of history and a six hour
+projection ([Lovelace card](battery-soc-card.md)).
+
+It also keeps track of its own calibrations and suggests better values for the
+inverter efficiency and the internal resistance
+([Calibration suggestions](battery-soc-suggestions.md)).
 
 ## How it works
 
@@ -71,6 +72,10 @@ the calculation in detail.
 
 You need Home Assistant with HACS, power sensors for your charger and
 inverter, and one voltage sensor per battery bank.
+
+[![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Developer-Simon&repository=ha-battery-soc&category=integration)
+
+The button opens HACS in your Home Assistant with the repository pre-filled. Or add it by hand:
 
 1. Open **HACS** → **⋮** (top right) → **Custom repositories**.
 2. Repository URL: `https://github.com/Developer-Simon/ha-battery-soc`

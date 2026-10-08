@@ -6,8 +6,8 @@ component: ha-energy-node-companion
 # Dashboard in the sidebar
 
 With the **Sidebar** option on, the node's dashboard appears as its own entry
-in the Home Assistant sidebar. It opens inside Home Assistant with all tabs,
-just as it does in a browser on the tailnet.
+in the Home Assistant sidebar. It opens inside Home Assistant with the same
+tabs you get in a browser on the tailnet.
 
 <img src="../images/ha/companion/sidebar-entry.png" alt="The Energy Node entry in the Home Assistant sidebar" width="257">
 
