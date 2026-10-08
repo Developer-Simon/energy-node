@@ -15,7 +15,9 @@
   };
   const relationKey = (a, b) => [a, b].sort().join('::');
 
-  const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight'};
+  const ENERGY_REFRESH_MS = 1000;
+
+  const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight', width_by_power: false};
 
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
   // device_id, so it can't collide with one.
@@ -28,18 +30,7 @@
     curved: {'curve-style': 'unbundled-bezier', 'control-point-distances': [40], 'control-point-weights': [0.5]},
   };
 
-  // Ratio of entities currently reporting available=true, counting only
-  // entities that actually publish an availability topic (has_availability)
-  // - most entities don't, and treating those as "unavailable" would make
-  // almost every device look degraded.
-  const statusClass = device => {
-    const tracked = (device.entities || []).filter(entity => entity.has_availability);
-    if (tracked.length === 0) return 'devicemap-status-unknown';
-    const availableCount = tracked.filter(entity => entity.available).length;
-    if (availableCount === tracked.length) return 'devicemap-status-ok';
-    if (availableCount === 0) return 'devicemap-status-down';
-    return 'devicemap-status-degraded';
-  };
+  const statusClass = device => `devicemap-status-${window.DeviceMapModel.deviceHealth(device)}`;
 
   const devicemapPanel = () => {
     // Kept outside the returned (Alpine-reactive) object on purpose: a
@@ -47,6 +38,7 @@
     // otherwise deep-proxy, which is unnecessary work and a likely source of
     // subtle bugs (Cytoscape mutates itself heavily on every render/drag).
     let cy = null;
+    let labels = null;
 
     return {
       devices: [],
@@ -64,6 +56,14 @@
       unsaved: false,
       placedCount: 0,
       themeOff: null,
+      energy: null,
+      energyUnavailable: false,
+      focusId: null,
+      focusRelated: new Set(),
+      registryOff: null,
+      _energyTimer: null,
+      _energyPending: false,
+      _setTimeout: (fn, ms) => setTimeout(fn, ms),
 
       async load() {
         // load() läuft nach jedem Speichern erneut, die Registrierung darf
@@ -72,16 +72,25 @@
         if (!this.themeOff) {
           this.themeOff = window.DashboardTheme.onChange(() => {
             if (cy) cy.style(this.graphStyle());
+            this.applyEnergy();
           });
+        }
+        if (!this.registryOff) {
+          const listener = () => this.onRegistryUpdated();
+          window.addEventListener('registry-updated', listener);
+          this.registryOff = () => window.removeEventListener('registry-updated', listener);
         }
         this.loading = true;
         try {
-          const [devices, deviceMap] = await Promise.all([
+          const [devices, deviceMap, energy] = await Promise.all([
             requestJSON('/api/v1/devices'),
             requestJSON('/api/v1/device/map'),
+            requestJSON('/api/v1/energy').catch(() => null),
           ]);
           this.devices = devices || [];
           this.deviceMap = deviceMap || {version: 1, nodes: [], edges: []};
+          this.energy = energy;
+          this.energyUnavailable = energy === null;
           this.savedDeviceMap = JSON.parse(JSON.stringify(this.deviceMap));
           this.renderGraph();
         } catch (error) {
@@ -102,6 +111,113 @@
 
       destroy() {
         if (this.themeOff) this.themeOff();
+        if (this.registryOff) this.registryOff();
+        clearTimeout(this._energyTimer);
+        if (labels) { labels.destroy(); labels = null; }
+      },
+
+      wiringPairs() {
+        return this.buildElements()
+          .filter(element => element.data.source && element.data.target)
+          .map(element => ({parent: element.data.source, child: element.data.target}));
+      },
+
+      setFocus(id) {
+        this.focusId = id;
+        this.focusRelated = id ? window.DeviceMapModel.relatedIds(id, this.wiringPairs()) : new Set();
+        if (labels) labels.setDimmed(id ? this.focusRelated : null);
+        if (!cy) return;
+        cy.batch(() => {
+          cy.elements().removeClass('devicemap-dimmed devicemap-focused');
+          if (!id) return;
+          cy.nodes().forEach(node => { if (!this.focusRelated.has(node.id())) node.addClass('devicemap-dimmed'); });
+          cy.edges().forEach(edge => {
+            if (!(this.focusRelated.has(edge.data('source')) && this.focusRelated.has(edge.data('target')))) edge.addClass('devicemap-dimmed');
+          });
+          cy.getElementById(id).addClass('devicemap-focused');
+        });
+      },
+
+      clearFocus() {
+        this.setFocus(null);
+      },
+
+      focusSummary() {
+        if (!this.focusId) return '';
+        const n = this.focusRelated.size - 1;
+        return tn('devicemap.focus.summary', n, {name: this.deviceLabel(this.focusId), n});
+      },
+
+      isPanelActive() {
+        return Boolean(this.$root && this.$root.classList && this.$root.classList.contains('active'));
+      },
+
+      // dashboard.js publishes every registry update (SSE, 30 s fallback) as
+      // "registry-updated". Leading call plus one trailing call per window,
+      // and nothing at all from a hidden browser tab or another dashboard tab
+      // (Pi kiosk tablets, see the plan's review focus).
+      onRegistryUpdated() {
+        if (document.visibilityState !== 'visible' || !this.isPanelActive()) return;
+        if (this._energyTimer) { this._energyPending = true; return; }
+        this.refreshEnergy();
+        this._energyTimer = this._setTimeout(() => {
+          this._energyTimer = null;
+          if (this._energyPending) { this._energyPending = false; this.onRegistryUpdated(); }
+        }, ENERGY_REFRESH_MS);
+      },
+
+      async refreshEnergy() {
+        try {
+          this.energy = await requestJSON('/api/v1/energy');
+          this.energyUnavailable = false;
+        } catch (error) {
+          this.energy = null;
+          this.energyUnavailable = true;
+        }
+        this.applyEnergy();
+      },
+
+      energyByDevice() {
+        return window.DeviceMapModel.deviceEnergy(this.energy);
+      },
+
+      themeColor() {
+        const cache = {};
+        return token => {
+          if (!(token in cache)) cache[token] = window.DashboardTheme.color(token);
+          return cache[token];
+        };
+      },
+
+      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor()) {
+        const model = window.DeviceMapModel;
+        const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0);
+        return window.DeviceMapNodeSvg.dataUri(spec, colorOf);
+      },
+
+      labelItems() {
+        const energy = this.energyByDevice();
+        return this.devices.map(device => ({
+          id: device.id,
+          name: device.name || device.id,
+          value: window.DeviceMapModel.nodeValueText(device, energy.get(device.id)),
+        }));
+      },
+
+      // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
+      // internal state and restart every animation for what is only a value change.
+      applyEnergy() {
+        if (labels) labels.update(this.labelItems());
+        if (!cy) return;
+        const energy = this.energyByDevice();
+        const colorOf = this.themeColor();
+        cy.batch(() => {
+          for (const device of this.devices) {
+            const node = cy.getElementById(device.id);
+            if (!node.empty()) node.data('svg', this.nodeSvg(device, energy, colorOf));
+          }
+        });
+        if (labels) labels.sync(cy);
       },
 
       positionFor(deviceId) {
@@ -154,19 +270,30 @@
       // build deviceMap by hand) - merge onto defaults everywhere instead of
       // requiring every call site to null-check.
       get view() {
-        return {...DEFAULT_VIEW, ...(this.deviceMap.view || {})};
+        const stored = this.deviceMap.view || {};
+        return {...DEFAULT_VIEW, ...stored, layers: {...window.DeviceMapModel.DEFAULT_LAYERS, ...(stored.layers || {})}};
+      },
+
+      isLayerPending(name) {
+        return window.DeviceMapModel.PENDING_LAYERS.includes(name);
+      },
+
+      toggleLayer(name) {
+        if (this.isLayerPending(name) || !(name in window.DeviceMapModel.DEFAULT_LAYERS)) return;
+        const layers = {...this.view.layers, [name]: !this.view.layers[name]};
+        this.deviceMap = {...this.deviceMap, view: {...this.view, layers}};
+        this.unsaved = true;
+        if (cy) cy.style(this.graphStyle());
       },
 
       buildElements() {
         const nodeIds = new Set(this.devices.map(device => device.id));
+        const energy = this.energyByDevice();
+        const colorOf = this.themeColor();
         const elements = this.devices.map(device => {
           const position = this.positionFor(device.id);
-          const entityCount = (device.entities || []).length;
           const element = {
-            data: {
-              id: device.id,
-              label: `${device.name || device.id}\n${tn('devicemap.entity_count', entityCount, {n: entityCount})}`,
-            },
+            data: {id: device.id, name: device.name || device.id, svg: this.nodeSvg(device, energy, colorOf)},
             classes: statusClass(device),
           };
           if (position) element.position = {x: position.x, y: position.y};
@@ -182,7 +309,7 @@
           seenEdges.add(key);
           const data = {id: `edge-${key}`, source: parentId, target: childId};
           if (overrideId) data.overrideId = overrideId;
-          elements.push({data});
+          elements.push({data, classes: 'devicemap-wiring'});
         };
         // deviceMap.edges (RelationOverride, carries the real overrideId)
         // must be processed before device.relations: the registry merges
@@ -207,30 +334,22 @@
       graphStyle() {
         // Cytoscape malt auf Canvas und kann kein var(--token) auflösen -
         // die Farben müssen deshalb als fertige Werte hereingereicht werden.
-        const theme = window.DashboardTheme.colors({
-          label: 'text-subtle', labelBg: 'bg', node: 'panel', line: 'border',
-          okLine: 'ok-line', okBg: 'ok-bg', warnLine: 'warn-line', warnBg: 'warn-bg',
-          badLine: 'bad-line', badBg: 'bad-bg', accent: 'accent',
-        });
+        const theme = window.DashboardTheme.colors({line: 'border', accent: 'accent'});
         return [
           {selector: 'node', style: {
-            label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': '90px',
-            'font-size': '9px', 'font-family': 'system-ui, sans-serif', color: theme.label,
-            'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 6,
-            'text-background-color': theme.labelBg, 'text-background-opacity': 0.85, 'text-background-padding': '2px',
-            width: 34, height: 34, 'background-color': theme.node, 'border-width': 2, 'border-color': theme.line,
+            label: '', width: window.DeviceMapNodeSvg.SIZE, height: window.DeviceMapNodeSvg.SIZE,
+            shape: 'ellipse', 'background-opacity': 0, 'border-width': 0,
+            'background-image': 'data(svg)', 'background-fit': 'contain', 'background-clip': 'none',
+            'background-image-smoothing': 'yes',
+            'outline-width': 0, 'outline-color': theme.accent, 'outline-offset': 3,
           }},
-          {selector: 'node.devicemap-status-ok', style: {'border-color': theme.okLine, 'background-color': theme.okBg}},
-          {selector: 'node.devicemap-status-degraded', style: {'border-color': theme.warnLine, 'background-color': theme.warnBg}},
-          {selector: 'node.devicemap-status-down', style: {'border-color': theme.badLine, 'background-color': theme.badBg}},
-          {selector: 'node.devicemap-status-unknown', style: {'border-color': theme.line, 'background-color': theme.node}},
-          {selector: 'node.devicemap-connect-source', style: {'border-width': 3, 'border-color': theme.accent}},
+          {selector: 'node.devicemap-connect-source', style: {'outline-width': 3}},
           // Snap-preview (see onNodeDrag()): an unselectable, non-interactive
           // placeholder at the grid cell the dragged node will land on.
           // 'events: no' keeps it from stealing taps/drags from whatever is
           // underneath it.
           {selector: 'node.devicemap-ghost', style: {
-            label: '', 'background-opacity': 0,
+            label: '', 'background-opacity': 0, 'background-image': 'none',
             'border-width': 2, 'border-style': 'dashed', 'border-color': theme.accent,
             events: 'no',
           }},
@@ -239,8 +358,21 @@
             'target-arrow-shape': 'triangle', 'arrow-scale': 0.9,
             ...(EDGE_STYLES[this.view.edge_style] || EDGE_STYLES.straight),
           }},
+          {selector: 'edge.devicemap-wiring', style: this.wiringEdgeStyle(theme)},
+          {selector: 'node, edge', style: {'transition-property': 'opacity', 'transition-duration': '200ms', 'transition-timing-function': 'ease-out'}},
+          {selector: '.devicemap-dimmed', style: {opacity: 0.18}},
+          {selector: 'node.devicemap-focused', style: {'outline-width': 2.5}},
           {selector: 'edge.devicemap-selected-edge', style: {width: 3, 'line-color': theme.accent, 'target-arrow-color': theme.accent}},
         ];
+      },
+
+      // Draft layer rules: wiring on = normal line, wiring off + energy on =
+      // dotted track under the flows, both off = invisible and untappable.
+      wiringEdgeStyle(theme) {
+        const {wiring, energy} = this.view.layers;
+        if (wiring) return {display: 'element', 'line-style': 'solid', opacity: 1};
+        if (energy) return {display: 'element', 'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'target-arrow-shape': 'none', opacity: 0.8, events: 'no', 'line-color': theme.line};
+        return {display: 'none'};
       },
 
       renderGraph() {
@@ -289,9 +421,16 @@
         cy.on('dragfree', 'node', event => this.onNodeDragFree(event));
         cy.on('tap', 'node', event => this.onNodeTap(event));
         cy.on('tap', 'edge', event => { if (!this.connectMode) this.onEdgeTap(event); });
-        cy.on('tap', event => { if (event.target === cy) this.clearEdgeSelection(); });
+        cy.on('tap', event => { if (event.target === cy) { this.clearEdgeSelection(); this.clearFocus(); } });
         cy.on('viewport', () => this.syncGridBackground());
         this.syncGridBackground();
+        if (this.$refs.labels && !labels) labels = window.DeviceMapLabels.create(this.$refs.labels);
+        if (labels) {
+          labels.update(this.labelItems());
+          cy.on('render', () => labels.sync(cy));
+          labels.sync(cy);
+        }
+        if (this.focusId) this.setFocus(this.focusId);
       },
 
       // Continuous feedback while the pointer is still down (apple-design
@@ -369,6 +508,7 @@
 
       toggleConnectMode() {
         this.connectMode = !this.connectMode;
+        if (this.focusId) this.clearFocus();
         this.connectSourceId = null;
         this.connectSourceLabel = '';
         this.clearEdgeSelection();
@@ -382,7 +522,10 @@
       // relation is only ever created here, after an explicit two-click
       // gesture plus a confirmation dialog - never as a side effect of drag.
       async onNodeTap(event) {
-        if (!this.connectMode) return;
+        if (!this.connectMode) {
+          this.setFocus(this.focusId === event.target.id() ? null : event.target.id());
+          return;
+        }
         const node = event.target;
         if (!this.connectSourceId) {
           this.connectSourceId = node.id();

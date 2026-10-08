@@ -264,10 +264,33 @@ type DeviceMapNode struct {
 }
 
 type DeviceMapView struct {
-	SnapToGrid bool   `json:"snap_to_grid"`
-	ShowGrid   bool   `json:"show_grid"`
-	GridSize   int    `json:"grid_size"`
-	EdgeStyle  string `json:"edge_style"`
+	SnapToGrid   bool            `json:"snap_to_grid"`
+	ShowGrid     bool            `json:"show_grid"`
+	GridSize     int             `json:"grid_size"`
+	EdgeStyle    string          `json:"edge_style"`
+	Layers       DeviceMapLayers `json:"layers"`
+	WidthByPower bool            `json:"width_by_power"`
+}
+
+// DeviceMapLayers are the four switchable map layers (spec
+// 2026-10-07-devicemap-energie-datenfluss-design.md). A value type, not a
+// pointer, so DeviceMapView stays comparable; a file without "layers" gets
+// the defaults because NewDeviceMap() pre-fills them before decoding.
+type DeviceMapLayers struct {
+	Wiring  bool `json:"wiring"`
+	Energy  bool `json:"energy"`
+	Balance bool `json:"balance"`
+	Data    bool `json:"data"`
+}
+
+func DefaultDeviceMapLayers() DeviceMapLayers {
+	return DeviceMapLayers{Wiring: true, Energy: true}
+}
+
+// NewDeviceMap is the decode target for every device-map read (file,
+// revision, PUT body): fields missing from the JSON keep these defaults.
+func NewDeviceMap() DeviceMap {
+	return DeviceMap{View: DeviceMapView{Layers: DefaultDeviceMapLayers()}}
 }
 
 // DevicePrefs are the per-device display preferences the Devices tab writes:
@@ -855,9 +878,9 @@ func (s *Store) LoadDeviceMap() (DeviceMap, error) {
 	if s.deviceMapLoaded {
 		return cloneDeviceMap(s.deviceMapValue), nil
 	}
-	var value DeviceMap
+	value := NewDeviceMap()
 	if err := s.loadJSONLocked("device-map.json", &value); errors.Is(err, os.ErrNotExist) {
-		value = DeviceMap{}
+		value = NewDeviceMap()
 	} else if err != nil {
 		return DeviceMap{}, err
 	} else {
@@ -905,7 +928,7 @@ func (s *Store) RestoreDeviceMap(revision string) (DeviceMap, error) {
 	if err != nil {
 		return DeviceMap{}, err
 	}
-	var value DeviceMap
+	value := NewDeviceMap()
 	if err := json.Unmarshal(data, &value); err != nil {
 		return DeviceMap{}, fmt.Errorf("device-map revision %q: invalid JSON: %w", revision, err)
 	}

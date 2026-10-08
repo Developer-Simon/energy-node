@@ -1003,7 +1003,7 @@ func TestDeviceMapEndpoints(t *testing.T) {
 	if len(deviceMap.Nodes) != 1 || deviceMap.Nodes[0].DeviceID != "node-a" || deviceMap.Nodes[0].X != 12.5 {
 		t.Fatalf("device-map after PUT = %#v", deviceMap)
 	}
-	wantView := settings.DeviceMapView{SnapToGrid: true, ShowGrid: true, GridSize: 20, EdgeStyle: "elbow"}
+	wantView := settings.DeviceMapView{SnapToGrid: true, ShowGrid: true, GridSize: 20, EdgeStyle: "elbow", Layers: settings.DefaultDeviceMapLayers()}
 	if deviceMap.View != wantView {
 		t.Fatalf("device-map view after PUT = %#v, want %#v", deviceMap.View, wantView)
 	}

@@ -40,7 +40,19 @@
         "snap_to_grid": {"type": "boolean"},
         "show_grid": {"type": "boolean"},
         "grid_size": {"type": "integer", "minimum": 4, "maximum": 400},
-        "edge_style": {"type": "string", "enum": ["straight", "elbow", "curved"]}
+        "edge_style": {"type": "string", "enum": ["straight", "elbow", "curved"]},
+        "layers": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["wiring", "energy", "balance", "data"],
+          "properties": {
+            "wiring": {"type": "boolean"},
+            "energy": {"type": "boolean"},
+            "balance": {"type": "boolean"},
+            "data": {"type": "boolean"}
+          }
+        },
+        "width_by_power": {"type": "boolean"}
       }
     }
   }

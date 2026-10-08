@@ -10,8 +10,8 @@
 
 ### Fixes
 
+- **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
 - **installer:** skip unchanged steps on an update (446e9d2)
-- **installer:** skip unchanged update steps and keep the session across the restart (#102)
 - **installer:** harden step 15 and select it on dashboard updates (bab88e1)
 - **bootstrap:** give the ok detail its own function for shellcheck 0.9 (9c1a8b5)
 

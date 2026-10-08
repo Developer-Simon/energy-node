@@ -10,8 +10,8 @@
 
 ### Fixes
 
+- **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
 - **installer:** skip unchanged steps on an update (446e9d2)
-- **installer:** skip unchanged update steps and keep the session across the restart (#102)
 
 ## v0.1.16 (2026-10-04)
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.11 (2026-10-06)
+## v0.8.12 (2026-10-08)
 
 ### Features
 
@@ -9,7 +9,15 @@
 - **installer:** check and install system package updates (opt-out) (#90) (d898a63)
 - **dashboard:** show the config service status as a pill (#98) (d639c36)
 - **dashboard:** add history view tiles to the overview layout (#99) (4c2ee2a)
-- **dashboard:** redesign the diagnostics tab (#101)
+- **dashboard:** redesign the diagnostics tab (#101) (b01e84e)
+- **dashboard:** store device map layers and flow width in the view (870b8dd)
+- **dashboard:** add the device map energy model (75faffc)
+- **dashboard:** draw device map nodes as role rings (258c3f5)
+- **dashboard:** add an html label layer for device map nodes (f1aa809)
+- **dashboard:** show energy roles and live values on device map nodes (1e1673d)
+- **dashboard:** add switchable layers to the device map (cf0ad4d)
+- **dashboard:** focus related devices and refresh live values on the device map (45d1c89)
+- **dashboard:** device map layers, role rings and focus (#103)
 - **dashboard:** add the history_view layout item type (32d4476)
 - **dashboard:** render history_view tiles on the overview (bfd09b7)
 - **dashboard:** add shared history chart module (2a1738f)
@@ -22,9 +30,9 @@
 ### Fixes
 
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
+- **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
 - **dashboard:** keep sessions across a dashboard restart (db7eefd)
 - **installer:** skip unchanged steps on an update (446e9d2)
-- **installer:** skip unchanged update steps and keep the session across the restart (#102)
 - **dashboard:** keep the fixed date range of a saved history view (1c5ccb1)
 - **dashboard:** keep the overview swap-free with history view tiles (802f50c)
 - **dashboard:** rename the history range catalog keys (b0a90ca)

@@ -24,6 +24,9 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap.page.js'),
   'utf8',
 );
+const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
+const moduleSources = ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-labels.js']
+  .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
@@ -34,6 +37,7 @@ function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl }
   if (cytoscapeImpl) dom.window.cytoscape = cytoscapeImpl;
   installI18n(dom.window);
   vm.runInContext(themeSource, context);
+  for (const source of moduleSources) vm.runInContext(source, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {}; // no canvas -> renderGraph() no-ops, matching real "panel not visible yet" state
@@ -268,13 +272,42 @@ test('buildElements marks manually created relations with overrideId but leaves 
   assert.equal(overrideEdge.data.overrideId, 'relation-1', 'a relation that also appears in device.relations (as the registry always includes overrides there) must still keep its overrideId - regression test for "every connection renders as via_device and cannot be dissolved"');
 });
 
-test('buildElements labels each node with its name and entity count', () => {
+test('buildElements gives each node its name and a role-ring image instead of a canvas label', () => {
   const { component } = createDevicemapPanel();
-  component.devices = [{ id: 'device_a', name: 'Shelly 1', relations: [], entities: [{ has_availability: false }, { has_availability: false }] }];
-  component.deviceMap = { version: 1, nodes: [], edges: [] };
-
+  component.devices = [{ id: 'pv', name: 'APsystems Dach', relations: [], entities: [{}, {}] }];
+  component.energy = { entities: [{ device_id: 'pv', entity_id: 'p1', value: 2400, unit: 'W', role: { role: 'pv', source: 'override' } }] };
   const [node] = component.buildElements();
-  assert.equal(node.data.label, 'Shelly 1\n2 Entitäten');
+  assert.equal(node.data.name, 'APsystems Dach');
+  assert.equal(node.data.label, undefined);
+  assert.match(node.data.svg, /^data:image\/svg\+xml;utf8,/);
+  assert.match(decodeURIComponent(node.data.svg), /data-ring="0"/);
+});
+
+test('labelItems pairs each device with its live value text', () => {
+  const { component } = createDevicemapPanel();
+  component.devices = [
+    { id: 'pv', name: 'APsystems Dach', relations: [], entities: [] },
+    { id: 'bms', name: 'BMS Bank A', relations: [], entities: [{ value: '52.8', unit_of_measurement: 'V' }] },
+  ];
+  component.energy = { entities: [{ device_id: 'pv', entity_id: 'p1', value: 2400, unit: 'W', role: { role: 'pv', source: 'override' } }] };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.labelItems())), [
+    { id: 'pv', name: 'APsystems Dach', value: '2,4 kW' },
+    { id: 'bms', name: 'BMS Bank A', value: '52,8 V' },
+  ]);
+});
+
+test('load() keeps the map usable when the energy endpoint fails', async () => {
+  const fetchImpl = async url => {
+    if (url.endsWith('/api/v1/energy')) return { ok: false, status: 500, json: async () => ({ message: 'boom' }) };
+    if (url.endsWith('/api/v1/devices')) return { ok: true, status: 200, json: async () => [{ id: 'a', name: 'A', relations: [], entities: [] }] };
+    return { ok: true, status: 200, json: async () => ({ version: 1, nodes: [], edges: [] }) };
+  };
+  const { component, stores } = createDevicemapPanel({ fetchImpl });
+  await component.load();
+  assert.equal(component.devices.length, 1);
+  assert.equal(component.energy, null);
+  assert.equal(component.energyUnavailable, true);
+  assert.equal(stores.toasts.items.length, 0, 'a missing energy snapshot is not a critical error');
 });
 
 test('buildElements classifies node status from availability-tracked entities only', () => {
@@ -365,7 +398,7 @@ test('view defaults apply when the loaded device map has no view section (older 
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
 
-  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight' });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
 });
 
 test('a device without a saved position is placed below the existing arrangement instead of triggering a full re-layout', () => {
@@ -594,7 +627,7 @@ test('save() includes the current view settings in the PUT body', async () => {
 
   await component.save();
 
-  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved' });
+  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
 });
 
 test('discardChanges restores the last loaded/saved snapshot without a network call, and clears unsaved', async () => {
@@ -668,4 +701,105 @@ test('confirmUnsavedUnload only blocks the tab close when there are unsaved posi
   component.confirmUnsavedUnload(event);
   assert.equal(prevented, true);
   assert.equal(event.returnValue, '');
+});
+
+test('view always carries all four layers, defaulting old maps to wiring and energy', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [], view: { snap_to_grid: true } };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view.layers)), { wiring: true, energy: true, balance: false, data: false });
+  assert.equal(component.view.width_by_power, false);
+});
+
+test('toggleLayer flips one layer, marks the map unsaved and ignores pending layers', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleLayer('wiring');
+  assert.equal(component.view.layers.wiring, false);
+  assert.equal(component.view.layers.energy, true);
+  assert.equal(component.unsaved, true);
+  component.unsaved = false;
+  component.toggleLayer('data');
+  assert.equal(component.view.layers.data, false, 'data flow has no content before phase 5');
+  assert.equal(component.unsaved, false);
+  assert.equal(component.isLayerPending('balance'), true);
+});
+
+test('wiring edges become a dotted track when only the energy layer is on', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [], view: { layers: { wiring: false, energy: true, balance: false, data: false } } };
+  const style = component.graphStyle();
+  const wiring = style.find(rule => rule.selector === 'edge.devicemap-wiring');
+  assert.equal(wiring.style['line-style'], 'dotted');
+  component.deviceMap = { version: 1, nodes: [], edges: [], view: { layers: { wiring: false, energy: false, balance: false, data: false } } };
+  assert.equal(component.graphStyle().find(rule => rule.selector === 'edge.devicemap-wiring').style.display, 'none');
+});
+
+test('save() sends the layers with the view', async () => {
+  let body;
+  const fetchImpl = async (url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({}) }; };
+  const { component } = createDevicemapPanel({ fetchImpl });
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleLayer('wiring');
+  await component.save();
+  assert.deepEqual(body.view.layers, { wiring: false, energy: true, balance: false, data: false });
+  assert.equal(body.view.width_by_power, false);
+});
+
+test('tapping a node outside connect mode focuses it and its direct neighbours', async () => {
+  const { component } = createDevicemapPanel();
+  component.devices = [
+    { id: 'netz', name: 'Netz', relations: [] },
+    { id: 'uv', name: 'UV', relations: [{ kind: 'parent', id: 'netz' }] },
+    { id: 'wb', name: 'Wallbox', relations: [{ kind: 'parent', id: 'uv' }] },
+    { id: 'pv', name: 'PV', relations: [{ kind: 'parent', id: 'netz' }] },
+  ];
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  await component.onNodeTap({ target: fakeNode('uv') });
+  assert.equal(component.focusId, 'uv');
+  assert.deepEqual([...component.focusRelated].sort(), ['netz', 'uv', 'wb']);
+  assert.match(component.focusSummary(), /^UV · 2 verbunden/);
+  component.clearFocus();
+  assert.equal(component.focusId, null);
+});
+
+test('connect mode taps never set a focus', async () => {
+  const { component } = createDevicemapPanel({ confirmAnswer: false });
+  component.devices = [{ id: 'a', name: 'A', relations: [] }, { id: 'b', name: 'B', relations: [] }];
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.connectMode = true;
+  await component.onNodeTap({ target: fakeNode('a') });
+  assert.equal(component.focusId, null);
+});
+
+test('registry updates refresh the energy snapshot at most once per second, only while visible', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let energyCalls = 0;
+  const fetchImpl = async url => {
+    if (url.endsWith('/api/v1/energy')) energyCalls += 1;
+    return { ok: true, status: 200, json: async () => ({ entities: [] }) };
+  };
+  const { component, window } = createDevicemapPanel({ fetchImpl });
+  // The script runs in jsdom's VM context, whose setTimeout is not the one
+  // node:test mocks - hand the component Node's (mocked) timer instead.
+  component._setTimeout = (fn, ms) => setTimeout(fn, ms);
+  component.$root = { classList: { contains: name => name === 'active' } };
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  component.onRegistryUpdated();
+  component.onRegistryUpdated();
+  component.onRegistryUpdated();
+  await Promise.resolve();
+  assert.equal(energyCalls, 1, 'burst collapses into one request');
+  t.mock.timers.tick(1000);
+  await Promise.resolve();
+  assert.equal(energyCalls, 2, 'one trailing request after the window');
+  Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
+  t.mock.timers.tick(1000);
+  component.onRegistryUpdated();
+  await Promise.resolve();
+  assert.equal(energyCalls, 2, 'no requests from a background tab');
+  component.$root = { classList: { contains: () => false } };
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  component.onRegistryUpdated();
+  await Promise.resolve();
+  assert.equal(energyCalls, 2, 'no requests while another dashboard tab is active');
 });

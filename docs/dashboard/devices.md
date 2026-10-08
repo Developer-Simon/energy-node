@@ -36,5 +36,26 @@ orthogonal or curved edges to record how the site is wired. That shows what the
 automatic views cannot, such as which meter sits ahead of which sub-distribution
 or what a device is physically attached to.
 
-Positions and edges are stored on the server and versioned like the layout, so
-you can roll back an accidental drag.
+Each node is a ring around the device icon. The colour of the ring segments
+shows the energy roles the device carries, such as PV, battery, grid, load,
+wallbox or heat pump, and a device with several roles gets one segment per
+role. A dashed ring means the role was only guessed from the entities, a solid
+ring means you assigned it on the Energy tab. A device without any role shows
+a grey dotted ring. The small dot at the top right is the availability, green
+for reachable, amber for partly reachable, red for unreachable and grey when
+the device publishes no availability. Under the name the node shows the live
+value, for example the PV power, the grid import or export, or the battery
+power with its direction.
+
+The layer bar above the map switches what the canvas draws. Wiring shows the
+connections between devices, Live energy shows the roles and values. With only
+Live energy on, the connections stay as a dotted track. Energy balance and
+Data flow are listed but switched off, they follow in a later version. The
+layer choice is saved with the map. Click a node to focus it, the node and its
+direct neighbours stay bright while the rest fades out. A click on the
+background, the button in the hint or Esc ends the focus. If the energy values
+cannot be loaded, the map still opens with devices, connections and
+availability and shows a short note.
+
+Positions, edges and the layer choice are stored on the server and versioned
+like the layout, so you can roll back an accidental drag.

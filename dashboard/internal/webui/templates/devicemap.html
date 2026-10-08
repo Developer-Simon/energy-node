@@ -1,5 +1,5 @@
 {{define "devicemap"}}
-<section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)">
+<section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)" x-on:keydown.escape.window="clearFocus()">
   <h2>
     {{t "devicemap.title"}}
     <span class="field-help field-help-align-start">
@@ -11,6 +11,7 @@
   </h2>
   <div class="devicemap-stage">
     <div id="devicemap-canvas" class="devicemap-canvas" x-ref="canvas" aria-label="{{t "devicemap.canvas_aria"}}"></div>
+    <div class="devicemap-labels" x-ref="labels" aria-hidden="true"></div>
     <div class="devicemap-overlay">
       <div class="toolbar devicemap-toolbar">
         <button class="icon-button primary" id="devicemap-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-bind:title="saveButtonLabel()" x-bind:aria-label="saveButtonLabel()">
@@ -41,6 +42,26 @@
         </div>
         <span class="devicemap-unsaved-badge" role="status" x-cloak x-show="unsaved">{{t "devicemap.unsaved_badge"}}</span>
       </div>
+      <div class="toolbar devicemap-layer-toolbar" role="toolbar" aria-label="{{t "devicemap.layers.group_aria"}}">
+        <span class="devicemap-layer-label" aria-hidden="true">{{t "devicemap.layers.label"}}</span>
+        <button class="devicemap-layer-button" type="button" data-layer="wiring" x-bind:aria-pressed="view.layers.wiring" x-on:click="toggleLayer('wiring')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4v6h12v10M6 10v10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>{{t "devicemap.layer.wiring"}}
+        </button>
+        <button class="devicemap-layer-button" type="button" data-layer="energy" x-bind:aria-pressed="view.layers.energy" x-on:click="toggleLayer('energy')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>{{t "devicemap.layer.energy"}}
+        </button>
+        <button class="devicemap-layer-button" type="button" data-layer="balance" aria-pressed="false" disabled title="{{t "devicemap.layer.coming_soon"}}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g></svg>{{t "devicemap.layer.balance"}}
+        </button>
+        <button class="devicemap-layer-button" type="button" data-layer="data" aria-pressed="false" disabled title="{{t "devicemap.layer.coming_soon"}}">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>{{t "devicemap.layer.data"}}
+        </button>
+      </div>
+      <div class="devicemap-focus-chip" role="status" x-bind:data-open="focusId ? 'true' : 'false'">
+        <span x-text="focusSummary()"></span>
+        <button class="devicemap-focus-clear" type="button" x-on:click="clearFocus()">{{t "devicemap.focus.clear"}}</button>
+      </div>
+      <p class="devicemap-energy-hint" x-cloak x-show="energyUnavailable">{{t "devicemap.energy_unavailable"}}</p>
       <p class="devicemap-connect-hint" x-cloak x-show="connectMode" x-text="connectHintText()"></p>
       <p class="devicemap-placed-hint" x-cloak x-show="placedCount > 0" x-text="placedHintText()"></p>
       <div class="toolbar devicemap-edge-toolbar" x-cloak x-show="selectedEdge">
