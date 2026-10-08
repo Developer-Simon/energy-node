@@ -266,9 +266,10 @@ type DeviceMap struct {
 }
 
 type DeviceMapNode struct {
-	DeviceID string  `json:"device_id"`
-	X        float64 `json:"x"`
-	Y        float64 `json:"y"`
+	DeviceID  string  `json:"device_id,omitempty"`
+	VirtualID string  `json:"virtual_id,omitempty"`
+	X         float64 `json:"x"`
+	Y         float64 `json:"y"`
 }
 
 type DeviceMapView struct {
@@ -961,6 +962,7 @@ func (s *Store) SaveDeviceMap(value DeviceMap) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	value = normalizeDeviceMap(value)
+	value.Version = 2
 	if err := validateDeviceMap(value); err != nil {
 		return err
 	}
@@ -996,6 +998,7 @@ func (s *Store) RestoreDeviceMap(revision string) (DeviceMap, error) {
 		return DeviceMap{}, fmt.Errorf("device-map revision %q: invalid JSON: %w", revision, err)
 	}
 	value = normalizeDeviceMap(value)
+	value.Version = 2
 	if err := validateDeviceMap(value); err != nil {
 		return DeviceMap{}, err
 	}
@@ -1026,6 +1029,10 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 	return value
 }
 
+// virtualNodePattern names the nodes without a device: the balance, energy
+// groups, automation rules and services (spec, section "Datenmodell").
+var virtualNodePattern = regexp.MustCompile(`^(balance|group:[a-z0-9_]+|rule:\S+|service:\S+)$`)
+
 func validateDeviceMap(value DeviceMap) error {
 	value = normalizeDeviceMap(value)
 	data, err := json.Marshal(value)
@@ -1037,10 +1044,20 @@ func validateDeviceMap(value DeviceMap) error {
 	}
 	seenNodes := map[string]bool{}
 	for _, node := range value.Nodes {
-		if seenNodes[node.DeviceID] {
-			return fmt.Errorf("duplicate device-map node %q", node.DeviceID)
+		if (node.DeviceID == "") == (node.VirtualID == "") {
+			return errors.New("device-map node needs exactly one of device_id and virtual_id")
 		}
-		seenNodes[node.DeviceID] = true
+		key := node.DeviceID
+		if node.VirtualID != "" {
+			if !virtualNodePattern.MatchString(node.VirtualID) {
+				return fmt.Errorf("device-map virtual node %q is invalid", node.VirtualID)
+			}
+			key = node.VirtualID
+		}
+		if seenNodes[key] {
+			return fmt.Errorf("duplicate device-map node %q", key)
+		}
+		seenNodes[key] = true
 	}
 	seenEdges := map[string]bool{}
 	for _, edge := range value.Edges {

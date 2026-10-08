@@ -1086,6 +1086,41 @@ func TestDeviceMapRelationsEndpoints(t *testing.T) {
 	}
 }
 
+func TestRelationsAcceptAGroupFeedAndKeepItOutOfTheRegistry(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "netz"}, Entity: registry.EntityInfo{UniqueID: "netz_p"}})
+	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "wallbox"}, Entity: registry.EntityInfo{UniqueID: "wallbox_p"}})
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Assignments: map[string]energy.Assignment{}, Groups: map[string]energy.Group{"garage": {Label: "Garage", Members: energy.GroupMembers{Devices: []string{"wallbox"}, Groups: []string{}}}}}); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(reg, nil, store)
+	post := func(body string) *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/device/map/relations", strings.NewReader(body)))
+		return recorder
+	}
+	if rec := post(`{"child_id":"group:garage","parent_id":"netz"}`); rec.Code != http.StatusCreated {
+		t.Fatalf("group feed: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := post(`{"child_id":"group:fehlt","parent_id":"netz"}`); rec.Code != http.StatusNotFound {
+		t.Fatalf("unknown group: %d", rec.Code)
+	}
+	if rec := post(`{"child_id":"wallbox","parent_id":"group:garage"}`); rec.Code != http.StatusBadRequest {
+		t.Fatalf("group as parent must be a membership, not a relation: %d", rec.Code)
+	}
+	if rec := post(`{"child_id":"netz","parent_id":"wallbox"}`); rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "relation_cycle") {
+		t.Fatalf("cycle through the group membership not detected: %d %s", rec.Code, rec.Body.String())
+	}
+	for _, device := range reg.Snapshot() {
+		for _, relation := range device.Relations {
+			if strings.HasPrefix(relation.ID, "group:") {
+				t.Fatalf("registry got a group relation: %+v", relation)
+			}
+		}
+	}
+}
+
 func TestDeviceMapRevisionEndpoints(t *testing.T) {
 	store := settings.NewStore(t.TempDir())
 	if err := store.SaveDeviceMap(settings.DeviceMap{Nodes: []settings.DeviceMapNode{{DeviceID: "first", X: 1, Y: 1}}}); err != nil {

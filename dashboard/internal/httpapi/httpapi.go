@@ -2513,6 +2513,15 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 		writeError(w, http.StatusBadRequest, "relation_self_reference", "a device cannot be its own parent")
 		return
 	}
+	if strings.HasPrefix(request.ParentID, "group:") {
+		writeError(w, http.StatusBadRequest, "invalid_relation", "a group is joined through its membership, not through a relation")
+		return
+	}
+	energyConfig, err := store.LoadEnergy()
+	if err != nil {
+		writeErrorDetail(w, http.StatusInternalServerError, "energy_roles_invalid", err)
+		return
+	}
 
 	devices := reg.Snapshot()
 	deviceExists := make(map[string]bool, len(devices))
@@ -2521,6 +2530,19 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 		deviceExists[device.ID] = true
 		if device.ViaDevice != "" {
 			parentOf[device.ID] = device.ViaDevice
+		}
+	}
+	// Group memberships live in energy.json. Registered here so the cycle
+	// check sees a path through a group. parentOf keeps one parent per node:
+	// a manual relation entered afterwards wins over a membership, which is
+	// enough to catch every cycle a single new relation can close.
+	for id, group := range energyConfig.Groups {
+		deviceExists["group:"+id] = true
+		for _, device := range group.Members.Devices {
+			parentOf[device] = "group:" + id
+		}
+		for _, child := range group.Members.Groups {
+			parentOf["group:"+child] = "group:" + id
 		}
 	}
 	if !deviceExists[request.ChildID] || !deviceExists[request.ParentID] {
@@ -2610,6 +2632,11 @@ func relationCreatesCycle(parentOf map[string]string, childID, parentID string) 
 func applyRelationOverrides(reg *registry.Registry, deviceMap settings.DeviceMap) {
 	overrides := make([]registry.RelationOverride, 0, len(deviceMap.Edges))
 	for _, edge := range deviceMap.Edges {
+		// The registry only knows devices. Group feeds are kept in the
+		// device map and never reach the device tree.
+		if strings.HasPrefix(edge.ChildID, "group:") || strings.HasPrefix(edge.ParentID, "group:") {
+			continue
+		}
 		overrides = append(overrides, registry.RelationOverride{ID: edge.ID, ChildID: edge.ChildID, ParentID: edge.ParentID, Kind: edge.Kind})
 	}
 	reg.SetRelationOverrides(overrides)

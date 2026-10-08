@@ -10,9 +10,10 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["device_id", "x", "y"],
+        "required": ["x", "y"],
         "properties": {
           "device_id": {"type": "string", "minLength": 1},
+          "virtual_id": {"type": "string", "minLength": 1},
           "x": {"type": "number"},
           "y": {"type": "number"}
         }

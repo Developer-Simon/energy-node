@@ -2086,6 +2086,39 @@ func TestDeviceMapRejectsPartialLayers(t *testing.T) {
 	}
 }
 
+func TestDeviceMapVersion2AcceptsVirtualNodesAndReadsVersion1(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.Version = 1
+	value.Nodes = []DeviceMapNode{{DeviceID: "netz", X: 1, Y: 2}, {VirtualID: "group:garage", X: 3, Y: 4}}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, _ := store.LoadDeviceMap()
+	if loaded.Version != 2 || loaded.Nodes[1].VirtualID != "group:garage" {
+		t.Fatalf("loaded = %+v", loaded)
+	}
+}
+
+func TestDeviceMapRejectsBadNodes(t *testing.T) {
+	for name, node := range map[string]DeviceMapNode{
+		"both":    {DeviceID: "a", VirtualID: "group:a"},
+		"none":    {},
+		"pattern": {VirtualID: "garage"},
+	} {
+		value := NewDeviceMap()
+		value.Nodes = []DeviceMapNode{node}
+		if err := NewStore(t.TempDir()).SaveDeviceMap(value); err == nil {
+			t.Errorf("%s: accepted", name)
+		}
+	}
+	value := NewDeviceMap()
+	value.Nodes = []DeviceMapNode{{VirtualID: "group:a"}, {VirtualID: "group:a"}}
+	if err := NewStore(t.TempDir()).SaveDeviceMap(value); err == nil {
+		t.Error("duplicate virtual node accepted")
+	}
+}
+
 func TestPatchEnergyMergesUnderOneLockAndWritesARevision(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{"a": {Role: energy.RolePV}}}); err != nil {
