@@ -2142,7 +2142,7 @@ func handleDeviceMap(store *settings.Store) http.HandlerFunc {
 			}
 			writeJSON(w, value)
 		case http.MethodPut:
-			var value settings.DeviceMap
+			value := settings.NewDeviceMap()
 			if err := decodeBody(r, &value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return

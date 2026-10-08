@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 )
 
@@ -2000,5 +2001,85 @@ func TestHistoryViewRejectsAnUnknownRangeMode(t *testing.T) {
 	value.HistoryViews = []HistoryView{{ID: "x", Name: "X", Series: []string{}, RangeHours: 6, RangeMode: "absolute", Aggregate: "avg"}}
 	if err := NewStore(t.TempDir()).SaveSettings(value); err == nil {
 		t.Fatal("unbekannter range_mode wurde angenommen")
+	}
+}
+
+func TestDeviceMapLayersDefaultWhenMissingFromFile(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"version":1,"nodes":[{"device_id":"a","x":1,"y":2}],"view":{"snap_to_grid":false,"show_grid":false,"grid_size":40,"edge_style":"straight"}}`
+	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewStore(dir).LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.Layers != DefaultDeviceMapLayers() {
+		t.Fatalf("layers = %#v, want defaults %#v for a file written before layers existed", got.View.Layers, DefaultDeviceMapLayers())
+	}
+	if got.View.WidthByPower {
+		t.Fatal("width_by_power must default to false")
+	}
+}
+
+func TestDeviceMapLayersRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.View.Layers = DeviceMapLayers{Wiring: false, Energy: true, Balance: false, Data: false}
+	value.View.WidthByPower = true
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.Layers != value.View.Layers || !got.View.WidthByPower {
+		t.Fatalf("view = %#v, want layers and width_by_power round-tripped", got.View)
+	}
+}
+
+func TestDeviceMapLayersRestoredRevisionWithoutLayersGetsDefaults(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	legacy := DeviceMap{Version: 1, Nodes: []DeviceMapNode{{DeviceID: "a"}}}
+	if err := store.SaveDeviceMap(legacy); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveDeviceMap(NewDeviceMap()); err != nil {
+		t.Fatal(err)
+	}
+	revisions, err := store.DeviceMapRevisions()
+	if err != nil || len(revisions) == 0 {
+		t.Fatalf("revisions %v, err %v", revisions, err)
+	}
+	// Strip "layers" from the stored revision so it looks like one written by an older dashboard.
+	path := revisions[0].Path
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	delete(doc["view"].(map[string]any), "layers")
+	stripped, _ := json.Marshal(doc)
+	if err := os.WriteFile(path, stripped, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	restored, err := store.RestoreDeviceMap(revisions[0].Name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if restored.View.Layers != DefaultDeviceMapLayers() {
+		t.Fatalf("restored layers = %#v, want defaults", restored.View.Layers)
+	}
+}
+
+func TestDeviceMapRejectsPartialLayers(t *testing.T) {
+	data := []byte(`{"version":1,"nodes":[],"view":{"grid_size":40,"edge_style":"straight","layers":{"wiring":true}}}`)
+	if err := config.ValidateDocument(data, deviceMapSchema); err == nil {
+		t.Fatal("expected layers without all four keys to be rejected")
 	}
 }
