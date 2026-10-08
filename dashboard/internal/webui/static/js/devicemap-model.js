@@ -119,8 +119,46 @@
     return set;
   };
 
+  const MIN_FLOW_W = 1;
+  const SPEED_SECONDS = Object.freeze({slow: 2.4, mid: 1.4, fast: 0.8});
+  const DASH_PATTERN = Object.freeze([7, 9]);
+  const DASH_CYCLE = 16;
+
+  const childrenIndex = pairs => {
+    const index = new Map();
+    for (const {parent, child} of pairs || []) {
+      if (!index.has(parent)) index.set(parent, []);
+      index.get(parent).push(child);
+    }
+    return index;
+  };
+
+  // Spec: an edge parent -> child carries the child's own measurement,
+  // otherwise the signed sum of its subtree. visited guards against cycles
+  // that manual relations can create.
+  const edgeFlow = (childId, energy, children, visited = new Set()) => {
+    if (visited.has(childId)) return null;
+    visited.add(childId);
+    const entry = energy.get(childId);
+    if (entry && entry.power != null) {
+      return Math.abs(entry.power) < MIN_FLOW_W ? null : {value: entry.power, sum: false};
+    }
+    let total = null;
+    for (const next of children.get(childId) || []) {
+      const flow = edgeFlow(next, energy, children, visited);
+      if (flow) total = (total || 0) + flow.value;
+    }
+    return total == null || Math.abs(total) < MIN_FLOW_W ? null : {value: total, sum: true};
+  };
+
+  const speedBucket = abs => (abs < 300 ? 'slow' : abs < 1200 ? 'mid' : 'fast');
+  const flowWidth = (abs, byPower) => (byPower ? Number((1.8 + 3.6 * Math.min(1, abs / 2500)).toFixed(2)) : 2.6);
+  const flowLabel = flow => `${flow.sum ? 'Σ ' : ''}${flow.value < 0 ? '↑' : '↓'} ${formatPower(flow.value)}`;
+  const flowColorToken = (flow, entry) => (flow.sum || !entry || !entry.primaryRole ? 'flow-rest' : ROLE_META[entry.primaryRole].color);
+
   window.DeviceMapModel = {
-    DEFAULT_LAYERS, PENDING_LAYERS, ROLE_META,
+    DEFAULT_LAYERS, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
     formatPower, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
+    childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
   };
 })();
