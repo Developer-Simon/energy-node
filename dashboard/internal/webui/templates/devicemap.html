@@ -18,6 +18,8 @@
       <span><i style="border-color: var(--flow-load)"></i>{{t "devicemap.legend.load"}}</span>
       <span><i style="border-color: var(--flow-rest)"></i>{{t "devicemap.legend.sum"}}</span>
       <span><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.heuristic"}}</span>
+      <span x-show="Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
+      <span x-show="Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
     </div>
     <div class="devicemap-overlay">
       <div class="toolbar devicemap-toolbar">
@@ -88,7 +90,7 @@
       </div>
     </div>
     <aside class="devicemap-panel" x-bind:data-open="panelView ? 'true' : 'false'" aria-labelledby="devicemap-panel-title" x-bind:aria-hidden="panelView ? 'false' : 'true'">
-      <template x-if="panelView">
+      <template x-if="panelView && panelView.kind === 'device'">
         <div class="devicemap-panel-inner">
           <header>
             <div>
@@ -109,11 +111,21 @@
                 <div class="devicemap-panel-entity-id" x-text="row.id"></div>
                 <label class="devicemap-panel-field">{{t "devicemap.panel.role"}}
                   <select x-on:change="setDraft(row.id, 'role', $event.target.value)" x-bind:disabled="!canEditEnergy">
-                    <template x-for="option in roleOptionsFor(row.unit)" x-bind:key="option.value">
-                      <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
+                    <optgroup label="{{t "devicemap.panel.optgroup.standard"}}">
+                      <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'standard')" x-bind:key="option.value">
+                        <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
+                      </template>
+                    </optgroup>
+                    <template x-if="roleOptionsFor(row.unit).some(item => item.group === 'custom')">
+                      <optgroup label="{{t "devicemap.panel.optgroup.custom"}}">
+                        <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'custom')" x-bind:key="option.value">
+                          <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
+                        </template>
+                      </optgroup>
                     </template>
                   </select>
                 </label>
+                <div class="devicemap-panel-source" x-show="customHint(row.assignment.role)"><span x-text="customHint(row.assignment.role)"></span></div>
                 <div class="devicemap-panel-source">
                   <span class="devicemap-panel-chip" x-bind:data-source="row.source" x-text="$t(`devicemap.panel.source.${row.source}`)"></span>
                   <span x-show="row.source !== 'none'" x-text="$t(`devicemap.panel.source_hint.${row.source}`)"></span>
@@ -142,7 +154,64 @@
           <footer x-show="canEditEnergy">
             <span class="devicemap-panel-status" role="status" x-text="panelStatusText()"></span>
             <button type="button" x-on:click="discardPanel()" x-bind:disabled="!panelDirty() || panelSaving">{{t "devicemap.panel.discard"}}</button>
-            <button type="button" class="primary" data-panel-save x-on:click="savePanel()" x-bind:disabled="!panelDirty() || panelSaving">{{t "devicemap.panel.save"}}</button>
+            <button type="button" class="primary" data-panel-save x-on:click="savePanelAny()" x-bind:disabled="!panelDirty() || panelSaving">{{t "devicemap.panel.save"}}</button>
+          </footer>
+        </div>
+      </template>
+      <template x-if="panelView && panelView.kind === 'group'">
+        <div class="devicemap-panel-inner">
+          <header>
+            <div>
+              <span class="devicemap-panel-eyebrow">{{t "devicemap.group.eyebrow"}}</span>
+              <input type="text" class="devicemap-panel-title-input" maxlength="60" aria-label="{{t "devicemap.group.name_aria"}}" x-bind:value="panelView.title" x-on:input="setGroupDraft('label', $event.target.value)" x-bind:disabled="!canEditEnergy">
+              <span class="devicemap-panel-health" x-text="panelView.health"></span>
+            </div>
+            <button type="button" class="icon-button" x-on:click="requestClosePanel()" aria-label="{{t "devicemap.panel.close"}}" title="{{t "devicemap.panel.close"}}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </header>
+          <div class="devicemap-panel-body">
+            <div class="devicemap-panel-entity">
+              <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name">{{t "devicemap.group.sum"}}</span><span class="devicemap-panel-entity-value" x-text="panelView.sumText"></span></div>
+              <div class="devicemap-panel-entity-id">{{t "devicemap.group.sum_hint"}}</div>
+            </div>
+            <div class="devicemap-panel-entity">
+              <span class="devicemap-panel-eyebrow">{{t "devicemap.group.members"}}</span>
+              <template x-for="member in panelView.members" x-bind:key="member.id">
+                <div class="devicemap-panel-member"><span x-text="member.name"></span><span x-text="member.valueText"></span><button type="button" class="icon-button" x-show="canEditEnergy" x-on:click="removeGroupMember(member.id)" x-bind:aria-label="$t('devicemap.group.remove_member', {name: member.name})" x-bind:title="$t('devicemap.group.remove_member', {name: member.name})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+              </template>
+              <label class="devicemap-panel-field" x-show="canEditEnergy">{{t "devicemap.group.add_member"}}
+                <select x-on:change="addGroupMember($event.target.value); $event.target.value = ''">
+                  <option value="">{{t "devicemap.group.add_member_placeholder"}}</option>
+                  <template x-for="device in panelView.addable" x-bind:key="device.id">
+                    <option x-bind:value="device.id" x-text="device.name"></option>
+                  </template>
+                </select>
+              </label>
+              <div class="devicemap-panel-entity-id" x-show="canEditEnergy">{{t "devicemap.group.add_member_hint"}}</div>
+            </div>
+            <div class="devicemap-panel-entity">
+              <label class="devicemap-panel-field">{{t "devicemap.group.role"}}
+                <select x-bind:disabled="!canEditEnergy" x-on:change="setGroupDraft('role', $event.target.value)">
+                  <template x-for="option in panelView.roleOptions" x-bind:key="option.value">
+                    <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === panelView.role"></option>
+                  </template>
+                </select>
+              </label>
+              <div class="devicemap-panel-entity-id">{{t "devicemap.group.role_hint"}}</div>
+            </div>
+            <div class="devicemap-panel-others">
+              <span class="devicemap-panel-eyebrow">{{t "devicemap.group.categories"}}</span>
+              <template x-for="cat in panelView.categories" x-bind:key="cat.id">
+                <div class="devicemap-panel-category"><span class="devicemap-cat-dot" x-bind:class="cat.color.replace('_', '-')"></span><span x-text="cat.label"></span><span class="muted" x-text="$t('devicemap.group.category_base', {base: $t(`devicemap.category.base.${cat.base}`)})"></span></div>
+              </template>
+              <button type="button" class="devicemap-panel-link" x-show="canEditEnergy" x-on:click="openCategoryDialog()">{{t "devicemap.group.category_create"}}</button>
+            </div>
+            <button type="button" class="devicemap-panel-link danger" x-show="canEditEnergy" x-on:click="deleteGroup()">{{t "devicemap.group.delete"}}</button>
+          </div>
+          <footer x-show="canEditEnergy">
+            <button type="button" x-on:click="discardPanel()" x-bind:disabled="!panelDirty() || panelSaving">{{t "devicemap.panel.discard"}}</button>
+            <button type="button" class="primary" data-panel-save x-on:click="savePanelAny()" x-bind:disabled="!panelDirty() || panelSaving">{{t "common.save"}}</button>
           </footer>
         </div>
       </template>
@@ -155,6 +224,35 @@
       <div class="app-modal-actions">
         <button type="button" x-on:click="$refs.groupDialog.close()">{{t "common.cancel"}}</button>
         <button type="submit" class="primary">{{t "devicemap.group.create_confirm"}}</button>
+      </div>
+    </form>
+  </dialog>
+  <dialog class="app-modal" x-ref="categoryDialog" aria-labelledby="devicemap-category-dialog-title">
+    <form x-on:submit.prevent="createCategory()">
+      <h2 class="app-modal-title" id="devicemap-category-dialog-title">{{t "devicemap.category.title"}}</h2>
+      <label class="devicemap-panel-field">{{t "devicemap.category.name"}}<input type="text" required maxlength="40" x-model="categoryForm.label"></label>
+      <fieldset class="devicemap-panel-field">
+        <legend>{{t "devicemap.category.base_label"}}</legend>
+        <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-base" value="consumer" x-model="categoryForm.base"> {{t "devicemap.category.base.consumer"}}</label>
+        <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-base" value="producer" x-model="categoryForm.base"> {{t "devicemap.category.base.producer"}}</label>
+        <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-base" value="storage" x-model="categoryForm.base"> {{t "devicemap.category.base.storage"}}</label>
+      </fieldset>
+      <fieldset class="devicemap-panel-field">
+        <legend>{{t "devicemap.category.color_label"}}</legend>
+        <template x-for="n in [1, 2, 3, 4, 5, 6]" x-bind:key="n">
+          <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-color" x-bind:value="'cat_' + n" x-model="categoryForm.color" x-bind:aria-label="$t('devicemap.category.color', {n: n})"><span class="devicemap-cat-dot" x-bind:class="'cat-' + n"></span></label>
+        </template>
+      </fieldset>
+      <label class="devicemap-panel-field">{{t "devicemap.category.icon"}}
+        <select x-model="categoryForm.icon">
+          <template x-for="icon in iconCatalogue" x-bind:key="icon.name">
+            <option x-bind:value="icon.name" x-text="$t(icon.labelKey)"></option>
+          </template>
+        </select>
+      </label>
+      <div class="app-modal-actions">
+        <button type="button" x-on:click="$refs.categoryDialog.close()">{{t "common.cancel"}}</button>
+        <button type="submit" class="primary">{{t "devicemap.category.create_confirm"}}</button>
       </div>
     </form>
   </dialog>

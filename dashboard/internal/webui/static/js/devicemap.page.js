@@ -68,6 +68,7 @@
       iconMarkup: {},
       iconCatalogue: [],
       groupName: '',
+      groupDraft: null,
       canEditEnergy: true,
       csrfToken: '',
       panelSaving: false,
@@ -324,21 +325,55 @@
 
       get panelView() {
         if (!this.panelId) return null;
+        const model = window.DeviceMapModel;
+        if (model.isGroupId(this.panelId)) {
+          const id = this.panelId.slice(model.GROUP_PREFIX.length);
+          const group = this.savedGroups[id];
+          if (!group) return null;
+          const draft = this.groupDraft || {};
+          const energy = this.energyByDevice();
+          const children = model.childrenIndex(this.wiringPairs());
+          const flow = model.edgeFlow(this.panelId, energy, children);
+          const members = [
+            ...(group.members.devices || []).map(deviceId => ({id: deviceId, name: this.deviceLabel(deviceId)})),
+            ...(group.members.groups || []).map(child => ({id: model.GROUP_PREFIX + child, name: (this.savedGroups[child] || {}).label || child})),
+          ].map(member => {
+            const memberFlow = model.edgeFlow(member.id, energy, children);
+            return {...member, valueText: memberFlow ? model.formatPower(memberFlow.value) : t('devicemap.value.no_values')};
+          });
+          const taken = new Set(Object.values(this.savedGroups).flatMap(other => other.members.devices || []));
+          const consumers = model.roleOptions('W', this.savedCategories)
+            .filter(option => option.group === 'custom' && (this.savedCategories[option.value.slice('custom:'.length)] || {}).base === 'consumer');
+          return {
+            kind: 'group',
+            title: draft.label !== undefined ? draft.label : group.label,
+            health: t('devicemap.group.eyebrow_hint'),
+            sumText: flow ? model.formatPower(flow.value) : t('devicemap.group.no_data'),
+            members,
+            addable: this.devices.filter(device => !taken.has(device.id) && device.id !== model.OWN_ENERGY_DEVICE_ID)
+              .map(device => ({id: device.id, name: device.name || device.id})),
+            role: draft.role !== undefined ? draft.role : (group.role || ''),
+            roleOptions: [{value: '', label: t('devicemap.group.no_role')}, ...consumers],
+            categories: Object.entries(this.savedCategories).map(([cid, def]) => ({id: cid, label: def.label, base: def.base, color: def.color})),
+          };
+        }
         const device = this.devices.find(candidate => candidate.id === this.panelId);
         if (!device) return null;
-        const {rows, others} = window.DeviceMapModel.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts});
+        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts});
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
         return {
+          kind: 'device',
           title: device.name || device.id,
-          health: t(`devicemap.panel.health.${window.DeviceMapModel.deviceHealth(device)}`),
+          health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
           rows, others, empty,
         };
       },
 
       openPanel(id) {
         this.panelId = id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID ? null : id;
+        this.groupDraft = null;
       },
 
       closePanel() {
@@ -346,11 +381,12 @@
       },
 
       panelDirty() {
-        return Object.keys(this.drafts).length > 0;
+        return Object.keys(this.drafts).length > 0 || Boolean(this.groupDraft);
       },
 
       discardPanel() {
         this.drafts = {};
+        this.groupDraft = null;
         this.applyEnergy();
       },
 
@@ -371,7 +407,7 @@
       },
 
       roleOptionsFor(unit) {
-        return window.DeviceMapModel.roleOptions(unit);
+        return window.DeviceMapModel.roleOptions(unit, this.savedCategories);
       },
 
       pinAssignment(entityId) {
@@ -974,6 +1010,107 @@
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
         }
+      },
+
+      setGroupDraft(field, value) {
+        const id = this.panelId.slice(window.DeviceMapModel.GROUP_PREFIX.length);
+        const group = this.savedGroups[id];
+        const next = {...(this.groupDraft || {}), [field]: value};
+        const sameLabel = next.label === undefined || next.label === group.label;
+        const sameRole = next.role === undefined || next.role === (group.role || '');
+        this.groupDraft = sameLabel && sameRole ? null : next;
+      },
+
+      async saveGroupPanel() {
+        if (!this.groupDraft) return;
+        const id = this.panelId.slice(window.DeviceMapModel.GROUP_PREFIX.length);
+        const group = JSON.parse(JSON.stringify(this.savedGroups[id]));
+        if (this.groupDraft.label !== undefined) group.label = this.groupDraft.label.trim() || group.label;
+        if (this.groupDraft.role !== undefined) {
+          if (this.groupDraft.role) group.role = this.groupDraft.role; else delete group.role;
+        }
+        this.panelSaving = true;
+        try {
+          await this.patchEnergy({groups: {[id]: group}});
+          this.groupDraft = null;
+          this.renderGraph();
+          this.$store.toasts.push(t('devicemap.group.saved'));
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        } finally {
+          this.panelSaving = false;
+        }
+      },
+
+      savePanelAny() {
+        return window.DeviceMapModel.isGroupId(this.panelId) ? this.saveGroupPanel() : this.savePanel();
+      },
+
+      async addGroupMember(deviceId) {
+        if (!deviceId) return;
+        await this.joinGroup(deviceId, this.panelId.slice(window.DeviceMapModel.GROUP_PREFIX.length));
+      },
+
+      async removeGroupMember(memberId) {
+        const id = this.panelId.slice(window.DeviceMapModel.GROUP_PREFIX.length);
+        this.selectedEdge = {id: '', source: this.panelId, target: memberId, overrideId: null, membership: {group: id, member: memberId}};
+        await this.removeSelectedRelation();
+        this.selectedEdge = null;
+      },
+
+      async deleteGroup() {
+        const id = this.panelId.slice(window.DeviceMapModel.GROUP_PREFIX.length);
+        const confirmed = await this.$store.modal.confirm({
+          title: t('devicemap.group.delete_title', {group: this.savedGroups[id].label}),
+          body: t('devicemap.group.delete_body'),
+          confirmLabel: t('common.delete'),
+          danger: true,
+        });
+        if (!confirmed) return;
+        try {
+          await this.patchEnergy({groups: {[id]: null}});
+          this.groupDraft = null;
+          this.closePanel();
+          this.clearFocus();
+          const nodeId = `group:${id}`;
+          this.deviceMap = {...this.deviceMap,
+            nodes: (this.deviceMap.nodes || []).filter(node => node.virtual_id !== nodeId),
+            edges: (this.deviceMap.edges || []).filter(edge => edge.child_id !== nodeId)};
+          this.savedDeviceMap = {...this.savedDeviceMap, edges: this.deviceMap.edges};
+          this.renderGraph();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
+      categoryForm: {label: '', base: 'consumer', color: 'cat_1', icon: ''},
+
+      openCategoryDialog() {
+        this.categoryForm = {label: '', base: 'consumer', color: 'cat_1', icon: (this.iconCatalogue[0] || {}).name || ''};
+        const dialog = this.$refs.categoryDialog;
+        if (dialog && typeof dialog.showModal === 'function') dialog.showModal(); else if (dialog) dialog.open = true;
+      },
+
+      // slugId() falls back to "gruppe" when the label has no letters or digits at all.
+      async createCategory() {
+        const form = this.categoryForm;
+        const label = String(form.label || '').trim();
+        if (!label) return;
+        const id = window.DeviceMapModel.slugId(label, Object.keys(this.savedCategories));
+        try {
+          await this.patchEnergy({categories: {[id]: {label, base: form.base, color: form.color, icon: form.icon}}});
+          if (this.$refs.categoryDialog && this.$refs.categoryDialog.close) this.$refs.categoryDialog.close();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
+      customHint(role) {
+        if (!role || !role.startsWith('custom:')) return '';
+        const def = this.savedCategories[role.slice('custom:'.length)];
+        if (!def) return '';
+        const base = t(`devicemap.category.base.${def.base}`);
+        return t('devicemap.panel.custom_hint', {base});
       },
 
       // Selecting an edge is the first step of "Lösen von Pfaden": it only

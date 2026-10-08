@@ -1168,3 +1168,61 @@ test('createGroup derives an id from the label and patches it', async () => {
   assert.deepEqual(Object.keys(patch.groups), ['garage_2']);
   assert.deepEqual(patch.groups.garage_2, {label: 'Garage', members: {devices: [], groups: []}});
 });
+
+test('tapping a group opens its panel with members, addable devices and categories', async () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.savedCategories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}};
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  const view = component.panelView;
+  assert.equal(view.kind, 'group');
+  assert.deepEqual(JSON.parse(JSON.stringify(view.members.map(member => member.id))), ['wb']);
+  assert.ok(view.addable.some(item => item.id === 'bkw'));
+  assert.ok(!view.addable.some(item => item.id === 'energy_node'));
+  assert.deepEqual(JSON.parse(JSON.stringify(view.roleOptions.map(option => option.value))), ['', 'custom:werkstatt']);
+});
+
+test('group name and role are drafts, guarded like device drafts and saved together', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    return {ok: true, status: 200, json: async () => ({assignments: {}, groups: JSON.parse(options.body || '{}').groups || {}})};
+  };
+  const {component, stores} = createDevicemapPanel({fetchImpl, confirmAnswer: false});
+  groupFixture(component);
+  component.savedCategories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}};
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  component.setGroupDraft('label', 'Garage Nord');
+  component.setGroupDraft('role', 'custom:werkstatt');
+  assert.equal(component.panelDirty(), true);
+  await component.onBackgroundTap();
+  assert.equal(stores.modal.calls.length, 1);
+  assert.equal(component.panelId, 'group:garage');
+  await component.saveGroupPanel();
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(patch.groups.garage, {label: 'Garage Nord', members: {devices: ['wb'], groups: []}, role: 'custom:werkstatt'});
+  assert.equal(component.groupDraft, null);
+});
+
+test('deleteGroup asks, patches null and closes the panel', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => { calls.push({url, options}); return {ok: true, status: 200, json: async () => ({assignments: {}, groups: {}})}; };
+  const {component} = createDevicemapPanel({fetchImpl, confirmAnswer: true});
+  groupFixture(component);
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  await component.deleteGroup();
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(patch, {groups: {garage: null}});
+  assert.equal(component.panelId, null);
+});
+
+test('createCategory derives an id and offers the category in the device role select', async () => {
+  const fetchImpl = async (url, options = {}) => ({ok: true, status: 200, json: async () => ({assignments: {}, categories: JSON.parse(options.body).categories})});
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  component.categoryForm = {label: 'Werkstatt', base: 'consumer', color: 'cat_2', icon: 'mdi:home'};
+  await component.createCategory();
+  assert.equal(component.savedCategories.werkstatt.color, 'cat_2');
+  const options = component.roleOptionsFor('W');
+  assert.equal(options[options.length - 1].value, 'custom:werkstatt');
+});
