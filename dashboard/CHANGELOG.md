@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.14 (2026-10-08)
+## v0.8.15 (2026-10-08)
 
 ### Features
 
@@ -12,6 +12,20 @@
 - **dashboard:** redesign the diagnostics tab (#101) (b01e84e)
 - **dashboard:** device map layers, role rings and focus (#103) (ed0959e)
 - **dashboard:** live energy flow on the device map (#105) (2873ccd)
+- **dashboard:** edit energy roles on the device map (#107) (0f1a4dc)
+- **dashboard:** add energy categories and groups to the energy model (a66ef13)
+- **dashboard:** aggregate custom categories and energy groups (9080adc)
+- **dashboard:** balance custom categories by their base in Go and JS (7df230b)
+- **dashboard:** record custom energy categories in the history (fddcedc)
+- **dashboard:** store energy categories and groups with validation (c9042c7)
+- **dashboard:** edit categories and groups through the energy roles endpoint (dd7e9a2)
+- **dashboard:** device map version 2 with virtual group nodes and group feeds (27e7e7e)
+- **dashboard:** add categories, groups and placement to the device map model (2ad208f)
+- **dashboard:** draw group nodes and category icons on the device map (2f08bea)
+- **dashboard:** place group nodes and connect memberships on the device map (5b7ab4e)
+- **dashboard:** add the group panel, category dialog and legend to the device map (c52fd69)
+- **dashboard:** manage energy groups and custom categories on the energy page (1abb645)
+- **dashboard:** energy groups and custom categories (#108)
 - **dashboard:** add the edit_energy role for guests and admins (1571966)
 - **dashboard:** add an atomic energy config patch to the settings store (6cdac57)
 - **dashboard:** gate energy writes behind edit_energy and add a merging PATCH (0e5836f)
@@ -20,7 +34,6 @@
 - **dashboard:** open a role panel on device tap with a guarded close (875a646)
 - **dashboard:** add the device map role panel markup and styles (5c323ae)
 - **dashboard:** save panel roles by PATCH and jump to the role table (6c76e5b)
-- **dashboard:** edit energy roles on the device map (#107)
 - **dashboard:** compute energy flow per device map edge (a08bcdb)
 - **dashboard:** add the width by power switch to the device map (2ccbb14)
 - **dashboard:** draw live energy flows along device map wiring (e0a7187)
@@ -72,6 +85,7 @@
 
 ### Tests
 
+- **dashboard:** add a group and a custom category to the smoke fixture (fa84895)
 - **dashboard:** give the smoke preset's charger power sensors a unit (12b9f28)
 - **dashboard:** smoke-check that history view tiles survive the live swap (09dbc4c)
 - **dashboard:** make the history tile smoke check rerunnable (e7229e1)
