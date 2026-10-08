@@ -24,6 +24,8 @@ upstream that work — but it is no longer the assumed way to use this.)
 - Bridge- or dashboard-specific conventions live next to the code
   (`dashboard/AGENTS.md`, the module docstrings under `services/` and `libs/`). Read the one
   for the area you're touching before changing it.
+- The README and the documentation are in English, but most comments in the
+  code are still German.
 - Maintainer notes that are not on the documentation site live in [docs/_internal/](docs/_internal/README.md).
 
 ## New device services
