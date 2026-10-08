@@ -24,6 +24,9 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap.page.js'),
   'utf8',
 );
+const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
+const moduleSources = ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-labels.js']
+  .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
@@ -34,6 +37,7 @@ function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl }
   if (cytoscapeImpl) dom.window.cytoscape = cytoscapeImpl;
   installI18n(dom.window);
   vm.runInContext(themeSource, context);
+  for (const source of moduleSources) vm.runInContext(source, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {}; // no canvas -> renderGraph() no-ops, matching real "panel not visible yet" state
@@ -268,13 +272,42 @@ test('buildElements marks manually created relations with overrideId but leaves 
   assert.equal(overrideEdge.data.overrideId, 'relation-1', 'a relation that also appears in device.relations (as the registry always includes overrides there) must still keep its overrideId - regression test for "every connection renders as via_device and cannot be dissolved"');
 });
 
-test('buildElements labels each node with its name and entity count', () => {
+test('buildElements gives each node its name and a role-ring image instead of a canvas label', () => {
   const { component } = createDevicemapPanel();
-  component.devices = [{ id: 'device_a', name: 'Shelly 1', relations: [], entities: [{ has_availability: false }, { has_availability: false }] }];
-  component.deviceMap = { version: 1, nodes: [], edges: [] };
-
+  component.devices = [{ id: 'pv', name: 'APsystems Dach', relations: [], entities: [{}, {}] }];
+  component.energy = { entities: [{ device_id: 'pv', entity_id: 'p1', value: 2400, unit: 'W', role: { role: 'pv', source: 'override' } }] };
   const [node] = component.buildElements();
-  assert.equal(node.data.label, 'Shelly 1\n2 Entitäten');
+  assert.equal(node.data.name, 'APsystems Dach');
+  assert.equal(node.data.label, undefined);
+  assert.match(node.data.svg, /^data:image\/svg\+xml;utf8,/);
+  assert.match(decodeURIComponent(node.data.svg), /data-ring="0"/);
+});
+
+test('labelItems pairs each device with its live value text', () => {
+  const { component } = createDevicemapPanel();
+  component.devices = [
+    { id: 'pv', name: 'APsystems Dach', relations: [], entities: [] },
+    { id: 'bms', name: 'BMS Bank A', relations: [], entities: [{ value: '52.8', unit_of_measurement: 'V' }] },
+  ];
+  component.energy = { entities: [{ device_id: 'pv', entity_id: 'p1', value: 2400, unit: 'W', role: { role: 'pv', source: 'override' } }] };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.labelItems())), [
+    { id: 'pv', name: 'APsystems Dach', value: '2,4 kW' },
+    { id: 'bms', name: 'BMS Bank A', value: '52,8 V' },
+  ]);
+});
+
+test('load() keeps the map usable when the energy endpoint fails', async () => {
+  const fetchImpl = async url => {
+    if (url.endsWith('/api/v1/energy')) return { ok: false, status: 500, json: async () => ({ message: 'boom' }) };
+    if (url.endsWith('/api/v1/devices')) return { ok: true, status: 200, json: async () => [{ id: 'a', name: 'A', relations: [], entities: [] }] };
+    return { ok: true, status: 200, json: async () => ({ version: 1, nodes: [], edges: [] }) };
+  };
+  const { component, stores } = createDevicemapPanel({ fetchImpl });
+  await component.load();
+  assert.equal(component.devices.length, 1);
+  assert.equal(component.energy, null);
+  assert.equal(component.energyUnavailable, true);
+  assert.equal(stores.toasts.items.length, 0, 'a missing energy snapshot is not a critical error');
 });
 
 test('buildElements classifies node status from availability-tracked entities only', () => {

@@ -28,18 +28,7 @@
     curved: {'curve-style': 'unbundled-bezier', 'control-point-distances': [40], 'control-point-weights': [0.5]},
   };
 
-  // Ratio of entities currently reporting available=true, counting only
-  // entities that actually publish an availability topic (has_availability)
-  // - most entities don't, and treating those as "unavailable" would make
-  // almost every device look degraded.
-  const statusClass = device => {
-    const tracked = (device.entities || []).filter(entity => entity.has_availability);
-    if (tracked.length === 0) return 'devicemap-status-unknown';
-    const availableCount = tracked.filter(entity => entity.available).length;
-    if (availableCount === tracked.length) return 'devicemap-status-ok';
-    if (availableCount === 0) return 'devicemap-status-down';
-    return 'devicemap-status-degraded';
-  };
+  const statusClass = device => `devicemap-status-${window.DeviceMapModel.deviceHealth(device)}`;
 
   const devicemapPanel = () => {
     // Kept outside the returned (Alpine-reactive) object on purpose: a
@@ -47,6 +36,7 @@
     // otherwise deep-proxy, which is unnecessary work and a likely source of
     // subtle bugs (Cytoscape mutates itself heavily on every render/drag).
     let cy = null;
+    let labels = null;
 
     return {
       devices: [],
@@ -64,6 +54,8 @@
       unsaved: false,
       placedCount: 0,
       themeOff: null,
+      energy: null,
+      energyUnavailable: false,
 
       async load() {
         // load() läuft nach jedem Speichern erneut, die Registrierung darf
@@ -72,16 +64,20 @@
         if (!this.themeOff) {
           this.themeOff = window.DashboardTheme.onChange(() => {
             if (cy) cy.style(this.graphStyle());
+            this.applyEnergy();
           });
         }
         this.loading = true;
         try {
-          const [devices, deviceMap] = await Promise.all([
+          const [devices, deviceMap, energy] = await Promise.all([
             requestJSON('/api/v1/devices'),
             requestJSON('/api/v1/device/map'),
+            requestJSON('/api/v1/energy').catch(() => null),
           ]);
           this.devices = devices || [];
           this.deviceMap = deviceMap || {version: 1, nodes: [], edges: []};
+          this.energy = energy;
+          this.energyUnavailable = energy === null;
           this.savedDeviceMap = JSON.parse(JSON.stringify(this.deviceMap));
           this.renderGraph();
         } catch (error) {
@@ -102,6 +98,50 @@
 
       destroy() {
         if (this.themeOff) this.themeOff();
+        if (labels) { labels.destroy(); labels = null; }
+      },
+
+      energyByDevice() {
+        return window.DeviceMapModel.deviceEnergy(this.energy);
+      },
+
+      themeColor() {
+        const cache = {};
+        return token => {
+          if (!(token in cache)) cache[token] = window.DashboardTheme.color(token);
+          return cache[token];
+        };
+      },
+
+      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor()) {
+        const model = window.DeviceMapModel;
+        const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0);
+        return window.DeviceMapNodeSvg.dataUri(spec, colorOf);
+      },
+
+      labelItems() {
+        const energy = this.energyByDevice();
+        return this.devices.map(device => ({
+          id: device.id,
+          name: device.name || device.id,
+          value: window.DeviceMapModel.nodeValueText(device, energy.get(device.id)),
+        }));
+      },
+
+      // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
+      // internal state and restart every animation for what is only a value change.
+      applyEnergy() {
+        if (labels) labels.update(this.labelItems());
+        if (!cy) return;
+        const energy = this.energyByDevice();
+        const colorOf = this.themeColor();
+        cy.batch(() => {
+          for (const device of this.devices) {
+            const node = cy.getElementById(device.id);
+            if (!node.empty()) node.data('svg', this.nodeSvg(device, energy, colorOf));
+          }
+        });
+        if (labels) labels.sync(cy);
       },
 
       positionFor(deviceId) {
@@ -159,14 +199,12 @@
 
       buildElements() {
         const nodeIds = new Set(this.devices.map(device => device.id));
+        const energy = this.energyByDevice();
+        const colorOf = this.themeColor();
         const elements = this.devices.map(device => {
           const position = this.positionFor(device.id);
-          const entityCount = (device.entities || []).length;
           const element = {
-            data: {
-              id: device.id,
-              label: `${device.name || device.id}\n${tn('devicemap.entity_count', entityCount, {n: entityCount})}`,
-            },
+            data: {id: device.id, name: device.name || device.id, svg: this.nodeSvg(device, energy, colorOf)},
             classes: statusClass(device),
           };
           if (position) element.position = {x: position.x, y: position.y};
@@ -207,30 +245,22 @@
       graphStyle() {
         // Cytoscape malt auf Canvas und kann kein var(--token) auflösen -
         // die Farben müssen deshalb als fertige Werte hereingereicht werden.
-        const theme = window.DashboardTheme.colors({
-          label: 'text-subtle', labelBg: 'bg', node: 'panel', line: 'border',
-          okLine: 'ok-line', okBg: 'ok-bg', warnLine: 'warn-line', warnBg: 'warn-bg',
-          badLine: 'bad-line', badBg: 'bad-bg', accent: 'accent',
-        });
+        const theme = window.DashboardTheme.colors({line: 'border', accent: 'accent'});
         return [
           {selector: 'node', style: {
-            label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': '90px',
-            'font-size': '9px', 'font-family': 'system-ui, sans-serif', color: theme.label,
-            'text-valign': 'bottom', 'text-halign': 'center', 'text-margin-y': 6,
-            'text-background-color': theme.labelBg, 'text-background-opacity': 0.85, 'text-background-padding': '2px',
-            width: 34, height: 34, 'background-color': theme.node, 'border-width': 2, 'border-color': theme.line,
+            label: '', width: window.DeviceMapNodeSvg.SIZE, height: window.DeviceMapNodeSvg.SIZE,
+            shape: 'ellipse', 'background-opacity': 0, 'border-width': 0,
+            'background-image': 'data(svg)', 'background-fit': 'contain', 'background-clip': 'none',
+            'background-image-smoothing': 'yes',
+            'outline-width': 0, 'outline-color': theme.accent, 'outline-offset': 3,
           }},
-          {selector: 'node.devicemap-status-ok', style: {'border-color': theme.okLine, 'background-color': theme.okBg}},
-          {selector: 'node.devicemap-status-degraded', style: {'border-color': theme.warnLine, 'background-color': theme.warnBg}},
-          {selector: 'node.devicemap-status-down', style: {'border-color': theme.badLine, 'background-color': theme.badBg}},
-          {selector: 'node.devicemap-status-unknown', style: {'border-color': theme.line, 'background-color': theme.node}},
-          {selector: 'node.devicemap-connect-source', style: {'border-width': 3, 'border-color': theme.accent}},
+          {selector: 'node.devicemap-connect-source', style: {'outline-width': 3}},
           // Snap-preview (see onNodeDrag()): an unselectable, non-interactive
           // placeholder at the grid cell the dragged node will land on.
           // 'events: no' keeps it from stealing taps/drags from whatever is
           // underneath it.
           {selector: 'node.devicemap-ghost', style: {
-            label: '', 'background-opacity': 0,
+            label: '', 'background-opacity': 0, 'background-image': 'none',
             'border-width': 2, 'border-style': 'dashed', 'border-color': theme.accent,
             events: 'no',
           }},
@@ -292,6 +322,12 @@
         cy.on('tap', event => { if (event.target === cy) this.clearEdgeSelection(); });
         cy.on('viewport', () => this.syncGridBackground());
         this.syncGridBackground();
+        if (this.$refs.labels && !labels) labels = window.DeviceMapLabels.create(this.$refs.labels);
+        if (labels) {
+          labels.update(this.labelItems());
+          cy.on('render', () => labels.sync(cy));
+          labels.sync(cy);
+        }
       },
 
       // Continuous feedback while the pointer is still down (apple-design

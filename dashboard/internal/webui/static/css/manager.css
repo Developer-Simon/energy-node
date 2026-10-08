@@ -391,6 +391,16 @@ select.schema-control {
   background-size: var(--devicemap-grid-px, 40px) var(--devicemap-grid-px, 40px);
   background-position: var(--devicemap-grid-x, 0px) var(--devicemap-grid-y, 0px);
 }
+/* Name and live value under each node (devicemap-labels.js). Typography from
+   the draft: name bold 11px, value 10.5px lighter. The halo uses the canvas
+   background (approved point 8 in the plan). */
+.devicemap-labels { position: absolute; inset: 0; overflow: hidden; pointer-events: none; border-radius: var(--radius-lg); }
+.devicemap-node-label { position: absolute; left: 0; top: 0; display: grid; justify-items: center; gap: 1px; white-space: nowrap; transform-origin: 50% 0;
+  text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 3px var(--bg), 0 0 4px var(--bg);
+  transition: opacity 200ms var(--ease-out); }
+.devicemap-node-label.is-dimmed { opacity: .18; }
+.devicemap-node-name { font-size: 11px; font-weight: 600; color: var(--text-strong); line-height: 1.25; }
+.devicemap-node-value { font-size: 10.5px; color: var(--text-subtle); font-variant-numeric: tabular-nums; line-height: 1.25; }
 .devicemap-overlay {
   position: absolute; inset: .75rem .75rem auto .75rem; z-index: 2;
   display: flex; flex-direction: column; align-items: flex-start; gap: .55rem;
