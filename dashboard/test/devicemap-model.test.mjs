@@ -123,3 +123,71 @@ test('speed buckets, widths, labels and colours follow the draft', () => {
   assert.equal(model.flowColorToken({ value: -100, sum: false }, energy.get('pv')), 'flow-pv');
   assert.equal(model.flowColorToken({ value: 100, sum: true }, undefined), 'flow-rest');
 });
+
+test('baseAssignment prefers the saved override, then the heuristic, then none', () => {
+  const model = loadModel();
+  const snapshot = {entities: [{entity_id: 'h', device_id: 'd', value: 5, role: {role: 'pv', scale: 1, source: 'heuristic'}}]};
+  assert.equal(model.baseAssignment('o', {o: {role: 'load', scale: 2}}, snapshot).source, 'override');
+  assert.equal(model.baseAssignment('o', {o: {role: 'load', scale: 2}}, snapshot).scale, 2);
+  assert.equal(model.baseAssignment('h', {}, snapshot).role, 'pv');
+  assert.equal(model.baseAssignment('h', {}, snapshot).source, 'heuristic');
+  const none = model.baseAssignment('x', {x: {role: ''}}, snapshot);
+  assert.equal(none.role, '');
+  assert.equal(none.source, 'override');
+  assert.equal(model.baseAssignment('y', {}, snapshot).source, 'none');
+});
+
+test('panelRows splits eligible entities from the rest and marks drafts and pins', () => {
+  const model = loadModel();
+  const device = {id: 'bkw', entities: [
+    {unique_id: 'p', name: 'Leistung', unit_of_measurement: 'W', value: '600'},
+    {unique_id: 'v', name: 'Spannung', unit_of_measurement: 'V', value: '230'},
+  ]};
+  const snapshot = {entities: [{entity_id: 'p', device_id: 'bkw', value: 600, role: {role: 'pv', scale: 1, source: 'heuristic'}}]};
+  let view = model.panelRows({device, snapshot, saved: {}, drafts: {}});
+  assert.equal(view.rows.length, 1);
+  assert.equal(view.rows[0].source, 'heuristic');
+  assert.equal(view.rows[0].canPin, true);
+  assert.equal(view.others.length, 1);
+  view = model.panelRows({device, snapshot, saved: {}, drafts: {p: {role: 'pv', scale: 1, invert: false, capacity_kwh: 0, pin: true}}});
+  assert.equal(view.rows[0].source, 'draft');
+  assert.equal(view.rows[0].dirty, true);
+});
+
+test('isDraftChange ignores an unchanged draft but counts a pin on a heuristic role', () => {
+  const model = loadModel();
+  const base = {role: 'pv', scale: 1, invert: false, capacity_kwh: 0, source: 'heuristic'};
+  assert.equal(model.isDraftChange(base, {role: 'pv', scale: 1, invert: false, capacity_kwh: 0}), false);
+  assert.equal(model.isDraftChange(base, {role: 'pv', scale: 1, invert: false, capacity_kwh: 0, pin: true}), true);
+  assert.equal(model.isDraftChange(base, {role: 'pv', scale: 2, invert: false, capacity_kwh: 0}), true);
+});
+
+test('applyDrafts recomputes from the raw value and follows a live update', () => {
+  const model = loadModel();
+  const devices = [{id: 'd', entities: [{unique_id: 'p', unit_of_measurement: 'kW', value: '1.5'}]}];
+  const live = {entities: [{entity_id: 'p', device_id: 'd', value: 3000, unit: 'W', role: {role: 'load', scale: 2, invert: false, source: 'override'}}]};
+  const preview = model.applyDrafts(live, {p: {role: 'wallbox', scale: 1, invert: true, capacity_kwh: 0}}, devices);
+  const entityPreview = preview.entities.find(item => item.entity_id === 'p');
+  assert.equal(entityPreview.role.role, 'wallbox');
+  assert.equal(entityPreview.value, -1500, 'raw = 3000 / 2, then inverted');
+  assert.equal(live.entities[0].role.role, 'load', 'the input snapshot is untouched');
+  const later = {entities: [{...live.entities[0], value: 4000}]};
+  assert.equal(model.applyDrafts(later, {p: {role: 'wallbox', scale: 1, invert: true, capacity_kwh: 0}}, devices).entities[0].value, -2000);
+});
+
+test('applyDrafts adds an entity that had no role yet and drops one set to no role', () => {
+  const model = loadModel();
+  const devices = [{id: 'd', entities: [{unique_id: 'n', unit_of_measurement: 'W', value: '200'}]}];
+  const snapshot = {entities: [{entity_id: 'r', device_id: 'd', value: 50, role: {role: 'pv', scale: 1, source: 'heuristic'}}]};
+  const preview = model.applyDrafts(snapshot, {n: {role: 'heat_pump', scale: 1, invert: false, capacity_kwh: 0}, r: {role: '', scale: 1, invert: false, capacity_kwh: 0}}, devices);
+  assert.deepEqual(preview.entities.map(item => item.entity_id), ['n']);
+  assert.equal(preview.entities[0].value, 200);
+  assert.equal(preview.entities[0].device_id, 'd');
+});
+
+test('assignmentPayload keeps only the fields of the role kind', () => {
+  const model = loadModel();
+  assert.deepEqual({...model.assignmentPayload({role: 'battery_soc', scale: 3, invert: true, capacity_kwh: 10})}, {role: 'battery_soc', capacity_kwh: 10});
+  assert.deepEqual({...model.assignmentPayload({role: '', scale: 3, invert: true, capacity_kwh: 0})}, {role: ''});
+  assert.deepEqual({...model.assignmentPayload({role: 'pv', scale: 1.5, invert: true, capacity_kwh: 0, pin: true})}, {role: 'pv', scale: 1.5, invert: true});
+});

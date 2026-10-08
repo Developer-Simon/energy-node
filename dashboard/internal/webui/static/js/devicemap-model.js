@@ -27,6 +27,127 @@
     battery_soc: {color: 'flow-battery', icon: 'soc', toward: null},
   });
 
+  const POWER_ROLES = Object.freeze(['pv', 'battery', 'battery_charge', 'battery_discharge', 'grid', 'grid_import', 'grid_export', 'load', 'wallbox', 'heat_pump']);
+  // The dashboard's own balance device, read back from discovery. The energy
+  // page hides it from the role editor, the panel does the same.
+  const OWN_ENERGY_DEVICE_ID = 'energy_node';
+
+  const isEligibleUnit = unit => unit === 'W' || unit === 'kW' || unit === '%';
+
+  const roleLabel = role => (role ? t(`energy.role_label.${role}`) : t('energy.roles.no_role'));
+
+  const roleOptions = unit => (unit === '%' ? ['', 'battery_soc'] : ['', ...POWER_ROLES])
+    .map(value => ({value, label: roleLabel(value)}));
+
+  const normalizeAssignment = value => ({
+    role: (value && value.role) || '',
+    scale: Number(value && value.scale) || 1,
+    invert: Boolean(value && value.invert),
+    capacity_kwh: Number(value && value.capacity_kwh) || 0,
+  });
+
+  const snapshotEntity = (snapshot, entityId) =>
+    ((snapshot && snapshot.entities) || []).find(entity => entity.entity_id === entityId) || null;
+
+  // What the server holds for one entity, before any draft: a saved
+  // override wins, then a heuristic role from the live snapshot, then none.
+  const baseAssignment = (entityId, saved, snapshot) => {
+    if (saved && Object.prototype.hasOwnProperty.call(saved, entityId)) {
+      return {...normalizeAssignment(saved[entityId]), source: 'override'};
+    }
+    const live = snapshotEntity(snapshot, entityId);
+    if (live && live.role && live.role.source === 'heuristic') {
+      return {...normalizeAssignment(live.role), source: 'heuristic'};
+    }
+    return {...normalizeAssignment(null), source: 'none'};
+  };
+
+  const isDraftChange = (base, draft) => {
+    const next = normalizeAssignment(draft);
+    if (draft && draft.pin && base.source === 'heuristic') return true;
+    return next.role !== base.role || next.scale !== base.scale
+      || next.invert !== base.invert || next.capacity_kwh !== base.capacity_kwh;
+  };
+
+  const valueText = entity => {
+    const raw = entity.value;
+    if (raw === '' || raw == null || !Number.isFinite(Number(raw))) return '';
+    return `${window.I18n.formatValue(String(raw), entity.unit_of_measurement || '')} ${entity.unit_of_measurement || ''}`.trim();
+  };
+
+  const panelRows = ({device, snapshot, saved, drafts}) => {
+    const rows = [];
+    const others = [];
+    for (const entity of (device && device.entities) || []) {
+      const id = entity.unique_id;
+      const name = entity.name || entity.object_id || id;
+      if (!isEligibleUnit(entity.unit_of_measurement)) {
+        others.push({id, name, valueText: valueText(entity)});
+        continue;
+      }
+      const base = baseAssignment(id, saved, snapshot);
+      const draft = drafts && drafts[id];
+      const dirty = Boolean(draft) && isDraftChange(base, draft);
+      const assignment = dirty ? normalizeAssignment(draft) : {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh};
+      let source = base.source;
+      if (dirty) source = 'draft';
+      else if (!base.role && base.source !== 'override') source = 'none';
+      rows.push({id, name, unit: entity.unit_of_measurement, valueText: valueText(entity), assignment, source, dirty,
+        canPin: !dirty && base.source === 'heuristic' && Boolean(base.role)});
+    }
+    return {rows, others};
+  };
+
+  const rawFromDevice = (devices, entityId) => {
+    for (const device of devices || []) {
+      const entity = (device.entities || []).find(candidate => candidate.unique_id === entityId);
+      if (!entity) continue;
+      const value = Number(entity.value);
+      if (!Number.isFinite(value)) return null;
+      return {deviceId: device.id, raw: entity.unit_of_measurement === 'kW' ? value * 1000 : value, unit: entity.unit_of_measurement};
+    }
+    return null;
+  };
+
+  // Preview of unsaved panel drafts: the snapshot as it would look after
+  // saving. The raw value is recovered from the live entity (undoing its
+  // server-side scale and sign), so a live update keeps the preview current.
+  // Like energy.Aggregate, the raw value is inverted first and scaled after.
+  const applyDrafts = (snapshot, drafts, devices) => {
+    const ids = Object.keys(drafts || {});
+    if (!snapshot || ids.length === 0) return snapshot;
+    const entities = ((snapshot.entities) || []).filter(entity => !ids.includes(entity.entity_id));
+    for (const id of ids) {
+      const draft = normalizeAssignment(drafts[id]);
+      if (!draft.role) continue;
+      const live = snapshotEntity(snapshot, id);
+      let raw = null;
+      let deviceId = live && live.device_id;
+      let unit = live ? live.unit : '';
+      if (live && live.role) {
+        const scale = Number(live.role.scale) || 1;
+        raw = live.role.role === 'battery_soc' ? Number(live.value) : (live.role.invert ? -1 : 1) * Number(live.value) / scale;
+      } else {
+        const fromDevice = rawFromDevice(devices, id);
+        if (!fromDevice) continue;
+        raw = fromDevice.raw;
+        deviceId = fromDevice.deviceId;
+        unit = fromDevice.unit === '%' ? '%' : 'W';
+      }
+      const value = draft.role === 'battery_soc' ? raw : (draft.invert ? -raw : raw) * draft.scale;
+      entities.push({...(live || {}), entity_id: id, device_id: deviceId, unit, value,
+        role: {role: draft.role, scale: draft.scale, invert: draft.invert, capacity_kwh: draft.capacity_kwh, source: 'override'}});
+    }
+    return {...snapshot, entities};
+  };
+
+  const assignmentPayload = draft => {
+    const value = normalizeAssignment(draft);
+    if (!value.role) return {role: ''};
+    if (value.role === 'battery_soc') return {role: 'battery_soc', capacity_kwh: value.capacity_kwh};
+    return {role: value.role, scale: value.scale, invert: value.invert};
+  };
+
   // Draft wording: whole watts below 1 kW, one decimal above.
   const formatPower = watts => {
     const abs = Math.abs(watts);
@@ -160,5 +281,7 @@
     DEFAULT_LAYERS, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
     formatPower, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
+    POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
+    panelRows, applyDrafts, assignmentPayload,
   };
 })();
