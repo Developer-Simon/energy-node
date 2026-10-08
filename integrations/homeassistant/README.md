@@ -109,13 +109,15 @@ Each integration's `manifest.json` carries the real public identifiers. `scripts
 
 # Shared
 
-## Screenshot (battery_soc)
+## Documentation and screenshots
 
-![Battery SoC device page in Home Assistant](docs/img/IntegrationDemo.png)
-
-Captured on a German-language Home Assistant; the integration ships `en` and `de`
-translations and follows the HA language setting. `publish_mirror.sh` copies
-`docs/img/` into the mirror so the public README can reference it.
+The user documentation of all three integrations lives on GitHub Pages under
+[`docs/ha/`](../../docs/ha/), one overview page per integration with sub pages
+listed in [`docs/_data/nav.yml`](../../docs/_data/nav.yml). The mirror READMEs
+(`mirror/COMPONENT/README.md`) show the features and link there. Their images
+come from [`docs/images/`](../../docs/images/) through the Pages URL, so the
+mirror carries no `docs/` of its own. `scripts/check_mirror_manifest.py` fails
+when a README links to a Pages URL without a source file in `docs/`.
 
 ---
 

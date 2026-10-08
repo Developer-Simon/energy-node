@@ -39,8 +39,7 @@ Assembles the public HACS repo tree at PATH from this monorepo:
      render [%schema:...%] placeholders in its strings  (SCHEMA_DESCRIPTIONS in release.env)
   3. copy mirror/{hacs.json,README.md,info.md,LICENSE,AI-DISCLAIMER.md}  ->  PATH/
      copy mirror/.github                                ->  PATH/.github
-     copy docs/img                                      ->  PATH/docs/img
-     copy mirror/docs/*.md                              ->  PATH/docs/
+     (no docs/: the README links to the GitHub Pages documentation)
   4. merge mirror/manifest.overrides.json over PATH/custom_components/COMPONENT/manifest.json
      (OWNER/REPO from mirror/release.env; version from --version)
   5. git -C PATH add -A && commit  (message and tag depend on --release)
@@ -225,22 +224,13 @@ if [[ -n "${SCHEMA_DESCRIPTIONS:-}" ]]; then
     --catalog "${repo_root}/dashboard/internal/schemaloc/catalogs/de.json"
 fi
 
-# 3. Repo-root files + workflows + README screenshots.
+# 3. Repo-root files + workflows. The documentation and the README images
+# live on GitHub Pages (docs/), so the mirror carries no docs/ of its own.
 cp "${template}/hacs.json" "${template}/README.md" "${template}/info.md" \
    "${template}/LICENSE" "${template}/AI-DISCLAIMER.md" "${mirror_path}/"
 rm -rf "${mirror_path}/.github"
 cp -r "${template}/.github" "${mirror_path}/.github"
 rm -rf "${mirror_path}/docs"
-mkdir -p "${mirror_path}/docs"
-# Optional: copy docs/img if specified in release.env (e.g. battery_soc includes screenshots)
-if [[ -n "${DOCS_IMG:-}" ]]; then
-  cp -r "${repo_root}/${DOCS_IMG}" "${mirror_path}/docs/img"
-fi
-# Optional: the per-icon SVGs the README's icon table links to (energy_node_icons)
-if [[ -n "${DOCS_ICONS:-}" ]]; then
-  cp -r "${repo_root}/${DOCS_ICONS}" "${mirror_path}/docs/icons"
-fi
-cp "${template}"/docs/*.md "${mirror_path}/docs/"
 
 # 4. Rewrite the manifest's public fields (stdlib json, no jq).
 OWNER="${OWNER:?release.env must set OWNER}" \

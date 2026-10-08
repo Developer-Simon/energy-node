@@ -51,9 +51,24 @@
 
 - title: Home Assistant
   items:
-    - { label: "Energy Node Companion", url: "ha/companion.md" }
-    - { label: "Battery SoC integration", url: "ha/battery-soc.md" }
-    - { label: "energy-node Icons", url: "ha/icons.md" }
+    - label: "Energy Node Companion"
+      url: "ha/companion.md"
+      children:
+        - { label: "Setup & options", url: "ha/companion-setup.md" }
+        - { label: "Dashboard in the sidebar", url: "ha/companion-sidebar.md" }
+        - { label: "History backfill", url: "ha/companion-history.md" }
+        - { label: "Troubleshooting", url: "ha/companion-troubleshooting.md" }
+    - label: "Battery SoC integration"
+      url: "ha/battery-soc.md"
+      children:
+        - { label: "Setup", url: "ha/battery-soc-setup.md" }
+        - { label: "Entities & actions", url: "ha/battery-soc-entities.md" }
+        - { label: "Lovelace card", url: "ha/battery-soc-card.md" }
+        - { label: "Calibration suggestions", url: "ha/battery-soc-suggestions.md" }
+    - label: "energy-node Icons"
+      url: "ha/icons.md"
+      children:
+        - { label: "Icon catalogue", url: "ha/icons-catalogue.md" }
 
 - title: Developing
   items:

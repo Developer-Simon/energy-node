@@ -21,8 +21,8 @@ test -f "$tmp/hacs.json"
 test -f "$tmp/AI-DISCLAIMER.md"
 test -f "$tmp/.github/pull_request_template.md"
 test -f "$tmp/custom_components/battery_soc/brand/icon.png"
-test -f "$tmp/docs/img/IntegrationDemo.png"
-test -f "$tmp/docs/integration.md"
+# the documentation lives on GitHub Pages, the mirror has no docs/
+[ ! -e "$tmp/docs" ] || { echo "docs/ should not be in the mirror"; exit 1; }
 test -f "$tmp/.github/workflows/release.yml"
 # the shared field descriptions are rendered from the service schema
 grep -q '\[%schema:' "$repo/integrations/homeassistant/custom_components/battery_soc/strings.json"
@@ -47,10 +47,7 @@ test -f "$tmp/hacs.json"
 test -f "$tmp/AI-DISCLAIMER.md"
 test -f "$tmp/.github/pull_request_template.md"
 test -f "$tmp/custom_components/energy_node_icons/brand/icon.png"
-test -f "$tmp/docs/integration.md"
-# docs/img should NOT be present for energy_node_icons (no DOCS_IMG in release.env)
-[ ! -d "$tmp/docs/img" ] || { echo "docs/img should not be present for energy_node_icons"; exit 1; }
-test -f "$tmp/docs/icons/solar-panel.svg" || { echo "docs/icons missing for energy_node_icons"; exit 1; }
+[ ! -e "$tmp/docs" ] || { echo "docs/ should not be in the mirror"; exit 1; }
 test -f "$tmp/.github/workflows/release.yml"
 # dry-run must NOT create a commit or tag
 [ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
@@ -64,8 +61,7 @@ test -f "$tmp/custom_components/energy_node_companion/manifest.json"
 grep -q '"version": "9.9.9"' "$tmp/custom_components/energy_node_companion/manifest.json"
 grep -q '"documentation": "https://developer-simon.github.io/energy-node/ha/companion.html"' "$tmp/custom_components/energy_node_companion/manifest.json"
 test -f "$tmp/custom_components/energy_node_companion/brand/icon.png"
-test -f "$tmp/docs/integration.md"
-[ ! -d "$tmp/docs/icons" ] || { echo "docs/icons should not be present for energy_node_companion"; exit 1; }
+[ ! -e "$tmp/docs" ] || { echo "docs/ should not be in the mirror"; exit 1; }
 [ ! -d "$tmp/custom_components/energy_node_companion/__pycache__" ] || { echo "__pycache__ leaked into the mirror"; exit 1; }
 [ -z "$(git -C "$tmp" tag)" ] || { echo "dry-run created a tag"; exit 1; }
 echo "OK energy_node_companion"

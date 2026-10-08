@@ -98,8 +98,12 @@ Services:
 
 Home Assistant:
 
+- [Energy Node Companion](ha/companion.md): the dashboard in the Home
+  Assistant sidebar and history backfill from the recorder.
 - [Battery SoC integration](ha/battery-soc.md): the `battery_soc` custom
-  integration, its Home Assistant mirror repo and the release runbook.
+  integration with its own Lovelace card.
+- [energy-node Icons](ha/icons.md): the dashboard's device symbols as a Home
+  Assistant icon set.
 
 [Manual installation](install/index.md) covers the ARMv6 specifics, including
 the packages that have to be installed in an older version first and updated
