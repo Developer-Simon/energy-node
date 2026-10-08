@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -417,6 +418,68 @@ func TestAggregateLabelsResolvedEntitiesWithDeviceAndEntityName(t *testing.T) {
 	}
 }
 
+func powerDevice(id, entity string, watts string) registry.DeviceView {
+	return registry.DeviceView{ID: id, Name: id, Entities: []registry.EntityView{{UniqueID: entity, Name: "Leistung", UnitOfMeasurement: "W", Value: watts, HasValue: true}}}
+}
+
+func TestAggregateCountsCustomCategoriesAndGroupStates(t *testing.T) {
+	resolver := NewResolver(map[string]Assignment{
+		"werkstatt_power": {Role: CustomRole("werkstatt")},
+		"wallbox_power":   {Role: RoleWallbox},
+		"pv_power":        {Role: RolePV},
+	})
+	resolver.SetModel(Model{
+		Categories: map[string]Category{"werkstatt": {Label: "Werkstatt", Base: CategoryConsumer, Color: "cat_1", Icon: "mdi:home"}},
+		Groups:     map[string]Group{"garage": {Label: "Garage", Members: GroupMembers{Devices: []string{"wallbox", "werkstatt"}}}},
+	})
+	snapshot := Aggregate([]registry.DeviceView{
+		powerDevice("werkstatt", "werkstatt_power", "350"),
+		powerDevice("wallbox", "wallbox_power", "1100"),
+		powerDevice("pv", "pv_power", "2000"),
+	}, resolver, time.Now())
+	if snapshot.Values["custom:werkstatt"] != 350 || snapshot.Values["wallbox"] != 1100 {
+		t.Fatalf("values = %v", snapshot.Values)
+	}
+	if snapshot.Categories["werkstatt"].Label != "Werkstatt" {
+		t.Fatalf("categories = %v", snapshot.Categories)
+	}
+	last := snapshot.Roles[len(snapshot.Roles)-1]
+	if last.Role != "custom:werkstatt" || last.Label != "Werkstatt" {
+		t.Fatalf("last role state = %+v", last)
+	}
+	if len(snapshot.Groups) != 1 || snapshot.Groups[0].Value != 1450 {
+		t.Fatalf("groups = %+v", snapshot.Groups)
+	}
+}
+
+func TestAggregateRemapsMembersOfAGroupWithARole(t *testing.T) {
+	resolver := NewResolver(map[string]Assignment{"wallbox_power": {Role: RoleWallbox}, "saege_power": {Role: RoleHeatPump}})
+	resolver.SetModel(Model{
+		Categories: map[string]Category{"werkstatt": {Label: "Werkstatt", Base: CategoryConsumer, Color: "cat_1", Icon: "mdi:home"}},
+		Groups:     map[string]Group{"garage": {Label: "Garage", Members: GroupMembers{Devices: []string{"wallbox", "saege"}}, Role: CustomRole("werkstatt")}},
+	})
+	snapshot := Aggregate([]registry.DeviceView{powerDevice("wallbox", "wallbox_power", "1100"), powerDevice("saege", "saege_power", "400")}, resolver, time.Now())
+	if snapshot.Values["custom:werkstatt"] != 1500 {
+		t.Fatalf("custom:werkstatt = %v, want 1500", snapshot.Values["custom:werkstatt"])
+	}
+	if _, ok := snapshot.Values["wallbox"]; ok {
+		t.Fatal("a remapped wallbox must not count twice")
+	}
+	for _, entity := range snapshot.Entities {
+		if entity.EntityID == "wallbox_power" && entity.Role.Role != RoleWallbox {
+			t.Fatalf("the entity keeps its own role, got %q", entity.Role.Role)
+		}
+	}
+}
+
+func TestAggregateWithoutModelKeepsTheJSONShape(t *testing.T) {
+	snapshot := Aggregate(nil, NewResolver(nil), time.Now())
+	data, _ := json.Marshal(snapshot)
+	if !strings.Contains(string(data), `"categories":{}`) || !strings.Contains(string(data), `"groups":[]`) {
+		t.Fatalf("snapshot JSON = %s", data)
+	}
+}
+
 func TestRoleSemanticsKeysExistInGermanCatalog(t *testing.T) {
 	// Read the German catalog.
 	catalogPath := "../webui/catalogs/de.json"
@@ -432,7 +495,7 @@ func TestRoleSemanticsKeysExistInGermanCatalog(t *testing.T) {
 	// Test each known role, the signed battery/grid roles included (the default case follows).
 	roles := []Role{RolePV, RoleBattery, RoleGrid, RoleBatteryCharge, RoleBatteryDischarge, RoleGridImport, RoleGridExport, RoleLoad, RoleWallbox, RoleHeatPump, RoleBatterySoC}
 	for _, role := range roles {
-		semantics := semanticsFor(role)
+		semantics := semanticsFor(role, Model{})
 
 		// Check LabelKey exists and matches the German text.
 		if semantics.LabelKey == "" {
@@ -464,7 +527,7 @@ func TestRoleSemanticsKeysExistInGermanCatalog(t *testing.T) {
 	}
 
 	// Test the default case (unknown role) separately.
-	unknownSemantics := semanticsFor("unknown")
+	unknownSemantics := semanticsFor("unknown", Model{})
 	if unknownSemantics.LabelKey != "" {
 		t.Errorf("unknown role should have empty LabelKey, got %q", unknownSemantics.LabelKey)
 	}

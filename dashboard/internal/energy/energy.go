@@ -5,6 +5,7 @@ package energy
 import (
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -92,6 +93,12 @@ type Snapshot struct {
 	// ein eigenes Struct-Feld und kein Eintrag in Values - dort stehen
 	// Messwerte, keine Abzaehlungen.
 	BatterySoCWithoutCapacity int `json:"battery_soc_without_capacity"`
+
+	// Categories and Groups come from energy.json via Resolver.SetModel.
+	// Map, energy page and history read them, the balance uses Categories
+	// for the base of every custom:<id> value.
+	Categories map[string]Category `json:"categories"`
+	Groups     []GroupState        `json:"groups"`
 }
 
 // UnassignedEntity is a power-unit entity Aggregate found no role for -
@@ -282,6 +289,10 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 		resolver = NewResolver(nil)
 	}
 	snapshot := Snapshot{At: at, Values: make(map[Role]float64), Sources: make(map[Role][]string), Entities: []ResolvedEntity{}, Roles: []RoleState{}, Unassigned: []UnassignedEntity{}}
+	model := resolver.Model()
+	roleGroups := model.RoleGroupIndex()
+	snapshot.Categories = model.Categories
+	towardByDevice := map[string]float64{}
 	roleStates := make(map[Role]*RoleState)
 	// Zwei Akkumulatoren statt einer Summe: Prozentwerte lassen sich nicht
 	// addieren, nur nach Kapazitaet gewichtet mitteln.
@@ -327,7 +338,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 					snapshot.BatterySoCWithoutCapacity++
 				}
 				snapshot.Sources[RoleBatterySoC] = append(snapshot.Sources[RoleBatterySoC], entity.UniqueID)
-				semantics := semanticsFor(RoleBatterySoC)
+				semantics := semanticsFor(RoleBatterySoC, model)
 				freshness, quality := "fresh", "good"
 				if entity.Stale || (entity.HasAvailability && !entity.Available) {
 					freshness, quality = "stale", "stale"
@@ -361,9 +372,16 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				value = -value
 			}
 			value *= assignment.Scale
-			snapshot.Values[assignment.Role] += value
-			snapshot.Sources[assignment.Role] = append(snapshot.Sources[assignment.Role], entity.UniqueID)
-			semantics := semanticsFor(assignment.Role)
+			if toward, ok := Toward(assignment.Role, value, model); ok {
+				towardByDevice[device.ID] += toward
+			}
+			bucket := assignment.Role
+			if target, ok := roleGroups[device.ID]; ok && model.Remappable(bucket) {
+				bucket = target
+			}
+			snapshot.Values[bucket] += value
+			snapshot.Sources[bucket] = append(snapshot.Sources[bucket], entity.UniqueID)
+			semantics := semanticsFor(bucket, model)
 			freshness := "fresh"
 			quality := "good"
 			if entity.Stale || (entity.HasAvailability && !entity.Available) {
@@ -374,10 +392,10 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 			if source == "" {
 				source = "live"
 			}
-			state, ok := roleStates[assignment.Role]
+			state, ok := roleStates[bucket]
 			if !ok {
-				state = &RoleState{Role: assignment.Role, Label: semantics.Label, LabelKey: semantics.LabelKey, Unit: unit, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, Entities: []string{}}
-				roleStates[assignment.Role] = state
+				state = &RoleState{Role: bucket, Label: semantics.Label, LabelKey: semantics.LabelKey, Unit: unit, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, Entities: []string{}}
+				roleStates[bucket] = state
 			} else {
 				state.Quality = mergeQuality(state.Quality, quality)
 				state.Freshness = mergeFreshness(state.Freshness, freshness)
@@ -401,6 +419,17 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 			snapshot.Roles = append(snapshot.Roles, *state)
 		}
 	}
+	custom := []Role{}
+	for role := range roleStates {
+		if _, ok := role.CategoryID(); ok {
+			custom = append(custom, role)
+		}
+	}
+	sort.Slice(custom, func(i, j int) bool { return custom[i] < custom[j] })
+	for _, role := range custom {
+		snapshot.Roles = append(snapshot.Roles, *roleStates[role])
+	}
+	snapshot.Groups = model.GroupStates(towardByDevice)
 	return snapshot
 }
 
@@ -411,7 +440,22 @@ type roleSemantics struct {
 	SignKey  string
 }
 
-func semanticsFor(role Role) roleSemantics {
+func semanticsFor(role Role, model Model) roleSemantics {
+	if id, ok := role.CategoryID(); ok {
+		category := model.Categories[id]
+		label := category.Label
+		if label == "" {
+			label = id
+		}
+		switch category.Base {
+		case CategoryProducer:
+			return roleSemantics{Label: label, Sign: "positiv = Erzeugung", SignKey: "energy.role_sign.generation"}
+		case CategoryStorage:
+			return roleSemantics{Label: label, Sign: "positiv = Laden", SignKey: "energy.role_sign.charging"}
+		default:
+			return roleSemantics{Label: label, Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
+		}
+	}
 	switch role {
 	case RolePV:
 		return roleSemantics{Label: "PV", LabelKey: "energy.role_label.pv", Sign: "positiv = Erzeugung", SignKey: "energy.role_sign.generation"}
