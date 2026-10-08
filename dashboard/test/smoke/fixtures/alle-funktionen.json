@@ -284,6 +284,9 @@
   {"topic": "batterie/wr/soc", "payload": "63.5"},
   {"topic": "zaehler/haus/status", "payload": {"id": 0, "apower": 2050, "voltage": 230.7, "source": "smoke"}},
   {"topic": "wallbox/status", "payload": {"id": 0, "apower": 600, "source": "smoke"}},
+  {"topic": "homeassistant/sensor/werkstatt/power/config", "payload": {"name": "Leistung", "unique_id": "werkstatt_power", "state_topic": "werkstatt/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "werkstatt/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["werkstatt"], "name": "Werkstatt Steckdose"}}},
+  {"topic": "werkstatt/online", "payload": "true"},
+  {"topic": "werkstatt/status", "payload": {"id": 0, "apower": 350, "source": "smoke"}},
   {"topic": "waermepumpe/status", "payload": {"id": 0, "apower": 450, "source": "smoke"}},
 
   {

@@ -797,6 +797,11 @@ if [[ -f "$WORK/data/energy.json" ]]; then
     "len(data.get('assignments', {})) > 0" \
     "$BASE/api/v1/energy/roles"
 fi
+if [[ -f "$WORK/data/energy.json" ]] && grep -q '"groups"' "$WORK/data/energy.json"; then
+  check "Energiegruppen und Kategorien sind im Snapshot" \
+    "len(data.get('groups', [])) > 0 and len(data.get('categories', {})) > 0" \
+    "$BASE/api/v1/energy"
+fi
 if [[ -n "$THEME" ]]; then
   check "Farbschema aus --theme ist aktiv" \
     "data['theme'] == '$THEME'" \
