@@ -30,6 +30,9 @@
         <button class="icon-button" id="devicemap-connect-toggle" type="button" x-bind:class="{ active: connectMode }" x-bind:aria-pressed="connectMode" x-on:click="toggleConnectMode()" x-bind:disabled="loading" x-bind:title="connectMode ? $t('devicemap.connect_mode.on') : $t('devicemap.connect_mode.off')" x-bind:aria-label="connectMode ? $t('devicemap.connect_mode.on') : $t('devicemap.connect_mode.off')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
+        <button class="icon-button" id="devicemap-group-create" type="button" x-on:click="openGroupDialog()" x-bind:disabled="loading || !canEditEnergy" title="{{t "devicemap.group.create"}}" aria-label="{{t "devicemap.group.create"}}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+        </button>
         <button class="icon-button" id="devicemap-snap-toggle" type="button" x-bind:class="{ active: view.snap_to_grid }" x-bind:aria-pressed="view.snap_to_grid" x-on:click="toggleSnapToGrid()" x-bind:disabled="loading" x-bind:title="view.snap_to_grid ? $t('devicemap.snap_to_grid.on') : $t('devicemap.snap_to_grid.off')" x-bind:aria-label="view.snap_to_grid ? $t('devicemap.snap_to_grid.on') : $t('devicemap.snap_to_grid.off')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h16"/><path d="M12 4v16"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg>
         </button>
@@ -75,10 +78,10 @@
       <p class="devicemap-placed-hint" x-cloak x-show="placedCount > 0" x-text="placedHintText()"></p>
       <div class="toolbar devicemap-edge-toolbar" x-cloak x-show="selectedEdge">
         <span class="devicemap-edge-label" x-text="selectedEdgeLabel"></span>
-        <button class="icon-button danger" type="button" x-show="selectedEdge && selectedEdge.overrideId" x-on:click="removeSelectedRelation()" x-bind:title="$t('devicemap.disconnect_button')" x-bind:aria-label="$t('devicemap.disconnect_button')">
+        <button class="icon-button danger" type="button" x-show="selectedEdge && (selectedEdge.overrideId || selectedEdge.membership)" x-on:click="removeSelectedRelation()" x-bind:title="$t('devicemap.disconnect_button')" x-bind:aria-label="$t('devicemap.disconnect_button')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
         </button>
-        <span class="devicemap-edge-readonly-hint" x-cloak x-show="selectedEdge && !selectedEdge.overrideId">{{t "devicemap.edge_readonly_hint"}}</span>
+        <span class="devicemap-edge-readonly-hint" x-cloak x-show="selectedEdge && !selectedEdge.overrideId && !selectedEdge.membership">{{t "devicemap.edge_readonly_hint"}}</span>
         <button class="icon-button" type="button" x-on:click="clearEdgeSelection()" x-bind:title="$t('devicemap.clear_selection_button')" x-bind:aria-label="$t('devicemap.clear_selection_button')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
         </button>
@@ -145,6 +148,16 @@
       </template>
     </aside>
   </div>
+  <dialog class="app-modal" x-ref="groupDialog" aria-labelledby="devicemap-group-dialog-title">
+    <form x-on:submit.prevent="createGroup(groupName); $refs.groupDialog.close()">
+      <h2 class="app-modal-title" id="devicemap-group-dialog-title">{{t "devicemap.group.create"}}</h2>
+      <label class="devicemap-panel-field">{{t "devicemap.group.name"}}<input type="text" required maxlength="60" x-model="groupName"></label>
+      <div class="app-modal-actions">
+        <button type="button" x-on:click="$refs.groupDialog.close()">{{t "common.cancel"}}</button>
+        <button type="submit" class="primary">{{t "devicemap.group.create_confirm"}}</button>
+      </div>
+    </form>
+  </dialog>
   {{template "revisions" .}}
 </section>
 {{end}}

@@ -63,6 +63,11 @@
       panelId: null,
       drafts: {},
       savedAssignments: {},
+      savedGroups: {},
+      savedCategories: {},
+      iconMarkup: {},
+      iconCatalogue: [],
+      groupName: '',
       canEditEnergy: true,
       csrfToken: '',
       panelSaving: false,
@@ -104,14 +109,19 @@
         }
         this.loading = true;
         try {
-          const [devices, deviceMap, energy, roles, session] = await Promise.all([
+          const [devices, deviceMap, energy, roles, session, icons] = await Promise.all([
             requestJSON('/api/v1/devices'),
             requestJSON('/api/v1/device/map'),
             requestJSON('/api/v1/energy').catch(() => null),
             requestJSON('/api/v1/energy/roles').catch(() => null),
             requestJSON('/api/v1/auth/session').catch(() => null),
+            requestJSON('/api/v1/device/icons').catch(() => []),
           ]);
+          this.iconCatalogue = Array.isArray(icons) ? icons : [];
+          this.iconMarkup = Object.fromEntries(this.iconCatalogue.map(icon => [icon.name, icon.markup]));
           this.savedAssignments = (roles && roles.assignments) || {};
+          this.savedGroups = (roles && roles.groups) || {};
+          this.savedCategories = (roles && roles.categories) || {};
           // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung, dann
           // laesst requireEnergyMutation den Schreibzugriff durch.
           this.csrfToken = (session && session.csrf_token) || '';
@@ -381,15 +391,8 @@
         const assignments = Object.fromEntries(Object.entries(this.drafts)
           .map(([id, draft]) => [id, window.DeviceMapModel.assignmentPayload(draft)]));
         try {
-          const saved = await requestJSON('/api/v1/energy/roles', {
-            method: 'PATCH',
-            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
-            body: JSON.stringify({assignments}),
-          });
-          this.savedAssignments = (saved && saved.assignments) || {};
+          await this.patchEnergy({assignments});
           this.drafts = {};
-          await this.refreshEnergy();
-          window.dispatchEvent(new CustomEvent('energy-roles-changed'));
           this.$store.toasts.push(t('devicemap.panel.saved'));
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
@@ -432,17 +435,24 @@
 
       nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor()) {
         const model = window.DeviceMapModel;
-        const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0);
+        const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup);
         return window.DeviceMapNodeSvg.dataUri(spec, colorOf);
       },
 
       labelItems() {
+        const model = window.DeviceMapModel;
         const energy = this.energyByDevice();
-        return this.devices.map(device => ({
+        const devices = this.devices.map(device => ({
           id: device.id,
           name: device.name || device.id,
-          value: window.DeviceMapModel.nodeValueText(device, energy.get(device.id)),
+          value: model.nodeValueText(device, energy.get(device.id)),
         }));
+        const children = model.childrenIndex(this.wiringPairs());
+        const groups = Object.entries(this.savedGroups).map(([id, group]) => {
+          const nodeId = model.GROUP_PREFIX + id;
+          return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children))};
+        });
+        return [...devices, ...groups];
       },
 
       // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
@@ -463,8 +473,33 @@
         this.startFlowAnimation();
       },
 
-      positionFor(deviceId) {
-        return (this.deviceMap.nodes || []).find(node => node.device_id === deviceId);
+      groupIds() {
+        return Object.keys(this.savedGroups).map(id => window.DeviceMapModel.GROUP_PREFIX + id);
+      },
+
+      nodeIds() {
+        return new Set([...this.devices.map(device => device.id), ...this.groupIds()]);
+      },
+
+      positionFor(id) {
+        return (this.deviceMap.nodes || []).find(node => node.device_id === id || node.virtual_id === id);
+      },
+
+      // Every write of energy.json from the map goes through here: CSRF,
+      // fresh saved state, a fresh energy snapshot and the event the energy
+      // page reloads on.
+      async patchEnergy(body) {
+        const saved = await requestJSON('/api/v1/energy/roles', {
+          method: 'PATCH',
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+          body: JSON.stringify(body),
+        });
+        if (saved && saved.assignments) this.savedAssignments = saved.assignments;
+        if (saved && 'groups' in saved) this.savedGroups = saved.groups || {};
+        if (saved && 'categories' in saved) this.savedCategories = saved.categories || {};
+        await this.refreshEnergy();
+        window.dispatchEvent(new CustomEvent('energy-roles-changed'));
+        return saved;
       },
 
       // Places devices that have no saved position below the existing
@@ -499,7 +534,32 @@
         return missing.length;
       },
 
+      placeNewGroups() {
+        const model = window.DeviceMapModel;
+        const gridSize = this.view.grid_size;
+        const snap = value => (this.view.snap_to_grid ? Math.round(value / gridSize) * gridSize : value);
+        const nodes = [...(this.deviceMap.nodes || [])];
+        let placed = 0;
+        for (const [id, group] of Object.entries(this.savedGroups)) {
+          const nodeId = model.GROUP_PREFIX + id;
+          if (nodes.some(node => node.virtual_id === nodeId)) continue;
+          const members = [...(group.members.devices || []), ...(group.members.groups || []).map(child => model.GROUP_PREFIX + child)];
+          const memberPositions = nodes.filter(node => members.includes(node.device_id || node.virtual_id));
+          const spot = model.placeGroup({memberPositions, allPositions: nodes, snap});
+          nodes.push({virtual_id: nodeId, x: spot.x, y: spot.y});
+          placed += 1;
+        }
+        if (placed) {
+          this.deviceMap = {...this.deviceMap, nodes};
+          this.unsaved = true;
+        }
+        return placed;
+      },
+
       deviceLabel(deviceId) {
+        if (window.DeviceMapModel.isGroupId(deviceId)) {
+          return (this.savedGroups[deviceId.slice(window.DeviceMapModel.GROUP_PREFIX.length)] || {}).label || deviceId;
+        }
         const device = this.devices.find(candidate => candidate.id === deviceId);
         return device ? (device.name || device.id) : deviceId;
       },
@@ -550,26 +610,40 @@
           if (position) element.position = {x: position.x, y: position.y};
           return element;
         });
-        return [...nodes, ...this.buildEdgeElements(), ...this.flowElements()];
+        const groupNodes = Object.entries(this.savedGroups).map(([id, group]) => {
+          const nodeId = window.DeviceMapModel.GROUP_PREFIX + id;
+          const element = {data: {id: nodeId, name: group.label, svg: window.DeviceMapNodeSvg.groupDataUri(colorOf)}, classes: 'devicemap-group'};
+          const position = this.positionFor(nodeId);
+          if (position) element.position = {x: position.x, y: position.y};
+          return element;
+        });
+        return [...nodes, ...groupNodes, ...this.buildEdgeElements(), ...this.flowElements()];
       },
 
       // Wiring edges only. wiringPairs() and flowElements() build on this, so
       // they never render node images or recurse into the flows.
       buildEdgeElements() {
-        const nodeIds = new Set(this.devices.map(device => device.id));
+        const nodeIds = this.nodeIds();
         const elements = [];
         const seenEdges = new Set();
         // overrideId is only set for manually created relations (settings.RelationOverride) -
         // those are the only ones removeSelectedRelation() is allowed to delete.
-        const addEdge = (childId, parentId, overrideId) => {
+        const addEdge = (childId, parentId, overrideId, membership) => {
           if (!nodeIds.has(childId) || !nodeIds.has(parentId) || childId === parentId) return;
           const key = relationKey(childId, parentId);
           if (seenEdges.has(key)) return;
           seenEdges.add(key);
           const data = {id: `edge-${key}`, source: parentId, target: childId};
           if (overrideId) data.overrideId = overrideId;
+          if (membership) data.membership = membership;
           elements.push({data, classes: 'devicemap-wiring'});
         };
+        // Memberships come from energy.json, not from device-map.json (one
+        // source of truth). They render as wiring, so edgeFlow() sums a
+        // group like any other subtree.
+        for (const {parent, child} of window.DeviceMapModel.membershipPairs(this.savedGroups)) {
+          addEdge(child, parent, null, {group: parent.slice(window.DeviceMapModel.GROUP_PREFIX.length), member: child});
+        }
         // deviceMap.edges (RelationOverride, carries the real overrideId)
         // must be processed before device.relations: the registry merges
         // overrides into each device's relations list too (so the graph and
@@ -655,9 +729,10 @@
       renderGraph() {
         this.selectedEdge = null; // any prior selection refers to a now-stale cy instance
         if (!this.$refs.canvas) return;
-        this.placedCount = this.placeNewDevices();
+        this.placedCount = this.placeNewDevices() + this.placeNewGroups();
         const elements = this.buildElements();
-        const hasAllPositions = this.devices.length > 0 && this.devices.every(device => this.positionFor(device.id));
+        const hasAllPositions = this.devices.length > 0 && this.devices.every(device => this.positionFor(device.id))
+          && this.groupIds().every(id => this.positionFor(id));
         // renderGraph() destroys and recreates the cy instance on every
         // structural change (connect, disconnect, discard) - a fresh
         // instance otherwise resets pan/zoom to the layout's default fit,
@@ -825,6 +900,11 @@
         this.connectSourceId = null;
         this.connectSourceLabel = '';
         if (childId === parentId) return;
+        const model = window.DeviceMapModel;
+        if (model.isGroupId(parentId)) {
+          await this.joinGroup(childId, parentId.slice(model.GROUP_PREFIX.length));
+          return;
+        }
         const confirmed = await this.$store.modal.confirm({
           title: t('devicemap.connect_confirmation_title', {child_name: this.deviceLabel(childId), parent_name: this.deviceLabel(parentId)}),
           confirmLabel: t('devicemap.connect_button'),
@@ -848,13 +928,61 @@
         }
       },
 
+      async joinGroup(childId, groupId) {
+        const model = window.DeviceMapModel;
+        const memberKey = model.isGroupId(childId) ? 'groups' : 'devices';
+        const member = model.isGroupId(childId) ? childId.slice(model.GROUP_PREFIX.length) : childId;
+        const previous = Object.entries(this.savedGroups).find(([, group]) => (group.members[memberKey] || []).includes(member));
+        const moving = previous && previous[0] !== groupId;
+        const confirmed = await this.$store.modal.confirm({
+          title: t('devicemap.group.join_title', {child_name: this.deviceLabel(childId), group: this.savedGroups[groupId].label}),
+          body: moving ? t('devicemap.group.join_move_body', {group: previous[1].label}) : '',
+          confirmLabel: t('devicemap.connect_button'),
+        });
+        if (!confirmed) return;
+        const groups = {};
+        if (moving) {
+          const old = JSON.parse(JSON.stringify(previous[1]));
+          old.members[memberKey] = old.members[memberKey].filter(id => id !== member);
+          groups[previous[0]] = old;
+        }
+        const target = JSON.parse(JSON.stringify(this.savedGroups[groupId]));
+        if (!target.members[memberKey].includes(member)) target.members[memberKey].push(member);
+        groups[groupId] = target;
+        try {
+          await this.patchEnergy({groups});
+          this.$store.toasts.push(t('devicemap.group.joined'));
+          this.renderGraph();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
+      openGroupDialog() {
+        this.groupName = '';
+        const dialog = this.$refs.groupDialog;
+        if (dialog && typeof dialog.showModal === 'function') dialog.showModal(); else if (dialog) dialog.open = true;
+      },
+
+      async createGroup(label) {
+        const name = String(label || '').trim();
+        if (!name) return;
+        const id = window.DeviceMapModel.slugId(name, Object.keys(this.savedGroups));
+        try {
+          await this.patchEnergy({groups: {[id]: {label: name, members: {devices: [], groups: []}}}});
+          this.renderGraph();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
       // Selecting an edge is the first step of "Lösen von Pfaden": it only
       // highlights the edge and surfaces removeSelectedRelation() in the
       // toolbar - nothing is deleted until that explicit, confirmed action.
       onEdgeTap(event) {
         const edge = event.target;
         const data = edge.data();
-        this.selectedEdge = {id: data.id, source: data.source, target: data.target, overrideId: data.overrideId || null};
+        this.selectedEdge = {id: data.id, source: data.source, target: data.target, overrideId: data.overrideId || null, membership: data.membership || null};
         if (cy) {
           cy.edges().removeClass('devicemap-selected-edge');
           edge.addClass('devicemap-selected-edge');
@@ -871,13 +999,29 @@
       // from MQTT discovery (via_device) have no overrideId and reflect real
       // wiring, not a locally stored decision, so there is nothing to delete.
       async removeSelectedRelation() {
-        if (!this.selectedEdge || !this.selectedEdge.overrideId) return;
+        if (!this.selectedEdge || (!this.selectedEdge.overrideId && !this.selectedEdge.membership)) return;
         const confirmed = await this.$store.modal.confirm({
           title: t('devicemap.disconnect_confirmation_title', {label: this.selectedEdgeLabel}),
           confirmLabel: t('devicemap.disconnect_confirm'),
           danger: true,
         });
         if (!confirmed) return;
+        const membership = this.selectedEdge.membership;
+        if (membership) {
+          const model = window.DeviceMapModel;
+          const memberKey = model.isGroupId(membership.member) ? 'groups' : 'devices';
+          const member = model.isGroupId(membership.member) ? membership.member.slice(model.GROUP_PREFIX.length) : membership.member;
+          const group = JSON.parse(JSON.stringify(this.savedGroups[membership.group]));
+          group.members[memberKey] = group.members[memberKey].filter(id => id !== member);
+          try {
+            await this.patchEnergy({groups: {[membership.group]: group}});
+            this.$store.toasts.push(t('devicemap.relation_disconnected'));
+            this.renderGraph();
+          } catch (error) {
+            this.$store.toasts.push(error.message, 'critical');
+          }
+          return;
+        }
         try {
           await requestJSON(`/api/v1/device/map/relations/${this.selectedEdge.overrideId}`, {method: 'DELETE'});
           this.deviceMap = {...this.deviceMap, edges: (this.deviceMap.edges || []).filter(edge => edge.id !== this.selectedEdge.overrideId)};
@@ -896,11 +1040,18 @@
           // (onNodeDrag()) is always removed on dragfree, so it should never
           // still be in cy.nodes() here - but it's not a real device, and
           // saving it would corrupt device-map.json.
-          const nodes = cy ? cy.nodes().filter(node => node.id() !== SNAP_GHOST_ID).map(node => {
-            const position = node.position();
-            return {device_id: node.id(), x: position.x, y: position.y};
-          }) : (this.deviceMap.nodes || []);
-          const value = {version: this.deviceMap.version || 1, nodes, edges: this.deviceMap.edges || [], view: this.view};
+          const model = window.DeviceMapModel;
+          const positioned = cy ? cy.nodes().filter(node => node.id() !== SNAP_GHOST_ID).map(node => ({id: node.id(), position: node.position()}))
+            : (this.deviceMap.nodes || []).map(node => ({id: node.device_id || node.virtual_id, position: {x: node.x, y: node.y}}));
+          // Groups that were deleted and devices that vanished are dropped
+          // here, so the map never keeps nodes that point at nothing.
+          const known = this.nodeIds();
+          const nodes = positioned
+            .filter(entry => known.has(entry.id))
+            .map(entry => (model.isGroupId(entry.id)
+              ? {virtual_id: entry.id, x: entry.position.x, y: entry.position.y}
+              : {device_id: entry.id, x: entry.position.x, y: entry.position.y}));
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], view: this.view};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
