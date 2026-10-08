@@ -65,7 +65,7 @@ import/export. Without Home Assistant, the dashboard works on its own.
 </table>
 
 Every page of the dashboard, including all settings tabs and the four colour
-schemes, has a screenshot in [**the dashboard, page by page**](docs/dashboard/index.md).
+schemes, has a screenshot in [**the dashboard, page by page**](https://developer-simon.github.io/energy-node/dashboard/).
 The screenshots come from a local smoke test against a fixture broker, so you
 can reproduce them without a Pi.
 
@@ -82,7 +82,7 @@ All devices are polled locally, and none of them needs a cloud account.
 | **LiFePO4 battery banks** | computed from other devices (coulomb counting) | state of charge |
 | **The node itself** | CPU, RAM, disk, throttling, Mosquitto/Tailscale status, pending updates | read |
 
-Each family is one small Python service. [Device services](docs/services/index.md)
+Each family is one small Python service. [Device services](https://developer-simon.github.io/energy-node/services/)
 covers what each one publishes. A new device family is added as another
 service; [CONTRIBUTING.md](CONTRIBUTING.md#new-device-services) explains how.
 
@@ -132,7 +132,7 @@ flowchart LR
 computer from the [latest release](https://github.com/Developer-Simon/energy-node/releases).
 Point it at a Raspberry Pi with SSH enabled, choose your services and let it
 run. It fetches the right installation package for the Pi itself.
-[Deploying a node](docs/installer.md) walks through every screen.
+[Deploying a node](https://developer-simon.github.io/energy-node/installer.html) walks through every screen.
 
 **By hand.** [INSTALLATION.md](INSTALLATION.md) describes every step the
 installer automates, including the ARMv6 quirks: packages that have to be
@@ -149,7 +149,7 @@ HACS integrations add dashboard features that run inside HA directly:
   node, set up through a config flow.
 - [**`ha-energy-node-icons`**](https://github.com/Developer-Simon/ha-energy-node-icons):
   the dashboard's device icons as an icon set for Home Assistant's icon pickers.
-- [**`ha-energy-node-companion`**](docs/ha/companion.md):
+- [**`ha-energy-node-companion`**](https://developer-simon.github.io/energy-node/ha/companion.html):
   fills gaps in the dashboard's browser history from the Home Assistant
   recorder.
 
@@ -158,15 +158,15 @@ in this repository.
 
 ## Documentation
 
-The [documentation site](docs/index.md) collects all pages. These are the
+The [documentation site](https://developer-simon.github.io/energy-node/) collects all pages. These are the
 main entry points:
 
-- [The dashboard, page by page](docs/dashboard/index.md): every screen with a screenshot
-- [Deploying a node](docs/installer.md): the installer, screen by screen
-- [Device services](docs/services/index.md): what each service talks to and publishes
-- [Data flow](docs/developing/data-flow.md) and [configuration](docs/operating/configuration.md) reference
-- [Performance on the Pi 1](docs/operating/performance.md): measured CPU and RAM per service
-- [Releasing](docs/developing/releasing.md): how versions and releases are cut
+- [The dashboard, page by page](https://developer-simon.github.io/energy-node/dashboard/): every screen with a screenshot
+- [Deploying a node](https://developer-simon.github.io/energy-node/installer.html): the installer, screen by screen
+- [Device services](https://developer-simon.github.io/energy-node/services/): what each service talks to and publishes
+- [Data flow](https://developer-simon.github.io/energy-node/developing/data-flow.html) and [configuration](https://developer-simon.github.io/energy-node/operating/configuration.html) reference
+- [Performance on the Pi 1](https://developer-simon.github.io/energy-node/operating/performance.html): measured CPU and RAM per service
+- [Releasing](https://developer-simon.github.io/energy-node/developing/releasing.html): how versions and releases are cut
 
 ## Status
 
