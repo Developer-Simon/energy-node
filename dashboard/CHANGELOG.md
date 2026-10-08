@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.13 (2026-10-08)
+## v0.8.14 (2026-10-08)
 
 ### Features
 
@@ -12,6 +12,15 @@
 - **dashboard:** redesign the diagnostics tab (#101) (b01e84e)
 - **dashboard:** device map layers, role rings and focus (#103) (ed0959e)
 - **dashboard:** live energy flow on the device map (#105) (2873ccd)
+- **dashboard:** add the edit_energy role for guests and admins (1571966)
+- **dashboard:** add an atomic energy config patch to the settings store (6cdac57)
+- **dashboard:** gate energy writes behind edit_energy and add a merging PATCH (0e5836f)
+- **dashboard:** send CSRF on energy writes and let other tabs focus role rows (05f1c3f)
+- **dashboard:** add role panel rows and draft preview to the device map model (6bd0d74)
+- **dashboard:** open a role panel on device tap with a guarded close (875a646)
+- **dashboard:** add the device map role panel markup and styles (5c323ae)
+- **dashboard:** save panel roles by PATCH and jump to the role table (6c76e5b)
+- **dashboard:** edit energy roles on the device map (#107)
 - **dashboard:** compute energy flow per device map edge (a08bcdb)
 - **dashboard:** add the width by power switch to the device map (2ccbb14)
 - **dashboard:** draw live energy flows along device map wiring (e0a7187)
@@ -57,11 +66,13 @@
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
+- **dashboard:** describe the device map role panel (9817599)
 - **dashboard:** describe the history tile and bump its cache busting (06a1194)
 - point the repository at the new pages and add site search (72fa46e)
 
 ### Tests
 
+- **dashboard:** give the smoke preset's charger power sensors a unit (12b9f28)
 - **dashboard:** smoke-check that history view tiles survive the live swap (09dbc4c)
 - **dashboard:** make the history tile smoke check rerunnable (e7229e1)
 - **dashboard:** simulate service status in the local smoke test (78e15c8)
