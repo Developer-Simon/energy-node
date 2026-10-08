@@ -70,5 +70,20 @@ reduced motion enabled in the system, the lines stand still and carry an arrow
 instead. The animation stops while the browser tab is hidden or another
 dashboard tab is open, and a legend in the corner explains the colours.
 
+Clicking a device also opens a side panel with the energy roles of its
+measurements. Every power and charge entity shows its role, with a chip that
+tells where the role comes from. "Detected" means it was guessed from the name
+and the unit, "assigned" means it is stored as your own assignment, and "no
+role" means nothing was found. Changing a role is a draft first. The chip turns
+to "not saved" and the ring, the values and the flows on the map already
+follow the draft, so you see the effect before you commit. Keep next to a
+detected role turns the guess into a fixed assignment. Scale and sign sit in a
+fold-out for entities that report in other units or with the opposite sign.
+Save roles writes all drafts at once. Closing the panel, tapping another
+device, switching to connect mode or pressing Esc with unsaved drafts asks
+whether to discard them. Show in the role table jumps to the Energy tab and
+highlights the rows of this device. The panel does not open for the Energy Node
+device itself, because its values come from the balance.
+
 Positions, edges and the layer choice are stored on the server and versioned
 like the layout, so you can roll back an accidental drag.

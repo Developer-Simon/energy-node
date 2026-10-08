@@ -29,3 +29,8 @@ or a grid draw, and the battery reserve.
 
 The tiles at the bottom show every assigned role with its current value and
 two flags: whether the value is fresh and whether it arrives live.
+
+Changing roles, the interpretation or restoring an older revision needs the
+permission `edit_energy`. Until there is a user management, every account has
+it, guests included. The same permission covers the role panel on the device
+map. The roles saved there show up on this page right away.
