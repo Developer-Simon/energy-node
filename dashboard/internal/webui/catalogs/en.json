@@ -607,6 +607,7 @@
   "devicemap.value.grid_export": "{value} export",
   "devicemap.value.grid_import": "{value} import",
   "devicemap.value.no_values": "no readings",
+  "devicemap.width_by_power": "Width by power",
   "devices.activity.command_failed": "Command failed",
   "devices.activity.command_sent": "Command sent",
   "devices.activity.empty": "No activity yet in the running process.",

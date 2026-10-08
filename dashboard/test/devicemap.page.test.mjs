@@ -803,3 +803,11 @@ test('registry updates refresh the energy snapshot at most once per second, only
   await Promise.resolve();
   assert.equal(energyCalls, 2, 'no requests while another dashboard tab is active');
 });
+
+test('toggleWidthByPower flips the view flag and marks the map unsaved', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleWidthByPower();
+  assert.equal(component.view.width_by_power, true);
+  assert.equal(component.unsaved, true);
+});

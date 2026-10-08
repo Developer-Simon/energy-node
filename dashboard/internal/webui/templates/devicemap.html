@@ -56,6 +56,8 @@
         <button class="devicemap-layer-button" type="button" data-layer="data" aria-pressed="false" disabled title="{{t "devicemap.layer.coming_soon"}}">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>{{t "devicemap.layer.data"}}
         </button>
+        <span class="devicemap-layer-separator" aria-hidden="true"></span>
+        <button class="devicemap-layer-button" type="button" x-bind:aria-pressed="view.width_by_power" x-on:click="toggleWidthByPower()" x-bind:disabled="loading || !view.layers.energy">{{t "devicemap.width_by_power"}}</button>
       </div>
       <div class="devicemap-focus-chip" role="status" x-bind:data-open="focusId ? 'true' : 'false'">
         <span x-text="focusSummary()"></span>

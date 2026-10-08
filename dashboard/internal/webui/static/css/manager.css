@@ -407,6 +407,7 @@ select.schema-control {
 .devicemap-layer-label { font-size: .72rem; letter-spacing: .06em; text-transform: uppercase; color: var(--text-muted); font-weight: 600; padding-inline: 6px 2px; }
 .devicemap-layer-button { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-soft); background: var(--panel); color: var(--text-subtle); font: inherit; font-size: .84rem; padding: 5px 10px; border-radius: 8px; cursor: pointer;
   transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease, transform 100ms ease-out; }
+.devicemap-layer-separator { width: 1px; align-self: stretch; background: var(--border-soft); margin-inline: 2px; }
 .devicemap-layer-button svg { width: 16px; height: 16px; }
 .devicemap-layer-button[aria-pressed="true"] { background: var(--accent-bg); color: var(--text-strong); border-color: var(--accent-line); }
 .devicemap-layer-button:active:not(:disabled) { transform: scale(.97); }

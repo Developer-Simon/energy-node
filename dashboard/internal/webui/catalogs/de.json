@@ -607,6 +607,7 @@
   "devicemap.value.grid_export": "{value} Einspeisung",
   "devicemap.value.grid_import": "{value} Bezug",
   "devicemap.value.no_values": "keine Messwerte",
+  "devicemap.width_by_power": "Breite nach Leistung",
   "devices.activity.command_failed": "Befehl fehlgeschlagen",
   "devices.activity.command_sent": "Befehl gesendet",
   "devices.activity.empty": "Noch keine Aktivität im laufenden Prozess.",

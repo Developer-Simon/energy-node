@@ -278,6 +278,12 @@
         return window.DeviceMapModel.PENDING_LAYERS.includes(name);
       },
 
+      toggleWidthByPower() {
+        this.deviceMap = {...this.deviceMap, view: {...this.view, width_by_power: !this.view.width_by_power}};
+        this.unsaved = true;
+        if (typeof this.applyFlows === 'function') this.applyFlows();
+      },
+
       toggleLayer(name) {
         if (this.isLayerPending(name) || !(name in window.DeviceMapModel.DEFAULT_LAYERS)) return;
         const layers = {...this.view.layers, [name]: !this.view.layers[name]};
