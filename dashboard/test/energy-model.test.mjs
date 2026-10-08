@@ -211,16 +211,35 @@ test('deriveBalanceCore matches the shared Go/JS balance-cases fixture', async (
   const cases = JSON.parse(fs.readFileSync(fixturePath, 'utf8'));
   assert.ok(cases.length > 0);
   for (const testCase of cases) {
-    const snapshot = {values: testCase.values};
+    const snapshot = {values: testCase.values, categories: testCase.categories || {}};
     const got = model.deriveBalanceCore(snapshot, testCase.interpretation);
     for (const [key, want] of Object.entries(testCase.expect)) {
       if (typeof want === 'number') {
         assert.ok(Math.abs(got[key] - want) < 1e-6, `${testCase.name}.${key} = ${got[key]}, want ${want}`);
+      } else if (want && typeof want === 'object') {
+        assert.deepEqual(Object.keys(got[key]).sort(), Object.keys(want).sort(), `${testCase.name}.${key} keys`);
+        for (const [name, value] of Object.entries(want)) {
+          assert.ok(Math.abs(got[key][name] - value) < 1e-6, `${testCase.name}.${key}.${name} = ${got[key][name]}, want ${value}`);
+        }
       } else {
         assert.equal(got[key], want, `${testCase.name}.${key} = ${got[key]}, want ${want}`);
       }
     }
   }
+});
+
+test('composeBalance shows a consumer category as its own sink', () => {
+  const model = loadEnergyModel();
+  const snapshot = {
+    values: {pv: 1000, load: 1000, 'custom:werkstatt': 350},
+    categories: {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_3', icon: 'mdi:home'}},
+  };
+  const balance = model.deriveBalance(snapshot, {load_mode: 'measured'});
+  const sink = balance.sinks.find(item => item.id === 'custom:werkstatt');
+  assert.ok(sink);
+  assert.equal(sink.label, 'Werkstatt');
+  assert.equal(sink.value, 350);
+  assert.equal(balance.sinks.find(item => item.id === 'base').value, 650);
 });
 
 test('groupRoleSamples fasst die Samples einer Abfrage zu einem Punkt zusammen', () => {

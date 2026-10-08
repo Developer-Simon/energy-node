@@ -44,6 +44,49 @@ type Balance struct {
 	BatterySoC         float64 `json:"battery_soc"`
 	BatteryCapacityKWh float64 `json:"battery_capacity_kwh"`
 	BatteryEnergyKWh   float64 `json:"battery_energy_kwh"`
+
+	// Categories holds each custom:<id> value as its category's base counts
+	// it: consumers clamped at 0, producers and storage with their raw sign.
+	// Never nil.
+	Categories map[string]float64 `json:"categories"`
+}
+
+// categorySums folds every custom:<id> value by its category's base. A
+// value whose category is unknown is ignored rather than guessed.
+type categorySums struct {
+	consumers, producers, charge, discharge float64
+	perCategory                             map[string]float64
+}
+
+func sumCategories(s Snapshot) categorySums {
+	sums := categorySums{perCategory: map[string]float64{}}
+	for role, value := range s.Values {
+		id, ok := role.CategoryID()
+		if !ok {
+			continue
+		}
+		category, known := s.Categories[id]
+		if !known {
+			continue
+		}
+		switch category.Base {
+		case CategoryConsumer:
+			v := math.Max(value, 0)
+			sums.consumers += v
+			sums.perCategory[id] = v
+		case CategoryProducer:
+			sums.producers += value
+			sums.perCategory[id] = value
+		case CategoryStorage:
+			if value > 0 {
+				sums.charge += value
+			} else {
+				sums.discharge -= value
+			}
+			sums.perCategory[id] = value
+		}
+	}
+	return sums
 }
 
 // DeriveBalance turns a Snapshot's raw role values into the balance the
@@ -53,9 +96,10 @@ type Balance struct {
 func DeriveBalance(s Snapshot, cfg Interpretation) Balance {
 	cfg = cfg.Normalized()
 
-	pv := s.Value("pv")
-	charge := s.BatteryChargePower()
-	discharge := s.BatteryDischargePower()
+	cats := sumCategories(s)
+	pv := s.Value("pv") + cats.producers
+	charge := s.BatteryChargePower() + cats.charge
+	discharge := s.BatteryDischargePower() + cats.discharge
 	gridImport := s.GridImportPower()
 	gridExport := s.GridExportPower()
 	wallbox := math.Max(s.Value("wallbox"), 0)
@@ -93,11 +137,11 @@ func DeriveBalance(s Snapshot, cfg Interpretation) Balance {
 		}
 	}
 
-	base := math.Max(loadTotal-wallbox-heatPump-loadMeasured, 0)
-	gapRaw := (pv + gridImport + discharge) - (base + loadMeasured + wallbox + heatPump + gridExport + charge)
+	base := math.Max(loadTotal-wallbox-heatPump-loadMeasured-cats.consumers, 0)
+	gapRaw := (pv + gridImport + discharge) - (base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge)
 
 	sumSources := pv + gridImport + discharge
-	sumSinks := base + loadMeasured + wallbox + heatPump + gridExport + charge
+	sumSinks := base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge
 	total := math.Max(sumSources, sumSinks)
 
 	toleranceW := cfg.GapToleranceW
@@ -121,6 +165,7 @@ func DeriveBalance(s Snapshot, cfg Interpretation) Balance {
 		BatterySoC:         s.Value("battery_soc"),
 		BatteryCapacityKWh: s.Value("battery_capacity_kwh"),
 		BatteryEnergyKWh:   s.Value("battery_energy_kwh"),
+		Categories:         cats.perCategory,
 	}
 
 	switch cfg.GapMode {
