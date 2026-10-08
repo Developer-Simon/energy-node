@@ -27,6 +27,10 @@
     return entity;
   };
 
+  const compareLabels = (a, b) => (window.I18n
+    ? window.I18n.compare(a, b)
+    : (String(a) < String(b) ? -1 : (String(a) > String(b) ? 1 : 0)));
+
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
   const requestJSON = async (url, options) => {
@@ -80,6 +84,10 @@
     unassigned: [],
     unassignedCount: 0,
     balanceTotal: 0,
+    categories: {},
+    groups: {},
+    devicesList: [],
+    iconCatalogue: [],
 
     init() {
       // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
@@ -120,11 +128,12 @@
       this.loading = true;
       try {
         this.loadHiddenIds();
-        const [, devices, saved, snapshot] = await Promise.all([
+        const [, devices, saved, snapshot, icons] = await Promise.all([
           this.loadSession(),
           requestJSON('/api/v1/devices'),
           requestJSON('/api/v1/energy/roles'),
           requestJSON('/api/v1/energy'),
+          requestJSON('/api/v1/device/icons').catch(() => []),
         ]);
         const savedAssignments = saved.assignments || {};
         const resolved = Object.fromEntries((snapshot.entities || []).map(item => [item.entity_id, item.role]));
@@ -148,6 +157,12 @@
           capacity_kwh: Number(entity.assignment.capacity_kwh) || 0,
         }]));
         if (saved.interpretation) this.interpretation = {...this.interpretation, ...saved.interpretation};
+        this.categories = JSON.parse(JSON.stringify(saved.categories || {}));
+        this.groups = JSON.parse(JSON.stringify(saved.groups || {}));
+        this.devicesList = devices
+          .filter(device => device.id !== OWN_ENERGY_DEVICE_ID)
+          .map(device => ({id: device.id, name: device.name || device.id}));
+        this.iconCatalogue = icons || [];
         this.unassigned = snapshot.unassigned || [];
         this.unassignedCount = snapshot.unassigned_count || 0;
         this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;
@@ -267,6 +282,59 @@
       return tn('energy.page.soc_capacity_warning', this.socWithoutCapacity);
     },
 
+    customRoleOptions() {
+      return Object.entries(this.categories)
+        .sort(([, a], [, b]) => compareLabels(a.label, b.label))
+        .map(([id, def]) => ({value: `custom:${id}`, label: def.label}));
+    },
+
+    consumerRoleOptions() {
+      return this.customRoleOptions().filter(option => (this.categories[option.value.slice('custom:'.length)] || {}).base === 'consumer');
+    },
+
+    // Same rule as DeviceMapModel.slugId (devicemap-model.js). The energy
+    // page does not load the device map scripts, hence the copy.
+    slug(label, existing) {
+      const translit = {ä: 'ae', ö: 'oe', ü: 'ue', ß: 'ss'};
+      const base = String(label || '').toLowerCase().replace(/[äöüß]/g, char => translit[char])
+        .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'eintrag';
+      if (!existing.includes(base)) return base;
+      for (let n = 2; ; n += 1) if (!existing.includes(`${base}_${n}`)) return `${base}_${n}`;
+    },
+
+    addCategory() {
+      const label = t('energy.categories.new_label');
+      const id = this.slug(label, Object.keys(this.categories));
+      this.categories = {...this.categories, [id]: {label, base: 'consumer', color: 'cat_1', icon: (this.iconCatalogue[0] || {}).name || ''}};
+    },
+
+    removeCategory(id) {
+      const next = {...this.categories};
+      delete next[id];
+      this.categories = next;
+    },
+
+    addGroup() {
+      const label = t('energy.groups.new_label');
+      const id = this.slug(label, Object.keys(this.groups));
+      this.groups = {...this.groups, [id]: {label, members: {devices: [], groups: []}}};
+    },
+
+    removeGroup(id) {
+      const next = {};
+      for (const [gid, group] of Object.entries(this.groups)) {
+        if (gid === id) continue;
+        next[gid] = {...group, members: {...group.members, groups: (group.members.groups || []).filter(child => child !== id)}};
+      }
+      this.groups = next;
+    },
+
+    toggleGroupMember(groupId, kind, memberId) {
+      const group = this.groups[groupId];
+      const list = group.members[kind] || [];
+      group.members[kind] = list.includes(memberId) ? list.filter(id => id !== memberId) : [...list, memberId];
+    },
+
     payload() {
       // Kein .filter() auf assignment.role: eine leere Rolle ("Keine Rolle"
       // im Dropdown) muss als expliziter Override gespeichert werden, sonst
@@ -293,7 +361,10 @@
         // Eingabe heisst damit dasselbe wie eine getippte 0: keine Reserve.
         battery_reserve_percent: Number(this.interpretation.battery_reserve_percent) || 0,
       };
-      return {assignments, interpretation};
+      const categories = this.categories;
+      const groups = Object.fromEntries(Object.entries(this.groups)
+        .map(([id, g]) => [id, g.role ? g : {label: g.label, members: g.members}]));
+      return {assignments, interpretation, categories, groups};
     },
 
     revisionConfig() {
@@ -308,12 +379,12 @@
 
     async save() {
       this.saving = true;
-      const {assignments, interpretation} = this.payload();
+      const {assignments, interpretation, categories, groups} = this.payload();
       try {
         await requestJSON('/api/v1/energy/roles', {
           method: 'PUT',
           headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
-          body: JSON.stringify({assignments, interpretation}),
+          body: JSON.stringify({assignments, interpretation, categories, groups}),
         });
         this.$store.toasts.push(t('energy.page.saved'));
       } catch (error) {
