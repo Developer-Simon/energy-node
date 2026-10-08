@@ -36,19 +36,39 @@
     }).join('');
   };
 
+  // Category icons come from the device icon catalogue (GET
+  // /api/v1/device/icons): bare stroked shapes, drawn here with the same
+  // attributes webui/deviceicons.go puts on its <svg>.
+  const iconBody = spec => (spec.iconMarkup
+    ? `<g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${spec.iconMarkup}</g>`
+    : (ICONS[spec.icon] || ICONS.box));
+
+  const TOKEN = /\{([a-z0-9-]+)\}/g;
+
+  const groupMarkup = colorOf => {
+    const half = SIZE / 2;
+    const body = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="${-half} ${-half} ${SIZE} ${SIZE}">`
+      + `<circle r="${R}" fill="{panel}" stroke="{flow-rest}" stroke-width="2" stroke-dasharray="5 4"/>`
+      + '<text x="0" y="6" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" font-weight="600" fill="{flow-rest}">Σ</text>'
+      + '</svg>';
+    return body.replace(TOKEN, (_, token) => colorOf(token));
+  };
+
+  const groupDataUri = colorOf => `data:image/svg+xml;utf8,${encodeURIComponent(groupMarkup(colorOf))}`;
+
   const markup = (spec, colorOf) => {
     const half = SIZE / 2;
     const dot = (R * 0.72).toFixed(2);
     const body = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="${-half} ${-half} ${SIZE} ${SIZE}">`
       + `<circle r="${R}" fill="{panel}" stroke="{border-soft}" stroke-width="1"/>`
       + ring(spec)
-      + `<svg data-icon="${spec.icon}" x="-10" y="-10" width="20" height="20" viewBox="0 0 24 24" color="{${spec.iconColor}}">${ICONS[spec.icon] || ICONS.box}</svg>`
+      + `<svg data-icon="${spec.icon}" x="-10" y="-10" width="20" height="20" viewBox="0 0 24 24" color="{${spec.iconColor}}">${iconBody(spec)}</svg>`
       + `<circle data-health="${spec.health}" cx="${dot}" cy="-${dot}" r="4.5" fill="{${HEALTH_TOKEN[spec.health] || 'text-faint'}}" stroke="{panel}" stroke-width="2"/>`
       + '</svg>';
-    return body.replace(/\{([a-z-]+)\}/g, (_, token) => colorOf(token));
+    return body.replace(TOKEN, (_, token) => colorOf(token));
   };
 
   const dataUri = (spec, colorOf) => `data:image/svg+xml;utf8,${encodeURIComponent(markup(spec, colorOf))}`;
 
-  window.DeviceMapNodeSvg = {SIZE, markup, dataUri};
+  window.DeviceMapNodeSvg = {SIZE, markup, dataUri, groupMarkup, groupDataUri};
 })();
