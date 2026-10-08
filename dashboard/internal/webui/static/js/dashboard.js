@@ -233,6 +233,16 @@
         else if (this.extraPages.length) this.activePage = this.extraPages[this.extraPages.length - 1].id;
       });
 
+      // Die Device Map bittet die Huelle, einen Tab zu oeffnen (und dort
+      // Rollenzeilen hervorzuheben). Die Energie-Seite kann noch nicht
+      // geladen sein, darum liegt die Anfrage zusaetzlich auf window.
+      window.addEventListener('dashboard-open-panel', async event => {
+        const detail = event.detail || {};
+        if (detail.energyFocus) window.__energyFocusRequest__ = detail.energyFocus;
+        await this.setActivePanel(detail.panel);
+        if (detail.energyFocus) window.dispatchEvent(new CustomEvent('energy-focus-rows', {detail: {ids: detail.energyFocus}}));
+      });
+
       // Die Huelle muss auch ohne EventSource erreichbar sein (der Waechter
       // des Editors greift ueber window.__dashboardShell__ zu), darum vor dem
       // Fallback-Return.

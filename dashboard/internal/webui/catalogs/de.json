@@ -882,6 +882,7 @@
   "energy.page.load_mode_note.calculated": "Hausverbrauch = PV + Netzbezug + Entladen − Einspeisung − Laden. „Übriger Verbrauch“ ist dabei ein Rest, keine Messung. Er nimmt jeden nicht separat erfassten Verbraucher auf.",
   "energy.page.load_mode_note.combined": "Berechnet, gemessene Verbraucher aber separat ausgewiesen. „Hausverbrauch“ meint hier den gemessenen Teilverbraucher, nicht den Gesamtwert. Ein Hauszähler auf dieser Rolle würde doppelt gezählt. „Übriger Verbrauch“ bleibt ein Rest, keine Messung.",
   "energy.page.load_mode_note.measured": "Hausverbrauch kommt direkt von der Entität mit der Rolle „Hausverbrauch“.",
+  "energy.page.read_only": "Zum Ändern der Energie-Konfiguration fehlt die Berechtigung.",
   "energy.page.revisions_label": "Revisionen der Energie-Rollen",
   "energy.page.role_option.battery_charge": "Batterie laden",
   "energy.page.role_option.battery_discharge": "Batterie entladen",

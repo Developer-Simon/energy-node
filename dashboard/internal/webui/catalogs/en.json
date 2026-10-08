@@ -882,6 +882,7 @@
   "energy.page.load_mode_note.calculated": "House consumption = PV + grid import + discharging − feed-in − charging. “Remaining consumption” is a remainder here, not a measurement. It takes in every consumer that is not metered separately.",
   "energy.page.load_mode_note.combined": "Calculated, but measured consumers are shown separately. “House consumption” here means the measured sub-consumer, not the total. A whole-house meter on this role would be counted twice. “Remaining consumption” stays a remainder, not a measurement.",
   "energy.page.load_mode_note.measured": "House consumption comes directly from the entity with the role “House consumption”.",
+  "energy.page.read_only": "You are not allowed to change the energy configuration.",
   "energy.page.revisions_label": "Energy role revisions",
   "energy.page.role_option.battery_charge": "Battery charging",
   "energy.page.role_option.battery_discharge": "Battery discharging",

@@ -307,6 +307,8 @@ select.schema-control {
   animation-delay: calc(min(var(--row-index, 0), 10) * 40ms);
 }
 .energy-role-row.is-assigned { border-left-color: var(--accent); }
+.energy-role-row.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
+.energy-readonly-hint { color: var(--text-muted); font-size: .84rem; margin: 0; }
 .energy-role-row:focus-within { border-color: var(--accent-line); }
 .energy-role-row:active { transform: scale(.995); }
 .energy-role-row > label:first-child { font-size: .9rem; color: var(--text); overflow-wrap: anywhere; }

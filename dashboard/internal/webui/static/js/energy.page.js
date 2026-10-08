@@ -60,6 +60,11 @@
     socWithoutCapacity: 0,
     hiddenIds: {},
     hiddenExpanded: false,
+    canEdit: true,
+    csrfToken: '',
+    flash: {},
+    _setTimeout: (fn, ms) => setTimeout(fn, ms),
+    _flashTimer: null,
     loading: false,
     saving: false,
     interpretation: {
@@ -76,11 +81,47 @@
     unassignedCount: 0,
     balanceTotal: 0,
 
+    init() {
+      // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
+      // Seite den alten Stand und schriebe ihn beim naechsten Speichern zurueck.
+      window.addEventListener('energy-roles-changed', () => this.load());
+      window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
+    },
+
+    async loadSession() {
+      try {
+        const session = await requestJSON('/api/v1/auth/session');
+        this.csrfToken = session.csrf_token || '';
+        this.canEdit = session.edit_energy !== false;
+      } catch (error) {
+        // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung, dann
+        // laesst auch requireEnergyMutation den Schreibzugriff durch.
+        this.csrfToken = '';
+        this.canEdit = true;
+      }
+    },
+
+    focusRows(ids) {
+      window.__energyFocusRequest__ = null;
+      if (!ids.length) return;
+      if (ids.some(id => this.isHidden(id))) this.hiddenExpanded = true;
+      this.flash = Object.fromEntries(ids.map(id => [id, true]));
+      this.$nextTick(() => {
+        const escaped = window.CSS && window.CSS.escape ? window.CSS.escape(ids[0]) : ids[0];
+        const row = document.querySelector(`[data-entity-id="${escaped}"]`);
+        const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (row && row.scrollIntoView) row.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'center'});
+      });
+      clearTimeout(this._flashTimer);
+      this._flashTimer = this._setTimeout(() => { this.flash = {}; }, 1600);
+    },
+
     async load() {
       this.loading = true;
       try {
         this.loadHiddenIds();
-        const [devices, saved, snapshot] = await Promise.all([
+        const [, devices, saved, snapshot] = await Promise.all([
+          this.loadSession(),
           requestJSON('/api/v1/devices'),
           requestJSON('/api/v1/energy/roles'),
           requestJSON('/api/v1/energy'),
@@ -111,6 +152,11 @@
         this.unassignedCount = snapshot.unassigned_count || 0;
         this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;
         this.socWithoutCapacity = snapshot.battery_soc_without_capacity || 0;
+        if (window.__energyFocusRequest__) {
+          const ids = window.__energyFocusRequest__;
+          window.__energyFocusRequest__ = null;
+          this.focusRows(ids);
+        }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -256,6 +302,7 @@
         current: () => this.payload(),
         reload: () => this.load(),
         label: t('energy.page.revisions_label'),
+        headers: () => ({'X-CSRF-Token': this.csrfToken}),
       };
     },
 
@@ -265,7 +312,7 @@
       try {
         await requestJSON('/api/v1/energy/roles', {
           method: 'PUT',
-          headers: {'Content-Type': 'application/json'},
+          headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
           body: JSON.stringify({assignments, interpretation}),
         });
         this.$store.toasts.push(t('energy.page.saved'));

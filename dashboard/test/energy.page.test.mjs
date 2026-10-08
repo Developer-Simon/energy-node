@@ -344,3 +344,66 @@ test('payload schickt eine abgeschaltete Reserve als ausdrückliche 0', () => {
   assert.equal(component.payload().interpretation.battery_reserve_percent, 0);
   assert.ok('battery_reserve_percent' in component.payload().interpretation);
 });
+
+test('save sends the CSRF token from the session and the page is read only without edit_energy', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({csrf_token: 'tok', edit_energy: true});
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(devicesResponse);
+    if (url.endsWith('/api/v1/energy/roles')) return jsonResponse(rolesResponse);
+    if (url.endsWith('/api/v1/energy')) return jsonResponse(energyResponse);
+    throw new Error(`unexpected ${url}`);
+  };
+  const {component} = createEnergyPanel({fetchImpl});
+  await component.load();
+  assert.equal(component.canEdit, true);
+  await component.save();
+  const put = calls.find(call => call.options.method === 'PUT');
+  assert.equal(put.options.headers['X-CSRF-Token'], 'tok');
+
+  const readOnly = createEnergyPanel({fetchImpl: async url => (url.endsWith('/api/v1/auth/session')
+    ? jsonResponse({csrf_token: 'tok', edit_energy: false}) : fetchImpl(url))});
+  await readOnly.component.load();
+  assert.equal(readOnly.component.canEdit, false);
+});
+
+test('without a session API the page stays editable', async () => {
+  const fetchImpl = async url => {
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({}, false);
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(devicesResponse);
+    if (url.endsWith('/api/v1/energy/roles')) return jsonResponse(rolesResponse);
+    return jsonResponse(energyResponse);
+  };
+  const {component} = createEnergyPanel({fetchImpl});
+  await component.load();
+  assert.equal(component.canEdit, true);
+  assert.equal(component.csrfToken, '');
+});
+
+test('energy-roles-changed reloads the page and focusRows flashes and unhides rows', async (t) => {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  let loads = 0;
+  const fetchImpl = async url => {
+    if (url.endsWith('/api/v1/devices')) loads += 1;
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({edit_energy: true});
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(devicesResponse);
+    if (url.endsWith('/api/v1/energy/roles')) return jsonResponse(rolesResponse);
+    return jsonResponse(energyResponse);
+  };
+  const {component, window} = createEnergyPanel({fetchImpl});
+  component.$nextTick = fn => fn();
+  component.init();
+  await component.load();
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed'));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(loads, 2);
+  component.hiddenIds = {socket_power: true};
+  component.focusRows(['socket_power']);
+  assert.equal(component.hiddenExpanded, true);
+  assert.equal(component.flash.socket_power, true);
+  component._setTimeout = (fn, ms) => setTimeout(fn, ms);
+  component.focusRows(['socket_power']);
+  t.mock.timers.tick(1600);
+  assert.equal(component.flash.socket_power, undefined);
+});
