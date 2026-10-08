@@ -15,7 +15,7 @@
   };
   const relationKey = (a, b) => [a, b].sort().join('::');
 
-  const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight'};
+  const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight', width_by_power: false};
 
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
   // device_id, so it can't collide with one.
@@ -194,7 +194,20 @@
       // build deviceMap by hand) - merge onto defaults everywhere instead of
       // requiring every call site to null-check.
       get view() {
-        return {...DEFAULT_VIEW, ...(this.deviceMap.view || {})};
+        const stored = this.deviceMap.view || {};
+        return {...DEFAULT_VIEW, ...stored, layers: {...window.DeviceMapModel.DEFAULT_LAYERS, ...(stored.layers || {})}};
+      },
+
+      isLayerPending(name) {
+        return window.DeviceMapModel.PENDING_LAYERS.includes(name);
+      },
+
+      toggleLayer(name) {
+        if (this.isLayerPending(name) || !(name in window.DeviceMapModel.DEFAULT_LAYERS)) return;
+        const layers = {...this.view.layers, [name]: !this.view.layers[name]};
+        this.deviceMap = {...this.deviceMap, view: {...this.view, layers}};
+        this.unsaved = true;
+        if (cy) cy.style(this.graphStyle());
       },
 
       buildElements() {
@@ -220,7 +233,7 @@
           seenEdges.add(key);
           const data = {id: `edge-${key}`, source: parentId, target: childId};
           if (overrideId) data.overrideId = overrideId;
-          elements.push({data});
+          elements.push({data, classes: 'devicemap-wiring'});
         };
         // deviceMap.edges (RelationOverride, carries the real overrideId)
         // must be processed before device.relations: the registry merges
@@ -269,8 +282,18 @@
             'target-arrow-shape': 'triangle', 'arrow-scale': 0.9,
             ...(EDGE_STYLES[this.view.edge_style] || EDGE_STYLES.straight),
           }},
+          {selector: 'edge.devicemap-wiring', style: this.wiringEdgeStyle(theme)},
           {selector: 'edge.devicemap-selected-edge', style: {width: 3, 'line-color': theme.accent, 'target-arrow-color': theme.accent}},
         ];
+      },
+
+      // Draft layer rules: wiring on = normal line, wiring off + energy on =
+      // dotted track under the flows, both off = invisible and untappable.
+      wiringEdgeStyle(theme) {
+        const {wiring, energy} = this.view.layers;
+        if (wiring) return {display: 'element', 'line-style': 'solid', opacity: 1};
+        if (energy) return {display: 'element', 'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'target-arrow-shape': 'none', opacity: 0.8, events: 'no', 'line-color': theme.line};
+        return {display: 'none'};
       },
 
       renderGraph() {

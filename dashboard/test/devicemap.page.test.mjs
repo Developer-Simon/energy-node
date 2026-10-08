@@ -398,7 +398,7 @@ test('view defaults apply when the loaded device map has no view section (older 
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
 
-  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight' });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
 });
 
 test('a device without a saved position is placed below the existing arrangement instead of triggering a full re-layout', () => {
@@ -627,7 +627,7 @@ test('save() includes the current view settings in the PUT body', async () => {
 
   await component.save();
 
-  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved' });
+  assert.deepEqual(requestBody.view, { snap_to_grid: true, show_grid: true, grid_size: 20, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
 });
 
 test('discardChanges restores the last loaded/saved snapshot without a network call, and clears unsaved', async () => {
@@ -701,4 +701,46 @@ test('confirmUnsavedUnload only blocks the tab close when there are unsaved posi
   component.confirmUnsavedUnload(event);
   assert.equal(prevented, true);
   assert.equal(event.returnValue, '');
+});
+
+test('view always carries all four layers, defaulting old maps to wiring and energy', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [], view: { snap_to_grid: true } };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view.layers)), { wiring: true, energy: true, balance: false, data: false });
+  assert.equal(component.view.width_by_power, false);
+});
+
+test('toggleLayer flips one layer, marks the map unsaved and ignores pending layers', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleLayer('wiring');
+  assert.equal(component.view.layers.wiring, false);
+  assert.equal(component.view.layers.energy, true);
+  assert.equal(component.unsaved, true);
+  component.unsaved = false;
+  component.toggleLayer('data');
+  assert.equal(component.view.layers.data, false, 'data flow has no content before phase 5');
+  assert.equal(component.unsaved, false);
+  assert.equal(component.isLayerPending('balance'), true);
+});
+
+test('wiring edges become a dotted track when only the energy layer is on', () => {
+  const { component } = createDevicemapPanel();
+  component.deviceMap = { version: 1, nodes: [], edges: [], view: { layers: { wiring: false, energy: true, balance: false, data: false } } };
+  const style = component.graphStyle();
+  const wiring = style.find(rule => rule.selector === 'edge.devicemap-wiring');
+  assert.equal(wiring.style['line-style'], 'dotted');
+  component.deviceMap = { version: 1, nodes: [], edges: [], view: { layers: { wiring: false, energy: false, balance: false, data: false } } };
+  assert.equal(component.graphStyle().find(rule => rule.selector === 'edge.devicemap-wiring').style.display, 'none');
+});
+
+test('save() sends the layers with the view', async () => {
+  let body;
+  const fetchImpl = async (url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => ({}) }; };
+  const { component } = createDevicemapPanel({ fetchImpl });
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.toggleLayer('wiring');
+  await component.save();
+  assert.deepEqual(body.view.layers, { wiring: false, energy: true, balance: false, data: false });
+  assert.equal(body.view.width_by_power, false);
 });
