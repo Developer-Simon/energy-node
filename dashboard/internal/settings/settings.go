@@ -141,6 +141,14 @@ const (
 type EnergyConfig struct {
 	Assignments    map[string]energy.Assignment `json:"assignments"`
 	Interpretation energy.Interpretation        `json:"interpretation"`
+	// Categories and Groups are omitempty, so existing energy.json files
+	// stay byte-identical until the first category or group is saved.
+	Categories map[string]energy.Category `json:"categories,omitempty"`
+	Groups     map[string]energy.Group    `json:"groups,omitempty"`
+}
+
+func (c EnergyConfig) Model() energy.Model {
+	return energy.Model{Categories: c.Categories, Groups: c.Groups}
 }
 
 type Layout struct {
@@ -737,7 +745,31 @@ func cloneEnergyConfig(value EnergyConfig) EnergyConfig {
 		assignments[id] = assignment
 	}
 	value.Assignments = assignments
+	if value.Categories != nil {
+		categories := make(map[string]energy.Category, len(value.Categories))
+		for id, category := range value.Categories {
+			categories[id] = category
+		}
+		value.Categories = categories
+	}
+	if value.Groups != nil {
+		groups := make(map[string]energy.Group, len(value.Groups))
+		for id, group := range value.Groups {
+			group.Members.Devices = cloneStrings(group.Members.Devices)
+			group.Members.Groups = cloneStrings(group.Members.Groups)
+			groups[id] = group
+		}
+		value.Groups = groups
+	}
 	return value
+}
+
+// cloneStrings keeps nil as nil, so a copy compares equal to its source.
+func cloneStrings(values []string) []string {
+	if values == nil {
+		return nil
+	}
+	return append([]string{}, values...)
 }
 
 // cloneLayout deep-copies a Layout so LoadLayout can hand out a cached value
@@ -1725,6 +1757,24 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 		value.Assignments = map[string]energy.Assignment{}
 	}
 	value.Interpretation = value.Interpretation.Normalized()
+	if len(value.Categories) == 0 {
+		value.Categories = nil
+	}
+	if len(value.Groups) == 0 {
+		value.Groups = nil
+		return value
+	}
+	groups := make(map[string]energy.Group, len(value.Groups))
+	for id, group := range value.Groups {
+		if group.Members.Devices == nil {
+			group.Members.Devices = []string{}
+		}
+		if group.Members.Groups == nil {
+			group.Members.Groups = []string{}
+		}
+		groups[id] = group
+	}
+	value.Groups = groups
 	return value
 }
 
@@ -1740,23 +1790,129 @@ func validateEnergy(value EnergyConfig) error {
 	// config.ValidateDocument does not evaluate the schema of
 	// additionalProperties, so the assignment values are checked here.
 	for id, assignment := range value.Assignments {
-		if !validAssignmentRoles[assignment.Role] {
-			return fmt.Errorf("assignment %q has unknown role %q", id, assignment.Role)
-		}
 		if assignment.Scale < 0 || assignment.CapacityKWh < 0 {
 			return fmt.Errorf("assignment %q has a negative scale or capacity", id)
 		}
 	}
+	if err := validateEnergyModel(value); err != nil {
+		return err
+	}
 	return value.Interpretation.Validate()
 }
 
-// validAssignmentRoles lists what an assignment may carry. The empty role is
-// the explicit "no role" override.
-var validAssignmentRoles = map[energy.Role]bool{
-	"": true, energy.RolePV: true, energy.RoleBattery: true, energy.RoleBatteryCharge: true,
-	energy.RoleBatteryDischarge: true, energy.RoleGrid: true, energy.RoleGridImport: true,
-	energy.RoleGridExport: true, energy.RoleLoad: true, energy.RoleWallbox: true,
-	energy.RoleHeatPump: true, energy.RoleBatterySoC: true,
+var energyIDPattern = regexp.MustCompile(`^[a-z0-9_]+$`)
+
+var standardEnergyRoles = map[energy.Role]bool{
+	"": true, energy.RolePV: true, energy.RoleBattery: true, energy.RoleBatteryCharge: true, energy.RoleBatteryDischarge: true,
+	energy.RoleGrid: true, energy.RoleGridImport: true, energy.RoleGridExport: true, energy.RoleLoad: true,
+	energy.RoleWallbox: true, energy.RoleHeatPump: true, energy.RoleBatterySoC: true,
+}
+
+func energyRejected(name, text string, params map[string]any) error {
+	return uierror.New("error.energy_roles_rejected."+name, text, params)
+}
+
+// validateEnergyModel covers what the schema validator cannot express:
+// the allowed role values, ids, category references, unique group
+// membership, cycles and nested group roles. Member roles need the
+// registry and are checked in internal/httpapi (energy.ValidateMemberRoles).
+func validateEnergyModel(value EnergyConfig) error {
+	for _, ids := range [][]string{mapKeys(value.Categories), mapKeys(value.Groups)} {
+		for _, id := range ids {
+			if !energyIDPattern.MatchString(id) {
+				return energyRejected("id_invalid", fmt.Sprintf("energy: invalid id %q", id), map[string]any{"id": id})
+			}
+		}
+	}
+	checkRole := func(role energy.Role) error {
+		if standardEnergyRoles[role] {
+			return nil
+		}
+		id, ok := role.CategoryID()
+		if !ok {
+			return energyRejected("role_unknown", fmt.Sprintf("energy: unknown role %q", role), map[string]any{"role": string(role)})
+		}
+		if _, known := value.Categories[id]; !known {
+			return energyRejected("category_unknown", fmt.Sprintf("energy: unknown category %q", id), map[string]any{"category": id})
+		}
+		return nil
+	}
+	for _, assignment := range value.Assignments {
+		if err := checkRole(assignment.Role); err != nil {
+			return err
+		}
+	}
+	memberOf := map[string]string{}
+	for _, id := range mapKeys(value.Groups) {
+		group := value.Groups[id]
+		if group.Role != "" {
+			if err := checkRole(group.Role); err != nil {
+				return err
+			}
+			categoryID, isCustom := group.Role.CategoryID()
+			if !isCustom || value.Categories[categoryID].Base != energy.CategoryConsumer {
+				return energyRejected("group_role_invalid", fmt.Sprintf("energy: group %q needs a consumer category as role", id), map[string]any{"group": group.Label})
+			}
+		}
+		for _, device := range group.Members.Devices {
+			if other, taken := memberOf["device:"+device]; taken && other != id {
+				return energyRejected("group_duplicate_member", fmt.Sprintf("energy: %q is in two groups", device), map[string]any{"member": device})
+			}
+			memberOf["device:"+device] = id
+		}
+		for _, child := range group.Members.Groups {
+			if _, known := value.Groups[child]; !known {
+				return energyRejected("group_unknown_member", fmt.Sprintf("energy: group %q lists unknown group %q", id, child), map[string]any{"group": group.Label, "member": child})
+			}
+			if other, taken := memberOf["group:"+child]; taken && other != id {
+				return energyRejected("group_duplicate_member", fmt.Sprintf("energy: %q is in two groups", child), map[string]any{"member": child})
+			}
+			memberOf["group:"+child] = id
+		}
+	}
+	for _, id := range mapKeys(value.Groups) {
+		seen := map[string]bool{id: true}
+		for current := "group:" + id; ; {
+			parent, ok := memberOf[current]
+			if !ok {
+				break
+			}
+			if seen[parent] {
+				return energyRejected("group_cycle", fmt.Sprintf("energy: groups around %q form a cycle", id), map[string]any{"group": value.Groups[id].Label})
+			}
+			seen[parent] = true
+			current = "group:" + parent
+		}
+	}
+	for _, id := range mapKeys(value.Groups) {
+		group := value.Groups[id]
+		if group.Role == "" {
+			continue
+		}
+		for current := "group:" + id; ; {
+			parent, ok := memberOf[current]
+			if !ok {
+				break
+			}
+			if value.Groups[parent].Role != "" {
+				return energyRejected("group_nested_role", fmt.Sprintf("energy: group %q with a role sits in group %q with a role", id, parent),
+					map[string]any{"group": group.Label, "parent": value.Groups[parent].Label})
+			}
+			current = "group:" + parent
+		}
+	}
+	return nil
+}
+
+// mapKeys returns the keys sorted, so the first reported error does not
+// depend on map iteration order.
+func mapKeys[V any](m map[string]V) []string {
+	keys := make([]string, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }
 
 func validateLayout(value Layout) error {
