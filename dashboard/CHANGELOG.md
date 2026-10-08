@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.12 (2026-10-08)
+## v0.8.13 (2026-10-08)
 
 ### Features
 
@@ -11,6 +11,12 @@
 - **dashboard:** add history view tiles to the overview layout (#99) (4c2ee2a)
 - **dashboard:** redesign the diagnostics tab (#101) (b01e84e)
 - **dashboard:** device map layers, role rings and focus (#103) (ed0959e)
+- **dashboard:** compute energy flow per device map edge (a08bcdb)
+- **dashboard:** add the width by power switch to the device map (2ccbb14)
+- **dashboard:** draw live energy flows along device map wiring (e0a7187)
+- **dashboard:** animate device map energy flows (c629d25)
+- **dashboard:** add the energy legend and document live flows (9410ab3)
+- **dashboard:** live energy flow on the device map (#105)
 - **dashboard:** store device map layers and flow width in the view (870b8dd)
 - **dashboard:** add the device map energy model (75faffc)
 - **dashboard:** draw device map nodes as role rings (258c3f5)
