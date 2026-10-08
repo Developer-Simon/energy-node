@@ -65,6 +65,10 @@
       _energyPending: false,
       _setTimeout: (fn, ms) => setTimeout(fn, ms),
       _cyForTest: null,
+      _raf: null,
+      _requestFrame: fn => (window.requestAnimationFrame ? window.requestAnimationFrame(fn) : null),
+      _cancelFrame: id => { if (window.cancelAnimationFrame) window.cancelAnimationFrame(id); },
+      lifecycleOff: null,
 
       async load() {
         // load() läuft nach jedem Speichern erneut, die Registrierung darf
@@ -80,6 +84,17 @@
           const listener = () => this.onRegistryUpdated();
           window.addEventListener('registry-updated', listener);
           this.registryOff = () => window.removeEventListener('registry-updated', listener);
+        }
+        if (!this.lifecycleOff) {
+          // Restart the flow loop when the browser tab or the dashboard tab
+          // becomes visible again. The loop stops itself while hidden.
+          const wake = () => setTimeout(() => this.startFlowAnimation(), 0);
+          document.addEventListener('visibilitychange', wake);
+          window.addEventListener('dashboard-panel-changed', wake);
+          this.lifecycleOff = () => {
+            document.removeEventListener('visibilitychange', wake);
+            window.removeEventListener('dashboard-panel-changed', wake);
+          };
         }
         this.loading = true;
         try {
@@ -113,6 +128,8 @@
       destroy() {
         if (this.themeOff) this.themeOff();
         if (this.registryOff) this.registryOff();
+        if (this.lifecycleOff) this.lifecycleOff();
+        this.stopFlowAnimation();
         clearTimeout(this._energyTimer);
         if (labels) { labels.destroy(); labels = null; }
       },
@@ -162,6 +179,38 @@
           for (const element of wanted.values()) graph.add(element);
         });
         if (this.focusId) this.setFocus(this.focusId);
+      },
+
+      flowOffset(nowMs, speed) {
+        const period = window.DeviceMapModel.SPEED_SECONDS[speed] || window.DeviceMapModel.SPEED_SECONDS.mid;
+        return -(((nowMs / 1000) % period) / period) * window.DeviceMapModel.DASH_CYCLE;
+      },
+
+      shouldAnimate() {
+        return this.view.layers.energy && this.isPanelActive()
+          && document.visibilityState === 'visible' && !this.reducedMotion();
+      },
+
+      // One requestAnimationFrame loop for all flows. Constant motion, linear
+      // (draft table "Bewegung und Verhalten"). It stops itself when nothing
+      // should move and is restarted by visibility, layer and panel changes.
+      startFlowAnimation() {
+        if (this._raf) return;
+        const step = now => {
+          if (!this.shouldAnimate()) { this._raf = null; return; }
+          if (cy) {
+            cy.batch(() => cy.edges('.devicemap-flow').forEach(edge => {
+              edge.style('line-dash-offset', this.flowOffset(now, edge.data('speed')));
+            }));
+          }
+          this._raf = this._requestFrame(step);
+        };
+        this._raf = this._requestFrame(step);
+      },
+
+      stopFlowAnimation() {
+        if (this._raf) this._cancelFrame(this._raf);
+        this._raf = null;
       },
 
       reducedMotion() {
@@ -270,6 +319,7 @@
         });
         if (labels) labels.sync(cy);
         this.applyFlows();
+        this.startFlowAnimation();
       },
 
       positionFor(deviceId) {
@@ -343,6 +393,7 @@
         this.unsaved = true;
         if (cy) cy.style(this.graphStyle());
         this.applyFlows();
+        this.startFlowAnimation();
       },
 
       // Nodes, wiring edges and, with the energy layer on, the flow edges.
@@ -516,6 +567,7 @@
           labels.sync(cy);
         }
         if (this.focusId) this.setFocus(this.focusId);
+        this.startFlowAnimation();
       },
 
       // Continuous feedback while the pointer is still down (apple-design

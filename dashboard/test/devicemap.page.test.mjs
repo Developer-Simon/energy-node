@@ -878,3 +878,34 @@ test('applyFlows replaces a flow whose direction changed instead of duplicating 
   assert.equal(store.size, 1);
   assert.equal(store.get('flow-netz::bat').data('target'), 'netz');
 });
+
+test('flowOffset cycles one dash pattern per speed period, moving toward the target', () => {
+  const { component } = createDevicemapPanel();
+  assert.equal(component.flowOffset(0, 'mid'), -0);
+  assert.equal(Number(component.flowOffset(700, 'mid').toFixed(4)), -8);
+  assert.equal(Number(component.flowOffset(1400, 'mid').toFixed(4)), 0, 'a full period is back at the start (toFixed drops the sign of -0)');
+});
+
+test('the animation loop only runs while it makes sense', () => {
+  const frames = [];
+  const { component, window } = createDevicemapPanel();
+  component._requestFrame = fn => { frames.push(fn); return frames.length; };
+  component._cancelFrame = () => { frames.length = 0; };
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.$root = { classList: { contains: name => name === 'active' } };
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  window.matchMedia = () => ({ matches: false });
+  assert.equal(component.shouldAnimate(), true);
+  component.startFlowAnimation();
+  assert.equal(frames.length, 1);
+  component.toggleLayer('energy');
+  assert.equal(component.shouldAnimate(), false, 'energy layer off');
+  component.toggleLayer('energy');
+  window.matchMedia = () => ({ matches: true });
+  assert.equal(component.shouldAnimate(), false, 'reduced motion');
+  window.matchMedia = () => ({ matches: false });
+  Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
+  assert.equal(component.shouldAnimate(), false, 'hidden browser tab');
+  component.stopFlowAnimation();
+  assert.equal(component._raf, null);
+});
