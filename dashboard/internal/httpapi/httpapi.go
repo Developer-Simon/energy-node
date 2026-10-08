@@ -671,6 +671,7 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session) {
 		"mqtt_config":             auth.HasRole(session.User, auth.RoleMQTTConfig),
 		"automations":             auth.HasRole(session.User, auth.RoleAutomations),
 		"edit_layout":             auth.HasRole(session.User, auth.RoleEditLayout),
+		"edit_energy":             auth.HasRole(session.User, auth.RoleEditEnergy),
 		"csrf_token":              session.CSRFToken,
 		"expires_at":              session.ExpiresAt,
 	})
