@@ -47,11 +47,14 @@ import/export. Without Home Assistant, the dashboard works on its own.
   diagnoses and repairs one, from Windows, macOS or Linux.
 - **Updates from the dashboard**: a notice appears when a new release is out.
   The dashboard downloads the signed package and redeploys the node without SSH.
-- **Home Assistant, two ways**: devices arrive through MQTT Discovery, and two
+- **Home Assistant, two ways**: devices arrive through MQTT Discovery, and three
   HACS integrations bring dashboard features into HA directly.
-- **Built for weak hardware**: a single static Go binary, no CGO, no database,
-  no CDN assets. The Raspberry Pi 1 (ARMv6, single core, 512 MB RAM) is the
-  floor every design decision is measured against.
+- **Built for weak hardware**: the dashboard is a Go program that needs no
+  runtime or database on the node, so it starts fast and leaves most of the
+  RAM to the services. Charts are drawn in your browser and nothing loads from
+  a CDN, so the node also works without internet. The Raspberry Pi 1 (ARMv6,
+  single core, 512 MB RAM) is the floor every design decision is measured
+  against.
 
 <table>
   <tr>
@@ -65,7 +68,7 @@ import/export. Without Home Assistant, the dashboard works on its own.
 </table>
 
 Every page of the dashboard, including all settings tabs and the four colour
-schemes, has a screenshot in [**the dashboard, page by page**](docs/dashboard/index.md).
+schemes, has a screenshot in [**the dashboard, page by page**](https://developer-simon.github.io/energy-node/dashboard/).
 The screenshots come from a local smoke test against a fixture broker, so you
 can reproduce them without a Pi.
 
@@ -82,7 +85,7 @@ All devices are polled locally, and none of them needs a cloud account.
 | **LiFePO4 battery banks** | computed from other devices (coulomb counting) | state of charge |
 | **The node itself** | CPU, RAM, disk, throttling, Mosquitto/Tailscale status, pending updates | read |
 
-Each family is one small Python service. [Device services](docs/services/index.md)
+Each family is one small Python service. [Device services](https://developer-simon.github.io/energy-node/services/)
 covers what each one publishes. A new device family is added as another
 service; [CONTRIBUTING.md](CONTRIBUTING.md#new-device-services) explains how.
 
@@ -90,7 +93,7 @@ service; [CONTRIBUTING.md](CONTRIBUTING.md#new-device-services) explains how.
 
 ```mermaid
 flowchart LR
-    subgraph Remote["Remote site — Raspberry Pi 1 (ARMv6)"]
+    subgraph Remote["Remote site: Raspberry Pi 1 (ARMv6)"]
         DEV["Shelly · Tuya · APsystems EZ1<br/>Trucki stick · LiFePO4 banks"]
         BR["Python bridges<br/>(one systemd service each)"]
         MQ{{"Mosquitto<br/>localhost:1883"}}
@@ -132,9 +135,9 @@ flowchart LR
 computer from the [latest release](https://github.com/Developer-Simon/energy-node/releases).
 Point it at a Raspberry Pi with SSH enabled, choose your services and let it
 run. It fetches the right installation package for the Pi itself.
-[Deploying a node](docs/installer.md) walks through every screen.
+[Deploying a node](https://developer-simon.github.io/energy-node/installer.html) walks through every screen.
 
-**By hand.** [INSTALLATION.md](INSTALLATION.md) describes every step the
+**By hand.** [Manual installation](https://developer-simon.github.io/energy-node/install/) describes every step the
 installer automates, including the ARMv6 quirks: packages that have to be
 installed in an old version first (Tailscale), and the pip flags a current
 Raspberry Pi OS needs.
@@ -144,12 +147,12 @@ Raspberry Pi OS needs.
 With the MQTT bridge, every device already shows up in Home Assistant. Three
 HACS integrations add dashboard features that run inside HA directly:
 
-- [**`ha-battery-soc`**](https://github.com/Developer-Simon/ha-battery-soc):
+- [**`ha-battery-soc`**](https://developer-simon.github.io/energy-node/ha/battery-soc.html):
   LiFePO4 state of charge. It uses the same coulomb-counting engine as the
   node, set up through a config flow.
-- [**`ha-energy-node-icons`**](https://github.com/Developer-Simon/ha-energy-node-icons):
+- [**`ha-energy-node-icons`**](https://developer-simon.github.io/energy-node/ha/icons.html):
   the dashboard's device icons as an icon set for Home Assistant's icon pickers.
-- [**`ha-energy-node-companion`**](docs/ha/companion.md):
+- [**`ha-energy-node-companion`**](https://developer-simon.github.io/energy-node/ha/companion.html):
   fills gaps in the dashboard's browser history from the Home Assistant
   recorder.
 
@@ -158,15 +161,15 @@ in this repository.
 
 ## Documentation
 
-The [documentation site](docs/index.md) collects all pages. These are the
+The [documentation site](https://developer-simon.github.io/energy-node/) collects all pages. These are the
 main entry points:
 
-- [The dashboard, page by page](docs/dashboard/index.md): every screen with a screenshot
-- [Deploying a node](docs/installer.md): the installer, screen by screen
-- [Device services](docs/services/index.md): what each service talks to and publishes
-- [Data flow](docs/developing/data-flow.md) and [configuration](docs/operating/configuration.md) reference
-- [Performance on the Pi 1](docs/operating/performance.md): measured CPU and RAM per service
-- [Releasing](docs/developing/releasing.md): how versions and releases are cut
+- [The dashboard, page by page](https://developer-simon.github.io/energy-node/dashboard/): every screen with a screenshot
+- [Deploying a node](https://developer-simon.github.io/energy-node/installer.html): the installer, screen by screen
+- [Device services](https://developer-simon.github.io/energy-node/services/): what each service talks to and publishes
+- [Data flow](https://developer-simon.github.io/energy-node/developing/data-flow.html) and [configuration](https://developer-simon.github.io/energy-node/operating/configuration.html) reference
+- [Performance on the Pi 1](https://developer-simon.github.io/energy-node/operating/performance.html): measured CPU and RAM per service
+- [Releasing](https://developer-simon.github.io/energy-node/developing/releasing.html): how versions and releases are cut
 
 ## Status
 
@@ -176,10 +179,8 @@ and screens can still change between 0.x versions, and the changelogs say when
 they do.
 
 The **dashboard speaks German and English.** Each browser picks its language
-from the `DE | EN` switch in the header or from its own language setting, see
-[docs/_internal/localization.md](docs/_internal/localization.md).
-This README and the documentation are in English. Most comments in the code
-are still German.
+from the `DE | EN` switch in the header or from its own language setting.
+This README and the documentation are in English.
 
 ## Contributing
 
@@ -198,4 +199,4 @@ adding device support as new services, not forks.
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT, see [LICENSE](LICENSE).
