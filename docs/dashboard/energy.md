@@ -27,6 +27,24 @@ the balance is added to the house consumption, the tolerance in watts or
 percent, the thresholds at which the status card calls a situation a surplus
 or a grid draw, and the battery reserve.
 
+## Groups
+
+A group bundles devices without a meter of their own. It lists its members,
+which can be devices or other groups, and can carry a role. Without a role
+every member counts with its own role. With a role the group counts as a whole
+under that category, and its members must not carry a role that conflicts with
+it. A device sits in at most one group, and groups cannot contain themselves.
+Groups can also be created and edited on the device map.
+
+## Custom categories
+
+A custom category has a name, a base type, a colour and an icon. The base type
+sets the balance rule: consumers are subtracted like house load, producers add
+like PV and storage behaves like a battery. Each consumer category appears as
+its own sink next to the house consumption, which is reduced by the same
+amount, so the balance still adds up. A category that is still assigned to a
+device or group cannot be removed.
+
 The tiles at the bottom show every assigned role with its current value and
 two flags: whether the value is fresh and whether it arrives live.
 

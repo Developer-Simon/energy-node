@@ -85,5 +85,43 @@ whether to discard them. Show in the role table jumps to the Energy tab and
 highlights the rows of this device. The panel does not open for the Energy Node
 device itself, because its values come from the balance.
 
+### Energy groups
+
+A group bundles devices that share a feed but have no meter of their own, such
+as the charger and the workshop socket behind one sub-distribution. Create
+Group in the toolbar asks for a name and puts a dashed circle with a Σ on the
+map. New groups and new devices are placed below the existing arrangement, and
+a short note says how many nodes were placed.
+
+The group shows the signed sum of its members as its value. A group has no
+measurement of its own, so the sum is calculated from the members. To add a
+device, hang it under the group in connect mode or pick it in the group panel.
+Releasing the membership edge or the remove button in the panel takes a device
+out again. A device belongs to one group at a time. Hanging it under another
+group asks before it moves. The feed of the group is an ordinary connection
+from the meter or distribution above it to the group, drawn like any other
+edge.
+
+The group panel opens with a click on the group. It holds the name, the
+members, a picker for further devices and the group role. Without its own role
+every member counts with its own role in the balance. With a role the group
+counts as a whole under that category. Deleting a group removes its feed and
+leaves the members and their roles untouched.
+
+### Custom categories
+
+Custom categories add your own consumer, producer or storage types to the
+built-in roles, for example Workshop or Heat pump circuit. A category has a
+name, a base type, one of six colours and an icon. The base type decides how
+the category counts in the balance, so a consumer category is subtracted like
+house load and a producer category adds like PV. Create Category in the
+device panel or on the Energy tab adds one, and it is available as a role right
+away. A category in use cannot be removed, the error names the devices and
+groups that still use it.
+
+On the map a device with a custom role shows a ring in the category colour and
+the category icon. In the overview energy tiles every consumer category is a
+sink of its own, and the history records its value like any other role.
+
 Positions, edges and the layer choice are stored on the server and versioned
 like the layout, so you can roll back an accidental drag.
