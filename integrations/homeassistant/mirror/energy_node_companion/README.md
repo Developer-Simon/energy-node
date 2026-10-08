@@ -2,65 +2,65 @@
 
 <img src="https://raw.githubusercontent.com/Developer-Simon/ha-energy-node-companion/main/custom_components/energy_node_companion/brand/icon.png" alt="Energy Node Companion" width="88" align="right">
 
-A Home Assistant integration that works alongside the [energy-node](https://github.com/Developer-Simon/energy-node) dashboard. It does not create sensors, those come from MQTT discovery.
+Brings the [energy-node](https://github.com/Developer-Simon/energy-node) dashboard into Home Assistant and fills the gaps in its history charts from the Home Assistant recorder.
 
-The dashboard keeps its history charts in each browser. A browser only knows the hours it was open itself. Home Assistant already stores the node's sensors in its recorder, so this integration joins the dashboard's history exchange as a permanent peer and supplies the missing hours and days from there. It only supplies data. It never asks the dashboard for anything and never changes the node.
+![The energy-node dashboard, as it opens in the Home Assistant sidebar](https://developer-simon.github.io/energy-node/images/dashboard-overview.png)
+
+## Features
+
+### Dashboard in the sidebar
+
+<img src="https://developer-simon.github.io/energy-node/images/ha/companion/sidebar-entry.png" alt="The Energy Node entry in the Home Assistant sidebar" width="257" align="right">
+
+The node's dashboard opens as its own page in the Home Assistant sidebar. Home Assistant passes it through, so it also works on a phone outside your tailnet. You choose whether all users or only administrators see it, and you set its name and icon.
+[Details →](https://developer-simon.github.io/energy-node/ha/companion-sidebar.html)
+<br clear="right">
+
+### History backfill
+
+The dashboard keeps its history in each browser, so a phone that was closed overnight shows an empty chart for the night. Home Assistant already stores the node's sensors in its recorder and supplies the missing hours and days from there. It only supplies data, it never writes to the node.
+[Details →](https://developer-simon.github.io/energy-node/ha/companion-history.html)
+
+<img src="https://developer-simon.github.io/energy-node/images/dashboard-settings-history.png" alt="The History settings of the dashboard with the device exchange" width="560">
+
+### Set up in one step
+
+<img src="https://developer-simon.github.io/energy-node/images/ha/companion/options.png" alt="The options dialog" width="360" align="right">
+
+The dashboard address is pre-filled from the node's device in Home Assistant. One switch each turns history backfill and the sidebar entry on or off.
+[Details →](https://developer-simon.github.io/energy-node/ha/companion-setup.html)
+<br clear="right">
 
 ## Requirements
 
-- An energy-node dashboard that announces the series it records (dashboard 0.8.5 or newer).
+- An energy-node dashboard v0.8.5 or newer.
 - Home Assistant and the node in the same Tailscale tailnet.
 - The node's energy sensors in Home Assistant through MQTT discovery (the dashboard publishes them itself).
-- The recorder (on by default). The reach is the recorder's `purge_keep_days`, 10 days by default.
+- The recorder (on by default) for history backfill.
 
-## Install (HACS custom repository)
+## Install
 
 [![Open your Home Assistant instance and add this repository to HACS.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=Developer-Simon&repository=ha-energy-node-companion&category=integration)
 
-The button above pre-fills the custom repository dialog. Or by hand:
+1. Add this repository in HACS with the button above, or under HACS → ⋮ → **Custom repositories** with category **Integration**.
+2. Search for **Energy Node Companion** → **Download**, then **restart Home Assistant**.
+3. **Settings → Devices & Services → Add Integration → "Energy Node Companion"**.
 
-1. HACS → ⋮ (top right) → **Custom repositories**.
-2. Repository: `https://github.com/Developer-Simon/ha-energy-node-companion`, category **Integration**. Add.
-3. HACS → search **Energy Node Companion** → **Download**.
-4. **Restart Home Assistant.**
-5. **Settings → Devices & Services → Add Integration → "Energy Node Companion"**.
+## Documentation
 
-## Setup
-
-The address field is pre-filled from the node's device link in Home Assistant, for example `http://energy-node.tail1234.ts.net:8080`. Use the dashboard's own port (8080 by default), not port 80. If the dashboard runs on another port, change it in the field, or later through **Reconfigure**.
-
-Once connected, open the dashboard's settings under **History** (German: **Verläufe**). After the first backfill it shows "Last filled in by Home Assistant."
-
-## Options
-
-Open the integration and choose **Configure** to change what it does. Saving reloads the integration.
-
-- **Supply history**: fills gaps in the dashboard's history charts from the recorder. On by default.
-- **Sidebar**: shows the dashboard in the Home Assistant sidebar, for all users (default), only for administrators, or off.
-- **Name in the sidebar** and **Icon in the sidebar**: the sidebar entry's label and icon. Clear a field to go back to "Energy Node" and the solar icon.
-
-History or the sidebar must stay on. With both off the integration would do nothing, so the form refuses to save.
-
-## What is supplied
-
-- Only the series the dashboard announces as recorded.
-- The energy roles map to the dashboard's own MQTT sensors: PV power, grid import minus export, battery charge minus discharge and the battery state of charge. The load, wallbox and heat pump roles are not supplied.
-- Every other series is matched by its MQTT `unique_id`.
-- Minute values come from the recorder's states, 5-minute values from its 5-minute statistics where the entity has a `state_class`, otherwise from states.
-- Values are converted to the dashboard's unit (kW to W and so on). Series with incompatible units are skipped. Unavailable values stay gaps and never become zeros.
-
-More detail: [docs/integration.md](docs/integration.md).
+- [Overview](https://developer-simon.github.io/energy-node/ha/companion.html)
+- [Setup & options](https://developer-simon.github.io/energy-node/ha/companion-setup.html)
+- [Dashboard in the sidebar](https://developer-simon.github.io/energy-node/ha/companion-sidebar.html)
+- [History backfill](https://developer-simon.github.io/energy-node/ha/companion-history.html)
+- [Troubleshooting](https://developer-simon.github.io/energy-node/ha/companion-troubleshooting.html)
 
 ## Pull requests
 
-The integration is developed in the [energy-node repository](https://github.com/Developer-Simon/energy-node). Pull requests belong there, not in this mirror. The mirror is derived from the main repo and is regenerated with each release.
+The integration is developed in the [energy-node repository](https://github.com/Developer-Simon/energy-node). Pull requests belong there, not in this mirror. The mirror is derived from the main repository and regenerated with each release.
 
 ## Built with AI
 
-This integration was written with AI assistance (Claude, via Claude Code),
-reviewed and maintained by [@Developer-Simon](https://github.com/Developer-Simon).
-Contributors must disclose which AI tools assisted their pull request, see
-[AI-DISCLAIMER.md](AI-DISCLAIMER.md).
+This integration was written with AI assistance (Claude, via Claude Code), reviewed and maintained by [@Developer-Simon](https://github.com/Developer-Simon). Contributors must disclose which AI tools assisted their pull request, see [AI-DISCLAIMER.md](AI-DISCLAIMER.md).
 
 ## License
 

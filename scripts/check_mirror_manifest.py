@@ -22,6 +22,9 @@ import sys
 from pathlib import Path
 
 SEMVER = re.compile(r"^\d+\.\d+\.\d+$")
+PAGES_BASE = "https://developer-simon.github.io/energy-node/"
+PAGES_URL = re.compile(re.escape(PAGES_BASE) + r"([A-Za-z0-9_./-]+)")
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 
 
 def repo_root() -> Path:
@@ -111,27 +114,26 @@ def check(root: Path, component: str = "battery_soc") -> list[str]:
     for asset in ("icon.png", "icon@2x.png"):
         if not (cc / "brand" / asset).is_file():
             fails.append(f"brand/{asset} is missing")
-    # battery_soc has an IntegrationDemo screenshot; energy_node_icons doesn't
-    if component == "battery_soc":
-        shot = root / "integrations/homeassistant/docs/img/IntegrationDemo.png"
-        if not shot.is_file():
-            fails.append("docs/img/IntegrationDemo.png (README screenshot) is missing")
     try:
         readme = (mirror / "README.md").read_text()
-        readme_checks = ["my.home-assistant.io/redirect/hacs_repository"]
-        if component == "battery_soc":
-            readme_checks.extend(["brand/icon.png", "IntegrationDemo.png"])
-        elif component == "energy_node_icons":
-            # energy_node_icons should reference the icon catalogue
-            readme_checks.append("Icon catalogue")
-        else:
-            # energy_node_companion: Voraussetzungen und Einrichtung muessen drinstehen
-            readme_checks.extend(["## Requirements", "## Setup"])
+        readme_checks = [
+            "my.home-assistant.io/redirect/hacs_repository",
+            "brand/icon.png",
+            str(manifest.get("documentation", "documentation URL")),
+        ]
         for needle in readme_checks:
             if needle not in readme:
                 fails.append(f"mirror/README.md no longer references {needle!r}")
+        # Images and documentation live on GitHub Pages: every Pages URL in
+        # the README must point at a file in docs/.
+        for path in PAGES_URL.findall(HTML_COMMENT.sub("", readme)):
+            source = root / "docs" / re.sub(r"\.html$", ".md", path)
+            if not source.is_file():
+                fails.append(f"mirror/README.md links to {PAGES_BASE}{path}, but docs/{source.relative_to(root / 'docs')} is missing")
     except OSError as exc:
         fails.append(f"mirror/README.md unreadable: {exc}")
+    if (mirror / "docs").exists():
+        fails.append("mirror/docs/ is back: the documentation belongs on GitHub Pages (docs/ha/)")
 
     # battery_soc has vendored battery_soc_core; energy_node_icons doesn't
     if component == "battery_soc":

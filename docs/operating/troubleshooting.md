@@ -25,5 +25,5 @@ See [Diagnosing a node](../installer.md#diagnosing-a-node).
 
 ## Home Assistant integrations
 
-- [Energy Node Companion](../ha/companion.md#troubleshooting)
+- [Energy Node Companion](../ha/companion-troubleshooting.md)
 - [Battery SoC integration](../ha/battery-soc.md)
