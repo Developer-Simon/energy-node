@@ -431,3 +431,19 @@ test('formatPower follows the number format setting', () => {
   assert.equal(dom.window.EnergyModel.formatPower(1234), '1.23 kW');
   assert.equal(dom.window.EnergyModel.formatPower(-12), '-12 W');
 });
+
+test('history points keep custom categories with the base they were recorded with', () => {
+  const model = loadEnergyModel();
+  const points = model.groupRoleSamples([
+    {entity_id: 'role:pv', timestamp: '2026-10-08T10:00:00Z', value: 1000},
+    {entity_id: 'role:custom:consumer:werkstatt', timestamp: '2026-10-08T10:00:00Z', value: 300},
+    {entity_id: 'role:custom:producer:werkstatt', timestamp: '2026-10-08T10:00:10Z', value: 200},
+  ]);
+  assert.equal(points.length, 2);
+  assert.equal(points[0]['custom:werkstatt'], 300);
+  assert.equal(points[0].categories.werkstatt, 'consumer');
+  assert.equal(points[1].categories.werkstatt, 'producer', 'a later base change only affects later points');
+  const snapshot = model.snapshotFromPoint(points[0]);
+  assert.equal(snapshot.values['custom:werkstatt'], 300);
+  assert.equal(model.deriveBalanceCore(snapshot, {load_mode: 'calculated'}).categories.werkstatt, 300);
+});

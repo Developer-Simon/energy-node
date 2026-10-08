@@ -451,6 +451,7 @@
   // IndexedDB-Speicher (die Entitaets-Samples des Verlauf-Tabs) nicht
   // versehentlich als Rolle einsammelt.
   const HISTORY_ROLES = ['pv', 'battery', 'grid', 'load', 'wallbox', 'heat_pump'];
+  const CUSTOM_SERIES = /^custom:(consumer|producer|storage):([a-z0-9_]+)$/;
 
   // Gruppiert die flache role:<role>-Sampleliste zurueck zu einem Punkt je
   // Abfrage - die Samples einer collect()-Runde teilen sich snapshot.at als
@@ -461,17 +462,33 @@
   // Kein Vollstaendigkeitsfilter auf "pv" mehr: seit history-recorder.js nur
   // noch zugeordnete Rollen schreibt, waere das Fehlen von PV eine Aussage
   // ueber die Anlage, kein Zeichen fuer eine halb geschriebene Abfrage.
+  //
+  // Eigene Kategorien kommen als role:custom:<basis>:<id> und tragen ihren
+  // Basistyp mit: point.categories = {<id>: '<basis>'} bleibt also auch dann
+  // richtig, wenn die Kategorie spaeter umgestellt oder geloescht wird.
   function groupRoleSamples(samples) {
     const groups = new Map();
+    const point = timestamp => {
+      if (!groups.has(timestamp)) groups.set(timestamp, {timestamp, categories: {}});
+      return groups.get(timestamp);
+    };
     for (const sample of samples || []) {
       if (!sample.entity_id || !sample.entity_id.startsWith('role:')) continue;
       const role = sample.entity_id.slice('role:'.length);
+      const custom = CUSTOM_SERIES.exec(role);
+      if (custom) {
+        const target = point(sample.timestamp);
+        target[`custom:${custom[2]}`] = Number(sample.value);
+        target.categories[custom[2]] = custom[1];
+        continue;
+      }
       if (!HISTORY_ROLES.includes(role)) continue;
-      if (!groups.has(sample.timestamp)) groups.set(sample.timestamp, {timestamp: sample.timestamp});
-      groups.get(sample.timestamp)[role] = Number(sample.value);
+      point(sample.timestamp)[role] = Number(sample.value);
     }
+    const hasValue = item => HISTORY_ROLES.some(role => Number.isFinite(item[role]))
+      || Object.keys(item.categories).length > 0;
     return [...groups.values()]
-      .filter(point => HISTORY_ROLES.some(role => Number.isFinite(point[role])))
+      .filter(hasValue)
       .sort((a, b) => Date.parse(a.timestamp) - Date.parse(b.timestamp));
   }
 
@@ -480,12 +497,16 @@
   // wirklich traegt: ein vorhandener, aber nullter "load"-Schluessel macht
   // hasMeasured in deriveBalanceCore() wahr und laesst load_total im Modus
   // "auto" auf 0 fallen, obwohl gar nichts gemessen wurde.
+  // Eigene Kategorien uebernimmt er mit ihrem Basistyp aus dem Punkt.
   function snapshotFromPoint(point) {
     const values = {};
     for (const role of HISTORY_ROLES) {
       if (Number.isFinite(point[role])) values[role] = point[role];
     }
-    return {values, roles: []};
+    for (const key of Object.keys(point)) {
+      if (key.startsWith('custom:') && Number.isFinite(point[key])) values[key] = point[key];
+    }
+    return {values, roles: [], categories: {...(point.categories || {})}};
   }
 
   // Reads and JSON-parses one of the <script type="application/json"> tags

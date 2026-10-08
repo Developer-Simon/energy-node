@@ -81,3 +81,17 @@ func TestAnkuendigungOhneSerienquelleNenntLeereListe(t *testing.T) {
 		t.Fatalf("Ankuendigung ohne series-Liste: %s", raw)
 	}
 }
+
+func TestExchangeSeriesKuendigtEigeneKategorienMitBasisAn(t *testing.T) {
+	snapshot := energy.Snapshot{
+		Values:     map[energy.Role]float64{"custom:werkstatt": 350},
+		Categories: map[string]energy.Category{"werkstatt": {Base: energy.CategoryConsumer}},
+	}
+
+	got := exchangeSeriesFrom(snapshot, nil)
+
+	want := []exchangeSeries{{ID: "role:custom:consumer:werkstatt", Unit: "W"}}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("series = %+v, want %+v", got, want)
+	}
+}
