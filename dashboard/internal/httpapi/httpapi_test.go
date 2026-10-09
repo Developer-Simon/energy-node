@@ -15,6 +15,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/appconfig"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/dataflow"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/localize"
@@ -2179,5 +2180,45 @@ func TestEnergyRolesPutReplacesGroupsOnlyWhenSent(t *testing.T) {
 	saved, _ = store.LoadEnergy()
 	if _, ok := saved.Groups["b"]; ok || len(saved.Groups) != 1 {
 		t.Fatalf("a PUT with groups must replace them: %v", saved.Groups)
+	}
+}
+
+func TestDeviceMapFlowsEndpoint(t *testing.T) {
+	dir := t.TempDir()
+	rules := `{"version":1,"settings":{},"rules":[{"id":"r1","name":"R1","enabled":true,` +
+		`"conditions":[{"type":"balance_threshold","field":"pv","comparison":"above","threshold":1}],"actions":[]}]}`
+	if err := os.WriteFile(filepath.Join(dir, "automation_rules.json"), []byte(rules), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "automation_rules.schema.json"), []byte(`{"type":"object"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), config.NewManager(dir), settings.NewStore(t.TempDir()))
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/device/map/flows", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body)
+	}
+	var graph dataflow.Graph
+	if err := json.Unmarshal(response.Body.Bytes(), &graph); err != nil {
+		t.Fatal(err)
+	}
+	if len(graph.Nodes) != 1 || graph.Nodes[0].VirtualID != "rule:r1" || len(graph.Edges) != 1 {
+		t.Fatalf("graph = %+v", graph)
+	}
+
+	post := httptest.NewRecorder()
+	router.ServeHTTP(post, httptest.NewRequest(http.MethodPost, "/api/v1/device/map/flows", nil))
+	if post.Code != http.StatusMethodNotAllowed {
+		t.Errorf("POST status = %d", post.Code)
+	}
+}
+
+func TestDeviceMapFlowsWithoutConfigurations(t *testing.T) {
+	router := NewRouter(registry.New(), nil, settings.NewStore(t.TempDir()))
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/device/map/flows", nil))
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"nodes":[],"edges":[],"unresolved":[]}` {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body)
 	}
 }

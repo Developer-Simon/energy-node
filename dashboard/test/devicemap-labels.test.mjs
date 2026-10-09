@@ -51,3 +51,16 @@ test('setDimmed dims everything outside the focus set', () => {
   labels.setDimmed(null);
   assert.equal(container.querySelector('[data-label-id="b"]').classList.contains('is-dimmed'), false);
 });
+
+test('setHidden fades labels with their own delay', () => {
+  const { labels, container } = setup();
+  labels.update([{ id: 'balance', name: 'Energiebilanz', value: '' }, { id: 'pv', name: 'PV', value: '' }]);
+  labels.setHidden(new Set(['balance']), new Map([['balance', 40]]));
+  const balance = container.querySelector('[data-label-id="balance"]');
+  const pv = container.querySelector('[data-label-id="pv"]');
+  assert.ok(balance.classList.contains('is-hidden'));
+  assert.equal(balance.style.transitionDelay, '40ms');
+  assert.ok(!pv.classList.contains('is-hidden'));
+  labels.setHidden(new Set(), new Map());
+  assert.ok(!balance.classList.contains('is-hidden'));
+});

@@ -13,7 +13,6 @@
     if (!response.ok) throw new Error(apiError(body));
     return body;
   };
-  const relationKey = (a, b) => [a, b].sort().join('::');
 
   const ENERGY_REFRESH_MS = 1000;
 
@@ -22,13 +21,6 @@
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
   // device_id, so it can't collide with one.
   const SNAP_GHOST_ID = '__devicemap-snap-ghost__';
-
-  // taxi/unbundled-bezier ship in the vendored cytoscape.min.js already, no new dependency.
-  const EDGE_STYLES = {
-    straight: {'curve-style': 'straight'},
-    elbow: {'curve-style': 'taxi', 'taxi-direction': 'auto', 'taxi-turn': '50%', 'taxi-turn-min-distance': 5},
-    curved: {'curve-style': 'unbundled-bezier', 'control-point-distances': [40], 'control-point-weights': [0.5]},
-  };
 
   const statusClass = device => `devicemap-status-${window.DeviceMapModel.deviceHealth(device)}`;
 
@@ -58,6 +50,10 @@
       themeOff: null,
       energy: null,
       energyUnavailable: false,
+      flows: null, // {nodes, edges, unresolved} from /api/v1/device/map/flows, null while unavailable
+      flowsUnavailable: false,
+      invalidConfigs: 0,
+      popover: null, // {eyebrow, title, rows, lists, text, linkText, link, left, top, origin, open} | null
       focusId: null,
       focusRelated: new Set(),
       panelId: null,
@@ -110,13 +106,14 @@
         }
         this.loading = true;
         try {
-          const [devices, deviceMap, energy, roles, session, icons] = await Promise.all([
+          const [devices, deviceMap, energy, roles, session, icons, flows] = await Promise.all([
             requestJSON('/api/v1/devices'),
             requestJSON('/api/v1/device/map'),
             requestJSON('/api/v1/energy').catch(() => null),
             requestJSON('/api/v1/energy/roles').catch(() => null),
             requestJSON('/api/v1/auth/session').catch(() => null),
             requestJSON('/api/v1/device/icons').catch(() => []),
+            requestJSON('/api/v1/device/map/flows').catch(() => null),
           ]);
           this.iconCatalogue = Array.isArray(icons) ? icons : [];
           this.iconMarkup = Object.fromEntries(this.iconCatalogue.map(icon => [icon.name, icon.markup]));
@@ -131,6 +128,9 @@
           this.deviceMap = deviceMap || {version: 1, nodes: [], edges: []};
           this.energy = energy;
           this.energyUnavailable = energy === null;
+          this.flows = flows;
+          this.flowsUnavailable = flows === null;
+          this.invalidConfigs = this.stubInfo().invalid;
           this.savedDeviceMap = JSON.parse(JSON.stringify(this.deviceMap));
           this.renderGraph();
         } catch (error) {
@@ -159,34 +159,8 @@
       },
 
       flowElements() {
-        const model = window.DeviceMapModel;
         if (!this.view.layers.energy || !this.energy) return [];
-        const energy = this.energyByDevice();
-        const pairs = this.wiringPairs();
-        const children = model.childrenIndex(pairs);
-        const byPower = this.view.width_by_power;
-        const flows = [];
-        for (const {parent, child} of pairs) {
-          const flow = model.edgeFlow(child, energy, children);
-          if (!flow) continue;
-          const reverse = flow.value < 0;
-          const abs = Math.abs(flow.value);
-          flows.push({
-            group: 'edges',
-            classes: 'devicemap-flow',
-            data: {
-              id: `flow-${parent}::${child}`,
-              source: reverse ? child : parent,
-              target: reverse ? parent : child,
-              label: model.flowLabel(flow),
-              color: model.flowColorToken(flow, energy.get(child)),
-              width: model.flowWidth(abs, byPower),
-              speed: model.speedBucket(abs),
-              reverse,
-            },
-          });
-        }
-        return flows;
+        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view});
       },
 
       applyFlows() {
@@ -206,8 +180,7 @@
       },
 
       flowOffset(nowMs, speed) {
-        const period = window.DeviceMapModel.SPEED_SECONDS[speed] || window.DeviceMapModel.SPEED_SECONDS.mid;
-        return -(((nowMs / 1000) % period) / period) * window.DeviceMapModel.DASH_CYCLE;
+        return window.DeviceMapGraph.flowOffset(nowMs, speed);
       },
 
       shouldAnimate() {
@@ -242,24 +215,120 @@
       },
 
       wiringPairs() {
-        return this.buildEdgeElements()
-          .map(element => ({parent: element.data.source, child: element.data.target}));
+        return window.DeviceMapGraph.pairsOf(this.buildEdgeElements());
       },
 
       setFocus(id) {
+        const df = window.DeviceMapDataflow;
         this.focusId = id;
-        this.focusRelated = id ? window.DeviceMapModel.relatedIds(id, this.wiringPairs()) : new Set();
-        if (labels) labels.setDimmed(id ? this.focusRelated : null);
+        const related = id
+          ? df.relatedFocus(id, {wiringPairs: this.wiringPairs(), dataEdges: this.dataEdges(), layers: this.view.layers})
+          : {nodes: new Set(), edges: new Set()};
+        this.focusRelated = related.nodes;
+        if (labels) labels.setDimmed(id ? related.nodes : null);
         if (!cy) return;
+        const key = window.DeviceMapGraph.relationKey;
         cy.batch(() => {
           cy.elements().removeClass('devicemap-dimmed devicemap-focused');
           if (!id) return;
-          cy.nodes().forEach(node => { if (!this.focusRelated.has(node.id())) node.addClass('devicemap-dimmed'); });
+          cy.nodes().forEach(node => { if (!related.nodes.has(node.id())) node.addClass('devicemap-dimmed'); });
           cy.edges().forEach(edge => {
-            if (!(this.focusRelated.has(edge.data('source')) && this.focusRelated.has(edge.data('target')))) edge.addClass('devicemap-dimmed');
+            const inFocus = edge.hasClass('devicemap-data')
+              ? related.edges.has(edge.data('flowId'))
+              : related.edges.has(key(edge.data('source'), edge.data('target')));
+            edge.addClass(inFocus ? 'devicemap-focused' : 'devicemap-dimmed');
           });
           cy.getElementById(id).addClass('devicemap-focused');
         });
+      },
+
+      labelOf(id) {
+        if (id && id.startsWith('custom:')) return (this.savedCategories[id.slice(7)] || {}).label || id;
+        const flowNode = this.flowNodes().find(node => node.id === id);
+        if (flowNode) return flowNode.name;
+        if (id === window.DeviceMapDataflow.BALANCE_ID) return t('devicemap.balance.name');
+        return this.deviceLabel(id);
+      },
+
+      placePopover(rendered, view) {
+        // Draft openPop(): next to the tap point, flipped at the stage edges,
+        // the transform origin at the corner it grows from.
+        const stage = this.$refs.canvas ? this.$refs.canvas.getBoundingClientRect() : {width: 800, height: 600};
+        const x = rendered ? rendered.x : stage.width / 2;
+        const y = rendered ? rendered.y : stage.height / 2;
+        const width = Math.min(300, stage.width - 24);
+        const flipX = x + 12 + width > stage.width - 12;
+        const flipY = y + 12 + 260 > stage.height - 12;
+        this.popover = {
+          ...view,
+          left: flipX ? Math.max(12, x - 12 - width) : x + 12,
+          top: flipY ? Math.max(12, y - 12 - 260) : y + 12,
+          origin: `${flipX ? 'right' : 'left'} ${flipY ? 'bottom' : 'top'}`,
+          open: false,
+        };
+        this._requestFrame(() => { if (this.popover) this.popover = {...this.popover, open: true}; });
+      },
+
+      openEdgePopover(flowId, rendered) {
+        const edge = this.dataEdges().find(candidate => candidate.id === flowId);
+        if (!edge) return;
+        const view = window.DeviceMapDataflow.edgeView(edge, id => this.labelOf(id));
+        const rows = view.rows.map(([key, value]) => [t(key), value]);
+        if (edge.cat === 'automation' && window.__automationsView) {
+          const rule = this.flowNodes().find(node => node.id === edge.from || node.id === edge.to);
+          const list = rule && (view.part === 'action' ? rule.node.actions : rule.node.conditions);
+          const raw = list && list[view.index];
+          if (raw) {
+            const described = view.part === 'action' ? window.__automationsView.describeAction(raw, null) : window.__automationsView.describeCondition(raw, null);
+            rows.push([t('devicemap.pop.row.condition'), described.summary || described.title]);
+          }
+        }
+        this.placePopover(rendered, {eyebrow: t(view.eyebrowKey), title: view.title, rows, lists: [], text: '', linkText: t(view.linkKey), link: view.link});
+      },
+
+      openNodePopover(id, rendered) {
+        const df = window.DeviceMapDataflow;
+        const kind = df.nodeKind(id);
+        if (kind === 'stub') {
+          const stub = this.stubInfo().edges.find(edge => edge.from === id || edge.to === id);
+          if (stub) this.openEdgePopover(stub.id, rendered);
+          return;
+        }
+        if (kind === 'balance') {
+          const items = df.roleEdges(this.previewEnergy()).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
+          this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.virtual'), title: t('devicemap.balance.name'), rows: [], text: t('devicemap.balance.description'),
+            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy()).flatMap(edge => edge.entities)}});
+          return;
+        }
+        const node = this.flowNodes().find(candidate => candidate.id === id);
+        if (!node) return;
+        if (kind === 'rule') {
+          const view = window.__automationsView;
+          const line = described => [described.title, described.summary].filter(Boolean).join(': ');
+          this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.rule'), title: node.name, rows: [], text: '',
+            lists: [
+              {label: t('devicemap.pop.when'), items: (node.node.conditions || []).map(condition => line(view.describeCondition(condition, null)))},
+              {label: t('devicemap.pop.then'), items: (node.node.actions || []).map(action => line(view.describeAction(action, null)))},
+            ],
+            linkText: t('devicemap.pop.link.automations'), link: node.node.link});
+          return;
+        }
+        const inputs = this.dataEdges().filter(edge => edge.to === id).map(edge => `${df.titleOf(edge)}: ${this.labelOf(edge.from)}`);
+        this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.service'), title: node.name, rows: [], text: '', lists: [{label: '', items: inputs}],
+          linkText: t('devicemap.pop.link.config'), link: node.node.link});
+      },
+
+      closePopover() {
+        this.popover = null;
+      },
+
+      openFlowLink(link) {
+        if (!link) return;
+        this.closePopover();
+        const detail = link.tab === 'automations' ? {panel: 'automations-panel', automationFocus: link.target}
+          : link.tab === 'config' ? {panel: 'config-panel', configFocus: {config: link.target, item: link.item || ''}}
+            : {panel: 'energy-panel', energyFocus: link.entities || []};
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail}));
       },
 
       clearFocus() {
@@ -269,7 +338,7 @@
       focusSummary() {
         if (!this.focusId) return '';
         const n = this.focusRelated.size - 1;
-        return tn('devicemap.focus.summary', n, {name: this.deviceLabel(this.focusId), n});
+        return tn('devicemap.focus.summary', n, {name: this.labelOf(this.focusId), n});
       },
 
       isPanelActive() {
@@ -299,6 +368,42 @@
           this.energyUnavailable = true;
         }
         this.applyEnergy();
+      },
+
+      // Data flow snapshot. Not refetched on registry updates, only when a
+      // data or balance layer is switched on (see toggleLayer()).
+      async loadFlows() {
+        try {
+          this.flows = await requestJSON('/api/v1/device/map/flows');
+          this.flowsUnavailable = false;
+        } catch (error) {
+          this.flows = null;
+          this.flowsUnavailable = true;
+        }
+        this.invalidConfigs = this.stubInfo().invalid;
+      },
+
+      flowNodes() {
+        return ((this.flows && this.flows.nodes) || []).map(node => ({
+          id: node.virtual_id,
+          kind: node.kind,
+          name: node.label_key ? t(node.label_key) : node.label,
+          node,
+        }));
+      },
+
+      baseNodeIds() {
+        const df = window.DeviceMapDataflow;
+        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), df.BALANCE_ID, ...this.flowNodes().map(node => node.id)]);
+      },
+
+      stubInfo() {
+        return window.DeviceMapDataflow.stubs(this.flows, this.baseNodeIds());
+      },
+
+      dataEdges() {
+        const df = window.DeviceMapDataflow;
+        return [...df.roleEdges(this.previewEnergy()), ...df.flowEdges(this.flows, this.baseNodeIds()), ...this.stubInfo().edges];
       },
 
       previewEnergy() {
@@ -368,6 +473,7 @@
           title: device.name || device.id,
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
           rows, others, empty,
+          flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
       },
 
@@ -453,10 +559,12 @@
 
       async onBackgroundTap() {
         this.clearEdgeSelection();
+        if (this.popover) { this.closePopover(); return; }
         await this.requestClosePanel();
       },
 
       async onEscape() {
+        if (this.popover) { this.closePopover(); return; }
         if (this.$store.modal.open) return;
         await this.requestClosePanel();
       },
@@ -488,7 +596,14 @@
           const nodeId = model.GROUP_PREFIX + id;
           return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children))};
         });
-        return [...devices, ...groups];
+        const balance = this.energy && this.energy.balance;
+        const net = balance ? (Number(balance.grid_import) || 0) - (Number(balance.grid_export) || 0) : null;
+        const virtual = [
+          {id: 'balance', name: t('devicemap.balance.name'), value: net == null ? '' : t(net >= 0 ? 'devicemap.value.grid_import' : 'devicemap.value.grid_export', {value: model.formatPower(net)})},
+          ...this.flowNodes().map(node => ({id: node.id, name: node.name, value: t(`devicemap.${node.kind}.value`)})),
+          ...this.stubInfo().nodes.map(stub => ({id: stub.id, name: t('devicemap.stub.name'), value: ''})),
+        ];
+        return [...devices, ...groups, ...virtual];
       },
 
       // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
@@ -506,7 +621,50 @@
         });
         if (labels) labels.sync(cy);
         this.applyFlows();
+        this.applyDataEdges();
         this.startFlowAnimation();
+      },
+
+      // Brings the role, data and stub edges in line with dataEdges(), the
+      // same way applyFlows() does for the energy flows.
+      applyDataEdges() {
+        const graph = cy || this._cyForTest;
+        if (!graph) return;
+        const wanted = new Map(window.DeviceMapGraph.dataEdgeElements(this.dataEdges()).map(element => [element.data.id, element]));
+        graph.batch(() => {
+          graph.edges('.devicemap-data').forEach(edge => {
+            if (!wanted.has(edge.id())) edge.remove(); else wanted.delete(edge.id());
+          });
+          for (const element of wanted.values()) graph.add(element);
+        });
+        this.applyVisibility();
+      },
+
+      // Shows or hides every virtual node, data edge and stub for the current
+      // layers. With stagger, the nodes appear one after another (40 ms apart).
+      applyVisibility({stagger = false} = {}) {
+        if (!cy) return;
+        const df = window.DeviceMapDataflow;
+        const {layers} = this.view;
+        const hiddenIds = new Set();
+        const delays = new Map();
+        let index = 0;
+        cy.nodes('.devicemap-virtual').forEach(node => {
+          const visible = df.nodeVisible(df.nodeKind(node.id()), layers);
+          const delay = stagger && !this.reducedMotion() ? 40 * index : 0;
+          index += 1;
+          if (!visible) hiddenIds.add(node.id());
+          delays.set(node.id(), delay);
+          const apply = () => node.toggleClass('devicemap-hidden', !visible);
+          if (delay) this._setTimeout(apply, delay); else apply();
+        });
+        const edgesById = new Map(this.dataEdges().map(edge => [edge.id, edge]));
+        cy.edges('.devicemap-data').forEach(edge => {
+          const data = edgesById.get(edge.data('flowId'));
+          edge.toggleClass('devicemap-hidden', !data || !df.edgeVisible(data, layers));
+        });
+        if (labels) labels.setHidden(hiddenIds, delays);
+        if (this.focusId && hiddenIds.has(this.focusId)) this.clearFocus();
       },
 
       groupIds() {
@@ -514,7 +672,7 @@
       },
 
       nodeIds() {
-        return new Set([...this.devices.map(device => device.id), ...this.groupIds()]);
+        return new Set([...this.baseNodeIds(), ...this.stubInfo().nodes.map(stub => stub.id)]);
       },
 
       positionFor(id) {
@@ -592,6 +750,42 @@
         return placed;
       },
 
+      // Balance and data flow nodes. Placed only while their layer is on, so
+      // a layer that was never shown leaves no positions in the saved map.
+      // Returns how many nodes were placed.
+      placeVirtualNodes() {
+        const df = window.DeviceMapDataflow;
+        const {layers} = this.view;
+        const gridSize = this.view.grid_size;
+        const snap = value => (this.view.snap_to_grid ? Math.round(value / gridSize) * gridSize : value);
+        const nodes = [...(this.deviceMap.nodes || [])];
+        const has = id => nodes.some(node => (node.device_id || node.virtual_id) === id);
+        const positionOf = id => nodes.find(node => (node.device_id || node.virtual_id) === id);
+        let placed = 0;
+        if (layers.balance && !has(df.BALANCE_ID)) {
+          const roleDevices = new Set(df.roleEdges(this.energy).map(edge => edge.from));
+          const rolePositions = nodes.filter(node => roleDevices.has(node.device_id));
+          nodes.push({virtual_id: df.BALANCE_ID, ...df.placeBalance({rolePositions, allPositions: nodes, snap})});
+          placed += 1;
+        }
+        if (layers.data) {
+          const edges = df.flowEdges(this.flows, this.baseNodeIds());
+          const missing = this.flowNodes().filter(node => !has(node.id)).map(node => ({
+            id: node.id,
+            inputXs: edges.filter(edge => edge.to === node.id).map(edge => positionOf(edge.from)).filter(Boolean).map(position => position.x),
+          }));
+          for (const spot of df.placeFlowNodes({nodes: missing, allPositions: nodes, snap})) {
+            nodes.push({virtual_id: spot.id, x: spot.x, y: spot.y});
+            placed += 1;
+          }
+        }
+        if (placed) {
+          this.deviceMap = {...this.deviceMap, nodes};
+          this.unsaved = true;
+        }
+        return placed;
+      },
+
       deviceLabel(deviceId) {
         if (window.DeviceMapModel.isGroupId(deviceId)) {
           return (this.savedGroups[deviceId.slice(window.DeviceMapModel.GROUP_PREFIX.length)] || {}).label || deviceId;
@@ -623,13 +817,26 @@
         this.applyFlows();
       },
 
-      toggleLayer(name) {
+      async toggleLayer(name) {
         if (this.isLayerPending(name) || !(name in window.DeviceMapModel.DEFAULT_LAYERS)) return;
-        const layers = {...this.view.layers, [name]: !this.view.layers[name]};
+        const turningOn = !this.view.layers[name];
+        const layers = {...this.view.layers, [name]: turningOn};
         this.deviceMap = {...this.deviceMap, view: {...this.view, layers}};
         this.unsaved = true;
+        this.closePopover();
+        if (turningOn && (name === 'data' || name === 'balance')) {
+          await this.loadFlows();
+          const placed = this.placeVirtualNodes();
+          if (placed) {
+            this.placedCount = placed;
+            this.renderGraph();
+            return;
+          }
+        }
         if (cy) cy.style(this.graphStyle());
         this.applyFlows();
+        this.applyDataEdges();
+        this.applyVisibility({stagger: true});
         this.startFlowAnimation();
       },
 
@@ -653,119 +860,40 @@
           if (position) element.position = {x: position.x, y: position.y};
           return element;
         });
-        return [...nodes, ...groupNodes, ...this.buildEdgeElements(), ...this.flowElements()];
+        const df = window.DeviceMapDataflow;
+        const positions = new Map((this.deviceMap.nodes || []).map(node => [node.device_id || node.virtual_id, node]));
+        const stubInfo = this.stubInfo();
+        for (const stub of stubInfo.nodes) {
+          const anchor = positions.get(stub.anchor);
+          if (anchor) positions.set(stub.id, df.stubPosition(anchor, stub.unresolved.direction, stub.index));
+        }
+        const virtualKinds = [
+          {id: df.BALANCE_ID, kind: 'balance', name: t('devicemap.balance.name')},
+          ...this.flowNodes().map(node => ({id: node.id, kind: node.kind, name: node.name})),
+          ...stubInfo.nodes.map(stub => ({id: stub.id, kind: 'stub', name: t('devicemap.stub.name')})),
+        ];
+        const virtualNodes = window.DeviceMapGraph.virtualElements({kinds: virtualKinds, positions, colorOf});
+        return [...nodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
       },
 
-      // Wiring edges only. wiringPairs() and flowElements() build on this, so
-      // they never render node images or recurse into the flows.
       buildEdgeElements() {
-        const nodeIds = this.nodeIds();
-        const elements = [];
-        const seenEdges = new Set();
-        // overrideId is only set for manually created relations (settings.RelationOverride) -
-        // those are the only ones removeSelectedRelation() is allowed to delete.
-        const addEdge = (childId, parentId, overrideId, membership) => {
-          if (!nodeIds.has(childId) || !nodeIds.has(parentId) || childId === parentId) return;
-          const key = relationKey(childId, parentId);
-          if (seenEdges.has(key)) return;
-          seenEdges.add(key);
-          const data = {id: `edge-${key}`, source: parentId, target: childId};
-          if (overrideId) data.overrideId = overrideId;
-          if (membership) data.membership = membership;
-          elements.push({data, classes: 'devicemap-wiring'});
-        };
-        // Memberships come from energy.json, not from device-map.json (one
-        // source of truth). They render as wiring, so edgeFlow() sums a
-        // group like any other subtree.
-        for (const {parent, child} of window.DeviceMapModel.membershipPairs(this.savedGroups)) {
-          addEdge(child, parent, null, {group: parent.slice(window.DeviceMapModel.GROUP_PREFIX.length), member: child});
-        }
-        // deviceMap.edges (RelationOverride, carries the real overrideId)
-        // must be processed before device.relations: the registry merges
-        // overrides into each device's relations list too (so the graph and
-        // other UIs see them as normal relations), but DeviceRelation has no
-        // overrideId field there. addEdge()'s pair-dedup means whichever
-        // pass runs first "wins" the overrideId - if device.relations ran
-        // first, every override-derived edge would silently lose its
-        // overrideId and render as an unremovable via_device edge.
-        for (const edge of this.deviceMap.edges || []) {
-          addEdge(edge.child_id, edge.parent_id, edge.id);
-        }
-        for (const device of this.devices) {
-          for (const relation of device.relations || []) {
-            if (relation.kind === 'parent') addEdge(device.id, relation.id);
-            else if (relation.kind === 'child') addEdge(relation.id, device.id);
-          }
-        }
-        return elements;
+        return window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.savedGroups, nodeIds: this.nodeIds()});
       },
 
       graphStyle() {
         // Cytoscape malt auf Canvas und kann kein var(--token) auflösen -
         // die Farben müssen deshalb als fertige Werte hereingereicht werden.
-        const theme = window.DashboardTheme.colors({line: 'border', accent: 'accent', labelStrong: 'text-strong', panel: 'panel'});
-        return [
-          {selector: 'node', style: {
-            label: '', width: window.DeviceMapNodeSvg.SIZE, height: window.DeviceMapNodeSvg.SIZE,
-            shape: 'ellipse', 'background-opacity': 0, 'border-width': 0,
-            'background-image': 'data(svg)', 'background-fit': 'contain', 'background-clip': 'none',
-            'background-image-smoothing': 'yes',
-            'outline-width': 0, 'outline-color': theme.accent, 'outline-offset': 3,
-          }},
-          {selector: 'node.devicemap-connect-source', style: {'outline-width': 3}},
-          // Snap-preview (see onNodeDrag()): an unselectable, non-interactive
-          // placeholder at the grid cell the dragged node will land on.
-          // 'events: no' keeps it from stealing taps/drags from whatever is
-          // underneath it.
-          {selector: 'node.devicemap-ghost', style: {
-            label: '', 'background-opacity': 0, 'background-image': 'none',
-            'border-width': 2, 'border-style': 'dashed', 'border-color': theme.accent,
-            events: 'no',
-          }},
-          {selector: 'edge', style: {
-            width: 2, 'line-color': theme.line, 'target-arrow-color': theme.line,
-            'target-arrow-shape': 'triangle', 'arrow-scale': 0.9,
-            ...(EDGE_STYLES[this.view.edge_style] || EDGE_STYLES.straight),
-          }},
-          {selector: 'edge.devicemap-wiring', style: this.wiringEdgeStyle(theme)},
-          {selector: 'edge.devicemap-flow', style: {
-            ...(EDGE_STYLES[this.view.edge_style] || EDGE_STYLES.straight),
-            'line-color': edge => this.themeColor()(edge.data('color')),
-            width: 'data(width)',
-            'line-style': this.reducedMotion() ? 'solid' : 'dashed',
-            'line-dash-pattern': window.DeviceMapModel.DASH_PATTERN,
-            'line-cap': 'round',
-            'target-arrow-shape': this.reducedMotion() ? 'triangle' : 'none',
-            'target-arrow-color': edge => this.themeColor()(edge.data('color')),
-            'arrow-scale': 0.7,
-            events: 'no',
-            'font-size': '10px', 'font-weight': 600, 'font-family': 'system-ui, sans-serif', color: theme.labelStrong,
-            'text-background-color': theme.panel, 'text-background-opacity': 1, 'text-background-shape': 'round-rectangle', 'text-background-padding': '3px',
-            'text-border-width': 1.2, 'text-border-opacity': 1, 'text-border-color': edge => this.themeColor()(edge.data('color')),
-          }},
-          {selector: 'edge.devicemap-flow[!reverse]', style: {'target-label': 'data(label)', 'target-text-offset': 32}},
-          {selector: 'edge.devicemap-flow[?reverse]', style: {'source-label': 'data(label)', 'source-text-offset': 32}},
-          ...(this.view.edge_style === 'curved' ? [{selector: 'edge.devicemap-flow[?reverse]', style: {'control-point-distances': [-40]}}] : []),
-          {selector: 'node, edge', style: {'transition-property': 'opacity', 'transition-duration': '200ms', 'transition-timing-function': 'ease-out'}},
-          {selector: '.devicemap-dimmed', style: {opacity: 0.18}},
-          {selector: 'node.devicemap-focused', style: {'outline-width': 2.5}},
-          {selector: 'edge.devicemap-selected-edge', style: {width: 3, 'line-color': theme.accent, 'target-arrow-color': theme.accent}},
-        ];
-      },
-
-      // Draft layer rules: wiring on = normal line, wiring off + energy on =
-      // dotted track under the flows, both off = invisible and untappable.
-      wiringEdgeStyle(theme) {
-        const {wiring, energy} = this.view.layers;
-        if (wiring) return {display: 'element', 'line-style': 'solid', opacity: 1};
-        if (energy) return {display: 'element', 'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'target-arrow-shape': 'none', opacity: 0.8, events: 'no', 'line-color': theme.line};
-        return {display: 'none'};
+        const theme = window.DashboardTheme.colors({
+          line: 'border', accent: 'accent', labelStrong: 'text-strong', panel: 'panel',
+          info: 'info-line', faint: 'text-faint', warn: 'warn-line', subtle: 'text-subtle',
+        });
+        return window.DeviceMapGraph.style({view: this.view, theme, color: token => this.themeColor()(token), reducedMotion: this.reducedMotion()});
       },
 
       renderGraph() {
         this.selectedEdge = null; // any prior selection refers to a now-stale cy instance
         if (!this.$refs.canvas) return;
-        this.placedCount = this.placeNewDevices() + this.placeNewGroups();
+        this.placedCount = this.placeNewDevices() + this.placeNewGroups() + this.placeVirtualNodes();
         const elements = this.buildElements();
         const hasAllPositions = this.devices.length > 0 && this.devices.every(device => this.positionFor(device.id))
           && this.groupIds().every(id => this.positionFor(id));
@@ -808,8 +936,14 @@
         cy.on('drag', 'node', event => this.onNodeDrag(event));
         cy.on('dragfree', 'node', event => this.onNodeDragFree(event));
         cy.on('tap', 'node', event => this.onNodeTap(event));
-        cy.on('tap', 'edge', event => { if (!this.connectMode) this.onEdgeTap(event); });
+        cy.on('tap', 'edge', event => {
+          if (this.connectMode) return;
+          if (event.target.hasClass('devicemap-data')) this.openEdgePopover(event.target.data('flowId'), event.renderedPosition);
+          else this.onEdgeTap(event);
+        });
         cy.on('tap', event => { if (event.target === cy) this.onBackgroundTap(); });
+        cy.on('mouseover', 'edge.devicemap-data', event => event.target.addClass('devicemap-hover'));
+        cy.on('mouseout', 'edge.devicemap-data', event => event.target.removeClass('devicemap-hover'));
         cy.on('viewport', () => this.syncGridBackground());
         this.syncGridBackground();
         if (this.$refs.labels && !labels) labels = window.DeviceMapLabels.create(this.$refs.labels);
@@ -818,6 +952,7 @@
           cy.on('render', () => labels.sync(cy));
           labels.sync(cy);
         }
+        this.applyVisibility();
         if (this.focusId) this.setFocus(this.focusId);
         this.startFlowAnimation();
       },
@@ -856,8 +991,12 @@
           position = {x: Math.round(position.x / gridSize) * gridSize, y: Math.round(position.y / gridSize) * gridSize};
           node.position(position);
         }
-        const nodes = (this.deviceMap.nodes || []).filter(existing => existing.device_id !== node.id());
-        nodes.push({device_id: node.id(), x: position.x, y: position.y});
+        const id = node.id();
+        const df = window.DeviceMapDataflow;
+        const key = df.isVirtualId(id) ? 'virtual_id' : 'device_id';
+        const nodes = (this.deviceMap.nodes || []).filter(existing => (existing.device_id || existing.virtual_id) !== id);
+        // Stubs have no position of their own and are never saved.
+        if (key === 'device_id' || df.isPersistedVirtual(id)) nodes.push({[key]: id, x: position.x, y: position.y});
         this.deviceMap = {...this.deviceMap, nodes};
         this.unsaved = true;
       },
@@ -874,7 +1013,7 @@
       },
 
       setEdgeStyle(style) {
-        if (!EDGE_STYLES[style]) return;
+        if (!window.DeviceMapGraph.EDGE_STYLES[style]) return;
         this.deviceMap = {...this.deviceMap, view: {...this.view, edge_style: style}};
         this.unsaved = true;
         if (cy) cy.style(this.graphStyle());
@@ -917,12 +1056,23 @@
       async onNodeTap(event) {
         if (!this.connectMode) {
           const id = event.target.id();
+          const kind = window.DeviceMapDataflow.nodeKind(id);
+          if (kind === 'balance' || kind === 'rule' || kind === 'service' || kind === 'stub') {
+            if (!(await this.leavePanel())) return;
+            this.closePanel();
+            this.setFocus(id);
+            this.openNodePopover(id, event.renderedPosition);
+            return;
+          }
+          this.closePopover();
           if (this.panelId === id || (this.focusId === id && !this.panelId && id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID)) return;
           if (!(await this.leavePanel())) return;
           this.setFocus(id);
           this.openPanel(id);
           return;
         }
+        // In connect mode only devices and groups can be connected.
+        if (window.DeviceMapDataflow.nodeKind(event.target.id()) !== 'device' && !window.DeviceMapModel.isGroupId(event.target.id())) return;
         const node = event.target;
         if (!this.connectSourceId) {
           this.connectSourceId = node.id();
@@ -1177,15 +1327,16 @@
           // (onNodeDrag()) is always removed on dragfree, so it should never
           // still be in cy.nodes() here - but it's not a real device, and
           // saving it would corrupt device-map.json.
-          const model = window.DeviceMapModel;
+          const df = window.DeviceMapDataflow;
           const positioned = cy ? cy.nodes().filter(node => node.id() !== SNAP_GHOST_ID).map(node => ({id: node.id(), position: node.position()}))
             : (this.deviceMap.nodes || []).map(node => ({id: node.device_id || node.virtual_id, position: {x: node.x, y: node.y}}));
           // Groups that were deleted and devices that vanished are dropped
-          // here, so the map never keeps nodes that point at nothing.
+          // here, so the map never keeps nodes that point at nothing. Stubs
+          // are never saved, only devices and the persisted virtual nodes.
           const known = this.nodeIds();
           const nodes = positioned
-            .filter(entry => known.has(entry.id))
-            .map(entry => (model.isGroupId(entry.id)
+            .filter(entry => known.has(entry.id) && (df.nodeKind(entry.id) === 'device' || df.isPersistedVirtual(entry.id)))
+            .map(entry => (df.isVirtualId(entry.id)
               ? {virtual_id: entry.id, x: entry.position.x, y: entry.position.y}
               : {device_id: entry.id, x: entry.position.x, y: entry.position.y}));
           const value = {version: 2, nodes, edges: this.deviceMap.edges || [], view: this.view};

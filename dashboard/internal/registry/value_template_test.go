@@ -91,3 +91,27 @@ func TestEntityViewReportsTemplateSupport(t *testing.T) {
 		})
 	}
 }
+
+func TestTemplateJSONKey(t *testing.T) {
+	cases := []struct {
+		template string
+		key      string
+		ok       bool
+	}{
+		{"", "", true},
+		{"{{ value }}", "", true},
+		{"{{value}}", "", true},
+		{"{{ value_json.apower }}", "apower", true},
+		{"{{ value_json.apower | default(0) }}", "apower", true},
+		{"{{ value_json.ts | int | timestamp_local }}", "ts", true},
+		{"{{ 'ON' if value_json.output else 'OFF' }}", "output", true},
+		{"{{ value_json.aenergy['total'] }}", "", false},
+		{"{{ value | float * 2 }}", "", false},
+	}
+	for _, c := range cases {
+		key, ok := TemplateJSONKey(c.template)
+		if key != c.key || ok != c.ok {
+			t.Errorf("TemplateJSONKey(%q) = (%q, %v), want (%q, %v)", c.template, key, ok, c.key, c.ok)
+		}
+	}
+}

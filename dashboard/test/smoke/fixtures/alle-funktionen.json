@@ -351,5 +351,11 @@
 
   {"topic": "shelly/netz_meanwell/status", "payload": {"id": 0, "apower": 12.5, "voltage": 231.4, "current": 0.054, "source": "init"}},
   {"topic": "shelly/netz_lumentree/status", "payload": {"id": 0, "apower": 48.2, "voltage": 230.9, "source": "init"}},
-  {"topic": "bms/bank_a/voltage", "payload": "26.8"}
+  {"topic": "bms/bank_a/voltage", "payload": "26.8"},
+
+  {"topic": "homeassistant/sensor/bank/soc/config", "payload": {"name": "Ladezustand", "unique_id": "bank_soc", "state_topic": "bank/soc", "unit_of_measurement": "%", "device_class": "battery", "device": {"identifiers": ["bank"], "name": "Batterie SoC"}}},
+  {"topic": "bank/soc", "payload": "64"},
+
+  {"topic": "homeassistant/number/wallbox/current/config", "payload": {"name": "Stromstärke", "unique_id": "wallbox_current", "state_topic": "wallbox/current", "command_topic": "wallbox/current/set", "unit_of_measurement": "A", "min": 6, "max": 16, "step": 1, "mode": "box", "availability_topic": "wallbox/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["wallbox"], "name": "Wallbox"}}},
+  {"topic": "wallbox/current", "payload": "10"}
 ]

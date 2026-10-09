@@ -26,6 +26,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/basepath"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/dataflow"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -315,7 +316,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 			applyRelationOverrides(reg, deviceMap)
 		}
 		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store))
-		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg))
+		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs))
 		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
 		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
 		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
@@ -2377,7 +2378,7 @@ func handleDeviceMap(store *settings.Store) http.HandlerFunc {
 	}
 }
 
-func handleDeviceMapSub(store *settings.Store, reg *registry.Registry) http.HandlerFunc {
+func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *config.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/device/map/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
@@ -2422,6 +2423,20 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry) http.Hand
 		}
 		if len(parts) == 2 && parts[0] == "relations" && r.Method == http.MethodDelete {
 			handleDeleteDeviceMapRelation(store, reg, w, parts[1])
+			return
+		}
+		if len(parts) == 1 && parts[0] == "flows" {
+			if r.Method != http.MethodGet {
+				methodNotAllowed(w, http.MethodGet)
+				return
+			}
+			// A nil *config.Manager inside the interface would not be nil,
+			// so the "no configurations" case passes a literal nil.
+			var src dataflow.Source
+			if configs != nil {
+				src = configs
+			}
+			writeJSON(w, dataflow.Build(src, reg.Snapshot()))
 			return
 		}
 		methodNotAllowed(w)

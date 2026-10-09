@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.5 (2026-10-06)
+## v0.4.6 (2026-10-09)
 
 ### Features
 
@@ -9,6 +9,8 @@
 - **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
 - **dashboard:** localize the system configuration form (#72) (c716d05)
 - **dashboard:** localize the device configuration forms (#73) (180110d)
+- **services:** declare data flow of topic fields with x-dataflow (dfa0420)
+- **dashboard:** data flow and balance layers on the device map (#109)
 
 ### Documentation
 

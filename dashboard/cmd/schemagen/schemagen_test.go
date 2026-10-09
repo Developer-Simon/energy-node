@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -77,6 +78,27 @@ func TestComposeSplicesExactlyTheManifestedServices(t *testing.T) {
 	}
 	if string(out[len(out)-1]) != "\n" {
 		t.Fatalf("compose output must end with a newline")
+	}
+}
+
+// TestComposeKeepsExtensionKeys guards the x-dataflow annotations: a service
+// fragment that declares one must keep it in the composed config schema.
+func TestComposeKeepsExtensionKeys(t *testing.T) {
+	root := t.TempDir()
+	mkdir(t, filepath.Join(root, "dashboard", "cmd", "schemagen"))
+	write(t, filepath.Join(root, "dashboard", "cmd", "schemagen", "core.schema.json"),
+		`{"type":"object","properties":{"services":{"type":"object","properties":{}}}}`)
+	sd := filepath.Join(root, "services", "demo")
+	mkdir(t, sd)
+	write(t, filepath.Join(sd, "manifest.json"), `{"service_id":"demo","unit":"demo.service","schema":"config.schema.json"}`)
+	write(t, filepath.Join(sd, "config.schema.json"),
+		`{"type":"object","properties":{"topic":{"type":"string","format":"mqtt-topic","x-dataflow":{"direction":"input","label":"Demo"}}}}`)
+	out, err := compose(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(out), `"x-dataflow"`) {
+		t.Fatalf("x-dataflow was dropped:\n%s", out)
 	}
 }
 

@@ -44,7 +44,7 @@
 
       <ul style="list-style: none; padding: 0;">
         <template x-for="rule in document.rules" x-bind:key="rule.id">
-          <li class="automation-rule" x-bind:data-mode="editing[rule.id] ? 'edit' : 'view'" x-data="{ newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '', showEntityWizard: false }">
+          <li class="automation-rule" x-bind:data-rule-id="rule.id" x-bind:class="{ 'is-flash': flashRule === rule.id }" x-bind:data-mode="editing[rule.id] ? 'edit' : 'view'" x-data="{ newEntityId: '', newMode: 'constant', newField: 'grid_export', newScale: 1, newOffset: 0, newConstantValue: '', showEntityWizard: false }">
             <div class="wizard-bar" x-cloak x-show="isWizardRule(rule)">
               <span class="wizard-steps">
                 <span class="wizard-step" x-bind:class="wizard.step === 1 ? 'current' : (wizard.step > 1 ? 'done' : '')">{{t "automations.wizard.step_1"}}</span>

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.15 (2026-10-08)
+## v0.8.16 (2026-10-09)
 
 ### Features
 
@@ -13,6 +13,22 @@
 - **dashboard:** device map layers, role rings and focus (#103) (ed0959e)
 - **dashboard:** live energy flow on the device map (#105) (2873ccd)
 - **dashboard:** edit energy roles on the device map (#107) (0f1a4dc)
+- **dashboard:** energy groups and custom categories (#108) (3facc40)
+- **services:** declare data flow of topic fields with x-dataflow (dfa0420)
+- **dashboard:** expose template json key and active schema properties (f3b96ff)
+- **dashboard:** add dataflow package with topic index (b20f0ab)
+- **dashboard:** derive service inputs from x-dataflow annotations (5565afc)
+- **dashboard:** derive automation rule data flow (aaef07a)
+- **dashboard:** serve the derived data flow on /api/v1/device/map/flows (6a1982e)
+- **dashboard:** add pure data flow logic for the device map (16086e1)
+- **dashboard:** draw balance, rule, service and stub nodes (99dea07)
+- **dashboard:** add data flow elements and layer switches to the device map graph (4e5f428)
+- **dashboard:** add device map data flow hint texts (741ee4e)
+- **dashboard:** show the energy balance and data flow layers on the device map (fb509d5)
+- **dashboard:** add data flow texts to the catalogs (ebe2dc3)
+- **dashboard:** open configuration entries and rules from the device map (f6f9b45)
+- **dashboard:** add data flow popover, panel section and legend to the device map (9a5cb31)
+- **dashboard:** data flow and balance layers on the device map (#109)
 - **dashboard:** add energy categories and groups to the energy model (a66ef13)
 - **dashboard:** aggregate custom categories and energy groups (9080adc)
 - **dashboard:** balance custom categories by their base in Go and JS (7df230b)
@@ -25,7 +41,6 @@
 - **dashboard:** place group nodes and connect memberships on the device map (5b7ab4e)
 - **dashboard:** add the group panel, category dialog and legend to the device map (c52fd69)
 - **dashboard:** manage energy groups and custom categories on the energy page (1abb645)
-- **dashboard:** energy groups and custom categories (#108)
 - **dashboard:** add the edit_energy role for guests and admins (1571966)
 - **dashboard:** add an atomic energy config patch to the settings store (6cdac57)
 - **dashboard:** gate energy writes behind edit_energy and add a merging PATCH (0e5836f)
@@ -59,6 +74,8 @@
 
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
 - **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
+- **dashboard:** sort the new catalog keys (51ca4c9)
+- **dashboard:** show the legend only for energy or data layers and name virtual focus nodes (26d65ad)
 - **dashboard:** keep sessions across a dashboard restart (db7eefd)
 - **installer:** skip unchanged steps on an update (446e9d2)
 - **dashboard:** keep the fixed date range of a saved history view (1c5ccb1)
@@ -73,18 +90,22 @@
 
 ### Refactors
 
+- **dashboard:** move device map graph building into devicemap-graph.js (d34895a)
+- **dashboard:** move automation description helpers into automations-view.js (2af6a5a)
 - **dashboard:** wire history.js to use the shared chart module (b7a2f0d)
 - **dashboard:** share app config staging between migration and handler (073acf3)
 
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
+- **dashboard:** describe the balance and data flow layers (082591c)
 - **dashboard:** describe the device map role panel (9817599)
 - **dashboard:** describe the history tile and bump its cache busting (06a1194)
 - point the repository at the new pages and add site search (72fa46e)
 
 ### Tests
 
+- **dashboard:** add data flow and balance fixtures to the smoke preset (1d65b7e)
 - **dashboard:** add a group and a custom category to the smoke fixture (fa84895)
 - **dashboard:** give the smoke preset's charger power sensors a unit (12b9f28)
 - **dashboard:** smoke-check that history view tiles survive the live swap (09dbc4c)

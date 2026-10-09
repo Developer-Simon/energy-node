@@ -7,8 +7,9 @@
   const num = (value, decimals) => window.I18n.formatNumber(value, decimals);
 
   const DEFAULT_LAYERS = Object.freeze({wiring: true, energy: true, balance: false, data: false});
-  // Layers whose content arrives with spec phases 4 and 5: shown, disabled.
-  const PENDING_LAYERS = Object.freeze(['balance', 'data']);
+  // No layer is pending any more. Kept as an empty list so the page's
+  // isLayerPending() still works for a future layer.
+  const PENDING_LAYERS = Object.freeze([]);
 
   // toward(v): signed power toward the device, consumption positive. The
   // snapshot has already applied scale/invert; each role's own sign is

@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "settings": {
+    "tick_interval_s": 10,
+    "settling_seconds": 60,
+    "balance_max_age_s": 30,
+    "publish_allowed_prefixes": ["wallbox/", "waermepumpe/"]
+  },
+  "rules": [
+    {
+      "id": "regel_ueberschuss_wallbox",
+      "name": "Überschuss in Wallbox",
+      "enabled": true,
+      "cooldown_seconds": 60,
+      "conditions": [
+        {"type": "balance_threshold", "field": "grid_export", "comparison": "above", "threshold": 500, "hysteresis": 100, "hold_seconds": 30}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "wallbox/current/set", "payload_source": "constant", "payload": "16"}
+      ]
+    },
+    {
+      "id": "regel_akku_leer_wp_aus",
+      "name": "Akku leer, WP aus",
+      "enabled": true,
+      "cooldown_seconds": 300,
+      "conditions": [
+        {"type": "entity_value", "entity_id": "bank_soc", "topic": "bank/soc", "comparison": "below", "value": 10, "hold_seconds": 30}
+      ],
+      "actions": [
+        {"type": "publish", "topic": "waermepumpe/mode/set", "payload_source": "constant", "payload": "OFF"}
+      ]
+    }
+  ]
+}

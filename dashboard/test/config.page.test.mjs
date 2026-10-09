@@ -945,3 +945,29 @@ test('the revision panel learns the active revision only while it is applied', (
   component.runtimeState = 'rejected';
   assert.equal(config.activeRevision(), '', 'a rejected file is not the active revision');
 });
+
+test('focusItem selects the configuration and flashes the entry with that id', async () => {
+  const { component, window, document } = createConfigPanel();
+  const arraySchema = { type: 'array', items: { type: 'object', properties: { id: { type: 'string' } } } };
+  window.fetch = url => {
+    const body = String(url).endsWith('/schema') ? arraySchema : [{ id: 'bank' }, { id: 'other' }];
+    return Promise.resolve({ ok: true, json: async () => body });
+  };
+  // jsdom kennt scrollIntoView nicht; das Scrollen selbst ist Browsersache.
+  window.Element.prototype.scrollIntoView = () => {};
+  const panel = document.createElement('div');
+  panel.id = 'config-panel';
+  const form = document.createElement('form');
+  panel.append(form);
+  document.body.append(panel);
+  component.$refs = { schemaForm: form };
+  component.configs = [{ name: 'other_devices', label: 'Anderes' }, { name: 'battery_soc_devices', label: 'Batterie' }];
+  component.selectedName = 'other_devices';
+
+  await component.focusItem({ config: 'battery_soc_devices', item: 'bank' });
+
+  assert.equal(component.selectedName, 'battery_soc_devices');
+  const flashed = document.querySelectorAll('.schema-object.is-flash');
+  assert.equal(flashed.length, 1);
+  assert.equal(flashed[0].querySelector('[data-schema-key="id"] input').value, 'bank');
+});

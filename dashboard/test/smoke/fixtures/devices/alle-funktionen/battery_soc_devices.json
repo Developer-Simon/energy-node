@@ -1,0 +1,15 @@
+[
+  {
+    "id": "bank",
+    "name": "Batterie SoC",
+    "via_device": "energy_node",
+    "system_type": "ac_coupled",
+    "bank_b_enabled": true,
+    "topology": "series",
+    "charger_power_topic": "batterie/wr/status",
+    "charger_power_json_key": "apower",
+    "bank_a_voltage_topic": "bms/bank_a/voltage",
+    "bank_b_voltage_topic": "bms/bank_b/voltage",
+    "inverter_power_topic": "gibt/es/nicht"
+  }
+]

@@ -17,6 +17,8 @@ const configStatusSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'config-status.js'),
   'utf8',
 );
+const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
+const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -29,6 +31,7 @@ function createAutomationsPanel() {
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
+  vm.runInContext(viewSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -191,6 +194,16 @@ test('client-side validation does not require hold_seconds >= 30 for notificatio
     actions: [{ type: 'notification', severity: 'info', title: 't', message: 'm' }],
   };
   assert.deepEqual(JSON.parse(JSON.stringify(component.validateRuleBeforeSave(rule))), []);
+});
+
+test('the view helpers load on their own, without the page', () => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  installI18n(dom.window);
+  vm.runInContext(fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8'), dom.getInternalVMContext());
+  const view = dom.window.__automationsView;
+  const described = view.describeCondition({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 1500 }, null);
+  assert.ok(described.title);
+  assert.ok(described.summary.includes('1500'));
 });
 
 function view() {
@@ -1379,4 +1392,14 @@ test('client-side validation verlangt ganze Minuten im Sonnenversatz', () => {
   assert.equal(component.validateRuleBeforeSave(rule).length, 1);
   rule.conditions[0].from_offset_min = -30;
   assert.equal(component.validateRuleBeforeSave(rule).length, 0);
+});
+
+test('focusRule expands the rule and marks it for the flash', () => {
+  const { component, window } = createAutomationsPanel();
+  // jsdom kennt CSS.escape nicht; focusRule braucht es nur fuers Suchen des Knotens.
+  window.CSS = { escape: value => value };
+  component.document = { version: 1, settings: {}, rules: [{ id: 'r 1', name: 'A', enabled: false, cooldown_seconds: 30, conditions: [], actions: [] }] };
+  component.focusRule('r 1');
+  assert.equal(component.expanded['r 1'], true);
+  assert.equal(component.flashRule, 'r 1');
 });
