@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.6 (2026-10-06)
+## v0.4.7 (2026-10-09)
 
 ### Features
 
@@ -10,6 +10,8 @@
 - **dashboard:** localize the system configuration form (#72) (c716d05)
 - **dashboard:** localize the device configuration forms (#73) (180110d)
 - **battery_soc:** save the state on an interval and recover after a crash (#78) (dc62037)
+- **services:** declare data flow of topic fields with x-dataflow (dfa0420)
+- **dashboard:** data flow and balance layers on the device map (#109)
 
 ### Documentation
 
