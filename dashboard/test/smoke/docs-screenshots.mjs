@@ -117,7 +117,6 @@ async function all() {
     ['dashboard-overview', 'overview', 996],
     ['dashboard-devices', 'devices', 553],
     ['dashboard-config', 'config', 997],
-    ['dashboard-energy', 'energy', 997],
     ['dashboard-device-map', 'devicemap', 928],
     ['dashboard-diagnosis', 'diagnostics', 1175],
   ];
@@ -136,6 +135,7 @@ async function all() {
       await s.page.locator('.device-density-toggle').first().click();
       await s.page.waitForTimeout(1500);
     }
+    if (id === 'devicemap') await frameMap(s.page, 0.9);
     await scrollToTabs(s.page);
     await shot(s.page, name);
     await s.ctx.close();
@@ -169,6 +169,9 @@ async function all() {
     await shot(s.page, 'dashboard-automation');
     await s.ctx.close();
   }
+
+  await energyShowcase();
+  await deviceMapShowcase();
 
   const subpages = [
     ['dashboard-settings-general', 'settings-general', 819],
@@ -226,6 +229,129 @@ async function all() {
     await shot(s.page, name);
     await s.ctx.close();
   }
+}
+
+// Die ganze Anordnung der Device Map ins Bild holen und dann zur Ecke unten
+// links hin verkleinern: oben liegt die Werkzeugleiste ueber der Flaeche,
+// rechts bei offenem Panel das Panel. ratio < 1 laesst dafuer Platz.
+async function frameMap(page, ratio) {
+  await page.evaluate(r => {
+    const container = document.querySelector('#devicemap-panel [x-ref="canvas"]');
+    const cy = container._cyreg.cy;
+    cy.fit(undefined, 40);
+    cy.zoom({ level: cy.zoom() * r, renderedPosition: { x: 24, y: container.clientHeight - 24 } });
+  }, ratio);
+  await page.waitForTimeout(800);
+}
+
+// Einzelbilder fuer docs/dashboard/energy.md: je Einstellung ein Ausschnitt
+// statt einer ganzen Seite. Das Seed docs-screenshots bringt dafuer zwei
+// Gruppen (Garage einzeln, Workshop als Ganzes) und eine eigene Kategorie mit.
+async function element(locator, name) {
+  await locator.screenshot({ path: path.join(args.out, `${name}.png`) });
+  console.log('geschrieben:', name);
+}
+
+async function energyShowcase() {
+  const names = ['dashboard-energy-plant', 'dashboard-energy-interpretation', 'dashboard-energy-roles', 'dashboard-energy-groups', 'dashboard-energy-categories'];
+  if (!names.some(want)) return;
+  const s = await session(1110, 1400);
+  await tab(s.page, 'energy');
+  if (want('dashboard-energy-plant')) await element(s.page.locator('.energy-plant'), 'dashboard-energy-plant');
+  for (const section of ['interpretation', 'roles', 'groups', 'categories']) {
+    const name = `dashboard-energy-${section}`;
+    if (!want(name)) continue;
+    const toggle = s.page.locator(`#energy-acc-${section}-toggle`);
+    if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click();
+    await s.page.waitForTimeout(800);
+    const box = await s.page.locator(`[data-energy-section="${section}"]`).boundingBox();
+    // Die Rollentabelle ist lang, das Bild zeigt die Kacheln und die ersten Zeilen.
+    const height = section === 'roles' ? Math.min(box.height, 640) : box.height;
+    await s.page.evaluate(top => window.scrollTo(0, top), box.y + await s.page.evaluate(() => window.scrollY) - 8);
+    await s.page.waitForTimeout(400);
+    const fresh = await s.page.locator(`[data-energy-section="${section}"]`).boundingBox();
+    await s.page.screenshot({ path: path.join(args.out, `${name}.png`), clip: { x: fresh.x, y: fresh.y, width: fresh.width, height } });
+    console.log('geschrieben:', name);
+  }
+  await s.ctx.close();
+}
+
+async function deviceMapShowcase() {
+  const names = ['dashboard-device-map-device-panel', 'dashboard-device-map-group-panel', 'dashboard-device-map-picker',
+    'dashboard-device-map-view-menu', 'dashboard-device-map-create-group', 'dashboard-device-map-category',
+    'dashboard-device-map-balance', 'dashboard-device-map-dataflow'];
+  if (!names.some(want)) return;
+  const s = await session(1110, 928);
+  await tab(s.page, 'devicemap');
+  const map = (fn, arg) => s.page.evaluate(fn, arg);
+  const stage = s.page.locator('#devicemap-panel .devicemap-stage');
+  await scrollToTabs(s.page);
+  if (want('dashboard-device-map-device-panel')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openPanel('wallbox'));
+    await s.page.waitForTimeout(1200);
+    await frameMap(s.page, 0.75);
+    await element(stage, 'dashboard-device-map-device-panel');
+  }
+  if (want('dashboard-device-map-group-panel') || want('dashboard-device-map-picker')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openPanel('group:workshop'));
+    await s.page.waitForTimeout(1200);
+    await frameMap(s.page, 0.75);
+    if (want('dashboard-device-map-group-panel')) await element(stage, 'dashboard-device-map-group-panel');
+    if (want('dashboard-device-map-picker')) {
+      await s.page.locator('.devicemap-panel[data-open="true"]').getByRole('button', { name: 'Add members' }).click();
+      await s.page.waitForTimeout(800);
+      await element(s.page.locator('#devicemap-panel dialog.device-picker'), 'dashboard-device-map-picker');
+      await s.page.keyboard.press('Escape');
+      await s.page.waitForTimeout(400);
+    }
+  }
+  await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).closePanel());
+  await s.page.waitForTimeout(600);
+  if (want('dashboard-device-map-view-menu')) {
+    await s.page.locator('#devicemap-view-menu-toggle').click();
+    await s.page.waitForTimeout(600);
+    const toolbar = await s.page.locator('#devicemap-panel .devicemap-toolbar').boundingBox();
+    const menu = await s.page.locator('#devicemap-view-menu').boundingBox();
+    const x = Math.min(toolbar.x, menu.x) - 8;
+    const y = toolbar.y - 8;
+    await s.page.screenshot({ path: path.join(args.out, 'dashboard-device-map-view-menu.png'),
+      clip: { x, y, width: Math.max(toolbar.x + toolbar.width, menu.x + menu.width) + 8 - x, height: menu.y + menu.height + 8 - y } });
+    console.log('geschrieben: dashboard-device-map-view-menu');
+    await s.page.locator('#devicemap-view-menu-toggle').click();
+    await s.page.waitForTimeout(400);
+  }
+  if (want('dashboard-device-map-create-group')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openGroupDialog());
+    await s.page.waitForTimeout(500);
+    await s.page.locator('#devicemap-panel dialog[open] input').fill('Garden');
+    await element(s.page.locator('#devicemap-panel dialog[open]'), 'dashboard-device-map-create-group');
+    await s.page.keyboard.press('Escape');
+    await s.page.waitForTimeout(400);
+  }
+  if (want('dashboard-device-map-category')) {
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).openCategoryDialog());
+    await s.page.waitForTimeout(500);
+    await s.page.locator('#devicemap-panel dialog[open] input').first().fill('Pool pump');
+    await element(s.page.locator('#devicemap-panel dialog[open]'), 'dashboard-device-map-category');
+    await s.page.keyboard.press('Escape');
+    await s.page.waitForTimeout(400);
+  }
+  // Die Ebenen zuletzt: sie platzieren neue Knoten, gespeichert wird nur,
+  // damit das Bild ohne den Hinweis auf ungespeicherte Positionen auskommt.
+  for (const [name, layers] of [['dashboard-device-map-balance', ['balance']], ['dashboard-device-map-dataflow', ['data']]]) {
+    if (!want(name)) continue;
+    for (const [layer, label] of [['balance', 'Energy balance'], ['data', 'Data flow']]) {
+      const on = await map(id => window.Alpine.$data(document.querySelector('#devicemap-panel')).view.layers[id], layer);
+      if (on === layers.includes(layer)) continue;
+      await s.page.locator('#devicemap-panel .devicemap-toolbar').getByRole('button', { name: label }).click();
+      await s.page.waitForTimeout(2500);
+    }
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).save());
+    await s.page.waitForTimeout(1000);
+    await frameMap(s.page, 0.92);
+    await element(stage, name);
+  }
+  await s.ctx.close();
 }
 
 try {

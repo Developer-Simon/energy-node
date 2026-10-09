@@ -20,9 +20,9 @@
       url: "dashboard/index.md"
       children:
         - { label: "Overview & layout editor", url: "dashboard/overview.md" }
-        - { label: "Devices & device map", url: "dashboard/devices.md" }
+        - { label: "Devices", url: "dashboard/devices.md" }
         - { label: "History", url: "dashboard/history.md" }
-        - { label: "Energy", url: "dashboard/energy.md" }
+        - { label: "Energy & device map", url: "dashboard/energy.md" }
         - { label: "Automations", url: "dashboard/automations.md" }
         - { label: "Diagnostics", url: "dashboard/diagnostics.md" }
         - { label: "Configuration editor", url: "dashboard/configuration.md" }

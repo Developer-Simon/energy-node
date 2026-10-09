@@ -6,7 +6,7 @@ anchor_moves:
   start--the-overview-pages: overview.html
   the-layout-editor: overview.html#the-layout-editor
   devices: devices.html
-  device-map: devices.html#device-map
+  device-map: energy.html#device-map
   history: history.html
   configuration: configuration.html
   energy: energy.html
@@ -73,9 +73,9 @@ Raspberry Pi 1.
 ## Pages
 
 - [Overview and layout editor](overview.md)
-- [Devices and device map](devices.md)
+- [Devices](devices.md)
 - [History](history.md)
-- [Energy](energy.md)
+- [Energy and device map](energy.md)
 - [Automations](automations.md)
 - [Diagnostics](diagnostics.md)
 - [Configuration editor](configuration.md)
