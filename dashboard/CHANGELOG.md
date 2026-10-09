@@ -77,6 +77,7 @@
 
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
 - **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
+- **dashboard:** show custom category names on the history page (8d2d1e1)
 - **dashboard:** sort the new catalog keys (51ca4c9)
 - **dashboard:** show the legend only for energy or data layers and name virtual focus nodes (26d65ad)
 - **dashboard:** keep sessions across a dashboard restart (db7eefd)
