@@ -1682,6 +1682,25 @@ func compileValueTemplate(valueTemplate string) *parsedValueTemplate {
 	return &parsed
 }
 
+var bareValuePattern = regexp.MustCompile(`^\{\{\s*value\s*\}\}$`)
+
+// TemplateJSONKey names the top-level JSON key a value_template reads, so a
+// service input configured as (topic, json_key) can be matched to the entity
+// that shows the same value. An empty template and {{ value }} read the bare
+// payload (key ""). Nested paths and anything the parser does not understand
+// report ok=false, the services only read top-level keys.
+func TemplateJSONKey(valueTemplate string) (string, bool) {
+	trimmed := strings.TrimSpace(valueTemplate)
+	if trimmed == "" || bareValuePattern.MatchString(trimmed) {
+		return "", true
+	}
+	parsed, ok := parseValueTemplate(trimmed)
+	if !ok || len(parsed.path) != 1 {
+		return "", false
+	}
+	return parsed.path[0], true
+}
+
 func decodePayload(payload []byte) (any, error) {
 	var parsed any
 	if err := json.Unmarshal(payload, &parsed); err != nil {

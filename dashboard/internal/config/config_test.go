@@ -432,3 +432,31 @@ func TestDisplayNamesCatalogKeysExistInDeCatalog(t *testing.T) {
 		}
 	}
 }
+
+func TestActivePropertiesFollowsBranches(t *testing.T) {
+	schema := map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"mode": map[string]any{"type": "string"},
+			"a":    map[string]any{"type": "string"},
+		},
+		"allOf": []any{map[string]any{
+			"if":   map[string]any{"properties": map[string]any{"mode": map[string]any{"const": "two"}}},
+			"then": map[string]any{"properties": map[string]any{"b": map[string]any{"type": "string"}}},
+		}},
+	}
+	one, err := ActiveProperties(map[string]any{"mode": "one", "a": "x", "b": "y"}, schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if one["b"] {
+		t.Error("b belongs to an inactive branch")
+	}
+	two, err := ActiveProperties(map[string]any{"mode": "two", "a": "x", "b": "y"}, schema)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !two["a"] || !two["b"] {
+		t.Errorf("active properties = %v, want a and b", two)
+	}
+}

@@ -535,6 +535,14 @@ func validateValue(value, rawSchema any, path string) error {
 	return err
 }
 
+// ActiveProperties returns the property names the schema evaluates for value,
+// including those of an applied then/else branch. internal/dataflow uses it
+// so a topic field of an inactive branch, which the service does not read,
+// draws no edge.
+func ActiveProperties(value, schema any) (map[string]bool, error) {
+	return applySchema(value, schema, "value")
+}
+
 // applySchema validates value against one schema. For an object it also
 // returns the property names this schema evaluated, including those of its
 // in-place subschemas (allOf entries, a matching if, the applied then/else).
