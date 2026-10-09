@@ -1522,14 +1522,20 @@
           // still be in cy.nodes() here - but it's not a real device, and
           // saving it would corrupt device-map.json.
           const df = window.DeviceMapDataflow;
-          const positioned = cy ? cy.nodes().filter(node => node.id() !== SNAP_GHOST_ID).map(node => ({id: node.id(), position: node.position()}))
+          const graph = cy || this._cyForTest;
+          const positioned = graph ? graph.nodes().filter(node => node.id() !== SNAP_GHOST_ID).map(node => ({id: node.id(), position: node.position()}))
             : (this.deviceMap.nodes || []).map(node => ({id: node.device_id || node.virtual_id, position: {x: node.x, y: node.y}}));
           // Groups that were deleted and devices that vanished are dropped
           // here, so the map never keeps nodes that point at nothing. Stubs
           // are never saved, only devices and the persisted virtual nodes.
+          // The graph also holds the balance and data flow nodes of a hidden
+          // layer, at the origin until the layer places them. Only a virtual
+          // node that was placed is saved, otherwise turning the layer on
+          // later would find it "placed" on top of the first device.
           const known = this.nodeIds();
+          const placed = new Set((this.deviceMap.nodes || []).map(node => node.virtual_id).filter(Boolean));
           const nodes = positioned
-            .filter(entry => known.has(entry.id) && (df.nodeKind(entry.id) === 'device' || df.isPersistedVirtual(entry.id)))
+            .filter(entry => known.has(entry.id) && (df.nodeKind(entry.id) === 'device' || (df.isPersistedVirtual(entry.id) && placed.has(entry.id))))
             .map(entry => (df.isVirtualId(entry.id)
               ? {virtual_id: entry.id, x: entry.position.x, y: entry.position.y}
               : {device_id: entry.id, x: entry.position.x, y: entry.position.y}));

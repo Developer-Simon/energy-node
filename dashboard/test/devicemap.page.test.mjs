@@ -1581,3 +1581,19 @@ test('energy-roles-changed from the energy page reloads groups and roles, its ow
   assert.equal(component.deviceMap.nodes[0].x, 5, 'unsaved positions stay');
   assert.equal(component.unsaved, true);
 });
+
+test('save() never stores a virtual node that was never placed, so a hidden layer cannot pin it to the origin', async () => {
+  let body = null;
+  const { component } = createDevicemapPanel({
+    fetchImpl: async (_url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => body }; },
+  });
+  component.devices = [{ id: 'device_a', name: 'A', relations: [], entities: [] }];
+  component.savedGroups = { uv: { label: 'UV', members: { devices: [], groups: [] } } };
+  component.flows = { nodes: [{ virtual_id: 'rule:r1', kind: 'rule', label: 'R1' }], edges: [], unresolved: [] };
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'device_a', x: 5, y: 5 }, { virtual_id: 'group:uv', x: 40, y: 40 }], edges: [] };
+  // The graph holds the balance and the rule even with their layers off,
+  // at the origin because they have no position yet.
+  component._cyForTest = { nodes: () => [fakeNode('device_a', { x: 7, y: 7 }), fakeNode('group:uv', { x: 50, y: 50 }), fakeNode('balance'), fakeNode('rule:r1')] };
+  await component.save();
+  assert.deepEqual(body.nodes, [{ device_id: 'device_a', x: 7, y: 7 }, { virtual_id: 'group:uv', x: 50, y: 50 }]);
+});
