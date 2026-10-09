@@ -370,12 +370,26 @@
     }));
   };
 
+  // Spot for a (?) tooltip inside the side panel, relative to the panel.
+  // Centred under the trigger, pushed back inside near an edge, above the
+  // trigger when it would run past the bottom. Rects are viewport based.
+  const helpTipPosition = ({panel, trigger, tip, gap = 6, margin = 12}) => {
+    const centre = trigger.left - panel.left + trigger.width / 2;
+    const maxLeft = Math.max(margin, panel.width - tip.width - margin);
+    const left = Math.min(Math.max(centre - tip.width / 2, margin), maxLeft);
+    const below = trigger.top - panel.top + trigger.height + gap;
+    const top = below + tip.height > panel.height - margin
+      ? Math.max(margin, trigger.top - panel.top - gap - tip.height)
+      : below;
+    return {left: Math.round(left), top: Math.round(top)};
+  };
+
   window.DeviceMapModel = {
     DEFAULT_LAYERS, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
     formatPower, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload,
-    roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices,
+    roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices, helpTipPosition,
   };
 })();

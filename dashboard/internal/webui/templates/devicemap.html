@@ -221,7 +221,7 @@
       <p class="devicemap-connect-hint" x-cloak x-show="connectMode" x-text="connectHintText()"></p>
       <p class="devicemap-placed-hint" x-cloak x-show="placedCount > 0" x-text="placedHintText()"></p>
     </div>
-    <aside class="devicemap-panel" x-bind:data-open="panelView ? 'true' : 'false'" aria-labelledby="devicemap-panel-title" x-bind:aria-hidden="panelView ? 'false' : 'true'">
+    <aside class="devicemap-panel" x-on:mouseover="placeHelpTip($event)" x-on:focusin="placeHelpTip($event)" x-bind:data-open="panelView ? 'true' : 'false'" aria-labelledby="devicemap-panel-title" x-bind:aria-hidden="panelView ? 'false' : 'true'">
       <template x-if="panelView && panelView.kind === 'device'">
         <div class="devicemap-panel-inner">
           <header>

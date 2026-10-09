@@ -779,6 +779,24 @@
         this.renderGraph();
       },
 
+      // The panel body scrolls and would clip a tooltip, so the (?) texts are
+      // positioned against the whole panel when they are about to show.
+      placeHelpTip(event) {
+        const help = event.target && event.target.closest ? event.target.closest('.field-help') : null;
+        const panel = event.currentTarget;
+        if (!help || !panel) return;
+        const tip = help.querySelector('.field-help-text');
+        const trigger = help.querySelector('.field-help-trigger') || help;
+        if (!tip) return;
+        const {left, top} = window.DeviceMapModel.helpTipPosition({
+          panel: panel.getBoundingClientRect(),
+          trigger: trigger.getBoundingClientRect(),
+          tip: {width: tip.offsetWidth, height: tip.offsetHeight},
+        });
+        tip.style.left = `${left}px`;
+        tip.style.top = `${top}px`;
+      },
+
       // Tells the energy tab's plant view that the saved map changed.
       notifyMapChanged() {
         window.dispatchEvent(new CustomEvent('device-map-changed'));

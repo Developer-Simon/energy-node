@@ -1043,11 +1043,13 @@ div.devicemap-view-menu-row { cursor: default; }
 }
 .devicemap-popover .pill-button, .devicemap-popover .nav-row-button { margin-top: 2px; }
 
-/* Explanations of the group panel sit behind (?) tooltips. Inside the panel
-   they open below and to the left, the panel scrolls and would clip a
-   tooltip above its first field. */
+/* Explanations of the group panel sit behind (?) tooltips. The panel body
+   scrolls and clips everything inside it, so the anchor is not positioned
+   and the tooltip hangs off the panel itself. placeHelpTip() sets left/top
+   from the trigger when it is about to show. */
 .devicemap-help { margin-left: .15rem; vertical-align: middle; }
-.devicemap-panel .field-help-text { top: calc(100% + .35rem); bottom: auto; left: auto; right: -.4rem; transform: none; max-width: 16rem; text-transform: none; letter-spacing: normal; }
+.devicemap-panel .field-help { position: static; }
+.devicemap-panel .field-help-text { top: 0; bottom: auto; left: 0; right: auto; transform: none; width: max-content; max-width: min(16rem, calc(100% - 24px)); text-transform: none; letter-spacing: normal; }
 .devicemap-panel-entity-name { display: inline-flex; align-items: center; }
 .devicemap-panel-field-label { display: inline-flex; align-items: center; }
 .devicemap-panel-eyebrow-help { display: inline-flex; align-items: center; }

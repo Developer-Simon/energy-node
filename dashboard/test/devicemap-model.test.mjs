@@ -260,3 +260,17 @@ test('placeDevices fills rows below the arrangement and needs an anchor', () => 
   ]);
   assert.equal(model.placeDevices({ids: ['a'], allPositions: [], snap}).length, 0);
 });
+
+test('helpTipPosition keeps a tooltip inside the panel, below its trigger or above when there is no room', () => {
+  const model = loadModel();
+  const panel = {left: 1000, top: 100, width: 352, height: 600};
+  const tip = {width: 240, height: 60};
+  // trigger near the left edge: the tip is pushed right instead of leaving the panel
+  assert.deepEqual({...model.helpTipPosition({panel, trigger: {left: 1100, top: 200, width: 22, height: 22}, tip})}, {left: 12, top: 128});
+  // trigger near the right edge
+  assert.deepEqual({...model.helpTipPosition({panel, trigger: {left: 1320, top: 200, width: 22, height: 22}, tip})}, {left: 100, top: 128});
+  // centred when there is room
+  assert.deepEqual({...model.helpTipPosition({panel: {...panel, width: 600}, trigger: {left: 1289, top: 200, width: 22, height: 22}, tip})}, {left: 180, top: 128});
+  // near the bottom it opens above
+  assert.deepEqual({...model.helpTipPosition({panel, trigger: {left: 1100, top: 660, width: 22, height: 22}, tip})}, {left: 12, top: 494});
+});
