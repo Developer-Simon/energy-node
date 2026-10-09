@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-labels.js']
+const moduleSources = ['devicemap-model.js', 'devicemap-graph.js', 'devicemap-node-svg.js', 'devicemap-labels.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
