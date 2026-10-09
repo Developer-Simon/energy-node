@@ -43,3 +43,24 @@ test('style keeps the wiring rules of the draft', () => {
   const style = DeviceMapGraph.style({ view: { edge_style: 'elbow', layers: { wiring: true, energy: true } }, theme, color: () => '#000', reducedMotion: false });
   assert.ok(style.some(rule => rule.selector === 'edge.devicemap-flow'));
 });
+
+test('data edge elements carry their category class and a prefixed id', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const [edge] = DeviceMapGraph.dataEdgeElements([{ id: 'svc:a', cat: 'service', from: 'bms', to: 'soc' }]);
+  assert.equal(edge.data.id, 'data-svc:a');
+  assert.equal(edge.classes, 'devicemap-data devicemap-data-service');
+});
+
+test('virtual elements get the virtual and kind classes and keep known positions', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const positions = new Map([['balance', { x: 10, y: 20 }]]);
+  const [balance, rule] = DeviceMapGraph.virtualElements({
+    kinds: [{ id: 'balance', kind: 'balance', name: 'Bilanz' }, { id: 'rule:r1', kind: 'rule', name: 'Regel' }],
+    positions,
+    colorOf: () => '#000',
+  });
+  assert.equal(balance.classes, 'devicemap-virtual devicemap-balance');
+  assert.deepEqual(JSON.parse(JSON.stringify(balance.position)), { x: 10, y: 20 });
+  assert.equal(rule.classes, 'devicemap-virtual devicemap-rule');
+  assert.equal(rule.position, undefined);
+});

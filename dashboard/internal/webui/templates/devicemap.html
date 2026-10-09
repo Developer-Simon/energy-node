@@ -62,10 +62,10 @@
         <button class="devicemap-layer-button" type="button" data-layer="energy" x-bind:aria-pressed="view.layers.energy" x-on:click="toggleLayer('energy')" x-bind:disabled="loading">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>{{t "devicemap.layer.energy"}}
         </button>
-        <button class="devicemap-layer-button" type="button" data-layer="balance" aria-pressed="false" disabled title="{{t "devicemap.layer.coming_soon"}}">
+        <button class="devicemap-layer-button" type="button" data-layer="balance" x-bind:aria-pressed="view.layers.balance" x-on:click="toggleLayer('balance')" x-bind:disabled="loading">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g></svg>{{t "devicemap.layer.balance"}}
         </button>
-        <button class="devicemap-layer-button" type="button" data-layer="data" aria-pressed="false" disabled title="{{t "devicemap.layer.coming_soon"}}">
+        <button class="devicemap-layer-button" type="button" data-layer="data" x-bind:aria-pressed="view.layers.data" x-on:click="toggleLayer('data')" x-bind:disabled="loading">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>{{t "devicemap.layer.data"}}
         </button>
         <span class="devicemap-layer-separator" aria-hidden="true"></span>

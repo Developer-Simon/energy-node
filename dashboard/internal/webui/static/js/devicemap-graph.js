@@ -86,6 +86,26 @@
     return flows;
   };
 
+  // Balance, rule, service and stub nodes. Positions come from the saved map
+  // (or the page's placement), unknown ones are left to the layout.
+  const virtualElements = ({kinds, positions, colorOf}) => kinds.map(({id, kind, name}) => {
+    const element = {
+      data: {id, name, svg: window.DeviceMapNodeSvg.virtualDataUri(kind, colorOf)},
+      classes: `devicemap-virtual devicemap-${kind}`,
+    };
+    const position = positions.get(id);
+    if (position) element.position = {x: position.x, y: position.y};
+    return element;
+  });
+
+  // Data flow edges. data.id is prefixed so it never collides with a wiring or
+  // flow edge id, flowId keeps the original id for focus and popovers.
+  const dataEdgeElements = edges => edges.map(edge => ({
+    group: 'edges',
+    data: {id: `data-${edge.id}`, source: edge.from, target: edge.to, flowId: edge.id},
+    classes: `devicemap-data devicemap-data-${edge.cat}`,
+  }));
+
   const flowOffset = (nowMs, speed) => {
     const period = window.DeviceMapModel.SPEED_SECONDS[speed] || window.DeviceMapModel.SPEED_SECONDS.mid;
     return -(((nowMs / 1000) % period) / period) * window.DeviceMapModel.DASH_CYCLE;
@@ -140,6 +160,23 @@
     {selector: '.devicemap-dimmed', style: {opacity: 0.18}},
     {selector: 'node.devicemap-focused', style: {'outline-width': 2.5}},
     {selector: 'edge.devicemap-selected-edge', style: {width: 3, 'line-color': theme.accent, 'target-arrow-color': theme.accent}},
+    {selector: 'edge.devicemap-data', style: {
+      'curve-style': 'unbundled-bezier', 'control-point-distances': [36], 'control-point-weights': [0.5],
+      width: 1.5, 'line-style': 'dashed', 'line-dash-pattern': [5, 4],
+      'line-color': theme.info, 'target-arrow-shape': 'triangle', 'target-arrow-color': theme.info, 'arrow-scale': 0.8,
+      'overlay-opacity': 0, 'overlay-padding': 7,
+    }},
+    {selector: 'edge.devicemap-data-role', style: {'line-color': theme.faint, 'target-arrow-color': theme.faint}},
+    {selector: 'edge.devicemap-data-stub', style: {'line-color': theme.warn, 'target-arrow-color': theme.warn}},
+    {selector: 'edge.devicemap-data.devicemap-hover, edge.devicemap-data.devicemap-focused', style: {'line-color': theme.accent, 'target-arrow-color': theme.accent}},
+    {selector: 'edge.devicemap-data-role.devicemap-hover, edge.devicemap-data-role.devicemap-focused', style: {'line-color': theme.subtle, 'target-arrow-color': theme.subtle}},
+    {selector: 'node.devicemap-stub', style: {width: window.DeviceMapNodeSvg.STUB_SIZE, height: window.DeviceMapNodeSvg.STUB_SIZE}},
+    {selector: 'node.devicemap-virtual', style: {
+      'transition-property': reducedMotion ? 'opacity' : 'opacity, width, height',
+      'transition-duration': '200ms', 'transition-timing-function': 'ease-out',
+    }},
+    {selector: '.devicemap-hidden', style: {opacity: 0, events: 'no'}},
+    {selector: 'node.devicemap-virtual.devicemap-hidden', style: {width: window.DeviceMapNodeSvg.SIZE * 0.94, height: window.DeviceMapNodeSvg.SIZE * 0.94}},
   ];
 
   // Draft layer rules: wiring on = normal line, wiring off + energy on =
@@ -151,5 +188,5 @@
     return {display: 'none'};
   };
 
-  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, flowOffset, style, wiringEdgeStyle};
+  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, virtualElements, dataEdgeElements, flowOffset, style, wiringEdgeStyle};
 })();

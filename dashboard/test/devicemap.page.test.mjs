@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['devicemap-model.js', 'devicemap-graph.js', 'devicemap-node-svg.js', 'devicemap-labels.js']
+const moduleSources = ['devicemap-model.js', 'devicemap-graph.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
@@ -711,18 +711,13 @@ test('view always carries all four layers, defaulting old maps to wiring and ene
   assert.equal(component.view.width_by_power, false);
 });
 
-test('toggleLayer flips one layer, marks the map unsaved and ignores pending layers', () => {
+test('toggleLayer flips one layer and marks the map unsaved', () => {
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
   component.toggleLayer('wiring');
   assert.equal(component.view.layers.wiring, false);
   assert.equal(component.view.layers.energy, true);
   assert.equal(component.unsaved, true);
-  component.unsaved = false;
-  component.toggleLayer('data');
-  assert.equal(component.view.layers.data, false, 'data flow has no content before phase 5');
-  assert.equal(component.unsaved, false);
-  assert.equal(component.isLayerPending('balance'), true);
 });
 
 test('wiring edges become a dotted track when only the energy layer is on', () => {
@@ -1225,4 +1220,98 @@ test('createCategory derives an id and offers the category in the device role se
   assert.equal(component.savedCategories.werkstatt.color, 'cat_2');
   const options = component.roleOptionsFor('W');
   assert.equal(options[options.length - 1].value, 'custom:werkstatt');
+});
+
+function routes(table, calls = []) {
+  return async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET', body: options.body });
+    const key = Object.keys(table).find(prefix => String(url).endsWith(prefix));
+    if (!key) return { ok: false, status: 404, json: async () => ({}) };
+    const value = typeof table[key] === 'function' ? table[key](options) : table[key];
+    return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(value)) };
+  };
+}
+
+const FLOWS = {
+  nodes: [{ virtual_id: 'rule:r%201', kind: 'rule', label: 'Regel 1', conditions: [], actions: [], link: { tab: 'automations', target: 'r 1' } }],
+  edges: [{ id: 'auto:rule:r%201/c0', cat: 'automation', from: { virtual_id: 'balance' }, to: { virtual_id: 'rule:r%201' }, title: 'x', details: {}, link: {} }],
+  unresolved: [],
+};
+
+function mapRoutes(overrides = {}) {
+  return {
+    '/api/v1/devices': [{ id: 'pv', name: 'PV', entities: [] }],
+    '/api/v1/device/map': { version: 2, nodes: [{ device_id: 'pv', x: 100, y: 100 }], edges: [], view: { layers: { wiring: true, energy: true, balance: false, data: false } } },
+    '/api/v1/energy': { entities: [{ device_id: 'pv', entity_id: 'pv1', value: 500, unit: 'W', role: { role: 'pv', source: 'override' } }], balance: {} },
+    '/api/v1/energy/roles': { assignments: {}, groups: {}, categories: {} },
+    '/api/v1/auth/session': { edit_energy: true, csrf_token: 'c' },
+    '/api/v1/device/icons': [],
+    '/api/v1/device/map/flows': FLOWS,
+    ...overrides,
+  };
+}
+
+test('flows are fetched on load and when a layer turns on, never on registry updates', async () => {
+  const calls = [];
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(mapRoutes(), calls) });
+  await component.load();
+  const flowCalls = () => calls.filter(call => call.url.endsWith('/flows')).length;
+  assert.equal(flowCalls(), 1);
+  // Without these two, onRegistryUpdated() returns early and the test
+  // would pass even if it refetched the data flow.
+  Object.defineProperty(window.document, 'visibilityState', { value: 'visible', configurable: true });
+  component.$root = { classList: { contains: () => true } };
+  const energyCalls = () => calls.filter(call => call.url.endsWith('/api/v1/energy')).length;
+  const energyBefore = energyCalls();
+  for (let i = 0; i < 5; i += 1) component.onRegistryUpdated();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.ok(energyCalls() > energyBefore, 'the registry update did run');
+  assert.equal(flowCalls(), 1, 'registry updates must not refetch the data flow');
+  await component.toggleLayer('data');
+  assert.equal(flowCalls(), 2);
+});
+
+test('virtual nodes are placed only when their layer is visible', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes()) });
+  await component.load();
+  assert.equal(component.positionFor('balance'), undefined);
+  assert.equal(component.positionFor('rule:r%201'), undefined);
+  assert.equal(component.unsaved, false);
+  await component.toggleLayer('balance');
+  assert.ok(component.positionFor('balance'), 'balance placed after turning its layer on');
+  assert.equal(component.positionFor('rule:r%201'), undefined, 'data layer still off');
+});
+
+test('save writes virtual_id for balance and rules and drops stubs', async () => {
+  const calls = [];
+  const deviceMap = { version: 2, nodes: [{ device_id: 'pv', x: 100, y: 100 }, { virtual_id: 'balance', x: 300, y: 100 }, { virtual_id: 'rule:r%201', x: 100, y: 300 }], edges: [], view: { layers: { wiring: true, energy: true, balance: true, data: true } } };
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes({ '/api/v1/device/map': deviceMap, '/api/v1/device/map/flows': { ...FLOWS, unresolved: [{ id: 'u1', reason: 'no_producer', direction: 'input', target: { virtual_id: 'rule:r%201' } }] } }), calls) });
+  await component.load();
+  await component.save();
+  const put = calls.find(call => call.method === 'PUT');
+  const body = JSON.parse(put.body);
+  assert.deepEqual(body.nodes.map(node => node.device_id || node.virtual_id).sort(), ['balance', 'pv', 'rule:r%201']);
+});
+
+test('dragging a virtual node stores it under virtual_id', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes()) });
+  await component.load();
+  component.onNodeDragFree({ target: fakeNode('balance', { x: 400, y: 200 }) });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.deviceMap.nodes.find(node => node.virtual_id === 'balance'))), { virtual_id: 'balance', x: 400, y: 200 });
+  assert.ok(!component.deviceMap.nodes.some(node => node.device_id === 'balance'));
+});
+
+test('a failing flows endpoint keeps the map and shows the hint', async () => {
+  const table = mapRoutes();
+  delete table['/api/v1/device/map/flows'];
+  const { component } = createDevicemapPanel({ fetchImpl: routes(table) });
+  await component.load();
+  assert.equal(component.flowsUnavailable, true);
+  assert.ok(component.devices.length, 'devices still loaded');
+});
+
+test('balance and data layer buttons are no longer pending', () => {
+  const { component } = createDevicemapPanel();
+  assert.equal(component.isLayerPending('balance'), false);
+  assert.equal(component.isLayerPending('data'), false);
 });
