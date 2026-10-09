@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"sort"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 )
 
@@ -177,4 +178,52 @@ func (ix *Index) Entity(uniqueID string) (Ref, bool) {
 		return Ref{}, false
 	}
 	return Ref{DeviceID: device, EntityID: uniqueID}, true
+}
+
+// Source is what Build reads, *config.Manager satisfies it.
+type Source interface {
+	Scan() ([]config.Document, error)
+	Read(name string) (json.RawMessage, error)
+	ReadSchema(name string) (json.RawMessage, error)
+}
+
+const automationConfig = "automation_rules"
+
+// Build derives the whole data flow from the current files and one registry
+// snapshot. It never fails: an unreadable configuration becomes an
+// unresolved entry with reason config_invalid (spec "Fehlerbehandlung").
+func Build(src Source, devices []registry.DeviceView) Graph {
+	graph := emptyGraph()
+	if src == nil {
+		return graph
+	}
+	documents, err := src.Scan()
+	if err != nil {
+		graph.Unresolved = append(graph.Unresolved, Unresolved{ID: "scan", Reason: ReasonConfigInvalid, Link: Link{Tab: "config"}})
+		return graph
+	}
+	ix := NewIndex(devices)
+	for _, document := range documents {
+		invalid := Unresolved{ID: "config:" + document.Name, Config: document.Name, Reason: ReasonConfigInvalid, Link: Link{Tab: "config", Target: document.Name}}
+		data, readErr := src.Read(document.Name)
+		schema, schemaErr := src.ReadSchema(document.Name)
+		if readErr != nil || schemaErr != nil {
+			graph.Unresolved = append(graph.Unresolved, invalid)
+			continue
+		}
+		var part Graph
+		if document.Name == automationConfig {
+			part, err = automationGraph(data, ix)
+		} else {
+			part, err = serviceGraph(document.Name, document.LabelKey, document.Label, data, schema, ix)
+		}
+		if err != nil {
+			graph.Unresolved = append(graph.Unresolved, invalid)
+			continue
+		}
+		graph.Nodes = append(graph.Nodes, part.Nodes...)
+		graph.Edges = append(graph.Edges, part.Edges...)
+		graph.Unresolved = append(graph.Unresolved, part.Unresolved...)
+	}
+	return graph
 }

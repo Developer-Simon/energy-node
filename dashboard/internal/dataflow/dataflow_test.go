@@ -1,10 +1,72 @@
 package dataflow
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 )
+
+type fakeSource struct {
+	docs    []config.Document
+	files   map[string]string
+	schemas map[string]string
+}
+
+func (f fakeSource) Scan() ([]config.Document, error) { return f.docs, nil }
+func (f fakeSource) Read(name string) (json.RawMessage, error) {
+	if data, ok := f.files[name]; ok {
+		return json.RawMessage(data), nil
+	}
+	return nil, os.ErrNotExist
+}
+func (f fakeSource) ReadSchema(name string) (json.RawMessage, error) {
+	if data, ok := f.schemas[name]; ok {
+		return json.RawMessage(data), nil
+	}
+	return nil, os.ErrNotExist
+}
+
+func TestBuildMergesAdaptersAndToleratesBrokenFiles(t *testing.T) {
+	src := fakeSource{
+		docs: []config.Document{{Name: "automation_rules"}, {Name: "kaputt_devices"}, {Name: "shelly_devices"}},
+		files: map[string]string{
+			"automation_rules": rulesDoc,
+			"kaputt_devices":   `{`,
+			"shelly_devices":   `[]`,
+		},
+		schemas: map[string]string{
+			"automation_rules": `{}`,
+			"kaputt_devices":   `{"type":"array","items":{"type":"object","properties":{"t":{"type":"string","format":"mqtt-topic","x-dataflow":{"direction":"input","label":"T"}}}}}`,
+			"shelly_devices":   `{"type":"array","items":{"type":"object"}}`,
+		},
+	}
+	graph := Build(src, automationDevices())
+	if len(graph.Nodes) != 2 {
+		t.Errorf("nodes = %+v", graph.Nodes)
+	}
+	found := false
+	for _, u := range graph.Unresolved {
+		if u.Config == "kaputt_devices" && u.Reason == ReasonConfigInvalid {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("a broken file must appear as config_invalid, got %+v", graph.Unresolved)
+	}
+}
+
+func TestBuildWithoutSourceIsEmptyNotNull(t *testing.T) {
+	data, err := json.Marshal(Build(nil, nil))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != `{"nodes":[],"edges":[],"unresolved":[]}` {
+		t.Fatalf("json = %s", data)
+	}
+}
 
 func testDevices() []registry.DeviceView {
 	return []registry.DeviceView{
