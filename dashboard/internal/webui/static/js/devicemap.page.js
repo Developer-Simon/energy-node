@@ -53,7 +53,7 @@
       flows: null, // {nodes, edges, unresolved} from /api/v1/device/map/flows, null while unavailable
       flowsUnavailable: false,
       invalidConfigs: 0,
-      popover: null, // {kind: 'node' | 'edge', id, position} | null
+      popover: null, // {eyebrow, title, rows, lists, text, linkText, link, left, top, origin, open} | null
       focusId: null,
       focusRelated: new Set(),
       panelId: null,
@@ -242,18 +242,93 @@
         });
       },
 
-      // Detail popover for virtual nodes and data edges. The content comes
-      // with the popover markup; here only the state is kept.
-      openNodePopover(id, position) {
-        this.popover = {kind: 'node', id, position};
+      labelOf(id) {
+        if (id && id.startsWith('custom:')) return (this.savedCategories[id.slice(7)] || {}).label || id;
+        const flowNode = this.flowNodes().find(node => node.id === id);
+        if (flowNode) return flowNode.name;
+        if (id === window.DeviceMapDataflow.BALANCE_ID) return t('devicemap.balance.name');
+        return this.deviceLabel(id);
       },
 
-      openEdgePopover(flowId, position) {
-        this.popover = {kind: 'edge', id: flowId, position};
+      placePopover(rendered, view) {
+        // Draft openPop(): next to the tap point, flipped at the stage edges,
+        // the transform origin at the corner it grows from.
+        const stage = this.$refs.canvas ? this.$refs.canvas.getBoundingClientRect() : {width: 800, height: 600};
+        const x = rendered ? rendered.x : stage.width / 2;
+        const y = rendered ? rendered.y : stage.height / 2;
+        const width = Math.min(300, stage.width - 24);
+        const flipX = x + 12 + width > stage.width - 12;
+        const flipY = y + 12 + 260 > stage.height - 12;
+        this.popover = {
+          ...view,
+          left: flipX ? Math.max(12, x - 12 - width) : x + 12,
+          top: flipY ? Math.max(12, y - 12 - 260) : y + 12,
+          origin: `${flipX ? 'right' : 'left'} ${flipY ? 'bottom' : 'top'}`,
+          open: false,
+        };
+        this._requestFrame(() => { if (this.popover) this.popover = {...this.popover, open: true}; });
+      },
+
+      openEdgePopover(flowId, rendered) {
+        const edge = this.dataEdges().find(candidate => candidate.id === flowId);
+        if (!edge) return;
+        const view = window.DeviceMapDataflow.edgeView(edge, id => this.labelOf(id));
+        const rows = view.rows.map(([key, value]) => [t(key), value]);
+        if (edge.cat === 'automation' && window.__automationsView) {
+          const rule = this.flowNodes().find(node => node.id === edge.from || node.id === edge.to);
+          const list = rule && (view.part === 'action' ? rule.node.actions : rule.node.conditions);
+          const raw = list && list[view.index];
+          if (raw) {
+            const described = view.part === 'action' ? window.__automationsView.describeAction(raw, null) : window.__automationsView.describeCondition(raw, null);
+            rows.push([t('devicemap.pop.row.condition'), described.summary || described.title]);
+          }
+        }
+        this.placePopover(rendered, {eyebrow: t(view.eyebrowKey), title: view.title, rows, lists: [], text: '', linkText: t(view.linkKey), link: view.link});
+      },
+
+      openNodePopover(id, rendered) {
+        const df = window.DeviceMapDataflow;
+        const kind = df.nodeKind(id);
+        if (kind === 'stub') {
+          const stub = this.stubInfo().edges.find(edge => edge.from === id || edge.to === id);
+          if (stub) this.openEdgePopover(stub.id, rendered);
+          return;
+        }
+        if (kind === 'balance') {
+          const items = df.roleEdges(this.previewEnergy()).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
+          this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.virtual'), title: t('devicemap.balance.name'), rows: [], text: t('devicemap.balance.description'),
+            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy()).flatMap(edge => edge.entities)}});
+          return;
+        }
+        const node = this.flowNodes().find(candidate => candidate.id === id);
+        if (!node) return;
+        if (kind === 'rule') {
+          const view = window.__automationsView;
+          const line = described => [described.title, described.summary].filter(Boolean).join(': ');
+          this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.rule'), title: node.name, rows: [], text: '',
+            lists: [
+              {label: t('devicemap.pop.when'), items: (node.node.conditions || []).map(condition => line(view.describeCondition(condition, null)))},
+              {label: t('devicemap.pop.then'), items: (node.node.actions || []).map(action => line(view.describeAction(action, null)))},
+            ],
+            linkText: t('devicemap.pop.link.automations'), link: node.node.link});
+          return;
+        }
+        const inputs = this.dataEdges().filter(edge => edge.to === id).map(edge => `${df.titleOf(edge)}: ${this.labelOf(edge.from)}`);
+        this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.service'), title: node.name, rows: [], text: '', lists: [{label: '', items: inputs}],
+          linkText: t('devicemap.pop.link.config'), link: node.node.link});
       },
 
       closePopover() {
         this.popover = null;
+      },
+
+      openFlowLink(link) {
+        if (!link) return;
+        this.closePopover();
+        const detail = link.tab === 'automations' ? {panel: 'automations-panel', automationFocus: link.target}
+          : link.tab === 'config' ? {panel: 'config-panel', configFocus: {config: link.target, item: link.item || ''}}
+            : {panel: 'energy-panel', energyFocus: link.entities || []};
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail}));
       },
 
       clearFocus() {
@@ -398,6 +473,7 @@
           title: device.name || device.id,
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
           rows, others, empty,
+          flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
       },
 

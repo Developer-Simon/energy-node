@@ -12,14 +12,45 @@
   <div class="devicemap-stage">
     <div id="devicemap-canvas" class="devicemap-canvas" x-ref="canvas" aria-label="{{t "devicemap.canvas_aria"}}"></div>
     <div class="devicemap-labels" x-ref="labels" aria-hidden="true"></div>
-    <div class="devicemap-legend" x-cloak x-show="view.layers.energy" aria-label="{{t "devicemap.legend.aria"}}">
-      <span><i style="border-color: var(--flow-pv)"></i>{{t "devicemap.legend.pv"}}</span>
-      <span><i style="border-color: var(--flow-battery)"></i>{{t "devicemap.legend.battery"}}</span>
-      <span><i style="border-color: var(--flow-load)"></i>{{t "devicemap.legend.load"}}</span>
-      <span><i style="border-color: var(--flow-rest)"></i>{{t "devicemap.legend.sum"}}</span>
-      <span><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.heuristic"}}</span>
-      <span x-show="Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
-      <span x-show="Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
+    <div class="devicemap-legend" x-cloak x-show="view.layers.energy || view.layers.data || view.layers.balance" aria-label="{{t "devicemap.legend.aria"}}">
+      <span x-show="view.layers.energy"><i style="border-color: var(--flow-pv)"></i>{{t "devicemap.legend.pv"}}</span>
+      <span x-show="view.layers.energy"><i style="border-color: var(--flow-battery)"></i>{{t "devicemap.legend.battery"}}</span>
+      <span x-show="view.layers.energy"><i style="border-color: var(--flow-load)"></i>{{t "devicemap.legend.load"}}</span>
+      <span x-show="view.layers.energy"><i style="border-color: var(--flow-rest)"></i>{{t "devicemap.legend.sum"}}</span>
+      <span x-show="view.layers.energy"><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.heuristic"}}</span>
+      <span x-show="view.layers.energy && Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
+      <span x-show="view.layers.energy && Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
+      <span x-show="view.layers.data"><i class="dashed" style="border-color: var(--info-line)"></i>{{t "devicemap.legend.data"}}</span>
+    </div>
+    <div class="devicemap-popover" role="dialog" x-cloak x-show="popover" x-bind:data-open="popover && popover.open ? 'true' : 'false'"
+         x-bind:style="popover ? `left: ${popover.left}px; top: ${popover.top}px; transform-origin: ${popover.origin}` : ''" x-bind:aria-label="popover ? popover.title : ''">
+      <template x-if="popover">
+        <div class="devicemap-popover-inner">
+          <div class="devicemap-popover-head">
+            <div><span class="devicemap-panel-eyebrow" x-text="popover.eyebrow"></span><h3 x-text="popover.title"></h3></div>
+            <button type="button" class="icon-button" x-on:click="closePopover()" aria-label="{{t "devicemap.pop.close"}}" title="{{t "devicemap.pop.close"}}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <p class="devicemap-popover-text" x-show="popover.text" x-text="popover.text"></p>
+          <dl x-show="popover.rows.length">
+            <template x-for="(row, index) in popover.rows" x-bind:key="index">
+              <div class="devicemap-popover-row"><dt x-text="row[0]"></dt><dd x-text="row[1]"></dd></div>
+            </template>
+          </dl>
+          <template x-for="(list, listIndex) in popover.lists" x-bind:key="listIndex">
+            <div>
+              <span class="devicemap-panel-eyebrow" x-show="list.label" x-text="list.label"></span>
+              <ul>
+                <template x-for="(item, index) in list.items" x-bind:key="index">
+                  <li x-text="item"></li>
+                </template>
+              </ul>
+            </div>
+          </template>
+          <button type="button" class="devicemap-panel-link" x-show="popover.linkText" x-on:click="openFlowLink(popover.link)" x-text="popover.linkText"></button>
+        </div>
+      </template>
     </div>
     <div class="devicemap-overlay">
       <div class="toolbar devicemap-toolbar">
@@ -149,6 +180,12 @@
               <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.others"}}</span>
               <template x-for="other in panelView.others" x-bind:key="other.id">
                 <div class="devicemap-panel-other-row"><span x-text="other.name"></span><span x-text="other.valueText"></span></div>
+              </template>
+            </div>
+            <div class="devicemap-panel-others" x-show="panelView.flows && panelView.flows.length">
+              <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.flows"}}</span>
+              <template x-for="(flow, index) in panelView.flows" x-bind:key="index">
+                <div class="devicemap-panel-other-row"><span x-text="flow.title"></span><span x-text="flow.text"></span></div>
               </template>
             </div>
             <button type="button" class="devicemap-panel-link" x-show="panelView.rows.length" x-on:click="showInRoleTable()">{{t "devicemap.panel.show_in_table"}}</button>

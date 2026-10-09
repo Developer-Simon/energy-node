@@ -1336,3 +1336,49 @@ test('balance and data layer buttons are no longer pending', () => {
   assert.equal(component.isLayerPending('balance'), false);
   assert.equal(component.isLayerPending('data'), false);
 });
+
+test('tapping a rule opens its popover with conditions and actions', async () => {
+  const flows = { ...FLOWS, nodes: [{ ...FLOWS.nodes[0], conditions: [{ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 1500 }], actions: [{ type: 'publish', topic: 'wb/set', payload_source: 'constant', payload: '10' }] }] };
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes({ '/api/v1/device/map/flows': flows })) });
+  await component.load();
+  component.openNodePopover('rule:r%201', { x: 50, y: 50 });
+  assert.equal(component.popover.title, 'Regel 1');
+  assert.equal(component.popover.lists.length, 2);
+  assert.equal(component.popover.lists[0].items.length, 1);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.popover.link)), { tab: 'automations', target: 'r 1' });
+});
+
+test('following a rule link asks the shell for the automations tab', async () => {
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(mapRoutes()) });
+  await component.load();
+  const seen = [];
+  window.addEventListener('dashboard-open-panel', event => seen.push(event.detail));
+  component.openFlowLink({ tab: 'automations', target: 'r 1' });
+  component.openFlowLink({ tab: 'config', target: 'battery_soc_devices', item: 'bank' });
+  component.openFlowLink({ tab: 'energy', entities: ['pv1'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(seen)), [
+    { panel: 'automations-panel', automationFocus: 'r 1' },
+    { panel: 'config-panel', configFocus: { config: 'battery_soc_devices', item: 'bank' } },
+    { panel: 'energy-panel', energyFocus: ['pv1'] },
+  ]);
+});
+
+test('the device panel lists the data flow of the device', async () => {
+  const flows = { nodes: [], unresolved: [], edges: [{ id: 'svc:a', cat: 'service', from: { device_id: 'pv', entity_id: 'pv1' }, to: { virtual_id: 'service:x/y' }, title: 'Spannung', details: {}, link: {} }] };
+  flows.nodes.push({ virtual_id: 'service:x/y', kind: 'service', label: 'Dienst Y', link: {} });
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes({ '/api/v1/device/map/flows': flows })) });
+  await component.load();
+  component.openPanel('pv');
+  assert.equal(component.panelView.flows.length, 1);
+  assert.equal(component.panelView.flows[0].title, 'Spannung');
+});
+
+test('Escape closes the popover before the panel', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes()) });
+  await component.load();
+  component.openPanel('pv');
+  component.openNodePopover('balance', { x: 1, y: 1 });
+  await component.onEscape();
+  assert.equal(component.popover, null);
+  assert.equal(component.panelId, 'pv', 'the panel stays open on the first Escape');
+});
