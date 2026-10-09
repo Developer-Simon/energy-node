@@ -246,7 +246,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.8.18 | `css/base.css` · `css/manager.css` (5 panels) · `js/devicemap-graph.js` (energy, device map) · `js/device-picker.js` (new, energy, device map) · `js/devicemap.page.js` · `js/energy.page.js` | `27` · `31` · `3` · `1` (new) · `16` · `8` | 2026-10-10 |
+| v0.8.18 | `css/base.css` · `css/manager.css` (5 panels) · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/device-picker.js` (new, energy, device map) · `js/energy-plant.js` · `js/devicemap.page.js` · `js/energy.page.js` | `27` · `31` · `6` · `3` · `1` (new) · `2` · `16` · `8` | 2026-10-10 |
 | v0.8.15 | `css/base.css` · `css/manager.css` (5 panels) · `css/automations.css` · `js/devicemap-model.js` · `js/devicemap-node-svg.js` · `js/devicemap-labels.js` · `js/devicemap-graph.js` (new) · `js/devicemap-dataflow.js` (new) · `js/automations-view.js` (new) · `js/energy-plant.js` (new) · `js/devicemap.page.js` · `js/energy-model.js` (history panel + energy cards) · `js/history-recorder.js` · `js/energy.page.js` · `js/automations.page.js` · `js/config.page.js` · `js/dashboard.js` | `26` · `30` · `5` · `5` · `3` · `2` · `2` (new) · `1` (new) · `1` (new) · `1` (new) · `15` · `3` · `10` · `7` · `8` · `9` · `27` | 2026-10-08 – 2026-10-09 |
 | v0.8.14 | `css/manager.css` (5 panels) · `js/dashboard.js` · `js/revisions.js` (config, energy, device map, settings panels + layout editor) · `js/energy.page.js` · `js/devicemap.page.js` · `js/devicemap-model.js` | `27` · `26` · `4` · `5` · `12` · `3` | 2026-10-08 |
 | v0.8.13 | `css/manager.css` (5 panels) · `js/devicemap.page.js` · `js/devicemap-model.js` | `26` · `11` · `2` | 2026-10-08 |

@@ -1539,3 +1539,45 @@ test('a category created from the group panel becomes the role draft', async () 
   await component.createCategory();
   assert.equal(component.panelView.role, 'custom:werkstatt');
 });
+
+test('saving the map and changing a relation tell the energy page', async () => {
+  const { component, window } = createDevicemapPanel({
+    fetchImpl: async (url, options = {}) => ({ ok: true, status: options.method === 'DELETE' ? 204 : 200, json: async () => (options.body ? JSON.parse(options.body) : {}) }),
+  });
+  let changed = 0;
+  window.addEventListener('device-map-changed', () => { changed += 1; });
+  component.deviceMap = { version: 2, nodes: [], edges: [{ id: 'relation-1', child_id: 'a', parent_id: 'b', kind: 'via_device' }] };
+  component.savedDeviceMap = JSON.parse(JSON.stringify(component.deviceMap));
+  await component.save();
+  assert.equal(changed, 1, 'save');
+  component.onEdgeTap({ target: fakeEdge({ id: 'edge-1', source: 'b', target: 'a', overrideId: 'relation-1' }) });
+  await component.removeSelectedRelation();
+  assert.equal(changed, 2, 'relation removed');
+});
+
+test('energy-roles-changed from the energy page reloads groups and roles, its own event does not', async () => {
+  let rolesFetches = 0;
+  const roles = { assignments: { x: { role: 'pv' } }, groups: { uv: { label: 'UV', members: { devices: [], groups: [] } } }, categories: {} };
+  const { component, window } = createDevicemapPanel({
+    fetchImpl: async url => {
+      if (url.endsWith('/api/v1/energy/roles')) { rolesFetches += 1; return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(roles)) }; }
+      if (url.endsWith('/api/v1/devices')) return { ok: true, status: 200, json: async () => [] };
+      if (url.endsWith('/api/v1/device/map')) return { ok: true, status: 200, json: async () => ({ version: 2, nodes: [], edges: [] }) };
+      return { ok: true, status: 200, json: async () => ({ entities: [] }) };
+    },
+  });
+  await component.load();
+  component.deviceMap = { ...component.deviceMap, nodes: [{ device_id: 'a', x: 5, y: 5 }] };
+  component.unsaved = true;
+  roles.groups = {};
+  rolesFetches = 0;
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed', { detail: { source: 'devicemap' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(rolesFetches, 0, 'own event is ignored');
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed', { detail: { source: 'energy-page' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(rolesFetches, 1);
+  assert.deepEqual(Object.keys(component.savedGroups), [], 'the deleted group is gone');
+  assert.equal(component.deviceMap.nodes[0].x, 5, 'unsaved positions stay');
+  assert.equal(component.unsaved, true);
+});

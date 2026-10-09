@@ -242,3 +242,21 @@ test('placeGroup centres above its members and moves right when taken', () => {
   assert.deepEqual({...model.placeGroup({memberPositions: members, allPositions: taken, snap})}, {x: 640, y: 290});
   assert.deepEqual({...model.placeGroup({memberPositions: [], allPositions: members, snap})}, {x: 740, y: 400});
 });
+
+test('placeGroup treats a whole grid cell as taken, so it never lands beside a neighbour label', () => {
+  const model = loadModel();
+  const snap = value => value;
+  const member = {x: 0, y: 200};
+  const neighbour = {x: 90, y: 90};
+  assert.deepEqual({...model.placeGroup({memberPositions: [member], allPositions: [member, neighbour], snap})}, {x: 280, y: 90});
+});
+
+test('placeDevices fills rows below the arrangement and needs an anchor', () => {
+  const model = loadModel();
+  const snap = value => value;
+  const anchor = [{x: 0, y: 0}, {x: 280, y: 100}];
+  assert.deepEqual(model.placeDevices({ids: ['a', 'b', 'c', 'd'], allPositions: anchor, snap}).map(spot => ({...spot})), [
+    {id: 'a', x: 0, y: 210}, {id: 'b', x: 140, y: 210}, {id: 'c', x: 280, y: 210}, {id: 'd', x: 0, y: 320},
+  ]);
+  assert.equal(model.placeDevices({ids: ['a'], allPositions: [], snap}).length, 0);
+});

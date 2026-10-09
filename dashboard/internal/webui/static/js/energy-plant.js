@@ -42,6 +42,7 @@
           const on = (target, name, fn) => { target.addEventListener(name, fn); this._offs.push(() => target.removeEventListener(name, fn)); };
           on(window, 'registry-updated', () => this.onRegistryUpdated());
           on(window, 'energy-roles-changed', () => this.load());
+          on(window, 'device-map-changed', () => this.load());
           on(window, 'energy-plant-focus', event => this.focusEntity((event.detail || {}).entityId));
           const wake = () => setTimeout(() => this.flowAnimator().start(), 0);
           on(document, 'visibilitychange', wake);
@@ -119,6 +120,11 @@
         const snap = value => value;
         const positions = new Map((this.deviceMap.nodes || []).map(node => [node.device_id || node.virtual_id, {x: node.x, y: node.y}]));
         const all = () => [...positions.values()];
+        // Same spots the device map would pick, so a device that is not yet
+        // saved there does not land on the origin on top of another one.
+        const anchors = this.devices.map(device => positions.get(device.id)).filter(Boolean);
+        const missing = this.devices.filter(device => !positions.has(device.id)).map(device => device.id);
+        for (const spot of model.placeDevices({ids: missing, allPositions: anchors, snap})) positions.set(spot.id, {x: spot.x, y: spot.y});
         for (const [id, group] of Object.entries(this.groups)) {
           const nodeId = model.GROUP_PREFIX + id;
           if (positions.has(nodeId)) continue;

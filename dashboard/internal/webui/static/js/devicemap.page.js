@@ -98,6 +98,16 @@
           window.addEventListener('registry-updated', listener);
           this.registryOff = () => window.removeEventListener('registry-updated', listener);
         }
+        if (!this.energyRolesOff) {
+          // Roles, groups and categories saved on the energy page. The map's
+          // own PATCH already updated everything here, so its event is skipped.
+          const listener = event => {
+            if ((event.detail || {}).source === 'devicemap') return;
+            this.reloadEnergyState();
+          };
+          window.addEventListener('energy-roles-changed', listener);
+          this.energyRolesOff = () => window.removeEventListener('energy-roles-changed', listener);
+        }
         if (!this.lifecycleOff) {
           // Restart the flow loop when the browser tab or the dashboard tab
           // becomes visible again. The loop stops itself while hidden.
@@ -149,7 +159,10 @@
         return {
           basePath: '/api/v1/device/map',
           current: () => this.deviceMap,
-          reload: () => this.load(),
+          reload: async () => {
+            await this.load();
+            this.notifyMapChanged();
+          },
           label: t('devicemap.revisions_label'),
         };
       },
@@ -157,6 +170,7 @@
       destroy() {
         if (this.themeOff) this.themeOff();
         if (this.registryOff) this.registryOff();
+        if (this.energyRolesOff) this.energyRolesOff();
         if (this.lifecycleOff) this.lifecycleOff();
         this.stopFlowAnimation();
         clearTimeout(this._energyTimer);
@@ -742,8 +756,32 @@
         if (saved && 'groups' in saved) this.savedGroups = saved.groups || {};
         if (saved && 'categories' in saved) this.savedCategories = saved.categories || {};
         await this.refreshEnergy();
-        window.dispatchEvent(new CustomEvent('energy-roles-changed'));
+        window.dispatchEvent(new CustomEvent('energy-roles-changed', {detail: {source: 'devicemap'}}));
         return saved;
+      },
+
+      // Saved state from the energy page. Unsaved positions and drafts stay,
+      // only what the energy page owns is replaced, then the graph is rebuilt
+      // so removed members and groups lose their lines right away.
+      async reloadEnergyState() {
+        const [roles, energy] = await Promise.all([
+          requestJSON('/api/v1/energy/roles').catch(() => null),
+          requestJSON('/api/v1/energy').catch(() => null),
+        ]);
+        if (!roles) return;
+        this.savedAssignments = roles.assignments || {};
+        this.savedGroups = roles.groups || {};
+        this.savedCategories = roles.categories || {};
+        this.energy = energy;
+        this.energyUnavailable = energy === null;
+        const model = window.DeviceMapModel;
+        if (this.panelId && model.isGroupId(this.panelId) && !this.savedGroups[this.panelId.slice(model.GROUP_PREFIX.length)]) this.closePanel();
+        this.renderGraph();
+      },
+
+      // Tells the energy tab's plant view that the saved map changed.
+      notifyMapChanged() {
+        window.dispatchEvent(new CustomEvent('device-map-changed'));
       },
 
       // Places devices that have no saved position below the existing
@@ -754,28 +792,15 @@
       placeNewDevices() {
         const existingNodes = (this.deviceMap.nodes || []).filter(node =>
           this.devices.some(device => device.id === node.device_id));
-        const missing = this.devices.filter(device => !this.positionFor(device.id));
-        if (existingNodes.length === 0 || missing.length === 0) return 0;
-
-        const stepX = 140;
-        const stepY = 110;
-        const minX = Math.min(...existingNodes.map(node => node.x));
-        const maxX = Math.max(...existingNodes.map(node => node.x));
-        const maxY = Math.max(...existingNodes.map(node => node.y));
-        const columns = Math.max(1, Math.min(8, Math.round((maxX - minX) / stepX) + 1));
-        const startY = maxY + stepY;
+        const missing = this.devices.filter(device => !this.positionFor(device.id)).map(device => device.id);
         const gridSize = this.view.grid_size;
         const snap = value => this.view.snap_to_grid ? Math.round(value / gridSize) * gridSize : value;
-
-        const nodes = [...(this.deviceMap.nodes || [])];
-        missing.forEach((device, index) => {
-          const col = index % columns;
-          const row = Math.floor(index / columns);
-          nodes.push({device_id: device.id, x: snap(minX + col * stepX), y: snap(startY + row * stepY)});
-        });
+        const spots = window.DeviceMapModel.placeDevices({ids: missing, allPositions: existingNodes, snap});
+        if (!spots.length) return 0;
+        const nodes = [...(this.deviceMap.nodes || []), ...spots.map(spot => ({device_id: spot.id, x: spot.x, y: spot.y}))];
         this.deviceMap = {...this.deviceMap, nodes};
         this.unsaved = true;
-        return missing.length;
+        return spots.length;
       },
 
       placeNewGroups() {
@@ -1159,6 +1184,7 @@
           // discardChanges() only reverts still-unsaved positions/view.
           this.savedDeviceMap = {...this.savedDeviceMap, edges: this.deviceMap.edges};
           this.$store.toasts.push(t('devicemap.relation_connected'));
+          this.notifyMapChanged();
           this.renderGraph();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
@@ -1463,6 +1489,7 @@
           this.deviceMap = {...this.deviceMap, edges: (this.deviceMap.edges || []).filter(edge => edge.id !== selected.overrideId)};
           this.savedDeviceMap = {...this.savedDeviceMap, edges: this.deviceMap.edges};
           this.$store.toasts.push(t('devicemap.relation_disconnected'));
+          this.notifyMapChanged();
           this.renderGraph();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
@@ -1498,6 +1525,7 @@
           this.savedDeviceMap = JSON.parse(JSON.stringify(value));
           this.unsaved = false;
           this.$store.toasts.push(t('devicemap.positions_saved'));
+          this.notifyMapChanged();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
         } finally {

@@ -568,3 +568,23 @@ test('a new category from a group card becomes its role and opens the categories
   assert.equal(component.groups.garage.role, `custom:${id}`);
   assert.equal(component.openSection, 'categories');
 });
+
+test('save() tells the device map and the plant view, the page skips its own event', async () => {
+  let loads = 0;
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({edit_energy: true});
+    if (url === '/api/v1/devices') { loads += 1; return jsonResponse(devicesResponse); }
+    if (url === '/api/v1/energy/roles') return jsonResponse(rolesResponse);
+    return jsonResponse(energyResponse);
+  };
+  const {component, window} = createEnergyPanel({fetchImpl});
+  const seen = [];
+  window.addEventListener('energy-roles-changed', event => seen.push(event.detail && event.detail.source));
+  component.init();
+  await component.load();
+  loads = 0;
+  await component.save();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(seen, ['energy-page']);
+  assert.equal(loads, 0, 'no reload after its own save');
+});

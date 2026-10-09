@@ -12,6 +12,7 @@
   // aber direkt aus /api/v1/devices und braucht denselben Filter.
   const OWN_ENERGY_DEVICE_ID = 'energy_node';
   const GROUP_PREFIX = 'group:';
+  const ENERGY_PAGE_SOURCE = 'energy-page';
 
   // Viele Integrationen stellen jedem Entitätsnamen den Gerätenamen voran
   // ("Trucki T2MG" / "Trucki T2MG DC Power"). Im Rollen-Editor steht der
@@ -111,7 +112,10 @@
     init() {
       // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
       // Seite den alten Stand und schriebe ihn beim naechsten Speichern zurueck.
-      window.addEventListener('energy-roles-changed', () => this.load());
+      // Das eigene Speichern meldet sich ebenfalls, dann ist hier schon alles aktuell.
+      window.addEventListener('energy-roles-changed', event => {
+        if ((event.detail || {}).source !== ENERGY_PAGE_SOURCE) this.load();
+      });
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
     },
@@ -532,10 +536,18 @@
       return {
         basePath: '/api/v1/energy',
         current: () => this.payload(),
-        reload: () => this.load(),
+        reload: async () => {
+          await this.load();
+          this.notifyRolesChanged();
+        },
         label: t('energy.page.revisions_label'),
         headers: () => ({'X-CSRF-Token': this.csrfToken}),
       };
+    },
+
+    // Device map and plant view reload groups, roles and categories on this.
+    notifyRolesChanged() {
+      window.dispatchEvent(new CustomEvent('energy-roles-changed', {detail: {source: ENERGY_PAGE_SOURCE}}));
     },
 
     async save() {
@@ -548,6 +560,7 @@
           body: JSON.stringify({assignments, interpretation, categories, groups}),
         });
         this.$store.toasts.push(t('energy.page.saved'));
+        this.notifyRolesChanged();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {

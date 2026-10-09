@@ -330,7 +330,6 @@
 
   const PLACE_STEP_X = 140;
   const PLACE_STEP_Y = 110;
-  const PLACE_CLEARANCE = 60;
 
   // Spec "Automatische Einordnung": a group sits centred above its members,
   // one row above the highest one, and moves right while the spot is taken.
@@ -346,10 +345,29 @@
       x = Math.max(...all.map(p => p.x)) + PLACE_STEP_X;
       y = Math.min(...all.map(p => p.y));
     }
-    const taken = (px, py) => all.some(p => Math.abs(p.x - px) < PLACE_CLEARANCE && Math.abs(p.y - py) < PLACE_CLEARANCE);
+    // A whole grid cell counts as taken: labels are wider than the node,
+    // a smaller clearance put groups right under a neighbour's label.
+    const taken = (px, py) => all.some(p => Math.abs(p.x - px) < PLACE_STEP_X && Math.abs(p.y - py) < PLACE_STEP_Y);
     let spot = {x: snap(x), y: snap(y)};
     while (taken(spot.x, spot.y)) spot = {x: snap(spot.x + PLACE_STEP_X), y: spot.y};
     return spot;
+  };
+
+  // Devices without a saved position go in rows below the existing
+  // arrangement, at most eight per row. Without an arrangement to anchor
+  // to there is nothing to place against, the caller lays out instead.
+  const placeDevices = ({ids, allPositions, snap}) => {
+    const all = allPositions || [];
+    if (!all.length) return [];
+    const minX = Math.min(...all.map(p => p.x));
+    const maxX = Math.max(...all.map(p => p.x));
+    const maxY = Math.max(...all.map(p => p.y));
+    const columns = Math.max(1, Math.min(8, Math.round((maxX - minX) / PLACE_STEP_X) + 1));
+    return (ids || []).map((id, index) => ({
+      id,
+      x: snap(minX + (index % columns) * PLACE_STEP_X),
+      y: snap(maxY + PLACE_STEP_Y + Math.floor(index / columns) * PLACE_STEP_Y),
+    }));
   };
 
   window.DeviceMapModel = {
@@ -358,6 +376,6 @@
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload,
-    roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup,
+    roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices,
   };
 })();
