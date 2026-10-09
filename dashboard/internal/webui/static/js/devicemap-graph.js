@@ -200,11 +200,14 @@
   ];
 
   // Draft layer rules: wiring on = normal line, wiring off + energy on =
-  // dotted track under the flows, both off = invisible and untappable.
+  // dotted track under the flows, both off = invisible and untappable. The
+  // dotted track stays tappable: the flow edge on top ignores events, so a
+  // tap on an energy line lands here and opens the wiring card. The wide
+  // invisible overlay makes the thin line easy to hit.
   const wiringEdgeStyle = (view, theme) => {
     const {wiring, energy} = view.layers;
-    if (wiring) return {display: 'element', 'line-style': 'solid', opacity: 1};
-    if (energy) return {display: 'element', 'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'target-arrow-shape': 'none', opacity: 0.8, events: 'no', 'line-color': theme.line};
+    if (wiring) return {display: 'element', 'line-style': 'solid', opacity: 1, 'overlay-opacity': 0, 'overlay-padding': 7};
+    if (energy) return {display: 'element', 'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'target-arrow-shape': 'none', opacity: 0.8, 'line-color': theme.line, 'overlay-opacity': 0, 'overlay-padding': 7};
     return {display: 'none'};
   };
 

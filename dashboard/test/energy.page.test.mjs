@@ -18,6 +18,10 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'energy.page.js'),
   'utf8',
 );
+const pickerSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'device-picker.js'),
+  'utf8',
+);
 
 function createEnergyPanel({ fetchImpl, basePath } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
@@ -27,6 +31,7 @@ function createEnergyPanel({ fetchImpl, basePath } = {}) {
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
   if (basePath !== undefined) dom.window.__DASHBOARD_BASE_PATH__ = basePath;
   installI18n(dom.window);
+  vm.runInContext(pickerSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.energyRolesPanel();
   const stores = attachStores(component);
@@ -466,4 +471,43 @@ test('energy-focus-group flashes the group card', async () => {
   window.CSS = { escape: value => value };
   window.dispatchEvent(new window.CustomEvent('energy-focus-group', { detail: { id: 'uv' } }));
   assert.equal(component.flashGroup, 'uv');
+});
+
+test('group members are listed as chips, groups with a group: id', () => {
+  const { component } = createEnergyPanel();
+  component.devicesList = [{ id: 'wb', name: 'Wallbox', manufacturer: '', icon: '' }];
+  component.groups = {
+    garage: { label: 'Garage', members: { devices: ['wb'], groups: ['keller'] } },
+    keller: { label: 'Keller', members: { devices: [], groups: [] } },
+  };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groupMembers('garage'))), [
+    { id: 'group:keller', kind: 'group', name: 'Keller' },
+    { id: 'wb', kind: 'device', name: 'Wallbox' },
+  ]);
+  component.removeGroupMember('garage', 'group:keller');
+  component.removeGroupMember('garage', 'wb');
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groups.garage.members)), { devices: [], groups: [] });
+});
+
+test('members picked for a group leave the group they were in before', async () => {
+  const { component } = createEnergyPanel();
+  component.devicesList = [
+    { id: 'wb', name: 'Wallbox', manufacturer: 'Shelly', icon: '' },
+    { id: 'saw', name: 'Kreissäge', manufacturer: 'Shelly', icon: '' },
+  ];
+  component.groups = {
+    garage: { label: 'Garage', members: { devices: [], groups: [] } },
+    keller: { label: 'Keller', members: { devices: ['saw'], groups: [] } },
+  };
+  const pending = component.addGroupMembers('garage');
+  const offered = component.picker.items;
+  assert.equal(offered.find(item => item.id === 'saw').memberOf, 'Keller');
+  assert.ok(offered.some(item => item.id === 'group:keller'));
+  assert.ok(!offered.some(item => item.id === 'group:garage'));
+  component.togglePick('saw');
+  component.togglePick('group:keller');
+  component.closePicker(true);
+  await pending;
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groups.garage.members)), { devices: ['saw'], groups: ['keller'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groups.keller.members.devices)), []);
 });

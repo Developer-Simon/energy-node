@@ -140,54 +140,61 @@
   <div class="energy-roles-groups energy-groups-sections">
     <div class="energy-roles-group">
       <h3 class="energy-roles-group-title">{{t "energy.groups.title"}}</h3>
+      <p class="energy-groups-empty" x-show="!Object.keys(groups).length">{{t "energy.groups.empty"}}</p>
       <template x-for="(group, id) in groups" x-bind:key="id">
         <div class="energy-groups-card" x-bind:data-group-id="id" x-bind:class="{ 'is-flash': flashGroup === id }">
           <div class="energy-groups-head">
-            <label class="energy-groups-name">{{t "energy.groups.name"}} <input type="text" x-bind:disabled="!canEdit" x-model="group.label"></label>
-            <label>{{t "energy.groups.role"}}
-              <select x-bind:disabled="!canEdit" x-model="group.role" x-init="$nextTick(() => $el.value = group.role || '')">
-                <option value="">{{t "energy.groups.no_role"}}</option>
-                <template x-for="option in consumerRoleOptions()" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template>
-              </select>
-            </label>
-            <button type="button" class="energy-role-hide-toggle" x-bind:disabled="!canEdit" x-on:click="removeGroup(id)">{{t "energy.groups.remove"}}</button>
+            <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg></span>
+            <input class="energy-groups-name" type="text" aria-label="{{t "energy.groups.name"}}" x-bind:disabled="!canEdit" x-model="group.label">
+            <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeGroup(id)" title="{{t "energy.groups.remove"}}" aria-label="{{t "energy.groups.remove"}}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+            </button>
           </div>
-          <fieldset class="energy-groups-members">
-            <legend>{{t "energy.groups.members"}}</legend>
-            <template x-for="device in devicesList" x-bind:key="device.id">
-              <label><input type="checkbox" x-bind:disabled="!canEdit" x-bind:checked="group.members.devices.includes(device.id)" x-on:change="toggleGroupMember(id, 'devices', device.id)"> <span x-text="device.name"></span></label>
-            </template>
-            <template x-for="otherId in Object.keys(groups).filter(key => key !== id)" x-bind:key="otherId">
-              <label><input type="checkbox" x-bind:disabled="!canEdit" x-bind:checked="group.members.groups.includes(otherId)" x-on:change="toggleGroupMember(id, 'groups', otherId)"> <span x-text="groups[otherId].label"></span></label>
-            </template>
-          </fieldset>
+          <label class="energy-groups-role"><span class="category-field-label">{{t "energy.groups.role"}}</span>
+            <select x-bind:disabled="!canEdit" x-model="group.role" x-init="$nextTick(() => $el.value = group.role || '')">
+              <option value="">{{t "energy.groups.no_role"}}</option>
+              <template x-for="option in consumerRoleOptions()" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template>
+            </select>
+          </label>
+          <div class="energy-groups-members">
+            <span class="category-field-label">{{t "energy.groups.members"}}</span>
+            <div class="energy-member-chips">
+              <template x-for="member in groupMembers(id)" x-bind:key="member.id">
+                <span class="energy-member-chip" x-bind:class="{ 'is-group': member.kind === 'group' }">
+                  <span x-text="member.name"></span>
+                  <button type="button" x-show="canEdit" x-on:click="removeGroupMember(id, member.id)" x-bind:aria-label="$t('devicemap.group.remove_member', {name: member.name})" x-bind:title="$t('devicemap.group.remove_member', {name: member.name})">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 7 7 17M7 7l10 10"/></svg>
+                  </button>
+                </span>
+              </template>
+              <button type="button" class="pill-button" x-show="canEdit" x-on:click="addGroupMembers(id)">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.add_members"}}
+              </button>
+            </div>
+          </div>
         </div>
       </template>
-      <button type="button" class="energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()">{{t "energy.groups.add"}}</button>
+      <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.groups.add"}}</button>
     </div>
 
     <div class="energy-roles-group">
       <h3 class="energy-roles-group-title">{{t "energy.categories.title"}}</h3>
-      <template x-for="(category, id) in categories" x-bind:key="id">
-        <div class="energy-categories-row">
-          <input type="text" aria-label="{{t "energy.categories.name"}}" x-bind:disabled="!canEdit" x-model="category.label">
-          <select aria-label="{{t "energy.categories.base"}}" x-bind:disabled="!canEdit" x-model="category.base">
-            <option value="consumer">{{t "devicemap.category.base.consumer"}}</option>
-            <option value="producer">{{t "devicemap.category.base.producer"}}</option>
-            <option value="storage">{{t "devicemap.category.base.storage"}}</option>
-          </select>
-          <span class="energy-categories-colors" role="radiogroup" aria-label="{{t "energy.categories.color"}}">
-            <template x-for="n in 6" x-bind:key="n">
-              <label><input type="radio" x-bind:name="`energy-cat-color-${id}`" x-bind:value="`cat_${n}`" x-bind:disabled="!canEdit" x-model="category.color"><span class="devicemap-cat-dot" x-bind:class="`cat-${n}`"></span></label>
-            </template>
-          </span>
-          <select aria-label="{{t "energy.categories.icon"}}" x-bind:disabled="!canEdit" x-model="category.icon">
-            <template x-for="icon in iconCatalogue" x-bind:key="icon.name"><option x-bind:value="icon.name" x-text="$t(icon.labelKey)"></option></template>
-          </select>
-          <button type="button" class="energy-role-hide-toggle" x-bind:disabled="!canEdit" x-on:click="removeCategory(id)">{{t "energy.categories.remove"}}</button>
-        </div>
-      </template>
-      <button type="button" class="energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()">{{t "energy.categories.add"}}</button>
+      <p class="energy-groups-empty" x-show="!Object.keys(categories).length">{{t "energy.categories.empty"}}</p>
+      <div class="energy-category-list">
+        <template x-for="(category, id) in categories" x-bind:key="id">
+          <div class="energy-category-card">
+            <div class="energy-groups-head">
+              <span class="energy-category-preview" x-bind:class="(category.color || 'cat_1').replace('_', '-')" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="iconMarkupOf(category.icon)"></svg></span>
+              <input class="energy-groups-name" type="text" aria-label="{{t "energy.categories.name"}}" x-bind:disabled="!canEdit" x-model="category.label">
+              <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeCategory(id)" title="{{t "energy.categories.remove"}}" aria-label="{{t "energy.categories.remove"}}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+              </button>
+            </div>
+            <div x-data="{ get cat() { return category }, catKey: `energy-cat-${id}`, get catLocked() { return !canEdit } }">{{template "category-fields"}}</div>
+          </div>
+        </template>
+      </div>
+      <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.categories.add"}}</button>
     </div>
   </div>
 
@@ -198,6 +205,7 @@
     </div>
   </div>
 
+  {{template "device-picker"}}
   {{template "revisions" .}}
 </section>
 {{end}}

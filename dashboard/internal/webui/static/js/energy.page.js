@@ -11,6 +11,7 @@
   // hält sie schon aus energy.Aggregate heraus; die Zeilenliste hier stammt
   // aber direkt aus /api/v1/devices und braucht denselben Filter.
   const OWN_ENERGY_DEVICE_ID = 'energy_node';
+  const GROUP_PREFIX = 'group:';
 
   // Viele Integrationen stellen jedem Entitätsnamen den Gerätenamen voran
   // ("Trucki T2MG" / "Trucki T2MG DC Power"). Im Rollen-Editor steht der
@@ -44,6 +45,7 @@
   };
 
   const energyRolesPanel = () => ({
+    ...window.DevicePicker.mixin(),
     entities: [],
     assignments: {},
     powerRoleOptions: [
@@ -176,7 +178,7 @@
         this.groups = JSON.parse(JSON.stringify(saved.groups || {}));
         this.devicesList = devices
           .filter(device => device.id !== OWN_ENERGY_DEVICE_ID)
-          .map(device => ({id: device.id, name: device.name || device.id}));
+          .map(device => ({id: device.id, name: device.name || device.id, manufacturer: device.manufacturer || '', icon: device.icon_name || device.suggested_icon || ''}));
         this.iconCatalogue = icons || [];
         this.unassigned = snapshot.unassigned || [];
         this.unassignedCount = snapshot.unassigned_count || 0;
@@ -344,10 +346,60 @@
       this.groups = next;
     },
 
-    toggleGroupMember(groupId, kind, memberId) {
+    iconMarkupOf(name) {
+      const icon = this.iconCatalogue.find(candidate => candidate.name === name) || this.iconCatalogue[0];
+      return icon ? icon.markup : '';
+    },
+
+    // Members of a group for its chips. Group members carry a "group:" id so
+    // they never collide with a device id.
+    groupMembers(groupId) {
+      const members = (this.groups[groupId] || {}).members || {};
+      const deviceName = id => (this.devicesList.find(device => device.id === id) || {}).name || id;
+      return [
+        ...(members.groups || []).map(id => ({id: `${GROUP_PREFIX}${id}`, kind: 'group', name: (this.groups[id] || {}).label || id})),
+        ...(members.devices || []).map(id => ({id, kind: 'device', name: deviceName(id)})),
+      ];
+    },
+
+    groupOf(memberId, kind) {
+      return Object.entries(this.groups).find(([, group]) => ((group.members || {})[kind] || []).includes(memberId));
+    },
+
+    removeGroupMember(groupId, memberId) {
       const group = this.groups[groupId];
-      const list = group.members[kind] || [];
-      group.members[kind] = list.includes(memberId) ? list.filter(id => id !== memberId) : [...list, memberId];
+      const kind = memberId.startsWith(GROUP_PREFIX) ? 'groups' : 'devices';
+      const id = kind === 'groups' ? memberId.slice(GROUP_PREFIX.length) : memberId;
+      group.members[kind] = (group.members[kind] || []).filter(other => other !== id);
+    },
+
+    // Opens the device picker. A chosen device or group leaves the group it
+    // was in before, the picker shows that as "in <group>" up front. Nothing
+    // is stored until the page is saved.
+    async addGroupMembers(groupId) {
+      const group = this.groups[groupId];
+      const members = group.members || {};
+      const memberOf = (id, kind) => {
+        const previous = this.groupOf(id, kind);
+        return previous && previous[0] !== groupId ? previous[1].label : '';
+      };
+      const items = [
+        ...Object.entries(this.groups)
+          .filter(([other]) => other !== groupId && !(members.groups || []).includes(other))
+          .map(([other, def]) => ({id: `${GROUP_PREFIX}${other}`, kind: 'group', name: def.label, section: '', valueText: '', iconMarkup: '', memberOf: memberOf(other, 'groups')})),
+        ...this.devicesList
+          .filter(device => !(members.devices || []).includes(device.id))
+          .map(device => ({id: device.id, kind: 'device', name: device.name, section: device.manufacturer, valueText: '', iconMarkup: this.iconMarkupOf(device.icon), memberOf: memberOf(device.id, 'devices')})),
+      ];
+      const ids = await this.openPicker({title: t('device_picker.title', {group: group.label}), items});
+      if (!ids) return;
+      for (const pickedId of ids) {
+        const kind = pickedId.startsWith(GROUP_PREFIX) ? 'groups' : 'devices';
+        const id = kind === 'groups' ? pickedId.slice(GROUP_PREFIX.length) : pickedId;
+        const previous = this.groupOf(id, kind);
+        if (previous && previous[0] !== groupId) previous[1].members[kind] = previous[1].members[kind].filter(other => other !== id);
+        group.members[kind] = [...(group.members[kind] || []), id];
+      }
     },
 
     payload() {

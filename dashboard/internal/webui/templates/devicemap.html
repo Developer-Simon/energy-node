@@ -1,3 +1,70 @@
+{{/* Base type, colour and icon of a custom category. The caller wraps it in
+     an x-data that provides cat (the category object), catKey (unique per
+     instance, for the radio names) and catLocked (read only). */}}
+{{define "category-fields"}}<div class="category-fields">
+    <div class="category-field" role="radiogroup" aria-label="{{t "devicemap.category.base_label"}}">
+      <span class="category-field-label">{{t "devicemap.category.base_label"}}</span>
+      <div class="segmented">
+        <label><input type="radio" x-bind:name="`${catKey}-base`" value="consumer" x-model="cat.base" x-bind:disabled="catLocked"><span>{{t "devicemap.category.base.consumer"}}</span></label>
+        <label><input type="radio" x-bind:name="`${catKey}-base`" value="producer" x-model="cat.base" x-bind:disabled="catLocked"><span>{{t "devicemap.category.base.producer"}}</span></label>
+        <label><input type="radio" x-bind:name="`${catKey}-base`" value="storage" x-model="cat.base" x-bind:disabled="catLocked"><span>{{t "devicemap.category.base.storage"}}</span></label>
+      </div>
+    </div>
+    <div class="category-field" role="radiogroup" aria-label="{{t "devicemap.category.color_label"}}">
+      <span class="category-field-label">{{t "devicemap.category.color_label"}}</span>
+      <div class="category-swatches">
+        <template x-for="n in [1, 2, 3, 4, 5, 6]" x-bind:key="n">
+          <label class="category-swatch" x-bind:title="$t('devicemap.category.color', {n: n})"><input type="radio" x-bind:name="`${catKey}-color`" x-bind:value="'cat_' + n" x-model="cat.color" x-bind:disabled="catLocked" x-bind:aria-label="$t('devicemap.category.color', {n: n})"><span class="devicemap-cat-dot" x-bind:class="'cat-' + n"></span></label>
+        </template>
+      </div>
+    </div>
+    <div class="category-field" role="radiogroup" aria-label="{{t "devicemap.category.icon"}}">
+      <span class="category-field-label">{{t "devicemap.category.icon"}}</span>
+      <div class="category-icon-grid" x-bind:class="cat.color ? cat.color.replace('_', '-') : ''">
+        <template x-for="icon in iconCatalogue" x-bind:key="icon.name">
+          <label class="category-icon" x-bind:title="$t(icon.labelKey)"><input type="radio" x-bind:name="`${catKey}-icon`" x-bind:value="icon.name" x-model="cat.icon" x-bind:disabled="catLocked" x-bind:aria-label="$t(icon.labelKey)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="icon.markup"></svg></label>
+        </template>
+      </div>
+    </div>
+  </div>{{end}}
+{{define "devicemap-nav-arrow"}}<svg class="nav-row-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 17 17 7M9 7h8v8"/></svg>{{end}}
+{{/* Shared device picker (device-picker.js). Rendered inside the device map's
+     and the energy page's Alpine component, both mix in DevicePicker.mixin(). */}}
+{{define "device-picker"}}<dialog class="app-modal device-picker" x-ref="devicePicker" aria-labelledby="device-picker-title" x-on:close="closePicker(false)" x-on:click="if ($event.target === $el) closePicker(false)">
+    <template x-if="picker">
+      <form class="device-picker-form" x-on:submit.prevent="closePicker(true)">
+        <h2 class="app-modal-title" id="device-picker-title" x-text="picker.title"></h2>
+        <label class="device-picker-search">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></svg>
+          <input type="search" x-model="picker.query" placeholder="{{t "device_picker.search"}}" aria-label="{{t "device_picker.search"}}" autocomplete="off">
+        </label>
+        <div class="device-picker-list">
+          <template x-for="section in pickerSections()" x-bind:key="section.key">
+            <section class="device-picker-section">
+              <h3 class="devicemap-panel-eyebrow" x-text="section.label"></h3>
+              <template x-for="item in section.items" x-bind:key="item.id">
+                <label class="device-picker-item" x-bind:class="{ 'is-picked': isPicked(item.id) }">
+                  <input type="checkbox" x-bind:checked="isPicked(item.id)" x-on:change="togglePick(item.id)">
+                  <span class="device-picker-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" x-show="item.iconMarkup" x-html="item.iconMarkup"></svg>
+                    <svg viewBox="0 0 24 24" x-show="!item.iconMarkup"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg>
+                  </span>
+                  <span class="device-picker-name"><span x-text="item.name"></span><span class="device-picker-badge" x-show="item.memberOf" x-text="$t('device_picker.member_of', {group: item.memberOf})"></span></span>
+                  <span class="device-picker-value" x-text="item.valueText"></span>
+                  <svg class="device-picker-check" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>
+                </label>
+              </template>
+            </section>
+          </template>
+          <p class="device-picker-empty" x-show="!pickerSections().length">{{t "device_picker.empty"}}</p>
+        </div>
+        <div class="app-modal-actions">
+          <button type="button" x-on:click="closePicker(false)">{{t "common.cancel"}}</button>
+          <button type="submit" class="primary" x-bind:disabled="!picker.selected.length" x-text="pickerConfirmLabel()"></button>
+        </div>
+      </form>
+    </template>
+  </dialog>{{end}}
 {{define "devicemap"}}
 <section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" x-data="devicemapPanel()" x-init="load()" x-on:beforeunload.window="confirmUnsavedUnload($event)" x-on:keydown.escape.window="onEscape()">
   <h2>
@@ -12,16 +79,6 @@
   <div class="devicemap-stage">
     <div id="devicemap-canvas" class="devicemap-canvas" x-ref="canvas" aria-label="{{t "devicemap.canvas_aria"}}"></div>
     <div class="devicemap-labels" x-ref="labels" aria-hidden="true"></div>
-    <div class="devicemap-legend" x-cloak x-show="view.layers.energy || view.layers.data" aria-label="{{t "devicemap.legend.aria"}}">
-      <span x-show="view.layers.energy"><i style="border-color: var(--flow-pv)"></i>{{t "devicemap.legend.pv"}}</span>
-      <span x-show="view.layers.energy"><i style="border-color: var(--flow-battery)"></i>{{t "devicemap.legend.battery"}}</span>
-      <span x-show="view.layers.energy"><i style="border-color: var(--flow-load)"></i>{{t "devicemap.legend.load"}}</span>
-      <span x-show="view.layers.energy"><i style="border-color: var(--flow-rest)"></i>{{t "devicemap.legend.sum"}}</span>
-      <span x-show="view.layers.energy"><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.heuristic"}}</span>
-      <span x-show="view.layers.energy && Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
-      <span x-show="view.layers.energy && Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
-      <span x-show="view.layers.data"><i class="dashed" style="border-color: var(--info-line)"></i>{{t "devicemap.legend.data"}}</span>
-    </div>
     <div class="devicemap-popover" role="dialog" x-cloak x-show="popover" x-bind:data-open="popover && popover.open ? 'true' : 'false'"
          x-bind:style="popover ? `left: ${popover.left}px; top: ${popover.top}px; transform-origin: ${popover.origin}` : ''" x-bind:aria-label="popover ? popover.title : ''">
       <template x-if="popover">
@@ -48,79 +105,100 @@
               </ul>
             </div>
           </template>
-          <button type="button" class="devicemap-panel-link" x-show="popover.linkText" x-on:click="openFlowLink(popover.link)" x-text="popover.linkText"></button>
+          <button type="button" class="pill-button danger" x-show="popover.action" x-on:click="runPopoverAction()">
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg><span x-text="popover.action ? popover.action.label : ''"></span>
+          </button>
+          <button type="button" class="nav-row-button" x-show="popover.linkText" x-on:click="openFlowLink(popover.link)">
+            <span x-text="popover.linkText"></span>{{template "devicemap-nav-arrow"}}
+          </button>
         </div>
       </template>
     </div>
+    <div class="devicemap-focus-chip" role="status" x-bind:data-open="focusId ? 'true' : 'false'">
+      <span x-text="focusSummary()"></span>
+      <button class="devicemap-focus-clear" type="button" x-on:click="clearFocus()">{{t "devicemap.focus.clear"}}</button>
+    </div>
     <div class="devicemap-overlay">
-      <div class="toolbar devicemap-toolbar">
+      <div class="toolbar devicemap-toolbar" role="toolbar" aria-label="{{t "devicemap.toolbar_aria"}}">
         <button class="icon-button primary" id="devicemap-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-bind:title="saveButtonLabel()" x-bind:aria-label="saveButtonLabel()">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v5h6V4"/><rect x="8" y="14" width="8" height="6"/></svg>
         </button>
         <button class="icon-button" id="devicemap-discard" type="button" x-cloak x-show="unsaved" x-on:click="discardChanges()" x-bind:disabled="saving || loading" x-bind:title="$t('devicemap.discard_button')" x-bind:aria-label="$t('devicemap.discard_button')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         </button>
+        <span class="devicemap-toolbar-separator" aria-hidden="true"></span>
         <button class="icon-button" id="devicemap-connect-toggle" type="button" x-bind:class="{ active: connectMode }" x-bind:aria-pressed="connectMode" x-on:click="toggleConnectMode()" x-bind:disabled="loading" x-bind:title="connectMode ? $t('devicemap.connect_mode.on') : $t('devicemap.connect_mode.off')" x-bind:aria-label="connectMode ? $t('devicemap.connect_mode.on') : $t('devicemap.connect_mode.off')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
         </button>
         <button class="icon-button" id="devicemap-group-create" type="button" x-on:click="openGroupDialog()" x-bind:disabled="loading || !canEditEnergy" title="{{t "devicemap.group.create"}}" aria-label="{{t "devicemap.group.create"}}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
         </button>
-        <button class="icon-button" id="devicemap-snap-toggle" type="button" x-bind:class="{ active: view.snap_to_grid }" x-bind:aria-pressed="view.snap_to_grid" x-on:click="toggleSnapToGrid()" x-bind:disabled="loading" x-bind:title="view.snap_to_grid ? $t('devicemap.snap_to_grid.on') : $t('devicemap.snap_to_grid.off')" x-bind:aria-label="view.snap_to_grid ? $t('devicemap.snap_to_grid.on') : $t('devicemap.snap_to_grid.off')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h16"/><path d="M12 4v16"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg>
+        <span class="devicemap-toolbar-separator" aria-hidden="true"></span>
+        <div class="devicemap-layer-group" role="group" aria-label="{{t "devicemap.layers.group_aria"}}">
+        <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.wiring"}}" data-layer="wiring" x-bind:aria-pressed="view.layers.wiring" x-on:click="toggleLayer('wiring')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4v6h12v10M6 10v10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="devicemap-chip-text">{{t "devicemap.layer.wiring"}}</span>
         </button>
-        <button class="icon-button" id="devicemap-grid-toggle" type="button" x-bind:class="{ active: view.show_grid }" x-bind:aria-pressed="view.show_grid" x-on:click="toggleShowGrid()" x-bind:disabled="loading" x-bind:title="view.show_grid ? $t('devicemap.show_grid.on') : $t('devicemap.show_grid.off')" x-bind:aria-label="view.show_grid ? $t('devicemap.show_grid.on') : $t('devicemap.show_grid.off')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+        <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.energy"}}" data-layer="energy" x-bind:aria-pressed="view.layers.energy" x-on:click="toggleLayer('energy')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg><span class="devicemap-chip-text">{{t "devicemap.layer.energy"}}</span>
         </button>
-        <div class="devicemap-edge-style-group" role="group" x-bind:aria-label="$t('devicemap.edge_style_group_aria')">
-          <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'straight' }" x-bind:aria-pressed="view.edge_style === 'straight'" x-on:click="setEdgeStyle('straight')" x-bind:title="$t('devicemap.edge_style.straight')" x-bind:aria-label="$t('devicemap.edge_style.straight')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19L19 5"/></svg>
+        <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.balance"}}" data-layer="balance" x-bind:aria-pressed="view.layers.balance" x-on:click="toggleLayer('balance')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g></svg><span class="devicemap-chip-text">{{t "devicemap.layer.balance"}}</span>
+        </button>
+        <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.data"}}" data-layer="data" x-bind:aria-pressed="view.layers.data" x-on:click="toggleLayer('data')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="devicemap-chip-text">{{t "devicemap.layer.data"}}</span>
+        </button>
+        </div>
+        <span class="devicemap-toolbar-separator" aria-hidden="true"></span>
+        <div class="devicemap-view-menu-anchor" x-on:click.outside="viewMenuOpen = false">
+          <button class="icon-button" id="devicemap-view-menu-toggle" type="button" x-bind:class="{ active: viewMenuOpen }" x-bind:aria-expanded="viewMenuOpen" aria-controls="devicemap-view-menu" x-on:click="toggleViewMenu()" x-bind:disabled="loading" title="{{t "devicemap.view_menu.button"}}" aria-label="{{t "devicemap.view_menu.button"}}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg>
           </button>
-          <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'elbow' }" x-bind:aria-pressed="view.edge_style === 'elbow'" x-on:click="setEdgeStyle('elbow')" x-bind:title="$t('devicemap.edge_style.elbow')" x-bind:aria-label="$t('devicemap.edge_style.elbow')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19h9v-9h5"/></svg>
-          </button>
-          <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'curved' }" x-bind:aria-pressed="view.edge_style === 'curved'" x-on:click="setEdgeStyle('curved')" x-bind:title="$t('devicemap.edge_style.curved')" x-bind:aria-label="$t('devicemap.edge_style.curved')">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19C5 10 10 5 19 5"/></svg>
-          </button>
+          <div class="devicemap-view-menu" id="devicemap-view-menu" role="dialog" aria-label="{{t "devicemap.view_menu.title"}}" x-bind:data-open="viewMenuOpen ? 'true' : 'false'">
+            <span class="devicemap-panel-eyebrow">{{t "devicemap.view_menu.title"}}</span>
+            <label class="devicemap-view-menu-row" for="devicemap-grid-toggle"><span class="devicemap-view-menu-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>{{t "devicemap.view_menu.grid"}}</span>
+              <span class="settings-toggle"><input id="devicemap-grid-toggle" type="checkbox" role="switch" x-bind:checked="view.show_grid" x-on:change="toggleShowGrid()" x-bind:disabled="loading"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+            </label>
+            <label class="devicemap-view-menu-row" for="devicemap-snap-toggle"><span class="devicemap-view-menu-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h16"/><path d="M12 4v16"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg>{{t "devicemap.view_menu.snap"}}</span>
+              <span class="settings-toggle"><input id="devicemap-snap-toggle" type="checkbox" role="switch" x-bind:checked="view.snap_to_grid" x-on:change="toggleSnapToGrid()" x-bind:disabled="loading"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+            </label>
+            <label class="devicemap-view-menu-row" for="devicemap-width-toggle"><span class="devicemap-view-menu-label">{{t "devicemap.width_by_power"}}</span>
+              <span class="settings-toggle"><input id="devicemap-width-toggle" type="checkbox" role="switch" x-bind:checked="view.width_by_power" x-on:change="toggleWidthByPower()" x-bind:disabled="loading || !view.layers.energy"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+            </label>
+            <div class="devicemap-view-menu-row"><span class="devicemap-view-menu-label">{{t "devicemap.view_menu.edges"}}</span>
+              <div class="devicemap-edge-style-group" role="group" x-bind:aria-label="$t('devicemap.edge_style_group_aria')">
+                <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'straight' }" x-bind:aria-pressed="view.edge_style === 'straight'" x-on:click="setEdgeStyle('straight')" x-bind:title="$t('devicemap.edge_style.straight')" x-bind:aria-label="$t('devicemap.edge_style.straight')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19L19 5"/></svg>
+                </button>
+                <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'elbow' }" x-bind:aria-pressed="view.edge_style === 'elbow'" x-on:click="setEdgeStyle('elbow')" x-bind:title="$t('devicemap.edge_style.elbow')" x-bind:aria-label="$t('devicemap.edge_style.elbow')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19h9v-9h5"/></svg>
+                </button>
+                <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'curved' }" x-bind:aria-pressed="view.edge_style === 'curved'" x-on:click="setEdgeStyle('curved')" x-bind:title="$t('devicemap.edge_style.curved')" x-bind:aria-label="$t('devicemap.edge_style.curved')">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 19C5 10 10 5 19 5"/></svg>
+                </button>
+              </div>
+            </div>
+            <div class="devicemap-view-menu-legend" x-show="view.layers.energy || view.layers.data" aria-label="{{t "devicemap.legend.aria"}}">
+              <span class="devicemap-panel-eyebrow">{{t "devicemap.view_menu.legend"}}</span>
+              <div class="devicemap-legend">
+                <span x-show="view.layers.energy"><i style="border-color: var(--flow-pv)"></i>{{t "devicemap.legend.pv"}}</span>
+                <span x-show="view.layers.energy"><i style="border-color: var(--flow-battery)"></i>{{t "devicemap.legend.battery"}}</span>
+                <span x-show="view.layers.energy"><i style="border-color: var(--flow-load)"></i>{{t "devicemap.legend.load"}}</span>
+                <span x-show="view.layers.energy"><i style="border-color: var(--flow-rest)"></i>{{t "devicemap.legend.sum"}}</span>
+                <span x-show="view.layers.energy"><i class="dashed" style="border-color: var(--warn-line)"></i>{{t "devicemap.legend.heuristic"}}</span>
+                <span x-show="view.layers.energy && Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
+                <span x-show="view.layers.energy && Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
+                <span x-show="view.layers.data"><i class="dashed" style="border-color: var(--info-line)"></i>{{t "devicemap.legend.data"}}</span>
+              </div>
+            </div>
+          </div>
         </div>
         <span class="devicemap-unsaved-badge" role="status" x-cloak x-show="unsaved">{{t "devicemap.unsaved_badge"}}</span>
-      </div>
-      <div class="toolbar devicemap-layer-toolbar" role="toolbar" aria-label="{{t "devicemap.layers.group_aria"}}">
-        <span class="devicemap-layer-label" aria-hidden="true">{{t "devicemap.layers.label"}}</span>
-        <button class="devicemap-layer-button" type="button" data-layer="wiring" x-bind:aria-pressed="view.layers.wiring" x-on:click="toggleLayer('wiring')" x-bind:disabled="loading">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M6 4v6h12v10M6 10v10" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>{{t "devicemap.layer.wiring"}}
-        </button>
-        <button class="devicemap-layer-button" type="button" data-layer="energy" x-bind:aria-pressed="view.layers.energy" x-on:click="toggleLayer('energy')" x-bind:disabled="loading">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg>{{t "devicemap.layer.energy"}}
-        </button>
-        <button class="devicemap-layer-button" type="button" data-layer="balance" x-bind:aria-pressed="view.layers.balance" x-on:click="toggleLayer('balance')" x-bind:disabled="loading">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g></svg>{{t "devicemap.layer.balance"}}
-        </button>
-        <button class="devicemap-layer-button" type="button" data-layer="data" x-bind:aria-pressed="view.layers.data" x-on:click="toggleLayer('data')" x-bind:disabled="loading">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>{{t "devicemap.layer.data"}}
-        </button>
-        <span class="devicemap-layer-separator" aria-hidden="true"></span>
-        <button class="devicemap-layer-button" type="button" x-bind:aria-pressed="view.width_by_power" x-on:click="toggleWidthByPower()" x-bind:disabled="loading || !view.layers.energy">{{t "devicemap.width_by_power"}}</button>
-      </div>
-      <div class="devicemap-focus-chip" role="status" x-bind:data-open="focusId ? 'true' : 'false'">
-        <span x-text="focusSummary()"></span>
-        <button class="devicemap-focus-clear" type="button" x-on:click="clearFocus()">{{t "devicemap.focus.clear"}}</button>
       </div>
       <p class="devicemap-energy-hint" x-cloak x-show="energyUnavailable">{{t "devicemap.energy_unavailable"}}</p>
       <p class="devicemap-energy-hint" x-cloak x-show="flowsUnavailable && (view.layers.data || view.layers.balance)">{{t "devicemap.dataflow_unavailable"}}</p>
       <p class="devicemap-energy-hint" x-cloak x-show="!flowsUnavailable && view.layers.data && invalidConfigs > 0" x-text="$tn('devicemap.dataflow_invalid', invalidConfigs, {n: invalidConfigs})"></p>
       <p class="devicemap-connect-hint" x-cloak x-show="connectMode" x-text="connectHintText()"></p>
       <p class="devicemap-placed-hint" x-cloak x-show="placedCount > 0" x-text="placedHintText()"></p>
-      <div class="toolbar devicemap-edge-toolbar" x-cloak x-show="selectedEdge">
-        <span class="devicemap-edge-label" x-text="selectedEdgeLabel"></span>
-        <button class="icon-button danger" type="button" x-show="selectedEdge && (selectedEdge.overrideId || selectedEdge.membership)" x-on:click="removeSelectedRelation()" x-bind:title="$t('devicemap.disconnect_button')" x-bind:aria-label="$t('devicemap.disconnect_button')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
-        </button>
-        <span class="devicemap-edge-readonly-hint" x-cloak x-show="selectedEdge && !selectedEdge.overrideId && !selectedEdge.membership">{{t "devicemap.edge_readonly_hint"}}</span>
-        <button class="icon-button" type="button" x-on:click="clearEdgeSelection()" x-bind:title="$t('devicemap.clear_selection_button')" x-bind:aria-label="$t('devicemap.clear_selection_button')">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 9l6 6M15 9l-6 6"/></svg>
-        </button>
-      </div>
     </div>
     <aside class="devicemap-panel" x-bind:data-open="panelView ? 'true' : 'false'" aria-labelledby="devicemap-panel-title" x-bind:aria-hidden="panelView ? 'false' : 'true'">
       <template x-if="panelView && panelView.kind === 'device'">
@@ -162,7 +240,9 @@
                 <div class="devicemap-panel-source">
                   <span class="devicemap-panel-chip" x-bind:data-source="row.source" x-text="$t(`devicemap.panel.source.${row.source}`)"></span>
                   <span x-show="row.source !== 'none'" x-text="$t(`devicemap.panel.source_hint.${row.source}`)"></span>
-                  <button type="button" class="devicemap-panel-link" x-show="row.canPin && canEditEnergy" x-on:click="pinAssignment(row.id)">{{t "devicemap.panel.pin"}}</button>
+                  <button type="button" class="pill-button" x-show="row.canPin && canEditEnergy" x-on:click="pinAssignment(row.id)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg>{{t "devicemap.panel.pin"}}
+                  </button>
                 </div>
                 <label class="devicemap-panel-field" x-show="row.assignment.role === 'battery_soc'">{{t "devicemap.panel.capacity"}}
                   <input type="number" min="0" step="0.5" x-bind:value="row.assignment.capacity_kwh" x-on:change="setDraft(row.id, 'capacity_kwh', $event.target.value)" x-bind:disabled="!canEditEnergy">
@@ -188,7 +268,7 @@
                 <div class="devicemap-panel-other-row"><span x-text="flow.title"></span><span x-text="flow.text"></span></div>
               </template>
             </div>
-            <button type="button" class="devicemap-panel-link" x-show="panelView.rows.length" x-on:click="showInRoleTable()">{{t "devicemap.panel.show_in_table"}}</button>
+            <button type="button" class="nav-row-button" x-show="panelView.rows.length" x-on:click="showInRoleTable()"><span>{{t "devicemap.panel.show_in_table"}}</span>{{template "devicemap-nav-arrow"}}</button>
           </div>
           <footer x-show="canEditEnergy">
             <span class="devicemap-panel-status" role="status" x-text="panelStatusText()"></span>
@@ -211,42 +291,39 @@
           </header>
           <div class="devicemap-panel-body">
             <div class="devicemap-panel-entity">
-              <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name">{{t "devicemap.group.sum"}}</span><span class="devicemap-panel-entity-value" x-text="panelView.sumText"></span></div>
-              <div class="devicemap-panel-entity-id">{{t "devicemap.group.sum_hint"}}</div>
+              <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name">{{t "devicemap.group.sum"}}<span class="field-help devicemap-help"><button class="field-help-trigger" type="button" aria-label="{{t "devicemap.group.sum_help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "devicemap.group.sum_hint"}}</span></span></span><span class="devicemap-panel-entity-value" x-text="panelView.sumText"></span></div>
             </div>
             <div class="devicemap-panel-entity">
-              <span class="devicemap-panel-eyebrow">{{t "devicemap.group.members"}}</span>
+              <span class="devicemap-panel-eyebrow devicemap-panel-eyebrow-help">{{t "devicemap.group.members"}}<span class="field-help devicemap-help" x-show="canEditEnergy"><button class="field-help-trigger" type="button" aria-label="{{t "devicemap.group.add_member_help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "devicemap.group.add_member_hint"}}</span></span></span>
+              <p class="devicemap-panel-empty-inline" x-show="!panelView.members.length">{{t "devicemap.group.no_members"}}</p>
               <template x-for="member in panelView.members" x-bind:key="member.id">
                 <div class="devicemap-panel-member"><span x-text="member.name"></span><span x-text="member.valueText"></span><button type="button" class="icon-button" x-show="canEditEnergy" x-on:click="removeGroupMember(member.id)" x-bind:aria-label="$t('devicemap.group.remove_member', {name: member.name})" x-bind:title="$t('devicemap.group.remove_member', {name: member.name})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
               </template>
-              <label class="devicemap-panel-field" x-show="canEditEnergy">{{t "devicemap.group.add_member"}}
-                <select x-on:change="addGroupMember($event.target.value); $event.target.value = ''">
-                  <option value="">{{t "devicemap.group.add_member_placeholder"}}</option>
-                  <template x-for="device in panelView.addable" x-bind:key="device.id">
-                    <option x-bind:value="device.id" x-text="device.name"></option>
-                  </template>
-                </select>
-              </label>
-              <div class="devicemap-panel-entity-id" x-show="canEditEnergy">{{t "devicemap.group.add_member_hint"}}</div>
+              <button type="button" class="pill-button" x-show="canEditEnergy" x-on:click="addGroupMembers()">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.add_members"}}
+              </button>
             </div>
             <div class="devicemap-panel-entity">
-              <label class="devicemap-panel-field">{{t "devicemap.group.role"}}
-                <select x-bind:disabled="!canEditEnergy" x-on:change="setGroupDraft('role', $event.target.value)">
+              <div class="devicemap-panel-field"><span class="devicemap-panel-field-label"><label for="devicemap-group-role">{{t "devicemap.group.role"}}</label><span class="field-help devicemap-help"><button class="field-help-trigger" type="button" aria-label="{{t "devicemap.group.role_help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "devicemap.group.role_hint"}}</span></span></span>
+                <select id="devicemap-group-role" x-bind:disabled="!canEditEnergy" x-on:change="setGroupDraft('role', $event.target.value)">
                   <template x-for="option in panelView.roleOptions" x-bind:key="option.value">
                     <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === panelView.role"></option>
                   </template>
                 </select>
-              </label>
-              <div class="devicemap-panel-entity-id">{{t "devicemap.group.role_hint"}}</div>
+              </div>
             </div>
             <div class="devicemap-panel-others">
               <span class="devicemap-panel-eyebrow">{{t "devicemap.group.categories"}}</span>
               <template x-for="cat in panelView.categories" x-bind:key="cat.id">
                 <div class="devicemap-panel-category"><span class="devicemap-cat-dot" x-bind:class="cat.color.replace('_', '-')"></span><span x-text="cat.label"></span><span class="muted" x-text="$t('devicemap.group.category_base', {base: $t(`devicemap.category.base.${cat.base}`)})"></span></div>
               </template>
-              <button type="button" class="devicemap-panel-link" x-show="canEditEnergy" x-on:click="openCategoryDialog()">{{t "devicemap.group.category_create"}}</button>
+              <button type="button" class="pill-button" x-show="canEditEnergy" x-on:click="openCategoryDialog()">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.category_create"}}
+              </button>
             </div>
-            <button type="button" class="devicemap-panel-link danger" x-show="canEditEnergy" x-on:click="deleteGroup()">{{t "devicemap.group.delete"}}</button>
+            <button type="button" class="pill-button danger" x-show="canEditEnergy" x-on:click="deleteGroup()">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>{{t "devicemap.group.delete"}}
+            </button>
           </div>
           <footer x-show="canEditEnergy">
             <button type="button" x-on:click="discardPanel()" x-bind:disabled="!panelDirty() || panelSaving">{{t "devicemap.panel.discard"}}</button>
@@ -266,35 +343,18 @@
       </div>
     </form>
   </dialog>
-  <dialog class="app-modal" x-ref="categoryDialog" aria-labelledby="devicemap-category-dialog-title">
+  <dialog class="app-modal category-dialog" x-ref="categoryDialog" aria-labelledby="devicemap-category-dialog-title">
     <form x-on:submit.prevent="createCategory()">
       <h2 class="app-modal-title" id="devicemap-category-dialog-title">{{t "devicemap.category.title"}}</h2>
       <label class="devicemap-panel-field">{{t "devicemap.category.name"}}<input type="text" required maxlength="40" x-model="categoryForm.label"></label>
-      <fieldset class="devicemap-panel-field">
-        <legend>{{t "devicemap.category.base_label"}}</legend>
-        <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-base" value="consumer" x-model="categoryForm.base"> {{t "devicemap.category.base.consumer"}}</label>
-        <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-base" value="producer" x-model="categoryForm.base"> {{t "devicemap.category.base.producer"}}</label>
-        <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-base" value="storage" x-model="categoryForm.base"> {{t "devicemap.category.base.storage"}}</label>
-      </fieldset>
-      <fieldset class="devicemap-panel-field">
-        <legend>{{t "devicemap.category.color_label"}}</legend>
-        <template x-for="n in [1, 2, 3, 4, 5, 6]" x-bind:key="n">
-          <label class="devicemap-panel-check"><input type="radio" name="devicemap-category-color" x-bind:value="'cat_' + n" x-model="categoryForm.color" x-bind:aria-label="$t('devicemap.category.color', {n: n})"><span class="devicemap-cat-dot" x-bind:class="'cat-' + n"></span></label>
-        </template>
-      </fieldset>
-      <label class="devicemap-panel-field">{{t "devicemap.category.icon"}}
-        <select x-model="categoryForm.icon">
-          <template x-for="icon in iconCatalogue" x-bind:key="icon.name">
-            <option x-bind:value="icon.name" x-text="$t(icon.labelKey)"></option>
-          </template>
-        </select>
-      </label>
+      <div x-data="{ get cat() { return categoryForm }, catKey: 'devicemap-category', catLocked: false }">{{template "category-fields"}}</div>
       <div class="app-modal-actions">
         <button type="button" x-on:click="$refs.categoryDialog.close()">{{t "common.cancel"}}</button>
         <button type="submit" class="primary">{{t "devicemap.category.create_confirm"}}</button>
       </div>
     </form>
   </dialog>
+  {{template "device-picker"}}
   {{template "revisions" .}}
 </section>
 {{end}}
