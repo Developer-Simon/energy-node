@@ -63,6 +63,17 @@ test('rangeLabel zeigt bei festem Bereich beide Zeitpunkte', () => {
   dom.window.close();
 });
 
+test('loadRows names custom category series after their label', async () => {
+  const {dom, chart} = load();
+  assert.equal(chart.seriesLabel('role:custom:consumer:werkstatt'), 'role:custom:consumer:werkstatt');
+  dom.window.fetch = async () => ({ok: true, json: async () => ({categories: {werkstatt: {base: 'consumer', label: 'Werkstatt'}}})});
+  const now = Date.now();
+  await chart.loadRows({from: now - 6 * HOUR, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
+  assert.equal(chart.seriesLabel('role:custom:consumer:werkstatt'), 'Werkstatt');
+  assert.equal(chart.seriesLabel('role:custom:consumer:unbekannt'), 'role:custom:consumer:unbekannt');
+  dom.window.close();
+});
+
 test('loadRows waehlt die Rohstufe und leitet den Hausverbrauch ab', async () => {
   const {dom, chart} = load();
   const ts = Date.now() - HOUR;

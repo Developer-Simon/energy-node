@@ -614,7 +614,7 @@ var energyCardScripts = map[string][]string{
 	"energy_schema":  {"/static/js/energy-schema.js?v=1"},
 	"energy_status":  {"/static/js/energy-status.js?v=1"},
 	"battery_status": {"/static/js/battery-status.js?v=2"},
-	"history_view":   {"/static/js-deps/apexcharts.min.js", "/static/js/history-chart.js?v=1", "/static/js/history-view-card.js?v=1"},
+	"history_view":   {"/static/js-deps/apexcharts.min.js", "/static/js/history-chart.js?v=2", "/static/js/history-view-card.js?v=1"},
 }
 
 // requiredEnergyCardScripts liefert die Skripte aller sichtbaren Karten
