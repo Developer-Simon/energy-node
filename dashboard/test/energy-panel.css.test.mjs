@@ -27,3 +27,8 @@ test('die Hausverbrauch-Kacheln stehen 2x2, solange die Erklaerung in eine Zeile
 test('Toleranz- und Statuskarten-Schwellen flieszen kompakt in eine Zeile', () => {
   assert.match(css, /\.energy-interpretation-group\.is-compact/);
 });
+
+test('the plant stage keeps a minimum width and scrolls sideways', () => {
+  assert.match(css, /\.energy-plant-scroll\s*\{[^}]*overflow-x:\s*auto/);
+  assert.match(css, /\.energy-plant-stage\s*\{[^}]*min-width:\s*680px/);
+});
