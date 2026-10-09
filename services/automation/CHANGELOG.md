@@ -9,8 +9,8 @@
 - **automation:** weekdays in the editor and a sun_window condition (#63) (b32936a)
 - **dashboard:** localize the system configuration form (#72) (c716d05)
 - **dashboard:** localize the device configuration forms (#73) (180110d)
+- **dashboard:** data flow and balance layers on the device map (#109) (bbe604b)
 - **services:** declare data flow of topic fields with x-dataflow (dfa0420)
-- **dashboard:** data flow and balance layers on the device map (#109)
 
 ### Documentation
 

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.16 (2026-10-09)
+## v0.8.17 (2026-10-09)
 
 ### Features
 
@@ -14,6 +14,10 @@
 - **dashboard:** live energy flow on the device map (#105) (2873ccd)
 - **dashboard:** edit energy roles on the device map (#107) (0f1a4dc)
 - **dashboard:** energy groups and custom categories (#108) (3facc40)
+- **dashboard:** data flow and balance layers on the device map (#109) (bbe604b)
+- **dashboard:** add the read-only plant view component (0871c27)
+- **dashboard:** show the live plant view on the energy tab (689053c)
+- **dashboard:** live plant view on the energy tab (#110)
 - **services:** declare data flow of topic fields with x-dataflow (dfa0420)
 - **dashboard:** expose template json key and active schema properties (f3b96ff)
 - **dashboard:** add dataflow package with topic index (b20f0ab)
@@ -28,7 +32,6 @@
 - **dashboard:** add data flow texts to the catalogs (ebe2dc3)
 - **dashboard:** open configuration entries and rules from the device map (f6f9b45)
 - **dashboard:** add data flow popover, panel section and legend to the device map (9a5cb31)
-- **dashboard:** data flow and balance layers on the device map (#109)
 - **dashboard:** add energy categories and groups to the energy model (a66ef13)
 - **dashboard:** aggregate custom categories and energy groups (9080adc)
 - **dashboard:** balance custom categories by their base in Go and JS (7df230b)
@@ -90,6 +93,7 @@
 
 ### Refactors
 
+- **dashboard:** share the device map flow animator (2b32891)
 - **dashboard:** move device map graph building into devicemap-graph.js (d34895a)
 - **dashboard:** move automation description helpers into automations-view.js (2af6a5a)
 - **dashboard:** wire history.js to use the shared chart module (b7a2f0d)
@@ -98,6 +102,7 @@
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
+- **dashboard:** describe the plant view on the energy tab (ccc8f3e)
 - **dashboard:** describe the balance and data flow layers (082591c)
 - **dashboard:** describe the device map role panel (9817599)
 - **dashboard:** describe the history tile and bump its cache busting (06a1194)
