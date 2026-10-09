@@ -4,7 +4,7 @@
 {{define "category-fields"}}<div class="category-fields">
     <div class="category-field" role="radiogroup" aria-label="{{t "devicemap.category.base_label"}}">
       <span class="category-field-label">{{t "devicemap.category.base_label"}}</span>
-      <div class="segmented">
+      <div class="category-segmented">
         <label><input type="radio" x-bind:name="`${catKey}-base`" value="consumer" x-model="cat.base" x-bind:disabled="catLocked"><span>{{t "devicemap.category.base.consumer"}}</span></label>
         <label><input type="radio" x-bind:name="`${catKey}-base`" value="producer" x-model="cat.base" x-bind:disabled="catLocked"><span>{{t "devicemap.category.base.producer"}}</span></label>
         <label><input type="radio" x-bind:name="`${catKey}-base`" value="storage" x-model="cat.base" x-bind:disabled="catLocked"><span>{{t "devicemap.category.base.storage"}}</span></label>

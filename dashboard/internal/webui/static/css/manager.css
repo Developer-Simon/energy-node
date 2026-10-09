@@ -1111,13 +1111,13 @@ div.devicemap-view-menu-row { cursor: default; }
 .category-fields { display: grid; gap: .9rem; min-width: 0; }
 .category-field { display: grid; gap: .4rem; min-width: 0; }
 .category-field-label { font-size: .78rem; font-weight: 600; color: var(--text-muted); }
-.segmented { display: inline-flex; width: fit-content; max-width: 100%; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--border-soft); }
-.segmented label { position: relative; cursor: pointer; }
-.segmented input { position: absolute; opacity: 0; pointer-events: none; }
-.segmented span { display: block; padding: .35rem .8rem; border-radius: 7px; font-size: .84rem; color: var(--text-muted); transition: background-color 150ms ease, color 150ms ease; }
-.segmented input:checked + span { background: var(--panel-alt); color: var(--text-strong); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
-.segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
-.segmented input:disabled + span { cursor: not-allowed; opacity: .6; }
+.category-segmented { display: inline-flex; width: fit-content; max-width: 100%; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--sunken); border: 1px solid var(--border-soft); }
+.category-segmented label { position: relative; cursor: pointer; }
+.category-segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.category-segmented span { display: block; padding: .35rem .8rem; border-radius: 7px; font-size: .84rem; color: var(--text-muted); transition: background-color 150ms ease, color 150ms ease; }
+.category-segmented input:checked + span { background: var(--panel-alt); color: var(--text-strong); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+.category-segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.category-segmented input:disabled + span { cursor: not-allowed; opacity: .6; }
 .category-swatches { display: flex; flex-wrap: wrap; gap: .5rem; }
 .category-swatch { position: relative; display: inline-grid; place-items: center; cursor: pointer; }
 .category-swatch input { position: absolute; opacity: 0; pointer-events: none; }
