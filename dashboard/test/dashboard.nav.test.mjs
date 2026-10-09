@@ -188,3 +188,24 @@ test('dashboard-open-panel switches the tab and asks the energy page to focus ro
   assert.deepEqual(JSON.parse(JSON.stringify(window.__energyFocusRequest__)), ['a']);
   assert.deepEqual(focused, [['a']]);
 });
+
+test('dashboard-open-panel forwards config and automation focus requests', async () => {
+  const { component, window } = createShell();
+  component.loadPanel = () => {};
+  component.init();
+  const seen = [];
+  window.addEventListener('config-focus-item', event => seen.push(['config', event.detail]));
+  window.addEventListener('automation-focus-rule', event => seen.push(['automation', event.detail]));
+
+  window.dispatchEvent(new window.CustomEvent('dashboard-open-panel', { detail: { panel: 'config-panel', configFocus: { config: 'battery_soc_devices', item: 'bank' } } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.activePanel, 'config-panel');
+  assert.deepEqual(JSON.parse(JSON.stringify(window.__configFocusRequest__)), { config: 'battery_soc_devices', item: 'bank' });
+  assert.deepEqual(JSON.parse(JSON.stringify(seen)), [['config', { config: 'battery_soc_devices', item: 'bank' }]]);
+
+  window.dispatchEvent(new window.CustomEvent('dashboard-open-panel', { detail: { panel: 'automations-panel', automationFocus: 'r 1' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.activePanel, 'automations-panel');
+  assert.equal(window.__automationFocusRequest__, 'r 1');
+  assert.deepEqual(JSON.parse(JSON.stringify(seen.at(-1))), ['automation', { id: 'r 1' }]);
+});

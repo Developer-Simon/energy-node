@@ -239,8 +239,12 @@
       window.addEventListener('dashboard-open-panel', async event => {
         const detail = event.detail || {};
         if (detail.energyFocus) window.__energyFocusRequest__ = detail.energyFocus;
+        if (detail.configFocus) window.__configFocusRequest__ = detail.configFocus;
+        if (detail.automationFocus) window.__automationFocusRequest__ = detail.automationFocus;
         await this.setActivePanel(detail.panel);
         if (detail.energyFocus) window.dispatchEvent(new CustomEvent('energy-focus-rows', {detail: {ids: detail.energyFocus}}));
+        if (detail.configFocus) window.dispatchEvent(new CustomEvent('config-focus-item', {detail: detail.configFocus}));
+        if (detail.automationFocus) window.dispatchEvent(new CustomEvent('automation-focus-rule', {detail: {id: detail.automationFocus}}));
       });
 
       // Die Huelle muss auch ohne EventSource erreichbar sein (der Waechter

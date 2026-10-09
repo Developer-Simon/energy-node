@@ -184,6 +184,28 @@
       this.actionsCompact = false;
     },
 
+    // Die Device Map verweist auf einen Eintrag: Konfiguration waehlen, zum
+    // Eintrag mit dieser ID scrollen und ihn kurz hervorheben.
+    async focusItem({config, item}) {
+      window.__configFocusRequest__ = null;
+      if (config && config !== this.selectedName && this.configs.some(entry => entry.name === config)) {
+        this.selectedName = config;
+        await this.loadConfig();
+      }
+      if (!item) return;
+      await this.$nextTick?.();
+      const match = [...document.querySelectorAll('#config-panel .schema-object')].find(node => {
+        const control = node.querySelector(':scope > [data-schema-key="id"] input, [data-schema-key="id"] input');
+        return control && control.value === item;
+      });
+      if (!match) return;
+      // Ein eingeklappter Eintrag (optionale Felder) wuerde den Treffer verbergen.
+      match.closest('details')?.setAttribute('open', '');
+      match.scrollIntoView({behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+      match.classList.add('is-flash');
+      setTimeout(() => match.classList.remove('is-flash'), 1600);
+    },
+
     async load() {
       this.loading = true;
       try {
@@ -206,6 +228,12 @@
         this.reloadFailed = Boolean(selected && selected.reload_failed);
         this.reloadError = (selected && selected.reload_error) || '';
         await this.loadConfig();
+        if (window.__configFocusRequest__) await this.focusItem(window.__configFocusRequest__);
+        // dashboard.js schickt die Anfrage auch dann, wenn die Seite schon offen ist.
+        if (!this._focusListener) {
+          this._focusListener = true;
+          window.addEventListener('config-focus-item', event => this.focusItem(event.detail || {}));
+        }
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {

@@ -41,6 +41,7 @@
     online: false,
     csrfToken: '',
     expanded: {},
+    flashRule: '',
     liveHistory: {},
     historyExpanded: {},
     editing: {},
@@ -90,6 +91,12 @@
           this.document.settings.publish_allowed_prefixes = [];
         }
         this.savedDocument = JSON.parse(JSON.stringify(this.document));
+        if (window.__automationFocusRequest__) this.focusRule(window.__automationFocusRequest__);
+        // dashboard.js schickt die Anfrage auch dann, wenn die Seite schon offen ist.
+        if (!this._focusRuleListener) {
+          this._focusRuleListener = true;
+          window.addEventListener('automation-focus-rule', event => this.focusRule(event.detail && event.detail.id));
+        }
         this.csrfToken = (session && session.csrf_token) || '';
         // "automations" liefert der Sitzungsendpunkt seit Task 3; ohne die
         // Rolle werden die Test-Knoepfe gar nicht erst angeboten.
@@ -411,6 +418,21 @@
     startEditing(rule) { this.editing[rule.id] = true; this.expanded[rule.id] = true; },
     stopEditing(rule) { this.editing[rule.id] = false; },
     toggleExpanded(rule) { this.expanded[rule.id] = !this.expanded[rule.id]; },
+
+    // Die Device Map verweist auf eine Regel: aufklappen, zur Regel scrollen
+    // und sie kurz hervorheben.
+    focusRule(ruleId) {
+      window.__automationFocusRequest__ = null;
+      if (!ruleId) return;
+      this.expanded[ruleId] = true;
+      this.flashRule = ruleId;
+      setTimeout(() => { if (this.flashRule === ruleId) this.flashRule = ''; }, 1600);
+      const scroll = () => {
+        const node = document.querySelector(`[data-rule-id="${CSS.escape(ruleId)}"]`);
+        if (node) node.scrollIntoView({behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start'});
+      };
+      if (this.$nextTick) this.$nextTick(scroll); else scroll();
+    },
 
     testState(rule, index) {
       const preview = this.actionPreview(rule, index);

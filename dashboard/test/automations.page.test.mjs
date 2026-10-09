@@ -1393,3 +1393,13 @@ test('client-side validation verlangt ganze Minuten im Sonnenversatz', () => {
   rule.conditions[0].from_offset_min = -30;
   assert.equal(component.validateRuleBeforeSave(rule).length, 0);
 });
+
+test('focusRule expands the rule and marks it for the flash', () => {
+  const { component, window } = createAutomationsPanel();
+  // jsdom kennt CSS.escape nicht; focusRule braucht es nur fuers Suchen des Knotens.
+  window.CSS = { escape: value => value };
+  component.document = { version: 1, settings: {}, rules: [{ id: 'r 1', name: 'A', enabled: false, cooldown_seconds: 30, conditions: [], actions: [] }] };
+  component.focusRule('r 1');
+  assert.equal(component.expanded['r 1'], true);
+  assert.equal(component.flashRule, 'r 1');
+});
