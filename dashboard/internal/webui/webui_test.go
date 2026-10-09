@@ -339,21 +339,20 @@ func TestEnergyPanelConsolidatesSaveIntoStickyBar(t *testing.T) {
 	}
 }
 
-// The rarely-touched interpretation block collapses so a long role list stays
-// reachable; the conditional warnings are hoisted out so collapsing never
-// hides one.
+// The settings sit in an accordion, so a long role list stays reachable; the
+// conditional warnings are hoisted out so collapsing never hides one.
 func TestEnergyPanelHoistsNoticesAboveCollapsibleInterpretation(t *testing.T) {
 	body := renderEnergyPanel(t)
 	notices := strings.Index(body, `class="energy-notices"`)
-	interpretation := strings.Index(body, `<details class="energy-interpretation"`)
+	interpretation := strings.Index(body, `data-energy-section="interpretation"`)
 	if notices < 0 {
 		t.Fatalf("energy panel is missing the hoisted notices strip: %s", body)
 	}
 	if interpretation < 0 {
-		t.Fatalf("interpretation block is not a collapsible <details>: %s", body)
+		t.Fatalf("interpretation is not an accordion section: %s", body)
 	}
 	if notices > interpretation {
-		t.Fatal("notices strip must render before the collapsible interpretation block")
+		t.Fatal("notices strip must render before the collapsible accordion")
 	}
 }
 

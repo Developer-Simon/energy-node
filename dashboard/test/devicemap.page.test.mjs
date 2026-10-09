@@ -1514,3 +1514,28 @@ test('cancelling the picker changes nothing', async () => {
   assert.equal(calls.length, 0);
   assert.equal(component.picker, null);
 });
+
+test('the group switch "count as a whole" drafts the first consumer category', async () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.savedCategories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_2', icon: 'mdi:home'}};
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  assert.equal(component.groupCountsWhole(), false);
+  component.setGroupWhole(true);
+  assert.equal(component.panelView.role, 'custom:werkstatt');
+  assert.equal(component.panelView.roleOptions[1].color, 'cat_2');
+  component.setGroupWhole(false);
+  assert.equal(component.panelView.role, '');
+  assert.equal(component.groupDraft, null, 'back to the saved state, nothing left to save');
+});
+
+test('a category created from the group panel becomes the role draft', async () => {
+  const fetchImpl = async (url, options = {}) => ({ok: true, status: 200, json: async () => ({assignments: {}, groups: {garage: {label: 'Garage', members: {devices: ['wb'], groups: []}}}, categories: JSON.parse(options.body || '{}').categories || {}})});
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  component.openCategoryDialog(true);
+  component.categoryForm.label = 'Werkstatt';
+  await component.createCategory();
+  assert.equal(component.panelView.role, 'custom:werkstatt');
+});

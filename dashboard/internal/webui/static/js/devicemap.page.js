@@ -67,6 +67,10 @@
       iconCatalogue: [],
       groupName: '',
       groupDraft: null,
+      // The group panel's switch "count as a whole" is on, but no consumer
+      // category exists yet to count as.
+      groupWholePending: false,
+      categoryForGroup: false,
       canEditEnergy: true,
       csrfToken: '',
       panelSaving: false,
@@ -497,7 +501,10 @@
             members,
             addable: this.pickerItems(id),
             role: draft.role !== undefined ? draft.role : (group.role || ''),
-            roleOptions: [{value: '', label: t('devicemap.group.no_role')}, ...consumers],
+            roleOptions: [{value: '', label: t('devicemap.group.no_role')}, ...consumers.map(option => {
+              const def = this.savedCategories[option.value.slice('custom:'.length)] || {};
+              return {...option, color: def.color || 'cat_1', iconMarkup: this.iconMarkup[def.icon] || ''};
+            })],
             categories: Object.entries(this.savedCategories).map(([cid, def]) => ({id: cid, label: def.label, base: def.base, color: def.color})),
           };
         }
@@ -519,6 +526,7 @@
       openPanel(id) {
         this.panelId = id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID ? null : id;
         this.groupDraft = null;
+        this.groupWholePending = false;
       },
 
       closePanel() {
@@ -532,6 +540,7 @@
       discardPanel() {
         this.drafts = {};
         this.groupDraft = null;
+        this.groupWholePending = false;
         this.applyEnergy();
       },
 
@@ -1307,6 +1316,22 @@
         }
       },
 
+      groupCountsWhole() {
+        const view = this.panelView;
+        return Boolean(view && view.role) || this.groupWholePending;
+      },
+
+      // Switch "count as a whole": off clears the role draft, on picks the
+      // first consumer category or waits until one is created.
+      setGroupWhole(on) {
+        const view = this.panelView;
+        if (!view) return;
+        this.groupWholePending = on;
+        if (!on) { this.setGroupDraft('role', ''); return; }
+        const first = view.roleOptions.find(option => option.value);
+        if (!view.role && first) this.setGroupDraft('role', first.value);
+      },
+
       savePanelAny() {
         return window.DeviceMapModel.isGroupId(this.panelId) ? this.saveGroupPanel() : this.savePanel();
       },
@@ -1345,7 +1370,10 @@
 
       categoryForm: {label: '', base: 'consumer', color: 'cat_1', icon: ''},
 
-      openCategoryDialog() {
+      // forGroup: opened from the group panel's role chips. The new category
+      // then becomes the group's role draft.
+      openCategoryDialog(forGroup = false) {
+        this.categoryForGroup = forGroup === true;
         this.categoryForm = {label: '', base: 'consumer', color: 'cat_1', icon: (this.iconCatalogue[0] || {}).name || ''};
         const dialog = this.$refs.categoryDialog;
         if (dialog && typeof dialog.showModal === 'function') dialog.showModal(); else if (dialog) dialog.open = true;
@@ -1359,6 +1387,10 @@
         const id = window.DeviceMapModel.slugId(label, Object.keys(this.savedCategories));
         try {
           await this.patchEnergy({categories: {[id]: {label, base: form.base, color: form.color, icon: form.icon}}});
+          if (this.categoryForGroup && form.base === 'consumer' && window.DeviceMapModel.isGroupId(this.panelId)) {
+            this.setGroupDraft('role', `custom:${id}`);
+          }
+          this.categoryForGroup = false;
           if (this.$refs.categoryDialog && this.$refs.categoryDialog.close) this.$refs.categoryDialog.close();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');

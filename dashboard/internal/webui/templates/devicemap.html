@@ -1,3 +1,24 @@
+{{/* Role of an energy group (variant B): a switch "count as a whole" that
+     reveals the consumer categories as chips. The caller wraps it in an
+     x-data that provides roleKey, locked, whole, role, options (value,
+     label, color, iconMarkup), setWhole(on), setRole(value) and addNew(). */}}
+{{define "group-role-fields"}}<div class="group-role">
+    <label class="group-role-switch" x-bind:for="`${roleKey}-whole`">
+      <span class="group-role-text"><span class="group-role-title">{{t "group_role.whole"}}</span><span class="group-role-sub" x-text="whole ? $t('group_role.whole_on') : $t('group_role.whole_off')"></span></span>
+      <span class="settings-toggle"><input x-bind:id="`${roleKey}-whole`" type="checkbox" role="switch" x-bind:checked="whole" x-on:change="setWhole($event.target.checked)" x-bind:disabled="locked"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+    </label>
+    <div class="group-role-reveal" x-bind:data-open="whole ? 'true' : 'false'" x-bind:aria-hidden="whole ? 'false' : 'true'">
+      <div>
+        <div class="group-role-chips" role="radiogroup" aria-label="{{t "group_role.category_aria"}}">
+          <template x-for="option in options" x-bind:key="option.value">
+            <label class="group-role-chip" x-bind:class="option.color.replace('_', '-')"><input type="radio" x-bind:name="`${roleKey}-role`" x-bind:value="option.value" x-bind:checked="role === option.value" x-on:change="setRole(option.value)" x-bind:disabled="locked || !whole"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="option.iconMarkup"></svg><span x-text="option.label"></span></label>
+          </template>
+          <button type="button" class="group-role-chip is-new" x-show="!locked" x-on:click="addNew()" x-bind:disabled="!whole"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg><span>{{t "group_role.new_category"}}</span></button>
+        </div>
+        <p class="group-role-empty" x-show="!options.length">{{t "group_role.no_categories"}}</p>
+      </div>
+    </div>
+  </div>{{end}}
 {{/* Base type, colour and icon of a custom category. The caller wraps it in
      an x-data that provides cat (the category object), catKey (unique per
      instance, for the radio names) and catLocked (read only). */}}
@@ -303,15 +324,7 @@
                 <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.add_members"}}
               </button>
             </div>
-            <div class="devicemap-panel-entity">
-              <div class="devicemap-panel-field"><span class="devicemap-panel-field-label"><label for="devicemap-group-role">{{t "devicemap.group.role"}}</label><span class="field-help devicemap-help"><button class="field-help-trigger" type="button" aria-label="{{t "devicemap.group.role_help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "devicemap.group.role_hint"}}</span></span></span>
-                <select id="devicemap-group-role" x-bind:disabled="!canEditEnergy" x-on:change="setGroupDraft('role', $event.target.value)">
-                  <template x-for="option in panelView.roleOptions" x-bind:key="option.value">
-                    <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === panelView.role"></option>
-                  </template>
-                </select>
-              </div>
-            </div>
+            <div class="devicemap-panel-entity" x-data="{ roleKey: 'devicemap-group', get locked() { return !canEditEnergy }, get whole() { return groupCountsWhole() }, get role() { return panelView ? panelView.role : '' }, get options() { return panelView ? panelView.roleOptions.filter(option => option.value) : [] }, setWhole(on) { setGroupWhole(on) }, setRole(value) { setGroupDraft('role', value) }, addNew() { openCategoryDialog(true) } }">{{template "group-role-fields"}}</div>
             <div class="devicemap-panel-others">
               <span class="devicemap-panel-eyebrow">{{t "devicemap.group.categories"}}</span>
               <template x-for="cat in panelView.categories" x-bind:key="cat.id">

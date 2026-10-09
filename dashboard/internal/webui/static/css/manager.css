@@ -184,31 +184,8 @@ select.schema-control {
 .energy-unassigned p { margin: 0; }
 .energy-unassigned ul { margin: .4rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
 
-/* Interpretation: der seltene Weg, darum einklappbar. Karte in
-   schema-object-Sprache, Chevron rotiert wie .schema-optional-group. */
-.energy-interpretation {
-  margin: 1rem 0;
-  border: 1px solid var(--border-soft); border-radius: var(--radius-md);
-  background: var(--panel);
-}
-.energy-interpretation-summary {
-  display: flex; align-items: center; gap: .55rem;
-  padding: .8rem 1rem; list-style: none; cursor: pointer; user-select: none;
-  font-weight: 600; font-size: 1rem; letter-spacing: -.01em; color: var(--text-strong);
-}
-.energy-interpretation-summary::-webkit-details-marker { display: none; }
-.energy-interpretation-summary::before {
-  content: ""; flex: none; width: 0; height: 0;
-  border-left: .3rem solid transparent; border-right: .3rem solid transparent;
-  border-top: .38rem solid currentColor;
-  transform: rotate(-90deg); transition: transform .2s var(--energy-ease);
-}
-.energy-interpretation[open] > .energy-interpretation-summary::before { transform: rotate(0); }
-.energy-interpretation-summary:hover { color: var(--text); }
-.energy-interpretation-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.energy-interpretation[open] > .energy-interpretation-summary { border-bottom: 1px solid var(--border-soft); }
-.energy-interpretation-body { display: grid; gap: 1.1rem; padding: 1rem; }
-.energy-interpretation[open] .energy-interpretation-body { animation: schema-reveal .28s var(--energy-ease); }
+/* Interpretation: content of the first accordion section (energy-acc). */
+.energy-interpretation-body { display: grid; gap: 1.1rem; }
 
 /* Eine Interpretations-Gruppe = eine ruhige schema-node-Zeile: Kopf (Label
    plus optionaler .field-help-Tooltip wie auf der Automatisierungsseite),
@@ -375,16 +352,14 @@ select.schema-control {
   .energy-actionbar-dock::before { background: var(--bg); }
 }
 @media (prefers-contrast: more) {
-  .energy-roles-group, .energy-role-row, .energy-interpretation,
+  .energy-roles-group, .energy-role-row, .energy-acc,
   .energy-unassigned, .energy-role-summary div { border-color: var(--border); }
   .energy-mode-note { border-left-color: var(--border); background: var(--panel); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .energy-interpretation-summary::before,
   .energy-role-row, .energy-role-row .energy-role, .energy-role-row input[type="number"],
   .energy-role-hide-toggle, .energy-actionbar #energy-save { transition-duration: .01ms; }
   .energy-role-row { animation: none; }
-  .energy-interpretation[open] .energy-interpretation-body { animation: none; }
   .energy-role-row:active, .energy-role-hide-toggle:active,
   .energy-actionbar #energy-save:active:not(:disabled) { transform: none; }
 }
@@ -934,8 +909,8 @@ select.schema-control {
 .tiny-tuya-diagnostics { margin: .8rem 0; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
 .tiny-tuya-diagnostics summary { cursor: pointer; padding: .6rem .8rem; color: var(--warn); }
 .tiny-tuya-diagnostics pre { margin: 0; padding: .8rem; overflow: auto; white-space: pre-wrap; color: var(--text); }
-/* .energy-interpretation / .energy-unassigned: siehe den Energie-Rollen-Block
-   weiter oben (CSS-Umbau 2026-09, energy.html von <fieldset> auf <details>). */
+/* .energy-acc / .energy-unassigned: siehe den Energie-Rollen-Block weiter
+   oben und das Akkordeon am Dateiende (2026-10, <details> wurde .energy-acc). */
 
 /* Mobil: einspaltiges Formularraster - stand vorher im 700px-Block von
    base.css, gehoert aus demselben Grund wie der Rest hierher. */
@@ -1172,8 +1147,72 @@ div.devicemap-view-menu-row { cursor: default; }
 
 /* One rhythm between the main tiles of the energy page. Each tile used to
    bring its own margin (1rem, 18px, 1.2rem, and none between the role table
-   and the groups), so the gaps differed. The legend belongs to the role
-   summary above it and stays close to it. */
-#energy-panel > .energy-notices, #energy-panel > .energy-plant, #energy-panel > .energy-interpretation,
-#energy-panel > .energy-role-summary, #energy-panel > .energy-roles-groups { margin: 0 0 var(--energy-section-gap); }
-#energy-panel > .energy-legend { margin: calc(.5rem - var(--energy-section-gap)) 0 var(--energy-section-gap); }
+   and the groups), so the gaps differed. */
+#energy-panel > .energy-notices, #energy-panel > .energy-plant,
+#energy-panel > .energy-accordion { margin: 0 0 var(--energy-section-gap); }
+
+/* Energy page settings as an exclusive accordion (energy.page.js
+   toggleSection). The sections sit close together like a grouped list, the
+   open one keeps its card. Closing is instant and the scroll offset is
+   corrected, so only the opening content fades in and nothing jumps. */
+.energy-accordion { display: grid; gap: .6rem; }
+.energy-acc { min-width: 0; border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel); transition: border-color .2s ease; }
+.energy-acc[data-open="true"] { border-color: var(--border); }
+.energy-acc-heading { margin: 0; font-size: inherit; }
+.energy-acc-toggle { display: flex; align-items: center; gap: .75rem; width: 100%; padding: .85rem 1rem; border: 0; border-radius: inherit; background: transparent; color: var(--text-strong); font: inherit; text-align: left; cursor: pointer;
+  transition: background-color .15s ease; }
+.energy-acc-toggle:hover:not(:disabled) { background: color-mix(in srgb, var(--text-strong) 4%, transparent); border: 0; color: var(--text-strong); }
+.energy-acc-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.energy-acc-title { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+.energy-acc-meta { margin-left: auto; font-size: .8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.energy-acc-chevron { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s var(--energy-ease); }
+.energy-acc-title + .energy-acc-chevron { margin-left: auto; }
+.energy-acc[data-open="true"] .energy-acc-chevron { transform: rotate(90deg); }
+.energy-acc[data-open="true"] .energy-acc-toggle { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.energy-acc-body { display: grid; gap: .9rem; padding: 0 1rem 1rem; min-width: 0; animation: energy-acc-in .28s var(--energy-ease) both; }
+.energy-acc-body > .energy-interpretation-body { padding: .2rem 0 0; }
+@keyframes energy-acc-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+/* Inside the roles section the sub groups are plain blocks, a card in a
+   card would only add frames. */
+.energy-acc-body .energy-roles-group { padding: 0; border: 0; background: transparent; }
+.energy-acc-body .energy-roles-group-title { font-size: .82rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.energy-acc-body .energy-role-summary { margin: 0; }
+.energy-acc-body .energy-legend { margin: -.4rem 0 0; }
+@media (prefers-reduced-motion: reduce) {
+  .energy-acc-body { animation: none; }
+  .energy-acc-chevron { transition: none; }
+}
+
+/* Role of an energy group (variant B): a switch "count as a whole" that
+   reveals the consumer categories as chips. */
+.group-role { display: grid; gap: .35rem; min-width: 0; }
+.group-role-switch { display: flex; align-items: center; justify-content: space-between; gap: .75rem; cursor: pointer; }
+.group-role-text { display: grid; gap: .1rem; min-width: 0; }
+.group-role-title { font-size: .9rem; color: var(--text-strong); }
+.group-role-sub { font-size: .78rem; color: var(--text-muted); }
+.group-role-reveal { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows .28s var(--layout-ease), opacity .2s ease; }
+.group-role-reveal[data-open="true"] { grid-template-rows: 1fr; opacity: 1; }
+.group-role-reveal > div { overflow: hidden; min-height: 0; }
+.group-role-reveal[data-open="false"] { visibility: hidden; transition: grid-template-rows .22s var(--layout-ease), opacity .15s ease, visibility 0s linear .22s; }
+.group-role-chips { display: flex; flex-wrap: wrap; gap: .4rem; padding-top: .45rem; }
+.group-role-chip { --cat-color: var(--flow-cat-1); position: relative; display: inline-flex; align-items: center; gap: .4rem; height: 2rem; padding: 0 .8rem 0 .55rem; border-radius: 999px; border: 1px solid var(--border-soft); background: var(--sunken);
+  color: var(--text-muted); font: inherit; font-size: .84rem; cursor: pointer; transition: border-color .15s ease, background-color .15s ease, color .15s ease, transform .1s ease-out; }
+.group-role-chip.cat-2 { --cat-color: var(--flow-cat-2); }
+.group-role-chip.cat-3 { --cat-color: var(--flow-cat-3); }
+.group-role-chip.cat-4 { --cat-color: var(--flow-cat-4); }
+.group-role-chip.cat-5 { --cat-color: var(--flow-cat-5); }
+.group-role-chip.cat-6 { --cat-color: var(--flow-cat-6); }
+.group-role-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.group-role-chip svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.group-role-chip:hover { color: var(--text-strong); border-color: var(--border); }
+.group-role-chip:active { transform: scale(.97); }
+.group-role-chip:has(input:checked) { color: var(--text-strong); border-color: var(--cat-color); background: color-mix(in srgb, var(--cat-color) 14%, var(--sunken)); }
+.group-role-chip:has(input:checked) svg { color: var(--cat-color); }
+.group-role-chip:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.group-role-chip.is-new { border-style: dashed; }
+.group-role-chip.is-new:hover:not(:disabled) { background: var(--sunken); }
+.group-role-empty { margin: .4rem 0 0; font-size: .8rem; color: var(--text-muted); }
+@media (prefers-reduced-motion: reduce) {
+  .group-role-reveal, .group-role-reveal[data-open="false"] { transition: opacity .15s ease, visibility 0s; }
+  .group-role-chip:active { transform: none; }
+}

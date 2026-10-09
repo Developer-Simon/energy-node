@@ -32,172 +32,178 @@
     </div>
   </section>
 
-  <details class="energy-interpretation" open x-data="{ open: JSON.parse(localStorage.getItem('energy-interpretation-open') ?? 'true') }" x-bind:open="open" x-on:toggle="open = $event.target.open; localStorage.setItem('energy-interpretation-open', JSON.stringify(open))">
-    <summary class="energy-interpretation-summary">{{t "energy.roles.interpretation.heading"}}</summary>
-    <div class="energy-interpretation-body">
+  {{/* Settings as an exclusive accordion: one section open at a time, the
+       live plant view and the notices above stay visible. */}}
+  <div class="energy-accordion">
+    <section class="energy-acc" data-energy-section="interpretation" x-bind:data-open="isSectionOpen('interpretation') ? 'true' : 'false'">
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-interpretation-toggle" aria-controls="energy-acc-interpretation" x-bind:aria-expanded="isSectionOpen('interpretation') ? 'true' : 'false'" x-on:click="toggleSection('interpretation', $event)"><span class="energy-acc-title">{{t "energy.roles.interpretation.heading"}}</span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <div class="energy-acc-body" id="energy-acc-interpretation" role="region" aria-labelledby="energy-acc-interpretation-toggle" x-show="isSectionOpen('interpretation')" x-cloak>
+        <div class="energy-interpretation-body">
 
-      <div class="energy-interpretation-group">
-        <span class="energy-interpretation-head"><span class="energy-interpretation-label">{{t "energy.role.consumption"}}</span></span>
-        <div class="radio-card-group energy-load-modes" role="radiogroup" aria-label="{{t "energy.role.consumption"}}">
-          <label class="radio-card"><input type="radio" name="load-mode" value="measured" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.measured_label"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.measured_desc"}}</span></span></label>
-          <label class="radio-card"><input type="radio" name="load-mode" value="calculated" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.calculated_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.calculated_desc"}}</span></span></label>
-          <label class="radio-card"><input type="radio" name="load-mode" value="combined" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.combined_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.combined_desc"}}</span></span></label>
-          <label class="radio-card"><input type="radio" name="load-mode" value="auto" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.auto_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.auto_desc"}}</span></span></label>
-        </div>
-        <p class="energy-mode-note" x-cloak x-show="loadModeNote" x-transition.opacity>
-          <svg class="energy-mode-note-icon" aria-hidden="true"><use href="#ico-help"></use></svg>
-          <span x-text="loadModeNote"></span>
-        </p>
-      </div>
-
-      <div class="energy-interpretation-group">
-        <span class="energy-interpretation-head">
-          <span class="energy-interpretation-label">{{t "energy.roles.gap.heading"}}</span>
-          <span class="field-help">
-            <button class="field-help-trigger" type="button" aria-label="{{t "energy.roles.gap.help_label"}}"><svg><use href="#ico-help"></use></svg></button>
-            <span class="field-help-text" role="tooltip" x-text="gapModeIncludesInLoad ? $t('energy.roles.gap.include_desc') : $t('energy.roles.gap.diagnostic_desc')"></span>
-          </span>
-        </span>
-        <label class="settings-toggle-label" for="gap-mode-toggle">{{t "energy.roles.gap.toggle_label"}} <span class="settings-toggle"><input id="gap-mode-toggle" type="checkbox" role="switch" x-model="gapModeIncludesInLoad" x-bind:aria-checked="gapModeIncludesInLoad"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
-      </div>
-
-      <div class="energy-interpretation-group is-compact">
-        <span class="energy-interpretation-head">
-          <span class="energy-interpretation-label">{{t "energy.roles.tolerance.heading"}}</span>
-          <span class="field-help">
-            <button class="field-help-trigger" type="button" aria-label="{{t "energy.roles.tolerance.help_label"}}"><svg><use href="#ico-help"></use></svg></button>
-            <span class="field-help-text" role="tooltip" x-text="$t('energy.roles.tolerance.help_text', {value: toleranceWEquivalent})"></span>
-          </span>
-        </span>
-        <label>{{t "energy.roles.tolerance.mode_label"}}
-          <select x-model="interpretation.gap_tolerance_mode">
-            <option value="absolute">{{t "energy.roles.tolerance.watt"}}</option>
-            <option value="percent">{{t "energy.roles.tolerance.percent_option"}}</option>
-          </select>
-        </label>
-        <label x-show="interpretation.gap_tolerance_mode === 'absolute'">{{t "energy.roles.tolerance.watt"}} <input type="number" min="0" step="1" x-model.number="interpretation.gap_tolerance_w"></label>
-        <label x-show="interpretation.gap_tolerance_mode === 'percent'">{{t "energy.roles.tolerance.percent_label"}} <input type="number" min="0" max="100" step="0.5" x-model.number="interpretation.gap_tolerance_percent"></label>
-      </div>
-
-      <div class="energy-interpretation-group is-compact">
-        <span class="energy-interpretation-head">
-          <span class="energy-interpretation-label">{{t "energy.roles.status_thresholds.heading"}}</span>
-          <span class="field-help">
-            <button class="field-help-trigger" type="button" aria-label="{{t "energy.roles.status_thresholds.help_label"}}"><svg><use href="#ico-help"></use></svg></button>
-            <span class="field-help-text" role="tooltip">{{t "energy.roles.status_thresholds.help_text"}}</span>
-          </span>
-        </span>
-        <label>{{t "energy.roles.status_thresholds.surplus_label"}} <input type="number" min="0" step="50" x-model.number="interpretation.surplus_threshold_w"> W</label>
-        <label>{{t "energy.roles.status_thresholds.import_label"}} <input type="number" min="0" step="50" x-model.number="interpretation.import_threshold_w"> W</label>
-        <label>{{t "energy.roles.status_thresholds.reserve_label"}} <input type="number" min="0" max="100" step="1" x-model.number="interpretation.battery_reserve_percent"> % <span class="field-hint">{{t "energy.roles.status_thresholds.reserve_hint"}}</span></label>
-      </div>
-
-    </div>
-  </details>
-
-  {{if .Energy.Roles}}
-  <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
-    {{/* i18n-keys: energy.role_label.pv, energy.role_label.battery_charge, energy.role_label.battery_discharge, energy.role_label.grid_import, energy.role_label.grid_export, energy.role_label.load, energy.role_label.wallbox, energy.role_label.heat_pump, energy.role_label.battery_soc, energy.role_sign.generation, energy.role_sign.charging, energy.role_sign.discharging, energy.role_sign.grid_import, energy.role_sign.feed_in, energy.role_sign.consumption, energy.role_sign.state_of_charge, energy.role_sign.raw */}}
-    <dt title="{{if .SignKey}}{{t .SignKey}}{{else}}{{.Sign}}{{end}}">{{if .LabelKey}}{{t .LabelKey}}{{else}}{{.Label}}{{end}}</dt>
-    <dd>{{formatNumber .Value 0}} {{.Unit}}</dd>
-    <ul class="energy-state-row">
-      {{if eq .Quality "invalid"}}<li class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg>{{t "energy.roles.quality.invalid"}}</li>
-      {{else if or (eq .Freshness "stale") (eq .Quality "stale")}}<li class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg>{{t "energy.roles.quality.stale"}}</li>
-      {{else}}<li class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg>{{t "energy.roles.quality.fresh"}}</li>{{end}}
-      {{if eq .Source "live"}}<li class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg>{{t "energy.roles.source.live"}}</li>
-      {{else if eq .Source "mixed"}}<li class="energy-state-chip is-muted"><svg><use href="#ico-layers"></use></svg>{{t "energy.roles.source.mixed"}}</li>
-      {{else if or (eq .Source "mqtt-replay") (eq .Source "runtime-cache")}}<li class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg>{{t "energy.roles.source.restored"}}</li>
-      {{else}}<li class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg>{{.Source}}</li>{{end}}
-    </ul>
-  </div>{{end}}</dl>
-  <details class="energy-legend">
-    <summary>{{t "energy.roles.legend.summary"}}</summary>
-    <div class="energy-legend-grid">
-      <span class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg></span><span>{{t "energy.roles.quality.fresh"}}</span><span>{{t "energy.roles.legend.fresh_desc"}}</span>
-      <span class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg></span><span>{{t "energy.roles.quality.stale"}}</span><span>{{t "energy.roles.legend.stale_desc"}}</span>
-      <span class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg></span><span>{{t "energy.roles.quality.invalid"}}</span><span>{{t "energy.roles.legend.invalid_desc"}}</span>
-      <span class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg></span><span>{{t "energy.roles.source.live"}}</span><span>{{t "energy.roles.legend.live_desc"}}</span>
-      <span class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg></span><span>{{t "energy.roles.source.restored"}}</span><span>{{t "energy.roles.legend.restored_desc"}}</span>
-      <span class="energy-state-chip is-muted"><svg><use href="#ico-layers"></use></svg></span><span>{{t "energy.roles.source.mixed"}}</span><span>{{t "energy.roles.legend.mixed_desc"}}</span>
-    </div>
-  </details>
-  {{end}}
-  <div id="energy-roles" class="energy-roles-groups">
-    <div class="energy-roles-group">
-      <h3 class="energy-roles-group-title">{{t "energy.roles.section.energy_values"}}</h3>
-      <div class="energy-roles"><template x-for="(entity, index) in visibleEnergyEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
-    </div>
-    <div class="energy-roles-group">
-      <h3 class="energy-roles-group-title">{{t "energy.roles.section.battery_values"}}</h3>
-      <div class="energy-roles"><template x-for="(entity, index) in visibleBatteryEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
-    </div>
-    <div class="energy-roles-group" x-show="hiddenCount > 0" x-cloak>
-      <button class="entity-accordion-toggle" type="button" x-on:click="hiddenExpanded = !hiddenExpanded" x-bind:aria-expanded="hiddenExpanded" x-bind:aria-controls="$id('energy-hidden-rows')">{{t "energy.roles.hidden_entries"}} (<span x-text="hiddenCount"></span>)</button>
-      <div class="entity-accordion-panel energy-roles" x-cloak x-bind:id="$id('energy-hidden-rows')" x-show="hiddenExpanded" x-collapse><template x-for="(entity, index) in hiddenEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
-    </div>
-  </div>
-
-  <div class="energy-roles-groups energy-groups-sections">
-    <div class="energy-roles-group">
-      <h3 class="energy-roles-group-title">{{t "energy.groups.title"}}</h3>
-      <p class="energy-groups-empty" x-show="!Object.keys(groups).length">{{t "energy.groups.empty"}}</p>
-      <div class="energy-card-grid">
-      <template x-for="(group, id) in groups" x-bind:key="id">
-        <div class="energy-groups-card" x-bind:data-group-id="id" x-bind:class="{ 'is-flash': flashGroup === id }">
-          <div class="energy-groups-head">
-            <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg></span>
-            <input class="energy-groups-name" type="text" aria-label="{{t "energy.groups.name"}}" x-bind:disabled="!canEdit" x-model="group.label">
-            <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeGroup(id)" title="{{t "energy.groups.remove"}}" aria-label="{{t "energy.groups.remove"}}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
-            </button>
-          </div>
-          <label class="energy-groups-role"><span class="category-field-label">{{t "energy.groups.role"}}</span>
-            <select x-bind:disabled="!canEdit" x-model="group.role" x-init="$nextTick(() => $el.value = group.role || '')">
-              <option value="">{{t "energy.groups.no_role"}}</option>
-              <template x-for="option in consumerRoleOptions()" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template>
-            </select>
-          </label>
-          <div class="energy-groups-members">
-            <span class="category-field-label">{{t "energy.groups.members"}}</span>
-            <div class="energy-member-chips">
-              <template x-for="member in groupMembers(id)" x-bind:key="member.id">
-                <span class="energy-member-chip" x-bind:class="{ 'is-group': member.kind === 'group' }">
-                  <span x-text="member.name"></span>
-                  <button type="button" x-show="canEdit" x-on:click="removeGroupMember(id, member.id)" x-bind:aria-label="$t('devicemap.group.remove_member', {name: member.name})" x-bind:title="$t('devicemap.group.remove_member', {name: member.name})">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 7 7 17M7 7l10 10"/></svg>
-                  </button>
-                </span>
-              </template>
-              <button type="button" class="pill-button" x-show="canEdit" x-on:click="addGroupMembers(id)">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.add_members"}}
-              </button>
+          <div class="energy-interpretation-group">
+            <span class="energy-interpretation-head"><span class="energy-interpretation-label">{{t "energy.role.consumption"}}</span></span>
+            <div class="radio-card-group energy-load-modes" role="radiogroup" aria-label="{{t "energy.role.consumption"}}">
+              <label class="radio-card"><input type="radio" name="load-mode" value="measured" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.measured_label"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.measured_desc"}}</span></span></label>
+              <label class="radio-card"><input type="radio" name="load-mode" value="calculated" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.calculated_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.calculated_desc"}}</span></span></label>
+              <label class="radio-card"><input type="radio" name="load-mode" value="combined" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.combined_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.combined_desc"}}</span></span></label>
+              <label class="radio-card"><input type="radio" name="load-mode" value="auto" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.auto_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.auto_desc"}}</span></span></label>
             </div>
+            <p class="energy-mode-note" x-cloak x-show="loadModeNote" x-transition.opacity>
+              <svg class="energy-mode-note-icon" aria-hidden="true"><use href="#ico-help"></use></svg>
+              <span x-text="loadModeNote"></span>
+            </p>
           </div>
-        </div>
-      </template>
-      </div>
-      <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.groups.add"}}</button>
-    </div>
 
-    <div class="energy-roles-group">
-      <h3 class="energy-roles-group-title">{{t "energy.categories.title"}}</h3>
-      <p class="energy-groups-empty" x-show="!Object.keys(categories).length">{{t "energy.categories.empty"}}</p>
-      <div class="energy-card-grid">
-        <template x-for="(category, id) in categories" x-bind:key="id">
-          <div class="energy-category-card">
+          <div class="energy-interpretation-group">
+            <span class="energy-interpretation-head">
+              <span class="energy-interpretation-label">{{t "energy.roles.gap.heading"}}</span>
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="{{t "energy.roles.gap.help_label"}}"><svg><use href="#ico-help"></use></svg></button>
+                <span class="field-help-text" role="tooltip" x-text="gapModeIncludesInLoad ? $t('energy.roles.gap.include_desc') : $t('energy.roles.gap.diagnostic_desc')"></span>
+              </span>
+            </span>
+            <label class="settings-toggle-label" for="gap-mode-toggle">{{t "energy.roles.gap.toggle_label"}} <span class="settings-toggle"><input id="gap-mode-toggle" type="checkbox" role="switch" x-model="gapModeIncludesInLoad" x-bind:aria-checked="gapModeIncludesInLoad"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span></label>
+          </div>
+
+          <div class="energy-interpretation-group is-compact">
+            <span class="energy-interpretation-head">
+              <span class="energy-interpretation-label">{{t "energy.roles.tolerance.heading"}}</span>
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="{{t "energy.roles.tolerance.help_label"}}"><svg><use href="#ico-help"></use></svg></button>
+                <span class="field-help-text" role="tooltip" x-text="$t('energy.roles.tolerance.help_text', {value: toleranceWEquivalent})"></span>
+              </span>
+            </span>
+            <label>{{t "energy.roles.tolerance.mode_label"}}
+              <select x-model="interpretation.gap_tolerance_mode">
+                <option value="absolute">{{t "energy.roles.tolerance.watt"}}</option>
+                <option value="percent">{{t "energy.roles.tolerance.percent_option"}}</option>
+              </select>
+            </label>
+            <label x-show="interpretation.gap_tolerance_mode === 'absolute'">{{t "energy.roles.tolerance.watt"}} <input type="number" min="0" step="1" x-model.number="interpretation.gap_tolerance_w"></label>
+            <label x-show="interpretation.gap_tolerance_mode === 'percent'">{{t "energy.roles.tolerance.percent_label"}} <input type="number" min="0" max="100" step="0.5" x-model.number="interpretation.gap_tolerance_percent"></label>
+          </div>
+
+          <div class="energy-interpretation-group is-compact">
+            <span class="energy-interpretation-head">
+              <span class="energy-interpretation-label">{{t "energy.roles.status_thresholds.heading"}}</span>
+              <span class="field-help">
+                <button class="field-help-trigger" type="button" aria-label="{{t "energy.roles.status_thresholds.help_label"}}"><svg><use href="#ico-help"></use></svg></button>
+                <span class="field-help-text" role="tooltip">{{t "energy.roles.status_thresholds.help_text"}}</span>
+              </span>
+            </span>
+            <label>{{t "energy.roles.status_thresholds.surplus_label"}} <input type="number" min="0" step="50" x-model.number="interpretation.surplus_threshold_w"> W</label>
+            <label>{{t "energy.roles.status_thresholds.import_label"}} <input type="number" min="0" step="50" x-model.number="interpretation.import_threshold_w"> W</label>
+            <label>{{t "energy.roles.status_thresholds.reserve_label"}} <input type="number" min="0" max="100" step="1" x-model.number="interpretation.battery_reserve_percent"> % <span class="field-hint">{{t "energy.roles.status_thresholds.reserve_hint"}}</span></label>
+          </div>
+
+        </div>
+      </div>
+    </section>
+    <section class="energy-acc" data-energy-section="roles" x-bind:data-open="isSectionOpen('roles') ? 'true' : 'false'">
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-roles-toggle" aria-controls="energy-acc-roles" x-bind:aria-expanded="isSectionOpen('roles') ? 'true' : 'false'" x-on:click="toggleSection('roles', $event)"><span class="energy-acc-title">{{t "energy.section.roles"}}</span><span class="energy-acc-meta" x-text="sectionMeta('roles')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <div class="energy-acc-body" id="energy-acc-roles" role="region" aria-labelledby="energy-acc-roles-toggle" x-show="isSectionOpen('roles')" x-cloak>
+      {{if .Energy.Roles}}
+      <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
+        {{/* i18n-keys: energy.role_label.pv, energy.role_label.battery_charge, energy.role_label.battery_discharge, energy.role_label.grid_import, energy.role_label.grid_export, energy.role_label.load, energy.role_label.wallbox, energy.role_label.heat_pump, energy.role_label.battery_soc, energy.role_sign.generation, energy.role_sign.charging, energy.role_sign.discharging, energy.role_sign.grid_import, energy.role_sign.feed_in, energy.role_sign.consumption, energy.role_sign.state_of_charge, energy.role_sign.raw */}}
+        <dt title="{{if .SignKey}}{{t .SignKey}}{{else}}{{.Sign}}{{end}}">{{if .LabelKey}}{{t .LabelKey}}{{else}}{{.Label}}{{end}}</dt>
+        <dd>{{formatNumber .Value 0}} {{.Unit}}</dd>
+        <ul class="energy-state-row">
+          {{if eq .Quality "invalid"}}<li class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg>{{t "energy.roles.quality.invalid"}}</li>
+          {{else if or (eq .Freshness "stale") (eq .Quality "stale")}}<li class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg>{{t "energy.roles.quality.stale"}}</li>
+          {{else}}<li class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg>{{t "energy.roles.quality.fresh"}}</li>{{end}}
+          {{if eq .Source "live"}}<li class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg>{{t "energy.roles.source.live"}}</li>
+          {{else if eq .Source "mixed"}}<li class="energy-state-chip is-muted"><svg><use href="#ico-layers"></use></svg>{{t "energy.roles.source.mixed"}}</li>
+          {{else if or (eq .Source "mqtt-replay") (eq .Source "runtime-cache")}}<li class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg>{{t "energy.roles.source.restored"}}</li>
+          {{else}}<li class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg>{{.Source}}</li>{{end}}
+        </ul>
+      </div>{{end}}</dl>
+      <details class="energy-legend">
+        <summary>{{t "energy.roles.legend.summary"}}</summary>
+        <div class="energy-legend-grid">
+          <span class="energy-state-chip is-ok"><svg><use href="#ico-check"></use></svg></span><span>{{t "energy.roles.quality.fresh"}}</span><span>{{t "energy.roles.legend.fresh_desc"}}</span>
+          <span class="energy-state-chip is-warn"><svg><use href="#ico-clock"></use></svg></span><span>{{t "energy.roles.quality.stale"}}</span><span>{{t "energy.roles.legend.stale_desc"}}</span>
+          <span class="energy-state-chip is-bad"><svg><use href="#ico-warning"></use></svg></span><span>{{t "energy.roles.quality.invalid"}}</span><span>{{t "energy.roles.legend.invalid_desc"}}</span>
+          <span class="energy-state-chip is-ok"><svg><use href="#ico-flash"></use></svg></span><span>{{t "energy.roles.source.live"}}</span><span>{{t "energy.roles.legend.live_desc"}}</span>
+          <span class="energy-state-chip is-muted"><svg><use href="#ico-history"></use></svg></span><span>{{t "energy.roles.source.restored"}}</span><span>{{t "energy.roles.legend.restored_desc"}}</span>
+          <span class="energy-state-chip is-muted"><svg><use href="#ico-layers"></use></svg></span><span>{{t "energy.roles.source.mixed"}}</span><span>{{t "energy.roles.legend.mixed_desc"}}</span>
+        </div>
+      </details>
+      {{end}}
+      <div id="energy-roles" class="energy-roles-groups">
+        <div class="energy-roles-group">
+          <h4 class="energy-roles-group-title">{{t "energy.roles.section.energy_values"}}</h4>
+          <div class="energy-roles"><template x-for="(entity, index) in visibleEnergyEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
+        </div>
+        <div class="energy-roles-group">
+          <h4 class="energy-roles-group-title">{{t "energy.roles.section.battery_values"}}</h4>
+          <div class="energy-roles"><template x-for="(entity, index) in visibleBatteryEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
+        </div>
+        <div class="energy-roles-group" x-show="hiddenCount > 0" x-cloak>
+          <button class="entity-accordion-toggle" type="button" x-on:click="hiddenExpanded = !hiddenExpanded" x-bind:aria-expanded="hiddenExpanded" x-bind:aria-controls="$id('energy-hidden-rows')">{{t "energy.roles.hidden_entries"}} (<span x-text="hiddenCount"></span>)</button>
+          <div class="entity-accordion-panel energy-roles" x-cloak x-bind:id="$id('energy-hidden-rows')" x-show="hiddenExpanded" x-collapse><template x-for="(entity, index) in hiddenEntities" x-bind:key="entity.id">{{template "energy-role-row"}}</template></div>
+        </div>
+      </div>
+
+      </div>
+    </section>
+    <section class="energy-acc" data-energy-section="groups" x-bind:data-open="isSectionOpen('groups') ? 'true' : 'false'">
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-groups-toggle" aria-controls="energy-acc-groups" x-bind:aria-expanded="isSectionOpen('groups') ? 'true' : 'false'" x-on:click="toggleSection('groups', $event)"><span class="energy-acc-title">{{t "energy.groups.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('groups')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <div class="energy-acc-body" id="energy-acc-groups" role="region" aria-labelledby="energy-acc-groups-toggle" x-show="isSectionOpen('groups')" x-cloak>
+        <p class="energy-groups-empty" x-show="!Object.keys(groups).length">{{t "energy.groups.empty"}}</p>
+        <div class="energy-card-grid">
+        <template x-for="(group, id) in groups" x-bind:key="id">
+          <div class="energy-groups-card" x-bind:data-group-id="id" x-bind:class="{ 'is-flash': flashGroup === id }">
             <div class="energy-groups-head">
-              <span class="energy-category-preview" x-bind:class="(category.color || 'cat_1').replace('_', '-')" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="iconMarkupOf(category.icon)"></svg></span>
-              <input class="energy-groups-name" type="text" aria-label="{{t "energy.categories.name"}}" x-bind:disabled="!canEdit" x-model="category.label">
-              <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeCategory(id)" title="{{t "energy.categories.remove"}}" aria-label="{{t "energy.categories.remove"}}">
+              <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg></span>
+              <input class="energy-groups-name" type="text" aria-label="{{t "energy.groups.name"}}" x-bind:disabled="!canEdit" x-model="group.label">
+              <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeGroup(id)" title="{{t "energy.groups.remove"}}" aria-label="{{t "energy.groups.remove"}}">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
               </button>
             </div>
-            <div x-data="{ get cat() { return category }, catKey: `energy-cat-${id}`, get catLocked() { return !canEdit } }">{{template "category-fields"}}</div>
+            <div x-data="{ roleKey: `energy-group-${id}`, get locked() { return !canEdit }, get whole() { return groupCountsWhole(id) }, get role() { return group.role || '' }, get options() { return groupRoleOptions() }, setWhole(on) { setGroupWhole(id, on) }, setRole(value) { setGroupRole(id, value) }, addNew() { addCategoryForGroup(id) } }">{{template "group-role-fields"}}</div>
+            <div class="energy-groups-members">
+              <span class="category-field-label">{{t "energy.groups.members"}}</span>
+              <div class="energy-member-chips">
+                <template x-for="member in groupMembers(id)" x-bind:key="member.id">
+                  <span class="energy-member-chip" x-bind:class="{ 'is-group': member.kind === 'group' }">
+                    <span x-text="member.name"></span>
+                    <button type="button" x-show="canEdit" x-on:click="removeGroupMember(id, member.id)" x-bind:aria-label="$t('devicemap.group.remove_member', {name: member.name})" x-bind:title="$t('devicemap.group.remove_member', {name: member.name})">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M17 7 7 17M7 7l10 10"/></svg>
+                    </button>
+                  </span>
+                </template>
+                <button type="button" class="pill-button" x-show="canEdit" x-on:click="addGroupMembers(id)">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.add_members"}}
+                </button>
+              </div>
+            </div>
           </div>
         </template>
+        </div>
+        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.groups.add"}}</button>
       </div>
-      <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.categories.add"}}</button>
-    </div>
+    </section>
+    <section class="energy-acc" data-energy-section="categories" x-bind:data-open="isSectionOpen('categories') ? 'true' : 'false'">
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-categories-toggle" aria-controls="energy-acc-categories" x-bind:aria-expanded="isSectionOpen('categories') ? 'true' : 'false'" x-on:click="toggleSection('categories', $event)"><span class="energy-acc-title">{{t "energy.categories.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('categories')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <div class="energy-acc-body" id="energy-acc-categories" role="region" aria-labelledby="energy-acc-categories-toggle" x-show="isSectionOpen('categories')" x-cloak>
+        <p class="energy-groups-empty" x-show="!Object.keys(categories).length">{{t "energy.categories.empty"}}</p>
+        <div class="energy-card-grid">
+          <template x-for="(category, id) in categories" x-bind:key="id">
+            <div class="energy-category-card" x-bind:data-category-id="id">
+              <div class="energy-groups-head">
+                <span class="energy-category-preview" x-bind:class="(category.color || 'cat_1').replace('_', '-')" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="iconMarkupOf(category.icon)"></svg></span>
+                <input class="energy-groups-name" type="text" aria-label="{{t "energy.categories.name"}}" x-bind:disabled="!canEdit" x-model="category.label">
+                <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeCategory(id)" title="{{t "energy.categories.remove"}}" aria-label="{{t "energy.categories.remove"}}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+                </button>
+              </div>
+              <div x-data="{ get cat() { return category }, catKey: `energy-cat-${id}`, get catLocked() { return !canEdit } }">{{template "category-fields"}}</div>
+            </div>
+          </template>
+        </div>
+        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.categories.add"}}</button>
+      </div>
+    </section>
   </div>
 
   <div class="energy-actionbar-dock">

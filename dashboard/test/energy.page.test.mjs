@@ -511,3 +511,60 @@ test('members picked for a group leave the group they were in before', async () 
   assert.deepEqual(JSON.parse(JSON.stringify(component.groups.garage.members)), { devices: ['saw'], groups: ['keller'] });
   assert.deepEqual(JSON.parse(JSON.stringify(component.groups.keller.members.devices)), []);
 });
+
+test('the settings accordion keeps exactly one section open', () => {
+  const { component } = createEnergyPanel();
+  component.$nextTick = fn => fn();
+  assert.equal(component.openSection, 'roles', 'roles are open by default');
+  component.toggleSection('groups');
+  assert.equal(component.isSectionOpen('groups'), true);
+  assert.equal(component.isSectionOpen('roles'), false);
+  component.toggleSection('groups');
+  assert.equal(component.openSection, '', 'a second click closes the open section');
+});
+
+test('focusing a group or rows opens the matching section', () => {
+  const { component } = createEnergyPanel();
+  component.$nextTick = () => {};
+  component._setTimeout = () => 0;
+  component.toggleSection('interpretation');
+  component.focusGroup('garage');
+  assert.equal(component.openSection, 'groups');
+  component.focusRows(['pv_power']);
+  assert.equal(component.openSection, 'roles');
+});
+
+test('the switch "count as a whole" picks the first consumer category and clears the role when off', () => {
+  const { component } = createEnergyPanel();
+  component.categories = {
+    werkstatt: { label: 'Werkstatt', base: 'consumer', color: 'cat_2', icon: '' },
+    dach: { label: 'Dach', base: 'producer', color: 'cat_1', icon: '' },
+  };
+  component.groups = { garage: { label: 'Garage', members: { devices: [], groups: [] } } };
+  assert.equal(component.groupCountsWhole('garage'), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groupRoleOptions().map(option => option.value))), ['custom:werkstatt']);
+  component.setGroupWhole('garage', true);
+  assert.equal(component.groups.garage.role, 'custom:werkstatt');
+  component.setGroupWhole('garage', false);
+  assert.equal(component.groups.garage.role, '');
+  assert.equal(component.groupCountsWhole('garage'), false);
+});
+
+test('without a consumer category the switch stays on and waits for one', () => {
+  const { component } = createEnergyPanel();
+  component.groups = { garage: { label: 'Garage', members: { devices: [], groups: [] } } };
+  component.setGroupWhole('garage', true);
+  assert.equal(component.groups.garage.role || '', '');
+  assert.equal(component.groupCountsWhole('garage'), true);
+});
+
+test('a new category from a group card becomes its role and opens the categories', () => {
+  const { component } = createEnergyPanel();
+  component.$nextTick = () => {};
+  component.groups = { garage: { label: 'Garage', members: { devices: [], groups: [] } } };
+  component.addCategoryForGroup('garage');
+  const [id] = Object.keys(component.categories);
+  assert.equal(component.categories[id].base, 'consumer');
+  assert.equal(component.groups.garage.role, `custom:${id}`);
+  assert.equal(component.openSection, 'categories');
+});
