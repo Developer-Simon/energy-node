@@ -1382,3 +1382,12 @@ test('Escape closes the popover before the panel', async () => {
   assert.equal(component.popover, null);
   assert.equal(component.panelId, 'pv', 'the panel stays open on the first Escape');
 });
+
+test('the focus summary names a virtual node instead of showing its raw id', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(mapRoutes()) });
+  await component.load();
+  component.focusId = 'rule:r%201';
+  component.focusRelated = new Set(['rule:r%201']);
+  assert.ok(component.focusSummary().includes('Regel 1'));
+  assert.ok(!component.focusSummary().includes('rule:r%201'));
+});

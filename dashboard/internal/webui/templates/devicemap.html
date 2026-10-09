@@ -12,7 +12,7 @@
   <div class="devicemap-stage">
     <div id="devicemap-canvas" class="devicemap-canvas" x-ref="canvas" aria-label="{{t "devicemap.canvas_aria"}}"></div>
     <div class="devicemap-labels" x-ref="labels" aria-hidden="true"></div>
-    <div class="devicemap-legend" x-cloak x-show="view.layers.energy || view.layers.data || view.layers.balance" aria-label="{{t "devicemap.legend.aria"}}">
+    <div class="devicemap-legend" x-cloak x-show="view.layers.energy || view.layers.data" aria-label="{{t "devicemap.legend.aria"}}">
       <span x-show="view.layers.energy"><i style="border-color: var(--flow-pv)"></i>{{t "devicemap.legend.pv"}}</span>
       <span x-show="view.layers.energy"><i style="border-color: var(--flow-battery)"></i>{{t "devicemap.legend.battery"}}</span>
       <span x-show="view.layers.energy"><i style="border-color: var(--flow-load)"></i>{{t "devicemap.legend.load"}}</span>

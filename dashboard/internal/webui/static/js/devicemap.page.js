@@ -338,7 +338,7 @@
       focusSummary() {
         if (!this.focusId) return '';
         const n = this.focusRelated.size - 1;
-        return tn('devicemap.focus.summary', n, {name: this.deviceLabel(this.focusId), n});
+        return tn('devicemap.focus.summary', n, {name: this.labelOf(this.focusId), n});
       },
 
       isPanelActive() {
