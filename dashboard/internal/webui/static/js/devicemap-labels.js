@@ -50,12 +50,20 @@
       for (const [id, el] of byId) el.classList.toggle('is-dimmed', Boolean(ids) && !ids.has(id));
     };
 
+    const setHidden = (ids, delays) => {
+      for (const [id, el] of byId) {
+        const hidden = Boolean(ids) && ids.has(id);
+        el.style.transitionDelay = `${(delays && delays.get(id)) || 0}ms`;
+        el.classList.toggle('is-hidden', hidden);
+      }
+    };
+
     const destroy = () => {
       for (const el of byId.values()) el.remove();
       byId.clear();
     };
 
-    return {update, sync, setDimmed, destroy};
+    return {update, sync, setDimmed, setHidden, destroy};
   };
 
   window.DeviceMapLabels = {create};

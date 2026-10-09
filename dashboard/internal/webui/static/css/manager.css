@@ -425,6 +425,8 @@ select.schema-control {
   text-shadow: 0 0 2px var(--bg), 0 0 2px var(--bg), 0 0 3px var(--bg), 0 0 4px var(--bg);
   transition: opacity 200ms var(--ease-out); }
 .devicemap-node-label.is-dimmed { opacity: .18; }
+.devicemap-node-label.is-hidden { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .devicemap-node-label { transition-delay: 0ms !important; } }
 .devicemap-node-name { font-size: 11px; font-weight: 600; color: var(--text-strong); line-height: 1.25; }
 .devicemap-node-value { font-size: 10.5px; color: var(--text-subtle); font-variant-numeric: tabular-nums; line-height: 1.25; }
 .devicemap-layer-toolbar { align-items: center; gap: 6px; padding: 6px; border-radius: 12px; width: fit-content; max-width: 100%; flex-wrap: wrap;

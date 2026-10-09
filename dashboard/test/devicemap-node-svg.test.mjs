@@ -61,3 +61,19 @@ test('a group node is a dashed circle with a sigma', () => {
   assert.match(markup, /#flow-rest/);
   assert.match(svg.groupDataUri(token => `#${token}`), /^data:image\/svg\+xml;utf8,/);
 });
+
+test('virtual node markups follow the draft shapes', () => {
+  const svg = load().svg;
+  const balance = svg.virtualMarkup('balance', colorOf);
+  assert.match(balance, /<circle r="22" fill="#accent-bg" stroke="#accent-line" stroke-width="2"/);
+  assert.match(balance, /data-icon="balance"/);
+  const rule = svg.virtualMarkup('rule', colorOf);
+  assert.match(rule, /transform="rotate\(45\)"/);
+  assert.match(rule, /fill="#info-bg" stroke="#info-line"/);
+  const service = svg.virtualMarkup('service', colorOf);
+  assert.match(service, /<rect x="-20" y="-20" width="40" height="40" rx="9"/);
+  const stub = svg.virtualMarkup('stub', colorOf);
+  assert.match(stub, /width="24" height="24"/);
+  assert.match(stub, /stroke="#warn-line"/);
+  assert.match(svg.virtualDataUri('rule', colorOf), /^data:image\/svg\+xml;utf8,/);
+});

@@ -19,6 +19,9 @@
     heat_pump: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="12" cy="12" r="4.6"/><path d="M12 12c-1.4-1.6-1.2-3.4 0-4.2 1.2.8 1.4 2.6 0 4.2zM12 12c2 .3 3 1.8 2.6 3.2-1.4.3-2.8-.8-2.6-3.2zM12 12c-.6 2-2.3 2.8-3.6 2.1.1-1.4 1.6-2.4 3.6-2.1z" fill="currentColor" stroke="none"/></g>',
     sensor: '<path d="M3 12h3.5l2-5.5 4 11 2.5-5.5H21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>',
     box: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></g>',
+    balance: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g>',
+    rule: '<path d="M13.2 2.8 6 13.2h5l-1.2 8 7.2-10.4h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',
+    data: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>',
   };
   const HEALTH_TOKEN = {ok: 'ok', degraded: 'warn', down: 'bad', unknown: 'text-faint'};
 
@@ -70,5 +73,35 @@
 
   const dataUri = (spec, colorOf) => `data:image/svg+xml;utf8,${encodeURIComponent(markup(spec, colorOf))}`;
 
-  window.DeviceMapNodeSvg = {SIZE, markup, dataUri, groupMarkup, groupDataUri};
+  const STUB_SIZE = 24;
+
+  const icon = (name, size, token) => `<svg data-icon="${name}" x="${-size / 2}" y="${-size / 2}" width="${size}" height="${size}" viewBox="0 0 24 24" color="{${token}}">${ICONS[name]}</svg>`;
+
+  // Shapes of the draft's virtual nodes (balance, rule) and of the spec's
+  // service square and stub (Freigaben 2 und 5 im Plan).
+  const VIRTUAL = {
+    balance: () => `<circle r="22" fill="{accent-bg}" stroke="{accent-line}" stroke-width="2"/>${icon('balance', 22, 'accent-line')}`,
+    rule: () => `<rect x="-15" y="-15" width="30" height="30" rx="5" transform="rotate(45)" fill="{info-bg}" stroke="{info-line}" stroke-width="2"/>${icon('rule', 18, 'info-line')}`,
+    service: () => `<rect x="-20" y="-20" width="40" height="40" rx="9" fill="{info-bg}" stroke="{info-line}" stroke-width="2"/>${icon('data', 20, 'info-line')}`,
+  };
+
+  const virtualMarkup = (kind, colorOf) => {
+    let body;
+    if (kind === 'stub') {
+      const half = STUB_SIZE / 2;
+      body = `<svg xmlns="http://www.w3.org/2000/svg" width="${STUB_SIZE}" height="${STUB_SIZE}" viewBox="${-half} ${-half} ${STUB_SIZE} ${STUB_SIZE}">`
+        + '<circle r="10" fill="{panel}" stroke="{warn-line}" stroke-width="1.6" stroke-dasharray="3 3"/>'
+        + '</svg>';
+    } else {
+      const half = SIZE / 2;
+      body = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="${-half} ${-half} ${SIZE} ${SIZE}">`
+        + (VIRTUAL[kind] || VIRTUAL.service)()
+        + '</svg>';
+    }
+    return body.replace(TOKEN, (_, token) => colorOf(token));
+  };
+
+  const virtualDataUri = (kind, colorOf) => `data:image/svg+xml;utf8,${encodeURIComponent(virtualMarkup(kind, colorOf))}`;
+
+  window.DeviceMapNodeSvg = {SIZE, STUB_SIZE, markup, dataUri, groupMarkup, groupDataUri, virtualMarkup, virtualDataUri};
 })();
