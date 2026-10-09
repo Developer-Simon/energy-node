@@ -1,19 +1,128 @@
 {
-  "version": 1,
+  "version": 2,
   "nodes": [
-    {"device_id": "apsystems_dach", "x": 0, "y": 0},
-    {"device_id": "netz_zaehler", "x": 220, "y": 0},
-    {"device_id": "batterie_wr", "x": 440, "y": 0},
-    {"device_id": "haus_zaehler", "x": 220, "y": 160},
-    {"device_id": "wallbox", "x": 440, "y": 160},
-    {"device_id": "waermepumpe", "x": 660, "y": 160},
-    {"device_id": "netz_meanwell", "x": 0, "y": 320},
-    {"device_id": "netz_lumentree", "x": 220, "y": 320},
-    {"device_id": "bms_bank_a", "x": 440, "y": 320},
-    {"device_id": "bms_bank_b", "x": 660, "y": 320}
+    {
+      "device_id": "apsystems_dach",
+      "x": 0,
+      "y": 0
+    },
+    {
+      "device_id": "netz_zaehler",
+      "x": 220,
+      "y": 0
+    },
+    {
+      "device_id": "batterie_wr",
+      "x": 440,
+      "y": 0
+    },
+    {
+      "device_id": "bank",
+      "x": 660,
+      "y": 0
+    },
+    {
+      "device_id": "haus_zaehler",
+      "x": 220,
+      "y": 160
+    },
+    {
+      "virtual_id": "group:garage",
+      "x": 440,
+      "y": 320
+    },
+    {
+      "virtual_id": "group:workshop",
+      "x": 800,
+      "y": 320
+    },
+    {
+      "virtual_id": "balance",
+      "x": 1020,
+      "y": 160
+    },
+    {
+      "device_id": "wallbox",
+      "x": 360,
+      "y": 480
+    },
+    {
+      "device_id": "waermepumpe",
+      "x": 520,
+      "y": 480
+    },
+    {
+      "device_id": "werkstatt",
+      "x": 800,
+      "y": 480
+    },
+    {
+      "device_id": "netz_meanwell",
+      "x": 0,
+      "y": 640
+    },
+    {
+      "device_id": "netz_lumentree",
+      "x": 220,
+      "y": 640
+    },
+    {
+      "device_id": "bms_bank_a",
+      "x": 440,
+      "y": 640
+    },
+    {
+      "device_id": "bms_bank_b",
+      "x": 660,
+      "y": 640
+    },
+    {
+      "virtual_id": "rule:regel_pv_surplus",
+      "x": 0,
+      "y": 160
+    },
+    {
+      "virtual_id": "service:battery_soc_devices/battery_soc",
+      "x": 1060,
+      "y": 720
+    }
   ],
   "edges": [
-    {"id": "apsystems_dach-netz_zaehler", "child_id": "apsystems_dach", "parent_id": "netz_zaehler", "kind": "mqtt", "created_at": "2026-08-13T00:00:00Z"}
+    {
+      "id": "apsystems_dach-netz_zaehler",
+      "child_id": "apsystems_dach",
+      "parent_id": "netz_zaehler",
+      "kind": "mqtt",
+      "created_at": "2026-08-13T00:00:00Z"
+    },
+    {
+      "id": "haus_zaehler-netz_zaehler",
+      "child_id": "haus_zaehler",
+      "parent_id": "netz_zaehler",
+      "kind": "mqtt",
+      "created_at": "2026-08-13T00:00:00Z"
+    },
+    {
+      "id": "batterie_wr-netz_zaehler",
+      "child_id": "batterie_wr",
+      "parent_id": "netz_zaehler",
+      "kind": "mqtt",
+      "created_at": "2026-08-13T00:00:00Z"
+    },
+    {
+      "id": "group_garage-haus_zaehler",
+      "child_id": "group:garage",
+      "parent_id": "haus_zaehler",
+      "kind": "mqtt",
+      "created_at": "2026-08-13T00:00:00Z"
+    },
+    {
+      "id": "group_workshop-haus_zaehler",
+      "child_id": "group:workshop",
+      "parent_id": "haus_zaehler",
+      "kind": "mqtt",
+      "created_at": "2026-08-13T00:00:00Z"
+    }
   ],
   "view": {
     "snap_to_grid": true,

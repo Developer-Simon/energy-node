@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['devicemap-model.js', 'devicemap-graph.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
+const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
@@ -1392,4 +1392,208 @@ test('the focus summary names a virtual node instead of showing its raw id', asy
   component.focusRelated = new Set(['rule:r%201']);
   assert.ok(component.focusSummary().includes('Regel 1'));
   assert.ok(!component.focusSummary().includes('rule:r%201'));
+});
+
+test('tapping a manual wiring edge opens its card with origin and a disconnect action', () => {
+  const {component} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.deviceMap = {version: 1, nodes: [], edges: []};
+  component.onEdgeTap({target: fakeEdge({id: 'edge-1', source: 'bkw', target: 'wb', overrideId: 'relation-1'}), renderedPosition: {x: 100, y: 80}});
+  const pop = component.popover;
+  assert.equal(pop.title, 'Wallbox → Balkonkraftwerk');
+  assert.equal(pop.eyebrow, 'Verdrahtung');
+  assert.ok(pop.rows.some(([label, value]) => label === 'Quelle' && value === 'Von Hand verbunden'));
+  assert.equal(pop.action.label, 'Verbindung lösen');
+  assert.deepEqual({...pop.link}, {tab: 'panel', target: 'wb'});
+});
+
+test('a discovery wiring card explains why it cannot be dissolved and offers no action', () => {
+  const {component} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.onEdgeTap({target: fakeEdge({id: 'edge-1', source: 'bkw', target: 'wb'})});
+  assert.equal(component.popover.action, null);
+  assert.match(component.popover.text, /Discovery/);
+});
+
+test('a membership edge opens a group member card', () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.onEdgeTap({target: fakeEdge({id: 'm', source: 'group:garage', target: 'wb', membership: {group: 'garage', member: 'wb'}})});
+  assert.equal(component.popover.eyebrow, 'Gruppenmitglied');
+  assert.ok(component.popover.action);
+});
+
+test('closing the wiring card clears the edge selection', () => {
+  const {component} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.onEdgeTap({target: fakeEdge({id: 'edge-1', source: 'bkw', target: 'wb', overrideId: 'relation-1'})});
+  component.closePopover();
+  assert.equal(component.selectedEdge, null);
+  assert.equal(component.popover, null);
+});
+
+test('removeSelectedRelation still deletes when the card closes while the confirmation is open', async () => {
+  let deletedUrl = null;
+  const {component} = createDevicemapPanel({fetchImpl: async url => { deletedUrl = url; return {ok: true, status: 204}; }});
+  component.devices = panelDevices();
+  component.deviceMap = {version: 1, nodes: [], edges: [{id: 'relation-1', child_id: 'wb', parent_id: 'bkw', kind: 'via_device'}]};
+  component.onEdgeTap({target: fakeEdge({id: 'edge-1', source: 'bkw', target: 'wb', overrideId: 'relation-1'})});
+  component.$store.modal.confirm = async () => { component.closePopover(); return true; };
+  await component.runPopoverAction();
+  assert.equal(deletedUrl, '/api/v1/device/map/relations/relation-1');
+  assert.deepEqual(component.deviceMap.edges, []);
+});
+
+test('the card link opens the lower device in the side panel', async () => {
+  const {component} = createDevicemapPanel();
+  component.devices = panelDevices();
+  component.onEdgeTap({target: fakeEdge({id: 'edge-1', source: 'bkw', target: 'wb', overrideId: 'relation-1'})});
+  await component.openFlowLink(component.popover.link);
+  assert.equal(component.panelId, 'wb');
+  assert.equal(component.focusId, 'wb');
+  assert.equal(component.popover, null);
+});
+
+test('Escape closes the display menu before anything else', async () => {
+  const {component} = createDevicemapPanel();
+  component.panelId = 'bkw';
+  component.toggleViewMenu(true);
+  await component.onEscape();
+  assert.equal(component.viewMenuOpen, false);
+  assert.equal(component.panelId, 'bkw');
+});
+
+test('the picker offers devices and other groups, marks members of another group and skips current members', () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.devices[0].manufacturer = 'APsystems';
+  component.savedGroups.keller = {label: 'Keller', members: {devices: ['bkw'], groups: []}};
+  const items = component.pickerItems('garage');
+  const ids = items.map(item => item.id);
+  assert.ok(!ids.includes('wb'), 'already a member');
+  assert.ok(!ids.includes('energy_node'));
+  assert.ok(!ids.includes('group:garage'), 'never itself');
+  assert.ok(ids.includes('group:keller'));
+  const bkw = items.find(item => item.id === 'bkw');
+  assert.equal(bkw.memberOf, 'Keller');
+  assert.equal(bkw.section, 'APsystems');
+});
+
+test('adding several members from the picker moves them in one patch after confirming the move', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({url, options});
+    return {ok: true, status: 200, json: async () => ({assignments: {}, groups: JSON.parse(options.body || '{}').groups || {}})};
+  };
+  const {component, stores} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  component.savedGroups.keller = {label: 'Keller', members: {devices: ['bkw'], groups: []}};
+  component.panelId = 'group:garage';
+  const pending = component.addGroupMembers();
+  assert.equal(component.picker.title, 'Mitglieder für „Garage“');
+  component.togglePick('bkw');
+  component.togglePick('group:keller');
+  component.closePicker(true);
+  await pending;
+  assert.equal(stores.modal.calls.length, 1);
+  assert.match(stores.modal.calls[0].body, /Balkonkraftwerk/);
+  const patch = JSON.parse(calls.find(call => call.options.method === 'PATCH').options.body);
+  assert.deepEqual(patch.groups.garage.members, {devices: ['wb', 'bkw'], groups: ['keller']});
+  assert.deepEqual(patch.groups.keller.members.devices, []);
+});
+
+test('cancelling the picker changes nothing', async () => {
+  const calls = [];
+  const {component} = createDevicemapPanel({fetchImpl: async (url, options = {}) => { calls.push(options); return {ok: true, status: 200, json: async () => ({})}; }});
+  groupFixture(component);
+  component.panelId = 'group:garage';
+  const pending = component.addGroupMembers();
+  component.togglePick('bkw');
+  component.closePicker(false);
+  await pending;
+  assert.equal(calls.length, 0);
+  assert.equal(component.picker, null);
+});
+
+test('the group switch "count as a whole" drafts the first consumer category', async () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.savedCategories = {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_2', icon: 'mdi:home'}};
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  assert.equal(component.groupCountsWhole(), false);
+  component.setGroupWhole(true);
+  assert.equal(component.panelView.role, 'custom:werkstatt');
+  assert.equal(component.panelView.roleOptions[1].color, 'cat_2');
+  component.setGroupWhole(false);
+  assert.equal(component.panelView.role, '');
+  assert.equal(component.groupDraft, null, 'back to the saved state, nothing left to save');
+});
+
+test('a category created from the group panel becomes the role draft', async () => {
+  const fetchImpl = async (url, options = {}) => ({ok: true, status: 200, json: async () => ({assignments: {}, groups: {garage: {label: 'Garage', members: {devices: ['wb'], groups: []}}}, categories: JSON.parse(options.body || '{}').categories || {}})});
+  const {component} = createDevicemapPanel({fetchImpl});
+  groupFixture(component);
+  await component.onNodeTap({target: fakeNode('group:garage')});
+  component.openCategoryDialog(true);
+  component.categoryForm.label = 'Werkstatt';
+  await component.createCategory();
+  assert.equal(component.panelView.role, 'custom:werkstatt');
+});
+
+test('saving the map and changing a relation tell the energy page', async () => {
+  const { component, window } = createDevicemapPanel({
+    fetchImpl: async (url, options = {}) => ({ ok: true, status: options.method === 'DELETE' ? 204 : 200, json: async () => (options.body ? JSON.parse(options.body) : {}) }),
+  });
+  let changed = 0;
+  window.addEventListener('device-map-changed', () => { changed += 1; });
+  component.deviceMap = { version: 2, nodes: [], edges: [{ id: 'relation-1', child_id: 'a', parent_id: 'b', kind: 'via_device' }] };
+  component.savedDeviceMap = JSON.parse(JSON.stringify(component.deviceMap));
+  await component.save();
+  assert.equal(changed, 1, 'save');
+  component.onEdgeTap({ target: fakeEdge({ id: 'edge-1', source: 'b', target: 'a', overrideId: 'relation-1' }) });
+  await component.removeSelectedRelation();
+  assert.equal(changed, 2, 'relation removed');
+});
+
+test('energy-roles-changed from the energy page reloads groups and roles, its own event does not', async () => {
+  let rolesFetches = 0;
+  const roles = { assignments: { x: { role: 'pv' } }, groups: { uv: { label: 'UV', members: { devices: [], groups: [] } } }, categories: {} };
+  const { component, window } = createDevicemapPanel({
+    fetchImpl: async url => {
+      if (url.endsWith('/api/v1/energy/roles')) { rolesFetches += 1; return { ok: true, status: 200, json: async () => JSON.parse(JSON.stringify(roles)) }; }
+      if (url.endsWith('/api/v1/devices')) return { ok: true, status: 200, json: async () => [] };
+      if (url.endsWith('/api/v1/device/map')) return { ok: true, status: 200, json: async () => ({ version: 2, nodes: [], edges: [] }) };
+      return { ok: true, status: 200, json: async () => ({ entities: [] }) };
+    },
+  });
+  await component.load();
+  component.deviceMap = { ...component.deviceMap, nodes: [{ device_id: 'a', x: 5, y: 5 }] };
+  component.unsaved = true;
+  roles.groups = {};
+  rolesFetches = 0;
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed', { detail: { source: 'devicemap' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(rolesFetches, 0, 'own event is ignored');
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed', { detail: { source: 'energy-page' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(rolesFetches, 1);
+  assert.deepEqual(Object.keys(component.savedGroups), [], 'the deleted group is gone');
+  assert.equal(component.deviceMap.nodes[0].x, 5, 'unsaved positions stay');
+  assert.equal(component.unsaved, true);
+});
+
+test('save() never stores a virtual node that was never placed, so a hidden layer cannot pin it to the origin', async () => {
+  let body = null;
+  const { component } = createDevicemapPanel({
+    fetchImpl: async (_url, options) => { body = JSON.parse(options.body); return { ok: true, status: 200, json: async () => body }; },
+  });
+  component.devices = [{ id: 'device_a', name: 'A', relations: [], entities: [] }];
+  component.savedGroups = { uv: { label: 'UV', members: { devices: [], groups: [] } } };
+  component.flows = { nodes: [{ virtual_id: 'rule:r1', kind: 'rule', label: 'R1' }], edges: [], unresolved: [] };
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'device_a', x: 5, y: 5 }, { virtual_id: 'group:uv', x: 40, y: 40 }], edges: [] };
+  // The graph holds the balance and the rule even with their layers off,
+  // at the origin because they have no position yet.
+  component._cyForTest = { nodes: () => [fakeNode('device_a', { x: 7, y: 7 }), fakeNode('group:uv', { x: 50, y: 50 }), fakeNode('balance'), fakeNode('rule:r1')] };
+  await component.save();
+  assert.deepEqual(body.nodes, [{ device_id: 'device_a', x: 7, y: 7 }, { virtual_id: 'group:uv', x: 50, y: 50 }]);
 });

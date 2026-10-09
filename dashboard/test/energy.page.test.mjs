@@ -18,6 +18,10 @@ const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'energy.page.js'),
   'utf8',
 );
+const pickerSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'device-picker.js'),
+  'utf8',
+);
 
 function createEnergyPanel({ fetchImpl, basePath } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
@@ -27,6 +31,7 @@ function createEnergyPanel({ fetchImpl, basePath } = {}) {
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
   if (basePath !== undefined) dom.window.__DASHBOARD_BASE_PATH__ = basePath;
   installI18n(dom.window);
+  vm.runInContext(pickerSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.energyRolesPanel();
   const stores = attachStores(component);
@@ -466,4 +471,120 @@ test('energy-focus-group flashes the group card', async () => {
   window.CSS = { escape: value => value };
   window.dispatchEvent(new window.CustomEvent('energy-focus-group', { detail: { id: 'uv' } }));
   assert.equal(component.flashGroup, 'uv');
+});
+
+test('group members are listed as chips, groups with a group: id', () => {
+  const { component } = createEnergyPanel();
+  component.devicesList = [{ id: 'wb', name: 'Wallbox', manufacturer: '', icon: '' }];
+  component.groups = {
+    garage: { label: 'Garage', members: { devices: ['wb'], groups: ['keller'] } },
+    keller: { label: 'Keller', members: { devices: [], groups: [] } },
+  };
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groupMembers('garage'))), [
+    { id: 'group:keller', kind: 'group', name: 'Keller' },
+    { id: 'wb', kind: 'device', name: 'Wallbox' },
+  ]);
+  component.removeGroupMember('garage', 'group:keller');
+  component.removeGroupMember('garage', 'wb');
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groups.garage.members)), { devices: [], groups: [] });
+});
+
+test('members picked for a group leave the group they were in before', async () => {
+  const { component } = createEnergyPanel();
+  component.devicesList = [
+    { id: 'wb', name: 'Wallbox', manufacturer: 'Shelly', icon: '' },
+    { id: 'saw', name: 'Kreissäge', manufacturer: 'Shelly', icon: '' },
+  ];
+  component.groups = {
+    garage: { label: 'Garage', members: { devices: [], groups: [] } },
+    keller: { label: 'Keller', members: { devices: ['saw'], groups: [] } },
+  };
+  const pending = component.addGroupMembers('garage');
+  const offered = component.picker.items;
+  assert.equal(offered.find(item => item.id === 'saw').memberOf, 'Keller');
+  assert.ok(offered.some(item => item.id === 'group:keller'));
+  assert.ok(!offered.some(item => item.id === 'group:garage'));
+  component.togglePick('saw');
+  component.togglePick('group:keller');
+  component.closePicker(true);
+  await pending;
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groups.garage.members)), { devices: ['saw'], groups: ['keller'] });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groups.keller.members.devices)), []);
+});
+
+test('the settings accordion keeps exactly one section open', () => {
+  const { component } = createEnergyPanel();
+  component.$nextTick = fn => fn();
+  assert.equal(component.openSection, 'roles', 'roles are open by default');
+  component.toggleSection('groups');
+  assert.equal(component.isSectionOpen('groups'), true);
+  assert.equal(component.isSectionOpen('roles'), false);
+  component.toggleSection('groups');
+  assert.equal(component.openSection, '', 'a second click closes the open section');
+});
+
+test('focusing a group or rows opens the matching section', () => {
+  const { component } = createEnergyPanel();
+  component.$nextTick = () => {};
+  component._setTimeout = () => 0;
+  component.toggleSection('interpretation');
+  component.focusGroup('garage');
+  assert.equal(component.openSection, 'groups');
+  component.focusRows(['pv_power']);
+  assert.equal(component.openSection, 'roles');
+});
+
+test('the switch "count as a whole" picks the first consumer category and clears the role when off', () => {
+  const { component } = createEnergyPanel();
+  component.categories = {
+    werkstatt: { label: 'Werkstatt', base: 'consumer', color: 'cat_2', icon: '' },
+    dach: { label: 'Dach', base: 'producer', color: 'cat_1', icon: '' },
+  };
+  component.groups = { garage: { label: 'Garage', members: { devices: [], groups: [] } } };
+  assert.equal(component.groupCountsWhole('garage'), false);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.groupRoleOptions().map(option => option.value))), ['custom:werkstatt']);
+  component.setGroupWhole('garage', true);
+  assert.equal(component.groups.garage.role, 'custom:werkstatt');
+  component.setGroupWhole('garage', false);
+  assert.equal(component.groups.garage.role, '');
+  assert.equal(component.groupCountsWhole('garage'), false);
+});
+
+test('without a consumer category the switch stays on and waits for one', () => {
+  const { component } = createEnergyPanel();
+  component.groups = { garage: { label: 'Garage', members: { devices: [], groups: [] } } };
+  component.setGroupWhole('garage', true);
+  assert.equal(component.groups.garage.role || '', '');
+  assert.equal(component.groupCountsWhole('garage'), true);
+});
+
+test('a new category from a group card becomes its role and opens the categories', () => {
+  const { component } = createEnergyPanel();
+  component.$nextTick = () => {};
+  component.groups = { garage: { label: 'Garage', members: { devices: [], groups: [] } } };
+  component.addCategoryForGroup('garage');
+  const [id] = Object.keys(component.categories);
+  assert.equal(component.categories[id].base, 'consumer');
+  assert.equal(component.groups.garage.role, `custom:${id}`);
+  assert.equal(component.openSection, 'categories');
+});
+
+test('save() tells the device map and the plant view, the page skips its own event', async () => {
+  let loads = 0;
+  const fetchImpl = async (url, options) => {
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({edit_energy: true});
+    if (url === '/api/v1/devices') { loads += 1; return jsonResponse(devicesResponse); }
+    if (url === '/api/v1/energy/roles') return jsonResponse(rolesResponse);
+    return jsonResponse(energyResponse);
+  };
+  const {component, window} = createEnergyPanel({fetchImpl});
+  const seen = [];
+  window.addEventListener('energy-roles-changed', event => seen.push(event.detail && event.detail.source));
+  component.init();
+  await component.load();
+  loads = 0;
+  await component.save();
+  await new Promise(resolve => setImmediate(resolve));
+  assert.deepEqual(seen, ['energy-page']);
+  assert.equal(loads, 0, 'no reload after its own save');
 });

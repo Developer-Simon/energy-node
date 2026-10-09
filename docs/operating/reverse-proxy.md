@@ -6,6 +6,12 @@ redirect_from:
 
 # Dashboard behind a reverse proxy under a sub-path (`/node/`)
 
+> You do not need a reverse proxy if you use the
+> [Energy Node Companion](../ha/companion.md). It puts the dashboard into the
+> Home Assistant sidebar and passes the page through Home Assistant, see
+> [Dashboard in the sidebar](../ha/companion-sidebar.md). This page is only for
+> setups that serve the dashboard under a sub-path of their own proxy.
+
 Status: 2026-08-08. Besides direct access (`http://<node>:8080/`), the
 dashboard can run under a sub-path, for example behind the Home Assistant
 system's nginx at `https://ha.example/node/`. This page describes how that

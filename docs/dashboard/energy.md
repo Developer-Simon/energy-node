@@ -1,71 +1,150 @@
 ---
-title: "Energy"
+title: "Energy and device map"
 ---
 
-# Energy
+# Energy and device map
 
-![Energy roles and balance interpretation](../images/dashboard-energy.png)
+The Energy tab turns your sensors into an energy balance. The Device map tab
+shows where that energy flows. Both work on the same roles, groups and
+categories, and a change on one tab shows up on the other right away.
 
-This page turns a set of sensors into an energy balance. Each measured entity
-gets a role: PV, grid, battery, house load, wallbox, heat pump, battery state of
-charge, or one of the split import/export and charge/discharge variants.
-Several entities can share a role, and their values are summed. Entities
-without a role are listed at the top, because an unassigned power sensor is
-the usual reason a balance does not add up.
+## Energy tab
 
-**Balance interpretation** decides where the house consumption comes from:
+### Plant live
 
-| Mode | Meaning |
+![Plant live on the Energy tab](../images/dashboard-energy-plant.png)
+
+The device map arrangement, read only, with the live flow and the energy
+balance. Click a device to light up its rows in the role table, click a group
+to jump to its card.
+
+### Balance interpretation
+
+![Balance interpretation](../images/dashboard-energy-interpretation.png)
+
+| Mode | House consumption is |
 |---|---|
-| Measured | Take the entity carrying the house consumption role |
+| Measured | the entity with the role House consumption |
 | Calculated | PV + grid import + discharging − feed-in − charging |
-| Combined | Calculated, with measured consumers shown separately |
-| Automatic (default) | Measured if available, otherwise calculated |
+| Combined | calculated, measured consumers shown separately |
+| Automatic (default) | measured if available, otherwise calculated |
 
-Below that are the settings the status card reads: whether a remaining gap in
-the balance is added to the house consumption, the tolerance in watts or
-percent, the thresholds at which the status card calls a situation a surplus
-or a grid draw, and the battery reserve.
+Below that: whether a remaining gap counts as house consumption, the tolerance,
+the surplus and grid import thresholds of the status card and the battery
+reserve.
 
-## Plant live
+### Energy roles
 
-At the top of the tab, Plant live shows the plant as a read-only view. It uses
-the arrangement of the device map, so the devices sit where you placed them
-there. The energy flow animates along the connections in the direction of the
-power, and the energy balance node carries its role edges. Rules and services
-are not drawn here, and nothing can be dragged or edited in this view.
+![Energy roles](../images/dashboard-energy-roles.png)
 
-Clicking a device lights up its rows in the role table below and keeps the
-node highlighted. Clicking a group lights up its group card. The other way
-round, clicking a role row highlights its device in the plant view. Roles are
-still changed in the table, and the ring on the plant follows once they are
-saved.
+Every power and charge entity gets a role such as PV, grid, battery, house
+consumption, wallbox, heat pump or a custom category. Entities sharing a role
+are summed. The tiles show each role with its value and whether it is fresh and
+live. Power values without a role are listed at the top of the tab, because
+they are the usual reason a balance does not add up.
 
-With reduced motion enabled in the system, the flows stand still and carry an
-arrow, as on the device map. Leaving the Energy tab stops the animation.
+### Groups
 
-## Groups
+![Groups with the count as a whole switch](../images/dashboard-energy-groups.png)
 
-A group bundles devices without a meter of their own. It lists its members,
-which can be devices or other groups, and can carry a role. Without a role
-every member counts with its own role. With a role the group counts as a whole
-under that category, and its members must not carry a role that conflicts with
-it. A device sits in at most one group, and groups cannot contain themselves.
-Groups can also be created and edited on the device map.
+A group bundles devices without a meter of their own.
 
-## Custom categories
+- **Count as a whole off** (Garage): every member counts with its own role.
+- **Count as a whole on** (Workshop): the group counts in one consumer
+  category. Pick it from the chips or create a new one in place.
 
-A custom category has a name, a base type, a colour and an icon. The base type
-sets the balance rule: consumers are subtracted like house load, producers add
-like PV and storage behaves like a battery. Each consumer category appears as
-its own sink next to the house consumption, which is reduced by the same
-amount, so the balance still adds up. A category that is still assigned to a
-device or group cannot be removed.
+A device sits in at most one group. Groups can hold other groups.
 
-The tiles at the bottom show every assigned role with its current value and
-two flags: whether the value is fresh and whether it arrives live.
+### Custom categories
 
-Changing roles, the interpretation or restoring an older revision needs the
-permission `edit_energy`. Until there is a user management, every account has
-it, guests included. The same permission covers the role panel on the device
-map. The roles saved there show up on this page right away.
+![Custom categories](../images/dashboard-energy-categories.png)
+
+Your own consumer, producer or storage types next to the built-in roles. The
+base decides how the category counts: consumers like house load, producers
+like PV, storage like a battery. Each consumer category appears as a sink of
+its own in the overview tiles and in the history. A category still in use
+cannot be removed.
+
+## Device map
+
+![Device map](../images/dashboard-device-map.png)
+
+A free canvas with all devices. Place the nodes by hand and connect them to
+record how the site is wired, such as which meter feeds which sub-distribution.
+Positions, connections and layers are versioned, so an accidental drag can be
+rolled back.
+
+How to read a node:
+
+- **Ring colour**: the energy roles of the device, one segment per role.
+- **Solid ring**: role assigned by you. **Dashed**: only detected. **Grey
+  dotted**: no role.
+- **Dot top right**: availability, green, amber, red or grey without data.
+- **Σ in a dashed circle**: a group, its value is the sum of its members.
+- **Moving dashes**: the live flow, faster for more power, with the value at
+  the child end.
+
+### Layers and view
+
+![Layer bar and view menu](../images/dashboard-device-map-view-menu.png)
+
+| Layer | Shows |
+|---|---|
+| Wiring | the connections between devices and groups |
+| Live energy | roles, values and the moving flow |
+| Energy balance | the balance node and every device that feeds it |
+| Data flow | topics between devices, services and automation rules |
+
+The view menu holds the grid, snap to grid, width by power, the line style and
+the legend. With reduced motion enabled in the system the lines stand still and
+carry an arrow.
+
+### Device panel
+
+![Device panel with the energy roles](../images/dashboard-device-map-device-panel.png)
+
+Click a device to see the roles of its measurements. A chip tells where each
+role comes from: detected, assigned or no role. Changes are drafts until you
+save, and the map already follows them. Show in the role table jumps to the
+Energy tab.
+
+### Group panel
+
+![Group panel](../images/dashboard-device-map-group-panel.png)
+
+Click a group for its sum, its members and the count as a whole switch. Members
+are added with the picker or by hanging a device under the group in connect
+mode.
+
+![Device picker](../images/dashboard-device-map-picker.png)
+
+![Create group dialog](../images/dashboard-device-map-create-group.png)
+
+![Create category dialog](../images/dashboard-device-map-category.png)
+
+The plus in the toolbar creates a group. New category in a group creates a
+category and selects it for that group.
+
+### Energy balance layer
+
+![Energy balance layer](../images/dashboard-device-map-balance.png)
+
+Every device with a role is connected to the balance node in the colour of its
+role. The balance publishes the result for automations, so the map shows the
+value a rule compares against.
+
+### Data flow layer
+
+![Data flow layer](../images/dashboard-device-map-dataflow.png)
+
+Topics as dashed edges from the producer to the receiver. Automation rules are
+diamonds, services are squares, and a topic nobody publishes is a stub labelled
+Topic without a device. Click an edge or a rule for its details and a link into
+the configuration or the Automations tab. How a service declares its topics is
+described in [Data flows](../developing/data-flow.md#12-data-flow-on-the-device-map).
+
+## Permissions
+
+Changing roles, groups, categories or the interpretation needs the permission
+`edit_energy`. Until there is a user management every account has it, guests
+included.

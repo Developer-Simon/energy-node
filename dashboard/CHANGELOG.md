@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.17 (2026-10-09)
+## v0.8.18 (2026-10-10)
 
 ### Features
 
@@ -15,9 +15,14 @@
 - **dashboard:** edit energy roles on the device map (#107) (0f1a4dc)
 - **dashboard:** energy groups and custom categories (#108) (3facc40)
 - **dashboard:** data flow and balance layers on the device map (#109) (bbe604b)
+- **dashboard:** live plant view on the energy tab (#110) (a3951fd)
+- **dashboard:** polish the device map toolbar, cards and group editing (82c7dc2)
+- **dashboard:** two-column group cards and even spacing on the energy page (bd8896b)
+- **dashboard:** energy settings accordion and group role switch (987be61)
+- **dashboard:** clearer create group dialog on the device map (11f862b)
+- **dashboard:** polish the device map and the energy tab (#111)
 - **dashboard:** add the read-only plant view component (0871c27)
 - **dashboard:** show the live plant view on the energy tab (689053c)
-- **dashboard:** live plant view on the energy tab (#110)
 - **services:** declare data flow of topic fields with x-dataflow (dfa0420)
 - **dashboard:** expose template json key and active schema properties (f3b96ff)
 - **dashboard:** add dataflow package with topic index (b20f0ab)
@@ -77,6 +82,12 @@
 
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
 - **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
+- **dashboard:** stop the category control from overriding the .segmented slider (18ca390)
+- **dashboard:** drop the hint text next to the assigned chip (79d8583)
+- **dashboard:** mobile device map sheet stays at the bottom and scrolls (216e695)
+- **dashboard:** keep the device map and the energy tab in sync (4181bb0)
+- **dashboard:** keep the device map panel tooltips inside the panel (7a0252d)
+- **dashboard:** never save unplaced balance or data flow nodes (16d55fe)
 - **dashboard:** show custom category names on the history page (8d2d1e1)
 - **dashboard:** sort the new catalog keys (51ca4c9)
 - **dashboard:** show the legend only for energy or data layers and name virtual focus nodes (26d65ad)
@@ -103,6 +114,7 @@
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
+- **dashboard:** merge the device map into the energy page (b9bee03)
 - **dashboard:** describe the plant view on the energy tab (ccc8f3e)
 - **dashboard:** describe the balance and data flow layers (082591c)
 - **dashboard:** describe the device map role panel (9817599)

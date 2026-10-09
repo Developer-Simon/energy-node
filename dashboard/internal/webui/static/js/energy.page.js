@@ -11,6 +11,8 @@
   // hält sie schon aus energy.Aggregate heraus; die Zeilenliste hier stammt
   // aber direkt aus /api/v1/devices und braucht denselben Filter.
   const OWN_ENERGY_DEVICE_ID = 'energy_node';
+  const GROUP_PREFIX = 'group:';
+  const ENERGY_PAGE_SOURCE = 'energy-page';
 
   // Viele Integrationen stellen jedem Entitätsnamen den Gerätenamen voran
   // ("Trucki T2MG" / "Trucki T2MG DC Power"). Im Rollen-Editor steht der
@@ -43,7 +45,18 @@
     return body;
   };
 
+  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories'];
+  const readOpenSection = () => {
+    try {
+      const stored = localStorage.getItem('energy-open-section');
+      return stored === '' || SECTIONS.includes(stored) ? stored : 'roles';
+    } catch (error) {
+      return 'roles';
+    }
+  };
+
   const energyRolesPanel = () => ({
+    ...window.DevicePicker.mixin(),
     entities: [],
     assignments: {},
     powerRoleOptions: [
@@ -64,6 +77,11 @@
     socWithoutCapacity: 0,
     hiddenIds: {},
     hiddenExpanded: false,
+    // The one accordion section that is open: interpretation, roles, groups,
+    // categories or '' for none. Remembered per browser.
+    openSection: readOpenSection(),
+    // Groups whose switch "count as a whole" is on before a category is set.
+    groupWhole: {},
     canEdit: true,
     csrfToken: '',
     flash: {},
@@ -94,7 +112,10 @@
     init() {
       // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
       // Seite den alten Stand und schriebe ihn beim naechsten Speichern zurueck.
-      window.addEventListener('energy-roles-changed', () => this.load());
+      // Das eigene Speichern meldet sich ebenfalls, dann ist hier schon alles aktuell.
+      window.addEventListener('energy-roles-changed', event => {
+        if ((event.detail || {}).source !== ENERGY_PAGE_SOURCE) this.load();
+      });
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
     },
@@ -112,9 +133,43 @@
       }
     },
 
+    isSectionOpen(name) {
+      return this.openSection === name;
+    },
+
+    // Opening a section closes the open one at once. Without help the page
+    // would jump: the closed section above takes its height with it and the
+    // header just clicked slides up out of view. The scroll offset is
+    // corrected so the clicked header stays where the pointer is.
+    toggleSection(name, event) {
+      this.setOpenSection(this.openSection === name ? '' : name, event && event.currentTarget);
+    },
+
+    setOpenSection(name, anchor) {
+      const before = anchor && anchor.getBoundingClientRect ? anchor.getBoundingClientRect().top : null;
+      this.openSection = name;
+      try { localStorage.setItem('energy-open-section', name); } catch (error) { /* private mode: not remembered */ }
+      if (before === null) return;
+      this.$nextTick(() => {
+        const shift = anchor.getBoundingClientRect().top - before;
+        if (Math.abs(shift) > 1 && window.scrollBy) window.scrollBy(0, shift);
+      });
+    },
+
+    sectionMeta(name) {
+      if (name === 'roles') {
+        const n = Object.values(this.assignments).filter(assignment => assignment.role).length;
+        return tn('energy.section.roles_meta', n, {n});
+      }
+      if (name === 'groups') return tn('energy.section.groups_meta', Object.keys(this.groups).length, {n: Object.keys(this.groups).length});
+      if (name === 'categories') return tn('energy.section.categories_meta', Object.keys(this.categories).length, {n: Object.keys(this.categories).length});
+      return '';
+    },
+
     focusRows(ids) {
       window.__energyFocusRequest__ = null;
       if (!ids.length) return;
+      this.setOpenSection('roles');
       if (ids.some(id => this.isHidden(id))) this.hiddenExpanded = true;
       this.flash = Object.fromEntries(ids.map(id => [id, true]));
       this.$nextTick(() => {
@@ -133,8 +188,11 @@
 
     focusGroup(id) {
       this.flashGroup = id;
-      const card = document.querySelector(`[data-group-id="${CSS.escape(id)}"]`);
-      if (card) card.scrollIntoView({behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest'});
+      this.setOpenSection('groups');
+      this.$nextTick(() => {
+        const card = document.querySelector(`[data-group-id="${CSS.escape(id)}"]`);
+        if (card) card.scrollIntoView({behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest'});
+      });
       clearTimeout(this._groupTimer);
       this._groupTimer = this._setTimeout(() => { this.flashGroup = ''; }, 1600);
     },
@@ -176,7 +234,7 @@
         this.groups = JSON.parse(JSON.stringify(saved.groups || {}));
         this.devicesList = devices
           .filter(device => device.id !== OWN_ENERGY_DEVICE_ID)
-          .map(device => ({id: device.id, name: device.name || device.id}));
+          .map(device => ({id: device.id, name: device.name || device.id, manufacturer: device.manufacturer || '', icon: device.icon_name || device.suggested_icon || ''}));
         this.iconCatalogue = icons || [];
         this.unassigned = snapshot.unassigned || [];
         this.unassignedCount = snapshot.unassigned_count || 0;
@@ -321,6 +379,48 @@
       const label = t('energy.categories.new_label');
       const id = this.slug(label, Object.keys(this.categories));
       this.categories = {...this.categories, [id]: {label, base: 'consumer', color: 'cat_1', icon: (this.iconCatalogue[0] || {}).name || ''}};
+      return id;
+    },
+
+    // Consumer categories a group can count as, with colour and icon for the
+    // chips of the group card.
+    groupRoleOptions() {
+      return this.consumerRoleOptions().map(option => {
+        const def = this.categories[option.value.slice('custom:'.length)] || {};
+        return {...option, color: def.color || 'cat_1', iconMarkup: this.iconMarkupOf(def.icon)};
+      });
+    },
+
+    groupCountsWhole(id) {
+      return Boolean((this.groups[id] || {}).role) || Boolean(this.groupWhole[id]);
+    },
+
+    // Switch "count as a whole": off clears the role, on picks the first
+    // consumer category, or waits for one when there is none yet.
+    setGroupWhole(id, on) {
+      const group = this.groups[id];
+      this.groupWhole = {...this.groupWhole, [id]: on};
+      if (!on) { group.role = ''; return; }
+      const first = this.groupRoleOptions()[0];
+      if (!group.role && first) group.role = first.value;
+    },
+
+    setGroupRole(id, value) {
+      this.groups[id].role = value;
+    },
+
+    // "New category" on a group card: creates a consumer category, gives it
+    // to the group and opens the categories section with its name selected,
+    // so it can be named right away.
+    addCategoryForGroup(groupId) {
+      const id = this.addCategory();
+      this.groups[groupId].role = `custom:${id}`;
+      this.groupWhole = {...this.groupWhole, [groupId]: true};
+      this.setOpenSection('categories');
+      this.$nextTick(() => {
+        const input = document.querySelector(`[data-category-id="${CSS.escape(id)}"] .energy-groups-name`);
+        if (input) { input.focus(); if (input.select) input.select(); }
+      });
     },
 
     removeCategory(id) {
@@ -344,10 +444,60 @@
       this.groups = next;
     },
 
-    toggleGroupMember(groupId, kind, memberId) {
+    iconMarkupOf(name) {
+      const icon = this.iconCatalogue.find(candidate => candidate.name === name) || this.iconCatalogue[0];
+      return icon ? icon.markup : '';
+    },
+
+    // Members of a group for its chips. Group members carry a "group:" id so
+    // they never collide with a device id.
+    groupMembers(groupId) {
+      const members = (this.groups[groupId] || {}).members || {};
+      const deviceName = id => (this.devicesList.find(device => device.id === id) || {}).name || id;
+      return [
+        ...(members.groups || []).map(id => ({id: `${GROUP_PREFIX}${id}`, kind: 'group', name: (this.groups[id] || {}).label || id})),
+        ...(members.devices || []).map(id => ({id, kind: 'device', name: deviceName(id)})),
+      ];
+    },
+
+    groupOf(memberId, kind) {
+      return Object.entries(this.groups).find(([, group]) => ((group.members || {})[kind] || []).includes(memberId));
+    },
+
+    removeGroupMember(groupId, memberId) {
       const group = this.groups[groupId];
-      const list = group.members[kind] || [];
-      group.members[kind] = list.includes(memberId) ? list.filter(id => id !== memberId) : [...list, memberId];
+      const kind = memberId.startsWith(GROUP_PREFIX) ? 'groups' : 'devices';
+      const id = kind === 'groups' ? memberId.slice(GROUP_PREFIX.length) : memberId;
+      group.members[kind] = (group.members[kind] || []).filter(other => other !== id);
+    },
+
+    // Opens the device picker. A chosen device or group leaves the group it
+    // was in before, the picker shows that as "in <group>" up front. Nothing
+    // is stored until the page is saved.
+    async addGroupMembers(groupId) {
+      const group = this.groups[groupId];
+      const members = group.members || {};
+      const memberOf = (id, kind) => {
+        const previous = this.groupOf(id, kind);
+        return previous && previous[0] !== groupId ? previous[1].label : '';
+      };
+      const items = [
+        ...Object.entries(this.groups)
+          .filter(([other]) => other !== groupId && !(members.groups || []).includes(other))
+          .map(([other, def]) => ({id: `${GROUP_PREFIX}${other}`, kind: 'group', name: def.label, section: '', valueText: '', iconMarkup: '', memberOf: memberOf(other, 'groups')})),
+        ...this.devicesList
+          .filter(device => !(members.devices || []).includes(device.id))
+          .map(device => ({id: device.id, kind: 'device', name: device.name, section: device.manufacturer, valueText: '', iconMarkup: this.iconMarkupOf(device.icon), memberOf: memberOf(device.id, 'devices')})),
+      ];
+      const ids = await this.openPicker({title: t('device_picker.title', {group: group.label}), items});
+      if (!ids) return;
+      for (const pickedId of ids) {
+        const kind = pickedId.startsWith(GROUP_PREFIX) ? 'groups' : 'devices';
+        const id = kind === 'groups' ? pickedId.slice(GROUP_PREFIX.length) : pickedId;
+        const previous = this.groupOf(id, kind);
+        if (previous && previous[0] !== groupId) previous[1].members[kind] = previous[1].members[kind].filter(other => other !== id);
+        group.members[kind] = [...(group.members[kind] || []), id];
+      }
     },
 
     payload() {
@@ -386,10 +536,18 @@
       return {
         basePath: '/api/v1/energy',
         current: () => this.payload(),
-        reload: () => this.load(),
+        reload: async () => {
+          await this.load();
+          this.notifyRolesChanged();
+        },
         label: t('energy.page.revisions_label'),
         headers: () => ({'X-CSRF-Token': this.csrfToken}),
       };
+    },
+
+    // Device map and plant view reload groups, roles and categories on this.
+    notifyRolesChanged() {
+      window.dispatchEvent(new CustomEvent('energy-roles-changed', {detail: {source: ENERGY_PAGE_SOURCE}}));
     },
 
     async save() {
@@ -402,6 +560,7 @@
           body: JSON.stringify({assignments, interpretation, categories, groups}),
         });
         this.$store.toasts.push(t('energy.page.saved'));
+        this.notifyRolesChanged();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {

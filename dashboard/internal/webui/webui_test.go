@@ -54,7 +54,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=3,/static/js/config.page.js?v=9\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=5,/static/js/devicemap-graph.js?v=2,/static/js/devicemap-dataflow.js?v=1,/static/js/devicemap-node-svg.js?v=3,/static/js/devicemap-labels.js?v=2,/static/js/energy-plant.js?v=1,/static/js/energy.page.js?v=7\"", "data-panel-css=\"/static/css/manager.css?v=30\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=3,/static/js/config.page.js?v=9\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=6,/static/js/devicemap-graph.js?v=3,/static/js/devicemap-dataflow.js?v=1,/static/js/devicemap-node-svg.js?v=3,/static/js/devicemap-labels.js?v=2,/static/js/energy-plant.js?v=2,/static/js/device-picker.js?v=1,/static/js/energy.page.js?v=8\"", "data-panel-css=\"/static/css/manager.css?v=31\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -153,7 +153,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	if !strings.Contains(body, `data-panel-css="/static/css/tippy.css"`) {
 		t.Fatal("devices-panel does not declare lazy tippy.css")
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=30,/static/css/settings-controls.css?v=8"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=31,/static/css/settings-controls.css?v=8"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -339,21 +339,20 @@ func TestEnergyPanelConsolidatesSaveIntoStickyBar(t *testing.T) {
 	}
 }
 
-// The rarely-touched interpretation block collapses so a long role list stays
-// reachable; the conditional warnings are hoisted out so collapsing never
-// hides one.
+// The settings sit in an accordion, so a long role list stays reachable; the
+// conditional warnings are hoisted out so collapsing never hides one.
 func TestEnergyPanelHoistsNoticesAboveCollapsibleInterpretation(t *testing.T) {
 	body := renderEnergyPanel(t)
 	notices := strings.Index(body, `class="energy-notices"`)
-	interpretation := strings.Index(body, `<details class="energy-interpretation"`)
+	interpretation := strings.Index(body, `data-energy-section="interpretation"`)
 	if notices < 0 {
 		t.Fatalf("energy panel is missing the hoisted notices strip: %s", body)
 	}
 	if interpretation < 0 {
-		t.Fatalf("interpretation block is not a collapsible <details>: %s", body)
+		t.Fatalf("interpretation is not an accordion section: %s", body)
 	}
 	if notices > interpretation {
-		t.Fatal("notices strip must render before the collapsible interpretation block")
+		t.Fatal("notices strip must render before the collapsible accordion")
 	}
 }
 
@@ -1096,13 +1095,13 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=26"`,
+		`href="/node/static/css/base.css?v=27"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
 		`data-panel-script="/node/static/js-deps/popper.min.js,/node/static/js-deps/tippy.umd.min.js"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=30,/node/static/css/settings-controls.css?v=8"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=31,/node/static/css/settings-controls.css?v=8"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)

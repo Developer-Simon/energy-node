@@ -32,3 +32,10 @@ test('the plant stage keeps a minimum width and scrolls sideways', () => {
   assert.match(css, /\.energy-plant-scroll\s*\{[^}]*overflow-x:\s*auto/);
   assert.match(css, /\.energy-plant-stage\s*\{[^}]*min-width:\s*680px/);
 });
+
+test('manager.css ueberschreibt den Slider .segmented aus settings-controls.css nicht', () => {
+  // manager.css laedt auch auf den Einstellungen und in der Diagnose. Eine
+  // eigene .segmented-Regel hier hat dort den Slider (Thumb + Optionen)
+  // zerlegt - der Basistyp der Kategorien heisst deshalb .category-segmented.
+  assert.doesNotMatch(css, /(^|[\s,}])\.segmented[\s{.:,]/m);
+});

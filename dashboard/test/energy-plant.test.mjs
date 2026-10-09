@@ -104,3 +104,24 @@ test('without devices the view reports empty', async () => {
   await component.load();
   assert.equal(component.empty, true);
 });
+
+test('a device without a saved position goes below the arrangement, not onto the origin', async () => {
+  const devices = [...TABLE['/api/v1/devices'], { id: 'ws', name: 'Werkstatt', entities: [] }];
+  const { component } = createPlant({ ...TABLE, '/api/v1/devices': devices });
+  await component.load();
+  assert.deepEqual({ ...component.positions().get('ws') }, { x: 100, y: 210 });
+  assert.equal(component.deviceMap.nodes.length, 2, 'nothing written back');
+});
+
+test('device-map-changed and energy-roles-changed reload the whole view', async () => {
+  const calls = [];
+  const { component, window } = createPlant(TABLE);
+  window.fetch = async url => { calls.push(String(url)); return routes(TABLE)(url); };
+  await component.load();
+  for (const name of ['device-map-changed', 'energy-roles-changed']) {
+    calls.length = 0;
+    window.dispatchEvent(new window.CustomEvent(name));
+    await new Promise(resolve => setImmediate(resolve));
+    assert.ok(calls.includes('/api/v1/device/map'), `${name} refetches the map`);
+  }
+});

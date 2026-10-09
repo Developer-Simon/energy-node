@@ -448,3 +448,28 @@ announced through Discovery.
 
 The dashboard does not access devices directly. The only exception is the
 TinyTuya helper, which calls a Python script for the initial setup.
+
+## 12. Data flow on the device map
+
+The [data flow layer](../dashboard/energy.md#data-flow-layer) of the device map
+is drawn from what the services declare in their JSON schemas. Every field with
+`"format": "mqtt-topic"` needs an `x-dataflow` annotation:
+
+| Annotation | Meaning |
+|---|---|
+| `direction` | `input` or `output` |
+| `label` | text on the edge |
+| `json_key_field` | field that holds the JSON key, when the payload is JSON |
+| `unit_field` | field that holds the unit |
+| `x-dataflow-label-key` | translation key for the label, on the field |
+| `x-dataflow: false` | leave the field out of the data flow (`true` is not allowed) |
+
+A service that lists entries, such as several banks, puts `x-dataflow-node` on
+the schema of one item with `id_field`, `label_field` and `device_id_template`.
+Each entry becomes its own node. It is linked to a device when the template
+gives the ID of a known device, otherwise it stays a service node.
+
+The contract test `TestEveryServiceTopicFieldDeclaresDataflow` in
+`dashboard/internal/dataflow/contract_test.go` walks the schema of every
+service and fails for a topic field without an annotation, so a new service has
+to decide for each topic whether it appears in the data flow.
