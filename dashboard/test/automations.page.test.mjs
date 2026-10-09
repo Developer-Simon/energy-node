@@ -17,6 +17,8 @@ const configStatusSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'config-status.js'),
   'utf8',
 );
+const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
+const viewSource = fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8');
 const scriptSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'automations.page.js'),
   'utf8',
@@ -29,6 +31,7 @@ function createAutomationsPanel() {
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   vm.runInContext(configStatusSource, context);
+  vm.runInContext(viewSource, context);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$refs = {};
@@ -191,6 +194,16 @@ test('client-side validation does not require hold_seconds >= 30 for notificatio
     actions: [{ type: 'notification', severity: 'info', title: 't', message: 'm' }],
   };
   assert.deepEqual(JSON.parse(JSON.stringify(component.validateRuleBeforeSave(rule))), []);
+});
+
+test('the view helpers load on their own, without the page', () => {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+  installI18n(dom.window);
+  vm.runInContext(fs.readFileSync(path.join(jsDir, 'automations-view.js'), 'utf8'), dom.getInternalVMContext());
+  const view = dom.window.__automationsView;
+  const described = view.describeCondition({ type: 'balance_threshold', field: 'grid_export', comparison: 'above', threshold: 1500 }, null);
+  assert.ok(described.title);
+  assert.ok(described.summary.includes('1500'));
 });
 
 function view() {
