@@ -709,7 +709,6 @@
   "devicemap.panel.source.override": "assigned",
   "devicemap.panel.source_hint.draft": "Already shown on nodes and edges as a preview.",
   "devicemap.panel.source_hint.heuristic": "Inferred from name and unit. Keep turns it into a fixed assignment.",
-  "devicemap.panel.source_hint.override": "Assigned permanently.",
   "devicemap.panel.status.one": "{n} unsaved change",
   "devicemap.panel.status.other": "{n} unsaved changes",
   "devicemap.placed_hint.one": "{n} new node placed.",

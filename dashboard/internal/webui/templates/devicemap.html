@@ -239,7 +239,7 @@
                 <div class="devicemap-panel-source" x-show="customHint(row.assignment.role)"><span x-text="customHint(row.assignment.role)"></span></div>
                 <div class="devicemap-panel-source">
                   <span class="devicemap-panel-chip" x-bind:data-source="row.source" x-text="$t(`devicemap.panel.source.${row.source}`)"></span>
-                  <span x-show="row.source !== 'none'" x-text="$t(`devicemap.panel.source_hint.${row.source}`)"></span>
+                  <span x-show="row.source === 'heuristic' || row.source === 'draft'" x-text="row.source === 'heuristic' || row.source === 'draft' ? $t(`devicemap.panel.source_hint.${row.source}`) : ''"></span>
                   <button type="button" class="pill-button" x-show="row.canPin && canEditEnergy" x-on:click="pinAssignment(row.id)">
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg>{{t "devicemap.panel.pin"}}
                   </button>

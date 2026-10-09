@@ -709,7 +709,6 @@
   "devicemap.panel.source.override": "zugeordnet",
   "devicemap.panel.source_hint.draft": "Wirkt in der Vorschau schon auf Knoten und Kanten.",
   "devicemap.panel.source_hint.heuristic": "Aus Name und Einheit geschlossen. Festlegen macht daraus eine feste Zuordnung.",
-  "devicemap.panel.source_hint.override": "Fest zugeordnet.",
   "devicemap.panel.status.one": "{n} Änderung nicht gespeichert",
   "devicemap.panel.status.other": "{n} Änderungen nicht gespeichert",
   "devicemap.placed_hint.one": "{n} neuer Knoten platziert.",
