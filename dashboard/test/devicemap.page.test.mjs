@@ -56,8 +56,9 @@ function fakeCytoscapeFactory(autoungrabifyCalls, optionsCalls, viewportCalls, p
     return {
       autoungrabify: value => autoungrabifyCalls.push(value),
       on: () => {},
-      nodes: () => ({ removeClass: () => {} }),
-      edges: () => ({ removeClass: () => {} }),
+      nodes: () => fakeCollection(),
+      edges: () => fakeCollection(),
+      batch: fn => fn(),
       destroy: () => {},
       style: () => {},
       zoom: () => 1,
@@ -65,6 +66,23 @@ function fakeCytoscapeFactory(autoungrabifyCalls, optionsCalls, viewportCalls, p
       viewport: value => { if (viewportCalls) viewportCalls.push(value); },
       panBy: value => { if (panByCalls) panByCalls.push(value); },
     };
+  };
+}
+
+// Stand-in for a Cytoscape collection returned by nodes(selector) or
+// edges(selector): empty, so loops over it do nothing, with the methods the
+// page calls on a collection.
+function fakeCollection() {
+  return {
+    length: 0,
+    forEach: () => {},
+    each: () => {},
+    empty: () => true,
+    removeClass: () => {},
+    addClass: () => {},
+    toggleClass: () => {},
+    hasClass: () => false,
+    remove: () => {},
   };
 }
 
@@ -290,7 +308,10 @@ test('labelItems pairs each device with its live value text', () => {
     { id: 'bms', name: 'BMS Bank A', relations: [], entities: [{ value: '52.8', unit_of_measurement: 'V' }] },
   ];
   component.energy = { entities: [{ device_id: 'pv', entity_id: 'p1', value: 2400, unit: 'W', role: { role: 'pv', source: 'override' } }] };
-  assert.deepEqual(JSON.parse(JSON.stringify(component.labelItems())), [
+  // The balance label always exists (hidden by labels.setHidden while its
+  // layer is off), so only the device labels are compared here.
+  const deviceLabels = JSON.parse(JSON.stringify(component.labelItems())).filter(item => component.devices.some(device => device.id === item.id));
+  assert.deepEqual(deviceLabels, [
     { id: 'pv', name: 'APsystems Dach', value: '2,4 kW' },
     { id: 'bms', name: 'BMS Bank A', value: '52,8 V' },
   ]);
@@ -496,8 +517,8 @@ function fakeCytoscapeForDragTests() {
   const instance = {
     autoungrabify: () => {},
     on: () => {},
-    nodes: () => ({ removeClass: () => {} }),
-    edges: () => ({ removeClass: () => {} }),
+    nodes: () => fakeCollection(),
+    edges: () => fakeCollection(),
     destroy: () => {},
     style: () => {},
     zoom: () => 1,
@@ -592,8 +613,8 @@ test('setEdgeStyle updates the style in place without recreating the cytoscape i
     return {
       autoungrabify: () => {},
       on: () => {},
-      nodes: () => ({ removeClass: () => {} }),
-      edges: () => ({ removeClass: () => {} }),
+      nodes: () => fakeCollection(),
+      edges: () => fakeCollection(),
       destroy: () => {},
       style: value => styleCalls.push(value),
       zoom: () => 1,

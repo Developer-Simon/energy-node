@@ -76,6 +76,8 @@
         <button class="devicemap-focus-clear" type="button" x-on:click="clearFocus()">{{t "devicemap.focus.clear"}}</button>
       </div>
       <p class="devicemap-energy-hint" x-cloak x-show="energyUnavailable">{{t "devicemap.energy_unavailable"}}</p>
+      <p class="devicemap-energy-hint" x-cloak x-show="flowsUnavailable && (view.layers.data || view.layers.balance)">{{t "devicemap.dataflow_unavailable"}}</p>
+      <p class="devicemap-energy-hint" x-cloak x-show="!flowsUnavailable && view.layers.data && invalidConfigs > 0" x-text="$tn('devicemap.dataflow_invalid', invalidConfigs, {n: invalidConfigs})"></p>
       <p class="devicemap-connect-hint" x-cloak x-show="connectMode" x-text="connectHintText()"></p>
       <p class="devicemap-placed-hint" x-cloak x-show="placedCount > 0" x-text="placedHintText()"></p>
       <div class="toolbar devicemap-edge-toolbar" x-cloak x-show="selectedEdge">
