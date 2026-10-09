@@ -150,7 +150,7 @@ test('deviceFlows lists inputs and outputs of one device without role edges', ()
     { id: 'r', cat: 'role', from: 'soc', to: 'balance', title: '' },
   ], labelOf);
   assert.deepEqual(plain(rows), [
-    { title: 'Spannung Bank A', text: 'devicemap.panel.flow_from' },
-    { title: 'Bedingung Entitätswert', text: 'devicemap.panel.flow_to' },
+    { title: 'Spannung Bank A', text: 'von BMS Bank A' },
+    { title: 'Bedingung Entitätswert', text: 'nach Akku leer' },
   ]);
 });
