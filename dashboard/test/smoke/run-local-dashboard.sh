@@ -143,6 +143,7 @@ while [[ $# -gt 0 ]]; do
         alle-funktionen)
           FIXTURE="$HERE/fixtures/alle-funktionen.json"
           SEED_DATA="$HERE/fixtures/seed/alle-funktionen"
+          EXTRA_DEVICES=("$REPO_DIR/services/automation" "$HERE/fixtures/devices/alle-funktionen")
           ;;
         geraete-kacheln)
           FIXTURE="$HERE/fixtures/geraete-kacheln.json"
@@ -801,6 +802,11 @@ if [[ -f "$WORK/data/energy.json" ]] && grep -q '"groups"' "$WORK/data/energy.js
   check "Energiegruppen und Kategorien sind im Snapshot" \
     "len(data.get('groups', [])) > 0 and len(data.get('categories', {})) > 0" \
     "$BASE/api/v1/energy"
+fi
+if [[ "$(basename "$FIXTURE")" == "alle-funktionen.json" ]]; then
+  check "Datenfluss liefert Regeln und eine Bank-A-Kante" \
+    "any(n['virtual_id'].startswith('rule:') for n in data['nodes']) and any(e['details'].get('field') == 'bank_a_voltage_topic' for e in data['edges'])" \
+    "$BASE/api/v1/device/map/flows"
 fi
 if [[ -n "$THEME" ]]; then
   check "Farbschema aus --theme ist aktiv" \
