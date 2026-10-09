@@ -165,7 +165,7 @@ select.schema-control {
    und Fokus; Meldungen und Aufklappen materialisieren auf der
    Entschleunigungskurve --energy-ease - alles hinter prefers-reduced-motion.
    --------------------------------------------------------------------------- */
-#energy-panel { --energy-ease: cubic-bezier(.32, .72, 0, 1); }
+#energy-panel { --energy-ease: cubic-bezier(.32, .72, 0, 1); --energy-section-gap: 1.2rem; }
 /* Der einleitende Fliesstext lebt jetzt als .field-help-Tooltip am Titel -
    der haeufige Pfad (Rollen-Liste) rueckt nach oben, die einmal gelesene
    Erklaerung ist einen Klick entfernt. */
@@ -1165,5 +1165,15 @@ div.devicemap-view-menu-row { cursor: default; }
 .energy-member-chip button { display: grid; place-items: center; width: 1.5rem; height: 1.5rem; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--text-muted); cursor: pointer; }
 .energy-member-chip button:hover { background: var(--bad-bg); color: var(--bad); border: 0; }
 .energy-member-chip button svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
-.energy-category-list { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr)); }
+/* Groups and categories share one grid: two cards side by side on a wide
+   page, one per row on a phone. */
+.energy-card-grid { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr)); align-items: start; }
 .energy-groups-empty { margin: 0; font-size: .88rem; color: var(--text-muted); }
+
+/* One rhythm between the main tiles of the energy page. Each tile used to
+   bring its own margin (1rem, 18px, 1.2rem, and none between the role table
+   and the groups), so the gaps differed. The legend belongs to the role
+   summary above it and stays close to it. */
+#energy-panel > .energy-notices, #energy-panel > .energy-plant, #energy-panel > .energy-interpretation,
+#energy-panel > .energy-role-summary, #energy-panel > .energy-roles-groups { margin: 0 0 var(--energy-section-gap); }
+#energy-panel > .energy-legend { margin: calc(.5rem - var(--energy-section-gap)) 0 var(--energy-section-gap); }

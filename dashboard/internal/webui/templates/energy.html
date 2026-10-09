@@ -141,6 +141,7 @@
     <div class="energy-roles-group">
       <h3 class="energy-roles-group-title">{{t "energy.groups.title"}}</h3>
       <p class="energy-groups-empty" x-show="!Object.keys(groups).length">{{t "energy.groups.empty"}}</p>
+      <div class="energy-card-grid">
       <template x-for="(group, id) in groups" x-bind:key="id">
         <div class="energy-groups-card" x-bind:data-group-id="id" x-bind:class="{ 'is-flash': flashGroup === id }">
           <div class="energy-groups-head">
@@ -174,13 +175,14 @@
           </div>
         </div>
       </template>
+      </div>
       <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.groups.add"}}</button>
     </div>
 
     <div class="energy-roles-group">
       <h3 class="energy-roles-group-title">{{t "energy.categories.title"}}</h3>
       <p class="energy-groups-empty" x-show="!Object.keys(categories).length">{{t "energy.categories.empty"}}</p>
-      <div class="energy-category-list">
+      <div class="energy-card-grid">
         <template x-for="(category, id) in categories" x-bind:key="id">
           <div class="energy-category-card">
             <div class="energy-groups-head">
