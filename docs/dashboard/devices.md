@@ -50,8 +50,8 @@ power with its direction.
 The layer bar above the map switches what the canvas draws. Wiring shows the
 connections between devices, Live energy shows the roles and values. With only
 Live energy on, the connections stay as a dotted track. Energy balance and
-Data flow are listed but switched off, they follow in a later version. The
-layer choice is saved with the map. Click a node to focus it, the node and its
+Data flow add the balance and the data flow nodes, see the sections at the end
+of this page. The layer choice is saved with the map. Click a node to focus it, the node and its
 direct neighbours stay bright while the rest fades out. A click on the
 background, the button in the hint or Esc ends the focus. If the energy values
 cannot be loaded, the map still opens with devices, connections and
@@ -125,3 +125,56 @@ sink of its own, and the history records its value like any other role.
 
 Positions, edges and the layer choice are stored on the server and versioned
 like the layout, so you can roll back an accidental drag.
+
+### Energy balance layer
+
+With Energy balance on, a circle named Energy balance appears next to the
+arrangement. Every device with an energy role is connected to it by a dotted
+edge in the colour of its role. The balance adds up these devices and publishes
+the result for automations, so the map shows the value a rule compares against.
+Switching the layer on fades the new nodes in one after another, and a short
+note says how many nodes were placed. The map is marked as unsaved until you
+save the positions, so the balance keeps its place after a reload.
+
+### Data flow layer
+
+With Data flow on, the map shows the topics that connect devices with services
+and automation rules. A topic is drawn as a dashed edge with an arrow into the
+node that receives it. Service inputs and outputs and the rules sit in a band
+below the arrangement, and a rule appears as a diamond. A topic that no device
+publishes or receives is drawn as a stub labelled Topic without a device, and
+its popover gives the reason, for example that no device publishes it.
+
+With both layers on, the connections to the balance follow the same rules, and
+a rule that reads the balance gets an edge to it. A click on a node focuses the
+data flow around it. Everything that is reachable along the topics in both
+directions stays bright, the rest fades, and Esc clears the focus.
+
+A click on an edge opens a popover with the source, the topic, the JSON key,
+the target and a link that opens the configuration of the service at that entry.
+A click on a rule opens its popover with the conditions under When and the
+actions under Then, and its link opens the rule in the Automations tab. The
+side panel of a device has a Data flow section with the topics of that device.
+With reduced motion enabled in the system, the layers only fade in and appear
+without the stagger.
+
+### Data flow for service developers
+
+A service describes its topics in its JSON schema, and the dashboard reads that
+declaration to draw the data flow. Every field with `"format": "mqtt-topic"`
+needs an `x-dataflow` annotation on the field. An object with `direction`, which
+is `input` or `output`, and `label` declares the field. `json_key_field` names
+the field that holds the JSON key when the payload is JSON, and `unit_field`
+names the field with the unit. `x-dataflow-label-key` on the field points to a
+translation key for the label. Setting `x-dataflow` to `false` leaves the field
+out of the data flow, and `true` is not allowed.
+
+A service that lists entries, such as several banks, puts `x-dataflow-node` on
+the schema of one item with `id_field`, `label_field` and `device_id_template`.
+Each entry becomes its own node. The node is linked to a device when the
+template gives the ID of a known device, and otherwise it stays a service node.
+
+The contract test `TestEveryServiceTopicFieldDeclaresDataflow` in
+`dashboard/internal/dataflow/contract_test.go` walks the schema of every service
+and fails for a topic field without an annotation, so a new service has to
+decide for each topic whether it appears in the data flow.
