@@ -924,7 +924,9 @@ test('the animation loop only runs while it makes sense', () => {
   Object.defineProperty(window.document, 'visibilityState', { value: 'hidden', configurable: true });
   assert.equal(component.shouldAnimate(), false, 'hidden browser tab');
   component.stopFlowAnimation();
-  assert.equal(component._raf, null);
+  assert.equal(frames.length, 0, 'stop cancels the pending frame');
+  component.startFlowAnimation();
+  assert.equal(frames.length, 1, 'after a stop a new start requests a frame again');
 });
 
 const panelDevices = () => ([

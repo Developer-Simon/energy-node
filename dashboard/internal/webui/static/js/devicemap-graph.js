@@ -111,6 +111,26 @@
     return -(((nowMs / 1000) % period) / period) * window.DeviceMapModel.DASH_CYCLE;
   };
 
+  // One requestAnimationFrame loop for all flows (spec "Bewegung"). It stops
+  // itself when nothing should move and is restarted by its owner.
+  const createFlowAnimator = ({getCy, shouldAnimate, requestFrame, cancelFrame}) => {
+    let frame = null;
+    const step = now => {
+      if (!shouldAnimate()) { frame = null; return; }
+      const cy = getCy();
+      if (cy) {
+        cy.batch(() => cy.edges('.devicemap-flow').forEach(edge => {
+          edge.style('line-dash-offset', flowOffset(now, edge.data('speed')));
+        }));
+      }
+      frame = requestFrame(step);
+    };
+    return {
+      start() { if (!frame) frame = requestFrame(step); },
+      stop() { if (frame) cancelFrame(frame); frame = null; },
+    };
+  };
+
   // `theme` holds the resolved colours (line, accent, labelStrong, panel) as
   // plain values. `color(token)` resolves a token at draw time, for the
   // per-edge colours that vary per flow.
@@ -188,5 +208,5 @@
     return {display: 'none'};
   };
 
-  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, virtualElements, dataEdgeElements, flowOffset, style, wiringEdgeStyle};
+  window.DeviceMapGraph = {EDGE_STYLES, relationKey, wiringElements, pairsOf, flowElements, virtualElements, dataEdgeElements, flowOffset, createFlowAnimator, style, wiringEdgeStyle};
 })();
