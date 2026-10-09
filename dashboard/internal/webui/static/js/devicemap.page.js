@@ -73,7 +73,6 @@
       _energyPending: false,
       _setTimeout: (fn, ms) => setTimeout(fn, ms),
       _cyForTest: null,
-      _raf: null,
       _requestFrame: fn => (window.requestAnimationFrame ? window.requestAnimationFrame(fn) : null),
       _cancelFrame: id => { if (window.cancelAnimationFrame) window.cancelAnimationFrame(id); },
       lifecycleOff: null,
@@ -191,24 +190,19 @@
       // One requestAnimationFrame loop for all flows. Constant motion, linear
       // (draft table "Bewegung und Verhalten"). It stops itself when nothing
       // should move and is restarted by visibility, layer and panel changes.
-      startFlowAnimation() {
-        if (this._raf) return;
-        const step = now => {
-          if (!this.shouldAnimate()) { this._raf = null; return; }
-          if (cy) {
-            cy.batch(() => cy.edges('.devicemap-flow').forEach(edge => {
-              edge.style('line-dash-offset', this.flowOffset(now, edge.data('speed')));
-            }));
-          }
-          this._raf = this._requestFrame(step);
-        };
-        this._raf = this._requestFrame(step);
+      flowAnimator() {
+        if (!this._animator) {
+          this._animator = window.DeviceMapGraph.createFlowAnimator({
+            getCy: () => cy, shouldAnimate: () => this.shouldAnimate(),
+            requestFrame: fn => this._requestFrame(fn), cancelFrame: id => this._cancelFrame(id),
+          });
+        }
+        return this._animator;
       },
 
-      stopFlowAnimation() {
-        if (this._raf) this._cancelFrame(this._raf);
-        this._raf = null;
-      },
+      startFlowAnimation() { this.flowAnimator().start(); },
+
+      stopFlowAnimation() { this.flowAnimator().stop(); },
 
       reducedMotion() {
         return Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);

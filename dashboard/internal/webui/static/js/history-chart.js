@@ -37,8 +37,28 @@
   // Anzeigename einer Serie. Die Kennung (role:pv, berechnet:hausverbrauch)
   // bleibt der Schluessel im Browser-Speicher und erscheint nie selbst.
   // i18n-keys: energy.role_label.pv, energy.role_label.battery, energy.role_label.battery_charge, energy.role_label.battery_discharge, energy.role_label.battery_soc, energy.role_label.grid, energy.role_label.grid_import, energy.role_label.grid_export, energy.role_label.load, energy.role_label.wallbox, energy.role_label.heat_pump
+  // Namen eigener Kategorien (role:custom:<basis>:<id>), von loadRows() aus
+  // dem Energie-Snapshot geholt. Ohne Eintrag bleibt die Kennung sichtbar.
+  let categoryLabels = {};
+  const CUSTOM_SERIES = /^role:custom:[a-z]+:([a-z0-9_]+)$/;
+
+  async function loadCategoryLabels() {
+    try {
+      const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}/api/v1/energy`);
+      if (!response.ok) return;
+      const categories = ((await response.json()) || {}).categories || {};
+      categoryLabels = Object.fromEntries(Object.entries(categories)
+        .filter(([, def]) => def && typeof def === 'object' && def.label)
+        .map(([id, def]) => [id, def.label]));
+    } catch (error) {
+      // Ohne Snapshot zeigt die Serie ihre Kennung.
+    }
+  }
+
   function seriesLabel(name) {
     if (name === DERIVED_HAUSVERBRAUCH_SERIES) return t('history.series.derived_load');
+    const custom = CUSTOM_SERIES.exec(name);
+    if (custom && categoryLabels[custom[1]]) return categoryLabels[custom[1]];
     if (name.startsWith('role:')) {
       const key = `energy.role_label.${name.slice('role:'.length)}`;
       const label = t(key);
@@ -238,7 +258,7 @@
       rawWindowMs: Number(config.rawWindowHours) * HOUR,
       minuteWindowMs: Number(config.minuteWindowDays) * 24 * HOUR,
     });
-    const rows = await window.HistoryStore.readRange(tier, null, from, to);
+    const [rows] = await Promise.all([window.HistoryStore.readRange(tier, null, from, to), loadCategoryLabels()]);
     let normalized = window.HistoryRollup.normalize(rows);
     let gaps;
     if (tier === 'raw') {

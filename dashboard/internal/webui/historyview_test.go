@@ -112,7 +112,7 @@ func TestOverviewRendersHistoryViewCards(t *testing.T) {
 		t.Fatal("Name der gebundenen Sicht fehlt im Kopf")
 	}
 	apex := strings.Index(body, `src="/node/static/js-deps/apexcharts.min.js"`)
-	chart := strings.Index(body, `src="/node/static/js/history-chart.js?v=1"`)
+	chart := strings.Index(body, `src="/node/static/js/history-chart.js?v=2"`)
 	card := strings.Index(body, `src="/node/static/js/history-view-card.js?v=1"`)
 	if apex < 0 || chart < 0 || card < 0 || !(apex < chart && chart < card) {
 		t.Fatalf("Skripte fehlen oder falsche Reihenfolge: %d %d %d", apex, chart, card)

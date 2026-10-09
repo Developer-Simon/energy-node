@@ -1,4 +1,4 @@
-{{define "energy-role-row"}}<div class="energy-role-row" x-bind:data-entity-id="entity.id" x-bind:class="{ 'is-assigned': assignments[entity.id].role, 'is-flash': flash[entity.id] }" x-bind:style="`--row-index: ${index}`"><label x-bind:for="`energy-role-${entity.id}`" x-text="entity.label"></label><select class="energy-role" x-bind:disabled="!canEdit" x-bind:id="`energy-role-${entity.id}`" x-model="assignments[entity.id].role" x-init="$nextTick(() => $el.value = assignments[entity.id].role)"><option value="">{{t "energy.roles.no_role"}}</option><template x-for="option in roleOptionsFor(entity.unit)" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template><template x-if="entity.unit !== '%' && customRoleOptions().length"><optgroup label="{{t "energy.roles.custom_group"}}"><template x-for="option in customRoleOptions()" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template></optgroup></template></select><input class="energy-scale" x-bind:disabled="!canEdit" type="number" min="0.01" step="0.01" title="{{t "energy.roles.scale_title"}}" x-model.number="assignments[entity.id].scale" x-show="!isSocRow(entity.id)"><label x-show="!isSocRow(entity.id)"><input class="energy-invert" x-bind:disabled="!canEdit" type="checkbox" x-model="assignments[entity.id].invert"> {{t "energy.roles.invert_label"}}</label><label class="energy-role-capacity" x-show="isSocRow(entity.id)" x-cloak>{{t "energy.roles.capacity_label"}} <input class="energy-capacity" x-bind:disabled="!canEdit" type="number" min="0" step="0.1" title="{{t "energy.roles.capacity_title"}}" x-model.number="assignments[entity.id].capacity_kwh"> kWh</label><button type="button" class="energy-role-hide-toggle" x-on:click="toggleHidden(entity.id)" x-text="isHidden(entity.id) ? $t('energy.roles.show') : $t('energy.roles.hide')" x-bind:title="isHidden(entity.id) ? $t('energy.roles.show_title') : $t('energy.roles.hide_title')"></button></div>{{end}}
+{{define "energy-role-row"}}<div class="energy-role-row" x-bind:data-entity-id="entity.id" x-on:click="onRowClick(entity.id)"x-bind:class="{ 'is-assigned': assignments[entity.id].role, 'is-flash': flash[entity.id] }" x-bind:style="`--row-index: ${index}`"><label x-bind:for="`energy-role-${entity.id}`" x-text="entity.label"></label><select class="energy-role" x-bind:disabled="!canEdit" x-bind:id="`energy-role-${entity.id}`" x-model="assignments[entity.id].role" x-init="$nextTick(() => $el.value = assignments[entity.id].role)"><option value="">{{t "energy.roles.no_role"}}</option><template x-for="option in roleOptionsFor(entity.unit)" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template><template x-if="entity.unit !== '%' && customRoleOptions().length"><optgroup label="{{t "energy.roles.custom_group"}}"><template x-for="option in customRoleOptions()" x-bind:key="option.value"><option x-bind:value="option.value" x-text="option.label"></option></template></optgroup></template></select><input class="energy-scale" x-bind:disabled="!canEdit" type="number" min="0.01" step="0.01" title="{{t "energy.roles.scale_title"}}" x-model.number="assignments[entity.id].scale" x-show="!isSocRow(entity.id)"><label x-show="!isSocRow(entity.id)"><input class="energy-invert" x-bind:disabled="!canEdit" type="checkbox" x-model="assignments[entity.id].invert"> {{t "energy.roles.invert_label"}}</label><label class="energy-role-capacity" x-show="isSocRow(entity.id)" x-cloak>{{t "energy.roles.capacity_label"}} <input class="energy-capacity" x-bind:disabled="!canEdit" type="number" min="0" step="0.1" title="{{t "energy.roles.capacity_title"}}" x-model.number="assignments[entity.id].capacity_kwh"> kWh</label><button type="button" class="energy-role-hide-toggle" x-on:click="toggleHidden(entity.id)" x-text="isHidden(entity.id) ? $t('energy.roles.show') : $t('energy.roles.hide')" x-bind:title="isHidden(entity.id) ? $t('energy.roles.show_title') : $t('energy.roles.hide_title')"></button></div>{{end}}
 {{define "energy"}}
 <section id="energy-panel" class="panel" role="tabpanel" aria-labelledby="tab-energy" x-bind:class="{ active: activePanel === 'energy-panel' }" x-show="activePanel === 'energy-panel'" x-data="energyRolesPanel()" x-init="load()">
   <h2 class="energy-title">{{t "energy.roles.title"}}
@@ -17,6 +17,20 @@
       <ul><template x-for="entity in unassigned" x-bind:key="entity.entity_id"><li x-text="`${entity.name || entity.entity_id}: ${Math.round(entity.value)} ${entity.unit}`"></li></template></ul>
     </div>
   </div>
+
+  <section class="energy-plant" aria-labelledby="energy-plant-title" x-data="energyPlantView()" x-init="load()">
+    <div class="energy-plant-head">
+      <h3 id="energy-plant-title">{{t "energy.plant.title"}}</h3>
+      <span class="energy-plant-hint">{{t "energy.plant.hint"}}</span>
+    </div>
+    <p class="energy-plant-empty" x-cloak x-show="empty">{{t "energy.plant.empty"}}</p>
+    <div class="energy-plant-scroll" x-show="!empty">
+      <div class="energy-plant-stage">
+        <div class="energy-plant-canvas" x-ref="canvas" role="img" aria-label="{{t "energy.plant.aria"}}"></div>
+        <div class="devicemap-labels" x-ref="labels" aria-hidden="true"></div>
+      </div>
+    </div>
+  </section>
 
   <details class="energy-interpretation" open x-data="{ open: JSON.parse(localStorage.getItem('energy-interpretation-open') ?? 'true') }" x-bind:open="open" x-on:toggle="open = $event.target.open; localStorage.setItem('energy-interpretation-open', JSON.stringify(open))">
     <summary class="energy-interpretation-summary">{{t "energy.roles.interpretation.heading"}}</summary>
@@ -127,7 +141,7 @@
     <div class="energy-roles-group">
       <h3 class="energy-roles-group-title">{{t "energy.groups.title"}}</h3>
       <template x-for="(group, id) in groups" x-bind:key="id">
-        <div class="energy-groups-card">
+        <div class="energy-groups-card" x-bind:data-group-id="id" x-bind:class="{ 'is-flash': flashGroup === id }">
           <div class="energy-groups-head">
             <label class="energy-groups-name">{{t "energy.groups.name"}} <input type="text" x-bind:disabled="!canEdit" x-model="group.label"></label>
             <label>{{t "energy.groups.role"}}

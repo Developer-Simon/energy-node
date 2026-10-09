@@ -27,6 +27,23 @@ the balance is added to the house consumption, the tolerance in watts or
 percent, the thresholds at which the status card calls a situation a surplus
 or a grid draw, and the battery reserve.
 
+## Plant live
+
+At the top of the tab, Plant live shows the plant as a read-only view. It uses
+the arrangement of the device map, so the devices sit where you placed them
+there. The energy flow animates along the connections in the direction of the
+power, and the energy balance node carries its role edges. Rules and services
+are not drawn here, and nothing can be dragged or edited in this view.
+
+Clicking a device lights up its rows in the role table below and keeps the
+node highlighted. Clicking a group lights up its group card. The other way
+round, clicking a role row highlights its device in the plant view. Roles are
+still changed in the table, and the ring on the plant follows once they are
+saved.
+
+With reduced motion enabled in the system, the flows stand still and carry an
+arrow, as on the device map. Leaving the Energy tab stops the animation.
+
 ## Groups
 
 A group bundles devices without a meter of their own. It lists its members,

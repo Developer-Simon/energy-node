@@ -64,3 +64,22 @@ test('virtual elements get the virtual and kind classes and keep known positions
   assert.equal(rule.classes, 'devicemap-virtual devicemap-rule');
   assert.equal(rule.position, undefined);
 });
+
+test('the flow animator runs one loop and stops itself', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const frames = [];
+  let animate = true;
+  const offsets = [];
+  const edge = { data: () => 'mid', style: (key, value) => offsets.push([key, value]) };
+  const cy = { batch: fn => fn(), edges: () => ({ forEach: fn => fn(edge) }) };
+  const animator = DeviceMapGraph.createFlowAnimator({ getCy: () => cy, shouldAnimate: () => animate, requestFrame: fn => { frames.push(fn); return frames.length; }, cancelFrame: () => {} });
+  animator.start();
+  animator.start();
+  assert.equal(frames.length, 1, 'a second start does not stack loops');
+  frames.shift()(1000);
+  assert.equal(offsets.length, 1);
+  assert.equal(offsets[0][0], 'line-dash-offset');
+  animate = false;
+  frames.shift()(1100);
+  assert.equal(frames.length, 0, 'the loop ends when nothing should move');
+});

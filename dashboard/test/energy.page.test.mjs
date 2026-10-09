@@ -450,3 +450,20 @@ test('saving after removing a used category shows the server error', async () =>
   await component.save();
   assert.equal(stores.toasts.criticals.length, 1);
 });
+
+test('clicking a role row asks the plant view to highlight its device', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: stubFetch() });
+  const seen = [];
+  window.addEventListener('energy-plant-focus', event => seen.push(event.detail.entityId));
+  component.onRowClick('pv_power');
+  assert.deepEqual(seen, ['pv_power']);
+});
+
+test('energy-focus-group flashes the group card', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: stubFetch() });
+  component.init();
+  component._setTimeout = () => null;
+  window.CSS = { escape: value => value };
+  window.dispatchEvent(new window.CustomEvent('energy-focus-group', { detail: { id: 'uv' } }));
+  assert.equal(component.flashGroup, 'uv');
+});

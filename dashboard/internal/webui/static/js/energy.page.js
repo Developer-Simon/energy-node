@@ -67,8 +67,10 @@
     canEdit: true,
     csrfToken: '',
     flash: {},
+    flashGroup: '',
     _setTimeout: (fn, ms) => setTimeout(fn, ms),
     _flashTimer: null,
+    _groupTimer: null,
     loading: false,
     saving: false,
     interpretation: {
@@ -94,6 +96,7 @@
       // Seite den alten Stand und schriebe ihn beim naechsten Speichern zurueck.
       window.addEventListener('energy-roles-changed', () => this.load());
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
+      window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
     },
 
     async loadSession() {
@@ -118,10 +121,22 @@
         const escaped = window.CSS && window.CSS.escape ? window.CSS.escape(ids[0]) : ids[0];
         const row = document.querySelector(`[data-entity-id="${escaped}"]`);
         const reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        if (row && row.scrollIntoView) row.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'center'});
+        if (row && row.scrollIntoView) row.scrollIntoView({behavior: reduce ? 'auto' : 'smooth', block: 'nearest'});
       });
       clearTimeout(this._flashTimer);
       this._flashTimer = this._setTimeout(() => { this.flash = {}; }, 1600);
+    },
+
+    onRowClick(entityId) {
+      window.dispatchEvent(new CustomEvent('energy-plant-focus', {detail: {entityId}}));
+    },
+
+    focusGroup(id) {
+      this.flashGroup = id;
+      const card = document.querySelector(`[data-group-id="${CSS.escape(id)}"]`);
+      if (card) card.scrollIntoView({behavior: window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest'});
+      clearTimeout(this._groupTimer);
+      this._groupTimer = this._setTimeout(() => { this.flashGroup = ''; }, 1600);
     },
 
     async load() {

@@ -36,6 +36,9 @@ orthogonal or curved edges to record how the site is wired. That shows what the
 automatic views cannot, such as which meter sits ahead of which sub-distribution
 or what a device is physically attached to.
 
+The same arrangement, with the live energy flow and the energy balance, is
+shown read only at the top of the Energy tab. See [Energy](energy.md).
+
 Each node is a ring around the device icon. The colour of the ring segments
 shows the energy roles the device carries, such as PV, battery, grid, load,
 wallbox or heat pump, and a device with several roles gets one segment per
