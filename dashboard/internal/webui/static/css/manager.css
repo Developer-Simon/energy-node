@@ -1084,8 +1084,20 @@ div.devicemap-view-menu-row { cursor: default; }
 
 /* Base type, colour and icon of a custom category, shared by the device
    map's dialog and the energy page cards. */
+/* Dialoge der Device Map: Titel, Felder und Knoepfe als klar getrennte
+   Stufen. Die Knoepfe sind ein eigener Block und stehen deshalb weiter von
+   den Feldern ab als die Felder voneinander. */
+.devicemap-dialog form { display: grid; gap: .9rem; }
+.devicemap-dialog .app-modal-title { margin: 0; }
+.devicemap-dialog-head { display: grid; gap: .3rem; }
+.devicemap-dialog-hint { margin: 0; font-size: .84rem; line-height: 1.45; color: var(--text-muted); }
+.devicemap-dialog .devicemap-panel-field { gap: 6px; }
+.devicemap-dialog .devicemap-panel-field input { padding: .6rem .7rem; }
+.devicemap-dialog .app-modal-actions { margin-top: .6rem; }
+@media (max-width: 480px) {
+  .devicemap-dialog .app-modal-actions > button { flex: 1 1 0; }
+}
 .category-dialog { width: min(34rem, calc(100vw - 2rem)); }
-.category-dialog form { display: grid; gap: .9rem; }
 .category-fields { display: grid; gap: .9rem; min-width: 0; }
 .category-field { display: grid; gap: .4rem; min-width: 0; }
 .category-field-label { font-size: .78rem; font-weight: 600; color: var(--text-muted); }

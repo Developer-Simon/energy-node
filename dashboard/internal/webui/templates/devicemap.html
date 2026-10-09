@@ -346,17 +346,20 @@
       </template>
     </aside>
   </div>
-  <dialog class="app-modal" x-ref="groupDialog" aria-labelledby="devicemap-group-dialog-title">
-    <form x-on:submit.prevent="createGroup(groupName); $refs.groupDialog.close()">
-      <h2 class="app-modal-title" id="devicemap-group-dialog-title">{{t "devicemap.group.create"}}</h2>
-      <label class="devicemap-panel-field">{{t "devicemap.group.name"}}<input type="text" required maxlength="60" x-model="groupName"></label>
+  <dialog class="app-modal devicemap-dialog" x-ref="groupDialog" aria-labelledby="devicemap-group-dialog-title" aria-describedby="devicemap-group-dialog-hint">
+    <form x-on:submit.prevent="if (groupName.trim()) { createGroup(groupName.trim()); $refs.groupDialog.close() }">
+      <header class="devicemap-dialog-head">
+        <h2 class="app-modal-title" id="devicemap-group-dialog-title">{{t "devicemap.group.create"}}</h2>
+        <p class="devicemap-dialog-hint" id="devicemap-group-dialog-hint">{{t "devicemap.group.create_hint"}}</p>
+      </header>
+      <label class="devicemap-panel-field">{{t "devicemap.group.name"}}<input type="text" required maxlength="60" autofocus autocomplete="off" placeholder="{{t "devicemap.group.name_placeholder"}}" x-model="groupName"></label>
       <div class="app-modal-actions">
         <button type="button" x-on:click="$refs.groupDialog.close()">{{t "common.cancel"}}</button>
-        <button type="submit" class="primary">{{t "devicemap.group.create_confirm"}}</button>
+        <button type="submit" class="primary" x-bind:disabled="!groupName.trim()">{{t "devicemap.group.create_confirm"}}</button>
       </div>
     </form>
   </dialog>
-  <dialog class="app-modal category-dialog" x-ref="categoryDialog" aria-labelledby="devicemap-category-dialog-title">
+  <dialog class="app-modal devicemap-dialog category-dialog" x-ref="categoryDialog" aria-labelledby="devicemap-category-dialog-title">
     <form x-on:submit.prevent="createCategory()">
       <h2 class="app-modal-title" id="devicemap-category-dialog-title">{{t "devicemap.category.title"}}</h2>
       <label class="devicemap-panel-field">{{t "devicemap.category.name"}}<input type="text" required maxlength="40" x-model="categoryForm.label"></label>
