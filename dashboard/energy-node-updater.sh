@@ -354,6 +354,27 @@ done
 # Ablegen, laufen die Schritte trotzdem als erledigt (sie sind idempotent);
 # der Auftrag soll deshalb nicht als fehlgeschlagen gelten.
 installed="${STATE_DIR}/installed-manifest.json"
+
+# previous-manifest.json: der Stand vor diesem Update, die "von"-Seite der
+# Neuerungen im Dashboard (versions.Highlights). Nur bei einem Versionswechsel:
+# ein Reparatur-Lauf derselben Version soll den echten Vorgaenger nicht
+# ueberschreiben. Wie beim Changelog nur eine Warnung, wenn es scheitert.
+previous="${STATE_DIR}/previous-manifest.json"
+if [[ -f "${installed}" ]]; then
+  old_version="$(python3 - "${installed}" <<'PY' 2>/dev/null
+import json, sys
+print(json.load(open(sys.argv[1], encoding="utf-8")).get("version", ""))
+PY
+)"
+  if [[ -n "${old_version}" && "${old_version}" != "${bundle_version}" ]]; then
+    if ! { install -m 0644 "${installed}" "${previous}.tmp" \
+           && mv -f "${previous}.tmp" "${previous}"; }; then
+      rm -f "${previous}.tmp"
+      log_line "WARN PREVIOUS_MANIFEST_FAILED"
+    fi
+  fi
+fi
+
 if ! { install -m 0644 "${BUNDLE}/manifest.json" "${installed}.tmp" \
        && mv -f "${installed}.tmp" "${installed}"; }; then
   rm -f "${installed}.tmp"
