@@ -147,6 +147,51 @@ test('a fail without run_id or finished_at is shown on a fresh browser and hidde
   bar.progress = { state: 'fail', version: 'v0.9.1', code: 'X_FAILED', step: { id: '20', title: 'MQTT-Broker' } };
   assert.equal(bar.view.kind, 'fail');
   bar.acknowledge();
-  assert.notEqual(window.localStorage.getItem('energy-node.update-bar.acknowledged'), '');
+  assert.equal(window.localStorage.getItem('energy-node.update-bar.acknowledged'), 'v0.9.1:fail');
   assert.equal(bar.view.kind, 'hidden');
+});
+
+test('fail leaves out an empty step title or code instead of doubling the separator', () => {
+  const noCode = view({ progress: { state: 'fail', version: 'v0.9.1', run_id: 'r4', code: '', step: { id: '60', title: 'Dashboard' } } });
+  assert.equal(noCode.detail, 'Schritt 60 · Dashboard');
+  const noTitle = view({ progress: { state: 'fail', version: 'v0.9.1', run_id: 'r5', code: 'X_FAILED', step: { id: '60', title: '' } } });
+  assert.equal(noTitle.detail, 'Schritt 60 · X_FAILED');
+  const neither = view({ progress: { state: 'fail', version: 'v0.9.1', run_id: 'r6', code: '', step: { id: '60', title: '' } } });
+  assert.equal(neither.detail, 'Schritt 60');
+});
+
+async function recoveryBar(finalProgress) {
+  let calls = 0;
+  const { factories, timers } = load({
+    fetchImpl: async (url) => {
+      if (url.endsWith('/api/v1/updates/progress')) {
+        calls += 1;
+        if (calls === 1) return { ok: true, status: 200, json: async () => ({ state: 'running', version: 'v0.9.1', total: 4, done: 1 }) };
+        if (calls === 2) throw new TypeError('network down');
+        return { ok: true, status: 200, json: async () => finalProgress };
+      }
+      return { ok: true, status: 200, json: async () => ({}) };
+    },
+  });
+  const bar = factories.updateBar();
+  await bar.poll();
+  await bar.poll();
+  assert.equal(bar.restarting, true);
+  await bar.poll();
+  return { bar, timers };
+}
+
+test('polling recovers from restarting into running', async () => {
+  const { bar, timers } = await recoveryBar({ state: 'running', version: 'v0.9.1', total: 4, done: 2 });
+  assert.equal(bar.restarting, false);
+  assert.equal(bar.view.kind, 'running');
+  assert.equal(timers.at(-1).ms, 2000);
+});
+
+test('polling recovers from restarting into ok', async () => {
+  const finished = new Date().toISOString();
+  const { bar, timers } = await recoveryBar({ state: 'ok', version: 'v0.9.1', run_id: 'r9', total: 4, done: 4, finished_at: finished });
+  assert.equal(bar.restarting, false);
+  assert.equal(bar.view.kind, 'ok');
+  assert.equal(timers.at(-1).ms, 30000);
 });

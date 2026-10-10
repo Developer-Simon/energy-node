@@ -1019,10 +1019,19 @@ if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
       echo "  FEHL Asset $asset wird nicht ausgeliefert"; FAILED=1
     fi
   done
-  if api "$BASE/?panel=settings&page=whatsnew" | grep -q 'whatsnew.page.js'; then
+  # In eine Variable lesen: grep -q beendet sich beim ersten Treffer und kann
+  # curl per SIGPIPE abbrechen (Exit 23), was unter pipefail als Fehler zaehlt.
+  deeplink_page="$(api "$BASE/?panel=settings&page=whatsnew" || true)"
+  if grep -q 'whatsnew.page.js' <<<"$deeplink_page"; then
     echo "  OK   Tiefenlink Einstellungen > Neuerungen bindet das Skript ein"
   else
     echo "  FEHL Tiefenlink Einstellungen > Neuerungen bindet whatsnew.page.js nicht ein"; FAILED=1
+  fi
+  settings_js="$(api "$BASE/static/js/settings.page.js" || true)"
+  if grep -q "get('page')" <<<"$settings_js" && grep -q 'whatsnew' <<<"$settings_js"; then
+    echo "  OK   settings.page.js wertet den Tiefenlink ?page= aus"
+  else
+    echo "  FEHL settings.page.js enthaelt die Auswertung von ?page= nicht"; FAILED=1
   fi
 
   # Fortschritt: ein laufender Auftrag, dann sein Ende. Das Job-Verzeichnis

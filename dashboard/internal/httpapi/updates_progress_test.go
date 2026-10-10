@@ -8,6 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
 func TestHandleUpdatesProgressNamesTheStep(t *testing.T) {
@@ -63,5 +68,27 @@ func TestHandleUpdatesProgressBrokenStatusIs500(t *testing.T) {
 	handleUpdatesProgress(dir, nil)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/updates/progress", nil))
 	if rec.Code != http.StatusInternalServerError || !strings.Contains(rec.Body.String(), "updates_progress_unreadable") {
 		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUpdatesProgressRouteNeedsASessionButNotARole(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{
+		Auth: manager, Version: "v0.7.5", InstallerStateDir: t.TempDir(), UpdaterJobDir: t.TempDir(),
+	})
+	guest := httptest.NewRecorder()
+	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
+	if guest.Code != http.StatusOK {
+		t.Fatalf("guest login = %d: %s", guest.Code, guest.Body.String())
+	}
+	const path = "/api/v1/updates/progress"
+	if rec := getWith(router, nil, path); rec.Code != http.StatusUnauthorized {
+		t.Fatalf("anonymous %s = %d, want 401", path, rec.Code)
+	}
+	if rec := getWith(router, guest.Result().Cookies()[0], path); rec.Code != http.StatusOK {
+		t.Fatalf("guest %s = %d, want 200: %s", path, rec.Code, rec.Body.String())
 	}
 }

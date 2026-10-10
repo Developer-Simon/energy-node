@@ -48,9 +48,10 @@ test('without a previous version the title names the installed version', async (
 });
 
 test('a missing changelog shows the no-changelog text', async () => {
-  const { panel } = create(async () => json({ error: 'no_changelog', message: 'x' }, false, 404));
+  // The body httpapi.writeError sends: {code, message}.
+  const { panel } = create(async () => json({ code: 'no_changelog', message: 'Dieses Paket enthält keinen Changelog' }, false, 404));
   await panel.load();
-  assert.ok(panel.error);
+  assert.equal(panel.error, 'Dieses Paket enthält keinen Changelog');
   assert.equal(panel.components.length, 0);
 });
 

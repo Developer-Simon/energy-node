@@ -71,7 +71,7 @@ As of **2026-10-10**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `30` |
+| `css/base.css` | `31` |
 | `js/i18n.js` | `3` (also `login.html`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -96,7 +96,7 @@ As of **2026-10-10**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-recorder.js` | `10` |
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `29` |
-| `js/update-bar.js` | `1` |
+| `js/update-bar.js` | `2` |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -248,7 +248,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.9.2 | `css/base.css` · `js/dashboard.js` · `js/update-bar.js` (new) · `js/settings.page.js` · `js/versions.page.js` · `js/whatsnew.page.js` (new) · `css/settings-controls.css` (settings, diagnostics) | `30` · `29` · `1` (new) · `15` · `4` · `1` (new) · `10` | 2026-10-10 |
+| v0.9.2 | `css/base.css` · `js/dashboard.js` · `js/update-bar.js` (new) · `js/settings.page.js` · `js/versions.page.js` · `js/whatsnew.page.js` (new) · `css/settings-controls.css` (settings, diagnostics) | `31` · `29` · `2` (new) · `15` · `4` · `1` (new) · `10` | 2026-10-10 |
 | v0.9.1 | `js/automations.page.js` | `11` | 2026-10-10 |
 | v0.8.20 | `css/base.css` · `js/dashboard.js` · `js/devicemap-model.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap.page.js` | `29` · `28` · `7` · `4` · `17` | 2026-10-10 |
 | v0.8.19 | `css/settings-controls.css` (settings, diagnostics) · `css/base.css` · `css/manager.css` (5 panels) · `js/settings.page.js` · `js/versions.page.js` | `9` · `28` · `32` · `14` · `3` | 2026-10-10 |

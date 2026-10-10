@@ -31,6 +31,14 @@
   const isAcknowledged = (ackKey, acknowledged) => Boolean(ackKey) && ackKey === acknowledged;
   const percentOf = (progress) => (progress && progress.total > 0 ? (progress.done / progress.total) * 100 : 0);
 
+  // "Step 60 · Title · CODE" from the parts that exist, so an empty title or
+  // code leaves no doubled or trailing separator.
+  const failStepDetail = (step, code) => [
+    t('update_bar.fail.step', { step: step.id || '?' }),
+    step.title || '',
+    code || '',
+  ].filter(Boolean).join(' · ');
+
   const runningDetail = (progress) => {
     const total = progress.total || 0;
     const current = Math.min((progress.done || 0) + 1, Math.max(total, 1));
@@ -63,7 +71,7 @@
       const step = progress.step || {};
       const detail = state === 'rejected'
         ? t('update_bar.fail.rejected', { code: progress.code || '' })
-        : t('update_bar.fail.step', { step: step.id || '?', title: step.title || '', code: progress.code || '' });
+        : failStepDetail(step, progress.code);
       return { kind: 'fail', ackKey, title: t('update_bar.fail.title', { version: progress.version }), detail };
     }
     const justInstalled = state === 'ok' && status && status.latest === progress.version;

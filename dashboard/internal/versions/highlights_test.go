@@ -17,7 +17,9 @@ const highlightsDoc = `{"schema_version":1,"bundle_version":"v0.9.0","components
     {"text":"already installed before","pr":80,"breaking":false,"highlight":true}]}]}]},
  {"id":"service:automation","label":"Automation","kind":"service","version":"v0.5.0","releases":[
   {"version":"v0.5.0","date":"2026-10-10","groups":[{"type":"feat","label":"Features","entries":[
-    {"text":"custom categories","pr":115,"breaking":false,"highlight":true}]}]}]},
+    {"text":"custom categories","pr":115,"breaking":false,"highlight":true}]}]},
+  {"version":"v0.4.3","date":"2026-10-01","groups":[{"type":"feat","label":"Features","entries":[
+    {"text":"older automation change","pr":99,"breaking":false,"highlight":true}]}]}]},
  {"id":"service:shelly","label":"Shelly","kind":"service","version":"v0.4.1","releases":[
   {"version":"v0.4.1","date":"2026-10-10","groups":[{"type":"feat","label":"Features","entries":[
     {"text":"shelly change","pr":120,"breaking":false,"highlight":true}]}]}]},
@@ -105,10 +107,51 @@ func TestHighlightsNewComponentShowsOnlyItsCurrentRelease(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	found := false
 	for _, c := range view.Components {
-		if c.ID == "service:automation" && (c.From != "" || len(c.Releases) != 1) {
-			t.Fatalf("new component = %+v, want only its current release and no from", c)
+		if c.ID != "service:automation" {
+			continue
 		}
+		found = true
+		if c.From != "" || len(c.Releases) != 1 || c.Releases[0].Version != "v0.5.0" {
+			t.Fatalf("new component = %+v, want only its current release v0.5.0 and no from", c)
+		}
+	}
+	if !found {
+		t.Fatal("service:automation missing from the view")
+	}
+}
+
+func TestHighlightsCorruptPreviousManifestDegradesToInstalledRelease(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          highlightsDoc,
+		"installed-manifest.json": installedV090,
+		"previous-manifest.json":  `{not json`,
+	})
+	view, err := Highlights(dir)
+	if err != nil {
+		t.Fatalf("corrupt previous-manifest.json must not fail: %v", err)
+	}
+	if view.SincePrevious || view.From != "" {
+		t.Fatalf("range = %+v, want since_previous=false", view)
+	}
+}
+
+func TestHighlightsUnreadablePreviousManifestDegradesToInstalledRelease(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          highlightsDoc,
+		"installed-manifest.json": installedV090,
+	})
+	// A directory in place of the file: ReadFile fails with a non-ENOENT error.
+	if err := os.Mkdir(filepath.Join(dir, "previous-manifest.json"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	view, err := Highlights(dir)
+	if err != nil {
+		t.Fatalf("unreadable previous-manifest.json must not fail: %v", err)
+	}
+	if view.SincePrevious {
+		t.Fatalf("range = %+v, want since_previous=false", view)
 	}
 }
 

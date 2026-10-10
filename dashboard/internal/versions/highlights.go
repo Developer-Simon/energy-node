@@ -109,7 +109,8 @@ func Highlights(stateDir string) (*HighlightsView, error) {
 			}
 		}
 	case !errors.Is(err, fs.ErrNotExist):
-		return nil, err
+		// An unreadable optional file must not break the page: show the
+		// installed release only, as without a previous manifest.
 	}
 
 	flagged := documentIsFlagged(doc)

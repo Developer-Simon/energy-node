@@ -12,7 +12,7 @@
         <ul class="release-entries">
           <template x-for="release in component.releases" :key="release.version">
             <template x-for="(entry, index) in release.entries" :key="release.version + '-' + index">
-              <li x-bind:class="{ 'is-breaking': entry.breaking }"><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></li>
+              <li><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></li>
             </template>
           </template>
         </ul>
