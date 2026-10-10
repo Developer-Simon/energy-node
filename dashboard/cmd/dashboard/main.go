@@ -154,6 +154,11 @@ func main() {
 		log.Printf("redeploy: could not start the local update handler: %v", err)
 	}
 
+	stepTitle, err := newStepTitler(dashwebui.Languages())
+	if err != nil {
+		log.Fatalf("energy-node-dashboard: %v", err)
+	}
+
 	updatesChecker := &updatecheck.Checker{Repo: updatesRepo}
 	// ENERGY_NODE_UPDATES_API_BASE points the GitHub lookup at a different
 	// host instead of the real API. Unset in every real deployment; it
@@ -476,6 +481,8 @@ func main() {
 			Redeploy:       redeployHandler,
 			UpdatesChecker: updatesChecker,
 			UpdatesCache:   updatesCache,
+			UpdaterJobDir:  jobDir,
+			StepTitle:      stepTitle,
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}

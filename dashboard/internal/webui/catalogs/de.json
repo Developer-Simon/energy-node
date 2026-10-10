@@ -1469,6 +1469,7 @@
   "error.unknown_device": "child_id oder parent_id nennt kein bekanntes Gerät",
   "error.updates_check_failed": "Prüfung auf GitHub fehlgeschlagen",
   "error.updates_check_unavailable": "Update-Prüfung ist nicht konfiguriert",
+  "error.updates_progress_unreadable": "Update-Fortschritt konnte nicht gelesen werden",
   "error.versions_unreadable": "Versionsdaten konnten nicht gelesen werden",
   "error.with_detail": "{message}: {detail}",
   "group_role.category_aria": "Kategorie der Gruppe",

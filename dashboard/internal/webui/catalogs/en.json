@@ -1469,6 +1469,7 @@
   "error.unknown_device": "child_id or parent_id does not refer to a known device",
   "error.updates_check_failed": "The check on GitHub failed",
   "error.updates_check_unavailable": "The update check is not configured",
+  "error.updates_progress_unreadable": "Could not read the update progress",
   "error.versions_unreadable": "The version data could not be read",
   "error.with_detail": "{message}: {detail}",
   "group_role.category_aria": "Category of the group",

@@ -192,6 +192,12 @@ type RouterDependencies struct {
 	// on-demand endpoint and the periodic background check. Nil disables
 	// both update routes.
 	UpdatesCache *updatecheck.Cache
+	// UpdaterJobDir is the updater's job directory (updaterjob.DefaultDir on a
+	// node). Empty disables /api/v1/updates/progress.
+	UpdaterJobDir string
+	// StepTitle names a bootstrap step in the request's language (the shared
+	// installer catalogs, step.<id>). Nil leaves step titles empty.
+	StepTitle func(r *http.Request, stepID string) string
 }
 
 // NewRouter builds the HTTP mux for the dashboard. Later phases extend this
@@ -255,6 +261,9 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	if dependencies.UpdatesCache != nil {
 		mux.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
 		mux.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
+	}
+	if dependencies.UpdaterJobDir != "" {
+		mux.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
 	}
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))

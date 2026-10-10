@@ -227,3 +227,23 @@ func TestRedeployHandlerServesTheCandidatesChangelogWithWhatIsInstalled(t *testi
 		t.Fatalf("body = %s", rec.Body.String())
 	}
 }
+
+func TestNewStepTitlerFollowsTheRequestLanguage(t *testing.T) {
+	title, err := newStepTitler([]string{"de", "en"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	de := httptest.NewRequest(http.MethodGet, "/", nil)
+	de.Header.Set("Accept-Language", "de-DE")
+	en := httptest.NewRequest(http.MethodGet, "/", nil)
+	en.Header.Set("Accept-Language", "en-GB")
+	if got := title(de, "60"); got != "Dashboard und MQTT-Brücke" {
+		t.Fatalf("de title = %q", got)
+	}
+	if got := title(en, "60"); got == "" || got == "Dashboard und MQTT-Brücke" {
+		t.Fatalf("en title = %q", got)
+	}
+	if got := title(de, "999"); got != "" {
+		t.Fatalf("unknown step = %q, want empty", got)
+	}
+}
