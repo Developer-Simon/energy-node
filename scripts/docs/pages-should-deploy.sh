@@ -6,8 +6,9 @@
 # Reads repo-relative changed paths (one per line) on stdin and prints
 # "true" or "false". Only documents listed in <docs-dir>/_data/nav.yml count,
 # plus the site's own build inputs (config, data, layouts, includes, images,
-# assets) and the deploy tooling. Changes to documents outside the navigation
-# (e.g. the notes under docs/_internal/, touched on almost every frontend PR)
+# assets) and the scripts the Pages workflow runs. Changes to documents outside
+# the navigation (e.g. the notes under docs/_internal/, touched on almost every
+# frontend PR) and to the local docs tooling (build-local.sh, the site checks)
 # do not trigger a deploy on their own. They are published with the next one.
 set -euo pipefail
 
@@ -21,7 +22,7 @@ prefix="${prefix#./}"
 # Every `url: "..."` in the navigation, at any depth (children included).
 nav_paths="$(grep -oE 'url: *"[^"]+"' "$nav" | sed -E 's/^url: *"(.*)"$/\1/' | sed "s|^|$prefix|")"
 
-infra_re="^(${prefix}(_config\.yml|_data/|_layouts/|_includes/|images/|assets/|Gemfile)|\.github/workflows/pages\.yml$|scripts/docs/)"
+infra_re="^(${prefix}(_config\.yml|_data/|_layouts/|_includes/|images/|assets/|Gemfile)|\.github/workflows/pages\.yml$|scripts/docs/(pages-should-deploy\.sh|doc-versions\.sh|release-versions\.py)$)"
 
 while IFS= read -r path; do
   [ -n "$path" ] || continue

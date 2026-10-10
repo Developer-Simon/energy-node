@@ -48,6 +48,12 @@ expect true  "docs/_data/nav.yml"
 expect true  "docs/images/x.png"
 expect true  ".github/workflows/pages.yml"
 expect true  "scripts/docs/doc-versions.sh"
+expect true  "scripts/docs/release-versions.py"
+expect true  "scripts/docs/pages-should-deploy.sh"
+# Local docs tooling is not part of the Pages build.
+expect false "scripts/docs/build-local.sh"
+expect false "scripts/docs/check_site.py"
+expect false $'docs/_internal/lazy-assets-cache-busting.md\nscripts/docs/build-local.sh'
 expect true  $'dashboard/main.go\ndocs/knowledge/data-flow.md'
 # Documents outside the navigation, and non-docs paths, do not deploy.
 expect false "docs/knowledge/dashboard/lazy-assets-cache-busting.md"
