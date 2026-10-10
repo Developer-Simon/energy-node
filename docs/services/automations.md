@@ -20,11 +20,15 @@ These are the condition types:
 
 | Type | Matches on |
 |---|---|
-| `balance_threshold` | A balance field: `pv`, `grid_import`, `grid_export`, `load_total`, `base`, `wallbox`, `heat_pump`, `battery_charge`, `battery_discharge`, `battery_soc`, `autarkie`, `eigenverbrauch`, … |
+| `balance_threshold` | A balance field: `pv`, `grid_import`, `grid_export`, `load_total`, `base`, `wallbox`, `heat_pump`, `battery_charge`, `battery_discharge`, `battery_soc`, `autarkie`, `eigenverbrauch`, …, or `custom:<id>` for a custom category of the energy page |
 | `topic_value` | A raw MQTT topic, optionally a JSON key inside it |
 | `entity_value` | An entity, with a Home Assistant style value template |
 | `time_window` | Start/end time and weekdays |
 | `sun_window` | Sunrise or sunset, each with an offset in minutes, and weekdays |
+
+A `custom:<id>` field reads `categories.<id>` from the balance, in watts. If the
+category is removed later, the field has no value and the condition stays unmet.
+The same applies to a publish action that takes its value from the balance.
 
 A window that crosses midnight belongs to the day it starts on: a `time_window`
 from 22:00 to 06:00 on Fridays also holds at 03:00 on Saturday. `sun_window`

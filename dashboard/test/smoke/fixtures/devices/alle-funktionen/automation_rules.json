@@ -30,6 +30,18 @@
       "actions": [
         {"type": "publish", "topic": "waermepumpe/mode/set", "payload_source": "constant", "payload": "OFF"}
       ]
+    },
+    {
+      "id": "regel_werkstatt_last",
+      "name": "Werkstatt zieht viel",
+      "enabled": true,
+      "cooldown_seconds": 300,
+      "conditions": [
+        {"type": "balance_threshold", "field": "custom:werkstatt", "comparison": "above", "threshold": 1500, "hysteresis": 100, "hold_seconds": 60}
+      ],
+      "actions": [
+        {"type": "notification", "severity": "info", "title": "Werkstatt", "message": "Die Werkstatt zieht mehr als 1,5 kW."}
+      ]
     }
   ]
 }
