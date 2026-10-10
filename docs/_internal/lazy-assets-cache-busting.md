@@ -71,7 +71,7 @@ As of **2026-10-09**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `26` |
+| `css/base.css` | `28` |
 | `js/i18n.js` | `3` (also `login.html`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -246,7 +246,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.8.19 | `css/settings-controls.css` (settings, diagnostics) | `9` | 2026-10-10 |
+| v0.8.19 | `css/settings-controls.css` (settings, diagnostics) · `css/base.css` | `9` · `28` | 2026-10-10 |
 | v0.8.18 | `css/base.css` · `css/manager.css` (5 panels) · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/device-picker.js` (new, energy, device map) · `js/energy-plant.js` · `js/devicemap.page.js` · `js/energy.page.js` | `27` · `31` · `6` · `3` · `1` (new) · `2` · `16` · `8` | 2026-10-10 |
 | v0.8.15 | `css/base.css` · `css/manager.css` (5 panels) · `css/automations.css` · `js/devicemap-model.js` · `js/devicemap-node-svg.js` · `js/devicemap-labels.js` · `js/devicemap-graph.js` (new) · `js/devicemap-dataflow.js` (new) · `js/automations-view.js` (new) · `js/energy-plant.js` (new) · `js/devicemap.page.js` · `js/energy-model.js` (history panel + energy cards) · `js/history-recorder.js` · `js/energy.page.js` · `js/automations.page.js` · `js/config.page.js` · `js/dashboard.js` | `26` · `30` · `5` · `5` · `3` · `2` · `2` (new) · `1` (new) · `1` (new) · `1` (new) · `15` · `3` · `10` · `7` · `8` · `9` · `27` | 2026-10-08 – 2026-10-09 |
 | v0.8.14 | `css/manager.css` (5 panels) · `js/dashboard.js` · `js/revisions.js` (config, energy, device map, settings panels + layout editor) · `js/energy.page.js` · `js/devicemap.page.js` · `js/devicemap-model.js` | `27` · `26` · `4` · `5` · `12` · `3` | 2026-10-08 |

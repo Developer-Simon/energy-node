@@ -25,7 +25,7 @@
     <h3 class="setting-card-title">{{t "settings.versions.updates.title"}}</h3>
     <div class="toolbar">
       <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="{{t "settings.versions.updates.check"}}" aria-label="{{t "settings.versions.updates.check"}}">
-        <svg class="automation-icon"><use href="#ico-download"></use></svg>
+        <svg class="automation-icon icon-download" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="update-check-arrow-clip"><rect width="24" height="17"/></clipPath></defs><g clip-path="url(#update-check-arrow-clip)"><path class="icon-download-arrow" d="M12 3v12m0 0 5-5m-5 5-5-5"/></g><path d="M4 19h16"/></svg>
         <span x-text="checkingForUpdates ? $t('settings.versions.updates.checking') : $t('settings.versions.updates.check')"></span>
       </button>
       <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
