@@ -38,14 +38,8 @@
 
 ### Features
 
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
-
-## v0.3.1 (2026-09-12)
-
-### Features
-
-- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 
 ## v0.3.0 (2026-09-10)
 

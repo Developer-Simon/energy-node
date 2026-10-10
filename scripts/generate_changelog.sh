@@ -803,22 +803,6 @@ generate_one() {
   # (see .github/workflows/version-bump.yml), and this walk needs to see it to
   # head the open section with the version it just produced. It still never
   # gets a changelog entry of its own - see the is_bump_commit check below.
-  # Repo-Tags liegen oft auf einem Commit, der diese Komponente nicht anfasst
-  # (z.B. v0.8.5 auf einem reinen HA-Commit). Der Walk unten sieht nur
-  # Komponenten-Commits, "git tag --points-at" fand dort nie etwas, und die
-  # Arbeit vor und nach dem Tag blieb eine Gruppe: schon veroeffentlichte
-  # Eintraege standen wieder im offenen Abschnitt. Darum ordnet TAG_AT jedem
-  # erreichbaren Tag den letzten Komponenten-Commit zu, der im Tag enthalten
-  # ist (gleicher Pathspec und gleiche Filter wie der Walk).
-  local -A TAG_AT=()
-  local _vt _vh
-  while IFS= read -r _vt; do
-    [[ -z "$_vt" ]] && continue
-    _vh="$(git -C "$repo_root" log -1 --no-merges --format=%h \
-      --invert-grep --grep='^docs(changelog): ' "$_vt" "${pathspec[@]}")"
-    [[ -n "$_vh" && -z "${TAG_AT[$_vh]:-}" ]] && TAG_AT[$_vh]="$_vt"
-  done < <(git -C "$repo_root" tag --merged HEAD 2>/dev/null)
-
   local prev_tagged=false
   local first=true
   local hash subject
@@ -864,7 +848,7 @@ except Exception:
     fi
 
     local local_tag
-    local_tag="${TAG_AT[$hash]:-}"
+    local_tag="$(git -C "$repo_root" tag --points-at "$hash" | head -n1)"
 
     local need_new_group=false
     if $first; then
