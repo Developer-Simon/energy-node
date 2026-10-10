@@ -20,6 +20,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -530,6 +531,26 @@ func checkSchemaKeywords(raw any, path string) error {
 	return nil
 }
 
+// compiledPatterns caches regexp.Compile results by pattern string. A nil
+// entry marks a pattern that does not compile.
+var compiledPatterns sync.Map
+
+func compiledPattern(pattern string) (*regexp.Regexp, error) {
+	if cached, ok := compiledPatterns.Load(pattern); ok {
+		if expr, _ := cached.(*regexp.Regexp); expr != nil {
+			return expr, nil
+		}
+		return nil, fmt.Errorf("invalid pattern %q", pattern)
+	}
+	expr, err := regexp.Compile(pattern)
+	if err != nil {
+		compiledPatterns.Store(pattern, nil)
+		return nil, err
+	}
+	compiledPatterns.Store(pattern, expr)
+	return expr, nil
+}
+
 func validateValue(value, rawSchema any, path string) error {
 	_, err := applySchema(value, rawSchema, path)
 	return err
@@ -560,6 +581,17 @@ func applySchema(value, rawSchema any, path string) (map[string]bool, error) {
 	if min, ok := schema["minLength"].(float64); ok {
 		if text, isString := value.(string); isString && float64(len(text)) < min {
 			return nil, fmt.Errorf("%s must not be empty", path)
+		}
+	}
+	if pattern, ok := schema["pattern"].(string); ok {
+		if text, isString := value.(string); isString {
+			expr, err := compiledPattern(pattern)
+			if err != nil {
+				return nil, fmt.Errorf("%s has an invalid pattern", path)
+			}
+			if !expr.MatchString(text) {
+				return nil, fmt.Errorf("%s does not match the expected format", path)
+			}
 		}
 	}
 	if min, ok := schema["minimum"].(float64); ok && numberValue(value) < min {

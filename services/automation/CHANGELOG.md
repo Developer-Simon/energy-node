@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.6 (2026-10-09)
+## v0.4.7 (2026-10-10)
 
 ### Features
 
@@ -10,6 +10,8 @@
 - **dashboard:** localize the system configuration form (#72) (c716d05)
 - **dashboard:** localize the device configuration forms (#73) (180110d)
 - **dashboard:** data flow and balance layers on the device map (#109) (bbe604b)
+- **automation:** accept custom energy categories as balance fields (e7952c5)
+- custom energy categories in automations and editor polish (#115)
 - **services:** declare data flow of topic fields with x-dataflow (dfa0420)
 
 ### Documentation

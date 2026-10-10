@@ -34,6 +34,7 @@
     loading: false,
     saving: false,
     document: emptyDocument(),
+    categories: {},
     entities: [],
     readableEntities: [],
     devices: [],
@@ -56,9 +57,33 @@
     // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
     // Datenmodell an - er blendet nur, was schon da ist, schrittweise ein.
     wizard: { active: false, step: 1, ruleId: '' },
+    settingsOpen: false,
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
+    },
+
+    // Eigene Kategorien als Bilanzfelder. Eine Regel, die auf eine inzwischen
+    // geloeschte Kategorie zeigt, bleibt waehlbar, sonst wird das Select leer.
+    get customBalanceFields() {
+      const known = Object.entries(this.categories)
+        .map(([id, category]) => [`custom:${id}`, category.label])
+        .sort((a, b) => window.I18n.compare(a[1], b[1]));
+      const used = new Set();
+      (this.document.rules || []).forEach((rule) => {
+        (rule.conditions || []).forEach((condition) => {
+          if (condition.type === 'balance_threshold') used.add(condition.field);
+        });
+        (rule.actions || []).forEach((action) => {
+          if (action.type === 'publish' && action.payload_source === 'balance') used.add(action.field);
+        });
+      });
+      const unknown = [...used]
+        .filter((field) => typeof field === 'string' && field.startsWith('custom:')
+          && !(field.slice('custom:'.length) in this.categories))
+        .sort()
+        .map((field) => [field, t('automations.metric.custom_unknown', { id: field.slice('custom:'.length) })]);
+      return [...known, ...unknown];
     },
 
     get publishAllowedPrefixesText() {
@@ -71,11 +96,13 @@
     async load() {
       this.loading = true;
       try {
-        const [doc, session] = await Promise.all([
+        const [doc, session, , roles] = await Promise.all([
           requestJSON('/api/v1/configurations/automation_rules'),
           requestJSON('/api/v1/auth/session').catch(() => null),
           this.loadDeviceCatalog(),
+          requestJSON('/api/v1/energy/roles').catch(() => null),
         ]);
+        this.categories = (roles && roles.categories) || {};
         this.document = doc && doc.rules ? doc : emptyDocument();
         // Ein auf der Platte gespeichertes Dokument kann aelter sein als ein
         // seither neu hinzugekommenes settings-Feld (z.B. history_limit/
@@ -315,7 +342,7 @@
     },
 
     describeCondition(condition) {
-      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition));
+      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories);
     },
 
     describeAction(action) {
@@ -417,7 +444,12 @@
 
     startEditing(rule) { this.editing[rule.id] = true; this.expanded[rule.id] = true; },
     stopEditing(rule) { this.editing[rule.id] = false; },
-    toggleExpanded(rule) { this.expanded[rule.id] = !this.expanded[rule.id]; },
+    // Collapsing closes the editor too, the wizard keeps its own editing state.
+    toggleExpanded(rule) {
+      const collapsing = this.expanded[rule.id];
+      this.expanded[rule.id] = !collapsing;
+      if (collapsing && !this.isWizardRule(rule)) this.editing[rule.id] = false;
+    },
 
     // Die Device Map verweist auf eine Regel: aufklappen, zur Regel scrollen
     // und sie kurz hervorheben.
@@ -657,13 +689,16 @@
     // Die Einstellungen liegen im eingeklappten Fortgeschrittenen-Bereich.
     // Der Hinweis an der Sonnenzeit-Karte klappt ihn auf und springt hin.
     openLocationSettings() {
-      const details = window.document.getElementById('automations-advanced');
-      if (details) details.open = true;
-      const field = window.document.getElementById('automations-latitude');
-      if (field) {
-        field.scrollIntoView({ block: 'center' });
-        field.focus();
-      }
+      this.settingsOpen = true;
+      // Scroll only after the collapse has rendered, the field is hidden until then.
+      const focusField = () => {
+        const field = window.document.getElementById('automations-latitude');
+        if (field) {
+          field.scrollIntoView({ block: 'center' });
+          field.focus();
+        }
+      };
+      if (this.$nextTick) this.$nextTick(focusField); else focusField();
     },
 
     // Der Browser gibt die Position nur in einem sicheren Kontext heraus:

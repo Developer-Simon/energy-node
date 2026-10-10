@@ -456,6 +456,58 @@ test('saving after removing a used category shows the server error', async () =>
   assert.equal(stores.toasts.criticals.length, 1);
 });
 
+const categoryRemovalFetch = referencesResponse => async (url, options = {}) => {
+  if (url.includes('/api/v1/energy/category-references')) return referencesResponse(url);
+  if (url.endsWith('/api/v1/auth/session')) return jsonResponse({edit_energy: true});
+  if (url.endsWith('/api/v1/device/icons')) return jsonResponse([]);
+  if (url.endsWith('/api/v1/devices')) return jsonResponse(devicesResponse);
+  if (url.endsWith('/api/v1/energy/roles')) return jsonResponse({...rolesResponse, categories: {werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_1', icon: 'mdi:home'}}});
+  return jsonResponse(energyResponse);
+};
+
+test('removing a category lists the automations that use it before it is removed', async () => {
+  const urls = [];
+  const fetchImpl = categoryRemovalFetch(url => {
+    urls.push(url);
+    return jsonResponse({rules: [{id: 'r1', name: 'Sauna on'}]});
+  });
+  const {component} = createEnergyPanel({fetchImpl});
+  component.$refs = {};
+  await component.load();
+  await component.askRemoveCategory('werkstatt');
+  assert.deepEqual(urls, ['/api/v1/energy/category-references?id=werkstatt']);
+  assert.equal(component.categoryRemoval.loading, false);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.categoryRemoval.rules)), [{id: 'r1', name: 'Sauna on'}]);
+  assert.ok(component.categories.werkstatt, 'category stays until confirmed');
+  component.confirmRemoveCategory();
+  assert.equal(component.categories.werkstatt, undefined);
+  assert.equal(component.categoryRemoval, null);
+});
+
+test('a failing category reference check shows an error and still allows removal', async () => {
+  const fetchImpl = categoryRemovalFetch(() => jsonResponse({}, false));
+  const {component} = createEnergyPanel({fetchImpl});
+  component.$refs = {};
+  await component.load();
+  await component.askRemoveCategory('werkstatt');
+  assert.equal(component.categoryRemoval.error, true);
+  assert.equal(component.categoryRemoval.loading, false);
+  component.confirmRemoveCategory();
+  assert.equal(component.categories.werkstatt, undefined);
+});
+
+test('opening a rule from the removal dialog focuses it in the automations panel', async () => {
+  const {component, window} = createEnergyPanel({fetchImpl: categoryRemovalFetch(() => jsonResponse({rules: []}))});
+  component.$refs = {};
+  const events = [];
+  window.addEventListener('dashboard-open-panel', event => events.push(JSON.parse(JSON.stringify(event.detail))));
+  await component.load();
+  await component.askRemoveCategory('werkstatt');
+  component.openRemovalRule('r1');
+  assert.deepEqual(events, [{panel: 'automations-panel', automationFocus: 'r1'}]);
+  assert.equal(component.categoryRemoval, null);
+});
+
 test('clicking a role row asks the plant view to highlight its device', async () => {
   const { component, window } = createEnergyPanel({ fetchImpl: stubFetch() });
   const seen = [];

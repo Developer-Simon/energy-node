@@ -460,3 +460,37 @@ func TestActivePropertiesFollowsBranches(t *testing.T) {
 		t.Errorf("active properties = %v, want a and b", two)
 	}
 }
+
+func TestPatternKeywordValidatesStrings(t *testing.T) {
+	schema := `{"type":"string","pattern":"^[a-z]+$"}`
+	if err := ValidateDocument([]byte(`"abc"`), []byte(schema)); err != nil {
+		t.Fatalf("matching string rejected: %v", err)
+	}
+	if err := ValidateDocument([]byte(`"Abc"`), []byte(schema)); err == nil || err.Error() != "$ does not match the expected format" {
+		t.Fatalf("non-matching string: got %v", err)
+	}
+	if err := ValidateDocument([]byte(`5`), []byte(`{"pattern":"^[a-z]+$"}`)); err != nil {
+		t.Fatalf("non-string value must be ignored by pattern: %v", err)
+	}
+	if err := ValidateDocument([]byte(`"abc"`), []byte(`{"pattern":"("}`)); err == nil || err.Error() != "$ has an invalid pattern" {
+		t.Fatalf("invalid pattern: got %v", err)
+	}
+}
+
+func TestAutomationRulesSchemaPatternAcceptsCustomCategories(t *testing.T) {
+	schema, err := os.ReadFile(filepath.Join("..", "..", "..", "services", "automation", "automation_rules.schema.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	rules := func(field string) []byte {
+		return []byte(`{"version":1,"settings":{},"rules":[{"id":"r1","name":"Sauna on","enabled":true,` +
+			`"conditions":[{"type":"balance_threshold","field":"` + field + `","comparison":"above","threshold":1}],` +
+			`"actions":[{"type":"publish","topic":"outstation/x","payload_source":"balance"}]}]}`)
+	}
+	if err := ValidateDocument(rules("custom:sauna"), schema); err != nil {
+		t.Fatalf("custom:sauna rejected: %v", err)
+	}
+	if err := ValidateDocument(rules("custom:Sauna"), schema); err == nil {
+		t.Fatal("custom:Sauna accepted")
+	}
+}

@@ -77,6 +77,7 @@
               <span class="automation-rule-name" x-show="!editing[rule.id]" x-text="rule.name"></span>
               <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
                      x-bind:aria-label="$t('automations.rule.name_input.aria_label')">
+              <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
 
               <label class="settings-toggle"
                      x-bind:title="rule.enabled ? $t('automations.rule.enabled_toggle.title_on') : $t('automations.rule.enabled_toggle.title_off')">
@@ -269,9 +270,16 @@
                       <div>
                         <div class="edit-sentence">
                           <span class="edit-sentence-lead">{{t "automations.editor.conditions_header"}}</span>
-                          <select x-model="condition.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
+                          <select x-model="condition.field" x-init="$nextTick(() => $el.value = condition.field)" x-bind:aria-label="$t('automations.condition.balance.field_label')">
                             <template x-for="[field, label] in balanceFields" x-bind:key="field">
                               <option x-bind:value="field" x-text="label"></option>
+                            </template>
+                            <template x-if="customBalanceFields.length">
+                              <optgroup x-bind:label="$t('automations.metric.custom_group')">
+                                <template x-for="[field, label] in customBalanceFields" x-bind:key="field">
+                                  <option x-bind:value="field" x-text="label"></option>
+                                </template>
+                              </optgroup>
                             </template>
                           </select>
                           <span>{{t "automations.condition.is"}}</span>
@@ -281,34 +289,39 @@
                           <input type="number" x-model.number="condition.threshold" x-bind:aria-label="$t('automations.condition.balance.threshold_label')">
                           <span class="edit-unit" x-text="describeCondition(condition).unit"></span>
                         </div>
-                        <details class="edit-advanced">
-                          <summary>{{t "automations.condition.advanced"}}</summary>
-                          <div class="edit-field-grid">
-                            <span class="edit-field-label">
-                              {{t "automations.condition.hysteresis_label"}}
-                              <span class="field-help">
-                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hysteresis_aria_label')">
-                                  <svg><use href="#ico-help"></use></svg>
-                                </button>
-                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hysteresis')"></span>
+                        <div class="edit-advanced" x-data="{ advancedOpen: false }">
+                          <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                            <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                            <span>{{t "automations.condition.advanced"}}</span>
+                          </button>
+                          <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                            <div class="edit-field-grid">
+                              <span class="edit-field-label">
+                                {{t "automations.condition.hysteresis_label"}}
+                                <span class="field-help">
+                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hysteresis_aria_label')">
+                                    <svg><use href="#ico-help"></use></svg>
+                                  </button>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('hysteresis')"></span>
+                                </span>
                               </span>
-                            </span>
-                            <input type="number" min="0" x-model.number="condition.hysteresis" x-bind:aria-label="$t('automations.condition.hysteresis_aria_label')">
-                            <span class="edit-unit" x-text="describeCondition(condition).unit"></span>
+                              <input type="number" min="0" x-model.number="condition.hysteresis" x-bind:aria-label="$t('automations.condition.hysteresis_aria_label')">
+                              <span class="edit-unit" x-text="describeCondition(condition).unit"></span>
 
-                            <span class="edit-field-label">
-                              {{t "automations.condition.hold_label"}}
-                              <span class="field-help">
-                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hold_seconds_aria_label')">
-                                  <svg><use href="#ico-help"></use></svg>
-                                </button>
-                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                              <span class="edit-field-label">
+                                {{t "automations.condition.hold_label"}}
+                                <span class="field-help">
+                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hold_seconds_aria_label')">
+                                    <svg><use href="#ico-help"></use></svg>
+                                  </button>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                                </span>
                               </span>
-                            </span>
-                            <input type="number" min="0" x-model.number="condition.hold_seconds" x-bind:aria-label="$t('automations.condition.hold_aria_label')">
-                            <span class="edit-unit">s</span>
+                              <input type="number" min="0" x-model.number="condition.hold_seconds" x-bind:aria-label="$t('automations.condition.hold_aria_label')">
+                              <span class="edit-unit">s</span>
+                            </div>
                           </div>
-                        </details>
+                        </div>
                       </div>
                     </template>
 
@@ -349,22 +362,27 @@
                           </button>
                         </div>
 
-                        <details class="edit-advanced">
-                          <summary>{{t "automations.condition.advanced"}}</summary>
-                          <div class="edit-field-grid">
-                            <span class="edit-field-label">
-                              {{t "automations.condition.hold_label"}}
-                              <span class="field-help">
-                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hold_seconds_aria_label')">
-                                  <svg><use href="#ico-help"></use></svg>
-                                </button>
-                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                        <div class="edit-advanced" x-data="{ advancedOpen: false }">
+                          <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                            <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                            <span>{{t "automations.condition.advanced"}}</span>
+                          </button>
+                          <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                            <div class="edit-field-grid">
+                              <span class="edit-field-label">
+                                {{t "automations.condition.hold_label"}}
+                                <span class="field-help">
+                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hold_seconds_aria_label')">
+                                    <svg><use href="#ico-help"></use></svg>
+                                  </button>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                                </span>
                               </span>
-                            </span>
-                            <input type="number" min="0" x-model.number="condition.hold_seconds" x-bind:aria-label="$t('automations.condition.hold_aria_label')">
-                            <span class="edit-unit">s</span>
+                              <input type="number" min="0" x-model.number="condition.hold_seconds" x-bind:aria-label="$t('automations.condition.hold_aria_label')">
+                              <span class="edit-unit">s</span>
+                            </div>
                           </div>
-                        </details>
+                        </div>
                       </div>
                     </template>
 
@@ -380,34 +398,39 @@
                           </select>
                           <input type="text" x-model="condition.text" x-bind:aria-label="$t('automations.condition.topic.value_label')">
                         </div>
-                        <details class="edit-advanced">
-                          <summary>{{t "automations.condition.advanced"}}</summary>
-                          <div class="edit-field-grid">
-                            <span class="edit-field-label">
-                              {{t "automations.condition.json_key_label"}}
-                              <span class="field-help">
-                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.json_key_aria_label')">
-                                  <svg><use href="#ico-help"></use></svg>
-                                </button>
-                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('json_key')"></span>
+                        <div class="edit-advanced" x-data="{ advancedOpen: false }">
+                          <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                            <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                            <span>{{t "automations.condition.advanced"}}</span>
+                          </button>
+                          <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                            <div class="edit-field-grid">
+                              <span class="edit-field-label">
+                                {{t "automations.condition.json_key_label"}}
+                                <span class="field-help">
+                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.json_key_aria_label')">
+                                    <svg><use href="#ico-help"></use></svg>
+                                  </button>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('json_key')"></span>
+                                </span>
                               </span>
-                            </span>
-                            <input type="text" x-model="condition.json_key" x-bind:aria-label="$t('automations.condition.json_key_aria_label')">
-                            <span class="edit-unit"></span>
+                              <input type="text" x-model="condition.json_key" x-bind:aria-label="$t('automations.condition.json_key_aria_label')">
+                              <span class="edit-unit"></span>
 
-                            <span class="edit-field-label">
-                              {{t "automations.condition.hold_label"}}
-                              <span class="field-help">
-                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hold_seconds_aria_label')">
-                                  <svg><use href="#ico-help"></use></svg>
-                                </button>
-                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                              <span class="edit-field-label">
+                                {{t "automations.condition.hold_label"}}
+                                <span class="field-help">
+                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.field_help.hold_seconds_aria_label')">
+                                    <svg><use href="#ico-help"></use></svg>
+                                  </button>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('hold_seconds')"></span>
+                                </span>
                               </span>
-                            </span>
-                            <input type="number" min="0" x-model.number="condition.hold_seconds" x-bind:aria-label="$t('automations.condition.hold_aria_label')">
-                            <span class="edit-unit">s</span>
+                              <input type="number" min="0" x-model.number="condition.hold_seconds" x-bind:aria-label="$t('automations.condition.hold_aria_label')">
+                              <span class="edit-unit">s</span>
+                            </div>
                           </div>
-                        </details>
+                        </div>
                       </div>
                     </template>
 
@@ -519,54 +542,59 @@
                         <div class="edit-card-warning" x-show="computeDrift(action, entities).drifted"
                              x-text="$t('automations.action.mqtt_warning', {current_topic: computeDrift(action, entities).currentTopic})"></div>
 
-                        <details class="edit-advanced">
-                          <summary>{{t "automations.action.publish.advanced"}}</summary>
-                          <div class="edit-field-grid">
-                            <span class="edit-field-label">
-                              {{t "automations.action.publish.retained_label"}}
-                              <span class="field-help">
-                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.retained_explain_aria')">
-                                  <svg><use href="#ico-help"></use></svg>
-                                </button>
-                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('retain')"></span>
-                              </span>
-                            </span>
-                            <input type="checkbox" x-model="action.retain" x-bind:aria-label="$t('automations.action.publish.retained_checkbox_aria')">
-                            <span class="edit-unit"></span>
-
-                            <template x-if="action.payload_source === 'balance'">
+                        <div class="edit-advanced" x-data="{ advancedOpen: false }">
+                          <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                            <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                            <span>{{t "automations.action.publish.advanced"}}</span>
+                          </button>
+                          <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                            <div class="edit-field-grid">
                               <span class="edit-field-label">
-                                {{t "automations.action.publish.scale_label"}}
+                                {{t "automations.action.publish.retained_label"}}
                                 <span class="field-help">
-                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.scale_explain_aria')">
+                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.retained_explain_aria')">
                                     <svg><use href="#ico-help"></use></svg>
                                   </button>
-                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
+                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('retain')"></span>
                                 </span>
                               </span>
-                            </template>
-                            <template x-if="action.payload_source === 'balance'">
-                              <input type="number" x-model.number="action.scale" x-bind:aria-label="$t('automations.action.publish.scale_label')">
-                            </template>
-                            <template x-if="action.payload_source === 'balance'"><span class="edit-unit">×</span></template>
+                              <input type="checkbox" x-model="action.retain" x-bind:aria-label="$t('automations.action.publish.retained_checkbox_aria')">
+                              <span class="edit-unit"></span>
 
-                            <template x-if="action.payload_source === 'balance'">
-                              <span class="edit-field-label">
-                                {{t "automations.action.publish.offset_label"}}
-                                <span class="field-help">
-                                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.offset_explain_aria')">
-                                    <svg><use href="#ico-help"></use></svg>
-                                  </button>
-                                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
+                              <template x-if="action.payload_source === 'balance'">
+                                <span class="edit-field-label">
+                                  {{t "automations.action.publish.scale_label"}}
+                                  <span class="field-help">
+                                    <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.scale_explain_aria')">
+                                      <svg><use href="#ico-help"></use></svg>
+                                    </button>
+                                    <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
+                                  </span>
                                 </span>
-                              </span>
-                            </template>
-                            <template x-if="action.payload_source === 'balance'">
-                              <input type="number" x-model.number="action.offset" x-bind:aria-label="$t('automations.action.publish.offset_label')">
-                            </template>
-                            <template x-if="action.payload_source === 'balance'"><span class="edit-unit">W</span></template>
+                              </template>
+                              <template x-if="action.payload_source === 'balance'">
+                                <input type="number" x-model.number="action.scale" x-bind:aria-label="$t('automations.action.publish.scale_label')">
+                              </template>
+                              <template x-if="action.payload_source === 'balance'"><span class="edit-unit">×</span></template>
+
+                              <template x-if="action.payload_source === 'balance'">
+                                <span class="edit-field-label">
+                                  {{t "automations.action.publish.offset_label"}}
+                                  <span class="field-help">
+                                    <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.action.publish.offset_explain_aria')">
+                                      <svg><use href="#ico-help"></use></svg>
+                                    </button>
+                                    <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
+                                  </span>
+                                </span>
+                              </template>
+                              <template x-if="action.payload_source === 'balance'">
+                                <input type="number" x-model.number="action.offset" x-bind:aria-label="$t('automations.action.publish.offset_label')">
+                              </template>
+                              <template x-if="action.payload_source === 'balance'"><span class="edit-unit">W</span></template>
+                            </div>
                           </div>
-                        </details>
+                        </div>
                       </div>
                     </template>
 
@@ -596,19 +624,24 @@
                   </template>
                 </div>
 
-                <details class="edit-advanced">
-                  <summary>{{t "automations.action.advanced"}}</summary>
-                  <div class="type-tiles">
-                    <template x-for="type in actionTypes()" x-bind:key="type.key">
-                      <button class="type-tile" type="button" x-show="type.advanced"
-                              x-on:click="addAction(rule, type.key, $data)"
-                              x-bind:title="type.hint" x-bind:aria-label="$t('automations.action.add_aria', {type: type.label})">
-                        <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
-                        <span class="type-tile-label" x-text="type.label"></span>
-                      </button>
-                    </template>
+                <div class="edit-advanced" x-data="{ advancedOpen: false }">
+                  <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                    <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                    <span>{{t "automations.action.advanced"}}</span>
+                  </button>
+                  <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                    <div class="type-tiles">
+                      <template x-for="type in actionTypes()" x-bind:key="type.key">
+                        <button class="type-tile" type="button" x-show="type.advanced"
+                                x-on:click="addAction(rule, type.key, $data)"
+                                x-bind:title="type.hint" x-bind:aria-label="$t('automations.action.add_aria', {type: type.label})">
+                          <svg class="automation-icon"><use x-bind:href="'#' + type.icon"></use></svg>
+                          <span class="type-tile-label" x-text="type.label"></span>
+                        </button>
+                      </template>
+                    </div>
                   </div>
-                </details>
+                </div>
 
                 <div class="edit-card entity-wizard" x-cloak x-show="entities.length && showEntityWizard">
                   <div class="edit-card-head">
@@ -650,53 +683,65 @@
                     </button>
                   </div>
 
-                  <details class="edit-advanced" x-show="newEntityId">
-                    <summary>{{t "automations.wizard.setpoint.summary"}}</summary>
-                    <div class="entity-wizard-row" style="padding-top: .6rem;">
-                      <label>{{t "automations.wizard.setpoint.source_label"}}
-                        <select x-model="newMode">
-                          <option value="constant">{{t "automations.wizard.setpoint.constant"}}</option><option value="balance">{{t "automations.wizard.setpoint.balance"}}</option>
-                        </select>
-                      </label>
-                      <template x-if="newMode === 'constant'">
-                        <input type="number" x-model.number="newConstantValue" x-bind:placeholder="$t('automations.wizard.setpoint.value_placeholder')" x-bind:aria-label="$t('automations.wizard.setpoint.value_aria')">
-                      </template>
-                      <template x-if="newMode === 'balance'">
-                        <span class="entity-wizard-row">
-                          <select x-model="newField" x-bind:aria-label="$t('automations.wizard.setpoint.field_aria')">
-                            <template x-for="[field, label] in balanceFields" x-bind:key="field">
-                              <option x-bind:value="field" x-text="label"></option>
-                            </template>
+                  <div class="edit-advanced" x-data="{ advancedOpen: false }" x-show="newEntityId">
+                    <button type="button" class="edit-advanced-toggle" x-on:click="advancedOpen = !advancedOpen" x-bind:aria-expanded="advancedOpen ? 'true' : 'false'">
+                      <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: advancedOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
+                      <span>{{t "automations.wizard.setpoint.summary"}}</span>
+                    </button>
+                    <div class="automation-collapse" x-cloak x-show="advancedOpen" x-collapse>
+                      <div class="entity-wizard-row" style="padding-top: .6rem;">
+                        <label>{{t "automations.wizard.setpoint.source_label"}}
+                          <select x-model="newMode">
+                            <option value="constant">{{t "automations.wizard.setpoint.constant"}}</option><option value="balance">{{t "automations.wizard.setpoint.balance"}}</option>
                           </select>
-                          <span class="edit-field-label">
-                            {{t "automations.wizard.setpoint.scale_label"}}
-                            <span class="field-help">
-                              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.wizard.setpoint.scale_explain_aria')">
-                                <svg><use href="#ico-help"></use></svg>
-                              </button>
-                              <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
+                        </label>
+                        <template x-if="newMode === 'constant'">
+                          <input type="number" x-model.number="newConstantValue" x-bind:placeholder="$t('automations.wizard.setpoint.value_placeholder')" x-bind:aria-label="$t('automations.wizard.setpoint.value_aria')">
+                        </template>
+                        <template x-if="newMode === 'balance'">
+                          <span class="entity-wizard-row">
+                            <select x-model="newField" x-bind:aria-label="$t('automations.wizard.setpoint.field_aria')">
+                              <template x-for="[field, label] in balanceFields" x-bind:key="field">
+                                <option x-bind:value="field" x-text="label"></option>
+                              </template>
+                              <template x-if="customBalanceFields.length">
+                                <optgroup x-bind:label="$t('automations.metric.custom_group')">
+                                  <template x-for="[field, label] in customBalanceFields" x-bind:key="field">
+                                    <option x-bind:value="field" x-text="label"></option>
+                                  </template>
+                                </optgroup>
+                              </template>
+                            </select>
+                            <span class="edit-field-label">
+                              {{t "automations.wizard.setpoint.scale_label"}}
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.wizard.setpoint.scale_explain_aria')">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('scale')"></span>
+                              </span>
                             </span>
-                          </span>
-                          <input type="number" x-model.number="newScale" style="width: 4.5rem;" x-bind:aria-label="$t('automations.wizard.setpoint.scale_label')">
-                          <span class="edit-field-label">
-                            {{t "automations.wizard.setpoint.offset_label"}}
-                            <span class="field-help">
-                              <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.wizard.setpoint.offset_explain_aria')">
-                                <svg><use href="#ico-help"></use></svg>
-                              </button>
-                              <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
+                            <input type="number" x-model.number="newScale" style="width: 4.5rem;" x-bind:aria-label="$t('automations.wizard.setpoint.scale_label')">
+                            <span class="edit-field-label">
+                              {{t "automations.wizard.setpoint.offset_label"}}
+                              <span class="field-help">
+                                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.wizard.setpoint.offset_explain_aria')">
+                                  <svg><use href="#ico-help"></use></svg>
+                                </button>
+                                <span class="field-help-text" role="tooltip" x-text="fieldHelp('offset')"></span>
+                              </span>
                             </span>
+                            <input type="number" x-model.number="newOffset" style="width: 4.5rem;" x-bind:aria-label="$t('automations.wizard.setpoint.offset_label')">
                           </span>
-                          <input type="number" x-model.number="newOffset" style="width: 4.5rem;" x-bind:aria-label="$t('automations.wizard.setpoint.offset_label')">
-                        </span>
-                      </template>
-                      <button class="icon-button labeled accent" type="button"
-                              x-bind:title="$t('automations.wizard.setpoint.add_title')" x-bind:aria-label="$t('automations.wizard.setpoint.add_aria')"
-                              x-on:click="rule.actions.push(buildSetpointAction(entityByUniqueId(newEntityId), { mode: newMode, field: newField, scale: newScale, offset: newOffset, value: newConstantValue })); showEntityWizard = false">
-                        <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.wizard.setpoint.add_button"}}</span>
-                      </button>
+                        </template>
+                        <button class="icon-button labeled accent" type="button"
+                                x-bind:title="$t('automations.wizard.setpoint.add_title')" x-bind:aria-label="$t('automations.wizard.setpoint.add_aria')"
+                                x-on:click="rule.actions.push(buildSetpointAction(entityByUniqueId(newEntityId), { mode: newMode, field: newField, scale: newScale, offset: newOffset, value: newConstantValue })); showEntityWizard = false">
+                          <svg class="automation-icon"><use href="#ico-plus"></use></svg><span>{{t "automations.wizard.setpoint.add_button"}}</span>
+                        </button>
+                      </div>
                     </div>
-                  </details>
+                  </div>
                 </div>
                 </div>
               </div>
@@ -705,115 +750,118 @@
         </template>
       </ul>
 
-      <details class="automations-advanced" id="automations-advanced">
-        <summary>
+      <div class="automations-advanced" id="automations-advanced">
+        <button type="button" class="automations-advanced-toggle" x-on:click="settingsOpen = !settingsOpen" x-bind:aria-expanded="settingsOpen ? 'true' : 'false'" aria-controls="automations-advanced-panel">
+          <svg class="automation-icon rule-expand-chevron" x-bind:class="{ expanded: settingsOpen }" aria-hidden="true"><use href="#ico-chevron"></use></svg>
           <svg class="automation-icon"><use href="#ico-gear"></use></svg>
-          {{t "automations.settings.title"}}
-        </summary>
-        <div class="automations-advanced-body">
-          <div class="form-grid">
-            <label for="automations-latitude">
-              {{t "automations.settings.latitude_label"}}
-              <span class="field-help">
-                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.latitude_explain_aria')">
-                  <svg><use href="#ico-help"></use></svg>
-                </button>
-                <span class="field-help-text" role="tooltip" x-text="fieldHelp('location')"></span>
-              </span>
-            </label>
-            <input id="automations-latitude" type="number" min="-90" max="90" step="any"
-                   placeholder="z. B. 52.52" x-model.number="document.settings.latitude">
-
-            <label for="automations-longitude">{{t "automations.settings.longitude_label"}}</label>
-            <div class="automations-location">
-              <input id="automations-longitude" type="number" min="-180" max="180" step="any"
-                     placeholder="z. B. 13.405" x-model.number="document.settings.longitude">
-              <button class="icon-button labeled" type="button" x-on:click="useCurrentLocation()"
-                      x-bind:disabled="!geolocationAvailable() || locating"
-                      x-bind:title="$t('automations.settings.location_button')" x-bind:aria-label="$t('automations.settings.location_button')">
-                <svg class="automation-icon"><use href="#ico-check"></use></svg>
-                <span x-text="locating ? $t('automations.settings.location_locating') : $t('automations.settings.location_use_button')"></span>
-              </button>
-              <span class="field-hint" x-show="!geolocationAvailable()">
-                {{t "automations.settings.location_hint"}}
-              </span>
-            </div>
-
-            <label for="automations-tick-interval">
-              {{t "automations.settings.tick_interval_label"}}
-              <span class="field-help">
-                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.tick_interval_explain_aria')">
-                  <svg><use href="#ico-help"></use></svg>
-                </button>
-                <span class="field-help-text" role="tooltip" x-text="fieldHelp('tick_interval_s')"></span>
-              </span>
-            </label>
-            <input id="automations-tick-interval" type="number" min="5" max="3600" x-model.number="document.settings.tick_interval_s">
-
-            <label for="automations-settling-seconds">
-              {{t "automations.settings.settling_label"}}
-              <span class="field-help">
-                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.settling_explain_aria')">
-                  <svg><use href="#ico-help"></use></svg>
-                </button>
-                <span class="field-help-text" role="tooltip" x-text="fieldHelp('settling_seconds')"></span>
-              </span>
-            </label>
-            <input id="automations-settling-seconds" type="number" min="0" max="3600" x-model.number="document.settings.settling_seconds">
-
-            <label for="automations-balance-max-age">
-              {{t "automations.settings.balance_max_age_label"}}
-              <span class="field-help">
-                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.balance_max_age_explain_aria')">
-                  <svg><use href="#ico-help"></use></svg>
-                </button>
-                <span class="field-help-text" role="tooltip" x-text="fieldHelp('balance_max_age_s')"></span>
-              </span>
-            </label>
-            <input id="automations-balance-max-age" type="number" min="1" max="3600" x-model.number="document.settings.balance_max_age_s">
-
-            <label for="automations-history-limit">
-              {{t "automations.settings.history_limit_label"}}
-              <span class="field-help">
-                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.history_limit_explain_aria')">
-                  <svg><use href="#ico-help"></use></svg>
-                </button>
-                <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_limit')"></span>
-              </span>
-            </label>
-            <input id="automations-history-limit" type="number" min="1" max="200" x-model.number="document.settings.history_limit">
-
-            <label class="settings-toggle-label" for="automations-history-persist">
-              <span>
-                {{t "automations.settings.history_persist_label"}}
+          <span>{{t "automations.settings.title"}}</span>
+        </button>
+        <div id="automations-advanced-panel" class="automation-collapse" x-cloak x-show="settingsOpen" x-collapse>
+          <div class="automations-advanced-body">
+            <div class="form-grid">
+              <label for="automations-latitude">
+                {{t "automations.settings.latitude_label"}}
                 <span class="field-help">
-                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.history_persist_explain_aria')">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.latitude_explain_aria')">
                     <svg><use href="#ico-help"></use></svg>
                   </button>
-                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_persist')"></span>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('location')"></span>
                 </span>
-              </span>
-              <span class="settings-toggle">
-                <input id="automations-history-persist" type="checkbox" role="switch"
-                       x-model="document.settings.history_persist" x-bind:aria-checked="document.settings.history_persist">
-                <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
-              </span>
-            </label>
+              </label>
+              <input id="automations-latitude" type="number" min="-90" max="90" step="any"
+                     placeholder="z. B. 52.52" x-model.number="document.settings.latitude">
 
-            <label for="automations-publish-prefixes">
-              {{t "automations.settings.publish_prefixes_label"}}
-              <span class="field-help">
-                <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.publish_prefixes_explain_aria')">
-                  <svg><use href="#ico-help"></use></svg>
+              <label for="automations-longitude">{{t "automations.settings.longitude_label"}}</label>
+              <div class="automations-location">
+                <input id="automations-longitude" type="number" min="-180" max="180" step="any"
+                       placeholder="z. B. 13.405" x-model.number="document.settings.longitude">
+                <button class="icon-button labeled" type="button" x-on:click="useCurrentLocation()"
+                        x-bind:disabled="!geolocationAvailable() || locating"
+                        x-bind:title="$t('automations.settings.location_button')" x-bind:aria-label="$t('automations.settings.location_button')">
+                  <svg class="automation-icon"><use href="#ico-check"></use></svg>
+                  <span x-text="locating ? $t('automations.settings.location_locating') : $t('automations.settings.location_use_button')"></span>
                 </button>
-                <span class="field-help-text" role="tooltip" x-text="fieldHelp('publish_allowed_prefixes')"></span>
-              </span>
-            </label>
-            <textarea id="automations-publish-prefixes" rows="3" x-model="publishAllowedPrefixesText"
-                      x-bind:placeholder="$t('automations.settings.publish_prefixes_placeholder')"></textarea>
+                <span class="field-hint" x-show="!geolocationAvailable()">
+                  {{t "automations.settings.location_hint"}}
+                </span>
+              </div>
+
+              <label for="automations-tick-interval">
+                {{t "automations.settings.tick_interval_label"}}
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.tick_interval_explain_aria')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('tick_interval_s')"></span>
+                </span>
+              </label>
+              <input id="automations-tick-interval" type="number" min="5" max="3600" x-model.number="document.settings.tick_interval_s">
+
+              <label for="automations-settling-seconds">
+                {{t "automations.settings.settling_label"}}
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.settling_explain_aria')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('settling_seconds')"></span>
+                </span>
+              </label>
+              <input id="automations-settling-seconds" type="number" min="0" max="3600" x-model.number="document.settings.settling_seconds">
+
+              <label for="automations-balance-max-age">
+                {{t "automations.settings.balance_max_age_label"}}
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.balance_max_age_explain_aria')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('balance_max_age_s')"></span>
+                </span>
+              </label>
+              <input id="automations-balance-max-age" type="number" min="1" max="3600" x-model.number="document.settings.balance_max_age_s">
+
+              <label for="automations-history-limit">
+                {{t "automations.settings.history_limit_label"}}
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.history_limit_explain_aria')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_limit')"></span>
+                </span>
+              </label>
+              <input id="automations-history-limit" type="number" min="1" max="200" x-model.number="document.settings.history_limit">
+
+              <label class="settings-toggle-label" for="automations-history-persist">
+                <span>
+                  {{t "automations.settings.history_persist_label"}}
+                  <span class="field-help">
+                    <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.history_persist_explain_aria')">
+                      <svg><use href="#ico-help"></use></svg>
+                    </button>
+                    <span class="field-help-text" role="tooltip" x-text="fieldHelp('history_persist')"></span>
+                  </span>
+                </span>
+                <span class="settings-toggle">
+                  <input id="automations-history-persist" type="checkbox" role="switch"
+                         x-model="document.settings.history_persist" x-bind:aria-checked="document.settings.history_persist">
+                  <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
+                </span>
+              </label>
+
+              <label for="automations-publish-prefixes">
+                {{t "automations.settings.publish_prefixes_label"}}
+                <span class="field-help">
+                  <button class="field-help-trigger" type="button" x-bind:aria-label="$t('automations.settings.publish_prefixes_explain_aria')">
+                    <svg><use href="#ico-help"></use></svg>
+                  </button>
+                  <span class="field-help-text" role="tooltip" x-text="fieldHelp('publish_allowed_prefixes')"></span>
+                </span>
+              </label>
+              <textarea id="automations-publish-prefixes" rows="3" x-model="publishAllowedPrefixesText"
+                        x-bind:placeholder="$t('automations.settings.publish_prefixes_placeholder')"></textarea>
+            </div>
           </div>
         </div>
-      </details>
+      </div>
     </div>
   </template>
 </section>

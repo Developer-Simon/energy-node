@@ -62,8 +62,9 @@ A device sits in at most one group. Groups can hold other groups.
 Your own consumer, producer or storage types next to the built-in roles. The
 base decides how the category counts: consumers like house load, producers
 like PV, storage like a battery. Each consumer category appears as a sink of
-its own in the overview tiles and in the history. A category still in use
-cannot be removed.
+its own in the overview tiles and in the history. A category that roles or
+groups still use cannot be removed. Automation rules do not block removal, but
+the dashboard lists the rules that still read the category before you confirm.
 
 ## Device map
 

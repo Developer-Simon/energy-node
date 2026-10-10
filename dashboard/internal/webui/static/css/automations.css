@@ -7,6 +7,7 @@
 .automation-rule.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
 .automation-rule-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-bottom: .7rem; border-bottom: 1px solid var(--border-soft); }
 .automation-rule-name { font-weight: 600; color: var(--text-strong); flex: 1; min-width: 12rem; }
+.automation-unsaved-badge { flex: none; padding: .15rem .6rem; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-size: .76rem; white-space: nowrap; }
 
 /* .automation-icon selbst steht in base.css - hier nur die Faerbungen. */
 .automation-icon-sm { width: .95rem; height: .95rem; }
@@ -96,7 +97,7 @@
 
 /* --- Bearbeiten-Modus: dieselbe Kartenform wie in der Ansicht, nur mit
    Eingabefeldern. Erste Zeile liest sich als Satz, alles Feinere steckt im
-   nativen <details> darunter - kein zusaetzliches JS. --- */
+   Toggle-Button mit x-collapse darunter. --- */
 .edit-card { border: 1px solid var(--border-soft); border-left: 3px solid var(--accent-line); background: var(--panel-alt); padding: .7rem .8rem; display: flex; flex-direction: column; gap: .55rem; margin-bottom: .6rem; }
 .edit-card-head { display: flex; align-items: center; gap: .5rem; }
 .edit-card-head .automation-icon { color: var(--accent); }
@@ -130,11 +131,11 @@
 .automations-location .field-hint { flex-basis: 100%; font-size: .8rem; color: var(--text-muted); }
 
 .edit-advanced { border-top: 1px solid var(--border-soft); padding-top: .5rem; }
-.edit-advanced > summary { display: flex; align-items: center; gap: .4rem; cursor: pointer; color: var(--text-muted); font-size: .8rem; user-select: none; list-style: none; }
-.edit-advanced > summary::-webkit-details-marker { display: none; }
-.edit-advanced > summary::before { content: "▸"; color: var(--text-faint); }
-.edit-advanced[open] > summary::before { content: "▾"; }
-.edit-advanced > summary:hover { color: var(--text); }
+.edit-advanced-toggle { display: flex; align-items: center; gap: .4rem; width: 100%; background: transparent; border: 0; padding: 0; font: inherit; cursor: pointer; color: var(--text-muted); font-size: .8rem; user-select: none; text-align: left; }
+.edit-advanced-toggle:hover { color: var(--text); }
+.edit-advanced-toggle .automation-icon { width: .9rem; height: .9rem; color: var(--text-faint); }
+.edit-advanced-toggle:focus-visible, .automations-advanced-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.edit-advanced .automation-collapse > :first-child { margin-top: .5rem; }
 .edit-field-grid { display: grid; grid-template-columns: max-content minmax(5rem, 8rem) max-content; gap: .55rem .7rem; align-items: center; padding-top: .6rem; }
 .edit-field-label { display: inline-flex; align-items: center; gap: .25rem; font-size: .82rem; color: var(--text-subtle); }
 
@@ -166,11 +167,17 @@
 /* --- Dienst-Einstellungen: unter den Regeln, zugeklappt. Wer eine Regel
    anlegen will, soll nicht zuerst ueber das Tick-Intervall stolpern. --- */
 .automations-advanced { margin-top: 1.8rem; border-top: 1px solid var(--border); padding-top: .8rem; }
-.automations-advanced > summary { display: flex; align-items: center; gap: .45rem; cursor: pointer; color: var(--text-subtle); user-select: none; }
-.automations-advanced > summary:hover { color: var(--text); }
-.automations-advanced > summary .automation-icon { color: var(--text-faint); }
+.automations-advanced-toggle { display: flex; align-items: center; gap: .45rem; width: 100%; background: transparent; border: 0; padding: 0; font: inherit; cursor: pointer; color: var(--text-subtle); user-select: none; text-align: left; }
+.automations-advanced-toggle:hover { color: var(--text); }
+.automations-advanced-toggle .automation-icon { color: var(--text-faint); }
 .automations-advanced-body { padding-top: 1rem; }
 .automations-advanced-body .form-grid label { display: inline-flex; align-items: center; gap: .25rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .rule-expand-chevron { transition: none; }
+  /* x-collapse sets its transition inline; a zero duration makes Alpine finish at once. */
+  .automation-collapse { transition-duration: 0s !important; }
+}
 
 /* --- Assistent: eine Schrittleiste ueber der frisch angelegten Regel. --- */
 .wizard-bar { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding: .6rem .75rem; margin-bottom: .7rem; border: 1px solid var(--accent-line); background: var(--accent-bg); }

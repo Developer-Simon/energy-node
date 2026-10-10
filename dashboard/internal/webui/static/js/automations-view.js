@@ -16,7 +16,7 @@
     return body;
   };
 
-  // i18n-keys: automations.metric.autarkie, automations.metric.base, automations.metric.battery_capacity_kwh, automations.metric.battery_charge, automations.metric.battery_discharge, automations.metric.battery_energy_kwh, automations.metric.battery_soc, automations.metric.eigenverbrauch, automations.metric.gap_applied, automations.metric.grid_export, automations.metric.grid_import, automations.metric.heat_pump, automations.metric.load_total, automations.metric.pv, automations.metric.wallbox, automations.summary.balance, automations.summary.balance_hysteresis, automations.summary.entity_value, automations.summary.entity_value_unit, automations.summary.topic_value, automations.action.notification, automations.action.mqtt_command, automations.action.unknown, automations.test.permission_required, automations.test.service_offline, automations.test.save_first, automations.test.blocked_action, automations.test.confirm, automations.test.trigger, automations.test.failed, automations.test.no_response, automations.test.published, automations.test.blocked, automations.test.error, automations.saved, automations.condition_state.sun_no_event, automations.condition_state.no_location, automations.condition_state.no_value, automations.condition_state.outside_window, automations.condition_state.threshold_not_reached, automations.condition_state.met, automations.condition_state.met_since, automations.condition_state.pending, automations.condition_state.pending_since, automations.gate_meta.cooldown, automations.gate_meta.last_fired, automations.gate_meta.fire_count, automations.action_preview.no_preview, automations.action_preview.blocked, automations.new_rule, automations.delete_rule.title, automations.delete_rule.body, automations.geolocation.denied, automations.geolocation.failed, automations.gate_detail.hold_pending, automations.gate_detail.cooldown, automations.condition_type_unknown, automations.badge.balance_stale, automations.badge.blocked, automations.badge.cooldown, automations.badge.disabled, automations.badge.settling
+  // i18n-keys: automations.metric.autarkie, automations.metric.base, automations.metric.battery_capacity_kwh, automations.metric.battery_charge, automations.metric.battery_discharge, automations.metric.battery_energy_kwh, automations.metric.battery_soc, automations.metric.eigenverbrauch, automations.metric.gap_applied, automations.metric.grid_export, automations.metric.grid_import, automations.metric.heat_pump, automations.metric.load_total, automations.metric.pv, automations.metric.wallbox, automations.metric.custom_unknown, automations.summary.balance, automations.summary.balance_hysteresis, automations.summary.entity_value, automations.summary.entity_value_unit, automations.summary.topic_value, automations.action.notification, automations.action.mqtt_command, automations.action.unknown, automations.test.permission_required, automations.test.service_offline, automations.test.save_first, automations.test.blocked_action, automations.test.confirm, automations.test.trigger, automations.test.failed, automations.test.no_response, automations.test.published, automations.test.blocked, automations.test.error, automations.saved, automations.condition_state.sun_no_event, automations.condition_state.no_location, automations.condition_state.no_value, automations.condition_state.outside_window, automations.condition_state.threshold_not_reached, automations.condition_state.met, automations.condition_state.met_since, automations.condition_state.pending, automations.condition_state.pending_since, automations.gate_meta.cooldown, automations.gate_meta.last_fired, automations.gate_meta.fire_count, automations.action_preview.no_preview, automations.action_preview.blocked, automations.new_rule, automations.delete_rule.title, automations.delete_rule.body, automations.geolocation.denied, automations.geolocation.failed, automations.gate_detail.hold_pending, automations.gate_detail.cooldown, automations.condition_type_unknown, automations.badge.balance_stale, automations.badge.blocked, automations.badge.cooldown, automations.badge.disabled, automations.badge.settling
   // Eine Tabelle je Bilanzfeld: Klartext, Icon-Symbol im Sprite, Einheit.
   const BALANCE_FIELD_INFO = {
     grid_export:       { label: 'automations.metric.grid_export',     icon: 'ico-grid',     unit: 'W' },
@@ -228,13 +228,29 @@
     temperature: 'ico-thermo', current: 'ico-flash', voltage: 'ico-flash',
   };
 
-  function describeCondition(condition, entity) {
+  const CUSTOM_BASE_ICONS = { consumer: 'ico-load', producer: 'ico-sun', storage: 'ico-battery' };
+
+  // Eigene Kategorie als Bilanzfeld (custom:<id>): Titel und Icon kommen aus
+  // der Kategorie selbst, eine unbekannte Kategorie bekommt einen Warnhinweis.
+  function customBalanceInfo(field, categories) {
+    const id = field.slice('custom:'.length);
+    const category = categories && categories[id];
+    if (!category) {
+      return { label: t('automations.metric.custom_unknown', { id }), icon: 'ico-warning', unit: 'W' };
+    }
+    return { label: category.label, icon: CUSTOM_BASE_ICONS[category.base] || 'ico-flash', unit: 'W' };
+  }
+
+  function describeCondition(condition, entity, categories) {
     const type = condition && condition.type;
     if (type === 'balance_threshold') {
-      const info = BALANCE_FIELD_INFO[condition.field] || { label: condition.field, icon: 'ico-flash', unit: '' };
+      const isCustom = typeof condition.field === 'string' && condition.field.startsWith('custom:');
+      const info = isCustom ? customBalanceInfo(condition.field, categories)
+        : (BALANCE_FIELD_INFO[condition.field] || { label: condition.field, icon: 'ico-flash', unit: '' });
+      const labelText = isCustom ? info.label : t(info.label);
       const comparison = t(COMPARISON_WORDS[condition.comparison] || condition.comparison);
       const summaryKey = condition.hysteresis ? 'automations.summary.balance_hysteresis' : 'automations.summary.balance';
-      return { icon: info.icon, title: t(info.label), unit: info.unit,
+      return { icon: info.icon, title: labelText, unit: info.unit,
                summary: t(summaryKey, { comparison, threshold: condition.threshold, unit: info.unit, hysteresis: condition.hysteresis }) };
     }
     if (type === 'entity_value') {

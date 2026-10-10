@@ -293,7 +293,7 @@
           const list = rule && (view.part === 'action' ? rule.node.actions : rule.node.conditions);
           const raw = list && list[view.index];
           if (raw) {
-            const described = view.part === 'action' ? window.__automationsView.describeAction(raw, null) : window.__automationsView.describeCondition(raw, null);
+            const described = view.part === 'action' ? window.__automationsView.describeAction(raw, null) : window.__automationsView.describeCondition(raw, null, this.savedCategories);
             rows.push([t('devicemap.pop.row.condition'), described.summary || described.title]);
           }
         }
@@ -321,7 +321,7 @@
           const line = described => [described.title, described.summary].filter(Boolean).join(': ');
           this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.rule'), title: node.name, rows: [], text: '',
             lists: [
-              {label: t('devicemap.pop.when'), items: (node.node.conditions || []).map(condition => line(view.describeCondition(condition, null)))},
+              {label: t('devicemap.pop.when'), items: (node.node.conditions || []).map(condition => line(view.describeCondition(condition, null, this.savedCategories)))},
               {label: t('devicemap.pop.then'), items: (node.node.actions || []).map(action => line(view.describeAction(action, null)))},
             ],
             linkText: t('devicemap.pop.link.automations'), link: node.node.link, action: null});
