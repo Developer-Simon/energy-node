@@ -52,7 +52,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=31">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=32">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -92,6 +92,20 @@
       <button type="button" class="update-bar-dismiss" x-show="view.kind === 'fail'" x-on:click="acknowledge()" x-bind:aria-label="$t('update_bar.dismiss')" x-bind:title="$t('update_bar.dismiss')">×</button>
     </div>
   </div>
+  <!-- Neuerungen-Dialog der Update-Leiste. Der Inhalt von .update-bar-modal-log
+       ist ein Platzhalter und wird spaeter mit dem gerenderten Update-Log gefuellt. -->
+  <dialog class="app-modal update-bar-modal" x-data="{ version: '' }" aria-labelledby="update-bar-modal-title"
+          x-on:update-whatsnew-open.window="version = $event.detail.version; if (!$el.open) $el.showModal()"
+          x-on:click="if ($event.target === $el) $el.close()">
+    <h2 class="app-modal-title" id="update-bar-modal-title" x-text="version ? $t('update_bar.modal.title_version', { version }) : $t('update_bar.modal.title')"></h2>
+    <div class="update-bar-modal-log" data-update-log>
+      <p class="app-modal-body" x-text="$t('update_bar.modal.placeholder')"></p>
+    </div>
+    <div class="app-modal-actions">
+      <a class="update-bar-button" href="{{.BasePath}}/?panel=settings&page=whatsnew" x-text="$t('update_bar.modal.page')"></a>
+      <button type="button" class="primary" x-on:click="$el.closest('dialog').close()" x-text="$t('update_bar.modal.close')"></button>
+    </div>
+  </dialog>
   <div id="runtime-status" class="runtime-status" data-runtime-status-enabled="{{if .ShowRuntimeStatus}}true{{else}}false{{end}}" data-status-bar-items="{{.StatusBarItems}}" x-data="runtimeStatusPanel()" x-init="init()" x-cloak x-show="enabled" aria-live="polite" aria-atomic="true">
     <div class="runtime-status-summary">
       <span class="runtime-status-label">{{t "status.title"}}</span>
@@ -241,7 +255,7 @@
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=10" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/dashboard.js?v=29" defer></script>
-  <script src="{{.BasePath}}/static/js/update-bar.js?v=2" defer></script>
+  <script src="{{.BasePath}}/static/js/update-bar.js?v=3" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>

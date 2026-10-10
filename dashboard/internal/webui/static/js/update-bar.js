@@ -158,13 +158,11 @@
       this.acknowledged = key;
     },
 
-    navigate(url) {
-      window.location.assign(url);
-    },
-
+    // The dialog lives outside the bar (base.html), because the bar hides itself
+    // once the message is acknowledged. It listens for this event.
     openWhatsNew() {
       this.acknowledge();
-      this.navigate(withBase('/?panel=settings&page=whatsnew'));
+      window.dispatchEvent(new CustomEvent('update-whatsnew-open', { detail: { version: this.progress.version || '' } }));
     },
 
     redeployHref() {

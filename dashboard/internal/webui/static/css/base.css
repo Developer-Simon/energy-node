@@ -1108,6 +1108,8 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
 .update-bar-button.is-primary { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent); }
 .update-bar-button.is-ok { border-color: color-mix(in srgb, var(--ok) 50%, transparent); background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .update-bar-link { color: var(--accent); font-size: .82rem; text-decoration: none; white-space: nowrap; }
+.update-bar-modal { width: min(40rem, calc(100vw - 2rem)); }
+.update-bar-modal-log { max-height: 60vh; overflow: auto; margin-bottom: 1rem; }
 .update-bar-dismiss { padding: 0 .2rem; border: 0; background: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; }
 .update-bar-restarting { border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
 .update-bar-restarting .update-bar-icon { stroke: var(--warn); }

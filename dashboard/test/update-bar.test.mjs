@@ -96,15 +96,15 @@ test('fail names step, title and code, rejected names the code', () => {
   assert.match(rejected.detail, /abgelehnt/);
 });
 
-test('acknowledge stores the key and openWhatsNew navigates to the whatsnew page', async () => {
+test('acknowledge stores the key and openWhatsNew opens the dialog via an event', async () => {
   const { factories, window } = load();
   const bar = factories.updateBar();
   bar.progress = { state: 'ok', version: 'v0.9.1', run_id: 'r1', finished_at: '2026-10-10T11:00:00Z' };
-  let target = '';
-  bar.navigate = (url) => { target = url; };
+  let detail = null;
+  window.addEventListener('update-whatsnew-open', (event) => { detail = event.detail; });
   bar.openWhatsNew();
   assert.equal(window.localStorage.getItem('energy-node.update-bar.acknowledged'), 'r1');
-  assert.equal(target, '/?panel=settings&page=whatsnew');
+  assert.equal(detail.version, 'v0.9.1');
 });
 
 test('a failed poll during a run switches to restarting and polls fast', async () => {
