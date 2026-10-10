@@ -4,7 +4,8 @@ name: Pages
 # Settings -> Pages -> Source "GitHub Actions".
 #
 # A push to main deploys only when a document in the sidebar navigation
-# (docs/_data/nav.yml) or a site build input changed, see
+# (docs/_data/nav.yml) or a site build input changed (local docs tooling such
+# as scripts/docs/build-local.sh does not count), see
 # scripts/docs/pages-should-deploy.sh. A finished Release run redeploys as
 # well, so the version markers stop flagging pages as unreleased once their
 # version is tagged.
@@ -14,7 +15,9 @@ on:
     paths:
       - "docs/**"
       - ".github/workflows/pages.yml"
-      - "scripts/docs/**"
+      - "scripts/docs/pages-should-deploy.sh"
+      - "scripts/docs/doc-versions.sh"
+      - "scripts/docs/release-versions.py"
   workflow_run:
     workflows: [Release]
     types: [completed]

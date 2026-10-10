@@ -84,10 +84,10 @@
 
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
 - **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
+- **dashboard:** settings polish and local docs serve (#112) (1c7e1d3)
 - **dashboard:** keep the segmented control thumb inside its frame (9b5ed56)
 - **dashboard:** drop the arrow instead of spinning the update check icon (3ed48de)
 - **dashboard:** give the setup help notes their own footer (7806394)
-- **dashboard:** settings polish and local docs serve (#112)
 - **dashboard:** stop the category control from overriding the .segmented slider (18ca390)
 - **dashboard:** drop the hint text next to the assigned chip (79d8583)
 - **dashboard:** mobile device map sheet stays at the bottom and scrolls (216e695)
