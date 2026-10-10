@@ -269,7 +269,7 @@
                       <div>
                         <div class="edit-sentence">
                           <span class="edit-sentence-lead">{{t "automations.editor.conditions_header"}}</span>
-                          <select x-model="condition.field" x-bind:aria-label="$t('automations.condition.balance.field_label')">
+                          <select x-model="condition.field" x-init="$nextTick(() => $el.value = condition.field)" x-bind:aria-label="$t('automations.condition.balance.field_label')">
                             <template x-for="[field, label] in balanceFields" x-bind:key="field">
                               <option x-bind:value="field" x-text="label"></option>
                             </template>
