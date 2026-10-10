@@ -16,6 +16,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"sort"
 	"strconv"
@@ -306,6 +307,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/configurations/", handleConfiguration(configs, dependencies.Auth, dependencies.NodeAgent))
 		mux.HandleFunc("/api/v1/automations/test", handleAutomationTest(publisher, dependencies.Auth))
 		mux.HandleFunc("/api/v1/automations/history/", handleAutomationHistory(configs))
+		mux.HandleFunc("/api/v1/energy/category-references", handleCategoryReferences(configs))
 	}
 	if store != nil {
 		mux.HandleFunc("/api/v1/layout", handleLayout(store))
@@ -2019,6 +2021,77 @@ func handleAutomationTest(publisher CommandPublisher, authManager *auth.Manager)
 			return
 		}
 		writeJSON(w, map[string]string{"status": "requested"})
+	}
+}
+
+// categoryIDPattern matches the ids of custom energy categories, the part
+// after "custom:" in a balance field.
+var categoryIDPattern = regexp.MustCompile(`^[a-z0-9_]+$`)
+
+type categoryReference struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// handleCategoryReferences lists the automation rules that read a custom
+// energy category, so the dashboard can warn before the category is removed.
+func handleCategoryReferences(configs *config.Manager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		id := r.URL.Query().Get("id")
+		if !categoryIDPattern.MatchString(id) {
+			writeError(w, http.StatusBadRequest, "invalid_category", "Ungültige Kategorie")
+			return
+		}
+		data, err := configs.Read("automation_rules")
+		if errors.Is(err, fs.ErrNotExist) {
+			writeJSON(w, map[string][]categoryReference{"rules": {}})
+			return
+		}
+		var doc struct {
+			Rules []struct {
+				ID         string `json:"id"`
+				Name       string `json:"name"`
+				Conditions []struct {
+					Type  string `json:"type"`
+					Field string `json:"field"`
+				} `json:"conditions"`
+				Actions []struct {
+					Type          string `json:"type"`
+					PayloadSource string `json:"payload_source"`
+					Field         string `json:"field"`
+				} `json:"actions"`
+			} `json:"rules"`
+		}
+		if err == nil {
+			err = json.Unmarshal(data, &doc)
+		}
+		if err != nil {
+			writeErrorDetail(w, http.StatusInternalServerError, "category_references_failed", err)
+			return
+		}
+		field := "custom:" + id
+		references := []categoryReference{}
+		for _, rule := range doc.Rules {
+			used := false
+			for _, condition := range rule.Conditions {
+				if condition.Type == "balance_threshold" && condition.Field == field {
+					used = true
+				}
+			}
+			for _, action := range rule.Actions {
+				if action.Type == "publish" && action.PayloadSource == "balance" && action.Field == field {
+					used = true
+				}
+			}
+			if used {
+				references = append(references, categoryReference{ID: rule.ID, Name: rule.Name})
+			}
+		}
+		writeJSON(w, map[string][]categoryReference{"rules": references})
 	}
 }
 

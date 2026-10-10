@@ -2228,3 +2228,59 @@ func TestDeviceMapFlowsWithoutConfigurations(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body)
 	}
 }
+
+func TestCategoryReferencesListsRulesUsingTheCategory(t *testing.T) {
+	dir := t.TempDir()
+	rules := `{"version":1,"settings":{},"rules":[` +
+		`{"id":"r1","name":"Sauna on","enabled":true,"conditions":[{"type":"balance_threshold","field":"custom:sauna","comparison":"above","threshold":1}],"actions":[]},` +
+		`{"id":"r2","name":"Publish sauna","enabled":true,"conditions":[{"type":"balance_threshold","field":"pv","comparison":"above","threshold":1}],` +
+		`"actions":[{"type":"publish","topic":"x/y","payload_source":"balance","field":"custom:sauna"}]},` +
+		`{"id":"r3","name":"Other","enabled":true,"conditions":[{"type":"balance_threshold","field":"custom:boiler","comparison":"above","threshold":1}],"actions":[]}` +
+		`]}`
+	if err := os.WriteFile(filepath.Join(dir, "automation_rules.json"), []byte(rules), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "automation_rules.schema.json"), []byte(`{"type":"object"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), config.NewManager(dir), settings.NewStore(t.TempDir()))
+
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/energy/category-references?id=sauna", nil))
+	if response.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body)
+	}
+	var body struct {
+		Rules []struct {
+			ID   string `json:"id"`
+			Name string `json:"name"`
+		} `json:"rules"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Rules) != 2 || body.Rules[0].ID != "r1" || body.Rules[1].ID != "r2" || body.Rules[0].Name != "Sauna on" {
+		t.Fatalf("rules = %+v", body.Rules)
+	}
+
+	none := httptest.NewRecorder()
+	router.ServeHTTP(none, httptest.NewRequest(http.MethodGet, "/api/v1/energy/category-references?id=garage", nil))
+	if none.Code != http.StatusOK || strings.TrimSpace(none.Body.String()) != `{"rules":[]}` {
+		t.Fatalf("unused category: status = %d, body = %s", none.Code, none.Body)
+	}
+
+	invalid := httptest.NewRecorder()
+	router.ServeHTTP(invalid, httptest.NewRequest(http.MethodGet, "/api/v1/energy/category-references?id=Sauna", nil))
+	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), "invalid_category") {
+		t.Fatalf("invalid id: status = %d, body = %s", invalid.Code, invalid.Body)
+	}
+}
+
+func TestCategoryReferencesWithoutRulesFileIsEmpty(t *testing.T) {
+	router := NewRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()))
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/api/v1/energy/category-references?id=sauna", nil))
+	if response.Code != http.StatusOK || strings.TrimSpace(response.Body.String()) != `{"rules":[]}` {
+		t.Fatalf("status = %d, body = %s", response.Code, response.Body)
+	}
+}
