@@ -193,7 +193,7 @@
               <div class="energy-groups-head">
                 <span class="energy-category-preview" x-bind:class="(category.color || 'cat_1').replace('_', '-')" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="iconMarkupOf(category.icon)"></svg></span>
                 <input class="energy-groups-name" type="text" aria-label="{{t "energy.categories.name"}}" x-bind:disabled="!canEdit" x-model="category.label">
-                <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeCategory(id)" title="{{t "energy.categories.remove"}}" aria-label="{{t "energy.categories.remove"}}">
+                <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="askRemoveCategory(id)" title="{{t "energy.categories.remove"}}" aria-label="{{t "energy.categories.remove"}}">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#ico-trash"></use></svg>
                 </button>
               </div>
@@ -212,6 +212,26 @@
       <p class="energy-readonly-hint" x-cloak x-show="!canEdit">{{t "energy.page.read_only"}}</p>
     </div>
   </div>
+
+  <dialog id="energy-category-remove-dialog" class="device-detail" x-ref="categoryRemoveDialog" aria-labelledby="energy-category-remove-heading" x-on:close="categoryRemoval = null">
+    <div class="device-detail-header"><h3 id="energy-category-remove-heading">{{t "energy.categories.remove_title"}}</h3></div>
+    <template x-if="categoryRemoval">
+      <div>
+        <p><strong x-text="categoryRemoval.label"></strong></p>
+        <p x-show="categoryRemoval.loading">{{t "energy.categories.remove_checking"}}</p>
+        <p class="message error" x-show="categoryRemoval.error">{{t "energy.categories.remove_check_failed"}}</p>
+        <p x-show="!categoryRemoval.loading && !categoryRemoval.error && !categoryRemoval.rules.length">{{t "energy.categories.remove_no_rules"}}</p>
+        <div x-show="categoryRemoval.rules.length">
+          <p>{{t "energy.categories.remove_rules"}}</p>
+          <ul><template x-for="rule in categoryRemoval.rules" x-bind:key="rule.id"><li><a href="#" x-on:click.prevent="openRemovalRule(rule.id)" x-text="rule.name || rule.id"></a></li></template></ul>
+        </div>
+        <div class="energy-actionbar">
+          <button type="button" x-on:click="closeCategoryRemoval()">{{t "energy.categories.remove_cancel"}}</button>
+          <button type="button" class="primary danger" x-bind:disabled="categoryRemoval.loading" x-on:click="confirmRemoveCategory()">{{t "energy.categories.remove_confirm"}}</button>
+        </div>
+      </div>
+    </template>
+  </dialog>
 
   {{template "device-picker"}}
   {{template "revisions" .}}

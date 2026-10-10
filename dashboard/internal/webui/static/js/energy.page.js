@@ -105,6 +105,7 @@
     unassignedCount: 0,
     balanceTotal: 0,
     categories: {},
+    categoryRemoval: null,
     groups: {},
     devicesList: [],
     iconCatalogue: [],
@@ -427,6 +428,37 @@
       const next = {...this.categories};
       delete next[id];
       this.categories = next;
+    },
+
+    // Asks before removing: automations that still use the category are listed.
+    async askRemoveCategory(id) {
+      this.categoryRemoval = {id, label: this.categories[id].label, loading: true, error: false, rules: []};
+      this.$refs.categoryRemoveDialog?.showModal();
+      try {
+        const body = await requestJSON('/api/v1/energy/category-references?id=' + encodeURIComponent(id));
+        if (this.categoryRemoval?.id !== id) return;
+        this.categoryRemoval.rules = body.rules || [];
+      } catch (error) {
+        if (this.categoryRemoval?.id !== id) return;
+        this.categoryRemoval.error = true;
+      } finally {
+        if (this.categoryRemoval?.id === id) this.categoryRemoval.loading = false;
+      }
+    },
+
+    confirmRemoveCategory() {
+      this.removeCategory(this.categoryRemoval.id);
+      this.closeCategoryRemoval();
+    },
+
+    closeCategoryRemoval() {
+      if (this.$refs.categoryRemoveDialog?.open) this.$refs.categoryRemoveDialog.close();
+      this.categoryRemoval = null;
+    },
+
+    openRemovalRule(ruleId) {
+      this.closeCategoryRemoval();
+      window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'automations-panel', automationFocus: ruleId}}));
     },
 
     addGroup() {
