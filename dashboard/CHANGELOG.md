@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.21 (2026-10-10)
+## v0.9.0 (2026-10-10)
 
 ### Features
 
@@ -18,6 +18,7 @@
 - **dashboard:** live plant view on the energy tab (#110) (a3951fd)
 - **dashboard:** polish the device map and the energy tab (#111) (55becd6)
 - **dashboard:** reorganise the device icon catalogue (#114) (711e805)
+- custom energy categories in automations and editor polish (#115) (38776fb)
 - **dashboard:** add texts for custom categories in automations (ffe375e)
 - **dashboard:** add error texts for the category references endpoint (f94b7b6)
 - **dashboard:** validate schema patterns and list rules using a category (602007b)
@@ -25,7 +26,6 @@
 - **dashboard:** warn before removing a category used by automations (22824b9)
 - **dashboard:** add the unsaved badge text for automation rules (5daf346)
 - **dashboard:** open the advanced blocks of automations with a collapse animation (83aeef7)
-- custom energy categories in automations and editor polish (#115)
 - **dashboard:** add device icon name aliases (446f3ae)
 - **dashboard:** migrate saved device icon names to energy-node names (6ab39de)
 - **dashboard:** add shared shapes for device icons (6eb7d98)
