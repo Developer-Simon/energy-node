@@ -332,11 +332,11 @@
 
 ### Fixes
 
-- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
 - **dashboard:** show the download icon in the masthead update badge (#40) (d50ebf9)
 - **dashboard:** stop duplicate energy card mounts from fighting over springs (#41) (3d3d7a8)
 - **installer:** restart service units on update and record the installed manifest (#43) (0f2aec2)
 - **shelly:** support sleepy H&T devices with an opt-in wake webhook (#49) (1e6d571)
+- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
 - render the system-action helper on the node, validate targets with fullmatch, register the new tests (e546498)
 - **dashboard:** hand the redeploy page the session's CSRF token (7bd8f3a)
 - **dashboard:** implement the new hostapi.Sink.Message method (8ae6af3)
@@ -356,7 +356,7 @@
 
 - **dashboard:** show the download icon in the masthead update badge (61471d2)
 
-## v0.7.0 (2026-09-16)
+## v0.7.0 (2026-09-21)
 
 ### Features
 
@@ -383,6 +383,7 @@
 
 ### Fixes
 
+- **auth:** backfill RoleCheckUpdates for an already-bootstrapped admin (#38) (58d94f3)
 - **updatecheck:** recognize the v-prefixed version main.go actually passes (7808e4c)
 - **dashboard:** use InFlight() to allow staging new jobs after previous job completes (2086154)
 - **installer:** remove unnecessary committed copy of signing key (3e23319)
@@ -407,16 +408,16 @@
 
 ### Features
 
-- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **dashboard:** replace theme select with a four-way segmented slider (#23) (3855e9c)
 - **dashboard:** redesign the MQTT settings tab (#24) (8844555)
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **dashboard:** restyle MQTT settings tab to match card layout (2d5f2bf)
 - **dashboard:** fill row gaps and add floating save bars on MQTT tab (a389ce4)
 
 ### Fixes
 
-- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **dashboard:** keep MQTT settings steppers from overflowing narrow cards (#27) (79ba6ee)
+- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **dashboard:** update webui tests for the bumped CSS cache-bust versions (49355fb)
 - **dashboard:** fix MQTT tab reflow, add steppers and tooltips (927e10f)
 
@@ -424,6 +425,7 @@
 
 ### Features
 
+- **dashboard:** migrate config.json schema_version 1 to 2 on load (#20) (b8f72d1)
 - **dashboard:** replace theme select with a four-way segmented slider (465c4af)
 - **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
 - **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
@@ -445,6 +447,7 @@
 
 ### Fixes
 
+- **dashboard:** finish the config.json v1 -> v2 migration path (#21) (9d4fb53)
 - **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
 - **nodeagent:** address task-6 review findings (ee8e3c4)
 - **nodeagent:** correct throttle bits, guard node id, unify device block (92bd8fa)
@@ -471,6 +474,26 @@
 ### Other
 
 - feat!: drop the node block, bump schema_version to 2 (7990f5c)
+
+## v0.6.0 (2026-09-10)
+
+### Features
+
+- **⚠ Breaking:** move node telemetry into the dashboard nodeagent (#19) (8049117)
+- **dashboard:** serve automation notifications from a dedicated endpoint (#6) (58bd7a6)
+- make device services self-describing with per-service manifests (#12) (2e8c911)
+- **⚠ Breaking:** fold the config.json node block into dashboard.node_* (schema_version 2) (#14) (e7f4ba1)
+- **dashboard:** rebuild the history settings tab (#16) (5a41c5c)
+- **dashboard:** rebuild the settings tabs as responsive material cards (#18) (d905f8b)
+
+### Fixes
+
+- **dashboard:** show system-config revisions as a read-only list (#7) (3e7dee7)
+
+### Refactors
+
+- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
+- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
 
 ## v0.5.18 (2026-09-07)
 
