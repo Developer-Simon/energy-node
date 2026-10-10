@@ -1403,3 +1403,60 @@ test('focusRule expands the rule and marks it for the flash', () => {
   assert.equal(component.expanded['r 1'], true);
   assert.equal(component.flashRule, 'r 1');
 });
+
+test('customBalanceFields lists categories by label and keeps a removed one used in a rule', () => {
+  const { component } = createAutomationsPanel();
+  component.categories = {
+    wp: { label: 'Waermepumpe', base: 'consumer' },
+    sauna: { label: 'Sauna', base: 'consumer' },
+  };
+  component.document = { version: 1, settings: {}, rules: [
+    { id: 'r1', name: 'A', enabled: false, cooldown_seconds: 60, conditions: [
+      { type: 'balance_threshold', field: 'custom:gone', comparison: 'above', threshold: 100 },
+    ], actions: [] },
+    { id: 'r2', name: 'B', enabled: false, cooldown_seconds: 60, conditions: [
+      { type: 'balance_threshold', field: 'custom:gone', comparison: 'above', threshold: 100 },
+    ], actions: [
+      { type: 'publish', topic: 'x', payload_source: 'balance', field: 'custom:wp' },
+    ] },
+  ] };
+  // JSON-Umweg: das Getter-Array stammt aus dem vm-Kontext (andere Realm).
+  const fields = JSON.parse(JSON.stringify(component.customBalanceFields));
+  assert.deepEqual(fields.map(([field]) => field), ['custom:sauna', 'custom:wp', 'custom:gone']);
+  assert.equal(fields[0][1], 'Sauna');
+  assert.equal(fields[1][1], 'Waermepumpe');
+  assert.match(fields[2][1], /gone/);
+});
+
+test('describeCondition shows custom categories with their label, unit and base icon', () => {
+  const categories = { sauna: { label: 'Sauna', base: 'consumer' }, gone: undefined };
+  const sauna = view().describeCondition(
+    { type: 'balance_threshold', field: 'custom:sauna', comparison: 'above', threshold: 500 }, null, categories);
+  assert.equal(sauna.title, 'Sauna');
+  assert.equal(sauna.unit, 'W');
+  assert.equal(sauna.icon, 'ico-load');
+  const gone = view().describeCondition(
+    { type: 'balance_threshold', field: 'custom:gone', comparison: 'above', threshold: 500 }, null, categories);
+  assert.match(gone.title, /gone/);
+  assert.equal(gone.unit, 'W');
+  assert.equal(gone.icon, 'ico-warning');
+});
+
+test('load() stores the custom categories from /api/v1/energy/roles', async () => {
+  const { component, window } = createAutomationsPanel();
+  window.fetch = async (url) => {
+    if (url.endsWith('/api/v1/configurations/automation_rules')) {
+      return { ok: true, json: async () => ({ version: 1, settings: {}, rules: [] }) };
+    }
+    if (url.endsWith('/api/v1/devices')) return { ok: true, json: async () => [] };
+    if (url.endsWith('/api/v1/auth/session')) return { ok: true, json: async () => ({ csrf_token: 'tok', automations: true }) };
+    if (url.endsWith('/api/v1/energy/roles')) {
+      return { ok: true, json: async () => ({ categories: { sauna: { label: 'Sauna', base: 'consumer', color: '#f00', icon: 'ico-load' } } }) };
+    }
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  await component.load();
+  assert.equal(component.categories.sauna.label, 'Sauna');
+  assert.equal(component.categories.sauna.base, 'consumer');
+  window.close();
+});

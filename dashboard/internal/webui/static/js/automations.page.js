@@ -34,6 +34,7 @@
     loading: false,
     saving: false,
     document: emptyDocument(),
+    categories: {},
     entities: [],
     readableEntities: [],
     devices: [],
@@ -61,6 +62,29 @@
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
     },
 
+    // Eigene Kategorien als Bilanzfelder. Eine Regel, die auf eine inzwischen
+    // geloeschte Kategorie zeigt, bleibt waehlbar, sonst wird das Select leer.
+    get customBalanceFields() {
+      const known = Object.entries(this.categories)
+        .map(([id, category]) => [`custom:${id}`, category.label])
+        .sort((a, b) => window.I18n.compare(a[1], b[1]));
+      const used = new Set();
+      (this.document.rules || []).forEach((rule) => {
+        (rule.conditions || []).forEach((condition) => {
+          if (condition.type === 'balance_threshold') used.add(condition.field);
+        });
+        (rule.actions || []).forEach((action) => {
+          if (action.type === 'publish' && action.payload_source === 'balance') used.add(action.field);
+        });
+      });
+      const unknown = [...used]
+        .filter((field) => typeof field === 'string' && field.startsWith('custom:')
+          && !(field.slice('custom:'.length) in this.categories))
+        .sort()
+        .map((field) => [field, t('automations.metric.custom_unknown', { id: field.slice('custom:'.length) })]);
+      return [...known, ...unknown];
+    },
+
     get publishAllowedPrefixesText() {
       return (this.document.settings.publish_allowed_prefixes || []).join('\n');
     },
@@ -71,11 +95,13 @@
     async load() {
       this.loading = true;
       try {
-        const [doc, session] = await Promise.all([
+        const [doc, session, , roles] = await Promise.all([
           requestJSON('/api/v1/configurations/automation_rules'),
           requestJSON('/api/v1/auth/session').catch(() => null),
           this.loadDeviceCatalog(),
+          requestJSON('/api/v1/energy/roles').catch(() => null),
         ]);
+        this.categories = (roles && roles.categories) || {};
         this.document = doc && doc.rules ? doc : emptyDocument();
         // Ein auf der Platte gespeichertes Dokument kann aelter sein als ein
         // seither neu hinzugekommenes settings-Feld (z.B. history_limit/
@@ -315,7 +341,7 @@
     },
 
     describeCondition(condition) {
-      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition));
+      return window.__automationsView.describeCondition(condition, this.entityForCondition(condition), this.categories);
     },
 
     describeAction(action) {

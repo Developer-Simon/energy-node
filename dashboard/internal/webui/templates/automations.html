@@ -273,6 +273,13 @@
                             <template x-for="[field, label] in balanceFields" x-bind:key="field">
                               <option x-bind:value="field" x-text="label"></option>
                             </template>
+                            <template x-if="customBalanceFields.length">
+                              <optgroup x-bind:label="$t('automations.metric.custom_group')">
+                                <template x-for="[field, label] in customBalanceFields" x-bind:key="field">
+                                  <option x-bind:value="field" x-text="label"></option>
+                                </template>
+                              </optgroup>
+                            </template>
                           </select>
                           <span>{{t "automations.condition.is"}}</span>
                           <select x-model="condition.comparison" x-bind:aria-label="$t('automations.condition.balance.comparison_label')">
@@ -666,6 +673,13 @@
                           <select x-model="newField" x-bind:aria-label="$t('automations.wizard.setpoint.field_aria')">
                             <template x-for="[field, label] in balanceFields" x-bind:key="field">
                               <option x-bind:value="field" x-text="label"></option>
+                            </template>
+                            <template x-if="customBalanceFields.length">
+                              <optgroup x-bind:label="$t('automations.metric.custom_group')">
+                                <template x-for="[field, label] in customBalanceFields" x-bind:key="field">
+                                  <option x-bind:value="field" x-text="label"></option>
+                                </template>
+                              </optgroup>
                             </template>
                           </select>
                           <span class="edit-field-label">
