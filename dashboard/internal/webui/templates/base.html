@@ -6,17 +6,17 @@
      zuverlaessig hierher auf. */}}
 {{define "icon-sprite"}}
 <svg style="position:absolute;width:0;height:0" aria-hidden="true">
-  <symbol id="ico-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/></symbol>
-  <symbol id="ico-grid" viewBox="0 0 24 24"><path d="M12 3v6M7 9h10l2 12H5L7 9zM9 13h6M9 17h6"/></symbol>
-  <symbol id="ico-battery" viewBox="0 0 24 24"><rect x="4" y="7" width="15" height="10" rx="1.5"/><path d="M21 10.5v3M7 10v4"/></symbol>
-  <symbol id="ico-thermo" viewBox="0 0 24 24"><path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0z"/><path d="M12 9v6"/></symbol>
-  <symbol id="ico-load" viewBox="0 0 24 24"><path d="M4 11 12 4l8 7M6 10v10h12V10"/></symbol>
-  <symbol id="ico-wallbox" viewBox="0 0 24 24"><rect x="5" y="3" width="10" height="14" rx="1.5"/><path d="M8 7h4M8 11h4M15 9h3v7a2 2 0 0 1-4 0"/></symbol>
-  <symbol id="ico-heatpump" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 6v12M6.8 9l10.4 6M6.8 15l10.4-6"/></symbol>
-  <symbol id="ico-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></symbol>
+  {{deviceIconSymbol "ico-sun" "energy-node:sun"}}
+  {{deviceIconSymbol "ico-grid" "energy-node:grid"}}
+  {{deviceIconSymbol "ico-battery" "energy-node:battery"}}
+  {{deviceIconSymbol "ico-thermo" "energy-node:thermometer"}}
+  {{deviceIconSymbol "ico-load" "energy-node:home"}}
+  {{deviceIconSymbol "ico-wallbox" "energy-node:wallbox-compact"}}
+  {{deviceIconSymbol "ico-heatpump" "energy-node:heat-pump"}}
+  {{deviceIconSymbol "ico-clock" "energy-node:timer"}}
   <symbol id="ico-topic" viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h7"/><circle cx="18" cy="15" r="3"/></symbol>
-  <symbol id="ico-flash" viewBox="0 0 24 24"><path d="M13 2 4 14h6l-1 8 9-12h-6z"/></symbol>
-  <symbol id="ico-switch" viewBox="0 0 24 24"><rect x="2.5" y="7" width="19" height="10" rx="5"/><circle cx="16.5" cy="12" r="3"/></symbol>
+  <symbol id="ico-flash" viewBox="0 0 24 24"><path d="M13.8 3 7.05 13.13 11.33 13.13 10.2 21 16.95 10.88 12.68 10.88Z"/></symbol>
+  {{deviceIconSymbol "ico-switch" "energy-node:switch"}}
   <symbol id="ico-bell" viewBox="0 0 24 24"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10 19a2 2 0 0 0 4 0"/></symbol>
   <symbol id="ico-play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></symbol>
   <symbol id="ico-check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
@@ -29,7 +29,7 @@
   <symbol id="ico-save" viewBox="0 0 24 24"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v5h6V4"/><path d="M8 14h8v6H8z"/></symbol>
   <symbol id="ico-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5"/><path d="M12 7.6h.01"/></symbol>
   <symbol id="ico-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3 2.45V14"/><path d="M12 17.2h.01"/></symbol>
-  <symbol id="ico-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></symbol>
+  <symbol id="ico-gear" viewBox="0 0 24 24"><path d="M10.39 5.29 10.78 2.88 13.22 2.88 13.61 5.29 15.61 6.12 17.58 4.69 19.31 6.42 17.88 8.39 18.71 10.39 21.12 10.78 21.12 13.22 18.71 13.61 17.88 15.61 19.31 17.58 17.58 19.31 15.61 17.88 13.61 18.71 13.22 21.12 10.78 21.12 10.39 18.71 8.39 17.88 6.42 19.31 4.69 17.58 6.12 15.61 5.29 13.61 2.88 13.22 2.88 10.78 5.29 10.39 6.12 8.39 4.69 6.42 6.42 4.69 8.39 6.12Z"/><circle cx="12" cy="12" r="3"/></symbol>
   <symbol id="ico-power-on" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 7.5v5"/></symbol>
   <symbol id="ico-power-off" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M8.5 12h7"/></symbol>
   <symbol id="ico-calendar" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></symbol>
