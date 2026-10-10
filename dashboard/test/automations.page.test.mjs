@@ -1429,6 +1429,17 @@ test('client-side validation verlangt ganze Minuten im Sonnenversatz', () => {
   assert.equal(component.validateRuleBeforeSave(rule).length, 0);
 });
 
+test('openLocationSettings opens the advanced settings and tolerates a missing latitude field', () => {
+  const { component, window } = createAutomationsPanel();
+  let scheduled = 0;
+  component.$nextTick = callback => { scheduled += 1; callback(); };
+  assert.equal(component.settingsOpen, false);
+  component.openLocationSettings();
+  assert.equal(component.settingsOpen, true);
+  assert.equal(scheduled, 1);
+  window.close();
+});
+
 test('focusRule expands the rule and marks it for the flash', () => {
   const { component, window } = createAutomationsPanel();
   // jsdom kennt CSS.escape nicht; focusRule braucht es nur fuers Suchen des Knotens.

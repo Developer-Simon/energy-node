@@ -57,6 +57,7 @@
     // WENN, Schritt 2 DANN, Schritt 3 Feineinstellungen. Er legt kein eigenes
     // Datenmodell an - er blendet nur, was schon da ist, schrittweise ein.
     wizard: { active: false, step: 1, ruleId: '' },
+    settingsOpen: false,
 
     get balanceFields() {
       return BALANCE_FIELDS_BASE.map(([field, key]) => [field, t(key)]);
@@ -688,13 +689,16 @@
     // Die Einstellungen liegen im eingeklappten Fortgeschrittenen-Bereich.
     // Der Hinweis an der Sonnenzeit-Karte klappt ihn auf und springt hin.
     openLocationSettings() {
-      const details = window.document.getElementById('automations-advanced');
-      if (details) details.open = true;
-      const field = window.document.getElementById('automations-latitude');
-      if (field) {
-        field.scrollIntoView({ block: 'center' });
-        field.focus();
-      }
+      this.settingsOpen = true;
+      // Scroll only after the collapse has rendered, the field is hidden until then.
+      const focusField = () => {
+        const field = window.document.getElementById('automations-latitude');
+        if (field) {
+          field.scrollIntoView({ block: 'center' });
+          field.focus();
+        }
+      };
+      if (this.$nextTick) this.$nextTick(focusField); else focusField();
     },
 
     // Der Browser gibt die Position nur in einem sicheren Kontext heraus:
