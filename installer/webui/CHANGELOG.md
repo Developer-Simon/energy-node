@@ -4,7 +4,7 @@
 
 ### Fixes
 
-- **installer:** list every step and service as its own run station (#121)
+- **installer:** list every step and service as its own run station (#121) (abca58b)
 
 ### Documentation
 

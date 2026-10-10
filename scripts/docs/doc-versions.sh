@@ -6,7 +6,8 @@
 # Usage: doc-versions.sh [repo-root] > docs/_data/doc_versions.yml
 #
 # A document's version is the first release (tag vMAJOR.MINOR.PATCH) that
-# contains the last commit that changed the document. When no release contains
+# contains the last commit that changed the document or one of the local
+# images it embeds. When no release contains
 # that commit yet, the version is dashboard/VERSION as of that commit and the
 # document is marked `unreleased`, i.e. the page already describes changes
 # that no release ships yet. Needs the full history and the tags
@@ -61,6 +62,18 @@ print(f"{label}\t{version}")
 PY
 }
 
+# page_paths FILE: FILE plus the local images it embeds (Markdown images and
+# <img src>), so a page counts as changed when one of its screenshots changed.
+page_paths() {
+  local file="$1" ref path
+  printf '%s\n' "$file"
+  grep -oE '\]\([^)[:space:]]+|src="[^"]+' "$file" | sed -E 's/^\]\(//; s/^src="//' \
+    | grep -E '^[^:]*\.(png|jpe?g|gif|svg|webp)$' | while IFS= read -r ref; do
+      path="$(realpath -m --relative-to=. "$(dirname "$file")/$ref")"
+      [ -f "$path" ] && printf '%s\n' "$path"
+    done | sort -u || true
+}
+
 # first_release COMMIT: the oldest release tag that contains COMMIT, if any.
 first_release() {
   git tag -l 'v*' --contains "$1" | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | head -1 || true
@@ -72,7 +85,8 @@ echo "pages:"
 
 # _internal/ is not published and redirects/ only holds redirect stubs.
 git ls-files -- 'docs/*.md' ':!docs/_internal/**' ':!docs/redirects/**' | sort | while IFS= read -r file; do
-  commit="$(git log -1 --format=%H -- "$file")"
+  mapfile -t paths < <(page_paths "$file")
+  commit="$(git log -1 --format=%H -- "${paths[@]}")"
   release=""
   [ -z "$commit" ] || release="$(first_release "$commit")"
   if [ -n "$release" ]; then
