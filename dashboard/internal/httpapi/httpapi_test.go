@@ -2284,3 +2284,65 @@ func TestCategoryReferencesWithoutRulesFileIsEmpty(t *testing.T) {
 		t.Fatalf("status = %d, body = %s", response.Code, response.Body)
 	}
 }
+
+// The automations page reads the trigger history through this route instead of
+// the device route's last_message: last_message is capped at 4096 bytes and is
+// shared with the availability topic, so a long history arrived truncated and
+// an availability "1" emptied the view.
+func TestAutomationHistoryEndpointReturnsTheFullDocument(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_history", ObjectID: "history",
+			StateTopic: "outstation/automation/history", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	get := func() *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		NewRouter(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automation/history", nil))
+		return recorder
+	}
+
+	if empty := get(); empty.Code != http.StatusNoContent {
+		t.Fatalf("no history yet should 204, got %d: %s", empty.Code, empty.Body.String())
+	}
+
+	events := make([]string, 0, 40)
+	for i := 0; i < 40; i++ {
+		events = append(events, `{"at":1760000000.5,"result":"fired","reason":null,"test":false,"actions":[{"type":"publish","topic":"outstation/some/device/set","payload":"1","status":"published"}]}`)
+	}
+	document := `{"at":1760000000.5,"rule_count":1,"rules":{"rule-a":[` + strings.Join(events, ",") + `]}}`
+	if len(document) <= 4096 {
+		t.Fatalf("test document must exceed the last_message cap, is %d bytes", len(document))
+	}
+	reg.UpdateState("outstation/automation/history", []byte(document), true, time.Now().UTC())
+	reg.UpdateAvailability("outstation/automation/status/online", []byte("1"), true, time.Now().UTC())
+
+	recorder := get()
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("history response %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var parsed struct {
+		Rules map[string][]json.RawMessage `json:"rules"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &parsed); err != nil {
+		t.Fatalf("history body is not JSON: %v", err)
+	}
+	if got := len(parsed.Rules["rule-a"]); got != 40 {
+		t.Fatalf("history lost entries: got %d, want 40", got)
+	}
+
+	// Ein Fremd-Payload ohne rules-Objekt ist kein Verlauf -> 204, damit der
+	// Client seinen letzten Stand behaelt statt ihn zu leeren.
+	reg.UpdateState("outstation/automation/history", []byte("1"), true, time.Now().UTC())
+	if foreign := get(); foreign.Code != http.StatusNoContent {
+		t.Fatalf("foreign payload should 204, got %d: %s", foreign.Code, foreign.Body.String())
+	}
+
+	missing := httptest.NewRecorder()
+	NewRouter(registry.New(), nil, nil).ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/v1/automation/history", nil))
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("no automation service should 404, got %d: %s", missing.Code, missing.Body.String())
+	}
+}

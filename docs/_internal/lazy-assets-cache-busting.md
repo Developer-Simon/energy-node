@@ -246,6 +246,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.9.1 | `js/automations.page.js` | `11` | 2026-10-10 |
 | v0.8.20 | `css/base.css` · `js/dashboard.js` · `js/devicemap-model.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap.page.js` | `29` · `28` · `7` · `4` · `17` | 2026-10-10 |
 | v0.8.19 | `css/settings-controls.css` (settings, diagnostics) · `css/base.css` · `css/manager.css` (5 panels) · `js/settings.page.js` · `js/versions.page.js` | `9` · `28` · `32` · `14` · `3` | 2026-10-10 |
 | v0.8.18 | `css/base.css` · `css/manager.css` (5 panels) · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/device-picker.js` (new, energy, device map) · `js/energy-plant.js` · `js/devicemap.page.js` · `js/energy.page.js` | `27` · `31` · `6` · `3` · `1` (new) · `2` · `16` · `8` | 2026-10-10 |

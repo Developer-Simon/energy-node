@@ -539,9 +539,19 @@ test('loadRuntimeState reads the full document from last_message.payload, not th
   assert.equal(component.runtimeState.rules.r1.result, 'hold_pending');
 });
 
-test('loadRuntimeState also reads live history from the history entity\'s last_message.payload', () => {
-  const { component } = createAutomationsPanel();
-  component.devices = [{
+// last_message is capped at 4096 bytes and shared with the availability topic,
+// so a long history arrived truncated there. The page fetches the full
+// document from /api/v1/automation/history instead and only when something new
+// landed on the history entity.
+test('loadRuntimeState fetches the live history from its own route when the history entity changes', async () => {
+  const { component, window } = createAutomationsPanel();
+  const document = { at: 1, rule_count: 1, rules: { r1: [{ at: 1, result: 'fired', test: false, actions: [] }] } };
+  const calls = [];
+  window.fetch = async (url) => {
+    calls.push(String(url));
+    return { ok: true, json: async () => document };
+  };
+  const deviceWithHistoryAt = at => [{
     id: 'automation',
     entities: [
       {
@@ -550,14 +560,31 @@ test('loadRuntimeState also reads live history from the history entity\'s last_m
       },
       {
         object_id: 'history', available: true, value: '1',
-        last_message: {
-          topic: 'outstation/automation/history',
-          payload: JSON.stringify({ at: 1, rule_count: 1, rules: { r1: [{ at: 1, result: 'fired', test: false, actions: [] }] } }),
-        },
+        // truncated by the registry, the page must not rely on it
+        last_message: { topic: 'outstation/automation/history', payload: '{"at":1,"rules":{"r1":[...', at },
       },
     ],
   }];
+  component.devices = deviceWithHistoryAt('2026-10-10T10:00:00Z');
   component.loadRuntimeState();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(calls.map(url => url.replace(/^.*(\/api\/)/, '$1')), ['/api/v1/automation/history']);
+  assert.equal(component.historyEntries({ id: 'r1', history_enabled: true }).length, 1);
+
+  component.loadRuntimeState();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 1, 'an unchanged history entity must not refetch');
+
+  component.devices = deviceWithHistoryAt('2026-10-10T10:01:00Z');
+  component.loadRuntimeState();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2);
+});
+
+test('applyHistoryDocument keeps the shown history on an empty 204 body', () => {
+  const { component } = createAutomationsPanel();
+  component.applyHistoryDocument({ at: 1, rule_count: 1, rules: { r1: [{ at: 1, result: 'fired', test: false, actions: [] }] } });
+  component.applyHistoryDocument({});
   assert.equal(component.historyEntries({ id: 'r1', history_enabled: true }).length, 1);
 });
 
@@ -1236,10 +1263,10 @@ test('toggleHistory only flips visibility, it never fetches', () => {
 
 test('historyEntries reads the live per-rule history set by applyHistoryDocument', () => {
   const { component } = createAutomationsPanel();
-  component.applyHistoryDocument(JSON.stringify({
+  component.applyHistoryDocument({
     at: 1, rule_count: 1,
     rules: { r1: [{ at: 1, result: 'fired', test: false, actions: [] }] },
-  }));
+  });
   const rule = { id: 'r1', history_enabled: true };
   assert.equal(component.historyEntries(rule).length, 1);
   assert.equal(component.historyEntries(rule)[0].result, 'fired');
@@ -1247,14 +1274,14 @@ test('historyEntries reads the live per-rule history set by applyHistoryDocument
 
 test('historyEntries is empty for a rule missing from the live history document', () => {
   const { component } = createAutomationsPanel();
-  component.applyHistoryDocument(JSON.stringify({ at: 1, rule_count: 0, rules: {} }));
+  component.applyHistoryDocument({ at: 1, rule_count: 0, rules: {} });
   const rule = { id: 'r1', history_enabled: true };
   assert.deepEqual(JSON.parse(JSON.stringify(component.historyEntries(rule))), []);
 });
 
-test('applyHistoryDocument survives an unparseable payload', () => {
+test('applyHistoryDocument ignores a document without a rules object', () => {
   const { component } = createAutomationsPanel();
-  component.applyHistoryDocument('{kaputt');
+  component.applyHistoryDocument(1);
   assert.deepEqual(JSON.parse(JSON.stringify(component.liveHistory)), {});
 });
 
