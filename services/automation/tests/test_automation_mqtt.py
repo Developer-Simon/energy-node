@@ -276,6 +276,21 @@ def test_load_and_validate_rejects_invalid_balance_field_in_publish_action(tmp_p
         automation.load_and_validate(write_doc(tmp_path, doc))
 
 
+def test_load_and_validate_accepts_a_custom_category_field(tmp_path):
+    doc = document(rules=[rule(cooldown_seconds=300,
+                                conditions=[balance_condition(field="custom:sauna", hold_seconds=300)],
+                                actions=[publish_action(payload_source="balance", field="custom:sauna")])])
+    result = automation.load_and_validate(write_doc(tmp_path, doc))
+    assert result.rules[0]["conditions"][0]["field"] == "custom:sauna"
+
+
+@pytest.mark.parametrize("field", ["custom:", "custom:Sauna", "custom:a/b", "custom", "custom:x y"])
+def test_load_and_validate_rejects_a_malformed_custom_category_field(tmp_path, field):
+    doc = document(rules=[rule(conditions=[balance_condition(field=field)])])
+    with pytest.raises(automation.RuleValidationError):
+        automation.load_and_validate(write_doc(tmp_path, doc))
+
+
 def test_load_and_validate_accepts_a_toggle_publish_action(tmp_path):
     doc = document(rules=[rule(cooldown_seconds=300,
                                 conditions=[balance_condition(hold_seconds=300)],
@@ -330,6 +345,32 @@ def test_evaluate_condition_raw_balance_threshold_below():
     cond = {"type": "balance_threshold", "field": "autarkie", "comparison": "below", "threshold": 0.5, "hysteresis": 0}
     met, _ = automation.evaluate_condition_raw(cond, balance={"autarkie": 0.3}, topic_values={}, now_ts=0)
     assert met is True
+
+
+def test_evaluate_condition_raw_reads_a_custom_category_from_the_balance():
+    cond = balance_condition(field="custom:sauna", threshold=1000, hysteresis=0)
+    balance = {"grid_export": 0, "categories": {"sauna": 1500}}
+    met, reason = automation.evaluate_condition_raw(cond, balance=balance, topic_values={}, now_ts=0)
+    assert met is True and reason == ""
+
+
+def test_evaluate_condition_raw_reports_a_removed_custom_category_as_missing():
+    cond = balance_condition(field="custom:sauna", threshold=1000, hysteresis=0)
+    for balance in ({"categories": {}}, {"categories": None}, {}):
+        met, reason = automation.evaluate_condition_raw(cond, balance=balance, topic_values={}, now_ts=0)
+        assert met is False and reason == "field_missing"
+
+
+def test_custom_category_hysteresis_and_live_value_use_the_category():
+    cond = balance_condition(field="custom:sauna", threshold=1000, hysteresis=200)
+    balance = {"categories": {"sauna": 1500}}
+    assert automation.condition_value(cond, balance=balance, topic_values={}, now_ts=0) == (1500, 1000)
+
+
+def test_resolve_publish_value_reads_a_custom_category():
+    action = publish_action(payload_source="balance", field="custom:sauna", scale=2)
+    assert automation.resolve_publish_value(action, balance={"categories": {"sauna": 100}}, topic_values={}) == ("200", None)
+    assert automation.resolve_publish_value(action, balance={"categories": {}}, topic_values={}) == (None, "field_missing")
 
 
 def test_evaluate_condition_raw_reports_balance_stale_when_no_balance():

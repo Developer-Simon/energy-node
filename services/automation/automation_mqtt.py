@@ -43,7 +43,25 @@ BALANCE_FIELDS = frozenset({
     "battery_soc", "battery_capacity_kwh", "battery_energy_kwh",
 })
 
+# Eigene Kategorien der Energy-Seite: Feld "custom:<id>", Wert aus
+# balance["categories"][id]. Die id folgt energyIDPattern im Dashboard.
+CUSTOM_FIELD_PREFIX = "custom:"
+_CUSTOM_FIELD_RE = re.compile(r"^custom:[a-z0-9_]+$")
+
 _TOPIC_SEGMENT_RE = re.compile(r"^[^+#/]+$")
+
+
+def is_balance_field(field) -> bool:
+    return field in BALANCE_FIELDS or (isinstance(field, str) and bool(_CUSTOM_FIELD_RE.match(field)))
+
+
+def balance_value(balance: dict, field: str):
+    """Wert eines Bilanzfelds oder None. Eine geloeschte Kategorie hat keinen
+    Wert und verhaelt sich damit wie ein fehlendes Feld."""
+    if field.startswith(CUSTOM_FIELD_PREFIX):
+        categories = balance.get("categories")
+        return categories.get(field[len(CUSTOM_FIELD_PREFIX):]) if isinstance(categories, dict) else None
+    return balance.get(field)
 
 
 class RuleValidationError(ValueError):
@@ -136,8 +154,8 @@ def _validate_condition(cond: dict, index: int, errors: list[str]) -> dict:
         return cond
     result = dict(cond)
     if ctype == "balance_threshold":
-        if result.get("field") not in BALANCE_FIELDS:
-            errors.append(f"{prefix}: field must be one of {sorted(BALANCE_FIELDS)}")
+        if not is_balance_field(result.get("field")):
+            errors.append(f"{prefix}: field must be one of {sorted(BALANCE_FIELDS)} or custom:<id>")
         if result.get("comparison") not in ("above", "below"):
             errors.append(f"{prefix}: comparison must be 'above' or 'below'")
         if not isinstance(result.get("threshold"), (int, float)):
@@ -232,8 +250,8 @@ def _validate_action(action: dict, index: int, errors: list[str]) -> dict:
         source = result.get("payload_source")
         if source not in ("constant", "balance", "topic", "toggle"):
             errors.append(f"{prefix}: payload_source must be constant/balance/topic/toggle")
-        elif source == "balance" and result.get("field") not in BALANCE_FIELDS:
-            errors.append(f"{prefix}: field must be one of {sorted(BALANCE_FIELDS)}")
+        elif source == "balance" and not is_balance_field(result.get("field")):
+            errors.append(f"{prefix}: field must be one of {sorted(BALANCE_FIELDS)} or custom:<id>")
         elif source in ("topic", "toggle") and (err := validate_subscribe_topic(result.get("source_topic", ""))):
             errors.append(f"{prefix}: {err}")
         elif source == "toggle" and not (result.get("payload_on") and result.get("payload_off")):
@@ -441,7 +459,7 @@ def evaluate_condition_raw(cond: dict, *, balance: Optional[dict], topic_values:
     if ctype == "balance_threshold":
         if balance is None:
             return False, "balance_stale"
-        value = balance.get(cond["field"])
+        value = balance_value(balance, cond["field"])
         if value is None:
             return False, "field_missing"
         return _compare(value, cond["comparison"], cond["threshold"]), ""
@@ -502,7 +520,7 @@ def condition_value(cond: dict, *, balance: Optional[dict], topic_values: dict, 
     ctype = cond["type"]
 
     if ctype == "balance_threshold":
-        value = None if balance is None else balance.get(cond["field"])
+        value = None if balance is None else balance_value(balance, cond["field"])
         return value, cond.get("threshold")
 
     if ctype == "topic_value":
@@ -564,7 +582,7 @@ def resolve_publish_value(action: dict, *, balance: Optional[dict], topic_values
     if source == "balance":
         if balance is None:
             return None, "balance_stale"
-        base_value = balance.get(action["field"])
+        base_value = balance_value(balance, action["field"])
         if base_value is None:
             return None, "field_missing"
     else:  # "topic"
@@ -669,7 +687,7 @@ class Engine:
         hysteresis doesn't apply (caller then uses the raw comparison)."""
         if cond["type"] != "balance_threshold" or cond.get("hysteresis", 0) <= 0 or balance is None:
             return None
-        value = balance.get(cond["field"])
+        value = balance_value(balance, cond["field"])
         if value is None:
             return None
         threshold, hysteresis = cond["threshold"], cond["hysteresis"]
