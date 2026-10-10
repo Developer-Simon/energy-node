@@ -287,3 +287,39 @@ test('a changelog without flags is shown in full in either view', async () => {
   assert.deepEqual(shownTexts(component, 'service:shelly'), [['v0.4.0', ['old']]]);
   assert.equal(component.noHighlights('service:shelly'), false);
 });
+
+test('setUpdateCheck() changes only update_check_disabled and tells the settings form', async () => {
+  const puts = [];
+  const { component, window } = createVersionsPanel({
+    fetchImpl: async (url, options) => {
+      if (url === '/api/v1/settings' && options && options.method === 'PUT') {
+        puts.push(JSON.parse(options.body));
+        return jsonResponse({});
+      }
+      if (url === '/api/v1/settings') return jsonResponse({ theme: 'mint', update_check_disabled: false });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  attachStores(component);
+  const heard = [];
+  window.document.addEventListener('update-check-setting-changed', (event) => heard.push(event.detail.disabled));
+  await component.setUpdateCheck(false);
+  assert.deepEqual(plain(puts), [{ theme: 'mint', update_check_disabled: true }]);
+  assert.equal(component.updateCheckDisabled, true);
+  assert.equal(component.savingUpdateCheck, false);
+  assert.deepEqual(heard, [true]);
+});
+
+test('setUpdateCheck() restores the switch and toasts when saving fails', async () => {
+  const { component } = createVersionsPanel({
+    fetchImpl: async (url, options) => {
+      if (options && options.method === 'PUT') return jsonResponse({ code: 'settings_rejected', message: 'server text' }, false);
+      return jsonResponse({ update_check_disabled: false });
+    },
+  });
+  attachStores(component);
+  await component.setUpdateCheck(false);
+  assert.equal(component.updateCheckDisabled, false);
+  assert.equal(component.savingUpdateCheck, false);
+  assert.deepEqual(component.$store.toasts.criticals, [de['error.settings_rejected']]);
+});

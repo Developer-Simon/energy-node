@@ -172,6 +172,15 @@
       return options.map(option => option.key).filter(key => selected.includes(key));
     },
 
+    // The automatic update check is switched on the versions page, which
+    // saves it on its own. Follow that value so save() here does not write
+    // a stale one back.
+    followUpdateCheckSetting() {
+      document.addEventListener('update-check-setting-changed', (event) => {
+        this.updateCheckDisabled = Boolean(event.detail && event.detail.disabled);
+      });
+    },
+
     initChoices() {
       if (!window.Choices) return;
       const options = {removeItemButton: true, searchEnabled: true, shouldSort: false, placeholderValue: t('settings.choices.placeholder'), noChoicesText: t('settings.choices.no_results')};

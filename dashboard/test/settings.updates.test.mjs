@@ -1,7 +1,9 @@
 // Coverage for settingsPanel's update_check_disabled round trip (the
 // persisted "run the nightly check" preference). Same reasons as
 // settings.page.test.mjs for mocking fetch rather than hitting a real server.
-// The on-demand check button moved to versions.page.js; see versions.page.test.mjs.
+// The switch and the on-demand check button live on the versions page
+// (versions.page.js, see versions.page.test.mjs). The settings form only
+// carries the value along so its save() does not reset it.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -63,5 +65,16 @@ test('settingsPanel load() uebernimmt update_check_disabled aus der Antwort', as
   component.$refs = { widePanelsSelect: dom.window.document.createElement('select'), statusBarItemsSelect: dom.window.document.createElement('select') };
   await component.load();
   assert.equal(component.updateCheckDisabled, true);
+  dom.window.close();
+});
+
+test('settingsPanel followUpdateCheckSetting() picks up the value saved on the versions page', () => {
+  const { dom, factories } = load();
+  const component = factories.settingsPanel();
+  component.followUpdateCheckSetting();
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('update-check-setting-changed', { detail: { disabled: true } }));
+  assert.equal(component.payload().update_check_disabled, true);
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('update-check-setting-changed', { detail: { disabled: false } }));
+  assert.equal(component.payload().update_check_disabled, false);
   dom.window.close();
 });

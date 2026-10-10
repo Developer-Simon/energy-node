@@ -195,14 +195,15 @@
   top: 3px;
   bottom: 3px;
   left: 3px;
-  width: calc(50% - 3px);
+  box-sizing: border-box;
+  width: calc((100% - 6px) / 2);
   border-radius: calc(var(--radius-sm) - 3px);
   border: 1px solid var(--accent-line);
   background: var(--accent-bg);
   transition: transform .35s var(--layout-ease);
 }
-.segmented--3 .segmented-thumb { width: calc(33.333% - 2px); }
-.segmented--4 .segmented-thumb { width: calc(25% - 3px); }
+.segmented--3 .segmented-thumb { width: calc((100% - 6px) / 3); }
+.segmented--4 .segmented-thumb { width: calc((100% - 6px) / 4); }
 .segmented:has(.segmented-option:nth-of-type(2) input:checked) .segmented-thumb { transform: translateX(100%); }
 .segmented:has(.segmented-option:nth-of-type(3) input:checked) .segmented-thumb { transform: translateX(200%); }
 .segmented:has(.segmented-option:nth-of-type(4) input:checked) .segmented-thumb { transform: translateX(300%); }
@@ -415,3 +416,9 @@
   text-transform: uppercase;
 }
 .versions-cards > .settings-help { grid-column: 1 / -1; }
+/* Der (?) haengt am Ende der Schalter-Beschriftung, die schmal umbricht.
+   Zentriert ueber dem Knopf liefe der Tooltip links aus dem Bild, darum
+   steht er buendig ueber dem Anfang der Beschriftung. */
+.version-help-anchor { position: relative; }
+.version-help { position: static; margin-left: .2rem; vertical-align: middle; }
+.version-help .field-help-text { left: 0; transform: none; }
