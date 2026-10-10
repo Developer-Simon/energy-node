@@ -24,13 +24,12 @@
   <div class="setting-card">
     <h3 class="setting-card-title">{{t "settings.versions.updates.title"}}</h3>
     <label class="switch-row" for="update-check">
-      <span>{{t "settings.versions.updates.auto_check.label"}}</span>
+      <span class="version-help-anchor">{{t "settings.versions.updates.auto_check.label"}}<span class="field-help version-help"><button class="field-help-trigger" type="button" aria-label="{{t "settings.versions.updates.auto_check.help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "settings.versions.updates.auto_check.note"}}</span></span></span>
       <span class="settings-toggle">
         <input id="update-check" type="checkbox" role="switch" x-bind:checked="!updateCheckDisabled" x-bind:disabled="savingUpdateCheck" x-on:change="setUpdateCheck($event.target.checked)" x-bind:aria-checked="(!updateCheckDisabled).toString()">
         <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
       </span>
     </label>
-    <p class="setting-note">{{t "settings.versions.updates.auto_check.note"}}</p>
     <div class="toolbar">
       <button class="icon-button labeled accent" type="button" x-on:click="checkForUpdates()" x-bind:disabled="checkingForUpdates" x-bind:class="{ 'is-busy': checkingForUpdates }" title="{{t "settings.versions.updates.check"}}" aria-label="{{t "settings.versions.updates.check"}}">
         <svg class="automation-icon icon-download" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="update-check-arrow-clip"><rect width="24" height="17"/></clipPath></defs><g clip-path="url(#update-check-arrow-clip)"><path class="icon-download-arrow" d="M12 3v12m0 0 5-5m-5 5-5-5"/></g><path d="M4 19h16"/></svg>

@@ -2105,6 +2105,7 @@
   "settings.versions.package.title": "Installiertes Paket",
   "settings.versions.package.version": "Paketversion",
   "settings.versions.unknown": "unbekannt",
+  "settings.versions.updates.auto_check.help_aria": "Erklärung zur automatischen Prüfung",
   "settings.versions.updates.auto_check.label": "Automatisch auf Updates prüfen",
   "settings.versions.updates.auto_check.note": "Einmal täglich still im Hintergrund geprüft, ob auf GitHub eine neuere Version liegt. Bei einem Fund erscheint ein Hinweis oben im Kopfbereich.",
   "settings.versions.updates.available": "Update verfügbar:",
