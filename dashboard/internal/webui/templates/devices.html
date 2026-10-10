@@ -83,7 +83,7 @@
     <div class="device-modal-topbar-id">
       <div class="device-modal-topbar-icon" aria-hidden="true">
         <span class="device-modal-topbar-glyph" x-cloak x-show="deviceIcons.length" x-html="iconMarkup(savedIconName)"></span>
-        <svg x-show="!deviceIcons.length" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/></svg>
+        <svg x-show="!deviceIcons.length" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">{{deviceIconMarkup "energy-node:chip"}}</svg>
       </div>
       <div class="device-modal-topbar-text">
         <h3 id="device-modal-heading">
@@ -197,15 +197,22 @@
           <p class="device-prefs-hint" x-show="!canEditPrefs">{{t "devices.appearance.permission_required"}}</p>
           <div class="device-prefs" x-show="canEditPrefs">
             <p class="device-prefs-hint">{{t "devices.appearance.note"}}</p>
-            <div class="device-prefs-icons" role="radiogroup" aria-label="{{t "devices.icon.label"}}">
-              <template x-for="icon in deviceIcons" :key="icon.name">
-                <button type="button" class="device-prefs-icon" role="radio"
-                        x-bind:class="{ active: draftIconName === icon.name }"
-                        x-bind:aria-checked="(draftIconName === icon.name).toString()"
-                        x-bind:title="icon.name === defaultIconName ? $t('devices.icon.suggested', {label: $t(icon.labelKey)}) : $t(icon.labelKey)"
-                        x-on:click="pickIcon(icon.name)">
-                  <span x-html="iconMarkup(icon.name)"></span>
-                </button>
+            <div class="device-prefs-icon-groups" role="radiogroup" aria-label="{{t "devices.icon.label"}}">
+              <template x-for="group in deviceIconGroups" :key="group.category">
+                <div class="device-prefs-icon-group">
+                  <h5 class="device-prefs-icon-group-title" x-text="$t(group.categoryKey)"></h5>
+                  <div class="device-prefs-icons">
+                    <template x-for="icon in group.icons" :key="icon.name">
+                      <button type="button" class="device-prefs-icon" role="radio"
+                              x-bind:class="{ active: draftIconName === icon.name }"
+                              x-bind:aria-checked="(draftIconName === icon.name).toString()"
+                              x-bind:title="icon.name === defaultIconName ? $t('devices.icon.suggested', {label: $t(icon.labelKey)}) : $t(icon.labelKey)"
+                              x-on:click="pickIcon(icon.name)">
+                        <span x-html="iconMarkup(icon.name)"></span>
+                      </button>
+                    </template>
+                  </div>
+                </div>
               </template>
             </div>
             <label class="device-prefs-hint" for="device-prefs-favorites">{{t "devices.favourites.label"}}</label>

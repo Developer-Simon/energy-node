@@ -30,9 +30,21 @@ def test_every_catalogue_icon_reaches_the_module():
     assert "mdi:" not in source
 
 
-def test_module_falls_back_to_chip_outline_for_unknown_icons():
-    """Verifies getIcon returns chip-outline as fallback for unknown icon names."""
+def test_module_falls_back_to_chip_for_unknown_icons():
     source = MODULE.read_text(encoding="utf-8")
-    # Check that the fallback logic uses chip-outline
-    assert 'ICONS["chip-outline"]' in source, "chip-outline must be in the fallback logic"
-    assert "chip-outline" in source
+    assert 'ICONS["chip"]' in source
+    assert 'ICONS["chip-outline"]' not in source
+
+
+def test_aliases_resolve_but_stay_out_of_the_icon_list():
+    doc = json.loads(SOURCE.read_text())
+    names = {icon["ha_name"] for icon in doc["icons"]}
+    source = MODULE.read_text(encoding="utf-8")
+    assert "const ALIASES = {" in source
+    assert len(doc["aliases"]) == 11
+    for alias in doc["aliases"]:
+        assert alias["to"] in names
+        assert alias["from"] not in names
+        assert f'  "{alias["from"]}": "{alias["to"]}",' in source
+    assert "ICONS[ALIASES[name]]" in source
+    assert "Object.entries(ICONS)" in source

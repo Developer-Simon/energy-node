@@ -36,7 +36,7 @@
        live plant view and the notices above stay visible. */}}
   <div class="energy-accordion">
     <section class="energy-acc" data-energy-section="interpretation" x-bind:data-open="isSectionOpen('interpretation') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-interpretation-toggle" aria-controls="energy-acc-interpretation" x-bind:aria-expanded="isSectionOpen('interpretation') ? 'true' : 'false'" x-on:click="toggleSection('interpretation', $event)"><span class="energy-acc-title">{{t "energy.roles.interpretation.heading"}}</span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-interpretation-toggle" aria-controls="energy-acc-interpretation" x-bind:aria-expanded="isSectionOpen('interpretation') ? 'true' : 'false'" x-on:click="toggleSection('interpretation', $event)"><span class="energy-acc-title">{{t "energy.roles.interpretation.heading"}}</span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-interpretation" role="region" aria-labelledby="energy-acc-interpretation-toggle" x-show="isSectionOpen('interpretation')" x-cloak>
         <div class="energy-interpretation-body">
 
@@ -100,7 +100,7 @@
       </div>
     </section>
     <section class="energy-acc" data-energy-section="roles" x-bind:data-open="isSectionOpen('roles') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-roles-toggle" aria-controls="energy-acc-roles" x-bind:aria-expanded="isSectionOpen('roles') ? 'true' : 'false'" x-on:click="toggleSection('roles', $event)"><span class="energy-acc-title">{{t "energy.section.roles"}}</span><span class="energy-acc-meta" x-text="sectionMeta('roles')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-roles-toggle" aria-controls="energy-acc-roles" x-bind:aria-expanded="isSectionOpen('roles') ? 'true' : 'false'" x-on:click="toggleSection('roles', $event)"><span class="energy-acc-title">{{t "energy.section.roles"}}</span><span class="energy-acc-meta" x-text="sectionMeta('roles')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-roles" role="region" aria-labelledby="energy-acc-roles-toggle" x-show="isSectionOpen('roles')" x-cloak>
       {{if .Energy.Roles}}
       <dl class="energy-role-summary">{{range .Energy.Roles}}<div>
@@ -147,7 +147,7 @@
       </div>
     </section>
     <section class="energy-acc" data-energy-section="groups" x-bind:data-open="isSectionOpen('groups') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-groups-toggle" aria-controls="energy-acc-groups" x-bind:aria-expanded="isSectionOpen('groups') ? 'true' : 'false'" x-on:click="toggleSection('groups', $event)"><span class="energy-acc-title">{{t "energy.groups.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('groups')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-groups-toggle" aria-controls="energy-acc-groups" x-bind:aria-expanded="isSectionOpen('groups') ? 'true' : 'false'" x-on:click="toggleSection('groups', $event)"><span class="energy-acc-title">{{t "energy.groups.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('groups')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-groups" role="region" aria-labelledby="energy-acc-groups-toggle" x-show="isSectionOpen('groups')" x-cloak>
         <p class="energy-groups-empty" x-show="!Object.keys(groups).length">{{t "energy.groups.empty"}}</p>
         <div class="energy-card-grid">
@@ -157,7 +157,7 @@
               <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><circle cx="12" cy="12" r="8" stroke-dasharray="3 2.4"/><circle cx="12" cy="12" r="2.4"/></svg></span>
               <input class="energy-groups-name" type="text" aria-label="{{t "energy.groups.name"}}" x-bind:disabled="!canEdit" x-model="group.label">
               <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeGroup(id)" title="{{t "energy.groups.remove"}}" aria-label="{{t "energy.groups.remove"}}">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#ico-trash"></use></svg>
               </button>
             </div>
             <div x-data="{ roleKey: `energy-group-${id}`, get locked() { return !canEdit }, get whole() { return groupCountsWhole(id) }, get role() { return group.role || '' }, get options() { return groupRoleOptions() }, setWhole(on) { setGroupWhole(id, on) }, setRole(value) { setGroupRole(id, value) }, addNew() { addCategoryForGroup(id) } }">{{template "group-role-fields"}}</div>
@@ -173,18 +173,18 @@
                   </span>
                 </template>
                 <button type="button" class="pill-button" x-show="canEdit" x-on:click="addGroupMembers(id)">
-                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.add_members"}}
+                  <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "devicemap.group.add_members"}}
                 </button>
               </div>
             </div>
           </div>
         </template>
         </div>
-        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.groups.add"}}</button>
+        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addGroup()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "energy.groups.add"}}</button>
       </div>
     </section>
     <section class="energy-acc" data-energy-section="categories" x-bind:data-open="isSectionOpen('categories') ? 'true' : 'false'">
-      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-categories-toggle" aria-controls="energy-acc-categories" x-bind:aria-expanded="isSectionOpen('categories') ? 'true' : 'false'" x-on:click="toggleSection('categories', $event)"><span class="energy-acc-title">{{t "energy.categories.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('categories')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m9 6 6 6-6 6"/></svg></button></h3>
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-categories-toggle" aria-controls="energy-acc-categories" x-bind:aria-expanded="isSectionOpen('categories') ? 'true' : 'false'" x-on:click="toggleSection('categories', $event)"><span class="energy-acc-title">{{t "energy.categories.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('categories')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
       <div class="energy-acc-body" id="energy-acc-categories" role="region" aria-labelledby="energy-acc-categories-toggle" x-show="isSectionOpen('categories')" x-cloak>
         <p class="energy-groups-empty" x-show="!Object.keys(categories).length">{{t "energy.categories.empty"}}</p>
         <div class="energy-card-grid">
@@ -194,14 +194,14 @@
                 <span class="energy-category-preview" x-bind:class="(category.color || 'cat_1').replace('_', '-')" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="iconMarkupOf(category.icon)"></svg></span>
                 <input class="energy-groups-name" type="text" aria-label="{{t "energy.categories.name"}}" x-bind:disabled="!canEdit" x-model="category.label">
                 <button type="button" class="icon-button danger" x-bind:disabled="!canEdit" x-on:click="removeCategory(id)" title="{{t "energy.categories.remove"}}" aria-label="{{t "energy.categories.remove"}}">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#ico-trash"></use></svg>
                 </button>
               </div>
               <div x-data="{ get cat() { return category }, catKey: `energy-cat-${id}`, get catLocked() { return !canEdit } }">{{template "category-fields"}}</div>
             </div>
           </template>
         </div>
-        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "energy.categories.add"}}</button>
+        <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "energy.categories.add"}}</button>
       </div>
     </section>
   </div>

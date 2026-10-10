@@ -1736,6 +1736,8 @@ small { color: var(--text-muted); }
 .device-prefs-icon:hover { border-color: var(--accent-line); }
 .device-prefs-icon.active { border-color: var(--accent); color: var(--accent); }
 .device-prefs-icon svg { width: 24px; height: 24px; }
+.device-prefs-icon-groups { display: grid; gap: .6rem; }
+.device-prefs-icon-group-title { margin: 0 0 .3rem; font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
 .device-prefs-favorites { min-width: 0; }
 .device-prefs-pin { display: flex; align-items: center; justify-content: space-between; gap: 1rem; font-size: .9rem; cursor: pointer; }
 .device-modal-topbar-glyph { display: contents; }

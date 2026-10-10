@@ -27,7 +27,7 @@ test('deviceEnergy groups roles per device and signs power toward the device', (
     entity('soc', 'soc_1', 'battery_soc', 64, 'override', '%'),
     entity('bkw', 'bkw_p', 'pv', 600, 'heuristic'),
   ] });
-  assert.deepEqual(plain(energy.get('pv')), { roles: ['pv'], heuristic: false, power: -2400, soc: null, byRole: { pv: 2400 }, primaryRole: 'pv', meta: { pv: { color: 'flow-pv', icon: 'pv' } } });
+  assert.deepEqual(plain(energy.get('pv')), { roles: ['pv'], heuristic: false, power: -2400, soc: null, byRole: { pv: 2400 }, primaryRole: 'pv', meta: { pv: { color: 'flow-pv', icon: 'cat:energy-node:sun' } } });
   assert.equal(energy.get('bat').power, -400, 'discharging battery pushes power away from the device');
   assert.equal(energy.get('soc').power, null, 'battery_soc is not a power role');
   assert.equal(energy.get('soc').soc, 64);
@@ -78,9 +78,21 @@ test('deviceHealth counts only entities that publish availability', () => {
 test('ringSpec describes segments, dashing and icon like draft variant C', () => {
   const model = loadModel();
   const energy = model.deviceEnergy({ entities: [entity('d', 'a', 'battery', 800), entity('d', 'b', 'battery_soc', 60, 'heuristic', '%')] });
-  assert.deepEqual(plain(model.ringSpec(energy.get('d'), 'ok', true)), { segments: ['flow-battery', 'flow-battery'], dashed: true, icon: 'battery', iconColor: 'flow-battery', health: 'ok' });
-  assert.deepEqual(plain(model.ringSpec(undefined, 'unknown', true)), { segments: [], dashed: false, icon: 'sensor', iconColor: 'text-muted', health: 'unknown' });
+  assert.deepEqual(plain(model.ringSpec(energy.get('d'), 'ok', true)), { segments: ['flow-battery', 'flow-battery'], dashed: true, icon: 'cat:energy-node:battery', iconColor: 'flow-battery', health: 'ok', iconMarkup: '' });
+  assert.deepEqual(plain(model.ringSpec(undefined, 'unknown', true)), { segments: [], dashed: false, icon: 'cat:energy-node:sensor', iconColor: 'text-muted', health: 'unknown', iconMarkup: '' });
   assert.equal(model.ringSpec(undefined, 'unknown', false).icon, 'box');
+});
+
+test('role icons come from the device icon catalogue', () => {
+  const model = loadModel();
+  const markup = {'energy-node:sun': '<circle r="4"/>', 'energy-node:battery-level': '<rect/>'};
+  const pv = model.ringSpec({primaryRole: 'pv', roles: ['pv'], meta: {pv: model.roleMeta('pv')}}, 'ok', true, markup);
+  assert.equal(pv.icon, 'cat:energy-node:sun');
+  assert.equal(pv.iconMarkup, '<circle r="4"/>');
+  const soc = model.ringSpec({primaryRole: 'battery_soc', roles: ['battery_soc'], meta: {battery_soc: model.roleMeta('battery_soc')}}, 'ok', true, markup);
+  assert.equal(soc.iconMarkup, '<rect/>');
+  const bare = model.ringSpec(null, 'ok', false, markup);
+  assert.equal(bare.icon, 'box');
 });
 
 test('relatedIds returns the node with its direct parents and children', () => {

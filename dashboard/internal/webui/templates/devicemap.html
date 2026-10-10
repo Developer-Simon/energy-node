@@ -13,7 +13,7 @@
           <template x-for="option in options" x-bind:key="option.value">
             <label class="group-role-chip" x-bind:class="option.color.replace('_', '-')"><input type="radio" x-bind:name="`${roleKey}-role`" x-bind:value="option.value" x-bind:checked="role === option.value" x-on:change="setRole(option.value)" x-bind:disabled="locked || !whole"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="option.iconMarkup"></svg><span x-text="option.label"></span></label>
           </template>
-          <button type="button" class="group-role-chip is-new" x-show="!locked" x-on:click="addNew()" x-bind:disabled="!whole"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg><span>{{t "group_role.new_category"}}</span></button>
+          <button type="button" class="group-role-chip is-new" x-show="!locked" x-on:click="addNew()" x-bind:disabled="!whole"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg><span>{{t "group_role.new_category"}}</span></button>
         </div>
         <p class="group-role-empty" x-show="!options.length">{{t "group_role.no_categories"}}</p>
       </div>
@@ -107,7 +107,7 @@
           <div class="devicemap-popover-head">
             <div><span class="devicemap-panel-eyebrow" x-text="popover.eyebrow"></span><h3 x-text="popover.title"></h3></div>
             <button type="button" class="icon-button" x-on:click="closePopover()" aria-label="{{t "devicemap.pop.close"}}" title="{{t "devicemap.pop.close"}}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg>
             </button>
           </div>
           <p class="devicemap-popover-text" x-show="popover.text" x-text="popover.text"></p>
@@ -127,7 +127,7 @@
             </div>
           </template>
           <button type="button" class="pill-button danger" x-show="popover.action" x-on:click="runPopoverAction()">
-            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg><span x-text="popover.action ? popover.action.label : ''"></span>
+            <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg><span x-text="popover.action ? popover.action.label : ''"></span>
           </button>
           <button type="button" class="nav-row-button" x-show="popover.linkText" x-on:click="openFlowLink(popover.link)">
             <span x-text="popover.linkText"></span>{{template "devicemap-nav-arrow"}}
@@ -142,7 +142,7 @@
     <div class="devicemap-overlay">
       <div class="toolbar devicemap-toolbar" role="toolbar" aria-label="{{t "devicemap.toolbar_aria"}}">
         <button class="icon-button primary" id="devicemap-save" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-bind:title="saveButtonLabel()" x-bind:aria-label="saveButtonLabel()">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 4h13l3 3v13H4z"/><path d="M8 4v5h6V4"/><rect x="8" y="14" width="8" height="6"/></svg>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><use href="#ico-save"></use></svg>
         </button>
         <button class="icon-button" id="devicemap-discard" type="button" x-cloak x-show="unsaved" x-on:click="discardChanges()" x-bind:disabled="saving || loading" x-bind:title="$t('devicemap.discard_button')" x-bind:aria-label="$t('devicemap.discard_button')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
@@ -231,7 +231,7 @@
               <span class="devicemap-panel-health" x-text="panelView.health"></span>
             </div>
             <button type="button" class="icon-button" x-on:click="requestClosePanel()" aria-label="{{t "devicemap.panel.close"}}" title="{{t "devicemap.panel.close"}}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg>
             </button>
           </header>
           <div class="devicemap-panel-body">
@@ -307,7 +307,7 @@
               <span class="devicemap-panel-health" x-text="panelView.health"></span>
             </div>
             <button type="button" class="icon-button" x-on:click="requestClosePanel()" aria-label="{{t "devicemap.panel.close"}}" title="{{t "devicemap.panel.close"}}">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg>
             </button>
           </header>
           <div class="devicemap-panel-body">
@@ -318,10 +318,10 @@
               <span class="devicemap-panel-eyebrow devicemap-panel-eyebrow-help">{{t "devicemap.group.members"}}<span class="field-help devicemap-help" x-show="canEditEnergy"><button class="field-help-trigger" type="button" aria-label="{{t "devicemap.group.add_member_help_aria"}}"><svg><use href="#ico-help"></use></svg></button><span class="field-help-text" role="tooltip">{{t "devicemap.group.add_member_hint"}}</span></span></span>
               <p class="devicemap-panel-empty-inline" x-show="!panelView.members.length">{{t "devicemap.group.no_members"}}</p>
               <template x-for="member in panelView.members" x-bind:key="member.id">
-                <div class="devicemap-panel-member"><span x-text="member.name"></span><span x-text="member.valueText"></span><button type="button" class="icon-button" x-show="canEditEnergy" x-on:click="removeGroupMember(member.id)" x-bind:aria-label="$t('devicemap.group.remove_member', {name: member.name})" x-bind:title="$t('devicemap.group.remove_member', {name: member.name})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+                <div class="devicemap-panel-member"><span x-text="member.name"></span><span x-text="member.valueText"></span><button type="button" class="icon-button" x-show="canEditEnergy" x-on:click="removeGroupMember(member.id)" x-bind:aria-label="$t('devicemap.group.remove_member', {name: member.name})" x-bind:title="$t('devicemap.group.remove_member', {name: member.name})"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg></button></div>
               </template>
               <button type="button" class="pill-button" x-show="canEditEnergy" x-on:click="addGroupMembers()">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.add_members"}}
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "devicemap.group.add_members"}}
               </button>
             </div>
             <div class="devicemap-panel-entity" x-data="{ roleKey: 'devicemap-group', get locked() { return !canEditEnergy }, get whole() { return groupCountsWhole() }, get role() { return panelView ? panelView.role : '' }, get options() { return panelView ? panelView.roleOptions.filter(option => option.value) : [] }, setWhole(on) { setGroupWhole(on) }, setRole(value) { setGroupDraft('role', value) }, addNew() { openCategoryDialog(true) } }">{{template "group-role-fields"}}</div>
@@ -331,11 +331,11 @@
                 <div class="devicemap-panel-category"><span class="devicemap-cat-dot" x-bind:class="cat.color.replace('_', '-')"></span><span x-text="cat.label"></span><span class="muted" x-text="$t('devicemap.group.category_base', {base: $t(`devicemap.category.base.${cat.base}`)})"></span></div>
               </template>
               <button type="button" class="pill-button" x-show="canEditEnergy" x-on:click="openCategoryDialog()">
-                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>{{t "devicemap.group.category_create"}}
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "devicemap.group.category_create"}}
               </button>
             </div>
             <button type="button" class="pill-button danger" x-show="canEditEnergy" x-on:click="deleteGroup()">
-              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></svg>{{t "devicemap.group.delete"}}
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-trash"></use></svg>{{t "devicemap.group.delete"}}
             </button>
           </div>
           <footer x-show="canEditEnergy">

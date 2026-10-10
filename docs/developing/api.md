@@ -421,13 +421,23 @@ ignores it.
 
 ```json
 [
-  { "name": "mdi:solar-panel", "label": "Solar Panel", "markup": "…" },
+  {
+    "name": "energy-node:solar-panel",
+    "mdi": "mdi:solar-panel",
+    "category": "generation",
+    "categoryKey": "device_icon_category.generation",
+    "label": "Solarpanel",
+    "labelKey": "device_icon.solar_panel",
+    "markup": "…"
+  },
   …
 ]
 ```
 
 `markup` is the inner SVG of a 24×24 stroked icon. You can use it directly in a
-`<symbol>` or draw it on a canvas.
+`<symbol>` or draw it on a canvas. `name` is the value `device-prefs.json`
+stores, `mdi` is the matching Material Design icon for Home Assistant
+discovery. Entries of one `category` are contiguous.
 
 **`GET /api/v1/device/prefs`** returns the complete `device-prefs.json` with the
 `icon`, `favorite_refs` and `pin_favorites` of every device. All browser

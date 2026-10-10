@@ -71,3 +71,45 @@ func mustRender(t *testing.T) []byte {
 	}
 	return data
 }
+
+func TestRenderCarriesMDINamesAndAliases(t *testing.T) {
+	out, err := render()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Icons []struct {
+			Name   string `json:"name"`
+			HAName string `json:"ha_name"`
+			MDI    string `json:"mdi"`
+		} `json:"icons"`
+		Aliases []struct {
+			From string `json:"from"`
+			To   string `json:"to"`
+		} `json:"aliases"`
+	}
+	if err := json.Unmarshal(out, &doc); err != nil {
+		t.Fatal(err)
+	}
+	byHA := map[string]string{}
+	for _, icon := range doc.Icons {
+		if icon.Name != "energy-node:"+icon.HAName {
+			t.Errorf("ha_name %q does not match name %q", icon.HAName, icon.Name)
+		}
+		byHA[icon.HAName] = icon.MDI
+	}
+	if byHA["wallbox"] != "mdi:ev-station" || byHA["chip"] != "mdi:chip" {
+		t.Errorf("mdi names wrong: wallbox=%q chip=%q", byHA["wallbox"], byHA["chip"])
+	}
+	if len(doc.Aliases) != 11 || doc.Aliases[0].From != "battery-charging" || doc.Aliases[0].To != "charger" {
+		t.Errorf("aliases = %+v", doc.Aliases)
+	}
+	for _, alias := range doc.Aliases {
+		if _, ok := byHA[alias.To]; !ok {
+			t.Errorf("alias %s -> %s points at no icon", alias.From, alias.To)
+		}
+		if _, clash := byHA[alias.From]; clash {
+			t.Errorf("alias %s shadows a real icon", alias.From)
+		}
+	}
+}

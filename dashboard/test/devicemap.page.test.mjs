@@ -1479,6 +1479,15 @@ test('the picker offers devices and other groups, marks members of another group
   assert.equal(bkw.section, 'APsystems');
 });
 
+test('picker devices without an icon fall back to the catalogue chip', () => {
+  const {component} = createDevicemapPanel();
+  groupFixture(component);
+  component.iconCatalogue = [{name: 'energy-node:solar-panel', markup: '<p1/>'}, {name: 'energy-node:chip', markup: '<chip/>'}];
+  component.iconMarkup = Object.fromEntries(component.iconCatalogue.map(icon => [icon.name, icon.markup]));
+  const device = component.pickerItems('garage').find(item => item.kind === 'device');
+  assert.equal(device.iconMarkup, '<chip/>');
+});
+
 test('adding several members from the picker moves them in one patch after confirming the move', async () => {
   const calls = [];
   const fetchImpl = async (url, options = {}) => {

@@ -20,22 +20,25 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
 type icon struct {
 	Name   string `json:"name"`
 	HAName string `json:"ha_name"`
+	MDI    string `json:"mdi"`
 	Label  string `json:"label"`
 	Markup string `json:"markup"`
 	SHA256 string `json:"sha256"`
 }
 
 type catalogueFile struct {
-	GeneratedBy string `json:"generated_by"`
-	StrokeWidth string `json:"stroke_width"`
-	ViewBox     string `json:"view_box"`
-	Icons       []icon `json:"icons"`
+	GeneratedBy string                 `json:"generated_by"`
+	StrokeWidth string                 `json:"stroke_width"`
+	ViewBox     string                 `json:"view_box"`
+	Icons       []icon                 `json:"icons"`
+	Aliases     []deviceiconname.Alias `json:"aliases"`
 }
 
 func main() {
@@ -82,7 +85,8 @@ func render() ([]byte, error) {
 		hash := sha256.Sum256([]byte(markup))
 		icons[i] = icon{
 			Name:   dev.Name,
-			HAName: strings.TrimPrefix(dev.Name, "mdi:"),
+			HAName: strings.TrimPrefix(dev.Name, deviceiconname.Prefix),
+			MDI:    dev.MDI,
 			Label:  dev.Label,
 			Markup: markup,
 			SHA256: fmt.Sprintf("%x", hash),
@@ -94,6 +98,7 @@ func render() ([]byte, error) {
 		StrokeWidth: webui.DeviceIconStrokeWidth,
 		ViewBox:     "0 0 24 24",
 		Icons:       icons,
+		Aliases:     deviceiconname.HAAliases(),
 	}
 
 	// Ohne SetEscapeHTML(false) stuende jedes < als < in der Datei und

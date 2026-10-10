@@ -54,7 +54,7 @@ func TestOverviewRendersManagerControls(t *testing.T) {
 		"id=\"devices-live\"", "hx-get=\"/?fragment=devices-live\"",
 		"id=\"runtime-status\"", "runtimeStatusPanel", "data-runtime-status-enabled=\"true\"", "data-status-bar-items=\"mqtt,storage,uptime,version\"", "aria-live=\"polite\"",
 		"device-detail", "device-modal-warning", "discovery-diagnostics", "discovery_errors", "duplicateIDs", "discovery-error",
-		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=3,/static/js/config.page.js?v=9\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=6,/static/js/devicemap-graph.js?v=3,/static/js/devicemap-dataflow.js?v=1,/static/js/devicemap-node-svg.js?v=3,/static/js/devicemap-labels.js?v=2,/static/js/energy-plant.js?v=2,/static/js/device-picker.js?v=1,/static/js/energy.page.js?v=8\"", "data-panel-css=\"/static/css/manager.css?v=32\"",
+		"Konfiguration", "Einstellungen", "Diagnose", "license-footer", "(0BSD)", "(MIT, Copyright Caleb Porzio)", "ApexCharts 4.7.0", "(MIT, Copyright ApexCharts)", "ApexCharts-Lizenz", "v2.0.6/LICENSE", "v3.14.9/README.md", "configPanel", "x-model=\"selectedName\"", "reloadService()", "show-runtime-status", "showRuntimeStatus", "role=\"switch\"", "settings-toggle-track", "id=\"config-panel\"", "id=\"energy-panel\"", "data-panel-script=\"/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/config-status.js?v=3,/static/js/config.page.js?v=9\"", "data-panel-script=\"/static/js-deps/cytoscape.min.js,/static/js/revisions.js?v=4,/static/js/devicemap-model.js?v=7,/static/js/devicemap-graph.js?v=3,/static/js/devicemap-dataflow.js?v=1,/static/js/devicemap-node-svg.js?v=4,/static/js/devicemap-labels.js?v=2,/static/js/energy-plant.js?v=2,/static/js/device-picker.js?v=1,/static/js/energy.page.js?v=8\"", "data-panel-css=\"/static/css/manager.css?v=32\"",
 		"schema-form", "revision-preview", "config-presets-error",
 		"config-actionbar-dock", "initActionBar()", "actionStatusText", "expandActions()", "id=\"config-form-save\"", "x-on:input=\"formDirty = true\"", "config-json", "resetEditor()", "id=\"config-save\"", "config-meta",
 		"revision-diff", "revisionPanel(revisionConfig())", "setRevisionView('diff')",
@@ -1095,7 +1095,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=28"`,
+		`href="/node/static/css/base.css?v=29"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -2787,8 +2787,8 @@ func TestApplyDevicePrefsStampsSuggestedIconWithoutPrefs(t *testing.T) {
 
 	ApplyDevicePrefs(devices, nil)
 
-	if devices[0].SuggestedIcon != "mdi:solar-panel" {
-		t.Errorf("SuggestedIcon = %q, want mdi:solar-panel even without any stored prefs", devices[0].SuggestedIcon)
+	if devices[0].SuggestedIcon != "energy-node:solar-panel" {
+		t.Errorf("SuggestedIcon = %q, want energy-node:solar-panel even without any stored prefs", devices[0].SuggestedIcon)
 	}
 	if devices[0].IconName != "" || devices[1].SuggestedIcon != "" {
 		t.Errorf("devices = %#v, want no saved icon and no suggestion for an unknown device", devices)
@@ -2900,4 +2900,31 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=3") {
 		t.Fatal("base.html must lazy-load versions.page.js with the settings panel")
 	}
+}
+
+func TestSpriteDrawsDeviceGlyphsFromTheCatalogue(t *testing.T) {
+	body := renderOverviewForSpriteTest(t)
+	for id, name := range map[string]string{
+		"ico-sun": "energy-node:sun", "ico-battery": "energy-node:battery", "ico-thermo": "energy-node:thermometer",
+		"ico-load": "energy-node:home", "ico-wallbox": "energy-node:wallbox-compact", "ico-heatpump": "energy-node:heat-pump",
+		"ico-grid": "energy-node:grid", "ico-switch": "energy-node:switch", "ico-clock": "energy-node:timer",
+	} {
+		if !strings.Contains(body, string(deviceIconSymbol(id, name))) {
+			t.Errorf("sprite symbol %s is not drawn from %s", id, name)
+		}
+	}
+	if !strings.Contains(body, `<symbol id="ico-flash" viewBox="0 0 24 24"><path d="M13.8 3 7.05 13.13 11.33 13.13 10.2 21 16.95 10.88 12.68 10.88Z"/></symbol>`) {
+		t.Error("ico-flash must be the catalogue bolt at height 18")
+	}
+	if strings.Contains(body, `<symbol id="ico-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3`) {
+		t.Error("ico-gear still looks like the sun")
+	}
+}
+
+func renderOverviewForSpriteTest(t *testing.T) string {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
+		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	return recorder.Body.String()
 }

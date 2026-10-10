@@ -25,6 +25,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/numfmt"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/uierror"
@@ -317,9 +318,11 @@ type DevicePrefs struct {
 type DevicePrefsEntry struct {
 	DeviceID string `json:"device_id"`
 	// Icon is a catalogue name from webui.DeviceIconCatalogue, e.g.
-	// "mdi:solar-panel". Empty means the built-in chip outline. An unknown
-	// name renders the fallback rather than failing - same tolerance the
-	// entity icons in webui/icons.go already have for unknown HA names.
+	// "energy-node:solar-panel". Names saved before the catalogue
+	// reorganisation (mdi:...) are migrated on load, see deviceiconname.
+	// Empty means the built-in chip. An unknown name renders the fallback
+	// rather than failing - same tolerance the entity icons in
+	// webui/icons.go already have for unknown HA names.
 	Icon string `json:"icon,omitempty"`
 	// FavoriteRefs are entity unique IDs, at most maxFavoriteRefs, in the
 	// order the user picked them. Empty means the compact card falls back to
@@ -332,10 +335,6 @@ type DevicePrefsEntry struct {
 }
 
 const maxFavoriteRefs = 3
-
-// Nur Katalognamen, kein freier Text: der Name landet im Dateinamen-Stil in
-// device-prefs.json und wird im Browser in Markup eingesetzt.
-var devicePrefsIconPattern = regexp.MustCompile(`^mdi:[a-z0-9-]+$`)
 
 type RelationOverride struct {
 	ID        string    `json:"id"`
@@ -1079,7 +1078,7 @@ func normalizeDevicePrefs(value DevicePrefs) DevicePrefs {
 		if entry.DeviceID == "" {
 			continue
 		}
-		entry.Icon = strings.TrimSpace(entry.Icon)
+		entry.Icon = deviceiconname.Canonical(entry.Icon)
 		entry.FavoriteRefs = normalizeFavoriteRefs(entry.FavoriteRefs)
 		// Ein Eintrag ohne Inhalt ist dasselbe wie kein Eintrag. So waechst
 		// die Datei nicht um einen Datensatz je Geraet, das einmal geoeffnet
@@ -1138,7 +1137,7 @@ func validateDevicePrefs(value DevicePrefs) error {
 	// config.ValidateDocument kennt kein "pattern" - der Icon-Name wird
 	// deshalb hier geprueft und nicht im Schema.
 	for _, entry := range value.Devices {
-		if entry.Icon != "" && !devicePrefsIconPattern.MatchString(entry.Icon) {
+		if entry.Icon != "" && !deviceiconname.Valid(entry.Icon) {
 			return fmt.Errorf("device %q has an unsupported icon name %q", entry.DeviceID, entry.Icon)
 		}
 	}
@@ -1776,6 +1775,13 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 	value.Interpretation = value.Interpretation.Normalized()
 	if len(value.Categories) == 0 {
 		value.Categories = nil
+	} else {
+		categories := make(map[string]energy.Category, len(value.Categories))
+		for id, category := range value.Categories {
+			category.Icon = deviceiconname.Canonical(category.Icon)
+			categories[id] = category
+		}
+		value.Categories = categories
 	}
 	if len(value.Groups) == 0 {
 		value.Groups = nil

@@ -1698,7 +1698,7 @@ func TestSaveDevicePrefsEntryMergesAndBumpsGeneration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DevicePrefsByID: %v", err)
 	}
-	if got := byID["node"]; got.Icon != "mdi:home-battery" || !got.PinFavorites {
+	if got := byID["node"]; got.Icon != "energy-node:battery-home" || !got.PinFavorites {
 		t.Errorf("node = %#v, want the merged icon and the pin flag", got)
 	}
 	if got := byID["shelly"]; len(got.FavoriteRefs) != 1 || got.FavoriteRefs[0] != "shelly_power" {
@@ -1722,7 +1722,7 @@ func TestLoadDevicePrefsSurvivesRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadDevicePrefs: %v", err)
 	}
-	if len(reloaded.Devices) != 1 || reloaded.Devices[0].Icon != "mdi:raspberry-pi" || !reloaded.Devices[0].PinFavorites {
+	if len(reloaded.Devices) != 1 || reloaded.Devices[0].Icon != "energy-node:raspberry-pi" || !reloaded.Devices[0].PinFavorites {
 		t.Fatalf("reloaded = %#v, want the saved record", reloaded.Devices)
 	}
 }
@@ -2221,5 +2221,60 @@ func TestSaveEnergyRejectsInvalidModels(t *testing.T) {
 		if !ok || typed.Key != "error.energy_roles_rejected."+name {
 			t.Errorf("%s: err = %v", name, err)
 		}
+	}
+}
+
+func TestDevicePrefsMigrateLegacyIconNames(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"version":1,"devices":[{"device_id":"wb","icon":"mdi:ev-station"},{"device_id":"odd","icon":"mdi:does-not-exist"}]}`
+	if err := os.WriteFile(filepath.Join(dir, "device-prefs.json"), []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	store := NewStore(dir)
+	prefs, err := store.LoadDevicePrefs()
+	if err != nil {
+		t.Fatalf("a legacy device-prefs.json must load, got %v", err)
+	}
+	byID := map[string]string{}
+	for _, entry := range prefs.Devices {
+		byID[entry.DeviceID] = entry.Icon
+	}
+	if byID["wb"] != "energy-node:wallbox" {
+		t.Errorf("wb icon = %q, want energy-node:wallbox", byID["wb"])
+	}
+	if byID["odd"] != "mdi:does-not-exist" {
+		t.Errorf("an unknown legacy name must survive untouched, got %q", byID["odd"])
+	}
+	if _, err := store.SaveDevicePrefsEntry(DevicePrefsEntry{DeviceID: "pi", Icon: "mdi:raspberry-pi"}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(dir, "device-prefs.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "mdi:ev-station") || !strings.Contains(string(data), `"energy-node:raspberry-pi"`) {
+		t.Errorf("saved file must hold canonical names, got %s", data)
+	}
+}
+
+func TestDevicePrefsRejectFreeTextIcon(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if _, err := store.SaveDevicePrefsEntry(DevicePrefsEntry{DeviceID: "x", Icon: `energy-node:"><b>`}); err == nil {
+		t.Error("an icon name with markup must be rejected")
+	}
+}
+
+func TestEnergyCategoriesMigrateLegacyIconNames(t *testing.T) {
+	dir := t.TempDir()
+	doc := `{"assignments":{},"categories":{"werkstatt":{"label":"Werkstatt","base":"consumer","color":"cat_1","icon":"mdi:home"}}}`
+	if err := os.WriteFile(filepath.Join(dir, "energy.json"), []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	value, err := NewStore(dir).LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := value.Categories["werkstatt"].Icon; got != "energy-node:home" {
+		t.Errorf("category icon = %q, want energy-node:home", got)
 	}
 }

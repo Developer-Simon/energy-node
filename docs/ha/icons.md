@@ -62,6 +62,10 @@ entity: sensor.energy_node_pv_power
 icon: energy-node:solar-panel
 ```
 
+Icons renamed in October 2026 keep working under their old names, for
+example `energy-node:ev-station` still shows the wallbox. The icon picker
+only lists the current names.
+
 ## About the drawings
 
 The icon strokes are converted to filled outlines at the dashboard's stroke
