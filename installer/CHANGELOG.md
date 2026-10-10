@@ -29,10 +29,10 @@
 
 ### Features
 
-- **⚠ Breaking — installer:** replace scripts/deploy with the developer CLI (#55) (b7e313e)
 - **installer:** break down versions per service in preview and diagnostics (#76) (4719142)
 - **installer:** transfer only changed bundle files to the node (#79) (f782acd)
 - ship changelog.json in the bundle and show what is new before an update (#82) (d862195)
+- **⚠ Breaking — installer:** replace scripts/deploy with the developer CLI (#55) (b7e313e)
 - **installer:** record changelog.json next to the installed manifest (30629c9)
 - **installer:** serve the package changelog next to the node's installed versions (948f4a6)
 - **installer:** add DiffManifest, comparing two bundle manifests' file hashes (209e407)
@@ -80,14 +80,14 @@
 
 ### Features
 
-- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
-- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
-- **installer:** open the UI in an embedded system WebView (Part C2) (#35) (84bdc7a)
 - **installer:** add package sources (file, repo build, GitHub) (#42) (f831eab)
 - **dashboard:** download the newest release bundle from the redeploy page (#44) (245b277)
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 - **installer:** restart only the service units whose version changed (#48) (1d2c57f)
+- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
+- **installer:** open the UI in an embedded system WebView (Part C2) (#35) (84bdc7a)
 - **installer:** pass step requirements from the manifest to the web UI (69ffe39)
 - **installer:** check the Shelly wake webhook in the diagnose checklist (9cadae6)
 - **installer:** carry a restart-all request from the UI to the service steps (bad757a)
@@ -104,4 +104,23 @@
 - **installer:** replace remote files the SSH user cannot open for writing (eca0198)
 - **installer:** give step 20 its MQTT arguments from the node on redeploy and repair (bb4cd40)
 - **installer:** add texts for every fault code the bootstrap steps emit (23a64c3)
+
+## v0.1.3 (2026-09-20)
+
+### Features
+
+- **installer:** open the UI in an embedded system WebView (Part C2) (#35) (84bdc7a)
+
+## v0.1.2 (2026-09-15)
+
+### Features
+
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+- **installer:** hide dashboard tabs for deselected optional services (#31) (59f2d40)
+
+## v0.1.0 (2026-09-13)
+
+### Features
+
+- **installer:** add the developer CLI's transport engine (#26) (1f8e44e)
 
