@@ -1965,7 +1965,7 @@ func TestDeviceDetailCarriesDevicePrefs(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &detail); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if detail.IconName != "mdi:raspberry-pi" || !detail.PinFavorites {
+	if detail.IconName != "energy-node:raspberry-pi" || !detail.PinFavorites {
 		t.Errorf("detail = %#v, want the stored icon and pin flag", detail)
 	}
 	if len(detail.FavoriteRefs) != 1 || detail.FavoriteRefs[0] != "node_temp" {
@@ -2029,7 +2029,7 @@ func TestDevicePrefsEndpointSavesAndReturnsTheDocument(t *testing.T) {
 	if err != nil {
 		t.Fatalf("DevicePrefsByID: %v", err)
 	}
-	if got := byID["node"]; got.Icon != "mdi:raspberry-pi" || !got.PinFavorites {
+	if got := byID["node"]; got.Icon != "energy-node:raspberry-pi" || !got.PinFavorites {
 		t.Fatalf("stored = %#v, want the posted record under the path's device id", got)
 	}
 }
@@ -2069,7 +2069,7 @@ func TestDeviceDetailCarriesSuggestedIconWithoutStore(t *testing.T) {
 	if err := json.Unmarshal(recorder.Body.Bytes(), &detail); err != nil {
 		t.Fatalf("decode: %v (%s)", err, recorder.Body.String())
 	}
-	if detail.IconName != "" || detail.SuggestedIcon != "mdi:power-plug" {
+	if detail.IconName != "" || detail.SuggestedIcon != "energy-node:plug-smart" {
 		t.Errorf("detail = %#v, want no saved icon and the power-plug suggestion", detail)
 	}
 }
@@ -2122,6 +2122,12 @@ func TestEnergyRolesPatchManagesCategoriesAndGroups(t *testing.T) {
 	}
 	if rec := patch(`{"categories":{"werkstatt":{"label":"Werkstatt","base":"consumer","color":"cat_1","icon":"mdi:home"}},"groups":{"garage":{"label":"Garage","members":{"devices":["wallbox"],"groups":[]}}}}`); rec.Code != 200 {
 		t.Fatalf("create: %d %s", rec.Code, rec.Body.String())
+	}
+	if rec := patch(`{"categories":{"legacy":{"label":"Alt","base":"consumer","color":"cat_2","icon":"mdi:ev-station"}}}`); rec.Code != 200 {
+		t.Fatalf("a legacy mdi: category icon must be accepted, got %d: %s", rec.Code, rec.Body.String())
+	}
+	if rec := patch(`{"categories":{"bogus":{"label":"Bogus","base":"consumer","color":"cat_3","icon":"energy-node:nope"}}}`); rec.Code == 200 || !strings.Contains(rec.Body.String(), "category_icon_unknown") {
+		t.Fatalf("an unknown category icon must be rejected, got %d: %s", rec.Code, rec.Body.String())
 	}
 	if rec := patch(`{"assignments":{"x":{"role":"custom:werkstatt"}}}`); rec.Code != 200 {
 		t.Fatalf("assign: %d %s", rec.Code, rec.Body.String())

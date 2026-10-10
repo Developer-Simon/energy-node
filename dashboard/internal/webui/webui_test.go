@@ -2787,8 +2787,8 @@ func TestApplyDevicePrefsStampsSuggestedIconWithoutPrefs(t *testing.T) {
 
 	ApplyDevicePrefs(devices, nil)
 
-	if devices[0].SuggestedIcon != "mdi:solar-panel" {
-		t.Errorf("SuggestedIcon = %q, want mdi:solar-panel even without any stored prefs", devices[0].SuggestedIcon)
+	if devices[0].SuggestedIcon != "energy-node:solar-panel" {
+		t.Errorf("SuggestedIcon = %q, want energy-node:solar-panel even without any stored prefs", devices[0].SuggestedIcon)
 	}
 	if devices[0].IconName != "" || devices[1].SuggestedIcon != "" {
 		t.Errorf("devices = %#v, want no saved icon and no suggestion for an unknown device", devices)

@@ -28,6 +28,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/dataflow"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
@@ -1774,7 +1775,7 @@ func checkEnergyModel(reg *registry.Registry, value settings.EnergyConfig) error
 	}
 	for _, id := range mapKeysOf(value.Categories) {
 		category := value.Categories[id]
-		if !known[category.Icon] {
+		if !known[deviceiconname.Canonical(category.Icon)] {
 			return uierror.New("error.energy_roles_rejected.category_icon_unknown",
 				fmt.Sprintf("energy: category %q has unknown icon %q", id, category.Icon), map[string]any{"category": category.Label})
 		}
