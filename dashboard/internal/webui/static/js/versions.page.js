@@ -2,11 +2,11 @@
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
-  const requestJSON = async (url) => {
+  const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
     // reverse-proxy subpath base.html puts the prefix into
     // __DASHBOARD_BASE_PATH__; on direct access it is empty.
-    const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`);
+    const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}${url}`, options);
     const body = await response.json().catch(() => ({}));
     if (!response.ok) {
       throw new Error(apiError(body));
@@ -61,6 +61,8 @@
     updateStatus: null,
     checkingForUpdates: false,
     canSystemActions: false,
+    updateCheckDisabled: false,
+    savingUpdateCheck: false,
 
     async load() {
       this.loading = true;
@@ -87,10 +89,41 @@
         this.canSystemActions = false;
       }
       try {
+        const value = await requestJSON('/api/v1/settings');
+        this.updateCheckDisabled = Boolean(value.update_check_disabled);
+      } catch (error) {
+        this.updateCheckDisabled = false;
+      }
+      try {
         const status = await requestJSON('/api/v1/updates/status');
         this.updateStatus = status.checked === false ? null : status;
       } catch (error) {
         this.updateStatus = null;
+      }
+    },
+
+    // The switch applies at once, there is no save button on this page.
+    // PUT /api/v1/settings replaces every field, so the current settings are
+    // read first and only update_check_disabled changes. The settings form
+    // hears the event and keeps its copy in step.
+    async setUpdateCheck(enabled) {
+      if (this.savingUpdateCheck) return;
+      const previous = this.updateCheckDisabled;
+      this.updateCheckDisabled = !enabled;
+      this.savingUpdateCheck = true;
+      try {
+        const current = await requestJSON('/api/v1/settings');
+        await requestJSON('/api/v1/settings', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({...current, update_check_disabled: !enabled}),
+        });
+        document.dispatchEvent(new CustomEvent('update-check-setting-changed', {detail: {disabled: !enabled}}));
+      } catch (error) {
+        this.updateCheckDisabled = previous;
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.savingUpdateCheck = false;
       }
     },
 

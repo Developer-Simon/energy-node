@@ -140,7 +140,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=3,/static/js/history-chart.js?v=2,/static/js/history.js?v=14",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=13,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=2,/static/js/systemconfig.page.js?v=5",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=14,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=3,/static/js/systemconfig.page.js?v=5",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -2897,7 +2897,7 @@ func TestSettingsPanelRendersTheVersionsPage(t *testing.T) {
 
 	page := httptest.NewRecorder()
 	newHandler().ServeHTTP(page, httptest.NewRequest("GET", "/", nil))
-	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=2") {
+	if !strings.Contains(page.Body.String(), "/static/js/versions.page.js?v=3") {
 		t.Fatal("base.html must lazy-load versions.page.js with the settings panel")
 	}
 }
