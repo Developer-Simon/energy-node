@@ -11,7 +11,7 @@ function setup() {
   const { window } = loadScripts(['i18n.js', 'format.js', 'services.js', 'run-model.js']);
   window.I18n.catalog = realCatalog('de');
   const shell = { t: (key, params) => window.I18n.t(key, params) };
-  const groups = window.Services.runGroups(MANIFEST, SELECTION, shell);
+  const groups = window.Services.runGroups(MANIFEST, shell);
   return { M: window.RunModel, groups, t: shell.t };
 }
 
@@ -44,17 +44,17 @@ test('Ereignisse vor dem eigenen run-started und fremder Laeufe zaehlen nicht', 
   assert.equal(model.mode, 'redeploy');
 });
 
-test('der Lauf der Vorlage: Schritt 4 von 7, Dauern aus at, Anmeldeadresse erkannt', () => {
+test('der Lauf der Vorlage: Schritt 4 von 13, Dauern aus at, Anmeldeadresse erkannt', () => {
   const { M, groups } = setup();
   const model = M.create('run-1');
   play(M, model, DRAFT_RUN);
 
-  assert.deepEqual(plain(M.current(model, groups)), { number: 4, total: 7, label: 'Tailscale' });
-  assert.deepEqual(plain(groups.map((g) => M.groupState(model, g))), ['ok', 'ok', 'ok', 'run', 'wait', 'wait', 'wait']);
+  assert.deepEqual(plain(M.current(model, groups)), { number: 4, total: 13, label: 'Tailscale' });
+  assert.deepEqual(plain(groups.map((g) => M.groupState(model, g))), ['ok', 'ok', 'ok', 'run', 'wait', 'wait', 'wait', 'wait', 'wait', 'wait', 'wait', 'wait', 'wait']);
   assert.equal(M.groupDuration(model, groups[0], T0 + 252000), 102000);
   assert.equal(M.groupDuration(model, groups[3], T0 + 252000), 23000);
   assert.equal(M.elapsed(model, T0 + 252000), 252000);
-  assert.equal(M.progress(model, groups), 50);
+  assert.equal(M.progress(model, groups), 27);
   assert.equal(model.loginUrl, 'https://login.tailscale.com/a/4f2c8ab19de3');
   assert.equal(model.loginStep, '40');
   assert.equal(model.steps['40'].lastLine.startsWith('Anmeldung noetig'), true);
@@ -165,4 +165,21 @@ test('ein ok ohne Zusatz verlangt keinen Neustart', () => {
   const model = M.create('run-1');
   play(M, model, DRAFT_RUN);
   assert.equal(model.rebootPending, false);
+});
+
+// Ein Schritt, der nie einen Marker meldet (15 und 35 auf dem Node im
+// Oktober 2026), haelt die Leiste weder fest noch zieht er sie zurueck.
+test('eine Station ohne Marker zieht die Leiste nicht zurueck', () => {
+  const { M, groups } = setup();
+  const model = M.create('run-1');
+  play(M, model, [
+    ['run-started', { run_id: 'run-1', mode: 'update', only: '' }, 0],
+    ['step', { id: '10', state: 'ok' }, 1],
+    ['step', { id: '30', state: 'ok' }, 2],
+    ['step', { id: '40', state: 'begin' }, 3], ['step', { id: '40', state: 'ok' }, 4],
+  ]);
+  assert.deepEqual(plain(M.current(model, groups)), { number: 5, total: 13, label: 'Python-Pakete' });
+  play(M, model, [['step', { id: '88', state: 'ok' }, 5], ['run-finished', { run_id: 'run-1', ok: true }, 6]]);
+  assert.deepEqual(plain(M.current(model, groups)), { number: 13, total: 13, label: 'Automation' });
+  assert.equal(M.progress(model, groups), 100);
 });

@@ -100,33 +100,26 @@
         });
       },
 
-      get servicesGroup() {
-        return (this.outcome.groups || []).filter(function (group) { return group.subs; })[0] || null;
+      get services() {
+        return window.Services.serviceUnits(this.manifest, this.shell.shared.selection, this.shell);
       },
 
       get activeCount() {
-        var group = this.servicesGroup;
         var units = (this.diagnose && this.diagnose.units) || {};
-        var on = group ? group.subs.filter(function (sub) { return sub.on; }) : [];
-        return { selected: on.length, active: on.filter(function (sub) { return units[sub.unit] === 'active'; }).length };
+        var on = this.services.filter(function (service) { return service.on; });
+        return { selected: on.length, active: on.filter(function (service) { return units[service.unit] === 'active'; }).length };
       },
 
-      // restarted: verschiedene Units der Dienst-Station, deren Schritt ok
-      // meldete. Schritt 60 hat keine Unit im Manifest - er ist das Dashboard.
+      // restarted: verschiedene Units der Dienste, deren Schritt ok meldete.
+      // Schritt 60 hat keine Unit im Manifest - er ist das Dashboard.
       get restarted() {
-        var group = this.servicesGroup;
-        if (!group) {
-          return 0;
-        }
         var steps = this.outcome.steps || {};
-        var manifestSteps = this.manifest.steps || [];
         var units = {};
-        group.ids.forEach(function (id) {
-          if (!steps[id] || steps[id].state !== 'ok') {
-            return;
+        (this.manifest.steps || []).forEach(function (step) {
+          var ok = steps[step.id] && steps[step.id].state === 'ok';
+          if (ok && (step.service_id || step.id === window.Services.CORE_STEP)) {
+            units[step.unit || window.Services.DASHBOARD_UNIT] = true;
           }
-          var step = manifestSteps.filter(function (s) { return s.id === id; })[0];
-          units[step && step.unit ? step.unit : window.Services.DASHBOARD_UNIT] = true;
         });
         return Object.keys(units).length;
       },

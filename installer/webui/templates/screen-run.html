@@ -31,7 +31,6 @@
               <template x-if="part.type === 'call'"><div class="call-t" x-text="t('run.login.title')"></div></template>
               <template x-if="part.type === 'call'"><div class="call-u" x-text="part.url"></div></template>
               <template x-if="part.type === 'call'"><button type="button" class="small" @click="openLogin()" x-text="t('action.open_in_browser')"></button></template>
-              <template x-for="sub in part.subs || []" :key="sub.key"><span class="sub" :class="{ off: !sub.on }" x-text="sub.name"></span></template>
             </div>
           </template>
         </div>

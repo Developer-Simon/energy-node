@@ -50,28 +50,32 @@ test('ohne Geraete-Dienste gibt es keine Geraete-Zeile', () => {
   assert.ok(!S.toggles(manifest, SELECTION, shell).some((row) => row.kind === 'devices'));
 });
 
-test('die Ausfuehrung hat die sieben Stationen der Vorlage', () => {
+test('die Ausfuehrung hat eine Station je Schritt in Manifest-Reihenfolge', () => {
   const { S, shell } = load();
-  const groups = S.runGroups(MANIFEST, SELECTION, shell);
+  const groups = S.runGroups(MANIFEST, shell);
   assert.deepEqual(plain(groups.map((group) => group.label)), [
-    'Systempakete', 'MQTT-Broker', 'Firewall', 'Tailscale', 'Python-Pakete', 'Dienste und Dashboard', 'HTTPS über Caddy',
+    'Systempakete', 'MQTT-Broker', 'Firewall', 'Tailscale', 'Python-Pakete', 'Dashboard und MQTT-Brücke', 'HTTPS über Caddy',
+    'APsystems', 'Batterie-SoC', 'Shelly', 'Trucki', 'Tuya', 'Automation',
   ]);
-  const services = groups[5];
-  assert.deepEqual(plain(services.ids), ['60', '88', '81', '82', '83', '84', '85']);
-  assert.deepEqual(plain(services.subs.map((sub) => [sub.name, sub.on])), [
+  assert.ok(groups.every((group) => group.ids.length === 1));
+});
+
+test('serviceUnits nennt Bruecke, Dienste nach Auswahl und Dashboard mit Unit', () => {
+  const { S, shell } = load();
+  const services = S.serviceUnits(MANIFEST, SELECTION, shell);
+  assert.deepEqual(plain(services.map((s) => [s.name, s.on])), [
     ['MQTT-Brücke', true], ['Automation', true], ['APsystems', true], ['Batterie-SoC', false],
     ['Shelly', true], ['Trucki', true], ['Tuya', true], ['Dashboard', true],
   ]);
-  assert.equal(services.subs[0].unit, 'energy-node-dashboard.service');
-  assert.equal(services.subs[2].unit, 'apsystems-ez1.service');
-  assert.equal(services.subs.filter((sub) => sub.on).length, 7);
+  assert.equal(services[0].unit, 'energy-node-dashboard.service');
+  assert.equal(services[2].unit, 'apsystems-ez1.service');
 });
 
 test('groupOf und stepLabel liefern Nummer und Namen fuer die Diagnose', () => {
   const { S, shell } = load();
-  const groups = S.runGroups(MANIFEST, SELECTION, shell);
+  const groups = S.runGroups(MANIFEST, shell);
   assert.equal(S.groupOf(groups, '50').number, 5);
-  assert.equal(S.groupOf(groups, '83').number, 6);
+  assert.equal(S.groupOf(groups, '83').number, 10);
   assert.equal(S.groupOf(groups, '99'), null);
   assert.equal(S.stepLabel(MANIFEST, '83', shell), 'Shelly');
   assert.equal(S.stepLabel(MANIFEST, '50', shell), 'Python-Pakete');
@@ -127,9 +131,10 @@ test('der Shelly-Webhook ist ein eigener Schalter und ohne Zustimmung aus', () =
 test('in der Ausfuehrung laeuft der Shelly-Webhook unter der Firewall', () => {
   const { S, shell } = load();
   const manifest = withWebhookStep();
-  const groups = S.runGroups(manifest, SELECTION, shell);
+  const groups = S.runGroups(manifest, shell);
   assert.deepEqual(plain(groups.map((group) => group.label)), [
-    'Systempakete', 'MQTT-Broker', 'Firewall', 'Tailscale', 'Python-Pakete', 'Dienste und Dashboard', 'HTTPS über Caddy',
+    'Systempakete', 'MQTT-Broker', 'Firewall', 'Tailscale', 'Python-Pakete', 'Dashboard und MQTT-Brücke', 'HTTPS über Caddy',
+    'APsystems', 'Batterie-SoC', 'Shelly', 'Trucki', 'Tuya', 'Automation',
   ]);
   assert.deepEqual(plain(groups[2].ids), ['30', '35']);
   assert.equal(S.groupOf(groups, '35').number, 3);

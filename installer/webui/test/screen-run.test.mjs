@@ -55,27 +55,25 @@ test('der Lauf der Vorlage: Stationen, Fortschritt, Dauer aus at statt Ankunftsz
   emitAll(source, UNTIL_TAILSCALE);
   source.emit('hello', 99, { seq: 99, running: true, run_id: 'run-1', at: T0 + 252000 });
 
-  assert.equal(screen.progressText, 'Schritt 4 von 7: Tailscale');
+  assert.equal(screen.progressText, 'Schritt 4 von 13: Tailscale');
   assert.equal(screen.elapsedText, '04:12 vergangen');
   const steps = screen.parts.filter((part) => part.type === 'stp');
   assert.deepEqual(plain(steps.map((part) => [part.title, part.cls, part.time])), [
     ['Systempakete', 'stp', '1:42'], ['MQTT-Broker', 'stp', '0:21'], ['Firewall', 'stp', '0:04'],
-    ['Tailscale', 'stp now', '0:23'], ['Python-Pakete', 'stp wait', ''], ['Dienste und Dashboard', 'stp wait', ''],
-    ['HTTPS über Caddy', 'stp wait', ''],
+    ['Tailscale', 'stp now', '0:23'], ['Python-Pakete', 'stp wait', ''], ['Dashboard und MQTT-Brücke', 'stp wait', ''],
+    ['HTTPS über Caddy', 'stp wait', ''], ['APsystems', 'stp wait', ''], ['Batterie-SoC', 'stp wait', ''],
+    ['Shelly', 'stp wait', ''], ['Trucki', 'stp wait', ''], ['Tuya', 'stp wait', ''], ['Automation', 'stp wait', ''],
   ]);
   assert.equal(steps[3].detail, 'To authenticate, visit: https://login.tailscale.com/a/4f2c8ab19de3');
-  assert.equal(steps[5].detail, 'Aus der Auswahl: 7 von 8 Diensten');
 });
 
-test('die Anmeldeleiste steht hinter ihrer Station, die Dienste als Unterpunkte', async () => {
+test('die Anmeldeleiste steht hinter ihrer Station', async () => {
   const { screen, source, opened } = await mount();
   emitAll(source, UNTIL_TAILSCALE);
   const keys = screen.parts.map((part) => part.type === 'stp' ? part.title : part.type);
-  assert.deepEqual(plain(keys), ['Systempakete', 'MQTT-Broker', 'Firewall', 'Tailscale', 'call', 'Python-Pakete', 'Dienste und Dashboard', 'subs', 'HTTPS über Caddy']);
+  assert.deepEqual(plain(keys.slice(0, 7)), ['Systempakete', 'MQTT-Broker', 'Firewall', 'Tailscale', 'call', 'Python-Pakete', 'Dashboard und MQTT-Brücke']);
   screen.openLogin();
   assert.deepEqual(plain(opened), ['https://login.tailscale.com/a/4f2c8ab19de3']);
-  const subs = screen.parts.find((part) => part.type === 'subs').subs;
-  assert.equal(subs.find((sub) => sub.name === 'Batterie-SoC').on, false);
 });
 
 test('das Protokoll zeigt Uhrzeit, Marker und maskierte Geheimnisse', async () => {
@@ -100,7 +98,7 @@ test('run-finished schliesst den Strom und fuehrt mit dem Ausgang ins Ergebnis',
   assert.equal(shell.mutating, false);
   assert.equal(shell.shared.lastRun.ok, true);
   assert.equal(shell.shared.lastRun.finishedAt - shell.shared.lastRun.startedAt, 492000);
-  assert.equal(shell.shared.lastRun.groups.length, 7);
+  assert.equal(shell.shared.lastRun.groups.length, 13);
 });
 
 test('Abbrechen schickt cancel genau einmal; der Lauf endet ueber den Strom', async () => {

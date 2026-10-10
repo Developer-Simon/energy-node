@@ -62,7 +62,7 @@
 
     retryLabel: function (stepId, manifest, shell) {
       var name = window.Services.stepLabel(manifest, stepId, shell);
-      var found = window.Services.groupOf(window.Services.runGroups(manifest, { steps: {} }, shell), stepId);
+      var found = window.Services.groupOf(window.Services.runGroups(manifest, shell), stepId);
       return found
         ? shell.t('diagnose.retry', { n: found.number, name: name })
         : shell.t('diagnose.retry_plain', { name: name });

@@ -143,21 +143,20 @@
     }, 0);
   }
 
+  // current: die laufende Station, sonst die naechste nach der zuletzt
+  // beendeten. Eine Station, die nie einen Marker bekam, holt die Leiste
+  // nicht zurueck - nach dem Ende steht sie auf der letzten beendeten.
   function current(model, groups) {
-    var index = -1;
-    var i;
-    for (i = 0; i < groups.length && index < 0; i++) {
-      if (groupState(model, groups[i]) === 'run') {
-        index = i;
-      }
-    }
-    for (i = 0; i < groups.length && index < 0; i++) {
-      if (groupState(model, groups[i]) === 'wait') {
-        index = i;
-      }
-    }
+    var states = groups.map(function (group) { return groupState(model, group); });
+    var index = states.indexOf('run');
     if (index < 0) {
-      index = groups.length - 1;
+      var last = -1;
+      states.forEach(function (state, i) {
+        if (state !== 'wait') {
+          last = i;
+        }
+      });
+      index = model.finished ? Math.max(last, 0) : Math.min(last + 1, groups.length - 1);
     }
     return { number: index + 1, total: groups.length, label: groups[index] ? groups[index].label : '' };
   }
@@ -165,6 +164,9 @@
   function progress(model, groups) {
     if (!groups.length) {
       return 0;
+    }
+    if (model.finished && model.ok) {
+      return 100;
     }
     var done = groups.reduce(function (sum, group) {
       var state = groupState(model, group);
