@@ -118,7 +118,7 @@ the bottom of the page then shows that component's version next to the Energy
 Node version (`scripts/docs/doc-versions.sh`). An unknown id fails the Pages
 build.
 
-The marker names the first release that contains the page's last change,
+The marker names the first release that contains the page's last change, including a change to one of its screenshots,
 with the component version from that release. A page whose last change is not
 in any release yet shows the version of that commit and is flagged as
 unreleased.

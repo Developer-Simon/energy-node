@@ -155,6 +155,21 @@ if "$doc_versions" "$repo" >/dev/null 2>&1; then
   fail "unknown component id should fail"
 fi
 
+# A changed screenshot counts as a change of the page that embeds it.
+mkdir -p "$repo/docs/images"
+printf '![shot](images/shot.png)\n<img src="../images/other.svg" alt="">\n' > "$repo/docs/shots.md"
+echo p1 > "$repo/docs/images/shot.png"
+echo p2 > "$repo/docs/images/other.svg"
+rm "$repo/docs/bad.md"
+commit shots
+git -C "$repo" tag v0.12.1
+echo v0.13.0 > "$repo/dashboard/VERSION"
+echo p3 > "$repo/docs/images/shot.png"
+commit shot-update
+out=$("$doc_versions" "$repo")
+grep -qxF '  "shots.md": { version: "v0.13.0", unreleased: true }' <<<"$out" \
+  || fail "shots.md should follow its screenshot, not only its text" "$out"
+
 # --- nothing in the repository points at the old documentation paths --------
 
 old_paths='docs/knowledge/|docs/integration/|docs/dashboard\.md|docs/device-services\.md|knowledge/konfiguration\.md|secrets-und-zugangsdaten\.md'
