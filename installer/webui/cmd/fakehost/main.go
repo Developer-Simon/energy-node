@@ -52,7 +52,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates}
+	opts := options{dashboard: *dashboard, trusted: *trusted, holdStep: *hold, stepDelay: *delay, systemUpdates: *systemUpdates, english: *language == "en"}
 	if *failStep != "" {
 		opts.failStep, opts.failCode = splitFailSpec(*failStep)
 	}

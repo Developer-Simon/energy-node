@@ -132,7 +132,7 @@ test('die Diagnose repariert genau den ausgefallenen Dienst (Kriterium 6)', () =
 
   await page.locator('.app[data-screen="diagnose"] .fail').waitFor();
   assert.equal(await page.locator('.fail .code').textContent(), 'failed');
-  await page.getByRole('button', { name: 'Schritt 7 · Shelly erneut ausführen' }).click();
+  await page.getByRole('button', { name: 'Schritt 11 · Shelly erneut ausführen' }).click();
 
   await page.locator('.app[data-screen="result"] .hero p').waitFor({ timeout: 20000 });
   assert.match(await page.locator('.hero p').textContent(), /^Shelly erneut ausgeführt · 0:0\d gebraucht$/);

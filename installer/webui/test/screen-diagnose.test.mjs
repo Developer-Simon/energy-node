@@ -51,7 +51,7 @@ test('die Dienste-Karte zeigt Units ohne .service und den Ausfall mit Reparatur'
   ]);
   const fail = card.parts[4];
   assert.equal(fail.text, 'shelly-rpc.service ist nicht aktiv. Eine Reparatur wiederholt den Schritt, der ihn installiert und startet.');
-  assert.deepEqual(plain(fail.retry), { stepId: '83', label: 'Schritt 6 · Shelly erneut ausführen' });
+  assert.deepEqual(plain(fail.retry), { stepId: '83', label: 'Schritt 10 · Shelly erneut ausführen' });
   assert.equal(card.parts[3].valueCls, 'r-v bad');
 });
 

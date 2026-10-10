@@ -21,6 +21,10 @@ type options struct {
 	failStep  string
 	failCode  string
 	stepDelay time.Duration
+	// english: die Log-Zeilen der Attrappe auf Englisch (--lang en). Ein
+	// echter Node meldet sie aus den Skripten, deutsch; die Attrappe zeigt sie
+	// fuer die Dokumentation in der Sprache des Fensters.
+	english bool
 	// systemUpdates: Vorschau und Diagnose nennen ausstehende Systempakete.
 	systemUpdates bool
 }
@@ -57,7 +61,7 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 			continue
 		}
 		if step.ID == webhookStep && b.webhookChosen() {
-			step = hostapitest.FakeStep{ID: webhookStep, Log: []string{"Firewall: 8082/tcp fuer den Shelly-Wake-Webhook freigegeben"}}
+			step = hostapitest.FakeStep{ID: webhookStep, Log: []string{b.say("Firewall: 8082/tcp fuer den Shelly-Wake-Webhook freigegeben", "Firewall: opened 8082/tcp for the Shelly wake webhook")}}
 		}
 		if err := pause(ctx, b.opts.stepDelay); err != nil {
 			return err
@@ -89,10 +93,22 @@ func (b *stagedBackend) Run(ctx context.Context, req hostapi.RunRequest, sink ho
 // systemUpgrade spielt im Update einen neuen Kernel ein, damit Ergebnis und
 // Lauf den Neustart-Hinweis zeigen (scripts/bootstrap/15-system-upgrade.sh).
 // Die Erstinstallation bleibt ohne, ihr Ergebnis liegt wie die Vorlage.
-var systemUpgrade = hostapitest.FakeStep{ID: "15", Detail: "neustart noetig", Log: []string{
-	"Aktualisiere 3 Pakete: libssl3 openssl raspberrypi-kernel",
-	"Ein Neustart des Node ist noetig, damit alle Updates wirken.",
-}}
+func systemUpgrade(english bool) hostapitest.FakeStep {
+	return hostapitest.FakeStep{ID: "15", Detail: "neustart noetig", Log: []string{
+		say(english, "Aktualisiere 3 Pakete: libssl3 openssl raspberrypi-kernel", "Upgrading 3 packages: libssl3 openssl raspberrypi-kernel"),
+		say(english, "Ein Neustart des Node ist noetig, damit alle Updates wirken.", "The node needs a reboot for all updates to take effect."),
+	}}
+}
+
+// say waehlt die deutsche oder englische Fassung einer Log-Zeile.
+func say(english bool, de, en string) string {
+	if english {
+		return en
+	}
+	return de
+}
+
+func (b *stagedBackend) say(de, en string) string { return say(b.opts.english, de, en) }
 
 // webhookStep ist die Opt-in-Freigabe des Shelly-Wake-Webhooks; sie laeuft
 // nur mit dem Shelly-Dienst (83), wie auf einem echten Node.
@@ -283,18 +299,20 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 
 	fake.Steps = []hostapitest.FakeStep{
-		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-venv", "12 Pakete installiert"}},
-		{ID: "15", Log: []string{"Alle Systempakete sind aktuell."}},
-		{ID: "20", Log: []string{"mosquitto_passwd -b energynode ***", "/etc/mosquitto/conf.d/default.conf geschrieben", "mosquitto neu gestartet, Testnachricht zugestellt"}},
-		{ID: "30", Log: []string{"Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp", "ufw aktiv"}},
+		{ID: "10", Log: []string{"apt-get install -y mosquitto mosquitto-clients ufw python3-venv", say(opts.english, "12 Pakete installiert", "12 packages installed")}},
+		{ID: "15", Log: []string{say(opts.english, "Alle Systempakete sind aktuell.", "All system packages are up to date.")}},
+		{ID: "20", Log: []string{"mosquitto_passwd -b energynode ***", say(opts.english, "/etc/mosquitto/conf.d/default.conf geschrieben", "wrote /etc/mosquitto/conf.d/default.conf"), say(opts.english, "mosquitto neu gestartet, Testnachricht zugestellt", "restarted mosquitto, test message delivered")}},
+		{ID: "30", Log: []string{say(opts.english, "Regeln: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp", "Rules: 22/tcp, 1883/tcp, 8080/tcp, 443/tcp"), say(opts.english, "ufw aktiv", "ufw active")}},
 		{ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
 		{ID: "40", Log: []string{
-			"tailscale_1.62.0_arm.tgz übertragen (24,1 MB)", "sha256 stimmt mit dem Manifest überein",
-			"tailscale, tailscaled nach /usr/sbin kopiert", "tailscaled.service aktiviert und gestartet",
+			say(opts.english, "tailscale_1.62.0_arm.tgz übertragen (24,1 MB)", "transferred tailscale_1.62.0_arm.tgz (24.1 MB)"),
+			say(opts.english, "sha256 stimmt mit dem Manifest überein", "sha256 matches the manifest"),
+			say(opts.english, "tailscale, tailscaled nach /usr/sbin kopiert", "copied tailscale, tailscaled to /usr/sbin"),
+			say(opts.english, "tailscaled.service aktiviert und gestartet", "enabled and started tailscaled.service"),
 			"To authenticate, visit: https://login.tailscale.com/a/4f2c8ab19de3",
 		}},
 		{ID: "50", Log: []string{"pip install --no-index --find-links wheels/ (12 Wheels)"}},
-		{ID: "60", Log: []string{"energy-node-dashboard 1.4.2 installiert", "auth.pw geschrieben (0640)"}},
+		{ID: "60", Log: []string{say(opts.english, "energy-node-dashboard 1.4.2 installiert", "installed energy-node-dashboard 1.4.2"), say(opts.english, "auth.pw geschrieben (0640)", "wrote auth.pw (0640)")}},
 		{ID: "70", Log: []string{"caddy validate: Valid configuration"}},
 		{ID: "81"}, {ID: "82", State: "skip", Detail: "nicht ausgewaehlt"}, {ID: "83"}, {ID: "84"}, {ID: "85"}, {ID: "88"},
 	}
@@ -304,7 +322,7 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 	if update {
 		fake.Steps = []hostapitest.FakeStep{
-			{ID: "10", State: "skip", Detail: "bereits erledigt"}, systemUpgrade,
+			{ID: "10", State: "skip", Detail: "bereits erledigt"}, systemUpgrade(opts.english),
 			{ID: "20", State: "skip", Detail: "bereits erledigt"},
 			{ID: "30", State: "skip", Detail: "bereits erledigt"}, {ID: "35", State: "skip", Detail: "nicht ausgewaehlt"},
 			{ID: "40", State: "skip", Detail: "bereits erledigt"},

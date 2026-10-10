@@ -28,7 +28,7 @@ async function mount({ outcome = {}, shared = {}, responses = {}, errors = {}, s
   s.shared.lastRun = Object.assign({
     ok: true, code: '', stepId: '', mode: 'install', only: '', startedAt: T0, finishedAt: T0 + 492000,
     loginUrl: '', loginPending: false, steps: {}, lastLines: [], logText: '14:18:03  ##STEP 10 begin\n',
-    groups: mounted.window.Services.runGroups(MANIFEST, s.shared.selection, s),
+    groups: mounted.window.Services.runGroups(MANIFEST, s),
   }, outcome);
   await mounted.screen.init();
   return mounted;

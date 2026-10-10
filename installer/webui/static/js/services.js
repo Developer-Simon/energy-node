@@ -20,6 +20,7 @@
   }
 
   var Services = {
+    CORE_STEP: CORE_STEP,
     DASHBOARD_UNIT: DASHBOARD_UNIT,
     // Die Bibliotheken, die scripts/build/lib/wheels.sh als eigene Wheels
     // baut (Vorschau und Diagnose). Ein Test haelt die Liste gegen das Skript.
@@ -129,43 +130,35 @@
       return rows;
     },
 
-    runGroups: function (manifest, selection, shell) {
-      var parts = Services.split(manifest);
-      var serviceSteps = parts.services.concat(parts.devices);
-      var subs = [{ key: 'bridge', name: shell.t('service.bridge'), on: true, unit: DASHBOARD_UNIT }]
-        .concat(serviceSteps.map(function (step) {
-          return { key: step.id, name: Services.serviceName(step, shell), on: Services.isSelected(step, selection), unit: step.unit || '' };
-        }))
-        .concat([{ key: 'dashboard', name: shell.t('service.dashboard'), on: true, unit: DASHBOARD_UNIT }]);
-      var servicesGroup = {
-        key: 'services', label: shell.t('run.group.services'),
-        ids: [CORE_STEP].concat(serviceSteps.map(function (step) { return step.id; })), subs: subs,
-      };
-
-      var groups = [];
-      var placed = false;
+    // runGroups: die Stationen der Ausfuehrung, eine je Schritt in
+    // Manifest-Reihenfolge - so laufen sie auch, und die Leiste springt nie
+    // zurueck. Dienste stehen wie Systemschritte in der Liste.
+    runGroups: function (manifest, shell) {
       var steps = (manifest && manifest.steps) || [];
       var present = {};
       steps.forEach(function (step) { present[step.id] = true; });
+      var groups = [];
       steps.forEach(function (step) {
-        if (step.service_id || present[RUN_GROUP_OF[step.id]]) {
-          return;
-        }
-        if (step.id === CORE_STEP) {
-          groups.push(servicesGroup);
-          placed = true;
+        if (present[RUN_GROUP_OF[step.id]]) {
           return;
         }
         var ids = [step.id].concat(steps.filter(function (other) {
           return RUN_GROUP_OF[other.id] === step.id;
         }).map(function (other) { return other.id; }));
-        groups.push({ key: 'step-' + step.id, label: Services.stepName(step.id, shell), ids: ids, subs: null });
+        groups.push({ key: 'step-' + step.id, label: Services.stepLabel(manifest, step.id, shell), ids: ids });
       });
-      if (!placed && serviceSteps.length) {
-        servicesGroup.ids = servicesGroup.ids.slice(1);
-        groups.push(servicesGroup);
-      }
       return groups;
+    },
+
+    // serviceUnits: die Dienste des Node mit ihrer Unit - MQTT-Bruecke und
+    // Dashboard (Schritt 60) laufen immer, die uebrigen nach Auswahl.
+    serviceUnits: function (manifest, selection, shell) {
+      var parts = Services.split(manifest);
+      return [{ key: 'bridge', name: shell.t('service.bridge'), on: true, unit: DASHBOARD_UNIT }]
+        .concat(parts.services.concat(parts.devices).map(function (step) {
+          return { key: step.id, name: Services.serviceName(step, shell), on: Services.isSelected(step, selection), unit: step.unit || '' };
+        }))
+        .concat([{ key: 'dashboard', name: shell.t('service.dashboard'), on: true, unit: DASHBOARD_UNIT }]);
     },
 
     // systemUpdatesText: die ausstehenden Systempakete (Schritt 15) mit dem

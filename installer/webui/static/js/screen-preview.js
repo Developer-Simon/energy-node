@@ -86,12 +86,10 @@
 
     // restart: die Units, die neu starten, je mit ihrem Grund. Ein Dienst
     // startet nur neu, wenn der Plan ihm einen Grund gibt (step.restart,
-    // restart_rule.py) oder "Alle neu starten" an ist. Der Schritt, der die
-    // Dienst-Station anfuehrt (60), hat keine Unit im Manifest - er ist das
-    // Dashboard und laeuft wie bisher immer mit.
+    // restart_rule.py) oder "Alle neu starten" an ist. Schritt 60 hat keine
+    // Unit im Manifest - er ist das Dashboard und laeuft wie bisher immer mit.
     restart: function (plan, manifest, shell, restartAll) {
-      var group = window.Services.runGroups(manifest, { steps: {} }, shell).filter(function (g) { return g.subs; })[0];
-      var core = group ? group.ids[0] : '';
+      var core = window.Services.CORE_STEP;
       var rows = [];
       var seen = {};
       ((plan && plan.steps) || []).forEach(function (step) {

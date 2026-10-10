@@ -2,7 +2,6 @@
 
 ## v0.4.4 (2026-10-06)
 
-
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)

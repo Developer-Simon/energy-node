@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.2.1 (2026-10-10)
+
+### Fixes
+
+- **installer:** list every step and service as its own run station (#121)
+
+### Documentation
+
+- **installer:** refresh the run screenshot and show log text in the window language (14f3827)
+
 ## v0.2.0 (2026-10-05)
 
 ### Features

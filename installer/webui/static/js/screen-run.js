@@ -96,11 +96,11 @@
           this.groups = [];
         } else if (this.model.only) {
           this.groups = [{
-            key: 'only', ids: [this.model.only], subs: null,
+            key: 'only', ids: [this.model.only],
             label: window.Services.stepLabel(this.manifest, this.model.only, this.shell),
           }];
         } else {
-          this.groups = window.Services.runGroups(this.manifest, this.selection, this.shell);
+          this.groups = window.Services.runGroups(this.manifest, this.shell);
         }
       },
 
@@ -185,10 +185,6 @@
         if (state === 'ok' && reboot) {
           return window.RunModel.okText(model.steps[reboot].detail, t);
         }
-        if (group.subs) {
-          var on = group.subs.filter(function (sub) { return sub.on; }).length;
-          return t('run.services.selection', { selected: on, total: group.subs.length });
-        }
         return '';
       },
 
@@ -206,13 +202,10 @@
             key: 'stp-' + group.key, type: 'stp', state: state,
             cls: 'stp' + (state === 'run' ? ' now' : state === 'wait' ? ' wait' : ''),
             title: group.label, detail: self.detailFor(group, state),
-            time: ms > 0 ? window.Format.duration(ms) : '', subs: null,
+            time: ms > 0 ? window.Format.duration(ms) : '',
           });
           if (self.model.loginUrl && group.ids.indexOf(self.model.loginStep) >= 0) {
-            parts.push({ key: 'call', type: 'call', url: self.model.loginUrl, subs: null });
-          }
-          if (group.subs) {
-            parts.push({ key: 'subs-' + group.key, type: 'subs', subs: group.subs });
+            parts.push({ key: 'call', type: 'call', url: self.model.loginUrl });
           }
         });
         return parts;
@@ -222,9 +215,17 @@
         if (!this.model) {
           return [];
         }
+        var t = this.shell.t.bind(this.shell);
         return this.model.log.map(function (entry) {
+          // Der Marker bleibt im Protokoll woertlich; angezeigt wird sein
+          // Zusatz in der Sprache des Fensters (die gespeicherte Datei nicht).
+          var text = entry.text;
+          if (entry.marker && entry.detail) {
+            var detail = entry.state === 'skip' ? window.RunModel.skipText(entry.detail, t) : window.RunModel.okText(entry.detail, t) || entry.detail;
+            text = '##STEP ' + entry.stepId + ' ' + entry.state + ' ' + detail;
+          }
           return {
-            key: entry.key, clock: window.Format.clock(entry.at), marker: entry.marker, text: entry.text,
+            key: entry.key, clock: window.Format.clock(entry.at), marker: entry.marker, text: text,
             segments: entry.marker ? [] : window.RunModel.segments(entry.text),
           };
         });

@@ -7,15 +7,20 @@
 //   node test/e2e/docs-screenshots.mjs installer-changelog
 //   node test/e2e/docs-screenshots.mjs --out /tmp/shots   # woanders hin
 //
-// Geschrieben werden installer-update.png (die Vorschau) und
-// installer-changelog.png (Was ist neu, Ansicht Highlights). Die uebrigen
+// Geschrieben werden installer-update.png (die Vorschau),
+// installer-changelog.png (Was ist neu, Ansicht Highlights) und
+// installer-run.png (die Ausfuehrung einer Erstinstallation, vom zweiten
+// Testwirt im Szenario vorlage angehalten bei Schritt 85). Die uebrigen
 // Installer-Bilder haben noch kein Skript.
 import { chromium } from 'playwright';
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
+import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { startFakehost } from './fakehost.mjs';
+import { startFakehost, SECRETS } from './fakehost.mjs';
 
+const WEBUI_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const en = JSON.parse(fs.readFileSync(path.join(WEBUI_DIR, 'catalogs', 'en.json'), 'utf8'));
 const REPO_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 
 const args = { out: path.join(REPO_DIR, 'docs/images'), names: [] };
@@ -53,7 +58,34 @@ async function preview() {
   return { context, page };
 }
 
+// Erstinstallation bis in die Ausfuehrung; der Wirt haelt bei Schritt 85 an,
+// damit Tailscale, Dashboard und die ersten Dienste fertig, die Rest offen sind.
+async function run() {
+  const runHost = await startFakehost(['--lang', 'en', '--trusted', '--hold-step', '85']);
+  const context = await browser.newContext({ viewport: { width: 1080, height: 1000 } });
+  const page = await context.newPage();
+  await page.goto(runHost.url);
+  await page.locator('.app:not([x-cloak]) .bar-title:not(:empty)').waitFor();
+  await page.getByLabel(en['field.address'], { exact: true }).fill('energy-node.local');
+  await page.getByLabel(en['field.user'], { exact: true }).fill('pi');
+  await page.getByLabel(en['field.password'], { exact: true }).fill(SECRETS.login);
+  await page.getByRole('button', { name: en['action.connect'], exact: true }).click();
+  await page.getByRole('button', { name: en['action.next'], exact: true }).click();
+  await page.getByLabel(en['field.mqtt_password'], { exact: true }).fill(SECRETS.mqtt);
+  await page.getByLabel(en['field.admin_password'], { exact: true }).fill(SECRETS.admin);
+  await page.getByRole('button', { name: en['action.start_install'] }).click();
+  await page.locator('.app[data-screen="run"] .stp.now').waitFor({ timeout: 30000 });
+  await page.waitForTimeout(1500);
+  return { context, page, stop: () => runHost.stop() };
+}
+
 try {
+  if (want('installer-run')) {
+    const { context, page, stop } = await run();
+    await shot(page, 'installer-run');
+    await context.close();
+    await stop();
+  }
   if (want('installer-update')) {
     const { context, page } = await preview();
     await shot(page, 'installer-update');
