@@ -156,3 +156,13 @@ test('nach einem Neustart des Wirts baut der Lauf sich unter der ID aus hello ne
   assert.equal(shell.screen, 'result');
   assert.equal(shell.shared.lastRun.ok, true);
 });
+
+test('der Zusatz eines Markers erscheint in der Fenstersprache, das gespeicherte Protokoll bleibt woertlich', async () => {
+  const { screen, source, window } = await mount();
+  emitAll(source, [
+    ['run-started', { run_id: 'run-1', mode: 'install', only: '' }, 0],
+    ['step', { id: '35', state: 'skip', detail: 'nicht ausgewaehlt' }, 1],
+  ]);
+  assert.equal(screen.logEntries.at(-1).text, '##STEP 35 skip nicht ausgewählt');
+  assert.match(window.RunModel.logText(screen.model), /##STEP 35 skip nicht ausgewaehlt/);
+});

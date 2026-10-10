@@ -215,9 +215,17 @@
         if (!this.model) {
           return [];
         }
+        var t = this.shell.t.bind(this.shell);
         return this.model.log.map(function (entry) {
+          // Der Marker bleibt im Protokoll woertlich; angezeigt wird sein
+          // Zusatz in der Sprache des Fensters (die gespeicherte Datei nicht).
+          var text = entry.text;
+          if (entry.marker && entry.detail) {
+            var detail = entry.state === 'skip' ? window.RunModel.skipText(entry.detail, t) : window.RunModel.okText(entry.detail, t) || entry.detail;
+            text = '##STEP ' + entry.stepId + ' ' + entry.state + ' ' + detail;
+          }
           return {
-            key: entry.key, clock: window.Format.clock(entry.at), marker: entry.marker, text: entry.text,
+            key: entry.key, clock: window.Format.clock(entry.at), marker: entry.marker, text: text,
             segments: entry.marker ? [] : window.RunModel.segments(entry.text),
           };
         });

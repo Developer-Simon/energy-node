@@ -85,7 +85,7 @@
       if (data.state === 'ok' && data.detail === 'neustart noetig') {
         model.rebootPending = true;
       }
-      push(model, { at: at, stepId: data.id, marker: true, text: '##STEP ' + data.id + ' ' + data.state + (data.detail ? ' ' + data.detail : '') });
+      push(model, { at: at, stepId: data.id, marker: true, state: data.state, detail: data.detail || '', text: '##STEP ' + data.id + ' ' + data.state + (data.detail ? ' ' + data.detail : '') });
       return true;
     }
     if (type === 'log') {
