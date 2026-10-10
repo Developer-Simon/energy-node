@@ -806,6 +806,14 @@ select.schema-control {
 .settings-help-list { display: grid; gap: .6rem; margin: 1rem 1.2rem; padding-left: 1.2rem; line-height: 1.5; }
 .settings-help-panel a { color: var(--accent); }
 .settings-help { color: var(--text-subtle); line-height: 1.5; }
+/* Hinweise unter der Schrittliste: eigener Fussbereich mit Trennlinie und
+   abgesenktem Grund, damit "was du tun musst" (Liste) und "gut zu wissen"
+   (Hinweise) sichtbar getrennt sind. Innenabstand wie die summary, das Icon
+   steht in einer festen Spalte, mehrzeiliger Text bleibt buendig. */
+.settings-help-notes { display: grid; gap: .6rem; padding: .85rem 1rem; border-top: 1px solid var(--border-soft); background: var(--sunken); }
+.settings-help-note { display: grid; grid-template-columns: auto 1fr; gap: .6rem; align-items: start; margin: 0; color: var(--text-subtle); font-size: .92rem; line-height: 1.5; }
+.settings-help-note .automation-icon { width: 1.05rem; height: 1.05rem; margin-top: .15em; color: var(--text-faint); }
+.settings-help-note.is-warning .automation-icon { color: var(--warn); }
 
 /* Stepper-Kopf und Schritt-Uebergaenge fuer die Tailscale-/TinyTuya-Assistenten
    (settings-stepper.html-Partial). --settings-ease ist Apples iOS-Drawer-Kurve,

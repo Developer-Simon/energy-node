@@ -10,8 +10,10 @@
       <li>{{t "tinytuya.help.link_device"}}</li>
       <li>{{t "tinytuya.help.open_credentials"}}</li>
     </ol>
-    <p class="settings-help">{{t "tinytuya.help.install_library"}} <a href="https://github.com/jasonacox/tinytuya" target="_blank" rel="noopener noreferrer">github.com/jasonacox/tinytuya</a> <a href="https://pypi.org/project/tinytuya/" target="_blank" rel="noopener noreferrer">pypi.org/project/tinytuya</a></p>
-    <p class="settings-help">{{t "tinytuya.help.local_keys_warning"}}</p>
+    <div class="settings-help-notes">
+      <p class="settings-help-note"><svg class="automation-icon" aria-hidden="true"><use href="#ico-info"></use></svg><span>{{t "tinytuya.help.install_library"}} <a href="https://github.com/jasonacox/tinytuya" target="_blank" rel="noopener noreferrer">github.com/jasonacox/tinytuya</a> <a href="https://pypi.org/project/tinytuya/" target="_blank" rel="noopener noreferrer">pypi.org/project/tinytuya</a></span></p>
+      <p class="settings-help-note is-warning"><svg class="automation-icon" aria-hidden="true"><use href="#ico-warning"></use></svg><span>{{t "tinytuya.help.local_keys_warning"}}</span></p>
+    </div>
   </details>
   {{template "settings-stepper" .}}
   <div class="settings-step-stack">

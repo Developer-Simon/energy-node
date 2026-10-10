@@ -8,7 +8,9 @@
       <li>{{t "tailscale.help.setup_installation"}}</li>
       <li>{{t "tailscale.help.setup_login"}}</li>
     </ol>
-    <p class="settings-help">{{t "tailscale.help.no_auth_key"}}</p>
+    <div class="settings-help-notes">
+      <p class="settings-help-note"><svg class="automation-icon" aria-hidden="true"><use href="#ico-info"></use></svg><span>{{t "tailscale.help.no_auth_key"}}</span></p>
+    </div>
   </details>
   {{template "settings-stepper" .}}
   <div class="settings-step-stack">
