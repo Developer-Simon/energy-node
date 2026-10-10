@@ -2,7 +2,6 @@
 
 ## v0.4.3 (2026-10-06)
 
-
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
@@ -25,7 +24,6 @@
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 
 ## v0.3.4 (2026-09-20)
-
 
 ### Fixes
 
