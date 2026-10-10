@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.4.7 (2026-10-10)
+## v0.5.0 (2026-10-10)
 
 ### Features
 
@@ -18,6 +18,11 @@
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
 - point the repository at the new pages and add site search (72fa46e)
+
+### Chores
+
+- **release:** bump automation to v0.5.0 and the icon set to v0.2.0 (2a937dd)
+- **release:** bump the dashboard to v0.9.0 (#116)
 
 ## v0.4.4 (2026-09-28)
 
