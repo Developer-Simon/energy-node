@@ -468,9 +468,8 @@
     },
   });
 
-  // Sub pages a deep link (?page=) may open. whatsnew has no nav button of its
-  // own; the update bar and the versions page lead there.
-  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'whatsnew', 'system'];
+  // Sub pages a deep link (?page=) may open.
+  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system'];
 
   const settingsPage = () => ({
     activeSettingsPage: 'general',

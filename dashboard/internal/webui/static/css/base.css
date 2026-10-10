@@ -1126,7 +1126,34 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
   .app-modal.update-bar-modal[open] { opacity: 1; }
   @starting-style { .app-modal.update-bar-modal[open] { opacity: 0; } }
 }
-.update-bar-modal-log { max-height: 60vh; overflow: auto; margin-bottom: 1rem; }
+/* Inhalt des Dialogs: scrollt, die Knopfleiste darunter bleibt stehen. */
+.app-modal.update-bar-modal[open] { display: flex; flex-direction: column; max-height: calc(100vh - 2rem); }
+.update-bar-modal-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 1rem; padding-right: .25rem; }
+.update-bar-modal-body .setting-note { margin: .25rem 0 0; }
+.update-bar-modal .app-modal-actions { flex: 0 0 auto; padding-top: .75rem; border-top: 1px solid var(--border-soft); }
+/* Neuerungen: Versionsmarken und Eintraege, auch von der Versionsseite genutzt. */
+.version-tag { color: var(--text-strong); font-variant-numeric: tabular-nums; font-weight: 600; font-size: .9rem; }
+.version-chip {
+  padding: .1rem .5rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--text-muted);
+  font-size: .72rem;
+  white-space: nowrap;
+}
+.release-entries { margin: 0; padding-left: 1.1rem; color: var(--text); font-size: .88rem; line-height: 1.5; }
+.release-breaking {
+  padding: .05rem .4rem;
+  border-radius: 999px;
+  background: var(--bad-bg);
+  color: var(--bad-ink);
+  font-size: .7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.whatsnew-eyebrow { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+.whatsnew-component { margin-top: 1rem; }
+.whatsnew-component-title { display: flex; align-items: center; gap: .5rem; margin: 0 0 .4rem; font-size: .95rem; color: var(--text-strong); }
 .update-bar-dismiss { padding: 0 .2rem; border: 0; background: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; }
 .update-bar-restarting { border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
 .update-bar-restarting .update-bar-icon { stroke: var(--warn); }

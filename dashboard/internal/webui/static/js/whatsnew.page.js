@@ -1,5 +1,6 @@
-// The highlights of the last update (GET /api/v1/changelog/highlights). The
-// update bar opens it after a finished update; the versions page links to it.
+// The highlights of the last update (GET /api/v1/changelog/highlights), shown
+// in the dialog of base.html. The update bar opens it after a finished update,
+// the versions page has a button for it.
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
@@ -11,10 +12,6 @@
     to: '',
     sincePrevious: false,
     components: [],
-    // Loads once, the first time the sub page is shown. A flag instead of
-    // checking the data: an empty answer must not trigger another request.
-    requested: false,
-
     async load() {
       this.loading = true;
       this.error = '';
@@ -34,10 +31,10 @@
       }
     },
 
-    ensureLoaded() {
-      if (this.requested) return;
-      this.requested = true;
-      this.load();
+    // Loads freshly on every opening so the data is current, then shows the dialog.
+    async openDialog(dialog) {
+      await this.load();
+      if (!dialog.open) dialog.showModal();
     },
 
     get title() {
@@ -49,15 +46,14 @@
     },
 
     // The versions page lists every change, so the link goes there and
-    // switches its view to "all". activeSettingsPage is not declared here:
-    // the write reaches the settingsPage() scope this panel sits in.
-    showAll() {
-      this.activeSettingsPage = 'versions';
-      window.dispatchEvent(new CustomEvent('versions-show-all'));
+    // starts in the "all" view (?all=1, read by versions.page.js).
+    showAll(dialog) {
+      if (dialog && dialog.open) dialog.close();
+      this.navigate(`${window.__DASHBOARD_BASE_PATH__ || ''}/?panel=settings&page=versions&all=1`);
     },
 
-    overviewHref() {
-      return `${window.__DASHBOARD_BASE_PATH__ || ''}/`;
+    navigate(url) {
+      window.location.assign(url);
     },
   });
 

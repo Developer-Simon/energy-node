@@ -1011,7 +1011,8 @@ if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
     "$BASE/api/v1/changelog/highlights"
 
   # Oberflaeche: die Skripte der Neuerungen und der Update-Leiste werden
-  # ausgeliefert, und der Tiefenlink oeffnet die Seite mit ihnen.
+  # ausgeliefert, und die Basisseite bindet sie ein (der Neuerungen-Dialog
+  # liegt in der Basisseite).
   for asset in js/update-bar.js js/whatsnew.page.js; do
     if api "$BASE/static/$asset" > /dev/null; then
       echo "  OK   Asset $asset wird ausgeliefert"
@@ -1021,14 +1022,14 @@ if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
   done
   # In eine Variable lesen: grep -q beendet sich beim ersten Treffer und kann
   # curl per SIGPIPE abbrechen (Exit 23), was unter pipefail als Fehler zaehlt.
-  deeplink_page="$(api "$BASE/?panel=settings&page=whatsnew" || true)"
-  if grep -q 'whatsnew.page.js' <<<"$deeplink_page"; then
-    echo "  OK   Tiefenlink Einstellungen > Neuerungen bindet das Skript ein"
+  base_page="$(api "$BASE/" || true)"
+  if grep -q 'whatsnew.page.js' <<<"$base_page" && grep -q 'update-whatsnew-open' <<<"$base_page"; then
+    echo "  OK   Basisseite bindet das Neuerungen-Skript und den Dialog ein"
   else
-    echo "  FEHL Tiefenlink Einstellungen > Neuerungen bindet whatsnew.page.js nicht ein"; FAILED=1
+    echo "  FEHL Basisseite bindet whatsnew.page.js oder den Neuerungen-Dialog nicht ein"; FAILED=1
   fi
   settings_js="$(api "$BASE/static/js/settings.page.js" || true)"
-  if grep -q "get('page')" <<<"$settings_js" && grep -q 'whatsnew' <<<"$settings_js"; then
+  if grep -q "get('page')" <<<"$settings_js"; then
     echo "  OK   settings.page.js wertet den Tiefenlink ?page= aus"
   else
     echo "  FEHL settings.page.js enthaelt die Auswertung von ?page= nicht"; FAILED=1

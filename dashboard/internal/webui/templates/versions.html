@@ -1,5 +1,5 @@
 {{define "versions"}}
-<section id="settings-versions" role="tabpanel" class="settings-cards versions-cards" x-show="activeSettingsPage === 'versions'" x-data="versionsPanel()" x-init="load()" x-on:versions-show-all.window="mode = 'all'">
+<section id="settings-versions" role="tabpanel" class="settings-cards versions-cards" x-show="activeSettingsPage === 'versions'" x-data="versionsPanel()" x-init="load()">
   <p class="settings-help" x-show="error" x-text="error"></p>
   <div class="setting-card">
     <h3 class="setting-card-title">{{t "settings.versions.package.title"}}</h3>

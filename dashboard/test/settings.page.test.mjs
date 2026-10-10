@@ -291,9 +291,9 @@ function createSettingsPage(search) {
 }
 
 test('settingsPage opens the sub page named in ?page=', () => {
-  const page = createSettingsPage('?panel=settings&page=whatsnew');
+  const page = createSettingsPage('?panel=settings&page=versions');
   page.init();
-  assert.equal(page.activeSettingsPage, 'whatsnew');
+  assert.equal(page.activeSettingsPage, 'versions');
 });
 
 test('settingsPage ignores an unknown ?page=', () => {

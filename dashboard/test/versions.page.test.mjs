@@ -330,3 +330,12 @@ test('load() keeps the previous bundle, null when the snapshot has none', async 
   const none = await loaded();
   assert.equal(none.component.previous, null);
 });
+
+test('?all=1 starts the page in "all" mode, otherwise in highlights', () => {
+  const { component, window } = createVersionsPanel();
+  component.init();
+  assert.equal(component.mode, 'highlights');
+  window.history.pushState({}, '', '/?panel=settings&page=versions&all=1');
+  component.init();
+  assert.equal(component.mode, 'all');
+});

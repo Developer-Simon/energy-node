@@ -66,6 +66,11 @@
     updateCheckDisabled: false,
     savingUpdateCheck: false,
 
+    // ?all=1 (the link of the what's new dialog) starts in the "all" view.
+    init() {
+      if (new URLSearchParams(window.location.search).get('all') === '1') this.mode = 'all';
+    },
+
     async load() {
       this.loading = true;
       this.error = '';

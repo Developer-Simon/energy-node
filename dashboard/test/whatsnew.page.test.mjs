@@ -55,21 +55,26 @@ test('a missing changelog shows the no-changelog text', async () => {
   assert.equal(panel.components.length, 0);
 });
 
-test('ensureLoaded requests only once, even after an empty answer', async () => {
+test('openDialog loads freshly every time and then shows the dialog', async () => {
   let calls = 0;
-  const { panel } = create(async () => { calls += 1; return json({ to: '', components: [] }); });
-  panel.ensureLoaded();
-  await new Promise((resolve) => setTimeout(resolve, 0));
-  panel.ensureLoaded();
+  const { panel } = create(async () => { calls += 1; return json(VIEW); });
+  const dialog = { open: false, showModal() { this.open = true; } };
+  await panel.openDialog(dialog);
   assert.equal(calls, 1);
+  assert.equal(dialog.open, true);
+  dialog.open = false;
+  await panel.openDialog(dialog);
+  assert.equal(calls, 2);
+  assert.equal(dialog.open, true);
 });
 
-test('showAll switches to the versions page in "all" mode', () => {
+test('showAll closes the dialog and opens the versions page in "all" mode', () => {
   const { panel, window } = create(async () => json(VIEW));
-  let heard = false;
-  window.addEventListener('versions-show-all', () => { heard = true; });
-  panel.activeSettingsPage = 'whatsnew';
-  panel.showAll();
-  assert.equal(panel.activeSettingsPage, 'versions');
-  assert.equal(heard, true);
+  let target = '';
+  panel.navigate = (url) => { target = url; };
+  window.__DASHBOARD_BASE_PATH__ = '/node';
+  let closed = false;
+  panel.showAll({ open: true, close() { closed = true; } });
+  assert.equal(closed, true);
+  assert.equal(target, '/node/?panel=settings&page=versions&all=1');
 });
