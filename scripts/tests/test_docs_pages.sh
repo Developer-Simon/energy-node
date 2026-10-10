@@ -132,6 +132,22 @@ grep -qxF '  "services/foo.md": { version: "v0.10.0", unreleased: true, componen
 grep -qxF '  "tool.md": { version: "v0.10.0", unreleased: true }' <<<"$out" \
   || fail "tool.md should have no component version" "$out"
 
+# A released page shows the first release that contains its last commit, not
+# the version that commit carried. Its component version is read at that tag.
+echo v0.10.1 > "$repo/dashboard/VERSION"
+commit bump
+git -C "$repo" tag v0.10.1
+echo v0.12.0 > "$repo/dashboard/VERSION"
+commit later
+git -C "$repo" tag v0.12.0
+out=$("$doc_versions" "$repo")
+grep -qxF '  "index.md": { version: "v0.10.1", unreleased: false }' <<<"$out" \
+  || fail "index.md should show its first release v0.10.1" "$out"
+grep -qxF '  "knowledge/new.md": { version: "v0.2.0", unreleased: false }' <<<"$out" \
+  || fail "new.md should keep its first release v0.2.0" "$out"
+grep -qxF '  "services/foo.md": { version: "v0.10.1", unreleased: false, component: "Foo service", component_version: "v0.3.2" }' <<<"$out" \
+  || fail "foo.md should carry the Foo service version of its release" "$out"
+
 # An unknown component id fails the build instead of silently dropping it.
 printf -- '---\ncomponent: nope\n---\n' > "$repo/docs/bad.md"
 commit six
