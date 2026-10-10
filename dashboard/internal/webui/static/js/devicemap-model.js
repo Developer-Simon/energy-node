@@ -14,18 +14,20 @@
   // toward(v): signed power toward the device, consumption positive. The
   // snapshot has already applied scale/invert; each role's own sign is
   // documented in energy.go semanticsFor(). null = not a power role.
+  // Role icons are catalogue icons (deviceicons.go), drawn from the
+  // markup the page loads over /api/v1/device/icons.
   const ROLE_META = Object.freeze({
-    pv: {color: 'flow-pv', icon: 'pv', toward: v => -Math.abs(v)},
-    battery: {color: 'flow-battery', icon: 'battery', toward: v => v},
-    battery_charge: {color: 'flow-battery', icon: 'battery', toward: v => Math.abs(v)},
-    battery_discharge: {color: 'flow-battery', icon: 'battery', toward: v => -Math.abs(v)},
-    grid: {color: 'flow-grid', icon: 'grid', toward: v => v},
-    grid_import: {color: 'flow-grid', icon: 'grid', toward: v => Math.abs(v)},
-    grid_export: {color: 'flow-grid', icon: 'grid', toward: v => -Math.abs(v)},
-    load: {color: 'flow-load', icon: 'load', toward: v => Math.abs(v)},
-    wallbox: {color: 'flow-wallbox', icon: 'wallbox', toward: v => Math.abs(v)},
-    heat_pump: {color: 'flow-heatpump', icon: 'heat_pump', toward: v => Math.abs(v)},
-    battery_soc: {color: 'flow-battery', icon: 'soc', toward: null},
+    pv: {color: 'flow-pv', icon: 'cat:energy-node:sun', toward: v => -Math.abs(v)},
+    battery: {color: 'flow-battery', icon: 'cat:energy-node:battery', toward: v => v},
+    battery_charge: {color: 'flow-battery', icon: 'cat:energy-node:battery', toward: v => Math.abs(v)},
+    battery_discharge: {color: 'flow-battery', icon: 'cat:energy-node:battery', toward: v => -Math.abs(v)},
+    grid: {color: 'flow-grid', icon: 'cat:energy-node:grid', toward: v => v},
+    grid_import: {color: 'flow-grid', icon: 'cat:energy-node:grid', toward: v => Math.abs(v)},
+    grid_export: {color: 'flow-grid', icon: 'cat:energy-node:grid', toward: v => -Math.abs(v)},
+    load: {color: 'flow-load', icon: 'cat:energy-node:home', toward: v => Math.abs(v)},
+    wallbox: {color: 'flow-wallbox', icon: 'cat:energy-node:wallbox', toward: v => Math.abs(v)},
+    heat_pump: {color: 'flow-heatpump', icon: 'cat:energy-node:heat-pump', toward: v => Math.abs(v)},
+    battery_soc: {color: 'flow-battery', icon: 'cat:energy-node:battery-level', toward: null},
   });
 
   const BASE_TOWARD = Object.freeze({
@@ -248,7 +250,7 @@
     const spec = {
       segments: entry ? entry.roles.map(r => entry.meta[r].color) : [],
       dashed: Boolean(entry && entry.heuristic),
-      icon: meta ? meta.icon : (hasEntities ? 'sensor' : 'box'),
+      icon: meta ? meta.icon : (hasEntities ? 'cat:energy-node:sensor' : 'box'),
       iconColor: meta ? meta.color : 'text-muted',
       health,
     };

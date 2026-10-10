@@ -8,16 +8,10 @@
   const R = 24;
   const RING_R = R - 1;
 
-  // Inner markup of the draft's <symbol> elements (viewBox 0 0 24 24).
+  // Locally drawn glyphs: the virtual nodes (balance, rule, data) and the
+  // box shown when a catalogue icon is missing. Device and role icons come
+  // from the catalogue markup (spec.iconMarkup).
   const ICONS = {
-    pv: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></g>',
-    battery: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="2"/><path d="M21 10.5v3"/><path d="M7 12h8M11 9.5v5"/></g>',
-    soc: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><rect x="3" y="7" width="16" height="10" rx="2"/><path d="M21 10.5v3"/></g><rect x="5.5" y="9.5" width="7.5" height="5" rx="1" fill="currentColor"/>',
-    grid: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5 7 21.5M12 2.5l5 19M5 6.5h14M7.6 11h8.8M8.9 16h6.2"/></g>',
-    load: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7v9.5h-17z"/><path d="M10 20.5v-5h4v5"/></g>',
-    wallbox: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v5M15 3v5M7 8h10v3a5 5 0 0 1-10 0z M12 16v5"/></g>',
-    heat_pump: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2.5"/><circle cx="12" cy="12" r="4.6"/><path d="M12 12c-1.4-1.6-1.2-3.4 0-4.2 1.2.8 1.4 2.6 0 4.2zM12 12c2 .3 3 1.8 2.6 3.2-1.4.3-2.8-.8-2.6-3.2zM12 12c-.6 2-2.3 2.8-3.6 2.1.1-1.4 1.6-2.4 3.6-2.1z" fill="currentColor" stroke="none"/></g>',
-    sensor: '<path d="M3 12h3.5l2-5.5 4 11 2.5-5.5H21" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>',
     box: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></g>',
     balance: '<g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g>',
     rule: '<path d="M13.2 2.8 6 13.2h5l-1.2 8 7.2-10.4h-5z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>',

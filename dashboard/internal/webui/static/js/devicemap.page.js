@@ -1253,7 +1253,7 @@
           const previous = this.groupOf(id);
           return previous && previous[0] !== groupId ? previous[1].label : '';
         };
-        const fallbackIcon = (this.iconCatalogue[0] || {}).markup || '';
+        const fallbackIcon = this.iconMarkup['energy-node:chip'] || '';
         const devices = this.devices
           .filter(device => device.id !== model.OWN_ENERGY_DEVICE_ID && !(group.members.devices || []).includes(device.id))
           .map(device => ({
