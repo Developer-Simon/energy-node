@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.19 (2026-10-10)
+## v0.8.20 (2026-10-10)
 
 ### Features
 
@@ -17,6 +17,16 @@
 - **dashboard:** data flow and balance layers on the device map (#109) (bbe604b)
 - **dashboard:** live plant view on the energy tab (#110) (a3951fd)
 - **dashboard:** polish the device map and the energy tab (#111) (55becd6)
+- **dashboard:** add device icon name aliases (446f3ae)
+- **dashboard:** migrate saved device icon names to energy-node names (6ab39de)
+- **dashboard:** add shared shapes for device icons (6eb7d98)
+- **dashboard:** add device icon labels and categories (e0ab443)
+- **dashboard:** reorganise the device icon catalogue with energy-node names (7f24eb2)
+- **ha:** add MDI names and aliases to the icon source (11a6f5f)
+- **dashboard:** group the device icon picker by category (636806e)
+- **dashboard:** draw device map role icons from the catalogue (379c5c3)
+- **dashboard:** show a minimal fill level in the battery icon (8f9c311)
+- **dashboard:** reorganise the device icon catalogue (#114)
 - **dashboard:** move the automatic update check switch to the versions page (2aaca8c)
 - **dashboard:** show the update check explanation as a tooltip (7b4a38f)
 - **dashboard:** polish the device map toolbar, cards and group editing (82c7dc2)
@@ -85,6 +95,7 @@
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
 - **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
 - **dashboard:** settings polish and local docs serve (#112) (1c7e1d3)
+- **dashboard:** accept legacy category icons and update icon name expectations (fd9086d)
 - **dashboard:** keep the segmented control thumb inside its frame (9b5ed56)
 - **dashboard:** drop the arrow instead of spinning the update check icon (3ed48de)
 - **dashboard:** give the setup help notes their own footer (7806394)
@@ -111,6 +122,8 @@
 
 ### Refactors
 
+- **dashboard:** draw sprite glyphs from the icon catalogue (3f9ba11)
+- **dashboard:** reuse sprite symbols for inline icons (3f323cd)
 - **dashboard:** share the device map flow animator (2b32891)
 - **dashboard:** move device map graph building into devicemap-graph.js (d34895a)
 - **dashboard:** move automation description helpers into automations-view.js (2af6a5a)
@@ -120,6 +133,7 @@
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
+- describe the reorganised device icon catalogue (2144a4c)
 - **dashboard:** merge the device map into the energy page (b9bee03)
 - **dashboard:** describe the plant view on the energy tab (ccc8f3e)
 - **dashboard:** describe the balance and data flow layers (082591c)
