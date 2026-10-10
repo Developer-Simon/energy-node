@@ -4,137 +4,298 @@
   "view_box": "0 0 24 24",
   "icons": [
     {
-      "name": "mdi:chip-outline",
-      "ha_name": "chip-outline",
-      "label": "Standard",
-      "markup": "<rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" rx=\"2\"/><line x1=\"9\" y1=\"3\" x2=\"9\" y2=\"6\"/><line x1=\"15\" y1=\"3\" x2=\"15\" y2=\"6\"/><line x1=\"9\" y1=\"18\" x2=\"9\" y2=\"21\"/><line x1=\"15\" y1=\"18\" x2=\"15\" y2=\"21\"/><line x1=\"3\" y1=\"9\" x2=\"6\" y2=\"9\"/><line x1=\"3\" y1=\"15\" x2=\"6\" y2=\"15\"/><line x1=\"18\" y1=\"9\" x2=\"21\" y2=\"9\"/><line x1=\"18\" y1=\"15\" x2=\"21\" y2=\"15\"/>",
-      "sha256": "c1f0492f5b2862a55ffdb4ffdbccb187dcabf7a2299c9e541c5d815e6e74312c"
-    },
-    {
-      "name": "mdi:solar-panel",
+      "name": "energy-node:solar-panel",
       "ha_name": "solar-panel",
+      "mdi": "mdi:solar-panel",
       "label": "Solarpanel",
-      "markup": "<path d=\"M3.5 16 7 6h13.5L17 16Z\"/><path d=\"M5.25 11h13.5\"/><path d=\"M11.5 6 8 16\"/><path d=\"M16 6l-3.5 10\"/><path d=\"M10.2 16v4\"/><path d=\"M7 20h6.5\"/>",
-      "sha256": "a6daa1f88a49f973a75b7a8386e8dba92bc1f575a24ea540d450f17fff77464c"
+      "markup": "<path d=\"M3.5 15 7 5h13.5L17 15Z\"/><path d=\"M5.25 10h13.5\"/><path d=\"M11.5 5 8 15\"/><path d=\"M16 5l-3.5 10\"/><path d=\"M10.2 15v4\"/><path d=\"M7 19h6.5\"/>",
+      "sha256": "c27342aefdf7518065a146d77cb3b46bc1c985b5714817d1249c47e1e21576b5"
     },
     {
-      "name": "mdi:current-ac",
-      "ha_name": "current-ac",
-      "label": "Wechselrichter",
-      "markup": "<rect x=\"3\" y=\"3.5\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M12.2 6.5 9 11.6h2.8l-.3 3.4 4.7-5.1h-2.8z\"/><path d=\"M7 18c1.667-1.9 3.333-1.9 5 0s3.333 1.9 5 0\"/>",
-      "sha256": "e77cdb03eb0a768dd5271f0601df8d23ba56082a394f49d012c1ae0b118b794c"
+      "name": "energy-node:sun",
+      "ha_name": "sun",
+      "mdi": "mdi:weather-sunny",
+      "label": "Sonne, Helligkeit",
+      "markup": "<circle cx=\"12\" cy=\"12\" r=\"4\"/><path d=\"M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19\"/>",
+      "sha256": "c55a6139083376656603751983484c5fcd815d2f2543e2722f989e85caffddf1"
     },
     {
-      "name": "mdi:power-plug",
-      "ha_name": "power-plug",
-      "label": "Smarte Steckdose",
-      "markup": "<g transform=\"rotate(-28 12 12)\"><path d=\"M16.2 6.6H9.4A3.4 3.4 0 0 0 6 10v4a3.4 3.4 0 0 0 3.4 3.4h6.8\"/><ellipse cx=\"16.2\" cy=\"12\" rx=\"2.4\" ry=\"5.4\"/><circle cx=\"16.5\" cy=\"10.1\" r=\"0.8\"/><circle cx=\"16.5\" cy=\"13.9\" r=\"0.8\"/><path d=\"M2.6 9.9h3.4M2.6 14.1h3.4\"/></g>",
-      "sha256": "020f69cd6ef79f9843982bedc507af9c424cdd9ae245c7153316c4233315f818"
-    },
-    {
-      "name": "mdi:meter-electric",
-      "ha_name": "meter-electric",
-      "label": "3-Phasen-Energiezähler",
-      "markup": "<rect x=\"3.5\" y=\"3\" width=\"17\" height=\"18\" rx=\"2\"/><rect x=\"6\" y=\"5.8\" width=\"12\" height=\"5\" rx=\"1\"/><path d=\"M8.4 7.4v1.8M10.4 7.4v1.8M12.4 7.4v1.8M14.4 7.4v1.8\"/><path d=\"M15.9 9.1h.01\"/><path d=\"M12.1 12.4 9.6 16.4h2.3l-.3 2.6 2.5-4h-2.3z\"/>",
-      "sha256": "10c753ea69e8877d7950877353a6028899ea67a483059b87da65a0d378bb8567"
-    },
-    {
-      "name": "mdi:pipe-valve",
-      "ha_name": "pipe-valve",
-      "label": "Heizungsrohr-Ventil",
-      "markup": "<path d=\"M2 15h5M17 15h5\"/><path d=\"M7 11.5 17 18.5v-7L7 18.5Z\"/><path d=\"M12 15V9.5\"/><path d=\"M9 9.5h6\"/>",
-      "sha256": "f348720744b51e537334795f00facac9fcb5ef9032cf3f179c321bdbab7ed194"
-    },
-    {
-      "name": "mdi:raspberry-pi",
-      "ha_name": "raspberry-pi",
-      "label": "Raspberry Pi",
-      "markup": "<rect x=\"2.5\" y=\"4\" width=\"19\" height=\"16\" rx=\"3\"/><path d=\"M5 8.6h2.6M5 11.1h2.6M5 13.6h2.6\"/><path d=\"M12.9 10.2C11.5 10 10.5 8.9 10.5 7.5c1.5-.1 2.5 1.1 2.5 2.7Z\"/><path d=\"M13.1 10.2C14.5 10 15.5 8.9 15.5 7.5c-1.5-.1-2.5 1.1-2.5 2.7Z\"/><circle cx=\"11.7\" cy=\"12.2\" r=\"1.15\"/><circle cx=\"14.3\" cy=\"12.2\" r=\"1.15\"/><circle cx=\"13\" cy=\"14.4\" r=\"1.15\"/><rect x=\"18.2\" y=\"8.6\" width=\"2.8\" height=\"2.2\" rx=\"0.5\"/><rect x=\"18.2\" y=\"13.2\" width=\"2.8\" height=\"2.2\" rx=\"0.5\"/>",
-      "sha256": "965b8a56ceb0d9724a5e818b57766a43470cb67e2c76d964ec76bf492a834797"
-    },
-    {
-      "name": "mdi:home-battery",
-      "ha_name": "home-battery",
+      "name": "energy-node:battery",
+      "ha_name": "battery",
+      "mdi": "mdi:battery-outline",
       "label": "Batterie",
+      "markup": "<rect x=\"2.5\" y=\"7\" width=\"16.5\" height=\"10\" rx=\"2.5\"/><path d=\"M19 10h1.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H19\"/>",
+      "sha256": "2c9f77f8bb209be1c96c052da55de729e3fb215cd4ec260161801c035ccc6298"
+    },
+    {
+      "name": "energy-node:battery-level",
+      "ha_name": "battery-level",
+      "mdi": "mdi:battery-medium",
+      "label": "Batterie mit Füllstand",
+      "markup": "<rect x=\"2.5\" y=\"7\" width=\"16.5\" height=\"10\" rx=\"2.5\"/><path d=\"M19 10h1.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H19\"/><path d=\"M6 10v4M9.25 10v4M12.5 10v4\"/>",
+      "sha256": "bfbc590d4234655dad61d83bf74f87f16cd35e4a6068a0d0dda2a7a3a37bd5ed"
+    },
+    {
+      "name": "energy-node:battery-bolt",
+      "ha_name": "battery-bolt",
+      "mdi": "mdi:battery-charging-outline",
+      "label": "Batterie mit Blitz",
+      "markup": "<rect x=\"2.5\" y=\"7\" width=\"16.5\" height=\"10\" rx=\"2.5\"/><path d=\"M19 10h1.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H19\"/><path d=\"M11.47 8.4 8.77 12.45 10.48 12.45 10.03 15.6 12.73 11.55 11.02 11.55Z\"/>",
+      "sha256": "7b34dcde9b3a75f9f05d0bece7831ee6051b4935777bee7463037607f5a6aa60"
+    },
+    {
+      "name": "energy-node:charger",
+      "ha_name": "charger",
+      "mdi": "mdi:battery-charging",
+      "label": "Ladegerät",
+      "markup": "<rect x=\"4.5\" y=\"7\" width=\"15\" height=\"10\" rx=\"2.5\"/><path d=\"M7.5 10.4h4\"/><path d=\"M7.5 13.6h.01M10 13.6h.01\"/><path d=\"M16.16 9.2 14.06 12.35 15.39 12.35 15.04 14.8 17.14 11.65 15.81 11.65Z\"/><path d=\"M4.5 12h-2M19.5 12h2\"/>",
+      "sha256": "60ef9bc25f9d7d8b499a07f4fa3911c772bfd9cabb451c23d861435f05f958ad"
+    },
+    {
+      "name": "energy-node:battery-home",
+      "ha_name": "battery-home",
+      "mdi": "mdi:home-battery",
+      "label": "Heimspeicher",
       "markup": "<rect x=\"5\" y=\"2.5\" width=\"14\" height=\"18\" rx=\"2\"/><path d=\"M5 6.2h14\"/><rect x=\"10.9\" y=\"8.2\" width=\"2.2\" height=\"1.3\" rx=\"0.45\"/><rect x=\"9.3\" y=\"9.5\" width=\"5.4\" height=\"8\" rx=\"1.2\"/><path d=\"M10.7 15.2h2.6M10.7 12.9h2.6\"/><path d=\"M8 20.5V22M16 20.5V22\"/>",
       "sha256": "cc6b9551773e6cbe67d15c856f4bf62b23a840d7e56334523492f5c6ada4d6f3"
     },
     {
-      "name": "mdi:battery-charging",
-      "ha_name": "battery-charging",
-      "label": "Ladegerät",
-      "markup": "<rect x=\"3\" y=\"7\" width=\"18\" height=\"10\" rx=\"2.5\"/><path d=\"M6 10.4h5\"/><path d=\"M6 13.6h.01M8.5 13.6h.01\"/><path d=\"M16.6 9.5 14.6 13h1.7l-.3 2.4 2.1-3.6h-1.7z\"/><path d=\"M3 12H1.2M21 12h1.8\"/>",
-      "sha256": "6332ec767cb1a687143fcc319605ab92d0bb9b20625bda2d952f7b80c35a6af3"
+      "name": "energy-node:grid",
+      "ha_name": "grid",
+      "mdi": "mdi:transmission-tower",
+      "label": "Stromnetz",
+      "markup": "<path d=\"M7.6 21 12 3l4.4 18\"/><path d=\"M3.5 7.5h17\"/><path d=\"M5.5 7.5v2.4M18.5 7.5v2.4\"/><path d=\"M9.8 12h4.4M8.6 17h6.8\"/>",
+      "sha256": "a88ff6cb3dbd8f0318d882cb032053c0968005c8575e96dad0456eeae5dac626"
     },
     {
-      "name": "mdi:thermometer",
-      "ha_name": "thermometer",
-      "label": "Thermometer",
-      "markup": "<path d=\"M10 13.6V5.5a2 2 0 1 1 4 0v8.1a4.2 4.2 0 1 1-4 0Z\"/><path d=\"M8.2 6.5H6M8.2 9H7M8.2 11.5H6\"/><circle cx=\"12\" cy=\"17.3\" r=\"1.7\"/>",
-      "sha256": "6e02e8836e534bbec2a762224f72ca7c9d6f9aaa8587967d1908cdd8617f2cac"
+      "name": "energy-node:meter-electric",
+      "ha_name": "meter-electric",
+      "mdi": "mdi:meter-electric",
+      "label": "3-Phasen-Energiezähler",
+      "markup": "<rect x=\"3.5\" y=\"3\" width=\"17\" height=\"18\" rx=\"2\"/><rect x=\"6\" y=\"5.8\" width=\"12\" height=\"5\" rx=\"1\"/><path d=\"M8.4 7.4v1.8M10.4 7.4v1.8M12.4 7.4v1.8M14.4 7.4v1.8\"/><path d=\"M15.9 9.1h.01\"/><path d=\"M12.66 12.4 10.19 16.11 11.75 16.11 11.34 19 13.82 15.29 12.25 15.29Z\"/>",
+      "sha256": "ed67dc1f69ea40756ef6ae261a08649d501cf1ce00d8e87a13f4a97b7061d3b4"
     },
     {
-      "name": "mdi:power-socket-de",
-      "ha_name": "power-socket-de",
+      "name": "energy-node:inverter",
+      "ha_name": "inverter",
+      "mdi": "mdi:current-ac",
+      "label": "Wechselrichter",
+      "markup": "<rect x=\"3\" y=\"3.5\" width=\"18\" height=\"17\" rx=\"2\"/><path d=\"M12.66 6.1 10.19 9.81 11.75 9.81 11.34 12.7 13.82 8.99 12.25 8.99Z\"/><path d=\"M7 16.5c1.667-1.9 3.333-1.9 5 0s3.333 1.9 5 0\"/>",
+      "sha256": "eae262fce037437ef77bfe6df9ab714f4a1a619b2234d93ec97aa41826a07830"
+    },
+    {
+      "name": "energy-node:sensor",
+      "ha_name": "sensor",
+      "mdi": "mdi:pulse",
+      "label": "Sensor allgemein",
+      "markup": "<path d=\"M3 12h3.5l2-5.5 4 11 2.5-5.5H21\"/>",
+      "sha256": "c3ede0c3466479ce1db857ed057f75da5802d53f8185624bbc627b5287b87d61"
+    },
+    {
+      "name": "energy-node:plug-smart",
+      "ha_name": "plug-smart",
+      "mdi": "mdi:power-plug",
+      "label": "Smarte Steckdose",
+      "markup": "<g transform=\"translate(1.1 .25) rotate(-28 12 12)\"><path d=\"M16.2 6.6H9.4A3.4 3.4 0 0 0 6 10v4a3.4 3.4 0 0 0 3.4 3.4h6.8\"/><ellipse cx=\"16.2\" cy=\"12\" rx=\"2.4\" ry=\"5.4\"/><circle cx=\"16.5\" cy=\"10.1\" r=\"0.8\"/><circle cx=\"16.5\" cy=\"13.9\" r=\"0.8\"/><path d=\"M2.6 9.9h3.4M2.6 14.1h3.4\"/></g>",
+      "sha256": "259799be19e8cd07674569dab67075fecf96859ac808582333232f503009fa43"
+    },
+    {
+      "name": "energy-node:socket-wall",
+      "ha_name": "socket-wall",
+      "mdi": "mdi:power-socket-de",
       "label": "Unterputz-Steckdose",
       "markup": "<rect x=\"2.5\" y=\"2.5\" width=\"19\" height=\"19\" rx=\"3\"/><circle cx=\"12\" cy=\"12\" r=\"6\"/><circle cx=\"9.5\" cy=\"12\" r=\"1.1\"/><circle cx=\"14.5\" cy=\"12\" r=\"1.1\"/><path d=\"M18.3 19.3h.01\"/><path d=\"M16.9 18.1a2.2 2.2 0 0 1 2.9 0\"/>",
       "sha256": "305b1f9c56a099fdb3dbe54b7384e71d937163e458d5024dde0943b5e1a0cee8"
     },
     {
-      "name": "mdi:gas-burner",
-      "ha_name": "gas-burner",
+      "name": "energy-node:switch",
+      "ha_name": "switch",
+      "mdi": "mdi:toggle-switch-outline",
+      "label": "Schalter, Relais",
+      "markup": "<rect x=\"2.5\" y=\"7\" width=\"19\" height=\"10\" rx=\"5\"/><circle cx=\"16.5\" cy=\"12\" r=\"3\"/>",
+      "sha256": "8f4fa3dbe2e45403b2e6147530dec1d3714d6bbfd661a7be97423e0afba1d31a"
+    },
+    {
+      "name": "energy-node:timer",
+      "ha_name": "timer",
+      "mdi": "mdi:timer-outline",
+      "label": "Zeitschaltuhr",
+      "markup": "<circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M12 7v5l3.5 2\"/>",
+      "sha256": "2bc796482e0a673307be2b3ec69a4d71c0d46927511097dd72e11cd41956a11d"
+    },
+    {
+      "name": "energy-node:heat-pump",
+      "ha_name": "heat-pump",
+      "mdi": "mdi:heat-pump",
+      "label": "Wärmepumpe",
+      "markup": "<rect x=\"3\" y=\"6.5\" width=\"18\" height=\"11\" rx=\"1.5\"/><path d=\"M5.5 9.6h3M5.5 12h3M5.5 14.4h3\"/><circle cx=\"15.2\" cy=\"12\" r=\"3.7\"/><path d=\"M15.2 12Q16.79 10.1 15.2 8.9Q14.62 10.56 15.2 12Z\"/><path d=\"M15.2 12Q16.05 14.33 17.88 13.55Q16.73 12.22 15.2 12Z\"/><path d=\"M15.2 12Q12.76 11.57 12.52 13.55Q14.25 13.22 15.2 12Z\"/>",
+      "sha256": "d8792d06eadf114aad69aaf3dbee65f2cf3eeaf0a592b950aef5973daa749afc"
+    },
+    {
+      "name": "energy-node:fan",
+      "ha_name": "fan",
+      "mdi": "mdi:fan",
+      "label": "Lüfter, Klimagerät",
+      "markup": "<circle cx=\"12\" cy=\"12\" r=\"8.6\"/><path d=\"M12 12Q15.19 8.2 12 5.8Q10.84 9.13 12 12Z\"/><path d=\"M12 12Q13.7 16.66 17.37 15.1Q15.07 12.43 12 12Z\"/><path d=\"M12 12Q7.12 11.14 6.63 15.1Q10.09 14.44 12 12Z\"/>",
+      "sha256": "6e98594e6eb5ecc8fc5d25265bd4d8fe71449e6ba523f7bcc692a511ea22595a"
+    },
+    {
+      "name": "energy-node:heater",
+      "ha_name": "heater",
+      "mdi": "mdi:gas-burner",
       "label": "Heizung (Öl/Gas)",
       "markup": "<path d=\"M7.5 5.5V3.2a1.2 1.2 0 0 1 1.2-1.2h2.3\"/><rect x=\"3.5\" y=\"5.5\" width=\"17\" height=\"14\" rx=\"2\"/><path d=\"M12 9c1.9 1.9 2.8 3 2.8 4.2a2.8 2.8 0 0 1-5.6 0C9.2 12 10.1 10.9 12 9Z\"/><path d=\"M7 19.5v2M17 19.5v2\"/>",
       "sha256": "5803da53a64e1ed1228458ad609f0036d5815b75f9df7ddd135db9b8823cc7d8"
     },
     {
-      "name": "mdi:water-boiler",
+      "name": "energy-node:water-boiler",
       "ha_name": "water-boiler",
+      "mdi": "mdi:water-boiler",
       "label": "Wasserboiler",
-      "markup": "<rect x=\"3.5\" y=\"3.5\" width=\"11.5\" height=\"17\" rx=\"4\"/><path d=\"M5 8.4c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0\"/><path d=\"M5 11.4c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0\"/><path d=\"M9.5 14.4 7.4 17.8h1.8l-.2 2.2 1.8-3.4H9.3z\"/><path d=\"M19.9 14.1V8.3a1.6 1.6 0 1 0-3.2 0v5.8a3.3 3.3 0 1 0 3.2 0Z\"/>",
-      "sha256": "f8136002479d1df9cbadf0403c58559014bcb13e15646bcd3055732fee297604"
+      "markup": "<rect x=\"3.5\" y=\"3.5\" width=\"11.5\" height=\"17\" rx=\"4\"/><path d=\"M5 8c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0\"/><path d=\"M5 11c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0\"/><path d=\"M9.67 14.1 8.09 16.46 9.09 16.46 8.83 18.3 10.41 15.94 9.41 15.94Z\"/><path d=\"M19.9 14.1V8.3a1.6 1.6 0 1 0-3.2 0v5.8a3.3 3.3 0 1 0 3.2 0Z\"/>",
+      "sha256": "d858d7a1682a4f0a5abf61bbc7616d4e00450a56d753b804967eb7d1a18d92e6"
     },
     {
-      "name": "mdi:ev-station",
-      "ha_name": "ev-station",
+      "name": "energy-node:thermometer",
+      "ha_name": "thermometer",
+      "mdi": "mdi:thermometer",
+      "label": "Thermometer",
+      "markup": "<path d=\"M10.9 13.1V5a2 2 0 1 1 4 0v8.1a4.2 4.2 0 1 1-4 0Z\"/><path d=\"M9.1 6H6.9M9.1 8.5H7.9M9.1 11H6.9\"/><circle cx=\"12.9\" cy=\"16.8\" r=\"1.7\"/>",
+      "sha256": "63cd042b3d354825240597b2309676740128574be87249eeaf80e4c7c1a6c6de"
+    },
+    {
+      "name": "energy-node:pipe-valve",
+      "ha_name": "pipe-valve",
+      "mdi": "mdi:pipe-valve",
+      "label": "Heizungsrohr-Ventil",
+      "markup": "<path d=\"M2.5 13.5H7M17 13.5h4.5\"/><path d=\"M7 10 17 17v-7L7 17Z\"/><path d=\"M12 13.5V6.5\"/><path d=\"M9 6.5h6\"/>",
+      "sha256": "4052e969bd0eb5260b35ae1aecc9ae108d34f9d93aaa638c13717505ed88cd97"
+    },
+    {
+      "name": "energy-node:wallbox",
+      "ha_name": "wallbox",
+      "mdi": "mdi:ev-station",
       "label": "Wallbox",
-      "markup": "<rect x=\"2.5\" y=\"3\" width=\"11\" height=\"14\" rx=\"2.5\"/><path d=\"M8.1 6 5.8 10.8h2.1l-.2 3.2 2.3-4.8H7.9z\"/><path d=\"M13.5 13h2a3 3 0 0 1 3 3v1\"/><path d=\"M16 17a3 3 0 1 0 5 0Z\"/>",
-      "sha256": "627d17cda88bac5dbcec2f0e07a0598a7f4312978311c0a81bed46a5d324659a"
+      "markup": "<rect x=\"3\" y=\"3.5\" width=\"11\" height=\"14\" rx=\"2.5\"/><path d=\"M9.25 6.75 6.44 10.97 8.22 10.97 7.75 14.25 10.56 10.03 8.78 10.03Z\"/><path d=\"M14 13h2a2.5 2.5 0 0 1 2.5 2.5v1\"/><path d=\"M16 16.5h5V18a2.5 2.5 0 0 1-5 0z\"/>",
+      "sha256": "f59d04a6665a42127b68f00d3820098d1236641520bc8a738d7148f79035a91c"
     },
     {
-      "name": "mdi:transmission-tower",
-      "ha_name": "transmission-tower",
-      "label": "Stromnetz",
-      "markup": "<path d=\"M7.8 21 10.9 5M16.2 21 13.1 5\"/><path d=\"M10.9 5h2.2\"/><path d=\"M3.5 8h17\"/><path d=\"M5.5 8v2.4M12 8v2.4M18.5 8v2.4\"/><path d=\"M8.8 16h6.4\"/>",
-      "sha256": "56debf88b3ab07cc27acc6a6305f3a3551dcb25823685fc16e266e61b4fb67e3"
+      "name": "energy-node:wallbox-compact",
+      "ha_name": "wallbox-compact",
+      "mdi": "mdi:ev-plug-type2",
+      "label": "Wallbox mit Dose",
+      "markup": "<rect x=\"5\" y=\"3\" width=\"14\" height=\"18\" rx=\"3\"/><path d=\"M12.8 6 9.8 10.5 11.7 10.5 11.2 14 14.2 9.5 12.3 9.5Z\"/><circle cx=\"12\" cy=\"17\" r=\"1.8\"/>",
+      "sha256": "73c52c28d676673bb7dddd004d18f4ab31378d1667371e3d7ee11c7529bc1f97"
     },
     {
-      "name": "mdi:sitemap",
-      "ha_name": "sitemap",
+      "name": "energy-node:wallbox-plug",
+      "ha_name": "wallbox-plug",
+      "mdi": "mdi:power-plug-outline",
+      "label": "Ladestecker",
+      "markup": "<path d=\"M9 3v5M15 3v5\"/><path d=\"M7 8h10v3a5 5 0 0 1-10 0z\"/><path d=\"M12 16v5\"/>",
+      "sha256": "047d42be1bda1b44ae848352b76f2c78a5ad2acb091ee776a5952b7bb3928f3f"
+    },
+    {
+      "name": "energy-node:home",
+      "ha_name": "home",
+      "mdi": "mdi:home",
+      "label": "Gebäude",
+      "markup": "<path d=\"M3.5 11.5 12 4l8.5 7.5\"/><path d=\"M5.5 10v10.5h13V10\"/><path d=\"M10 20.5v-5h4v5\"/>",
+      "sha256": "73dccb9c79b51ec59d09e13250005968b677ddb8ce2dc56be2cb6b5a40d74b46"
+    },
+    {
+      "name": "energy-node:home-bolt",
+      "ha_name": "home-bolt",
+      "mdi": "mdi:home-lightning-bolt-outline",
+      "label": "Hausverbrauch",
+      "markup": "<path d=\"M3.5 11.5 12 4l8.5 7.5\"/><path d=\"M5.5 10v10.5h13V10\"/><path d=\"M12.6 12 10.35 15.38 11.78 15.38 11.4 18 13.65 14.63 12.23 14.63Z\"/>",
+      "sha256": "f7535e836f7628cd1cc62588e037114929c3bb400e8772b64bc1a7a40fa99371"
+    },
+    {
+      "name": "energy-node:bolt-circle",
+      "ha_name": "bolt-circle",
+      "mdi": "mdi:lightning-bolt-circle",
+      "label": "Verbrauch",
+      "markup": "<circle cx=\"12\" cy=\"12\" r=\"8.4\"/><path d=\"M13 7 9.25 12.63 11.63 12.63 11 17 14.75 11.38 12.38 11.38Z\"/>",
+      "sha256": "fb203f97846c7c6197971132dd3a7576f36759fbceea21d0fca00431a8b25b6d"
+    },
+    {
+      "name": "energy-node:chip",
+      "ha_name": "chip",
+      "mdi": "mdi:chip",
+      "label": "Standard",
+      "markup": "<rect x=\"6\" y=\"6\" width=\"12\" height=\"12\" rx=\"2\"/><line x1=\"9\" y1=\"3\" x2=\"9\" y2=\"6\"/><line x1=\"15\" y1=\"3\" x2=\"15\" y2=\"6\"/><line x1=\"9\" y1=\"18\" x2=\"9\" y2=\"21\"/><line x1=\"15\" y1=\"18\" x2=\"15\" y2=\"21\"/><line x1=\"3\" y1=\"9\" x2=\"6\" y2=\"9\"/><line x1=\"3\" y1=\"15\" x2=\"6\" y2=\"15\"/><line x1=\"18\" y1=\"9\" x2=\"21\" y2=\"9\"/><line x1=\"18\" y1=\"15\" x2=\"21\" y2=\"15\"/>",
+      "sha256": "c1f0492f5b2862a55ffdb4ffdbccb187dcabf7a2299c9e541c5d815e6e74312c"
+    },
+    {
+      "name": "energy-node:device-generic",
+      "ha_name": "device-generic",
+      "mdi": "mdi:package-variant-closed",
+      "label": "Gerät allgemein",
+      "markup": "<rect x=\"4\" y=\"3.5\" width=\"16\" height=\"17\" rx=\"2\"/><path d=\"M8 8h8M8 12h8M8 16h5\"/>",
+      "sha256": "14894a471a7a97754237c36387a7573b0c2c63e2ad5d443e3266bf90673ae975"
+    },
+    {
+      "name": "energy-node:raspberry-pi",
+      "ha_name": "raspberry-pi",
+      "mdi": "mdi:raspberry-pi",
+      "label": "Raspberry Pi",
+      "markup": "<rect x=\"2.5\" y=\"4\" width=\"19\" height=\"16\" rx=\"3\"/><path d=\"M5 8.6h2.6M5 11.1h2.6M5 13.6h2.6\"/><path d=\"M12.9 10.2C11.5 10 10.5 8.9 10.5 7.5c1.5-.1 2.5 1.1 2.5 2.7Z\"/><path d=\"M13.1 10.2C14.5 10 15.5 8.9 15.5 7.5c-1.5-.1-2.5 1.1-2.5 2.7Z\"/><circle cx=\"11.7\" cy=\"12.2\" r=\"1.15\"/><circle cx=\"14.3\" cy=\"12.2\" r=\"1.15\"/><circle cx=\"13\" cy=\"14.4\" r=\"1.15\"/><rect x=\"18.2\" y=\"8.6\" width=\"2.8\" height=\"2.2\" rx=\"0.5\"/><rect x=\"18.2\" y=\"13.2\" width=\"2.8\" height=\"2.2\" rx=\"0.5\"/>",
+      "sha256": "965b8a56ceb0d9724a5e818b57766a43470cb67e2c76d964ec76bf492a834797"
+    },
+    {
+      "name": "energy-node:automations",
+      "ha_name": "automations",
+      "mdi": "mdi:sitemap",
       "label": "Automationen",
       "markup": "<circle cx=\"5.5\" cy=\"6\" r=\"2.5\"/><circle cx=\"5.5\" cy=\"18\" r=\"2.5\"/><circle cx=\"18.5\" cy=\"12\" r=\"2.5\"/><path d=\"M8 6h5a3 3 0 0 1 3 3v.8\"/><path d=\"M8 18h5a3 3 0 0 0 3-3v-.8\"/>",
       "sha256": "cc5d152442ac0b17662678fafdff703f1c14a9beb0c6b1069a811f2cb71a1fdf"
+    }
+  ],
+  "aliases": [
+    {
+      "from": "battery-charging",
+      "to": "charger"
     },
     {
-      "name": "mdi:home",
-      "ha_name": "home",
-      "label": "Gebäude",
-      "markup": "<path d=\"M6 11 12 4 18 11\"/><path d=\"M6 11v8.6h12v-8.6\"/><rect x=\"10.2\" y=\"14.7\" width=\"3.6\" height=\"4.9\" rx=\"0.4\"/>",
-      "sha256": "5d1989909c967260434f3f792fcd97cb1bccd99b682430d24eb92b778af41776"
+      "from": "chip-outline",
+      "to": "chip"
     },
     {
-      "name": "mdi:heat-pump",
-      "ha_name": "heat-pump",
-      "label": "Wärmepumpe",
-      "markup": "<rect x=\"3\" y=\"7\" width=\"15\" height=\"10\" rx=\"1.5\"/><path d=\"M5.5 9.6h3M5.5 12h3M5.5 14.4h3\"/><circle cx=\"13.4\" cy=\"12\" r=\"3.3\"/><path d=\"M13.4 12 13.4 9.4M13.4 12 11.15 13.3M13.4 12 15.65 13.3\"/>",
-      "sha256": "9c8c43b730d7d64b8af8b16a9cbd3f378f799a289b30004aca16348399611850"
+      "from": "current-ac",
+      "to": "inverter"
     },
     {
-      "name": "mdi:flash-circle",
-      "ha_name": "flash-circle",
-      "label": "Verbrauch",
-      "markup": "<circle cx=\"12\" cy=\"12\" r=\"8.4\"/><path d=\"M12.7 6.6 9.3 12.1h2.6l-.3 4.3 4.4-5.3h-2.6z\"/>",
-      "sha256": "ed5930790b9617ada507af8c5dedca1d8bd5b1252db94e07ba6df082cad6a7f1"
+      "from": "ev-station",
+      "to": "wallbox"
+    },
+    {
+      "from": "flash-circle",
+      "to": "bolt-circle"
+    },
+    {
+      "from": "gas-burner",
+      "to": "heater"
+    },
+    {
+      "from": "home-battery",
+      "to": "battery-home"
+    },
+    {
+      "from": "power-plug",
+      "to": "plug-smart"
+    },
+    {
+      "from": "power-socket-de",
+      "to": "socket-wall"
+    },
+    {
+      "from": "sitemap",
+      "to": "automations"
+    },
+    {
+      "from": "transmission-tower",
+      "to": "grid"
     }
   ]
 }
