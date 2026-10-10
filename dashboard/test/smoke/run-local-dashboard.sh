@@ -1003,6 +1003,44 @@ if [[ $SIMULATE_INSTALLED -eq 1 ]]; then
   check "Changelog: Highlights und Details markiert" \
     "[e['highlight'] for g in data['components'][0]['releases'][0]['groups'] for e in g['entries']] == [True, False, True, False]" \
     "$BASE/api/v1/changelog?component=dashboard"
+  check "Versionen: Vorgaenger gemeldet" \
+    "data['previous'] is not None" \
+    "$BASE/api/v1/versions"
+  check "Neuerungen: Bereich seit dem Vorgaenger" \
+    "data['since_previous'] is True and data['from'] != data['to'] and len(data['components']) > 0" \
+    "$BASE/api/v1/changelog/highlights"
+
+  # Oberflaeche: die Skripte der Neuerungen und der Update-Leiste werden
+  # ausgeliefert, und der Tiefenlink oeffnet die Seite mit ihnen.
+  for asset in js/update-bar.js js/whatsnew.page.js; do
+    if api "$BASE/static/$asset" > /dev/null; then
+      echo "  OK   Asset $asset wird ausgeliefert"
+    else
+      echo "  FEHL Asset $asset wird nicht ausgeliefert"; FAILED=1
+    fi
+  done
+  if api "$BASE/?panel=settings&page=whatsnew" | grep -q 'whatsnew.page.js'; then
+    echo "  OK   Tiefenlink Einstellungen > Neuerungen bindet das Skript ein"
+  else
+    echo "  FEHL Tiefenlink Einstellungen > Neuerungen bindet whatsnew.page.js nicht ein"; FAILED=1
+  fi
+
+  # Fortschritt: ein laufender Auftrag, dann sein Ende. Das Job-Verzeichnis
+  # gehoert im Smoke-Test dem Testbenutzer, wie auf dem Pi dem Dashboard-Konto.
+  STATE="$WORK/installer-state"
+  job_dir="$STATE/job"
+  mkdir -p "$job_dir"
+  check "Fortschritt: ohne Auftrag idle" "data['state'] == 'idle'" "$BASE/api/v1/updates/progress"
+  printf '{"bundle_version":"v9.9.9","mode":"redeploy","steps":["10","60"],"run_id":"smoke-1"}\n' > "$job_dir/current.json"
+  printf '%s ##STEP 10 ok\n%s ##STEP 60 begin\n' "$(date +%s%3N)" "$(date +%s%3N)" > "$job_dir/log"
+  check "Fortschritt: laeuft mit Schrittnamen" \
+    "data['state'] == 'running' and data['done'] == 1 and data['step']['id'] == '60' and data['step']['title'] != ''" \
+    "$BASE/api/v1/updates/progress"
+  printf '{"result":"ok"}\n' > "$job_dir/status.json"
+  check "Fortschritt: abgeschlossen" \
+    "data['state'] == 'ok' and data['done'] == 2 and data['finished_at']" \
+    "$BASE/api/v1/updates/progress"
+  rm -rf "$job_dir"
 fi
 
 check_history_exchange || FAILED=1
