@@ -301,16 +301,16 @@ test('pickIcon speichert das Vorschlags-Icon als leere Auswahl', () => {
   assert.equal(panel.draftIconName, 'mdi:power-plug');
   assert.equal(panel.savedIconName, 'mdi:power-plug');
 
-  panel.pickIcon('mdi:chip-outline');
-  assert.equal(panel.prefsDraft.icon, 'mdi:chip-outline');
-  assert.equal(panel.draftIconName, 'mdi:chip-outline');
+  panel.pickIcon('energy-node:chip');
+  assert.equal(panel.prefsDraft.icon, 'energy-node:chip');
+  assert.equal(panel.draftIconName, 'energy-node:chip');
 
   panel.pickIcon('mdi:power-plug');
   assert.equal(panel.prefsDraft.icon, '');
 
   // Ohne Vorschlag steht die leere Auswahl fuer den Chip.
   panel.deviceDetail = {id: 'x', entities: []};
-  panel.pickIcon('mdi:chip-outline');
+  panel.pickIcon('energy-node:chip');
   assert.equal(panel.prefsDraft.icon, '');
   panel.deviceDetail = {id: 'x', icon_name: 'mdi:home', entities: []};
   assert.equal(panel.savedIconName, 'mdi:home');
@@ -352,10 +352,23 @@ test('initFavoritesChoices füllt Choices in Auswahlreihenfolge, begrenzt auf dr
   assert.equal(panel.favoritesChoices, null);
 });
 
+test('the icon picker groups the catalogue by category in catalogue order', () => {
+  const panel = createDevicesPanel();
+  panel.deviceIcons = [
+    {name: 'energy-node:solar-panel', category: 'generation', categoryKey: 'device_icon_category.generation', markup: ''},
+    {name: 'energy-node:sun', category: 'generation', categoryKey: 'device_icon_category.generation', markup: ''},
+    {name: 'energy-node:battery', category: 'storage', categoryKey: 'device_icon_category.storage', markup: ''},
+  ];
+  const groups = panel.deviceIconGroups;
+  assert.deepEqual(JSON.parse(JSON.stringify(groups.map(group => [group.category, group.icons.map(icon => icon.name)]))),
+    [['generation', ['energy-node:solar-panel', 'energy-node:sun']], ['storage', ['energy-node:battery']]]);
+  assert.equal(groups[0].categoryKey, 'device_icon_category.generation');
+});
+
 test('iconMarkup baut ein vollständiges SVG und fällt auf den Standard zurück', () => {
   const panel = createDevicesPanel();
   panel.deviceIcons = [
-    {name: 'mdi:chip-outline', label: 'Standard', markup: '<rect x="6" y="6" width="12" height="12"/>'},
+    {name: 'energy-node:chip', label: 'Standard', markup: '<rect x="6" y="6" width="12" height="12"/>'},
     {name: 'mdi:solar-panel', label: 'Solarpanel', markup: '<path d="M3.5 16 7 6Z"/>'},
   ];
 

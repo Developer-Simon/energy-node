@@ -559,7 +559,7 @@
     // Das Icon, fuer das eine leere Auswahl steht: der Vorschlag zum
     // Geraetetyp (suggestedDeviceIcon in deviceicons.go), sonst der Chip.
     get defaultIconName() {
-      return this.deviceDetail?.suggested_icon || 'mdi:chip-outline';
+      return this.deviceDetail?.suggested_icon || 'energy-node:chip';
     },
 
     // Was die Karte gerade zeigt - fuer den Modal-Kopf.
@@ -571,6 +571,18 @@
       return this.prefsDraft.icon || this.defaultIconName;
     },
 
+    // Picker-Gruppen in Katalogreihenfolge: der Katalog liefert jede
+    // Kategorie als zusammenhaengenden Block (deviceicons.go).
+    get deviceIconGroups() {
+      const groups = [];
+      for (const icon of this.deviceIcons) {
+        const last = groups[groups.length - 1];
+        if (last && last.category === icon.category) last.icons.push(icon);
+        else groups.push({category: icon.category, categoryKey: icon.categoryKey, icons: [icon]});
+      }
+      return groups;
+    },
+
     // Wer das Vorschlags-Icon waehlt, speichert "nichts" - so folgt das
     // Geraet weiter seinem Typ, statt das Icon festzuschreiben.
     pickIcon(name) {
@@ -580,7 +592,7 @@
     // Baut denselben SVG-Rumpf wie deviceIcon() in deviceicons.go, damit
     // Picker und gerenderte Karte identisch aussehen.
     iconMarkup(name) {
-      const fallback = this.deviceIcons.find(icon => icon.name === 'mdi:chip-outline');
+      const fallback = this.deviceIcons.find(icon => icon.name === 'energy-node:chip');
       const icon = this.deviceIcons.find(candidate => candidate.name === name) || fallback;
       const markup = icon ? icon.markup : '';
       return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${markup}</svg>`;
