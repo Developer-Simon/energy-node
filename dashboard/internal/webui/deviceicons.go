@@ -4,6 +4,7 @@ import (
 	"html/template"
 	"strings"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 )
 
@@ -11,19 +12,24 @@ import (
 // offers. Markup, not a single path like iconPaths in icons.go: an entity
 // icon is one filled Material-Design path picked by Home Assistant, while a
 // device symbol needs several stroked elements to stay readable at 24px.
-// Both live side by side on purpose - the entity icons keep coming from
-// discovery, these are chosen by hand.
+//
+// Name is the energy-node: name the dashboard stores and Home Assistant
+// shows (energy-node:wallbox). MDI is the Material Design icon that means
+// the same thing, for every place that announces an icon through Home
+// Assistant discovery, which only knows mdi: names.
 type DeviceIcon struct {
-	Name     string        `json:"name"`
-	Label    string        `json:"label"`
-	LabelKey string        `json:"labelKey"`
-	Markup   template.HTML `json:"markup"`
+	Name        string        `json:"name"`
+	MDI         string        `json:"mdi"`
+	Category    string        `json:"category"`
+	CategoryKey string        `json:"categoryKey"`
+	Label       string        `json:"label"`
+	LabelKey    string        `json:"labelKey"`
+	Markup      template.HTML `json:"markup"`
 }
 
-// deviceIconFallbackName is the chip outline both the compact card and the
-// modal hard-coded before this catalogue existed. A device without a
-// preference therefore looks exactly like it did.
-const deviceIconFallbackName = "mdi:chip-outline"
+// deviceIconFallbackName is the chip a device shows without a saved icon
+// or a suggestion.
+const deviceIconFallbackName = deviceiconname.Prefix + "chip"
 
 // DeviceIconStrokeWidth is the stroke every device icon is drawn with. The
 // Home Assistant generator (scripts/icons/flatten_icons.py) buffers each
@@ -33,26 +39,91 @@ const DeviceIconStrokeWidth = "1.6"
 
 const deviceIconSVGAttrs = `viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="` + DeviceIconStrokeWidth + `" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"`
 
+// catalogueEntry builds a catalogue entry from the short name: name "battery-level"
+// becomes energy-node:battery-level with label key device_icon.battery_level.
+func catalogueEntry(category, name, mdi, label string, markup string) DeviceIcon {
+	return DeviceIcon{
+		Name:        deviceiconname.Prefix + name,
+		MDI:         "mdi:" + mdi,
+		Category:    category,
+		CategoryKey: "device_icon_category." + category,
+		Label:       label,
+		LabelKey:    "device_icon." + strings.ReplaceAll(name, "-", "_"),
+		Markup:      template.HTML(markup),
+	}
+}
+
+// deviceIconCatalogue is grouped by category; the picker shows one heading
+// per block, in this order.
 var deviceIconCatalogue = []DeviceIcon{
-	{Name: deviceIconFallbackName, Label: "Standard", LabelKey: "device_icon.chip_outline", Markup: `<rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/>`},
-	{Name: "mdi:solar-panel", Label: "Solarpanel", LabelKey: "device_icon.solar_panel", Markup: `<path d="M3.5 16 7 6h13.5L17 16Z"/><path d="M5.25 11h13.5"/><path d="M11.5 6 8 16"/><path d="M16 6l-3.5 10"/><path d="M10.2 16v4"/><path d="M7 20h6.5"/>`},
-	{Name: "mdi:current-ac", Label: "Wechselrichter", LabelKey: "device_icon.current_ac", Markup: `<rect x="3" y="3.5" width="18" height="17" rx="2"/><path d="M12.2 6.5 9 11.6h2.8l-.3 3.4 4.7-5.1h-2.8z"/><path d="M7 18c1.667-1.9 3.333-1.9 5 0s3.333 1.9 5 0"/>`},
-	{Name: "mdi:power-plug", Label: "Smarte Steckdose", LabelKey: "device_icon.power_plug", Markup: `<g transform="rotate(-28 12 12)"><path d="M16.2 6.6H9.4A3.4 3.4 0 0 0 6 10v4a3.4 3.4 0 0 0 3.4 3.4h6.8"/><ellipse cx="16.2" cy="12" rx="2.4" ry="5.4"/><circle cx="16.5" cy="10.1" r="0.8"/><circle cx="16.5" cy="13.9" r="0.8"/><path d="M2.6 9.9h3.4M2.6 14.1h3.4"/></g>`},
-	{Name: "mdi:meter-electric", Label: "3-Phasen-Energiezähler", LabelKey: "device_icon.meter_electric", Markup: `<rect x="3.5" y="3" width="17" height="18" rx="2"/><rect x="6" y="5.8" width="12" height="5" rx="1"/><path d="M8.4 7.4v1.8M10.4 7.4v1.8M12.4 7.4v1.8M14.4 7.4v1.8"/><path d="M15.9 9.1h.01"/><path d="M12.1 12.4 9.6 16.4h2.3l-.3 2.6 2.5-4h-2.3z"/>`},
-	{Name: "mdi:pipe-valve", Label: "Heizungsrohr-Ventil", LabelKey: "device_icon.pipe_valve", Markup: `<path d="M2 15h5M17 15h5"/><path d="M7 11.5 17 18.5v-7L7 18.5Z"/><path d="M12 15V9.5"/><path d="M9 9.5h6"/>`},
-	{Name: "mdi:raspberry-pi", Label: "Raspberry Pi", LabelKey: "device_icon.raspberry_pi", Markup: `<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M5 8.6h2.6M5 11.1h2.6M5 13.6h2.6"/><path d="M12.9 10.2C11.5 10 10.5 8.9 10.5 7.5c1.5-.1 2.5 1.1 2.5 2.7Z"/><path d="M13.1 10.2C14.5 10 15.5 8.9 15.5 7.5c-1.5-.1-2.5 1.1-2.5 2.7Z"/><circle cx="11.7" cy="12.2" r="1.15"/><circle cx="14.3" cy="12.2" r="1.15"/><circle cx="13" cy="14.4" r="1.15"/><rect x="18.2" y="8.6" width="2.8" height="2.2" rx="0.5"/><rect x="18.2" y="13.2" width="2.8" height="2.2" rx="0.5"/>`},
-	{Name: "mdi:home-battery", Label: "Batterie", LabelKey: "device_icon.home_battery", Markup: `<rect x="5" y="2.5" width="14" height="18" rx="2"/><path d="M5 6.2h14"/><rect x="10.9" y="8.2" width="2.2" height="1.3" rx="0.45"/><rect x="9.3" y="9.5" width="5.4" height="8" rx="1.2"/><path d="M10.7 15.2h2.6M10.7 12.9h2.6"/><path d="M8 20.5V22M16 20.5V22"/>`},
-	{Name: "mdi:battery-charging", Label: "Ladegerät", LabelKey: "device_icon.battery_charging", Markup: `<rect x="3" y="7" width="18" height="10" rx="2.5"/><path d="M6 10.4h5"/><path d="M6 13.6h.01M8.5 13.6h.01"/><path d="M16.6 9.5 14.6 13h1.7l-.3 2.4 2.1-3.6h-1.7z"/><path d="M3 12H1.2M21 12h1.8"/>`},
-	{Name: "mdi:thermometer", Label: "Thermometer", LabelKey: "device_icon.thermometer", Markup: `<path d="M10 13.6V5.5a2 2 0 1 1 4 0v8.1a4.2 4.2 0 1 1-4 0Z"/><path d="M8.2 6.5H6M8.2 9H7M8.2 11.5H6"/><circle cx="12" cy="17.3" r="1.7"/>`},
-	{Name: "mdi:power-socket-de", Label: "Unterputz-Steckdose", LabelKey: "device_icon.power_socket_de", Markup: `<rect x="2.5" y="2.5" width="19" height="19" rx="3"/><circle cx="12" cy="12" r="6"/><circle cx="9.5" cy="12" r="1.1"/><circle cx="14.5" cy="12" r="1.1"/><path d="M18.3 19.3h.01"/><path d="M16.9 18.1a2.2 2.2 0 0 1 2.9 0"/>`},
-	{Name: "mdi:gas-burner", Label: "Heizung (Öl/Gas)", LabelKey: "device_icon.gas_burner", Markup: `<path d="M7.5 5.5V3.2a1.2 1.2 0 0 1 1.2-1.2h2.3"/><rect x="3.5" y="5.5" width="17" height="14" rx="2"/><path d="M12 9c1.9 1.9 2.8 3 2.8 4.2a2.8 2.8 0 0 1-5.6 0C9.2 12 10.1 10.9 12 9Z"/><path d="M7 19.5v2M17 19.5v2"/>`},
-	{Name: "mdi:water-boiler", Label: "Wasserboiler", LabelKey: "device_icon.water_boiler", Markup: `<rect x="3.5" y="3.5" width="11.5" height="17" rx="4"/><path d="M5 8.4c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0"/><path d="M5 11.4c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0"/><path d="M9.5 14.4 7.4 17.8h1.8l-.2 2.2 1.8-3.4H9.3z"/><path d="M19.9 14.1V8.3a1.6 1.6 0 1 0-3.2 0v5.8a3.3 3.3 0 1 0 3.2 0Z"/>`},
-	{Name: "mdi:ev-station", Label: "Wallbox", LabelKey: "device_icon.ev_station", Markup: `<rect x="2.5" y="3" width="11" height="14" rx="2.5"/><path d="M8.1 6 5.8 10.8h2.1l-.2 3.2 2.3-4.8H7.9z"/><path d="M13.5 13h2a3 3 0 0 1 3 3v1"/><path d="M16 17a3 3 0 1 0 5 0Z"/>`},
-	{Name: "mdi:transmission-tower", Label: "Stromnetz", LabelKey: "device_icon.transmission_tower", Markup: `<path d="M7.8 21 10.9 5M16.2 21 13.1 5"/><path d="M10.9 5h2.2"/><path d="M3.5 8h17"/><path d="M5.5 8v2.4M12 8v2.4M18.5 8v2.4"/><path d="M8.8 16h6.4"/>`},
-	{Name: "mdi:sitemap", Label: "Automationen", LabelKey: "device_icon.sitemap", Markup: `<circle cx="5.5" cy="6" r="2.5"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="12" r="2.5"/><path d="M8 6h5a3 3 0 0 1 3 3v.8"/><path d="M8 18h5a3 3 0 0 0 3-3v-.8"/>`},
-	{Name: "mdi:home", Label: "Gebäude", LabelKey: "device_icon.home", Markup: `<path d="M6 11 12 4 18 11"/><path d="M6 11v8.6h12v-8.6"/><rect x="10.2" y="14.7" width="3.6" height="4.9" rx="0.4"/>`},
-	{Name: "mdi:heat-pump", Label: "Wärmepumpe", LabelKey: "device_icon.heat_pump", Markup: `<rect x="3" y="7" width="15" height="10" rx="1.5"/><path d="M5.5 9.6h3M5.5 12h3M5.5 14.4h3"/><circle cx="13.4" cy="12" r="3.3"/><path d="M13.4 12 13.4 9.4M13.4 12 11.15 13.3M13.4 12 15.65 13.3"/>`},
-	{Name: "mdi:flash-circle", Label: "Verbrauch", LabelKey: "device_icon.flash_circle", Markup: `<circle cx="12" cy="12" r="8.4"/><path d="M12.7 6.6 9.3 12.1h2.6l-.3 4.3 4.4-5.3h-2.6z"/>`},
+	catalogueEntry("generation", "solar-panel", "solar-panel", "Solarpanel",
+		`<path d="M3.5 15 7 5h13.5L17 15Z"/><path d="M5.25 10h13.5"/><path d="M11.5 5 8 15"/><path d="M16 5l-3.5 10"/><path d="M10.2 15v4"/><path d="M7 19h6.5"/>`),
+	catalogueEntry("generation", "sun", "weather-sunny", "Sonne, Helligkeit",
+		`<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>`),
+
+	catalogueEntry("storage", "battery", "battery-outline", "Batterie", batteryBody),
+	catalogueEntry("storage", "battery-level", "battery-medium", "Batterie mit Füllstand",
+		batteryBody+`<path d="M6 10v4M9.25 10v4M12.5 10v4"/>`),
+	catalogueEntry("storage", "battery-bolt", "battery-charging-outline", "Batterie mit Blitz",
+		batteryBody+bolt(10.75, 12, 7.2)),
+	catalogueEntry("storage", "charger", "battery-charging", "Ladegerät",
+		`<rect x="4.5" y="7" width="15" height="10" rx="2.5"/><path d="M7.5 10.4h4"/><path d="M7.5 13.6h.01M10 13.6h.01"/>`+bolt(15.6, 12, 5.6)+`<path d="M4.5 12h-2M19.5 12h2"/>`),
+	catalogueEntry("storage", "battery-home", "home-battery", "Heimspeicher",
+		`<rect x="5" y="2.5" width="14" height="18" rx="2"/><path d="M5 6.2h14"/><rect x="10.9" y="8.2" width="2.2" height="1.3" rx="0.45"/><rect x="9.3" y="9.5" width="5.4" height="8" rx="1.2"/><path d="M10.7 15.2h2.6M10.7 12.9h2.6"/><path d="M8 20.5V22M16 20.5V22"/>`),
+
+	catalogueEntry("grid", "grid", "transmission-tower", "Stromnetz",
+		`<path d="M7.6 21 12 3l4.4 18"/><path d="M3.5 7.5h17"/><path d="M5.5 7.5v2.4M18.5 7.5v2.4"/><path d="M9.8 12h4.4M8.6 17h6.8"/>`),
+	catalogueEntry("grid", "meter-electric", "meter-electric", "3-Phasen-Energiezähler",
+		`<rect x="3.5" y="3" width="17" height="18" rx="2"/><rect x="6" y="5.8" width="12" height="5" rx="1"/><path d="M8.4 7.4v1.8M10.4 7.4v1.8M12.4 7.4v1.8M14.4 7.4v1.8"/><path d="M15.9 9.1h.01"/>`+bolt(12, 15.7, 6.6)),
+	catalogueEntry("grid", "inverter", "current-ac", "Wechselrichter",
+		`<rect x="3" y="3.5" width="18" height="17" rx="2"/>`+bolt(12, 9.4, 6.6)+`<path d="M7 16.5c1.667-1.9 3.333-1.9 5 0s3.333 1.9 5 0"/>`),
+	catalogueEntry("grid", "sensor", "pulse", "Sensor allgemein",
+		`<path d="M3 12h3.5l2-5.5 4 11 2.5-5.5H21"/>`),
+
+	catalogueEntry("switching", "plug-smart", "power-plug", "Smarte Steckdose",
+		`<g transform="translate(1.1 .25) rotate(-28 12 12)"><path d="M16.2 6.6H9.4A3.4 3.4 0 0 0 6 10v4a3.4 3.4 0 0 0 3.4 3.4h6.8"/><ellipse cx="16.2" cy="12" rx="2.4" ry="5.4"/><circle cx="16.5" cy="10.1" r="0.8"/><circle cx="16.5" cy="13.9" r="0.8"/><path d="M2.6 9.9h3.4M2.6 14.1h3.4"/></g>`),
+	catalogueEntry("switching", "socket-wall", "power-socket-de", "Unterputz-Steckdose",
+		`<rect x="2.5" y="2.5" width="19" height="19" rx="3"/><circle cx="12" cy="12" r="6"/><circle cx="9.5" cy="12" r="1.1"/><circle cx="14.5" cy="12" r="1.1"/><path d="M18.3 19.3h.01"/><path d="M16.9 18.1a2.2 2.2 0 0 1 2.9 0"/>`),
+	catalogueEntry("switching", "switch", "toggle-switch-outline", "Schalter, Relais",
+		`<rect x="2.5" y="7" width="19" height="10" rx="5"/><circle cx="16.5" cy="12" r="3"/>`),
+	catalogueEntry("switching", "timer", "timer-outline", "Zeitschaltuhr",
+		`<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/>`),
+
+	catalogueEntry("heating", "heat-pump", "heat-pump", "Wärmepumpe",
+		`<rect x="3" y="6.5" width="18" height="11" rx="1.5"/><path d="M5.5 9.6h3M5.5 12h3M5.5 14.4h3"/><circle cx="15.2" cy="12" r="3.7"/>`+rotor(15.2, 12, 3.1)),
+	catalogueEntry("heating", "fan", "fan", "Lüfter, Klimagerät",
+		`<circle cx="12" cy="12" r="8.6"/>`+rotor(12, 12, 6.2)),
+	catalogueEntry("heating", "heater", "gas-burner", "Heizung (Öl/Gas)",
+		`<path d="M7.5 5.5V3.2a1.2 1.2 0 0 1 1.2-1.2h2.3"/><rect x="3.5" y="5.5" width="17" height="14" rx="2"/><path d="M12 9c1.9 1.9 2.8 3 2.8 4.2a2.8 2.8 0 0 1-5.6 0C9.2 12 10.1 10.9 12 9Z"/><path d="M7 19.5v2M17 19.5v2"/>`),
+	catalogueEntry("heating", "water-boiler", "water-boiler", "Wasserboiler",
+		`<rect x="3.5" y="3.5" width="11.5" height="17" rx="4"/><path d="M5 8c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0"/><path d="M5 11c1.42-1.3 2.83-1.3 4.25 0s2.83 1.3 4.25 0"/>`+bolt(9.25, 16.2, 4.2)+`<path d="M19.9 14.1V8.3a1.6 1.6 0 1 0-3.2 0v5.8a3.3 3.3 0 1 0 3.2 0Z"/>`),
+	catalogueEntry("heating", "thermometer", "thermometer", "Thermometer",
+		`<path d="M10.9 13.1V5a2 2 0 1 1 4 0v8.1a4.2 4.2 0 1 1-4 0Z"/><path d="M9.1 6H6.9M9.1 8.5H7.9M9.1 11H6.9"/><circle cx="12.9" cy="16.8" r="1.7"/>`),
+	catalogueEntry("heating", "pipe-valve", "pipe-valve", "Heizungsrohr-Ventil",
+		`<path d="M2.5 13.5H7M17 13.5h4.5"/><path d="M7 10 17 17v-7L7 17Z"/><path d="M12 13.5V6.5"/><path d="M9 6.5h6"/>`),
+
+	catalogueEntry("mobility", "wallbox", "ev-station", "Wallbox",
+		wallboxBody+bolt(8.5, 10.5, 7.5)+`<path d="M14 13h2a2.5 2.5 0 0 1 2.5 2.5v1"/><path d="M16 16.5h5V18a2.5 2.5 0 0 1-5 0z"/>`),
+	catalogueEntry("mobility", "wallbox-compact", "ev-plug-type2", "Wallbox mit Dose",
+		`<rect x="5" y="3" width="14" height="18" rx="3"/>`+bolt(12, 10, 8)+`<circle cx="12" cy="17" r="1.8"/>`),
+	catalogueEntry("mobility", "wallbox-plug", "power-plug-outline", "Ladestecker",
+		plugHead+`<path d="M12 16v5"/>`),
+
+	catalogueEntry("building", "home", "home", "Gebäude",
+		houseBody+`<path d="M10 20.5v-5h4v5"/>`),
+	catalogueEntry("building", "home-bolt", "home-lightning-bolt-outline", "Hausverbrauch",
+		houseBody+bolt(12, 15, 6)),
+	catalogueEntry("building", "bolt-circle", "lightning-bolt-circle", "Verbrauch",
+		`<circle cx="12" cy="12" r="8.4"/>`+bolt(12, 12, 10)),
+
+	catalogueEntry("control", "chip", "chip", "Standard",
+		`<rect x="6" y="6" width="12" height="12" rx="2"/><line x1="9" y1="3" x2="9" y2="6"/><line x1="15" y1="3" x2="15" y2="6"/><line x1="9" y1="18" x2="9" y2="21"/><line x1="15" y1="18" x2="15" y2="21"/><line x1="3" y1="9" x2="6" y2="9"/><line x1="3" y1="15" x2="6" y2="15"/><line x1="18" y1="9" x2="21" y2="9"/><line x1="18" y1="15" x2="21" y2="15"/>`),
+	catalogueEntry("control", "device-generic", "package-variant-closed", "Gerät allgemein",
+		`<rect x="4" y="3.5" width="16" height="17" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/>`),
+	catalogueEntry("control", "raspberry-pi", "raspberry-pi", "Raspberry Pi",
+		`<rect x="2.5" y="4" width="19" height="16" rx="3"/><path d="M5 8.6h2.6M5 11.1h2.6M5 13.6h2.6"/><path d="M12.9 10.2C11.5 10 10.5 8.9 10.5 7.5c1.5-.1 2.5 1.1 2.5 2.7Z"/><path d="M13.1 10.2C14.5 10 15.5 8.9 15.5 7.5c-1.5-.1-2.5 1.1-2.5 2.7Z"/><circle cx="11.7" cy="12.2" r="1.15"/><circle cx="14.3" cy="12.2" r="1.15"/><circle cx="13" cy="14.4" r="1.15"/><rect x="18.2" y="8.6" width="2.8" height="2.2" rx="0.5"/><rect x="18.2" y="13.2" width="2.8" height="2.2" rx="0.5"/>`),
+	catalogueEntry("control", "automations", "sitemap", "Automationen",
+		`<circle cx="5.5" cy="6" r="2.5"/><circle cx="5.5" cy="18" r="2.5"/><circle cx="18.5" cy="12" r="2.5"/><path d="M8 6h5a3 3 0 0 1 3 3v.8"/><path d="M8 18h5a3 3 0 0 0 3-3v-.8"/>`),
 }
 
 var deviceIconByName = func() map[string]DeviceIcon {
@@ -62,6 +133,12 @@ var deviceIconByName = func() map[string]DeviceIcon {
 	}
 	return index
 }()
+
+// lookupDeviceIcon resolves a stored name, legacy mdi: names included.
+func lookupDeviceIcon(name string) (DeviceIcon, bool) {
+	icon, ok := deviceIconByName[deviceiconname.Canonical(name)]
+	return icon, ok
+}
 
 // DeviceIconCatalogue returns the pickable icons in catalogue order. The
 // picker in the browser reads it over GET /api/v1/device/icons.
@@ -85,20 +162,20 @@ type deviceIconSuggestion struct {
 // codes are the hardware IDs from Shelly.GetDeviceInfo (gen1 SH*, Plus SN*,
 // Pro SP*, gen3 S3*). Documented in docs/_internal/device-icons.md.
 var deviceIconSuggestions = []deviceIconSuggestion{
-	{Manufacturer: "APsystems", Icon: "mdi:solar-panel"},
-	{Manufacturer: "Trucki (Community-Firmware)", Icon: "mdi:current-ac"},
-	{Manufacturer: "DIY", ModelPrefixes: []string{"LiFePO4"}, Icon: "mdi:home-battery"},
-	{Manufacturer: "Raspberry Pi Foundation", Icon: "mdi:raspberry-pi"},
-	{Manufacturer: "Energy Node", Icon: "mdi:sitemap"},
-	{Manufacturer: "Tuya", ModelPrefixes: []string{"Tuya valve"}, Icon: "mdi:pipe-valve"},
+	{Manufacturer: "APsystems", Icon: deviceiconname.Prefix + "solar-panel"},
+	{Manufacturer: "Trucki (Community-Firmware)", Icon: deviceiconname.Prefix + "inverter"},
+	{Manufacturer: "DIY", ModelPrefixes: []string{"LiFePO4"}, Icon: deviceiconname.Prefix + "battery-home"},
+	{Manufacturer: "Raspberry Pi Foundation", Icon: deviceiconname.Prefix + "raspberry-pi"},
+	{Manufacturer: "Energy Node", Icon: deviceiconname.Prefix + "automations"},
+	{Manufacturer: "Tuya", ModelPrefixes: []string{"Tuya valve"}, Icon: deviceiconname.Prefix + "pipe-valve"},
 	// Zwischenstecker: Plug, Plug S, Plus Plug S, Plug S Gen3.
-	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHPLG", "SNPL", "S3PL"}, Icon: "mdi:power-plug"},
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHPLG", "SNPL", "S3PL"}, Icon: deviceiconname.Prefix + "plug-smart"},
 	// Unterputz-Relais: 1, 1PM, 2.5, Plus 1/1PM/2PM, Mini, Gen3.
-	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHSW", "SNSW", "S3SW", "SPSW"}, Icon: "mdi:power-socket-de"},
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHSW", "SNSW", "S3SW", "SPSW"}, Icon: deviceiconname.Prefix + "socket-wall"},
 	// Energiezaehler: EM, 3EM, Pro EM/3EM, Gen3 EM.
-	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHEM", "SPEM", "S3EM"}, Icon: "mdi:meter-electric"},
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHEM", "SPEM", "S3EM"}, Icon: deviceiconname.Prefix + "meter-electric"},
 	// Temperatur/Feuchte: H&T, Plus H&T, H&T Gen3.
-	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHHT", "SNSN-0013A", "S3SN-0U12A"}, Icon: "mdi:thermometer"},
+	{Manufacturer: "Shelly", ModelPrefixes: []string{"SHHT", "SNSN-0013A", "S3SN-0U12A"}, Icon: deviceiconname.Prefix + "thermometer"},
 }
 
 // suggestedDeviceIcon returns the catalogue icon for the device's type, or
@@ -123,12 +200,11 @@ func suggestedDeviceIcon(dev registry.DeviceView) string {
 }
 
 // deviceIcon renders the device's symbol: the saved choice, else the
-// suggestion for its type, else the chip outline. An unknown saved name falls
-// back the same way rather than failing - a catalogue entry can be renamed or
-// dropped without breaking a saved device-prefs.json, the same tolerance
-// iconFor has for unknown Home Assistant icon names.
+// suggestion for its type, else the chip. Legacy mdi: names resolve through
+// deviceiconname; an unknown saved name falls back the same way rather than
+// failing - the same tolerance iconFor has for unknown Home Assistant names.
 func deviceIcon(dev registry.DeviceView) template.HTML {
-	icon, ok := deviceIconByName[strings.TrimSpace(dev.IconName)]
+	icon, ok := lookupDeviceIcon(dev.IconName)
 	if !ok {
 		icon, ok = deviceIconByName[suggestedDeviceIcon(dev)]
 	}
@@ -136,4 +212,22 @@ func deviceIcon(dev registry.DeviceView) template.HTML {
 		icon = deviceIconByName[deviceIconFallbackName]
 	}
 	return template.HTML(`<svg ` + deviceIconSVGAttrs + `>` + string(icon.Markup) + `</svg>`)
+}
+
+// deviceIconMarkup returns the inner markup of a catalogue icon, the chip
+// for an unknown name. For templates that need the drawing inside an <svg>
+// they style themselves.
+func deviceIconMarkup(name string) template.HTML {
+	icon, ok := lookupDeviceIcon(name)
+	if !ok {
+		icon = deviceIconByName[deviceIconFallbackName]
+	}
+	return icon.Markup
+}
+
+// deviceIconSymbol renders a catalogue icon as a sprite <symbol>, so the
+// sprite in base.html draws device-like glyphs (ico-sun, ico-battery, ...)
+// from the same source as the device cards.
+func deviceIconSymbol(id, name string) template.HTML {
+	return template.HTML(`<symbol id="` + template.HTMLEscapeString(id) + `" viewBox="0 0 24 24">` + string(deviceIconMarkup(name)) + `</symbol>`)
 }

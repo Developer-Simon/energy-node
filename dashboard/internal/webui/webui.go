@@ -130,6 +130,8 @@ func buildOverviewTemplate(lang string) *template.Template {
 	funcs := template.FuncMap{
 		"iconFor":            iconFor,
 		"deviceIcon":         deviceIcon,
+		"deviceIconMarkup":   deviceIconMarkup,
+		"deviceIconSymbol":   deviceIconSymbol,
 		"add":                func(a, b int) int { return a + b },
 		"energySnapshotJSON": energySnapshotJSON,
 		"defaultHiddenCount": defaultHiddenCount,
