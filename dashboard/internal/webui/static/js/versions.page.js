@@ -53,6 +53,8 @@
     running: {dashboard: ''},
     components: [],
     hasChangelog: false,
+    // The bundle the node ran before its last version change, null when none is recorded.
+    previous: null,
     open: {},
     releases: {},
     releaseErrors: {},
@@ -73,6 +75,7 @@
         this.running = body.running || {dashboard: ''};
         this.components = body.components || [];
         this.hasChangelog = Boolean(body.has_changelog);
+        this.previous = body.previous || null;
       } catch (error) {
         this.error = error.message;
       } finally {

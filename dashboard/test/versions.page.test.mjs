@@ -323,3 +323,10 @@ test('setUpdateCheck() restores the switch and toasts when saving fails', async 
   assert.equal(component.savingUpdateCheck, false);
   assert.deepEqual(component.$store.toasts.criticals, [de['error.settings_rejected']]);
 });
+
+test('load() keeps the previous bundle, null when the snapshot has none', async () => {
+  const { component } = await loaded({ previous: { version: 'v0.7.4', built_at: '', arch: 'armv6' } });
+  assert.equal(component.previous.version, 'v0.7.4');
+  const none = await loaded();
+  assert.equal(none.component.previous, null);
+});

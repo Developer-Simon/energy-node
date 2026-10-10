@@ -468,8 +468,17 @@
     },
   });
 
+  // Sub pages a deep link (?page=) may open. whatsnew has no nav button of its
+  // own; the update bar and the versions page lead there.
+  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'whatsnew', 'system'];
+
   const settingsPage = () => ({
     activeSettingsPage: 'general',
+
+    init() {
+      const requested = new URLSearchParams(window.location.search).get('page');
+      if (SETTINGS_PAGES.includes(requested)) this.activeSettingsPage = requested;
+    },
   });
 
   const systemPanel = () => ({

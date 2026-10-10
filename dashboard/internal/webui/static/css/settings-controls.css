@@ -422,3 +422,8 @@
 .version-help-anchor { position: relative; }
 .version-help { position: static; margin-left: .2rem; vertical-align: middle; }
 .version-help .field-help-text { left: 0; transform: none; }
+
+/* Neuerungen-Seite (whatsnew.html) */
+.whatsnew-eyebrow { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+.whatsnew-component { margin-top: 1rem; }
+.whatsnew-component-title { display: flex; align-items: center; gap: .5rem; margin: 0 0 .4rem; font-size: .95rem; color: var(--text-strong); }
