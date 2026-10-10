@@ -118,6 +118,11 @@ the bottom of the page then shows that component's version next to the Energy
 Node version (`scripts/docs/doc-versions.sh`). An unknown id fails the Pages
 build.
 
+The marker names the first release that contains the page's last change,
+with the component version from that release. A page whose last change is not
+in any release yet shows the version of that commit and is flagged as
+unreleased.
+
 Versions per service started at v0.4.0, and `services/VERSION` was moved to
 `v0.4.0` at the same time so that no version goes backwards. For older commits
 the changelog generator falls back to `services/VERSION`.
