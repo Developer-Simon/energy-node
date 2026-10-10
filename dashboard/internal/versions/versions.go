@@ -80,6 +80,10 @@ type Snapshot struct {
 	Running      Running     `json:"running"`
 	Components   []Component `json:"components"`
 	HasChangelog bool        `json:"has_changelog"`
+	// Previous is the bundle the node ran before its last version change
+	// (previous-manifest.json, kept by the updater and the installer). Nil on
+	// a first install or before either kept one.
+	Previous *Bundle `json:"previous"`
 }
 
 type manifestFile struct {
@@ -120,6 +124,12 @@ func Load(stateDir, running string) (*Snapshot, error) {
 		return nil, err
 	}
 	snap.Bundle = &Bundle{Version: manifest.Version, BuiltAt: manifest.BuiltAt, Arch: manifest.Arch}
+	if prevRaw, err := os.ReadFile(filepath.Join(stateDir, "previous-manifest.json")); err == nil {
+		var prev manifestFile
+		if json.Unmarshal(prevRaw, &prev) == nil && prev.Version != "" {
+			snap.Previous = &Bundle{Version: prev.Version, BuiltAt: prev.BuiltAt, Arch: prev.Arch}
+		}
+	}
 
 	deselected := deselectedDirs(stateDir, manifest)
 

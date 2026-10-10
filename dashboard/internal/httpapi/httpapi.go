@@ -251,6 +251,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	}
 	mux.HandleFunc("/api/v1/versions", handleVersions(stateDir, dependencies.Version))
 	mux.HandleFunc("/api/v1/changelog", handleChangelog(stateDir))
+	mux.HandleFunc("/api/v1/changelog/highlights", handleChangelogHighlights(stateDir))
 	if dependencies.UpdatesCache != nil {
 		mux.HandleFunc("/api/v1/updates/status", handleUpdatesStatus(dependencies.Auth, dependencies.UpdatesCache))
 		mux.HandleFunc("/api/v1/updates/check", handleUpdatesCheck(dependencies.Auth, dependencies.UpdatesChecker, dependencies.UpdatesCache, dependencies.Version))
