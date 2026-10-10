@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.8.20 (2026-10-10)
+## v0.8.21 (2026-10-10)
 
 ### Features
 
@@ -17,6 +17,15 @@
 - **dashboard:** data flow and balance layers on the device map (#109) (bbe604b)
 - **dashboard:** live plant view on the energy tab (#110) (a3951fd)
 - **dashboard:** polish the device map and the energy tab (#111) (55becd6)
+- **dashboard:** reorganise the device icon catalogue (#114) (711e805)
+- **dashboard:** add texts for custom categories in automations (ffe375e)
+- **dashboard:** add error texts for the category references endpoint (f94b7b6)
+- **dashboard:** validate schema patterns and list rules using a category (602007b)
+- **dashboard:** offer custom categories as automation balance fields (63b52d0)
+- **dashboard:** warn before removing a category used by automations (22824b9)
+- **dashboard:** add the unsaved badge text for automation rules (5daf346)
+- **dashboard:** open the advanced blocks of automations with a collapse animation (83aeef7)
+- custom energy categories in automations and editor polish (#115)
 - **dashboard:** add device icon name aliases (446f3ae)
 - **dashboard:** migrate saved device icon names to energy-node names (6ab39de)
 - **dashboard:** add shared shapes for device icons (6eb7d98)
@@ -26,7 +35,6 @@
 - **dashboard:** group the device icon picker by category (636806e)
 - **dashboard:** draw device map role icons from the catalogue (379c5c3)
 - **dashboard:** show a minimal fill level in the battery icon (8f9c311)
-- **dashboard:** reorganise the device icon catalogue (#114)
 - **dashboard:** move the automatic update check switch to the versions page (2aaca8c)
 - **dashboard:** show the update check explanation as a tooltip (7b4a38f)
 - **dashboard:** polish the device map toolbar, cards and group editing (82c7dc2)
@@ -95,6 +103,8 @@
 - **dashboard:** make saving the system configuration work and report it properly (#91) (0c7d266)
 - **installer:** skip unchanged update steps and keep the session across the restart (#102) (726ad05)
 - **dashboard:** settings polish and local docs serve (#112) (1c7e1d3)
+- **dashboard:** select a saved custom category in the rule editor (7d177ff)
+- **dashboard:** close the rule editor on collapse and mark unsaved rules (3e7340e)
 - **dashboard:** accept legacy category icons and update icon name expectations (fd9086d)
 - **dashboard:** keep the segmented control thumb inside its frame (9b5ed56)
 - **dashboard:** drop the arrow instead of spinning the update check icon (3ed48de)
@@ -133,6 +143,7 @@
 ### Documentation
 
 - redesign the documentation site with an Energy Node layout (#94) (5a7080f)
+- describe custom categories in automations, bump lazy assets (041dd6d)
 - describe the reorganised device icon catalogue (2144a4c)
 - **dashboard:** merge the device map into the energy page (b9bee03)
 - **dashboard:** describe the plant view on the energy tab (ccc8f3e)
@@ -143,6 +154,7 @@
 
 ### Tests
 
+- **dashboard:** follow the lazy asset version bump (f6a7a81)
 - **dashboard:** add data flow and balance fixtures to the smoke preset (1d65b7e)
 - **dashboard:** add a group and a custom category to the smoke fixture (fa84895)
 - **dashboard:** give the smoke preset's charger power sensors a unit (12b9f28)
@@ -153,6 +165,10 @@
 ### Style
 
 - **dashboard:** gofmt settings test (cf9b0c1)
+
+### Chores
+
+- **dashboard:** bump automations assets for the editor changes (fe1f569)
 
 ## v0.8.5 (2026-10-04)
 
