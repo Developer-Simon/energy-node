@@ -1109,6 +1109,23 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
 .update-bar-button.is-ok { border-color: color-mix(in srgb, var(--ok) 50%, transparent); background: color-mix(in srgb, var(--ok) 14%, transparent); color: var(--ok); }
 .update-bar-link { color: var(--accent); font-size: .82rem; text-decoration: none; white-space: nowrap; }
 .update-bar-modal { width: min(40rem, calc(100vw - 2rem)); }
+/* Neuerungen-Dialog: fliegt von unten ein (ease-out, das Oeffnen ist langsamer als das
+   Schliessen, der Weg ist derselbe). Der Scrim blendet mit einem weichen Blur ein.
+   Bewegungsarm: nur Ueberblenden. */
+.update-bar-modal::backdrop { background: rgba(0, 0, 0, .72); }
+@media (prefers-reduced-motion: no-preference) {
+  .app-modal.update-bar-modal { opacity: 0; transform: translateY(2.5rem) scale(.96); transition: opacity .16s ease, transform .2s var(--ease-out), overlay .2s allow-discrete, display .2s allow-discrete; }
+  .app-modal.update-bar-modal[open] { opacity: 1; transform: none; transition: opacity .24s var(--ease-out), transform .36s var(--ease-out), overlay .36s allow-discrete, display .36s allow-discrete; }
+  @starting-style { .app-modal.update-bar-modal[open] { opacity: 0; transform: translateY(2.5rem) scale(.96); } }
+  .update-bar-modal::backdrop { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0); transition: background .2s ease, backdrop-filter .2s ease, overlay .2s allow-discrete, display .2s allow-discrete; }
+  .update-bar-modal[open]::backdrop { background: rgba(0, 0, 0, .55); backdrop-filter: blur(8px); transition-duration: .3s; }
+  @starting-style { .update-bar-modal[open]::backdrop { background: rgba(0, 0, 0, 0); backdrop-filter: blur(0); } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-modal.update-bar-modal { opacity: 0; transition: opacity .2s ease, overlay .2s allow-discrete, display .2s allow-discrete; }
+  .app-modal.update-bar-modal[open] { opacity: 1; }
+  @starting-style { .app-modal.update-bar-modal[open] { opacity: 0; } }
+}
 .update-bar-modal-log { max-height: 60vh; overflow: auto; margin-bottom: 1rem; }
 .update-bar-dismiss { padding: 0 .2rem; border: 0; background: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; }
 .update-bar-restarting { border-color: color-mix(in srgb, var(--warn) 50%, transparent); }

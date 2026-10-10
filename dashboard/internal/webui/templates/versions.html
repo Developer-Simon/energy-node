@@ -14,7 +14,7 @@
     <p class="setting-note version-note" x-show="dashboardDiffers">{{t "settings.versions.package.differs"}}</p>
     <p class="setting-note" x-show="bundle && !hasChangelog">{{t "settings.versions.package.no_changelog"}}</p>
     <div x-show="hasChangelog">
-      <div class="toolbar"><button type="button" class="icon-button labeled accent" x-on:click="activeSettingsPage = 'whatsnew'">{{t "settings.versions.whatsnew"}}</button></div>
+      <div class="toolbar"><button type="button" class="icon-button labeled accent" x-on:click="$dispatch('update-whatsnew-open', { version: '' })">{{t "settings.versions.whatsnew"}}</button></div>
       <span class="setting-row-label" id="lbl-versions-changes-mode">{{t "settings.versions.changes.mode.label"}}</span>
       <div class="segmented" role="radiogroup" aria-labelledby="lbl-versions-changes-mode">
         <span class="segmented-thumb" aria-hidden="true"></span>
