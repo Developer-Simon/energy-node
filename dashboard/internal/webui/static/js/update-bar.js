@@ -21,7 +21,14 @@
     try { window.localStorage.setItem(ACK_KEY, value); } catch (error) { /* private mode: the bar shows again next load */ }
   };
 
-  const ackKeyOf = (progress) => (progress && (progress.run_id || progress.finished_at)) || '';
+  // A run is identified by run_id, then finished_at. A record with neither still
+  // needs a non-empty key, or it could be shown but never dismissed.
+  const ackKeyOf = (progress) => {
+    if (!progress) return '';
+    return progress.run_id || progress.finished_at || `${progress.version || ''}:${progress.state}`;
+  };
+  // An empty key never counts as acknowledged, so the comparison needs both.
+  const isAcknowledged = (ackKey, acknowledged) => Boolean(ackKey) && ackKey === acknowledged;
   const percentOf = (progress) => (progress && progress.total > 0 ? (progress.done / progress.total) * 100 : 0);
 
   const runningDetail = (progress) => {
@@ -49,10 +56,10 @@
     }
     const ackKey = ackKeyOf(progress);
     const fresh = progress && progress.finished_at && now - Date.parse(progress.finished_at) < OK_MAX_AGE_MS;
-    if (state === 'ok' && fresh && ackKey !== acknowledged) {
+    if (state === 'ok' && fresh && !isAcknowledged(ackKey, acknowledged)) {
       return { kind: 'ok', ackKey, title: t('update_bar.ok.title', { version: progress.version }), detail: t('update_bar.ok.detail') };
     }
-    if ((state === 'fail' || state === 'rejected') && ackKey !== acknowledged) {
+    if ((state === 'fail' || state === 'rejected') && !isAcknowledged(ackKey, acknowledged)) {
       const step = progress.step || {};
       const detail = state === 'rejected'
         ? t('update_bar.fail.rejected', { code: progress.code || '' })

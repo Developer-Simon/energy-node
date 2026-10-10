@@ -140,3 +140,13 @@ test('a 403 on the update status just means no available state', async () => {
   await bar.init();
   assert.equal(bar.view.kind, 'hidden');
 });
+
+test('a fail without run_id or finished_at is shown on a fresh browser and hidden after acknowledge', () => {
+  const { factories, window } = load();
+  const bar = factories.updateBar();
+  bar.progress = { state: 'fail', version: 'v0.9.1', code: 'X_FAILED', step: { id: '20', title: 'MQTT-Broker' } };
+  assert.equal(bar.view.kind, 'fail');
+  bar.acknowledge();
+  assert.notEqual(window.localStorage.getItem('energy-node.update-bar.acknowledged'), '');
+  assert.equal(bar.view.kind, 'hidden');
+});
