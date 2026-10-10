@@ -4,8 +4,6 @@
 
 ### Features
 
-- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
-- **dashboard:** localize the system configuration form (#72) (c716d05)
 - **battery_soc:** save the state on an interval and recover after a crash (#78) (dc62037)
 - **common:** read an optional state_save_interval_s per service (0fb6a35)
 
@@ -27,8 +25,6 @@
 
 ### Features
 
-- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
-- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
 - **services:** give every service its own version and changelog (#45) (5bc91b8)
 - **shelly:** optional wake webhook so a sleeping Gen1 device is polled the moment it wakes (3105234)
 
@@ -40,10 +36,17 @@
 
 - **services:** accept the new version field in a service manifest (6f55366)
 
-## v0.4.4 (2026-09-13)
+## v0.4.5 (2026-09-15)
 
 ### Features
 
+- **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
+
+## v0.4.4 (2026-09-12)
+
+### Features
+
+- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 - **installer:** deliver the node facts, service kinds and MQTT user the UI drafts need (ee7af39)
 
 ## v0.4.3 (2026-09-11)
