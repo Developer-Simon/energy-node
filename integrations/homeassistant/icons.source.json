@@ -24,8 +24,8 @@
       "ha_name": "battery",
       "mdi": "mdi:battery-outline",
       "label": "Batterie",
-      "markup": "<rect x=\"2.5\" y=\"7\" width=\"16.5\" height=\"10\" rx=\"2.5\"/><path d=\"M19 10h1.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H19\"/>",
-      "sha256": "2c9f77f8bb209be1c96c052da55de729e3fb215cd4ec260161801c035ccc6298"
+      "markup": "<rect x=\"2.5\" y=\"7\" width=\"16.5\" height=\"10\" rx=\"2.5\"/><path d=\"M19 10h1.5a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H19\"/><path d=\"M6 10v4\"/>",
+      "sha256": "7bd0f1ebf978eab3528ae259f90e9a87df37715c8564d7ecae5593e4bf6ac370"
     },
     {
       "name": "energy-node:battery-level",

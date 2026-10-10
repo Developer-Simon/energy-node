@@ -61,7 +61,8 @@ var deviceIconCatalogue = []DeviceIcon{
 	catalogueEntry("generation", "sun", "weather-sunny", "Sonne, Helligkeit",
 		`<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M19 5l-1.5 1.5M6.5 17.5 5 19"/>`),
 
-	catalogueEntry("storage", "battery", "battery-outline", "Batterie", batteryBody),
+	catalogueEntry("storage", "battery", "battery-outline", "Batterie",
+		batteryBody+`<path d="M6 10v4"/>`),
 	catalogueEntry("storage", "battery-level", "battery-medium", "Batterie mit Füllstand",
 		batteryBody+`<path d="M6 10v4M9.25 10v4M12.5 10v4"/>`),
 	catalogueEntry("storage", "battery-bolt", "battery-charging-outline", "Batterie mit Blitz",
