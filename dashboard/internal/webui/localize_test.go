@@ -158,7 +158,7 @@ func TestMastheadAndStatusBarFollowTheLanguage(t *testing.T) {
 		"<small>Discovery-getriebene Live-Ansicht und lokaler Gerätemanager</small>",
 		`<span class="runtime-status-label">Systemstatus</span>`,
 		"$t('status.mqtt.connected')",
-		"$t('masthead.update_available', {version: latest})",
+		"x-data=\"updateBar()\"",
 	} {
 		if !strings.Contains(german, want) {
 			t.Errorf("German overview lacks %q", want)

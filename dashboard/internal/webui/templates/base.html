@@ -52,7 +52,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=29">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=30">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -65,17 +65,33 @@
 </head>
 <body x-data="dashboardShell()" x-init="initWidePanels()" data-wide-panels="{{.WidePanels}}">
   {{template "icon-sprite" .}}
-  <header class="masthead" x-data="updateBadge()" x-init="init()">
+  <header class="masthead">
     <div class="masthead-title">
       <h1>Energy Node Dashboard</h1>
-      <a x-cloak x-show="available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-badge" x-bind:href="href" x-bind:target="external ? '_blank' : null" x-bind:rel="external ? 'noopener' : null">
-        <svg class="automation-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
-        <span x-text="$t('masthead.update_available', {version: latest})"></span>
-      </a>
       {{template "lang-pill" .}}
     </div>
     <small>{{t "masthead.subtitle"}}</small>
   </header>
+  <div class="update-bar" x-data="updateBar()" x-init="init()" x-cloak x-show="view.kind !== 'hidden'" x-bind:class="'update-bar-' + view.kind" role="status" aria-live="polite" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end">
+    <svg class="update-bar-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <g x-show="view.kind === 'available'"><path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M4 19h16"/></g>
+      <path class="update-bar-spin" x-show="['pending', 'running', 'restarting'].includes(view.kind)" d="M21 12a9 9 0 1 1-6.2-8.56"/>
+      <path x-show="view.kind === 'ok'" d="M5 12.5l4.5 4.5L19 7.5"/>
+      <g x-show="view.kind === 'fail'"><path d="M12 7v6M12 17h.01"/><circle cx="12" cy="12" r="9.5"/></g>
+    </svg>
+    <div class="update-bar-main">
+      <div class="update-bar-title" x-text="view.title"></div>
+      <div class="update-bar-detail" x-text="view.detail"></div>
+      <div class="update-bar-track" x-show="['pending', 'running', 'restarting'].includes(view.kind)"><div class="update-bar-fill" x-bind:style="'width:' + (view.percent || 0) + '%'"></div></div>
+    </div>
+    <div class="update-bar-actions">
+      <a class="update-bar-button" x-show="view.kind === 'available' && view.notesUrl" x-bind:href="view.notesUrl" target="_blank" rel="noopener"><span x-text="$t('update_bar.available.github')"></span> <span aria-hidden="true">↗</span></a>
+      <a class="update-bar-button is-primary" x-show="view.kind === 'available' && view.canInstall" x-bind:href="redeployHref()" x-text="$t('update_bar.available.install')"></a>
+      <button type="button" class="update-bar-button is-ok" x-show="view.kind === 'ok'" x-on:click="openWhatsNew()" x-text="$t('update_bar.ok.action')"></button>
+      <a class="update-bar-link" x-show="canInstall && ['running', 'fail'].includes(view.kind)" x-bind:href="redeployHref()" x-text="$t('update_bar.details')"></a>
+      <button type="button" class="update-bar-dismiss" x-show="view.kind === 'fail'" x-on:click="acknowledge()" x-bind:aria-label="$t('update_bar.dismiss')" x-bind:title="$t('update_bar.dismiss')">×</button>
+    </div>
+  </div>
   <div id="runtime-status" class="runtime-status" data-runtime-status-enabled="{{if .ShowRuntimeStatus}}true{{else}}false{{end}}" data-status-bar-items="{{.StatusBarItems}}" x-data="runtimeStatusPanel()" x-init="init()" x-cloak x-show="enabled" aria-live="polite" aria-atomic="true">
     <div class="runtime-status-summary">
       <span class="runtime-status-label">{{t "status.title"}}</span>
@@ -224,7 +240,8 @@
   <script src="{{.BasePath}}/static/js/history-maintenance.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=10" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/dashboard.js?v=28" defer></script>
+  <script src="{{.BasePath}}/static/js/dashboard.js?v=29" defer></script>
+  <script src="{{.BasePath}}/static/js/update-bar.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>

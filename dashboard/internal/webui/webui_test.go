@@ -1095,7 +1095,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=29"`,
+		`href="/node/static/css/base.css?v=30"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -1298,16 +1298,15 @@ func TestAutomationsPanelShipsTheIconSpriteAndFlowMarkup(t *testing.T) {
 }
 
 // Die Sprite-<symbol> bringen weder fill noch stroke mit (siehe base.css,
-// .automation-icon). Das Download-Icon der Update-Pille im Masthead hatte die
-// Klasse nicht und blieb unsichtbar.
-func TestUpdateBadgeIconIsStyledAsSpriteIcon(t *testing.T) {
+// .automation-icon). Das Icon der Update-Leiste ist deshalb ein Inline-SVG mit
+// eigener Klasse, die in base.css Strich und Farbe setzt.
+func TestUpdateBarIconIsStyledByItsClass(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	page := recorder.Body.String()
-	if !strings.Contains(page, `<svg class="automation-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
-        <span x-text="$t('masthead.update_available'`) {
-		t.Fatal("Das Icon der Update-Pille braucht class=\"automation-icon\" (fill:none, stroke:currentColor)")
+	if !strings.Contains(page, `<svg class="update-bar-icon" viewBox="0 0 24 24" aria-hidden="true">`) {
+		t.Fatal("das Icon der Update-Leiste braucht class=\"update-bar-icon\" (fill:none, stroke aus base.css)")
 	}
 }
 
