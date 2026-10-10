@@ -77,6 +77,7 @@
               <span class="automation-rule-name" x-show="!editing[rule.id]" x-text="rule.name"></span>
               <input type="text" x-model="rule.name" x-show="editing[rule.id]" class="automation-rule-name"
                      x-bind:aria-label="$t('automations.rule.name_input.aria_label')">
+              <span class="automation-unsaved-badge" role="status" x-cloak x-show="isDirty(rule)">{{t "automations.rule.unsaved_badge"}}</span>
 
               <label class="settings-toggle"
                      x-bind:title="rule.enabled ? $t('automations.rule.enabled_toggle.title_on') : $t('automations.rule.enabled_toggle.title_off')">

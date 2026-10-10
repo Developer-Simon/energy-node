@@ -443,7 +443,12 @@
 
     startEditing(rule) { this.editing[rule.id] = true; this.expanded[rule.id] = true; },
     stopEditing(rule) { this.editing[rule.id] = false; },
-    toggleExpanded(rule) { this.expanded[rule.id] = !this.expanded[rule.id]; },
+    // Collapsing closes the editor too, the wizard keeps its own editing state.
+    toggleExpanded(rule) {
+      const collapsing = this.expanded[rule.id];
+      this.expanded[rule.id] = !collapsing;
+      if (collapsing && !this.isWizardRule(rule)) this.editing[rule.id] = false;
+    },
 
     // Die Device Map verweist auf eine Regel: aufklappen, zur Regel scrollen
     // und sie kurz hervorheben.

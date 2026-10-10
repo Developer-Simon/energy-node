@@ -458,6 +458,41 @@ test('isDirty detects an edited but unsaved rule', () => {
   assert.equal(component.isDirty(component.document.rules[0]), true);
 });
 
+test('collapsing an edited rule closes its editor and keeps the unsaved name', () => {
+  const component = panelWithState(sampleState);
+  component.document = { version: 1, settings: {}, rules: [JSON.parse(JSON.stringify(sampleRule))] };
+  const rule = component.document.rules[0];
+  component.expanded[rule.id] = true;
+  component.editing[rule.id] = true;
+  rule.name = 'Renamed but unsaved';
+  component.toggleExpanded(rule);
+  assert.equal(component.expanded[rule.id], false);
+  assert.equal(component.editing[rule.id], false);
+  assert.equal(component.document.rules[0].name, 'Renamed but unsaved');
+});
+
+test('expanding a collapsed rule does not start editing', () => {
+  const component = panelWithState(sampleState);
+  component.document = { version: 1, settings: {}, rules: [JSON.parse(JSON.stringify(sampleRule))] };
+  const rule = component.document.rules[0];
+  component.expanded[rule.id] = false;
+  component.toggleExpanded(rule);
+  assert.equal(component.expanded[rule.id], true);
+  assert.equal(Boolean(component.editing[rule.id]), false);
+});
+
+test('collapsing a rule keeps editing while the wizard runs for it', () => {
+  const component = panelWithState(sampleState);
+  component.document = { version: 1, settings: {}, rules: [JSON.parse(JSON.stringify(sampleRule))] };
+  const rule = component.document.rules[0];
+  component.expanded[rule.id] = true;
+  component.editing[rule.id] = true;
+  component.wizard = { active: true, step: 2, ruleId: rule.id };
+  component.toggleExpanded(rule);
+  assert.equal(component.expanded[rule.id], false);
+  assert.equal(component.editing[rule.id], true);
+});
+
 test('renderMiniChain yields one entry per condition plus the gate tone', () => {
   const component = panelWithState(sampleState);
   const chain = component.renderMiniChain(sampleRule);

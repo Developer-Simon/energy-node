@@ -7,6 +7,7 @@
 .automation-rule.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
 .automation-rule-head { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; padding-bottom: .7rem; border-bottom: 1px solid var(--border-soft); }
 .automation-rule-name { font-weight: 600; color: var(--text-strong); flex: 1; min-width: 12rem; }
+.automation-unsaved-badge { flex: none; padding: .15rem .6rem; border-radius: 999px; background: var(--warn-bg); color: var(--warn); font-size: .76rem; white-space: nowrap; }
 
 /* .automation-icon selbst steht in base.css - hier nur die Faerbungen. */
 .automation-icon-sm { width: .95rem; height: .95rem; }
