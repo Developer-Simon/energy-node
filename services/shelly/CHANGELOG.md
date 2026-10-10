@@ -2,10 +2,6 @@
 
 ## v0.4.4 (2026-10-06)
 
-### Features
-
-- **battery_soc:** DC-only systems in the MQTT service and conditional config forms (#58) (89bacae)
-- **dashboard:** localize the system configuration form (#72) (c716d05)
 
 ### Documentation
 
@@ -39,7 +35,6 @@
 ### Features
 
 - **webui:** add the installer's layer-3 web UI, browser tests and CI (#28) (e819b5e)
-- **installer:** build the node-half bootstrap chain and signed bundle pipeline (#25) (f11e962)
 
 ## v0.3.1 (2026-09-12)
 

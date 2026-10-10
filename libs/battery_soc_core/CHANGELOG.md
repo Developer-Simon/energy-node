@@ -10,10 +10,6 @@
 - **battery_soc_core:** treat a DC-only side as the sole source, not an override (55f1c62)
 - **battery_soc:** define series banks as A+ to B- and accept a stack sensor (e3fd939)
 
-### Refactors
-
-- split src/ into services/ and libs/, rename service-level device_id to service_id (#10) (75abe73)
-- remove git hooks, and stop the per-PR CHANGELOG stacking (#13) (c643260)
 
 ## v0.1.9 (2026-09-09)
 

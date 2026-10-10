@@ -535,6 +535,65 @@ dedup_block_entries() {
   $had_trailing_nl || DEDUPED_BLOCK="${DEDUPED_BLOCK%$'\n'}"
 }
 
+# Entfernt aus einem Abschnitt ($1) jeden Eintrag, dessen Schluessel in der
+# globalen Map XSEEN schon steht, und traegt die uebrigen Schluessel ein. Der
+# Schluessel ist die PR-Nummer "(#NN)", sonst der Commit-Hash "(abc1234)";
+# Eintraege ohne beides bleiben immer stehen. Aufrufer gehen die Abschnitte vom
+# aeltesten zum neuesten durch: eine Aenderung erscheint nur im aeltesten
+# Abschnitt, der sie nennt. Das faengt Eintraege, die ein aelterer, eingefrorener
+# Abschnitt noch haelt, waehrend ein neu gebauter Abschnitt sie ebenfalls
+# fuehrt (z.B. nachdem sich die Abschnittsgrenzen verschoben haben). Wie
+# dedup_block_entries rein entfernend; eine leer gewordene "### "-Ueberschrift
+# faellt mit weg. Ergebnis in XDEDUP_BLOCK.
+declare -A XSEEN=()
+XDEDUP_BLOCK=""
+dedup_against_seen() {
+  local block="$1"
+  local had_trailing_nl=false
+  [[ "$block" == *$'\n' ]] && had_trailing_nl=true
+
+  local -a lines=() kept=() out=()
+  mapfile -t lines < <(printf '%s' "$block")
+
+  local line body key
+  for line in "${lines[@]}"; do
+    if [[ "$line" == "- "* ]]; then
+      body="${line#- }"
+      key=""
+      if [[ "$body" =~ \(#([0-9]+)\) ]]; then
+        key="pr:${BASH_REMATCH[1]}"
+      elif [[ "$body" =~ \(([0-9a-f]{7,40})\)$ ]]; then
+        key="h:${BASH_REMATCH[1]}"
+      fi
+      if [[ -n "$key" ]]; then
+        [[ -n "${XSEEN[$key]:-}" ]] && continue
+        XSEEN[$key]=1
+      fi
+    fi
+    kept+=("$line")
+  done
+
+  local i n=${#kept[@]} j empty
+  for (( i = 0; i < n; i++ )); do
+    if [[ "${kept[$i]}" == "### "* ]]; then
+      empty=true
+      for (( j = i + 1; j < n; j++ )); do
+        [[ "${kept[$j]}" == "### "* || "${kept[$j]}" == "## "* ]] && break
+        if [[ "${kept[$j]}" == "- "* ]]; then empty=false; break; fi
+      done
+      if $empty; then
+        if (( i + 1 < n )) && [[ -z "${kept[$((i+1))]}" ]]; then (( i++ )); fi
+        continue
+      fi
+    fi
+    out+=("${kept[$i]}")
+  done
+
+  XDEDUP_BLOCK=""
+  for line in "${out[@]}"; do XDEDUP_BLOCK+="${line}"$'\n'; done
+  $had_trailing_nl || XDEDUP_BLOCK="${XDEDUP_BLOCK%$'\n'}"
+}
+
 # Re-rendert den Primaerblock ($1, dessen "## ..."-Ueberschrift erhalten
 # bleibt) mit der Vereinigung der "- "-Eintraege aller uebergebenen Bloecke,
 # gruppiert nach "### Typ" (Reihenfolge: TYPE_ORDER). Zwei Dedup-Stufen:
@@ -1277,6 +1336,15 @@ except Exception:
   for (( ob = 0; ob < on; ob++ )); do
     dedup_block_entries "${out_blocks[$ob]}"
     out_blocks[$ob]="$DEDUPED_BLOCK"
+  done
+
+  # Eine Aenderung gehoert in genau einen Abschnitt, den aeltesten, der sie
+  # nennt (siehe dedup_against_seen). out_blocks steht absteigend, also von
+  # hinten nach vorn.
+  XSEEN=()
+  for (( ob = on - 1; ob >= 0; ob-- )); do
+    dedup_against_seen "${out_blocks[$ob]}"
+    out_blocks[$ob]="$XDEDUP_BLOCK"
   done
 
   {

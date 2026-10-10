@@ -58,4 +58,28 @@ cp "$dcl" "$tmp/after"
 gen dashboard
 diff -u "$tmp/after" "$dcl" || fail "second run changed the output (not idempotent)"
 
+# ---------------------------------------------------------------------------
+# A change belongs in one section only. An older section that is frozen in the
+# file (its hash is unknown to git) already holds entry #2; the freshly built
+# v0.8.5 section lists it too. It has to stay in the older section only.
+# ---------------------------------------------------------------------------
+cat >> "$dcl" <<'EOT'
+
+## v0.7.0 (2026-09-01)
+
+### Features
+
+- **dashboard:** second released feature (#2) (deadbeef)
+- hand written entry without a reference
+EOT
+gen dashboard
+[ "$(count '(#2)' "$dcl")" -eq 1 ]                                  || fail "entry #2 listed in more than one section"
+section "$dcl" v0.7.0 | grep -q "second released feature"           || fail "entry #2 not kept in the older section"
+section "$dcl" v0.8.5 | grep -q "first released feature"            || fail "v0.8.5 lost entry #1"
+section "$dcl" v0.7.0 | grep -q "hand written entry without a reference" || fail "entry without a reference was dropped"
+
+cp "$dcl" "$tmp/after2"
+gen dashboard
+diff -u "$tmp/after2" "$dcl" || fail "second run changed the output (not idempotent)"
+
 echo "PASS: test_generate_changelog_foreign_tag"
