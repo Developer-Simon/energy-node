@@ -124,11 +124,11 @@ skips scripts already present as `<script src>`.
 |---|---|---|
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `13` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
-| `diagnostics-panel` | – | `css/settings-controls.css` `8`, `css/diagnostics.css` `2` |
+| `diagnostics-panel` | – | `css/settings-controls.css` `9`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `31` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `5`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `1`, `js/devicemap-node-svg.js` `3`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `1`, `js/device-picker.js` `1`, `js/energy.page.js` `8` | `css/manager.css` `31` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `5`, `js/devicemap-node-svg.js` `3`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `1`, `js/automations-view.js` `1`, `js/device-picker.js` `1`, `js/devicemap.page.js` `16` | `css/manager.css` `31` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `13`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `2`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `31`, `css/settings-controls.css` `8` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `13`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `2`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `31`, `css/settings-controls.css` `9` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `1`, `js/automations.page.js` `8` | `css/manager.css` `31`, `css/automations.css` `5` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -246,6 +246,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.8.19 | `css/settings-controls.css` (settings, diagnostics) | `9` | 2026-10-10 |
 | v0.8.18 | `css/base.css` · `css/manager.css` (5 panels) · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/device-picker.js` (new, energy, device map) · `js/energy-plant.js` · `js/devicemap.page.js` · `js/energy.page.js` | `27` · `31` · `6` · `3` · `1` (new) · `2` · `16` · `8` | 2026-10-10 |
 | v0.8.15 | `css/base.css` · `css/manager.css` (5 panels) · `css/automations.css` · `js/devicemap-model.js` · `js/devicemap-node-svg.js` · `js/devicemap-labels.js` · `js/devicemap-graph.js` (new) · `js/devicemap-dataflow.js` (new) · `js/automations-view.js` (new) · `js/energy-plant.js` (new) · `js/devicemap.page.js` · `js/energy-model.js` (history panel + energy cards) · `js/history-recorder.js` · `js/energy.page.js` · `js/automations.page.js` · `js/config.page.js` · `js/dashboard.js` | `26` · `30` · `5` · `5` · `3` · `2` · `2` (new) · `1` (new) · `1` (new) · `1` (new) · `15` · `3` · `10` · `7` · `8` · `9` · `27` | 2026-10-08 – 2026-10-09 |
 | v0.8.14 | `css/manager.css` (5 panels) · `js/dashboard.js` · `js/revisions.js` (config, energy, device map, settings panels + layout editor) · `js/energy.page.js` · `js/devicemap.page.js` · `js/devicemap-model.js` | `27` · `26` · `4` · `5` · `12` · `3` | 2026-10-08 |
