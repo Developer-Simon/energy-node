@@ -55,13 +55,15 @@ const VIEW_BOX = "0 0 24 24";
 // Home Assistant zeichnet ein Icon als einen gefuellten Pfad. Die Striche der
 // Dashboard-Zeichnung sind deshalb schon zu Umrissen abgewickelt.
 const getIcon = async (name) => {
-  const icon = ICONS[name];
+  // Namen von vor der Neuordnung (energy-node:ev-station) zeigen weiter
+  // ihr Icon, stehen aber nicht in getIconList.
+  const icon = ICONS[name] || ICONS[ALIASES[name]];
   if (icon) {
     return { path: icon.path, viewBox: VIEW_BOX };
   }
-  // Unbekannter Name (Tippfehler, umbenanntes Icon): ha-icon liest .path ohne
+  // Unbekannter Name (Tippfehler, entferntes Icon): ha-icon liest .path ohne
   // Pruefung - also das Standard-Symbol statt undefined.
-  return { path: ICONS["chip-outline"].path, viewBox: VIEW_BOX };
+  return { path: ICONS["chip"].path, viewBox: VIEW_BOX };
 };
 
 window.customIconsets = window.customIconsets || {};
@@ -80,6 +82,8 @@ window.customIcons["energy-node"] = {
 _ENTRY_RE = re.compile(r'^  "([^"]+)": \{\n    label: (.*),\n    sourceHash: "([0-9a-f]{64})",$', re.M)
 _STROKE_RE = re.compile(r'^const SOURCE_STROKE_WIDTH = "([^"]+)";$', re.M)
 _PATH_RE = re.compile(r'^  "([^"]+)": \{\n(?:    .*\n)*?    path: "([^"]+)",$', re.M)
+_ALIAS_BLOCK_RE = re.compile(r"^const ALIASES = \{\n((?:  .*\n)*)\};$", re.M)
+_ALIAS_RE = re.compile(r'^  "([^"]+)": "([^"]+)",$', re.M)
 
 # Die Doku zeigt jedes Icon so, wie Home Assistant es zeichnet: der gefuellte
 # Umriss aus dem Modul, in einem Mittelblau, das auf hellem und dunklem
@@ -90,25 +94,37 @@ ICON_SVG_FILL = "#1488c9"
 # Englische Geraetebezeichnung je Icon fuer die (englische) Doku. Die Labels
 # im Katalog sind deutsch; fehlt hier ein Icon, meldet --check Drift.
 DESCRIPTIONS = {
-    "chip-outline": "Generic device (fallback)",
     "solar-panel": "Solar panel",
-    "current-ac": "Inverter",
-    "power-plug": "Smart plug",
+    "sun": "Sun, brightness",
+    "battery": "Battery",
+    "battery-level": "Battery level",
+    "battery-bolt": "Battery with bolt",
+    "charger": "Charger",
+    "battery-home": "Home battery",
+    "grid": "Power grid",
     "meter-electric": "3-phase energy meter",
-    "pipe-valve": "Heating-pipe valve",
-    "raspberry-pi": "Raspberry Pi",
-    "home-battery": "Battery",
-    "battery-charging": "Charger",
-    "thermometer": "Thermometer",
-    "power-socket-de": "Flush-mounted socket",
-    "gas-burner": "Heating (oil/gas)",
-    "water-boiler": "Water boiler",
-    "ev-station": "Wallbox (EV charger)",
-    "transmission-tower": "Power grid",
-    "sitemap": "Automations",
-    "home": "Building",
+    "inverter": "Inverter",
+    "sensor": "Generic sensor",
+    "plug-smart": "Smart plug",
+    "socket-wall": "Flush-mounted socket",
+    "switch": "Switch, relay",
+    "timer": "Timer",
     "heat-pump": "Heat pump",
-    "flash-circle": "Consumption",
+    "fan": "Fan, air conditioner",
+    "heater": "Heating (oil/gas)",
+    "water-boiler": "Water boiler",
+    "thermometer": "Thermometer",
+    "pipe-valve": "Heating-pipe valve",
+    "wallbox": "Wallbox (EV charger)",
+    "wallbox-compact": "Wallbox with socket",
+    "wallbox-plug": "Charging plug",
+    "home": "Building",
+    "home-bolt": "Household consumption",
+    "bolt-circle": "Consumption",
+    "chip": "Generic device (fallback)",
+    "device-generic": "Generic device",
+    "raspberry-pi": "Raspberry Pi",
+    "automations": "Automations",
 }
 
 # Dateien mit einer generierten Icon-Tabelle und wie sie die SVGs erreichen.
@@ -175,6 +191,11 @@ def check() -> int:
         # Umbenennung muss deshalb genauso auffallen wie eine neue Zeichnung.
         if want_labels[name] != have_labels[name]:
             problems.append(f"{name}: Label geaendert ({have_labels[name]!r} -> {want_labels[name]!r})")
+    block = _ALIAS_BLOCK_RE.search(module)
+    have_aliases = _ALIAS_RE.findall(block.group(1)) if block else None
+    want_aliases = [(a["from"], a["to"]) for a in doc.get("aliases", [])]
+    if have_aliases != want_aliases:
+        problems.append(f"Aliase: Modul {have_aliases}, Quelle {want_aliases}")
     for name in sorted(want.keys() - DESCRIPTIONS.keys()):
         problems.append(f"{name}: keine englische Beschreibung in DESCRIPTIONS")
     paths = dict(_PATH_RE.findall(module))
@@ -350,6 +371,9 @@ def render_module(doc: dict) -> str:
             f'    path: "{outline(icon["markup"], stroke_width)}",',
             "  },",
         ]
+    lines += ["};", "", "const ALIASES = {"]
+    for alias in doc.get("aliases", []):
+        lines.append(f'  {json.dumps(alias["from"])}: {json.dumps(alias["to"])},')
     lines += ["};", "", FOOTER]
     return "\n".join(lines)
 

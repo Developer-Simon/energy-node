@@ -12,25 +12,37 @@ type it stands for in the dashboard.
 
 | Icon | Name | Device type |
 |:---:|---|---|
-| <img src="../images/device-icons/chip-outline.svg" width="32" height="32" alt="chip-outline"> | `energy-node:chip-outline` | Generic device (fallback) |
 | <img src="../images/device-icons/solar-panel.svg" width="32" height="32" alt="solar-panel"> | `energy-node:solar-panel` | Solar panel |
-| <img src="../images/device-icons/current-ac.svg" width="32" height="32" alt="current-ac"> | `energy-node:current-ac` | Inverter |
-| <img src="../images/device-icons/power-plug.svg" width="32" height="32" alt="power-plug"> | `energy-node:power-plug` | Smart plug |
+| <img src="../images/device-icons/sun.svg" width="32" height="32" alt="sun"> | `energy-node:sun` | Sun, brightness |
+| <img src="../images/device-icons/battery.svg" width="32" height="32" alt="battery"> | `energy-node:battery` | Battery |
+| <img src="../images/device-icons/battery-level.svg" width="32" height="32" alt="battery-level"> | `energy-node:battery-level` | Battery level |
+| <img src="../images/device-icons/battery-bolt.svg" width="32" height="32" alt="battery-bolt"> | `energy-node:battery-bolt` | Battery with bolt |
+| <img src="../images/device-icons/charger.svg" width="32" height="32" alt="charger"> | `energy-node:charger` | Charger |
+| <img src="../images/device-icons/battery-home.svg" width="32" height="32" alt="battery-home"> | `energy-node:battery-home` | Home battery |
+| <img src="../images/device-icons/grid.svg" width="32" height="32" alt="grid"> | `energy-node:grid` | Power grid |
 | <img src="../images/device-icons/meter-electric.svg" width="32" height="32" alt="meter-electric"> | `energy-node:meter-electric` | 3-phase energy meter |
-| <img src="../images/device-icons/pipe-valve.svg" width="32" height="32" alt="pipe-valve"> | `energy-node:pipe-valve` | Heating-pipe valve |
-| <img src="../images/device-icons/raspberry-pi.svg" width="32" height="32" alt="raspberry-pi"> | `energy-node:raspberry-pi` | Raspberry Pi |
-| <img src="../images/device-icons/home-battery.svg" width="32" height="32" alt="home-battery"> | `energy-node:home-battery` | Battery |
-| <img src="../images/device-icons/battery-charging.svg" width="32" height="32" alt="battery-charging"> | `energy-node:battery-charging` | Charger |
-| <img src="../images/device-icons/thermometer.svg" width="32" height="32" alt="thermometer"> | `energy-node:thermometer` | Thermometer |
-| <img src="../images/device-icons/power-socket-de.svg" width="32" height="32" alt="power-socket-de"> | `energy-node:power-socket-de` | Flush-mounted socket |
-| <img src="../images/device-icons/gas-burner.svg" width="32" height="32" alt="gas-burner"> | `energy-node:gas-burner` | Heating (oil/gas) |
-| <img src="../images/device-icons/water-boiler.svg" width="32" height="32" alt="water-boiler"> | `energy-node:water-boiler` | Water boiler |
-| <img src="../images/device-icons/ev-station.svg" width="32" height="32" alt="ev-station"> | `energy-node:ev-station` | Wallbox (EV charger) |
-| <img src="../images/device-icons/transmission-tower.svg" width="32" height="32" alt="transmission-tower"> | `energy-node:transmission-tower` | Power grid |
-| <img src="../images/device-icons/sitemap.svg" width="32" height="32" alt="sitemap"> | `energy-node:sitemap` | Automations |
-| <img src="../images/device-icons/home.svg" width="32" height="32" alt="home"> | `energy-node:home` | Building |
+| <img src="../images/device-icons/inverter.svg" width="32" height="32" alt="inverter"> | `energy-node:inverter` | Inverter |
+| <img src="../images/device-icons/sensor.svg" width="32" height="32" alt="sensor"> | `energy-node:sensor` | Generic sensor |
+| <img src="../images/device-icons/plug-smart.svg" width="32" height="32" alt="plug-smart"> | `energy-node:plug-smart` | Smart plug |
+| <img src="../images/device-icons/socket-wall.svg" width="32" height="32" alt="socket-wall"> | `energy-node:socket-wall` | Flush-mounted socket |
+| <img src="../images/device-icons/switch.svg" width="32" height="32" alt="switch"> | `energy-node:switch` | Switch, relay |
+| <img src="../images/device-icons/timer.svg" width="32" height="32" alt="timer"> | `energy-node:timer` | Timer |
 | <img src="../images/device-icons/heat-pump.svg" width="32" height="32" alt="heat-pump"> | `energy-node:heat-pump` | Heat pump |
-| <img src="../images/device-icons/flash-circle.svg" width="32" height="32" alt="flash-circle"> | `energy-node:flash-circle` | Consumption |
+| <img src="../images/device-icons/fan.svg" width="32" height="32" alt="fan"> | `energy-node:fan` | Fan, air conditioner |
+| <img src="../images/device-icons/heater.svg" width="32" height="32" alt="heater"> | `energy-node:heater` | Heating (oil/gas) |
+| <img src="../images/device-icons/water-boiler.svg" width="32" height="32" alt="water-boiler"> | `energy-node:water-boiler` | Water boiler |
+| <img src="../images/device-icons/thermometer.svg" width="32" height="32" alt="thermometer"> | `energy-node:thermometer` | Thermometer |
+| <img src="../images/device-icons/pipe-valve.svg" width="32" height="32" alt="pipe-valve"> | `energy-node:pipe-valve` | Heating-pipe valve |
+| <img src="../images/device-icons/wallbox.svg" width="32" height="32" alt="wallbox"> | `energy-node:wallbox` | Wallbox (EV charger) |
+| <img src="../images/device-icons/wallbox-compact.svg" width="32" height="32" alt="wallbox-compact"> | `energy-node:wallbox-compact` | Wallbox with socket |
+| <img src="../images/device-icons/wallbox-plug.svg" width="32" height="32" alt="wallbox-plug"> | `energy-node:wallbox-plug` | Charging plug |
+| <img src="../images/device-icons/home.svg" width="32" height="32" alt="home"> | `energy-node:home` | Building |
+| <img src="../images/device-icons/home-bolt.svg" width="32" height="32" alt="home-bolt"> | `energy-node:home-bolt` | Household consumption |
+| <img src="../images/device-icons/bolt-circle.svg" width="32" height="32" alt="bolt-circle"> | `energy-node:bolt-circle` | Consumption |
+| <img src="../images/device-icons/chip.svg" width="32" height="32" alt="chip"> | `energy-node:chip` | Generic device (fallback) |
+| <img src="../images/device-icons/device-generic.svg" width="32" height="32" alt="device-generic"> | `energy-node:device-generic` | Generic device |
+| <img src="../images/device-icons/raspberry-pi.svg" width="32" height="32" alt="raspberry-pi"> | `energy-node:raspberry-pi` | Raspberry Pi |
+| <img src="../images/device-icons/automations.svg" width="32" height="32" alt="automations"> | `energy-node:automations` | Automations |
 
 <!-- icon-table:end -->
 
