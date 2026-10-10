@@ -1268,6 +1268,7 @@
   "error.authentication_required": "Anmeldung erforderlich",
   "error.authentication_unavailable": "Anmeldung ist nicht konfiguriert",
   "error.automation_not_found": "Automations-Dienst wurde nicht gefunden",
+  "error.automation_not_found.no_history_topic": "Automations-Dienst ohne history-Topic",
   "error.automation_not_found.no_last_event_topic": "Automations-Dienst ohne last_event-Topic",
   "error.automation_not_found.no_service": "Kein Automations-Dienst auf dieser Instanz",
   "error.automations_forbidden": "Für diese Automations-Aktion fehlt die Berechtigung",

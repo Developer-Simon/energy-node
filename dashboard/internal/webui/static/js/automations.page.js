@@ -44,6 +44,7 @@
     expanded: {},
     flashRule: '',
     liveHistory: {},
+    lastHistoryMessageAt: undefined,
     historyExpanded: {},
     editing: {},
     savedDocument: null,
@@ -284,9 +285,26 @@
       // state-Topics (last_message.payload).
       const rawDocument = stateEntity && stateEntity.last_message && stateEntity.last_message.payload;
       this.applyStateDocument(rawDocument, Boolean(stateEntity && stateEntity.available));
+      // Den Verlauf selbst liefert /api/v1/automation/history: last_message
+      // ist auf 4096 Byte gekappt und teilt sich den Platz mit der
+      // Availability, ein langer Verlauf kam dort abgeschnitten an. Der
+      // Zeitstempel zeigt nur an, dass seit dem letzten Abruf etwas auf der
+      // Entity ankam, damit nicht jeder Zustands-Tick den Verlauf neu holt.
       const historyEntity = (automationDevice.entities || []).find((entity) => entity.object_id === 'history');
-      const rawHistory = historyEntity && historyEntity.last_message && historyEntity.last_message.payload;
-      this.applyHistoryDocument(rawHistory);
+      const historyAt = historyEntity && historyEntity.last_message && historyEntity.last_message.at;
+      if (historyEntity && historyAt !== this.lastHistoryMessageAt) {
+        this.lastHistoryMessageAt = historyAt;
+        this.refreshHistory();
+      }
+    },
+
+    async refreshHistory() {
+      try {
+        this.applyHistoryDocument(await requestJSON('/api/v1/automation/history'));
+      } catch (error) {
+        // voruebergehender Fehler, der naechste Tick versucht es erneut
+        this.lastHistoryMessageAt = null;
+      }
     },
 
     // Pro SSE-Tick wird genau ein Geraet geholt (10,9 KB statt 448 KB): der
@@ -317,14 +335,11 @@
       }
     },
 
-    applyHistoryDocument(raw) {
-      if (!raw) return;
-      try {
-        const parsed = JSON.parse(raw);
-        this.liveHistory = parsed.rules || {};
-      } catch (error) {
-        // ein halb geschriebenes Dokument darf die Ansicht nicht leeren
-      }
+    applyHistoryDocument(document) {
+      // 204 (noch kein brauchbares Dokument) kommt als {} an und darf die
+      // Ansicht so wenig leeren wie ein fremder Payload.
+      if (!document || typeof document.rules !== 'object' || document.rules === null) return;
+      this.liveHistory = document.rules;
     },
 
     ruleState(rule) {

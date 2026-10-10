@@ -1268,6 +1268,7 @@
   "error.authentication_required": "Sign-in required",
   "error.authentication_unavailable": "Sign-in is not configured",
   "error.automation_not_found": "Automation service not found",
+  "error.automation_not_found.no_history_topic": "Automation service has no history topic",
   "error.automation_not_found.no_last_event_topic": "Automation service has no last_event topic",
   "error.automation_not_found.no_service": "No automation service on this instance",
   "error.automations_forbidden": "You do not have permission for this automation action",

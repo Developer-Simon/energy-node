@@ -267,6 +267,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/topics", handleTopics(reg))
 	mux.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
 	mux.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
+	mux.HandleFunc("/api/v1/automation/history", handleAutomationLiveHistory(reg))
 	resolver := dependencies.Resolver
 	if resolver == nil {
 		resolver = energy.NewResolver(nil)
@@ -1519,6 +1520,53 @@ func handleAutomationNotification(reg *registry.Registry) http.HandlerFunc {
 			return
 		}
 		writeJSON(w, document)
+	}
+}
+
+// handleAutomationLiveHistory serves the automation service's history document
+// ({at, rules, rule_count}) in full. The automations page used to read it from
+// the device route's last_message, which is cut at 4096 bytes and shared with
+// the availability topic: a few rules with a full history exceeded the cap, the
+// browser could not parse the truncated document and showed no history after a
+// reload. Unlike /api/v1/automations/history/<id>, which reads the persisted
+// file, this route also covers settings.history_persist=false. A 204 means no
+// usable document yet, so the client keeps whatever it last showed.
+func handleAutomationLiveHistory(reg *registry.Registry) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		device, ok := reg.Get("automation")
+		if !ok {
+			writeErrorKey(w, http.StatusNotFound, "automation_not_found", "error.automation_not_found.no_service", nil, "Kein Automations-Dienst auf dieser Instanz")
+			return
+		}
+		var stateTopic string
+		for _, entity := range device.Entities {
+			if entity.ObjectID == "history" {
+				stateTopic = entity.StateTopic
+				break
+			}
+		}
+		if stateTopic == "" {
+			writeErrorKey(w, http.StatusNotFound, "automation_not_found", "error.automation_not_found.no_history_topic", nil, "Automations-Dienst ohne history-Topic")
+			return
+		}
+		payload, ok := reg.StatePayload(stateTopic)
+		if !ok || payload == "" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		var document struct {
+			Rules map[string]json.RawMessage `json:"rules"`
+		}
+		if err := json.Unmarshal([]byte(payload), &document); err != nil || document.Rules == nil {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Write([]byte(payload))
 	}
 }
 

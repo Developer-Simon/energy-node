@@ -126,6 +126,10 @@ type entityState struct {
 	// most recent message, so it is not a reliable source for the state
 	// payload once an availability heartbeat lands - see TopicSample.
 	lastStateMessage *MQTTMessage
+	// lastStatePayload is the untruncated payload of lastStateMessage, which
+	// keeps only maxLastMessagePayload bytes. Consumers whose documents grow
+	// past that (the automation history) read it through StatePayload.
+	lastStatePayload string
 	source           string
 	payloadValid     bool
 	payloadError     string
@@ -677,6 +681,9 @@ func (r *Registry) updateStateLocked(topic string, payload []byte, retained bool
 		}
 		es.lastMessage = updateLastMessage(es.lastMessage, topic, payload, retained, qos, seenAt)
 		es.lastStateMessage = updateLastMessage(es.lastStateMessage, topic, payload, retained, qos, seenAt)
+		if es.lastStatePayload != string(payload) {
+			es.lastStatePayload = string(payload)
+		}
 		if es.hasAvailability && !es.available {
 			continue
 		}
@@ -749,6 +756,7 @@ func (r *Registry) RestoreStateAt(deviceID, uniqueID, value string, available, h
 			Topic: es.info.StateTopic, Payload: payload, At: lastTopicAt, Retained: true,
 		}
 		es.lastStateMessage = cloneMQTTMessage(es.lastMessage)
+		es.lastStatePayload = payload
 		es.source = "runtime-cache"
 	} else if es.source == "" {
 		es.source = "runtime-cache"
@@ -1380,6 +1388,27 @@ func (r *Registry) TopicSamplesFor(topics []string) []TopicSample {
 		samples = append(samples, r.sampleForTopicLocked(topic))
 	}
 	return samples
+}
+
+// StatePayload returns the last payload seen on a state topic in full. Unlike
+// TopicSample.Payload and EntityView.LastMessage it is not cut at
+// maxLastMessagePayload, and an availability message never replaces it.
+func (r *Registry) StatePayload(topic string) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	uniqueIDs := make([]string, 0, len(r.byTopic[topic]))
+	for uniqueID := range r.byTopic[topic] {
+		uniqueIDs = append(uniqueIDs, uniqueID)
+	}
+	sort.Strings(uniqueIDs)
+	for _, uniqueID := range uniqueIDs {
+		es := r.entityByUniqueLocked(uniqueID)
+		if es == nil || es.info.StateTopic != topic || es.lastStateMessage == nil {
+			continue
+		}
+		return es.lastStatePayload, true
+	}
+	return "", false
 }
 
 // DiscoveryTopics returns all discovery topics belonging to one active device.

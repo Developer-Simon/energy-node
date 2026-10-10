@@ -860,3 +860,35 @@ func TestRestoreStateAtDoesNotOverwriteALiveMessage(t *testing.T) {
 		t.Fatalf("restore must not clobber an already-live message, got %+v", samples[0])
 	}
 }
+
+// The automation history document carries every rule's trigger history in one
+// payload and easily grows past maxLastMessagePayload. last_message and the
+// topic samples stay bounded, but StatePayload has to return the payload as the
+// broker delivered it, also after an availability message on the same entity.
+func TestStatePayloadKeepsPayloadsBeyondTheLastMessageLimit(t *testing.T) {
+	reg := New()
+	reg.UpsertEntity(Discovery{
+		Device: DeviceInfo{ID: "automation"},
+		Entity: EntityInfo{
+			UniqueID:          "automation_history",
+			ObjectID:          "history",
+			StateTopic:        "outstation/automation/history",
+			AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	large := `{"rules":{"r1":["` + strings.Repeat("x", 2*maxLastMessagePayload) + `"]}}`
+	reg.UpdateState("outstation/automation/history", []byte(large), true, time.Now())
+	reg.UpdateAvailability("outstation/automation/status/online", []byte("1"), true, time.Now())
+
+	payload, ok := reg.StatePayload("outstation/automation/history")
+	if !ok || payload != large {
+		t.Fatalf("StatePayload truncated or missing: ok=%v len=%d want %d", ok, len(payload), len(large))
+	}
+	samples := reg.TopicSamplesFor([]string{"outstation/automation/history"})
+	if got := len(samples[0].Payload); got != maxLastMessagePayload+len("...") {
+		t.Fatalf("topic sample should stay bounded, got %d bytes", got)
+	}
+	if _, ok := reg.StatePayload("outstation/unknown"); ok {
+		t.Fatal("unknown topic must report no payload")
+	}
+}
