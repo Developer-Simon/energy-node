@@ -13,6 +13,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 // DefaultDir is where a real node keeps the job directory. Tests always
@@ -90,16 +91,32 @@ func Stage(dir string, job Job, bundleSrc string) error {
 }
 
 // ReadCurrent reads the job the updater has claimed (dir/current.json).
-func ReadCurrent(dir string) (*Job, error) {
-	raw, err := os.ReadFile(filepath.Join(dir, "current.json"))
+func ReadCurrent(dir string) (*Job, error) { return readJob(dir, "current.json") }
+
+// ReadPending reads a staged job the updater has not claimed yet
+// (dir/pending.json).
+func ReadPending(dir string) (*Job, error) { return readJob(dir, "pending.json") }
+
+func readJob(dir, name string) (*Job, error) {
+	raw, err := os.ReadFile(filepath.Join(dir, name))
 	if err != nil {
-		return nil, fmt.Errorf("updaterjob: reading current job: %w", err)
+		return nil, fmt.Errorf("updaterjob: reading %s: %w", name, err)
 	}
 	var job Job
 	if err := json.Unmarshal(raw, &job); err != nil {
-		return nil, fmt.Errorf("updaterjob: decoding current job: %w", err)
+		return nil, fmt.Errorf("updaterjob: decoding %s: %w", name, err)
 	}
 	return &job, nil
+}
+
+// StatusTime is when the updater wrote status.json, which is when the job
+// finished. ok is false while there is no status.json.
+func StatusTime(dir string) (time.Time, bool) {
+	info, err := os.Stat(filepath.Join(dir, "status.json"))
+	if err != nil {
+		return time.Time{}, false
+	}
+	return info.ModTime(), true
 }
 
 // ReadStatus reads dir/status.json. done is false and status is nil when
