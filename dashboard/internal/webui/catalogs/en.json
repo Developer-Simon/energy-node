@@ -214,6 +214,7 @@
   "automations.rule.expand_button.tooltip_collapse": "Collapse rule",
   "automations.rule.expand_button.tooltip_expand": "Expand rule",
   "automations.rule.name_input.aria_label": "Rule name",
+  "automations.rule.unsaved_badge": "Unsaved",
   "automations.rule_editor.conditions_title": "Conditions",
   "automations.rule_editor.cooldown_help_aria_label": "Explain cooldown",
   "automations.rule_editor.cooldown_label": "Cooldown after triggering (s)",

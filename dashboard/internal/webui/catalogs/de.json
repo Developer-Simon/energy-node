@@ -214,6 +214,7 @@
   "automations.rule.expand_button.tooltip_collapse": "Regel zuklappen",
   "automations.rule.expand_button.tooltip_expand": "Regel aufklappen",
   "automations.rule.name_input.aria_label": "Name der Regel",
+  "automations.rule.unsaved_badge": "Ungespeichert",
   "automations.rule_editor.conditions_title": "Bedingungen",
   "automations.rule_editor.cooldown_help_aria_label": "Erklärung zur Sperrzeit",
   "automations.rule_editor.cooldown_label": "Sperrzeit nach Auslösen (s)",
