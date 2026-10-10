@@ -1,13 +1,18 @@
 {
   "domain": "energy_node_icons",
   "name": "energy-node Icons",
-  "after_dependencies": ["http", "frontend"],
-  "codeowners": ["@Developer-Simon"],
+  "after_dependencies": [
+    "http",
+    "frontend"
+  ],
+  "codeowners": [
+    "@Developer-Simon"
+  ],
   "config_flow": true,
   "documentation": "https://developer-simon.github.io/energy-node/ha/icons.html",
   "integration_type": "service",
   "iot_class": "calculated",
   "issue_tracker": "https://github.com/Developer-Simon/ha-energy-node-icons/issues",
   "requirements": [],
-  "version": "0.1.1"
+  "version": "0.1.2"
 }
