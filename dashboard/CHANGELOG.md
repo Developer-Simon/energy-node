@@ -1,10 +1,29 @@
 # Changelog
 
-## v0.9.1 (2026-10-10)
+## v0.9.2 (2026-10-11)
+
+### Features
+
+- **updater:** keep the previously installed manifest on a version change (45d303d)
+- **dashboard:** serve the highlights of the last update (b8e7a3d)
+- **dashboard:** summarise the updater job for an update progress view (29af202)
+- **dashboard:** add an update progress endpoint (c8352b0)
+- **dashboard:** show update availability and progress in a bar under the masthead (0a68dd4)
+- **dashboard:** add a what's new page for the last update (dc30326)
+- **dashboard:** open the what's new button in a modal dialog (fc92781)
+- **dashboard:** fly the what's new dialog in and open it from the versions page (aca54b4)
+- **dashboard:** show the what's new page in the modal dialog (b75c89c)
+- **dashboard:** show the what's new dialog as a sheet with one tile per component (b4c8a08)
+- **dashboard:** show update progress and what's new after an update (#123)
 
 ### Fixes
 
 - **dashboard:** serve the automation history in full (#119) (1e04a2a)
+- **dashboard:** address final review of the update bar and what's new page (b3ab4d3)
+
+### Tests
+
+- **dashboard:** cover update progress and highlights in the smoke test (beacefa)
 
 ## v0.9.0 (2026-10-10)
 
