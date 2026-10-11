@@ -403,3 +403,78 @@
 .version-help-anchor { position: relative; }
 .version-help { position: static; margin-left: .2rem; vertical-align: middle; }
 .version-help .field-help-text { left: 0; transform: none; }
+
+/* --- Statuskachel des Geraeteaustauschs --------------------------------
+   Ein Zustandspunkt mit Kopfzeile und drei Kennzahlen statt grauer
+   Fliesstextzeilen. Zahlen stehen tabellarisch, damit sie beim Update nicht
+   springen. Alle Klassen tragen den Praefix exchange-tile, weil manager.css
+   auch auf anderen Seiten laedt. */
+.exchange-tile {
+  margin-top: .9rem;
+  padding: .75rem .85rem .8rem;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-md, 10px);
+  background: var(--sunken);
+}
+.exchange-tile-head {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  color: var(--text-strong);
+  font-size: .92rem;
+  font-weight: 600;
+  letter-spacing: .005em;
+}
+.exchange-tile-dot {
+  flex: none;
+  width: .55rem;
+  height: .55rem;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background-color .25s var(--ease-out, ease-out), box-shadow .25s var(--ease-out, ease-out);
+}
+.exchange-tile[data-state="on"] .exchange-tile-dot {
+  background: var(--ok);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 22%, transparent);
+}
+.exchange-tile[data-state="off"] .exchange-tile-dot {
+  background: var(--warn);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--warn) 22%, transparent);
+}
+.exchange-tile-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .5rem .9rem;
+  margin: .75rem 0 0;
+  padding-top: .7rem;
+  border-top: 1px solid var(--border-soft);
+}
+.exchange-tile-stat { min-width: 0; }
+.exchange-tile-stat dt {
+  color: var(--text-muted);
+  font-size: .74rem;
+  letter-spacing: .02em;
+}
+.exchange-tile-stat dd {
+  margin: .15rem 0 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@container setting-card (max-width: 22rem) {
+  .exchange-tile-stats { grid-template-columns: 1fr 1fr; }
+  .exchange-tile-stat:last-child { grid-column: 1 / -1; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .exchange-tile-stat dd.is-updated { animation: exchange-tile-update .45s var(--ease-out, ease-out); }
+  @keyframes exchange-tile-update {
+    from { opacity: .35; transform: translateY(3px); }
+    to { opacity: 1; transform: none; }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .exchange-tile-dot { transition: none; }
+}

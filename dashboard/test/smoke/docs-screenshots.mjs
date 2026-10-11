@@ -176,7 +176,7 @@ async function all() {
   const subpages = [
     ['dashboard-settings-general', 'settings-general', 819],
     ['dashboard-settings-display', 'settings-display', 769],
-    ['dashboard-settings-history', 'settings-history', 1095],
+    ['dashboard-settings-history', 'settings-history', 1235],
     ['dashboard-settings-tinytuya', 'settings-tiny-tuya', 691],
     ['dashboard-settings-mqtt', 'settings-mqtt', 988],
     ['dashboard-settings-tailscale', 'settings-tailscale', 988],

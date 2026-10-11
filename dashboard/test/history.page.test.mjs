@@ -949,3 +949,25 @@ test('ein Panelwechsel meldet den Zeitraum ab und die Rueckkehr wieder an', asyn
   assert.deepEqual(calls.unwatched, ['page', 'page']);
   dom.window.close();
 });
+
+test('statusInfo trennt die Zustaende und liefert nur bei ok Kennzahlen', async () => {
+  const {dom, component} = panel();
+  component.loading = true;
+  assert.equal(component.statusInfo.state, 'loading');
+  component.loading = false;
+  await component.load();
+  assert.equal(component.statusInfo.state, 'empty');
+  component.error = 'kaputt';
+  assert.equal(component.statusInfo.state, 'error');
+  assert.equal(component.statusText, 'kaputt');
+  dom.window.close();
+});
+
+test('die Zaehlung in der Statusleiste steht im Singular bei eins', () => {
+  const {dom, component} = panel({i18n: {lang: 'en'}});
+  Object.defineProperty(component, 'visibleRows', {get: () => [1]});
+  Object.defineProperty(component, 'selectedSeries', {get: () => ['a', 'b']});
+  assert.equal(component.pointsLabel, '1 point');
+  assert.equal(component.seriesLabelCount, '2 series');
+  dom.window.close();
+});

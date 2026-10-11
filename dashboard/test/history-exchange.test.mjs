@@ -91,7 +91,16 @@ async function startExchange(dom, {fetchImpl, eventSourceImpl, mode = 'always', 
   return {started, fetcher, source};
 }
 
-const settle = () => new Promise(resolve => setTimeout(resolve, 20));
+const settle = () => new Promise(resolve => setTimeout(resolve, 60));
+// Wartet auf eine Bedingung statt auf eine feste Zeit: unter Last braucht
+// die IndexedDB laenger als eine feste Wartezeit.
+const until = async (condition, timeoutMs = 2000) => {
+  const deadline = Date.now() + timeoutMs;
+  while (!condition() && Date.now() < deadline) {
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise(resolve => setTimeout(resolve, 10));
+  }
+};
 const posts = (fetcher, suffix) => fetcher.calls.filter(call => call.url.endsWith(suffix));
 
 // Ein Angebot fuer role:pv in der 1m-Stufe mit Anzahlen an den genannten
@@ -127,7 +136,7 @@ test('nach hello wird das eigene Deckungsraster angeboten', async () => {
   assert.equal(started, true);
 
   source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: ['server']});
-  await new Promise(resolve => setTimeout(resolve, 20));
+  await until(() => fetcher.calls.some(call => call.url.endsWith('/offer')));
 
   const offer = fetcher.calls.find(call => call.url.endsWith('/offer'));
   assert.ok(offer, 'kein Angebot gesendet');
@@ -515,7 +524,7 @@ test('on-demand mit Freigabe bietet an, holt aber nur den angezeigten Zeitraum',
   const {fetcher, source} = await startExchange(dom, {mode: null});
   const stream = source.instances[0];
   stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
-  await settle();
+  await until(() => posts(fetcher, '/offer').length > 0);
   assert.equal(posts(fetcher, '/offer').length, 1);
   assert.equal(dom.window.HistoryExchange.serving(), true);
   const {coverage} = pvOffer(dom, {0: 60});
@@ -533,7 +542,7 @@ test('im Modus always wird immer angeboten, auch mit gespeichertem off', async (
   dom.window.localStorage.setItem('history-exchange-serve', 'off');
   const {fetcher, source} = await startExchange(dom, {mode: 'always'});
   source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
-  await settle();
+  await until(() => posts(fetcher, '/offer').length > 0);
   assert.equal(posts(fetcher, '/offer').length, 1);
   assert.equal(dom.window.HistoryExchange.serving(), true);
   dom.window.close();
@@ -565,7 +574,7 @@ test('ein storage-Ereignis schaltet die Freigabe um und ein unlesbarer Speicher 
   await settle();
   dom.window.localStorage.setItem('history-exchange-serve', 'on');
   dom.window.dispatchEvent(new dom.window.StorageEvent('storage', {key: 'history-exchange-serve', newValue: 'on'}));
-  await settle();
+  await until(() => posts(fetcher, '/offer').length > 0);
   assert.equal(dom.window.HistoryExchange.serving(), true);
   assert.equal(posts(fetcher, '/offer').length, 1);
   Object.defineProperty(dom.window, 'localStorage', {configurable: true, get() { throw new Error('SecurityError'); }});

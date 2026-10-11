@@ -8,7 +8,19 @@
 {{define "history"}}
 <section id="history-panel" class="panel" role="tabpanel" aria-labelledby="tab-history" x-bind:class="{ active: activePanel === 'history-panel' }" x-show="activePanel === 'history-panel'" x-data="historyPanel()" x-init="init()">
   <h2>{{t "overview.history.title"}}</h2>
-  <p id="history-state" x-text="statusText">{{t "overview.history.loading"}}</p>
+  <div id="history-state" class="history-status" role="status" x-bind:data-state="statusInfo.state" x-bind:aria-label="statusText" x-show="statusInfo.state !== 'empty'">
+    <span class="history-status-dot" aria-hidden="true"></span>
+    <span class="history-status-text" x-show="statusInfo.state !== 'ok'" x-text="statusText">{{t "overview.history.loading"}}</span>
+    <template x-if="statusInfo.state === 'ok'">
+      <span class="history-status-pills">
+        <span class="history-status-pill history-status-pill--strong" x-text="statusInfo.tier"></span>
+        <span class="history-status-pill" x-text="pointsLabel"></span>
+        <span class="history-status-pill" x-text="seriesLabelCount"></span>
+        <span class="history-status-pill history-status-pill--warn" x-show="!statusInfo.persisted" x-bind:title="$t('history.status.not_persisted_hint')" x-text="$t('history.status.not_persisted')"></span>
+      </span>
+    </template>
+    <span class="history-status-pill history-status-pill--exchange" x-show="exchangeNotice" x-text="exchangeNotice"></span>
+  </div>
 
   <div id="history-range" class="history-chip-group" role="group" aria-label="{{t "overview.history.range_label"}}">
     <span class="history-chip-group-label"><svg class="history-chip-group-icon" aria-hidden="true"><use href="#ico-clock"></use></svg>{{t "overview.history.range_label"}}</span>
@@ -40,8 +52,10 @@
     </template>
   </div>
 
-  <p id="energy-history-empty" x-cloak x-show="isEmpty">{{t "overview.history.empty"}}</p>
-  <p class="settings-hint" x-show="exchangeNotice" x-text="exchangeNotice"></p>
+  <div id="energy-history-empty" class="history-empty" x-cloak x-show="isEmpty">
+    <strong>{{t "overview.history.empty"}}</strong>
+    <p>{{t "history.status.empty"}}</p>
+  </div>
   <div id="energy-history-chart" class="history-chart" x-ref="chart" x-cloak x-show="!isEmpty"></div>
 
   <div class="history-advanced">

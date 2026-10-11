@@ -224,19 +224,40 @@
       return key ? t(key) : this.tier;
     },
 
-    get statusText() {
-      if (this.loading) return t('history.status.loading');
-      if (this.error) return this.error;
+    // Zustand der Statusleiste ueber dem Diagramm. state ist loading, error,
+    // paused, empty oder ok. Nur bei ok gibt es Kennzahlen.
+    get statusInfo() {
+      if (this.loading) return {state: 'loading'};
+      if (this.error) return {state: 'error'};
       const status = this.recorderStatus;
-      if (status.paused) return status.reason || t('history.status.paused');
-      if (this.isEmpty) {
-        return t('history.status.empty');
-      }
-      const params = {tier: this.tierLabel, points: this.visibleRows.length, series: this.selectedSeries.length};
-      if (status.persisted === false) {
-        return t('history.status.summary_not_persisted', params);
-      }
-      return t('history.status.summary', params);
+      if (status.paused) return {state: 'paused'};
+      if (this.isEmpty) return {state: 'empty'};
+      return {
+        state: 'ok',
+        tier: this.tierLabel,
+        points: this.visibleRows.length,
+        series: this.selectedSeries.length,
+        persisted: status.persisted !== false,
+      };
+    },
+
+    // Der Text der Leiste fuer Vorlesegeraete und fuer alle Zustaende ausser ok.
+    get statusText() {
+      const info = this.statusInfo;
+      if (info.state === 'loading') return t('history.status.loading');
+      if (info.state === 'error') return this.error;
+      if (info.state === 'paused') return this.recorderStatus.reason || t('history.status.paused');
+      if (info.state === 'empty') return t('history.status.empty');
+      const params = {tier: info.tier, points: info.points, series: info.series};
+      return t(info.persisted ? 'history.status.summary' : 'history.status.summary_not_persisted', params);
+    },
+
+    get pointsLabel() {
+      return tn('history.status.points', this.visibleRows.length, {count: this.visibleRows.length});
+    },
+
+    get seriesLabelCount() {
+      return tn('history.status.series', this.selectedSeries.length, {count: this.selectedSeries.length});
     },
 
     // Der Wert, der gezeichnet wird. Bei Rohdaten sind min/max/avg gleich,

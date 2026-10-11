@@ -131,8 +131,9 @@ test('refreshExchangeStatus nennt Peers und ergaenzte Messwerte', () => {
     }),
   };
   component.refreshExchangeStatus();
-  assert.match(component.historyExchangeStatus, /1 weiteres Gerät/);
-  assert.match(component.historyExchangeStatus, /42/);
+  assert.equal(component.exchangeTile.state, 'on');
+  assert.equal(component.exchangeTile.peers, 1);
+  assert.equal(component.exchangeTile.rows, 42);
   dom.window.close();
 });
 
@@ -143,14 +144,16 @@ test('refreshExchangeStatus nennt den Grund, wenn nicht verbunden', () => {
       reason: 'Der Server bietet keinen Verlauf-Austausch an.'}),
   };
   component.refreshExchangeStatus();
-  assert.match(component.historyExchangeStatus, /bietet keinen Verlauf-Austausch/);
+  assert.equal(component.exchangeTile.state, 'off');
+  assert.match(component.exchangeTile.headline, /bietet keinen Verlauf-Austausch/);
   dom.window.close();
 });
 
 test('ohne Austausch-Client sagt die Statuszeile das auch', () => {
   const {dom, component} = panel();
   component.refreshExchangeStatus();
-  assert.match(component.historyExchangeStatus, /nicht aktiv/);
+  assert.equal(component.exchangeTile.state, 'inactive');
+  assert.match(component.exchangeTile.headline, /nicht aktiv/);
   dom.window.close();
 });
 
@@ -206,18 +209,18 @@ test('refreshExchangeStatus nennt die Quelle ergaenzter Messwerte', () => {
     }),
   };
   component.refreshExchangeStatus();
-  assert.equal(component.historyExchangeSource, 'Zuletzt ergänzt von Home Assistant.');
+  assert.equal(component.exchangeTile.source, 'Home Assistant');
   dom.window.close();
 });
 
 test('ohne bekannte Quelle bleibt die Quellenzeile leer', () => {
   const {dom, component} = panel();
-  component.historyExchangeSource = 'alt';
+  component.exchangeTile = {state: 'on', headline: '', peers: 1, rows: 1, source: 'alt'};
   dom.window.HistoryExchange = {
     status: () => ({connected: false, peerId: '', peers: [], addedRows: 0, lastPeer: '', lastSource: '', lastAt: 0, reason: ''}),
   };
   component.refreshExchangeStatus();
-  assert.equal(component.historyExchangeSource, '');
+  assert.equal(component.exchangeTile.source, '');
   dom.window.close();
 });
 
@@ -273,5 +276,33 @@ test('der Wechsel des Modus nimmt die gespeicherte Freigabe wieder auf', () => {
   };
   component.setExchangeMode('on-demand');
   assert.equal(component.historyExchangeServe, false);
+  dom.window.close();
+});
+
+test('die Statuskachel hebt nur die Zahl hervor, die sich geaendert hat', () => {
+  const {dom, component} = panel();
+  let rows = 5;
+  dom.window.HistoryExchange = {
+    status: () => ({connected: true, peerId: 'p-selbst', peers: ['p-selbst', 'p-ha'], addedRows: rows, lastSource: 'Home Assistant'}),
+  };
+  component.refreshExchangeStatus();
+  assert.deepEqual({...component.exchangeFlash}, {peers: false, rows: false, source: false});
+  rows = 9;
+  component.refreshExchangeStatus();
+  assert.deepEqual({...component.exchangeFlash}, {peers: false, rows: true, source: false});
+  dom.window.close();
+});
+
+test('eine Lieferung aktualisiert die Statuskachel ohne Knopfdruck', () => {
+  const {dom, component} = panel();
+  let rows = 1;
+  dom.window.HistoryExchange = {
+    status: () => ({connected: true, peerId: 'p-selbst', peers: ['p-selbst'], addedRows: rows, lastSource: ''}),
+  };
+  component.followExchange();
+  component.followExchange();
+  rows = 7;
+  dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged'));
+  assert.equal(component.exchangeTile.rows, 7);
   dom.window.close();
 });

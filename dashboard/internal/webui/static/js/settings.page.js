@@ -68,8 +68,12 @@
     historyExchangeMode: window.HistoryExchange && window.HistoryExchange.mode ? window.HistoryExchange.mode() : 'on-demand',
     // Ob dieses Geraet seine Deckung anderen anbietet. Wie der Modus lokal.
     historyExchangeServe: window.HistoryExchange && window.HistoryExchange.serving ? window.HistoryExchange.serving() : false,
-    historyExchangeStatus: '',
-    historyExchangeSource: '',
+    // Strukturierter Zustand der Statuskachel: state ist on, off oder inactive.
+    exchangeTile: {state: 'inactive', headline: '', peers: 0, rows: 0, source: ''},
+    // Welche Zahl sich beim letzten Abgleich geaendert hat. Die Kachel
+    // blendet nur diese kurz ein, damit Neues auffaellt, ohne zu blinken.
+    exchangeFlash: {peers: false, rows: false, source: false},
+    exchangeListening: false,
     historyViews: [],
     updateCheckDisabled: false,
     languageSwitchHidden: false,
@@ -146,6 +150,8 @@
         this.languageSwitchHidden = Boolean(value.language_switch_hidden);
         this.uiLanguage = window.I18n ? window.I18n.lang : this.uiLanguage;
         this.loadHistoryUsage();
+        this.followExchange();
+        this.refreshExchangeStatus();
         this.canTuneLiveUpdates = Boolean(session && session.tune_live_updates);
         this.setChoicesSelection(this.widePanelsChoices, this.widePanels);
         this.setChoicesSelection(this.statusBarItemsChoices, this.statusBarItems);
@@ -248,26 +254,44 @@
     // Der Austausch ist absichtlich sichtbar: der Nutzer soll erkennen,
     // woher Messwerte stammen, die er selbst nicht aufgezeichnet hat.
     refreshExchangeStatus() {
-      this.historyExchangeSource = '';
+      const before = this.exchangeTile;
+      let tile;
       if (!window.HistoryExchange) {
-        this.historyExchangeStatus = t('settings.history_exchange.not_active');
-        return;
+        tile = {state: 'inactive', headline: t('settings.history_exchange.not_active'), peers: 0, rows: 0, source: ''};
+      } else {
+        const status = window.HistoryExchange.status();
+        if (!status.connected) {
+          tile = {state: 'off', headline: status.reason || t('settings.history_exchange.disconnected'), peers: 0, rows: 0, source: ''};
+        } else {
+          tile = {
+            state: 'on',
+            headline: t('settings.history_exchange.tile.connected'),
+            peers: status.peers.filter(peer => peer !== status.peerId).length,
+            rows: status.addedRows || 0,
+            source: status.lastSource || '',
+          };
+        }
       }
-      const status = window.HistoryExchange.status();
-      if (!status.connected) {
-        this.historyExchangeStatus = status.reason || t('settings.history_exchange.disconnected');
-        return;
-      }
-      const others = status.peers.filter(peer => peer !== status.peerId).length;
-      const peers = tn('settings.history_exchange.peers', others, {n: others});
-      this.historyExchangeStatus = status.addedRows
-        ? t('settings.history_exchange.connected_rows_added', {peers, rows: status.addedRows})
-        : t('settings.history_exchange.connected_rows_unchanged', {peers});
-      // Eigene Zeile statt angehaengtem Satz: zusammengesetzte Saetze
-      // lassen sich nicht sauber uebersetzen.
-      if (status.lastSource) {
-        this.historyExchangeSource = t('settings.history_exchange.last_source', {source: status.lastSource});
-      }
+      // Beim Wechsel des Zustands blinkt nichts, sonst blinkte beim ersten
+      // Laden jede Zahl.
+      const comparable = before.state === 'on' && tile.state === 'on';
+      this.exchangeFlash = {
+        peers: comparable && before.peers !== tile.peers,
+        rows: comparable && before.rows !== tile.rows,
+        source: comparable && before.source !== tile.source,
+      };
+      this.exchangeTile = tile;
+      clearTimeout(this.exchangeFlashTimer);
+      this.exchangeFlashTimer = setTimeout(() => {
+        this.exchangeFlash = {peers: false, rows: false, source: false};
+      }, 700);
+    },
+
+    // Eine Lieferung aendert die Zahlen, ohne dass jemand den Knopf drueckt.
+    followExchange() {
+      if (this.exchangeListening) return;
+      this.exchangeListening = true;
+      window.addEventListener('dashboard-history-exchanged', () => this.refreshExchangeStatus());
     },
 
     // Wirkt sofort und ohne "Speichern": der Modus gehoert diesem Geraet,
