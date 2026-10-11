@@ -23,7 +23,9 @@ const recorderSource = read('history-recorder.js');
 // start() wird beim Laden aufgerufen und wuerde einen echten Intervall-Timer
 // setzen, der den Testprozess am Leben haelt - setInterval wird deshalb
 // stillgelegt, fetch abgelehnt, damit collect() im eigenen catch endet.
-function load({withEnergyModel = true} = {}) {
+// locks und broadcast ersetzen Web Locks und BroadcastChannel, bevor der
+// Recorder laeuft.
+function load({withEnergyModel = true, locks = null, broadcast = null} = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', {runScripts: 'outside-only', url: 'http://localhost/'});
   const context = dom.getInternalVMContext();
   installI18n(dom.window);
@@ -31,12 +33,36 @@ function load({withEnergyModel = true} = {}) {
   dom.window.setInterval = () => 0;
   dom.window.indexedDB = new FDBFactory();
   dom.window.IDBKeyRange = FDBKeyRange;
+  if (locks) Object.defineProperty(dom.window.navigator, 'locks', {value: locks, configurable: true});
+  if (broadcast) dom.window.BroadcastChannel = broadcast;
   vm.runInContext(rollupSource, context);
   vm.runInContext(storeSource, context);
   if (withEnergyModel) vm.runInContext(energyModelSource, context);
   vm.runInContext(recorderSource, context);
   return dom;
 }
+
+// Ein BroadcastChannel-Double: haelt gesendete Nachrichten fest, und der
+// Test ruft onmessage selbst auf, als kaeme die Nachricht aus einem anderen
+// Tab.
+function fakeBroadcast() {
+  const instances = [];
+  class FakeChannel {
+    constructor(name) {
+      this.name = name;
+      this.posted = [];
+      this.onmessage = null;
+      instances.push(this);
+    }
+    postMessage(data) { this.posted.push(data); }
+    close() {}
+  }
+  FakeChannel.instances = instances;
+  return FakeChannel;
+}
+
+// Ein Lock, der nie vergeben wird: dieser Tab bleibt ohne Fuehrung.
+const neverLeader = {request: () => new Promise(() => {})};
 
 test('roleSamples macht aus einem Schnappschuss eine signierte Serie je zugeordneter Rolle', () => {
   const dom = load();
@@ -279,6 +305,10 @@ function fakeExchange() {
     stopped: 0,
     pushed: [],
     refreshed: 0,
+    watched: [],
+    unwatched: [],
+    async watchRange(id, range) { this.watched.push([id, range]); },
+    unwatchRange(id) { this.unwatched.push(id); },
     async start() { this.started += 1; return true; },
     stop() { this.stopped += 1; },
     async pushBuffer(rows) { this.pushed.push(rows); },
@@ -289,8 +319,8 @@ function fakeExchange() {
 // Wartet den automatischen Fuehrungsantritt ab und haengt danach das Double
 // ein. Wuerde man es vorher setzen, zaehlte der Start aus becomeLeader()
 // mit und die Erwartungen waeren von der Promise-Reihenfolge abhaengig.
-async function leaderWithExchange() {
-  const dom = load();
+async function leaderWithExchange(options = {}) {
+  const dom = load(options);
   await dom.window.dashboardHistorizer.whenReady();
   const exchange = fakeExchange();
   dom.window.HistoryExchange = exchange;
@@ -363,5 +393,76 @@ test('roleSamples schreibt eigene Kategorien mit ihrem Basistyp in den Seriennam
     {series: samples[0].series, v: samples[0].v, u: samples[0].u},
     {series: 'role:custom:consumer:werkstatt', v: 350, u: 'W'},
   );
+  dom.window.close();
+});
+
+const RANGE = {tier: '1m', from: 1000, to: 2000};
+
+test('der Leader reicht eine eigene Anmeldung mit Tab-Kennung an den Austausch', async () => {
+  const {dom, exchange} = await leaderWithExchange();
+  dom.window.dashboardHistorizer.watchRange('page', RANGE);
+  dom.window.dashboardHistorizer.unwatchRange('page');
+  assert.equal(exchange.watched.length, 1);
+  assert.match(exchange.watched[0][0], /^[0-9a-f]+:page$/);
+  assert.deepEqual(exchange.watched[0][1], RANGE);
+  assert.deepEqual(exchange.unwatched, [exchange.watched[0][0]]);
+  dom.window.close();
+});
+
+test('ein Tab ohne Fuehrung schickt An- und Abmeldung an den Leader', async () => {
+  const broadcast = fakeBroadcast();
+  const dom = load({locks: neverLeader, broadcast});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(dom.window.dashboardHistorizer.isLeader(), false);
+  dom.window.dashboardHistorizer.watchRange('page', RANGE);
+  dom.window.dashboardHistorizer.unwatchRange('page');
+  const [watch, unwatch] = broadcast.instances[0].posted;
+  assert.equal(watch.type, 'watch-range');
+  assert.match(watch.id, /:page$/);
+  assert.deepEqual(watch.range, RANGE);
+  assert.deepEqual(JSON.parse(JSON.stringify(unwatch)), {type: 'unwatch-range', id: watch.id});
+  dom.window.close();
+});
+
+test('der Leader nimmt Anmeldungen anderer Tabs aus dem Kanal an', async () => {
+  const broadcast = fakeBroadcast();
+  const {dom, exchange} = await leaderWithExchange({broadcast});
+  const channel = broadcast.instances[0];
+  channel.onmessage({data: {type: 'watch-range', id: 'abc:page', range: RANGE}});
+  channel.onmessage({data: {type: 'unwatch-range', id: 'abc:page'}});
+  assert.deepEqual(exchange.watched, [['abc:page', RANGE]]);
+  assert.deepEqual(exchange.unwatched, ['abc:page']);
+  dom.window.close();
+});
+
+test('der Leader meldet Lieferungen an die anderen Tabs', async () => {
+  const broadcast = fakeBroadcast();
+  const {dom} = await leaderWithExchange({broadcast});
+  const detail = {peer: 'p-fremd', tier: '1m', rows: 3};
+  dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged', {detail}));
+  assert.ok(broadcast.instances[0].posted.some(message => message.type === 'exchanged' && message.detail.rows === 3));
+  dom.window.close();
+});
+
+test('ein Tab ohne Fuehrung laedt nach einer gemeldeten Lieferung neu', async () => {
+  const broadcast = fakeBroadcast();
+  const dom = load({locks: neverLeader, broadcast});
+  await new Promise(resolve => setTimeout(resolve, 10));
+  const seen = [];
+  dom.window.addEventListener('dashboard-history-exchanged', event => seen.push(['exchanged', event.detail.rows]));
+  dom.window.addEventListener('dashboard-history-updated', () => seen.push(['updated']));
+  broadcast.instances[0].onmessage({data: {type: 'exchanged', detail: {peer: 'p-fremd', tier: '1m', rows: 3}}});
+  assert.deepEqual(seen, [['exchanged', 3], ['updated']]);
+  dom.window.close();
+});
+
+test('bei abgeschaltetem Austausch meldet der Recorder nichts an', async () => {
+  const {dom, exchange} = await leaderWithExchange();
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('history-settings-changed', {
+    detail: {exchangeDisabled: true},
+  }));
+  await new Promise(resolve => setTimeout(resolve, 10));
+  dom.window.dashboardHistorizer.watchRange('page', RANGE);
+  assert.deepEqual(exchange.watched, []);
   dom.window.close();
 });
