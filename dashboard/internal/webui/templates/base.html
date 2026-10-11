@@ -96,15 +96,21 @@
   <dialog class="app-modal update-bar-modal" x-data="whatsNewPanel()" aria-labelledby="update-bar-modal-title"
           x-on:update-whatsnew-open.window="openDialog($el)"
           x-on:click="if ($event.target === $el) $el.close()">
-    <div class="update-bar-modal-body">
+    <div class="whatsnew-head">
       <span class="whatsnew-eyebrow">{{t "settings.whatsnew.eyebrow"}}</span>
       <h2 class="app-modal-title" id="update-bar-modal-title" x-text="title"></h2>
       <p class="setting-note" x-show="sincePrevious">{{t "settings.whatsnew.since"}} <span class="version-tag" x-text="from"></span> → <strong class="version-tag" x-text="to"></strong></p>
+    </div>
+    <div class="update-bar-modal-body">
       <p class="settings-help" x-show="error" x-text="error"></p>
-      <p class="setting-note" x-show="!loading && !error && components.length === 0">{{t "settings.whatsnew.empty"}}</p>
+      <p class="whatsnew-empty" x-show="!loading && !error && components.length === 0">{{t "settings.whatsnew.empty"}}</p>
       <template x-for="component in components" :key="component.id">
-        <section class="whatsnew-component">
-          <h3 class="whatsnew-component-title"><span x-text="component.label"></span> <span class="version-chip" x-text="component.from ? component.from + ' → ' + component.to : component.to"></span></h3>
+        <section class="whatsnew-tile">
+          <div class="whatsnew-tile-head">
+            <span class="whatsnew-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></span>
+            <h3 class="whatsnew-tile-title" x-text="component.label"></h3>
+            <span class="version-chip" x-text="component.from ? component.from + ' → ' + component.to : component.to"></span>
+          </div>
           <ul class="release-entries">
             <template x-for="release in component.releases" :key="release.version">
               <template x-for="(entry, index) in release.entries" :key="release.version + '-' + index">
