@@ -287,8 +287,26 @@
           <p id="history-exchange-serve-note" class="setting-note">{{t "settings.history.exchange.serve.note"}}</p>
         </div>
       </div>
-      <p id="history-exchange-status" class="setting-note" x-text="historyExchangeStatus"></p>
-      <p id="history-exchange-source" class="setting-note" x-show="historyExchangeSource" x-text="historyExchangeSource"></p>
+      <div id="history-exchange-status" class="exchange-tile" role="status" x-bind:data-state="exchangeTile.state">
+        <div class="exchange-tile-head">
+          <span class="exchange-tile-dot" aria-hidden="true"></span>
+          <span class="exchange-tile-headline" x-text="exchangeTile.headline"></span>
+        </div>
+        <dl class="exchange-tile-stats" x-show="exchangeTile.state === 'on'">
+          <div class="exchange-tile-stat">
+            <dt>{{t "settings.history_exchange.tile.peers"}}</dt>
+            <dd x-text="exchangeTile.peers" x-bind:class="{'is-updated': exchangeFlash.peers}"></dd>
+          </div>
+          <div class="exchange-tile-stat">
+            <dt>{{t "settings.history_exchange.tile.rows"}}</dt>
+            <dd x-text="exchangeTile.rows" x-bind:class="{'is-updated': exchangeFlash.rows}"></dd>
+          </div>
+          <div class="exchange-tile-stat">
+            <dt>{{t "settings.history_exchange.tile.source"}}</dt>
+            <dd x-text="exchangeTile.source || $t('settings.history_exchange.tile.source_none')" x-bind:class="{'is-updated': exchangeFlash.source}"></dd>
+          </div>
+        </dl>
+      </div>
       <button type="button" class="setting-quiet-btn" x-on:click="refreshExchangeStatus()">{{t "settings.history.exchange.status.button"}}</button>
     </div>
 

@@ -47,7 +47,10 @@ phones. The browser then only fetches what the history page or a history tile
 shows. In the first mode, **Provide data to other devices** decides whether other
 devices may ask this browser for missing periods. It is off by default. In
 **Always** the browser provides data anyway, so the switch is hidden. Both
-choices are stored in the browser and apply at once, without saving.
+choices are stored in the browser and apply at once, without saving. Below the
+choices a status tile shows whether the exchange is connected, with how many
+other devices, how many values it has added and who filled in the last ones. It
+updates itself when values arrive.
 
 The setting applies to every browser, but the recorded data does not. The
 measurements only exist in the browser that recorded them, and the page says so.
