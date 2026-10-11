@@ -129,6 +129,27 @@ cmp -s "$fixture/changelog.json" "$job/state/changelog.json" \
   || fail "changelog.json must be copied next to the installed manifest: $(cat "$job/state/changelog.json" 2>&1)"
 [ ! -e "$job/state/changelog.json.tmp" ] || fail "the changelog .tmp file must not be left behind"
 
+# --- Fall 1b: ein Versionswechsel legt den Vorgaenger ab --------------------
+job1b="$tmp/job1b"
+mkdir -p "$job1b/state"
+printf '{"version":"1.4.0","components":{"dashboard":"v0.8.5"}}\n' > "$job1b/state/installed-manifest.json"
+cp "$job1b/state/installed-manifest.json" "$tmp/expected-previous.json"
+stage_job "$job1b" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["50"]}'
+run_updater "$job1b" || fail "updater exited non-zero: $(cat "$job1b/log" 2>/dev/null)"
+cmp -s "$tmp/expected-previous.json" "$job1b/state/previous-manifest.json" \
+  || fail "previous-manifest.json must be the manifest installed before: $(cat "$job1b/state/previous-manifest.json" 2>&1)"
+[ ! -e "$job1b/state/previous-manifest.json.tmp" ] || fail "the previous .tmp file must not be left behind"
+
+# --- Fall 2b: dieselbe Version erneut laesst den Vorgaenger stehen ---------
+job2b="$tmp/job2b"
+mkdir -p "$job2b/state"
+cp "$fixture/manifest.json" "$job2b/state/installed-manifest.json"
+printf '{"version":"1.3.0"}\n' > "$job2b/state/previous-manifest.json"
+stage_job "$job2b" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["50"]}'
+run_updater "$job2b" || fail "updater exited non-zero: $(cat "$job2b/log" 2>/dev/null)"
+grep -q '"1.3.0"' "$job2b/state/previous-manifest.json" \
+  || fail "re-applying the same version must keep the real predecessor: $(cat "$job2b/state/previous-manifest.json")"
+
 # --- zweiter Fall: die Signatur ist ungueltig -----------------------------
 job2="$tmp/job2"
 stage_job "$job2" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["50","60"]}'

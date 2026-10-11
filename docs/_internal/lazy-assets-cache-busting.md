@@ -71,7 +71,7 @@ As of **2026-10-10**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `29` |
+| `css/base.css` | `34` |
 | `js/i18n.js` | `3` (also `login.html`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -95,7 +95,9 @@ As of **2026-10-10**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `10` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `28` |
+| `js/dashboard.js` | `29` |
+| `js/update-bar.js` | `3` |
+| `js/whatsnew.page.js` | `2` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -124,11 +126,11 @@ skips scripts already present as `<script src>`.
 |---|---|---|
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `13` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
-| `diagnostics-panel` | – | `css/settings-controls.css` `9`, `css/diagnostics.css` `2` |
+| `diagnostics-panel` | – | `css/settings-controls.css` `11`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `32` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `7`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `1`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `1`, `js/device-picker.js` `1`, `js/energy.page.js` `8` | `css/manager.css` `32` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `7`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `1`, `js/automations-view.js` `1`, `js/device-picker.js` `1`, `js/devicemap.page.js` `17` | `css/manager.css` `32` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `14`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `3`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `32`, `css/settings-controls.css` `9` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `16`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `32`, `css/settings-controls.css` `11` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `1`, `js/automations.page.js` `8` | `css/manager.css` `32`, `css/automations.css` `5` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -157,6 +159,7 @@ place pulls the old file from the cache:
 - `js/energy-model.js` – channel 2 (`history-panel`) **and** channel 3 (energy cards)
 - `js/revisions.js`, `js/schema-form.js` – several manager panels and the overview editor assets
 - `js/choices.min.js` – overview editor assets and `settings-panel`
+- `css/settings-controls.css` – `settings-panel` and `diagnostics-panel`
 - `css/choices.css` – overview editor assets and `settings-panel` (reconciled
   2026-09-11: both now carry a `?v=`, previously only `settings-panel` did)
 
@@ -246,6 +249,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.9.2 | `css/base.css` · `js/dashboard.js` · `js/update-bar.js` (new) · `js/settings.page.js` · `js/versions.page.js` · `js/whatsnew.page.js` (new) · `css/settings-controls.css` (settings, diagnostics) | `34` · `29` · `3` (new) · `16` · `5` · `2` (new) · `11` | 2026-10-10 |
 | v0.9.1 | `js/automations.page.js` | `11` | 2026-10-10 |
 | v0.8.20 | `css/base.css` · `js/dashboard.js` · `js/devicemap-model.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap.page.js` | `29` · `28` · `7` · `4` · `17` | 2026-10-10 |
 | v0.8.19 | `css/settings-controls.css` (settings, diagnostics) · `css/base.css` · `css/manager.css` (5 panels) · `js/settings.page.js` · `js/versions.page.js` | `9` · `28` · `32` · `14` · `3` | 2026-10-10 |

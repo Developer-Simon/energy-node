@@ -323,3 +323,19 @@ test('setUpdateCheck() restores the switch and toasts when saving fails', async 
   assert.equal(component.savingUpdateCheck, false);
   assert.deepEqual(component.$store.toasts.criticals, [de['error.settings_rejected']]);
 });
+
+test('load() keeps the previous bundle, null when the snapshot has none', async () => {
+  const { component } = await loaded({ previous: { version: 'v0.7.4', built_at: '', arch: 'armv6' } });
+  assert.equal(component.previous.version, 'v0.7.4');
+  const none = await loaded();
+  assert.equal(none.component.previous, null);
+});
+
+test('?all=1 starts the page in "all" mode, otherwise in highlights', () => {
+  const { component, window } = createVersionsPanel();
+  component.init();
+  assert.equal(component.mode, 'highlights');
+  window.history.pushState({}, '', '/?panel=settings&page=versions&all=1');
+  component.init();
+  assert.equal(component.mode, 'all');
+});

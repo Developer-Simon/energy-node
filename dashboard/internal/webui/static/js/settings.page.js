@@ -468,8 +468,16 @@
     },
   });
 
+  // Sub pages a deep link (?page=) may open.
+  const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system'];
+
   const settingsPage = () => ({
     activeSettingsPage: 'general',
+
+    init() {
+      const requested = new URLSearchParams(window.location.search).get('page');
+      if (SETTINGS_PAGES.includes(requested)) this.activeSettingsPage = requested;
+    },
   });
 
   const systemPanel = () => ({

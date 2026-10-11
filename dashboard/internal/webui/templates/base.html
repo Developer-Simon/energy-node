@@ -52,7 +52,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=29">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=34">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -65,17 +65,67 @@
 </head>
 <body x-data="dashboardShell()" x-init="initWidePanels()" data-wide-panels="{{.WidePanels}}">
   {{template "icon-sprite" .}}
-  <header class="masthead" x-data="updateBadge()" x-init="init()">
+  <header class="masthead">
     <div class="masthead-title">
       <h1>Energy Node Dashboard</h1>
-      <a x-cloak x-show="available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-badge" x-bind:href="href" x-bind:target="external ? '_blank' : null" x-bind:rel="external ? 'noopener' : null">
-        <svg class="automation-icon" aria-hidden="true"><use href="#ico-download"></use></svg>
-        <span x-text="$t('masthead.update_available', {version: latest})"></span>
-      </a>
       {{template "lang-pill" .}}
     </div>
     <small>{{t "masthead.subtitle"}}</small>
   </header>
+  <div class="update-bar" x-data="updateBar()" x-init="init()" x-cloak x-show="view.kind !== 'hidden'" x-bind:class="'update-bar-' + view.kind" role="status" aria-live="polite" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end">
+    <svg class="update-bar-icon" viewBox="0 0 24 24" aria-hidden="true">
+      <g x-show="view.kind === 'available'"><path d="M12 3v12m0 0 5-5m-5 5-5-5"/><path d="M4 19h16"/></g>
+      <path class="update-bar-spin" x-show="['pending', 'running', 'restarting'].includes(view.kind)" d="M21 12a9 9 0 1 1-6.2-8.56"/>
+      <path x-show="view.kind === 'ok'" d="M5 12.5l4.5 4.5L19 7.5"/>
+      <g x-show="view.kind === 'fail'"><path d="M12 7v6M12 17h.01"/><circle cx="12" cy="12" r="9.5"/></g>
+    </svg>
+    <div class="update-bar-main">
+      <div class="update-bar-title" x-text="view.title"></div>
+      <div class="update-bar-detail" x-text="view.detail"></div>
+      <div class="update-bar-track" x-show="['pending', 'running', 'restarting'].includes(view.kind)"><div class="update-bar-fill" x-bind:style="'width:' + (view.percent || 0) + '%'"></div></div>
+    </div>
+    <div class="update-bar-actions">
+      <a class="update-bar-button" x-show="view.kind === 'available' && view.notesUrl" x-bind:href="view.notesUrl" target="_blank" rel="noopener"><span x-text="$t('update_bar.available.github')"></span> <span aria-hidden="true">↗</span></a>
+      <a class="update-bar-button is-primary" x-show="view.kind === 'available' && view.canInstall" x-bind:href="redeployHref()" x-text="$t('update_bar.available.install')"></a>
+      <button type="button" class="update-bar-button is-ok" x-show="view.kind === 'ok'" x-on:click="openWhatsNew()" x-text="$t('update_bar.ok.action')"></button>
+      <a class="update-bar-link" x-show="canInstall && ['running', 'fail'].includes(view.kind)" x-bind:href="redeployHref()" x-text="$t('update_bar.details')"></a>
+      <button type="button" class="update-bar-dismiss" x-show="view.kind === 'fail'" x-on:click="acknowledge()" x-bind:aria-label="$t('update_bar.dismiss')" x-bind:title="$t('update_bar.dismiss')">×</button>
+    </div>
+  </div>
+  <!-- Neuerungen-Dialog: Update-Leiste und Versionsseite oeffnen ihn ueber das Ereignis update-whatsnew-open. -->
+  <dialog class="app-modal update-bar-modal" x-data="whatsNewPanel()" aria-labelledby="update-bar-modal-title"
+          x-on:update-whatsnew-open.window="openDialog($el)"
+          x-on:click="if ($event.target === $el) $el.close()">
+    <div class="whatsnew-head">
+      <span class="whatsnew-eyebrow">{{t "settings.whatsnew.eyebrow"}}</span>
+      <h2 class="app-modal-title" id="update-bar-modal-title" x-text="title"></h2>
+      <p class="setting-note" x-show="sincePrevious">{{t "settings.whatsnew.since"}} <span class="version-tag" x-text="from"></span> → <strong class="version-tag" x-text="to"></strong></p>
+    </div>
+    <div class="update-bar-modal-body">
+      <p class="settings-help" x-show="error" x-text="error"></p>
+      <p class="whatsnew-empty" x-show="!loading && !error && components.length === 0">{{t "settings.whatsnew.empty"}}</p>
+      <template x-for="component in components" :key="component.id">
+        <section class="whatsnew-tile">
+          <div class="whatsnew-tile-head">
+            <span class="whatsnew-tile-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg></span>
+            <h3 class="whatsnew-tile-title" x-text="component.label"></h3>
+            <span class="version-chip" x-text="component.from ? component.from + ' → ' + component.to : component.to"></span>
+          </div>
+          <ul class="release-entries">
+            <template x-for="release in component.releases" :key="release.version">
+              <template x-for="(entry, index) in release.entries" :key="release.version + '-' + index">
+                <li><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></li>
+              </template>
+            </template>
+          </ul>
+        </section>
+      </template>
+    </div>
+    <div class="app-modal-actions">
+      <button type="button" x-on:click="showAll($el.closest('dialog'))">{{t "settings.whatsnew.all_changes"}}</button>
+      <button type="button" class="primary" x-on:click="$el.closest('dialog').close()">{{t "update_bar.modal.close"}}</button>
+    </div>
+  </dialog>
   <div id="runtime-status" class="runtime-status" data-runtime-status-enabled="{{if .ShowRuntimeStatus}}true{{else}}false{{end}}" data-status-bar-items="{{.StatusBarItems}}" x-data="runtimeStatusPanel()" x-init="init()" x-cloak x-show="enabled" aria-live="polite" aria-atomic="true">
     <div class="runtime-status-summary">
       <span class="runtime-status-label">{{t "status.title"}}</span>
@@ -147,14 +197,14 @@
   <section id="devices-panel" class="panel" role="tabpanel" aria-labelledby="tab-devices" x-bind:class="{ active: activePanel === 'devices-panel' }" x-show="activePanel === 'devices-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=devices" data-panel-script="{{.BasePath}}/static/js-deps/popper.min.js,{{.BasePath}}/static/js-deps/tippy.umd.min.js" data-panel-css="{{.BasePath}}/static/css/tippy.css"><p class="panel-loading" data-panel-loading>{{t "panel.devices_loading"}}</p></section>
   <section id="history-panel" class="panel" role="tabpanel" aria-labelledby="tab-history" x-bind:class="{ active: activePanel === 'history-panel' }" x-show="activePanel === 'history-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=history" data-panel-script="{{.BasePath}}/static/js-deps/apexcharts.min.js,{{.BasePath}}/static/js-deps/flatpickr.min.js?v=1,{{with .FlatpickrLocaleScript}}{{$.BasePath}}/static/js-deps/{{.}}?v=1,{{end}}{{.BasePath}}/static/js/history-export.js?v=2,{{.BasePath}}/static/js/energy-model.js?v=3,{{.BasePath}}/static/js/history-chart.js?v=2,{{.BasePath}}/static/js/history.js?v=14" data-panel-css="{{.BasePath}}/static/css/flatpickr.min.css?v=1,{{.BasePath}}/static/css/flatpickr.css?v=1,{{.BasePath}}/static/css/history.css?v=3"><p class="panel-loading" data-panel-loading>{{t "panel.history_loading"}}</p></section>
   {{if .Manager}}
-  <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=9,{{.BasePath}}/static/css/diagnostics.css?v=2"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>
+  <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=11,{{.BasePath}}/static/css/diagnostics.css?v=2"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>
   <section id="config-panel" class="panel" role="tabpanel" aria-labelledby="tab-config" x-bind:class="{ active: activePanel === 'config-panel' }" x-show="activePanel === 'config-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=config" data-panel-script="{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/config-status.js?v=3,{{.BasePath}}/static/js/config.page.js?v=9" data-panel-css="{{.BasePath}}/static/css/manager.css?v=32"><p class="panel-loading" data-panel-loading>{{t "panel.config_loading"}}</p></section>
   <section id="energy-panel" class="panel" role="tabpanel" aria-labelledby="tab-energy" x-bind:class="{ active: activePanel === 'energy-panel' }" x-show="activePanel === 'energy-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=energy" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=7,{{.BasePath}}/static/js/devicemap-graph.js?v=3,{{.BasePath}}/static/js/devicemap-dataflow.js?v=1,{{.BasePath}}/static/js/devicemap-node-svg.js?v=4,{{.BasePath}}/static/js/devicemap-labels.js?v=2,{{.BasePath}}/static/js/energy-plant.js?v=2,{{.BasePath}}/static/js/device-picker.js?v=1,{{.BasePath}}/static/js/energy.page.js?v=9" data-panel-css="{{.BasePath}}/static/css/manager.css?v=32"><p class="panel-loading" data-panel-loading>{{t "panel.energy_loading"}}</p></section>
   <section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=devicemap" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=7,{{.BasePath}}/static/js/devicemap-node-svg.js?v=4,{{.BasePath}}/static/js/devicemap-labels.js?v=2,{{.BasePath}}/static/js/devicemap-graph.js?v=3,{{.BasePath}}/static/js/devicemap-dataflow.js?v=1,{{.BasePath}}/static/js/automations-view.js?v=2,{{.BasePath}}/static/js/device-picker.js?v=1,{{.BasePath}}/static/js/devicemap.page.js?v=18" data-panel-css="{{.BasePath}}/static/css/manager.css?v=32"><p class="panel-loading" data-panel-loading>{{t "panel.devicemap_loading"}}</p></section>
-  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=14,{{.BasePath}}/static/js/mqtt.page.js?v=7,{{.BasePath}}/static/js/tailscale.page.js?v=4,{{.BasePath}}/static/js/versions.page.js?v=3,{{.BasePath}}/static/js/systemconfig.page.js?v=5" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=32,{{.BasePath}}/static/css/settings-controls.css?v=9"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
+  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=16,{{.BasePath}}/static/js/mqtt.page.js?v=7,{{.BasePath}}/static/js/tailscale.page.js?v=4,{{.BasePath}}/static/js/versions.page.js?v=5,{{.BasePath}}/static/js/systemconfig.page.js?v=5" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=32,{{.BasePath}}/static/css/settings-controls.css?v=11"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
   {{if index .InstalledServices "automation"}}<section id="automations-panel" class="panel" role="tabpanel" aria-labelledby="tab-automations" x-bind:class="{ active: activePanel === 'automations-panel' }" x-show="activePanel === 'automations-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=automations" data-panel-script="{{.BasePath}}/static/js/config-status.js?v=3,{{.BasePath}}/static/js/automations-view.js?v=2,{{.BasePath}}/static/js/automations.page.js?v=11" data-panel-css="{{.BasePath}}/static/css/manager.css?v=32,{{.BasePath}}/static/css/automations.css?v=6"><p class="panel-loading" data-panel-loading>{{t "panel.automations_loading"}}</p></section>{{end}}
   {{else}}
-  <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=9,{{.BasePath}}/static/css/diagnostics.css?v=2"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>
+  <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=11,{{.BasePath}}/static/css/diagnostics.css?v=2"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>
   {{end}}
   </div>
   <div class="notification-toasts" x-data aria-live="polite">
@@ -224,7 +274,9 @@
   <script src="{{.BasePath}}/static/js/history-maintenance.js?v=1" defer></script>
   <script src="{{.BasePath}}/static/js/history-recorder.js?v=10" defer></script>
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
-  <script src="{{.BasePath}}/static/js/dashboard.js?v=28" defer></script>
+  <script src="{{.BasePath}}/static/js/dashboard.js?v=29" defer></script>
+  <script src="{{.BasePath}}/static/js/update-bar.js?v=3" defer></script>
+  <script src="{{.BasePath}}/static/js/whatsnew.page.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>

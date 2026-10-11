@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
@@ -54,7 +55,7 @@ func TestVersionsRoutesNeedASessionButNotARole(t *testing.T) {
 	writeState(t, dir, "changelog.json", `{"schema_version":1,"bundle_version":"v0.7.5","components":[{"id":"dashboard","label":"Dashboard","kind":"app","version":"v0.7.5","releases":[]}]}`)
 	router, guest := versionsRouter(t, dir)
 
-	for _, path := range []string{"/api/v1/versions", "/api/v1/changelog"} {
+	for _, path := range []string{"/api/v1/versions", "/api/v1/changelog", "/api/v1/changelog/highlights"} {
 		if rec := getWith(router, nil, path); rec.Code != http.StatusUnauthorized {
 			t.Fatalf("anonymous %s = %d, want 401", path, rec.Code)
 		}
@@ -130,5 +131,24 @@ func TestVersionsRoutesRejectWrites(t *testing.T) {
 	router.ServeHTTP(rec, req)
 	if rec.Code != http.StatusMethodNotAllowed && rec.Code != http.StatusForbidden {
 		t.Fatalf("POST status = %d, want 405 (or 403 from the CSRF guard)", rec.Code)
+	}
+}
+
+func TestHandleChangelogHighlights(t *testing.T) {
+	dir := t.TempDir()
+	writeState(t, dir, "changelog.json", `{"components":[{"id":"dashboard","label":"Dashboard","version":"v0.9.0","releases":[{"version":"v0.9.0","groups":[{"entries":[{"text":"x","highlight":true}]}]}]}]}`)
+	writeState(t, dir, "installed-manifest.json", `{"version":"v0.9.0","components":{"dashboard":"v0.9.0"}}`)
+
+	rec := httptest.NewRecorder()
+	handleChangelogHighlights(dir)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/changelog/highlights", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `"to":"v0.9.0"`) {
+		t.Fatalf("got %d %s", rec.Code, rec.Body.String())
+	}
+
+	empty := t.TempDir()
+	rec = httptest.NewRecorder()
+	handleChangelogHighlights(empty)(rec, httptest.NewRequest(http.MethodGet, "/api/v1/changelog/highlights", nil))
+	if rec.Code != http.StatusNotFound || !strings.Contains(rec.Body.String(), "no_changelog") {
+		t.Fatalf("missing changelog: got %d %s", rec.Code, rec.Body.String())
 	}
 }

@@ -144,3 +144,17 @@ func (s busSink) Log(stepID, line string) {
 func (s busSink) Message(stepID, key string, args map[string]string) {
 	s.bus.Publish("log", map[string]any{"step_id": stepID, "key": key, "args": args})
 }
+
+// newStepTitler names a bootstrap step the way the redeploy screen does: the
+// shared installer catalogs' step.<id>, in the request's dashboard language.
+// An unknown step has no title; the bar then shows its number only.
+func newStepTitler(languages []string) (func(*http.Request, string) string, error) {
+	catalogs, err := i18n.Load(webui.Catalogs())
+	if err != nil {
+		return nil, err
+	}
+	return func(r *http.Request, stepID string) string {
+		text, _ := catalogs.Lookup(localize.Resolve(r, languages), "step."+stepID)
+		return text
+	}, nil
+}

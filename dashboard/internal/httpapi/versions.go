@@ -48,3 +48,26 @@ func handleChangelog(stateDir string) http.HandlerFunc {
 		_, _ = w.Write(raw)
 	}
 }
+
+// handleChangelogHighlights is GET /api/v1/changelog/highlights: the
+// highlighted changes of the last update (versions.Highlights). Readable by
+// every signed-in session, like the versions page it belongs to.
+func handleChangelogHighlights(stateDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			methodNotAllowed(w, http.MethodGet)
+			return
+		}
+		view, err := versions.Highlights(stateDir)
+		if err != nil {
+			var apiErr *hostapi.Error
+			if errors.As(err, &apiErr) && apiErr.Code == "NO_CHANGELOG" {
+				writeError(w, http.StatusNotFound, "no_changelog", "Dieses Paket enthält keinen Changelog")
+				return
+			}
+			writeError(w, http.StatusInternalServerError, "changelog_unreadable", "Changelog konnte nicht gelesen werden")
+			return
+		}
+		writeJSON(w, view)
+	}
+}

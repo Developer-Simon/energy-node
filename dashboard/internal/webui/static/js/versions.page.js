@@ -53,6 +53,8 @@
     running: {dashboard: ''},
     components: [],
     hasChangelog: false,
+    // The bundle the node ran before its last version change, null when none is recorded.
+    previous: null,
     open: {},
     releases: {},
     releaseErrors: {},
@@ -64,6 +66,11 @@
     updateCheckDisabled: false,
     savingUpdateCheck: false,
 
+    // ?all=1 (the link of the what's new dialog) starts in the "all" view.
+    init() {
+      if (new URLSearchParams(window.location.search).get('all') === '1') this.mode = 'all';
+    },
+
     async load() {
       this.loading = true;
       this.error = '';
@@ -73,6 +80,7 @@
         this.running = body.running || {dashboard: ''};
         this.components = body.components || [];
         this.hasChangelog = Boolean(body.has_changelog);
+        this.previous = body.previous || null;
       } catch (error) {
         this.error = error.message;
       } finally {

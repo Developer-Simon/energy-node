@@ -148,3 +148,72 @@ func TestReadInstalledManifestIsNilWhenNothingWasRecordedYet(t *testing.T) {
 		t.Fatalf("got %q, want nil", got)
 	}
 }
+
+func TestRecordInstalledKeepsThePreviousManifestOnAVersionChange(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"10-apt.sh": scriptBody("10", okScript),
+	})
+	const older = `{"version":"v1.2.2","components":{"dashboard":"v2.0.0"}}`
+	const newer = `{"version":"v1.2.3","components":{"dashboard":"v2.1.0"}}`
+	if err := client.Run(context.Background(), "mkdir -p '"+stateDir+"'", os.Stderr, os.Stderr); err != nil {
+		t.Fatalf("mkdir state: %v", err)
+	}
+	if err := client.UploadBytes([]byte(older), stateDir+"/installed-manifest.json", 0o644); err != nil {
+		t.Fatalf("upload old manifest: %v", err)
+	}
+	if err := client.UploadBytes([]byte(newer), bundleDir+"/manifest.json", 0o644); err != nil {
+		t.Fatalf("upload manifest: %v", err)
+	}
+
+	if err := steps.RecordInstalled(context.Background(), client, bundleDir, stateDir); err != nil {
+		t.Fatalf("RecordInstalled: %v", err)
+	}
+
+	local := filepath.Join(t.TempDir(), "previous-manifest.json")
+	if err := client.DownloadFile(stateDir+"/previous-manifest.json", local); err != nil {
+		t.Fatalf("download previous: %v", err)
+	}
+	if got, _ := os.ReadFile(local); string(got) != older {
+		t.Fatalf("previous-manifest.json = %q, want %q", got, older)
+	}
+}
+
+func TestRecordInstalledKeepsThePredecessorWhenTheVersionIsUnchanged(t *testing.T) {
+	requireSFTPServerForSteps(t)
+	sshd := transporttest.Start(t)
+	client := dialForStepsTest(t, sshd)
+
+	bundleDir, stateDir := deployBootstrapScripts(t, client, map[string]string{
+		"10-apt.sh": scriptBody("10", okScript),
+	})
+	const same = `{"version":"v1.2.3"}`
+	const predecessor = `{"version":"v1.2.1"}`
+	if err := client.Run(context.Background(), "mkdir -p '"+stateDir+"'", os.Stderr, os.Stderr); err != nil {
+		t.Fatalf("mkdir state: %v", err)
+	}
+	for path, body := range map[string]string{
+		stateDir + "/installed-manifest.json": same,
+		stateDir + "/previous-manifest.json":  predecessor,
+		bundleDir + "/manifest.json":          same,
+	} {
+		if err := client.UploadBytes([]byte(body), path, 0o644); err != nil {
+			t.Fatalf("upload %s: %v", path, err)
+		}
+	}
+
+	if err := steps.RecordInstalled(context.Background(), client, bundleDir, stateDir); err != nil {
+		t.Fatalf("RecordInstalled: %v", err)
+	}
+
+	local := filepath.Join(t.TempDir(), "previous-manifest.json")
+	if err := client.DownloadFile(stateDir+"/previous-manifest.json", local); err != nil {
+		t.Fatalf("download previous: %v", err)
+	}
+	if got, _ := os.ReadFile(local); string(got) != predecessor {
+		t.Fatalf("previous-manifest.json = %q, want the untouched predecessor %q", got, predecessor)
+	}
+}

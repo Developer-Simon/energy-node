@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/updaterjob"
 )
@@ -185,5 +186,34 @@ func TestReadCurrentReturnsTheClaimedJobWithItsRunID(t *testing.T) {
 func TestReadCurrentFailsWithoutAClaimedJob(t *testing.T) {
 	if _, err := updaterjob.ReadCurrent(t.TempDir()); err == nil {
 		t.Fatal("ReadCurrent without current.json must fail")
+	}
+}
+
+func TestReadPendingReadsTheStagedJob(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "pending.json"), []byte(`{"bundle_version":"v0.9.1","mode":"redeploy","steps":["10","60"],"run_id":"r1"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	job, err := updaterjob.ReadPending(dir)
+	if err != nil || job.BundleVersion != "v0.9.1" || job.RunID != "r1" || len(job.Steps) != 2 {
+		t.Fatalf("job = %+v, err = %v", job, err)
+	}
+}
+
+func TestStatusTimeIsTheModTimeOfStatusJSON(t *testing.T) {
+	dir := t.TempDir()
+	if _, ok := updaterjob.StatusTime(dir); ok {
+		t.Fatal("no status.json must report ok=false")
+	}
+	path := filepath.Join(dir, "status.json")
+	if err := os.WriteFile(path, []byte(`{"result":"ok"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	when := time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC)
+	if err := os.Chtimes(path, when, when); err != nil {
+		t.Fatal(err)
+	}
+	if got, ok := updaterjob.StatusTime(dir); !ok || !got.Equal(when) {
+		t.Fatalf("StatusTime = %v, %v", got, ok)
 	}
 }

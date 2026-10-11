@@ -275,3 +275,29 @@ test('storageText() formats numeric params before translation', async () => {
   const result = component.storageText('storage_health.remaining.years', { min: 1.5, max: 2 });
   assert.match(result, /1,5.*2/); // German format: 1,5 and 2
 });
+
+// settingsPage() with a given query string, for the ?page= deep link.
+function createSettingsPage(search) {
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', {
+    runScripts: 'outside-only',
+    url: `https://dashboard.local/${search}`,
+  });
+  const factories = {};
+  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  dom.window.fetch = async () => { throw new Error('fetch should not be called'); };
+  installI18n(dom.window);
+  vm.runInContext(scriptSource, dom.getInternalVMContext());
+  return factories.settingsPage();
+}
+
+test('settingsPage opens the sub page named in ?page=', () => {
+  const page = createSettingsPage('?panel=settings&page=versions');
+  page.init();
+  assert.equal(page.activeSettingsPage, 'versions');
+});
+
+test('settingsPage ignores an unknown ?page=', () => {
+  const page = createSettingsPage('?page=nope');
+  page.init();
+  assert.equal(page.activeSettingsPage, 'general');
+});
