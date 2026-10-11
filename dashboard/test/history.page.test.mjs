@@ -912,3 +912,40 @@ test('Serien-Chips und Tooltip zeigen Namen statt Serienkennungen', async () => 
   assert.equal(component.chartOptions.tooltip.y.title.formatter('role:grid'), 'Grid');
   dom.window.close();
 });
+
+function recordWatches(dom) {
+  const calls = {watched: [], unwatched: []};
+  dom.window.dashboardHistorizer.watchRange = (view, range) => calls.watched.push([view, range]);
+  dom.window.dashboardHistorizer.unwatchRange = view => calls.unwatched.push(view);
+  return calls;
+}
+
+test('load meldet den angezeigten Zeitraum beim Austausch an', async () => {
+  const {dom, component} = panel();
+  const calls = recordWatches(dom);
+  component.rangeHours = 30 * 24;
+  await component.load();
+  assert.equal(calls.watched.length, 1);
+  const [view, range] = calls.watched[0];
+  assert.equal(view, 'page');
+  assert.equal(range.tier, '5m');
+  assert.equal(range.to - range.from, 30 * 24 * HOUR);
+  dom.window.close();
+});
+
+test('ein Panelwechsel meldet den Zeitraum ab und die Rueckkehr wieder an', async () => {
+  const {dom, component} = panel();
+  const calls = recordWatches(dom);
+  const done = captureAsync(component);
+  component.init();
+  await done();
+  assert.equal(calls.watched.length, 1);
+  dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-panel-changed', {detail: {panel: 'settings-panel'}}));
+  assert.deepEqual(calls.unwatched, ['page']);
+  dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-panel-changed', {detail: {panel: 'history-panel'}}));
+  assert.equal(calls.watched.length, 2);
+  assert.equal(calls.watched[1][1].tier, component.tier);
+  component.destroy();
+  assert.deepEqual(calls.unwatched, ['page', 'page']);
+  dom.window.close();
+});

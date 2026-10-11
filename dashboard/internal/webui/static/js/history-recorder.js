@@ -20,6 +20,10 @@
   const CHANNEL_NAME = 'energy-node-history';
   const DEFAULT_READ_WINDOW_MS = 24 * 60 * 60 * 1000;
   const MAINTENANCE_INTERVAL_MS = 60000;
+  // Kennung dieses Tabs. Der Leader fuehrt die Anmeldungen aller Tabs in
+  // einer Liste; ohne Praefix ueberschrieben sich die "page"-Anmeldungen
+  // zweier Tabs gegenseitig.
+  const TAB_ID = Math.random().toString(16).slice(2, 10);
 
   const DEFAULTS = {
     intervalSeconds: 10,
@@ -257,14 +261,53 @@
     navigator.locks.request(LOCK_NAME, {mode: 'exclusive'}, () => new Promise(() => { becomeLeader(); }));
   };
 
+  // Nur der Leader tauscht (siehe history-exchange.js). Anmeldungen anderer
+  // Tabs kommen ueber den Kanal hier an.
+  const forwardWatch = (id, range) => {
+    if (!window.HistoryExchange || !window.HistoryExchange.watchRange || config.exchangeDisabled) return;
+    Promise.resolve(window.HistoryExchange.watchRange(id, range)).catch(error => {
+      announceError(t('history.recorder.exchange_failed', {message: error.message}));
+    });
+  };
+
+  const forwardUnwatch = id => {
+    if (window.HistoryExchange && window.HistoryExchange.unwatchRange) window.HistoryExchange.unwatchRange(id);
+  };
+
+  // view ist "page" oder die DOM-ID einer Verlaufskachel.
+  const watchRange = (view, range) => {
+    if (config.exchangeDisabled) return;
+    const id = `${TAB_ID}:${view}`;
+    if (leader) forwardWatch(id, range);
+    else if (channel) channel.postMessage({type: 'watch-range', id, range});
+  };
+
+  const unwatchRange = view => {
+    const id = `${TAB_ID}:${view}`;
+    if (leader) forwardUnwatch(id);
+    else if (channel) channel.postMessage({type: 'unwatch-range', id});
+  };
+
   const openChannel = () => {
     if (!window.BroadcastChannel) return;
     channel = new window.BroadcastChannel(CHANNEL_NAME);
     channel.onmessage = event => {
-      if (event.data && event.data.type === 'updated' && !leader) {
+      const data = event.data || {};
+      if (data.type === 'updated' && !leader) {
         window.dispatchEvent(new CustomEvent('dashboard-history-updated'));
       }
+      // Lieferungen schreibt nur der Leader. Die anderen Tabs lesen dieselbe
+      // IndexedDB und muessen nur erfahren, dass es Neues gibt.
+      if (data.type === 'exchanged' && !leader) {
+        window.dispatchEvent(new CustomEvent('dashboard-history-exchanged', {detail: data.detail || {}}));
+        window.dispatchEvent(new CustomEvent('dashboard-history-updated'));
+      }
+      if (leader && data.type === 'watch-range') forwardWatch(data.id, data.range);
+      if (leader && data.type === 'unwatch-range') forwardUnwatch(data.id);
     };
+    window.addEventListener('dashboard-history-exchanged', event => {
+      if (leader && channel) channel.postMessage({type: 'exchanged', detail: event.detail || {}});
+    });
   };
 
   // Altform-Fassade fuer energy-board.js (Sparklines) und energy-day.js
@@ -306,6 +349,8 @@
     isLeader: () => leader,
     startExchange,
     afterMaintenance,
+    watchRange,
+    unwatchRange,
   };
 
   if (document.readyState === 'loading') {

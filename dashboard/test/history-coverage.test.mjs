@@ -115,3 +115,35 @@ test('plan kennt Serien, die man selbst gar nicht hat', () => {
   assert.equal(jobs[0].series, 'role:wallbox');
   assert.deepEqual(jobs[0].ranges, [[from, from + 2 * HOUR]]);
 });
+
+test('plan mit Filter schneidet die Spannen auf den Zeitraum zu', () => {
+  const coverage = load();
+  const now = 1000 * HOUR;
+  const { from } = coverage.rasterWindow('1m', now);
+  const offers = { 'p-fremd': { '1m': { 'role:pv': { from, step: HOUR, n: [60, 60, 60, 60] } } } };
+  const jobs = coverage.plan({}, offers, now, { tier: '1m', from: from + HOUR + 1000, to: from + 2 * HOUR });
+  assert.equal(jobs.length, 1);
+  assert.deepEqual(jobs[0].ranges, [[from + HOUR + 1000, from + 2 * HOUR]]);
+});
+
+test('plan mit Filter laesst andere Stufen weg', () => {
+  const coverage = load();
+  const now = 1000 * HOUR;
+  const span = coverage.rasterWindow('5m', now);
+  const offers = { 'p-fremd': { '5m': { 'role:pv': { from: span.from, step: span.stepMs, n: [60] } } } };
+  assert.deepEqual(coverage.plan({}, offers, now, { tier: '1m', from: span.from, to: now }), []);
+});
+
+test('plan mit Filter nimmt den naechstbesten Peer, wenn der beste im Zeitraum nichts hat', () => {
+  const coverage = load();
+  const now = 1000 * HOUR;
+  const { from } = coverage.rasterWindow('1m', now);
+  const offers = {
+    'p-gross': { '1m': { 'role:pv': { from, step: HOUR, n: [60, 60, 60, 0] } } },
+    'p-klein': { '1m': { 'role:pv': { from, step: HOUR, n: [0, 0, 0, 60] } } },
+  };
+  const jobs = coverage.plan({}, offers, now, { tier: '1m', from: from + 3 * HOUR, to: from + 4 * HOUR });
+  assert.equal(jobs.length, 1);
+  assert.equal(jobs[0].peer, 'p-klein');
+  assert.deepEqual(jobs[0].ranges, [[from + 3 * HOUR, from + 4 * HOUR]]);
+});

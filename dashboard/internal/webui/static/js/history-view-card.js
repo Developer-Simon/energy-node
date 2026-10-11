@@ -26,6 +26,21 @@
 
   const recorderConfig = () => (window.dashboardHistorizer ? window.dashboardHistorizer.config() : {rawWindowHours: 24, minuteWindowDays: 7});
 
+  // An- und Abmeldung beim Austausch (Modus on-demand, siehe
+  // history-exchange.js). Die DOM-ID ist die Kennung der Kachel.
+  const watch = (id, range) => {
+    if (window.dashboardHistorizer && window.dashboardHistorizer.watchRange) window.dashboardHistorizer.watchRange(id, range);
+  };
+
+  const unwatch = id => {
+    if (window.dashboardHistorizer && window.dashboardHistorizer.unwatchRange) window.dashboardHistorizer.unwatchRange(id);
+  };
+
+  // Eine Lieferung kommt in Stuecken zu 500 Saetzen. Erst nach einer Sekunde
+  // Ruhe nachladen, statt jedes Stueck einzeln zu zeichnen.
+  const EXCHANGE_SETTLE_MS = 1000;
+  let exchangeTimer = null;
+
   function setStatus(entry, text) {
     const status = entry.element.querySelector('[data-history-view-status]');
     if (!status) return;
@@ -75,6 +90,7 @@
       const result = await window.HistoryChart.loadRows({from, to, interpretation: interpretation(), recorderConfig: recorderConfig()});
       // Waehrend des Lesens abgebaut (Layout gespeichert, Seite gewechselt).
       if (entries.get(entry.element.id) !== entry) return;
+      watch(entry.element.id, {from, to, tier: result.tier});
       entry.rows = result.rows;
       entry.gaps = result.gaps;
       entry.knownSeries = [...new Set(result.rows.map(row => row.series))].sort();
@@ -108,6 +124,7 @@
     const entry = entries.get(id);
     if (entry && entry.chart) entry.chart.destroy();
     entries.delete(id);
+    unwatch(id);
   }
 
   function scan() {
@@ -136,7 +153,18 @@
     // Jeder Tausch kann Kacheln bringen oder mitnehmen. scan() ist billig
     // (ein querySelectorAll), darum ohne Filter auf das Ziel.
     document.addEventListener('htmx:afterSettle', () => scan());
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') tick(); });
+    // Ein verborgener Tab zeigt nichts an und meldet seine Kacheln ab.
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') tick();
+      else entries.forEach((entry, id) => unwatch(id));
+    });
+    window.addEventListener('dashboard-history-exchanged', () => {
+      if (exchangeTimer) clearTimeout(exchangeTimer);
+      exchangeTimer = setTimeout(() => {
+        exchangeTimer = null;
+        tick();
+      }, EXCHANGE_SETTLE_MS);
+    });
     // Ein Theme-Wechsel aendert die Serienfarben, die Daten bleiben.
     if (window.DashboardTheme) window.DashboardTheme.onChange(() => entries.forEach(entry => { if (entry.chart) render(entry); }));
     scan();

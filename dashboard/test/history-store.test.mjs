@@ -30,6 +30,24 @@ function load() {
   return dom;
 }
 
+// Schreibt an HistoryStore vorbei direkt in die IndexedDB. Damit laesst sich
+// pruefen, ob coverage() einen Bucket aus dem Cache nimmt oder neu zaehlt:
+// solche Saetze sieht nur eine echte Zaehlung.
+const putDirect = (dom, storeName, rows) => new Promise((resolve, reject) => {
+  const request = dom.window.indexedDB.open('energy-node-dashboard', 2);
+  request.onsuccess = () => {
+    const database = request.result;
+    const transaction = database.transaction(storeName, 'readwrite');
+    rows.forEach(row => transaction.objectStore(storeName).put(row));
+    transaction.oncomplete = () => { database.close(); resolve(); };
+    transaction.onerror = () => reject(transaction.error);
+  };
+  request.onerror = () => reject(request.error);
+});
+
+const rollup = (series, ts) => ({series, ts, min: 1, max: 1, avg: 1, n: 60, u: 'W'});
+const plain = value => JSON.parse(JSON.stringify(value));
+
 test('writeRaw und readRange liefern nur den angefragten Bereich einer Serie', async () => {
   const dom = load();
   const store = dom.window.HistoryStore;
@@ -214,6 +232,32 @@ test('coverage laesst Saetze ausserhalb des Fensters aus', async () => {
   dom.window.close();
 });
 
+test('coverage zaehlt Serien, deren Name mit einer anderen beginnt', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [
+    {series: 'entity:shelly1', ts: 1000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+    {series: 'entity:shelly11', ts: 2000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+    {series: 'entity:shelly11', ts: 6000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const result = await store.coverage('1m', 0, 10000, 5000);
+  assert.deepEqual(JSON.parse(JSON.stringify(result['entity:shelly1'].n)), [1, 0]);
+  assert.deepEqual(JSON.parse(JSON.stringify(result['entity:shelly11'].n)), [1, 1]);
+  dom.window.close();
+});
+
+test('coverage zaehlt einen Satz genau an der oberen Fenstergrenze nicht mit', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [
+    {series: 'role:pv', ts: 9999, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+    {series: 'role:pv', ts: 10000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const result = await store.coverage('1m', 0, 10000, 5000);
+  assert.deepEqual(JSON.parse(JSON.stringify(result['role:pv'].n)), [0, 1]);
+  dom.window.close();
+});
+
 test('writeMissing ergaenzt fehlende Saetze und laesst vorhandene unberuehrt', async () => {
   const dom = load();
   const store = dom.window.HistoryStore;
@@ -255,5 +299,94 @@ test('writeMissing ist idempotent', async () => {
   const rows = [{series: 'role:pv', ts: 1000, min: 5, max: 5, avg: 5, n: 60, u: 'W'}];
   assert.equal(await store.writeMissing('1m', rows), 1);
   assert.equal(await store.writeMissing('1m', rows), 0);
+  dom.window.close();
+});
+
+test('coverage nimmt abgeschlossene Buckets aus dem Cache und zaehlt den offenen neu', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 0), rollup('role:pv', 6000)]);
+  assert.deepEqual(plain((await store.coverage('1m', 0, 12000, 5000))['role:pv'].n), [1, 1, 0]);
+  await putDirect(dom, 'samples_1m', [rollup('role:pv', 1000), rollup('role:pv', 11000)]);
+  // Bucket 0 kommt aus dem Cache (1), der offene Bucket [10000, 12000) wird neu gezaehlt (1).
+  assert.deepEqual(plain((await store.coverage('1m', 0, 12000, 5000))['role:pv'].n), [1, 1, 1]);
+  dom.window.close();
+});
+
+test('coverage nutzt keinen Cache, wenn das Fenster nicht am Raster ausgerichtet ist', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 2000)]);
+  assert.deepEqual(plain((await store.coverage('1m', 1000, 11000, 5000))['role:pv'].n), [1, 0]);
+  await putDirect(dom, 'samples_1m', [rollup('role:pv', 3000)]);
+  assert.deepEqual(plain((await store.coverage('1m', 1000, 11000, 5000))['role:pv'].n), [2, 0]);
+  assert.equal(store.coverageCacheSize(), 0);
+  dom.window.close();
+});
+
+test('writeRollup macht die beruehrten Buckets im Cache ungueltig', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 0)]);
+  await store.coverage('1m', 0, 12000, 5000);
+  await store.writeRollup('1m', [rollup('role:pv', 1000)]);
+  assert.deepEqual(plain((await store.coverage('1m', 0, 12000, 5000))['role:pv'].n), [2, 0, 0]);
+  dom.window.close();
+});
+
+test('writeMissing macht die beruehrten Buckets im Cache ungueltig', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 0)]);
+  await store.coverage('1m', 0, 12000, 5000);
+  await store.writeMissing('1m', [rollup('role:pv', 7000)]);
+  assert.deepEqual(plain((await store.coverage('1m', 0, 12000, 5000))['role:pv'].n), [1, 1, 0]);
+  dom.window.close();
+});
+
+test('deleteKeys macht die beruehrten Buckets im Cache ungueltig', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 0), rollup('role:pv', 6000)]);
+  await store.coverage('1m', 0, 12000, 5000);
+  await store.deleteKeys('1m', [['role:pv', 0]]);
+  assert.deepEqual(plain((await store.coverage('1m', 0, 12000, 5000))['role:pv'].n), [0, 1, 0]);
+  dom.window.close();
+});
+
+test('deleteRange ueber alle Serien macht die Buckets aller Serien ungueltig', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 0), rollup('role:grid', 1000), rollup('role:grid', 6000)]);
+  await store.coverage('1m', 0, 12000, 5000);
+  await store.deleteRange('1m', null, 0, 4999);
+  const result = await store.coverage('1m', 0, 12000, 5000);
+  assert.equal(result['role:pv'], undefined);
+  assert.deepEqual(plain(result['role:grid'].n), [0, 1, 0]);
+  dom.window.close();
+});
+
+test('ein Schreiben waehrend einer laufenden Zaehlung hinterlaesst keinen veralteten Cache', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 0)]);
+  await Promise.all([
+    store.coverage('1m', 0, 12000, 5000),
+    store.writeRollup('1m', [rollup('role:pv', 1000)]),
+  ]);
+  assert.deepEqual(plain((await store.coverage('1m', 0, 12000, 5000))['role:pv'].n), [2, 0, 0]);
+  dom.window.close();
+});
+
+test('der Cache verwirft Buckets, die vor dem Fenster liegen', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [rollup('role:pv', 0), rollup('role:pv', 6000), rollup('role:pv', 11000)]);
+  await store.coverage('1m', 0, 12000, 5000);
+  // Zwei abgeschlossene Buckets [0, 5000) und [5000, 10000) sind gemerkt.
+  assert.equal(store.coverageCacheSize(), 2);
+  await store.coverage('1m', 5000, 17000, 5000);
+  // [0, 5000) liegt jetzt vor dem Fenster, dazu kommt [10000, 15000).
+  assert.equal(store.coverageCacheSize(), 2);
   dom.window.close();
 });

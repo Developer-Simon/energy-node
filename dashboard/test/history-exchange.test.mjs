@@ -79,13 +79,28 @@ function fakeEventSource() {
   return FakeEventSource;
 }
 
-async function startExchange(dom, {fetchImpl, eventSourceImpl} = {}) {
+// Die bestehenden Tests pruefen den vollen Abgleich, also den Modus
+// "always". mode: null laesst localStorage leer (Standard on-demand).
+async function startExchange(dom, {fetchImpl, eventSourceImpl, mode = 'always', now = () => NOW} = {}) {
+  if (mode) dom.window.localStorage.setItem('history-exchange-mode', mode);
   const fetcher = fetchImpl || fakeFetch();
   const source = eventSourceImpl || fakeEventSource();
   const started = await dom.window.HistoryExchange.start({
-    basePath: '', fetchImpl: fetcher, eventSourceImpl: source, now: () => NOW,
+    basePath: '', fetchImpl: fetcher, eventSourceImpl: source, now,
   });
   return {started, fetcher, source};
+}
+
+const settle = () => new Promise(resolve => setTimeout(resolve, 20));
+const posts = (fetcher, suffix) => fetcher.calls.filter(call => call.url.endsWith(suffix));
+
+// Ein Angebot fuer role:pv in der 1m-Stufe mit Anzahlen an den genannten
+// Bucket-Indizes.
+function pvOffer(dom, counts) {
+  const span = dom.window.HistoryCoverage.rasterWindow('1m', NOW);
+  const n = new Array(span.buckets).fill(0);
+  Object.entries(counts).forEach(([index, value]) => { n[Number(index)] = value; });
+  return {from: span.from, coverage: {'1m': {'role:pv': {from: span.from, step: HOUR, n}}}};
 }
 
 test('start bricht ab, wenn der Server die Faehigkeit nicht ankuendigt', async () => {
@@ -302,5 +317,259 @@ test('ohne Bezeichnung bleibt die Quelle leer', async () => {
   await new Promise(resolve => setTimeout(resolve, 30));
 
   assert.equal(dom.window.HistoryExchange.status().lastSource, '');
+  dom.window.close();
+});
+
+test('ohne gespeicherten Modus gilt on-demand und es wird nichts angeboten', async () => {
+  const dom = load();
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  assert.equal(posts(fetcher, '/offer').length, 0);
+  assert.equal(dom.window.HistoryExchange.mode(), 'on-demand');
+  assert.equal(dom.window.HistoryExchange.status().mode, 'on-demand');
+  dom.window.close();
+});
+
+test('im Modus on-demand loest ein fremdes Angebot keine Nachfrage aus', async () => {
+  const dom = load();
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  const {coverage} = pvOffer(dom, {0: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 0);
+  dom.window.close();
+});
+
+test('ein unbekannter gespeicherter Modus gilt als on-demand', async () => {
+  const dom = load();
+  await startExchange(dom, {mode: 'manchmal'});
+  assert.equal(dom.window.HistoryExchange.mode(), 'on-demand');
+  dom.window.close();
+});
+
+test('ein unlesbarer localStorage gilt als on-demand und setMode wirft nicht', async () => {
+  const dom = load();
+  Object.defineProperty(dom.window, 'localStorage', {
+    configurable: true,
+    get() { throw new Error('SecurityError'); },
+  });
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  assert.equal(dom.window.HistoryExchange.mode(), 'on-demand');
+  await dom.window.HistoryExchange.setMode('always');
+  assert.equal(dom.window.HistoryExchange.mode(), 'always');
+  dom.window.close();
+});
+
+test('setMode always merkt sich die Wahl, bietet sofort an und plant gegen bekannte Angebote', async () => {
+  const dom = load();
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  const {coverage} = pvOffer(dom, {0: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage});
+  await settle();
+  await dom.window.HistoryExchange.setMode('always');
+  assert.equal(dom.window.localStorage.getItem('history-exchange-mode'), 'always');
+  assert.equal(posts(fetcher, '/offer').length, 1);
+  assert.equal(posts(fetcher, '/request').length, 1);
+  dom.window.close();
+});
+
+test('ein storage-Ereignis aus einem anderen Tab schaltet den Modus um', async () => {
+  const dom = load();
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  dom.window.localStorage.setItem('history-exchange-mode', 'always');
+  dom.window.dispatchEvent(new dom.window.StorageEvent('storage', {key: 'history-exchange-mode', newValue: 'always'}));
+  await settle();
+  assert.equal(dom.window.HistoryExchange.mode(), 'always');
+  assert.equal(posts(fetcher, '/offer').length, 1);
+  dom.window.close();
+});
+
+// Bringt einen Austausch im Modus on-demand in den Zustand "verbunden, ein
+// fremdes Angebot fuer die ersten drei Stunden des Rasters ist bekannt".
+async function onDemandWithOffer(dom, options = {}) {
+  const started = await startExchange(dom, {mode: null, ...options});
+  const stream = started.source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  const offer = pvOffer(dom, {0: 60, 1: 60, 2: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  return {...started, stream, from: offer.from, offer};
+}
+
+test('watchRange fragt nur den angezeigten Zeitraum an', async () => {
+  const dom = load();
+  const {fetcher, from} = await onDemandWithOffer(dom);
+  assert.equal(posts(fetcher, '/request').length, 0);
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: from + HOUR, to: from + 2 * HOUR});
+  const requests = posts(fetcher, '/request');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].body.to, 'p-fremd');
+  assert.equal(requests[0].body.tier, '1m');
+  assert.deepEqual(requests[0].body.ranges, [[from + HOUR, from + 2 * HOUR]]);
+  dom.window.close();
+});
+
+test('watchRange fragt fuer die Rohstufe die Minutenstufe an', async () => {
+  const dom = load();
+  const {fetcher, from} = await onDemandWithOffer(dom);
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: 'raw', from, to: from + HOUR});
+  assert.equal(posts(fetcher, '/request')[0].body.tier, '1m');
+  dom.window.close();
+});
+
+test('ein erneutes Anmelden nach der Lieferung fragt nicht noch einmal', async () => {
+  const dom = load();
+  const {fetcher, stream, from} = await onDemandWithOffer(dom);
+  const range = {tier: '1m', from: from + HOUR, to: from + 2 * HOUR};
+  await dom.window.HistoryExchange.watchRange('t1:page', range);
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  await dom.window.HistoryExchange.watchRange('t1:page', range);
+  assert.equal(posts(fetcher, '/request').length, 1);
+  dom.window.close();
+});
+
+test('ein neues Angebot plant einen angemeldeten Zeitraum neu', async () => {
+  const dom = load();
+  const {fetcher, stream, from, offer} = await onDemandWithOffer(dom);
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: from + HOUR, to: from + 2 * HOUR});
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 2);
+  dom.window.close();
+});
+
+test('nach unwatchRange loest ein Angebot keine Nachfrage aus', async () => {
+  const dom = load();
+  const {fetcher, stream, offer} = await onDemandWithOffer(dom);
+  dom.window.HistoryExchange.unwatchRange('t1:page');
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 0);
+  dom.window.close();
+});
+
+test('eine Anmeldung verfaellt nach zehn Minuten ohne Erneuerung', async () => {
+  const dom = load();
+  let clock = NOW;
+  const {fetcher, stream, from, offer} = await onDemandWithOffer(dom, {now: () => clock});
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: from + HOUR, to: from + 2 * HOUR});
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  clock += 11 * 60 * 1000;
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 1);
+  dom.window.close();
+});
+
+test('im Modus always ist watchRange wirkungslos', async () => {
+  const dom = load();
+  const {fetcher, source} = await startExchange(dom, {mode: 'always'});
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  const offer = pvOffer(dom, {0: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: offer.from, to: offer.from + HOUR});
+  assert.equal(posts(fetcher, '/request').length, 1);
+  dom.window.close();
+});
+
+test('on-demand mit Freigabe bietet an, holt aber nur den angezeigten Zeitraum', async () => {
+  const dom = load();
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  dom.window.localStorage.setItem('history-exchange-serve', 'on');
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  assert.equal(posts(fetcher, '/offer').length, 1);
+  assert.equal(dom.window.HistoryExchange.serving(), true);
+  const {coverage} = pvOffer(dom, {0: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 0);
+  dom.window.close();
+});
+
+test('im Modus always wird immer angeboten, auch mit gespeichertem off', async () => {
+  const dom = load();
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  dom.window.localStorage.setItem('history-exchange-serve', 'off');
+  const {fetcher, source} = await startExchange(dom, {mode: 'always'});
+  source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  assert.equal(posts(fetcher, '/offer').length, 1);
+  assert.equal(dom.window.HistoryExchange.serving(), true);
+  dom.window.close();
+});
+
+test('setServe bietet sofort an und merkt sich die Wahl, ohne Wahl ist die Freigabe im Modus on-demand aus', async () => {
+  const dom = load();
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  assert.equal(dom.window.HistoryExchange.serving(), false);
+  await dom.window.HistoryExchange.setServe(true);
+  assert.equal(dom.window.localStorage.getItem('history-exchange-serve'), 'on');
+  assert.equal(posts(fetcher, '/offer').length, 1);
+  assert.equal(dom.window.HistoryExchange.status().serving, true);
+  dom.window.close();
+});
+
+test('ein storage-Ereignis schaltet die Freigabe um und ein unlesbarer Speicher wirft nicht', async () => {
+  const dom = load();
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const {fetcher, source} = await startExchange(dom, {mode: null});
+  source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  dom.window.localStorage.setItem('history-exchange-serve', 'on');
+  dom.window.dispatchEvent(new dom.window.StorageEvent('storage', {key: 'history-exchange-serve', newValue: 'on'}));
+  await settle();
+  assert.equal(dom.window.HistoryExchange.serving(), true);
+  assert.equal(posts(fetcher, '/offer').length, 1);
+  Object.defineProperty(dom.window, 'localStorage', {configurable: true, get() { throw new Error('SecurityError'); }});
+  await dom.window.HistoryExchange.setServe(false);
+  assert.equal(dom.window.HistoryExchange.serving(), false);
   dom.window.close();
 });

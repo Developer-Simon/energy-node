@@ -1,11 +1,11 @@
 # Changelog
 
-## v0.2.2 (2026-10-10)
+## v0.2.2 (2026-10-11)
 
 ### Features
 
+- **dashboard:** show update progress and what's new after an update (#123) (7c1388f)
 - **updater:** keep the previously installed manifest on a version change (45d303d)
-- **dashboard:** show update progress and what's new after an update (#123)
 
 ## v0.2.1 (2026-10-06)
 

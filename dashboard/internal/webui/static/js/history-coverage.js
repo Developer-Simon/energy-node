@@ -71,27 +71,46 @@
     return total;
   };
 
+  // Schneidet Spannen auf [from, to) zu, leere fallen weg.
+  const clip = (ranges, from, to) => ranges
+    .map(([start, end]) => [Math.max(start, from), Math.min(end, to)])
+    .filter(([start, end]) => end > start);
+
   // Je Stufe und Serie geht die Nachfrage an GENAU EINEN Peer - den mit dem
   // groessten Ueberschuss. Alle zu fragen hiesse, dieselben Saetze mehrfach
   // durch den Server zu ziehen.
-  const plan = (ownCoverage, offers, now) => {
+  //
+  // filter (optional) ist {tier, from, to}: nur diese Stufe planen und jede
+  // Spanne auf den angezeigten Zeitraum zuschneiden (Modus on-demand in
+  // history-exchange.js). Hat der beste Peer im Zeitraum nichts, kommt der
+  // naechstbeste dran.
+  const plan = (ownCoverage, offers, now, filter) => {
     const jobs = [];
     TIERS.forEach(tier => {
+      if (filter && filter.tier !== tier) return;
       const seriesNames = new Set();
       Object.values(offers).forEach(coverage => {
         Object.keys((coverage && coverage[tier]) || {}).forEach(series => seriesNames.add(series));
       });
       seriesNames.forEach(series => {
         const own = ((ownCoverage || {})[tier] || {})[series];
-        let best = null;
+        const candidates = [];
         Object.entries(offers).forEach(([peer, coverage]) => {
           const theirs = ((coverage || {})[tier] || {})[series];
           const score = surplus(own, theirs, now);
-          if (score > 0 && (best === null || score > best.score)) best = {peer, theirs, score};
+          if (score > 0) candidates.push({peer, theirs, score});
         });
-        if (!best) return;
-        const ranges = missingRanges(own, best.theirs, now);
-        if (ranges.length) jobs.push({peer: best.peer, tier, series, ranges});
+        // sort() ist stabil: bei Gleichstand gewinnt wie bisher der zuerst
+        // gesehene Peer.
+        candidates.sort((left, right) => right.score - left.score);
+        for (const candidate of candidates) {
+          let ranges = missingRanges(own, candidate.theirs, now);
+          if (filter) ranges = clip(ranges, filter.from, filter.to);
+          if (ranges.length) {
+            jobs.push({peer: candidate.peer, tier, series, ranges});
+            return;
+          }
+        }
       });
     });
     return jobs;

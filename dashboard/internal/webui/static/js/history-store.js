@@ -133,6 +133,56 @@
 
   const bytesUsed = async () => Number(await meta('bytes')) || 0;
 
+  // Zaehlungen abgeschlossener Rasterbuckets, nur im Speicher dieses Tabs.
+  // Geschrieben wird ausschliesslich im fuehrenden Tab (Recorder,
+  // Verdichtung, Austausch), und nur er fragt die Deckung ab - ein Cache je
+  // Tab genuegt also. Gemerkt wird nur bei ausgerichtetem Raster (from ist
+  // ein Vielfaches von step, so baut rasterWindow() jedes Raster): dann ist
+  // ein Bucket allein durch Stufe, Schrittweite, Serie und
+  // floor(ts / step) * step bestimmt, und ein Schreibvorgang weiss, welchen
+  // Eintrag er ungueltig macht.
+  const coverageCache = new Map();
+  const cachedSteps = {};
+  // Steigt bei jeder Invalidierung einer Stufe. Eine Zaehlung, waehrend der
+  // geschrieben wurde, legt ihre Ergebnisse nicht ab - sie koennten den
+  // Stand vor dem Schreiben zeigen.
+  const generations = {};
+
+  const cacheKey = (tier, stepMs, series, bucketFrom) => JSON.stringify([tier, stepMs, series, bucketFrom]);
+
+  const bumpGeneration = tier => { generations[tier] = (generations[tier] || 0) + 1; };
+
+  const invalidateKey = (tier, series, ts) => {
+    (cachedSteps[tier] || new Set()).forEach(stepMs => {
+      coverageCache.delete(cacheKey(tier, stepMs, series, Math.floor(ts / stepMs) * stepMs));
+    });
+  };
+
+  const invalidateRows = (tier, rows) => {
+    bumpGeneration(tier);
+    rows.forEach(row => invalidateKey(tier, row.series, row.ts));
+  };
+
+  // toTs inklusiv, wie bei deleteRange(). series null heisst alle Serien.
+  const invalidateRange = (tier, series, fromTs, toTs) => {
+    bumpGeneration(tier);
+    coverageCache.forEach((entry, key) => {
+      if (entry.tier !== tier) return;
+      if (series !== null && series !== undefined && entry.series !== series) return;
+      if (entry.bucketFrom <= toTs && entry.bucketFrom + entry.stepMs > fromTs) coverageCache.delete(key);
+    });
+  };
+
+  // Buckets vor dem Fenster fallen heraus, sonst sammelte ein tagelang
+  // offener Tab je Serie und Stunde einen Eintrag mehr.
+  const pruneBefore = (tier, stepMs, fromTs) => {
+    coverageCache.forEach((entry, key) => {
+      if (entry.tier === tier && entry.stepMs === stepMs && entry.bucketFrom < fromTs) coverageCache.delete(key);
+    });
+  };
+
+  const coverageCacheSize = () => coverageCache.size;
+
   // Schreibt Saetze und fuehrt das Byte-Konto in derselben Transaktion nach.
   // Nur wirklich neue Schluessel zaehlen: ein erneutes put() auf denselben
   // [series, ts] ersetzt den Satz, belegt aber keinen zusaetzlichen Platz.
@@ -161,7 +211,10 @@
           }
         };
       });
-      transaction.oncomplete = () => resolve();
+      transaction.oncomplete = () => {
+        invalidateRows(tier, rows);
+        resolve();
+      };
       transaction.onerror = () => reject(transaction.error || new Error(t('history.store.write_failed')));
       transaction.onabort = () => reject(transaction.error || new Error(t('history.store.write_failed')));
     });
@@ -198,7 +251,10 @@
           metaStore.put({key: 'bytes', value});
         };
       };
-      transaction.oncomplete = () => resolve(removed);
+      transaction.oncomplete = () => {
+        invalidateRange(tier, series, fromTs, toTs);
+        resolve(removed);
+      };
       transaction.onerror = () => reject(transaction.error || new Error(t('history.store.delete_failed')));
     });
   };
@@ -234,42 +290,99 @@
           }
         };
       });
-      transaction.oncomplete = () => resolve(removed);
+      transaction.oncomplete = () => {
+        invalidateRows(tier, keys.map(key => ({series: key[0], ts: key[1]})));
+        resolve(removed);
+      };
       transaction.onerror = () => reject(transaction.error || new Error(t('history.store.delete_failed')));
     });
   };
 
+  // Alle Serien eines Stores. Der Cursor springt nach jedem Treffer auf
+  // [series, Infinity], also direkt an den Anfang der naechsten Serie - ein
+  // Schritt je Serie statt je Satz. Infinity statt 0xffff aus demselben
+  // Grund wie in readAllFiltered(): Praefix-Namen wie entity:shelly1 und
+  // entity:shelly11 duerfen sich nicht gegenseitig ueberspringen.
+  const seriesOf = (database, name) => new Promise((resolve, reject) => {
+    const names = [];
+    const request = database.transaction(name, 'readonly').objectStore(name).openKeyCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        resolve(names);
+        return;
+      }
+      const series = cursor.key[0];
+      names.push(series);
+      cursor.continue([series, Infinity]);
+    };
+    request.onerror = () => reject(request.error || new Error(t('history.store.coverage_failed')));
+  });
+
+  // Zaehlt [from, to) je Zelle in EINER Lesetransaktion. count() laeuft im
+  // Browser nativ und reicht keinen einzelnen Schluessel nach JavaScript
+  // durch.
+  const countBuckets = (database, name, cells) => new Promise((resolve, reject) => {
+    const counts = new Array(cells.length).fill(0);
+    if (!cells.length) {
+      resolve(counts);
+      return;
+    }
+    const transaction = database.transaction(name, 'readonly');
+    const target = transaction.objectStore(name);
+    cells.forEach((cell, index) => {
+      const request = target.count(window.IDBKeyRange.bound([cell.series, cell.from], [cell.series, cell.to], false, true));
+      request.onsuccess = () => { counts[index] = request.result; };
+    });
+    transaction.oncomplete = () => resolve(counts);
+    transaction.onerror = () => reject(transaction.error || new Error(t('history.store.coverage_failed')));
+    transaction.onabort = () => reject(transaction.error || new Error(t('history.store.coverage_failed')));
+  });
+
   // Deckungsraster einer Stufe: je Serie die Anzahl vorhandener Saetze pro
-  // Rasterbucket. openKeyCursor liest nur die Schluessel, nicht die Werte -
-  // das ist der Grund, warum ein Angebot auch bei Wochen an Minutenwerten
-  // guenstig bleibt.
+  // Rasterbucket. Frueher lief hier ein Schluessel-Cursor ueber den ganzen
+  // Store - bei sieben Tagen Minutenwerten rund hunderttausend Schritte, und
+  // das nach jedem Verdichtungslauf. Jetzt zaehlt count() je Serie und
+  // Bucket.
   const coverage = async (tier, fromTs, toTs, stepMs) => {
     const database = await open();
     const name = storeNameFor(tier);
     const buckets = Math.max(0, Math.ceil((toTs - fromTs) / stepMs));
-    return new Promise((resolve, reject) => {
-      const result = {};
-      const request = database.transaction(name, 'readonly').objectStore(name).openKeyCursor();
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor) {
-          resolve(result);
-          return;
-        }
-        const series = String(cursor.key[0]);
-        const ts = Number(cursor.key[1]);
-        if (ts >= fromTs && ts < toTs) {
-          let census = result[series];
-          if (!census) {
-            census = {from: fromTs, step: stepMs, n: new Array(buckets).fill(0)};
-            result[series] = census;
-          }
-          census.n[Math.floor((ts - fromTs) / stepMs)] += 1;
-        }
-        cursor.continue();
-      };
-      request.onerror = () => reject(request.error || new Error(t('history.store.coverage_failed')));
+    const cacheable = fromTs % stepMs === 0;
+    const generation = generations[tier] || 0;
+    if (cacheable) pruneBefore(tier, stepMs, fromTs);
+    const names = await seriesOf(database, name);
+    const cells = [];
+    const perSeries = {};
+    names.forEach(series => {
+      perSeries[series] = new Array(buckets).fill(0);
+      for (let index = 0; index < buckets; index += 1) {
+        const from = fromTs + index * stepMs;
+        const to = Math.min(from + stepMs, toTs);
+        // Nur ein Bucket, der vor toTs endet, ist abgeschlossen. Der Bucket
+        // mit "jetzt" waechst noch und wird jedes Mal gezaehlt.
+        const key = cacheable && to === from + stepMs ? cacheKey(tier, stepMs, series, from) : null;
+        const hit = key === null ? undefined : coverageCache.get(key);
+        if (hit) perSeries[series][index] = hit.n;
+        else cells.push({series, index, from, to, key});
+      }
     });
+    const counts = await countBuckets(database, name, cells);
+    const fresh = (generations[tier] || 0) === generation;
+    cells.forEach((cell, position) => {
+      perSeries[cell.series][cell.index] = counts[position];
+      if (fresh && cell.key !== null) {
+        if (!cachedSteps[tier]) cachedSteps[tier] = new Set();
+        cachedSteps[tier].add(stepMs);
+        coverageCache.set(cell.key, {tier, stepMs, series: cell.series, bucketFrom: cell.from, n: counts[position]});
+      }
+    });
+    const result = {};
+    names.forEach(series => {
+      const n = perSeries[series];
+      if (n.some(value => value > 0)) result[String(series)] = {from: fromTs, step: stepMs, n};
+    });
+    return result;
   };
 
   // Schreibt NUR Saetze, deren Schluessel noch fehlt. Der Unterschied zu
@@ -304,7 +417,10 @@
           }
         };
       });
-      transaction.oncomplete = () => resolve(added);
+      transaction.oncomplete = () => {
+        invalidateRows(tier, rows);
+        resolve(added);
+      };
       transaction.onerror = () => reject(transaction.error || new Error(t('history.store.merge_failed')));
       transaction.onabort = () => reject(transaction.error || new Error(t('history.store.merge_failed')));
     });
@@ -389,6 +505,6 @@
   window.HistoryStore = {
     ROW_BYTES_RAW, ROW_BYTES_ROLLUP, TIERS,
     open, writeRaw, writeRollup, readRange, deleteRange, deleteKeys, seriesNames, bounds,
-    meta, setMeta, bytesUsed, estimate, persist, coverage, writeMissing,
+    meta, setMeta, bytesUsed, estimate, persist, coverage, coverageCacheSize, writeMissing,
   };
 })();
