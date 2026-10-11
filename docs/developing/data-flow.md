@@ -424,6 +424,17 @@ Only the `1m` and `5m` tiers are exchanged. Raw samples are not, because their
 offset timestamps would not deduplicate. Protocol version 1 allows 500 rows per
 delivery, 20 000 per request and 1 MiB per body.
 
+Each browser runs the exchange in one of two modes, stored per device in
+`localStorage` (`history-exchange-mode`). `always` offers its own coverage and
+requests every gap of the full raster window, as described above. `on-demand`
+is the default. The device keeps its SSE stream open, feeds the ring buffer
+and answers requests, but it sends no offer of its own. It only plans requests
+for the ranges the history page or a history tile currently shows
+(`HistoryExchange.watchRange()`). Tabs that do not lead forward these ranges to
+the leading tab over the recorder's BroadcastChannel and get a message back
+when rows arrive. A device in `on-demand` mode is no source for other devices,
+except through the ring buffer.
+
 Home Assistant can join as a permanent peer that supplies data, through the
 `energy_node_companion` integration (guest session, labelled "Home
 Assistant"). It answers from its recorder (states for `1m`, 5-minute statistics

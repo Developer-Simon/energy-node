@@ -69,3 +69,6 @@ The tile only shows what this browser has recorded or received through the
 history exchange, like the history page. On a device that has not recorded
 yet it stays empty. If its view is deleted, the tile says so until you pick
 another source.
+
+In the default exchange mode the tile asks other devices and Home Assistant
+only for its own period.

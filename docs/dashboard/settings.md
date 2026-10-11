@@ -40,7 +40,12 @@ This tab controls recording and retention of the browser side history: the
 sample rate, how long raw data is kept before compaction and how long minute
 values are kept. Retention is limited either by time or by a storage budget in
 MB. The page shows the projected daily volume, the actual usage and the
-browser's quota. The last block switches off the exchange between devices.
+browser's quota. The last block switches off the exchange between devices. Below the switch,
+**On this device** chooses whether this browser exchanges **Always** or only
+**When a history is shown**. The second choice is the default and spares
+phones. The browser then only fetches what the history page or a history tile
+shows, and it is no source for other devices. This choice is stored in the
+browser and applies at once, without saving.
 
 The setting applies to every browser, but the recorded data does not. The
 measurements only exist in the browser that recorded them, and the page says so.

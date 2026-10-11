@@ -42,6 +42,12 @@ never overwrites a value, so a half minute would stay half for good.
 
 ## How you see it working
 
+By default a browser only fills in what it shows. Open the history page or a
+page with a history tile for the period you missed, and the browser asks Home
+Assistant for exactly that period. A browser set to **Always** under
+**Settings → History → On this device** fills in the whole week right after it
+connects.
+
 Open the dashboard in a browser that missed some time, then go to
 **Settings → History** (German: **Verläufe**). After the first backfill the
 status of the device exchange shows a second line:
