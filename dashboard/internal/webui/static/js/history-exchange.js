@@ -20,6 +20,20 @@
   const RECONNECT_MIN_MS = 2000;
   const RECONNECT_MAX_MS = 60000;
 
+  // Der Modus gilt je Geraet, nicht je Knoten: ein dauernd offener Desktop
+  // soll Quelle bleiben, ein Handy nur holen, was es anzeigt. Deshalb
+  // localStorage statt der Knoten-Einstellungen. Alles ausser "always" ist
+  // "on-demand", auch ein unlesbarer Speicher (privater Modus).
+  const MODE_KEY = 'history-exchange-mode';
+
+  const readMode = () => {
+    try {
+      return window.localStorage.getItem(MODE_KEY) === 'always' ? 'always' : 'on-demand';
+    } catch (error) {
+      return 'on-demand';
+    }
+  };
+
   let options = {basePath: '', fetchImpl: null, eventSourceImpl: null, now: () => Date.now()};
   let announcement = null;
   let source = null;
@@ -32,6 +46,7 @@
   let reconnectDelay = RECONNECT_MIN_MS;
   let reconnectTimer = null;
   let pending = new Set();
+  let mode = readMode();
   const state = {addedRows: 0, lastPeer: '', lastSource: '', lastAt: 0, reason: ''};
 
   const fetcher = (...args) => (options.fetchImpl || window.fetch.bind(window))(...args);
@@ -63,7 +78,8 @@
   // erzeugte jeder Verdichtungslauf ein Angebot an alle - im Minutentakt,
   // ueber alle verbundenen Geraete.
   const refreshOffer = async () => {
-    if (!peerId) return;
+    // Im Modus on-demand ist dieses Geraet keine Quelle fuer andere.
+    if (!peerId || mode !== 'always') return;
     const coverage = await ownCoverage();
     const fingerprint = JSON.stringify(coverage);
     if (fingerprint === lastOffer) return;
@@ -87,16 +103,23 @@
     window.setTimeout(() => pending.delete(key), timeoutMs);
   };
 
-  const onOffer = async payload => {
-    if (!payload.peer || payload.peer === peerId) return;
-    offers[payload.peer] = payload.coverage || {};
-    // Fremd-Peers wie Home Assistant nennen sich, Browser nicht.
-    if (payload.label) labels[payload.peer] = String(payload.label);
+  // Der volle Abgleich gegen alle bekannten Angebote (Modus always).
+  const planAll = async () => {
     const jobs = window.HistoryCoverage.plan(await ownCoverage(), offers, now());
     for (const job of jobs) {
       // eslint-disable-next-line no-await-in-loop
       await requestFrom(job);
     }
+  };
+
+  const onOffer = async payload => {
+    if (!payload.peer || payload.peer === peerId) return;
+    offers[payload.peer] = payload.coverage || {};
+    // Fremd-Peers wie Home Assistant nennen sich, Browser nicht.
+    if (payload.label) labels[payload.peer] = String(payload.label);
+    // Im Modus on-demand nur merken: geplant wird erst, wenn ein Verlauf
+    // angezeigt wird.
+    if (mode === 'always') await planAll();
   };
 
   const onRequest = async payload => {
@@ -211,6 +234,7 @@
   const start = async settings => {
     options = {...options, ...(settings || {})};
     stopped = false;
+    mode = readMode();
     try {
       const response = await fetcher(url(''));
       if (!response.ok) {
@@ -258,6 +282,33 @@
     }
   };
 
+  // Wirkt ohne Neuverbinden. Beim Wechsel auf "always" sofort anbieten und
+  // gegen die bekannten Angebote planen, statt auf das naechste zu warten.
+  const applyMode = async value => {
+    if (value === mode) return;
+    mode = value;
+    if (mode !== 'always' || !peerId) return;
+    lastOffer = '';
+    await refreshOffer();
+    await planAll();
+  };
+
+  const setMode = async next => {
+    const value = next === 'always' ? 'always' : 'on-demand';
+    try {
+      window.localStorage.setItem(MODE_KEY, value);
+    } catch (error) {
+      // Privater Modus: die Wahl gilt bis zum Neuladen.
+    }
+    await applyMode(value);
+  };
+
+  // Andere Tabs desselben Browsers schalten ueber localStorage um. Das
+  // storage-Ereignis erreicht nur die ANDEREN Tabs, der eigene ruft setMode().
+  window.addEventListener('storage', event => {
+    if (event.key === MODE_KEY) applyMode(readMode()).catch(() => {});
+  });
+
   const status = () => ({
     connected: Boolean(peerId),
     peerId,
@@ -267,7 +318,8 @@
     lastSource: state.lastSource,
     lastAt: state.lastAt,
     reason: state.reason,
+    mode,
   });
 
-  window.HistoryExchange = {start, stop, status, pushBuffer, refreshOffer};
+  window.HistoryExchange = {start, stop, status, pushBuffer, refreshOffer, mode: () => mode, setMode};
 })();
