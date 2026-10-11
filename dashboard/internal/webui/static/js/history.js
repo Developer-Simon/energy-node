@@ -78,7 +78,15 @@
 
     init() {
       this.panelChanged = event => {
-        if (event.detail?.panel === 'history-panel') this.activate();
+        if (event.detail?.panel !== 'history-panel') {
+          this.unwatchExchange();
+          return;
+        }
+        // Bei der Rueckkehr laedt activate() nicht neu, die Anmeldung muss
+        // trotzdem wieder stehen. Vor activate(), sonst meldete der erste
+        // Aufruf mit der Vorgabestufe an, bevor load() die echte kennt.
+        if (this.initialized) this.watchExchange({...this.rangeBounds(), tier: this.tier});
+        this.activate();
       };
       window.addEventListener('dashboard-panel-changed', this.panelChanged);
       this.historyUpdated = () => {
@@ -135,7 +143,22 @@
       this.load().then(() => this.renderChart());
     },
 
+    // Meldet den angezeigten Zeitraum beim Austausch an (Modus on-demand,
+    // siehe history-exchange.js). Ohne Recorder bleibt es bei der Anzeige.
+    watchExchange(range) {
+      if (window.dashboardHistorizer && window.dashboardHistorizer.watchRange) {
+        window.dashboardHistorizer.watchRange('page', range);
+      }
+    },
+
+    unwatchExchange() {
+      if (window.dashboardHistorizer && window.dashboardHistorizer.unwatchRange) {
+        window.dashboardHistorizer.unwatchRange('page');
+      }
+    },
+
     destroy() {
+      this.unwatchExchange();
       if (this.panelChanged) window.removeEventListener('dashboard-panel-changed', this.panelChanged);
       if (this.historyUpdated) window.removeEventListener('dashboard-history-updated', this.historyUpdated);
       if (this.historyExchanged) window.removeEventListener('dashboard-history-exchanged', this.historyExchanged);
@@ -172,6 +195,7 @@
         const {from, to} = this.rangeBounds();
         const result = await window.HistoryChart.loadRows({from, to, interpretation: this.interpretation, recorderConfig: this.recorderConfig});
         this.tier = result.tier;
+        this.watchExchange({from, to, tier: result.tier});
         this.gapsBySeries = result.gaps;
         this.rows = result.rows;
         this.seriesOptions = [...new Set(this.rows.map(row => row.series))].sort();

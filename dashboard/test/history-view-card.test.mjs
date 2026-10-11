@@ -134,3 +134,56 @@ test('tick aktualisiert ein bestehendes Diagramm statt ein neues zu bauen', asyn
   assert.equal(charts[0].updated, 1);
   dom.window.close();
 });
+
+// Haengt einen Recorder-Ersatz ein, der An- und Abmeldungen festhaelt.
+async function seedWithWatches(dom, calls) {
+  await seed(dom);
+  dom.window.dashboardHistorizer = {
+    config: () => ({rawWindowHours: 24, minuteWindowDays: 7}),
+    watchRange: (view, range) => calls.watched.push([view, range]),
+    unwatchRange: view => calls.unwatched.push(view),
+  };
+}
+
+test('eine Kachel meldet ihren Zeitraum beim Austausch an', async () => {
+  const calls = {watched: [], unwatched: []};
+  const {dom, api} = await load(card('hv-a', OWN), {beforeController: d => seedWithWatches(d, calls)});
+  await api.scan();
+  assert.equal(calls.watched.length, 1);
+  const [view, range] = calls.watched[0];
+  assert.equal(view, 'hv-a');
+  assert.equal(range.tier, 'raw');
+  assert.equal(range.to - range.from, 6 * HOUR);
+  dom.window.close();
+});
+
+test('eine abgebaute Kachel meldet sich ab', async () => {
+  const calls = {watched: [], unwatched: []};
+  const {dom, api} = await load(card('hv-a', OWN), {beforeController: d => seedWithWatches(d, calls)});
+  await api.scan();
+  dom.window.document.getElementById('hv-a').remove();
+  await api.scan();
+  assert.deepEqual(calls.unwatched, ['hv-a']);
+  dom.window.close();
+});
+
+test('ein verborgener Tab meldet seine Kacheln ab', async () => {
+  const calls = {watched: [], unwatched: []};
+  const {dom, api} = await load(card('hv-a', OWN), {beforeController: d => seedWithWatches(d, calls)});
+  await api.scan();
+  Object.defineProperty(dom.window.document, 'visibilityState', {value: 'hidden', configurable: true});
+  dom.window.document.dispatchEvent(new dom.window.Event('visibilitychange'));
+  assert.deepEqual(calls.unwatched, ['hv-a']);
+  dom.window.close();
+});
+
+test('eine Lieferung laedt die Kachel nach einer Sekunde Ruhe einmal neu', async () => {
+  const calls = {watched: [], unwatched: []};
+  const {dom, charts, api} = await load(card('hv-a', OWN), {beforeController: d => seedWithWatches(d, calls)});
+  await api.scan();
+  dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged', {detail: {rows: 500}}));
+  dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged', {detail: {rows: 200}}));
+  await new Promise(resolve => setTimeout(resolve, 1200));
+  assert.equal(charts[0].updated, 1);
+  dom.window.close();
+});
