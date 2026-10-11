@@ -214,6 +214,32 @@ test('coverage laesst Saetze ausserhalb des Fensters aus', async () => {
   dom.window.close();
 });
 
+test('coverage zaehlt Serien, deren Name mit einer anderen beginnt', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [
+    {series: 'entity:shelly1', ts: 1000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+    {series: 'entity:shelly11', ts: 2000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+    {series: 'entity:shelly11', ts: 6000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const result = await store.coverage('1m', 0, 10000, 5000);
+  assert.deepEqual(JSON.parse(JSON.stringify(result['entity:shelly1'].n)), [1, 0]);
+  assert.deepEqual(JSON.parse(JSON.stringify(result['entity:shelly11'].n)), [1, 1]);
+  dom.window.close();
+});
+
+test('coverage zaehlt einen Satz genau an der oberen Fenstergrenze nicht mit', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRollup('1m', [
+    {series: 'role:pv', ts: 9999, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+    {series: 'role:pv', ts: 10000, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
+  ]);
+  const result = await store.coverage('1m', 0, 10000, 5000);
+  assert.deepEqual(JSON.parse(JSON.stringify(result['role:pv'].n)), [0, 1]);
+  dom.window.close();
+});
+
 test('writeMissing ergaenzt fehlende Saetze und laesst vorhandene unberuehrt', async () => {
   const dom = load();
   const store = dom.window.HistoryStore;

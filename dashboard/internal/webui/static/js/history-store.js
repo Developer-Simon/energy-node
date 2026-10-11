@@ -239,37 +239,74 @@
     });
   };
 
+  // Alle Serien eines Stores. Der Cursor springt nach jedem Treffer auf
+  // [series, Infinity], also direkt an den Anfang der naechsten Serie - ein
+  // Schritt je Serie statt je Satz. Infinity statt 0xffff aus demselben
+  // Grund wie in readAllFiltered(): Praefix-Namen wie entity:shelly1 und
+  // entity:shelly11 duerfen sich nicht gegenseitig ueberspringen.
+  const seriesOf = (database, name) => new Promise((resolve, reject) => {
+    const names = [];
+    const request = database.transaction(name, 'readonly').objectStore(name).openKeyCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (!cursor) {
+        resolve(names);
+        return;
+      }
+      const series = cursor.key[0];
+      names.push(series);
+      cursor.continue([series, Infinity]);
+    };
+    request.onerror = () => reject(request.error || new Error(t('history.store.coverage_failed')));
+  });
+
+  // Zaehlt [from, to) je Zelle in EINER Lesetransaktion. count() laeuft im
+  // Browser nativ und reicht keinen einzelnen Schluessel nach JavaScript
+  // durch.
+  const countBuckets = (database, name, cells) => new Promise((resolve, reject) => {
+    const counts = new Array(cells.length).fill(0);
+    if (!cells.length) {
+      resolve(counts);
+      return;
+    }
+    const transaction = database.transaction(name, 'readonly');
+    const target = transaction.objectStore(name);
+    cells.forEach((cell, index) => {
+      const request = target.count(window.IDBKeyRange.bound([cell.series, cell.from], [cell.series, cell.to], false, true));
+      request.onsuccess = () => { counts[index] = request.result; };
+    });
+    transaction.oncomplete = () => resolve(counts);
+    transaction.onerror = () => reject(transaction.error || new Error(t('history.store.coverage_failed')));
+    transaction.onabort = () => reject(transaction.error || new Error(t('history.store.coverage_failed')));
+  });
+
   // Deckungsraster einer Stufe: je Serie die Anzahl vorhandener Saetze pro
-  // Rasterbucket. openKeyCursor liest nur die Schluessel, nicht die Werte -
-  // das ist der Grund, warum ein Angebot auch bei Wochen an Minutenwerten
-  // guenstig bleibt.
+  // Rasterbucket. Frueher lief hier ein Schluessel-Cursor ueber den ganzen
+  // Store - bei sieben Tagen Minutenwerten rund hunderttausend Schritte, und
+  // das nach jedem Verdichtungslauf. Jetzt zaehlt count() je Serie und
+  // Bucket.
   const coverage = async (tier, fromTs, toTs, stepMs) => {
     const database = await open();
     const name = storeNameFor(tier);
     const buckets = Math.max(0, Math.ceil((toTs - fromTs) / stepMs));
-    return new Promise((resolve, reject) => {
-      const result = {};
-      const request = database.transaction(name, 'readonly').objectStore(name).openKeyCursor();
-      request.onsuccess = () => {
-        const cursor = request.result;
-        if (!cursor) {
-          resolve(result);
-          return;
-        }
-        const series = String(cursor.key[0]);
-        const ts = Number(cursor.key[1]);
-        if (ts >= fromTs && ts < toTs) {
-          let census = result[series];
-          if (!census) {
-            census = {from: fromTs, step: stepMs, n: new Array(buckets).fill(0)};
-            result[series] = census;
-          }
-          census.n[Math.floor((ts - fromTs) / stepMs)] += 1;
-        }
-        cursor.continue();
-      };
-      request.onerror = () => reject(request.error || new Error(t('history.store.coverage_failed')));
+    const names = await seriesOf(database, name);
+    const cells = [];
+    const perSeries = {};
+    names.forEach(series => {
+      perSeries[series] = new Array(buckets).fill(0);
+      for (let index = 0; index < buckets; index += 1) {
+        const from = fromTs + index * stepMs;
+        cells.push({series, index, from, to: Math.min(from + stepMs, toTs)});
+      }
     });
+    const counts = await countBuckets(database, name, cells);
+    cells.forEach((cell, position) => { perSeries[cell.series][cell.index] = counts[position]; });
+    const result = {};
+    names.forEach(series => {
+      const n = perSeries[series];
+      if (n.some(value => value > 0)) result[String(series)] = {from: fromTs, step: stepMs, n};
+    });
+    return result;
   };
 
   // Schreibt NUR Saetze, deren Schluessel noch fehlt. Der Unterschied zu
