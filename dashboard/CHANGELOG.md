@@ -1,10 +1,13 @@
 # Changelog
 
-## v0.9.3 (2026-10-11)
+## v0.9.4 (2026-10-11)
 
 ### Features
 
 - **dashboard:** show update progress and what's new after an update (#123) (7c1388f)
+- **dashboard:** show the exchange status as a tile that updates itself (7e631b6)
+- **dashboard:** show the history status as a strip with pills and a calm empty state (d8d35cf)
+- **dashboard:** show exchange and history status as tiles (#125)
 - **dashboard:** add a per-device history exchange mode, on demand by default (d55c003)
 - **dashboard:** choose the history exchange mode per device in the settings (a997f48)
 - **dashboard:** let the history exchange plan only a given range (87fde60)
@@ -31,9 +34,9 @@
 
 ### Performance
 
+- **dashboard:** exchange history only on demand (#124) (fddb2b4)
 - **dashboard:** count history coverage per bucket instead of walking every key (eca1e74)
 - **dashboard:** cache closed history coverage buckets per tab (9f5ca98)
-- **dashboard:** exchange history only on demand (#124)
 
 ### Documentation
 
@@ -42,6 +45,7 @@
 
 ### Tests
 
+- **dashboard:** wait for the offer instead of a fixed delay in the exchange tests (706f5cd)
 - **dashboard:** cover update progress and highlights in the smoke test (beacefa)
 
 ## v0.9.0 (2026-10-10)
