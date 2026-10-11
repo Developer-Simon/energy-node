@@ -1,9 +1,16 @@
 # Changelog
 
-## v0.9.2 (2026-10-11)
+## v0.9.3 (2026-10-11)
 
 ### Features
 
+- **dashboard:** show update progress and what's new after an update (#123) (7c1388f)
+- **dashboard:** add a per-device history exchange mode, on demand by default (d55c003)
+- **dashboard:** choose the history exchange mode per device in the settings (a997f48)
+- **dashboard:** let the history exchange plan only a given range (87fde60)
+- **dashboard:** request only the shown history range in on-demand mode (95f6b9c)
+- **dashboard:** route shown history ranges and deliveries between tabs (17cea2a)
+- **dashboard:** register the shown range of the history page and tiles (f275f2a)
 - **updater:** keep the previously installed manifest on a version change (45d303d)
 - **dashboard:** serve the highlights of the last update (b8e7a3d)
 - **dashboard:** summarise the updater job for an update progress view (29af202)
@@ -14,12 +21,22 @@
 - **dashboard:** fly the what's new dialog in and open it from the versions page (aca54b4)
 - **dashboard:** show the what's new page in the modal dialog (b75c89c)
 - **dashboard:** show the what's new dialog as a sheet with one tile per component (b4c8a08)
-- **dashboard:** show update progress and what's new after an update (#123)
 
 ### Fixes
 
 - **dashboard:** serve the automation history in full (#119) (1e04a2a)
 - **dashboard:** address final review of the update bar and what's new page (b3ab4d3)
+
+### Performance
+
+- **dashboard:** count history coverage per bucket instead of walking every key (eca1e74)
+- **dashboard:** cache closed history coverage buckets per tab (9f5ca98)
+- **dashboard:** exchange history only on demand (#124)
+
+### Documentation
+
+- **dashboard:** describe the on-demand history exchange and bump asset versions (abc7908)
+- **dashboard:** refresh the history settings screenshot for the exchange mode (7d47494)
 
 ### Tests
 
