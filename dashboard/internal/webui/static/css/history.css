@@ -125,3 +125,71 @@
   .history-controls label { justify-content: space-between; }
   .history-chart { min-height: 15rem; }
 }
+
+/* --- Statusleiste ueber dem Diagramm -----------------------------------
+   Ein Zustandspunkt und die Kennzahlen als Pillen statt eines Satzes. Die
+   Pillen der Leiste tragen den Praefix history-status, damit sie nicht mit
+   den Auswahl-Chips (.history-chip) kollidieren. */
+.history-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem .5rem;
+  margin: 0 0 .9rem;
+  color: var(--text-muted);
+  font-size: .85rem;
+}
+.history-status-dot {
+  flex: none;
+  width: .5rem;
+  height: .5rem;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background-color .25s var(--ease-out, ease-out);
+}
+.history-status[data-state="ok"] .history-status-dot { background: var(--ok); }
+.history-status[data-state="paused"] .history-status-dot { background: var(--warn); }
+.history-status[data-state="error"] .history-status-dot { background: var(--bad); }
+.history-status-pills { display: contents; }
+.history-status-pill {
+  padding: .15rem .6rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--sunken);
+  color: var(--text-subtle);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.history-status-pill--strong { color: var(--text-strong); }
+.history-status-pill--warn {
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn);
+}
+.history-status-pill--exchange {
+  border-color: var(--accent-line);
+  background: var(--accent-bg);
+  color: var(--accent-soft);
+}
+
+/* Leerer Zeitraum: eine ruhige Karte statt eines losen Absatzes. */
+.history-empty {
+  margin: 0 0 1rem;
+  padding: 1.6rem 1.2rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md, 10px);
+  background: var(--sunken);
+  text-align: center;
+}
+.history-empty strong { display: block; color: var(--text-strong); font-size: 1rem; font-weight: 600; }
+.history-empty p { max-width: 38rem; margin: .45rem auto 0; color: var(--text-muted); font-size: .88rem; line-height: 1.5; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .history-status[data-state="loading"] .history-status-dot { animation: history-status-pulse 1.1s ease-in-out infinite; }
+  .history-status-pill--exchange { animation: history-status-in .35s var(--ease-out, ease-out); }
+  @keyframes history-status-pulse { 50% { opacity: .3; } }
+  @keyframes history-status-in { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+}
+@media (prefers-reduced-motion: reduce) {
+  .history-status-dot { transition: none; }
+}

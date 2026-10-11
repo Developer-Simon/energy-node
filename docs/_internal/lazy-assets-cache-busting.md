@@ -125,7 +125,7 @@ skips scripts already present as `<script src>`.
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `15` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `3` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `16` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `4` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `12`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `32` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `7`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `1`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `1`, `js/device-picker.js` `1`, `js/energy.page.js` `8` | `css/manager.css` `32` |
@@ -249,7 +249,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.9.4 | `js/settings.page.js` (settings panel) · `css/settings-controls.css` (settings, diagnostics) | `20` · `12` | 2026-10-11 |
+| v0.9.4 | `js/history.js` (history panel) · `css/history.css` (history panel) · `js/settings.page.js` (settings panel) · `css/settings-controls.css` (settings, diagnostics) | `16` · `4` · `20` · `12` | 2026-10-11 |
 | v0.9.3 | `js/history-store.js` · `js/history-exchange.js` · `js/history-coverage.js` · `js/history-recorder.js` · `js/history.js` (history panel) · `js/settings.page.js` (settings panel) · `js/history-view-card.js` (history tile, `webui.go`) | `4` · `5` · `3` · `11` · `15` · `18` · `2` | 2026-10-11 |
 | v0.9.2 | `css/base.css` · `js/dashboard.js` · `js/update-bar.js` (new) · `js/settings.page.js` · `js/versions.page.js` · `js/whatsnew.page.js` (new) · `css/settings-controls.css` (settings, diagnostics) | `34` · `29` · `3` (new) · `16` · `5` · `2` (new) · `11` | 2026-10-10 |
 | v0.9.1 | `js/automations.page.js` | `11` | 2026-10-10 |
