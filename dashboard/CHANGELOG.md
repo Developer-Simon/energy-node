@@ -12,6 +12,7 @@
 - **dashboard:** route shown history ranges and deliveries between tabs (17cea2a)
 - **dashboard:** register the shown range of the history page and tiles (f275f2a)
 - **dashboard:** let a device in on-demand mode still provide history to others (86faea4)
+- **dashboard:** always provide history in always mode and hide the switch there (b20c4f2)
 - **updater:** keep the previously installed manifest on a version change (45d303d)
 - **dashboard:** serve the highlights of the last update (b8e7a3d)
 - **dashboard:** summarise the updater job for an update progress view (29af202)
