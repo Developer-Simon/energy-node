@@ -432,8 +432,10 @@ and answers requests, but it sends no offer of its own. It only plans requests
 for the ranges the history page or a history tile currently shows
 (`HistoryExchange.watchRange()`). Tabs that do not lead forward these ranges to
 the leading tab over the recorder's BroadcastChannel and get a message back
-when rows arrive. A device in `on-demand` mode is no source for other devices,
-except through the ring buffer.
+when rows arrive. Whether a device offers its own coverage to others is a
+separate per-device choice (`history-exchange-serve`). Without a stored choice
+it follows the mode: `always` offers, `on-demand` does not and is then a source
+only through the ring buffer.
 
 Home Assistant can join as a permanent peer that supplies data, through the
 `energy_node_companion` integration (guest session, labelled "Home

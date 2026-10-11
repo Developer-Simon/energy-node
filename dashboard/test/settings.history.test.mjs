@@ -245,3 +245,22 @@ test('setExchangeMode schaltet sofort und geht nicht in die Nutzlast', () => {
   assert.equal('history_exchange_mode' in component.payload(), false);
   dom.window.close();
 });
+
+test('die Freigabe kommt aus HistoryExchange und geht nicht in die Nutzlast', () => {
+  const {dom, factories} = load();
+  const calls = [];
+  dom.window.HistoryExchange = {mode: () => 'on-demand', serving: () => true, setServe: async flag => { calls.push(flag); }};
+  const component = factories.settingsPanel();
+  assert.equal(component.historyExchangeServe, true);
+  component.setExchangeServe(false);
+  assert.deepEqual(calls, [false]);
+  assert.equal(component.historyExchangeServe, false);
+  assert.equal('history_exchange_serve' in component.payload(), false);
+  dom.window.close();
+});
+
+test('die Freigabe ist ohne Austausch-Client aus', () => {
+  const {dom, component} = panel();
+  assert.equal(component.historyExchangeServe, false);
+  dom.window.close();
+});

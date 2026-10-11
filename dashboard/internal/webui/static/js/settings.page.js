@@ -66,6 +66,8 @@
     // Der Modus gilt nur fuer diesen Browser und steht in localStorage
     // (history-exchange.js), nicht in den Knoten-Einstellungen.
     historyExchangeMode: window.HistoryExchange && window.HistoryExchange.mode ? window.HistoryExchange.mode() : 'on-demand',
+    // Ob dieses Geraet seine Deckung anderen anbietet. Wie der Modus lokal.
+    historyExchangeServe: window.HistoryExchange && window.HistoryExchange.serving ? window.HistoryExchange.serving() : false,
     historyExchangeStatus: '',
     historyExchangeSource: '',
     historyViews: [],
@@ -274,6 +276,13 @@
       this.historyExchangeMode = mode === 'always' ? 'always' : 'on-demand';
       if (window.HistoryExchange && window.HistoryExchange.setMode) {
         window.HistoryExchange.setMode(this.historyExchangeMode).catch(() => {});
+      }
+    },
+
+    setExchangeServe(flag) {
+      this.historyExchangeServe = Boolean(flag);
+      if (window.HistoryExchange && window.HistoryExchange.setServe) {
+        window.HistoryExchange.setServe(this.historyExchangeServe).catch(() => {});
       }
     },
 

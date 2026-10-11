@@ -34,6 +34,20 @@
     }
   };
 
+  // Ob dieses Geraet seine Deckung anderen anbietet, ist getrennt vom Modus
+  // waehlbar. Ohne gespeicherte Wahl folgt es dem Modus: always bietet an,
+  // on-demand nicht. Gespeichert wird nur die ausdrueckliche Wahl.
+  const SERVE_KEY = 'history-exchange-serve';
+
+  const readServe = () => {
+    try {
+      const value = window.localStorage.getItem(SERVE_KEY);
+      return value === 'on' || value === 'off' ? value : null;
+    } catch (error) {
+      return null;
+    }
+  };
+
   // Eine Anmeldung, die nicht erneuert wird, verfaellt. Seite und Kachel
   // melden bei jedem Laden neu an, ein geschlossener Tab dagegen nie ab.
   const WATCH_TTL_MS = 10 * 60 * 1000;
@@ -51,6 +65,8 @@
   let reconnectTimer = null;
   let pending = new Set();
   let mode = readMode();
+  let serve = readServe();
+  const serving = () => (serve === null ? mode === 'always' : serve === 'on');
   // Sichtbare Zeitraeume im Modus on-demand, Schluessel "<tab>:<ansicht>".
   let watched = new Map();
   // Zaehlt eingehende Angebote. Ein neues Angebot ist der einzige Grund,
@@ -87,8 +103,8 @@
   // erzeugte jeder Verdichtungslauf ein Angebot an alle - im Minutentakt,
   // ueber alle verbundenen Geraete.
   const refreshOffer = async () => {
-    // Im Modus on-demand ist dieses Geraet keine Quelle fuer andere.
-    if (!peerId || mode !== 'always') return;
+    // Ohne Freigabe ist dieses Geraet keine Quelle fuer andere.
+    if (!peerId || !serving()) return;
     const coverage = await ownCoverage();
     const fingerprint = JSON.stringify(coverage);
     if (fingerprint === lastOffer) return;
@@ -298,6 +314,7 @@
     options = {...options, ...(settings || {})};
     stopped = false;
     mode = readMode();
+    serve = readServe();
     try {
       const response = await fetcher(url(''));
       if (!response.ok) {
@@ -351,10 +368,21 @@
   const applyMode = async value => {
     if (value === mode) return;
     mode = value;
-    if (mode !== 'always' || !peerId) return;
+    if (!peerId) return;
+    if (serving()) {
+      lastOffer = '';
+      await refreshOffer();
+    }
+    if (mode === 'always') await planAll();
+  };
+
+  const applyServe = async value => {
+    if (value === serve) return;
+    const before = serving();
+    serve = value;
+    if (!peerId || serving() === before || !serving()) return;
     lastOffer = '';
     await refreshOffer();
-    await planAll();
   };
 
   const setMode = async next => {
@@ -367,10 +395,21 @@
     await applyMode(value);
   };
 
+  const setServe = async flag => {
+    const value = flag ? 'on' : 'off';
+    try {
+      window.localStorage.setItem(SERVE_KEY, value);
+    } catch (error) {
+      // Privater Modus: die Wahl gilt bis zum Neuladen.
+    }
+    await applyServe(value);
+  };
+
   // Andere Tabs desselben Browsers schalten ueber localStorage um. Das
   // storage-Ereignis erreicht nur die ANDEREN Tabs, der eigene ruft setMode().
   window.addEventListener('storage', event => {
     if (event.key === MODE_KEY) applyMode(readMode()).catch(() => {});
+    if (event.key === SERVE_KEY) applyServe(readServe()).catch(() => {});
   });
 
   const status = () => ({
@@ -383,9 +422,10 @@
     lastAt: state.lastAt,
     reason: state.reason,
     mode,
+    serving: serving(),
   });
 
   window.HistoryExchange = {
-    start, stop, status, pushBuffer, refreshOffer, mode: () => mode, setMode, watchRange, unwatchRange,
+    start, stop, status, pushBuffer, refreshOffer, mode: () => mode, setMode, serving, setServe, watchRange, unwatchRange,
   };
 })();
