@@ -63,6 +63,9 @@
     historyMinuteWindowDays: 7,
     historyExtraEntities: [],
     historyExchangeDisabled: false,
+    // Der Modus gilt nur fuer diesen Browser und steht in localStorage
+    // (history-exchange.js), nicht in den Knoten-Einstellungen.
+    historyExchangeMode: window.HistoryExchange && window.HistoryExchange.mode ? window.HistoryExchange.mode() : 'on-demand',
     historyExchangeStatus: '',
     historyExchangeSource: '',
     historyViews: [],
@@ -262,6 +265,15 @@
       // lassen sich nicht sauber uebersetzen.
       if (status.lastSource) {
         this.historyExchangeSource = t('settings.history_exchange.last_source', {source: status.lastSource});
+      }
+    },
+
+    // Wirkt sofort und ohne "Speichern": der Modus gehoert diesem Geraet,
+    // nicht dem Knoten, und laeuft deshalb nicht ueber payload().
+    setExchangeMode(mode) {
+      this.historyExchangeMode = mode === 'always' ? 'always' : 'on-demand';
+      if (window.HistoryExchange && window.HistoryExchange.setMode) {
+        window.HistoryExchange.setMode(this.historyExchangeMode).catch(() => {});
       }
     },
 

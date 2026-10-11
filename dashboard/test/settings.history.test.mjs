@@ -220,3 +220,28 @@ test('ohne bekannte Quelle bleibt die Quellenzeile leer', () => {
   assert.equal(component.historyExchangeSource, '');
   dom.window.close();
 });
+
+test('der Geraetemodus ist ohne Austausch-Client on-demand', () => {
+  const {dom, component} = panel();
+  assert.equal(component.historyExchangeMode, 'on-demand');
+  dom.window.close();
+});
+
+test('der Geraetemodus kommt aus HistoryExchange', () => {
+  const {dom, factories} = load();
+  dom.window.HistoryExchange = {mode: () => 'always', setMode: async () => {}};
+  const component = factories.settingsPanel();
+  assert.equal(component.historyExchangeMode, 'always');
+  dom.window.close();
+});
+
+test('setExchangeMode schaltet sofort und geht nicht in die Nutzlast', () => {
+  const {dom, component} = panel();
+  const calls = [];
+  dom.window.HistoryExchange = {mode: () => 'on-demand', setMode: async mode => { calls.push(mode); }};
+  component.setExchangeMode('always');
+  assert.deepEqual(calls, ['always']);
+  assert.equal(component.historyExchangeMode, 'always');
+  assert.equal('history_exchange_mode' in component.payload(), false);
+  dom.window.close();
+});

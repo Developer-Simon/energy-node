@@ -268,6 +268,15 @@
           <span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span>
         </span>
       </label>
+      <div x-show="!historyExchangeDisabled">
+        <span class="setting-row-label" id="lbl-history-exchange-mode">{{t "settings.history.exchange.mode.label"}}</span>
+        <div class="segmented" role="radiogroup" aria-labelledby="lbl-history-exchange-mode">
+          <span class="segmented-thumb" aria-hidden="true"></span>
+          <label class="segmented-option"><input type="radio" name="history-exchange-mode" value="on-demand" x-bind:checked="historyExchangeMode === 'on-demand'" x-on:change="setExchangeMode('on-demand')"><span>{{t "settings.history.exchange.mode.on_demand"}}</span></label>
+          <label class="segmented-option"><input type="radio" name="history-exchange-mode" value="always" x-bind:checked="historyExchangeMode === 'always'" x-on:change="setExchangeMode('always')"><span>{{t "settings.history.exchange.mode.always"}}</span></label>
+        </div>
+        <p id="history-exchange-mode-note" class="setting-note" x-show="historyExchangeMode === 'on-demand'">{{t "settings.history.exchange.mode.on_demand_note"}}</p>
+      </div>
       <p id="history-exchange-status" class="setting-note" x-text="historyExchangeStatus"></p>
       <p id="history-exchange-source" class="setting-note" x-show="historyExchangeSource" x-text="historyExchangeSource"></p>
       <button type="button" class="setting-quiet-btn" x-on:click="refreshExchangeStatus()">{{t "settings.history.exchange.status.button"}}</button>
