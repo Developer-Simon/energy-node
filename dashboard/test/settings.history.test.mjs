@@ -264,3 +264,14 @@ test('die Freigabe ist ohne Austausch-Client aus', () => {
   assert.equal(component.historyExchangeServe, false);
   dom.window.close();
 });
+
+test('der Wechsel des Modus nimmt die gespeicherte Freigabe wieder auf', () => {
+  const {dom, component} = panel();
+  let serving = true;
+  dom.window.HistoryExchange = {
+    mode: () => 'always', serving: () => serving, setServe: async () => {}, setMode: async () => { serving = false; },
+  };
+  component.setExchangeMode('on-demand');
+  assert.equal(component.historyExchangeServe, false);
+  dom.window.close();
+});

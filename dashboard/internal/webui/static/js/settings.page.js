@@ -276,6 +276,8 @@
       this.historyExchangeMode = mode === 'always' ? 'always' : 'on-demand';
       if (window.HistoryExchange && window.HistoryExchange.setMode) {
         window.HistoryExchange.setMode(this.historyExchangeMode).catch(() => {});
+        // Beim Rueckwechsel auf on-demand gilt wieder die gespeicherte Wahl.
+        if (window.HistoryExchange.serving) this.historyExchangeServe = window.HistoryExchange.serving();
       }
     },
 

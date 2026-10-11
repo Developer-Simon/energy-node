@@ -1948,7 +1948,7 @@
   "settings.history.exchange.mode.on_demand_note": "This device only fetches missing values while a history or a history tile is shown.",
   "settings.history.exchange.note": "Devices open at the same time fill in each other's missing periods with minute and five-minute values, not raw data. Your own measurements are never overwritten.",
   "settings.history.exchange.serve.label": "Provide data to other devices",
-  "settings.history.exchange.serve.note": "Other devices can ask this device for missing periods, even if it only fetches the period it shows itself. In the Always mode this is the default.",
+  "settings.history.exchange.serve.note": "Other devices can ask this device for missing periods, even if it only fetches the period it shows itself.",
   "settings.history.exchange.status.button": "Refresh status",
   "settings.history.exchange.title": "Device exchange",
   "settings.history.hint": "All measurements stay in this device's browser. This is where you set how recording works. The settings apply across devices, the data itself stays local.",

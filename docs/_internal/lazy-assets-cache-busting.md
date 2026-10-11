@@ -91,7 +91,7 @@ As of **2026-10-10**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-rollup.js` | `1` |
 | `js/history-store.js` | `4` |
 | `js/history-coverage.js` | `3` |
-| `js/history-exchange.js` | `5` |
+| `js/history-exchange.js` | `6` |
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `11` |
 | `js/notifications.js` | `2` |
@@ -130,7 +130,7 @@ skips scripts already present as `<script src>`.
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `32` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `7`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `1`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `1`, `js/device-picker.js` `1`, `js/energy.page.js` `8` | `css/manager.css` `32` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `7`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `1`, `js/automations-view.js` `1`, `js/device-picker.js` `1`, `js/devicemap.page.js` `17` | `css/manager.css` `32` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `18`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `32`, `css/settings-controls.css` `11` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `19`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `32`, `css/settings-controls.css` `11` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `1`, `js/automations.page.js` `8` | `css/manager.css` `32`, `css/automations.css` `5` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -249,7 +249,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.9.3 | `js/history-store.js` · `js/history-exchange.js` · `js/history-coverage.js` · `js/history-recorder.js` · `js/history.js` (history panel) · `js/settings.page.js` (settings panel) · `js/history-view-card.js` (history tile, `webui.go`) | `4` · `5` · `3` · `11` · `15` · `18` · `2` | 2026-10-11 |
+| v0.9.3 | `js/history-store.js` · `js/history-exchange.js` · `js/history-coverage.js` · `js/history-recorder.js` · `js/history.js` (history panel) · `js/settings.page.js` (settings panel) · `js/history-view-card.js` (history tile, `webui.go`) | `4` · `6` · `3` · `11` · `15` · `19` · `2` | 2026-10-11 |
 | v0.9.2 | `css/base.css` · `js/dashboard.js` · `js/update-bar.js` (new) · `js/settings.page.js` · `js/versions.page.js` · `js/whatsnew.page.js` (new) · `css/settings-controls.css` (settings, diagnostics) | `34` · `29` · `3` (new) · `16` · `5` · `2` (new) · `11` | 2026-10-10 |
 | v0.9.1 | `js/automations.page.js` | `11` | 2026-10-10 |
 | v0.8.20 | `css/base.css` · `js/dashboard.js` · `js/devicemap-model.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap.page.js` | `29` · `28` · `7` · `4` · `17` | 2026-10-10 |

@@ -44,10 +44,10 @@ browser's quota. The last block switches off the exchange between devices. Below
 **On this device** chooses whether this browser exchanges **Always** or only
 **When a history is shown**. The second choice is the default and spares
 phones. The browser then only fetches what the history page or a history tile
-shows. **Provide data to other devices** decides whether other devices may
-ask this browser for missing periods. It is off in the default mode and on in
-**Always**, and you can change it independently. Both choices are stored in the
-browser and apply at once, without saving.
+shows. In the first mode, **Provide data to other devices** decides whether other
+devices may ask this browser for missing periods. It is off by default. In
+**Always** the browser provides data anyway, so the switch is hidden. Both
+choices are stored in the browser and apply at once, without saving.
 
 The setting applies to every browser, but the recorded data does not. The
 measurements only exist in the browser that recorded them, and the page says so.

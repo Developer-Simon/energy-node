@@ -525,26 +525,21 @@ test('on-demand mit Freigabe bietet an, holt aber nur den angezeigten Zeitraum',
   dom.window.close();
 });
 
-test('always mit ausdruecklich abgeschalteter Freigabe plant, bietet aber nicht an', async () => {
+test('im Modus always wird immer angeboten, auch mit gespeichertem off', async () => {
   const dom = load();
   await dom.window.HistoryStore.writeRollup('1m', [
     {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},
   ]);
   dom.window.localStorage.setItem('history-exchange-serve', 'off');
   const {fetcher, source} = await startExchange(dom, {mode: 'always'});
-  const stream = source.instances[0];
-  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  source.instances[0].emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
   await settle();
-  assert.equal(posts(fetcher, '/offer').length, 0);
-  assert.equal(dom.window.HistoryExchange.serving(), false);
-  const {coverage} = pvOffer(dom, {0: 60});
-  stream.emit('offer', {peer: 'p-fremd', coverage});
-  await settle();
-  assert.equal(posts(fetcher, '/request').length, 1);
+  assert.equal(posts(fetcher, '/offer').length, 1);
+  assert.equal(dom.window.HistoryExchange.serving(), true);
   dom.window.close();
 });
 
-test('setServe bietet sofort an und merkt sich die Wahl, ohne Wahl folgt die Freigabe dem Modus', async () => {
+test('setServe bietet sofort an und merkt sich die Wahl, ohne Wahl ist die Freigabe im Modus on-demand aus', async () => {
   const dom = load();
   await dom.window.HistoryStore.writeRollup('1m', [
     {series: 'role:pv', ts: NOW - 2 * HOUR, min: 1, max: 1, avg: 1, n: 60, u: 'W'},

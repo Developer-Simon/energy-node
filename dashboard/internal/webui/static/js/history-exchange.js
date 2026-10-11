@@ -34,9 +34,9 @@
     }
   };
 
-  // Ob dieses Geraet seine Deckung anderen anbietet, ist getrennt vom Modus
-  // waehlbar. Ohne gespeicherte Wahl folgt es dem Modus: always bietet an,
-  // on-demand nicht. Gespeichert wird nur die ausdrueckliche Wahl.
+  // Im Modus always bietet das Geraet immer an. Nur im Modus on-demand ist
+  // waehlbar, ob es seine Deckung trotzdem anderen anbietet, und das
+  // Standardverhalten ist: nein. Ein gespeichertes "off" gilt in always nicht.
   const SERVE_KEY = 'history-exchange-serve';
 
   const readServe = () => {
@@ -66,7 +66,7 @@
   let pending = new Set();
   let mode = readMode();
   let serve = readServe();
-  const serving = () => (serve === null ? mode === 'always' : serve === 'on');
+  const serving = () => mode === 'always' || serve === 'on';
   // Sichtbare Zeitraeume im Modus on-demand, Schluessel "<tab>:<ansicht>".
   let watched = new Map();
   // Zaehlt eingehende Angebote. Ein neues Angebot ist der einzige Grund,
