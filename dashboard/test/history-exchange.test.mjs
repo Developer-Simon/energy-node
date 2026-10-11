@@ -403,3 +403,105 @@ test('ein storage-Ereignis aus einem anderen Tab schaltet den Modus um', async (
   assert.equal(posts(fetcher, '/offer').length, 1);
   dom.window.close();
 });
+
+// Bringt einen Austausch im Modus on-demand in den Zustand "verbunden, ein
+// fremdes Angebot fuer die ersten drei Stunden des Rasters ist bekannt".
+async function onDemandWithOffer(dom, options = {}) {
+  const started = await startExchange(dom, {mode: null, ...options});
+  const stream = started.source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  const offer = pvOffer(dom, {0: 60, 1: 60, 2: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  return {...started, stream, from: offer.from, offer};
+}
+
+test('watchRange fragt nur den angezeigten Zeitraum an', async () => {
+  const dom = load();
+  const {fetcher, from} = await onDemandWithOffer(dom);
+  assert.equal(posts(fetcher, '/request').length, 0);
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: from + HOUR, to: from + 2 * HOUR});
+  const requests = posts(fetcher, '/request');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].body.to, 'p-fremd');
+  assert.equal(requests[0].body.tier, '1m');
+  assert.deepEqual(requests[0].body.ranges, [[from + HOUR, from + 2 * HOUR]]);
+  dom.window.close();
+});
+
+test('watchRange fragt fuer die Rohstufe die Minutenstufe an', async () => {
+  const dom = load();
+  const {fetcher, from} = await onDemandWithOffer(dom);
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: 'raw', from, to: from + HOUR});
+  assert.equal(posts(fetcher, '/request')[0].body.tier, '1m');
+  dom.window.close();
+});
+
+test('ein erneutes Anmelden nach der Lieferung fragt nicht noch einmal', async () => {
+  const dom = load();
+  const {fetcher, stream, from} = await onDemandWithOffer(dom);
+  const range = {tier: '1m', from: from + HOUR, to: from + 2 * HOUR};
+  await dom.window.HistoryExchange.watchRange('t1:page', range);
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  await dom.window.HistoryExchange.watchRange('t1:page', range);
+  assert.equal(posts(fetcher, '/request').length, 1);
+  dom.window.close();
+});
+
+test('ein neues Angebot plant einen angemeldeten Zeitraum neu', async () => {
+  const dom = load();
+  const {fetcher, stream, from, offer} = await onDemandWithOffer(dom);
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: from + HOUR, to: from + 2 * HOUR});
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 2);
+  dom.window.close();
+});
+
+test('nach unwatchRange loest ein Angebot keine Nachfrage aus', async () => {
+  const dom = load();
+  const {fetcher, stream, offer} = await onDemandWithOffer(dom);
+  dom.window.HistoryExchange.unwatchRange('t1:page');
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 0);
+  dom.window.close();
+});
+
+test('eine Anmeldung verfaellt nach zehn Minuten ohne Erneuerung', async () => {
+  const dom = load();
+  let clock = NOW;
+  const {fetcher, stream, from, offer} = await onDemandWithOffer(dom, {now: () => clock});
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: from + HOUR, to: from + 2 * HOUR});
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  clock += 11 * 60 * 1000;
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  assert.equal(posts(fetcher, '/request').length, 1);
+  dom.window.close();
+});
+
+test('im Modus always ist watchRange wirkungslos', async () => {
+  const dom = load();
+  const {fetcher, source} = await startExchange(dom, {mode: 'always'});
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  const offer = pvOffer(dom, {0: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  const [request] = posts(fetcher, '/request');
+  stream.emit('deliver', {peer: 'p-fremd', req_id: request.body.req_id, seq: 0, final: true, tier: '1m', rows: []});
+  await settle();
+  await dom.window.HistoryExchange.watchRange('t1:page', {tier: '1m', from: offer.from, to: offer.from + HOUR});
+  assert.equal(posts(fetcher, '/request').length, 1);
+  dom.window.close();
+});

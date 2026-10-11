@@ -34,6 +34,10 @@
     }
   };
 
+  // Eine Anmeldung, die nicht erneuert wird, verfaellt. Seite und Kachel
+  // melden bei jedem Laden neu an, ein geschlossener Tab dagegen nie ab.
+  const WATCH_TTL_MS = 10 * 60 * 1000;
+
   let options = {basePath: '', fetchImpl: null, eventSourceImpl: null, now: () => Date.now()};
   let announcement = null;
   let source = null;
@@ -47,6 +51,11 @@
   let reconnectTimer = null;
   let pending = new Set();
   let mode = readMode();
+  // Sichtbare Zeitraeume im Modus on-demand, Schluessel "<tab>:<ansicht>".
+  let watched = new Map();
+  // Zaehlt eingehende Angebote. Ein neues Angebot ist der einzige Grund,
+  // einen unveraenderten Zeitraum vor Ablauf der Frist erneut zu planen.
+  let offerCount = 0;
   const state = {addedRows: 0, lastPeer: '', lastSource: '', lastAt: 0, reason: ''};
 
   const fetcher = (...args) => (options.fetchImpl || window.fetch.bind(window))(...args);
@@ -112,6 +121,58 @@
     }
   };
 
+  // Plant die angemeldeten Zeitraeume. Die eigene Deckung wird ueber das
+  // ganze Rasterfenster gezaehlt, sonst passten eigenes und fremdes Raster
+  // nicht aufeinander; der Cache in history-store.js haelt das billig.
+  // Gefragt wird nur innerhalb von [from, to).
+  //
+  // Eine Lieferung laedt Seite und Kachel neu, und die melden denselben
+  // Zeitraum erneut an. Ohne die Signatur entstuende daraus eine zweite
+  // Nachfrage und so fort.
+  const planWatched = async ids => {
+    if (!peerId || mode !== 'on-demand') return;
+    const coverage = window.HistoryCoverage;
+    const timeoutMs = ((announcement && announcement.request_timeout_seconds) || 30) * 1000;
+    for (const id of ids) {
+      const entry = watched.get(id);
+      if (!entry) continue;
+      if (now() - entry.at > WATCH_TTL_MS) {
+        watched.delete(id);
+        continue;
+      }
+      const step = coverage.RASTER[entry.tier].stepMs;
+      const signature = `${entry.tier}|${Math.floor(entry.from / step)}|${Math.ceil(entry.to / step)}|${offerCount}`;
+      if (entry.plannedFor === signature && now() - entry.plannedAt < timeoutMs) continue;
+      entry.plannedFor = signature;
+      entry.plannedAt = now();
+      const span = coverage.rasterWindow(entry.tier, now());
+      // eslint-disable-next-line no-await-in-loop
+      const own = {[entry.tier]: await window.HistoryStore.coverage(entry.tier, span.from, span.to, span.stepMs)};
+      const jobs = coverage.plan(own, offers, now(), {tier: entry.tier, from: entry.from, to: entry.to});
+      for (const job of jobs) {
+        // eslint-disable-next-line no-await-in-loop
+        await requestFrom(job);
+      }
+    }
+  };
+
+  // Die Rohstufe wird nie getauscht, Rohluecken fuellt der Chart aus 1m
+  // (fillRawGaps in history-rollup.js). Deshalb wird sie als 1m angefragt.
+  const watchRange = async (id, range) => {
+    const tier = range.tier === 'raw' ? '1m' : range.tier;
+    if (!window.HistoryCoverage.TIERS.includes(tier)) return;
+    const previous = watched.get(id) || {};
+    watched.set(id, {
+      tier, from: Number(range.from), to: Number(range.to), at: now(),
+      plannedFor: previous.plannedFor || '', plannedAt: previous.plannedAt || 0,
+    });
+    await planWatched([id]);
+  };
+
+  const unwatchRange = id => {
+    watched.delete(id);
+  };
+
   const onOffer = async payload => {
     if (!payload.peer || payload.peer === peerId) return;
     offers[payload.peer] = payload.coverage || {};
@@ -119,7 +180,9 @@
     if (payload.label) labels[payload.peer] = String(payload.label);
     // Im Modus on-demand nur merken: geplant wird erst, wenn ein Verlauf
     // angezeigt wird.
+    offerCount += 1;
     if (mode === 'always') await planAll();
+    else await planWatched([...watched.keys()]);
   };
 
   const onRequest = async payload => {
@@ -269,6 +332,7 @@
     labels = {};
     lastOffer = '';
     pending = new Set();
+    watched = new Map();
   }
 
   // Fuettert den Ringpuffer des Servers. Der Server misst nicht selbst: die
@@ -321,5 +385,7 @@
     mode,
   });
 
-  window.HistoryExchange = {start, stop, status, pushBuffer, refreshOffer, mode: () => mode, setMode};
+  window.HistoryExchange = {
+    start, stop, status, pushBuffer, refreshOffer, mode: () => mode, setMode, watchRange, unwatchRange,
+  };
 })();
