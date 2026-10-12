@@ -108,6 +108,18 @@ function fakeEdge(data) {
   };
 }
 
+const plain = value => JSON.parse(JSON.stringify(value));
+
+function panelWith({ devices, energy = null, nodes = [], edges = [], edgeProps, layers, fetchImpl, confirmAnswer = true } = {}) {
+  const { component } = createDevicemapPanel({ confirmAnswer,
+    fetchImpl: fetchImpl || (async () => ({ ok: true, status: 200, json: async () => ({}) })) });
+  component.devices = devices;
+  component.energy = energy;
+  component.deviceMap = { version: 2, nodes, edges, ...(edgeProps ? { edge_props: edgeProps } : {}), ...(layers ? { view: { layers } } : {}) };
+  component.savedDeviceMap = JSON.parse(JSON.stringify(component.deviceMap));
+  return component;
+}
+
 test('dragging a node updates its position and marks the map unsaved, without calling the API', () => {
   const { component } = createDevicemapPanel();
   component.devices = [{ id: 'device_a', name: 'A', relations: [] }];
@@ -947,13 +959,59 @@ test('tapping a device focuses it and opens its panel, tapping it again keeps bo
   assert.equal(component.focusId, 'bkw');
 });
 
-test('the own energy device gets a focus but no panel', async () => {
+test('the own energy device gets a focus and the balance popover but no panel', async () => {
   const {component} = createDevicemapPanel();
   component.devices = panelDevices();
   component.deviceMap = {version: 1, nodes: [], edges: []};
-  await component.onNodeTap({target: fakeNode('energy_node')});
+  await component.onNodeTap({target: fakeNode('energy_node'), renderedPosition: {x: 10, y: 10}});
   assert.equal(component.panelId, null);
   assert.equal(component.focusId, 'energy_node');
+  assert.ok(component.popover, 'energy_node is the balance node and opens its popover');
+});
+
+test('energy_node is the balance node: role edges end there and no virtual balance is built', async () => {
+  const component = panelWith({ devices: [
+    { id: 'pv', name: 'PV', relations: [], entities: [] },
+    { id: 'energy_node', name: 'Energy Node', relations: [], entities: [] },
+  ], energy: { balance: { grid_import: 0, grid_export: 500 }, entities: [
+    { entity_id: 'pv_p', device_id: 'pv', value: 800, role: { role: 'pv', source: 'override' } },
+  ] }, layers: { wiring: true, energy: true, balance: true, data: false } });
+  assert.equal(component.balanceId(), 'energy_node');
+  const ids = component.buildElements().map(element => element.data.id);
+  assert.ok(!ids.includes('balance'));
+  const role = component.dataEdges().find(edge => edge.cat === 'role');
+  assert.equal(role.to, 'energy_node');
+  const label = component.labelItems().find(item => item.id === 'energy_node');
+  assert.match(label.value, /500/, 'energy_node shows the net grid power of the balance');
+});
+
+test('tapping energy_node opens the balance popover, not a panel', async () => {
+  const component = panelWith({ devices: [{ id: 'energy_node', name: 'Energy Node', relations: [], entities: [] }] });
+  await component.onNodeTap({ target: fakeNode('energy_node'), renderedPosition: { x: 10, y: 10 } });
+  assert.equal(component.panelId, null);
+  assert.equal(component.popover.title, component.labelOf('energy_node'));
+  assert.ok(component.popover.lists.length > 0, 'the balance popover lists the role devices');
+});
+
+test('without energy_node the virtual balance node stays', async () => {
+  const component = panelWith({ devices: [{ id: 'pv', name: 'PV', relations: [], entities: [] }], layers: { wiring: true, energy: true, balance: true, data: false } });
+  assert.equal(component.balanceId(), 'balance');
+  assert.ok(component.buildElements().some(element => element.data.id === 'balance'));
+});
+
+test('a saved balance position moves to energy_node when it has none', async () => {
+  const component = panelWith({ devices: [{ id: 'energy_node', name: 'Energy Node', relations: [], entities: [] }],
+    nodes: [{ virtual_id: 'balance', x: 400, y: 120 }] });
+  assert.equal(component.adoptBalancePosition(), true);
+  assert.deepEqual(plain(component.deviceMap.nodes), [{ device_id: 'energy_node', x: 400, y: 120 }]);
+  assert.equal(component.unsaved, true);
+});
+
+test('energy_node keeps its own position and the balance position is dropped', async () => {
+  const component = panelWith({ devices: [{ id: 'energy_node', name: 'Energy Node', relations: [], entities: [] }],
+    nodes: [{ device_id: 'energy_node', x: 0, y: 0 }, { virtual_id: 'balance', x: 400, y: 120 }] });
+  assert.equal(component.adoptBalancePosition(), true);
+  assert.deepEqual(plain(component.deviceMap.nodes), [{ device_id: 'energy_node', x: 0, y: 0 }]);
 });
 
 for (const [name, leave] of [
