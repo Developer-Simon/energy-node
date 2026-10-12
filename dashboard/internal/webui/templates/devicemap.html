@@ -147,9 +147,11 @@
               </div>
             </div>
           </template>
-          <button type="button" class="pill-button" x-show="popover.edge && popover.edge.canReverse" x-on:click="reverseSelectedRelation()" x-bind:disabled="!canEditEnergy">
+          <button type="button" class="devicemap-edge-reverse" x-show="popover.edge && popover.edge.canReverse" x-on:click="reverseSelectedRelation()" x-bind:disabled="!canEditEnergy">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h15M15 4l4 4-4 4"/><path d="M20 16H5M9 12l-4 4 4 4"/></svg>
             <span>{{t "devicemap.edge.reverse"}}</span>
           </button>
+          <p class="devicemap-edge-hint" x-show="popover.edge && !popover.edge.membership && !popover.edge.canReverse">{{t "devicemap.edge.reverse_hint"}}</p>
           <button type="button" class="pill-button danger" x-show="popover.action" x-on:click="runPopoverAction()">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg><span x-text="popover.action ? popover.action.label : ''"></span>
           </button>
@@ -186,11 +188,11 @@
         <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.energy"}}" data-layer="energy" x-bind:aria-pressed="view.layers.energy" x-on:click="toggleLayer('energy')" x-bind:disabled="loading">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M3 12c3-6 6-6 9 0s6 6 9 0" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"/></svg><span class="devicemap-chip-text">{{t "devicemap.layer.energy"}}</span>
         </button>
-        <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.balance"}}" data-layer="balance" x-bind:aria-pressed="view.layers.balance" x-on:click="toggleLayer('balance')" x-bind:disabled="loading">
-          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g></svg><span class="devicemap-chip-text">{{t "devicemap.layer.balance"}}</span>
-        </button>
         <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.data"}}" data-layer="data" x-bind:aria-pressed="view.layers.data" x-on:click="toggleLayer('data')" x-bind:disabled="loading">
           <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="devicemap-chip-text">{{t "devicemap.layer.data"}}</span>
+        </button>
+        <button class="devicemap-layer-button" type="button" title="{{t "devicemap.layer.balance"}}" data-layer="balance" x-bind:aria-pressed="view.layers.balance" x-on:click="toggleLayer('balance')" x-bind:disabled="loading">
+          <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v16M7 20h10M4.5 8h15"/><path d="M4.5 8 2 14h5zM19.5 8 17 14h5z"/></g></svg><span class="devicemap-chip-text">{{t "devicemap.layer.balance"}}</span>
         </button>
         </div>
         <span class="devicemap-toolbar-separator" aria-hidden="true"></span>
@@ -206,7 +208,7 @@
             <label class="devicemap-view-menu-row" for="devicemap-snap-toggle"><span class="devicemap-view-menu-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 12h16"/><path d="M12 4v16"/><circle cx="12" cy="12" r="2.3" fill="currentColor" stroke="none"/></svg>{{t "devicemap.view_menu.snap"}}</span>
               <span class="settings-toggle"><input id="devicemap-snap-toggle" type="checkbox" role="switch" x-bind:checked="view.snap_to_grid" x-on:change="toggleSnapToGrid()" x-bind:disabled="loading"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
             </label>
-            <label class="devicemap-view-menu-row" for="devicemap-width-toggle"><span class="devicemap-view-menu-label">{{t "devicemap.width_by_power"}}</span>
+            <label class="devicemap-view-menu-row" for="devicemap-width-toggle"><span class="devicemap-view-menu-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M4 8h16"/><path d="M4 16h16" stroke-width="3.6"/></svg>{{t "devicemap.width_by_power"}}</span>
               <span class="settings-toggle"><input id="devicemap-width-toggle" type="checkbox" role="switch" x-bind:checked="view.width_by_power" x-on:change="toggleWidthByPower()" x-bind:disabled="loading || !view.layers.energy"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
             </label>
             <label class="devicemap-view-menu-row" for="devicemap-automation-links-toggle"><span class="devicemap-view-menu-label">{{t "devicemap.automation_links"}}</span>

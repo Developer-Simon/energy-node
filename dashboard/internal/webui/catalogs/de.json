@@ -630,6 +630,7 @@
   "devicemap.edge.direction.reversed": "Umgekehrt",
   "devicemap.edge.direction_label": "Flussrichtung",
   "devicemap.edge.reverse": "Verbindung umkehren",
+  "devicemap.edge.reverse_hint": "Nur selbst gezogene Verbindungen lassen sich umkehren",
   "devicemap.edge.type.data": "Daten",
   "devicemap.edge.type.energy": "Energie",
   "devicemap.edge.type.info": "Informativ",
