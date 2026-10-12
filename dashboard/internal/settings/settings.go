@@ -260,10 +260,21 @@ type Item struct {
 }
 
 type DeviceMap struct {
-	Version int                `json:"version"`
-	Nodes   []DeviceMapNode    `json:"nodes"`
-	Edges   []RelationOverride `json:"edges,omitempty"`
-	View    DeviceMapView      `json:"view"`
+	Version   int                 `json:"version"`
+	Nodes     []DeviceMapNode     `json:"nodes"`
+	Edges     []RelationOverride  `json:"edges,omitempty"`
+	EdgeProps []DeviceMapEdgeProp `json:"edge_props,omitempty"`
+	View      DeviceMapView       `json:"view"`
+}
+
+// DeviceMapEdgeProp is the connection type and flow direction of one
+// connected pair. The pair is order-free (see pairKey), so ParentID and
+// ChildID name the two ends, not a direction of flow.
+type DeviceMapEdgeProp struct {
+	ParentID  string `json:"parent_id"`
+	ChildID   string `json:"child_id"`
+	Type      string `json:"type"`                // energy | data | info
+	Direction string `json:"direction,omitempty"` // auto | reversed | fixed_down | fixed_up, only for energy
 }
 
 type DeviceMapNode struct {
@@ -931,10 +942,11 @@ func (s *Store) RestoreLayout(revision string) (Layout, error) {
 // through slices.
 func cloneDeviceMap(value DeviceMap) DeviceMap {
 	return DeviceMap{
-		Version: value.Version,
-		Nodes:   append([]DeviceMapNode(nil), value.Nodes...),
-		Edges:   append([]RelationOverride(nil), value.Edges...),
-		View:    value.View,
+		Version:   value.Version,
+		Nodes:     append([]DeviceMapNode(nil), value.Nodes...),
+		Edges:     append([]RelationOverride(nil), value.Edges...),
+		EdgeProps: append([]DeviceMapEdgeProp(nil), value.EdgeProps...),
+		View:      value.View,
 	}
 }
 
@@ -964,7 +976,7 @@ func (s *Store) SaveDeviceMap(value DeviceMap) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	value = normalizeDeviceMap(value)
-	value.Version = 2
+	value.Version = 3
 	if err := validateDeviceMap(value); err != nil {
 		return err
 	}
@@ -1000,7 +1012,7 @@ func (s *Store) RestoreDeviceMap(revision string) (DeviceMap, error) {
 		return DeviceMap{}, fmt.Errorf("device-map revision %q: invalid JSON: %w", revision, err)
 	}
 	value = normalizeDeviceMap(value)
-	value.Version = 2
+	value.Version = 3
 	if err := validateDeviceMap(value); err != nil {
 		return DeviceMap{}, err
 	}
@@ -1021,6 +1033,9 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 	}
 	if value.Edges == nil {
 		value.Edges = []RelationOverride{}
+	}
+	if value.EdgeProps == nil {
+		value.EdgeProps = []DeviceMapEdgeProp{}
 	}
 	if value.View.GridSize == 0 {
 		value.View.GridSize = 40
@@ -1068,7 +1083,30 @@ func validateDeviceMap(value DeviceMap) error {
 		}
 		seenEdges[edge.ID] = true
 	}
+	seenPairs := map[string]bool{}
+	for _, prop := range value.EdgeProps {
+		if prop.ParentID == prop.ChildID {
+			return fmt.Errorf("device-map edge_props pair %q points at itself", prop.ParentID)
+		}
+		if prop.Direction != "" && prop.Type != "energy" {
+			return fmt.Errorf("device-map edge_props %s/%s: a direction needs type energy", prop.ParentID, prop.ChildID)
+		}
+		key := pairKey(prop.ParentID, prop.ChildID)
+		if seenPairs[key] {
+			return fmt.Errorf("duplicate device-map edge_props pair %s", key)
+		}
+		seenPairs[key] = true
+	}
 	return nil
+}
+
+// pairKey is order-free, like relationKey in devicemap-graph.js: one set of
+// properties per connected pair, whichever end is the parent.
+func pairKey(a, b string) string {
+	if a > b {
+		a, b = b, a
+	}
+	return a + "::" + b
 }
 
 func normalizeDevicePrefs(value DevicePrefs) DevicePrefs {
