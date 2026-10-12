@@ -22,6 +22,7 @@
         - { label: "Overview & layout editor", url: "dashboard/overview.md" }
         - { label: "Devices", url: "dashboard/devices.md" }
         - { label: "History", url: "dashboard/history.md" }
+        - { label: "Statistics", url: "dashboard/statistics.md" }
         - { label: "Energy", url: "dashboard/energy.md" }
         - { label: "Device map", url: "dashboard/device-map.md" }
         - { label: "Automations", url: "dashboard/automations.md" }
