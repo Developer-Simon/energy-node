@@ -156,3 +156,73 @@ func (s *Store) Each(from, to time.Time, fn func(hour time.Time, m *Month, i int
 	}
 	return nil
 }
+
+// HARecord ist eine Stunde aus Home Assistant fuer eine Rolle.
+type HARecord struct {
+	Hour time.Time
+	Role string
+	KWh  float64
+}
+
+// SetHA uebernimmt Stunden aus Home Assistant. Sie ersetzen eigene
+// Messungen derselben Stunde. Geschrieben wird einmal fuer alle
+// geaenderten Monate.
+func (s *Store) SetHA(records []HARecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, r := range records {
+		m, err := s.monthLocked(r.Hour, true)
+		if err != nil {
+			return err
+		}
+		if m.SetHA(r.Hour, r.Role, r.KWh) {
+			s.dirty[monthKey(m.Start)] = true
+		}
+	}
+	return s.writeDirtyLocked()
+}
+
+// HADays zaehlt je UTC-Tag ab from die Stunden, die fuer role aus Home
+// Assistant stammen. Grundlage des Abgleichs mit dem Angebot des Companion.
+func (s *Store) HADays(role string, from time.Time, days int) ([]int, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	counts := make([]int, days)
+	start := from.UTC().Truncate(time.Hour)
+	for d := 0; d < days; d++ {
+		for h := 0; h < 24; h++ {
+			hour := start.Add(time.Duration(d*24+h) * time.Hour)
+			m, err := s.monthLocked(hour, false)
+			if err != nil {
+				return nil, err
+			}
+			if m == nil {
+				continue
+			}
+			series := m.Roles[role]
+			if series == nil {
+				continue
+			}
+			if i, ok := m.Index(hour); ok && series.Source[i] == SourceHA {
+				counts[d]++
+			}
+		}
+	}
+	return counts, nil
+}
+
+// SourceAt liefert die Quelle einer Stunde, SourceNone ohne Daten.
+func (s *Store) SourceAt(role string, hour time.Time) (byte, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	m, err := s.monthLocked(hour, false)
+	if err != nil || m == nil {
+		return SourceNone, err
+	}
+	series := m.Roles[role]
+	i, ok := m.Index(hour)
+	if series == nil || !ok {
+		return SourceNone, nil
+	}
+	return series.Source[i], nil
+}
