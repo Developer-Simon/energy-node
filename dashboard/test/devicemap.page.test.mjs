@@ -1014,6 +1014,22 @@ test('energy_node keeps its own position and the balance position is dropped', a
   assert.deepEqual(plain(component.deviceMap.nodes), [{ device_id: 'energy_node', x: 0, y: 0 }]);
 });
 
+test('a data node fed by the balance is placed by energy_node position when energy_node is the balance', () => {
+  const component = panelWith({ devices: [
+    { id: 'pv', name: 'PV', relations: [], entities: [] },
+    { id: 'energy_node', name: 'Energy Node', relations: [], entities: [] },
+  ], nodes: [{ device_id: 'pv', x: 1500, y: 0 }, { device_id: 'energy_node', x: 800, y: 0 }],
+  layers: { wiring: true, energy: true, balance: true, data: true } });
+  const rule = id => ({ virtual_id: id, kind: 'rule', label: id, conditions: [], actions: [], link: {} });
+  component.flows = { unresolved: [], nodes: [rule('rule:fed_by_balance'), rule('rule:fed_by_pv')], edges: [
+    { id: 'e1', cat: 'automation', from: { virtual_id: 'balance' }, to: { virtual_id: 'rule:fed_by_balance' }, title: 'x', details: {}, link: {} },
+    { id: 'e2', cat: 'automation', from: { device_id: 'pv' }, to: { virtual_id: 'rule:fed_by_pv' }, title: 'x', details: {}, link: {} },
+  ] };
+  assert.ok(component.placeVirtualNodes() > 0);
+  const x = id => component.deviceMap.nodes.find(node => node.virtual_id === id).x;
+  assert.ok(x('rule:fed_by_balance') < x('rule:fed_by_pv'), 'the balance (x 800) is further left than pv (x 1500), so its rule goes first');
+});
+
 for (const [name, leave] of [
   ['another node', c => c.onNodeTap({target: fakeNode('wb')})],
   ['the background', c => c.onBackgroundTap()],

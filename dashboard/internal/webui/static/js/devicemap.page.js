@@ -884,7 +884,7 @@
           placed += 1;
         }
         if (layers.data) {
-          const edges = df.flowEdges(this.flows, this.baseNodeIds());
+          const edges = df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId());
           const missing = this.flowNodes().filter(node => !has(node.id)).map(node => ({
             id: node.id,
             inputXs: edges.filter(edge => edge.to === node.id).map(edge => positionOf(edge.from)).filter(Boolean).map(position => position.x),
