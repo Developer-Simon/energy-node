@@ -2,7 +2,7 @@
 
 Der Peer bietet an und beantwortet Nachfragen. Er fragt selbst nie nach,
 fuehrt keinen eigenen Bestand und fuettert den Ringpuffer des Servers nicht:
-der Recorder ist sein Bestand.
+der Recorder ist sein Bestand. Mit Energiestatistik bietet er zusaetzlich die Stufe 1h aus der Langzeitstatistik an.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import aiohttp
 
 from .buckets import census, in_ranges, raster_window
 from .client import AuthRequired, DashboardClient, ExchangeError
-from .const import PEER_LABEL, PROTOCOL, RECONNECT_MAX_S, RECONNECT_MIN_S, REFRESH_SECONDS, TIERS
+from .const import PEER_KIND, PEER_LABEL, PROTOCOL, RECONNECT_MAX_S, RECONNECT_MIN_S, REFRESH_SECONDS, STATS_TIER, TIERS
 from .series_map import SeriesSource
 
 _LOGGER = logging.getLogger(__name__)
@@ -36,6 +36,8 @@ class HistoryPeer:
         rows: Rows,
         now_ms: Callable[[], int] | None = None,
         label: str = PEER_LABEL,
+        stats: Any = None,
+        history: bool = True,
     ) -> None:
         self._client = client
         self._resolve = resolve
@@ -50,6 +52,12 @@ class HistoryPeer:
         # nur an vollen Stunden, ein Wechsel der 1m-Stufe deckt ihn also mit ab.
         self._cached: tuple[int, dict] | None = None
         self._tasks: set[asyncio.Task] = set()
+        # stats ist ein StatsOffer (stats.py) oder None. history=False:
+        # keine 1m/5m-Angebote, Nachfragen danach bekommen eine leere
+        # Schlusslieferung.
+        self._stats = stats
+        self._history = history
+        self._stats_on = False
 
     async def run(self) -> None:
         """Verbinden, bedienen, bei Abbruch mit wachsendem Abstand neu verbinden."""
@@ -88,7 +96,12 @@ class HistoryPeer:
         if "series" not in announcement:
             raise ExchangeError("the dashboard does not list its series, it is too old")
         self._announcement = announcement
-        self._sources = {source.series: source for source in self._resolve(announcement["series"])}
+        self._sources = (
+            {source.series: source for source in self._resolve(announcement["series"])} if self._history else {}
+        )
+        # Ein aelteres Dashboard lehnt ein Angebot mit unbekannter Stufe
+        # ganz ab. 1h deshalb nur, wenn die Ankuendigung sie nennt.
+        self._stats_on = self._stats is not None and STATS_TIER in (announcement.get("tiers") or [])
 
     def handle(self, event: str, payload: dict) -> asyncio.Task | None:
         """Verteilt ein Ereignis. Laengere Arbeit laeuft als eigene Aufgabe,
@@ -139,6 +152,10 @@ class HistoryPeer:
                     per_series[source.series] = census(tier, (row["ts"] for row in rows), now)
             if per_series:
                 coverage[tier] = per_series
+        if self._stats_on:
+            hours = await self._stats.coverage(now)
+            if hours:
+                coverage[STATS_TIER] = hours
         self._cached = (key, coverage)
         return coverage
 
@@ -152,27 +169,41 @@ class HistoryPeer:
         if not force and fingerprint == self._last_offer:
             return
         self._last_offer = fingerprint
-        await self._client.post("/offer", {"peer": self._peer_id, "label": self._label, "coverage": coverage})
+        await self._client.post(
+            "/offer", {"peer": self._peer_id, "label": self._label, "kind": PEER_KIND, "coverage": coverage}
+        )
 
     async def answer(self, payload: dict) -> None:
         to = payload.get("peer")
         req_id = payload.get("req_id")
         tier = payload.get("tier")
-        if not to or not req_id or tier not in TIERS:
+        if not to or not req_id:
             return
-        source = self._sources.get(str(payload.get("series") or ""))
+        series = str(payload.get("series") or "")
+        fetch: Callable[[int, int], Awaitable[list[dict]]] | None = None
+        if tier == STATS_TIER:
+            if not self._stats_on:
+                return
+            if series in self._stats.series:
+                fetch = lambda begin, end: self._stats.rows(series, begin, end)  # noqa: E731
+        elif tier in TIERS:
+            source = self._sources.get(series)
+            if source is not None:
+                fetch = lambda begin, end: self._rows(source, tier, begin, end)  # noqa: E731
+        else:
+            return
         limit = int(self._announcement.get("max_rows_per_request", 20000))
         chunk = int(self._announcement.get("max_rows_per_deliver", 500))
         now = self._now_ms()
         rows: list[dict] = []
-        if source is not None:
+        if fetch is not None:
             for span in payload.get("ranges") or []:
                 if not isinstance(span, (list, tuple)) or len(span) != 2:
                     continue
                 begin, end = int(span[0]), min(int(span[1]), now)
                 if end <= begin:
                     continue
-                rows.extend(in_ranges(await self._rows(source, tier, begin, end), [(begin, end)]))
+                rows.extend(in_ranges(await fetch(begin, end), [(begin, end)]))
                 if len(rows) >= limit:
                     rows = rows[:limit]
                     break
