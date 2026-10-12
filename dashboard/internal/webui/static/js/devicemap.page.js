@@ -179,7 +179,7 @@
 
       flowElements() {
         if (!this.view.layers.energy || !this.energy) return [];
-        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view});
+        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props});
       },
 
       applyFlows() {
@@ -1003,7 +1003,7 @@
       },
 
       buildEdgeElements() {
-        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.savedGroups, nodeIds: this.nodeIds()});
+        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.savedGroups, nodeIds: this.nodeIds(), energy: this.energyByDevice()});
         if (!this.view.hide_automation_links) return wiring;
         return wiring.filter(element => !window.DeviceMapDataflow.isAutomationLink({from: element.data.source, to: element.data.target}));
       },

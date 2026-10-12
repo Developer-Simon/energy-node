@@ -115,7 +115,7 @@
       },
 
       wiringEdges() {
-        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.groups, nodeIds: this.nodeIds()});
+        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.groups, nodeIds: this.nodeIds(), energy: this.energyByDevice()});
         if (!this.view.hide_automation_links) return wiring;
         return wiring.filter(element => !window.DeviceMapDataflow.isAutomationLink({from: element.data.source, to: element.data.target}));
       },
@@ -178,7 +178,7 @@
           ? graph.virtualElements({kinds: [{id: df.BALANCE_ID, kind: 'balance', name: t('devicemap.balance.name')}], positions, colorOf})
           : [];
         const wiring = this.wiringEdges();
-        const flows = graph.flowElements({pairs: graph.pairsOf(wiring), energy, view: this.view});
+        const flows = graph.flowElements({pairs: graph.pairsOf(wiring), energy, view: this.view, edgeProps: this.deviceMap.edge_props});
         const roles = graph.dataEdgeElements(df.roleEdges(this.energy, balanceId).filter(edge => this.nodeIds().has(edge.from)));
         return [...devices, ...groups, ...balance, ...wiring, ...flows, ...roles];
       },

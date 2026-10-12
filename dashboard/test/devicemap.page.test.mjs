@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
+const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
@@ -874,7 +874,7 @@ function flowFixture(component, batteryValue = 800) {
     { id: 'bat', name: 'Batterie', relations: [{ kind: 'parent', id: 'netz' }] },
     { id: 'bms', name: 'BMS', relations: [{ kind: 'parent', id: 'bat' }] },
   ];
-  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.deviceMap = { version: 1, nodes: [], edges: [], edge_props: [{ parent_id: 'netz', child_id: 'bat', type: 'energy' }] };
   component.energy = { entities: [{ device_id: 'bat', entity_id: 'p', value: batteryValue, unit: 'W', role: { role: 'battery', source: 'override' } }] };
 }
 

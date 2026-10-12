@@ -14,7 +14,7 @@ export function loadGraph() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
   const context = dom.getInternalVMContext();
-  for (const name of ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-graph.js']) {
+  for (const name of ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-graph.js', 'devicemap-wiring.js']) {
     vm.runInContext(fs.readFileSync(path.join(jsDir, name), 'utf8'), context);
   }
   return dom.window;
@@ -31,9 +31,38 @@ test('wiringElements prefers override ids and memberships over discovery relatio
     nodeIds: new Set(['netz', 'pv', 'wb', 'group:uv']),
   });
   assert.deepEqual(plain(edges.map(edge => edge.data)), [
-    { id: 'edge-group:uv::wb', source: 'group:uv', target: 'wb', membership: { group: 'uv', member: 'wb' } },
-    { id: 'edge-netz::pv', source: 'netz', target: 'pv', overrideId: 'o1' },
+    { id: 'edge-group:uv::wb', source: 'group:uv', target: 'wb', membership: { group: 'uv', member: 'wb' }, connType: 'energy', direction: 'auto', heuristic: false },
+    { id: 'edge-netz::pv', source: 'netz', target: 'pv', overrideId: 'o1', connType: 'data', direction: 'auto', heuristic: true },
   ]);
+});
+
+test('wiring edges carry their connection type as class and data', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const devices = [
+    { id: 'wr', relations: [{ id: 'akku', kind: 'child' }] },
+    { id: 'akku', relations: [{ id: 'wr', kind: 'parent' }] },
+    { id: 'shelly', relations: [{ id: 'wr', kind: 'parent' }] },
+  ];
+  const energy = new Map([['wr', { power: -800 }], ['akku', { power: 300 }]]);
+  const elements = DeviceMapGraph.wiringElements({ devices, deviceMap: { edges: [], edge_props: [] }, groups: {}, nodeIds: new Set(['wr', 'akku', 'shelly']), energy });
+  const byTarget = Object.fromEntries(elements.map(element => [element.data.target, element]));
+  assert.equal(byTarget.akku.data.connType, 'energy');
+  assert.match(byTarget.akku.classes, /devicemap-conn-energy/);
+  assert.match(byTarget.akku.classes, /devicemap-conn-detected/);
+  assert.equal(byTarget.shelly.data.connType, 'data');
+});
+
+test('flows run only over energy edges and follow the direction', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const pairs = [{ parent: 'wr', child: 'akku' }, { parent: 'wr', child: 'shelly' }];
+  const energy = new Map([['wr', { power: -800, roles: [], meta: {}, byRole: {} }], ['akku', { power: 300, roles: [], meta: {}, byRole: {} }], ['shelly', { power: 40, roles: [], meta: {}, byRole: {} }]]);
+  const flows = DeviceMapGraph.flowElements({ pairs, energy, view: { width_by_power: false }, edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'reversed' },
+    { parent_id: 'wr', child_id: 'shelly', type: 'data' },
+  ] });
+  assert.equal(flows.length, 1);
+  assert.equal(flows[0].data.source, 'akku');
+  assert.equal(flows[0].data.reverse, true);
 });
 
 test('style keeps the wiring rules of the draft', () => {
