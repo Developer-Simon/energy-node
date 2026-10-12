@@ -125,6 +125,24 @@ test('placement: balance right of the arrangement, flow nodes in a band below so
   ]);
 });
 
+test('rules with an anchor go in a row centred below it', () => {
+  const df = load();
+  const spots = plain(df.placeFlowNodes({
+    nodes: [{ id: 'rule:a', inputXs: [], anchor: { x: 280, y: 0 } }, { id: 'rule:b', inputXs: [], anchor: { x: 280, y: 0 } }],
+    allPositions: [{ x: 0, y: 0 }, { x: 280, y: 0 }], snap: v => v,
+  }));
+  assert.deepEqual(spots, [{ id: 'rule:a', x: 210, y: 120 }, { id: 'rule:b', x: 350, y: 120 }]);
+});
+
+test('an anchored spot that is taken moves right', () => {
+  const df = load();
+  const spots = plain(df.placeFlowNodes({
+    nodes: [{ id: 'rule:a', inputXs: [], anchor: { x: 0, y: 0 } }],
+    allPositions: [{ x: 0, y: 0 }, { x: 0, y: 120 }], snap: v => v,
+  }));
+  assert.deepEqual(spots, [{ id: 'rule:a', x: 140, y: 120 }]);
+});
+
 test('edgeView builds the popover rows of a service edge', () => {
   const df = load();
   const labelOf = id => ({ bms: 'BMS Bank A', soc: 'Batterie SoC' }[id] || id);

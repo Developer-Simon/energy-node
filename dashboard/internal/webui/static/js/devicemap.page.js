@@ -885,9 +885,13 @@
         }
         if (layers.data) {
           const edges = df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId());
+          // Rules hang under the automation device when it has a position.
+          const automation = positionOf('automation');
+          const anchorOf = node => (node.kind === 'rule' && automation ? {x: automation.x, y: automation.y} : undefined);
           const missing = this.flowNodes().filter(node => !has(node.id)).map(node => ({
             id: node.id,
             inputXs: edges.filter(edge => edge.to === node.id).map(edge => positionOf(edge.from)).filter(Boolean).map(position => position.x),
+            anchor: anchorOf(node),
           }));
           for (const spot of df.placeFlowNodes({nodes: missing, allPositions: nodes, snap})) {
             nodes.push({virtual_id: spot.id, x: spot.x, y: spot.y});
