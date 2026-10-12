@@ -7,7 +7,7 @@ import (
 
 var ErrInvalidPeriod = errors.New("energystats: ungueltiger Zeitraum")
 
-var periodLayouts = map[string]string{"day": "2006-01-02", "month": "2006-01", "year": "2006"}
+var periodLayouts = map[string]string{"day": "2006-01-02", "week": "2006-01-02", "month": "2006-01", "year": "2006"}
 
 type HourCounts struct {
 	HA   int `json:"ha"`
@@ -87,6 +87,8 @@ func bounds(period, at string, loc *time.Location, now time.Time) (time.Time, ti
 		switch period {
 		case "day":
 			from = time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+		case "week":
+			from = mondayOf(local)
 		case "month":
 			from = time.Date(local.Year(), local.Month(), 1, 0, 0, 0, 0, loc)
 		default:
@@ -98,6 +100,9 @@ func bounds(period, at string, loc *time.Location, now time.Time) (time.Time, ti
 			return time.Time{}, time.Time{}, ErrInvalidPeriod
 		}
 		from = parsed
+		if period == "week" {
+			from = mondayOf(from)
+		}
 	}
 	if from.Year() < 2000 || from.Year() > 2100 {
 		return time.Time{}, time.Time{}, ErrInvalidPeriod
@@ -105,6 +110,8 @@ func bounds(period, at string, loc *time.Location, now time.Time) (time.Time, ti
 	switch period {
 	case "day":
 		return from, from.AddDate(0, 0, 1), nil
+	case "week":
+		return from, from.AddDate(0, 0, 7), nil
 	case "month":
 		return from, from.AddDate(0, 1, 0), nil
 	default:
@@ -117,7 +124,7 @@ func bucketStarts(period string, from, to time.Time) []time.Time {
 		switch period {
 		case "day":
 			return t.Add(time.Hour)
-		case "month":
+		case "month", "week":
 			return t.AddDate(0, 0, 1)
 		default:
 			return t.AddDate(0, 1, 0)
@@ -128,6 +135,12 @@ func bucketStarts(period string, from, to time.Time) []time.Time {
 		starts = append(starts, t)
 	}
 	return starts
+}
+
+// mondayOf liefert 00:00 des Montags der Woche, in der t liegt.
+func mondayOf(t time.Time) time.Time {
+	offset := (int(t.Weekday()) + 6) % 7
+	return time.Date(t.Year(), t.Month(), t.Day()-offset, 0, 0, 0, 0, t.Location())
 }
 
 func newTotals() Totals { return Totals{KWh: map[string]float64{}} }

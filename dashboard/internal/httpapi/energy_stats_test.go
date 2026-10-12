@@ -41,7 +41,7 @@ func TestEnergyStatsErrors(t *testing.T) {
 		code    string
 	}{
 		{"ohne Dienst", nil, http.MethodGet, "?period=day", http.StatusNotImplemented, "energy_stats_unavailable"},
-		{"falscher Zeitraum", service, http.MethodGet, "?period=week", http.StatusBadRequest, "energy_stats_invalid_period"},
+		{"falscher Zeitraum", service, http.MethodGet, "?period=quarter", http.StatusBadRequest, "energy_stats_invalid_period"},
 		{"falsches Datum", service, http.MethodGet, "?period=day&at=morgen", http.StatusBadRequest, "energy_stats_invalid_period"},
 		{"POST", service, http.MethodPost, "?period=day", http.StatusMethodNotAllowed, ""},
 	}
@@ -58,7 +58,9 @@ func TestEnergyStatsErrors(t *testing.T) {
 		var body struct {
 			Code string `json:"code"`
 		}
-		json.Unmarshal(rec.Body.Bytes(), &body)
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("%s: Antwort ist kein JSON: %v", c.name, err)
+		}
 		if body.Code != c.code {
 			t.Errorf("%s: Code %q, erwartet %q", c.name, body.Code, c.code)
 		}

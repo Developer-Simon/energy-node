@@ -111,10 +111,57 @@ func TestFutureHoursAreNotCountedAndEmptyResultEncodes(t *testing.T) {
 func TestInvalidPeriods(t *testing.T) {
 	loc := time.UTC
 	store := NewStore(t.TempDir())
-	for _, c := range [][2]string{{"week", ""}, {"day", "2026-13-01"}, {"month", "2026"}, {"year", "1999"}, {"year", "2101"}, {"day", "gestern"}} {
+	for _, c := range [][2]string{{"week", "2026-10"}, {"week", "2026-13-01"}, {"day", "2026-13-01"}, {"month", "2026"}, {"year", "1999"}, {"year", "2101"}, {"day", "gestern"}} {
 		if _, err := Query(store, c[0], c[1], loc, time.Now()); !errors.Is(err, ErrInvalidPeriod) {
 			t.Errorf("%v: err = %v", c, err)
 		}
+	}
+}
+
+func TestWeekRunsMondayToMondayAcrossDST(t *testing.T) {
+	loc := berlin(t)
+	now := time.Date(2026, 11, 1, 12, 0, 0, 0, loc)
+	res, err := Query(NewStore(t.TempDir()), "week", "2026-10-22", loc, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	wantFrom := time.Date(2026, 10, 19, 0, 0, 0, 0, loc)
+	wantTo := time.Date(2026, 10, 26, 0, 0, 0, 0, loc)
+	if !res.From.Equal(wantFrom) || !res.To.Equal(wantTo) {
+		t.Fatalf("From=%v, To=%v, erwartet %v bis %v", res.From, res.To, wantFrom, wantTo)
+	}
+	if len(res.Buckets) != 7 {
+		t.Fatalf("%d Buckets, erwartet 7", len(res.Buckets))
+	}
+	if res.Total.Hours.None != 169 {
+		t.Fatalf("%d Stunden, erwartet 169 wegen Zeitumstellung", res.Total.Hours.None)
+	}
+}
+
+func TestWeekAtResolvesToItsMonday(t *testing.T) {
+	loc := berlin(t)
+	now := time.Date(2027, 1, 1, 0, 0, 0, 0, loc)
+	wantFrom := time.Date(2026, 10, 19, 0, 0, 0, 0, loc)
+	for _, at := range []string{"2026-10-25", "2026-10-19"} {
+		res, err := Query(NewStore(t.TempDir()), "week", at, loc, now)
+		if err != nil {
+			t.Fatalf("%s: %v", at, err)
+		}
+		if !res.From.Equal(wantFrom) {
+			t.Errorf("%s: From=%v, erwartet %v", at, res.From, wantFrom)
+		}
+	}
+}
+
+func TestWeekDefaultIsCurrentWeek(t *testing.T) {
+	loc := berlin(t)
+	now := time.Date(2026, 10, 14, 10, 30, 0, 0, loc)
+	res, err := Query(NewStore(t.TempDir()), "week", "", loc, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := time.Date(2026, 10, 12, 0, 0, 0, 0, loc); !res.From.Equal(want) {
+		t.Fatalf("From=%v, erwartet %v", res.From, want)
 	}
 }
 

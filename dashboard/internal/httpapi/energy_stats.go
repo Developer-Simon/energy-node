@@ -7,8 +7,8 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 )
 
-// handleEnergyStats liefert die Energiestatistik eines Tages, Monats oder
-// Jahres: GET /api/v1/energy/stats?period=day|month|year&at=<datum>.
+// handleEnergyStats liefert die Energiestatistik eines Tages, einer Woche,
+// eines Monats oder Jahres: GET /api/v1/energy/stats?period=day|week|month|year&at=<datum>.
 func handleEnergyStats(service *energystats.Service) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
