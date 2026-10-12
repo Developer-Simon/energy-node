@@ -810,6 +810,9 @@ if [[ "$(basename "$FIXTURE")" == "alle-funktionen.json" ]]; then
   check "Datenfluss liefert Regeln und eine Bank-A-Kante" \
     "any(n['virtual_id'].startswith('rule:') for n in data['nodes']) and any(e['details'].get('field') == 'bank_a_voltage_topic' for e in data['edges'])" \
     "$BASE/api/v1/device/map/flows"
+  check "Automations-Geraet fuehrt die Regeln aus" \
+    "any(e['details'].get('kind') == 'executes' and e['from'].get('device_id') == 'automation' for e in data['edges'])" \
+    "$BASE/api/v1/device/map/flows"
 fi
 if [[ -n "$THEME" ]]; then
   check "Farbschema aus --theme ist aktiv" \

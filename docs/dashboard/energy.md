@@ -145,6 +145,7 @@ diamonds, services are squares, and a topic nobody publishes is a stub labelled
 Topic without a device. Click an edge or a rule for its details and a link into
 the configuration or the Automations tab. How a service declares its topics is
 described in [Data flows](../developing/data-flow.md#12-data-flow-on-the-device-map).
+The automations device sits under the Energy Node and connects to every rule it runs.
 
 ## Permissions
 
