@@ -1707,3 +1707,96 @@ test('save() never stores a virtual node that was never placed, so a hidden laye
   await component.save();
   assert.deepEqual(body.nodes, [{ device_id: 'device_a', x: 7, y: 7 }, { virtual_id: 'group:uv', x: 50, y: 50 }]);
 });
+
+const WIRED = () => [
+  { id: 'wr', name: 'WR', relations: [{ id: 'akku', kind: 'child' }], entities: [] },
+  { id: 'akku', name: 'Akku', relations: [{ id: 'wr', kind: 'parent' }], entities: [] },
+];
+const MANUAL = () => [{ id: 'relation-1', child_id: 'akku', parent_id: 'wr', kind: 'via_device', created_at: '' }];
+const respondWith = (status, body) => async () => ({ ok: status < 400, status, json: async () => body });
+
+test('setEdgeType stores the type for the selected pair and marks the map unsaved', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.setEdgeType('info');
+  assert.deepEqual(plain(component.deviceMap.edge_props), [{ parent_id: 'wr', child_id: 'akku', type: 'info' }]);
+  assert.equal(component.unsaved, true);
+});
+
+test('setEdgeDirection keeps the type energy and sets the direction', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.setEdgeDirection('fixed_up');
+  assert.deepEqual(plain(component.deviceMap.edge_props), [{ parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'fixed_up' }]);
+});
+
+test('a membership edge has no settings', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'group:uv', target: 'akku', membership: { group: 'uv', member: 'akku' } };
+  component.setEdgeType('info');
+  assert.equal(component.deviceMap.edge_props, undefined);
+});
+
+test('save sends edge_props and drops entries of pairs that no longer exist', async () => {
+  const sent = [];
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'info' }, { parent_id: 'gone', child_id: 'akku', type: 'info' },
+  ], fetchImpl: async (url, options) => {
+    sent.push({ url: String(url), body: options && options.body });
+    return { ok: true, status: 200, json: async () => JSON.parse(options.body) };
+  } });
+  await component.save();
+  const request = sent.find(entry => entry.url.endsWith('/api/v1/device/map'));
+  assert.deepEqual(JSON.parse(request.body).edge_props, [{ parent_id: 'wr', child_id: 'akku', type: 'info' }]);
+});
+
+test('reverseSelectedRelation calls the endpoint and swaps the edge locally', async () => {
+  let called = '';
+  const component = panelWith({ devices: WIRED(), edges: MANUAL(), fetchImpl: async (url, options) => {
+    called = `${options.method} ${url}`;
+    return { ok: true, status: 200, json: async () => ({ relation: { id: 'relation-1', child_id: 'wr', parent_id: 'akku', kind: 'via_device', created_at: '' }, edge_props: [] }) };
+  } });
+  component.selectedEdge = { source: 'wr', target: 'akku', overrideId: 'relation-1' };
+  await component.reverseSelectedRelation();
+  assert.match(called, /^POST .*\/api\/v1\/device\/map\/relations\/relation-1\/reverse$/);
+  assert.equal(component.deviceMap.edges[0].parent_id, 'akku');
+  assert.equal(component.savedDeviceMap.edges[0].parent_id, 'akku');
+});
+
+test('a rejected reverse keeps the edge and shows the error', async () => {
+  const { component, stores } = createDevicemapPanel({ fetchImpl: respondWith(400, { code: 'relation_cycle', message: 'cycle' }) });
+  component.devices = WIRED();
+  component.deviceMap = { version: 2, nodes: [], edges: MANUAL() };
+  component.savedDeviceMap = JSON.parse(JSON.stringify(component.deviceMap));
+  component.selectedEdge = { source: 'wr', target: 'akku', overrideId: 'relation-1' };
+  await component.reverseSelectedRelation();
+  assert.equal(component.deviceMap.edges[0].parent_id, 'wr');
+  assert.equal(stores.toasts.criticals.length, 1);
+});
+
+test('the wiring card of a discovery edge offers type and direction but no reverse', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.canReverse, false);
+  assert.ok(['energy', 'data', 'info'].includes(component.popover.edge.type));
+});
+
+test('the wiring card of a manual edge offers reverse', () => {
+  const component = panelWith({ devices: WIRED(), edges: MANUAL() });
+  component.selectedEdge = { source: 'wr', target: 'akku', overrideId: 'relation-1' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.canReverse, true);
+});
+
+test('after connecting, the card of the new edge opens', async () => {
+  const { component } = createDevicemapPanel({ confirmAnswer: true, fetchImpl: respondWith(201,
+    { id: 'relation-2', child_id: 'device_a', parent_id: 'device_b', kind: 'via_device', created_at: '' }) });
+  component.devices = [{ id: 'device_a', name: 'A', relations: [] }, { id: 'device_b', name: 'B', relations: [] }];
+  component.deviceMap = { version: 2, nodes: [], edges: [] };
+  component.connectMode = true;
+  await component.onNodeTap({ target: fakeNode('device_a') });
+  await component.onNodeTap({ target: fakeNode('device_b') });
+  assert.equal(component.selectedEdge.overrideId, 'relation-2');
+  assert.equal(component.popover.edge.canReverse, true);
+});

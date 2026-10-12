@@ -281,6 +281,7 @@
         const flipX = x + 12 + width > stage.width - 12;
         const flipY = y + 12 + 260 > stage.height - 12;
         this.popover = {
+          edge: null,
           ...view,
           left: flipX ? Math.max(12, x - 12 - width) : x + 12,
           top: flipY ? Math.max(12, y - 12 - 260) : y + 12,
@@ -358,6 +359,7 @@
         }
         rows.push([t('devicemap.pop.row.origin'), t(`devicemap.pop.origin.${origin}`)]);
         const opensPanel = edge.target !== model.OWN_ENERGY_DEVICE_ID;
+        this.edgeCardAnchor = rendered || null;
         this.placePopover(rendered, {
           eyebrow: t(origin === 'group' ? 'devicemap.pop.eyebrow.membership' : 'devicemap.pop.eyebrow.wiring'),
           title: this.selectedEdgeLabel, rows, lists: [],
@@ -365,7 +367,87 @@
           linkText: opensPanel ? t('devicemap.pop.link.open_device', {name: this.deviceLabel(edge.target)}) : '',
           link: opensPanel ? {tab: 'panel', target: edge.target} : null,
           action: origin === 'discovery' ? null : {label: t('devicemap.disconnect_button')},
+          edge: {
+            ...this.edgePropsFor(edge),
+            canReverse: Boolean(edge.overrideId) && !edge.membership && !model.isGroupId(edge.target) && !model.isGroupId(edge.source),
+            parentName: this.deviceLabel(edge.source),
+            childName: this.deviceLabel(edge.target),
+            membership: Boolean(edge.membership),
+          },
         });
+      },
+
+      // Connection type and flow direction of the selected wiring edge. Both
+      // write a device_map edge_props entry; the map is saved with save().
+      setEdgeType(type) {
+        const edge = this.selectedEdge;
+        if (!edge || edge.membership || !window.DeviceMapWiring.TYPES.includes(type)) return;
+        const current = this.edgePropsFor(edge);
+        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type, direction: current.direction})};
+        this.unsaved = true;
+        this.afterEdgePropsChange();
+      },
+
+      setEdgeDirection(direction) {
+        const edge = this.selectedEdge;
+        if (!edge || edge.membership) return;
+        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction})};
+        this.unsaved = true;
+        this.afterEdgePropsChange();
+      },
+
+      edgePropsFor(edge) {
+        const wiring = window.DeviceMapWiring;
+        return wiring.resolve({parent: edge.source, child: edge.target, membership: edge.membership}, wiring.propsIndex(this.deviceMap.edge_props), this.energyByDevice());
+      },
+
+      // Class and data of the wiring edge change in place (no renderGraph(),
+      // which would reset the viewport), then flows and the card follow.
+      afterEdgePropsChange() {
+        const graph = cy || this._cyForTest;
+        if (graph) {
+          const fresh = new Map(this.buildEdgeElements().map(element => [element.data.id, element]));
+          const transient = ['devicemap-selected-edge', 'devicemap-focused', 'devicemap-dimmed'];
+          graph.edges('.devicemap-wiring').forEach(edge => {
+            const next = fresh.get(edge.id());
+            if (!next) return;
+            const kept = transient.filter(name => edge.hasClass(name));
+            edge.classes([next.classes, ...kept].join(' '));
+            for (const name of ['connType', 'direction', 'heuristic']) edge.data(name, next.data[name]);
+          });
+        }
+        this.applyFlows();
+        if (labels) labels.update(this.labelItems());
+        if (this.popover && this.popover.edge) {
+          // Re-open at the original tap point, not at the flipped card corner.
+          const anchor = this.edgeCardAnchor || {x: this.popover.left - 12, y: this.popover.top - 12};
+          this.openWiringPopover(anchor);
+        }
+      },
+
+      async reverseSelectedRelation() {
+        const selected = this.selectedEdge;
+        if (!selected || !selected.overrideId) return;
+        try {
+          const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST'});
+          const edges = (this.deviceMap.edges || []).map(edge => (edge.id === result.relation.id ? result.relation : edge));
+          const swap = {fixed_down: 'fixed_up', fixed_up: 'fixed_down'};
+          const pair = window.DeviceMapGraph.relationKey(selected.source, selected.target);
+          const props = (this.deviceMap.edge_props || []).map(prop => {
+            if (window.DeviceMapGraph.relationKey(prop.parent_id, prop.child_id) !== pair) return prop;
+            const next = {...prop, parent_id: prop.child_id, child_id: prop.parent_id};
+            if (swap[next.direction]) next.direction = swap[next.direction];
+            return next;
+          });
+          this.deviceMap = {...this.deviceMap, edges, edge_props: props};
+          this.savedDeviceMap = {...this.savedDeviceMap, edges, edge_props: result.edge_props};
+          this.$store.toasts.push(t('devicemap.relation_reversed'));
+          this.closePopover();
+          this.notifyMapChanged();
+          this.renderGraph();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
       },
 
       closePopover() {
@@ -1245,6 +1327,13 @@
           this.$store.toasts.push(t('devicemap.relation_connected'));
           this.notifyMapChanged();
           this.renderGraph();
+          // Decision note: the connect dialog cannot ask for the type
+          // (modal.confirm has no fields), so the new edge's card opens instead.
+          // Set after renderGraph(), which clears the selection.
+          this.selectedEdge = {id: `edge-${window.DeviceMapGraph.relationKey(childId, parentId)}`, source: parentId, target: childId, overrideId: created.id, membership: null};
+          const element = cy && cy.getElementById(this.selectedEdge.id);
+          if (element && !element.empty()) element.addClass('devicemap-selected-edge');
+          this.openWiringPopover(element && !element.empty() ? element.renderedMidpoint() : null);
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
         }
@@ -1579,7 +1668,12 @@
             .map(entry => (df.isVirtualId(entry.id)
               ? {virtual_id: entry.id, x: entry.position.x, y: entry.position.y}
               : {device_id: entry.id, x: entry.position.x, y: entry.position.y}));
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], view: this.view};
+          // edge_props of pairs that no longer exist are dropped here, the
+          // same way vanished devices are dropped from nodes above.
+          const liveKeys = new Set(this.buildEdgeElements().filter(element => !element.data.membership)
+            .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)));
+          const edgeProps = window.DeviceMapWiring.prune(this.deviceMap.edge_props, liveKeys);
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},
