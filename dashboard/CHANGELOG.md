@@ -1,13 +1,25 @@
 # Changelog
 
-## v0.9.9 (2026-10-12)
+## v0.9.10 (2026-10-12)
 
 ### Features
 
 - hourly energy statistics from Home Assistant via the companion (#130) (752f59a)
+- **settings:** add the energy statistics recording mode (4490871)
+- **energystats:** pause or stop own recording by policy with a short backlog (7d1fef7)
+- **energystats:** navigation, Pi local time, categories and warnings in the stats API (d311552)
+- **dashboard:** shared display model for energy statistics (a155d15)
+- **dashboard:** energy statistics tile for today, week, month and year (dc47016)
+- **dashboard:** statistics page with stacked bars, table and coverage (4aacfc7)
+- **dashboard:** energy statistics recording mode and status in the history settings (8abfcad)
+- **dashboard:** energy statistics tile, page and recording mode (#132)
 - **energystats:** store hours from Home Assistant and count them per day (c75cf9e)
 - **energystats:** fetch hourly energy from the companion as a pseudo peer (31626d7)
 - **dashboard:** exchange the 1h tier and route companion statistics to energystats (5986c21)
+
+### Fixes
+
+- **dashboard:** restore attribute spacing in base.html (7a52161)
 
 ### Tests
 
