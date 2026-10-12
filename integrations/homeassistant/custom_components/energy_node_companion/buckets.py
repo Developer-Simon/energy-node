@@ -9,7 +9,7 @@ from __future__ import annotations
 import math
 from collections.abc import Iterable
 
-from .const import RASTER_MS
+from .const import DAY_MS, HOUR_MS, RASTER_MS, STATS_WINDOW_DAYS
 
 # (Zeitpunkt in Sekunden, Wert oder None fuer "kein Messwert")
 Change = tuple[float, float | None]
@@ -107,3 +107,25 @@ def census(tier: str, timestamps: Iterable[int], now_ms: int) -> dict:
 def in_ranges(rows: list[dict], ranges: list[tuple[int, int]]) -> list[dict]:
     """Saetze, deren ts in einem der halboffenen Bereiche [a, b) liegt."""
     return [row for row in rows if any(begin <= row["ts"] < end for begin, end in ranges)]
+
+
+def count_hours(timestamps: Iterable[int], now_ms: int) -> dict[int, int]:
+    """Abgeschlossene Stunden je UTC-Tag (Tagesanfang in ms)."""
+    counts: dict[int, int] = {}
+    for ts in timestamps:
+        if ts + HOUR_MS <= now_ms:
+            day = ts // DAY_MS * DAY_MS
+            counts[day] = counts.get(day, 0) + 1
+    return counts
+
+
+def day_census(counts: dict[int, int], now_ms: int) -> dict | None:
+    """Raster der Stufe 1h: vom aeltesten Tag (hoechstens 10 Jahre) bis heute."""
+    if not counts:
+        return None
+    today = now_ms // DAY_MS * DAY_MS
+    start = max(min(counts), today - STATS_WINDOW_DAYS * DAY_MS)
+    days = (today - start) // DAY_MS + 1
+    if days <= 0:
+        return None
+    return {"from": start, "step": DAY_MS, "n": [counts.get(start + i * DAY_MS, 0) for i in range(days)]}
