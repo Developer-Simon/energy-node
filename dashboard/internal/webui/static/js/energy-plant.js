@@ -57,13 +57,13 @@
             requestJSON('/api/v1/energy/roles').catch(() => null),
             requestJSON('/api/v1/device/icons').catch(() => []),
           ]);
-          this.devices = (devices || []).filter(device => device.id !== window.DeviceMapModel.OWN_ENERGY_DEVICE_ID);
+          this.devices = devices || [];
           this.deviceMap = deviceMap || {version: 2, nodes: [], edges: []};
           this.energy = energy;
           this.groups = (roles && roles.groups) || {};
           this.categories = (roles && roles.categories) || {};
           this.iconMarkup = Object.fromEntries((Array.isArray(icons) ? icons : []).map(icon => [icon.name, icon.markup]));
-          this.empty = this.devices.length === 0;
+          this.empty = this.devices.every(device => device.id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID);
           this.render();
         } finally {
           this.loading = false;
@@ -102,8 +102,12 @@
         return Object.keys(this.groups).map(id => window.DeviceMapModel.GROUP_PREFIX + id);
       },
 
+      balanceId() {
+        return window.DeviceMapDataflow.balanceNodeId(new Set(this.devices.map(device => device.id)));
+      },
+
       nodeIds() {
-        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), window.DeviceMapDataflow.BALANCE_ID]);
+        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), this.balanceId()]);
       },
 
       energyByDevice() {
@@ -123,17 +127,21 @@
         // Same spots the device map would pick, so a device that is not yet
         // saved there does not land on the origin on top of another one.
         const anchors = this.devices.map(device => positions.get(device.id)).filter(Boolean);
-        const missing = this.devices.filter(device => !positions.has(device.id)).map(device => device.id);
+        const balanceId = this.balanceId();
+        const missing = this.devices.filter(device => !positions.has(device.id) && device.id !== balanceId).map(device => device.id);
+        if (balanceId !== df.BALANCE_ID && !(this.deviceMap.nodes || []).some(node => node.device_id === balanceId) && positions.has(df.BALANCE_ID)) {
+          positions.set(balanceId, positions.get(df.BALANCE_ID));
+        }
+        if (!positions.has(balanceId)) {
+          const roleDevices = df.roleEdges(this.energy, balanceId).map(edge => positions.get(edge.from)).filter(Boolean);
+          positions.set(balanceId, df.placeBalance({rolePositions: roleDevices, allPositions: all(), snap}));
+        }
         for (const spot of model.placeDevices({ids: missing, allPositions: anchors, snap})) positions.set(spot.id, {x: spot.x, y: spot.y});
         for (const [id, group] of Object.entries(this.groups)) {
           const nodeId = model.GROUP_PREFIX + id;
           if (positions.has(nodeId)) continue;
           const members = [...(group.members.devices || []), ...(group.members.groups || []).map(child => model.GROUP_PREFIX + child)];
           positions.set(nodeId, model.placeGroup({memberPositions: members.map(member => positions.get(member)).filter(Boolean), allPositions: all(), snap}));
-        }
-        if (!positions.has(df.BALANCE_ID)) {
-          const roleDevices = df.roleEdges(this.energy).map(edge => positions.get(edge.from)).filter(Boolean);
-          positions.set(df.BALANCE_ID, df.placeBalance({rolePositions: roleDevices, allPositions: all(), snap}));
         }
         return positions;
       },
@@ -154,17 +162,22 @@
         const colorOf = this.colorOf();
         const positions = this.positions();
         const withPosition = (element, id) => (positions.get(id) ? {...element, position: positions.get(id)} : element);
+        const balanceId = this.balanceId();
         const devices = this.devices.map(device => withPosition({
           data: {id: device.id, name: device.name || device.id,
-            svg: window.DeviceMapNodeSvg.dataUri(model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup), colorOf)},
+            svg: device.id === balanceId
+              ? window.DeviceMapNodeSvg.virtualDataUri('balance', colorOf)
+              : window.DeviceMapNodeSvg.dataUri(model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup), colorOf)},
         }, device.id));
         const groups = Object.entries(this.groups).map(([id, group]) => withPosition({
           data: {id: model.GROUP_PREFIX + id, name: group.label, svg: window.DeviceMapNodeSvg.groupDataUri(colorOf)}, classes: 'devicemap-group',
         }, model.GROUP_PREFIX + id));
-        const balance = graph.virtualElements({kinds: [{id: df.BALANCE_ID, kind: 'balance', name: t('devicemap.balance.name')}], positions, colorOf});
+        const balance = balanceId === df.BALANCE_ID
+          ? graph.virtualElements({kinds: [{id: df.BALANCE_ID, kind: 'balance', name: t('devicemap.balance.name')}], positions, colorOf})
+          : [];
         const wiring = this.wiringEdges();
         const flows = graph.flowElements({pairs: graph.pairsOf(wiring), energy, view: this.view});
-        const roles = graph.dataEdgeElements(df.roleEdges(this.energy).filter(edge => this.nodeIds().has(edge.from)));
+        const roles = graph.dataEdgeElements(df.roleEdges(this.energy, balanceId).filter(edge => this.nodeIds().has(edge.from)));
         return [...devices, ...groups, ...balance, ...wiring, ...flows, ...roles];
       },
 
@@ -172,12 +185,14 @@
         const model = window.DeviceMapModel;
         const energy = this.energyByDevice();
         const children = model.childrenIndex(window.DeviceMapGraph.pairsOf(this.wiringEdges()));
-        const balance = this.energy && this.energy.balance;
-        const net = balance ? (Number(balance.grid_import) || 0) - (Number(balance.grid_export) || 0) : null;
+        const df = window.DeviceMapDataflow;
+        const balanceId = this.balanceId();
+        const balanceText = model.balanceValueText(this.energy && this.energy.balance);
         return [
-          ...this.devices.map(device => ({id: device.id, name: device.name || device.id, value: model.nodeValueText(device, energy.get(device.id))})),
+          ...this.devices.map(device => ({id: device.id, name: device.name || device.id,
+            value: device.id === balanceId ? balanceText : model.nodeValueText(device, energy.get(device.id))})),
           ...Object.entries(this.groups).map(([id, group]) => ({id: model.GROUP_PREFIX + id, name: group.label, value: model.groupValueText(model.edgeFlow(model.GROUP_PREFIX + id, energy, children))})),
-          {id: 'balance', name: t('devicemap.balance.name'), value: net == null ? '' : t(net >= 0 ? 'devicemap.value.grid_import' : 'devicemap.value.grid_export', {value: model.formatPower(net)})},
+          ...(balanceId === df.BALANCE_ID ? [{id: df.BALANCE_ID, name: t('devicemap.balance.name'), value: balanceText}] : []),
         ];
       },
 

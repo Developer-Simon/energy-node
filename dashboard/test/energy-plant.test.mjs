@@ -125,3 +125,25 @@ test('device-map-changed and energy-roles-changed reload the whole view', async 
     assert.ok(calls.includes('/api/v1/device/map'), `${name} refetches the map`);
   }
 });
+
+// Loads the plant view with its own device list, map and energy snapshot,
+// falling back to the shared TABLE for everything else.
+async function plantWith({ devices, deviceMap, energy } = {}) {
+  const table = { ...TABLE };
+  if (devices) table['/api/v1/devices'] = devices;
+  if (deviceMap) table['/api/v1/device/map'] = deviceMap;
+  if (energy) table['/api/v1/energy'] = energy;
+  const { component } = createPlant(table);
+  await component.load();
+  return component;
+}
+
+test('the plant view draws energy_node as the balance node', async () => {
+  const plant = await plantWith({ devices: [
+    { id: 'pv', name: 'PV', relations: [{ id: 'energy_node', kind: 'parent' }], entities: [] },
+    { id: 'energy_node', name: 'Energy Node', relations: [{ id: 'pv', kind: 'child' }], entities: [] },
+  ] });
+  const ids = plant.elements().map(element => element.data.id);
+  assert.ok(ids.includes('energy_node'));
+  assert.ok(!ids.includes('balance'));
+});
