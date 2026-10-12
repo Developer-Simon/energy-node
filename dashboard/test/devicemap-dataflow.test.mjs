@@ -195,3 +195,10 @@ test('an edge from the balance device needs the data and the balance layer', () 
   assert.equal(df.edgeVisible(edge, { wiring: true, energy: true, balance: false, data: true }), false);
   assert.equal(df.edgeVisible(edge, ALL), true);
 });
+
+test('an executes edge shows the automation popover with its kind', () => {
+  const df = load();
+  const view = df.edgeView({ cat: 'automation', from: 'automation', to: 'rule:r', fromEntity: '', toEntity: '', titleKey: 'devicemap.flow.title.executes', details: { kind: 'executes', part: 'rule' }, link: { tab: 'automations', target: 'r' } }, id => id);
+  assert.equal(view.eyebrowKey, 'devicemap.pop.eyebrow.automation');
+  assert.equal(view.linkKey, 'devicemap.pop.link.automations');
+});
