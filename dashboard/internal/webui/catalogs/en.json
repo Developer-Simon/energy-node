@@ -629,6 +629,7 @@
   "devicemap.edge.direction.fixed_to": "Always to {name}",
   "devicemap.edge.direction.reversed": "Reversed",
   "devicemap.edge.direction_label": "Flow direction",
+  "devicemap.edge.fixed_direction": "Fixed direction",
   "devicemap.edge.reverse": "Reverse connection",
   "devicemap.edge.reverse_hint": "Only connections you drew yourself can be reversed",
   "devicemap.edge.reverse_hint_group": "A feed into a group cannot be reversed",

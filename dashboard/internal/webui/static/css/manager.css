@@ -1050,16 +1050,34 @@ div.devicemap-view-menu-row { cursor: default; }
   .nav-row-button:hover .nav-row-arrow { transform: none; }
 }
 .devicemap-popover .pill-button, .devicemap-popover .nav-row-button { margin-top: 2px; }
-.devicemap-edge-detected { margin-left: .4rem; }
-.devicemap-edge-reverse { display: flex; align-items: center; gap: .5rem; width: 100%; height: 2.1rem; padding: 0 .75rem; border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
-  background: transparent; color: var(--text); font: inherit; font-size: .84rem; font-weight: 600; text-align: left; cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease; }
-.devicemap-edge-reverse svg { width: 16px; height: 16px; flex: none; color: var(--text-muted); transition: color 150ms ease; }
-.devicemap-edge-reverse:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--accent-line); color: var(--text-strong); }
-.devicemap-edge-reverse:hover:not(:disabled) svg { color: var(--accent); }
-.devicemap-edge-reverse:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.devicemap-edge-reverse:disabled { opacity: .5; cursor: not-allowed; }
-.devicemap-edge-hint { margin: 0; font-size: .78rem; color: var(--text-muted); }
+.devicemap-edge-settings { display: grid; gap: .7rem; min-width: 0; padding: .65rem; border-radius: var(--radius-sm); background: var(--sunken); }
+.devicemap-edge-field-head { display: flex; align-items: center; justify-content: space-between; gap: .4rem; min-width: 0; }
+.devicemap-edge-detected { padding: .05rem .45rem; border-radius: 999px; background: var(--panel-alt); color: var(--text-muted); font-size: .72rem; white-space: nowrap; }
+.devicemap-segmented { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; width: 100%; box-sizing: border-box; padding: 3px; border-radius: 10px; background: var(--panel); border: 1px solid var(--border-soft); }
+.devicemap-segmented--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.devicemap-segmented label { position: relative; min-width: 0; cursor: pointer; }
+.devicemap-segmented input { position: absolute; opacity: 0; pointer-events: none; }
+.devicemap-segmented span { display: block; min-width: 0; padding: .35rem .5rem; border-radius: 7px; font-size: .84rem; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-muted); transition: background-color 150ms ease, color 150ms ease; }
+.devicemap-segmented input:checked + span { background: var(--panel-alt); color: var(--text-strong); box-shadow: 0 1px 3px rgba(0, 0, 0, .3); }
+.devicemap-segmented input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 1px; }
+.devicemap-segmented input:disabled + span { cursor: not-allowed; opacity: .6; }
+.devicemap-edge-disclosure { display: inline-flex; align-items: center; justify-self: start; gap: .3rem; padding: .1rem 0; border: 0; background: transparent; color: var(--text-muted); font: inherit; font-size: .78rem; cursor: pointer; transition: color 150ms ease; }
+.devicemap-edge-disclosure:hover { color: var(--text-strong); }
+.devicemap-edge-disclosure:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.devicemap-edge-disclosure svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; transition: transform 150ms ease; }
+.devicemap-edge-disclosure[aria-expanded="true"] svg { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) { .devicemap-edge-disclosure svg { transition: none; } }
+.devicemap-edge-actions { display: grid; margin-top: 2px; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; }
+.devicemap-edge-action { display: flex; align-items: center; gap: .5rem; width: 100%; min-height: 2.4rem; padding: .5rem .7rem; border: 0; background: transparent; color: var(--text); font: inherit; font-size: .84rem; text-align: left; cursor: pointer; transition: background-color 150ms ease; }
+.devicemap-edge-action + .devicemap-edge-action { border-top: 1px solid var(--border-soft); }
+.devicemap-edge-action:hover:not(:disabled) { background: var(--panel-alt); }
+.devicemap-edge-action:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.devicemap-edge-action:disabled { opacity: .55; cursor: not-allowed; }
+.devicemap-edge-action svg { width: 16px; height: 16px; flex: none; color: var(--text-muted); }
+.devicemap-edge-action.is-danger { color: var(--bad); }
+.devicemap-edge-action.is-danger svg { color: currentColor; }
+.devicemap-edge-action-text { display: grid; gap: .15rem; min-width: 0; }
+.devicemap-edge-action-note { font-size: .75rem; color: var(--text-muted); }
 
 /* Explanations of the group panel sit behind (?) tooltips. The panel body
    scrolls and clips everything inside it, so the anchor is not positioned

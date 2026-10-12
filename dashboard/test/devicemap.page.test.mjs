@@ -1805,6 +1805,52 @@ test('a discovery edge is not manual and cannot be reversed', () => {
   assert.equal(component.popover.edge.canReverse, false);
 });
 
+test('the fixed direction disclosure opens on demand and folds back', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.edgeFixedShown(), false);
+  component.toggleEdgeFixedOpen();
+  assert.equal(component.edgeFixedShown(), true);
+  component.toggleEdgeFixedOpen();
+  assert.equal(component.edgeFixedShown(), false);
+});
+
+test('a fixed direction keeps the disclosure open and cannot be folded away', () => {
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'fixed_down' },
+  ] });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.direction, 'fixed_down');
+  assert.equal(component.edgeFixedShown(), true);
+  component.toggleEdgeFixedOpen();
+  assert.equal(component.edgeFixedShown(), true);
+});
+
+test('opening a wiring card resets the fixed direction disclosure', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  component.toggleEdgeFixedOpen();
+  assert.equal(component.edgeFixedOpen, true);
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.edgeFixedOpen, false);
+  assert.equal(component.edgeFixedShown(), false);
+});
+
+test('choosing a direction keeps the fixed direction disclosure open', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  component.toggleEdgeFixedOpen();
+  component.setEdgeDirection('reversed');
+  assert.equal(component.edgeFixedOpen, true);
+  assert.equal(component.edgeFixedShown(), true);
+  component.setEdgeDirection('auto');
+  assert.equal(component.edgeFixedShown(), true);
+});
+
 test('after connecting, the card of the new edge opens', async () => {
   const { component } = createDevicemapPanel({ confirmAnswer: true, fetchImpl: respondWith(201,
     { id: 'relation-2', child_id: 'device_a', parent_id: 'device_b', kind: 'via_device', created_at: '' }) });

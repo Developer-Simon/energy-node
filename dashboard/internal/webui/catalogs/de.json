@@ -629,6 +629,7 @@
   "devicemap.edge.direction.fixed_to": "Immer zu {name}",
   "devicemap.edge.direction.reversed": "Umgekehrt",
   "devicemap.edge.direction_label": "Flussrichtung",
+  "devicemap.edge.fixed_direction": "Feste Richtung",
   "devicemap.edge.reverse": "Verbindung umkehren",
   "devicemap.edge.reverse_hint": "Nur selbst gezogene Verbindungen lassen sich umkehren",
   "devicemap.edge.reverse_hint_group": "Eine Zuleitung zu einer Gruppe lässt sich nicht umkehren",

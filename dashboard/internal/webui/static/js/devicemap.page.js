@@ -56,6 +56,7 @@
       flowsUnavailable: false,
       invalidConfigs: 0,
       popover: null, // {eyebrow, title, rows, lists, text, linkText, link, action, left, top, origin, open} | null
+      edgeFixedOpen: false, // the fixed direction disclosure of a wiring card, toggled by the user
       focusId: null,
       focusRelated: new Set(),
       panelId: null,
@@ -344,7 +345,9 @@
       // flows over it, which roles the lower device carries and where the
       // relation comes from. Only manual relations and group memberships can
       // be dissolved, a Discovery relation reflects real wiring.
-      openWiringPopover(rendered) {
+      // keepDisclosure is set when the card is re-rendered after a change of the
+      // same edge, so the fixed direction disclosure stays as the user left it.
+      openWiringPopover(rendered, keepDisclosure = false) {
         const edge = this.selectedEdge;
         if (!edge) return;
         const model = window.DeviceMapModel;
@@ -360,6 +363,7 @@
         rows.push([t('devicemap.pop.row.origin'), t(`devicemap.pop.origin.${origin}`)]);
         const opensPanel = edge.target !== model.OWN_ENERGY_DEVICE_ID;
         this.edgeCardAnchor = rendered || null;
+        if (!keepDisclosure) this.edgeFixedOpen = false;
         this.placePopover(rendered, {
           eyebrow: t(origin === 'group' ? 'devicemap.pop.eyebrow.membership' : 'devicemap.pop.eyebrow.wiring'),
           title: this.selectedEdgeLabel, rows, lists: [],
@@ -397,6 +401,17 @@
         this.afterEdgePropsChange();
       },
 
+      // Fixed directions sit behind a disclosure: it is open while one is set
+      // or when the user opened it. A set fixed direction cannot be folded away.
+      edgeFixedShown() {
+        const edge = this.popover && this.popover.edge;
+        return Boolean(this.edgeFixedOpen || (edge && String(edge.direction || '').startsWith('fixed')));
+      },
+
+      toggleEdgeFixedOpen() {
+        this.edgeFixedOpen = !this.edgeFixedShown();
+      },
+
       edgePropsFor(edge) {
         const wiring = window.DeviceMapWiring;
         return wiring.resolve({parent: edge.source, child: edge.target, membership: edge.membership}, wiring.propsIndex(this.deviceMap.edge_props), this.energyByDevice());
@@ -422,7 +437,7 @@
         if (this.popover && this.popover.edge) {
           // Re-open at the original tap point, not at the flipped card corner.
           const anchor = this.edgeCardAnchor || {x: this.popover.left - 12, y: this.popover.top - 12};
-          this.openWiringPopover(anchor);
+          this.openWiringPopover(anchor, true);
         }
       },
 
