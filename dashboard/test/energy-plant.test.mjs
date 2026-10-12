@@ -147,3 +147,18 @@ test('the plant view draws energy_node as the balance node', async () => {
   assert.ok(ids.includes('energy_node'));
   assert.ok(!ids.includes('balance'));
 });
+
+test('a data edge draws no flow and adds no group value', async () => {
+  const plant = await plantWith({ deviceMap: {
+    version: 2,
+    nodes: [{ device_id: 'pv', x: 100, y: 100 }, { device_id: 'wb', x: 300, y: 100 }],
+    edges: [{ id: 'relation-1', parent_id: 'group:uv', child_id: 'pv', kind: 'via_device', created_at: '' }],
+    edge_props: [{ parent_id: 'group:uv', child_id: 'pv', type: 'data' }],
+    view: { layers: { wiring: true, energy: true, balance: false, data: true } },
+  } });
+  const ids = plant.elements().map(element => element.data.id);
+  assert.ok(ids.includes('flow-group:uv::wb'), 'the membership energy edge still flows');
+  assert.ok(!ids.includes('flow-group:uv::pv'), 'the data edge draws no flow');
+  const group = plant.labelItems().find(item => item.id === 'group:uv');
+  assert.equal(group.value, 'Gruppe · Σ 300 W', 'only the membership edge (300 W) sums, the data edge (pv, 500 W) does not');
+});

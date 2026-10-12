@@ -232,6 +232,13 @@
         return window.DeviceMapGraph.pairsOf(this.buildEdgeElements());
       },
 
+      // Flow context for edgeFlow(): only energy edges carry values, and each
+      // one turns by its direction.
+      energyFlowContext() {
+        const energy = this.energyByDevice();
+        return {energy, ...window.DeviceMapWiring.flowContext(this.wiringPairs(), this.deviceMap.edge_props, energy)};
+      },
+
       setFocus(id) {
         const df = window.DeviceMapDataflow;
         this.focusId = id;
@@ -340,8 +347,8 @@
         const edge = this.selectedEdge;
         if (!edge) return;
         const model = window.DeviceMapModel;
-        const energy = this.energyByDevice();
-        const flow = model.edgeFlow(edge.target, energy, model.childrenIndex(this.wiringPairs()));
+        const {energy, children, dirOf} = this.energyFlowContext();
+        const flow = model.edgeFlow(edge.target, energy, children, {dirOf, parentId: edge.source});
         const entry = energy.get(edge.target);
         const origin = edge.membership ? 'group' : edge.overrideId ? 'manual' : 'discovery';
         const rows = [];
@@ -496,14 +503,13 @@
           const group = this.savedGroups[id];
           if (!group) return null;
           const draft = this.groupDraft || {};
-          const energy = this.energyByDevice();
-          const children = model.childrenIndex(this.wiringPairs());
-          const flow = model.edgeFlow(this.panelId, energy, children);
+          const {energy, children, dirOf} = this.energyFlowContext();
+          const flow = model.edgeFlow(this.panelId, energy, children, {dirOf});
           const members = [
             ...(group.members.devices || []).map(deviceId => ({id: deviceId, name: this.deviceLabel(deviceId)})),
             ...(group.members.groups || []).map(child => ({id: model.GROUP_PREFIX + child, name: (this.savedGroups[child] || {}).label || child})),
           ].map(member => {
-            const memberFlow = model.edgeFlow(member.id, energy, children);
+            const memberFlow = model.edgeFlow(member.id, energy, children, {dirOf});
             return {...member, valueText: memberFlow ? model.formatPower(memberFlow.value) : t('devicemap.value.no_values')};
           });
           const consumers = model.roleOptions('W', this.savedCategories)
@@ -651,16 +657,15 @@
 
       labelItems() {
         const model = window.DeviceMapModel;
-        const energy = this.energyByDevice();
+        const {energy, children, dirOf} = this.energyFlowContext();
         const devices = this.devices.map(device => ({
           id: device.id,
           name: device.name || device.id,
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
         }));
-        const children = model.childrenIndex(this.wiringPairs());
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
-          return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children))};
+          return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children, {dirOf}))};
         });
         const virtual = [
           ...(this.balanceId() === window.DeviceMapDataflow.BALANCE_ID
@@ -1279,10 +1284,9 @@
       pickerItems(groupId) {
         const model = window.DeviceMapModel;
         const group = this.savedGroups[groupId] || {members: {}};
-        const energy = this.energyByDevice();
-        const children = model.childrenIndex(this.wiringPairs());
+        const {energy, children, dirOf} = this.energyFlowContext();
         const valueText = id => {
-          const flow = model.edgeFlow(id, energy, children);
+          const flow = model.edgeFlow(id, energy, children, {dirOf});
           return flow ? model.formatPower(flow.value) : t('devicemap.value.no_values');
         };
         const memberOf = id => {

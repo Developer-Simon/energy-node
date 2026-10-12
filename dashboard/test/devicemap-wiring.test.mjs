@@ -74,3 +74,13 @@ test('energyPairs keeps only energy edges with their direction', () => {
   const pairs = [{ parent: 'wr', child: 'akku' }, { parent: 'wr', child: 'shelly' }];
   assert.deepEqual(plain(w.energyPairs(pairs, index, energy)), [{ parent: 'wr', child: 'akku', direction: 'reversed' }]);
 });
+
+test('flowContext keeps the children and directions of energy edges only', () => {
+  const w = load();
+  const index = [{ parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'reversed' }, { parent_id: 'wr', child_id: 'shelly', type: 'data' }];
+  const pairs = [{ parent: 'wr', child: 'akku' }, { parent: 'wr', child: 'shelly' }];
+  const { children, dirOf } = w.flowContext(pairs, index, energy);
+  assert.deepEqual(plain([...children.entries()]), [['wr', ['akku']]]);
+  assert.equal(dirOf('wr', 'akku'), 'reversed');
+  assert.equal(dirOf('wr', 'shelly'), 'auto');
+});

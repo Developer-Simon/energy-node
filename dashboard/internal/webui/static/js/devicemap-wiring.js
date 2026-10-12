@@ -55,5 +55,14 @@
 
   const prune = (edgeProps, livePairKeys) => (edgeProps || []).filter(prop => livePairKeys.has(key(prop.parent_id, prop.child_id)));
 
-  window.DeviceMapWiring = {TYPES, DIRECTIONS, propsIndex, resolve, applyDirection, energyPairs, setProp, prune};
+  // What edgeFlow() needs over the energy edges only: the children index and
+  // the direction of each energy pair. Data and info edges carry no flow.
+  const flowContext = (pairs, edgeProps, energy) => {
+    const energyOnly = energyPairs(pairs, propsIndex(edgeProps), energy);
+    const children = window.DeviceMapModel.childrenIndex(energyOnly);
+    const dirOf = (parent, child) => (energyOnly.find(pair => pair.parent === parent && pair.child === child) || {}).direction || 'auto';
+    return {children, dirOf};
+  };
+
+  window.DeviceMapWiring = {TYPES, DIRECTIONS, propsIndex, resolve, applyDirection, energyPairs, setProp, prune, flowContext};
 })();
