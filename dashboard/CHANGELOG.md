@@ -12,6 +12,7 @@
 - **dashboard:** energy statistics tile for today, week, month and year (dc47016)
 - **dashboard:** statistics page with stacked bars, table and coverage (4aacfc7)
 - **dashboard:** energy statistics recording mode and status in the history settings (8abfcad)
+- **dashboard:** align the statistics page and tile with the history design (b7a14ef)
 - **dashboard:** energy statistics tile, page and recording mode (#132)
 - **energystats:** store hours from Home Assistant and count them per day (c75cf9e)
 - **energystats:** fetch hourly energy from the companion as a pseudo peer (31626d7)
