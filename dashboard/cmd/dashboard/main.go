@@ -29,6 +29,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/devicefilter"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/httpapi"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -190,6 +191,10 @@ func main() {
 	}
 	tailscaleClient := tailscale.NewClient(cfg.Tailscale.Bin, systemactions.ExecOutputRunner{}, time.Duration(cfg.Tailscale.StatusTimeoutS)*time.Second)
 	runtimeStore := runtimecache.NewStore(dataDir)
+	energyStatsStore := energystats.NewStore(filepath.Join(dataDir, "energystats"))
+	energyRecorder := energystats.NewRecorder(energyStatsStore, energystats.SystemClockReady("/run/systemd/timesync", 15*time.Minute))
+	energyStats := &energystats.Service{Store: energyStatsStore, Recorder: energyRecorder}
+	energyRecorderDone := make(chan struct{})
 	credentialStore := tinytuya.NewCredentialStore(dataDir)
 	if err := runtimeStore.Load(); err != nil {
 		log.Printf("energy-node-dashboard: runtime cache ignored: %v", err)
@@ -470,6 +475,7 @@ func main() {
 			BridgeTargetPath:    cfg.Dashboard.MosquittoBridgeTarget,
 			Tailscale:           tailscaleClient,
 			Resolver:            energyResolver,
+			EnergyStats:         energyStats,
 			InstalledServices: map[string]bool{
 				"automation": cfg.ServiceInstalled("automation"),
 				"tailscale":  cfg.ServiceInstalled("tailscale"),
@@ -486,6 +492,27 @@ func main() {
 		})),
 		ReadHeaderTimeout: 5 * time.Second,
 	}
+
+	go func() {
+		// Eigene Monotonuhr: time.Since(monoStart) laeuft auch dann
+		// gleichmaessig weiter, wenn NTP die Wanduhr stellt. Daran erkennt
+		// der Recorder den Uhrsprung.
+		defer close(energyRecorderDone)
+		monoStart := time.Now()
+		ticker := time.NewTicker(10 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				energyRecorder.Close()
+				return
+			case <-ticker.C:
+				now := time.Now()
+				snapshot := energy.Aggregate(reg.Snapshot(), energyResolver, now.UTC()).WithInterpretation(energyResolver.Interpretation())
+				energyRecorder.Observe(now, time.Since(monoStart), snapshot)
+			}
+		}
+	}()
 
 	go func() {
 		ticker := time.NewTicker(10 * time.Second)
@@ -568,6 +595,11 @@ func main() {
 		if err := flusher.Flush(); err != nil {
 			log.Printf("energy-node-dashboard: storage health flush failed: %v", err)
 		}
+	}
+	select {
+	case <-energyRecorderDone:
+	case <-time.After(5 * time.Second):
+		log.Printf("energy-node-dashboard: energy statistics did not flush in time")
 	}
 }
 

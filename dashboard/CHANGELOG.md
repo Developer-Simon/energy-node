@@ -1,17 +1,25 @@
 # Changelog
 
-## v0.9.6 (2026-10-12)
+## v0.9.7 (2026-10-12)
 
 ### Features
 
 - **dashboard:** show update progress and what's new after an update (#123) (7c1388f)
 - **dashboard:** show exchange and history status as tiles (#125) (1013cd2)
 - **devicemap:** merge the balance node into the energy_node device (#126) (67870d1)
+- **devicemap:** hang the automation device under the node and link its rules (#127) (c4c2401)
+- **energystats:** hourly month model with source precedence (4efb3e7)
+- **energystats:** integrate power samples into hourly kWh (ded870b)
+- **energystats:** persist months atomically and survive corrupt files (2acdbd2)
+- **energystats:** record balance snapshots with clock and staleness guards (8872b93)
+- **energystats:** sum hours into local days, months and years (e64d3f4)
+- **dashboard:** record energy statistics and serve them at /api/v1/energy/stats (b444540)
+- **energystats:** add a week period to the statistics query (803d5b1)
+- **dashboard:** hourly energy statistics recorded on the server (#128)
 - **devicemap:** link the automation device to the rules it runs (11d6c51)
 - **devicemap:** place rules below the automation device (c61106b)
 - **devicemap:** show the automation device under the energy node in the example (ad10903)
 - **devicemap:** toggle the lines to the automation node and default to curved arrows (b463be2)
-- **devicemap:** hang the automation device under the node and link its rules (#127)
 - **devicemap:** resolve the balance node to the energy_node device (fbc32dc)
 - **devicemap:** draw energy_node as the balance node on the map (b167ee7)
 - **devicemap:** draw energy_node as the balance node on the plant view (993e14e)
@@ -39,6 +47,7 @@
 ### Fixes
 
 - **dashboard:** serve the automation history in full (#119) (1e04a2a)
+- **energystats:** check the error of the future-period query test (75c038a)
 - **devicemap:** place balance-fed data nodes by energy_node position (07906f9)
 - **dashboard:** address final review of the update bar and what's new page (b3ab4d3)
 
