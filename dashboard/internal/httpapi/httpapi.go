@@ -32,6 +32,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
@@ -150,6 +151,9 @@ type RouterDependencies struct {
 	BridgeTargetPath   string
 	Tailscale          *tailscale.Client
 	Resolver           *energy.Resolver
+	// EnergyStats liefert /api/v1/energy/stats. nil heisst "nicht
+	// verfuegbar" (501), etwa in Tests ohne Datenverzeichnis.
+	EnergyStats *energystats.Service
 	// InstalledServices ist die aufgeloeste installed_services-Sicht aus
 	// appconfig.Config (Installer-Spec E7) fuer die drei Tabs/Unterseiten,
 	// die das Dashboard je nach Auswahl ausblendet: automation, tailscale,
@@ -291,6 +295,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
+	mux.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
 	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store))
 	newHistoryExchange(recordedExchangeSeries(reg, store, resolver)).routes(mux)
 	mux.HandleFunc("/api/v1/diagnostics", handleDiagnostics(engine))

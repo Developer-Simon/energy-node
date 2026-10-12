@@ -485,3 +485,11 @@ The contract test `TestEveryServiceTopicFieldDeclaresDataflow` in
 `dashboard/internal/dataflow/contract_test.go` walks the schema of every
 service and fails for a topic field without an annotation, so a new service has
 to decide for each topic whether it appears in the data flow.
+
+## 13. Energy statistics
+
+The dashboard records energy per hour and role on its own, whether or not a browser is open. Every 10 seconds `internal/energystats` takes the energy snapshot with its derived balance and integrates the balance fields (`pv`, `grid_import`, `grid_export`, `battery_charge`, `battery_discharge`, `load_total`, `base`, `wallbox`, `heat_pump` and consumer or producer categories as `custom:<id>`) into kWh. A value counts until the next snapshot, for at most 5 minutes. A snapshot with a stale power role is skipped. Recording waits until the system clock is synchronised, and a clock jump discards the running hour.
+
+Hours are stored per UTC month in `<data dir>/energystats/<yyyy-mm>.json`. Each hour carries its source: own recording or Home Assistant. Home Assistant always wins over own recording.
+
+`GET /api/v1/energy/stats?period=day|month|year&at=<date>` sums the hours into hours, days or months in the local time zone and adds autarky and self consumption for each bucket and for the whole period.
