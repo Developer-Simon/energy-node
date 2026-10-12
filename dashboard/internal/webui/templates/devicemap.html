@@ -126,6 +126,30 @@
               </ul>
             </div>
           </template>
+          <template x-if="popover.edge && !popover.edge.membership">
+            <div class="category-fields devicemap-edge-settings">
+              <div class="category-field" role="radiogroup" aria-label="{{t "devicemap.edge.type_label"}}">
+                <span class="category-field-label">{{t "devicemap.edge.type_label"}}<span class="devicemap-edge-detected" x-show="popover.edge.heuristic">{{t "devicemap.edge.detected"}}</span></span>
+                <div class="category-segmented">
+                  <label><input type="radio" name="devicemap-edge-type" value="energy" x-bind:checked="popover.edge.type === 'energy'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeType('energy')"><span>{{t "devicemap.edge.type.energy"}}</span></label>
+                  <label><input type="radio" name="devicemap-edge-type" value="data" x-bind:checked="popover.edge.type === 'data'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeType('data')"><span>{{t "devicemap.edge.type.data"}}</span></label>
+                  <label><input type="radio" name="devicemap-edge-type" value="info" x-bind:checked="popover.edge.type === 'info'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeType('info')"><span>{{t "devicemap.edge.type.info"}}</span></label>
+                </div>
+              </div>
+              <div class="category-field" role="radiogroup" aria-label="{{t "devicemap.edge.direction_label"}}" x-show="popover.edge.type === 'energy'">
+                <span class="category-field-label">{{t "devicemap.edge.direction_label"}}</span>
+                <div class="category-segmented">
+                  <label><input type="radio" name="devicemap-edge-direction" value="auto" x-bind:checked="popover.edge.direction === 'auto'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeDirection('auto')"><span>{{t "devicemap.edge.direction.auto"}}</span></label>
+                  <label><input type="radio" name="devicemap-edge-direction" value="reversed" x-bind:checked="popover.edge.direction === 'reversed'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeDirection('reversed')"><span>{{t "devicemap.edge.direction.reversed"}}</span></label>
+                  <label><input type="radio" name="devicemap-edge-direction" value="fixed_down" x-bind:checked="popover.edge.direction === 'fixed_down'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeDirection('fixed_down')"><span x-text="$t('devicemap.edge.direction.fixed_to', {name: popover.edge.childName})"></span></label>
+                  <label><input type="radio" name="devicemap-edge-direction" value="fixed_up" x-bind:checked="popover.edge.direction === 'fixed_up'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeDirection('fixed_up')"><span x-text="$t('devicemap.edge.direction.fixed_to', {name: popover.edge.parentName})"></span></label>
+                </div>
+              </div>
+            </div>
+          </template>
+          <button type="button" class="pill-button" x-show="popover.edge && popover.edge.canReverse" x-on:click="reverseSelectedRelation()" x-bind:disabled="!canEditEnergy">
+            <span>{{t "devicemap.edge.reverse"}}</span>
+          </button>
           <button type="button" class="pill-button danger" x-show="popover.action" x-on:click="runPopoverAction()">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg><span x-text="popover.action ? popover.action.label : ''"></span>
           </button>

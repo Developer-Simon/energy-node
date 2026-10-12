@@ -1050,6 +1050,7 @@ div.devicemap-view-menu-row { cursor: default; }
   .nav-row-button:hover .nav-row-arrow { transform: none; }
 }
 .devicemap-popover .pill-button, .devicemap-popover .nav-row-button { margin-top: 2px; }
+.devicemap-edge-detected { margin-left: .4rem; }
 
 /* Explanations of the group panel sit behind (?) tooltips. The panel body
    scrolls and clips everything inside it, so the anchor is not positioned
