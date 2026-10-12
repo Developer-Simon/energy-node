@@ -14,6 +14,7 @@
 - **energystats:** record balance snapshots with clock and staleness guards (8872b93)
 - **energystats:** sum hours into local days, months and years (e64d3f4)
 - **dashboard:** record energy statistics and serve them at /api/v1/energy/stats (b444540)
+- **energystats:** add a week period to the statistics query (803d5b1)
 - **dashboard:** hourly energy statistics recorded on the server (#128)
 - **devicemap:** link the automation device to the rules it runs (11d6c51)
 - **devicemap:** place rules below the automation device (c61106b)
