@@ -1,5 +1,14 @@
 # Changelog
 
+## v0.9.9 (2026-10-12)
+
+### Features
+
+- **energystats:** store hours from Home Assistant and count them per day (c75cf9e)
+- **energystats:** fetch hourly energy from the companion as a pseudo peer (31626d7)
+- **dashboard:** exchange the 1h tier and route companion statistics to energystats (5986c21)
+- hourly energy statistics from Home Assistant via the companion (#130)
+
 ## v0.9.8 (2026-10-12)
 
 ### Features
@@ -9,6 +18,7 @@
 - **devicemap:** merge the balance node into the energy_node device (#126) (67870d1)
 - **devicemap:** hang the automation device under the node and link its rules (#127) (c4c2401)
 - **dashboard:** hourly energy statistics recorded on the server (#128) (b18f85e)
+- **devicemap:** connection types with flow direction and reversible manual edges (#129) (e36ecaf)
 - **devicemap:** store a connection type and flow direction per edge (727b779)
 - **devicemap:** reverse a manual relation in place (484c889)
 - **devicemap:** resolve connection type and flow direction per edge (4a4b69c)
@@ -19,7 +29,6 @@
 - **devicemap:** polish the reverse button, reorder the layer buttons and add a width icon (70a0752)
 - **devicemap:** rename the balance layer to roles and move balance conditions to the data layer (39d962a)
 - **devicemap:** calm down the wiring edge card (922d9a2)
-- **devicemap:** connection types with flow direction and reversible manual edges (#129)
 - **energystats:** hourly month model with source precedence (4efb3e7)
 - **energystats:** integrate power samples into hourly kWh (ded870b)
 - **energystats:** persist months atomically and survive corrupt files (2acdbd2)
