@@ -130,9 +130,11 @@ category and selects it for that group.
 
 ![Energy balance layer](../images/dashboard-device-map-balance.png)
 
-Every device with a role is connected to the balance node in the colour of its
-role. The balance publishes the result for automations, so the map shows the
-value a rule compares against.
+The balance is the Energy Node itself, the device the dashboard publishes for
+Home Assistant. Every device with a role is connected to it in the colour of its
+role, and the node shows the net grid power. The balance publishes the result
+for automations, so the map shows the value a rule compares against. Without
+the Energy Node device, a separate balance node stands in for it.
 
 ### Data flow layer
 
