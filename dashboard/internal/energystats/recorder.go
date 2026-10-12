@@ -114,12 +114,13 @@ func SystemClockReady(timesyncDir string, grace time.Duration) ClockReady {
 
 // Status ist der Zustand der eigenen Aufzeichnung fuer die API.
 type Status struct {
-	State      string     `json:"state"`
-	Mode       string     `json:"mode"`
-	ClockReady bool       `json:"clock_ready"`
-	Stale      bool       `json:"stale"`
-	LastHour   *time.Time `json:"last_hour,omitempty"`
-	WriteError string     `json:"write_error,omitempty"`
+	State         string     `json:"state"`
+	Mode          string     `json:"mode"`
+	ClockReady    bool       `json:"clock_ready"`
+	Stale         bool       `json:"stale"`
+	LastHour      *time.Time `json:"last_hour,omitempty"`
+	WriteError    string     `json:"write_error,omitempty"`
+	CorruptMonths []string   `json:"corrupt_months,omitempty"`
 }
 
 // Recorder verbindet Snapshots, Integrator und Store.
