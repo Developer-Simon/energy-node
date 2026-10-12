@@ -1,6 +1,7 @@
 """Ein Formular: Adresse des Dashboards und ob das Zertifikat geprueft wird."""
 from __future__ import annotations
 
+from collections.abc import Mapping
 from urllib.parse import urlparse
 
 import aiohttp
@@ -10,13 +11,14 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
-    IconSelector, SelectSelector, SelectSelectorConfig, SelectSelectorMode, TextSelector,
+    EntitySelector, EntitySelectorConfig, IconSelector, SelectSelector, SelectSelectorConfig, SelectSelectorMode,
+    TextSelector,
 )
 
 from .client import AuthRequired, DashboardClient, ExchangeError
 from .const import (
-    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ALL,
-    PANEL_ICON, PANEL_MODES, PANEL_OFF, PANEL_TITLE, PROTOCOL,
+    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_STATS, CONF_URL, CONF_VERIFY_SSL, COUNTER_PREFIX,
+    DOMAIN, PANEL_ALL, PANEL_ICON, PANEL_MODES, PANEL_OFF, PANEL_TITLE, PROTOCOL, STATS_ROLES, counter_key,
 )
 
 # Das Geraet, das das Dashboard per MQTT Discovery anlegt
@@ -120,6 +122,7 @@ class EnergyNodeConfigFlow(ConfigFlow, domain=DOMAIN):
 
 OPTIONS_SCHEMA = vol.Schema({
     vol.Required(CONF_HISTORY, default=True): bool,
+    vol.Required(CONF_STATS, default=True): bool,
     vol.Required(CONF_PANEL, default=PANEL_ALL): SelectSelector(SelectSelectorConfig(
         options=list(PANEL_MODES), translation_key="panel", mode=SelectSelectorMode.LIST,
     )),
@@ -129,23 +132,61 @@ OPTIONS_SCHEMA = vol.Schema({
     vol.Optional(CONF_PANEL_ICON): IconSelector(),
 })
 
+# Ein Zaehler je Rolle, leer heisst Automatisch (Discovery-Sensor) bzw. bei
+# wallbox und heat_pump "nicht liefern".
+STATS_SCHEMA = vol.Schema({
+    vol.Optional(counter_key(role)): EntitySelector(EntitySelectorConfig(domain="sensor", device_class="energy"))
+    for role in STATS_ROLES
+})
+
+
+def _counters(options: Mapping) -> dict:
+    return {key: value for key, value in options.items() if key.startswith(COUNTER_PREFIX) and value}
+
+
+def _is_counter(hass: HomeAssistant, entity_id: str) -> bool:
+    state = hass.states.get(entity_id)
+    return state is not None and state.attributes.get("state_class") in ("total", "total_increasing")
+
 
 class EnergyNodeOptionsFlow(OptionsFlowWithReload):
-    """Verlaeufe, Panel in der Seitenleiste und dessen Name und Symbol. Speichern laedt den Eintrag neu."""
+    """Verlaeufe, Energiestatistik, Panel. Speichern laedt den Eintrag neu."""
+
+    _base: dict
 
     async def async_step_init(self, user_input: dict | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            if not user_input[CONF_HISTORY] and user_input[CONF_PANEL] == PANEL_OFF:
+            if not user_input[CONF_HISTORY] and not user_input[CONF_STATS] and user_input[CONF_PANEL] == PANEL_OFF:
                 errors["base"] = "nothing_enabled"
+            elif user_input[CONF_STATS]:
+                self._base = user_input
+                return await self.async_step_stats()
             else:
-                return self.async_create_entry(data=user_input)
+                # Zaehler bleiben erhalten, falls die Statistik spaeter wieder an geht.
+                return self.async_create_entry(data={**_counters(self.config_entry.options), **user_input})
         current = {
-            CONF_HISTORY: True, CONF_PANEL: PANEL_ALL, CONF_PANEL_TITLE: PANEL_TITLE, CONF_PANEL_ICON: PANEL_ICON,
+            CONF_HISTORY: True, CONF_STATS: True, CONF_PANEL: PANEL_ALL,
+            CONF_PANEL_TITLE: PANEL_TITLE, CONF_PANEL_ICON: PANEL_ICON,
             **self.config_entry.options,
         }
         return self.async_show_form(
             step_id="init",
             data_schema=self.add_suggested_values_to_schema(OPTIONS_SCHEMA, user_input or current),
+            errors=errors,
+        )
+
+    async def async_step_stats(self, user_input: dict | None = None) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            counters = _counters(user_input)
+            for key, entity_id in counters.items():
+                if not _is_counter(self.hass, entity_id):
+                    errors[key] = "not_a_counter"
+            if not errors:
+                return self.async_create_entry(data={**self._base, **counters})
+        return self.async_show_form(
+            step_id="stats",
+            data_schema=self.add_suggested_values_to_schema(STATS_SCHEMA, user_input or _counters(self.config_entry.options)),
             errors=errors,
         )

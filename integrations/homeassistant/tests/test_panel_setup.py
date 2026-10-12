@@ -8,8 +8,8 @@ from homeassistant.components.frontend import DATA_PANELS
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.energy_node_companion.const import (
-    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_URL, CONF_VERIFY_SSL, DOMAIN, PANEL_ADMINS,
-    PANEL_ALL, PANEL_OFF, panel_url_path,
+    CONF_HISTORY, CONF_PANEL, CONF_PANEL_ICON, CONF_PANEL_TITLE, CONF_STATS, CONF_URL, CONF_VERIFY_SSL, DOMAIN,
+    PANEL_ADMINS, PANEL_ALL, PANEL_OFF, panel_url_path,
 )
 
 BASE = Path(__file__).resolve().parents[1] / "custom_components/energy_node_companion"
@@ -68,11 +68,13 @@ async def test_unload_removes_the_panel(hass):
     assert _panel(hass, entry) is None
 
 
-async def _options(hass, entry, data):
+async def _options(hass, entry, data, stats=None):
     result = await hass.config_entries.options.async_init(entry.entry_id)
     assert result["type"] == "form"
     with patch("custom_components.energy_node_companion.HistoryPeer.run", AsyncMock()):
         result = await hass.config_entries.options.async_configure(result["flow_id"], data)
+        if result["type"] == "form" and result["step_id"] == "stats":
+            result = await hass.config_entries.options.async_configure(result["flow_id"], stats or {})
         await hass.async_block_till_done()
     return result
 
@@ -86,7 +88,7 @@ async def test_options_flow_switches_visibility(hass):
     entry = await _setup(hass)
     result = await _options(hass, entry, {CONF_PANEL: PANEL_ADMINS})
     assert result["type"] == "create_entry"
-    assert entry.options == {CONF_HISTORY: True, CONF_PANEL: PANEL_ADMINS}
+    assert entry.options == {CONF_HISTORY: True, CONF_STATS: True, CONF_PANEL: PANEL_ADMINS}
     assert _panel(hass, entry).require_admin is True
 
 
@@ -107,9 +109,9 @@ async def test_options_flow_starts_with_everything_on(hass):
     assert _suggested(result, CONF_PANEL_TITLE) == "Energy Node"
 
 
-async def test_options_flow_needs_history_or_panel(hass):
+async def test_options_flow_needs_something_on(hass):
     entry = await _setup(hass)
-    result = await _options(hass, entry, {CONF_HISTORY: False, CONF_PANEL: PANEL_OFF})
+    result = await _options(hass, entry, {CONF_HISTORY: False, CONF_STATS: False, CONF_PANEL: PANEL_OFF})
     assert result["type"] == "form"
     assert result["errors"] == {"base": "nothing_enabled"}
     assert entry.options == {}
@@ -130,11 +132,50 @@ async def test_empty_name_and_icon_fall_back_to_the_defaults(hass):
     assert panel.sidebar_icon == "mdi:solar-power-variant"
 
 
-async def test_history_off_starts_no_peer(hass):
+async def test_history_and_stats_off_starts_no_peer(hass):
     run = AsyncMock()
-    entry = await _setup(hass, {CONF_HISTORY: False}, run=run)
+    entry = await _setup(hass, {CONF_HISTORY: False, CONF_STATS: False}, run=run)
     run.assert_not_awaited()
     assert _panel(hass, entry) is not None
+
+
+async def test_stats_alone_starts_the_peer(hass):
+    run = AsyncMock()
+    await _setup(hass, {CONF_HISTORY: False}, run=run)
+    run.assert_awaited_once()
+
+
+async def test_options_flow_starts_with_stats_on(hass):
+    entry = await _setup(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert _suggested(result, CONF_STATS) is True
+
+
+async def test_counter_must_be_a_total_sensor(hass):
+    hass.states.async_set("sensor.meter", "1", {"state_class": "measurement", "device_class": "energy", "unit_of_measurement": "kWh"})
+    entry = await _setup(hass)
+    result = await _options(hass, entry, {}, stats={"counter_pv": "sensor.meter"})
+    assert result["type"] == "form" and result["step_id"] == "stats"
+    assert result["errors"] == {"counter_pv": "not_a_counter"}
+
+    hass.states.async_set("sensor.meter", "1", {"state_class": "total_increasing", "device_class": "energy", "unit_of_measurement": "kWh"})
+    result = await _options(hass, entry, {}, stats={"counter_pv": "sensor.meter"})
+    assert result["type"] == "create_entry"
+    assert entry.options["counter_pv"] == "sensor.meter"
+
+
+async def test_stats_off_keeps_the_counters(hass):
+    entry = await _setup(hass, {"counter_pv": "sensor.meter"})
+    await _options(hass, entry, {CONF_STATS: False})
+    assert entry.options["counter_pv"] == "sensor.meter"
+    assert entry.options[CONF_STATS] is False
+
+
+async def test_emptied_counter_is_removed(hass):
+    hass.states.async_set("sensor.meter", "1", {"state_class": "total_increasing", "device_class": "energy"})
+    entry = await _setup(hass, {"counter_pv": "sensor.meter"})
+    await _options(hass, entry, {}, stats={})
+    assert "counter_pv" not in entry.options
 
 
 async def test_panel_only_off_still_supplies_history(hass):
