@@ -262,7 +262,11 @@
         <div class="energy-stats-kpi"><dt x-text="kpi.label"></dt><dd x-text="kpi.value"></dd></div>
       </template>
     </dl>
-    <p class="energy-stats-coverage" x-text="coverage"></p>
+    <div class="energy-stats-coverage" role="status">
+      <template x-for="part in coverageParts" x-bind:key="part.kind">
+        <span class="energy-stats-pill" x-bind:class="`energy-stats-pill--${part.kind}`" x-text="part.text"></span>
+      </template>
+    </div>
   </section>
 {{end}}
 

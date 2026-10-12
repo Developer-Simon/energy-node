@@ -24,6 +24,7 @@
     itemId: '',
     kpis: [],
     coverage: '',
+    coverageParts: [],
     error: '',
     data: null,
 
@@ -44,6 +45,7 @@
         this.error = '';
         this.kpis = model.kpis(data.total, CARD_KPIS);
         this.coverage = model.coverageText(data.total && data.total.hours);
+        this.coverageParts = model.coverageParts(data.total && data.total.hours);
       } catch (error) {
         this.error = error.message;
       }

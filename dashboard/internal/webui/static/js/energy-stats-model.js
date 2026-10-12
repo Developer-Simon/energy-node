@@ -70,6 +70,18 @@
     return text.charAt(0).toLocaleUpperCase() + text.slice(1);
   }
 
+  // Die Datenlage als einzelne Teile fuer Pillen: {kind, text}. kind ist
+  // ha, own, none oder empty. Ohne jede Stunde bleibt nur "Noch keine Daten".
+  function coverageParts(hours) {
+    const h = hours || {};
+    const parts = [];
+    if (h.ha) parts.push({kind: 'ha', text: t('energy_stats.coverage.ha', {n: h.ha})});
+    if (h.own) parts.push({kind: 'own', text: t('energy_stats.coverage.own', {n: h.own})});
+    if (!parts.length) return [{kind: 'empty', text: t('energy_stats.coverage.empty')}];
+    if (h.none) parts.push({kind: 'none', text: t('energy_stats.coverage.none', {n: h.none})});
+    return parts.map(part => ({...part, text: part.text.charAt(0).toLocaleUpperCase() + part.text.slice(1)}));
+  }
+
   // local ist "2006-01-02T15:04" in Ortszeit des Pi. Als Date im Browser
   // gebaut, nur zum Beschriften: Stunde und Tag bleiben die des Pi.
   function localDate(local) {
@@ -165,6 +177,6 @@
   }
 
   window.EnergyStatsModel = {
-    PERIODS, fetchStats, formatKWh, kpis, coverageText, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, tableRows,
+    PERIODS, fetchStats, formatKWh, kpis, coverageText, coverageParts, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, tableRows,
   };
 })();

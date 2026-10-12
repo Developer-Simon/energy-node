@@ -74,6 +74,8 @@
 #                    Speichern, Temperatur/Feuchte kommen als Proben an.
 #   verlauf-kachel   wie energie-simulate, mit einer gebundenen und einer
 #                    eigenen history_view-Kachel; Pruefung mit history-view-tile.mjs
+#   statistik        wie verlauf-kachel, mit der Kachel energy_stats und dem
+#                    Fake-Companion (Energiestatistik mit Daten)
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
@@ -180,8 +182,14 @@ while [[ $# -gt 0 ]]; do
           SEED_DATA="$HERE/fixtures/seed/verlauf-kachel"
           SIMULATE=1
           ;;
+        statistik)
+          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
+          SEED_DATA="$HERE/fixtures/seed/statistik"
+          SIMULATE=1
+          FAKE_COMPANION=1
+          ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht, verlauf-kachel)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht, verlauf-kachel, statistik)" >&2
           exit 2
           ;;
       esac

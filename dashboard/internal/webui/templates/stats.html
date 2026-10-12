@@ -1,18 +1,17 @@
 {{define "stats"}}
-<div class="stats-page" x-data="statsPanel()" x-init="init()">
+<section id="stats-panel" class="panel" role="tabpanel" aria-labelledby="tab-stats" x-bind:class="{ active: activePanel === 'stats-panel' }" x-show="activePanel === 'stats-panel'" x-data="statsPanel()" x-init="init()">
   <h2>{{t "energy_stats.title"}}</h2>
-  <div class="stats-toolbar">
-    <div class="stats-periods" role="group" aria-label="{{t "energy_stats.period.label"}}">
-      <button type="button" class="stats-chip" x-bind:class="{active: period === 'day'}" x-bind:aria-pressed="period === 'day'" x-on:click="selectPeriod('day')">{{t "energy_stats.period.day"}}</button>
-      <button type="button" class="stats-chip" x-bind:class="{active: period === 'week'}" x-bind:aria-pressed="period === 'week'" x-on:click="selectPeriod('week')">{{t "energy_stats.period.week"}}</button>
-      <button type="button" class="stats-chip" x-bind:class="{active: period === 'month'}" x-bind:aria-pressed="period === 'month'" x-on:click="selectPeriod('month')">{{t "energy_stats.period.month"}}</button>
-      <button type="button" class="stats-chip" x-bind:class="{active: period === 'year'}" x-bind:aria-pressed="period === 'year'" x-on:click="selectPeriod('year')">{{t "energy_stats.period.year"}}</button>
-    </div>
-    <div class="stats-nav">
-      <button type="button" class="stats-nav-btn" x-on:click="prev()" x-bind:disabled="!hasPrev || loading">{{t "energy_stats.prev"}}</button>
-      <strong class="stats-title" x-text="title"></strong>
-      <button type="button" class="stats-nav-btn" x-on:click="next()" x-bind:disabled="!hasNext || loading">{{t "energy_stats.next"}}</button>
-    </div>
+  <div class="history-chip-group" role="group" aria-label="{{t "energy_stats.period.label"}}">
+    <span class="history-chip-group-label"><svg class="history-chip-group-icon" aria-hidden="true"><use href="#ico-clock"></use></svg>{{t "energy_stats.period.label"}}</span>
+      <button type="button" class="history-chip" x-bind:class="{active: period === 'day'}" x-bind:aria-pressed="period === 'day'" x-on:click="selectPeriod('day')">{{t "energy_stats.period.day"}}</button>
+      <button type="button" class="history-chip" x-bind:class="{active: period === 'week'}" x-bind:aria-pressed="period === 'week'" x-on:click="selectPeriod('week')">{{t "energy_stats.period.week"}}</button>
+      <button type="button" class="history-chip" x-bind:class="{active: period === 'month'}" x-bind:aria-pressed="period === 'month'" x-on:click="selectPeriod('month')">{{t "energy_stats.period.month"}}</button>
+      <button type="button" class="history-chip" x-bind:class="{active: period === 'year'}" x-bind:aria-pressed="period === 'year'" x-on:click="selectPeriod('year')">{{t "energy_stats.period.year"}}</button>
+  </div>
+  <div class="stats-nav" role="group" aria-label="{{t "energy_stats.period.label"}}">
+    <button type="button" class="history-chip" x-on:click="prev()" x-bind:disabled="!hasPrev || loading">{{t "energy_stats.prev"}}</button>
+    <strong class="stats-title" aria-live="polite" x-text="title"></strong>
+    <button type="button" class="history-chip" x-on:click="next()" x-bind:disabled="!hasNext || loading">{{t "energy_stats.next"}}</button>
   </div>
   <p class="stats-error" role="alert" x-show="error" x-text="error"></p>
   <dl class="stats-kpis">
@@ -20,10 +19,17 @@
       <div class="stats-kpi"><dt x-text="kpi.label"></dt><dd x-text="kpi.value"></dd></div>
     </template>
   </dl>
-  <p class="stats-coverage" role="status" x-text="coverage"></p>
-  <div class="stats-chart" role="img" aria-label="{{t "energy_stats.chart.label"}}" x-ref="chart"></div>
-  <p class="stats-empty" x-show="empty">{{t "energy_stats.empty"}}</p>
-  <div class="stats-table-wrap" x-show="rows.length">
+  <div class="history-status stats-coverage" role="status" x-bind:data-state="loading ? 'loading' : (empty ? 'empty' : 'ok')">
+    <span class="history-status-dot" aria-hidden="true"></span>
+    <template x-for="part in coverageParts" x-bind:key="part.kind">
+      <span class="history-status-pill" x-bind:class="{'history-status-pill--exchange': part.kind === 'ha', 'history-status-pill--warn': part.kind === 'none', 'history-status-pill--strong': part.kind === 'own'}" x-text="part.text"></span>
+    </template>
+  </div>
+  <div class="history-empty" x-show="empty"><strong>{{t "energy_stats.empty"}}</strong></div>
+  <div class="stats-card stats-chart-card" x-show="!empty">
+    <div class="stats-chart" role="img" aria-label="{{t "energy_stats.chart.label"}}" x-ref="chart"></div>
+  </div>
+  <div class="stats-card stats-table-wrap" x-show="rows.length">
     <table class="stats-table">
       <thead>
         <tr>
@@ -43,5 +49,5 @@
       </tbody>
     </table>
   </div>
-</div>
+</section>
 {{end}}

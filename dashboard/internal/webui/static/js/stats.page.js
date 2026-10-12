@@ -6,20 +6,38 @@
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const PAGE_KPIS = ['consumption', 'pv', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge', 'autarky', 'self_consumption'];
 
+  // Wie HistoryChart.themeMode, ohne history-chart.js zu laden.
+  function themeMode() {
+    const attr = (document.documentElement.dataset.theme || '').toLowerCase();
+    if (attr === 'light' || attr === 'dark') return attr;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+
   function chartOptions(result) {
     const model = window.EnergyStatsModel;
+    const theme = window.DashboardTheme;
     const series = model.chartSeries(result);
+    // Ein Array: ApexCharts faerbt bei einem einzelnen String nur die ersten Marken.
+    const labelColor = theme.color('text-muted');
+    const labelStyle = {colors: Array(24).fill(labelColor), fontSize: '12px'};
     return {
-      chart: {type: 'bar', stacked: true, height: 320, toolbar: {show: false}, animations: {enabled: false}, fontFamily: 'inherit'},
+      chart: {type: 'bar', stacked: true, height: 340, toolbar: {show: false}, animations: {enabled: false}, background: 'transparent', fontFamily: 'inherit'},
+      theme: {mode: themeMode()},
       series: series.map(s => ({name: s.name, data: s.data, color: s.color, role: s.role})),
       colors: series.map(s => s.color),
-      plotOptions: {bar: {columnWidth: '70%'}},
+      stroke: {width: 0},
+      plotOptions: {bar: {columnWidth: '72%', borderRadius: 2}},
       dataLabels: {enabled: false},
-      legend: {position: 'bottom'},
-      xaxis: {categories: result.buckets.map(bucket => model.bucketLabel(result.period, bucket.local))},
-      yaxis: {labels: {formatter: value => window.I18n.formatNumber(Math.abs(value), Math.abs(value) < 10 ? 1 : 0)}, title: {text: 'kWh'}},
+      legend: {position: 'bottom', fontSize: '12px', labels: {colors: theme.color('text-muted')}, markers: {size: 5, shape: 'circle'}, itemMargin: {horizontal: 10}},
+      xaxis: {
+        categories: result.buckets.map(bucket => model.bucketLabel(result.period, bucket.local)),
+        labels: {style: labelStyle, rotate: 0, hideOverlappingLabels: true},
+        axisBorder: {color: theme.color('border-soft')},
+        axisTicks: {color: theme.color('border-soft')},
+      },
+      yaxis: {forceNiceScale: true, labels: {style: labelStyle, showDuplicates: true, formatter: value => window.I18n.formatNumber(Math.abs(value), Math.abs(value) < 10 ? 1 : 0)}, title: {text: 'kWh', style: {color: theme.color('text-muted'), fontWeight: 400}}},
       tooltip: {y: {formatter: value => model.formatKWh(value == null ? null : Math.abs(value))}},
-      grid: {borderColor: window.DashboardTheme.color('border')},
+      grid: {borderColor: theme.color('border-soft'), strokeDashArray: 3},
       noData: {text: t('energy_stats.empty')},
     };
   }
@@ -33,6 +51,7 @@
     title: '',
     kpis: [],
     coverage: '',
+    coverageParts: [],
     rows: [],
     labels: [],
     empty: false,
@@ -70,6 +89,7 @@
         this.title = model.periodTitle(data);
         this.kpis = model.kpis(data.total, PAGE_KPIS);
         this.coverage = model.coverageText(data.total && data.total.hours);
+        this.coverageParts = model.coverageParts(data.total && data.total.hours);
         this.rows = model.tableRows(data);
         this.labels = data.buckets.map(bucket => model.bucketLabel(data.period, bucket.local));
         const hours = (data.total && data.total.hours) || {};

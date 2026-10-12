@@ -47,6 +47,14 @@ test('kpis liefert kWh und Prozent in der angefragten Reihenfolge', () => {
   dom.window.close();
 });
 
+test('coverageParts liefert je Quelle eine Pille mit kind und Grossbuchstaben', () => {
+  const {model} = loadStatsModel();
+  const parts = JSON.parse(JSON.stringify(model.coverageParts({ha: 20, own: 3, none: 1})));
+  assert.deepEqual(parts.map(part => part.kind), ['ha', 'own', 'none']);
+  assert.deepEqual(parts.map(part => part.text), ['Aus Home Assistant 20 h', 'Eigene Aufzeichnung 3 h', 'Keine Daten 1 h']);
+  assert.deepEqual(JSON.parse(JSON.stringify(model.coverageParts({ha: 0, own: 0, none: 24}))), [{kind: 'empty', text: 'Noch keine Daten'}]);
+});
+
 test('coverageText nennt nur vorhandene Quellen und beginnt gross', () => {
   const {dom, model} = loadStatsModel();
   assert.equal(model.coverageText({ha: 20, own: 3, none: 1}), 'Aus Home Assistant 20 h, eigene Aufzeichnung 3 h, keine Daten 1 h');
