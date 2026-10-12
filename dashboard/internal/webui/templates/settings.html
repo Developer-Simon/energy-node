@@ -310,6 +310,22 @@
       <button type="button" class="setting-quiet-btn" x-on:click="refreshExchangeStatus()">{{t "settings.history.exchange.status.button"}}</button>
     </div>
 
+    <div class="setting-card">
+      <h3 class="setting-card-title">{{t "settings.history.energy_stats.title"}}</h3>
+      <p class="setting-note">{{t "settings.history.energy_stats.note"}}</p>
+      <span class="setting-row-label" id="lbl-energy-stats-recording">{{t "settings.history.energy_stats.mode.label"}}</span>
+      <div class="segmented segmented--3" role="radiogroup" aria-labelledby="lbl-energy-stats-recording">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="energy-stats-recording" value="always" x-bind:checked="energyStatsRecording === 'always'" x-on:change="energyStatsRecording = 'always'"><span>{{t "settings.history.energy_stats.mode.always"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="energy-stats-recording" value="pause_with_companion" x-bind:checked="energyStatsRecording === 'pause_with_companion'" x-on:change="energyStatsRecording = 'pause_with_companion'"><span>{{t "settings.history.energy_stats.mode.pause"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="energy-stats-recording" value="off" x-bind:checked="energyStatsRecording === 'off'" x-on:change="energyStatsRecording = 'off'"><span>{{t "settings.history.energy_stats.mode.off"}}</span></label>
+      </div>
+      <ul id="energy-stats-status" class="setting-note energy-stats-status" role="status">
+        <template x-for="(line, index) in energyStatsLines" x-bind:key="index"><li x-text="line"></li></template>
+      </ul>
+      <button type="button" class="setting-quiet-btn" x-on:click="loadEnergyStatsStatus()">{{t "settings.history.energy_stats.status.button"}}</button>
+    </div>
+
     <div class="setting-actions"><button class="primary" type="button" x-on:click="save()" x-bind:disabled="saving || loading" x-text="saving ? $t('settings.saving') : $t('common.save')"></button></div>
   </section>
   <div x-show="activeSettingsPage === 'general' || activeSettingsPage === 'display'">
