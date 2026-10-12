@@ -52,6 +52,7 @@
 ### Tests
 
 - **smoke:** relay client publishes in the minibroker so energy_node shows up (ff720a4)
+- **smoke:** hang four example devices under the energy node via via_device (52dda83)
 - **dashboard:** wait for the offer instead of a fixed delay in the exchange tests (706f5cd)
 - **dashboard:** cover update progress and highlights in the smoke test (beacefa)
 
