@@ -10,6 +10,7 @@
 - **devicemap:** link the automation device to the rules it runs (11d6c51)
 - **devicemap:** place rules below the automation device (c61106b)
 - **devicemap:** show the automation device under the energy node in the example (ad10903)
+- **devicemap:** toggle the lines to the automation node and default to curved arrows (b463be2)
 - **devicemap:** hang the automation device under the node and link its rules (#127)
 - **devicemap:** resolve the balance node to the energy_node device (fbc32dc)
 - **devicemap:** draw energy_node as the balance node on the map (b167ee7)
