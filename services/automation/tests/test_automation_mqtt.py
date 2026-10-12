@@ -1063,6 +1063,32 @@ def test_on_connect_resubscribes_after_a_reconnect_with_an_unchanged_document():
     assert automation.BALANCE_TOPIC in service.client.subscribed
 
 
+def test_device_block_hangs_the_automation_device_under_the_node():
+    block = automation.device_block("automation", "energy_node")
+    assert block == {"identifiers": ["automation"], "name": "Energie-Automationen", "manufacturer": "Energy Node", "via_device": "energy_node"}
+
+
+def test_on_connect_announces_via_device_from_the_app_config():
+    service = automation.AutomationService.__new__(automation.AutomationService)
+    service.doc = doc_with_topics(conditions=[])
+    service.subscribed_topics = set()
+    service.client = FakeClient()
+    service.slave = FakeSlave()
+    service.startup_error = None
+    service.base_topic = "outstation/automation"
+    service.test_command_topic = "outstation/automation/test/set"
+    service.service_config = type('obj', (object,), {'service_id': 'automation'})()
+    service.app_config = type('cfg', (object,), {'dashboard': type('d', (object,), {'node_device_id': 'node-x'})()})()
+    seen = []
+    original = automation.publish_discovery
+    automation.publish_discovery = lambda client, device_id, component, object_id, config: seen.append(config)
+    try:
+        service.on_connect(service.client, None, {}, 0)
+    finally:
+        automation.publish_discovery = original
+    assert seen and all(config["device"]["via_device"] == "node-x" for config in seen)
+
+
 def test_load_initial_document_returns_the_loaded_doc_when_valid(tmp_path):
     path = write_doc(tmp_path, document())
     config_store = automation.ReloadableConfig(path, automation.load_and_validate)
