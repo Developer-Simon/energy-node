@@ -1480,7 +1480,7 @@
   "error.tailscale_rejected": "The Tailscale action was rejected",
   "error.tailscale_status_failed": "The Tailscale status could not be read",
   "error.tailscale_unavailable": "Tailscale actions are not available",
-  "error.tier_unknown": "Only the 1m and 5m levels are exchanged",
+  "error.tier_unknown": "Only the 1m, 5m and 1h levels are exchanged",
   "error.tiny_tuya_cloud_failed": "The Tuya cloud request failed",
   "error.tiny_tuya_credentials_failed": "TinyTuya credentials could not be read",
   "error.tiny_tuya_rejected": "The TinyTuya request was rejected",

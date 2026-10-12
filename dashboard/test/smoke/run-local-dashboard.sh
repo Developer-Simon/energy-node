@@ -258,8 +258,8 @@ check_history_exchange() {
     echo "FEHLER: Ankuendigung nennt nicht Protokoll 1: ${announced}" >&2
     return 1
   }
-  echo "${announced}" | grep -q '"tiers":\["1m","5m"\]' || {
-    echo "FEHLER: Ankuendigung nennt nicht genau die Stufen 1m und 5m" >&2
+  echo "${announced}" | grep -q '"tiers":\["1m","5m","1h"\]' || {
+    echo "FEHLER: Ankuendigung nennt nicht genau die Stufen 1m, 5m und 1h" >&2
     return 1
   }
 

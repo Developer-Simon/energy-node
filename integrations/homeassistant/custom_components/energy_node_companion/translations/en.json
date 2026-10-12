@@ -33,23 +33,40 @@
     "step": {
       "init": {
         "title": "Energy Node Companion",
-        "description": "Choose what the integration does. History or sidebar must stay on. Name and icon apply to the sidebar entry.",
+        "description": "Choose what the integration does. History, energy statistics or the sidebar must stay on. Name and icon apply to the sidebar entry.",
         "data": {
           "history": "Supply history",
+          "stats": "Supply energy statistics",
           "panel": "Sidebar",
           "panel_title": "Name in the sidebar",
           "panel_icon": "Icon in the sidebar"
         },
         "data_description": {
           "history": "Fills gaps in the dashboard's history charts from the recorder.",
+          "stats": "Sends hourly energy per role from the long-term statistics, so the dashboard can show days, months and years.",
           "panel": "Shows the dashboard in the Home Assistant sidebar, for all users or only for administrators.",
           "panel_title": "Empty uses Energy Node.",
           "panel_icon": "Empty uses the solar icon."
         }
+      },
+      "stats": {
+        "title": "Energy statistics",
+        "description": "Pick an energy meter per role if you have one. A meter is more exact and reaches further back. Empty uses the power sensor of Energy Node. Wallbox and heat pump are only supplied with a meter.",
+        "data": {
+          "counter_pv": "PV yield meter",
+          "counter_grid_import": "Grid import meter",
+          "counter_grid_export": "Grid export meter",
+          "counter_battery_charge": "Battery charge meter",
+          "counter_battery_discharge": "Battery discharge meter",
+          "counter_load_total": "Consumption meter",
+          "counter_wallbox": "Wallbox meter",
+          "counter_heat_pump": "Heat pump meter"
+        }
       }
     },
     "error": {
-      "nothing_enabled": "Turn on history or the sidebar. With both off the integration does nothing."
+      "nothing_enabled": "Turn on history, energy statistics or the sidebar. With all of them off the integration does nothing.",
+      "not_a_counter": "This sensor is not a meter. Pick an energy sensor with the state class total or total_increasing."
     }
   },
   "selector": {

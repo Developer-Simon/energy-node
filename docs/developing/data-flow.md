@@ -493,3 +493,11 @@ The dashboard records energy per hour and role on its own, whether or not a brow
 Hours are stored per UTC month in `<data dir>/energystats/<yyyy-mm>.json`. Each hour carries its source: own recording or Home Assistant. Home Assistant always wins over own recording.
 
 `GET /api/v1/energy/stats?period=day|week|month|year&at=<date>` sums the hours into hours, days or months in the local time zone and adds autarky and self consumption for each bucket and for the whole period. Weeks run Monday to Sunday and are summed into days.
+
+### Hours from Home Assistant
+
+The Energy Node Companion offers a third exchange tier `1h` next to `1m` and `5m`. Its rows carry the mean power of one hour in W, which equals the energy of that hour in Wh. Its coverage counts complete hours per UTC day, starting at the oldest day Home Assistant has, at most ten years back. The protocol version stays 1. A companion only offers `1h` when the announcement lists it, and it marks its offer with `kind: "companion"`.
+
+Inside the dashboard `internal/energystats` acts as the pseudo peer `energystats`, like the ring buffer acts as `server`. It reads every companion offer, compares it with the hours it already holds from Home Assistant and requests what is missing, newest days first, at most 31 days per request and one request at a time. Deliveries addressed to `energystats` are handled by the server and never relayed. A day that Home Assistant offers but cannot fill is requested again only when the offered hour count changes.
+
+The statistics API reports `companion.connected`, `companion.current` (the last or second to last complete hour came from Home Assistant for every offered role) and `companion.missing_days`.

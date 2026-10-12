@@ -33,23 +33,40 @@
     "step": {
       "init": {
         "title": "Energy Node Companion",
-        "description": "Wähle, was die Integration tut. Verläufe oder Seitenleiste muss eingeschaltet bleiben. Name und Symbol gelten für den Eintrag in der Seitenleiste.",
+        "description": "Wähle, was die Integration tut. Verläufe, Energiestatistik oder Seitenleiste muss eingeschaltet bleiben. Name und Symbol gelten für den Eintrag in der Seitenleiste.",
         "data": {
           "history": "Verläufe liefern",
+          "stats": "Energiestatistik liefern",
           "panel": "Seitenleiste",
           "panel_title": "Name in der Seitenleiste",
           "panel_icon": "Symbol in der Seitenleiste"
         },
         "data_description": {
           "history": "Füllt Lücken in den Verlaufsdiagrammen des Dashboards aus dem Recorder.",
+          "stats": "Sendet stündliche Energie je Rolle aus der Langzeitstatistik, damit das Dashboard Tage, Monate und Jahre zeigen kann.",
           "panel": "Zeigt das Dashboard in der Seitenleiste von Home Assistant, für alle Benutzer oder nur für Administratoren.",
           "panel_title": "Leer bedeutet Energy Node.",
           "panel_icon": "Leer bedeutet das Solar-Symbol."
         }
+      },
+      "stats": {
+        "title": "Energiestatistik",
+        "description": "Wähle je Rolle einen Energiezähler, falls vorhanden. Ein Zähler ist genauer und reicht weiter zurück. Leer nutzt den Leistungssensor von Energy Node. Wallbox und Wärmepumpe werden nur mit Zähler geliefert.",
+        "data": {
+          "counter_pv": "Zähler PV-Ertrag",
+          "counter_grid_import": "Zähler Netzbezug",
+          "counter_grid_export": "Zähler Einspeisung",
+          "counter_battery_charge": "Zähler Batterie geladen",
+          "counter_battery_discharge": "Zähler Batterie entladen",
+          "counter_load_total": "Zähler Verbrauch",
+          "counter_wallbox": "Zähler Wallbox",
+          "counter_heat_pump": "Zähler Wärmepumpe"
+        }
       }
     },
     "error": {
-      "nothing_enabled": "Schalte Verläufe oder die Seitenleiste ein. Sind beide aus, tut die Integration nichts."
+      "nothing_enabled": "Schalte Verläufe, Energiestatistik oder die Seitenleiste ein. Ist alles aus, tut die Integration nichts.",
+      "not_a_counter": "Dieser Sensor ist kein Zähler. Wähle einen Energiesensor mit der Zustandsklasse total oder total_increasing."
     }
   },
   "selector": {

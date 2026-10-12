@@ -43,7 +43,7 @@ const (
 	maxOfferLabelRunes = 64
 )
 
-var exchangeTiers = []string{"1m", "5m"}
+var exchangeTiers = []string{"1m", "5m", "1h"}
 
 // exchangeSeries ist eine Serie, die das Dashboard aufzeichnet (siehe
 // history_exchange_series.go).
@@ -60,9 +60,21 @@ func rasterFor(tier string) (stepMs int64, windowMs int64, ok bool) {
 		return 3600000, 7 * 24 * 3600000, true
 	case "5m":
 		return 21600000, 30 * 24 * 3600000, true
+	case "1h":
+		// Energiestatistik: ein Bucket je UTC-Tag, bis zu 10 Jahre. Der
+		// Companion beginnt beim aeltesten vorhandenen Tag.
+		return 86400000, 3650 * 86400000, true
 	default:
 		return 0, 0, false
 	}
+}
+
+// statsPeer ist die Energiestatistik (energystats.Sync) als Pseudo-Peer
+// mit der Kennung historyexchange.StatsPeerID.
+type statsPeer interface {
+	Attach(send func(to string, payload []byte) bool, hasPeer func(id string) bool)
+	OnOffer(peer string, coverage map[string]historyexchange.Census)
+	OnDeliver(peer, reqID string, rows []historyexchange.Row, final bool)
 }
 
 type historyExchange struct {
@@ -70,6 +82,14 @@ type historyExchange struct {
 	buffer *historyexchange.Buffer
 	now    func() time.Time
 	series func() []exchangeSeries
+	stats  statsPeer
+}
+
+func (x *historyExchange) attachStats(stats statsPeer) {
+	x.stats = stats
+	stats.Attach(func(to string, payload []byte) bool {
+		return x.hub.SendTo(to, historyexchange.Message{Event: "request", Data: payload})
+	}, x.hub.Has)
 }
 
 func newHistoryExchange(series func() []exchangeSeries) *historyExchange {
@@ -272,6 +292,7 @@ func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 	var payload struct {
 		Peer     string                                       `json:"peer"`
 		Label    string                                       `json:"label"`
+		Kind     string                                       `json:"kind"`
 		Coverage map[string]map[string]historyexchange.Census `json:"coverage"`
 	}
 	from, ok := x.decodeExchange(w, r, &payload)
@@ -284,7 +305,7 @@ func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 	}
 	for tier := range payload.Coverage {
 		if _, _, known := rasterFor(tier); !known {
-			writeError(w, http.StatusBadRequest, "tier_unknown", "Nur die Stufen 1m und 5m werden getauscht")
+			writeError(w, http.StatusBadRequest, "tier_unknown", "Nur die Stufen 1m, 5m und 1h werden getauscht")
 			return
 		}
 	}
@@ -293,6 +314,14 @@ func (x *historyExchange) handleOffer(w http.ResponseWriter, r *http.Request) {
 	message := map[string]any{"peer": from, "coverage": payload.Coverage}
 	if payload.Label != "" {
 		message["label"] = payload.Label
+	}
+	// Nur der Companion fuehrt die Langzeitstatistik. Andere Werte werden
+	// nicht weitergegeben.
+	if payload.Kind == "companion" {
+		message["kind"] = payload.Kind
+		if x.stats != nil {
+			x.stats.OnOffer(from, payload.Coverage["1h"])
+		}
 	}
 	data, err := json.Marshal(message)
 	if err != nil {
@@ -317,7 +346,7 @@ func (x *historyExchange) handleRequest(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if _, _, known := rasterFor(payload.Tier); !known {
-		writeError(w, http.StatusBadRequest, "tier_unknown", "Nur die Stufen 1m und 5m werden getauscht")
+		writeError(w, http.StatusBadRequest, "tier_unknown", "Nur die Stufen 1m, 5m und 1h werden getauscht")
 		return
 	}
 	if payload.ReqID == "" || payload.Series == "" || len(payload.Ranges) == 0 {
@@ -399,7 +428,18 @@ func (x *historyExchange) handleDeliver(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if _, _, known := rasterFor(payload.Tier); !known {
-		writeError(w, http.StatusBadRequest, "tier_unknown", "Nur die Stufen 1m und 5m werden getauscht")
+		writeError(w, http.StatusBadRequest, "tier_unknown", "Nur die Stufen 1m, 5m und 1h werden getauscht")
+		return
+	}
+	// Lieferungen an die Energiestatistik beantwortet der Server selbst,
+	// wie Nachfragen an den Ringpuffer.
+	if payload.To == historyexchange.StatsPeerID {
+		if x.stats == nil {
+			relay(w, false)
+			return
+		}
+		x.stats.OnDeliver(from, payload.ReqID, payload.Rows, payload.Final)
+		w.WriteHeader(http.StatusNoContent)
 		return
 	}
 	data, err := json.Marshal(map[string]any{

@@ -83,3 +83,32 @@ def test_census_matches_the_browser_raster():
 def test_in_ranges_keeps_half_open_intervals():
     rows = [{"ts": 0}, {"ts": 60_000}, {"ts": 120_000}]
     assert in_ranges(rows, [(0, 60_000), (120_000, 180_000)]) == [{"ts": 0}, {"ts": 120_000}]
+
+
+from custom_components.energy_node_companion.buckets import count_hours, day_census
+from custom_components.energy_node_companion.const import DAY_MS, HOUR_MS, STATS_WINDOW_DAYS
+
+TODAY = 20834 * DAY_MS
+
+
+def test_count_hours_counts_only_complete_hours_per_day():
+    now = TODAY + 5 * HOUR_MS + HOUR_MS // 2
+    stamps = [TODAY - DAY_MS + h * HOUR_MS for h in range(24)] + [TODAY + h * HOUR_MS for h in range(6)]
+    assert count_hours(stamps, now) == {TODAY - DAY_MS: 24, TODAY: 5}
+
+
+def test_day_census_starts_at_the_oldest_day_and_ends_today():
+    now = TODAY + 3 * HOUR_MS
+    assert day_census({TODAY - 2 * DAY_MS: 24, TODAY: 3}, now) == {
+        "from": TODAY - 2 * DAY_MS, "step": DAY_MS, "n": [24, 0, 3],
+    }
+
+
+def test_day_census_is_capped_at_ten_years():
+    census = day_census({TODAY - 4000 * DAY_MS: 24, TODAY: 1}, TODAY + HOUR_MS)
+    assert census["from"] == TODAY - STATS_WINDOW_DAYS * DAY_MS
+    assert len(census["n"]) == STATS_WINDOW_DAYS + 1
+
+
+def test_day_census_without_counts_is_none():
+    assert day_census({}, TODAY) is None

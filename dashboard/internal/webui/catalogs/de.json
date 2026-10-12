@@ -1480,7 +1480,7 @@
   "error.tailscale_rejected": "Tailscale-Aktion wurde abgelehnt",
   "error.tailscale_status_failed": "Tailscale-Status konnte nicht gelesen werden",
   "error.tailscale_unavailable": "Tailscale-Aktionen sind nicht verfügbar",
-  "error.tier_unknown": "Nur die Stufen 1m und 5m werden getauscht",
+  "error.tier_unknown": "Nur die Stufen 1m, 5m und 1h werden getauscht",
   "error.tiny_tuya_cloud_failed": "Tuya-Cloud-Abfrage ist fehlgeschlagen",
   "error.tiny_tuya_credentials_failed": "TinyTuya-Zugangsdaten konnten nicht gelesen werden",
   "error.tiny_tuya_rejected": "TinyTuya-Anfrage wurde abgelehnt",

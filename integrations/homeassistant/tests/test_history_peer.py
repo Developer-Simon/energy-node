@@ -260,3 +260,76 @@ async def test_run_against_a_fake_dashboard():
 
     assert state["logins"] == 1
     assert state["delivers"][-1]["rows"] == [_row(NOW - 3 * HOUR)]
+
+
+STATS_ANNOUNCEMENT = {**ANNOUNCEMENT, "tiers": ["1m", "5m", "1h"]}
+DAY_CENSUS = {"role:pv": {"from": 0, "step": 86_400_000, "n": [24]}}
+
+
+class FakeStats:
+    def __init__(self, coverage, rows=()):
+        self.coverage_value = coverage
+        self.rows_value = list(rows)
+        self.series = set(coverage)
+
+    async def coverage(self, now_ms):
+        return self.coverage_value
+
+    async def rows(self, series, begin, end):
+        return [row for row in self.rows_value if row["series"] == series and begin <= row["ts"] < end]
+
+
+def _stats_peer(stats, announcement=STATS_ANNOUNCEMENT, history=True, rows=None):
+    client = FakeClient(announcement)
+    peer = HistoryPeer(
+        client, lambda announced: [PV], rows or FakeRows([]), now_ms=lambda: NOW, stats=stats, history=history,
+    )
+    return peer, client
+
+
+async def test_offer_names_the_kind_and_carries_the_hour_tier():
+    peer, client = _stats_peer(FakeStats(DAY_CENSUS))
+    await _hello(peer)
+    body = client.posts[0][1]
+    assert body["kind"] == "companion"
+    assert body["coverage"]["1h"] == DAY_CENSUS
+
+
+async def test_hour_tier_needs_the_dashboard_to_announce_it():
+    peer, client = _stats_peer(FakeStats(DAY_CENSUS), announcement=ANNOUNCEMENT, rows=FakeRows([_row(NOW - 2 * HOUR)]))
+    await _hello(peer)
+    assert "1h" not in client.posts[0][1]["coverage"]
+    assert "1m" in client.posts[0][1]["coverage"]
+
+
+async def test_hour_request_is_answered_from_the_statistics():
+    hour = NOW - NOW % HOUR - 2 * HOUR
+    row = {"series": "role:pv", "ts": hour, "min": 5.0, "max": 5.0, "avg": 5.0, "n": 1, "u": "W"}
+    peer, client = _stats_peer(FakeStats(DAY_CENSUS, [row]))
+    await _hello(peer)
+    await peer.handle("request", {
+        "peer": "energystats", "req_id": "stats-1", "tier": "1h", "series": "role:pv", "ranges": [[hour, hour + HOUR]],
+    })
+    suffix, body = client.posts[-1]
+    assert suffix == "/deliver"
+    assert (body["to"], body["tier"], body["final"]) == ("energystats", "1h", True)
+    assert body["rows"] == [row]
+
+
+async def test_hour_request_without_stats_is_ignored():
+    peer, client = _stats_peer(None)
+    await _hello(peer)
+    posts = len(client.posts)
+    await peer.handle("request", {"peer": "energystats", "req_id": "s", "tier": "1h", "series": "role:pv", "ranges": [[0, HOUR]]})
+    assert len(client.posts) == posts
+
+
+async def test_history_off_offers_only_the_hour_tier_and_answers_minutes_empty():
+    peer, client = _stats_peer(FakeStats(DAY_CENSUS), history=False, rows=FakeRows([_row(NOW - 2 * HOUR)]))
+    await _hello(peer)
+    assert set(client.posts[0][1]["coverage"]) == {"1h"}
+    await peer.handle("request", {
+        "peer": "p-browser", "req_id": "r", "tier": "1m", "series": "role:pv", "ranges": [[NOW - 3 * HOUR, NOW]],
+    })
+    suffix, body = client.posts[-1]
+    assert suffix == "/deliver" and body["rows"] == [] and body["final"] is True
