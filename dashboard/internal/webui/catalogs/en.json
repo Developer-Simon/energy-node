@@ -596,6 +596,7 @@
   "device_picker.section.groups": "Groups",
   "device_picker.section.misc": "Other",
   "device_picker.title": "Members for “{group}”",
+  "devicemap.automation_links": "Lines to the automation node",
   "devicemap.balance.description": "Adds up every device with an energy role and publishes the balance for automations.",
   "devicemap.balance.name": "Energy balance",
   "devicemap.canvas_aria": "Device map graph",

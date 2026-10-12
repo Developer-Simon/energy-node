@@ -16,7 +16,7 @@
 
   const ENERGY_REFRESH_MS = 1000;
 
-  const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight', width_by_power: false};
+  const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false};
 
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
   // device_id, so it can't collide with one.
@@ -462,7 +462,8 @@
 
       dataEdges() {
         const df = window.DeviceMapDataflow;
-        return [...df.roleEdges(this.previewEnergy(), this.balanceId()), ...df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId()), ...this.stubInfo().edges];
+        const edges = [...df.roleEdges(this.previewEnergy(), this.balanceId()), ...df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId()), ...this.stubInfo().edges];
+        return this.view.hide_automation_links ? edges.filter(edge => !df.isAutomationLink(edge)) : edges;
       },
 
       previewEnergy() {
@@ -930,6 +931,12 @@
         return window.DeviceMapModel.PENDING_LAYERS.includes(name);
       },
 
+      toggleAutomationLinks() {
+        this.deviceMap = {...this.deviceMap, view: {...this.view, hide_automation_links: !this.view.hide_automation_links}};
+        this.unsaved = true;
+        this.renderGraph();
+      },
+
       toggleWidthByPower() {
         this.deviceMap = {...this.deviceMap, view: {...this.view, width_by_power: !this.view.width_by_power}};
         this.unsaved = true;
@@ -996,7 +1003,9 @@
       },
 
       buildEdgeElements() {
-        return window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.savedGroups, nodeIds: this.nodeIds()});
+        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.savedGroups, nodeIds: this.nodeIds()});
+        if (!this.view.hide_automation_links) return wiring;
+        return wiring.filter(element => !window.DeviceMapDataflow.isAutomationLink({from: element.data.source, to: element.data.target}));
       },
 
       graphStyle() {

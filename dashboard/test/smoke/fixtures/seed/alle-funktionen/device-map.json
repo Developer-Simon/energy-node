@@ -21,6 +21,6 @@
     "snap_to_grid": true,
     "show_grid": true,
     "grid_size": 20,
-    "edge_style": "elbow"
+    "edge_style": "curved"
   }
 }

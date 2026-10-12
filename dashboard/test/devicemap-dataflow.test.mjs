@@ -220,3 +220,14 @@ test('an executes edge shows the automation popover with its kind', () => {
   assert.equal(view.eyebrowKey, 'devicemap.pop.eyebrow.automation');
   assert.equal(view.linkKey, 'devicemap.pop.link.automations');
 });
+
+test('isAutomationLink holds for rule executions and any edge touching the automation device', () => {
+  const df = load();
+  assert.equal(df.AUTOMATION_DEVICE_ID, 'automation');
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'bat', details: { kind: 'executes' } }), true);
+  assert.equal(df.isAutomationLink({ from: 'automation', to: 'rule:r' }), true);
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'automation' }), true);
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'bat', details: { kind: 'topic' } }), false);
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'bat' }), false);
+  assert.equal(df.isAutomationLink(undefined), false);
+});

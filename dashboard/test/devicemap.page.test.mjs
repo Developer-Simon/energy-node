@@ -431,7 +431,7 @@ test('view defaults apply when the loaded device map has no view section (older 
   const { component } = createDevicemapPanel();
   component.deviceMap = { version: 1, nodes: [], edges: [] };
 
-  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'straight', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.view)), { snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false, layers: { wiring: true, energy: true, balance: false, data: false } });
 });
 
 test('a device without a saved position is placed below the existing arrangement instead of triggering a full re-layout', () => {
@@ -839,6 +839,33 @@ test('toggleWidthByPower flips the view flag and marks the map unsaved', () => {
   component.toggleWidthByPower();
   assert.equal(component.view.width_by_power, true);
   assert.equal(component.unsaved, true);
+});
+
+test('lines to the automation node are shown by default and hidden by toggleAutomationLinks', () => {
+  const { component } = createDevicemapPanel();
+  component.devices = [
+    { id: 'netz', name: 'Netz', relations: [{ kind: 'parent', id: 'automation' }] },
+    { id: 'bat', name: 'Batterie', relations: [{ kind: 'parent', id: 'netz' }] },
+    { id: 'automation', name: 'Automation', relations: [] },
+  ];
+  component.deviceMap = { version: 1, nodes: [], edges: [] };
+  component.energy = { entities: [] };
+  component.flows = { nodes: [], edges: [{ id: 'run-1', cat: 'automation', from: { device_id: 'netz' }, to: { device_id: 'automation' }, title: 'Run', details: { kind: 'executes' } }] };
+
+  assert.equal(component.view.hide_automation_links, undefined);
+  assert.equal(component.buildEdgeElements().length, 2, 'wiring to the automation node and between netz and bat');
+  assert.equal(component.dataEdges().length, 1, 'the executes edge');
+
+  component.toggleAutomationLinks();
+  assert.equal(component.view.hide_automation_links, true);
+  assert.equal(component.unsaved, true);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.buildEdgeElements().map(element => element.data.id))), ['edge-bat::netz']);
+  assert.equal(component.dataEdges().length, 0);
+
+  component.toggleAutomationLinks();
+  assert.equal(component.view.hide_automation_links, false);
+  assert.equal(component.buildEdgeElements().length, 2);
+  assert.equal(component.dataEdges().length, 1);
 });
 
 function flowFixture(component, batteryValue = 800) {

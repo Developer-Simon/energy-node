@@ -34,7 +34,7 @@
 
       get view() {
         const stored = this.deviceMap.view || {};
-        return {edge_style: 'straight', width_by_power: false, ...stored, layers: LAYERS};
+        return {edge_style: 'curved', width_by_power: false, ...stored, layers: LAYERS};
       },
 
       async load() {
@@ -115,7 +115,9 @@
       },
 
       wiringEdges() {
-        return window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.groups, nodeIds: this.nodeIds()});
+        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.groups, nodeIds: this.nodeIds()});
+        if (!this.view.hide_automation_links) return wiring;
+        return wiring.filter(element => !window.DeviceMapDataflow.isAutomationLink({from: element.data.source, to: element.data.target}));
       },
 
       positions() {

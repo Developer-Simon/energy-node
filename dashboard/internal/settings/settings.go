@@ -280,6 +280,9 @@ type DeviceMapView struct {
 	EdgeStyle    string          `json:"edge_style"`
 	Layers       DeviceMapLayers `json:"layers"`
 	WidthByPower bool            `json:"width_by_power"`
+	// HideAutomationLinks hides the lines to the automation node. Stored
+	// inverted, so the zero value (a file without the key) shows them.
+	HideAutomationLinks bool `json:"hide_automation_links,omitempty"`
 }
 
 // DeviceMapLayers are the four switchable map layers (spec
@@ -1023,7 +1026,7 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 		value.View.GridSize = 40
 	}
 	if value.View.EdgeStyle == "" {
-		value.View.EdgeStyle = "straight"
+		value.View.EdgeStyle = "curved"
 	}
 	return value
 }

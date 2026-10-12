@@ -8,7 +8,14 @@
 
   const BALANCE_ID = 'balance';
   const STUB_PREFIX = 'stub:';
+  const AUTOMATION_DEVICE_ID = 'automation';
   const ruleId = id => `rule:${encodeURIComponent(id)}`;
+
+  // The lines to the automation node: rule executions and every wiring or
+  // relation edge with the automation device at either end. Takes a data edge
+  // ({from, to, details}) or a wiring element mapped to {from, to}.
+  const isAutomationLink = edge => Boolean(edge)
+    && ((edge.details && edge.details.kind === 'executes') || edge.from === AUTOMATION_DEVICE_ID || edge.to === AUTOMATION_DEVICE_ID);
 
   const nodeKind = id => {
     if (id === BALANCE_ID) return 'balance';
@@ -231,7 +238,7 @@
     }));
 
   window.DeviceMapDataflow = {
-    BALANCE_ID, STUB_PREFIX, ruleId, nodeKind, isVirtualId, isPersistedVirtual, nodeVisible, edgeVisible, balanceNodeId,
+    BALANCE_ID, STUB_PREFIX, AUTOMATION_DEVICE_ID, isAutomationLink, ruleId, nodeKind, isVirtualId, isPersistedVirtual, nodeVisible, edgeVisible, balanceNodeId,
     refId, flowEdges, stubs, roleEdges, relatedFocus, placeBalance, placeFlowNodes, stubPosition, titleOf, edgeView, deviceFlows,
   };
 })();

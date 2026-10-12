@@ -596,6 +596,7 @@
   "device_picker.section.groups": "Gruppen",
   "device_picker.section.misc": "Sonstige",
   "device_picker.title": "Mitglieder für „{group}“",
+  "devicemap.automation_links": "Linien zum Automationsknoten",
   "devicemap.balance.description": "Summiert alle Geräte mit Energierolle und veröffentlicht die Bilanz für Automationen.",
   "devicemap.balance.name": "Energiebilanz",
   "devicemap.canvas_aria": "Device-Map-Graph",

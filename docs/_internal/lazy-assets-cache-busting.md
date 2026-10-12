@@ -128,7 +128,7 @@ skips scripts already present as `<script src>`.
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `16` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `4` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `12`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `32` |
-| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `8`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `3`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `3`, `js/device-picker.js` `1`, `js/energy.page.js` `8` | `css/manager.css` `32` |
+| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `8`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `3`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `4`, `js/device-picker.js` `1`, `js/energy.page.js` `9` | `css/manager.css` `32` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `8`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `3`, `js/devicemap-dataflow.js` `3`, `js/automations-view.js` `1`, `js/device-picker.js` `1`, `js/devicemap.page.js` `20` | `css/manager.css` `32` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `20`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `32`, `css/settings-controls.css` `12` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `1`, `js/automations.page.js` `8` | `css/manager.css` `32`, `css/automations.css` `5` |
@@ -249,7 +249,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.9.6 | `js/devicemap-dataflow.js` (energy, device map) · `js/devicemap.page.js` (device map) | `3` · `20` | 2026-10-12 |
+| v0.9.6 | `js/devicemap-dataflow.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/energy-plant.js` (energy) | `3` · `20` · `4` | 2026-10-12 |
 | v0.9.5 | `js/devicemap-model.js` (energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/energy-plant.js` (energy) · `js/devicemap.page.js` (device map) | `8` · `2` · `3` · `19` | 2026-10-12 |
 | v0.9.4 | `js/history.js` (history panel) · `css/history.css` (history panel) · `js/settings.page.js` (settings panel) · `css/settings-controls.css` (settings, diagnostics) | `16` · `4` · `20` · `12` | 2026-10-11 |
 | v0.9.3 | `js/history-store.js` · `js/history-exchange.js` · `js/history-coverage.js` · `js/history-recorder.js` · `js/history.js` (history panel) · `js/settings.page.js` (settings panel) · `js/history-view-card.js` (history tile, `webui.go`) | `4` · `5` · `3` · `11` · `15` · `18` · `2` | 2026-10-11 |
