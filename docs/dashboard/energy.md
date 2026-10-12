@@ -100,6 +100,24 @@ The view menu holds the grid, snap to grid, width by power, the line style and
 the legend. With reduced motion enabled in the system the lines stand still and
 carry an arrow.
 
+### Connection types
+
+Click a connection to set what it stands for:
+
+| Type | Meaning | Flow |
+|---|---|---|
+| Energy | an electrical line, such as inverter to battery | yes |
+| Data | communication through a hub, gateway or service | no |
+| Informational | a plain assignment, such as an accessory | no |
+
+Until you choose, the map decides by itself: a connection between two devices
+that both measure power counts as energy, every other one as data. Such a
+detected type is marked in the card.
+
+For an energy connection the flow direction is automatic by default, taken
+from the sign of the measurement. Reversed turns it round, and Always to fixes
+it to one end. A connection you drew yourself can be reversed in the same card.
+
 ### Device panel
 
 ![Device panel with the energy roles](../images/dashboard-device-map-device-panel.png)
