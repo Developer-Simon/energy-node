@@ -23,6 +23,7 @@
 
 ### Tests
 
+- **smoke:** fake companion that feeds the energy statistics (b41a808)
 - **smoke:** expect the 1h tier in the exchange announcement (b9ddd86)
 
 ## v0.9.8 (2026-10-12)
