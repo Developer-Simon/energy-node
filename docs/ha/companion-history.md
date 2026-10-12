@@ -60,6 +60,14 @@ In German: "Zuletzt ergänzt von Home Assistant."
 
 The history chart then shows the hours the browser had missed.
 
+## Energy statistics
+
+With **Supply energy statistics** turned on (the default), Home Assistant also sends hourly energy per role from its long-term statistics. The dashboard uses it for its day, month and year statistics and prefers it over its own recording.
+
+Without further setup the companion uses the power sensors that Energy Node registers in Home Assistant: PV, grid import, grid export, battery charge, battery discharge and consumption. Home Assistant keeps their hourly means without a time limit, starting on the day the sensors appeared.
+
+In the second options step you can pick an energy meter per role, a sensor with the state class `total` or `total_increasing`, for example the lifetime counter of your inverter. A meter is more exact and brings the history from before Energy Node was installed. Wallbox and heat pump are only supplied with a meter.
+
 ## How it works
 
 The integration is an ordinary peer of the dashboard's history exchange
