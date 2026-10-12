@@ -178,7 +178,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
-	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/settings-stepper.html", "templates/diagnostics.html"))
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/settings-stepper.html", "templates/diagnostics.html", "templates/stats.html"))
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
@@ -681,7 +681,7 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 		return "devices-live", true
 	case "panel":
 		switch panel := r.URL.Query().Get("panel"); panel {
-		case "devices", "history", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
+		case "devices", "history", "stats", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
 			return panel, true
 		default:
 			return "", false

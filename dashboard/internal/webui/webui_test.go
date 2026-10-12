@@ -1566,21 +1566,35 @@ func renderIndexForTest(t *testing.T) string {
 	return body
 }
 
-func TestApexChartsIsOnlyLoadedWithTheHistoryPanel(t *testing.T) {
+func TestApexChartsIsOnlyLoadedLazily(t *testing.T) {
 	body := renderIndexForTest(t)
 	// Eager geladen waere die Bibliothek auf jedem Seitenaufruf dabei -
 	// auf einem Pi mit ARMv6 ist das genau die Art Ballast, die die
-	// Invariante in AGENTS.md ausschliesst.
-	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 1 {
-		t.Fatalf("apexcharts.min.js must appear exactly once, in the history panel's lazy script list")
+	// Invariante in AGENTS.md ausschliesst. Erlaubt sind genau zwei
+	// lazy Listen: Verlauf und Statistik, jeweils als erster Eintrag.
+	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 2 {
+		t.Fatalf("apexcharts.min.js must appear exactly twice, once in the history and once in the stats panel's lazy script list")
 	}
-	if !strings.Contains(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) {
-		t.Fatal("apexcharts.min.js is not the first lazy script of the history panel")
+	if strings.Count(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) != 2 {
+		t.Fatal("apexcharts.min.js must be the first lazy script of the history and the stats panel")
 	}
 	if !strings.Contains(body, `<script src="/static/js-deps/apexcharts.min.js"`) {
 		return // korrekt: es darf kein eager <script>-Tag geben
 	}
 	t.Fatal("apexcharts.min.js is loaded eagerly instead of lazily")
+}
+
+func TestStatsPanelRenders(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest("GET", "/?fragment=panel&panel=stats", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `x-data="statsPanel()"`) {
+		t.Fatalf("Status %d: %s", rec.Code, rec.Body.String())
+	}
+	full := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(full, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(full.Body.String(), `id="tab-stats"`) || !strings.Contains(full.Body.String(), `energy-stats-model.js?v=1`) {
+		t.Fatal("Tab oder Panel Statistik fehlt")
+	}
 }
 
 // TestOverviewRendersDiagnosticsCardAllClear covers the collapsed state: a
