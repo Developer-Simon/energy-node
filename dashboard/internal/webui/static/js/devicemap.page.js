@@ -260,7 +260,7 @@
         if (id && id.startsWith('custom:')) return (this.savedCategories[id.slice(7)] || {}).label || id;
         const flowNode = this.flowNodes().find(node => node.id === id);
         if (flowNode) return flowNode.name;
-        if (id === window.DeviceMapDataflow.BALANCE_ID) return t('devicemap.balance.name');
+        if (id === this.balanceId()) return t('devicemap.balance.name');
         return this.deviceLabel(id);
       },
 
@@ -308,10 +308,10 @@
           if (stub) this.openEdgePopover(stub.id, rendered);
           return;
         }
-        if (kind === 'balance') {
-          const items = df.roleEdges(this.previewEnergy()).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
+        if (kind === 'balance' || id === this.balanceId()) {
+          const items = df.roleEdges(this.previewEnergy(), this.balanceId()).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
           this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.virtual'), title: t('devicemap.balance.name'), rows: [], text: t('devicemap.balance.description'),
-            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy()).flatMap(edge => edge.entities)}, action: null});
+            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy(), this.balanceId()).flatMap(edge => edge.entities)}, action: null});
           return;
         }
         const node = this.flowNodes().find(candidate => candidate.id === id);
@@ -453,7 +453,7 @@
 
       baseNodeIds() {
         const df = window.DeviceMapDataflow;
-        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), df.BALANCE_ID, ...this.flowNodes().map(node => node.id)]);
+        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), this.balanceId(), ...this.flowNodes().map(node => node.id)]);
       },
 
       stubInfo() {
@@ -462,7 +462,7 @@
 
       dataEdges() {
         const df = window.DeviceMapDataflow;
-        return [...df.roleEdges(this.previewEnergy()), ...df.flowEdges(this.flows, this.baseNodeIds()), ...this.stubInfo().edges];
+        return [...df.roleEdges(this.previewEnergy(), this.balanceId()), ...df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId()), ...this.stubInfo().edges];
       },
 
       previewEnergy() {
@@ -642,6 +642,7 @@
       },
 
       nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor()) {
+        if (device.id === this.balanceId()) return window.DeviceMapNodeSvg.virtualDataUri('balance', colorOf);
         const model = window.DeviceMapModel;
         const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup);
         return window.DeviceMapNodeSvg.dataUri(spec, colorOf);
@@ -653,17 +654,17 @@
         const devices = this.devices.map(device => ({
           id: device.id,
           name: device.name || device.id,
-          value: model.nodeValueText(device, energy.get(device.id)),
+          value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
         }));
         const children = model.childrenIndex(this.wiringPairs());
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
           return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children))};
         });
-        const balance = this.energy && this.energy.balance;
-        const net = balance ? (Number(balance.grid_import) || 0) - (Number(balance.grid_export) || 0) : null;
         const virtual = [
-          {id: 'balance', name: t('devicemap.balance.name'), value: net == null ? '' : t(net >= 0 ? 'devicemap.value.grid_import' : 'devicemap.value.grid_export', {value: model.formatPower(net)})},
+          ...(this.balanceId() === window.DeviceMapDataflow.BALANCE_ID
+            ? [{id: window.DeviceMapDataflow.BALANCE_ID, name: t('devicemap.balance.name'), value: model.balanceValueText(this.energy && this.energy.balance)}]
+            : []),
           ...this.flowNodes().map(node => ({id: node.id, name: node.name, value: t(`devicemap.${node.kind}.value`)})),
           ...this.stubInfo().nodes.map(stub => ({id: stub.id, name: t('devicemap.stub.name'), value: ''})),
         ];
@@ -843,6 +844,27 @@
         return placed;
       },
 
+      balanceId() {
+        return window.DeviceMapDataflow.balanceNodeId(new Set(this.devices.map(device => device.id)));
+      },
+
+      // Decision 3 (2026-10-11): a balance position saved before energy_node
+      // took over moves to the device once, then the virtual entry is gone.
+      adoptBalancePosition() {
+        const df = window.DeviceMapDataflow;
+        if (this.balanceId() === df.BALANCE_ID) return false;
+        const nodes = this.deviceMap.nodes || [];
+        const virtual = nodes.find(node => node.virtual_id === df.BALANCE_ID);
+        if (!virtual) return false;
+        const own = window.DeviceMapModel.OWN_ENERGY_DEVICE_ID;
+        const hasOwn = nodes.some(node => node.device_id === own);
+        const next = nodes.filter(node => node !== virtual);
+        if (!hasOwn) next.push({device_id: own, x: virtual.x, y: virtual.y});
+        this.deviceMap = {...this.deviceMap, nodes: next};
+        this.unsaved = true;
+        return true;
+      },
+
       // Balance and data flow nodes. Placed only while their layer is on, so
       // a layer that was never shown leaves no positions in the saved map.
       // Returns how many nodes were placed.
@@ -855,14 +877,14 @@
         const has = id => nodes.some(node => (node.device_id || node.virtual_id) === id);
         const positionOf = id => nodes.find(node => (node.device_id || node.virtual_id) === id);
         let placed = 0;
-        if (layers.balance && !has(df.BALANCE_ID)) {
-          const roleDevices = new Set(df.roleEdges(this.energy).map(edge => edge.from));
+        if (this.balanceId() === df.BALANCE_ID && layers.balance && !has(df.BALANCE_ID)) {
+          const roleDevices = new Set(df.roleEdges(this.energy, df.BALANCE_ID).map(edge => edge.from));
           const rolePositions = nodes.filter(node => roleDevices.has(node.device_id));
           nodes.push({virtual_id: df.BALANCE_ID, ...df.placeBalance({rolePositions, allPositions: nodes, snap})});
           placed += 1;
         }
         if (layers.data) {
-          const edges = df.flowEdges(this.flows, this.baseNodeIds());
+          const edges = df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId());
           const missing = this.flowNodes().filter(node => !has(node.id)).map(node => ({
             id: node.id,
             inputXs: edges.filter(edge => edge.to === node.id).map(edge => positionOf(edge.from)).filter(Boolean).map(position => position.x),
@@ -961,7 +983,7 @@
           if (anchor) positions.set(stub.id, df.stubPosition(anchor, stub.unresolved.direction, stub.index));
         }
         const virtualKinds = [
-          {id: df.BALANCE_ID, kind: 'balance', name: t('devicemap.balance.name')},
+          ...(this.balanceId() === df.BALANCE_ID ? [{id: df.BALANCE_ID, kind: 'balance', name: t('devicemap.balance.name')}] : []),
           ...this.flowNodes().map(node => ({id: node.id, kind: node.kind, name: node.name})),
           ...stubInfo.nodes.map(stub => ({id: stub.id, kind: 'stub', name: t('devicemap.stub.name')})),
         ];
@@ -986,6 +1008,7 @@
       renderGraph() {
         this.selectedEdge = null; // any prior selection refers to a now-stale cy instance
         if (!this.$refs.canvas) return;
+        this.adoptBalancePosition();
         this.placedCount = this.placeNewDevices() + this.placeNewGroups() + this.placeVirtualNodes();
         const elements = this.buildElements();
         const hasAllPositions = this.devices.length > 0 && this.devices.every(device => this.positionFor(device.id))
@@ -1151,7 +1174,7 @@
         if (!this.connectMode) {
           const id = event.target.id();
           const kind = window.DeviceMapDataflow.nodeKind(id);
-          if (kind === 'balance' || kind === 'rule' || kind === 'service' || kind === 'stub') {
+          if (kind === 'balance' || id === this.balanceId() || kind === 'rule' || kind === 'service' || kind === 'stub') {
             if (!(await this.leavePanel())) return;
             this.closePanel();
             this.setFocus(id);
@@ -1159,7 +1182,7 @@
             return;
           }
           this.closePopover();
-          if (this.panelId === id || (this.focusId === id && !this.panelId && id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID)) return;
+          if (this.panelId === id) return;
           if (!(await this.leavePanel())) return;
           this.setFocus(id);
           this.openPanel(id);

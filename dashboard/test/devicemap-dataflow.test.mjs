@@ -31,7 +31,7 @@ test('visibility follows the layer table of the spec', () => {
   assert.equal(df.nodeVisible('stub', { ...off, data: true }), true);
   assert.equal(df.nodeVisible('group', off), true);
   const role = { cat: 'role', from: 'pv', to: 'balance' };
-  const balanceRule = { cat: 'automation', from: 'balance', to: 'rule:r1' };
+  const balanceRule = { cat: 'automation', from: 'balance', to: 'rule:r1', viaBalance: true };
   const service = { cat: 'service', from: 'bms', to: 'soc' };
   assert.equal(df.edgeVisible(role, { ...off, balance: true }), true);
   assert.equal(df.edgeVisible(role, { ...off, data: true }), false);
@@ -153,4 +153,45 @@ test('deviceFlows lists inputs and outputs of one device without role edges', ()
     { title: 'Spannung Bank A', text: 'von BMS Bank A' },
     { title: 'Bedingung Entitätswert', text: 'nach Akku leer' },
   ]);
+});
+
+test('balanceNodeId prefers the energy_node device and falls back to the virtual node', () => {
+  const df = load();
+  assert.equal(df.balanceNodeId(new Set(['pv', 'energy_node'])), 'energy_node');
+  assert.equal(df.balanceNodeId(new Set(['pv'])), 'balance');
+});
+
+test('flowEdges and roleEdges point balance refs at the resolved balance node', () => {
+  const df = load();
+  const graph = { edges: [
+    { id: 'auto:rule:r/c0', cat: 'automation', from: { virtual_id: 'balance' }, to: { virtual_id: 'rule:r' }, details: {} },
+    { id: 'svc', cat: 'service', from: { device_id: 'bms' }, to: { virtual_id: 'service:soc' }, details: {} },
+  ] };
+  const ids = new Set(['energy_node', 'rule:r', 'bms', 'service:soc']);
+  const edges = plain(df.flowEdges(graph, ids, 'energy_node'));
+  assert.equal(edges[0].from, 'energy_node');
+  assert.equal(edges[0].viaBalance, true);
+  assert.equal(edges[1].viaBalance, false);
+  const snapshot = { entities: [
+    { entity_id: 'pv_p', device_id: 'pv', role: { role: 'pv', source: 'override' } },
+    { entity_id: 'own', device_id: 'energy_node', role: { role: 'pv', source: 'heuristic' } },
+  ] };
+  const roles = plain(df.roleEdges(snapshot, 'energy_node'));
+  assert.equal(roles.length, 1);
+  assert.equal(roles[0].to, 'energy_node');
+});
+
+test('without energy_node the balance refs keep the virtual node', () => {
+  const df = load();
+  const graph = { edges: [{ id: 'e', cat: 'automation', from: { virtual_id: 'balance' }, to: { virtual_id: 'rule:r' }, details: {} }] };
+  const edges = plain(df.flowEdges(graph, new Set(['balance', 'rule:r'])));
+  assert.equal(edges[0].from, 'balance');
+  assert.equal(edges[0].viaBalance, true);
+});
+
+test('an edge from the balance device needs the data and the balance layer', () => {
+  const df = load();
+  const edge = { cat: 'automation', from: 'energy_node', to: 'rule:r', viaBalance: true };
+  assert.equal(df.edgeVisible(edge, { wiring: true, energy: true, balance: false, data: true }), false);
+  assert.equal(df.edgeVisible(edge, ALL), true);
 });

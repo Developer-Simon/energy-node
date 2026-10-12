@@ -284,7 +284,7 @@
   {"topic": "batterie/wr/soc", "payload": "63.5"},
   {"topic": "zaehler/haus/status", "payload": {"id": 0, "apower": 2050, "voltage": 230.7, "source": "smoke"}},
   {"topic": "wallbox/status", "payload": {"id": 0, "apower": 600, "source": "smoke"}},
-  {"topic": "homeassistant/sensor/werkstatt/power/config", "payload": {"name": "Leistung", "unique_id": "werkstatt_power", "state_topic": "werkstatt/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "werkstatt/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["werkstatt"], "name": "Werkstatt Steckdose"}}},
+  {"topic": "homeassistant/sensor/werkstatt/power/config", "payload": {"name": "Leistung", "unique_id": "werkstatt_power", "state_topic": "werkstatt/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "werkstatt/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["werkstatt"], "via_device": "energy_node", "name": "Werkstatt Steckdose"}}},
   {"topic": "werkstatt/online", "payload": "true"},
   {"topic": "werkstatt/status", "payload": {"id": 0, "apower": 350, "source": "smoke"}},
   {"topic": "waermepumpe/status", "payload": {"id": 0, "apower": 450, "source": "smoke"}},
@@ -328,7 +328,7 @@
       "availability_topic": "bms/bank_a/online",
       "payload_available": "true",
       "payload_not_available": "false",
-      "device": { "identifiers": ["bms_bank_a"], "name": "Shelly Uni Bank A" }
+      "device": { "identifiers": ["bms_bank_a"], "via_device": "energy_node", "name": "Shelly Uni Bank A" }
     }
   },
   {
@@ -340,7 +340,7 @@
       "availability_topic": "bms/bank_b/online",
       "payload_available": "true",
       "payload_not_available": "false",
-      "device": { "identifiers": ["bms_bank_b"], "name": "Shelly Uni Bank B (sendet nie)" }
+      "device": { "identifiers": ["bms_bank_b"], "via_device": "energy_node", "name": "Shelly Uni Bank B (sendet nie)" }
     }
   },
 
@@ -353,7 +353,7 @@
   {"topic": "shelly/netz_lumentree/status", "payload": {"id": 0, "apower": 48.2, "voltage": 230.9, "source": "init"}},
   {"topic": "bms/bank_a/voltage", "payload": "26.8"},
 
-  {"topic": "homeassistant/sensor/bank/soc/config", "payload": {"name": "Ladezustand", "unique_id": "bank_soc", "state_topic": "bank/soc", "unit_of_measurement": "%", "device_class": "battery", "device": {"identifiers": ["bank"], "name": "Batterie SoC"}}},
+  {"topic": "homeassistant/sensor/bank/soc/config", "payload": {"name": "Ladezustand", "unique_id": "bank_soc", "state_topic": "bank/soc", "unit_of_measurement": "%", "device_class": "battery", "device": {"identifiers": ["bank"], "via_device": "energy_node", "name": "Batterie SoC"}}},
   {"topic": "bank/soc", "payload": "64"},
 
   {"topic": "homeassistant/number/wallbox/current/config", "payload": {"name": "Stromstärke", "unique_id": "wallbox_current", "state_topic": "wallbox/current", "command_topic": "wallbox/current/set", "unit_of_measurement": "A", "min": 6, "max": 16, "step": 1, "mode": "box", "availability_topic": "wallbox/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["wallbox"], "name": "Wallbox"}}},

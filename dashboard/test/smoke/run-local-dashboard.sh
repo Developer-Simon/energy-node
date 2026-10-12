@@ -803,6 +803,9 @@ if [[ -f "$WORK/data/energy.json" ]] && grep -q '"groups"' "$WORK/data/energy.js
     "len(data.get('groups', [])) > 0 and len(data.get('categories', {})) > 0" \
     "$BASE/api/v1/energy"
 fi
+check "Eigenes Geraet energy_node ist ueber den Broker zurueckgekommen" \
+  "any(d.get('id') == 'energy_node' for d in (data if isinstance(data, list) else data.get('devices', [])))" \
+  "$BASE/api/v1/devices"
 if [[ "$(basename "$FIXTURE")" == "alle-funktionen.json" ]]; then
   check "Datenfluss liefert Regeln und eine Bank-A-Kante" \
     "any(n['virtual_id'].startswith('rule:') for n in data['nodes']) and any(e['details'].get('field') == 'bank_a_voltage_topic' for e in data['edges'])" \

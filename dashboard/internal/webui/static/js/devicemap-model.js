@@ -177,6 +177,13 @@
     return abs >= 1000 ? `${num(abs / 1000, 1)} kW` : `${num(Math.round(abs), 0)} W`;
   };
 
+  // Value of the balance node: net grid power, import or export.
+  const balanceValueText = balance => {
+    if (!balance) return '';
+    const net = (Number(balance.grid_import) || 0) - (Number(balance.grid_export) || 0);
+    return t(net >= 0 ? 'devicemap.value.grid_import' : 'devicemap.value.grid_export', {value: formatPower(net)});
+  };
+
   const primaryRole = entry => {
     let best = null;
     let bestAbs = -1;
@@ -388,7 +395,7 @@
 
   window.DeviceMapModel = {
     DEFAULT_LAYERS, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
-    formatPower, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
+    formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload,

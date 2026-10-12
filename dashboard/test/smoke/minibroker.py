@@ -15,9 +15,10 @@ Sensoren weg, hier gibt es keine. Discovery-Topics (homeassistant/.../config)
 bleiben aussen vor: sie erneut ohne Retain-Flag zu senden kippte die
 "Discovery retained"-Anzeige im Geraete-Dialog auf "nein".
 
-BEWUSST UNVOLLSTAENDIG: kein QoS > 0, kein Wildcard-Matching, keine
-Weiterleitung zwischen Clients, keine Authentifizierung. Nichts davon wird fuer
-den Smoke-Test gebraucht. Nicht ausserhalb von Tests verwenden.
+BEWUSST UNVOLLSTAENDIG: kein QoS > 0, kein Wildcard-Matching (jede Nachricht geht an jede Verbindung), keine Authentifizierung.
+Nichts davon wird fuer den Smoke-Test gebraucht. Nicht ausserhalb von Tests verwenden.
+
+PUBLISH von Clients wird wie bei einem echten Broker weitergereicht und retained abgelegt. So sieht das Dashboard seine eigene Discovery und zeigt das Geraet energy_node in jedem Preset.
 
     python3 minibroker.py [PORT] [FIXTURE.json] [--simulate]
                           [--service-status DEVICES_DIR] [--reject-config NAME ...]
@@ -122,6 +123,36 @@ def read_remaining(sock):
         multiplier *= 128
 
 
+def parse_publish(flags, body):
+    """PUBLISH-Rumpf eines Clients: (topic, payload, retain) oder None.
+
+    Nur QoS 0 - der Broker schickt kein PUBACK, eine QoS-1-Nachricht wuerde
+    der Client ohnehin wiederholen. Das Dashboard publiziert nur QoS 0."""
+    if (flags >> 1) & 0x03:
+        return None
+    length = struct.unpack("!H", body[:2])[0]
+    topic = body[2:2 + length].decode("utf-8")
+    return topic, body[2 + length:], bool(flags & 0x01)
+
+
+def relay(messages, connections, topic, payload, retain):
+    """Client-PUBLISH weiterreichen wie ein echter Broker: retained ablegen
+    (leere Payload loescht, HA-Konvention), an jede offene Verbindung als
+    Live-Nachricht senden - auch an den Absender, denn das Dashboard
+    abonniert die eigene Discovery und liest so seinen Knoten energy_node."""
+    if retain:
+        if payload:
+            messages[topic] = payload
+        else:
+            messages.pop(topic, None)
+    for conn, lock in list(connections.items()):
+        try:
+            with lock:
+                conn.sendall(publish_packet(topic, payload, retain=False))
+        except OSError:
+            connections.pop(conn, None)
+
+
 def handle(conn, messages, connections):
     # connections: {conn: threading.Lock()}, geteilt mit simulate_loop() - der
     # Lock serialisiert sendall() zwischen dieser Verbindungs-Handhabung
@@ -162,12 +193,15 @@ def handle(conn, messages, connections):
                         if topic.startswith("homeassistant/"):
                             continue
                         conn.sendall(publish_packet(topic, payload, retain=False))
+            elif packet_type == 3:    # PUBLISH vom Client -> ablegen und weiterreichen
+                parsed = parse_publish(header[0] & 0x0F, body)
+                if parsed:
+                    relay(messages, connections, *parsed)
             elif packet_type == 12:   # PINGREQ -> PINGRESP
                 with lock:
                     conn.sendall(b"\xd0\x00")
             elif packet_type == 14:   # DISCONNECT
                 return
-            # PUBLISH vom Client (3) wird angenommen und verworfen.
     except OSError:
         return
     finally:
