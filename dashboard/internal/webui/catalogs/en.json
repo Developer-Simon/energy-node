@@ -1426,6 +1426,7 @@
   "error.peer_missing": "The message names no sender",
   "error.peer_unknown": "The sender is not connected",
   "error.relation_cycle": "This relation would create a cycle",
+  "error.relation_group_reverse": "A group feed cannot be reversed",
   "error.relation_id_failed": "The relation could not be created",
   "error.relation_not_found": "No relation with this ID",
   "error.relation_self_reference": "A device cannot be its own parent",

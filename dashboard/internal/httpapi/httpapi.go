@@ -2562,6 +2562,10 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 			handleDeleteDeviceMapRelation(store, reg, w, parts[1])
 			return
 		}
+		if len(parts) == 3 && parts[0] == "relations" && parts[2] == "reverse" && r.Method == http.MethodPost {
+			handleReverseDeviceMapRelation(store, reg, w, parts[1])
+			return
+		}
 		if len(parts) == 1 && parts[0] == "flows" {
 			if r.Method != http.MethodGet {
 				methodNotAllowed(w, http.MethodGet)
@@ -2675,40 +2679,15 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 		return
 	}
 
-	devices := reg.Snapshot()
-	deviceExists := make(map[string]bool, len(devices))
-	parentOf := make(map[string]string, len(devices))
-	for _, device := range devices {
-		deviceExists[device.ID] = true
-		if device.ViaDevice != "" {
-			parentOf[device.ID] = device.ViaDevice
-		}
-	}
-	// Group memberships live in energy.json. Registered here so the cycle
-	// check sees a path through a group. parentOf keeps one parent per node:
-	// a manual relation entered afterwards wins over a membership, which is
-	// enough to catch every cycle a single new relation can close.
-	for id, group := range energyConfig.Groups {
-		deviceExists["group:"+id] = true
-		for _, device := range group.Members.Devices {
-			parentOf[device] = "group:" + id
-		}
-		for _, child := range group.Members.Groups {
-			parentOf["group:"+child] = "group:" + id
-		}
-	}
-	if !deviceExists[request.ChildID] || !deviceExists[request.ParentID] {
-		writeError(w, http.StatusNotFound, "unknown_device", "child_id or parent_id does not refer to a known device")
-		return
-	}
-
 	deviceMap, err := store.LoadDeviceMap()
 	if err != nil {
 		writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
 		return
 	}
-	for _, edge := range deviceMap.Edges {
-		parentOf[edge.ChildID] = edge.ParentID
+	parentOf, deviceExists := relationParentMap(reg, energyConfig, deviceMap.Edges, "")
+	if !deviceExists[request.ChildID] || !deviceExists[request.ParentID] {
+		writeError(w, http.StatusNotFound, "unknown_device", "child_id or parent_id does not refer to a known device")
+		return
 	}
 	if relationCreatesCycle(parentOf, request.ChildID, request.ParentID) {
 		writeError(w, http.StatusBadRequest, "relation_cycle", "this relation would create a cycle")
@@ -2734,6 +2713,101 @@ func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry
 	}
 	applyRelationOverrides(reg, deviceMap)
 	writeJSONStatus(w, http.StatusCreated, override)
+}
+
+// relationParentMap is the child -> parent view the cycle check walks:
+// discovery via_device, group memberships, then the manual relations
+// except skipID (the one being changed). It also returns the known device
+// and group IDs.
+func relationParentMap(reg *registry.Registry, energyConfig settings.EnergyConfig, edges []settings.RelationOverride, skipID string) (map[string]string, map[string]bool) {
+	devices := reg.Snapshot()
+	deviceExists := make(map[string]bool, len(devices))
+	parentOf := make(map[string]string, len(devices))
+	for _, device := range devices {
+		deviceExists[device.ID] = true
+		if device.ViaDevice != "" {
+			parentOf[device.ID] = device.ViaDevice
+		}
+	}
+	// Group memberships live in energy.json. Registered here so the cycle
+	// check sees a path through a group. parentOf keeps one parent per node:
+	// a manual relation entered afterwards wins over a membership, which is
+	// enough to catch every cycle a single new relation can close.
+	for id, group := range energyConfig.Groups {
+		deviceExists["group:"+id] = true
+		for _, device := range group.Members.Devices {
+			parentOf[device] = "group:" + id
+		}
+		for _, child := range group.Members.Groups {
+			parentOf["group:"+child] = "group:" + id
+		}
+	}
+	for _, edge := range edges {
+		if skipID != "" && edge.ID == skipID {
+			continue
+		}
+		parentOf[edge.ChildID] = edge.ParentID
+	}
+	return parentOf, deviceExists
+}
+
+// handleReverseDeviceMapRelation swaps child and parent of a manual relation.
+// The cycle check runs on the reversed relation with the original one left
+// out, so the stored relation cannot close a loop while it is being turned.
+func handleReverseDeviceMapRelation(store *settings.Store, reg *registry.Registry, w http.ResponseWriter, id string) {
+	deviceMap, err := store.LoadDeviceMap()
+	if err != nil {
+		writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+		return
+	}
+	index := -1
+	for i, edge := range deviceMap.Edges {
+		if edge.ID == id {
+			index = i
+		}
+	}
+	if index < 0 {
+		writeError(w, http.StatusNotFound, "relation_not_found", "no relation override with this id")
+		return
+	}
+	edge := deviceMap.Edges[index]
+	if strings.HasPrefix(edge.ChildID, "group:") || strings.HasPrefix(edge.ParentID, "group:") {
+		writeError(w, http.StatusBadRequest, "relation_group_reverse", "a group feed cannot be reversed")
+		return
+	}
+	energyConfig, err := store.LoadEnergy()
+	if err != nil {
+		writeErrorDetail(w, http.StatusInternalServerError, "energy_roles_invalid", err)
+		return
+	}
+	parentOf, _ := relationParentMap(reg, energyConfig, deviceMap.Edges, id)
+	if relationCreatesCycle(parentOf, edge.ParentID, edge.ChildID) {
+		writeError(w, http.StatusBadRequest, "relation_cycle", "this relation would create a cycle")
+		return
+	}
+	edge.ChildID, edge.ParentID = edge.ParentID, edge.ChildID
+	deviceMap.Edges[index] = edge
+	swap := map[string]string{"fixed_down": "fixed_up", "fixed_up": "fixed_down"}
+	for i, prop := range deviceMap.EdgeProps {
+		if pairMatches(prop.ParentID, prop.ChildID, edge.ParentID, edge.ChildID) {
+			prop.ParentID, prop.ChildID = edge.ParentID, edge.ChildID
+			if next, ok := swap[prop.Direction]; ok {
+				prop.Direction = next
+			}
+			deviceMap.EdgeProps[i] = prop
+		}
+	}
+	if err := store.SaveDeviceMap(deviceMap); err != nil {
+		writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
+		return
+	}
+	applyRelationOverrides(reg, deviceMap)
+	writeJSON(w, map[string]any{"relation": edge, "edge_props": deviceMap.EdgeProps})
+}
+
+// pairMatches reports whether the unordered pair (a, b) equals (c, d).
+func pairMatches(a, b, c, d string) bool {
+	return (a == c && b == d) || (a == d && b == c)
 }
 
 func handleDeleteDeviceMapRelation(store *settings.Store, reg *registry.Registry, w http.ResponseWriter, id string) {

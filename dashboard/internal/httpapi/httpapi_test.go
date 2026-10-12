@@ -1010,25 +1010,54 @@ func TestDeviceMapEndpoints(t *testing.T) {
 	}
 }
 
-func TestDeviceMapRelationsEndpoints(t *testing.T) {
+// relationTestRouterWith builds a router over the given discoveries, with the
+// device map store and registry the relation tests inspect.
+func relationTestRouterWith(t *testing.T, discoveries []registry.Discovery) (http.Handler, *settings.Store, *registry.Registry) {
+	t.Helper()
 	store := settings.NewStore(t.TempDir())
 	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "child", Name: "Child", ViaDevice: "parent"}, Entity: registry.EntityInfo{UniqueID: "child_entity"}})
-	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "parent", Name: "Parent"}, Entity: registry.EntityInfo{UniqueID: "parent_entity"}})
-	reg.UpsertEntity(registry.Discovery{Device: registry.DeviceInfo{ID: "other", Name: "Other"}, Entity: registry.EntityInfo{UniqueID: "other_entity"}})
-	router := NewRouter(reg, config.NewManager(t.TempDir()), store)
-
-	postRelation := func(childID, parentID string) *httptest.ResponseRecorder {
-		recorder := httptest.NewRecorder()
-		request := httptest.NewRequest("POST", "/api/v1/device/map/relations", strings.NewReader(
-			`{"child_id":"`+childID+`","parent_id":"`+parentID+`"}`,
-		))
-		request.Header.Set("Content-Type", "application/json")
-		router.ServeHTTP(recorder, request)
-		return recorder
+	for _, discovery := range discoveries {
+		reg.UpsertEntity(discovery)
 	}
+	return NewRouter(reg, config.NewManager(t.TempDir()), store), store, reg
+}
 
-	created := postRelation("other", "parent")
+// relationTestRouter registers the devices child-a and parent-b without any
+// via_device link.
+func relationTestRouter(t *testing.T) (http.Handler, *settings.Store, *registry.Registry) {
+	t.Helper()
+	return relationTestRouterWith(t, []registry.Discovery{
+		{Device: registry.DeviceInfo{ID: "child-a", Name: "Child A"}, Entity: registry.EntityInfo{UniqueID: "child_a_entity"}},
+		{Device: registry.DeviceInfo{ID: "parent-b", Name: "Parent B"}, Entity: registry.EntityInfo{UniqueID: "parent_b_entity"}},
+	})
+}
+
+// relationTestRouterWithVia registers the devices a, b and c. viaDevice maps a
+// device ID to its discovery via_device parent.
+func relationTestRouterWithVia(t *testing.T, viaDevice map[string]string) (http.Handler, *settings.Store, *registry.Registry) {
+	t.Helper()
+	var discoveries []registry.Discovery
+	for _, id := range []string{"a", "b", "c"} {
+		discoveries = append(discoveries, registry.Discovery{Device: registry.DeviceInfo{ID: id, Name: id, ViaDevice: viaDevice[id]}, Entity: registry.EntityInfo{UniqueID: id + "_entity"}})
+	}
+	return relationTestRouterWith(t, discoveries)
+}
+
+func postRelationRaw(router http.Handler, childID, parentID string) *httptest.ResponseRecorder {
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest("POST", "/api/v1/device/map/relations", strings.NewReader(
+		`{"child_id":"`+childID+`","parent_id":"`+parentID+`"}`,
+	))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+	return recorder
+}
+
+// postRelation creates a relation and fails the test unless it is accepted
+// with 201. It returns the stored relation.
+func postRelation(t *testing.T, router http.Handler, childID, parentID string) settings.RelationOverride {
+	t.Helper()
+	created := postRelationRaw(router, childID, parentID)
 	if created.Code != http.StatusCreated {
 		t.Fatalf("create relation status %d: %s", created.Code, created.Body.String())
 	}
@@ -1036,6 +1065,17 @@ func TestDeviceMapRelationsEndpoints(t *testing.T) {
 	if err := json.NewDecoder(created.Body).Decode(&override); err != nil || override.ID == "" {
 		t.Fatalf("decode created relation: %v, body %s", err, created.Body.String())
 	}
+	return override
+}
+
+func TestDeviceMapRelationsEndpoints(t *testing.T) {
+	router, _, reg := relationTestRouterWith(t, []registry.Discovery{
+		{Device: registry.DeviceInfo{ID: "child", Name: "Child", ViaDevice: "parent"}, Entity: registry.EntityInfo{UniqueID: "child_entity"}},
+		{Device: registry.DeviceInfo{ID: "parent", Name: "Parent"}, Entity: registry.EntityInfo{UniqueID: "parent_entity"}},
+		{Device: registry.DeviceInfo{ID: "other", Name: "Other"}, Entity: registry.EntityInfo{UniqueID: "other_entity"}},
+	})
+
+	override := postRelation(t, router, "other", "parent")
 
 	parentView, ok := reg.Get("parent")
 	if !ok {
@@ -1051,15 +1091,15 @@ func TestDeviceMapRelationsEndpoints(t *testing.T) {
 		t.Fatalf("registry was not updated live after POST relations: %#v", parentView.Relations)
 	}
 
-	if cycle := postRelation("parent", "other"); cycle.Code != http.StatusBadRequest {
+	if cycle := postRelationRaw(router, "parent", "other"); cycle.Code != http.StatusBadRequest {
 		t.Fatalf("cyclic relation status %d: %s, want 400", cycle.Code, cycle.Body.String())
 	}
 
-	if unknown := postRelation("does-not-exist", "parent"); unknown.Code != http.StatusNotFound {
+	if unknown := postRelationRaw(router, "does-not-exist", "parent"); unknown.Code != http.StatusNotFound {
 		t.Fatalf("unknown device relation status %d: %s, want 404", unknown.Code, unknown.Body.String())
 	}
 
-	if selfRef := postRelation("parent", "parent"); selfRef.Code != http.StatusBadRequest {
+	if selfRef := postRelationRaw(router, "parent", "parent"); selfRef.Code != http.StatusBadRequest {
 		t.Fatalf("self-referencing relation status %d: %s, want 400", selfRef.Code, selfRef.Body.String())
 	}
 
@@ -1084,6 +1124,65 @@ func TestDeviceMapRelationsEndpoints(t *testing.T) {
 		if relation.Kind == "child" && relation.ID == "other" {
 			t.Fatal("registry still reports the deleted override relation")
 		}
+	}
+}
+
+func TestDeviceMapRelationReverse(t *testing.T) {
+	router, store, _ := relationTestRouter(t)
+	created := postRelation(t, router, "child-a", "parent-b")
+	value, _ := store.LoadDeviceMap()
+	value.EdgeProps = []settings.DeviceMapEdgeProp{{ParentID: "parent-b", ChildID: "child-a", Type: "energy", Direction: "fixed_down"}}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/device/map/relations/"+created.ID+"/reverse", nil))
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+	}
+	saved, _ := store.LoadDeviceMap()
+	if saved.Edges[0].ChildID != "parent-b" || saved.Edges[0].ParentID != "child-a" || saved.Edges[0].ID != created.ID {
+		t.Errorf("edge = %+v", saved.Edges[0])
+	}
+	if saved.EdgeProps[0].ParentID != "child-a" || saved.EdgeProps[0].Direction != "fixed_up" {
+		t.Errorf("props = %+v", saved.EdgeProps[0])
+	}
+}
+
+func TestDeviceMapRelationReverseRejectsACycle(t *testing.T) {
+	// Discovery: a haengt unter c, c unter b. Die manuelle Kante a -> b
+	// (Kind a, Eltern b) ist erlaubt. Umgedreht hinge b unter a, und a
+	// stammt ueber c schon von b ab: Kreis.
+	router, store, _ := relationTestRouterWithVia(t, map[string]string{"a": "c", "c": "b"})
+	created := postRelation(t, router, "a", "b")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/device/map/relations/"+created.ID+"/reverse", nil))
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), "relation_cycle") {
+		t.Fatalf("status = %d, body = %s", recorder.Code, recorder.Body)
+	}
+	saved, _ := store.LoadDeviceMap()
+	if saved.Edges[0].ChildID != "a" || saved.Edges[0].ParentID != "b" {
+		t.Errorf("a rejected reverse must not be saved: %+v", saved.Edges[0])
+	}
+}
+
+func TestDeviceMapRelationReverseUnknownAndGroup(t *testing.T) {
+	router, store, _ := relationTestRouter(t)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/api/v1/device/map/relations/nope/reverse", nil))
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("status = %d", recorder.Code)
+	}
+
+	value, _ := store.LoadDeviceMap()
+	value.Edges = append(value.Edges, settings.RelationOverride{ID: "relation-group-feed", ChildID: "group:g", ParentID: "parent-b", Kind: "via_device"})
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	groupRecorder := httptest.NewRecorder()
+	router.ServeHTTP(groupRecorder, httptest.NewRequest(http.MethodPost, "/api/v1/device/map/relations/relation-group-feed/reverse", nil))
+	if groupRecorder.Code != http.StatusBadRequest || !strings.Contains(groupRecorder.Body.String(), "relation_group_reverse") {
+		t.Fatalf("group feed status = %d, body = %s", groupRecorder.Code, groupRecorder.Body)
 	}
 }
 

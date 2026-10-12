@@ -1426,6 +1426,7 @@
   "error.peer_missing": "Die Nachricht nennt keinen Absender",
   "error.peer_unknown": "Der Absender ist nicht verbunden",
   "error.relation_cycle": "Diese Zuordnung würde einen Kreis bilden",
+  "error.relation_group_reverse": "Eine Zuleitung zu einer Gruppe lässt sich nicht umkehren",
   "error.relation_id_failed": "Zuordnung konnte nicht angelegt werden",
   "error.relation_not_found": "Keine Zuordnung mit dieser ID",
   "error.relation_self_reference": "Ein Gerät kann nicht sein eigenes übergeordnetes Gerät sein",
