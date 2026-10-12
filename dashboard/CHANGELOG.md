@@ -4,10 +4,10 @@
 
 ### Features
 
+- hourly energy statistics from Home Assistant via the companion (#130) (752f59a)
 - **energystats:** store hours from Home Assistant and count them per day (c75cf9e)
 - **energystats:** fetch hourly energy from the companion as a pseudo peer (31626d7)
 - **dashboard:** exchange the 1h tier and route companion statistics to energystats (5986c21)
-- hourly energy statistics from Home Assistant via the companion (#130)
 
 ### Tests
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.2 (2026-10-12)
+
+### Fixes
+
+- **installer:** fit the update result screen to the dashboard host (#131)
+
 ## v0.2.1 (2026-10-10)
 
 ### Fixes

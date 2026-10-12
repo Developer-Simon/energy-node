@@ -15,7 +15,7 @@
     </div>
 
     <div class="cols">
-      <template x-if="ok">
+      <template x-if="showReach">
         <section class="card">
           <h2 class="card-h" x-text="t('result.reach.heading')"></h2>
           <p class="card-p" x-text="t('result.reach.text')"></p>
@@ -31,7 +31,7 @@
         </section>
       </template>
 
-      <template x-if="ok">
+      <template x-if="ok && todos.length">
         <section class="card">
           <h2 class="card-h" x-text="t('result.todo.heading')"></h2>
           <p class="card-p" x-text="todoText"></p>
@@ -75,8 +75,8 @@
   <footer class="foot">
     <button type="button" class="ghost" @click="save()" x-text="t('action.save_log')"></button>
     <span class="foot-spacer"></span>
-    <button type="button" @click="openDiagnose()" x-text="t('action.open_diagnose')"></button>
-    <template x-if="ok"><button type="button" class="primary" @click="openUrl(primaryUrl)" x-text="t('action.open_dashboard')"></button></template>
+    <template x-if="canDiagnose"><button type="button" @click="openDiagnose()" x-text="t('action.open_diagnose')"></button></template>
+    <template x-if="ok"><button type="button" class="primary" @click="openDashboard()" x-text="t('action.open_dashboard')"></button></template>
     <template x-if="!ok"><button type="button" class="primary" @click="retry()" x-text="t('action.retry')"></button></template>
   </footer>
 </div>

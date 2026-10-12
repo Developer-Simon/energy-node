@@ -138,6 +138,22 @@
         return this.urls[0].url;
       },
 
+      // Im Dashboard (Plan D) steht der Nutzer schon auf dem Node: die
+      // Adressen sind ueberfluessig, und "Dashboard oeffnen" fuehrt aus
+      // /redeploy/ zurueck statt in einen neuen Tab.
+      get inDashboard() {
+        return !!(this.shell.bootstrap && this.shell.bootstrap.host === 'dashboard');
+      },
+
+      get showReach() {
+        return this.ok && !this.inDashboard;
+      },
+
+      // Der Wirt im Dashboard bietet keine Diagnose an.
+      get canDiagnose() {
+        return ((this.shell.bootstrap && this.shell.bootstrap.entry_points) || []).indexOf('diagnose') >= 0;
+      },
+
       get todos() {
         var t = this.shell.t.bind(this.shell);
         var outcome = this.outcome;
@@ -148,6 +164,11 @@
         }
         if (outcome.loginPending && outcome.loginUrl) {
           list.push({ key: 'login', title: t('result.todo.login.title'), text: outcome.loginUrl });
+        }
+        // Tailscale, Caddy und die Geraete sind Nacharbeit einer Installation,
+        // ein Update laesst nur Neustart und Anmeldung offen.
+        if (outcome.mode === 'redeploy') {
+          return list.map(function (item, index) { return Object.assign({ n: index + 1 }, item); });
         }
         if (this.selected(TAILSCALE_STEP)) {
           list.push({ key: 'tailscale', title: t('result.todo.tailscale.title'), text: t('result.todo.tailscale.text') });
@@ -184,6 +205,14 @@
 
       openUrl(url) {
         window.open(url, '_blank', 'noopener');
+      },
+
+      openDashboard() {
+        if (this.inDashboard) {
+          this.shell.backToDashboard();
+          return;
+        }
+        this.openUrl(this.primaryUrl);
       },
 
       save() {

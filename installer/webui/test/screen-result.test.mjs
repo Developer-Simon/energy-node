@@ -157,3 +157,30 @@ test('auch nach einem Update steht der Neustart in der Liste', async () => {
   const { screen } = await mount({ outcome: { mode: 'redeploy', rebootPending: true } });
   assert.equal(screen.todos[0].key, 'reboot');
 });
+
+test('nach einem Update stehen nur die Punkte, die das Update selbst hinterlaesst', async () => {
+  const { screen } = await mount({ outcome: { mode: 'redeploy' } });
+  assert.deepEqual(plain(screen.todos), []);
+  const reboot = await mount({ outcome: { mode: 'redeploy', rebootPending: true } });
+  assert.deepEqual(plain(reboot.screen.todos.map((item) => item.key)), ['reboot']);
+});
+
+test('im Dashboard fuehrt Dashboard oeffnen zurueck, ohne Adressen und ohne Diagnose', async () => {
+  const { screen, shell, opened } = await mount({
+    shell: { entry: 'redeploy', bootstrap: { host: 'dashboard', entry_points: ['redeploy'], needs_connection: false, auto_prepare: true } },
+    outcome: { mode: 'redeploy' },
+  });
+  assert.equal(screen.showReach, false);
+  assert.equal(screen.canDiagnose, false);
+  screen.openDashboard();
+  assert.equal(shell.backToDashboardCalled, 1);
+  assert.deepEqual(plain(opened), []);
+});
+
+test('im Installer oeffnet Dashboard oeffnen die erste Adresse und Diagnose bleibt', async () => {
+  const { screen, opened } = await mount();
+  assert.equal(screen.showReach, true);
+  assert.equal(screen.canDiagnose, true);
+  screen.openDashboard();
+  assert.deepEqual(plain(opened), ['https://energy-node.local']);
+});
