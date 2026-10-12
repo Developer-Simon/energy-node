@@ -966,7 +966,7 @@
         const has = id => nodes.some(node => (node.device_id || node.virtual_id) === id);
         const positionOf = id => nodes.find(node => (node.device_id || node.virtual_id) === id);
         let placed = 0;
-        if (this.balanceId() === df.BALANCE_ID && layers.balance && !has(df.BALANCE_ID)) {
+        if (this.balanceId() === df.BALANCE_ID && (layers.balance || layers.data) && !has(df.BALANCE_ID)) {
           const roleDevices = new Set(df.roleEdges(this.energy, df.BALANCE_ID).map(edge => edge.from));
           const rolePositions = nodes.filter(node => roleDevices.has(node.device_id));
           nodes.push({virtual_id: df.BALANCE_ID, ...df.placeBalance({rolePositions, allPositions: nodes, snap})});

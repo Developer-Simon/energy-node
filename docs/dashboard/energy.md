@@ -93,8 +93,8 @@ How to read a node:
 |---|---|
 | Wiring | the connections between devices and groups |
 | Live energy | roles, values and the moving flow |
-| Data flow | topics between devices, services and automation rules |
-| Energy balance | the balance node and every device that feeds it |
+| Data flow | topics between devices, services, automation rules and the balance conditions of automations |
+| Roles | every device with an energy role, connected to the Energy Node |
 
 The view menu holds the grid, snap to grid, width by power, the line style and
 the legend. With reduced motion enabled in the system the lines stand still and
@@ -154,15 +154,16 @@ Topic without a device. Click an edge or a rule for its details and a link into
 the configuration or the Automations tab. How a service declares its topics is
 described in [Data flows](../developing/data-flow.md#12-data-flow-on-the-device-map).
 The automations device sits under the Energy Node and connects to every rule it runs.
+A rule with an energy value condition gets an edge from the balance, so the
+value a rule compares against is visible here without the Roles layer.
 
-### Energy balance layer
+### Roles layer
 
 ![Energy balance layer](../images/dashboard-device-map-balance.png)
 
-The balance is the Energy Node itself, the device the dashboard publishes for
-Home Assistant. Every device with a role is connected to it in the colour of its
-role, and the node shows the net grid power. The balance publishes the result
-for automations, so the map shows the value a rule compares against. Without
+The Roles layer connects every device with an energy role to the Energy Node, in
+the colour of its role. The Energy Node is the balance itself, the device the
+dashboard publishes for Home Assistant, and it shows the net grid power. Without
 the Energy Node device, a separate balance node stands in for it.
 
 ## Permissions

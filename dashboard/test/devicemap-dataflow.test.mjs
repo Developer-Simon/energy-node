@@ -35,7 +35,8 @@ test('visibility follows the layer table of the spec', () => {
   const service = { cat: 'service', from: 'bms', to: 'soc' };
   assert.equal(df.edgeVisible(role, { ...off, balance: true }), true);
   assert.equal(df.edgeVisible(role, { ...off, data: true }), false);
-  assert.equal(df.edgeVisible(balanceRule, { ...off, data: true }), false, 'balance to rule needs both layers');
+  assert.equal(df.edgeVisible(balanceRule, { ...off, data: true }), true, 'balance conditions follow the data layer alone');
+  assert.equal(df.edgeVisible(balanceRule, { ...off, balance: true }), false);
   assert.equal(df.edgeVisible(balanceRule, ALL), true);
   assert.equal(df.edgeVisible(service, { ...off, data: true }), true);
 });
@@ -207,11 +208,20 @@ test('without energy_node the balance refs keep the virtual node', () => {
   assert.equal(edges[0].viaBalance, true);
 });
 
-test('an edge from the balance device needs the data and the balance layer', () => {
+test('an edge from the balance device follows the data layer', () => {
   const df = load();
   const edge = { cat: 'automation', from: 'energy_node', to: 'rule:r', viaBalance: true };
-  assert.equal(df.edgeVisible(edge, { wiring: true, energy: true, balance: false, data: true }), false);
+  assert.equal(df.edgeVisible(edge, { wiring: true, energy: true, balance: false, data: true }), true);
+  assert.equal(df.edgeVisible(edge, { wiring: true, energy: true, balance: true, data: false }), false);
   assert.equal(df.edgeVisible(edge, ALL), true);
+});
+
+test('the virtual balance node shows with the roles layer or the data flow layer', () => {
+  const df = load();
+  const none = { wiring: true, energy: true, balance: false, data: false };
+  assert.equal(df.nodeVisible('balance', none), false);
+  assert.equal(df.nodeVisible('balance', { ...none, balance: true }), true);
+  assert.equal(df.nodeVisible('balance', { ...none, data: true }), true);
 });
 
 test('an executes edge shows the automation popover with its kind', () => {

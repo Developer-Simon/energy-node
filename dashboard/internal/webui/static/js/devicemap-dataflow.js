@@ -28,16 +28,19 @@
   const isVirtualId = id => nodeKind(id) !== 'device';
   const isPersistedVirtual = id => ['balance', 'group', 'rule', 'service'].includes(nodeKind(id));
 
+  // The virtual balance node stands in for the Energy Node device, so it shows
+  // with the roles layer (its role edges) or with the data flow layer (the
+  // balance conditions of automations).
   const nodeVisible = (kind, layers) => {
-    if (kind === 'balance') return Boolean(layers.balance);
+    if (kind === 'balance') return Boolean(layers.balance || layers.data);
     if (kind === 'rule' || kind === 'service' || kind === 'stub') return Boolean(layers.data);
     return true;
   };
-  // Spec "Ebene -> Sichtbarkeit": an edge between balance and rule needs both
-  // layers. Set per element, so focus dimming can never reveal a hidden one.
+  // Role edges belong to the roles layer. Balance conditions of automations are
+  // data flow edges and follow the data flow layer alone. Set per element, so
+  // focus dimming can never reveal a hidden one.
   const edgeVisible = (edge, layers) => {
     if (edge.cat === 'role') return Boolean(layers.balance);
-    if (edge.viaBalance) return Boolean(layers.data && layers.balance);
     return Boolean(layers.data);
   };
 
