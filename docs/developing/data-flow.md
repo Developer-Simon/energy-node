@@ -463,7 +463,7 @@ TinyTuya helper, which calls a Python script for the initial setup.
 
 ## 12. Data flow on the device map
 
-The [data flow layer](../dashboard/energy.md#data-flow-layer) of the device map
+The [data flow layer](../dashboard/device-map.md#data-flow-layer) of the device map
 is drawn from what the services declare in their JSON schemas. Every field with
 `"format": "mqtt-topic"` needs an `x-dataflow` annotation:
 
