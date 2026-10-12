@@ -99,7 +99,10 @@ func TestFutureHoursAreNotCountedAndEmptyResultEncodes(t *testing.T) {
 	if _, err := json.Marshal(res); err != nil {
 		t.Fatalf("JSON: %v", err)
 	}
-	future, _ := Query(NewStore(t.TempDir()), "year", "2030", loc, now)
+	future, err := Query(NewStore(t.TempDir()), "year", "2030", loc, now)
+	if err != nil {
+		t.Fatal(err)
+	}
 	if h := future.Total.Hours; h.None+h.Own+h.HA != 0 {
 		t.Fatalf("Zukunft zaehlt Stunden: %+v", h)
 	}
