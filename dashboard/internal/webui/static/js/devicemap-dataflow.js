@@ -30,15 +30,27 @@
   // layers. Set per element, so focus dimming can never reveal a hidden one.
   const edgeVisible = (edge, layers) => {
     if (edge.cat === 'role') return Boolean(layers.balance);
-    if (edge.from === BALANCE_ID || edge.to === BALANCE_ID) return Boolean(layers.data && layers.balance);
+    if (edge.viaBalance) return Boolean(layers.data && layers.balance);
     return Boolean(layers.data);
   };
 
+  // The balance lives on the dashboard's own device once discovery shows it
+  // (decision 2026-10-11). Without it the virtual node stands in.
+  const balanceNodeId = deviceIds => (deviceIds.has(window.DeviceMapModel.OWN_ENERGY_DEVICE_ID)
+    ? window.DeviceMapModel.OWN_ENERGY_DEVICE_ID : BALANCE_ID);
+
   const refId = ref => (ref && (ref.virtual_id || ref.device_id)) || '';
 
-  const flowEdges = (graph, nodeIds) => ((graph && graph.edges) || [])
-    .map(edge => ({id: edge.id, cat: edge.cat, from: refId(edge.from), to: refId(edge.to), fromEntity: edge.from.entity_id || '', toEntity: edge.to.entity_id || '',
-      title: edge.title, titleKey: edge.title_key || '', details: edge.details || {}, link: edge.link || {}}))
+  const flowEdges = (graph, nodeIds, balanceId = BALANCE_ID) => ((graph && graph.edges) || [])
+    .map(edge => {
+      const from = refId(edge.from);
+      const to = refId(edge.to);
+      return {id: edge.id, cat: edge.cat,
+        from: from === BALANCE_ID ? balanceId : from, to: to === BALANCE_ID ? balanceId : to,
+        viaBalance: from === BALANCE_ID || to === BALANCE_ID,
+        fromEntity: edge.from.entity_id || '', toEntity: edge.to.entity_id || '',
+        title: edge.title, titleKey: edge.title_key || '', details: edge.details || {}, link: edge.link || {}};
+    })
     .filter(edge => nodeIds.has(edge.from) && nodeIds.has(edge.to));
 
   const stubs = (graph, nodeIds) => {
@@ -60,14 +72,14 @@
     return {nodes, edges, invalid};
   };
 
-  const roleEdges = snapshot => {
+  const roleEdges = (snapshot, balanceId = BALANCE_ID) => {
     const byDevice = new Map();
     for (const entity of (snapshot && snapshot.entities) || []) {
       const role = entity.role && entity.role.role;
       if (!role || !entity.device_id || entity.device_id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID) continue;
       let entry = byDevice.get(entity.device_id);
       if (!entry) {
-        entry = {id: `role:${entity.device_id}`, cat: 'role', from: entity.device_id, to: BALANCE_ID, roles: [], entities: [], heuristic: false};
+        entry = {id: `role:${entity.device_id}`, cat: 'role', from: entity.device_id, to: balanceId, roles: [], entities: [], heuristic: false};
         byDevice.set(entity.device_id, entry);
       }
       if (!entry.roles.includes(role)) entry.roles.push(role);
@@ -197,7 +209,7 @@
     }));
 
   window.DeviceMapDataflow = {
-    BALANCE_ID, STUB_PREFIX, ruleId, nodeKind, isVirtualId, isPersistedVirtual, nodeVisible, edgeVisible,
+    BALANCE_ID, STUB_PREFIX, ruleId, nodeKind, isVirtualId, isPersistedVirtual, nodeVisible, edgeVisible, balanceNodeId,
     refId, flowEdges, stubs, roleEdges, relatedFocus, placeBalance, placeFlowNodes, stubPosition, titleOf, edgeView, deviceFlows,
   };
 })();
