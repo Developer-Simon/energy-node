@@ -1,15 +1,19 @@
 # Changelog
 
-## v0.9.5 (2026-10-12)
+## v0.9.6 (2026-10-12)
 
 ### Features
 
 - **dashboard:** show update progress and what's new after an update (#123) (7c1388f)
 - **dashboard:** show exchange and history status as tiles (#125) (1013cd2)
+- **devicemap:** merge the balance node into the energy_node device (#126) (67870d1)
+- **devicemap:** link the automation device to the rules it runs (11d6c51)
+- **devicemap:** place rules below the automation device (c61106b)
+- **devicemap:** show the automation device under the energy node in the example (ad10903)
+- **devicemap:** hang the automation device under the node and link its rules (#127)
 - **devicemap:** resolve the balance node to the energy_node device (fbc32dc)
 - **devicemap:** draw energy_node as the balance node on the map (b167ee7)
 - **devicemap:** draw energy_node as the balance node on the plant view (993e14e)
-- **devicemap:** merge the balance node into the energy_node device (#126)
 - **dashboard:** show the exchange status as a tile that updates itself (7e631b6)
 - **dashboard:** show the history status as a strip with pills and a calm empty state (d8d35cf)
 - **dashboard:** add a per-device history exchange mode, on demand by default (d55c003)
