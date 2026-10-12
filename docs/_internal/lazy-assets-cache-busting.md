@@ -71,7 +71,7 @@ As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `34` |
+| `css/base.css` | `35` |
 | `js/i18n.js` | `3` (also `login.html`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -112,6 +112,7 @@ As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
 | `js/battery-status.js` | `2` |
 | `js/energy-day.js` | `2` |
 | `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js`, `js/energy-status.js` | `1` |
+| `js/energy-stats-model.js`, `js/energy-stats-card.js` | `1` |
 | `js/history-chart.js` | `2` |
 | `js/history-view-card.js` | `2` |
 
@@ -146,7 +147,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `13` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `15` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places

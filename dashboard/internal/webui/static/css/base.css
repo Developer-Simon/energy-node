@@ -965,6 +965,18 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 .energy-status-tile-head span:last-child { font-weight: 700; }
 .energy-status-tile-value { margin: .3rem 0 .1rem; font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; color: var(--text); }
 .energy-status-tile-note { font-size: .8rem; color: var(--text-subtle); }
+.energy-stats-card { display: flex; flex-direction: column; gap: .6rem; height: 100%; }
+.energy-stats-card-header { display: flex; align-items: baseline; justify-content: space-between; gap: .5rem; }
+.energy-stats-card-header h3 { margin: 0; }
+.energy-stats-open { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; font: inherit; font-size: .85rem; }
+.energy-stats-periods { display: flex; flex-wrap: wrap; gap: .3rem; }
+.energy-stats-chip { border: 1px solid var(--border); background: transparent; color: inherit; border-radius: 999px; padding: .2rem .6rem; font: inherit; font-size: .8rem; cursor: pointer; }
+.energy-stats-chip.active { border-color: var(--accent); color: var(--accent); }
+.energy-stats-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(7rem, 1fr)); gap: .5rem; margin: 0; }
+.energy-stats-kpi dt { font-size: .75rem; color: var(--text-faint); }
+.energy-stats-kpi dd { margin: 0; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
+.energy-stats-coverage { margin: auto 0 0; font-size: .75rem; color: var(--text-faint); }
+.energy-stats-error { margin: 0; color: var(--bad); font-size: .85rem; }
 .energy-ring-card { height: 100%; box-sizing: border-box; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); padding: 1rem 1.1rem 1.1rem; }
 .energy-ring-header h3 { margin: 0 0 .8rem; font-size: 1.15rem; color: var(--text); }
 .energy-ring-stage { display: grid; grid-template-columns: minmax(14rem, 1.1fr) minmax(11rem, 1fr); gap: 1.2rem; align-items: center; }

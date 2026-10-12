@@ -31,7 +31,7 @@
                     "required": ["id", "type", "span", "visible"],
                     "properties": {
                       "id": {"type": "string", "minLength": 1},
-                      "type": {"type": "string", "enum": ["device", "entity_value", "entity_group", "energy_flow", "energy_summary", "diagnostics", "energy_band", "energy_ring", "energy_board", "energy_day", "energy_schema", "energy_status", "battery_status", "history_view"]},
+                      "type": {"type": "string", "enum": ["device", "entity_value", "entity_group", "energy_flow", "energy_summary", "diagnostics", "energy_band", "energy_ring", "energy_board", "energy_day", "energy_schema", "energy_status", "energy_stats", "battery_status", "history_view"]},
                       "ref": {"type": "string"},
                       "entity_refs": {
                         "type": "array",

@@ -40,6 +40,9 @@ var cardCatalog = map[string]CardType{
 	"energy_board":   {MinSpan: 2, MinWidth: "24rem", MinHeight: "14rem", FillsHeight: false, DefaultSpan: "3"},
 	"energy_status":  {MinSpan: 1, MinWidth: "14rem", MinHeight: "18rem", FillsHeight: false, DefaultSpan: "1"},
 	"energy_summary": {MinSpan: 1, MinWidth: "10rem", MinHeight: "6rem", FillsHeight: false, DefaultSpan: "full"},
+	// Kompakte Kennzahlen ohne Diagramm, vier Zeitraum-Knoepfe in einer
+	// Zeile brauchen 16rem.
+	"energy_stats":   {MinSpan: 1, MinWidth: "16rem", MinHeight: "14rem", FillsHeight: false, DefaultSpan: "1"},
 	"diagnostics":    {MinSpan: 1, MinWidth: "12rem", MinHeight: "6rem", FillsHeight: false, DefaultSpan: "1"},
 	"device":         {MinSpan: 1, MinWidth: "18rem", MinHeight: "10rem", FillsHeight: false, DefaultSpan: "1"},
 	"entity_value":   {MinSpan: 1, MinWidth: "10rem", MinHeight: "6rem", FillsHeight: false, DefaultSpan: "1"},
