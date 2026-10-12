@@ -138,3 +138,10 @@ func decodeMonthFile(t *testing.T, path string) (*Month, error) {
 	}
 	return decodeMonth(data)
 }
+
+// monthForTest liefert den Monat zu t und legt ihn bei Bedarf an.
+func (s *Store) monthForTest(t time.Time) (*Month, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.monthLocked(t, true)
+}
