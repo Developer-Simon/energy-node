@@ -4,8 +4,8 @@
 
 ### Features
 
+- **devicemap:** hang the automation device under the node and link its rules (#127) (c4c2401)
 - **automation:** announce the service device via the energy node (b9f3207)
-- **devicemap:** hang the automation device under the node and link its rules (#127)
 
 ## v0.5.0 (2026-10-10)
 
