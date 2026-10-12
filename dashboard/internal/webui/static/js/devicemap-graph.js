@@ -14,9 +14,10 @@
 
   // Wiring edges only. Memberships and deviceMap.edges come first so their
   // overrideId and membership data win the pair-dedup over discovery relations.
-  const wiringElements = ({devices, deviceMap, groups, nodeIds}) => {
+  const wiringElements = ({devices, deviceMap, groups, nodeIds, energy = new Map()}) => {
     const elements = [];
     const seenEdges = new Set();
+    const index = window.DeviceMapWiring.propsIndex(deviceMap.edge_props);
     // overrideId is only set for manually created relations (settings.RelationOverride) -
     // those are the only ones removeSelectedRelation() is allowed to delete.
     const addEdge = (childId, parentId, overrideId, membership) => {
@@ -27,7 +28,13 @@
       const data = {id: `edge-${key}`, source: parentId, target: childId};
       if (overrideId) data.overrideId = overrideId;
       if (membership) data.membership = membership;
-      elements.push({data, classes: 'devicemap-wiring'});
+      const props = window.DeviceMapWiring.resolve({parent: parentId, child: childId, membership}, index, energy);
+      data.connType = props.type;
+      data.direction = props.direction;
+      data.heuristic = props.heuristic;
+      const classes = ['devicemap-wiring', `devicemap-conn-${props.type}`];
+      if (props.heuristic) classes.push('devicemap-conn-detected');
+      elements.push({data, classes: classes.join(' ')});
     };
     // Memberships come from energy.json, not from device-map.json (one
     // source of truth). They render as wiring, so edgeFlow() sums a
@@ -58,13 +65,17 @@
   const pairsOf = edgeElements => edgeElements
     .map(element => ({parent: element.data.source, child: element.data.target}));
 
-  const flowElements = ({pairs, energy, view}) => {
+  const flowElements = ({pairs, energy, view, edgeProps}) => {
     const model = window.DeviceMapModel;
-    const children = model.childrenIndex(pairs);
+    const wiring = window.DeviceMapWiring;
+    const index = wiring.propsIndex(edgeProps);
+    const energyPairs = wiring.energyPairs(pairs, index, energy);
+    const children = model.childrenIndex(energyPairs);
+    const dirOf = (parent, child) => (energyPairs.find(pair => pair.parent === parent && pair.child === child) || {}).direction || 'auto';
     const byPower = view.width_by_power;
     const flows = [];
-    for (const {parent, child} of pairs) {
-      const flow = model.edgeFlow(child, energy, children);
+    for (const {parent, child} of energyPairs) {
+      const flow = model.edgeFlow(child, energy, children, {dirOf, parentId: parent});
       if (!flow) continue;
       const reverse = flow.value < 0;
       const abs = Math.abs(flow.value);
@@ -158,6 +169,10 @@
       ...(EDGE_STYLES[view.edge_style] || EDGE_STYLES.straight),
     }},
     {selector: 'edge.devicemap-wiring', style: wiringEdgeStyle(view, theme)},
+    {selector: 'edge.devicemap-wiring.devicemap-conn-data', style: {'line-style': 'dashed', 'line-dash-pattern': [6, 4]}},
+    {selector: 'edge.devicemap-wiring.devicemap-conn-info', style: {width: 1, 'line-color': theme.faint, 'target-arrow-color': theme.faint}},
+    {selector: 'edge.devicemap-wiring.devicemap-conn-detected', style: {'line-opacity': 0.7}},
+    ...(view.layers.wiring ? [] : [{selector: 'edge.devicemap-wiring:not(.devicemap-conn-energy)', style: {display: 'none'}}]),
     {selector: 'edge.devicemap-flow', style: {
       ...(EDGE_STYLES[view.edge_style] || EDGE_STYLES.straight),
       'line-color': edge => color(edge.data('color')),

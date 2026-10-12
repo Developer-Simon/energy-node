@@ -340,7 +340,7 @@ async function deviceMapShowcase() {
   // damit das Bild ohne den Hinweis auf ungespeicherte Positionen auskommt.
   for (const [name, layers] of [['dashboard-device-map-balance', ['balance']], ['dashboard-device-map-dataflow', ['data']]]) {
     if (!want(name)) continue;
-    for (const [layer, label] of [['balance', 'Energy balance'], ['data', 'Data flow']]) {
+    for (const [layer, label] of [['balance', 'Roles'], ['data', 'Data flow']]) {
       const on = await map(id => window.Alpine.$data(document.querySelector('#devicemap-panel')).view.layers[id], layer);
       if (on === layers.includes(layer)) continue;
       await s.page.locator('#devicemap-panel .devicemap-toolbar').getByRole('button', { name: label }).click();

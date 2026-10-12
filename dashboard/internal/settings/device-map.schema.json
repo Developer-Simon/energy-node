@@ -34,6 +34,20 @@
         }
       }
     },
+    "edge_props": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["parent_id", "child_id", "type"],
+        "properties": {
+          "parent_id": {"type": "string", "minLength": 1},
+          "child_id": {"type": "string", "minLength": 1},
+          "type": {"type": "string", "enum": ["energy", "data", "info"]},
+          "direction": {"type": "string", "enum": ["auto", "reversed", "fixed_down", "fixed_up"]}
+        }
+      }
+    },
     "view": {
       "type": "object",
       "additionalProperties": false,

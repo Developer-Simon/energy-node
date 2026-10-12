@@ -289,21 +289,25 @@
   };
 
   // Spec: an edge parent -> child carries the child's own measurement,
-  // otherwise the signed sum of its subtree. visited guards against cycles
-  // that manual relations can create.
-  const edgeFlow = (childId, energy, children, visited = new Set()) => {
+  // otherwise the signed sum of its subtree. options.dirOf(parent, child)
+  // turns each edge's value by its direction (devicemap-wiring.js), also
+  // inside a sum. visited guards against cycles manual relations can create.
+  const edgeFlow = (childId, energy, children, options = {}) => {
+    const visited = options.visited || new Set();
     if (visited.has(childId)) return null;
     visited.add(childId);
+    const turn = value => (options.dirOf && options.parentId != null
+      ? window.DeviceMapWiring.applyDirection(value, options.dirOf(options.parentId, childId)) : value);
     const entry = energy.get(childId);
     if (entry && entry.power != null) {
-      return Math.abs(entry.power) < MIN_FLOW_W ? null : {value: entry.power, sum: false};
+      return Math.abs(entry.power) < MIN_FLOW_W ? null : {value: turn(entry.power), sum: false};
     }
     let total = null;
     for (const next of children.get(childId) || []) {
-      const flow = edgeFlow(next, energy, children, visited);
+      const flow = edgeFlow(next, energy, children, {...options, visited, parentId: childId});
       if (flow) total = (total || 0) + flow.value;
     }
-    return total == null || Math.abs(total) < MIN_FLOW_W ? null : {value: total, sum: true};
+    return total == null || Math.abs(total) < MIN_FLOW_W ? null : {value: turn(total), sum: true};
   };
 
   const speedBucket = abs => (abs < 300 ? 'slow' : abs < 1200 ? 'mid' : 'fast');

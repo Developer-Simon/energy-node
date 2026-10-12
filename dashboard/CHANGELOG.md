@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.7 (2026-10-12)
+## v0.9.8 (2026-10-12)
 
 ### Features
 
@@ -8,6 +8,18 @@
 - **dashboard:** show exchange and history status as tiles (#125) (1013cd2)
 - **devicemap:** merge the balance node into the energy_node device (#126) (67870d1)
 - **devicemap:** hang the automation device under the node and link its rules (#127) (c4c2401)
+- **dashboard:** hourly energy statistics recorded on the server (#128) (b18f85e)
+- **devicemap:** store a connection type and flow direction per edge (727b779)
+- **devicemap:** reverse a manual relation in place (484c889)
+- **devicemap:** resolve connection type and flow direction per edge (4a4b69c)
+- **devicemap:** draw connection types and run flows over energy edges only (49794ea)
+- **devicemap:** compute group values over energy edges with their direction (1c18aaf)
+- **devicemap:** set connection type and direction and reverse manual edges on the map page (6a1bea2)
+- **devicemap:** add the connection type and direction controls to the edge card (96a97b0)
+- **devicemap:** polish the reverse button, reorder the layer buttons and add a width icon (70a0752)
+- **devicemap:** rename the balance layer to roles and move balance conditions to the data layer (39d962a)
+- **devicemap:** calm down the wiring edge card (922d9a2)
+- **devicemap:** connection types with flow direction and reversible manual edges (#129)
 - **energystats:** hourly month model with source precedence (4efb3e7)
 - **energystats:** integrate power samples into hourly kWh (ded870b)
 - **energystats:** persist months atomically and survive corrupt files (2acdbd2)
@@ -15,7 +27,6 @@
 - **energystats:** sum hours into local days, months and years (e64d3f4)
 - **dashboard:** record energy statistics and serve them at /api/v1/energy/stats (b444540)
 - **energystats:** add a week period to the statistics query (803d5b1)
-- **dashboard:** hourly energy statistics recorded on the server (#128)
 - **devicemap:** link the automation device to the rules it runs (11d6c51)
 - **devicemap:** place rules below the automation device (c61106b)
 - **devicemap:** show the automation device under the energy node in the example (ad10903)
@@ -47,6 +58,7 @@
 ### Fixes
 
 - **dashboard:** serve the automation history in full (#119) (1e04a2a)
+- **devicemap:** hint why a feed into a group cannot be reversed and bump cache versions (5303872)
 - **energystats:** check the error of the future-period query test (75c038a)
 - **devicemap:** place balance-fed data nodes by energy_node position (07906f9)
 - **dashboard:** address final review of the update bar and what's new page (b3ab4d3)
@@ -59,6 +71,7 @@
 
 ### Documentation
 
+- **devicemap:** describe fixed direction and reversing, retake the device map screenshots (0581688)
 - **devicemap:** describe energy_node as the balance node (c8fc1fd)
 - **dashboard:** describe the on-demand history exchange and bump asset versions (abc7908)
 - **dashboard:** refresh the history settings screenshot for the exchange mode (7d47494)

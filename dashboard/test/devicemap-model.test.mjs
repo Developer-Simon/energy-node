@@ -8,12 +8,15 @@ import { JSDOM } from 'jsdom';
 import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const source = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap-model.js'), 'utf8');
+const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
 
 function loadModel() {
   const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
-  vm.runInContext(source, dom.getInternalVMContext());
+  const context = dom.getInternalVMContext();
+  for (const name of ['devicemap-model.js', 'devicemap-wiring.js']) {
+    vm.runInContext(fs.readFileSync(path.join(jsDir, name), 'utf8'), context);
+  }
   return dom.window.DeviceMapModel;
 }
 const plain = value => JSON.parse(JSON.stringify(value));
@@ -118,6 +121,16 @@ test('edgeFlow terminates on relation cycles and ignores flows below one watt', 
   const energy = model.deviceEnergy({ entities: [entity('c', 'x', 'load', 0.4)] });
   const children = model.childrenIndex([{ parent: 'a', child: 'b' }, { parent: 'b', child: 'a' }, { parent: 'b', child: 'c' }]);
   assert.equal(model.edgeFlow('a', energy, children), null);
+});
+
+test('edgeFlow applies the direction of each energy edge, also inside a subtree sum', () => {
+  const model = loadModel();
+  const energy = new Map([['a', { power: 100 }], ['b', { power: 50 }]]);
+  const children = model.childrenIndex([{ parent: 'uv', child: 'a' }, { parent: 'uv', child: 'b' }]);
+  const dirOf = (parent, child) => (child === 'b' ? 'reversed' : 'auto');
+  assert.deepEqual(plain(model.edgeFlow('uv', energy, children, { dirOf })), { value: 50, sum: true });
+  assert.deepEqual(plain(model.edgeFlow('b', energy, children, { dirOf, parentId: 'uv' })), { value: -50, sum: false });
+  assert.deepEqual(plain(model.edgeFlow('uv', energy, children)), { value: 150, sum: true });
 });
 
 test('speed buckets, widths, labels and colours follow the draft', () => {

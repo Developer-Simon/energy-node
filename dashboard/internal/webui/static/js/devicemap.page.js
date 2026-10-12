@@ -56,6 +56,7 @@
       flowsUnavailable: false,
       invalidConfigs: 0,
       popover: null, // {eyebrow, title, rows, lists, text, linkText, link, action, left, top, origin, open} | null
+      edgeFixedOpen: false, // the fixed direction disclosure of a wiring card, toggled by the user
       focusId: null,
       focusRelated: new Set(),
       panelId: null,
@@ -179,7 +180,7 @@
 
       flowElements() {
         if (!this.view.layers.energy || !this.energy) return [];
-        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view});
+        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props});
       },
 
       applyFlows() {
@@ -232,6 +233,13 @@
         return window.DeviceMapGraph.pairsOf(this.buildEdgeElements());
       },
 
+      // Flow context for edgeFlow(): only energy edges carry values, and each
+      // one turns by its direction.
+      energyFlowContext() {
+        const energy = this.energyByDevice();
+        return {energy, ...window.DeviceMapWiring.flowContext(this.wiringPairs(), this.deviceMap.edge_props, energy)};
+      },
+
       setFocus(id) {
         const df = window.DeviceMapDataflow;
         this.focusId = id;
@@ -274,6 +282,7 @@
         const flipX = x + 12 + width > stage.width - 12;
         const flipY = y + 12 + 260 > stage.height - 12;
         this.popover = {
+          edge: null,
           ...view,
           left: flipX ? Math.max(12, x - 12 - width) : x + 12,
           top: flipY ? Math.max(12, y - 12 - 260) : y + 12,
@@ -336,12 +345,14 @@
       // flows over it, which roles the lower device carries and where the
       // relation comes from. Only manual relations and group memberships can
       // be dissolved, a Discovery relation reflects real wiring.
-      openWiringPopover(rendered) {
+      // keepDisclosure is set when the card is re-rendered after a change of the
+      // same edge, so the fixed direction disclosure stays as the user left it.
+      openWiringPopover(rendered, keepDisclosure = false) {
         const edge = this.selectedEdge;
         if (!edge) return;
         const model = window.DeviceMapModel;
-        const energy = this.energyByDevice();
-        const flow = model.edgeFlow(edge.target, energy, model.childrenIndex(this.wiringPairs()));
+        const {energy, children, dirOf} = this.energyFlowContext();
+        const flow = model.edgeFlow(edge.target, energy, children, {dirOf, parentId: edge.source});
         const entry = energy.get(edge.target);
         const origin = edge.membership ? 'group' : edge.overrideId ? 'manual' : 'discovery';
         const rows = [];
@@ -351,6 +362,8 @@
         }
         rows.push([t('devicemap.pop.row.origin'), t(`devicemap.pop.origin.${origin}`)]);
         const opensPanel = edge.target !== model.OWN_ENERGY_DEVICE_ID;
+        this.edgeCardAnchor = rendered || null;
+        if (!keepDisclosure) this.edgeFixedOpen = false;
         this.placePopover(rendered, {
           eyebrow: t(origin === 'group' ? 'devicemap.pop.eyebrow.membership' : 'devicemap.pop.eyebrow.wiring'),
           title: this.selectedEdgeLabel, rows, lists: [],
@@ -358,7 +371,99 @@
           linkText: opensPanel ? t('devicemap.pop.link.open_device', {name: this.deviceLabel(edge.target)}) : '',
           link: opensPanel ? {tab: 'panel', target: edge.target} : null,
           action: origin === 'discovery' ? null : {label: t('devicemap.disconnect_button')},
+          edge: {
+            ...this.edgePropsFor(edge),
+            canReverse: Boolean(edge.overrideId) && !edge.membership && !model.isGroupId(edge.target) && !model.isGroupId(edge.source),
+            manual: Boolean(edge.overrideId),
+            parentName: this.deviceLabel(edge.source),
+            childName: this.deviceLabel(edge.target),
+            membership: Boolean(edge.membership),
+          },
         });
+      },
+
+      // Connection type and flow direction of the selected wiring edge. Both
+      // write a device_map edge_props entry; the map is saved with save().
+      setEdgeType(type) {
+        const edge = this.selectedEdge;
+        if (!edge || edge.membership || !window.DeviceMapWiring.TYPES.includes(type)) return;
+        const current = this.edgePropsFor(edge);
+        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type, direction: current.direction})};
+        this.unsaved = true;
+        this.afterEdgePropsChange();
+      },
+
+      setEdgeDirection(direction) {
+        const edge = this.selectedEdge;
+        if (!edge || edge.membership) return;
+        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction})};
+        this.unsaved = true;
+        this.afterEdgePropsChange();
+      },
+
+      // Fixed directions sit behind a disclosure: it is open while one is set
+      // or when the user opened it. A set fixed direction cannot be folded away.
+      edgeFixedShown() {
+        const edge = this.popover && this.popover.edge;
+        return Boolean(this.edgeFixedOpen || (edge && String(edge.direction || '').startsWith('fixed')));
+      },
+
+      toggleEdgeFixedOpen() {
+        this.edgeFixedOpen = !this.edgeFixedShown();
+      },
+
+      edgePropsFor(edge) {
+        const wiring = window.DeviceMapWiring;
+        return wiring.resolve({parent: edge.source, child: edge.target, membership: edge.membership}, wiring.propsIndex(this.deviceMap.edge_props), this.energyByDevice());
+      },
+
+      // Class and data of the wiring edge change in place (no renderGraph(),
+      // which would reset the viewport), then flows and the card follow.
+      afterEdgePropsChange() {
+        const graph = cy || this._cyForTest;
+        if (graph) {
+          const fresh = new Map(this.buildEdgeElements().map(element => [element.data.id, element]));
+          const transient = ['devicemap-selected-edge', 'devicemap-focused', 'devicemap-dimmed'];
+          graph.edges('.devicemap-wiring').forEach(edge => {
+            const next = fresh.get(edge.id());
+            if (!next) return;
+            const kept = transient.filter(name => edge.hasClass(name));
+            edge.classes([next.classes, ...kept].join(' '));
+            for (const name of ['connType', 'direction', 'heuristic']) edge.data(name, next.data[name]);
+          });
+        }
+        this.applyFlows();
+        if (labels) labels.update(this.labelItems());
+        if (this.popover && this.popover.edge) {
+          // Re-open at the original tap point, not at the flipped card corner.
+          const anchor = this.edgeCardAnchor || {x: this.popover.left - 12, y: this.popover.top - 12};
+          this.openWiringPopover(anchor, true);
+        }
+      },
+
+      async reverseSelectedRelation() {
+        const selected = this.selectedEdge;
+        if (!selected || !selected.overrideId) return;
+        try {
+          const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST'});
+          const edges = (this.deviceMap.edges || []).map(edge => (edge.id === result.relation.id ? result.relation : edge));
+          const swap = {fixed_down: 'fixed_up', fixed_up: 'fixed_down'};
+          const pair = window.DeviceMapGraph.relationKey(selected.source, selected.target);
+          const props = (this.deviceMap.edge_props || []).map(prop => {
+            if (window.DeviceMapGraph.relationKey(prop.parent_id, prop.child_id) !== pair) return prop;
+            const next = {...prop, parent_id: prop.child_id, child_id: prop.parent_id};
+            if (swap[next.direction]) next.direction = swap[next.direction];
+            return next;
+          });
+          this.deviceMap = {...this.deviceMap, edges, edge_props: props};
+          this.savedDeviceMap = {...this.savedDeviceMap, edges, edge_props: result.edge_props};
+          this.$store.toasts.push(t('devicemap.relation_reversed'));
+          this.closePopover();
+          this.notifyMapChanged();
+          this.renderGraph();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
       },
 
       closePopover() {
@@ -496,14 +601,13 @@
           const group = this.savedGroups[id];
           if (!group) return null;
           const draft = this.groupDraft || {};
-          const energy = this.energyByDevice();
-          const children = model.childrenIndex(this.wiringPairs());
-          const flow = model.edgeFlow(this.panelId, energy, children);
+          const {energy, children, dirOf} = this.energyFlowContext();
+          const flow = model.edgeFlow(this.panelId, energy, children, {dirOf});
           const members = [
             ...(group.members.devices || []).map(deviceId => ({id: deviceId, name: this.deviceLabel(deviceId)})),
             ...(group.members.groups || []).map(child => ({id: model.GROUP_PREFIX + child, name: (this.savedGroups[child] || {}).label || child})),
           ].map(member => {
-            const memberFlow = model.edgeFlow(member.id, energy, children);
+            const memberFlow = model.edgeFlow(member.id, energy, children, {dirOf});
             return {...member, valueText: memberFlow ? model.formatPower(memberFlow.value) : t('devicemap.value.no_values')};
           });
           const consumers = model.roleOptions('W', this.savedCategories)
@@ -651,16 +755,15 @@
 
       labelItems() {
         const model = window.DeviceMapModel;
-        const energy = this.energyByDevice();
+        const {energy, children, dirOf} = this.energyFlowContext();
         const devices = this.devices.map(device => ({
           id: device.id,
           name: device.name || device.id,
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
         }));
-        const children = model.childrenIndex(this.wiringPairs());
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
-          return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children))};
+          return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children, {dirOf}))};
         });
         const virtual = [
           ...(this.balanceId() === window.DeviceMapDataflow.BALANCE_ID
@@ -878,7 +981,7 @@
         const has = id => nodes.some(node => (node.device_id || node.virtual_id) === id);
         const positionOf = id => nodes.find(node => (node.device_id || node.virtual_id) === id);
         let placed = 0;
-        if (this.balanceId() === df.BALANCE_ID && layers.balance && !has(df.BALANCE_ID)) {
+        if (this.balanceId() === df.BALANCE_ID && (layers.balance || layers.data) && !has(df.BALANCE_ID)) {
           const roleDevices = new Set(df.roleEdges(this.energy, df.BALANCE_ID).map(edge => edge.from));
           const rolePositions = nodes.filter(node => roleDevices.has(node.device_id));
           nodes.push({virtual_id: df.BALANCE_ID, ...df.placeBalance({rolePositions, allPositions: nodes, snap})});
@@ -1003,7 +1106,7 @@
       },
 
       buildEdgeElements() {
-        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.savedGroups, nodeIds: this.nodeIds()});
+        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.savedGroups, nodeIds: this.nodeIds(), energy: this.energyByDevice()});
         if (!this.view.hide_automation_links) return wiring;
         return wiring.filter(element => !window.DeviceMapDataflow.isAutomationLink({from: element.data.source, to: element.data.target}));
       },
@@ -1240,6 +1343,13 @@
           this.$store.toasts.push(t('devicemap.relation_connected'));
           this.notifyMapChanged();
           this.renderGraph();
+          // Decision note: the connect dialog cannot ask for the type
+          // (modal.confirm has no fields), so the new edge's card opens instead.
+          // Set after renderGraph(), which clears the selection.
+          this.selectedEdge = {id: `edge-${window.DeviceMapGraph.relationKey(childId, parentId)}`, source: parentId, target: childId, overrideId: created.id, membership: null};
+          const element = cy && cy.getElementById(this.selectedEdge.id);
+          if (element && !element.empty()) element.addClass('devicemap-selected-edge');
+          this.openWiringPopover(element && !element.empty() ? element.renderedMidpoint() : null);
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
         }
@@ -1279,10 +1389,9 @@
       pickerItems(groupId) {
         const model = window.DeviceMapModel;
         const group = this.savedGroups[groupId] || {members: {}};
-        const energy = this.energyByDevice();
-        const children = model.childrenIndex(this.wiringPairs());
+        const {energy, children, dirOf} = this.energyFlowContext();
         const valueText = id => {
-          const flow = model.edgeFlow(id, energy, children);
+          const flow = model.edgeFlow(id, energy, children, {dirOf});
           return flow ? model.formatPower(flow.value) : t('devicemap.value.no_values');
         };
         const memberOf = id => {
@@ -1575,7 +1684,12 @@
             .map(entry => (df.isVirtualId(entry.id)
               ? {virtual_id: entry.id, x: entry.position.x, y: entry.position.y}
               : {device_id: entry.id, x: entry.position.x, y: entry.position.y}));
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], view: this.view};
+          // edge_props of pairs that no longer exist are dropped here, the
+          // same way vanished devices are dropped from nodes above.
+          const liveKeys = new Set(this.buildEdgeElements().filter(element => !element.data.membership)
+            .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)));
+          const edgeProps = window.DeviceMapWiring.prune(this.deviceMap.edge_props, liveKeys);
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json'},

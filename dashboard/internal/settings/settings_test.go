@@ -2126,7 +2126,7 @@ func TestDeviceMapVersion2AcceptsVirtualNodesAndReadsVersion1(t *testing.T) {
 		t.Fatal(err)
 	}
 	loaded, _ := store.LoadDeviceMap()
-	if loaded.Version != 2 || loaded.Nodes[1].VirtualID != "group:garage" {
+	if loaded.Version != 3 || loaded.Nodes[1].VirtualID != "group:garage" {
 		t.Fatalf("loaded = %+v", loaded)
 	}
 }
@@ -2307,5 +2307,54 @@ func TestEnergyCategoriesMigrateLegacyIconNames(t *testing.T) {
 	}
 	if got := value.Categories["werkstatt"].Icon; got != "energy-node:home" {
 		t.Errorf("category icon = %q, want energy-node:home", got)
+	}
+}
+
+func TestDeviceMapEdgePropsRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.EdgeProps = []DeviceMapEdgeProp{
+		{ParentID: "wr", ChildID: "akku", Type: "energy", Direction: "reversed"},
+		{ParentID: "energy_node", ChildID: "shelly", Type: "info"},
+	}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Version != 3 || len(loaded.EdgeProps) != 2 || loaded.EdgeProps[0].Direction != "reversed" {
+		t.Fatalf("loaded = %+v", loaded)
+	}
+}
+
+func TestDeviceMapEdgePropsValidation(t *testing.T) {
+	store := NewStore(t.TempDir())
+	cases := map[string][]DeviceMapEdgeProp{
+		"unknown type":              {{ParentID: "a", ChildID: "b", Type: "power"}},
+		"unknown direction":         {{ParentID: "a", ChildID: "b", Type: "energy", Direction: "sideways"}},
+		"direction without energy":  {{ParentID: "a", ChildID: "b", Type: "data", Direction: "reversed"}},
+		"self pair":                 {{ParentID: "a", ChildID: "a", Type: "energy"}},
+		"duplicate pair either way": {{ParentID: "a", ChildID: "b", Type: "energy"}, {ParentID: "b", ChildID: "a", Type: "data"}},
+	}
+	for name, props := range cases {
+		value := NewDeviceMap()
+		value.EdgeProps = props
+		if err := store.SaveDeviceMap(value); err == nil {
+			t.Errorf("%s: expected rejection", name)
+		}
+	}
+}
+
+func TestDeviceMapVersion2WithoutEdgePropsStillLoads(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(`{"version":2,"nodes":[{"device_id":"a","x":1,"y":2}]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadDeviceMap()
+	if err != nil || len(loaded.EdgeProps) != 0 {
+		t.Fatalf("loaded = %+v, err = %v", loaded, err)
 	}
 }

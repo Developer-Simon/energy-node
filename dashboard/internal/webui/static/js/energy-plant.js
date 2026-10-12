@@ -115,7 +115,7 @@
       },
 
       wiringEdges() {
-        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.groups, nodeIds: this.nodeIds()});
+        const wiring = window.DeviceMapGraph.wiringElements({devices: this.devices, deviceMap: this.deviceMap, groups: this.groups, nodeIds: this.nodeIds(), energy: this.energyByDevice()});
         if (!this.view.hide_automation_links) return wiring;
         return wiring.filter(element => !window.DeviceMapDataflow.isAutomationLink({from: element.data.source, to: element.data.target}));
       },
@@ -178,7 +178,7 @@
           ? graph.virtualElements({kinds: [{id: df.BALANCE_ID, kind: 'balance', name: t('devicemap.balance.name')}], positions, colorOf})
           : [];
         const wiring = this.wiringEdges();
-        const flows = graph.flowElements({pairs: graph.pairsOf(wiring), energy, view: this.view});
+        const flows = graph.flowElements({pairs: graph.pairsOf(wiring), energy, view: this.view, edgeProps: this.deviceMap.edge_props});
         const roles = graph.dataEdgeElements(df.roleEdges(this.energy, balanceId).filter(edge => this.nodeIds().has(edge.from)));
         return [...devices, ...groups, ...balance, ...wiring, ...flows, ...roles];
       },
@@ -186,14 +186,14 @@
       labelItems() {
         const model = window.DeviceMapModel;
         const energy = this.energyByDevice();
-        const children = model.childrenIndex(window.DeviceMapGraph.pairsOf(this.wiringEdges()));
+        const {children, dirOf} = window.DeviceMapWiring.flowContext(window.DeviceMapGraph.pairsOf(this.wiringEdges()), this.deviceMap.edge_props, energy);
         const df = window.DeviceMapDataflow;
         const balanceId = this.balanceId();
         const balanceText = model.balanceValueText(this.energy && this.energy.balance);
         return [
           ...this.devices.map(device => ({id: device.id, name: device.name || device.id,
             value: device.id === balanceId ? balanceText : model.nodeValueText(device, energy.get(device.id))})),
-          ...Object.entries(this.groups).map(([id, group]) => ({id: model.GROUP_PREFIX + id, name: group.label, value: model.groupValueText(model.edgeFlow(model.GROUP_PREFIX + id, energy, children))})),
+          ...Object.entries(this.groups).map(([id, group]) => ({id: model.GROUP_PREFIX + id, name: group.label, value: model.groupValueText(model.edgeFlow(model.GROUP_PREFIX + id, energy, children, {dirOf}))})),
           ...(balanceId === df.BALANCE_ID ? [{id: df.BALANCE_ID, name: t('devicemap.balance.name'), value: balanceText}] : []),
         ];
       },

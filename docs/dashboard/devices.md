@@ -1,11 +1,11 @@
 ---
 title: "Devices"
 anchor_moves:
-  device-map: energy.html#device-map
+  device-map: device-map.html
   energy-groups: energy.html#groups
   custom-categories: energy.html#custom-categories
-  energy-balance-layer: energy.html#energy-balance-layer
-  data-flow-layer: energy.html#data-flow-layer
+  energy-balance-layer: device-map.html#roles-layer
+  data-flow-layer: device-map.html#data-flow-layer
   data-flow-for-service-developers: ../developing/data-flow.html#12-data-flow-on-the-device-map
 ---
 
@@ -32,4 +32,4 @@ The default view is a setting, so a tablet on the wall can open straight into
 the compact view.
 
 How the devices are wired and what they contribute to the energy balance is on
-the [device map](energy.md#device-map).
+the [device map](device-map.md).
