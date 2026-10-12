@@ -71,7 +71,7 @@ As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `34` |
+| `css/base.css` | `36` |
 | `js/i18n.js` | `3` (also `login.html`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -95,7 +95,7 @@ As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `11` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `29` |
+| `js/dashboard.js` | `30` |
 | `js/update-bar.js` | `3` |
 | `js/whatsnew.page.js` | `2` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
@@ -112,6 +112,7 @@ As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
 | `js/battery-status.js` | `2` |
 | `js/energy-day.js` | `2` |
 | `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js`, `js/energy-status.js` | `1` |
+| `js/energy-stats-model.js`, `js/energy-stats-card.js` | `2` |
 | `js/history-chart.js` | `2` |
 | `js/history-view-card.js` | `2` |
 
@@ -124,14 +125,15 @@ skips scripts already present as `<script src>`.
 
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
-| `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` – | `css/tippy.css` – |
+| `devices-panel` | `js-deps/popper.min.js` –, `js-deps/tippy.umd.min.js` –, `js-deps/choices.min.js` – (device modal) | `css/tippy.css` –, `css/choices.min.css` –, `css/choices.css` `2` (device modal) |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `16` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `4` |
-| `diagnostics-panel` | – | `css/settings-controls.css` `12`, `css/diagnostics.css` `2` |
+| `diagnostics-panel` | – | `css/settings-controls.css` `13`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `35` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `9` | `css/manager.css` `35` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `24` | `css/manager.css` `35` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `20`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `12` |
-| `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `1`, `js/automations.page.js` `8` | `css/manager.css` `35`, `css/automations.css` `5` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `21`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
+| `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `11` | `css/manager.css` `35`, `css/automations.css` `6` |
+| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `2` | `css/history.css` `4`, `css/stats.css` `2` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -146,7 +148,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `13` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `15` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
@@ -156,11 +158,12 @@ place pulls the old file from the cache:
 
 - `css/manager.css` – 5 panels (`config`, `energy`, `devicemap`, `settings`, `automations`)
 - `js/device-picker.js`, `js/devicemap-graph.js`, `js/devicemap-wiring.js` – `energy-panel` and `devicemap-panel`
-- `js/energy-model.js` – channel 2 (`history-panel`) **and** channel 3 (energy cards)
+- `js/energy-model.js` – channel 2 (`history-panel`), `stats-panel` **and** channel 3 (energy cards)
+- `js/energy-stats-model.js` – `stats-panel` **and** channel 3 (energy cards)
 - `js/revisions.js`, `js/schema-form.js` – several manager panels and the overview editor assets
-- `js/choices.min.js` – overview editor assets and `settings-panel`
+- `js-deps/choices.min.js` – overview editor assets, `settings-panel` and `devices-panel` (device modal)
 - `css/settings-controls.css` – `settings-panel` and `diagnostics-panel`
-- `css/choices.css` – overview editor assets and `settings-panel` (reconciled
+- `css/choices.css` – overview editor assets, `settings-panel` and `devices-panel` (device modal) (reconciled
   2026-09-11: both now carry a `?v=`, previously only `settings-panel` did)
 
 ---
@@ -249,6 +252,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.9.9 | `css/base.css` · `css/settings-controls.css` (settings, diagnostics) · `css/stats.css` (new, stats panel) · `js/dashboard.js` · `js/energy-stats-card.js` (new, energy cards) · `js/energy-stats-model.js` (new, stats panel + energy cards) · `js/layout-editor.js` (overview editor) · `js/settings.page.js` (settings panel) · `js/stats.page.js` (new, stats panel) | `35` · `13` · `1` (new) · `30` · `1` (new) · `1` (new) · `15` · `21` · `1` (new) | 2026-10-12 |
 | v0.9.7 | `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/devicemap-wiring.js` (new, energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/energy-plant.js` (energy) · `js/devicemap.page.js` (device map) · `css/manager.css` (5 panels) | `9` · `4` · `1` (new) · `4` · `5` · `24` · `35` | 2026-10-12 |
 | v0.9.6 | `js/devicemap-dataflow.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/energy-plant.js` (energy) | `3` · `20` · `4` | 2026-10-12 |
 | v0.9.5 | `js/devicemap-model.js` (energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/energy-plant.js` (energy) · `js/devicemap.page.js` (device map) | `8` · `2` · `3` · `19` | 2026-10-12 |

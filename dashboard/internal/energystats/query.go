@@ -3,6 +3,8 @@ package energystats
 import (
 	"errors"
 	"time"
+
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 )
 
 var ErrInvalidPeriod = errors.New("energystats: ungueltiger Zeitraum")
@@ -26,11 +28,17 @@ type Totals struct {
 
 type Bucket struct {
 	Start time.Time `json:"start"`
+	// Local ist der Beginn in Ortszeit des Pi als Text. Der Browser
+	// beschriftet damit, statt Start in seiner eigenen Zeitzone zu lesen.
+	Local string `json:"local"`
 	Totals
 }
 
 type Result struct {
 	Period   string    `json:"period"`
+	At       string    `json:"at"`
+	Prev     string    `json:"prev"`
+	Next     string    `json:"next"`
 	From     time.Time `json:"from"`
 	To       time.Time `json:"to"`
 	Timezone string    `json:"timezone"`
@@ -49,9 +57,10 @@ func Query(store *Store, period, at string, loc *time.Location, now time.Time) (
 		return Result{}, err
 	}
 	starts := bucketStarts(period, from, to)
-	res := Result{Period: period, From: from, To: to, Timezone: loc.String(), Buckets: make([]Bucket, len(starts)), Total: newTotals()}
+	res := Result{Period: period, At: from.Format(periodLayouts[period]), From: from, To: to, Timezone: loc.String(), Buckets: make([]Bucket, len(starts)), Total: newTotals()}
+	res.Prev, res.Next = neighbours(period, from, now)
 	for i, start := range starts {
-		res.Buckets[i] = Bucket{Start: start, Totals: newTotals()}
+		res.Buckets[i] = Bucket{Start: start, Local: start.Format("2006-01-02T15:04"), Totals: newTotals()}
 	}
 	cutoff := now.UTC().Truncate(time.Hour)
 	end := to
@@ -137,6 +146,34 @@ func bucketStarts(period string, from, to time.Time) []time.Time {
 	return starts
 }
 
+// neighbours liefert at des vorigen und des naechsten Zeitraums. prev ist
+// leer vor dem Jahr 2000 (Grenze von bounds), next ist leer, solange der
+// naechste Zeitraum noch nicht begonnen hat.
+func neighbours(period string, from, now time.Time) (string, string) {
+	step := func(n int) time.Time {
+		switch period {
+		case "day":
+			return from.AddDate(0, 0, n)
+		case "week":
+			return from.AddDate(0, 0, 7*n)
+		case "month":
+			return from.AddDate(0, n, 0)
+		default:
+			return from.AddDate(n, 0, 0)
+		}
+	}
+	layout := periodLayouts[period]
+	prev, next := step(-1), step(1)
+	prevAt, nextAt := "", ""
+	if prev.Year() >= 2000 {
+		prevAt = prev.Format(layout)
+	}
+	if !next.After(now) {
+		nextAt = next.Format(layout)
+	}
+	return prevAt, nextAt
+}
+
 // mondayOf liefert 00:00 des Montags der Woche, in der t liegt.
 func mondayOf(t time.Time) time.Time {
 	offset := (int(t.Weekday()) + 6) % 7
@@ -197,12 +234,16 @@ type Service struct {
 	Sync     *Sync
 	Location *time.Location
 	Now      func() time.Time
+	// Categories liefert die Verbraucher- und Erzeugerkategorien aus
+	// energy.json, damit die Anzeige custom:<id> beschriften kann.
+	Categories func() map[string]energy.Category
 }
 
 type Response struct {
 	Result
-	Status    Status      `json:"status"`
-	Companion *SyncStatus `json:"companion,omitempty"`
+	Status     Status                     `json:"status"`
+	Categories map[string]energy.Category `json:"categories,omitempty"`
+	Companion  *SyncStatus                `json:"companion,omitempty"`
 }
 
 func (s *Service) Stats(period, at string) (Response, error) {
@@ -221,6 +262,10 @@ func (s *Service) Stats(period, at string) (Response, error) {
 	resp := Response{Result: res}
 	if s.Recorder != nil {
 		resp.Status = s.Recorder.Status()
+	}
+	resp.Status.CorruptMonths = s.Store.Corrupt()
+	if s.Categories != nil {
+		resp.Categories = s.Categories()
 	}
 	if s.Sync != nil {
 		companion := s.Sync.Status()

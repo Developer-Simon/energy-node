@@ -24,6 +24,7 @@ type Store struct {
 	// 8760-mal vergeblich liest. Wird beim Anlegen des Monats geloescht.
 	missing map[string]bool
 	dirty   map[string]bool
+	corrupt []string
 	logf    func(format string, args ...any)
 }
 
@@ -71,6 +72,7 @@ func (s *Store) monthLocked(t time.Time, create bool) (*Month, error) {
 		if renameErr := os.Rename(path, path+".corrupt"); renameErr != nil {
 			return nil, fmt.Errorf("energystats: %s nicht verschiebbar: %w", path, renameErr)
 		}
+		s.corrupt = append(s.corrupt, key)
 		m = NewMonth(start)
 	}
 	s.months[key] = m
@@ -225,4 +227,13 @@ func (s *Store) SourceAt(role string, hour time.Time) (byte, error) {
 		return SourceNone, nil
 	}
 	return series.Source[i], nil
+}
+
+// Corrupt liefert die Monate, deren Datei seit dem Start beschaedigt war und
+// beiseitegelegt wurde. Home Assistant liefert sie beim naechsten Abgleich
+// erneut, die eigene Aufzeichnung dieses Monats ist verloren.
+func (s *Store) Corrupt() []string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]string(nil), s.corrupt...)
 }

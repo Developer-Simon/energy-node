@@ -478,3 +478,5 @@
 @media (prefers-reduced-motion: reduce) {
   .exchange-tile-dot { transition: none; }
 }
+
+.energy-stats-status { list-style: none; padding: 0; margin: .5rem 0; display: grid; gap: .2rem; }

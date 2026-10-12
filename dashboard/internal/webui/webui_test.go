@@ -140,7 +140,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	}
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=3,/static/js/history-chart.js?v=2,/static/js/history.js?v=16",
-		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=20,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=5,/static/js/systemconfig.page.js?v=5",
+		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=21,/static/js/mqtt.page.js?v=7,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=5,/static/js/systemconfig.page.js?v=5",
 		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
@@ -153,7 +153,7 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	if !strings.Contains(body, `data-panel-css="/static/css/tippy.css"`) {
 		t.Fatal("devices-panel does not declare lazy tippy.css")
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=35,/static/css/settings-controls.css?v=12"`) {
+	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=35,/static/css/settings-controls.css?v=13"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
@@ -1095,13 +1095,13 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=34"`,
+		`href="/node/static/css/base.css?v=36"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
 		`data-panel-script="/node/static/js-deps/popper.min.js,/node/static/js-deps/tippy.umd.min.js"`,
-		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=35,/node/static/css/settings-controls.css?v=12"`,
+		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=35,/node/static/css/settings-controls.css?v=13"`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("proxied page does not contain %q", marker)
@@ -1566,21 +1566,35 @@ func renderIndexForTest(t *testing.T) string {
 	return body
 }
 
-func TestApexChartsIsOnlyLoadedWithTheHistoryPanel(t *testing.T) {
+func TestApexChartsIsOnlyLoadedLazily(t *testing.T) {
 	body := renderIndexForTest(t)
 	// Eager geladen waere die Bibliothek auf jedem Seitenaufruf dabei -
 	// auf einem Pi mit ARMv6 ist das genau die Art Ballast, die die
-	// Invariante in AGENTS.md ausschliesst.
-	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 1 {
-		t.Fatalf("apexcharts.min.js must appear exactly once, in the history panel's lazy script list")
+	// Invariante in AGENTS.md ausschliesst. Erlaubt sind genau zwei
+	// lazy Listen: Verlauf und Statistik, jeweils als erster Eintrag.
+	if strings.Count(body, "/static/js-deps/apexcharts.min.js") != 2 {
+		t.Fatalf("apexcharts.min.js must appear exactly twice, once in the history and once in the stats panel's lazy script list")
 	}
-	if !strings.Contains(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) {
-		t.Fatal("apexcharts.min.js is not the first lazy script of the history panel")
+	if strings.Count(body, `data-panel-script="/static/js-deps/apexcharts.min.js,`) != 2 {
+		t.Fatal("apexcharts.min.js must be the first lazy script of the history and the stats panel")
 	}
 	if !strings.Contains(body, `<script src="/static/js-deps/apexcharts.min.js"`) {
 		return // korrekt: es darf kein eager <script>-Tag geben
 	}
 	t.Fatal("apexcharts.min.js is loaded eagerly instead of lazily")
+}
+
+func TestStatsPanelRenders(t *testing.T) {
+	rec := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(rec, httptest.NewRequest("GET", "/?fragment=panel&panel=stats", nil))
+	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), `x-data="statsPanel()"`) {
+		t.Fatalf("Status %d: %s", rec.Code, rec.Body.String())
+	}
+	full := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(full, httptest.NewRequest("GET", "/", nil))
+	if !strings.Contains(full.Body.String(), `id="tab-stats"`) || !strings.Contains(full.Body.String(), `energy-stats-model.js?v=2`) {
+		t.Fatal("Tab oder Panel Statistik fehlt")
+	}
 }
 
 // TestOverviewRendersDiagnosticsCardAllClear covers the collapsed state: a

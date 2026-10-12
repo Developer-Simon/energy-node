@@ -2358,3 +2358,39 @@ func TestDeviceMapVersion2WithoutEdgePropsStillLoads(t *testing.T) {
 		t.Fatalf("loaded = %+v, err = %v", loaded, err)
 	}
 }
+
+func TestEnergyStatsRecordingDefaultsToAlways(t *testing.T) {
+	if Default().EnergyStatsRecording != EnergyStatsRecordingAlways {
+		t.Fatalf("Default = %q", Default().EnergyStatsRecording)
+	}
+	// Alte settings.json ohne den Schluessel: der Nullwert heisst "always".
+	if got := normalizeSettings(Settings{}).EnergyStatsRecording; got != EnergyStatsRecordingAlways {
+		t.Fatalf("nicht gesetzt = %q, erwartet always", got)
+	}
+}
+
+func TestEnergyStatsRecordingAcceptsTheThreeModesOnly(t *testing.T) {
+	for _, mode := range []string{EnergyStatsRecordingAlways, EnergyStatsRecordingPauseWithCompanion, EnergyStatsRecordingOff} {
+		value := Default()
+		value.EnergyStatsRecording = mode
+		if err := validateSettings(value); err != nil {
+			t.Fatalf("%s abgelehnt: %v", mode, err)
+		}
+		if got := normalizeSettings(value).EnergyStatsRecording; got != mode {
+			t.Fatalf("%s wurde zu %q", mode, got)
+		}
+	}
+	bad := Default()
+	bad.EnergyStatsRecording = "sometimes"
+	if err := validateSettings(bad); err == nil {
+		t.Fatal("unbekannter Modus muss abgelehnt werden")
+	}
+}
+
+func TestEnergyStatsRecordingModeValuesAreStable(t *testing.T) {
+	// energystats.Recording* spiegelt diese Werte, ohne das Paket zu
+	// importieren. Aendert sich hier etwas, muss recorder.go mitziehen.
+	if EnergyStatsRecordingAlways != "always" || EnergyStatsRecordingPauseWithCompanion != "pause_with_companion" || EnergyStatsRecordingOff != "off" {
+		t.Fatal("Moduswerte geaendert")
+	}
+}

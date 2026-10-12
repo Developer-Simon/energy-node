@@ -4,7 +4,7 @@
 
 ### Fixes
 
-- **installer:** fit the update result screen to the dashboard host (#131)
+- **installer:** fit the update result screen to the dashboard host (#131) (494c792)
 
 ## v0.2.1 (2026-10-10)
 

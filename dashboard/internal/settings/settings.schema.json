@@ -3,7 +3,7 @@
   "description": "Operational settings for the Energy Node dashboard.",
   "type": "object",
   "additionalProperties": false,
-  "required": ["health_score_threshold", "sweep_interval_seconds", "show_runtime_status", "device_view_mode", "theme", "number_format", "number_grouping", "show_config_entities_on_tile", "show_diagnostic_entities_on_tile", "live_update_interval_seconds", "wide_panels", "status_bar_items", "history_sample_interval_seconds", "history_retention_mode", "history_retention_hours", "history_budget_mb", "history_raw_window_hours", "history_minute_window_days", "history_extra_entities", "history_exchange_disabled", "history_views", "update_check_disabled", "language_switch_hidden"],
+  "required": ["health_score_threshold", "sweep_interval_seconds", "show_runtime_status", "device_view_mode", "theme", "number_format", "number_grouping", "show_config_entities_on_tile", "show_diagnostic_entities_on_tile", "live_update_interval_seconds", "wide_panels", "status_bar_items", "history_sample_interval_seconds", "history_retention_mode", "history_retention_hours", "history_budget_mb", "history_raw_window_hours", "history_minute_window_days", "history_extra_entities", "history_exchange_disabled", "history_views", "energy_stats_recording", "update_check_disabled", "language_switch_hidden"],
   "properties": {
     "health_score_threshold": {
       "type": "integer",
@@ -166,6 +166,13 @@
           "aggregate": {"type": "string", "enum": ["avg", "min", "max"]}
         }
       }
+    },
+    "energy_stats_recording": {
+      "type": "string",
+      "enum": ["always", "pause_with_companion", "off"],
+      "default": "always",
+      "title": "Eigene Aufzeichnung der Energiestatistik",
+      "description": "\"always\" zeichnet immer auf, \"pause_with_companion\" pausiert, solange der Companion aktuelle Stunden aus Home Assistant liefert, \"off\" zeichnet nicht auf. Nicht gesetzt bedeutet \"always\"."
     },
     "update_check_disabled": {
       "type": "boolean",

@@ -9,6 +9,8 @@
 #   ./run-local-dashboard.sh --seed-data DIR    # settings/layout/energy vorbelegen
 #   ./run-local-dashboard.sh --theme NAME       # Farbschema vorbelegen
 #   ./run-local-dashboard.sh --simulate         # PV/Netz/Batterie/Last "leben" lassen
+#   ./run-local-dashboard.sh --fake-companion   # fake_companion.py speist die Energiestatistik
+#                                                # mit erfundenen Stundenwerten (400 Tage)
 #   ./run-local-dashboard.sh --installed-services-off  # installed_services: alle Dienste aus
 #   ./run-local-dashboard.sh --https             # echtes TLS statt X-Forwarded-Proto-Trick
 #   ./run-local-dashboard.sh --reject-config NAME  # der simulierte Dienst lehnt NAME
@@ -72,6 +74,8 @@
 #                    Speichern, Temperatur/Feuchte kommen als Proben an.
 #   verlauf-kachel   wie energie-simulate, mit einer gebundenen und einer
 #                    eigenen history_view-Kachel; Pruefung mit history-view-tile.mjs
+#   statistik        wie verlauf-kachel, mit der Kachel energy_stats und dem
+#                    Fake-Companion (Energiestatistik mit Daten)
 #
 # Warum es das gibt: das Dashboard beendet sich, wenn beim Start kein Broker
 # erreichbar ist, die API verlangt eine Anmeldung, und die Anmeldung verlangt
@@ -97,6 +101,7 @@ SEED_DATA=""
 THEME=""
 KEEP=0
 SIMULATE=0
+FAKE_COMPANION=0
 INSTALLED_SERVICES_OFF=0
 HTTPS=0
 SIMULATE_UPDATE=0
@@ -117,6 +122,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --keep) KEEP=1; shift ;;
     --simulate) SIMULATE=1; shift ;;
+    --fake-companion) FAKE_COMPANION=1; shift ;;
     --preset)
       case "$2" in
         battery-soc)
@@ -176,8 +182,14 @@ while [[ $# -gt 0 ]]; do
           SEED_DATA="$HERE/fixtures/seed/verlauf-kachel"
           SIMULATE=1
           ;;
+        statistik)
+          FIXTURE="$HERE/fixtures/energie-ueberschuss.json"
+          SEED_DATA="$HERE/fixtures/seed/statistik"
+          SIMULATE=1
+          FAKE_COMPANION=1
+          ;;
         *)
-          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht, verlauf-kachel)" >&2
+          echo "unbekanntes Preset: $2 (battery-soc, energie, energie-simulate, uebersicht-push, energie-kombiniert, alle-funktionen, docs-screenshots, geraete-kacheln, notification, keine-optionalen-dienste, shelly-ht, verlauf-kachel, statistik)" >&2
           exit 2
           ;;
       esac
@@ -221,6 +233,7 @@ RUN_ROOT="$HERE/.run"
 mkdir -p "$RUN_ROOT"
 WORK="$(mktemp -d "$RUN_ROOT/XXXXXX")"
 BROKER_PID=""
+FAKE_COMPANION_PID=""
 DASHBOARD_PID=""
 UPDATES_API_PID=""
 
@@ -239,6 +252,7 @@ free_port() {
 cleanup() {
   [[ -n "$DASHBOARD_PID" ]] && kill "$DASHBOARD_PID" 2>/dev/null || true
   [[ -n "$BROKER_PID" ]] && kill "$BROKER_PID" 2>/dev/null || true
+  [[ -n "$FAKE_COMPANION_PID" ]] && kill "$FAKE_COMPANION_PID" 2>/dev/null || true
   [[ -n "$UPDATES_API_PID" ]] && kill "$UPDATES_API_PID" 2>/dev/null || true
   # `go run` startet das Binary als Kindprozess - der ueberlebt das kill sonst.
   pkill -f "go-build.*exe/dashboard" 2>/dev/null || true
@@ -583,6 +597,14 @@ if ! listening; then
   echo "Dashboard nicht erreichbar:" >&2
   cat "$WORK/dashboard.log" >&2
   exit 1
+fi
+
+# --fake-companion: Gast-Peer wie die Home-Assistant-Integration. Das
+# Dashboard holt die Stundenwerte ab, sobald der Peer sein Angebot macht.
+if [[ $FAKE_COMPANION -eq 1 ]]; then
+  python3 "$HERE/fake_companion.py" "$BASE" > "$WORK/fake-companion.log" 2>&1 &
+  FAKE_COMPANION_PID=$!
+  echo "Fake-Companion laeuft (PID $FAKE_COMPANION_PID), Log: $WORK/fake-companion.log"
 fi
 
 COOKIES="$WORK/cookies.txt"

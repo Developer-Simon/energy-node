@@ -63,6 +63,9 @@
     historyMinuteWindowDays: 7,
     historyExtraEntities: [],
     historyExchangeDisabled: false,
+    energyStatsRecording: 'always',
+    energyStats: null,
+    energyStatsError: '',
     // Der Modus gilt nur fuer diesen Browser und steht in localStorage
     // (history-exchange.js), nicht in den Knoten-Einstellungen.
     historyExchangeMode: window.HistoryExchange && window.HistoryExchange.mode ? window.HistoryExchange.mode() : 'on-demand',
@@ -145,6 +148,7 @@
         this.historyMinuteWindowDays = value.history_minute_window_days || 7;
         this.historyExtraEntities = Array.isArray(value.history_extra_entities) ? [...value.history_extra_entities] : [];
         this.historyExchangeDisabled = Boolean(value.history_exchange_disabled);
+        this.energyStatsRecording = ['always', 'pause_with_companion', 'off'].includes(value.energy_stats_recording) ? value.energy_stats_recording : 'always';
         this.historyViews = Array.isArray(value.history_views) ? [...value.history_views] : [];
         this.updateCheckDisabled = Boolean(value.update_check_disabled);
         this.languageSwitchHidden = Boolean(value.language_switch_hidden);
@@ -155,6 +159,7 @@
         this.canTuneLiveUpdates = Boolean(session && session.tune_live_updates);
         this.setChoicesSelection(this.widePanelsChoices, this.widePanels);
         this.setChoicesSelection(this.statusBarItemsChoices, this.statusBarItems);
+        this.loadEnergyStatsStatus();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
@@ -285,6 +290,46 @@
       this.exchangeFlashTimer = setTimeout(() => {
         this.exchangeFlash = {peers: false, rows: false, source: false};
       }, 700);
+    },
+
+    // Zustand der Energiestatistik. Die Antwort fuer den laufenden Tag
+    // traegt status und companion mit, eine eigene Status-API braucht es
+    // nicht.
+    async loadEnergyStatsStatus() {
+      try {
+        this.energyStats = await requestJSON('/api/v1/energy/stats?period=day');
+        this.energyStatsError = '';
+      } catch (error) {
+        this.energyStats = null;
+        this.energyStatsError = error.message;
+      }
+    },
+
+    // i18n-keys: settings.history.energy_stats.state.recording,
+    // settings.history.energy_stats.state.paused,
+    // settings.history.energy_stats.state.off,
+    // settings.history.energy_stats.state.waiting_for_clock
+    get energyStatsLines() {
+      if (!this.energyStats) return this.energyStatsError ? [this.energyStatsError] : [];
+      const status = this.energyStats.status || {};
+      const companion = this.energyStats.companion || {};
+      const lines = [t(`settings.history.energy_stats.state.${status.state || 'recording'}`)];
+      if (companion.connected) {
+        lines.push(t('settings.history.energy_stats.companion.connected'));
+        if (companion.missing_days > 0 && companion.backfill_from) {
+          const date = window.I18n.formatDate(companion.backfill_from, {day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC'});
+          lines.push(tn('settings.history.energy_stats.backfill.running', companion.missing_days, {date}));
+        } else {
+          lines.push(t('settings.history.energy_stats.backfill.done'));
+        }
+      } else {
+        lines.push(t('settings.history.energy_stats.companion.disconnected'));
+      }
+      if (status.write_error) lines.push(t('settings.history.energy_stats.write_error', {error: status.write_error}));
+      if (status.corrupt_months && status.corrupt_months.length) {
+        lines.push(t('settings.history.energy_stats.corrupt', {months: status.corrupt_months.join(', ')}));
+      }
+      return lines;
     },
 
     // Eine Lieferung aendert die Zahlen, ohne dass jemand den Knopf drueckt.
@@ -446,6 +491,7 @@
         history_extra_entities: [...this.historyExtraEntities],
         history_exchange_disabled: Boolean(this.historyExchangeDisabled),
         history_views: [...this.historyViews],
+        energy_stats_recording: this.energyStatsRecording,
         update_check_disabled: Boolean(this.updateCheckDisabled),
         language_switch_hidden: Boolean(this.languageSwitchHidden),
       };
@@ -498,6 +544,7 @@
         }}));
         document.dispatchEvent(new CustomEvent('language-switch-setting-changed', {detail: {visible: !this.languageSwitchHidden}}));
         this.$store.toasts.push(t('settings.saved'));
+        this.loadEnergyStatsStatus();
         // Erst nach dem erfolgreichen Speichern: der Sprachwechsel laedt neu,
         // ungespeicherte Aenderungen gingen sonst verloren.
         if (window.I18n && this.uiLanguage !== window.I18n.lang) {

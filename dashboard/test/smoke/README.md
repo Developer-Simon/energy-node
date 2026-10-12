@@ -470,3 +470,17 @@ exchange at first — that is not a bug in the exchange interface but a
 consequence of the default retention.
 
 The exit code is 0 when all checks pass.
+
+## Fake companion for the energy statistics
+
+`fake_companion.py` joins the history exchange as a guest peer, like the Home
+Assistant integration, and offers made-up hourly values (PV, consumption, grid,
+battery) for the last 400 days. Day, week, month and year of the statistics
+then have something to show:
+
+```bash
+dashboard/test/smoke/run-local-dashboard.sh --keep --preset energie-simulate --fake-companion
+```
+
+It can also run on its own against any running dashboard:
+`python3 dashboard/test/smoke/fake_companion.py http://127.0.0.1:18100 --days 400`.

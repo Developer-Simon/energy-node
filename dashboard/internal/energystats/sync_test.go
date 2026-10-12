@@ -232,3 +232,22 @@ func TestStatusCurrentNeedsTheLatestHoursForEveryOfferedRole(t *testing.T) {
 		t.Fatalf("Peer weg: %+v", st)
 	}
 }
+
+func TestStatusReportsTheOldestMissingDay(t *testing.T) {
+	h := newSyncHarness(t, "2026-10-11T12:30:00Z")
+	from := hourAt("2026-10-01T00:00:00Z").UnixMilli()
+	h.sync.OnOffer("p-ha", map[string]historyexchange.Census{
+		"role:pv": {From: from, Step: dayMs, N: []int{24, 24, 24, 24, 24, 24, 24, 24, 24, 24}},
+	})
+	st := h.sync.Status()
+	if st.MissingDays == 0 || st.BackfillFrom == nil || !st.BackfillFrom.Equal(hourAt("2026-10-01T00:00:00Z")) {
+		t.Fatalf("Status = %+v", st)
+	}
+}
+
+func TestStatusHasNoBackfillDateWhenNothingIsMissing(t *testing.T) {
+	h := newSyncHarness(t, "2026-10-11T12:30:00Z")
+	if st := h.sync.Status(); st.BackfillFrom != nil {
+		t.Fatalf("BackfillFrom = %v", st.BackfillFrom)
+	}
+}

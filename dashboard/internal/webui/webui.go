@@ -178,7 +178,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 	for name, fn := range translator.FuncMap(lang) {
 		funcs[name] = fn
 	}
-	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/settings-stepper.html", "templates/diagnostics.html"))
+	return template.Must(template.New("base.html").Funcs(funcs).ParseFS(templateFS, "templates/base.html", "templates/lang-pill.html", "templates/overview.html", "templates/devices.html", "templates/device-tile.html", "templates/config.html", "templates/revisions.html", "templates/energy.html", "templates/layout-editor.html", "templates/devicemap.html", "templates/settings.html", "templates/automations.html", "templates/tiny-tuya.html", "templates/mqtt.html", "templates/tailscale.html", "templates/versions.html", "templates/settings-stepper.html", "templates/diagnostics.html", "templates/stats.html"))
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
@@ -615,6 +615,7 @@ var energyCardScripts = map[string][]string{
 	"energy_day":     {"/static/js/energy-day.js?v=2"},
 	"energy_schema":  {"/static/js/energy-schema.js?v=1"},
 	"energy_status":  {"/static/js/energy-status.js?v=1"},
+	"energy_stats":   {"/static/js/energy-stats-model.js?v=2", "/static/js/energy-stats-card.js?v=2"},
 	"battery_status": {"/static/js/battery-status.js?v=2"},
 	"history_view":   {"/static/js-deps/apexcharts.min.js", "/static/js/history-chart.js?v=2", "/static/js/history-view-card.js?v=2"},
 }
@@ -680,7 +681,7 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 		return "devices-live", true
 	case "panel":
 		switch panel := r.URL.Query().Get("panel"); panel {
-		case "devices", "history", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
+		case "devices", "history", "stats", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
 			return panel, true
 		default:
 			return "", false

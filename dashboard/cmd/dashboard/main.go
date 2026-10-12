@@ -194,7 +194,19 @@ func main() {
 	energyStatsStore := energystats.NewStore(filepath.Join(dataDir, "energystats"))
 	energyRecorder := energystats.NewRecorder(energyStatsStore, energystats.SystemClockReady("/run/systemd/timesync", 15*time.Minute))
 	energySync := energystats.NewSync(energyStatsStore, time.Now)
-	energyStats := &energystats.Service{Store: energyStatsStore, Recorder: energyRecorder, Sync: energySync}
+	// Modus aus settings.json, Lebenszeichen aus Sync. LoadSettings ist
+	// gecacht, der Aufruf alle 10 s kostet nichts.
+	energyRecorder.SetPolicy(func() energystats.Policy {
+		mode := energystats.RecordingAlways
+		if value, err := settingsStore.LoadSettings(); err == nil {
+			mode = value.EnergyStatsRecording
+		}
+		return energystats.Policy{Mode: mode, CompanionCurrent: energySync.Status().Current}
+	})
+	energyStats := &energystats.Service{
+		Store: energyStatsStore, Recorder: energyRecorder, Sync: energySync,
+		Categories: func() map[string]energy.Category { return energyResolver.Model().Categories },
+	}
 	energyRecorderDone := make(chan struct{})
 	credentialStore := tinytuya.NewCredentialStore(dataDir)
 	if err := runtimeStore.Load(); err != nil {

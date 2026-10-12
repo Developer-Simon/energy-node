@@ -501,3 +501,7 @@ The Energy Node Companion offers a third exchange tier `1h` next to `1m` and `5m
 Inside the dashboard `internal/energystats` acts as the pseudo peer `energystats`, like the ring buffer acts as `server`. It reads every companion offer, compares it with the hours it already holds from Home Assistant and requests what is missing, newest days first, at most 31 days per request and one request at a time. Deliveries addressed to `energystats` are handled by the server and never relayed. A day that Home Assistant offers but cannot fill is requested again only when the offered hour count changes.
 
 The statistics API reports `companion.connected`, `companion.current` (the last or second to last complete hour came from Home Assistant for every offered role) and `companion.missing_days`.
+
+The setting `energy_stats_recording` (`always`, `pause_with_companion`, `off`) controls the own recording. In pause mode the recorder keeps integrating but holds completed hours in memory (at most three) while the companion reports `current`. When that ends it writes them, `AddOwn` never touches hours from Home Assistant. Switching to `off` stores the started hour first.
+
+The response also carries `at`, `prev` and `next` for navigation, `local` per bucket (start in the node's local time, used for labels so a browser in another time zone shows the node's hours), `categories` for custom role labels, `status.state` (`recording`, `paused`, `off`, `waiting_for_clock`), `status.corrupt_months` and `companion.backfill_from`.

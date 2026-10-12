@@ -1,0 +1,33 @@
+/* Seite "Statistik". Zeitraum-Chips und Statuszeile kommen aus history.css
+   (.history-chip, .history-status), hier steht nur, was die Seite braucht. */
+.stats-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; margin: 0 0 .9rem; }
+.stats-nav .history-chip:disabled { opacity: .4; cursor: default; }
+.stats-title { flex: 1 1 auto; text-align: center; color: var(--text-strong); font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
+.stats-error { margin: 0 0 .75rem; color: var(--bad); }
+
+.stats-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 0 0 .9rem; }
+.stats-kpi { padding: .7rem .85rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
+.stats-kpi dt { margin: 0; color: var(--text-muted); font-size: .78rem; }
+.stats-kpi dd { margin: .15rem 0 0; color: var(--text-strong); font-size: 1.3rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.015em; }
+
+.stats-card { margin: 0 0 1rem; border: 1px solid var(--border-soft); border-radius: 12px; background: var(--panel); }
+.stats-chart-card { padding: 1rem 1rem .6rem; }
+.stats-chart { min-height: 340px; }
+.stats-chart .apexcharts-tooltip { background: var(--panel-alt); color: var(--text); border: 1px solid var(--border); }
+.stats-chart .apexcharts-tooltip-title { background: var(--sunken); border-bottom: 1px solid var(--border); }
+
+.stats-table-wrap { overflow-x: auto; }
+.stats-table { width: 100%; border-collapse: collapse; font-size: .8rem; font-variant-numeric: tabular-nums; }
+.stats-table th, .stats-table td { padding: .45rem .6rem; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--border-soft); }
+.stats-table thead th { background: var(--sunken); color: var(--text-muted); font-weight: 500; }
+.stats-table tbody tr:last-child th, .stats-table tbody tr:last-child td { border-bottom: 0; }
+.stats-table th[scope="row"], .stats-table thead th:first-child { text-align: left; position: sticky; left: 0; background: var(--panel); color: var(--text-strong); font-weight: 600; }
+.stats-table thead th:first-child { background: var(--sunken); color: var(--text-muted); font-weight: 500; }
+.stats-swatch { display: inline-block; width: .6rem; height: .6rem; border-radius: 50%; margin-right: .45rem; vertical-align: middle; }
+.stats-table-total { color: var(--text-strong); font-weight: 600; }
+
+@media (max-width: 760px) { .stats-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 640px) {
+  .stats-chart { min-height: 15rem; }
+  .stats-title { order: -1; flex-basis: 100%; }
+}

@@ -243,6 +243,7 @@
     energy_board: '<svg viewBox="0 0 40 20"><g fill="var(--track)"><rect x="5" y="5" width="9" height="10" rx="1.5"/><rect x="16" y="5" width="9" height="10" rx="1.5"/><rect x="27" y="5" width="9" height="10" rx="1.5"/></g><g fill="var(--accent)"><rect x="7" y="8" width="5" height="1.8"/><rect x="18" y="8" width="5" height="1.8"/><rect x="29" y="8" width="5" height="1.8"/></g></svg>',
     energy_schema:'<svg viewBox="0 0 40 20"><g fill="none" stroke="var(--flow-grid)" stroke-width="1.4" stroke-linecap="round"><path d="M5 10h30"/><path d="M12 10V5.5M20 10v4.5M28 10V5.5"/></g><circle cx="12" cy="4" r="2" fill="var(--flow-pv)"/><circle cx="28" cy="4" r="2" fill="var(--accent)"/><rect x="17.6" y="15" width="4.8" height="3.2" rx="1" fill="var(--flow-load)"/></svg>',
     energy_status:'<svg viewBox="0 0 40 20"><path d="M9 17a11 11 0 0 1 22 0" fill="none" stroke="var(--track)" stroke-width="2.6" stroke-linecap="round"/><path d="M9 17a11 11 0 0 1 5.9-9.7" fill="none" stroke="var(--accent)" stroke-width="2.6" stroke-linecap="round"/><path d="M20 17 25.4 9.6" fill="none" stroke="var(--flow-pv)" stroke-width="1.6" stroke-linecap="round"/><circle cx="20" cy="17" r="1.5" fill="var(--flow-pv)"/></svg>',
+    energy_stats: '<svg viewBox="0 0 40 20"><g fill="var(--flow-pv)"><rect x="8" y="8" width="4" height="6"/><rect x="15" y="5" width="4" height="9"/><rect x="22" y="7" width="4" height="7"/></g><g fill="var(--flow-load)"><rect x="8" y="14" width="4" height="3"/><rect x="15" y="14" width="4" height="4"/><rect x="22" y="14" width="4" height="2"/></g><line x1="6" y1="14" x2="34" y2="14" stroke="var(--border)" stroke-width="1"/></svg>',
     // Die Saeule der Batteriekarte: ein Zellenumriss mit Fahne und einem
     // gefuellten unteren Teil, derselbe Aufbau wie die echte Karte.
     battery_status:'<svg viewBox="0 0 40 20"><rect x="14" y="4" width="6" height="2" rx="1" fill="var(--track)"/><rect x="10" y="6" width="14" height="12" rx="2" fill="none" stroke="var(--track)" stroke-width="2"/><rect x="11.5" y="12.5" width="11" height="4.2" rx="1" fill="var(--accent)"/></svg>',
@@ -774,6 +775,7 @@
       {id: 'energy-day', type: 'energy_day', ref: '', title: t('layout_editor.card.energy_day.title'), desc: t('layout_editor.card.energy_day.description')},
       {id: 'energy-schema', type: 'energy_schema', ref: '', title: t('layout_editor.card.energy_schema.title'), desc: t('layout_editor.card.energy_schema.description')},
       {id: 'energy-status', type: 'energy_status', ref: '', title: t('layout_editor.card.energy_status.title'), desc: t('layout_editor.card.energy_status.description')},
+      {id: 'energy-stats', type: 'energy_stats', ref: '', title: t('layout_editor.card.energy_stats.title'), desc: t('layout_editor.card.energy_stats.description')},
       {id: 'battery-status', type: 'battery_status', ref: '', title: t('layout_editor.card.battery_status.title'), desc: t('layout_editor.card.battery_status.description')},
       {id: 'entity-value', type: 'entity_value', ref: '', title: t('layout_editor.card.entity_value.title'), desc: t('layout_editor.card.entity_value.description')},
       // Die Entitaetenliste hatte bis 2026-09 keinen Katalogeintrag: sie war
@@ -1704,6 +1706,7 @@
         {id: 'energy-day', type: 'energy_day', ref: ''},
         {id: 'energy-schema', type: 'energy_schema', ref: ''},
         {id: 'energy-status', type: 'energy_status', ref: ''},
+        {id: 'energy-stats', type: 'energy_stats', ref: ''},
         {id: 'battery-status', type: 'battery_status', ref: ''},
         // Kein Ref hier: eine einzelne, generische Auswahl fuer alle
         // Entitaeten statt einer Option je Entitaet - seit der Abschaffung
@@ -1748,7 +1751,7 @@
       // vorkommt. Die ID bleibt der letzte Rueckfall - fuer Layouts, die noch
       // aus der Zeit der Katalog-IDs stammen.
       const byKind = this.itemOptions.find(option => option.type === item.type && (option.ref || '') === (item.ref || ''));
-      if (byKind) return t(`layout_editor.card.${byKind.type}.title`); // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title, layout_editor.card.history_view.title
+      if (byKind) return t(`layout_editor.card.${byKind.type}.title`); // i18n-keys: layout_editor.card.energy_flow.title, layout_editor.card.diagnostics.title, layout_editor.card.energy_band.title, layout_editor.card.energy_ring.title, layout_editor.card.energy_board.title, layout_editor.card.energy_day.title, layout_editor.card.energy_schema.title, layout_editor.card.energy_status.title, layout_editor.card.energy_stats.title, layout_editor.card.battery_status.title, layout_editor.card.entity_value.title, layout_editor.card.history_view.title
       const byID = this.itemOptions.find(option => option.id === item.id);
       if (byID) return t(`layout_editor.card.${byID.type}.title`);
       return item.ref || item.id;

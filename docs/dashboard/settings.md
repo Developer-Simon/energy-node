@@ -55,6 +55,13 @@ updates itself when values arrive.
 The setting applies to every browser, but the recorded data does not. The
 measurements only exist in the browser that recorded them, and the page says so.
 
+**Energy statistics** chooses how the node records its own hourly energy values:
+**Always** (the default), **Pause while the companion delivers** or **Off**. The
+modes and the gaps they can leave are explained on the
+[statistics page](statistics.md). Below the choice you see whether the own
+recording is active, whether the Energy Node Companion is connected and how far
+the backfill from Home Assistant has come.
+
 ## MQTT
 
 ![MQTT settings](../images/dashboard-settings-mqtt.png)
