@@ -168,7 +168,8 @@ func newScenario(name string, opts options) *stagedBackend {
 	if opts.dashboard {
 		fake.Description.Host = hostapi.HostDashboard
 		fake.Description.NeedsConnection = false
-		fake.Description.EntryPoints = []string{"redeploy", "diagnose"}
+		// Wie dashboard/internal/updaterhost: nur Aktualisieren, keine Diagnose.
+		fake.Description.EntryPoints = []string{"redeploy"}
 	}
 	fake.ConnectResult = hostapi.ConnectResult{Connected: true, Host: "energy-node.local", User: "pi"}
 
