@@ -58,8 +58,12 @@ that both measure power counts as energy, every other one as data. Such a
 detected type is marked in the card.
 
 For an energy connection the flow direction is automatic by default, taken
-from the sign of the measurement. Reversed turns it round, and Always to fixes
-it to one end. A connection you drew yourself can be reversed in the same card.
+from the sign of the measurement. Reversed turns it round. Under Fixed
+direction the flow always runs toward one of the two ends, whatever the sign.
+
+A connection you drew yourself can be reversed in the same card, which swaps
+parent and child. Connections that come from discovery and feeds into a group
+cannot be reversed, but their flow direction can still be set.
 
 ## Device panel
 
@@ -102,7 +106,7 @@ value a rule compares against is visible here without the Roles layer.
 
 ## Roles layer
 
-![Energy balance layer](../images/dashboard-device-map-balance.png)
+![Roles layer](../images/dashboard-device-map-balance.png)
 
 The Roles layer connects every device with an energy role to the Energy Node, in
 the colour of its role. The Energy Node is the balance itself, the device the
