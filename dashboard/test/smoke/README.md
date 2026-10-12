@@ -164,7 +164,10 @@ Five hurdles stand in the way of a local start; all five are handled in the scri
 1. **The dashboard exits when no broker is reachable at startup.**
    → `minibroker.py`, a deliberately incomplete MQTT 3.1.1 broker
    (CONNECT/SUBSCRIBE/PINGREQ, retained delivery; no QoS > 0, no wildcards, no
-   forwarding between clients). Do not use outside of tests.
+   authentication). Do not use outside of tests. Client `PUBLISH`es are relayed
+   like a real broker does: retained ones are stored, every open connection gets
+   them, the sender included. The dashboard therefore sees its own discovery and
+   shows the device `energy_node` in every preset.
 2. **Without a live publish every value would sit there as "veraltet".** The
    registry treats a value from a retained message as `mqtt-replay`, and the
    dashboard marks `mqtt-replay` as stale — on real hardware the sensors' first
