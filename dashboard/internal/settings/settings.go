@@ -88,6 +88,11 @@ type Settings struct {
 	HistoryExchangeDisabled bool          `json:"history_exchange_disabled"`
 	HistoryViews            []HistoryView `json:"history_views"`
 
+	// EnergyStatsRecording steuert die eigene Aufzeichnung der
+	// Energiestatistik (internal/energystats): "always", "pause_with_companion"
+	// oder "off". Leer heisst "always", siehe normalizeSettings.
+	EnergyStatsRecording string `json:"energy_stats_recording"`
+
 	// UpdateCheckDisabled schaltet die einmal-taeglich laufende Pruefung auf
 	// GitHub ab (siehe internal/updatecheck und main.go). Invertiert benannt
 	// aus demselben Grund wie HistoryExchangeDisabled: der Nullwert muss "an"
@@ -137,6 +142,10 @@ const (
 
 	HistoryRangeModeRelative = "relative"
 	HistoryRangeModeCustom   = "custom"
+
+	EnergyStatsRecordingAlways             = "always"
+	EnergyStatsRecordingPauseWithCompanion = "pause_with_companion"
+	EnergyStatsRecordingOff                = "off"
 )
 
 type EnergyConfig struct {
@@ -483,6 +492,7 @@ func Default() Settings {
 		HistoryMinuteWindowDays:      7,
 		HistoryExtraEntities:         []string{},
 		HistoryViews:                 []HistoryView{},
+		EnergyStatsRecording:         EnergyStatsRecordingAlways,
 	}
 }
 
@@ -1786,6 +1796,9 @@ func normalizeSettings(value Settings) Settings {
 	}
 	if value.HistoryMinuteWindowDays == 0 {
 		value.HistoryMinuteWindowDays = Default().HistoryMinuteWindowDays
+	}
+	if value.EnergyStatsRecording == "" {
+		value.EnergyStatsRecording = EnergyStatsRecordingAlways
 	}
 	if value.HistoryExtraEntities == nil {
 		value.HistoryExtraEntities = []string{}
