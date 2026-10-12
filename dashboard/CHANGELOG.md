@@ -9,6 +9,10 @@
 - **dashboard:** exchange the 1h tier and route companion statistics to energystats (5986c21)
 - hourly energy statistics from Home Assistant via the companion (#130)
 
+### Tests
+
+- **smoke:** expect the 1h tier in the exchange announcement (b9ddd86)
+
 ## v0.9.8 (2026-10-12)
 
 ### Features
