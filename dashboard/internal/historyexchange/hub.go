@@ -18,6 +18,12 @@ import (
 // Codepfad genuegt.
 const ServerPeerID = "server"
 
+// StatsPeerID ist die feste Kennung der Energiestatistik (internal/
+// energystats). Sie fragt beim Companion Stunden der Stufe 1h nach, und
+// Lieferungen an sie beantwortet der Server selbst. Kein Hub-Peer: neue
+// Kennungen beginnen immer mit "p-".
+const StatsPeerID = "energystats"
+
 // Message ist ein SSE-Ereignis auf dem Weg zu genau einem Peer.
 type Message struct {
 	Event string
