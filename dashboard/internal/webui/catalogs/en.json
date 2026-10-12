@@ -631,6 +631,7 @@
   "devicemap.edge.direction_label": "Flow direction",
   "devicemap.edge.reverse": "Reverse connection",
   "devicemap.edge.reverse_hint": "Only connections you drew yourself can be reversed",
+  "devicemap.edge.reverse_hint_group": "A feed into a group cannot be reversed",
   "devicemap.edge.type.data": "Data",
   "devicemap.edge.type.energy": "Energy",
   "devicemap.edge.type.info": "Informational",

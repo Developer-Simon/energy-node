@@ -1789,6 +1789,22 @@ test('the wiring card of a manual edge offers reverse', () => {
   assert.equal(component.popover.edge.canReverse, true);
 });
 
+test('a manual feed into a group is flagged manual and cannot be reversed', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'group:garage', target: 'akku', overrideId: 'relation-2' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.manual, true);
+  assert.equal(component.popover.edge.canReverse, false);
+});
+
+test('a discovery edge is not manual and cannot be reversed', () => {
+  const component = panelWith({ devices: WIRED() });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.openWiringPopover({ x: 10, y: 10 });
+  assert.equal(component.popover.edge.manual, false);
+  assert.equal(component.popover.edge.canReverse, false);
+});
+
 test('after connecting, the card of the new edge opens', async () => {
   const { component } = createDevicemapPanel({ confirmAnswer: true, fetchImpl: respondWith(201,
     { id: 'relation-2', child_id: 'device_a', parent_id: 'device_b', kind: 'via_device', created_at: '' }) });

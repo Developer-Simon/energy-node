@@ -151,7 +151,8 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h15M15 4l4 4-4 4"/><path d="M20 16H5M9 12l-4 4 4 4"/></svg>
             <span>{{t "devicemap.edge.reverse"}}</span>
           </button>
-          <p class="devicemap-edge-hint" x-show="popover.edge && !popover.edge.membership && !popover.edge.canReverse">{{t "devicemap.edge.reverse_hint"}}</p>
+          <p class="devicemap-edge-hint" x-show="popover.edge && !popover.edge.membership && !popover.edge.canReverse && !popover.edge.manual">{{t "devicemap.edge.reverse_hint"}}</p>
+          <p class="devicemap-edge-hint" x-show="popover.edge && !popover.edge.membership && !popover.edge.canReverse && popover.edge.manual">{{t "devicemap.edge.reverse_hint_group"}}</p>
           <button type="button" class="pill-button danger" x-show="popover.action" x-on:click="runPopoverAction()">
             <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg><span x-text="popover.action ? popover.action.label : ''"></span>
           </button>

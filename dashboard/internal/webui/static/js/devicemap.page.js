@@ -370,6 +370,7 @@
           edge: {
             ...this.edgePropsFor(edge),
             canReverse: Boolean(edge.overrideId) && !edge.membership && !model.isGroupId(edge.target) && !model.isGroupId(edge.source),
+            manual: Boolean(edge.overrideId),
             parentName: this.deviceLabel(edge.source),
             childName: this.deviceLabel(edge.target),
             membership: Boolean(edge.membership),
