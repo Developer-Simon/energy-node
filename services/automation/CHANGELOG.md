@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.5.1 (2026-10-12)
+
+### Features
+
+- **automation:** announce the service device via the energy node (b9f3207)
+- **devicemap:** hang the automation device under the node and link its rules (#127)
+
 ## v0.5.0 (2026-10-10)
 
 ### Features

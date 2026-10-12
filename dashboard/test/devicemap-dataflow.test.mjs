@@ -125,6 +125,24 @@ test('placement: balance right of the arrangement, flow nodes in a band below so
   ]);
 });
 
+test('rules with an anchor go in a row centred below it', () => {
+  const df = load();
+  const spots = plain(df.placeFlowNodes({
+    nodes: [{ id: 'rule:a', inputXs: [], anchor: { x: 280, y: 0 } }, { id: 'rule:b', inputXs: [], anchor: { x: 280, y: 0 } }],
+    allPositions: [{ x: 0, y: 0 }, { x: 280, y: 0 }], snap: v => v,
+  }));
+  assert.deepEqual(spots, [{ id: 'rule:a', x: 210, y: 120 }, { id: 'rule:b', x: 350, y: 120 }]);
+});
+
+test('an anchored spot that is taken moves right', () => {
+  const df = load();
+  const spots = plain(df.placeFlowNodes({
+    nodes: [{ id: 'rule:a', inputXs: [], anchor: { x: 0, y: 0 } }],
+    allPositions: [{ x: 0, y: 0 }, { x: 0, y: 120 }], snap: v => v,
+  }));
+  assert.deepEqual(spots, [{ id: 'rule:a', x: 140, y: 120 }]);
+});
+
 test('edgeView builds the popover rows of a service edge', () => {
   const df = load();
   const labelOf = id => ({ bms: 'BMS Bank A', soc: 'Batterie SoC' }[id] || id);
@@ -194,4 +212,22 @@ test('an edge from the balance device needs the data and the balance layer', () 
   const edge = { cat: 'automation', from: 'energy_node', to: 'rule:r', viaBalance: true };
   assert.equal(df.edgeVisible(edge, { wiring: true, energy: true, balance: false, data: true }), false);
   assert.equal(df.edgeVisible(edge, ALL), true);
+});
+
+test('an executes edge shows the automation popover with its kind', () => {
+  const df = load();
+  const view = df.edgeView({ cat: 'automation', from: 'automation', to: 'rule:r', fromEntity: '', toEntity: '', titleKey: 'devicemap.flow.title.executes', details: { kind: 'executes', part: 'rule' }, link: { tab: 'automations', target: 'r' } }, id => id);
+  assert.equal(view.eyebrowKey, 'devicemap.pop.eyebrow.automation');
+  assert.equal(view.linkKey, 'devicemap.pop.link.automations');
+});
+
+test('isAutomationLink holds for rule executions and any edge touching the automation device', () => {
+  const df = load();
+  assert.equal(df.AUTOMATION_DEVICE_ID, 'automation');
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'bat', details: { kind: 'executes' } }), true);
+  assert.equal(df.isAutomationLink({ from: 'automation', to: 'rule:r' }), true);
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'automation' }), true);
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'bat', details: { kind: 'topic' } }), false);
+  assert.equal(df.isAutomationLink({ from: 'netz', to: 'bat' }), false);
+  assert.equal(df.isAutomationLink(undefined), false);
 });

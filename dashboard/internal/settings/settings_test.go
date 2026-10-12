@@ -358,8 +358,8 @@ func TestStorePersistsDeviceMap(t *testing.T) {
 	if len(got.Edges) != 1 || got.Edges[0].ID != "relation-1" {
 		t.Fatalf("got %#v, want persisted edge", got)
 	}
-	if got.View.GridSize != 40 || got.View.EdgeStyle != "straight" {
-		t.Fatalf("got view %#v, want defaulted grid_size=40, edge_style=straight for a document saved without one", got.View)
+	if got.View.GridSize != 40 || got.View.EdgeStyle != "curved" {
+		t.Fatalf("got view %#v, want defaulted grid_size=40, edge_style=curved for a document saved without one", got.View)
 	}
 
 	viewed := DeviceMap{
@@ -2038,6 +2038,37 @@ func TestDeviceMapLayersRoundTrip(t *testing.T) {
 	}
 	if got.View.Layers != value.View.Layers || !got.View.WidthByPower {
 		t.Fatalf("view = %#v, want layers and width_by_power round-tripped", got.View)
+	}
+}
+
+func TestDeviceMapHideAutomationLinksRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.View.HideAutomationLinks = true
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !got.View.HideAutomationLinks {
+		t.Fatalf("view = %#v, want hide_automation_links round-tripped as true", got.View)
+	}
+}
+
+func TestDeviceMapWithoutHideAutomationLinksShowsThem(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"version":1,"nodes":[],"view":{"snap_to_grid":false,"show_grid":false,"grid_size":40,"edge_style":"curved"}}`
+	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewStore(dir).LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.HideAutomationLinks {
+		t.Fatal("a file without hide_automation_links must load as false (lines shown)")
 	}
 }
 

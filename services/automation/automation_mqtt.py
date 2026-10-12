@@ -927,6 +927,16 @@ class ChangeGatedPublisher:
         return True
 
 
+DEFAULT_NODE_DEVICE_ID = "energy_node"
+
+
+def device_block(service_id: str, node_device_id: str) -> dict:
+    """HA-Geraet des Dienstes, ueber via_device am Node aufgehaengt - gleiches
+    Muster wie Shelly und APsystems, damit die Device Map es unter den Node
+    zeichnet."""
+    return {"identifiers": [service_id], "name": "Energie-Automationen", "manufacturer": "Energy Node", "via_device": node_device_id}
+
+
 def discovery_object_ids(device_id: str, base_topic: str, device_block: dict) -> list:
     state_topic = f"{base_topic}/state"
     state_config = entity_config(device_id, base_topic, "state", "Automations-Zustand", device_block,
@@ -1049,8 +1059,11 @@ class AutomationService:
         # bei unveraendertem Dokument nach einem Reconnect auf gar nichts.
         self.subscribed_topics = set()
         self.apply_subscriptions(self.doc)
-        device_block = {"identifiers": [self.service_config.service_id], "name": "Energie-Automationen", "manufacturer": "Energy Node"}
-        for component, object_id, config in discovery_object_ids(self.service_config.service_id, self.base_topic, device_block):
+        node_device_id = DEFAULT_NODE_DEVICE_ID
+        if getattr(self, "app_config", None) is not None:
+            node_device_id = self.app_config.dashboard.node_device_id or DEFAULT_NODE_DEVICE_ID
+        block = device_block(self.service_config.service_id, node_device_id)
+        for component, object_id, config in discovery_object_ids(self.service_config.service_id, self.base_topic, block):
             publish_discovery(client, self.service_config.service_id, component, object_id, config)
         self.slave.start(client)
 

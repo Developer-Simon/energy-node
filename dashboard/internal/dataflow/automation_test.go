@@ -74,3 +74,33 @@ func TestAutomationGraphRejectsBrokenJSON(t *testing.T) {
 		t.Fatal("expected an error")
 	}
 }
+
+func TestAutomationGraphLinksTheServiceDeviceToEveryRule(t *testing.T) {
+	devices := append(automationDevices(), registry.DeviceView{ID: "automation"})
+	graph, err := automationGraph([]byte(rulesDoc), NewIndex(devices))
+	if err != nil {
+		t.Fatal(err)
+	}
+	runs := 0
+	for _, edge := range graph.Edges {
+		if edge.Details.Kind != "executes" {
+			continue
+		}
+		runs++
+		if edge.From.DeviceID != "automation" || edge.To.VirtualID == "" || edge.TitleKey != "devicemap.flow.title.executes" || edge.Link.Tab != "automations" {
+			t.Errorf("executes edge = %+v", edge)
+		}
+	}
+	if runs != 2 {
+		t.Fatalf("want one executes edge per rule, got %d", runs)
+	}
+}
+
+func TestAutomationGraphWithoutServiceDeviceHasNoExecutesEdge(t *testing.T) {
+	graph, _ := automationGraph([]byte(rulesDoc), NewIndex(automationDevices()))
+	for _, edge := range graph.Edges {
+		if edge.Details.Kind == "executes" {
+			t.Fatalf("unexpected executes edge %+v", edge)
+		}
+	}
+}

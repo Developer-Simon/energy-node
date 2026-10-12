@@ -285,6 +285,7 @@
   {"topic": "zaehler/haus/status", "payload": {"id": 0, "apower": 2050, "voltage": 230.7, "source": "smoke"}},
   {"topic": "wallbox/status", "payload": {"id": 0, "apower": 600, "source": "smoke"}},
   {"topic": "homeassistant/sensor/werkstatt/power/config", "payload": {"name": "Leistung", "unique_id": "werkstatt_power", "state_topic": "werkstatt/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "werkstatt/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["werkstatt"], "via_device": "energy_node", "name": "Werkstatt Steckdose"}}},
+  {"topic": "homeassistant/sensor/automation/state/config", "payload": {"name": "Automations-Zustand", "unique_id": "automation_state", "device": {"identifiers": ["automation"], "name": "Energie-Automationen", "manufacturer": "Energy Node", "via_device": "energy_node"}, "state_topic": "outstation/automation/state", "availability_topic": "outstation/automation/status/online", "payload_available": "1", "payload_not_available": "0", "entity_category": "diagnostic", "value_template": "{{ value_json.rules_enabled }}", "json_attributes_topic": "outstation/automation/state", "unit_of_measurement": "Regeln", "state_class": "measurement"}},
   {"topic": "werkstatt/online", "payload": "true"},
   {"topic": "werkstatt/status", "payload": {"id": 0, "apower": 350, "source": "smoke"}},
   {"topic": "waermepumpe/status", "payload": {"id": 0, "apower": 450, "source": "smoke"}},

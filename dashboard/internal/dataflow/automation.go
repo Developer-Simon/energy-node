@@ -27,10 +27,15 @@ type automationPart struct {
 	SourceJSONKey string `json:"source_json_key"`
 }
 
+// automationDeviceID is the HA device of the automation service: its
+// service id, see config.ServiceIDForConfig("automation_rules").
+const automationDeviceID = "automation"
+
 var automationTitles = map[string]string{
 	"balance_threshold": "Condition balance threshold",
 	"topic_value":       "Condition topic value",
 	"entity_value":      "Condition entity value",
+	"executes":          "Runs the rule",
 	"publish":           "Action",
 	"payload_balance":   "Value from the balance",
 	"payload_topic":     "Value from a topic",
@@ -59,6 +64,9 @@ func automationGraph(doc []byte, ix *Index) (Graph, error) {
 		unresolved := func(id, kind, topic, direction, reason string) {
 			graph.Unresolved = append(graph.Unresolved, Unresolved{ID: id, Config: "automation_rules", Item: rule.ID, Topic: topic,
 				Direction: direction, Reason: reason, Title: automationTitles[kind], TitleKey: "devicemap.flow.title." + kind, Target: ruleRef, Link: link})
+		}
+		if ix.HasDevice(automationDeviceID) {
+			edge("auto:"+ruleRef.VirtualID+"/run", "executes", Ref{DeviceID: automationDeviceID}, ruleRef, Details{Part: "rule"})
 		}
 		for index, raw := range rule.Conditions {
 			var part automationPart

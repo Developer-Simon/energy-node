@@ -8,7 +8,14 @@
 
   const BALANCE_ID = 'balance';
   const STUB_PREFIX = 'stub:';
+  const AUTOMATION_DEVICE_ID = 'automation';
   const ruleId = id => `rule:${encodeURIComponent(id)}`;
+
+  // The lines to the automation node: rule executions and every wiring or
+  // relation edge with the automation device at either end. Takes a data edge
+  // ({from, to, details}) or a wiring element mapped to {from, to}.
+  const isAutomationLink = edge => Boolean(edge)
+    && ((edge.details && edge.details.kind === 'executes') || edge.from === AUTOMATION_DEVICE_ID || edge.to === AUTOMATION_DEVICE_ID);
 
   const nodeKind = id => {
     if (id === BALANCE_ID) return 'balance';
@@ -134,20 +141,42 @@
 
   const placeFlowNodes = ({nodes, allPositions, snap}) => {
     const all = allPositions || [];
+    const occupied = [...all];
+    const taken = (x, y) => occupied.some(p => Math.abs(p.x - x) < STEP_X && Math.abs(p.y - y) < STEP_Y);
+    // Nodes with an anchor (rules under the automation device) go in a row
+    // centred directly below their anchor, a taken spot pushes right.
+    const anchored = [];
+    const byAnchor = new Map();
+    for (const node of nodes || []) {
+      if (!node.anchor) continue;
+      const key = `${node.anchor.x}:${node.anchor.y}`;
+      if (!byAnchor.has(key)) byAnchor.set(key, {anchor: node.anchor, ids: []});
+      byAnchor.get(key).ids.push(node.id);
+    }
+    for (const {anchor, ids} of byAnchor.values()) {
+      ids.sort();
+      ids.forEach((id, index) => {
+        let x = snap(anchor.x + (index - (ids.length - 1) / 2) * STEP_X);
+        const y = snap(anchor.y + STEP_Y);
+        while (taken(x, y)) x = snap(x + STEP_X);
+        occupied.push({x, y});
+        anchored.push({id, x, y});
+      });
+    }
     const minX = all.length ? Math.min(...all.map(p => p.x)) : 0;
     const maxX = all.length ? Math.max(...all.map(p => p.x)) : 0;
     const maxY = all.length ? Math.max(...all.map(p => p.y)) : 0;
     const columns = Math.max(1, Math.min(8, Math.round((maxX - minX) / STEP_X) + 1));
-    const sorted = [...(nodes || [])].sort((a, b) => {
+    const sorted = (nodes || []).filter(node => !node.anchor).sort((a, b) => {
       const ax = a.inputXs.length ? mean(a.inputXs) : Infinity;
       const bx = b.inputXs.length ? mean(b.inputXs) : Infinity;
       return ax - bx || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
     });
-    return sorted.map((node, index) => ({
+    return [...anchored, ...sorted.map((node, index) => ({
       id: node.id,
       x: snap(minX + (index % columns) * STEP_X),
       y: snap(maxY + STEP_Y + Math.floor(index / columns) * STEP_Y),
-    }));
+    }))];
   };
 
   // Freigabe 2: left above the target for inputs, right below the source for
@@ -209,7 +238,7 @@
     }));
 
   window.DeviceMapDataflow = {
-    BALANCE_ID, STUB_PREFIX, ruleId, nodeKind, isVirtualId, isPersistedVirtual, nodeVisible, edgeVisible, balanceNodeId,
+    BALANCE_ID, STUB_PREFIX, AUTOMATION_DEVICE_ID, isAutomationLink, ruleId, nodeKind, isVirtualId, isPersistedVirtual, nodeVisible, edgeVisible, balanceNodeId,
     refId, flowEdges, stubs, roleEdges, relatedFocus, placeBalance, placeFlowNodes, stubPosition, titleOf, edgeView, deviceFlows,
   };
 })();

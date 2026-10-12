@@ -185,6 +185,9 @@
             <label class="devicemap-view-menu-row" for="devicemap-width-toggle"><span class="devicemap-view-menu-label">{{t "devicemap.width_by_power"}}</span>
               <span class="settings-toggle"><input id="devicemap-width-toggle" type="checkbox" role="switch" x-bind:checked="view.width_by_power" x-on:change="toggleWidthByPower()" x-bind:disabled="loading || !view.layers.energy"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
             </label>
+            <label class="devicemap-view-menu-row" for="devicemap-automation-links-toggle"><span class="devicemap-view-menu-label">{{t "devicemap.automation_links"}}</span>
+              <span class="settings-toggle"><input id="devicemap-automation-links-toggle" type="checkbox" role="switch" x-bind:checked="!view.hide_automation_links" x-on:change="toggleAutomationLinks()" x-bind:disabled="loading"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+            </label>
             <div class="devicemap-view-menu-row"><span class="devicemap-view-menu-label">{{t "devicemap.view_menu.edges"}}</span>
               <div class="devicemap-edge-style-group" role="group" x-bind:aria-label="$t('devicemap.edge_style_group_aria')">
                 <button class="icon-button" type="button" x-bind:class="{ active: view.edge_style === 'straight' }" x-bind:aria-pressed="view.edge_style === 'straight'" x-on:click="setEdgeStyle('straight')" x-bind:title="$t('devicemap.edge_style.straight')" x-bind:aria-label="$t('devicemap.edge_style.straight')">
