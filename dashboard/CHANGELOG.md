@@ -1,13 +1,17 @@
 # Changelog
 
-## v0.9.4 (2026-10-11)
+## v0.9.5 (2026-10-12)
 
 ### Features
 
 - **dashboard:** show update progress and what's new after an update (#123) (7c1388f)
+- **dashboard:** show exchange and history status as tiles (#125) (1013cd2)
+- **devicemap:** resolve the balance node to the energy_node device (fbc32dc)
+- **devicemap:** draw energy_node as the balance node on the map (b167ee7)
+- **devicemap:** draw energy_node as the balance node on the plant view (993e14e)
+- **devicemap:** merge the balance node into the energy_node device (#126)
 - **dashboard:** show the exchange status as a tile that updates itself (7e631b6)
 - **dashboard:** show the history status as a strip with pills and a calm empty state (d8d35cf)
-- **dashboard:** show exchange and history status as tiles (#125)
 - **dashboard:** add a per-device history exchange mode, on demand by default (d55c003)
 - **dashboard:** choose the history exchange mode per device in the settings (a997f48)
 - **dashboard:** let the history exchange plan only a given range (87fde60)
@@ -30,6 +34,7 @@
 ### Fixes
 
 - **dashboard:** serve the automation history in full (#119) (1e04a2a)
+- **devicemap:** place balance-fed data nodes by energy_node position (07906f9)
 - **dashboard:** address final review of the update bar and what's new page (b3ab4d3)
 
 ### Performance
@@ -40,11 +45,13 @@
 
 ### Documentation
 
+- **devicemap:** describe energy_node as the balance node (c8fc1fd)
 - **dashboard:** describe the on-demand history exchange and bump asset versions (abc7908)
 - **dashboard:** refresh the history settings screenshot for the exchange mode (7d47494)
 
 ### Tests
 
+- **smoke:** relay client publishes in the minibroker so energy_node shows up (ff720a4)
 - **dashboard:** wait for the offer instead of a fixed delay in the exchange tests (706f5cd)
 - **dashboard:** cover update progress and highlights in the smoke test (beacefa)
 
