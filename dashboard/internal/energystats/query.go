@@ -194,13 +194,15 @@ func clamp01(v float64) float64 {
 type Service struct {
 	Store    *Store
 	Recorder *Recorder
+	Sync     *Sync
 	Location *time.Location
 	Now      func() time.Time
 }
 
 type Response struct {
 	Result
-	Status Status `json:"status"`
+	Status    Status      `json:"status"`
+	Companion *SyncStatus `json:"companion,omitempty"`
 }
 
 func (s *Service) Stats(period, at string) (Response, error) {
@@ -219,6 +221,10 @@ func (s *Service) Stats(period, at string) (Response, error) {
 	resp := Response{Result: res}
 	if s.Recorder != nil {
 		resp.Status = s.Recorder.Status()
+	}
+	if s.Sync != nil {
+		companion := s.Sync.Status()
+		resp.Companion = &companion
 	}
 	return resp, nil
 }

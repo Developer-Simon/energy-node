@@ -181,3 +181,12 @@ func TestServiceAddsRecorderStatus(t *testing.T) {
 		}
 	}
 }
+
+func TestServiceReportsTheCompanion(t *testing.T) {
+	store := NewStore(t.TempDir())
+	svc := &Service{Store: store, Sync: NewSync(store, time.Now), Location: time.UTC}
+	resp, err := svc.Stats("day", "")
+	if err != nil || resp.Companion == nil || resp.Companion.Connected {
+		t.Fatalf("Companion = %+v, err %v", resp.Companion, err)
+	}
+}

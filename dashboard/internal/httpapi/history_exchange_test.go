@@ -104,8 +104,8 @@ func TestExchangeAnkuendigungNenntProtokollUndGrenzen(t *testing.T) {
 	if announced.Protocol != exchangeProtocolVersion {
 		t.Fatalf("protocol = %d, want %d", announced.Protocol, exchangeProtocolVersion)
 	}
-	if len(announced.Tiers) != 2 || announced.Tiers[0] != "1m" || announced.Tiers[1] != "5m" {
-		t.Fatalf("tiers = %v, want [1m 5m] - die Rohstufe wird nie getauscht", announced.Tiers)
+	if len(announced.Tiers) != 3 || announced.Tiers[0] != "1m" || announced.Tiers[1] != "5m" || announced.Tiers[2] != "1h" {
+		t.Fatalf("tiers = %v, want [1m 5m 1h] - die Rohstufe wird nie getauscht", announced.Tiers)
 	}
 	if announced.MaxRowsPerDeliver != maxRowsPerDeliver || announced.MaxRowsPerRequest != maxRowsPerRequest {
 		t.Fatalf("Grenzen falsch angekuendigt: %+v", announced)
