@@ -1423,6 +1423,7 @@
   "error.history_corrupt": "The history data is corrupt",
   "error.history_read_failed": "The history could not be read",
   "error.invalid_body": "The request is invalid",
+  "error.invalid_bundles": "The bundle count must be a number from 0 up",
   "error.invalid_category": "The category is invalid",
   "error.invalid_command": "Invalid command content",
   "error.invalid_command_payload": "Invalid switch value",

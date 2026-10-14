@@ -1423,6 +1423,7 @@
   "error.history_corrupt": "Verlaufsdaten sind beschädigt",
   "error.history_read_failed": "Verlauf konnte nicht gelesen werden",
   "error.invalid_body": "Anfrage ist ungültig",
+  "error.invalid_bundles": "Die Anzahl der Bundles muss eine Zahl ab 0 sein",
   "error.invalid_category": "Die Kategorie ist ungültig",
   "error.invalid_command": "Ungültiger Befehlsinhalt",
   "error.invalid_command_payload": "Ungültiger Schaltwert",

@@ -207,20 +207,28 @@ func isDeselected(id string, deselected map[string]bool) bool {
 	return len(id) > len(prefix) && id[:len(prefix)] == prefix && deselected[id[len(prefix):]]
 }
 
-// Changelog returns the installed changelog.json. With no ids it is the file
-// verbatim; with ids only those components stay (same schema).
-func Changelog(stateDir string, ids []string) (json.RawMessage, error) {
-	raw, err := hostapi.ReadChangelogDocument(stateDir)
-	if err != nil || len(ids) == 0 {
-		return raw, err
+// Changelog returns the installed changelog (hostapi.ReadChangelogHistory,
+// the newest limit bundle versions, 0 for all) in the changelog.json schema.
+// With ids only those components stay. The top level also carries
+// bundles_total and bundles_shown, how many bundle versions the node has and
+// how many this answer merges.
+func Changelog(stateDir string, ids []string, limit int) (json.RawMessage, error) {
+	history, err := hostapi.ReadChangelogHistory(stateDir, limit)
+	if err != nil {
+		return nil, err
+	}
+	var top map[string]json.RawMessage
+	if err := json.Unmarshal(history.Document, &top); err != nil {
+		return nil, &hostapi.Error{Code: "CHANGELOG_UNREADABLE", Detail: err.Error()}
+	}
+	top["bundles_total"], _ = json.Marshal(history.Total)
+	top["bundles_shown"], _ = json.Marshal(history.Shown)
+	if len(ids) == 0 {
+		return json.Marshal(top)
 	}
 	want := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		want[id] = true
-	}
-	var top map[string]json.RawMessage
-	if err := json.Unmarshal(raw, &top); err != nil {
-		return nil, &hostapi.Error{Code: "CHANGELOG_UNREADABLE", Detail: err.Error()}
 	}
 	var components []json.RawMessage
 	if err := json.Unmarshal(top["components"], &components); err != nil {
