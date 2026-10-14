@@ -2208,7 +2208,7 @@
   "settings.versions.changes.mode.label": "Änderungen zeigen",
   "settings.versions.changes.no_highlights": "Keine Highlights in diesen Versionen. Unter „Alles“ steht jede Änderung.",
   "settings.versions.changes.show": "Änderungen",
-  "settings.versions.history.all": "Alle auf diesem Gerät",
+  "settings.versions.history.all": "Alle",
   "settings.versions.history.extended": "Letzte 20",
   "settings.versions.history.label": "Versionen im Changelog",
   "settings.versions.history.note": "Zeigt {shown} von {total} Versionen.",

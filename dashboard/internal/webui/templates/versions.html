@@ -21,13 +21,12 @@
         <label class="segmented-option"><input type="radio" name="versions-changes-mode" value="highlights" x-model="mode"><span>{{t "settings.versions.changes.mode.highlights"}}</span></label>
         <label class="segmented-option"><input type="radio" name="versions-changes-mode" value="all" x-model="mode"><span>{{t "settings.versions.changes.mode.all"}}</span></label>
       </div>
-      <div class="setting-row">
-        <span class="setting-row-label" id="lbl-versions-history">{{t "settings.versions.history.label"}}</span>
-        <select class="setting-select" aria-labelledby="lbl-versions-history" x-bind:value="changelogHistory" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory($event.target.value)">
-          <option value="recent">{{t "settings.versions.history.recent"}}</option>
-          <option value="extended">{{t "settings.versions.history.extended"}}</option>
-          <option value="all">{{t "settings.versions.history.all"}}</option>
-        </select>
+      <span class="setting-row-label" id="lbl-versions-history">{{t "settings.versions.history.label"}}</span>
+      <div class="segmented segmented--3" role="radiogroup" aria-labelledby="lbl-versions-history">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="versions-history" value="recent" x-bind:checked="changelogHistory === 'recent'" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory('recent')"><span>{{t "settings.versions.history.recent"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="versions-history" value="extended" x-bind:checked="changelogHistory === 'extended'" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory('extended')"><span>{{t "settings.versions.history.extended"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="versions-history" value="all" x-bind:checked="changelogHistory === 'all'" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory('all')"><span>{{t "settings.versions.history.all"}}</span></label>
       </div>
       <p class="setting-note" x-show="bundlesTotal > bundlesShown || changelogHistory !== 'recent'" x-text="$t('settings.versions.history.note', {shown: bundlesShown, total: bundlesTotal})"></p>
     </div>
