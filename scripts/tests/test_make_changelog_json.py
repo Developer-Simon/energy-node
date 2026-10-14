@@ -177,3 +177,35 @@ def test_the_document_carries_the_flags(tmp_path):
     entries = [e for r in doc["components"][0]["releases"] for g in r["groups"] for e in g["entries"]]
     assert all(isinstance(e["highlight"], bool) for e in entries)
     assert doc["schema_version"] == 1, "the flag is additive, readers ignore unknown keys"
+
+
+def test_attach_translations_sets_i18n_on_pr_entries_only():
+    releases = mcj.mark_highlights(mcj.parse_changelog(CHANGELOG))
+    translations = {34: {"de": {"*": "füge etwas hinzu"}}, 9: {"de": {"installer": "älterer Fix"}}}
+    mcj.attach_translations(releases, translations, "dashboard")
+    entries = releases[0]["groups"][0]["entries"]
+    assert entries[0]["i18n"] == {"de": "füge etwas hinzu"}
+    assert "i18n" not in entries[1]          # PR 14 has no file
+    assert "i18n" not in entries[2]          # no PR number
+    fixes = releases[1]["groups"][0]["entries"]
+    assert "i18n" not in fixes[0]            # PR 9 only for target installer
+
+
+def test_build_document_reads_translation_files(tmp_path):
+    (tmp_path / "scripts/version").mkdir(parents=True)
+    (tmp_path / "dashboard").mkdir()
+    (tmp_path / "dashboard/VERSION").write_text("v0.7.0\n", encoding="utf-8")
+    (tmp_path / "dashboard/CHANGELOG.md").write_text(CHANGELOG, encoding="utf-8")
+    (tmp_path / "changelog/highlights").mkdir(parents=True)
+    (tmp_path / "changelog/highlights/34.json").write_text('{"de": {"dashboard": "Ding"}}', encoding="utf-8")
+    table = {"components": [{"id": "dashboard", "label": "Dashboard", "kind": "app", "target": "dashboard",
+                             "version_file": "dashboard/VERSION", "changelog": "dashboard/CHANGELOG.md", "bundle": True}]}
+    doc = mcj.build_document(tmp_path, table, bundle_version="v0.7.0", max_releases=5, generated_at="x")
+    entry = doc["components"][0]["releases"][0]["groups"][0]["entries"][0]
+    assert entry["i18n"] == {"de": "Ding"}
+    assert doc["schema_version"] == 1
+
+
+def test_parse_version_handles_version_file_and_manifest():
+    assert mcj.parse_version("v1.2.3\n", "") == "v1.2.3"
+    assert mcj.parse_version('{"version": "0.4.2"}', ".json") == "v0.4.2"
