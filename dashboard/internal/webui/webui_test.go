@@ -1968,6 +1968,58 @@ func TestCompactCardTemplateRendersStatusAndPriorityRows(t *testing.T) {
 	}
 }
 
+// Die Zeilen der Kompaktkarte tragen die Attribute, an denen der Push und
+// device-structure.js sie wiedererkennen: die fertige Zeile und die Vorlage
+// <template data-compact-row>, aus der neue Zeilen gebaut werden.
+func TestCompactCardRowsCarryPatchAttributes(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", DeviceClass: "power", UnitOfMeasurement: "W", StateTopic: "node/power"},
+	})
+	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
+
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live&view_mode=compact", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d", recorder.Code)
+	}
+	body := recorder.Body.String()
+
+	for _, marker := range []string{
+		`class="compact-card-row"`,
+		`data-entity-id="node_power"`,
+		`data-device-class="power"`,
+		`data-unit="W"`,
+	} {
+		if !strings.Contains(body, marker) {
+			t.Fatalf("Kompakt-Fragment enthaelt %q nicht: %s", marker, body)
+		}
+	}
+
+	start := strings.Index(body, "<template data-compact-row>")
+	if start < 0 {
+		t.Fatalf("Kompakt-Fragment hat keine Zeilenvorlage: %s", body)
+	}
+	end := strings.Index(body[start:], "</template>")
+	if end < 0 {
+		t.Fatalf("Zeilenvorlage ist nicht geschlossen: %s", body)
+	}
+	tmpl := body[start : start+end]
+	for _, marker := range []string{
+		`class="compact-card-row"`,
+		`data-entity-id="`,
+		`data-device-class="`,
+		`data-unit="`,
+		`class="compact-card-row-label"`,
+		`class="compact-card-row-value"`,
+	} {
+		if !strings.Contains(tmpl, marker) {
+			t.Fatalf("Zeilenvorlage enthaelt %q nicht: %s", marker, tmpl)
+		}
+	}
+}
+
 // layoutWithPages erzeugt ein Testlayout mit den gegebenen Seitennamen.
 func layoutWithPages(names ...string) settings.Layout {
 	pages := make([]settings.Page, len(names))
