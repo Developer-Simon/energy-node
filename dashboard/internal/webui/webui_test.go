@@ -823,7 +823,7 @@ func TestDevicesLiveFragmentHonorsRequestedViewMode(t *testing.T) {
 			t.Fatalf("view_mode=control fragment does not contain %q: %s", marker, b)
 		}
 	}
-	if strings.Contains(b, `class="compact-card`) {
+	if strings.Contains(b, `class="compact-card `) {
 		t.Fatalf("view_mode=control must not render compact cards: %s", b)
 	}
 }
@@ -2431,7 +2431,7 @@ func TestOverviewRendersDetailDeviceTileByDefault(t *testing.T) {
 	if !strings.Contains(body, `class="device-tile"`) {
 		t.Error("die Detailkachel fehlt")
 	}
-	if strings.Contains(body, `class="compact-card`) {
+	if strings.Contains(body, `class="compact-card `) {
 		t.Error("die kompakte Kachel wurde faelschlich gerendert")
 	}
 }
@@ -3100,5 +3100,58 @@ func TestDeviceCardFragmentMatchesTheDevicesTab(t *testing.T) {
 	}
 	if code, _ := render(t, reg, store, "/?fragment=device-card&id=fehlt&mode=control"); code != 404 {
 		t.Fatalf("unbekanntes Geraet: %d, want 404", code)
+	}
+}
+
+func TestDeviceTilesCarryTheirOwnStructure(t *testing.T) {
+	reg, store := fragmentTestSetup(t,
+		settings.Item{ID: "d1", Type: "device", Ref: "node", Span: "1", Visible: true},
+		settings.Item{ID: "d2", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact"},
+		settings.Item{ID: "d3", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact", EntityRefs: []string{"node_power"}},
+		settings.Item{ID: "gone", Type: "device", Ref: "fehlt", Span: "1", Visible: true},
+	)
+	_, grid := render(t, reg, store, "/?fragment=overview-live&page=p1")
+	devices := reg.Snapshot()
+	want := DeviceStructureFingerprint(devices[0])
+	for _, id := range []string{"d1", "d2", "d3"} {
+		if !strings.Contains(grid, `data-layout-item-id="`+id+`"`) {
+			t.Fatalf("Item %s fehlt", id)
+		}
+	}
+	if got := strings.Count(grid, `data-structure="`+want+`"`); got < 6 {
+		t.Errorf("data-structure %d-mal, want mindestens 6 (3 Rasterfelder + 3 Karten): %s", got, grid)
+	}
+	if !strings.Contains(grid, `data-layout-item-ref="fehlt"`) {
+		t.Fatal("Item mit fehlendem Geraet fehlt")
+	}
+	if !strings.Contains(grid, `data-structure=""`) {
+		t.Errorf("fehlendes Geraet meldet nicht die leere Struktur: %s", grid)
+	}
+	if strings.Count(grid, `data-compact-auto="true"`) != 1 {
+		t.Errorf("genau die automatische Kompaktkarte (d2) traegt data-compact-auto: %s", grid)
+	}
+	if !strings.Contains(grid, `data-rows="node_power"`) {
+		t.Errorf("data-rows fehlt: %s", grid)
+	}
+	if strings.Count(grid, "<template data-compact-row>") != 1 {
+		t.Errorf("Zeilenvorlage nicht genau einmal im Raster: %s", grid)
+	}
+}
+
+func TestDevicesTabCardsCarryStructureAndRowTemplate(t *testing.T) {
+	reg, store := fragmentTestSetup(t)
+	want := DeviceStructureFingerprint(reg.Snapshot()[0])
+	for _, mode := range []string{"control", "compact"} {
+		_, tab := render(t, reg, store, "/?fragment=devices-live&view_mode="+mode)
+		if !strings.Contains(tab, `data-structure="`+want+`"`) {
+			t.Errorf("%s: Karte ohne eigene Struktur: %s", mode, tab)
+		}
+		if strings.Count(tab, "<template data-compact-row>") != 1 {
+			t.Errorf("%s: Zeilenvorlage nicht genau einmal", mode)
+		}
+	}
+	_, compact := render(t, reg, store, "/?fragment=devices-live&view_mode=compact")
+	if !strings.Contains(compact, `data-compact-auto="true"`) {
+		t.Error("Kompaktkarte im Geraete-Tab ist nicht automatisch")
 	}
 }

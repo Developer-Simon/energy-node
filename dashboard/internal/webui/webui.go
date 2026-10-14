@@ -141,6 +141,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 		"priorityEntities":   priorityEntities,
 		"compactCardAuto":    compactCardAuto,
 		"compactCardForItem": compactCardForItem,
+		"rowIDs":             rowIDs,
 		"deviceTileForItem":  deviceTileForItem,
 		"deviceTileStatus":   deviceTileStatus,
 		"deviceStructure":    DeviceStructureFingerprint,
@@ -445,12 +446,24 @@ func priorityEntities(dev registry.DeviceView) []registry.EntityView {
 type compactCardView struct {
 	Device registry.DeviceView
 	Rows   []registry.EntityView
+	// Auto: die Zeilen kommen aus priorityEntities, das SSE-Thema devices liefert sie mit
+	Auto bool
 }
 
 // compactCardAuto ist der unveraenderte Weg: die Zeilen kommen aus
 // priorityEntities. Das nutzt der Geraete-Tab (devices-compact).
 func compactCardAuto(dev registry.DeviceView) compactCardView {
-	return compactCardView{Device: dev, Rows: priorityEntities(dev)}
+	return compactCardView{Device: dev, Rows: priorityEntities(dev), Auto: true}
+}
+
+// rowIDs ist die Zeilenauswahl einer Kompaktkarte als data-rows. Der Browser
+// vergleicht sie mit den rows aus dem SSE-Thema devices.
+func rowIDs(rows []registry.EntityView) string {
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.UniqueID
+	}
+	return strings.Join(ids, ",")
 }
 
 // compactCardForItem beruecksichtigt die feste Zeilenauswahl eines
@@ -461,7 +474,7 @@ func compactCardForItem(dev registry.DeviceView, item settings.Item) compactCard
 	if len(item.EntityRefs) == 0 {
 		return compactCardAuto(dev)
 	}
-	return compactCardView{Device: dev, Rows: resolveEntityRefs(dev, item.EntityRefs)}
+	return compactCardView{Device: dev, Rows: resolveEntityRefs(dev, item.EntityRefs), Auto: false}
 }
 
 // CompactStructureFingerprint verdichtet das, was die Kompakt-Karte
