@@ -95,6 +95,16 @@ for step in manifest["steps"]:
     if step.get("dir") and versions.get("service:" + step["dir"]) != step.get("version"):
         sys.exit("Dienst %s: steps[].version = %r, changelog.json sagt %r"
                  % (step["dir"], step.get("version"), versions.get("service:" + step["dir"])))
+history = sorted((root / "changelog").glob("*.json"))
+if not history:
+    sys.exit("changelog/ fehlt im Bundle")
+for path in history:
+    rel = "changelog/" + path.name
+    if rel not in manifest["files"]:
+        sys.exit("%s fehlt in manifest.files (nicht von der Signatur gedeckt)" % rel)
+newest = json.loads((root / "changelog" / (manifest["version"] + ".json")).read_text(encoding="utf-8"))
+if newest != document:
+    sys.exit("changelog.json muss die neueste Datei aus changelog/ sein")
 print("ok changelog.json")
 PY
 
