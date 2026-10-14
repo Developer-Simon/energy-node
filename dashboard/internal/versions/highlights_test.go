@@ -1,8 +1,10 @@
 package versions
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -175,6 +177,28 @@ func TestHighlightsWithoutChangelogIsNoChangelog(t *testing.T) {
 	dir := writeState(t, map[string]string{"installed-manifest.json": installedV090})
 	if _, err := Highlights(dir); err == nil {
 		t.Fatal("want NO_CHANGELOG")
+	}
+}
+
+func TestHighlightsCarryTranslations(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json": `{"schema_version":1,"components":[{"id":"dashboard","label":"Dashboard","version":"v0.9.0","releases":[
+		  {"version":"v0.9.0","groups":[{"type":"feat","entries":[
+		    {"text":"device map layers","pr":103,"breaking":false,"highlight":true,"i18n":{"de":"Ebenen im Gerätediagramm"}},
+		    {"text":"untranslated","pr":104,"breaking":false,"highlight":true}]}]}]}]}`,
+		"installed-manifest.json": `{"version":"v0.9.0","components":{"dashboard":"v0.9.0"}}`,
+	})
+	view, err := Highlights(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries := view.Components[0].Releases[0].Entries
+	if entries[0].I18n["de"] != "Ebenen im Gerätediagramm" || entries[1].I18n != nil {
+		t.Fatalf("i18n = %+v / %+v", entries[0].I18n, entries[1].I18n)
+	}
+	raw, _ := json.Marshal(entries[1])
+	if strings.Contains(string(raw), "i18n") {
+		t.Fatalf("untranslated entry serialises i18n: %s", raw)
 	}
 }
 
