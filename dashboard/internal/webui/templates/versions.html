@@ -21,6 +21,15 @@
         <label class="segmented-option"><input type="radio" name="versions-changes-mode" value="highlights" x-model="mode"><span>{{t "settings.versions.changes.mode.highlights"}}</span></label>
         <label class="segmented-option"><input type="radio" name="versions-changes-mode" value="all" x-model="mode"><span>{{t "settings.versions.changes.mode.all"}}</span></label>
       </div>
+      <div class="setting-row">
+        <span class="setting-row-label" id="lbl-versions-history">{{t "settings.versions.history.label"}}</span>
+        <select class="setting-select" aria-labelledby="lbl-versions-history" x-bind:value="changelogHistory" x-bind:disabled="savingChangelogHistory" x-on:change="setChangelogHistory($event.target.value)">
+          <option value="recent">{{t "settings.versions.history.recent"}}</option>
+          <option value="extended">{{t "settings.versions.history.extended"}}</option>
+          <option value="all">{{t "settings.versions.history.all"}}</option>
+        </select>
+      </div>
+      <p class="setting-note" x-show="bundlesTotal > bundlesShown || changelogHistory !== 'recent'" x-text="$t('settings.versions.history.note', {shown: bundlesShown, total: bundlesTotal})"></p>
     </div>
   </div>
   <div class="setting-card">

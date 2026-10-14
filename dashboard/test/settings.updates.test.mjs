@@ -78,3 +78,37 @@ test('settingsPanel followUpdateCheckSetting() picks up the value saved on the v
   assert.equal(component.payload().update_check_disabled, false);
   dom.window.close();
 });
+
+test('settingsPanel load() and payload() carry changelog_history unchanged to the next save', async () => {
+  const settingsResponse = {
+    health_score_threshold: 3, sweep_interval_seconds: 300,
+    show_runtime_status: true, device_view_mode: 'compact', theme: 'mint',
+    show_config_entities_on_tile: false, show_diagnostic_entities_on_tile: false,
+    live_update_interval_seconds: 3, wide_panels: [], status_bar_items: [],
+    changelog_history: 'all',
+  };
+  const { dom, factories } = load({
+    fetchImpl: async (url) => {
+      if (String(url).includes('/api/v1/settings')) return jsonResponse(settingsResponse);
+      return jsonResponse({});
+    },
+  });
+  const component = factories.settingsPanel();
+  attachStores(component);
+  component.$refs = { widePanelsSelect: dom.window.document.createElement('select'), statusBarItemsSelect: dom.window.document.createElement('select') };
+  await component.load();
+  assert.equal(component.payload().changelog_history, 'all');
+  dom.window.close();
+});
+
+test('settingsPanel followUpdateCheckSetting() also follows changelog-history-setting-changed from the versions page', () => {
+  const { dom, factories } = load();
+  const component = factories.settingsPanel();
+  component.followUpdateCheckSetting();
+  assert.equal(component.payload().changelog_history, 'recent');
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('changelog-history-setting-changed', { detail: { value: 'extended' } }));
+  assert.equal(component.payload().changelog_history, 'extended');
+  dom.window.document.dispatchEvent(new dom.window.CustomEvent('changelog-history-setting-changed', { detail: { value: 'all' } }));
+  assert.equal(component.payload().changelog_history, 'all');
+  dom.window.close();
+});
