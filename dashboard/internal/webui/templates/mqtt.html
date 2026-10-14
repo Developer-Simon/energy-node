@@ -100,14 +100,23 @@
     </label>
   </div>
 
-  <div class="setting-card" x-show="canConfigure">
+  <div class="setting-card">
     <h3 class="setting-card-title">{{t "mqtt.metrics.title"}}</h3>
-    <template x-for="metric in metricKeys" x-bind:key="metric">
-      <label class="switch-row">
-        <span x-text="metricLabels[metric] || metric"></span>
-        <span class="settings-toggle"><input type="checkbox" role="switch" x-bind:checked="metricEnabled(metric)" x-on:change="toggleMetric(metric, $event.target.checked)"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+    <div class="settings-multiselect-row mqtt-metrics-select">
+      <label for="mqtt-metrics-select">
+        {{t "mqtt.metrics.label"}}
+        <span class="field-help">
+          <button class="field-help-trigger" type="button" aria-label="{{t "mqtt.metrics.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "mqtt.metrics.help_text"}}</span>
+        </span>
       </label>
-    </template>
+      <select id="mqtt-metrics-select" x-ref="metricsSelect" multiple x-on:change="onMetricsChange()">
+        <template x-for="metric in metricKeys" x-bind:key="metric">
+          <option x-bind:value="metric" x-text="metricLabels[metric] || metric"></option>
+        </template>
+      </select>
+    </div>
+    <p class="setting-note" x-show="!canConfigure">{{t "mqtt.metrics.read_only"}}</p>
   </div>
 
   <section id="settings-mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
