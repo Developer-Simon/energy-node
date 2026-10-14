@@ -5,8 +5,8 @@
 ### Features
 
 - **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134) (ccd90ca)
+- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137) (14f781e)
 - **installer-webui:** merge the per-version changelog files (77e912d)
-- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137)
 - **installer-webui:** show release highlights in the page language (59987e3)
 
 ### Fixes
