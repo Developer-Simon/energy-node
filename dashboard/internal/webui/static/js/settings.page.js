@@ -79,6 +79,8 @@
     exchangeListening: false,
     historyViews: [],
     updateCheckDisabled: false,
+    // Set on the versions page, which saves it on its own (changelog_history).
+    changelogHistory: 'recent',
     languageSwitchHidden: false,
     // Die Sprache ist keine Knoten-Einstellung, sondern das Cookie dieses
     // Browsers (i18n.js). Die Kachel "Formatierung" zeigt sie trotzdem hier,
@@ -151,6 +153,7 @@
         this.energyStatsRecording = ['always', 'pause_with_companion', 'off'].includes(value.energy_stats_recording) ? value.energy_stats_recording : 'always';
         this.historyViews = Array.isArray(value.history_views) ? [...value.history_views] : [];
         this.updateCheckDisabled = Boolean(value.update_check_disabled);
+        this.changelogHistory = ['recent', 'extended', 'all'].includes(value.changelog_history) ? value.changelog_history : 'recent';
         this.languageSwitchHidden = Boolean(value.language_switch_hidden);
         this.uiLanguage = window.I18n ? window.I18n.lang : this.uiLanguage;
         this.loadHistoryUsage();
@@ -188,12 +191,16 @@
       return options.map(option => option.key).filter(key => selected.includes(key));
     },
 
-    // The automatic update check is switched on the versions page, which
-    // saves it on its own. Follow that value so save() here does not write
-    // a stale one back.
+    // The automatic update check and the changelog history are switched on
+    // the versions page, which saves them on its own. Follow those values so
+    // save() here does not write stale ones back.
     followUpdateCheckSetting() {
       document.addEventListener('update-check-setting-changed', (event) => {
         this.updateCheckDisabled = Boolean(event.detail && event.detail.disabled);
+      });
+      document.addEventListener('changelog-history-setting-changed', (event) => {
+        const value = event.detail && event.detail.value;
+        this.changelogHistory = ['recent', 'extended', 'all'].includes(value) ? value : 'recent';
       });
     },
 
@@ -493,6 +500,7 @@
         history_views: [...this.historyViews],
         energy_stats_recording: this.energyStatsRecording,
         update_check_disabled: Boolean(this.updateCheckDisabled),
+        changelog_history: this.changelogHistory,
         language_switch_hidden: Boolean(this.languageSwitchHidden),
       };
     },

@@ -2394,3 +2394,25 @@ func TestEnergyStatsRecordingModeValuesAreStable(t *testing.T) {
 		t.Fatal("Moduswerte geaendert")
 	}
 }
+
+func TestChangelogHistoryDefaultsToRecentAndRejectsUnknown(t *testing.T) {
+	if Default().ChangelogHistory != ChangelogHistoryRecent {
+		t.Fatalf("Default = %q, want recent", Default().ChangelogHistory)
+	}
+	value := normalizeSettings(Settings{})
+	if value.ChangelogHistory != ChangelogHistoryRecent {
+		t.Fatalf("empty = %q, want recent", value.ChangelogHistory)
+	}
+	for _, mode := range []string{ChangelogHistoryRecent, ChangelogHistoryExtended, ChangelogHistoryAll} {
+		ok := Default()
+		ok.ChangelogHistory = mode
+		if err := validateSettings(ok); err != nil {
+			t.Fatalf("%s abgelehnt: %v", mode, err)
+		}
+	}
+	bad := Default()
+	bad.ChangelogHistory = "forever"
+	if err := validateSettings(bad); err == nil {
+		t.Fatal("unbekannter changelog_history muss abgelehnt werden")
+	}
+}

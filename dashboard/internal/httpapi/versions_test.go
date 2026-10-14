@@ -49,6 +49,18 @@ func writeState(t *testing.T, dir, name, body string) {
 	}
 }
 
+func TestChangelogRejectsNegativeBundles(t *testing.T) {
+	dir := t.TempDir()
+	writeState(t, dir, "changelog.json", `{"schema_version":1,"components":[{"id":"dashboard"}]}`)
+	router, guest := versionsRouter(t, dir)
+	for _, path := range []string{"/api/v1/changelog?bundles=-1", "/api/v1/changelog?bundles=abc"} {
+		rec := getWith(router, guest, path)
+		if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "invalid_bundles") {
+			t.Fatalf("%s: got %d %s, want 400 invalid_bundles", path, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestVersionsRoutesNeedASessionButNotARole(t *testing.T) {
 	dir := t.TempDir()
 	writeState(t, dir, "installed-manifest.json", `{"version":"v0.7.5","components":{"dashboard":"v0.7.5"}}`)

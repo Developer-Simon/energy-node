@@ -135,15 +135,27 @@ Work inside one service bumps only that service. Work directly under
 
 ### `changelog.json`
 
-Every bundle carries a `changelog.json`. `scripts/build/make_changelog_json.py`
-builds it from the `CHANGELOG.md` of every component with `bundle: true` in
-`scripts/version/components.json`, with the newest 20 releases of each.
-`make_bundle.sh` writes it before the manifest is hashed, so `manifest.files`
-and the signature cover it. Once a bundle counts as applied, the updater and
-the installer copy it to `/var/lib/energy-node-installer/changelog.json` next
-to `installed-manifest.json`, where the dashboard's version page reads it. The
-file is optional everywhere. An older bundle without it installs and displays
-normally, only without a changelog.
+Every bundle carries `changelog/<version>.json` for each of the last 20 bundle
+versions, and a `changelog.json` with the newest bundle version only. Each
+per-version file lists the component releases that came with that bundle
+version: every release newer than the component's version at the previous
+final tag, up to its version at this tag. Pre-release tags do not count as a
+previous tag, so the range always starts after the last final release. A
+component without new releases still appears with an empty `releases` list.
+`scripts/build/make_changelog_json.py` builds the files from the `CHANGELOG.md`
+of every component with `bundle: true` in `scripts/version/components.json`.
+`make_bundle.sh` writes them before the manifest is hashed, so `manifest.files`
+and the signature cover them.
+
+The updater adds new and changed files to `/var/lib/energy-node-installer/changelog/`
+once a bundle counts as applied. It never deletes a file, so the node keeps
+every version it has received, and a changed file (for example a corrected
+translation) replaces the old copy. The newest bundle version is also copied to
+`/var/lib/energy-node-installer/changelog.json`. Older installers and updaters
+read only that file, so they show what is new in the bundle and nothing older.
+The dashboard and the installer merge the files of the directory, the newest
+file first, and show as many versions as the user chose. A bundle without any
+changelog files installs and displays normally, only without a changelog.
 
 ### Highlights and details
 
@@ -215,6 +227,10 @@ the release notes show them and fall back to English.
 The texts of older releases live in `changelog/highlights/archive.json`, in the
 form `{"<PR>": {"de": {...}}}`, so the file list stays short. New PRs get their
 own `<PR>.json`. A per-PR file overrides the archive for the languages it has.
+The per-version changelog files are regenerated from the current changelogs and
+translations on every release. Correcting a text in `archive.json` therefore
+reaches the node with the next bundle, because the updater replaces every file
+whose content changed.
 
 When a final release tag is pushed, the workflow `archive-highlight-translations.yml`
 folds all `changelog/highlights/<PR>.json` into `archive.json` and opens a PR for

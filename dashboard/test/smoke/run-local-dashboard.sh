@@ -470,6 +470,7 @@ changelog = {
 files = {
     "./manifest.json": json.dumps(manifest).encode(),
     "./changelog.json": json.dumps(changelog).encode(),
+    f"./changelog/{manifest['version']}.json": json.dumps({**changelog, "bundle_version": manifest["version"]}).encode(),
     "./manifest.json.sig": b"smoke-test-not-a-real-signature",
     "./bootstrap/10-apt.sh": b"#!/bin/sh\n",
     # Nicht komprimierbar, damit der Download ein paar Sekunden dauert und der

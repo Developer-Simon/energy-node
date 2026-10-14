@@ -45,6 +45,11 @@
     }))
     .filter((release) => release.groups.length > 0);
 
+  // Bundle versions the changelog shows per setting value (changelog_history
+  // in settings.go). 0 asks for every version the node has.
+  const HISTORY_LIMITS = {recent: 5, extended: 20, all: 0};
+  const historyValue = (value) => (value in HISTORY_LIMITS ? value : 'recent');
+
   const kindTitle = (kind) => t(kind === 'other' ? 'settings.versions.kind_other' : `settings.versions.kind.${kind}`);
 
   const versionsPanel = () => ({
@@ -66,6 +71,10 @@
     canSystemActions: false,
     updateCheckDisabled: false,
     savingUpdateCheck: false,
+    changelogHistory: 'recent',
+    bundlesTotal: 0,
+    bundlesShown: 0,
+    savingChangelogHistory: false,
 
     // ?all=1 (the link of the what's new dialog) starts in the "all" view.
     init() {
@@ -100,8 +109,10 @@
       try {
         const value = await requestJSON('/api/v1/settings');
         this.updateCheckDisabled = Boolean(value.update_check_disabled);
+        this.changelogHistory = historyValue(value.changelog_history);
       } catch (error) {
         this.updateCheckDisabled = false;
+        this.changelogHistory = 'recent';
       }
       try {
         const status = await requestJSON('/api/v1/updates/status');
@@ -133,6 +144,32 @@
         this.$store.toasts.push(error.message, 'critical');
       } finally {
         this.savingUpdateCheck = false;
+      }
+    },
+
+    // Same round trip as setUpdateCheck(): only changelog_history changes,
+    // then every open component is loaded again with the new count.
+    async setChangelogHistory(value) {
+      if (this.savingChangelogHistory || !(value in HISTORY_LIMITS)) return;
+      const previous = this.changelogHistory;
+      this.changelogHistory = value;
+      this.savingChangelogHistory = true;
+      try {
+        const current = await requestJSON('/api/v1/settings');
+        await requestJSON('/api/v1/settings', {
+          method: 'PUT',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({...current, changelog_history: value}),
+        });
+        document.dispatchEvent(new CustomEvent('changelog-history-setting-changed', {detail: {value}}));
+        this.releases = {};
+        const openIds = Object.keys(this.open).filter((id) => this.open[id]);
+        await Promise.all(openIds.map((id) => this.loadReleases(id)));
+      } catch (error) {
+        this.changelogHistory = previous;
+        this.$store.toasts.push(error.message, 'critical');
+      } finally {
+        this.savingChangelogHistory = false;
       }
     },
 
@@ -183,9 +220,12 @@
 
     async loadReleases(id) {
       try {
-        const body = await requestJSON(`/api/v1/changelog?component=${encodeURIComponent(id)}`);
+        const limit = HISTORY_LIMITS[historyValue(this.changelogHistory)];
+        const body = await requestJSON(`/api/v1/changelog?component=${encodeURIComponent(id)}&bundles=${limit}`);
         const component = (body.components || []).find((entry) => entry.id === id);
         this.releases = {...this.releases, [id]: component ? component.releases : []};
+        this.bundlesTotal = body.bundles_total || 0;
+        this.bundlesShown = body.bundles_shown || 0;
       } catch (error) {
         this.releaseErrors = {...this.releaseErrors, [id]: error.message};
       }

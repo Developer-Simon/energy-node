@@ -80,6 +80,9 @@ JSON
 
 # changelog.json faehrt im Bundle mit; der Updater legt es neben das Manifest.
 printf '{"schema_version":1,"components":[]}\n' > "$fixture/changelog.json"
+mkdir -p "$fixture/changelog"
+printf '{"schema_version":1,"bundle_version":"v1.5.0","components":[]}\n' > "$fixture/changelog/v1.5.0.json"
+printf '{"schema_version":1,"bundle_version":"v1.4.0","components":["fixed"]}\n' > "$fixture/changelog/v1.4.0.json"
 
 # Benutzername und Passwortpfad stehen schon auf dem Knoten - der Auftrag
 # traegt keine Geheimnisse.
@@ -108,6 +111,9 @@ run_updater() {
 # --- erster Fall: gueltiger Auftrag laeuft durch --------------------------
 job="$tmp/job"
 stage_job "$job" '{"bundle_version":"1.5.0","mode":"redeploy","steps":["20","50","60"]}'
+mkdir -p "$job/state/changelog"
+printf 'old v1.3.0\n' > "$job/state/changelog/v1.3.0.json"
+printf 'stale v1.4.0\n' > "$job/state/changelog/v1.4.0.json"
 run_updater "$job" || fail "updater exited non-zero on a valid job: $(cat "$job/log" 2>/dev/null)"
 
 [ -f "$job/current.json" ] || fail "pending.json was not claimed into current.json"
@@ -128,6 +134,10 @@ cmp -s "$fixture/manifest.json" "$job/state/installed-manifest.json" \
 cmp -s "$fixture/changelog.json" "$job/state/changelog.json" \
   || fail "changelog.json must be copied next to the installed manifest: $(cat "$job/state/changelog.json" 2>&1)"
 [ ! -e "$job/state/changelog.json.tmp" ] || fail "the changelog .tmp file must not be left behind"
+cmp -s "$fixture/changelog/v1.5.0.json" "$job/state/changelog/v1.5.0.json" || fail "a new version file must be added"
+cmp -s "$fixture/changelog/v1.4.0.json" "$job/state/changelog/v1.4.0.json" || fail "a changed version file must be replaced"
+[ "$(cat "$job/state/changelog/v1.3.0.json")" = "old v1.3.0" ] || fail "an older version file must be kept"
+[ -z "$(find "$job/state/changelog" -name '*.tmp')" ] || fail "no .tmp file may be left in changelog/"
 
 # --- Fall 1b: ein Versionswechsel legt den Vorgaenger ab --------------------
 job1b="$tmp/job1b"
@@ -164,6 +174,7 @@ grep -q '"result":"rejected"' "$job2/status.json" || fail "status.json must repo
 grep -q '"code":"BUNDLE_SIGNATURE_INVALID"' "$job2/status.json" || fail "status.json must carry the fault code"
 [ ! -e "$job2/state/installed-manifest.json" ] || fail "a rejected bundle must not be recorded as installed"
 [ ! -e "$job2/state/changelog.json" ] || fail "a rejected bundle must not leave its changelog behind"
+[ ! -e "$job2/state/changelog" ] || fail "a rejected bundle must not leave changelog/ behind"
 accept_bundle
 
 # --- dritter Fall: eine Kennung, die das gepruefte Manifest nicht kennt ---

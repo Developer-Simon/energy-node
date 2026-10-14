@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.3 (2026-10-14)
+
+### Features
+
+- **installer:** keep every received changelog version on the node (fb8eecd)
+- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137)
+
 ## v0.2.2 (2026-10-11)
 
 ### Features

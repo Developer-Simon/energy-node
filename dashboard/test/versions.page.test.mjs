@@ -132,7 +132,7 @@ test('toggle() fetches a component changelog once and caches it', async () => {
     fetchImpl: async (url) => {
       calls.push(url);
       if (url === '/api/v1/versions') return jsonResponse(SNAPSHOT);
-      if (url === '/api/v1/changelog?component=service%3Ashelly') {
+      if (url === '/api/v1/changelog?component=service%3Ashelly&bundles=5') {
         return jsonResponse({ components: [{ id: 'service:shelly', releases: [{ version: 'v0.4.0', date: '2026-09-15', groups: [] }] }] });
       }
       throw new Error(`unexpected fetch ${url}`);
@@ -344,4 +344,81 @@ test('?all=1 starts the page in "all" mode, otherwise in highlights', () => {
   window.history.pushState({}, '', '/?panel=settings&page=versions&all=1');
   component.init();
   assert.equal(component.mode, 'all');
+});
+
+test('loadUpdates() reads changelog_history and falls back to recent for an unknown value', async () => {
+  const settings = { changelog_history: 'extended' };
+  const { component } = createVersionsPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/auth/session') return jsonResponse({});
+      if (url === '/api/v1/settings') return jsonResponse(settings);
+      if (url === '/api/v1/updates/status') return jsonResponse({ checked: false });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  await component.loadUpdates();
+  assert.equal(component.changelogHistory, 'extended');
+  settings.changelog_history = 'forever';
+  await component.loadUpdates();
+  assert.equal(component.changelogHistory, 'recent');
+});
+
+test('loadReleases() asks for as many bundle versions as the setting says and keeps the counts', async () => {
+  const urls = [];
+  const { component } = createVersionsPanel({
+    fetchImpl: async (url) => {
+      urls.push(url);
+      return jsonResponse({ bundles_total: 12, bundles_shown: 5, components: [{ id: 'dashboard', releases: [] }] });
+    },
+  });
+  component.changelogHistory = 'recent';
+  await component.loadReleases('dashboard');
+  assert.equal(urls.at(-1), '/api/v1/changelog?component=dashboard&bundles=5');
+  assert.equal(component.bundlesTotal, 12);
+  assert.equal(component.bundlesShown, 5);
+  component.changelogHistory = 'extended';
+  await component.loadReleases('dashboard');
+  assert.equal(urls.at(-1), '/api/v1/changelog?component=dashboard&bundles=20');
+  component.changelogHistory = 'all';
+  await component.loadReleases('dashboard');
+  assert.equal(urls.at(-1), '/api/v1/changelog?component=dashboard&bundles=0');
+});
+
+test('setChangelogHistory() saves only changelog_history, tells the settings form and reloads open components', async () => {
+  const calls = [];
+  const { component, window } = createVersionsPanel({
+    fetchImpl: async (url, options) => {
+      calls.push([url, options && options.method ? options.method : 'GET', options && options.body ? JSON.parse(options.body) : null]);
+      if (url === '/api/v1/settings' && options && options.method === 'PUT') return jsonResponse({});
+      if (url === '/api/v1/settings') return jsonResponse({ theme: 'mint', changelog_history: 'recent' });
+      return jsonResponse({ bundles_total: 12, bundles_shown: 12, components: [{ id: 'dashboard', releases: [] }] });
+    },
+  });
+  attachStores(component);
+  const heard = [];
+  window.document.addEventListener('changelog-history-setting-changed', (event) => heard.push(event.detail.value));
+  component.open = { dashboard: true, shelly: false };
+  component.releases = { dashboard: [] };
+  await component.setChangelogHistory('all');
+  const put = calls.find(([, method]) => method === 'PUT');
+  assert.deepEqual(plain(put[2]), { theme: 'mint', changelog_history: 'all' });
+  assert.equal(calls.at(-1)[0], '/api/v1/changelog?component=dashboard&bundles=0');
+  assert.equal(component.changelogHistory, 'all');
+  assert.equal(component.savingChangelogHistory, false);
+  assert.deepEqual(heard, ['all']);
+});
+
+test('setChangelogHistory() restores the value and toasts when saving fails', async () => {
+  const { component } = createVersionsPanel({
+    fetchImpl: async (url, options) => {
+      if (options && options.method === 'PUT') return jsonResponse({ code: 'settings_rejected', message: 'server text' }, false);
+      return jsonResponse({ changelog_history: 'recent' });
+    },
+  });
+  attachStores(component);
+  component.changelogHistory = 'recent';
+  await component.setChangelogHistory('extended');
+  assert.equal(component.changelogHistory, 'recent');
+  assert.equal(component.savingChangelogHistory, false);
+  assert.deepEqual(component.$store.toasts.criticals, [de['error.settings_rejected']]);
 });

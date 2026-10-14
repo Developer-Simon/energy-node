@@ -168,7 +168,7 @@ func TestFallbackComponentsMatchTheComponentTable(t *testing.T) {
 func TestChangelogFiltersComponentsAndKeepsTheSchema(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "changelog.json", document)
-	raw, err := versions.Changelog(dir, []string{"service:shelly", "dashboard"})
+	raw, err := versions.Changelog(dir, []string{"service:shelly", "dashboard"}, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -190,11 +190,57 @@ func TestChangelogFiltersComponentsAndKeepsTheSchema(t *testing.T) {
 	}
 }
 
-func TestChangelogWithoutIdsIsTheFileVerbatim(t *testing.T) {
+func TestChangelogWithoutIdsIsTheFileAndCounts(t *testing.T) {
 	dir := t.TempDir()
 	write(t, dir, "changelog.json", document)
-	raw, err := versions.Changelog(dir, nil)
-	if err != nil || string(raw) != document {
-		t.Fatalf("raw = %s, err = %v", raw, err)
+	raw, err := versions.Changelog(dir, nil, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got, want map[string]any
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(document), &want); err != nil {
+		t.Fatal(err)
+	}
+	if got["bundles_total"] != float64(1) || got["bundles_shown"] != float64(1) {
+		t.Fatalf("counts = %v / %v, want 1 / 1", got["bundles_total"], got["bundles_shown"])
+	}
+	delete(got, "bundles_total")
+	delete(got, "bundles_shown")
+	gotJSON, _ := json.Marshal(got)
+	wantJSON, _ := json.Marshal(want)
+	if string(gotJSON) != string(wantJSON) {
+		t.Fatalf("document changed:\n got %s\nwant %s", gotJSON, wantJSON)
+	}
+}
+
+func TestChangelogLimitAndCounts(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(dir, "changelog"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, version := range map[string]string{"v0.9.10.json": "v0.9.10", "v0.9.8.json": "v0.9.8"} {
+		body := `{"schema_version":1,"bundle_version":"` + version + `","components":[{"id":"dashboard","version":"` + version +
+			`","releases":[{"version":"` + version + `","groups":[]}]}]}`
+		write(t, dir, filepath.Join("changelog", name), body)
+	}
+	raw, err := versions.Changelog(dir, []string{"dashboard"}, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc struct {
+		Total      int `json:"bundles_total"`
+		Shown      int `json:"bundles_shown"`
+		Components []struct {
+			Releases []json.RawMessage `json:"releases"`
+		} `json:"components"`
+	}
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.Total != 2 || doc.Shown != 1 || len(doc.Components) != 1 || len(doc.Components[0].Releases) != 1 {
+		t.Fatalf("doc = %+v", doc)
 	}
 }
