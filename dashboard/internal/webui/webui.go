@@ -149,29 +149,8 @@ func buildOverviewTemplate(lang string) *template.Template {
 		"cardFillsHeight":    cardFillsHeight,
 		"stripDeviceName":    stripDeviceName,
 		"historyViewCard":    historyViewCard,
-		"activePage": func(layout settings.Layout, id string) *settings.Page {
-			// Overview renders exactly one page. Without a match, use the first page
-			// so that an unknown page ID (old bookmark, deleted page) does not result
-			// in an empty overview.
-			if id != "" {
-				// Try to find by ID first
-				for i := range layout.Pages {
-					if layout.Pages[i].ID == id {
-						return &layout.Pages[i]
-					}
-				}
-				// Fallback for old bookmarks using the page name instead of ID
-				for i := range layout.Pages {
-					if layout.Pages[i].Name == id {
-						return &layout.Pages[i]
-					}
-				}
-			}
-			if len(layout.Pages) > 0 {
-				return &layout.Pages[0]
-			}
-			return nil
-		},
+		"activePage":         activeLayoutPage,
+		"layoutItem":         layoutItem,
 	}
 	funcs["formatValue"] = func(raw, unit string) string { return numberStyle(lang).Value(raw, unit) }
 	funcs["formatNumber"] = func(value float64, decimals int) string { return numberStyle(lang).Number(value, decimals) }
@@ -731,6 +710,58 @@ func Overview(reg *registry.Registry, configs *config.Manager, store *settings.S
 	return OverviewWithDeviceFilter(reg, configs, store, nil)
 }
 
+// activeLayoutPage liefert die Seite, die die Uebersicht rendert. Ohne
+// Treffer die erste Seite, damit eine unbekannte Seiten-ID (alte
+// Lesezeichen, geloeschte Seite) nicht zu einer leeren Uebersicht fuehrt.
+func activeLayoutPage(layout settings.Layout, id string) *settings.Page {
+	if id != "" {
+		for i := range layout.Pages {
+			if layout.Pages[i].ID == id {
+				return &layout.Pages[i]
+			}
+		}
+		// Fallback fuer alte Lesezeichen mit dem Seitennamen statt der ID.
+		for i := range layout.Pages {
+			if layout.Pages[i].Name == id {
+				return &layout.Pages[i]
+			}
+		}
+	}
+	if len(layout.Pages) > 0 {
+		return &layout.Pages[0]
+	}
+	return nil
+}
+
+// findLayoutItem sucht ein sichtbares Item auf der Seite, die die Uebersicht
+// fuer pageID rendern wuerde.
+func findLayoutItem(layout settings.Layout, pageID, itemID string) (settings.Item, bool) {
+	page := activeLayoutPage(layout, pageID)
+	if page == nil || itemID == "" {
+		return settings.Item{}, false
+	}
+	for _, group := range page.Groups {
+		for _, item := range group.Items {
+			if item.ID == itemID && item.Visible && item.Type != "energy_summary" {
+				return item, true
+			}
+		}
+	}
+	return settings.Item{}, false
+}
+
+// layoutItemView traegt ein Rasterfeld samt der Daten der ganzen Seite in
+// das Template "layout-item". Raster und Einzelfragment rendern damit
+// dasselbe Markup.
+type layoutItemView struct {
+	Root any
+	Item settings.Item
+}
+
+func layoutItem(root any, item settings.Item) layoutItemView {
+	return layoutItemView{Root: root, Item: item}
+}
+
 // templateNameForRequest maps the fragment/panel query parameters to the
 // template definition that serves them (see overviewTmpl's ParseFS call for
 // the full set). Returning ok=false means "unknown panel", a 404.
@@ -740,6 +771,10 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 		return "overview-live", true
 	case "devices-live":
 		return "devices-live", true
+	case "layout-item":
+		return "layout-item-fragment", true
+	case "device-card":
+		return "device-card-fragment", true
 	case "panel":
 		switch panel := r.URL.Query().Get("panel"); panel {
 		case "devices", "history", "stats", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
@@ -795,9 +830,11 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// only what the requested template actually reads keeps SSE-driven
 		// live-fragment requests (up to 1/s) from paying for a full registry
 		// snapshot, layout load and energy aggregation every time.
-		needsTiles := templateName == "base" || templateName == "overview-live" || templateName == "devices-live" || templateName == "devices"
-		needsEnergyAggregate := templateName == "base" || templateName == "overview-live" || templateName == "energy"
-		needsLayout := templateName == "base" || templateName == "overview-live"
+		itemFragment := templateName == "layout-item-fragment"
+		cardFragment := templateName == "device-card-fragment"
+		needsTiles := templateName == "base" || templateName == "overview-live" || templateName == "devices-live" || templateName == "devices" || itemFragment || cardFragment
+		needsEnergyAggregate := templateName == "base" || templateName == "overview-live" || templateName == "energy" || itemFragment
+		needsLayout := templateName == "base" || templateName == "overview-live" || itemFragment
 		needsDevices := needsTiles || needsEnergyAggregate
 
 		showRuntimeStatus := true
@@ -826,6 +863,12 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		}
 		if requestedMode := r.URL.Query().Get("view_mode"); requestedMode == settings.DeviceViewModeControl || requestedMode == settings.DeviceViewModeCompact {
 			deviceViewMode = requestedMode
+		}
+		// Das Kachel-Fragment des Geraete-Tabs nennt seine Ansicht selbst.
+		if cardFragment {
+			if mode := r.URL.Query().Get("mode"); mode == settings.DeviceViewModeControl || mode == settings.DeviceViewModeCompact {
+				deviceViewMode = mode
+			}
 		}
 		if theme == "" {
 			theme = settings.ThemeMint
@@ -930,6 +973,14 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 				}
 			}
 			view["Layout"] = layout
+			if itemFragment {
+				item, ok := findLayoutItem(layout, r.URL.Query().Get("page"), r.URL.Query().Get("item"))
+				if !ok {
+					http.Error(w, "unknown layout item", http.StatusNotFound)
+					return
+				}
+				view["FragmentItem"] = item
+			}
 			view["ActivePage"] = r.URL.Query().Get("page")
 			view["LayoutDevices"] = devicesByID(devices)
 			view["LayoutEntities"] = entitiesByID(devices)
@@ -937,6 +988,21 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			view["EnergyCardScripts"] = requiredEnergyCardScripts(layout, basepath.From(r))
 			now := time.Now().UTC()
 			view["Diagnostics"] = diagnostics.Summarize(engine.Evaluate(now), engine.Health(now), devices)
+		}
+		if cardFragment {
+			id := r.URL.Query().Get("id")
+			found := false
+			for _, device := range devices {
+				if device.ID == id {
+					view["FragmentDevice"] = device
+					found = true
+					break
+				}
+			}
+			if !found {
+				http.Error(w, "unknown device", http.StatusNotFound)
+				return
+			}
 		}
 		if ignored != nil {
 			view["IgnoredDevices"] = ignored.Summaries()

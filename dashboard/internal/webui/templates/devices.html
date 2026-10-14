@@ -53,6 +53,8 @@
 </div>
 {{end}}
 
+{{define "device-card-fragment"}}{{with .FragmentDevice}}{{if eq $.DeviceViewMode "control"}}{{template "device-tile" .}}{{else}}{{template "compact-card" (compactCardAuto .)}}{{end}}{{end}}{{end}}
+
 {{define "compact-card"}}
 {{ $device := .Device }}
 {{ $availability := deviceAvailability .Device.Entities }}

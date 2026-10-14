@@ -3017,3 +3017,88 @@ func TestDeviceTileStatusTitleComesFromTheCatalog(t *testing.T) {
 		t.Fatalf("Status-Titel fehlt: %s", body)
 	}
 }
+
+func fragmentTestSetup(t *testing.T, items ...settings.Item) (*registry.Registry, *settings.Store) {
+	t.Helper()
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", DeviceClass: "power", UnitOfMeasurement: "W", StateTopic: "node/power"},
+	})
+	reg.UpdateTopicWithQoS("node/power", []byte("12"), false, 0, time.Now().UTC())
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveLayout(settings.Layout{Pages: []settings.Page{{
+		ID: "p1", Name: "Seite", Order: 0,
+		Groups: []settings.Group{{ID: "main", Name: "Main", Items: items}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	return reg, store
+}
+
+func render(t *testing.T, reg *registry.Registry, store *settings.Store, url string) (int, string) {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", url, nil))
+	return recorder.Code, recorder.Body.String()
+}
+
+// Spec 8: das Fragment ist byte-gleich zum selben Ausschnitt im vollen
+// Raster. Sonst saehe eine nachgeladene Kachel anders aus als ihre
+// Nachbarn.
+func TestLayoutItemFragmentMatchesTheGrid(t *testing.T) {
+	for _, item := range []settings.Item{
+		{ID: "d1", Type: "device", Ref: "node", Span: "1", Visible: true},
+		{ID: "d2", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact"},
+		{ID: "e1", Type: "entity_value", Ref: "node_power", Span: "1", Visible: true},
+	} {
+		t.Run(item.ID, func(t *testing.T) {
+			reg, store := fragmentTestSetup(t, item)
+			code, grid := render(t, reg, store, "/?fragment=overview-live&page=p1")
+			if code != 200 {
+				t.Fatalf("Raster: %d", code)
+			}
+			code, fragment := render(t, reg, store, "/?fragment=layout-item&page=p1&item="+item.ID)
+			if code != 200 {
+				t.Fatalf("Fragment: %d %s", code, fragment)
+			}
+			fragment = strings.TrimSpace(fragment)
+			if !strings.HasPrefix(fragment, `<div class="layout-grid-item`) || !strings.Contains(fragment, `data-layout-item-id="`+item.ID+`"`) {
+				t.Fatalf("Fragment ist kein Rasterfeld: %s", fragment)
+			}
+			if !strings.Contains(grid, fragment) {
+				t.Fatalf("Fragment weicht vom Raster ab:\n%s\n---\n%s", fragment, grid)
+			}
+		})
+	}
+}
+
+func TestLayoutItemFragmentUnknownItemIs404(t *testing.T) {
+	reg, store := fragmentTestSetup(t, settings.Item{ID: "d1", Type: "device", Ref: "node", Span: "1", Visible: true})
+	if code, _ := render(t, reg, store, "/?fragment=layout-item&page=p1&item=fehlt"); code != 404 {
+		t.Fatalf("Status %d, want 404", code)
+	}
+}
+
+func TestDeviceCardFragmentMatchesTheDevicesTab(t *testing.T) {
+	reg, store := fragmentTestSetup(t)
+	for _, mode := range []string{"control", "compact"} {
+		t.Run(mode, func(t *testing.T) {
+			code, tab := render(t, reg, store, "/?fragment=devices-live&view_mode="+mode)
+			if code != 200 {
+				t.Fatalf("Tab: %d", code)
+			}
+			code, fragment := render(t, reg, store, "/?fragment=device-card&id=node&mode="+mode)
+			if code != 200 {
+				t.Fatalf("Fragment: %d %s", code, fragment)
+			}
+			fragment = strings.TrimSpace(fragment)
+			if fragment == "" || !strings.Contains(tab, fragment) {
+				t.Fatalf("Fragment weicht vom Tab ab:\n%s\n---\n%s", fragment, tab)
+			}
+		})
+	}
+	if code, _ := render(t, reg, store, "/?fragment=device-card&id=fehlt&mode=control"); code != 404 {
+		t.Fatalf("unbekanntes Geraet: %d, want 404", code)
+	}
+}
