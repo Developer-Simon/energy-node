@@ -376,7 +376,7 @@ test('liveGridIsEnergyOnly gibt es nicht mehr', () => {
 // hier an der Registry statt am Layout. Der Fingerabdruck aus
 // registry.StructureFingerprint ist die Auskunft darueber, wann das Fragment
 // veraltet ist.
-const devicesHTML = (structure, mode = 'control', structureCompact = 'kompakt') => {
+const devicesHTML = (structure, mode = 'control') => {
   const inner = mode === 'compact'
     ? `<div class="device-compact-grid"><button class="compact-card is-online" data-device-id="node">`
       + `<span class="compact-card-rows"><span class="compact-card-row" data-entity-id="e1" data-device-class="power" data-unit="W">`
@@ -387,7 +387,7 @@ const devicesHTML = (structure, mode = 'control', structureCompact = 'kompakt') 
       + `<span class="device-tile-entity-value">42 W</span><small class="entity-command-status"></small>`
       + `</div></article></div>`;
   return `<div id="devices-panel" class="panel active" data-device-view-mode="${mode}">`
-    + `<div id="devices-live" data-structure="${structure}" data-structure-compact="${structureCompact}">`
+    + `<div id="devices-live" data-structure="${structure}">`
     + inner + `</div></div>`;
 };
 

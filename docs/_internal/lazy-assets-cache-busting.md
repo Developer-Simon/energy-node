@@ -86,6 +86,7 @@ As of **2026-10-14**, read from `base.html` and `overview.html`. "–" means: no
 | `js/overview-values.js` | `3` |
 | `js/device-tile-values.js` | `1` |
 | `js/compact-card-values.js` | `1` |
+| `js/device-structure.js` | `1` (new, device tiles) |
 | `js/energy-presentation.js` | `1` |
 | `js/energy-flow.js` | `2` |
 | `js/history-rollup.js` | `1` |
@@ -95,7 +96,7 @@ As of **2026-10-14**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `11` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `32` |
+| `js/dashboard.js` | `33` |
 | `js/update-bar.js` | `3` |
 | `js/whatsnew.page.js` | `2` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
@@ -253,6 +254,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.9.12 | `js/dashboard.js` · `js/device-structure.js` (new, device tiles) | `33` · `1` (new) | 2026-10-14 |
 | v0.9.11 | `js/dashboard.js` · `js/energy-stats-card.js` (energy cards) · `js/stats.page.js` (stats panel) | `32` · `3` · `3` | 2026-10-14 |
 | v0.9.9 | `css/base.css` · `css/settings-controls.css` (settings, diagnostics) · `css/stats.css` (new, stats panel) · `js/dashboard.js` · `js/energy-stats-card.js` (new, energy cards) · `js/energy-stats-model.js` (new, stats panel + energy cards) · `js/layout-editor.js` (overview editor) · `js/settings.page.js` (settings panel) · `js/stats.page.js` (new, stats panel) | `35` · `13` · `1` (new) · `30` · `1` (new) · `1` (new) · `15` · `21` · `1` (new) | 2026-10-12 |
 | v0.9.7 | `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/devicemap-wiring.js` (new, energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/energy-plant.js` (energy) · `js/devicemap.page.js` (device map) · `css/manager.css` (5 panels) | `9` · `4` · `1` (new) · `4` · `5` · `24` · `35` | 2026-10-12 |
