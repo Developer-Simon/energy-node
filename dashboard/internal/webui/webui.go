@@ -11,7 +11,6 @@ package webui
 import (
 	"embed"
 	"encoding/json"
-	"fmt"
 	"hash/fnv"
 	"html/template"
 	"io/fs"
@@ -144,6 +143,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 		"compactCardForItem": compactCardForItem,
 		"deviceTileForItem":  deviceTileForItem,
 		"deviceTileStatus":   deviceTileStatus,
+		"deviceStructure":    DeviceStructureFingerprint,
 		"entityGroupForItem": entityGroupForItem,
 		"cardStyle":          cardStyle,
 		"cardFillsHeight":    cardFillsHeight,
@@ -271,14 +271,15 @@ func deviceAvailability(entities []registry.EntityView) string {
 	return "offline"
 }
 
-// deviceTileStatusInfo is the header status dot on a device tile: a class for
-// the colour, a short label for the tooltip/caption, and the modifier class
-// for the .compact-card-style accent side rail (empty when the rail keeps its
-// default --accent colour).
-type deviceTileStatusInfo struct {
-	Class string
-	Label string
-	Rail  string
+// DeviceTileStatus is the header status dot on a device tile: a class for the
+// colour, the modifier class for the accent side rail (empty when the rail
+// keeps its default --accent colour) and the number of offline entities. The
+// caption comes from the catalog (tile.status.*), in the template and in
+// device-structure.js alike.
+type DeviceTileStatus struct {
+	Class   string `json:"class"`
+	Rail    string `json:"rail"`
+	Offline int    `json:"offline"`
 }
 
 // deviceTileStatus rolls a device's entities into one health verdict for the
@@ -286,7 +287,7 @@ type deviceTileStatusInfo struct {
 // entity that reports unavailable outranks everything; a replayed (stale)
 // value is next; a device that reports availability everywhere and is fully up
 // is "ok"; a device that reports no availability at all stays neutral.
-func deviceTileStatus(entities []registry.EntityView) deviceTileStatusInfo {
+func deviceTileStatus(entities []registry.EntityView) DeviceTileStatus {
 	offline := 0
 	stale := false
 	known := false
@@ -304,17 +305,77 @@ func deviceTileStatus(entities []registry.EntityView) deviceTileStatusInfo {
 	}
 	switch {
 	case offline > 0:
-		return deviceTileStatusInfo{Class: "bad", Label: fmt.Sprintf("%d offline", offline), Rail: "is-offline"}
+		return DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: offline}
 	case stale:
-		return deviceTileStatusInfo{Class: "warn", Label: "veraltet", Rail: "is-degraded"}
+		return DeviceTileStatus{Class: "warn", Rail: "is-degraded"}
 	case known:
-		return deviceTileStatusInfo{Class: "ok", Label: "alle online"}
+		return DeviceTileStatus{Class: "ok"}
 	default:
 		// No availability channel anywhere is the common healthy case for
 		// devices whose entities just publish values - keep the theme accent
 		// on the rail, only the (small, informative) header dot goes neutral.
-		return deviceTileStatusInfo{Class: "unknown", Label: ""}
+		return DeviceTileStatus{Class: "unknown"}
 	}
+}
+
+// DeviceStructureFingerprint verdichtet, was eine Geraetekachel strukturell
+// zeigt: Entitaeten (registry.StructureFingerprint dieses einen Geraets) und
+// den Kopf aus Name, Modell und Icon. Ein Messwert aendert ihn nicht. Ein
+// Geraet ohne ID (im Layout, aber nicht in der Registry) hat "", damit
+// Kachel und SSE-Thema sich einig sind und nichts nachgeladen wird.
+func DeviceStructureFingerprint(dev registry.DeviceView) string {
+	if dev.ID == "" {
+		return ""
+	}
+	sum := fnv.New64a()
+	for _, field := range []string{registry.StructureFingerprint([]registry.DeviceView{dev}), dev.Name, dev.Model, dev.IconName} {
+		sum.Write([]byte(field))
+		sum.Write([]byte{0})
+	}
+	return strconv.FormatUint(sum.Sum64(), 16)
+}
+
+// DeviceLive ist der Eintrag eines Geraets im SSE-Thema devices. Der Server
+// rechnet alles, device-structure.js patcht nur.
+type DeviceLive struct {
+	Structure    string           `json:"structure"`
+	Availability string           `json:"availability"`
+	Status       DeviceTileStatus `json:"status"`
+}
+
+func NewDeviceLive(dev registry.DeviceView) DeviceLive {
+	return DeviceLive{
+		Structure:    DeviceStructureFingerprint(dev),
+		Availability: deviceAvailability(dev.Entities),
+		Status:       deviceTileStatus(dev.Entities),
+	}
+}
+
+// CompactRow ist eine Zeile der automatischen Kompaktkarte, wie sie
+// compact-card rendert: Label ohne Geraetenamen, Einheit und device_class
+// fuer die Formatierung. Den Wert setzt compact-card-values.js.
+type CompactRow struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Unit        string `json:"unit"`
+	DeviceClass string `json:"device_class"`
+}
+
+// CompactRows ist die Zeilenauswahl der automatischen Kompaktkarte
+// (priorityEntities, mit Favoriten). Nie nil: eine leere Auswahl soll als []
+// im JSON stehen.
+func CompactRows(dev registry.DeviceView) []CompactRow {
+	picked := priorityEntities(dev)
+	rows := make([]CompactRow, 0, len(picked))
+	for _, entity := range picked {
+		rows = append(rows, CompactRow{
+			ID:          entity.UniqueID,
+			Label:       stripDeviceName(dev.Name, entity.Name),
+			Unit:        entity.UnitOfMeasurement,
+			DeviceClass: entity.DeviceClass,
+		})
+	}
+	return rows
 }
 
 // maxCompactRows ist die Zeilenzahl, die auf eine Kompakt-Karte passt -

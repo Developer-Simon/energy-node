@@ -1790,30 +1790,26 @@ func TestDeviceAvailabilityRollup(t *testing.T) {
 	}
 }
 
-// TestDeviceTileStatus covers Spec 2026-08-23 Abschnitt 3.2: the flat accent
-// stripe on every device tile is replaced by a header status dot that answers
 // "is this device healthy?" - offline entities outrank a stale (replayed)
 // value, a stale value outranks a clean roll-up, and a device that reports no
-// availability at all stays neutral.
+// availability at all stays neutral. Der Text kommt aus i18n (Template und
+// Browser), hier nur Klasse, Rail und Zahl.
 func TestDeviceTileStatus(t *testing.T) {
 	cases := []struct {
-		name      string
-		in        []registry.EntityView
-		wantClass string
-		wantLabel string
-		wantRail  string
+		name string
+		in   []registry.EntityView
+		want DeviceTileStatus
 	}{
-		{"no availability anywhere", []registry.EntityView{{}, {}}, "unknown", "", ""},
-		{"all available", []registry.EntityView{{HasAvailability: true, Available: true}, {HasAvailability: true, Available: true}}, "ok", "alle online", ""},
-		{"two offline", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: false}, {HasAvailability: true, Available: true}}, "bad", "2 offline", "is-offline"},
-		{"stale value, all available", []registry.EntityView{{HasAvailability: true, Available: true, Stale: true}}, "warn", "veraltet", "is-degraded"},
-		{"offline outranks stale", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: true, Stale: true}}, "bad", "1 offline", "is-offline"},
+		{"no availability anywhere", []registry.EntityView{{}, {}}, DeviceTileStatus{Class: "unknown"}},
+		{"all available", []registry.EntityView{{HasAvailability: true, Available: true}, {HasAvailability: true, Available: true}}, DeviceTileStatus{Class: "ok"}},
+		{"two offline", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: false}, {HasAvailability: true, Available: true}}, DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: 2}},
+		{"stale value, all available", []registry.EntityView{{HasAvailability: true, Available: true, Stale: true}}, DeviceTileStatus{Class: "warn", Rail: "is-degraded"}},
+		{"offline outranks stale", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: true, Stale: true}}, DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: 1}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := deviceTileStatus(tc.in)
-			if got.Class != tc.wantClass || got.Label != tc.wantLabel || got.Rail != tc.wantRail {
-				t.Fatalf("deviceTileStatus = {%q, %q, %q}, want {%q, %q, %q}", got.Class, got.Label, got.Rail, tc.wantClass, tc.wantLabel, tc.wantRail)
+			if got := deviceTileStatus(tc.in); got != tc.want {
+				t.Fatalf("deviceTileStatus = %+v, want %+v", got, tc.want)
 			}
 		})
 	}
@@ -2940,4 +2936,84 @@ func renderOverviewForSpriteTest(t *testing.T) string {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	return recorder.Body.String()
+}
+
+func liveTestDevice(id string, entities ...registry.EntityView) registry.DeviceView {
+	return registry.DeviceView{ID: id, Name: "Node", Entities: entities}
+}
+
+func TestDeviceStructureFingerprintIsPerDevice(t *testing.T) {
+	a := liveTestDevice("a", registry.EntityView{UniqueID: "a1", Name: "Leistung", Component: "sensor"})
+	b := liveTestDevice("b", registry.EntityView{UniqueID: "b1", Name: "Leistung", Component: "sensor"})
+	before := DeviceStructureFingerprint(a)
+	b.Entities = append(b.Entities, registry.EntityView{UniqueID: "b2", Name: "Neu", Component: "sensor"})
+	if DeviceStructureFingerprint(a) != before {
+		t.Fatal("Fingerabdruck von a aendert sich mit b")
+	}
+	if DeviceStructureFingerprint(b) == DeviceStructureFingerprint(liveTestDevice("b", registry.EntityView{UniqueID: "b1", Name: "Leistung", Component: "sensor"})) {
+		t.Fatal("neue Entitaet aendert den Fingerabdruck von b nicht")
+	}
+}
+
+func TestDeviceStructureFingerprintCoversHeaderAndIgnoresValues(t *testing.T) {
+	base := liveTestDevice("a", registry.EntityView{UniqueID: "a1", Name: "Leistung", Component: "sensor", Value: "1", HasValue: true})
+	tick := base
+	tick.Entities = []registry.EntityView{{UniqueID: "a1", Name: "Leistung", Component: "sensor", Value: "2", HasValue: true}}
+	if DeviceStructureFingerprint(base) != DeviceStructureFingerprint(tick) {
+		t.Error("ein Messwert aendert den Fingerabdruck")
+	}
+	for _, change := range []func(*registry.DeviceView){
+		func(d *registry.DeviceView) { d.Name = "Anders" },
+		func(d *registry.DeviceView) { d.Model = "X1" },
+		func(d *registry.DeviceView) { d.IconName = "battery" },
+	} {
+		changed := base
+		change(&changed)
+		if DeviceStructureFingerprint(changed) == DeviceStructureFingerprint(base) {
+			t.Errorf("Kopfaenderung %+v bleibt unsichtbar", changed)
+		}
+	}
+	if DeviceStructureFingerprint(registry.DeviceView{}) != "" {
+		t.Error("ein Geraet ohne ID muss die Struktur \"\" haben")
+	}
+}
+
+func TestNewDeviceLive(t *testing.T) {
+	dev := liveTestDevice("a", registry.EntityView{UniqueID: "a1", HasAvailability: true, Available: false})
+	live := NewDeviceLive(dev)
+	if live.Structure != DeviceStructureFingerprint(dev) || live.Availability != "offline" || live.Status != (DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: 1}) {
+		t.Fatalf("live = %+v", live)
+	}
+}
+
+func TestCompactRowsFollowPriorityAndCarryTheLabel(t *testing.T) {
+	dev := registry.DeviceView{ID: "a", Name: "Shelly", Entities: []registry.EntityView{
+		{UniqueID: "a1", Name: "Shelly Leistung", Component: "sensor", DeviceClass: "power", UnitOfMeasurement: "W", HasValue: true, Value: "5"},
+		{UniqueID: "a2", Name: "Shelly Energie", Component: "sensor", HasValue: false},
+	}}
+	rows := CompactRows(dev)
+	if len(rows) != 1 || rows[0] != (CompactRow{ID: "a1", Label: stripDeviceName("Shelly", "Shelly Leistung"), Unit: "W", DeviceClass: "power"}) {
+		t.Fatalf("rows = %+v", rows)
+	}
+	if got := CompactRows(registry.DeviceView{ID: "leer"}); got == nil || len(got) != 0 {
+		t.Fatalf("leere Auswahl = %#v, want leeres Slice", got)
+	}
+	dev.FavoriteRefs = []string{"a2"}
+	if rows := CompactRows(dev); len(rows) != 1 || rows[0].ID != "a2" {
+		t.Fatalf("Favoriten ignoriert: %+v", rows)
+	}
+}
+
+func TestDeviceTileStatusTitleComesFromTheCatalog(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power", AvailabilityTopic: "node/status"},
+	})
+	reg.UpdateTopicWithQoS("node/status", []byte("offline"), false, 0, time.Now().UTC())
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live&view_mode=control", nil))
+	if body := recorder.Body.String(); !strings.Contains(body, `title="1 offline"`) {
+		t.Fatalf("Status-Titel fehlt: %s", body)
+	}
 }
