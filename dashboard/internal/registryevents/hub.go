@@ -1,16 +1,16 @@
-// Package registryevents faechert einen gemeinsam gebauten SSE-Rumpf an
-// alle offenen /api/v1/events-Verbindungen. Bis hierher fuehrte jede
-// Verbindung ihren eigenen time.Ticker und las pro Tick die Einstellungen -
-// die Grundlast skalierte mit der Zahl offener Tabs, nicht mit der Zahl der
-// Aenderungen. Der Hub ersetzt das durch genau einen Poll-Loop: er liest
-// reg.Version() im interval()-Takt und baut den Rumpf einmal je Aenderung
-// fuer alle Abonnenten.
+// Package registryevents faechert die SSE-Ruempfe an alle offenen
+// /api/v1/events-Verbindungen. Ein einziger Poll-Loop beobachtet die
+// Versionen aller abonnierten Themen und baut jedes Thema einmal je
+// Aenderung fuer alle Abonnenten. Jeder Abonnent bekommt einen Rumpf, der
+// nur seine Themen traegt.
 //
 // Der Loop laeuft nur, solange mindestens ein Abonnent verbunden ist. Faellt
 // der letzte weg, haelt er an - ein Dashboard ohne offene Tabs kostet nichts.
 package registryevents
 
 import (
+	"bytes"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -20,67 +20,167 @@ import (
 // soll nicht den Prozess mitnehmen.
 const fallbackInterval = time.Second
 
-// Hub verteilt den Rumpf an die Abonnenten. version, build und interval
+// Version ist der Stand der Quelle eines Themas. Zwei Zahlen, weil die
+// Registry-Themen zusaetzlich an der Generation der Geraete-Einstellungen
+// haengen.
+type Version [2]uint64
+
+// Mode sagt, fuer wen ein Teil eines Themas gedacht ist.
+type Mode int
+
+const (
+	// ModeFull: ein neu verbundener Abonnent, er braucht den ganzen Stand.
+	ModeFull Mode = iota
+	// ModeDelta: das Thema hat sich seit dem letzten Rumpf geaendert.
+	ModeDelta
+	// ModeIdle: nur ein anderes Thema hat sich geaendert. Der Zweig muss
+	// trotzdem im Rumpf stehen, sonst tauscht der Client.
+	ModeIdle
+)
+
+// Part ist der Beitrag eines Themas zum Rumpf: JSON-Member ohne Klammern,
+// etwa `"energy":{...}` oder `"entities":{...},"entities_delta":true`. Ein
+// leerer Teil fehlt im Rumpf.
+type Part struct {
+	Full, Delta, Idle []byte
+}
+
+// Bytes liefert den Teil fuer mode.
+func (p Part) Bytes(mode Mode) []byte {
+	switch mode {
+	case ModeDelta:
+		return p.Delta
+	case ModeIdle:
+		return p.Idle
+	default:
+		return p.Full
+	}
+}
+
+// Topic ist ein abonnierbares Thema. Build wird nur fuer eine neue Version
+// gerufen und darf bei gleicher Version denselben Teil liefern. ok=false
+// heisst "Bau gescheitert": der Zweig fehlt im naechsten Rumpf, der naechste
+// Poll versucht es erneut.
+type Topic struct {
+	Name    string
+	Version func() Version
+	Build   func(Version) (Part, bool)
+}
+
+// Compose setzt einen Rumpf aus der Registry-Version und den Members
+// zusammen. Leere Members fallen weg.
+func Compose(head uint64, members ...[]byte) []byte {
+	var b bytes.Buffer
+	b.WriteString(`{"version":`)
+	b.WriteString(strconv.FormatUint(head, 10))
+	for _, member := range members {
+		if len(member) == 0 {
+			continue
+		}
+		b.WriteByte(',')
+		b.Write(member)
+	}
+	b.WriteByte('}')
+	return b.Bytes()
+}
+
+type subscriber struct {
+	ch   chan []byte
+	mask uint64
+}
+
+type topicState struct {
+	built   bool
+	version Version
+	part    Part
+}
+
+// Hub verteilt die Ruempfe an die Abonnenten. head, die Themen und interval
 // werden injiziert, damit das Paket frei von registry-, energy-,
 // diagnostics- und settings-Abhaengigkeiten bleibt.
 type Hub struct {
 	queueSize int
-	version   func() uint64
-	build     func(version uint64) (full, delta []byte)
+	head      func() uint64
+	topics    []Topic
+	defaults  uint64
 	interval  func() time.Duration
 
-	// pollMu serialisiert poll(): Subscribe() ruft es direkt, der Loop
-	// ruft es getaktet - ohne die Sperre koennten beide denselben
-	// Versionswechsel doppelt bauen.
-	pollMu sync.Mutex
+	// pollMu serialisiert refresh(): Subscribe() ruft es direkt, der Loop
+	// getaktet. Es schuetzt auch state, lastHead und headSeen.
+	pollMu   sync.Mutex
+	state    []topicState
+	lastHead uint64
+	headSeen bool
 
 	mu          sync.Mutex
-	subs        map[int]chan []byte
+	subs        map[int]*subscriber
 	nextID      int
-	latest      []byte
-	lastVersion uint64
 	loopRunning bool
 	stopLoop    chan struct{}
 }
 
 // NewHub baut den Hub, startet aber noch keinen Loop - das uebernimmt der
-// erste Subscribe(). queueSize ist der Vorlauf je Abonnent; laeuft er ueber,
-// wird der Abonnent getrennt (siehe deliverLocked).
-func NewHub(queueSize int, version func() uint64, build func(version uint64) (full, delta []byte), interval func() time.Duration) *Hub {
+// erste Subscribe(). head ist die Registry-Version: sie steht in jedem Rumpf,
+// und ihr Wechsel erreicht jeden Abonnenten, auch einen ohne Themen.
+// defaults sind die Themen eines Abonnenten ohne Auswahl. queueSize ist der
+// Vorlauf je Abonnent; laeuft er ueber, wird der Abonnent getrennt.
+func NewHub(queueSize int, head func() uint64, topics []Topic, defaults []string, interval func() time.Duration) *Hub {
 	if queueSize < 1 {
 		queueSize = 1
 	}
-	return &Hub{
-		queueSize: queueSize,
-		version:   version,
-		build:     build,
-		interval:  interval,
-		subs:      map[int]chan []byte{},
+	if len(topics) > 64 {
+		panic("registryevents: hoechstens 64 Themen")
 	}
+	h := &Hub{
+		queueSize: queueSize,
+		head:      head,
+		topics:    topics,
+		interval:  interval,
+		state:     make([]topicState, len(topics)),
+		subs:      map[int]*subscriber{},
+	}
+	h.defaults = h.maskOf(defaults)
+	return h
 }
 
-// Subscribe meldet eine Verbindung an. Rueckgabe: der zuletzt gebaute Rumpf
-// (nil, wenn noch nie gebaut wurde), der Lesekanal und die - mehrfach
-// aufrufbare - Abmeldefunktion. Beim ersten Abonnenten startet der
-// Poll-Loop.
+func (h *Hub) maskOf(names []string) uint64 {
+	var mask uint64
+	for _, name := range names {
+		for i, topic := range h.topics {
+			if topic.Name == name {
+				mask |= uint64(1) << i
+			}
+		}
+	}
+	return mask
+}
+
+// Subscribe meldet eine Verbindung an. topics nil heisst Standardthemen, eine
+// leere Liste heisst keine Themen, unbekannte Namen fallen weg. Rueckgabe:
+// der volle Rumpf fuer diese Themen, der Lesekanal fuer spaetere Aenderungen
+// und die mehrfach aufrufbare Abmeldefunktion. Beim ersten Abonnenten
+// startet der Poll-Loop.
 //
-// Der neue Abonnent bekommt den aktuellen Rumpf ueber den Rueckgabewert,
-// nicht ueber den Kanal - der Kanal traegt nur spaetere Aenderungen. Damit
-// zwischen "Rumpf lesen" und "Kanal registrieren" keine Aenderung
-// durchrutscht, laeuft beides unter pollMu.
-func (h *Hub) Subscribe() (latest []byte, ch <-chan []byte, cancel func()) {
+// Bauen, Zusammensetzen und Anmelden laufen unter pollMu, damit zwischen
+// "vollen Rumpf lesen" und "Kanal registrieren" keine Aenderung
+// durchrutscht.
+func (h *Hub) Subscribe(topics []string) (latest []byte, ch <-chan []byte, cancel func()) {
+	mask := h.defaults
+	if topics != nil {
+		mask = h.maskOf(topics)
+	}
+
 	h.pollMu.Lock()
-	// Bringt latest auf Stand und verteilt einen etwaigen Versionswechsel
-	// an die bereits verbundenen Abonnenten - bei unveraenderter Version
-	// ein billiger No-op.
-	h.refresh()
+	// Baut die Themen des Neuen mit und verteilt einen etwaigen Wechsel an
+	// die bereits verbundenen Abonnenten.
+	h.refresh(mask)
+	latest = h.compose(mask, ModeFull, 0)
 
 	h.mu.Lock()
 	id := h.nextID
 	h.nextID++
 	out := make(chan []byte, h.queueSize)
-	h.subs[id] = out
-	latest = h.latest
+	h.subs[id] = &subscriber{ch: out, mask: mask}
 	h.startLoopLocked()
 	h.mu.Unlock()
 
@@ -100,12 +200,12 @@ func (h *Hub) remove(id int) {
 }
 
 func (h *Hub) removeLocked(id int) {
-	ch, ok := h.subs[id]
+	sub, ok := h.subs[id]
 	if !ok {
 		return
 	}
 	delete(h.subs, id)
-	close(ch)
+	close(sub.ch)
 }
 
 // deliverLocked schiebt den Rumpf in den Kanal eines Abonnenten. Laeuft der
@@ -120,42 +220,91 @@ func (h *Hub) deliverLocked(id int, ch chan []byte, payload []byte) {
 	}
 }
 
-// poll fuehrt genau eine Iteration aus: hat sich die Version geaendert (oder
-// gibt es noch keinen Rumpf), wird einmal gebaut und an alle Abonnenten
-// verteilt. Der Loop ruft das getaktet, Tests rufen es direkt.
+// poll fuehrt genau eine Iteration aus. Der Loop ruft das getaktet, Tests
+// rufen es direkt.
 func (h *Hub) poll() {
 	h.pollMu.Lock()
 	defer h.pollMu.Unlock()
-	h.refresh()
+	h.refresh(0)
 }
 
-// refresh baut den Rumpf neu, wenn sich die Version geaendert hat, und
-// verteilt ihn an alle Abonnenten. Erwartet, dass der Aufrufer pollMu
-// haelt - so bauen der Loop und ein gleichzeitiges Subscribe() denselben
-// Versionswechsel nicht doppelt.
-func (h *Hub) refresh() {
-	version := h.version()
-
+// refresh baut jedes Thema mit Abonnenten (oder in extra), dessen Version
+// sich geaendert hat, und verteilt an jeden Abonnenten, dessen Themen oder
+// dessen Registry-Version sich geaendert haben, einen Rumpf. Abonnenten mit
+// derselben Maske teilen sich den Rumpf. Erwartet, dass der Aufrufer pollMu
+// haelt.
+func (h *Hub) refresh(extra uint64) {
 	h.mu.Lock()
-	// latest == nil heisst "noch nie gebaut" oder "letzter Bau schlug
-	// fehl" - beides soll beim naechsten Durchlauf erneut versucht werden.
-	fresh := version == h.lastVersion && h.latest != nil
+	active := extra
+	for _, sub := range h.subs {
+		active |= sub.mask
+	}
 	h.mu.Unlock()
-	if fresh {
+
+	head := h.head()
+	headChanged := !h.headSeen || head != h.lastHead
+	h.lastHead, h.headSeen = head, true
+
+	var changed uint64
+	for i, topic := range h.topics {
+		bit := uint64(1) << i
+		if active&bit == 0 {
+			continue
+		}
+		version := topic.Version()
+		state := &h.state[i]
+		if state.built && state.version == version {
+			continue
+		}
+		// Der Bau laeuft ohne h.mu - er ist der teure Teil, und
+		// Subscribe()/remove() sollen darauf nicht warten.
+		part, ok := topic.Build(version)
+		if !ok {
+			// Der Zweig fehlt im naechsten Rumpf (der Client tauscht), der
+			// naechste Poll baut erneut.
+			*state = topicState{}
+			changed |= bit
+			continue
+		}
+		*state = topicState{built: true, version: version, part: part}
+		changed |= bit
+	}
+	if !headChanged && changed == 0 {
 		return
 	}
 
-	// Der Bau laeuft bewusst ohne h.mu - er ist der teure Teil, und
-	// Subscribe()/remove() sollen darauf nicht warten.
-	full, delta := h.build(version)
-
+	bodies := map[uint64][]byte{}
 	h.mu.Lock()
-	h.latest = full
-	h.lastVersion = version
-	for id, ch := range h.subs {
-		h.deliverLocked(id, ch, delta)
+	defer h.mu.Unlock()
+	for id, sub := range h.subs {
+		if !headChanged && sub.mask&changed == 0 {
+			continue
+		}
+		body, ok := bodies[sub.mask]
+		if !ok {
+			body = h.compose(sub.mask, ModeDelta, changed)
+			bodies[sub.mask] = body
+		}
+		h.deliverLocked(id, sub.ch, body)
 	}
-	h.mu.Unlock()
+}
+
+// compose setzt den Rumpf fuer eine Maske zusammen. Bei ModeDelta bekommt
+// ein Thema ausserhalb von changed seinen Leerlauf-Teil. Erwartet pollMu.
+func (h *Hub) compose(mask uint64, mode Mode, changed uint64) []byte {
+	members := make([][]byte, 0, len(h.topics))
+	for i := range h.topics {
+		bit := uint64(1) << i
+		if mask&bit == 0 || !h.state[i].built {
+			continue
+		}
+		m := mode
+		if mode == ModeDelta && changed&bit == 0 {
+			m = ModeIdle
+		}
+		members = append(members, h.state[i].part.Bytes(m))
+	}
+	return Compose(h.lastHead, members...)
 }
 
 func (h *Hub) startLoopLocked() {
@@ -217,7 +366,3 @@ func (h *Hub) SubscriberCount() int {
 	defer h.mu.Unlock()
 	return len(h.subs)
 }
-
-// Version reicht die aktuelle Registry-Version durch - der SSE-Handler
-// braucht sie fuer den Rueckfall, wenn kein Rumpf gebaut werden konnte.
-func (h *Hub) Version() uint64 { return h.version() }
