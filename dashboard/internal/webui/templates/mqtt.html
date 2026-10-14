@@ -120,6 +120,22 @@
   </div>
 
   <section id="settings-mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
+    <details class="settings-help-panel setting-card--wide" open>
+      <summary>{{t "bridge.help.title"}}</summary>
+      <ol class="settings-help-list">
+        <li>{{t "bridge.help.remote_broker"}}</li>
+        <li>{{t "bridge.help.remote_user"}}</li>
+        <li>{{t "bridge.help.tailscale"}}</li>
+        <li>{{t "bridge.help.connection"}}</li>
+        <li>{{t "bridge.help.topics"}}</li>
+        <li>{{t "bridge.help.apply"}}</li>
+        <li>{{t "bridge.help.verify"}}</li>
+      </ol>
+      <div class="settings-help-notes">
+        <p class="settings-help-note"><svg class="automation-icon" aria-hidden="true"><use href="#ico-info"></use></svg><span>{{t "bridge.help.roles_note"}}</span></p>
+        <p class="settings-help-note is-warning"><svg class="automation-icon" aria-hidden="true"><use href="#ico-warning"></use></svg><span>{{t "bridge.help.restart_warning"}}</span></p>
+      </div>
+    </details>
     <div class="setting-card" x-show="canConfigure">
       <h3 class="setting-card-title">{{t "bridge.config.title"}}</h3>
       <div class="form-grid">
