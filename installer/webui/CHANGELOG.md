@@ -4,8 +4,8 @@
 
 ### Features
 
+- **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134) (ccd90ca)
 - **installer-webui:** show release highlights in the page language (59987e3)
-- **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134)
 
 ### Fixes
 
