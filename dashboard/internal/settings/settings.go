@@ -93,6 +93,11 @@ type Settings struct {
 	// oder "off". Leer heisst "always", siehe normalizeSettings.
 	EnergyStatsRecording string `json:"energy_stats_recording"`
 
+	// ChangelogHistory sagt, wie viele Bundle-Versionen die Versionsseite
+	// aus dem Changelog laedt: "recent" (5), "extended" (20) oder "all".
+	// Leer heisst "recent", siehe normalizeSettings.
+	ChangelogHistory string `json:"changelog_history"`
+
 	// UpdateCheckDisabled schaltet die einmal-taeglich laufende Pruefung auf
 	// GitHub ab (siehe internal/updatecheck und main.go). Invertiert benannt
 	// aus demselben Grund wie HistoryExchangeDisabled: der Nullwert muss "an"
@@ -146,6 +151,10 @@ const (
 	EnergyStatsRecordingAlways             = "always"
 	EnergyStatsRecordingPauseWithCompanion = "pause_with_companion"
 	EnergyStatsRecordingOff                = "off"
+
+	ChangelogHistoryRecent   = "recent"
+	ChangelogHistoryExtended = "extended"
+	ChangelogHistoryAll      = "all"
 )
 
 type EnergyConfig struct {
@@ -493,6 +502,7 @@ func Default() Settings {
 		HistoryExtraEntities:         []string{},
 		HistoryViews:                 []HistoryView{},
 		EnergyStatsRecording:         EnergyStatsRecordingAlways,
+		ChangelogHistory:             ChangelogHistoryRecent,
 	}
 }
 
@@ -1799,6 +1809,9 @@ func normalizeSettings(value Settings) Settings {
 	}
 	if value.EnergyStatsRecording == "" {
 		value.EnergyStatsRecording = EnergyStatsRecordingAlways
+	}
+	if value.ChangelogHistory == "" {
+		value.ChangelogHistory = ChangelogHistoryRecent
 	}
 	if value.HistoryExtraEntities == nil {
 		value.HistoryExtraEntities = []string{}
