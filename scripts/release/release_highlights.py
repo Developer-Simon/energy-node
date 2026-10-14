@@ -14,36 +14,14 @@ nothing when there is no highlight.
 import argparse
 import datetime
 import json
-import re
-import subprocess
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build"))
-from make_changelog_json import build_document, parse_version  # noqa: E402
+from changelog_history import in_range, versions_at  # noqa: E402
+from make_changelog_json import build_document  # noqa: E402
 
 GERMAN_SUMMARY = "Highlights auf Deutsch"
-VERSION = re.compile(r"^v?(\d+)\.(\d+)\.(\d+)")
-
-
-def _parts(version):
-    match = VERSION.match(version or "")
-    return tuple(int(n) for n in match.groups()) if match else (0, 0, 0)
-
-
-def _compare(a, b):
-    pa, pb = _parts(a), _parts(b)
-    return (pa > pb) - (pa < pb)
-
-
-def versions_at(repo, ref, table):
-    out = {}
-    for row in table["components"]:
-        result = subprocess.run(["git", "-C", str(repo), "show", f"{ref}:{row['version_file']}"],
-                                capture_output=True, text=True)
-        if result.returncode == 0:
-            out[row["id"]] = parse_version(result.stdout, Path(row["version_file"]).suffix)
-    return out
 
 
 def highlight_rows(document, previous):
@@ -51,12 +29,9 @@ def highlight_rows(document, previous):
     for component in document["components"]:
         start = previous.get(component["id"])
         for release in component["releases"]:
-            if start:
-                in_range = _compare(release["version"], start) > 0 and _compare(release["version"], component["version"]) <= 0
-            else:
-                in_range = _compare(release["version"], component["version"]) == 0
+            release_in_range = in_range(release["version"], start, component["version"])
             entries = [e for g in release["groups"] for e in g["entries"] if e.get("highlight")]
-            if in_range and entries:
+            if release_in_range and entries:
                 rows.append((component["label"], release["version"], entries))
     return rows
 

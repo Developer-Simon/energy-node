@@ -7,7 +7,10 @@ Eintraege, die Git nicht mehr hergibt. changelog.json ist nur ihre
 maschinenlesbare Fassung.
 
     scripts/build/make_changelog_json.py --repo <repo> --out <datei> \\
-        [--bundle-version vX.Y.Z] [--max-releases N]
+        [--out-dir <verzeichnis>] [--bundle-version vX.Y.Z] [--history N]
+
+--out bekommt nur die neueste Bundle-Version (Datei fuer aeltere Leser), --out-dir
+je Bundle-Version eine Datei <version>.json (siehe changelog_history.py).
 
 Welche Komponenten hineinkommen (bundle: true), wie sie heissen und welcher Art
 sie sind, steht in scripts/version/components.json.
@@ -19,10 +22,11 @@ import re
 import sys
 from pathlib import Path
 
+import changelog_history
 import highlight_i18n
+from changelog_history import parse_version  # noqa: F401  (re-exported)
 
 SCHEMA_VERSION = 1
-DEFAULT_MAX_RELEASES = 20
 
 # Umkehrung von LABELS in scripts/generate_changelog.sh.
 TYPE_BY_LABEL = {
@@ -106,13 +110,6 @@ def mark_highlights(releases):
     return releases
 
 
-def parse_version(raw, suffix):
-    """Version als "vX.Y.Z" aus dem Inhalt einer VERSION- oder manifest.json-Datei."""
-    if suffix == ".json":
-        return "v" + str(json.loads(raw)["version"]).lstrip("v")
-    return raw.strip()
-
-
 def read_version(path):
     """Version einer Komponente als "vX.Y.Z" - aus VERSION oder manifest.json."""
     return parse_version(path.read_text(encoding="utf-8"), path.suffix)
@@ -159,22 +156,32 @@ def build_document(repo, table, *, bundle_version, max_releases, generated_at):
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     parser.add_argument("--repo", required=True)
-    parser.add_argument("--out", required=True)
+    parser.add_argument("--out", required=True, help="changelog.json: nur die neueste Bundle-Version (fuer aeltere Leser)")
+    parser.add_argument("--out-dir", help="Verzeichnis fuer <version>.json je Bundle-Version")
     parser.add_argument("--bundle-version")
-    parser.add_argument("--max-releases", type=int, default=DEFAULT_MAX_RELEASES)
+    parser.add_argument("--history", type=int, default=changelog_history.DEFAULT_HISTORY)
     args = parser.parse_args(argv)
     repo = Path(args.repo)
     table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
     bundle_version = args.bundle_version or read_version(repo / "dashboard/VERSION")
     generated_at = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
-    document = build_document(
-        repo, table, bundle_version=bundle_version,
-        max_releases=args.max_releases, generated_at=generated_at,
-    )
-    Path(args.out).write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    entries = sum(len(g["entries"]) for c in document["components"] for r in c["releases"] for g in r["groups"])
-    print(f"changelog.json: {len(document['components'])} Komponenten, {entries} Eintraege")
+    # Alle Releases: die Bereiche je Bundle-Version schneiden erst die Schritte.
+    full = build_document(repo, table, bundle_version=bundle_version, max_releases=10_000, generated_at=generated_at)
+    steps = changelog_history.history(repo, table, bundle_version, max(args.history, 1))
+    documents = [changelog_history.version_document(full, step, generated_at) for step in steps]
+    write_json(Path(args.out), documents[0])
+    if args.out_dir:
+        out_dir = Path(args.out_dir)
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for document in documents:
+            write_json(out_dir / f"{document['bundle_version']}.json", document)
+    entries = sum(len(g["entries"]) for c in documents[0]["components"] for r in c["releases"] for g in r["groups"])
+    print(f"changelog: {len(documents)} Bundle-Versionen, neueste mit {entries} Eintraegen")
     return 0
+
+
+def write_json(path, document):
+    path.write_text(json.dumps(document, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
 
 
 if __name__ == "__main__":
