@@ -27,11 +27,12 @@ function load(responses = {}) {
   dom.window.Alpine = {data: (_name, fn) => { factory = fn; }};
   installI18n(dom.window);
   const calls = [];
+  const server = {revision: 1};
   dom.window.fetch = async url => {
     calls.push(url);
     const params = new URL(url, 'http://x').searchParams;
     const body = responses[`${params.get('period')}|${params.get('at') || ''}`] || DAY_FIXTURE;
-    return {ok: true, status: 200, json: async () => body};
+    return {ok: true, status: 200, json: async () => ({...body, revision: server.revision})};
   };
   const charts = [];
   dom.window.ApexCharts = class {
@@ -46,7 +47,7 @@ function load(responses = {}) {
     panel.$nextTick = fn => fn();
     return panel;
   };
-  return {dom, factory, make, calls, charts};
+  return {dom, factory, make, calls, charts, server};
 }
 
 test('Startet mit dem laufenden Tag und fuellt Titel, Kennzahlen, Tabelle und Datenlage', async () => {
@@ -129,5 +130,57 @@ test('chartOptions stapelt, beschriftet die Achse aus local und zeigt Betraege p
   assert.match(options.xaxis.categories[0], /^14[:.]00/);
   assert.equal(options.series.find(s => s.role === 'load_total').data[0], -1.4);
   assert.equal(options.tooltip.y.formatter(-1.4), '1,40 kWh');
+  dom.window.close();
+});
+
+test('neue Revision laedt den laufenden Zeitraum neu', async () => {
+  const {dom, make, calls, server} = load();
+  const page = make();
+  await page.init();
+  calls.length = 0;
+  server.revision = 2;
+  await page.onRevision({rev: 2});
+  assert.equal(calls.length, 1);
+  assert.equal(page.data.revision, 2);
+  dom.window.close();
+});
+
+test('gleiche Revision im Leerlauf laedt nicht', async () => {
+  const {dom, make, calls} = load();
+  const page = make();
+  await page.init();
+  calls.length = 0;
+  await page.onRevision({rev: 1});
+  await page.onRevision({rev: 1});
+  assert.equal(calls.length, 0);
+  dom.window.close();
+});
+
+test('ein vergangener Zeitraum bleibt bei neuer Revision stehen', async () => {
+  const {dom, make, calls, server} = load();
+  const page = make();
+  await page.init();
+  page.data = {...page.data, next: '2026-10-06'};
+  calls.length = 0;
+  server.revision = 3;
+  await page.onRevision({rev: 3});
+  assert.equal(calls.length, 0);
+  dom.window.close();
+});
+
+test('registry-updated erreicht onRevision, destroy meldet ab', async () => {
+  const {dom, make, calls, server} = load();
+  const page = make();
+  await page.init();
+  calls.length = 0;
+  server.revision = 4;
+  dom.window.dispatchEvent(new dom.window.CustomEvent('registry-updated', {detail: {energy_stats: {rev: 4}}}));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 1);
+  page.destroy();
+  server.revision = 5;
+  dom.window.dispatchEvent(new dom.window.CustomEvent('registry-updated', {detail: {energy_stats: {rev: 5}}}));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 1);
   dom.window.close();
 });
