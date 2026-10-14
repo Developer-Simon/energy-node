@@ -10,6 +10,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registryevents"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -24,11 +25,15 @@ const (
 	// topicStructure traegt die drei globalen Fingerabdruecke. Uebergang bis
 	// zum Thema devices, danach entfaellt es.
 	topicStructure = "structure"
+	// topicEnergyStats traegt nur die Revision der Energiestatistik. Kachel
+	// und Seite laden ihre Zahlen selbst, wenn sie sich aendert.
+	topicEnergyStats = "energy_stats"
 )
 
 // defaultEventTopics gilt ohne ?topics=. Ein aelterer Client bekommt damit
-// denselben Rumpf wie vor den Themen.
-var defaultEventTopics = []string{topicEnergy, topicEntities, topicDiagnostics, topicStructure}
+// denselben Rumpf wie vor den Themen, plus den kleinen Zweig energy_stats,
+// falls es die Statistik gibt.
+var defaultEventTopics = []string{topicEnergy, topicEntities, topicDiagnostics, topicStructure, topicEnergyStats}
 
 // topicCache haelt den zuletzt gebauten Teil eines Themas. Ein zweiter
 // Aufruf bei gleicher Version liefert denselben Teil - das ist nicht nur
@@ -66,6 +71,8 @@ type eventCache struct {
 	store    *settings.Store
 	resolver *energy.Resolver
 	engine   *diagnostics.Engine
+	// stats ist nil ohne Datenverzeichnis, dann fehlt das Thema.
+	stats *energystats.Service
 
 	// Ein Snapshot je Version fuer alle Registry-Themen. Die Themen lesen
 	// ihn nur.
@@ -74,7 +81,7 @@ type eventCache struct {
 	snapVersion registryevents.Version
 	devices     []registry.DeviceView
 
-	energy, entities, diagnostics, structure topicCache
+	energy, entities, diagnostics, structure, energyStats topicCache
 	// lastValues gehoert zum entities-Thema und wird nur unter entities.mu
 	// gelesen und geschrieben.
 	lastValues map[string]registry.ValueView
@@ -87,12 +94,22 @@ func newEventCache(reg *registry.Registry, store *settings.Store, resolver *ener
 // topics liefert die Themen fuer den Hub. Die Reihenfolge ist die der
 // Zweige im Rumpf.
 func (c *eventCache) topics() []registryevents.Topic {
-	return []registryevents.Topic{
+	topics := []registryevents.Topic{
 		{Name: topicEnergy, Version: c.registryVersion, Build: c.buildEnergy},
 		{Name: topicEntities, Version: c.registryVersion, Build: c.buildEntities},
 		{Name: topicDiagnostics, Version: c.registryVersion, Build: c.buildDiagnostics},
 		{Name: topicStructure, Version: c.registryVersion, Build: c.buildStructure},
 	}
+	if c.stats != nil && c.stats.Store != nil {
+		// Eigene Versionsquelle: eine nachgelieferte Stunde loest ein
+		// Ereignis aus, auch wenn die Registry ruht.
+		topics = append(topics, registryevents.Topic{
+			Name:    topicEnergyStats,
+			Version: func() registryevents.Version { return registryevents.Version{c.stats.Store.Revision()} },
+			Build:   c.buildEnergyStats,
+		})
+	}
+	return topics
 }
 
 // registryVersion ist die Version der Registry-Themen. Die
@@ -212,6 +229,15 @@ func (c *eventCache) buildStructure(v registryevents.Version) (registryevents.Pa
 	})
 }
 
+// buildEnergyStats traegt nur die Revision der Statistik. Die Zahlen holt
+// sich der Client ueber /api/v1/energy/stats, wenn sich die Revision aendert.
+func (c *eventCache) buildEnergyStats(v registryevents.Version) (registryevents.Part, bool) {
+	return c.energyStats.get(v, func() (registryevents.Part, bool) {
+		m, ok := member(topicEnergyStats, map[string]uint64{"rev": v[0]})
+		return sameParts(m), ok
+	})
+}
+
 // changedValues sind die Eintraege aus now, die in previous fehlen oder sich
 // unterscheiden. previous == nil (erster Lauf) heisst: alles ist neu, der
 // Delta ist dann deckungsgleich mit dem vollen Rumpf. Eine entfernte
@@ -258,8 +284,9 @@ const registryStreamQueueSize = 4
 // handleEvents bedient den /api/v1/events-SSE-Strom. Alle Verbindungen
 // teilen sich einen Poll-Loop im Hub. Er baut jedes abonnierte Thema einmal
 // je Aenderung und schickt jeder Verbindung nur ihre Themen (?topics=).
-func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine) http.HandlerFunc {
+func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine, stats *energystats.Service) http.HandlerFunc {
 	cache := newEventCache(reg, store, resolver, engine)
+	cache.stats = stats
 	hub := registryevents.NewHub(
 		registryStreamQueueSize,
 		reg.Version,

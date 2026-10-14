@@ -290,7 +290,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 			applyEnergyConfig(resolver, value)
 		}
 	}
-	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine))
+	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, dependencies.EnergyStats))
 	mux.HandleFunc("/api/v1/energy", handleEnergy(reg, resolver))
 	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))

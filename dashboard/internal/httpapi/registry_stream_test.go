@@ -11,11 +11,17 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
 func eventsServer(t *testing.T, reg *registry.Registry) *httptest.Server {
+	t.Helper()
+	return eventsServerWith(t, reg, nil)
+}
+
+func eventsServerWith(t *testing.T, reg *registry.Registry, stats *energystats.Service) *httptest.Server {
 	t.Helper()
 	// Kurzes Lebenszeichen, damit ein blockierender Lesevorgang seine
 	// Frist ueberhaupt pruefen kann - der Poll-Takt bleibt der Default.
@@ -35,7 +41,7 @@ func eventsServer(t *testing.T, reg *registry.Registry) *httptest.Server {
 	resolver := energy.NewResolver(nil)
 	engine := diagnostics.NewEngine(reg, nil)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine))
+	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, stats))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 	return server
@@ -241,5 +247,37 @@ func TestEventStreamOhneThemenSchicktVersionswechsel(t *testing.T) {
 	second := readRegistryEvent(t, reader)
 	if second == first {
 		t.Errorf("Versionswechsel kam nicht an: %s", second)
+	}
+}
+
+func TestEnergyStatsRevisionTriggersEventWhileRegistryIsIdle(t *testing.T) {
+	reg := testRegistryWithPower(t)
+	store := energystats.NewStore(t.TempDir())
+	server := eventsServerWith(t, reg, &energystats.Service{Store: store})
+	reader, closeStream := openEventStreamAt(t, server, "/api/v1/events?topics=energy_stats")
+	defer closeStream()
+
+	var first struct {
+		EnergyStats *struct {
+			Rev uint64 `json:"rev"`
+		} `json:"energy_stats"`
+	}
+	if err := json.Unmarshal([]byte(readRegistryEvent(t, reader)), &first); err != nil || first.EnergyStats == nil {
+		t.Fatalf("erster Rumpf ohne energy_stats: %v", err)
+	}
+
+	// Die Registry bleibt still, nur die Statistik aendert sich.
+	store.AddOwn(energystats.HourRecord{Hour: time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC), KWh: map[string]float64{"pv": 1}, Covered: 3600})
+
+	var next struct {
+		EnergyStats struct {
+			Rev uint64 `json:"rev"`
+		} `json:"energy_stats"`
+	}
+	if err := json.Unmarshal([]byte(readRegistryEvent(t, reader)), &next); err != nil {
+		t.Fatal(err)
+	}
+	if next.EnergyStats.Rev != store.Revision() || next.EnergyStats.Rev == first.EnergyStats.Rev {
+		t.Errorf("rev = %d, Store = %d, vorher %d", next.EnergyStats.Rev, store.Revision(), first.EnergyStats.Rev)
 	}
 }

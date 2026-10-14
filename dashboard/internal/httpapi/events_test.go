@@ -9,6 +9,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registryevents"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -384,5 +385,21 @@ func TestEventBodyCarriesAvailabilityStructureFingerprint(t *testing.T) {
 	}
 	if body.StructureAvailability == "" {
 		t.Error("structure_availability ist leer - die konfigurierte Kompaktkachel wuerde dauerhaft tauschen")
+	}
+}
+
+func TestEnergyStatsTopicOnlyWithService(t *testing.T) {
+	reg := registry.New()
+	without := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	for _, topic := range without.topics() {
+		if topic.Name == topicEnergyStats {
+			t.Fatal("Thema energy_stats ohne Dienst")
+		}
+	}
+	with := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	with.stats = &energystats.Service{Store: energystats.NewStore(t.TempDir())}
+	part, ok := with.buildEnergyStats(registryevents.Version{4})
+	if !ok || string(part.Full) != `"energy_stats":{"rev":4}` || string(part.Idle) != string(part.Full) {
+		t.Errorf("part = %q / %q, ok = %v", part.Full, part.Idle, ok)
 	}
 }
