@@ -36,6 +36,8 @@ permissions:
   contents: write
   # Dispatch CI for the settled head (last step) and look up earlier CI runs.
   actions: write
+  # Mark the commit status CI as queued when dispatching.
+  statuses: write
 
 concurrency:
   group: version-bump-${{ github.event.pull_request.number }}
@@ -171,5 +173,11 @@ jobs:
             echo "CI already ran or runs for $sha - not dispatching again."
             exit 0
           fi
+          # The PR shows the commit status CI, not the dispatched run. It is set
+          # before the dispatch so it can never overwrite the run's own status,
+          # and points at the CI runs of this branch until the run takes over.
+          gh api "repos/${GITHUB_REPOSITORY}/statuses/${sha}" \
+            -f state=pending -f context=CI -f description="Queued by the version bump" \
+            -f target_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/workflows/ci.yml?query=branch%3A${HEAD_REF}" >/dev/null
           gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$HEAD_REF" -f pr="$PR_NUMBER"
           echo "Dispatched CI for $HEAD_REF at $sha (PR #$PR_NUMBER)."
