@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Der MQTT-Tab erklärt die Einrichtung der Mosquitto-Bridge, und die veröffentlichten Systemmetriken lassen sich in einer Mehrfachauswahl festlegen."
+  }
+}

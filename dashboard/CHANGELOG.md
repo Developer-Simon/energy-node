@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.14 (2026-10-14)
+## v0.9.15 (2026-10-14)
 
 ### Features
 
@@ -9,12 +9,15 @@
 - **dashboard:** SSE topic subscriptions and a swap-free statistics tile (#133) (69eb694)
 - **dashboard:** device tiles patched from the devices topic without fragment swaps (#135) (76f51aa)
 - **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134) (ccd90ca)
+- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137) (14f781e)
+- **dashboard:** published diagnostics metrics as a read-only-for-guests multiselect (63f6bf4)
+- **dashboard:** bridge setup step list on the MQTT tab (638c5ee)
+- **dashboard:** The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect. (#138)
 - **dashboard:** keep every received changelog version on the node (6061446)
 - **dashboard:** add the changelog_history setting (26ea4d7)
 - **dashboard:** limit the changelog API to a number of bundle versions (5a1b1cc)
 - **dashboard:** choose how many versions the changelog shows (9606138)
 - **dashboard:** show the changelog history choice as a segmented control (95bbbda)
-- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137)
 - **dashboard:** carry highlight translations in the highlights API (963ab1a)
 - **dashboard:** show release highlights in the page language (908d3ce)
 - **dashboard:** per-device live entry and localized tile status (db88e93)
@@ -44,6 +47,10 @@
 
 ### Fixes
 
+- **dashboard:** skip the bridge config request for guests on the MQTT tab (726e39f)
+- **dashboard:** align bridge verify step with the status labels (985ba39)
+- **dashboard:** tighten the bridge setup step texts (dc0a550)
+- **dashboard:** guest view of the MQTT tab hides the bridge steps and explains why (eee699c)
 - **dashboard:** retry a tile structure change that arrives mid-request (3a78eca)
 - **dashboard:** restore attribute spacing in base.html (7a52161)
 
@@ -54,6 +61,7 @@
 
 ### Documentation
 
+- **dashboard:** MQTT tab metrics select and bridge step list (81d3985)
 - **release:** document the per-version changelog (865f72a)
 
 ### Tests

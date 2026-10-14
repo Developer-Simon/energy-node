@@ -78,7 +78,7 @@
     <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('mqtt.status.loading') : $t('mqtt.status.refresh')"></button></div>
   </section>
 
-  <div class="setting-card" x-bind:class="{ 'setting-card--wide': !canConfigure }">
+  <div class="setting-card">
     <h3 class="setting-card-title">{{t "mqtt.ha.title"}}</h3>
     <label class="switch-row" for="mqtt-publish-energy-device">
       <span>{{t "mqtt.energy_device.label"}}
@@ -100,18 +100,43 @@
     </label>
   </div>
 
-  <div class="setting-card" x-show="canConfigure">
+  <div class="setting-card">
     <h3 class="setting-card-title">{{t "mqtt.metrics.title"}}</h3>
-    <template x-for="metric in metricKeys" x-bind:key="metric">
-      <label class="switch-row">
-        <span x-text="metricLabels[metric] || metric"></span>
-        <span class="settings-toggle"><input type="checkbox" role="switch" x-bind:checked="metricEnabled(metric)" x-on:change="toggleMetric(metric, $event.target.checked)"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
+    <div class="settings-multiselect-row mqtt-metrics-select">
+      <label for="mqtt-metrics-select">
+        {{t "mqtt.metrics.label"}}
+        <span class="field-help">
+          <button class="field-help-trigger" type="button" aria-label="{{t "mqtt.metrics.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "mqtt.metrics.help_text"}}</span>
+        </span>
       </label>
-    </template>
+      <select id="mqtt-metrics-select" x-ref="metricsSelect" multiple x-on:change="onMetricsChange()">
+        <template x-for="metric in metricKeys" x-bind:key="metric">
+          <option x-bind:value="metric" x-text="metricLabels[metric] || metric"></option>
+        </template>
+      </select>
+    </div>
+    <p class="setting-note" x-show="!canConfigure">{{t "mqtt.metrics.read_only"}}</p>
   </div>
 
   <section id="settings-mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
-    <div class="setting-card">
+    <details class="settings-help-panel setting-card--wide" open x-show="canConfigure">
+      <summary>{{t "bridge.help.title"}}</summary>
+      <ol class="settings-help-list">
+        <li>{{t "bridge.help.remote_broker"}}</li>
+        <li>{{t "bridge.help.remote_user"}}</li>
+        <li>{{t "bridge.help.tailscale"}}</li>
+        <li>{{t "bridge.help.connection"}}</li>
+        <li>{{t "bridge.help.topics"}}</li>
+        <li>{{t "bridge.help.apply"}}</li>
+        <li>{{t "bridge.help.verify"}}</li>
+      </ol>
+      <div class="settings-help-notes">
+        <p class="settings-help-note"><svg class="automation-icon" aria-hidden="true"><use href="#ico-info"></use></svg><span>{{t "bridge.help.roles_note"}}</span></p>
+        <p class="settings-help-note is-warning"><svg class="automation-icon" aria-hidden="true"><use href="#ico-warning"></use></svg><span>{{t "bridge.help.restart_warning"}}</span></p>
+      </div>
+    </details>
+    <div class="setting-card" x-show="canConfigure">
       <h3 class="setting-card-title">{{t "bridge.config.title"}}</h3>
       <div class="form-grid">
         <label for="bridge-name">{{t "bridge.name.label"}}</label><input id="bridge-name" type="text" autocomplete="off" x-model.trim="form.name" x-bind:disabled="!canConfigure">
@@ -167,10 +192,11 @@
         </tbody>
         </table>
       </div>
-      <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('bridge.status.loading') : $t('bridge.status.refresh')"></button></div>
+      <p class="setting-note" x-show="!canConfigure">{{t "bridge.cannot_configure"}}</p>
+      <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('bridge.status.loading') : $t('bridge.status.refresh')"></button> <button type="button" x-on:click="restartOnly()" x-bind:disabled="!canRestart || busy" x-text="busy === 'restart' ? $t('bridge.restart.loading') : $t('bridge.restart')"></button></div>
     </section>
 
-    <div class="setting-card">
+    <div class="setting-card" x-show="canConfigure">
       <h3 class="setting-card-title">{{t "bridge.topics.title"}}
         <span class="field-help field-help-align-start">
           <button class="field-help-trigger" type="button" aria-label="{{t "bridge.topics.help"}}"><svg><use href="#ico-help"></use></svg></button>
@@ -202,19 +228,17 @@
       <div class="toolbar"><button type="button" x-on:click="addTopic()" x-bind:disabled="!canConfigure || form.topics.length >= 32">{{t "bridge.topics.add"}}</button></div>
     </div>
 
-    <div class="setting-card">
+    <div class="setting-card" x-show="canConfigure">
       <h3 class="setting-card-title">{{t "bridge.preview.title"}}</h3>
       <pre class="bridge-preview" x-show="preview" x-text="preview"></pre>
       <p class="setting-note" x-show="!preview">{{t "bridge.preview.empty"}}</p>
     </div>
 
-    <p class="setting-note" x-show="!canConfigure">{{t "bridge.cannot_configure"}}</p>
     <p class="setting-note" x-show="canConfigure && !canApply">{{t "bridge.cannot_apply"}}</p>
-    <div class="setting-actionbar-dock">
+    <div class="setting-actionbar-dock" x-show="canConfigure">
       <div class="setting-actionbar">
         <button class="primary" type="button" x-on:click="save()" x-bind:disabled="!canConfigure || busy || !valid" x-text="busy === 'save' ? $t('mqtt.save.loading') : $t('common.save')"></button>
         <button class="system-action-danger" type="button" x-on:click="apply()" x-bind:disabled="!canApply || busy || !valid" x-text="busy === 'apply' ? $t('bridge.apply.loading') : $t('bridge.apply')"></button>
-        <button type="button" x-on:click="restartOnly()" x-bind:disabled="!canRestart || busy" x-text="busy === 'restart' ? $t('bridge.restart.loading') : $t('bridge.restart')"></button>
       </div>
     </div>
     <p class="setting-note" x-cloak x-show="busy === 'apply' || busy === 'restart'">{{t "bridge.apply.note"}}</p>

@@ -362,3 +362,77 @@ test('testErrorText() returns empty string when testResult.ok is true', () => {
   const result = component.testErrorText();
   assert.equal(result, '');
 });
+
+test('selectedMetrics() treats missing keys as enabled', () => {
+  const { component } = createMqttPanel();
+  component.form.metrics = { ram: false, tailscale: true };
+  const selected = component.selectedMetrics();
+  assert.equal(selected.includes('ram'), false);
+  assert.equal(selected.includes('tailscale'), true);
+  assert.equal(selected.includes('cpu_temp'), true);
+  assert.deepEqual(selected, component.metricKeys.filter((k) => k !== 'ram'));
+});
+
+test('metricsFromSelection() writes every known key explicitly and keeps unknown stored keys', () => {
+  const { component } = createMqttPanel();
+  component.form.metrics = { future_metric: false };
+  const map = component.metricsFromSelection(['cpu_temp', 'ram']);
+  assert.equal(map.cpu_temp, true);
+  assert.equal(map.ram, true);
+  assert.equal(map.disk, false);
+  assert.equal(map.future_metric, false);
+  for (const key of component.metricKeys) assert.equal(typeof map[key], 'boolean');
+});
+
+test('onMetricsChange() posts the full map to node-settings', async () => {
+  const calls = [];
+  const { component } = createMqttPanel({
+    fetchImpl: async (url, options) => { calls.push({ url, options }); return jsonResponse({}); },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.metricsChoices = { getValue: () => ['cpu_temp'] };
+  await component.onMetricsChange();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].url, '/api/v1/mqtt/node-settings');
+  const body = JSON.parse(calls[0].options.body);
+  assert.equal(body.metrics.cpu_temp, true);
+  assert.equal(body.metrics.ram, false);
+  assert.equal(component.form.metrics.ram, false);
+});
+
+test('onMetricsChange() does nothing without canConfigure (guest view)', async () => {
+  const { component } = createMqttPanel();
+  component.canConfigure = false;
+  component.metricsChoices = { getValue: () => [] };
+  await component.onMetricsChange();
+  assert.equal(Object.keys(component.form.metrics).length, 0);
+});
+
+test('onMetricsChange() rolls the selection back when saving fails', async () => {
+  const { component } = createMqttPanel({
+    fetchImpl: async () => jsonResponse({ message: 'kaputt' }, false),
+  });
+  component.canConfigure = true;
+  component.form.metrics = { ram: false };
+  const restored = [];
+  component.metricsChoices = {
+    getValue: () => ['ram'],
+    removeActiveItems: () => {},
+    setChoiceByValue: (values) => restored.push(...values),
+  };
+  await component.onMetricsChange();
+  assert.deepEqual(component.form.metrics, { ram: false });
+  assert.equal(restored.includes('ram'), false);
+  assert.equal(restored.includes('cpu_temp'), true);
+});
+
+test('initMetricsChoices() disables the select for guests', () => {
+  const { component, window } = createMqttPanel();
+  let disabled = false;
+  window.Choices = class { constructor() {} disable() { disabled = true; } removeActiveItems() {} setChoiceByValue() {} };
+  component.$refs = { metricsSelect: window.document.createElement('select') };
+  component.canConfigure = false;
+  component.initMetricsChoices();
+  assert.equal(disabled, true);
+});

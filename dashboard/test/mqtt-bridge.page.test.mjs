@@ -312,3 +312,34 @@ test('stepField ignoriert ein unbekanntes Feld, statt NaN in form zu schreiben',
   component.stepField('nichtVorhanden', 1);
   assert.equal(component.form.nichtVorhanden, undefined);
 });
+
+test('load() skips the bridge config request without the mqtt_config role (no 403 for guests)', async () => {
+  const requested = [];
+  const { component } = createBridgePanel({
+    fetchImpl: async (url) => {
+      requested.push(url);
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: false, system_actions: false });
+      if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({ service_state: 'active' });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  await component.load();
+  assert.equal(requested.includes('/api/v1/mqtt/bridge'), false);
+  assert.equal(component.status.service_state, 'active');
+  assert.equal(component.canConfigure, false);
+});
+
+test('load() skips the bridge config request over plain HTTP', async () => {
+  const requested = [];
+  const { component } = createBridgePanel({
+    url: 'http://dashboard.local/',
+    fetchImpl: async (url) => {
+      requested.push(url);
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true, system_actions: true });
+      if (url === '/api/v1/mqtt/bridge/status') return jsonResponse({});
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  await component.load();
+  assert.equal(requested.includes('/api/v1/mqtt/bridge'), false);
+});

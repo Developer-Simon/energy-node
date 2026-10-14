@@ -57,6 +57,7 @@
     statusLoading: false,
     busy: false,
     testResult: null,
+    metricsChoices: null,
 
     async load() {
       this.loading = true;
@@ -69,6 +70,7 @@
         this.csrfToken = (session && session.csrf_token) || '';
         this.canConfigure = Boolean(session && session.mqtt_config) && window.location.protocol === 'https:';
         await this.loadStatus();
+        if (this.$nextTick) this.$nextTick(() => this.initMetricsChoices());
       } catch (error) {
         this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
@@ -227,17 +229,54 @@
       return !(metric in m) || m[metric] === true;
     },
 
-    toggleMetric(metric, enabled) {
-      this.form.metrics = {...(this.form.metrics || {}), [metric]: enabled};
-      this.saveNodeSettings();
+    selectedMetrics() {
+      return this.metricKeys.filter((metric) => this.metricEnabled(metric));
+    },
+
+    // The node agent reads a missing key as enabled. Writing every known key
+    // explicitly keeps the stored map unambiguous, and keys this page does
+    // not know (other node agent version) are passed through untouched.
+    metricsFromSelection(selected) {
+      const map = {...(this.form.metrics || {})};
+      for (const metric of this.metricKeys) map[metric] = selected.includes(metric);
+      return map;
+    },
+
+    // Same Choices setup as the status bar items on the General tab. No
+    // x-model on the <select>, see settings.page.js syncFromChoices for why.
+    initMetricsChoices() {
+      if (!window.Choices || !this.$refs || !this.$refs.metricsSelect || this.metricsChoices) return;
+      this.metricsChoices = new Choices(this.$refs.metricsSelect, {
+        removeItemButton: true, searchEnabled: true, shouldSort: false,
+        placeholderValue: t('settings.choices.placeholder'), noChoicesText: t('settings.choices.no_results'),
+      });
+      this.setMetricsSelection(this.selectedMetrics());
+      if (!this.canConfigure) this.metricsChoices.disable();
+    },
+
+    setMetricsSelection(values) {
+      if (!this.metricsChoices) return;
+      this.metricsChoices.removeActiveItems();
+      if (values.length) this.metricsChoices.setChoiceByValue(values);
+    },
+
+    async onMetricsChange() {
+      if (!this.canConfigure || !this.metricsChoices) return;
+      const previous = this.form.metrics || {};
+      const selected = this.metricsChoices.getValue(true);
+      this.form.metrics = this.metricsFromSelection(selected);
+      if (!(await this.saveNodeSettings())) {
+        this.form.metrics = previous;
+        this.setMetricsSelection(this.selectedMetrics());
+      }
     },
 
     // saveNodeSettings persists the two node-broadcast controls
-    // (simulation_active + per-metric toggles) via their own endpoint, so
-    // they work without a full, valid broker config. Fired straight from the
-    // toggles' change events.
+    // (simulation_active + the metrics map) via their own endpoint, so
+    // they work without a full, valid broker config. Returns whether the
+    // save went through.
     async saveNodeSettings() {
-      if (!this.canConfigure) return;
+      if (!this.canConfigure) return false;
       try {
         await requestJSON('/api/v1/mqtt/node-settings', {
           method: 'POST',
@@ -247,8 +286,10 @@
             metrics: this.form.metrics || {},
           }),
         });
+        return true;
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
+        return false;
       }
     },
 
@@ -339,8 +380,13 @@
         this.canConfigure = Boolean(session && session.mqtt_config) && https;
         this.canApply = this.canConfigure && Boolean(session && session.system_actions);
         this.canRestart = Boolean(session && session.system_actions) && https;
-        const config = await requestJSON('/api/v1/mqtt/bridge').catch(() => null);
-        if (config) this.applyConfig(config);
+        // GET /api/v1/mqtt/bridge needs mqtt_config over HTTPS. Without it
+        // the request would only produce a 403 in the browser console, so
+        // guests get the status card and the help list, not the form.
+        if (this.canConfigure) {
+          const config = await requestJSON('/api/v1/mqtt/bridge').catch(() => null);
+          if (config) this.applyConfig(config);
+        }
         await this.loadStatus();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');

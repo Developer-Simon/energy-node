@@ -4,8 +4,8 @@
 
 ### Features
 
+- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137) (14f781e)
 - **installer:** keep every received changelog version on the node (fb8eecd)
-- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137)
 
 ## v0.2.2 (2026-10-11)
 
