@@ -339,8 +339,13 @@
         this.canConfigure = Boolean(session && session.mqtt_config) && https;
         this.canApply = this.canConfigure && Boolean(session && session.system_actions);
         this.canRestart = Boolean(session && session.system_actions) && https;
-        const config = await requestJSON('/api/v1/mqtt/bridge').catch(() => null);
-        if (config) this.applyConfig(config);
+        // GET /api/v1/mqtt/bridge needs mqtt_config over HTTPS. Without it
+        // the request would only produce a 403 in the browser console, so
+        // guests get the status card and the help list, not the form.
+        if (this.canConfigure) {
+          const config = await requestJSON('/api/v1/mqtt/bridge').catch(() => null);
+          if (config) this.applyConfig(config);
+        }
         await this.loadStatus();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
