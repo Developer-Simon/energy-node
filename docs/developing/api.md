@@ -193,8 +193,10 @@ data: {"version":42,"energy":{...},"entities":{...},"entities_delta":true}
 
 `topics` is a comma-separated list. Known topics are `energy` (energy
 snapshot), `entities` (entity values, full on connect, then only changes with
-`entities_delta: true`), `diagnostics` (summary) and `structure` (layout
-fingerprints, transitional). Unknown names are ignored. Without the parameter
+`entities_delta: true`), `diagnostics` (summary), `structure` (layout
+fingerprints, transitional) and `energy_stats` (`{"rev":N}`, the revision of the
+energy statistics, present when the dashboard has a data directory). An event
+arrives when `rev` changes, even if the registry is idle. Unknown names are ignored. Without the parameter
 you get all of them. With an empty parameter (`?topics=`) you get only
 `{"version":N}` whenever the registry changes, which is enough if you fetch
 `GET /api/v1/devices` yourself.
