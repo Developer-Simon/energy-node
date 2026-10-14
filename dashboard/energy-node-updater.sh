@@ -394,5 +394,27 @@ if [[ -f "${BUNDLE}/changelog.json" ]]; then
   fi
 fi
 
+# changelog/: eine Datei je Bundle-Version. Neue oder geaenderte Dateien
+# kommen dazu, keine wird geloescht: so waechst die Historie auf dem Node ueber
+# die 20 Versionen hinaus, die ein Bundle mitbringt. Eine geaenderte Datei
+# (etwa eine spaeter korrigierte Uebersetzung) wird ersetzt.
+if [[ -d "${BUNDLE}/changelog" ]]; then
+  history_dir="${STATE_DIR}/changelog"
+  if mkdir -p "${history_dir}"; then
+    for src in "${BUNDLE}"/changelog/*.json; do
+      [[ -f "${src}" ]] || continue
+      dst="${history_dir}/$(basename "${src}")"
+      cmp -s "${src}" "${dst}" && continue
+      if ! { install -m 0644 "${src}" "${dst}.tmp" && mv -f "${dst}.tmp" "${dst}"; }; then
+        rm -f "${dst}.tmp"
+        log_line "WARN CHANGELOG_RECORD_FAILED"
+        break
+      fi
+    done
+  else
+    log_line "WARN CHANGELOG_RECORD_FAILED"
+  fi
+fi
+
 write_status "ok" "" ""
 exit 0
