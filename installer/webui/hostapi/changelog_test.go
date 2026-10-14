@@ -162,3 +162,99 @@ func TestChangelogEndpointRejectsWrites(t *testing.T) {
 		t.Fatalf("status = %d, want 405", rec.Code)
 	}
 }
+
+func writeHistory(t *testing.T, files map[string]string) string {
+	t.Helper()
+	dir := t.TempDir()
+	for name, body := range files {
+		path := filepath.Join(dir, name)
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return dir
+}
+
+const historyNew = `{"schema_version":1,"bundle_version":"v0.9.10","components":[
+ {"id":"dashboard","label":"Dashboard","kind":"app","version":"v0.9.10","releases":[{"version":"v0.9.10","groups":[]}]},
+ {"id":"bootstrap","label":"Bootstrap","kind":"tool","version":"v0.3.0","releases":[]}]}`
+const historyOld = `{"schema_version":1,"bundle_version":"v0.9.8","components":[
+ {"id":"dashboard","label":"Dashboard alt","kind":"app","version":"v0.9.8","releases":[{"version":"v0.9.8","groups":[]},{"version":"v0.9.10","groups":["stale"]}]},
+ {"id":"gone","label":"Gone","kind":"tool","version":"v0.1.0","releases":[{"version":"v0.1.0","groups":[]}]}]}`
+
+type mergedDoc struct {
+	BundleVersion string `json:"bundle_version"`
+	Components    []struct {
+		ID       string `json:"id"`
+		Label    string `json:"label"`
+		Releases []struct {
+			Version string            `json:"version"`
+			Groups  []json.RawMessage `json:"groups"`
+		} `json:"releases"`
+	} `json:"components"`
+}
+
+func TestReadChangelogHistoryMergesNewestFirst(t *testing.T) {
+	dir := writeHistory(t, map[string]string{
+		"changelog/v0.9.10.json": historyNew,
+		"changelog/v0.9.8.json":  historyOld,
+		"changelog/notes.txt":    "not a changelog",
+	})
+	history, err := hostapi.ReadChangelogHistory(dir, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if history.Total != 2 || history.Shown != 2 {
+		t.Fatalf("total/shown = %d/%d", history.Total, history.Shown)
+	}
+	var doc mergedDoc
+	if err := json.Unmarshal(history.Document, &doc); err != nil {
+		t.Fatal(err)
+	}
+	if doc.BundleVersion != "v0.9.10" || len(doc.Components) != 3 {
+		t.Fatalf("doc = %+v", doc)
+	}
+	dash := doc.Components[0]
+	if dash.ID != "dashboard" || dash.Label != "Dashboard" || len(dash.Releases) != 2 ||
+		dash.Releases[0].Version != "v0.9.10" || len(dash.Releases[0].Groups) != 0 || dash.Releases[1].Version != "v0.9.8" {
+		t.Fatalf("dashboard = %+v (newest metadata, newest duplicate wins, newest first)", dash)
+	}
+	if doc.Components[1].ID != "bootstrap" || doc.Components[2].ID != "gone" {
+		t.Fatalf("order = %s, %s", doc.Components[1].ID, doc.Components[2].ID)
+	}
+}
+
+func TestReadChangelogHistoryLimit(t *testing.T) {
+	dir := writeHistory(t, map[string]string{"changelog/v0.9.10.json": historyNew, "changelog/v0.9.8.json": historyOld})
+	history, err := hostapi.ReadChangelogHistory(dir, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var doc mergedDoc
+	_ = json.Unmarshal(history.Document, &doc)
+	if history.Total != 2 || history.Shown != 1 || len(doc.Components) != 2 {
+		t.Fatalf("total/shown = %d/%d, components = %d", history.Total, history.Shown, len(doc.Components))
+	}
+}
+
+func TestReadChangelogHistorySkipsBrokenFiles(t *testing.T) {
+	dir := writeHistory(t, map[string]string{"changelog/v0.9.10.json": historyNew, "changelog/v0.9.9.json": "{broken"})
+	history, err := hostapi.ReadChangelogHistory(dir, 0)
+	if err != nil || history.Total != 1 {
+		t.Fatalf("history = %+v, err = %v", history, err)
+	}
+}
+
+func TestReadChangelogHistoryFallsBackToSingleFile(t *testing.T) {
+	dir := writeHistory(t, map[string]string{"changelog.json": historyNew})
+	history, err := hostapi.ReadChangelogHistory(dir, 5)
+	if err != nil || history.Total != 1 || history.Shown != 1 || !json.Valid(history.Document) {
+		t.Fatalf("history = %+v, err = %v", history, err)
+	}
+	if _, err := hostapi.ReadChangelogHistory(t.TempDir(), 0); err == nil {
+		t.Fatal("no changelog at all must be NO_CHANGELOG")
+	}
+}
