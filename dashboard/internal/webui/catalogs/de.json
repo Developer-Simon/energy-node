@@ -394,7 +394,7 @@
   "bridge.help.tailscale": "Beide Systeme ins selbe Tailnet bringen (Seite Tailscale) und als Adresse die Tailscale-IPv4 des Hauptsystems verwenden.",
   "bridge.help.title": "Vorbereitung und externe Abhängigkeiten",
   "bridge.help.topics": "In der Topic-Tabelle festlegen, welche Topics zum Hauptsystem gehen (out), von dort kommen (in) oder in beide Richtungen laufen.",
-  "bridge.help.verify": "Im Bridge-Status prüfen, dass die Verbindung als verbunden und die installierte Konfiguration als übereinstimmend angezeigt wird.",
+  "bridge.help.verify": "Im Status der Mosquitto-Bridge prüfen, dass die Bridge-Verbindung als verbunden und „Installiert = gespeichert“ als ja angezeigt wird.",
   "bridge.keepalive.decrease": "keepalive_interval verringern",
   "bridge.keepalive.increase": "keepalive_interval erhöhen",
   "bridge.keepalive.label": "keepalive_interval (Sekunden)",
