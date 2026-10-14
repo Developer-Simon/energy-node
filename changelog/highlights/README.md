@@ -6,7 +6,10 @@ release highlights in other languages than English:
     {"de": {"*": "Text for every component", "dashboard": "Text for the dashboard only"}}
 
 `*` applies to every component without its own line. Every other key is a
-target of `scripts/generate_changelog.sh`. While the PR is open, the
-`Highlights (de):` block of its description is the source and the Version bump
+target of `scripts/generate_changelog.sh`.
+
+The texts of already released highlights are collected in `archive.json`, in
+the form `{"<PR>": {"de": {...}}}`. A per-PR file overrides the archive for the
+languages it has. While the PR is open, the `Highlights (de):` block of its description is the source and the Version bump
 workflow writes the file. After the merge the file may be edited by hand. See
 [releasing.md](../../docs/developing/releasing.md#translations).

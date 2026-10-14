@@ -86,3 +86,30 @@ def test_write_pr_file_merges_languages_and_reports_change(tmp_path):
 def test_targets_from_table():
     table = {"components": [{"target": "dashboard"}, {"target": "service:shelly"}]}
     assert hi.targets_from_table(table) == {"dashboard", "service:shelly"}
+
+
+def test_archive_is_loaded_and_per_pr_file_wins_per_language(tmp_path):
+    archive = {
+        "7": {"de": {"*": "alt"}, "fr": {"*": "ancien"}},
+        "8": {"de": {"*": "acht"}},
+    }
+    (tmp_path / "archive.json").write_text(json.dumps(archive), encoding="utf-8")
+    (tmp_path / "7.json").write_text(json.dumps({"de": {"*": "neu"}}), encoding="utf-8")
+    translations = hi.load_translations(tmp_path)
+    assert translations == {
+        7: {"de": {"*": "neu"}, "fr": {"*": "ancien"}},
+        8: {"de": {"*": "acht"}},
+    }
+    assert hi.lookup(translations, 8, "dashboard", "de") == "acht"
+
+
+def test_load_names_broken_archive(tmp_path):
+    (tmp_path / "archive.json").write_text("{broken", encoding="utf-8")
+    with pytest.raises(ValueError, match="archive.json"):
+        hi.load_translations(tmp_path)
+
+
+def test_load_rejects_non_numeric_archive_key(tmp_path):
+    (tmp_path / "archive.json").write_text(json.dumps({"abc": {"de": {"*": "x"}}}), encoding="utf-8")
+    with pytest.raises(ValueError, match="archive.json"):
+        hi.load_translations(tmp_path)

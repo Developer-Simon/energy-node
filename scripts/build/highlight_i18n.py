@@ -5,6 +5,10 @@ Je PR eine Datei changelog/highlights/<PR>.json:
 
     {"de": {"*": "Text fuer jede Komponente", "dashboard": "nur fuer das Dashboard"}}
 
+Texte alter, bereits veroeffentlichter Highlights koennen in changelog/highlights/
+archive.json stehen ({"<PR>": {"de": {...}}}). Eine Datei <PR>.json ueberschreibt
+den Archiv-Eintrag fuer die Sprachen, die sie enthaelt.
+
 "*" gilt fuer jede Komponente ohne eigene Zeile, wie eine Zeile ohne Ziel im
 Block "Highlights:" der Squash-Nachricht (scripts/generate_changelog.sh). Jeder
 andere Schluessel ist ein Ziel von generate_changelog.sh (Spalte "target" in
@@ -22,6 +26,7 @@ from pathlib import Path
 # Sprachen ausser Englisch, die jedes Highlight braucht (CI-Pruefung).
 LANGUAGES = ("de",)
 TRANSLATIONS_DIR = Path("changelog/highlights")
+ARCHIVE_NAME = "archive.json"
 DEFAULT_KEY = "*"
 
 BLOCK_HEAD = re.compile(r"^\s*Highlights \((?P<lang>[a-z]{2})\):\s*$")
@@ -65,23 +70,44 @@ def parse_blocks(body, targets):
     return out
 
 
-def load_translations(directory):
-    """{pr: {lang: {key: text}}} aus <directory>/<PR>.json.
+def _read_archive(path):
+    """{pr: {lang: {key: text}}} aus archive.json. Schluessel sind PR-Nummern
+    als Text, z.B. {"7": {"de": {"*": "..."}}}."""
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as err:
+        raise ValueError(f"{path}: {err}") from err
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: the top level must be an object")
+    for key in data:
+        if not key.isdigit():
+            raise ValueError(f"{path}: key {key!r} is not a PR number")
+    return {int(key): entry for key, entry in data.items()}
 
-    Eine kaputte Datei bricht ab (ValueError mit Dateiname): still verlorene
+
+def load_translations(directory):
+    """{pr: {lang: {key: text}}} aus <directory>/archive.json und <PR>.json.
+
+    Eine Datei <PR>.json ueberschreibt den Archiv-Eintrag je Sprache. Eine
+    kaputte Datei bricht ab (ValueError mit Dateiname): still verlorene
     Uebersetzungen fallen sonst erst im Release auf.
     """
     out = {}
     directory = Path(directory)
     if not directory.is_dir():
         return out
+    archive = directory / ARCHIVE_NAME
+    if archive.is_file():
+        out = _read_archive(archive)
     for path in sorted(directory.glob("*.json")):
         if not path.stem.isdigit():
             continue
         try:
-            out[int(path.stem)] = json.loads(path.read_text(encoding="utf-8"))
+            entry = json.loads(path.read_text(encoding="utf-8"))
         except json.JSONDecodeError as err:
             raise ValueError(f"{path}: {err}") from err
+        pr = int(path.stem)
+        out[pr] = {**out.get(pr, {}), **entry}
     return out
 
 

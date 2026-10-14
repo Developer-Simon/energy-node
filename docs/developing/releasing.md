@@ -212,6 +212,10 @@ example to fix a word or to translate an older release. `changelog.json`
 carries the texts as `"i18n": {"de": "…"}`, the dashboard, the installer and
 the release notes show them and fall back to English.
 
+The texts of older releases live in `changelog/highlights/archive.json`, in the
+form `{"<PR>": {"de": {...}}}`, so the file list stays short. New PRs get their
+own `<PR>.json`. A per-PR file overrides the archive for the languages it has.
+
 ## One-time setup: the `BUMP_TOKEN` secret
 
 The [`Version bump`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/version-bump.yml)
