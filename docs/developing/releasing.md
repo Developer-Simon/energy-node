@@ -218,7 +218,7 @@ own `<PR>.json`. A per-PR file overrides the archive for the languages it has.
 
 When a final release tag is pushed, the workflow `archive-highlight-translations.yml`
 folds all `changelog/highlights/<PR>.json` into `archive.json` and opens a PR for
-it. Merge that PR like any other. The workflow needs the `BUMP_TOKEN` secret, and
+it. Merge that PR on GitHub, not with merge-pr.sh. The workflow needs the `BUMP_TOKEN` secret, and
 without it the job skips with a notice.
 
 ## One-time setup: the `BUMP_TOKEN` secret

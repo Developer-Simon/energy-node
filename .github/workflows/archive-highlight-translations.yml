@@ -60,8 +60,9 @@ jobs:
           of their files, one per PR, into changelog/highlights/archive.json. The
           directory then lists only the PRs that are not released yet. The texts do
           not change.
-          The release workflow opened it when ${TAG} was tagged. Merge it like any
-          other PR.
+          The release workflow opened it when ${TAG} was tagged. Merge it with the
+          squash button on GitHub, scripts/dev/merge-pr.sh does not apply because
+          this PR has no commit message block.
           EOF
 
           git config user.name "energy-node-bot"
