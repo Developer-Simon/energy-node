@@ -364,10 +364,9 @@ const maxCompactRows = 3
 
 // ApplyDevicePrefs copies the stored per-device display preferences onto a
 // snapshot. Call it right after reg.Snapshot() and before anything reads the
-// devices: the compact card's row selection and CompactStructureFingerprint
-// both derive from FavoriteRefs, so a snapshot that skipped this step would
-// render a card the fingerprint does not describe - and the live patcher
-// would write values into the wrong rows.
+// devices: the compact card's row selection derives from FavoriteRefs, so a
+// snapshot that skipped this step would render a card the devices topic does
+// not describe - and the live patcher would write values into the wrong rows.
 //
 // It also stamps SuggestedIcon on every device, with or without a record, so
 // the modal's picker knows which icon an empty choice stands for.
@@ -475,70 +474,6 @@ func compactCardForItem(dev registry.DeviceView, item settings.Item) compactCard
 		return compactCardAuto(dev)
 	}
 	return compactCardView{Device: dev, Rows: resolveEntityRefs(dev, item.EntityRefs), Auto: false}
-}
-
-// CompactStructureFingerprint verdichtet das, was die Kompakt-Karte
-// (compact-card in devices.html) *strukturell* zeigt und was der geteilte
-// registry.StructureFingerprint nicht abdeckt: welche bis zu drei Entitaeten
-// priorityEntities je Geraet auswaehlt - diese Auswahl haengt an HasValue,
-// also an einem Messwert - und die zu einer Ampel verdichtete
-// Geraete-Verfuegbarkeit, die den linken Kartenrand und die Status-Pille
-// faerbt.
-//
-// dashboard.js vergleicht ihn (SSE-Feld structure_compact gegen
-// data-structure-compact) *zusaetzlich* zum geteilten Fingerabdruck. Stehen
-// beide, hat sich nur ein Wert innerhalb derselben Auswahl bewegt und
-// compact-card-values.js zieht ihn nach. Wechselt einer, tauscht
-// #devices-live wie frueher.
-//
-// Als Hex-String und nicht als Zahl - dieselbe Begruendung wie bei
-// registry.StructureFingerprint: ein uint64 jenseits 2^53 verliert beim
-// JSON-Parsen in JavaScript Stellen.
-//
-// Die Reihenfolge ist verlaesslich, weil snapshotLocked() Geraete nach ID
-// und Entitaeten nach ObjectID sortiert und priorityEntities die
-// Snapshot-Reihenfolge beibehaelt.
-func CompactStructureFingerprint(devices []registry.DeviceView) string {
-	sum := fnv.New64a()
-	writeField := func(value string) {
-		sum.Write([]byte(value))
-		// Das Nullbyte trennt die Felder: ohne es ergaeben "ab"+"" und
-		// "a"+"b" denselben Hash.
-		sum.Write([]byte{0})
-	}
-	for _, device := range devices {
-		writeField(device.ID)
-		writeField(deviceAvailability(device.Entities))
-		for _, entity := range priorityEntities(device) {
-			writeField(entity.UniqueID)
-		}
-		// Geraete-Trenner, damit zwei Geraete mit den Auswahl-IDs [a] und
-		// [a b] nicht denselben Hash ergeben wie [a b] und [a].
-		writeField("|")
-	}
-	return strconv.FormatUint(sum.Sum64(), 16)
-}
-
-// AvailabilityStructureFingerprint verdichtet nur, was die *konfigurierte*
-// Kompaktkachel strukturell zeigt und der geteilte StructureFingerprint nicht
-// abdeckt: die zu einer Ampel verdichtete Geraete-Verfuegbarkeit. Ihre bis zu
-// drei Zeilen stehen fest (entity_refs), deshalb braucht sie den
-// wertabhaengigen CompactStructureFingerprint nicht - nur dieses eine Ja.
-//
-// dashboard.js vergleicht ihn (SSE-Feld structure_availability gegen
-// data-structure-availability) fuer Raster, in denen jede Kompaktkachel
-// konfiguriert ist. Als Hex-String, gleiche Begruendung wie bei
-// StructureFingerprint: ein uint64 jenseits 2^53 verliert beim JSON-Parsen in
-// JavaScript Stellen.
-func AvailabilityStructureFingerprint(devices []registry.DeviceView) string {
-	sum := fnv.New64a()
-	for _, device := range devices {
-		sum.Write([]byte(device.ID))
-		sum.Write([]byte{0})
-		sum.Write([]byte(deviceAvailability(device.Entities)))
-		sum.Write([]byte{0})
-	}
-	return strconv.FormatUint(sum.Sum64(), 16)
 }
 
 // deviceTileForItem returns dev unchanged when visibleCategories is empty
@@ -942,21 +877,6 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		}
 		if needsDevices {
 			view["Devices"] = devices
-		}
-		// Dasselbe Feld, das der SSE-Rumpf mitschickt (eventBody.Structure).
-		// Der Browser vergleicht beide und tauscht sein Fragment nur, wenn
-		// sie auseinanderlaufen - siehe deviceTilesPushCovers in dashboard.js.
-		if needsTiles {
-			view["Structure"] = registry.StructureFingerprint(devices)
-		}
-		// Dasselbe Feld, das der SSE-Rumpf als structure_compact mitschickt
-		// (eventBody.StructureCompact). Die HiddenOnTile-Schleife oben aendert
-		// nur Felder, die weder priorityEntities noch deviceAvailability
-		// liest - der Wert hier ist also deckungsgleich mit dem, den bodies()
-		// aus reg.Snapshot() rechnet.
-		if needsTiles {
-			view["StructureCompact"] = CompactStructureFingerprint(devices)
-			view["StructureAvailability"] = AvailabilityStructureFingerprint(devices)
 		}
 		if needsEnergyAggregate {
 			if store != nil {

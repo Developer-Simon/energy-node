@@ -4,13 +4,9 @@
 // die read-only Kompakt-Karten (compact-card in devices.html). Beide teilen
 // sich die Primitive aus entity-values.js.
 //
-// Was die Karte *strukturell* zeigt - welche bis zu drei Zeilen
-// (priorityEntities) und welche Ampel am Rand (deviceAvailability) - haengt
-// an der Discovery und am ersten Messwert je Entitaet. Aendert sich daran
-// etwas, wechselt webui.CompactStructureFingerprint und dashboard.js tauscht
-// #devices-live ganz. Diese Datei ist nur fuer die Zeit dazwischen
-// zustaendig, und in der aendert sich genau eines: der Wert einer schon
-// sichtbaren Zeile (Text, Einheit, stale, Zeitstempel).
+// Was die Karte strukturell zeigt (Zeilen, Ampel), spielt device-structure.js
+// aus dem SSE-Thema devices ein. Diese Datei zieht nur den Wert einer
+// sichtbaren Zeile nach (Text, Einheit, stale, Zeitstempel).
 (() => {
   const {merge, timestampNode} = window.entityValues;
 

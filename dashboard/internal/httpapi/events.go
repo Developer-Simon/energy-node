@@ -24,9 +24,6 @@ const (
 	topicEnergy      = "energy"
 	topicEntities    = "entities"
 	topicDiagnostics = "diagnostics"
-	// topicStructure traegt die drei globalen Fingerabdruecke. Uebergang bis
-	// zum Thema devices, danach entfaellt es.
-	topicStructure = "structure"
 	// topicEnergyStats traegt nur die Revision der Energiestatistik. Kachel
 	// und Seite laden ihre Zahlen selbst, wenn sie sich aendert.
 	topicEnergyStats = "energy_stats"
@@ -38,7 +35,7 @@ const (
 // defaultEventTopics gilt ohne ?topics=. Ein aelterer Client bekommt damit
 // denselben Rumpf wie vor den Themen, plus den kleinen Zweig energy_stats,
 // falls es die Statistik gibt.
-var defaultEventTopics = []string{topicEnergy, topicEntities, topicDiagnostics, topicStructure, topicEnergyStats}
+var defaultEventTopics = []string{topicEnergy, topicEntities, topicDiagnostics, topicEnergyStats}
 
 // topicCache haelt den zuletzt gebauten Teil eines Themas. Ein zweiter
 // Aufruf bei gleicher Version liefert denselben Teil - das ist nicht nur
@@ -86,7 +83,7 @@ type eventCache struct {
 	snapVersion registryevents.Version
 	devices     []registry.DeviceView
 
-	energy, entities, diagnostics, structure, energyStats, deviceEntries topicCache
+	energy, entities, diagnostics, energyStats, deviceEntries topicCache
 	// lastValues gehoert zum entities-Thema und wird nur unter entities.mu
 	// gelesen und geschrieben.
 	lastValues map[string]registry.ValueView
@@ -106,7 +103,6 @@ func (c *eventCache) topics() []registryevents.Topic {
 		{Name: topicEnergy, Version: c.registryVersion, Build: c.buildEnergy},
 		{Name: topicEntities, Version: c.registryVersion, Build: c.buildEntities},
 		{Name: topicDiagnostics, Version: c.registryVersion, Build: c.buildDiagnostics},
-		{Name: topicStructure, Version: c.registryVersion, Build: c.buildStructure},
 		{Name: topicDevices, Version: c.registryVersion, Build: c.buildDevices, Select: c.selectDevices},
 	}
 	if c.stats != nil && c.stats.Store != nil {
@@ -123,7 +119,7 @@ func (c *eventCache) topics() []registryevents.Topic {
 
 // registryVersion ist die Version der Registry-Themen. Die
 // Geraete-Einstellungen gehoeren dazu: die Zeilenauswahl der Kompaktkarte
-// und die Fingerabdruecke haengen an FavoriteRefs (ApplyDevicePrefs).
+// haengt an FavoriteRefs (ApplyDevicePrefs).
 func (c *eventCache) registryVersion() registryevents.Version {
 	v := registryevents.Version{c.reg.Version()}
 	if c.store != nil {
@@ -212,32 +208,6 @@ func (c *eventCache) buildDiagnostics(v registryevents.Version) (registryevents.
 	})
 }
 
-// buildStructure traegt die globalen Fingerabdruecke, die dashboard.js mit
-// data-structure, data-structure-compact und data-structure-availability
-// des Fragments vergleicht.
-func (c *eventCache) buildStructure(v registryevents.Version) (registryevents.Part, bool) {
-	return c.structure.get(v, func() (registryevents.Part, bool) {
-		devices := c.snapshot(v)
-		fields := []struct{ name, value string }{
-			{"structure", registry.StructureFingerprint(devices)},
-			{"structure_compact", webui.CompactStructureFingerprint(devices)},
-			{"structure_availability", webui.AvailabilityStructureFingerprint(devices)},
-		}
-		var out []byte
-		for _, field := range fields {
-			m, ok := member(field.name, field.value)
-			if !ok {
-				return registryevents.Part{}, false
-			}
-			if len(out) > 0 {
-				out = append(out, ',')
-			}
-			out = append(out, m...)
-		}
-		return sameParts(out), true
-	})
-}
-
 // buildEnergyStats traegt nur die Revision der Statistik. Die Zahlen holt
 // sich der Client ueber /api/v1/energy/stats, wenn sich die Revision aendert.
 func (c *eventCache) buildEnergyStats(v registryevents.Version) (registryevents.Part, bool) {
@@ -250,8 +220,8 @@ func (c *eventCache) buildEnergyStats(v registryevents.Version) (registryevents.
 // changedValues sind die Eintraege aus now, die in previous fehlen oder sich
 // unterscheiden. previous == nil (erster Lauf) heisst: alles ist neu, der
 // Delta ist dann deckungsgleich mit dem vollen Rumpf. Eine entfernte
-// Entitaet steht bewusst nicht drin - ihr Verschwinden aendert den
-// StructureFingerprint, und der Client tauscht dann sein Fragment ganz.
+// Entitaet steht bewusst nicht drin - ihr Verschwinden aendert die Struktur
+// ihres Geraets im Thema devices, und der Client holt die Kachel neu.
 func changedValues(previous, now map[string]registry.ValueView) map[string]registry.ValueView {
 	changed := make(map[string]registry.ValueView, len(now))
 	for id, value := range now {

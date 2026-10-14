@@ -13,7 +13,7 @@
 {{end}}
 
 {{define "devices-live"}}
-<div id="devices-live" data-device-view-mode="{{.DeviceViewMode}}" data-structure="{{.Structure}}" data-structure-compact="{{.StructureCompact}}" aria-live="polite" hx-get="{{.BasePath}}/?fragment=devices-live" hx-target="#devices-live" hx-swap="outerHTML">
+<div id="devices-live" data-device-view-mode="{{.DeviceViewMode}}" aria-live="polite" hx-get="{{.BasePath}}/?fragment=devices-live" hx-target="#devices-live" hx-swap="outerHTML">
   {{template "compact-row-template"}}
   {{if not .Devices}}
   <p>{{t "devices.empty"}}</p>

@@ -99,7 +99,7 @@
 {{end}}
 
 {{define "overview-live"}}
-<div id="overview-live" data-structure="{{.Structure}}" data-structure-compact="{{.StructureCompact}}" data-structure-availability="{{.StructureAvailability}}">
+<div id="overview-live">
   {{/* Ein Schnappschuss fuer alle sieben Energiekarten. Er muss innerhalb
        von #overview-live stehen: der htmx-Swap ist outerHTML auf genau
        diesen Knoten, ausserhalb wuerde der Schnappschuss auf dem Stand des

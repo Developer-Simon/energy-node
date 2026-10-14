@@ -1746,9 +1746,9 @@ func TestDeviceTilesCarryPatchAttributes(t *testing.T) {
 		}
 	}
 
-	want := registry.StructureFingerprint(reg.Snapshot())
+	want := DeviceStructureFingerprint(reg.Snapshot()[0])
 	if !strings.Contains(body, `data-structure="`+want+`"`) {
-		t.Fatalf("data-structure passt nicht zu StructureFingerprint (%q): %s", want, body)
+		t.Fatalf("data-structure passt nicht zu DeviceStructureFingerprint (%q): %s", want, body)
 	}
 }
 
@@ -1765,7 +1765,7 @@ func TestOverviewFragmentCarriesStructure(t *testing.T) {
 	if recorder.Code != 200 {
 		t.Fatalf("got status %d", recorder.Code)
 	}
-	want := registry.StructureFingerprint(reg.Snapshot())
+	want := DeviceStructureFingerprint(reg.Snapshot()[0])
 	if !strings.Contains(recorder.Body.String(), `data-structure="`+want+`"`) {
 		t.Fatalf("#overview-live ohne passendes data-structure (%q): %s", want, recorder.Body.String())
 	}
@@ -1965,109 +1965,6 @@ func TestCompactCardTemplateRendersStatusAndPriorityRows(t *testing.T) {
 		if strings.Contains(body, forbidden) {
 			t.Fatalf("compact-card must be read-only, found %q", forbidden)
 		}
-	}
-}
-
-// Der Kompakt-Fingerabdruck ist der Waechter der Kompakt-Ansicht. Sein Wert
-// liegt darin, dass er bei einer reinen Wertaenderung innerhalb derselben
-// Zeilenauswahl stehenbleibt - sonst taeuschte er bei jedem MQTT-Messwert
-// einen Strukturwechsel vor und der Tausch waere zurueck.
-func TestCompactStructureFingerprintIgnoresValueTicksWithinPickedSet(t *testing.T) {
-	mk := func(power, temp string, stale bool) []registry.DeviceView {
-		return []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-			{UniqueID: "node_power", Name: "Leistung", Component: "sensor", DeviceClass: "power", UnitOfMeasurement: "W", HasValue: true, Value: power, Stale: stale, HasAvailability: true, Available: true},
-			{UniqueID: "node_temp", Name: "Temperatur", Component: "sensor", DeviceClass: "temperature", UnitOfMeasurement: "C", HasValue: true, Value: temp, HasAvailability: true, Available: true},
-		}}}
-	}
-	if CompactStructureFingerprint(mk("42", "21", false)) != CompactStructureFingerprint(mk("1337", "23", true)) {
-		t.Error("eine reine Wertaenderung innerhalb derselben Auswahl hat den Kompakt-Fingerabdruck veraendert")
-	}
-}
-
-// Die ersten drei Zeilen einer Karte sind die Messwerte, die einen Wert
-// tragen. Bekommt eine vierte Entitaet ihren ersten Wert, waehrend bisher
-// nur zwei einen hatten, verdraengt sie nichts - aber die Auswahl waechst
-// von zwei auf drei Zeilen. Bleibt der Fingerabdruck dabei stehen,
-// erscheint die neue Zeile im Browser nie.
-func TestCompactStructureFingerprintReactsToPickedSet(t *testing.T) {
-	base := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1"},
-		{UniqueID: "b", Name: "B", Component: "sensor", HasValue: true, Value: "2"},
-		{UniqueID: "c", Name: "C", Component: "sensor", HasValue: false},
-	}}}
-	grown := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1"},
-		{UniqueID: "b", Name: "B", Component: "sensor", HasValue: true, Value: "2"},
-		{UniqueID: "c", Name: "C", Component: "sensor", HasValue: true, Value: "3"},
-	}}}
-	if CompactStructureFingerprint(base) == CompactStructureFingerprint(grown) {
-		t.Error("die Zeilenauswahl ist gewachsen, der Kompakt-Fingerabdruck nicht")
-	}
-}
-
-// Die Geraete-Ampel faerbt den linken Kartenrand und die Status-Pille. Sie
-// haengt an allen Entitaeten des Geraets, nicht nur den sichtbaren Zeilen -
-// deshalb reitet sie auf diesem Fingerabdruck mit statt im Browser
-// nachgezogen zu werden.
-func TestCompactStructureFingerprintReactsToAvailability(t *testing.T) {
-	online := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1", HasAvailability: true, Available: true},
-	}}}
-	offline := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1", HasAvailability: true, Available: false},
-	}}}
-	if CompactStructureFingerprint(online) == CompactStructureFingerprint(offline) {
-		t.Error("die Geraete-Verfuegbarkeit ist gewechselt, der Kompakt-Fingerabdruck nicht")
-	}
-}
-
-// Der leere Fall muss einen Wert liefern, keinen leeren String: der Client
-// liest einen leeren Wert als "kein Fingerabdruck da" und erzwingt dann
-// ewig den Tausch. nil und leere Liste muessen gleich sein.
-func TestCompactStructureFingerprintOfEmptyIsStableAndNotBlank(t *testing.T) {
-	empty := CompactStructureFingerprint(nil)
-	if empty == "" {
-		t.Fatal("leerer Kompakt-Fingerabdruck fuer eine leere Registry")
-	}
-	if empty != CompactStructureFingerprint([]registry.DeviceView{}) {
-		t.Error("nil und leere Liste liefern verschiedene Kompakt-Fingerabdruecke")
-	}
-}
-
-// Ohne data-structure-compact weiss dashboard.js nicht, wann die
-// Kompakt-Ansicht ihr Fragment tauschen muss; ohne data-device-class /
-// data-unit an der Zeile kann compact-card-values.js den Wert nicht so
-// formatieren wie das Template.
-func TestCompactCardsCarryPatchAttributes(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", DeviceClass: "power", UnitOfMeasurement: "W", StateTopic: "node/power"},
-	})
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-
-	recorder := httptest.NewRecorder()
-	Overview(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live", nil))
-	if recorder.Code != 200 {
-		t.Fatalf("got status %d", recorder.Code)
-	}
-	body := recorder.Body.String()
-
-	for _, marker := range []string{
-		`class="compact-card-row"`,
-		`data-entity-id="node_power"`,
-		`data-device-class="power"`,
-		`data-unit="W"`,
-		`data-structure-compact="`,
-	} {
-		if !strings.Contains(body, marker) {
-			t.Fatalf("Kompakt-Fragment enthaelt %q nicht: %s", marker, body)
-		}
-	}
-
-	want := CompactStructureFingerprint(reg.Snapshot())
-	if !strings.Contains(body, `data-structure-compact="`+want+`"`) {
-		t.Fatalf("data-structure-compact passt nicht zu CompactStructureFingerprint (%q): %s", want, body)
 	}
 }
 
@@ -2415,9 +2312,6 @@ func TestOverviewRendersCompactDeviceCard(t *testing.T) {
 	if !strings.Contains(body, `data-display="compact"`) {
 		t.Error("data-display fehlt an der Rasterzelle")
 	}
-	if !strings.Contains(body, `data-structure-compact="`) {
-		t.Error("data-structure-compact fehlt an #overview-live")
-	}
 }
 
 func TestOverviewRendersDetailDeviceTileByDefault(t *testing.T) {
@@ -2537,34 +2431,6 @@ func TestCompactCardTemplateRendersConfiguredRows(t *testing.T) {
 	}
 }
 
-// Der Availability-Fingerabdruck ist der Waechter der konfigurierten
-// Kompaktkachel: sie haengt nicht an priorityEntities (ihre Zeilen stehen
-// fest), aber die Geraete-Ampel muss stimmen. Reine Wertaenderungen lassen
-// ihn stehen, ein Verfuegbarkeitswechsel bewegt ihn.
-func TestAvailabilityStructureFingerprint(t *testing.T) {
-	online := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", HasValue: true, Value: "1", HasAvailability: true, Available: true},
-	}}}
-	valueTick := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", HasValue: true, Value: "9999", HasAvailability: true, Available: true},
-	}}}
-	offline := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", HasValue: true, Value: "1", HasAvailability: true, Available: false},
-	}}}
-	if AvailabilityStructureFingerprint(online) != AvailabilityStructureFingerprint(valueTick) {
-		t.Error("eine reine Wertaenderung hat den Availability-Fingerabdruck bewegt")
-	}
-	if AvailabilityStructureFingerprint(online) == AvailabilityStructureFingerprint(offline) {
-		t.Error("ein Verfuegbarkeitswechsel hat den Availability-Fingerabdruck nicht bewegt")
-	}
-	if AvailabilityStructureFingerprint(nil) == "" {
-		t.Error("leerer Availability-Fingerabdruck - der Client wuerde dauerhaft tauschen")
-	}
-	if AvailabilityStructureFingerprint(nil) != AvailabilityStructureFingerprint([]registry.DeviceView{}) {
-		t.Error("nil und leere Liste liefern verschiedene Availability-Fingerabdruecke")
-	}
-}
-
 // Die Uebersicht markiert jede kompakte Geraetekachel danach, ob sie eine
 // feste Zeilenauswahl hat - daran entscheidet dashboard.js, welcher
 // Fingerabdruck die Kachel deckt.
@@ -2579,9 +2445,6 @@ func TestOverviewMarksConfiguredCompactCards(t *testing.T) {
 	body := renderOverviewWithLayout(t, configured)
 	if !strings.Contains(body, `data-compact-configured="true"`) {
 		t.Errorf("die konfigurierte Kachel traegt data-compact-configured=\"true\" nicht:\n%s", body)
-	}
-	if !strings.Contains(body, `data-structure-availability="`) {
-		t.Error("data-structure-availability fehlt an #overview-live")
 	}
 
 	auto := settings.Layout{Version: 3, Pages: []settings.Page{{
@@ -2735,13 +2598,20 @@ func TestPriorityEntitiesSkipsOrphanFavouriteAndFallsBackWhenEmpty(t *testing.T)
 	}
 }
 
-func TestCompactStructureFingerprintFollowsFavourites(t *testing.T) {
-	plain := []registry.DeviceView{devicePrefsTestDevice()}
-	favoured := []registry.DeviceView{devicePrefsTestDevice()}
-	favoured[0].FavoriteRefs = []string{"node_uptime"}
+func TestCompactRowsFollowFavourites(t *testing.T) {
+	plain := devicePrefsTestDevice()
+	favoured := devicePrefsTestDevice()
+	favoured.FavoriteRefs = []string{"node_uptime"}
 
-	if CompactStructureFingerprint(plain) == CompactStructureFingerprint(favoured) {
-		t.Fatal("CompactStructureFingerprint ignored the favourite selection - the live patcher would write values into the wrong rows")
+	ids := func(rows []CompactRow) string {
+		var out []string
+		for _, row := range rows {
+			out = append(out, row.ID)
+		}
+		return strings.Join(out, ",")
+	}
+	if ids(CompactRows(plain)) == ids(CompactRows(favoured)) {
+		t.Fatal("CompactRows ignored the favourite selection - the live patcher would build the wrong rows")
 	}
 }
 

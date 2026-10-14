@@ -13,7 +13,6 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registryevents"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
 // bodies setzt den Standardrumpf so zusammen, wie ihn ein Client ohne
@@ -29,6 +28,9 @@ func (c *eventCache) bodies(reg *registry.Registry, store *settings.Store, resol
 	}
 	var fullMembers, deltaMembers [][]byte
 	for _, topic := range c.topics() {
+		if topic.Select != nil {
+			continue
+		}
 		part, ok := topic.Build(v)
 		if !ok {
 			return nil, nil
@@ -100,57 +102,6 @@ func TestEventBodyEntitiesIsObjectWhenEmpty(t *testing.T) {
 	}
 	if body.Entities == nil {
 		t.Errorf("entities ist null statt {}: %s", data)
-	}
-}
-
-// Der vierte Zweig sagt dem Browser, wann sein Fragment veraltet ist. Fehlt
-// er, faellt der Client auf den Tausch zurueck - richtig, aber der Gewinn
-// dieses Plans waere weg. Der Test haelt darum fest, dass er da ist.
-func TestEventBodyCarriesStructureFingerprint(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "relay", Component: "switch", Name: "Relais"},
-	})
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 4)
-
-	var body struct {
-		Structure string `json:"structure"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v (%s)", err, data)
-	}
-	if want := registry.StructureFingerprint(reg.Snapshot()); body.Structure != want {
-		t.Errorf("structure = %q, erwartet %q", body.Structure, want)
-	}
-	if body.Structure == "" {
-		t.Error("structure ist leer - der Client wuerde dauerhaft tauschen")
-	}
-}
-
-// Der Fingerabdruck darf nicht mit der Registry-Version wandern: die zaehlt
-// jeden MQTT-Wert mit, er soll genau das ignorieren.
-func TestEventBodyStructureSurvivesAValueChange(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	before := registry.StructureFingerprint(reg.Snapshot())
-
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-	var body struct {
-		Structure string `json:"structure"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v", err)
-	}
-	if body.Structure != before {
-		t.Errorf("ein Messwert hat den Fingerabdruck veraendert: %q -> %q", before, body.Structure)
 	}
 }
 
@@ -306,88 +257,6 @@ func decodeEntities(t *testing.T, body []byte) map[string]registry.ValueView {
 	return probe.Entities
 }
 
-// Der fuenfte Zweig sagt der Kompakt-Ansicht, wann ihre Zeilenauswahl oder
-// die Geraete-Ampel veraltet ist. Fehlt er, faellt der Client auf den
-// Tausch zurueck - richtig, aber der Gewinn dieses Plans waere weg.
-func TestEventBodyCarriesCompactStructureFingerprint(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-
-	var body struct {
-		StructureCompact string `json:"structure_compact"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v (%s)", err, data)
-	}
-	if want := webui.CompactStructureFingerprint(reg.Snapshot()); body.StructureCompact != want {
-		t.Errorf("structure_compact = %q, erwartet %q", body.StructureCompact, want)
-	}
-	if body.StructureCompact == "" {
-		t.Error("structure_compact ist leer - die Kompakt-Ansicht wuerde dauerhaft tauschen")
-	}
-}
-
-// Bewegt sich nur ein Messwert innerhalb derselben Zeilenauswahl, darf der
-// Kompakt-Fingerabdruck nicht wandern - genau das ist sein Zweck.
-func TestEventBodyCompactStructureSurvivesAValueTick(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-	before := webui.CompactStructureFingerprint(reg.Snapshot())
-
-	reg.UpdateTopicWithQoS("node/power", []byte("1337"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-	var body struct {
-		StructureCompact string `json:"structure_compact"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v", err)
-	}
-	if body.StructureCompact != before {
-		t.Errorf("ein Messwert hat den Kompakt-Fingerabdruck veraendert: %q -> %q", before, body.StructureCompact)
-	}
-}
-
-// Der Availability-Zweig deckt fuer die konfigurierte Kompaktkachel die
-// Geraete-Ampel ab. Fehlt er, faellt der Client auf den Fragment-Tausch
-// zurueck - der Gewinn dieses Plans waere weg.
-func TestEventBodyCarriesAvailabilityStructureFingerprint(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-
-	var body struct {
-		StructureAvailability string `json:"structure_availability"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v (%s)", err, data)
-	}
-	if want := webui.AvailabilityStructureFingerprint(reg.Snapshot()); body.StructureAvailability != want {
-		t.Errorf("structure_availability = %q, erwartet %q", body.StructureAvailability, want)
-	}
-	if body.StructureAvailability == "" {
-		t.Error("structure_availability ist leer - die konfigurierte Kompaktkachel wuerde dauerhaft tauschen")
-	}
-}
-
 func TestEnergyStatsTopicOnlyWithService(t *testing.T) {
 	reg := registry.New()
 	without := newEventCache(reg, nil, energy.NewResolver(nil), nil)
@@ -521,5 +390,20 @@ func TestDevicesDeltaReportsARemovedDeviceAsNull(t *testing.T) {
 	json.Unmarshal(body["devices"], &devices)
 	if string(devices["weg"]) != "null" {
 		t.Errorf("entferntes Geraet = %s, want null", devices["weg"])
+	}
+}
+
+func TestDefaultBodyCarriesNoGlobalFingerprints(t *testing.T) {
+	reg := registry.New()
+	cache := &eventCache{}
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 1)
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(data, &body); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"structure", "structure_compact", "structure_availability", "devices"} {
+		if _, ok := body[key]; ok {
+			t.Errorf("Standardrumpf traegt %q", key)
+		}
 	}
 }
