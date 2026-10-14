@@ -107,3 +107,19 @@ def test_sync_replaces_language_wholesale(tmp_path):
     body.write_text("Highlights (de):\n- neu\n", encoding="utf-8")
     ht.main(["sync", "--repo", str(repo), "--pr", "140", "--body-file", str(body)])
     assert json.loads((repo / "changelog/highlights/140.json").read_text(encoding="utf-8")) == {"de": {"*": "neu"}}
+
+
+def test_archive_command_folds_files(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}})
+    assert ht.main(["archive", "--repo", str(repo)]) == 0
+    assert "archived 1 files" in capsys.readouterr().out
+    assert not (repo / "changelog/highlights/140.json").exists()
+    archive = json.loads((repo / "changelog/highlights/archive.json").read_text(encoding="utf-8"))
+    assert "140" in archive
+
+
+def test_archive_command_with_nothing_to_do(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    assert ht.main(["archive", "--repo", str(repo)]) == 0
+    assert "nothing to archive" in capsys.readouterr().out

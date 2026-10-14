@@ -113,3 +113,36 @@ def test_load_rejects_non_numeric_archive_key(tmp_path):
     (tmp_path / "archive.json").write_text(json.dumps({"abc": {"de": {"*": "x"}}}), encoding="utf-8")
     with pytest.raises(ValueError, match="archive.json"):
         hi.load_translations(tmp_path)
+
+
+def test_archive_files_folds_per_pr_files_and_deletes_them(tmp_path):
+    (tmp_path / "archive.json").write_text(
+        json.dumps({"7": {"de": {"*": "alt"}}}), encoding="utf-8")
+    (tmp_path / "7.json").write_text(json.dumps({"de": {"*": "neu"}}), encoding="utf-8")
+    (tmp_path / "5.json").write_text(json.dumps({"de": {"*": "fuenf"}}), encoding="utf-8")
+    (tmp_path / "README.md").write_text("keep", encoding="utf-8")
+
+    assert hi.archive_files(tmp_path) == [5, 7]
+    assert not (tmp_path / "5.json").exists()
+    assert not (tmp_path / "7.json").exists()
+    assert (tmp_path / "README.md").exists()
+    assert hi.load_translations(tmp_path) == {
+        5: {"de": {"*": "fuenf"}},
+        7: {"de": {"*": "neu"}},
+    }
+    keys = list(json.loads((tmp_path / "archive.json").read_text(encoding="utf-8")))
+    assert keys == ["5", "7"]
+
+
+def test_archive_files_without_files_writes_nothing(tmp_path):
+    assert hi.archive_files(tmp_path) == []
+    assert not (tmp_path / "archive.json").exists()
+
+
+def test_archive_files_broken_file_changes_nothing(tmp_path):
+    (tmp_path / "3.json").write_text(json.dumps({"de": {"*": "ok"}}), encoding="utf-8")
+    (tmp_path / "4.json").write_text("{broken", encoding="utf-8")
+    with pytest.raises(ValueError, match="4.json"):
+        hi.archive_files(tmp_path)
+    assert (tmp_path / "3.json").exists()
+    assert not (tmp_path / "archive.json").exists()

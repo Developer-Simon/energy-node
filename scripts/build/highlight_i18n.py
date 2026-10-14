@@ -139,3 +139,34 @@ def write_pr_file(directory, pr, blocks):
     directory.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return True
+
+
+def archive_files(directory):
+    """Faltet alle <PR>.json in archive.json und loescht sie. Gibt die
+    gefalteten PR-Nummern sortiert zurueck, ohne Dateien gibt es nichts zu tun
+    und archive.json bleibt unangetastet.
+
+    Alle Dateien werden vorher gelesen: eine kaputte Datei bricht ab (ValueError
+    mit Dateiname), bevor etwas geschrieben oder geloescht wird.
+    """
+    directory = Path(directory)
+    if not directory.is_dir():
+        return []
+    per_pr = [path for path in sorted(directory.glob("*.json")) if path.stem.isdigit()]
+    if not per_pr:
+        return []
+    archive_path = directory / ARCHIVE_NAME
+    archive = _read_archive(archive_path) if archive_path.is_file() else {}
+    folded = {}
+    for path in per_pr:
+        try:
+            folded[int(path.stem)] = json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as err:
+            raise ValueError(f"{path}: {err}") from err
+    for pr, entry in folded.items():
+        archive[pr] = {**archive.get(pr, {}), **entry}
+    ordered = {str(pr): archive[pr] for pr in sorted(archive)}
+    archive_path.write_text(json.dumps(ordered, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    for path in per_pr:
+        path.unlink()
+    return sorted(folded)

@@ -3,6 +3,7 @@
 
     highlight_translations.py sync  --repo <repo> --pr <N> --body-file <datei>
     highlight_translations.py check --repo <repo> --pr <N>
+    highlight_translations.py archive --repo <repo>
 
 sync (Version-bump-Workflow): uebertraegt die Bloecke "Highlights (xx):" aus
 der PR-Beschreibung nach changelog/highlights/<N>.json. Ohne Block bleibt die
@@ -13,6 +14,9 @@ feat/fix/perf oder Breaking, siehe make_changelog_json.mark_highlights) in
 jeder CHANGELOG.md aus scripts/version/components.json braucht einen Text in
 jeder Sprache aus highlight_i18n.LANGUAGES. Eintraege ohne PR-Nummer (einzelne
 Commits) prueft niemand.
+
+archive (Release-Workflow): faltet alle changelog/highlights/<N>.json in
+archive.json und loescht sie.
 """
 import argparse
 import json
@@ -83,6 +87,15 @@ def check(repo, pr):
     return 1
 
 
+def archive(repo):
+    folded = highlight_i18n.archive_files(repo / highlight_i18n.TRANSLATIONS_DIR)
+    if not folded:
+        print("nothing to archive")
+    else:
+        print(f"archived {len(folded)} files")
+    return 0
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -92,8 +105,12 @@ def main(argv=None):
         command.add_argument("--pr", required=True, type=int)
         if name == "sync":
             command.add_argument("--body-file", required=True)
+    archive_command = sub.add_parser("archive")
+    archive_command.add_argument("--repo", required=True)
     args = parser.parse_args(argv)
     repo = Path(args.repo)
+    if args.command == "archive":
+        return archive(repo)
     if args.command == "sync":
         return sync(repo, args.pr, args.body_file)
     return check(repo, args.pr)
