@@ -7,6 +7,9 @@ name: Version bump
 #      hook used to do before `main` became PR-protected;
 #   2. the per-component CHANGELOG.md files (scripts/generate_changelog.sh),
 #      committed as "docs(changelog): update changelogs".
+#   3. the German highlight texts of the PR description
+#      (changelog/highlights/<PR>.json, scripts/build/highlight_translations.py
+#      sync), committed together with the changelogs.
 # The bump lands first, as its own commit, so generate_changelog.sh sees it in
 # the component's git log and can head the open section with the version it
 # just produced -- otherwise the changelog would still show the pre-bump
@@ -121,10 +124,15 @@ jobs:
             git commit -m "chore(release): bump component versions"
           fi
 
-          # Changelogs second, so they pick up the bump commit above.
+          # Changelogs second, so they pick up the bump commit above. The
+          # German highlight texts of the PR description go into the same
+          # commit (changelog/highlights/<PR>.json), so the guard above still
+          # recognises it as a bot commit.
           for t in $CHANGELOG_TARGETS; do scripts/generate_changelog.sh "$t"; done
-          if ! git diff --quiet -- '*CHANGELOG.md'; then
-            git add -- '*CHANGELOG.md'
+          python3 scripts/build/highlight_translations.py sync --repo . \
+            --pr "$CHANGELOG_PR_NUMBER" --body-file "$CHANGELOG_PR_BODY_FILE"
+          git add -- '*CHANGELOG.md' changelog/highlights
+          if ! git diff --cached --quiet; then
             git commit -m "docs(changelog): update changelogs"
           fi
 
