@@ -92,7 +92,7 @@ test('summarize counts each entry once and breaking on top', () => {
 test('breaking lists the breaking entries with their component and version', () => {
   const rows = M.slice(view({ dashboard: 'v0.7.3' }));
   assert.deepEqual(plain(M.breaking(rows)), [
-    { component: 'Dashboard', version: 'v0.7.4', text: 'drop the legacy node block', scope: 'dashboard', pr: 14 },
+    { component: 'Dashboard', version: 'v0.7.4', text: 'drop the legacy node block', scope: 'dashboard', pr: 14, i18n: null },
   ]);
 });
 
@@ -170,4 +170,16 @@ test('focus is the highlights when there are any, else everything', () => {
   assert.equal(M.summarize(M.focus(flagged())).total, 1);
   const unflagged = M.slice(view({ dashboard: 'v0.7.3' }));
   assert.equal(M.summarize(M.focus(unflagged)).total, M.summarize(unflagged).total);
+});
+
+test('localText picks the language and falls back to the English text', () => {
+  assert.equal(M.localText({ text: 'fix', i18n: { de: 'Fehler behoben' } }, 'de'), 'Fehler behoben');
+  assert.equal(M.localText({ text: 'fix', i18n: { de: 'Fehler behoben' } }, 'en'), 'fix');
+  assert.equal(M.localText({ text: 'fix' }, 'de'), 'fix');
+});
+
+test('breaking keeps the translations of an entry', () => {
+  const rows = M.slice(view({}));
+  const doc = plain(M.breaking([{ ...rows[0], releases: [release('v1.0.0', [group('feat', [entry('drop', { breaking: true, i18n: { de: 'weg' } })])])] }]));
+  assert.deepEqual(doc[0].i18n, { de: 'weg' });
 });
