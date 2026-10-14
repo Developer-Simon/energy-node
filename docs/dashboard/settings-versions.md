@@ -20,6 +20,12 @@ its changelog. A service that is not installed is marked as such. The switch
 in the package card chooses between the **Highlights** of each release and
 **Everything**, which includes every commit.
 
+The setting **Versions in the changelog** chooses how many bundle versions the
+changelog shows. **Last 5** is the default and shows the five newest versions.
+**Last 20** shows the twenty newest, which is the most a bundle carries. **All**
+shows every version the node has received, including the older ones it kept
+from earlier updates.
+
 The **Updates** card checks GitHub for a newer release when you click
 **Check for updates**.
 
