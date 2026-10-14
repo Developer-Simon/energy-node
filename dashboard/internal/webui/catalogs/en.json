@@ -394,7 +394,7 @@
   "bridge.help.tailscale": "Put both systems into the same tailnet (Tailscale page) and use the main system's Tailscale IPv4 as the address.",
   "bridge.help.title": "Preparation and external dependencies",
   "bridge.help.topics": "In the topic table, set which topics go to the main system (out), come from it (in) or run both ways.",
-  "bridge.help.verify": "In the Mosquitto bridge status, check that the bridge connection shows as connected and "Installed = saved" shows as yes.",
+  "bridge.help.verify": "In the Mosquitto bridge status, check that the bridge connection shows as connected and “Installed = saved” shows as yes.",
   "bridge.keepalive.decrease": "Decrease keepalive_interval",
   "bridge.keepalive.increase": "Increase keepalive_interval",
   "bridge.keepalive.label": "keepalive_interval (seconds)",
