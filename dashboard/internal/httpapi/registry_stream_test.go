@@ -45,7 +45,12 @@ func eventsServer(t *testing.T, reg *registry.Registry) *httptest.Server {
 // Rumpf.
 func openEventStream(t *testing.T, server *httptest.Server) (*bufio.Reader, func()) {
 	t.Helper()
-	response, err := http.Get(server.URL + "/api/v1/events")
+	return openEventStreamAt(t, server, "/api/v1/events")
+}
+
+func openEventStreamAt(t *testing.T, server *httptest.Server, path string) (*bufio.Reader, func()) {
+	t.Helper()
+	response, err := http.Get(server.URL + path)
 	if err != nil {
 		t.Fatalf("Strom nicht erreichbar: %v", err)
 	}
@@ -197,5 +202,44 @@ func TestRegistryStreamFirstFullThenDelta(t *testing.T) {
 	}
 	if len(secondBody.Entities) != 1 || secondBody.Entities["e1"].Value != "2" {
 		t.Errorf("Delta = %v, erwartet nur e1=2", secondBody.Entities)
+	}
+}
+
+func TestEventStreamFiltertThemen(t *testing.T) {
+	reg := testRegistryWithPower(t)
+	server := eventsServer(t, reg)
+	reader, closeStream := openEventStreamAt(t, server, "/api/v1/events?topics=entities")
+	defer closeStream()
+
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(readRegistryEvent(t, reader)), &body); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"version", "entities"} {
+		if _, ok := body[key]; !ok {
+			t.Errorf("Rumpf ohne %q: %v", key, body)
+		}
+	}
+	for _, key := range []string{"energy", "diagnostics", "structure", "structure_compact", "structure_availability"} {
+		if _, ok := body[key]; ok {
+			t.Errorf("Rumpf traegt nicht abonniertes %q", key)
+		}
+	}
+}
+
+func TestEventStreamOhneThemenSchicktVersionswechsel(t *testing.T) {
+	reg := testRegistryWithPower(t)
+	server := eventsServer(t, reg)
+	reader, closeStream := openEventStreamAt(t, server, "/api/v1/events?topics=")
+	defer closeStream()
+
+	first := readRegistryEvent(t, reader)
+	if !strings.HasPrefix(first, `{"version":`) || strings.Contains(first, ",") {
+		t.Fatalf("erster Rumpf = %s, want nur version", first)
+	}
+	reg.UpdateTopicWithQoS("shelly/power", []byte("42"), false, 0, time.Now().UTC())
+	second := readRegistryEvent(t, reader)
+	if second == first {
+		t.Errorf("Versionswechsel kam nicht an: %s", second)
 	}
 }
