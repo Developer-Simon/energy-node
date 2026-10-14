@@ -1,9 +1,11 @@
 package httpapi
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -22,18 +24,18 @@ const (
 	topicEnergy      = "energy"
 	topicEntities    = "entities"
 	topicDiagnostics = "diagnostics"
-	// topicStructure traegt die drei globalen Fingerabdruecke. Uebergang bis
-	// zum Thema devices, danach entfaellt es.
-	topicStructure = "structure"
 	// topicEnergyStats traegt nur die Revision der Energiestatistik. Kachel
 	// und Seite laden ihre Zahlen selbst, wenn sie sich aendert.
 	topicEnergyStats = "energy_stats"
+	// topicDevices traegt je abonniertem Geraet Struktur, Ampel, Status und
+	// (mit :auto) die Zeilenauswahl. Die Auswahl kommt aus ?devices=.
+	topicDevices = "devices"
 )
 
 // defaultEventTopics gilt ohne ?topics=. Ein aelterer Client bekommt damit
 // denselben Rumpf wie vor den Themen, plus den kleinen Zweig energy_stats,
 // falls es die Statistik gibt.
-var defaultEventTopics = []string{topicEnergy, topicEntities, topicDiagnostics, topicStructure, topicEnergyStats}
+var defaultEventTopics = []string{topicEnergy, topicEntities, topicDiagnostics, topicEnergyStats}
 
 // topicCache haelt den zuletzt gebauten Teil eines Themas. Ein zweiter
 // Aufruf bei gleicher Version liefert denselben Teil - das ist nicht nur
@@ -81,10 +83,13 @@ type eventCache struct {
 	snapVersion registryevents.Version
 	devices     []registry.DeviceView
 
-	energy, entities, diagnostics, structure, energyStats topicCache
+	energy, entities, diagnostics, energyStats, deviceEntries topicCache
 	// lastValues gehoert zum entities-Thema und wird nur unter entities.mu
 	// gelesen und geschrieben.
 	lastValues map[string]registry.ValueView
+	// lastDevices ist der Eintrag mit rows je Geraet aus dem letzten Bau,
+	// nur unter deviceEntries.mu. Daraus entsteht das Delta.
+	lastDevices map[string][]byte
 }
 
 func newEventCache(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine) *eventCache {
@@ -98,7 +103,7 @@ func (c *eventCache) topics() []registryevents.Topic {
 		{Name: topicEnergy, Version: c.registryVersion, Build: c.buildEnergy},
 		{Name: topicEntities, Version: c.registryVersion, Build: c.buildEntities},
 		{Name: topicDiagnostics, Version: c.registryVersion, Build: c.buildDiagnostics},
-		{Name: topicStructure, Version: c.registryVersion, Build: c.buildStructure},
+		{Name: topicDevices, Version: c.registryVersion, Build: c.buildDevices, Select: c.selectDevices},
 	}
 	if c.stats != nil && c.stats.Store != nil {
 		// Eigene Versionsquelle: eine nachgelieferte Stunde loest ein
@@ -114,7 +119,7 @@ func (c *eventCache) topics() []registryevents.Topic {
 
 // registryVersion ist die Version der Registry-Themen. Die
 // Geraete-Einstellungen gehoeren dazu: die Zeilenauswahl der Kompaktkarte
-// und die Fingerabdruecke haengen an FavoriteRefs (ApplyDevicePrefs).
+// haengt an FavoriteRefs (ApplyDevicePrefs).
 func (c *eventCache) registryVersion() registryevents.Version {
 	v := registryevents.Version{c.reg.Version()}
 	if c.store != nil {
@@ -203,32 +208,6 @@ func (c *eventCache) buildDiagnostics(v registryevents.Version) (registryevents.
 	})
 }
 
-// buildStructure traegt die globalen Fingerabdruecke, die dashboard.js mit
-// data-structure, data-structure-compact und data-structure-availability
-// des Fragments vergleicht.
-func (c *eventCache) buildStructure(v registryevents.Version) (registryevents.Part, bool) {
-	return c.structure.get(v, func() (registryevents.Part, bool) {
-		devices := c.snapshot(v)
-		fields := []struct{ name, value string }{
-			{"structure", registry.StructureFingerprint(devices)},
-			{"structure_compact", webui.CompactStructureFingerprint(devices)},
-			{"structure_availability", webui.AvailabilityStructureFingerprint(devices)},
-		}
-		var out []byte
-		for _, field := range fields {
-			m, ok := member(field.name, field.value)
-			if !ok {
-				return registryevents.Part{}, false
-			}
-			if len(out) > 0 {
-				out = append(out, ',')
-			}
-			out = append(out, m...)
-		}
-		return sameParts(out), true
-	})
-}
-
 // buildEnergyStats traegt nur die Revision der Statistik. Die Zahlen holt
 // sich der Client ueber /api/v1/energy/stats, wenn sich die Revision aendert.
 func (c *eventCache) buildEnergyStats(v registryevents.Version) (registryevents.Part, bool) {
@@ -241,8 +220,8 @@ func (c *eventCache) buildEnergyStats(v registryevents.Version) (registryevents.
 // changedValues sind die Eintraege aus now, die in previous fehlen oder sich
 // unterscheiden. previous == nil (erster Lauf) heisst: alles ist neu, der
 // Delta ist dann deckungsgleich mit dem vollen Rumpf. Eine entfernte
-// Entitaet steht bewusst nicht drin - ihr Verschwinden aendert den
-// StructureFingerprint, und der Client tauscht dann sein Fragment ganz.
+// Entitaet steht bewusst nicht drin - ihr Verschwinden aendert die Struktur
+// ihres Geraets im Thema devices, und der Client holt die Kachel neu.
 func changedValues(previous, now map[string]registry.ValueView) map[string]registry.ValueView {
 	changed := make(map[string]registry.ValueView, len(now))
 	for id, value := range now {
@@ -308,7 +287,8 @@ func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energ
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Connection", "keep-alive")
 
-		latest, updates, cancel := hub.Subscribe(requestedTopics(r))
+		selection := parseDeviceSelection(r.URL.Query().Get("devices")).String()
+		latest, updates, cancel := hub.SubscribeWith(requestedTopics(r), selection)
 		defer cancel()
 
 		writeEvent := func(payload []byte) bool {
@@ -346,4 +326,172 @@ func handleEvents(reg *registry.Registry, store *settings.Store, resolver *energ
 			}
 		}
 	}
+}
+
+// deviceSelection ist die Auswahl aus ?devices=: Geraete-IDs, mit dem
+// Suffix :auto, wenn die Kachel ihre Zeilen automatisch waehlt. * steht fuer
+// alle Geraete (Geraete-Tab).
+type deviceSelection struct {
+	all, allAuto bool
+	ids          map[string]bool
+}
+
+func parseDeviceSelection(raw string) deviceSelection {
+	sel := deviceSelection{ids: map[string]bool{}}
+	for _, part := range strings.Split(raw, ",") {
+		part = strings.TrimSpace(part)
+		id, auto := strings.CutSuffix(part, ":auto")
+		switch {
+		case id == "":
+			continue
+		case id == "*":
+			sel.all = true
+			sel.allAuto = sel.allAuto || auto
+		default:
+			sel.ids[id] = sel.ids[id] || auto
+		}
+	}
+	return sel
+}
+
+func (s deviceSelection) wants(id string) (want, auto bool) {
+	if s.all {
+		return true, s.allAuto || s.ids[id]
+	}
+	auto, want = s.ids[id]
+	return want, auto
+}
+
+// String ist die kanonische Form. Der Hub teilt Ruempfe zwischen Abonnenten
+// mit gleicher Auswahl, dafuer muss "b,a" dasselbe ergeben wie "a,b".
+func (s deviceSelection) String() string {
+	parts := make([]string, 0, len(s.ids)+1)
+	if s.all {
+		if s.allAuto {
+			parts = append(parts, "*:auto")
+		} else {
+			parts = append(parts, "*")
+		}
+	}
+	for id, auto := range s.ids {
+		if auto {
+			id += ":auto"
+		}
+		parts = append(parts, id)
+	}
+	sort.Strings(parts)
+	return strings.Join(parts, ",")
+}
+
+// devicesData ist der gebaute Stand des Themas devices.
+type devicesData struct {
+	order   []string          // Geraete-IDs in Snapshot-Reihenfolge
+	plain   map[string][]byte // Eintrag ohne rows
+	auto    map[string][]byte // Eintrag mit rows
+	changed []string          // seit dem letzten Bau geaendert oder entfernt, sortiert
+	list    []byte            // order als JSON-Array
+}
+
+// deviceEntry ist ein Eintrag im Thema devices. Rows als Zeiger: nil faellt
+// weg, eine leere Auswahl steht als [] im JSON.
+type deviceEntry struct {
+	webui.DeviceLive
+	Rows *[]webui.CompactRow `json:"rows,omitempty"`
+}
+
+func (c *eventCache) buildDevices(v registryevents.Version) (registryevents.Part, bool) {
+	return c.deviceEntries.get(v, func() (registryevents.Part, bool) {
+		devices := c.snapshot(v)
+		data := &devicesData{plain: make(map[string][]byte, len(devices)), auto: make(map[string][]byte, len(devices))}
+		for _, dev := range devices {
+			live := webui.NewDeviceLive(dev)
+			rows := webui.CompactRows(dev)
+			plain, err := json.Marshal(deviceEntry{DeviceLive: live})
+			if err != nil {
+				return registryevents.Part{}, false
+			}
+			auto, err := json.Marshal(deviceEntry{DeviceLive: live, Rows: &rows})
+			if err != nil {
+				return registryevents.Part{}, false
+			}
+			data.order = append(data.order, dev.ID)
+			data.plain[dev.ID], data.auto[dev.ID] = plain, auto
+			if previous, ok := c.lastDevices[dev.ID]; !ok || !bytes.Equal(previous, auto) {
+				data.changed = append(data.changed, dev.ID)
+			}
+		}
+		for id := range c.lastDevices {
+			if _, ok := data.auto[id]; !ok {
+				data.changed = append(data.changed, id)
+			}
+		}
+		sort.Strings(data.changed)
+		list, err := json.Marshal(data.order)
+		if err != nil {
+			return registryevents.Part{}, false
+		}
+		data.list = list
+		c.lastDevices = data.auto
+		return registryevents.Part{Data: data}, true
+	})
+}
+
+// selectDevices baut den Zweig fuer einen Abonnenten: im vollen Rumpf alle
+// gewaehlten Geraete, im Delta nur die geaenderten (entfernte als null), im
+// Leerlauf keins. Mit * kommt devices_list mit, damit der Geraete-Tab ein
+// neues oder verschwundenes Geraet erkennt.
+func (c *eventCache) selectDevices(part registryevents.Part, mode registryevents.Mode, selection string) []byte {
+	data, _ := part.Data.(*devicesData)
+	if data == nil {
+		return nil
+	}
+	sel := parseDeviceSelection(selection)
+	var b bytes.Buffer
+	b.WriteString(`"devices":{`)
+	first := true
+	write := func(id string, entry []byte) {
+		if !first {
+			b.WriteByte(',')
+		}
+		first = false
+		key, _ := json.Marshal(id)
+		b.Write(key)
+		b.WriteByte(':')
+		b.Write(entry)
+	}
+	entryFor := func(id string, auto bool) []byte {
+		if auto {
+			return data.auto[id]
+		}
+		return data.plain[id]
+	}
+	switch mode {
+	case registryevents.ModeFull:
+		for _, id := range data.order {
+			if want, auto := sel.wants(id); want {
+				write(id, entryFor(id, auto))
+			}
+		}
+	case registryevents.ModeDelta:
+		for _, id := range data.changed {
+			want, auto := sel.wants(id)
+			if !want {
+				continue
+			}
+			entry := entryFor(id, auto)
+			if entry == nil {
+				entry = []byte("null")
+			}
+			write(id, entry)
+		}
+	}
+	b.WriteByte('}')
+	if mode != registryevents.ModeFull {
+		b.WriteString(`,"devices_delta":true`)
+	}
+	if sel.all {
+		b.WriteString(`,"devices_list":`)
+		b.Write(data.list)
+	}
+	return b.Bytes()
 }

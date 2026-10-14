@@ -13,7 +13,8 @@
 {{end}}
 
 {{define "devices-live"}}
-<div id="devices-live" data-device-view-mode="{{.DeviceViewMode}}" data-structure="{{.Structure}}" data-structure-compact="{{.StructureCompact}}" aria-live="polite" hx-get="{{.BasePath}}/?fragment=devices-live" hx-target="#devices-live" hx-swap="outerHTML">
+<div id="devices-live" data-device-view-mode="{{.DeviceViewMode}}" aria-live="polite" hx-get="{{.BasePath}}/?fragment=devices-live" hx-target="#devices-live" hx-swap="outerHTML">
+  {{template "compact-row-template"}}
   {{if not .Devices}}
   <p>{{t "devices.empty"}}</p>
   {{end}}
@@ -53,10 +54,14 @@
 </div>
 {{end}}
 
+{{define "device-card-fragment"}}{{with .FragmentDevice}}{{if eq $.DeviceViewMode "control"}}{{template "device-tile" .}}{{else}}{{template "compact-card" (compactCardAuto .)}}{{end}}{{end}}{{end}}
+
+{{define "compact-row-template"}}<template data-compact-row><span class="compact-card-row" data-entity-id="" data-device-class="" data-unit=""><span class="compact-card-row-label"></span><span class="compact-card-row-value">–</span></span></template>{{end}}
+
 {{define "compact-card"}}
 {{ $device := .Device }}
 {{ $availability := deviceAvailability .Device.Entities }}
-<button type="button" class="compact-card is-{{$availability}}" data-device-id="{{.Device.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" aria-label="{{t "devices.details.showing" "name" .Device.Name}}">
+<button type="button" class="compact-card is-{{$availability}}" data-device-id="{{.Device.ID}}" data-structure="{{deviceStructure .Device}}"{{if .Auto}} data-compact-auto="true"{{end}} x-on:click="selectDevice($el.dataset.deviceId)" aria-label="{{t "devices.details.showing" "name" .Device.Name}}">
   <span class="compact-card-head">
     <span class="compact-card-icon" aria-hidden="true">{{deviceIcon .Device}}</span>
     <span class="compact-card-title"><strong>{{if .Device.Name}}{{.Device.Name}}{{else}}{{.Device.ID}}{{end}}</strong><small>{{.Device.ID}}{{if .Device.Model}} · {{.Device.Model}}{{end}}</small></span>
@@ -65,7 +70,7 @@
   </span>
   {{ $priority := .Rows }}
   {{if $priority}}
-  <span class="compact-card-rows">
+  <span class="compact-card-rows" data-rows="{{rowIDs $priority}}">
     {{range $priority}}
     <span class="compact-card-row" data-entity-id="{{.UniqueID}}" data-device-class="{{.DeviceClass}}" data-unit="{{.UnitOfMeasurement}}"><span class="compact-card-row-label">{{stripDeviceName $device.Name .Name}}</span><span class="compact-card-row-value{{if .Stale}} stale{{end}}">{{if .HasValue}}{{if eq .DeviceClass "timestamp"}}<time data-relative-timestamp="{{.Value}}">{{.Value}}</time>{{else}}{{formatValue .Value .UnitOfMeasurement}}{{end}}{{if .UnitOfMeasurement}} {{.UnitOfMeasurement}}{{end}}{{else}}–{{end}}</span></span>
     {{end}}

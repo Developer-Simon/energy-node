@@ -301,3 +301,39 @@ func TestCancelIstMehrfachAufrufbar(t *testing.T) {
 		t.Errorf("SubscriberCount nach cancel = %d, want 0", f.hub.SubscriberCount())
 	}
 }
+
+// Ein Thema mit Select baut seinen Teil je Auswahl. Abonnenten mit gleicher
+// Maske, aber anderer Auswahl bekommen verschiedene Ruempfe.
+func TestSelectBautTeilJeAuswahl(t *testing.T) {
+	var head atomic.Uint64
+	var version atomic.Uint64
+	topic := Topic{
+		Name:    "s",
+		Version: func() Version { return Version{version.Load()} },
+		Build:   func(v Version) (Part, bool) { return Part{Data: v[0]}, true },
+		Select: func(part Part, mode Mode, selection string) []byte {
+			return []byte(`"s":"` + selection + `:` + strconv.Itoa(int(mode)) + `:` + strconv.FormatUint(part.Data.(uint64), 10) + `"`)
+		},
+	}
+	hub := NewHub(4, head.Load, []Topic{topic}, nil, func() time.Duration { return 10 * time.Millisecond })
+	latestA, chA, cancelA := hub.SubscribeWith([]string{"s"}, "a")
+	defer cancelA()
+	latestB, chB, cancelB := hub.SubscribeWith([]string{"s"}, "b")
+	defer cancelB()
+	if decode(t, latestA)["s"] != "a:0:0" || decode(t, latestB)["s"] != "b:0:0" {
+		t.Fatalf("latest = %s / %s", latestA, latestB)
+	}
+	version.Store(2)
+	hub.poll()
+	if got := decode(t, receive(t, chA))["s"]; got != "a:1:2" {
+		t.Errorf("A = %v, want a:1:2 (ModeDelta)", got)
+	}
+	if got := decode(t, receive(t, chB))["s"]; got != "b:1:2" {
+		t.Errorf("B = %v, want b:1:2", got)
+	}
+	head.Store(1)
+	hub.poll()
+	if got := decode(t, receive(t, chA))["s"]; got != "a:2:2" {
+		t.Errorf("A im Leerlauf = %v, want a:2:2 (ModeIdle)", got)
+	}
+}

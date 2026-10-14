@@ -1,11 +1,19 @@
 # Changelog
 
-## v0.9.11 (2026-10-14)
+## v0.9.12 (2026-10-14)
 
 ### Features
 
 - hourly energy statistics from Home Assistant via the companion (#130) (752f59a)
 - **dashboard:** energy statistics tile, page and recording mode (#132) (502a156)
+- **dashboard:** SSE topic subscriptions and a swap-free statistics tile (#133) (69eb694)
+- **dashboard:** per-device live entry and localized tile status (db88e93)
+- **dashboard:** single-tile fragments layout-item and device-card (e7dcb82)
+- **dashboard:** per-tile structure and row template markup (f7b2274)
+- **dashboard:** SSE topic devices with a per-subscriber device selection (a4c76b6)
+- **dashboard:** patch device tiles from the devices topic (3059c80)
+- **dashboard:** device tiles follow the devices topic instead of fragment swaps (dacff34)
+- **dashboard:** device tiles patched from the devices topic without fragment swaps (#135)
 - **dashboard:** subscribe to SSE topics with ?topics= (43cb488)
 - **dashboard:** open the event stream with the active panel's topics (8129889)
 - **energystats:** revision counter for changes to the statistics (f9300b4)
@@ -13,7 +21,6 @@
 - **dashboard:** serve the statistics tile from the energy_stats branch (a8a0d5c)
 - **dashboard:** statistics tile reloads only on a new revision (871db1d)
 - **dashboard:** statistics page reloads the current period on a new revision (67e35fb)
-- **dashboard:** SSE topic subscriptions and a swap-free statistics tile (#133)
 - **settings:** add the energy statistics recording mode (4490871)
 - **energystats:** pause or stop own recording by policy with a short backlog (7d1fef7)
 - **energystats:** navigation, Pi local time, categories and warnings in the stats API (d311552)
@@ -28,19 +35,23 @@
 
 ### Fixes
 
+- **dashboard:** retry a tile structure change that arrives mid-request (3a78eca)
 - **dashboard:** restore attribute spacing in base.html (7a52161)
 
 ### Refactors
 
+- **dashboard:** drop the global structure fingerprints (c71a352)
 - **registryevents:** build and deliver SSE bodies per topic (dc7ddea)
 
 ### Tests
 
+- **dashboard:** cover the compact card row and row template attributes (8c52a25)
 - **smoke:** fake companion that feeds the energy statistics (b41a808)
 - **smoke:** expect the 1h tier in the exchange announcement (b9ddd86)
 
 ### Chores
 
+- **dashboard:** bump asset versions and document the devices topic (099cf25)
 - **dashboard:** bump asset versions and document the energy_stats topic (6f01151)
 
 ## v0.9.8 (2026-10-12)

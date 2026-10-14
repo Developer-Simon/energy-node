@@ -42,18 +42,45 @@ test('liveTopicsFor leitet die Themen aus den Kartentypen ab', () => {
   assert.equal(topicsFor(window.document.getElementById('overview-panel'), 'overview-panel'), 'diagnostics,energy,entities');
 });
 
-test('eine Geraetekachel braucht entities und structure', () => {
+test('eine Geraetekachel braucht devices und entities', () => {
   const { factories, window } = load(grid(['device']));
   const topicsFor = factories.dashboardShell.liveTopicsFor;
-  assert.equal(topicsFor(window.document.getElementById('overview-panel'), 'overview-panel'), 'entities,structure');
+  assert.equal(topicsFor(window.document.getElementById('overview-panel'), 'overview-panel'), 'devices,entities');
 });
 
-test('der Geraete-Tab braucht entities und structure, andere Panels nichts', () => {
-  const { factories, window } = load('<section id="devices-panel"><div id="devices-live"></div></section><section id="automations-panel"></section>');
+test('der Geraete-Tab braucht devices und entities, andere Panels nichts', () => {
+  const { factories, window } = load('<section id="devices-panel"><div id="devices-live" data-device-view-mode="compact"></div></section><section id="automations-panel"></section>');
   const topicsFor = factories.dashboardShell.liveTopicsFor;
-  assert.equal(topicsFor(window.document.getElementById('devices-panel'), 'devices-panel'), 'entities,structure');
+  assert.equal(topicsFor(window.document.getElementById('devices-panel'), 'devices-panel'), 'devices,entities');
   assert.equal(topicsFor(window.document.getElementById('automations-panel'), 'automations-panel'), '');
   assert.equal(topicsFor(null, 'history-panel'), '');
+});
+
+test('liveDevicesFor liest Geraete und automatische Zeilenauswahl aus dem Raster', () => {
+  const html = '<section id="overview-panel"><div id="overview-live">'
+    + '<div data-layout-item-kind="device" data-layout-item-ref="b" data-display="" data-compact-configured="false"></div>'
+    + '<div data-layout-item-kind="device" data-layout-item-ref="a" data-display="compact" data-compact-configured="false"></div>'
+    + '<div data-layout-item-kind="device" data-layout-item-ref="c" data-display="compact" data-compact-configured="true"></div>'
+    + '<div data-layout-item-kind="device" data-layout-item-ref="b" data-display="compact" data-compact-configured="false"></div>'
+    + '<div data-layout-item-kind="energy_flow" data-layout-item-ref=""></div>'
+    + '</div></section>';
+  const { factories, window } = load(html);
+  const devicesFor = factories.dashboardShell.liveDevicesFor;
+  assert.equal(devicesFor(window.document.getElementById('overview-panel'), 'overview-panel'), 'a:auto,b:auto,c');
+});
+
+test('liveDevicesFor im Geraete-Tab: alle, kompakt mit auto', () => {
+  const compact = load('<section id="devices-panel"><div id="devices-live" data-device-view-mode="compact"></div></section>');
+  assert.equal(compact.factories.dashboardShell.liveDevicesFor(compact.window.document.getElementById('devices-panel'), 'devices-panel'), '*:auto');
+  const control = load('<section id="devices-panel"><div id="devices-live" data-device-view-mode="control"></div></section>');
+  assert.equal(control.factories.dashboardShell.liveDevicesFor(control.window.document.getElementById('devices-panel'), 'devices-panel'), '*');
+});
+
+test('die URL traegt die Geraeteliste', () => {
+  const html = '<section id="overview-panel" class="panel active"><div id="overview-live"><div data-layout-item-kind="device" data-layout-item-ref="a" data-display="" data-compact-configured="false"></div></div></section>';
+  const { factories, sources } = load(html);
+  factories.dashboardShell().init();
+  assert.equal(sources[0].url, '/api/v1/events?topics=devices%2Centities&devices=a');
 });
 
 test('init oeffnet den Strom mit den Themen des aktiven Panels', () => {

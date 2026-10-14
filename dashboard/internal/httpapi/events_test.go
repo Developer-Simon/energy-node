@@ -13,7 +13,6 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registryevents"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
-	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
 // bodies setzt den Standardrumpf so zusammen, wie ihn ein Client ohne
@@ -29,6 +28,9 @@ func (c *eventCache) bodies(reg *registry.Registry, store *settings.Store, resol
 	}
 	var fullMembers, deltaMembers [][]byte
 	for _, topic := range c.topics() {
+		if topic.Select != nil {
+			continue
+		}
 		part, ok := topic.Build(v)
 		if !ok {
 			return nil, nil
@@ -100,57 +102,6 @@ func TestEventBodyEntitiesIsObjectWhenEmpty(t *testing.T) {
 	}
 	if body.Entities == nil {
 		t.Errorf("entities ist null statt {}: %s", data)
-	}
-}
-
-// Der vierte Zweig sagt dem Browser, wann sein Fragment veraltet ist. Fehlt
-// er, faellt der Client auf den Tausch zurueck - richtig, aber der Gewinn
-// dieses Plans waere weg. Der Test haelt darum fest, dass er da ist.
-func TestEventBodyCarriesStructureFingerprint(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "relay", Component: "switch", Name: "Relais"},
-	})
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 4)
-
-	var body struct {
-		Structure string `json:"structure"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v (%s)", err, data)
-	}
-	if want := registry.StructureFingerprint(reg.Snapshot()); body.Structure != want {
-		t.Errorf("structure = %q, erwartet %q", body.Structure, want)
-	}
-	if body.Structure == "" {
-		t.Error("structure ist leer - der Client wuerde dauerhaft tauschen")
-	}
-}
-
-// Der Fingerabdruck darf nicht mit der Registry-Version wandern: die zaehlt
-// jeden MQTT-Wert mit, er soll genau das ignorieren.
-func TestEventBodyStructureSurvivesAValueChange(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	before := registry.StructureFingerprint(reg.Snapshot())
-
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-	var body struct {
-		Structure string `json:"structure"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v", err)
-	}
-	if body.Structure != before {
-		t.Errorf("ein Messwert hat den Fingerabdruck veraendert: %q -> %q", before, body.Structure)
 	}
 }
 
@@ -306,88 +257,6 @@ func decodeEntities(t *testing.T, body []byte) map[string]registry.ValueView {
 	return probe.Entities
 }
 
-// Der fuenfte Zweig sagt der Kompakt-Ansicht, wann ihre Zeilenauswahl oder
-// die Geraete-Ampel veraltet ist. Fehlt er, faellt der Client auf den
-// Tausch zurueck - richtig, aber der Gewinn dieses Plans waere weg.
-func TestEventBodyCarriesCompactStructureFingerprint(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-
-	var body struct {
-		StructureCompact string `json:"structure_compact"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v (%s)", err, data)
-	}
-	if want := webui.CompactStructureFingerprint(reg.Snapshot()); body.StructureCompact != want {
-		t.Errorf("structure_compact = %q, erwartet %q", body.StructureCompact, want)
-	}
-	if body.StructureCompact == "" {
-		t.Error("structure_compact ist leer - die Kompakt-Ansicht wuerde dauerhaft tauschen")
-	}
-}
-
-// Bewegt sich nur ein Messwert innerhalb derselben Zeilenauswahl, darf der
-// Kompakt-Fingerabdruck nicht wandern - genau das ist sein Zweck.
-func TestEventBodyCompactStructureSurvivesAValueTick(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-	before := webui.CompactStructureFingerprint(reg.Snapshot())
-
-	reg.UpdateTopicWithQoS("node/power", []byte("1337"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-	var body struct {
-		StructureCompact string `json:"structure_compact"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v", err)
-	}
-	if body.StructureCompact != before {
-		t.Errorf("ein Messwert hat den Kompakt-Fingerabdruck veraendert: %q -> %q", before, body.StructureCompact)
-	}
-}
-
-// Der Availability-Zweig deckt fuer die konfigurierte Kompaktkachel die
-// Geraete-Ampel ab. Fehlt er, faellt der Client auf den Fragment-Tausch
-// zurueck - der Gewinn dieses Plans waere weg.
-func TestEventBodyCarriesAvailabilityStructureFingerprint(t *testing.T) {
-	reg := registry.New()
-	reg.UpsertEntity(registry.Discovery{
-		Device: registry.DeviceInfo{ID: "dev-a", Name: "Node"},
-		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power"},
-	})
-	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
-
-	cache := &eventCache{}
-	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), reg.Version())
-
-	var body struct {
-		StructureAvailability string `json:"structure_availability"`
-	}
-	if err := json.Unmarshal(data, &body); err != nil {
-		t.Fatalf("Rumpf ist kein gueltiges JSON: %v (%s)", err, data)
-	}
-	if want := webui.AvailabilityStructureFingerprint(reg.Snapshot()); body.StructureAvailability != want {
-		t.Errorf("structure_availability = %q, erwartet %q", body.StructureAvailability, want)
-	}
-	if body.StructureAvailability == "" {
-		t.Error("structure_availability ist leer - die konfigurierte Kompaktkachel wuerde dauerhaft tauschen")
-	}
-}
-
 func TestEnergyStatsTopicOnlyWithService(t *testing.T) {
 	reg := registry.New()
 	without := newEventCache(reg, nil, energy.NewResolver(nil), nil)
@@ -401,5 +270,140 @@ func TestEnergyStatsTopicOnlyWithService(t *testing.T) {
 	part, ok := with.buildEnergyStats(registryevents.Version{4})
 	if !ok || string(part.Full) != `"energy_stats":{"rev":4}` || string(part.Idle) != string(part.Full) {
 		t.Errorf("part = %q / %q, ok = %v", part.Full, part.Idle, ok)
+	}
+}
+
+func devicesTestRegistry(t *testing.T) *registry.Registry {
+	t.Helper()
+	reg := registry.New()
+	for _, id := range []string{"a", "b"} {
+		reg.UpsertEntity(registry.Discovery{
+			Device: registry.DeviceInfo{ID: id, Name: id},
+			Entity: registry.EntityInfo{UniqueID: id + "_power", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: id + "/power"},
+		})
+		reg.UpdateTopicWithQoS(id+"/power", []byte("1"), false, 0, time.Now().UTC())
+	}
+	return reg
+}
+
+func devicesMember(t *testing.T, member []byte) map[string]json.RawMessage {
+	t.Helper()
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(append(append([]byte("{"), member...), '}'), &body); err != nil {
+		t.Fatalf("kein JSON: %v (%s)", err, member)
+	}
+	return body
+}
+
+func TestParseDeviceSelection(t *testing.T) {
+	sel := parseDeviceSelection("b,a:auto,a, ,c")
+	if sel.String() != "a:auto,b,c" {
+		t.Errorf("kanonisch = %q", sel.String())
+	}
+	if want, auto := sel.wants("a"); !want || !auto {
+		t.Error("a sollte mit auto gewollt sein")
+	}
+	if want, auto := sel.wants("b"); !want || auto {
+		t.Error("b sollte ohne auto gewollt sein")
+	}
+	if want, _ := sel.wants("x"); want {
+		t.Error("x ist nicht gewollt")
+	}
+	all := parseDeviceSelection("*:auto")
+	if want, auto := all.wants("x"); !want || !auto || all.String() != "*:auto" {
+		t.Errorf("*:auto = %+v", all)
+	}
+}
+
+func TestDevicesFullCarriesOnlySelectedDevicesAndRowsOnlyForAuto(t *testing.T) {
+	reg := devicesTestRegistry(t)
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	part, ok := cache.buildDevices(cache.registryVersion())
+	if !ok {
+		t.Fatal("Bau gescheitert")
+	}
+	body := devicesMember(t, cache.selectDevices(part, registryevents.ModeFull, "a:auto"))
+	var devices map[string]map[string]json.RawMessage
+	json.Unmarshal(body["devices"], &devices)
+	if len(devices) != 1 || devices["a"] == nil {
+		t.Fatalf("devices = %s", body["devices"])
+	}
+	if _, ok := devices["a"]["rows"]; !ok {
+		t.Error("auto-Eintrag ohne rows")
+	}
+	if _, ok := body["devices_delta"]; ok {
+		t.Error("voller Teil mit devices_delta")
+	}
+	plain := devicesMember(t, cache.selectDevices(part, registryevents.ModeFull, "a"))
+	json.Unmarshal(plain["devices"], &devices)
+	if _, ok := devices["a"]["rows"]; ok {
+		t.Error("Eintrag ohne auto traegt rows")
+	}
+}
+
+// Spec 8: das devices-Delta enthaelt nur geaenderte Geraete.
+func TestDevicesDeltaCarriesOnlyChangedDevices(t *testing.T) {
+	reg := devicesTestRegistry(t)
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	cache.buildDevices(cache.registryVersion())
+
+	// Nur b wechselt die Struktur (neue Entitaet), a bekommt nur einen Wert.
+	reg.UpdateTopicWithQoS("a/power", []byte("2"), false, 0, time.Now().UTC())
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "b", Name: "b"},
+		Entity: registry.EntityInfo{UniqueID: "b_energy", ObjectID: "energy", Component: "sensor", Name: "Energie", StateTopic: "b/energy"},
+	})
+	part, _ := cache.buildDevices(cache.registryVersion())
+	body := devicesMember(t, cache.selectDevices(part, registryevents.ModeDelta, "*"))
+	var devices map[string]json.RawMessage
+	json.Unmarshal(body["devices"], &devices)
+	if len(devices) != 1 || devices["b"] == nil {
+		t.Fatalf("Delta = %s, want nur b", body["devices"])
+	}
+	if string(body["devices_delta"]) != "true" {
+		t.Error("Delta ohne devices_delta")
+	}
+	var list []string
+	json.Unmarshal(body["devices_list"], &list)
+	if strings.Join(list, ",") != "a,b" {
+		t.Errorf("devices_list = %v", list)
+	}
+	idle := devicesMember(t, cache.selectDevices(part, registryevents.ModeIdle, "a"))
+	if string(idle["devices"]) != "{}" {
+		t.Errorf("Leerlauf = %s, want {}", idle["devices"])
+	}
+	if _, ok := idle["devices_list"]; ok {
+		t.Error("devices_list ohne * ausgeliefert")
+	}
+}
+
+func TestDevicesDeltaReportsARemovedDeviceAsNull(t *testing.T) {
+	reg := devicesTestRegistry(t)
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	cache.buildDevices(registryevents.Version{1})
+	// Der Bau vergleicht mit dem vorigen. Ein Geraet, das im naechsten
+	// Snapshot fehlt, steht als null im Delta.
+	cache.lastDevices["weg"] = []byte(`{}`)
+	part, _ := cache.buildDevices(registryevents.Version{2})
+	body := devicesMember(t, cache.selectDevices(part, registryevents.ModeDelta, "weg,a"))
+	var devices map[string]json.RawMessage
+	json.Unmarshal(body["devices"], &devices)
+	if string(devices["weg"]) != "null" {
+		t.Errorf("entferntes Geraet = %s, want null", devices["weg"])
+	}
+}
+
+func TestDefaultBodyCarriesNoGlobalFingerprints(t *testing.T) {
+	reg := registry.New()
+	cache := &eventCache{}
+	data, _ := cache.bodies(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil), 1)
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(data, &body); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"structure", "structure_compact", "structure_availability", "devices"} {
+		if _, ok := body[key]; ok {
+			t.Errorf("Standardrumpf traegt %q", key)
+		}
 	}
 }

@@ -11,7 +11,6 @@ package webui
 import (
 	"embed"
 	"encoding/json"
-	"fmt"
 	"hash/fnv"
 	"html/template"
 	"io/fs"
@@ -142,36 +141,17 @@ func buildOverviewTemplate(lang string) *template.Template {
 		"priorityEntities":   priorityEntities,
 		"compactCardAuto":    compactCardAuto,
 		"compactCardForItem": compactCardForItem,
+		"rowIDs":             rowIDs,
 		"deviceTileForItem":  deviceTileForItem,
 		"deviceTileStatus":   deviceTileStatus,
+		"deviceStructure":    DeviceStructureFingerprint,
 		"entityGroupForItem": entityGroupForItem,
 		"cardStyle":          cardStyle,
 		"cardFillsHeight":    cardFillsHeight,
 		"stripDeviceName":    stripDeviceName,
 		"historyViewCard":    historyViewCard,
-		"activePage": func(layout settings.Layout, id string) *settings.Page {
-			// Overview renders exactly one page. Without a match, use the first page
-			// so that an unknown page ID (old bookmark, deleted page) does not result
-			// in an empty overview.
-			if id != "" {
-				// Try to find by ID first
-				for i := range layout.Pages {
-					if layout.Pages[i].ID == id {
-						return &layout.Pages[i]
-					}
-				}
-				// Fallback for old bookmarks using the page name instead of ID
-				for i := range layout.Pages {
-					if layout.Pages[i].Name == id {
-						return &layout.Pages[i]
-					}
-				}
-			}
-			if len(layout.Pages) > 0 {
-				return &layout.Pages[0]
-			}
-			return nil
-		},
+		"activePage":         activeLayoutPage,
+		"layoutItem":         layoutItem,
 	}
 	funcs["formatValue"] = func(raw, unit string) string { return numberStyle(lang).Value(raw, unit) }
 	funcs["formatNumber"] = func(value float64, decimals int) string { return numberStyle(lang).Number(value, decimals) }
@@ -271,14 +251,15 @@ func deviceAvailability(entities []registry.EntityView) string {
 	return "offline"
 }
 
-// deviceTileStatusInfo is the header status dot on a device tile: a class for
-// the colour, a short label for the tooltip/caption, and the modifier class
-// for the .compact-card-style accent side rail (empty when the rail keeps its
-// default --accent colour).
-type deviceTileStatusInfo struct {
-	Class string
-	Label string
-	Rail  string
+// DeviceTileStatus is the header status dot on a device tile: a class for the
+// colour, the modifier class for the accent side rail (empty when the rail
+// keeps its default --accent colour) and the number of offline entities. The
+// caption comes from the catalog (tile.status.*), in the template and in
+// device-structure.js alike.
+type DeviceTileStatus struct {
+	Class   string `json:"class"`
+	Rail    string `json:"rail"`
+	Offline int    `json:"offline"`
 }
 
 // deviceTileStatus rolls a device's entities into one health verdict for the
@@ -286,7 +267,7 @@ type deviceTileStatusInfo struct {
 // entity that reports unavailable outranks everything; a replayed (stale)
 // value is next; a device that reports availability everywhere and is fully up
 // is "ok"; a device that reports no availability at all stays neutral.
-func deviceTileStatus(entities []registry.EntityView) deviceTileStatusInfo {
+func deviceTileStatus(entities []registry.EntityView) DeviceTileStatus {
 	offline := 0
 	stale := false
 	known := false
@@ -304,17 +285,77 @@ func deviceTileStatus(entities []registry.EntityView) deviceTileStatusInfo {
 	}
 	switch {
 	case offline > 0:
-		return deviceTileStatusInfo{Class: "bad", Label: fmt.Sprintf("%d offline", offline), Rail: "is-offline"}
+		return DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: offline}
 	case stale:
-		return deviceTileStatusInfo{Class: "warn", Label: "veraltet", Rail: "is-degraded"}
+		return DeviceTileStatus{Class: "warn", Rail: "is-degraded"}
 	case known:
-		return deviceTileStatusInfo{Class: "ok", Label: "alle online"}
+		return DeviceTileStatus{Class: "ok"}
 	default:
 		// No availability channel anywhere is the common healthy case for
 		// devices whose entities just publish values - keep the theme accent
 		// on the rail, only the (small, informative) header dot goes neutral.
-		return deviceTileStatusInfo{Class: "unknown", Label: ""}
+		return DeviceTileStatus{Class: "unknown"}
 	}
+}
+
+// DeviceStructureFingerprint verdichtet, was eine Geraetekachel strukturell
+// zeigt: Entitaeten (registry.StructureFingerprint dieses einen Geraets) und
+// den Kopf aus Name, Modell und Icon. Ein Messwert aendert ihn nicht. Ein
+// Geraet ohne ID (im Layout, aber nicht in der Registry) hat "", damit
+// Kachel und SSE-Thema sich einig sind und nichts nachgeladen wird.
+func DeviceStructureFingerprint(dev registry.DeviceView) string {
+	if dev.ID == "" {
+		return ""
+	}
+	sum := fnv.New64a()
+	for _, field := range []string{registry.StructureFingerprint([]registry.DeviceView{dev}), dev.Name, dev.Model, dev.IconName} {
+		sum.Write([]byte(field))
+		sum.Write([]byte{0})
+	}
+	return strconv.FormatUint(sum.Sum64(), 16)
+}
+
+// DeviceLive ist der Eintrag eines Geraets im SSE-Thema devices. Der Server
+// rechnet alles, device-structure.js patcht nur.
+type DeviceLive struct {
+	Structure    string           `json:"structure"`
+	Availability string           `json:"availability"`
+	Status       DeviceTileStatus `json:"status"`
+}
+
+func NewDeviceLive(dev registry.DeviceView) DeviceLive {
+	return DeviceLive{
+		Structure:    DeviceStructureFingerprint(dev),
+		Availability: deviceAvailability(dev.Entities),
+		Status:       deviceTileStatus(dev.Entities),
+	}
+}
+
+// CompactRow ist eine Zeile der automatischen Kompaktkarte, wie sie
+// compact-card rendert: Label ohne Geraetenamen, Einheit und device_class
+// fuer die Formatierung. Den Wert setzt compact-card-values.js.
+type CompactRow struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Unit        string `json:"unit"`
+	DeviceClass string `json:"device_class"`
+}
+
+// CompactRows ist die Zeilenauswahl der automatischen Kompaktkarte
+// (priorityEntities, mit Favoriten). Nie nil: eine leere Auswahl soll als []
+// im JSON stehen.
+func CompactRows(dev registry.DeviceView) []CompactRow {
+	picked := priorityEntities(dev)
+	rows := make([]CompactRow, 0, len(picked))
+	for _, entity := range picked {
+		rows = append(rows, CompactRow{
+			ID:          entity.UniqueID,
+			Label:       stripDeviceName(dev.Name, entity.Name),
+			Unit:        entity.UnitOfMeasurement,
+			DeviceClass: entity.DeviceClass,
+		})
+	}
+	return rows
 }
 
 // maxCompactRows ist die Zeilenzahl, die auf eine Kompakt-Karte passt -
@@ -323,10 +364,9 @@ const maxCompactRows = 3
 
 // ApplyDevicePrefs copies the stored per-device display preferences onto a
 // snapshot. Call it right after reg.Snapshot() and before anything reads the
-// devices: the compact card's row selection and CompactStructureFingerprint
-// both derive from FavoriteRefs, so a snapshot that skipped this step would
-// render a card the fingerprint does not describe - and the live patcher
-// would write values into the wrong rows.
+// devices: the compact card's row selection derives from FavoriteRefs, so a
+// snapshot that skipped this step would render a card the devices topic does
+// not describe - and the live patcher would write values into the wrong rows.
 //
 // It also stamps SuggestedIcon on every device, with or without a record, so
 // the modal's picker knows which icon an empty choice stands for.
@@ -405,12 +445,24 @@ func priorityEntities(dev registry.DeviceView) []registry.EntityView {
 type compactCardView struct {
 	Device registry.DeviceView
 	Rows   []registry.EntityView
+	// Auto: die Zeilen kommen aus priorityEntities, das SSE-Thema devices liefert sie mit
+	Auto bool
 }
 
 // compactCardAuto ist der unveraenderte Weg: die Zeilen kommen aus
 // priorityEntities. Das nutzt der Geraete-Tab (devices-compact).
 func compactCardAuto(dev registry.DeviceView) compactCardView {
-	return compactCardView{Device: dev, Rows: priorityEntities(dev)}
+	return compactCardView{Device: dev, Rows: priorityEntities(dev), Auto: true}
+}
+
+// rowIDs ist die Zeilenauswahl einer Kompaktkarte als data-rows. Der Browser
+// vergleicht sie mit den rows aus dem SSE-Thema devices.
+func rowIDs(rows []registry.EntityView) string {
+	ids := make([]string, len(rows))
+	for i, row := range rows {
+		ids[i] = row.UniqueID
+	}
+	return strings.Join(ids, ",")
 }
 
 // compactCardForItem beruecksichtigt die feste Zeilenauswahl eines
@@ -421,71 +473,7 @@ func compactCardForItem(dev registry.DeviceView, item settings.Item) compactCard
 	if len(item.EntityRefs) == 0 {
 		return compactCardAuto(dev)
 	}
-	return compactCardView{Device: dev, Rows: resolveEntityRefs(dev, item.EntityRefs)}
-}
-
-// CompactStructureFingerprint verdichtet das, was die Kompakt-Karte
-// (compact-card in devices.html) *strukturell* zeigt und was der geteilte
-// registry.StructureFingerprint nicht abdeckt: welche bis zu drei Entitaeten
-// priorityEntities je Geraet auswaehlt - diese Auswahl haengt an HasValue,
-// also an einem Messwert - und die zu einer Ampel verdichtete
-// Geraete-Verfuegbarkeit, die den linken Kartenrand und die Status-Pille
-// faerbt.
-//
-// dashboard.js vergleicht ihn (SSE-Feld structure_compact gegen
-// data-structure-compact) *zusaetzlich* zum geteilten Fingerabdruck. Stehen
-// beide, hat sich nur ein Wert innerhalb derselben Auswahl bewegt und
-// compact-card-values.js zieht ihn nach. Wechselt einer, tauscht
-// #devices-live wie frueher.
-//
-// Als Hex-String und nicht als Zahl - dieselbe Begruendung wie bei
-// registry.StructureFingerprint: ein uint64 jenseits 2^53 verliert beim
-// JSON-Parsen in JavaScript Stellen.
-//
-// Die Reihenfolge ist verlaesslich, weil snapshotLocked() Geraete nach ID
-// und Entitaeten nach ObjectID sortiert und priorityEntities die
-// Snapshot-Reihenfolge beibehaelt.
-func CompactStructureFingerprint(devices []registry.DeviceView) string {
-	sum := fnv.New64a()
-	writeField := func(value string) {
-		sum.Write([]byte(value))
-		// Das Nullbyte trennt die Felder: ohne es ergaeben "ab"+"" und
-		// "a"+"b" denselben Hash.
-		sum.Write([]byte{0})
-	}
-	for _, device := range devices {
-		writeField(device.ID)
-		writeField(deviceAvailability(device.Entities))
-		for _, entity := range priorityEntities(device) {
-			writeField(entity.UniqueID)
-		}
-		// Geraete-Trenner, damit zwei Geraete mit den Auswahl-IDs [a] und
-		// [a b] nicht denselben Hash ergeben wie [a b] und [a].
-		writeField("|")
-	}
-	return strconv.FormatUint(sum.Sum64(), 16)
-}
-
-// AvailabilityStructureFingerprint verdichtet nur, was die *konfigurierte*
-// Kompaktkachel strukturell zeigt und der geteilte StructureFingerprint nicht
-// abdeckt: die zu einer Ampel verdichtete Geraete-Verfuegbarkeit. Ihre bis zu
-// drei Zeilen stehen fest (entity_refs), deshalb braucht sie den
-// wertabhaengigen CompactStructureFingerprint nicht - nur dieses eine Ja.
-//
-// dashboard.js vergleicht ihn (SSE-Feld structure_availability gegen
-// data-structure-availability) fuer Raster, in denen jede Kompaktkachel
-// konfiguriert ist. Als Hex-String, gleiche Begruendung wie bei
-// StructureFingerprint: ein uint64 jenseits 2^53 verliert beim JSON-Parsen in
-// JavaScript Stellen.
-func AvailabilityStructureFingerprint(devices []registry.DeviceView) string {
-	sum := fnv.New64a()
-	for _, device := range devices {
-		sum.Write([]byte(device.ID))
-		sum.Write([]byte{0})
-		sum.Write([]byte(deviceAvailability(device.Entities)))
-		sum.Write([]byte{0})
-	}
-	return strconv.FormatUint(sum.Sum64(), 16)
+	return compactCardView{Device: dev, Rows: resolveEntityRefs(dev, item.EntityRefs), Auto: false}
 }
 
 // deviceTileForItem returns dev unchanged when visibleCategories is empty
@@ -670,6 +658,58 @@ func Overview(reg *registry.Registry, configs *config.Manager, store *settings.S
 	return OverviewWithDeviceFilter(reg, configs, store, nil)
 }
 
+// activeLayoutPage liefert die Seite, die die Uebersicht rendert. Ohne
+// Treffer die erste Seite, damit eine unbekannte Seiten-ID (alte
+// Lesezeichen, geloeschte Seite) nicht zu einer leeren Uebersicht fuehrt.
+func activeLayoutPage(layout settings.Layout, id string) *settings.Page {
+	if id != "" {
+		for i := range layout.Pages {
+			if layout.Pages[i].ID == id {
+				return &layout.Pages[i]
+			}
+		}
+		// Fallback fuer alte Lesezeichen mit dem Seitennamen statt der ID.
+		for i := range layout.Pages {
+			if layout.Pages[i].Name == id {
+				return &layout.Pages[i]
+			}
+		}
+	}
+	if len(layout.Pages) > 0 {
+		return &layout.Pages[0]
+	}
+	return nil
+}
+
+// findLayoutItem sucht ein sichtbares Item auf der Seite, die die Uebersicht
+// fuer pageID rendern wuerde.
+func findLayoutItem(layout settings.Layout, pageID, itemID string) (settings.Item, bool) {
+	page := activeLayoutPage(layout, pageID)
+	if page == nil || itemID == "" {
+		return settings.Item{}, false
+	}
+	for _, group := range page.Groups {
+		for _, item := range group.Items {
+			if item.ID == itemID && item.Visible && item.Type != "energy_summary" {
+				return item, true
+			}
+		}
+	}
+	return settings.Item{}, false
+}
+
+// layoutItemView traegt ein Rasterfeld samt der Daten der ganzen Seite in
+// das Template "layout-item". Raster und Einzelfragment rendern damit
+// dasselbe Markup.
+type layoutItemView struct {
+	Root any
+	Item settings.Item
+}
+
+func layoutItem(root any, item settings.Item) layoutItemView {
+	return layoutItemView{Root: root, Item: item}
+}
+
 // templateNameForRequest maps the fragment/panel query parameters to the
 // template definition that serves them (see overviewTmpl's ParseFS call for
 // the full set). Returning ok=false means "unknown panel", a 404.
@@ -679,6 +719,10 @@ func templateNameForRequest(r *http.Request) (name string, ok bool) {
 		return "overview-live", true
 	case "devices-live":
 		return "devices-live", true
+	case "layout-item":
+		return "layout-item-fragment", true
+	case "device-card":
+		return "device-card-fragment", true
 	case "panel":
 		switch panel := r.URL.Query().Get("panel"); panel {
 		case "devices", "history", "stats", "diagnostics", "config", "energy", "devicemap", "settings", "automations", "layout-editor":
@@ -734,9 +778,11 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		// only what the requested template actually reads keeps SSE-driven
 		// live-fragment requests (up to 1/s) from paying for a full registry
 		// snapshot, layout load and energy aggregation every time.
-		needsTiles := templateName == "base" || templateName == "overview-live" || templateName == "devices-live" || templateName == "devices"
-		needsEnergyAggregate := templateName == "base" || templateName == "overview-live" || templateName == "energy"
-		needsLayout := templateName == "base" || templateName == "overview-live"
+		itemFragment := templateName == "layout-item-fragment"
+		cardFragment := templateName == "device-card-fragment"
+		needsTiles := templateName == "base" || templateName == "overview-live" || templateName == "devices-live" || templateName == "devices" || itemFragment || cardFragment
+		needsEnergyAggregate := templateName == "base" || templateName == "overview-live" || templateName == "energy" || itemFragment
+		needsLayout := templateName == "base" || templateName == "overview-live" || itemFragment
 		needsDevices := needsTiles || needsEnergyAggregate
 
 		showRuntimeStatus := true
@@ -765,6 +811,12 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		}
 		if requestedMode := r.URL.Query().Get("view_mode"); requestedMode == settings.DeviceViewModeControl || requestedMode == settings.DeviceViewModeCompact {
 			deviceViewMode = requestedMode
+		}
+		// Das Kachel-Fragment des Geraete-Tabs nennt seine Ansicht selbst.
+		if cardFragment {
+			if mode := r.URL.Query().Get("mode"); mode == settings.DeviceViewModeControl || mode == settings.DeviceViewModeCompact {
+				deviceViewMode = mode
+			}
 		}
 		if theme == "" {
 			theme = settings.ThemeMint
@@ -826,21 +878,6 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 		if needsDevices {
 			view["Devices"] = devices
 		}
-		// Dasselbe Feld, das der SSE-Rumpf mitschickt (eventBody.Structure).
-		// Der Browser vergleicht beide und tauscht sein Fragment nur, wenn
-		// sie auseinanderlaufen - siehe deviceTilesPushCovers in dashboard.js.
-		if needsTiles {
-			view["Structure"] = registry.StructureFingerprint(devices)
-		}
-		// Dasselbe Feld, das der SSE-Rumpf als structure_compact mitschickt
-		// (eventBody.StructureCompact). Die HiddenOnTile-Schleife oben aendert
-		// nur Felder, die weder priorityEntities noch deviceAvailability
-		// liest - der Wert hier ist also deckungsgleich mit dem, den bodies()
-		// aus reg.Snapshot() rechnet.
-		if needsTiles {
-			view["StructureCompact"] = CompactStructureFingerprint(devices)
-			view["StructureAvailability"] = AvailabilityStructureFingerprint(devices)
-		}
 		if needsEnergyAggregate {
 			if store != nil {
 				if value, err := store.LoadEnergy(); err == nil {
@@ -869,6 +906,14 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 				}
 			}
 			view["Layout"] = layout
+			if itemFragment {
+				item, ok := findLayoutItem(layout, r.URL.Query().Get("page"), r.URL.Query().Get("item"))
+				if !ok {
+					http.Error(w, "unknown layout item", http.StatusNotFound)
+					return
+				}
+				view["FragmentItem"] = item
+			}
 			view["ActivePage"] = r.URL.Query().Get("page")
 			view["LayoutDevices"] = devicesByID(devices)
 			view["LayoutEntities"] = entitiesByID(devices)
@@ -876,6 +921,21 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 			view["EnergyCardScripts"] = requiredEnergyCardScripts(layout, basepath.From(r))
 			now := time.Now().UTC()
 			view["Diagnostics"] = diagnostics.Summarize(engine.Evaluate(now), engine.Health(now), devices)
+		}
+		if cardFragment {
+			id := r.URL.Query().Get("id")
+			found := false
+			for _, device := range devices {
+				if device.ID == id {
+					view["FragmentDevice"] = device
+					found = true
+					break
+				}
+			}
+			if !found {
+				http.Error(w, "unknown device", http.StatusNotFound)
+				return
+			}
 		}
 		if ignored != nil {
 			view["IgnoredDevices"] = ignored.Summaries()

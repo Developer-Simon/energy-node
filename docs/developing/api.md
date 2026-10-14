@@ -176,7 +176,7 @@ the role or other requirements.
 | GET | `/api/v1/topics` | – | All known topics |
 | GET | `/api/v1/topics/samples` | – | Last payload per topic |
 | GET | `/api/v1/automation/notification` | – | Last `{at, message}` event from the automation service's `last_event` topic, parsed. `404` when no automation service, `204` before its first event. Polled by `notifications.js` for toasts. |
-| GET | `/api/v1/events` | `topics` | SSE stream with the registry version and the subscribed topics |
+| GET | `/api/v1/events` | `topics, devices` | SSE stream with the registry version and the subscribed topics |
 | POST | `/api/v1/entities/{unique_id}/command` | – | Switch an entity or set a value |
 
 **`GET /api/v1/devices`** returns `ETag: "registry-N"`. With a matching
@@ -193,13 +193,18 @@ data: {"version":42,"energy":{...},"entities":{...},"entities_delta":true}
 
 `topics` is a comma-separated list. Known topics are `energy` (energy
 snapshot), `entities` (entity values, full on connect, then only changes with
-`entities_delta: true`), `diagnostics` (summary), `structure` (layout
-fingerprints, transitional) and `energy_stats` (`{"rev":N}`, the revision of the
+`entities_delta: true`), `diagnostics` (summary), `devices` (see below) and `energy_stats` (`{"rev":N}`, the revision of the
 energy statistics, present when the dashboard has a data directory). An event
-arrives when `rev` changes, even if the registry is idle. Unknown names are ignored. Without the parameter
-you get all of them. With an empty parameter (`?topics=`) you get only
+arrives when `rev` changes, even if the registry is idle. Unknown names are ignored. Without the parameter you get all topics except `devices`. With an empty parameter (`?topics=`) you get only
 `{"version":N}` whenever the registry changes, which is enough if you fetch
 `GET /api/v1/devices` yourself.
+
+`devices` (per subscribed device: `structure`, `availability`, `status` and,
+with `:auto`, the automatic compact `rows`). Choose the devices with
+`devices=a,b:auto`, or `*` / `*:auto` for all of them. A delta carries
+`devices_delta: true` and only changed devices, a removed one as `null`. With
+`*` the event also carries `devices_list`, the device IDs in display order.
+`devices` is not part of the default set.
 
 The server builds a topic only while someone subscribes to it, once per change
 for all connections. To change the topics, close the stream and open it again.

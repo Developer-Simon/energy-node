@@ -20,7 +20,7 @@
     entity_value: ['entities'], entity_group: ['entities'],
     diagnostics: ['diagnostics'],
     energy_stats: ['energy_stats'],
-    device: ['entities', 'structure'],
+    device: ['devices', 'entities'],
   };
 
   // Der Bedarf eines Panels als sortierter, mit Komma verbundener String.
@@ -35,11 +35,32 @@
       }
     } else if (panel && panelId === 'devices-panel' && panel.querySelector('#devices-live')) {
       topics.add('entities');
-      topics.add('structure');
+      topics.add('devices');
     } else if (panelId === 'stats-panel') {
       topics.add('energy_stats');
     }
     return [...topics].sort().join(',');
+  };
+
+  // Welche Geraete das aktive Panel zeigt, fuer ?devices=. :auto heisst: die
+  // Kachel waehlt ihre Zeilen automatisch und braucht rows. Steht ein Geraet
+  // mehrfach im Raster, gewinnt :auto. Der Geraete-Tab zeigt alle (*).
+  const liveDevicesFor = (panel, panelId) => {
+    if (!panel) return '';
+    if (panelId === 'devices-panel') {
+      const live = panel.querySelector('#devices-live');
+      if (!live) return '';
+      return live.dataset.deviceViewMode === 'control' ? '*' : '*:auto';
+    }
+    if (panelId !== 'overview-panel') return '';
+    const auto = new Map();
+    for (const item of panel.querySelectorAll('[data-layout-item-kind="device"]')) {
+      const id = item.dataset.layoutItemRef;
+      if (!id) continue;
+      const isAuto = item.dataset.display === 'compact' && item.dataset.compactConfigured !== 'true';
+      auto.set(id, Boolean(auto.get(id)) || isAuto);
+    }
+    return [...auto.keys()].sort().map(id => (auto.get(id) ? `${id}:auto` : id)).join(',');
   };
 
   const dashboardShell = () => ({
@@ -66,6 +87,7 @@
     // Die Themen, mit denen liveSource geoeffnet ist. null heisst: noch nie
     // verbunden.
     liveTopics: null,
+    liveDevices: '',
 
     // Tabs, die die volle Fensterbreite nutzen duerfen. Serverseitig ins
     // data-Attribut geschrieben, damit die Breite schon beim ersten Anstrich
@@ -315,10 +337,12 @@
     // neu verbinden statt Stream-ID plus POST: so haelt der Server keinen
     // Zustand je Strom, und der volle Rumpf beim Verbinden faellt nur bei
     // Interaktion an.
-    connectLive(topics) {
+    connectLive(topics, devices = '') {
       if (this.liveSource) this.liveSource.close();
       this.liveTopics = topics;
-      this.liveSource = new EventSource(withBase(`/api/v1/events?topics=${encodeURIComponent(topics)}`));
+      this.liveDevices = devices;
+      const query = `topics=${encodeURIComponent(topics)}${devices ? `&devices=${encodeURIComponent(devices)}` : ''}`;
+      this.liveSource = new EventSource(withBase(`/api/v1/events?${query}`));
       this.liveSource.addEventListener('registry', event => {
         let detail = {};
         try {
@@ -339,9 +363,11 @@
     // oder Strom gescheitert) bleibt es beim 30-Sekunden-Takt.
     syncLiveTopics() {
       if (!window.EventSource || this.liveFallback) return;
-      const topics = liveTopicsFor(document.getElementById(this.activePanel), this.activePanel);
-      if (this.liveSource && topics === this.liveTopics) return;
-      this.connectLive(topics);
+      const panel = document.getElementById(this.activePanel);
+      const topics = liveTopicsFor(panel, this.activePanel);
+      const devices = topics.split(',').includes('devices') ? liveDevicesFor(panel, this.activePanel) : '';
+      if (this.liveSource && topics === this.liveTopics && devices === this.liveDevices) return;
+      this.connectLive(topics, devices);
     },
 
     destroy() {
@@ -514,6 +540,10 @@
     // schliesst, ruht das zeilenweise Nachziehen der Kacheln; dieser Marker
     // merkt sich, dass beim Schliessen einmal nachgeholt werden muss.
     livePatchStale: false,
+    // Letzter bekannter Wert je Entity, aus den vollen und Delta-Ereignissen
+    // gesammelt. Eine Zeile, die device-structure.js neu baut, malt daraus
+    // ihren Wert, auch wenn er in einem frueheren Delta kam.
+    liveValues: {},
     deviceDetail: null,
     detailLoading: false,
     detailError: '',
@@ -523,6 +553,9 @@
     // aeusseren Bereich (dashboardShell) durchreicht - dort ueberlebte die
     // Kette jeden Fragment-Tausch.
     _liveQueue: null,
+    // Anfragen je Kachel: Schluessel -> Strukturwunsch, der waehrend der
+    // laufenden Anfrage kam (null = keiner). Angelegt in init().
+    _tileRequests: null,
     activeDeviceTab: 'measurements',
     mergedTab: false,
     // Erfahrungswert, kein Naturgesetz: ab dieser verfuegbaren Hoehe der
@@ -1280,15 +1313,15 @@
     // Welcher Zweig des SSE-Ereignisses welchen Kartentyp bedient. Ein
     // Kartentyp, der hier nicht steht, holt seine Zahlen weiter aus
     // serverseitig gerendertem HTML - fuer ihn bleibt der Tausch noetig.
-    // Stand 2026-08 ist das nur noch "entity". "device" ist seit dem
-    // Struktur-Fingerabdruck dabei - der JS-Renderer und ?view=index (B1a),
-    // die Schritt 3 der Spec dafuer vorgesehen hatte, sind damit hinfaellig.
     //
     // Es reicht nicht, dass alle Karten push-faehig sind: der Push muss auch
     // die Zweige mitbringen. Faellt einer aus (Marshalling-Fehler im
     // Server, aeltere Fassung), ist der Tausch das Richtige - lieber ein
     // teurer Neuaufbau als eine Karte, die stumm alte Zahlen zeigt.
-    liveGridPushCovers(detail) {
+    //
+    // Geraetekacheln bedient der Zweig devices. Ob device-structure.js alle
+    // einspielen konnte, sagt devicesApplied.
+    liveGridPushCovers(detail, devicesApplied = true) {
       const branchForKind = {
         energy_flow: 'energy', energy_band: 'energy', energy_ring: 'energy',
         energy_board: 'energy', energy_day: 'energy', energy_schema: 'energy',
@@ -1296,7 +1329,7 @@
         battery_status: 'energy',
         entity_value: 'entities', entity_group: 'entities',
         diagnostics: 'diagnostics',
-        device: 'entities',
+        device: 'devices',
         // Die Statistik-Kachel laedt ihre Zahlen selbst. Der Zweig traegt
         // nur die Revision, energy-stats-card.js entscheidet, ob sie neu
         // laedt.
@@ -1317,83 +1350,60 @@
         const branch = branchForKind[item.dataset.layoutItemKind];
         return branch !== undefined && detail?.[branch] !== undefined && detail[branch] !== null;
       });
-      if (!covered) return false;
-      // Eine Geraetekachel baut ihre Entitaetenliste aus der Registry, nicht
-      // aus dem Layout. Fuer sie reicht "der Zweig ist da" nicht - eine neu
-      // entdeckte Entitaet bekaeme sonst nie ihre Zeile.
-      //
-      // Die kompakte Kachel braucht ein zweites Ja: welche bis zu drei
-      // Zeilen sie zeigt, waehlt priorityEntities() anhand der Werte aus
-      // (webui.CompactStructureFingerprint) - eine Auswahl, durch deren
-      // Raster der geteilte Fingerabdruck faellt. Dieselbe Pruefung wie
-      // compactCardsPushCovers() im Geraete-Tab, nur auf #overview-live.
-      const live = this.$root.querySelector('#overview-live');
-      const compactCells = items.filter(item =>
-        item.dataset.layoutItemKind === 'device' && item.dataset.display === 'compact');
-      if (compactCells.length) {
-        // Discovery-Wechsel tauscht immer - dieselbe Untergrenze wie fuer die
-        // Detailkachel.
-        if (!this.structureUnchanged(detail, live)) return false;
-        // Eine kompakte Kachel *ohne* feste Zeilenauswahl haengt an
-        // priorityEntities: dafuer bleibt der wertabhaengige
-        // CompactStructureFingerprint der Waechter (structure_compact).
-        if (compactCells.some(cell => cell.dataset.compactConfigured !== 'true')) {
-          return Boolean(detail.structure_compact)
-            && detail.structure_compact === live?.dataset?.structureCompact;
-        }
-        // Sind alle kompakten Kacheln konfiguriert, stehen ihre Zeilen fest.
-        // Dann reicht "Discovery unveraendert" plus "Geraete-Ampel
-        // unveraendert" (structure_availability); ein reiner Messwert wird von
-        // compact-card-values.js in place nachgezogen, ohne Fragment-Tausch.
-        return Boolean(detail.structure_availability)
-          && detail.structure_availability === live?.dataset?.structureAvailability;
+      return covered && devicesApplied;
+    },
+
+    // Beide Panels teilen sich diese Komponente. Der Geraete-Tab braucht
+    // die Werte und dass device-structure.js jede Karte einspielen konnte.
+    livePushCovers(detail, devicesApplied) {
+      if (this.$root.querySelector('#devices-live')) return Boolean(detail?.entities) && devicesApplied;
+      return this.liveGridPushCovers(detail, devicesApplied);
+    },
+
+    // Holt genau eine Kachel neu, wenn sich ihre Struktur geaendert hat. Je
+    // Kachel laeuft hoechstens eine Anfrage. htmx.ajax ersetzt den Traeger
+    // per outerHTML, Alpine initialisiert die neue Kachel selbst. Haengt der
+    // Traeger danach noch (404, Netzfehler), faellt es auf den Tausch des
+    // ganzen Rasters zurueck.
+    async replaceTile(host, wanted) {
+      const itemId = host.dataset.layoutItemId;
+      const key = itemId || host.dataset.deviceId;
+      if (!key || !window.htmx) return;
+      this._tileRequests = this._tileRequests || new Map();
+      // Laeuft fuer diese Kachel schon eine Anfrage, merkt sich dieser Aufruf
+      // den gewuenschten Stand. Nach deren Ende wird er einmal nachgeholt.
+      if (this._tileRequests.has(key)) {
+        this._tileRequests.set(key, wanted ?? host.dataset.structure);
+        return;
       }
-      if (items.some(item => item.dataset.layoutItemKind === 'device')) {
-        return this.structureUnchanged(detail, live);
+      this._tileRequests.set(key, null);
+      let pending = null;
+      const page = window.__dashboardShell__?.activePage || '';
+      const url = itemId
+        ? `/?fragment=layout-item&page=${encodeURIComponent(page)}&item=${encodeURIComponent(itemId)}`
+        : `/?fragment=device-card&id=${encodeURIComponent(key)}&mode=${encodeURIComponent(this.viewMode)}`;
+      // Die Hoehenstuetze gilt nur fuer diese Kachel. Das neue Element
+      // bringt seine eigene Hoehe mit.
+      host.style.minHeight = `${host.getBoundingClientRect().height}px`;
+      try {
+        await window.htmx.ajax('GET', withBase(url), {target: host, swap: 'outerHTML'});
+      } catch (error) {
+        // Unten entscheidet isConnected.
+      } finally {
+        pending = this._tileRequests.get(key);
+        this._tileRequests.delete(key);
       }
-      return true;
-    },
-
-    // Der Fingerabdruck aus registry.StructureFingerprint deckt Geraete-ID,
-    // Entity-ID, Name, Component, device_class, Einheit und Commandable ab -
-    // also alles, woraus die Templates Zeilen, Icons und Regler machen.
-    // Steht er, hat sich nur ein Messwert bewegt und das Nachziehen genuegt.
-    // Ein leerer Wert ist kein Treffer: ein aelterer Server oder ein
-    // Marshalling-Fehler soll den Tausch ausloesen, nicht unterdruecken.
-    structureUnchanged(detail, live) {
-      return Boolean(detail?.structure) && detail.structure === live?.dataset?.structure;
-    },
-
-    // Das Gate der Steuerungs-Ansicht des Geraete-Tabs.
-    deviceTilesPushCovers(detail) {
-      if (this.viewMode !== 'control') return false;
-      if (!detail?.entities) return false;
-      return this.structureUnchanged(detail, this.$root.querySelector('#devices-live'));
-    },
-
-    // Das Gate der Kompakt-Ansicht. Sie ist nachziehbar, solange sowohl der
-    // geteilte Fingerabdruck steht (Discovery unveraendert) als auch der
-    // Kompakt-Fingerabdruck (webui.CompactStructureFingerprint): letzterer
-    // deckt die wertabhaengige Zeilenauswahl je Karte und die Geraete-Ampel
-    // ab - beides faellt durch das Raster des geteilten Fingerabdrucks.
-    compactCardsPushCovers(detail) {
-      if (this.viewMode !== 'compact') return false;
-      if (!detail?.entities) return false;
-      const live = this.$root.querySelector('#devices-live');
-      return this.structureUnchanged(detail, live)
-        && Boolean(detail.structure_compact)
-        && detail.structure_compact === live?.dataset?.structureCompact;
-    },
-
-    // Beide Panels teilen sich diese Komponente; welches Gate gilt, sagt das
-    // Fragment im DOM - im Geraete-Tab zusaetzlich die aktive Ansicht.
-    livePushCovers(detail) {
-      if (this.$root.querySelector('#devices-live')) {
-        return this.viewMode === 'control'
-          ? this.deviceTilesPushCovers(detail)
-          : this.compactCardsPushCovers(detail);
+      if (host.isConnected) {
+        host.style.minHeight = '';
+        this.refreshLiveFragment();
+        return;
       }
-      return this.liveGridPushCovers(detail);
+      // Der Traeger wurde ersetzt. Weicht die neue Kachel vom waehrend der
+      // Anfrage gemerkten Wunsch ab, holt genau diese Kachel einmal nach.
+      if (pending === null) return;
+      const fresh = [...this.$root.querySelectorAll(itemId ? '[data-layout-item-id]' : '[data-device-id]')]
+        .find(el => (itemId ? el.dataset.layoutItemId : el.dataset.deviceId) === key);
+      if (fresh && fresh.dataset.structure !== pending) this.replaceTile(fresh, pending);
     },
 
     init() {
@@ -1403,6 +1413,7 @@
       // window haengen und jedes registry-updated zwei Fragmente ausloesen.
       if (this.registryUpdated) return;
       this.viewMode = this.$root.dataset.deviceViewMode === 'control' ? 'control' : 'compact';
+      this._tileRequests = new Map();
       this.loadSession();
       this.configTileSettingChanged = () => this.refreshLiveFragment();
       this.deviceViewModeChanged = event => {
@@ -1421,6 +1432,14 @@
         // reg.Snapshot() je Registry-Aenderung - statt einem Aggregat-Lauf
         // je offenem Tab.
         if (detail?.energy) window.EnergyPresentation?.publish(detail.energy);
+        // Wert-Cache fuer Zeilen, die device-structure.js neu baut: der Wert
+        // einer neu gewaehlten Zeile kam meist in einem frueheren Delta. Er
+        // wird auch bei offenem Modal fortgeschrieben, sonst ist er beim
+        // Schliessen veraltet.
+        if (detail?.entities) {
+          const delta = Boolean(detail.entities_delta);
+          this.liveValues = delta ? {...this.liveValues, ...detail.entities} : {...detail.entities};
+        }
         // Verdeckt ein offenes Modal das Raster, faellt das Nachziehen der
         // (unsichtbaren) Kacheln und ein etwaiger Fragment-Tausch weg -
         // refreshSelectedDevice() haelt das Modal selbst aktuell. Beim
@@ -1449,7 +1468,10 @@
         // Der outerHTML-Tausch kostet gemessen 62 % der CPU-Zeit dieses
         // Tabs. Er faellt weg, sobald der Push jede Karte im Raster bedient
         // und die Struktur seit dem Rendern steht.
-        if (!this.livePushCovers(detail)) this.refreshLiveFragment();
+        const devicesApplied = window.deviceStructure
+          ? window.deviceStructure.apply(this.$root, detail, {values: this.liveValues, replace: (host, structure) => this.replaceTile(host, structure)})
+          : false;
+        if (!this.livePushCovers(detail, devicesApplied)) this.refreshLiveFragment();
         this.refreshSelectedDevice();
       };
       this.dialogClosed = event => {
@@ -1851,6 +1873,7 @@
 
   document.addEventListener('alpine:init', () => {
     dashboardShell.liveTopicsFor = liveTopicsFor;
+    dashboardShell.liveDevicesFor = liveDevicesFor;
     Alpine.data('dashboardShell', dashboardShell);
     Alpine.data('runtimeStatusPanel', runtimeStatusPanel);
     Alpine.data('diagnosticsPanel', diagnosticsPanel);

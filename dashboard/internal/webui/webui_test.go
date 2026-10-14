@@ -823,7 +823,7 @@ func TestDevicesLiveFragmentHonorsRequestedViewMode(t *testing.T) {
 			t.Fatalf("view_mode=control fragment does not contain %q: %s", marker, b)
 		}
 	}
-	if strings.Contains(b, `class="compact-card`) {
+	if strings.Contains(b, `class="compact-card `) {
 		t.Fatalf("view_mode=control must not render compact cards: %s", b)
 	}
 }
@@ -1746,9 +1746,9 @@ func TestDeviceTilesCarryPatchAttributes(t *testing.T) {
 		}
 	}
 
-	want := registry.StructureFingerprint(reg.Snapshot())
+	want := DeviceStructureFingerprint(reg.Snapshot()[0])
 	if !strings.Contains(body, `data-structure="`+want+`"`) {
-		t.Fatalf("data-structure passt nicht zu StructureFingerprint (%q): %s", want, body)
+		t.Fatalf("data-structure passt nicht zu DeviceStructureFingerprint (%q): %s", want, body)
 	}
 }
 
@@ -1765,7 +1765,7 @@ func TestOverviewFragmentCarriesStructure(t *testing.T) {
 	if recorder.Code != 200 {
 		t.Fatalf("got status %d", recorder.Code)
 	}
-	want := registry.StructureFingerprint(reg.Snapshot())
+	want := DeviceStructureFingerprint(reg.Snapshot()[0])
 	if !strings.Contains(recorder.Body.String(), `data-structure="`+want+`"`) {
 		t.Fatalf("#overview-live ohne passendes data-structure (%q): %s", want, recorder.Body.String())
 	}
@@ -1790,30 +1790,26 @@ func TestDeviceAvailabilityRollup(t *testing.T) {
 	}
 }
 
-// TestDeviceTileStatus covers Spec 2026-08-23 Abschnitt 3.2: the flat accent
-// stripe on every device tile is replaced by a header status dot that answers
 // "is this device healthy?" - offline entities outrank a stale (replayed)
 // value, a stale value outranks a clean roll-up, and a device that reports no
-// availability at all stays neutral.
+// availability at all stays neutral. Der Text kommt aus i18n (Template und
+// Browser), hier nur Klasse, Rail und Zahl.
 func TestDeviceTileStatus(t *testing.T) {
 	cases := []struct {
-		name      string
-		in        []registry.EntityView
-		wantClass string
-		wantLabel string
-		wantRail  string
+		name string
+		in   []registry.EntityView
+		want DeviceTileStatus
 	}{
-		{"no availability anywhere", []registry.EntityView{{}, {}}, "unknown", "", ""},
-		{"all available", []registry.EntityView{{HasAvailability: true, Available: true}, {HasAvailability: true, Available: true}}, "ok", "alle online", ""},
-		{"two offline", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: false}, {HasAvailability: true, Available: true}}, "bad", "2 offline", "is-offline"},
-		{"stale value, all available", []registry.EntityView{{HasAvailability: true, Available: true, Stale: true}}, "warn", "veraltet", "is-degraded"},
-		{"offline outranks stale", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: true, Stale: true}}, "bad", "1 offline", "is-offline"},
+		{"no availability anywhere", []registry.EntityView{{}, {}}, DeviceTileStatus{Class: "unknown"}},
+		{"all available", []registry.EntityView{{HasAvailability: true, Available: true}, {HasAvailability: true, Available: true}}, DeviceTileStatus{Class: "ok"}},
+		{"two offline", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: false}, {HasAvailability: true, Available: true}}, DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: 2}},
+		{"stale value, all available", []registry.EntityView{{HasAvailability: true, Available: true, Stale: true}}, DeviceTileStatus{Class: "warn", Rail: "is-degraded"}},
+		{"offline outranks stale", []registry.EntityView{{HasAvailability: true, Available: false}, {HasAvailability: true, Available: true, Stale: true}}, DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: 1}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := deviceTileStatus(tc.in)
-			if got.Class != tc.wantClass || got.Label != tc.wantLabel || got.Rail != tc.wantRail {
-				t.Fatalf("deviceTileStatus = {%q, %q, %q}, want {%q, %q, %q}", got.Class, got.Label, got.Rail, tc.wantClass, tc.wantLabel, tc.wantRail)
+			if got := deviceTileStatus(tc.in); got != tc.want {
+				t.Fatalf("deviceTileStatus = %+v, want %+v", got, tc.want)
 			}
 		})
 	}
@@ -1972,77 +1968,10 @@ func TestCompactCardTemplateRendersStatusAndPriorityRows(t *testing.T) {
 	}
 }
 
-// Der Kompakt-Fingerabdruck ist der Waechter der Kompakt-Ansicht. Sein Wert
-// liegt darin, dass er bei einer reinen Wertaenderung innerhalb derselben
-// Zeilenauswahl stehenbleibt - sonst taeuschte er bei jedem MQTT-Messwert
-// einen Strukturwechsel vor und der Tausch waere zurueck.
-func TestCompactStructureFingerprintIgnoresValueTicksWithinPickedSet(t *testing.T) {
-	mk := func(power, temp string, stale bool) []registry.DeviceView {
-		return []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-			{UniqueID: "node_power", Name: "Leistung", Component: "sensor", DeviceClass: "power", UnitOfMeasurement: "W", HasValue: true, Value: power, Stale: stale, HasAvailability: true, Available: true},
-			{UniqueID: "node_temp", Name: "Temperatur", Component: "sensor", DeviceClass: "temperature", UnitOfMeasurement: "C", HasValue: true, Value: temp, HasAvailability: true, Available: true},
-		}}}
-	}
-	if CompactStructureFingerprint(mk("42", "21", false)) != CompactStructureFingerprint(mk("1337", "23", true)) {
-		t.Error("eine reine Wertaenderung innerhalb derselben Auswahl hat den Kompakt-Fingerabdruck veraendert")
-	}
-}
-
-// Die ersten drei Zeilen einer Karte sind die Messwerte, die einen Wert
-// tragen. Bekommt eine vierte Entitaet ihren ersten Wert, waehrend bisher
-// nur zwei einen hatten, verdraengt sie nichts - aber die Auswahl waechst
-// von zwei auf drei Zeilen. Bleibt der Fingerabdruck dabei stehen,
-// erscheint die neue Zeile im Browser nie.
-func TestCompactStructureFingerprintReactsToPickedSet(t *testing.T) {
-	base := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1"},
-		{UniqueID: "b", Name: "B", Component: "sensor", HasValue: true, Value: "2"},
-		{UniqueID: "c", Name: "C", Component: "sensor", HasValue: false},
-	}}}
-	grown := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1"},
-		{UniqueID: "b", Name: "B", Component: "sensor", HasValue: true, Value: "2"},
-		{UniqueID: "c", Name: "C", Component: "sensor", HasValue: true, Value: "3"},
-	}}}
-	if CompactStructureFingerprint(base) == CompactStructureFingerprint(grown) {
-		t.Error("die Zeilenauswahl ist gewachsen, der Kompakt-Fingerabdruck nicht")
-	}
-}
-
-// Die Geraete-Ampel faerbt den linken Kartenrand und die Status-Pille. Sie
-// haengt an allen Entitaeten des Geraets, nicht nur den sichtbaren Zeilen -
-// deshalb reitet sie auf diesem Fingerabdruck mit statt im Browser
-// nachgezogen zu werden.
-func TestCompactStructureFingerprintReactsToAvailability(t *testing.T) {
-	online := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1", HasAvailability: true, Available: true},
-	}}}
-	offline := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", Name: "A", Component: "sensor", HasValue: true, Value: "1", HasAvailability: true, Available: false},
-	}}}
-	if CompactStructureFingerprint(online) == CompactStructureFingerprint(offline) {
-		t.Error("die Geraete-Verfuegbarkeit ist gewechselt, der Kompakt-Fingerabdruck nicht")
-	}
-}
-
-// Der leere Fall muss einen Wert liefern, keinen leeren String: der Client
-// liest einen leeren Wert als "kein Fingerabdruck da" und erzwingt dann
-// ewig den Tausch. nil und leere Liste muessen gleich sein.
-func TestCompactStructureFingerprintOfEmptyIsStableAndNotBlank(t *testing.T) {
-	empty := CompactStructureFingerprint(nil)
-	if empty == "" {
-		t.Fatal("leerer Kompakt-Fingerabdruck fuer eine leere Registry")
-	}
-	if empty != CompactStructureFingerprint([]registry.DeviceView{}) {
-		t.Error("nil und leere Liste liefern verschiedene Kompakt-Fingerabdruecke")
-	}
-}
-
-// Ohne data-structure-compact weiss dashboard.js nicht, wann die
-// Kompakt-Ansicht ihr Fragment tauschen muss; ohne data-device-class /
-// data-unit an der Zeile kann compact-card-values.js den Wert nicht so
-// formatieren wie das Template.
-func TestCompactCardsCarryPatchAttributes(t *testing.T) {
+// Die Zeilen der Kompaktkarte tragen die Attribute, an denen der Push und
+// device-structure.js sie wiedererkennen: die fertige Zeile und die Vorlage
+// <template data-compact-row>, aus der neue Zeilen gebaut werden.
+func TestCompactCardRowsCarryPatchAttributes(t *testing.T) {
 	reg := registry.New()
 	reg.UpsertEntity(registry.Discovery{
 		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
@@ -2051,7 +1980,7 @@ func TestCompactCardsCarryPatchAttributes(t *testing.T) {
 	reg.UpdateTopicWithQoS("node/power", []byte("42"), false, 0, time.Now().UTC())
 
 	recorder := httptest.NewRecorder()
-	Overview(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live", nil))
+	Overview(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live&view_mode=compact", nil))
 	if recorder.Code != 200 {
 		t.Fatalf("got status %d", recorder.Code)
 	}
@@ -2062,16 +1991,32 @@ func TestCompactCardsCarryPatchAttributes(t *testing.T) {
 		`data-entity-id="node_power"`,
 		`data-device-class="power"`,
 		`data-unit="W"`,
-		`data-structure-compact="`,
 	} {
 		if !strings.Contains(body, marker) {
 			t.Fatalf("Kompakt-Fragment enthaelt %q nicht: %s", marker, body)
 		}
 	}
 
-	want := CompactStructureFingerprint(reg.Snapshot())
-	if !strings.Contains(body, `data-structure-compact="`+want+`"`) {
-		t.Fatalf("data-structure-compact passt nicht zu CompactStructureFingerprint (%q): %s", want, body)
+	start := strings.Index(body, "<template data-compact-row>")
+	if start < 0 {
+		t.Fatalf("Kompakt-Fragment hat keine Zeilenvorlage: %s", body)
+	}
+	end := strings.Index(body[start:], "</template>")
+	if end < 0 {
+		t.Fatalf("Zeilenvorlage ist nicht geschlossen: %s", body)
+	}
+	tmpl := body[start : start+end]
+	for _, marker := range []string{
+		`class="compact-card-row"`,
+		`data-entity-id="`,
+		`data-device-class="`,
+		`data-unit="`,
+		`class="compact-card-row-label"`,
+		`class="compact-card-row-value"`,
+	} {
+		if !strings.Contains(tmpl, marker) {
+			t.Fatalf("Zeilenvorlage enthaelt %q nicht: %s", marker, tmpl)
+		}
 	}
 }
 
@@ -2419,9 +2364,6 @@ func TestOverviewRendersCompactDeviceCard(t *testing.T) {
 	if !strings.Contains(body, `data-display="compact"`) {
 		t.Error("data-display fehlt an der Rasterzelle")
 	}
-	if !strings.Contains(body, `data-structure-compact="`) {
-		t.Error("data-structure-compact fehlt an #overview-live")
-	}
 }
 
 func TestOverviewRendersDetailDeviceTileByDefault(t *testing.T) {
@@ -2435,7 +2377,7 @@ func TestOverviewRendersDetailDeviceTileByDefault(t *testing.T) {
 	if !strings.Contains(body, `class="device-tile"`) {
 		t.Error("die Detailkachel fehlt")
 	}
-	if strings.Contains(body, `class="compact-card`) {
+	if strings.Contains(body, `class="compact-card `) {
 		t.Error("die kompakte Kachel wurde faelschlich gerendert")
 	}
 }
@@ -2541,34 +2483,6 @@ func TestCompactCardTemplateRendersConfiguredRows(t *testing.T) {
 	}
 }
 
-// Der Availability-Fingerabdruck ist der Waechter der konfigurierten
-// Kompaktkachel: sie haengt nicht an priorityEntities (ihre Zeilen stehen
-// fest), aber die Geraete-Ampel muss stimmen. Reine Wertaenderungen lassen
-// ihn stehen, ein Verfuegbarkeitswechsel bewegt ihn.
-func TestAvailabilityStructureFingerprint(t *testing.T) {
-	online := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", HasValue: true, Value: "1", HasAvailability: true, Available: true},
-	}}}
-	valueTick := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", HasValue: true, Value: "9999", HasAvailability: true, Available: true},
-	}}}
-	offline := []registry.DeviceView{{ID: "node", Entities: []registry.EntityView{
-		{UniqueID: "a", HasValue: true, Value: "1", HasAvailability: true, Available: false},
-	}}}
-	if AvailabilityStructureFingerprint(online) != AvailabilityStructureFingerprint(valueTick) {
-		t.Error("eine reine Wertaenderung hat den Availability-Fingerabdruck bewegt")
-	}
-	if AvailabilityStructureFingerprint(online) == AvailabilityStructureFingerprint(offline) {
-		t.Error("ein Verfuegbarkeitswechsel hat den Availability-Fingerabdruck nicht bewegt")
-	}
-	if AvailabilityStructureFingerprint(nil) == "" {
-		t.Error("leerer Availability-Fingerabdruck - der Client wuerde dauerhaft tauschen")
-	}
-	if AvailabilityStructureFingerprint(nil) != AvailabilityStructureFingerprint([]registry.DeviceView{}) {
-		t.Error("nil und leere Liste liefern verschiedene Availability-Fingerabdruecke")
-	}
-}
-
 // Die Uebersicht markiert jede kompakte Geraetekachel danach, ob sie eine
 // feste Zeilenauswahl hat - daran entscheidet dashboard.js, welcher
 // Fingerabdruck die Kachel deckt.
@@ -2583,9 +2497,6 @@ func TestOverviewMarksConfiguredCompactCards(t *testing.T) {
 	body := renderOverviewWithLayout(t, configured)
 	if !strings.Contains(body, `data-compact-configured="true"`) {
 		t.Errorf("die konfigurierte Kachel traegt data-compact-configured=\"true\" nicht:\n%s", body)
-	}
-	if !strings.Contains(body, `data-structure-availability="`) {
-		t.Error("data-structure-availability fehlt an #overview-live")
 	}
 
 	auto := settings.Layout{Version: 3, Pages: []settings.Page{{
@@ -2739,13 +2650,20 @@ func TestPriorityEntitiesSkipsOrphanFavouriteAndFallsBackWhenEmpty(t *testing.T)
 	}
 }
 
-func TestCompactStructureFingerprintFollowsFavourites(t *testing.T) {
-	plain := []registry.DeviceView{devicePrefsTestDevice()}
-	favoured := []registry.DeviceView{devicePrefsTestDevice()}
-	favoured[0].FavoriteRefs = []string{"node_uptime"}
+func TestCompactRowsFollowFavourites(t *testing.T) {
+	plain := devicePrefsTestDevice()
+	favoured := devicePrefsTestDevice()
+	favoured.FavoriteRefs = []string{"node_uptime"}
 
-	if CompactStructureFingerprint(plain) == CompactStructureFingerprint(favoured) {
-		t.Fatal("CompactStructureFingerprint ignored the favourite selection - the live patcher would write values into the wrong rows")
+	ids := func(rows []CompactRow) string {
+		var out []string
+		for _, row := range rows {
+			out = append(out, row.ID)
+		}
+		return strings.Join(out, ",")
+	}
+	if ids(CompactRows(plain)) == ids(CompactRows(favoured)) {
+		t.Fatal("CompactRows ignored the favourite selection - the live patcher would build the wrong rows")
 	}
 }
 
@@ -2940,4 +2858,222 @@ func renderOverviewForSpriteTest(t *testing.T) string {
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).
 		ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
 	return recorder.Body.String()
+}
+
+func liveTestDevice(id string, entities ...registry.EntityView) registry.DeviceView {
+	return registry.DeviceView{ID: id, Name: "Node", Entities: entities}
+}
+
+func TestDeviceStructureFingerprintIsPerDevice(t *testing.T) {
+	a := liveTestDevice("a", registry.EntityView{UniqueID: "a1", Name: "Leistung", Component: "sensor"})
+	b := liveTestDevice("b", registry.EntityView{UniqueID: "b1", Name: "Leistung", Component: "sensor"})
+	before := DeviceStructureFingerprint(a)
+	b.Entities = append(b.Entities, registry.EntityView{UniqueID: "b2", Name: "Neu", Component: "sensor"})
+	if DeviceStructureFingerprint(a) != before {
+		t.Fatal("Fingerabdruck von a aendert sich mit b")
+	}
+	if DeviceStructureFingerprint(b) == DeviceStructureFingerprint(liveTestDevice("b", registry.EntityView{UniqueID: "b1", Name: "Leistung", Component: "sensor"})) {
+		t.Fatal("neue Entitaet aendert den Fingerabdruck von b nicht")
+	}
+}
+
+func TestDeviceStructureFingerprintCoversHeaderAndIgnoresValues(t *testing.T) {
+	base := liveTestDevice("a", registry.EntityView{UniqueID: "a1", Name: "Leistung", Component: "sensor", Value: "1", HasValue: true})
+	tick := base
+	tick.Entities = []registry.EntityView{{UniqueID: "a1", Name: "Leistung", Component: "sensor", Value: "2", HasValue: true}}
+	if DeviceStructureFingerprint(base) != DeviceStructureFingerprint(tick) {
+		t.Error("ein Messwert aendert den Fingerabdruck")
+	}
+	for _, change := range []func(*registry.DeviceView){
+		func(d *registry.DeviceView) { d.Name = "Anders" },
+		func(d *registry.DeviceView) { d.Model = "X1" },
+		func(d *registry.DeviceView) { d.IconName = "battery" },
+	} {
+		changed := base
+		change(&changed)
+		if DeviceStructureFingerprint(changed) == DeviceStructureFingerprint(base) {
+			t.Errorf("Kopfaenderung %+v bleibt unsichtbar", changed)
+		}
+	}
+	if DeviceStructureFingerprint(registry.DeviceView{}) != "" {
+		t.Error("ein Geraet ohne ID muss die Struktur \"\" haben")
+	}
+}
+
+func TestNewDeviceLive(t *testing.T) {
+	dev := liveTestDevice("a", registry.EntityView{UniqueID: "a1", HasAvailability: true, Available: false})
+	live := NewDeviceLive(dev)
+	if live.Structure != DeviceStructureFingerprint(dev) || live.Availability != "offline" || live.Status != (DeviceTileStatus{Class: "bad", Rail: "is-offline", Offline: 1}) {
+		t.Fatalf("live = %+v", live)
+	}
+}
+
+func TestCompactRowsFollowPriorityAndCarryTheLabel(t *testing.T) {
+	dev := registry.DeviceView{ID: "a", Name: "Shelly", Entities: []registry.EntityView{
+		{UniqueID: "a1", Name: "Shelly Leistung", Component: "sensor", DeviceClass: "power", UnitOfMeasurement: "W", HasValue: true, Value: "5"},
+		{UniqueID: "a2", Name: "Shelly Energie", Component: "sensor", HasValue: false},
+	}}
+	rows := CompactRows(dev)
+	if len(rows) != 1 || rows[0] != (CompactRow{ID: "a1", Label: stripDeviceName("Shelly", "Shelly Leistung"), Unit: "W", DeviceClass: "power"}) {
+		t.Fatalf("rows = %+v", rows)
+	}
+	if got := CompactRows(registry.DeviceView{ID: "leer"}); got == nil || len(got) != 0 {
+		t.Fatalf("leere Auswahl = %#v, want leeres Slice", got)
+	}
+	dev.FavoriteRefs = []string{"a2"}
+	if rows := CompactRows(dev); len(rows) != 1 || rows[0].ID != "a2" {
+		t.Fatalf("Favoriten ignoriert: %+v", rows)
+	}
+}
+
+func TestDeviceTileStatusTitleComesFromTheCatalog(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: "node/power", AvailabilityTopic: "node/status"},
+	})
+	reg.UpdateTopicWithQoS("node/status", []byte("offline"), false, 0, time.Now().UTC())
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest("GET", "/?fragment=devices-live&view_mode=control", nil))
+	if body := recorder.Body.String(); !strings.Contains(body, `title="1 offline"`) {
+		t.Fatalf("Status-Titel fehlt: %s", body)
+	}
+}
+
+func fragmentTestSetup(t *testing.T, items ...settings.Item) (*registry.Registry, *settings.Store) {
+	t.Helper()
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "node", Name: "Node"},
+		Entity: registry.EntityInfo{UniqueID: "node_power", ObjectID: "power", Component: "sensor", Name: "Leistung", DeviceClass: "power", UnitOfMeasurement: "W", StateTopic: "node/power"},
+	})
+	reg.UpdateTopicWithQoS("node/power", []byte("12"), false, 0, time.Now().UTC())
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveLayout(settings.Layout{Pages: []settings.Page{{
+		ID: "p1", Name: "Seite", Order: 0,
+		Groups: []settings.Group{{ID: "main", Name: "Main", Items: items}},
+	}}}); err != nil {
+		t.Fatal(err)
+	}
+	return reg, store
+}
+
+func render(t *testing.T, reg *registry.Registry, store *settings.Store, url string) (int, string) {
+	t.Helper()
+	recorder := httptest.NewRecorder()
+	Overview(reg, nil, store).ServeHTTP(recorder, httptest.NewRequest("GET", url, nil))
+	return recorder.Code, recorder.Body.String()
+}
+
+// Spec 8: das Fragment ist byte-gleich zum selben Ausschnitt im vollen
+// Raster. Sonst saehe eine nachgeladene Kachel anders aus als ihre
+// Nachbarn.
+func TestLayoutItemFragmentMatchesTheGrid(t *testing.T) {
+	for _, item := range []settings.Item{
+		{ID: "d1", Type: "device", Ref: "node", Span: "1", Visible: true},
+		{ID: "d2", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact"},
+		{ID: "e1", Type: "entity_value", Ref: "node_power", Span: "1", Visible: true},
+	} {
+		t.Run(item.ID, func(t *testing.T) {
+			reg, store := fragmentTestSetup(t, item)
+			code, grid := render(t, reg, store, "/?fragment=overview-live&page=p1")
+			if code != 200 {
+				t.Fatalf("Raster: %d", code)
+			}
+			code, fragment := render(t, reg, store, "/?fragment=layout-item&page=p1&item="+item.ID)
+			if code != 200 {
+				t.Fatalf("Fragment: %d %s", code, fragment)
+			}
+			fragment = strings.TrimSpace(fragment)
+			if !strings.HasPrefix(fragment, `<div class="layout-grid-item`) || !strings.Contains(fragment, `data-layout-item-id="`+item.ID+`"`) {
+				t.Fatalf("Fragment ist kein Rasterfeld: %s", fragment)
+			}
+			if !strings.Contains(grid, fragment) {
+				t.Fatalf("Fragment weicht vom Raster ab:\n%s\n---\n%s", fragment, grid)
+			}
+		})
+	}
+}
+
+func TestLayoutItemFragmentUnknownItemIs404(t *testing.T) {
+	reg, store := fragmentTestSetup(t, settings.Item{ID: "d1", Type: "device", Ref: "node", Span: "1", Visible: true})
+	if code, _ := render(t, reg, store, "/?fragment=layout-item&page=p1&item=fehlt"); code != 404 {
+		t.Fatalf("Status %d, want 404", code)
+	}
+}
+
+func TestDeviceCardFragmentMatchesTheDevicesTab(t *testing.T) {
+	reg, store := fragmentTestSetup(t)
+	for _, mode := range []string{"control", "compact"} {
+		t.Run(mode, func(t *testing.T) {
+			code, tab := render(t, reg, store, "/?fragment=devices-live&view_mode="+mode)
+			if code != 200 {
+				t.Fatalf("Tab: %d", code)
+			}
+			code, fragment := render(t, reg, store, "/?fragment=device-card&id=node&mode="+mode)
+			if code != 200 {
+				t.Fatalf("Fragment: %d %s", code, fragment)
+			}
+			fragment = strings.TrimSpace(fragment)
+			if fragment == "" || !strings.Contains(tab, fragment) {
+				t.Fatalf("Fragment weicht vom Tab ab:\n%s\n---\n%s", fragment, tab)
+			}
+		})
+	}
+	if code, _ := render(t, reg, store, "/?fragment=device-card&id=fehlt&mode=control"); code != 404 {
+		t.Fatalf("unbekanntes Geraet: %d, want 404", code)
+	}
+}
+
+func TestDeviceTilesCarryTheirOwnStructure(t *testing.T) {
+	reg, store := fragmentTestSetup(t,
+		settings.Item{ID: "d1", Type: "device", Ref: "node", Span: "1", Visible: true},
+		settings.Item{ID: "d2", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact"},
+		settings.Item{ID: "d3", Type: "device", Ref: "node", Span: "1", Visible: true, Display: "compact", EntityRefs: []string{"node_power"}},
+		settings.Item{ID: "gone", Type: "device", Ref: "fehlt", Span: "1", Visible: true},
+	)
+	_, grid := render(t, reg, store, "/?fragment=overview-live&page=p1")
+	devices := reg.Snapshot()
+	want := DeviceStructureFingerprint(devices[0])
+	for _, id := range []string{"d1", "d2", "d3"} {
+		if !strings.Contains(grid, `data-layout-item-id="`+id+`"`) {
+			t.Fatalf("Item %s fehlt", id)
+		}
+	}
+	if got := strings.Count(grid, `data-structure="`+want+`"`); got < 6 {
+		t.Errorf("data-structure %d-mal, want mindestens 6 (3 Rasterfelder + 3 Karten): %s", got, grid)
+	}
+	if !strings.Contains(grid, `data-layout-item-ref="fehlt"`) {
+		t.Fatal("Item mit fehlendem Geraet fehlt")
+	}
+	if !strings.Contains(grid, `data-structure=""`) {
+		t.Errorf("fehlendes Geraet meldet nicht die leere Struktur: %s", grid)
+	}
+	if strings.Count(grid, `data-compact-auto="true"`) != 1 {
+		t.Errorf("genau die automatische Kompaktkarte (d2) traegt data-compact-auto: %s", grid)
+	}
+	if !strings.Contains(grid, `data-rows="node_power"`) {
+		t.Errorf("data-rows fehlt: %s", grid)
+	}
+	if strings.Count(grid, "<template data-compact-row>") != 1 {
+		t.Errorf("Zeilenvorlage nicht genau einmal im Raster: %s", grid)
+	}
+}
+
+func TestDevicesTabCardsCarryStructureAndRowTemplate(t *testing.T) {
+	reg, store := fragmentTestSetup(t)
+	want := DeviceStructureFingerprint(reg.Snapshot()[0])
+	for _, mode := range []string{"control", "compact"} {
+		_, tab := render(t, reg, store, "/?fragment=devices-live&view_mode="+mode)
+		if !strings.Contains(tab, `data-structure="`+want+`"`) {
+			t.Errorf("%s: Karte ohne eigene Struktur: %s", mode, tab)
+		}
+		if strings.Count(tab, "<template data-compact-row>") != 1 {
+			t.Errorf("%s: Zeilenvorlage nicht genau einmal", mode)
+		}
+	}
+	_, compact := render(t, reg, store, "/?fragment=devices-live&view_mode=compact")
+	if !strings.Contains(compact, `data-compact-auto="true"`) {
+		t.Error("Kompaktkarte im Geraete-Tab ist nicht automatisch")
+	}
 }

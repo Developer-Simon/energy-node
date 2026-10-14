@@ -49,6 +49,7 @@ function load({ html = '<div id="overview-panel" class="panel active"></div>' } 
   vm.runInContext(valuesSource, context);
   vm.runInContext(tileValuesSource, context);
   vm.runInContext(compactValuesSource, context);
+  vm.runInContext(read('device-structure.js'), context);
   vm.runInContext(source, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   return { factories, window: dom.window, intervals };
@@ -326,12 +327,6 @@ test('gemischtes Raster aus Energie und Wertkarten tauscht nicht', () => {
   assert.deepEqual(calls, []);
 });
 
-// Ohne Fingerabdruck im Ereignis bleibt es beim Tausch - dieselbe Regel wie
-// fuer jeden anderen fehlenden Zweig.
-test('eine Geraetekachel ohne Fingerabdruck im Ereignis erzwingt den Tausch', () => {
-  const { calls } = overviewPanel(['entity_value', 'device']);
-  assert.equal(calls.length, 1);
-});
 
 // Faellt ein Zweig aus (Marshalling-Fehler im Server), darf die Karte nicht
 // mit alten Zahlen stehenbleiben - dann ist der Tausch das Richtige.
@@ -381,7 +376,7 @@ test('liveGridIsEnergyOnly gibt es nicht mehr', () => {
 // hier an der Registry statt am Layout. Der Fingerabdruck aus
 // registry.StructureFingerprint ist die Auskunft darueber, wann das Fragment
 // veraltet ist.
-const devicesHTML = (structure, mode = 'control', structureCompact = 'kompakt') => {
+const devicesHTML = (structure, mode = 'control') => {
   const inner = mode === 'compact'
     ? `<div class="device-compact-grid"><button class="compact-card is-online" data-device-id="node">`
       + `<span class="compact-card-rows"><span class="compact-card-row" data-entity-id="e1" data-device-class="power" data-unit="W">`
@@ -392,7 +387,7 @@ const devicesHTML = (structure, mode = 'control', structureCompact = 'kompakt') 
       + `<span class="device-tile-entity-value">42 W</span><small class="entity-command-status"></small>`
       + `</div></article></div>`;
   return `<div id="devices-panel" class="panel active" data-device-view-mode="${mode}">`
-    + `<div id="devices-live" data-structure="${structure}" data-structure-compact="${structureCompact}">`
+    + `<div id="devices-live" data-structure="${structure}">`
     + inner + `</div></div>`;
 };
 
@@ -415,71 +410,12 @@ const devicesDetail = (structure, extra = {}) => ({
   diagnostics: { status_class: 'ok' }, structure, ...extra,
 });
 
-// Der eigentliche Gewinn dieses Plans.
-test('gleicher Fingerabdruck: der Geraete-Tab tauscht nicht mehr', () => {
-  const { calls, window } = devicesPanelWith(devicesHTML('abc'), devicesDetail('abc'));
-  assert.deepEqual(calls, []);
-  assert.equal(window.document.querySelector('.device-tile-entity-value').textContent, '77 W');
-});
-
-// Neue Entitaet, umbenanntes Geraet, neues Icon - alles wechselt den
-// Fingerabdruck, und dafuer ist der Tausch da.
-test('anderer Fingerabdruck: der Geraete-Tab tauscht wie frueher', () => {
-  const { calls } = devicesPanelWith(devicesHTML('abc'), devicesDetail('def'));
-  assert.equal(calls.length, 1);
-});
-
-// Faellt der Zweig aus (aelterer Server, Marshalling-Fehler), ist der Tausch
-// das Richtige - lieber teuer neu bauen als stumm alte Zahlen zeigen.
-test('fehlender structure-Zweig laesst den Geraete-Tab tauschen', () => {
-  const { calls } = devicesPanelWith(devicesHTML('abc'), { version: 5, entities: {} });
-  assert.equal(calls.length, 1);
-});
 
 test('fehlender entities-Zweig laesst den Geraete-Tab tauschen', () => {
   const { calls } = devicesPanelWith(devicesHTML('abc'), { version: 5, structure: 'abc' });
   assert.equal(calls.length, 1);
 });
 
-// Der Gewinn dieses Plans fuer die Kompakt-Ansicht: stehen beide
-// Fingerabdruecke, zieht sie nach statt zu tauschen.
-test('Kompakt-Ansicht, beide Fingerabdruecke gleich: kein Tausch', () => {
-  const { calls, window } = devicesPanelWith(
-    devicesHTML('abc', 'compact', 'k1'),
-    devicesDetail('abc', { structure_compact: 'k1' }),
-  );
-  assert.deepEqual(calls, []);
-  assert.equal(window.document.querySelector('.compact-card-row-value').textContent, '77 W');
-});
-
-// Zeilenauswahl gewachsen oder Geraete-Ampel gewechselt: der
-// Kompakt-Fingerabdruck wandert, dafuer ist der Tausch da.
-test('Kompakt-Ansicht, anderer Kompakt-Fingerabdruck: Tausch', () => {
-  const { calls } = devicesPanelWith(
-    devicesHTML('abc', 'compact', 'k1'),
-    devicesDetail('abc', { structure_compact: 'k2' }),
-  );
-  assert.equal(calls.length, 1);
-});
-
-// Faellt der Kompakt-Zweig aus (aelterer Server), ist der Tausch das Richtige.
-test('Kompakt-Ansicht, fehlender structure_compact-Zweig: Tausch', () => {
-  const { calls } = devicesPanelWith(
-    devicesHTML('abc', 'compact', 'k1'),
-    devicesDetail('abc'),
-  );
-  assert.equal(calls.length, 1);
-});
-
-// Discovery hat sich geaendert: schon der geteilte Fingerabdruck stoppt das
-// Nachziehen, egal was der Kompakt-Zweig sagt.
-test('Kompakt-Ansicht, anderer geteilter Fingerabdruck: Tausch', () => {
-  const { calls } = devicesPanelWith(
-    devicesHTML('abc', 'compact', 'k1'),
-    devicesDetail('def', { structure_compact: 'k1' }),
-  );
-  assert.equal(calls.length, 1);
-});
 
 test('die Statustexte der Kachel landen in commandStates', () => {
   const { panel } = devicesPanelWith(
@@ -489,10 +425,6 @@ test('die Statustexte der Kachel landen in commandStates', () => {
   assert.equal(panel.commandStates.e1, 'Warte auf Bestätigung über MQTT ...');
 });
 
-// Die Gerätekachel im Raster: sie darf jetzt auch nachgezogen werden - aber
-// nur, solange der Fingerabdruck steht. Ihre Entitaetenliste haengt an der
-// Registry, nicht am Layout; eine neu entdeckte Entitaet bekaeme sonst nie
-// ihre Zeile.
 const gridDetail = (structure) => ({ ...fullDetail, structure });
 
 const gridHTMLWithStructure = (kinds, structure) => `<div id="overview-panel" class="panel active"><div id="overview-live" data-structure="${structure}"><div class="layout-grid">${
@@ -512,15 +444,6 @@ function overviewPanelWithStructure(kinds, htmlStructure, detail) {
   return { calls, window, panel };
 }
 
-test('Geraetekachel im Raster tauscht nicht mehr, solange die Struktur steht', () => {
-  const { calls } = overviewPanelWithStructure(['energy_ring', 'device'], 'abc', gridDetail('abc'));
-  assert.deepEqual(calls, []);
-});
-
-test('Geraetekachel im Raster tauscht, sobald sich die Struktur aendert', () => {
-  const { calls } = overviewPanelWithStructure(['energy_ring', 'device'], 'abc', gridDetail('def'));
-  assert.equal(calls.length, 1);
-});
 
 // Der Rueckfall fuer jeden Kartentyp, den branchForKind nicht kennt: lieber
 // tauschen als eine Karte stehen lassen, die der Push nicht bedient. Bis 2026-09
@@ -571,7 +494,7 @@ test('ein entities_delta fasst nur die genannte Karte an und tauscht nicht', () 
 
 test('bei offenem Geraete-Modal ruht das Nachziehen des Rasters', async () => {
   const { calls, window, panel } = overviewPanel(['entity_value', 'device'], {
-    version: 7, structure: 'x', energy: { values: {} }, entities: {}, diagnostics: { status_class: 'ok' },
+    version: 7, devices: {}, energy: { values: {} }, entities: {}, diagnostics: { status_class: 'ok' },
   });
   // overviewPanel hat schon ein Ereignis geschickt; ['entity_value','device']
   // ohne passenden Fingerabdruck wuerde sonst tauschen.
@@ -581,7 +504,7 @@ test('bei offenem Geraete-Modal ruht das Nachziehen des Rasters', async () => {
   panel.$refs.deviceModalDialog = { open: true, close() { this.open = false; } };
 
   window.dispatchEvent(new window.CustomEvent('registry-updated', {
-    detail: { version: 8, structure: 'x', entities_delta: true, energy: { values: {} }, entities: {}, diagnostics: { status_class: 'ok' } },
+    detail: { version: 8, devices: {}, entities_delta: true, energy: { values: {} }, entities: {}, diagnostics: { status_class: 'ok' } },
   }));
   assert.deepEqual(calls, [], 'kein Tausch, solange das Modal offen ist');
   assert.equal(panel.livePatchStale, true);
@@ -595,98 +518,6 @@ test('bei offenem Geraete-Modal ruht das Nachziehen des Rasters', async () => {
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(calls.length, 1, 'ein Nachhol-Refresh beim Schliessen');
   assert.equal(panel.livePatchStale, false);
-});
-
-// Ein Raster mit einer kompakten Geraetekachel. configured=true haengt die
-// feste-Auswahl-Markierung an, wie sie der Server fuer eine Kachel mit
-// entity_refs rendert.
-const compactGridHTML = (structure, structureCompact, display = 'compact', {configured = false, availability = 'av1'} = {}) =>
-  `<div id="overview-panel" class="panel active"><div id="overview-live" data-structure="${structure}" data-structure-compact="${structureCompact}" data-structure-availability="${availability}"><div class="layout-grid">`
-  + `<div data-layout-item-kind="device" data-display="${display}" data-compact-configured="${configured}" data-layout-item-ref="dev1"></div>`
-  + `</div></div></div>`;
-
-// Wie overviewPanel(), nur mit fertigem Markup statt einer Kind-Liste.
-function compactPanelCalls(html, detail) {
-  const { factories, window } = load({ html });
-  const calls = [];
-  window.htmx = { ajax: (...args) => { calls.push(args); return Promise.resolve(); } };
-  window.EnergyPresentation = { publish: () => {} };
-  const panel = factories.devicesPanel();
-  panel.$root = window.document.getElementById('overview-panel');
-  panel.$refs = {};
-  panel.init();
-  window.dispatchEvent(new window.CustomEvent('registry-updated', { detail }));
-  return calls;
-}
-
-// Welche bis zu drei Zeilen die kompakte Kachel zeigt, entscheidet
-// priorityEntities() anhand der Werte - eine Auswahl, durch deren Raster der
-// geteilte Fingerabdruck faellt. Ohne structure_compact zoege der Push stumm
-// Werte in Zeilen nach, die es nicht mehr geben duerfte.
-test('kompakte Geraetekachel: beide Fingerabdruecke passen, kein Tausch', () => {
-  const calls = compactPanelCalls(compactGridHTML('s1', 'c1'), { ...fullDetail, structure: 's1', structure_compact: 'c1' });
-  assert.deepEqual(calls, []);
-});
-
-test('kompakte Geraetekachel: geaenderte Zeilenauswahl tauscht', () => {
-  const calls = compactPanelCalls(compactGridHTML('s1', 'c1'), { ...fullDetail, structure: 's1', structure_compact: 'c2' });
-  assert.equal(calls.length, 1);
-});
-
-test('kompakte Geraetekachel: fehlendes structure_compact tauscht', () => {
-  const calls = compactPanelCalls(compactGridHTML('s1', 'c1'), { ...fullDetail, structure: 's1' });
-  assert.equal(calls.length, 1);
-});
-
-test('die Detailkachel bleibt beim geteilten Fingerabdruck', () => {
-  const calls = compactPanelCalls(compactGridHTML('s1', 'c1', 'detail'), { ...fullDetail, structure: 's1' });
-  assert.deepEqual(calls, []);
-});
-
-test('konfigurierte Kompaktkachel: structure + structure_availability passen, kein Tausch', () => {
-  const calls = compactPanelCalls(
-    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
-    { ...fullDetail, structure: 's1', structure_availability: 'av1' });
-  assert.deepEqual(calls, []);
-});
-
-test('konfigurierte Kompaktkachel: veraenderter structure_compact ist egal', () => {
-  const calls = compactPanelCalls(
-    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
-    { ...fullDetail, structure: 's1', structure_compact: 'c2', structure_availability: 'av1' });
-  assert.deepEqual(calls, []);
-});
-
-test('konfigurierte Kompaktkachel: Verfuegbarkeitswechsel tauscht', () => {
-  const calls = compactPanelCalls(
-    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
-    { ...fullDetail, structure: 's1', structure_availability: 'av2' });
-  assert.equal(calls.length, 1);
-});
-
-test('konfigurierte Kompaktkachel: fehlendes structure_availability tauscht', () => {
-  const calls = compactPanelCalls(
-    compactGridHTML('s1', 'c1', 'compact', {configured: true, availability: 'av1'}),
-    { ...fullDetail, structure: 's1' });
-  assert.equal(calls.length, 1);
-});
-
-test('gemischtes Raster: eine automatische Kompaktkachel zieht den strengeren Waechter', () => {
-  const { factories, window } = load({ html:
-    `<div id="overview-panel" class="panel active"><div id="overview-live" data-structure="s1" data-structure-compact="c1" data-structure-availability="av1"><div class="layout-grid">`
-    + `<div data-layout-item-kind="device" data-display="compact" data-compact-configured="true" data-layout-item-ref="dev1"></div>`
-    + `<div data-layout-item-kind="device" data-display="compact" data-compact-configured="false" data-layout-item-ref="dev2"></div>`
-    + `</div></div></div>` });
-  const calls = [];
-  window.htmx = { ajax: (...args) => { calls.push(args); return Promise.resolve(); } };
-  window.EnergyPresentation = { publish: () => {} };
-  const panel = factories.devicesPanel();
-  panel.$root = window.document.getElementById('overview-panel');
-  panel.$refs = {};
-  panel.init();
-  window.dispatchEvent(new window.CustomEvent('registry-updated', { detail:
-    { ...fullDetail, structure: 's1', structure_availability: 'av1' } }));
-  assert.equal(calls.length, 1); // structure_compact fehlt -> die automatische Kachel erzwingt den Tausch
 });
 
 test('Statistik-Kachel mit Zweig energy_stats tauscht nicht', () => {
@@ -711,4 +542,141 @@ test('registry-updated reicht energy_stats an die Kachel weiter', () => {
   panel.init();
   window.dispatchEvent(new window.CustomEvent('registry-updated', { detail: { version: 1, energy_stats: { rev: 5 } } }));
   assert.deepEqual(JSON.parse(JSON.stringify(forwarded)), [{ rev: 5 }]);
+});
+
+const deviceGrid = (structure = 's1') => '<div id="overview-panel" class="panel active"><div id="overview-live">'
+  + '<template data-compact-row><span class="compact-card-row" data-entity-id="" data-device-class="" data-unit=""><span class="compact-card-row-label"></span><span class="compact-card-row-value">–</span></span></template>'
+  + `<div class="layout-grid-item" data-layout-item-id="i1" data-layout-item-kind="device" data-layout-item-ref="a" data-structure="${structure}">`
+  + `<article class="device-tile" data-device-id="a" data-structure="${structure}"><span class="device-tile-dot device-tile-dot-ok"></span></article>`
+  + '</div></div></div>';
+
+function deviceOverview(html = deviceGrid()) {
+  const { factories, window } = load({ html });
+  const calls = [];
+  window.htmx = { ajax: (...args) => { calls.push(args); return Promise.resolve(); } };
+  window.EnergyPresentation = { publish: () => {} };
+  window.__dashboardShell__ = { activePage: 'p1' };
+  const panel = factories.devicesPanel();
+  panel.$root = window.document.getElementById('overview-panel');
+  panel.$refs = {};
+  panel.init();
+  const send = detail => window.dispatchEvent(new window.CustomEvent('registry-updated', { detail }));
+  return { calls, window, panel, send };
+}
+
+const deviceEntry = (over = {}) => ({ structure: 's1', availability: 'online', status: { class: 'ok', rail: '', offline: 0 }, ...over });
+
+test('Geraetekachel: Ampelwechsel tauscht nichts und holt nichts', () => {
+  const { calls, window, send } = deviceOverview();
+  send({ ...fullDetail, devices: { a: deviceEntry({ status: { class: 'bad', rail: 'is-offline', offline: 1 } }) }, devices_delta: true });
+  assert.deepEqual(calls, []);
+  assert.ok(window.document.querySelector('.device-tile').classList.contains('is-offline'));
+});
+
+test('Geraetekachel: Strukturwechsel holt genau ein layout-item-Fragment', async () => {
+  const { calls, window, send } = deviceOverview();
+  // Wie htmx: der Traeger wird nach der Antwort durch das neue Fragment
+  // ersetzt (hier asynchron, damit beide send() vor dem Tausch laufen).
+  window.htmx.ajax = (...args) => {
+    calls.push(args);
+    return Promise.resolve().then(() => {
+      const fresh = window.document.createElement('div');
+      fresh.innerHTML = deviceGrid('s2');
+      args[2].target.replaceWith(fresh.querySelector('.layout-grid-item'));
+    });
+  };
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1], '/?fragment=layout-item&page=p1&item=i1');
+  assert.equal(calls[0][2].swap, 'outerHTML');
+});
+
+test('Geraetekachel: scheitert das Fragment, tauscht das Raster', async () => {
+  const { calls, send } = deviceOverview();
+  // htmx.ajax loest auf, ersetzt aber nichts (404): der Traeger haengt noch.
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2);
+  assert.match(calls[1][1], /fragment=overview-live/);
+});
+
+test('Geraetekachel ohne Zweig devices tauscht das Raster', () => {
+  const { calls, send } = deviceOverview();
+  send(fullDetail);
+  assert.equal(calls.length, 1);
+  assert.match(calls[0][1], /fragment=overview-live/);
+});
+
+test('der Wert-Cache sammelt volle und Delta-Werte', () => {
+  const { panel, send } = deviceOverview();
+  send({ ...fullDetail, entities: { x: { value: '1' } }, devices: {} });
+  send({ ...fullDetail, entities: { y: { value: '2' } }, entities_delta: true, devices: {}, devices_delta: true });
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.liveValues)), { x: { value: '1' }, y: { value: '2' } });
+  send({ ...fullDetail, entities: { z: { value: '3' } }, devices: {} });
+  assert.deepEqual(JSON.parse(JSON.stringify(panel.liveValues)), { z: { value: '3' } });
+});
+
+// Ein zweiter Strukturwechsel, waehrend die Kachel noch geholt wird, darf
+// nicht verloren gehen: er wird nach dem Ende der ersten Anfrage einmal
+// nachgeholt, und hoechstens eine Anfrage laeuft je Kachel.
+test('Geraetekachel: Strukturwechsel waehrend einer Anfrage wird nach deren Ende nachgeholt', async () => {
+  const { calls, window, send } = deviceOverview();
+  const responders = [];
+  window.htmx.ajax = (...args) => {
+    calls.push(args);
+    return new Promise(resolve => responders.push(structure => {
+      const fresh = window.document.createElement('div');
+      fresh.innerHTML = deviceGrid(structure);
+      args[2].target.replaceWith(fresh.querySelector('.layout-grid-item'));
+      resolve();
+    }));
+  };
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's3' }) }, devices_delta: true });
+  assert.equal(calls.length, 1, 'die zweite Anfrage wartet auf die erste');
+  responders.shift()('s2');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2, 'der Wunsch s3 wird einmal nachgeholt');
+  assert.equal(calls[1][1], '/?fragment=layout-item&page=p1&item=i1');
+  responders.shift()('s3');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2, 'nach s3 ist nichts mehr offen');
+  assert.equal(window.document.querySelector('.layout-grid-item').dataset.structure, 's3');
+});
+
+test('Geraetekachel: derselbe Strukturwechsel zweimal waehrend einer Anfrage holt nur einmal', async () => {
+  const { calls, window, send } = deviceOverview();
+  const responders = [];
+  window.htmx.ajax = (...args) => {
+    calls.push(args);
+    return new Promise(resolve => responders.push(() => {
+      const fresh = window.document.createElement('div');
+      fresh.innerHTML = deviceGrid('s2');
+      args[2].target.replaceWith(fresh.querySelector('.layout-grid-item'));
+      resolve();
+    }));
+  };
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  responders.shift()();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 1);
+});
+
+// Bei offenem Modal ruht das Raster, der Wert-Cache aber nicht: die Zeile,
+// die nach dem Schliessen neu gebaut wird, braucht den Wert aus dieser Zeit.
+test('bei offenem Geraete-Modal bleibt der Wert-Cache aktuell', () => {
+  const { panel, send } = deviceOverview();
+  panel.selectedDeviceId = 'dev-1';
+  panel.$refs.deviceModalDialog = { open: true, close() { this.open = false; } };
+  send({ ...fullDetail, entities: { e9: { value: '9', has_value: true } }, entities_delta: true, devices: {} });
+  assert.equal(panel.liveValues.e9.value, '9');
 });

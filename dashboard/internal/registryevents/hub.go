@@ -43,6 +43,8 @@ const (
 // leerer Teil fehlt im Rumpf.
 type Part struct {
 	Full, Delta, Idle []byte
+	// Data ist der gebaute Stand fuer Topic.Select. Ohne Select ungenutzt.
+	Data any
 }
 
 // Bytes liefert den Teil fuer mode.
@@ -65,6 +67,10 @@ type Topic struct {
 	Name    string
 	Version func() Version
 	Build   func(Version) (Part, bool)
+	// Select baut den Teil je Abonnent aus part.Data, wenn gesetzt. selection
+	// ist die Auswahl, mit der sich der Abonnent angemeldet hat
+	// (SubscribeWith). Full, Delta und Idle des Teils sind dann ungenutzt.
+	Select func(part Part, mode Mode, selection string) []byte
 }
 
 // Compose setzt einen Rumpf aus der Registry-Version und den Members
@@ -85,8 +91,9 @@ func Compose(head uint64, members ...[]byte) []byte {
 }
 
 type subscriber struct {
-	ch   chan []byte
-	mask uint64
+	ch        chan []byte
+	mask      uint64
+	selection string
 }
 
 type topicState struct {
@@ -164,7 +171,9 @@ func (h *Hub) maskOf(names []string) uint64 {
 // Bauen, Zusammensetzen und Anmelden laufen unter pollMu, damit zwischen
 // "vollen Rumpf lesen" und "Kanal registrieren" keine Aenderung
 // durchrutscht.
-func (h *Hub) Subscribe(topics []string) (latest []byte, ch <-chan []byte, cancel func()) {
+//
+// selection geht an Topic.Select; ohne Select-Thema ist sie ohne Wirkung.
+func (h *Hub) SubscribeWith(topics []string, selection string) (latest []byte, ch <-chan []byte, cancel func()) {
 	mask := h.defaults
 	if topics != nil {
 		mask = h.maskOf(topics)
@@ -174,13 +183,13 @@ func (h *Hub) Subscribe(topics []string) (latest []byte, ch <-chan []byte, cance
 	// Baut die Themen des Neuen mit und verteilt einen etwaigen Wechsel an
 	// die bereits verbundenen Abonnenten.
 	h.refresh(mask)
-	latest = h.compose(mask, ModeFull, 0)
+	latest = h.compose(mask, ModeFull, 0, selection)
 
 	h.mu.Lock()
 	id := h.nextID
 	h.nextID++
 	out := make(chan []byte, h.queueSize)
-	h.subs[id] = &subscriber{ch: out, mask: mask}
+	h.subs[id] = &subscriber{ch: out, mask: mask, selection: selection}
 	h.startLoopLocked()
 	h.mu.Unlock()
 
@@ -188,6 +197,11 @@ func (h *Hub) Subscribe(topics []string) (latest []byte, ch <-chan []byte, cance
 
 	var once sync.Once
 	return latest, out, func() { once.Do(func() { h.remove(id) }) }
+}
+
+// Subscribe ist SubscribeWith ohne Auswahl.
+func (h *Hub) Subscribe(topics []string) (latest []byte, ch <-chan []byte, cancel func()) {
+	return h.SubscribeWith(topics, "")
 }
 
 func (h *Hub) remove(id int) {
@@ -273,27 +287,33 @@ func (h *Hub) refresh(extra uint64) {
 		return
 	}
 
-	bodies := map[uint64][]byte{}
+	type bodyKey struct {
+		mask      uint64
+		selection string
+	}
+	bodies := map[bodyKey][]byte{}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for id, sub := range h.subs {
 		if !headChanged && sub.mask&changed == 0 {
 			continue
 		}
-		body, ok := bodies[sub.mask]
+		key := bodyKey{sub.mask, sub.selection}
+		body, ok := bodies[key]
 		if !ok {
-			body = h.compose(sub.mask, ModeDelta, changed)
-			bodies[sub.mask] = body
+			body = h.compose(sub.mask, ModeDelta, changed, sub.selection)
+			bodies[key] = body
 		}
 		h.deliverLocked(id, sub.ch, body)
 	}
 }
 
 // compose setzt den Rumpf fuer eine Maske zusammen. Bei ModeDelta bekommt
-// ein Thema ausserhalb von changed seinen Leerlauf-Teil. Erwartet pollMu.
-func (h *Hub) compose(mask uint64, mode Mode, changed uint64) []byte {
+// ein Thema ausserhalb von changed seinen Leerlauf-Teil. Hat ein Thema
+// Select, baut es seinen Teil fuer selection. Erwartet pollMu.
+func (h *Hub) compose(mask uint64, mode Mode, changed uint64, selection string) []byte {
 	members := make([][]byte, 0, len(h.topics))
-	for i := range h.topics {
+	for i, topic := range h.topics {
 		bit := uint64(1) << i
 		if mask&bit == 0 || !h.state[i].built {
 			continue
@@ -301,6 +321,10 @@ func (h *Hub) compose(mask uint64, mode Mode, changed uint64) []byte {
 		m := mode
 		if mode == ModeDelta && changed&bit == 0 {
 			m = ModeIdle
+		}
+		if topic.Select != nil {
+			members = append(members, topic.Select(h.state[i].part, m, selection))
+			continue
 		}
 		members = append(members, h.state[i].part.Bytes(m))
 	}

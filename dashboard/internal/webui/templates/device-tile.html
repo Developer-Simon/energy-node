@@ -1,10 +1,10 @@
 {{define "device-tile"}}
   {{ $device := . }}
   {{ $status := deviceTileStatus .Entities }}
-  <article class="device-tile{{with $status.Rail}} {{.}}{{end}}" data-device-id="{{.ID}}">
+  <article class="device-tile{{with $status.Rail}} {{.}}{{end}}" data-device-id="{{.ID}}" data-structure="{{deviceStructure $device}}">
     <header class="device-tile-header">
       <div>
-        <h3><span class="device-tile-icon" aria-hidden="true">{{deviceIcon $device}}</span><span class="device-tile-dot device-tile-dot-{{$status.Class}}"{{with $status.Label}} title="{{.}}"{{end}} aria-hidden="true"></span>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3>
+        <h3><span class="device-tile-icon" aria-hidden="true">{{deviceIcon $device}}</span><span class="device-tile-dot device-tile-dot-{{$status.Class}}"{{if eq $status.Class "bad"}} title="{{tn "tile.status.offline" $status.Offline}}"{{else if eq $status.Class "warn"}} title="{{t "tile.status.stale"}}"{{else if eq $status.Class "ok"}} title="{{t "tile.status.online"}}"{{end}} aria-hidden="true"></span>{{if .Name}}{{.Name}}{{else}}{{.ID}}{{end}}</h3>
         {{if .Model}}<small>{{.Model}}</small>{{end}}
       </div>
       <div class="device-tile-actions"><button type="button" class="device-detail-trigger" data-device-id="{{.ID}}" x-on:click="selectDevice($el.dataset.deviceId)" aria-label="{{t "tile.details.showing" "name" .Name}}">{{t "tile.details.link"}}</button></div>

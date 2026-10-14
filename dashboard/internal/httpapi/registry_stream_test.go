@@ -281,3 +281,22 @@ func TestEnergyStatsRevisionTriggersEventWhileRegistryIsIdle(t *testing.T) {
 		t.Errorf("rev = %d, Store = %d, vorher %d", next.EnergyStats.Rev, store.Revision(), first.EnergyStats.Rev)
 	}
 }
+
+func TestEventStreamDevicesTopicFollowsTheSelection(t *testing.T) {
+	reg := testRegistryWithPower(t)
+	server := eventsServer(t, reg)
+	reader, closeStream := openEventStreamAt(t, server, "/api/v1/events?topics=devices&devices=shelly:auto,fehlt")
+	defer closeStream()
+	var body struct {
+		Devices map[string]struct {
+			Structure string            `json:"structure"`
+			Rows      []json.RawMessage `json:"rows"`
+		} `json:"devices"`
+	}
+	if err := json.Unmarshal([]byte(readRegistryEvent(t, reader)), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Devices) != 1 || body.Devices["shelly"].Structure == "" {
+		t.Fatalf("devices = %+v", body.Devices)
+	}
+}
