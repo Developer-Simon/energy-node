@@ -105,3 +105,15 @@ test('nach einem Fehler bleibt der 30-Sekunden-Rueckfall und kein neuer Strom', 
   assert.equal(sources.length, 1);
   assert.notEqual(shell.liveFallback, null);
 });
+
+test('die Statistik-Kachel abonniert energy_stats', () => {
+  const { factories, window } = load(grid(['energy_stats', 'energy_flow']));
+  const topicsFor = factories.dashboardShell.liveTopicsFor;
+  assert.equal(topicsFor(window.document.getElementById('overview-panel'), 'overview-panel'), 'energy,energy_stats');
+});
+
+test('die Seite Statistik abonniert energy_stats', () => {
+  const { factories } = load('<section id="stats-panel"></section>');
+  const topicsFor = factories.dashboardShell.liveTopicsFor;
+  assert.equal(topicsFor(null, 'stats-panel'), 'energy_stats');
+});

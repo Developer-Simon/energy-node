@@ -19,6 +19,7 @@
     energy_status: ['energy'], battery_status: ['energy'],
     entity_value: ['entities'], entity_group: ['entities'],
     diagnostics: ['diagnostics'],
+    energy_stats: ['energy_stats'],
     device: ['entities', 'structure'],
   };
 
@@ -35,6 +36,8 @@
     } else if (panel && panelId === 'devices-panel' && panel.querySelector('#devices-live')) {
       topics.add('entities');
       topics.add('structure');
+    } else if (panelId === 'stats-panel') {
+      topics.add('energy_stats');
     }
     return [...topics].sort().join(',');
   };
@@ -1294,6 +1297,10 @@
         entity_value: 'entities', entity_group: 'entities',
         diagnostics: 'diagnostics',
         device: 'entities',
+        // Die Statistik-Kachel laedt ihre Zahlen selbst. Der Zweig traegt
+        // nur die Revision, energy-stats-card.js entscheidet, ob sie neu
+        // laedt.
+        energy_stats: 'energy_stats',
       };
       // Kacheln, die sich selbst versorgen: die Verlaufskachel liest den
       // Browser-Speicher in ihrem eigenen Takt (history-view-card.js) und
@@ -1438,6 +1445,7 @@
           window.compactCardValues?.applyCompactCards(this.$root, detail.entities, delta);
         }
         if (detail?.diagnostics) window.overviewValues?.applyDiagnostics(this.$root, detail.diagnostics);
+        if (detail?.energy_stats) window.energyStatsCards?.applyRevision(this.$root, detail.energy_stats);
         // Der outerHTML-Tausch kostet gemessen 62 % der CPU-Zeit dieses
         // Tabs. Er faellt weg, sobald der Push jede Karte im Raster bedient
         // und die Struktur seit dem Rendern steht.

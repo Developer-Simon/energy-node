@@ -688,3 +688,27 @@ test('gemischtes Raster: eine automatische Kompaktkachel zieht den strengeren Wa
     { ...fullDetail, structure: 's1', structure_availability: 'av1' } }));
   assert.equal(calls.length, 1); // structure_compact fehlt -> die automatische Kachel erzwingt den Tausch
 });
+
+test('Statistik-Kachel mit Zweig energy_stats tauscht nicht', () => {
+  const { calls } = overviewPanel(['energy_stats', 'energy_ring'], { ...fullDetail, energy_stats: { rev: 1 } });
+  assert.deepEqual(calls, []);
+});
+
+test('Statistik-Kachel ohne Zweig energy_stats tauscht', () => {
+  const { calls } = overviewPanel(['energy_stats', 'energy_ring'], fullDetail);
+  assert.equal(calls.length, 1);
+});
+
+test('registry-updated reicht energy_stats an die Kachel weiter', () => {
+  const { factories, window } = load({ html: gridHTML(['energy_stats']) });
+  window.htmx = { ajax: () => Promise.resolve() };
+  window.EnergyPresentation = { publish: () => {} };
+  const forwarded = [];
+  window.energyStatsCards = { applyRevision: (root, branch) => forwarded.push(branch) };
+  const panel = factories.devicesPanel();
+  panel.$root = window.document.getElementById('overview-panel');
+  panel.$refs = {};
+  panel.init();
+  window.dispatchEvent(new window.CustomEvent('registry-updated', { detail: { version: 1, energy_stats: { rev: 5 } } }));
+  assert.deepEqual(JSON.parse(JSON.stringify(forwarded)), [{ rev: 5 }]);
+});
