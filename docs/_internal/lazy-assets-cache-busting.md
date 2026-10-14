@@ -72,7 +72,7 @@ As of **2026-10-14**, read from `base.html` and `overview.html`. "–" means: no
 | Asset | `?v=` |
 |---|---|
 | `css/base.css` | `36` |
-| `js/i18n.js` | `3` (also `login.html`) |
+| `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
 
@@ -98,7 +98,7 @@ As of **2026-10-14**, read from `base.html` and `overview.html`. "–" means: no
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `33` |
 | `js/update-bar.js` | `3` |
-| `js/whatsnew.page.js` | `2` (deferred script block, no longer in the settings-panel row) |
+| `js/whatsnew.page.js` | `3` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -133,7 +133,7 @@ skips scripts already present as `<script src>`.
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `35` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `9` | `css/manager.css` `35` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `24` | `css/manager.css` `35` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `21`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `21`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `6`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `11` | `css/manager.css` `35`, `css/automations.css` `6` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `3` | `css/history.css` `4`, `css/stats.css` `2` |
 
@@ -254,6 +254,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.9.13 | `js/i18n.js` (all pages, `login.html` keeps `3`) · `js/whatsnew.page.js` (`whatsNewPanel`, `entryText`) · `js/versions.page.js` (settings panel, `entryText`) | `4` · `3` · `6` | 2026-10-14 |
 | v0.9.12 | `js/dashboard.js` · `js/device-structure.js` (new, device tiles) | `33` · `1` (new) | 2026-10-14 |
 | v0.9.11 | `js/dashboard.js` · `js/energy-stats-card.js` (energy cards) · `js/stats.page.js` (stats panel) | `32` · `3` · `3` | 2026-10-14 |
 | v0.9.9 | `css/base.css` · `css/settings-controls.css` (settings, diagnostics) · `css/stats.css` (new, stats panel) · `js/dashboard.js` · `js/energy-stats-card.js` (new, energy cards) · `js/energy-stats-model.js` (new, stats panel + energy cards) · `js/layout-editor.js` (overview editor) · `js/settings.page.js` (settings panel) · `js/stats.page.js` (new, stats panel) | `35` · `13` · `1` (new) · `30` · `1` (new) · `1` (new) · `15` · `21` · `1` (new) | 2026-10-12 |

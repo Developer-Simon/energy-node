@@ -1,6 +1,7 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
+  const localized = (entry) => (window.I18n ? window.I18n.localized(entry.i18n, entry.text) : entry.text);
 
   const requestJSON = async (url, options) => {
     // The single chokepoint for every URL literal in this file: behind a
@@ -205,9 +206,11 @@
         && this.shownReleases(id).length === 0;
     },
 
-    // "scope: text", the scope is its own field in the changelog.
+    // "scope: text", the scope is its own field in the changelog. The text
+    // is the translation in the page language when the entry has one.
     entryText(entry) {
-      return entry.scope ? `${entry.scope}: ${entry.text}` : entry.text;
+      const text = localized(entry);
+      return entry.scope ? `${entry.scope}: ${text}` : text;
     },
 
     // Release dates are plain YYYY-MM-DD; shown in the page language's format.

@@ -185,7 +185,7 @@ func TestOverviewOffersTheLanguageSwitcherAndRuntime(t *testing.T) {
 	for _, want := range []string{
 		`<div class="lang-pill" role="radiogroup" aria-label="Language" style="--lang-count: 2">`,
 		`<input type="radio" name="lang" value="en" data-lang-select checked>`,
-		`<script src="/static/js/i18n.js?v=3"></script>`,
+		`<script src="/static/js/i18n.js?v=4"></script>`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("overview lacks %q", want)
