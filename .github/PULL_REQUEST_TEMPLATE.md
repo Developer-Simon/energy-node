@@ -16,10 +16,26 @@
 
   Release highlights: add a paragraph to the body whose first line is
   `Highlights:` followed by `- text` lines (see docs/developing/releasing.md).
+  Their German texts go into the "Highlight translations" section.
 -->
 
 ```text
 {{MESSAGE}}
+```
+
+## Highlight translations
+
+<!--
+  German texts of the release highlights, one "- " line per line of the
+  English highlight (the PR title, or the lines of the "Highlights:" block
+  above, "- <target>: text" for one component). The Version bump workflow
+  writes this block to changelog/highlights/<PR>.json, and the CI check
+  "Highlight translations" fails while a highlight has no German text.
+  Only feat, fix, perf and breaking PRs need it.
+-->
+
+```text
+{{TRANSLATIONS}}
 ```
 
 ## Summary

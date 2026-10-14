@@ -34,6 +34,13 @@
 #   PR_SUITES=…        Test suites that were run, e.g. "pytest, go test, smoke".
 #                      Without it that checkbox stays unchecked.
 #   PR_ISSUE=…         Linked issue, e.g. "#42". Default: from `Closes #N`.
+#   PR_TITLE_DE=…      German text of the PR title. A feat, fix, perf or
+#                      breaking PR is a release highlight and needs German
+#                      texts (CI check "Highlight translations"). Asked on a
+#                      TTY when missing.
+#   PR_HIGHLIGHTS_DE_FILE=…  "- text" / "- <target>: text" lines with the
+#                      German version of the message's own "Highlights:"
+#                      block. Asked line by line on a TTY when missing.
 #   PR_SKIP_EDIT=1     Skip the editor step (non-interactive / CI).
 #   PR_ASSUME_YES=1    Confirm the "use current branch" prompt without a TTY.
 #
@@ -106,7 +113,8 @@ TEMPLATE="${REPO_ROOT}/.github/PULL_REQUEST_TEMPLATE.md"
 
 msg_file="$(mktemp)"
 body_file="$(mktemp)"
-trap 'rm -f "${msg_file}" "${body_file}" "${msg_file}.raw"' EXIT
+de_file="$(mktemp)"
+trap 'rm -f "${msg_file}" "${body_file}" "${msg_file}.raw" "${de_file}"' EXIT
 
 # --- Title ---------------------------------------------------------------
 
@@ -138,6 +146,62 @@ pr_normalize_message "${title}" "${PR_AI_MODEL:-}" < "${msg_file}.raw" > "${msg_
 if ! grep -q -E "${PR_TRAILER_RE}" "${msg_file}"; then
   echo "No Claude trailer: set PR_AI_MODEL=\"Sonnet 5.5\" (or Opus x.y)." >&2
   exit 2
+fi
+
+# --- Highlight translations --------------------------------------------------
+#
+# Goes into the description, outside the squash block (commit messages stay
+# English). The Version bump workflow writes it to changelog/highlights/<PR>.json.
+
+TABLE="${REPO_ROOT}/scripts/version/components.json"
+has_tty=false
+[[ -t 0 && -t 1 ]] && has_tty=true
+
+ask_german() {
+  local answer=""
+  read -r -p "German text for \"$1\" (Enter skips): " answer < /dev/tty
+  printf '%s' "${answer}"
+}
+
+translations="Not needed. Only feat, fix, perf and breaking PRs are highlights."
+if pr_title_is_highlight "${title}"; then
+  mapfile -t lines < <(pr_highlight_lines "${msg_file}")
+  if [[ -n "${PR_HIGHLIGHTS_DE_FILE:-}" ]]; then
+    if [[ ! -f "${PR_HIGHLIGHTS_DE_FILE}" ]]; then
+      echo "PR_HIGHLIGHTS_DE_FILE does not point at a file: ${PR_HIGHLIGHTS_DE_FILE}" >&2
+      exit 2
+    fi
+    grep -E '^[[:space:]]*-[[:space:]]+' "${PR_HIGHLIGHTS_DE_FILE}" > "${de_file}" || true
+  elif [[ "${#lines[@]}" -gt 0 && "${has_tty}" != true ]]; then
+    echo "The message has its own Highlights lines, set PR_HIGHLIGHTS_DE_FILE with their German version." >&2
+    exit 2
+  fi
+  if [[ -z "${PR_HIGHLIGHTS_DE_FILE:-}" ]]; then
+    has_default=false
+    for line in "${lines[@]}"; do
+      if target="$(pr_line_target "${line}" "${TABLE}")"; then
+        answer="$(ask_german "${line#"${target}": }")"
+        [[ -n "${answer}" ]] && printf -- '- %s: %s\n' "${target}" "${answer}" >> "${de_file}"
+      else
+        has_default=true
+        answer="$(ask_german "${line}")"
+        [[ -n "${answer}" ]] && printf -- '- %s\n' "${answer}" >> "${de_file}"
+      fi
+    done
+    # The title is shown wherever no untargeted line replaces it.
+    if [[ "${has_default}" != true ]]; then
+      title_de="${PR_TITLE_DE:-}"
+      if [[ -z "${title_de}" && "${has_tty}" == true ]]; then
+        title_de="$(ask_german "${title#*: }")"
+      fi
+      [[ -n "${title_de}" ]] && printf -- '- %s\n' "${title_de}" >> "${de_file}"
+    fi
+  fi
+  if [[ ! -s "${de_file}" ]]; then
+    echo "A feat, fix, perf or breaking PR needs German highlight texts: set PR_TITLE_DE or PR_HIGHLIGHTS_DE_FILE." >&2
+    exit 2
+  fi
+  translations="$(pr_translation_block de "${de_file}")"
 fi
 
 # --- Derived fields ----------------------------------------------------------
@@ -173,7 +237,7 @@ if [[ -n "${suites}" ]]; then check_suites="x"; else suites="not stated"; fi
 if [[ ! -f "${TEMPLATE}" ]]; then
   cp "${msg_file}" "${body_file}"
 else
-  MESSAGE="$(cat "${msg_file}")" SUMMARY="${summary}" SUITES="${suites}" ISSUE="${issue}" \
+  MESSAGE="$(cat "${msg_file}")" TRANSLATIONS="${translations}" SUMMARY="${summary}" SUITES="${suites}" ISSUE="${issue}" \
   AI_MODEL="${ai_model}" CHECK_TITLE="${check_title}" CHECK_SECRETS="${check_secrets}" \
   CHECK_AI="x" CHECK_SUITES="${check_suites}" \
   awk '
