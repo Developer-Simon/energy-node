@@ -34,15 +34,22 @@ jobs:
         run: |
           set -euo pipefail
           notes_file="$RUNNER_TEMP/notes.md"
-          if scripts/release/extract-changelog.sh dashboard/CHANGELOG.md "$TAG" > "$notes_file"; then
-            {
-              echo "notes-file=$notes_file"
-              echo "generate=false"
-            } >> "$GITHUB_OUTPUT"
+          section_file="$RUNNER_TEMP/section.md"
+          # The previous final release, the highlights cover everything since.
+          previous="$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-*' "${TAG}^" 2>/dev/null || true)"
+          python3 scripts/release/release_highlights.py --repo . --previous-tag "$previous" > "$notes_file"
+          if scripts/release/extract-changelog.sh dashboard/CHANGELOG.md "$TAG" > "$section_file"; then
+            if [ -s "$notes_file" ]; then printf '\n## Dashboard changes\n\n' >> "$notes_file"; fi
+            cat "$section_file" >> "$notes_file"
+            generate=false
           else
-            echo "No CHANGELOG section for $TAG; using generated notes." >&2
-            echo "generate=true" >> "$GITHUB_OUTPUT"
+            echo "No CHANGELOG section for $TAG; generated notes follow the highlights." >&2
+            generate=true
           fi
+          {
+            echo "notes-file=$notes_file"
+            echo "generate=$generate"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create GitHub release
         env:
@@ -58,9 +65,11 @@ jobs:
           case "$TAG" in
             *-*) args+=(--prerelease) ;;
           esac
+          # gh puts the notes file above the generated notes when both are given.
           if [ "$GENERATE" = "true" ]; then
             args+=(--generate-notes)
-          else
+          fi
+          if [ -s "$NOTES_FILE" ]; then
             args+=(--notes-file "$NOTES_FILE")
           fi
           gh "${args[@]}"
