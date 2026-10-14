@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.13 (2026-10-14)
+## v0.9.14 (2026-10-14)
 
 ### Features
 
@@ -9,6 +9,12 @@
 - **dashboard:** SSE topic subscriptions and a swap-free statistics tile (#133) (69eb694)
 - **dashboard:** device tiles patched from the devices topic without fragment swaps (#135) (76f51aa)
 - **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134) (ccd90ca)
+- **dashboard:** keep every received changelog version on the node (6061446)
+- **dashboard:** add the changelog_history setting (26ea4d7)
+- **dashboard:** limit the changelog API to a number of bundle versions (5a1b1cc)
+- **dashboard:** choose how many versions the changelog shows (9606138)
+- **dashboard:** show the changelog history choice as a segmented control (95bbbda)
+- **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137)
 - **dashboard:** carry highlight translations in the highlights API (963ab1a)
 - **dashboard:** show release highlights in the page language (908d3ce)
 - **dashboard:** per-device live entry and localized tile status (db88e93)
@@ -45,6 +51,10 @@
 
 - **dashboard:** drop the global structure fingerprints (c71a352)
 - **registryevents:** build and deliver SSE bodies per topic (dc7ddea)
+
+### Documentation
+
+- **release:** document the per-version changelog (865f72a)
 
 ### Tests
 
