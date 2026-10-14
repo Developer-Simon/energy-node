@@ -2,37 +2,60 @@ package httpapi
 
 import (
 	"encoding/json"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/registryevents"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/webui"
 )
 
-// Der Cache ist der Grund, warum die Arbeit mit der Zahl der Aenderungen
-// skaliert statt mit der Zahl offener Tabs: zwei Verbindungen, die bei
-// derselben Registry-Version schreiben, teilen sich einen Lauf - und seit
-// dem Uebersichts-Push teilen sie sich auch den einen reg.Snapshot().
+// bodies setzt den Standardrumpf so zusammen, wie ihn ein Client ohne
+// ?topics= bekommt: voll fuer neue, Delta fuer verbundene Abonnenten. Die
+// Tests aus der Zeit vor den Themen pruefen damit den alten Vertrag weiter.
+func (c *eventCache) bodies(reg *registry.Registry, store *settings.Store, resolver *energy.Resolver, engine *diagnostics.Engine, version uint64) (full, delta []byte) {
+	if c.reg == nil {
+		c.reg, c.store, c.resolver, c.engine = reg, store, resolver, engine
+	}
+	v := registryevents.Version{version}
+	if store != nil {
+		v[1] = store.DevicePrefsGeneration()
+	}
+	var fullMembers, deltaMembers [][]byte
+	for _, topic := range c.topics() {
+		part, ok := topic.Build(v)
+		if !ok {
+			return nil, nil
+		}
+		fullMembers = append(fullMembers, part.Bytes(registryevents.ModeFull))
+		deltaMembers = append(deltaMembers, part.Bytes(registryevents.ModeDelta))
+	}
+	return registryevents.Compose(version, fullMembers...), registryevents.Compose(version, deltaMembers...)
+}
+
+// Der Cache je Thema ist der Grund, warum die Arbeit mit der Zahl der
+// Aenderungen skaliert statt mit der Zahl offener Tabs: zwei Verbindungen
+// bei derselben Version teilen sich einen Bau.
 func TestEventCacheBuildsOncePerVersion(t *testing.T) {
 	reg := registry.New()
-	resolver := energy.NewResolver(nil)
-	engine := diagnostics.NewEngine(reg, nil)
-	cache := &eventCache{}
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil))
 
-	first, _ := cache.bodies(reg, nil, resolver, engine, 7)
-	second, _ := cache.bodies(reg, nil, resolver, engine, 7)
-	if first == nil {
-		t.Fatal("erster Aufruf lieferte keinen Rumpf")
+	first, ok := cache.buildEnergy(registryevents.Version{7})
+	if !ok || len(first.Full) == 0 {
+		t.Fatal("erster Bau lieferte keinen Teil")
 	}
-	if &first[0] != &second[0] {
-		t.Error("zweiter Aufruf bei gleicher Version hat neu gerechnet statt den Cache zu nutzen")
+	second, _ := cache.buildEnergy(registryevents.Version{7})
+	if &first.Full[0] != &second.Full[0] {
+		t.Error("zweiter Bau bei gleicher Version hat neu gerechnet statt den Cache zu nutzen")
 	}
-
-	third, _ := cache.bodies(reg, nil, resolver, engine, 8)
-	if len(third) > 0 && &third[0] == &first[0] {
+	third, _ := cache.buildEnergy(registryevents.Version{8})
+	if &third.Full[0] == &first.Full[0] {
 		t.Error("neue Version hat den alten Cache wiederverwendet")
 	}
 }
@@ -204,8 +227,71 @@ func TestEventCacheDeltaIsStableWithinAVersion(t *testing.T) {
 	if string(deltaA) != string(deltaB) {
 		t.Errorf("Delta bei gleicher Version instabil:\n a=%s\n b=%s", deltaA, deltaB)
 	}
-	if &deltaA[0] != &deltaB[0] {
-		t.Error("zweiter Aufruf bei gleicher Version hat neu serialisiert statt den Cache zu nutzen")
+	partA, _ := cache.buildEntities(registryevents.Version{v})
+	partB, _ := cache.buildEntities(registryevents.Version{v})
+	if &partA.Delta[0] != &partB.Delta[0] {
+		t.Error("zweiter Bau bei gleicher Version hat neu serialisiert statt den Cache zu nutzen")
+	}
+}
+
+// Alle Registry-Themen einer Version teilen sich einen reg.Snapshot().
+func TestEventCacheSharesOneSnapshotPerVersion(t *testing.T) {
+	reg := registry.New()
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), diagnostics.NewEngine(reg, nil))
+	v := registryevents.Version{1}
+	a := cache.snapshot(v)
+	b := cache.snapshot(v)
+	if len(a) != len(b) || cache.snapVersion != v || !cache.snapValid {
+		t.Fatal("snapshot hat die Version nicht gemerkt")
+	}
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "dev-a"},
+		Entity: registry.EntityInfo{UniqueID: "e1", ObjectID: "power", Component: "sensor", StateTopic: "dev-a/power"},
+	})
+	if got := cache.snapshot(registryevents.Version{2}); len(got) != 1 {
+		t.Errorf("neue Version sieht %d Geraete, want 1", len(got))
+	}
+}
+
+// Ein unveraendertes entities-Thema traegt im Leerlauf ein leeres Delta,
+// damit der Zweig im Rumpf steht.
+func TestEntitiesIdleIsEmptyDelta(t *testing.T) {
+	reg := registry.New()
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	part, ok := cache.buildEntities(registryevents.Version{1})
+	if !ok {
+		t.Fatal("Bau gescheitert")
+	}
+	if got := string(part.Idle); got != `"entities":{},"entities_delta":true` {
+		t.Errorf("Idle = %s", got)
+	}
+}
+
+// Ohne Diagnose-Engine bleibt das Thema leer und fehlt im Rumpf, wie frueher
+// mit omitempty.
+func TestDiagnosticsWithoutEngineIsEmpty(t *testing.T) {
+	reg := registry.New()
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	part, ok := cache.buildDiagnostics(registryevents.Version{1})
+	if !ok || len(part.Full) != 0 {
+		t.Errorf("part = %+v, ok = %v", part, ok)
+	}
+}
+
+func TestRequestedTopics(t *testing.T) {
+	cases := []struct {
+		url  string
+		want []string
+	}{
+		{"/api/v1/events", nil},
+		{"/api/v1/events?topics=", []string{}},
+		{"/api/v1/events?topics=energy,%20entities,,x", []string{"energy", "entities", "x"}},
+	}
+	for _, tc := range cases {
+		got := requestedTopics(httptest.NewRequest("GET", tc.url, nil))
+		if (got == nil) != (tc.want == nil) || strings.Join(got, "|") != strings.Join(tc.want, "|") {
+			t.Errorf("%s: got %#v, want %#v", tc.url, got, tc.want)
+		}
 	}
 }
 
@@ -299,5 +385,21 @@ func TestEventBodyCarriesAvailabilityStructureFingerprint(t *testing.T) {
 	}
 	if body.StructureAvailability == "" {
 		t.Error("structure_availability ist leer - die konfigurierte Kompaktkachel wuerde dauerhaft tauschen")
+	}
+}
+
+func TestEnergyStatsTopicOnlyWithService(t *testing.T) {
+	reg := registry.New()
+	without := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	for _, topic := range without.topics() {
+		if topic.Name == topicEnergyStats {
+			t.Fatal("Thema energy_stats ohne Dienst")
+		}
+	}
+	with := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	with.stats = &energystats.Service{Store: energystats.NewStore(t.TempDir())}
+	part, ok := with.buildEnergyStats(registryevents.Version{4})
+	if !ok || string(part.Full) != `"energy_stats":{"rev":4}` || string(part.Idle) != string(part.Full) {
+		t.Errorf("part = %q / %q, ok = %v", part.Full, part.Idle, ok)
 	}
 }

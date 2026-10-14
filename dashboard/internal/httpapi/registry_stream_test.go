@@ -11,11 +11,17 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
 
 func eventsServer(t *testing.T, reg *registry.Registry) *httptest.Server {
+	t.Helper()
+	return eventsServerWith(t, reg, nil)
+}
+
+func eventsServerWith(t *testing.T, reg *registry.Registry, stats *energystats.Service) *httptest.Server {
 	t.Helper()
 	// Kurzes Lebenszeichen, damit ein blockierender Lesevorgang seine
 	// Frist ueberhaupt pruefen kann - der Poll-Takt bleibt der Default.
@@ -35,7 +41,7 @@ func eventsServer(t *testing.T, reg *registry.Registry) *httptest.Server {
 	resolver := energy.NewResolver(nil)
 	engine := diagnostics.NewEngine(reg, nil)
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine))
+	mux.HandleFunc("/api/v1/events", handleEvents(reg, store, resolver, engine, stats))
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 	return server
@@ -45,7 +51,12 @@ func eventsServer(t *testing.T, reg *registry.Registry) *httptest.Server {
 // Rumpf.
 func openEventStream(t *testing.T, server *httptest.Server) (*bufio.Reader, func()) {
 	t.Helper()
-	response, err := http.Get(server.URL + "/api/v1/events")
+	return openEventStreamAt(t, server, "/api/v1/events")
+}
+
+func openEventStreamAt(t *testing.T, server *httptest.Server, path string) (*bufio.Reader, func()) {
+	t.Helper()
+	response, err := http.Get(server.URL + path)
 	if err != nil {
 		t.Fatalf("Strom nicht erreichbar: %v", err)
 	}
@@ -197,5 +208,76 @@ func TestRegistryStreamFirstFullThenDelta(t *testing.T) {
 	}
 	if len(secondBody.Entities) != 1 || secondBody.Entities["e1"].Value != "2" {
 		t.Errorf("Delta = %v, erwartet nur e1=2", secondBody.Entities)
+	}
+}
+
+func TestEventStreamFiltertThemen(t *testing.T) {
+	reg := testRegistryWithPower(t)
+	server := eventsServer(t, reg)
+	reader, closeStream := openEventStreamAt(t, server, "/api/v1/events?topics=entities")
+	defer closeStream()
+
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(readRegistryEvent(t, reader)), &body); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"version", "entities"} {
+		if _, ok := body[key]; !ok {
+			t.Errorf("Rumpf ohne %q: %v", key, body)
+		}
+	}
+	for _, key := range []string{"energy", "diagnostics", "structure", "structure_compact", "structure_availability"} {
+		if _, ok := body[key]; ok {
+			t.Errorf("Rumpf traegt nicht abonniertes %q", key)
+		}
+	}
+}
+
+func TestEventStreamOhneThemenSchicktVersionswechsel(t *testing.T) {
+	reg := testRegistryWithPower(t)
+	server := eventsServer(t, reg)
+	reader, closeStream := openEventStreamAt(t, server, "/api/v1/events?topics=")
+	defer closeStream()
+
+	first := readRegistryEvent(t, reader)
+	if !strings.HasPrefix(first, `{"version":`) || strings.Contains(first, ",") {
+		t.Fatalf("erster Rumpf = %s, want nur version", first)
+	}
+	reg.UpdateTopicWithQoS("shelly/power", []byte("42"), false, 0, time.Now().UTC())
+	second := readRegistryEvent(t, reader)
+	if second == first {
+		t.Errorf("Versionswechsel kam nicht an: %s", second)
+	}
+}
+
+func TestEnergyStatsRevisionTriggersEventWhileRegistryIsIdle(t *testing.T) {
+	reg := testRegistryWithPower(t)
+	store := energystats.NewStore(t.TempDir())
+	server := eventsServerWith(t, reg, &energystats.Service{Store: store})
+	reader, closeStream := openEventStreamAt(t, server, "/api/v1/events?topics=energy_stats")
+	defer closeStream()
+
+	var first struct {
+		EnergyStats *struct {
+			Rev uint64 `json:"rev"`
+		} `json:"energy_stats"`
+	}
+	if err := json.Unmarshal([]byte(readRegistryEvent(t, reader)), &first); err != nil || first.EnergyStats == nil {
+		t.Fatalf("erster Rumpf ohne energy_stats: %v", err)
+	}
+
+	// Die Registry bleibt still, nur die Statistik aendert sich.
+	store.AddOwn(energystats.HourRecord{Hour: time.Date(2026, 10, 5, 10, 0, 0, 0, time.UTC), KWh: map[string]float64{"pv": 1}, Covered: 3600})
+
+	var next struct {
+		EnergyStats struct {
+			Rev uint64 `json:"rev"`
+		} `json:"energy_stats"`
+	}
+	if err := json.Unmarshal([]byte(readRegistryEvent(t, reader)), &next); err != nil {
+		t.Fatal(err)
+	}
+	if next.EnergyStats.Rev != store.Revision() || next.EnergyStats.Rev == first.EnergyStats.Rev {
+		t.Errorf("rev = %d, Store = %d, vorher %d", next.EnergyStats.Rev, store.Revision(), first.EnergyStats.Rev)
 	}
 }

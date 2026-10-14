@@ -241,6 +241,9 @@ type Service struct {
 
 type Response struct {
 	Result
+	// Revision ist Store.Revision() vor der Abfrage. Aendert sich waehrend
+	// der Abfrage etwas, ist sie zu alt und das naechste Ereignis laedt nach.
+	Revision   uint64                     `json:"revision"`
 	Status     Status                     `json:"status"`
 	Categories map[string]energy.Category `json:"categories,omitempty"`
 	Companion  *SyncStatus                `json:"companion,omitempty"`
@@ -255,11 +258,12 @@ func (s *Service) Stats(period, at string) (Response, error) {
 	if loc == nil {
 		loc = time.Local
 	}
+	revision := s.Store.Revision()
 	res, err := Query(s.Store, period, at, loc, now())
 	if err != nil {
 		return Response{}, err
 	}
-	resp := Response{Result: res}
+	resp := Response{Result: res, Revision: revision}
 	if s.Recorder != nil {
 		resp.Status = s.Recorder.Status()
 	}

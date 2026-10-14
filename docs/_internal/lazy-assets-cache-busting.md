@@ -64,7 +64,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-10-14**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -95,7 +95,7 @@ As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `11` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `30` |
+| `js/dashboard.js` | `32` |
 | `js/update-bar.js` | `3` |
 | `js/whatsnew.page.js` | `2` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
@@ -112,7 +112,8 @@ As of **2026-10-12**, read from `base.html` and `overview.html`. "–" means: no
 | `js/battery-status.js` | `2` |
 | `js/energy-day.js` | `2` |
 | `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js`, `js/energy-status.js` | `1` |
-| `js/energy-stats-model.js`, `js/energy-stats-card.js` | `2` |
+| `js/energy-stats-model.js` | `2` |
+| `js/energy-stats-card.js` | `3` |
 | `js/history-chart.js` | `2` |
 | `js/history-view-card.js` | `2` |
 
@@ -133,7 +134,7 @@ skips scripts already present as `<script src>`.
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `24` | `css/manager.css` `35` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `21`, `js/mqtt.page.js` `7`, `js/tailscale.page.js` `4`, `js/versions.page.js` `5`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `11` | `css/manager.css` `35`, `css/automations.css` `6` |
-| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `2` | `css/history.css` `4`, `css/stats.css` `2` |
+| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `3` | `css/history.css` `4`, `css/stats.css` `2` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -252,6 +253,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.9.11 | `js/dashboard.js` · `js/energy-stats-card.js` (energy cards) · `js/stats.page.js` (stats panel) | `32` · `3` · `3` | 2026-10-14 |
 | v0.9.9 | `css/base.css` · `css/settings-controls.css` (settings, diagnostics) · `css/stats.css` (new, stats panel) · `js/dashboard.js` · `js/energy-stats-card.js` (new, energy cards) · `js/energy-stats-model.js` (new, stats panel + energy cards) · `js/layout-editor.js` (overview editor) · `js/settings.page.js` (settings panel) · `js/stats.page.js` (new, stats panel) | `35` · `13` · `1` (new) · `30` · `1` (new) · `1` (new) · `15` · `21` · `1` (new) | 2026-10-12 |
 | v0.9.7 | `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/devicemap-wiring.js` (new, energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/energy-plant.js` (energy) · `js/devicemap.page.js` (device map) · `css/manager.css` (5 panels) | `9` · `4` · `1` (new) · `4` · `5` · `24` · `35` | 2026-10-12 |
 | v0.9.6 | `js/devicemap-dataflow.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/energy-plant.js` (energy) | `3` · `20` · `4` | 2026-10-12 |

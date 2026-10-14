@@ -57,6 +57,9 @@
     empty: false,
     chart: null,
     seq: 0,
+    // Die zuletzt im Ereignis gesehene Revision. Jedes Registry-Ereignis
+    // traegt den Zweig energy_stats, auch im Leerlauf.
+    seenRevision: null,
 
     get hasPrev() { return Boolean(this.data && this.data.prev); },
     get hasNext() { return Boolean(this.data && this.data.next); },
@@ -64,6 +67,8 @@
     init() {
       window.addEventListener('energy-stats-focus', event => this.focus(event.detail || {}));
       this.themeOff = window.DashboardTheme.onChange(() => this.renderChart());
+      this.revisionListener = event => this.onRevision(event.detail && event.detail.energy_stats);
+      window.addEventListener('registry-updated', this.revisionListener);
       // Die Kachel kann die Seite oeffnen, bevor dieses Skript geladen ist.
       const request = window.__statsFocusRequest__;
       delete window.__statsFocusRequest__;
@@ -74,6 +79,17 @@
     focus({period, at}) {
       this.period = window.EnergyStatsModel.PERIODS.includes(period) ? period : 'day';
       this.at = at || '';
+      return this.load();
+    },
+
+    // Laedt bei neuer Revision nur den laufenden Zeitraum neu (next leer).
+    // Ein vergangener Zeitraum bleibt stehen, auch wenn der Companion dafuer
+    // Stunden nachliefert. Er wird beim naechsten Wechsel frisch geladen.
+    onRevision(branch) {
+      const revision = branch && branch.rev;
+      if (typeof revision !== 'number' || revision === this.seenRevision) return Promise.resolve();
+      this.seenRevision = revision;
+      if (!this.data || this.data.next || this.data.revision === revision) return Promise.resolve();
       return this.load();
     },
 
@@ -130,6 +146,7 @@
     destroy() {
       if (this.chart) this.chart.destroy();
       if (this.themeOff) this.themeOff();
+      if (this.revisionListener) window.removeEventListener('registry-updated', this.revisionListener);
     },
   });
 

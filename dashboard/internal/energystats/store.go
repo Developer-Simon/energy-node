@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -26,11 +27,21 @@ type Store struct {
 	dirty   map[string]bool
 	corrupt []string
 	logf    func(format string, args ...any)
+	// rev zaehlt jede Aenderung, die eine Abfrage anders ausfallen liesse.
+	// Das SSE-Thema energy_stats traegt ihn, Kachel und Seite laden nur bei
+	// einem neuen Wert nach.
+	rev atomic.Uint64
 }
 
 func NewStore(dir string) *Store {
 	return &Store{dir: dir, months: map[string]*Month{}, missing: map[string]bool{}, dirty: map[string]bool{}, logf: log.Printf}
 }
+
+// Revision ist der Stand der Daten. Er steigt bei jeder Aenderung und bleibt
+// beim Lesen gleich.
+func (s *Store) Revision() uint64 { return s.rev.Load() }
+
+func (s *Store) bump() { s.rev.Add(1) }
 
 func monthKey(start time.Time) string { return start.Format("2006-01") }
 
@@ -73,6 +84,7 @@ func (s *Store) monthLocked(t time.Time, create bool) (*Month, error) {
 			return nil, fmt.Errorf("energystats: %s nicht verschiebbar: %w", path, renameErr)
 		}
 		s.corrupt = append(s.corrupt, key)
+		s.bump()
 		m = NewMonth(start)
 	}
 	s.months[key] = m
@@ -91,6 +103,7 @@ func (s *Store) AddOwn(r HourRecord) error {
 	}
 	if m.AddOwn(r.Hour, r.KWh, r.Covered) {
 		s.dirty[monthKey(m.Start)] = true
+		s.bump()
 	}
 	return s.writeDirtyLocked()
 }
@@ -172,6 +185,7 @@ type HARecord struct {
 func (s *Store) SetHA(records []HARecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	changed := false
 	for _, r := range records {
 		m, err := s.monthLocked(r.Hour, true)
 		if err != nil {
@@ -179,7 +193,11 @@ func (s *Store) SetHA(records []HARecord) error {
 		}
 		if m.SetHA(r.Hour, r.Role, r.KWh) {
 			s.dirty[monthKey(m.Start)] = true
+			changed = true
 		}
+	}
+	if changed {
+		s.bump()
 	}
 	return s.writeDirtyLocked()
 }

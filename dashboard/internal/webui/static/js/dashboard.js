@@ -10,6 +10,38 @@
   const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
+  // Welche SSE-Themen ein Kartentyp braucht. Die Namen sind zugleich die
+  // Zweige im Rumpf (siehe events.go). Ein Typ ohne Eintrag braucht keins:
+  // die Verlaufskachel liest den Browser-Speicher selbst.
+  const LIVE_TOPICS_BY_KIND = {
+    energy_flow: ['energy'], energy_band: ['energy'], energy_ring: ['energy'],
+    energy_board: ['energy'], energy_day: ['energy'], energy_schema: ['energy'],
+    energy_status: ['energy'], battery_status: ['energy'],
+    entity_value: ['entities'], entity_group: ['entities'],
+    diagnostics: ['diagnostics'],
+    energy_stats: ['energy_stats'],
+    device: ['entities', 'structure'],
+  };
+
+  // Der Bedarf eines Panels als sortierter, mit Komma verbundener String.
+  // Ein verdecktes Panel abonniert nichts, darum zaehlt nur das aktive. Ohne
+  // Themen kommen weiter Versionswechsel, an denen Automationen, Device Map
+  // und Energie-Anlage ihren Takt haben.
+  const liveTopicsFor = (panel, panelId) => {
+    const topics = new Set();
+    if (panel && panelId === 'overview-panel') {
+      for (const item of panel.querySelectorAll('[data-layout-item-kind]')) {
+        for (const topic of LIVE_TOPICS_BY_KIND[item.dataset.layoutItemKind] || []) topics.add(topic);
+      }
+    } else if (panel && panelId === 'devices-panel' && panel.querySelector('#devices-live')) {
+      topics.add('entities');
+      topics.add('structure');
+    } else if (panelId === 'stats-panel') {
+      topics.add('energy_stats');
+    }
+    return [...topics].sort().join(',');
+  };
+
   const dashboardShell = () => ({
     activePanel: 'overview-panel',
     activePage: '',
@@ -31,6 +63,9 @@
     loadedStyles: new Set(),
     liveSource: null,
     liveFallback: null,
+    // Die Themen, mit denen liveSource geoeffnet ist. null heisst: noch nie
+    // verbunden.
+    liveTopics: null,
 
     // Tabs, die die volle Fensterbreite nutzen duerfen. Serverseitig ins
     // data-Attribut geschrieben, damit die Breite schon beim ersten Anstrich
@@ -68,6 +103,7 @@
       this.activePanel = panel;
       this.applyPageWidth();
       this.loadPanel(panel);
+      this.syncLiveTopics();
       window.dispatchEvent(new CustomEvent('dashboard-panel-changed', {detail: {panel}}));
     },
 
@@ -129,6 +165,7 @@
         const loaded = document.getElementById(panel);
         if (loaded) {
           loaded.dataset.panelLoaded = 'true';
+          this.syncLiveTopics();
         }
       } catch (error) {
         if (error.name !== 'AbortError') {
@@ -267,7 +304,21 @@
         this.liveFallback = window.setInterval(() => this.publishRegistryUpdate({source: 'fallback'}), 30000);
         return;
       }
-      this.liveSource = new EventSource(withBase('/api/v1/events'));
+      // Ein Fragment-Tausch kann Kartentypen bringen oder nehmen (Seite
+      // gewechselt, Layout gespeichert). Der Bedarf wird danach neu gelesen,
+      // verbunden wird nur bei einer echten Aenderung.
+      document.addEventListener('htmx:afterSettle', () => this.syncLiveTopics());
+      this.syncLiveTopics();
+    },
+
+    // Oeffnet den Strom fuer genau diese Themen. Ein neuer Bedarf heisst
+    // neu verbinden statt Stream-ID plus POST: so haelt der Server keinen
+    // Zustand je Strom, und der volle Rumpf beim Verbinden faellt nur bei
+    // Interaktion an.
+    connectLive(topics) {
+      if (this.liveSource) this.liveSource.close();
+      this.liveTopics = topics;
+      this.liveSource = new EventSource(withBase(`/api/v1/events?topics=${encodeURIComponent(topics)}`));
       this.liveSource.addEventListener('registry', event => {
         let detail = {};
         try {
@@ -282,6 +333,15 @@
         this.liveSource = null;
         if (!this.liveFallback) this.liveFallback = window.setInterval(() => this.publishRegistryUpdate({source: 'fallback'}), 30000);
       };
+    },
+
+    // Liest den Bedarf des aktiven Panels. Im Rueckfall (kein EventSource
+    // oder Strom gescheitert) bleibt es beim 30-Sekunden-Takt.
+    syncLiveTopics() {
+      if (!window.EventSource || this.liveFallback) return;
+      const topics = liveTopicsFor(document.getElementById(this.activePanel), this.activePanel);
+      if (this.liveSource && topics === this.liveTopics) return;
+      this.connectLive(topics);
     },
 
     destroy() {
@@ -1237,6 +1297,10 @@
         entity_value: 'entities', entity_group: 'entities',
         diagnostics: 'diagnostics',
         device: 'entities',
+        // Die Statistik-Kachel laedt ihre Zahlen selbst. Der Zweig traegt
+        // nur die Revision, energy-stats-card.js entscheidet, ob sie neu
+        // laedt.
+        energy_stats: 'energy_stats',
       };
       // Kacheln, die sich selbst versorgen: die Verlaufskachel liest den
       // Browser-Speicher in ihrem eigenen Takt (history-view-card.js) und
@@ -1381,6 +1445,7 @@
           window.compactCardValues?.applyCompactCards(this.$root, detail.entities, delta);
         }
         if (detail?.diagnostics) window.overviewValues?.applyDiagnostics(this.$root, detail.diagnostics);
+        if (detail?.energy_stats) window.energyStatsCards?.applyRevision(this.$root, detail.energy_stats);
         // Der outerHTML-Tausch kostet gemessen 62 % der CPU-Zeit dieses
         // Tabs. Er faellt weg, sobald der Push jede Karte im Raster bedient
         // und die Struktur seit dem Rendern steht.
@@ -1785,6 +1850,7 @@
   };
 
   document.addEventListener('alpine:init', () => {
+    dashboardShell.liveTopicsFor = liveTopicsFor;
     Alpine.data('dashboardShell', dashboardShell);
     Alpine.data('runtimeStatusPanel', runtimeStatusPanel);
     Alpine.data('diagnosticsPanel', diagnosticsPanel);

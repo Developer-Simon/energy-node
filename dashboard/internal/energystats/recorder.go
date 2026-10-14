@@ -169,6 +169,15 @@ func (r *Recorder) Observe(wall time.Time, sinceStart time.Duration, snapshot en
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	// Die Statuszeile zeigt Zustand, Modus und Schreibfehler. Aendert sich
+	// eins davon, hebt die Revision, damit Seite und Kachel nachladen.
+	// Laeuft vor dem Unlock (defer ist LIFO).
+	before := r.status
+	defer func() {
+		if before.State != r.status.State || before.Mode != r.status.Mode || before.WriteError != r.status.WriteError {
+			r.store.bump()
+		}
+	}()
 	r.status.Mode = normalizeMode(policy.Mode)
 	r.status.ClockReady = r.ready(wall, sinceStart)
 	if r.status.Mode == RecordingOff {
