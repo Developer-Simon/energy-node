@@ -1,0 +1,447 @@
+{
+  "2": {
+    "de": {
+      "*": "Kalibrierung gehärtet und geführte Abstimmungsvorschläge"
+    }
+  },
+  "3": {
+    "de": {
+      "*": "Die Topic-Samples bleiben nach dem Verfügbarkeits-Heartbeat erhalten"
+    }
+  },
+  "4": {
+    "de": {
+      "*": "Konfigurierbare kompakte Gerätekarte"
+    }
+  },
+  "5": {
+    "de": {
+      "*": "Die Übersichtskacheln ohne Energiedaten wurden modernisiert"
+    }
+  },
+  "6": {
+    "de": {
+      "*": "Automatisierungs-Benachrichtigungen kommen von einem eigenen Endpunkt"
+    }
+  },
+  "7": {
+    "de": {
+      "*": "Revisionen der Systemkonfiguration als schreibgeschützte Liste"
+    }
+  },
+  "12": {
+    "de": {
+      "*": "Geräte-Services beschreiben sich selbst, jeder mit einem eigenen Manifest"
+    }
+  },
+  "14": {
+    "de": {
+      "*": "Der node-Block der config.json wandert nach dashboard.node_* (schema_version 2)"
+    }
+  },
+  "16": {
+    "de": {
+      "*": "Der Reiter für den Verlauf in den Einstellungen wurde neu aufgebaut"
+    }
+  },
+  "18": {
+    "de": {
+      "*": "Die Einstellungs-Reiter wurden als responsive Material-Karten neu aufgebaut"
+    }
+  },
+  "19": {
+    "de": {
+      "*": "Die Node-Telemetrie läuft jetzt im Nodeagent des Dashboards"
+    }
+  },
+  "20": {
+    "de": {
+      "*": "Die config.json wird beim Laden von schema_version 1 auf 2 migriert"
+    }
+  },
+  "21": {
+    "de": {
+      "*": "Die Migration der config.json von Version 1 auf 2 ist abgeschlossen"
+    }
+  },
+  "22": {
+    "de": {
+      "*": "Service-Manifeste werden mitgeliefert und die Reihenfolge der Changelog-Erhöhung ist korrigiert"
+    }
+  },
+  "23": {
+    "de": {
+      "*": "Die Themenauswahl ist jetzt ein Schieberegler mit vier Stufen"
+    }
+  },
+  "24": {
+    "de": {
+      "*": "Der MQTT-Reiter in den Einstellungen wurde neu gestaltet"
+    }
+  },
+  "25": {
+    "de": {
+      "*": "Bootstrap-Kette für die Node-Seite und signierte Bundle-Pipeline"
+    }
+  },
+  "26": {
+    "de": {
+      "*": "Transport-Engine der Entwickler-CLI"
+    }
+  },
+  "27": {
+    "de": {
+      "*": "Die Stepper der MQTT-Einstellungen laufen in schmalen Karten nicht mehr über"
+    }
+  },
+  "28": {
+    "de": {
+      "*": "Die Weboberfläche des Installers (Ebene 3) mit Browsertests und CI"
+    }
+  },
+  "31": {
+    "de": {
+      "*": "Dashboard-Reiter abgewählter optionaler Services werden ausgeblendet"
+    }
+  },
+  "32": {
+    "de": {
+      "*": "Leistungsgrenzen nur im RAM und erweiterte Diagnose"
+    }
+  },
+  "33": {
+    "de": {
+      "*": "Lokaler Selbst-Update-Pfad des Dashboards (Plan D)"
+    }
+  },
+  "34": {
+    "de": {
+      "*": "Update-Prüfung auf GitHub mit Hinweis in der Kopfzeile"
+    }
+  },
+  "36": {
+    "de": {
+      "*": "Der alte Sensor power_status wird nicht mehr veröffentlicht"
+    }
+  },
+  "37": {
+    "de": {
+      "*": "Die Schritte 20, 40, 65, 70 und die Diagnose funktionieren auf einem echten Node"
+    }
+  },
+  "38": {
+    "de": {
+      "*": "RoleCheckUpdates wird für einen bereits eingerichteten Admin nachgetragen"
+    }
+  },
+  "40": {
+    "de": {
+      "*": "Das Download-Symbol erscheint im Update-Hinweis der Kopfzeile"
+    }
+  },
+  "41": {
+    "de": {
+      "*": "Doppelt eingehängte Energiekarten stören sich nicht mehr gegenseitig"
+    }
+  },
+  "42": {
+    "de": {
+      "*": "Paketquellen: Datei, Repository-Build und GitHub"
+    }
+  },
+  "43": {
+    "de": {
+      "*": "Service-Units starten beim Update neu und das installierte Manifest wird festgehalten"
+    }
+  },
+  "44": {
+    "de": {
+      "*": "Das neueste Release-Bundle kann von der Redeploy-Seite geladen werden"
+    }
+  },
+  "45": {
+    "de": {
+      "*": "Jeder Service hat eine eigene Version und ein eigenes Changelog"
+    }
+  },
+  "46": {
+    "de": {
+      "*": "Redeploy, Reparatur und im Repository gebaute Bundles lassen sich sauber installieren"
+    }
+  },
+  "47": {
+    "de": {
+      "*": "Bei einem veralteten dauerhaften Socket wird einmal neu versucht, bevor offline gemeldet wird"
+    }
+  },
+  "48": {
+    "de": {
+      "*": "Nur Service-Units mit geänderter Version werden neu gestartet"
+    }
+  },
+  "49": {
+    "de": {
+      "*": "Unterstützung für schlafende H&T-Geräte mit optionalem Wake-Webhook"
+    }
+  },
+  "51": {
+    "de": {
+      "*": "Service-Felder und vorherige Versionen gehen in die Redeploy-Vorschau ein"
+    }
+  },
+  "52": {
+    "de": {
+      "*": "Ein Lauf wird über den Neustart des Dashboards beim Selbst-Update weiterverfolgt"
+    }
+  },
+  "53": {
+    "de": {
+      "*": "Geräte-Icons und angeheftete Favoriten-Entitäten"
+    }
+  },
+  "54": {
+    "de": {
+      "*": "Die Geräte-Icons des Dashboards werden als HA-Icon-Set ausgeliefert"
+    }
+  },
+  "56": {
+    "de": {
+      "*": "Unterstützung für reine DC-Systeme und Stromsensoren in HA"
+    }
+  },
+  "58": {
+    "de": {
+      "*": "Reine DC-Systeme im MQTT-Service und bedingte Konfigurationsformulare"
+    }
+  },
+  "59": {
+    "de": {
+      "*": "Grundlage für die Lokalisierung mit Sprachumschalter"
+    }
+  },
+  "60": {
+    "de": {
+      "*": "Einstellung für das Zahlenformat und Datumsangaben nach Sprache (Lokalisierung A2)"
+    }
+  },
+  "62": {
+    "de": {
+      "*": "Die Oberfläche und die Übersicht sind lokalisiert"
+    }
+  },
+  "63": {
+    "de": {
+      "*": "Wochentage im Editor und eine Bedingung sun_window"
+    }
+  },
+  "64": {
+    "de": {
+      "*": "Energie und Einstellungen sind lokalisiert"
+    }
+  },
+  "67": {
+    "de": {
+      "*": "Konfiguration und Layout-Editor sind lokalisiert"
+    }
+  },
+  "68": {
+    "de": {
+      "*": "Automatisierungen und Verlauf sind lokalisiert, jeder UI-Text ist abgesichert"
+    }
+  },
+  "69": {
+    "de": {
+      "*": "API-Fehlermeldungen sind lokalisiert"
+    }
+  },
+  "70": {
+    "de": {
+      "*": "Validierungsfehler und Diagnose sind lokalisiert"
+    }
+  },
+  "71": {
+    "de": {
+      "*": "Installierte Komponentenversionen werden in den Einstellungen angezeigt"
+    }
+  },
+  "72": {
+    "de": {
+      "*": "Das Formular der Systemkonfiguration ist lokalisiert"
+    }
+  },
+  "73": {
+    "de": {
+      "*": "Die Formulare der Gerätekonfiguration sind lokalisiert"
+    }
+  },
+  "74": {
+    "de": {
+      "*": "Der Redeploy-Bildschirm erscheint in der Sprache des Dashboards"
+    }
+  },
+  "76": {
+    "de": {
+      "*": "Versionen je Service in der Vorschau und der Diagnose"
+    }
+  },
+  "78": {
+    "de": {
+      "*": "Der Zustand wird in einem Intervall gespeichert und nach einem Absturz wiederhergestellt"
+    }
+  },
+  "79": {
+    "de": {
+      "*": "Nur geänderte Bundle-Dateien werden auf den Node übertragen"
+    }
+  },
+  "81": {
+    "de": {
+      "*": "Das Akku-Flusssymbol zeigt bei 0 W den Füllstand an"
+    }
+  },
+  "82": {
+    "de": {
+      "*": "changelog.json liegt im Bundle und zeigt vor einem Update, was neu ist"
+    }
+  },
+  "84": {
+    "de": {
+      "*": "Die Changelog-Seiten öffnen mit den Highlights, der Schalter oben zeigt alles"
+    }
+  },
+  "85": {
+    "de": {
+      "*": "Energy Node Companion als Partner für den Austausch des Verlaufs"
+    }
+  },
+  "90": {
+    "de": {
+      "*": "Systempaket-Updates prüfen und installieren (abschaltbar)"
+    }
+  },
+  "91": {
+    "de": {
+      "*": "Das Speichern der Systemkonfiguration funktioniert und meldet sein Ergebnis"
+    }
+  },
+  "98": {
+    "de": {
+      "*": "Der Status des Konfigurations-Services erscheint als Pille"
+    }
+  },
+  "99": {
+    "de": {
+      "*": "Verlaufskacheln für das Layout der Übersicht"
+    }
+  },
+  "101": {
+    "de": {
+      "*": "Der Diagnose-Reiter wurde neu gestaltet"
+    }
+  },
+  "102": {
+    "de": {
+      "*": "Unveränderte Update-Schritte werden übersprungen und die Sitzung bleibt über den Neustart erhalten"
+    }
+  },
+  "103": {
+    "de": {
+      "*": "Ebenen, Rollenringe und Fokus im Gerätediagramm"
+    }
+  },
+  "105": {
+    "de": {
+      "*": "Live-Energiefluss im Gerätediagramm"
+    }
+  },
+  "107": {
+    "de": {
+      "*": "Energierollen lassen sich im Gerätediagramm bearbeiten"
+    }
+  },
+  "108": {
+    "de": {
+      "*": "Energiegruppen und eigene Kategorien"
+    }
+  },
+  "109": {
+    "de": {
+      "*": "Ebenen für Datenfluss und Bilanz im Gerätediagramm"
+    }
+  },
+  "110": {
+    "de": {
+      "*": "Live-Anlagenansicht im Energie-Reiter"
+    }
+  },
+  "111": {
+    "de": {
+      "*": "Gerätediagramm und Energie-Reiter wurden überarbeitet"
+    }
+  },
+  "112": {
+    "de": {
+      "*": "Überarbeitete Einstellungen und lokales Ausliefern der Dokumentation"
+    }
+  },
+  "114": {
+    "de": {
+      "*": "Der Katalog der Geräte-Icons wurde neu geordnet"
+    }
+  },
+  "115": {
+    "de": {
+      "*": "Eigene Energiekategorien in Automatisierungen und ein überarbeiteter Editor"
+    }
+  },
+  "119": {
+    "de": {
+      "*": "Der Verlauf der Automatisierung wird vollständig ausgeliefert"
+    }
+  },
+  "123": {
+    "de": {
+      "*": "Update-Fortschritt und Neuerungen nach einem Update werden angezeigt"
+    }
+  },
+  "124": {
+    "de": {
+      "*": "Der Verlauf wird nur auf Anfrage ausgetauscht"
+    }
+  },
+  "125": {
+    "de": {
+      "*": "Austausch und Verlaufsstatus erscheinen als Kacheln"
+    }
+  },
+  "126": {
+    "de": {
+      "*": "Der Bilanzknoten ist im Gerät energy_node aufgegangen"
+    }
+  },
+  "127": {
+    "de": {
+      "*": "Das Automatisierungsgerät hängt unter dem Node und verlinkt seine Regeln"
+    }
+  },
+  "128": {
+    "de": {
+      "*": "Stündliche Energiestatistik wird auf dem Server aufgezeichnet"
+    }
+  },
+  "129": {
+    "de": {
+      "*": "Verbindungstypen mit Flussrichtung und umkehrbare manuelle Kanten"
+    }
+  },
+  "130": {
+    "de": {
+      "*": "Stündliche Energiestatistik aus Home Assistant über den Companion"
+    }
+  },
+  "132": {
+    "de": {
+      "*": "Statistikkachel, Statistikseite und Aufzeichnungsmodus"
+    }
+  }
+}

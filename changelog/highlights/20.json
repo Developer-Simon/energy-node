@@ -1,5 +1,0 @@
-{
-  "de": {
-    "*": "Die config.json wird beim Laden von schema_version 1 auf 2 migriert"
-  }
-}

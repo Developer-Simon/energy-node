@@ -1,5 +1,0 @@
-{
-  "de": {
-    "*": "Der node-Block der config.json wandert nach dashboard.node_* (schema_version 2)"
-  }
-}
