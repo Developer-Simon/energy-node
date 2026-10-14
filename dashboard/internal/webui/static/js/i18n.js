@@ -39,6 +39,14 @@
       return this.t(key + (n === 1 ? '.one' : '.other'), merged);
     },
 
+    // The text in the page language from a {lang: text} map, else the
+    // fallback (the English source, e.g. a changelog entry without
+    // translation).
+    localized: function (map, fallback) {
+      var text = map && map[this.lang];
+      return text ? text : fallback;
+    },
+
     has: function (key) {
       var text = this.catalog[key];
       return text !== undefined && text !== null && text !== '';

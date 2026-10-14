@@ -1,7 +1,7 @@
 {{define "screen-changelog-entry"}}<li class="cl-entry" :class="{ breaking: entry.breaking }">
   <template x-if="entry.breaking"><span class="cl-tag" x-text="t('changelog.breaking.tag')"></span></template>
   <template x-if="entry.scope"><span class="cl-scope" x-text="entry.scope"></span></template>
-  <span class="cl-text" x-text="entry.text"></span>
+  <span class="cl-text" x-text="entryText(entry)"></span>
   <template x-if="entry.pr"><span class="cl-ref" x-text="'#' + entry.pr"></span></template>
 </li>{{end}}
 
@@ -35,7 +35,7 @@
         <template x-for="(item, index) in breaking" :key="index">
           <div class="cl-brk">
             <span class="cl-brk-n"><span x-text="item.component"></span> <em x-text="item.version"></em></span>
-            <span class="cl-brk-t"><template x-if="item.scope"><span class="cl-scope" x-text="item.scope"></span></template> <span x-text="item.text"></span></span>
+            <span class="cl-brk-t"><template x-if="item.scope"><span class="cl-scope" x-text="item.scope"></span></template> <span x-text="entryText(item)"></span></span>
           </div>
         </template>
       </section>

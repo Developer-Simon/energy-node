@@ -1,6 +1,11 @@
 # Changelog
 
-## v0.2.2 (2026-10-12)
+## v0.2.3 (2026-10-14)
+
+### Features
+
+- **installer-webui:** show release highlights in the page language (59987e3)
+- **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134)
 
 ### Fixes
 

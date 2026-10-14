@@ -139,6 +139,10 @@
         return text === key ? group.label : text;
       },
 
+      entryText(entry) {
+        return window.ChangelogModel.localText(entry, this.shell.lang);
+      },
+
       toggleKind(kind) {
         this.kind = this.kind === kind ? '' : kind;
       },

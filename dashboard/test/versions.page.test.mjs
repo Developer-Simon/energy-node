@@ -166,6 +166,12 @@ test('entryText prefixes the scope when there is one', async () => {
   assert.equal(component.entryText({ text: 'fix it' }), 'fix it');
 });
 
+test('entryText shows the translation in the page language', async () => {
+  const { component } = createVersionsPanel();
+  assert.equal(component.entryText({ text: 'fix it', scope: 'installer', i18n: { de: 'repariert' } }), 'installer: repariert');
+  assert.equal(component.entryText({ text: 'fix it', i18n: {} }), 'fix it');
+});
+
 test('releaseDate formats a plain date through I18n and keeps an empty one empty', async () => {
   const { component } = createVersionsPanel();
   const shown = component.releaseDate('2026-09-21');

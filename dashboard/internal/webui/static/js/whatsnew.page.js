@@ -4,6 +4,7 @@
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
+  const localized = (entry) => (window.I18n ? window.I18n.localized(entry.i18n, entry.text) : entry.text);
 
   const whatsNewPanel = () => ({
     loading: false,
@@ -42,7 +43,8 @@
     },
 
     entryText(entry) {
-      return entry.pr ? `${entry.text} (#${entry.pr})` : entry.text;
+      const text = localized(entry);
+      return entry.pr ? `${text} (#${entry.pr})` : text;
     },
 
     // The versions page lists every change, so the link goes there and

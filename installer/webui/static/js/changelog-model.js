@@ -111,13 +111,20 @@
     return out;
   }
 
+  // localText: der Text in der Sprache der Oberflaeche (entry.i18n aus
+  // changelog/highlights/<PR>.json), sonst der englische aus der CHANGELOG.md.
+  function localText(entry, lang) {
+    var text = entry && entry.i18n && entry.i18n[lang];
+    return text ? text : entry.text;
+  }
+
   // breaking: alle Breaking-Eintraege flach, damit der Bildschirm sie als
   // eigenen Block ueber die Liste stellen kann.
   function breaking(rows) {
     var out = [];
     eachEntry(rows, function (entry, group, release, row) {
       if (entry.breaking) {
-        out.push({ component: row.label, version: release.version, text: entry.text, scope: entry.scope || '', pr: entry.pr || null });
+        out.push({ component: row.label, version: release.version, text: entry.text, scope: entry.scope || '', pr: entry.pr || null, i18n: entry.i18n || null });
       }
     });
     return out;
@@ -208,6 +215,7 @@
     slice: slice,
     summarize: summarize,
     breaking: breaking,
+    localText: localText,
     scopes: scopes,
     kinds: kinds,
     filter: filter,

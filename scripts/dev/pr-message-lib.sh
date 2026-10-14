@@ -91,3 +91,47 @@ pr_validate_message() {
 pr_extract_block() {
   awk '/^```/ { c++; next } c == 1 { print }' "$1"
 }
+
+# --- Highlight translations ---------------------------------------------------
+#
+# A feat, fix or perf PR and every breaking PR is a release highlight
+# (scripts/build/make_changelog_json.py). Its texts need a German version in
+# the PR description, the Version bump workflow copies that block into
+# changelog/highlights/<PR>.json.
+
+PR_HIGHLIGHT_RE='^((feat|fix|perf)(\([a-z0-9._:/-]+\))?!?|[a-z]+(\([a-z0-9._:/-]+\))?!): '
+
+# pr_title_is_highlight <title>
+pr_title_is_highlight() {
+  [[ "$1" =~ ${PR_HIGHLIGHT_RE} ]]
+}
+
+# pr_highlight_lines <message-file> - the text of every "- " line of the
+# "Highlights:" block, same rules as custom_highlight in
+# scripts/generate_changelog.sh (the block ends at the first other line).
+pr_highlight_lines() {
+  awk '
+    !inblock { if ($0 ~ /^[[:space:]]*Highlights:[[:space:]]*$/) inblock = 1; next }
+    /^[[:space:]]*-[[:space:]]+/ { sub(/^[[:space:]]*-[[:space:]]+/, ""); sub(/[[:space:]]+$/, ""); print; next }
+    { exit }
+  ' "$1"
+}
+
+# pr_line_target <line> <components.json> - prints the target of a
+# "<target>: text" line, returns 1 for a line without a known target.
+pr_line_target() {
+  local line="$1" table="$2" name
+  [[ "${line}" =~ ^([a-z_:-]+):[[:space:]]+.+$ ]] || return 1
+  name="${BASH_REMATCH[1]}"
+  if [[ "${name}" == service:* ]] || grep -q -F "\"target\": \"${name}\"" "${table}"; then
+    printf '%s' "${name}"
+    return 0
+  fi
+  return 1
+}
+
+# pr_translation_block <lang> <lines-file> - the block for the PR description.
+pr_translation_block() {
+  printf 'Highlights (%s):\n' "$1"
+  cat "$2"
+}

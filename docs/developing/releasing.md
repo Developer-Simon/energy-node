@@ -42,9 +42,12 @@ versions each release contains.
 On a `v*` tag push, [`Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/release.yml):
 
 1. Runs `go vet ./...` and `go test ./...` in `dashboard/`.
-2. Builds the release notes from the matching section of
-   `dashboard/CHANGELOG.md`, extracted by `scripts/release/extract-changelog.sh`.
-   If there is no section for the tag, it uses GitHub's generated notes.
+2. Builds the release notes. They start with the highlights of every bundle
+   component since the previous final release, in English and in a folded
+   German block, written by `scripts/release/release_highlights.py`. The
+   matching section of `dashboard/CHANGELOG.md`, extracted by
+   `scripts/release/extract-changelog.sh`, follows. If there is no section for
+   the tag, it uses GitHub's generated notes.
 3. Creates the GitHub Release as a **draft** with `--verify-tag`.
 4. Calls two reusable workflows in parallel, both attaching to that draft:
    - [`Bundle Release`](https://github.com/Developer-Simon/energy-node/blob/main/.github/workflows/bundle-release.yml)
@@ -180,6 +183,43 @@ generator (`CHANGELOG_PR_NUMBER`, `CHANGELOG_PR_TITLE`,
 entry to the open section of every component the PR changes. Editing the title
 or the description runs the workflow again and updates the entry, so a release
 cut right after the merge already lists the PR.
+
+### Translations
+
+Every highlight also needs a German text. It lives in
+`changelog/highlights/<PR>.json`, one file per pull request:
+
+```json
+{"de": {"*": "Die Versionsseite öffnet mit den Highlights.", "dashboard": "Text nur für das Dashboard"}}
+```
+
+`*` applies to every component without its own line, every other key is a
+target of `scripts/generate_changelog.sh`. While the PR is open, the source is
+the "Highlight translations" section of its description:
+
+```text
+Highlights (de):
+- Die Versionsseite öffnet mit den Highlights.
+- dashboard: Text nur für das Dashboard
+```
+
+`scripts/dev/create-pr.sh` asks for these lines (or reads `PR_TITLE_DE` and
+`PR_HIGHLIGHTS_DE_FILE`). The Version bump workflow writes the file in its
+changelog commit, and the CI check "Highlight translations" fails while a
+highlight of the PR has no German text. Entries of single commits without a PR
+number are never checked. After the merge the file may be edited by hand, for
+example to fix a word or to translate an older release. `changelog.json`
+carries the texts as `"i18n": {"de": "…"}`, the dashboard, the installer and
+the release notes show them and fall back to English.
+
+The texts of older releases live in `changelog/highlights/archive.json`, in the
+form `{"<PR>": {"de": {...}}}`, so the file list stays short. New PRs get their
+own `<PR>.json`. A per-PR file overrides the archive for the languages it has.
+
+When a final release tag is pushed, the workflow `archive-highlight-translations.yml`
+folds all `changelog/highlights/<PR>.json` into `archive.json` and opens a PR for
+it. Merge that PR on GitHub, not with merge-pr.sh. The workflow needs the `BUMP_TOKEN` secret, and
+without it the job skips with a notice.
 
 ## One-time setup: the `BUMP_TOKEN` secret
 

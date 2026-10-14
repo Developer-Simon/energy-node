@@ -12,12 +12,15 @@ import (
 	"github.com/Developer-Simon/energy-node-webui/hostapi"
 )
 
-// HighlightsEntry is one highlighted change.
+// HighlightsEntry is one highlighted change. I18n holds the text in other
+// languages than English (changelog/highlights/<PR>.json in the repo), the
+// page picks its own language and falls back to Text.
 type HighlightsEntry struct {
-	Text     string `json:"text"`
-	Scope    string `json:"scope,omitempty"`
-	PR       int    `json:"pr,omitempty"`
-	Breaking bool   `json:"breaking"`
+	Text     string            `json:"text"`
+	Scope    string            `json:"scope,omitempty"`
+	PR       int               `json:"pr,omitempty"`
+	Breaking bool              `json:"breaking"`
+	I18n     map[string]string `json:"i18n,omitempty"`
 }
 
 // HighlightsRelease is one release of a component inside the range.
@@ -57,11 +60,12 @@ type fullDocument struct {
 			Date    string `json:"date"`
 			Groups  []struct {
 				Entries []struct {
-					Text      string `json:"text"`
-					Scope     string `json:"scope"`
-					PR        int    `json:"pr"`
-					Breaking  bool   `json:"breaking"`
-					Highlight *bool  `json:"highlight"`
+					Text      string            `json:"text"`
+					Scope     string            `json:"scope"`
+					PR        int               `json:"pr"`
+					Breaking  bool              `json:"breaking"`
+					Highlight *bool             `json:"highlight"`
+					I18n      map[string]string `json:"i18n"`
 				} `json:"entries"`
 			} `json:"groups"`
 		} `json:"releases"`
@@ -137,7 +141,7 @@ func Highlights(stateDir string) (*HighlightsView, error) {
 					if flagged && (e.Highlight == nil || !*e.Highlight) {
 						continue
 					}
-					out.Entries = append(out.Entries, HighlightsEntry{Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking})
+					out.Entries = append(out.Entries, HighlightsEntry{Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n})
 				}
 			}
 			if len(out.Entries) > 0 {

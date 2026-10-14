@@ -78,3 +78,10 @@ test('showAll closes the dialog and opens the versions page in "all" mode', () =
   assert.equal(closed, true);
   assert.equal(target, '/node/?panel=settings&page=versions&all=1');
 });
+
+test('entryText uses the page language and falls back to English', async () => {
+  const { panel } = create(async () => json(VIEW));
+  assert.equal(panel.entryText({ text: 'layers', pr: 7, i18n: { de: 'Ebenen' } }), 'Ebenen (#7)');
+  assert.equal(panel.entryText({ text: 'layers', pr: 7, i18n: { fr: 'couches' } }), 'layers (#7)');
+  assert.equal(panel.entryText({ text: 'layers' }), 'layers');
+});

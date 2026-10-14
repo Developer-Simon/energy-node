@@ -19,6 +19,8 @@ import re
 import sys
 from pathlib import Path
 
+import highlight_i18n
+
 SCHEMA_VERSION = 1
 DEFAULT_MAX_RELEASES = 20
 
@@ -104,21 +106,41 @@ def mark_highlights(releases):
     return releases
 
 
-def read_version(path):
-    """Version einer Komponente als "vX.Y.Z" - aus VERSION oder manifest.json."""
-    raw = path.read_text(encoding="utf-8")
-    if path.suffix == ".json":
+def parse_version(raw, suffix):
+    """Version als "vX.Y.Z" aus dem Inhalt einer VERSION- oder manifest.json-Datei."""
+    if suffix == ".json":
         return "v" + str(json.loads(raw)["version"]).lstrip("v")
     return raw.strip()
 
 
+def read_version(path):
+    """Version einer Komponente als "vX.Y.Z" - aus VERSION oder manifest.json."""
+    return parse_version(path.read_text(encoding="utf-8"), path.suffix)
+
+
+def attach_translations(releases, translations, target):
+    """Setzt "i18n": {lang: text} an jeden PR-Eintrag mit Uebersetzung
+    (changelog/highlights/<PR>.json, siehe highlight_i18n.py)."""
+    for release in releases:
+        for group in release["groups"]:
+            for entry in group["entries"]:
+                if "pr" not in entry:
+                    continue
+                texts = highlight_i18n.entry_i18n(translations, entry["pr"], target)
+                if texts:
+                    entry["i18n"] = texts
+    return releases
+
+
 def build_document(repo, table, *, bundle_version, max_releases, generated_at):
+    translations = highlight_i18n.load_translations(repo / highlight_i18n.TRANSLATIONS_DIR)
     components = []
     for row in table["components"]:
         if not row["bundle"]:
             continue
         changelog = repo / row["changelog"]
         releases = mark_highlights(parse_changelog(changelog.read_text(encoding="utf-8"))) if changelog.is_file() else []
+        attach_translations(releases, translations, row.get("target", row["id"]))
         components.append({
             "id": row["id"],
             "label": row["label"],

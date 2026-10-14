@@ -46,4 +46,28 @@ pr_validate_message "Update stuff" "$tmp/ok" 2>/dev/null && fail "non-convention
 printf 'x\n```text\nA\nB\n```\nrest\n' > "$tmp/pr"
 [ "$(pr_extract_block "$tmp/pr")" = "$(printf 'A\nB')" ] || fail "extract block"
 
+# --- Highlight translations -------------------------------------------------
+
+pr_title_is_highlight "feat(dashboard): add a page" || fail "feat is a highlight"
+pr_title_is_highlight "fix: repair" || fail "fix is a highlight"
+pr_title_is_highlight "perf(x): faster" || fail "perf is a highlight"
+pr_title_is_highlight "refactor(x)!: drop the old api" || fail "breaking refactor is a highlight"
+pr_title_is_highlight "chore: tidy" && fail "chore is no highlight"
+pr_title_is_highlight "docs(readme): words" && fail "docs is no highlight"
+
+printf 'Body.\n\nHighlights:\n- The state survives.\n- dashboard: The page opens.\n\nMore text.\n' > "$tmp/hl"
+out="$(pr_highlight_lines "$tmp/hl")"
+[ "$out" = "$(printf 'The state survives.\ndashboard: The page opens.')" ] || fail "highlight lines" "$out"
+[ -z "$(pr_highlight_lines "$tmp/ok")" ] || fail "no block, no lines"
+
+table="$here/../version/components.json"
+[ "$(pr_line_target "dashboard: The page opens." "$table")" = "dashboard" ] || fail "known target"
+[ "$(pr_line_target "service:shelly: x" "$table")" = "service:shelly" ] || fail "service target"
+pr_line_target "Note: not a target" "$table" >/dev/null && fail "unknown prefix is no target"
+pr_line_target "plain text" "$table" >/dev/null && fail "plain line is no target"
+
+printf -- '- eins\n- dashboard: zwei\n' > "$tmp/de"
+out="$(pr_translation_block de "$tmp/de")"
+[ "$out" = "$(printf 'Highlights (de):\n- eins\n- dashboard: zwei')" ] || fail "translation block" "$out"
+
 echo "ok"

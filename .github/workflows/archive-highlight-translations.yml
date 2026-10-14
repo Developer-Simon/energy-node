@@ -1,0 +1,74 @@
+name: Archive highlight translations
+
+# Runs when a final release tag (vX.Y.Z) is pushed. It folds every
+# changelog/highlights/<PR>.json on `main` into changelog/highlights/archive.json
+# (scripts/build/highlight_translations.py archive), so the released texts move
+# out of the per-PR files and the directory stays short. The result goes to a
+# PR, because `main` is PR-protected and cannot take a direct push.
+#
+# Prerelease tags (vX.Y.Z-bN) are skipped: their highlights are not released yet.
+#
+# The job needs the BUMP_TOKEN secret (a fine-grained PAT, contents and pull
+# requests write). The default GITHUB_TOKEN cannot trigger the required checks
+# on the PR it opens, so without the secret the job skips with a notice and
+# nothing is changed.
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  archive:
+    name: Fold the translations into archive.json
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, '-') }}
+    env:
+      HAS_TOKEN: ${{ secrets.BUMP_TOKEN != '' }}
+      TAG: ${{ github.ref_name }}
+      GH_TOKEN: ${{ secrets.BUMP_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.BUMP_TOKEN || github.token }}
+
+      - name: Fold the per-PR files into the archive
+        run: |
+          set -euo pipefail
+          if [ "$HAS_TOKEN" != "true" ]; then
+            echo "::notice::BUMP_TOKEN is not set, skipping the archive PR"
+            exit 0
+          fi
+
+          python3 scripts/build/highlight_translations.py archive --repo .
+          if [ -z "$(git status --porcelain changelog/highlights)" ]; then
+            echo "::notice::no highlight translation files to archive for $TAG"
+            exit 0
+          fi
+
+          message="chore(changelog): archive highlight translations of ${TAG}"
+          branch="chore/archive-highlight-translations-${TAG}"
+          body="$RUNNER_TEMP/body.md"
+          cat > "$body" <<EOF
+          This PR moves the German highlight texts of the releases up to ${TAG} out
+          of their files, one per PR, into changelog/highlights/archive.json. The
+          directory then lists only the PRs that are not released yet. The texts do
+          not change.
+          The release workflow opened it when ${TAG} was tagged. Merge it with the
+          squash button on GitHub, scripts/dev/merge-pr.sh does not apply because
+          this PR has no commit message block.
+          EOF
+
+          git config user.name "energy-node-bot"
+          git config user.email "energy-node-bot@users.noreply.github.com"
+          git switch -c "$branch"
+          git add -A changelog/highlights
+          git commit -m "$message"
+          git push origin "$branch"
+          gh pr create --base main --head "$branch" --title "$message" --body-file "$body"

@@ -1,19 +1,22 @@
 # Changelog
 
-## v0.9.12 (2026-10-14)
+## v0.9.13 (2026-10-14)
 
 ### Features
 
 - hourly energy statistics from Home Assistant via the companion (#130) (752f59a)
 - **dashboard:** energy statistics tile, page and recording mode (#132) (502a156)
 - **dashboard:** SSE topic subscriptions and a swap-free statistics tile (#133) (69eb694)
+- **dashboard:** device tiles patched from the devices topic without fragment swaps (#135) (76f51aa)
+- **dashboard:** carry highlight translations in the highlights API (963ab1a)
+- **dashboard:** show release highlights in the page language (908d3ce)
+- **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134)
 - **dashboard:** per-device live entry and localized tile status (db88e93)
 - **dashboard:** single-tile fragments layout-item and device-card (e7dcb82)
 - **dashboard:** per-tile structure and row template markup (f7b2274)
 - **dashboard:** SSE topic devices with a per-subscriber device selection (a4c76b6)
 - **dashboard:** patch device tiles from the devices topic (3059c80)
 - **dashboard:** device tiles follow the devices topic instead of fragment swaps (dacff34)
-- **dashboard:** device tiles patched from the devices topic without fragment swaps (#135)
 - **dashboard:** subscribe to SSE topics with ?topics= (43cb488)
 - **dashboard:** open the event stream with the active panel's topics (8129889)
 - **energystats:** revision counter for changes to the statistics (f9300b4)
