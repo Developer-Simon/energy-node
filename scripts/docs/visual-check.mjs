@@ -87,7 +87,7 @@ for (const scheme of ["light", "dark"]) {
   const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 } });
   const page = await ctx.newPage();
   for (const [from, to] of [
-    ["dashboard.html#mqtt", "dashboard/settings.html#mqtt"],
+    ["dashboard.html#mqtt", "dashboard/settings-mqtt.html#mqtt"],
     ["device-services.html#shelly", "services/shelly.html"],
     ["knowledge/data-flow.html", "developing/data-flow.html"],
   ]) {

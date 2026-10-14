@@ -17,8 +17,13 @@ section 5 of INSTALLATION.md.
 
 ## 1. The whole picture
 
-All traffic goes through one local MQTT broker (Mosquitto on the Raspberry Pi).
-The device bridges and the dashboard have no direct HTTP path between them.
+Device traffic goes through one local MQTT broker (Mosquitto on the Raspberry
+Pi). The device bridges and the dashboard have no direct HTTP path between
+them.
+
+Home Assistant reaches the node in two ways. It gets the MQTT topics through
+the Mosquitto bridge, and with the Energy Node Companion it also talks HTTP to
+the dashboard, for the history exchange and for the sidebar page (§14).
 
 {% raw %}
 ```mermaid
@@ -48,10 +53,15 @@ flowchart TB
         WEB["webui<br/>server-side HTML"]
         FILES[("data directory<br/>*.json")]
         NODE["nodeagent<br/>(node identity,<br/>Pi diagnostics)"]
+        EDISC["energydiscovery<br/>(own HA device<br/>Energy Node)"]
+        STATS[("energystats<br/>hourly kWh")]
     end
 
     BR["Mosquitto bridge"]
-    HS["Main site<br/>(Home Assistant)"]
+    subgraph HA["Main site (Home Assistant)"]
+        HAMQTT["MQTT integration<br/>+ recorder"]
+        COMP["Energy Node Companion<br/>(history peer, panel proxy)"]
+    end
     BROWSER["Browser"]
 
     AP --> APS
@@ -79,18 +89,25 @@ flowchart TB
     API <--> FILES
     API -->|"publish: command_topic"| BROKER
     API -->|"outstation/energy_node/energy/balance"| BROKER
+    EDISC -->|"homeassistant/sensor/energy_node/…/config"| BROKER
+    REG --> STATS
+    STATS <--> API
 
     WEB -->|HTML| BROWSER
     API <-->|"JSON / SSE"| BROWSER
 
     BROKER <--> BR
-    BR <--> HS
+    BR <--> HAMQTT
+    HAMQTT -->|"entity registry,<br/>states, statistics"| COMP
+    COMP <-->|"HTTP / SSE<br/>/api/v1/history/exchange/*"| API
+    COMP <-->|"panel proxy<br/>(whole dashboard)"| WEB
 ```
 {% endraw %}
 
 Device state flows up (device → bridge → broker → dashboard → browser).
 Commands and configuration flow down (browser → dashboard → broker → bridge →
-device).
+device). Home Assistant closes a loop: it records what the bridge mirrors and
+the companion hands parts of that back to the dashboard.
 
 ## 2. Topic conventions
 
@@ -98,7 +115,7 @@ There are two namespaces with separate jobs:
 
 | Namespace | Purpose | Retained | Who writes |
 |---|---|---|---|
-| `homeassistant/{component}/{device_id}/{object_id}/config` | Discovery: which entity exists and where its value is | yes | Python bridges |
+| `homeassistant/{component}/{device_id}/{object_id}/config` | Discovery: which entity exists and where its value is | yes | Python bridges, and the dashboard for its own device `energy_node` |
 | `outstation/{device_id}/...` | Payload data: measurements, status, commands | partly | bridges and dashboard |
 
 The main topics below `outstation/`:
@@ -109,7 +126,9 @@ The main topics below `outstation/`:
 | `outstation/{device_id}/status/online` | bridge → broker | Availability, also set as the MQTT last will |
 | `outstation/{device_id}/.../set` | broker → bridge | Switch command (`command_topic` from Discovery) |
 | `outstation/{service_id}/config/reload` | dashboard → bridge | The bridge reloads its JSON configuration |
-| `outstation/energy_node/energy/balance` | dashboard → broker | Energy balance, every 10 s |
+| `outstation/energy_node/energy/balance` | dashboard → broker | Energy balance, every 10 s, retained |
+| `outstation/energy_node/status/online` | dashboard → broker | Availability of the dashboard (`1`/`0`), retained, also the last will |
+| `homeassistant/sensor/energy_node/{object_id}/config` | dashboard → broker | Discovery of the dashboard's own energy sensors (§3) |
 | `outstation/automation/test/set` | dashboard → automation | Run one rule action as a test |
 | `outstation/automation/test/result` | automation → broker | Result of the test |
 | `$SYS/broker/connection/{remote_client_id}/state` | broker → dashboard | Whether the bridge to the main site is up (`1`/`0`) |
@@ -163,10 +182,39 @@ Parse errors are collected in `reg.DiscoveryErrors()` and shown by
 
 The `discovery_prefix` is configurable (default `homeassistant`).
 
+### The dashboard as a Discovery publisher
+
+The dashboard also announces itself. On every connect and reconnect it
+publishes retained Discovery for the Home Assistant device "Energy Node". Two
+parts share that device through `device.identifiers = ["energy_node"]`:
+
+| Part | Entities | Values from |
+|---|---|---|
+| `internal/energydiscovery` | seven read only sensors: `pv_power`, `grid_import`, `grid_export`, `battery_charge`, `battery_discharge`, `house_load` (the `load_total` field), `battery_soc` | the balance topic `outstation/energy_node/energy/balance`, one field each through `value_template` |
+| `internal/nodeagent` | Pi diagnostics, poll rate, simulation switch | `outstation/energy_node/…` |
+
+The unique IDs are `energy_node_<object_id>`, for example
+`energy_node_pv_power`. The Energy Node Companion finds these sensors in Home
+Assistant by exactly these IDs (§14), so they must not change.
+
+All energy sensors point to `outstation/energy_node/status/online` as their
+availability. When Tailscale reports a MagicDNS name, the device block carries
+it as `configuration_url`, and the configs are published again when the name
+changes.
+
+The switch `publish_energy_device` in `mqtt.json` (default on) turns the
+energy sensors off. The dashboard then publishes empty retained payloads on the
+same topics, which removes the entities in Home Assistant. Without these
+sensors the companion has no source for the energy roles.
+
+The dashboard subscribes to its own Discovery like to any other, so the
+"Energy Node" device also shows up in its own registry.
+
 ## 4. Live values all the way to the browser
 
-The browser does not get MQTT values pushed to it. A simple version mechanism
-sits between the registry and the browser.
+The browser never talks MQTT. The registry counts every change in a version
+number, and one SSE stream carries the version together with the topics the
+page subscribed to.
 
 {% raw %}
 ```mermaid
@@ -174,19 +222,34 @@ flowchart LR
     M{{Mosquitto}} -->|"state / availability"| C[mqttclient]
     C --> R[("registry<br/>version: uint64")]
     R -->|"ObserveChanges"| RC[("runtime.json<br/>runtime cache")]
+    R --> HUB["event hub<br/>builds each subscribed<br/>topic once per change"]
+    ES[("energystats<br/>revision")] --> HUB
+    HUB -->|"event: registry<br/>version + topics"| S["GET /api/v1/events?topics=…&devices=…"]
+    S --> JS["browser JS<br/>patches tiles in place"]
     R -->|"ETag: registry-N"| D["GET /api/v1/devices"]
-    R -->|"event: registry<br/>data: version"| S["GET /api/v1/events (SSE)"]
-    S -->|"version changed?"| JS["browser JS"]
-    JS -->|"only then"| D
-    D --> JS
+    D -.->|"full load,<br/>pages without topics"| JS
 ```
 {% endraw %}
 
-SSE carries no values, only `{"version": N}`. After a change the client
-fetches the devices with `GET /api/v1/devices`, so neither side needs a diff
-implementation.
+Each event carries `version` and one branch per subscribed topic:
 
-The poll interval of the SSE loop comes from `settings.json`
+| Topic | Content | Version source |
+|---|---|---|
+| `energy` | energy snapshot with balance | registry |
+| `entities` | entity values, complete on connect, then only changes (`entities_delta`) | registry |
+| `diagnostics` | summary of the diagnostics | registry |
+| `devices` | structure, availability, status and with `:auto` the compact rows of the devices chosen with `?devices=`, as a delta after the first event | registry and device preferences |
+| `energy_stats` | only `{"rev": N}` of the energy statistics | statistics store, so a backfilled hour from Home Assistant triggers an event while the registry is idle |
+
+Without `?topics=` a client gets all topics except `devices`. With an empty
+`?topics=` it gets only the version and fetches `GET /api/v1/devices` itself
+when the version changes. The exact contract is in [api.md](api.md).
+
+The hub builds a topic only while someone subscribes to it, and only once per
+change for all connections. A connection that falls four events behind is
+dropped and starts again with a complete event after the browser reconnects.
+
+The send interval of the hub comes from `settings.json`
 (`live_update_interval_seconds`, default 3 s) and takes effect without a
 reconnect.
 
@@ -298,11 +361,18 @@ flowchart LR
     RES --> AGG["energy.Aggregate"]
     AGG --> BAL["Balance:<br/>pv, grid_import/export,<br/>battery_charge/discharge,<br/>load_total, wallbox, heat_pump,<br/>battery_soc, self-sufficiency"]
     BAL --> HTTP["GET /api/v1/energy"]
-    BAL --> MQTT["publish every 10 s<br/>outstation/energy_node/energy/balance"]
+    BAL --> MQTT["publish every 10 s, retained<br/>outstation/energy_node/energy/balance"]
     MQTT --> AUTO["automation_mqtt.py<br/>balance_threshold condition"]
+    MQTT --> HAS["Home Assistant sensors<br/>of the device Energy Node"]
     HTTP --> UI["energy-flow chart"]
+    BAL --> EST["energystats<br/>hourly kWh (§13)"]
 ```
 {% endraw %}
+
+The payload is `{"at": <unix s>, "balance": {…}, "interpretation": {…}}`.
+The seven energy sensors from §3 each pick one field of `balance`, and Home
+Assistant records them. These recorded values are what the companion later
+supplies back (§14).
 
 The automation service takes the balance as finished numbers and computes
 nothing itself. If the balance is older than `balance_max_age_s` (default
@@ -346,7 +416,13 @@ and `notification`.
 
 The Mosquitto bridge mirrors both namespaces in both directions to the main
 site (`topic outstation/# both 0`, `topic homeassistant/# both 0`), so the main
-site sees the same Discovery and measurement topics as the dashboard.
+site sees the same Discovery and measurement topics as the dashboard. These are
+the defaults, the topic list is editable per connection in `bridge.json`.
+
+Home Assistant on the main site creates its MQTT entities from the mirrored
+Discovery, the bridges' devices as well as the dashboard's own "Energy Node"
+device. The companion depends on this path (§14): it finds the dashboard's
+series in Home Assistant only through these MQTT entities.
 
 The dashboard manages the bridge but is not part of its data path:
 
@@ -436,20 +512,19 @@ when rows arrive. In `always` mode a device always offers its own coverage. In `
 it offers it only if the per-device choice `history-exchange-serve` is `on`,
 and is otherwise a source only through the ring buffer.
 
-Home Assistant can join as a permanent peer that supplies data, through the
-`energy_node_companion` integration (guest session, labelled "Home
-Assistant"). It answers from its recorder (states for `1m`, 5-minute statistics
-for `5m`) and only offers the series the announcement lists. It never supplies
-`role:load`, because HA's `house_load` sensor carries `load_total` and not the
-measured `load` role.
+Home Assistant can join as a permanent peer that only supplies data, through
+the Energy Node Companion (labelled "Home Assistant"). Which series it maps and
+from which recorder tables it answers is described in §14.
 
 ## 11. What the system does not do on purpose
 
 Several design decisions above follow from these limits.
 
 There is no time series database on the server. The Pi's registry only holds
-the current state. The rolling history lives in the browser (§10), and a long
-term archive is the main site's job.
+the current state, and the only thing the Pi keeps over time is the hourly
+energy per role (§13). The rolling measurement history lives in the browser
+(§10), and a long term archive is the main site's job. With the companion the
+main site feeds parts of that archive back (§14).
 
 There is no event history on the server either. Command history, the last
 bridge apply and the last Tailscale action live in memory and are lost on a
@@ -496,7 +571,7 @@ Hours are stored per UTC month in `<data dir>/energystats/<yyyy-mm>.json`. Each 
 
 ### Hours from Home Assistant
 
-The Energy Node Companion offers a third exchange tier `1h` next to `1m` and `5m`. Its rows carry the mean power of one hour in W, which equals the energy of that hour in Wh. Its coverage counts complete hours per UTC day, starting at the oldest day Home Assistant has, at most ten years back. The protocol version stays 1. A companion only offers `1h` when the announcement lists it, and it marks its offer with `kind: "companion"`.
+Where the companion takes these hours from is described in §14. The Energy Node Companion offers a third exchange tier `1h` next to `1m` and `5m`. Its rows carry the mean power of one hour in W, which equals the energy of that hour in Wh. Its coverage counts complete hours per UTC day, starting at the oldest day Home Assistant has, at most ten years back. The protocol version stays 1. A companion only offers `1h` when the announcement lists it, and it marks its offer with `kind: "companion"`.
 
 Inside the dashboard `internal/energystats` acts as the pseudo peer `energystats`, like the ring buffer acts as `server`. It reads every companion offer, compares it with the hours it already holds from Home Assistant and requests what is missing, newest days first, at most 31 days per request and one request at a time. Deliveries addressed to `energystats` are handled by the server and never relayed. A day that Home Assistant offers but cannot fill is requested again only when the offered hour count changes.
 
@@ -507,3 +582,156 @@ The setting `energy_stats_recording` (`always`, `pause_with_companion`, `off`) c
 The response also carries `at`, `prev` and `next` for navigation, `local` per bucket (start in the node's local time, used for labels so a browser in another time zone shows the node's hours), `categories` for custom role labels, `status.state` (`recording`, `paused`, `off`, `waiting_for_clock`), `status.corrupt_months` and `companion.backfill_from`.
 
 `revision` is the statistics revision at the time of the query. Compare it with `energy_stats.rev` from the event stream to decide whether to reload.
+
+## 14. Home Assistant and the Energy Node Companion
+
+The integration `energy_node_companion` runs inside Home Assistant and connects
+it with one dashboard per config entry. It has three data paths, and each can be
+switched on its own in the options: history (`history`), energy statistics
+(`stats`) and the sidebar page (`panel`: all users, administrators only or off).
+
+{% raw %}
+```mermaid
+flowchart LR
+    subgraph Node["Energy Node (Pi)"]
+        BAL["balance topic +<br/>own Discovery (§3)"]
+        HX["history exchange<br/>/api/v1/history/exchange/*"]
+        ESY["energystats<br/>pseudo peer"]
+        DASH["dashboard pages<br/>and API"]
+    end
+
+    subgraph HA["Home Assistant"]
+        MQ["MQTT integration<br/>entity registry"]
+        RECO[("recorder<br/>states, statistics")]
+        PEER["HistoryPeer"]
+        PROXY["DashboardProxyView"]
+    end
+
+    BR["Mosquitto bridge"]
+    B1["Browser on the node"]
+    B2["Browser in HA<br/>(sidebar iframe)"]
+
+    BAL --> BR --> MQ --> RECO
+    MQ -->|"unique_id → entity_id"| PEER
+    RECO -->|"rows"| PEER
+    PEER <-->|"offer / request / deliver"| HX
+    HX <--> B1
+    HX -->|"1h"| ESY
+    B2 <--> PROXY <-->|"guest session or<br/>the user's own session"| DASH
+```
+{% endraw %}
+
+### Where the companion's values come from
+
+The companion creates no entities and stores no values of its own. Everything
+it supplies comes from the Home Assistant recorder, about MQTT entities that
+exist only because the dashboard and the bridges announced them through
+Discovery and the bridge mirrored them (§3, §9).
+
+It maps the dashboard's series to Home Assistant entities through the entity
+registry, platform `mqtt`, by `unique_id`:
+
+| Dashboard series | Home Assistant source |
+|---|---|
+| `role:pv` | `energy_node_pv_power` |
+| `role:grid` | `energy_node_grid_import` minus `energy_node_grid_export` |
+| `role:battery` | `energy_node_battery_charge` minus `energy_node_battery_discharge` |
+| `role:battery_soc` | `energy_node_battery_soc` |
+| any extra history entity | the `sensor` or `number` with the same `unique_id` |
+
+`role:load`, `role:wallbox` and `role:heat_pump` are never supplied in the
+`1m` and `5m` tiers. `house_load` carries `load_total` and not the measured
+`load` role, and the dashboard publishes no sensor for wallbox and heat pump.
+
+| Tier | Source in the recorder | Fallback |
+|---|---|---|
+| `1m` | state changes, weighted by how long each value held | none |
+| `5m` | 5-minute statistics (`mean`, `min`, `max`) | state changes, for entities without statistics and for difference series |
+| `1h` | hourly long term statistics, per role | none |
+
+For `1h` each role takes either an energy meter picked in the options (the
+hourly `change` in Wh, a negative change from a meter reset drops the hour) or
+the power sensor from §3 (the hourly `mean` in W). Wallbox and heat pump are
+only available with a meter. Values are converted to the dashboard's unit, and
+a series whose unit cannot be converted is left out instead of supplying wrong
+numbers. Unavailable states stay gaps.
+
+### Exchange with the dashboard
+
+{% raw %}
+```mermaid
+sequenceDiagram
+    participant P as Companion (HistoryPeer)
+    participant D as dashboard
+    participant S as energystats
+    participant B as Browser
+
+    P->>D: POST /api/v1/auth/guest (once, kept until a 401)
+    P->>D: GET /api/v1/history/exchange (series, tiers, limits)
+    P->>D: GET /api/v1/history/exchange/stream (SSE)
+    D-->>P: hello (peer_id)
+    P->>D: POST /offer (label "Home Assistant", kind "companion",<br/>coverage 1m, 5m and 1h)
+    D-->>B: offer (browsers use 1m and 5m)
+    D->>S: OnOffer (1h coverage)
+    B->>D: POST /request (missing ranges)
+    D-->>P: request
+    P->>D: POST /deliver (chunks of at most max_rows_per_deliver)
+    D-->>B: deliver
+    S->>D: request for missing days (1h)
+    D-->>P: request
+    P->>D: POST /deliver to "energystats"
+    D->>S: OnDeliver (handled on the server, never relayed)
+```
+{% endraw %}
+
+The companion is a pure source. It never asks for rows, keeps no store of its
+own and does not feed the server's ring buffer. It sends `1h` only when the
+announcement lists that tier, so an older dashboard is not sent an offer it
+would reject. `kind: "companion"` is passed on only for this peer, and only then
+does the server hand the `1h` coverage to `energystats`. Browsers ignore `1h`.
+
+The companion recomputes its coverage every ten minutes and sends a new offer
+only when it changed. When another peer joins it sends the current offer again.
+On a lost connection it reconnects with a pause growing from 2 to 60 seconds.
+The guest session is kept across reconnects, because every guest login writes
+`users.json` on the node's SD card.
+
+### The sidebar page
+
+The page in the Home Assistant sidebar is the real dashboard, passed through by
+Home Assistant. The browser only talks to Home Assistant, the Home Assistant
+host is the only one that has to reach the node.
+
+{% raw %}
+```mermaid
+sequenceDiagram
+    participant B as Browser (HA frontend)
+    participant H as Home Assistant
+    participant D as dashboard
+
+    B->>H: POST /api/energy_node_companion/panel_session/{entry}<br/>(HA token)
+    H-->>B: cookie energy_node_panel, path = proxy prefix, 2 h
+    B->>H: iframe GET /api/energy_node_companion/proxy/{entry}/
+    H->>H: check panel cookie, user active, panel mode
+    H->>D: same request with X-Forwarded-Prefix/Proto/Host/For<br/>and one dashboard session cookie
+    D-->>H: page, links under the proxy prefix
+    H-->>B: response, streamed without buffering (SSE)
+```
+{% endraw %}
+
+The proxy sets the forwarding headers itself and drops whatever the browser
+sent in them, because the dashboard trusts `X-Forwarded-Proto` for its HTTPS
+check. The dashboard resolves its base path per request from
+`X-Forwarded-Prefix` (`internal/basepath`).
+
+Home Assistant's cookies, the panel cookie and the HA token from
+`Authorization` stay in Home Assistant. Upstream the request carries exactly
+one dashboard session and at most the language cookie `lang`. If the browser
+has signed in to the dashboard itself, its own session is used. Otherwise the
+proxy uses the guest session it shares with the history peer. A logout through
+the panel does not end that shared session, and a `GET` or `HEAD` on the guest
+session that hits a 401 is repeated once after a new guest login.
+
+The panel cookie lives only in Home Assistant's memory, so after a restart of
+Home Assistant the page fetches a new one. The page renews it every 30 minutes
+while it is open.

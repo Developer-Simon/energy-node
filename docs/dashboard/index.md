@@ -13,15 +13,15 @@ anchor_moves:
   diagnostics: diagnostics.html
   automations: automations.html
   settings: settings.html
-  general: settings.html#general
-  appearance: settings.html#appearance
-  history-1: settings.html#history
-  mqtt: settings.html#mqtt
-  tailscale: settings.html#tailscale
-  tinytuya: settings.html#tinytuya
-  versions: settings.html#versions
-  system: settings.html#system
-  updating-from-the-dashboard: settings.html#updating-from-the-dashboard
+  general: settings-general.html#general
+  appearance: settings-general.html#appearance
+  history-1: settings-history.html#history
+  mqtt: settings-mqtt.html#mqtt
+  tailscale: settings-wizards.html#tailscale
+  tinytuya: settings-wizards.html#tinytuya
+  versions: settings-versions.html#versions
+  system: settings-system.html#system
+  updating-from-the-dashboard: settings-versions.html#updating-from-the-dashboard
   colour-schemes: themes.html
 ---
 

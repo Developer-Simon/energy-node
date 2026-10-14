@@ -33,8 +33,9 @@ supplies the missing hours and days from there, see
 
 ![The energy-node dashboard, as it opens in the Home Assistant sidebar](../images/dashboard-overview.png)
 
-The integration never writes to the node and never changes your Home Assistant
-entities.
+The integration never changes the node's configuration and never changes your
+Home Assistant entities. What you change on the sidebar page is your own
+action, as in any other browser.
 
 ## Requirements
 

@@ -14,7 +14,7 @@ get all of them by running `python3 -m tinytuya wizard` once.
 
 `datapoints` maps a logical function to a Tuya data point number. The switch
 is not always data point `1`, so the dashboard has a
-[TinyTuya wizard](../dashboard/settings.md#tinytuya) that probes the device and
+[TinyTuya wizard](../dashboard/settings-wizards.md#tinytuya) that probes the device and
 fills in the number.
 
 Each device gets a `switch` entity with its state on `outstation/<id>/switch`

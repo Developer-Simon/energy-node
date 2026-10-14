@@ -84,8 +84,8 @@ devices.
    entities.
 3. **Offer.** It holds the event stream `/api/v1/history/exchange/stream` open
    and tells every browser which hours and days it can supply, labelled
-   "Home Assistant". It recomputes this every full hour, so the browser's
-   raster and the offer always line up.
+   "Home Assistant". It recomputes this every ten minutes and sends a new
+   offer only when it changed, so the browser's raster and the offer line up.
 4. **Requests.** A browser that misses rows asks for them, and the
    integration answers from the recorder in chunks of at most the announced
    row limit.

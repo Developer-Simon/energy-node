@@ -28,7 +28,15 @@
         - { label: "Automations", url: "dashboard/automations.md" }
         - { label: "Diagnostics", url: "dashboard/diagnostics.md" }
         - { label: "Configuration editor", url: "dashboard/configuration.md" }
-        - { label: "Settings", url: "dashboard/settings.md" }
+        - label: "Settings"
+          url: "dashboard/settings.md"
+          children:
+            - { label: "General & appearance", url: "dashboard/settings-general.md" }
+            - { label: "History", url: "dashboard/settings-history.md" }
+            - { label: "MQTT", url: "dashboard/settings-mqtt.md" }
+            - { label: "Tailscale & TinyTuya", url: "dashboard/settings-wizards.md" }
+            - { label: "Versions & updates", url: "dashboard/settings-versions.md" }
+            - { label: "System", url: "dashboard/settings-system.md" }
         - { label: "Colour schemes", url: "dashboard/themes.md" }
     - label: "Device services"
       url: "services/index.md"
