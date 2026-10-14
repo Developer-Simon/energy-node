@@ -553,6 +553,9 @@
     // aeusseren Bereich (dashboardShell) durchreicht - dort ueberlebte die
     // Kette jeden Fragment-Tausch.
     _liveQueue: null,
+    // Anfragen je Kachel: Schluessel -> Strukturwunsch, der waehrend der
+    // laufenden Anfrage kam (null = keiner). Angelegt in init().
+    _tileRequests: null,
     activeDeviceTab: 'measurements',
     mergedTab: false,
     // Erfahrungswert, kein Naturgesetz: ab dieser verfuegbaren Hoehe der
@@ -1362,13 +1365,19 @@
     // per outerHTML, Alpine initialisiert die neue Kachel selbst. Haengt der
     // Traeger danach noch (404, Netzfehler), faellt es auf den Tausch des
     // ganzen Rasters zurueck.
-    async replaceTile(host) {
+    async replaceTile(host, wanted) {
       const itemId = host.dataset.layoutItemId;
       const key = itemId || host.dataset.deviceId;
       if (!key || !window.htmx) return;
-      this._tileRequests = this._tileRequests || new Set();
-      if (this._tileRequests.has(key)) return;
-      this._tileRequests.add(key);
+      this._tileRequests = this._tileRequests || new Map();
+      // Laeuft fuer diese Kachel schon eine Anfrage, merkt sich dieser Aufruf
+      // den gewuenschten Stand. Nach deren Ende wird er einmal nachgeholt.
+      if (this._tileRequests.has(key)) {
+        this._tileRequests.set(key, wanted ?? host.dataset.structure);
+        return;
+      }
+      this._tileRequests.set(key, null);
+      let pending = null;
       const page = window.__dashboardShell__?.activePage || '';
       const url = itemId
         ? `/?fragment=layout-item&page=${encodeURIComponent(page)}&item=${encodeURIComponent(itemId)}`
@@ -1381,12 +1390,20 @@
       } catch (error) {
         // Unten entscheidet isConnected.
       } finally {
+        pending = this._tileRequests.get(key);
         this._tileRequests.delete(key);
       }
       if (host.isConnected) {
         host.style.minHeight = '';
         this.refreshLiveFragment();
+        return;
       }
+      // Der Traeger wurde ersetzt. Weicht die neue Kachel vom waehrend der
+      // Anfrage gemerkten Wunsch ab, holt genau diese Kachel einmal nach.
+      if (pending === null) return;
+      const fresh = [...this.$root.querySelectorAll(itemId ? '[data-layout-item-id]' : '[data-device-id]')]
+        .find(el => (itemId ? el.dataset.layoutItemId : el.dataset.deviceId) === key);
+      if (fresh && fresh.dataset.structure !== pending) this.replaceTile(fresh, pending);
     },
 
     init() {
@@ -1396,6 +1413,7 @@
       // window haengen und jedes registry-updated zwei Fragmente ausloesen.
       if (this.registryUpdated) return;
       this.viewMode = this.$root.dataset.deviceViewMode === 'control' ? 'control' : 'compact';
+      this._tileRequests = new Map();
       this.loadSession();
       this.configTileSettingChanged = () => this.refreshLiveFragment();
       this.deviceViewModeChanged = event => {
@@ -1414,6 +1432,14 @@
         // reg.Snapshot() je Registry-Aenderung - statt einem Aggregat-Lauf
         // je offenem Tab.
         if (detail?.energy) window.EnergyPresentation?.publish(detail.energy);
+        // Wert-Cache fuer Zeilen, die device-structure.js neu baut: der Wert
+        // einer neu gewaehlten Zeile kam meist in einem frueheren Delta. Er
+        // wird auch bei offenem Modal fortgeschrieben, sonst ist er beim
+        // Schliessen veraltet.
+        if (detail?.entities) {
+          const delta = Boolean(detail.entities_delta);
+          this.liveValues = delta ? {...this.liveValues, ...detail.entities} : {...detail.entities};
+        }
         // Verdeckt ein offenes Modal das Raster, faellt das Nachziehen der
         // (unsichtbaren) Kacheln und ein etwaiger Fragment-Tausch weg -
         // refreshSelectedDevice() haelt das Modal selbst aktuell. Beim
@@ -1425,10 +1451,6 @@
         }
         if (detail?.entities) {
           const delta = Boolean(detail.entities_delta);
-          // Wert-Cache fuer Zeilen, die device-structure.js neu baut: der
-          // Wert einer neu gewaehlten Zeile kam meist in einem frueheren
-          // Delta.
-          this.liveValues = delta ? {...this.liveValues, ...detail.entities} : {...detail.entities};
           // Zwei Nachzieh-Module, eine Abbildung von Statustexten: die
           // Uebersichtskarten und die Geraetekacheln koennen im selben
           // Raster stehen, ihre Rueckgaben ueberschneiden sich nicht.
@@ -1447,7 +1469,7 @@
         // Tabs. Er faellt weg, sobald der Push jede Karte im Raster bedient
         // und die Struktur seit dem Rendern steht.
         const devicesApplied = window.deviceStructure
-          ? window.deviceStructure.apply(this.$root, detail, {values: this.liveValues, replace: host => this.replaceTile(host)})
+          ? window.deviceStructure.apply(this.$root, detail, {values: this.liveValues, replace: (host, structure) => this.replaceTile(host, structure)})
           : false;
         if (!this.livePushCovers(detail, devicesApplied)) this.refreshLiveFragment();
         this.refreshSelectedDevice();

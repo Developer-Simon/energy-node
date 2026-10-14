@@ -620,3 +620,63 @@ test('der Wert-Cache sammelt volle und Delta-Werte', () => {
   send({ ...fullDetail, entities: { z: { value: '3' } }, devices: {} });
   assert.deepEqual(JSON.parse(JSON.stringify(panel.liveValues)), { z: { value: '3' } });
 });
+
+// Ein zweiter Strukturwechsel, waehrend die Kachel noch geholt wird, darf
+// nicht verloren gehen: er wird nach dem Ende der ersten Anfrage einmal
+// nachgeholt, und hoechstens eine Anfrage laeuft je Kachel.
+test('Geraetekachel: Strukturwechsel waehrend einer Anfrage wird nach deren Ende nachgeholt', async () => {
+  const { calls, window, send } = deviceOverview();
+  const responders = [];
+  window.htmx.ajax = (...args) => {
+    calls.push(args);
+    return new Promise(resolve => responders.push(structure => {
+      const fresh = window.document.createElement('div');
+      fresh.innerHTML = deviceGrid(structure);
+      args[2].target.replaceWith(fresh.querySelector('.layout-grid-item'));
+      resolve();
+    }));
+  };
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's3' }) }, devices_delta: true });
+  assert.equal(calls.length, 1, 'die zweite Anfrage wartet auf die erste');
+  responders.shift()('s2');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2, 'der Wunsch s3 wird einmal nachgeholt');
+  assert.equal(calls[1][1], '/?fragment=layout-item&page=p1&item=i1');
+  responders.shift()('s3');
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2, 'nach s3 ist nichts mehr offen');
+  assert.equal(window.document.querySelector('.layout-grid-item').dataset.structure, 's3');
+});
+
+test('Geraetekachel: derselbe Strukturwechsel zweimal waehrend einer Anfrage holt nur einmal', async () => {
+  const { calls, window, send } = deviceOverview();
+  const responders = [];
+  window.htmx.ajax = (...args) => {
+    calls.push(args);
+    return new Promise(resolve => responders.push(() => {
+      const fresh = window.document.createElement('div');
+      fresh.innerHTML = deviceGrid('s2');
+      args[2].target.replaceWith(fresh.querySelector('.layout-grid-item'));
+      resolve();
+    }));
+  };
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  send({ ...fullDetail, devices: { a: deviceEntry({ structure: 's2' }) }, devices_delta: true });
+  responders.shift()();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 1);
+});
+
+// Bei offenem Modal ruht das Raster, der Wert-Cache aber nicht: die Zeile,
+// die nach dem Schliessen neu gebaut wird, braucht den Wert aus dieser Zeit.
+test('bei offenem Geraete-Modal bleibt der Wert-Cache aktuell', () => {
+  const { panel, send } = deviceOverview();
+  panel.selectedDeviceId = 'dev-1';
+  panel.$refs.deviceModalDialog = { open: true, close() { this.open = false; } };
+  send({ ...fullDetail, entities: { e9: { value: '9', has_value: true } }, entities_delta: true, devices: {} });
+  assert.equal(panel.liveValues.e9.value, '9');
+});

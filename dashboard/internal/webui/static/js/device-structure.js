@@ -99,13 +99,13 @@
       if (delta && !has) continue;
       const entry = has ? devices[host.id] : null;
       if ((entry ? entry.structure : '') !== (host.el.dataset.structure || '')) {
-        if (replace) replace(host.el);
+        if (replace) replace(host.el, entry ? entry.structure : '');
         continue;
       }
       if (!entry) continue;
       applyAvailability(host.card, entry.availability);
       applyStatus(host.card, entry.status);
-      if (!applyRows(host.card, entry.rows, root, values) && replace) replace(host.el);
+      if (!applyRows(host.card, entry.rows, root, values) && replace) replace(host.el, entry.structure);
     }
     return true;
   }
