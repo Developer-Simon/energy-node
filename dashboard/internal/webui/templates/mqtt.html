@@ -78,7 +78,7 @@
     <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('mqtt.status.loading') : $t('mqtt.status.refresh')"></button></div>
   </section>
 
-  <div class="setting-card" x-bind:class="{ 'setting-card--wide': !canConfigure }">
+  <div class="setting-card">
     <h3 class="setting-card-title">{{t "mqtt.ha.title"}}</h3>
     <label class="switch-row" for="mqtt-publish-energy-device">
       <span>{{t "mqtt.energy_device.label"}}
@@ -120,7 +120,7 @@
   </div>
 
   <section id="settings-mqtt-bridge" class="settings-cards setting-card--wide" x-data="mqttBridgePanel()" x-init="load()">
-    <details class="settings-help-panel setting-card--wide" open>
+    <details class="settings-help-panel setting-card--wide" open x-show="canConfigure">
       <summary>{{t "bridge.help.title"}}</summary>
       <ol class="settings-help-list">
         <li>{{t "bridge.help.remote_broker"}}</li>
@@ -192,6 +192,7 @@
         </tbody>
         </table>
       </div>
+      <p class="setting-note" x-show="!canConfigure">{{t "bridge.cannot_configure"}}</p>
       <div class="toolbar"><button type="button" x-on:click="loadStatus()" x-bind:disabled="statusLoading" x-text="statusLoading ? $t('bridge.status.loading') : $t('bridge.status.refresh')"></button> <button type="button" x-on:click="restartOnly()" x-bind:disabled="!canRestart || busy" x-text="busy === 'restart' ? $t('bridge.restart.loading') : $t('bridge.restart')"></button></div>
     </section>
 
@@ -233,7 +234,6 @@
       <p class="setting-note" x-show="!preview">{{t "bridge.preview.empty"}}</p>
     </div>
 
-    <p class="setting-note" x-show="!canConfigure">{{t "bridge.cannot_configure"}}</p>
     <p class="setting-note" x-show="canConfigure && !canApply">{{t "bridge.cannot_apply"}}</p>
     <div class="setting-actionbar-dock" x-show="canConfigure">
       <div class="setting-actionbar">

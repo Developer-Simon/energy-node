@@ -36,7 +36,7 @@ needs a login with configuration rights over HTTPS.
 
 ## Bridge to the main site
 
-The bridge section of the tab starts with the same steps as listed here.
+Users who can configure the bridge see the same steps at the top of the bridge section.
 
 1. Run an MQTT broker on the main system, for example the Mosquitto add-on in
    Home Assistant.
@@ -53,5 +53,5 @@ The bridge section of the tab starts with the same steps as listed here.
 7. In the Mosquitto bridge status, check that the bridge connection shows as
    connected and that "Installed = saved" shows yes.
 
-Guests see the bridge status and these steps. The configuration form stays hidden
-for them.
+Guests see the bridge status with a note that the bridge cannot be set up in their
+session. The steps and the configuration form stay hidden for them.

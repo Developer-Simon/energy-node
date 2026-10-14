@@ -375,7 +375,7 @@
   "bridge.apply_confirm.title": "Bridge anwenden und Mosquitto neu starten?",
   "bridge.apply_success": "Bridge angewendet, Mosquitto wurde neu gestartet.",
   "bridge.cannot_apply": "Für das Anwenden fehlt zusätzlich die Rolle system_actions.",
-  "bridge.cannot_configure": "Für Änderungen fehlt entweder die Rolle mqtt_config oder die Verbindung läuft nicht über HTTPS.",
+  "bridge.cannot_configure": "In dieser Sitzung lässt sich die Bridge nicht einrichten. Dafür braucht es die Rolle mqtt_config und eine Verbindung über HTTPS.",
   "bridge.cleansession.label": "cleansession",
   "bridge.config.title": "Bridge-Konfiguration",
   "bridge.connection.connected": "verbunden",
