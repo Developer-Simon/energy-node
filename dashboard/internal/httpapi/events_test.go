@@ -403,3 +403,123 @@ func TestEnergyStatsTopicOnlyWithService(t *testing.T) {
 		t.Errorf("part = %q / %q, ok = %v", part.Full, part.Idle, ok)
 	}
 }
+
+func devicesTestRegistry(t *testing.T) *registry.Registry {
+	t.Helper()
+	reg := registry.New()
+	for _, id := range []string{"a", "b"} {
+		reg.UpsertEntity(registry.Discovery{
+			Device: registry.DeviceInfo{ID: id, Name: id},
+			Entity: registry.EntityInfo{UniqueID: id + "_power", ObjectID: "power", Component: "sensor", Name: "Leistung", StateTopic: id + "/power"},
+		})
+		reg.UpdateTopicWithQoS(id+"/power", []byte("1"), false, 0, time.Now().UTC())
+	}
+	return reg
+}
+
+func devicesMember(t *testing.T, member []byte) map[string]json.RawMessage {
+	t.Helper()
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(append(append([]byte("{"), member...), '}'), &body); err != nil {
+		t.Fatalf("kein JSON: %v (%s)", err, member)
+	}
+	return body
+}
+
+func TestParseDeviceSelection(t *testing.T) {
+	sel := parseDeviceSelection("b,a:auto,a, ,c")
+	if sel.String() != "a:auto,b,c" {
+		t.Errorf("kanonisch = %q", sel.String())
+	}
+	if want, auto := sel.wants("a"); !want || !auto {
+		t.Error("a sollte mit auto gewollt sein")
+	}
+	if want, auto := sel.wants("b"); !want || auto {
+		t.Error("b sollte ohne auto gewollt sein")
+	}
+	if want, _ := sel.wants("x"); want {
+		t.Error("x ist nicht gewollt")
+	}
+	all := parseDeviceSelection("*:auto")
+	if want, auto := all.wants("x"); !want || !auto || all.String() != "*:auto" {
+		t.Errorf("*:auto = %+v", all)
+	}
+}
+
+func TestDevicesFullCarriesOnlySelectedDevicesAndRowsOnlyForAuto(t *testing.T) {
+	reg := devicesTestRegistry(t)
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	part, ok := cache.buildDevices(cache.registryVersion())
+	if !ok {
+		t.Fatal("Bau gescheitert")
+	}
+	body := devicesMember(t, cache.selectDevices(part, registryevents.ModeFull, "a:auto"))
+	var devices map[string]map[string]json.RawMessage
+	json.Unmarshal(body["devices"], &devices)
+	if len(devices) != 1 || devices["a"] == nil {
+		t.Fatalf("devices = %s", body["devices"])
+	}
+	if _, ok := devices["a"]["rows"]; !ok {
+		t.Error("auto-Eintrag ohne rows")
+	}
+	if _, ok := body["devices_delta"]; ok {
+		t.Error("voller Teil mit devices_delta")
+	}
+	plain := devicesMember(t, cache.selectDevices(part, registryevents.ModeFull, "a"))
+	json.Unmarshal(plain["devices"], &devices)
+	if _, ok := devices["a"]["rows"]; ok {
+		t.Error("Eintrag ohne auto traegt rows")
+	}
+}
+
+// Spec 8: das devices-Delta enthaelt nur geaenderte Geraete.
+func TestDevicesDeltaCarriesOnlyChangedDevices(t *testing.T) {
+	reg := devicesTestRegistry(t)
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	cache.buildDevices(cache.registryVersion())
+
+	// Nur b wechselt die Struktur (neue Entitaet), a bekommt nur einen Wert.
+	reg.UpdateTopicWithQoS("a/power", []byte("2"), false, 0, time.Now().UTC())
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "b", Name: "b"},
+		Entity: registry.EntityInfo{UniqueID: "b_energy", ObjectID: "energy", Component: "sensor", Name: "Energie", StateTopic: "b/energy"},
+	})
+	part, _ := cache.buildDevices(cache.registryVersion())
+	body := devicesMember(t, cache.selectDevices(part, registryevents.ModeDelta, "*"))
+	var devices map[string]json.RawMessage
+	json.Unmarshal(body["devices"], &devices)
+	if len(devices) != 1 || devices["b"] == nil {
+		t.Fatalf("Delta = %s, want nur b", body["devices"])
+	}
+	if string(body["devices_delta"]) != "true" {
+		t.Error("Delta ohne devices_delta")
+	}
+	var list []string
+	json.Unmarshal(body["devices_list"], &list)
+	if strings.Join(list, ",") != "a,b" {
+		t.Errorf("devices_list = %v", list)
+	}
+	idle := devicesMember(t, cache.selectDevices(part, registryevents.ModeIdle, "a"))
+	if string(idle["devices"]) != "{}" {
+		t.Errorf("Leerlauf = %s, want {}", idle["devices"])
+	}
+	if _, ok := idle["devices_list"]; ok {
+		t.Error("devices_list ohne * ausgeliefert")
+	}
+}
+
+func TestDevicesDeltaReportsARemovedDeviceAsNull(t *testing.T) {
+	reg := devicesTestRegistry(t)
+	cache := newEventCache(reg, nil, energy.NewResolver(nil), nil)
+	cache.buildDevices(registryevents.Version{1})
+	// Der Bau vergleicht mit dem vorigen. Ein Geraet, das im naechsten
+	// Snapshot fehlt, steht als null im Delta.
+	cache.lastDevices["weg"] = []byte(`{}`)
+	part, _ := cache.buildDevices(registryevents.Version{2})
+	body := devicesMember(t, cache.selectDevices(part, registryevents.ModeDelta, "weg,a"))
+	var devices map[string]json.RawMessage
+	json.Unmarshal(body["devices"], &devices)
+	if string(devices["weg"]) != "null" {
+		t.Errorf("entferntes Geraet = %s, want null", devices["weg"])
+	}
+}
