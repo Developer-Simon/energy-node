@@ -254,8 +254,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.9.14 | `js/mqtt.page.js` (settings panel, metrics multiselect and bridge help list) | `8` | 2026-10-14 |
-| unreleased (after v0.9.13) | `js/versions.page.js` (settings panel, changelog history) · `js/settings.page.js` (settings panel, `changelog_history`) | `7` · `22` | 2026-10-14 |
+| v0.9.14 | `js/versions.page.js` (settings panel, changelog history) · `js/settings.page.js` (settings panel, `changelog_history`) · `js/mqtt.page.js` (settings panel, metrics multiselect and bridge help list) | `7` · `22` · `8` | 2026-10-14 |
 | v0.9.13 | `js/i18n.js` (all pages, `login.html` keeps `3`) · `js/whatsnew.page.js` (`whatsNewPanel`, `entryText`) · `js/versions.page.js` (settings panel, `entryText`) | `4` · `3` · `6` | 2026-10-14 |
 | v0.9.12 | `js/dashboard.js` · `js/device-structure.js` (new, device tiles) | `33` · `1` (new) | 2026-10-14 |
 | v0.9.11 | `js/dashboard.js` · `js/energy-stats-card.js` (energy cards) · `js/stats.page.js` (stats panel) | `32` · `3` · `3` | 2026-10-14 |
