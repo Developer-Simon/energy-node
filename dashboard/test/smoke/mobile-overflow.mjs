@@ -5,6 +5,9 @@
 // verbreitern kann. Meldet die äußersten Elemente, die über den rechten Rand
 // ragen. Exit 1 bei Überstand.
 //
+// In den Einstellungen wird jeder Unterreiter einzeln geprüft, und ein
+// offener Tooltip muss waagrecht ganz im Fenster liegen.
+//
 //   node test/smoke/mobile-overflow.mjs --url http://localhost:18200 --widths 400,1280 overview settings energy devicemap stats
 import { chromium } from 'playwright';
 
@@ -64,16 +67,42 @@ try {
       }, tab);
       if (!found) { console.log(`  --   ${width}px ${tab}: kein Tab`); continue; }
       await page.waitForTimeout(3000);
-      report(width, tab, await measure(page));
-      const triggers = page.locator('.field-help-trigger:visible');
-      const count = await triggers.count();
-      for (let i = 0; i < count; i++) {
-        await triggers.nth(i).focus();
-        await page.waitForTimeout(200);
-        const open = await measure(page);
-        if (open.overflow > 0) report(width, `${tab} Hilfe ${i + 1}`, open);
+      const subtabs = tab === 'settings'
+        ? await page.evaluate(() => [...document.querySelectorAll('#settings-panel [role="tab"]')].filter(el => el.offsetParent).map(el => el.textContent.trim()))
+        : [''];
+      for (const sub of subtabs) {
+        if (sub) {
+          await page.evaluate(label => {
+            const el = [...document.querySelectorAll('#settings-panel [role="tab"]')].find(candidate => candidate.offsetParent && candidate.textContent.trim() === label);
+            if (el) el.click();
+          }, sub);
+          await page.waitForTimeout(1500);
+        }
+        const label = sub ? `${tab}/${sub}` : tab;
+        report(width, label, await measure(page));
+        const triggers = page.locator('.field-help-trigger:visible');
+        const count = await triggers.count();
+        for (let i = 0; i < count; i++) {
+          await triggers.nth(i).scrollIntoViewIfNeeded().catch(() => {});
+          await triggers.nth(i).focus();
+          await page.waitForTimeout(200);
+          const open = await measure(page);
+          const tip = await page.evaluate(() => {
+            const help = document.activeElement && document.activeElement.closest('.field-help');
+            const text = help && help.querySelector('.field-help-text');
+            if (!text) return null;
+            const box = text.getBoundingClientRect();
+            return { left: Math.round(box.left), right: Math.round(box.right) };
+          });
+          // Ein offener Tooltip muss waagrecht ganz im Fenster liegen.
+          if (tip && (tip.left < 0 || tip.right > width)) {
+            open.overflow = Math.max(open.overflow, 1);
+            open.culprits.unshift(`Tooltip ${tip.left}..${tip.right}`);
+          }
+          if (open.overflow > 0) report(width, `${label} Hilfe ${i + 1}`, open);
+        }
+        await page.evaluate(() => document.activeElement && document.activeElement.blur());
       }
-      await page.evaluate(() => document.activeElement && document.activeElement.blur());
     }
     await ctx.close();
   }
