@@ -200,9 +200,9 @@
       }
     },
 
-    // Accepts a comma-separated list so dependent scripts (e.g. Popper before
-    // Tippy, which reads window.Popper at load time) load one after another
-    // instead of racing.
+    // Accepts a comma-separated list so dependent scripts (e.g. flatpickr
+    // before its German locale, which registers itself on window.flatpickr)
+    // load one after another instead of racing.
     loadAsset(source, type) {
       const sources = (source || '').split(',').map(part => part.trim()).filter(Boolean);
       return sources.reduce((chain, url) => chain.then(() => this.loadSingleAsset(url, type)), Promise.resolve());
