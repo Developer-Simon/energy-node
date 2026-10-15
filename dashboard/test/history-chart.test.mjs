@@ -76,13 +76,15 @@ test('loadRows names custom category series after their label', async () => {
 
 test('loadRows waehlt die Rohstufe und leitet den Hausverbrauch ab', async () => {
   const {dom, chart} = load();
-  const ts = Date.now() - HOUR;
+  // 30 min Spanne: nur dort ist die Rohstufe die gröbste verfügbare (siehe
+  // availableTiers), ab einer Stunde wird standardmäßig die 1m-Stufe gewählt.
+  const ts = Date.now() - 10 * 60000;
   await dom.window.HistoryStore.writeRaw([
     {series: 'role:pv', ts, v: 640, u: 'W'},
     {series: 'role:grid', ts, v: -120, u: 'W'},
   ]);
   const now = Date.now();
-  const result = await chart.loadRows({from: now - 6 * HOUR, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
+  const result = await chart.loadRows({from: now - 30 * 60000, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
   assert.equal(result.tier, 'raw');
   assert.ok(result.rows.some(row => row.series === 'berechnet:hausverbrauch' && row.ts === ts));
   assert.ok(result.gaps instanceof dom.window.Map || typeof result.gaps.get === 'function');

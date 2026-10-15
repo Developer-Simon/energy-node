@@ -48,10 +48,34 @@
       .sort((left, right) => left.series === right.series ? left.ts - right.ts : (left.series < right.series ? -1 : 1));
   };
 
-  const selectTier = (spanMs, windows) => {
-    if (spanMs <= windows.rawWindowMs) return 'raw';
-    if (spanMs <= windows.minuteWindowMs) return '1m';
-    return '5m';
+  // Ab welcher Spanne eine Stufe angeboten wird. Die Obergrenzen kommen aus
+  // der Aufzeichnung (rawWindowMs, minuteWindowMs), 5m und 1h haben keine.
+  const TIER_MIN_SPAN_MS = {'1m': 60 * MINUTE_MS, '5m': 24 * 60 * MINUTE_MS, '1h': 7 * 24 * 60 * MINUTE_MS};
+
+  const availableTiers = (spanMs, windows) => {
+    const tiers = [];
+    if (spanMs <= windows.rawWindowMs) tiers.push('raw');
+    if (spanMs >= TIER_MIN_SPAN_MS['1m'] && spanMs <= windows.minuteWindowMs) tiers.push('1m');
+    if (spanMs >= TIER_MIN_SPAN_MS['5m']) tiers.push('5m');
+    if (spanMs >= TIER_MIN_SPAN_MS['1h']) tiers.push('1h');
+    return tiers.length ? tiers : ['raw'];
+  };
+
+  // Ohne Wunsch die groebste verfuegbare Stufe.
+  const selectTier = (spanMs, windows, wanted) => {
+    const tiers = availableTiers(spanMs, windows);
+    return tiers.includes(wanted) ? wanted : tiers[tiers.length - 1];
+  };
+
+  // 5m entsteht erst nach minuteWindowDays aus 1m. Fuer juengere Zeitraeume
+  // werden die 1m-Saetze hier zu 5 Minuten gebuendelt, ein vorhandener
+  // grober Satz hat Vorrang.
+  const mergeCoarse = (coarseRows, fineRows, bucketMs) => {
+    const coarse = normalize(coarseRows);
+    const have = new Set(coarse.map(row => `${row.series}\u0000${row.ts}`));
+    const extra = bucket(fineRows, bucketMs).filter(row => !have.has(`${row.series}\u0000${row.ts}`));
+    return [...coarse, ...extra]
+      .sort((left, right) => left.series === right.series ? left.ts - right.ts : (left.series < right.series ? -1 : 1));
   };
 
   const thin = (rows, maxPoints) => {
@@ -339,7 +363,7 @@
   };
 
   window.HistoryRollup = {
-    MINUTE_MS, FIVE_MINUTE_MS, normalize, bucket, selectTier, thin, detectGaps, withGapBreaks,
+    MINUTE_MS, FIVE_MINUTE_MS, normalize, bucket, TIER_MIN_SPAN_MS, availableTiers, selectTier, mergeCoarse, thin, detectGaps, withGapBreaks,
     gapStubs, mergeIntervals, estimateBytesPerDay, recordingGaps, uncoveredGaps, gapsBySeries, fillRawGaps,
   };
 })();

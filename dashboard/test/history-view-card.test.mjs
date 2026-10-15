@@ -53,6 +53,11 @@ async function seed(dom) {
     {series: 'role:pv', ts, v: 640, u: 'W'},
     {series: 'role:grid', ts, v: -120, u: 'W'},
   ]);
+  // Eine 6-h-Kachel liest seit der Stufenwahl die 1m-Stufe, nicht die Rohstufe.
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts, min: 640, max: 640, avg: 640, n: 1, u: 'W'},
+    {series: 'role:grid', ts, min: -120, max: -120, avg: -120, n: 1, u: 'W'},
+  ]);
 }
 
 test('scan baut je Kachel genau ein Diagramm und beim zweiten Mal keins dazu', async () => {
@@ -115,7 +120,9 @@ test('ein Lesefehler steht in der Kachel, der naechste Takt versucht es erneut',
   const {dom, charts, api} = await load(card('hv-a', OWN));
   const realRead = dom.window.HistoryStore.readRange;
   dom.window.HistoryStore.readRange = () => Promise.reject(new Error('kaputt'));
-  await api.scan();
+  // load() mountet die Kachel schon selbst; tick() liest sie mit dem
+  // ersetzten readRange neu.
+  await api.tick();
   const status = dom.window.document.querySelector('#hv-a [data-history-view-status]');
   assert.equal(status.textContent, dom.window.I18n.t('overview.history_view.read_failed', {message: 'kaputt'}));
   dom.window.HistoryStore.readRange = realRead;
@@ -152,7 +159,7 @@ test('eine Kachel meldet ihren Zeitraum beim Austausch an', async () => {
   assert.equal(calls.watched.length, 1);
   const [view, range] = calls.watched[0];
   assert.equal(view, 'hv-a');
-  assert.equal(range.tier, 'raw');
+  assert.equal(range.tier, '1m');
   assert.equal(range.to - range.from, 6 * HOUR);
   dom.window.close();
 });
