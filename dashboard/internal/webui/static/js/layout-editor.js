@@ -276,7 +276,6 @@
     {role: 'spark-window', field: 'sparkWindow', json: 'spark_window', kind: 'select'},
     {role: 'dense', field: 'dense', json: 'dense', kind: 'checkbox'},
     {role: 'show-inactive', field: 'showInactive', json: 'show_inactive', kind: 'checkbox'},
-    {role: 'measured-split', field: 'measuredSplit', json: 'measured_split', kind: 'select'},
     {role: 'display-mode', field: 'displayMode', json: 'display_mode', kind: 'select'},
     {role: 'show-now', field: 'showNow', json: 'show_now', kind: 'checkbox'},
     {role: 'stroke-mode', field: 'strokeMode', json: 'stroke_mode', kind: 'select'},
@@ -301,9 +300,9 @@
   // uebereinstimmen.
   const ENERGY_OPTION_DEFAULTS = {
     energy_flow: {speedReferenceMode: 'relative', speedReferenceWatts: 1000, hideInactive: 'off'},
-    energy_band: {heightReference: 'fill', scaleMode: 'linear', unit: 'auto', bundleThreshold: '0', animate: 'on', measuredSplit: 'sum'},
-    energy_ring: {animate: 'on', kpi: 'autarkie', labelMode: 'both', measuredSplit: 'sum'},
-    energy_board: {sort: 'fixed', sparkWindow: '15', dense: 'off', showInactive: 'on', measuredSplit: 'sum'},
+    energy_band: {heightReference: 'fill', scaleMode: 'linear', unit: 'auto', bundleThreshold: '0', animate: 'on'},
+    energy_ring: {animate: 'on', kpi: 'autarkie', labelMode: 'both'},
+    energy_board: {sort: 'fixed', sparkWindow: '15', dense: 'off', showInactive: 'on'},
     energy_day: {displayMode: 'mirror', showNow: 'on'},
     energy_schema: {strokeMode: 'power', entityLabels: 'power', hideInactive: 'off', displaySize: 'm', animate: 'off'},
     energy_status: {beamSpan: '6000', showAdvice: 'on'},
@@ -362,18 +361,14 @@
         [['auto', 'layout_editor.option.unit.auto'], ['w', 'layout_editor.option.unit.w'], ['kw', 'layout_editor.option.unit.kw']]) +
       selectFieldHTML('bundle-threshold', 'layout_editor.energy_band.bundle_threshold', item.bundleThreshold || '0',
         [['0', 'layout_editor.option.bundle_threshold.zero'], ['0.03', 'layout_editor.option.bundle_threshold.three'], ['0.08', 'layout_editor.option.bundle_threshold.eight']]) +
-      checkboxFieldHTML('animate', 'layout_editor.energy_band.animate', item.animate !== 'off') +
-      selectFieldHTML('measured-split', 'layout_editor.energy_band.measured_split', item.measuredSplit || 'sum',
-        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
+      checkboxFieldHTML('animate', 'layout_editor.energy_band.animate', item.animate !== 'off'),
 
     energy_ring: item =>
       selectFieldHTML('kpi', 'layout_editor.energy_ring.kpi', item.kpi || 'autarkie',
         [['autarkie', 'layout_editor.option.kpi.autarkie'], ['eigen', 'layout_editor.option.kpi.eigen'], ['netz', 'layout_editor.option.kpi.netz'], ['last', 'layout_editor.option.kpi.last']]) + // i18n-ignore
       selectFieldHTML('label-mode', 'layout_editor.energy_ring.label_mode', item.labelMode || 'both',
         [['pct', 'layout_editor.option.label_mode.pct'], ['abs', 'layout_editor.option.label_mode.abs'], ['both', 'layout_editor.option.label_mode.both']]) +
-      checkboxFieldHTML('animate', 'layout_editor.energy_ring.animate', item.animate !== 'off') +
-      selectFieldHTML('measured-split', 'layout_editor.energy_ring.measured_split', item.measuredSplit || 'sum',
-        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
+      checkboxFieldHTML('animate', 'layout_editor.energy_ring.animate', item.animate !== 'off'),
 
     energy_board: item =>
       selectFieldHTML('sort', 'layout_editor.energy_board.sort', item.sort || 'fixed',
@@ -381,9 +376,7 @@
       selectFieldHTML('spark-window', 'layout_editor.energy_board.spark_window', item.sparkWindow || '15',
         [['15', 'layout_editor.option.spark_window.fifteen'], ['60', 'layout_editor.option.spark_window.sixty'], ['off', 'layout_editor.option.spark_window.off']]) +
       checkboxFieldHTML('dense', 'layout_editor.energy_board.dense', item.dense === 'on') +
-      checkboxFieldHTML('show-inactive', 'layout_editor.energy_board.show_inactive', item.showInactive !== 'off') +
-      selectFieldHTML('measured-split', 'layout_editor.energy_board.measured_split', item.measuredSplit || 'sum',
-        [['sum', 'layout_editor.option.measured_split.sum'], ['entities', 'layout_editor.option.measured_split.entities']]),
+      checkboxFieldHTML('show-inactive', 'layout_editor.energy_board.show_inactive', item.showInactive !== 'off'),
 
     energy_day: item =>
       selectFieldHTML('display-mode', 'layout_editor.energy_day.display_mode', item.displayMode || 'mirror',

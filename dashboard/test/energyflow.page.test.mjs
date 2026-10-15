@@ -515,16 +515,6 @@ test('die Flusskarte liest den geteilten Schnappschuss, wenn kein eigener da ist
   assert.equal(component.snapshot.values.pv, 42);
 });
 
-test('der Lastknoten nennt im Kombiniert-Modus den gemessenen Teilverbrauch', () => {
-  const { factory } = loadEnergyFlow();
-  const snapshot = {
-    values: {pv: 3000, load: 900, wallbox: 500},
-    balance: {load_total: 3000, load_source: 'combined', load_measured: 900},
-  };
-  assert.equal(factory.nodeText('load', snapshot).text, '900 W');
-  assert.match(factory.nodeText('load', snapshot).full, /Gemessen 900 W/);
-});
-
 // --- Kontinuitaet ueber den htmx-Tausch ---------------------------------
 //
 // dashboard.js's refreshLiveFragment() ersetzt #overview-live per outerHTML,
@@ -784,7 +774,7 @@ test('das Netz-Icon wechselt is-importing/is-exporting mit der Flussrichtung', (
 
 test('das Haus-Icon laeuft bei gemessen/berechnet/kombiniert und steht nur bei "nicht zugeordnet" still', () => {
   const { factory } = loadEnergyFlow();
-  for (const source of ['measured', 'calculated', 'combined']) {
+  for (const source of ['measured', 'calculated']) {
     const snapshot = { ...snapshotWith({ pv: 640 }), balance: { load_total: 1000, load_source: source } };
     assert.equal(factory.nodeText('home', snapshot).dir, 'live', `dir bei load_source=${source}`);
   }

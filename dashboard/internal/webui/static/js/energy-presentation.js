@@ -85,7 +85,7 @@
   // und den nimmt kein Live-Schnappschuss.
   const BALANCE_KEYS = [
     'pv', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge',
-    'wallbox', 'heat_pump', 'load_total', 'load_measured', 'base',
+    'wallbox', 'heat_pump', 'load_total', 'base',
     'gap_raw', 'gap_applied', 'gap_absorbed', 'netz', 'total', // i18n-ignore
     'autarkie', 'eigenverbrauch',
   ];

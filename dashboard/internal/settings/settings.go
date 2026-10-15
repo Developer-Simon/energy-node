@@ -227,7 +227,7 @@ type Item struct {
 	SparkWindow     string `json:"spark_window,omitempty"`     // energy_board: "15" | "60" | "off"
 	Dense           string `json:"dense,omitempty"`            // energy_board: "on" | "off"
 	ShowInactive    string `json:"show_inactive,omitempty"`    // energy_board: "on" | "off"
-	MeasuredSplit   string `json:"measured_split,omitempty"`   // energy_band, energy_ring, energy_board: "sum" | "entities"
+	MeasuredSplit   string `json:"measured_split,omitempty"`   // veraltet, wird beim Speichern geleert (siehe normalizeEnergyGraphicOptions)
 	DisplayMode     string `json:"display_mode,omitempty"`     // energy_day: "mirror" | "supply" | "demand"
 	ShowNow         string `json:"show_now,omitempty"`         // energy_day: "on" | "off"
 	StrokeMode      string `json:"stroke_mode,omitempty"`      // energy_schema: "power" | "const"
@@ -2306,15 +2306,10 @@ func normalizeEnergyGraphicOptions(item *Item) {
 		item.Sort, item.SparkWindow, item.Dense, item.ShowInactive = "", "", "", ""
 	}
 
-	// measured_split teilt die im Kombiniert-Modus abgetrennten gemessenen
-	// Verbraucher auf (siehe energy-model.js' measuredLoadFlows). Nur die drei
-	// Karten mit variabler Positionsliste koennen das; energy_day,
-	// energy_schema und energy_flow zeigen immer die Sammelposition.
-	if item.Type == "energy_band" || item.Type == "energy_ring" || item.Type == "energy_board" {
-		defaultString(&item.MeasuredSplit, []string{"sum", "entities"}, "sum")
-	} else {
-		item.MeasuredSplit = ""
-	}
+	// measured_split gab es bis 2026-10 (gemessene Teilverbraucher im Modus
+	// combined). Alte Layouts tragen es noch, das Schema laesst es deshalb
+	// zu, gespeichert wird es nie mehr.
+	item.MeasuredSplit = ""
 
 	if item.Type == "energy_day" {
 		defaultString(&item.DisplayMode, []string{"mirror", "supply", "demand"}, "mirror")

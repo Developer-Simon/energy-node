@@ -55,8 +55,15 @@
       {id: 'pv', label: 'PV', value: pv, color: model.COLORS.pv, dir: pv > 0.5 ? t('energy.board.dir.generation') : '—'},
       {id: 'battery', label: t('energy.board.row.battery'), value: batteryValue, color: model.COLORS.batteryCharge, dir: batteryDir},
       {id: 'grid', label: t('energy.board.row.grid'), value: Math.abs(gridNet), color: model.COLORS.gridImport, dir: gridDir},
-      {id: 'load', label: balance.loadSource === 'calculated' || balance.loadSource === 'combined' ? t('energy.role.consumption_calculated') : t('energy.role.consumption'),
+      {id: 'load', label: balance.loadSource === 'calculated' ? t('energy.role.consumption_calculated') : t('energy.role.consumption'),
         value: balance.load, color: model.COLORS.base, dir: t('energy.board.dir.consumption')},
+      // Verbraucher-Kategorien stehen unter dem Hausverbrauch: sie sind ein
+      // gemessener Teil von ihm, kein weiterer Summand. Die Frische kommt aus
+      // ihrer eigenen Rolle custom:<id>.
+      ...balance.sinks.filter(sink => String(sink.id).startsWith('custom:')).map(sink => ({
+        id: sink.id, label: sink.label, value: sink.value, color: sink.color,
+        dir: t('energy.measured_label'), staleRole: sink.id,
+      })),
       {id: 'wallbox', label: t('energy.role.wallbox'), value: wallbox, color: model.COLORS.wallbox, dir: wallbox > 0.5 ? t('energy.board.dir.wallbox_charging') : battery_dir_rest},
       {id: 'heat_pump', label: t('energy.role.heat_pump'), value: heatPump, color: model.COLORS.heatPump, dir: heatPump > 0.5 ? t('energy.board.dir.consumption') : battery_dir_rest},
     ];
@@ -155,7 +162,7 @@
     summarySource: {total: 0, segments: []},
     summarySink: {total: 0, segments: []},
     sparklines: {},
-    options: {sort: 'fixed', sparkWindow: '15', dense: 'off', showInactive: 'on', measuredSplit: 'sum'},
+    options: {sort: 'fixed', sparkWindow: '15', dense: 'off', showInactive: 'on'},
     presenter: null,
 
     async init() {
@@ -165,7 +172,6 @@
         sparkWindow: data.sparkWindow || '15',
         dense: data.dense || 'off',
         showInactive: data.showInactive || 'on',
-        measuredSplit: data.measuredSplit || 'sum',
       };
       const raw = window.EnergyModel.readEmbeddedSnapshot('energy-board-initial');
       const reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -204,7 +210,7 @@
     compute() {
       if (!this.snapshot) return;
       const model = window.EnergyModel;
-      const balance = model.balanceOf(this.snapshot, {measuredSplit: this.options.measuredSplit});
+      const balance = model.balanceOf(this.snapshot);
       const allRows = boardRows(this.snapshot, balance);
       this.rows = visibleRows(allRows, this.options.showInactive !== 'off', this.options.sort);
       this.summarySource = summaryBar(balance.sources);
@@ -218,13 +224,9 @@
       const geometries = {};
       for (const row of this.rows) {
         if (row.id === 'rest') continue;
-        // Einzelzeilen je Entitaet haben keine aufgezeichnete Historie: der
-        // Verlaufsspeicher kennt nur Rollensummen. Die Sammelzeile dagegen
-        // ist genau die Rolle "load".
-        if (row.id.startsWith('load_measured:') || row.id === 'load_measured_rest') continue;
         const values = row.id === 'load'
           ? loadSeries(samples, interpretation, now, windowMs)
-          : roleSeries(samples, row.id === 'load_measured' ? 'load' : row.id, now, windowMs);
+          : roleSeries(samples, row.id, now, windowMs);
         geometries[row.id] = sparklineGeometry(values);
       }
       this.sparklines = geometries;

@@ -271,37 +271,6 @@ test('init() falls back to 980 when the container reports zero width (hidden pan
   assert.ok(component.geometry, 'a zero-width measurement (hidden x-show panel) must not produce a null geometry');
 });
 
-const kombiniertSnapshot = {
-  values: {pv: 3000, load: 900, wallbox: 500},
-  roles: [],
-  entities: [
-    {entity_id: 'werkstatt_power', label: 'Werkstatt / Leistung', value: 520, role: {role: 'load'}},
-    {entity_id: 'waschmaschine_power', label: 'Waschmaschine / Leistung', value: 380, role: {role: 'load'}},
-  ],
-  interpretation: {load_mode: 'combined'},
-};
-
-test('das Bilanzband zeichnet bei measured_split "entities" eine Bahn je gemessener Entitaet', () => {
-  const { factory, window, document } = load();
-  const { component } = buildComponent(window, document, factory, kombiniertSnapshot, {'measured-split': 'entities'});
-  Object.defineProperty(component.$refs.canvas, 'clientWidth', { value: 980, configurable: true });
-  component.init();
-  assert.equal(component.options.measuredSplit, 'entities');
-  // Senken: Übriger Verbrauch, Werkstatt, Waschmaschine, Wallbox.
-  assert.equal(component.geometry.sinkLabels.length, 4);
-  assert.match(component.description, /Werkstatt \/ Leistung/);
-});
-
-test('das Bilanzband buendelt die gemessenen Verbraucher ohne measured_split zu einer Bahn', () => {
-  const { factory, window, document } = load();
-  const { component } = buildComponent(window, document, factory, kombiniertSnapshot);
-  Object.defineProperty(component.$refs.canvas, 'clientWidth', { value: 980, configurable: true });
-  component.init();
-  assert.equal(component.options.measuredSplit, 'sum');
-  // Senken: Übriger Verbrauch, Gemessene Verbraucher, Wallbox.
-  assert.equal(component.geometry.sinkLabels.length, 3);
-});
-
 test('ribbonsMarkup verankert die Laufschrift an der fortgeschriebenen Phase', () => {
   const { factory, window: win } = load();
   let now = 0;

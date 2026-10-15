@@ -1318,20 +1318,14 @@ func TestSweepIntervalDefaultAppliesWhenKeyAbsentFromSettingsFile(t *testing.T) 
 	}
 }
 
-// measured_split gibt es nur bei den drei Grafiken, die eine variable
-// Positionsliste rendern. energy_day (Historie kennt nur Rollensummen),
-// energy_schema (feste Zweiggeometrie) und energy_flow (feste Knoten) zeigen
-// den gemessenen Verbrauch immer gesammelt und duerfen das Feld deshalb gar
-// nicht erst tragen.
-func TestSaveLayoutNormalizesMeasuredSplit(t *testing.T) {
+// measured_split gab es bis 2026-10 fuer gemessene Teilverbraucher. Alte
+// Layouts duerfen das Feld noch tragen, gespeichert wird es nie mehr.
+func TestSaveLayoutDropsLegacyMeasuredSplit(t *testing.T) {
 	store := NewStore(t.TempDir())
 	layout := Layout{Pages: []Page{{ID: "p", Name: "P", Order: 0, Groups: []Group{{ID: "g", Name: "G", Items: []Item{
-		{ID: "band", Type: "energy_band", Span: "full", Visible: true},
 		{ID: "ring", Type: "energy_ring", Span: "2", Visible: true, MeasuredSplit: "entities"},
-		{ID: "board", Type: "energy_board", Span: "2", Visible: true, MeasuredSplit: "quatsch"},
-		{ID: "day", Type: "energy_day", Span: "2", Visible: true, MeasuredSplit: "entities"},
+		{ID: "board", Type: "energy_board", Span: "2", Visible: true, MeasuredSplit: "sum"},
 	}}}}}}
-
 	if err := store.SaveLayout(layout); err != nil {
 		t.Fatalf("SaveLayout = %v, want nil", err)
 	}
@@ -1339,13 +1333,9 @@ func TestSaveLayoutNormalizesMeasuredSplit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadLayout = %v, want nil", err)
 	}
-	items := saved.Pages[0].Groups[0].Items
-	for _, want := range []struct {
-		index int
-		value string
-	}{{0, "sum"}, {1, "entities"}, {2, "sum"}, {3, ""}} {
-		if got := items[want.index].MeasuredSplit; got != want.value {
-			t.Fatalf("items[%d].MeasuredSplit = %q, want %q", want.index, got, want.value)
+	for i, item := range saved.Pages[0].Groups[0].Items {
+		if item.MeasuredSplit != "" {
+			t.Fatalf("items[%d].MeasuredSplit = %q, want empty", i, item.MeasuredSplit)
 		}
 	}
 }

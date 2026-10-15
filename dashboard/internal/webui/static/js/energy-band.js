@@ -249,7 +249,7 @@
       reducedMotion: false,
       cardKey: 'energy-band',
       width: DEFAULT_WIDTH,
-      options: {scaleMode: 'linear', heightReference: 'fill', unit: 'auto', bundleThreshold: '0', animate: 'on', measuredSplit: 'sum'},
+      options: {scaleMode: 'linear', heightReference: 'fill', unit: 'auto', bundleThreshold: '0', animate: 'on'},
       presenter: null,
 
       init() {
@@ -262,7 +262,6 @@
           unit: data.unit || 'auto',
           bundleThreshold: data.bundleThreshold || '0',
           animate: data.animate || 'on',
-          measuredSplit: data.measuredSplit || 'sum',
         };
         const raw = window.EnergyModel.readEmbeddedSnapshot('energy-band-initial');
         this.presenter = window.EnergyPresentation.present({
@@ -307,7 +306,7 @@
       compute(width) {
         const model = window.EnergyModel;
         if (!this.snapshot) return;
-        const balance = model.balanceOf(this.snapshot, {measuredSplit: this.options.measuredSplit});
+        const balance = model.balanceOf(this.snapshot);
         const unit = this.options.unit;
         this.geometry = bandGeometry(balance, width, this.options);
         if (!this.geometry) {

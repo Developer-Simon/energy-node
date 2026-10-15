@@ -215,14 +215,6 @@
     return roleValue(snapshot, 'load');
   }
 
-  // Der im Kombiniert-Modus abgetrennte gemessene Teilverbrauch. Wie
-  // loadSource/loadTotal direkt aus snapshot.balance, ohne window.EnergyModel:
-  // base.html laedt das Modell nur bedingt.
-  function loadMeasured(snapshot) {
-    const balance = snapshot && snapshot.balance;
-    return (balance && typeof balance.load_measured === 'number') ? balance.load_measured : 0;
-  }
-
   // A measured load is exactly as stale as its own role. A calculated one is
   // as stale as the roles it was derived from - reporting it as fresh would
   // claim more than the data supports.
@@ -338,12 +330,6 @@
     // Grafik ('wallbox' / 'heatpump' / 'generic'), die step() ins SVG setzt.
     // (Idee, alle drei Grafiken zugleich zu zeigen: dashboard-ideenliste P2.8.)
     const drawingIf = power => (Math.abs(power) > 0.000001 ? 'drawing' : 'idle');
-    // Der gemessene Teilverbrauch (Kombiniert-Modus) hat Vorrang: er steht
-    // sonst nirgends, Wallbox und Waermepumpe haben ihre eigenen Knoten.
-    if (loadMeasured(snapshot) > 0.5) {
-      const power = loadMeasured(snapshot);
-      return {text: formatPower(power), stale: isStale(snapshot, 'load'), dir: 'drawing', icon: 'generic', full: t('energy.flow.label_with_power', {label: t('energy.measured_label'), power: formatPower(power)})};
-    }
     const named = [
       {label: t('energy.role.wallbox'), role: 'wallbox', icon: 'wallbox'},
       {label: t('energy.role.heat_pump'), role: 'heat_pump', icon: 'heatpump'},
@@ -362,9 +348,9 @@
     return {text: '--', stale: false, dir: 'idle', icon: 'generic'};
   }
 
-  // Die Verbraucher, die die Lasten-Kachel als Liste zeigt: die gemessenen
-  // Teilverbraucher (Kombiniert-Modus) bzw. die benannten Rollen Wallbox und
-  // Waermepumpe, dazu eine Sammelzeile "Uebriger Verbrauch" fuer den Rest.
+  // Die Verbraucher, die die Lasten-Kachel als Liste zeigt: die benannten
+  // Rollen Wallbox und Waermepumpe, dazu eine Sammelzeile "Uebriger Verbrauch"
+  // fuer den Rest.
   // `icon` waehlt eine der LOAD_ICON_MARKUP-Varianten. hideInactive wirft
   // Zeilen unter MIN_FLOW_W raus. Sortiert nach Leistung - die groesste Zeile
   // steht oben, das ist dieselbe Auswahl, die nodeText('load') als Einzelwert
@@ -377,8 +363,6 @@
       if (hideInactive && !drawing) return;
       rows.push({label, icon, power: drawing ? power : 0, dir: drawing ? 'drawing' : 'idle', stale: isStale(snapshot, role)});
     };
-    const measured = loadMeasured(snapshot);
-    if (measured > 0.5) add(t('energy.measured_label'), 'load', 'generic', measured);
     const named = [
       {label: t('energy.role.wallbox'), role: 'wallbox', icon: 'wallbox'},
       {label: t('energy.role.heat_pump'), role: 'heat_pump', icon: 'heatpump'},
@@ -390,7 +374,7 @@
       add(consumer.label, consumer.role, consumer.icon, value);
     }
     if (loadSource(snapshot) !== 'missing') {
-      const rest = loadTotal(snapshot) - namedSum - Math.max(measured, 0);
+      const rest = loadTotal(snapshot) - namedSum;
       if (rows.length === 0) add(t('energy.role.consumption'), 'load', 'generic', loadTotal(snapshot));
       else if (rest > MIN_FLOW_W) add(t('energy.role.base'), 'load', 'generic', rest);
     }
@@ -828,7 +812,7 @@
           // (formatPower output only) - a text suffix would break that
           // contract. Same technique already used for `stale` above.
           const source = loadSource(presented);
-          output.classList.toggle('energy-flow-value-calculated', node.id === 'home' && (source === 'calculated' || source === 'combined'));
+          output.classList.toggle('energy-flow-value-calculated', node.id === 'home' && source === 'calculated');
           // Jedes Knoten-Icon: die Animation in base.css haengt an einer
           // Zustandsklasse (is-charging/-discharging/-producing/-importing/
           // -exporting/-live/-drawing), genau eine davon ist gesetzt, 'idle'
