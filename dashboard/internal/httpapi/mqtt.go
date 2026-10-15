@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
 )
@@ -87,22 +88,24 @@ func requireCSRF(w http.ResponseWriter, r *http.Request, manager *auth.Manager) 
 }
 
 type mqttConfigResponse struct {
-	Enabled             bool            `json:"enabled"`
-	Host                string          `json:"host"`
-	Port                int             `json:"port"`
-	ClientID            string          `json:"client_id"`
-	Username            string          `json:"username,omitempty"`
-	TLS                 bool            `json:"tls"`
-	TLSInsecure         bool            `json:"tls_insecure"`
-	KeepaliveSeconds    int             `json:"keepalive_seconds"`
-	CleanSession        bool            `json:"clean_session"`
-	DiscoveryPrefix     string          `json:"discovery_prefix"`
-	ConnectTimeoutSec   int             `json:"connect_timeout_seconds"`
-	PublishEnergyDevice bool            `json:"publish_energy_device"`
-	SimulationActive    bool            `json:"simulation_active"`
-	Metrics             map[string]bool `json:"metrics"`
-	Source              string          `json:"source"`
-	PasswordConfigured  bool            `json:"password_configured"`
+	Enabled             bool                             `json:"enabled"`
+	Host                string                           `json:"host"`
+	Port                int                              `json:"port"`
+	ClientID            string                           `json:"client_id"`
+	Username            string                           `json:"username,omitempty"`
+	TLS                 bool                             `json:"tls"`
+	TLSInsecure         bool                             `json:"tls_insecure"`
+	KeepaliveSeconds    int                              `json:"keepalive_seconds"`
+	CleanSession        bool                             `json:"clean_session"`
+	DiscoveryPrefix     string                           `json:"discovery_prefix"`
+	ConnectTimeoutSec   int                              `json:"connect_timeout_seconds"`
+	PublishEnergyDevice bool                             `json:"publish_energy_device"`
+	SimulationActive    bool                             `json:"simulation_active"`
+	Metrics             map[string]bool                  `json:"metrics"`
+	EnergySensors       map[string]bool                  `json:"energy_sensors"`
+	EnergySensorOptions []energydiscovery.OptionalSensor `json:"energy_sensor_options"`
+	Source              string                           `json:"source"`
+	PasswordConfigured  bool                             `json:"password_configured"`
 }
 
 // handleMQTTConfig serves the dashboard's own MQTT broker connection
@@ -111,7 +114,7 @@ type mqttConfigResponse struct {
 // CSRF, matching the role table in
 // knowhow/dashboard/dashboard-mqtt-setup.md. PUT never touches the running
 // connection - see POST /api/v1/mqtt/reconnect for that.
-func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialStore, authManager *auth.Manager, base mqttclient.Config) http.HandlerFunc {
+func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialStore, authManager *auth.Manager, base mqttclient.Config, energySensorOptions func() []energydiscovery.OptionalSensor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -126,6 +129,10 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 				return
 			}
 			port, _ := strconv.Atoi(cfg.Port)
+			options := []energydiscovery.OptionalSensor{}
+			if energySensorOptions != nil {
+				options = append(options, energySensorOptions()...)
+			}
 			writeJSON(w, mqttConfigResponse{
 				Enabled:             stored.Enabled,
 				Host:                cfg.Host,
@@ -141,6 +148,8 @@ func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialS
 				PublishEnergyDevice: stored.PublishEnergyDevice,
 				SimulationActive:    stored.SimulationActive,
 				Metrics:             stored.Metrics,
+				EnergySensors:       stored.EnergySensors,
+				EnergySensorOptions: options,
 				Source:              source,
 				PasswordConfigured:  mqttPasswordConfigured(credentials),
 			})
@@ -191,8 +200,10 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 		if !requireCSRF(w, r, authManager) {
 			return
 		}
+		// energy_sensors fehlt im Body: die gespeicherte Map bleibt stehen.
 		var body struct {
-			PublishEnergyDevice bool `json:"publish_energy_device"`
+			PublishEnergyDevice bool            `json:"publish_energy_device"`
+			EnergySensors       map[string]bool `json:"energy_sensors"`
 		}
 		if err := decodeBody(r, &body); err != nil {
 			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
@@ -204,11 +215,17 @@ func handleMQTTEnergyDevice(store *settings.Store, authManager *auth.Manager) ht
 			return
 		}
 		stored.PublishEnergyDevice = body.PublishEnergyDevice
+		if body.EnergySensors != nil {
+			stored.EnergySensors = body.EnergySensors
+		}
 		if err := store.SaveMQTT(stored); err != nil {
 			writeErrorDetail(w, http.StatusBadRequest, "mqtt_rejected", err)
 			return
 		}
-		writeJSON(w, map[string]bool{"publish_energy_device": body.PublishEnergyDevice})
+		writeJSON(w, map[string]any{
+			"publish_energy_device": body.PublishEnergyDevice,
+			"energy_sensors":        stored.EnergySensors,
+		})
 	}
 }
 

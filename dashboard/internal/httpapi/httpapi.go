@@ -32,6 +32,7 @@ import (
 	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/diagnostics"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energystats"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/nodeagent"
@@ -176,6 +177,10 @@ type RouterDependencies struct {
 	// MQTTBase ist die Verbindung aus config.json - die zweite Stufe der
 	// Praezedenz, wenn keine aktivierte mqtt.json vorliegt.
 	MQTTBase mqttclient.Config
+	// EnergySensorOptions liefert alle optionalen Energie-Sensoren, die zu
+	// den Rollen und Kategorien der Anlage passen, ungefiltert (fuer
+	// GET /api/v1/mqtt). nil heisst leere Liste.
+	EnergySensorOptions func() []energydiscovery.OptionalSensor
 	// NodeAgent publiziert den Pi-Knoten als HA-Geraet und haelt die
 	// zuletzt gelesene Systemtelemetrie. Der Health-Endpunkt (Task 6/7)
 	// liest daraus; hier nur durchgereicht.
@@ -344,7 +349,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
 		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
 		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase))
+		mux.HandleFunc("/api/v1/mqtt", handleMQTTConfig(store, dependencies.MQTTCredentials, dependencies.Auth, dependencies.MQTTBase, dependencies.EnergySensorOptions))
 		mux.HandleFunc("/api/v1/mqtt/credentials", handleMQTTCredentials(dependencies.MQTTCredentials, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/energy-device", handleMQTTEnergyDevice(store, dependencies.Auth))
 		mux.HandleFunc("/api/v1/mqtt/node-settings", handleMQTTNodeSettings(store, dependencies.Auth, dependencies.NodeSimulation))

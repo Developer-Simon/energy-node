@@ -320,9 +320,37 @@ func main() {
 		return msgs
 	}
 
+	// Optionale Energie-Sensoren (Wallbox, Waermepumpe, Kategorien): was schon
+	// angekuendigt ist, merkt sich announced. optionalWanted liefert die
+	// gewuenschten Sensoren, leer wenn das Energie-Geraet aus ist.
+	announcedDir := filepath.Join(dataDir, "energydiscovery")
+	if err := os.MkdirAll(announcedDir, 0o755); err != nil {
+		log.Printf("energy-node-dashboard: energy discovery state dir: %v", err)
+	}
+	announced := energydiscovery.LoadAnnounced(filepath.Join(announcedDir, "announced.json"))
+	currentSnapshot := func() energy.Snapshot {
+		return energy.Aggregate(reg.Snapshot(), energyResolver, time.Now().UTC())
+	}
+	optionalWanted := func(snapshot energy.Snapshot) []energydiscovery.OptionalSensor {
+		stored, err := settingsStore.LoadMQTT()
+		if err != nil || !stored.PublishEnergyDevice {
+			return nil
+		}
+		return energydiscovery.Filter(desiredOptionalSensors(snapshot), stored.EnergySensors)
+	}
+
 	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
 	client.SetConnectPublisher(func() []mqttclient.OutboundMessage {
 		msgs := energyDiscovery()
+
+		// Der Connect-Publisher kann nicht wissen, ob das Senden klappt, darum
+		// committet er sofort (wie die fixen Configs, die ebenfalls erneut
+		// gesendet werden).
+		optionalMsgs, commitOptional := announced.Plan(client.DiscoveryPrefix(), buildVersion, discoveryAddress.URL(), optionalWanted(currentSnapshot()), true)
+		for _, m := range optionalMsgs {
+			msgs = append(msgs, mqttclient.OutboundMessage{Topic: m.Topic, Payload: string(m.Payload), Retain: true})
+		}
+		commitOptional()
 
 		// Node-Systemdiagnose (energy_node) + einmalige Abraeumung des alten,
 		// mit Bindestrich benannten energy-node-Geraets des geloeschten
@@ -497,6 +525,11 @@ func main() {
 			MQTTBase:       mqttBase,
 			NodeAgent:      nodeAgent,
 			NodeSimulation: nodeSimPublisher,
+			// Die API zeigt alle passenden Sensoren, ungefiltert, damit der
+			// MQTT-Tab sie abwaehlen kann.
+			EnergySensorOptions: func() []energydiscovery.OptionalSensor {
+				return desiredOptionalSensors(currentSnapshot())
+			},
 			Redeploy:       redeployHandler,
 			UpdatesChecker: updatesChecker,
 			UpdatesCache:   updatesCache,
@@ -536,13 +569,28 @@ func main() {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				payload, err := buildBalancePayload(reg, energyResolver, time.Now())
+				payload, snapshot, err := buildBalancePayload(reg, energyResolver, time.Now())
 				if err != nil {
 					log.Printf("energy-node-dashboard: energy balance marshal failed: %v", err)
 					continue
 				}
 				if err := client.PublishRetained(energydiscovery.StateTopic, string(payload)); err != nil {
 					log.Printf("energy-node-dashboard: energy balance publish skipped: %v", err)
+				}
+
+				// Optionale Sensoren nachziehen, die seit dem letzten Connect
+				// dazugekommen oder weggefallen sind. Der Stand wird nur
+				// uebernommen, wenn alle Nachrichten angekommen sind.
+				optionalMsgs, commitOptional := announced.Plan(client.DiscoveryPrefix(), buildVersion, discoveryAddress.URL(), optionalWanted(snapshot), false)
+				published := true
+				for _, m := range optionalMsgs {
+					if err := client.PublishRetained(m.Topic, string(m.Payload)); err != nil {
+						published = false
+						break
+					}
+				}
+				if published {
+					commitOptional()
 				}
 			}
 		}
@@ -634,15 +682,41 @@ func validateNodeDeviceID(id, configPath string) error {
 		id, energydiscovery.DeviceID, energydiscovery.DeviceID, energydiscovery.DeviceID, configPath)
 }
 
-func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now time.Time) ([]byte, error) {
+// buildBalancePayload liefert den State-Payload und den Snapshot, aus dem er
+// gebaut ist, damit der Abgleich der optionalen Sensoren denselben Stand sieht.
+func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now time.Time) ([]byte, energy.Snapshot, error) {
 	snapshot := energy.Aggregate(reg.Snapshot(), resolver, now.UTC())
 	cfg := resolver.Interpretation()
 	full := snapshot.WithInterpretation(cfg)
-	return json.Marshal(struct {
+	payload, err := json.Marshal(struct {
 		At             int64                 `json:"at"`
 		Balance        energy.Balance        `json:"balance"`
+		Categories     map[string]float64    `json:"categories"`
 		Interpretation energy.Interpretation `json:"interpretation"`
-	}{At: now.Unix(), Balance: full.Balance, Interpretation: cfg})
+	}{At: now.Unix(), Balance: full.Balance, Categories: full.Balance.Categories, Interpretation: cfg})
+	return payload, full, err
+}
+
+// desiredOptionalSensors nennt die optionalen Sensoren, die zur Anlage
+// passen: Wallbox und Waermepumpe, sobald eine Quelle zugeordnet ist, und
+// jede Kategorie mit zugeordneter Quelle.
+func desiredOptionalSensors(snapshot energy.Snapshot) []energydiscovery.OptionalSensor {
+	var categories []energydiscovery.CategoryInput
+	for id, category := range snapshot.Categories {
+		if len(snapshot.Sources[energy.Role("custom:"+id)]) == 0 {
+			continue
+		}
+		categories = append(categories, energydiscovery.CategoryInput{
+			ID:      id,
+			Label:   category.Label,
+			Storage: category.Base == energy.CategoryStorage,
+		})
+	}
+	return energydiscovery.OptionalSensors(
+		len(snapshot.Sources[energy.RoleWallbox]) > 0,
+		len(snapshot.Sources[energy.RoleHeatPump]) > 0,
+		categories,
+	)
 }
 
 // nodeSimAdapter turns the MQTT tab's simulation_active switch into a
