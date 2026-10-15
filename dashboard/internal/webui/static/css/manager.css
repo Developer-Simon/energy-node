@@ -379,7 +379,10 @@ select.schema-control {
    Klicks zwischen den schwebenden Elementen zum Canvas (Pan/Zoom) durch-
    fallen; jedes Kind holt sich pointer-events zurueck. Vorbild fuer das
    Material selbst ist .energy-flow-node/.device-tile (base.css). */
-.devicemap-stage { position: relative; }
+/* overflow-x: clip schneidet das geschlossene Seitenpanel an der rechten
+   Bühnenkante ab, sonst verbreitert es die ganze Seite. clip statt hidden,
+   damit die Senkrechte sichtbar bleibt und kein Scrollcontainer entsteht. */
+.devicemap-stage { position: relative; overflow-x: clip; }
 .devicemap-canvas { width: 100%; height: 70vh; min-height: 22rem; border: 1px solid var(--border-soft); border-radius: var(--radius-lg); background: var(--bg); }
 .devicemap-canvas.devicemap-grid {
   background-image:
