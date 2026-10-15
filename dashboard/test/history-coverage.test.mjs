@@ -24,6 +24,9 @@ function load() {
 
 const HOUR = 3600000;
 
+// Entfernt Realm-Prototypen aus vm-Ergebnissen, damit deepEqual sauber vergleicht.
+const plain = value => JSON.parse(JSON.stringify(value));
+
 test('rasterWindow rastert den Fensterbeginn auf ein Vielfaches der Schrittweite', () => {
   const coverage = load();
   const now = 1000 * HOUR + 1234;
@@ -146,4 +149,34 @@ test('plan mit Filter nimmt den naechstbesten Peer, wenn der beste im Zeitraum n
   assert.equal(jobs.length, 1);
   assert.equal(jobs[0].peer, 'p-klein');
   assert.deepEqual(jobs[0].ranges, [[from + 3 * HOUR, from + 4 * HOUR]]);
+});
+
+test('missingRanges mit Grenze fragt die offene Stunde bis zur Grenze', () => {
+  const coverage = load();
+  const now = 1000 * HOUR + 50 * 60000;
+  const peer = coverage.census('1m', [now - 40 * 60000, now - 35 * 60000, now - 10 * 60000], now);
+  const own = coverage.census('1m', [], now);
+  const cutoff = now - coverage.SETTLE_MS;
+  assert.deepEqual(plain(coverage.missingRanges(own, peer, now, cutoff)), [[1000 * HOUR, cutoff]]);
+  assert.deepEqual(plain(coverage.missingRanges(own, peer, now)), []);
+});
+
+test('plan fragt dieselbe offene Spanne erst wieder, wenn die Grenze 5 Minuten weiter ist', () => {
+  const coverage = load();
+  const now = 1000 * HOUR + 50 * 60000;
+  const peer = {'1m': {'role:pv': coverage.census('1m', [now - 40 * 60000, now - 10 * 60000], now)}};
+  const cutoff = now - coverage.SETTLE_MS;
+  const asked = {'b|1m|role:pv': cutoff};
+  assert.deepEqual(plain(coverage.plan({}, {b: peer}, now, null, {cutoff, askedUntil: asked})), []);
+  const later = now + 6 * 60000;
+  const jobs = coverage.plan({}, {b: peer}, later, null, {cutoff: later - coverage.SETTLE_MS, askedUntil: asked});
+  assert.deepEqual(plain(jobs.map(job => job.ranges)), [[[cutoff, later - coverage.SETTLE_MS]]]);
+});
+
+test('plan mit Grenze jetzt fragt die letzte halbe Stunde', () => {
+  const coverage = load();
+  const now = 1000 * HOUR + 50 * 60000;
+  const peer = {'1m': {'role:pv': coverage.census('1m', [now - 10 * 60000], now)}};
+  const jobs = coverage.plan({}, {b: peer}, now, {tier: '1m', from: now - coverage.SETTLE_MS, to: now}, {cutoff: now});
+  assert.deepEqual(plain(jobs[0].ranges), [[now - coverage.SETTLE_MS, now]]);
 });
