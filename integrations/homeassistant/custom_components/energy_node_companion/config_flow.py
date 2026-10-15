@@ -132,8 +132,7 @@ OPTIONS_SCHEMA = vol.Schema({
     vol.Optional(CONF_PANEL_ICON): IconSelector(),
 })
 
-# Ein Zaehler je Rolle, leer heisst Automatisch (Discovery-Sensor) bzw. bei
-# wallbox und heat_pump "nicht liefern".
+# Ein Zaehler je Rolle, leer heisst Automatisch (Discovery-Sensor).
 STATS_SCHEMA = vol.Schema({
     vol.Optional(counter_key(role)): EntitySelector(EntitySelectorConfig(domain="sensor", device_class="energy"))
     for role in STATS_ROLES

@@ -51,7 +51,7 @@
       },
       "stats": {
         "title": "Energiestatistik",
-        "description": "Wähle je Rolle einen Energiezähler, falls vorhanden. Ein Zähler ist genauer und reicht weiter zurück. Leer nutzt den Leistungssensor von Energy Node. Wallbox und Wärmepumpe werden nur mit Zähler geliefert.",
+        "description": "Wähle je Rolle einen Energiezähler, falls vorhanden. Ein Zähler ist genauer und reicht weiter zurück. Leer nutzt den Leistungssensor von Energy Node. Wallbox und Wärmepumpe funktionieren genauso, sobald sie in Energy Node zugeordnet sind.",
         "data": {
           "counter_pv": "Zähler PV-Ertrag",
           "counter_grid_import": "Zähler Netzbezug",
