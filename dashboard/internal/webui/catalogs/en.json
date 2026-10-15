@@ -1426,6 +1426,7 @@
   "error.energy_roles_unavailable": "Energy roles are not available without a data directory",
   "error.energy_stats_failed": "The energy statistics could not be read",
   "error.energy_stats_invalid_period": "The period or date is not valid",
+  "error.energy_stats_invalid_range": "The time range is not valid",
   "error.energy_stats_unavailable": "Energy statistics are not available without a data directory",
   "error.forbidden": "You do not have permission for this action",
   "error.forbidden.system_config": "The configuration can only be changed with system permissions",
