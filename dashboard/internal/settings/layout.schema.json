@@ -72,7 +72,7 @@
                       "battery_window": {"type": "string", "enum": ["3", "6", "12", "24"]},
                       "battery_projection_window": {"type": "string", "enum": ["3", "6", "12", "24"]},
                       "history_series": {"type": "array", "items": {"type": "string", "minLength": 1}},
-                      "history_range_hours": {"type": "string", "enum": ["1", "6", "24", "168", "720"]},
+                      "history_range_hours": {"type": "string", "enum": ["1", "6", "24", "168", "720", "2160"]},
                       "history_aggregate": {"type": "string", "enum": ["avg", "min", "max"]}
                     }
                   }

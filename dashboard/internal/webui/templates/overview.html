@@ -1,5 +1,5 @@
 {{define "overview"}}
-<section id="overview-panel" class="panel" role="tabpanel" aria-label="{{t "nav.overview"}}" x-bind:class="{ active: activePanel === 'overview-panel' }" x-show="activePanel === 'overview-panel'" x-data="devicesPanel()" x-init="init()" data-editor-fragment="{{.BasePath}}/?fragment=panel&panel=layout-editor" data-editor-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/layout-editor.js?v=15" data-editor-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=1,{{.BasePath}}/static/css/layout-editor.css?v=9">
+<section id="overview-panel" class="panel" role="tabpanel" aria-label="{{t "nav.overview"}}" x-bind:class="{ active: activePanel === 'overview-panel' }" x-show="activePanel === 'overview-panel'" x-data="devicesPanel()" x-init="init()" data-editor-fragment="{{.BasePath}}/?fragment=panel&panel=layout-editor" data-editor-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/layout-editor.js?v=16" data-editor-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=1,{{.BasePath}}/static/css/layout-editor.css?v=9">
   {{template "overview-live" .}}
   {{template "device-modal" .}}
 </section>
@@ -8,15 +8,35 @@
 {{define "history"}}
 <section id="history-panel" class="panel" role="tabpanel" aria-labelledby="tab-history" x-bind:class="{ active: activePanel === 'history-panel' }" x-show="activePanel === 'history-panel'" x-data="historyPanel()" x-init="init()">
   <h2>{{t "overview.history.title"}}</h2>
-  <div id="history-state" class="history-status" role="status" x-bind:data-state="statusInfo.state" x-bind:aria-label="statusText" x-show="statusInfo.state !== 'empty'">
+  <div id="history-state" class="history-status" role="status" x-bind:data-state="statusInfo.state" x-bind:data-refresh="refreshPaused ? 'paused' : 'live'" x-bind:aria-label="statusText" x-show="statusInfo.state !== 'empty'">
     <span class="history-status-dot" aria-hidden="true"></span>
-    <span class="history-status-text" x-show="statusInfo.state !== 'ok'" x-text="statusText">{{t "overview.history.loading"}}</span>
-    <template x-if="statusInfo.state === 'ok'">
+    <span class="history-status-text" x-show="!showStatusControls && statusInfo.state !== 'ok'" x-text="statusText">{{t "overview.history.loading"}}</span>
+    <template x-if="showStatusControls">
       <span class="history-status-pills">
-        <span class="history-status-pill history-status-pill--strong" x-text="statusInfo.tier"></span>
+        <template x-if="tiers.length > 1">
+          <span class="history-status-pill history-status-pill--strong history-status-pill--select">
+            <span x-text="tierLabel"></span>
+            <span class="history-status-chevron" aria-hidden="true"></span>
+            <select class="history-status-select" aria-label="{{t "history.resolution.label"}}" x-on:change="setResolution($event.target.value)">
+              <template x-for="option in resolutionOptions" x-bind:key="option.tier">
+                <option x-bind:value="option.tier" x-bind:selected="option.selected" x-text="$t('history.resolution.option', {label: option.label, percent: option.percent})"></option>
+              </template>
+            </select>
+          </span>
+        </template>
+        <template x-if="tiers.length <= 1">
+          <span class="history-status-pill history-status-pill--strong" x-text="tierLabel"></span>
+        </template>
+        <button type="button" class="history-refresh-toggle" x-bind:aria-pressed="refreshPaused" x-bind:aria-label="refreshPaused ? $t('history.refresh.resume') : $t('history.refresh.pause')" x-bind:title="refreshPaused ? $t('history.refresh.resume') : $t('history.refresh.pause')" x-on:click="toggleRefresh()">
+          <span class="history-refresh-icon-box" aria-hidden="true">
+            <svg class="history-refresh-icon history-refresh-icon--pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13"/></svg>
+            <svg class="history-refresh-icon history-refresh-icon--play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>
+          </span>
+        </button>
         <span class="history-status-pill" x-text="pointsLabel"></span>
         <span class="history-status-pill" x-text="seriesLabelCount"></span>
         <span class="history-status-pill history-status-pill--warn" x-show="!statusInfo.persisted" x-bind:title="$t('history.status.not_persisted_hint')" x-text="$t('history.status.not_persisted')"></span>
+        <span class="history-status-pill history-status-pill--warn" x-show="refreshPaused">{{t "history.refresh.paused_hint"}}</span>
       </span>
     </template>
     <span class="history-status-pill history-status-pill--exchange" x-show="exchangeNotice" x-text="exchangeNotice"></span>

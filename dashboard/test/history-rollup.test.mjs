@@ -20,6 +20,12 @@ function load() {
   return context.window.HistoryRollup;
 }
 
+const HOUR = 3600 * 1000;
+const W = {rawWindowMs: 24 * HOUR, minuteWindowMs: 7 * 24 * HOUR};
+// Die Werte kommen aus einem vm-Kontext: Arrays und Objekte haben dort eine
+// andere Prototypkette, deshalb vor dem Vergleich in den Hauptkontext kopieren.
+const plain = value => JSON.parse(JSON.stringify(value));
+
 test('normalize macht aus einem Rohsatz einen Verdichtungssatz mit n=1', () => {
   const rollup = load();
   const rows = rollup.normalize([{series: 'role:pv', ts: 1000, v: 640, u: 'W'}]);
@@ -66,10 +72,45 @@ test('bucket gewichtet den Mittelwert beim Verdichten einer Verdichtung mit n', 
 test('selectTier waehlt die Stufe nach der angefragten Spanne', () => {
   const rollup = load();
   const windows = {rawWindowMs: 24 * 3600 * 1000, minuteWindowMs: 7 * 24 * 3600 * 1000};
-  assert.equal(rollup.selectTier(3600 * 1000, windows), 'raw');
-  assert.equal(rollup.selectTier(24 * 3600 * 1000, windows), 'raw');
-  assert.equal(rollup.selectTier(3 * 24 * 3600 * 1000, windows), '1m');
-  assert.equal(rollup.selectTier(30 * 24 * 3600 * 1000, windows), '5m');
+  assert.equal(rollup.selectTier(3600 * 1000, windows), '1m');
+  assert.equal(rollup.selectTier(24 * 3600 * 1000, windows), '5m');
+  assert.equal(rollup.selectTier(3 * 24 * 3600 * 1000, windows), '5m');
+  assert.equal(rollup.selectTier(30 * 24 * 3600 * 1000, windows), '1h');
+});
+
+test('availableTiers folgt den Spannen der Auflösungen', () => {
+  const r = load();
+  assert.deepEqual(plain(r.availableTiers(30 * 60000, W)), ['raw']);
+  assert.deepEqual(plain(r.availableTiers(HOUR, W)), ['raw', '1m']);
+  assert.deepEqual(plain(r.availableTiers(6 * HOUR, W)), ['raw', '1m']);
+  assert.deepEqual(plain(r.availableTiers(24 * HOUR, W)), ['raw', '1m', '5m']);
+  assert.deepEqual(plain(r.availableTiers(168 * HOUR, W)), ['1m', '5m', '1h']);
+  assert.deepEqual(plain(r.availableTiers(720 * HOUR, W)), ['5m', '1h']);
+  assert.deepEqual(plain(r.availableTiers(2160 * HOUR, W)), ['5m', '1h']);
+});
+
+test('selectTier nimmt die gröbste, ausser der Wunsch ist verfügbar', () => {
+  const r = load();
+  assert.equal(r.selectTier(6 * HOUR, W), '1m');
+  assert.equal(r.selectTier(24 * HOUR, W), '5m');
+  assert.equal(r.selectTier(168 * HOUR, W), '1h');
+  assert.equal(r.selectTier(6 * HOUR, W, 'raw'), 'raw');
+  assert.equal(r.selectTier(720 * HOUR, W, 'raw'), '1h');
+});
+
+test('mergeCoarse ergänzt fehlende 5-Minuten-Buckets aus 1m', () => {
+  const r = load();
+  const five = 300000;
+  const coarse = [{series: 'a', ts: 0, min: 1, max: 1, avg: 1, n: 5, u: 'W'}];
+  const fine = [
+    {series: 'a', ts: 0, min: 9, max: 9, avg: 9, n: 1, u: 'W'},
+    {series: 'a', ts: five, min: 2, max: 2, avg: 2, n: 1, u: 'W'},
+    {series: 'a', ts: five + 60000, min: 4, max: 4, avg: 4, n: 1, u: 'W'},
+  ];
+  assert.deepEqual(plain(r.mergeCoarse(coarse, fine, five)), [
+    {series: 'a', ts: 0, min: 1, max: 1, avg: 1, n: 5, u: 'W'},
+    {series: 'a', ts: five, min: 2, max: 4, avg: 3, n: 2, u: 'W'},
+  ]);
 });
 
 test('thin laesst kleine Reihen unveraendert und deckelt grosse', () => {
@@ -477,4 +518,32 @@ test('gapStubs bleibt leer ohne Luecken, ohne Punkte oder ohne Reichweite', () =
   assert.equal(rollup.gapStubs(pairs, [], 5000).length, 0);
   assert.equal(rollup.gapStubs([], [{from: 1, to: 2}], 5000).length, 0);
   assert.equal(rollup.gapStubs(pairs, [{from: 1, to: 2}], 0).length, 0);
+});
+
+const TIERS_ALL = ['raw', '1m', '5m', '1h'];
+
+test('autoTier nimmt die gröbste Stufe mit Daten, eine ohne Daten wird übersprungen', () => {
+  const r = load();
+  assert.equal(r.autoTier(TIERS_ALL, {raw: 1, '1m': 1, '5m': 1, '1h': 0}), '5m');
+});
+
+test('autoTier nimmt die gröbste Stufe, wenn alle Stufen voll abdecken', () => {
+  const r = load();
+  assert.equal(r.autoTier(TIERS_ALL, {raw: 1, '1m': 1, '5m': 1, '1h': 1}), '1h');
+});
+
+test('autoTier wechselt zur feineren Stufe, wenn sie mindestens 20 % mehr abdeckt', () => {
+  const r = load();
+  assert.equal(r.autoTier(['1m', '5m', '1h'], {'1m': 1, '5m': 0.6, '1h': 0}), '1m');
+});
+
+test('autoTier bleibt bei der groben Stufe, wenn die feinere weniger als 20 % mehr abdeckt', () => {
+  const r = load();
+  assert.equal(r.autoTier(['1m', '5m', '1h'], {'1m': 0.7, '5m': 0.6, '1h': 0}), '5m');
+});
+
+test('autoTier ohne jede Abdeckung liefert die gröbste Stufe', () => {
+  const r = load();
+  assert.equal(r.autoTier(TIERS_ALL, {raw: 0, '1m': 0, '5m': 0, '1h': 0}), '1h');
+  assert.equal(r.autoTier(['raw', '1m'], {}), '1m');
 });

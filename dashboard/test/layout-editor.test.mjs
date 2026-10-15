@@ -2513,10 +2513,11 @@ test('switching from a view to own settings copies series, range and aggregate',
   assert.equal(component.unsaved, true);
 });
 
-test('nearestPreset rounds a fixed range up to the next preset, at most 720 h', () => {
+test('nearestPreset rounds a fixed range up to the next preset, at most 2160 h', () => {
   const {factory} = loadLayoutPage();
   assert.equal(factory.nearestPreset({range_mode: 'custom', range_from: 0, range_to: 30 * 3600 * 1000, range_hours: 6}), '168');
-  assert.equal(factory.nearestPreset({range_mode: 'custom', range_from: 0, range_to: 90 * 24 * 3600 * 1000, range_hours: 6}), '720');
+  assert.equal(factory.nearestPreset({range_mode: 'custom', range_from: 0, range_to: 90 * 24 * 3600 * 1000, range_hours: 6}), '2160');
+  assert.equal(factory.nearestPreset({range_mode: 'custom', range_from: 0, range_to: 120 * 24 * 3600 * 1000, range_hours: 6}), '2160');
   assert.equal(factory.nearestPreset({range_mode: 'relative', range_hours: 24}), '24');
   assert.equal(factory.nearestPreset({range_hours: 2}), '6');
 });

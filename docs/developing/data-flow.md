@@ -490,6 +490,9 @@ There are three tiers with limited retention: `samples_raw` (~6 h), `samples_1m`
 1 m and 1 m to 5 m in the leading tab. It moves a watermark forward in the
 `meta` store, so each run only touches the newest span.
 
+The hourly resolution is not kept in the browser. The history page reads it from
+the node's energy statistics (§13).
+
 For the exchange between devices (`/api/v1/history/exchange/*`) the server only
 relays and stores nothing. Offers go to all peers. Requests and deliveries go to
 exactly one peer over an SSE stream, and nothing is written to disk. A 24 h ring
@@ -511,6 +514,13 @@ the leading tab over the recorder's BroadcastChannel and get a message back
 when rows arrive. In `always` mode a device always offers its own coverage. In `on-demand` mode
 it offers it only if the per-device choice `history-exchange-serve` is `on`,
 and is otherwise a source only through the ring buffer.
+
+Minute values are only exchanged up to 30 minutes before now (`SETTLE_MS` in
+`history-coverage.js`). Until then devices can hold different numbers of samples
+for the same minute, so the newest half hour would not match. Each watched range
+also asks for the last 30 minutes of the minute tier once, and again at most
+every five minutes while the range stays on screen. That request only goes out in
+`on-demand` mode and while the exchange stream is connected.
 
 Home Assistant can join as a permanent peer that only supplies data, through
 the Energy Node Companion (labelled "Home Assistant"). Which series it maps and
@@ -568,6 +578,8 @@ The dashboard records energy per hour and role on its own, whether or not a brow
 Hours are stored per UTC month in `<data dir>/energystats/<yyyy-mm>.json`. Each hour carries its source: own recording or Home Assistant. Home Assistant always wins over own recording.
 
 `GET /api/v1/energy/stats?period=day|week|month|year&at=<date>` sums the hours into hours, days or months in the local time zone and adds autarky and self consumption for each bucket and for the whole period. Weeks run Monday to Sunday and are summed into days.
+
+`GET /api/v1/energy/stats/hours?from=<ms>&to=<ms>` returns the hourly means that the history page shows for spans of a week or longer (see [api.md](api.md)). Own hours with less than 50 minutes of recording are left out, Home Assistant hours always count.
 
 ### Hours from Home Assistant
 

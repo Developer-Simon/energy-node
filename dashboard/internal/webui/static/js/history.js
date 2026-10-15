@@ -16,8 +16,9 @@
     raw: 'history.resolution.raw',
     '1m': 'history.resolution.1m',
     '5m': 'history.resolution.5m',
+    '1h': 'history.resolution.1h',
   };
-  // i18n-keys: history.resolution.raw, history.resolution.1m, history.resolution.5m
+  // i18n-keys: history.resolution.raw, history.resolution.1m, history.resolution.5m, history.resolution.1h
 
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
@@ -51,6 +52,19 @@
     advancedOpen: false,
     aggregate: 'avg',
     tier: 'raw',
+    // Vom Nutzer gewaehlte Stufe. '' heisst automatisch: die Stufe, die
+    // loadRows() aus der Abdeckung des Zeitraums waehlt (history-chart.js).
+    // Jede explizite Wahl wird gespeichert, auch die groebste Stufe. tiers
+    // sind die Stufen, die dieser Zeitraum anbietet; fallbackSeries die
+    // Serien, die auf 5m statt 1h liegen; coverage je Stufe der Anteil des
+    // Zeitraums, den sie abdeckt (0..1).
+    resolution: '',
+    tiers: [],
+    coverage: {},
+    // Automatische Aktualisierung pausiert (Aufzeichnungs- und
+    // Austausch-Events). Lebt nur in dieser Seitensitzung.
+    refreshPaused: false,
+    fallbackSeries: [],
     interpretation: null,
     loading: false,
     error: '',
@@ -85,12 +99,12 @@
         // Bei der Rueckkehr laedt activate() nicht neu, die Anmeldung muss
         // trotzdem wieder stehen. Vor activate(), sonst meldete der erste
         // Aufruf mit der Vorgabestufe an, bevor load() die echte kennt.
-        if (this.initialized) this.watchExchange({...this.rangeBounds(), tier: this.tier});
+        if (this.initialized && !this.refreshPaused) this.watchExchange({...this.rangeBounds(), tier: this.tier});
         this.activate();
       };
       window.addEventListener('dashboard-panel-changed', this.panelChanged);
       this.historyUpdated = () => {
-        if (this.initialized) this.load().then(() => this.renderChart());
+        if (this.initialized && !this.refreshPaused) this.load().then(() => this.renderChart());
       };
       window.addEventListener('dashboard-history-updated', this.historyUpdated);
       // Ein Theme-Wechsel aendert die Serienfarben; der Chart muss sie neu
@@ -102,7 +116,7 @@
         if (!rows) return;
         this.exchangedRows += rows;
         this.exchangeNotice = tn('history.exchange_notice', this.exchangedRows, {count: this.exchangedRows});
-        this.renderChart();
+        if (!this.refreshPaused) this.renderChart();
       };
       window.addEventListener('dashboard-history-exchanged', this.historyExchanged);
       this.initRangePicker();
@@ -193,9 +207,17 @@
       this.error = '';
       try {
         const {from, to} = this.rangeBounds();
-        const result = await window.HistoryChart.loadRows({from, to, interpretation: this.interpretation, recorderConfig: this.recorderConfig});
+        const result = await window.HistoryChart.loadRows({from, to, interpretation: this.interpretation, recorderConfig: this.recorderConfig, tier: this.resolution || undefined});
         this.tier = result.tier;
-        this.watchExchange({from, to, tier: result.tier});
+        this.tiers = result.tiers;
+        this.coverage = result.coverage || {};
+        this.fallbackSeries = result.fallbackSeries;
+        // Eine gewuenschte Stufe, die dieser Zeitraum nicht anbietet (etwa
+        // 1m bei einem Jahr), gilt nicht mehr. Die Auswahl faellt auf automatisch.
+        if (this.resolution && !result.tiers.includes(this.resolution)) this.resolution = '';
+        // Pausiert bleibt die Anmeldung beim Austausch aus, auch bei
+        // ausdruecklichen Aktionen, die nur neu laden.
+        if (!this.refreshPaused) this.watchExchange({from, to, tier: result.tier});
         this.gapsBySeries = result.gaps;
         this.rows = result.rows;
         this.seriesOptions = [...new Set(this.rows.map(row => row.series))].sort();
@@ -219,37 +241,103 @@
       return !this.loading && this.visibleRows.length === 0;
     },
 
+    // Auswahl der Aufloesung: nur die Stufen, die der Zeitraum anbietet.
+    // selected markiert die tatsaechlich gezeichnete Stufe, percent den
+    // Anteil des Zeitraums, den sie abdeckt.
+    get resolutionOptions() {
+      return this.tiers.map(tier => {
+        return {
+          tier,
+          label: TIER_LABEL_KEYS[tier] ? t(TIER_LABEL_KEYS[tier]) : tier,
+          percent: Math.round((this.coverage[tier] || 0) * 100),
+          selected: tier === this.tier,
+        };
+      });
+    },
+
+    // Waehlt eine Stufe ausdruecklich. Auch die groebste Stufe wird gespeichert,
+    // automatisch wird erst wieder ueber einen Zeitraumwechsel.
+    setResolution(tier) {
+      this.resolution = tier;
+      return this.load().then(() => this.renderChart());
+    },
+
+    // Pausiert oder setzt die automatische Aktualisierung fort. Pausiert
+    // bleiben Chart und Austausch-Anmeldung stehen; ausdrueckliche Aktionen
+    // (Zeitraum, Stufe, Sicht, Serien, Kennwert) laden weiterhin. Beim
+    // Fortsetzen wird neu angemeldet und genau einmal neu geladen.
+    toggleRefresh() {
+      this.refreshPaused = !this.refreshPaused;
+      if (this.refreshPaused) {
+        this.unwatchExchange();
+        return;
+      }
+      this.watchExchange({...this.rangeBounds(), tier: this.tier});
+      this.load().then(() => this.renderChart());
+    },
+
     get tierLabel() {
       const key = TIER_LABEL_KEYS[this.tier];
       return key ? t(key) : this.tier;
     },
 
     // Zustand der Statusleiste ueber dem Diagramm. state ist loading, error,
-    // paused, empty oder ok. Nur bei ok gibt es Kennzahlen.
+    // paused, empty oder ok. Kennzahlen gibt es bei ok und bei loading, wenn
+    // schon Zeilen und Stufen da sind: ein Neuladen nach Stufen- oder
+    // Zeitraumwahl laesst die Bedienelemente sonst kurz verschwinden.
     get statusInfo() {
-      if (this.loading) return {state: 'loading'};
+      if (this.loading) return this.hasKnownTiers ? {...this.pillValues, state: 'loading'} : {state: 'loading'};
       if (this.error) return {state: 'error'};
       const status = this.recorderStatus;
       if (status.paused) return {state: 'paused'};
       if (this.isEmpty) return {state: 'empty'};
+      return {state: 'ok', ...this.pillValues};
+    },
+
+    get hasKnownTiers() {
+      return this.rows.length > 0 && this.tiers.length > 0;
+    },
+
+    // Die Pillen der Statusleiste: Stufe, Punkte, Serien und ob der Browser
+    // dauerhaft speichert. Ausgelagert, damit ok und das Neuladen dieselben
+    // Werte liefern.
+    get pillValues() {
       return {
-        state: 'ok',
         tier: this.tierLabel,
         points: this.visibleRows.length,
         series: this.selectedSeries.length,
-        persisted: status.persisted !== false,
+        persisted: this.recorderStatus.persisted !== false,
+        fallback: this.fallbackSeries.length,
       };
     },
 
+    // Stufenwahl, Pause-Schalter und Pillen sind sichtbar, wenn die Leiste
+    // Kennzahlen hat (siehe statusInfo).
+    get showStatusControls() {
+      const state = this.statusInfo.state;
+      return state === 'ok' || (state === 'loading' && this.hasKnownTiers);
+    },
+
     // Der Text der Leiste fuer Vorlesegeraete und fuer alle Zustaende ausser ok.
+    // Bei pausierter Aktualisierung steht der Hinweis dahinter.
     get statusText() {
       const info = this.statusInfo;
-      if (info.state === 'loading') return t('history.status.loading');
-      if (info.state === 'error') return this.error;
-      if (info.state === 'paused') return this.recorderStatus.reason || t('history.status.paused');
-      if (info.state === 'empty') return t('history.status.empty');
-      const params = {tier: info.tier, points: info.points, series: info.series};
-      return t(info.persisted ? 'history.status.summary' : 'history.status.summary_not_persisted', params);
+      let text;
+      if (info.state === 'loading') {
+        text = t('history.status.loading');
+      } else if (info.state === 'error') {
+        text = this.error;
+      } else if (info.state === 'paused') {
+        text = this.recorderStatus.reason || t('history.status.paused');
+      } else if (info.state === 'empty') {
+        text = t('history.status.empty');
+      } else {
+        const params = {tier: info.tier, points: info.points, series: info.series};
+        const summary = t(info.persisted ? 'history.status.summary' : 'history.status.summary_not_persisted', params);
+        text = info.fallback ? `${summary} ${tn('history.status.fallback', info.fallback, {count: info.fallback})}` : summary;
+      }
+      if (this.showStatusControls && this.refreshPaused) text = `${text} ${t('history.refresh.paused_hint')}`;
+      return text;
     },
 
     get pointsLabel() {
@@ -333,9 +421,12 @@
     },
 
     async applyRange() {
-      // Ein neu gewaehlter Zeitraum hebt einen festgehaltenen Zoom auf.
+      // Ein neu gewaehlter Zeitraum hebt einen festgehaltenen Zoom auf und
+      // setzt die Stufe zurueck auf automatisch, damit die Abdeckung des
+      // neuen Zeitraums gilt.
       this.userZoomed = false;
       this.zoomWindow = null;
+      this.resolution = '';
       await this.load();
       this.renderChart(false);
     },
@@ -501,6 +592,9 @@
         if (this.rangePicker) this.rangePicker.clear();
       }
       this.aggregate = view.aggregate;
+      // Sichten speichern keine Stufe. Sie laden immer die groebste, sonst
+      // bliebe eine zuvor gewaehlte Stufe der Vorseite haengen.
+      this.resolution = '';
       // Eine Sicht bringt ihren eigenen Zeitraum mit - ein festgehaltener
       // Zoom aus der vorigen Ansicht passt nicht mehr.
       this.userZoomed = false;

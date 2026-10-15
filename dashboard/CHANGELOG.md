@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.16 (2026-10-15)
+## v0.9.17 (2026-10-15)
 
 ### Features
 
@@ -11,6 +11,17 @@
 - **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134) (ccd90ca)
 - **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137) (14f781e)
 - **dashboard:** The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect. (#138) (3c7821a)
+- **energystats:** hourly means for the history page (8ac2d1c)
+- **history:** offer resolutions per span and default to the coarsest (6819e41)
+- **history:** hourly tier from the server with per-series 5 min fallback (4884935)
+- **history:** resolution state on the history page (51ddf71)
+- **history:** resolution picker and a 3 month preset (cbdbd3b)
+- **history:** coverage planning with a settle cutoff (a6c5255)
+- **history:** exchange minute values up to 30 minutes ago and fetch the last half hour once (101ed8c)
+- **history:** coverage based resolution default, explicit selection and refresh pause (8568e1c)
+- **history:** resolution dropdown and a pause button for the history page (9ddc271)
+- **history:** resolution dropdown and pause button inside the status line (b6381c3)
+- **history:** The history page offers the resolutions that fit the chosen span with the coarsest preselected, shows hourly values from the energy statistics for a week or longer and gets a 3 month preset. (#141)
 - **dashboard:** published diagnostics metrics as a read-only-for-guests multiselect (63f6bf4)
 - **dashboard:** bridge setup step list on the MQTT tab (638c5ee)
 - **dashboard:** keep every received changelog version on the node (6061446)
@@ -47,6 +58,8 @@
 
 ### Fixes
 
+- **history:** fetch the minute tail for every watched tier (c72a53a)
+- **history:** saved views use the coarsest resolution and failed hour fetches are not cached (e24f506)
 - **dashboard:** skip the bridge config request for guests on the MQTT tab (726e39f)
 - **dashboard:** align bridge verify step with the status labels (985ba39)
 - **dashboard:** tighten the bridge setup step texts (dc0a550)
@@ -56,9 +69,9 @@
 
 ### Refactors
 
+- **dashboard:** remove unused Tippy.js and Popper.js (#139) (8f2318c)
 - **dashboard:** drop the unused Tippy.js and Popper.js bundles (dfc102e)
 - **dashboard:** reword the base.css tooltip comment (7856e87)
-- **dashboard:** remove unused Tippy.js and Popper.js (#139)
 - **dashboard:** drop the global structure fingerprints (c71a352)
 - **registryevents:** build and deliver SSE bodies per topic (dc7ddea)
 

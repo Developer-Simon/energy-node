@@ -295,6 +295,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/energy/roles", handleEnergyRoles(store, resolver, dependencies.Auth, reg))
 	mux.HandleFunc("/api/v1/energy/interpretation", handleEnergyInterpretation(store, resolver, dependencies.Auth))
 	mux.HandleFunc("/api/v1/energy/stats", handleEnergyStats(dependencies.EnergyStats))
+	mux.HandleFunc("/api/v1/energy/stats/hours", handleEnergyStatsHours(dependencies.EnergyStats))
 	mux.HandleFunc("/api/v1/history/entities", handleHistoryEntities(reg, store))
 	exchange := newHistoryExchange(recordedExchangeSeries(reg, store, resolver))
 	// Nil-Pruefung am Zeiger: ein nil *Sync im Interface waere nicht nil.

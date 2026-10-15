@@ -113,6 +113,49 @@
     });
   };
 
+  // Frueheste und spaeteste Zeit einer Stufe im Bereich [fromTs, toTs], ohne
+  // einen einzigen Satz zu laden: je Serie nur der erste und der letzte
+  // Schluessel (Key-Cursor, vorwaerts und rueckwaerts). Die Serien springt
+  // der Cursor wie in seriesOf() an. Null, wenn der Bereich leer ist.
+  // Gebraucht von der automatischen Stufenwahl (history-chart.js), die
+  // nur wissen muss, wie weit eine Stufe den Zeitraum abdeckt.
+  const extent = async (tier, fromTs, toTs) => {
+    const database = await open();
+    const store = database.transaction(storeNameFor(tier), 'readonly').objectStore(storeNameFor(tier));
+    return new Promise((resolve, reject) => {
+      let first = null;
+      let last = null;
+      const failed = () => reject(new Error(t('history.store.read_failed')));
+      const edge = (range, direction, done) => {
+        const request = store.openKeyCursor(range, direction);
+        request.onsuccess = () => done(request.result ? Number(request.result.key[1]) : null);
+        request.onerror = failed;
+      };
+      const seriesCursor = store.openKeyCursor();
+      seriesCursor.onsuccess = () => {
+        const cursor = seriesCursor.result;
+        if (!cursor) {
+          resolve(first === null ? null : {first, last});
+          return;
+        }
+        const series = cursor.key[0];
+        const range = window.IDBKeyRange.bound([series, fromTs], [series, toTs]);
+        edge(range, 'next', low => {
+          if (low === null) {
+            cursor.continue([series, Infinity]);
+            return;
+          }
+          edge(range, 'prev', high => {
+            if (first === null || low < first) first = low;
+            if (last === null || high > last) last = high;
+            cursor.continue([series, Infinity]);
+          });
+        });
+      };
+      seriesCursor.onerror = failed;
+    });
+  };
+
   const metaGet = (database, key) => new Promise((resolve, reject) => {
     const request = database.transaction(META_STORE, 'readonly').objectStore(META_STORE).get(key);
     request.onsuccess = () => resolve(request.result ? request.result.value : undefined);
@@ -504,7 +547,7 @@
 
   window.HistoryStore = {
     ROW_BYTES_RAW, ROW_BYTES_ROLLUP, TIERS,
-    open, writeRaw, writeRollup, readRange, deleteRange, deleteKeys, seriesNames, bounds,
+    open, writeRaw, writeRollup, readRange, extent, deleteRange, deleteKeys, seriesNames, bounds,
     meta, setMeta, bytesUsed, estimate, persist, coverage, coverageCacheSize, writeMissing,
   };
 })();
