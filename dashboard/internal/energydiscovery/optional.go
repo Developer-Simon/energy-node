@@ -61,7 +61,6 @@ func OptionalSensors(wallbox, heatPump bool, categories []CategoryInput) []Optio
 		}
 		out = append(out, OptionalSensor{
 			Key:      "custom_" + c.ID,
-			Role:     "category",
 			Label:    c.Label,
 			Name:     name,
 			template: "{{ value_json.categories['" + c.ID + "'] }}",
