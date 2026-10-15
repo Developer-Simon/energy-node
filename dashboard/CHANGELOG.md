@@ -69,6 +69,7 @@
 
 ### Fixes
 
+- **energy:** plain wording in the load mode texts (a04e740)
 - **energydiscovery:** leave role empty for category sensors (a2f0f81)
 - **dashboard:** keep announced sensors when settings cannot be loaded (5661b83)
 - **energystats:** accept only consumer and producer categories from the companion (ec8339e)
