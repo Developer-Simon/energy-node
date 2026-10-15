@@ -18,10 +18,21 @@ save a set of series as a named view and export the visible data as CSV or JSON.
 
 ## Resolutions
 
-The line above the chart offers the resolutions that fit the chosen span, and
-the coarsest one is preselected. Pick a finer one to see more detail, and pick
-the coarsest one again to return to the automatic choice. The choice belongs to
-the page session. A reload starts again with the coarsest resolution.
+The **Resolution** dropdown above the chart lists the resolutions that fit the
+chosen span. Each entry shows the share of the span that the resolution covers
+with values in this browser, for example `5-minute average · 97 %`. The
+automatic choice is the coarsest resolution that has data. A finer resolution
+takes over when it covers at least 20 % more of the span. Pick an entry to
+choose a resolution yourself. It stays until you pick another one or change the
+span, which returns to the automatic choice. The choice belongs to the page
+session. A reload starts again with the automatic choice.
+
+Next to the dropdown, the **Pause updates** button stops the page from
+refreshing the chart and from exchanging history with other browsers for the
+rest of the page session. A small note then says that the chart is not
+updating. Explicit actions such as changing the span, the resolution, the
+series or the metric still load data. **Resume updates** reconnects the
+exchange and reloads the chart once.
 
 | Resolution | Offered for a span of | Where the values come from |
 |---|---|---|
@@ -32,7 +43,7 @@ the page session. A reload starts again with the coarsest resolution.
 
 The history tile on the overview always shows the coarsest resolution the span
 allows. Saved views store their series, range and metric but no resolution, so
-applying a view keeps the resolution the page has at that moment.
+applying a view returns to the automatic choice.
 
 Raw samples are compacted into one minute and five minute tiers as they age.
 The hourly resolution is not kept in the browser. The page reads it from the node.

@@ -150,7 +150,8 @@ test('die Auflösungswahl bietet die Stufen des Zeitraums an, die gezeichnete is
   await component.load();
   assert.equal(component.resolutionOptions.length, 3);
   assert.deepEqual(component.resolutionOptions.map(option => option.tier), ['1m', '5m', '1h']);
-  assert.deepEqual(component.resolutionOptions.map(option => option.active), [false, false, true]);
+  assert.deepEqual(component.resolutionOptions.map(option => option.selected), [false, false, true]);
+  assert.equal(component.resolutionOptions.some(option => 'active' in option), false);
   dom.window.close();
 });
 

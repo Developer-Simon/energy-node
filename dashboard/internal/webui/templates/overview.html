@@ -36,10 +36,27 @@
     </button>
   </div>
 
-  <div class="history-resolution" role="group" aria-label="{{t "history.resolution.label"}}" x-show="tiers.length > 1">
-    <template x-for="option in resolutionOptions" x-bind:key="option.tier">
-      <button type="button" class="history-resolution-option" x-bind:aria-pressed="option.active" x-on:click="setResolution(option.tier)" x-text="option.label"></button>
-    </template>
+  <div class="history-resolution" role="group" aria-label="{{t "history.resolution.label"}}">
+    <div class="history-resolution-field" x-show="tiers.length > 1">
+      <label class="history-resolution-label" for="history-resolution-select">{{t "history.resolution.label"}}</label>
+      <span class="history-resolution-select-wrap">
+        <select id="history-resolution-select" class="history-resolution-select" x-on:change="setResolution($event.target.value)">
+          <template x-for="option in resolutionOptions" x-bind:key="option.tier">
+            <option x-bind:value="option.tier" x-bind:selected="option.selected" x-text="$t('history.resolution.option', {label: option.label, percent: option.percent})"></option>
+          </template>
+        </select>
+      </span>
+    </div>
+    <div class="history-refresh" x-show="!isEmpty">
+      <button type="button" class="history-refresh-toggle" x-bind:aria-pressed="refreshPaused" x-bind:aria-label="refreshPaused ? $t('history.refresh.resume') : $t('history.refresh.pause')" x-on:click="toggleRefresh()">
+        <span class="history-refresh-icon-box" aria-hidden="true">
+          <svg class="history-refresh-icon history-refresh-icon--pause" viewBox="0 0 24 24"><path d="M9 5.5v13M15 5.5v13"/></svg>
+          <svg class="history-refresh-icon history-refresh-icon--play" viewBox="0 0 24 24"><path d="M8 5.5v13l11-6.5z"/></svg>
+        </span>
+        <span x-text="refreshPaused ? $t('history.refresh.resume') : $t('history.refresh.pause')">{{t "history.refresh.pause"}}</span>
+      </button>
+      <span class="history-refresh-hint" role="status" x-show="refreshPaused">{{t "history.refresh.paused_hint"}}</span>
+    </div>
   </div>
 
   <div id="history-aggregate" class="history-chip-group" role="group" aria-label="{{t "overview.history.metric_label"}}">

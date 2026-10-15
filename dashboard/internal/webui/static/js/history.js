@@ -243,17 +243,14 @@
 
     // Auswahl der Aufloesung: nur die Stufen, die der Zeitraum anbietet.
     // selected markiert die tatsaechlich gezeichnete Stufe, percent den
-    // Anteil des Zeitraums, den sie abdeckt. active ist derselbe Wert wie
-    // selected und bleibt, bis das Template ihn nicht mehr liest.
+    // Anteil des Zeitraums, den sie abdeckt.
     get resolutionOptions() {
       return this.tiers.map(tier => {
-        const selected = tier === this.tier;
         return {
           tier,
           label: TIER_LABEL_KEYS[tier] ? t(TIER_LABEL_KEYS[tier]) : tier,
           percent: Math.round((this.coverage[tier] || 0) * 100),
-          selected,
-          active: selected,
+          selected: tier === this.tier,
         };
       });
     },
