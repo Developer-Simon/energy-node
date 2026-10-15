@@ -2,10 +2,8 @@
   "name": "energy-node-dashboard-assets",
   "private": true,
   "dependencies": {
-    "@popperjs/core": "^2.11.8",
     "apexcharts": "^4.7.0",
-    "gridstack": "^13.0.2",
-    "tippy.js": "^6.3.7"
+    "gridstack": "^13.0.2"
   },
   "devDependencies": {
     "fake-indexeddb": "^6.2.5",

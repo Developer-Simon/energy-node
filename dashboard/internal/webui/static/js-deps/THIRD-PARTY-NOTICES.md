@@ -4,7 +4,7 @@ The dashboard embeds these libraries directly (no CDN, no build step — see
 [`dashboard/AGENTS.md`](../../../../AGENTS.md)). Versions below are what is
 actually embedded, read from each file itself (a version string, or an
 embedded semver where no header states one); this can trail the `^`-range in
-[`dashboard/package.json`](../../../../package.json) for the four packages
+[`dashboard/package.json`](../../../../package.json) for the two packages
 managed there until the next vendoring pass.
 
 | File | Library | Version | License |
@@ -19,10 +19,8 @@ managed there until the next vendoring pass.
 | `flatpickr-l10n-de.js` | flatpickr — German locale | matches `flatpickr.min.js` | MIT |
 | `gridstack-all.js` | [GridStack.js](https://gridstackjs.com/) | 13.0.1 | MIT |
 | `htmx.min.js` | [htmx](https://htmx.org/) | 2.0.6 | BSD 2-Clause |
-| `popper.min.js` | [`@popperjs/core`](https://popper.js.org/) | 2.11.8 | MIT |
-| `tippy.umd.min.js` | [Tippy.js](https://atomiks.github.io/tippyjs/) | 6.3.7 | MIT |
 
 Each file above carries its own copyright; none of these projects are
 affiliated with Energy Node. `alpinejs`, `choices.js`, `cytoscape`, `flatpickr`
 and `htmx.org` are vendored by hand (not listed in `package.json`, which
-only tracks the four dependencies installed via npm and re-bundled here).
+only tracks the two dependencies installed via npm and re-bundled here).

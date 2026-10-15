@@ -3,6 +3,7 @@ package webui
 import (
 	"bytes"
 	"html"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -130,9 +131,6 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 		`<script src="/static/js/history.js"`,
 		`<script src="/static/js/settings.page.js"`,
 		`<script src="/static/js-deps/choices.min.js"`,
-		`<script src="/static/js-deps/popper.min.js"`,
-		`<script src="/static/js-deps/tippy.umd.min.js"`,
-		`<link rel="stylesheet" href="/static/css/tippy.css"`,
 	} {
 		if strings.Contains(body, marker) {
 			t.Fatalf("initial page eagerly loads manager asset %q", marker)
@@ -141,7 +139,6 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 	for path, script := range map[string]string{
 		"history-panel":  "/static/js-deps/apexcharts.min.js,/static/js-deps/flatpickr.min.js?v=1,/static/js-deps/flatpickr-l10n-de.js?v=1,/static/js/history-export.js?v=2,/static/js/energy-model.js?v=3,/static/js/history-chart.js?v=2,/static/js/history.js?v=16",
 		"settings-panel": "/static/js-deps/choices.min.js,/static/js/revisions.js?v=4,/static/js/schema-form.js?v=2,/static/js/settings.page.js?v=22,/static/js/mqtt.page.js?v=8,/static/js/tailscale.page.js?v=4,/static/js/versions.page.js?v=7,/static/js/systemconfig.page.js?v=5",
-		"devices-panel":  "/static/js-deps/popper.min.js,/static/js-deps/tippy.umd.min.js",
 	} {
 		if !strings.Contains(body, `id="`+path+`"`) {
 			t.Fatalf("page is missing %s", path)
@@ -150,14 +147,38 @@ func TestOverviewDoesNotLoadManagerAssetsInitially(t *testing.T) {
 			t.Fatalf("%s does not declare lazy script %q", path, script)
 		}
 	}
-	if !strings.Contains(body, `data-panel-css="/static/css/tippy.css"`) {
-		t.Fatal("devices-panel does not declare lazy tippy.css")
-	}
 	if !strings.Contains(body, `data-panel-css="/static/css/choices.min.css,/static/css/choices.css?v=2,/static/css/manager.css?v=35,/static/css/settings-controls.css?v=13"`) {
 		t.Fatal("settings-panel does not declare lazy choices.css + manager.css + settings-controls.css")
 	}
 	if strings.Contains(body, `<link rel="stylesheet" href="/static/css/choices.min.css"`) {
 		t.Fatal("initial page eagerly loads choices.min.css")
+	}
+}
+
+func TestOverviewNoLongerShipsTippyOrPopper(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(recorder, httptest.NewRequest("GET", "/", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d", recorder.Code)
+	}
+	body := strings.ToLower(recorder.Body.String())
+	for _, marker := range []string{"tippy", "popper"} {
+		if strings.Contains(body, marker) {
+			t.Fatalf("overview still references %q", marker)
+		}
+	}
+	start := strings.Index(body, `id="devices-panel"`)
+	if start < 0 {
+		t.Fatal("page is missing devices-panel")
+	}
+	tag := body[start : start+strings.Index(body[start:], ">")]
+	if strings.Contains(tag, "data-panel-script") || strings.Contains(tag, "data-panel-css") {
+		t.Fatalf("devices-panel still declares lazy assets: %s", tag)
+	}
+	for _, name := range []string{"js-deps/popper.min.js", "js-deps/tippy.umd.min.js", "css/tippy.css"} {
+		if _, err := fs.Stat(templateFS, "static/"+name); err == nil {
+			t.Fatalf("embedded static still contains %s", name)
+		}
 	}
 }
 
@@ -1100,7 +1121,6 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
 		`data-panel-src="/node/?fragment=panel&panel=devices"`,
-		`data-panel-script="/node/static/js-deps/popper.min.js,/node/static/js-deps/tippy.umd.min.js"`,
 		`data-panel-css="/node/static/css/choices.min.css,/node/static/css/choices.css?v=2,/node/static/css/manager.css?v=35,/node/static/css/settings-controls.css?v=13"`,
 	} {
 		if !strings.Contains(body, marker) {
