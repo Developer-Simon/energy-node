@@ -17,14 +17,16 @@ from .const import CUSTOM_UNIQUE_PREFIX
 # Die Rollen rechnet der Browser aus. Ihr Gegenstueck in Home Assistant sind
 # die Sensoren, die das Dashboard selbst per Discovery anmeldet
 # (dashboard/internal/energydiscovery, unique_id energy_node_<object_id>).
-# role:load fehlt bewusst: house_load traegt load_total, die Rolle load im
-# Browser den gemessenen Anteil. wallbox und heat_pump melden den Sensor
-# ebenfalls per Discovery an, Verbrauchskategorien als energy_node_custom_<id>.
+# role:load ist der Hauszaehler, sein Sensor house_load_measured gibt es nur,
+# wenn der Rolle eine Quelle zugeordnet ist. house_load traegt load_total und
+# ist keine Rolle. wallbox und heat_pump melden den Sensor ebenfalls per
+# Discovery an, Verbrauchskategorien als energy_node_custom_<id>.
 ROLE_SOURCES: dict[str, tuple[str, str | None]] = {
     "role:pv": ("energy_node_pv_power", None),
     "role:grid": ("energy_node_grid_import", "energy_node_grid_export"),
     "role:battery": ("energy_node_battery_charge", "energy_node_battery_discharge"),
     "role:battery_soc": ("energy_node_battery_soc", None),
+    "role:load": ("energy_node_house_load_measured", None),
     "role:wallbox": ("energy_node_wallbox", None),
     "role:heat_pump": ("energy_node_heat_pump", None),
 }

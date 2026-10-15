@@ -34,9 +34,18 @@ async def test_roles_and_entities_resolve_via_mqtt_unique_id(hass):
     ]
 
 
-async def test_role_load_is_never_mapped(hass):
-    # house_load traegt load_total, role:load im Browser den gemessenen
-    # Anteil der Rolle load. Das ist nicht dieselbe Groesse.
+async def test_role_load_maps_to_the_house_meter(hass):
+    # Seit 2026-10 heisst die Rolle load immer Hauszaehler. Das Dashboard
+    # meldet ihn als energy_node_house_load_measured an. house_load traegt
+    # dagegen load_total und gehoert nicht zu role:load.
+    _mqtt(hass, "energy_node_house_load", "load")
+    _mqtt(hass, "energy_node_house_load_measured", "meter")
+    assert resolve(hass, [{"id": "role:load", "unit": "W"}]) == [
+        SeriesSource("role:load", "W", "sensor.meter"),
+    ]
+
+
+async def test_role_load_without_meter_sensor_is_skipped(hass):
     _mqtt(hass, "energy_node_house_load", "load")
     assert resolve(hass, [{"id": "role:load", "unit": "W"}]) == []
 
