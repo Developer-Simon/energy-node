@@ -2,7 +2,7 @@
 publizierte Bilanz (Teil A) sowie beliebige MQTT-Topics gegen Regeln
 prueft und darauf MQTT-Publishes/Benachrichtigungen ausloest.
 
-Siehe knowhow/dashboard/automationen-funktionsweise.md fuer die volle
+Siehe docs/services/automations-how-it-works.md fuer die volle
 Semantik (Halte-/Hysterese-/Sperrzeit, Neustartverhalten, Sicherheit)."""
 
 from __future__ import annotations
@@ -666,7 +666,7 @@ class RuleRuntime:
 class Engine:
     """Ausgewertet wird jeder Tick fuer jede Regel neu; Zustand lebt nur in
     self._runtime (RAM, kein Neustart-ueberlebender Speicher - siehe
-    knowhow/dashboard/automationen-funktionsweise.md #Neustartverhalten)."""
+    docs/services/automations-how-it-works.md, Abschnitt 3)."""
 
     def __init__(self, executor: ActionExecutor, *, started_at: float, event_sink, history_sink=None):
         self.executor = executor

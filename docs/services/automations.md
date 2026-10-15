@@ -11,6 +11,10 @@ The rule engine runs as a process separate from the dashboard on purpose. The
 dashboard edits the rule file but never publishes a rule's action itself, so
 the web UI cannot switch a relay.
 
+[How it works](automations-how-it-works.md) explains when a rule fires, what
+its result means, how publish values are computed and which topics a rule may
+not write to.
+
 The engine subscribes to the balance the dashboard publishes on
 `outstation/energy_node/energy/balance` and to any MQTT topics the rules name.
 It evaluates the rules on a tick (`tick_interval_s`, default 10 s). There can be
@@ -54,5 +58,6 @@ Python service fails closed, so with an empty list no rule publishes anything.
 The dashboard fills in the prefixes when a rule is saved, but the service
 enforces them.
 
-Rule history (`history_limit`, `history_persist`) records the last triggers per
-rule so the dashboard can show why something switched.
+Rule history (`history_enabled` per rule, `history_limit`, `history_persist`)
+records the last triggers per rule so the dashboard can show why something
+switched.

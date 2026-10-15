@@ -49,7 +49,10 @@
           url: "services/battery-soc.md"
           children:
             - { label: "How it works", url: "services/battery-soc-how-it-works.md" }
-        - { label: "Automations engine", url: "services/automations.md" }
+        - label: "Automations engine"
+          url: "services/automations.md"
+          children:
+            - { label: "How it works", url: "services/automations-how-it-works.md" }
 
 - title: Operating
   items:
