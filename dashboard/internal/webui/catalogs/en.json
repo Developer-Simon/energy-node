@@ -708,7 +708,6 @@
   "devicemap.help_button_aria": "About the device map",
   "devicemap.help_text": "Arrange devices by drag and drop. Relationships (e.g. “connect as sub-device”) only change in connect mode and after explicit confirmation. Moving a device never changes a relationship. Click an existing connection to select it. If it was created manually, you can then disconnect it again.",
   "devicemap.layer.balance": "Roles",
-  "devicemap.layer.coming_soon": "Coming in a later version",
   "devicemap.layer.data": "Data flow",
   "devicemap.layer.energy": "Live energy",
   "devicemap.layer.wiring": "Wiring",

@@ -830,11 +830,19 @@ check "Eigenes Geraet energy_node ist ueber den Broker zurueckgekommen" \
   "any(d.get('id') == 'energy_node' for d in (data if isinstance(data, list) else data.get('devices', [])))" \
   "$BASE/api/v1/devices"
 if [[ "$(basename "$FIXTURE")" == "alle-funktionen.json" ]]; then
-  check "Datenfluss liefert Regeln und eine Bank-A-Kante" \
-    "any(n['virtual_id'].startswith('rule:') for n in data['nodes']) and any(e['details'].get('field') == 'bank_a_voltage_topic' for e in data['edges'])" \
+  check "Datenfluss liefert Regeln" \
+    "any(n['virtual_id'].startswith('rule:') for n in data['nodes'])" \
     "$BASE/api/v1/device/map/flows"
   check "Automations-Geraet fuehrt die Regeln aus" \
     "any(e['details'].get('kind') == 'executes' and e['from'].get('device_id') == 'automation' for e in data['edges'])" \
+    "$BASE/api/v1/device/map/flows"
+fi
+# Die Bank-A-Kante kommt aus battery_soc_devices.json mit bank_a_voltage_topic.
+# Die bringt nur fixtures/devices/alle-funktionen mit, docs-screenshots teilt
+# die Fixture, nicht die Geraete.
+if [[ " ${EXTRA_DEVICES[*]-} " == *" $HERE/fixtures/devices/alle-funktionen "* ]]; then
+  check "Datenfluss liefert eine Bank-A-Kante" \
+    "any(e['details'].get('field') == 'bank_a_voltage_topic' for e in data['edges'])" \
     "$BASE/api/v1/device/map/flows"
 fi
 if [[ -n "$THEME" ]]; then
