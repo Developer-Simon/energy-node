@@ -43,7 +43,7 @@ const (
 // Interpretation is the user-configurable half of DeriveBalance: it decides
 // how an unassigned power gap and the household load are read, on top of
 // the raw role values a Snapshot already carries. See
-// knowhow/dashboard/energie-interpretation.md for the full semantics.
+// docs/dashboard/energy.md for the user-facing semantics.
 //
 // SurplusThresholdW/ImportThresholdW belong to the Statuskarte
 // (energy_status layout item, see energy-status.js) rather than to

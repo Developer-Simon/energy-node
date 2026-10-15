@@ -78,7 +78,7 @@
   }
 
   // battery_soc only appears in snapshot.values when at least one entity
-  // carries a capacity_kwh (see energie-interpretation.md) - no key means no
+  // carries a capacity_kwh (see docs/dashboard/energy.md) - no key means no
   // configured storage, so the label stays empty rather than showing "0 %".
   // Rounded to a whole percent, same convention as energy-flow.js's battery
   // node text, so both graphics read consistently.

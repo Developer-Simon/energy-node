@@ -4,8 +4,8 @@ import "math"
 
 // Balance is the canonical energy-balance derivation, computed server-side
 // so the automation engine (Teil B) and all six dashboard tiles agree on
-// exactly the same numbers. See knowhow/dashboard/energie-interpretation.md
-// for the full semantics; this struct and DeriveBalance are its
+// exactly the same numbers. See docs/dashboard/energy.md
+// for what it means to the user; this struct and DeriveBalance are its
 // implementation. JS keeps a parametrized mirror (energy-model.js
 // deriveBalance()) only for history points reconstructed client-side from
 // IndexedDB - internal/energy/testdata/balance-cases.json is what keeps the

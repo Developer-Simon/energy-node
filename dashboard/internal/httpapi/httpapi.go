@@ -853,7 +853,7 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 			// Decoding into the stored config (not a zero value) means a body
 			// that omits "interpretation" entirely keeps the saved
 			// interpretation instead of resetting it - see
-			// knowhow/dashboard/energie-interpretation.md. Assignments is
+			// docs/developing/api.md. Assignments is
 			// reset to nil first so the map is fully replaced rather than
 			// merged, preserving the pre-existing full-replace semantics for
 			// role assignments. Categories and groups are replaced only when
