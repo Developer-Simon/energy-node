@@ -2,7 +2,7 @@
 // where it goes, a single KPI sits in the middle. Port of Vorschlag B from
 // the six-proposals exploration; its three layout-editor options (kpi,
 // label_mode, animate) are read from the layout item's data-* attributes,
-// see knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
+// see docs/dashboard/overview-cards.md.
 //
 // Unlike energy-flow.js, this card (like the other five) fully re-mounts on
 // every #overview-live refresh instead of patching an existing SVG in

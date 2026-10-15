@@ -27,6 +27,11 @@ every image on this page into `docs/images/`. Two images need their own run:
 - **Versions:** restart the first command with `--simulate-installed` instead
   of `--simulate-package`, then run
   `docs-screenshots.mjs dashboard-settings-versions`.
+- **Overview cards:** restart the first command with `--simulate` instead of
+  `--simulate-package`, then run `docs-screenshots.mjs --cards`. It adds a
+  layout page with one card of each type at its minimum width, records about
+  16 minutes of history (the battery trajectory needs 15) and writes
+  `dashboard-card-*.png`. The layout is restored afterwards.
 
 For a single screenshot of any page, `screenshot.mjs` is the simpler tool:
 

@@ -11,7 +11,7 @@
 // a restart or on a new device the plotted area is narrow - a known,
 // accepted consequence of not adding backend aggregation, and why the
 // prototype's "Zeitfenster" selector has no layout-editor equivalent (see
-// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md). The other
+// docs/dashboard/overview-cards.md). The other
 // two options (display_mode, show_now) are read from the layout item's
 // data-* attributes.
 (() => {
