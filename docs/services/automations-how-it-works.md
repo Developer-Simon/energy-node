@@ -1,0 +1,167 @@
+---
+title: "Automations engine: how it works"
+component: service:automation
+---
+
+# Automations engine: how it works
+
+This page explains how `services/automation/automation_mqtt.py` evaluates a
+rule, when it fires and what it refuses to do. It adds to the overview in
+[`automations.md`](automations.md). The editor is described in
+[Dashboard → Automations](../dashboard/automations.md).
+
+## 1. The result of a rule
+
+On every tick the service gives each rule exactly one result. The checks run in
+this order, and the first one that applies wins:
+
+| Result | Meaning |
+|---|---|
+| `disabled` | The rule is switched off. |
+| `settling` | The service started less than `settling_seconds` ago (default 60 s). Retained MQTT messages are still arriving, so nothing fires yet. |
+| `balance_stale` | A condition needs the energy balance, but the last one is older than `balance_max_age_s` (default 30 s) or none has arrived yet. |
+| `conditions_not_met` | At least one condition is not met right now. |
+| `fired` | The rule fired in this episode and its conditions still hold. It stays `fired` without publishing again. |
+| `cooldown` | The conditions hold again, but the lockout after the last trigger (`cooldown_seconds`) is still running. |
+| `hold_pending` | All conditions are met, but at least one has not held for its `hold_seconds` yet. |
+| `fired`, `blocked`, `error` | The rule fires now. The result is `blocked` if an action was refused (for example by `publish_allowed_prefixes`) and `error` if an action failed. |
+
+`balance_stale` only affects rules with a balance condition. Rules built on
+`topic_value`, `entity_value`, `time_window` or `sun_window` keep running when
+the dashboard stops publishing the balance.
+
+The dashboard shows these results as the state between conditions and actions,
+see [Dashboard → Automations](../dashboard/automations.md#reading-a-rule).
+
+## 2. When a rule fires
+
+All conditions of a rule are combined with AND. A rule fires once all of them
+are met and have held long enough.
+
+**Hysteresis** applies to `balance_threshold` conditions with `hysteresis`
+above 0. With `comparison: "above"` the condition turns on when the value rises
+above `threshold` and stays on until the value falls below
+`threshold − hysteresis`. With `below` it is mirrored. A hysteresis of 0 means
+a plain comparison.
+
+**Hold time** (`hold_seconds`) starts when a condition becomes true. As soon as
+the condition is false on a tick, the hold time starts over from zero.
+
+**Edge triggered.** A rule fires once per episode, not on every tick. An
+episode ends when one of its conditions is no longer met. Only then can the
+rule fire again.
+
+**Cooldown** (`cooldown_seconds`) starts each time the rule fires, also when an
+action failed. A failing publish therefore does not repeat on every tick.
+
+## 3. Restart and rejected rules
+
+The service keeps no evaluation state across a restart.
+
+- Nothing fires on boot. Hold times start counting after the restart, so a
+  condition with a 5 minute hold fires 5 minutes after the restart at the
+  earliest, even if it has been true for an hour.
+- The cooldown does not survive a restart either. Together with the settling
+  time, the first trigger comes after `max(hold_seconds, settling_seconds)` at
+  the earliest.
+- Rules that depend on the balance also wait for the first fresh balance.
+
+An invalid `automation_rules.json` never stops the process. If the file is
+invalid at start, the service runs with no rules, stays online and reports
+`runtime_status: "rejected"` with the reason. If a saved change is invalid, the
+service keeps running the previous rules and reports the same status. The
+dashboard shows the reason after saving.
+
+## 4. Values for publish actions
+
+A `publish` action takes its payload from one of four sources
+(`payload_source`):
+
+| Source | Payload |
+|---|---|
+| `constant` | `payload` as entered |
+| `balance` | a balance field (`field`) |
+| `topic` | a number from another topic (`source_topic`, optionally `source_json_key`) |
+| `toggle` | `payload_on` or `payload_off`, whichever is the opposite of the current state read from `source_topic` |
+
+For `balance` and `topic` the service computes
+
+```text
+value = clamp(floor_to_step(base × scale + offset), min, max)
+```
+
+and formats the result with `decimals`. Rounding to `step` always rounds down.
+A setpoint derived from the PV surplus must never end up above the surplus that
+is actually there.
+
+Example: charge a wallbox with the PV surplus minus 200 W, between 1380 W and
+11 kW.
+
+```json
+{"type": "publish", "topic": "wallbox/charge_power/set",
+ "payload_source": "balance", "field": "grid_export",
+ "scale": 1, "offset": -200, "min": 1380, "max": 11000, "step": 1, "decimals": 0}
+```
+
+The service only publishes a topic and a value. It knows nothing about
+entities. When the editor builds an action from an entity, it resolves the
+command topic and the limits itself and stores them in the rule.
+
+## 5. Safety rules
+
+The service refuses a rule file that breaks any of these rules:
+
+- A publish topic must not contain `+` or `#`, must have at least two segments
+  and no empty segment.
+- A publish topic must not start with `homeassistant/` (no fake discovery
+  configs) or `$SYS/`.
+- A publish topic must not be one of the dashboard's own topics: the balance
+  `outstation/energy_node/energy/balance`, `outstation/energy_node/status/online`,
+  `outstation/energy_node/state` and `outstation/energy_node/diagnostics`. The
+  `settings/` topics below `outstation/energy_node/` stay allowed.
+- A rule with a `publish` action needs `cooldown_seconds` of at least 30, and
+  every `hold_seconds` in it must be at least 30.
+- At most 16 rules, each with 1 to 8 conditions and 1 to 8 actions. Rule IDs
+  match `^[a-z0-9][a-z0-9_-]{0,63}$` and are unique.
+
+At run time a `publish` action is also checked against
+`publish_allowed_prefixes`. With an empty list, every publish is blocked and
+the rule reports `blocked` with the reason.
+
+## 6. Details of the conditions
+
+**Weekdays.** `weekdays` counts from `0` = Monday to `6` = Sunday. An empty
+list means every day.
+
+**Windows across midnight.** A `time_window` or `sun_window` belongs to the day
+it starts on. Only that day counts for `weekdays`. Equal start and end times
+give an empty window.
+
+**Sun windows.** A `sun_window` ends at the next `to` event after its start, so
+"sunset to sunrise" runs until sunrise the next morning. The offsets are whole
+minutes up to ±240. The service computes sunrise and sunset itself (NOAA
+method, accurate to about a minute). `settings.latitude` and
+`settings.longitude` are only valid together. Without them, or on a day without
+sunrise or sunset (polar day or night), the condition stays unmet.
+
+**Value templates.** `entity_value` stores the entity's state topic and value
+template in the rule, so the service never needs the device registry. The
+service understands the same subset of Home Assistant templates as the
+dashboard: plain fields, a nested path, the form `'ON' if … else 'OFF'` and the
+filters `| int`, `| default(0)` and `| timestamp_local`. A filter is only
+recognised with a space before the pipe. `{{ value_json.x|int }}` ignores the
+filter, `{{ value_json.x | int }}` applies it. An empty template uses the raw
+payload. The editor only offers entities whose template the service can read.
+
+## 7. Rule history
+
+Each rule can record its last triggers (`history_enabled`, off by default).
+The service writes an entry once per episode when the rule fires, and also for
+every test run, marked as a test. `settings.history_limit` (1 to 200, default
+10) caps the entries per rule, the oldest drop out first.
+
+With `settings.history_persist` set to `false` the history stays in memory
+only. The dashboard still shows it, but nothing is written to the SD card, and
+a restart clears it. The switch takes effect on the next reload without a
+restart. Entries of deleted rules, or of rules whose history was switched off,
+stay in the file.

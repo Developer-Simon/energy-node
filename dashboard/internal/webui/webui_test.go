@@ -641,7 +641,7 @@ func TestOverviewRendersCardStyleAndFlowScale(t *testing.T) {
 }
 
 // TestOverviewRendersSelectedEnergyGraphicCards covers the six alternative
-// energy-flow cards (energiegrafiken-sechs-varianten.md): each is a
+// energy-flow cards (docs/dashboard/overview-cards.md): each is a
 // singleton layout item type, same as energy_flow, and each card wrapper
 // renders only when it is the selected item - the dispatch chain in
 // overview.html's "overview-live" template, plus the corresponding

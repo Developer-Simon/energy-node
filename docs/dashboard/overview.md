@@ -28,6 +28,7 @@ diagram of the site with the live power on each leg.
 
 All cards work only from MQTT Discovery data and the role assignment on the
 Energy tab. None of them is hard-coded to a particular device.
+[Overview cards](overview-cards.md) describes every card and its options.
 
 ## The layout editor
 
@@ -38,21 +39,8 @@ pages and pick new blocks from the panel on the right. The picker has the tabs
 **cards**, **devices** and **entities**, so one layout page can mix computed
 energy cards with a raw device tile or a single measured value.
 
-| Block | Layout type | What it shows |
-|---|---|---|
-| Energy: status card | `energy_status` | Situation, thresholds, data quality |
-| Energy: energy flow | `energy_flow` | Animated flow graph |
-| Energy: self-sufficiency ring | `energy_ring` | Coverage/use ring |
-| Energy: system diagram | `energy_schema` | Plant diagram |
-| Energy: balance band | `energy_band` | Balance over time as a band |
-| Energy: day band | `energy_day` | The day's curve |
-| Energy: data board | `energy_board` | The balance as a plain number board |
-| Battery: status card | `battery_status` | Charge column or projection |
-| History | `history_view` | Chart of a saved history view |
-| Diagnostics | `diagnostics` | Health summary of all devices |
-| Value card | `entity_value` | One entity as a large value |
-| Entity list | `entity_group` | Several entities in one card |
-| (Devices tab) | `device` | A full device tile with its controls |
+[Overview cards](overview-cards.md) lists every block with its options,
+defaults and minimum width.
 
 The editor can preview the layout at phone, tablet or monitor width. Layouts
 are versioned. Every save is a revision you can restore.

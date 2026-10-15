@@ -7,7 +7,7 @@
 // ImportThresholdW, embedded on the snapshot) instead of the layout item;
 // beam_span and show_advice are ordinary layout-editor options, read from
 // the item's data-* attributes. See
-// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
+// docs/dashboard/overview-cards.md.
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
   const tn = (key, n, params) => (window.I18n ? window.I18n.tn(key, n, params) : key);

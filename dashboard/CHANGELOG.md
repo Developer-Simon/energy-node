@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.16 (2026-10-15)
+## v0.9.17 (2026-10-15)
 
 ### Features
 
@@ -56,14 +56,16 @@
 
 ### Refactors
 
+- **dashboard:** remove unused Tippy.js and Popper.js (#139) (8f2318c)
 - **dashboard:** drop the unused Tippy.js and Popper.js bundles (dfc102e)
 - **dashboard:** reword the base.css tooltip comment (7856e87)
-- **dashboard:** remove unused Tippy.js and Popper.js (#139)
 - **dashboard:** drop the global structure fingerprints (c71a352)
 - **registryevents:** build and deliver SSE bodies per topic (dc7ddea)
 
 ### Documentation
 
+- **dashboard:** document every overview card with screenshots (9598253)
+- **automations:** explain rule evaluation and document guest roles (#140)
 - **dashboard:** drop Tippy.js and Popper.js from notices, manifest and docs (4761345)
 - **dashboard:** MQTT tab metrics select and bridge step list (81d3985)
 - **release:** document the per-version changelog (865f72a)

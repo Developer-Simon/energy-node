@@ -3,7 +3,7 @@
 // sparkline. Port of Vorschlag C from the six-proposals exploration; its
 // four layout-editor options (sort, spark_window, dense, show_inactive) are
 // read from the layout item's data-* attributes, see
-// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
+// docs/dashboard/overview-cards.md.
 //
 // Sparklines read real samples via window.dashboardHistorizer.readSamples()
 // (the role:<role> pseudo-entities history-recorder.js now also records),

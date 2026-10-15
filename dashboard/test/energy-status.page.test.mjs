@@ -3,7 +3,7 @@
 // six-proposals exploration. Two of its four prototype options
 // (Überschuss-/Netzbezug-Schwelle) moved to the Energie-Einstellungen
 // (Interpretation.SurplusThresholdW/ImportThresholdW) instead of the layout
-// editor - see knowhow/dashboard/energiegrafiken-konfiguration-backlog.md -
+// editor - see docs/dashboard/overview-cards.md -
 // so these pure functions take thresholds as a plain argument rather than
 // reading a snapshot; beam_span and show_advice are covered at the
 // component level further down.

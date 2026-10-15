@@ -3,7 +3,7 @@
 // branch. Port of Vorschlag E from the six-proposals exploration; its
 // layout-editor options (stroke_mode, entity_labels, hide_inactive,
 // display_size, animate) are read from the layout item's data-* attributes,
-// see knowhow/dashboard/energiegrafiken-konfiguration-backlog.md. Entity IDs
+// see docs/dashboard/overview-cards.md. Entity IDs
 // for "Leistung + Entität" come from Snapshot.Sources (role -> entity
 // unique_id list), already present on the embedded snapshot; "base" (übrige
 // Verbraucher) has no single source entity - it is load minus wallbox minus

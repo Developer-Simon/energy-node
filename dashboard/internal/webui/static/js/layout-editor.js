@@ -260,7 +260,7 @@
 
   // Konfigurationsoptionen der sechs Energiegrafiken-Alternativen plus
   // energy_flow's Animationsgeschwindigkeit-Referenz (siehe
-  // knowhow/dashboard/energiegrafiken.md). Eine einzige Tabelle ist die
+  // docs/dashboard/overview-cards.md). Eine einzige Tabelle ist die
   // Wahrheit ueber role<->camelCase-Feld<->snake_case-JSON-Name<->
   // Steuerungsart - toGridNode/fromGridNode, handleWidgetChange, load() und
   // save() lesen alle aus ihr statt 20 Felder von Hand zu wiederholen.

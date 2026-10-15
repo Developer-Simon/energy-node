@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.5.2 (2026-10-15)
+
+### Documentation
+
+- **automations:** explain rule evaluation and document guest roles (#140)
+
 ## v0.5.1 (2026-10-12)
 
 ### Features
