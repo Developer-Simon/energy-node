@@ -216,10 +216,12 @@
       }
     },
 
-    // Rollen (Wallbox, Waermepumpe) nutzen die gemeinsamen Rollenbezeichnungen,
-    // eigene Kategorien bringen ihr Label selbst mit. Die Schluessel stehen
-    // literal da, damit der Katalog-Test sie findet.
+    // Hauslasten, Wallbox und Waermepumpe nutzen feste Bezeichnungen, eigene
+    // Kategorien bringen ihr Label selbst mit. Die Schluessel stehen literal
+    // da, damit der Katalog-Test sie findet.
     energySensorLabel(option) {
+      if (option.role === 'house_load_measured') return t('mqtt.energy_sensors.house_load_measured');
+      if (option.role === 'house_load_calculated') return t('mqtt.energy_sensors.house_load_calculated');
       if (option.role === 'wallbox') return t('energy.role_label.wallbox');
       if (option.role === 'heat_pump') return t('energy.role_label.heat_pump');
       // Eigene Kategorie ohne Label: die ID nach dem Praefix custom_ zeigen.

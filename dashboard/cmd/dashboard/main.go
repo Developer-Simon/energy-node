@@ -710,8 +710,8 @@ func buildBalancePayload(reg *registry.Registry, resolver *energy.Resolver, now 
 }
 
 // desiredOptionalSensors nennt die optionalen Sensoren, die zur Anlage
-// passen: Wallbox und Waermepumpe, sobald eine Quelle zugeordnet ist, und
-// jede Kategorie mit zugeordneter Quelle.
+// passen: Hauszaehler (beide Hauslasten), Wallbox und Waermepumpe, sobald
+// eine Quelle zugeordnet ist, und jede Kategorie mit zugeordneter Quelle.
 func desiredOptionalSensors(snapshot energy.Snapshot) []energydiscovery.OptionalSensor {
 	var categories []energydiscovery.CategoryInput
 	for id, category := range snapshot.Categories {
@@ -725,6 +725,7 @@ func desiredOptionalSensors(snapshot energy.Snapshot) []energydiscovery.Optional
 		})
 	}
 	return energydiscovery.OptionalSensors(
+		len(snapshot.Sources[energy.RoleLoad]) > 0,
 		len(snapshot.Sources[energy.RoleWallbox]) > 0,
 		len(snapshot.Sources[energy.RoleHeatPump]) > 0,
 		categories,
