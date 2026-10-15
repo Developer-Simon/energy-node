@@ -64,6 +64,7 @@
 
 ### Documentation
 
+- **dashboard:** document every overview card with screenshots (9598253)
 - **automations:** explain rule evaluation and document guest roles (#140)
 - **dashboard:** drop Tippy.js and Popper.js from notices, manifest and docs (4761345)
 - **dashboard:** MQTT tab metrics select and bridge step list (81d3985)
