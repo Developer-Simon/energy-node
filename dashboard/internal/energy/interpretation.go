@@ -10,8 +10,9 @@ import (
 // that survives GapToleranceW/GapTolerancePercent.
 type GapMode string
 
-// LoadMode controls whether Balance.LoadTotal comes from a measured "load"
-// role, is calculated from the other roles, or picks whichever is available.
+// LoadMode controls where Balance.LoadTotal comes from: the balance of the
+// other roles (calculated), the house meter role "load" (measured), or the
+// calculation with the meter as cross-check and fallback (auto).
 type LoadMode string
 
 // ToleranceMode selects whether GapToleranceW is read directly or derived
@@ -24,14 +25,16 @@ const (
 
 	LoadModeMeasured   LoadMode = "measured"
 	LoadModeCalculated LoadMode = "calculated"
-	LoadModeAuto       LoadMode = "auto"
-	// LoadModeCombined rechnet den Hausverbrauch wie LoadModeCalculated aus
-	// der Bilanz, trennt aber die ueber die Rolle "load" gemessenen
-	// Teilverbraucher als eigene Position (Balance.LoadMeasured) vom
-	// "Uebrigen Verbrauch" ab. Die Rolle "load" bedeutet in diesem Modus
-	// *gemessener Teilverbraucher*, nicht *Hausverbrauch gesamt* - ein
-	// Hauszaehler dort wuerde doppelt zaehlen.
-	LoadModeCombined LoadMode = "combined"
+	// LoadModeAuto ist der Standard: Hausverbrauch aus der Bilanz, die
+	// gemessenen Teilverbraucher (Wallbox, Waermepumpe, Kategorien) werden
+	// abgezogen. Ein Hauszaehler (Rolle "load") ist nur Pruefwert und
+	// springt ein, wenn keine Netzrolle zugeordnet ist.
+	LoadModeAuto LoadMode = "auto"
+	// LegacyLoadModeCombined ist der bis 2026-10 gueltige vierte Modus, in
+	// dem "load" einen gemessenen Teilverbraucher meinte. Er steht nur noch
+	// in alten energy.json. settings.migrateCombinedLoadMode baut ihn beim
+	// Laden um, Validate lehnt ihn ab.
+	LegacyLoadModeCombined LoadMode = "combined"
 
 	ToleranceModeAbsolute ToleranceMode = "absolute"
 	ToleranceModePercent  ToleranceMode = "percent"
@@ -116,6 +119,9 @@ func (i Interpretation) Normalized() Interpretation {
 	if i.LoadMode == "" {
 		i.LoadMode = d.LoadMode
 	}
+	if i.LoadMode == LegacyLoadModeCombined {
+		i.LoadMode = LoadModeAuto
+	}
 	if i.GapToleranceMode == "" {
 		i.GapToleranceMode = d.GapToleranceMode
 	}
@@ -147,7 +153,7 @@ func (i Interpretation) Validate() error {
 		return fmt.Errorf("energy: unknown gap_mode %q", i.GapMode)
 	}
 	switch i.LoadMode {
-	case LoadModeMeasured, LoadModeCalculated, LoadModeAuto, LoadModeCombined:
+	case LoadModeMeasured, LoadModeCalculated, LoadModeAuto:
 	default:
 		return fmt.Errorf("energy: unknown load_mode %q", i.LoadMode)
 	}

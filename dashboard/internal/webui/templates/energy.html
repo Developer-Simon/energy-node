@@ -9,12 +9,20 @@
   </h2>
 
   <div class="energy-notices" role="region" aria-label="{{t "energy.roles.notices.label"}}">
-    <p class="message" role="status" x-cloak x-show="showMeasuredWarning" x-transition.opacity>{{t "energy.roles.notices.measured_warning"}}</p>
-    <p class="message" role="status" x-cloak x-show="showCombinedWithoutLoadWarning" x-transition.opacity>{{t "energy.roles.notices.combined_warning"}}</p>
-    <p class="message" role="status" x-cloak x-show="showSocCapacityWarning" x-transition.opacity x-text="socCapacityWarning"></p>
-    <div class="energy-unassigned" x-show="unassignedCount > 0" x-cloak x-transition.opacity>
-      <p><strong x-text="unassignedCount"></strong> {{t "energy.roles.unassigned_notice"}}</p>
-      <ul><template x-for="entity in unassigned" x-bind:key="entity.entity_id"><li x-text="`${entity.name || entity.entity_id}: ${Math.round(entity.value)} ${entity.unit}`"></li></template></ul>
+    <p class="energy-notice" role="status" x-cloak x-show="showMeasuredWarning" x-transition.opacity>
+      <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
+      <span class="energy-notice-body">{{t "energy.roles.notices.measured_warning"}}</span>
+    </p>
+    <p class="energy-notice" role="status" x-cloak x-show="showSocCapacityWarning" x-transition.opacity>
+      <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-warning"></use></svg>
+      <span class="energy-notice-body" x-text="socCapacityWarning"></span>
+    </p>
+    <div class="energy-notice energy-unassigned" x-show="unassignedCount > 0" x-cloak x-transition.opacity>
+      <svg class="energy-notice-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
+      <div class="energy-notice-body">
+        <p><strong x-text="unassignedCount"></strong> {{t "energy.roles.unassigned_notice"}}</p>
+        <ul><template x-for="entity in unassigned" x-bind:key="entity.entity_id"><li x-text="`${entity.name || entity.entity_id}: ${Math.round(entity.value)} ${entity.unit}`"></li></template></ul>
+      </div>
     </div>
   </div>
 
@@ -43,14 +51,17 @@
           <div class="energy-interpretation-group">
             <span class="energy-interpretation-head"><span class="energy-interpretation-label">{{t "energy.role.consumption"}}</span></span>
             <div class="radio-card-group energy-load-modes" role="radiogroup" aria-label="{{t "energy.role.consumption"}}">
-              <label class="radio-card"><input type="radio" name="load-mode" value="measured" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.measured_label"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.measured_desc"}}</span></span></label>
-              <label class="radio-card"><input type="radio" name="load-mode" value="calculated" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.calculated_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.calculated_desc"}}</span></span></label>
-              <label class="radio-card"><input type="radio" name="load-mode" value="combined" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.combined_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.combined_desc"}}</span></span></label>
               <label class="radio-card"><input type="radio" name="load-mode" value="auto" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.auto_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.auto_desc"}}</span></span></label>
+              <label class="radio-card"><input type="radio" name="load-mode" value="calculated" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.roles.load_mode.calculated_title"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.calculated_desc"}}</span></span></label>
+              <label class="radio-card"><input type="radio" name="load-mode" value="measured" x-model="interpretation.load_mode"><span class="radio-card-body"><span class="radio-card-title">{{t "energy.measured_label"}}</span><span class="radio-card-desc">{{t "energy.roles.load_mode.measured_desc"}}</span></span></label>
             </div>
             <p class="energy-mode-note" x-cloak x-show="loadModeNote" x-transition.opacity>
               <svg class="energy-mode-note-icon" aria-hidden="true"><use href="#ico-help"></use></svg>
               <span x-text="loadModeNote"></span>
+            </p>
+            <p class="energy-mode-note energy-load-status" x-cloak x-show="loadStatus" role="status">
+              <svg class="energy-mode-note-icon" aria-hidden="true"><use href="#ico-info"></use></svg>
+              <span x-text="loadStatus"></span>
             </p>
           </div>
 

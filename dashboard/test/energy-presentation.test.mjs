@@ -80,7 +80,7 @@ test('animatable sammelt jede Zahl aus values und jede Menge aus der Bilanz', ()
     balance: { pv: 1200, base: 500, autarkie: 0.75, load_total: 900, load_measured: 400, load_source: 'measured' },
   });
   assert.deepEqual([...targets.keys()].sort(), [
-    'balance.autarkie', 'balance.base', 'balance.load_measured', 'balance.load_total', 'balance.pv',
+    'balance.autarkie', 'balance.base', 'balance.load_total', 'balance.pv',
     'values.grid', 'values.pv',
   ]);
   assert.equal(targets.get('values.pv'), 1200);

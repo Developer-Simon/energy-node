@@ -1,0 +1,5 @@
+{
+  "de": {
+    "*": "Der Lastmodus Automatisch rechnet den Hausverbrauch jetzt immer aus der Bilanz, ein Hauszähler dient als Kontrolle. Eine Statuszeile auf der Energie-Seite zeigt Quelle, Rückfall und Zählerabweichung, und Home Assistant erhält gemessene und berechnete Hauslast als eigene Sensoren."
+  }
+}

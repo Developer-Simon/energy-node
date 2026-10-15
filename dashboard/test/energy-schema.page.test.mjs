@@ -297,23 +297,6 @@ test('batterySocLabel reads the battery_soc role, formats it as a percentage and
   assert.deepEqual(plain(factory.batterySocLabel({values: {}, roles: []})), {label: '', stale: false});
 });
 
-test('das Anlagenschema bekommt im Kombiniert-Modus einen vierten Zweig rechts', () => {
-  const { factory } = load();
-  const ohne = factory.branchesFor(false).filter(b => b.side === 'right').map(b => b.id);
-  const mit = factory.branchesFor(true).filter(b => b.side === 'right').map(b => b.id);
-  assert.equal(ohne.length, 3, 'without measured: should have 3 branches');
-  assert.equal(ohne[0], 'wallbox');
-  assert.equal(ohne[1], 'heat_pump');
-  assert.equal(ohne[2], 'base');
-  assert.equal(mit.length, 4, 'with measured: should have 4 branches');
-  assert.equal(mit[0], 'wallbox');
-  assert.equal(mit[1], 'heat_pump');
-  assert.equal(mit[2], 'load_measured');
-  assert.equal(mit[3], 'base');
-  // Kein Kasten darf unter die Sammelschiene rutschen (BUS_BOT 312, Kastenhoehe 46).
-  for (const branch of factory.branchesFor(true)) assert.ok(branch.y + 23 <= 312, branch.id);
-});
-
 // --- Der ganze Alpine-Baustein: init()/recompute() ------------------------
 
 function cardMarkup(initialSnapshot, dataAttrs) {

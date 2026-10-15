@@ -47,7 +47,6 @@
       battery_discharge: model.COLORS.batteryDischarge,
       grid_import: model.COLORS.gridImport,
       base: model.COLORS.base,
-      load_measured: model.COLORS.loadMeasured,
       wallbox: model.COLORS.wallbox,
       heat_pump: model.COLORS.heatPump,
       grid_export: model.COLORS.gridExport,
@@ -57,16 +56,12 @@
   }
 
   const SUPPLY_KEYS = ['pv', 'battery_discharge', 'grid_import', 'rest'];
-  // load_measured steht direkt hinter base: beide zusammen sind der
-  // Hausverbrauch ohne Wallbox und Waermepumpe. Immer die Sammelposition -
-  // der Verlaufsspeicher kennt nur Rollensummen, keine Entitaetswerte, eine
-  // Aufteilung je Entitaet ist hier also gar nicht rekonstruierbar.
-  const DEMAND_KEYS = ['base', 'load_measured', 'wallbox', 'heat_pump', 'grid_export', 'battery_charge', 'rest'];
+  const DEMAND_KEYS = ['base', 'wallbox', 'heat_pump', 'grid_export', 'battery_charge', 'rest'];
   // Same role vocabulary as energy-model.js's LABELS (getters, evaluated at
   // access time so a language switch is picked up on the next paint), keyed
   // here by the snake_case Balance field name instead of camelCase.
   // i18n-keys: energy.role.battery_discharge, energy.role.grid_import,
-  // energy.role.unassigned, energy.role.base, energy.role.load_measured,
+  // energy.role.unassigned, energy.role.base,
   // energy.role.wallbox, energy.role.heat_pump, energy.role.grid_export,
   // energy.role.battery_charge
   const LABEL_KEYS = {
@@ -74,7 +69,6 @@
     grid_import: 'energy.role.grid_import',
     rest: 'energy.role.unassigned',
     base: 'energy.role.base',
-    load_measured: 'energy.role.load_measured',
     wallbox: 'energy.role.wallbox',
     heat_pump: 'energy.role.heat_pump',
     grid_export: 'energy.role.grid_export',
@@ -114,7 +108,7 @@
           rest: restSupply,
         },
         demand: {
-          base: balance.base, load_measured: balance.measured, wallbox: balance.wallbox, heat_pump: balance.heatPump,
+          base: balance.base, wallbox: balance.wallbox, heat_pump: balance.heatPump,
           grid_export: balance.gridExport, battery_charge: balance.charge, rest: restDemand,
         },
       };

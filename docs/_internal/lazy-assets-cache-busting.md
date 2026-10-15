@@ -87,8 +87,8 @@ As of **2026-10-15**, read from `base.html` and `overview.html`. "–" means: no
 | `js/device-tile-values.js` | `1` |
 | `js/compact-card-values.js` | `1` |
 | `js/device-structure.js` | `1` (new, device tiles) |
-| `js/energy-presentation.js` | `1` |
-| `js/energy-flow.js` | `2` |
+| `js/energy-presentation.js` | `2` |
+| `js/energy-flow.js` | `3` |
 | `js/history-rollup.js` | `3` |
 | `js/history-store.js` | `5` |
 | `js/history-coverage.js` | `4` |
@@ -108,11 +108,12 @@ As of **2026-10-15**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `js/energy-model.js` | `3` |
+| `js/energy-model.js` | `4` |
 | `js/battery-card-core.js` | `4` |
 | `js/battery-status.js` | `2` |
-| `js/energy-day.js` | `2` |
-| `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js`, `js/energy-status.js` | `1` |
+| `js/energy-day.js` | `3` |
+| `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js` | `2` |
+| `js/energy-status.js` | `1` |
 | `js/energy-stats-model.js` | `2` |
 | `js/energy-stats-card.js` | `3` |
 | `js/history-chart.js` | `5` |
@@ -128,14 +129,14 @@ skips scripts already present as `<script src>`.
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | – | – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `13`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `35` |
-| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `9` | `css/manager.css` `35` |
+| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `10` | `css/manager.css` `35` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `24` | `css/manager.css` `35` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `22`, `js/mqtt.page.js` `9`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `22`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `11` | `css/manager.css` `35`, `css/automations.css` `6` |
-| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `3` | `css/history.css` `7`, `css/stats.css` `2` |
+| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `3` | `css/history.css` `7`, `css/stats.css` `2` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -150,7 +151,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `16` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `17` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
@@ -282,7 +283,7 @@ recomputable.
 | v0.8.5 | `js/history-exchange.js` · `js/settings.page.js` | `3` · `13` | 2026-10-04 |
 | v0.8.4 | `js/versions.page.js` | `2` | 2026-10-04 |
 | v0.8.3 | `js/dashboard.js` | `23` | 2026-10-01 |
-| v0.8.2 | `js/energy-flow.js` | `2` | 2026-10-01 |
+| v0.8.2 | `js/energy-flow.js` | `3` | 2026-10-01 |
 | v0.8.0 | `js/config.page.js` · `js/history.js` | `7` · `13` | 2026-09-28 |
 | v0.7.23 | `js/versions.page.js` (new) · `js/settings.page.js` · `css/settings-controls.css` | `1` · `12` · `8` | 2026-09-28 |
 | v0.7.22 | `js/dashboard.js` · `js/mqtt.page.js` | `22` · `7` | 2026-09-28 |

@@ -47,20 +47,6 @@
     branch('base', 'right', 276, 'energy.schema.branch.base'),
   ];
 
-  // Vier Kaesten a 46px zwischen BUS_TOP (92) und BUS_BOT (312): 122/176/230/284
-  // laesst 8px Luft zwischen den Kaesten und endet bei 307, knapp ueber der
-  // Sammelschienen-Unterkante.
-  const BRANCHES_WITH_MEASURED = [
-    branch('pv', 'left', 122, 'energy.schema.branch.pv'),
-    branch('battery', 'left', 246, 'energy.schema.branch.battery'),
-    branch('wallbox', 'right', 122, 'energy.role.wallbox'),
-    branch('heat_pump', 'right', 176, 'energy.role.heat_pump'),
-    branch('load_measured', 'right', 230, 'energy.role.load_measured'),
-    branch('base', 'right', 284, 'energy.schema.branch.base'),
-  ];
-
-  const branchesFor = hasMeasured => (hasMeasured ? BRANCHES_WITH_MEASURED : BRANCHES);
-
   function clamp(min, value, max) {
     return Math.min(Math.max(value, min), max);
   }
@@ -88,7 +74,6 @@
       wallbox: {value: balance.wallbox, dir: 'out'},
       heat_pump: {value: balance.heatPump, dir: 'out'},
       base: {value: balance.base, dir: 'out'},
-      load_measured: {value: balance.measured, dir: 'out'},
     };
   }
 
@@ -120,7 +105,6 @@
   function branchEntities(snapshot, branchID) {
     const sources = (snapshot && snapshot.sources) || {};
     if (branchID === 'base') return null;
-    if (branchID === 'load_measured') return sources.load || [];
     if (branchID === 'battery') return [...(sources.battery || []), ...(sources.battery_charge || []), ...(sources.battery_discharge || [])];
     return sources[branchID] || [];
   }
@@ -376,14 +360,14 @@
         const model = window.EnergyModel;
         if (!this.snapshot) return;
         const balance = model.balanceOf(this.snapshot);
-        const branchDefs = branchesFor(balance.measured > 0.5);
+        const branchDefs = BRANCHES;
         const values = branchValues(this.snapshot, balance);
         const peak = Math.max(...Object.values(values).map(v => v.value), balance.gridImport, balance.gridExport, 1);
         const staleRoles = {
           pv: ['pv'], battery: ['battery', 'battery_charge', 'battery_discharge'],
-          wallbox: ['wallbox'], heat_pump: ['heat_pump'], load_measured: ['load'], base: ['load'],
+          wallbox: ['wallbox'], heat_pump: ['heat_pump'], base: ['load'],
         };
-        const colorFor = {pv: model.COLORS.pv, battery: model.COLORS.batteryCharge, wallbox: model.COLORS.wallbox, heat_pump: model.COLORS.heatPump, load_measured: model.COLORS.loadMeasured, base: model.COLORS.base};
+        const colorFor = {pv: model.COLORS.pv, battery: model.COLORS.batteryCharge, wallbox: model.COLORS.wallbox, heat_pump: model.COLORS.heatPump, base: model.COLORS.base};
         const theme = window.DashboardTheme.colors({bad: 'bad', line: 'border'});
         const soc = batterySocLabel(this.snapshot);
         const withEntities = this.options.entityLabels === 'entity';
@@ -454,7 +438,6 @@
   };
 
   energySchemaCard.BRANCHES = BRANCHES;
-  energySchemaCard.branchesFor = branchesFor;
   energySchemaCard.branchValues = branchValues;
   energySchemaCard.branchEntities = branchEntities;
   energySchemaCard.widthFor = widthFor;

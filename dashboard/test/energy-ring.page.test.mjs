@@ -208,21 +208,6 @@ test('outerArcPath starts on the outer radius, same as annulusPath', () => {
   assert.ok(Math.abs(dist - outer) < 0.01);
 });
 
-test('der Bilanzring uebernimmt measured_split aus dem data-Attribut der Kachel', () => {
-  const { factory, document } = load();
-  document.body.innerHTML = `
-    <div data-layout-item-id="energy-ring" data-measured-split="entities">
-      <section id="energy-ring-card">
-        <script type="application/json" id="energy-ring-initial">${JSON.stringify({values: {pv: 3000, load: 900, wallbox: 500}, roles: [], interpretation: {load_mode: 'combined'}})}</script>
-      </section>
-    </div>
-  `;
-  const component = factory();
-  component.$root = document.querySelector('#energy-ring-card');
-  component.init();
-  assert.equal(component.options.measuredSplit, 'entities');
-});
-
 // Die Leseliste ordnet sich nach Groesse um, der Ring bleibt in seiner festen
 // fachlichen Reihenfolge stehen - dort ist der Ort eines Segments etwas, das
 // man sich merkt.

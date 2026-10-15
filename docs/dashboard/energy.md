@@ -24,10 +24,21 @@ to jump to its card.
 
 | Mode | House consumption is |
 |---|---|
-| Measured | the entity with the role House consumption |
-| Calculated | PV + grid import + discharging − feed-in − charging |
-| Combined | calculated, measured consumers shown separately |
-| Automatic (default) | measured if available, otherwise calculated |
+| Automatic (default) | PV + grid import + discharging − feed-in − charging. A house meter is a cross-check and is used when no grid role is assigned |
+| Calculated | always the calculation, a house meter is only compared |
+| Measured | the house meter |
+
+In every mode, wallbox, heat pump and custom consumer categories are
+subtracted from house consumption. What is left is shown as remaining
+consumption. A line below the modes tells where house consumption currently
+comes from and whether the house meter matches the calculation.
+
+The role House meter always means the whole house. Metered sub-consumers belong
+in a custom consumer category. Setups that used the former Combined mode were
+converted automatically: every entity with the old role became its own
+consumer category named after the entity. Rename them under Custom categories.
+An entity that only got the role by name detection (not saved) is treated as
+house meter afterwards. If the status line reports a deviation, check it.
 
 Below that: whether a remaining gap counts as house consumption, the tolerance,
 the surplus and grid import thresholds of the status card and the battery
@@ -38,7 +49,7 @@ reserve.
 ![Energy roles](../images/dashboard-energy-roles.png)
 
 Every power and charge entity gets a role such as PV, grid, battery, house
-consumption, wallbox, heat pump or a custom category. Entities sharing a role
+meter, wallbox, heat pump or a custom category. Entities sharing a role
 are summed. The tiles show each role with its value and whether it is fresh and
 live. Power values without a role are listed at the top of the tab, because
 they are the usual reason a balance does not add up.

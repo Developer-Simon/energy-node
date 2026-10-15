@@ -53,7 +53,7 @@ test('deriveBalance derives grid import/export from a signed combined grid role'
 test('deriveBalance subtracts wallbox/heat_pump from load to get "base"', () => {
   const model = loadEnergyModel();
   const snapshot = {values: {pv: 180, load: 8290, wallbox: 7400, heat_pump: 350, grid: 7810}, roles: []};
-  const balance = model.deriveBalance(snapshot);
+  const balance = model.deriveBalance(snapshot, {load_mode: 'measured'});
   const base = balance.sinks.find(f => f.id === 'base');
   assert.ok(base);
   assert.equal(Math.round(base.value), 540);
@@ -65,7 +65,7 @@ test('deriveBalance adds a "rest" entry when sources and sinks do not balance in
   // gap = 4040 - 3100 = 940, added to the sinks side as "nicht zugeordnet" - only happens in
   // diagnostic mode; the new unknown_consumer default folds it into "base" instead (see below).
   const snapshot = {values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []};
-  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic'});
+  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic', load_mode: 'measured'});
   const rest = balance.sinks.find(f => f.id === 'rest');
   assert.ok(rest);
   assert.equal(rest.rest, true);
@@ -77,7 +77,7 @@ test('deriveBalance adds a "rest" entry when sources and sinks do not balance in
 test('deriveBalance folds the gap into "base" under the unknown_consumer default instead of a "rest" entry', () => {
   const model = loadEnergyModel();
   const snapshot = {values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []};
-  const balance = model.deriveBalance(snapshot);
+  const balance = model.deriveBalance(snapshot, {load_mode: 'measured'});
   assert.equal(balance.sinks.find(f => f.id === 'rest'), undefined);
   assert.equal(balance.unbalanced, false);
   assert.equal(balance.gapAbsorbed, 940);
@@ -100,7 +100,7 @@ test('deriveBalance computes autarkie/eigen KPIs in diagnostic mode', () => {
   // (diagnostic mode leaves load_total untouched by the 150 W gap this
   // snapshot has - unknown_consumer would absorb it and change autarkie).
   const snapshot = {values: {pv: 1000, load: 1000, grid_import: 250, grid_export: 100}, roles: []};
-  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic'});
+  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic', load_mode: 'measured'});
   assert.equal(Math.round(balance.kpi.autarkie * 100), 75);
   assert.equal(Math.round(balance.kpi.eigen * 100), 90);
 });
@@ -191,7 +191,7 @@ test('balanceOf prefers the server-computed balance even when it is deliberately
 
 test('balanceOf falls back to the JS mirror when a snapshot carries no server balance', () => {
   const model = loadEnergyModel();
-  const snapshot = {values: {pv: 1000, load: 1000, grid_import: 250, grid_export: 100}, interpretation: {gap_mode: 'diagnostic'}};
+  const snapshot = {values: {pv: 1000, load: 1000, grid_import: 250, grid_export: 100}, interpretation: {gap_mode: 'diagnostic', load_mode: 'measured'}};
   const balance = model.balanceOf(snapshot);
   assert.equal(Math.round(balance.kpi.autarkie * 100), 75);
 });
@@ -283,83 +283,6 @@ test('load_mode "measured" ohne Hausverbrauchsrolle meldet das im Verlauf ehrlic
   assert.equal(balance.loadSource, 'missing');
 });
 
-test('deriveBalanceCore trennt im Kombiniert-Modus den gemessenen Verbrauch vom Rest', () => {
-  const model = loadEnergyModel();
-  const snapshot = {values: {pv: 3000, load: 900, wallbox: 500}, roles: []};
-  const n = model.deriveBalanceCore(snapshot, {load_mode: 'combined'});
-  assert.equal(n.load_source, 'combined');
-  assert.equal(n.load_total, 3000);
-  assert.equal(n.load_measured, 900);
-  assert.equal(n.base, 1600);
-  assert.ok(Math.abs(n.gap_raw) < 1e-9);
-});
-
-test('composeBalance zeigt den gemessenen Verbrauch standardmaessig als eine Sammelposition', () => {
-  const model = loadEnergyModel();
-  const snapshot = {values: {pv: 3000, load: 900, wallbox: 500}, roles: []};
-  const balance = model.deriveBalance(snapshot, {load_mode: 'combined'});
-  const ids = JSON.parse(JSON.stringify(balance.sinks.map(f => f.id))).sort();
-  assert.deepEqual(ids, ['base', 'load_measured', 'wallbox'].sort());
-  const measured = balance.sinks.find(f => f.id === 'load_measured');
-  assert.equal(measured.value, 900);
-  assert.equal(measured.label, 'Gemessene Verbraucher');
-  assert.equal(balance.measured, 900);
-});
-
-test('measured_split "entities" zerlegt den gemessenen Verbrauch in eine Position je load-Entitaet', () => {
-  const model = loadEnergyModel();
-  const snapshot = {
-    values: {pv: 3000, load: 900, wallbox: 500},
-    roles: [],
-    entities: [
-      {entity_id: 'werkstatt_power', label: 'Werkstatt / Leistung', value: 520, role: {role: 'load'}},
-      {entity_id: 'waschmaschine_power', label: 'Waschmaschine / Leistung', value: 380, role: {role: 'load'}},
-      {entity_id: 'wallbox_power', label: 'Wallbox / Ladeleistung', value: 500, role: {role: 'wallbox'}},
-    ],
-  };
-  const balance = model.deriveBalance(snapshot, {load_mode: 'combined'}, {snapshot, measuredSplit: 'entities'});
-  const measured = balance.sinks.filter(f => f.id.startsWith('load_measured'));
-  assert.deepEqual(JSON.parse(JSON.stringify(measured.map(f => f.label))), ['Werkstatt / Leistung', 'Waschmaschine / Leistung']);
-  assert.deepEqual(JSON.parse(JSON.stringify(measured.map(f => f.value))), [520, 380]);
-  assert.notEqual(measured[0].color, measured[1].color);
-});
-
-test('measured_split "entities" ergaenzt eine Restposition, wenn die Einzelwerte die Summe nicht ausschoepfen', () => {
-  const model = loadEnergyModel();
-  // Eine der beiden load-Entitaeten liegt unter der 0,5-W-Rauschgrenze und
-  // bekommt keine eigene Position - ihr Anteil darf trotzdem nicht aus der
-  // Bilanz verschwinden.
-  const snapshot = {
-    values: {pv: 3000, load: 900, wallbox: 500},
-    roles: [],
-    entities: [
-      {entity_id: 'werkstatt_power', label: 'Werkstatt / Leistung', value: 520, role: {role: 'load'}},
-      {entity_id: 'rest_power', label: 'Rest / Leistung', value: 0.2, role: {role: 'load'}},
-    ],
-  };
-  const balance = model.deriveBalance(snapshot, {load_mode: 'combined'}, {snapshot, measuredSplit: 'entities'});
-  const rest = balance.sinks.find(f => f.id === 'load_measured_rest');
-  assert.ok(rest, 'Restposition fehlt');
-  assert.ok(Math.abs(rest.value - 380) < 0.01);
-});
-
-test('ausserhalb des Kombiniert-Modus gibt es keine Position fuer gemessenen Verbrauch', () => {
-  const model = loadEnergyModel();
-  const snapshot = {values: {pv: 3000, load: 900, wallbox: 500}, roles: []};
-  for (const mode of ['measured', 'calculated', 'auto']) {
-    const balance = model.deriveBalance(snapshot, {load_mode: mode});
-    assert.equal(balance.measured, 0, mode);
-    assert.equal(balance.sinks.some(f => f.id.startsWith('load_measured')), false, mode);
-  }
-});
-
-test('deriveBalance beschriftet "base" im Kombiniert-Modus als berechnet', () => {
-  const model = loadEnergyModel();
-  const snapshot = {values: {pv: 3000, load: 900, wallbox: 500}, roles: []};
-  const balance = model.deriveBalance(snapshot, {load_mode: 'combined'});
-  assert.match(balance.sinks.find(f => f.id === 'base').label, /berechnet/);
-});
-
 // allocate() ordnet Quellen Verbrauchern zu (Spec "Anlagenschema:
 // fliessende Skalierung", Abschnitt 5) - fuer die Verbraucherbalken in
 // energy-schema.js. Drei Invarianten muessen in jedem Modus gelten.
@@ -398,7 +321,7 @@ test('allocate("merit") bevorzugt Direktverbrauch vor Speicherladung, wenn die s
     pv: 0, grid_import: 3000, grid_export: 0,
     battery_charge: 2000, battery_discharge: 1000,
     wallbox: 0, heat_pump: 0,
-    load_total: 2000, load_source: 'measured', load_measured: 0, base: 2000,
+    load_total: 2000, load_source: 'measured', base: 2000,
     gap_raw: 0, gap_applied: 0, gap_absorbed: 0, gap_tolerance_w: 0, gap_ignored: true, unbalanced: false,
     autarkie: 0, eigenverbrauch: 0, netz: 0, total: 4000,
     battery_soc: 0, battery_capacity_kwh: 0, battery_energy_kwh: 0,
@@ -446,4 +369,14 @@ test('history points keep custom categories with the base they were recorded wit
   const snapshot = model.snapshotFromPoint(points[0]);
   assert.equal(snapshot.values['custom:werkstatt'], 300);
   assert.equal(model.deriveBalanceCore(snapshot, {load_mode: 'calculated'}).categories.werkstatt, 300);
+});
+
+test('composeBalance beschriftet base im Standardmodus als berechnet', () => {
+  const model = loadEnergyModel();
+  const snapshot = {values: {pv: 2000, grid_import: 500, load: 2400, wallbox: 300}, roles: []};
+  const balance = model.deriveBalance(snapshot, {load_mode: 'auto'});
+  assert.equal(balance.loadSource, 'calculated');
+  assert.match(balance.sinks.find(f => f.id === 'base').label, /berechnet/);
+  assert.equal(balance.measured, undefined);
+  assert.equal(balance.sinks.some(f => String(f.id).startsWith('load_measured')), false);
 });

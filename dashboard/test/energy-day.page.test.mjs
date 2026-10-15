@@ -337,17 +337,6 @@ test('init() seeds a re-created instance from the previous instance\'s samples b
   assert.ok(second.geometry);
 });
 
-test('das Tagesband fuehrt den gemessenen Verbrauch als eigene Verwendungsflaeche', () => {
-  const { factory } = load();
-  const points = [
-    {timestamp: '2026-08-21T10:00:00Z', pv: 3000, load: 900, wallbox: 500},
-    {timestamp: '2026-08-21T10:01:00Z', pv: 3000, load: 900, wallbox: 500},
-  ];
-  const series = factory.pointSeries(points, {load_mode: 'combined'});
-  assert.equal(series[0].demand.load_measured, 900);
-  assert.equal(series[0].demand.base, 1600);
-});
-
 test('das Tagesband zeigt beim zweiten Schnappschuss zunaechst den alten Wert', async () => {
   const { factory, window: win } = load();
   let now = 0;

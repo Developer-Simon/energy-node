@@ -425,7 +425,7 @@ test('defaultEnergyOptions() returns the documented per-type defaults, and {} fo
   assert.deepEqual(JSON.parse(JSON.stringify(factory.defaultEnergyOptions('energy_flow'))),
     {speedReferenceMode: 'relative', speedReferenceWatts: 1000, hideInactive: 'off'});
   assert.deepEqual(JSON.parse(JSON.stringify(factory.defaultEnergyOptions('energy_band'))),
-    {heightReference: 'fill', scaleMode: 'linear', unit: 'auto', bundleThreshold: '0', animate: 'on', measuredSplit: 'sum'});
+    {heightReference: 'fill', scaleMode: 'linear', unit: 'auto', bundleThreshold: '0', animate: 'on'});
   assert.deepEqual(JSON.parse(JSON.stringify(factory.defaultEnergyOptions('energy_status'))),
     {beamSpan: '6000', showAdvice: 'on'});
   assert.deepEqual(JSON.parse(JSON.stringify(factory.defaultEnergyOptions('device'))), {});
@@ -1123,19 +1123,6 @@ test('das Zahlenfeld setzt die Zwangshoehe, leer heisst keine', async () => {
   assert.equal(node.h, 2);
 });
 
-test('der Layout-Editor bietet measured_split nur bei Band, Ring und Board an', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const withOption = ['energy_band', 'energy_ring', 'energy_board'];
-  const withoutOption = ['energy_day', 'energy_schema', 'energy_flow', 'energy_status'];
-  for (const type of withOption) {
-    const html = factory.energyOptionsHTML({type, measuredSplit: 'sum'});
-    assert.match(html, /data-role="measured-split"/, type);
-  }
-  for (const type of withoutOption) {
-    const html = factory.energyOptionsHTML({type, measuredSplit: ''});
-    assert.equal(/data-role="measured-split"/.test(html), false, type);
-  }
-});
 
 test('energyOptionsHTML() zeigt das Batterie-Zeitfenster nur für die Trajektorie', () => {
   const { factory } = loadLayoutPage({ gridstack: false });

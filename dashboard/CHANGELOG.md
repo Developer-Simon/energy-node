@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.18 (2026-10-15)
+## v0.9.19 (2026-10-15)
 
 ### Features
 
@@ -12,10 +12,17 @@
 - **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137) (14f781e)
 - **dashboard:** The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect. (#138) (3c7821a)
 - **history:** The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh. (#141) (d7971dd)
+- **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142) (66cd698)
+- **energy:** auto load mode calculates with the house meter as cross-check (31771de)
+- **energy:** mirror the new load modes in the browser balance (334c011)
+- **energy:** migrate combined load mode to one consumer category per entity (80e6e5d)
+- **discovery:** publish measured and calculated house load as optional sensors (d266e0c)
+- **energy:** load mode cards, meter hints and status line on the energy page (8414c1b)
+- **energy:** technical mode texts, house meter on the energy node, inset notices (da47ece)
+- **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143)
 - **energydiscovery:** optional sensors for wallbox, heat pump and categories (6f21c9a)
 - **dashboard:** announce optional energy sensors and let them be deselected (339fee9)
 - **dashboard:** choose the additional Home Assistant sensors in the MQTT tab (a1478cb)
-- **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142)
 - **energystats:** hourly means for the history page (8ac2d1c)
 - **history:** offer resolutions per span and default to the coarsest (6819e41)
 - **history:** hourly tier from the server with per-series 5 min fallback (4884935)
@@ -62,6 +69,7 @@
 
 ### Fixes
 
+- **energy:** plain wording in the load mode texts (a04e740)
 - **energydiscovery:** leave role empty for category sensors (a2f0f81)
 - **dashboard:** keep announced sensors when settings cannot be loaded (5661b83)
 - **energystats:** accept only consumer and producer categories from the companion (ec8339e)
@@ -78,6 +86,7 @@
 ### Refactors
 
 - **dashboard:** remove unused Tippy.js and Popper.js (#139) (8f2318c)
+- **energy:** drop measured load positions and the measured_split option (b927086)
 - **dashboard:** drop the unused Tippy.js and Popper.js bundles (dfc102e)
 - **dashboard:** reword the base.css tooltip comment (7856e87)
 - **dashboard:** drop the global structure fingerprints (c71a352)
@@ -85,6 +94,7 @@
 
 ### Documentation
 
+- **energy:** document the reworked load modes and status line (4469508)
 - **dashboard:** drop Tippy.js and Popper.js from notices, manifest and docs (4761345)
 - **dashboard:** MQTT tab metrics select and bridge step list (81d3985)
 - **release:** document the per-version changelog (865f72a)

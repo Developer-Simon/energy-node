@@ -31,10 +31,28 @@ type OptionalSensor struct {
 }
 
 // OptionalSensors liefert die gewuenschten optionalen Sensoren in fester
-// Reihenfolge: Wallbox, Waermepumpe, dann die Kategorien nach ID sortiert.
-// Eine leere Kategorie-Bezeichnung nimmt die ID als Namen.
-func OptionalSensors(wallbox, heatPump bool, categories []CategoryInput) []OptionalSensor {
+// Reihenfolge: gemessene und berechnete Hauslast (nur mit Hauszaehler,
+// ohne ihn waeren beide gleich der Hauslast), Wallbox, Waermepumpe, dann
+// die Kategorien nach ID sortiert. Eine leere Kategorie-Bezeichnung nimmt
+// die ID als Namen.
+func OptionalSensors(houseMeter, wallbox, heatPump bool, categories []CategoryInput) []OptionalSensor {
 	var out []OptionalSensor
+	if houseMeter {
+		out = append(out,
+			OptionalSensor{
+				Key:      "house_load_measured",
+				Role:     "house_load_measured",
+				Name:     "Hauslast gemessen",
+				template: "{{ value_json.balance['load_meter'] }}",
+			},
+			OptionalSensor{
+				Key:      "house_load_calculated",
+				Role:     "house_load_calculated",
+				Name:     "Hauslast berechnet",
+				template: "{{ value_json.balance['load_calculated'] }}",
+			},
+		)
+	}
 	if wallbox {
 		out = append(out, OptionalSensor{
 			Key:      "wallbox",

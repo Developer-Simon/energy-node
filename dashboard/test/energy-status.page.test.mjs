@@ -40,7 +40,7 @@ const DEFAULT_THRESHOLDS = { surplus: 800, import: 1500 };
 
 test('statusLead reports a critical gap ahead of any surplus/import advice (diagnostic mode)', () => {
   const { factory, model } = load();
-  const balance = model.deriveBalance({values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []}, {gap_mode: 'diagnostic'});
+  const balance = model.deriveBalance({values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []}, {gap_mode: 'diagnostic', load_mode: 'measured'});
   const lead = factory.statusLead(balance, 0, DEFAULT_THRESHOLDS, true);
   assert.equal(lead.state, 'kritisch');
   assert.match(lead.title, /Bilanzlücke/);

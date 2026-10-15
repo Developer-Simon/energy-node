@@ -1318,20 +1318,14 @@ func TestSweepIntervalDefaultAppliesWhenKeyAbsentFromSettingsFile(t *testing.T) 
 	}
 }
 
-// measured_split gibt es nur bei den drei Grafiken, die eine variable
-// Positionsliste rendern. energy_day (Historie kennt nur Rollensummen),
-// energy_schema (feste Zweiggeometrie) und energy_flow (feste Knoten) zeigen
-// den gemessenen Verbrauch immer gesammelt und duerfen das Feld deshalb gar
-// nicht erst tragen.
-func TestSaveLayoutNormalizesMeasuredSplit(t *testing.T) {
+// measured_split gab es bis 2026-10 fuer gemessene Teilverbraucher. Alte
+// Layouts duerfen das Feld noch tragen, gespeichert wird es nie mehr.
+func TestSaveLayoutDropsLegacyMeasuredSplit(t *testing.T) {
 	store := NewStore(t.TempDir())
 	layout := Layout{Pages: []Page{{ID: "p", Name: "P", Order: 0, Groups: []Group{{ID: "g", Name: "G", Items: []Item{
-		{ID: "band", Type: "energy_band", Span: "full", Visible: true},
 		{ID: "ring", Type: "energy_ring", Span: "2", Visible: true, MeasuredSplit: "entities"},
-		{ID: "board", Type: "energy_board", Span: "2", Visible: true, MeasuredSplit: "quatsch"},
-		{ID: "day", Type: "energy_day", Span: "2", Visible: true, MeasuredSplit: "entities"},
+		{ID: "board", Type: "energy_board", Span: "2", Visible: true, MeasuredSplit: "sum"},
 	}}}}}}
-
 	if err := store.SaveLayout(layout); err != nil {
 		t.Fatalf("SaveLayout = %v, want nil", err)
 	}
@@ -1339,13 +1333,9 @@ func TestSaveLayoutNormalizesMeasuredSplit(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadLayout = %v, want nil", err)
 	}
-	items := saved.Pages[0].Groups[0].Items
-	for _, want := range []struct {
-		index int
-		value string
-	}{{0, "sum"}, {1, "entities"}, {2, "sum"}, {3, ""}} {
-		if got := items[want.index].MeasuredSplit; got != want.value {
-			t.Fatalf("items[%d].MeasuredSplit = %q, want %q", want.index, got, want.value)
+	for i, item := range saved.Pages[0].Groups[0].Items {
+		if item.MeasuredSplit != "" {
+			t.Fatalf("items[%d].MeasuredSplit = %q, want empty", i, item.MeasuredSplit)
 		}
 	}
 }
@@ -2432,5 +2422,96 @@ func TestChangelogHistoryDefaultsToRecentAndRejectsUnknown(t *testing.T) {
 	bad.ChangelogHistory = "forever"
 	if err := validateSettings(bad); err == nil {
 		t.Fatal("unbekannter changelog_history muss abgelehnt werden")
+	}
+}
+
+// Bis 2026-10 hiess "load" im Modus combined gemessener Teilverbraucher.
+// Beim Laden wird jede solche Zuordnung eine eigene Verbraucher-Kategorie,
+// der Modus wird auto. Skalierung und Invertierung bleiben erhalten.
+func TestLoadEnergyMigratesCombinedLoadModeToCategories(t *testing.T) {
+	dir := t.TempDir()
+	doc := `{"assignments":{
+		"werkstatt_power":{"role":"load","scale":2,"invert":true},
+		"Wasch.Maschine-1":{"role":"load"},
+		"pv_power":{"role":"pv"}},
+	 "categories":{"gemessen_werkstatt_power":{"label":"Alt","base":"consumer","color":"cat_4","icon":"energy-node:home"}},
+	 "interpretation":{"gap_mode":"unknown_consumer","load_mode":"combined"}}`
+	if err := os.WriteFile(filepath.Join(dir, "energy.json"), []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	value, err := NewStore(dir).LoadEnergy()
+	if err != nil {
+		t.Fatalf("LoadEnergy = %v", err)
+	}
+	if value.Interpretation.LoadMode != energy.LoadModeAuto {
+		t.Fatalf("load_mode = %q, want auto", value.Interpretation.LoadMode)
+	}
+	// Sortiert: "Wasch.Maschine-1" < "werkstatt_power". Die vorhandene
+	// Kategorie gemessen_werkstatt_power bleibt unberuehrt.
+	wasch := value.Assignments["Wasch.Maschine-1"]
+	if wasch.Role != "custom:gemessen_wasch_maschine_1" {
+		t.Fatalf("Wasch role = %q", wasch.Role)
+	}
+	werk := value.Assignments["werkstatt_power"]
+	if werk.Role != "custom:gemessen_werkstatt_power_2" || werk.Scale != 2 || !werk.Invert {
+		t.Fatalf("werkstatt = %+v", werk)
+	}
+	if got := value.Categories["gemessen_wasch_maschine_1"]; got != (energy.Category{Label: "Wasch.Maschine-1", Base: energy.CategoryConsumer, Color: "cat_1", Icon: "energy-node:plug-smart"}) {
+		t.Fatalf("wasch category = %+v", got)
+	}
+	if got := value.Categories["gemessen_werkstatt_power_2"]; got.Color != "cat_2" || got.Label != "werkstatt_power" {
+		t.Fatalf("werkstatt category = %+v", got)
+	}
+	if got := value.Categories["gemessen_werkstatt_power"].Label; got != "Alt" {
+		t.Fatalf("existing category label = %q, want Alt", got)
+	}
+	if value.Assignments["pv_power"].Role != energy.RolePV {
+		t.Fatal("pv assignment must stay untouched")
+	}
+}
+
+func TestLoadEnergyMigratesCombinedWithoutLoadAssignments(t *testing.T) {
+	dir := t.TempDir()
+	doc := `{"assignments":{"pv_power":{"role":"pv"}},"interpretation":{"load_mode":"combined"}}`
+	if err := os.WriteFile(filepath.Join(dir, "energy.json"), []byte(doc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	value, err := NewStore(dir).LoadEnergy()
+	if err != nil {
+		t.Fatalf("LoadEnergy = %v", err)
+	}
+	if value.Interpretation.LoadMode != energy.LoadModeAuto || value.Categories != nil {
+		t.Fatalf("got %+v", value)
+	}
+}
+
+func TestSaveEnergyMigratesCombinedFromARestoredOrPutDocument(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := EnergyConfig{
+		Assignments:    map[string]energy.Assignment{"sauna": {Role: energy.RoleLoad}},
+		Interpretation: energy.Interpretation{GapMode: energy.GapModeUnknownConsumer, LoadMode: energy.LegacyLoadModeCombined},
+	}
+	if err := store.SaveEnergy(value); err != nil {
+		t.Fatalf("SaveEnergy = %v, want the legacy mode to be migrated", err)
+	}
+	saved, err := store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Assignments["sauna"].Role != "custom:gemessen_sauna" {
+		t.Fatalf("role = %q", saved.Assignments["sauna"].Role)
+	}
+}
+
+func TestEnergyIDSlug(t *testing.T) {
+	for in, want := range map[string]string{
+		"Wasch.Maschine-1":      "wasch_maschine_1",
+		"__x__":                 "x",
+		"äöü":                   "verbraucher",
+		strings.Repeat("a", 60): strings.Repeat("a", 40),
+	} {
+		if got := energyIDSlug(in); got != want {
+			t.Errorf("energyIDSlug(%q) = %q, want %q", in, got, want)
+		}
 	}
 }

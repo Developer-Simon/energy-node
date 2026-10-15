@@ -60,7 +60,7 @@ test('boardRows nets simultaneous charge and discharge into one battery balance 
 test('boardRows appends a red "Nicht zugeordnet" row when the balance is unbalanced (diagnostic mode)', () => {
   const { factory, model } = load();
   const snapshot = {values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []};
-  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic'});
+  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic', load_mode: 'measured'});
   const rows = factory.boardRows(snapshot, balance);
   const rest = rows.find(r => r.id === 'rest');
   assert.ok(rest);
@@ -71,7 +71,7 @@ test('boardRows appends a red "Nicht zugeordnet" row when the balance is unbalan
 test('boardRows appends a grey "eingerechnet" info row when the gap was absorbed (unknown_consumer default)', () => {
   const { factory, model } = load();
   const snapshot = {values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []};
-  const balance = model.deriveBalance(snapshot);
+  const balance = model.deriveBalance(snapshot, {load_mode: 'measured'});
   const rows = factory.boardRows(snapshot, balance);
   const rest = rows.find(r => r.id === 'rest');
   assert.ok(rest);
@@ -244,7 +244,7 @@ test('die Zeile "Hausverbrauch" nennt die Herkunft der Zahl', () => {
   assert.equal(rowsCalculated.find(row => row.id === 'load').label, 'Hausverbrauch (berechnet)');
 
   const measured = {values: {pv: 640, grid: 511, load: 900}, roles: []};
-  const rowsMeasured = factory.boardRows(measured, model.deriveBalance(measured));
+  const rowsMeasured = factory.boardRows(measured, model.deriveBalance(measured, {load_mode: 'measured'}));
   assert.equal(rowsMeasured.find(row => row.id === 'load').label, 'Hausverbrauch');
 });
 
@@ -285,42 +285,22 @@ test('eine neu gemountete Datentafel zeichnet die Sparklines sofort aus dem letz
   assert.ok(second.before.pv, 'die zweite Instanz zeichnet sofort aus dem Zwischenspeicher');
 });
 
-test('die Rollentafel zeigt den gemessenen Verbrauch gesammelt als eigene Zeile', () => {
-  const { factory, model } = load();
-  const snapshot = {values: {pv: 3000, load: 900, wallbox: 500}, roles: [], interpretation: {load_mode: 'combined'}};
-  const balance = model.balanceOf(snapshot, {measuredSplit: 'sum'});
-  const rows = factory.boardRows(snapshot, balance);
-  const measured = rows.find(row => row.id === 'load_measured');
-  assert.ok(measured, 'Zeile fehlt');
-  assert.equal(measured.value, 900);
-  assert.equal(measured.label, 'Gemessene Verbraucher');
-  // Die Zeile "Hausverbrauch" bleibt der Gesamtwert, nicht der Rest.
-  assert.equal(rows.find(row => row.id === 'load').value, 3000);
-});
-
-test('die Rollentafel zeigt bei measured_split "entities" eine Zeile je Entitaet', () => {
+test('die Rollentafel zeigt Verbraucher-Kategorien als eigene Zeilen unter dem Hausverbrauch', () => {
   const { factory, model } = load();
   const snapshot = {
-    values: {pv: 3000, load: 900, wallbox: 500},
+    values: {pv: 2000, grid: 300, 'custom:gemessen_werkstatt': 450},
+    categories: {gemessen_werkstatt: {label: 'Werkstatt', base: 'consumer', color: 'cat_2', icon: 'energy-node:plug-smart'}},
     roles: [],
-    entities: [
-      {entity_id: 'werkstatt_power', label: 'Werkstatt / Leistung', value: 520, role: {role: 'load'}},
-      {entity_id: 'waschmaschine_power', label: 'Waschmaschine / Leistung', value: 380, role: {role: 'load'}},
-    ],
-    interpretation: {load_mode: 'combined'},
   };
-  const balance = model.balanceOf(snapshot, {measuredSplit: 'entities'});
-  const labels = JSON.parse(JSON.stringify(factory.boardRows(snapshot, balance)
-    .filter(row => row.id.startsWith('load_measured'))
-    .map(row => row.label)));
-  assert.deepEqual(labels, ['Werkstatt / Leistung', 'Waschmaschine / Leistung']);
-});
-
-test('ohne Kombiniert-Modus hat die Rollentafel keine Zeile fuer gemessenen Verbrauch', () => {
-  const { factory, model } = load();
-  const snapshot = {values: {pv: 3000, load: 900, wallbox: 500}, roles: []};
-  const balance = model.balanceOf(snapshot);
-  assert.equal(factory.boardRows(snapshot, balance).some(row => row.id.startsWith('load_measured')), false);
+  const balance = model.deriveBalance(snapshot);
+  const rows = factory.boardRows(snapshot, balance); // dieselbe Zeilenfunktion, die die Nachbartests nutzen
+  const ids = rows.map(row => row.id);
+  const row = rows.find(r => r.id === 'custom:gemessen_werkstatt');
+  assert.ok(row);
+  assert.equal(row.label, 'Werkstatt');
+  assert.equal(row.value, 450);
+  assert.equal(row.staleRole, 'custom:gemessen_werkstatt');
+  assert.ok(ids.indexOf('custom:gemessen_werkstatt') === ids.indexOf('load') + 1);
 });
 
 test('die Datentafel zeigt beim zweiten Schnappschuss zunaechst den alten Wert', async () => {

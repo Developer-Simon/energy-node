@@ -300,9 +300,9 @@ test('helpTipPosition keeps a tooltip inside the panel, below its trigger or abo
   assert.deepEqual({...model.helpTipPosition({panel, trigger: {left: 1100, top: 660, width: 22, height: 22}, tip})}, {left: 12, top: 494});
 });
 
-test('balanceValueText shows import or export of the net grid power', () => {
+test('balanceValueText shows the house meter, else the house consumption', () => {
   const model = loadModel();
   assert.equal(model.balanceValueText(null), '');
-  assert.match(model.balanceValueText({ grid_import: 1200, grid_export: 0 }), /1,2 kW|1.2 kW/);
-  assert.notEqual(model.balanceValueText({ grid_import: 0, grid_export: 300 }), model.balanceValueText({ grid_import: 300, grid_export: 0 }));
+  assert.match(model.balanceValueText({ has_load_meter: true, load_meter: 1200, load_total: 900, grid_import: 5000 }), /1,2 kW|1.2 kW/);
+  assert.match(model.balanceValueText({ has_load_meter: false, load_meter: 0, load_total: 450, grid_import: 5000 }), /450 W/);
 });

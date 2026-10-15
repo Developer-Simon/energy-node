@@ -190,7 +190,7 @@
     // 60 Federbildern je Sekunde unterscheidet, in denen sich nur Zahlen
     // aendern.
     rowOrder: {source: [], sink: []},
-    options: {kpi: 'autarkie', labelMode: 'both', animate: 'on', measuredSplit: 'sum'},
+    options: {kpi: 'autarkie', labelMode: 'both', animate: 'on'},
 
     init() {
       this.reducedMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
@@ -200,7 +200,6 @@
         kpi: data.kpi || 'autarkie',
         labelMode: data.labelMode || 'both',
         animate: data.animate || 'on',
-        measuredSplit: data.measuredSplit || 'sum',
       };
       const raw = window.EnergyModel.readEmbeddedSnapshot('energy-ring-initial');
       // Die Zahlen dieser Karte federn vom sichtbaren Wert der Vorgaengerin
@@ -265,7 +264,7 @@
     compute() {
       const model = window.EnergyModel;
       if (!this.snapshot) return;
-      const balance = model.balanceOf(this.snapshot, {measuredSplit: this.options.measuredSplit});
+      const balance = model.balanceOf(this.snapshot);
       this.hasFlow = balance.sources.length > 0 || balance.sinks.length > 0;
       if (!this.hasFlow) {
         this.sourceSegments = [];

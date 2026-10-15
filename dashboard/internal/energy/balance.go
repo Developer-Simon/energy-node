@@ -19,12 +19,24 @@ type Balance struct {
 	Wallbox          float64 `json:"wallbox"`
 	HeatPump         float64 `json:"heat_pump"`
 	LoadTotal        float64 `json:"load_total"`
-	LoadSource       string  `json:"load_source"`
-	// LoadMeasured ist der im Modus LoadModeCombined aus dem "Uebrigen
-	// Verbrauch" herausgeloeste, ueber die Rolle "load" gemessene Anteil.
-	// In jedem anderen load_mode ist er 0 - dort ist "load" entweder der
-	// Gesamtverbrauch selbst oder gar nicht beteiligt.
-	LoadMeasured   float64 `json:"load_measured"`
+	// LoadSource sagt, woher LoadTotal stammt: "calculated", "measured"
+	// oder "missing" (Gemessen erzwungen, aber kein Hauszaehler).
+	LoadSource string `json:"load_source"`
+	// LoadFallback nennt den Grund, wenn Automatisch den Hauszaehler statt
+	// der Bilanz nimmt. Derzeit nur "no_grid", sonst "".
+	LoadFallback string `json:"load_fallback"`
+	// LoadCalculated ist der aus der Bilanz berechnete Hausverbrauch vor
+	// jeder Lueckenverrechnung, in jedem Modus.
+	LoadCalculated float64 `json:"load_calculated"`
+	// LoadMeter ist der Wert des Hauszaehlers (Rolle "load"), 0 ohne
+	// Zaehler. HasLoadMeter trennt 0 W von "kein Zaehler".
+	LoadMeter    float64 `json:"load_meter"`
+	HasLoadMeter bool    `json:"has_load_meter"`
+	// MeterDeviation ist Zaehler minus Berechnung, nur wenn ein Zaehler und
+	// eine Netzrolle vorliegen, sonst 0. MeterCheck ist dann "ok" (innerhalb
+	// der Lueckentoleranz) oder "deviates", ohne Vergleich "".
+	MeterDeviation float64 `json:"meter_deviation"`
+	MeterCheck     string  `json:"meter_check"`
 	Base           float64 `json:"base"`
 	GapRaw         float64 `json:"gap_raw"`
 	GapApplied     float64 `json:"gap_applied"`
@@ -106,42 +118,40 @@ func DeriveBalance(s Snapshot, cfg Interpretation) Balance {
 	heatPump := math.Max(s.Value("heat_pump"), 0)
 
 	calculated := math.Max(pv+gridImport+discharge-gridExport-charge, 0)
-	hasMeasured := s.HasValue("load")
-	measured := 0.0
-	if hasMeasured {
-		measured = math.Max(s.Value("load"), 0)
+	hasMeter := s.HasValue("load")
+	meter := 0.0
+	if hasMeter {
+		meter = math.Max(s.Value("load"), 0)
 	}
+	hasGrid := s.HasValue("grid") || s.HasValue("grid_import") || s.HasValue("grid_export")
 
 	var loadTotal float64
-	var loadSource string
-	loadMeasured := 0.0
+	var loadSource, loadFallback string
 	switch cfg.LoadMode {
 	case LoadModeCalculated:
 		loadTotal, loadSource = calculated, "calculated"
-	case LoadModeCombined:
-		// Kein "missing"-Zweig: fehlt die Rolle "load", faellt der Modus
-		// stillschweigend auf das Verhalten von LoadModeCalculated zurueck
-		// (loadMeasured bleibt 0). Die Energie-Seite weist darauf hin.
-		loadTotal, loadSource, loadMeasured = calculated, "combined", measured
 	case LoadModeMeasured:
-		if hasMeasured {
-			loadTotal, loadSource = measured, "measured"
+		if hasMeter {
+			loadTotal, loadSource = meter, "measured"
 		} else {
 			loadTotal, loadSource = 0, "missing"
 		}
 	default: // LoadModeAuto
-		if hasMeasured {
-			loadTotal, loadSource = measured, "measured"
+		// Ohne Netzrolle fehlt der Bilanz der Netzbezug. Dann ist der
+		// Zaehler die bessere Quelle. Ohne beides bleibt die Rechnung, die
+		// fuer eine Inselanlage (PV plus Speicher) auch stimmt.
+		if hasMeter && !hasGrid {
+			loadTotal, loadSource, loadFallback = meter, "measured", "no_grid"
 		} else {
 			loadTotal, loadSource = calculated, "calculated"
 		}
 	}
 
-	base := math.Max(loadTotal-wallbox-heatPump-loadMeasured-cats.consumers, 0)
-	gapRaw := (pv + gridImport + discharge) - (base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge)
+	base := math.Max(loadTotal-wallbox-heatPump-cats.consumers, 0)
+	gapRaw := (pv + gridImport + discharge) - (base + wallbox + heatPump + cats.consumers + gridExport + charge)
 
 	sumSources := pv + gridImport + discharge
-	sumSinks := base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge
+	sumSinks := base + wallbox + heatPump + cats.consumers + gridExport + charge
 	total := math.Max(sumSources, sumSinks)
 
 	toleranceW := cfg.GapToleranceW
@@ -155,11 +165,21 @@ func DeriveBalance(s Snapshot, cfg Interpretation) Balance {
 		gapApplied = 0
 	}
 
+	meterDeviation, meterCheck := 0.0, ""
+	if hasMeter && hasGrid {
+		meterDeviation = meter - calculated
+		meterCheck = "ok"
+		if math.Abs(meterDeviation) > toleranceW {
+			meterCheck = "deviates"
+		}
+	}
+
 	balance := Balance{
 		PV: pv, GridImport: gridImport, GridExport: gridExport,
 		BatteryCharge: charge, BatteryDischarge: discharge,
 		Wallbox: wallbox, HeatPump: heatPump,
-		LoadTotal: loadTotal, LoadSource: loadSource, LoadMeasured: loadMeasured, Base: base,
+		LoadTotal: loadTotal, LoadSource: loadSource, LoadFallback: loadFallback, LoadCalculated: calculated,
+		LoadMeter: meter, HasLoadMeter: hasMeter, MeterDeviation: meterDeviation, MeterCheck: meterCheck, Base: base,
 		GapRaw: gapRaw, GapApplied: gapApplied, GapToleranceW: toleranceW, GapIgnored: gapIgnored,
 		Total:              total,
 		BatterySoC:         s.Value("battery_soc"),

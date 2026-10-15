@@ -172,18 +172,17 @@ test('showMeasuredWarning fires only when load_mode is measured without a "load"
   assert.equal(component.showMeasuredWarning, false);
 });
 
-test('loadModeNote explains the calculation for calculated and for auto without a load role', async () => {
-  const { component } = createEnergyPanel({ fetchImpl: stubFetch() });
+test('loadModeNote explains the calculation for calculated and for auto, the same text with or without a load role', async () => {
+  const { component, window } = createEnergyPanel({ fetchImpl: stubFetch() });
   await component.load();
+  const t = (key) => window.I18n.t(key);
   component.interpretation.load_mode = 'calculated';
   assert.match(component.loadModeNote, /PV \+ Netzbezug/);
-  assert.match(component.loadModeNote, /Rest, keine Messung/);
+  assert.equal(component.loadModeNote, t('energy.page.load_mode_note.calculated'));
   component.interpretation.load_mode = 'auto';
-  assert.match(component.loadModeNote, /berechnet/); // no "load" role assigned in the fixture
-  assert.match(component.loadModeNote, /Rest, keine Messung/);
+  assert.equal(component.loadModeNote, t('energy.page.load_mode_note.auto')); // no "load" role assigned in the fixture
   component.assignments.pv_power.role = 'load';
-  assert.match(component.loadModeNote, /Gemessen/);
-  assert.doesNotMatch(component.loadModeNote, /Rest, keine Messung/);
+  assert.equal(component.loadModeNote, t('energy.page.load_mode_note.auto'));
 });
 
 test('toleranceWEquivalent converts a percent tolerance using the live balance total', async () => {
@@ -307,32 +306,6 @@ test('showSocCapacityWarning folgt battery_soc_without_capacity aus dem Snapshot
   const { component: quiet } = createEnergyPanel({ fetchImpl: stubBatteryFetch({ withoutCapacity: 0 }) });
   await quiet.load();
   assert.equal(quiet.showSocCapacityWarning, false);
-});
-
-test('der Kombiniert-Modus warnt, wenn keine Entitaet die Rolle "Hausverbrauch" traegt', () => {
-  const { component } = createEnergyPanel();
-  component.assignments = {a: {role: 'pv'}};
-  component.interpretation = {load_mode: 'combined'};
-  assert.equal(component.showCombinedWithoutLoadWarning, true);
-  component.assignments = {a: {role: 'pv'}, b: {role: 'load'}};
-  assert.equal(component.showCombinedWithoutLoadWarning, false);
-});
-
-test('der Kombiniert-Modus erklaert die geaenderte Bedeutung der Rolle "Hausverbrauch"', () => {
-  const { component } = createEnergyPanel();
-  component.assignments = {b: {role: 'load'}};
-  component.interpretation = {load_mode: 'combined'};
-  assert.match(component.loadModeNote, /Teilverbraucher/);
-  assert.match(component.loadModeNote, /doppelt gezählt/);
-  component.interpretation = {load_mode: 'auto'};
-  assert.doesNotMatch(component.loadModeNote, /Teilverbraucher/);
-});
-
-test('"Übriger Verbrauch ist ein Rest"-Hinweis gilt auch im Kombiniert-Modus', () => {
-  const { component } = createEnergyPanel();
-  component.assignments = {b: {role: 'load'}};
-  component.interpretation = {load_mode: 'combined'};
-  assert.match(component.loadModeNote, /„Übriger Verbrauch“ bleibt ein Rest/);
 });
 
 test('payload trägt die Batterie-Reserve mit', () => {
@@ -639,4 +612,26 @@ test('save() tells the device map and the plant view, the page skips its own eve
   await new Promise(resolve => setImmediate(resolve));
   assert.deepEqual(seen, ['energy-page']);
   assert.equal(loads, 0, 'no reload after its own save');
+});
+
+test('die Statuszeile nennt Quelle, Rueckfall und Zaehlerabweichung', () => {
+  const { component, window } = createEnergyPanel();
+  const t = (key, params) => window.I18n.t(key, params);
+  component.liveBalance = {load_source: 'calculated', load_fallback: '', meter_check: 'deviates', meter_deviation: -212.4};
+  assert.equal(component.loadStatus, `${t('energy.page.load_status.calculated')} ${t('energy.page.load_status.meter_deviates', {deviation: '212 W'})}`);
+  component.liveBalance = {load_source: 'measured', load_fallback: 'no_grid', meter_check: ''};
+  assert.equal(component.loadStatus, t('energy.page.load_status.fallback_no_grid'));
+  component.liveBalance = {load_source: 'missing', load_fallback: '', meter_check: ''};
+  assert.equal(component.loadStatus, t('energy.page.load_status.missing'));
+  component.liveBalance = {load_source: 'calculated', load_fallback: '', meter_check: 'ok', meter_deviation: 4};
+  assert.equal(component.loadStatus, `${t('energy.page.load_status.calculated')} ${t('energy.page.load_status.meter_ok')}`);
+  component.liveBalance = null;
+  assert.equal(component.loadStatus, '');
+});
+
+test('das Template bietet nur noch Automatisch, Berechnet und Gemessen an', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'energy.html'), 'utf8');
+  const modes = [...html.matchAll(/name="load-mode" value="([a-z]+)"/g)].map(m => m[1]);
+  assert.deepEqual(modes, ['auto', 'calculated', 'measured']);
+  assert.match(html, /x-text="loadStatus"/);
 });

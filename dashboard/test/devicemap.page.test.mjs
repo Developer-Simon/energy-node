@@ -1000,7 +1000,7 @@ test('energy_node is the balance node: role edges end there and no virtual balan
   const component = panelWith({ devices: [
     { id: 'pv', name: 'PV', relations: [], entities: [] },
     { id: 'energy_node', name: 'Energy Node', relations: [], entities: [] },
-  ], energy: { balance: { grid_import: 0, grid_export: 500 }, entities: [
+  ], energy: { balance: { grid_import: 0, grid_export: 500, has_load_meter: true, load_meter: 700, load_total: 650 }, entities: [
     { entity_id: 'pv_p', device_id: 'pv', value: 800, role: { role: 'pv', source: 'override' } },
   ] }, layers: { wiring: true, energy: true, balance: true, data: false } });
   assert.equal(component.balanceId(), 'energy_node');
@@ -1009,7 +1009,8 @@ test('energy_node is the balance node: role edges end there and no virtual balan
   const role = component.dataEdges().find(edge => edge.cat === 'role');
   assert.equal(role.to, 'energy_node');
   const label = component.labelItems().find(item => item.id === 'energy_node');
-  assert.match(label.value, /500/, 'energy_node shows the net grid power of the balance');
+  assert.match(label.value, /700/, 'energy_node shows the house meter reading');
+  assert.doesNotMatch(label.value, /500/, 'the net grid power stays in the balance tile');
 });
 
 test('tapping energy_node opens the balance popover, not a panel', async () => {

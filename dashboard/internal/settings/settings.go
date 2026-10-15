@@ -227,7 +227,7 @@ type Item struct {
 	SparkWindow     string `json:"spark_window,omitempty"`     // energy_board: "15" | "60" | "off"
 	Dense           string `json:"dense,omitempty"`            // energy_board: "on" | "off"
 	ShowInactive    string `json:"show_inactive,omitempty"`    // energy_board: "on" | "off"
-	MeasuredSplit   string `json:"measured_split,omitempty"`   // energy_band, energy_ring, energy_board: "sum" | "entities"
+	MeasuredSplit   string `json:"measured_split,omitempty"`   // veraltet, wird beim Speichern geleert (siehe normalizeEnergyGraphicOptions)
 	DisplayMode     string `json:"display_mode,omitempty"`     // energy_day: "mirror" | "supply" | "demand"
 	ShowNow         string `json:"show_now,omitempty"`         // energy_day: "on" | "off"
 	StrokeMode      string `json:"stroke_mode,omitempty"`      // energy_schema: "power" | "const"
@@ -1844,6 +1844,7 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 	if value.Assignments == nil {
 		value.Assignments = map[string]energy.Assignment{}
 	}
+	value = migrateCombinedLoadMode(value)
 	value.Interpretation = value.Interpretation.Normalized()
 	if len(value.Categories) == 0 {
 		value.Categories = nil
@@ -1871,6 +1872,82 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 	}
 	value.Groups = groups
 	return value
+}
+
+// migrateCombinedLoadMode baut den bis 2026-10 gueltigen Lastmodus
+// "combined" um. Dort meinte die Rolle "load" einen gemessenen
+// Teilverbraucher, seitdem immer den Hauszaehler. Jede gespeicherte
+// load-Zuordnung wird deshalb eine eigene Verbraucher-Kategorie (so bleibt
+// die Einzelanzeige erhalten), und der Modus wird auto. Nur per Heuristik
+// erkannte load-Entitaeten stehen nicht in den Zuordnungen und bleiben
+// Hauszaehler. Ohne "combined" kehrt die Funktion unveraendert zurueck.
+func migrateCombinedLoadMode(value EnergyConfig) EnergyConfig {
+	if value.Interpretation.LoadMode != energy.LegacyLoadModeCombined {
+		return value
+	}
+	value.Interpretation.LoadMode = energy.LoadModeAuto
+	var entityIDs []string
+	for id, assignment := range value.Assignments {
+		if assignment.Role == energy.RoleLoad {
+			entityIDs = append(entityIDs, id)
+		}
+	}
+	if len(entityIDs) == 0 {
+		return value
+	}
+	sort.Strings(entityIDs)
+	categories := make(map[string]energy.Category, len(value.Categories)+len(entityIDs))
+	for id, category := range value.Categories {
+		categories[id] = category
+	}
+	assignments := make(map[string]energy.Assignment, len(value.Assignments))
+	for id, assignment := range value.Assignments {
+		assignments[id] = assignment
+	}
+	for i, entityID := range entityIDs {
+		categoryID := uniqueCategoryID(categories, "gemessen_"+energyIDSlug(entityID))
+		categories[categoryID] = energy.Category{
+			Label: entityID,
+			Base:  energy.CategoryConsumer,
+			Color: fmt.Sprintf("cat_%d", i%6+1),
+			Icon:  deviceiconname.Prefix + "plug-smart",
+		}
+		assignment := assignments[entityID]
+		assignment.Role = energy.Role("custom:" + categoryID)
+		assignments[entityID] = assignment
+	}
+	value.Assignments = assignments
+	value.Categories = categories
+	return value
+}
+
+var energyIDInvalid = regexp.MustCompile(`[^a-z0-9_]+`)
+
+// energyIDSlug macht aus einer Entitaets-ID den Teil einer Kategorie-ID
+// (^[a-z0-9_]+$, hoechstens 40 Zeichen). Bleibt nichts uebrig, heisst er
+// "verbraucher".
+func energyIDSlug(text string) string {
+	slug := strings.Trim(energyIDInvalid.ReplaceAllString(strings.ToLower(text), "_"), "_")
+	if len(slug) > 40 {
+		slug = strings.TrimRight(slug[:40], "_")
+	}
+	if slug == "" {
+		return "verbraucher"
+	}
+	return slug
+}
+
+// uniqueCategoryID haengt _2, _3, ... an, bis id frei ist.
+func uniqueCategoryID(categories map[string]energy.Category, id string) string {
+	if _, taken := categories[id]; !taken {
+		return id
+	}
+	for n := 2; ; n++ {
+		candidate := fmt.Sprintf("%s_%d", id, n)
+		if _, taken := categories[candidate]; !taken {
+			return candidate
+		}
+	}
 }
 
 func validateEnergy(value EnergyConfig) error {
@@ -2229,15 +2306,10 @@ func normalizeEnergyGraphicOptions(item *Item) {
 		item.Sort, item.SparkWindow, item.Dense, item.ShowInactive = "", "", "", ""
 	}
 
-	// measured_split teilt die im Kombiniert-Modus abgetrennten gemessenen
-	// Verbraucher auf (siehe energy-model.js' measuredLoadFlows). Nur die drei
-	// Karten mit variabler Positionsliste koennen das; energy_day,
-	// energy_schema und energy_flow zeigen immer die Sammelposition.
-	if item.Type == "energy_band" || item.Type == "energy_ring" || item.Type == "energy_board" {
-		defaultString(&item.MeasuredSplit, []string{"sum", "entities"}, "sum")
-	} else {
-		item.MeasuredSplit = ""
-	}
+	// measured_split gab es bis 2026-10 (gemessene Teilverbraucher im Modus
+	// combined). Alte Layouts tragen es noch, das Schema laesst es deshalb
+	// zu, gespeichert wird es nie mehr.
+	item.MeasuredSplit = ""
 
 	if item.Type == "energy_day" {
 		defaultString(&item.DisplayMode, []string{"mirror", "supply", "demand"}, "mirror")
