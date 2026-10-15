@@ -597,11 +597,11 @@ func defaultLayout(devices []registry.DeviceView) settings.Layout {
 // buchstabengleich mit data-panel-script des Verlaufs-Panels sein, sonst
 // laedt das Panel sie ein zweites Mal (loadSingleAsset, dashboard.js).
 var energyCardScripts = map[string][]string{
-	"energy_band":    {"/static/js/energy-band.js?v=1"},
-	"energy_ring":    {"/static/js/energy-ring.js?v=1"},
-	"energy_board":   {"/static/js/energy-board.js?v=1"},
-	"energy_day":     {"/static/js/energy-day.js?v=2"},
-	"energy_schema":  {"/static/js/energy-schema.js?v=1"},
+	"energy_band":    {"/static/js/energy-band.js?v=2"},
+	"energy_ring":    {"/static/js/energy-ring.js?v=2"},
+	"energy_board":   {"/static/js/energy-board.js?v=2"},
+	"energy_day":     {"/static/js/energy-day.js?v=3"},
+	"energy_schema":  {"/static/js/energy-schema.js?v=2"},
 	"energy_status":  {"/static/js/energy-status.js?v=1"},
 	"energy_stats":   {"/static/js/energy-stats-model.js?v=2", "/static/js/energy-stats-card.js?v=3"},
 	"battery_status": {"/static/js/battery-status.js?v=2"},

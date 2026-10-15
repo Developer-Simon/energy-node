@@ -23,7 +23,7 @@ Assistant without an extra service.
 **Additional sensors** under *Home Assistant & simulation* offers one sensor per
 wallbox, heat pump and custom category. A sensor appears in Home Assistant only
 once something is assigned to its role or category, so the list stays empty
-until then. All of them are on by default. Deselect a sensor to have the
+until then. House load measured and House load calculated, offered once a house meter is assigned. Energy Node Companion uses the measured one for the house meter history. All of them are on by default. Deselect a sensor to have the
 dashboard remove it from Home Assistant again, and select it to bring it back.
 
 A sensor is removed as well when its category is deleted or unassigned. This
