@@ -534,6 +534,10 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 .field-help-trigger svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .field-help-trigger:hover, .field-help-trigger:focus-visible { color: var(--accent); background: transparent; border: 0; }
 .field-help-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Geschlossen ist der Tooltip display: none. Mit visibility: hidden zählte
+   er weiter zur scrollbaren Fläche und machte schmale Seiten breiter. Das
+   Einblenden bleibt weich über allow-discrete und @starting-style, ältere
+   Browser zeigen ihn einfach ohne Übergang. */
 .field-help-text {
   position: absolute; bottom: calc(100% + .4rem); left: 50%; transform: translateX(-50%);
   z-index: 30; width: max-content; max-width: min(24rem, 80vw);
@@ -542,13 +546,28 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
   background: var(--panel); color: var(--text-subtle);
   font-size: .8rem; font-weight: 400; line-height: 1.45; text-align: left; white-space: normal;
   box-shadow: 0 4px 14px rgb(0 0 0 / .28);
-  opacity: 0; visibility: hidden; transition: opacity .12s ease;
+  display: none; opacity: 0; transition: opacity .12s ease, display .12s allow-discrete;
 }
 .field-help:hover .field-help-text,
-.field-help:focus-within .field-help-text { opacity: 1; visibility: visible; }
+.field-help:focus-within .field-help-text { display: block; opacity: 1; }
+@starting-style {
+  .field-help:hover .field-help-text,
+  .field-help:focus-within .field-help-text { opacity: 0; }
+}
 /* Modifier for a trigger sitting close to the page's left edge (e.g. a page
    title) - the default centered tooltip would overflow off-screen there. */
 .field-help-align-start .field-help-text { left: 0; transform: none; }
+/* Schmale Fenster: der offene Tooltip richtet sich am nächsten positionierten
+   Vorfahren aus (sonst am Fenster) und bleibt mit festem Rand darin, statt
+   vom Knopf aus nach rechts hinauszulaufen. Er öffnet unter der Zeile des
+   Knopfs. */
+@media (max-width: 700px) {
+  .field-help { position: static; }
+  .field-help-text, .field-help-align-start .field-help-text {
+    left: .75rem; right: .75rem; top: auto; bottom: auto; margin-top: 1.6rem;
+    width: auto; max-width: none; transform: none;
+  }
+}
 .message { min-height: 1.4rem; margin: .6rem 0; color: var(--accent); }
 .error { color: var(--bad-strong); }
 /* Der Weg, eine breite Tabelle mobil-tauglich zu machen: sie scrollt in
