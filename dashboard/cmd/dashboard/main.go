@@ -322,7 +322,9 @@ func main() {
 
 	// Optionale Energie-Sensoren (Wallbox, Waermepumpe, Kategorien): was schon
 	// angekuendigt ist, merkt sich announced. optionalWanted liefert die
-	// gewuenschten Sensoren, leer wenn das Energie-Geraet aus ist.
+	// gewuenschten Sensoren, leer wenn das Energie-Geraet aus ist. Kann
+	// mqtt.json nicht gelesen werden, liefert es ok=false, und der Abgleich
+	// faellt aus, damit keine Sensoren zurueckgezogen werden.
 	announcedDir := filepath.Join(dataDir, "energydiscovery")
 	if err := os.MkdirAll(announcedDir, 0o755); err != nil {
 		log.Printf("energy-node-dashboard: energy discovery state dir: %v", err)
@@ -331,12 +333,15 @@ func main() {
 	currentSnapshot := func() energy.Snapshot {
 		return energy.Aggregate(reg.Snapshot(), energyResolver, time.Now().UTC())
 	}
-	optionalWanted := func(snapshot energy.Snapshot) []energydiscovery.OptionalSensor {
+	optionalWanted := func(snapshot energy.Snapshot) ([]energydiscovery.OptionalSensor, bool) {
 		stored, err := settingsStore.LoadMQTT()
-		if err != nil || !stored.PublishEnergyDevice {
-			return nil
+		if err != nil {
+			return nil, false
 		}
-		return energydiscovery.Filter(desiredOptionalSensors(snapshot), stored.EnergySensors)
+		if !stored.PublishEnergyDevice {
+			return nil, true
+		}
+		return energydiscovery.Filter(desiredOptionalSensors(snapshot), stored.EnergySensors), true
 	}
 
 	// Bei jedem (Re-)Connect die eigene HA-Discovery retained neu absetzen.
@@ -346,11 +351,13 @@ func main() {
 		// Der Connect-Publisher kann nicht wissen, ob das Senden klappt, darum
 		// committet er sofort (wie die fixen Configs, die ebenfalls erneut
 		// gesendet werden).
-		optionalMsgs, commitOptional := announced.Plan(client.DiscoveryPrefix(), buildVersion, discoveryAddress.URL(), optionalWanted(currentSnapshot()), true)
-		for _, m := range optionalMsgs {
-			msgs = append(msgs, mqttclient.OutboundMessage{Topic: m.Topic, Payload: string(m.Payload), Retain: true})
+		if wanted, ok := optionalWanted(currentSnapshot()); ok {
+			optionalMsgs, commitOptional := announced.Plan(client.DiscoveryPrefix(), buildVersion, discoveryAddress.URL(), wanted, true)
+			for _, m := range optionalMsgs {
+				msgs = append(msgs, mqttclient.OutboundMessage{Topic: m.Topic, Payload: string(m.Payload), Retain: true})
+			}
+			commitOptional()
 		}
-		commitOptional()
 
 		// Node-Systemdiagnose (energy_node) + einmalige Abraeumung des alten,
 		// mit Bindestrich benannten energy-node-Geraets des geloeschten
@@ -581,16 +588,19 @@ func main() {
 				// Optionale Sensoren nachziehen, die seit dem letzten Connect
 				// dazugekommen oder weggefallen sind. Der Stand wird nur
 				// uebernommen, wenn alle Nachrichten angekommen sind.
-				optionalMsgs, commitOptional := announced.Plan(client.DiscoveryPrefix(), buildVersion, discoveryAddress.URL(), optionalWanted(snapshot), false)
-				published := true
-				for _, m := range optionalMsgs {
-					if err := client.PublishRetained(m.Topic, string(m.Payload)); err != nil {
-						published = false
-						break
+				if wanted, ok := optionalWanted(snapshot); ok {
+					optionalMsgs, commitOptional := announced.Plan(client.DiscoveryPrefix(), buildVersion, discoveryAddress.URL(), wanted, false)
+					published := true
+					for _, m := range optionalMsgs {
+						if err := client.PublishRetained(m.Topic, string(m.Payload)); err != nil {
+							log.Printf("energy-node-dashboard: optional energy sensor %s publish skipped: %v", m.Topic, err)
+							published = false
+							break
+						}
 					}
-				}
-				if published {
-					commitOptional()
+					if published {
+						commitOptional()
+					}
 				}
 			}
 		}
