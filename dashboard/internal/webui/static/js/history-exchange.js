@@ -216,7 +216,7 @@
     };
     watched.set(id, entry);
     const due = entry.tailAt === undefined || now() - entry.tailAt >= TAIL_MIN_GAP_MS;
-    if (tier === '1m' && due && peerId && mode === 'on-demand' && entry.to > now() - window.HistoryCoverage.SETTLE_MS) {
+    if (due && peerId && mode === 'on-demand' && entry.to > now() - window.HistoryCoverage.SETTLE_MS) {
       entry.tailAt = now();
       await askTail(entry);
     }

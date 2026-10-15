@@ -622,3 +622,23 @@ test('zweimal angemeldet innerhalb von fuenf Minuten fragt die letzte halbe Stun
   assert.equal(requests[0].body.ranges[0][0], NOW - 30 * 60000);
   dom.window.close();
 });
+
+test('watchRange mit Stufe 5m fragt ebenfalls einmal die Minuten-Nachfrage der letzten halben Stunde', async () => {
+  const dom = load();
+  let clock = NOW;
+  const {fetcher, source} = await startExchange(dom, {mode: null, now: () => clock});
+  const stream = source.instances[0];
+  stream.emit('hello', {protocol: 1, peer_id: 'p-selbst', peers: []});
+  await settle();
+  const offer = pvOffer(dom, {167: 60});
+  stream.emit('offer', {peer: 'p-fremd', coverage: offer.coverage});
+  await settle();
+  await dom.window.HistoryExchange.watchRange('page', {tier: '5m', from: NOW - 6 * HOUR, to: NOW});
+  clock += 2 * 60000;
+  await dom.window.HistoryExchange.watchRange('page', {tier: '5m', from: NOW - 6 * HOUR, to: NOW});
+  const requests = posts(fetcher, '/request');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].body.tier, '1m');
+  assert.deepEqual(requests[0].body.ranges, [[NOW - 30 * 60000, NOW]]);
+  dom.window.close();
+});
