@@ -49,11 +49,16 @@ func TestInterpretationValidateRejectsNegativeThresholds(t *testing.T) {
 	}
 }
 
-func TestValidateAcceptsCombinedLoadMode(t *testing.T) {
+// "combined" gibt es nur noch in alten Dateien. settings migriert ihn vor
+// der Validierung, Normalized faellt fuer jeden anderen Aufrufer auf auto.
+func TestCombinedLoadModeIsLegacyOnly(t *testing.T) {
 	cfg := DefaultInterpretation()
-	cfg.LoadMode = LoadModeCombined
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("Validate(load_mode=combined) = %v, want nil", err)
+	cfg.LoadMode = LegacyLoadModeCombined
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("Validate accepted the legacy combined load_mode")
+	}
+	if got := cfg.Normalized().LoadMode; got != LoadModeAuto {
+		t.Fatalf("Normalized().LoadMode = %q, want auto", got)
 	}
 }
 
