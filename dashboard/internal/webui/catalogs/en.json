@@ -1559,6 +1559,7 @@
   "history.export.unknown_timezone": "unknown",
   "history.range.day": "Day",
   "history.range.month": "Month",
+  "history.range.quarter": "Quarter",
   "history.range.week": "Week",
   "history.recorder.energy_load_failed": "Energy history could not load live data",
   "history.recorder.exchange_failed": "History exchange: {message}",

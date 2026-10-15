@@ -196,8 +196,9 @@
     {hours: 24, labelKey: 'history.range.day'},
     {hours: 168, labelKey: 'history.range.week'},
     {hours: 720, labelKey: 'history.range.month'},
+    {hours: 2160, labelKey: 'history.range.quarter'},
   ];
-  // i18n-keys: history.range.day, history.range.week, history.range.month
+  // i18n-keys: history.range.day, history.range.week, history.range.month, history.range.quarter
 
   const AGGREGATES = [
     {value: 'avg', labelKey: 'history.aggregate.average'},
@@ -249,18 +250,45 @@
     return `${hours} h`;
   }
 
+  // Stundenmittel vom Server (energystats). Ohne Statistik (501, Fehler,
+  // offline) bleibt es bei [] und die Seite faellt auf 5 min zurueck.
+  const HOUR_CACHE_MS = 5 * 60 * 1000;
+  const hourCache = new Map();
+
+  async function fetchHourRows(from, to, now = Date.now()) {
+    const key = `${Math.floor(from / HOUR)}|${Math.floor(to / HOUR)}`;
+    const cached = hourCache.get(key);
+    if (cached && now - cached.at < HOUR_CACHE_MS) return cached.rows;
+    let rows = [];
+    try {
+      const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}/api/v1/energy/stats/hours?from=${Math.floor(from)}&to=${Math.ceil(to)}`);
+      if (response.ok) rows = window.HistoryRollup.normalize(((await response.json()) || {}).rows || []);
+    } catch (error) {
+      rows = [];
+    }
+    hourCache.set(key, {at: now, rows});
+    return rows;
+  }
+
   // Der Rumpf von historyPanel.load() ohne Komponentenzustand: Stufe
-  // waehlen, lesen, Rohluecken aus der 1m-Stufe fuellen, Hausverbrauch
-  // ableiten. Fehler wirft die Funktion weiter, die Aufrufer melden sie.
-  async function loadRows({from, to, interpretation, recorderConfig}) {
+  // waehlen (wantedTier ist ein Wunsch), lesen, Rohluecken fuellen,
+  // Hausverbrauch ableiten. Fehler wirft die Funktion weiter, die Aufrufer
+  // melden sie.
+  async function loadRows({from, to, interpretation, recorderConfig, tier: wantedTier}) {
     const config = recorderConfig || {rawWindowHours: 24, minuteWindowDays: 7};
-    const tier = window.HistoryRollup.selectTier(to - from, {
+    const windows = {
       rawWindowMs: Number(config.rawWindowHours) * HOUR,
       minuteWindowMs: Number(config.minuteWindowDays) * 24 * HOUR,
-    });
-    const [rows] = await Promise.all([window.HistoryStore.readRange(tier, null, from, to), loadCategoryLabels()]);
-    let normalized = window.HistoryRollup.normalize(rows);
+    };
+    const rollup = window.HistoryRollup;
+    const store = window.HistoryStore;
+    const tiers = rollup.availableTiers(to - from, windows);
+    const tier = rollup.selectTier(to - from, windows, wantedTier);
+    const categoriesLoaded = loadCategoryLabels();
+    let normalized;
     let gaps;
+    let deriveFrom;
+    let fallbackSeries = [];
     if (tier === 'raw') {
       // Nur bei der Rohstufe: eigene Aufzeichnungsluecken mit
       // Minutenmitteln fuellen. Die liegen unabhaengig von
@@ -268,14 +296,37 @@
       // history-maintenance.js) - bei 1m/5m-Ansichten braucht es das
       // nicht, dort liest load() ohnehin schon direkt aus derselben
       // Tabelle.
-      const rollupRows = window.HistoryRollup.normalize(await window.HistoryStore.readRange('1m', null, from, to));
-      const filled = window.HistoryRollup.fillRawGaps(normalized, rollupRows, from, to);
+      const rawRows = rollup.normalize(await store.readRange('raw', null, from, to));
+      const rollupRows = rollup.normalize(await store.readRange('1m', null, from, to));
+      const filled = rollup.fillRawGaps(rawRows, rollupRows, from, to);
       normalized = filled.rows;
       gaps = filled.gaps;
+      deriveFrom = normalized;
+    } else if (tier === '1m') {
+      normalized = rollup.normalize(await store.readRange('1m', null, from, to));
+      gaps = rollup.gapsBySeries(normalized, from, to);
+      deriveFrom = normalized;
     } else {
-      gaps = window.HistoryRollup.gapsBySeries(normalized, from, to);
+      const five = rollup.mergeCoarse(await store.readRange('5m', null, from, to), await store.readRange('1m', null, from, to), rollup.FIVE_MINUTE_MS);
+      if (tier === '5m') {
+        normalized = five;
+        deriveFrom = five;
+      } else {
+        const hourRows = await fetchHourRows(from, to);
+        const covered = new Set(hourRows.map(row => row.series));
+        const fallback = five.filter(row => !covered.has(row.series));
+        fallbackSeries = [...new Set(fallback.map(row => row.series))]
+          .filter(series => series !== DERIVED_HAUSVERBRAUCH_SERIES)
+          .sort();
+        normalized = hourRows.concat(fallback);
+        // Aus gemischten Stufen abgeleitet stimmte der Hausverbrauch zur
+        // vollen Stunde nicht. Der Server liefert ihn aus load_total.
+        deriveFrom = hourRows.length ? [] : fallback;
+      }
+      gaps = rollup.gapsBySeries(normalized, from, to);
     }
-    const derived = deriveHausverbrauchRows(normalized, interpretation);
+    await categoriesLoaded;
+    const derived = deriveHausverbrauchRows(deriveFrom, interpretation);
     // Die abgeleitete Zeile lebt genau auf den Zeitpunkten der
     // Rollen-Serien und erbt deren Luecken samt und sonders. Die
     // Vereinigung aller Rollen-Luecken muss zu disjunkten Intervallen
@@ -287,7 +338,7 @@
       gaps.forEach((list, series) => { if (series.startsWith('role:')) roleGaps.push(...list); });
       gaps.set(DERIVED_HAUSVERBRAUCH_SERIES, window.HistoryRollup.mergeIntervals(roleGaps));
     }
-    return {tier, rows: normalized.concat(derived), gaps};
+    return {tier, tiers, rows: normalized.concat(derived), gaps, fallbackSeries};
   }
 
   // Der Rumpf des chartOptions-Getters, mit
@@ -467,6 +518,6 @@
   window.HistoryChart = {
     MAX_POINTS, RANGE_PRESETS, AGGREGATES, DERIVED_HAUSVERBRAUCH_SERIES,
     seriesLabel, apexLocale, themeMode, withAlpha, seriesColor, metricValue,
-    deriveHausverbrauchRows, rangeBounds, rangeLabel, loadRows, buildOptions,
+    deriveHausverbrauchRows, rangeBounds, rangeLabel, fetchHourRows, loadRows, buildOptions,
   };
 })();

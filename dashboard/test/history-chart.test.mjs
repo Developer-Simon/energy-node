@@ -84,7 +84,7 @@ test('loadRows waehlt die Rohstufe und leitet den Hausverbrauch ab', async () =>
     {series: 'role:grid', ts, v: -120, u: 'W'},
   ]);
   const now = Date.now();
-  const result = await chart.loadRows({from: now - 30 * 60000, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
+  const result = await chart.loadRows({from: now - 30 * 60000, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}, tier: 'raw'});
   assert.equal(result.tier, 'raw');
   assert.ok(result.rows.some(row => row.series === 'berechnet:hausverbrauch' && row.ts === ts));
   assert.ok(result.gaps instanceof dom.window.Map || typeof result.gaps.get === 'function');
@@ -123,5 +123,76 @@ test('buildOptions compact: nur lesen, Legende mit Anzeigenamen der echten Serie
   // Kennwert max: der Punkt bei 1000 zeichnet 3
   const pv = options.series.find(item => item.name === 'role:pv');
   assert.equal(pv.data.find(point => point[0] === 1000)[1], 3);
+  dom.window.close();
+});
+
+const stubFetch = (dom, handler) => {
+  const calls = [];
+  dom.window.fetch = async url => {
+    calls.push(String(url));
+    return handler(String(url));
+  };
+  return calls;
+};
+const json = body => ({ok: true, json: async () => body});
+
+test('loadRows nimmt bei einer Woche 1h vom Server und füllt Entitäten aus 5 min', async () => {
+  const {dom, chart} = load();
+  const now = 1000 * HOUR;
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'shelly_temp', ts: now - 2 * HOUR, min: 20, max: 20, avg: 20, n: 1, u: '°C'},
+    {series: 'role:pv', ts: now - 2 * HOUR, min: 5, max: 5, avg: 5, n: 1, u: 'W'},
+  ]);
+  stubFetch(dom, url => url.includes('/stats/hours')
+    ? json({rows: [
+        {series: 'role:pv', ts: now - 3 * HOUR, min: 900, max: 900, avg: 900, n: 1, u: 'W'},
+        {series: 'berechnet:hausverbrauch', ts: now - 3 * HOUR, min: 400, max: 400, avg: 400, n: 1, u: 'W'},
+      ]})
+    : json({}));
+  const result = await chart.loadRows({from: now - 168 * HOUR, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
+  assert.equal(result.tier, '1h');
+  assert.deepEqual(plain(result.tiers), ['1m', '5m', '1h']);
+  assert.deepEqual(plain(result.fallbackSeries), ['shelly_temp']);
+  const series = [...new Set(result.rows.map(row => row.series))].sort();
+  assert.deepEqual(series, ['berechnet:hausverbrauch', 'role:pv', 'shelly_temp']);
+  assert.ok(result.rows.filter(row => row.series === 'role:pv').every(row => row.avg === 900));
+  dom.window.close();
+});
+
+test('loadRows fällt ohne Energiestatistik ganz auf 5 min zurück', async () => {
+  const {dom, chart} = load();
+  const now = 1000 * HOUR;
+  await dom.window.HistoryStore.writeRollup('1m', [{series: 'role:pv', ts: now - 2 * HOUR, min: 5, max: 5, avg: 5, n: 1, u: 'W'}]);
+  stubFetch(dom, () => ({ok: false, status: 501, json: async () => ({})}));
+  const result = await chart.loadRows({from: now - 168 * HOUR, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
+  assert.equal(result.tier, '1h');
+  assert.deepEqual(plain(result.fallbackSeries), ['role:pv']);
+  assert.ok(result.rows.some(row => row.series === 'role:pv'));
+  dom.window.close();
+});
+
+test('fetchHourRows fragt denselben Zeitraum höchstens alle 5 Minuten', async () => {
+  const {dom, chart} = load();
+  const calls = stubFetch(dom, () => json({rows: []}));
+  const now = 1000 * HOUR;
+  await chart.fetchHourRows(now - 168 * HOUR, now, now);
+  await chart.fetchHourRows(now - 168 * HOUR + 60000, now + 60000, now + 60000);
+  await chart.fetchHourRows(now - 168 * HOUR, now, now + 6 * 60000);
+  assert.equal(calls.filter(url => url.includes('/stats/hours')).length, 2);
+  dom.window.close();
+});
+
+test('loadRows bündelt am Tag 1m zu 5 min', async () => {
+  const {dom, chart} = load();
+  const now = 1000 * HOUR;
+  await dom.window.HistoryStore.writeRollup('1m', [
+    {series: 'role:pv', ts: now - HOUR, min: 2, max: 2, avg: 2, n: 1, u: 'W'},
+    {series: 'role:pv', ts: now - HOUR + 60000, min: 4, max: 4, avg: 4, n: 1, u: 'W'},
+  ]);
+  stubFetch(dom, () => json({}));
+  const result = await chart.loadRows({from: now - 24 * HOUR, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
+  assert.equal(result.tier, '5m');
+  const pv = result.rows.filter(row => row.series === 'role:pv');
+  assert.deepEqual(plain(pv.map(row => [row.ts, row.avg])), [[now - HOUR, 3]]);
   dom.window.close();
 });
