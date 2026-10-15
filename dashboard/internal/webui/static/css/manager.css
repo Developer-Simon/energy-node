@@ -491,7 +491,11 @@ select.schema-control {
    base.css: manager.css wird nur fuer diese Panels nachgeladen und
    ueberschreibt base.css. Derselbe Umschaltpunkt wie dort - 700px. */
 @media (max-width: 700px) {
-  .energy-role-row { grid-template-columns: 1fr 1fr; }
+  /* minmax(0, 1fr): sonst hält die Mindestbreite von Select und Zahlenfeld
+     die Spalten breiter als die Karte. */
+  .energy-role-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .energy-role-row > * { min-width: 0; }
+  .energy-role-row > .energy-role, .energy-role-row > .energy-scale { width: 100%; }
   .energy-role-row label:first-child { grid-column: 1 / -1; }
   .energy-role-row .energy-role-capacity { grid-column: 1 / -1; }
   .energy-role-hide-toggle { grid-column: 1 / -1; justify-self: start; }
