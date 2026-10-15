@@ -521,7 +521,7 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 
 /* Hilfe-Popover an einem Feldnamen. Bewusst ohne Tooltip-Bibliothek: die
    Regel-Liste des Automations-Tabs ist durchgehend x-for, Alpine erzeugt die Knoten bei jeder
-   Aenderung neu - Tippy-Instanzen muessten dann jedes Mal nachgezogen und
+   Aenderung neu - Tooltip-Instanzen muessten dann jedes Mal nachgezogen und
    aufgeraeumt werden. visibility statt display haelt den Text aus dem
    Barrierefreiheitsbaum, solange er unsichtbar ist; :focus-within laesst ihn
    per Tastatur und per Fingertipp erscheinen. */
