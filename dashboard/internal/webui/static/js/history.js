@@ -533,6 +533,9 @@
         if (this.rangePicker) this.rangePicker.clear();
       }
       this.aggregate = view.aggregate;
+      // Sichten speichern keine Stufe. Sie laden immer die gröbste, sonst
+      // bliebe eine zuvor gewaehlte Stufe der Vorseite haengen.
+      this.resolution = '';
       // Eine Sicht bringt ihren eigenen Zeitraum mit - ein festgehaltener
       // Zoom aus der vorigen Ansicht passt nicht mehr.
       this.userZoomed = false;

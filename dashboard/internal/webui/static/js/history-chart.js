@@ -260,13 +260,19 @@
     const cached = hourCache.get(key);
     if (cached && now - cached.at < HOUR_CACHE_MS) return cached.rows;
     let rows = [];
+    let ok = false;
     try {
       const response = await fetch(`${window.__DASHBOARD_BASE_PATH__ || ''}/api/v1/energy/stats/hours?from=${Math.floor(from)}&to=${Math.ceil(to)}`);
-      if (response.ok) rows = window.HistoryRollup.normalize(((await response.json()) || {}).rows || []);
+      if (response.ok) {
+        rows = window.HistoryRollup.normalize(((await response.json()) || {}).rows || []);
+        ok = true;
+      }
     } catch (error) {
       rows = [];
     }
-    hourCache.set(key, {at: now, rows});
+    // Nur gelungene Antworten bleiben im Cache. Ein Netzfehler wuerde sonst
+    // fuenf Minuten lang die Fuenf-Minuten-Ansicht erzwingen.
+    if (ok) hourCache.set(key, {at: now, rows});
     return rows;
   }
 

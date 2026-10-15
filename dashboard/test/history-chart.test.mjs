@@ -182,6 +182,22 @@ test('fetchHourRows fragt denselben Zeitraum höchstens alle 5 Minuten', async (
   dom.window.close();
 });
 
+test('fetchHourRows cacht keine Fehler, ein Netzfehler kostet keine fuenf Minuten', async () => {
+  const {dom, chart} = load();
+  const now = 1000 * HOUR;
+  let online = false;
+  const calls = stubFetch(dom, () => {
+    if (!online) throw new Error('offline');
+    return json({rows: []});
+  });
+  const first = await chart.fetchHourRows(now - 168 * HOUR, now, now);
+  assert.deepEqual(plain(first), []);
+  online = true;
+  await chart.fetchHourRows(now - 168 * HOUR, now, now + 1000);
+  assert.equal(calls.filter(url => url.includes('/stats/hours')).length, 2);
+  dom.window.close();
+});
+
 test('loadRows bündelt am Tag 1m zu 5 min', async () => {
   const {dom, chart} = load();
   const now = 1000 * HOUR;

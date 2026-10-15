@@ -111,6 +111,17 @@ test('load waehlt bei langem Zeitraum automatisch die Stundenstufe', async () =>
   dom.window.close();
 });
 
+test('applyView laedt immer die gröbste Stufe, auch wenn vorher eine gewaehlt war', async () => {
+  const {dom, component} = panel();
+  const calls = stubLoadRows(dom, [{tier: '1h', tiers: ['1m', '5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: []}]);
+  component.views = [{id: 'v1', name: 'Woche', series: [], range_hours: 168, range_mode: 'relative', aggregate: 'avg'}];
+  component.resolution = '5m';
+  await component.applyView('v1');
+  assert.equal(calls[calls.length - 1].tier, undefined);
+  assert.equal(component.resolution, '');
+  dom.window.close();
+});
+
 test('eine gewaehlte Fuenf-Minuten-Stufe wird bei langem Zeitraum geladen', async () => {
   const {dom, component} = panel();
   component.rangeHours = 30 * 24;

@@ -115,7 +115,7 @@ As of **2026-10-14**, read from `base.html` and `overview.html`. "–" means: no
 | `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js`, `js/energy-status.js` | `1` |
 | `js/energy-stats-model.js` | `2` |
 | `js/energy-stats-card.js` | `3` |
-| `js/history-chart.js` | `3` |
+| `js/history-chart.js` | `4` |
 | `js/history-view-card.js` | `2` |
 
 Card scripts in `energyCardScripts` (`webui.go`) carry their own `?v=`. A
@@ -128,7 +128,7 @@ skips scripts already present as `<script src>`.
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | – | – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `17` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `5` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `18` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `5` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `13`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `35` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `9` | `css/manager.css` `35` |
