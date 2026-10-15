@@ -167,7 +167,10 @@
     renderChart() {
       if (!this.data || !this.$refs.chart || !window.ApexCharts) return;
       if (this.chart) this.chart.destroy();
-      this.chart = new window.ApexCharts(this.$refs.chart, chartOptions(this.data, this.$refs.chart.clientWidth));
+      // Unsichtbar (anderer Reiter) ist clientWidth 0, dann gibt die
+      // Fensterbreite die Größenordnung vor.
+      const width = this.$refs.chart.clientWidth || window.innerWidth || 0;
+      this.chart = new window.ApexCharts(this.$refs.chart, chartOptions(this.data, width));
       this.chart.render();
     },
 
