@@ -173,16 +173,25 @@ select.schema-control {
 
 /* Hinweisstreifen: immer sichtbar, damit Zuklappen der Interpretation nie
    eine Warnung verbirgt. Jede Meldung blendet einzeln ueber x-transition ein. */
-.energy-notices { display: grid; gap: .6rem; margin: 1rem 0; }
-.energy-notices:empty { display: none; }
-.energy-notices .message { margin: 0; }
-.energy-unassigned {
-  margin: 0; padding: .7rem .85rem;
-  border: 1px solid var(--border-soft); border-left: 3px solid var(--warn-line);
-  border-radius: var(--radius-sm); background: var(--panel);
+/* Gruppierte Inset-Liste statt gestapelter Einzelkarten: eine Flaeche, Haarlinien
+   zwischen den Zeilen, ein Symbol vorne. Die Warnfarbe sitzt nur im Symbol, die
+   Flaeche bleibt ruhig. Ohne sichtbare Zeile verschwindet die ganze Liste. */
+.energy-notices {
+  display: grid; margin: 1rem 0; overflow: hidden;
+  border: 1px solid var(--border-soft); border-radius: var(--radius-md); background: var(--panel);
 }
+.energy-notices:empty,
+.energy-notices:not(:has(> .energy-notice:not([x-cloak]):not([style*="display: none"]))) { display: none; }
+.energy-notice {
+  display: flex; align-items: flex-start; gap: .65rem; margin: 0; padding: .7rem .9rem;
+  font-size: .88rem; line-height: 1.5; color: var(--text);
+}
+.energy-notice + .energy-notice { border-top: 1px solid var(--border-soft); }
+.energy-notice-icon { flex: none; width: 1.05rem; height: 1.05rem; margin-top: .2rem; color: var(--warn-line); fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.energy-notice-body { min-width: 0; }
+.energy-unassigned .energy-notice-icon { color: var(--text-faint); }
 .energy-unassigned p { margin: 0; }
-.energy-unassigned ul { margin: .4rem 0 0; padding-left: 1.2rem; line-height: 1.5; }
+.energy-unassigned ul { margin: .4rem 0 0; padding-left: 1.2rem; color: var(--text-subtle); }
 
 /* Interpretation: content of the first accordion section (energy-acc). */
 .energy-interpretation-body { display: grid; gap: 1.1rem; }
@@ -353,7 +362,7 @@ select.schema-control {
 }
 @media (prefers-contrast: more) {
   .energy-roles-group, .energy-role-row, .energy-acc,
-  .energy-unassigned, .energy-role-summary div { border-color: var(--border); }
+  .energy-notices, .energy-role-summary div { border-color: var(--border); }
   .energy-mode-note { border-left-color: var(--border); background: var(--panel); }
 }
 @media (prefers-reduced-motion: reduce) {

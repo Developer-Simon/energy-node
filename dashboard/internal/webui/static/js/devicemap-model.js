@@ -177,11 +177,13 @@
     return abs >= 1000 ? `${num(abs / 1000, 1)} kW` : `${num(Math.round(abs), 0)} W`;
   };
 
-  // Value of the balance node: net grid power, import or export.
+  // Value of the balance node: the house meter reading when a meter role is
+  // assigned, otherwise the house consumption of the balance. The net grid
+  // power lives in the balance tile only.
   const balanceValueText = balance => {
     if (!balance) return '';
-    const net = (Number(balance.grid_import) || 0) - (Number(balance.grid_export) || 0);
-    return t(net >= 0 ? 'devicemap.value.grid_import' : 'devicemap.value.grid_export', {value: formatPower(net)});
+    const watts = balance.has_load_meter ? balance.load_meter : balance.load_total;
+    return t('devicemap.value.house_load', {value: formatPower(Number(watts) || 0)});
   };
 
   const primaryRole = entry => {
