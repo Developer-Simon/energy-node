@@ -41,7 +41,7 @@
       <tbody>
         <template x-for="row in rows" x-bind:key="row.role">
           <tr>
-            <th scope="row"><span class="stats-swatch" aria-hidden="true" x-bind:style="`background:${row.color}`"></span><span x-text="row.label"></span></th>
+            <th scope="row"><span class="stats-swatch" x-bind:class="{ 'is-hatched': row.hatched }" aria-hidden="true" x-bind:style="`background-color:${row.color}`"></span><span x-text="row.label"></span></th>
             <template x-for="(value, index) in row.values" x-bind:key="index"><td x-text="value"></td></template>
             <td class="stats-table-total" x-text="row.total"></td>
           </tr>

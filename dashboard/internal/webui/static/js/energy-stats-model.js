@@ -144,6 +144,9 @@
 
   const ABOVE = ['pv', 'battery_discharge', 'grid_import'];
   const BELOW = ['load_total', 'battery_charge', 'grid_export'];
+  // Gleiche Farbe für beide Richtungen einer Rolle, die Richtung ins Netz und
+  // in den Speicher zeigt eine Schraffur.
+  const HATCHED_ROLES = ['grid_export', 'battery_charge'];
   const round3 = value => Math.round(value * 1000) / 1000;
 
   function chartSeries(result) {
@@ -153,7 +156,7 @@
       if (!(role in total)) return;
       const meta = roleMeta(role, result.categories);
       series.push({
-        name: meta.label, color: meta.color, role,
+        name: meta.label, color: meta.color, role, hatched: HATCHED_ROLES.includes(role),
         data: result.buckets.map(bucket => (bucket.kwh && role in bucket.kwh ? sign * round3(bucket.kwh[role]) : null)),
       });
     };
@@ -169,7 +172,7 @@
     return [...ROLE_ORDER.filter(role => roles.includes(role)), ...custom].map(role => {
       const meta = roleMeta(role, result.categories);
       return {
-        role, label: meta.label, color: meta.color,
+        role, label: meta.label, color: meta.color, hatched: HATCHED_ROLES.includes(role),
         values: result.buckets.map(bucket => (bucket.kwh && role in bucket.kwh ? formatKWh(bucket.kwh[role]) : '')),
         total: formatKWh(total[role]),
       };
@@ -177,6 +180,6 @@
   }
 
   window.EnergyStatsModel = {
-    PERIODS, fetchStats, formatKWh, kpis, coverageText, coverageParts, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, tableRows,
+    PERIODS, fetchStats, formatKWh, kpis, coverageText, coverageParts, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, tableRows, HATCHED_ROLES,
   };
 })();

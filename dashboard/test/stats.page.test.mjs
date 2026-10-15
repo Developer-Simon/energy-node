@@ -147,6 +147,16 @@ test('thinLabels dünnt nur aus, wenn die Beschriftungen nicht passen', () => {
   dom.window.close();
 });
 
+test('chartOptions füllt schraffierte Rollen mit Muster in ihrer Farbe', () => {
+  const {dom, factory} = load();
+  const options = factory.chartOptions(DAY_FIXTURE);
+  const index = options.series.findIndex(s => s.role === 'grid_export');
+  assert.equal(options.fill.type[index], 'pattern');
+  assert.equal(options.fill.type[options.series.findIndex(s => s.role === 'grid_import')], 'solid');
+  assert.equal(options.fill.pattern.style, 'slantedLines');
+  dom.window.close();
+});
+
 test('chartOptions nennt im Tooltip den vollen Zeitpunkt auch bei ausgedünnter Achse', () => {
   const {dom, factory} = load();
   const result = {...DAY_FIXTURE, buckets: hours.map(h => ({...DAY_FIXTURE.buckets[0], local: `2026-10-15T${h}`}))};

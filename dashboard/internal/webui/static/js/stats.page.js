@@ -39,10 +39,21 @@
       theme: {mode: themeMode()},
       series: series.map(s => ({name: s.name, data: s.data, color: s.color, role: s.role})),
       colors: series.map(s => s.color),
+      fill: {
+        type: series.map(s => (s.hatched ? 'pattern' : 'solid')),
+        opacity: 1,
+        pattern: {style: 'slantedLines', width: 6, height: 6, strokeWidth: 2},
+      },
       stroke: {width: 0},
       plotOptions: {bar: {columnWidth: '72%', borderRadius: 2}},
       dataLabels: {enabled: false},
-      legend: {position: 'bottom', fontSize: '12px', labels: {colors: theme.color('text-muted')}, markers: {size: 5, shape: 'circle'}, itemMargin: {horizontal: 10}},
+      legend: {
+        position: 'bottom', fontSize: '12px', labels: {colors: theme.color('text-muted')}, itemMargin: {horizontal: 10},
+        markers: {
+          size: 5, shape: 'circle',
+          customHTML: series.map(s => () => `<span class="stats-swatch${s.hatched ? ' is-hatched' : ''}" style="background-color:${s.color}"></span>`),
+        },
+      },
       xaxis: {
         categories: thinLabels(labels, width),
         labels: {style: labelStyle, rotate: 0, hideOverlappingLabels: true},
