@@ -472,7 +472,7 @@ func semanticsFor(role Role, model Model) roleSemantics {
 	case RoleGridExport:
 		return roleSemantics{Label: "Grid-Export", LabelKey: "energy.role_label.grid_export", Sign: "positiv = Einspeisung", SignKey: "energy.role_sign.feed_in"}
 	case RoleLoad:
-		return roleSemantics{Label: "Hausverbrauch", LabelKey: "energy.role_label.load", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
+		return roleSemantics{Label: "Hauszähler", LabelKey: "energy.role_label.load", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
 	case RoleWallbox:
 		return roleSemantics{Label: "Wallbox", LabelKey: "energy.role_label.wallbox", Sign: "positiv = Verbrauch", SignKey: "energy.role_sign.consumption"}
 	case RoleHeatPump:

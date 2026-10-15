@@ -104,6 +104,7 @@
     unassigned: [],
     unassignedCount: 0,
     balanceTotal: 0,
+    liveBalance: null,
     categories: {},
     categoryRemoval: null,
     groups: {},
@@ -240,6 +241,7 @@
         this.unassigned = snapshot.unassigned || [];
         this.unassignedCount = snapshot.unassigned_count || 0;
         this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;
+        this.liveBalance = snapshot.balance || null;
         this.socWithoutCapacity = snapshot.battery_soc_without_capacity || 0;
         if (window.__energyFocusRequest__) {
           const ids = window.__energyFocusRequest__;
@@ -268,31 +270,39 @@
       return this.interpretation.load_mode === 'measured' && !this.hasLoadRole;
     },
 
-    // Ohne zugeordnete Rolle "Hausverbrauch" gibt es nichts zu separieren -
-    // der Modus verhaelt sich dann exakt wie "Berechnet".
-    get showCombinedWithoutLoadWarning() {
-      return this.interpretation.load_mode === 'combined' && !this.hasLoadRole;
-    },
-
-    // Eine ruhige Fusszeile direkt unter den Hausverbrauch-Kacheln: genau ein
-    // Satz, der den aktiven Modus erklaert (frueher vier bedingte Hinweise im
-    // Streifen oben). Echte Warnungen - kein "load"-Role zugeordnet - bleiben
-    // im Hinweisstreifen, weil sie ein Problem melden, keine Erklaerung.
+    // Ein Satz unter den Modus-Kacheln, der den gewaehlten Modus erklaert.
+    // Was gerade tatsaechlich gilt, sagt loadStatus darunter.
     get loadModeNote() {
       switch (this.interpretation.load_mode) {
         case 'measured':
           return t('energy.page.load_mode_note.measured');
         case 'calculated':
           return t('energy.page.load_mode_note.calculated');
-        case 'combined':
-          return t('energy.page.load_mode_note.combined');
         case 'auto':
-          return this.hasLoadRole
-            ? t('energy.page.load_mode_note.auto_measured')
-            : t('energy.page.load_mode_note.auto_calculated');
+          return t('energy.page.load_mode_note.auto');
         default:
           return '';
       }
+    },
+
+    // Der Live-Stand aus snapshot.balance: woher der Hausverbrauch gerade
+    // kommt und ob der Hauszaehler zur Berechnung passt.
+    // i18n-keys: energy.page.load_status.calculated, energy.page.load_status.measured,
+    // energy.page.load_status.fallback_no_grid, energy.page.load_status.missing,
+    // energy.page.load_status.meter_ok, energy.page.load_status.meter_deviates
+    get loadStatus() {
+      const b = this.liveBalance;
+      if (!b) return '';
+      let text;
+      if (b.load_source === 'missing') text = t('energy.page.load_status.missing');
+      else if (b.load_fallback === 'no_grid') text = t('energy.page.load_status.fallback_no_grid');
+      else if (b.load_source === 'measured') text = t('energy.page.load_status.measured');
+      else text = t('energy.page.load_status.calculated');
+      if (b.meter_check === 'ok') text += ` ${t('energy.page.load_status.meter_ok')}`;
+      else if (b.meter_check === 'deviates') {
+        text += ` ${t('energy.page.load_status.meter_deviates', {deviation: `${Math.round(Math.abs(b.meter_deviation || 0))} W`})}`;
+      }
+      return text;
     },
 
     get toleranceWEquivalent() {
@@ -593,10 +603,23 @@
         });
         this.$store.toasts.push(t('energy.page.saved'));
         this.notifyRolesChanged();
+        await this.refreshLiveBalance();
       } catch (error) {
         this.$store.toasts.push(error.message, 'critical');
       } finally {
         this.saving = false;
+      }
+    },
+
+    // Holt nach dem Speichern die Bilanz neu, damit die Statuszeile den
+    // gerade gewaehlten Modus zeigt. Ein Fehler laesst den alten Stand stehen.
+    async refreshLiveBalance() {
+      try {
+        const snapshot = await requestJSON('/api/v1/energy');
+        this.liveBalance = snapshot.balance || null;
+        this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;
+      } catch (error) {
+        // Statuszeile ist Zusatzinformation, kein Toast.
       }
     },
   });
