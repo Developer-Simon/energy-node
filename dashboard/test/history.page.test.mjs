@@ -78,23 +78,110 @@ function captureAsync(component, names = ['load', 'loadViews', 'loadInterpretati
   return () => Promise.allSettled(pending);
 }
 
-test('load waehlt bei kurzem Zeitraum die Rohstufe', async () => {
+test('load waehlt bei kurzem Zeitraum automatisch die gröbste Stufe, 1m', async () => {
   const {dom, component} = panel();
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'}]);
   component.rangeHours = 6;
+  await component.load();
+  assert.equal(component.tier, '1m');
+  assert.equal(component.resolution, '');
+  dom.window.close();
+});
+
+test('eine gewaehlte Rohstufe wird bei kurzem Zeitraum geladen', async () => {
+  const {dom, component} = panel();
+  const now = Date.now();
+  await dom.window.HistoryStore.writeRaw([{series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'}]);
+  component.rangeHours = 6;
+  component.resolution = 'raw';
   await component.load();
   assert.equal(component.tier, 'raw');
   assert.match(component.tierLabel, /Rohdaten/);
   dom.window.close();
 });
 
-test('load waehlt bei langem Zeitraum die Fuenf-Minuten-Stufe', async () => {
+test('load waehlt bei langem Zeitraum automatisch die Stundenstufe', async () => {
   const {dom, component} = panel();
   component.rangeHours = 30 * 24;
   await component.load();
+  assert.equal(component.tier, '1h');
+  // 1m reicht nur ueber das Minutenfenster (7 Tage), ein Monat hat es nicht.
+  assert.deepEqual([...component.tiers], ['5m', '1h']);
+  dom.window.close();
+});
+
+test('eine gewaehlte Fuenf-Minuten-Stufe wird bei langem Zeitraum geladen', async () => {
+  const {dom, component} = panel();
+  component.rangeHours = 30 * 24;
+  component.resolution = '5m';
+  await component.load();
   assert.equal(component.tier, '5m');
   assert.match(component.tierLabel, /Fünf-Minuten|5-Minuten/);
+  dom.window.close();
+});
+
+// Ein gestubbtes HistoryChart.loadRows, das die Wunschstufe festhaelt.
+function stubLoadRows(dom, results) {
+  const calls = [];
+  dom.window.HistoryChart.loadRows = async args => {
+    calls.push(args);
+    return results[Math.min(calls.length - 1, results.length - 1)];
+  };
+  return calls;
+}
+
+test('die Auflösungswahl bietet die Stufen des Zeitraums an, die gezeichnete ist aktiv', async () => {
+  const {dom, component} = panel();
+  const result = {tier: '1h', tiers: ['1m', '5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: ['x']};
+  stubLoadRows(dom, [result]);
+  await component.load();
+  assert.equal(component.resolutionOptions.length, 3);
+  assert.deepEqual(component.resolutionOptions.map(option => option.tier), ['1m', '5m', '1h']);
+  assert.deepEqual(component.resolutionOptions.map(option => option.active), [false, false, true]);
+  dom.window.close();
+});
+
+test('setResolution lädt mit der gewaehlten Stufe, die gröbste Stufe setzt auf automatisch zurueck', async () => {
+  const {dom, component} = panel();
+  const result = {tier: '1h', tiers: ['1m', '5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: ['x']};
+  const calls = stubLoadRows(dom, [result]);
+  await component.load();
+  assert.equal(calls[0].tier, undefined);
+  await component.setResolution('5m');
+  assert.equal(calls[1].tier, '5m');
+  assert.equal(component.resolution, '5m');
+  await component.setResolution('1h');
+  assert.equal(calls[2].tier, undefined);
+  assert.equal(component.resolution, '');
+  dom.window.close();
+});
+
+test('eine gewaehlte Stufe, die der Zeitraum nicht mehr anbietet, wird beim Laden auf automatisch gesetzt', async () => {
+  const {dom, component} = panel();
+  const calls = stubLoadRows(dom, [
+    {tier: '1m', tiers: ['1m', '5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: []},
+    {tier: '1h', tiers: ['5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: []},
+  ]);
+  component.resolution = '1m';
+  await component.load();
+  assert.equal(calls[0].tier, '1m');
+  assert.equal(component.resolution, '1m');
+  // Der Zeitraum ist jetzt laenger als das Minutenfenster: 1m fehlt.
+  await component.load();
+  assert.equal(component.resolution, '');
+  assert.deepEqual([...component.tiers], ['5m', '1h']);
+  dom.window.close();
+});
+
+test('fallbackSeries aus dem Laden stehen in der Statusleiste', async () => {
+  const {dom, component} = panel();
+  const row = {series: 'role:pv', ts: Date.now(), min: 1, max: 1, avg: 1, n: 1, u: 'W'};
+  stubLoadRows(dom, [{tier: '1h', tiers: ['1m', '5m', '1h'], rows: [row], gaps: new Map(), fallbackSeries: ['role:pv']}]);
+  await component.load();
+  assert.deepEqual([...component.fallbackSeries], ['role:pv']);
+  assert.equal(component.statusInfo.state, 'ok');
+  assert.equal(component.statusInfo.fallback, 1);
   dom.window.close();
 });
 
@@ -105,6 +192,7 @@ test('chartOptions baut eine Reihe je ausgewaehlter Serie', async () => {
     {series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'},
     {series: 'role:grid', ts: now - HOUR, v: -120, u: 'W'},
   ]);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv', 'role:grid'];
   const options = component.chartOptions;
@@ -121,6 +209,7 @@ test('chartOptions faerbt Energie-Rollen wie ihre Kachel in der Uebersicht', asy
   const {dom, component} = panel();
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'}]);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv'];
   assert.equal(component.chartOptions.colors[0], dom.window.DashboardTheme.color('flow-pv'));
@@ -136,6 +225,7 @@ test('load leitet die Hausverbrauch-Serie aus den Rollen-Verlaeufen ab', async (
     {series: 'role:grid', ts, v: -120, u: 'W'},
   ]);
   component.interpretation = dom.window.EnergyModel.DEFAULT_INTERPRETATION;
+  component.resolution = 'raw';
   await component.load();
 
   const row = component.rows.find(item => item.series === 'berechnet:hausverbrauch' && item.ts === ts);
@@ -168,6 +258,7 @@ test('loadInterpretation laedt die Energie-Einstellung und leitet danach neu ab'
     {series: 'role:pv', ts, v: 640, u: 'W'},
     {series: 'role:load', ts, v: 500, u: 'W'},
   ]);
+  component.resolution = 'raw';
   await component.load();
   const interpretation = {gap_mode: 'unknown_consumer', load_mode: 'measured', gap_tolerance_mode: 'absolute', gap_tolerance_w: 25, gap_tolerance_percent: 2};
   dom.window.fetch = () => Promise.resolve({ok: true, json: () => Promise.resolve(interpretation)});
@@ -202,6 +293,7 @@ test('chartOptions nimmt fuer Nicht-Rollen-Serien die zyklische Serienpalette', 
   const {dom, component} = panel();
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'sensor:werkstatt/temp', ts: now - HOUR, v: 21, u: '°C'}]);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['sensor:werkstatt/temp'];
   assert.equal(component.chartOptions.colors[0], dom.window.DashboardTheme.color('series-1'));
@@ -215,6 +307,7 @@ test('chartOptions behaelt eine einzelne Y-Achse, solange alle Serien dieselbe E
     {series: 'role:pv', ts: now - HOUR, v: 6400, u: 'W'},
     {series: 'role:grid', ts: now - HOUR, v: -120, u: 'W'},
   ]);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv', 'role:grid'];
   const yaxis = component.chartOptions.yaxis;
@@ -230,6 +323,7 @@ test('chartOptions gibt der Prozent-Serie eine eigene rechte Y-Achse mit fester 
     {series: 'role:pv', ts: now - HOUR, v: 6400, u: 'W'},
     {series: 'role:battery_soc', ts: now - HOUR, v: 55, u: '%'},
   ]);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv', 'role:battery_soc'];
   const yaxis = component.chartOptions.yaxis;
@@ -251,6 +345,7 @@ test('eine allein gezeigte Prozent-Serie bekommt ebenfalls die feste 0-100-Skala
   const {dom, component} = panel();
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'role:battery_soc', ts: now - HOUR, v: 55, u: '%'}]);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:battery_soc'];
   const yaxis = component.chartOptions.yaxis;
@@ -267,6 +362,7 @@ test('der Tooltip beschriftet jeden Wert mit der Einheit seiner eigenen Serie', 
     {series: 'role:pv', ts: now - HOUR, v: 6400, u: 'W'},
     {series: 'role:battery_soc', ts: now - HOUR, v: 55, u: '%'},
   ]);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv', 'role:battery_soc'];
   const options = component.chartOptions;
@@ -284,6 +380,7 @@ test('chartOptions deckelt die Punktzahl je Serie', async () => {
   const rows = [];
   for (let index = 0; index < 20000; index += 1) rows.push({series: 'role:pv', ts: now - HOUR + index * 100, v: index, u: 'W'});
   await dom.window.HistoryStore.writeRaw(rows);
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv'];
   const points = component.chartOptions.series[0].data.length;
@@ -334,6 +431,7 @@ test('load fuellt eine echte Luecke der Rohstufe mit einem Minutenmittel aus dem
     {series: 'role:pv', ts: now - 3 * HOUR, min: 150, max: 150, avg: 150, n: 6, u: 'W'},
   ]);
   component.rangeHours = 12;
+  component.resolution = 'raw';
   await component.load();
   assert.equal(component.tier, 'raw');
   const filled = component.rows.find(row => row.series === 'role:pv' && row.ts === now - 3 * HOUR);
@@ -359,6 +457,7 @@ test('load fuellt auch die Luecke vor dem ersten eigenen Rohpunkt', async () => 
   }
   await dom.window.HistoryStore.writeRollup('1m', exchanged);
   component.rangeHours = 6;
+  component.resolution = 'raw';
   await component.load();
   assert.equal(component.tier, 'raw');
   const filled = component.rows.filter(row => row.series === 'role:pv' && row.ts < now - HOUR);
@@ -403,6 +502,7 @@ test('chartOptions zieht die Linie durch einen dicht gefuellten Abschnitt und la
   }
   await dom.window.HistoryStore.writeRollup('1m', filled);
   component.rangeHours = 12;
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv'];
   const options = component.chartOptions;
@@ -443,6 +543,7 @@ test('chartOptions zeigt einen einzelnen, isolierten Austausch-Punkt nicht als d
     {series: 'role:pv', ts: now - 3 * HOUR, min: 150, max: 150, avg: 150, n: 6, u: 'W'},
   ]);
   component.rangeHours = 12;
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = ['role:pv'];
   const options = component.chartOptions;
@@ -474,6 +575,7 @@ test('load verwirft Zeitpunkte, an denen nicht jede Rolle einen Wert hat', async
     {series: 'role:grid', ts: now - 3 * HOUR, min: 200, max: 200, avg: 200, n: 6, u: 'W'},
   ]);
   component.rangeHours = 6;
+  component.resolution = 'raw';
   await component.load();
   const derived = component.rows.filter(row => row.series === 'berechnet:hausverbrauch');
   assert.equal(derived.length, 0, 'kein Zeitpunkt traegt beide Rollen, also gibt es nichts abzuleiten');
@@ -533,6 +635,7 @@ test('exportAs uebergibt die sichtbaren Saetze samt Metadaten an den Serialisier
   const calls = withExportDouble(dom);
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'}]);
+  component.resolution = 'raw';
   await component.load();
   await component.exportAs('csv');
 
@@ -551,6 +654,7 @@ test('exportAs json waehlt den JSON-Serialisierer und den passenden MIME-Typ', a
   const calls = withExportDouble(dom);
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'}]);
+  component.resolution = 'raw';
   await component.load();
   await component.exportAs('json');
   assert.ok(calls.some(call => call.format === 'json'));
@@ -591,6 +695,7 @@ test('ein kleiner Export fragt nicht zurueck', async () => {
   const calls = withExportDouble(dom);
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'}]);
+  component.resolution = 'raw';
   await component.load();
   await component.exportAs('csv');
   assert.equal(component.$store.modal.calls.length, 0);
@@ -869,6 +974,7 @@ async function chartOptionsWith(i18n, rows) {
   const now = Date.now();
   const names = rows.map((_, index) => `role:s${index}`);
   await dom.window.HistoryStore.writeRaw(rows.map((row, index) => ({series: names[index], ts: now - HOUR, v: row.value, u: row.unit})));
+  component.resolution = 'raw';
   await component.load();
   component.selectedSeries = names;
   const options = component.chartOptions;
@@ -928,7 +1034,7 @@ test('load meldet den angezeigten Zeitraum beim Austausch an', async () => {
   assert.equal(calls.watched.length, 1);
   const [view, range] = calls.watched[0];
   assert.equal(view, 'page');
-  assert.equal(range.tier, '5m');
+  assert.equal(range.tier, '1h');
   assert.equal(range.to - range.from, 30 * 24 * HOUR);
   dom.window.close();
 });

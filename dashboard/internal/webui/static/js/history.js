@@ -16,8 +16,9 @@
     raw: 'history.resolution.raw',
     '1m': 'history.resolution.1m',
     '5m': 'history.resolution.5m',
+    '1h': 'history.resolution.1h',
   };
-  // i18n-keys: history.resolution.raw, history.resolution.1m, history.resolution.5m
+  // i18n-keys: history.resolution.raw, history.resolution.1m, history.resolution.5m, history.resolution.1h
 
   const apiError = (body, fallbackKey) => (window.I18n ? window.I18n.error(body, fallbackKey) : (body && body.message) || fallbackKey || 'common.request_failed');
 
@@ -51,6 +52,12 @@
     advancedOpen: false,
     aggregate: 'avg',
     tier: 'raw',
+    // Vom Nutzer gewaehlte Stufe. '' heisst automatisch: die groebste Stufe,
+    // die der Zeitraum zulaesst. tiers sind die Stufen, die dieser Zeitraum
+    // anbietet; fallbackSeries die Serien, die auf 5m statt 1h liegen.
+    resolution: '',
+    tiers: [],
+    fallbackSeries: [],
     interpretation: null,
     loading: false,
     error: '',
@@ -193,8 +200,13 @@
       this.error = '';
       try {
         const {from, to} = this.rangeBounds();
-        const result = await window.HistoryChart.loadRows({from, to, interpretation: this.interpretation, recorderConfig: this.recorderConfig});
+        const result = await window.HistoryChart.loadRows({from, to, interpretation: this.interpretation, recorderConfig: this.recorderConfig, tier: this.resolution || undefined});
         this.tier = result.tier;
+        this.tiers = result.tiers;
+        this.fallbackSeries = result.fallbackSeries;
+        // Eine gewuenschte Stufe, die dieser Zeitraum nicht anbietet (etwa
+        // 1m bei einem Jahr), gilt nicht mehr. Die Auswahl faellt auf automatisch.
+        if (this.resolution && !result.tiers.includes(this.resolution)) this.resolution = '';
         this.watchExchange({from, to, tier: result.tier});
         this.gapsBySeries = result.gaps;
         this.rows = result.rows;
@@ -219,6 +231,23 @@
       return !this.loading && this.visibleRows.length === 0;
     },
 
+    // Knopfgruppe der Aufloesung: nur die Stufen, die der Zeitraum anbietet.
+    // active markiert die tatsaechlich gezeichnete Stufe.
+    get resolutionOptions() {
+      return this.tiers.map(tier => ({
+        tier,
+        label: TIER_LABEL_KEYS[tier] ? t(TIER_LABEL_KEYS[tier]) : tier,
+        active: tier === this.tier,
+      }));
+    },
+
+    // Waehlt eine Stufe. Die groebste Stufe ist die Vorgabe und setzt die
+    // Auswahl zurueck auf automatisch.
+    setResolution(tier) {
+      this.resolution = tier === this.tiers[this.tiers.length - 1] ? '' : tier;
+      return this.load().then(() => this.renderChart());
+    },
+
     get tierLabel() {
       const key = TIER_LABEL_KEYS[this.tier];
       return key ? t(key) : this.tier;
@@ -238,6 +267,7 @@
         points: this.visibleRows.length,
         series: this.selectedSeries.length,
         persisted: status.persisted !== false,
+        fallback: this.fallbackSeries.length,
       };
     },
 
@@ -249,7 +279,9 @@
       if (info.state === 'paused') return this.recorderStatus.reason || t('history.status.paused');
       if (info.state === 'empty') return t('history.status.empty');
       const params = {tier: info.tier, points: info.points, series: info.series};
-      return t(info.persisted ? 'history.status.summary' : 'history.status.summary_not_persisted', params);
+      const summary = t(info.persisted ? 'history.status.summary' : 'history.status.summary_not_persisted', params);
+      if (!info.fallback) return summary;
+      return `${summary} ${tn('history.status.fallback', info.fallback, {count: info.fallback})}`;
     },
 
     get pointsLabel() {
