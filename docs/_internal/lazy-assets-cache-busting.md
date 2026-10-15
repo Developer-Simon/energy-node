@@ -133,7 +133,7 @@ skips scripts already present as `<script src>`.
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `35` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `9` | `css/manager.css` `35` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `24` | `css/manager.css` `35` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `22`, `js/mqtt.page.js` `8`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `22`, `js/mqtt.page.js` `9`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `11` | `css/manager.css` `35`, `css/automations.css` `6` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `3` | `css/history.css` `7`, `css/stats.css` `2` |
 
@@ -254,6 +254,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| unreleased, `feat/discovery-more-roles` | `js/mqtt.page.js` (settings panel, additional Home Assistant sensors multiselect) | `9` | 2026-10-15 |
 | unreleased, `feat/history-hour-tier` | `js/history-rollup.js` (history panel, history tile) · `js/history-store.js` (`extent`, history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel: coverage percentages, explicit resolution, refresh pause, resolution pill and pause button in the status line) · `css/history.css` (history panel, stats panel: status line controls) | `3` · `5` · `5` · `21` · `7` | 2026-10-15 |
 | v0.9.16 | `js/history-rollup.js` (history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel) · `js/layout-editor.js` (overview editor) · `css/history.css` (history panel, stats panel) · `js/history-coverage.js` · `js/history-exchange.js` | `2` · `3` · `17` · `16` · `5` · `4` · `8` | 2026-10-15 |
 | v0.9.14 | `js/versions.page.js` (settings panel, changelog history) · `js/settings.page.js` (settings panel, `changelog_history`) · `js/mqtt.page.js` (settings panel, metrics multiselect and bridge help list) | `7` · `22` · `8` | 2026-10-14 |
