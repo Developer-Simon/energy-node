@@ -285,7 +285,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 	mux.HandleFunc("/api/v1/topics", handleTopics(reg))
 	mux.HandleFunc("/api/v1/topics/samples", handleTopicSamples(reg))
 	mux.HandleFunc("/api/v1/automation/notification", handleAutomationNotification(reg))
-	mux.HandleFunc("/api/v1/automation/history", handleAutomationLiveHistory(reg))
+	mux.HandleFunc("/api/v1/automation/history", handleAutomationDocument(reg, "history", "error.automation_not_found.no_history_topic", "Automations-Dienst ohne history-Topic"))
+	mux.HandleFunc("/api/v1/automation/state", handleAutomationDocument(reg, "state", "error.automation_not_found.no_state_topic", "Automations-Dienst ohne state-Topic"))
 	resolver := dependencies.Resolver
 	if resolver == nil {
 		resolver = energy.NewResolver(nil)
@@ -1331,15 +1332,15 @@ func handleAutomationNotification(reg *registry.Registry) http.HandlerFunc {
 	}
 }
 
-// handleAutomationLiveHistory serves the automation service's history document
-// ({at, rules, rule_count}) in full. The automations page used to read it from
-// the device route's last_message, which is cut at 4096 bytes and shared with
-// the availability topic: a few rules with a full history exceeded the cap, the
-// browser could not parse the truncated document and showed no history after a
-// reload. Unlike /api/v1/automations/history/<id>, which reads the persisted
-// file, this route also covers settings.history_persist=false. A 204 means no
-// usable document yet, so the client keeps whatever it last showed.
-func handleAutomationLiveHistory(reg *registry.Registry) http.HandlerFunc {
+// handleAutomationDocument serves one of the automation service's JSON
+// documents (state, history) in full. The automations page used to read them
+// from the device route's last_message, which is cut at 4096 bytes and shared
+// with the availability topic: a few rules exceeded the cap, the browser could
+// not parse the truncated document and kept a stale view. The history route
+// also covers settings.history_persist=false, unlike
+// /api/v1/automations/history/<id>, which reads the persisted file. A 204
+// means no usable document yet, so the client keeps whatever it last showed.
+func handleAutomationDocument(reg *registry.Registry, objectID, missingTopicKey, missingTopicMessage string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
 			methodNotAllowed(w, http.MethodGet)
@@ -1352,13 +1353,13 @@ func handleAutomationLiveHistory(reg *registry.Registry) http.HandlerFunc {
 		}
 		var stateTopic string
 		for _, entity := range device.Entities {
-			if entity.ObjectID == "history" {
+			if entity.ObjectID == objectID {
 				stateTopic = entity.StateTopic
 				break
 			}
 		}
 		if stateTopic == "" {
-			writeErrorKey(w, http.StatusNotFound, "automation_not_found", "error.automation_not_found.no_history_topic", nil, "Automations-Dienst ohne history-Topic")
+			writeErrorKey(w, http.StatusNotFound, "automation_not_found", missingTopicKey, nil, missingTopicMessage)
 			return
 		}
 		payload, ok := reg.StatePayload(stateTopic)

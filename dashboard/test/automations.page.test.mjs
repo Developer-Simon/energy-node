@@ -502,41 +502,11 @@ test('renderMiniChain yields one entry per condition plus the gate tone', () => 
   assert.equal(chain.gate.tone, 'wait');
 });
 
-test('applyStateDocument stores the state and its timestamp', () => {
+test('applyStateObject stores the state and its timestamp', () => {
   const { component } = createAutomationsPanel();
-  component.applyStateDocument(JSON.stringify(sampleState), true);
+  component.applyStateObject(sampleState);
   assert.equal(component.runtimeState.rules.r1.result, 'hold_pending');
-  assert.equal(component.online, true);
   assert.ok(component.lastStateAt > 0);
-});
-
-test('applyStateDocument survives an unparseable payload', () => {
-  const { component } = createAutomationsPanel();
-  component.applyStateDocument('{kaputt', true);
-  assert.equal(component.runtimeState, null);
-});
-
-// Regression: loadRuntimeState() must read the full state document from the
-// registry entity, not from the value_template-reduced "value" field. The
-// Go registry has no json_attributes_topic support (that field is dropped
-// during discovery-config parsing), so the "state" sensor's .value only ever
-// holds the single templated number (rules_enabled) - the full document sits
-// in .last_message.payload, the raw untemplated MQTT payload of the state
-// topic.
-test('loadRuntimeState reads the full document from last_message.payload, not the templated value', () => {
-  const { component } = createAutomationsPanel();
-  component.devices = [{
-    id: 'automation',
-    entities: [{
-      object_id: 'state',
-      available: true,
-      value: '1', // value_template-reduced rules_enabled count, not the document
-      last_message: { topic: 'outstation/automation/state', payload: JSON.stringify(sampleState) },
-    }],
-  }];
-  component.loadRuntimeState();
-  assert.equal(component.online, true);
-  assert.equal(component.runtimeState.rules.r1.result, 'hold_pending');
 });
 
 // last_message is capped at 4096 bytes and shared with the availability topic,
@@ -547,9 +517,10 @@ test('loadRuntimeState fetches the live history from its own route when the hist
   const { component, window } = createAutomationsPanel();
   const document = { at: 1, rule_count: 1, rules: { r1: [{ at: 1, result: 'fired', test: false, actions: [] }] } };
   const calls = [];
+  const history = () => calls.filter(url => url.includes('/automation/history'));
   window.fetch = async (url) => {
     calls.push(String(url));
-    return { ok: true, json: async () => document };
+    return { ok: true, json: async () => (String(url).includes('/automation/state') ? sampleState : document) };
   };
   const deviceWithHistoryAt = at => [{
     id: 'automation',
@@ -568,17 +539,17 @@ test('loadRuntimeState fetches the live history from its own route when the hist
   component.devices = deviceWithHistoryAt('2026-10-10T10:00:00Z');
   component.loadRuntimeState();
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.deepEqual(calls.map(url => url.replace(/^.*(\/api\/)/, '$1')), ['/api/v1/automation/history']);
+  assert.deepEqual(history().map(url => url.replace(/^.*(\/api\/)/, '$1')), ['/api/v1/automation/history']);
   assert.equal(component.historyEntries({ id: 'r1', history_enabled: true }).length, 1);
 
   component.loadRuntimeState();
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(calls.length, 1, 'an unchanged history entity must not refetch');
+  assert.equal(history().length, 1, 'an unchanged history entity must not refetch');
 
   component.devices = deviceWithHistoryAt('2026-10-10T10:01:00Z');
   component.loadRuntimeState();
   await new Promise(resolve => setTimeout(resolve, 0));
-  assert.equal(calls.length, 2);
+  assert.equal(history().length, 2);
 });
 
 test('applyHistoryDocument keeps the shown history on an empty 204 body', () => {
@@ -985,7 +956,8 @@ test('refreshFromRegistry holt nur das Automations-Geraet, nicht die Liste', asy
   const { component, window } = createAutomationsPanel();
   const calls = stubFetch(window, () => automationDeviceView({ rulesEnabled: true }));
   await component.refreshFromRegistry();
-  assert.deepEqual(calls, ['/api/v1/devices/automation']);
+  // Der Zustand selbst kommt seit der eigenen Route ueber /api/v1/automation/state.
+  assert.deepEqual(calls.filter(url => url.startsWith('/api/v1/devices')), ['/api/v1/devices/automation']);
 });
 
 test('refreshFromRegistry laesst die Auswahllisten unangetastet', async () => {
@@ -1000,10 +972,13 @@ test('refreshFromRegistry laesst die Auswahllisten unangetastet', async () => {
   assert.equal(component.devices.length, 1);
 });
 
-test('refreshFromRegistry uebernimmt den Laufzeitzustand aus dem Einzelgeraet', async () => {
+test('refreshFromRegistry uebernimmt Verfuegbarkeit aus dem Einzelgeraet und den Zustand aus der eigenen Route', async () => {
   const { component, window } = createAutomationsPanel();
-  stubFetch(window, () => automationDeviceView({ rulesEnabled: false, available: true }));
+  stubFetch(window, (url) => (String(url).includes('/api/v1/automation/state')
+    ? { rules: {}, rules_enabled: false }
+    : automationDeviceView({ rulesEnabled: false, available: true })));
   await component.refreshFromRegistry();
+  await new Promise(resolve => setTimeout(resolve, 0));
   assert.equal(component.online, true);
   assert.equal(component.runtimeState.rules_enabled, false);
 });

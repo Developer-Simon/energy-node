@@ -45,6 +45,7 @@
     flashRule: '',
     liveHistory: {},
     lastHistoryMessageAt: undefined,
+    lastStateMessageAt: null,
     historyExpanded: {},
     editing: {},
     savedDocument: null,
@@ -279,12 +280,16 @@
       // Die MQTT-Availability des "state"-Sensors ist zugleich das
       // online/offline-Signal des Dienstes - eine eigene "online"-Entity gibt
       // es im Register nicht.
-      // entity.value ist der value_template-reduzierte Wert (rules_enabled) -
-      // das Go-Registry kennt kein json_attributes_topic, deshalb steckt das
-      // volle Zustandsdokument nur im rohen, ungetemplateten Payload des
-      // state-Topics (last_message.payload).
-      const rawDocument = stateEntity && stateEntity.last_message && stateEntity.last_message.payload;
-      this.applyStateDocument(rawDocument, Boolean(stateEntity && stateEntity.available));
+      this.online = Boolean(stateEntity && stateEntity.available);
+      // Das Dokument selbst liefert /api/v1/automation/state: last_message ist
+      // auf 4096 Byte gekappt und teilt sich den Platz mit der Availability.
+      // Der Zeitstempel zeigt nur an, dass seit dem letzten Abruf etwas auf
+      // der Entity ankam.
+      const stateAt = stateEntity && stateEntity.last_message && stateEntity.last_message.at;
+      if (stateEntity && stateAt !== this.lastStateMessageAt) {
+        this.lastStateMessageAt = stateAt;
+        this.refreshState();
+      }
       // Den Verlauf selbst liefert /api/v1/automation/history: last_message
       // ist auf 4096 Byte gekappt und teilt sich den Platz mit der
       // Availability, ein langer Verlauf kam dort abgeschnitten an. Der
@@ -323,16 +328,21 @@
       }
     },
 
-    applyStateDocument(raw, online) {
-      this.online = Boolean(online);
-      if (!raw) return;
+    async refreshState() {
       try {
-        this.runtimeState = JSON.parse(raw);
-        this.lastStateAt = Date.now();
+        this.applyStateObject(await requestJSON('/api/v1/automation/state'));
       } catch (error) {
-        // Ein halb geschriebenes State-Dokument darf die Ansicht nicht leeren -
-        // der alte Stand bleibt stehen, bis der naechste Tick kommt.
+        // voruebergehender Fehler, der naechste Tick versucht es erneut
+        this.lastStateMessageAt = null;
       }
+    },
+
+    applyStateObject(document) {
+      // 204 (noch kein brauchbares Dokument) kommt als {} an und darf die
+      // Ansicht so wenig leeren wie ein fremder Payload.
+      if (!document || typeof document.rules !== 'object' || document.rules === null) return;
+      this.runtimeState = document;
+      this.lastStateAt = Date.now();
     },
 
     applyHistoryDocument(document) {
