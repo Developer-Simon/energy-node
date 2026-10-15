@@ -197,6 +197,14 @@ The unique IDs are `energy_node_<object_id>`, for example
 `energy_node_pv_power`. The Energy Node Companion finds these sensors in Home
 Assistant by exactly these IDs (§14), so they must not change.
 
+Three more sensors are optional: `energy_node_wallbox`, `energy_node_heat_pump`
+and `energy_node_custom_<id>` for each custom category. They are announced only
+once something is assigned to the wallbox, the heat pump or the category. The
+setting `energy_sensors` decides which of them are announced, and a missing
+setting counts as on. A category that is deleted or unassigned is retracted
+with an empty retained config. The announced sensors are remembered in
+`energydiscovery/announced.json`, so the retraction also works after a restart.
+
 All energy sensors point to `outstation/energy_node/status/online` as their
 availability. When Tailscale reports a MagicDNS name, the device block carries
 it as `configuration_url`, and the configs are published again when the name
@@ -370,8 +378,10 @@ flowchart LR
 {% endraw %}
 
 The payload is `{"at": <unix s>, "balance": {…}, "interpretation": {…}}`.
-The seven energy sensors from §3 each pick one field of `balance`, and Home
-Assistant records them. These recorded values are what the companion later
+`balance.categories` holds one value in watts per custom category, keyed by the
+category ID. Consumers are never negative, while producers and storage keep
+their raw sign. The seven energy sensors from §3 each pick one
+field of `balance`, and Home Assistant records them. These recorded values are what the companion later
 supplies back (§14).
 
 The automation service takes the balance as finished numbers and computes
