@@ -95,6 +95,8 @@ Services:
 
 - [Battery state of charge](services/battery-soc-how-it-works.md): how the
   LiFePO4 engine works.
+- [Automations engine](services/automations-how-it-works.md): when a rule
+  fires and what it may publish.
 
 Home Assistant:
 

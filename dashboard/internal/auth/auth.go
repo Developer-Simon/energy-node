@@ -232,7 +232,7 @@ func (m *Manager) ContinueAsGuest() (Session, error) {
 	// RoleCheckUpdates too, since there is no per-user role UI yet and
 	// locking either behind an admin-only login would make the feature
 	// unusable for the primary user. Revisit once role management grows a
-	// UI (knowhow/dashboard/automationen-tab.md).
+	// UI (docs/developing/api.md, section Roles).
 	user := User{Username: username, Guest: true, Roles: append([]string(nil), guestRoles...), CreatedAt: nowValue, LastLoginAt: nowValue}
 	m.users[username] = user
 	if err := m.saveLocked(); err != nil {

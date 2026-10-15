@@ -110,10 +110,18 @@ HTTPS.
 | `automations` | Write and test automation rules |
 | `delete_device_discovery` | Delete a device's discovery entries |
 | `tune_live_updates` | Change `live_update_interval_seconds` |
-| `edit_layout` | Reserved for layout editing. Reported in the session payload but not enforced yet: `PUT /api/v1/layout` has no gate |
+| `edit_layout` | Edit mode of the overview and writes to `/api/v1/device/prefs/{id}`. `PUT /api/v1/layout` itself has no gate yet |
+| `edit_energy` | Write the energy configuration: roles, interpretation, groups, categories and restoring their revisions |
+| `check_updates` | Ask whether a newer version is available on GitHub (`/api/v1/updates/status` and `/api/v1/updates/check`). Read only, it starts no update |
 
-A session without a role can read everything and change the layout, the device
-card, the energy roles, switch commands and the remaining settings.
+A session without a role can read everything and change the layout, switch
+commands and the remaining settings.
+
+Guest sessions get `automations`, `edit_layout`, `edit_energy` and
+`check_updates` for now, because there is no per user role management yet. A
+guest can therefore write and test automation rules, which may publish to MQTT
+within `publish_allowed_prefixes`. Keep this in mind before you open guest
+access to people you do not trust.
 
 ### CSRF
 
