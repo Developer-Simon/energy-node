@@ -438,6 +438,21 @@
     if (document.visibilityState === 'visible') renderRelativeTimestamps(document);
   });
 
+  // Auf schmalen Fenstern hängt ein Hilfe-Tooltip unter seinem Knopf und soll
+  // die Fensterbreite mit festem Rand nutzen (base.css). Wo der Knopf steht,
+  // weiß nur das Skript: es setzt den Versatz nach links und die Breite als
+  // CSS-Variablen, sobald der Knopf Fokus oder den Zeiger bekommt.
+  const FIELD_HELP_EDGE = 20;
+  const placeFieldHelp = event => {
+    const help = event.target && event.target.closest ? event.target.closest('.field-help') : null;
+    if (!help || !window.matchMedia || !window.matchMedia('(max-width: 700px)').matches) return;
+    const viewport = document.documentElement.clientWidth;
+    help.style.setProperty('--help-tip-left', `${FIELD_HELP_EDGE - help.getBoundingClientRect().left}px`);
+    help.style.setProperty('--help-tip-width', `${viewport - 2 * FIELD_HELP_EDGE}px`);
+  };
+  document.addEventListener('focusin', placeFieldHelp);
+  document.addEventListener('pointerover', placeFieldHelp);
+
   const runtimeStatusPanel = () => ({
     status: null,
     enabled: true,

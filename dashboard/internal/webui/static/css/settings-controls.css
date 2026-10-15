@@ -403,6 +403,9 @@
 .version-help-anchor { position: relative; }
 .version-help { position: static; margin-left: .2rem; vertical-align: middle; }
 .version-help .field-help-text { left: 0; transform: none; }
+@media (max-width: 700px) {
+  .version-help .field-help-text { left: var(--help-tip-left, 0px); }
+}
 
 /* --- Statuskachel des Geraeteaustauschs --------------------------------
    Ein Zustandspunkt mit Kopfzeile und drei Kennzahlen statt grauer
