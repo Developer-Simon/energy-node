@@ -192,6 +192,17 @@ test('startRun sperrt, finishRun gibt frei und fuehrt ins Ergebnis', async () =>
   assert.equal(shell.screen, 'result');
 });
 
+test('startRun merkt sich bei einem Update die Ausgangsversion im Tab', async () => {
+  const { shell, window } = await createShell({ url: 'http://localhost/' });
+  shell.shared.plan = { components: { bootstrap: { from: 'v1.4.1', to: 'v1.4.2' } } };
+  shell.startRun({ run_id: 'run-2', seq: 1 }, { mode: 'redeploy' });
+  assert.equal(window.sessionStorage.getItem('energy-node-installer.redeploy-from'), 'v1.4.1');
+
+  shell.shared.plan = null;
+  shell.startRun({ run_id: 'run-3', seq: 1 }, { mode: 'redeploy' });
+  assert.equal(window.sessionStorage.getItem('energy-node-installer.redeploy-from'), null);
+});
+
 test('openDiagnose wechselt den Einstieg oder bleibt in ihm', async () => {
   const { shell } = await createShell();
   shell.connected = true;

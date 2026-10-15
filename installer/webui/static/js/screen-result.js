@@ -10,6 +10,16 @@
   var CADDY_STEP = '70';
   var DASHBOARD_PORT = '8080';
 
+  // Gesetzt von app.js startRun beim Start eines Updates, für den Fall,
+  // dass das Fenster während des Dashboard-Neustarts neu lädt.
+  function storedRedeployFrom() {
+    try {
+      return window.sessionStorage.getItem('energy-node-installer.redeploy-from') || '';
+    } catch (err) {
+      return '';
+    }
+  }
+
   window.Screens = window.Screens || {};
   window.Screens.screenResult = function screenResult() {
     return {
@@ -86,7 +96,8 @@
         var version = window.Format.plainVersion(this.manifest.bundle_version);
         if (outcome.mode === 'redeploy') {
           var plan = shell.shared.plan;
-          var from = plan && plan.components && plan.components.bootstrap ? window.Format.plainVersion(plan.components.bootstrap.from) : '';
+          var rawFrom = plan && plan.components && plan.components.bootstrap ? plan.components.bootstrap.from : storedRedeployFrom();
+          var from = rawFrom ? window.Format.plainVersion(rawFrom) : '';
           return shell.t('result.redeploy.summary', {
             from: from || '?', to: version, restarted: shell.tn('result.restarted', this.restarted), duration: this.duration,
           });
