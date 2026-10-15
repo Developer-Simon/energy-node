@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 )
 
@@ -249,5 +250,45 @@ func TestStatusHasNoBackfillDateWhenNothingIsMissing(t *testing.T) {
 	h := newSyncHarness(t, "2026-10-11T12:30:00Z")
 	if st := h.sync.Status(); st.BackfillFrom != nil {
 		t.Fatalf("BackfillFrom = %v", st.BackfillFrom)
+	}
+}
+
+func TestOfferAcceptsOnlyConsumerAndProducerCategories(t *testing.T) {
+	h := newSyncHarness(t, "2026-10-11T12:30:00Z")
+	h.sync.SetCategories(func() map[string]energy.Category {
+		return map[string]energy.Category{
+			"akku":  {Label: "Akku", Base: energy.CategoryStorage},
+			"sauna": {Label: "Sauna", Base: energy.CategoryConsumer},
+		}
+	})
+	h.sync.OnOffer("p-ha", map[string]historyexchange.Census{
+		"role:custom:akku":  census("2026-10-10T00:00:00Z", 1),
+		"role:custom:weg":   census("2026-10-10T00:00:00Z", 1),
+		"role:custom:sauna": census("2026-10-10T00:00:00Z", 1),
+	})
+	if len(h.sent) != 1 || h.sent[0].body["series"] != "role:custom:sauna" {
+		t.Fatalf("Nachfragen = %+v, erwartet nur role:custom:sauna", h.sent)
+	}
+}
+
+func TestOfferWithoutCategoriesRejectsCustomSeries(t *testing.T) {
+	h := newSyncHarness(t, "2026-10-11T12:30:00Z")
+	h.sync.OnOffer("p-ha", map[string]historyexchange.Census{"role:custom:sauna": census("2026-10-10T00:00:00Z", 1)})
+	if len(h.sent) != 0 {
+		t.Fatalf("Nachfragen = %+v, erwartet keine ohne Kategorien", h.sent)
+	}
+}
+
+func TestDeliveryForStorageCategoryIsDropped(t *testing.T) {
+	h := newSyncHarness(t, "2026-10-11T12:30:00Z")
+	h.sync.SetCategories(func() map[string]energy.Category {
+		return map[string]energy.Category{"akku": {Label: "Akku", Base: energy.CategoryStorage}}
+	})
+	// Eine offene Nachfrage fuer den Speicher (z. B. Kategorie vor der Antwort
+	// umgestellt) darf nichts in den Store schreiben.
+	h.sync.pending = &pendingRequest{id: "stats-x", peer: "p-ha", series: "role:custom:akku", days: 1, oldest: ms("2026-10-10T00:00:00Z"), sent: h.now}
+	h.sync.OnDeliver("p-ha", "stats-x", []historyexchange.Row{hourRow("role:custom:akku", "2026-10-10T05:00:00Z", 1500)}, true)
+	if source, _ := h.store.SourceAt("custom:akku", hourAt("2026-10-10T05:00:00Z")); source == SourceHA {
+		t.Fatalf("Speicherkategorie wurde aus Home Assistant geschrieben")
 	}
 }
