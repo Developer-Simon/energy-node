@@ -76,7 +76,7 @@ test('bandGeometry omits the flow-direction animation for the rest band and thin
   const { factory, model } = load();
   // gap forces a "Nicht zugeordnet" rest entry into sinks - only in diagnostic
   // mode; the unknown_consumer default folds it into "base" instead.
-  const balance = model.deriveBalance({values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []}, {gap_mode: 'diagnostic'});
+  const balance = model.deriveBalance({values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []}, {gap_mode: 'diagnostic', load_mode: 'measured'});
   const geometry = factory.bandGeometry(balance, 980);
   const rest = geometry.sinkRibbons.find(r => r.flow.id === 'rest');
   assert.ok(rest);

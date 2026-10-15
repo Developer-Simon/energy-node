@@ -57,13 +57,6 @@
       {id: 'grid', label: t('energy.board.row.grid'), value: Math.abs(gridNet), color: model.COLORS.gridImport, dir: gridDir},
       {id: 'load', label: balance.loadSource === 'calculated' || balance.loadSource === 'combined' ? t('energy.role.consumption_calculated') : t('energy.role.consumption'),
         value: balance.load, color: model.COLORS.base, dir: t('energy.board.dir.consumption')},
-      // Die gemessenen Teilverbraucher stehen unter dem Hausverbrauch, nicht
-      // daneben: sie sind ein Teil von ihm, kein weiterer Summand. Alle
-      // beziehen ihre Frische aus der Rolle "load", aus der sie stammen.
-      ...balance.measuredFlows.map(flow => ({
-        id: flow.id, label: flow.label, value: flow.value, color: flow.color,
-        dir: t('energy.measured_label'), staleRole: 'load',
-      })),
       {id: 'wallbox', label: t('energy.role.wallbox'), value: wallbox, color: model.COLORS.wallbox, dir: wallbox > 0.5 ? t('energy.board.dir.wallbox_charging') : battery_dir_rest},
       {id: 'heat_pump', label: t('energy.role.heat_pump'), value: heatPump, color: model.COLORS.heatPump, dir: heatPump > 0.5 ? t('energy.board.dir.consumption') : battery_dir_rest},
     ];

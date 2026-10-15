@@ -60,7 +60,7 @@ test('boardRows nets simultaneous charge and discharge into one battery balance 
 test('boardRows appends a red "Nicht zugeordnet" row when the balance is unbalanced (diagnostic mode)', () => {
   const { factory, model } = load();
   const snapshot = {values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []};
-  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic'});
+  const balance = model.deriveBalance(snapshot, {gap_mode: 'diagnostic', load_mode: 'measured'});
   const rows = factory.boardRows(snapshot, balance);
   const rest = rows.find(r => r.id === 'rest');
   assert.ok(rest);
@@ -71,7 +71,7 @@ test('boardRows appends a red "Nicht zugeordnet" row when the balance is unbalan
 test('boardRows appends a grey "eingerechnet" info row when the gap was absorbed (unknown_consumer default)', () => {
   const { factory, model } = load();
   const snapshot = {values: {pv: 3100, load: 3100, heat_pump: 620, grid: 940}, roles: []};
-  const balance = model.deriveBalance(snapshot);
+  const balance = model.deriveBalance(snapshot, {load_mode: 'measured'});
   const rows = factory.boardRows(snapshot, balance);
   const rest = rows.find(r => r.id === 'rest');
   assert.ok(rest);
@@ -244,7 +244,7 @@ test('die Zeile "Hausverbrauch" nennt die Herkunft der Zahl', () => {
   assert.equal(rowsCalculated.find(row => row.id === 'load').label, 'Hausverbrauch (berechnet)');
 
   const measured = {values: {pv: 640, grid: 511, load: 900}, roles: []};
-  const rowsMeasured = factory.boardRows(measured, model.deriveBalance(measured));
+  const rowsMeasured = factory.boardRows(measured, model.deriveBalance(measured, {load_mode: 'measured'}));
   assert.equal(rowsMeasured.find(row => row.id === 'load').label, 'Hausverbrauch');
 });
 

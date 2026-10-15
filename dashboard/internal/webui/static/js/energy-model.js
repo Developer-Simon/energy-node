@@ -80,7 +80,6 @@
     base: 'flow-load',
     wallbox: 'flow-wallbox',
     heatPump: 'flow-heatpump',
-    loadMeasured: 'flow-measured',
     rest: 'flow-rest',
   };
 
@@ -99,8 +98,7 @@
   // i18n-keys: energy.role.grid_import, energy.role.grid_export,
   // energy.role.battery_charge, energy.role.battery_discharge,
   // energy.role.base, energy.role.base_calculated, energy.role.wallbox,
-  // energy.role.heat_pump, energy.role.load_measured,
-  // energy.role.load_measured_rest, energy.role.unassigned,
+  // energy.role.heat_pump, energy.role.unassigned,
   // energy.role.unknown_generation
   const LABEL_KEYS = {
     gridImport: 'energy.role.grid_import',
@@ -111,8 +109,6 @@
     baseCalculated: 'energy.role.base_calculated',
     wallbox: 'energy.role.wallbox',
     heatPump: 'energy.role.heat_pump',
-    loadMeasured: 'energy.role.load_measured',
-    loadMeasuredRest: 'energy.role.load_measured_rest',
     rest: 'energy.role.unassigned',
     unknownGeneration: 'energy.role.unknown_generation',
   };
@@ -124,13 +120,6 @@
       get: () => t(LABEL_KEYS[key]),
     });
   }
-
-  // Farben der Einzelpositionen bei measured_split "entities". Die
-  // series-Tokens statt der flow-Tokens: die gemessenen Teilverbraucher sind
-  // eine offene, anlagenspezifische Menge ohne feste Rollenbedeutung - genau
-  // der Fall, fuer den die kategorialen Serienfarben da sind. Zyklisch, damit
-  // auch die siebte Entitaet eine Farbe bekommt.
-  const MEASURED_SERIES_TOKENS = ['series-1', 'series-2', 'series-3', 'series-4', 'series-5', 'series-6'];
 
   // Default balance interpretation - mirrors energy.DefaultInterpretation()
   // in internal/energy/interpretation.go. Used whenever a snapshot carries
@@ -153,7 +142,7 @@
     const bothZero = toleranceW === 0 && tolerancePercent === 0;
     return {
       gap_mode: cfg.gap_mode || DEFAULT_INTERPRETATION.gap_mode,
-      load_mode: cfg.load_mode || DEFAULT_INTERPRETATION.load_mode,
+      load_mode: cfg.load_mode === 'combined' ? 'auto' : (cfg.load_mode || DEFAULT_INTERPRETATION.load_mode),
       gap_tolerance_mode: cfg.gap_tolerance_mode || DEFAULT_INTERPRETATION.gap_tolerance_mode,
       gap_tolerance_w: bothZero ? DEFAULT_INTERPRETATION.gap_tolerance_w : toleranceW,
       gap_tolerance_percent: bothZero ? DEFAULT_INTERPRETATION.gap_tolerance_percent : tolerancePercent,
@@ -208,39 +197,46 @@
     const heatPump = Math.max(roleValue(snapshot, 'heat_pump'), 0);
 
     const calculated = Math.max(pv + gridImport + discharge - gridExport - charge, 0);
-    const hasMeasured = hasValue(snapshot, 'load');
-    const measured = hasMeasured ? Math.max(roleValue(snapshot, 'load'), 0) : 0;
+    const hasMeter = hasValue(snapshot, 'load');
+    const meter = hasMeter ? Math.max(roleValue(snapshot, 'load'), 0) : 0;
+    const hasGrid = hasValue(snapshot, 'grid') || hasValue(snapshot, 'grid_import') || hasValue(snapshot, 'grid_export');
 
+    // Spiegelt den Lastmodus in internal/energy/balance.go.
     let loadTotal;
     let loadSource;
-    let loadMeasured = 0;
+    let loadFallback = '';
     if (cfg.load_mode === 'calculated') {
       loadTotal = calculated;
       loadSource = 'calculated';
-    } else if (cfg.load_mode === 'combined') {
-      // Spiegelt LoadModeCombined in internal/energy/balance.go: Gesamtwert
-      // aus der Bilanz, gemessene Teilverbraucher separat.
-      loadTotal = calculated;
-      loadSource = 'combined';
-      loadMeasured = measured;
     } else if (cfg.load_mode === 'measured') {
-      loadTotal = hasMeasured ? measured : 0;
-      loadSource = hasMeasured ? 'measured' : 'missing';
+      loadTotal = hasMeter ? meter : 0;
+      loadSource = hasMeter ? 'measured' : 'missing';
+    } else if (hasMeter && !hasGrid) {
+      loadTotal = meter;
+      loadSource = 'measured';
+      loadFallback = 'no_grid';
     } else {
-      loadTotal = hasMeasured ? measured : calculated;
-      loadSource = hasMeasured ? 'measured' : 'calculated';
+      loadTotal = calculated;
+      loadSource = 'calculated';
     }
 
-    let base = Math.max(loadTotal - wallbox - heatPump - loadMeasured - cats.consumers, 0);
-    const gapRaw = (pv + gridImport + discharge) - (base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge);
+    let base = Math.max(loadTotal - wallbox - heatPump - cats.consumers, 0);
+    const gapRaw = (pv + gridImport + discharge) - (base + wallbox + heatPump + cats.consumers + gridExport + charge);
 
     const sumSources = pv + gridImport + discharge;
-    const sumSinks = base + loadMeasured + wallbox + heatPump + cats.consumers + gridExport + charge;
+    const sumSinks = base + wallbox + heatPump + cats.consumers + gridExport + charge;
     const total = Math.max(sumSources, sumSinks);
 
     const toleranceW = cfg.gap_tolerance_mode === 'percent' ? (cfg.gap_tolerance_percent / 100) * total : cfg.gap_tolerance_w;
     const gapIgnored = Math.abs(gapRaw) <= toleranceW;
     const gapApplied = gapIgnored ? 0 : gapRaw;
+
+    let meterDeviation = 0;
+    let meterCheck = '';
+    if (hasMeter && hasGrid) {
+      meterDeviation = meter - calculated;
+      meterCheck = Math.abs(meterDeviation) > toleranceW ? 'deviates' : 'ok';
+    }
 
     let gapAbsorbed = 0;
     let unbalanced = false;
@@ -261,7 +257,8 @@
       pv, grid_import: gridImport, grid_export: gridExport,
       battery_charge: charge, battery_discharge: discharge,
       wallbox, heat_pump: heatPump,
-      load_total: loadTotal, load_source: loadSource, load_measured: loadMeasured, base,
+      load_total: loadTotal, load_source: loadSource, load_fallback: loadFallback, load_calculated: calculated,
+      load_meter: meter, has_load_meter: hasMeter, meter_deviation: meterDeviation, meter_check: meterCheck, base,
       gap_raw: gapRaw, gap_applied: gapApplied, gap_absorbed: gapAbsorbed,
       gap_tolerance_w: toleranceW, gap_ignored: gapIgnored, unbalanced,
       autarkie, eigenverbrauch, netz: gridImport - gridExport, total,
@@ -273,36 +270,6 @@
       battery_energy_kwh: roleValue(snapshot, 'battery_energy_kwh'),
       categories: cats.perCategory,
     };
-  }
-
-  // Die Senkenpositionen fuer den im Kombiniert-Modus abgetrennten gemessenen
-  // Verbrauch. Ausserhalb dieses Modus ist load_measured 0 und die Liste
-  // leer, so dass jeder Aufrufer sie bedingungslos einstreuen kann.
-  //
-  // split === 'entities' zerlegt die Summe in eine Position je load-Entitaet
-  // (Layout-Option measured_split, pro Kachel). Was unter der 0,5-W-Grenze
-  // liegt oder - bei invertierten Zuordnungen - negativ ist, bekommt keine
-  // eigene Position; die Differenz zur Summe wird als eine Restposition
-  // nachgereicht, damit die Senkenseite trotzdem aufgeht.
-  function measuredLoadFlows(n, snapshot, split) {
-    const measured = n.load_measured || 0;
-    if (measured <= 0.5) return [];
-    if (split !== 'entities') {
-      return [{id: 'load_measured', label: LABELS.loadMeasured, value: measured, color: COLORS.loadMeasured}];
-    }
-    const flows = ((snapshot && snapshot.entities) || [])
-      .filter(entity => entity.role && entity.role.role === 'load' && entity.value > 0.5)
-      .map((entity, index) => ({
-        id: `load_measured:${entity.entity_id}`,
-        label: entity.label || entity.entity_id,
-        value: entity.value,
-        color: window.DashboardTheme.color(MEASURED_SERIES_TOKENS[index % MEASURED_SERIES_TOKENS.length]),
-      }));
-    const shown = flows.reduce((sum, flow) => sum + flow.value, 0);
-    if (measured - shown > 0.5) {
-      flows.push({id: 'load_measured_rest', label: LABELS.loadMeasuredRest, value: measured - shown, color: COLORS.loadMeasured});
-    }
-    return flows;
   }
 
   // Eine Senke je Verbraucher-Kategorie. Die Farbe kommt aus dem Token
@@ -329,9 +296,8 @@
   // numbers without ever recomputing them in JS.
   function composeBalance(n, options) {
     options = options || {};
-    const calculatedLoad = n.load_source === 'calculated' || n.load_source === 'combined';
+    const calculatedLoad = n.load_source === 'calculated';
     const baseLabel = calculatedLoad ? LABELS.baseCalculated : LABELS.base;
-    const measuredFlows = measuredLoadFlows(n, options.snapshot, options.measuredSplit);
 
     const sources = [
       {id: 'pv', label: LABELS.pv, value: n.pv, color: COLORS.pv},
@@ -341,7 +307,6 @@
 
     const sinks = [
       {id: 'base', label: baseLabel, value: n.base, color: COLORS.base},
-      ...measuredFlows,
       {id: 'wallbox', label: LABELS.wallbox, value: n.wallbox, color: COLORS.wallbox},
       {id: 'heat_pump', label: LABELS.heatPump, value: n.heat_pump, color: COLORS.heatPump},
       ...categorySinks(n, options.snapshot),
@@ -363,10 +328,10 @@
 
     return {
       sources, sinks, total: Math.max(n.total, 1), load: n.load_total, base: n.base,
-      measured: n.load_measured || 0, measuredFlows,
       wallbox: n.wallbox, heatPump: n.heat_pump,
       charge: n.battery_charge, discharge: n.battery_discharge, gridImport: n.grid_import, gridExport: n.grid_export,
       gap: n.gap_applied, unbalanced: n.unbalanced, gapAbsorbed: n.gap_absorbed, loadSource: n.load_source,
+      loadFallback: n.load_fallback || '', meterDeviation: n.meter_deviation || 0, meterCheck: n.meter_check || '',
       kpi: {autarkie: n.autarkie, eigen: n.eigenverbrauch, netz: n.netz, last: n.load_total},
     };
   }
@@ -495,7 +460,7 @@
   // Macht aus einem Verlaufspunkt den synthetischen Schnappschuss, den
   // deriveBalance() erwartet. Setzt bewusst nur die Rollen, die der Punkt
   // wirklich traegt: ein vorhandener, aber nullter "load"-Schluessel macht
-  // hasMeasured in deriveBalanceCore() wahr und laesst load_total im Modus
+  // hasMeter in deriveBalanceCore() wahr und laesst load_total im Modus
   // "auto" auf 0 fallen, obwohl gar nichts gemessen wurde.
   // Eigene Kategorien uebernimmt er mit ihrem Basistyp aus dem Punkt.
   function snapshotFromPoint(point) {
@@ -557,6 +522,6 @@
     formatPower, formatPercent, deriveBalance, deriveBalanceCore, composeBalance, balanceOf, readEmbeddedSnapshot,
     groupRoleSamples, snapshotFromPoint, HISTORY_ROLES,
     clearSvgChildren, svgEl, SVG_NS,
-    measuredLoadFlows, allocate, COLORS, LABELS, DEFAULT_INTERPRETATION,
+    allocate, COLORS, LABELS, DEFAULT_INTERPRETATION,
   };
 })();
