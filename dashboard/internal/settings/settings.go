@@ -402,6 +402,11 @@ type MQTTConfig struct {
 	// Bedeutung von "nicht gesetzt" traegt dieser Default, nicht das Schema
 	// (Spec V2).
 	Metrics map[string]bool `json:"metrics,omitempty"`
+	// EnergySensors schaltet je optionalem Energie-Sensor (Schluessel wie
+	// energydiscovery.OptionalSensor.Key, z.B. "wallbox" oder
+	// "custom_sauna") das Anbieten per HA-Discovery ab. Ein fehlender
+	// Schluessel bedeutet an.
+	EnergySensors map[string]bool `json:"energy_sensors,omitempty"`
 	// SimulationActive ist der Sollzustand des globalen simulation_active-
 	// Broadcasts, den das Dashboard retained an
 	// outstation/<node>/settings/simulation_active/set schickt. Default false.

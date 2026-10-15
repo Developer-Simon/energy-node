@@ -89,6 +89,21 @@
       </span>
       <span class="settings-toggle"><input id="mqtt-publish-energy-device" type="checkbox" role="switch" x-model="form.publish_energy_device" x-bind:disabled="!canConfigure" x-bind:aria-checked="form.publish_energy_device" x-on:change="saveEnergyDevice()"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span>
     </label>
+    <div class="settings-multiselect-row mqtt-energy-sensors-select" x-show="form.publish_energy_device && energySensorOptions.length">
+      <label for="mqtt-energy-sensors-select">
+        {{t "mqtt.energy_sensors.label"}}
+        <span class="field-help">
+          <button class="field-help-trigger" type="button" aria-label="{{t "mqtt.energy_sensors.help"}}"><svg><use href="#ico-help"></use></svg></button>
+          <span class="field-help-text" role="tooltip">{{t "mqtt.energy_sensors.help_text"}}</span>
+        </span>
+      </label>
+      <select id="mqtt-energy-sensors-select" x-ref="energySensorsSelect" multiple x-on:change="onEnergySensorsChange()">
+        <template x-for="option in energySensorOptions" x-bind:key="option.key">
+          <option x-bind:value="option.key" x-text="energySensorLabel(option)"></option>
+        </template>
+      </select>
+    </div>
+    <p class="setting-note" x-show="form.publish_energy_device && !energySensorOptions.length">{{t "mqtt.energy_sensors.empty"}}</p>
     <label class="switch-row" for="mqtt-node-simulation">
       <span>{{t "mqtt.simulation.label"}}
         <span class="field-help">

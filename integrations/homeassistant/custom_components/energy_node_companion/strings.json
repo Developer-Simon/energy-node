@@ -51,7 +51,7 @@
       },
       "stats": {
         "title": "Energy statistics",
-        "description": "Pick an energy meter per role if you have one. A meter is more exact and reaches further back. Empty uses the power sensor of Energy Node. Wallbox and heat pump are only supplied with a meter.",
+        "description": "Pick an energy meter per role if you have one. A meter is more exact and reaches further back. Empty uses the power sensor of Energy Node. Wallbox and heat pump work the same way once they are assigned in Energy Node.",
         "data": {
           "counter_pv": "PV yield meter",
           "counter_grid_import": "Grid import meter",

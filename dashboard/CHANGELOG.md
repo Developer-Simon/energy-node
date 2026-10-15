@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.17 (2026-10-15)
+## v0.9.18 (2026-10-15)
 
 ### Features
 
@@ -11,6 +11,11 @@
 - **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134) (ccd90ca)
 - **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137) (14f781e)
 - **dashboard:** The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect. (#138) (3c7821a)
+- **history:** The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh. (#141) (d7971dd)
+- **energydiscovery:** optional sensors for wallbox, heat pump and categories (6f21c9a)
+- **dashboard:** announce optional energy sensors and let them be deselected (339fee9)
+- **dashboard:** choose the additional Home Assistant sensors in the MQTT tab (a1478cb)
+- **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142)
 - **energystats:** hourly means for the history page (8ac2d1c)
 - **history:** offer resolutions per span and default to the coarsest (6819e41)
 - **history:** hourly tier from the server with per-series 5 min fallback (4884935)
@@ -21,7 +26,6 @@
 - **history:** coverage based resolution default, explicit selection and refresh pause (8568e1c)
 - **history:** resolution dropdown and a pause button for the history page (9ddc271)
 - **history:** resolution dropdown and pause button inside the status line (b6381c3)
-- **history:** The history page offers the resolutions that fit the chosen span with the coarsest preselected, shows hourly values from the energy statistics for a week or longer and gets a 3 month preset. (#141)
 - **dashboard:** published diagnostics metrics as a read-only-for-guests multiselect (63f6bf4)
 - **dashboard:** bridge setup step list on the MQTT tab (638c5ee)
 - **dashboard:** keep every received changelog version on the node (6061446)
@@ -58,6 +62,10 @@
 
 ### Fixes
 
+- **energydiscovery:** leave role empty for category sensors (a2f0f81)
+- **dashboard:** keep announced sensors when settings cannot be loaded (5661b83)
+- **energystats:** accept only consumer and producer categories from the companion (ec8339e)
+- **dashboard:** refresh additional sensor choices and cover them with tests (ce6554a)
 - **history:** fetch the minute tail for every watched tier (c72a53a)
 - **history:** saved views use the coarsest resolution and failed hour fetches are not cached (e24f506)
 - **dashboard:** skip the bridge config request for guests on the MQTT tab (726e39f)

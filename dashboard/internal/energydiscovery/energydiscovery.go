@@ -3,7 +3,9 @@
 // Node") mit read-only Energie-Sensoren anbietet. Alle Sensoren lesen
 // aus demselben retained State-Topic (StateTopic), das cmd/dashboard alle
 // 10 s als {"at":…,"balance":energy.Balance,…} veröffentlicht; jeder Sensor
-// wählt sein Feld per value_template. Siehe
+// wählt sein Feld per value_template. Zusaetzlich bietet optional.go
+// Sensoren fuer Wallbox, Waermepumpe und Kategorien an, die nur bei Bedarf
+// angekuendigt werden. Siehe
 // dashboard/mqtt-topics-und-discovery-format.md, Abschnitt "Dashboard als
 // Discovery-Publisher".
 package energydiscovery
@@ -98,8 +100,35 @@ func deviceBlock(swVersion, configurationURL string) map[string]any {
 	return device
 }
 
-// Configs liefert die sieben retained Discovery-Config-Nachrichten. prefix
-// ist der HA-Discovery-Präfix (z. B. "homeassistant"), swVersion die
+// sensorPayload baut das JSON einer Sensor-Config. Sie wird von den festen
+// Configs und von den optionalen Sensoren (optional.go) gemeinsam genutzt.
+// Bei einem (theoretischen) Marshal-Fehler liefert sie nil, also ein Removal.
+func sensorPayload(name, uniqueID, template, deviceClass, unit string, device map[string]any) []byte {
+	payload := map[string]any{
+		"name":                  name,
+		"unique_id":             uniqueID,
+		"device":                device,
+		"state_topic":           StateTopic,
+		"value_template":        template,
+		"device_class":          deviceClass,
+		"unit_of_measurement":   unit,
+		"state_class":           "measurement",
+		"availability_topic":    AvailabilityTopic,
+		"payload_available":     "1",
+		"payload_not_available": "0",
+	}
+	encoded, err := json.Marshal(payload)
+	if err != nil {
+		// map[string]any mit reinen JSON-Skalaren/Slices kann nicht
+		// fehlschlagen; defensiv trotzdem als Removal behandeln.
+		return nil
+	}
+	return encoded
+}
+
+// Configs liefert die sieben festen retained Discovery-Config-Nachrichten
+// (die optionalen Sensoren stehen in optional.go). prefix ist der
+// HA-Discovery-Präfix (z. B. "homeassistant"), swVersion die
 // Dashboard-Build-Version, configurationURL der Geraete-Link aus
 // ConfigurationURL ("" laesst ihn weg). Bei enabled == false trägt jede
 // Nachricht ein leeres Payload (Removal), die Topics bleiben unverändert.
@@ -109,26 +138,14 @@ func Configs(prefix, swVersion, configurationURL string, enabled bool) []Message
 	for _, s := range sensors {
 		msg := Message{Topic: DiscoveryTopic(prefix, s.objectID)}
 		if enabled {
-			payload := map[string]any{
-				"name":                  s.name,
-				"unique_id":             DeviceID + "_" + s.objectID,
-				"device":                device,
-				"state_topic":           StateTopic,
-				"value_template":        "{{ value_json.balance['" + s.field + "'] }}",
-				"device_class":          s.deviceClass,
-				"unit_of_measurement":   s.unit,
-				"state_class":           "measurement",
-				"availability_topic":    AvailabilityTopic,
-				"payload_available":     "1",
-				"payload_not_available": "0",
-			}
-			encoded, err := json.Marshal(payload)
-			if err != nil {
-				// map[string]any mit reinen JSON-Skalaren/Slices kann nicht
-				// fehlschlagen; defensiv trotzdem als Removal behandeln.
-				encoded = nil
-			}
-			msg.Payload = encoded
+			msg.Payload = sensorPayload(
+				s.name,
+				DeviceID+"_"+s.objectID,
+				"{{ value_json.balance['"+s.field+"'] }}",
+				s.deviceClass,
+				s.unit,
+				device,
+			)
 		}
 		out = append(out, msg)
 	}

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/historyexchange"
 )
 
@@ -41,6 +42,30 @@ func roleOf(series string) (string, bool) {
 		return role, true
 	}
 	return "", false
+}
+
+// accepts prueft, ob eine Serie aus dem Companion angenommen wird: die
+// Rollen aus Home Assistant und Verbraucher- oder Erzeugerkategorien.
+// Speicherkategorien nimmt Sync nicht an, sie stecken in battery_charge und
+// battery_discharge. Unbekannte Kategorien und custom:-Serien ohne gesetzte
+// Kategorien werden abgelehnt.
+func (s *Sync) accepts(series string) (string, bool) {
+	role, ok := roleOf(series)
+	if !ok {
+		return "", false
+	}
+	id, custom := strings.CutPrefix(role, "custom:")
+	if !custom {
+		return role, true
+	}
+	if s.categories == nil {
+		return "", false
+	}
+	category, known := s.categories()[id]
+	if !known || category.Base == energy.CategoryStorage {
+		return "", false
+	}
+	return role, true
 }
 
 type SyncStatus struct {
@@ -75,12 +100,13 @@ type Sync struct {
 	now   func() time.Time
 	logf  func(format string, args ...any)
 
-	mu        sync.Mutex
-	send      func(to string, payload []byte) bool
-	hasPeer   func(id string) bool
-	companion string
-	offered   map[string]historyexchange.Census
-	queue     []syncJob
+	mu         sync.Mutex
+	send       func(to string, payload []byte) bool
+	hasPeer    func(id string) bool
+	companion  string
+	categories func() map[string]energy.Category
+	offered    map[string]historyexchange.Census
+	queue      []syncJob
 	// tried merkt je "serie|tag" die angebotene Stundenzahl beim letzten
 	// Versuch. Liefert HA weniger als angeboten (Luecke im Recorder), wird
 	// der Tag erst wieder angefragt, wenn sich die Zahl aendert.
@@ -91,6 +117,14 @@ type Sync struct {
 
 func NewSync(store *Store, now func() time.Time) *Sync {
 	return &Sync{store: store, now: now, logf: log.Printf, offered: map[string]historyexchange.Census{}, tried: map[string]int{}}
+}
+
+// SetCategories liefert die Kategorien aus energy.json. Ohne sie nimmt Sync
+// keine custom:-Serie an.
+func (s *Sync) SetCategories(fn func() map[string]energy.Category) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.categories = fn
 }
 
 // Attach verbindet Sync mit dem Hub: send stellt eine Nachfrage zu,
@@ -106,7 +140,7 @@ func (s *Sync) OnOffer(peer string, coverage map[string]historyexchange.Census) 
 	defer s.mu.Unlock()
 	offered := map[string]historyexchange.Census{}
 	for series, c := range coverage {
-		if _, ok := roleOf(series); !ok {
+		if _, ok := s.accepts(series); !ok {
 			continue
 		}
 		if c.Step != dayMs || c.From%dayMs != 0 || len(c.N) == 0 || len(c.N) > maxCensusDays {
@@ -209,7 +243,7 @@ func (s *Sync) OnDeliver(peer, reqID string, rows []historyexchange.Row, final b
 		if row.Series != s.pending.series || row.TS%hourMs != 0 {
 			continue
 		}
-		role, ok := roleOf(row.Series)
+		role, ok := s.accepts(row.Series)
 		hour := time.UnixMilli(row.TS).UTC()
 		if !ok || hour.Add(time.Hour).After(now) {
 			continue

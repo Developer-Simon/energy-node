@@ -6,23 +6,29 @@ unter der Plattform mqtt mit genau dieser unique_id.
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
+from .const import CUSTOM_UNIQUE_PREFIX
+
 # Die Rollen rechnet der Browser aus. Ihr Gegenstueck in Home Assistant sind
 # die Sensoren, die das Dashboard selbst per Discovery anmeldet
 # (dashboard/internal/energydiscovery, unique_id energy_node_<object_id>).
 # role:load fehlt bewusst: house_load traegt load_total, die Rolle load im
-# Browser den gemessenen Anteil. wallbox und heat_pump meldet das Dashboard
-# nicht als Sensor an.
+# Browser den gemessenen Anteil. wallbox und heat_pump melden den Sensor
+# ebenfalls per Discovery an, Verbrauchskategorien als energy_node_custom_<id>.
 ROLE_SOURCES: dict[str, tuple[str, str | None]] = {
     "role:pv": ("energy_node_pv_power", None),
     "role:grid": ("energy_node_grid_import", "energy_node_grid_export"),
     "role:battery": ("energy_node_battery_charge", "energy_node_battery_discharge"),
     "role:battery_soc": ("energy_node_battery_soc", None),
+    "role:wallbox": ("energy_node_wallbox", None),
+    "role:heat_pump": ("energy_node_heat_pump", None),
 }
+CUSTOM_ROLE = re.compile(r"^role:custom:(consumer|producer|storage):([a-z0-9_]+)$")
 NUMERIC_DOMAINS = ("sensor", "number")
 
 
@@ -58,6 +64,12 @@ def resolve(hass: HomeAssistant, announced: list[dict]) -> list[SeriesSource]:
         if not series:
             continue
         if series.startswith("role:"):
+            custom = CUSTOM_ROLE.match(series)
+            if custom is not None:
+                plus = _entity_for(registry, CUSTOM_UNIQUE_PREFIX + custom.group(2))
+                if plus is not None:
+                    sources.append(SeriesSource(series, unit, plus))
+                continue
             mapping = ROLE_SOURCES.get(series)
             if mapping is None:
                 continue

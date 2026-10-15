@@ -10,6 +10,7 @@ import (
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/auth"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
+	"github.com/Developer-Simon/energy-node-dashboard/internal/energydiscovery"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/mqttclient"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/registry"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/settings"
@@ -496,5 +497,77 @@ func TestMQTTEnergyDevicePUTRejectsInsecureRequest(t *testing.T) {
 	router.ServeHTTP(rec, req)
 	if rec.Code == http.StatusOK {
 		t.Fatalf("guest PUT over plain HTTP unexpectedly succeeded: %d", rec.Code)
+	}
+}
+
+func TestMQTTEnergyDeviceStoresEnergySensorsAndKeepsThemWhenOmitted(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	router, _ := newMQTTTestRouter(t, store, nil, nil, nil)
+	adminCookie, csrfToken := loginAsAdmin(t, router)
+
+	put := func(body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPut, "/api/v1/mqtt/energy-device", strings.NewReader(body))
+		request.AddCookie(adminCookie)
+		request.Header.Set("X-Forwarded-Proto", "https")
+		request.Header.Set("X-CSRF-Token", csrfToken)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	if recorder := put(`{"publish_energy_device":true,"energy_sensors":{"wallbox":false}}`); recorder.Code != http.StatusOK {
+		t.Fatalf("PUT with energy_sensors status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if stored, err := store.LoadMQTT(); err != nil || stored.EnergySensors["wallbox"] != false || len(stored.EnergySensors) != 1 {
+		t.Fatalf("energy_sensors not stored: %#v (err=%v)", stored.EnergySensors, err)
+	}
+
+	recorder := put(`{"publish_energy_device":false}`)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("PUT without energy_sensors status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if stored, err := store.LoadMQTT(); err != nil || stored.EnergySensors["wallbox"] != false || stored.PublishEnergyDevice {
+		t.Fatalf("PUT without energy_sensors must keep the map: %#v (err=%v)", stored, err)
+	}
+	var response map[string]any
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := response["energy_sensors"]; !ok {
+		t.Fatalf("response lacks energy_sensors: %v", response)
+	}
+}
+
+func TestMQTTConfigGetListsEnergySensorOptions(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), store, nil, nil, nil, nil, nil, RouterDependencies{
+		Auth: manager,
+		EnergySensorOptions: func() []energydiscovery.OptionalSensor {
+			return []energydiscovery.OptionalSensor{{Key: "wallbox", Role: "wallbox"}}
+		},
+	})
+	guestCookie := loginAsGuest(t, router)
+
+	request := httptest.NewRequest(http.MethodGet, "/api/v1/mqtt", nil)
+	request.AddCookie(guestCookie)
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("GET status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var response struct {
+		Options []struct {
+			Key string `json:"key"`
+		} `json:"energy_sensor_options"`
+	}
+	if err := json.NewDecoder(recorder.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if len(response.Options) != 1 || response.Options[0].Key != "wallbox" {
+		t.Fatalf("energy_sensor_options = %+v", response.Options)
 	}
 }

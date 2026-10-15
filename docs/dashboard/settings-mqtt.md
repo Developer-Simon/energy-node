@@ -20,6 +20,19 @@ announce itself over MQTT Discovery as the device "Energy Node" with PV, grid,
 battery and house load sensors. The computed balance then reaches Home
 Assistant without an extra service.
 
+**Additional sensors** under *Home Assistant & simulation* offers one sensor per
+wallbox, heat pump and custom category. A sensor appears in Home Assistant only
+once something is assigned to its role or category, so the list stays empty
+until then. All of them are on by default. Deselect a sensor to have the
+dashboard remove it from Home Assistant again, and select it to bring it back.
+
+A sensor is removed as well when its category is deleted or unassigned. This
+also works after a restart of the dashboard, because the announced sensors are
+remembered in `energydiscovery/announced.json`. In Home Assistant each category
+sensor is named after the category's label and has the unique ID
+`energy_node_custom_<id>`. Storage categories get a sensor too, but Energy Node
+does not count them in its energy statistics.
+
 **Use dashboard settings instead of the central configuration** decides which
 values win. When it is off, the values from `/etc/energy-node/config.json` are
 used unchanged. When it is on, the settings stored here replace them

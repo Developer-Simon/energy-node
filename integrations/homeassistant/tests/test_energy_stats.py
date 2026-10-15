@@ -120,3 +120,17 @@ async def test_rows_only_for_known_series():
     await offer.coverage(NOW)
     assert len(await offer.rows("role:pv", TODAY, TODAY + HOUR_MS)) == 1
     assert await offer.rows("role:wallbox", TODAY, TODAY + HOUR_MS) == []
+
+
+async def test_resolve_stats_offers_wallbox_and_custom_categories(hass):
+    registry = er.async_get(hass)
+    registry.async_get_or_create("sensor", "mqtt", "energy_node_wallbox", suggested_object_id="en_wb")
+    registry.async_get_or_create("sensor", "mqtt", "energy_node_custom_sauna", suggested_object_id="en_sauna")
+    registry.async_get_or_create("sensor", "mqtt", "energy_node_custom_akku", suggested_object_id="en_akku")
+    registry.async_get_or_create("sensor", "other", "energy_node_custom_fremd", suggested_object_id="fremd")
+    sources = resolve_stats(hass, {})
+    assert [(s.role, s.entity_id) for s in sources] == [
+        ("wallbox", "sensor.en_wb"),
+        ("custom:akku", "sensor.en_akku"),
+        ("custom:sauna", "sensor.en_sauna"),
+    ]

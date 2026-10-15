@@ -27,6 +27,11 @@
       "additionalProperties": {"type": "boolean"},
       "title": "Per-metric publish toggles for the node telemetry"
     },
+    "energy_sensors": {
+      "type": "object",
+      "additionalProperties": {"type": "boolean"},
+      "title": "Per-sensor publish toggles for the optional energy sensors"
+    },
     "simulation_active": {"type": "boolean", "default": false, "title": "Broadcast simulation mode to all bridges"}
   }
 }

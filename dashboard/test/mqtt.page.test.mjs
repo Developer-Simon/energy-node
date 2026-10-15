@@ -184,7 +184,7 @@ test('saveEnergyDevice() PUTs only the flag to its own endpoint, no full-config 
       if (url === '/api/v1/mqtt/energy-device') {
         assert.equal(options.method, 'PUT');
         assert.equal(options.headers['X-CSRF-Token'], 'tok');
-        assert.deepEqual(JSON.parse(options.body), { publish_energy_device: false });
+        assert.deepEqual(JSON.parse(options.body), { publish_energy_device: false, energy_sensors: {} });
         return jsonResponse({ publish_energy_device: false });
       }
       throw new Error(`unexpected fetch ${url}`);
@@ -435,4 +435,156 @@ test('initMetricsChoices() disables the select for guests', () => {
   component.canConfigure = false;
   component.initMetricsChoices();
   assert.equal(disabled, true);
+});
+
+const energySensorOptions = [
+  {key: 'wallbox', role: 'wallbox'},
+  {key: 'custom_sauna', label: 'Sauna'},
+];
+
+test('selectedEnergySensors() treats missing keys as on, like the node config', () => {
+  const { component } = createMqttPanel();
+  component.energySensorOptions = energySensorOptions;
+  component.form.energy_sensors = { wallbox: false };
+  assert.deepEqual(component.selectedEnergySensors(), ['custom_sauna']);
+});
+
+test('energySensorLabel() uses the role label, or the custom label for categories', () => {
+  const { component } = createMqttPanel();
+  assert.equal(component.energySensorLabel(energySensorOptions[0]), 'Wallbox');
+  assert.equal(component.energySensorLabel(energySensorOptions[1]), 'Sauna');
+});
+
+test('onEnergySensorsChange() PUTs the map with the publish flag to energy-device', async () => {
+  const calls = [];
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async (url, options) => {
+      calls.push(url);
+      if (url === '/api/v1/mqtt/energy-device') {
+        assert.equal(options.method, 'PUT');
+        assert.equal(options.headers['X-CSRF-Token'], 'tok');
+        assert.deepEqual(JSON.parse(options.body), {
+          publish_energy_device: true,
+          energy_sensors: { wallbox: true, custom_sauna: false },
+        });
+        return jsonResponse({ publish_energy_device: true, energy_sensors: { wallbox: true, custom_sauna: false } });
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.energySensorOptions = energySensorOptions;
+  component.form.energy_sensors = { wallbox: false };
+  component.energySensorsChoices = { getValue: () => ['wallbox'] };
+
+  await component.onEnergySensorsChange();
+
+  assert.deepEqual(calls, ['/api/v1/mqtt/energy-device']);
+  assert.deepEqual(JSON.parse(JSON.stringify(component.form.energy_sensors)), { wallbox: true, custom_sauna: false });
+  assert.equal(stores.toasts.last(), 'Gespeichert.');
+});
+
+test('onEnergySensorsChange() restores the previous map when the PUT fails and keeps the publish flag', async () => {
+  const { component, stores } = createMqttPanel({
+    fetchImpl: async () => { throw new Error('boom'); },
+  });
+  component.canConfigure = true;
+  component.csrfToken = 'tok';
+  component.energySensorOptions = energySensorOptions;
+  component.form = { ...component.form, publish_energy_device: true, energy_sensors: { wallbox: false } };
+  const restored = [];
+  component.energySensorsChoices = {
+    getValue: () => ['wallbox'],
+    removeActiveItems: () => {},
+    setChoiceByValue: (values) => restored.push(...values),
+  };
+
+  await component.onEnergySensorsChange();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(component.form.energy_sensors)), { wallbox: false });
+  assert.equal(component.form.publish_energy_device, true);
+  assert.deepEqual(restored, ['custom_sauna']);
+  assert.equal(stores.toasts.criticals.at(-1), 'boom');
+});
+
+test('initEnergySensorChoices() disables the select for guests', () => {
+  const { component, window } = createMqttPanel();
+  let disabled = false;
+  window.Choices = class { constructor() {} disable() { disabled = true; } removeActiveItems() {} setChoiceByValue() {} };
+  component.$refs = { energySensorsSelect: window.document.createElement('select') };
+  component.canConfigure = false;
+  component.initEnergySensorChoices();
+  assert.equal(disabled, true);
+});
+
+// Fake Choices: records the select it was built on, the values it was told
+// to pre-select and whether destroy() ran.
+function fakeChoicesClass(instances) {
+  return class {
+    constructor(element) { this.element = element; this.selected = []; this.destroyed = false; instances.push(this); }
+    removeActiveItems() { this.selected = []; }
+    setChoiceByValue(values) { this.selected.push(...values); }
+    getValue() { return []; }
+    disable() { this.disabled = true; }
+    destroy() { this.destroyed = true; }
+  };
+}
+
+test('energySensorsFromSelection() keeps stale custom keys that are no longer offered', () => {
+  const { component } = createMqttPanel();
+  component.energySensorOptions = energySensorOptions;
+  component.form.energy_sensors = { custom_old: false };
+  const map = component.energySensorsFromSelection(['wallbox']);
+  assert.deepEqual(JSON.parse(JSON.stringify(map)), { custom_old: false, wallbox: true, custom_sauna: false });
+});
+
+test('initEnergySensorChoices() builds Choices on the select and pre-selects the enabled sensors', () => {
+  const { component, window } = createMqttPanel();
+  const instances = [];
+  window.Choices = fakeChoicesClass(instances);
+  const select = window.document.createElement('select');
+  component.$refs = { energySensorsSelect: select };
+  component.canConfigure = true;
+  component.energySensorOptions = energySensorOptions;
+  component.form.energy_sensors = { wallbox: false };
+  component.initEnergySensorChoices();
+  assert.equal(instances.length, 1);
+  assert.equal(instances[0].element, select);
+  assert.deepEqual([...instances[0].selected], ['custom_sauna']);
+});
+
+test('energySensorLabel() names heat pumps by role and falls back to the ID of a label-less custom option', () => {
+  const { component } = createMqttPanel();
+  const catalogDe = catalog('de');
+  assert.equal(component.energySensorLabel({key: 'heat_pump', role: 'heat_pump'}), catalogDe['energy.role_label.heat_pump']);
+  assert.equal(component.energySensorLabel({key: 'custom_garage'}), 'garage');
+  assert.equal(component.energySensorLabel({key: 'custom_sauna', label: 'Sauna'}), 'Sauna');
+});
+
+test('a repeated load() with new energy sensor options destroys and rebuilds Choices', async () => {
+  const instances = [];
+  let options = [{key: 'wallbox', role: 'wallbox'}];
+  const { component, window } = createMqttPanel({
+    fetchImpl: async (url) => {
+      if (url === '/api/v1/mqtt') return jsonResponse({ ...configResponse, energy_sensors: {}, energy_sensor_options: options });
+      if (url === '/api/v1/auth/session') return jsonResponse({ csrf_token: 'tok', mqtt_config: true });
+      if (url === '/api/v1/mqtt/status') return jsonResponse({ connected: true });
+      throw new Error(`unexpected fetch ${url}`);
+    },
+  });
+  window.Choices = fakeChoicesClass(instances);
+  component.$refs = { energySensorsSelect: window.document.createElement('select') };
+  component.$nextTick = (fn) => fn();
+
+  await component.load();
+  assert.equal(instances.length, 1);
+  assert.deepEqual([...instances[0].selected], ['wallbox']);
+
+  options = [{key: 'wallbox', role: 'wallbox'}, {key: 'custom_sauna', label: 'Sauna'}];
+  await component.load();
+  assert.equal(instances.length, 2);
+  assert.equal(instances[0].destroyed, true);
+  assert.equal(instances[1].destroyed, false);
+  assert.deepEqual([...instances[1].selected], ['wallbox', 'custom_sauna']);
 });

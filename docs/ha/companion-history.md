@@ -21,12 +21,15 @@ The integration offers only the series the dashboard announces as recorded.
 | Grid power | grid import minus grid export |
 | Battery power | battery charge minus battery discharge |
 | Battery state of charge | `energy_node_battery_soc` |
+| Wallbox power | `energy_node_wallbox` |
+| Heat pump power | `energy_node_heat_pump` |
+| Custom category | `energy_node_custom_<id>` |
 | Additional history entities | the MQTT entity with the same `unique_id` |
 
-Load, wallbox and heat pump are **not** supplied. The dashboard's load series
-is the measured load, while the Home Assistant sensor carries the total load
-including the computed part. Wallbox and heat pump have no sensor of their own
-in Home Assistant.
+Load is **not** supplied. The dashboard's load series is the measured load,
+while the Home Assistant sensor carries the total load including the computed
+part. Wallbox, heat pump and custom categories are supplied through their own
+sensors, once Energy Node has created them.
 
 | Tier | Source | Fallback |
 |---|---|---|
@@ -64,9 +67,9 @@ The history chart then shows the hours the browser had missed.
 
 With **Supply energy statistics** turned on (the default), Home Assistant also sends hourly energy per role from its long-term statistics. The dashboard uses it for its day, month and year statistics and prefers it over its own recording.
 
-Without further setup the companion uses the power sensors that Energy Node registers in Home Assistant: PV, grid import, grid export, battery charge, battery discharge and consumption. Home Assistant keeps their hourly means without a time limit, starting on the day the sensors appeared.
+Without further setup the companion uses the power sensors that Energy Node registers in Home Assistant: PV, grid import, grid export, battery charge, battery discharge and consumption, and the sensors of the wallbox, the heat pump and each custom category. Home Assistant keeps their hourly means without a time limit, starting on the day the sensors appeared.
 
-In the second options step you can pick an energy meter per role, a sensor with the state class `total` or `total_increasing`, for example the lifetime counter of your inverter. A meter is more exact and brings the history from before Energy Node was installed. Wallbox and heat pump are only supplied with a meter.
+In the second options step you can pick an energy meter per role, a sensor with the state class `total` or `total_increasing`, for example the lifetime counter of your inverter. A meter is more exact and brings the history from before Energy Node was installed. Leave a role empty to use the automatic choice, which covers the wallbox, the heat pump and the custom categories as well.
 
 ## How it works
 

@@ -43,6 +43,7 @@
     publish_energy_device: true,
     simulation_active: false,
     metrics: {},
+    energy_sensors: {},
   });
 
   const mqttPanel = () => ({
@@ -58,6 +59,9 @@
     busy: false,
     testResult: null,
     metricsChoices: null,
+    energySensorOptions: [],
+    energySensorsChoices: null,
+    energySensorsChoicesSignature: '',
 
     async load() {
       this.loading = true;
@@ -70,7 +74,10 @@
         this.csrfToken = (session && session.csrf_token) || '';
         this.canConfigure = Boolean(session && session.mqtt_config) && window.location.protocol === 'https:';
         await this.loadStatus();
-        if (this.$nextTick) this.$nextTick(() => this.initMetricsChoices());
+        if (this.$nextTick) this.$nextTick(() => {
+          this.initMetricsChoices();
+          this.initEnergySensorChoices();
+        });
       } catch (error) {
         this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
       } finally {
@@ -94,7 +101,9 @@
         publish_energy_device: config.publish_energy_device !== false,
         simulation_active: Boolean(config.simulation_active),
         metrics: config.metrics || {},
+        energy_sensors: config.energy_sensors || {},
       };
+      this.energySensorOptions = config.energy_sensor_options || [];
       this.source = config.source || '';
       this.passwordConfigured = Boolean(config.password_configured);
     },
@@ -181,26 +190,99 @@
       }
     },
 
-    // saveEnergyDevice persists just form.publish_energy_device via its own
-    // endpoint, so the switch works whether or not the dashboard-managed
-    // connection is enabled and without a full, valid broker config. It is
-    // fired straight from the toggle's change event.
-    async saveEnergyDevice() {
-      if (!this.canConfigure) return;
+    // saveEnergyDevice persists form.publish_energy_device and the optional
+    // energy sensor map via their own endpoint, so the switch works whether
+    // or not the dashboard-managed connection is enabled and without a full,
+    // valid broker config. The switch fires it from its change event.
+    // Optionen: rollback macht eine fehlgeschlagene Aenderung rueckgaengig
+    // (Standard: der Schalter kippt zurueck), success ersetzt den Erfolgstext.
+    async saveEnergyDevice({rollback = null, success = null} = {}) {
+      if (!this.canConfigure) return false;
       const desired = this.form.publish_energy_device;
       try {
         await requestJSON('/api/v1/mqtt/energy-device', {
           method: 'PUT',
           headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
-          body: JSON.stringify({publish_energy_device: desired}),
+          body: JSON.stringify({publish_energy_device: desired, energy_sensors: this.form.energy_sensors || {}}),
         });
-        this.$store.toasts.push(desired
+        this.$store.toasts.push(success || (desired
           ? t('mqtt.energy_device.enabled_toast')
-          : t('mqtt.energy_device.disabled_toast'), 'info');
+          : t('mqtt.energy_device.disabled_toast')), 'info');
+        return true;
       } catch (error) {
-        this.form.publish_energy_device = !desired;
+        if (rollback) rollback(); else this.form.publish_energy_device = !desired;
         this.$store.toasts.push(error.message || t('common.request_failed'), 'critical');
+        return false;
       }
+    },
+
+    // Rollen (Wallbox, Waermepumpe) nutzen die gemeinsamen Rollenbezeichnungen,
+    // eigene Kategorien bringen ihr Label selbst mit. Die Schluessel stehen
+    // literal da, damit der Katalog-Test sie findet.
+    energySensorLabel(option) {
+      if (option.role === 'wallbox') return t('energy.role_label.wallbox');
+      if (option.role === 'heat_pump') return t('energy.role_label.heat_pump');
+      // Eigene Kategorie ohne Label: die ID nach dem Praefix custom_ zeigen.
+      if (option.label) return option.label;
+      return option.key.startsWith('custom_') ? option.key.slice('custom_'.length) : option.key;
+    },
+
+    // Ein fehlender Schluessel bedeutet an, wie in der Node-Konfiguration.
+    selectedEnergySensors() {
+      const map = this.form.energy_sensors || {};
+      return this.energySensorOptions
+        .filter((option) => !(option.key in map) || map[option.key] === true)
+        .map((option) => option.key);
+    },
+
+    // Schreibt jeden bekannten Sensor explizit, unbekannte Schluessel bleiben erhalten.
+    energySensorsFromSelection(selected) {
+      const map = {...(this.form.energy_sensors || {})};
+      for (const option of this.energySensorOptions) map[option.key] = selected.includes(option.key);
+      return map;
+    },
+
+    // Gleiche Choices-Einrichtung wie bei den Metriken, erst nach dem Rendern der Optionen.
+    // Bei einem erneuten load() mit geaenderten Optionen (z.B. neue Wallbox
+    // oder Kategorie) wird die Choices-Instanz abgebaut und neu gebaut. Bei
+    // unveraenderten Optionen genuegt die Auswahl neu zu setzen.
+    initEnergySensorChoices() {
+      if (!window.Choices || !this.$refs || !this.$refs.energySensorsSelect) return;
+      const signature = JSON.stringify(this.energySensorOptions);
+      if (this.energySensorsChoices) {
+        if (this.energySensorsChoicesSignature === signature) {
+          this.setEnergySensorSelection(this.selectedEnergySensors());
+          return;
+        }
+        this.energySensorsChoices.destroy();
+        this.energySensorsChoices = null;
+      }
+      this.energySensorsChoicesSignature = signature;
+      this.energySensorsChoices = new Choices(this.$refs.energySensorsSelect, {
+        removeItemButton: true, searchEnabled: true, shouldSort: false,
+        placeholderValue: t('settings.choices.placeholder'), noChoicesText: t('settings.choices.no_results'),
+      });
+      this.setEnergySensorSelection(this.selectedEnergySensors());
+      if (!this.canConfigure) this.energySensorsChoices.disable();
+    },
+
+    setEnergySensorSelection(values) {
+      if (!this.energySensorsChoices) return;
+      this.energySensorsChoices.removeActiveItems();
+      if (values.length) this.energySensorsChoices.setChoiceByValue(values);
+    },
+
+    async onEnergySensorsChange() {
+      if (!this.canConfigure || !this.energySensorsChoices) return;
+      const previous = this.form.energy_sensors || {};
+      this.form.energy_sensors = this.energySensorsFromSelection(this.energySensorsChoices.getValue(true));
+      await this.saveEnergyDevice({
+        success: t('common.saved') + '.',
+        rollback: () => {
+          this.form.energy_sensors = previous;
+          this.setEnergySensorSelection(this.selectedEnergySensors());
+        },
+      });
     },
 
     // metricKeys must stay word-for-word in sync with nodeagent.Metrics

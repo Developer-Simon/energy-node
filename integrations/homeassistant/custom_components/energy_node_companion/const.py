@@ -75,8 +75,8 @@ STATS_ROLES = (
     "pv", "grid_import", "grid_export", "battery_charge", "battery_discharge", "load_total", "wallbox", "heat_pump",
 )
 # Rolle -> unique_id des Sensors, den das Dashboard per Discovery anmeldet
-# (energydiscovery.go). wallbox und heat_pump haben keinen und werden nur
-# mit Zaehler geliefert.
+# (energydiscovery.go). Ohne Zaehler liefert Home Assistant nur die Rollen
+# aus diesem Eintrag.
 STATS_DISCOVERY = {
     "pv": "energy_node_pv_power",
     "grid_import": "energy_node_grid_import",
@@ -84,7 +84,12 @@ STATS_DISCOVERY = {
     "battery_charge": "energy_node_battery_charge",
     "battery_discharge": "energy_node_battery_discharge",
     "load_total": "energy_node_house_load",
+    "wallbox": "energy_node_wallbox",
+    "heat_pump": "energy_node_heat_pump",
 }
+# Verbrauchskategorien melden ihren Sensor als energy_node_custom_<id>.
+# Die Energiestatistik bietet jede solche Entitaet als Rolle custom:<id> an.
+CUSTOM_UNIQUE_PREFIX = "energy_node_custom_"
 
 
 def counter_key(role: str) -> str:
