@@ -61,6 +61,7 @@
     metricsChoices: null,
     energySensorOptions: [],
     energySensorsChoices: null,
+    energySensorsChoicesSignature: '',
 
     async load() {
       this.loading = true;
@@ -221,7 +222,9 @@
     energySensorLabel(option) {
       if (option.role === 'wallbox') return t('energy.role_label.wallbox');
       if (option.role === 'heat_pump') return t('energy.role_label.heat_pump');
-      return option.label || option.key;
+      // Eigene Kategorie ohne Label: die ID nach dem Praefix custom_ zeigen.
+      if (option.label) return option.label;
+      return option.key.startsWith('custom_') ? option.key.slice('custom_'.length) : option.key;
     },
 
     // Ein fehlender Schluessel bedeutet an, wie in der Node-Konfiguration.
@@ -240,8 +243,21 @@
     },
 
     // Gleiche Choices-Einrichtung wie bei den Metriken, erst nach dem Rendern der Optionen.
+    // Bei einem erneuten load() mit geaenderten Optionen (z.B. neue Wallbox
+    // oder Kategorie) wird die Choices-Instanz abgebaut und neu gebaut. Bei
+    // unveraenderten Optionen genuegt die Auswahl neu zu setzen.
     initEnergySensorChoices() {
-      if (!window.Choices || !this.$refs || !this.$refs.energySensorsSelect || this.energySensorsChoices) return;
+      if (!window.Choices || !this.$refs || !this.$refs.energySensorsSelect) return;
+      const signature = JSON.stringify(this.energySensorOptions);
+      if (this.energySensorsChoices) {
+        if (this.energySensorsChoicesSignature === signature) {
+          this.setEnergySensorSelection(this.selectedEnergySensors());
+          return;
+        }
+        this.energySensorsChoices.destroy();
+        this.energySensorsChoices = null;
+      }
+      this.energySensorsChoicesSignature = signature;
       this.energySensorsChoices = new Choices(this.$refs.energySensorsSelect, {
         removeItemButton: true, searchEnabled: true, shouldSort: false,
         placeholderValue: t('settings.choices.placeholder'), noChoicesText: t('settings.choices.no_results'),
