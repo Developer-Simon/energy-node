@@ -240,6 +240,7 @@ reach arbitrary topics.
 | GET | `/api/v1/energy/revisions` | – | Revision list for `energy.json` (roles + interpretation) |
 | GET | `/api/v1/energy/revisions/{revision}` | – | A single revision |
 | POST | `/api/v1/energy/restore` | – | Restore a revision, body `{"revision":"…"}` |
+| GET | `/api/v1/energy/stats/hours` | – | Hourly means in W for the history page |
 
 Available roles: `pv`, `battery`, `battery_charge`, `battery_discharge`,
 `battery_soc`, `grid`, `grid_import`, `grid_export`, `load`, `wallbox`,
@@ -251,6 +252,39 @@ reset the interpretation.
 
 The balance is also published every 10 s to
 `outstation/energy_node/energy/balance`, which the automations use.
+
+**`GET /api/v1/energy/stats/hours?from=<ms>&to=<ms>`** returns hourly means for
+the history page. `from` and `to` are Unix times in milliseconds. `from` is
+rounded down to the full hour, `to` must be later than `from`, and the span may
+be at most 400 days.
+
+```json
+{
+  "rows": [
+    { "series": "role:pv", "ts": 1785999600000, "min": 1520.4, "max": 1520.4, "avg": 1520.4, "n": 1, "u": "W" }
+  ]
+}
+```
+
+Each row is one hour. `ts` is the start of the hour in milliseconds. `min`,
+`max` and `avg` are the mean power of that hour in W, so they are equal, and `n`
+is 1. The series are:
+
+- `role:pv`, `role:wallbox`, `role:heat_pump`
+- `role:grid` (import minus export) and `role:battery` (charge minus discharge)
+- `berechnet:hausverbrauch`, the house consumption from `load_total`
+- `role:custom:<base>:<id>` for custom categories, except storage categories
+
+An own hour counts only if the node recorded at least 50 minutes of it. Hours
+from Home Assistant always count. An hour without data is missing from the rows,
+and a series appears only if at least one of its hours is not zero. Rows are
+sorted by series and then by time.
+
+| Status | Code | When |
+|---|---|---|
+| 400 | `energy_stats_invalid_range` | `from` or `to` is missing or not an integer, `to` is not after `from`, or the span is longer than 400 days |
+| 501 | `energy_stats_unavailable` | The node runs without a data directory, so there is no statistics store |
+| 500 | `energy_stats_failed` | Reading the monthly statistics failed |
 
 ### History
 
