@@ -74,7 +74,7 @@
         },
         "load_mode": {
           "type": "string",
-          "enum": ["measured", "calculated", "auto", "combined"]
+          "enum": ["measured", "calculated", "auto"]
         },
         "gap_tolerance_mode": {
           "type": "string",
