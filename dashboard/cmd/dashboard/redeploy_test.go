@@ -229,7 +229,7 @@ func TestRedeployHandlerServesTheCandidatesChangelogWithWhatIsInstalled(t *testi
 }
 
 func TestNewStepTitlerFollowsTheRequestLanguage(t *testing.T) {
-	title, err := newStepTitler([]string{"de", "en"})
+	title, err := newStepTitler([]string{"de", "en"}, filepath.Join(t.TempDir(), "missing.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -245,5 +245,30 @@ func TestNewStepTitlerFollowsTheRequestLanguage(t *testing.T) {
 	}
 	if got := title(de, "999"); got != "" {
 		t.Fatalf("unknown step = %q, want empty", got)
+	}
+}
+
+// Die Update-Leiste nennt einen Dienstschritt wie der Redeploy-Bildschirm
+// (services.js stepLabel): über service.<service_id> aus dem installierten
+// Manifest, weil es für 81 bis 88 kein step.<id> gibt.
+func TestNewStepTitlerNamesServiceStepsFromTheInstalledManifest(t *testing.T) {
+	manifest := filepath.Join(t.TempDir(), "installed-manifest.json")
+	if err := os.WriteFile(manifest, []byte(`{"version":"1.5.0","steps":[{"id":"60"},{"id":"81","service_id":"apsystems"}]}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	title, err := newStepTitler([]string{"de", "en"}, manifest)
+	if err != nil {
+		t.Fatal(err)
+	}
+	en := httptest.NewRequest(http.MethodGet, "/", nil)
+	en.Header.Set("Accept-Language", "en-GB")
+	if got := title(en, "81"); got != "APsystems" {
+		t.Fatalf("service step title = %q, want APsystems", got)
+	}
+	if got := title(en, "60"); got != "Dashboard and MQTT bridge" {
+		t.Fatalf("system step title = %q", got)
+	}
+	if got := title(en, "88"); got != "" {
+		t.Fatalf("step missing from the manifest = %q, want empty", got)
 	}
 }

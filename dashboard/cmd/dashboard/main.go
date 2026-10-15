@@ -155,7 +155,7 @@ func main() {
 		log.Printf("redeploy: could not start the local update handler: %v", err)
 	}
 
-	stepTitle, err := newStepTitler(dashwebui.Languages())
+	stepTitle, err := newStepTitler(dashwebui.Languages(), filepath.Join(installerStateDir, "installed-manifest.json"))
 	if err != nil {
 		log.Fatalf("energy-node-dashboard: %v", err)
 	}
