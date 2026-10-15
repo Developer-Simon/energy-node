@@ -133,6 +133,30 @@ test('chartOptions stapelt, beschriftet die Achse aus local und zeigt Betraege p
   dom.window.close();
 });
 
+const hours = Array.from({length: 24}, (_, h) => `${String(h).padStart(2, '0')}:00`);
+
+test('thinLabels dünnt nur aus, wenn die Beschriftungen nicht passen', () => {
+  const {dom, factory} = load();
+  assert.deepEqual(Array.from(factory.thinLabels(hours, 0)), hours);
+  assert.deepEqual(Array.from(factory.thinLabels(hours, 1600)), hours);
+  const narrow = Array.from(factory.thinLabels(hours, 400));
+  assert.equal(narrow.length, 24);
+  assert.equal(narrow[0], '00:00');
+  assert.ok(narrow.filter(Boolean).length <= 8, `zu viele Beschriftungen: ${narrow.filter(Boolean).length}`);
+  assert.ok(narrow.filter(Boolean).length >= 4);
+  dom.window.close();
+});
+
+test('chartOptions nennt im Tooltip den vollen Zeitpunkt auch bei ausgedünnter Achse', () => {
+  const {dom, factory} = load();
+  const result = {...DAY_FIXTURE, buckets: hours.map(h => ({...DAY_FIXTURE.buckets[0], local: `2026-10-15T${h}`}))};
+  const options = factory.chartOptions(result, 400);
+  const blank = options.xaxis.categories.findIndex(label => label === '');
+  assert.ok(blank > 0, 'erwartet mindestens eine leere Beschriftung');
+  assert.match(options.tooltip.x.formatter('', {dataPointIndex: blank}), /^\d\d[:.]00/);
+  dom.window.close();
+});
+
 test('neue Revision laedt den laufenden Zeitraum neu', async () => {
   const {dom, make, calls, server} = load();
   const page = make();

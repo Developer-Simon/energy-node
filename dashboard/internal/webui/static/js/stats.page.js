@@ -13,10 +13,24 @@
     return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
   }
 
-  function chartOptions(result) {
+  // ApexCharts blendet sich überlappende Beschriftungen bei Balken mit
+  // rotate 0 nicht aus. Passen sie nicht in die Zeichenfläche, bekommt nur
+  // jede n-te Kategorie ihren Text. Breite 0 heißt unbekannt (jsdom, noch
+  // nicht gelayoutet), dann bleiben alle.
+  const Y_AXIS_PX = 70;
+  function thinLabels(labels, width) {
+    if (!width || !labels.length) return labels;
+    const longest = Math.max(...labels.map(label => String(label).length));
+    const labelPx = longest * 8 + 12;
+    const step = Math.max(1, Math.ceil(labels.length * labelPx / Math.max(width - Y_AXIS_PX, 1)));
+    return labels.map((label, index) => (index % step === 0 ? label : ''));
+  }
+
+  function chartOptions(result, width = 0) {
     const model = window.EnergyStatsModel;
     const theme = window.DashboardTheme;
     const series = model.chartSeries(result);
+    const labels = result.buckets.map(bucket => model.bucketLabel(result.period, bucket.local));
     // Ein Array: ApexCharts faerbt bei einem einzelnen String nur die ersten Marken.
     const labelColor = theme.color('text-muted');
     const labelStyle = {colors: Array(24).fill(labelColor), fontSize: '12px'};
@@ -30,13 +44,16 @@
       dataLabels: {enabled: false},
       legend: {position: 'bottom', fontSize: '12px', labels: {colors: theme.color('text-muted')}, markers: {size: 5, shape: 'circle'}, itemMargin: {horizontal: 10}},
       xaxis: {
-        categories: result.buckets.map(bucket => model.bucketLabel(result.period, bucket.local)),
+        categories: thinLabels(labels, width),
         labels: {style: labelStyle, rotate: 0, hideOverlappingLabels: true},
         axisBorder: {color: theme.color('border-soft')},
         axisTicks: {color: theme.color('border-soft')},
       },
       yaxis: {forceNiceScale: true, labels: {style: labelStyle, showDuplicates: true, formatter: value => window.I18n.formatNumber(Math.abs(value), Math.abs(value) < 10 ? 1 : 0)}, title: {text: 'kWh', style: {color: theme.color('text-muted'), fontWeight: 400}}},
-      tooltip: {y: {formatter: value => model.formatKWh(value == null ? null : Math.abs(value))}},
+      tooltip: {
+        x: {formatter: (value, opts) => (opts && labels[opts.dataPointIndex]) || value},
+        y: {formatter: value => model.formatKWh(value == null ? null : Math.abs(value))},
+      },
       grid: {borderColor: theme.color('border-soft'), strokeDashArray: 3},
       noData: {text: t('energy_stats.empty')},
     };
@@ -139,7 +156,7 @@
     renderChart() {
       if (!this.data || !this.$refs.chart || !window.ApexCharts) return;
       if (this.chart) this.chart.destroy();
-      this.chart = new window.ApexCharts(this.$refs.chart, chartOptions(this.data));
+      this.chart = new window.ApexCharts(this.$refs.chart, chartOptions(this.data, this.$refs.chart.clientWidth));
       this.chart.render();
     },
 
@@ -151,6 +168,7 @@
   });
 
   statsPanel.chartOptions = chartOptions;
+  statsPanel.thinLabels = thinLabels;
   statsPanel.PAGE_KPIS = PAGE_KPIS;
 
   const register = () => {
