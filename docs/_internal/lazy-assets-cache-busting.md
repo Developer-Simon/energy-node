@@ -91,8 +91,8 @@ As of **2026-10-14**, read from `base.html` and `overview.html`. "–" means: no
 | `js/energy-flow.js` | `2` |
 | `js/history-rollup.js` | `2` |
 | `js/history-store.js` | `4` |
-| `js/history-coverage.js` | `3` |
-| `js/history-exchange.js` | `6` |
+| `js/history-coverage.js` | `4` |
+| `js/history-exchange.js` | `7` |
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `11` |
 | `js/notifications.js` | `2` |
@@ -254,7 +254,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.9.16 | `js/history-rollup.js` (history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel) · `js/layout-editor.js` (overview editor) · `css/history.css` (history panel, stats panel) | `2` · `3` · `17` · `16` · `5` | 2026-10-15 |
+| v0.9.16 | `js/history-rollup.js` (history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel) · `js/layout-editor.js` (overview editor) · `css/history.css` (history panel, stats panel) · `js/history-coverage.js` · `js/history-exchange.js` | `2` · `3` · `17` · `16` · `5` · `4` · `7` | 2026-10-15 |
 | v0.9.14 | `js/versions.page.js` (settings panel, changelog history) · `js/settings.page.js` (settings panel, `changelog_history`) · `js/mqtt.page.js` (settings panel, metrics multiselect and bridge help list) | `7` · `22` · `8` | 2026-10-14 |
 | v0.9.13 | `js/i18n.js` (all pages, `login.html` keeps `3`) · `js/whatsnew.page.js` (`whatsNewPanel`, `entryText`) · `js/versions.page.js` (settings panel, `entryText`) | `4` · `3` · `6` | 2026-10-14 |
 | v0.9.12 | `js/dashboard.js` · `js/device-structure.js` (new, device tiles) | `33` · `1` (new) | 2026-10-14 |

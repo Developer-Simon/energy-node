@@ -52,6 +52,11 @@
   // melden bei jedem Laden neu an, ein geschlossener Tab dagegen nie ab.
   const WATCH_TTL_MS = 10 * 60 * 1000;
 
+  // Die letzte halbe Stunde wird in der Minutenstufe hoechstens alle fuenf
+  // Minuten je Kennung nachgefragt. Die Frist gilt pro Kennung und ueberlebt
+  // erneute Anmeldungen, sonst fragte jede Neuzeichnung erneut.
+  const TAIL_MIN_GAP_MS = 5 * 60 * 1000;
+
   let options = {basePath: '', fetchImpl: null, eventSourceImpl: null, now: () => Date.now()};
   let announcement = null;
   let source = null;
@@ -69,6 +74,9 @@
   const serving = () => mode === 'always' || serve === 'on';
   // Sichtbare Zeitraeume im Modus on-demand, Schluessel "<tab>:<ansicht>".
   let watched = new Map();
+  // Bis wohin je Schluessel "<peer>|<stufe>|<serie>" zuletzt erfolgreich
+  // angefragt wurde. Der offene Bucket wird nur ab dort erneut angefragt.
+  const askedUntil = {};
   // Zaehlt eingehende Angebote. Ein neues Angebot ist der einzige Grund,
   // einen unveraenderten Zeitraum vor Ablauf der Frist erneut zu planen.
   let offerCount = 0;
@@ -121,6 +129,7 @@
       to: job.peer, req_id: reqId, tier: job.tier, series: job.series, ranges: job.ranges,
     });
     if (!sent) pending.delete(key);
+    else askedUntil[key] = job.ranges.reduce((end, span) => Math.max(end, span[1]), -Infinity);
     // Laeuft die Nachfrage ins Leere, gibt die Frist den Schluessel wieder
     // frei; der naechste Angebotsvergleich versucht es erneut, notfalls bei
     // einem anderen Peer.
@@ -128,9 +137,15 @@
     window.setTimeout(() => pending.delete(key), timeoutMs);
   };
 
+  // Die normale Planung fragt den offenen Bucket nur bis zur Settle-Grenze.
+  const planOptions = () => ({
+    cutoff: now() - window.HistoryCoverage.SETTLE_MS,
+    askedUntil,
+  });
+
   // Der volle Abgleich gegen alle bekannten Angebote (Modus always).
   const planAll = async () => {
-    const jobs = window.HistoryCoverage.plan(await ownCoverage(), offers, now());
+    const jobs = window.HistoryCoverage.plan(await ownCoverage(), offers, now(), null, planOptions());
     for (const job of jobs) {
       // eslint-disable-next-line no-await-in-loop
       await requestFrom(job);
@@ -164,7 +179,7 @@
       const span = coverage.rasterWindow(entry.tier, now());
       // eslint-disable-next-line no-await-in-loop
       const own = {[entry.tier]: await window.HistoryStore.coverage(entry.tier, span.from, span.to, span.stepMs)};
-      const jobs = coverage.plan(own, offers, now(), {tier: entry.tier, from: entry.from, to: entry.to});
+      const jobs = coverage.plan(own, offers, now(), {tier: entry.tier, from: entry.from, to: entry.to}, planOptions());
       for (const job of jobs) {
         // eslint-disable-next-line no-await-in-loop
         await requestFrom(job);
@@ -172,16 +187,39 @@
     }
   };
 
+  // Die letzte halbe Stunde in der Minutenstufe, ohne Abschlussgrenze: sie
+  // ist fuer die Anzeige jetzt gefragt, nicht erst nach dem Abschluss.
+  const askTail = async entry => {
+    const coverage = window.HistoryCoverage;
+    const span = coverage.rasterWindow('1m', now());
+    const own = {'1m': await window.HistoryStore.coverage('1m', span.from, span.to, span.stepMs)};
+    const filter = {tier: '1m', from: Math.max(entry.from, now() - coverage.SETTLE_MS), to: entry.to};
+    const jobs = coverage.plan(own, offers, now(), filter, {cutoff: now(), askedUntil});
+    for (const job of jobs) {
+      // eslint-disable-next-line no-await-in-loop
+      await requestFrom(job);
+    }
+  };
+
   // Die Rohstufe wird nie getauscht, Rohluecken fuellt der Chart aus 1m
   // (fillRawGaps in history-rollup.js). Deshalb wird sie als 1m angefragt.
+  // Die Stufe 1h wird ueber 5m getauscht, also wird 5m beobachtet.
   const watchRange = async (id, range) => {
-    const tier = range.tier === 'raw' ? '1m' : range.tier;
+    let tier = range.tier === 'raw' ? '1m' : range.tier;
+    if (tier === '1h') tier = '5m';
     if (!window.HistoryCoverage.TIERS.includes(tier)) return;
     const previous = watched.get(id) || {};
-    watched.set(id, {
+    const entry = {
       tier, from: Number(range.from), to: Number(range.to), at: now(),
       plannedFor: previous.plannedFor || '', plannedAt: previous.plannedAt || 0,
-    });
+      tailAt: previous.tailAt,
+    };
+    watched.set(id, entry);
+    const due = entry.tailAt === undefined || now() - entry.tailAt >= TAIL_MIN_GAP_MS;
+    if (tier === '1m' && due && peerId && mode === 'on-demand' && entry.to > now() - window.HistoryCoverage.SETTLE_MS) {
+      entry.tailAt = now();
+      await askTail(entry);
+    }
     await planWatched([id]);
   };
 
