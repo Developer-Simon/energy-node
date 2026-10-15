@@ -1958,6 +1958,24 @@ func TestNormalizeLayoutHistoryView(t *testing.T) {
 	}
 }
 
+// Die Zeitraumvorgaben einer eigenen Verlauf-Kachel: 3 Monate (2160 h) bleibt,
+// ein unbekannter Wert faellt auf den Standard 24 h zurueck.
+func TestNormalizeLayoutHistoryRangeHoursKeepsQuarterPreset(t *testing.T) {
+	layout := normalizeLayout(Layout{Version: 3, Pages: []Page{{ID: "p", Name: "P", Groups: []Group{{
+		ID: "g", Name: "G", Items: []Item{
+			{ID: "a", Type: "history_view", Span: "2", Visible: true, HistoryRangeHours: "2160"},
+			{ID: "b", Type: "history_view", Span: "2", Visible: true, HistoryRangeHours: "999"},
+		},
+	}}}}})
+	items := layout.Pages[0].Groups[0].Items
+	if items[0].HistoryRangeHours != "2160" {
+		t.Fatalf("3-Monats-Vorgabe verloren: %q", items[0].HistoryRangeHours)
+	}
+	if items[1].HistoryRangeHours != "24" {
+		t.Fatalf("unbekannte Vorgabe nicht auf 24 gesetzt: %q", items[1].HistoryRangeHours)
+	}
+}
+
 func TestSaveLayoutAcceptsAHistoryViewAndRoundTripsIt(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveLayout(Layout{Version: 3, Pages: []Page{{ID: "p", Name: "P", Groups: []Group{{

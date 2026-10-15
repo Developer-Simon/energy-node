@@ -586,16 +586,16 @@
       + `<select multiple data-role="entity-refs" aria-labelledby="layout-item-entity-refs-label-${escapeHTML(item.id || '')}">${entityOptions.map(entity => `<option value="${escapeHTML(entity.ref)}"${(item.entityRefs || []).includes(entity.ref) ? ' selected' : ''}>${escapeHTML(entity.label)}</option>`).join('')}</select></div>`;
   }
 
-  const HISTORY_RANGE_HOURS = ['1', '6', '24', '168', '720'];
+  const HISTORY_RANGE_HOURS = ['1', '6', '24', '168', '720', '2160'];
 
-  // Fester Datumsbereich -> naechstgroesseres Preset, hoechstens ein Monat.
+  // Fester Datumsbereich -> naechstgroesseres Preset, hoechstens drei Monate.
   // Eigene Einstellung kennt keinen festen Bereich (Spec: nicht Teil dieser
   // Arbeit), aufrunden zeigt mindestens alles, was die Sicht zeigte.
   function nearestPreset(view) {
     const hours = view.range_mode === 'custom' && view.range_from >= 0 && view.range_to > view.range_from
       ? Math.ceil((view.range_to - view.range_from) / 3600000)
       : Number(view.range_hours) || 24;
-    return HISTORY_RANGE_HOURS.find(preset => Number(preset) >= hours) || '720';
+    return HISTORY_RANGE_HOURS.find(preset => Number(preset) >= hours) || '2160';
   }
 
   const historySeriesLabel = name => (window.HistoryChart ? window.HistoryChart.seriesLabel(name)
@@ -618,7 +618,7 @@
     return source
       + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.title'))}</label><input type="text" data-role="history-title" value="${escapeHTML(item.title || '')}" placeholder="${escapeHTML(t('overview.history_view.default_title'))}"></div>`
       + selectFieldHTML('history-range-hours', 'layout_editor.history_view.range', item.historyRangeHours || '24',
-        [['1', 'layout_editor.option.history_range.hour_1'], ['6', 'layout_editor.option.history_range.hour_6'], ['24', 'history.range.day'], ['168', 'history.range.week'], ['720', 'history.range.month']])
+        [['1', 'layout_editor.option.history_range.hour_1'], ['6', 'layout_editor.option.history_range.hour_6'], ['24', 'history.range.day'], ['168', 'history.range.week'], ['720', 'history.range.month'], ['2160', 'history.range.quarter']])
       + selectFieldHTML('history-aggregate', 'layout_editor.history_view.aggregate', item.historyAggregate || 'avg',
         [['avg', 'history.aggregate.average'], ['min', 'history.aggregate.minimum'], ['max', 'history.aggregate.maximum']])
       + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.series'))}</label>${series}<p class="layout-modal-hint">${escapeHTML(t('layout_editor.history_view.series_hint'))}</p></div>`;

@@ -28,6 +28,24 @@
    base.css: kurze, kaum wahrnehmbare Skalierung statt einer eigenen Kurve. */
 .history-chip:active { transition: transform .08s ease, background .15s ease, border-color .15s ease, color .15s ease; transform: scale(.97); }
 
+/* Aufloesungswahl: dieselbe Pillen-Optik wie .history-chip, nur kleiner,
+   weil sie unter der Zeitraumwahl sitzt. Aktiv ist die gezeichnete Stufe. */
+.history-resolution { display: flex; flex-wrap: wrap; align-items: center; gap: .4rem; margin: 0 0 .6rem; }
+.history-resolution-option {
+  padding: .3rem .65rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--panel);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: .8rem;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.history-resolution-option:hover { border-color: var(--accent-line); color: var(--text); }
+.history-resolution-option:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.history-resolution-option[aria-pressed="true"] { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent); }
+
 /* Gleiche Linien-Optik wie .automation-icon, die seit 2026-09 in base.css
    steht (dieses Panel benutzt den Klassennamen fuer Save/Trash/Close/Download
    weiter). Die beiden Chip-Ikonen sind eigene Klassen und brauchen sie hier. */

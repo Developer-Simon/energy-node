@@ -1,5 +1,5 @@
 {{define "overview"}}
-<section id="overview-panel" class="panel" role="tabpanel" aria-label="{{t "nav.overview"}}" x-bind:class="{ active: activePanel === 'overview-panel' }" x-show="activePanel === 'overview-panel'" x-data="devicesPanel()" x-init="init()" data-editor-fragment="{{.BasePath}}/?fragment=panel&panel=layout-editor" data-editor-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/layout-editor.js?v=15" data-editor-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=1,{{.BasePath}}/static/css/layout-editor.css?v=9">
+<section id="overview-panel" class="panel" role="tabpanel" aria-label="{{t "nav.overview"}}" x-bind:class="{ active: activePanel === 'overview-panel' }" x-show="activePanel === 'overview-panel'" x-data="devicesPanel()" x-init="init()" data-editor-fragment="{{.BasePath}}/?fragment=panel&panel=layout-editor" data-editor-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/layout-editor.js?v=16" data-editor-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=1,{{.BasePath}}/static/css/layout-editor.css?v=9">
   {{template "overview-live" .}}
   {{template "device-modal" .}}
 </section>
@@ -34,6 +34,12 @@
     <button type="button" class="icon-button" x-show="rangeMode === 'custom'" x-on:click="clearCustomRange()" title="{{t "overview.history.clear_custom_range"}}" aria-label="{{t "overview.history.clear_custom_range"}}">
       <svg class="automation-icon"><use href="#ico-close"></use></svg>
     </button>
+  </div>
+
+  <div class="history-resolution" role="group" aria-label="{{t "history.resolution.label"}}" x-show="tiers.length > 1">
+    <template x-for="option in resolutionOptions" x-bind:key="option.tier">
+      <button type="button" class="history-resolution-option" x-bind:aria-pressed="option.active" x-on:click="setResolution(option.tier)" x-text="option.label"></button>
+    </template>
   </div>
 
   <div id="history-aggregate" class="history-chip-group" role="group" aria-label="{{t "overview.history.metric_label"}}">

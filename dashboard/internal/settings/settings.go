@@ -257,7 +257,7 @@ type Item struct {
 	// selbst - dann gelten die drei Felder unten, Title ist frei ("" heisst
 	// Standardtitel). Mit Ref leert normalizeLayout alle vier.
 	HistorySeries     []string `json:"history_series,omitempty"`      // leer = alle aufgezeichneten
-	HistoryRangeHours string   `json:"history_range_hours,omitempty"` // "1" | "6" | "24" | "168" | "720"
+	HistoryRangeHours string   `json:"history_range_hours,omitempty"` // "1" | "6" | "24" | "168" | "720" | "2160"
 	HistoryAggregate  string   `json:"history_aggregate,omitempty"`   // "avg" | "min" | "max"
 
 	// device: welche der beiden Geraetekacheln die Uebersicht rendert -
@@ -2283,7 +2283,7 @@ func normalizeEnergyGraphicOptions(item *Item) {
 	// fuellt defaultString die beiden Enums, die Serienliste bleibt wie sie
 	// ist (leer heisst alle aufgezeichneten).
 	if item.Type == "history_view" && item.Ref == "" {
-		defaultString(&item.HistoryRangeHours, []string{"1", "6", "24", "168", "720"}, "24")
+		defaultString(&item.HistoryRangeHours, []string{"1", "6", "24", "168", "720", "2160"}, "24")
 		defaultString(&item.HistoryAggregate, []string{"avg", "min", "max"}, "avg")
 		if len(item.HistorySeries) == 0 {
 			item.HistorySeries = nil
