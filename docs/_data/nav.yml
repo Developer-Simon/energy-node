@@ -19,7 +19,10 @@
     - label: "Dashboard"
       url: "dashboard/index.md"
       children:
-        - { label: "Overview & layout editor", url: "dashboard/overview.md" }
+        - label: "Overview & layout editor"
+          url: "dashboard/overview.md"
+          children:
+            - { label: "Cards", url: "dashboard/overview-cards.md" }
         - { label: "Devices", url: "dashboard/devices.md" }
         - { label: "History", url: "dashboard/history.md" }
         - { label: "Statistics", url: "dashboard/statistics.md" }

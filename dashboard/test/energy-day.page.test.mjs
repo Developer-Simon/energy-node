@@ -5,7 +5,7 @@
 // simulated day profile - the x-axis spans whatever history actually
 // exists instead of a fixed hour window, so this card has no layout-editor
 // equivalent of the prototype's "Zeitfenster" selector (see
-// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md). Its two
+// docs/dashboard/overview-cards.md). Its two
 // remaining options, display_mode and show_now, are covered below.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

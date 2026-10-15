@@ -15,6 +15,14 @@
 //   C) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package --fake-companion
 //      node test/smoke/docs-screenshots.mjs dashboard-statistics
 //
+// --cards nimmt jede Uebersichtskarte einzeln in ihrer Mindestgroesse auf
+// (docs/images/dashboard-card-*.png, fuer docs/dashboard/overview-cards.md).
+// Dafuer legt es eine eigene Layout-Seite an, zeichnet --record-minutes lang
+// Verlauf auf (Vorgabe hier 16 min, die Batterie-Trajektorie braucht 15) und stellt
+// das Layout danach wieder her. Am besten gegen
+//   run-local-dashboard.sh --keep --preset docs-screenshots --simulate
+// damit Tagesband und Verlauf sich bewegen.
+//
 // Ohne Namen werden alle Bilder ausser dashboard-history,
 // dashboard-settings-versions und dashboard-statistics geschrieben. Namen als Argumente begrenzen den
 // Lauf auf genau diese Bilder.
@@ -35,13 +43,15 @@ function parseArgs(argv) {
     out: path.join(REPO_DIR, 'docs/images'),
     password: 'smoketest1234',
     history: false,
-    recordMinutes: 12,
+    cards: false,
+    recordMinutes: null,
     names: [],
   };
   for (let i = 0; i < argv.length; i++) {
     if (!argv[i].startsWith('--')) { args.names.push(argv[i]); continue; }
     const [flag, inlineValue] = argv[i].split(/=(.*)/s);
     if (flag === '--history') { args.history = true; continue; }
+    if (flag === '--cards') { args.cards = true; continue; }
     const value = inlineValue ?? argv[++i];
     if (flag === '--url') args.url = value.replace(/\/$/, '');
     else if (flag === '--out') args.out = path.resolve(value);
@@ -92,6 +102,7 @@ async function shot(page, name) {
 }
 
 async function history() {
+  args.recordMinutes ??= 12;
   const s = await session(1110, 818);
   console.log(`zeichne den Verlauf ${args.recordMinutes} min auf ...`);
   await s.page.waitForTimeout(args.recordMinutes * 60 * 1000);
@@ -429,8 +440,66 @@ async function deviceMapShowcase() {
   await s.ctx.close();
 }
 
+// Eine Karte je Typ in ihrer Mindestbreite (min_span Spalten) auf einer
+// eigenen Layout-Seite. Die Spalten werden auf das Rastermindestmass 18rem
+// festgesetzt, Karten mit fills_height auf ihre Mindesthoehe. Karten ohne
+// fills_height nehmen ihre Inhaltshoehe, mindestens min_height. Die
+// Spannen werden fest gesetzt, sonst dehnt layout-fill.js eine Karte in
+// eine Zeilenluecke.
+async function cards() {
+  args.recordMinutes ??= 16;
+  const s = await session(1500, 1200);
+  const api = `${args.url}/api/v1/layout`;
+  const original = await (await s.ctx.request.get(api)).json();
+  const csrf = (await (await s.ctx.request.get(`${args.url}/api/v1/auth/session`)).json()).csrf_token;
+  const put = (doc) => s.ctx.request.put(api, { data: { version: doc.version, pages: doc.pages }, headers: { 'X-CSRF-Token': csrf } });
+  const types = original.card_types;
+  const entries = [
+    ['energy_status', {}], ['energy_flow', {}], ['energy_ring', {}], ['energy_schema', {}],
+    ['energy_band', {}], ['energy_day', {}], ['energy_board', {}], ['energy_stats', {}],
+    ['battery_status', { display: 'column' }],
+    ['battery_status:trajectory', { type: 'battery_status', display: 'trajectory' }],
+    ['history_view', { title: 'PV and grid', history_range_hours: '1', history_series: ['role:pv', 'role:grid'] }],
+    ['diagnostics', {}],
+    ['entity_value', { ref: 'bank_a_voltage' }],
+    ['entity_group', { title: 'Battery banks', entity_refs: ['bank_a_voltage', 'bank_b_voltage', 'bank_soc'] }],
+    ['device', { ref: 'wallbox', display: 'detail' }],
+    ['device:compact', { type: 'device', ref: 'wallbox', display: 'compact' }],
+  ];
+  const items = entries.map(([key, extra]) => ({
+    id: `cards-${key.replace(':', '-')}`, type: key.split(':')[0], span: String(types[key].min_span), visible: true, ...extra,
+  }));
+  const page = { id: 'docs-cards', name: 'Cards', order: original.pages.length, groups: [{ id: 'docs-cards-all', name: 'Cards', items }] };
+  const res = await put({ version: original.version, pages: [...original.pages, page] });
+  if (!res.ok()) throw new Error(`Layout abgelehnt: ${res.status()} ${await res.text()}`);
+  try {
+    await s.page.goto(`${args.url}/`, { waitUntil: 'networkidle' });
+    console.log(`zeichne den Verlauf ${args.recordMinutes} min auf ...`);
+    await s.page.waitForTimeout(args.recordMinutes * 60 * 1000);
+    await s.page.locator('button.tab.is-page', { hasText: 'Cards' }).first().click();
+    await s.page.waitForTimeout(4000);
+    await s.page.addStyleTag({ content: `
+      #overview-panel .layout-grid { grid-template-columns: repeat(auto-fill, 18rem) !important; align-items: start !important; }
+      #overview-panel .layout-grid-item[data-fills-height="true"] { height: var(--card-min-height); }
+      #overview-panel .layout-grid-item-1 { grid-column: span 1 !important; }
+      #overview-panel .layout-grid-item-2 { grid-column: span 2 !important; }` });
+    await s.page.waitForTimeout(2500);
+    for (const [key] of entries) {
+      const name = `dashboard-card-${key.replace(/[:_]/g, '-')}`;
+      const item = s.page.locator(`[data-layout-item-id="cards-${key.replace(':', '-')}"]`);
+      await item.scrollIntoViewIfNeeded();
+      await s.page.waitForTimeout(500);
+      await element(item, name);
+    }
+  } finally {
+    await put(original);
+    await s.ctx.close();
+  }
+}
+
 try {
   if (args.history) await history();
+  else if (args.cards) await cards();
   else await all();
 } finally {
   await browser.close();

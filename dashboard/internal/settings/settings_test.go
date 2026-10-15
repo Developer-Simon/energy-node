@@ -484,7 +484,7 @@ func TestSchemaDeclaresDeviceViewModeEnum(t *testing.T) {
 }
 
 // TestSaveLayoutAcceptsTheSixAlternativeEnergyGraphicTypes covers the item
-// types added for energiegrafiken-sechs-varianten.md: each is a singleton
+// types added for docs/dashboard/overview-cards.md: each is a singleton
 // type with no per-item configuration (same as energy_flow), so accepting
 // it is purely a layout.schema.json enum change - the rest of Item,
 // cloneLayout, normalizeLayout and validateLayout are untouched.
@@ -966,7 +966,7 @@ func TestLayoutSaveLoadIsStable(t *testing.T) {
 
 // TestLayoutDefaultsEnergyGraphicOptionsPerType prueft
 // normalizeEnergyGraphicOptions (siehe
-// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md): ein leeres
+// docs/dashboard/overview-cards.md): ein leeres
 // Feld bekommt den Typ-Default, sobald item.Type passt.
 func TestLayoutDefaultsEnergyGraphicOptionsPerType(t *testing.T) {
 	store := NewStore(t.TempDir())

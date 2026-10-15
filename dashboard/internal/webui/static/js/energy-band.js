@@ -4,7 +4,7 @@
 // scale_mode). Port of Vorschlag A from the six-proposals exploration; its
 // five layout-editor options (height_reference, scale_mode, unit,
 // bundle_threshold, animate) are read from the layout item's data-*
-// attributes, see knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
+// attributes, see docs/dashboard/overview-cards.md.
 (() => {
   const t = (key, params) => (window.I18n ? window.I18n.t(key, params) : key);
 

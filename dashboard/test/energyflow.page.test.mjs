@@ -408,7 +408,7 @@ test('render() draws in "width" scale mode by default: stroke-width varies with 
 // Vorher ungetestet: render() im Modus "speed" lief nur ueber
 // flowDuration()'s reine Funktion, nie ueber den echten DOM-Pfad (scaleMode
 // und Referenz beide aus dem [data-layout-item-id]-Vorfahren) - siehe
-// energiegrafiken.md "Bekannte Einschraenkungen". Die Regression, die
+// docs/dashboard/overview-cards.md (Energy: energy flow). Die Regression, die
 // diese Tests abdecken: eine feste 3000W-Referenz liess kleine Anlagen (z.B.
 // Balkonkraftwerk-Groessenordnung, alle Werte weit unter 3000W) mit fast
 // ununterscheidbaren Dauern animieren.

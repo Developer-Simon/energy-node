@@ -50,7 +50,7 @@ const (
 // DeriveBalance - they live here anyway because they are fachliche
 // Schwellwerte ("what do the roles mean"), not Darstellungsparameter ("how
 // does the tile look"), the same distinction that keeps GapToleranceW out of
-// the layout editor. See knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
+// the layout editor. See docs/dashboard/overview-cards.md.
 type Interpretation struct {
 	GapMode             GapMode       `json:"gap_mode"`
 	LoadMode            LoadMode      `json:"load_mode"`
