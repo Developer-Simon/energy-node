@@ -18,6 +18,7 @@
 - **energy:** migrate combined load mode to one consumer category per entity (80e6e5d)
 - **discovery:** publish measured and calculated house load as optional sensors (d266e0c)
 - **energy:** load mode cards, meter hints and status line on the energy page (8414c1b)
+- **energy:** technical mode texts, house meter on the energy node, inset notices (da47ece)
 - **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143)
 - **energydiscovery:** optional sensors for wallbox, heat pump and categories (6f21c9a)
 - **dashboard:** announce optional energy sensors and let them be deselected (339fee9)
