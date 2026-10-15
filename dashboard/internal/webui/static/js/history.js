@@ -282,34 +282,62 @@
     },
 
     // Zustand der Statusleiste ueber dem Diagramm. state ist loading, error,
-    // paused, empty oder ok. Nur bei ok gibt es Kennzahlen.
+    // paused, empty oder ok. Kennzahlen gibt es bei ok und bei loading, wenn
+    // schon Zeilen und Stufen da sind: ein Neuladen nach Stufen- oder
+    // Zeitraumwahl laesst die Bedienelemente sonst kurz verschwinden.
     get statusInfo() {
-      if (this.loading) return {state: 'loading'};
+      if (this.loading) return this.hasKnownTiers ? {...this.pillValues, state: 'loading'} : {state: 'loading'};
       if (this.error) return {state: 'error'};
       const status = this.recorderStatus;
       if (status.paused) return {state: 'paused'};
       if (this.isEmpty) return {state: 'empty'};
+      return {state: 'ok', ...this.pillValues};
+    },
+
+    get hasKnownTiers() {
+      return this.rows.length > 0 && this.tiers.length > 0;
+    },
+
+    // Die Pillen der Statusleiste: Stufe, Punkte, Serien und ob der Browser
+    // dauerhaft speichert. Ausgelagert, damit ok und das Neuladen dieselben
+    // Werte liefern.
+    get pillValues() {
       return {
-        state: 'ok',
         tier: this.tierLabel,
         points: this.visibleRows.length,
         series: this.selectedSeries.length,
-        persisted: status.persisted !== false,
+        persisted: this.recorderStatus.persisted !== false,
         fallback: this.fallbackSeries.length,
       };
     },
 
+    // Stufenwahl, Pause-Schalter und Pillen sind sichtbar, wenn die Leiste
+    // Kennzahlen hat (siehe statusInfo).
+    get showStatusControls() {
+      const state = this.statusInfo.state;
+      return state === 'ok' || (state === 'loading' && this.hasKnownTiers);
+    },
+
     // Der Text der Leiste fuer Vorlesegeraete und fuer alle Zustaende ausser ok.
+    // Bei pausierter Aktualisierung steht der Hinweis dahinter.
     get statusText() {
       const info = this.statusInfo;
-      if (info.state === 'loading') return t('history.status.loading');
-      if (info.state === 'error') return this.error;
-      if (info.state === 'paused') return this.recorderStatus.reason || t('history.status.paused');
-      if (info.state === 'empty') return t('history.status.empty');
-      const params = {tier: info.tier, points: info.points, series: info.series};
-      const summary = t(info.persisted ? 'history.status.summary' : 'history.status.summary_not_persisted', params);
-      if (!info.fallback) return summary;
-      return `${summary} ${tn('history.status.fallback', info.fallback, {count: info.fallback})}`;
+      let text;
+      if (info.state === 'loading') {
+        text = t('history.status.loading');
+      } else if (info.state === 'error') {
+        text = this.error;
+      } else if (info.state === 'paused') {
+        text = this.recorderStatus.reason || t('history.status.paused');
+      } else if (info.state === 'empty') {
+        text = t('history.status.empty');
+      } else {
+        const params = {tier: info.tier, points: info.points, series: info.series};
+        const summary = t(info.persisted ? 'history.status.summary' : 'history.status.summary_not_persisted', params);
+        text = info.fallback ? `${summary} ${tn('history.status.fallback', info.fallback, {count: info.fallback})}` : summary;
+      }
+      if (this.showStatusControls && this.refreshPaused) text = `${text} ${t('history.refresh.paused_hint')}`;
+      return text;
     },
 
     get pointsLabel() {

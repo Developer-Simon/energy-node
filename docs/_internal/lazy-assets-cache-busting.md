@@ -128,14 +128,14 @@ skips scripts already present as `<script src>`.
 | Panel | Scripts (`?v=`) | CSS (`?v=`) |
 |---|---|---|
 | `devices-panel` | – | – |
-| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `20` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `6` |
+| `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `3`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `13`, `css/diagnostics.css` `2` |
 | `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `35` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `9` | `css/manager.css` `35` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `24` | `css/manager.css` `35` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `22`, `js/mqtt.page.js` `8`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `35`, `css/settings-controls.css` `13` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `11` | `css/manager.css` `35`, `css/automations.css` `6` |
-| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `3` | `css/history.css` `6`, `css/stats.css` `2` |
+| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `3`, `js/energy-stats-model.js` `2`, `js/stats.page.js` `3` | `css/history.css` `7`, `css/stats.css` `2` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -254,7 +254,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| unreleased, `feat/history-hour-tier` | `js/history-rollup.js` (history panel, history tile) · `js/history-store.js` (`extent`, history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel: coverage percentages, explicit resolution, refresh pause) · `css/history.css` (history panel, stats panel) | `3` · `5` · `5` · `20` · `6` | 2026-10-15 |
+| unreleased, `feat/history-hour-tier` | `js/history-rollup.js` (history panel, history tile) · `js/history-store.js` (`extent`, history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel: coverage percentages, explicit resolution, refresh pause, resolution pill and pause button in the status line) · `css/history.css` (history panel, stats panel: status line controls) | `3` · `5` · `5` · `21` · `7` | 2026-10-15 |
 | v0.9.16 | `js/history-rollup.js` (history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel) · `js/layout-editor.js` (overview editor) · `css/history.css` (history panel, stats panel) · `js/history-coverage.js` · `js/history-exchange.js` | `2` · `3` · `17` · `16` · `5` · `4` · `8` | 2026-10-15 |
 | v0.9.14 | `js/versions.page.js` (settings panel, changelog history) · `js/settings.page.js` (settings panel, `changelog_history`) · `js/mqtt.page.js` (settings panel, metrics multiselect and bridge help list) | `7` · `22` · `8` | 2026-10-14 |
 | v0.9.13 | `js/i18n.js` (all pages, `login.html` keeps `3`) · `js/whatsnew.page.js` (`whatsNewPanel`, `entryText`) · `js/versions.page.js` (settings panel, `entryText`) | `4` · `3` · `6` | 2026-10-14 |

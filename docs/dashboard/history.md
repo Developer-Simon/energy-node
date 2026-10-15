@@ -18,21 +18,26 @@ save a set of series as a named view and export the visible data as CSV or JSON.
 
 ## Resolutions
 
-The **Resolution** dropdown above the chart lists the resolutions that fit the
-chosen span. Each entry shows the share of the span that the resolution covers
-with values in this browser, for example `5-minute average · 97 %`. The
-automatic choice is the coarsest resolution that has data. A finer resolution
-takes over when it covers at least 20 % more of the span. Pick an entry to
-choose a resolution yourself. It stays until you pick another one or change the
-span, which returns to the automatic choice. The choice belongs to the page
-session. A reload starts again with the automatic choice.
+The status line above the chart carries the resolution as its first pill. Pick
+it to open the list of resolutions that fit the chosen span. Each entry shows
+the share of the span that the resolution covers with values in this browser,
+for example `5-minute average · 97 %`. The pill itself shows only the name of
+the current resolution. The automatic choice is the coarsest resolution that
+has data. A finer resolution takes over when it covers at least 20 % more of
+the span. Pick an entry to choose a resolution yourself. It stays until you
+pick another one or change the span, which returns to the automatic choice. The
+choice belongs to the page session. A reload starts again with the automatic
+choice.
 
-Next to the dropdown, the **Pause updates** button stops the page from
-refreshing the chart and from exchanging history with other browsers for the
-rest of the page session. A small note then says that the chart is not
-updating. Explicit actions such as changing the span, the resolution, the
-series or the metric still load data. **Resume updates** reconnects the
-exchange and reloads the chart once.
+Directly behind the resolution pill, a round icon button pauses the automatic
+updates. Pausing stops the page from refreshing the chart and from exchanging
+history with other browsers for the rest of the page session. The status dot
+then turns amber and does not pulse, and a warning pill after the "not
+persisted" pill says that the chart is not updating. Explicit actions such as
+changing the span, the resolution, the series or the metric still load data.
+Pressing the button again (**Resume updates**) reconnects the exchange and
+reloads the chart once. The controls stay visible while the page reloads
+after a change, so the line does not flicker.
 
 | Resolution | Offered for a span of | Where the values come from |
 |---|---|---|
@@ -73,5 +78,5 @@ overwritten. Minute values are only exchanged up to 30 minutes before now. When
 the page shows a range that reaches into that last half hour, it asks the other
 browsers for it as well.
 
-The line above the chart names the resolution, the number of points and series,
-and whether the browser has granted persistent storage.
+The status line above the chart names the resolution, the number of points and
+series, and whether the browser has granted persistent storage.

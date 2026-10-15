@@ -1160,3 +1160,54 @@ test('die Zaehlung in der Statusleiste steht im Singular bei eins', () => {
   assert.equal(component.seriesLabelCount, '2 series');
   dom.window.close();
 });
+
+test('showStatusControls zeigt die Bedienelemente bei ok und beim Neuladen mit bekannten Stufen', async () => {
+  const {dom, component} = panel({i18n: {lang: 'en'}});
+  component.loading = true;
+  assert.equal(component.showStatusControls, false, 'erster Ladevorgang ohne Zeilen');
+  component.loading = false;
+  await component.load();
+  assert.equal(component.statusInfo.state, 'empty');
+  assert.equal(component.showStatusControls, false);
+  const now = Date.now();
+  await dom.window.HistoryStore.writeRaw([{series: 'role:grid', ts: now - HOUR, v: -1250, u: 'W'}]);
+  await component.load();
+  assert.equal(component.statusInfo.state, 'ok');
+  assert.equal(component.showStatusControls, true);
+  component.loading = true;
+  assert.equal(component.statusInfo.state, 'loading');
+  assert.equal(component.showStatusControls, true);
+  assert.equal(component.statusInfo.tier, component.tierLabel);
+  assert.equal(component.statusInfo.points, component.visibleRows.length);
+  assert.equal(component.statusInfo.series, component.selectedSeries.length);
+  component.loading = false;
+  dom.window.close();
+});
+
+test('Fehler und Neuladen ohne Zeilen zeigen keine Bedienelemente', async () => {
+  const {dom, component} = panel({i18n: {lang: 'en'}});
+  const now = Date.now();
+  await dom.window.HistoryStore.writeRaw([{series: 'role:grid', ts: now - HOUR, v: -1250, u: 'W'}]);
+  await component.load();
+  component.error = 'kaputt';
+  assert.equal(component.showStatusControls, false, 'Fehler zeigt nur den Text');
+  component.error = '';
+  component.rows = [];
+  component.loading = true;
+  assert.equal(component.showStatusControls, false, 'Neuladen ohne Zeilen zeigt keine Pillen');
+  component.loading = false;
+  dom.window.close();
+});
+
+test('statusText haengt den Hinweis zur pausierten Aktualisierung an', async () => {
+  const {dom, component} = panel({i18n: {lang: 'en'}});
+  const now = Date.now();
+  await dom.window.HistoryStore.writeRaw([{series: 'role:grid', ts: now - HOUR, v: -1250, u: 'W'}]);
+  await component.load();
+  const base = component.statusText;
+  component.refreshPaused = true;
+  assert.equal(component.statusText, `${base} ${catalog('en')['history.refresh.paused_hint']}`);
+  component.refreshPaused = false;
+  assert.equal(component.statusText, base);
+  dom.window.close();
+});
