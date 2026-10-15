@@ -509,6 +509,59 @@ test('applyStateObject stores the state and its timestamp', () => {
   assert.ok(component.lastStateAt > 0);
 });
 
+// The state document is fetched from /api/v1/automation/state: last_message is
+// capped at 4096 bytes and shared with the availability topic, so a larger
+// document arrived truncated and an availability "online" replaced it.
+test('loadRuntimeState fetches the state document from its own route when the state entity changes', async () => {
+  const { component, window } = createAutomationsPanel();
+  const calls = [];
+  window.fetch = async (url) => {
+    calls.push(String(url).replace(/^.*(\/api\/)/, '$1'));
+    return { ok: true, json: async () => sampleState };
+  };
+  const deviceWithStateAt = (at, payload) => [{
+    id: 'automation',
+    entities: [{
+      object_id: 'state', available: true, value: '1',
+      last_message: { topic: 'outstation/automation/status/online', payload, at },
+    }],
+  }];
+  component.devices = deviceWithStateAt('2026-10-15T10:00:00Z', 'online');
+  component.loadRuntimeState();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(calls, ['/api/v1/automation/state']);
+  assert.equal(component.online, true);
+  assert.equal(component.runtimeState.rules.r1.result, 'hold_pending');
+
+  component.loadRuntimeState();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 1, 'an unchanged state entity must not refetch');
+
+  component.devices = deviceWithStateAt('2026-10-15T10:00:05Z', '{"at":1,"rules":{"r1":');
+  component.loadRuntimeState();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(calls.length, 2);
+});
+
+test('applyStateObject ignores a document without rules', () => {
+  const { component } = createAutomationsPanel();
+  component.applyStateObject(sampleState);
+  component.applyStateObject({});
+  component.applyStateObject(null);
+  assert.equal(component.runtimeState.rules.r1.result, 'hold_pending');
+});
+
+test('without an automation device the page is offline and fetches nothing', async () => {
+  const { component, window } = createAutomationsPanel();
+  let called = false;
+  window.fetch = async () => { called = true; return { ok: true, json: async () => ({}) }; };
+  component.devices = [];
+  component.loadRuntimeState();
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(component.online, false);
+  assert.equal(called, false);
+});
+
 // last_message is capped at 4096 bytes and shared with the availability topic,
 // so a long history arrived truncated there. The page fetches the full
 // document from /api/v1/automation/history instead and only when something new
