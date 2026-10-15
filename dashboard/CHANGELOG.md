@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.15 (2026-10-14)
+## v0.9.16 (2026-10-15)
 
 ### Features
 
@@ -10,9 +10,9 @@
 - **dashboard:** device tiles patched from the devices topic without fragment swaps (#135) (76f51aa)
 - **changelog:** Release highlights now have a German text that shows in the dashboard, the installer and the release notes. (#134) (ccd90ca)
 - **changelog:** Choose how many versions the changelog shows, with the history kept on the device across updates. (#137) (14f781e)
+- **dashboard:** The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect. (#138) (3c7821a)
 - **dashboard:** published diagnostics metrics as a read-only-for-guests multiselect (63f6bf4)
 - **dashboard:** bridge setup step list on the MQTT tab (638c5ee)
-- **dashboard:** The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect. (#138)
 - **dashboard:** keep every received changelog version on the node (6061446)
 - **dashboard:** add the changelog_history setting (26ea4d7)
 - **dashboard:** limit the changelog API to a number of bundle versions (5a1b1cc)
@@ -56,11 +56,15 @@
 
 ### Refactors
 
+- **dashboard:** drop the unused Tippy.js and Popper.js bundles (dfc102e)
+- **dashboard:** reword the base.css tooltip comment (7856e87)
+- **dashboard:** remove unused Tippy.js and Popper.js (#139)
 - **dashboard:** drop the global structure fingerprints (c71a352)
 - **registryevents:** build and deliver SSE bodies per topic (dc7ddea)
 
 ### Documentation
 
+- **dashboard:** drop Tippy.js and Popper.js from notices, manifest and docs (4761345)
 - **dashboard:** MQTT tab metrics select and bridge step list (81d3985)
 - **release:** document the per-version changelog (865f72a)
 
