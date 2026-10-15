@@ -703,6 +703,10 @@
       const select = this.$refs?.favoritesSelect;
       if (!window.Choices || !select || this.prefsDraftFor !== deviceId) return;
       this.destroyFavoritesChoices();
+      // destroy() schreibt die Optionen samt selected ins <select> zurück.
+      // Eine neue Instanz übernähme sie als Chips in Optionsreihenfolge, und
+      // setChoiceByValue ordnet schon gewählte Werte nicht mehr um.
+      select.replaceChildren();
       const refs = this.prefsDraft.favorite_refs;
       const choices = new window.Choices(select, {
         removeItemButton: true,

@@ -327,7 +327,7 @@ test('initFavoritesChoices füllt Choices in Auswahlreihenfolge, begrenzt auf dr
     getValue() { return selected; }
     destroy() { calls.destroyed = true; }
   };
-  const select = {};
+  const select = panel.testWindow.document.createElement('select');
   panel.$refs = {favoritesSelect: select, deviceModalDialog: {dataset: {}}};
   panel.selectedDeviceId = 'node';
   panel.prefsDraftFor = 'node';
@@ -350,6 +350,39 @@ test('initFavoritesChoices füllt Choices in Auswahlreihenfolge, begrenzt auf dr
   panel.destroyFavoritesChoices();
   assert.equal(calls.destroyed, true);
   assert.equal(panel.favoritesChoices, null);
+});
+
+// Choices.destroy() schreibt die Optionen samt selected ins <select> zurück.
+// Bliebe das stehen, übernähme die nächste Instanz sie als Chips in
+// Optionsreihenfolge, die Auswahlreihenfolge ginge nach dem Speichern verloren.
+test('initFavoritesChoices startet nach destroy mit leerem select', async () => {
+  const panel = createDevicesPanel();
+  const doc = panel.testWindow.document;
+  const select = doc.createElement('select');
+  select.multiple = true;
+  const optionsAtConstruct = [];
+  panel.testWindow.Choices = class {
+    constructor(el) { optionsAtConstruct.push(Array.from(el.options, option => option.value)); }
+    setChoices() {}
+    setChoiceByValue() {}
+    getValue() { return []; }
+    destroy() {
+      const option = doc.createElement('option');
+      option.value = 'node_temp';
+      option.selected = true;
+      select.append(option);
+    }
+  };
+  panel.$refs = {favoritesSelect: select, deviceModalDialog: {dataset: {}}};
+  panel.selectedDeviceId = 'node';
+  panel.prefsDraftFor = 'node';
+  panel.deviceDetail = {id: 'node', entities: [{unique_id: 'node_temp', name: 'Temperatur'}, {unique_id: 'node_relay', name: 'Relais'}]};
+  panel.prefsDraft = {icon: '', favorite_refs: ['node_relay'], pin_favorites: false};
+
+  await panel.initFavoritesChoices();
+  await panel.initFavoritesChoices();
+
+  assert.deepEqual(optionsAtConstruct[1], []);
 });
 
 test('the icon picker groups the catalogue by category in catalogue order', () => {
