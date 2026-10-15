@@ -557,14 +557,13 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 /* Modifier for a trigger sitting close to the page's left edge (e.g. a page
    title) - the default centered tooltip would overflow off-screen there. */
 .field-help-align-start .field-help-text { left: 0; transform: none; }
-/* Schmale Fenster: der offene Tooltip richtet sich am nächsten positionierten
-   Vorfahren aus (sonst am Fenster) und bleibt mit festem Rand darin, statt
-   vom Knopf aus nach rechts hinauszulaufen. Er öffnet unter der Zeile des
-   Knopfs. */
+/* Schmale Fenster: der offene Tooltip liegt als Leiste am unteren Rand der
+   Karte oder des Fensters, mit festem Abstand zu beiden Seiten. Vom Knopf
+   aus nach rechts lief er sonst hinaus, an der Zeile des Knopfs verdeckte er
+   die Überschrift, die er erklärt. */
 @media (max-width: 700px) {
-  .field-help { position: static; }
   .field-help-text, .field-help-align-start .field-help-text {
-    left: .75rem; right: .75rem; top: auto; bottom: auto; margin-top: 1.6rem;
+    position: fixed; left: .75rem; right: .75rem; top: auto; bottom: .75rem; margin: 0;
     width: auto; max-width: none; transform: none;
   }
 }
