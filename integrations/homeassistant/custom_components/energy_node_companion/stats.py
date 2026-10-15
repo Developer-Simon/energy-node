@@ -16,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 
 from .buckets import count_hours, day_census
-from .const import DAY_MS, HOUR_MS, STATS_DISCOVERY, STATS_ROLES, STATS_WINDOW_DAYS, counter_key
+from .const import CUSTOM_UNIQUE_PREFIX, DAY_MS, HOUR_MS, STATS_DISCOVERY, STATS_ROLES, STATS_WINDOW_DAYS, counter_key
 
 # Der erste Lauf liest das Fenster in Jahresstuecken, damit eine Abfrage
 # nicht 10 Jahre auf einmal in den Speicher holt.
@@ -51,6 +51,14 @@ def resolve_stats(hass: HomeAssistant, options: Mapping) -> list[StatsSource]:
         entity_id = registry.async_get_entity_id("sensor", "mqtt", unique_id)
         if entity_id:
             sources.append(StatsSource(role, entity_id, False))
+    # Verbrauchskategorien: jede Entitaet mit dem Praefix, sortiert nach Rolle.
+    custom = [
+        (entry.unique_id[len(CUSTOM_UNIQUE_PREFIX):], entry.entity_id)
+        for entry in registry.entities.values()
+        if entry.domain == "sensor" and entry.platform == "mqtt" and entry.unique_id.startswith(CUSTOM_UNIQUE_PREFIX)
+    ]
+    for category, entity_id in sorted(custom):
+        sources.append(StatsSource(f"custom:{category}", entity_id, False))
     return sources
 
 

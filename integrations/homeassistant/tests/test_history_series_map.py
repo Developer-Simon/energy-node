@@ -49,3 +49,20 @@ async def test_same_unique_id_from_another_platform_is_ignored(hass):
 async def test_derived_role_needs_both_sides(hass):
     _mqtt(hass, "energy_node_battery_charge", "charge")
     assert resolve(hass, [{"id": "role:battery", "unit": "W"}]) == []
+
+
+async def test_wallbox_heat_pump_and_custom_categories_resolve(hass):
+    _mqtt(hass, "energy_node_wallbox", "wb")
+    _mqtt(hass, "energy_node_heat_pump", "hp")
+    _mqtt(hass, "energy_node_custom_sauna", "sauna")
+    sources = resolve(hass, [
+        {"id": "role:wallbox", "unit": "W"},
+        {"id": "role:heat_pump", "unit": "W"},
+        {"id": "role:custom:consumer:sauna", "unit": "W"},
+        {"id": "role:custom:consumer:fehlt", "unit": "W"},
+    ])
+    assert sources == [
+        SeriesSource("role:wallbox", "W", "sensor.wb"),
+        SeriesSource("role:heat_pump", "W", "sensor.hp"),
+        SeriesSource("role:custom:consumer:sauna", "W", "sensor.sauna"),
+    ]
