@@ -519,3 +519,31 @@ test('gapStubs bleibt leer ohne Luecken, ohne Punkte oder ohne Reichweite', () =
   assert.equal(rollup.gapStubs([], [{from: 1, to: 2}], 5000).length, 0);
   assert.equal(rollup.gapStubs(pairs, [{from: 1, to: 2}], 0).length, 0);
 });
+
+const TIERS_ALL = ['raw', '1m', '5m', '1h'];
+
+test('autoTier nimmt die gröbste Stufe mit Daten, eine ohne Daten wird übersprungen', () => {
+  const r = load();
+  assert.equal(r.autoTier(TIERS_ALL, {raw: 1, '1m': 1, '5m': 1, '1h': 0}), '5m');
+});
+
+test('autoTier nimmt die gröbste Stufe, wenn alle Stufen voll abdecken', () => {
+  const r = load();
+  assert.equal(r.autoTier(TIERS_ALL, {raw: 1, '1m': 1, '5m': 1, '1h': 1}), '1h');
+});
+
+test('autoTier wechselt zur feineren Stufe, wenn sie mindestens 20 % mehr abdeckt', () => {
+  const r = load();
+  assert.equal(r.autoTier(['1m', '5m', '1h'], {'1m': 1, '5m': 0.6, '1h': 0}), '1m');
+});
+
+test('autoTier bleibt bei der groben Stufe, wenn die feinere weniger als 20 % mehr abdeckt', () => {
+  const r = load();
+  assert.equal(r.autoTier(['1m', '5m', '1h'], {'1m': 0.7, '5m': 0.6, '1h': 0}), '5m');
+});
+
+test('autoTier ohne jede Abdeckung liefert die gröbste Stufe', () => {
+  const r = load();
+  assert.equal(r.autoTier(TIERS_ALL, {raw: 0, '1m': 0, '5m': 0, '1h': 0}), '1h');
+  assert.equal(r.autoTier(['raw', '1m'], {}), '1m');
+});

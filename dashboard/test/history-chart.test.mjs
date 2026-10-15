@@ -159,15 +159,47 @@ test('loadRows nimmt bei einer Woche 1h vom Server und füllt Entitäten aus 5 m
   dom.window.close();
 });
 
-test('loadRows fällt ohne Energiestatistik ganz auf 5 min zurück', async () => {
+test('loadRows überspringt ohne Energiestatistik die 1h-Stufe, sie hat keine Daten', async () => {
   const {dom, chart} = load();
   const now = 1000 * HOUR;
   await dom.window.HistoryStore.writeRollup('1m', [{series: 'role:pv', ts: now - 2 * HOUR, min: 5, max: 5, avg: 5, n: 1, u: 'W'}]);
   stubFetch(dom, () => ({ok: false, status: 501, json: async () => ({})}));
   const result = await chart.loadRows({from: now - 168 * HOUR, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
-  assert.equal(result.tier, '1h');
-  assert.deepEqual(plain(result.fallbackSeries), ['role:pv']);
+  assert.equal(result.tier, '5m');
+  assert.equal(result.coverage['1h'], 0);
+  assert.ok(result.coverage['5m'] > 0);
+  assert.deepEqual(plain(result.fallbackSeries), []);
   assert.ok(result.rows.some(row => row.series === 'role:pv'));
+  dom.window.close();
+});
+
+test('loadRows liefert die Abdeckung je Stufe und wählt ohne Wunsch die automatische Stufe', async () => {
+  const {dom, chart} = load();
+  const now = 1000 * HOUR;
+  const from = now - 6 * HOUR;
+  const minutes = [];
+  for (let ts = from; ts <= now; ts += 60000) minutes.push({series: 'role:pv', ts, min: 5, max: 5, avg: 5, n: 1, u: 'W'});
+  await dom.window.HistoryStore.writeRollup('1m', minutes);
+  const result = await chart.loadRows({from, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}});
+  assert.equal(result.tier, '1m');
+  assert.deepEqual(plain(result.tiers), ['raw', '1m']);
+  assert.equal(result.coverage.raw, 0);
+  assert.ok(result.coverage['1m'] > 0.99, `1m deckt den Zeitraum ab: ${result.coverage['1m']}`);
+  // Eine nicht angebotene Wunschstufe (1h bei 6 h) wird ignoriert.
+  const fallback = await chart.loadRows({from, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}, tier: '1h'});
+  assert.equal(fallback.tier, '1m');
+  dom.window.close();
+});
+
+test('loadRows nimmt eine angebotene Wunschstufe auch dann, wenn die Abdeckung anders liegt', async () => {
+  const {dom, chart} = load();
+  const now = 1000 * HOUR;
+  const from = now - 6 * HOUR;
+  const minutes = [];
+  for (let ts = from; ts <= now; ts += 60000) minutes.push({series: 'role:pv', ts, min: 5, max: 5, avg: 5, n: 1, u: 'W'});
+  await dom.window.HistoryStore.writeRollup('1m', minutes);
+  const result = await chart.loadRows({from, to: now, interpretation: dom.window.EnergyModel.DEFAULT_INTERPRETATION, recorderConfig: {rawWindowHours: 24, minuteWindowDays: 7}, tier: 'raw'});
+  assert.equal(result.tier, 'raw');
   dom.window.close();
 });
 

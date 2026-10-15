@@ -276,9 +276,49 @@
     return rows;
   }
 
+  // Umfang eines Satzbestands als frueheste und spaeteste Zeit. Fuer die
+  // Stundenmittel reicht das Reduce, weil die Liste ohnehin im Speicher liegt.
+  const rowsExtent = rows => rows.reduce((extent, row) => {
+    if (!extent) return {first: row.ts, last: row.ts};
+    return {first: Math.min(extent.first, row.ts), last: Math.max(extent.last, row.ts)};
+  }, null);
+
+  const unionExtent = (left, right) => {
+    if (!left) return right;
+    if (!right) return left;
+    return {first: Math.min(left.first, right.first), last: Math.max(left.last, right.last)};
+  };
+
+  // Anteil der Spanne, den eine Stufe abdeckt: von der ersten bis zur letzten
+  // Zeile plus ein Schritt, geklemmt auf 0..1. Ohne Zeilen 0.
+  const coverageOf = (extent, spanMs, stepMs) => {
+    if (!extent || !(spanMs > 0)) return 0;
+    return Math.min(1, Math.max(0, (extent.last - extent.first + stepMs) / spanMs));
+  };
+
+  // Abdeckung je angebotener Stufe. Die Rohstufe und 1m kommen als Extent aus
+  // dem Store (nur erster und letzter Schluessel, keine Zeilen), 5m vereint
+  // 5m mit 1m, 1h nutzt die ohnehin gecachten Stundenmittel.
+  async function tierCoverage(tiers, from, to, intervalMs, hourRows) {
+    const store = window.HistoryStore;
+    const rollup = window.HistoryRollup;
+    const span = to - from;
+    const entries = await Promise.all(tiers.map(async tier => {
+      if (tier === 'raw') return [tier, coverageOf(await store.extent('raw', from, to), span, intervalMs)];
+      if (tier === '1m') return [tier, coverageOf(await store.extent('1m', from, to), span, rollup.MINUTE_MS)];
+      if (tier === '5m') {
+        const extent = unionExtent(await store.extent('5m', from, to), await store.extent('1m', from, to));
+        return [tier, coverageOf(extent, span, rollup.FIVE_MINUTE_MS)];
+      }
+      return [tier, coverageOf(rowsExtent(hourRows), span, HOUR)];
+    }));
+    return Object.fromEntries(entries);
+  }
+
   // Der Rumpf von historyPanel.load() ohne Komponentenzustand: Stufe
-  // waehlen (wantedTier ist ein Wunsch), lesen, Rohluecken fuellen,
-  // Hausverbrauch ableiten. Fehler wirft die Funktion weiter, die Aufrufer
+  // waehlen, lesen, Rohluecken fuellen, Hausverbrauch ableiten. Gewuenscht
+  // wird eine Stufe nur, wenn der Zeitraum sie anbietet - sonst entscheidet
+  // die Abdeckung (autoTier). Fehler wirft die Funktion weiter, die Aufrufer
   // melden sie.
   async function loadRows({from, to, interpretation, recorderConfig, tier: wantedTier}) {
     const config = recorderConfig || {rawWindowHours: 24, minuteWindowDays: 7};
@@ -289,7 +329,10 @@
     const rollup = window.HistoryRollup;
     const store = window.HistoryStore;
     const tiers = rollup.availableTiers(to - from, windows);
-    const tier = rollup.selectTier(to - from, windows, wantedTier);
+    const intervalMs = (Number(config.intervalSeconds) || 10) * 1000;
+    const hourRows = tiers.includes('1h') ? await fetchHourRows(from, to) : [];
+    const coverage = await tierCoverage(tiers, from, to, intervalMs, hourRows);
+    const tier = tiers.includes(wantedTier) ? wantedTier : rollup.autoTier(tiers, coverage);
     const categoriesLoaded = loadCategoryLabels();
     let normalized;
     let gaps;
@@ -318,7 +361,6 @@
         normalized = five;
         deriveFrom = five;
       } else {
-        const hourRows = await fetchHourRows(from, to);
         const covered = new Set(hourRows.map(row => row.series));
         const fallback = five.filter(row => !covered.has(row.series));
         fallbackSeries = [...new Set(fallback.map(row => row.series))]
@@ -344,7 +386,7 @@
       gaps.forEach((list, series) => { if (series.startsWith('role:')) roleGaps.push(...list); });
       gaps.set(DERIVED_HAUSVERBRAUCH_SERIES, window.HistoryRollup.mergeIntervals(roleGaps));
     }
-    return {tier, tiers, rows: normalized.concat(derived), gaps, fallbackSeries};
+    return {tier, tiers, rows: normalized.concat(derived), gaps, fallbackSeries, coverage};
   }
 
   // Der Rumpf des chartOptions-Getters, mit

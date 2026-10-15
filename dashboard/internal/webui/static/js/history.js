@@ -52,11 +52,18 @@
     advancedOpen: false,
     aggregate: 'avg',
     tier: 'raw',
-    // Vom Nutzer gewaehlte Stufe. '' heisst automatisch: die groebste Stufe,
-    // die der Zeitraum zulaesst. tiers sind die Stufen, die dieser Zeitraum
-    // anbietet; fallbackSeries die Serien, die auf 5m statt 1h liegen.
+    // Vom Nutzer gewaehlte Stufe. '' heisst automatisch: die Stufe, die
+    // loadRows() aus der Abdeckung des Zeitraums waehlt (history-chart.js).
+    // Jede explizite Wahl wird gespeichert, auch die groebste Stufe. tiers
+    // sind die Stufen, die dieser Zeitraum anbietet; fallbackSeries die
+    // Serien, die auf 5m statt 1h liegen; coverage je Stufe der Anteil des
+    // Zeitraums, den sie abdeckt (0..1).
     resolution: '',
     tiers: [],
+    coverage: {},
+    // Automatische Aktualisierung pausiert (Aufzeichnungs- und
+    // Austausch-Events). Lebt nur in dieser Seitensitzung.
+    refreshPaused: false,
     fallbackSeries: [],
     interpretation: null,
     loading: false,
@@ -92,12 +99,12 @@
         // Bei der Rueckkehr laedt activate() nicht neu, die Anmeldung muss
         // trotzdem wieder stehen. Vor activate(), sonst meldete der erste
         // Aufruf mit der Vorgabestufe an, bevor load() die echte kennt.
-        if (this.initialized) this.watchExchange({...this.rangeBounds(), tier: this.tier});
+        if (this.initialized && !this.refreshPaused) this.watchExchange({...this.rangeBounds(), tier: this.tier});
         this.activate();
       };
       window.addEventListener('dashboard-panel-changed', this.panelChanged);
       this.historyUpdated = () => {
-        if (this.initialized) this.load().then(() => this.renderChart());
+        if (this.initialized && !this.refreshPaused) this.load().then(() => this.renderChart());
       };
       window.addEventListener('dashboard-history-updated', this.historyUpdated);
       // Ein Theme-Wechsel aendert die Serienfarben; der Chart muss sie neu
@@ -109,7 +116,7 @@
         if (!rows) return;
         this.exchangedRows += rows;
         this.exchangeNotice = tn('history.exchange_notice', this.exchangedRows, {count: this.exchangedRows});
-        this.renderChart();
+        if (!this.refreshPaused) this.renderChart();
       };
       window.addEventListener('dashboard-history-exchanged', this.historyExchanged);
       this.initRangePicker();
@@ -203,11 +210,14 @@
         const result = await window.HistoryChart.loadRows({from, to, interpretation: this.interpretation, recorderConfig: this.recorderConfig, tier: this.resolution || undefined});
         this.tier = result.tier;
         this.tiers = result.tiers;
+        this.coverage = result.coverage || {};
         this.fallbackSeries = result.fallbackSeries;
         // Eine gewuenschte Stufe, die dieser Zeitraum nicht anbietet (etwa
         // 1m bei einem Jahr), gilt nicht mehr. Die Auswahl faellt auf automatisch.
         if (this.resolution && !result.tiers.includes(this.resolution)) this.resolution = '';
-        this.watchExchange({from, to, tier: result.tier});
+        // Pausiert bleibt die Anmeldung beim Austausch aus, auch bei
+        // ausdruecklichen Aktionen, die nur neu laden.
+        if (!this.refreshPaused) this.watchExchange({from, to, tier: result.tier});
         this.gapsBySeries = result.gaps;
         this.rows = result.rows;
         this.seriesOptions = [...new Set(this.rows.map(row => row.series))].sort();
@@ -231,21 +241,42 @@
       return !this.loading && this.visibleRows.length === 0;
     },
 
-    // Knopfgruppe der Aufloesung: nur die Stufen, die der Zeitraum anbietet.
-    // active markiert die tatsaechlich gezeichnete Stufe.
+    // Auswahl der Aufloesung: nur die Stufen, die der Zeitraum anbietet.
+    // selected markiert die tatsaechlich gezeichnete Stufe, percent den
+    // Anteil des Zeitraums, den sie abdeckt. active ist derselbe Wert wie
+    // selected und bleibt, bis das Template ihn nicht mehr liest.
     get resolutionOptions() {
-      return this.tiers.map(tier => ({
-        tier,
-        label: TIER_LABEL_KEYS[tier] ? t(TIER_LABEL_KEYS[tier]) : tier,
-        active: tier === this.tier,
-      }));
+      return this.tiers.map(tier => {
+        const selected = tier === this.tier;
+        return {
+          tier,
+          label: TIER_LABEL_KEYS[tier] ? t(TIER_LABEL_KEYS[tier]) : tier,
+          percent: Math.round((this.coverage[tier] || 0) * 100),
+          selected,
+          active: selected,
+        };
+      });
     },
 
-    // Waehlt eine Stufe. Die groebste Stufe ist die Vorgabe und setzt die
-    // Auswahl zurueck auf automatisch.
+    // Waehlt eine Stufe ausdruecklich. Auch die groebste Stufe wird gespeichert,
+    // automatisch wird erst wieder ueber einen Zeitraumwechsel.
     setResolution(tier) {
-      this.resolution = tier === this.tiers[this.tiers.length - 1] ? '' : tier;
+      this.resolution = tier;
       return this.load().then(() => this.renderChart());
+    },
+
+    // Pausiert oder setzt die automatische Aktualisierung fort. Pausiert
+    // bleiben Chart und Austausch-Anmeldung stehen; ausdrueckliche Aktionen
+    // (Zeitraum, Stufe, Sicht, Serien, Kennwert) laden weiterhin. Beim
+    // Fortsetzen wird neu angemeldet und genau einmal neu geladen.
+    toggleRefresh() {
+      this.refreshPaused = !this.refreshPaused;
+      if (this.refreshPaused) {
+        this.unwatchExchange();
+        return;
+      }
+      this.watchExchange({...this.rangeBounds(), tier: this.tier});
+      this.load().then(() => this.renderChart());
     },
 
     get tierLabel() {
@@ -365,9 +396,12 @@
     },
 
     async applyRange() {
-      // Ein neu gewaehlter Zeitraum hebt einen festgehaltenen Zoom auf.
+      // Ein neu gewaehlter Zeitraum hebt einen festgehaltenen Zoom auf und
+      // setzt die Stufe zurueck auf automatisch, damit die Abdeckung des
+      // neuen Zeitraums gilt.
       this.userZoomed = false;
       this.zoomWindow = null;
+      this.resolution = '';
       await this.load();
       this.renderChart(false);
     },
@@ -533,7 +567,7 @@
         if (this.rangePicker) this.rangePicker.clear();
       }
       this.aggregate = view.aggregate;
-      // Sichten speichern keine Stufe. Sie laden immer die gröbste, sonst
+      // Sichten speichern keine Stufe. Sie laden immer die groebste, sonst
       // bliebe eine zuvor gewaehlte Stufe der Vorseite haengen.
       this.resolution = '';
       // Eine Sicht bringt ihren eigenen Zeitraum mit - ein festgehaltener

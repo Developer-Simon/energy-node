@@ -390,3 +390,38 @@ test('der Cache verwirft Buckets, die vor dem Fenster liegen', async () => {
   assert.equal(store.coverageCacheSize(), 2);
   dom.window.close();
 });
+
+test('extent liefert den frueh- und spaetesten Zeitstempel ueber alle Serien im Bereich', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRaw([
+    {series: 'role:pv', ts: 2000, v: 1, u: 'W'},
+    {series: 'role:pv', ts: 8000, v: 1, u: 'W'},
+    {series: 'role:grid', ts: 4000, v: 1, u: 'W'},
+    {series: 'role:grid', ts: 99000, v: 1, u: 'W'},
+  ]);
+  assert.deepEqual(plain(await store.extent('raw', 0, 10000)), {first: 2000, last: 8000});
+  dom.window.close();
+});
+
+test('extent ueberspringt Serien, deren Name Praefix einer anderen ist', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  await store.writeRaw([
+    {series: 'entity:shelly1', ts: 1000, v: 1, u: 'W'},
+    {series: 'entity:shelly11', ts: 5000, v: 1, u: 'W'},
+    {series: 'entity:shelly11', ts: 6000, v: 1, u: 'W'},
+    {series: 'entity:shelly2', ts: 3000, v: 1, u: 'W'},
+  ]);
+  assert.deepEqual(plain(await store.extent('raw', 0, 10000)), {first: 1000, last: 6000});
+  dom.window.close();
+});
+
+test('extent ist null, wenn im Bereich kein Satz liegt', async () => {
+  const dom = load();
+  const store = dom.window.HistoryStore;
+  assert.equal(await store.extent('raw', 0, 10000), null);
+  await store.writeRaw([{series: 'role:pv', ts: 50000, v: 1, u: 'W'}]);
+  assert.equal(await store.extent('raw', 0, 10000), null);
+  dom.window.close();
+});

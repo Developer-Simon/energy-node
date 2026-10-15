@@ -78,14 +78,15 @@ function captureAsync(component, names = ['load', 'loadViews', 'loadInterpretati
   return () => Promise.allSettled(pending);
 }
 
-test('load waehlt bei kurzem Zeitraum automatisch die gröbste Stufe, 1m', async () => {
+test('load waehlt bei kurzem Zeitraum automatisch die gröbste Stufe mit Daten, hier Rohdaten da 1m leer', async () => {
   const {dom, component} = panel();
   const now = Date.now();
   await dom.window.HistoryStore.writeRaw([{series: 'role:pv', ts: now - HOUR, v: 640, u: 'W'}]);
   component.rangeHours = 6;
   await component.load();
-  assert.equal(component.tier, '1m');
+  assert.equal(component.tier, 'raw');
   assert.equal(component.resolution, '');
+  assert.equal(component.coverage['1m'], 0);
   dom.window.close();
 });
 
@@ -153,7 +154,7 @@ test('die Auflösungswahl bietet die Stufen des Zeitraums an, die gezeichnete is
   dom.window.close();
 });
 
-test('setResolution lädt mit der gewaehlten Stufe, die gröbste Stufe setzt auf automatisch zurueck', async () => {
+test('setResolution lädt mit der gewaehlten Stufe und speichert auch die gröbste ausdruecklich', async () => {
   const {dom, component} = panel();
   const result = {tier: '1h', tiers: ['1m', '5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: ['x']};
   const calls = stubLoadRows(dom, [result]);
@@ -163,8 +164,57 @@ test('setResolution lädt mit der gewaehlten Stufe, die gröbste Stufe setzt auf
   assert.equal(calls[1].tier, '5m');
   assert.equal(component.resolution, '5m');
   await component.setResolution('1h');
-  assert.equal(calls[2].tier, undefined);
+  assert.equal(calls[2].tier, '1h');
+  assert.equal(component.resolution, '1h');
+  dom.window.close();
+});
+
+test('ein Zeitraumwechsel setzt die Stufe auf automatisch zurueck', async () => {
+  const {dom, component} = panel();
+  const calls = stubLoadRows(dom, [{tier: '5m', tiers: ['5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: []}]);
+  component.rangeHours = 30 * 24;
+  component.resolution = '5m';
+  const settled = captureAsync(component);
+  component.selectPreset(720);
+  await settled();
   assert.equal(component.resolution, '');
+  assert.equal(calls[calls.length - 1].tier, undefined);
+  dom.window.close();
+});
+
+test('resolutionOptions liefert Abdeckung in Prozent und die gewaehlte Stufe', async () => {
+  const {dom, component} = panel();
+  stubLoadRows(dom, [{tier: '5m', tiers: ['1m', '5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: [], coverage: {'1m': 0.42, '5m': 0.97, '1h': 0}}]);
+  await component.load();
+  const options = component.resolutionOptions;
+  assert.deepEqual(options.map(option => option.percent), [42, 97, 0]);
+  assert.deepEqual(options.map(option => option.selected), [false, true, false]);
+  dom.window.close();
+});
+
+test('die Pause ignoriert Aufzeichnungs-Events, Austausch zaehlt, zeichnet aber nicht', async () => {
+  const {dom, factory} = load();
+  stubLoadRows(dom, [{tier: '5m', tiers: ['5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: []}]);
+  const component = factory();
+  attachStores(component);
+  const settled = captureAsync(component);
+  await component.init();
+  await settled();
+  const unwatched = [];
+  component.unwatchExchange = () => unwatched.push('unwatch');
+  component.toggleRefresh();
+  assert.equal(component.refreshPaused, true);
+  assert.deepEqual(unwatched, ['unwatch']);
+  let loads = 0;
+  let renders = 0;
+  component.load = async () => { loads += 1; };
+  component.renderChart = () => { renders += 1; };
+  dom.window.dispatchEvent(new dom.window.Event('dashboard-history-updated'));
+  assert.equal(loads, 0);
+  dom.window.dispatchEvent(new dom.window.CustomEvent('dashboard-history-exchanged', {detail: {rows: 4}}));
+  assert.equal(component.exchangedRows, 4);
+  assert.match(component.exchangeNotice, /4/);
+  assert.equal(renders, 0);
   dom.window.close();
 });
 
@@ -182,6 +232,27 @@ test('eine gewaehlte Stufe, die der Zeitraum nicht mehr anbietet, wird beim Lade
   await component.load();
   assert.equal(component.resolution, '');
   assert.deepEqual([...component.tiers], ['5m', '1h']);
+  dom.window.close();
+});
+
+test('Fortsetzen meldet beim Austausch neu an und laedt genau einmal', async () => {
+  const {dom, factory} = load();
+  stubLoadRows(dom, [{tier: '5m', tiers: ['5m', '1h'], rows: [], gaps: new Map(), fallbackSeries: []}]);
+  const component = factory();
+  attachStores(component);
+  const settled = captureAsync(component);
+  await component.init();
+  await settled();
+  component.toggleRefresh();
+  const watched = [];
+  component.watchExchange = range => watched.push(range);
+  let loads = 0;
+  component.load = async () => { loads += 1; };
+  component.toggleRefresh();
+  assert.equal(component.refreshPaused, false);
+  assert.equal(watched.length, 1);
+  assert.equal(watched[0].tier, '5m');
+  assert.equal(loads, 1);
   dom.window.close();
 });
 
