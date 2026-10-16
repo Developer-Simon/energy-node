@@ -68,12 +68,13 @@ try {
       if (!found) { console.log(`  --   ${width}px ${tab}: kein Tab`); continue; }
       await page.waitForTimeout(3000);
       const subtabs = tab === 'settings'
-        ? await page.evaluate(() => [...document.querySelectorAll('#settings-panel [role="tab"]')].filter(el => el.offsetParent).map(el => el.textContent.trim()))
+        ? await page.evaluate(() => [...document.querySelectorAll('#settings-panel [role="tab"]')].map(el => el.textContent.trim()))
         : [''];
+      // Tabs, die in "Weitere" gewandert sind, sind ausgeblendet, click() erreicht sie trotzdem.
       for (const sub of subtabs) {
         if (sub) {
           await page.evaluate(label => {
-            const el = [...document.querySelectorAll('#settings-panel [role="tab"]')].find(candidate => candidate.offsetParent && candidate.textContent.trim() === label);
+            const el = [...document.querySelectorAll('#settings-panel [role="tab"]')].find(candidate => candidate.textContent.trim() === label);
             if (el) el.click();
           }, sub);
           await page.waitForTimeout(1500);

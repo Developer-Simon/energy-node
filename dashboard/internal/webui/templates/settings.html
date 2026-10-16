@@ -4,7 +4,7 @@
     <symbol id="ico-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.4a2.5 2.5 0 1 1 3 2.45V14"/><path d="M12 17.2h.01"/></symbol>
   </svg>
   <h2>{{t "settings.title"}}</h2>
-  <nav class="settings-nav" role="tablist" aria-label="{{t "settings.nav.label"}}">
+  <nav class="settings-nav" role="tablist" aria-label="{{t "settings.nav.label"}}" x-ref="subnav" x-on:click.outside="moreOpen = false" x-on:keydown.escape="moreOpen = false">
     <button type="button" role="tab" aria-controls="settings-general" x-bind:class="{ active: activeSettingsPage === 'general' }" x-bind:aria-selected="activeSettingsPage === 'general'" x-on:click="activeSettingsPage = 'general'">{{t "settings.nav.general"}}</button>
     <button type="button" role="tab" aria-controls="settings-display" x-bind:class="{ active: activeSettingsPage === 'display' }" x-bind:aria-selected="activeSettingsPage === 'display'" x-on:click="activeSettingsPage = 'display'">{{t "settings.nav.display"}}</button>
     <button type="button" role="tab" aria-controls="settings-history" x-bind:class="{ active: activeSettingsPage === 'history' }" x-bind:aria-selected="activeSettingsPage === 'history'" x-on:click="activeSettingsPage = 'history'">{{t "settings.nav.history"}}</button>
@@ -13,6 +13,23 @@
     {{if index .InstalledServices "tuya"}}<button type="button" role="tab" aria-controls="settings-tiny-tuya" x-bind:class="{ active: activeSettingsPage === 'tiny-tuya' }" x-bind:aria-selected="activeSettingsPage === 'tiny-tuya'" x-on:click="activeSettingsPage = 'tiny-tuya'">TinyTuya</button>{{end}}
     <button type="button" role="tab" aria-controls="settings-versions" x-bind:class="{ active: activeSettingsPage === 'versions' }" x-bind:aria-selected="activeSettingsPage === 'versions'" x-on:click="activeSettingsPage = 'versions'">{{t "settings.nav.versions"}}</button>
     <button type="button" role="tab" aria-controls="settings-system" x-bind:class="{ active: activeSettingsPage === 'system' }" x-bind:aria-selected="activeSettingsPage === 'system'" x-on:click="activeSettingsPage = 'system'">{{t "settings.nav.system"}}</button>
+    {{/* Passen nicht alle Tabs in die Zeile, blendet fit() den Rest aus und
+         zeigt ihn in dieser Liste (settingsPage in settings.page.js). */}}
+    <span class="nav-more" role="presentation" hidden>
+      <button type="button" class="nav-more-toggle" aria-haspopup="menu" aria-controls="settings-more-list"
+              x-bind:aria-expanded="moreOpen ? 'true' : 'false'"
+              x-bind:class="{ active: overflowTabs.some((tab) => tab.page === activeSettingsPage) }"
+              x-on:click="moreOpen = !moreOpen">
+        <span>{{t "settings.nav.more"}}</span>
+        <span class="nav-menu-chevron" aria-hidden="true"></span>
+      </button>
+      <div id="settings-more-list" class="nav-more-list" role="menu" x-show="moreOpen" x-cloak>
+        <template x-for="tab in overflowTabs" x-bind:key="tab.page">
+          <button type="button" role="menuitem" x-bind:class="{ active: tab.page === activeSettingsPage }"
+                  x-text="tab.label" x-on:click="activeSettingsPage = tab.page; moreOpen = false"></button>
+        </template>
+      </div>
+    </span>
   </nav>
   <div class="settings-panel-body" x-data="settingsPanel()" x-init="$nextTick(() => initChoices()); followUpdateCheckSetting(); load()">
   <section id="settings-general" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'general'">
@@ -103,6 +120,13 @@
         <label class="segmented-option"><input type="radio" name="theme" value="signalgelb" x-model="theme"><span>{{t "settings.theme.signalgelb"}}</span></label>
         <label class="segmented-option"><input type="radio" name="theme" value="tageslicht" x-model="theme"><span>{{t "settings.theme.tageslicht"}}</span></label>
       </div>
+      <span class="setting-row-label" id="lbl-nav-mode">{{t "settings.nav_mode.label"}}</span>
+      <div class="segmented" role="radiogroup" aria-labelledby="lbl-nav-mode" aria-describedby="nav-mode-note">
+        <span class="segmented-thumb" aria-hidden="true"></span>
+        <label class="segmented-option"><input type="radio" name="nav-mode" value="more" x-bind:checked="navMode === 'more'" x-on:change="setNavMode('more')"><span>{{t "settings.nav_mode.more"}}</span></label>
+        <label class="segmented-option"><input type="radio" name="nav-mode" value="menu" x-bind:checked="navMode === 'menu'" x-on:change="setNavMode('menu')"><span>{{t "settings.nav_mode.menu"}}</span></label>
+      </div>
+      <p id="nav-mode-note" class="setting-note">{{t "settings.nav_mode.note"}}</p>
     </div>
 
     <div class="setting-card">

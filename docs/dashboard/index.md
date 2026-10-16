@@ -56,7 +56,9 @@ bar off.
 The tab bar starts with the layout pages, which are your own overview pages
 named in the layout editor. After the divider come the fixed tabs: Devices,
 History, Configuration, Energy, Device Map, Diagnostics, Automations and
-Settings.
+Settings. When they do not all fit in one row, the last ones move into a
+**More** list. Under *Settings, Appearance* you can switch this to a dropdown
+menu on narrow screens instead.
 
 The frame also shows who you are logged in as. Over plain HTTP the dashboard
 only offers *continue as guest* and refuses the admin login unless the request

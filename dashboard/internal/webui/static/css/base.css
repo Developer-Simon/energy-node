@@ -387,7 +387,26 @@ nav button:active { transform: scale(.97); }
 /* Der Menue-Ausloeser existiert im Markup immer, ist aber nur unterhalb
    700px sichtbar - der einzige Zusatz dieses Bauteils, der auf allen
    Breiten gilt. */
+/* Einstellungs-Untertabs: eine Zeile, was nicht passt, wandert in "Weitere"
+   (fitTabs in settings.page.js). Die Haupttabs behalten das Aufklappmenue. */
+nav.settings-nav { flex-wrap: nowrap; position: relative; }
+nav.settings-nav button[hidden], nav .nav-more[hidden] { display: none; }
+nav .nav-more { position: relative; display: flex; }
+nav .nav-more-toggle { display: flex; align-items: center; gap: .45rem; }
+nav .nav-more-toggle[aria-expanded="true"] .nav-menu-chevron { transform: rotate(180deg); }
+nav .nav-more-list { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 12rem; margin-top: .25rem; padding: .3rem; display: flex; flex-direction: column; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--panel); box-shadow: 0 4px 14px rgb(0 0 0 / .28); }
+nav .nav-more-list[hidden] { display: none; }
+nav .nav-more-list button { text-align: left; border-radius: 6px; padding: .6rem .8rem; }
+nav .nav-more-list button::after { content: none; }
+nav .nav-more-list button.active { background: var(--accent-bg); color: var(--accent); }
 .nav-menu-toggle { display: none; }
+/* Hauptmenue im Modus "Weitere" (Einstellung Darstellung, pro Browser):
+   eine Zeile, der Rest steht unter "Weitere" (fitNav in dashboard.js). Im
+   Modus "menu" bleibt es beim Aufklappmenue unter 700px. */
+.nav-shell[data-nav-mode="more"] nav#dashboard-tabs { flex-wrap: nowrap; position: relative; }
+.nav-shell[data-nav-mode="more"] nav#dashboard-tabs .tab.is-overflow { display: none !important; }
+.nav-shell[data-nav-mode="more"] nav#dashboard-tabs .tab-divider { display: none; }
+.nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .nav-more { display: none; }
 .nav-menu-chevron { width: 0; height: 0; border-left: .35rem solid transparent; border-right: .35rem solid transparent; border-top: .4rem solid currentColor; transition: transform .24s var(--ease-out); }
 .nav-menu-toggle[aria-expanded="true"] .nav-menu-chevron { transform: rotate(180deg); }
 section.panel { display: none; }
@@ -1751,8 +1770,8 @@ small { color: var(--text-muted); }
      blockieren (0s verzoegert beim Schliessen, sofort beim Oeffnen).
      max-height ist nur eine Obergrenze: 32rem fasst die zehn Manager-Tabs
      knapp; der 4-Tab-Viewer oeffnet dadurch minimal abrupter. */
-  .nav-menu-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .6rem; margin-top: 1.5rem; }
-  nav#dashboard-tabs {
+  .nav-shell[data-nav-mode="menu"] .nav-menu-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .6rem; margin-top: 1.5rem; }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs {
     margin-top: 0;
     flex-direction: column;
     align-items: stretch;
@@ -1763,25 +1782,25 @@ small { color: var(--text-muted); }
     visibility: hidden;
     transition: max-height .26s var(--ease-out), opacity .18s var(--ease-out), visibility 0s linear .26s;
   }
-  nav#dashboard-tabs.nav-open {
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs.nav-open {
     max-height: 32rem;
     opacity: 1;
     visibility: visible;
     transition: max-height .26s var(--ease-out), opacity .18s var(--ease-out), visibility 0s;
   }
-  nav#dashboard-tabs .tab { margin-bottom: 0; border-radius: 6px; text-align: left; padding: .8rem .9rem; }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab { margin-bottom: 0; border-radius: 6px; text-align: left; padding: .8rem .9rem; }
   /* Kein gleitender Unterstrich in der vertikalen Liste - der aktive Eintrag
      traegt hier eine flaechige Markierung. */
-  nav#dashboard-tabs .tab::after { content: none; }
-  nav#dashboard-tabs .tab.active { background: var(--accent-bg); color: var(--accent); }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab::after { content: none; }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab.active { background: var(--accent-bg); color: var(--accent); }
   /* In der senkrechten Liste trennt eine waagerechte Linie - der senkrechte
      Strich der Tab-Zeile stuende hier quer zur Leserichtung. */
-  nav#dashboard-tabs .tab-divider { align-self: stretch; width: auto; height: 0; margin: .4rem .2rem; border-left: 0; border-top: 1px solid var(--border); }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab-divider { align-self: stretch; width: auto; height: 0; margin: .4rem .2rem; border-left: 0; border-top: 1px solid var(--border); }
 
   /* Reduzierte Bewegung: die Liste blendet nur, keine Hoehenfahrt. */
   @media (prefers-reduced-motion: reduce) {
-    nav#dashboard-tabs { transition: opacity .15s ease, visibility 0s linear .15s; }
-    nav#dashboard-tabs.nav-open { transition: opacity .15s ease, visibility 0s; }
+    .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs { transition: opacity .15s ease, visibility 0s linear .15s; }
+    .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs.nav-open { transition: opacity .15s ease, visibility 0s; }
   }
 
   /* Richtwert 2.75rem (44px) fuer Fingerbedienung. */

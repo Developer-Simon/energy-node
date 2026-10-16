@@ -63,7 +63,7 @@
   <script src="{{.BasePath}}/i18n/{{.Lang}}.js?v={{.CatalogVersion}}"></script>
   <script src="{{.BasePath}}/static/js/i18n.js?v=4"></script>
 </head>
-<body x-data="dashboardShell()" x-init="initWidePanels()" data-wide-panels="{{.WidePanels}}">
+<body x-data="dashboardShell()" x-init="initWidePanels(); initNav()" data-wide-panels="{{.WidePanels}}">
   {{template "icon-sprite" .}}
   <header class="masthead">
     <div class="masthead-title">
@@ -144,7 +144,7 @@
       </span>
     </div>
   </div>
-  <div class="nav-shell" x-on:click.outside="navOpen = false" x-on:keydown.escape="navOpen = false">
+  <div class="nav-shell" data-nav-mode="more" x-bind:data-nav-mode="navMode" x-on:click.outside="navOpen = false; navMoreOpen = false" x-on:keydown.escape="navOpen = false; navMoreOpen = false">
     <button class="nav-menu-toggle" type="button" aria-controls="dashboard-tabs"
             x-bind:aria-expanded="navOpen ? 'true' : 'false'"
             x-on:click="navOpen = !navOpen">
@@ -152,7 +152,8 @@
       <span class="nav-menu-chevron" aria-hidden="true"></span>
     </button>
     <nav id="dashboard-tabs" role="tablist" aria-label="{{t "nav.tabs_label"}}"
-         x-bind:class="{ 'nav-open': navOpen }">{{/* i18n-keys: nav.tabs_label */}}
+         x-bind:class="{ 'nav-open': navOpen }"
+         x-effect="activePanel; activePage; extraPages.length; $nextTick(() => syncNavActive())">{{/* i18n-keys: nav.tabs_label */}}
     {{range .Layout.Pages}}
     {{/* x-show statt Entfernen: der Knopf ist server-gerendert, aber der
          Editor kann die Seite umbenannt oder geloescht haben (hiddenPages). */}}
@@ -191,6 +192,23 @@
     {{if index .InstalledServices "automation"}}<button id="tab-automations" class="tab" role="tab" aria-controls="automations-panel" x-bind:class="{ active: activePanel === 'automations-panel' }" x-bind:aria-selected="activePanel === 'automations-panel'" x-on:click="setActivePanel('automations-panel')">{{t "nav.automations"}}</button>{{end}}
     <button id="tab-settings" class="tab" role="tab" aria-controls="settings-panel" aria-selected="false" type="button" x-bind:class="{ active: activePanel === 'settings-panel' }" x-bind:aria-selected="activePanel === 'settings-panel'" x-on:click="setActivePanel('settings-panel')">{{t "nav.settings"}}</button>
     {{end}}
+    {{/* Modus "Weitere": passen nicht alle Tabs in die Zeile, blendet fitNav()
+         den Rest aus und zeigt ihn in dieser Liste (dashboard.js). */}}
+    <span class="nav-more" role="presentation" hidden>
+      <button type="button" class="nav-more-toggle" aria-haspopup="menu" aria-controls="dashboard-more-list"
+              x-bind:aria-expanded="navMoreOpen ? 'true' : 'false'"
+              x-bind:class="{ active: overflowNav.some((item) => item.active) }"
+              x-on:click="navMoreOpen = !navMoreOpen">
+        <span>{{t "nav.more"}}</span>
+        <span class="nav-menu-chevron" aria-hidden="true"></span>
+      </button>
+      <div id="dashboard-more-list" class="nav-more-list" role="menu" x-show="navMoreOpen" x-cloak>
+        <template x-for="item in overflowNav" x-bind:key="item.key">
+          <button type="button" role="menuitem" x-bind:class="{ active: item.active }"
+                  x-text="item.label" x-on:click="item.el.click(); navMoreOpen = false"></button>
+        </template>
+      </div>
+    </span>
     </nav>
   </div>
   <div class="page-content">
@@ -203,7 +221,7 @@
   <section id="config-panel" class="panel" role="tabpanel" aria-labelledby="tab-config" x-bind:class="{ active: activePanel === 'config-panel' }" x-show="activePanel === 'config-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=config" data-panel-script="{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/config-status.js?v=3,{{.BasePath}}/static/js/config.page.js?v=9" data-panel-css="{{.BasePath}}/static/css/manager.css?v=37"><p class="panel-loading" data-panel-loading>{{t "panel.config_loading"}}</p></section>
   <section id="energy-panel" class="panel" role="tabpanel" aria-labelledby="tab-energy" x-bind:class="{ active: activePanel === 'energy-panel' }" x-show="activePanel === 'energy-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=energy" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=10,{{.BasePath}}/static/js/devicemap-graph.js?v=4,{{.BasePath}}/static/js/devicemap-wiring.js?v=1,{{.BasePath}}/static/js/devicemap-dataflow.js?v=4,{{.BasePath}}/static/js/devicemap-node-svg.js?v=4,{{.BasePath}}/static/js/devicemap-labels.js?v=2,{{.BasePath}}/static/js/energy-plant.js?v=5,{{.BasePath}}/static/js/device-picker.js?v=1,{{.BasePath}}/static/js/energy.page.js?v=10" data-panel-css="{{.BasePath}}/static/css/manager.css?v=37"><p class="panel-loading" data-panel-loading>{{t "panel.energy_loading"}}</p></section>
   <section id="devicemap-panel" class="panel" role="tabpanel" aria-labelledby="tab-devicemap" x-bind:class="{ active: activePanel === 'devicemap-panel' }" x-show="activePanel === 'devicemap-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=devicemap" data-panel-script="{{.BasePath}}/static/js-deps/cytoscape.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/devicemap-model.js?v=10,{{.BasePath}}/static/js/devicemap-node-svg.js?v=4,{{.BasePath}}/static/js/devicemap-labels.js?v=2,{{.BasePath}}/static/js/devicemap-graph.js?v=4,{{.BasePath}}/static/js/devicemap-wiring.js?v=1,{{.BasePath}}/static/js/devicemap-dataflow.js?v=4,{{.BasePath}}/static/js/automations-view.js?v=2,{{.BasePath}}/static/js/device-picker.js?v=1,{{.BasePath}}/static/js/devicemap.page.js?v=24" data-panel-css="{{.BasePath}}/static/css/manager.css?v=37"><p class="panel-loading" data-panel-loading>{{t "panel.devicemap_loading"}}</p></section>
-  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=22,{{.BasePath}}/static/js/mqtt.page.js?v=10,{{.BasePath}}/static/js/tailscale.page.js?v=4,{{.BasePath}}/static/js/versions.page.js?v=7,{{.BasePath}}/static/js/systemconfig.page.js?v=5" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=37,{{.BasePath}}/static/css/settings-controls.css?v=14"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
+  <section id="settings-panel" class="panel" role="tabpanel" aria-labelledby="tab-settings" x-bind:class="{ active: activePanel === 'settings-panel' }" x-show="activePanel === 'settings-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=settings" data-panel-script="{{.BasePath}}/static/js-deps/choices.min.js,{{.BasePath}}/static/js/revisions.js?v=4,{{.BasePath}}/static/js/schema-form.js?v=2,{{.BasePath}}/static/js/settings.page.js?v=23,{{.BasePath}}/static/js/mqtt.page.js?v=10,{{.BasePath}}/static/js/tailscale.page.js?v=4,{{.BasePath}}/static/js/versions.page.js?v=7,{{.BasePath}}/static/js/systemconfig.page.js?v=5" data-panel-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2,{{.BasePath}}/static/css/manager.css?v=37,{{.BasePath}}/static/css/settings-controls.css?v=14"><p class="panel-loading" data-panel-loading>{{t "panel.settings_loading"}}</p></section>
   {{if index .InstalledServices "automation"}}<section id="automations-panel" class="panel" role="tabpanel" aria-labelledby="tab-automations" x-bind:class="{ active: activePanel === 'automations-panel' }" x-show="activePanel === 'automations-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=automations" data-panel-script="{{.BasePath}}/static/js/config-status.js?v=3,{{.BasePath}}/static/js/automations-view.js?v=2,{{.BasePath}}/static/js/automations.page.js?v=12" data-panel-css="{{.BasePath}}/static/css/manager.css?v=37,{{.BasePath}}/static/css/automations.css?v=6"><p class="panel-loading" data-panel-loading>{{t "panel.automations_loading"}}</p></section>{{end}}
   {{else}}
   <section id="diagnostics-panel" class="panel" role="tabpanel" aria-labelledby="tab-diagnostics" x-bind:class="{ active: activePanel === 'diagnostics-panel' }" x-show="activePanel === 'diagnostics-panel'" data-panel-src="{{.BasePath}}/?fragment=panel&panel=diagnostics" data-panel-css="{{.BasePath}}/static/css/settings-controls.css?v=14,{{.BasePath}}/static/css/diagnostics.css?v=2"><p class="panel-loading" data-panel-loading>{{t "panel.diagnostics_loading"}}</p></section>
