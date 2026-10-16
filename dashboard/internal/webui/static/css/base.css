@@ -387,7 +387,26 @@ nav button:active { transform: scale(.97); }
 /* Der Menue-Ausloeser existiert im Markup immer, ist aber nur unterhalb
    700px sichtbar - der einzige Zusatz dieses Bauteils, der auf allen
    Breiten gilt. */
+/* Einstellungs-Untertabs: eine Zeile, was nicht passt, wandert in "Weitere"
+   (fitTabs in settings.page.js). Die Haupttabs behalten das Aufklappmenue. */
+nav.settings-nav { flex-wrap: nowrap; position: relative; }
+nav.settings-nav button[hidden], nav .nav-more[hidden] { display: none; }
+nav .nav-more { position: relative; display: flex; }
+nav .nav-more-toggle { display: flex; align-items: center; gap: .45rem; }
+nav .nav-more-toggle[aria-expanded="true"] .nav-menu-chevron { transform: rotate(180deg); }
+nav .nav-more-list { position: absolute; top: 100%; right: 0; z-index: 20; min-width: 12rem; margin-top: .25rem; padding: .3rem; display: flex; flex-direction: column; border: 1px solid var(--border-soft); border-radius: 8px; background: var(--panel); box-shadow: 0 4px 14px rgb(0 0 0 / .28); }
+nav .nav-more-list[hidden] { display: none; }
+nav .nav-more-list button { text-align: left; border-radius: 6px; padding: .6rem .8rem; }
+nav .nav-more-list button::after { content: none; }
+nav .nav-more-list button.active { background: var(--accent-bg); color: var(--accent); }
 .nav-menu-toggle { display: none; }
+/* Hauptmenue im Modus "Weitere" (Einstellung Darstellung, pro Browser):
+   eine Zeile, der Rest steht unter "Weitere" (fitNav in dashboard.js). Im
+   Modus "menu" bleibt es beim Aufklappmenue unter 700px. */
+.nav-shell[data-nav-mode="more"] nav#dashboard-tabs { flex-wrap: nowrap; position: relative; }
+.nav-shell[data-nav-mode="more"] nav#dashboard-tabs .tab.is-overflow { display: none !important; }
+.nav-shell[data-nav-mode="more"] nav#dashboard-tabs .tab-divider { display: none; }
+.nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .nav-more { display: none; }
 .nav-menu-chevron { width: 0; height: 0; border-left: .35rem solid transparent; border-right: .35rem solid transparent; border-top: .4rem solid currentColor; transition: transform .24s var(--ease-out); }
 .nav-menu-toggle[aria-expanded="true"] .nav-menu-chevron { transform: rotate(180deg); }
 section.panel { display: none; }
@@ -534,6 +553,10 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 .field-help-trigger svg { width: 1rem; height: 1rem; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .field-help-trigger:hover, .field-help-trigger:focus-visible { color: var(--accent); background: transparent; border: 0; }
 .field-help-trigger:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+/* Geschlossen ist der Tooltip display: none. Mit visibility: hidden zählte
+   er weiter zur scrollbaren Fläche und machte schmale Seiten breiter. Das
+   Einblenden bleibt weich über allow-discrete und @starting-style, ältere
+   Browser zeigen ihn einfach ohne Übergang. */
 .field-help-text {
   position: absolute; bottom: calc(100% + .4rem); left: 50%; transform: translateX(-50%);
   z-index: 30; width: max-content; max-width: min(24rem, 80vw);
@@ -542,13 +565,28 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
   background: var(--panel); color: var(--text-subtle);
   font-size: .8rem; font-weight: 400; line-height: 1.45; text-align: left; white-space: normal;
   box-shadow: 0 4px 14px rgb(0 0 0 / .28);
-  opacity: 0; visibility: hidden; transition: opacity .12s ease;
+  display: none; opacity: 0; transition: opacity .12s ease, display .12s allow-discrete;
 }
 .field-help:hover .field-help-text,
-.field-help:focus-within .field-help-text { opacity: 1; visibility: visible; }
+.field-help:focus-within .field-help-text { display: block; opacity: 1; }
+@starting-style {
+  .field-help:hover .field-help-text,
+  .field-help:focus-within .field-help-text { opacity: 0; }
+}
 /* Modifier for a trigger sitting close to the page's left edge (e.g. a page
    title) - the default centered tooltip would overflow off-screen there. */
 .field-help-align-start .field-help-text { left: 0; transform: none; }
+/* Schmale Fenster: der offene Tooltip hängt direkt unter seinem Knopf und
+   nutzt die Fensterbreite mit festem Rand. Waagrecht schiebt ihn dashboard.js
+   (placeFieldHelp) über --help-tip-left und --help-tip-width zurecht, weil CSS
+   die Lage des Knopfs nicht kennt. position: fixed taugt hier nicht, Karten
+   mit backdrop-filter werden dafür zum Bezugsrahmen. */
+@media (max-width: 700px) {
+  .field-help-text, .field-help-align-start .field-help-text {
+    position: absolute; top: calc(100% + .4rem); bottom: auto; left: var(--help-tip-left, 0px); right: auto;
+    box-sizing: border-box; width: var(--help-tip-width, calc(100vw - 2.5rem)); max-width: none; transform: none; margin: 0;
+  }
+}
 .message { min-height: 1.4rem; margin: .6rem 0; color: var(--accent); }
 .error { color: var(--bad-strong); }
 /* Der Weg, eine breite Tabelle mobil-tauglich zu machen: sie scrollt in
@@ -1732,8 +1770,8 @@ small { color: var(--text-muted); }
      blockieren (0s verzoegert beim Schliessen, sofort beim Oeffnen).
      max-height ist nur eine Obergrenze: 32rem fasst die zehn Manager-Tabs
      knapp; der 4-Tab-Viewer oeffnet dadurch minimal abrupter. */
-  .nav-menu-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .6rem; margin-top: 1.5rem; }
-  nav#dashboard-tabs {
+  .nav-shell[data-nav-mode="menu"] .nav-menu-toggle { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: .6rem; margin-top: 1.5rem; }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs {
     margin-top: 0;
     flex-direction: column;
     align-items: stretch;
@@ -1744,25 +1782,25 @@ small { color: var(--text-muted); }
     visibility: hidden;
     transition: max-height .26s var(--ease-out), opacity .18s var(--ease-out), visibility 0s linear .26s;
   }
-  nav#dashboard-tabs.nav-open {
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs.nav-open {
     max-height: 32rem;
     opacity: 1;
     visibility: visible;
     transition: max-height .26s var(--ease-out), opacity .18s var(--ease-out), visibility 0s;
   }
-  nav#dashboard-tabs .tab { margin-bottom: 0; border-radius: 6px; text-align: left; padding: .8rem .9rem; }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab { margin-bottom: 0; border-radius: 6px; text-align: left; padding: .8rem .9rem; }
   /* Kein gleitender Unterstrich in der vertikalen Liste - der aktive Eintrag
      traegt hier eine flaechige Markierung. */
-  nav#dashboard-tabs .tab::after { content: none; }
-  nav#dashboard-tabs .tab.active { background: var(--accent-bg); color: var(--accent); }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab::after { content: none; }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab.active { background: var(--accent-bg); color: var(--accent); }
   /* In der senkrechten Liste trennt eine waagerechte Linie - der senkrechte
      Strich der Tab-Zeile stuende hier quer zur Leserichtung. */
-  nav#dashboard-tabs .tab-divider { align-self: stretch; width: auto; height: 0; margin: .4rem .2rem; border-left: 0; border-top: 1px solid var(--border); }
+  .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs .tab-divider { align-self: stretch; width: auto; height: 0; margin: .4rem .2rem; border-left: 0; border-top: 1px solid var(--border); }
 
   /* Reduzierte Bewegung: die Liste blendet nur, keine Hoehenfahrt. */
   @media (prefers-reduced-motion: reduce) {
-    nav#dashboard-tabs { transition: opacity .15s ease, visibility 0s linear .15s; }
-    nav#dashboard-tabs.nav-open { transition: opacity .15s ease, visibility 0s; }
+    .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs { transition: opacity .15s ease, visibility 0s linear .15s; }
+    .nav-shell[data-nav-mode="menu"] nav#dashboard-tabs.nav-open { transition: opacity .15s ease, visibility 0s; }
   }
 
   /* Richtwert 2.75rem (44px) fuer Fingerbedienung. */

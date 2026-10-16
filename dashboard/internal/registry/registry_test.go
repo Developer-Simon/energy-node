@@ -892,3 +892,31 @@ func TestStatePayloadKeepsPayloadsBeyondTheLastMessageLimit(t *testing.T) {
 		t.Fatal("unknown topic must report no payload")
 	}
 }
+
+// An availability heartbeat shares lastMessage with the state topic. The
+// runtime cache reads StateChange.Payload and EntityView.LastStatePayload,
+// both must keep the state payload.
+func TestStatePayloadSurvivesAnAvailabilityHeartbeat(t *testing.T) {
+	reg := New()
+	reg.UpsertEntity(Discovery{
+		Device: DeviceInfo{ID: "automation"},
+		Entity: EntityInfo{UniqueID: "automation_state", ObjectID: "state", StateTopic: "outstation/automation/state", AvailabilityTopic: "outstation/automation/status/online"},
+	})
+	document := `{"at":1,"rules":{"r1":{"result":"fired"}}}`
+	now := time.Now().UTC()
+	reg.UpdateTopic("outstation/automation/state", []byte(document), true, now)
+	changes := reg.UpdateTopic("outstation/automation/status/online", []byte("online"), true, now.Add(time.Second))
+	if len(changes) != 1 {
+		t.Fatalf("availability change count = %d, want 1", len(changes))
+	}
+	if changes[0].Payload != document {
+		t.Fatalf("StateChange.Payload = %q, want the state document", changes[0].Payload)
+	}
+	entity := reg.Snapshot()[0].Entities[0]
+	if entity.LastStatePayload != document {
+		t.Fatalf("LastStatePayload = %q, want the state document", entity.LastStatePayload)
+	}
+	if entity.LastMessage == nil || entity.LastMessage.Payload != "online" {
+		t.Fatalf("LastMessage should still show the heartbeat, got %#v", entity.LastMessage)
+	}
+}

@@ -165,6 +165,40 @@ test('nach einem Update stehen nur die Punkte, die das Update selbst hinterlaess
   assert.deepEqual(plain(reboot.screen.todos.map((item) => item.key)), ['reboot']);
 });
 
+test('nach einem Neuladen nimmt das Ergebnis die gemerkte Ausgangsversion', async () => {
+  const mounted = mountScreen('screen-result.js', 'screenResult', {
+    url: 'http://localhost/',
+    scripts: ['services.js', 'run-model.js', 'download.js'],
+    catalog,
+    responses: {},
+    shell: { screen: 'result', connected: true, entry: 'redeploy', shared: { target: { host: 'energy-node.local', user: 'pi' }, manifest: MANIFEST, selection: SELECTION } },
+  });
+  mounted.window.sessionStorage.setItem('energy-node-installer.redeploy-from', 'v1.4.1');
+  mounted.shell.shared.lastRun = {
+    ok: true, code: '', stepId: '', mode: 'redeploy', only: '', startedAt: T0, finishedAt: T0 + 41000,
+    loginUrl: '', loginPending: false, steps: { 60: { state: 'ok' } }, lastLines: [], logText: '', groups: [],
+  };
+  await mounted.screen.init();
+  assert.match(mounted.screen.summary, /^Paket 1\.4\.1 → 1\.4\.2 · /);
+});
+
+test('ohne Speicher bleibt nach einem Neuladen das Fragezeichen', async () => {
+  const mounted = mountScreen('screen-result.js', 'screenResult', {
+    url: 'http://localhost/',
+    scripts: ['services.js', 'run-model.js', 'download.js'],
+    catalog,
+    responses: {},
+    shell: { screen: 'result', connected: true, entry: 'redeploy', shared: { target: { host: 'energy-node.local', user: 'pi' }, manifest: MANIFEST, selection: SELECTION } },
+  });
+  Object.defineProperty(mounted.window, 'sessionStorage', { get() { throw new Error('blocked'); } });
+  mounted.shell.shared.lastRun = {
+    ok: true, code: '', stepId: '', mode: 'redeploy', only: '', startedAt: T0, finishedAt: T0 + 41000,
+    loginUrl: '', loginPending: false, steps: {}, lastLines: [], logText: '', groups: [],
+  };
+  await mounted.screen.init();
+  assert.match(mounted.screen.summary, /^Paket \? → 1\.4\.2 · /);
+});
+
 test('im Dashboard fuehrt Dashboard oeffnen zurueck, ohne Adressen und ohne Diagnose', async () => {
   const { screen, shell, opened } = await mount({
     shell: { entry: 'redeploy', bootstrap: { host: 'dashboard', entry_points: ['redeploy'], needs_connection: false, auto_prepare: true } },

@@ -69,7 +69,7 @@ export function fakeShell(window, overrides = {}) {
 }
 
 export function mountScreen(file, factoryName, options = {}) {
-  const { window } = loadScripts([...BASE, ...(options.scripts || []), file]);
+  const { window } = loadScripts([...BASE, ...(options.scripts || []), file], { url: options.url });
   window.Api.configure({ basePath: '', token: 'tok' });
   window.I18n.lang = options.lang || 'de';
   window.I18n.catalog = options.catalog || {};

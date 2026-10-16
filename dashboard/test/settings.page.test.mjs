@@ -287,7 +287,9 @@ function createSettingsPage(search) {
   dom.window.fetch = async () => { throw new Error('fetch should not be called'); };
   installI18n(dom.window);
   vm.runInContext(scriptSource, dom.getInternalVMContext());
-  return factories.settingsPage();
+  const page = factories.settingsPage();
+  page.$nextTick = () => {};
+  return page;
 }
 
 test('settingsPage opens the sub page named in ?page=', () => {
@@ -300,4 +302,53 @@ test('settingsPage ignores an unknown ?page=', () => {
   const page = createSettingsPage('?page=nope');
   page.init();
   assert.equal(page.activeSettingsPage, 'general');
+});
+
+// The settings sub tabs stay in one row. What does not fit moves into the
+// "More" list, and the active page is still reachable from there.
+function createTabRow({ navWidth, tabWidth = 100, moreWidth = 80 }) {
+  const dom = new JSDOM(`<!doctype html><html><body><nav id="nav">
+    <button role="tab" aria-controls="settings-general">General</button>
+    <button role="tab" aria-controls="settings-display">Appearance</button>
+    <button role="tab" aria-controls="settings-tiny-tuya">TinyTuya</button>
+    <button role="tab" aria-controls="settings-system">System</button>
+    <span class="nav-more" hidden></span></nav></body></html>`, { runScripts: 'outside-only', url: 'https://dashboard.local/' });
+  const factories = {};
+  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  vm.runInContext(scriptSource, dom.getInternalVMContext());
+  const nav = dom.window.document.getElementById('nav');
+  Object.defineProperty(nav, 'clientWidth', { value: navWidth });
+  for (const tab of nav.querySelectorAll('button')) Object.defineProperty(tab, 'offsetWidth', { value: tabWidth });
+  Object.defineProperty(nav.querySelector('.nav-more'), 'offsetWidth', { value: moreWidth });
+  const component = factories.settingsPage();
+  component.$refs = { subnav: nav };
+  return { component, nav };
+}
+
+const hiddenTabs = (nav) => [...nav.querySelectorAll('button')].filter((tab) => tab.hidden).map((tab) => tab.textContent);
+
+test('fitTabs() keeps every tab in the row when they fit and hides the More button', () => {
+  const { component, nav } = createTabRow({ navWidth: 400 });
+  component.fitTabs();
+  assert.deepEqual(hiddenTabs(nav), []);
+  assert.equal(component.overflowTabs.length, 0);
+  assert.equal(nav.querySelector('.nav-more').hidden, true);
+});
+
+test('fitTabs() moves the tabs that do not fit into the More list, in order', () => {
+  const { component, nav } = createTabRow({ navWidth: 300 });
+  component.fitTabs();
+  assert.deepEqual(hiddenTabs(nav), ['TinyTuya', 'System']);
+  assert.deepEqual(plain(component.overflowTabs), [
+    { page: 'tiny-tuya', label: 'TinyTuya' },
+    { page: 'system', label: 'System' },
+  ]);
+  assert.equal(nav.querySelector('.nav-more').hidden, false);
+});
+
+test('fitTabs() does nothing while the panel is hidden and has no width', () => {
+  const { component, nav } = createTabRow({ navWidth: 0 });
+  component.fitTabs();
+  assert.deepEqual(hiddenTabs(nav), []);
+  assert.equal(component.overflowTabs.length, 0);
 });

@@ -176,6 +176,8 @@ the role or other requirements.
 | GET | `/api/v1/topics` | – | All known topics |
 | GET | `/api/v1/topics/samples` | – | Last payload per topic |
 | GET | `/api/v1/automation/notification` | – | Last `{at, message}` event from the automation service's `last_event` topic, parsed. `404` when no automation service, `204` before its first event. Polled by `notifications.js` for toasts. |
+| GET | `/api/v1/automation/state` | – | The automation service's full state document (`at`, `online`, `rules`, `events`, counters) from its `state` topic. `404` when no automation service, `204` before the first usable document. Read by the automations page instead of `last_message`, which is capped at 4096 bytes. |
+| GET | `/api/v1/automation/history` | – | The live trigger history `{at, rules, rule_count}` from the `history` topic, also when `history_persist` is off. Same `404` and `204` rules as the state route. |
 | GET | `/api/v1/events` | `topics, devices` | SSE stream with the registry version and the subscribed topics |
 | POST | `/api/v1/entities/{unique_id}/command` | – | Switch an entity or set a value |
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -2441,6 +2442,59 @@ func TestAutomationHistoryEndpointReturnsTheFullDocument(t *testing.T) {
 
 	missing := httptest.NewRecorder()
 	NewRouter(registry.New(), nil, nil).ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/v1/automation/history", nil))
+	if missing.Code != http.StatusNotFound {
+		t.Fatalf("no automation service should 404, got %d: %s", missing.Code, missing.Body.String())
+	}
+}
+
+// The automations page reads the state document through its own route: the
+// device route's last_message is capped at 4096 bytes and shared with the
+// availability topic. Six rules already exceed the cap.
+func TestAutomationStateEndpointReturnsTheFullDocument(t *testing.T) {
+	reg := registry.New()
+	reg.UpsertEntity(registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation", Name: "Automation"},
+		Entity: registry.EntityInfo{
+			UniqueID: "automation_state", ObjectID: "state",
+			StateTopic: "outstation/automation/state", AvailabilityTopic: "outstation/automation/status/online",
+		},
+	})
+	get := func() *httptest.ResponseRecorder {
+		recorder := httptest.NewRecorder()
+		NewRouter(reg, nil, nil).ServeHTTP(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/automation/state", nil))
+		return recorder
+	}
+	if empty := get(); empty.Code != http.StatusNoContent {
+		t.Fatalf("no state yet should 204, got %d: %s", empty.Code, empty.Body.String())
+	}
+
+	rules := make([]string, 0, 12)
+	for i := 0; i < 12; i++ {
+		rules = append(rules, fmt.Sprintf(`"rule-%02d":{"enabled":true,"result":"conditions_not_met","reason":"Bedingung nicht erfuellt","fired_at":1760500000.1,"fire_count":12,"cooldown_remaining":0,"conditions":[{"met":true,"raw_met":true,"value":1234.5,"target":1000,"since":1760500000.1,"hold_remaining":0}],"actions":[{"topic":"shellies/wallbox/relay/0/command","payload":"on","blocked":false,"reason":null}]}`, i))
+	}
+	document := `{"at":1760500000.1,"online":true,"rules":{` + strings.Join(rules, ",") + `},"events":[],"rules_total":12,"rules_enabled":12,"rules_fired_total":144}`
+	if len(document) <= 4096 {
+		t.Fatalf("test document must exceed the last_message cap, is %d bytes", len(document))
+	}
+	reg.UpdateState("outstation/automation/state", []byte(document), true, time.Now().UTC())
+	reg.UpdateAvailability("outstation/automation/status/online", []byte("online"), true, time.Now().UTC())
+
+	recorder := get()
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("state response %d: %s", recorder.Code, recorder.Body.String())
+	}
+	var parsed struct {
+		Rules map[string]json.RawMessage `json:"rules"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &parsed); err != nil {
+		t.Fatalf("state body is not JSON: %v", err)
+	}
+	if len(parsed.Rules) != 12 {
+		t.Fatalf("state lost rules: got %d, want 12", len(parsed.Rules))
+	}
+
+	missing := httptest.NewRecorder()
+	NewRouter(registry.New(), nil, nil).ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/v1/automation/state", nil))
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("no automation service should 404, got %d: %s", missing.Code, missing.Body.String())
 	}

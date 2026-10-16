@@ -166,10 +166,7 @@ func (s *Store) observeLocked(devices []registry.DeviceView) bool {
 			if !entity.HasValue {
 				continue
 			}
-			payload := ""
-			if entity.LastMessage != nil {
-				payload = entity.LastMessage.Payload
-			}
+			payload := entity.LastStatePayload
 			entry := Entry{DeviceID: device.ID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Value: entity.Value, LastSeen: entity.LastSeen, LastTopicAt: entity.LastTopicAt, Available: entity.Available, HasAvailability: entity.HasAvailability, Payload: payload}
 			k := key(entry.DeviceID, entry.EntityID)
 			old, ok := s.entries[k]
@@ -188,10 +185,7 @@ func (s *Store) Sweep(devices []registry.DeviceView, now time.Time) error {
 	for _, device := range devices {
 		for _, entity := range device.Entities {
 			if entity.HasValue {
-				payload := ""
-				if entity.LastMessage != nil {
-					payload = entity.LastMessage.Payload
-				}
+				payload := entity.LastStatePayload
 				s.entries[key(device.ID, entity.UniqueID)] = Entry{DeviceID: device.ID, EntityID: entity.UniqueID, Topic: entity.StateTopic, Value: entity.Value, LastSeen: entity.LastSeen, LastTopicAt: entity.LastTopicAt, Available: entity.Available, HasAvailability: entity.HasAvailability, Payload: payload}
 			}
 		}

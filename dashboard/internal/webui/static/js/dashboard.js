@@ -63,12 +63,96 @@
     return [...auto.keys()].sort().map(id => (auto.get(id) ? `${id}:auto` : id)).join(',');
   };
 
+  const NAV_MODE_KEY = 'dashboard.navMode';
+  const readNavMode = () => {
+    try { return window.localStorage.getItem(NAV_MODE_KEY) === 'menu' ? 'menu' : 'more'; } catch (error) { return 'more'; }
+  };
+
+  // Wie viele Tabs (Breiten in px) in der Zeile bleiben: alle, wenn sie passen,
+  // sonst so viele, wie neben den Knopf "Weitere" passen. Gleiche Logik steht in
+  // settings.page.js fuer die Unter-Tabs.
+  const visibleTabCount = (widths, available, moreWidth, gap) => {
+    const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(widths.length - 1, 0);
+    if (total <= available) return widths.length;
+    let used = moreWidth;
+    let count = 0;
+    for (const width of widths) {
+      used += width + gap;
+      if (used > available) break;
+      count += 1;
+    }
+    return count;
+  };
+
   const dashboardShell = () => ({
     activePanel: 'overview-panel',
     activePage: '',
     // Nur die Mobilansicht liest diesen Zustand: oberhalb 700px greift
     // keine CSS-Regel darauf zu, die Tab-Leiste rendert wie eh und je.
     navOpen: false,
+
+    // Hauptmenue bei wenig Platz: "more" (eine Zeile, Rest unter "Weitere") oder
+    // "menu" (Aufklappmenue unter 700px). Gilt pro Browser (localStorage, Schluessel
+    // dashboard.navMode), geschaltet wird auf Einstellungen > Darstellung.
+    navMode: readNavMode(),
+    // Tabs, die nicht in die Zeile passen, fuer die Liste "Weitere":
+    // {key, label, el, active}.
+    overflowNav: [],
+    navMoreOpen: false,
+
+    initNav() {
+      const nav = document.getElementById('dashboard-tabs');
+      if (!nav) return;
+      const refit = () => this.$nextTick(() => this.fitNav());
+      window.addEventListener('nav-mode-changed', (event) => {
+        this.navMode = event.detail && event.detail.mode === 'menu' ? 'menu' : 'more';
+        refit();
+      });
+      this.$watch('hiddenPages', refit);
+      this.$watch('extraPages', refit);
+      if (typeof ResizeObserver === 'function') new ResizeObserver(refit).observe(nav);
+      if (typeof MutationObserver === 'function') new MutationObserver(refit).observe(nav, {childList: true, subtree: true, characterData: true});
+      document.fonts?.ready?.then(refit);
+      refit();
+    },
+
+    // Misst bei allen Tabs in der Zeile und blendet aus, was nicht passt. Laeuft in
+    // einem Frame, die Zwischenstufe wird nie gemalt. Ein verborgenes Panel hat
+    // keine Breite, dann kommt der ResizeObserver spaeter nochmal.
+    fitNav() {
+      const nav = document.getElementById('dashboard-tabs');
+      if (!nav) return;
+      const more = nav.querySelector('.nav-more');
+      const tabs = [...nav.querySelectorAll('button.tab')];
+      tabs.forEach((tab) => tab.classList.remove('is-overflow'));
+      if (this.navMode !== 'more' || nav.clientWidth === 0) {
+        this.overflowNav = [];
+        if (more) more.hidden = true;
+        return;
+      }
+      const shown = tabs.filter((tab) => getComputedStyle(tab).display !== 'none');
+      more.hidden = false;
+      const style = getComputedStyle(nav);
+      const available = nav.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+      const gap = parseFloat(style.columnGap) || 0;
+      const keep = visibleTabCount(shown.map((tab) => tab.offsetWidth), available, more.offsetWidth, gap);
+      const rest = shown.slice(keep);
+      rest.forEach((tab) => tab.classList.add('is-overflow'));
+      this.overflowNav = rest.map((tab, index) => ({
+        key: tab.id || tab.dataset.pageId || `tab-${index}`,
+        label: tab.textContent.trim(),
+        el: tab,
+        active: tab.classList.contains('active'),
+      }));
+      more.hidden = rest.length === 0;
+      if (rest.length === 0) this.navMoreOpen = false;
+    },
+
+    // Welcher Eintrag aktiv ist, steht in den Klassen der Tabs (Alpine setzt sie
+    // nach dem Wechsel), darum liest das hier nach $nextTick neu.
+    syncNavActive() {
+      this.overflowNav = this.overflowNav.map((item) => ({...item, active: item.el.classList.contains('active')}));
+    },
 
     // Aus dem DOM gelesen statt dupliziert: eine Tabelle panel-id -> Text
     // muesste bei jeder Tab-Umbenennung in base.html nachgezogen werden.
@@ -438,6 +522,21 @@
     if (document.visibilityState === 'visible') renderRelativeTimestamps(document);
   });
 
+  // Auf schmalen Fenstern hängt ein Hilfe-Tooltip unter seinem Knopf und soll
+  // die Fensterbreite mit festem Rand nutzen (base.css). Wo der Knopf steht,
+  // weiß nur das Skript: es setzt den Versatz nach links und die Breite als
+  // CSS-Variablen, sobald der Knopf Fokus oder den Zeiger bekommt.
+  const FIELD_HELP_EDGE = 20;
+  const placeFieldHelp = event => {
+    const help = event.target && event.target.closest ? event.target.closest('.field-help') : null;
+    if (!help || !window.matchMedia || !window.matchMedia('(max-width: 700px)').matches) return;
+    const viewport = document.documentElement.clientWidth;
+    help.style.setProperty('--help-tip-left', `${FIELD_HELP_EDGE - help.getBoundingClientRect().left}px`);
+    help.style.setProperty('--help-tip-width', `${viewport - 2 * FIELD_HELP_EDGE}px`);
+  };
+  document.addEventListener('focusin', placeFieldHelp);
+  document.addEventListener('pointerover', placeFieldHelp);
+
   const runtimeStatusPanel = () => ({
     status: null,
     enabled: true,
@@ -703,6 +802,10 @@
       const select = this.$refs?.favoritesSelect;
       if (!window.Choices || !select || this.prefsDraftFor !== deviceId) return;
       this.destroyFavoritesChoices();
+      // destroy() schreibt die Optionen samt selected ins <select> zurück.
+      // Eine neue Instanz übernähme sie als Chips in Optionsreihenfolge, und
+      // setChoiceByValue ordnet schon gewählte Werte nicht mehr um.
+      select.replaceChildren();
       const refs = this.prefsDraft.favorite_refs;
       const choices = new window.Choices(select, {
         removeItemButton: true,

@@ -128,3 +128,40 @@ func TestStoreObserveChangesUpdatesOnlyGivenEntitiesWithoutWritingToDisk(t *test
 		t.Fatalf("entries after value-less change = %#v, want unchanged", entries)
 	}
 }
+
+// After a restart the cache seeds lastStateMessage. It must hold the state
+// document, not the availability word that last landed in the shared slot.
+func TestStoreKeepsTheStatePayloadAcrossAnAvailabilityHeartbeat(t *testing.T) {
+	dir := t.TempDir()
+	reg := registry.New()
+	discovery := registry.Discovery{
+		Device: registry.DeviceInfo{ID: "automation"},
+		Entity: registry.EntityInfo{UniqueID: "automation_state", ObjectID: "state", StateTopic: "outstation/automation/state", AvailabilityTopic: "outstation/automation/status/online"},
+	}
+	reg.UpsertEntity(discovery)
+	document := `{"at":1,"rules":{"r1":{"result":"fired"}}}`
+	now := time.Now().UTC().Truncate(time.Second)
+	reg.UpdateTopic("outstation/automation/state", []byte(document), true, now)
+
+	store := NewStore(dir)
+	store.ObserveChanges(reg.UpdateTopic("outstation/automation/status/online", []byte("online"), true, now.Add(time.Second)))
+	if got := store.Entries(); len(got) != 1 || got[0].Payload != document {
+		t.Fatalf("ObserveChanges stored %#v", got)
+	}
+	if err := store.Sweep(reg.Snapshot(), now.Add(2*time.Second)); err != nil {
+		t.Fatal(err)
+	}
+
+	restarted := NewStore(dir)
+	if err := restarted.Load(); err != nil {
+		t.Fatal(err)
+	}
+	fresh := registry.New()
+	fresh.UpsertEntity(discovery)
+	if !restarted.Restore(fresh, "automation", "automation_state") {
+		t.Fatal("expected cache restore")
+	}
+	if payload, ok := fresh.StatePayload("outstation/automation/state"); !ok || payload != document {
+		t.Fatalf("restored StatePayload = %q, %v", payload, ok)
+	}
+}

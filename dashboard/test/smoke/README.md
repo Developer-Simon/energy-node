@@ -37,6 +37,11 @@ node dashboard/test/smoke/screenshot.mjs --out /tmp/tiles.png
 | `--width` / `--height` | viewport, default 1280×900 (e.g. 390×844 for an iPhone 13 Pro) |
 | `--lang de\|en` | sets the `lang` cookie before loading, so the page renders in that language |
 
+`mobile-overflow.mjs` checks a running smoke dashboard for pages wider than the
+window, once with all tooltips closed and once per focused help button. Run it
+with `--url`, `--widths 400,1280` and the tab ids to check. It exits 1 and lists
+the outermost elements when a page overflows.
+
 ## Documentation screenshots
 
 `docs-screenshots.mjs` retakes the English dashboard screenshots in

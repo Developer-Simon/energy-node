@@ -8,10 +8,12 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/bundlefetch"
@@ -145,16 +147,50 @@ func (s busSink) Message(stepID, key string, args map[string]string) {
 	s.bus.Publish("log", map[string]any{"step_id": stepID, "key": key, "args": args})
 }
 
-// newStepTitler names a bootstrap step the way the redeploy screen does: the
-// shared installer catalogs' step.<id>, in the request's dashboard language.
-// An unknown step has no title; the bar then shows its number only.
-func newStepTitler(languages []string) (func(*http.Request, string) string, error) {
+// newStepTitler names a bootstrap step the way the redeploy screen does
+// (services.js stepLabel): a service step by the shared installer catalogs'
+// service.<service_id>, every other step by step.<id>, in the request's
+// dashboard language. The service id comes from the installed manifest. It is
+// read per call because the update bar polls rarely and the file is small. An
+// unknown step has no title; the bar then shows its number only.
+func newStepTitler(languages []string, manifestPath string) (func(*http.Request, string) string, error) {
 	catalogs, err := i18n.Load(webui.Catalogs())
 	if err != nil {
 		return nil, err
 	}
 	return func(r *http.Request, stepID string) string {
-		text, _ := catalogs.Lookup(localize.Resolve(r, languages), "step."+stepID)
+		lang := localize.Resolve(r, languages)
+		if serviceID := serviceIDForStep(manifestPath, stepID); serviceID != "" {
+			if text, ok := catalogs.Lookup(lang, "service."+serviceID); ok {
+				return text
+			}
+		}
+		text, _ := catalogs.Lookup(lang, "step."+stepID)
 		return text
 	}, nil
+}
+
+// serviceIDForStep reads one step's service id from an installer manifest
+// ({"steps":[{"id":"81","service_id":"apsystems"}]}). A missing or unreadable
+// file reads as "no service step".
+func serviceIDForStep(manifestPath, stepID string) string {
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		return ""
+	}
+	var manifest struct {
+		Steps []struct {
+			ID        string `json:"id"`
+			ServiceID string `json:"service_id"`
+		} `json:"steps"`
+	}
+	if json.Unmarshal(raw, &manifest) != nil {
+		return ""
+	}
+	for _, step := range manifest.Steps {
+		if step.ID == stepID {
+			return step.ServiceID
+		}
+	}
+	return ""
 }

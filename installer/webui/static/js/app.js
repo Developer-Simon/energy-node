@@ -18,6 +18,24 @@
   // Einstiegs-Umschalter.
   var HARMLESS = ['connect', 'precheck', 'preview', 'diagnose', 'changelog'];
 
+  // Die Ausgangsversion eines Updates kennt nur der Plan der Vorschau. Lädt
+  // das Fenster während des Dashboard-Neustarts neu, ist shared.plan leer,
+  // darum merkt sich der Tab die Version für den Ergebnisbildschirm
+  // (screen-result.js liest denselben Schlüssel).
+  var REDEPLOY_FROM_KEY = 'energy-node-installer.redeploy-from';
+  function rememberRedeployFrom(plan) {
+    var from = plan && plan.components && plan.components.bootstrap ? plan.components.bootstrap.from : '';
+    try {
+      if (from) {
+        window.sessionStorage.setItem(REDEPLOY_FROM_KEY, from);
+      } else {
+        window.sessionStorage.removeItem(REDEPLOY_FROM_KEY);
+      }
+    } catch (err) {
+      // Ohne Speicher bleibt es nach einem Neuladen beim Fragezeichen.
+    }
+  }
+
   function emptyBar() {
     return { lead: '', sub: '', status: '', action: null };
   }
@@ -316,6 +334,9 @@
         this.mutating = true;
         this.shared.lastRun = null;
         this.shared.run = { runId: response.run_id, mode: request.mode, only: request.only || '', resumed: false };
+        if (request.mode === 'redeploy') {
+          rememberRedeployFrom(this.shared.plan);
+        }
         this.go('run');
       },
 

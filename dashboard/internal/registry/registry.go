@@ -536,10 +536,7 @@ type StateChange struct {
 }
 
 func (r *Registry) stateChangeLocked(uniqueID string, es *entityState) StateChange {
-	payload := ""
-	if es.lastMessage != nil {
-		payload = es.lastMessage.Payload
-	}
+	payload := statePayloadOf(es.lastStateMessage)
 	return StateChange{
 		DeviceID:        r.byUnique[uniqueID],
 		UniqueID:        uniqueID,
@@ -879,8 +876,12 @@ type EntityView struct {
 	DiscoveryQoS      byte         `json:"discovery_qos"`
 	DiscoverySource   string       `json:"discovery_source,omitempty"`
 	LastMessage       *MQTTMessage `json:"last_message,omitempty"`
-	PayloadValid      bool         `json:"payload_valid"`
-	PayloadError      string       `json:"payload_error,omitempty"`
+	// LastStatePayload is the payload of the last message on the state topic,
+	// capped like LastMessage but never replaced by an availability heartbeat.
+	// The runtime cache persists this one.
+	LastStatePayload string `json:"-"`
+	PayloadValid     bool   `json:"payload_valid"`
+	PayloadError     string `json:"payload_error,omitempty"`
 	// Stale is true when the most recent update for this entity came from a
 	// retained/replayed MQTT message rather than a fresh live publish (see
 	// Auswertung des Retain-Flags fuer Replay-Erkennung, Implementierungsplan
@@ -1526,6 +1527,7 @@ func toView(id string, dev *device) DeviceView {
 			DiscoveryQoS:        es.discoveryQoS,
 			DiscoverySource:     es.discoverySource,
 			LastMessage:         cloneMQTTMessage(es.lastMessage),
+			LastStatePayload:    statePayloadOf(es.lastStateMessage),
 			PayloadValid:        es.payloadValid,
 			PayloadError:        es.payloadError,
 			Stale:               es.lastRetained,
@@ -1566,6 +1568,15 @@ func updateLastMessage(existing *MQTTMessage, topic string, payload []byte, reta
 		return existing
 	}
 	return newMQTTMessage(topic, payload, retained, qos, at)
+}
+
+// statePayloadOf is the payload of a state-topic message, or "" before the
+// first one.
+func statePayloadOf(message *MQTTMessage) string {
+	if message == nil {
+		return ""
+	}
+	return message.Payload
 }
 
 func cloneMQTTMessage(value *MQTTMessage) *MQTTMessage {

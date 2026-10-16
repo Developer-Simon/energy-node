@@ -69,6 +69,9 @@
     // Der Modus gilt nur fuer diesen Browser und steht in localStorage
     // (history-exchange.js), nicht in den Knoten-Einstellungen.
     historyExchangeMode: window.HistoryExchange && window.HistoryExchange.mode ? window.HistoryExchange.mode() : 'on-demand',
+    // Hauptmenue bei wenig Platz, nur fuer diesen Browser (dashboard.js, fitNav).
+    // Wirkt sofort, ohne "Speichern".
+    navMode: (() => { try { return window.localStorage.getItem('dashboard.navMode') === 'menu' ? 'menu' : 'more'; } catch (error) { return 'more'; } })(),
     // Ob dieses Geraet seine Deckung anderen anbietet. Wie der Modus lokal.
     historyExchangeServe: window.HistoryExchange && window.HistoryExchange.serving ? window.HistoryExchange.serving() : false,
     // Strukturierter Zustand der Statuskachel: state ist on, off oder inactive.
@@ -124,6 +127,12 @@
     storageHealthError: '',
     widePanelsChoices: null,
     statusBarItemsChoices: null,
+
+    setNavMode(mode) {
+      this.navMode = mode === 'menu' ? 'menu' : 'more';
+      try { window.localStorage.setItem('dashboard.navMode', this.navMode); } catch (error) { /* private mode: only for this page view */ }
+      window.dispatchEvent(new CustomEvent('nav-mode-changed', {detail: {mode: this.navMode}}));
+    },
 
     async load() {
       this.loading = true;
@@ -573,12 +582,60 @@
   // Sub pages a deep link (?page=) may open.
   const SETTINGS_PAGES = ['general', 'display', 'history', 'mqtt', 'tailscale', 'tiny-tuya', 'versions', 'system'];
 
+  // How many of the tabs (widths in px) stay in the row. All of them when they
+  // fit, otherwise as many as fit next to the "More" button.
+  const visibleTabCount = (widths, available, moreWidth, gap) => {
+    const total = widths.reduce((sum, width) => sum + width, 0) + gap * Math.max(widths.length - 1, 0);
+    if (total <= available) return widths.length;
+    let used = moreWidth;
+    let count = 0;
+    for (const width of widths) {
+      used += width + gap;
+      if (used > available) break;
+      count += 1;
+    }
+    return count;
+  };
+
   const settingsPage = () => ({
     activeSettingsPage: 'general',
+    // Tabs that do not fit the row, shown in the "More" list: {page, label}.
+    overflowTabs: [],
+    moreOpen: false,
 
     init() {
       const requested = new URLSearchParams(window.location.search).get('page');
       if (SETTINGS_PAGES.includes(requested)) this.activeSettingsPage = requested;
+      this.$nextTick(() => {
+        const nav = this.$refs.subnav;
+        if (!nav) return;
+        if (typeof ResizeObserver === 'function') new ResizeObserver(() => this.fitTabs()).observe(nav);
+        document.fonts?.ready?.then(() => this.fitTabs());
+        this.fitTabs();
+      });
+    },
+
+    // Measures with every tab shown, then hides what does not fit. Runs in one
+    // frame, so the row never paints the intermediate state. A hidden panel has
+    // no width, the observer calls again once it is shown.
+    fitTabs() {
+      const nav = this.$refs.subnav;
+      if (!nav || nav.clientWidth === 0) return;
+      const tabs = [...nav.querySelectorAll('button[role="tab"]')];
+      const more = nav.querySelector('.nav-more');
+      tabs.forEach((tab) => { tab.hidden = false; });
+      more.hidden = false;
+      const style = getComputedStyle(nav);
+      const available = nav.clientWidth - (parseFloat(style.paddingLeft) || 0) - (parseFloat(style.paddingRight) || 0);
+      const gap = parseFloat(style.columnGap) || 0;
+      const keep = visibleTabCount(tabs.map((tab) => tab.offsetWidth), available, more.offsetWidth, gap);
+      tabs.forEach((tab, index) => { tab.hidden = index >= keep; });
+      this.overflowTabs = tabs.slice(keep).map((tab) => ({
+        page: tab.getAttribute('aria-controls').replace(/^settings-/, ''),
+        label: tab.textContent.trim(),
+      }));
+      more.hidden = this.overflowTabs.length === 0;
+      if (this.overflowTabs.length === 0) this.moreOpen = false;
     },
   });
 

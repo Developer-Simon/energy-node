@@ -113,6 +113,18 @@ test('tableRows ordnet feste Rollen zuerst und custom dahinter', () => {
   dom.window.close();
 });
 
+test('Einspeisung und Batterie lädt sind schraffiert, ihre Gegenrichtung nicht', () => {
+  const {dom, model} = loadStatsModel();
+  assert.deepEqual(Array.from(model.HATCHED_ROLES), ['grid_export', 'battery_charge']);
+  const series = model.chartSeries(DAY_FIXTURE);
+  assert.equal(series.find(s => s.role === 'grid_export').hatched, true);
+  assert.equal(series.find(s => s.role === 'grid_import').hatched, false);
+  const rows = model.tableRows(DAY_FIXTURE);
+  assert.equal(rows.find(r => r.role === 'grid_export').hatched, true);
+  assert.equal(rows.find(r => r.role === 'pv').hatched, false);
+  dom.window.close();
+});
+
 test('fetchStats baut die URL mit Basispfad und laesst at weg, wenn leer', async () => {
   const {dom, model} = loadStatsModel();
   const urls = [];

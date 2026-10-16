@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.19 (2026-10-15)
+## v0.9.20 (2026-10-16)
 
 ### Features
 
@@ -13,13 +13,15 @@
 - **dashboard:** The MQTT tab explains how to set up the Mosquitto bridge, and the published system metrics are chosen in one multiselect. (#138) (3c7821a)
 - **history:** The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh. (#141) (d7971dd)
 - **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142) (66cd698)
+- **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143) (59dfeb3)
+- **stats:** hatch export and battery charge instead of a second colour (28ab382)
+- **dashboard:** overflow tabs into a More list, main menu mode per browser (29a532c)
 - **energy:** auto load mode calculates with the house meter as cross-check (31771de)
 - **energy:** mirror the new load modes in the browser balance (334c011)
 - **energy:** migrate combined load mode to one consumer category per entity (80e6e5d)
 - **discovery:** publish measured and calculated house load as optional sensors (d266e0c)
 - **energy:** load mode cards, meter hints and status line on the energy page (8414c1b)
 - **energy:** technical mode texts, house meter on the energy node, inset notices (da47ece)
-- **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143)
 - **energydiscovery:** optional sensors for wallbox, heat pump and categories (6f21c9a)
 - **dashboard:** announce optional energy sensors and let them be deselected (339fee9)
 - **dashboard:** choose the additional Home Assistant sensors in the MQTT tab (a1478cb)
@@ -69,6 +71,20 @@
 
 ### Fixes
 
+- **dashboard:** keep favourite chips in pick order after saving (04b4d18)
+- **dashboard:** hidden help tooltips no longer widen narrow pages (543c498)
+- **devicemap:** closed side panel no longer widens the page (3d8fd4b)
+- **energy:** role cards fit narrow screens (1e157cd)
+- **dashboard:** show help tooltips as a bottom bar on narrow screens (0a1ff81)
+- **stats:** thin out axis labels that do not fit the chart (8b23d2f)
+- **stats:** keep legend swatches round (d0d1c82)
+- **dashboard:** update bar names service steps (890c466)
+- **automation:** read the state document through its own route (45bf28b)
+- **runtimecache:** persist the state payload, not the availability heartbeat (ad4d48c)
+- **dashboard:** anchor narrow-screen help tooltips under their trigger (e4cb788)
+- **stats:** keep thinned axis labels when the chart renders hidden (5708884)
+- **settings:** anchor the version help tooltip on narrow screens (1bbc768)
+- **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144)
 - **energy:** plain wording in the load mode texts (a04e740)
 - **energydiscovery:** leave role empty for category sensors (a2f0f81)
 - **dashboard:** keep announced sensors when settings cannot be loaded (5661b83)
@@ -101,12 +117,17 @@
 
 ### Tests
 
+- **smoke:** bind the bank A edge probe to the preset that seeds it (ef36c7f)
+- **automation:** cover the state route on the automations page (95552d8)
+- **smoke:** overflow probe checks settings subpages and open tooltips (ca9e7c6)
 - **dashboard:** cover the compact card row and row template attributes (8c52a25)
 - **smoke:** fake companion that feeds the energy statistics (b41a808)
 - **smoke:** expect the 1h tier in the exchange announcement (b9ddd86)
 
 ### Chores
 
+- **dashboard:** bump cache-busting versions for changed assets (a5c7064)
+- **dashboard:** bump settings-controls.css for the version help tooltip (b110b3a)
 - **dashboard:** bump asset versions and document the devices topic (099cf25)
 - **dashboard:** bump asset versions and document the energy_stats topic (6f01151)
 

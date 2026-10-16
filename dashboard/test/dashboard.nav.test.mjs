@@ -209,3 +209,51 @@ test('dashboard-open-panel forwards config and automation focus requests', async
   assert.equal(window.__automationFocusRequest__, 'r 1');
   assert.deepEqual(JSON.parse(JSON.stringify(seen.at(-1))), ['automation', { id: 'r 1' }]);
 });
+
+// Modus "more": was nicht in die Zeile passt, wandert in "Weitere". jsdom kennt
+// kein Layout, darum liefern die Tabs hier feste Breiten.
+function createRow({ navWidth, mode = 'more' }) {
+  const html = `${TABS}<span class="nav-more" hidden></span>`;
+  const { component, window } = createShell(html);
+  const nav = window.document.getElementById('dashboard-tabs');
+  Object.defineProperty(nav, 'clientWidth', { value: navWidth });
+  nav.querySelectorAll('button.tab').forEach((tab) => Object.defineProperty(tab, 'offsetWidth', { value: 100 }));
+  Object.defineProperty(nav.querySelector('.nav-more'), 'offsetWidth', { value: 80 });
+  component.navMode = mode;
+  return { component, nav };
+}
+const overflowIds = (nav) => [...nav.querySelectorAll('button.tab.is-overflow')].map((tab) => tab.id);
+
+test('fitNav haelt alle Tabs in der Zeile, wenn sie passen', () => {
+  const { component, nav } = createRow({ navWidth: 400 });
+  component.fitNav();
+  assert.deepEqual(overflowIds(nav), []);
+  assert.equal(component.overflowNav.length, 0);
+  assert.equal(nav.querySelector('.nav-more').hidden, true);
+});
+
+test('fitNav schiebt die letzten Tabs in die Liste Weitere', () => {
+  const { component, nav } = createRow({ navWidth: 250 });
+  component.fitNav();
+  assert.deepEqual(overflowIds(nav), ['tab-devices', 'tab-automations']);
+  assert.deepEqual([...component.overflowNav.map((item) => item.label)], ['Geräte', 'Automationen']);
+  assert.equal(nav.querySelector('.nav-more').hidden, false);
+});
+
+test('fitNav tut im Modus menu nichts und raeumt vorherige Ausblendungen auf', () => {
+  const { component, nav } = createRow({ navWidth: 250 });
+  component.fitNav();
+  component.navMode = 'menu';
+  component.fitNav();
+  assert.deepEqual(overflowIds(nav), []);
+  assert.equal(component.overflowNav.length, 0);
+});
+
+test('ein Klick auf einen Eintrag der Liste loest den Tab selbst aus', () => {
+  const { component, nav } = createRow({ navWidth: 250 });
+  component.fitNav();
+  let clicked = 0;
+  nav.querySelector('#tab-devices').addEventListener('click', () => { clicked += 1; });
+  component.overflowNav[0].el.click();
+  assert.equal(clicked, 1);
+});
