@@ -1863,3 +1863,38 @@ test('after connecting, the card of the new edge opens', async () => {
   assert.equal(component.selectedEdge.overrideId, 'relation-2');
   assert.equal(component.popover.edge.canReverse, true);
 });
+
+test('every map write sends the CSRF token: save, connect, remove and reverse', async () => {
+  const sent = [];
+  const fetchImpl = async (url, options = {}) => {
+    sent.push({ url: String(url), method: options.method || 'GET', token: options.headers && options.headers['X-CSRF-Token'] });
+    const body = options.body ? JSON.parse(options.body) : {};
+    return { ok: true, status: 200, json: async () => (body.child_id ? { id: 'relation-2', ...body, kind: 'via_device', created_at: '' } : { relation: { id: 'relation-1', child_id: 'wr', parent_id: 'akku', kind: 'via_device', created_at: '' }, edge_props: [] }) };
+  };
+  const component = panelWith({ devices: WIRED(), edges: MANUAL(), fetchImpl });
+  component.csrfToken = 'tok';
+
+  await component.save();
+  component.selectedEdge = { source: 'wr', target: 'akku', overrideId: 'relation-1' };
+  await component.reverseSelectedRelation();
+  component.selectedEdge = { source: 'akku', target: 'wr', overrideId: 'relation-1' };
+  await component.removeSelectedRelation();
+  component.connectMode = true;
+  await component.onNodeTap({ target: fakeNode('akku') });
+  await component.onNodeTap({ target: fakeNode('wr') });
+
+  const writes = sent.filter(call => call.method !== 'GET');
+  assert.deepEqual(writes.map(call => `${call.method} ${call.url.replace(/^.*\/api\/v1/, '')}`), [
+    'PUT /device/map',
+    'POST /device/map/relations/relation-1/reverse',
+    'DELETE /device/map/relations/relation-1',
+    'POST /device/map/relations',
+  ]);
+  for (const call of writes) assert.equal(call.token, 'tok', `${call.method} ${call.url} must carry the CSRF token`);
+});
+
+test('revisionConfig hands the CSRF token to the revisions API', () => {
+  const component = panelWith({ devices: [] });
+  component.csrfToken = 'tok';
+  assert.equal(component.revisionConfig().headers()['X-CSRF-Token'], 'tok');
+});

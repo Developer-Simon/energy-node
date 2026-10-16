@@ -124,3 +124,58 @@ func TestEnergyRestoreAppliesTheRestoredAssignmentsToTheResolver(t *testing.T) {
 		t.Fatalf("restored wallbox role not applied: %s", recorder.Body.String())
 	}
 }
+
+func TestDeviceMapWritesNeedEditEnergyAndCSRF(t *testing.T) {
+	manager, err := auth.NewManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret")
+	if err != nil {
+		t.Fatal(err)
+	}
+	router := NewAuthenticatedRouter(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir()), nil, nil, nil, nil, nil, RouterDependencies{Auth: manager})
+	guest := httptest.NewRecorder()
+	router.ServeHTTP(guest, httptest.NewRequest(http.MethodPost, "/api/v1/auth/guest", nil))
+	cookie := guest.Result().Cookies()[0]
+	var session struct {
+		CSRFToken string `json:"csrf_token"`
+	}
+	if err := json.Unmarshal(guest.Body.Bytes(), &session); err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct{ method, path, body string }{
+		{http.MethodPut, "/api/v1/device/map", `{"version":3,"nodes":[]}`},
+		{http.MethodPost, "/api/v1/device/map/relations", `{"child_id":"a","parent_id":"b"}`},
+		{http.MethodDelete, "/api/v1/device/map/relations/x", ``},
+		{http.MethodPost, "/api/v1/device/map/relations/x/reverse", ``},
+		{http.MethodPost, "/api/v1/device/map/restore", `{"revision":"x"}`},
+	}
+	for _, c := range cases {
+		without := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
+		without.AddCookie(cookie)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, without)
+		if recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"csrf_failed"`) {
+			t.Fatalf("%s %s without CSRF: %d %s", c.method, c.path, recorder.Code, recorder.Body.String())
+		}
+		with := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
+		with.AddCookie(cookie)
+		with.Header.Set("X-CSRF-Token", session.CSRFToken)
+		recorder = httptest.NewRecorder()
+		router.ServeHTTP(recorder, with)
+		if recorder.Code == http.StatusForbidden {
+			t.Fatalf("%s %s with CSRF still forbidden: %s", c.method, c.path, recorder.Body.String())
+		}
+	}
+	noRole := httptest.NewRequest(http.MethodPut, "/api/v1/device/map", strings.NewReader(`{"version":3,"nodes":[]}`))
+	noRole = noRole.WithContext(auth.WithUser(noRole.Context(), auth.User{Username: "viewer"}))
+	recorder := httptest.NewRecorder()
+	if requireEnergyMutation(recorder, noRole, manager) || recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"energy_forbidden"`) {
+		t.Fatalf("a user without edit_energy must get energy_forbidden: %d %s", recorder.Code, recorder.Body.String())
+	}
+	invalid := httptest.NewRequest(http.MethodPut, "/api/v1/device/map", strings.NewReader(`{"version":3,"nodes":[],"switch_outputs":[{"entity_id":"s","device_id":"d","function":"cut"}]}`))
+	invalid.AddCookie(cookie)
+	invalid.Header.Set("X-CSRF-Token", session.CSRFToken)
+	recorder = httptest.NewRecorder()
+	router.ServeHTTP(recorder, invalid)
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"device_map_rejected"`) {
+		t.Fatalf("an unknown switch function must be rejected: %d %s", recorder.Code, recorder.Body.String())
+	}
+}

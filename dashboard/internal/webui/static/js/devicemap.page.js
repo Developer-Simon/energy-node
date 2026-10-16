@@ -160,6 +160,7 @@
         return {
           basePath: '/api/v1/device/map',
           current: () => this.deviceMap,
+          headers: () => ({'X-CSRF-Token': this.csrfToken}),
           reload: async () => {
             await this.load();
             this.notifyMapChanged();
@@ -445,7 +446,7 @@
         const selected = this.selectedEdge;
         if (!selected || !selected.overrideId) return;
         try {
-          const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST'});
+          const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST', headers: {'X-CSRF-Token': this.csrfToken}});
           const edges = (this.deviceMap.edges || []).map(edge => (edge.id === result.relation.id ? result.relation : edge));
           const swap = {fixed_down: 'fixed_up', fixed_up: 'fixed_down'};
           const pair = window.DeviceMapGraph.relationKey(selected.source, selected.target);
@@ -1332,7 +1333,7 @@
         try {
           const created = await requestJSON('/api/v1/device/map/relations', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
             body: JSON.stringify({child_id: childId, parent_id: parentId, kind: 'via_device'}),
           });
           this.deviceMap = {...this.deviceMap, edges: [...(this.deviceMap.edges || []), created]};
@@ -1648,7 +1649,7 @@
           return;
         }
         try {
-          await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}`, {method: 'DELETE'});
+          await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}`, {method: 'DELETE', headers: {'X-CSRF-Token': this.csrfToken}});
           this.deviceMap = {...this.deviceMap, edges: (this.deviceMap.edges || []).filter(edge => edge.id !== selected.overrideId)};
           this.savedDeviceMap = {...this.savedDeviceMap, edges: this.deviceMap.edges};
           this.$store.toasts.push(t('devicemap.relation_disconnected'));
@@ -1692,7 +1693,7 @@
           const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
             body: JSON.stringify(value),
           });
           this.deviceMap = value;
