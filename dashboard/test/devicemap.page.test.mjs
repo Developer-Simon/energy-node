@@ -2048,10 +2048,11 @@ async function switchPanel({ stateOf = () => 'on', layers, energy, log = [], cre
   if (layers) table['/api/v1/device/map'] = { ...SWITCH_MAP, view: { layers } };
   if (energy) table['/api/v1/energy'] = energy;
   const { component, window } = createDevicemapPanel({ fetchImpl: routes(table), cytoscapeImpl: switchGraphFactory(log, created) });
-  component.$refs = { canvas: fakeCanvas() };
+  const labels = window.document.createElement('div');
+  component.$refs = { canvas: fakeCanvas(), labels };
   await component.load();
   const current = () => created[created.length - 1];
-  return { component, window, log, graph: () => current().graph, nodes: () => current().nodes, edges: () => current().edges };
+  return { component, window, log, labels, graph: () => current().graph, nodes: () => current().nodes, edges: () => current().edges };
 }
 
 // Replaces the component's timers with a queue the test runs by hand, so the
@@ -2137,8 +2138,56 @@ test('toggling during a fade keeps the last state', async () => {
   assert.ok(log.some(entry => entry.type === 'stop' && entry.id === 'plug'), 'the running fade is stopped');
   for (const timer of queue) runTimer(timer);
   staleComplete();
-  for (const id of ['plug', 'lamp', 'bulb']) assert.notEqual(nodes().get(id).data('quiet'), true, `${id} stays on`);
-  assert.equal(edges().some(edge => edge.hasClass('devicemap-dead') || edge.hasClass('devicemap-cut')), false);
+  for (const id of ['plug', 'lamp', 'bulb']) assert.equal(nodes().get(id).data('quiet'), false, `${id} stays on`);
+  for (const edge of edges()) {
+    assert.equal(edge.hasClass('devicemap-dead'), false);
+    assert.equal(edge.hasClass('devicemap-cut'), false);
+  }
+});
+
+test('a switched-off plug marks its edge dead and cut, a dead node only dead', async () => {
+  let state = 'on';
+  const log = [];
+  const shown = await switchPanel({ stateOf: () => state, log });
+  const queue = queueTimers(shown.component);
+  state = 'off';
+  await shown.component.refreshEnergy();
+  for (const timer of queue) runTimer(timer);
+  for (const entry of log.filter(item => item.type === 'animate')) entry.opts.complete();
+  const edgeFrom = (source, target) => shown.edges().find(edge => edge.data('source') === source && edge.data('target') === target);
+  const plugEdge = edgeFrom('plug', 'lamp');
+  const lampEdge = edgeFrom('lamp', 'bulb');
+  assert.equal(plugEdge.hasClass('devicemap-dead'), true);
+  assert.equal(plugEdge.hasClass('devicemap-cut'), true);
+  assert.equal(lampEdge.hasClass('devicemap-dead'), true);
+  assert.equal(lampEdge.hasClass('devicemap-cut'), false);
+});
+
+test('energy refresh updates label values while the switch state is unchanged', async () => {
+  let watts = 500;
+  const energy = () => ({ entities: [{ device_id: 'pv', entity_id: 'pv1', value: watts, unit: 'W', role: { role: 'pv', source: 'override' } }], balance: {} });
+  const shown = await switchPanel({ stateOf: () => 'on', energy });
+  const valueOf = () => shown.labels.querySelector('[data-label-id="pv"] .devicemap-node-value').textContent;
+  const before = valueOf();
+  watts = 1500;
+  await shown.component.refreshEnergy();
+  assert.notEqual(valueOf(), before);
+});
+
+test('destroy stops a running fade and drops its pending commit', async () => {
+  let state = 'on';
+  const log = [];
+  const shown = await switchPanel({ stateOf: () => state, log });
+  const queue = queueTimers(shown.component);
+  state = 'off';
+  await shown.component.refreshEnergy();
+  runTimer(queue[0]);
+  const plugAnimate = log.find(entry => entry.type === 'animate' && entry.id === 'plug');
+  const before = log.length;
+  shown.component.destroy();
+  assert.ok(log.slice(before).some(entry => entry.type === 'stop' && entry.id === 'plug'), 'the running fade is stopped');
+  plugAnimate.opts.complete();
+  assert.equal(shown.nodes().get('plug').data('quiet'), false);
 });
 
 test('switch state is hidden with only the data layer', async () => {

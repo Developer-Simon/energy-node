@@ -196,8 +196,10 @@
         this.stopFlowAnimation();
         clearTimeout(this._energyTimer);
         if (labels) { labels.destroy(); labels = null; }
+        switchGen += 1;
         for (const timer of switchTimers) this._clearTimeout(timer);
         switchTimers = [];
+        if (cy) cy.nodes().forEach(node => node.stop(true, true));
       },
 
       flowElements() {
@@ -939,6 +941,7 @@
             if (!node.empty()) node.data(this.nodeImages(device, status, energy, colorOf));
           }
         });
+        if (labels) labels.update(this.labelItems(this.shownStatus()));
         if (labels) labels.sync(cy);
         this.applyFlows();
         this.applyDataEdges();
@@ -1297,7 +1300,10 @@
         }
         const layout = hasAllPositions ? {name: 'preset'} : {name: 'breadthfirst', directed: true, padding: 30};
         if (previousViewport) layout.fit = false;
-        // A new graph starts with no committed switch state.
+        // A new graph starts with no committed switch state and no running fade.
+        switchGen += 1;
+        for (const timer of switchTimers) this._clearTimeout(timer);
+        switchTimers = [];
         switchShown = new Map();
         switchGoal = null;
         cy = cytoscape({
