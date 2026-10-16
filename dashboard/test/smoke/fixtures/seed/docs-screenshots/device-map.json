@@ -57,6 +57,16 @@
       "y": 480
     },
     {
+      "device_id": "plug_balkon",
+      "x": -220,
+      "y": 160
+    },
+    {
+      "device_id": "plug_entfeuchter",
+      "x": 1040,
+      "y": 480
+    },
+    {
       "device_id": "netz_meanwell",
       "x": 0,
       "y": 640
@@ -122,6 +132,20 @@
       "parent_id": "haus_zaehler",
       "kind": "mqtt",
       "created_at": "2026-08-13T00:00:00Z"
+    },
+    {
+      "id": "plug_balkon-apsystems_dach",
+      "child_id": "plug_balkon",
+      "parent_id": "apsystems_dach",
+      "kind": "mqtt",
+      "created_at": "2026-10-16T00:00:00Z"
+    }
+  ],
+  "edge_props": [
+    {
+      "parent_id": "apsystems_dach",
+      "child_id": "plug_balkon",
+      "type": "energy"
     }
   ],
   "view": {

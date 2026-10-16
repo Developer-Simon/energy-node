@@ -279,7 +279,7 @@ async function energyShowcase() {
 async function deviceMapShowcase() {
   const names = ['dashboard-device-map-device-panel', 'dashboard-device-map-group-panel', 'dashboard-device-map-picker',
     'dashboard-device-map-view-menu', 'dashboard-device-map-create-group', 'dashboard-device-map-category',
-    'dashboard-device-map-balance', 'dashboard-device-map-dataflow'];
+    'dashboard-device-map-balance', 'dashboard-device-map-dataflow', 'dashboard-device-map-switch-off'];
   if (!names.some(want)) return;
   const s = await session(1110, 928);
   await tab(s.page, 'devicemap');
@@ -307,6 +307,27 @@ async function deviceMapShowcase() {
   }
   await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).closePanel());
   await s.page.waitForTimeout(600);
+  if (want('dashboard-device-map-switch-off')) {
+    // Plug Balkon is switched off: the wiring card of its edge to the
+    // inverter is open, the view is framed on that pair and its neighbours.
+    await map(() => {
+      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+      const cy = document.querySelector('#devicemap-panel [x-ref="canvas"]')._cyreg.cy;
+      const plug = cy.getElementById('plug_balkon');
+      const edge = plug.connectedEdges('.devicemap-wiring')[0];
+      panel.selectedEdge = {id: edge.id(), source: edge.data('source'), target: edge.data('target'), overrideId: edge.data('overrideId') || null, membership: edge.data('membership') || null};
+      cy.edges().removeClass('devicemap-selected-edge');
+      edge.addClass('devicemap-selected-edge');
+      // The plug sits left of the inverter, so the card opened to the right of
+      // the edge midpoint does not cover the plug's label.
+      cy.fit(plug.union(cy.getElementById('apsystems_dach')), 120);
+      panel.openWiringPopover(edge.renderedMidpoint());
+    });
+    await s.page.waitForTimeout(1200);
+    await element(stage, 'dashboard-device-map-switch-off');
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).clearEdgeSelection());
+    await s.page.waitForTimeout(600);
+  }
   if (want('dashboard-device-map-view-menu')) {
     await s.page.locator('#devicemap-view-menu-toggle').click();
     await s.page.waitForTimeout(600);
