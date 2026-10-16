@@ -1036,7 +1036,7 @@ div.devicemap-view-menu-row { cursor: default; }
 .devicemap-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .devicemap-legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; border-radius: 2px; flex: none; }
 .devicemap-legend i.dashed { border-top-style: dashed; border-top-width: 2px; }
-.devicemap-legend i.dotted { border-top-style: dotted; border-top-width: 2px; }
+.devicemap-legend i.devicemap-dotted { border-top-style: dotted; border-top-width: 2px; }
 .devicemap-legend i.devicemap-dead-line { border-top-width: 3px; }
 .devicemap-legend i.devicemap-off-ring { width: 10px; height: 10px; border: 2px solid var(--text-subtle); border-radius: 50%; box-sizing: border-box; }
 /* On a phone the bar wraps and the button can sit anywhere in it, so the

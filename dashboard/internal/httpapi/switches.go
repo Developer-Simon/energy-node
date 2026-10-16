@@ -18,7 +18,7 @@ type switchView struct {
 
 // handleDeviceSwitches serves GET /api/v1/devices/switches. Only switches that
 // can be commanded and are not diagnostic or config entities are listed. The
-// state follows the rules in the device map spec, section "Zustand"; see
+// state follows the rules in the device map spec, section "state"; see
 // switchState for the details. Pending commands do not change the state.
 func handleDeviceSwitches(reg *registry.Registry) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

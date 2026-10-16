@@ -1,6 +1,6 @@
 // Switch outputs of the device map: detection, assignment and the area that
-// loses power when an output is off. See the spec "Erkennung" and
-// "Stromloser Bereich" in .docs/superpowers/specs/2026-10-14-devicemap-schaltzustand-design.md
+// loses power when an output is off. See the spec "detection" and
+// "area without power" in .docs/superpowers/specs/2026-10-14-devicemap-schaltzustand-design.md
 // and the plan 2026-10-16-devicemap-schaltzustand. Pure: no DOM, no Cytoscape.
 (() => {
   const model = () => window.DeviceMapModel;
