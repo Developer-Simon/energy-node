@@ -64,7 +64,7 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-10-15**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-10-16**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
@@ -96,7 +96,7 @@ As of **2026-10-15**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `11` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `34` |
+| `js/dashboard.js` | `35` |
 | `js/update-bar.js` | `3` |
 | `js/whatsnew.page.js` | `3` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
@@ -131,11 +131,11 @@ skips scripts already present as `<script src>`.
 | `devices-panel` | – | – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `14`, `css/diagnostics.css` `2` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `37` |
-| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `10` | `css/manager.css` `37` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `4`, `js/devicemap-labels.js` `2`, `js/devicemap-graph.js` `4`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `24` | `css/manager.css` `37` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `23`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `37`, `css/settings-controls.css` `14` |
-| `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `37`, `css/automations.css` `6` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `38` |
+| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-graph.js` `5`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `5`, `js/devicemap-labels.js` `3`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `10` | `css/manager.css` `38` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `9`, `js/devicemap-node-svg.js` `5`, `js/devicemap-labels.js` `3`, `js/devicemap-graph.js` `5`, `js/devicemap-wiring.js` `1`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `25` | `css/manager.css` `38` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `23`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `38`, `css/settings-controls.css` `14` |
+| `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `38`, `css/automations.css` `6` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `3`, `js/stats.page.js` `4` | `css/history.css` `7`, `css/stats.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -255,6 +255,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| unreleased, `feat/devicemap-switch-state` | `js/devicemap-graph.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap-labels.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/dashboard.js` · `css/manager.css` (5 panels) | `5` · `5` · `3` · `25` · `35` · `38` | 2026-10-16 |
 | unreleased, `fix/review-findings-ui-data` | `css/base.css` (closed help tooltips no longer widen pages, anchored under the trigger on narrow screens, settings sub tabs and, per browser setting, the main tabs overflow into a "More" list) · `css/manager.css` (5 panels: device map side panel clipped to the stage, energy role cards fit narrow screens) · `js/dashboard.js` (favourite chips keep pick order, narrow-screen tooltip offset, main tab "More" list) · `js/automations.page.js` (state document from `/api/v1/automation/state`) · `js/stats.page.js` (thinned axis labels, hatched export and battery charge) · `js/energy-stats-model.js` (stats panel + energy cards, `HATCHED_ROLES`) · `css/stats.css` (hatched swatch) · `css/settings-controls.css` (settings, diagnostics: version help tooltip on narrow screens) · `js/settings.page.js` (settings panel, "More" tab list, main menu mode switch) | `37` · `37` · `34` · `12` · `4` · `3` · `3` · `14` · `23` | 2026-10-15 |
 | unreleased, `feat/discovery-more-roles` | `js/mqtt.page.js` (settings panel, additional Home Assistant sensors multiselect) | `9` | 2026-10-15 |
 | unreleased, `feat/history-hour-tier` | `js/history-rollup.js` (history panel, history tile) · `js/history-store.js` (`extent`, history panel, history tile) · `js/history-chart.js` (history panel, history tile) · `js/history.js` (history panel: coverage percentages, explicit resolution, refresh pause, resolution pill and pause button in the status line) · `css/history.css` (history panel, stats panel: status line controls) | `3` · `5` · `5` · `21` · `7` | 2026-10-15 |
