@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.20 (2026-10-15)
+## v0.9.20 (2026-10-16)
 
 ### Features
 
@@ -15,6 +15,7 @@
 - **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142) (66cd698)
 - **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143) (59dfeb3)
 - **stats:** hatch export and battery charge instead of a second colour (28ab382)
+- **dashboard:** overflow tabs into a More list, main menu mode per browser (29a532c)
 - **energy:** auto load mode calculates with the house meter as cross-check (31771de)
 - **energy:** mirror the new load modes in the browser balance (334c011)
 - **energy:** migrate combined load mode to one consumer category per entity (80e6e5d)
