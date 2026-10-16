@@ -19,16 +19,37 @@
           el = document.createElement('div');
           el.className = 'devicemap-node-label';
           el.dataset.labelId = item.id;
+          // The title wrapper is the pill for switched-off nodes, so it
+          // wraps the name and the off text together.
+          const title = document.createElement('span');
+          title.className = 'devicemap-node-title';
           const name = document.createElement('span');
           name.className = 'devicemap-node-name';
+          title.appendChild(name);
           const value = document.createElement('span');
           value.className = 'devicemap-node-value';
-          el.append(name, value);
+          el.append(title, value);
           container.appendChild(el);
           byId.set(item.id, el);
         }
-        el.children[0].textContent = item.name;
-        el.children[1].textContent = item.value;
+        const title = el.querySelector('.devicemap-node-title');
+        title.querySelector('.devicemap-node-name').textContent = item.name;
+        el.querySelector('.devicemap-node-value').textContent = item.value;
+        const off = title.querySelector('.devicemap-node-off');
+        if (item.off) {
+          el.classList.add('is-off');
+          if (off) {
+            off.textContent = `· ${item.offText}`;
+          } else {
+            const pill = document.createElement('span');
+            pill.className = 'devicemap-node-off';
+            pill.textContent = `· ${item.offText}`;
+            title.appendChild(pill);
+          }
+        } else {
+          el.classList.remove('is-off');
+          if (off) off.remove();
+        }
       }
       for (const [id, el] of byId) {
         if (!keep.has(id)) { el.remove(); byId.delete(id); }

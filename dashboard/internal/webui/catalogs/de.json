@@ -721,6 +721,7 @@
   "devicemap.legend.load": "Verbrauch",
   "devicemap.legend.pv": "PV",
   "devicemap.legend.sum": "Σ Summe Teilbaum",
+  "devicemap.node.off": "Aus",
   "devicemap.panel.capacity": "Nutzbare Kapazität in kWh",
   "devicemap.panel.close": "Panel schließen",
   "devicemap.panel.custom_hint": "Eigene Kategorie, Basistyp {base}. Die Bilanz rechnet sie als {base}.",
