@@ -2210,3 +2210,114 @@ test('an off output produces no flow edge', async () => {
   await component.refreshEnergy();
   assert.equal(flowIds().some(id => id.startsWith('flow-plug::') || id.startsWith('flow-lamp::')), false);
 });
+
+// Plug with a power entity, so the heuristic can pick its single switch.
+// override: false leaves the detected output to the heuristic.
+function outputTable({ state = () => 'on', override = true, switches, savedOutputs } = {}) {
+  const devices = SWITCH_DEVICES.map(device => (device.id === 'plug'
+    ? { ...device, entities: [{ entity_id: 'sensor.plug_power', unit_of_measurement: 'W' }] } : device));
+  const outputs = savedOutputs || (override ? SWITCH_MAP.switch_outputs : []);
+  const map = { ...SWITCH_MAP, switch_outputs: outputs };
+  return mapRoutes({
+    '/api/v1/devices': devices,
+    '/api/v1/device/map': map,
+    '/api/v1/devices/switches': switches || (() => switchesFor(state())),
+  });
+}
+
+test('panel lists the switch output with state and source', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ override: false })) });
+  await component.load();
+  component.panelId = 'plug';
+  assert.deepEqual(plain(component.panelView.outputs), [{ entityId: 'switch.plug', name: 'Steckdose', state: 'on', fn: 'output', source: 'heuristic' }]);
+});
+
+test('the panel has no output rows without switches', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable()) });
+  await component.load();
+  component.panelId = 'pv';
+  assert.deepEqual(plain(component.panelView.outputs), []);
+});
+
+test('setSwitchFunction changes the map draft and marks it unsaved', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ override: false })) });
+  await component.load();
+  component.setSwitchFunction('switch.plug', 'none');
+  assert.deepEqual(plain(component.deviceMap.switch_outputs), [{ entity_id: 'switch.plug', device_id: 'plug', function: 'none' }]);
+  assert.equal(component.unsaved, true);
+  component.panelId = 'plug';
+  assert.equal(component.panelView.outputs[0].source, 'draft');
+  assert.equal(component.switchStatus().outputs.has('plug'), false, 'the draft takes effect at once');
+});
+
+test('saving sends switch_outputs', async () => {
+  const sent = [];
+  const table = outputTable({ override: false });
+  const fetchImpl = async (url, options = {}) => {
+    if (options.method === 'PUT') {
+      sent.push(JSON.parse(options.body));
+      return { ok: true, status: 200, json: async () => ({}) };
+    }
+    return routes(table)(url, options);
+  };
+  const { component } = createDevicemapPanel({ fetchImpl });
+  await component.load();
+  component.setSwitchFunction('switch.plug', 'none');
+  await component.save();
+  assert.deepEqual(plain(sent[0].switch_outputs), [{ entity_id: 'switch.plug', device_id: 'plug', function: 'none' }]);
+});
+
+test('discard restores the saved switch output', async () => {
+  const switches = [
+    { device_id: 'plug', entity_id: 'switch.a', name: 'A', state: 'on' },
+    { device_id: 'plug', entity_id: 'switch.b', name: 'B', state: 'on' },
+  ];
+  const savedOutputs = [{ entity_id: 'switch.b', device_id: 'plug', function: 'output' }];
+  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ switches, savedOutputs })) });
+  await component.load();
+  const saved = plain(component.deviceMap.switch_outputs);
+  assert.deepEqual(saved, savedOutputs);
+  component.setSwitchFunction('switch.a', 'output');
+  assert.equal(component.unsaved, true);
+  component.discardChanges();
+  assert.deepEqual(plain(component.deviceMap.switch_outputs), saved);
+  component.panelId = 'plug';
+  assert.deepEqual(plain(component.panelView.outputs.map(({ entityId, fn, source }) => ({ entityId, fn, source }))), [
+    { entityId: 'switch.a', fn: 'none', source: 'none' },
+    { entityId: 'switch.b', fn: 'output', source: 'override' },
+  ]);
+});
+
+test('edge card names the plug for a dead edge', async () => {
+  let state = 'off';
+  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ state: () => state })) });
+  await component.load();
+  component.onEdgeTap({ target: fakeEdge({ id: 'e1', source: 'plug', target: 'lamp' }) });
+  assert.deepEqual(plain(component.popover.deadBy), { id: 'plug', name: 'Steckdose' });
+  component.onEdgeTap({ target: fakeEdge({ id: 'e2', source: 'lamp', target: 'bulb' }) });
+  assert.deepEqual(plain(component.popover.deadBy), { id: 'plug', name: 'Steckdose' }, 'a node below the plug names the plug too');
+});
+
+test('a live edge has no dead plug', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ state: () => 'on' })) });
+  await component.load();
+  component.onEdgeTap({ target: fakeEdge({ id: 'e1', source: 'plug', target: 'lamp' }) });
+  assert.equal(component.popover.deadBy, null);
+});
+
+test('the switch link opens the devices tab on the device', async () => {
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(outputTable()) });
+  await component.load();
+  const seen = [];
+  window.addEventListener('dashboard-open-panel', event => seen.push(event.detail));
+  component.openDeviceInDevicesTab('plug');
+  assert.deepEqual(JSON.parse(JSON.stringify(seen)), [{ panel: 'devices-panel', deviceFocus: 'plug' }]);
+});
+
+test('the legend shows the switch entries only with an output on the map', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable()) });
+  await component.load();
+  assert.equal(component.switchLegendVisible(), true);
+  component.switches = [];
+  assert.equal(component.switchLegendVisible(), false);
+});

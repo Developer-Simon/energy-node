@@ -385,10 +385,12 @@
         if (detail.configFocus) window.__configFocusRequest__ = detail.configFocus;
         if (detail.automationFocus) window.__automationFocusRequest__ = detail.automationFocus;
         if (detail.statsFocus) window.__statsFocusRequest__ = detail.statsFocus;
+        if (detail.deviceFocus) window.__deviceFocusRequest__ = detail.deviceFocus;
         await this.setActivePanel(detail.panel);
         if (detail.energyFocus) window.dispatchEvent(new CustomEvent('energy-focus-rows', {detail: {ids: detail.energyFocus}}));
         if (detail.configFocus) window.dispatchEvent(new CustomEvent('config-focus-item', {detail: detail.configFocus}));
         if (detail.automationFocus) window.dispatchEvent(new CustomEvent('automation-focus-rule', {detail: {id: detail.automationFocus}}));
+        if (detail.deviceFocus) window.dispatchEvent(new CustomEvent('devices-focus-device', {detail: {id: detail.deviceFocus}}));
         if (detail.statsFocus && document.querySelector('#stats-panel .stats-page')) {
           // Ist die Seite schon geladen, nimmt sie das Ereignis. Sonst liest
           // stats.page.js die Anfrage beim Start von window.
@@ -1525,6 +1527,19 @@
         this.viewMode = mode;
         this.refreshLiveFragment(mode);
       };
+      // The device map asks for a device in this tab (openDeviceInDevicesTab).
+      // The shell leaves the request on window for a panel that starts later.
+      this.devicesFocusDevice = event => {
+        const id = event.detail && event.detail.id;
+        window.__deviceFocusRequest__ = null;
+        if (id) this.selectDevice(id);
+      };
+      window.addEventListener('devices-focus-device', this.devicesFocusDevice);
+      const pendingDevice = window.__deviceFocusRequest__;
+      if (pendingDevice) {
+        window.__deviceFocusRequest__ = null;
+        this.selectDevice(pendingDevice);
+      }
       this.registryUpdated = event => {
         if (!this.$root.classList.contains('active')) return;
         const detail = event?.detail;
@@ -1600,6 +1615,7 @@
       if (this.configTileSettingChanged) document.removeEventListener('config-tile-setting-changed', this.configTileSettingChanged);
       if (this.deviceViewModeChanged) document.removeEventListener('device-view-mode-changed', this.deviceViewModeChanged);
       if (this.registryUpdated) window.removeEventListener('registry-updated', this.registryUpdated);
+      if (this.devicesFocusDevice) window.removeEventListener('devices-focus-device', this.devicesFocusDevice);
       if (this.layoutSaved) window.removeEventListener('layout-saved', this.layoutSaved);
       if (this.pageChanged) window.removeEventListener('layout-page-changed', this.pageChanged);
       if (this.dialogClosed) this.$refs.deviceModalDialog?.removeEventListener('close', this.dialogClosed);

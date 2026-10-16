@@ -515,6 +515,7 @@
           eyebrow: t(origin === 'group' ? 'devicemap.pop.eyebrow.membership' : 'devicemap.pop.eyebrow.wiring'),
           title: this.selectedEdgeLabel, rows, lists: [],
           text: origin === 'discovery' ? t('devicemap.edge_readonly_hint') : '',
+          deadBy: this.deadByOf(edge.source),
           linkText: opensPanel ? t('devicemap.pop.link.open_device', {name: this.deviceLabel(edge.target)}) : '',
           link: opensPanel ? {tab: 'panel', target: edge.target} : null,
           action: origin === 'discovery' ? null : {label: t('devicemap.disconnect_button')},
@@ -745,6 +746,37 @@
         this.applyEnergy();
       },
 
+      // Output or no function for one switch, as a map draft like the edge
+      // type: setFunction() keeps the other entries, the map is saved with save().
+      setSwitchFunction(entityId, fn) {
+        const item = this.switches.find(entry => entry.entity_id === entityId);
+        if (!item) return;
+        this.deviceMap = {...this.deviceMap, switch_outputs: window.DeviceMapSwitch.setFunction(this.deviceMap.switch_outputs, {deviceId: item.device_id, entityId, fn})};
+        this.unsaved = true;
+        this.applyEnergy();
+      },
+
+      // Opens the device in the devices tab, where its switch can be operated.
+      openDeviceInDevicesTab(deviceId) {
+        this.closePopover();
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'devices-panel', deviceFocus: deviceId}}));
+      },
+
+      // The legend entries for switch outputs show only when the map has one.
+      switchLegendVisible() {
+        return this.switchVisible() && this.switchStatus().outputs.size > 0;
+      },
+
+      // The plug that cuts the power of a node: the node itself when it is an
+      // off output, the nearest off output above it otherwise, null while live.
+      deadByOf(deviceId) {
+        const status = this.switchStatus();
+        let plugId = null;
+        if (status.off.has(deviceId)) plugId = deviceId;
+        else if (status.dead.has(deviceId)) plugId = status.dead.get(deviceId).plug;
+        return plugId ? {id: plugId, name: this.deviceLabel(plugId)} : null;
+      },
+
       get panelView() {
         if (!this.panelId) return null;
         const model = window.DeviceMapModel;
@@ -785,11 +817,12 @@
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
+        const outputs = window.DeviceMapSwitch.rows({deviceId: device.id, switches: this.switches, switchOutputs: this.deviceMap.switch_outputs, savedSwitchOutputs: this.savedDeviceMap.switch_outputs, devices: this.devices});
         return {
           kind: 'device',
           title: device.name || device.id,
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
-          rows, others, empty,
+          rows, others, empty, outputs,
           flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
       },
@@ -1853,7 +1886,8 @@
           const liveKeys = new Set(this.buildEdgeElements().filter(element => !element.data.membership)
             .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)));
           const edgeProps = window.DeviceMapWiring.prune(this.deviceMap.edge_props, liveKeys);
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view};
+          const switchOutputs = this.deviceMap.switch_outputs || [];
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view, switch_outputs: switchOutputs};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
