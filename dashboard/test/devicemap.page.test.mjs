@@ -58,6 +58,7 @@ function fakeCytoscapeFactory(autoungrabifyCalls, optionsCalls, viewportCalls, p
       on: () => {},
       nodes: () => fakeCollection(),
       edges: () => fakeCollection(),
+      getElementById: () => ({ empty: () => true }),
       batch: fn => fn(),
       destroy: () => {},
       style: () => {},
@@ -1903,14 +1904,15 @@ test('revisionConfig hands the CSRF token to the revisions API', () => {
 // feeds the lamp, so switching the plug off makes the lamp dead.
 const SWITCH_DEVICES = [
   { id: 'plug', name: 'Steckdose', relations: [{ id: 'lamp', kind: 'child' }], entities: [] },
-  { id: 'lamp', name: 'Lampe', relations: [{ id: 'plug', kind: 'parent' }], entities: [] },
+  { id: 'lamp', name: 'Lampe', relations: [{ id: 'plug', kind: 'parent' }, { id: 'bulb', kind: 'child' }], entities: [] },
+  { id: 'bulb', name: 'Birne', relations: [{ id: 'lamp', kind: 'parent' }], entities: [] },
   { id: 'pv', name: 'PV', relations: [], entities: [] },
 ];
 const SWITCH_MAP = {
   version: 3,
-  nodes: [{ device_id: 'plug', x: 0, y: 0 }, { device_id: 'lamp', x: 100, y: 0 }, { device_id: 'pv', x: 200, y: 0 }],
+  nodes: [{ device_id: 'plug', x: 0, y: 0 }, { device_id: 'lamp', x: 100, y: 0 }, { device_id: 'bulb', x: 150, y: 0 }, { device_id: 'pv', x: 200, y: 0 }],
   edges: [],
-  edge_props: [{ parent_id: 'plug', child_id: 'lamp', type: 'energy' }],
+  edge_props: [{ parent_id: 'plug', child_id: 'lamp', type: 'energy' }, { parent_id: 'lamp', child_id: 'bulb', type: 'energy' }],
   switch_outputs: [{ entity_id: 'switch.plug', device_id: 'plug', function: 'output' }],
   view: { layers: { wiring: true, energy: true, balance: false, data: false } },
 };
@@ -1970,18 +1972,6 @@ test('a failing switches request leaves the map as it is', async () => {
   assert.equal(stores.toasts.items.length, 0, 'a failed switch refresh is not a toast');
 });
 
-test('switch state is hidden with only data or balance layers', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: routes(switchTable(() => 'off')) });
-  await component.load();
-  const plug = component.devices.find(device => device.id === 'plug');
-  assert.ok(component.labelItems().some(item => item.off), 'control: with the wiring layer the off state shows');
-  assert.match(decodeURIComponent(component.nodeSvg(plug)), /data-quiet/, 'control: the off plug is drawn quiet');
-
-  component.deviceMap = { ...component.deviceMap, view: { layers: { wiring: false, energy: false, balance: false, data: true } } };
-  assert.equal(component.labelItems().some(item => item.off), false);
-  assert.doesNotMatch(decodeURIComponent(component.nodeSvg(plug)), /data-quiet/);
-});
-
 test('labelItems marks the off plug and the dead nodes', async () => {
   const { component } = createDevicemapPanel({ fetchImpl: routes(switchTable(() => 'off')) });
   await component.load();
@@ -1990,6 +1980,7 @@ test('labelItems marks the off plug and the dead nodes', async () => {
   assert.equal(items.get('plug').offText, 'Aus');
   assert.equal(items.get('lamp').off, true, 'the lamp is below the off plug and has no other feed');
   assert.equal(items.get('lamp').offText, 'Aus');
+  assert.equal(items.get('bulb').off, true, 'the bulb is two hops below the off plug');
   assert.equal(items.get('pv').off, undefined, 'a device without a switch above it is not marked');
 });
 
@@ -1999,4 +1990,174 @@ test('labelItems leaves the lamp unmarked while the plug is on', async () => {
   const items = new Map(JSON.parse(JSON.stringify(component.labelItems())).map(item => [item.id, item]));
   assert.equal(items.get('plug').off, undefined);
   assert.equal(items.get('lamp').off, undefined);
+});
+
+// Graph stand-in for the switch fade tests. Built from the elements the page
+// hands to cytoscape(); animate, stop and removeStyle calls go to `log`, and
+// each graph is pushed to `created` so tests can read node data and classes.
+function switchGraphFactory(log, created) {
+  return options => {
+    const nodes = new Map();
+    const edges = [];
+    const element = (data, classes) => {
+      const state = { ...data };
+      const classSet = new Set(String(classes || '').split(' ').filter(Boolean));
+      return {
+        id: () => state.id,
+        empty: () => false,
+        data(key, value) {
+          if (typeof key === 'object') { Object.assign(state, key); return undefined; }
+          if (value === undefined) return state[key];
+          state[key] = value;
+          return undefined;
+        },
+        animate: (options, opts) => log.push({ type: 'animate', id: state.id, options, opts }),
+        stop: (...args) => log.push({ type: 'stop', id: state.id, args }),
+        removeStyle: name => log.push({ type: 'removeStyle', id: state.id, name }),
+        toggleClass(name, on) { if (on === undefined ? !classSet.has(name) : on) classSet.add(name); else classSet.delete(name); },
+        addClass: name => classSet.add(name),
+        removeClass: name => classSet.delete(name),
+        hasClass: name => classSet.has(name),
+        remove() {},
+        style() {},
+        renderedPosition: () => ({ x: 0, y: 0 }),
+        position: () => ({ x: 0, y: 0 }),
+      };
+    };
+    for (const el of options.elements) {
+      if (el.data.source === undefined) nodes.set(el.data.id, element(el.data, el.classes));
+      else edges.push(element(el.data, el.classes));
+    }
+    const collection = list => ({ forEach: fn => list.forEach(fn), length: list.length, empty: () => list.length === 0 });
+    const graph = {
+      getElementById: id => nodes.get(id) || { empty: () => true },
+      nodes: () => collection([...nodes.values()]),
+      edges: selector => collection(edges.filter(edge => !selector || edge.hasClass(selector.slice(1)))),
+      batch: fn => fn(),
+      autoungrabify() {}, on() {}, destroy() {}, style() {}, zoom: () => 1, pan: () => ({ x: 0, y: 0 }), viewport() {}, panBy() {},
+    };
+    created.push({ graph, nodes, edges });
+    return graph;
+  };
+}
+
+// Mounts the chain plug -> lamp -> bulb (pv stands alone) with the rendered
+// graph. stateOf() is read on every switch request.
+async function switchPanel({ stateOf = () => 'on', layers, energy, log = [], created = [] } = {}) {
+  const table = switchTable(stateOf);
+  if (layers) table['/api/v1/device/map'] = { ...SWITCH_MAP, view: { layers } };
+  if (energy) table['/api/v1/energy'] = energy;
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(table), cytoscapeImpl: switchGraphFactory(log, created) });
+  component.$refs = { canvas: fakeCanvas() };
+  await component.load();
+  const current = () => created[created.length - 1];
+  return { component, window, log, graph: () => current().graph, nodes: () => current().nodes, edges: () => current().edges };
+}
+
+// Replaces the component's timers with a queue the test runs by hand, so the
+// delays can be read and a fade can be interrupted in the middle.
+function queueTimers(component) {
+  const queue = [];
+  component._setTimeout = (fn, ms) => {
+    const timer = { fn, ms, id: queue.length + 1, cleared: false, ran: false };
+    queue.push(timer);
+    return timer.id;
+  };
+  component._clearTimeout = id => {
+    const timer = queue.find(entry => entry.id === id);
+    if (timer) timer.cleared = true;
+  };
+  return queue;
+}
+
+function runTimer(timer) {
+  if (timer.cleared || timer.ran) return;
+  timer.ran = true;
+  timer.fn();
+}
+
+test('first render does not animate and sets the quiet state at once', async () => {
+  const log = [];
+  const { nodes } = await switchPanel({ stateOf: () => 'off', log });
+  assert.equal(log.filter(entry => entry.type === 'animate').length, 0);
+  assert.equal(nodes().get('plug').data('quiet'), true);
+  assert.equal(nodes().get('bulb').data('quiet'), true);
+  assert.equal(nodes().get('pv').data('quiet'), false);
+  assert.ok(nodes().get('plug').data('svgQuiet'), 'the quiet image is set on off outputs');
+  assert.equal(nodes().get('pv').data('svgQuiet'), undefined, 'powered nodes get no quiet image');
+});
+
+test('switching off fades plug first and dead nodes by hop', async () => {
+  let state = 'on';
+  const log = [];
+  const { component } = await switchPanel({ stateOf: () => state, log });
+  const queue = queueTimers(component);
+  state = 'off';
+  await component.refreshEnergy();
+  const started = [];
+  for (const timer of queue) {
+    const before = log.length;
+    runTimer(timer);
+    const animate = log.slice(before).find(entry => entry.type === 'animate');
+    if (animate) started.push({ id: animate.id, ms: timer.ms, duration: animate.opts.duration });
+  }
+  assert.deepEqual(started, [
+    { id: 'plug', ms: 0, duration: 250 },
+    { id: 'lamp', ms: 60, duration: 250 },
+    { id: 'bulb', ms: 120, duration: 250 },
+  ]);
+});
+
+test('reduced motion fades all nodes at once in 150 ms', async () => {
+  let state = 'on';
+  const log = [];
+  const { component, window } = await switchPanel({ stateOf: () => state, log });
+  const queue = queueTimers(component);
+  window.matchMedia = () => ({ matches: true });
+  state = 'off';
+  await component.refreshEnergy();
+  for (const timer of queue) runTimer(timer);
+  const animates = log.filter(entry => entry.type === 'animate');
+  assert.deepEqual(animates.map(entry => entry.id).sort(), ['bulb', 'lamp', 'plug']);
+  for (const entry of animates) assert.equal(entry.opts.duration, 150);
+  assert.deepEqual(queue.map(timer => timer.ms), [0, 0, 0]);
+});
+
+test('toggling during a fade keeps the last state', async () => {
+  let state = 'on';
+  const log = [];
+  const { component, nodes, edges } = await switchPanel({ stateOf: () => state, log });
+  const queue = queueTimers(component);
+  state = 'off';
+  await component.refreshEnergy();
+  runTimer(queue[0]);
+  const staleComplete = log.find(entry => entry.type === 'animate' && entry.id === 'plug').opts.complete;
+  state = 'on';
+  await component.refreshEnergy();
+  assert.ok(log.some(entry => entry.type === 'stop' && entry.id === 'plug'), 'the running fade is stopped');
+  for (const timer of queue) runTimer(timer);
+  staleComplete();
+  for (const id of ['plug', 'lamp', 'bulb']) assert.notEqual(nodes().get(id).data('quiet'), true, `${id} stays on`);
+  assert.equal(edges().some(edge => edge.hasClass('devicemap-dead') || edge.hasClass('devicemap-cut')), false);
+});
+
+test('switch state is hidden with only the data layer', async () => {
+  const state = 'off';
+  const shown = await switchPanel({ stateOf: () => state, layers: { wiring: true, energy: true, balance: false, data: false } });
+  assert.equal(shown.nodes().get('plug').data('quiet'), true, 'control: the wiring layer shows the off state');
+
+  const { component, nodes } = await switchPanel({ stateOf: () => state, layers: { wiring: false, energy: false, balance: false, data: true } });
+  assert.equal(component.labelItems().some(item => item.off), false);
+  for (const id of ['plug', 'lamp', 'bulb']) assert.notEqual(nodes().get(id).data('quiet'), true, `${id} is not quiet`);
+});
+
+test('an off output produces no flow edge', async () => {
+  let state = 'on';
+  const energy = { entities: [{ device_id: 'lamp', entity_id: 'l1', value: 100, unit: 'W', role: { role: 'pv', source: 'override' } }], balance: {} };
+  const { component } = await switchPanel({ stateOf: () => state, energy });
+  const flowIds = () => component.flowElements().map(element => element.data.id);
+  assert.ok(flowIds().includes('flow-plug::lamp'), 'control: the plug feeds the lamp while it is on');
+  state = 'off';
+  await component.refreshEnergy();
+  assert.equal(flowIds().some(id => id.startsWith('flow-plug::') || id.startsWith('flow-lamp::')), false);
 });

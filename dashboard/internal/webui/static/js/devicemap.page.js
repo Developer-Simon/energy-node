@@ -16,6 +16,14 @@
 
   const ENERGY_REFRESH_MS = 1000;
 
+  // Switch fade timing (draft motion table): 250 ms per node, 60 ms per hop
+  // below the switch, reduced motion 150 ms for all nodes at once.
+  const SWITCH_FADE_MS = 250;
+  const SWITCH_HOP_MS = 60;
+  const SWITCH_REDUCED_MS = 150;
+  // The state of a node that is neither switched off nor without power.
+  const NO_SWITCH = Object.freeze({quiet: false, off: false, hops: 0});
+
   const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false};
 
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
@@ -31,6 +39,13 @@
     // subtle bugs (Cytoscape mutates itself heavily on every render/drag).
     let cy = null;
     let labels = null;
+    // Switch state as last committed on the map: id -> {quiet, off, hops}.
+    // A running fade only moves a node here when it completes.
+    let switchShown = new Map();
+    // Goal of the last applySwitchState() call; an unchanged goal keeps running fades.
+    let switchGoal = null;
+    let switchGen = 0;
+    let switchTimers = [];
 
     return {
       ...window.DevicePicker.mixin(),
@@ -52,7 +67,7 @@
       themeOff: null,
       energy: null,
       energyUnavailable: false,
-      switches: [], // Antwort von /api/v1/devices/switches, bleibt bei fehlgeschlagenem Abruf erhalten
+      switches: [], // Answer of /api/v1/devices/switches, kept when a request fails
       flows: null, // {nodes, edges, unresolved} from /api/v1/device/map/flows, null while unavailable
       flowsUnavailable: false,
       invalidConfigs: 0,
@@ -80,6 +95,7 @@
       _energyTimer: null,
       _energyPending: false,
       _setTimeout: (fn, ms) => setTimeout(fn, ms),
+      _clearTimeout: id => clearTimeout(id),
       _cyForTest: null,
       _requestFrame: fn => (window.requestAnimationFrame ? window.requestAnimationFrame(fn) : null),
       _cancelFrame: id => { if (window.cancelAnimationFrame) window.cancelAnimationFrame(id); },
@@ -180,13 +196,14 @@
         this.stopFlowAnimation();
         clearTimeout(this._energyTimer);
         if (labels) { labels.destroy(); labels = null; }
+        for (const timer of switchTimers) this._clearTimeout(timer);
+        switchTimers = [];
       },
 
       flowElements() {
         if (!this.view.layers.energy || !this.energy) return [];
-        const status = this.switchStatus();
-        // Off outputs and the dead area carry no flow (energy layer on implies switch layers visible).
-        const cut = new Set([...status.off, ...status.dead.keys()]);
+        // Off outputs and the dead area carry no flow.
+        const cut = new Set(this.switchTargets(this.switchStatus()).keys());
         return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});
       },
 
@@ -201,20 +218,114 @@
         return Boolean(this.view.layers.wiring || this.view.layers.energy);
       },
 
-      // Quiet node and open output port of one device. Nothing is shown
-      // while neither the wiring nor the energy layer is on.
-      switchFlags(status, id) {
-        const visible = this.switchVisible();
-        return {
-          quiet: visible && (status.off.has(id) || status.dead.has(id)),
-          outputOpen: visible && status.outputs.has(id),
-        };
+      // Quiet nodes of a status: off outputs (hop 0) and the dead area with
+      // its hop distance. Nothing is quiet while neither the wiring nor the
+      // energy layer is on.
+      switchTargets(status) {
+        const targets = new Map();
+        if (!this.switchVisible()) return targets;
+        for (const id of status.off) targets.set(id, {quiet: true, off: true, hops: 0});
+        for (const [id, {hops}] of status.dead) targets.set(id, {quiet: true, off: false, hops});
+        return targets;
       },
 
       // Label text for an off output or a node in the dead area, empty otherwise.
       offLabel(status, id) {
         if (!this.switchVisible()) return {};
         return status.off.has(id) || status.dead.has(id) ? {off: true, offText: t('devicemap.node.off')} : {};
+      },
+
+      // The committed switch state as a status, for labels and wiring edges.
+      shownStatus() {
+        const off = new Set();
+        const dead = new Map();
+        for (const [id, state] of switchShown) {
+          if (state.off) off.add(id);
+          else if (state.quiet) dead.set(id, state);
+        }
+        return {off, dead};
+      },
+
+      // Node data for one device: the normal image (with the output port of a
+      // switch output), plus the quiet image for nodes that are switched off
+      // or without power. graphStyle() stacks them, the quiet data picks one.
+      nodeImages(device, status, energy, colorOf) {
+        const outputOpen = this.switchVisible() && status.outputs.has(device.id);
+        const images = {svg: this.nodeSvg(device, energy, colorOf, {outputOpen})};
+        if (this.switchTargets(status).has(device.id)) images.svgQuiet = this.nodeSvg(device, energy, colorOf, {outputOpen, quiet: true});
+        return images;
+      },
+
+      // The only place that sets a node's quiet data or removes its opacity
+      // bypass. animate: changed nodes fade one after another, the switched-off
+      // plug first and each hop of the dead area 60 ms later. A new call
+      // discards a running fade and starts from the last committed state.
+      // Reduced motion fades all nodes together. Without animate, the state is
+      // set at once (first render, new graph).
+      applySwitchState({animate = false} = {}) {
+        if (!cy) return;
+        const graph = cy;
+        const status = this.switchStatus();
+        const targets = this.switchTargets(status);
+        const goal = [...targets].map(([id, target]) => `${id}:${target.quiet}:${target.off}:${target.hops}`).sort().join('|');
+        if (goal === switchGoal) return;
+        switchGoal = goal;
+
+        switchGen += 1;
+        const gen = switchGen;
+        for (const timer of switchTimers) this._clearTimeout(timer);
+        switchTimers = [];
+        const nodes = this.devices.map(device => ({id: device.id, node: graph.getElementById(device.id)})).filter(({node}) => !node.empty());
+        for (const {node} of nodes) {
+          node.stop(true, true);
+          node.removeStyle('background-image-opacity');
+        }
+
+        const commit = (node, id, target) => {
+          switchShown.set(id, target);
+          node.data('quiet', target.quiet);
+          node.removeStyle('background-image-opacity');
+          this.refreshSwitchViews();
+        };
+        const reduced = this.reducedMotion();
+        const fades = [];
+        for (const {id, node} of nodes) {
+          const target = targets.get(id) || NO_SWITCH;
+          if (!animate) {
+            commit(node, id, target);
+            continue;
+          }
+          const shown = switchShown.get(id) || NO_SWITCH;
+          if (shown.quiet !== target.quiet || shown.off !== target.off) fades.push({id, node, target, shown});
+        }
+        for (const {id, node, target, shown} of fades) {
+          // Fading in starts at the plug, fading out at the plug as well:
+          // the hop distance comes from the state that the node moves to,
+          // or from the previous one when it turns back on.
+          const hops = target.quiet ? target.hops : shown.hops;
+          const delay = reduced ? 0 : hops * SWITCH_HOP_MS;
+          const duration = reduced ? SWITCH_REDUCED_MS : SWITCH_FADE_MS;
+          switchTimers.push(this._setTimeout(() => {
+            if (gen !== switchGen) return;
+            node.animate({style: {'background-image-opacity': target.quiet ? [0, 1] : [1, 0]}}, {
+              duration,
+              complete: () => { if (gen === switchGen) commit(node, id, target); },
+            });
+          }, delay));
+        }
+        this.refreshSwitchViews();
+      },
+
+      // Labels and wiring edges follow the committed state only, so a fade
+      // that is still running does not change them early.
+      refreshSwitchViews() {
+        if (labels) labels.update(this.labelItems(this.shownStatus()));
+        if (!cy) return;
+        cy.edges('.devicemap-wiring').forEach(edge => {
+          const shown = switchShown.get(edge.data('source')) || NO_SWITCH;
+          edge.toggleClass('devicemap-dead', shown.quiet);
+          edge.toggleClass('devicemap-cut', shown.off);
+        });
       },
 
       applyFlows() {
@@ -467,7 +578,7 @@
           });
         }
         this.applyFlows();
-        if (labels) labels.update(this.labelItems());
+        this.refreshSwitchViews();
         if (this.popover && this.popover.edge) {
           // Re-open at the original tap point, not at the flipped card corner.
           const anchor = this.edgeCardAnchor || {x: this.popover.left - 12, y: this.popover.top - 12};
@@ -785,11 +896,11 @@
         };
       },
 
-      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor(), flags = this.switchFlags(this.switchStatus(), device.id)) {
+      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor(), {outputOpen = false, quiet = false} = {}) {
         if (device.id === this.balanceId()) return window.DeviceMapNodeSvg.virtualDataUri('balance', colorOf);
         const model = window.DeviceMapModel;
         const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup);
-        return window.DeviceMapNodeSvg.dataUri({...spec, quiet: flags.quiet, outputOpen: flags.outputOpen}, colorOf);
+        return window.DeviceMapNodeSvg.dataUri({...spec, quiet, outputOpen}, colorOf);
       },
 
       labelItems(status = this.switchStatus()) {
@@ -818,22 +929,20 @@
       // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
       // internal state and restart every animation for what is only a value change.
       applyEnergy() {
-        const status = this.switchStatus();
-        if (labels) labels.update(this.labelItems(status));
         if (!cy) return;
+        const status = this.switchStatus();
         const energy = this.energyByDevice();
         const colorOf = this.themeColor();
-        // Quiet state is set directly here. applySwitchState() (Task 8b) will
-        // animate changes of an existing node instead.
         cy.batch(() => {
           for (const device of this.devices) {
             const node = cy.getElementById(device.id);
-            if (!node.empty()) node.data('svg', this.nodeSvg(device, energy, colorOf, this.switchFlags(status, device.id)));
+            if (!node.empty()) node.data(this.nodeImages(device, status, energy, colorOf));
           }
         });
         if (labels) labels.sync(cy);
         this.applyFlows();
         this.applyDataEdges();
+        this.applySwitchState({animate: true});
         this.startFlowAnimation();
       },
 
@@ -1109,6 +1218,7 @@
         this.applyFlows();
         this.applyDataEdges();
         this.applyVisibility({stagger: true});
+        this.applySwitchState({animate: false});
         this.startFlowAnimation();
       },
 
@@ -1120,7 +1230,7 @@
         const nodes = this.devices.map(device => {
           const position = this.positionFor(device.id);
           const element = {
-            data: {id: device.id, name: device.name || device.id, svg: this.nodeSvg(device, energy, colorOf, this.switchFlags(status, device.id))},
+            data: {id: device.id, name: device.name || device.id, ...this.nodeImages(device, status, energy, colorOf)},
             classes: statusClass(device),
           };
           if (position) element.position = {x: position.x, y: position.y};
@@ -1187,6 +1297,9 @@
         }
         const layout = hasAllPositions ? {name: 'preset'} : {name: 'breadthfirst', directed: true, padding: 30};
         if (previousViewport) layout.fit = false;
+        // A new graph starts with no committed switch state.
+        switchShown = new Map();
+        switchGoal = null;
         cy = cytoscape({
           container: this.$refs.canvas,
           elements,
@@ -1225,11 +1338,12 @@
         this.syncGridBackground();
         if (this.$refs.labels && !labels) labels = window.DeviceMapLabels.create(this.$refs.labels);
         if (labels) {
-          labels.update(this.labelItems());
+          labels.update(this.labelItems(this.shownStatus()));
           cy.on('render', () => labels.sync(cy));
           labels.sync(cy);
         }
         this.applyVisibility();
+        this.applySwitchState({animate: false});
         if (this.focusId) this.setFocus(this.focusId);
         this.startFlowAnimation();
       },
