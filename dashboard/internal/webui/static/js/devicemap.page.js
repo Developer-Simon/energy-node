@@ -52,6 +52,7 @@
       themeOff: null,
       energy: null,
       energyUnavailable: false,
+      switches: [], // Antwort von /api/v1/devices/switches, bleibt bei fehlgeschlagenem Abruf erhalten
       flows: null, // {nodes, edges, unresolved} from /api/v1/device/map/flows, null while unavailable
       flowsUnavailable: false,
       invalidConfigs: 0,
@@ -122,7 +123,7 @@
         }
         this.loading = true;
         try {
-          const [devices, deviceMap, energy, roles, session, icons, flows] = await Promise.all([
+          const [devices, deviceMap, energy, roles, session, icons, flows, switches] = await Promise.all([
             requestJSON('/api/v1/devices'),
             requestJSON('/api/v1/device/map'),
             requestJSON('/api/v1/energy').catch(() => null),
@@ -130,7 +131,9 @@
             requestJSON('/api/v1/auth/session').catch(() => null),
             requestJSON('/api/v1/device/icons').catch(() => []),
             requestJSON('/api/v1/device/map/flows').catch(() => null),
+            requestJSON('/api/v1/devices/switches').catch(() => []),
           ]);
+          this.switches = Array.isArray(switches) ? switches : [];
           this.iconCatalogue = Array.isArray(icons) ? icons : [];
           this.iconMarkup = Object.fromEntries(this.iconCatalogue.map(icon => [icon.name, icon.markup]));
           this.savedAssignments = (roles && roles.assignments) || {};
@@ -181,7 +184,37 @@
 
       flowElements() {
         if (!this.view.layers.energy || !this.energy) return [];
-        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props});
+        const status = this.switchStatus();
+        // Off outputs and the dead area carry no flow (energy layer on implies switch layers visible).
+        const cut = new Set([...status.off, ...status.dead.keys()]);
+        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});
+      },
+
+      // Switch outputs and the area without power, from the switch states and
+      // the draft's switch_outputs, so a draft shows its effect before saving.
+      switchStatus() {
+        const pairs = window.DeviceMapSwitch.pathPairs(this.buildEdgeElements());
+        return window.DeviceMapSwitch.status({switches: this.switches, switchOutputs: this.deviceMap.switch_outputs, devices: this.devices, pairs});
+      },
+
+      switchVisible() {
+        return Boolean(this.view.layers.wiring || this.view.layers.energy);
+      },
+
+      // Quiet node and open output port of one device. Nothing is shown
+      // while neither the wiring nor the energy layer is on.
+      switchFlags(status, id) {
+        const visible = this.switchVisible();
+        return {
+          quiet: visible && (status.off.has(id) || status.dead.has(id)),
+          outputOpen: visible && status.outputs.has(id),
+        };
+      },
+
+      // Label text for an off output or a node in the dead area, empty otherwise.
+      offLabel(status, id) {
+        if (!this.switchVisible()) return {};
+        return status.off.has(id) || status.dead.has(id) ? {off: true, offText: t('devicemap.node.off')} : {};
       },
 
       applyFlows() {
@@ -525,6 +558,9 @@
       },
 
       async refreshEnergy() {
+        // Switch states run in parallel. A failed request keeps the last
+        // known states and shows no toast, the energy values behave as before.
+        const switches = requestJSON('/api/v1/devices/switches').catch(() => null);
         try {
           this.energy = await requestJSON('/api/v1/energy');
           this.energyUnavailable = false;
@@ -532,6 +568,8 @@
           this.energy = null;
           this.energyUnavailable = true;
         }
+        const list = await switches;
+        if (list !== null) this.switches = Array.isArray(list) ? list : [];
         this.applyEnergy();
       },
 
@@ -747,20 +785,21 @@
         };
       },
 
-      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor()) {
+      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor(), flags = this.switchFlags(this.switchStatus(), device.id)) {
         if (device.id === this.balanceId()) return window.DeviceMapNodeSvg.virtualDataUri('balance', colorOf);
         const model = window.DeviceMapModel;
         const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup);
-        return window.DeviceMapNodeSvg.dataUri(spec, colorOf);
+        return window.DeviceMapNodeSvg.dataUri({...spec, quiet: flags.quiet, outputOpen: flags.outputOpen}, colorOf);
       },
 
-      labelItems() {
+      labelItems(status = this.switchStatus()) {
         const model = window.DeviceMapModel;
         const {energy, children, dirOf} = this.energyFlowContext();
         const devices = this.devices.map(device => ({
           id: device.id,
           name: device.name || device.id,
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
+          ...this.offLabel(status, device.id),
         }));
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
@@ -779,14 +818,17 @@
       // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
       // internal state and restart every animation for what is only a value change.
       applyEnergy() {
-        if (labels) labels.update(this.labelItems());
+        const status = this.switchStatus();
+        if (labels) labels.update(this.labelItems(status));
         if (!cy) return;
         const energy = this.energyByDevice();
         const colorOf = this.themeColor();
+        // Quiet state is set directly here. applySwitchState() (Task 8b) will
+        // animate changes of an existing node instead.
         cy.batch(() => {
           for (const device of this.devices) {
             const node = cy.getElementById(device.id);
-            if (!node.empty()) node.data('svg', this.nodeSvg(device, energy, colorOf));
+            if (!node.empty()) node.data('svg', this.nodeSvg(device, energy, colorOf, this.switchFlags(status, device.id)));
           }
         });
         if (labels) labels.sync(cy);
@@ -1074,10 +1116,11 @@
       buildElements() {
         const energy = this.energyByDevice();
         const colorOf = this.themeColor();
+        const status = this.switchStatus();
         const nodes = this.devices.map(device => {
           const position = this.positionFor(device.id);
           const element = {
-            data: {id: device.id, name: device.name || device.id, svg: this.nodeSvg(device, energy, colorOf)},
+            data: {id: device.id, name: device.name || device.id, svg: this.nodeSvg(device, energy, colorOf, this.switchFlags(status, device.id))},
             classes: statusClass(device),
           };
           if (position) element.position = {x: position.x, y: position.y};

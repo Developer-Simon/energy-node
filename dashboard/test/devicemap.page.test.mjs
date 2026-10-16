@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
+const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
@@ -1897,4 +1897,106 @@ test('revisionConfig hands the CSRF token to the revisions API', () => {
   const component = panelWith({ devices: [] });
   component.csrfToken = 'tok';
   assert.equal(component.revisionConfig().headers()['X-CSRF-Token'], 'tok');
+});
+
+// Switch states on the map. The plug is the switch output of its device and
+// feeds the lamp, so switching the plug off makes the lamp dead.
+const SWITCH_DEVICES = [
+  { id: 'plug', name: 'Steckdose', relations: [{ id: 'lamp', kind: 'child' }], entities: [] },
+  { id: 'lamp', name: 'Lampe', relations: [{ id: 'plug', kind: 'parent' }], entities: [] },
+  { id: 'pv', name: 'PV', relations: [], entities: [] },
+];
+const SWITCH_MAP = {
+  version: 3,
+  nodes: [{ device_id: 'plug', x: 0, y: 0 }, { device_id: 'lamp', x: 100, y: 0 }, { device_id: 'pv', x: 200, y: 0 }],
+  edges: [],
+  edge_props: [{ parent_id: 'plug', child_id: 'lamp', type: 'energy' }],
+  switch_outputs: [{ entity_id: 'switch.plug', device_id: 'plug', function: 'output' }],
+  view: { layers: { wiring: true, energy: true, balance: false, data: false } },
+};
+const switchesFor = state => [{ device_id: 'plug', entity_id: 'switch.plug', name: 'Steckdose', state }];
+
+function switchTable(stateOf = () => 'on') {
+  return mapRoutes({
+    '/api/v1/devices': SWITCH_DEVICES,
+    '/api/v1/device/map': SWITCH_MAP,
+    '/api/v1/devices/switches': () => switchesFor(stateOf()),
+  });
+}
+
+test('load fetches the switch states', async () => {
+  const calls = [];
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchTable(), calls) });
+  await component.load();
+  assert.deepEqual(plain(component.switches), switchesFor('on'));
+  assert.ok(calls.some(call => call.url.endsWith('/api/v1/devices/switches')));
+});
+
+test('a failing switches request on load gives an empty list and no toast', async () => {
+  const table = switchTable();
+  const fetchImpl = async (url, options) => {
+    if (String(url).endsWith('/api/v1/devices/switches')) throw new Error('network down');
+    return routes(table)(url, options);
+  };
+  const { component, stores } = createDevicemapPanel({ fetchImpl });
+  await component.load();
+  assert.deepEqual(plain(component.switches), []);
+  assert.equal(stores.toasts.items.length, 0);
+});
+
+test('refreshEnergy also refreshes the switch states', async () => {
+  let state = 'on';
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchTable(() => state)) });
+  await component.load();
+  assert.equal(component.switchStatus().off.has('plug'), false);
+  state = 'off';
+  await component.refreshEnergy();
+  assert.equal(component.switchStatus().off.has('plug'), true);
+});
+
+test('a failing switches request leaves the map as it is', async () => {
+  let fail = false;
+  const table = switchTable();
+  const fetchImpl = async (url, options) => {
+    if (fail && String(url).endsWith('/api/v1/devices/switches')) throw new Error('network down');
+    return routes(table)(url, options);
+  };
+  const { component, stores } = createDevicemapPanel({ fetchImpl });
+  await component.load();
+  const before = plain(component.switches);
+  fail = true;
+  await component.refreshEnergy();
+  assert.deepEqual(plain(component.switches), before);
+  assert.equal(stores.toasts.items.length, 0, 'a failed switch refresh is not a toast');
+});
+
+test('switch state is hidden with only data or balance layers', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchTable(() => 'off')) });
+  await component.load();
+  const plug = component.devices.find(device => device.id === 'plug');
+  assert.ok(component.labelItems().some(item => item.off), 'control: with the wiring layer the off state shows');
+  assert.match(decodeURIComponent(component.nodeSvg(plug)), /data-quiet/, 'control: the off plug is drawn quiet');
+
+  component.deviceMap = { ...component.deviceMap, view: { layers: { wiring: false, energy: false, balance: false, data: true } } };
+  assert.equal(component.labelItems().some(item => item.off), false);
+  assert.doesNotMatch(decodeURIComponent(component.nodeSvg(plug)), /data-quiet/);
+});
+
+test('labelItems marks the off plug and the dead nodes', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchTable(() => 'off')) });
+  await component.load();
+  const items = new Map(JSON.parse(JSON.stringify(component.labelItems())).map(item => [item.id, item]));
+  assert.equal(items.get('plug').off, true);
+  assert.equal(items.get('plug').offText, 'Aus');
+  assert.equal(items.get('lamp').off, true, 'the lamp is below the off plug and has no other feed');
+  assert.equal(items.get('lamp').offText, 'Aus');
+  assert.equal(items.get('pv').off, undefined, 'a device without a switch above it is not marked');
+});
+
+test('labelItems leaves the lamp unmarked while the plug is on', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchTable(() => 'on')) });
+  await component.load();
+  const items = new Map(JSON.parse(JSON.stringify(component.labelItems())).map(item => [item.id, item]));
+  assert.equal(items.get('plug').off, undefined);
+  assert.equal(items.get('lamp').off, undefined);
 });
