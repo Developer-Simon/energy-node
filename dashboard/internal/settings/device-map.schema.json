@@ -48,6 +48,19 @@
         }
       }
     },
+    "switch_outputs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["entity_id", "device_id", "function"],
+        "properties": {
+          "entity_id": {"type": "string", "minLength": 1},
+          "device_id": {"type": "string", "minLength": 1},
+          "function": {"type": "string", "enum": ["output", "none"]}
+        }
+      }
+    },
     "view": {
       "type": "object",
       "additionalProperties": false,
