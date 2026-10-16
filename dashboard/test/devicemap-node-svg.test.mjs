@@ -77,3 +77,41 @@ test('virtual node markups follow the draft shapes', () => {
   assert.match(stub, /stroke="#warn-line"/);
   assert.match(svg.virtualDataUri('rule', colorOf), /^data:image\/svg\+xml;utf8,/);
 });
+
+const base = { segments: ['flow-pv'], dashed: false, icon: 'pv', iconColor: 'flow-pv', health: 'ok' };
+
+test('quiet dims ring and icon but not the health dot', () => {
+  const { svg, dom } = load();
+  const doc = new dom.window.DOMParser().parseFromString(svg.markup({ ...base, quiet: true }, colorOf), 'image/svg+xml');
+  const group = doc.querySelector('g[data-quiet]');
+  assert.ok(group);
+  assert.equal(group.getAttribute('opacity'), '0.4');
+  const rings = [...group.querySelectorAll('circle[data-ring]')];
+  assert.equal(rings.length, 1);
+  assert.ok(group.querySelector('svg[data-icon]'));
+  assert.equal(group.querySelector('circle[data-health]'), null);
+  assert.ok(doc.querySelector('circle[data-health]'));
+});
+
+test('without quiet there is no quiet group', () => {
+  const { svg, dom } = load();
+  const doc = new dom.window.DOMParser().parseFromString(svg.markup(base, colorOf), 'image/svg+xml');
+  assert.equal(doc.querySelector('g[data-quiet]'), null);
+});
+
+test('outputOpen draws a hollow port at three o\'clock', () => {
+  const { svg, dom } = load();
+  const doc = new dom.window.DOMParser().parseFromString(svg.markup({ ...base, outputOpen: true }, colorOf), 'image/svg+xml');
+  const port = doc.querySelector('circle[data-port="open"]');
+  assert.ok(port);
+  assert.equal(port.getAttribute('cx'), '24');
+  assert.equal(port.getAttribute('cy'), '0');
+  assert.equal(port.getAttribute('fill'), '#panel');
+  assert.equal(port.getAttribute('stroke'), '#flow-rest');
+});
+
+test('no port without outputOpen', () => {
+  const { svg, dom } = load();
+  const doc = new dom.window.DOMParser().parseFromString(svg.markup(base, colorOf), 'image/svg+xml');
+  assert.equal(doc.querySelector('circle[data-port]'), null);
+});

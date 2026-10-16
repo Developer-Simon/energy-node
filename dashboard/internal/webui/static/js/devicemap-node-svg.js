@@ -58,9 +58,12 @@
     const dot = (R * 0.72).toFixed(2);
     const body = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="${-half} ${-half} ${SIZE} ${SIZE}">`
       + `<circle r="${R}" fill="{panel}" stroke="{border-soft}" stroke-width="1"/>`
+      + (spec.quiet ? '<g data-quiet="true" opacity="0.4">' : '')
       + ring(spec)
       + `<svg data-icon="${spec.icon}" x="-10" y="-10" width="20" height="20" viewBox="0 0 24 24" color="{${spec.iconColor}}">${iconBody(spec)}</svg>`
+      + (spec.quiet ? '</g>' : '')
       + `<circle data-health="${spec.health}" cx="${dot}" cy="-${dot}" r="4.5" fill="{${HEALTH_TOKEN[spec.health] || 'text-faint'}}" stroke="{panel}" stroke-width="2"/>`
+      + (spec.outputOpen ? `<circle data-port="open" cx="${R}" cy="0" r="4" fill="{panel}" stroke="{flow-rest}" stroke-width="2"/>` : '')
       + '</svg>';
     return body.replace(TOKEN, (_, token) => colorOf(token));
   };
