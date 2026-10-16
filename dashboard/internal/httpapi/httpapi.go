@@ -274,6 +274,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
 	}
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
+	mux.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
 	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
