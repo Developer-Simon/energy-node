@@ -314,13 +314,14 @@ async function deviceMapShowcase() {
       const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
       const cy = document.querySelector('#devicemap-panel [x-ref="canvas"]')._cyreg.cy;
       const plug = cy.getElementById('plug_balkon');
-      const edge = plug.connectedEdges('.devicemap-wiring')[0];
+      const kraftwerk = cy.getElementById('balkon_kraftwerk');
+      const edge = plug.edgesWith(kraftwerk).filter('.devicemap-wiring')[0];
       panel.selectedEdge = {id: edge.id(), source: edge.data('source'), target: edge.data('target'), overrideId: edge.data('overrideId') || null, membership: edge.data('membership') || null};
       cy.edges().removeClass('devicemap-selected-edge');
       edge.addClass('devicemap-selected-edge');
-      // The plug sits left of the inverter, so the card opened to the right of
-      // the edge midpoint does not cover the plug's label.
-      cy.fit(plug.union(cy.getElementById('apsystems_dach')), 120);
+      // The card opens to the right of the edge midpoint, so the plug label and
+      // the Balkonkraftwerk on the left stay uncovered.
+      cy.fit(plug.union(kraftwerk), 120);
       panel.openWiringPopover(edge.renderedMidpoint());
     });
     await s.page.waitForTimeout(1200);

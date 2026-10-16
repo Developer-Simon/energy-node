@@ -370,5 +370,9 @@
   {"topic": "homeassistant/sensor/plug_entfeuchter/power/config", "payload": {"name": "Leistung", "unique_id": "plug_entfeuchter_power", "state_topic": "plug/entfeuchter/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "plug/entfeuchter/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["plug_entfeuchter"], "via_device": "energy_node", "name": "Plug Entfeuchter"}}},
   {"topic": "plug/entfeuchter/online", "payload": "true"},
   {"topic": "plug/entfeuchter/status", "payload": {"id": 0, "apower": 0, "source": "smoke"}},
-  {"topic": "plug/entfeuchter/output", "payload": "OFF"}
+  {"topic": "plug/entfeuchter/output", "payload": "OFF"},
+
+  {"topic": "homeassistant/sensor/balkon_kraftwerk/power/config", "payload": {"name": "Leistung", "unique_id": "balkon_kraftwerk_power", "state_topic": "outstation/balkon_kraftwerk/power_w", "unit_of_measurement": "W", "device_class": "power", "state_class": "measurement", "availability_topic": "outstation/balkon_kraftwerk/status/online", "payload_available": "1", "payload_not_available": "0", "device": { "identifiers": ["balkon_kraftwerk"], "name": "Balkonkraftwerk" }}},
+  {"topic": "outstation/balkon_kraftwerk/status/online", "payload": "1"},
+  {"topic": "outstation/balkon_kraftwerk/power_w", "payload": "180"}
 ]
