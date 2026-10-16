@@ -112,3 +112,53 @@ test('the flow animator runs one loop and stops itself', () => {
   frames.shift()(1100);
   assert.equal(frames.length, 0, 'the loop ends when nothing should move');
 });
+
+test('flowElements skips pairs whose parent is cut', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const pairs = [{ parent: 'grid', child: 'P' }, { parent: 'P', child: 'wr' }];
+  const energy = new Map([
+    ['grid', { power: -500, roles: [], meta: {}, byRole: {} }],
+    ['P', { power: null, roles: [], meta: {}, byRole: {} }],
+    ['wr', { power: 300, roles: [], meta: {}, byRole: {} }],
+  ]);
+  const edgeProps = [
+    { parent_id: 'grid', child_id: 'P', type: 'energy', direction: 'auto' },
+    { parent_id: 'P', child_id: 'wr', type: 'energy', direction: 'auto' },
+  ];
+  const flows = DeviceMapGraph.flowElements({ pairs, energy, view: { width_by_power: false }, edgeProps, cut: new Set(['P']) });
+  assert.deepEqual(plain(flows.map(flow => flow.data.id)), ['flow-grid::P']);
+});
+
+test('style draws dead edges dotted in the rest colour without arrow', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555' };
+  const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: false, energy: true } }, theme, color: () => '#000', reducedMotion: false });
+  const rule = style.find(entry => entry.selector === 'edge.devicemap-wiring.devicemap-dead');
+  assert.ok(rule, 'dead edge rule exists');
+  assert.equal(rule.style['line-style'], 'dotted');
+  assert.equal(rule.style['target-arrow-shape'], 'none');
+});
+
+test('style gives cut edges a hollow source port', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555' };
+  const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: false, energy: true } }, theme, color: () => '#000', reducedMotion: false });
+  const rule = style.find(entry => entry.selector === 'edge.devicemap-cut');
+  assert.ok(rule, 'cut edge rule exists');
+  assert.equal(rule.style['source-arrow-shape'], 'circle');
+  assert.equal(rule.style['source-arrow-fill'], 'hollow');
+  assert.ok(rule.style['source-distance-from-node'] > 0);
+});
+
+test('style stacks the quiet image', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555' };
+  const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: true, energy: true } }, theme, color: () => '#000', reducedMotion: false });
+  const base = style.find(entry => entry.selector === 'node[svgQuiet]');
+  assert.ok(base, 'stacked base rule exists');
+  assert.deepEqual(plain(base.style['background-image']), ['data(svg)', 'data(svgQuiet)']);
+  assert.deepEqual(plain(base.style['background-image-opacity']), [1, 0]);
+  const quiet = style.find(entry => entry.selector === 'node[svgQuiet][?quiet]');
+  assert.ok(quiet, 'quiet override rule exists');
+  assert.deepEqual(plain(quiet.style['background-image-opacity']), [0, 1]);
+});

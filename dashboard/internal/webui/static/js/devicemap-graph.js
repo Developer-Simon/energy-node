@@ -65,7 +65,9 @@
   const pairsOf = edgeElements => edgeElements
     .map(element => ({parent: element.data.source, child: element.data.target}));
 
-  const flowElements = ({pairs, energy, view, edgeProps}) => {
+  // `cut` holds node ids whose outgoing energy edges carry no flow (switched
+  // off outputs and nodes without power). Pairs under a cut parent get no flow.
+  const flowElements = ({pairs, energy, view, edgeProps, cut}) => {
     const model = window.DeviceMapModel;
     const wiring = window.DeviceMapWiring;
     const index = wiring.propsIndex(edgeProps);
@@ -75,6 +77,7 @@
     const byPower = view.width_by_power;
     const flows = [];
     for (const {parent, child} of energyPairs) {
+      if (cut && cut.has(parent)) continue;
       const flow = model.edgeFlow(child, energy, children, {dirOf, parentId: parent});
       if (!flow) continue;
       const reverse = flow.value < 0;
@@ -173,6 +176,14 @@
     {selector: 'edge.devicemap-wiring.devicemap-conn-info', style: {width: 1, 'line-color': theme.faint, 'target-arrow-color': theme.faint}},
     {selector: 'edge.devicemap-wiring.devicemap-conn-detected', style: {'line-opacity': 0.7}},
     ...(view.layers.wiring ? [] : [{selector: 'edge.devicemap-wiring:not(.devicemap-conn-energy)', style: {display: 'none'}}]),
+    // Dead edges: the source is cut (off output or no power), so no flow runs
+    // over them. A cut edge also gets a hollow port at its source.
+    {selector: 'edge.devicemap-wiring.devicemap-dead', style: {'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'line-color': theme.faint, 'target-arrow-shape': 'none'}},
+    {selector: 'edge.devicemap-cut', style: {'source-arrow-shape': 'circle', 'source-arrow-fill': 'hollow', 'source-arrow-color': theme.faint, 'source-distance-from-node': 6}},
+    // Quiet nodes stack the normal and the quiet image. Cytoscape interpolates
+    // the list opacities, Task 8 relies on that for the cross-fade.
+    {selector: 'node[svgQuiet]', style: {'background-image': ['data(svg)', 'data(svgQuiet)'], 'background-image-opacity': [1, 0]}},
+    {selector: 'node[svgQuiet][?quiet]', style: {'background-image-opacity': [0, 1]}},
     {selector: 'edge.devicemap-flow', style: {
       ...(EDGE_STYLES[view.edge_style] || EDGE_STYLES.straight),
       'line-color': edge => color(edge.data('color')),
