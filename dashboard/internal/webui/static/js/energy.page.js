@@ -317,7 +317,7 @@
           channel: this.switchChannelOf(entity.assignment),
         }]));
         await this.reconcileHidden(saved.hidden);
-        if (saved.interpretation)this.interpretation = {...this.interpretation, ...saved.interpretation};
+        if (saved.interpretation) this.interpretation = {...this.interpretation, ...saved.interpretation};
         this.categories = JSON.parse(JSON.stringify(saved.categories || {}));
         this.groups = JSON.parse(JSON.stringify(saved.groups || {}));
         this.devicesList = devices
