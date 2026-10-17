@@ -2621,3 +2621,110 @@ test('the panel role select has a static empty option, since a bound empty value
   assert.match(html, /<option value="" x-bind:selected="!row\.assignment\.role">\{\{t "energy\.roles\.no_role"\}\}<\/option>/);
   assert.match(html, /item\.group === 'standard' && item\.value/);
 });
+
+// Sub-devices (Untergeräte): a plug with two power entities, one of them
+// measured as the sub-device sub:wm (washing machine).
+const SUB_DEVICES_FIXTURE = () => [
+  { id: 'netz', name: 'Netz', relations: [{ id: 'plug_b', kind: 'child' }], entities: [] },
+  { id: 'plug_b', name: 'Steckdose B', relations: [{ id: 'netz', kind: 'parent' }], entities: [
+    { unique_id: 'power_1', name: 'Waschmaschine', unit_of_measurement: 'W' },
+    { unique_id: 'power_2', name: 'Lampe', unit_of_measurement: 'W' },
+  ] },
+];
+const SUB_WM = { id: 'sub:wm', label: 'Waschmaschine', icon: 'plug', device_id: 'plug_b', entity_id: 'power_1' };
+const SUB_ENERGY = () => ({ entities: [
+  { device_id: 'plug_b', entity_id: 'power_1', value: 300, unit: 'W', role: { role: 'load', source: 'override' } },
+  { device_id: 'plug_b', entity_id: 'power_2', value: 200, unit: 'W', role: { role: 'load', source: 'override' } },
+], balance: {} });
+
+test('plug keeps the ring of its other power entity', () => {
+  const { component, window } = createDevicemapPanel();
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }], edges: [],
+    edge_props: [{ parent_id: 'netz', child_id: 'plug_b', type: 'energy', channel: 1 }], sub_devices: [SUB_WM] };
+  const energy = component.energyByDevice();
+  assert.deepEqual(plain(energy.get('plug_b').roles), ['load']);
+  assert.equal(energy.get('plug_b').byRole.load, 200, 'only the remaining entity');
+  assert.equal(energy.get('sub:wm').byRole.load, 300, 'the sub-device carries its entity');
+  // Review Focus 2: the edge into the plug carries the plug's own entity and the sub-device.
+  const { children, dirOf } = component.energyFlowContext();
+  const flow = window.DeviceMapModel.edgeFlow('plug_b', energy, children, { dirOf, parentId: 'netz' });
+  assert.equal(flow.value, 500, 'edgeFlow == power_1 + power_2');
+});
+
+test('draft role shows on the sub-device', () => {
+  const { component } = createDevicemapPanel();
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [], edges: [], sub_devices: [SUB_WM] };
+  component.setDraft('power_1', 'role', 'pv');
+  const entry = component.energyByDevice().get('sub:wm');
+  assert.deepEqual(plain(entry.roles), ['pv']);
+  assert.equal(component.energyByDevice().get('plug_b').roles.includes('pv'), false);
+});
+
+// Plug with two switch channels and one sub-device on each channel. Channel 1
+// is on, channel 2 is off in the second case of each test.
+const CHANNEL_SUB_DEVICES = [
+  { id: 'pm', name: 'Zweifach', relations: [], entities: [
+    { unique_id: 'power_a', unit_of_measurement: 'W' },
+    { unique_id: 'power_b', unit_of_measurement: 'W' },
+  ] },
+];
+const CHANNEL_SUB_MAP = {
+  version: 3,
+  nodes: [{ device_id: 'pm', x: 0, y: 0 }],
+  edges: [],
+  sub_devices: [
+    { id: 'sub:a', label: 'A', icon: 'plug', device_id: 'pm', entity_id: 'power_a' },
+    { id: 'sub:b', label: 'B', icon: 'plug', device_id: 'pm', entity_id: 'power_b' },
+  ],
+  edge_props: [
+    { parent_id: 'pm', child_id: 'sub:a', type: 'energy', channel: 1 },
+    { parent_id: 'pm', child_id: 'sub:b', type: 'energy', channel: 2 },
+  ],
+  view: { layers: { wiring: true, energy: true, balance: false, data: false } },
+};
+
+// Mounts the map with a graph stand-in and returns the node stand-ins.
+async function subGraphPanel({ devices, map, switches = [], assignments = {} }) {
+  const table = mapRoutes({
+    '/api/v1/devices': devices,
+    '/api/v1/device/map': map,
+    '/api/v1/energy/roles': { assignments, groups: {}, categories: {} },
+    '/api/v1/devices/switches': switches,
+  });
+  const created = [];
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(table), cytoscapeImpl: switchGraphFactory([], created) });
+  component.$refs = { canvas: fakeCanvas(), labels: window.document.createElement('div') };
+  await component.load();
+  return { component, nodes: created[created.length - 1].nodes };
+}
+
+test('switched off channel cuts only its sub-device', async () => {
+  const shown = await subGraphPanel({
+    devices: CHANNEL_SUB_DEVICES,
+    map: CHANNEL_SUB_MAP,
+    switches: [
+      { device_id: 'pm', entity_id: 'switch.s1', name: 'Ausgang 1', state: 'on' },
+      { device_id: 'pm', entity_id: 'switch.s2', name: 'Ausgang 2', state: 'off' },
+    ],
+    assignments: { 'switch.s1': { role: 'switch', channel: 1 }, 'switch.s2': { role: 'switch', channel: 2 } },
+  });
+  assert.equal(shown.nodes.get('sub:b').data('quiet'), true, 'channel 2 is off');
+  assert.notEqual(shown.nodes.get('sub:a').data('quiet'), true, 'channel 1 is on');
+  assert.notEqual(shown.nodes.get('pm').data('quiet'), true, 'the meter itself is not cut');
+});
+
+test('plug without switch has no port and sub-device is never quiet', async () => {
+  const shown = await subGraphPanel({
+    devices: [{ id: 'pm', name: 'Steckdose', relations: [], entities: [{ unique_id: 'power_a', unit_of_measurement: 'W' }] }],
+    map: { ...CHANNEL_SUB_MAP, sub_devices: [{ id: 'sub:a', label: 'A', icon: 'plug', device_id: 'pm', entity_id: 'power_a' }],
+      edge_props: [{ parent_id: 'pm', child_id: 'sub:a', type: 'energy', channel: 1 }] },
+  });
+  const svgOf = id => decodeURIComponent(shown.nodes.get(id).data('svg'));
+  assert.notEqual(shown.nodes.get('sub:a').data('quiet'), true, 'no switch, so never quiet');
+  assert.equal(svgOf('pm').includes('data-port'), false, 'the meter has no port');
+  assert.equal(svgOf('sub:a').includes('data-port'), false, 'the sub-device has no port');
+});

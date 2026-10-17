@@ -831,6 +831,7 @@
   "devicemap.stub.reason.key_unmatched": "Kein Wert dieses Topics passt zum JSON-Schlüssel.",
   "devicemap.stub.reason.no_consumer": "Kein Gerät empfängt dieses Topic.",
   "devicemap.stub.reason.no_producer": "Kein Gerät veröffentlicht dieses Topic.",
+  "devicemap.sub.missing": "Messung fehlt",
   "devicemap.title": "Device-Map",
   "devicemap.toolbar_aria": "Werkzeuge der Gerätekarte",
   "devicemap.unsaved_badge": "Ungespeicherte Positionsänderungen",

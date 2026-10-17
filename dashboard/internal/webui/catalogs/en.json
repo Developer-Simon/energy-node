@@ -831,6 +831,7 @@
   "devicemap.stub.reason.key_unmatched": "No value of this topic matches the JSON key.",
   "devicemap.stub.reason.no_consumer": "No device receives this topic.",
   "devicemap.stub.reason.no_producer": "No device publishes this topic.",
+  "devicemap.sub.missing": "Measurement missing",
   "devicemap.title": "Device map",
   "devicemap.toolbar_aria": "Device map tools",
   "devicemap.unsaved_badge": "Unsaved position changes",

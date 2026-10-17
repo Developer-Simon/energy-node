@@ -342,6 +342,12 @@
   // otherwise the signed sum of its subtree. options.dirOf(parent, child)
   // turns each edge's value by its direction (devicemap-wiring.js), also
   // inside a sum. visited guards against cycles manual relations can create.
+  // Power of the sub-devices directly below a node (leaves, so no recursion).
+  const subPower = (childId, energy, children) => (children.get(childId) || []).reduce((sum, next) => {
+    const sub = window.DeviceMapSubDevices && window.DeviceMapSubDevices.isSubId(next) ? energy.get(next) : null;
+    return sub && sub.power != null ? sum + sub.power : sum;
+  }, 0);
+
   const edgeFlow = (childId, energy, children, options = {}) => {
     const visited = options.visited || new Set();
     if (visited.has(childId)) return null;
@@ -350,7 +356,11 @@
       ? window.DeviceMapWiring.applyDirection(value, options.dirOf(options.parentId, childId)) : value);
     const entry = energy.get(childId);
     if (entry && entry.power != null) {
-      return Math.abs(entry.power) < MIN_FLOW_W ? null : {value: turn(entry.power), sum: false};
+      // A meter with sub-devices carries their power too: its own remaining
+      // entities plus every sub-device below it.
+      const subs = subPower(childId, energy, children);
+      const power = entry.power + subs;
+      return Math.abs(power) < MIN_FLOW_W ? null : {value: turn(power), sum: subs !== 0};
     }
     let total = null;
     for (const next of children.get(childId) || []) {

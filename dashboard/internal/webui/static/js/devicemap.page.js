@@ -342,7 +342,8 @@
         const gen = switchGen;
         for (const timer of switchTimers) this._clearTimeout(timer);
         switchTimers = [];
-        const nodes = this.devices.map(device => ({id: device.id, node: graph.getElementById(device.id)})).filter(({node}) => !node.empty());
+        const ids = [...this.devices.map(device => device.id), ...this.subDevices().map(sub => sub.id)];
+        const nodes = ids.map(id => ({id, node: graph.getElementById(id)})).filter(({node}) => !node.empty());
         for (const {node} of nodes) {
           node.stop(true, true);
           node.removeStyle('background-image-opacity');
@@ -808,7 +809,7 @@
 
       baseNodeIds() {
         const df = window.DeviceMapDataflow;
-        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), this.balanceId(), ...this.flowNodes().map(node => node.id)]);
+        return new Set([...this.devices.map(device => device.id), ...this.subDevices().map(sub => sub.id), ...this.groupIds(), this.balanceId(), ...this.flowNodes().map(node => node.id)]);
       },
 
       stubInfo() {
@@ -825,8 +826,45 @@
         return window.DeviceMapModel.applyDrafts(this.energy, this.drafts, this.devices);
       },
 
+      // Entities with a sub-device are measured under the sub-device's ID
+      // (drafts included), so the meter keeps the ring of its other entities.
       energyByDevice() {
-        return window.DeviceMapModel.deviceEnergy(this.previewEnergy());
+        return window.DeviceMapModel.deviceEnergy(window.DeviceMapSubDevices.remapSnapshot(this.previewEnergy(), this.deviceMap));
+      },
+
+      subDevices() {
+        return window.DeviceMapSubDevices.list(this.deviceMap);
+      },
+
+      subIsOrphan(sub) {
+        return window.DeviceMapSubDevices.isOrphan(sub, this.devices);
+      },
+
+      // Value of a sub-device node: its entity's reading, or the hint when
+      // the meter or the entity is gone.
+      subValueText(sub, energy) {
+        if (this.subIsOrphan(sub)) return t('devicemap.sub.missing');
+        const device = this.devices.find(item => item.id === sub.device_id);
+        const entities = ((device && device.entities) || []).filter(entity => entity && entity.unique_id === sub.entity_id);
+        return window.DeviceMapModel.nodeValueText({entities}, energy.get(sub.id));
+      },
+
+      // Node data of one sub-device: a dashed ring in its role colour, the
+      // sub-device icon, and the quiet image when its channel is off.
+      subNodeImages(sub, status, energy, colorOf) {
+        const entry = energy.get(sub.id);
+        const role = entry && entry.primaryRole;
+        const spec = {
+          segments: entry ? entry.roles.map(item => entry.meta[item].color) : [],
+          icon: sub.icon ? `cat:${sub.icon}` : 'box',
+          iconColor: role ? entry.meta[role].color : 'text-muted',
+          health: 'unknown',
+          subDevice: true,
+          iconMarkup: this.iconMarkup[sub.icon] || '',
+        };
+        const images = {svg: window.DeviceMapNodeSvg.dataUri({...spec, quiet: false, port: null}, colorOf)};
+        if (this.switchTargets(status).has(sub.id)) images.svgQuiet = window.DeviceMapNodeSvg.dataUri({...spec, quiet: true, port: null}, colorOf);
+        return images;
       },
 
       setDraft(entityId, field, value) {
@@ -1095,6 +1133,7 @@
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
           ...this.offLabel(status, device.id),
         }));
+        const subs = this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy), ...this.offLabel(status, sub.id)}));
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
           return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children, {dirOf}))};
@@ -1106,7 +1145,7 @@
           ...this.flowNodes().map(node => ({id: node.id, name: node.name, value: t(`devicemap.${node.kind}.value`)})),
           ...this.stubInfo().nodes.map(stub => ({id: stub.id, name: t('devicemap.stub.name'), value: ''})),
         ];
-        return [...devices, ...groups, ...virtual];
+        return [...devices, ...subs, ...groups, ...virtual];
       },
 
       // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
@@ -1120,6 +1159,10 @@
           for (const device of this.devices) {
             const node = cy.getElementById(device.id);
             if (!node.empty()) node.data(this.nodeImages(device, status, energy, colorOf));
+          }
+          for (const sub of this.subDevices()) {
+            const node = cy.getElementById(sub.id);
+            if (!node.empty()) node.data(this.subNodeImages(sub, status, energy, colorOf));
           }
         });
         if (labels) labels.update(this.labelItems(this.shownStatus()));
@@ -1286,6 +1329,24 @@
         return placed;
       },
 
+      // Sub-devices without a saved position go right of their meter, or at the
+      // origin when the meter is gone (orphan). Returns how many were placed.
+      placeNewSubDevices() {
+        const sub = window.DeviceMapSubDevices;
+        const unplaced = this.subDevices().filter(item => !this.positionFor(item.id));
+        if (!unplaced.length) return 0;
+        const snap = this.view.snap_to_grid ? this.view.grid_size : null;
+        const nodes = [...(this.deviceMap.nodes || [])];
+        for (const item of unplaced) {
+          const anchor = nodes.find(node => node.device_id === item.device_id) || {x: 0, y: 0};
+          const spot = sub.placeNew({anchor, taken: nodes, snap});
+          nodes.push({virtual_id: item.id, x: spot.x, y: spot.y});
+        }
+        this.deviceMap = {...this.deviceMap, nodes};
+        this.unsaved = true;
+        return unplaced.length;
+      },
+
       balanceId() {
         return window.DeviceMapDataflow.balanceNodeId(new Set(this.devices.map(device => device.id)));
       },
@@ -1422,6 +1483,16 @@
           if (position) element.position = {x: position.x, y: position.y};
           return element;
         });
+        const subNodes = this.subDevices().map(sub => {
+          const orphan = this.subIsOrphan(sub);
+          const element = {
+            data: {id: sub.id, name: sub.label || sub.id, ...this.subNodeImages(sub, status, energy, colorOf)},
+            classes: orphan ? 'devicemap-sub devicemap-sub-orphan' : 'devicemap-sub',
+          };
+          const position = this.positionFor(sub.id);
+          if (position) element.position = {x: position.x, y: position.y};
+          return element;
+        });
         const groupNodes = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = window.DeviceMapModel.GROUP_PREFIX + id;
           const element = {data: {id: nodeId, name: group.label, svg: window.DeviceMapNodeSvg.groupDataUri(colorOf)}, classes: 'devicemap-group'};
@@ -1442,7 +1513,7 @@
           ...stubInfo.nodes.map(stub => ({id: stub.id, kind: 'stub', name: t('devicemap.stub.name')})),
         ];
         const virtualNodes = window.DeviceMapGraph.virtualElements({kinds: virtualKinds, positions, colorOf});
-        return [...nodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
+        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
       },
 
       buildEdgeElements() {
@@ -1466,7 +1537,7 @@
         this.selectedEdge = null; // any prior selection refers to a now-stale cy instance
         if (!this.$refs.canvas) return;
         this.adoptBalancePosition();
-        this.placedCount = this.placeNewDevices() + this.placeNewGroups() + this.placeVirtualNodes();
+        this.placedCount = this.placeNewDevices() + this.placeNewGroups() + this.placeNewSubDevices() + this.placeVirtualNodes();
         const elements = this.buildElements();
         const hasAllPositions = this.devices.length > 0 && this.devices.every(device => this.positionFor(device.id))
           && this.groupIds().every(id => this.positionFor(id));
@@ -2035,8 +2106,11 @@
               : {device_id: entry.id, x: entry.position.x, y: entry.position.y}));
           // edge_props of pairs that no longer exist are dropped here, the
           // same way vanished devices are dropped from nodes above.
-          const liveKeys = new Set(this.buildEdgeElements().filter(element => !element.data.membership)
-            .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)));
+          // Sub-device pairs are live as long as their meter is on the map, so
+          // prune keeps their channel.
+          const liveKeys = new Set([...this.buildEdgeElements().filter(element => !element.data.membership)
+            .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)),
+            ...window.DeviceMapSubDevices.pairs(this.deviceMap, known).map(pair => window.DeviceMapGraph.relationKey(pair.parent, pair.child))]);
           const edgeProps = window.DeviceMapWiring.prune(this.deviceMap.edge_props, liveKeys);
           // The switch roles live in the energy roles, the map keeps only the
           // edge channels (edge_props).
