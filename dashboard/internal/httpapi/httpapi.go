@@ -347,7 +347,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 			applyRelationOverrides(reg, deviceMap)
 		}
 		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, dependencies.Auth))
+		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, resolver, dependencies.Auth))
 		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
 		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
 		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
@@ -2332,7 +2332,7 @@ func handleDeviceMap(store *settings.Store, manager *auth.Manager) http.HandlerF
 	}
 }
 
-func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *config.Manager, manager *auth.Manager) http.HandlerFunc {
+func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *config.Manager, resolver *energy.Resolver, manager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/device/map/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
@@ -2393,6 +2393,24 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 				return
 			}
 			handleReverseDeviceMapRelation(store, reg, w, parts[1])
+			return
+		}
+		if len(parts) == 1 && parts[0] == "sub-devices" && r.Method == http.MethodPost {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
+			handleCreateSubDevice(store, reg, resolver, w, r)
+			return
+		}
+		if len(parts) == 2 && parts[0] == "sub-devices" && (r.Method == http.MethodPut || r.Method == http.MethodDelete) {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
+			if r.Method == http.MethodPut {
+				handleUpdateSubDevice(store, reg, resolver, w, r, parts[1])
+			} else {
+				handleDeleteSubDevice(store, resolver, w, parts[1])
+			}
 			return
 		}
 		if len(parts) == 1 && parts[0] == "flows" {
