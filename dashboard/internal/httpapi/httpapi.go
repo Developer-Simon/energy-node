@@ -345,6 +345,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
 		if deviceMap, err := store.LoadDeviceMap(); err == nil {
 			applyRelationOverrides(reg, deviceMap)
+			applySubDeviceLabels(resolver, deviceMap)
 		}
 		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
 		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, resolver, dependencies.Auth))
@@ -2321,11 +2322,24 @@ func handleDeviceMap(store *settings.Store, manager *auth.Manager) http.HandlerF
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return
 			}
+			stored, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			keepSubDevices(&value, stored)
 			if err := store.SaveDeviceMap(value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return
 			}
-			writeJSON(w, value)
+			// Answer with the stored map, so dropped sub-devices and nodes do not
+			// look saved.
+			saved, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			writeJSON(w, saved)
 		default:
 			methodNotAllowed(w)
 		}
@@ -2371,6 +2385,7 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 				return
 			}
 			applyRelationOverrides(reg, value)
+			applySubDeviceLabels(resolver, value)
 			writeJSON(w, value)
 			return
 		}

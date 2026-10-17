@@ -887,6 +887,11 @@ func OverviewWithDeviceFilterAndEngine(reg *registry.Registry, configs *config.M
 					resolver.SetModel(value.Model())
 					resolverMu.Unlock()
 				}
+				if deviceMap, err := store.LoadDeviceMap(); err == nil {
+					resolverMu.Lock()
+					resolver.SetLabels(deviceMap.SubDeviceLabels())
+					resolverMu.Unlock()
+				}
 			}
 			resolverMu.Lock()
 			interpretation := resolver.Interpretation()

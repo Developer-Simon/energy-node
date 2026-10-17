@@ -232,3 +232,83 @@ func TestSubDeviceWritesNeedEditEnergyAndCSRF(t *testing.T) {
 		}
 	}
 }
+
+func TestDeviceMapPutKeepsSubDevices(t *testing.T) {
+	router, _, _ := subDeviceTestRouter(t)
+	created := sendSubDevice(t, router, http.MethodPost, "/api/v1/device/map/sub-devices",
+		`{"label":"Waschmaschine","icon":"energy-node:plug-smart","device_id":"plug_b","entity_id":"plug_b_power","channel":2,"x":100,"y":40}`)
+	if created.Code != http.StatusOK {
+		t.Fatalf("create status %d: %s", created.Code, created.Body.String())
+	}
+
+	// A save that sends no sub-devices and no sub node keeps both.
+	put := sendSubDevice(t, router, http.MethodPut, "/api/v1/device/map", `{"nodes":[],"sub_devices":[]}`)
+	if put.Code != http.StatusOK {
+		t.Fatalf("put status %d: %s", put.Code, put.Body.String())
+	}
+	value := decodeSubDeviceMap(t, put)
+	if len(value.SubDevices) != 1 || value.SubDevices[0].ID != "sub:waschmaschine" {
+		t.Fatalf("sub_devices after PUT = %+v", value.SubDevices)
+	}
+	hasNode := false
+	for _, n := range value.Nodes {
+		if n.VirtualID == "sub:waschmaschine" && n.X == 100 && n.Y == 40 {
+			hasNode = true
+		}
+	}
+	if !hasNode {
+		t.Fatalf("sub node missing after PUT: %+v", value.Nodes)
+	}
+	if prop, ok := hasEdgeProp(value, "plug_b", "sub:waschmaschine"); !ok || prop.Channel != 2 {
+		t.Fatalf("sub pair missing after PUT: %+v", value.EdgeProps)
+	}
+
+	// Forged sub-devices and sub nodes in the request are ignored.
+	forged := sendSubDevice(t, router, http.MethodPut, "/api/v1/device/map",
+		`{"nodes":[{"virtual_id":"sub:forged","x":1,"y":1}],"sub_devices":[{"id":"sub:forged","label":"Fake","icon":"energy-node:plug-smart","device_id":"plug_c","entity_id":"plug_c_power"}]}`)
+	if forged.Code != http.StatusOK {
+		t.Fatalf("forged put status %d: %s", forged.Code, forged.Body.String())
+	}
+	kept := decodeSubDeviceMap(t, forged)
+	if len(kept.SubDevices) != 1 || kept.SubDevices[0].ID != "sub:waschmaschine" {
+		t.Fatalf("forged sub_devices were stored: %+v", kept.SubDevices)
+	}
+	for _, n := range kept.Nodes {
+		if n.VirtualID == "sub:forged" {
+			t.Fatalf("forged sub node was stored: %+v", kept.Nodes)
+		}
+	}
+}
+
+func TestRestoreReappliesSubDeviceLabels(t *testing.T) {
+	router, _, _ := subDeviceTestRouter(t)
+	// The first save creates the file without sub-devices, the second save
+	// keeps that version as a revision.
+	if put := sendSubDevice(t, router, http.MethodPut, "/api/v1/device/map", `{"nodes":[]}`); put.Code != http.StatusOK {
+		t.Fatalf("put status %d: %s", put.Code, put.Body.String())
+	}
+	if created := sendSubDevice(t, router, http.MethodPost, "/api/v1/device/map/sub-devices",
+		`{"label":"Waschmaschine","icon":"energy-node:plug-smart","device_id":"plug_b","entity_id":"plug_b_power"}`); created.Code != http.StatusOK {
+		t.Fatalf("create status %d: %s", created.Code, created.Body.String())
+	}
+	if got := energyLabelOf(t, router, "plug_b_power"); got != "Waschmaschine" {
+		t.Fatalf("label before restore = %q", got)
+	}
+
+	revisions := sendSubDevice(t, router, http.MethodGet, "/api/v1/device/map/revisions", "")
+	var list []settings.Revision
+	if err := json.Unmarshal(revisions.Body.Bytes(), &list); err != nil || len(list) == 0 {
+		t.Fatalf("revisions: %v, body %s", err, revisions.Body.String())
+	}
+	restored := sendSubDevice(t, router, http.MethodPost, "/api/v1/device/map/restore",
+		`{"revision":"`+list[0].Name+`"}`)
+	if restored.Code != http.StatusOK {
+		t.Fatalf("restore status %d: %s", restored.Code, restored.Body.String())
+	}
+	if value := decodeSubDeviceMap(t, restored); len(value.SubDevices) != 0 {
+		t.Fatalf("restored map still has sub-devices: %+v", value.SubDevices)
+	}
+	if got := energyLabelOf(t, router, "plug_b_power"); got != "Plug B / Leistung" {
+		t.Fatalf("label after restore = %q, want Plug B / Leistung", got)
+	}
+}

@@ -129,6 +129,41 @@ func applySubDeviceLabels(resolver *energy.Resolver, m settings.DeviceMap) {
 	resolver.SetLabels(m.SubDeviceLabels())
 }
 
+// keepSubDevices protects the sub-devices from a whole-map save. The stored
+// sub-devices replace the request's, and every stored sub-device node or pair
+// that the request does not send is added back. Sub-devices are written only
+// by their own endpoints.
+func keepSubDevices(value *settings.DeviceMap, stored settings.DeviceMap) {
+	value.SubDevices = stored.SubDevices
+	nodes := map[string]bool{}
+	for _, node := range value.Nodes {
+		nodes[node.VirtualID] = true
+	}
+	for _, node := range stored.Nodes {
+		if strings.HasPrefix(node.VirtualID, settings.SubDevicePrefix) && !nodes[node.VirtualID] {
+			value.Nodes = append(value.Nodes, node)
+		}
+	}
+	for _, prop := range stored.EdgeProps {
+		if !strings.HasPrefix(prop.ParentID, settings.SubDevicePrefix) && !strings.HasPrefix(prop.ChildID, settings.SubDevicePrefix) {
+			continue
+		}
+		if !hasEdgePair(value.EdgeProps, prop.ParentID, prop.ChildID) {
+			value.EdgeProps = append(value.EdgeProps, prop)
+		}
+	}
+}
+
+// hasEdgePair reports whether props connect a and b, in either order.
+func hasEdgePair(props []settings.DeviceMapEdgeProp, a, b string) bool {
+	for _, prop := range props {
+		if (prop.ParentID == a && prop.ChildID == b) || (prop.ParentID == b && prop.ChildID == a) {
+			return true
+		}
+	}
+	return false
+}
+
 // saveSubDeviceMap stores the changed map, applies the labels and answers
 // with the stored device map.
 func saveSubDeviceMap(store *settings.Store, resolver *energy.Resolver, w http.ResponseWriter, deviceMap settings.DeviceMap) {
