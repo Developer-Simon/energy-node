@@ -282,9 +282,7 @@ type DeviceMap struct {
 	Nodes     []DeviceMapNode     `json:"nodes"`
 	Edges     []RelationOverride  `json:"edges,omitempty"`
 	EdgeProps []DeviceMapEdgeProp `json:"edge_props,omitempty"`
-	// SwitchOutputs are the user's overrides of the detected output switches.
-	SwitchOutputs []DeviceMapSwitchOutput `json:"switch_outputs,omitempty"`
-	View          DeviceMapView           `json:"view"`
+	View      DeviceMapView       `json:"view"`
 }
 
 // DeviceMapEdgeProp is the connection type and flow direction of one
@@ -295,15 +293,7 @@ type DeviceMapEdgeProp struct {
 	ChildID   string `json:"child_id"`
 	Type      string `json:"type"`                // energy | data | info
 	Direction string `json:"direction,omitempty"` // auto | reversed | fixed_down | fixed_up, only for energy
-}
-
-// DeviceMapSwitchOutput overrides the detected function of one switch
-// entity. Function "output" marks it as the switch that cuts the device's
-// output, "none" removes a wrongly detected one.
-type DeviceMapSwitchOutput struct {
-	EntityID string `json:"entity_id"` // unique_id of the switch entity
-	DeviceID string `json:"device_id"`
-	Function string `json:"function"` // output | none
+	Channel   int    `json:"channel,omitempty"`   // 1..16 on the switch that cuts the output, only for energy
 }
 
 type DeviceMapNode struct {
@@ -978,12 +968,11 @@ func (s *Store) RestoreLayout(revision string) (Layout, error) {
 // through slices.
 func cloneDeviceMap(value DeviceMap) DeviceMap {
 	return DeviceMap{
-		Version:       value.Version,
-		Nodes:         append([]DeviceMapNode(nil), value.Nodes...),
-		Edges:         append([]RelationOverride(nil), value.Edges...),
-		EdgeProps:     append([]DeviceMapEdgeProp(nil), value.EdgeProps...),
-		SwitchOutputs: append([]DeviceMapSwitchOutput(nil), value.SwitchOutputs...),
-		View:          value.View,
+		Version:   value.Version,
+		Nodes:     append([]DeviceMapNode(nil), value.Nodes...),
+		Edges:     append([]RelationOverride(nil), value.Edges...),
+		EdgeProps: append([]DeviceMapEdgeProp(nil), value.EdgeProps...),
+		View:      value.View,
 	}
 }
 
@@ -1074,8 +1063,12 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 	if value.EdgeProps == nil {
 		value.EdgeProps = []DeviceMapEdgeProp{}
 	}
-	if value.SwitchOutputs == nil {
-		value.SwitchOutputs = []DeviceMapSwitchOutput{}
+	// A channel only means something on an energy edge, so other edges
+	// are saved without one.
+	for i := range value.EdgeProps {
+		if value.EdgeProps[i].Type != "energy" {
+			value.EdgeProps[i].Channel = 0
+		}
 	}
 	if value.View.GridSize == 0 {
 		value.View.GridSize = 40
@@ -1136,20 +1129,6 @@ func validateDeviceMap(value DeviceMap) error {
 			return fmt.Errorf("duplicate device-map edge_props pair %s", key)
 		}
 		seenPairs[key] = true
-	}
-	seenSwitches := map[string]bool{}
-	outputDevices := map[string]bool{}
-	for _, output := range value.SwitchOutputs {
-		if seenSwitches[output.EntityID] {
-			return fmt.Errorf("duplicate device-map switch_outputs entity %q", output.EntityID)
-		}
-		seenSwitches[output.EntityID] = true
-		if output.Function == "output" {
-			if outputDevices[output.DeviceID] {
-				return fmt.Errorf("device-map switch_outputs device %q has more than one output", output.DeviceID)
-			}
-			outputDevices[output.DeviceID] = true
-		}
 	}
 	return nil
 }

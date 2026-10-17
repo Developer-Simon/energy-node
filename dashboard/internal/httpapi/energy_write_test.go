@@ -170,14 +170,6 @@ func TestDeviceMapWritesNeedEditEnergyAndCSRF(t *testing.T) {
 	if requireEnergyMutation(recorder, noRole, manager) || recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"energy_forbidden"`) {
 		t.Fatalf("a user without edit_energy must get energy_forbidden: %d %s", recorder.Code, recorder.Body.String())
 	}
-	invalid := httptest.NewRequest(http.MethodPut, "/api/v1/device/map", strings.NewReader(`{"version":3,"nodes":[],"switch_outputs":[{"entity_id":"s","device_id":"d","function":"cut"}]}`))
-	invalid.AddCookie(cookie)
-	invalid.Header.Set("X-CSRF-Token", session.CSRFToken)
-	recorder = httptest.NewRecorder()
-	router.ServeHTTP(recorder, invalid)
-	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"device_map_rejected"`) {
-		t.Fatalf("an unknown switch function must be rejected: %d %s", recorder.Code, recorder.Body.String())
-	}
 }
 
 func TestEnergyRolesRejectDuplicateSwitchChannels(t *testing.T) {
