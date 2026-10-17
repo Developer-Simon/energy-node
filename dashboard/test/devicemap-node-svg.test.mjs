@@ -125,3 +125,21 @@ test('no port without port', () => {
   const doc = new dom.window.DOMParser().parseFromString(svg.markup(base, colorOf), 'image/svg+xml');
   assert.equal(doc.querySelector('circle[data-port]'), null);
 });
+
+test('a sub-device has a dashed border in the first segment color and no health dot', () => {
+  const { svg, dom } = load();
+  const doc = new dom.window.DOMParser().parseFromString(svg.markup({ ...base, subDevice: true, segments: ['flow-load'] }, colorOf), 'image/svg+xml');
+  const border = doc.querySelector('circle[data-border="sub"]');
+  assert.ok(border);
+  assert.equal(border.getAttribute('stroke'), '#flow-load');
+  assert.equal(border.getAttribute('stroke-dasharray'), '4 3');
+  assert.equal(doc.querySelector('circle[data-health]'), null);
+  assert.equal(doc.querySelector('circle[data-ring]'), null);
+});
+
+test('a sub-device without a segment has a neutral dashed border', () => {
+  const { svg, dom } = load();
+  const doc = new dom.window.DOMParser().parseFromString(svg.markup({ ...base, subDevice: true, segments: [], icon: 'box', iconColor: 'text-muted' }, colorOf), 'image/svg+xml');
+  assert.equal(doc.querySelector('circle[data-border="sub"]').getAttribute('stroke'), '#border');
+  assert.equal(doc.querySelector('circle[data-health]'), null);
+});

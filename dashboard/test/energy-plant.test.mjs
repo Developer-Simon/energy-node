@@ -9,7 +9,7 @@ import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const files = ['theme.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-dataflow.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'energy-plant.js'];
+const files = ['theme.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'devicemap-dataflow.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'energy-plant.js'];
 
 function routes(table) {
   return async url => {

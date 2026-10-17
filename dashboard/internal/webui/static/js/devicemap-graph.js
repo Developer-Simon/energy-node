@@ -12,15 +12,16 @@
     curved: {'curve-style': 'unbundled-bezier', 'control-point-distances': [40], 'control-point-weights': [0.5]},
   };
 
-  // Wiring edges only. Memberships and deviceMap.edges come first so their
-  // overrideId and membership data win the pair-dedup over discovery relations.
+  // Wiring edges only. Sub-device and memberships come first, then
+  // deviceMap.edges, so their overrideId, membership and subDevice data win the
+  // pair-dedup over discovery relations.
   const wiringElements = ({devices, deviceMap, groups, nodeIds, energy = new Map()}) => {
     const elements = [];
     const seenEdges = new Set();
     const index = window.DeviceMapWiring.propsIndex(deviceMap.edge_props);
     // overrideId is only set for manually created relations (settings.RelationOverride) -
     // those are the only ones removeSelectedRelation() is allowed to delete.
-    const addEdge = (childId, parentId, overrideId, membership) => {
+    const addEdge = (childId, parentId, overrideId, membership, subDevice) => {
       if (!nodeIds.has(childId) || !nodeIds.has(parentId) || childId === parentId) return;
       const key = relationKey(childId, parentId);
       if (seenEdges.has(key)) return;
@@ -28,14 +29,28 @@
       const data = {id: `edge-${key}`, source: parentId, target: childId};
       if (overrideId) data.overrideId = overrideId;
       if (membership) data.membership = membership;
-      const props = window.DeviceMapWiring.resolve({parent: parentId, child: childId, membership}, index, energy);
-      data.connType = props.type;
-      data.direction = props.direction;
-      data.heuristic = props.heuristic;
-      const classes = ['devicemap-wiring', `devicemap-conn-${props.type}`];
-      if (props.heuristic) classes.push('devicemap-conn-detected');
+      if (subDevice) {
+        // A sub-device is measured by its device, so its edge is always
+        // energy flowing down. Only the channel is saved for it.
+        const saved = index.get(key);
+        data.subDevice = true;
+        data.connType = 'energy';
+        data.direction = 'fixed_down';
+        data.heuristic = false;
+        if (saved && Number.isInteger(saved.channel)) data.channel = saved.channel;
+      } else {
+        const props = window.DeviceMapWiring.resolve({parent: parentId, child: childId, membership}, index, energy);
+        data.connType = props.type;
+        data.direction = props.direction;
+        data.heuristic = props.heuristic;
+      }
+      const classes = ['devicemap-wiring', `devicemap-conn-${data.connType}`];
+      if (data.heuristic) classes.push('devicemap-conn-detected');
       elements.push({data, classes: classes.join(' ')});
     };
+    for (const {parent, child} of window.DeviceMapSubDevices.pairs(deviceMap, nodeIds)) {
+      addEdge(child, parent, null, null, true);
+    }
     // Memberships come from energy.json, not from device-map.json (one
     // source of truth). They render as wiring, so edgeFlow() sums a
     // group like any other subtree.
