@@ -8,7 +8,10 @@
     "haus_last_power": { "role": "load" },
     "wallbox_power": { "role": "wallbox" },
     "werkstatt_power": { "role": "custom:werkstatt" },
-    "waermepumpe_power": { "role": "heat_pump" }
+    "waermepumpe_power": { "role": "heat_pump" },
+    "plug_balkon_steckdose": { "role": "switch" },
+    "relais_keller_switch_1": { "role": "switch" },
+    "relais_keller_switch_2": { "role": "switch", "channel": 2 }
   },
   "categories": {
     "werkstatt": { "label": "Werkstatt", "base": "consumer", "color": "cat_3", "icon": "mdi:power-socket-de" }

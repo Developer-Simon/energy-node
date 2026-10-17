@@ -372,6 +372,14 @@
   {"topic": "plug/entfeuchter/status", "payload": {"id": 0, "apower": 0, "source": "smoke"}},
   {"topic": "plug/entfeuchter/output", "payload": "OFF"},
 
+  {"topic": "homeassistant/switch/relais_keller/switch_1/config", "payload": {"name": "Kanal 1", "unique_id": "relais_keller_switch_1", "state_topic": "relais/keller/1/output", "command_topic": "relais/keller/1/output/set", "payload_on": "ON", "payload_off": "OFF", "state_on": "ON", "state_off": "OFF", "availability_topic": "relais/keller/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["relais_keller"], "via_device": "energy_node", "name": "Relais Keller"}}},
+  {"topic": "homeassistant/switch/relais_keller/switch_2/config", "payload": {"name": "Kanal 2", "unique_id": "relais_keller_switch_2", "state_topic": "relais/keller/2/output", "command_topic": "relais/keller/2/output/set", "payload_on": "ON", "payload_off": "OFF", "state_on": "ON", "state_off": "OFF", "availability_topic": "relais/keller/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["relais_keller"], "via_device": "energy_node", "name": "Relais Keller"}}},
+  {"topic": "homeassistant/sensor/relais_keller/power/config", "payload": {"name": "Leistung", "unique_id": "relais_keller_power", "state_topic": "relais/keller/status", "value_template": "{{ value_json.apower }}", "unit_of_measurement": "W", "device_class": "power", "availability_topic": "relais/keller/online", "payload_available": "true", "payload_not_available": "false", "device": {"identifiers": ["relais_keller"], "via_device": "energy_node", "name": "Relais Keller"}}},
+  {"topic": "relais/keller/online", "payload": "true"},
+  {"topic": "relais/keller/status", "payload": {"id": 0, "apower": 0, "source": "smoke"}},
+  {"topic": "relais/keller/1/output", "payload": "ON"},
+  {"topic": "relais/keller/2/output", "payload": "OFF"},
+
   {"topic": "homeassistant/sensor/balkon_kraftwerk/power/config", "payload": {"name": "Leistung", "unique_id": "balkon_kraftwerk_power", "state_topic": "outstation/balkon_kraftwerk/power_w", "unit_of_measurement": "W", "device_class": "power", "state_class": "measurement", "availability_topic": "outstation/balkon_kraftwerk/status/online", "payload_available": "1", "payload_not_available": "0", "device": { "identifiers": ["balkon_kraftwerk"], "name": "Balkonkraftwerk" }}},
   {"topic": "outstation/balkon_kraftwerk/status/online", "payload": "1"},
   {"topic": "outstation/balkon_kraftwerk/power_w", "payload": "180"}
