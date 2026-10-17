@@ -2187,14 +2187,15 @@ func TestDeviceMapRejectsBadNodes(t *testing.T) {
 }
 
 func TestDeviceMapSubDevicesRoundTrip(t *testing.T) {
-	store := NewStore(t.TempDir())
+	dir := t.TempDir()
 	value := NewDeviceMap()
 	value.SubDevices = []DeviceMapSubDevice{{ID: "sub:waschmaschine", Label: "  Waschmaschine ", Icon: "energy-node:plug", DeviceID: "plug_b", EntityID: "plug_b_power"}}
 	value.Nodes = []DeviceMapNode{{VirtualID: "sub:waschmaschine", X: 10, Y: 20}}
-	if err := store.SaveDeviceMap(value); err != nil {
+	if err := NewStore(dir).SaveDeviceMap(value); err != nil {
 		t.Fatal(err)
 	}
-	got, err := store.LoadDeviceMap()
+	// A fresh store reads the file, not the in-memory cache of the writer.
+	got, err := NewStore(dir).LoadDeviceMap()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -2261,17 +2262,21 @@ func TestDeviceMapSubDeviceRules(t *testing.T) {
 	}
 
 	value := NewDeviceMap()
-	value.SubDevices = []DeviceMapSubDevice{sub("sub:x", "X", "e5")}
+	value.SubDevices = []DeviceMapSubDevice{sub("sub:x", " X ", "e5")}
 	value.EdgeProps = []DeviceMapEdgeProp{
 		{ParentID: "plug_b", ChildID: "sub:x", Type: "data", Direction: "reversed", Channel: 2},
 		{ParentID: "plug_b", ChildID: "sub:gone", Type: "energy"},
 	}
 	value.Nodes = []DeviceMapNode{{VirtualID: "sub:gone", X: 1, Y: 1}}
-	store := NewStore(t.TempDir())
-	if err := store.SaveDeviceMap(value); err != nil {
+	dir := t.TempDir()
+	if err := NewStore(dir).SaveDeviceMap(value); err != nil {
 		t.Fatal(err)
 	}
-	got, err := store.LoadDeviceMap()
+	// Normalizing must not write into the caller's slice.
+	if value.SubDevices[0].Label != " X " {
+		t.Fatalf("caller's sub-device label changed to %q", value.SubDevices[0].Label)
+	}
+	got, err := NewStore(dir).LoadDeviceMap()
 	if err != nil {
 		t.Fatal(err)
 	}

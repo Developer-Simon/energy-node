@@ -1106,12 +1106,17 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 	// Sub-devices keep a trimmed label and a canonical icon. A node or a
 	// pair that points at a sub-device the map no longer has is dropped, so
 	// removing a sub-device leaves nothing behind.
+	// A new slice, so the caller's sub-devices stay as they were even when
+	// the save fails.
+	subDevices := make([]DeviceMapSubDevice, 0, len(value.SubDevices))
 	subIDs := make(map[string]bool, len(value.SubDevices))
-	for i := range value.SubDevices {
-		value.SubDevices[i].Label = strings.TrimSpace(value.SubDevices[i].Label)
-		value.SubDevices[i].Icon = deviceiconname.Canonical(value.SubDevices[i].Icon)
-		subIDs[value.SubDevices[i].ID] = true
+	for _, sub := range value.SubDevices {
+		sub.Label = strings.TrimSpace(sub.Label)
+		sub.Icon = deviceiconname.Canonical(sub.Icon)
+		subDevices = append(subDevices, sub)
+		subIDs[sub.ID] = true
 	}
+	value.SubDevices = subDevices
 	nodes := make([]DeviceMapNode, 0, len(value.Nodes))
 	for _, node := range value.Nodes {
 		if isOrphanSubDevice(node.VirtualID, subIDs) {
