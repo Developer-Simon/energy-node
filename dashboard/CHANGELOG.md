@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.21 (2026-10-17)
+## v0.9.22 (2026-10-17)
 
 ### Features
 
@@ -14,6 +14,20 @@
 - **history:** The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh. (#141) (d7971dd)
 - **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142) (66cd698)
 - **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143) (59dfeb3)
+- **devicemap:** The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label. (#145) (b72187d)
+- **energy:** add the switch role with a channel (ee3bf7c)
+- **energy:** validate switch roles against the registry (f444022)
+- **devicemap:** resolve switches from energy roles and cut edges per channel (4f2be72)
+- **devicemap:** model switches as role rows (3e6c72f)
+- **i18n:** add texts for the switch role, channels and edge state rows (3fa3e4b)
+- **devicemap:** drive the panel and map from switch roles (c0a530d)
+- **devicemap:** show switches as role tiles in the device panel (9422ecb)
+- **devicemap:** draw the switch port on every switched edge (93c3223)
+- **devicemap:** lead the edge card with switch state and cause (e8d7ee6)
+- **devicemap:** show state rows, links and channel in the edge card (469c4ab)
+- **energy:** set the switch role and channel in the energy configuration (ba74a24)
+- **devicemap:** stack the panel links and add icons (049dcfc)
+- **devicemap:** Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut. (#146)
 - **devicemap:** store switch output functions in device-map.json (6d70bc1)
 - **devicemap:** serve switch entities with their resolved state (c4d8edd)
 - **devicemap:** detect switch outputs and compute the area without power (877e596)
@@ -23,7 +37,6 @@
 - **devicemap:** load switch states and mark switched-off nodes (4ccec11)
 - **devicemap:** show switched-off outputs and the area without power (d711591)
 - **devicemap:** assign switch outputs in the device panel and explain dead edges (bab83bb)
-- **devicemap:** The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label. (#145)
 - **stats:** hatch export and battery charge instead of a second colour (28ab382)
 - **dashboard:** overflow tabs into a More list, main menu mode per browser (29a532c)
 - **energy:** auto load mode calculates with the house meter as cross-check (31771de)
@@ -82,6 +95,9 @@
 ### Fixes
 
 - **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144) (ba54b31)
+- **devicemap:** keep the edge card chevron pointing right and update catalogs (b083235)
+- **devicemap:** keep saved switch roles and edge channels on save (5f8edc8)
+- **devices:** open the device modal only in the devices tab (d0d8031)
 - **devicemap:** require edit_energy and CSRF for every map write (1e2169b)
 - **devicemap:** keep labels live and harden switch fade teardown (5b9ea98)
 - **devicemap:** prefix the legend dotted class and use English spec references (51b6caa)
@@ -116,6 +132,7 @@
 ### Refactors
 
 - **dashboard:** remove unused Tippy.js and Popper.js (#139) (8f2318c)
+- **devicemap:** move switch outputs into energy roles and add edge channels (d2ab424)
 - **energy:** drop measured load positions and the measured_split option (b927086)
 - **dashboard:** drop the unused Tippy.js and Popper.js bundles (dfc102e)
 - **dashboard:** reword the base.css tooltip comment (7856e87)
@@ -124,6 +141,7 @@
 
 ### Documentation
 
+- **devicemap:** document the switch role and retake screenshots (7dcb363)
 - **energy:** document the reworked load modes and status line (4469508)
 - **dashboard:** drop Tippy.js and Popper.js from notices, manifest and docs (4761345)
 - **dashboard:** MQTT tab metrics select and bridge step list (81d3985)
@@ -131,6 +149,7 @@
 
 ### Tests
 
+- **smoke:** add a two channel relay fixture and bump the lazy assets (57e029a)
 - **devicemap:** add switch fixtures and screenshot (baf7e2a)
 - **devicemap:** wire the balcony plug in front of its own inverter (4215284)
 - **smoke:** bind the bank A edge probe to the preset that seeds it (ef36c7f)
@@ -142,6 +161,7 @@
 
 ### Chores
 
+- **i18n:** drop the unused switch output texts (99b1aeb)
 - **webui:** bump lazy assets for switch state (bc7a8b6)
 - **dashboard:** bump cache-busting versions for changed assets (a5c7064)
 - **dashboard:** bump settings-controls.css for the version help tooltip (b110b3a)
