@@ -144,6 +144,20 @@ func keepSubDevices(value *settings.DeviceMap, stored settings.DeviceMap) {
 			value.Nodes = append(value.Nodes, node)
 		}
 	}
+	// The stored pairs of the sub-devices win. A request pair that names a
+	// stored sub-device is dropped, so a stale pair cannot add a second one.
+	stored4sub := map[string]bool{}
+	for _, sub := range stored.SubDevices {
+		stored4sub[sub.ID] = true
+	}
+	props := make([]settings.DeviceMapEdgeProp, 0, len(value.EdgeProps))
+	for _, prop := range value.EdgeProps {
+		if stored4sub[prop.ParentID] || stored4sub[prop.ChildID] {
+			continue
+		}
+		props = append(props, prop)
+	}
+	value.EdgeProps = props
 	for _, prop := range stored.EdgeProps {
 		if !strings.HasPrefix(prop.ParentID, settings.SubDevicePrefix) && !strings.HasPrefix(prop.ChildID, settings.SubDevicePrefix) {
 			continue

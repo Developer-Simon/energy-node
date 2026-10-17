@@ -24,6 +24,7 @@ func subDeviceTestRouter(t *testing.T) (http.Handler, *settings.Store, *registry
 	store := settings.NewStore(t.TempDir())
 	if err := store.SaveEnergy(settings.EnergyConfig{Assignments: map[string]energy.Assignment{
 		"plug_b_power": {Role: energy.RoleLoad},
+		"plug_c_power": {Role: energy.RoleLoad},
 	}}); err != nil {
 		t.Fatal(err)
 	}
@@ -37,6 +38,7 @@ func subDeviceTestRouter(t *testing.T) (http.Handler, *settings.Store, *registry
 	}
 	// The energy snapshot only lists entities that have a state.
 	reg.UpdateState("state/plug_b_power", []byte("42"), false, time.Now())
+	reg.UpdateState("state/plug_c_power", []byte("7"), false, time.Now())
 	return NewRouter(reg, config.NewManager(t.TempDir()), store), store, reg
 }
 
@@ -144,6 +146,9 @@ func TestSubDeviceCreateUpdateDelete(t *testing.T) {
 	if _, ok := hasEdgeProp(rehungValue, "plug_c", "sub:waschmaschine"); !ok {
 		t.Fatalf("new pair missing after the rehang: %+v", rehungValue.EdgeProps)
 	}
+	if got := energyLabelOf(t, router, "plug_c_power"); got != "Waschmaschine" {
+		t.Fatalf("energy label after the rehang = %q, want Waschmaschine", got)
+	}
 
 	deleted := sendSubDevice(t, router, http.MethodDelete, "/api/v1/device/map/sub-devices/sub:waschmaschine", "")
 	if deleted.Code != http.StatusOK {
@@ -160,6 +165,9 @@ func TestSubDeviceCreateUpdateDelete(t *testing.T) {
 	}
 	if got := energyLabelOf(t, router, "plug_b_power"); got != "Plug B / Leistung" {
 		t.Fatalf("energy label after delete = %q, want Plug B / Leistung", got)
+	}
+	if got := energyLabelOf(t, router, "plug_c_power"); got != "Plug C / Leistung" {
+		t.Fatalf("energy label of plug_c_power after delete = %q, want Plug C / Leistung", got)
 	}
 }
 
@@ -231,6 +239,16 @@ func TestSubDeviceWritesNeedEditEnergyAndCSRF(t *testing.T) {
 			t.Fatalf("%s %s without CSRF: %d %s", c.method, c.path, recorder.Code, recorder.Body.String())
 		}
 	}
+	// Like the relation endpoints, a user without edit_energy gets 403 from
+	// the same guard the routes call.
+	for _, c := range cases {
+		noRole := httptest.NewRequest(c.method, c.path, strings.NewReader(c.body))
+		noRole = noRole.WithContext(auth.WithUser(noRole.Context(), auth.User{Username: "viewer"}))
+		recorder := httptest.NewRecorder()
+		if requireEnergyMutation(recorder, noRole, manager) || recorder.Code != http.StatusForbidden || !strings.Contains(recorder.Body.String(), `"code":"energy_forbidden"`) {
+			t.Fatalf("%s %s without edit_energy: %d %s", c.method, c.path, recorder.Code, recorder.Body.String())
+		}
+	}
 }
 
 func TestDeviceMapPutKeepsSubDevices(t *testing.T) {
@@ -277,6 +295,27 @@ func TestDeviceMapPutKeepsSubDevices(t *testing.T) {
 		if n.VirtualID == "sub:forged" {
 			t.Fatalf("forged sub node was stored: %+v", kept.Nodes)
 		}
+	}
+
+	// A stale pair that moves the stored sub-device to another device is
+	// dropped, and the stored pair stays the only one.
+	stale := sendSubDevice(t, router, http.MethodPut, "/api/v1/device/map",
+		`{"edge_props":[{"parent_id":"plug_c","child_id":"sub:waschmaschine","type":"energy","channel":5}]}`)
+	if stale.Code != http.StatusOK {
+		t.Fatalf("stale put status %d: %s", stale.Code, stale.Body.String())
+	}
+	staleValue := decodeSubDeviceMap(t, stale)
+	pairs := 0
+	for _, prop := range staleValue.EdgeProps {
+		if prop.ParentID == "sub:waschmaschine" || prop.ChildID == "sub:waschmaschine" {
+			pairs++
+			if prop.ParentID != "plug_b" || prop.Channel != 2 {
+				t.Fatalf("stale pair won over the stored one: %+v", prop)
+			}
+		}
+	}
+	if pairs != 1 {
+		t.Fatalf("sub:waschmaschine has %d pairs, want 1: %+v", pairs, staleValue.EdgeProps)
 	}
 }
 
