@@ -98,6 +98,7 @@
 - **devicemap:** keep the edge card chevron pointing right and update catalogs (b083235)
 - **devicemap:** keep saved switch roles and edge channels on save (5f8edc8)
 - **devices:** open the device modal only in the devices tab (d0d8031)
+- **devicemap:** save the empty role of the panel select (2230e03)
 - **devicemap:** require edit_energy and CSRF for every map write (1e2169b)
 - **devicemap:** keep labels live and harden switch fade teardown (5b9ea98)
 - **devicemap:** prefix the legend dotted class and use English spec references (51b6caa)
