@@ -1329,8 +1329,9 @@
         return placed;
       },
 
-      // Sub-devices without a saved position go right of their meter, or at the
-      // origin when the meter is gone (orphan). Returns how many were placed.
+      // Sub-devices without a saved position go right of their meter, or one
+      // step right of the origin when the meter is gone (orphan). Returns how
+      // many were placed.
       placeNewSubDevices() {
         const sub = window.DeviceMapSubDevices;
         const unplaced = this.subDevices().filter(item => !this.positionFor(item.id));

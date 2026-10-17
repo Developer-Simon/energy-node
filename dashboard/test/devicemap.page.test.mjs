@@ -2764,3 +2764,19 @@ test('an orphan sub-device gets the orphan class and the missing-measurement lab
   assert.equal(labels['sub:gone'], 'Messung fehlt');
   assert.notEqual(labels['sub:wm'], 'Messung fehlt');
 });
+
+test('a negative sub-device reading adds its absolute power to the meter edge', () => {
+  const { component, window } = createDevicemapPanel();
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = { entities: [
+    { device_id: 'plug_b', entity_id: 'power_1', value: -300, unit: 'W', role: { role: 'grid', source: 'override' } },
+    { device_id: 'plug_b', entity_id: 'power_2', value: 200, unit: 'W', role: { role: 'load', source: 'override' } },
+  ], balance: {} };
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }], edges: [],
+    edge_props: [{ parent_id: 'netz', child_id: 'plug_b', type: 'energy', channel: 1 }], sub_devices: [SUB_WM] };
+  const energy = component.energyByDevice();
+  const { children, dirOf } = component.energyFlowContext();
+  const flow = window.DeviceMapModel.edgeFlow('plug_b', energy, children, { dirOf, parentId: 'netz' });
+  assert.equal(flow.value, 500, 'the sub-device edge is fixed_down, so its -300 W counts as 300 W');
+  assert.equal(window.DeviceMapModel.edgeFlow('sub:wm', energy, children, { dirOf, parentId: 'plug_b' }).value, 300);
+});

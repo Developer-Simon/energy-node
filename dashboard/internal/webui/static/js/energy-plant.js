@@ -173,8 +173,8 @@
           positions.set(balanceId, df.placeBalance({rolePositions: roleDevices, allPositions: all(), snap}));
         }
         for (const spot of model.placeDevices({ids: missing, allPositions: anchors, snap})) positions.set(spot.id, {x: spot.x, y: spot.y});
-        // Sub-devices without a saved spot go right of their meter, or at the
-        // origin when the meter is gone (same rule as the map page).
+        // Sub-devices without a saved spot go right of their meter, or one step
+        // right of the origin when the meter is gone (same rule as the map page).
         for (const sub of this.subDevices()) {
           if (positions.has(sub.id)) continue;
           const anchor = positions.get(sub.device_id) || {x: 0, y: 0};

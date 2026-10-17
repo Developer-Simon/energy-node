@@ -343,9 +343,11 @@
   // turns each edge's value by its direction (devicemap-wiring.js), also
   // inside a sum. visited guards against cycles manual relations can create.
   // Power of the sub-devices directly below a node (leaves, so no recursion).
+  // A sub-device edge is fixed_down, so its value is the absolute power, the
+  // same as the sub-device's own edge gets from applyDirection().
   const subPower = (childId, energy, children) => (children.get(childId) || []).reduce((sum, next) => {
     const sub = window.DeviceMapSubDevices && window.DeviceMapSubDevices.isSubId(next) ? energy.get(next) : null;
-    return sub && sub.power != null ? sum + sub.power : sum;
+    return sub && sub.power != null ? sum + window.DeviceMapWiring.applyDirection(sub.power, 'fixed_down') : sum;
   }, 0);
 
   const edgeFlow = (childId, energy, children, options = {}) => {
