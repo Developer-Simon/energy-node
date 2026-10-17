@@ -28,6 +28,8 @@
     wallbox: {color: 'flow-wallbox', icon: 'cat:energy-node:wallbox', toward: v => Math.abs(v)},
     heat_pump: {color: 'flow-heatpump', icon: 'cat:energy-node:heat-pump', toward: v => Math.abs(v)},
     battery_soc: {color: 'flow-battery', icon: 'cat:energy-node:battery-level', toward: null},
+    // A switch channel is not a power role: no colour, no ring segment.
+    switch: {color: null, icon: 'cat:energy-node:switch', toward: null},
   });
 
   const BASE_TOWARD = Object.freeze({
@@ -54,6 +56,7 @@
   const roleLabel = role => (role ? t(`energy.role_label.${role}`) : t('energy.roles.no_role'));
 
   const roleOptions = (unit, categories = {}) => {
+    if (unit === 'switch') return ['', 'switch'].map(value => ({value, label: roleLabel(value), group: 'standard'}));
     if (unit === '%') return ['', 'battery_soc'].map(value => ({value, label: roleLabel(value), group: 'standard'}));
     const standard = ['', ...POWER_ROLES].map(value => ({value, label: roleLabel(value), group: 'standard'}));
     const custom = Object.entries(categories)
@@ -62,12 +65,18 @@
     return [...standard, ...custom];
   };
 
-  const normalizeAssignment = value => ({
-    role: (value && value.role) || '',
-    scale: Number(value && value.scale) || 1,
-    invert: Boolean(value && value.invert),
-    capacity_kwh: Number(value && value.capacity_kwh) || 0,
-  });
+  // channel is the output number of a switch (1 when unset), 0 for every
+  // other role.
+  const normalizeAssignment = value => {
+    const role = (value && value.role) || '';
+    return {
+      role,
+      scale: Number(value && value.scale) || 1,
+      invert: Boolean(value && value.invert),
+      capacity_kwh: Number(value && value.capacity_kwh) || 0,
+      channel: role === 'switch' ? Number(value && value.channel) || 1 : 0,
+    };
+  };
 
   const snapshotEntity = (snapshot, entityId) =>
     ((snapshot && snapshot.entities) || []).find(entity => entity.entity_id === entityId) || null;
@@ -87,9 +96,21 @@
 
   const isDraftChange = (base, draft) => {
     const next = normalizeAssignment(draft);
+    const current = normalizeAssignment(base);
     if (draft && draft.pin && base.source === 'heuristic') return true;
-    return next.role !== base.role || next.scale !== base.scale
-      || next.invert !== base.invert || next.capacity_kwh !== base.capacity_kwh;
+    return next.role !== current.role || next.scale !== current.scale
+      || next.invert !== current.invert || next.capacity_kwh !== current.capacity_kwh
+      || next.channel !== current.channel;
+  };
+
+  // A switch has no saved override and no live role: a detected switch is
+  // channel 1 with source heuristic, anything else is no role.
+  const switchBase = (entityId, saved, info) => {
+    if (saved && Object.prototype.hasOwnProperty.call(saved, entityId)) {
+      return {...normalizeAssignment(saved[entityId]), source: 'override'};
+    }
+    if (info.heuristic) return {...normalizeAssignment({role: 'switch', channel: 1}), source: 'heuristic'};
+    return {...normalizeAssignment(null), source: 'none'};
   };
 
   const valueText = entity => {
@@ -98,12 +119,20 @@
     return `${window.I18n.formatValue(String(raw), entity.unit_of_measurement || '')} ${entity.unit_of_measurement || ''}`.trim();
   };
 
-  const panelRows = ({device, snapshot, saved, drafts}) => {
+  // switchInfo: Map<entityId, {state, heuristic, channels}> for the switch
+  // entities of the device. consequenceOf(entityId) gives the page's text
+  // for what the switch takes away, '' when nothing does.
+  const panelRows = ({device, snapshot, saved, drafts, switchInfo, consequenceOf}) => {
     const rows = [];
     const others = [];
     for (const entity of (device && device.entities) || []) {
       const id = entity.unique_id;
       const name = entity.name || entity.object_id || id;
+      const info = switchInfo && switchInfo.get(id);
+      if (info) {
+        rows.push(switchRow({id, name, info, saved, drafts, consequenceOf}));
+        continue;
+      }
       if (!isEligibleUnit(entity.unit_of_measurement)) {
         others.push({id, name, valueText: valueText(entity)});
         continue;
@@ -111,7 +140,7 @@
       const base = baseAssignment(id, saved, snapshot);
       const draft = drafts && drafts[id];
       const dirty = Boolean(draft) && isDraftChange(base, draft);
-      const assignment = dirty ? normalizeAssignment(draft) : {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh};
+      const assignment = dirty ? normalizeAssignment(draft) : normalizeAssignment(base);
       let source = base.source;
       if (dirty) source = 'draft';
       else if (!base.role && base.source !== 'override') source = 'none';
@@ -119,6 +148,19 @@
         canPin: !dirty && base.source === 'heuristic' && Boolean(base.role)});
     }
     return {rows, others};
+  };
+
+  const switchStateText = state => t(`devicemap.panel.output.state.${state === 'on' || state === 'off' ? state : 'unknown'}`);
+
+  const switchRow = ({id, name, info, saved, drafts, consequenceOf}) => {
+    const base = switchBase(id, saved, info);
+    const draft = drafts && drafts[id];
+    const dirty = Boolean(draft) && isDraftChange(base, draft);
+    const assignment = dirty ? normalizeAssignment(draft) : normalizeAssignment(base);
+    const source = dirty ? 'draft' : base.source;
+    return {id, name, unit: 'switch', valueText: switchStateText(info.state), assignment, source, dirty,
+      channels: info.channels, consequence: (consequenceOf && consequenceOf(id)) || '',
+      canPin: !dirty && base.source === 'heuristic'};
   };
 
   const rawFromDevice = (devices, entityId) => {
@@ -168,6 +210,7 @@
     const value = normalizeAssignment(draft);
     if (!value.role) return {role: ''};
     if (value.role === 'battery_soc') return {role: 'battery_soc', capacity_kwh: value.capacity_kwh};
+    if (value.role === 'switch') return value.channel > 1 ? {role: 'switch', channel: value.channel} : {role: 'switch'};
     return {role: value.role, scale: value.scale, invert: value.invert};
   };
 
@@ -202,7 +245,7 @@
     for (const entity of (snapshot && snapshot.entities) || []) {
       const role = entity.role && entity.role.role;
       const meta = role && roleMeta(role, snapshot && snapshot.categories);
-      if (!meta) continue;
+      if (!meta || !meta.color) continue;
       let entry = byDevice.get(entity.device_id);
       if (!entry) {
         entry = {roles: [], heuristic: false, power: null, soc: null, byRole: {}, primaryRole: null, meta: {}};
@@ -404,7 +447,7 @@
     formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
-    panelRows, applyDrafts, assignmentPayload,
+    panelRows, applyDrafts, assignmentPayload, normalizeAssignment,
     roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices, helpTipPosition,
   };
 })();
