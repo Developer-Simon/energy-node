@@ -106,12 +106,46 @@
         return window.DeviceMapDataflow.balanceNodeId(new Set(this.devices.map(device => device.id)));
       },
 
-      nodeIds() {
-        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), this.balanceId()]);
+      subDevices() {
+        return window.DeviceMapSubDevices.list(this.deviceMap);
       },
 
+      subIsOrphan(sub) {
+        return window.DeviceMapSubDevices.isOrphan(sub, this.devices);
+      },
+
+      nodeIds() {
+        return new Set([...this.devices.map(device => device.id), ...this.subDevices().map(sub => sub.id), ...this.groupIds(), this.balanceId()]);
+      },
+
+      // Entities with a sub-device are measured under the sub-device's ID, so
+      // the meter keeps the ring of its other entities (as on the map page).
       energyByDevice() {
-        return window.DeviceMapModel.deviceEnergy(this.energy);
+        return window.DeviceMapModel.deviceEnergy(window.DeviceMapSubDevices.remapSnapshot(this.energy, this.deviceMap));
+      },
+
+      // Value of a sub-device node: its entity's reading, or the hint when
+      // the meter or the entity is gone.
+      subValueText(sub, energy) {
+        if (this.subIsOrphan(sub)) return t('devicemap.sub.missing');
+        const device = this.devices.find(item => item.id === sub.device_id);
+        const entities = ((device && device.entities) || []).filter(entity => entity && entity.unique_id === sub.entity_id);
+        return window.DeviceMapModel.nodeValueText({entities}, energy.get(sub.id));
+      },
+
+      // Dashed ring in the colour of the first role, the sub-device icon, no
+      // health dot (same spec as the map page).
+      subSpec(sub, energy) {
+        const entry = energy.get(sub.id);
+        const role = entry && entry.primaryRole;
+        return {
+          segments: entry ? entry.roles.map(item => entry.meta[item].color) : [],
+          icon: sub.icon ? `cat:${sub.icon}` : 'box',
+          iconColor: role ? entry.meta[role].color : 'text-muted',
+          health: 'unknown',
+          subDevice: true,
+          iconMarkup: this.iconMarkup[sub.icon] || '',
+        };
       },
 
       wiringEdges() {
@@ -139,6 +173,13 @@
           positions.set(balanceId, df.placeBalance({rolePositions: roleDevices, allPositions: all(), snap}));
         }
         for (const spot of model.placeDevices({ids: missing, allPositions: anchors, snap})) positions.set(spot.id, {x: spot.x, y: spot.y});
+        // Sub-devices without a saved spot go right of their meter, or at the
+        // origin when the meter is gone (same rule as the map page).
+        for (const sub of this.subDevices()) {
+          if (positions.has(sub.id)) continue;
+          const anchor = positions.get(sub.device_id) || {x: 0, y: 0};
+          positions.set(sub.id, window.DeviceMapSubDevices.placeNew({anchor, taken: all(), snap: null}));
+        }
         for (const [id, group] of Object.entries(this.groups)) {
           const nodeId = model.GROUP_PREFIX + id;
           if (positions.has(nodeId)) continue;
@@ -171,6 +212,10 @@
               ? window.DeviceMapNodeSvg.virtualDataUri('balance', colorOf)
               : window.DeviceMapNodeSvg.dataUri(model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup), colorOf)},
         }, device.id));
+        const subs = this.subDevices().map(sub => withPosition({
+          data: {id: sub.id, name: sub.label || sub.id, svg: window.DeviceMapNodeSvg.dataUri(this.subSpec(sub, energy), colorOf)},
+          classes: this.subIsOrphan(sub) ? 'devicemap-sub devicemap-sub-orphan' : 'devicemap-sub',
+        }, sub.id));
         const groups = Object.entries(this.groups).map(([id, group]) => withPosition({
           data: {id: model.GROUP_PREFIX + id, name: group.label, svg: window.DeviceMapNodeSvg.groupDataUri(colorOf)}, classes: 'devicemap-group',
         }, model.GROUP_PREFIX + id));
@@ -180,7 +225,7 @@
         const wiring = this.wiringEdges();
         const flows = graph.flowElements({pairs: graph.pairsOf(wiring), energy, view: this.view, edgeProps: this.deviceMap.edge_props});
         const roles = graph.dataEdgeElements(df.roleEdges(this.energy, balanceId).filter(edge => this.nodeIds().has(edge.from)));
-        return [...devices, ...groups, ...balance, ...wiring, ...flows, ...roles];
+        return [...devices, ...subs, ...groups, ...balance, ...wiring, ...flows, ...roles];
       },
 
       labelItems() {
@@ -193,6 +238,7 @@
         return [
           ...this.devices.map(device => ({id: device.id, name: device.name || device.id,
             value: device.id === balanceId ? balanceText : model.nodeValueText(device, energy.get(device.id))})),
+          ...this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy)})),
           ...Object.entries(this.groups).map(([id, group]) => ({id: model.GROUP_PREFIX + id, name: group.label, value: model.groupValueText(model.edgeFlow(model.GROUP_PREFIX + id, energy, children, {dirOf}))})),
           ...(balanceId === df.BALANCE_ID ? [{id: df.BALANCE_ID, name: t('devicemap.balance.name'), value: balanceText}] : []),
         ];

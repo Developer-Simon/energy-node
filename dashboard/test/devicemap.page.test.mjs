@@ -2728,3 +2728,39 @@ test('plug without switch has no port and sub-device is never quiet', async () =
   assert.equal(svgOf('pm').includes('data-port'), false, 'the meter has no port');
   assert.equal(svgOf('sub:a').includes('data-port'), false, 'the sub-device has no port');
 });
+
+test('a sub-device without a saved position is placed right of its meter and counted', () => {
+  const { component } = createDevicemapPanel({ cytoscapeImpl: fakeCytoscapeFactory([], []) });
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 200 }], edges: [], sub_devices: [SUB_WM] };
+  component.$refs.canvas = fakeCanvas();
+
+  component.renderGraph();
+
+  assert.equal(component.placedCount, 1, 'the sub-device counts as placed');
+  const meter = component.deviceMap.nodes.find(node => node.device_id === 'plug_b');
+  const placed = component.deviceMap.nodes.find(node => node.virtual_id === 'sub:wm');
+  assert.ok(placed, 'a saved spot exists for the sub-device');
+  assert.ok(placed.x > meter.x, 'right of its meter');
+  assert.equal(placed.y, meter.y, 'same row as its meter when nothing is in the way');
+  assert.equal(component.unsaved, true);
+});
+
+test('an orphan sub-device gets the orphan class and the missing-measurement label', () => {
+  const { component } = createDevicemapPanel({ cytoscapeImpl: fakeCytoscapeFactory([], []) });
+  const gone = { id: 'sub:gone', label: 'Trockner', icon: 'plug', device_id: 'plug_b', entity_id: 'power_9' };
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }], edges: [], sub_devices: [SUB_WM, gone] };
+
+  const elements = component.buildElements();
+  const orphan = elements.find(element => element.data.id === 'sub:gone');
+  const shown = elements.find(element => element.data.id === 'sub:wm');
+  assert.equal(orphan.classes, 'devicemap-sub devicemap-sub-orphan');
+  assert.equal(shown.classes, 'devicemap-sub', 'the sub-device with its entity is not an orphan');
+
+  const labels = Object.fromEntries(component.labelItems().map(item => [item.id, item.value]));
+  assert.equal(labels['sub:gone'], 'Messung fehlt');
+  assert.notEqual(labels['sub:wm'], 'Messung fehlt');
+});

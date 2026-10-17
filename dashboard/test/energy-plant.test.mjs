@@ -162,3 +162,57 @@ test('a data edge draws no flow and adds no group value', async () => {
   const group = plant.labelItems().find(item => item.id === 'group:uv');
   assert.equal(group.value, 'Gruppe · Σ 300 W', 'only the membership edge (300 W) sums, the data edge (pv, 500 W) does not');
 });
+
+// A plug with two power entities, the first measured as sub:wm and a second
+// sub-device (sub:gone) whose entity no longer exists.
+const SUB_TABLE = {
+  '/api/v1/devices': [
+    { id: 'plug', name: 'Steckdose', relations: [], entities: [
+      { unique_id: 'power_1', unit_of_measurement: 'W', value: '300' },
+      { unique_id: 'power_2', unit_of_measurement: 'W', value: '200' },
+    ] },
+  ],
+  '/api/v1/device/map': {
+    version: 3,
+    nodes: [{ device_id: 'plug', x: 100, y: 100 }, { virtual_id: 'sub:wm', x: 400, y: 50 }],
+    edges: [],
+    sub_devices: [
+      { id: 'sub:wm', label: 'Waschmaschine', icon: 'plug', device_id: 'plug', entity_id: 'power_1' },
+      { id: 'sub:gone', label: 'Trockner', icon: 'plug', device_id: 'plug', entity_id: 'power_9' },
+    ],
+    edge_props: [{ parent_id: 'plug', child_id: 'sub:wm', type: 'energy', channel: 1 }],
+  },
+  '/api/v1/energy': { entities: [
+    { device_id: 'plug', entity_id: 'power_1', value: 300, unit: 'W', role: { role: 'load', source: 'override' } },
+    { device_id: 'plug', entity_id: 'power_2', value: 200, unit: 'W', role: { role: 'load', source: 'override' } },
+  ], balance: {} },
+  '/api/v1/energy/roles': { assignments: {}, groups: {}, categories: {} },
+  '/api/v1/device/icons': [],
+};
+
+test('plant view draws the sub-device at its saved position', async () => {
+  const { component } = createPlant(SUB_TABLE);
+  await component.load();
+  const elements = component.elements();
+  const byId = id => elements.find(element => element.data.id === id);
+
+  const wm = byId('sub:wm');
+  assert.deepEqual(JSON.parse(JSON.stringify(wm.position)), { x: 400, y: 50 }, 'drawn at the saved spot');
+  assert.equal(wm.data.name, 'Waschmaschine');
+  assert.equal(wm.classes, 'devicemap-sub');
+  assert.match(decodeURIComponent(wm.data.svg), /data-border="sub"/, 'dashed ring');
+  assert.doesNotMatch(decodeURIComponent(wm.data.svg), /data-health=/, 'no health dot');
+
+  const gone = byId('sub:gone');
+  assert.ok(gone.classes.includes('devicemap-sub-orphan'), 'entity is gone, so the node is an orphan');
+  assert.ok(gone.position, 'an orphan without a saved spot still gets one');
+
+  // The meter keeps the ring of its remaining entity, the sub-device edge
+  // carries the sub-device's own measurement.
+  assert.deepEqual(JSON.parse(JSON.stringify(component.energyByDevice().get('plug').roles)), ['load']);
+  assert.equal(component.energyByDevice().get('plug').byRole.load, 200);
+  assert.ok(component.wiringEdges().some(edge => edge.data.source === 'plug' && edge.data.target === 'sub:wm' && edge.data.subDevice === true));
+
+  const labels = Object.fromEntries(component.labelItems().map(item => [item.id, item.value]));
+  assert.equal(labels['sub:gone'], 'Messung fehlt');
+});
