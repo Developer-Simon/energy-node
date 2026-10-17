@@ -27,8 +27,9 @@ const switchSource = fs.readFileSync(
   'utf8',
 );
 
-function createEnergyPanel({ fetchImpl, basePath } = {}) {
-  const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
+function createEnergyPanel({ fetchImpl, basePath, url } = {}) {
+  // A real origin gives jsdom a localStorage; the default about:blank has none.
+  const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', ...(url ? { url } : {}) });
   const context = dom.getInternalVMContext();
   const factories = {};
   dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
@@ -389,6 +390,96 @@ test('energy-roles-changed reloads the page and focusRows flashes and unhides ro
   component.focusRows(['socket_power']);
   t.mock.timers.tick(1600);
   assert.equal(component.flash.socket_power, undefined);
+});
+
+// Hidden rows: the set lives in energy.json, shared by every browser.
+function hiddenFetch({ roles = rolesResponse, edit = true, patchOk = true, calls = [] } = {}) {
+  return async (url, options = {}) => {
+    calls.push({ url, options });
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({ edit_energy: edit, csrf_token: 't' });
+    if (url.endsWith('/api/v1/devices')) return jsonResponse(devicesResponse);
+    if (url.endsWith('/api/v1/energy/roles') && options.method === 'PATCH') {
+      return jsonResponse(patchOk ? {} : { message: 'forbidden' }, patchOk);
+    }
+    if (url.endsWith('/api/v1/energy/roles')) return jsonResponse(roles);
+    return jsonResponse(energyResponse);
+  };
+}
+
+test('load() takes the hidden ids from energy.json', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: hiddenFetch({ roles: { ...rolesResponse, hidden: ['socket_power'] } }) });
+  await component.load();
+  assert.equal(component.isHidden('socket_power'), true);
+  assert.deepEqual(component.hiddenEntities.map(entity => entity.id), ['socket_power']);
+});
+
+test('a row with a role is never hidden and offers no hide button', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: hiddenFetch() });
+  await component.load();
+  component.hiddenIds = { pv_power: true };
+  assert.equal(component.isHidden('pv_power'), false);
+  assert.equal(component.canHide('pv_power'), false);
+  assert.equal(component.canHide('socket_power'), true);
+});
+
+test('toggleHidden saves through PATCH and tells the other pages', async () => {
+  const calls = [];
+  const { component, window } = createEnergyPanel({ fetchImpl: hiddenFetch({ calls }) });
+  let changed = 0;
+  window.addEventListener('energy-roles-changed', () => { changed += 1; });
+  await component.load();
+  await component.toggleHidden('socket_power');
+  const [first] = calls.filter(call => call.options.method === 'PATCH');
+  assert.equal(first.url, '/api/v1/energy/roles');
+  assert.deepEqual(JSON.parse(first.options.body), { hidden: { socket_power: true } });
+  assert.equal(first.options.headers['X-CSRF-Token'], 't');
+  assert.equal(component.isHidden('socket_power'), true);
+  assert.equal(changed, 1);
+  await component.toggleHidden('socket_power');
+  const patches = calls.filter(call => call.options.method === 'PATCH');
+  assert.deepEqual(JSON.parse(patches[1].options.body), { hidden: { socket_power: false } });
+  assert.equal(component.isHidden('socket_power'), false);
+});
+
+test('toggleHidden reverts and shows a toast when the server refuses', async () => {
+  const { component, stores } = createEnergyPanel({ fetchImpl: hiddenFetch({ patchOk: false }) });
+  await component.load();
+  await component.toggleHidden('socket_power');
+  assert.equal(component.isHidden('socket_power'), false);
+  assert.equal(stores.toasts.criticals.length, 1);
+});
+
+test('load() moves legacy localStorage ids to energy.json once and drops assigned ones', async () => {
+  const calls = [];
+  const { component, window } = createEnergyPanel({ fetchImpl: hiddenFetch({ calls }), url: 'http://localhost/' });
+  window.localStorage.setItem('energy-roles-hidden-ids', JSON.stringify({ socket_power: true, pv_power: true }));
+  await component.load();
+  const patches = calls.filter(call => call.options.method === 'PATCH');
+  assert.equal(patches.length, 1);
+  assert.deepEqual(JSON.parse(patches[0].options.body), { hidden: { socket_power: true } });
+  assert.equal(window.localStorage.getItem('energy-roles-hidden-ids'), null);
+  assert.equal(component.isHidden('socket_power'), true);
+  assert.equal(component.isHidden('pv_power'), false);
+});
+
+test('without edit rights the legacy list is ignored, neither sent nor deleted', async () => {
+  const calls = [];
+  const { component, window } = createEnergyPanel({ fetchImpl: hiddenFetch({ calls, edit: false }), url: 'http://localhost/' });
+  window.localStorage.setItem('energy-roles-hidden-ids', JSON.stringify({ socket_power: true }));
+  await component.load();
+  assert.equal(calls.some(call => call.options.method === 'PATCH'), false);
+  assert.notEqual(window.localStorage.getItem('energy-roles-hidden-ids'), null);
+  assert.equal(component.isHidden('socket_power'), false);
+  assert.equal(component.canHide('socket_power'), false);
+});
+
+test('load() sends an unhide for a server id that now carries a role', async () => {
+  const calls = [];
+  const { component } = createEnergyPanel({ fetchImpl: hiddenFetch({ calls, roles: { ...rolesResponse, hidden: ['pv_power'] } }) });
+  await component.load();
+  const [patch] = calls.filter(call => call.options.method === 'PATCH');
+  assert.deepEqual(JSON.parse(patch.options.body), { hidden: { pv_power: false } });
+  assert.equal(component.isHidden('pv_power'), false);
 });
 
 test('the page loads categories and groups, offers custom roles and saves both', async () => {
