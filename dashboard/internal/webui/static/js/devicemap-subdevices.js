@@ -41,7 +41,7 @@
   const isOrphan = (sub, devices) => {
     const device = (devices || []).find(item => item.id === sub.device_id);
     if (!device) return true;
-    return !(device.entities || []).some(entity => entity.entity_id === sub.entity_id);
+    return !(device.entities || []).some(entity => entity && entity.unique_id === sub.entity_id);
   };
 
   // Right of the anchor, one step further down for every taken spot in the

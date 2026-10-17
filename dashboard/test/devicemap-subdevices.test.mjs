@@ -70,8 +70,10 @@ test('pairs connect the parent device to the sub-device when the parent is on th
 
 test('isOrphan is true when the device or the entity is missing', () => {
   const sd = load();
-  const devices = [{ id: 'plug_b', entities: [{ entity_id: 'plug_b_power', unit_of_measurement: 'W' }] }];
+  const devices = [{ id: 'plug_b', entities: [{ unique_id: 'plug_b_power', unit_of_measurement: 'W' }] }];
   assert.equal(sd.isOrphan(sub, devices), false);
+  assert.equal(sd.isOrphan(sub, [{ id: 'plug_b', entities: [{ entity_id: 'plug_b_power' }] }]), true, 'the device list uses unique_id, not entity_id');
+  assert.equal(sd.isOrphan(sub, [{ id: 'plug_b', entities: [null, { unique_id: 'plug_b_power' }] }]), false, 'null entries are skipped');
   assert.equal(sd.isOrphan(sub, []), true);
   assert.equal(sd.isOrphan(sub, [{ id: 'plug_b', entities: [] }]), true);
 });
