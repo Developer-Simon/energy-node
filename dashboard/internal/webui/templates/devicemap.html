@@ -111,6 +111,7 @@
             </button>
           </div>
           <p class="devicemap-popover-text" x-show="popover.text" x-text="popover.text"></p>
+          <button type="button" class="devicemap-popover-dead" x-show="popover.deadBy" x-on:click="openFlowLink({tab: 'panel', target: popover.deadBy.id})" x-text="popover.deadBy ? $t('devicemap.pop.row.dead', {name: popover.deadBy.name}) : ''"></button>
           <dl x-show="popover.rows.length">
             <template x-for="(row, index) in popover.rows" x-bind:key="index">
               <div class="devicemap-popover-row"><dt x-text="row[0]"></dt><dd x-text="row[1]"></dd></div>
@@ -248,7 +249,7 @@
                 </button>
               </div>
             </div>
-            <div class="devicemap-view-menu-legend" x-show="view.layers.energy || view.layers.data" aria-label="{{t "devicemap.legend.aria"}}">
+            <div class="devicemap-view-menu-legend" x-show="view.layers.energy || view.layers.data || switchLegendVisible()" aria-label="{{t "devicemap.legend.aria"}}">
               <span class="devicemap-panel-eyebrow">{{t "devicemap.view_menu.legend"}}</span>
               <div class="devicemap-legend">
                 <span x-show="view.layers.energy"><i style="border-color: var(--flow-pv)"></i>{{t "devicemap.legend.pv"}}</span>
@@ -259,6 +260,8 @@
                 <span x-show="view.layers.energy && Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
                 <span x-show="view.layers.energy && Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
                 <span x-show="view.layers.data"><i class="dashed" style="border-color: var(--info-line)"></i>{{t "devicemap.legend.data"}}</span>
+                <span x-show="switchLegendVisible()"><i class="devicemap-off-ring"></i>{{t "devicemap.legend.output_off"}}</span>
+                <span x-show="switchLegendVisible()"><i class="devicemap-dotted devicemap-dead-line"></i>{{t "devicemap.legend.dead"}}</span>
               </div>
             </div>
           </div>
@@ -327,6 +330,24 @@
                 </details>
               </div>
             </template>
+            <div class="devicemap-panel-others" x-show="panelView.outputs && panelView.outputs.length">
+              <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.output.title"}}</span>
+              <template x-for="output in panelView.outputs" x-bind:key="output.entityId">
+                <div class="devicemap-panel-entity" x-bind:class="{ dirty: output.source === 'draft' }">
+                  <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name" x-text="output.name"></span><span class="devicemap-panel-entity-value" x-text="$t(`devicemap.panel.output.state.${output.state === 'on' || output.state === 'off' ? output.state : 'unknown'}`)"></span></div>
+                  <label class="devicemap-panel-field">
+                    <select x-on:change="setSwitchFunction(output.entityId, $event.target.value)" x-bind:disabled="!canEditEnergy" aria-label="{{t "devicemap.panel.output.title"}}">
+                      <option value="output" x-bind:selected="output.fn === 'output'">{{t "devicemap.panel.output.function.output"}}</option>
+                      <option value="none" x-bind:selected="output.fn === 'none'">{{t "devicemap.panel.output.function.none"}}</option>
+                    </select>
+                  </label>
+                  <div class="devicemap-panel-source">
+                    <span class="devicemap-panel-chip" x-bind:data-source="output.source" x-text="$t(`devicemap.panel.output.source.${output.source}`)"></span>
+                  </div>
+                </div>
+              </template>
+              <button type="button" class="nav-row-button" x-on:click="openDeviceInDevicesTab(panelId)"><span>{{t "devicemap.panel.output.switch_link"}}</span>{{template "devicemap-nav-arrow"}}</button>
+            </div>
             <div class="devicemap-panel-others" x-show="panelView.others.length">
               <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.others"}}</span>
               <template x-for="other in panelView.others" x-bind:key="other.id">

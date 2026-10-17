@@ -113,6 +113,29 @@ the colour of its role. The Energy Node is the balance itself, the device the
 dashboard publishes for Home Assistant, and it shows the net grid power. Without
 the Energy Node device, a separate balance node stands in for it.
 
+## Switchable devices
+
+![A switched-off plug](../images/dashboard-device-map-switch-off.png)
+
+A smart plug or relay can switch its output off. The map shows this when the
+Wiring or the Live energy layer is on. The device whose output is off is marked
+**Output off**: its value gets a grey pill with "Off", and an open dot sits at its
+connection. Everything that only gets its power through that device is dimmed,
+its flow stops and its outgoing connections turn dotted. In the connection card
+the line "No power because ... is off" names the device that cut the supply and
+links to it.
+
+The map finds the output of a device by four rules. The device has exactly one
+switch entity, the switch can be commanded, it is not a configuration or
+diagnostic entity, and the device has a power entity in W or kW. If the rules do
+not fit, open the device panel and set the function of a switch to **Cuts the
+output** or **No function**. The choice is part of the map draft and is saved
+with the map. A device that is off is never itself shown as without power, even
+if another switched-off device feeds it.
+
+The map only shows the state. To switch a device, use the Devices tab. The link
+in the device panel opens it.
+
 ## Permissions
 
 Changing the map, meaning the positions, the connections, the connection types

@@ -57,6 +57,21 @@
       "y": 480
     },
     {
+      "device_id": "plug_balkon",
+      "x": -220,
+      "y": 160
+    },
+    {
+      "device_id": "plug_entfeuchter",
+      "x": 1040,
+      "y": 480
+    },
+    {
+      "device_id": "balkon_kraftwerk",
+      "x": -440,
+      "y": 320
+    },
+    {
       "device_id": "netz_meanwell",
       "x": 0,
       "y": 640
@@ -122,6 +137,32 @@
       "parent_id": "haus_zaehler",
       "kind": "mqtt",
       "created_at": "2026-08-13T00:00:00Z"
+    },
+    {
+      "id": "plug_balkon-netz_zaehler",
+      "child_id": "plug_balkon",
+      "parent_id": "netz_zaehler",
+      "kind": "mqtt",
+      "created_at": "2026-10-16T00:00:00Z"
+    },
+    {
+      "id": "balkon_kraftwerk-plug_balkon",
+      "child_id": "balkon_kraftwerk",
+      "parent_id": "plug_balkon",
+      "kind": "mqtt",
+      "created_at": "2026-10-16T00:00:00Z"
+    }
+  ],
+  "edge_props": [
+    {
+      "parent_id": "netz_zaehler",
+      "child_id": "plug_balkon",
+      "type": "energy"
+    },
+    {
+      "parent_id": "plug_balkon",
+      "child_id": "balkon_kraftwerk",
+      "type": "energy"
     }
   ],
   "view": {

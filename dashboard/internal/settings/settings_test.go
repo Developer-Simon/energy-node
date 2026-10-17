@@ -2318,6 +2318,80 @@ func TestEnergyCategoriesMigrateLegacyIconNames(t *testing.T) {
 	}
 }
 
+func TestDeviceMapSwitchOutputsRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.SwitchOutputs = []DeviceMapSwitchOutput{
+		{EntityID: "plug_a_relay", DeviceID: "plug_a", Function: "output"},
+		{EntityID: "plug_b_led", DeviceID: "plug_b", Function: "none"},
+	}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Version != 3 || len(loaded.SwitchOutputs) != 2 || loaded.SwitchOutputs[0].Function != "output" {
+		t.Fatalf("loaded = %+v", loaded)
+	}
+}
+
+func TestDeviceMapSwitchOutputsValidation(t *testing.T) {
+	store := NewStore(t.TempDir())
+	cases := map[string][]DeviceMapSwitchOutput{
+		"unknown function":       {{EntityID: "a", DeviceID: "d", Function: "cut"}},
+		"empty entity":           {{EntityID: "", DeviceID: "d", Function: "output"}},
+		"duplicate entity":       {{EntityID: "a", DeviceID: "d", Function: "output"}, {EntityID: "a", DeviceID: "d", Function: "none"}},
+		"two outputs one device": {{EntityID: "a", DeviceID: "d", Function: "output"}, {EntityID: "b", DeviceID: "d", Function: "output"}},
+	}
+	for name, outputs := range cases {
+		value := NewDeviceMap()
+		value.SwitchOutputs = outputs
+		if err := store.SaveDeviceMap(value); err == nil {
+			t.Errorf("%s: expected rejection", name)
+		}
+	}
+	ok := NewDeviceMap()
+	ok.SwitchOutputs = []DeviceMapSwitchOutput{{EntityID: "a", DeviceID: "d", Function: "output"}, {EntityID: "b", DeviceID: "d", Function: "none"}}
+	if err := store.SaveDeviceMap(ok); err != nil {
+		t.Fatalf("one output plus one none on a device must pass: %v", err)
+	}
+}
+
+func TestDeviceMapWithoutSwitchOutputsStillLoads(t *testing.T) {
+	dir := t.TempDir()
+	store := NewStore(dir)
+	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(`{"version":3,"nodes":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := store.LoadDeviceMap()
+	if err != nil || len(loaded.SwitchOutputs) != 0 {
+		t.Fatalf("loaded = %+v, err = %v", loaded, err)
+	}
+}
+
+func TestDeviceMapSwitchOutputsLoadReturnsCopy(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.SwitchOutputs = []DeviceMapSwitchOutput{{EntityID: "a", DeviceID: "d", Function: "output"}}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	first, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	first.SwitchOutputs[0].Function = "none"
+	second, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if second.SwitchOutputs[0].Function != "output" {
+		t.Fatalf("store copy was mutated: %+v", second.SwitchOutputs)
+	}
+}
+
 func TestDeviceMapEdgePropsRoundTrip(t *testing.T) {
 	store := NewStore(t.TempDir())
 	value := NewDeviceMap()

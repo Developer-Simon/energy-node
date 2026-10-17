@@ -21,14 +21,35 @@
           el.dataset.labelId = item.id;
           const name = document.createElement('span');
           name.className = 'devicemap-node-name';
+          // The reading wrapper is the pill for switched-off nodes, so it
+          // wraps the value and the off text together.
+          const reading = document.createElement('span');
+          reading.className = 'devicemap-node-reading';
           const value = document.createElement('span');
           value.className = 'devicemap-node-value';
-          el.append(name, value);
+          reading.appendChild(value);
+          el.append(name, reading);
           container.appendChild(el);
           byId.set(item.id, el);
         }
-        el.children[0].textContent = item.name;
-        el.children[1].textContent = item.value;
+        el.querySelector('.devicemap-node-name').textContent = item.name;
+        el.querySelector('.devicemap-node-value').textContent = item.value;
+        const reading = el.querySelector('.devicemap-node-reading');
+        const off = reading.querySelector('.devicemap-node-off');
+        if (item.off) {
+          el.classList.add('is-off');
+          if (off) {
+            off.textContent = `· ${item.offText}`;
+          } else {
+            const pill = document.createElement('span');
+            pill.className = 'devicemap-node-off';
+            pill.textContent = `· ${item.offText}`;
+            reading.appendChild(pill);
+          }
+        } else {
+          el.classList.remove('is-off');
+          if (off) off.remove();
+        }
       }
       for (const [id, el] of byId) {
         if (!keep.has(id)) { el.remove(); byId.delete(id); }

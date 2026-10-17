@@ -58,3 +58,32 @@ def test_relay_empty_retained_payload_removes_the_entry():
     messages = {"homeassistant/sensor/energy_node/pv_power/config": b"{}"}
     minibroker.relay(messages, {}, "homeassistant/sensor/energy_node/pv_power/config", b"", True)
     assert "homeassistant/sensor/energy_node/pv_power/config" not in messages
+
+
+PLUG_CONFIG = (b'{"state_topic": "plug/balkon/output", "command_topic": "plug/balkon/output/set",'
+               b' "payload_on": "1", "payload_off": "0", "state_on": "ON", "state_off": "OFF"}')
+
+
+def test_relay_echoes_a_switch_command_on_its_state_topic():
+    # Wie ein echtes Geraet: der Befehl auf command_topic kommt als neuer
+    # Zustand auf state_topic zurueck, in der state_on/state_off-Form. Abgelegt
+    # wird er retained, verbundene Clients bekommen ihn aber wie bei einem
+    # echten Broker mit Retain-Flag 0 - nur so gilt der Befehl im Dashboard
+    # als bestaetigt (registry: pendingResolved nur bei !retained).
+    messages = {"homeassistant/switch/plug_balkon/steckdose/config": PLUG_CONFIG,
+                "plug/balkon/output": b"OFF"}
+    conn = FakeConn()
+    minibroker.relay(messages, {conn: FakeLock()}, "plug/balkon/output/set", b"1", False)
+    assert messages["plug/balkon/output"] == b"ON"
+    assert minibroker.publish_packet("plug/balkon/output", b"ON", retain=False) in conn.sent
+    assert minibroker.publish_packet("plug/balkon/output", b"ON", retain=True) not in conn.sent
+    minibroker.relay(messages, {conn: FakeLock()}, "plug/balkon/output/set", b"0", False)
+    assert messages["plug/balkon/output"] == b"OFF"
+
+
+def test_relay_ignores_unknown_switch_payloads_and_other_topics():
+    messages = {"homeassistant/switch/plug_balkon/steckdose/config": PLUG_CONFIG,
+                "plug/balkon/output": b"OFF"}
+    minibroker.relay(messages, {}, "plug/balkon/output/set", b"TOGGLE", False)
+    minibroker.relay(messages, {}, "plug/other/set", b"1", False)
+    assert messages["plug/balkon/output"] == b"OFF"

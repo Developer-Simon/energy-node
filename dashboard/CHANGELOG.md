@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.20 (2026-10-16)
+## v0.9.21 (2026-10-17)
 
 ### Features
 
@@ -14,6 +14,16 @@
 - **history:** The history page offers the resolutions that fit the chosen span in a dropdown inside the status line and preselects the coarsest one that has data. It shows hourly values from the energy statistics for a week or longer, has a 3 month preset and lets you pause the page refresh. (#141) (d7971dd)
 - **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142) (66cd698)
 - **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143) (59dfeb3)
+- **devicemap:** store switch output functions in device-map.json (6d70bc1)
+- **devicemap:** serve switch entities with their resolved state (c4d8edd)
+- **devicemap:** detect switch outputs and compute the area without power (877e596)
+- **devicemap:** draw quiet nodes and an open output port (a97e278)
+- **devicemap:** show an off pill under switched-off nodes (3db72e8)
+- **devicemap:** style cut and dead edges and stack the quiet node image (e156d24)
+- **devicemap:** load switch states and mark switched-off nodes (4ccec11)
+- **devicemap:** show switched-off outputs and the area without power (d711591)
+- **devicemap:** assign switch outputs in the device panel and explain dead edges (bab83bb)
+- **devicemap:** The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label. (#145)
 - **stats:** hatch export and battery charge instead of a second colour (28ab382)
 - **dashboard:** overflow tabs into a More list, main menu mode per browser (29a532c)
 - **energy:** auto load mode calculates with the house meter as cross-check (31771de)
@@ -71,6 +81,11 @@
 
 ### Fixes
 
+- **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144) (ba54b31)
+- **devicemap:** require edit_energy and CSRF for every map write (1e2169b)
+- **devicemap:** keep labels live and harden switch fade teardown (5b9ea98)
+- **devicemap:** prefix the legend dotted class and use English spec references (51b6caa)
+- **devicemap:** draw quiet node images, move the off pill and echo switch commands (af157a3)
 - **dashboard:** keep favourite chips in pick order after saving (04b4d18)
 - **dashboard:** hidden help tooltips no longer widen narrow pages (543c498)
 - **devicemap:** closed side panel no longer widens the page (3d8fd4b)
@@ -84,7 +99,6 @@
 - **dashboard:** anchor narrow-screen help tooltips under their trigger (e4cb788)
 - **stats:** keep thinned axis labels when the chart renders hidden (5708884)
 - **settings:** anchor the version help tooltip on narrow screens (1bbc768)
-- **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144)
 - **energy:** plain wording in the load mode texts (a04e740)
 - **energydiscovery:** leave role empty for category sensors (a2f0f81)
 - **dashboard:** keep announced sensors when settings cannot be loaded (5661b83)
@@ -117,6 +131,8 @@
 
 ### Tests
 
+- **devicemap:** add switch fixtures and screenshot (baf7e2a)
+- **devicemap:** wire the balcony plug in front of its own inverter (4215284)
 - **smoke:** bind the bank A edge probe to the preset that seeds it (ef36c7f)
 - **automation:** cover the state route on the automations page (95552d8)
 - **smoke:** overflow probe checks settings subpages and open tooltips (ca9e7c6)
@@ -126,6 +142,7 @@
 
 ### Chores
 
+- **webui:** bump lazy assets for switch state (bc7a8b6)
 - **dashboard:** bump cache-busting versions for changed assets (a5c7064)
 - **dashboard:** bump settings-controls.css for the version help tooltip (b110b3a)
 - **dashboard:** bump asset versions and document the devices topic (099cf25)

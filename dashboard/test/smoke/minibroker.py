@@ -20,6 +20,11 @@ Nichts davon wird fuer den Smoke-Test gebraucht. Nicht ausserhalb von Tests verw
 
 PUBLISH von Clients wird wie bei einem echten Broker weitergereicht und retained abgelegt. So sieht das Dashboard seine eigene Discovery und zeigt das Geraet energy_node in jedem Preset.
 
+Discovery-Schalter der Fixture (homeassistant/switch/.../config) antworten wie
+ein Geraet: ein Befehl auf ihrem command_topic setzt den Zustand auf dem
+state_topic. So laesst sich z. B. Plug Balkon im Preset alle-funktionen
+schalten.
+
     python3 minibroker.py [PORT] [FIXTURE.json] [--simulate]
                           [--service-status DEVICES_DIR] [--reject-config NAME ...]
 
@@ -151,6 +156,33 @@ def relay(messages, connections, topic, payload, retain):
                 conn.sendall(publish_packet(topic, payload, retain=False))
         except OSError:
             connections.pop(conn, None)
+    echo_switch(messages, connections, topic, payload)
+
+
+def echo_switch(messages, connections, topic, payload):
+    """Spielt das Geraet hinter einem Discovery-Schalter der Fixture: ein
+    Befehl auf dessen command_topic kommt als neuer Zustand retained auf dem
+    state_topic zurueck. Ohne das bliebe ein Schaltbefehl aus dem Dashboard
+    folgenlos, die Geraetekarte zeigte die Steckdose nie eingeschaltet."""
+    for config_topic, raw in list(messages.items()):
+        if not (config_topic.startswith("homeassistant/switch/") and config_topic.endswith("/config")):
+            continue
+        try:
+            config = json.loads(raw)
+        except ValueError:
+            continue
+        if config.get("command_topic") != topic or not config.get("state_topic"):
+            continue
+        states = {
+            config.get("payload_on", "ON"): config.get("state_on", config.get("payload_on", "ON")),
+            config.get("payload_off", "OFF"): config.get("state_off", config.get("payload_off", "OFF")),
+        }
+        state = states.get(payload.decode("utf-8", "replace"))
+        if state is not None:
+            # broadcast() legt retained ab, sendet aber mit Retain-Flag 0 wie
+            # ein echter Broker an schon verbundene Clients. Nur eine solche
+            # Live-Nachricht bestaetigt im Dashboard den offenen Befehl.
+            broadcast(messages, connections, config["state_topic"], state.encode("utf-8"), False)
 
 
 def handle(conn, messages, connections):

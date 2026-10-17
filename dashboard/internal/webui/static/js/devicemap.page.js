@@ -16,6 +16,14 @@
 
   const ENERGY_REFRESH_MS = 1000;
 
+  // Switch fade timing (draft motion table): 250 ms per node, 60 ms per hop
+  // below the switch, reduced motion 150 ms for all nodes at once.
+  const SWITCH_FADE_MS = 250;
+  const SWITCH_HOP_MS = 60;
+  const SWITCH_REDUCED_MS = 150;
+  // The state of a node that is neither switched off nor without power.
+  const NO_SWITCH = Object.freeze({quiet: false, off: false, hops: 0});
+
   const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false};
 
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
@@ -31,6 +39,13 @@
     // subtle bugs (Cytoscape mutates itself heavily on every render/drag).
     let cy = null;
     let labels = null;
+    // Switch state as last committed on the map: id -> {quiet, off, hops}.
+    // A running fade only moves a node here when it completes.
+    let switchShown = new Map();
+    // Goal of the last applySwitchState() call; an unchanged goal keeps running fades.
+    let switchGoal = null;
+    let switchGen = 0;
+    let switchTimers = [];
 
     return {
       ...window.DevicePicker.mixin(),
@@ -52,6 +67,7 @@
       themeOff: null,
       energy: null,
       energyUnavailable: false,
+      switches: [], // Answer of /api/v1/devices/switches, kept when a request fails
       flows: null, // {nodes, edges, unresolved} from /api/v1/device/map/flows, null while unavailable
       flowsUnavailable: false,
       invalidConfigs: 0,
@@ -79,6 +95,7 @@
       _energyTimer: null,
       _energyPending: false,
       _setTimeout: (fn, ms) => setTimeout(fn, ms),
+      _clearTimeout: id => clearTimeout(id),
       _cyForTest: null,
       _requestFrame: fn => (window.requestAnimationFrame ? window.requestAnimationFrame(fn) : null),
       _cancelFrame: id => { if (window.cancelAnimationFrame) window.cancelAnimationFrame(id); },
@@ -122,7 +139,7 @@
         }
         this.loading = true;
         try {
-          const [devices, deviceMap, energy, roles, session, icons, flows] = await Promise.all([
+          const [devices, deviceMap, energy, roles, session, icons, flows, switches] = await Promise.all([
             requestJSON('/api/v1/devices'),
             requestJSON('/api/v1/device/map'),
             requestJSON('/api/v1/energy').catch(() => null),
@@ -130,7 +147,9 @@
             requestJSON('/api/v1/auth/session').catch(() => null),
             requestJSON('/api/v1/device/icons').catch(() => []),
             requestJSON('/api/v1/device/map/flows').catch(() => null),
+            requestJSON('/api/v1/devices/switches').catch(() => []),
           ]);
+          this.switches = Array.isArray(switches) ? switches : [];
           this.iconCatalogue = Array.isArray(icons) ? icons : [];
           this.iconMarkup = Object.fromEntries(this.iconCatalogue.map(icon => [icon.name, icon.markup]));
           this.savedAssignments = (roles && roles.assignments) || {};
@@ -160,6 +179,7 @@
         return {
           basePath: '/api/v1/device/map',
           current: () => this.deviceMap,
+          headers: () => ({'X-CSRF-Token': this.csrfToken}),
           reload: async () => {
             await this.load();
             this.notifyMapChanged();
@@ -176,11 +196,138 @@
         this.stopFlowAnimation();
         clearTimeout(this._energyTimer);
         if (labels) { labels.destroy(); labels = null; }
+        switchGen += 1;
+        for (const timer of switchTimers) this._clearTimeout(timer);
+        switchTimers = [];
+        if (cy) cy.nodes().forEach(node => node.stop(true, true));
       },
 
       flowElements() {
         if (!this.view.layers.energy || !this.energy) return [];
-        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props});
+        // Off outputs and the dead area carry no flow.
+        const cut = new Set(this.switchTargets(this.switchStatus()).keys());
+        return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});
+      },
+
+      // Switch outputs and the area without power, from the switch states and
+      // the draft's switch_outputs, so a draft shows its effect before saving.
+      switchStatus() {
+        const pairs = window.DeviceMapSwitch.pathPairs(this.buildEdgeElements());
+        return window.DeviceMapSwitch.status({switches: this.switches, switchOutputs: this.deviceMap.switch_outputs, devices: this.devices, pairs});
+      },
+
+      switchVisible() {
+        return Boolean(this.view.layers.wiring || this.view.layers.energy);
+      },
+
+      // Quiet nodes of a status: off outputs (hop 0) and the dead area with
+      // its hop distance. Nothing is quiet while neither the wiring nor the
+      // energy layer is on.
+      switchTargets(status) {
+        const targets = new Map();
+        if (!this.switchVisible()) return targets;
+        for (const id of status.off) targets.set(id, {quiet: true, off: true, hops: 0});
+        for (const [id, {hops}] of status.dead) targets.set(id, {quiet: true, off: false, hops});
+        return targets;
+      },
+
+      // Label text for an off output or a node in the dead area, empty otherwise.
+      offLabel(status, id) {
+        if (!this.switchVisible()) return {};
+        return status.off.has(id) || status.dead.has(id) ? {off: true, offText: t('devicemap.node.off')} : {};
+      },
+
+      // The committed switch state as a status, for labels and wiring edges.
+      shownStatus() {
+        const off = new Set();
+        const dead = new Map();
+        for (const [id, state] of switchShown) {
+          if (state.off) off.add(id);
+          else if (state.quiet) dead.set(id, state);
+        }
+        return {off, dead};
+      },
+
+      // Node data for one device: the normal image (with the output port of a
+      // switch output), plus the quiet image for nodes that are switched off
+      // or without power. graphStyle() stacks them, the quiet data picks one.
+      nodeImages(device, status, energy, colorOf) {
+        const outputOpen = this.switchVisible() && status.outputs.has(device.id);
+        const images = {svg: this.nodeSvg(device, energy, colorOf, {outputOpen})};
+        if (this.switchTargets(status).has(device.id)) images.svgQuiet = this.nodeSvg(device, energy, colorOf, {outputOpen, quiet: true});
+        return images;
+      },
+
+      // The only place that sets a node's quiet data or removes its opacity
+      // bypass. animate: changed nodes fade one after another, the switched-off
+      // plug first and each hop of the dead area 60 ms later. A new call
+      // discards a running fade and starts from the last committed state.
+      // Reduced motion fades all nodes together. Without animate, the state is
+      // set at once (first render, new graph).
+      applySwitchState({animate = false} = {}) {
+        if (!cy) return;
+        const graph = cy;
+        const status = this.switchStatus();
+        const targets = this.switchTargets(status);
+        const goal = [...targets].map(([id, target]) => `${id}:${target.quiet}:${target.off}:${target.hops}`).sort().join('|');
+        if (goal === switchGoal) return;
+        switchGoal = goal;
+
+        switchGen += 1;
+        const gen = switchGen;
+        for (const timer of switchTimers) this._clearTimeout(timer);
+        switchTimers = [];
+        const nodes = this.devices.map(device => ({id: device.id, node: graph.getElementById(device.id)})).filter(({node}) => !node.empty());
+        for (const {node} of nodes) {
+          node.stop(true, true);
+          node.removeStyle('background-image-opacity');
+        }
+
+        const commit = (node, id, target) => {
+          switchShown.set(id, target);
+          node.data('quiet', target.quiet);
+          node.removeStyle('background-image-opacity');
+          this.refreshSwitchViews();
+        };
+        const reduced = this.reducedMotion();
+        const fades = [];
+        for (const {id, node} of nodes) {
+          const target = targets.get(id) || NO_SWITCH;
+          if (!animate) {
+            commit(node, id, target);
+            continue;
+          }
+          const shown = switchShown.get(id) || NO_SWITCH;
+          if (shown.quiet !== target.quiet || shown.off !== target.off) fades.push({id, node, target, shown});
+        }
+        for (const {id, node, target, shown} of fades) {
+          // Fading in starts at the plug, fading out at the plug as well:
+          // the hop distance comes from the state that the node moves to,
+          // or from the previous one when it turns back on.
+          const hops = target.quiet ? target.hops : shown.hops;
+          const delay = reduced ? 0 : hops * SWITCH_HOP_MS;
+          const duration = reduced ? SWITCH_REDUCED_MS : SWITCH_FADE_MS;
+          switchTimers.push(this._setTimeout(() => {
+            if (gen !== switchGen) return;
+            node.animate({style: {'background-image-opacity': target.quiet ? [0, 1] : [1, 0]}}, {
+              duration,
+              complete: () => { if (gen === switchGen) commit(node, id, target); },
+            });
+          }, delay));
+        }
+        this.refreshSwitchViews();
+      },
+
+      // Labels and wiring edges follow the committed state only, so a fade
+      // that is still running does not change them early.
+      refreshSwitchViews() {
+        if (labels) labels.update(this.labelItems(this.shownStatus()));
+        if (!cy) return;
+        cy.edges('.devicemap-wiring').forEach(edge => {
+          const shown = switchShown.get(edge.data('source')) || NO_SWITCH;
+          edge.toggleClass('devicemap-dead', shown.quiet);
+          edge.toggleClass('devicemap-cut', shown.off);
+        });
       },
 
       applyFlows() {
@@ -368,6 +515,7 @@
           eyebrow: t(origin === 'group' ? 'devicemap.pop.eyebrow.membership' : 'devicemap.pop.eyebrow.wiring'),
           title: this.selectedEdgeLabel, rows, lists: [],
           text: origin === 'discovery' ? t('devicemap.edge_readonly_hint') : '',
+          deadBy: this.deadByOf(edge.source),
           linkText: opensPanel ? t('devicemap.pop.link.open_device', {name: this.deviceLabel(edge.target)}) : '',
           link: opensPanel ? {tab: 'panel', target: edge.target} : null,
           action: origin === 'discovery' ? null : {label: t('devicemap.disconnect_button')},
@@ -433,7 +581,7 @@
           });
         }
         this.applyFlows();
-        if (labels) labels.update(this.labelItems());
+        this.refreshSwitchViews();
         if (this.popover && this.popover.edge) {
           // Re-open at the original tap point, not at the flipped card corner.
           const anchor = this.edgeCardAnchor || {x: this.popover.left - 12, y: this.popover.top - 12};
@@ -445,7 +593,7 @@
         const selected = this.selectedEdge;
         if (!selected || !selected.overrideId) return;
         try {
-          const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST'});
+          const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST', headers: {'X-CSRF-Token': this.csrfToken}});
           const edges = (this.deviceMap.edges || []).map(edge => (edge.id === result.relation.id ? result.relation : edge));
           const swap = {fixed_down: 'fixed_up', fixed_up: 'fixed_down'};
           const pair = window.DeviceMapGraph.relationKey(selected.source, selected.target);
@@ -524,6 +672,9 @@
       },
 
       async refreshEnergy() {
+        // Switch states run in parallel. A failed request keeps the last
+        // known states and shows no toast, the energy values behave as before.
+        const switches = requestJSON('/api/v1/devices/switches').catch(() => null);
         try {
           this.energy = await requestJSON('/api/v1/energy');
           this.energyUnavailable = false;
@@ -531,6 +682,8 @@
           this.energy = null;
           this.energyUnavailable = true;
         }
+        const list = await switches;
+        if (list !== null) this.switches = Array.isArray(list) ? list : [];
         this.applyEnergy();
       },
 
@@ -593,6 +746,37 @@
         this.applyEnergy();
       },
 
+      // Output or no function for one switch, as a map draft like the edge
+      // type: setFunction() keeps the other entries, the map is saved with save().
+      setSwitchFunction(entityId, fn) {
+        const item = this.switches.find(entry => entry.entity_id === entityId);
+        if (!item) return;
+        this.deviceMap = {...this.deviceMap, switch_outputs: window.DeviceMapSwitch.setFunction(this.deviceMap.switch_outputs, {deviceId: item.device_id, entityId, fn})};
+        this.unsaved = true;
+        this.applyEnergy();
+      },
+
+      // Opens the device in the devices tab, where its switch can be operated.
+      openDeviceInDevicesTab(deviceId) {
+        this.closePopover();
+        window.dispatchEvent(new CustomEvent('dashboard-open-panel', {detail: {panel: 'devices-panel', deviceFocus: deviceId}}));
+      },
+
+      // The legend entries for switch outputs show only when the map has one.
+      switchLegendVisible() {
+        return this.switchVisible() && this.switchStatus().outputs.size > 0;
+      },
+
+      // The plug that cuts the power of a node: the node itself when it is an
+      // off output, the nearest off output above it otherwise, null while live.
+      deadByOf(deviceId) {
+        const status = this.switchStatus();
+        let plugId = null;
+        if (status.off.has(deviceId)) plugId = deviceId;
+        else if (status.dead.has(deviceId)) plugId = status.dead.get(deviceId).plug;
+        return plugId ? {id: plugId, name: this.deviceLabel(plugId)} : null;
+      },
+
       get panelView() {
         if (!this.panelId) return null;
         const model = window.DeviceMapModel;
@@ -633,11 +817,12 @@
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
+        const outputs = window.DeviceMapSwitch.rows({deviceId: device.id, switches: this.switches, switchOutputs: this.deviceMap.switch_outputs, savedSwitchOutputs: this.savedDeviceMap.switch_outputs, devices: this.devices});
         return {
           kind: 'device',
           title: device.name || device.id,
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
-          rows, others, empty,
+          rows, others, empty, outputs,
           flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
       },
@@ -746,20 +931,21 @@
         };
       },
 
-      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor()) {
+      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor(), {outputOpen = false, quiet = false} = {}) {
         if (device.id === this.balanceId()) return window.DeviceMapNodeSvg.virtualDataUri('balance', colorOf);
         const model = window.DeviceMapModel;
         const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup);
-        return window.DeviceMapNodeSvg.dataUri(spec, colorOf);
+        return window.DeviceMapNodeSvg.dataUri({...spec, quiet, outputOpen}, colorOf);
       },
 
-      labelItems() {
+      labelItems(status = this.switchStatus()) {
         const model = window.DeviceMapModel;
         const {energy, children, dirOf} = this.energyFlowContext();
         const devices = this.devices.map(device => ({
           id: device.id,
           name: device.name || device.id,
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
+          ...this.offLabel(status, device.id),
         }));
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
@@ -778,19 +964,21 @@
       // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
       // internal state and restart every animation for what is only a value change.
       applyEnergy() {
-        if (labels) labels.update(this.labelItems());
         if (!cy) return;
+        const status = this.switchStatus();
         const energy = this.energyByDevice();
         const colorOf = this.themeColor();
         cy.batch(() => {
           for (const device of this.devices) {
             const node = cy.getElementById(device.id);
-            if (!node.empty()) node.data('svg', this.nodeSvg(device, energy, colorOf));
+            if (!node.empty()) node.data(this.nodeImages(device, status, energy, colorOf));
           }
         });
+        if (labels) labels.update(this.labelItems(this.shownStatus()));
         if (labels) labels.sync(cy);
         this.applyFlows();
         this.applyDataEdges();
+        this.applySwitchState({animate: true});
         this.startFlowAnimation();
       },
 
@@ -1066,6 +1254,7 @@
         this.applyFlows();
         this.applyDataEdges();
         this.applyVisibility({stagger: true});
+        this.applySwitchState({animate: false});
         this.startFlowAnimation();
       },
 
@@ -1073,10 +1262,11 @@
       buildElements() {
         const energy = this.energyByDevice();
         const colorOf = this.themeColor();
+        const status = this.switchStatus();
         const nodes = this.devices.map(device => {
           const position = this.positionFor(device.id);
           const element = {
-            data: {id: device.id, name: device.name || device.id, svg: this.nodeSvg(device, energy, colorOf)},
+            data: {id: device.id, name: device.name || device.id, ...this.nodeImages(device, status, energy, colorOf)},
             classes: statusClass(device),
           };
           if (position) element.position = {x: position.x, y: position.y};
@@ -1143,6 +1333,12 @@
         }
         const layout = hasAllPositions ? {name: 'preset'} : {name: 'breadthfirst', directed: true, padding: 30};
         if (previousViewport) layout.fit = false;
+        // A new graph starts with no committed switch state and no running fade.
+        switchGen += 1;
+        for (const timer of switchTimers) this._clearTimeout(timer);
+        switchTimers = [];
+        switchShown = new Map();
+        switchGoal = null;
         cy = cytoscape({
           container: this.$refs.canvas,
           elements,
@@ -1181,11 +1377,12 @@
         this.syncGridBackground();
         if (this.$refs.labels && !labels) labels = window.DeviceMapLabels.create(this.$refs.labels);
         if (labels) {
-          labels.update(this.labelItems());
+          labels.update(this.labelItems(this.shownStatus()));
           cy.on('render', () => labels.sync(cy));
           labels.sync(cy);
         }
         this.applyVisibility();
+        this.applySwitchState({animate: false});
         if (this.focusId) this.setFocus(this.focusId);
         this.startFlowAnimation();
       },
@@ -1332,7 +1529,7 @@
         try {
           const created = await requestJSON('/api/v1/device/map/relations', {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
             body: JSON.stringify({child_id: childId, parent_id: parentId, kind: 'via_device'}),
           });
           this.deviceMap = {...this.deviceMap, edges: [...(this.deviceMap.edges || []), created]};
@@ -1648,7 +1845,7 @@
           return;
         }
         try {
-          await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}`, {method: 'DELETE'});
+          await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}`, {method: 'DELETE', headers: {'X-CSRF-Token': this.csrfToken}});
           this.deviceMap = {...this.deviceMap, edges: (this.deviceMap.edges || []).filter(edge => edge.id !== selected.overrideId)};
           this.savedDeviceMap = {...this.savedDeviceMap, edges: this.deviceMap.edges};
           this.$store.toasts.push(t('devicemap.relation_disconnected'));
@@ -1689,10 +1886,11 @@
           const liveKeys = new Set(this.buildEdgeElements().filter(element => !element.data.membership)
             .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)));
           const edgeProps = window.DeviceMapWiring.prune(this.deviceMap.edge_props, liveKeys);
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view};
+          const switchOutputs = this.deviceMap.switch_outputs || [];
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view, switch_outputs: switchOutputs};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
-            headers: {'Content-Type': 'application/json'},
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
             body: JSON.stringify(value),
           });
           this.deviceMap = value;

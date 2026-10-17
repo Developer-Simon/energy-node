@@ -401,6 +401,12 @@ select.schema-control {
 .devicemap-node-label.is-dimmed { opacity: .18; }
 .devicemap-node-label.is-hidden { opacity: 0; }
 @media (prefers-reduced-motion: reduce) { .devicemap-node-label { transition-delay: 0ms !important; } }
+/* Off pill: a grey capsule around the value and "· Aus" of a switched-off node. */
+.devicemap-node-reading { display: inline-flex; align-items: center; gap: .35em; padding: 0 7px; border-radius: 999px;
+  background-color: transparent; transition: opacity 250ms var(--ease-out), background-color 250ms var(--ease-out); }
+.devicemap-node-label.is-off .devicemap-node-reading { background-color: var(--panel-alt); }
+.devicemap-node-off { font-size: 10.5px; font-weight: 600; color: var(--text-muted); line-height: 1.25; }
+@media (prefers-reduced-motion: reduce) { .devicemap-node-reading { transition-duration: 150ms; } }
 .devicemap-node-name { font-size: 11px; font-weight: 600; color: var(--text-strong); line-height: 1.25; }
 .devicemap-node-value { font-size: 10.5px; color: var(--text-subtle); font-variant-numeric: tabular-nums; line-height: 1.25; }
 .devicemap-overlay {
@@ -975,6 +981,7 @@ select.schema-control {
 .devicemap-popover dd { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; min-width: 0; }
 .devicemap-popover ul { margin: 0; padding-left: 18px; font-size: .84rem; display: grid; gap: 2px; }
 .devicemap-popover-text { margin: 0; font-size: .84rem; color: var(--text-muted); }
+.devicemap-popover-dead { display: block; width: 100%; padding: 2px 0; border: 0; background: none; text-align: left; font: inherit; font-size: .84rem; color: var(--text-strong); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
 @media (prefers-reduced-motion: reduce) { .devicemap-popover { transform: none !important; } }
 .schema-object.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
 
@@ -1029,6 +1036,9 @@ div.devicemap-view-menu-row { cursor: default; }
 .devicemap-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .devicemap-legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; border-radius: 2px; flex: none; }
 .devicemap-legend i.dashed { border-top-style: dashed; border-top-width: 2px; }
+.devicemap-legend i.devicemap-dotted { border-top-style: dotted; border-top-width: 2px; }
+.devicemap-legend i.devicemap-dead-line { border-top-width: 3px; }
+.devicemap-legend i.devicemap-off-ring { width: 10px; height: 10px; border: 2px solid var(--text-subtle); border-radius: 50%; box-sizing: border-box; }
 /* On a phone the bar wraps and the button can sit anywhere in it, so the
    menu spans the whole bar instead of hanging off the button. */
 @media (max-width: 700px) {

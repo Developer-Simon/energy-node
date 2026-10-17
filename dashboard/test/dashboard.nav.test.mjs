@@ -32,14 +32,18 @@ function createShell(navHtml = TABS) {
   );
   const context = dom.getInternalVMContext();
   const factories = {};
-  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; } };
+  dom.window.Alpine = { data: (name, fn) => { factories[name] = fn; }, directive: () => {} };
   // dashboard.js startet beim Laden ein Modul-Level-setInterval (die
   // Zeitstempel-Aktualisierung) - ein echtes window.setInterval wuerde den
   // Testprozess sonst am Leben halten, gleiche Lösung wie notifications.test.mjs.
   dom.window.setInterval = () => 0;
+  // devicesPanel mixes in helpers from these scripts, which load before it.
+  for (const name of ['entity-values.js', 'device-tile.js', 'overview-values.js', 'device-tile-values.js', 'compact-card-values.js', 'device-structure.js']) {
+    vm.runInContext(fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8'), context);
+  }
   vm.runInContext(source, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
-  return { component: factories.dashboardShell(), window: dom.window };
+  return { component: factories.dashboardShell(), window: dom.window, factories };
 }
 
 test('das Menue startet geschlossen', () => {
@@ -256,4 +260,36 @@ test('ein Klick auf einen Eintrag der Liste loest den Tab selbst aus', () => {
   nav.querySelector('#tab-devices').addEventListener('click', () => { clicked += 1; });
   component.overflowNav[0].el.click();
   assert.equal(clicked, 1);
+});
+
+// Device panel stand-in for the deviceFocus tests: the real devicesPanel
+// factory, with selectDevice replaced by a recorder.
+function devicesPanelFor(window, factories, selected) {
+  const panel = factories.devicesPanel();
+  panel.$root = window.document.createElement('div');
+  panel.$root.id = 'devices-panel';
+  panel.$refs = {};
+  panel.selectDevice = id => { selected.push(id); };
+  return panel;
+}
+
+test('a deviceFocus event opens the devices tab and selects the device there', async () => {
+  const { component, window, factories } = createShell();
+  component.loadPanel = () => {};
+  component.init();
+  const selected = [];
+  devicesPanelFor(window, factories, selected).init();
+  window.dispatchEvent(new window.CustomEvent('dashboard-open-panel', { detail: { panel: 'devices-panel', deviceFocus: 'plug' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.activePanel, 'devices-panel');
+  assert.deepEqual(selected, ['plug']);
+});
+
+test('a pending deviceFocus request is taken when the devices panel starts later', () => {
+  const { window, factories } = createShell();
+  window.__deviceFocusRequest__ = 'plug';
+  const selected = [];
+  devicesPanelFor(window, factories, selected).init();
+  assert.deepEqual(selected, ['plug']);
+  assert.equal(window.__deviceFocusRequest__, null);
 });

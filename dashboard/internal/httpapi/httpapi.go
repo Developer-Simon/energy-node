@@ -274,6 +274,7 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/updates/progress", handleUpdatesProgress(dependencies.UpdaterJobDir, dependencies.StepTitle))
 	}
 	mux.HandleFunc("/api/v1/devices", handleDevices(reg))
+	mux.HandleFunc("/api/v1/devices/switches", handleDeviceSwitches(reg))
 	mux.HandleFunc("/api/v1/devices/ignored", handleIgnoredDevices(dependencies.DeviceFilter))
 	engine.SetIgnoredStore(dependencies.DeviceFilter)
 	mux.HandleFunc("/api/v1/devices/", handleDevice(reg, engine, store, dependencies.Reloader, now, commands, configs, dependencies.Auth, dependencies.DeviceFilter, dependencies.DeviceActions))
@@ -345,8 +346,8 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		if deviceMap, err := store.LoadDeviceMap(); err == nil {
 			applyRelationOverrides(reg, deviceMap)
 		}
-		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store))
-		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs))
+		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
+		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, dependencies.Auth))
 		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
 		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
 		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
@@ -2282,7 +2283,7 @@ func handleEnergyRevision(store *settings.Store, resolver *energy.Resolver, mana
 	}
 }
 
-func handleDeviceMap(store *settings.Store) http.HandlerFunc {
+func handleDeviceMap(store *settings.Store, manager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
@@ -2293,6 +2294,9 @@ func handleDeviceMap(store *settings.Store) http.HandlerFunc {
 			}
 			writeJSON(w, value)
 		case http.MethodPut:
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			value := settings.NewDeviceMap()
 			if err := decodeBody(r, &value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
@@ -2309,7 +2313,7 @@ func handleDeviceMap(store *settings.Store) http.HandlerFunc {
 	}
 }
 
-func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *config.Manager) http.HandlerFunc {
+func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *config.Manager, manager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/device/map/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
@@ -2332,6 +2336,9 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 			return
 		}
 		if len(parts) == 1 && parts[0] == "restore" && r.Method == http.MethodPost {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			var request struct {
 				Revision string `json:"revision"`
 			}
@@ -2349,14 +2356,23 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 			return
 		}
 		if len(parts) == 1 && parts[0] == "relations" && r.Method == http.MethodPost {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			handleCreateDeviceMapRelation(store, reg, w, r)
 			return
 		}
 		if len(parts) == 2 && parts[0] == "relations" && r.Method == http.MethodDelete {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			handleDeleteDeviceMapRelation(store, reg, w, parts[1])
 			return
 		}
 		if len(parts) == 3 && parts[0] == "relations" && parts[2] == "reverse" && r.Method == http.MethodPost {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
 			handleReverseDeviceMapRelation(store, reg, w, parts[1])
 			return
 		}

@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.2.5 (2026-10-15)
+## v0.2.5 (2026-10-16)
 
 ### Features
 
@@ -12,8 +12,8 @@
 ### Fixes
 
 - **installer:** fit the update result screen to the dashboard host (#131) (494c792)
+- **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144) (ba54b31)
 - **installer:** result screen keeps the update's from-version after a reload (be443d2)
-- **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144)
 
 ## v0.2.1 (2026-10-10)
 
