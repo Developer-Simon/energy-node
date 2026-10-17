@@ -222,3 +222,39 @@ func (m Model) GroupStates(towardByDevice map[string]float64) []GroupState {
 	sort.Slice(states, func(i, j int) bool { return states[i].ID < states[j].ID })
 	return states
 }
+
+// ValidateSwitchRoles checks the entities with the switch role against the
+// registry: each one must be a switch entity, and no device may use the same
+// channel twice. Channel 0 counts as channel 1. An entity the registry does
+// not know is skipped, as the other role checks skip it.
+func ValidateSwitchRoles(devices []registry.DeviceView, assignments map[string]Assignment) error {
+	for _, device := range devices {
+		channels := map[int]bool{}
+		for _, entity := range device.Entities {
+			assignment, ok := assignments[entity.UniqueID]
+			if !ok || assignment.Role != RoleSwitch {
+				continue
+			}
+			if entity.Component != "switch" {
+				return uierror.New("error.energy_roles_rejected.switch_role_invalid",
+					fmt.Sprintf("energy: %s has the switch role but is a %s entity", entity.UniqueID, entity.Component),
+					map[string]any{"entity": entity.UniqueID})
+			}
+			channel := assignment.Channel
+			if channel == 0 {
+				channel = 1
+			}
+			if channels[channel] {
+				name := device.Name
+				if name == "" {
+					name = device.ID
+				}
+				return uierror.New("error.energy_roles_rejected.switch_channel_duplicate",
+					fmt.Sprintf("energy: two switches of %s use channel %d", device.ID, channel),
+					map[string]any{"device": name, "channel": channel})
+			}
+			channels[channel] = true
+		}
+	}
+	return nil
+}

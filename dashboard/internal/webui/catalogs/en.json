@@ -1439,6 +1439,8 @@
   "error.energy_roles_rejected.group_unknown_member": "Group “{group}” contains the unknown group “{member}”.",
   "error.energy_roles_rejected.id_invalid": "The id “{id}” is invalid.",
   "error.energy_roles_rejected.role_unknown": "The role “{role}” is unknown.",
+  "error.energy_roles_rejected.switch_channel_duplicate": "Two switches of {device} use channel {channel}.",
+  "error.energy_roles_rejected.switch_role_invalid": "{entity} is not a switch and cannot be switched.",
   "error.energy_roles_unavailable": "Energy roles are not available without a data directory",
   "error.energy_stats_failed": "The energy statistics could not be read",
   "error.energy_stats_invalid_period": "The period or date is not valid",

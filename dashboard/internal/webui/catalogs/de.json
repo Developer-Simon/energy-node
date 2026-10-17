@@ -1439,6 +1439,8 @@
   "error.energy_roles_rejected.group_unknown_member": "Die Gruppe „{group}“ enthält die unbekannte Gruppe „{member}“.",
   "error.energy_roles_rejected.id_invalid": "Die Kennung „{id}“ ist ungültig.",
   "error.energy_roles_rejected.role_unknown": "Die Rolle „{role}“ ist unbekannt.",
+  "error.energy_roles_rejected.switch_channel_duplicate": "Zwei Schalter von {device} nutzen Kanal {channel}.",
+  "error.energy_roles_rejected.switch_role_invalid": "{entity} ist kein Schalter und kann nicht schalten.",
   "error.energy_roles_unavailable": "Energie-Rollen sind ohne Datenverzeichnis nicht verfügbar",
   "error.energy_stats_failed": "Die Energiestatistik konnte nicht gelesen werden",
   "error.energy_stats_invalid_period": "Zeitraum oder Datum ist ungültig",

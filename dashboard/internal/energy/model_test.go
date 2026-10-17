@@ -101,3 +101,68 @@ func TestValidateMemberRolesRejectsALoadInAGroupWithARole(t *testing.T) {
 		t.Fatalf("err = %+v", typed)
 	}
 }
+
+func switchEntity(id string) registry.EntityView {
+	return registry.EntityView{UniqueID: id, Name: id, Component: "switch", Commandable: true}
+}
+
+func TestValidateSwitchRolesChecksChannelsAndComponentAgainstTheRegistry(t *testing.T) {
+	devices := []registry.DeviceView{
+		{ID: "pm", Name: "pm", Entities: []registry.EntityView{
+			switchEntity("s1"), switchEntity("s2"),
+			{UniqueID: "p", Name: "Leistung", Component: "sensor", UnitOfMeasurement: "W"},
+		}},
+		{ID: "other", Name: "other", Entities: []registry.EntityView{switchEntity("o1")}},
+	}
+	cases := []struct {
+		name        string
+		assignments map[string]Assignment
+		wantKey     string
+		wantParams  map[string]any
+	}{
+		{
+			name:        "two channels on one device",
+			assignments: map[string]Assignment{"s1": {Role: RoleSwitch, Channel: 1}, "s2": {Role: RoleSwitch, Channel: 2}},
+		},
+		{
+			name:        "zero counts as channel one",
+			assignments: map[string]Assignment{"s1": {Role: RoleSwitch, Channel: 0}, "s2": {Role: RoleSwitch, Channel: 1}},
+			wantKey:     "error.energy_roles_rejected.switch_channel_duplicate",
+			wantParams:  map[string]any{"device": "pm", "channel": 1},
+		},
+		{
+			name:        "same channel on two devices is fine",
+			assignments: map[string]Assignment{"s1": {Role: RoleSwitch, Channel: 3}, "o1": {Role: RoleSwitch, Channel: 3}},
+		},
+		{
+			name:        "a sensor cannot carry the switch role",
+			assignments: map[string]Assignment{"p": {Role: RoleSwitch, Channel: 1}},
+			wantKey:     "error.energy_roles_rejected.switch_role_invalid",
+			wantParams:  map[string]any{"entity": "p"},
+		},
+		{
+			name:        "an entity missing from the registry is ignored",
+			assignments: map[string]Assignment{"gone": {Role: RoleSwitch, Channel: 1}},
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			err := ValidateSwitchRoles(devices, c.assignments)
+			if c.wantKey == "" {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				return
+			}
+			typed, isUI := uierror.From(err)
+			if !isUI || typed.Key != c.wantKey {
+				t.Fatalf("err = %v, want key %s", err, c.wantKey)
+			}
+			for key, want := range c.wantParams {
+				if typed.Params[key] != want {
+					t.Fatalf("param %s = %v, want %v", key, typed.Params[key], want)
+				}
+			}
+		})
+	}
+}

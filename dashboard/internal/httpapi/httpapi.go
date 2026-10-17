@@ -1627,7 +1627,8 @@ func applyEnergyConfig(resolver *energy.Resolver, value settings.EnergyConfig) {
 }
 
 // checkEnergyModel runs the checks that need more than energy.json: member
-// roles against the registry and category icons against the catalogue.
+// roles and switch roles against the registry and category icons against the
+// catalogue.
 func checkEnergyModel(reg *registry.Registry, value settings.EnergyConfig) error {
 	known := map[string]bool{}
 	for _, icon := range webui.DeviceIconCatalogue() {
@@ -1640,7 +1641,11 @@ func checkEnergyModel(reg *registry.Registry, value settings.EnergyConfig) error
 				fmt.Sprintf("energy: category %q has unknown icon %q", id, category.Icon), map[string]any{"category": category.Label})
 		}
 	}
-	return energy.ValidateMemberRoles(reg.Snapshot(), value.Assignments, value.Model())
+	devices := reg.Snapshot()
+	if err := energy.ValidateMemberRoles(devices, value.Assignments, value.Model()); err != nil {
+		return err
+	}
+	return energy.ValidateSwitchRoles(devices, value.Assignments)
 }
 
 // pruneGroupRelations drops the feed relations of deleted groups from

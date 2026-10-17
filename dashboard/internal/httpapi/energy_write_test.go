@@ -179,3 +179,26 @@ func TestDeviceMapWritesNeedEditEnergyAndCSRF(t *testing.T) {
 		t.Fatalf("an unknown switch function must be rejected: %d %s", recorder.Code, recorder.Body.String())
 	}
 }
+
+func TestEnergyRolesRejectDuplicateSwitchChannels(t *testing.T) {
+	reg := registry.New()
+	for _, entity := range []string{"relay_a", "relay_b"} {
+		reg.UpsertEntity(registry.Discovery{
+			Device: registry.DeviceInfo{ID: "pm", Name: "Steckdosenleiste"},
+			Entity: registry.EntityInfo{UniqueID: entity, Name: entity, Component: "switch", StateTopic: "state/" + entity, CommandTopic: "cmd/" + entity},
+		})
+	}
+	store := settings.NewStore(t.TempDir())
+	router := NewRouter(reg, nil, store)
+	body := `{"assignments":{"relay_a":{"role":"switch","channel":2},"relay_b":{"role":"switch","channel":2}}}`
+	recorder := httptest.NewRecorder()
+	request := httptest.NewRequest(http.MethodPut, "/api/v1/energy/roles", strings.NewReader(body))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), "switch_channel_duplicate") {
+		t.Fatalf("status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if saved, _ := store.LoadEnergy(); len(saved.Assignments) != 0 {
+		t.Fatalf("a rejected write must not be saved: %+v", saved.Assignments)
+	}
+}
