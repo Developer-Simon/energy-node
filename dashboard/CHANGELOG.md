@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.22 (2026-10-17)
+## v0.9.23 (2026-10-17)
 
 ### Features
 
@@ -15,6 +15,11 @@
 - **discovery:** The dashboard announces wallbox, heat pump and custom category sensors in Home Assistant once something is assigned to them, and each can be deselected in the MQTT tab. The companion supplies these roles for history and energy statistics. (#142) (66cd698)
 - **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143) (59dfeb3)
 - **devicemap:** The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label. (#145) (b72187d)
+- **devicemap:** Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut. (#146) (9b162de)
+- **energy:** store hidden role table entries in energy.json (012eff7)
+- **devicemap:** hide role table entries in the device panel (6fb2734)
+- **energy:** hide only entries without a role and share the list (986870a)
+- **energy:** hide only role-less entries and share the list with the device map (#147)
 - **energy:** add the switch role with a channel (ee3bf7c)
 - **energy:** validate switch roles against the registry (f444022)
 - **devicemap:** resolve switches from energy roles and cut edges per channel (4f2be72)
@@ -27,7 +32,6 @@
 - **devicemap:** show state rows, links and channel in the edge card (469c4ab)
 - **energy:** set the switch role and channel in the energy configuration (ba74a24)
 - **devicemap:** stack the panel links and add icons (049dcfc)
-- **devicemap:** Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut. (#146)
 - **devicemap:** store switch output functions in device-map.json (6d70bc1)
 - **devicemap:** serve switch entities with their resolved state (c4d8edd)
 - **devicemap:** detect switch outputs and compute the area without power (877e596)
@@ -143,6 +147,7 @@
 
 ### Documentation
 
+- **energy:** describe hiding entries in the role table (294634a)
 - **devicemap:** document the switch role and retake screenshots (7dcb363)
 - **energy:** document the reworked load modes and status line (4469508)
 - **dashboard:** drop Tippy.js and Popper.js from notices, manifest and docs (4761345)

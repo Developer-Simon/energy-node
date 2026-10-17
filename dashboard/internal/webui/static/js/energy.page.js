@@ -276,7 +276,6 @@
     async load() {
       this.loading = true;
       try {
-        this.loadHiddenIds();
         const [, devices, saved, snapshot, icons, switches] = await Promise.all([
           this.loadSession(),
           requestJSON('/api/v1/devices'),
@@ -317,6 +316,7 @@
           capacity_kwh: Number(entity.assignment.capacity_kwh) || 0,
           channel: this.switchChannelOf(entity.assignment),
         }]));
+        await this.reconcileHidden(saved.hidden);
         if (saved.interpretation) this.interpretation = {...this.interpretation, ...saved.interpretation};
         this.categories = JSON.parse(JSON.stringify(saved.categories || {}));
         this.groups = JSON.parse(JSON.stringify(saved.groups || {}));
@@ -407,26 +407,82 @@
       return this.assignments[id] && this.assignments[id].role === 'battery_soc';
     },
 
-    loadHiddenIds() {
-      try {
-        this.hiddenIds = JSON.parse(localStorage.getItem(HIDDEN_IDS_STORAGE_KEY) || '{}');
-      } catch (error) {
-        this.hiddenIds = {};
-      }
-    },
-
-    saveHiddenIds() {
-      localStorage.setItem(HIDDEN_IDS_STORAGE_KEY, JSON.stringify(this.hiddenIds));
+    // A row with a role (saved or detected) is never hidden, so the list only
+    // ever holds rows that have no role.
+    hasRole(id) {
+      return Boolean(this.assignments[id] && this.assignments[id].role);
     },
 
     isHidden(id) {
-      return Boolean(this.hiddenIds[id]);
+      return Boolean(this.hiddenIds[id]) && !this.hasRole(id);
     },
 
-    toggleHidden(id) {
-      if (this.hiddenIds[id]) delete this.hiddenIds[id];
+    canHide(id) {
+      return this.canEdit && !this.hasRole(id);
+    },
+
+    // The shared list is the server set plus the legacy per-browser list from
+    // localStorage, minus rows with a role. Differences go to the server in one
+    // PATCH. The legacy key is dropped only after that, so a failed sync is
+    // retried on the next load.
+    async reconcileHidden(serverHidden) {
+      const server = new Set(Array.isArray(serverHidden) ? serverHidden : []);
+      const target = new Set(server);
+      if (this.canEdit) this.legacyHiddenIds().forEach(id => target.add(id));
+      [...target].filter(id => this.hasRole(id)).forEach(id => target.delete(id));
+      this.hiddenIds = Object.fromEntries([...target].map(id => [id, true]));
+      if (!this.canEdit) return;
+      const hidden = {};
+      target.forEach(id => { if (!server.has(id)) hidden[id] = true; });
+      server.forEach(id => { if (!target.has(id)) hidden[id] = false; });
+      try {
+        if (Object.keys(hidden).length) await this.patchHidden(hidden);
+        this.clearLegacyHidden();
+      } catch (error) {
+        // Sync is best effort: the rows still show the right state for this
+        // load, and the next load tries the legacy list again.
+      }
+    },
+
+    legacyHiddenIds() {
+      try {
+        const stored = JSON.parse(localStorage.getItem(HIDDEN_IDS_STORAGE_KEY) || '{}');
+        return Object.keys(stored).filter(id => stored[id]);
+      } catch (error) {
+        return [];
+      }
+    },
+
+    clearLegacyHidden() {
+      try {
+        localStorage.removeItem(HIDDEN_IDS_STORAGE_KEY);
+      } catch (error) {
+        // Private mode: nothing was stored to remove.
+      }
+    },
+
+    patchHidden(hidden) {
+      return requestJSON('/api/v1/energy/roles', {
+        method: 'PATCH',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+        body: JSON.stringify({hidden}),
+      });
+    },
+
+    // The change shows at once and is saved right away. A refused save puts
+    // the row back and says why.
+    async toggleHidden(id) {
+      if (!this.canEdit || this.hasRole(id)) return;
+      const previous = {...this.hiddenIds};
+      if (this.isHidden(id)) delete this.hiddenIds[id];
       else this.hiddenIds[id] = true;
-      this.saveHiddenIds();
+      try {
+        await this.patchHidden({[id]: this.hiddenIds[id] === true});
+        this.notifyRolesChanged();
+      } catch (error) {
+        this.hiddenIds = previous;
+        this.$store.toasts.push(error.message, 'critical');
+      }
     },
 
     get visibleEnergyEntities() {

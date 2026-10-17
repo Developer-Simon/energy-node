@@ -73,6 +73,7 @@ Click a device to see the roles of its measurements. A chip tells where each
 role comes from: detected, assigned or no role. Changes are drafts until you
 save, and the map already follows them. Show in the role table jumps to the
 Energy tab.
+Entities you hid in the role table on the Energy tab are not listed.
 
 ## Group panel
 

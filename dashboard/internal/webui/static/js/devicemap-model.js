@@ -122,15 +122,19 @@
   // switchInfo: Map<entityId, {state, heuristic, channels}> for the switch
   // entities of the device. consequenceOf(entityId) gives the page's text
   // for what the switch takes away, '' when nothing does.
-  const panelRows = ({device, snapshot, saved, drafts, switchInfo, consequenceOf}) => {
+  // hidden: Set of entity ids the role table hides. A role row is dropped
+  // only while it has no effective role, a draft or detected role shows it.
+  const panelRows = ({device, snapshot, saved, drafts, switchInfo, consequenceOf, hidden}) => {
     const rows = [];
     const others = [];
+    const shown = row => !(hidden && hidden.has(row.id) && !row.assignment.role);
     for (const entity of (device && device.entities) || []) {
       const id = entity.unique_id;
       const name = entity.name || entity.object_id || id;
       const info = switchInfo && switchInfo.get(id);
       if (info) {
-        rows.push(switchRow({id, name, info, saved, drafts, consequenceOf}));
+        const row = switchRow({id, name, info, saved, drafts, consequenceOf});
+        if (shown(row)) rows.push(row);
         continue;
       }
       if (!isEligibleUnit(entity.unit_of_measurement)) {
@@ -144,8 +148,9 @@
       let source = base.source;
       if (dirty) source = 'draft';
       else if (!base.role && base.source !== 'override') source = 'none';
-      rows.push({id, name, unit: entity.unit_of_measurement, valueText: valueText(entity), assignment, source, dirty,
-        canPin: !dirty && base.source === 'heuristic' && Boolean(base.role)});
+      const row = {id, name, unit: entity.unit_of_measurement, valueText: valueText(entity), assignment, source, dirty,
+        canPin: !dirty && base.source === 'heuristic' && Boolean(base.role)};
+      if (shown(row)) rows.push(row);
     }
     return {rows, others};
   };

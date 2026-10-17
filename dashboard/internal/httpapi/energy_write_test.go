@@ -45,6 +45,65 @@ func TestEnergyRolesPatchMergesAndRemovesAssignments(t *testing.T) {
 	}
 }
 
+func TestEnergyRolesPatchHidesAndShows(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Hidden: []string{"a", "b"}}); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), nil, store)
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/energy/roles", strings.NewReader(`{"hidden":{"b":false,"c":true}}`))
+	request.Header.Set("Content-Type", "application/json")
+	recorder := httptest.NewRecorder()
+	router.ServeHTTP(recorder, request)
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("patch status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	saved, _ := store.LoadEnergy()
+	if strings.Join(saved.Hidden, ",") != "a,c" {
+		t.Fatalf("hidden = %v", saved.Hidden)
+	}
+}
+
+func TestEnergyRolesPatchAssigningARoleUnhides(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Hidden: []string{"a"}}); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), nil, store)
+	request := httptest.NewRequest(http.MethodPatch, "/api/v1/energy/roles", strings.NewReader(`{"assignments":{"a":{"role":"pv"}}}`))
+	request.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(httptest.NewRecorder(), request)
+	saved, _ := store.LoadEnergy()
+	if len(saved.Hidden) != 0 {
+		t.Fatalf("an assigned entry must not stay hidden: %v", saved.Hidden)
+	}
+}
+
+func TestEnergyRolesPutWithoutHiddenKeepsIt(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveEnergy(settings.EnergyConfig{Hidden: []string{"a"}}); err != nil {
+		t.Fatal(err)
+	}
+	router := NewRouter(registry.New(), nil, store)
+	put := func(body string) {
+		request := httptest.NewRequest(http.MethodPut, "/api/v1/energy/roles", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusOK {
+			t.Fatalf("put status %d: %s", recorder.Code, recorder.Body.String())
+		}
+	}
+	put(`{"assignments":{}}`)
+	if saved, _ := store.LoadEnergy(); strings.Join(saved.Hidden, ",") != "a" {
+		t.Fatalf("a PUT without hidden must keep the set: %v", saved.Hidden)
+	}
+	put(`{"assignments":{},"hidden":[]}`)
+	if saved, _ := store.LoadEnergy(); len(saved.Hidden) != 0 {
+		t.Fatalf("a PUT with an empty hidden must clear the set: %v", saved.Hidden)
+	}
+}
+
 func TestEnergyRolesPatchRejectsUnknownRoles(t *testing.T) {
 	router := NewRouter(registry.New(), nil, settings.NewStore(t.TempDir()))
 	for _, body := range []string{`{"assignments":{"x":{"role":"nonsense"}}}`} {

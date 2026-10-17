@@ -54,6 +54,12 @@ are summed. The tiles show each role with its value and whether it is fresh and
 live. Power values without a role are listed at the top of the tab, because
 they are the usual reason a balance does not add up.
 
+An entity without a role can be hidden with the button on its row. The list of
+hidden entities is saved with the energy configuration, so it is the same in
+every browser, and the device panel of the device map leaves these entities
+out too. An entity with a role cannot be hidden, and assigning a role to a
+hidden entity shows it again.
+
 Switches have their own role, **Switches**, in a separate group. It marks a
 socket or relay output, adds no power to the balance and is read by the device
 map. A device with several switches also gets a channel from 1 to 16 for each

@@ -18,6 +18,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -164,6 +165,8 @@ type EnergyConfig struct {
 	// stay byte-identical until the first category or group is saved.
 	Categories map[string]energy.Category `json:"categories,omitempty"`
 	Groups     map[string]energy.Group    `json:"groups,omitempty"`
+	// Hidden is omitempty for the same reason: an empty set is not written.
+	Hidden []string `json:"hidden,omitempty"`
 }
 
 func (c EnergyConfig) Model() energy.Model {
@@ -785,6 +788,7 @@ func cloneEnergyConfig(value EnergyConfig) EnergyConfig {
 		assignments[id] = assignment
 	}
 	value.Assignments = assignments
+	value.Hidden = cloneStrings(value.Hidden)
 	if value.Categories != nil {
 		categories := make(map[string]energy.Category, len(value.Categories))
 		for id, category := range value.Categories {
@@ -1864,6 +1868,21 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 		assignments[id] = assignment
 	}
 	value.Assignments = assignments
+	// An entry with a stored role is shown by its role, so it never stays
+	// hidden. Sorted and unique, so the file does not depend on request order.
+	hidden := make([]string, 0, len(value.Hidden))
+	for _, id := range value.Hidden {
+		if id == "" || value.Assignments[id].Role != "" {
+			continue
+		}
+		hidden = append(hidden, id)
+	}
+	slices.Sort(hidden)
+	hidden = slices.Compact(hidden)
+	if len(hidden) == 0 {
+		hidden = nil
+	}
+	value.Hidden = hidden
 	if len(value.Categories) == 0 {
 		value.Categories = nil
 	} else {

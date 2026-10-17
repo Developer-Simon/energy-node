@@ -1160,6 +1160,51 @@ test('savePanel patches only the drafts with the CSRF token, refreshes energy an
   assert.equal(stores.toasts.last(), 'Rollen gespeichert.');
 });
 
+test('the page takes hidden from the roles, the device panel drops those rows and a draft role brings one back', async () => {
+  const {component} = createDevicemapPanel({fetchImpl: routes(mapRoutes({
+    '/api/v1/devices': panelDevices(),
+    '/api/v1/energy/roles': {assignments: {bkw_p: {role: ''}}, groups: {}, categories: {}, hidden: ['bkw_p']},
+  }))});
+  await component.load();
+  assert.deepEqual([...component.savedHidden], ['bkw_p']);
+  component.panelId = 'bkw';
+  assert.equal(component.panelView.rows.length, 0, 'the hidden row without a role is dropped');
+  component.setDraft('bkw_p', 'role', 'load');
+  const rows = [...component.panelView.rows];
+  assert.deepEqual(rows.map(row => row.id), ['bkw_p'], 'a draft role shows the row again');
+  assert.equal(rows[0].source, 'draft');
+});
+
+test('patchEnergy takes hidden from the PATCH response and an empty response clears it', async () => {
+  let patchBody = {hidden: ['wb_p']};
+  const fetchImpl = async (url, options = {}) => {
+    if (options.method === 'PATCH') return {ok: true, status: 200, json: async () => ({assignments: {}, groups: {}, categories: {}, ...patchBody})};
+    return {ok: true, status: 200, json: async () => ({entities: []})};
+  };
+  const {component} = createDevicemapPanel({fetchImpl});
+  component.devices = panelDevices();
+  component.csrfToken = 'tok';
+  await component.patchEnergy({hidden: {wb_p: true}});
+  assert.deepEqual([...component.savedHidden], ['wb_p']);
+  patchBody = {};
+  await component.patchEnergy({hidden: {wb_p: false}});
+  assert.equal(component.savedHidden.size, 0, 'a response without hidden means nothing is hidden');
+});
+
+test('energy-roles-changed from the energy page replaces hidden, a roles response without it clears the set', async () => {
+  const roles = {assignments: {}, groups: {}, categories: {}, hidden: ['bkw_p']};
+  const {component, window} = createDevicemapPanel({fetchImpl: routes(mapRoutes({
+    '/api/v1/devices': panelDevices(),
+    '/api/v1/energy/roles': () => roles,
+  }))});
+  await component.load();
+  assert.deepEqual([...component.savedHidden], ['bkw_p']);
+  delete roles.hidden;
+  window.dispatchEvent(new window.CustomEvent('energy-roles-changed', {detail: {source: 'energy-page'}}));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(component.savedHidden.size, 0);
+});
+
 test('a failed save keeps the drafts and shows the error', async () => {
   const fetchImpl = async () => ({ok: false, status: 400, json: async () => ({code: 'energy_roles_rejected', message: 'nope'})});
   const {component, stores} = createDevicemapPanel({fetchImpl});

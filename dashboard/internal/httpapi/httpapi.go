@@ -880,6 +880,11 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 			if _, ok := keys["categories"]; ok {
 				value.Categories = nil
 			}
+			// Hidden is replaced only when the body sends it, so the energy
+			// page can save roles without touching the hidden set.
+			if _, ok := keys["hidden"]; ok {
+				value.Hidden = nil
+			}
 			if err := json.Unmarshal(raw, &value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "energy_roles_rejected", err)
 				return
@@ -904,6 +909,8 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 				Assignments map[string]*energy.Assignment `json:"assignments"`
 				Categories  map[string]*energy.Category   `json:"categories"`
 				Groups      map[string]*energy.Group      `json:"groups"`
+				// true hides an ID, false or null shows it again.
+				Hidden map[string]bool `json:"hidden"`
 			}
 			decoder := json.NewDecoder(io.LimitReader(r.Body, 2<<20))
 			decoder.DisallowUnknownFields()
@@ -925,6 +932,13 @@ func handleEnergyRoles(store *settings.Store, resolver *energy.Resolver, manager
 				}
 				if current.Groups == nil {
 					current.Groups = map[string]energy.Group{}
+				}
+				for id, hidden := range patch.Hidden {
+					if hidden {
+						current.Hidden = append(current.Hidden, id)
+						continue
+					}
+					current.Hidden = slices.DeleteFunc(current.Hidden, func(other string) bool { return other == id })
 				}
 				for id, category := range patch.Categories {
 					if category != nil {

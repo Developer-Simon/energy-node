@@ -240,6 +240,34 @@ func TestStorePersistsEnergyAssignments(t *testing.T) {
 	}
 }
 
+func TestNormalizeEnergyHiddenSortsDedupesAndDropsAssigned(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveEnergy(EnergyConfig{
+		Assignments: map[string]energy.Assignment{"pv": {Role: energy.RolePV}, "none": {Role: ""}},
+		Hidden:      []string{"z", "pv", "a", "z", "none", ""},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	saved, _ := store.LoadEnergy()
+	if !slices.Equal(saved.Hidden, []string{"a", "none", "z"}) {
+		t.Fatalf("hidden = %v", saved.Hidden)
+	}
+}
+
+func TestEnergyWithoutHiddenOmitsTheKey(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{}, Hidden: []string{}}); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(filepath.Join(store.dir, "energy.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), "hidden") {
+		t.Fatalf("energy.json must stay byte-identical without hidden entries: %s", data)
+	}
+}
+
 func TestLoadEnergyBackfillsInterpretationDefaultsForALegacyFile(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(dir+"/energy.json", []byte(`{"assignments":{}}`), 0o600); err != nil {
