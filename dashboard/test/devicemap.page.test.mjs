@@ -91,7 +91,11 @@ function fakeCollection() {
 // so renderGraph() doesn't early-return, plus the classList/style surface
 // syncGridBackground() touches.
 function fakeCanvas() {
-  return { classList: { toggle: () => {} }, style: { setProperty: () => {} } };
+  return {
+    classList: { toggle: () => {} },
+    style: { setProperty: () => {} },
+    getBoundingClientRect: () => ({ x: 0, y: 0, width: 800, height: 600 }),
+  };
 }
 
 function fakeNode(id, position = { x: 0, y: 0 }) {
@@ -2018,6 +2022,11 @@ function switchGraphFactory(log, created) {
         toggleClass(name, on) { if (on === undefined ? !classSet.has(name) : on) classSet.add(name); else classSet.delete(name); },
         addClass: name => classSet.add(name),
         removeClass: name => classSet.delete(name),
+        // Cytoscape's classes(names) replaces the whole class set.
+        classes(names) {
+          classSet.clear();
+          String(names).split(' ').filter(Boolean).forEach(name => classSet.add(name));
+        },
         hasClass: name => classSet.has(name),
         remove() {},
         style() {},
@@ -2029,7 +2038,12 @@ function switchGraphFactory(log, created) {
       if (el.data.source === undefined) nodes.set(el.data.id, element(el.data, el.classes));
       else edges.push(element(el.data, el.classes));
     }
-    const collection = list => ({ forEach: fn => list.forEach(fn), length: list.length, empty: () => list.length === 0 });
+    const collection = list => ({
+      forEach: fn => list.forEach(fn),
+      length: list.length,
+      empty: () => list.length === 0,
+      removeClass: name => list.forEach(edge => edge.removeClass(name)),
+    });
     const graph = {
       getElementById: id => nodes.get(id) || { empty: () => true },
       nodes: () => collection([...nodes.values()]),
@@ -2425,21 +2439,54 @@ test('discarding the panel drafts restores the saved switch roles', async () => 
   ]);
 });
 
-test('edge card names the plug for a dead edge', async () => {
-  let state = 'off';
-  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ state: () => state })) });
-  await component.load();
-  component.onEdgeTap({ target: fakeEdge({ id: 'e1', source: 'plug', target: 'lamp' }) });
-  assert.deepEqual(plain(component.popover.deadBy), { id: 'plug', name: 'Steckdose' });
-  component.onEdgeTap({ target: fakeEdge({ id: 'e2', source: 'lamp', target: 'bulb' }) });
-  assert.deepEqual(plain(component.popover.deadBy), { id: 'plug', name: 'Steckdose' }, 'a node below the plug names the plug too');
+test('the cut edge card leads with state, consequence and switch', async () => {
+  const shown = await switchPanel({ stateOf: () => 'off' });
+  shown.component.onEdgeTap({ target: fakeEdge({ id: 'edge-plug-lamp', source: 'plug', target: 'lamp' }) });
+  const rows = plain(shown.component.popover.rows);
+  assert.deepEqual(rows[0], ['Zustand', 'Ausgeschaltet', { tone: 'off' }]);
+  assert.deepEqual(rows[1], ['Folgen', '2 Geräte ohne Strom']);
+  assert.equal(rows[2][0], 'Schalter');
+  assert.deepEqual(rows[2][2].link, { tab: 'devices', target: 'plug' });
 });
 
-test('a live edge has no dead plug', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ state: () => 'on' })) });
-  await component.load();
-  component.onEdgeTap({ target: fakeEdge({ id: 'e1', source: 'plug', target: 'lamp' }) });
-  assert.equal(component.popover.deadBy, null);
+test('an edge below the cut names the cause', async () => {
+  const shown = await switchPanel({ stateOf: () => 'off' });
+  shown.component.onEdgeTap({ target: fakeEdge({ id: 'edge-lamp-bulb', source: 'lamp', target: 'bulb' }) });
+  const rows = plain(shown.component.popover.rows);
+  assert.deepEqual(rows[0], ['Zustand', 'Ohne Strom', { tone: 'off' }]);
+  assert.deepEqual(rows[1], ['Ursache', 'Steckdose ist aus', { link: { tab: 'panel', target: 'plug' } }]);
+});
+
+test('a live unswitched edge has no state rows', async () => {
+  const shown = await switchPanel({ stateOf: () => 'on' });
+  shown.component.onEdgeTap({ target: fakeEdge({ id: 'edge-lamp-bulb', source: 'lamp', target: 'bulb' }) });
+  const labels = shown.component.popover.rows.map(row => row[0]);
+  for (const label of ['Zustand', 'Folgen', 'Ursache', 'Schalter']) assert.equal(labels.includes(label), false, label);
+  assert.equal(labels[0], 'Quelle', 'the card starts with its usual rows');
+});
+
+test('the channel select shows only for a device with two switches', async () => {
+  const multi = await channelPanel({ s1: 'on', s2: 'on', lf: 'on' });
+  multi.component.onEdgeTap({ target: fakeEdge({ id: 'edge-pm-a', source: 'pm', target: 'a' }) });
+  assert.deepEqual(plain(multi.component.popover.edge.channels), [1, 2]);
+  assert.equal(multi.component.popover.edge.channel, 1);
+  const single = await switchPanel({ stateOf: () => 'on' });
+  single.component.onEdgeTap({ target: fakeEdge({ id: 'edge-plug-lamp', source: 'plug', target: 'lamp' }) });
+  assert.deepEqual(plain(single.component.popover.edge.channels), []);
+});
+
+test('setEdgeChannel writes edge_props and recuts', async () => {
+  const shown = await channelPanel({ s1: 'on', s2: 'off', lf: 'on' });
+  const { component } = shown;
+  component.onEdgeTap({ target: fakeEdge({ id: 'edge-pm-a', source: 'pm', target: 'a' }) });
+  assert.equal(shown.edgeFrom('pm', 'a').hasClass('devicemap-port-on'), true, 'control: channel 1 is on');
+  component.setEdgeChannel(2);
+  const prop = plain(component.deviceMap.edge_props).find(item => item.parent_id === 'pm' && item.child_id === 'a');
+  assert.equal(prop.channel, 2);
+  assert.equal(component.unsaved, true);
+  assert.equal(shown.edgeFrom('pm', 'a').hasClass('devicemap-port-off'), true);
+  assert.equal(shown.edgeFrom('pm', 'a').hasClass('devicemap-port-on'), false);
+  assert.equal(shown.nodes.get('a').data('quiet'), true, 'a sits below the off channel now');
 });
 
 test('the switch link opens the devices tab on the device', async () => {
@@ -2449,6 +2496,8 @@ test('the switch link opens the devices tab on the device', async () => {
   window.addEventListener('dashboard-open-panel', event => seen.push(event.detail));
   component.openDeviceInDevicesTab('plug');
   assert.deepEqual(JSON.parse(JSON.stringify(seen)), [{ panel: 'devices-panel', deviceFocus: 'plug' }]);
+  await component.openFlowLink({ tab: 'devices', target: 'lamp' });
+  assert.deepEqual(JSON.parse(JSON.stringify(seen.slice(1))), [{ panel: 'devices-panel', deviceFocus: 'lamp' }], 'the card link uses the same path');
 });
 
 test('the legend shows the switch entries only with a switch on the map', async () => {

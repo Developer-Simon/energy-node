@@ -568,7 +568,7 @@
         const flow = model.edgeFlow(edge.target, energy, children, {dirOf, parentId: edge.source});
         const entry = energy.get(edge.target);
         const origin = edge.membership ? 'group' : edge.overrideId ? 'manual' : 'discovery';
-        const rows = [];
+        const rows = this.switchRowsOf(edge);
         if (flow) rows.push([t('devicemap.pop.row.power'), model.flowLabel(flow)]);
         if (entry && entry.roles.length) {
           rows.push([t('devicemap.pop.row.roles'), entry.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')]);
@@ -581,12 +581,13 @@
           eyebrow: t(origin === 'group' ? 'devicemap.pop.eyebrow.membership' : 'devicemap.pop.eyebrow.wiring'),
           title: this.selectedEdgeLabel, rows, lists: [],
           text: origin === 'discovery' ? t('devicemap.edge_readonly_hint') : '',
-          deadBy: this.deadByOf(edge.source),
           linkText: opensPanel ? t('devicemap.pop.link.open_device', {name: this.deviceLabel(edge.target)}) : '',
           link: opensPanel ? {tab: 'panel', target: edge.target} : null,
           action: origin === 'discovery' ? null : {label: t('devicemap.disconnect_button')},
           edge: {
             ...this.edgePropsFor(edge),
+            channels: this.channelsOf(edge),
+            channel: window.DeviceMapSwitch.edgeChannel(this.deviceMap.edge_props, edge.source, edge.target),
             canReverse: Boolean(edge.overrideId) && !edge.membership && !model.isGroupId(edge.target) && !model.isGroupId(edge.source),
             manual: Boolean(edge.overrideId),
             parentName: this.deviceLabel(edge.source),
@@ -611,6 +612,18 @@
         const edge = this.selectedEdge;
         if (!edge || edge.membership) return;
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction})};
+        this.unsaved = true;
+        this.afterEdgePropsChange();
+      },
+
+      // The switch channel that feeds the selected energy edge. The channel
+      // moves the edge to another switch output, so the state follows it.
+      setEdgeChannel(channel) {
+        const edge = this.selectedEdge;
+        if (!edge || edge.membership || !Number.isInteger(channel)) return;
+        const current = this.edgePropsFor(edge);
+        if (current.type !== 'energy') return;
+        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction: current.direction, channel})};
         this.unsaved = true;
         this.afterEdgePropsChange();
       },
@@ -646,6 +659,9 @@
             for (const name of ['connType', 'direction', 'heuristic']) edge.data(name, next.data[name]);
           });
         }
+        // Edge props can move an edge in or out of the switched paths, so the
+        // switch state is recomputed; an unchanged goal keeps it as it is.
+        this.applySwitchState();
         this.applyFlows();
         this.refreshSwitchViews();
         if (this.popover && this.popover.edge) {
@@ -701,6 +717,10 @@
           if (!(await this.leavePanel())) return;
           this.setFocus(link.target);
           this.openPanel(link.target);
+          return;
+        }
+        if (link.tab === 'devices') {
+          this.openDeviceInDevicesTab(link.target);
           return;
         }
         const detail = link.tab === 'automations' ? {panel: 'automations-panel', automationFocus: link.target}
@@ -824,14 +844,71 @@
         return this.switchVisible() && this.switchStatus().byDevice.size > 0;
       },
 
-      // The plug that cuts the power of a node: the node itself when it is an
-      // off output, the nearest off output above it otherwise, null while live.
-      deadByOf(deviceId) {
+      // Rows of the edge card that tell the switch state. A switched edge
+      // shows its channel state (and, when off, the devices that lose power),
+      // an edge below a cut edge names the cause, any other edge has none.
+      // Rows are [label, value, {tone?, link?}].
+      switchRowsOf(edge) {
         const status = this.switchStatus();
-        let plugId = null;
-        if (status.off.has(deviceId)) plugId = deviceId;
-        else if (status.dead.has(deviceId)) plugId = status.dead.get(deviceId).plug;
-        return plugId ? {id: plugId, name: this.deviceLabel(plugId)} : null;
+        const entry = status.edges.get(window.DeviceMapGraph.relationKey(edge.source, edge.target));
+        if (entry) {
+          const state = portState(entry.state);
+          const rows = [[t('devicemap.pop.row.state'), t(`devicemap.pop.state.${state}`), {tone: state}]];
+          if (state === 'off') {
+            const count = this.deadBelowEdge(status, edge);
+            rows.push([t('devicemap.pop.row.consequence'), tn('devicemap.panel.consequence', count, {n: count})]);
+          }
+          rows.push([t('devicemap.pop.row.switch'), this.switchLabelOf(status, entry), {link: {tab: 'devices', target: edge.source}}]);
+          return rows;
+        }
+        const cut = status.dead.get(edge.target);
+        if (cut) {
+          return [
+            [t('devicemap.pop.row.state'), t('devicemap.pop.state.no_power'), {tone: 'off'}],
+            [t('devicemap.pop.row.cause'), t('devicemap.pop.cause', {name: this.deviceLabel(cut.plug)}), {link: {tab: 'panel', target: cut.plug}}],
+          ];
+        }
+        return [];
+      },
+
+      // Number of devices that lose power through this cut edge: the child
+      // and the devices below it up to the next cut edge, where deadArea
+      // names this edge's plug as the nearest one.
+      deadBelowEdge(status, edge) {
+        const relation = window.DeviceMapGraph.relationKey;
+        const cuts = new Set([...status.edges].filter(([, entry]) => entry.state === 'off').map(([key]) => key));
+        const children = new Map();
+        for (const {parent, child} of window.DeviceMapSwitch.pathPairs(this.buildEdgeElements(), this.deviceMap.edge_props)) {
+          if (!children.has(parent)) children.set(parent, []);
+          children.get(parent).push(child);
+        }
+        const reached = new Set([edge.target]);
+        const queue = [edge.target];
+        while (queue.length) {
+          const node = queue.shift();
+          for (const child of children.get(node) || []) {
+            if (reached.has(child) || cuts.has(relation(node, child))) continue;
+            reached.add(child);
+            queue.push(child);
+          }
+        }
+        return [...reached].filter(id => status.dead.has(id) && status.dead.get(id).plug === edge.source).length;
+      },
+
+      // The switch name, with its channel when the device has more than one switch role.
+      switchLabelOf(status, entry) {
+        const channels = (status.byDevice.get(entry.plug) || []).length;
+        return channels > 1 ? t('devicemap.pop.switch_channel', {name: entry.name, n: entry.channel}) : entry.name;
+      },
+
+      // Channels the edge card offers: only for an energy edge whose source
+      // device has more than one switch role, none otherwise.
+      channelsOf(edge) {
+        if (edge.membership || this.edgePropsFor(edge).type !== 'energy') return [];
+        const entries = this.switchStatus().byDevice.get(edge.source) || [];
+        if (entries.length < 2) return [];
+        const top = Math.max(entries.length, ...entries.map(entry => entry.channel));
+        return Array.from({length: top}, (_, index) => index + 1);
       },
 
       get panelView() {
