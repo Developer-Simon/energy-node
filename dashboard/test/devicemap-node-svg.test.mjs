@@ -99,18 +99,28 @@ test('without quiet there is no quiet group', () => {
   assert.equal(doc.querySelector('g[data-quiet]'), null);
 });
 
-test('outputOpen draws a hollow port at three o\'clock', () => {
+test('a port draws a filled circle at three o\'clock in the state color', () => {
   const { svg, dom } = load();
-  const doc = new dom.window.DOMParser().parseFromString(svg.markup({ ...base, outputOpen: true }, colorOf), 'image/svg+xml');
-  const port = doc.querySelector('circle[data-port="open"]');
+  const doc = new dom.window.DOMParser().parseFromString(svg.markup({ ...base, port: 'off' }, colorOf), 'image/svg+xml');
+  const port = doc.querySelector('circle[data-port="off"]');
   assert.ok(port);
   assert.equal(port.getAttribute('cx'), '24');
   assert.equal(port.getAttribute('cy'), '0');
-  assert.equal(port.getAttribute('fill'), '#panel');
-  assert.equal(port.getAttribute('stroke'), '#flow-rest');
+  assert.equal(port.getAttribute('fill'), '#bad');
+  assert.equal(port.getAttribute('stroke'), '#panel');
 });
 
-test('no port without outputOpen', () => {
+test('the port takes the on and unknown state colors', () => {
+  const { svg, dom } = load();
+  const fillOf = port => {
+    const doc = new dom.window.DOMParser().parseFromString(svg.markup({ ...base, port }, colorOf), 'image/svg+xml');
+    return doc.querySelector(`circle[data-port="${port}"]`).getAttribute('fill');
+  };
+  assert.equal(fillOf('on'), '#ok');
+  assert.equal(fillOf('unknown'), '#text-faint');
+});
+
+test('no port without port', () => {
   const { svg, dom } = load();
   const doc = new dom.window.DOMParser().parseFromString(svg.markup(base, colorOf), 'image/svg+xml');
   assert.equal(doc.querySelector('circle[data-port]'), null);

@@ -23,6 +23,9 @@
   const SWITCH_REDUCED_MS = 150;
   // The state of a node that is neither switched off nor without power.
   const NO_SWITCH = Object.freeze({quiet: false, off: false, hops: 0});
+  // Switch port states; any state other than on or off counts as unknown.
+  const PORT_STATES = ['on', 'off', 'unknown'];
+  const portState = state => (state === 'on' || state === 'off' ? state : 'unknown');
 
   const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false};
 
@@ -42,6 +45,9 @@
     // Switch state as last committed on the map: id -> {quiet, off, hops}.
     // A running fade only moves a node here when it completes.
     let switchShown = new Map();
+    // Port state of each switched wiring edge (relation key -> port state), as
+    // last applied with the goal. Updated together with the goal.
+    let switchPorts = new Map();
     // Goal of the last applySwitchState() call; an unchanged goal keeps running fades.
     let switchGoal = null;
     let switchGen = 0;
@@ -291,16 +297,22 @@
           if (state.off) off.add(id);
           else if (state.quiet) dead.set(id, state);
         }
-        return {off, dead};
+        return {off, dead, ports: switchPorts};
       },
 
-      // Node data for one device: the normal image (with the output port of a
-      // switch output), plus the quiet image for nodes that are switched off
-      // or without power. graphStyle() stacks them, the quiet data picks one.
+      // Port state of every switched wiring edge, keyed by relation key.
+      portsOf(status) {
+        return new Map([...status.edges].map(([key, edge]) => [key, portState(edge.state)]));
+      },
+
+      // Node data for one device: the normal image, plus the quiet image for
+      // nodes that are switched off or without power. A leaf switch device
+      // (no switched edge) carries its port on the node itself. graphStyle()
+      // stacks the images, the quiet data picks one.
       nodeImages(device, status, energy, colorOf) {
-        const outputOpen = this.switchVisible() && status.byDevice.has(device.id);
-        const images = {svg: this.nodeSvg(device, energy, colorOf, {outputOpen})};
-        if (this.switchTargets(status).has(device.id)) images.svgQuiet = this.nodeSvg(device, energy, colorOf, {outputOpen, quiet: true});
+        const port = this.switchVisible() && status.leaf.has(device.id) ? portState(status.leaf.get(device.id)) : null;
+        const images = {svg: this.nodeSvg(device, energy, colorOf, {port})};
+        if (this.switchTargets(status).has(device.id)) images.svgQuiet = this.nodeSvg(device, energy, colorOf, {port, quiet: true});
         return images;
       },
 
@@ -315,9 +327,14 @@
         const graph = cy;
         const status = this.switchStatus();
         const targets = this.switchTargets(status);
-        const goal = [...targets].map(([id, target]) => `${id}:${target.quiet}:${target.off}:${target.hops}`).sort().join('|');
+        const ports = this.portsOf(status);
+        // Ports are part of the goal, so a channel that flips without moving
+        // any node still reaches refreshSwitchViews().
+        const goal = [...targets].map(([id, target]) => `${id}:${target.quiet}:${target.off}:${target.hops}`).sort().join('|')
+          + '#' + [...ports].map(([key, port]) => `${key}=${port}`).sort().join('|');
         if (goal === switchGoal) return;
         switchGoal = goal;
+        switchPorts = ports;
 
         switchGen += 1;
         const gen = switchGen;
@@ -364,15 +381,18 @@
         this.refreshSwitchViews();
       },
 
-      // Labels and wiring edges follow the committed state only, so a fade
-      // that is still running does not change them early.
+      // Labels, wiring edges and their ports follow the committed state only,
+      // so a fade that is still running does not change them early.
       refreshSwitchViews() {
+        const {ports} = this.shownStatus();
         if (labels) labels.update(this.labelItems(this.shownStatus()));
         if (!cy) return;
+        const relation = window.DeviceMapGraph.relationKey;
         cy.edges('.devicemap-wiring').forEach(edge => {
           const shown = switchShown.get(edge.data('source')) || NO_SWITCH;
+          const port = ports.get(relation(edge.data('source'), edge.data('target')));
           edge.toggleClass('devicemap-dead', shown.quiet);
-          edge.toggleClass('devicemap-cut', shown.off);
+          for (const state of PORT_STATES) edge.toggleClass(`devicemap-port-${state}`, port === state);
         });
       },
 
@@ -971,11 +991,11 @@
         };
       },
 
-      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor(), {outputOpen = false, quiet = false} = {}) {
+      nodeSvg(device, energy = this.energyByDevice(), colorOf = this.themeColor(), {port = null, quiet = false} = {}) {
         if (device.id === this.balanceId()) return window.DeviceMapNodeSvg.virtualDataUri('balance', colorOf);
         const model = window.DeviceMapModel;
         const spec = model.ringSpec(energy.get(device.id), model.deviceHealth(device), (device.entities || []).length > 0, this.iconMarkup);
-        return window.DeviceMapNodeSvg.dataUri({...spec, quiet, outputOpen}, colorOf);
+        return window.DeviceMapNodeSvg.dataUri({...spec, quiet, port}, colorOf);
       },
 
       labelItems(status = this.switchStatus()) {
@@ -1347,6 +1367,7 @@
         const theme = window.DashboardTheme.colors({
           line: 'border', accent: 'accent', labelStrong: 'text-strong', panel: 'panel',
           info: 'info-line', faint: 'text-faint', warn: 'warn-line', subtle: 'text-subtle',
+          ok: 'ok', bad: 'bad',
         });
         return window.DeviceMapGraph.style({view: this.view, theme, color: token => this.themeColor()(token), reducedMotion: this.reducedMotion()});
       },
@@ -1378,6 +1399,7 @@
         for (const timer of switchTimers) this._clearTimeout(timer);
         switchTimers = [];
         switchShown = new Map();
+        switchPorts = new Map();
         switchGoal = null;
         cy = cytoscape({
           container: this.$refs.canvas,

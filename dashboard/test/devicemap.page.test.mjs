@@ -2142,11 +2142,11 @@ test('toggling during a fade keeps the last state', async () => {
   for (const id of ['plug', 'lamp', 'bulb']) assert.equal(nodes().get(id).data('quiet'), false, `${id} stays on`);
   for (const edge of edges()) {
     assert.equal(edge.hasClass('devicemap-dead'), false);
-    assert.equal(edge.hasClass('devicemap-cut'), false);
+    assert.equal(edge.hasClass('devicemap-port-off'), false);
   }
 });
 
-test('a switched-off plug marks its edge dead and cut, a dead node only dead', async () => {
+test('a switched-off plug marks its edge dead and off port, a dead node only dead', async () => {
   let state = 'on';
   const log = [];
   const shown = await switchPanel({ stateOf: () => state, log });
@@ -2159,9 +2159,78 @@ test('a switched-off plug marks its edge dead and cut, a dead node only dead', a
   const plugEdge = edgeFrom('plug', 'lamp');
   const lampEdge = edgeFrom('lamp', 'bulb');
   assert.equal(plugEdge.hasClass('devicemap-dead'), true);
-  assert.equal(plugEdge.hasClass('devicemap-cut'), true);
+  assert.equal(plugEdge.hasClass('devicemap-port-off'), true);
   assert.equal(lampEdge.hasClass('devicemap-dead'), true);
-  assert.equal(lampEdge.hasClass('devicemap-cut'), false);
+  assert.equal(lampEdge.hasClass('devicemap-port-off'), false);
+  assert.equal(lampEdge.hasClass('devicemap-port-on'), false);
+});
+
+// Two channels on one device: pm feeds a on channel 1 and b on channel 2, and
+// b feeds c. The leaf switch lf stands alone, so it gets a port on its node.
+const CHANNEL_DEVICES = [
+  { id: 'pm', name: 'Mehrfach', relations: [{ id: 'a', kind: 'child' }, { id: 'b', kind: 'child' }], entities: [] },
+  { id: 'a', name: 'Lampe A', relations: [{ id: 'pm', kind: 'parent' }], entities: [] },
+  { id: 'b', name: 'Lampe B', relations: [{ id: 'pm', kind: 'parent' }, { id: 'c', kind: 'child' }], entities: [] },
+  { id: 'c', name: 'Lampe C', relations: [{ id: 'b', kind: 'parent' }], entities: [] },
+  { id: 'lf', name: 'Einzeln', relations: [], entities: [] },
+];
+const CHANNEL_MAP = {
+  version: 3,
+  nodes: [{ device_id: 'pm', x: 0, y: 0 }, { device_id: 'a', x: 100, y: 0 }, { device_id: 'b', x: 100, y: 60 }, { device_id: 'c', x: 150, y: 60 }, { device_id: 'lf', x: 300, y: 0 }],
+  edges: [],
+  edge_props: [
+    { parent_id: 'pm', child_id: 'a', type: 'energy', channel: 1 },
+    { parent_id: 'pm', child_id: 'b', type: 'energy', channel: 2 },
+    { parent_id: 'b', child_id: 'c', type: 'energy' },
+  ],
+  view: { layers: { wiring: true, energy: true, balance: false, data: false } },
+};
+const CHANNEL_ROLES = {
+  assignments: { 'switch.s1': { role: 'switch', channel: 1 }, 'switch.s2': { role: 'switch', channel: 2 }, 'switch.lf': { role: 'switch', channel: 1 } },
+  groups: {},
+  categories: {},
+};
+
+async function channelPanel({ s1, s2, lf }) {
+  const switches = [
+    { device_id: 'pm', entity_id: 'switch.s1', name: 'Ausgang 1', state: s1 },
+    { device_id: 'pm', entity_id: 'switch.s2', name: 'Ausgang 2', state: s2 },
+    { device_id: 'lf', entity_id: 'switch.lf', name: 'Einzeln', state: lf },
+  ];
+  const table = mapRoutes({
+    '/api/v1/devices': CHANNEL_DEVICES,
+    '/api/v1/device/map': CHANNEL_MAP,
+    '/api/v1/energy/roles': CHANNEL_ROLES,
+    '/api/v1/devices/switches': () => switches,
+  });
+  const created = [];
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(table), cytoscapeImpl: switchGraphFactory([], created) });
+  component.$refs = { canvas: fakeCanvas(), labels: window.document.createElement('div') };
+  await component.load();
+  const current = created[created.length - 1];
+  const edgeFrom = (source, target) => current.edges.find(edge => edge.data('source') === source && edge.data('target') === target);
+  return { component, nodes: current.nodes, edgeFrom };
+}
+
+test('each switched edge gets the port of its channel, a dead edge below an off channel none', async () => {
+  const shown = await channelPanel({ s1: 'on', s2: 'off', lf: 'on' });
+  const toA = shown.edgeFrom('pm', 'a');
+  const toB = shown.edgeFrom('pm', 'b');
+  const toC = shown.edgeFrom('b', 'c');
+  assert.equal(toA.hasClass('devicemap-port-on'), true);
+  assert.equal(toA.hasClass('devicemap-port-off'), false);
+  assert.equal(toB.hasClass('devicemap-port-off'), true);
+  assert.equal(toB.hasClass('devicemap-port-on'), false);
+  assert.equal(toB.hasClass('devicemap-dead'), false, 'the off channel is the cut, its edge is not dead');
+  assert.equal(toC.hasClass('devicemap-dead'), true);
+  assert.equal(toC.hasClass('devicemap-port-on') || toC.hasClass('devicemap-port-off'), false, 'a non-switched edge has no port');
+});
+
+test('a switch device with switched edges draws no node port, a leaf switch draws one', async () => {
+  const shown = await channelPanel({ s1: 'on', s2: 'off', lf: 'off' });
+  const svgOf = id => decodeURIComponent(shown.nodes.get(id).data('svg'));
+  assert.equal(svgOf('pm').includes('data-port'), false);
+  assert.match(svgOf('lf'), /circle data-port="off"/);
 });
 
 test('energy refresh updates label values while the switch state is unchanged', async () => {
