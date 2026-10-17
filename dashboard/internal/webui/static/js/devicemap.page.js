@@ -209,11 +209,57 @@
         return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});
       },
 
-      // Switch outputs and the area without power, from the switch states and
-      // the draft's switch_outputs, so a draft shows its effect before saving.
+      // The switch roles as they stand: the saved energy assignments with the
+      // panel drafts laid over them, so a draft shows its effect before saving.
+      effectiveAssignments() {
+        const model = window.DeviceMapModel;
+        const assignments = Object.fromEntries(Object.entries(this.savedAssignments || {})
+          .map(([id, value]) => [id, model.normalizeAssignment(value)]));
+        for (const [id, draft] of Object.entries(this.drafts)) assignments[id] = model.normalizeAssignment(draft);
+        return assignments;
+      },
+
+      // Switch channels and the area without power, from the switch states,
+      // the effective roles and the energy edges with their channels.
       switchStatus() {
-        const pairs = window.DeviceMapSwitch.pathPairs(this.buildEdgeElements());
-        return window.DeviceMapSwitch.status({switches: this.switches, switchOutputs: this.deviceMap.switch_outputs, devices: this.devices, pairs});
+        const pairs = window.DeviceMapSwitch.pathPairs(this.buildEdgeElements(), this.deviceMap.edge_props);
+        return window.DeviceMapSwitch.status({switches: this.switches, assignments: this.effectiveAssignments(), devices: this.devices, pairs});
+      },
+
+      // Panel info of every switch of one device: state, whether only the
+      // detection (heuristic, from the saved roles) names it, and how many
+      // switches the device has, which bounds its channel.
+      switchInfoFor(deviceId) {
+        const items = this.switches.filter(item => item.device_id === deviceId);
+        const detected = window.DeviceMapSwitch.resolveSwitches({switches: this.switches, assignments: this.savedAssignments, devices: this.devices}).get(deviceId) || [];
+        const heuristic = new Set(detected.filter(entry => entry.source === 'heuristic').map(entry => entry.entityId));
+        return new Map(items.map(item => [item.entity_id, {state: item.state, heuristic: heuristic.has(item.entity_id), channels: items.length}]));
+      },
+
+      switchInfoOf(entityId) {
+        const item = this.switches.find(entry => entry.entity_id === entityId);
+        return item ? this.switchInfoFor(item.device_id).get(entityId) || null : null;
+      },
+
+      // Base of one entity before any draft, as the panel rows see it: a
+      // switch takes its role from the saved entry or the detection.
+      baseFor(entityId) {
+        const model = window.DeviceMapModel;
+        const info = this.switchInfoOf(entityId);
+        if (!info) return model.baseAssignment(entityId, this.savedAssignments, this.energy);
+        if (Object.prototype.hasOwnProperty.call(this.savedAssignments, entityId)) {
+          return {...model.normalizeAssignment(this.savedAssignments[entityId]), source: 'override'};
+        }
+        if (info.heuristic) return {...model.normalizeAssignment({role: 'switch', channel: 1}), source: 'heuristic'};
+        return {...model.normalizeAssignment(null), source: 'none'};
+      },
+
+      // What an off switch takes away: the devices whose nearest plug is this
+      // device. Empty while the switch is on or nothing sits below it.
+      switchConsequence(status, deviceId, info) {
+        if (!info || info.state !== 'off') return '';
+        const count = [...status.dead.values()].filter(entry => entry.plug === deviceId).length;
+        return count ? tn('devicemap.panel.consequence', count, {n: count}) : '';
       },
 
       switchVisible() {
@@ -252,7 +298,7 @@
       // switch output), plus the quiet image for nodes that are switched off
       // or without power. graphStyle() stacks them, the quiet data picks one.
       nodeImages(device, status, energy, colorOf) {
-        const outputOpen = this.switchVisible() && status.outputs.has(device.id);
+        const outputOpen = this.switchVisible() && status.byDevice.has(device.id);
         const images = {svg: this.nodeSvg(device, energy, colorOf, {outputOpen})};
         if (this.switchTargets(status).has(device.id)) images.svgQuiet = this.nodeSvg(device, energy, colorOf, {outputOpen, quiet: true});
         return images;
@@ -734,25 +780,16 @@
 
       setDraft(entityId, field, value) {
         const model = window.DeviceMapModel;
-        const base = model.baseAssignment(entityId, this.savedAssignments, this.energy);
-        const current = this.drafts[entityId] || {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh};
+        const base = this.baseFor(entityId);
+        const current = this.drafts[entityId] || {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh, channel: base.channel};
         let next = {...current, [field]: value};
         if (field === 'scale') next.scale = Math.max(0.01, Number(value) || 1);
         if (field === 'capacity_kwh') next.capacity_kwh = Math.max(0, Number(value) || 0);
+        if (field === 'channel') next.channel = Math.min(16, Math.max(1, Number(value) || 1));
         if (field === 'role' && current.pin) next = {...next, pin: false};
         const drafts = {...this.drafts};
         if (model.isDraftChange(base, next)) drafts[entityId] = next; else delete drafts[entityId];
         this.drafts = drafts;
-        this.applyEnergy();
-      },
-
-      // Output or no function for one switch, as a map draft like the edge
-      // type: setFunction() keeps the other entries, the map is saved with save().
-      setSwitchFunction(entityId, fn) {
-        const item = this.switches.find(entry => entry.entity_id === entityId);
-        if (!item) return;
-        this.deviceMap = {...this.deviceMap, switch_outputs: window.DeviceMapSwitch.setFunction(this.deviceMap.switch_outputs, {deviceId: item.device_id, entityId, fn})};
-        this.unsaved = true;
         this.applyEnergy();
       },
 
@@ -764,7 +801,7 @@
 
       // The legend entries for switch outputs show only when the map has one.
       switchLegendVisible() {
-        return this.switchVisible() && this.switchStatus().outputs.size > 0;
+        return this.switchVisible() && this.switchStatus().byDevice.size > 0;
       },
 
       // The plug that cuts the power of a node: the node itself when it is an
@@ -813,16 +850,18 @@
         }
         const device = this.devices.find(candidate => candidate.id === this.panelId);
         if (!device) return null;
-        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts});
+        const status = this.switchStatus();
+        const switchInfo = this.switchInfoFor(device.id);
+        const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
+        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf});
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
-        const outputs = window.DeviceMapSwitch.rows({deviceId: device.id, switches: this.switches, switchOutputs: this.deviceMap.switch_outputs, savedSwitchOutputs: this.savedDeviceMap.switch_outputs, devices: this.devices});
         return {
           kind: 'device',
           title: device.name || device.id,
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
-          rows, others, empty, outputs,
+          rows, others, empty,
           flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
       },
@@ -869,8 +908,8 @@
       },
 
       pinAssignment(entityId) {
-        const base = window.DeviceMapModel.baseAssignment(entityId, this.savedAssignments, this.energy);
-        this.drafts = {...this.drafts, [entityId]: {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh, pin: true}};
+        const base = this.baseFor(entityId);
+        this.drafts = {...this.drafts, [entityId]: {role: base.role, scale: base.scale, invert: base.invert, capacity_kwh: base.capacity_kwh, channel: base.channel, pin: true}};
         this.applyEnergy();
       },
 
@@ -1886,8 +1925,9 @@
           const liveKeys = new Set(this.buildEdgeElements().filter(element => !element.data.membership)
             .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)));
           const edgeProps = window.DeviceMapWiring.prune(this.deviceMap.edge_props, liveKeys);
-          const switchOutputs = this.deviceMap.switch_outputs || [];
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view, switch_outputs: switchOutputs};
+          // The switch roles live in the energy roles, the map keeps only the
+          // edge channels (edge_props).
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
