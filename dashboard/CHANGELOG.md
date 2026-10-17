@@ -133,6 +133,7 @@
 
 - **dashboard:** remove unused Tippy.js and Popper.js (#139) (8f2318c)
 - **devicemap:** move switch outputs into energy roles and add edge channels (d2ab424)
+- **devicemap:** draw the panel link icons from the icon pool (0134e7a)
 - **energy:** drop measured load positions and the measured_split option (b927086)
 - **dashboard:** drop the unused Tippy.js and Popper.js bundles (dfc102e)
 - **dashboard:** reword the base.css tooltip comment (7856e87)
