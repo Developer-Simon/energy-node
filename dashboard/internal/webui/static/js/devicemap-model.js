@@ -454,5 +454,6 @@
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload, normalizeAssignment,
     roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices, helpTipPosition,
+    PLACE_STEP_X, PLACE_STEP_Y,
   };
 })();

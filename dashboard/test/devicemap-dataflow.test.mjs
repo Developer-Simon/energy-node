@@ -241,3 +241,13 @@ test('isAutomationLink holds for rule executions and any edge touching the autom
   assert.equal(df.isAutomationLink({ from: 'netz', to: 'bat' }), false);
   assert.equal(df.isAutomationLink(undefined), false);
 });
+
+test('nodeKind and nodeVisible know sub-devices', () => {
+  const df = load();
+  assert.equal(df.nodeKind('sub:x'), 'sub');
+  assert.equal(df.isPersistedVirtual('sub:x'), true);
+  assert.equal(df.nodeVisible('sub', { wiring: true, energy: false, balance: false, data: false }), true);
+  assert.equal(df.nodeVisible('sub', { wiring: false, energy: true, balance: false, data: false }), true);
+  assert.equal(df.nodeVisible('sub', { wiring: false, energy: false, balance: true, data: false }), true);
+  assert.equal(df.nodeVisible('sub', { wiring: false, energy: false, balance: false, data: true }), false);
+});

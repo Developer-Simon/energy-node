@@ -9,6 +9,7 @@
   const BALANCE_ID = 'balance';
   const STUB_PREFIX = 'stub:';
   const AUTOMATION_DEVICE_ID = 'automation';
+  const SUB_PREFIX = 'sub:';
   const ruleId = id => `rule:${encodeURIComponent(id)}`;
 
   // The lines to the automation node: rule executions and every wiring or
@@ -23,16 +24,18 @@
     if (id.startsWith('rule:')) return 'rule';
     if (id.startsWith('service:')) return 'service';
     if (id.startsWith(STUB_PREFIX)) return 'stub';
+    if (id.startsWith(SUB_PREFIX)) return 'sub';
     return 'device';
   };
   const isVirtualId = id => nodeKind(id) !== 'device';
-  const isPersistedVirtual = id => ['balance', 'group', 'rule', 'service'].includes(nodeKind(id));
+  const isPersistedVirtual = id => ['balance', 'group', 'rule', 'service', 'sub'].includes(nodeKind(id));
 
   // The virtual balance node stands in for the Energy Node device, so it shows
   // with the roles layer (its role edges) or with the data flow layer (the
   // balance conditions of automations).
   const nodeVisible = (kind, layers) => {
     if (kind === 'balance') return Boolean(layers.balance || layers.data);
+    if (kind === 'sub') return Boolean(layers.wiring || layers.energy || layers.balance);
     if (kind === 'rule' || kind === 'service' || kind === 'stub') return Boolean(layers.data);
     return true;
   };
