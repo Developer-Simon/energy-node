@@ -94,3 +94,22 @@ test('powerEntities keeps only W and kW entities', () => {
   assert.deepEqual(plain(sd.powerEntities(device).map(e => e.entity_id)), ['a', 'b']);
   assert.deepEqual(plain(sd.powerEntities({})), []);
 });
+
+test('placeNew terminates and steps by the grid when the grid is coarser than the step', () => {
+  const sd = load();
+  assert.deepEqual(plain(sd.placeNew({ anchor: { x: 0, y: 0 }, taken: [{ x: 0, y: 0 }], snap: 300 })), { x: 0, y: 300 });
+});
+
+test('labelFor returns null for a sub-device without label', () => {
+  const sd = load();
+  assert.equal(sd.labelFor({ sub_devices: [{ id: 'sub:x', entity_id: 'e', device_id: 'd', label: '' }] }, 'e'), null);
+});
+
+test('null entries in sub_devices and device entities are skipped', () => {
+  const sd = load();
+  const map = { sub_devices: [null, sub] };
+  assert.deepEqual(plain(sd.list(map)), [sub]);
+  assert.equal(sd.byEntity(map).get('plug_b_power').id, 'sub:wm');
+  assert.equal(sd.remapSnapshot({ entities: [{ entity_id: 'plug_b_power', device_id: 'plug_b' }] }, map).entities[0].device_id, 'sub:wm');
+  assert.deepEqual(plain(sd.powerEntities({ entities: [null, { entity_id: 'a', unit_of_measurement: 'W' }] }).map(e => e.entity_id)), ['a']);
+});

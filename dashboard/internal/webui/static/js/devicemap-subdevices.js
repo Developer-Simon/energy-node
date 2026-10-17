@@ -9,13 +9,13 @@
 
   const isSubId = id => typeof id === 'string' && id.startsWith(PREFIX);
 
-  const list = deviceMap => (deviceMap && deviceMap.sub_devices) || [];
+  const list = deviceMap => ((deviceMap && deviceMap.sub_devices) || []).filter(Boolean);
 
   const byEntity = deviceMap => new Map(list(deviceMap).map(sub => [sub.entity_id, sub]));
 
   const labelFor = (deviceMap, entityId) => {
     const sub = byEntity(deviceMap).get(entityId);
-    return sub ? sub.label : null;
+    return sub && sub.label ? sub.label : null;
   };
 
   // The snapshot is copied, never changed: entities with a sub-device move
@@ -50,15 +50,18 @@
   const placeNew = ({anchor, taken, snap}) => {
     const {PLACE_STEP_X, PLACE_STEP_Y} = model();
     const round = value => (snap ? Math.round(value / snap) * snap : value);
+    // With a grid coarser than the step, a step below the grid size would round
+    // back onto the same row forever. Step by at least one grid cell.
+    const step = snap ? Math.max(PLACE_STEP_Y, snap) : PLACE_STEP_Y;
     const occupied = (x, y) => (taken || []).some(p => Math.abs(p.x - x) < PLACE_STEP_X && Math.abs(p.y - y) < PLACE_STEP_Y);
     const x = round(anchor.x + PLACE_STEP_X);
     let y = round(anchor.y);
-    while (occupied(x, y)) y = round(y + PLACE_STEP_Y);
+    while (occupied(x, y)) y = round(y + step);
     return {x, y};
   };
 
   const powerEntities = device => ((device && device.entities) || [])
-    .filter(entity => POWER_UNITS.includes(entity.unit_of_measurement));
+    .filter(entity => entity && POWER_UNITS.includes(entity.unit_of_measurement));
 
   window.DeviceMapSubDevices = {
     PREFIX, isSubId, list, byEntity, labelFor, remapSnapshot, pairs, isOrphan, placeNew, powerEntities,
