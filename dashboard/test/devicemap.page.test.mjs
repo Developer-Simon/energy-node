@@ -2570,3 +2570,9 @@ test('the legend shows the output off as a filled dot in the bad colour', () => 
   assert.equal(css.includes('devicemap-off-ring'), false);
   assert.match(css, /\.devicemap-legend i\.devicemap-off-dot \{[^}]*width: 10px;[^}]*height: 10px;[^}]*background: var\(--bad\)/);
 });
+
+test('the panel role select has a static empty option, since a bound empty value loses its attribute', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  assert.match(html, /<option value="" x-bind:selected="!row\.assignment\.role">\{\{t "energy\.roles\.no_role"\}\}<\/option>/);
+  assert.match(html, /item\.group === 'standard' && item\.value/);
+});

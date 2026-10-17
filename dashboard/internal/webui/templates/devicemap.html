@@ -311,7 +311,8 @@
                 <label class="devicemap-panel-field">{{t "devicemap.panel.role"}}
                   <select x-on:change="setDraft(row.id, 'role', $event.target.value)" x-bind:disabled="!canEditEnergy">
                     <optgroup label="{{t "devicemap.panel.optgroup.standard"}}">
-                      <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'standard')" x-bind:key="option.value">
+                      <option value="" x-bind:selected="!row.assignment.role">{{t "energy.roles.no_role"}}</option>
+                      <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'standard' && item.value)" x-bind:key="option.value">
                         <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
                       </template>
                     </optgroup>
