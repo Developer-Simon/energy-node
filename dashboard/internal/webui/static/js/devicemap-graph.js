@@ -181,8 +181,10 @@
     {selector: 'edge.devicemap-wiring.devicemap-dead', style: {'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'line-color': theme.faint, 'target-arrow-shape': 'none'}},
     {selector: 'edge.devicemap-cut', style: {'source-arrow-shape': 'circle', 'source-arrow-fill': 'hollow', 'source-arrow-color': theme.faint, 'source-distance-from-node': 6}},
     // Quiet nodes stack the normal and the quiet image. Cytoscape interpolates
-    // the list opacities, Task 8 relies on that for the cross-fade.
-    {selector: 'node[svgQuiet]', style: {'background-image': ['data(svg)', 'data(svgQuiet)'], 'background-image-opacity': [1, 0]}},
+    // the list opacities, the cross-fade relies on that. The list comes from a
+    // function because Cytoscape leaves a data() mapper inside a list as the
+    // literal URL "data(svg)", which draws no image at all.
+    {selector: 'node[svgQuiet]', style: {'background-image': node => [node.data('svg'), node.data('svgQuiet')], 'background-image-opacity': [1, 0]}},
     {selector: 'node[svgQuiet][?quiet]', style: {'background-image-opacity': [0, 1]}},
     {selector: 'edge.devicemap-flow', style: {
       ...(EDGE_STYLES[view.edge_style] || EDGE_STYLES.straight),

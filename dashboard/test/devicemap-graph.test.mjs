@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import vm from 'node:vm';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -156,9 +157,31 @@ test('style stacks the quiet image', () => {
   const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: true, energy: true } }, theme, color: () => '#000', reducedMotion: false });
   const base = style.find(entry => entry.selector === 'node[svgQuiet]');
   assert.ok(base, 'stacked base rule exists');
-  assert.deepEqual(plain(base.style['background-image']), ['data(svg)', 'data(svgQuiet)']);
   assert.deepEqual(plain(base.style['background-image-opacity']), [1, 0]);
   const quiet = style.find(entry => entry.selector === 'node[svgQuiet][?quiet]');
   assert.ok(quiet, 'quiet override rule exists');
   assert.deepEqual(plain(quiet.style['background-image-opacity']), [0, 1]);
+});
+
+// Cytoscape resolves a data() mapper only as a whole value. Inside a list it
+// stays the literal URL "data(svg)", and the node is drawn without an image.
+test('stacked quiet image resolves to both node images in Cytoscape', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const cytoscape = createRequire(import.meta.url)(path.join(here, '..', 'internal', 'webui', 'static', 'js-deps', 'cytoscape.min.js'));
+  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555' };
+  const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: true, energy: true } }, theme, color: () => '#000', reducedMotion: false });
+  const cy = cytoscape({
+    headless: true, styleEnabled: true,
+    elements: [{ data: { id: 'plug', svg: 'data:image/svg+xml,normal', svgQuiet: 'data:image/svg+xml,quiet', quiet: true } }],
+    style: style.filter(entry => entry.selector.startsWith('node')),
+  });
+  try {
+    const node = cy.getElementById('plug');
+    assert.deepEqual(plain(node.pstyle('background-image').value), ['data:image/svg+xml,normal', 'data:image/svg+xml,quiet']);
+    node.data('svg', 'data:image/svg+xml,updated');
+    assert.deepEqual(plain(node.pstyle('background-image').value), ['data:image/svg+xml,updated', 'data:image/svg+xml,quiet']);
+    assert.deepEqual(plain(node.pstyle('background-image-opacity').value), [0, 1]);
+  } finally {
+    cy.destroy();
+  }
 });

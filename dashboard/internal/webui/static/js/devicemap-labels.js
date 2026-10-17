@@ -19,23 +19,23 @@
           el = document.createElement('div');
           el.className = 'devicemap-node-label';
           el.dataset.labelId = item.id;
-          // The title wrapper is the pill for switched-off nodes, so it
-          // wraps the name and the off text together.
-          const title = document.createElement('span');
-          title.className = 'devicemap-node-title';
           const name = document.createElement('span');
           name.className = 'devicemap-node-name';
-          title.appendChild(name);
+          // The reading wrapper is the pill for switched-off nodes, so it
+          // wraps the value and the off text together.
+          const reading = document.createElement('span');
+          reading.className = 'devicemap-node-reading';
           const value = document.createElement('span');
           value.className = 'devicemap-node-value';
-          el.append(title, value);
+          reading.appendChild(value);
+          el.append(name, reading);
           container.appendChild(el);
           byId.set(item.id, el);
         }
-        const title = el.querySelector('.devicemap-node-title');
-        title.querySelector('.devicemap-node-name').textContent = item.name;
+        el.querySelector('.devicemap-node-name').textContent = item.name;
         el.querySelector('.devicemap-node-value').textContent = item.value;
-        const off = title.querySelector('.devicemap-node-off');
+        const reading = el.querySelector('.devicemap-node-reading');
+        const off = reading.querySelector('.devicemap-node-off');
         if (item.off) {
           el.classList.add('is-off');
           if (off) {
@@ -44,7 +44,7 @@
             const pill = document.createElement('span');
             pill.className = 'devicemap-node-off';
             pill.textContent = `· ${item.offText}`;
-            title.appendChild(pill);
+            reading.appendChild(pill);
           }
         } else {
           el.classList.remove('is-off');

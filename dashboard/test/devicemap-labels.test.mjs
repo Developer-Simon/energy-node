@@ -70,8 +70,10 @@ test('off nodes get the is-off pill with the localized off text, and it goes awa
   labels.update([{ id: 'p', name: 'Plug A', value: '0 W', off: true, offText: 'Aus' }]);
   const el = container.querySelector('[data-label-id="p"]');
   assert.ok(el.classList.contains('is-off'));
-  assert.equal(el.querySelector('.devicemap-node-title .devicemap-node-name').textContent, 'Plug A');
-  assert.equal(el.querySelector('.devicemap-node-off').textContent, '· Aus');
+  assert.equal(el.querySelector('.devicemap-node-name').textContent, 'Plug A');
+  assert.equal(el.querySelector('.devicemap-node-name .devicemap-node-off'), null, 'the name carries no off text');
+  assert.equal(el.querySelector('.devicemap-node-reading .devicemap-node-value').textContent, '0 W');
+  assert.equal(el.querySelector('.devicemap-node-reading .devicemap-node-off').textContent, '· Aus', 'off text sits next to the value');
   labels.update([{ id: 'p', name: 'Plug A', value: '0 W', off: false }]);
   assert.equal(container.querySelector('[data-label-id="p"]'), el, 'same element');
   assert.ok(!el.classList.contains('is-off'));

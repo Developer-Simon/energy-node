@@ -119,7 +119,7 @@ the Energy Node device, a separate balance node stands in for it.
 
 A smart plug or relay can switch its output off. The map shows this when the
 Wiring or the Live energy layer is on. The device whose output is off is marked
-**Output off**: its name gets a grey pill with "Off", and an open dot sits at its
+**Output off**: its value gets a grey pill with "Off", and an open dot sits at its
 connection. Everything that only gets its power through that device is dimmed,
 its flow stops and its outgoing connections turn dotted. In the connection card
 the line "No power because ... is off" names the device that cut the supply and
