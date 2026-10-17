@@ -111,10 +111,17 @@
             </button>
           </div>
           <p class="devicemap-popover-text" x-show="popover.text" x-text="popover.text"></p>
-          <button type="button" class="devicemap-popover-dead" x-show="popover.deadBy" x-on:click="openFlowLink({tab: 'panel', target: popover.deadBy.id})" x-text="popover.deadBy ? $t('devicemap.pop.row.dead', {name: popover.deadBy.name}) : ''"></button>
           <dl x-show="popover.rows.length">
             <template x-for="(row, index) in popover.rows" x-bind:key="index">
-              <div class="devicemap-popover-row"><dt x-text="row[0]"></dt><dd x-text="row[1]"></dd></div>
+              <div class="devicemap-popover-row"><dt x-text="row[0]"></dt>
+                <dd x-bind:class="row[2] && row[2].tone ? 'devicemap-popover-state' : ''">
+                  <span class="devicemap-popover-value">
+                    <template x-if="row[2] && row[2].tone"><span class="devicemap-popover-tone" x-bind:data-tone="row[2].tone"></span></template>
+                    <template x-if="row[2] && row[2].link"><button type="button" class="devicemap-popover-link" x-on:click="openFlowLink(row[2].link)"><span x-text="row[1]"></span><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></template>
+                    <template x-if="!(row[2] && row[2].link)"><span x-text="row[1]"></span></template>
+                  </span>
+                </dd>
+              </div>
             </template>
           </dl>
           <template x-for="(list, listIndex) in popover.lists" x-bind:key="listIndex">
@@ -139,6 +146,12 @@
                   <label><input type="radio" name="devicemap-edge-type" value="data" x-bind:checked="popover.edge.type === 'data'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeType('data')"><span>{{t "devicemap.edge.type.data"}}</span></label>
                   <label><input type="radio" name="devicemap-edge-type" value="info" x-bind:checked="popover.edge.type === 'info'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeType('info')"><span>{{t "devicemap.edge.type.info"}}</span></label>
                 </div>
+              </div>
+              <div class="category-field" x-show="popover.edge.type === 'energy' && popover.edge.channels.length > 1">
+                <label class="category-field-label" for="devicemap-edge-channel">{{t "devicemap.pop.row.channel"}}</label>
+                <select id="devicemap-edge-channel" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeChannel(Number($event.target.value))">
+                  <template x-for="n in popover.edge.channels" x-bind:key="n"><option x-bind:value="n" x-text="n" x-bind:selected="n === popover.edge.channel"></option></template>
+                </select>
               </div>
               <div class="category-field" x-show="popover.edge.type === 'energy'">
                 <span class="category-field-label">{{t "devicemap.edge.direction_label"}}</span>
@@ -260,7 +273,7 @@
                 <span x-show="view.layers.energy && Object.keys(savedCategories).length"><i class="devicemap-cat-line"></i>{{t "devicemap.legend.category"}}</span>
                 <span x-show="view.layers.energy && Object.keys(savedGroups).length"><i class="dashed devicemap-group-line"></i>{{t "devicemap.legend.group"}}</span>
                 <span x-show="view.layers.data"><i class="dashed" style="border-color: var(--info-line)"></i>{{t "devicemap.legend.data"}}</span>
-                <span x-show="switchLegendVisible()"><i class="devicemap-off-ring"></i>{{t "devicemap.legend.output_off"}}</span>
+                <span x-show="switchLegendVisible()"><i class="devicemap-off-dot"></i>{{t "devicemap.legend.output_off"}}</span>
                 <span x-show="switchLegendVisible()"><i class="devicemap-dotted devicemap-dead-line"></i>{{t "devicemap.legend.dead"}}</span>
               </div>
             </div>

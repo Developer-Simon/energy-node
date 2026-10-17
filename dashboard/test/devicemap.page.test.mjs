@@ -2507,3 +2507,36 @@ test('the legend shows the switch entries only with a switch on the map', async 
   component.switches = [];
   assert.equal(component.switchLegendVisible(), false);
 });
+
+// Template and stylesheet of the edge card and the legend (7b): no test renders
+// them, so the markup and the rules they depend on are checked as text.
+const readWebui = (...parts) => fs.readFileSync(path.join(here, '..', 'internal', 'webui', ...parts), 'utf8');
+
+test('the edge card renders state rows with tone, links and the channel select, not the dead plug', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.equal(html.includes('deadBy'), false, 'the template no longer reads popover.deadBy');
+  assert.equal(html.includes('devicemap-popover-dead'), false);
+  assert.equal(css.includes('devicemap-popover-dead'), false, 'the dead plug button style is gone');
+  assert.match(html, /class="devicemap-popover-link" x-on:click="openFlowLink\(row\[2\]\.link\)"/);
+  assert.match(html, /<use href="#ico-chevron"><\/use>/);
+  assert.match(html, /<span class="devicemap-popover-tone" x-bind:data-tone="row\[2\]\.tone"><\/span>/);
+  assert.match(html, /x-show="popover\.edge\.type === 'energy' && popover\.edge\.channels\.length > 1"/);
+  assert.match(html, /<select id="devicemap-edge-channel"[^>]*x-on:change="setEdgeChannel\(Number\(\$event\.target\.value\)\)"/);
+});
+
+test('the link button presses with a 100 ms scale that reduced motion drops', () => {
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.match(css, /\.devicemap-popover-link:active \{ transform: scale\(\.98\); transition: transform 100ms ease-out; \}/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.devicemap-popover-link:active \{ transform: none; \}/);
+  assert.match(css, /\.devicemap-popover-link:focus-visible \{ outline: 2px solid var\(--accent\); outline-offset: 2px; \}/);
+});
+
+test('the legend shows the output off as a filled dot in the bad colour', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.equal(html.includes('devicemap-off-ring'), false);
+  assert.match(html, /<i class="devicemap-off-dot"><\/i>/);
+  assert.equal(css.includes('devicemap-off-ring'), false);
+  assert.match(css, /\.devicemap-legend i\.devicemap-off-dot \{[^}]*width: 10px;[^}]*height: 10px;[^}]*background: var\(--bad\)/);
+});

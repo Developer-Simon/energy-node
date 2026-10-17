@@ -984,7 +984,20 @@ select.schema-control {
 .devicemap-popover dd { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; min-width: 0; }
 .devicemap-popover ul { margin: 0; padding-left: 18px; font-size: .84rem; display: grid; gap: 2px; }
 .devicemap-popover-text { margin: 0; font-size: .84rem; color: var(--text-muted); }
-.devicemap-popover-dead { display: block; width: 100%; padding: 2px 0; border: 0; background: none; text-align: left; font: inherit; font-size: .84rem; color: var(--text-strong); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.devicemap-popover-value { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.devicemap-popover-state { font-weight: 600; }
+/* Switch state dot, the same colours as the state of the port on the map. */
+.devicemap-popover-tone { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+.devicemap-popover-tone[data-tone="on"] { background: var(--ok); }
+.devicemap-popover-tone[data-tone="off"] { background: var(--bad); }
+/* The link fills its cell: the negative margin keeps the text aligned while
+   the padding widens the hit area and the hover background. */
+.devicemap-popover-link { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; max-width: 100%; margin: -4px -6px; padding: 4px 6px; border: 0; border-radius: 6px; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.devicemap-popover-link svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transform: rotate(-90deg); }
+.devicemap-popover-link:hover { background: color-mix(in srgb, var(--text-strong) 6%, transparent); }
+.devicemap-popover-link:active { transform: scale(.98); transition: transform 100ms ease-out; }
+.devicemap-popover-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .devicemap-popover-link:active { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .devicemap-popover { transform: none !important; } }
 .schema-object.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
 
@@ -1041,7 +1054,7 @@ div.devicemap-view-menu-row { cursor: default; }
 .devicemap-legend i.dashed { border-top-style: dashed; border-top-width: 2px; }
 .devicemap-legend i.devicemap-dotted { border-top-style: dotted; border-top-width: 2px; }
 .devicemap-legend i.devicemap-dead-line { border-top-width: 3px; }
-.devicemap-legend i.devicemap-off-ring { width: 10px; height: 10px; border: 2px solid var(--text-subtle); border-radius: 50%; box-sizing: border-box; }
+.devicemap-legend i.devicemap-off-dot { width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--bad); }
 /* On a phone the bar wraps and the button can sit anywhere in it, so the
    menu spans the whole bar instead of hanging off the button. */
 @media (max-width: 700px) {
