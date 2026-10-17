@@ -33,6 +33,11 @@ const (
 	// einheit. Sie wird nicht summiert, sondern nach CapacityKWh gewichtet
 	// gemittelt - siehe den zweiten Zweig in Aggregate.
 	RoleBatterySoC Role = "battery_soc"
+
+	// RoleSwitch markiert einen Schaltkanal (Steckdose, Relais). Er ist keine
+	// Leistungsrolle: Aggregate ueberspringt die Entitaet, die Geraeteansicht
+	// liest sie. Channel sagt, welcher Kanal des Geraets gemeint ist.
+	RoleSwitch Role = "switch"
 )
 
 // keyBatteryCapacityKWh und keyBatteryEnergyKWh sind Schluessel in
@@ -54,6 +59,9 @@ type Assignment struct {
 	// Kapazitaet dieser Bank in kWh, das Gewicht im Gesamtfuellstand.
 	// Bei den Leistungsrollen bleibt es 0 und wird nirgends gelesen.
 	CapacityKWh float64 `json:"capacity_kwh,omitempty"`
+	// Channel hat nur fuer RoleSwitch eine Bedeutung: der Kanal 1 bis 16 am
+	// Geraet. 0 heisst Kanal 1. Bei allen anderen Rollen bleibt es 0.
+	Channel int `json:"channel,omitempty"`
 }
 
 type ResolvedAssignment struct {
@@ -309,6 +317,9 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 		}
 		for _, entity := range device.Entities {
 			assignment, ok := resolver.Resolve(entity)
+			if assignment.Role == RoleSwitch {
+				continue
+			}
 			if !ok {
 				if isPowerUnit(entity.UnitOfMeasurement) && assignment.Source != "override" {
 					snapshot.UnassignedCount++

@@ -1430,6 +1430,7 @@
   "error.energy_roles_rejected.category_icon_unknown": "Das Icon der Kategorie „{category}“ ist unbekannt.",
   "error.energy_roles_rejected.category_in_use": "Die Kategorie „{category}“ wird noch verwendet: {users}.",
   "error.energy_roles_rejected.category_unknown": "Die Kategorie „{category}“ gibt es nicht.",
+  "error.energy_roles_rejected.channel_invalid": "Der Kanal muss zwischen 1 und 16 liegen.",
   "error.energy_roles_rejected.group_cycle": "Die Gruppe „{group}“ würde sich selbst enthalten.",
   "error.energy_roles_rejected.group_duplicate_member": "„{member}“ gehört schon zu einer anderen Gruppe.",
   "error.energy_roles_rejected.group_member_role": "„{entity}“ hat die Rolle {role} und kann nicht in einer Gruppe mit der Rolle „{category}“ stehen.",

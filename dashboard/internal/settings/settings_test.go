@@ -2589,3 +2589,53 @@ func TestEnergyIDSlug(t *testing.T) {
 		}
 	}
 }
+
+func TestEnergyChannelRules(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"switch.plug_2": {Role: energy.RoleSwitch, Channel: 2},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Assignments["switch.plug_2"].Channel != 2 {
+		t.Fatalf("channel = %d, want 2", got.Assignments["switch.plug_2"].Channel)
+	}
+
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"switch.plug_default": {Role: energy.RoleSwitch},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err = store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Assignments["switch.plug_default"].Channel != 0 {
+		t.Fatalf("channel = %d, want 0 (means 1)", got.Assignments["switch.plug_default"].Channel)
+	}
+
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"meter_power": {Role: energy.RolePV, Channel: 3},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err = store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Assignments["meter_power"].Channel != 0 {
+		t.Fatalf("a non-switch channel must be dropped, got %d", got.Assignments["meter_power"].Channel)
+	}
+
+	err = store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"switch.plug_17": {Role: energy.RoleSwitch, Channel: 17},
+	}})
+	typed, ok := uierror.From(err)
+	if !ok || typed.Key != "error.energy_roles_rejected.channel_invalid" {
+		t.Fatalf("channel 17: err = %v, want error.energy_roles_rejected.channel_invalid", err)
+	}
+}

@@ -1875,6 +1875,16 @@ func normalizeEnergy(value EnergyConfig) EnergyConfig {
 	}
 	value = migrateCombinedLoadMode(value)
 	value.Interpretation = value.Interpretation.Normalized()
+	// Channel gilt nur fuer den Schaltkanal. Andere Rollen verlieren es,
+	// damit ein altes Feld nie in der gespeicherten Datei landet.
+	assignments := make(map[string]energy.Assignment, len(value.Assignments))
+	for id, assignment := range value.Assignments {
+		if assignment.Role != energy.RoleSwitch {
+			assignment.Channel = 0
+		}
+		assignments[id] = assignment
+	}
+	value.Assignments = assignments
 	if len(value.Categories) == 0 {
 		value.Categories = nil
 	} else {
@@ -1981,6 +1991,13 @@ func uniqueCategoryID(categories map[string]energy.Category, id string) string {
 
 func validateEnergy(value EnergyConfig) error {
 	value = normalizeEnergy(value)
+	// Before the schema: its maximum would reject 17 as a generic error,
+	// and the channel needs the typed key the catalogs translate.
+	for _, assignment := range value.Assignments {
+		if assignment.Channel < 0 || assignment.Channel > 16 {
+			return energyRejected("channel_invalid", fmt.Sprintf("energy: channel %d is outside 1 to 16", assignment.Channel), map[string]any{"channel": assignment.Channel})
+		}
+	}
 	data, err := json.Marshal(value)
 	if err != nil {
 		return err
@@ -2007,6 +2024,7 @@ var standardEnergyRoles = map[energy.Role]bool{
 	"": true, energy.RolePV: true, energy.RoleBattery: true, energy.RoleBatteryCharge: true, energy.RoleBatteryDischarge: true,
 	energy.RoleGrid: true, energy.RoleGridImport: true, energy.RoleGridExport: true, energy.RoleLoad: true,
 	energy.RoleWallbox: true, energy.RoleHeatPump: true, energy.RoleBatterySoC: true,
+	energy.RoleSwitch: true,
 }
 
 func energyRejected(name, text string, params map[string]any) error {

@@ -25,6 +25,11 @@
             "type": "number",
             "minimum": 0,
             "default": 0
+          },
+          "channel": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 16
           }
         }
       }
