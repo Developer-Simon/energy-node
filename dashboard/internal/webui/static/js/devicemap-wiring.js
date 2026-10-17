@@ -46,10 +46,15 @@
     .filter(({props}) => props.type === 'energy')
     .map(({pair, props}) => ({parent: pair.parent, child: pair.child, direction: props.direction}));
 
-  const setProp = (edgeProps, {parent, child, type, direction}) => {
+  // Channel only means something on an energy edge, so it is kept there and
+  // dropped for every other type.
+  const setProp = (edgeProps, {parent, child, type, direction, channel}) => {
     const next = (edgeProps || []).filter(prop => key(prop.parent_id, prop.child_id) !== key(parent, child));
     const entry = {parent_id: parent, child_id: child, type};
-    if (type === 'energy') entry.direction = DIRECTIONS.includes(direction) ? direction : 'auto';
+    if (type === 'energy') {
+      entry.direction = DIRECTIONS.includes(direction) ? direction : 'auto';
+      if (Number.isInteger(channel) && channel >= 1 && channel <= 16) entry.channel = channel;
+    }
     return [...next, entry];
   };
 

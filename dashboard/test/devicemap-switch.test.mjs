@@ -14,7 +14,7 @@ function loadSwitch() {
   const dom = new JSDOM('<!doctype html><html><head></head><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
   const context = dom.getInternalVMContext();
-  for (const name of ['devicemap-model.js', 'devicemap-switch.js']) {
+  for (const name of ['devicemap-model.js', 'devicemap-graph.js', 'devicemap-switch.js']) {
     vm.runInContext(fs.readFileSync(path.join(jsDir, name), 'utf8'), context);
   }
   return dom.window.DeviceMapSwitch;
@@ -22,43 +22,39 @@ function loadSwitch() {
 
 const sw = (device_id, entity_id, state = 'on') => ({ device_id, entity_id, name: entity_id, state });
 const dev = (id, units) => ({ id, entities: units.map((unit, i) => ({ entity_id: `${id}_${i}`, unit_of_measurement: unit })) });
-const output = (entity_id, device_id) => ({ entity_id, device_id, function: 'output' });
-const none = (entity_id, device_id) => ({ entity_id, device_id, function: 'none' });
 const edge = (parent, child, extra = {}) => ({ data: { source: parent, target: child, connType: 'energy', ...extra } });
 const plain = value => JSON.parse(JSON.stringify(value));
-const plainPair = (parent, child) => ({ parent, child });
-
-// Picks the fields a test asserts on out of a resolveOutputs entry.
-const pick = (entry, fields) => Object.fromEntries(fields.map(field => [field, entry[field]]));
+const pair = (parent, child, channel = 1) => ({ parent, child, channel });
+const role = (entity_id, channel) => ({ role: 'switch', channel });
+// Keys of the cut edges: the same relation key the graph uses for pairs.
+const keyOf = (parent, child) => [parent, child].sort().join('::');
 
 test('erkennt den einzigen Schalter eines Geräts mit Leistungsentity', () => {
   const S = loadSwitch();
-  const outputs = S.resolveOutputs({ switches: [sw('plug', 'p1')], switchOutputs: [], devices: [dev('plug', ['W'])] });
-  assert.equal(outputs.get('plug').entityId, 'p1');
-  assert.equal(outputs.get('plug').source, 'heuristic');
+  const byDevice = S.resolveSwitches({ switches: [sw('plug', 'p1')], assignments: {}, devices: [dev('plug', ['W'])] });
+  assert.deepEqual(plain(byDevice.get('plug')), [{ entityId: 'p1', name: 'p1', state: 'on', channel: 1, source: 'heuristic' }]);
 });
 
 test('kW zählt wie W', () => {
   const S = loadSwitch();
-  const outputs = S.resolveOutputs({ switches: [sw('plug', 'p1')], switchOutputs: [], devices: [dev('plug', ['kW'])] });
-  assert.equal(outputs.get('plug').entityId, 'p1');
-  assert.equal(outputs.get('plug').source, 'heuristic');
+  const byDevice = S.resolveSwitches({ switches: [sw('plug', 'p1')], assignments: {}, devices: [dev('plug', ['kW'])] });
+  assert.equal(byDevice.get('plug')[0].source, 'heuristic');
 });
 
-test('kein Ausgang ohne Leistungsentity', () => {
+test('kein Schalter ohne Leistungsentity', () => {
   const S = loadSwitch();
-  const outputs = S.resolveOutputs({ switches: [sw('plug', 'p1')], switchOutputs: [], devices: [dev('plug', ['%'])] });
-  assert.equal(outputs.has('plug'), false);
+  const byDevice = S.resolveSwitches({ switches: [sw('plug', 'p1')], assignments: {}, devices: [dev('plug', ['%'])] });
+  assert.equal(byDevice.has('plug'), false);
 });
 
-test('kein Ausgang bei zwei Schaltern', () => {
+test('keine Erkennung bei zwei Schaltern', () => {
   const S = loadSwitch();
-  const outputs = S.resolveOutputs({
+  const byDevice = S.resolveSwitches({
     switches: [sw('plug', 'p1'), sw('plug', 'p2')],
-    switchOutputs: [],
+    assignments: {},
     devices: [dev('plug', ['W'])],
   });
-  assert.equal(outputs.has('plug'), false);
+  assert.equal(byDevice.has('plug'), false);
 });
 
 test('Konfigurationsschalter zählen nicht', () => {
@@ -69,158 +65,136 @@ test('Konfigurationsschalter zählen nicht', () => {
     { entity_id: 'plug_0', unit_of_measurement: 'W' },
     { entity_id: 'plug_led', unit_of_measurement: '', entity_category: 'config', component: 'switch' },
   ] };
-  const outputs = S.resolveOutputs({ switches: [sw('plug', 'p1')], switchOutputs: [], devices: [device] });
-  assert.equal(outputs.get('plug').entityId, 'p1');
-  assert.equal(outputs.get('plug').source, 'heuristic');
+  const byDevice = S.resolveSwitches({ switches: [sw('plug', 'p1')], assignments: {}, devices: [device] });
+  assert.equal(byDevice.get('plug')[0].entityId, 'p1');
 });
 
-test('Override none entfernt den erkannten Ausgang', () => {
+test('a single switch on a device with power is detected on channel 1', () => {
   const S = loadSwitch();
-  const outputs = S.resolveOutputs({
-    switches: [sw('plug', 'p1')],
-    switchOutputs: [none('p1', 'plug')],
+  const byDevice = S.resolveSwitches({ switches: [sw('plug', 's')], assignments: {}, devices: [dev('plug', ['W'])] });
+  assert.deepEqual(plain(byDevice.get('plug')), [{ entityId: 's', name: 's', state: 'on', channel: 1, source: 'heuristic' }]);
+});
+
+test('a saved empty role turns detection off', () => {
+  const S = loadSwitch();
+  const byDevice = S.resolveSwitches({
+    switches: [sw('plug', 's')],
+    assignments: { s: { role: '' } },
     devices: [dev('plug', ['W'])],
   });
-  assert.equal(outputs.has('plug'), false);
+  assert.equal(byDevice.has('plug'), false);
 });
 
-test('Override output gewinnt bei zwei Schaltern', () => {
+test('any saved switch role on a device replaces detection for all its switches', () => {
   const S = loadSwitch();
-  const outputs = S.resolveOutputs({
-    switches: [sw('plug', 'p1'), sw('plug', 'p2')],
-    switchOutputs: [output('p2', 'plug')],
+  const byDevice = S.resolveSwitches({
+    switches: [sw('plug', 's1'), sw('plug', 's2')],
+    assignments: { s2: { role: 'switch' } },
     devices: [dev('plug', ['W'])],
   });
-  assert.equal(outputs.get('plug').entityId, 'p2');
-  assert.equal(outputs.get('plug').source, 'override');
+  assert.deepEqual(plain(byDevice.get('plug')), [{ entityId: 's2', name: 's2', state: 'on', channel: 1, source: 'override' }]);
 });
 
-test('Override output schaltet die Erkennung ab', () => {
+test('two switch roles on one device give each its channel, sorted by channel', () => {
   const S = loadSwitch();
-  // No power entity, so detection would find nothing. The override still
-  // makes the switch the output, and the source is the override, not the
-  // heuristic.
-  const outputs = S.resolveOutputs({
-    switches: [sw('plug', 'p1')],
-    switchOutputs: [output('p1', 'plug')],
-    devices: [dev('plug', ['%'])],
+  const byDevice = S.resolveSwitches({
+    switches: [sw('pm', 's1'), sw('pm', 's2', 'off')],
+    assignments: { s1: role('s1', 1), s2: role('s2', 2) },
+    devices: [dev('pm', ['W'])],
   });
-  assert.equal(outputs.get('plug').entityId, 'p1');
-  assert.equal(outputs.get('plug').source, 'override');
+  assert.deepEqual(plain(byDevice.get('pm').map(entry => [entry.entityId, entry.channel, entry.state, entry.source])), [
+    ['s1', 1, 'on', 'override'],
+    ['s2', 2, 'off', 'override'],
+  ]);
 });
 
-test('Override auf verschwundene Entity ergibt keinen Ausgang', () => {
+test('a switch role without channel counts as channel 1', () => {
   const S = loadSwitch();
-  const outputs = S.resolveOutputs({
-    switches: [sw('plug', 'p1')],
-    switchOutputs: [output('gone', 'plug')],
-    devices: [dev('plug', ['W'])],
+  const byDevice = S.resolveSwitches({
+    switches: [sw('plug', 's')],
+    assignments: { s: { role: 'switch' } },
+    devices: [dev('plug', [])],
   });
-  assert.equal(outputs.has('plug'), false);
+  assert.equal(byDevice.get('plug')[0].channel, 1);
 });
 
-test('setFunction output ersetzt den bisherigen Ausgang des Geräts', () => {
+test('a switch role for a missing entity switches nothing', () => {
   const S = loadSwitch();
-  const next = S.setFunction([output('a', 'd')], { deviceId: 'd', entityId: 'b', fn: 'output' });
-  assert.deepEqual(JSON.parse(JSON.stringify(next)), [{ entity_id: 'b', device_id: 'd', function: 'output' }]);
-});
-
-test('setFunction none speichert einen expliziten Eintrag', () => {
-  const S = loadSwitch();
-  const next = S.setFunction([], { deviceId: 'd', entityId: 'b', fn: 'none' });
-  assert.deepEqual(JSON.parse(JSON.stringify(next)), [{ entity_id: 'b', device_id: 'd', function: 'none' }]);
-});
-
-test('rows markiert Abweichungen vom gespeicherten Stand als draft, sonst heuristic, override oder none', () => {
-  const S = loadSwitch();
-  const switches = [sw('plug', 'p1'), sw('plug', 'p2')];
-  const devices = [dev('plug', ['W'])];
-  const sourceOf = (rows, entityId) => rows.find(row => row.entityId === entityId).source;
-
-  // Two switches, nothing saved, nothing drafted: both are plain none.
-  const unchanged = S.rows({ deviceId: 'plug', switches, switchOutputs: [], savedSwitchOutputs: [], devices });
-  assert.equal(sourceOf(unchanged, 'p1'), 'none');
-  assert.equal(sourceOf(unchanged, 'p2'), 'none');
-
-  // One switch with power: detected, shown as heuristic.
-  const detected = S.rows({ deviceId: 'plug', switches: [sw('plug', 'p1')], switchOutputs: [], savedSwitchOutputs: [], devices });
-  assert.equal(detected.find(row => row.entityId === 'p1').fn, 'output');
-  assert.equal(sourceOf(detected, 'p1'), 'heuristic');
-
-  // Saved override output on p2, unchanged in the draft: override.
-  const saved = [output('p2', 'plug')];
-  const overridden = S.rows({ deviceId: 'plug', switches, switchOutputs: saved, savedSwitchOutputs: saved, devices });
-  assert.equal(overridden.find(row => row.entityId === 'p2').fn, 'output');
-  assert.equal(sourceOf(overridden, 'p2'), 'override');
-
-  // Draft moves the output from p2 to p1: both entries differ from the saved state.
-  const drafted = S.rows({ deviceId: 'plug', switches, switchOutputs: [output('p1', 'plug')], savedSwitchOutputs: saved, devices });
-  assert.equal(drafted.find(row => row.entityId === 'p1').fn, 'output');
-  assert.equal(sourceOf(drafted, 'p1'), 'draft');
-  assert.equal(sourceOf(drafted, 'p2'), 'draft');
-});
-
-test('deadArea: Kette markiert alle Knoten hinter dem Plug', () => {
-  const S = loadSwitch();
-  const dead = S.deadArea({
-    pairs: [plainPair('grid', 'P'), plainPair('P', 'wr'), plainPair('wr', 'akku')],
-    offIds: new Set(['P']),
+  const { byDevice, edges } = S.status({
+    switches: [],
+    assignments: { gone: { role: 'switch' } },
+    devices: [],
+    pairs: [pair('gone', 'x')],
   });
-  assert.deepEqual(plain(dead.get('wr')), { plug: 'P', hops: 1 });
-  assert.deepEqual(plain(dead.get('akku')), { plug: 'P', hops: 2 });
-  assert.equal(dead.has('P'), false, 'the plug itself is never dead');
-  assert.equal(dead.has('grid'), false);
-  assert.equal(dead.size, 2);
+  assert.equal(byDevice.size, 0);
+  assert.equal(edges.size, 0);
 });
 
-test('deadArea: Abzweig ohne Plug bleibt aktiv', () => {
+test('two channels, one off: only that edge is cut', () => {
   const S = loadSwitch();
-  const dead = S.deadArea({
-    pairs: [plainPair('grid', 'P'), plainPair('P', 'a'), plainPair('grid', 'b')],
-    offIds: new Set(['P']),
+  const { edges, off, dead } = S.status({
+    switches: [sw('pm', 's1', 'on'), sw('pm', 's2', 'off')],
+    assignments: { s1: role('s1', 1), s2: role('s2', 2) },
+    devices: [dev('pm', ['W'])],
+    pairs: [pair('pm', 'a', 1), pair('pm', 'b', 2), pair('b', 'c')],
   });
-  assert.deepEqual(plain([...dead.keys()]), ['a']);
-  assert.deepEqual(plain(dead.get('a')), { plug: 'P', hops: 1 });
+  assert.equal(edges.has(keyOf('pm', 'a')), true);
+  assert.equal(edges.has(keyOf('pm', 'b')), true);
+  assert.equal(edges.get(keyOf('pm', 'b')).state, 'off');
+  assert.equal(edges.get(keyOf('pm', 'b')).plug, 'pm');
+  assert.deepEqual(plain([...dead.keys()].sort()), ['b', 'c']);
+  assert.equal(dead.get('b').plug, 'pm');
+  assert.equal(dead.get('c').plug, 'pm');
+  assert.equal(dead.has('a'), false, 'the channel that is on keeps its branch live');
+  assert.equal(off.has('pm'), false, 'a device with one channel on is not off');
 });
 
-test('deadArea: zweite Einspeisung hält den Knoten am Strom', () => {
+test('an edge on a channel without a switch is not switched', () => {
   const S = loadSwitch();
-  const dead = S.deadArea({
-    pairs: [plainPair('grid', 'P'), plainPair('P', 'wr'), plainPair('grid2', 'wr')],
-    offIds: new Set(['P']),
+  const { edges, dead } = S.status({
+    switches: [sw('pm', 's1', 'off')],
+    assignments: { s1: role('s1', 1) },
+    devices: [dev('pm', ['W'])],
+    pairs: [pair('pm', 'b', 2)],
   });
+  assert.equal(edges.has(keyOf('pm', 'b')), false);
   assert.equal(dead.size, 0);
 });
 
-test('deadArea: Plug als Blatt ist leer, status meldet ihn als leafOff', () => {
+test('leaf lists switch devices without a switched edge', () => {
   const S = loadSwitch();
-  const pairs = [plainPair('grid', 'P')];
-  assert.equal(S.deadArea({ pairs, offIds: new Set(['P']) }).size, 0);
-
-  const devices = [dev('P', ['W'])];
-  const status = S.status({ switches: [sw('P', 'p1', 'off')], switchOutputs: [], devices, pairs });
-  assert.equal(status.leafOff.has('P'), true);
-  assert.equal(status.off.has('P'), true);
+  const { leaf, off } = S.status({
+    switches: [sw('plug', 'p1', 'off')],
+    assignments: { p1: role('p1', 1) },
+    devices: [dev('plug', ['W'])],
+    pairs: [],
+  });
+  assert.equal(leaf.get('plug'), 'off');
+  assert.equal(off.has('plug'), true);
 });
 
-test('deadArea: zwei Plugs in Reihe, nächster Plug gewinnt', () => {
+test('setFunction and rows are gone, the module exposes the new API', () => {
   const S = loadSwitch();
-  const dead = S.deadArea({
-    pairs: [plainPair('grid', 'A'), plainPair('A', 'B'), plainPair('B', 'c')],
-    offIds: new Set(['A', 'B']),
-  });
-  assert.deepEqual(plain([...dead.keys()]), ['c']);
-  assert.deepEqual(plain(dead.get('c')), { plug: 'B', hops: 1 });
+  assert.equal(S.setFunction, undefined);
+  assert.equal(S.rows, undefined);
+  assert.equal(S.resolveOutputs, undefined);
+  for (const name of ['resolveSwitches', 'edgeChannel', 'pathPairs', 'deadArea', 'status']) {
+    assert.equal(typeof S[name], 'function', name);
+  }
 });
 
-test('deadArea: Zyklus terminiert und markiert nur den Teil hinter dem Plug', () => {
+test('edgeChannel is 1 without an entry and reads the saved channel otherwise', () => {
   const S = loadSwitch();
-  const dead = S.deadArea({
-    pairs: [plainPair('r', 'a'), plainPair('a', 'P'), plainPair('P', 'b'), plainPair('b', 'a')],
-    offIds: new Set(['P']),
-  });
-  assert.deepEqual(plain([...dead.keys()]), ['b']);
-  assert.deepEqual(plain(dead.get('b')), { plug: 'P', hops: 1 });
+  assert.equal(S.edgeChannel([], 'pm', 'b'), 1);
+  assert.equal(S.edgeChannel([{ parent_id: 'pm', child_id: 'b', type: 'energy', channel: 2 }], 'b', 'pm'), 2);
+  assert.equal(S.edgeChannel([{ parent_id: 'pm', child_id: 'b', type: 'energy' }], 'pm', 'b'), 1);
+});
+
+test('pathPairs carries the channel of each edge', () => {
+  const S = loadSwitch();
+  const props = [{ parent_id: 'pm', child_id: 'b', type: 'energy', channel: 2 }];
+  const pairs = S.pathPairs([edge('pm', 'a'), edge('pm', 'b')], props);
+  assert.deepEqual(plain(pairs), [pair('pm', 'a', 1), pair('pm', 'b', 2)]);
 });
 
 test('pathPairs: Gruppen und Mitgliedskanten zählen nicht', () => {
@@ -233,6 +207,64 @@ test('pathPairs: Gruppen und Mitgliedskanten zählen nicht', () => {
     edge('y', G),
     edge(G, 'z', { membership: { group: 'g1', member: 'z' } }),
     edge('grid', 'm', { membership: { group: 'g1', member: 'm' } }),
-  ]);
-  assert.deepEqual(plain(pairs), [plainPair('grid', 'P')]);
+  ], []);
+  assert.deepEqual(plain(pairs), [pair('grid', 'P', 1)]);
+});
+
+test('deadArea: Kette markiert alle Knoten hinter dem Plug', () => {
+  const S = loadSwitch();
+  const dead = S.deadArea({
+    pairs: [pair('grid', 'P'), pair('P', 'wr'), pair('wr', 'akku')],
+    cutKeys: new Set([keyOf('P', 'wr')]),
+  });
+  assert.deepEqual(plain(dead.get('wr')), { plug: 'P', hops: 1 });
+  assert.deepEqual(plain(dead.get('akku')), { plug: 'P', hops: 2 });
+  assert.equal(dead.has('P'), false, 'the plug itself is never dead');
+  assert.equal(dead.has('grid'), false);
+  assert.equal(dead.size, 2);
+});
+
+test('deadArea: Abzweig ohne Plug bleibt aktiv', () => {
+  const S = loadSwitch();
+  const dead = S.deadArea({
+    pairs: [pair('grid', 'P'), pair('P', 'a'), pair('grid', 'b')],
+    cutKeys: new Set([keyOf('P', 'a')]),
+  });
+  assert.deepEqual(plain([...dead.keys()]), ['a']);
+  assert.deepEqual(plain(dead.get('a')), { plug: 'P', hops: 1 });
+});
+
+test('deadArea: zweite Einspeisung hält den Knoten am Strom', () => {
+  const S = loadSwitch();
+  const dead = S.deadArea({
+    pairs: [pair('grid', 'P'), pair('P', 'wr'), pair('grid2', 'wr')],
+    cutKeys: new Set([keyOf('P', 'wr')]),
+  });
+  assert.equal(dead.size, 0);
+});
+
+test('deadArea: Plug als Blatt ist leer', () => {
+  const S = loadSwitch();
+  const dead = S.deadArea({ pairs: [pair('grid', 'P')], cutKeys: new Set() });
+  assert.equal(dead.size, 0);
+});
+
+test('deadArea: zwei Plugs in Reihe, nächster Plug gewinnt', () => {
+  const S = loadSwitch();
+  const dead = S.deadArea({
+    pairs: [pair('grid', 'A'), pair('A', 'B'), pair('B', 'c')],
+    cutKeys: new Set([keyOf('A', 'B'), keyOf('B', 'c')]),
+  });
+  assert.deepEqual(plain([...dead.keys()]), ['c']);
+  assert.deepEqual(plain(dead.get('c')), { plug: 'B', hops: 1 });
+});
+
+test('deadArea: Zyklus terminiert und markiert nur den Teil hinter dem Plug', () => {
+  const S = loadSwitch();
+  const dead = S.deadArea({
+    pairs: [pair('r', 'a'), pair('a', 'P'), pair('P', 'b'), pair('b', 'a')],
+    cutKeys: new Set([keyOf('P', 'b')]),
+  });
+  assert.deepEqual(plain([...dead.keys()]), ['b']);
+  assert.deepEqual(plain(dead.get('b')), { plug: 'P', hops: 1 });
 });
