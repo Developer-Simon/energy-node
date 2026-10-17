@@ -49,6 +49,21 @@
         }
       }
     },
+    "sub_devices": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "icon", "device_id", "entity_id"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^sub:[a-z0-9_]+$"},
+          "label": {"type": "string"},
+          "icon": {"type": "string"},
+          "device_id": {"type": "string", "minLength": 1},
+          "entity_id": {"type": "string", "minLength": 1}
+        }
+      }
+    },
     "view": {
       "type": "object",
       "additionalProperties": false,

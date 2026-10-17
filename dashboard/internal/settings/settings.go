@@ -24,6 +24,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/config"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
@@ -281,11 +282,45 @@ type Item struct {
 }
 
 type DeviceMap struct {
-	Version   int                 `json:"version"`
-	Nodes     []DeviceMapNode     `json:"nodes"`
-	Edges     []RelationOverride  `json:"edges,omitempty"`
-	EdgeProps []DeviceMapEdgeProp `json:"edge_props,omitempty"`
-	View      DeviceMapView       `json:"view"`
+	Version    int                  `json:"version"`
+	Nodes      []DeviceMapNode      `json:"nodes"`
+	Edges      []RelationOverride   `json:"edges,omitempty"`
+	EdgeProps  []DeviceMapEdgeProp  `json:"edge_props,omitempty"`
+	SubDevices []DeviceMapSubDevice `json:"sub_devices,omitempty"`
+	View       DeviceMapView        `json:"view"`
+}
+
+// SubDevicePrefix starts the ID of every sub-device and of the virtual node
+// that shows it on the map.
+const SubDevicePrefix = "sub:"
+
+// DeviceMapSubDevice is a single measurement of a device, shown on the map
+// as its own node, for example the power of a washing machine on a plug.
+type DeviceMapSubDevice struct {
+	ID       string `json:"id"`
+	Label    string `json:"label"`
+	Icon     string `json:"icon"`
+	DeviceID string `json:"device_id"`
+	EntityID string `json:"entity_id"`
+}
+
+// SubDeviceLabels maps the entity of each sub-device to its label.
+func (m DeviceMap) SubDeviceLabels() map[string]string {
+	labels := make(map[string]string, len(m.SubDevices))
+	for _, sub := range m.SubDevices {
+		labels[sub.EntityID] = sub.Label
+	}
+	return labels
+}
+
+// SubDevice returns the sub-device with the given ID.
+func (m DeviceMap) SubDevice(id string) (DeviceMapSubDevice, bool) {
+	for _, sub := range m.SubDevices {
+		if sub.ID == id {
+			return sub, true
+		}
+	}
+	return DeviceMapSubDevice{}, false
 }
 
 // DeviceMapEdgeProp is the connection type and flow direction of one
@@ -972,11 +1007,12 @@ func (s *Store) RestoreLayout(revision string) (Layout, error) {
 // through slices.
 func cloneDeviceMap(value DeviceMap) DeviceMap {
 	return DeviceMap{
-		Version:   value.Version,
-		Nodes:     append([]DeviceMapNode(nil), value.Nodes...),
-		Edges:     append([]RelationOverride(nil), value.Edges...),
-		EdgeProps: append([]DeviceMapEdgeProp(nil), value.EdgeProps...),
-		View:      value.View,
+		Version:    value.Version,
+		Nodes:      append([]DeviceMapNode(nil), value.Nodes...),
+		Edges:      append([]RelationOverride(nil), value.Edges...),
+		EdgeProps:  append([]DeviceMapEdgeProp(nil), value.EdgeProps...),
+		SubDevices: append([]DeviceMapSubDevice(nil), value.SubDevices...),
+		View:       value.View,
 	}
 }
 
@@ -1067,6 +1103,37 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 	if value.EdgeProps == nil {
 		value.EdgeProps = []DeviceMapEdgeProp{}
 	}
+	// Sub-devices keep a trimmed label and a canonical icon. A node or a
+	// pair that points at a sub-device the map no longer has is dropped, so
+	// removing a sub-device leaves nothing behind.
+	subIDs := make(map[string]bool, len(value.SubDevices))
+	for i := range value.SubDevices {
+		value.SubDevices[i].Label = strings.TrimSpace(value.SubDevices[i].Label)
+		value.SubDevices[i].Icon = deviceiconname.Canonical(value.SubDevices[i].Icon)
+		subIDs[value.SubDevices[i].ID] = true
+	}
+	nodes := make([]DeviceMapNode, 0, len(value.Nodes))
+	for _, node := range value.Nodes {
+		if isOrphanSubDevice(node.VirtualID, subIDs) {
+			continue
+		}
+		nodes = append(nodes, node)
+	}
+	value.Nodes = nodes
+	// A pair with a sub-device is always energy without a direction, because
+	// a sub-device has no flow direction of its own.
+	props := make([]DeviceMapEdgeProp, 0, len(value.EdgeProps))
+	for _, prop := range value.EdgeProps {
+		if isOrphanSubDevice(prop.ParentID, subIDs) || isOrphanSubDevice(prop.ChildID, subIDs) {
+			continue
+		}
+		if strings.HasPrefix(prop.ParentID, SubDevicePrefix) || strings.HasPrefix(prop.ChildID, SubDevicePrefix) {
+			prop.Type = "energy"
+			prop.Direction = ""
+		}
+		props = append(props, prop)
+	}
+	value.EdgeProps = props
 	// A channel only means something on an energy edge, so other edges
 	// are saved without one.
 	for i := range value.EdgeProps {
@@ -1083,9 +1150,19 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 	return value
 }
 
+// maxSubDeviceLabelRunes is the longest sub-device label, counted in runes.
+const maxSubDeviceLabelRunes = 64
+
 // virtualNodePattern names the nodes without a device: the balance, energy
-// groups, automation rules and services (spec, section "Datenmodell").
-var virtualNodePattern = regexp.MustCompile(`^(balance|group:[a-z0-9_]+|rule:\S+|service:\S+)$`)
+// groups, automation rules, services and sub-devices (spec, section
+// "Datenmodell").
+var virtualNodePattern = regexp.MustCompile(`^(balance|group:[a-z0-9_]+|rule:\S+|service:\S+|sub:[a-z0-9_]+)$`)
+
+// isOrphanSubDevice reports whether id names a sub-device that is not in
+// known.
+func isOrphanSubDevice(id string, known map[string]bool) bool {
+	return strings.HasPrefix(id, SubDevicePrefix) && !known[id]
+}
 
 func validateDeviceMap(value DeviceMap) error {
 	value = normalizeDeviceMap(value)
@@ -1095,6 +1172,18 @@ func validateDeviceMap(value DeviceMap) error {
 	}
 	if err := config.ValidateDocument(data, deviceMapSchema); err != nil {
 		return err
+	}
+	subIDs := map[string]bool{}
+	subEntities := map[string]bool{}
+	for _, sub := range value.SubDevices {
+		if labelRunes := utf8.RuneCountInString(sub.Label); labelRunes < 1 || labelRunes > maxSubDeviceLabelRunes {
+			return uierror.New("error.sub_device_label_invalid", fmt.Sprintf("device-map sub-device %q needs a label of 1 to %d characters", sub.ID, maxSubDeviceLabelRunes), nil)
+		}
+		if subIDs[sub.ID] || subEntities[sub.EntityID] {
+			return uierror.New("error.sub_device_duplicate", fmt.Sprintf("device-map sub-device %q is defined more than once", sub.ID), nil)
+		}
+		subIDs[sub.ID] = true
+		subEntities[sub.EntityID] = true
 	}
 	seenNodes := map[string]bool{}
 	for _, node := range value.Nodes {
@@ -1115,6 +1204,9 @@ func validateDeviceMap(value DeviceMap) error {
 	}
 	seenEdges := map[string]bool{}
 	for _, edge := range value.Edges {
+		if strings.HasPrefix(edge.ParentID, SubDevicePrefix) || strings.HasPrefix(edge.ChildID, SubDevicePrefix) {
+			return uierror.New("error.sub_device_edge_invalid", fmt.Sprintf("device-map edge %q cannot use a sub-device", edge.ID), nil)
+		}
 		if seenEdges[edge.ID] {
 			return fmt.Errorf("duplicate device-map edge %q", edge.ID)
 		}

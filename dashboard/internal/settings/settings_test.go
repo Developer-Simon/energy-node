@@ -2186,6 +2186,106 @@ func TestDeviceMapRejectsBadNodes(t *testing.T) {
 	}
 }
 
+func TestDeviceMapSubDevicesRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.SubDevices = []DeviceMapSubDevice{{ID: "sub:waschmaschine", Label: "  Waschmaschine ", Icon: "energy-node:plug", DeviceID: "plug_b", EntityID: "plug_b_power"}}
+	value.Nodes = []DeviceMapNode{{VirtualID: "sub:waschmaschine", X: 10, Y: 20}}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.SubDevices) != 1 || got.SubDevices[0].Label != "Waschmaschine" {
+		t.Fatalf("sub-devices = %+v, want the trimmed label", got.SubDevices)
+	}
+	if len(got.Nodes) != 1 || got.Nodes[0].VirtualID != "sub:waschmaschine" || got.Nodes[0].X != 10 || got.Nodes[0].Y != 20 {
+		t.Fatalf("nodes = %+v", got.Nodes)
+	}
+	if labels := got.SubDeviceLabels(); !reflect.DeepEqual(labels, map[string]string{"plug_b_power": "Waschmaschine"}) {
+		t.Fatalf("labels = %v", labels)
+	}
+	if sub, ok := got.SubDevice("sub:waschmaschine"); !ok || sub.DeviceID != "plug_b" {
+		t.Fatalf("SubDevice = %+v, %v", sub, ok)
+	}
+}
+
+func TestDeviceMapSubDeviceRules(t *testing.T) {
+	sub := func(id, label, entity string) DeviceMapSubDevice {
+		return DeviceMapSubDevice{ID: id, Label: label, Icon: "energy-node:plug", DeviceID: "plug_b", EntityID: entity}
+	}
+	rejected := map[string]struct {
+		value DeviceMap
+		key   string
+	}{
+		"duplicate entity": {
+			DeviceMap{SubDevices: []DeviceMapSubDevice{sub("sub:a", "A", "e1"), sub("sub:b", "B", "e1")}},
+			"error.sub_device_duplicate",
+		},
+		"empty label": {
+			DeviceMap{SubDevices: []DeviceMapSubDevice{sub("sub:a", "", "e1")}},
+			"error.sub_device_label_invalid",
+		},
+		"65 runes": {
+			DeviceMap{SubDevices: []DeviceMapSubDevice{sub("sub:a", strings.Repeat("ä", 65), "e1")}},
+			"error.sub_device_label_invalid",
+		},
+		"edge to sub-device": {
+			DeviceMap{
+				SubDevices: []DeviceMapSubDevice{sub("sub:x", "X", "e2")},
+				Edges:      []RelationOverride{{ID: "edge1", ChildID: "sub:x", ParentID: "plug_b", Kind: "via_device"}},
+			},
+			"error.sub_device_edge_invalid",
+		},
+	}
+	for name, tc := range rejected {
+		err := NewStore(t.TempDir()).SaveDeviceMap(tc.value)
+		typed, ok := uierror.From(err)
+		if !ok || typed.Key != tc.key {
+			t.Errorf("%s: err = %v, want catalog key %s", name, err, tc.key)
+		}
+	}
+	for name, id := range map[string]string{"upper case": "sub:Wasch", "no prefix": "waschmaschine"} {
+		value := NewDeviceMap()
+		value.SubDevices = []DeviceMapSubDevice{sub(id, "Waschmaschine", "e3")}
+		if err := NewStore(t.TempDir()).SaveDeviceMap(value); err == nil {
+			t.Errorf("%s: id %q accepted", name, id)
+		}
+	}
+	accepted := NewDeviceMap()
+	accepted.SubDevices = []DeviceMapSubDevice{sub("sub:a", strings.Repeat("ä", 64), "e4")}
+	if err := NewStore(t.TempDir()).SaveDeviceMap(accepted); err != nil {
+		t.Errorf("64 runes rejected: %v", err)
+	}
+
+	value := NewDeviceMap()
+	value.SubDevices = []DeviceMapSubDevice{sub("sub:x", "X", "e5")}
+	value.EdgeProps = []DeviceMapEdgeProp{
+		{ParentID: "plug_b", ChildID: "sub:x", Type: "data", Direction: "reversed", Channel: 2},
+		{ParentID: "plug_b", ChildID: "sub:gone", Type: "energy"},
+	}
+	value.Nodes = []DeviceMapNode{{VirtualID: "sub:gone", X: 1, Y: 1}}
+	store := NewStore(t.TempDir())
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got.EdgeProps) != 1 {
+		t.Fatalf("edge_props = %+v, want only the pair to the existing sub-device", got.EdgeProps)
+	}
+	if prop := got.EdgeProps[0]; prop.Type != "energy" || prop.Direction != "" || prop.Channel != 2 {
+		t.Fatalf("edge prop = %+v, want energy without direction and channel 2", prop)
+	}
+	if len(got.Nodes) != 0 {
+		t.Fatalf("nodes = %+v, want the orphan sub-device node dropped", got.Nodes)
+	}
+}
+
 func TestPatchEnergyMergesUnderOneLockAndWritesARevision(t *testing.T) {
 	store := NewStore(t.TempDir())
 	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{"a": {Role: energy.RolePV}}}); err != nil {
