@@ -311,6 +311,7 @@ select.schema-control {
 .energy-role-row > label:first-child { font-size: .9rem; color: var(--text); overflow-wrap: anywhere; }
 .energy-role-row label:last-child { white-space: nowrap; }
 .energy-role-row .energy-role-capacity { grid-column: 3 / span 2; }
+.energy-role-row .energy-role-channel { grid-column: 3 / span 2; }
 .energy-role-row .energy-role, .energy-role-row input[type="number"] {
   border-radius: var(--radius-sm);
   transition: border-color .15s ease, box-shadow .15s ease;
@@ -507,6 +508,7 @@ select.schema-control {
   .energy-role-row > .energy-role, .energy-role-row > .energy-scale { width: 100%; }
   .energy-role-row label:first-child { grid-column: 1 / -1; }
   .energy-role-row .energy-role-capacity { grid-column: 1 / -1; }
+  .energy-role-row .energy-role-channel { grid-column: 1 / -1; }
   .energy-role-hide-toggle { grid-column: 1 / -1; justify-self: start; }
   /* Am Handy traegt die Einrueckung die verschachtelte Struktur, nicht die
      Polsterung - sonst schrumpft der nutzbare Raum je Ebene sichtbar. */
