@@ -597,13 +597,22 @@
         });
       },
 
+      // Channel saved for the pair of the edge, whatever its orientation.
+      // Undefined when none is saved, so setProp writes no channel.
+      storedEdgeChannel(edge) {
+        const pairKey = window.DeviceMapGraph.relationKey(edge.source, edge.target);
+        const prop = (this.deviceMap.edge_props || []).find(item => window.DeviceMapGraph.relationKey(item.parent_id, item.child_id) === pairKey);
+        return prop && Number.isInteger(prop.channel) ? prop.channel : undefined;
+      },
+
       // Connection type and flow direction of the selected wiring edge. Both
       // write a device_map edge_props entry; the map is saved with save().
+      // setProp keeps the channel for energy and drops it for other types.
       setEdgeType(type) {
         const edge = this.selectedEdge;
         if (!edge || edge.membership || !window.DeviceMapWiring.TYPES.includes(type)) return;
         const current = this.edgePropsFor(edge);
-        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type, direction: current.direction})};
+        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type, direction: current.direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
         this.afterEdgePropsChange();
       },
@@ -611,7 +620,7 @@
       setEdgeDirection(direction) {
         const edge = this.selectedEdge;
         if (!edge || edge.membership) return;
-        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction})};
+        this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
         this.afterEdgePropsChange();
       },

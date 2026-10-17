@@ -81,6 +81,10 @@
     // a saved entry exists. payload() writes a switch row only when it was
     // saved before or differs from this state.
     switchBaseline: {},
+    // Saved switch-role entries without a loaded row (device offline, or the
+    // switch list failed). The PUT replaces every assignment, so save() writes
+    // them back unchanged.
+    orphanSwitches: {},
     socWithoutCapacity: 0,
     hiddenIds: {},
     hiddenExpanded: false,
@@ -298,6 +302,9 @@
             }));
         const switchEntities = this.switchRowsFrom(switches, devices, savedAssignments);
         this.entities = powerEntities.concat(switchEntities);
+        const rowIds = new Set(switchEntities.map(entity => entity.id));
+        this.orphanSwitches = Object.fromEntries(Object.entries(savedAssignments)
+          .filter(([id, entry]) => entry && entry.role === 'switch' && !rowIds.has(id)));
         this.switchBaseline = Object.fromEntries(switchEntities.map(entity => [entity.id, {
           role: entity.assignment.role,
           channel: this.switchChannelOf(entity.assignment),
@@ -657,7 +664,9 @@
       const categories = this.categories;
       const groups = Object.fromEntries(Object.entries(this.groups)
         .map(([id, g]) => [id, g.role ? g : {label: g.label, members: g.members}]));
-      return {assignments, interpretation, categories, groups};
+      const orphans = Object.fromEntries(Object.entries(this.orphanSwitches)
+        .map(([id, entry]) => [id, entry.channel === undefined ? {role: entry.role} : {role: entry.role, channel: entry.channel}]));
+      return {assignments: {...orphans, ...assignments}, interpretation, categories, groups};
     },
 
     revisionConfig() {

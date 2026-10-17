@@ -2475,6 +2475,36 @@ test('the channel select shows only for a device with two switches', async () =>
   assert.deepEqual(plain(single.component.popover.edge.channels), []);
 });
 
+test('setEdgeDirection keeps the channel of a switched energy edge', () => {
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'auto', channel: 2 },
+  ] });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.setEdgeDirection('reversed');
+  assert.deepEqual(plain(component.deviceMap.edge_props), [{ parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'reversed', channel: 2 }]);
+});
+
+test('setEdgeDirection on a reversed edge finds the channel of the same pair', () => {
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'auto', channel: 2 },
+  ] });
+  component.selectedEdge = { source: 'akku', target: 'wr' };
+  component.setEdgeDirection('fixed_down');
+  assert.equal(plain(component.deviceMap.edge_props).length, 1);
+  assert.equal(plain(component.deviceMap.edge_props)[0].channel, 2);
+});
+
+test('setEdgeType keeps the channel between energy types and drops it for another type', () => {
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'auto', channel: 2 },
+  ] });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.setEdgeType('energy');
+  assert.equal(plain(component.deviceMap.edge_props)[0].channel, 2);
+  component.setEdgeType('info');
+  assert.deepEqual(plain(component.deviceMap.edge_props), [{ parent_id: 'wr', child_id: 'akku', type: 'info' }]);
+});
+
 test('setEdgeChannel writes edge_props and recuts', async () => {
   const shown = await channelPanel({ s1: 'on', s2: 'off', lf: 'on' });
   const { component } = shown;

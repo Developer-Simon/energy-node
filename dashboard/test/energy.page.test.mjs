@@ -763,3 +763,14 @@ test('the energy template offers the switch group and a channel field for multi-
   assert.match(html, /\{\{t "energy\.page\.channel"\}\}/);
   assert.match(html, /isSwitchRow\(entity\.id\)/);
 });
+
+test('a saved switch role without a loaded switch row is written back unchanged', async () => {
+  let sent = null;
+  const roles = { assignments: { gone: { role: 'switch', channel: 2 } }, interpretation: {} };
+  const { component } = createEnergyPanel({
+    fetchImpl: switchFetch({ devices: plugDevices, switches: [], roles, onPut: body => { sent = body; } }),
+  });
+  await component.load();
+  await component.save();
+  assert.deepEqual(plain(sent.assignments.gone), { role: 'switch', channel: 2 });
+});
