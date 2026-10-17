@@ -2253,6 +2253,15 @@ test('the panel has no switch rows for a device without switches', async () => {
   assert.equal(component.panelView.rows.some(row => row.unit === 'switch'), false);
 });
 
+test('the panel flags a device with switches for the switch link', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable()) });
+  await component.load();
+  component.panelId = 'plug';
+  assert.equal(component.panelView.hasSwitches, true);
+  component.panelId = 'pv';
+  assert.equal(component.panelView.hasSwitches, false);
+});
+
 test('a switch role draft takes effect on the map at once', async () => {
   const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ assignments: {}, power: true })) });
   await component.load();

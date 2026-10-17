@@ -460,6 +460,7 @@ select.schema-control {
 .devicemap-panel-entity-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .devicemap-panel-entity-name { font-weight: 600; color: var(--text-strong); min-width: 0; }
 .devicemap-panel-entity-value { font-variant-numeric: tabular-nums; color: var(--text-subtle); white-space: nowrap; }
+.devicemap-panel-consequence { font-size: .8rem; color: var(--bad-strong); }
 .devicemap-panel-entity-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; color: var(--text-faint); overflow-wrap: anywhere; }
 .devicemap-panel-field { display: grid; gap: 4px; font-size: .8rem; color: var(--text-muted); }
 .devicemap-panel-field-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
@@ -471,6 +472,8 @@ select.schema-control {
 .devicemap-panel-chip[data-source="heuristic"] { border-style: dashed; border-color: var(--warn-line); background: var(--warn-bg); }
 .devicemap-panel-chip[data-source="override"] { border-color: var(--ok-line); background: var(--ok-bg); }
 .devicemap-panel-chip[data-source="draft"] { border-color: var(--accent-line); background: var(--accent-bg); color: var(--text-strong); }
+.devicemap-panel-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.devicemap-panel-links > .nav-row-button { flex: 1 1 9rem; width: auto; }
 .devicemap-panel-others { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--sunken); font-size: .84rem; }
 .devicemap-panel-other-row { display: flex; justify-content: space-between; gap: 10px; }
 .devicemap-panel-other-row span:last-child { font-variant-numeric: tabular-nums; color: var(--text-subtle); }

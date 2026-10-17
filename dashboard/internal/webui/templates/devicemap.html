@@ -293,7 +293,8 @@
             <template x-for="row in panelView.rows" x-bind:key="row.id">
               <div class="devicemap-panel-entity" x-bind:class="{ dirty: row.dirty }">
                 <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name" x-text="row.name"></span><span class="devicemap-panel-entity-value" x-text="row.valueText"></span></div>
-                <div class="devicemap-panel-entity-id" x-text="row.id"></div>
+                <div class="devicemap-panel-consequence" x-show="row.consequence" x-text="row.consequence"></div>
+                <div class="devicemap-panel-entity-id" x-show="row.unit !== 'switch'" x-text="row.id"></div>
                 <label class="devicemap-panel-field">{{t "devicemap.panel.role"}}
                   <select x-on:change="setDraft(row.id, 'role', $event.target.value)" x-bind:disabled="!canEditEnergy">
                     <optgroup label="{{t "devicemap.panel.optgroup.standard"}}">
@@ -310,6 +311,13 @@
                     </template>
                   </select>
                 </label>
+                <template x-if="row.unit === 'switch' && row.assignment.role === 'switch' && row.channels > 1">
+                  <label class="devicemap-panel-field">{{t "devicemap.panel.channel"}}
+                    <select x-on:change="setDraft(row.id, 'channel', $event.target.value)" x-bind:disabled="!canEditEnergy">
+                      <template x-for="n in row.channels" x-bind:key="n"><option x-bind:value="n" x-text="n" x-bind:selected="n === row.assignment.channel"></option></template>
+                    </select>
+                  </label>
+                </template>
                 <div class="devicemap-panel-source" x-show="customHint(row.assignment.role)"><span x-text="customHint(row.assignment.role)"></span></div>
                 <div class="devicemap-panel-source">
                   <span class="devicemap-panel-chip" x-bind:data-source="row.source" x-text="$t(`devicemap.panel.source.${row.source}`)"></span>
@@ -318,10 +326,10 @@
                     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg>{{t "devicemap.panel.pin"}}
                   </button>
                 </div>
-                <label class="devicemap-panel-field" x-show="row.assignment.role === 'battery_soc'">{{t "devicemap.panel.capacity"}}
+                <label class="devicemap-panel-field" x-show="row.unit !== 'switch' && row.assignment.role === 'battery_soc'">{{t "devicemap.panel.capacity"}}
                   <input type="number" min="0" step="0.5" x-bind:value="row.assignment.capacity_kwh" x-on:change="setDraft(row.id, 'capacity_kwh', $event.target.value)" x-bind:disabled="!canEditEnergy">
                 </label>
-                <details x-show="row.unit !== '%' && row.assignment.role" x-bind:open="row.assignment.scale !== 1 || row.assignment.invert">
+                <details x-show="row.unit !== '%' && row.unit !== 'switch' && row.assignment.role" x-bind:open="row.assignment.scale !== 1 || row.assignment.invert">
                   <summary>{{t "devicemap.panel.scale_and_sign"}}</summary>
                   <div class="devicemap-panel-field-row">
                     <label class="devicemap-panel-field">{{t "devicemap.panel.scale"}}<input type="number" min="0.01" step="0.1" x-bind:value="row.assignment.scale" x-on:change="setDraft(row.id, 'scale', $event.target.value)" x-bind:disabled="!canEditEnergy"></label>
@@ -330,24 +338,6 @@
                 </details>
               </div>
             </template>
-            <div class="devicemap-panel-others" x-show="panelView.outputs && panelView.outputs.length">
-              <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.output.title"}}</span>
-              <template x-for="output in panelView.outputs" x-bind:key="output.entityId">
-                <div class="devicemap-panel-entity" x-bind:class="{ dirty: output.source === 'draft' }">
-                  <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name" x-text="output.name"></span><span class="devicemap-panel-entity-value" x-text="$t(`devicemap.panel.output.state.${output.state === 'on' || output.state === 'off' ? output.state : 'unknown'}`)"></span></div>
-                  <label class="devicemap-panel-field">
-                    <select x-on:change="setSwitchFunction(output.entityId, $event.target.value)" x-bind:disabled="!canEditEnergy" aria-label="{{t "devicemap.panel.output.title"}}">
-                      <option value="output" x-bind:selected="output.fn === 'output'">{{t "devicemap.panel.output.function.output"}}</option>
-                      <option value="none" x-bind:selected="output.fn === 'none'">{{t "devicemap.panel.output.function.none"}}</option>
-                    </select>
-                  </label>
-                  <div class="devicemap-panel-source">
-                    <span class="devicemap-panel-chip" x-bind:data-source="output.source" x-text="$t(`devicemap.panel.output.source.${output.source}`)"></span>
-                  </div>
-                </div>
-              </template>
-              <button type="button" class="nav-row-button" x-on:click="openDeviceInDevicesTab(panelId)"><span>{{t "devicemap.panel.output.switch_link"}}</span>{{template "devicemap-nav-arrow"}}</button>
-            </div>
             <div class="devicemap-panel-others" x-show="panelView.others.length">
               <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.others"}}</span>
               <template x-for="other in panelView.others" x-bind:key="other.id">
@@ -360,7 +350,10 @@
                 <div class="devicemap-panel-other-row"><span x-text="flow.title"></span><span x-text="flow.text"></span></div>
               </template>
             </div>
-            <button type="button" class="nav-row-button" x-show="panelView.rows.length" x-on:click="showInRoleTable()"><span>{{t "devicemap.panel.show_in_table"}}</span>{{template "devicemap-nav-arrow"}}</button>
+            <div class="devicemap-panel-links">
+              <button type="button" class="nav-row-button" x-show="panelView.rows.length" x-on:click="showInRoleTable()"><span>{{t "devicemap.panel.show_in_table"}}</span>{{template "devicemap-nav-arrow"}}</button>
+              <button type="button" class="nav-row-button" x-show="panelView.hasSwitches" x-on:click="openDeviceInDevicesTab(panelId)"><span>{{t "devicemap.panel.output.switch_link"}}</span>{{template "devicemap-nav-arrow"}}</button>
+            </div>
           </div>
           <footer x-show="canEditEnergy">
             <span class="devicemap-panel-status" role="status" x-text="panelStatusText()"></span>

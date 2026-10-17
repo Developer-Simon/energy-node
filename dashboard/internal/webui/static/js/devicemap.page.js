@@ -862,6 +862,7 @@
           title: device.name || device.id,
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
           rows, others, empty,
+          hasSwitches: switchInfo.size > 0,
           flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
       },
