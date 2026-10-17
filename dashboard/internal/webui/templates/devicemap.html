@@ -364,8 +364,8 @@
               </template>
             </div>
             <div class="devicemap-panel-links">
-              <button type="button" class="nav-row-button" x-show="panelView.rows.length" x-on:click="showInRoleTable()"><span>{{t "devicemap.panel.show_in_table"}}</span>{{template "devicemap-nav-arrow"}}</button>
-              <button type="button" class="nav-row-button" x-show="panelView.hasSwitches" x-on:click="openDeviceInDevicesTab(panelId)"><span>{{t "devicemap.panel.output.switch_link"}}</span>{{template "devicemap-nav-arrow"}}</button>
+              <button type="button" class="nav-row-button" x-show="panelView.rows.length" x-on:click="showInRoleTable()"><span class="devicemap-panel-link-text"><svg class="devicemap-panel-link-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M13 3 6.5 13.2h4.7L10.4 21 17.5 10.6h-4.7z"/></svg><span>{{t "devicemap.panel.show_in_table"}}</span></span>{{template "devicemap-nav-arrow"}}</button>
+              <button type="button" class="nav-row-button" x-show="panelView.hasSwitches" x-on:click="openDeviceInDevicesTab(panelId)"><span class="devicemap-panel-link-text"><svg class="devicemap-panel-link-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><rect x="7" y="7" width="10" height="10" rx="2"/><path d="M10 3v4M14 3v4M10 17v4M14 17v4M3 10h4M3 14h4M17 10h4M17 14h4"/></svg><span>{{t "devicemap.panel.output.switch_link"}}</span></span>{{template "devicemap-nav-arrow"}}</button>
             </div>
           </div>
           <footer x-show="canEditEnergy">

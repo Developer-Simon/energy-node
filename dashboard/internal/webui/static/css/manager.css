@@ -473,8 +473,9 @@ select.schema-control {
 .devicemap-panel-chip[data-source="heuristic"] { border-style: dashed; border-color: var(--warn-line); background: var(--warn-bg); }
 .devicemap-panel-chip[data-source="override"] { border-color: var(--ok-line); background: var(--ok-bg); }
 .devicemap-panel-chip[data-source="draft"] { border-color: var(--accent-line); background: var(--accent-bg); color: var(--text-strong); }
-.devicemap-panel-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.devicemap-panel-links > .nav-row-button { flex: 1 1 9rem; width: auto; }
+.devicemap-panel-links { display: flex; flex-direction: column; gap: 8px; }
+.devicemap-panel-link-text { display: inline-flex; align-items: center; gap: .5rem; min-width: 0; }
+.devicemap-panel-link-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--text-subtle); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .devicemap-panel-others { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--sunken); font-size: .84rem; }
 .devicemap-panel-other-row { display: flex; justify-content: space-between; gap: 10px; }
 .devicemap-panel-other-row span:last-child { font-variant-numeric: tabular-nums; color: var(--text-subtle); }
