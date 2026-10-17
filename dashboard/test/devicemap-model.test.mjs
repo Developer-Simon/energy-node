@@ -179,6 +179,39 @@ test('panelRows splits eligible entities from the rest and marks drafts and pins
   assert.equal(view.rows[0].dirty, true);
 });
 
+test('panelRows drops hidden rows without an effective role and keeps the rest', () => {
+  const model = loadModel();
+  const device = {id: 'bkw', entities: [
+    {unique_id: 'p', name: 'Leistung', unit_of_measurement: 'W', value: '0'},
+    {unique_id: 'q', name: 'Erzeugung', unit_of_measurement: 'W', value: '600'},
+    {unique_id: 's', name: 'Schalter', unit_of_measurement: '', value: 'off'},
+    {unique_id: 'v', name: 'Spannung', unit_of_measurement: 'V', value: '230'},
+  ]};
+  const snapshot = {entities: [{entity_id: 'q', device_id: 'bkw', value: 600, role: {role: 'pv', scale: 1, source: 'heuristic'}}]};
+  const switchInfo = new Map([['s', {state: 'off', heuristic: false, channels: 1}]]);
+  const saved = {p: {role: ''}, s: {role: ''}};
+  const hidden = new Set(['p', 'q', 's', 'v']);
+  const view = model.panelRows({device, snapshot, saved, drafts: {}, switchInfo, hidden});
+  assert.deepEqual(plain(view.rows.map(row => row.id)), ['q'], 'p and s are hidden, q has the heuristic role');
+  assert.equal(view.rows[0].source, 'heuristic');
+  assert.deepEqual(plain(view.others.map(item => item.id)), ['v'], 'others are never filtered');
+  const unhidden = model.panelRows({device, snapshot, saved, drafts: {}, switchInfo});
+  assert.deepEqual(plain(unhidden.rows.map(row => row.id)), ['p', 'q', 's'], 'without hidden nothing is dropped');
+});
+
+test('panelRows keeps a hidden row once its draft gives it a role', () => {
+  const model = loadModel();
+  const device = {id: 'bkw', entities: [{unique_id: 'p', name: 'Leistung', unit_of_measurement: 'W', value: '0'}]};
+  const hidden = new Set(['p']);
+  const saved = {p: {role: ''}};
+  assert.equal(model.panelRows({device, snapshot: {entities: []}, saved, drafts: {}, hidden}).rows.length, 0);
+  const view = model.panelRows({device, snapshot: {entities: []}, saved, hidden,
+    drafts: {p: {role: 'load', scale: 1, invert: false, capacity_kwh: 0}}});
+  assert.equal(view.rows.length, 1);
+  assert.equal(view.rows[0].source, 'draft');
+  assert.equal(view.rows[0].assignment.role, 'load');
+});
+
 test('isDraftChange ignores an unchanged draft but counts a pin on a heuristic role', () => {
   const model = loadModel();
   const base = {role: 'pv', scale: 1, invert: false, capacity_kwh: 0, source: 'heuristic'};

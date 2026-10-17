@@ -84,6 +84,7 @@
       panelId: null,
       drafts: {},
       savedAssignments: {},
+      savedHidden: new Set(), // entity ids the role table hides, see DeviceMapModel.panelRows
       savedGroups: {},
       savedCategories: {},
       iconMarkup: {},
@@ -159,6 +160,7 @@
           this.iconCatalogue = Array.isArray(icons) ? icons : [];
           this.iconMarkup = Object.fromEntries(this.iconCatalogue.map(icon => [icon.name, icon.markup]));
           this.savedAssignments = (roles && roles.assignments) || {};
+          this.savedHidden = new Set((roles && roles.hidden) || []);
           this.savedGroups = (roles && roles.groups) || {};
           this.savedCategories = (roles && roles.categories) || {};
           // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung, dann
@@ -959,7 +961,7 @@
         const status = this.switchStatus();
         const switchInfo = this.switchInfoFor(device.id);
         const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
-        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf});
+        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden});
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
@@ -1192,6 +1194,7 @@
           body: JSON.stringify(body),
         });
         if (saved && saved.assignments) this.savedAssignments = saved.assignments;
+        if (saved && saved.assignments) this.savedHidden = new Set(saved.hidden || []);
         if (saved && 'groups' in saved) this.savedGroups = saved.groups || {};
         if (saved && 'categories' in saved) this.savedCategories = saved.categories || {};
         await this.refreshEnergy();
@@ -1209,6 +1212,7 @@
         ]);
         if (!roles) return;
         this.savedAssignments = roles.assignments || {};
+        this.savedHidden = new Set(roles.hidden || []);
         this.savedGroups = roles.groups || {};
         this.savedCategories = roles.categories || {};
         this.energy = energy;
