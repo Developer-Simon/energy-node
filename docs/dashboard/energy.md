@@ -54,6 +54,13 @@ are summed. The tiles show each role with its value and whether it is fresh and
 live. Power values without a role are listed at the top of the tab, because
 they are the usual reason a balance does not add up.
 
+Switches have their own role, **Switches**, in a separate group. It marks a
+socket or relay output, adds no power to the balance and is read by the device
+map. A device with several switches also gets a channel from 1 to 16 for each
+switch, so the map can tell which connection a switch cuts. Two switches of one
+device cannot share a channel. Switches the dashboard detects stay "detected"
+until you change or save them.
+
 ## Groups
 
 ![Groups with the count as a whole switch](../images/dashboard-energy-groups.png)
