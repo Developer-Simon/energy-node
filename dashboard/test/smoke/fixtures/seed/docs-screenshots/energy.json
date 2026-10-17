@@ -27,6 +27,16 @@
     },
     "werkstatt_power": {
       "role": "custom:workshop"
+    },
+    "plug_balkon_steckdose": {
+      "role": "switch"
+    },
+    "relais_keller_switch_1": {
+      "role": "switch"
+    },
+    "relais_keller_switch_2": {
+      "role": "switch",
+      "channel": 2
     }
   },
   "categories": {

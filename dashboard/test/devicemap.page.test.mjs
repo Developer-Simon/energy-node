@@ -91,7 +91,11 @@ function fakeCollection() {
 // so renderGraph() doesn't early-return, plus the classList/style surface
 // syncGridBackground() touches.
 function fakeCanvas() {
-  return { classList: { toggle: () => {} }, style: { setProperty: () => {} } };
+  return {
+    classList: { toggle: () => {} },
+    style: { setProperty: () => {} },
+    getBoundingClientRect: () => ({ x: 0, y: 0, width: 800, height: 600 }),
+  };
 }
 
 function fakeNode(id, position = { x: 0, y: 0 }) {
@@ -1913,15 +1917,16 @@ const SWITCH_MAP = {
   nodes: [{ device_id: 'plug', x: 0, y: 0 }, { device_id: 'lamp', x: 100, y: 0 }, { device_id: 'bulb', x: 150, y: 0 }, { device_id: 'pv', x: 200, y: 0 }],
   edges: [],
   edge_props: [{ parent_id: 'plug', child_id: 'lamp', type: 'energy' }, { parent_id: 'lamp', child_id: 'bulb', type: 'energy' }],
-  switch_outputs: [{ entity_id: 'switch.plug', device_id: 'plug', function: 'output' }],
   view: { layers: { wiring: true, energy: true, balance: false, data: false } },
 };
 const switchesFor = state => [{ device_id: 'plug', entity_id: 'switch.plug', name: 'Steckdose', state }];
 
+// The switch role lives in the energy roles now, not on the device map.
 function switchTable(stateOf = () => 'on') {
   return mapRoutes({
     '/api/v1/devices': SWITCH_DEVICES,
     '/api/v1/device/map': SWITCH_MAP,
+    '/api/v1/energy/roles': { assignments: { 'switch.plug': { role: 'switch' } }, groups: {}, categories: {} },
     '/api/v1/devices/switches': () => switchesFor(stateOf()),
   });
 }
@@ -2017,6 +2022,11 @@ function switchGraphFactory(log, created) {
         toggleClass(name, on) { if (on === undefined ? !classSet.has(name) : on) classSet.add(name); else classSet.delete(name); },
         addClass: name => classSet.add(name),
         removeClass: name => classSet.delete(name),
+        // Cytoscape's classes(names) replaces the whole class set.
+        classes(names) {
+          classSet.clear();
+          String(names).split(' ').filter(Boolean).forEach(name => classSet.add(name));
+        },
         hasClass: name => classSet.has(name),
         remove() {},
         style() {},
@@ -2028,7 +2038,12 @@ function switchGraphFactory(log, created) {
       if (el.data.source === undefined) nodes.set(el.data.id, element(el.data, el.classes));
       else edges.push(element(el.data, el.classes));
     }
-    const collection = list => ({ forEach: fn => list.forEach(fn), length: list.length, empty: () => list.length === 0 });
+    const collection = list => ({
+      forEach: fn => list.forEach(fn),
+      length: list.length,
+      empty: () => list.length === 0,
+      removeClass: name => list.forEach(edge => edge.removeClass(name)),
+    });
     const graph = {
       getElementById: id => nodes.get(id) || { empty: () => true },
       nodes: () => collection([...nodes.values()]),
@@ -2141,11 +2156,11 @@ test('toggling during a fade keeps the last state', async () => {
   for (const id of ['plug', 'lamp', 'bulb']) assert.equal(nodes().get(id).data('quiet'), false, `${id} stays on`);
   for (const edge of edges()) {
     assert.equal(edge.hasClass('devicemap-dead'), false);
-    assert.equal(edge.hasClass('devicemap-cut'), false);
+    assert.equal(edge.hasClass('devicemap-port-off'), false);
   }
 });
 
-test('a switched-off plug marks its edge dead and cut, a dead node only dead', async () => {
+test('a switched-off plug marks its edge dead and off port, a dead node only dead', async () => {
   let state = 'on';
   const log = [];
   const shown = await switchPanel({ stateOf: () => state, log });
@@ -2158,9 +2173,78 @@ test('a switched-off plug marks its edge dead and cut, a dead node only dead', a
   const plugEdge = edgeFrom('plug', 'lamp');
   const lampEdge = edgeFrom('lamp', 'bulb');
   assert.equal(plugEdge.hasClass('devicemap-dead'), true);
-  assert.equal(plugEdge.hasClass('devicemap-cut'), true);
+  assert.equal(plugEdge.hasClass('devicemap-port-off'), true);
   assert.equal(lampEdge.hasClass('devicemap-dead'), true);
-  assert.equal(lampEdge.hasClass('devicemap-cut'), false);
+  assert.equal(lampEdge.hasClass('devicemap-port-off'), false);
+  assert.equal(lampEdge.hasClass('devicemap-port-on'), false);
+});
+
+// Two channels on one device: pm feeds a on channel 1 and b on channel 2, and
+// b feeds c. The leaf switch lf stands alone, so it gets a port on its node.
+const CHANNEL_DEVICES = [
+  { id: 'pm', name: 'Mehrfach', relations: [{ id: 'a', kind: 'child' }, { id: 'b', kind: 'child' }], entities: [] },
+  { id: 'a', name: 'Lampe A', relations: [{ id: 'pm', kind: 'parent' }], entities: [] },
+  { id: 'b', name: 'Lampe B', relations: [{ id: 'pm', kind: 'parent' }, { id: 'c', kind: 'child' }], entities: [] },
+  { id: 'c', name: 'Lampe C', relations: [{ id: 'b', kind: 'parent' }], entities: [] },
+  { id: 'lf', name: 'Einzeln', relations: [], entities: [] },
+];
+const CHANNEL_MAP = {
+  version: 3,
+  nodes: [{ device_id: 'pm', x: 0, y: 0 }, { device_id: 'a', x: 100, y: 0 }, { device_id: 'b', x: 100, y: 60 }, { device_id: 'c', x: 150, y: 60 }, { device_id: 'lf', x: 300, y: 0 }],
+  edges: [],
+  edge_props: [
+    { parent_id: 'pm', child_id: 'a', type: 'energy', channel: 1 },
+    { parent_id: 'pm', child_id: 'b', type: 'energy', channel: 2 },
+    { parent_id: 'b', child_id: 'c', type: 'energy' },
+  ],
+  view: { layers: { wiring: true, energy: true, balance: false, data: false } },
+};
+const CHANNEL_ROLES = {
+  assignments: { 'switch.s1': { role: 'switch', channel: 1 }, 'switch.s2': { role: 'switch', channel: 2 }, 'switch.lf': { role: 'switch', channel: 1 } },
+  groups: {},
+  categories: {},
+};
+
+async function channelPanel({ s1, s2, lf }) {
+  const switches = [
+    { device_id: 'pm', entity_id: 'switch.s1', name: 'Ausgang 1', state: s1 },
+    { device_id: 'pm', entity_id: 'switch.s2', name: 'Ausgang 2', state: s2 },
+    { device_id: 'lf', entity_id: 'switch.lf', name: 'Einzeln', state: lf },
+  ];
+  const table = mapRoutes({
+    '/api/v1/devices': CHANNEL_DEVICES,
+    '/api/v1/device/map': CHANNEL_MAP,
+    '/api/v1/energy/roles': CHANNEL_ROLES,
+    '/api/v1/devices/switches': () => switches,
+  });
+  const created = [];
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(table), cytoscapeImpl: switchGraphFactory([], created) });
+  component.$refs = { canvas: fakeCanvas(), labels: window.document.createElement('div') };
+  await component.load();
+  const current = created[created.length - 1];
+  const edgeFrom = (source, target) => current.edges.find(edge => edge.data('source') === source && edge.data('target') === target);
+  return { component, nodes: current.nodes, edgeFrom };
+}
+
+test('each switched edge gets the port of its channel, a dead edge below an off channel none', async () => {
+  const shown = await channelPanel({ s1: 'on', s2: 'off', lf: 'on' });
+  const toA = shown.edgeFrom('pm', 'a');
+  const toB = shown.edgeFrom('pm', 'b');
+  const toC = shown.edgeFrom('b', 'c');
+  assert.equal(toA.hasClass('devicemap-port-on'), true);
+  assert.equal(toA.hasClass('devicemap-port-off'), false);
+  assert.equal(toB.hasClass('devicemap-port-off'), true);
+  assert.equal(toB.hasClass('devicemap-port-on'), false);
+  assert.equal(toB.hasClass('devicemap-dead'), false, 'the off channel is the cut, its edge is not dead');
+  assert.equal(toC.hasClass('devicemap-dead'), true);
+  assert.equal(toC.hasClass('devicemap-port-on') || toC.hasClass('devicemap-port-off'), false, 'a non-switched edge has no port');
+});
+
+test('a switch device with switched edges draws no node port, a leaf switch draws one', async () => {
+  const shown = await channelPanel({ s1: 'on', s2: 'off', lf: 'off' });
+  const svgOf = id => decodeURIComponent(shown.nodes.get(id).data('svg'));
+  assert.equal(svgOf('pm').includes('data-port'), false);
+  assert.match(svgOf('lf'), /circle data-port="off"/);
 });
 
 test('energy refresh updates label values while the switch state is unchanged', async () => {
@@ -2211,113 +2295,284 @@ test('an off output produces no flow edge', async () => {
   assert.equal(flowIds().some(id => id.startsWith('flow-plug::') || id.startsWith('flow-lamp::')), false);
 });
 
-// Plug with a power entity, so the heuristic can pick its single switch.
-// override: false leaves the detected output to the heuristic.
-function outputTable({ state = () => 'on', override = true, switches, savedOutputs } = {}) {
-  const devices = SWITCH_DEVICES.map(device => (device.id === 'plug'
-    ? { ...device, entities: [{ entity_id: 'sensor.plug_power', unit_of_measurement: 'W' }] } : device));
-  const outputs = savedOutputs || (override ? SWITCH_MAP.switch_outputs : []);
-  const map = { ...SWITCH_MAP, switch_outputs: outputs };
+// Plug with an optional power entity, so the heuristic can pick its single
+// switch. The switch role comes from the saved energy roles (assignments);
+// without one, the heuristic decides.
+function switchRoleTable({ state = () => 'on', assignments = { 'switch.plug': { role: 'switch' } }, switches, power = false } = {}) {
+  // The device carries its switches as entities, like the device list does.
+  const switchList = switches || switchesFor(state());
+  const plugEntities = [
+    ...switchList.map(item => ({ unique_id: item.entity_id, name: item.name, unit_of_measurement: '' })),
+    ...(power ? [{ unique_id: 'sensor.plug_power', unit_of_measurement: 'W' }] : []),
+  ];
+  const devices = SWITCH_DEVICES.map(device => (device.id === 'plug' ? { ...device, entities: plugEntities } : device));
   return mapRoutes({
     '/api/v1/devices': devices,
-    '/api/v1/device/map': map,
+    '/api/v1/device/map': SWITCH_MAP,
+    '/api/v1/energy/roles': { assignments, groups: {}, categories: {} },
     '/api/v1/devices/switches': switches || (() => switchesFor(state())),
   });
 }
 
-test('panel lists the switch output with state and source', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ override: false })) });
+const twoSwitches = [
+  { device_id: 'plug', entity_id: 'switch.a', name: 'A', state: 'on' },
+  { device_id: 'plug', entity_id: 'switch.b', name: 'B', state: 'on' },
+];
+
+test('panel lists the plug switch as a role row with state and source', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ assignments: {}, power: true })) });
   await component.load();
   component.panelId = 'plug';
-  assert.deepEqual(plain(component.panelView.outputs), [{ entityId: 'switch.plug', name: 'Steckdose', state: 'on', fn: 'output', source: 'heuristic' }]);
+  const row = component.panelView.rows.find(item => item.id === 'switch.plug');
+  assert.deepEqual(plain({ unit: row.unit, valueText: row.valueText, role: row.assignment.role, source: row.source }),
+    { unit: 'switch', valueText: 'An', role: 'switch', source: 'heuristic' });
+  assert.equal(component.panelView.others.some(item => item.id === 'switch.plug'), false);
 });
 
-test('the panel has no output rows without switches', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable()) });
+test('the panel has no switch rows for a device without switches', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable()) });
   await component.load();
   component.panelId = 'pv';
-  assert.deepEqual(plain(component.panelView.outputs), []);
+  assert.equal(component.panelView.rows.some(row => row.unit === 'switch'), false);
 });
 
-test('setSwitchFunction changes the map draft and marks it unsaved', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ override: false })) });
+test('the panel flags a device with switches for the switch link', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable()) });
   await component.load();
-  component.setSwitchFunction('switch.plug', 'none');
-  assert.deepEqual(plain(component.deviceMap.switch_outputs), [{ entity_id: 'switch.plug', device_id: 'plug', function: 'none' }]);
-  assert.equal(component.unsaved, true);
   component.panelId = 'plug';
-  assert.equal(component.panelView.outputs[0].source, 'draft');
-  assert.equal(component.switchStatus().outputs.has('plug'), false, 'the draft takes effect at once');
+  assert.equal(component.panelView.hasSwitches, true);
+  component.panelId = 'pv';
+  assert.equal(component.panelView.hasSwitches, false);
 });
 
-test('saving sends switch_outputs', async () => {
+test('a switch role draft takes effect on the map at once', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ assignments: {}, power: true })) });
+  await component.load();
+  component.panelId = 'plug';
+  component.setDraft('switch.plug', 'role', '');
+  const row = component.panelView.rows.find(item => item.id === 'switch.plug');
+  assert.equal(row.source, 'draft');
+  assert.equal(component.switchStatus().byDevice.has('plug'), false);
+});
+
+test('panel save sends the switch role through the energy patch', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), options });
+    if (options.method === 'PATCH') return { ok: true, status: 200, json: async () => ({ assignments: { 'switch.plug': { role: 'switch' } } }) };
+    return routes(switchRoleTable({ assignments: {} }))(url, options);
+  };
+  const { component } = createDevicemapPanel({ fetchImpl });
+  await component.load();
+  component.panelId = 'plug';
+  component.setDraft('switch.plug', 'role', 'switch');
+  await component.savePanel();
+  const patch = calls.find(call => call.options.method === 'PATCH');
+  assert.deepEqual(JSON.parse(patch.options.body), { assignments: { 'switch.plug': { role: 'switch' } } });
+});
+
+test('a rejected duplicate channel keeps the drafts and shows a critical toast with the server message', async () => {
+  const fetchImpl = async (url, options = {}) => {
+    if (options.method === 'PATCH') return { ok: false, status: 400, json: async () => ({ code: 'energy_roles_rejected', message_key: 'error.energy_roles_rejected.switch_channel_duplicate', params: { device: 'Steckdose', channel: 1 } }) };
+    return routes(switchRoleTable({ switches: twoSwitches, assignments: { 'switch.a': { role: 'switch', channel: 1 } } }))(url, options);
+  };
+  const { component, stores } = createDevicemapPanel({ fetchImpl });
+  await component.load();
+  component.panelId = 'plug';
+  component.setDraft('switch.b', 'role', 'switch');
+  component.setDraft('switch.b', 'channel', 1);
+  await component.savePanel();
+  assert.deepEqual(plain(component.drafts), { 'switch.b': { role: 'switch', scale: 1, invert: false, capacity_kwh: 0, channel: 1 } });
+  assert.equal(stores.toasts.criticals.length, 1);
+  assert.equal(stores.toasts.last(), 'Zwei Schalter von Steckdose nutzen Kanal 1.');
+});
+
+test('the switched-off plug row names the consequence, an on plug names none', async () => {
+  let state = 'off';
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ state: () => state })) });
+  await component.load();
+  component.panelId = 'plug';
+  const consequence = () => component.panelView.rows.find(item => item.id === 'switch.plug').consequence;
+  assert.equal(consequence(), '2 Geräte ohne Strom', 'the lamp and the bulb below the plug');
+  state = 'on';
+  await component.refreshEnergy();
+  assert.equal(consequence(), '');
+});
+
+test('show in role table includes the switch rows', async () => {
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ assignments: {}, power: true })) });
+  await component.load();
+  let detail = null;
+  window.addEventListener('dashboard-open-panel', event => { detail = event.detail; });
+  component.panelId = 'plug';
+  component.showInRoleTable();
+  assert.ok(JSON.parse(JSON.stringify(detail)).energyFocus.includes('switch.plug'));
+});
+
+test('device map save no longer sends switch_outputs', async () => {
   const sent = [];
-  const table = outputTable({ override: false });
   const fetchImpl = async (url, options = {}) => {
     if (options.method === 'PUT') {
       sent.push(JSON.parse(options.body));
       return { ok: true, status: 200, json: async () => ({}) };
     }
-    return routes(table)(url, options);
+    return routes(switchRoleTable())(url, options);
   };
   const { component } = createDevicemapPanel({ fetchImpl });
   await component.load();
-  component.setSwitchFunction('switch.plug', 'none');
+  component.unsaved = true;
   await component.save();
-  assert.deepEqual(plain(sent[0].switch_outputs), [{ entity_id: 'switch.plug', device_id: 'plug', function: 'none' }]);
+  assert.equal(sent.length, 1);
+  assert.equal('switch_outputs' in sent[0], false);
 });
 
-test('discard restores the saved switch output', async () => {
-  const switches = [
-    { device_id: 'plug', entity_id: 'switch.a', name: 'A', state: 'on' },
-    { device_id: 'plug', entity_id: 'switch.b', name: 'B', state: 'on' },
-  ];
-  const savedOutputs = [{ entity_id: 'switch.b', device_id: 'plug', function: 'output' }];
-  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ switches, savedOutputs })) });
+test('discarding the panel drafts restores the saved switch roles', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable({ switches: twoSwitches, assignments: { 'switch.b': { role: 'switch', channel: 2 } } })) });
   await component.load();
-  const saved = plain(component.deviceMap.switch_outputs);
-  assert.deepEqual(saved, savedOutputs);
-  component.setSwitchFunction('switch.a', 'output');
-  assert.equal(component.unsaved, true);
-  component.discardChanges();
-  assert.deepEqual(plain(component.deviceMap.switch_outputs), saved);
   component.panelId = 'plug';
-  assert.deepEqual(plain(component.panelView.outputs.map(({ entityId, fn, source }) => ({ entityId, fn, source }))), [
-    { entityId: 'switch.a', fn: 'none', source: 'none' },
-    { entityId: 'switch.b', fn: 'output', source: 'override' },
+  component.setDraft('switch.a', 'role', 'switch');
+  component.discardPanel();
+  const rows = component.panelView.rows.filter(row => row.unit === 'switch');
+  assert.deepEqual(plain(rows.map(({ id, source, assignment }) => ({ id, source, role: assignment.role, channel: assignment.channel }))), [
+    { id: 'switch.a', source: 'none', role: '', channel: 0 },
+    { id: 'switch.b', source: 'override', role: 'switch', channel: 2 },
   ]);
 });
 
-test('edge card names the plug for a dead edge', async () => {
-  let state = 'off';
-  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ state: () => state })) });
-  await component.load();
-  component.onEdgeTap({ target: fakeEdge({ id: 'e1', source: 'plug', target: 'lamp' }) });
-  assert.deepEqual(plain(component.popover.deadBy), { id: 'plug', name: 'Steckdose' });
-  component.onEdgeTap({ target: fakeEdge({ id: 'e2', source: 'lamp', target: 'bulb' }) });
-  assert.deepEqual(plain(component.popover.deadBy), { id: 'plug', name: 'Steckdose' }, 'a node below the plug names the plug too');
+test('the cut edge card leads with state, consequence and switch', async () => {
+  const shown = await switchPanel({ stateOf: () => 'off' });
+  shown.component.onEdgeTap({ target: fakeEdge({ id: 'edge-plug-lamp', source: 'plug', target: 'lamp' }) });
+  const rows = plain(shown.component.popover.rows);
+  assert.deepEqual(rows[0], ['Zustand', 'Ausgeschaltet', { tone: 'off' }]);
+  assert.deepEqual(rows[1], ['Folgen', '2 Geräte ohne Strom']);
+  assert.equal(rows[2][0], 'Schalter');
+  assert.deepEqual(rows[2][2].link, { tab: 'devices', target: 'plug' });
 });
 
-test('a live edge has no dead plug', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable({ state: () => 'on' })) });
-  await component.load();
-  component.onEdgeTap({ target: fakeEdge({ id: 'e1', source: 'plug', target: 'lamp' }) });
-  assert.equal(component.popover.deadBy, null);
+test('an edge below the cut names the cause', async () => {
+  const shown = await switchPanel({ stateOf: () => 'off' });
+  shown.component.onEdgeTap({ target: fakeEdge({ id: 'edge-lamp-bulb', source: 'lamp', target: 'bulb' }) });
+  const rows = plain(shown.component.popover.rows);
+  assert.deepEqual(rows[0], ['Zustand', 'Ohne Strom', { tone: 'off' }]);
+  assert.deepEqual(rows[1], ['Ursache', 'Steckdose ist aus', { link: { tab: 'panel', target: 'plug' } }]);
+});
+
+test('a live unswitched edge has no state rows', async () => {
+  const shown = await switchPanel({ stateOf: () => 'on' });
+  shown.component.onEdgeTap({ target: fakeEdge({ id: 'edge-lamp-bulb', source: 'lamp', target: 'bulb' }) });
+  const labels = shown.component.popover.rows.map(row => row[0]);
+  for (const label of ['Zustand', 'Folgen', 'Ursache', 'Schalter']) assert.equal(labels.includes(label), false, label);
+  assert.equal(labels[0], 'Quelle', 'the card starts with its usual rows');
+});
+
+test('the channel select shows only for a device with two switches', async () => {
+  const multi = await channelPanel({ s1: 'on', s2: 'on', lf: 'on' });
+  multi.component.onEdgeTap({ target: fakeEdge({ id: 'edge-pm-a', source: 'pm', target: 'a' }) });
+  assert.deepEqual(plain(multi.component.popover.edge.channels), [1, 2]);
+  assert.equal(multi.component.popover.edge.channel, 1);
+  const single = await switchPanel({ stateOf: () => 'on' });
+  single.component.onEdgeTap({ target: fakeEdge({ id: 'edge-plug-lamp', source: 'plug', target: 'lamp' }) });
+  assert.deepEqual(plain(single.component.popover.edge.channels), []);
+});
+
+test('setEdgeDirection keeps the channel of a switched energy edge', () => {
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'auto', channel: 2 },
+  ] });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.setEdgeDirection('reversed');
+  assert.deepEqual(plain(component.deviceMap.edge_props), [{ parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'reversed', channel: 2 }]);
+});
+
+test('setEdgeDirection on a reversed edge finds the channel of the same pair', () => {
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'auto', channel: 2 },
+  ] });
+  component.selectedEdge = { source: 'akku', target: 'wr' };
+  component.setEdgeDirection('fixed_down');
+  assert.equal(plain(component.deviceMap.edge_props).length, 1);
+  assert.equal(plain(component.deviceMap.edge_props)[0].channel, 2);
+});
+
+test('setEdgeType keeps the channel between energy types and drops it for another type', () => {
+  const component = panelWith({ devices: WIRED(), edgeProps: [
+    { parent_id: 'wr', child_id: 'akku', type: 'energy', direction: 'auto', channel: 2 },
+  ] });
+  component.selectedEdge = { source: 'wr', target: 'akku' };
+  component.setEdgeType('energy');
+  assert.equal(plain(component.deviceMap.edge_props)[0].channel, 2);
+  component.setEdgeType('info');
+  assert.deepEqual(plain(component.deviceMap.edge_props), [{ parent_id: 'wr', child_id: 'akku', type: 'info' }]);
+});
+
+test('setEdgeChannel writes edge_props and recuts', async () => {
+  const shown = await channelPanel({ s1: 'on', s2: 'off', lf: 'on' });
+  const { component } = shown;
+  component.onEdgeTap({ target: fakeEdge({ id: 'edge-pm-a', source: 'pm', target: 'a' }) });
+  assert.equal(shown.edgeFrom('pm', 'a').hasClass('devicemap-port-on'), true, 'control: channel 1 is on');
+  component.setEdgeChannel(2);
+  const prop = plain(component.deviceMap.edge_props).find(item => item.parent_id === 'pm' && item.child_id === 'a');
+  assert.equal(prop.channel, 2);
+  assert.equal(component.unsaved, true);
+  assert.equal(shown.edgeFrom('pm', 'a').hasClass('devicemap-port-off'), true);
+  assert.equal(shown.edgeFrom('pm', 'a').hasClass('devicemap-port-on'), false);
+  assert.equal(shown.nodes.get('a').data('quiet'), true, 'a sits below the off channel now');
 });
 
 test('the switch link opens the devices tab on the device', async () => {
-  const { component, window } = createDevicemapPanel({ fetchImpl: routes(outputTable()) });
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable()) });
   await component.load();
   const seen = [];
   window.addEventListener('dashboard-open-panel', event => seen.push(event.detail));
   component.openDeviceInDevicesTab('plug');
   assert.deepEqual(JSON.parse(JSON.stringify(seen)), [{ panel: 'devices-panel', deviceFocus: 'plug' }]);
+  await component.openFlowLink({ tab: 'devices', target: 'lamp' });
+  assert.deepEqual(JSON.parse(JSON.stringify(seen.slice(1))), [{ panel: 'devices-panel', deviceFocus: 'lamp' }], 'the card link uses the same path');
 });
 
-test('the legend shows the switch entries only with an output on the map', async () => {
-  const { component } = createDevicemapPanel({ fetchImpl: routes(outputTable()) });
+test('the legend shows the switch entries only with a switch on the map', async () => {
+  const { component } = createDevicemapPanel({ fetchImpl: routes(switchRoleTable()) });
   await component.load();
   assert.equal(component.switchLegendVisible(), true);
   component.switches = [];
   assert.equal(component.switchLegendVisible(), false);
+});
+
+// Template and stylesheet of the edge card and the legend (7b): no test renders
+// them, so the markup and the rules they depend on are checked as text.
+const readWebui = (...parts) => fs.readFileSync(path.join(here, '..', 'internal', 'webui', ...parts), 'utf8');
+
+test('the edge card renders state rows with tone, links and the channel select, not the dead plug', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.equal(html.includes('deadBy'), false, 'the template no longer reads popover.deadBy');
+  assert.equal(html.includes('devicemap-popover-dead'), false);
+  assert.equal(css.includes('devicemap-popover-dead'), false, 'the dead plug button style is gone');
+  assert.match(html, /class="devicemap-popover-link" x-on:click="openFlowLink\(row\[2\]\.link\)"/);
+  assert.match(html, /<use href="#ico-chevron"><\/use>/);
+  assert.match(html, /<span class="devicemap-popover-tone" x-bind:data-tone="row\[2\]\.tone"><\/span>/);
+  assert.match(html, /x-show="popover\.edge\.type === 'energy' && popover\.edge\.channels\.length > 1"/);
+  assert.match(html, /<select id="devicemap-edge-channel"[^>]*x-on:change="setEdgeChannel\(Number\(\$event\.target\.value\)\)"/);
+});
+
+test('the link button presses with a 100 ms scale that reduced motion drops', () => {
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.match(css, /\.devicemap-popover-link:active \{ transform: scale\(\.98\); transition: transform 100ms ease-out; \}/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.devicemap-popover-link:active \{ transform: none; \}/);
+  assert.match(css, /\.devicemap-popover-link:focus-visible \{ outline: 2px solid var\(--accent\); outline-offset: 2px; \}/);
+});
+
+test('the legend shows the output off as a filled dot in the bad colour', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.equal(html.includes('devicemap-off-ring'), false);
+  assert.match(html, /<i class="devicemap-off-dot"><\/i>/);
+  assert.equal(css.includes('devicemap-off-ring'), false);
+  assert.match(css, /\.devicemap-legend i\.devicemap-off-dot \{[^}]*width: 10px;[^}]*height: 10px;[^}]*background: var\(--bad\)/);
+});
+
+test('the panel role select has a static empty option, since a bound empty value loses its attribute', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  assert.match(html, /<option value="" x-bind:selected="!row\.assignment\.role">\{\{t "energy\.roles\.no_role"\}\}<\/option>/);
+  assert.match(html, /item\.group === 'standard' && item\.value/);
 });

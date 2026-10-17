@@ -293,3 +293,17 @@ test('a pending deviceFocus request is taken when the devices panel starts later
   assert.deepEqual(selected, ['plug']);
   assert.equal(window.__deviceFocusRequest__, null);
 });
+
+test('the overview component ignores a deviceFocus request so no hidden dialog opens', async () => {
+  const { component, window, factories } = createShell();
+  component.loadPanel = () => {};
+  component.init();
+  const selected = [];
+  const overview = devicesPanelFor(window, factories, selected);
+  overview.$root.id = 'overview-panel';
+  window.__deviceFocusRequest__ = 'plug';
+  overview.init();
+  window.dispatchEvent(new window.CustomEvent('devices-focus-device', { detail: { id: 'plug' } }));
+  assert.deepEqual(selected, []);
+  assert.equal(window.__deviceFocusRequest__, 'plug');
+});

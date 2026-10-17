@@ -22,6 +22,10 @@ const pickerSource = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'device-picker.js'),
   'utf8',
 );
+const switchSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap-switch.js'),
+  'utf8',
+);
 
 function createEnergyPanel({ fetchImpl, basePath } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
@@ -32,6 +36,7 @@ function createEnergyPanel({ fetchImpl, basePath } = {}) {
   if (basePath !== undefined) dom.window.__DASHBOARD_BASE_PATH__ = basePath;
   installI18n(dom.window);
   vm.runInContext(pickerSource, context);
+  vm.runInContext(switchSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.energyRolesPanel();
   const stores = attachStores(component);
@@ -634,4 +639,138 @@ test('das Template bietet nur noch Automatisch, Berechnet und Gemessen an', () =
   const modes = [...html.matchAll(/name="load-mode" value="([a-z]+)"/g)].map(m => m[1]);
   assert.deepEqual(modes, ['auto', 'calculated', 'measured']);
   assert.match(html, /x-text="loadStatus"/);
+});
+
+// Switch rows of the energy configuration (task 8 of the switch role plan).
+const plain = value => JSON.parse(JSON.stringify(value));
+
+const plugDevices = [{
+  id: 'plug',
+  name: 'Plug',
+  entities: [{ unique_id: 'plug_power', name: 'Leistung', object_id: 'power', unit_of_measurement: 'W' }],
+}];
+const plugSwitches = [{ device_id: 'plug', entity_id: 's', name: 'Plug Steckdose', state: 'on' }];
+
+const multiDevices = [{
+  id: 'pm',
+  name: 'Mehrfachsteckdose',
+  entities: [{ unique_id: 'pm_power', name: 'Leistung', object_id: 'power', unit_of_measurement: 'W' }],
+}];
+const multiSwitches = [
+  { device_id: 'pm', entity_id: 's1', name: 'Mehrfach Kanal 1', state: 'off' },
+  { device_id: 'pm', entity_id: 's2', name: 'Mehrfach Kanal 2', state: 'off' },
+];
+
+const emptyRoles = { assignments: {}, interpretation: {} };
+
+function switchFetch({ devices, switches = [], roles = emptyRoles, onPut } = {}) {
+  return async (url, options) => {
+    if (url === '/api/v1/devices') return jsonResponse(devices);
+    if (url === '/api/v1/devices/switches') return jsonResponse(switches);
+    if (url === '/api/v1/energy/roles' && options && options.method === 'PUT') {
+      if (onPut) onPut(JSON.parse(options.body));
+      return jsonResponse(roles);
+    }
+    if (url === '/api/v1/energy/roles') return jsonResponse(roles);
+    if (url === '/api/v1/energy') return jsonResponse(energyResponse);
+    throw new Error(`unexpected fetch ${url}`);
+  };
+}
+
+test('switches appear as their own role group with the detected role', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: switchFetch({ devices: plugDevices, switches: plugSwitches }) });
+  await component.load();
+  assert.deepEqual(component.visibleSwitchEntities.map(entity => entity.id), ['s']);
+  assert.equal(component.visibleSwitchEntities[0].unit, 'switch');
+  assert.equal(component.visibleSwitchEntities[0].label, 'Plug / Steckdose');
+  assert.equal(component.assignments.s.role, 'switch');
+  assert.equal(component.assignments.s.channel, 1);
+  assert.ok(!component.visibleEnergyEntities.some(entity => entity.id === 's'), 'a switch is not an energy value row');
+  assert.deepEqual(plain(component.roleOptionsFor('switch')), [{ value: 'switch', label: 'Schaltet' }]);
+});
+
+test('saving without touching a detected switch writes nothing for it', async () => {
+  let sent = null;
+  const { component } = createEnergyPanel({
+    fetchImpl: switchFetch({ devices: plugDevices, switches: plugSwitches, onPut: body => { sent = body; } }),
+  });
+  await component.load();
+  assert.equal(component.assignments.s.role, 'switch', 'the switch is detected, so it is shown as a switch');
+  await component.save();
+  assert.equal(Object.prototype.hasOwnProperty.call(sent.assignments, 's'), false, 'the detected switch stays out of the PUT body');
+});
+
+test('saving a changed switch writes the role and the channel above 1', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: switchFetch({ devices: multiDevices, switches: multiSwitches }) });
+  await component.load();
+  component.assignments.s2.role = 'switch';
+  component.assignments.s2.channel = 2;
+  const { assignments } = component.payload();
+  assert.deepEqual(plain(assignments.s2), { role: 'switch', channel: 2 });
+  assert.equal(Object.prototype.hasOwnProperty.call(assignments, 's1'), false);
+});
+
+test('a switch set back from the detected role to no role is written as an explicit no role', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: switchFetch({ devices: plugDevices, switches: plugSwitches }) });
+  await component.load();
+  component.assignments.s.role = '';
+  assert.deepEqual(plain(component.payload().assignments.s), { role: '' });
+});
+
+test('a saved switch role is written back unchanged', async () => {
+  const roles = { assignments: { s: { role: 'switch' } }, interpretation: {} };
+  const { component } = createEnergyPanel({ fetchImpl: switchFetch({ devices: plugDevices, switches: plugSwitches, roles }) });
+  await component.load();
+  assert.deepEqual(plain(component.payload().assignments.s), { role: 'switch' });
+});
+
+test('a saved explicit no role for a switch is kept on every save', async () => {
+  const roles = { assignments: { s: { role: '' } }, interpretation: {} };
+  const { component } = createEnergyPanel({ fetchImpl: switchFetch({ devices: plugDevices, switches: plugSwitches, roles }) });
+  await component.load();
+  assert.deepEqual(plain(component.payload().assignments.s), { role: '' });
+});
+
+test('the channel field shows only for a device with two switches', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: switchFetch({ devices: multiDevices, switches: multiSwitches }) });
+  await component.load();
+  assert.equal(component.switchChannelCount('s1'), 2);
+  assert.equal(component.switchChannelCount('s2'), 2);
+  const single = createEnergyPanel({ fetchImpl: switchFetch({ devices: plugDevices, switches: plugSwitches }) });
+  await single.component.load();
+  assert.equal(single.component.switchChannelCount('s'), 1);
+});
+
+test('after a save the next payload is judged against the saved state', async () => {
+  let sent = null;
+  const { component } = createEnergyPanel({
+    fetchImpl: switchFetch({ devices: multiDevices, switches: multiSwitches, onPut: body => { sent = body; } }),
+  });
+  await component.load();
+  component.assignments.s2.role = 'switch';
+  component.assignments.s2.channel = 2;
+  await component.save();
+  assert.deepEqual(plain(sent.assignments.s2), { role: 'switch', channel: 2 });
+  component.assignments.s2.role = '';
+  assert.deepEqual(plain(component.payload().assignments.s2), { role: '' }, 'the saved switch is cleared, not dropped');
+});
+
+test('the energy template offers the switch group and a channel field for multi-switch devices', () => {
+  const html = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'templates', 'energy.html'), 'utf8');
+  assert.match(html, /energy\.roles\.section\.switch_values/);
+  assert.match(html, /visibleSwitchEntities/);
+  assert.match(html, /type="number" min="1" max="16"/);
+  assert.match(html, /\{\{t "energy\.page\.channel"\}\}/);
+  assert.match(html, /isSwitchRow\(entity\.id\)/);
+});
+
+test('a saved switch role without a loaded switch row is written back unchanged', async () => {
+  let sent = null;
+  const roles = { assignments: { gone: { role: 'switch', channel: 2 } }, interpretation: {} };
+  const { component } = createEnergyPanel({
+    fetchImpl: switchFetch({ devices: plugDevices, switches: [], roles, onPut: body => { sent = body; } }),
+  });
+  await component.load();
+  await component.save();
+  assert.deepEqual(plain(sent.assignments.gone), { role: 'switch', channel: 2 });
 });

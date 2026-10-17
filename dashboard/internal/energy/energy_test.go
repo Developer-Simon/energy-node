@@ -538,3 +538,41 @@ func TestRoleSemanticsKeysExistInGermanCatalog(t *testing.T) {
 		t.Errorf("unknown role: key %q = %q, want %q", unknownSemantics.SignKey, signValue, unknownSemantics.Sign)
 	}
 }
+
+func TestAggregateSkipsSwitchRole(t *testing.T) {
+	powerOnly := []registry.DeviceView{{
+		ID:       "plug",
+		Entities: []registry.EntityView{{UniqueID: "plug_power", ObjectID: "power", Name: "Steckdose Leistung", UnitOfMeasurement: "W", Value: "340", HasValue: true}},
+	}}
+	baseline := Aggregate(powerOnly, nil, time.Now().UTC())
+
+	devices := []registry.DeviceView{{
+		ID: "plug",
+		Entities: []registry.EntityView{
+			{UniqueID: "switch.plug", ObjectID: "plug", Name: "Steckdose Schalter", Value: "ON", HasValue: true},
+			{UniqueID: "plug_power", ObjectID: "power", Name: "Steckdose Leistung", UnitOfMeasurement: "W", Value: "340", HasValue: true},
+		},
+	}}
+	resolver := NewResolver(map[string]Assignment{"switch.plug": {Role: RoleSwitch, Channel: 1}})
+
+	snapshot := Aggregate(devices, resolver, time.Now().UTC())
+	if len(snapshot.Quality) != 0 {
+		t.Fatalf("switch entity produced quality warnings: %#v", snapshot.Quality)
+	}
+	if _, ok := snapshot.Values[RoleSwitch]; ok {
+		t.Fatalf("switch role landed in Values: %#v", snapshot.Values)
+	}
+	for _, state := range snapshot.Roles {
+		if state.Role == RoleSwitch {
+			t.Fatalf("switch role landed in Roles: %#v", snapshot.Roles)
+		}
+	}
+	for _, entity := range snapshot.Entities {
+		if entity.EntityID == "switch.plug" {
+			t.Fatalf("switch entity resolved to an entity: %#v", snapshot.Entities)
+		}
+	}
+	if snapshot.UnassignedCount != baseline.UnassignedCount {
+		t.Fatalf("unassigned_count = %d, want %d (the switch entity must not count)", snapshot.UnassignedCount, baseline.UnassignedCount)
+	}
+}

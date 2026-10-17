@@ -74,6 +74,17 @@
     socRoleOptions: [
       {value: 'battery_soc', label: t('energy.page.role_option.battery_soc')},
     ],
+    switchRoleOptions: [
+      {value: 'switch', label: t('energy.page.role_option.switch')},
+    ],
+    // Starting state of every switch row as loaded: role, channel and whether
+    // a saved entry exists. payload() writes a switch row only when it was
+    // saved before or differs from this state.
+    switchBaseline: {},
+    // Saved switch-role entries without a loaded row (device offline, or the
+    // switch list failed). The PUT replaces every assignment, so save() writes
+    // them back unchanged.
+    orphanSwitches: {},
     socWithoutCapacity: 0,
     hiddenIds: {},
     hiddenExpanded: false,
@@ -199,20 +210,84 @@
       this._groupTimer = this._setTimeout(() => { this.flashGroup = ''; }, 1600);
     },
 
+    // Switch rows: every commandable switch, with the role and channel it
+    // resolves to. A saved entry wins, otherwise the detection in
+    // DeviceMapSwitch.resolveSwitches decides.
+    switchRowsFrom(rawSwitches, devices, savedAssignments) {
+      const switches = Array.isArray(rawSwitches) ? rawSwitches : [];
+      const detected = window.DeviceMapSwitch.resolveSwitches({switches, assignments: savedAssignments, devices});
+      const detectedById = new Map([...detected.values()].flat().map(entry => [entry.entityId, entry]));
+      return switches
+        .filter(item => item.device_id !== OWN_ENERGY_DEVICE_ID)
+        .map(item => {
+          const device = devices.find(candidate => candidate.id === item.device_id) || {};
+          const shortName = stripDevicePrefix(device.name, item.name || item.entity_id);
+          const label = device.name ? (shortName ? `${device.name} / ${shortName}` : device.name) : (shortName || item.entity_id);
+          const saved = savedAssignments[item.entity_id];
+          const hit = detectedById.get(item.entity_id);
+          let assignment;
+          if (saved) assignment = {role: saved.role || '', channel: saved.channel};
+          else if (hit) assignment = {role: 'switch', channel: hit.channel};
+          else assignment = {role: '', channel: 1};
+          return {id: item.entity_id, label, unit: 'switch', deviceId: item.device_id, assignment};
+        });
+    },
+
+    switchChannelOf(assignment) {
+      return Number(assignment && assignment.channel) || 1;
+    },
+
+    isSwitchRow(id) {
+      return Object.prototype.hasOwnProperty.call(this.switchBaseline, id);
+    },
+
+    get visibleSwitchEntities() {
+      return this.entities.filter(entity => entity.unit === 'switch' && !this.isHidden(entity.id));
+    },
+
+    // Channels are a device property: a device with two or more switch rows
+    // shows the channel field, counting hidden rows too.
+    switchChannelCount(id) {
+      const row = this.entities.find(entity => entity.id === id);
+      if (!row || row.unit !== 'switch') return 0;
+      return this.entities.filter(entity => entity.unit === 'switch' && entity.deviceId === row.deviceId).length;
+    },
+
+    showChannelField(id) {
+      return this.isSwitchRow(id) && this.assignments[id].role === 'switch' && this.switchChannelCount(id) > 1;
+    },
+
+    // A switch row changed from its starting state. A row saved before is
+    // always written back, so a saved switch cannot silently disappear.
+    switchChanged(id) {
+      const base = this.switchBaseline[id];
+      const row = this.assignments[id];
+      if (base.saved) return true;
+      if (row.role !== base.role) return true;
+      return row.role === 'switch' && this.switchChannelOf(row) !== base.channel;
+    },
+
+    switchPayload(id) {
+      const row = this.assignments[id];
+      const channel = this.switchChannelOf(row);
+      return row.role === 'switch' && channel > 1 ? {role: row.role, channel} : {role: row.role};
+    },
+
     async load() {
       this.loading = true;
       try {
         this.loadHiddenIds();
-        const [, devices, saved, snapshot, icons] = await Promise.all([
+        const [, devices, saved, snapshot, icons, switches] = await Promise.all([
           this.loadSession(),
           requestJSON('/api/v1/devices'),
           requestJSON('/api/v1/energy/roles'),
           requestJSON('/api/v1/energy'),
           requestJSON('/api/v1/device/icons').catch(() => []),
+          requestJSON('/api/v1/devices/switches').catch(() => []),
         ]);
         const savedAssignments = saved.assignments || {};
         const resolved = Object.fromEntries((snapshot.entities || []).map(item => [item.entity_id, item.role]));
-        this.entities = devices
+        const powerEntities = devices
           .filter(device => device.id !== OWN_ENERGY_DEVICE_ID)
           .flatMap(device => device.entities
             .filter(entity => ['W', 'kW', '%'].includes(entity.unit_of_measurement))
@@ -225,11 +300,22 @@
                 assignment: savedAssignments[entity.unique_id] || resolved[entity.unique_id] || {},
               };
             }));
+        const switchEntities = this.switchRowsFrom(switches, devices, savedAssignments);
+        this.entities = powerEntities.concat(switchEntities);
+        const rowIds = new Set(switchEntities.map(entity => entity.id));
+        this.orphanSwitches = Object.fromEntries(Object.entries(savedAssignments)
+          .filter(([id, entry]) => entry && entry.role === 'switch' && !rowIds.has(id)));
+        this.switchBaseline = Object.fromEntries(switchEntities.map(entity => [entity.id, {
+          role: entity.assignment.role,
+          channel: this.switchChannelOf(entity.assignment),
+          saved: Object.prototype.hasOwnProperty.call(savedAssignments, entity.id),
+        }]));
         this.assignments = Object.fromEntries(this.entities.map(entity => [entity.id, {
           role: entity.assignment.role || '',
           scale: entity.assignment.scale || 1,
           invert: Boolean(entity.assignment.invert),
           capacity_kwh: Number(entity.assignment.capacity_kwh) || 0,
+          channel: this.switchChannelOf(entity.assignment),
         }]));
         if (saved.interpretation) this.interpretation = {...this.interpretation, ...saved.interpretation};
         this.categories = JSON.parse(JSON.stringify(saved.categories || {}));
@@ -313,6 +399,7 @@
     },
 
     roleOptionsFor(unit) {
+      if (unit === 'switch') return this.switchRoleOptions;
       return unit === '%' ? this.socRoleOptions : this.powerRoleOptions;
     },
 
@@ -343,7 +430,7 @@
     },
 
     get visibleEnergyEntities() {
-      return this.entities.filter(entity => entity.unit !== '%' && !this.isHidden(entity.id));
+      return this.entities.filter(entity => entity.unit !== '%' && entity.unit !== 'switch' && !this.isHidden(entity.id));
     },
 
     get visibleBatteryEntities() {
@@ -548,14 +635,20 @@
       // greift beim naechsten Laden wieder die Heuristik (inferRole in
       // energy.go) - z.B. bei ApSystems-Entities, deren Name/Topic "pv"
       // enthaelt und die sonst immer wieder auf PV zurückspringen.
+      // Switch rows only go into the body when they were saved before or
+      // changed: an untouched detected switch stays out, so the detection
+      // keeps working for it.
       const assignments = Object.fromEntries(Object.entries(this.assignments)
-        .map(([id, assignment]) => [id, assignment.role === 'battery_soc'
-          ? {role: 'battery_soc', capacity_kwh: Number(assignment.capacity_kwh) || 0}
-          : {
-            role: assignment.role,
-            scale: Number(assignment.scale) || 1,
-            invert: Boolean(assignment.invert),
-          }]));
+        .filter(([id]) => !this.isSwitchRow(id) || this.switchChanged(id))
+        .map(([id, assignment]) => [id, this.isSwitchRow(id)
+          ? this.switchPayload(id)
+          : assignment.role === 'battery_soc'
+            ? {role: 'battery_soc', capacity_kwh: Number(assignment.capacity_kwh) || 0}
+            : {
+              role: assignment.role,
+              scale: Number(assignment.scale) || 1,
+              invert: Boolean(assignment.invert),
+            }]));
       const interpretation = {
         gap_mode: this.interpretation.gap_mode,
         load_mode: this.interpretation.load_mode,
@@ -571,7 +664,9 @@
       const categories = this.categories;
       const groups = Object.fromEntries(Object.entries(this.groups)
         .map(([id, g]) => [id, g.role ? g : {label: g.label, members: g.members}]));
-      return {assignments, interpretation, categories, groups};
+      const orphans = Object.fromEntries(Object.entries(this.orphanSwitches)
+        .map(([id, entry]) => [id, entry.channel === undefined ? {role: entry.role} : {role: entry.role, channel: entry.channel}]));
+      return {assignments: {...orphans, ...assignments}, interpretation, categories, groups};
     },
 
     revisionConfig() {
@@ -601,6 +696,7 @@
           headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
           body: JSON.stringify({assignments, interpretation, categories, groups}),
         });
+        this.markSwitchesSaved(assignments);
         this.$store.toasts.push(t('energy.page.saved'));
         this.notifyRolesChanged();
         await this.refreshLiveBalance();
@@ -609,6 +705,17 @@
       } finally {
         this.saving = false;
       }
+    },
+
+    // After a successful save the written switch rows are the new starting
+    // state, so a later change back to the old role is written again.
+    markSwitchesSaved(assignments) {
+      const next = {...this.switchBaseline};
+      for (const id of Object.keys(assignments)) {
+        if (!this.isSwitchRow(id)) continue;
+        next[id] = {role: this.assignments[id].role, channel: this.switchChannelOf(this.assignments[id]), saved: true};
+      }
+      this.switchBaseline = next;
     },
 
     // Holt nach dem Speichern die Bilanz neu, damit die Statuszeile den

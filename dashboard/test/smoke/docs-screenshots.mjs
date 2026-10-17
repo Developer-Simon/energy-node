@@ -279,7 +279,8 @@ async function energyShowcase() {
 async function deviceMapShowcase() {
   const names = ['dashboard-device-map-device-panel', 'dashboard-device-map-group-panel', 'dashboard-device-map-picker',
     'dashboard-device-map-view-menu', 'dashboard-device-map-create-group', 'dashboard-device-map-category',
-    'dashboard-device-map-balance', 'dashboard-device-map-dataflow', 'dashboard-device-map-switch-off'];
+    'dashboard-device-map-balance', 'dashboard-device-map-dataflow', 'dashboard-device-map-switch-off',
+    'dashboard-device-map-switch-channel'];
   if (!names.some(want)) return;
   const s = await session(1110, 928);
   await tab(s.page, 'devicemap');
@@ -307,25 +308,36 @@ async function deviceMapShowcase() {
   }
   await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).closePanel());
   await s.page.waitForTimeout(600);
+  // Opens the wiring card of the edge between two nodes and frames both nodes.
+  const openWiringCard = (a, b) => map(([a, b]) => {
+    const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+    const cy = document.querySelector('#devicemap-panel [x-ref="canvas"]')._cyreg.cy;
+    const first = cy.getElementById(a);
+    const second = cy.getElementById(b);
+    const edge = first.edgesWith(second).filter('.devicemap-wiring')[0];
+    panel.selectedEdge = {id: edge.id(), source: edge.data('source'), target: edge.data('target'), overrideId: edge.data('overrideId') || null, membership: edge.data('membership') || null};
+    cy.edges().removeClass('devicemap-selected-edge');
+    edge.addClass('devicemap-selected-edge');
+    // The card opens to the right of the edge midpoint, so the labels on the
+    // left of the pair stay uncovered.
+    cy.fit(first.union(second), 120);
+    panel.openWiringPopover(edge.renderedMidpoint());
+  }, [a, b]);
   if (want('dashboard-device-map-switch-off')) {
     // Plug Balkon is switched off: the wiring card of its edge to the
     // inverter is open, the view is framed on that pair and its neighbours.
-    await map(() => {
-      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
-      const cy = document.querySelector('#devicemap-panel [x-ref="canvas"]')._cyreg.cy;
-      const plug = cy.getElementById('plug_balkon');
-      const kraftwerk = cy.getElementById('balkon_kraftwerk');
-      const edge = plug.edgesWith(kraftwerk).filter('.devicemap-wiring')[0];
-      panel.selectedEdge = {id: edge.id(), source: edge.data('source'), target: edge.data('target'), overrideId: edge.data('overrideId') || null, membership: edge.data('membership') || null};
-      cy.edges().removeClass('devicemap-selected-edge');
-      edge.addClass('devicemap-selected-edge');
-      // The card opens to the right of the edge midpoint, so the plug label and
-      // the Balkonkraftwerk on the left stay uncovered.
-      cy.fit(plug.union(kraftwerk), 120);
-      panel.openWiringPopover(edge.renderedMidpoint());
-    });
+    await openWiringCard('plug_balkon', 'balkon_kraftwerk');
     await s.page.waitForTimeout(1200);
     await element(stage, 'dashboard-device-map-switch-off');
+    await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).clearEdgeSelection());
+    await s.page.waitForTimeout(600);
+  }
+  if (want('dashboard-device-map-switch-channel')) {
+    // Channel 2 of Relais Keller is off: its edge to the dehumidifier is cut,
+    // the card shows the switch state and the cause above the link.
+    await openWiringCard('relais_keller', 'plug_entfeuchter');
+    await s.page.waitForTimeout(1200);
+    await element(stage, 'dashboard-device-map-switch-channel');
     await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).clearEdgeSelection());
     await s.page.waitForTimeout(600);
   }

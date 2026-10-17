@@ -306,3 +306,53 @@ test('balanceValueText shows the house meter, else the house consumption', () =>
   assert.match(model.balanceValueText({ has_load_meter: true, load_meter: 1200, load_total: 900, grid_import: 5000 }), /1,2 kW|1.2 kW/);
   assert.match(model.balanceValueText({ has_load_meter: false, load_meter: 0, load_total: 450, grid_import: 5000 }), /450 W/);
 });
+
+test('a detected switch is a role row with source heuristic and its state label', () => {
+  const model = loadModel();
+  const device = {id: 'plug', entities: [
+    {unique_id: 'w', name: 'Leistung', unit_of_measurement: 'W', value: '0'},
+    {unique_id: 's', name: 'Schalter', unit_of_measurement: '', value: 'off'},
+    {unique_id: 'v', name: 'Spannung', unit_of_measurement: 'V', value: '230'},
+  ]};
+  const switchInfo = new Map([['s', {state: 'off', heuristic: true, channels: 1}]]);
+  const view = model.panelRows({device, snapshot: {entities: []}, saved: {}, drafts: {}, switchInfo});
+  const row = view.rows.find(item => item.id === 's');
+  assert.ok(row, 'the switch is a row');
+  assert.equal(row.unit, 'switch');
+  assert.equal(row.assignment.role, 'switch');
+  assert.equal(row.assignment.channel, 1);
+  assert.equal(row.source, 'heuristic');
+  assert.equal(row.valueText, 'Aus');
+  assert.equal(row.consequence, '', 'no consequence callback means no text');
+  assert.equal(view.others.some(item => item.id === 's'), false, 'the switch is not in others');
+  assert.equal(view.others.some(item => item.id === 'v'), true, 'other non-power values stay in others');
+});
+
+test('panelRows takes the consequence text of a switch from the page callback', () => {
+  const model = loadModel();
+  const device = {id: 'plug', entities: [{unique_id: 's', name: 'Schalter', unit_of_measurement: '', value: 'off'}]};
+  const switchInfo = new Map([['s', {state: 'off', heuristic: true, channels: 1}]]);
+  const consequenceOf = id => (id === 's' ? '1 Gerät ohne Strom' : '');
+  const view = model.panelRows({device, snapshot: {entities: []}, saved: {}, drafts: {}, switchInfo, consequenceOf});
+  assert.equal(view.rows[0].consequence, '1 Gerät ohne Strom');
+});
+
+test('assignmentPayload writes channel only above 1 for the switch role', () => {
+  const model = loadModel();
+  assert.deepEqual({...model.assignmentPayload({role: 'switch', channel: 1})}, {role: 'switch'});
+  assert.deepEqual({...model.assignmentPayload({role: 'switch', channel: 2})}, {role: 'switch', channel: 2});
+  assert.deepEqual({...model.normalizeAssignment({role: 'switch'})}, {role: 'switch', scale: 1, invert: false, capacity_kwh: 0, channel: 1});
+  assert.equal(model.normalizeAssignment({role: 'pv', channel: 3}).channel, 0, 'channel is 0 for power roles');
+});
+
+test('changing the channel of a switch is a draft change', () => {
+  const model = loadModel();
+  const base = {role: 'switch', scale: 1, invert: false, capacity_kwh: 0, channel: 1, source: 'override'};
+  assert.equal(model.isDraftChange(base, {role: 'switch', channel: 1}), false);
+  assert.equal(model.isDraftChange(base, {role: 'switch', channel: 2}), true);
+});
+
+test('roleOptions for a switch offers no role or the switch role only', () => {
+  const model = loadModel();
+  assert.deepEqual([...model.roleOptions('switch').map(option => option.value)], ['', 'switch']);
+});

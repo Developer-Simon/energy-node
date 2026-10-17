@@ -177,9 +177,13 @@
     {selector: 'edge.devicemap-wiring.devicemap-conn-detected', style: {'line-opacity': 0.7}},
     ...(view.layers.wiring ? [] : [{selector: 'edge.devicemap-wiring:not(.devicemap-conn-energy)', style: {display: 'none'}}]),
     // Dead edges: the source is cut (off output or no power), so no flow runs
-    // over them. A cut edge also gets a hollow port at its source.
+    // over them.
     {selector: 'edge.devicemap-wiring.devicemap-dead', style: {'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'line-color': theme.faint, 'target-arrow-shape': 'none'}},
-    {selector: 'edge.devicemap-cut', style: {'source-arrow-shape': 'circle', 'source-arrow-fill': 'hollow', 'source-arrow-color': theme.faint, 'source-distance-from-node': 6}},
+    // Switch ports: a filled dot at the source of every switched wiring edge,
+    // in the color of the channel's state.
+    {selector: 'edge.devicemap-port-on', style: {'source-arrow-shape': 'circle', 'source-arrow-fill': 'filled', 'source-arrow-color': theme.ok, 'source-distance-from-node': 0, 'arrow-scale': 0.9}},
+    {selector: 'edge.devicemap-port-off', style: {'source-arrow-shape': 'circle', 'source-arrow-fill': 'filled', 'source-arrow-color': theme.bad, 'source-distance-from-node': 0, 'arrow-scale': 0.9}},
+    {selector: 'edge.devicemap-port-unknown', style: {'source-arrow-shape': 'circle', 'source-arrow-fill': 'filled', 'source-arrow-color': theme.faint, 'source-distance-from-node': 0, 'arrow-scale': 0.9}},
     // Quiet nodes stack the normal and the quiet image. Cytoscape interpolates
     // the list opacities, the cross-fade relies on that. The list comes from a
     // function because Cytoscape leaves a data() mapper inside a list as the

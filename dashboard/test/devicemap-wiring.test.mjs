@@ -62,6 +62,18 @@ test('setProp replaces a pair in either orientation and drops direction for non 
   assert.deepEqual(plain(w.setProp([], { parent: 'a', child: 'b', type: 'energy', direction: 'auto' })), [{ parent_id: 'a', child_id: 'b', type: 'energy', direction: 'auto' }]);
 });
 
+test('setProp stores the channel of an energy edge and drops it for other types', () => {
+  const w = load();
+  assert.deepEqual(plain(w.setProp([], { parent: 'pm', child: 'b', type: 'energy', direction: 'auto', channel: 2 })), [{ parent_id: 'pm', child_id: 'b', type: 'energy', direction: 'auto', channel: 2 }]);
+  assert.deepEqual(plain(w.setProp([], { parent: 'pm', child: 'b', type: 'data', direction: 'auto', channel: 2 })), [{ parent_id: 'pm', child_id: 'b', type: 'data' }]);
+});
+
+test('setProp without a channel stores no channel key', () => {
+  const w = load();
+  const next = w.setProp([{ parent_id: 'pm', child_id: 'b', type: 'energy', direction: 'auto', channel: 3 }], { parent: 'pm', child: 'b', type: 'energy', direction: 'reversed' });
+  assert.equal('channel' in next[0], false);
+});
+
 test('prune drops props of pairs that are gone', () => {
   const w = load();
   const props = [{ parent_id: 'a', child_id: 'b', type: 'info' }, { parent_id: 'c', child_id: 'd', type: 'info' }];

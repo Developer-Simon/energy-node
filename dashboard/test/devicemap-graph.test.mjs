@@ -140,15 +140,21 @@ test('style draws dead edges dotted in the rest colour without arrow', () => {
   assert.equal(rule.style['target-arrow-shape'], 'none');
 });
 
-test('style gives cut edges a hollow source port', () => {
+test('style draws a filled port at the source of each switched edge in its state color', () => {
   const { DeviceMapGraph } = loadGraph();
-  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555' };
-  const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: false, energy: true } }, theme, color: () => '#000', reducedMotion: false });
-  const rule = style.find(entry => entry.selector === 'edge.devicemap-cut');
-  assert.ok(rule, 'cut edge rule exists');
-  assert.equal(rule.style['source-arrow-shape'], 'circle');
-  assert.equal(rule.style['source-arrow-fill'], 'hollow');
-  assert.ok(rule.style['source-distance-from-node'] > 0);
+  const theme = { line: '#111', accent: '#222', labelStrong: '#333', panel: '#444', faint: '#555', ok: '#666', bad: '#777' };
+  const style = DeviceMapGraph.style({ view: { edge_style: 'straight', layers: { wiring: true, energy: true } }, theme, color: () => '#000', reducedMotion: false });
+  const colors = { on: '#666', off: '#777', unknown: '#555' };
+  for (const [state, color] of Object.entries(colors)) {
+    const rule = style.find(entry => entry.selector === `edge.devicemap-port-${state}`);
+    assert.ok(rule, `${state} port rule exists`);
+    assert.equal(rule.style['source-arrow-shape'], 'circle');
+    assert.equal(rule.style['source-arrow-fill'], 'filled');
+    assert.equal(rule.style['source-arrow-color'], color);
+    assert.equal(rule.style['source-distance-from-node'], 0);
+    assert.equal(rule.style['arrow-scale'], 0.9);
+  }
+  assert.equal(style.find(entry => entry.selector === 'edge.devicemap-cut'), undefined, 'the old cut rule is gone');
 });
 
 test('style stacks the quiet image', () => {

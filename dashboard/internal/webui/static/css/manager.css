@@ -311,6 +311,7 @@ select.schema-control {
 .energy-role-row > label:first-child { font-size: .9rem; color: var(--text); overflow-wrap: anywhere; }
 .energy-role-row label:last-child { white-space: nowrap; }
 .energy-role-row .energy-role-capacity { grid-column: 3 / span 2; }
+.energy-role-row .energy-role-channel { grid-column: 3 / span 2; }
 .energy-role-row .energy-role, .energy-role-row input[type="number"] {
   border-radius: var(--radius-sm);
   transition: border-color .15s ease, box-shadow .15s ease;
@@ -460,6 +461,7 @@ select.schema-control {
 .devicemap-panel-entity-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
 .devicemap-panel-entity-name { font-weight: 600; color: var(--text-strong); min-width: 0; }
 .devicemap-panel-entity-value { font-variant-numeric: tabular-nums; color: var(--text-subtle); white-space: nowrap; }
+.devicemap-panel-consequence { font-size: .8rem; color: var(--bad-strong); }
 .devicemap-panel-entity-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .75rem; color: var(--text-faint); overflow-wrap: anywhere; }
 .devicemap-panel-field { display: grid; gap: 4px; font-size: .8rem; color: var(--text-muted); }
 .devicemap-panel-field-row { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
@@ -471,6 +473,9 @@ select.schema-control {
 .devicemap-panel-chip[data-source="heuristic"] { border-style: dashed; border-color: var(--warn-line); background: var(--warn-bg); }
 .devicemap-panel-chip[data-source="override"] { border-color: var(--ok-line); background: var(--ok-bg); }
 .devicemap-panel-chip[data-source="draft"] { border-color: var(--accent-line); background: var(--accent-bg); color: var(--text-strong); }
+.devicemap-panel-links { display: flex; flex-direction: column; gap: 8px; }
+.devicemap-panel-link-text { display: inline-flex; align-items: center; gap: .5rem; min-width: 0; }
+.devicemap-panel-link-icon { width: 16px; height: 16px; flex: none; fill: none; stroke: var(--text-subtle); stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .devicemap-panel-others { display: grid; gap: 6px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--sunken); font-size: .84rem; }
 .devicemap-panel-other-row { display: flex; justify-content: space-between; gap: 10px; }
 .devicemap-panel-other-row span:last-child { font-variant-numeric: tabular-nums; color: var(--text-subtle); }
@@ -504,6 +509,7 @@ select.schema-control {
   .energy-role-row > .energy-role, .energy-role-row > .energy-scale { width: 100%; }
   .energy-role-row label:first-child { grid-column: 1 / -1; }
   .energy-role-row .energy-role-capacity { grid-column: 1 / -1; }
+  .energy-role-row .energy-role-channel { grid-column: 1 / -1; }
   .energy-role-hide-toggle { grid-column: 1 / -1; justify-self: start; }
   /* Am Handy traegt die Einrueckung die verschachtelte Struktur, nicht die
      Polsterung - sonst schrumpft der nutzbare Raum je Ebene sichtbar. */
@@ -981,7 +987,20 @@ select.schema-control {
 .devicemap-popover dd { margin: 0; color: var(--text-strong); overflow-wrap: anywhere; min-width: 0; }
 .devicemap-popover ul { margin: 0; padding-left: 18px; font-size: .84rem; display: grid; gap: 2px; }
 .devicemap-popover-text { margin: 0; font-size: .84rem; color: var(--text-muted); }
-.devicemap-popover-dead { display: block; width: 100%; padding: 2px 0; border: 0; background: none; text-align: left; font: inherit; font-size: .84rem; color: var(--text-strong); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.devicemap-popover-value { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+.devicemap-popover-state { font-weight: 600; }
+/* Switch state dot, the same colours as the state of the port on the map. */
+.devicemap-popover-tone { flex: none; width: 8px; height: 8px; border-radius: 50%; background: var(--text-faint); }
+.devicemap-popover-tone[data-tone="on"] { background: var(--ok); }
+.devicemap-popover-tone[data-tone="off"] { background: var(--bad); }
+/* The link fills its cell: the negative margin keeps the text aligned while
+   the padding widens the hit area and the hover background. */
+.devicemap-popover-link { display: inline-flex; align-items: center; gap: 4px; min-height: 28px; max-width: 100%; margin: -4px -6px; padding: 4px 6px; border: 0; border-radius: 6px; background: none; font: inherit; color: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.devicemap-popover-link svg { flex: none; width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.devicemap-popover-link:hover { background: color-mix(in srgb, var(--text-strong) 6%, transparent); }
+.devicemap-popover-link:active { transform: scale(.98); transition: transform 100ms ease-out; }
+.devicemap-popover-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .devicemap-popover-link:active { transform: none; } }
 @media (prefers-reduced-motion: reduce) { .devicemap-popover { transform: none !important; } }
 .schema-object.is-flash { background: var(--accent-bg); box-shadow: inset 3px 0 0 var(--accent-line); transition-duration: 120ms; }
 
@@ -1038,7 +1057,7 @@ div.devicemap-view-menu-row { cursor: default; }
 .devicemap-legend i.dashed { border-top-style: dashed; border-top-width: 2px; }
 .devicemap-legend i.devicemap-dotted { border-top-style: dotted; border-top-width: 2px; }
 .devicemap-legend i.devicemap-dead-line { border-top-width: 3px; }
-.devicemap-legend i.devicemap-off-ring { width: 10px; height: 10px; border: 2px solid var(--text-subtle); border-radius: 50%; box-sizing: border-box; }
+.devicemap-legend i.devicemap-off-dot { width: 10px; height: 10px; border: 0; border-radius: 50%; background: var(--bad); }
 /* On a phone the bar wraps and the button can sit anywhere in it, so the
    menu spans the whole bar instead of hanging off the button. */
 @media (max-width: 700px) {

@@ -18,6 +18,8 @@
     data: '<g fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-dasharray="3 3"><path d="M4 18C10 18 14 6 20 6"/></g><path d="M17 3.5 20.5 6 17 8.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/>',
   };
   const HEALTH_TOKEN = {ok: 'ok', degraded: 'warn', down: 'bad', unknown: 'text-faint'};
+  // Switch port of a leaf switch device: the color of its switch state.
+  const PORT_TOKEN = {on: 'ok', off: 'bad', unknown: 'text-faint'};
 
   const ring = spec => {
     const roles = spec.segments;
@@ -63,7 +65,7 @@
       + `<svg data-icon="${spec.icon}" x="-10" y="-10" width="20" height="20" viewBox="0 0 24 24" color="{${spec.iconColor}}">${iconBody(spec)}</svg>`
       + (spec.quiet ? '</g>' : '')
       + `<circle data-health="${spec.health}" cx="${dot}" cy="-${dot}" r="4.5" fill="{${HEALTH_TOKEN[spec.health] || 'text-faint'}}" stroke="{panel}" stroke-width="2"/>`
-      + (spec.outputOpen ? `<circle data-port="open" cx="${R}" cy="0" r="4" fill="{panel}" stroke="{flow-rest}" stroke-width="2"/>` : '')
+      + (spec.port ? `<circle data-port="${spec.port}" cx="${R}" cy="0" r="4" fill="{${PORT_TOKEN[spec.port] || 'text-faint'}}" stroke="{panel}" stroke-width="2"/>` : '')
       + '</svg>';
     return body.replace(TOKEN, (_, token) => colorOf(token));
   };

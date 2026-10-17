@@ -118,20 +118,31 @@ the Energy Node device, a separate balance node stands in for it.
 ![A switched-off plug](../images/dashboard-device-map-switch-off.png)
 
 A smart plug or relay can switch its output off. The map shows this when the
-Wiring or the Live energy layer is on. The device whose output is off is marked
-**Output off**: its value gets a grey pill with "Off", and an open dot sits at its
-connection. Everything that only gets its power through that device is dimmed,
-its flow stops and its outgoing connections turn dotted. In the connection card
-the line "No power because ... is off" names the device that cut the supply and
-links to it.
+Wiring or the Live energy layer is on. Every connection that leaves a switched
+device carries a small filled circle where it starts: green when the switch is
+on, red when it is off and grey when the state is unknown. When the switch is
+off, everything that only gets its power through that connection is dimmed, its
+flow stops and its outgoing connections turn dotted. A device whose switches are
+all off also gets a grey pill with "Off". A switch without an outgoing
+connection keeps its circle on the device itself.
 
-The map finds the output of a device by four rules. The device has exactly one
-switch entity, the switch can be commanded, it is not a configuration or
-diagnostic entity, and the device has a power entity in W or kW. If the rules do
-not fit, open the device panel and set the function of a switch to **Cuts the
-output** or **No function**. The choice is part of the map draft and is saved
-with the map. A device that is off is never itself shown as without power, even
-if another switched-off device feeds it.
+The connection card leads with the state. For a cut connection it shows
+"Switched off", the number of devices without power and the switch. Below a cut
+connection it shows "No power" and the cause, for example "Plug Balkon is off",
+which links to the device.
+
+A switch is an energy role called **Switches**. Set it in the device panel or in
+the energy configuration, like any other role. A device with several switches,
+such as a two channel relay, gets a channel for each of them. Open the card of
+an energy connection and choose the channel it hangs on. Without a choice the
+connection uses channel 1. The channel field only appears for devices with more
+than one switch.
+
+The map suggests the role for a device that has exactly one switch entity, where
+the switch can be commanded, is not a configuration or diagnostic entity and the
+device has a power entity in W or kW. The suggestion is marked "detected" until
+you save a role. A device that is off is never itself shown as without power,
+even if another switched-off device feeds it.
 
 The map only shows the state. To switch a device, use the Devices tab. The link
 in the device panel opens it.

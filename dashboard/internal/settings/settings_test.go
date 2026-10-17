@@ -2318,77 +2318,39 @@ func TestEnergyCategoriesMigrateLegacyIconNames(t *testing.T) {
 	}
 }
 
-func TestDeviceMapSwitchOutputsRoundTrip(t *testing.T) {
+func TestDeviceMapEdgePropChannel(t *testing.T) {
 	store := NewStore(t.TempDir())
-	value := NewDeviceMap()
-	value.SwitchOutputs = []DeviceMapSwitchOutput{
-		{EntityID: "plug_a_relay", DeviceID: "plug_a", Function: "output"},
-		{EntityID: "plug_b_led", DeviceID: "plug_b", Function: "none"},
-	}
-	if err := store.SaveDeviceMap(value); err != nil {
-		t.Fatal(err)
+
+	energy := NewDeviceMap()
+	energy.EdgeProps = []DeviceMapEdgeProp{{ParentID: "plug", ChildID: "pm", Type: "energy", Channel: 2}}
+	if err := store.SaveDeviceMap(energy); err != nil {
+		t.Fatalf("energy edge with channel 2 must save: %v", err)
 	}
 	loaded, err := store.LoadDeviceMap()
 	if err != nil {
 		t.Fatal(err)
 	}
-	if loaded.Version != 3 || len(loaded.SwitchOutputs) != 2 || loaded.SwitchOutputs[0].Function != "output" {
-		t.Fatalf("loaded = %+v", loaded)
+	if len(loaded.EdgeProps) != 1 || loaded.EdgeProps[0].Channel != 2 {
+		t.Fatalf("energy channel did not round-trip: %+v", loaded.EdgeProps)
 	}
-}
 
-func TestDeviceMapSwitchOutputsValidation(t *testing.T) {
-	store := NewStore(t.TempDir())
-	cases := map[string][]DeviceMapSwitchOutput{
-		"unknown function":       {{EntityID: "a", DeviceID: "d", Function: "cut"}},
-		"empty entity":           {{EntityID: "", DeviceID: "d", Function: "output"}},
-		"duplicate entity":       {{EntityID: "a", DeviceID: "d", Function: "output"}, {EntityID: "a", DeviceID: "d", Function: "none"}},
-		"two outputs one device": {{EntityID: "a", DeviceID: "d", Function: "output"}, {EntityID: "b", DeviceID: "d", Function: "output"}},
+	data := NewDeviceMap()
+	data.EdgeProps = []DeviceMapEdgeProp{{ParentID: "plug", ChildID: "shelly", Type: "data", Channel: 2}}
+	if err := store.SaveDeviceMap(data); err != nil {
+		t.Fatalf("data edge with a channel must still save: %v", err)
 	}
-	for name, outputs := range cases {
-		value := NewDeviceMap()
-		value.SwitchOutputs = outputs
-		if err := store.SaveDeviceMap(value); err == nil {
-			t.Errorf("%s: expected rejection", name)
-		}
-	}
-	ok := NewDeviceMap()
-	ok.SwitchOutputs = []DeviceMapSwitchOutput{{EntityID: "a", DeviceID: "d", Function: "output"}, {EntityID: "b", DeviceID: "d", Function: "none"}}
-	if err := store.SaveDeviceMap(ok); err != nil {
-		t.Fatalf("one output plus one none on a device must pass: %v", err)
-	}
-}
-
-func TestDeviceMapWithoutSwitchOutputsStillLoads(t *testing.T) {
-	dir := t.TempDir()
-	store := NewStore(dir)
-	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(`{"version":3,"nodes":[]}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	loaded, err := store.LoadDeviceMap()
-	if err != nil || len(loaded.SwitchOutputs) != 0 {
-		t.Fatalf("loaded = %+v, err = %v", loaded, err)
-	}
-}
-
-func TestDeviceMapSwitchOutputsLoadReturnsCopy(t *testing.T) {
-	store := NewStore(t.TempDir())
-	value := NewDeviceMap()
-	value.SwitchOutputs = []DeviceMapSwitchOutput{{EntityID: "a", DeviceID: "d", Function: "output"}}
-	if err := store.SaveDeviceMap(value); err != nil {
-		t.Fatal(err)
-	}
-	first, err := store.LoadDeviceMap()
+	loaded, err = store.LoadDeviceMap()
 	if err != nil {
 		t.Fatal(err)
 	}
-	first.SwitchOutputs[0].Function = "none"
-	second, err := store.LoadDeviceMap()
-	if err != nil {
-		t.Fatal(err)
+	if len(loaded.EdgeProps) != 1 || loaded.EdgeProps[0].Channel != 0 {
+		t.Fatalf("data edge must be saved without channel: %+v", loaded.EdgeProps)
 	}
-	if second.SwitchOutputs[0].Function != "output" {
-		t.Fatalf("store copy was mutated: %+v", second.SwitchOutputs)
+
+	invalid := NewDeviceMap()
+	invalid.EdgeProps = []DeviceMapEdgeProp{{ParentID: "plug", ChildID: "pm", Type: "energy", Channel: 17}}
+	if err := store.SaveDeviceMap(invalid); err == nil {
+		t.Fatal("channel 17 must be rejected by the schema")
 	}
 }
 
@@ -2587,5 +2549,55 @@ func TestEnergyIDSlug(t *testing.T) {
 		if got := energyIDSlug(in); got != want {
 			t.Errorf("energyIDSlug(%q) = %q, want %q", in, got, want)
 		}
+	}
+}
+
+func TestEnergyChannelRules(t *testing.T) {
+	store := NewStore(t.TempDir())
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"switch.plug_2": {Role: energy.RoleSwitch, Channel: 2},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Assignments["switch.plug_2"].Channel != 2 {
+		t.Fatalf("channel = %d, want 2", got.Assignments["switch.plug_2"].Channel)
+	}
+
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"switch.plug_default": {Role: energy.RoleSwitch},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err = store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Assignments["switch.plug_default"].Channel != 0 {
+		t.Fatalf("channel = %d, want 0 (means 1)", got.Assignments["switch.plug_default"].Channel)
+	}
+
+	if err := store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"meter_power": {Role: energy.RolePV, Channel: 3},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	got, err = store.LoadEnergy()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Assignments["meter_power"].Channel != 0 {
+		t.Fatalf("a non-switch channel must be dropped, got %d", got.Assignments["meter_power"].Channel)
+	}
+
+	err = store.SaveEnergy(EnergyConfig{Assignments: map[string]energy.Assignment{
+		"switch.plug_17": {Role: energy.RoleSwitch, Channel: 17},
+	}})
+	typed, ok := uierror.From(err)
+	if !ok || typed.Key != "error.energy_roles_rejected.channel_invalid" {
+		t.Fatalf("channel 17: err = %v, want error.energy_roles_rejected.channel_invalid", err)
 	}
 }

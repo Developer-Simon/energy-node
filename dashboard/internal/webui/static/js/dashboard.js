@@ -1529,14 +1529,19 @@
       };
       // The device map asks for a device in this tab (openDeviceInDevicesTab).
       // The shell leaves the request on window for a panel that starts later.
+      // The overview runs the same component with its own hidden dialog, so
+      // only the devices tab may react. A modal opened in a hidden panel
+      // blocks every click on the page.
+      const isDevicesTab = () => this.$root && this.$root.id === 'devices-panel';
       this.devicesFocusDevice = event => {
+        if (!isDevicesTab()) return;
         const id = event.detail && event.detail.id;
         window.__deviceFocusRequest__ = null;
         if (id) this.selectDevice(id);
       };
       window.addEventListener('devices-focus-device', this.devicesFocusDevice);
       const pendingDevice = window.__deviceFocusRequest__;
-      if (pendingDevice) {
+      if (pendingDevice && isDevicesTab()) {
         window.__deviceFocusRequest__ = null;
         this.selectDevice(pendingDevice);
       }
