@@ -22,6 +22,7 @@
         - label: "Overview & layout editor"
           url: "dashboard/overview.md"
           children:
+            - { label: "Layout editor", url: "dashboard/layout-editor.md" }
             - { label: "Cards", url: "dashboard/overview-cards.md" }
         - label: "Devices"
           url: "dashboard/devices.md"

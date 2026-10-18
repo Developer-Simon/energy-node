@@ -187,6 +187,7 @@ async function all() {
   await energyShowcase();
   await deviceMapShowcase();
   await deviceModalShowcase();
+  await layoutEditorShowcase();
 
   if (want('dashboard-statistics')) {
     // Needs the fake companion (--fake-companion): it feeds the hourly values.
@@ -322,6 +323,33 @@ async function deviceModalShowcase() {
     }
     await s.ctx.close();
   }
+}
+
+// Der Layout-Editor im Einzelnen: Kartenoptionen als Ausschnitt, die Zielbreite als ganze Seite. Das Bild des Baustein-Fensters
+// entsteht oben in `dashboard-layout-editor`.
+async function layoutEditorShowcase() {
+  const names = ['dashboard-layout-editor-options', 'dashboard-layout-editor-tablet'];
+  if (!names.some(want)) return;
+  const s = await session(1280, 900);
+  await s.page.getByRole('button', { name: 'Edit', exact: true }).first().click();
+  await s.page.waitForTimeout(2000);
+  if (want('dashboard-layout-editor-tablet')) {
+    await s.page.getByRole('button', { name: 'Tablet' }).first().click();
+    await s.page.waitForTimeout(1200);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-layout-editor-tablet');
+    await s.page.getByRole('button', { name: 'Editor width' }).first().click();
+    await s.page.waitForTimeout(800);
+  }
+  if (want('dashboard-layout-editor-options')) {
+    await s.page.locator('.layout-grid-item').first().hover();
+    await s.page.locator('[data-role="options"]').first().click();
+    await s.page.waitForTimeout(800);
+    await element(s.page.locator('#layout-options-modal .layout-modal-sheet'), 'dashboard-layout-editor-options');
+    await s.page.keyboard.press('Escape');
+    await s.page.waitForTimeout(400);
+  }
+  await s.ctx.close();
 }
 
 async function deviceMapShowcase() {

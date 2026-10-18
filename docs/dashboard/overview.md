@@ -32,18 +32,12 @@ Energy tab. None of them is hard-coded to a particular device.
 
 ## The layout editor
 
-![Layout editor with the block picker open](../images/dashboard-layout-editor.png)
-
 **Edit** turns the overview into an editor. You can drag and resize cards, add
-pages and pick new blocks from the panel on the right. The picker has the tabs
-**cards**, **devices** and **entities**, so one layout page can mix computed
-energy cards with a raw device tile or a single measured value.
-
+pages and pick new blocks from the panel on the right, so one layout page can mix
+computed energy cards with a raw device tile or a single measured value. The
+[layout editor](layout-editor.md) page describes how it works.
 [Overview cards](overview-cards.md) lists every block with its options,
 defaults and minimum width.
-
-The editor can preview the layout at phone, tablet or monitor width. Layouts
-are versioned. Every save is a revision you can restore.
 
 ### History tile
 
