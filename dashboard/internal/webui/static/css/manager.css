@@ -1285,6 +1285,9 @@ div.devicemap-view-menu-row { cursor: default; }
   transition: background-color .15s ease; }
 .energy-acc-toggle:hover:not(:disabled) { background: color-mix(in srgb, var(--text-strong) 4%, transparent); border: 0; color: var(--text-strong); }
 .energy-acc-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.energy-acc-icon { display: grid; place-items: center; flex: none; width: 1.4rem; height: 1.4rem; color: var(--text-subtle); }
+.energy-acc-icon svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.energy-sub-overview { display: grid; gap: .8rem; padding: .85rem 1rem; min-width: 0; }
 .energy-acc-title { font-size: 1rem; font-weight: 600; letter-spacing: -.01em; }
 .energy-acc-meta { margin-left: auto; font-size: .8rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .energy-acc-chevron { flex: none; width: 18px; height: 18px; fill: none; stroke: var(--text-muted); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .25s var(--energy-ease); }
