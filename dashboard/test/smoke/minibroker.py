@@ -80,7 +80,13 @@ SIMULATED_TOPICS = {
     "zaehler/netz/status": (-1250, 800, 45, 1.0),
     "batterie/wr/status": (900, 500, 60, 2.0),
     "zaehler/haus/status": (2050, 300, 30, 0.5),
+    # Keller der Fixture alle-funktionen: Waermepumpe und Entfeuchter haengen
+    # am Relais Keller, dessen Leistung unten als Summe beider berechnet wird.
+    "waermepumpe/status": (450, 150, 40, 0.3),
+    "plug/entfeuchter/status": (220, 60, 25, 1.7),
 }
+RELAY_SUM_TOPIC = "relais/keller/status"
+RELAY_SUM_SOURCES = ("waermepumpe/status", "plug/entfeuchter/status")
 
 
 def load_fixture(path):
@@ -259,7 +265,13 @@ def simulate_loop(messages, connections):
                 continue
             state = json.loads(messages[topic])
             state["apower"] = round(base + amplitude * math.sin(t / period + phase))
-            broadcast(messages, connections, topic, json.dumps(state).encode("utf-8"), False)
+            messages[topic] = json.dumps(state).encode("utf-8")
+            broadcast(messages, connections, topic, messages[topic], False)
+        if RELAY_SUM_TOPIC in messages and all(src in messages for src in RELAY_SUM_SOURCES):
+            relay_state = json.loads(messages[RELAY_SUM_TOPIC])
+            relay_state["apower"] = sum(json.loads(messages[src])["apower"] for src in RELAY_SUM_SOURCES)
+            messages[RELAY_SUM_TOPIC] = json.dumps(relay_state).encode("utf-8")
+            broadcast(messages, connections, RELAY_SUM_TOPIC, messages[RELAY_SUM_TOPIC], False)
 
 
 def broadcast(messages, connections, topic, payload, retain):

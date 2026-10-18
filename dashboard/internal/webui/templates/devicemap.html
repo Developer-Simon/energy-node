@@ -99,7 +99,7 @@
                   <template x-if="row.subDevice">
                     <button type="button" class="nav-row-button" x-on:click="navigatePanel(row.subDevice.id)">
                       <span class="devicemap-sub-name"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="iconMarkup[row.subDevice.icon] || ''"></svg><span x-text="row.subDevice.label"></span></span>
-                      <span>{{t "devicemap.sub.show"}}</span>
+                      {{template "devicemap-nav-arrow"}}
                     </button>
                   </template>
                   <button type="button" class="pill-button" x-show="!row.subDevice && row.canAddSub" x-on:click="openSubForm({mode: 'create', entityId: row.id})">
