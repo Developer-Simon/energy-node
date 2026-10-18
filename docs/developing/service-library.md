@@ -61,6 +61,8 @@ the service runs.
 
 ### The status message
 
+<!-- slave-cleanup (plan .docs/superpowers/plans/2026-10-18-slave-aufraeumen.md, "Slave aufräumen"), Task 1: in the table below the rows poll_interval_s / diagnostic_poll_multiplier and actual_poll_interval_s are removed from the status message (no reader), and the value pending of runtime_status is dropped (never set). Task 5 updates this page and deletes this comment. -->
+
 | Field | Meaning |
 |---|---|
 | `poll_interval_s`, `diagnostic_poll_multiplier` | the values in use |
