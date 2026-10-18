@@ -1,4 +1,4 @@
-// x-roll (dashboard.js) tweens a number in the device modal. Since the number
+// x-roll (device-modal.js) tweens a number in the device modal. Since the number
 // format setting, the visible text is already formatted ("12.345,6"), so the
 // directive reads the raw target from data-roll-value and the unit from
 // data-roll-unit and formats every tween frame itself.
@@ -16,7 +16,7 @@ import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const webui = path.join(here, '..', 'internal', 'webui');
-const source = fs.readFileSync(path.join(webui, 'static', 'js', 'dashboard.js'), 'utf8');
+const source = fs.readFileSync(path.join(webui, 'static', 'js', 'device-modal.js'), 'utf8');
 
 function loadRoll(i18nOptions) {
   const dom = new JSDOM('<!doctype html><html><head></head><body><span id="v"></span></body></html>', {

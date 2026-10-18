@@ -11,6 +11,7 @@ import { JSDOM } from 'jsdom';
 import { catalog, installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const modalSource = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'device-modal.js'), 'utf8');
 const source = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'dashboard.js'),
   'utf8',
@@ -26,6 +27,7 @@ function load(lang, body = '') {
   dom.window.deviceTileMixin = () => ({});
   installI18n(dom.window, { lang });
   vm.runInContext(source, dom.getInternalVMContext());
+  vm.runInContext(modalSource, dom.getInternalVMContext());
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   return { window: dom.window, factories };
 }
@@ -36,6 +38,7 @@ for (const lang of ['de', 'en']) {
   test(`device detail relative time uses the plural keys (${lang})`, () => {
     const cat = catalog(lang);
     const panel = load(lang).factories.devicesPanel();
+    panel.installDeviceModal();
     const now = new Date('2026-09-26T12:00:00Z');
     for (const n of [0, 1, 2]) {
       const at = new Date(now.getTime() - n * 1000);

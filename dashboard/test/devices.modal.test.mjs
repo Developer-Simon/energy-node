@@ -15,6 +15,7 @@ import { JSDOM } from 'jsdom';
 import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const modalSource = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'device-modal.js'), 'utf8');
 const source = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'dashboard.js'),
   'utf8',
@@ -36,8 +37,11 @@ function createDevicesPanel() {
   dom.window.deviceTileMixin = () => ({});
   installI18n(dom.window);
   vm.runInContext(source, context);
+  vm.runInContext(modalSource, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   const panel = factories.devicesPanel();
+  // Im Betrieb laedt selectDevice() device-modal.js nach, hier liegt es schon da.
+  panel.installDeviceModal();
   // Fuer Tests, die window.Choices doubeln muessen.
   Object.defineProperty(panel, 'testWindow', {value: dom.window});
   return panel;
@@ -198,6 +202,56 @@ test('messageStates zerlegt ein JSON-Payload in einzelne Zustaende', () => {
   const panel = createDevicesPanel();
   const states = panel.messageStates({ topic: 't', at: '2026-08-28T12:00:00Z', payload: '{"car":2,"amp":16}' });
   assert.deepEqual(plainStates(states), ['car=2', 'amp=16']);
+});
+
+test('messageStates schluesselt verschachtelte Objekte mit Punkt-Pfad auf', () => {
+  const panel = createDevicesPanel();
+  const states = panel.messageStates({ topic: 't', at: '', payload: '{"balance":{"pv":4200,"categories":{"werkstatt":536}},"tags":[1,2]}' });
+  assert.deepEqual(plainStates(states), ['balance.pv=4200', 'balance.categories.werkstatt=536', 'tags=[1,2]']);
+});
+
+test('activityEntries ist flach, neueste Nachricht oben, mit stabilen Schluesseln', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1,"y":2}' } },
+    { unique_id: 'b', last_message: { topic: 'b', at: '2026-10-18T10:00:05Z', payload: 'on' } },
+  ], command_actions: [] };
+  const first = Array.from(panel.activityEntries, entry => entry.key);
+  assert.deepEqual(first, ['msg-b-2026-10-18T10:00:05Z-value', 'msg-a-2026-10-18T10:00:00Z-x', 'msg-a-2026-10-18T10:00:00Z-y']);
+  // Ein Live-Refresh mit identischen Daten liefert dieselben Schluessel.
+  panel.deviceDetail = JSON.parse(JSON.stringify(panel.deviceDetail));
+  assert.deepEqual(Array.from(panel.activityEntries, entry => entry.key), first);
+});
+
+test('recentMessages zaehlt eine Nachricht auf einem geteilten Topic nur einmal', () => {
+  const panel = createDevicesPanel();
+  const message = { topic: 'energy/balance', at: '2026-10-18T10:00:00Z', payload: '{"pv":1}' };
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'pv', last_message: message },
+    { unique_id: 'grid', last_message: { ...message } },
+    { unique_id: 'other', last_message: { topic: 'other', at: '2026-10-18T09:00:00Z', payload: '1' } },
+  ] };
+  assert.deepEqual(Array.from(panel.recentMessages, entry => entry.unique_id), ['pv', 'other']);
+});
+
+test('activityLog waechst: neue Eintraege oben, alte bleiben darunter', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1}' } },
+  ], command_actions: [] };
+  panel.mergeActivity();
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:05Z', payload: '{"x":2}' } },
+  ], command_actions: [] };
+  panel.mergeActivity();
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 2', 'x: 1']);
+  // Ein Refresh ohne neue Nachricht aendert nichts.
+  panel.mergeActivity();
+  assert.equal(panel.activityLog.length, 2);
+  // Schliessen verwirft das Log.
+  panel.$refs = {};
+  panel.closeDeviceDetail();
+  assert.equal(panel.activityLog.length, 0);
 });
 
 test('messageStates zeigt ein skalares Payload als eine Zeile unter dem Topic', () => {
@@ -680,7 +734,7 @@ test('opening a device clears the previous sub-devices before the new map arrive
     if (url.includes('/api/v1/device/map')) throw new Error('map down');
     return { ok: true, status: 200, json: async () => ({ id: 'wp', name: 'Wärmepumpe', entities }) };
   };
-  await panel.selectDevice('wp');
+  await panel.openDevice('wp');
   assert.equal(panel.subDevices.length, 0);
   assert.equal(panel.subDevicesReady, false);
   assert.equal(panel.subCreateVisible(entities[0]), false);
