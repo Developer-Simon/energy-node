@@ -45,7 +45,7 @@
     return body;
   };
 
-  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories'];
+  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories', 'subdevices'];
   const readOpenSection = () => {
     try {
       const stored = localStorage.getItem('energy-open-section');
@@ -121,6 +121,7 @@
     groups: {},
     devicesList: [],
     iconCatalogue: [],
+    subDeviceEntries: [],
 
     init() {
       // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
@@ -129,6 +130,8 @@
       window.addEventListener('energy-roles-changed', event => {
         if ((event.detail || {}).source !== ENERGY_PAGE_SOURCE) this.load();
       });
+      // Sub-device labels come from the device map, which the map page saves.
+      window.addEventListener('device-map-changed', () => this.load());
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
     },
@@ -176,6 +179,7 @@
       }
       if (name === 'groups') return tn('energy.section.groups_meta', Object.keys(this.groups).length, {n: Object.keys(this.groups).length});
       if (name === 'categories') return tn('energy.section.categories_meta', Object.keys(this.categories).length, {n: Object.keys(this.categories).length});
+      if (name === 'subdevices') return tn('energy.section.subdevices_meta', this.subDeviceEntries.length, {n: this.subDeviceEntries.length});
       return '';
     },
 
@@ -276,13 +280,14 @@
     async load() {
       this.loading = true;
       try {
-        const [, devices, saved, snapshot, icons, switches] = await Promise.all([
+        const [, devices, saved, snapshot, icons, switches, deviceMap] = await Promise.all([
           this.loadSession(),
           requestJSON('/api/v1/devices'),
           requestJSON('/api/v1/energy/roles'),
           requestJSON('/api/v1/energy'),
           requestJSON('/api/v1/device/icons').catch(() => []),
           requestJSON('/api/v1/devices/switches').catch(() => []),
+          requestJSON('/api/v1/device/map').catch(() => ({})),
         ]);
         const savedAssignments = saved.assignments || {};
         const resolved = Object.fromEntries((snapshot.entities || []).map(item => [item.entity_id, item.role]));
@@ -292,9 +297,15 @@
             .filter(entity => ['W', 'kW', '%'].includes(entity.unit_of_measurement))
             .map(entity => {
               const shortName = stripDevicePrefix(device.name, entity.name || entity.object_id);
+              // A sub-device row reads "<device> · <sub-device>", the meter
+              // device stays visible next to the measurement it belongs to.
+              const subLabel = window.DeviceMapSubDevices.labelFor(deviceMap, entity.unique_id);
+              let label;
+              if (subLabel) label = device.name ? `${device.name} · ${subLabel}` : subLabel;
+              else label = shortName ? `${device.name} / ${shortName}` : device.name;
               return {
                 id: entity.unique_id,
-                label: shortName ? `${device.name} / ${shortName}` : device.name,
+                label,
                 unit: entity.unit_of_measurement,
                 assignment: savedAssignments[entity.unique_id] || resolved[entity.unique_id] || {},
               };
@@ -324,6 +335,17 @@
           .filter(device => device.id !== OWN_ENERGY_DEVICE_ID)
           .map(device => ({id: device.id, name: device.name || device.id, manufacturer: device.manufacturer || '', icon: device.icon_name || device.suggested_icon || ''}));
         this.iconCatalogue = icons || [];
+        // Read-only overview of the sub-devices, never part of the categories.
+        const meterName = deviceId => {
+          const device = devices.find(item => item.id === deviceId);
+          return device ? (device.name || device.id) : deviceId;
+        };
+        this.subDeviceEntries = window.DeviceMapSubDevices.list(deviceMap).map(sub => ({
+          id: sub.id,
+          label: sub.label || sub.entity_id,
+          iconMarkup: this.iconMarkupOf(sub.icon),
+          meter: meterName(sub.device_id),
+        }));
         this.unassigned = snapshot.unassigned || [];
         this.unassignedCount = snapshot.unassigned_count || 0;
         this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;

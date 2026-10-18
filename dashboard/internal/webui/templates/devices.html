@@ -82,6 +82,28 @@
 {{end}}
 
 
+{{define "device-icon-picker"}}
+<div class="device-prefs-icon-groups" role="radiogroup" aria-label="{{t "devices.icon.label"}}">
+  <template x-for="group in deviceIconGroups" :key="group.category">
+    <div class="device-prefs-icon-group">
+      <h5 class="device-prefs-icon-group-title" x-text="$t(group.categoryKey)"></h5>
+      <div class="device-prefs-icons">
+        <template x-for="icon in group.icons" :key="icon.name">
+          <button type="button" class="device-prefs-icon" role="radio"
+                  x-bind:class="{ active: {{.Current}} === icon.name }"
+                  x-bind:aria-checked="({{.Current}} === icon.name).toString()"
+                  x-bind:title="icon.name === {{.Default}} ? $t('devices.icon.suggested', {label: $t(icon.labelKey)}) : $t(icon.labelKey)"
+                  {{if .Disabled}}x-bind:disabled="{{.Disabled}}"{{end}}
+                  x-on:click="{{.Pick}}(icon.name)">
+            <span x-html="iconMarkup(icon.name)"></span>
+          </button>
+        </template>
+      </div>
+    </div>
+  </template>
+</div>
+{{end}}
+
 {{define "device-modal"}}
 <dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading" data-choices-script="{{.BasePath}}/static/js-deps/choices.min.js" data-choices-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2">
   <div class="device-modal-topbar">
@@ -202,24 +224,7 @@
           <p class="device-prefs-hint" x-show="!canEditPrefs">{{t "devices.appearance.permission_required"}}</p>
           <div class="device-prefs" x-show="canEditPrefs">
             <p class="device-prefs-hint">{{t "devices.appearance.note"}}</p>
-            <div class="device-prefs-icon-groups" role="radiogroup" aria-label="{{t "devices.icon.label"}}">
-              <template x-for="group in deviceIconGroups" :key="group.category">
-                <div class="device-prefs-icon-group">
-                  <h5 class="device-prefs-icon-group-title" x-text="$t(group.categoryKey)"></h5>
-                  <div class="device-prefs-icons">
-                    <template x-for="icon in group.icons" :key="icon.name">
-                      <button type="button" class="device-prefs-icon" role="radio"
-                              x-bind:class="{ active: draftIconName === icon.name }"
-                              x-bind:aria-checked="(draftIconName === icon.name).toString()"
-                              x-bind:title="icon.name === defaultIconName ? $t('devices.icon.suggested', {label: $t(icon.labelKey)}) : $t(icon.labelKey)"
-                              x-on:click="pickIcon(icon.name)">
-                        <span x-html="iconMarkup(icon.name)"></span>
-                      </button>
-                    </template>
-                  </div>
-                </div>
-              </template>
-            </div>
+            {{template "device-icon-picker" dict "Current" "draftIconName" "Default" "defaultIconName" "Pick" "pickIcon"}}
             <label class="device-prefs-hint" for="device-prefs-favorites">{{t "devices.favourites.label"}}</label>
             <div class="device-prefs-favorites">
               <select id="device-prefs-favorites" multiple x-ref="favoritesSelect" x-on:change="syncFavoritesFromChoices()"></select>
@@ -331,6 +336,21 @@
     </div>
   </div>
 </dialog>
+<dialog id="device-sub-dialog" class="device-detail" x-ref="subDeviceDialog" aria-labelledby="device-sub-heading" x-on:close="closeSubDeviceForm()">
+  <template x-if="subForm">
+    <form method="dialog" x-on:submit.prevent="saveSubDeviceForm()">
+      <div class="device-detail-header"><h3 id="device-sub-heading" x-text="subForm.subId ? $t('devices.sub.edit') : $t('devices.sub.create')"></h3></div>
+      <p class="message error" x-show="subForm.error" x-text="subForm.error"></p>
+      <label class="device-sub-field"><span>{{t "devices.sub.name"}}</span><input type="text" x-model="subForm.name" x-bind:disabled="subSaving"></label>
+      <span class="device-sub-field-label">{{t "devices.sub.icon"}}</span>
+      {{template "device-icon-picker" dict "Current" "subForm.icon" "Default" "defaultIconName" "Pick" "pickSubIcon" "Disabled" "subSaving"}}
+      <div class="device-sub-actions">
+        <button type="button" x-on:click="closeSubDeviceForm()">{{t "common.cancel"}}</button>
+        <button type="submit" class="primary" x-bind:disabled="subSaving">{{t "common.save"}}</button>
+      </div>
+    </form>
+  </template>
+</dialog>
 <dialog id="device-discovery-delete-dialog" class="device-detail" x-ref="discoveryDeleteDialog" aria-labelledby="device-discovery-delete-heading">
   <form method="dialog" x-on:submit.prevent="closeDiscoveryDelete()">
     <div class="device-detail-header"><h3 id="device-discovery-delete-heading">{{t "devices.management.delete_title"}}</h3><button type="submit">{{t "devices.management.delete_close"}}</button></div>
@@ -355,6 +375,7 @@
   <div class="device-modal-meta-line" x-show="deviceDetail?.model"><dt>{{t "devices.device_info.model"}}</dt><dd x-text="deviceDetail?.model"></dd></div>
   <div class="device-modal-meta-line" x-show="deviceDetail?.firmware"><dt>{{t "devices.device_info.firmware"}}</dt><dd x-text="deviceDetail?.firmware"></dd></div>
   <div class="device-modal-meta-line"><dt>{{t "devices.device_info.entities"}}</dt><dd x-text="deviceDetail?.entities?.length || 0"></dd></div>
+  <template x-if="subManageOffered()"><button type="button" class="device-modal-sub-btn device-modal-manage-btn" x-bind:class="{ 'is-on': subManage }" x-bind:aria-pressed="subManage ? 'true' : 'false'" x-on:click="subManage = !subManage"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-layers"></use></svg>{{t "devices.sub.manage"}}</button></template>
 </div>
 <div x-show="deviceDetail?.relations?.length">
   <h5>{{t "devices.device_info.linked_devices"}}</h5>
@@ -375,6 +396,17 @@
   <article class="device-modal-stat" x-bind:class="{ 'is-warn': entity.stale || (entity.has_availability && !entity.available) }">
     <div class="k" x-text="entityDisplayName(entity)"></div>
     <div class="v"><span x-roll x-bind:data-roll-value="entity.value" x-bind:data-roll-unit="entity.unit_of_measurement || ''" x-text="entity.has_value ? I18n.formatValue(entity.value, entity.unit_of_measurement) : '-'"></span><small x-show="entity.has_value && entity.unit_of_measurement" x-text="entity.unit_of_measurement"></small></div>
+    <div class="device-modal-sub" x-show="subDeviceRowVisible(entity)" x-cloak>
+      <div class="device-modal-sub-current" x-show="subDeviceFor(entity)">
+        <span class="device-modal-sub-icon" aria-hidden="true" x-html="iconMarkup(subDeviceFor(entity)?.icon)"></span>
+        <span class="device-modal-sub-name" x-text="subDeviceFor(entity)?.label"></span>
+      </div>
+      <div class="device-modal-sub-actions" x-show="subActionsVisible(entity)">
+        <button type="button" class="device-modal-sub-btn device-modal-sub-create" x-show="subCreateVisible(entity)" x-on:click="openSubDeviceForm(entity)"><svg aria-hidden="true"><use href="#ico-plus"></use></svg><span>{{t "devices.sub.create"}}</span></button>
+        <button type="button" class="device-modal-sub-btn device-modal-sub-icon-btn" x-show="subDeviceFor(entity)" aria-label="{{t "devices.sub.edit_aria"}}" title="{{t "devices.sub.edit_aria"}}" x-on:click="openSubDeviceForm(entity, subDeviceFor(entity))"><svg aria-hidden="true"><use href="#ico-pencil"></use></svg></button>
+        <button type="button" class="device-modal-sub-btn device-modal-sub-icon-btn is-danger" x-show="subDeviceFor(entity)" aria-label="{{t "devices.sub.delete_aria"}}" title="{{t "devices.sub.delete_aria"}}" x-on:click="deleteSubDevice(subDeviceFor(entity))"><svg aria-hidden="true"><use href="#ico-trash"></use></svg></button>
+      </div>
+    </div>
   </article>
 </template>
 {{end}}

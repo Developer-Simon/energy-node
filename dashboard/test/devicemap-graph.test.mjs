@@ -15,7 +15,7 @@ export function loadGraph() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
   const context = dom.getInternalVMContext();
-  for (const name of ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-graph.js', 'devicemap-wiring.js']) {
+  for (const name of ['devicemap-model.js', 'devicemap-node-svg.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js']) {
     vm.runInContext(fs.readFileSync(path.join(jsDir, name), 'utf8'), context);
   }
   return dom.window;
@@ -35,6 +35,19 @@ test('wiringElements prefers override ids and memberships over discovery relatio
     { id: 'edge-group:uv::wb', source: 'group:uv', target: 'wb', membership: { group: 'uv', member: 'wb' }, connType: 'energy', direction: 'auto', heuristic: false },
     { id: 'edge-netz::pv', source: 'netz', target: 'pv', overrideId: 'o1', connType: 'data', direction: 'auto', heuristic: true },
   ]);
+});
+
+test('sub-device edge is fixed energy and carries the channel', () => {
+  const { DeviceMapGraph } = loadGraph();
+  const deviceMap = {
+    edges: [],
+    edge_props: [{ parent_id: 'plug_b', child_id: 'sub:wm', type: 'energy', direction: 'auto', channel: 2 }],
+    sub_devices: [{ id: 'sub:wm', label: 'Waschmaschine', icon: 'energy-node:plug-smart', device_id: 'plug_b', entity_id: 'plug_b_power' }],
+  };
+  const edges = DeviceMapGraph.wiringElements({ devices: [{ id: 'plug_b' }], deviceMap, groups: {}, nodeIds: new Set(['plug_b', 'sub:wm']) });
+  assert.equal(edges.length, 1);
+  assert.deepEqual(plain(edges[0].data), { id: 'edge-plug_b::sub:wm', source: 'plug_b', target: 'sub:wm', subDevice: true, connType: 'energy', direction: 'fixed_down', heuristic: false, channel: 2 });
+  assert.match(edges[0].classes, /devicemap-conn-energy/);
 });
 
 test('wiring edges carry their connection type as class and data', () => {

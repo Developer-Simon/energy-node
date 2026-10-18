@@ -9,6 +9,7 @@
   const BALANCE_ID = 'balance';
   const STUB_PREFIX = 'stub:';
   const AUTOMATION_DEVICE_ID = 'automation';
+  const SUB_PREFIX = 'sub:';
   const ruleId = id => `rule:${encodeURIComponent(id)}`;
 
   // The lines to the automation node: rule executions and every wiring or
@@ -23,16 +24,18 @@
     if (id.startsWith('rule:')) return 'rule';
     if (id.startsWith('service:')) return 'service';
     if (id.startsWith(STUB_PREFIX)) return 'stub';
+    if (id.startsWith(SUB_PREFIX)) return 'sub';
     return 'device';
   };
   const isVirtualId = id => nodeKind(id) !== 'device';
-  const isPersistedVirtual = id => ['balance', 'group', 'rule', 'service'].includes(nodeKind(id));
+  const isPersistedVirtual = id => ['balance', 'group', 'rule', 'service', 'sub'].includes(nodeKind(id));
 
   // The virtual balance node stands in for the Energy Node device, so it shows
   // with the roles layer (its role edges) or with the data flow layer (the
   // balance conditions of automations).
   const nodeVisible = (kind, layers) => {
     if (kind === 'balance') return Boolean(layers.balance || layers.data);
+    if (kind === 'sub') return Boolean(layers.wiring || layers.energy || layers.balance);
     if (kind === 'rule' || kind === 'service' || kind === 'stub') return Boolean(layers.data);
     return true;
   };
@@ -82,15 +85,19 @@
     return {nodes, edges, invalid};
   };
 
-  const roleEdges = (snapshot, balanceId = BALANCE_ID) => {
+  // An entity with a sub-device starts its role edge at the sub-device node
+  // (matched by entity ID, as remapSnapshot() does), never at the meter.
+  const roleEdges = (snapshot, balanceId = BALANCE_ID, deviceMap = null) => {
+    const subs = deviceMap ? window.DeviceMapSubDevices.byEntity(deviceMap) : new Map();
     const byDevice = new Map();
     for (const entity of (snapshot && snapshot.entities) || []) {
       const role = entity.role && entity.role.role;
       if (!role || !entity.device_id || entity.device_id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID) continue;
-      let entry = byDevice.get(entity.device_id);
+      const from = subs.has(entity.entity_id) ? subs.get(entity.entity_id).id : entity.device_id;
+      let entry = byDevice.get(from);
       if (!entry) {
-        entry = {id: `role:${entity.device_id}`, cat: 'role', from: entity.device_id, to: balanceId, roles: [], entities: [], heuristic: false};
-        byDevice.set(entity.device_id, entry);
+        entry = {id: `role:${from}`, cat: 'role', from, to: balanceId, roles: [], entities: [], heuristic: false};
+        byDevice.set(from, entry);
       }
       if (!entry.roles.includes(role)) entry.roles.push(role);
       entry.entities.push(entity.entity_id);

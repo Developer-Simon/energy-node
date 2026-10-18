@@ -1589,6 +1589,33 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-stat .k { font-size: .76rem; color: var(--text-muted); overflow-wrap: anywhere; }
 .device-modal-stat .v { font-size: 1.15rem; font-variant-numeric: tabular-nums; color: var(--text-strong); margin-top: .1rem; overflow-wrap: anywhere; }
 .device-modal-stat .v small { font-size: .66rem; color: var(--text-faint); font-weight: 400; margin-left: .2rem; }
+.device-modal-sub { display: grid; gap: .35rem; margin-top: .5rem; padding-top: .45rem; border-top: 1px solid var(--border-soft); }
+.device-modal-sub-current { display: flex; align-items: center; gap: .4rem; min-width: 0; font-size: .82rem; color: var(--text); }
+.device-modal-sub-icon { display: inline-grid; flex: none; color: var(--accent); }
+.device-modal-sub-icon svg { width: 18px; height: 18px; }
+.device-modal-sub-name { overflow-wrap: anywhere; }
+.device-modal-sub-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+.device-modal-manage-btn { margin-top: .5rem; }
+.device-modal-manage-btn.is-on { background: var(--panel-alt); border-color: var(--border-soft); color: var(--text); }
+/* Sub-device row buttons: quiet by default. Create is a small accent text
+   button with the plus icon, edit and delete are 32px icon buttons. Delete
+   only turns red on hover or focus. Press feedback is a transform, dropped
+   under reduced motion. */
+.device-modal-sub-btn { display: inline-flex; align-items: center; justify-content: center; gap: .3rem; min-height: 32px; min-width: 32px; padding: .25rem .5rem; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font: inherit; font-size: .76rem; cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+.device-modal-sub-btn svg { width: 14px; height: 14px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.device-modal-sub-btn:hover:not(:disabled) { background: var(--panel-alt); border-color: var(--border-soft); color: var(--text); }
+.device-modal-sub-create { color: var(--accent); padding-inline: .45rem; }
+.device-modal-sub-create:hover:not(:disabled) { color: var(--accent); border-color: var(--accent-line); }
+.device-modal-sub-btn.is-danger:hover:not(:disabled), .device-modal-sub-btn.is-danger:focus-visible { color: var(--bad); border-color: var(--bad-line); background: var(--bad-bg); }
+.device-modal-sub-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.device-modal-sub-btn:active:not(:disabled) { transform: scale(.97); transition: transform 100ms ease-out; }
+.device-modal-sub-btn:disabled { opacity: .5; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .device-modal-sub-btn, .device-modal-sub-btn:active:not(:disabled) { transition: none; transform: none; }
+}
+.device-sub-field { display: grid; gap: .3rem; margin: .6rem 0; font-size: .82rem; color: var(--text-muted); }
+.device-sub-field-label { display: block; margin: .6rem 0 .3rem; font-size: .82rem; color: var(--text-muted); }
+.device-sub-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .8rem; }
 
 .device-modal-control-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .7rem; }
 .device-modal-control-card { background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .9rem 1rem; }

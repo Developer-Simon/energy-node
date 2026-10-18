@@ -12,8 +12,11 @@
 //   B) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-installed
 //      node test/smoke/docs-screenshots.mjs dashboard-settings-versions
 //
-// Ohne Namen werden alle Bilder ausser dashboard-history und
-// dashboard-settings-versions geschrieben. Namen als Argumente begrenzen den
+//   C) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package --fake-companion
+//      node test/smoke/docs-screenshots.mjs dashboard-statistics
+//
+// Ohne Namen werden alle Bilder ausser dashboard-history,
+// dashboard-settings-versions und dashboard-statistics geschrieben. Namen als Argumente begrenzen den
 // Lauf auf genau diese Bilder.
 //
 // Der Verlauf wird im Browser aufgezeichnet (IndexedDB, history-recorder.js).
@@ -50,7 +53,7 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const OPT_IN = ['dashboard-history', 'dashboard-settings-versions'];
+const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics'];
 const want = (name) => (args.names.length ? args.names.includes(name) : !OPT_IN.includes(name));
 
 await mkdir(args.out, { recursive: true });
@@ -173,6 +176,16 @@ async function all() {
   await energyShowcase();
   await deviceMapShowcase();
 
+  if (want('dashboard-statistics')) {
+    // Needs the fake companion (--fake-companion): it feeds the hourly values.
+    s = await session(1110, 1100);
+    await tab(s.page, 'stats');
+    await s.page.waitForTimeout(2000);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-statistics');
+    await s.ctx.close();
+  }
+
   const subpages = [
     ['dashboard-settings-general', 'settings-general', 819],
     ['dashboard-settings-display', 'settings-display', 769],
@@ -280,7 +293,7 @@ async function deviceMapShowcase() {
   const names = ['dashboard-device-map-device-panel', 'dashboard-device-map-group-panel', 'dashboard-device-map-picker',
     'dashboard-device-map-view-menu', 'dashboard-device-map-create-group', 'dashboard-device-map-category',
     'dashboard-device-map-balance', 'dashboard-device-map-dataflow', 'dashboard-device-map-switch-off',
-    'dashboard-device-map-switch-channel'];
+    'dashboard-device-map-switch-channel', 'dashboard-device-map-sub-device'];
   if (!names.some(want)) return;
   const s = await session(1110, 928);
   await tab(s.page, 'devicemap');
@@ -324,7 +337,7 @@ async function deviceMapShowcase() {
     panel.openWiringPopover(edge.renderedMidpoint());
   }, [a, b]);
   if (want('dashboard-device-map-switch-off')) {
-    // Plug Balkon is switched off: the wiring card of its edge to the
+    // Plug Balcony is switched off: the wiring card of its edge to the
     // inverter is open, the view is framed on that pair and its neighbours.
     await openWiringCard('plug_balkon', 'balkon_kraftwerk');
     await s.page.waitForTimeout(1200);
@@ -333,12 +346,40 @@ async function deviceMapShowcase() {
     await s.page.waitForTimeout(600);
   }
   if (want('dashboard-device-map-switch-channel')) {
-    // Channel 2 of Relais Keller is off: its edge to the dehumidifier is cut,
+    // Channel 2 of Cellar Relay is off: its edge to the dehumidifier is cut,
     // the card shows the switch state and the cause above the link.
     await openWiringCard('relais_keller', 'plug_entfeuchter');
     await s.page.waitForTimeout(1200);
     await element(stage, 'dashboard-device-map-switch-channel');
     await map(() => window.Alpine.$data(document.querySelector('#devicemap-panel')).clearEdgeSelection());
+    await s.page.waitForTimeout(600);
+  }
+  if (want('dashboard-device-map-sub-device')) {
+    // The sub-device Washing machine hangs on the power value of the dehumidifier
+    // plug: its panel is open, the view is framed on the pair and the arrows are curved (local only, not saved).
+    await map(() => {
+      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+      const cy = document.querySelector('#devicemap-panel [x-ref="canvas"]')._cyreg.cy;
+      window.__prevEdgeStyle = panel.view.edge_style;
+      panel.setEdgeStyle('curved');
+      panel.openPanel('sub:waschmaschine');
+      // Frame the pair in the part of the stage the open panel leaves free.
+      const bb = cy.getElementById('sub:waschmaschine').union(cy.getElementById('plug_entfeuchter')).boundingBox();
+      const free = cy.width() - 400;
+      const zoom = Math.min(free / (bb.w + 200), cy.height() / (bb.h + 260), 1.1);
+      cy.zoom(zoom);
+      cy.pan({x: (free - (bb.x1 + bb.x2) * zoom) / 2, y: (cy.height() - (bb.y1 + bb.y2) * zoom) / 2});
+      panel.unsaved = false;
+      panel.placedCount = 0;
+    });
+    await s.page.waitForTimeout(1200);
+    await element(stage, 'dashboard-device-map-sub-device');
+    await map(() => {
+      const panel = window.Alpine.$data(document.querySelector('#devicemap-panel'));
+      panel.closePanel();
+      panel.setEdgeStyle(window.__prevEdgeStyle);
+      panel.unsaved = false;
+    });
     await s.page.waitForTimeout(600);
   }
   if (want('dashboard-device-map-view-menu')) {

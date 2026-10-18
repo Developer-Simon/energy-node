@@ -31,5 +31,9 @@ why Home Assistant does not see a device.
 The default view is a setting, so a tablet on the wall can open straight into
 the compact view.
 
+The device dialog of a device that measures power lists its
+[sub-devices](device-map.md#sub-devices). There you can create, edit and delete
+a sub-device, which gives the measurement a name such as "Washing machine".
+
 How the devices are wired and what they contribute to the energy balance is on
 the [device map](device-map.md).

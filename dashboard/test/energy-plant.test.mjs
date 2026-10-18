@@ -9,7 +9,7 @@ import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const files = ['theme.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-dataflow.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'energy-plant.js'];
+const files = ['theme.js', 'devicemap-model.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'devicemap-dataflow.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'energy-plant.js'];
 
 function routes(table) {
   return async url => {
@@ -22,7 +22,7 @@ function routes(table) {
 // isActive() reads the energy panel's "active" class and the page
 // visibility, so the DOM carries the panel and jsdom pretends to be visible.
 function createPlant(table) {
-  const dom = new JSDOM('<!doctype html><html><body><section id="energy-panel" class="active"></section></body></html>', { runScripts: 'outside-only', pretendToBeVisual: true });
+  const dom = new JSDOM('<!doctype html><html><body><section id="energy-panel" class="active"></section></body></html>', { runScripts: 'outside-only', pretendToBeVisual: true, url: 'http://localhost/' });
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = routes(table);
@@ -55,7 +55,7 @@ test('the plant view ignores the saved layers and shows energy and balance', asy
   const ids = component.elements().map(element => element.data.id);
   assert.ok(ids.includes('balance'));
   assert.ok(ids.includes('group:uv'));
-  assert.ok(ids.includes('data-role:pv'), 'role edges are drawn');
+  assert.ok(!ids.includes('data-role:pv'), 'role edges are opt-in and off by default');
   assert.ok(!ids.some(id => id.startsWith('rule:')), 'no data flow nodes');
 });
 
@@ -161,4 +161,99 @@ test('a data edge draws no flow and adds no group value', async () => {
   assert.ok(!ids.includes('flow-group:uv::pv'), 'the data edge draws no flow');
   const group = plant.labelItems().find(item => item.id === 'group:uv');
   assert.equal(group.value, 'Gruppe · Σ 300 W', 'only the membership edge (300 W) sums, the data edge (pv, 500 W) does not');
+});
+
+// A plug with two power entities, the first measured as sub:wm and a second
+// sub-device (sub:gone) whose entity no longer exists.
+const SUB_TABLE = {
+  '/api/v1/devices': [
+    { id: 'plug', name: 'Steckdose', relations: [], entities: [
+      { unique_id: 'power_1', unit_of_measurement: 'W', value: '300' },
+      { unique_id: 'power_2', unit_of_measurement: 'W', value: '200' },
+    ] },
+  ],
+  '/api/v1/device/map': {
+    version: 3,
+    nodes: [{ device_id: 'plug', x: 100, y: 100 }, { virtual_id: 'sub:wm', x: 400, y: 50 }],
+    edges: [],
+    sub_devices: [
+      { id: 'sub:wm', label: 'Waschmaschine', icon: 'plug', device_id: 'plug', entity_id: 'power_1' },
+      { id: 'sub:gone', label: 'Trockner', icon: 'plug', device_id: 'plug', entity_id: 'power_9' },
+    ],
+    edge_props: [{ parent_id: 'plug', child_id: 'sub:wm', type: 'energy', channel: 1 }],
+  },
+  '/api/v1/energy': { entities: [
+    { device_id: 'plug', entity_id: 'power_1', value: 300, unit: 'W', role: { role: 'load', source: 'override' } },
+    { device_id: 'plug', entity_id: 'power_2', value: 200, unit: 'W', role: { role: 'load', source: 'override' } },
+  ], balance: {} },
+  '/api/v1/energy/roles': { assignments: {}, groups: {}, categories: {} },
+  '/api/v1/device/icons': [],
+};
+
+test('plant view draws the sub-device at its saved position', async () => {
+  const { component } = createPlant(SUB_TABLE);
+  await component.load();
+  const elements = component.elements();
+  const byId = id => elements.find(element => element.data.id === id);
+
+  const wm = byId('sub:wm');
+  assert.deepEqual(JSON.parse(JSON.stringify(wm.position)), { x: 400, y: 50 }, 'drawn at the saved spot');
+  assert.equal(wm.data.name, 'Waschmaschine');
+  assert.equal(wm.classes, 'devicemap-sub');
+  assert.match(decodeURIComponent(wm.data.svg), /data-border="sub"/, 'dashed ring');
+  assert.doesNotMatch(decodeURIComponent(wm.data.svg), /data-health=/, 'no health dot');
+
+  const gone = byId('sub:gone');
+  assert.ok(gone.classes.includes('devicemap-sub-orphan'), 'entity is gone, so the node is an orphan');
+  assert.ok(gone.position, 'an orphan without a saved spot still gets one');
+
+  // The meter keeps the ring of its remaining entity, the sub-device edge
+  // carries the sub-device's own measurement.
+  assert.deepEqual(JSON.parse(JSON.stringify(component.energyByDevice().get('plug').roles)), ['load']);
+  assert.equal(component.energyByDevice().get('plug').byRole.load, 200);
+  assert.ok(component.wiringEdges().some(edge => edge.data.source === 'plug' && edge.data.target === 'sub:wm' && edge.data.subDevice === true));
+
+  const labels = Object.fromEntries(component.labelItems().map(item => [item.id, item.value]));
+  assert.equal(labels['sub:gone'], 'Messung fehlt');
+});
+
+test('role edges are drawn only when the switch is on, and the choice is remembered per browser', async () => {
+  const { component, window } = createPlant(TABLE);
+  await component.load();
+  component.toggleRoleEdges(true);
+  assert.ok(component.elements().map(element => element.data.id).includes('data-role:pv'));
+  assert.equal(window.localStorage.getItem('energy-plant-role-edges'), '1');
+  component.toggleRoleEdges(false);
+  assert.ok(!component.elements().map(element => element.data.id).includes('data-role:pv'));
+  assert.equal(window.localStorage.getItem('energy-plant-role-edges'), '0');
+});
+
+test('a remembered role edge choice is read on load', async () => {
+  const { component, window } = createPlant(TABLE);
+  window.localStorage.setItem('energy-plant-role-edges', '1');
+  await component.load();
+  assert.equal(component.roleEdgesOn, true);
+  assert.ok(component.elements().map(element => element.data.id).includes('data-role:pv'));
+});
+
+test('unreadable storage keeps the plant working with role edges off', async () => {
+  const { component, window } = createPlant(TABLE);
+  Object.defineProperty(window, 'localStorage', { get() { throw new Error('denied'); } });
+  await component.load();
+  assert.equal(component.roleEdgesOn, false);
+  assert.doesNotThrow(() => component.toggleRoleEdges(true));
+  assert.doesNotThrow(() => component.setFocus('pv'));
+});
+
+test('sub-device role edges start at the sub-device, the meter gets only its remaining entity', async () => {
+  const { component } = createPlant(SUB_TABLE);
+  await component.load();
+  component.toggleRoleEdges(true);
+  const roles = component.elements().filter(element => element.classes && element.classes.includes('devicemap-data-role'));
+  const byId = Object.fromEntries(roles.map(element => [element.data.id, element]));
+  assert.equal(byId['data-role:sub:wm'].data.source, 'sub:wm', 'the entity of the washing machine starts at its sub-device');
+  assert.equal(byId['data-role:plug'].data.source, 'plug');
+  assert.equal(roles.length, 2, 'no role edge of the meter for the sub-device entity');
+  const meterEdge = component.roleEdgeList().find(edge => edge.from === 'plug');
+  assert.deepEqual(JSON.parse(JSON.stringify(meterEdge.entities)), ['power_2']);
 });

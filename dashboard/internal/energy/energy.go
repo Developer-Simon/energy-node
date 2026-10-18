@@ -226,6 +226,7 @@ func (s Snapshot) GridExportPower() float64 {
 type Resolver struct {
 	mu             sync.RWMutex
 	overrides      map[string]Assignment
+	labels         map[string]string
 	interpretation Interpretation
 	model          Model
 }
@@ -275,6 +276,26 @@ func (r *Resolver) SetOverrides(overrides map[string]Assignment) {
 	r.mu.Lock()
 	r.overrides = next.overrides
 	r.mu.Unlock()
+}
+
+// SetLabels/Label map an entity to the label of its sub-device, same mutex
+// pattern as SetOverrides. Aggregate uses it for ResolvedEntity.Label only,
+// the values and roles stay unchanged.
+func (r *Resolver) SetLabels(labels map[string]string) {
+	next := make(map[string]string, len(labels))
+	for id, label := range labels {
+		next[id] = label
+	}
+	r.mu.Lock()
+	r.labels = next
+	r.mu.Unlock()
+}
+
+func (r *Resolver) Label(entityID string) (string, bool) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	label, ok := r.labels[entityID]
+	return label, ok
 }
 
 // SetInterpretation/Interpretation give the automation engine and the HTTP
@@ -371,7 +392,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 				// von Prozentwerten waere Unsinn. Er wird nach der Schleife
 				// auf den gewichteten Mittelwert gesetzt.
 				state.Entities = append(state.Entities, entity.UniqueID)
-				snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: entityLabel(device, entity), Value: value, Unit: "%", Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
+				snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: resolvedLabel(resolver, device, entity), Value: value, Unit: "%", Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
 				continue
 			}
 			value, unit, err := powerValue(entity.Value, entity.UnitOfMeasurement)
@@ -414,7 +435,7 @@ func Aggregate(devices []registry.DeviceView, resolver *Resolver, at time.Time) 
 			}
 			state.Value += value
 			state.Entities = append(state.Entities, entity.UniqueID)
-			snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: entityLabel(device, entity), Value: value, Unit: unit, Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
+			snapshot.Entities = append(snapshot.Entities, ResolvedEntity{DeviceID: device.ID, EntityID: entity.UniqueID, Label: resolvedLabel(resolver, device, entity), Value: value, Unit: unit, Role: assignment, Sign: semantics.Sign, SignKey: semantics.SignKey, Quality: quality, Freshness: freshness, Source: source, LastSeen: entity.LastSeen})
 		}
 	}
 	if socCapacity > 0 {
@@ -607,6 +628,15 @@ func containsAny(value string, terms ...string) bool {
 // `${device.name} / ${entity.name || entity.object_id}`. Fehlt der
 // Geraetename, bleibt der Entitaetsteil allein stehen statt ein fuehrendes
 // " / " zu erzeugen.
+// resolvedLabel prefers the sub-device label from the resolver and falls
+// back to the device and entity name.
+func resolvedLabel(resolver *Resolver, device registry.DeviceView, entity registry.EntityView) string {
+	if label, ok := resolver.Label(entity.UniqueID); ok {
+		return label
+	}
+	return entityLabel(device, entity)
+}
+
 func entityLabel(device registry.DeviceView, entity registry.EntityView) string {
 	name := entity.Name
 	if name == "" {

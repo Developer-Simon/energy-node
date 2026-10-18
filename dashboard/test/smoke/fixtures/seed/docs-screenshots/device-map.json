@@ -105,6 +105,11 @@
       "virtual_id": "service:battery_soc_devices/battery_soc",
       "x": 1060,
       "y": 720
+    },
+    {
+      "virtual_id": "sub:waschmaschine",
+      "x": 1200,
+      "y": 480
     }
   ],
   "edges": [
@@ -194,6 +199,12 @@
       "child_id": "plug_entfeuchter",
       "type": "energy",
       "channel": 2
+    },
+    {
+      "parent_id": "plug_entfeuchter",
+      "child_id": "sub:waschmaschine",
+      "type": "energy",
+      "channel": 1
     }
   ],
   "view": {
@@ -201,5 +212,14 @@
     "show_grid": true,
     "grid_size": 20,
     "edge_style": "elbow"
-  }
+  },
+  "sub_devices": [
+    {
+      "id": "sub:waschmaschine",
+      "label": "Washing machine",
+      "icon": "energy-node:plug",
+      "device_id": "plug_entfeuchter",
+      "entity_id": "plug_entfeuchter_power"
+    }
+  ]
 }

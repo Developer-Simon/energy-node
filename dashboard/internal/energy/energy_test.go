@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -415,6 +416,48 @@ func TestAggregateLabelsResolvedEntitiesWithDeviceAndEntityName(t *testing.T) {
 	}
 	if got := snapshot.Entities[0].Label; got != "Werkstatt / Leistung" {
 		t.Fatalf("Label = %q, want %q", got, "Werkstatt / Leistung")
+	}
+}
+
+func TestAggregateUsesSubDeviceLabel(t *testing.T) {
+	devices := []registry.DeviceView{{
+		ID:   "plug_b",
+		Name: "Plug B",
+		Entities: []registry.EntityView{{
+			UniqueID:          "plug_b_power",
+			Name:              "Leistung",
+			ObjectID:          "power",
+			UnitOfMeasurement: "W",
+			Value:             "420",
+			HasValue:          true,
+		}},
+	}}
+	resolver := NewResolver(map[string]Assignment{"plug_b_power": {Role: RoleLoad, Scale: 1}})
+
+	without := Aggregate(devices, resolver, time.Unix(100, 0).UTC())
+	if got := without.Entities[0].Label; got != "Plug B / Leistung" {
+		t.Fatalf("Label without labels = %q, want %q", got, "Plug B / Leistung")
+	}
+
+	resolver.SetLabels(map[string]string{"plug_b_power": "Waschmaschine"})
+	with := Aggregate(devices, resolver, time.Unix(100, 0).UTC())
+	if got := with.Entities[0].Label; got != "Waschmaschine" {
+		t.Fatalf("Label with sub-device label = %q, want %q", got, "Waschmaschine")
+	}
+	if !reflect.DeepEqual(without.Values, with.Values) {
+		t.Fatalf("Values changed with label: %#v vs %#v", without.Values, with.Values)
+	}
+	if !reflect.DeepEqual(without.Balance, with.Balance) {
+		t.Fatalf("Balance changed with label: %#v vs %#v", without.Balance, with.Balance)
+	}
+	if !reflect.DeepEqual(without.Roles, with.Roles) {
+		t.Fatalf("Roles changed with label: %#v vs %#v", without.Roles, with.Roles)
+	}
+
+	resolver.SetLabels(nil)
+	cleared := Aggregate(devices, resolver, time.Unix(100, 0).UTC())
+	if got := cleared.Entities[0].Label; got != "Plug B / Leistung" {
+		t.Fatalf("Label after SetLabels(nil) = %q, want %q", got, "Plug B / Leistung")
 	}
 }
 

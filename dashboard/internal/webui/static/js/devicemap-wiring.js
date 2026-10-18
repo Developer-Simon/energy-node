@@ -18,6 +18,9 @@
 
   const resolve = ({parent, child, membership}, index, energy) => {
     if (membership) return {type: 'energy', direction: 'auto', heuristic: false};
+    // A sub-device edge is always energy flowing down, whatever is saved, as
+    // wiringElements() draws it.
+    if (window.DeviceMapSubDevices && window.DeviceMapSubDevices.isSubId(child)) return {type: 'energy', direction: 'fixed_down', heuristic: false};
     const saved = index.get(key(parent, child));
     if (saved) {
       // A saved direction refers to the orientation it was saved with. When

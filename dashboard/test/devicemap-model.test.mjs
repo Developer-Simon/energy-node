@@ -389,3 +389,21 @@ test('roleOptions for a switch offers no role or the switch role only', () => {
   const model = loadModel();
   assert.deepEqual([...model.roleOptions('switch').map(option => option.value)], ['', 'switch']);
 });
+
+test('panel rows carry their sub-device, and only power rows offer one', () => {
+  const model = loadModel();
+  const device = { id: 'plug_b', name: 'Steckdose B', entities: [
+    { unique_id: 'power_1', name: 'Waschmaschine', unit_of_measurement: 'W', value: '300' },
+    { unique_id: 'power_2', name: 'Lampe', unit_of_measurement: 'kW', value: '0.2' },
+    { unique_id: 'soc', name: 'Akku', unit_of_measurement: '%', value: '80' },
+  ] };
+  const sub = { id: 'sub:wm', label: 'Waschmaschine', icon: 'plug', device_id: 'plug_b', entity_id: 'power_1' };
+  const { rows } = model.panelRows({ device, snapshot: null, saved: {}, drafts: {}, subDevices: [sub] });
+  const byId = Object.fromEntries(rows.map(row => [row.id, row]));
+  assert.deepEqual(plain(byId.power_1.subDevice), { id: 'sub:wm', label: 'Waschmaschine', icon: 'plug' });
+  assert.equal(byId.power_1.canAddSub, true);
+  assert.equal(byId.power_2.subDevice, null);
+  assert.equal(byId.power_2.canAddSub, true);
+  assert.equal(byId.soc.subDevice, null);
+  assert.equal(byId.soc.canAddSub, false);
+});

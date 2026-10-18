@@ -345,9 +345,10 @@ func NewRouterWithDependencies(reg *registry.Registry, configs *config.Manager, 
 		mux.HandleFunc("/api/v1/energy/", handleEnergyRevision(store, resolver, dependencies.Auth))
 		if deviceMap, err := store.LoadDeviceMap(); err == nil {
 			applyRelationOverrides(reg, deviceMap)
+			applySubDeviceLabels(resolver, deviceMap)
 		}
 		mux.HandleFunc("/api/v1/device/map", handleDeviceMap(store, dependencies.Auth))
-		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, dependencies.Auth))
+		mux.HandleFunc("/api/v1/device/map/", handleDeviceMapSub(store, reg, configs, resolver, dependencies.Auth))
 		mux.HandleFunc("/api/v1/device/icons", handleDeviceIcons())
 		mux.HandleFunc("/api/v1/device/prefs", handleDevicePrefs(store))
 		mux.HandleFunc("/api/v1/device/prefs/", handleDevicePrefsEntry(store, dependencies.Auth))
@@ -1668,6 +1669,8 @@ func pruneGroupRelations(store *settings.Store, reg *registry.Registry, removed 
 	if len(removed) == 0 {
 		return
 	}
+	deviceMapWriteMu.Lock()
+	defer deviceMapWriteMu.Unlock()
 	deviceMap, err := store.LoadDeviceMap()
 	if err != nil {
 		return
@@ -2321,18 +2324,33 @@ func handleDeviceMap(store *settings.Store, manager *auth.Manager) http.HandlerF
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return
 			}
+			deviceMapWriteMu.Lock()
+			defer deviceMapWriteMu.Unlock()
+			stored, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			keepSubDevices(&value, stored)
 			if err := store.SaveDeviceMap(value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return
 			}
-			writeJSON(w, value)
+			// Answer with the stored map, so dropped sub-devices and nodes do not
+			// look saved.
+			saved, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			writeJSON(w, saved)
 		default:
 			methodNotAllowed(w)
 		}
 	}
 }
 
-func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *config.Manager, manager *auth.Manager) http.HandlerFunc {
+func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *config.Manager, resolver *energy.Resolver, manager *auth.Manager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		path := strings.TrimPrefix(r.URL.Path, "/api/v1/device/map/")
 		parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
@@ -2365,13 +2383,33 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 				writeErrorDetail(w, http.StatusBadRequest, "invalid_body", err)
 				return
 			}
-			value, err := store.RestoreDeviceMap(request.Revision)
+			deviceMapWriteMu.Lock()
+			defer deviceMapWriteMu.Unlock()
+			value, err := store.DeviceMapRevisionValue(request.Revision)
 			if err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_restore_rejected", err)
 				return
 			}
-			applyRelationOverrides(reg, value)
-			writeJSON(w, value)
+			// The revision brings back its own map, but the sub-devices are
+			// always the current ones, as on a whole-map save.
+			stored, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			keepSubDevices(&value, stored)
+			if err := store.SaveDeviceMap(value); err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "device_map_restore_rejected", err)
+				return
+			}
+			saved, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			applyRelationOverrides(reg, saved)
+			applySubDeviceLabels(resolver, saved)
+			writeJSON(w, saved)
 			return
 		}
 		if len(parts) == 1 && parts[0] == "relations" && r.Method == http.MethodPost {
@@ -2393,6 +2431,24 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 				return
 			}
 			handleReverseDeviceMapRelation(store, reg, w, parts[1])
+			return
+		}
+		if len(parts) == 1 && parts[0] == "sub-devices" && r.Method == http.MethodPost {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
+			handleCreateSubDevice(store, reg, resolver, w, r)
+			return
+		}
+		if len(parts) == 2 && parts[0] == "sub-devices" && (r.Method == http.MethodPut || r.Method == http.MethodDelete) {
+			if !requireEnergyMutation(w, r, manager) {
+				return
+			}
+			if r.Method == http.MethodPut {
+				handleUpdateSubDevice(store, reg, resolver, w, r, parts[1])
+			} else {
+				handleDeleteSubDevice(store, resolver, w, parts[1])
+			}
 			return
 		}
 		if len(parts) == 1 && parts[0] == "flows" {
@@ -2478,6 +2534,8 @@ func handleDevicePrefsEntry(store *settings.Store, manager *auth.Manager) http.H
 // It rejects self-references, unknown device IDs and relations that would
 // create a cycle before persisting anything.
 func handleCreateDeviceMapRelation(store *settings.Store, reg *registry.Registry, w http.ResponseWriter, r *http.Request) {
+	deviceMapWriteMu.Lock()
+	defer deviceMapWriteMu.Unlock()
 	var request struct {
 		ChildID  string `json:"child_id"`
 		ParentID string `json:"parent_id"`
@@ -2584,6 +2642,8 @@ func relationParentMap(reg *registry.Registry, energyConfig settings.EnergyConfi
 // The cycle check runs on the reversed relation with the original one left
 // out, so the stored relation cannot close a loop while it is being turned.
 func handleReverseDeviceMapRelation(store *settings.Store, reg *registry.Registry, w http.ResponseWriter, id string) {
+	deviceMapWriteMu.Lock()
+	defer deviceMapWriteMu.Unlock()
 	deviceMap, err := store.LoadDeviceMap()
 	if err != nil {
 		writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
@@ -2640,6 +2700,8 @@ func pairMatches(a, b, c, d string) bool {
 }
 
 func handleDeleteDeviceMapRelation(store *settings.Store, reg *registry.Registry, w http.ResponseWriter, id string) {
+	deviceMapWriteMu.Lock()
+	defer deviceMapWriteMu.Unlock()
 	deviceMap, err := store.LoadDeviceMap()
 	if err != nil {
 		writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)

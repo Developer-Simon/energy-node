@@ -25,7 +25,7 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 const jsDir = path.join(here, '..', 'internal', 'webui', 'static', 'js');
-const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
+const moduleSources = ['device-picker.js', 'devicemap-model.js', 'devicemap-switch.js', 'devicemap-graph.js', 'devicemap-wiring.js', 'devicemap-subdevices.js', 'devicemap-node-svg.js', 'devicemap-labels.js', 'devicemap-dataflow.js', 'automations-view.js']
   .map(name => fs.readFileSync(path.join(jsDir, name), 'utf8'));
 
 function createDevicemapPanel({ fetchImpl, confirmAnswer = true, cytoscapeImpl } = {}) {
@@ -374,7 +374,7 @@ test('tapping an edge selects it and exposes a human-readable label, without tou
 
   component.onEdgeTap({ target: fakeEdge({ id: 'edge-1', source: 'device_b', target: 'device_a', overrideId: 'relation-1' }) });
 
-  assert.deepEqual(JSON.parse(JSON.stringify(component.selectedEdge)), { id: 'edge-1', source: 'device_b', target: 'device_a', overrideId: 'relation-1', membership: null });
+  assert.deepEqual(JSON.parse(JSON.stringify(component.selectedEdge)), { id: 'edge-1', source: 'device_b', target: 'device_a', overrideId: 'relation-1', membership: null, subDevice: false });
   assert.equal(component.selectedEdgeLabel, 'Kind → Eltern');
 });
 
@@ -2620,4 +2620,433 @@ test('the panel role select has a static empty option, since a bound empty value
   const html = readWebui('templates', 'devicemap.html');
   assert.match(html, /<option value="" x-bind:selected="!row\.assignment\.role">\{\{t "energy\.roles\.no_role"\}\}<\/option>/);
   assert.match(html, /item\.group === 'standard' && item\.value/);
+});
+
+// Sub-devices (Untergeräte): a plug with two power entities, one of them
+// measured as the sub-device sub:wm (washing machine).
+const SUB_DEVICES_FIXTURE = () => [
+  { id: 'netz', name: 'Netz', relations: [{ id: 'plug_b', kind: 'child' }], entities: [] },
+  { id: 'plug_b', name: 'Steckdose B', relations: [{ id: 'netz', kind: 'parent' }], entities: [
+    { unique_id: 'power_1', name: 'Waschmaschine', unit_of_measurement: 'W' },
+    { unique_id: 'power_2', name: 'Lampe', unit_of_measurement: 'W' },
+  ] },
+];
+const SUB_WM = { id: 'sub:wm', label: 'Waschmaschine', icon: 'plug', device_id: 'plug_b', entity_id: 'power_1' };
+const SUB_ENERGY = () => ({ entities: [
+  { device_id: 'plug_b', entity_id: 'power_1', value: 300, unit: 'W', role: { role: 'load', source: 'override' } },
+  { device_id: 'plug_b', entity_id: 'power_2', value: 200, unit: 'W', role: { role: 'load', source: 'override' } },
+], balance: {} });
+
+test('plug keeps the ring of its other power entity', () => {
+  const { component, window } = createDevicemapPanel();
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }], edges: [],
+    edge_props: [{ parent_id: 'netz', child_id: 'plug_b', type: 'energy', channel: 1 }], sub_devices: [SUB_WM] };
+  const energy = component.energyByDevice();
+  assert.deepEqual(plain(energy.get('plug_b').roles), ['load']);
+  assert.equal(energy.get('plug_b').byRole.load, 200, 'only the remaining entity');
+  assert.equal(energy.get('sub:wm').byRole.load, 300, 'the sub-device carries its entity');
+  // Review Focus 2: the edge into the plug carries the plug's own entity and the sub-device.
+  const { children, dirOf } = component.energyFlowContext();
+  const flow = window.DeviceMapModel.edgeFlow('plug_b', energy, children, { dirOf, parentId: 'netz' });
+  assert.equal(flow.value, 500, 'edgeFlow == power_1 + power_2');
+});
+
+test('draft role shows on the sub-device', () => {
+  const { component } = createDevicemapPanel();
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [], edges: [], sub_devices: [SUB_WM] };
+  component.setDraft('power_1', 'role', 'pv');
+  const entry = component.energyByDevice().get('sub:wm');
+  assert.deepEqual(plain(entry.roles), ['pv']);
+  assert.equal(component.energyByDevice().get('plug_b').roles.includes('pv'), false);
+});
+
+// Plug with two switch channels and one sub-device on each channel. Channel 1
+// is on, channel 2 is off in the second case of each test.
+const CHANNEL_SUB_DEVICES = [
+  { id: 'pm', name: 'Zweifach', relations: [], entities: [
+    { unique_id: 'power_a', unit_of_measurement: 'W' },
+    { unique_id: 'power_b', unit_of_measurement: 'W' },
+  ] },
+];
+const CHANNEL_SUB_MAP = {
+  version: 3,
+  nodes: [{ device_id: 'pm', x: 0, y: 0 }],
+  edges: [],
+  sub_devices: [
+    { id: 'sub:a', label: 'A', icon: 'plug', device_id: 'pm', entity_id: 'power_a' },
+    { id: 'sub:b', label: 'B', icon: 'plug', device_id: 'pm', entity_id: 'power_b' },
+  ],
+  edge_props: [
+    { parent_id: 'pm', child_id: 'sub:a', type: 'energy', channel: 1 },
+    { parent_id: 'pm', child_id: 'sub:b', type: 'energy', channel: 2 },
+  ],
+  view: { layers: { wiring: true, energy: true, balance: false, data: false } },
+};
+
+// Mounts the map with a graph stand-in and returns the node stand-ins.
+async function subGraphPanel({ devices, map, switches = [], assignments = {} }) {
+  const table = mapRoutes({
+    '/api/v1/devices': devices,
+    '/api/v1/device/map': map,
+    '/api/v1/energy/roles': { assignments, groups: {}, categories: {} },
+    '/api/v1/devices/switches': switches,
+  });
+  const created = [];
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(table), cytoscapeImpl: switchGraphFactory([], created) });
+  component.$refs = { canvas: fakeCanvas(), labels: window.document.createElement('div') };
+  await component.load();
+  return { component, nodes: created[created.length - 1].nodes };
+}
+
+test('switched off channel cuts only its sub-device', async () => {
+  const shown = await subGraphPanel({
+    devices: CHANNEL_SUB_DEVICES,
+    map: CHANNEL_SUB_MAP,
+    switches: [
+      { device_id: 'pm', entity_id: 'switch.s1', name: 'Ausgang 1', state: 'on' },
+      { device_id: 'pm', entity_id: 'switch.s2', name: 'Ausgang 2', state: 'off' },
+    ],
+    assignments: { 'switch.s1': { role: 'switch', channel: 1 }, 'switch.s2': { role: 'switch', channel: 2 } },
+  });
+  assert.equal(shown.nodes.get('sub:b').data('quiet'), true, 'channel 2 is off');
+  assert.notEqual(shown.nodes.get('sub:a').data('quiet'), true, 'channel 1 is on');
+  assert.notEqual(shown.nodes.get('pm').data('quiet'), true, 'the meter itself is not cut');
+});
+
+test('plug without switch has no port and sub-device is never quiet', async () => {
+  const shown = await subGraphPanel({
+    devices: [{ id: 'pm', name: 'Steckdose', relations: [], entities: [{ unique_id: 'power_a', unit_of_measurement: 'W' }] }],
+    map: { ...CHANNEL_SUB_MAP, sub_devices: [{ id: 'sub:a', label: 'A', icon: 'plug', device_id: 'pm', entity_id: 'power_a' }],
+      edge_props: [{ parent_id: 'pm', child_id: 'sub:a', type: 'energy', channel: 1 }] },
+  });
+  const svgOf = id => decodeURIComponent(shown.nodes.get(id).data('svg'));
+  assert.notEqual(shown.nodes.get('sub:a').data('quiet'), true, 'no switch, so never quiet');
+  assert.equal(svgOf('pm').includes('data-port'), false, 'the meter has no port');
+  assert.equal(svgOf('sub:a').includes('data-port'), false, 'the sub-device has no port');
+});
+
+test('a sub-device without a saved position is placed right of its meter and counted', () => {
+  const { component } = createDevicemapPanel({ cytoscapeImpl: fakeCytoscapeFactory([], []) });
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 200 }], edges: [], sub_devices: [SUB_WM] };
+  component.$refs.canvas = fakeCanvas();
+
+  component.renderGraph();
+
+  assert.equal(component.placedCount, 1, 'the sub-device counts as placed');
+  const meter = component.deviceMap.nodes.find(node => node.device_id === 'plug_b');
+  const placed = component.deviceMap.nodes.find(node => node.virtual_id === 'sub:wm');
+  assert.ok(placed, 'a saved spot exists for the sub-device');
+  assert.ok(placed.x > meter.x, 'right of its meter');
+  assert.equal(placed.y, meter.y, 'same row as its meter when nothing is in the way');
+  assert.equal(component.unsaved, true);
+});
+
+test('an orphan sub-device gets the orphan class and the missing-measurement label', () => {
+  const { component } = createDevicemapPanel({ cytoscapeImpl: fakeCytoscapeFactory([], []) });
+  const gone = { id: 'sub:gone', label: 'Trockner', icon: 'plug', device_id: 'plug_b', entity_id: 'power_9' };
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }], edges: [], sub_devices: [SUB_WM, gone] };
+
+  const elements = component.buildElements();
+  const orphan = elements.find(element => element.data.id === 'sub:gone');
+  const shown = elements.find(element => element.data.id === 'sub:wm');
+  assert.equal(orphan.classes, 'devicemap-sub devicemap-sub-orphan');
+  assert.equal(shown.classes, 'devicemap-sub', 'the sub-device with its entity is not an orphan');
+
+  const labels = Object.fromEntries(component.labelItems().map(item => [item.id, item.value]));
+  assert.equal(labels['sub:gone'], 'Messung fehlt');
+  assert.notEqual(labels['sub:wm'], 'Messung fehlt');
+});
+
+test('a negative sub-device reading adds its absolute power to the meter edge', () => {
+  const { component, window } = createDevicemapPanel();
+  component.devices = SUB_DEVICES_FIXTURE();
+  component.energy = { entities: [
+    { device_id: 'plug_b', entity_id: 'power_1', value: -300, unit: 'W', role: { role: 'grid', source: 'override' } },
+    { device_id: 'plug_b', entity_id: 'power_2', value: 200, unit: 'W', role: { role: 'load', source: 'override' } },
+  ], balance: {} };
+  component.deviceMap = { version: 2, nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }], edges: [],
+    edge_props: [{ parent_id: 'netz', child_id: 'plug_b', type: 'energy', channel: 1 }], sub_devices: [SUB_WM] };
+  const energy = component.energyByDevice();
+  const { children, dirOf } = component.energyFlowContext();
+  const flow = window.DeviceMapModel.edgeFlow('plug_b', energy, children, { dirOf, parentId: 'netz' });
+  assert.equal(flow.value, 500, 'the sub-device edge is fixed_down, so its -300 W counts as 300 W');
+  assert.equal(window.DeviceMapModel.edgeFlow('sub:wm', energy, children, { dirOf, parentId: 'plug_b' }).value, 300);
+});
+
+// Sub-device panels, forms and writes (task 6a). The fetch stand-in answers
+// with the server map of each write, so merges see what the server stores.
+const SUB_FORM_DEVICES = () => [
+  ...SUB_DEVICES_FIXTURE(),
+  { id: 'pm', name: 'Zweifach', relations: [], entities: [
+    { unique_id: 'power_3', name: 'Ofen', unit_of_measurement: 'W' },
+    { unique_id: 'temp_3', name: 'Temperatur', unit_of_measurement: '°C' },
+  ] },
+];
+const SUB_MAP = (extra = {}) => ({ version: 2,
+  nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }],
+  edges: [],
+  edge_props: [{ parent_id: 'netz', child_id: 'plug_b', type: 'energy', channel: 1 }],
+  sub_devices: [SUB_WM],
+  ...extra });
+
+function subComponent({ fetchImpl, devices = SUB_FORM_DEVICES(), map = SUB_MAP(), energy = SUB_ENERGY(), canEdit = true } = {}) {
+  const shown = createDevicemapPanel({ fetchImpl: fetchImpl || (async () => { throw new Error('unexpected fetch'); }) });
+  const { component } = shown;
+  component.devices = devices;
+  component.energy = energy;
+  component.deviceMap = JSON.parse(JSON.stringify(map));
+  component.savedDeviceMap = JSON.parse(JSON.stringify(map));
+  component.canEditEnergy = canEdit;
+  return shown;
+}
+
+test('device panel offers "create sub-device" only on power rows', () => {
+  const { component } = subComponent({ devices: [SUB_FORM_DEVICES()[1]], map: { version: 2, nodes: [], edges: [] }, energy: null });
+  component.devices = [{ id: 'pm', name: 'Zweifach', relations: [], entities: [
+    { unique_id: 'power_3', name: 'Ofen', unit_of_measurement: 'W' },
+    { unique_id: 'soc_3', name: 'Akku', unit_of_measurement: '%' },
+  ] }];
+  component.panelId = 'pm';
+  const rows = Object.fromEntries(component.panelView.rows.map(row => [row.id, row]));
+  assert.equal(rows.power_3.canAddSub, true);
+  assert.equal(rows.soc_3.canAddSub, false, 'a percentage row offers no sub-device');
+});
+
+test('create posts to the endpoint and keeps unsaved positions', async () => {
+  const calls = [];
+  const serverMap = SUB_MAP({
+    nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }, { virtual_id: 'sub:wm', x: 180, y: 0 }],
+  });
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method, body: options.body });
+    return { ok: true, status: 200, json: async () => serverMap };
+  };
+  const { component } = subComponent({ fetchImpl, map: SUB_MAP({ sub_devices: [] }), energy: SUB_ENERGY() });
+  component.deviceMap.nodes[0] = { device_id: 'netz', x: 400, y: 300 };
+  component.unsaved = true;
+
+  component.openSubForm({ mode: 'create', entityId: 'power_1' });
+  await component.saveSubForm();
+
+  const post = calls.find(call => call.method === 'POST');
+  assert.ok(post, 'a POST was sent');
+  assert.ok(post.url.endsWith('/api/v1/device/map/sub-devices'));
+  const body = JSON.parse(post.body);
+  assert.equal(body.device_id, 'plug_b');
+  assert.equal(body.entity_id, 'power_1');
+  assert.equal(body.label, 'Waschmaschine');
+  assert.equal(body.icon, 'energy-node:plug-smart', 'the icon defaults to the fallback meter icon');
+  assert.ok(body.x > 100 && body.y === 0, 'x and y come from placeNew, right of the meter');
+  assert.deepEqual(component.deviceMap.nodes.find(node => node.device_id === 'netz'), { device_id: 'netz', x: 400, y: 300 },
+    'the moved node keeps its local position');
+  assert.equal(component.unsaved, true, 'unsaved stays true');
+  assert.equal(component.subForm, null, 'the form closes after a save');
+  assert.ok(component.deviceMap.nodes.some(node => node.virtual_id === 'sub:wm'), 'the server node is merged');
+});
+
+test('sub panel shows the role row of the anchored entity', () => {
+  const { component } = subComponent();
+  component.panelId = 'sub:wm';
+  const view = component.panelView;
+  assert.equal(view.kind, 'sub');
+  assert.equal(view.title, 'Waschmaschine');
+  assert.equal(view.icon, 'plug');
+  assert.equal(view.deviceId, 'plug_b');
+  assert.equal(view.orphan, false);
+  assert.equal(view.row.id, 'power_1', 'the role row of the entity on the meter');
+});
+
+test('move lists only free power entities of all devices', () => {
+  const map = SUB_MAP({ sub_devices: [SUB_WM, { id: 'sub:lampe', label: 'Lampe', icon: 'plug', device_id: 'plug_b', entity_id: 'power_2' }] });
+  const { component } = subComponent({ map });
+  component.openSubForm({ mode: 'move', subId: 'sub:wm' });
+  const ids = component.subFormEntities().map(item => item.entityId).sort();
+  assert.deepEqual(ids, ['power_1', 'power_3'], 'power_2 belongs to another sub-device, the temperature is no power');
+  assert.equal(component.subFormShowsMeasurement(), true);
+});
+
+test('duplicate on move keeps the form open with a toast', async () => {
+  const fetchImpl = async () => ({ ok: false, status: 400, json: async () => ({
+    code: 'device_map_rejected', message_key: 'error.sub_device_duplicate', message: 'entity already has a sub-device' }) });
+  const { component, stores } = subComponent({ fetchImpl });
+  component.openSubForm({ mode: 'move', subId: 'sub:wm' });
+  component.setSubFormEntity('power_3');
+  await component.saveSubForm();
+  assert.equal(component.subForm.mode, 'move', 'the form stays open');
+  assert.equal(stores.toasts.criticals.length, 1, 'one critical toast');
+  assert.match(stores.toasts.criticals[0], /Untergerät|sub-device/i);
+});
+
+test('orphaned sub panel offers move and delete only', () => {
+  const gone = { id: 'sub:gone', label: 'Trockner', icon: 'plug', device_id: 'plug_b', entity_id: 'power_9' };
+  const { component } = subComponent({ map: SUB_MAP({ sub_devices: [SUB_WM, gone] }) });
+  component.panelId = 'sub:gone';
+  const view = component.panelView;
+  assert.equal(view.orphan, true);
+  assert.equal(view.row, null, 'no role row for a measurement that is gone');
+});
+
+test('delete asks once and restores the meter ring', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method || 'GET' });
+    return { ok: true, status: 200, json: async () => SUB_MAP({ sub_devices: [], nodes: [{ device_id: 'netz', x: 0, y: 0 }, { device_id: 'plug_b', x: 100, y: 0 }] }) };
+  };
+  const { component, stores } = subComponent({ fetchImpl });
+  assert.equal(component.energyByDevice().get('plug_b').byRole.load, 200, 'the sub-device takes its entity away');
+
+  await component.deleteSubDevice('sub:wm');
+
+  assert.equal(stores.modal.calls.length, 1, 'asked once');
+  assert.equal(calls.filter(call => call.method === 'DELETE').length, 1);
+  assert.equal(component.subDevices().length, 0);
+  assert.equal(component.energyByDevice().get('plug_b').byRole.load, 500, 'the meter ring is back');
+});
+
+test('sub-device edge card hides type, direction and delete', () => {
+  const { component } = subComponent();
+  const before = component.deviceMap.edge_props;
+  component.onEdgeTap({ target: fakeEdge({ id: 'edge-plug_b-sub:wm', source: 'plug_b', target: 'sub:wm' }) });
+  assert.equal(component.selectedEdge.subDevice, true);
+  assert.equal(component.popover.edge.subDevice, true);
+  assert.equal(component.popover.action, null, 'no disconnect button');
+  component.setEdgeType('switch');
+  component.setEdgeDirection('fixed_up');
+  assert.equal(component.deviceMap.edge_props, before, 'type and direction do not change');
+});
+
+test('without edit_energy the panels show name and icon only', async () => {
+  const fetchImpl = async () => { throw new Error('no write without edit_energy'); };
+  const { component } = subComponent({ fetchImpl, canEdit: false });
+  component.panelId = 'sub:wm';
+  assert.equal(component.panelView.canEdit, false);
+  assert.equal(component.panelView.row, null);
+  component.panelId = 'plug_b';
+  assert.equal(component.panelView.rows.every(row => row.canAddSub === false), true);
+  component.openSubForm({ mode: 'create', entityId: 'power_2' });
+  assert.equal(component.subForm, null, 'no form without edit_energy');
+});
+
+test('an outside device-map-changed event refetches and merges the sub-devices', async () => {
+  const serverMap = SUB_MAP({ sub_devices: [SUB_WM, { id: 'sub:lampe', label: 'Lampe', icon: 'plug', device_id: 'plug_b', entity_id: 'power_2' }],
+    edge_props: [{ parent_id: 'netz', child_id: 'plug_b', type: 'energy', channel: 1 }, { parent_id: 'plug_b', child_id: 'sub:lampe', type: 'energy' }] });
+  const table = mapRoutes({
+    '/api/v1/devices': SUB_FORM_DEVICES(),
+    '/api/v1/device/map': serverMap,
+  });
+  const { component, window } = createDevicemapPanel({ fetchImpl: routes(table) });
+  await component.load();
+  window.dispatchEvent(new window.CustomEvent('device-map-changed'));
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.deepEqual(component.subDevices().map(sub => sub.id).sort(), ['sub:lampe', 'sub:wm']);
+});
+
+test('a successful edit PUTs the sub-device, merges the answer and closes the form', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method, body: options.body });
+    return { ok: true, status: 200, json: async () => SUB_MAP({ sub_devices: [{ ...SUB_WM, label: 'Trockner' }] }) };
+  };
+  const { component, stores } = subComponent({ fetchImpl });
+  component.openSubForm({ mode: 'edit', subId: 'sub:wm' });
+  component.subForm.name = 'Trockner';
+  await component.saveSubForm();
+
+  const put = calls.find(call => call.method === 'PUT');
+  assert.ok(put, 'a PUT was sent');
+  assert.ok(put.url.endsWith('/api/v1/device/map/sub-devices/sub%3Awm'));
+  const body = JSON.parse(put.body);
+  assert.equal(body.label, 'Trockner');
+  assert.equal(body.device_id, 'plug_b');
+  assert.equal(body.entity_id, 'power_1');
+  assert.equal(component.subForm, null, 'the form closes after a save');
+  assert.deepEqual(component.subDevices().map(sub => [sub.id, sub.label]), [['sub:wm', 'Trockner']]);
+  assert.equal(stores.toasts.criticals.length, 0, 'no error toast');
+});
+
+test('a successful move PUTs the new entity and device and merges them', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method, body: options.body });
+    return { ok: true, status: 200, json: async () => SUB_MAP({ sub_devices: [{ ...SUB_WM, device_id: 'pm', entity_id: 'power_3' }] }) };
+  };
+  const { component } = subComponent({ fetchImpl });
+  component.openSubForm({ mode: 'move', subId: 'sub:wm' });
+  component.setSubFormEntity('power_3');
+  await component.saveSubForm();
+
+  const put = calls.find(call => call.method === 'PUT');
+  assert.ok(put, 'a PUT was sent');
+  assert.ok(put.url.endsWith('/api/v1/device/map/sub-devices/sub%3Awm'));
+  const body = JSON.parse(put.body);
+  assert.equal(body.device_id, 'pm', 'the device follows the measured entity');
+  assert.equal(body.entity_id, 'power_3');
+  assert.equal(component.subForm, null, 'the form closes after a save');
+  assert.deepEqual(component.subDevices().map(sub => [sub.id, sub.device_id, sub.entity_id]), [['sub:wm', 'pm', 'power_3']]);
+});
+
+test('a sub-device without a stored channel edits as channel 1 and an untouched save sends 1', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method, body: options.body });
+    return { ok: true, status: 200, json: async () => SUB_MAP() };
+  };
+  const map = SUB_MAP({ edge_props: [{ parent_id: 'plug_b', child_id: 'sub:wm', type: 'energy' }] });
+  const { component } = subComponent({ fetchImpl, map });
+  // Two switch roles on the meter give it channels.
+  component.switches = [
+    { device_id: 'plug_b', entity_id: 'switch.a', name: 'A', state: 'on' },
+    { device_id: 'plug_b', entity_id: 'switch.b', name: 'B', state: 'off' },
+  ];
+  component.savedAssignments = {
+    'switch.a': { role: 'switch', channel: 1 },
+    'switch.b': { role: 'switch', channel: 2 },
+  };
+  assert.equal(component.channelChoices('plug_b').length, 16, 'the meter offers channels');
+
+  component.openSubForm({ mode: 'edit', subId: 'sub:wm' });
+  assert.equal(component.subForm.channel, 1, 'the form shows the first channel');
+  await component.saveSubForm();
+  assert.equal(JSON.parse(calls.find(call => call.method === 'PUT').body).channel, 1, 'an untouched save sends 1');
+});
+
+// Meter panel with an unsaved draft, the state the "show" links leave from.
+function meterPanelWithDraft({ confirmAnswer }) {
+  const shown = createDevicemapPanel({ fetchImpl: async () => { throw new Error('unexpected fetch'); }, confirmAnswer });
+  const { component } = shown;
+  component.devices = SUB_FORM_DEVICES();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = JSON.parse(JSON.stringify(SUB_MAP()));
+  component.savedDeviceMap = JSON.parse(JSON.stringify(SUB_MAP()));
+  component.canEditEnergy = true;
+  component.openPanel('plug_b');
+  component.setDraft('power_1', 'scale', 2);
+  return shown;
+}
+
+test('show sub-device keeps the meter panel and its drafts when leaving is refused', async () => {
+  const { component, stores } = meterPanelWithDraft({ confirmAnswer: false });
+  await component.navigatePanel('sub:wm');
+  assert.equal(stores.modal.calls.length, 1, 'the guard asks once');
+  assert.equal(component.panelId, 'plug_b', 'the meter panel stays open');
+  assert.equal(component.panelDirty(), true, 'the draft stays');
+});
+
+test('show meter from the sub panel asks, then discards the drafts and opens the meter', async () => {
+  const { component, stores } = meterPanelWithDraft({ confirmAnswer: true });
+  await component.navigatePanel('sub:wm');
+  assert.equal(stores.modal.calls.length, 1, 'the guard asks once');
+  assert.equal(component.panelId, 'sub:wm');
+  assert.equal(component.panelDirty(), false, 'the drafts are dropped');
+  await component.navigatePanel('plug_b');
+  assert.equal(stores.modal.calls.length, 1, 'a clean panel leaves without asking');
+  assert.equal(component.panelId, 'plug_b');
 });

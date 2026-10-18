@@ -90,6 +90,14 @@ its own in the overview tiles and in the history. A category that roles or
 groups still use cannot be removed. Automation rules do not block removal, but
 the dashboard lists the rules that still read the category before you confirm.
 
+## Sub-devices
+
+A [sub-device](device-map.md#sub-devices) names the consumer behind a power
+measurement, for example "Washing machine" instead of "Plug B / Power". Where a
+sub-device exists, its name replaces the label of the measurement on this tab,
+in the role table and in the energy flow. The role itself is still set on the
+measurement, as before, and a sub-device changes nothing else.
+
 ## Permissions
 
 Changing roles, groups, categories or the interpretation needs the permission

@@ -52,6 +52,8 @@
   const OWN_ENERGY_DEVICE_ID = 'energy_node';
 
   const isEligibleUnit = unit => unit === 'W' || unit === 'kW' || unit === '%';
+  // Only power entities can be measured as a sub-device.
+  const isPowerUnit = unit => unit === 'W' || unit === 'kW';
 
   const roleLabel = role => (role ? t(`energy.role_label.${role}`) : t('energy.roles.no_role'));
 
@@ -124,10 +126,15 @@
   // for what the switch takes away, '' when nothing does.
   // hidden: Set of entity ids the role table hides. A role row is dropped
   // only while it has no effective role, a draft or detected role shows it.
-  const panelRows = ({device, snapshot, saved, drafts, switchInfo, consequenceOf, hidden}) => {
+  // subDevices: the sub-devices of the map. A power row shows the one that
+  // measures its entity as subDevice and offers canAddSub, a new one.
+  const panelRows = ({device, snapshot, saved, drafts, switchInfo, consequenceOf, hidden, subDevices}) => {
     const rows = [];
     const others = [];
     const shown = row => !(hidden && hidden.has(row.id) && !row.assignment.role);
+    const subs = new Map(((subDevices) || [])
+      .filter(sub => sub && device && sub.device_id === device.id)
+      .map(sub => [sub.entity_id, {id: sub.id, label: sub.label, icon: sub.icon}]));
     for (const entity of (device && device.entities) || []) {
       const id = entity.unique_id;
       const name = entity.name || entity.object_id || id;
@@ -149,7 +156,8 @@
       if (dirty) source = 'draft';
       else if (!base.role && base.source !== 'override') source = 'none';
       const row = {id, name, unit: entity.unit_of_measurement, valueText: valueText(entity), assignment, source, dirty,
-        canPin: !dirty && base.source === 'heuristic' && Boolean(base.role)};
+        canPin: !dirty && base.source === 'heuristic' && Boolean(base.role),
+        subDevice: subs.get(id) || null, canAddSub: isPowerUnit(entity.unit_of_measurement)};
       if (shown(row)) rows.push(row);
     }
     return {rows, others};
@@ -165,7 +173,7 @@
     const source = dirty ? 'draft' : base.source;
     return {id, name, unit: 'switch', valueText: switchStateText(info.state), assignment, source, dirty,
       channels: info.channels, consequence: (consequenceOf && consequenceOf(id)) || '',
-      canPin: !dirty && base.source === 'heuristic'};
+      canPin: !dirty && base.source === 'heuristic', subDevice: null, canAddSub: false};
   };
 
   const rawFromDevice = (devices, entityId) => {
@@ -342,6 +350,14 @@
   // otherwise the signed sum of its subtree. options.dirOf(parent, child)
   // turns each edge's value by its direction (devicemap-wiring.js), also
   // inside a sum. visited guards against cycles manual relations can create.
+  // Power of the sub-devices directly below a node (leaves, so no recursion).
+  // A sub-device edge is fixed_down, so its value is the absolute power, the
+  // same as the sub-device's own edge gets from applyDirection().
+  const subPower = (childId, energy, children) => (children.get(childId) || []).reduce((sum, next) => {
+    const sub = window.DeviceMapSubDevices && window.DeviceMapSubDevices.isSubId(next) ? energy.get(next) : null;
+    return sub && sub.power != null ? sum + window.DeviceMapWiring.applyDirection(sub.power, 'fixed_down') : sum;
+  }, 0);
+
   const edgeFlow = (childId, energy, children, options = {}) => {
     const visited = options.visited || new Set();
     if (visited.has(childId)) return null;
@@ -350,7 +366,11 @@
       ? window.DeviceMapWiring.applyDirection(value, options.dirOf(options.parentId, childId)) : value);
     const entry = energy.get(childId);
     if (entry && entry.power != null) {
-      return Math.abs(entry.power) < MIN_FLOW_W ? null : {value: turn(entry.power), sum: false};
+      // A meter with sub-devices carries their power too: its own remaining
+      // entities plus every sub-device below it.
+      const subs = subPower(childId, energy, children);
+      const power = entry.power + subs;
+      return Math.abs(power) < MIN_FLOW_W ? null : {value: turn(power), sum: subs !== 0};
     }
     let total = null;
     for (const next of children.get(childId) || []) {
@@ -454,5 +474,6 @@
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,
     panelRows, applyDrafts, assignmentPayload, normalizeAssignment,
     roleMeta, GROUP_PREFIX, isGroupId, membershipPairs, groupValueText, slugId, placeGroup, placeDevices, helpTipPosition,
+    PLACE_STEP_X, PLACE_STEP_Y,
   };
 })();

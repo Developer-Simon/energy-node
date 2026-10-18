@@ -1,5 +1,6 @@
 // Draws a device map node as an SVG data URI (draft variant C: one ring
 // segment per energy role, the primary role's icon, an availability dot).
+// Sub-devices get a dashed border instead and no availability dot.
 // Cytoscape renders it as the node's background-image, so the canvas shows
 // exactly the draft's geometry. Colors arrive resolved (canvas cannot read
 // CSS variables), see DashboardTheme.colors().
@@ -35,6 +36,13 @@
     }).join('');
   };
 
+  // A sub-device is one measurement, not a device: its border is a dashed
+  // ring in the colour of its first segment, neutral without one.
+  const subRing = spec => {
+    const token = spec.segments && spec.segments.length ? spec.segments[0] : 'border';
+    return `<circle data-border="sub" r="${RING_R}" fill="none" stroke="{${token}}" stroke-width="3" stroke-dasharray="4 3"/>`;
+  };
+
   // Category icons come from the device icon catalogue (GET
   // /api/v1/device/icons): bare stroked shapes, drawn here with the same
   // attributes webui/deviceicons.go puts on its <svg>.
@@ -61,10 +69,10 @@
     const body = `<svg xmlns="http://www.w3.org/2000/svg" width="${SIZE}" height="${SIZE}" viewBox="${-half} ${-half} ${SIZE} ${SIZE}">`
       + `<circle r="${R}" fill="{panel}" stroke="{border-soft}" stroke-width="1"/>`
       + (spec.quiet ? '<g data-quiet="true" opacity="0.4">' : '')
-      + ring(spec)
+      + (spec.subDevice ? subRing(spec) : ring(spec))
       + `<svg data-icon="${spec.icon}" x="-10" y="-10" width="20" height="20" viewBox="0 0 24 24" color="{${spec.iconColor}}">${iconBody(spec)}</svg>`
       + (spec.quiet ? '</g>' : '')
-      + `<circle data-health="${spec.health}" cx="${dot}" cy="-${dot}" r="4.5" fill="{${HEALTH_TOKEN[spec.health] || 'text-faint'}}" stroke="{panel}" stroke-width="2"/>`
+      + (spec.subDevice ? '' : `<circle data-health="${spec.health}" cx="${dot}" cy="-${dot}" r="4.5" fill="{${HEALTH_TOKEN[spec.health] || 'text-faint'}}" stroke="{panel}" stroke-width="2"/>`)
       + (spec.port ? `<circle data-port="${spec.port}" cx="${R}" cy="0" r="4" fill="{${PORT_TOKEN[spec.port] || 'text-faint'}}" stroke="{panel}" stroke-width="2"/>` : '')
       + '</svg>';
     return body.replace(TOKEN, (_, token) => colorOf(token));

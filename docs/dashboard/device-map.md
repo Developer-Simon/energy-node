@@ -148,6 +148,32 @@ even if another switched-off device feeds it.
 The map only shows the state. To switch a device, use the Devices tab. The link
 in the device panel opens it.
 
+## Sub-devices
+
+A sub-device gives a consumer its own name and icon when the consumer has no
+connection of its own, such as a washing machine behind a plug. It hangs on one
+power measurement of a real device. On the map it gets a node of its own, and
+the measuring device becomes the plain link in front of it. The sub-device
+changes only the name and the icon. Values, roles, groups and the balance stay
+on the measurement, and the sub-device is not sent to Home Assistant.
+
+![A sub-device on the map](../images/dashboard-device-map-sub-device.png)
+
+Each power measurement carries at most one sub-device. A device with several
+power measurements, such as a two channel plug, can carry one sub-device per
+channel. The measurement must report its power in W or kW.
+
+Manage sub-devices in the device panel of the measuring device or of the
+sub-device itself, or in the device dialog on the [Devices](devices.md) tab. A
+sub-device can be renamed, given another icon, moved to another power
+measurement and deleted. Moving keeps its name, icon and position on the map.
+Deleting a sub-device only removes the name, and the measurement reappears under
+its own name.
+
+The energy connection from the measuring device to the sub-device is fixed. It
+cannot be deleted or reversed, but its channel can be chosen like the channel
+of any other energy connection. A sub-device has no further connections.
+
 ## Permissions
 
 Changing the map, meaning the positions, the connections, the connection types

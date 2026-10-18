@@ -35,6 +35,11 @@
 
   const statusClass = device => `devicemap-status-${window.DeviceMapModel.deviceHealth(device)}`;
 
+  // Channels of a sub-device form, the same bound as the server's maximum.
+  const SUB_CHANNEL_MAX = 16;
+  // Icon of a new sub-device when its meter has no icon of its own.
+  const SUB_FALLBACK_ICON = 'energy-node:plug-smart';
+
   const devicemapPanel = () => {
     // Kept outside the returned (Alpine-reactive) object on purpose: a
     // Cytoscape instance is a large mutable object graph that Alpine would
@@ -69,6 +74,10 @@
       selectedEdge: null, // {id, source, target, overrideId, membership} | null
       viewMenuOpen: false,
       unsaved: false,
+      // Sub-device form while open: {mode, subId, deviceId, entityId, name, icon, channel, error}.
+      subForm: null,
+      subSaving: false,
+      subDevicesOff: null,
       placedCount: 0,
       themeOff: null,
       energy: null,
@@ -132,6 +141,16 @@
           };
           window.addEventListener('energy-roles-changed', listener);
           this.energyRolesOff = () => window.removeEventListener('energy-roles-changed', listener);
+        }
+        if (!this.subDevicesOff) {
+          // Sub-devices changed outside this page. The page's own writes merge
+          // their answer directly, so only events from elsewhere refetch.
+          const listener = event => {
+            if ((event.detail || {}).source === 'devicemap') return;
+            this.refreshSubDevices();
+          };
+          window.addEventListener('device-map-changed', listener);
+          this.subDevicesOff = () => window.removeEventListener('device-map-changed', listener);
         }
         if (!this.lifecycleOff) {
           // Restart the flow loop when the browser tab or the dashboard tab
@@ -200,6 +219,7 @@
         if (this.themeOff) this.themeOff();
         if (this.registryOff) this.registryOff();
         if (this.energyRolesOff) this.energyRolesOff();
+        if (this.subDevicesOff) this.subDevicesOff();
         if (this.lifecycleOff) this.lifecycleOff();
         this.stopFlowAnimation();
         clearTimeout(this._energyTimer);
@@ -342,7 +362,8 @@
         const gen = switchGen;
         for (const timer of switchTimers) this._clearTimeout(timer);
         switchTimers = [];
-        const nodes = this.devices.map(device => ({id: device.id, node: graph.getElementById(device.id)})).filter(({node}) => !node.empty());
+        const ids = [...this.devices.map(device => device.id), ...this.subDevices().map(sub => sub.id)];
+        const nodes = ids.map(id => ({id, node: graph.getElementById(id)})).filter(({node}) => !node.empty());
         for (const {node} of nodes) {
           node.stop(true, true);
           node.removeStyle('background-image-opacity');
@@ -533,9 +554,9 @@
           return;
         }
         if (kind === 'balance' || id === this.balanceId()) {
-          const items = df.roleEdges(this.previewEnergy(), this.balanceId()).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
+          const items = df.roleEdges(this.previewEnergy(), this.balanceId(), this.deviceMap).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
           this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.virtual'), title: t('devicemap.balance.name'), rows: [], text: t('devicemap.balance.description'),
-            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy(), this.balanceId()).flatMap(edge => edge.entities)}, action: null});
+            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy(), this.balanceId(), this.deviceMap).flatMap(edge => edge.entities)}, action: null});
           return;
         }
         const node = this.flowNodes().find(candidate => candidate.id === id);
@@ -575,17 +596,18 @@
         if (entry && entry.roles.length) {
           rows.push([t('devicemap.pop.row.roles'), entry.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')]);
         }
-        rows.push([t('devicemap.pop.row.origin'), t(`devicemap.pop.origin.${origin}`)]);
+        // A sub-device edge is written by the sub-device form, its origin is not a relation.
+        if (!edge.subDevice) rows.push([t('devicemap.pop.row.origin'), t(`devicemap.pop.origin.${origin}`)]);
         const opensPanel = edge.target !== model.OWN_ENERGY_DEVICE_ID;
         this.edgeCardAnchor = rendered || null;
         if (!keepDisclosure) this.edgeFixedOpen = false;
         this.placePopover(rendered, {
           eyebrow: t(origin === 'group' ? 'devicemap.pop.eyebrow.membership' : 'devicemap.pop.eyebrow.wiring'),
           title: this.selectedEdgeLabel, rows, lists: [],
-          text: origin === 'discovery' ? t('devicemap.edge_readonly_hint') : '',
+          text: origin === 'discovery' && !edge.subDevice ? t('devicemap.edge_readonly_hint') : '',
           linkText: opensPanel ? t('devicemap.pop.link.open_device', {name: this.deviceLabel(edge.target)}) : '',
           link: opensPanel ? {tab: 'panel', target: edge.target} : null,
-          action: origin === 'discovery' ? null : {label: t('devicemap.disconnect_button')},
+          action: origin === 'discovery' || edge.subDevice ? null : {label: t('devicemap.disconnect_button')},
           edge: {
             ...this.edgePropsFor(edge),
             channels: this.channelsOf(edge),
@@ -595,6 +617,7 @@
             parentName: this.deviceLabel(edge.source),
             childName: this.deviceLabel(edge.target),
             membership: Boolean(edge.membership),
+            subDevice: Boolean(edge.subDevice),
           },
         });
       },
@@ -612,7 +635,7 @@
       // setProp keeps the channel for energy and drops it for other types.
       setEdgeType(type) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership || !window.DeviceMapWiring.TYPES.includes(type)) return;
+        if (!edge || edge.membership || edge.subDevice || !window.DeviceMapWiring.TYPES.includes(type)) return;
         const current = this.edgePropsFor(edge);
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type, direction: current.direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
@@ -621,7 +644,7 @@
 
       setEdgeDirection(direction) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership) return;
+        if (!edge || edge.membership || edge.subDevice) return;
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
         this.afterEdgePropsChange();
@@ -808,7 +831,7 @@
 
       baseNodeIds() {
         const df = window.DeviceMapDataflow;
-        return new Set([...this.devices.map(device => device.id), ...this.groupIds(), this.balanceId(), ...this.flowNodes().map(node => node.id)]);
+        return new Set([...this.devices.map(device => device.id), ...this.subDevices().map(sub => sub.id), ...this.groupIds(), this.balanceId(), ...this.flowNodes().map(node => node.id)]);
       },
 
       stubInfo() {
@@ -817,7 +840,7 @@
 
       dataEdges() {
         const df = window.DeviceMapDataflow;
-        const edges = [...df.roleEdges(this.previewEnergy(), this.balanceId()), ...df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId()), ...this.stubInfo().edges];
+        const edges = [...df.roleEdges(this.previewEnergy(), this.balanceId(), this.deviceMap), ...df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId()), ...this.stubInfo().edges];
         return this.view.hide_automation_links ? edges.filter(edge => !df.isAutomationLink(edge)) : edges;
       },
 
@@ -825,8 +848,243 @@
         return window.DeviceMapModel.applyDrafts(this.energy, this.drafts, this.devices);
       },
 
+      // Entities with a sub-device are measured under the sub-device's ID
+      // (drafts included), so the meter keeps the ring of its other entities.
       energyByDevice() {
-        return window.DeviceMapModel.deviceEnergy(this.previewEnergy());
+        return window.DeviceMapModel.deviceEnergy(window.DeviceMapSubDevices.remapSnapshot(this.previewEnergy(), this.deviceMap));
+      },
+
+      subDevices() {
+        return window.DeviceMapSubDevices.list(this.deviceMap);
+      },
+
+      subIsOrphan(sub) {
+        return window.DeviceMapSubDevices.isOrphan(sub, this.devices);
+      },
+
+      // Value of a sub-device node: its entity's reading, or the hint when
+      // the meter or the entity is gone.
+      subValueText(sub, energy) {
+        if (this.subIsOrphan(sub)) return t('devicemap.sub.missing');
+        const device = this.devices.find(item => item.id === sub.device_id);
+        const entities = ((device && device.entities) || []).filter(entity => entity && entity.unique_id === sub.entity_id);
+        return window.DeviceMapModel.nodeValueText({entities}, energy.get(sub.id));
+      },
+
+      // Sub-device panel: name and icon, and the role row of the entity on the
+      // meter, so the role stays changeable there. An orphan (meter or entity
+      // gone) has no row. Without edit_energy only name and icon show.
+      subPanelView() {
+        const sub = this.subDevices().find(item => item.id === this.panelId);
+        if (!sub) return null;
+        const orphan = this.subIsOrphan(sub);
+        const device = this.devices.find(item => item.id === sub.device_id);
+        const canEdit = this.canEditEnergy;
+        let row = null;
+        if (device && !orphan && canEdit) {
+          const status = this.switchStatus();
+          const switchInfo = this.switchInfoFor(device.id);
+          const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
+          const {rows} = window.DeviceMapModel.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices()});
+          row = rows.find(item => item.id === sub.entity_id) || null;
+        }
+        return {kind: 'sub', title: sub.label || sub.id, icon: sub.icon, row, orphan, deviceId: sub.device_id, canEdit};
+      },
+
+      // Channels 1 to 16 when the device has several switch roles, none otherwise.
+      channelChoices(deviceId) {
+        const entries = this.switchStatus().byDevice.get(deviceId) || [];
+        return entries.length < 2 ? [] : Array.from({length: SUB_CHANNEL_MAX}, (_, index) => index + 1);
+      },
+
+      subFormChannels() {
+        return this.subForm ? this.channelChoices(this.subForm.deviceId) : [];
+      },
+
+      // Power entities a sub-device form can measure. Move lists those of all
+      // devices, the other modes those of the meter. An entity that another
+      // sub-device measures is left out, the form's own entity stays.
+      subFormEntities() {
+        const form = this.subForm;
+        if (!form) return [];
+        const sub = window.DeviceMapSubDevices;
+        const devices = form.mode === 'move' ? this.devices : this.devices.filter(device => device.id === form.deviceId);
+        const taken = entityId => {
+          const owner = sub.byEntity(this.deviceMap).get(entityId);
+          return Boolean(owner) && owner.id !== form.subId;
+        };
+        return devices.flatMap(device => sub.powerEntities(device)
+          .filter(entity => !taken(entity.unique_id))
+          .map(entity => ({
+            entityId: entity.unique_id,
+            deviceId: device.id,
+            label: form.mode === 'move' ? `${device.name || device.id}: ${entity.name || entity.unique_id}` : (entity.name || entity.unique_id),
+          })));
+      },
+
+      // The measurement shows when a sub-device moves or its meter has more
+      // than one power entity to choose from.
+      subFormShowsMeasurement() {
+        const form = this.subForm;
+        if (!form) return false;
+        const meter = this.devices.find(device => device.id === form.deviceId);
+        return form.mode === 'move' || window.DeviceMapSubDevices.powerEntities(meter).length > 1;
+      },
+
+      setSubFormEntity(entityId) {
+        const form = this.subForm;
+        const choice = form && this.subFormEntities().find(item => item.entityId === entityId);
+        if (!choice) return;
+        this.subForm = {...form, entityId: choice.entityId, deviceId: choice.deviceId, error: ''};
+      },
+
+      // Icon of a meter for a new sub-device: its own icon, else the fallback.
+      meterIcon(device) {
+        return (device && (device.icon_name || device.suggested_icon)) || SUB_FALLBACK_ICON;
+      },
+
+      // Opens the sub-device form. create measures one power entity of a
+      // meter, edit changes the label, icon and channel of a sub-device, move
+      // also changes the measured entity. Nothing opens without edit_energy.
+      openSubForm({mode, entityId = null, subId = null} = {}) {
+        if (!this.canEditEnergy) return;
+        const sub = window.DeviceMapSubDevices;
+        if (mode === 'create') {
+          const device = this.devices.find(item => (item.entities || []).some(entity => entity && entity.unique_id === entityId));
+          if (!device || sub.byEntity(this.deviceMap).has(entityId)) return;
+          const entity = device.entities.find(item => item.unique_id === entityId);
+          this.subForm = {mode, subId: null, deviceId: device.id, entityId, name: entity.name || entityId,
+            icon: this.meterIcon(device), channel: this.channelChoices(device.id).length ? 1 : 0, error: ''};
+          return;
+        }
+        const existing = this.subDevices().find(item => item.id === subId);
+        if (!existing || (mode !== 'edit' && mode !== 'move')) return;
+        const prop = (this.deviceMap.edge_props || []).find(item => item.child_id === existing.id);
+        // Without a stored channel the form shows and saves channel 1, the
+        // first option of the select, so an untouched save matches the view.
+        const stored = prop && Number.isInteger(prop.channel) && prop.channel >= 1 ? prop.channel : 1;
+        this.subForm = {mode, subId: existing.id, deviceId: existing.device_id, entityId: existing.entity_id,
+          name: existing.label, icon: existing.icon, channel: this.channelChoices(existing.device_id).length ? stored : 0, error: ''};
+      },
+
+      // Creates (POST, with the spot from placeNew) or changes (PUT) the
+      // sub-device of the open form. The answer is merged, the unsaved
+      // positions stay. A refusal, like a duplicate on move, keeps the form
+      // open with the server's message as a toast.
+      async saveSubForm() {
+        const form = this.subForm;
+        if (!form || this.subSaving || !this.canEditEnergy) return;
+        const label = form.name.trim();
+        if (!label) {
+          this.subForm = {...form, error: t('devicemap.sub.name_required')};
+          return;
+        }
+        const body = {label, icon: form.icon, device_id: form.deviceId, entity_id: form.entityId,
+          channel: this.subFormChannels().length ? form.channel : 0};
+        const headers = {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken};
+        this.subSaving = true;
+        try {
+          let serverMap;
+          if (form.mode === 'create') {
+            const meter = (this.deviceMap.nodes || []).find(node => node.device_id === form.deviceId) || {x: 0, y: 0};
+            const snap = this.view.snap_to_grid ? this.view.grid_size : null;
+            const spot = window.DeviceMapSubDevices.placeNew({anchor: meter, taken: this.deviceMap.nodes || [], snap});
+            serverMap = await requestJSON('/api/v1/device/map/sub-devices', {method: 'POST', headers, body: JSON.stringify({...body, x: spot.x, y: spot.y})});
+          } else {
+            serverMap = await requestJSON(`/api/v1/device/map/sub-devices/${encodeURIComponent(form.subId)}`, {method: 'PUT', headers, body: JSON.stringify(body)});
+          }
+          this.mergeSubDeviceResponse(serverMap);
+          this.subForm = null;
+          this.renderGraph();
+          this.$store.toasts.push(t('devicemap.sub.saved'));
+          this.notifyMapChanged();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        } finally {
+          this.subSaving = false;
+        }
+      },
+
+      // Removes a sub-device after one confirmation. Its entity reads on the
+      // meter again, so the meter ring comes back.
+      async deleteSubDevice(id) {
+        const sub = this.subDevices().find(item => item.id === id);
+        if (!sub || !this.canEditEnergy) return;
+        const confirmed = await this.$store.modal.confirm({
+          title: t('devicemap.sub.delete_title', {name: sub.label || sub.id}),
+          confirmLabel: t('devicemap.sub.delete'),
+          danger: true,
+        });
+        if (!confirmed) return;
+        try {
+          const serverMap = await requestJSON(`/api/v1/device/map/sub-devices/${encodeURIComponent(id)}`, {method: 'DELETE', headers: {'X-CSRF-Token': this.csrfToken}});
+          this.mergeSubDeviceResponse(serverMap);
+          if (this.panelId === id) this.panelId = null;
+          if (this.subForm && this.subForm.subId === id) this.subForm = null;
+          if (this.selectedEdge && this.selectedEdge.target === id) this.selectedEdge = null;
+          this.popover = null;
+          this.renderGraph();
+          this.$store.toasts.push(t('devicemap.sub.deleted'));
+          this.notifyMapChanged();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
+      // Takes a server answer's sub-devices into the map: the list itself,
+      // the sub-device nodes the map lacks, and the sub-device pairs. Nodes of
+      // removed sub-devices go. Positions and the unsaved flag of everything
+      // else stay. The saved snapshot takes the same change, so
+      // discardChanges() keeps it.
+      mergeSubDeviceResponse(serverMap) {
+        if (!serverMap) return;
+        const sub = window.DeviceMapSubDevices;
+        const subs = sub.list(serverMap);
+        const live = new Set(subs.map(item => item.id));
+        const merge = local => {
+          const nodes = (local.nodes || []).filter(node => !sub.isSubId(node.virtual_id) || live.has(node.virtual_id));
+          const known = new Set(nodes.map(node => node.virtual_id));
+          const missing = (serverMap.nodes || []).filter(node => sub.isSubId(node.virtual_id) && !known.has(node.virtual_id));
+          return {
+            ...local,
+            nodes: [...nodes, ...missing],
+            sub_devices: subs,
+            edge_props: [
+              ...(local.edge_props || []).filter(prop => !sub.isSubId(prop.child_id)),
+              ...(serverMap.edge_props || []).filter(prop => sub.isSubId(prop.child_id)),
+            ],
+          };
+        };
+        this.deviceMap = merge(this.deviceMap);
+        this.savedDeviceMap = merge(this.savedDeviceMap);
+      },
+
+      // Refetches the map after a change made elsewhere.
+      async refreshSubDevices() {
+        try {
+          this.mergeSubDeviceResponse(await requestJSON('/api/v1/device/map'));
+          this.renderGraph();
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
+      // Node data of one sub-device: a dashed ring in its role colour, the
+      // sub-device icon, and the quiet image when its channel is off.
+      subNodeImages(sub, status, energy, colorOf) {
+        const entry = energy.get(sub.id);
+        const role = entry && entry.primaryRole;
+        const spec = {
+          segments: entry ? entry.roles.map(item => entry.meta[item].color) : [],
+          icon: sub.icon ? `cat:${sub.icon}` : 'box',
+          iconColor: role ? entry.meta[role].color : 'text-muted',
+          health: 'unknown',
+          subDevice: true,
+          iconMarkup: this.iconMarkup[sub.icon] || '',
+        };
+        const images = {svg: window.DeviceMapNodeSvg.dataUri({...spec, quiet: false, port: null}, colorOf)};
+        if (this.switchTargets(status).has(sub.id)) images.svgQuiet = window.DeviceMapNodeSvg.dataUri({...spec, quiet: true, port: null}, colorOf);
+        return images;
       },
 
       setDraft(entityId, field, value) {
@@ -924,6 +1182,7 @@
 
       get panelView() {
         if (!this.panelId) return null;
+        if (window.DeviceMapSubDevices.isSubId(this.panelId)) return this.subPanelView();
         const model = window.DeviceMapModel;
         if (model.isGroupId(this.panelId)) {
           const id = this.panelId.slice(model.GROUP_PREFIX.length);
@@ -961,7 +1220,7 @@
         const status = this.switchStatus();
         const switchInfo = this.switchInfoFor(device.id);
         const consequenceOf = entityId => this.switchConsequence(status, device.id, switchInfo.get(entityId));
-        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden});
+        const {rows, others} = model.panelRows({device, snapshot: this.energy, saved: this.savedAssignments, drafts: this.drafts, switchInfo, consequenceOf, hidden: this.savedHidden, subDevices: this.subDevices()});
         let empty = '';
         if (!rows.length && !others.length) empty = 'no_values';
         else if (!rows.length) empty = 'no_power';
@@ -969,7 +1228,8 @@
           kind: 'device',
           title: device.name || device.id,
           health: t(`devicemap.panel.health.${model.deviceHealth(device)}`),
-          rows, others, empty,
+          canEdit: this.canEditEnergy,
+          rows: rows.map(row => ({...row, canAddSub: this.canEditEnergy && row.canAddSub})), others, empty,
           hasSwitches: switchInfo.size > 0,
           flows: window.DeviceMapDataflow.deviceFlows(device.id, this.dataEdges(), id => this.labelOf(id)),
         };
@@ -979,6 +1239,15 @@
         this.panelId = id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID ? null : id;
         this.groupDraft = null;
         this.groupWholePending = false;
+        this.subForm = null;
+      },
+
+      // Opens another panel from the open one (sub-device and meter links).
+      // The drafts of the open panel go through the same guard as every other
+      // way out of a panel.
+      async navigatePanel(id) {
+        if (!(await this.leavePanel())) return;
+        this.openPanel(id);
       },
 
       closePanel() {
@@ -1095,6 +1364,7 @@
           value: device.id === this.balanceId() ? model.balanceValueText(this.energy && this.energy.balance) : model.nodeValueText(device, energy.get(device.id)),
           ...this.offLabel(status, device.id),
         }));
+        const subs = this.subDevices().map(sub => ({id: sub.id, name: sub.label || sub.id, value: this.subValueText(sub, energy), ...this.offLabel(status, sub.id)}));
         const groups = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = model.GROUP_PREFIX + id;
           return {id: nodeId, name: group.label, value: model.groupValueText(model.edgeFlow(nodeId, energy, children, {dirOf}))};
@@ -1106,7 +1376,7 @@
           ...this.flowNodes().map(node => ({id: node.id, name: node.name, value: t(`devicemap.${node.kind}.value`)})),
           ...this.stubInfo().nodes.map(stub => ({id: stub.id, name: t('devicemap.stub.name'), value: ''})),
         ];
-        return [...devices, ...groups, ...virtual];
+        return [...devices, ...subs, ...groups, ...virtual];
       },
 
       // Live refresh without renderGraph(): a rebuild would reset Cytoscape's
@@ -1120,6 +1390,10 @@
           for (const device of this.devices) {
             const node = cy.getElementById(device.id);
             if (!node.empty()) node.data(this.nodeImages(device, status, energy, colorOf));
+          }
+          for (const sub of this.subDevices()) {
+            const node = cy.getElementById(sub.id);
+            if (!node.empty()) node.data(this.subNodeImages(sub, status, energy, colorOf));
           }
         });
         if (labels) labels.update(this.labelItems(this.shownStatus()));
@@ -1242,7 +1516,7 @@
 
       // Tells the energy tab's plant view that the saved map changed.
       notifyMapChanged() {
-        window.dispatchEvent(new CustomEvent('device-map-changed'));
+        window.dispatchEvent(new CustomEvent('device-map-changed', {detail: {source: 'devicemap'}}));
       },
 
       // Places devices that have no saved position below the existing
@@ -1286,6 +1560,25 @@
         return placed;
       },
 
+      // Sub-devices without a saved position go right of their meter, or one
+      // step right of the origin when the meter is gone (orphan). Returns how
+      // many were placed.
+      placeNewSubDevices() {
+        const sub = window.DeviceMapSubDevices;
+        const unplaced = this.subDevices().filter(item => !this.positionFor(item.id));
+        if (!unplaced.length) return 0;
+        const snap = this.view.snap_to_grid ? this.view.grid_size : null;
+        const nodes = [...(this.deviceMap.nodes || [])];
+        for (const item of unplaced) {
+          const anchor = nodes.find(node => node.device_id === item.device_id) || {x: 0, y: 0};
+          const spot = sub.placeNew({anchor, taken: nodes, snap});
+          nodes.push({virtual_id: item.id, x: spot.x, y: spot.y});
+        }
+        this.deviceMap = {...this.deviceMap, nodes};
+        this.unsaved = true;
+        return unplaced.length;
+      },
+
       balanceId() {
         return window.DeviceMapDataflow.balanceNodeId(new Set(this.devices.map(device => device.id)));
       },
@@ -1320,8 +1613,8 @@
         const positionOf = id => nodes.find(node => (node.device_id || node.virtual_id) === id);
         let placed = 0;
         if (this.balanceId() === df.BALANCE_ID && (layers.balance || layers.data) && !has(df.BALANCE_ID)) {
-          const roleDevices = new Set(df.roleEdges(this.energy, df.BALANCE_ID).map(edge => edge.from));
-          const rolePositions = nodes.filter(node => roleDevices.has(node.device_id));
+          const roleDevices = new Set(df.roleEdges(this.energy, df.BALANCE_ID, this.deviceMap).map(edge => edge.from));
+          const rolePositions = nodes.filter(node => roleDevices.has(node.device_id || node.virtual_id));
           nodes.push({virtual_id: df.BALANCE_ID, ...df.placeBalance({rolePositions, allPositions: nodes, snap})});
           placed += 1;
         }
@@ -1348,6 +1641,10 @@
       },
 
       deviceLabel(deviceId) {
+        if (window.DeviceMapSubDevices.isSubId(deviceId)) {
+          const sub = this.subDevices().find(item => item.id === deviceId);
+          return sub && sub.label ? sub.label : deviceId;
+        }
         if (window.DeviceMapModel.isGroupId(deviceId)) {
           return (this.savedGroups[deviceId.slice(window.DeviceMapModel.GROUP_PREFIX.length)] || {}).label || deviceId;
         }
@@ -1422,6 +1719,16 @@
           if (position) element.position = {x: position.x, y: position.y};
           return element;
         });
+        const subNodes = this.subDevices().map(sub => {
+          const orphan = this.subIsOrphan(sub);
+          const element = {
+            data: {id: sub.id, name: sub.label || sub.id, ...this.subNodeImages(sub, status, energy, colorOf)},
+            classes: orphan ? 'devicemap-sub devicemap-sub-orphan' : 'devicemap-sub',
+          };
+          const position = this.positionFor(sub.id);
+          if (position) element.position = {x: position.x, y: position.y};
+          return element;
+        });
         const groupNodes = Object.entries(this.savedGroups).map(([id, group]) => {
           const nodeId = window.DeviceMapModel.GROUP_PREFIX + id;
           const element = {data: {id: nodeId, name: group.label, svg: window.DeviceMapNodeSvg.groupDataUri(colorOf)}, classes: 'devicemap-group'};
@@ -1442,7 +1749,7 @@
           ...stubInfo.nodes.map(stub => ({id: stub.id, kind: 'stub', name: t('devicemap.stub.name')})),
         ];
         const virtualNodes = window.DeviceMapGraph.virtualElements({kinds: virtualKinds, positions, colorOf});
-        return [...nodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
+        return [...nodes, ...subNodes, ...groupNodes, ...virtualNodes, ...this.buildEdgeElements(), ...this.flowElements(), ...window.DeviceMapGraph.dataEdgeElements(this.dataEdges())];
       },
 
       buildEdgeElements() {
@@ -1466,7 +1773,7 @@
         this.selectedEdge = null; // any prior selection refers to a now-stale cy instance
         if (!this.$refs.canvas) return;
         this.adoptBalancePosition();
-        this.placedCount = this.placeNewDevices() + this.placeNewGroups() + this.placeVirtualNodes();
+        this.placedCount = this.placeNewDevices() + this.placeNewGroups() + this.placeNewSubDevices() + this.placeVirtualNodes();
         const elements = this.buildElements();
         const hasAllPositions = this.devices.length > 0 && this.devices.every(device => this.positionFor(device.id))
           && this.groupIds().every(id => this.positionFor(id));
@@ -1951,7 +2258,8 @@
         const edge = event.target;
         const data = edge.data();
         this.popover = null;
-        this.selectedEdge = {id: data.id, source: data.source, target: data.target, overrideId: data.overrideId || null, membership: data.membership || null};
+        this.selectedEdge = {id: data.id, source: data.source, target: data.target, overrideId: data.overrideId || null, membership: data.membership || null,
+          subDevice: window.DeviceMapSubDevices.isSubId(data.target)};
         if (cy) {
           cy.edges().removeClass('devicemap-selected-edge');
           edge.addClass('devicemap-selected-edge');
@@ -1972,7 +2280,7 @@
         // Captured up front: the confirmation is awaited, and closing the
         // card meanwhile clears this.selectedEdge.
         const selected = this.selectedEdge;
-        if (!selected || (!selected.overrideId && !selected.membership)) return;
+        if (!selected || (!selected.overrideId && !selected.membership) || selected.subDevice) return;
         const confirmed = await this.$store.modal.confirm({
           title: t('devicemap.disconnect_confirmation_title', {label: this.selectedEdgeLabel}),
           confirmLabel: t('devicemap.disconnect_confirm'),
@@ -2035,12 +2343,16 @@
               : {device_id: entry.id, x: entry.position.x, y: entry.position.y}));
           // edge_props of pairs that no longer exist are dropped here, the
           // same way vanished devices are dropped from nodes above.
-          const liveKeys = new Set(this.buildEdgeElements().filter(element => !element.data.membership)
-            .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)));
+          // Sub-device pairs are live as long as their meter is on the map, so
+          // prune keeps their channel.
+          const liveKeys = new Set([...this.buildEdgeElements().filter(element => !element.data.membership)
+            .map(element => window.DeviceMapGraph.relationKey(element.data.source, element.data.target)),
+            ...window.DeviceMapSubDevices.pairs(this.deviceMap, known).map(pair => window.DeviceMapGraph.relationKey(pair.parent, pair.child))]);
           const edgeProps = window.DeviceMapWiring.prune(this.deviceMap.edge_props, liveKeys);
           // The switch roles live in the energy roles, the map keeps only the
           // edge channels (edge_props).
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view};
+          // sub_devices go back unchanged, the server keeps its own copy anyway.
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view, sub_devices: this.subDevices()};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
