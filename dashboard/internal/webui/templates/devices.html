@@ -402,7 +402,7 @@
       <div class="device-modal-sub-actions" x-show="subActionsVisible(entity)">
         <button type="button" x-show="subDeviceFor(entity)" x-on:click="openSubDeviceForm(entity, subDeviceFor(entity))">{{t "devices.sub.edit"}}</button>
         <button type="button" class="danger" x-show="subDeviceFor(entity)" x-on:click="deleteSubDevice(subDeviceFor(entity))">{{t "devices.sub.delete"}}</button>
-        <button type="button" x-show="!subDeviceFor(entity)" x-on:click="openSubDeviceForm(entity)">{{t "devices.sub.create"}}</button>
+        <button type="button" x-show="subCreateVisible(entity)" x-on:click="openSubDeviceForm(entity)">{{t "devices.sub.create"}}</button>
       </div>
     </div>
   </article>

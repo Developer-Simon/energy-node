@@ -702,6 +702,10 @@
     canEditEnergy: false,
     subDevices: [],
     subEdgeProps: [],
+    // False until the map of the open device has loaded. The create action
+    // stays hidden until then, and after a failed load.
+    subDevicesReady: false,
+    subLoadToken: 0,
     subForm: null,
     subSaving: false,
     // Choices.js-Instanz der Favoriten-Mehrfachauswahl - dieselbe Bibliothek
@@ -890,7 +894,9 @@
       } catch (error) {
         this.csrfToken = '';
         this.canDeleteDiscovery = false;
-        this.canEditEnergy = false;
+        // Without a session API the instance runs unauthenticated, and the
+        // server checks edit_energy on every write anyway.
+        this.canEditEnergy = true;
         // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung - dann
         // laesst auch requireLayoutMutation den Schreibzugriff durch.
         this.canEditPrefs = true;
@@ -1355,8 +1361,10 @@
         }
       });
       try {
+        this.resetSubDevices();
+        const subToken = this.subLoadToken;
         await this.loadDeviceDetail(deviceId, requestToken);
-        this.loadSubDevices();
+        await this.loadSubDevices(deviceId, subToken);
         // Erstauswahl des Tabs nur beim Oeffnen (nicht bei jedem Live-Refresh).
         if (requestToken === this.detailRequestToken && this.selectedDeviceId === deviceId) {
           this.activeDeviceTab = this.defaultDeviceTab();
@@ -1399,15 +1407,43 @@
 
     // Untergeraete: Messwert-Kacheln mit Leistung (W, kW) im Messwert-Tab
     // tragen eine Zeile mit Icon und Name, darunter Bearbeiten und Loeschen.
-    async loadSubDevices() {
+    // Clears the sub-device state when a device is opened. The token moves
+    // on every open and every write, so an answer that arrives late is dropped.
+    resetSubDevices() {
+      this.subLoadToken += 1;
+      this.subDevices = [];
+      this.subEdgeProps = [];
+      this.subDevicesReady = false;
+    },
+
+    // Takes a full device map answer (load, create, change, delete).
+    applySubDeviceMap(deviceMap) {
+      this.subDevices = deviceMap.sub_devices || [];
+      this.subEdgeProps = deviceMap.edge_props || [];
+      this.subDevicesReady = true;
+    },
+
+    // Loads the map for the device opened with the given token. A stale
+    // answer is ignored. On failure the list stays empty and the create action
+    // stays hidden, so no duplicate create is offered.
+    async loadSubDevices(deviceId = this.selectedDeviceId, token = this.subLoadToken) {
       try {
         const deviceMap = await requestJSON('/api/v1/device/map');
-        this.subDevices = deviceMap.sub_devices || [];
-        this.subEdgeProps = deviceMap.edge_props || [];
+        if (token !== this.subLoadToken || this.selectedDeviceId !== deviceId) return;
+        this.applySubDeviceMap(deviceMap);
       } catch (error) {
-        // Ohne Karte bleiben die Zeilen ohne Untergeraet; die Liste der
-        // Geraetedaten laeuft trotzdem weiter.
+        if (token !== this.subLoadToken || this.selectedDeviceId !== deviceId) return;
+        this.subDevices = [];
+        this.subEdgeProps = [];
+        this.subDevicesReady = false;
+        this.$store?.toasts?.push(error.message, 'critical');
       }
+    },
+
+    // The create action needs a loaded map, else an existing sub-device could
+    // be missed.
+    subCreateVisible(entity) {
+      return this.subActionsVisible(entity) && this.subDevicesReady && !this.subDeviceFor(entity);
     },
 
     isSubDeviceCandidate(entity) {
@@ -1419,7 +1455,7 @@
     },
 
     subDeviceRowVisible(entity) {
-      return this.isSubDeviceCandidate(entity) && Boolean(this.subDeviceFor(entity) || this.canEditEnergy);
+      return this.isSubDeviceCandidate(entity) && Boolean(this.subDeviceFor(entity) || this.subCreateVisible(entity));
     },
 
     subActionsVisible(entity) {
@@ -1431,7 +1467,7 @@
     // nicht, der Kanal eines bestehenden Untergeraets bleibt erhalten.
     openSubDeviceForm(entity, sub = null) {
       if (!this.canEditEnergy || !this.isSubDeviceCandidate(entity)) return;
-      if (!sub && this.subDeviceFor(entity)) return;
+      if (!sub && !this.subCreateVisible(entity)) return;
       const prop = sub ? this.subEdgeProps.find(item => item.child_id === sub.id) : null;
       this.subForm = {
         subId: sub ? sub.id : null,
@@ -1473,9 +1509,9 @@
       const options = {...this.mutationOptions(body), method: form.subId ? 'PUT' : 'POST'};
       this.subSaving = true;
       try {
+        this.subLoadToken += 1;
         const deviceMap = await requestJSON(path, options);
-        this.subDevices = deviceMap.sub_devices || [];
-        this.subEdgeProps = deviceMap.edge_props || [];
+        this.applySubDeviceMap(deviceMap);
         this.closeSubDeviceForm();
         this.$store.toasts.push(t('devices.sub.saved'));
         this.notifySubDeviceChanged();
@@ -1497,9 +1533,9 @@
       });
       if (!confirmed) return;
       try {
+        this.subLoadToken += 1;
         const deviceMap = await requestJSON(`/api/v1/device/map/sub-devices/${encodeURIComponent(sub.id)}`, {...this.mutationOptions(), method: 'DELETE'});
-        this.subDevices = deviceMap.sub_devices || [];
-        this.subEdgeProps = deviceMap.edge_props || [];
+        this.applySubDeviceMap(deviceMap);
         this.$store.toasts.push(t('devices.sub.deleted'));
         this.notifySubDeviceChanged();
       } catch (error) {
@@ -1520,6 +1556,7 @@
       this.detailError = '';
       this.prefsDraftFor = '';
       this.closeSubDeviceForm();
+      this.subLoadToken += 1;
       this.destroyFavoritesChoices();
       if (this.livePatchStale) {
         this.livePatchStale = false;

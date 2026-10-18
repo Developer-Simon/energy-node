@@ -485,6 +485,8 @@ function powerPanel({ canEditEnergy = true, subDevices = [], edgeProps = [] } = 
   };
   panel.subDevices = subDevices;
   panel.subEdgeProps = edgeProps;
+  panel.subDevicesReady = true;
+  panel.$nextTick = () => {};
   return panel;
 }
 
@@ -563,4 +565,76 @@ test('non-power tiles have no sub-device row', () => {
   assert.equal(panel.subDeviceRowVisible(percent), false);
   assert.equal(panel.isSubDeviceCandidate(diagnostic), false);
   assert.equal(panel.subDeviceRowVisible(diagnostic), false);
+});
+
+test('canEditEnergy follows edit_energy and falls back to true without a session API', async () => {
+  const denied = createDevicesPanel();
+  denied.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ edit_energy: false, csrf_token: 'x' }) });
+  await denied.loadSession();
+  assert.equal(denied.canEditEnergy, false);
+
+  const allowed = createDevicesPanel();
+  allowed.testWindow.fetch = async () => ({ ok: true, status: 200, json: async () => ({ edit_energy: true }) });
+  await allowed.loadSession();
+  assert.equal(allowed.canEditEnergy, true);
+
+  const noSession = createDevicesPanel();
+  noSession.testWindow.fetch = async () => { throw new Error('no session api'); };
+  await noSession.loadSession();
+  assert.equal(noSession.canEditEnergy, true);
+});
+
+test('a failed map load keeps the create action hidden', async () => {
+  const panel = powerPanel({ subDevices: [dryer] });
+  const toasts = [];
+  panel.$store = { toasts: { push: (message, level) => toasts.push([message, level]) } };
+  panel.testWindow.fetch = async () => { throw new Error('map down'); };
+  panel.resetSubDevices();
+  const token = panel.subLoadToken;
+  await panel.loadSubDevices('wp', token);
+  const power = panel.deviceDetail.entities[0];
+  assert.equal(panel.subDevices.length, 0);
+  assert.equal(panel.subDevicesReady, false);
+  assert.equal(panel.subCreateVisible(power), false);
+  assert.equal(panel.subDeviceRowVisible(power), false);
+  assert.equal(toasts.length, 1);
+  assert.equal(toasts[0][0], 'map down');
+});
+
+test('the create action waits for the map of the open device', () => {
+  const panel = powerPanel();
+  panel.resetSubDevices();
+  const power = panel.deviceDetail.entities[0];
+  assert.equal(panel.subCreateVisible(power), false);
+  panel.openSubDeviceForm(power);
+  assert.equal(panel.subForm, null);
+});
+
+test('a stale map answer does not overwrite a newer open', async () => {
+  const panel = powerPanel();
+  let answerOld;
+  panel.testWindow.fetch = () => new Promise(resolve => { answerOld = resolve; });
+  panel.resetSubDevices();
+  const staleToken = panel.subLoadToken;
+  const stale = panel.loadSubDevices('wp', staleToken);
+  // A second open moves the token on before the first answer arrives.
+  panel.resetSubDevices();
+  answerOld({ ok: true, status: 200, json: async () => ({ sub_devices: [dryer], edge_props: [] }) });
+  await stale;
+  assert.equal(panel.subDevices.length, 0);
+  assert.equal(panel.subDevicesReady, false);
+});
+
+test('opening a device clears the previous sub-devices before the new map arrives', async () => {
+  const panel = powerPanel({ subDevices: [dryer] });
+  const entities = panel.deviceDetail.entities;
+  panel.$store = { toasts: { push() {} } };
+  panel.testWindow.fetch = async (url) => {
+    if (url.includes('/api/v1/device/map')) throw new Error('map down');
+    return { ok: true, status: 200, json: async () => ({ id: 'wp', name: 'Wärmepumpe', entities }) };
+  };
+  await panel.selectDevice('wp');
+  assert.equal(panel.subDevices.length, 0);
+  assert.equal(panel.subDevicesReady, false);
+  assert.equal(panel.subCreateVisible(entities[0]), false);
 });
