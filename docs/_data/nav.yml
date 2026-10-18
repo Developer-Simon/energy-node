@@ -97,6 +97,7 @@
       url: "developing/new-device-service.md"
       children:
         - { label: "Configuration schemas", url: "developing/config-schema.md" }
+        - { label: "Service library", url: "developing/service-library.md" }
     - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
     - { label: "Cutting a release", url: "developing/releasing.md" }
     - { label: "Version overview", url: "developing/versions.md" }

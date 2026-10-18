@@ -52,7 +52,7 @@ the first entry is `service_id`. The block always carries `poll_interval_s` and
 ## The program
 
 The shared library `libs/energy_node_common` carries everything that is not
-device specific. A service uses it like this:
+device specific, see [Service library](service-library.md) for the protocol. A service uses it like this:
 
 1. **Read `config.json`.** `appconfig.load(appconfig.config_path_from_argv())`.
    A missing or invalid file ends the program with a message. Systemd then

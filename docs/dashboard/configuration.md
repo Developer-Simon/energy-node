@@ -13,7 +13,8 @@ names, help texts, required markers and value ranges all come from one place.
 
 The dropdowns suggest MQTT topics and JSON keys from retained payloads the
 broker has actually carried. A topic that has never carried a message says so
-instead of offering an empty list.
+instead of offering an empty list. The topics are grouped by the device they
+belong to, topics without a known device are listed under *Other*.
 
 Values are validated before anything is written. A value outside the schema's
 range is rejected with HTTP 400, so it cannot end up in the file and stop a

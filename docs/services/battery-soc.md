@@ -43,6 +43,13 @@ over from the AC measurements while they are fresh (`dc_max_age_s`). When they
 go stale, the service falls back to AC. A side with only a DC input uses it as
 its only source and has no AC fallback.
 
+In the configuration editor, the fields `empty_v_per_cell` and `full_v_per_cell`
+of each bank show the cell voltage measured right now, once raw and once
+corrected for the load. The service compares the corrected value. A click on
+either value copies it into the field, and **Refresh** reads the values again.
+The raw value is divided by the cell count that is in the form, not by the
+saved one. Without live data for the bank, the block only says so.
+
 Every power input has an `*_invert` switch. The same topic can be used in
 several power inputs, typically one signed sensor for charging and the same
 sensor inverted for discharging. Negative values count as zero on each side.
