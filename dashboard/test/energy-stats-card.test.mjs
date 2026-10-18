@@ -14,8 +14,17 @@ import { DAY_FIXTURE } from './helpers/energy-stats-fixtures.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const read = name => fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', name), 'utf8');
 
-function load({ storage } = {}) {
+function load({ storage, dataset = {}, apex = false } = {}) {
   const dom = new JSDOM('<!doctype html><html><body><div data-layout-item-id="stats-1"><section id="card"></section></div><div data-layout-item-id="stats-2"><section id="card2"></section></div></body></html>', {runScripts: 'outside-only', url: 'http://localhost/'});
+  Object.assign(dom.window.document.querySelector('[data-layout-item-id="stats-1"]').dataset, dataset);
+  const charts = [];
+  if (apex) {
+    dom.window.ApexCharts = class {
+      constructor(el, options) { this.el = el; this.options = options; this.destroyed = false; charts.push(this); }
+      render() {}
+      destroy() { this.destroyed = true; }
+    };
+  }
   const context = dom.getInternalVMContext();
   let factory;
   dom.window.Alpine = {data: (_name, fn) => { factory = fn; }};
@@ -33,7 +42,7 @@ function load({ storage } = {}) {
     card.$root = dom.window.document.getElementById(id);
     return card;
   };
-  return {dom, factory, make, calls, server};
+  return {dom, factory, make, calls, server, charts};
 }
 
 test('Kachel zeigt Kennzahlen und Datenlage fuer heute', async () => {
@@ -179,5 +188,60 @@ test('ein ungueltiger gespeicherter Zeitraum faellt auf heute zurueck', async ()
   const card = make();
   await card.init();
   assert.equal(card.period, 'day');
+  dom.window.close();
+});
+
+test('ein fester Zeitraum gilt beim Laden und wird nicht gemerkt', async () => {
+  const values = new Map([['energy-stats-period:stats-1', 'week']]);
+  const {dom, make} = load({ dataset: {statsPeriod: 'month'}, storage: () => ({ getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) }) });
+  const card = make();
+  await card.init();
+  assert.equal(card.period, 'month');
+  await card.select('year');
+  assert.equal(card.period, 'year');
+  assert.equal(values.get('energy-stats-period:stats-1'), 'week');
+  dom.window.close();
+});
+
+test('ein unbekannter fester Zeitraum gilt als nicht festgelegt', async () => {
+  const {dom, make} = load({ dataset: {statsPeriod: 'decade'} });
+  const card = make();
+  await card.init();
+  assert.equal(card.preset, '');
+  assert.equal(card.period, 'day');
+  dom.window.close();
+});
+
+test('die Kachel zeigt die gewaehlten Kennzahlen in ihrer Reihenfolge', async () => {
+  const {dom, make} = load({ dataset: {statsKpis: 'autarky,battery_charge,nope'} });
+  const card = make();
+  await card.init();
+  assert.deepEqual(JSON.parse(JSON.stringify(card.kpis.map(k => k.id))), ['autarky', 'battery_charge']);
+  dom.window.close();
+});
+
+test('mit Diagramm zeichnet die Kachel kompakt und ohne Legende', async () => {
+  const {dom, make, charts} = load({ dataset: {statsChart: 'on'}, apex: true });
+  const card = make();
+  card.$refs = {chart: dom.window.document.createElement('div')};
+  await card.init();
+  assert.equal(charts.length, 1);
+  assert.equal(charts[0].options.chart.height, 180);
+  assert.equal(charts[0].options.legend.show, false);
+  await card.select('week');
+  assert.equal(charts.length, 2);
+  assert.equal(charts[0].destroyed, true);
+  card.destroy();
+  assert.equal(charts[1].destroyed, true);
+  dom.window.close();
+});
+
+test('ohne Diagramm entsteht kein Chart', async () => {
+  const {dom, make, charts} = load({ apex: true });
+  const card = make();
+  card.$refs = {chart: dom.window.document.createElement('div')};
+  await card.init();
+  assert.equal(card.showChart, false);
+  assert.equal(charts.length, 0);
   dom.window.close();
 });

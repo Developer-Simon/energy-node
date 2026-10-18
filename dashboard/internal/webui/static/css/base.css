@@ -1022,6 +1022,7 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
 .energy-stats-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(5.4rem, 1fr)); gap: .6rem .8rem; margin: 0; }
 .energy-stats-kpi dt { margin: 0; color: var(--text-muted); font-size: .75rem; }
 .energy-stats-kpi dd { margin: .1rem 0 0; color: var(--text-strong); font-size: 1.15rem; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -.015em; }
+.energy-stats-chart { min-height: 180px; margin: 0 -.4rem; }
 .energy-stats-coverage { display: flex; flex-wrap: wrap; gap: .35rem; margin: auto 0 0; }
 .energy-stats-pill { padding: .12rem .55rem; border: 1px solid var(--border-soft); border-radius: 999px; background: var(--sunken); color: var(--text-subtle); font-size: .75rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .energy-stats-pill--ha { border-color: var(--accent-line); background: var(--accent-bg); color: var(--accent-soft); }
