@@ -44,6 +44,33 @@ fails `TestCardCatalogMatchesSchema`. A variant such as `device:compact` has its
 own entry. The editor rebuilds the key in `cardKey()` the way Go does in
 `cardVariantKey()`.
 
+## Live updates for a new card type
+
+A new card type must not rely on the fragment swap for its live values. The
+swap replaces all of `#overview-live`, rebuilds the shell (see the pitfalls
+below), makes the grid flicker and costs the Pi a full render per tick. One
+card on a page that the push does not cover forces that swap for the whole
+page on every SSE event.
+
+`liveGridPushCovers()` in `dashboard.js` decides this. The swap is skipped
+only when every card on the page is covered:
+
+- **Push branch.** The card's `type` is in `branchForKind` and maps to an SSE
+  topic (`energy`, `entities`, `diagnostics`, `devices`, `energy_stats`). The
+  card's own JS takes the values from that branch and patches its DOM in place,
+  as `compact-card-values.js` and the energy cards do.
+- **Self served.** The card loads its data in its own rhythm and is listed in
+  `selfServed`, like `history_view`.
+
+A card that fits neither falls back to the swap. When the shape of a card
+changes (other rows, another device, availability), `replaceTile()` fetches
+just that card with `?fragment=layout-item`. That swap of a single card is
+fine, it only happens on a structure change, not on a value change.
+
+The background is in the plans `2026-08-25-uebersicht-live-ohne-neuaufbau`,
+`2026-08-26-uebersichtsraster-ohne-volltausch` and
+`2026-08-28-geraetekacheln-ohne-volltausch` under `.docs/superpowers/plans/done/`.
+
 ## Pitfalls
 
 **`mount()` runs before `load()` has finished.** `mount()` follows
