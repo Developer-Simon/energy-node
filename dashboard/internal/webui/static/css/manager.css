@@ -830,6 +830,9 @@ select.schema-control {
 .storage-health-error { margin-top: .75rem; }
 .bridge-preview { margin: .5rem 0 1rem; padding: .75rem; border: 1px solid var(--border-soft); background: var(--sunken); color: var(--text-subtle); font-family: monospace; font-size: .85rem; white-space: pre-wrap; overflow-x: auto; }
 .settings-help-panel { margin: 1rem 0 1.25rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); overflow: hidden; }
+/* Tailscale und TinyTuya haben wie die anderen Einstellungs-Tabs keinen
+   eigenen Titel mehr, die Hilfe steht ganz oben und schliesst buendig an. */
+.settings-help-panel:first-child { margin-top: 0; }
 .settings-help-panel summary { cursor: pointer; padding: .8rem 1rem; color: var(--accent); font-weight: 600; }
 .settings-help-panel[open] summary { border-bottom: 1px solid var(--border-soft); }
 .settings-help-list { display: grid; gap: .6rem; margin: 1rem 1.2rem; padding-left: 1.2rem; line-height: 1.5; }
