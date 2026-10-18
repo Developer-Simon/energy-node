@@ -472,9 +472,10 @@ function stubSubDeviceFetch(panel, answer) {
   return { calls, events };
 }
 
-function powerPanel({ canEditEnergy = true, subDevices = [], edgeProps = [] } = {}) {
+function powerPanel({ canEditEnergy = true, subDevices = [], edgeProps = [], manage = true } = {}) {
   const panel = createDevicesPanel();
   panel.canEditEnergy = canEditEnergy;
+  panel.subManage = manage;
   panel.selectedDeviceId = 'wp';
   panel.deviceDetail = {
     id: 'wp',
@@ -500,6 +501,44 @@ test('power tile offers create sub-device with edit_energy', () => {
   assert.equal(panel.isSubDeviceCandidate(power), true);
   assert.equal(panel.subDeviceFor(power), null);
   assert.equal(panel.subDeviceRowVisible(power), true);
+});
+
+test('sub-device management is off by default and hides create, edit and delete', async () => {
+  const panel = powerPanel({ manage: false, subDevices: [dryer] });
+  const power = panel.deviceDetail.entities[0];
+  assert.equal(panel.subManage, false);
+  assert.equal(panel.subCreateVisible(power), false);
+  assert.equal(panel.subActionsVisible(power), false);
+  panel.openSubDeviceForm(power);
+  assert.equal(panel.subForm, null);
+  panel.openSubDeviceForm(power, dryer);
+  assert.equal(panel.subForm, null);
+  let confirmed = false;
+  panel.$store = { toasts: { push() {} }, modal: { confirm: async () => { confirmed = true; return true; } } };
+  await panel.deleteSubDevice(dryer);
+  assert.equal(confirmed, false);
+});
+
+test('an existing sub-device stays visible read-only while management is off', () => {
+  const panel = powerPanel({ manage: false, subDevices: [dryer] });
+  const power = panel.deviceDetail.entities[0];
+  assert.equal(panel.subDeviceRowVisible(power), true);
+  assert.equal(panel.subDeviceFor(power).label, 'Trockner');
+});
+
+test('the management switch is only offered with edit_energy', () => {
+  const panel = powerPanel({ canEditEnergy: false, manage: false });
+  assert.equal(panel.subActionsVisible(panel.deviceDetail.entities[0]), false);
+});
+
+test('opening a device or closing it turns sub-device management off', () => {
+  const panel = powerPanel({ manage: true, subDevices: [dryer] });
+  panel.$refs = {};
+  panel.resetSubDevices();
+  assert.equal(panel.subManage, false);
+  panel.subManage = true;
+  panel.closeDeviceDetail();
+  assert.equal(panel.subManage, false);
 });
 
 test('tile shows icon and name of the existing sub-device', () => {

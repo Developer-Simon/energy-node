@@ -708,6 +708,9 @@
     subLoadToken: 0,
     subForm: null,
     subSaving: false,
+    // Opt-in switch "Manage sub-devices". Off whenever a device opens or
+    // closes, never persisted. Create, edit and delete need it.
+    subManage: false,
     // Choices.js-Instanz der Favoriten-Mehrfachauswahl - dieselbe Bibliothek
     // wie Settings > Darstellung und der Layout-Editor. Sie wird je Geraet
     // neu aufgebaut (seedPrefsDraft), nicht im SSE-Takt.
@@ -1411,6 +1414,7 @@
     // on every open and every write, so an answer that arrives late is dropped.
     resetSubDevices() {
       this.subLoadToken += 1;
+      this.subManage = false;
       this.subDevices = [];
       this.subEdgeProps = [];
       this.subDevicesReady = false;
@@ -1459,14 +1463,14 @@
     },
 
     subActionsVisible(entity) {
-      return this.canEditEnergy && this.isSubDeviceCandidate(entity);
+      return this.canEditEnergy && this.subManage && this.isSubDeviceCandidate(entity);
     },
 
     // Oeffnet den Dialog: ohne sub legt er ein Untergeraet an, mit sub
     // aendert er Name und Icon. Ein Umhaengen oder ein Kanal gibt es hier
     // nicht, der Kanal eines bestehenden Untergeraets bleibt erhalten.
     openSubDeviceForm(entity, sub = null) {
-      if (!this.canEditEnergy || !this.isSubDeviceCandidate(entity)) return;
+      if (!this.canEditEnergy || !this.subManage || !this.isSubDeviceCandidate(entity)) return;
       if (!sub && !this.subCreateVisible(entity)) return;
       const prop = sub ? this.subEdgeProps.find(item => item.child_id === sub.id) : null;
       this.subForm = {
@@ -1525,7 +1529,7 @@
     // Entfernt das Untergeraet nach einer Bestaetigung. Die Entitaet zeigt
     // danach wieder ihren Messwert.
     async deleteSubDevice(sub) {
-      if (!sub || !this.canEditEnergy) return;
+      if (!sub || !this.canEditEnergy || !this.subManage) return;
       const confirmed = await this.$store.modal.confirm({
         title: t('devices.sub.delete_title', {name: sub.label || sub.id}),
         confirmLabel: t('devices.sub.delete'),
@@ -1557,6 +1561,7 @@
       this.prefsDraftFor = '';
       this.closeSubDeviceForm();
       this.subLoadToken += 1;
+      this.subManage = false;
       this.destroyFavoritesChoices();
       if (this.livePatchStale) {
         this.livePatchStale = false;

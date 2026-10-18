@@ -93,6 +93,7 @@
                   x-bind:class="{ active: {{.Current}} === icon.name }"
                   x-bind:aria-checked="({{.Current}} === icon.name).toString()"
                   x-bind:title="icon.name === {{.Default}} ? $t('devices.icon.suggested', {label: $t(icon.labelKey)}) : $t(icon.labelKey)"
+                  {{if .Disabled}}x-bind:disabled="{{.Disabled}}"{{end}}
                   x-on:click="{{.Pick}}(icon.name)">
             <span x-html="iconMarkup(icon.name)"></span>
           </button>
@@ -342,7 +343,7 @@
       <p class="message error" x-show="subForm.error" x-text="subForm.error"></p>
       <label class="device-sub-field"><span>{{t "devices.sub.name"}}</span><input type="text" x-model="subForm.name" x-bind:disabled="subSaving"></label>
       <span class="device-sub-field-label">{{t "devices.sub.icon"}}</span>
-      {{template "device-icon-picker" dict "Current" "subForm.icon" "Default" "defaultIconName" "Pick" "pickSubIcon"}}
+      {{template "device-icon-picker" dict "Current" "subForm.icon" "Default" "defaultIconName" "Pick" "pickSubIcon" "Disabled" "subSaving"}}
       <div class="device-sub-actions">
         <button type="button" x-on:click="closeSubDeviceForm()">{{t "common.cancel"}}</button>
         <button type="submit" class="primary" x-bind:disabled="subSaving">{{t "common.save"}}</button>
@@ -374,6 +375,7 @@
   <div class="device-modal-meta-line" x-show="deviceDetail?.model"><dt>{{t "devices.device_info.model"}}</dt><dd x-text="deviceDetail?.model"></dd></div>
   <div class="device-modal-meta-line" x-show="deviceDetail?.firmware"><dt>{{t "devices.device_info.firmware"}}</dt><dd x-text="deviceDetail?.firmware"></dd></div>
   <div class="device-modal-meta-line"><dt>{{t "devices.device_info.entities"}}</dt><dd x-text="deviceDetail?.entities?.length || 0"></dd></div>
+  <template x-if="canEditEnergy"><label class="device-modal-manage-switch"><span class="settings-toggle"><input type="checkbox" role="switch" x-model="subManage"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span><span>{{t "devices.sub.manage"}}</span></label></template>
 </div>
 <div x-show="deviceDetail?.relations?.length">
   <h5>{{t "devices.device_info.linked_devices"}}</h5>
@@ -400,9 +402,9 @@
         <span class="device-modal-sub-name" x-text="subDeviceFor(entity)?.label"></span>
       </div>
       <div class="device-modal-sub-actions" x-show="subActionsVisible(entity)">
-        <button type="button" x-show="subDeviceFor(entity)" x-on:click="openSubDeviceForm(entity, subDeviceFor(entity))">{{t "devices.sub.edit"}}</button>
-        <button type="button" class="danger" x-show="subDeviceFor(entity)" x-on:click="deleteSubDevice(subDeviceFor(entity))">{{t "devices.sub.delete"}}</button>
-        <button type="button" x-show="subCreateVisible(entity)" x-on:click="openSubDeviceForm(entity)">{{t "devices.sub.create"}}</button>
+        <button type="button" class="device-modal-sub-btn device-modal-sub-create" x-show="subCreateVisible(entity)" x-on:click="openSubDeviceForm(entity)"><svg aria-hidden="true"><use href="#ico-plus"></use></svg><span>{{t "devices.sub.create"}}</span></button>
+        <button type="button" class="device-modal-sub-btn device-modal-sub-icon-btn" x-show="subDeviceFor(entity)" aria-label="{{t "devices.sub.edit_aria"}}" title="{{t "devices.sub.edit_aria"}}" x-on:click="openSubDeviceForm(entity, subDeviceFor(entity))"><svg aria-hidden="true"><use href="#ico-pencil"></use></svg></button>
+        <button type="button" class="device-modal-sub-btn device-modal-sub-icon-btn is-danger" x-show="subDeviceFor(entity)" aria-label="{{t "devices.sub.delete_aria"}}" title="{{t "devices.sub.delete_aria"}}" x-on:click="deleteSubDevice(subDeviceFor(entity))"><svg aria-hidden="true"><use href="#ico-trash"></use></svg></button>
       </div>
     </div>
   </article>
