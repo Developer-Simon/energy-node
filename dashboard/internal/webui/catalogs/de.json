@@ -1181,6 +1181,7 @@
   "energy.plant.aria": "Anlagen-Ansicht mit Energiefluss",
   "energy.plant.empty": "Noch keine Geräte erkannt.",
   "energy.plant.hint": "Anordnung aus der Device Map, nur lesend",
+  "energy.plant.role_edges": "Rollen-Kanten",
   "energy.plant.title": "Anlage live",
   "energy.ring.coverage_label": "DECKUNG",
   "energy.ring.description": "{label} {value}, Gesamtleistung {total}.",

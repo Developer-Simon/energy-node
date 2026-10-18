@@ -14,7 +14,7 @@ function load() {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only' });
   installI18n(dom.window);
   const context = dom.getInternalVMContext();
-  for (const name of ['devicemap-model.js', 'devicemap-graph.js', 'devicemap-dataflow.js']) {
+  for (const name of ['devicemap-model.js', 'devicemap-graph.js', 'devicemap-subdevices.js', 'devicemap-dataflow.js']) {
     vm.runInContext(fs.readFileSync(path.join(jsDir, name), 'utf8'), context);
   }
   return dom.window.DeviceMapDataflow;
@@ -93,6 +93,19 @@ test('roleEdges connect every device with a role to the balance', () => {
     { device_id: 'x', entity_id: 'x1', role: null },
   ] });
   assert.deepEqual(plain(edges), [{ id: 'role:pv', cat: 'role', from: 'pv', to: 'balance', roles: ['pv'], entities: ['pv1', 'pv2'], heuristic: true }]);
+});
+
+test('roleEdges start a sub-device entity at the sub-device node, not at the meter', () => {
+  const df = load();
+  const deviceMap = { sub_devices: [{ id: 'sub:wm', label: 'Waschmaschine', icon: 'plug', device_id: 'plug', entity_id: 'power_1' }] };
+  const edges = df.roleEdges({ entities: [
+    { device_id: 'plug', entity_id: 'power_1', role: { role: 'load', source: 'override' } },
+    { device_id: 'plug', entity_id: 'power_2', role: { role: 'load', source: 'override' } },
+  ] }, 'balance', deviceMap);
+  assert.deepEqual(plain(edges), [
+    { id: 'role:sub:wm', cat: 'role', from: 'sub:wm', to: 'balance', roles: ['load'], entities: ['power_1'], heuristic: false },
+    { id: 'role:plug', cat: 'role', from: 'plug', to: 'balance', roles: ['load'], entities: ['power_2'], heuristic: false },
+  ]);
 });
 
 test('relatedFocus walks visible data edges both ways and adds direct wiring neighbours', () => {

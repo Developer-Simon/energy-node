@@ -85,15 +85,19 @@
     return {nodes, edges, invalid};
   };
 
-  const roleEdges = (snapshot, balanceId = BALANCE_ID) => {
+  // An entity with a sub-device starts its role edge at the sub-device node
+  // (matched by entity ID, as remapSnapshot() does), never at the meter.
+  const roleEdges = (snapshot, balanceId = BALANCE_ID, deviceMap = null) => {
+    const subs = deviceMap ? window.DeviceMapSubDevices.byEntity(deviceMap) : new Map();
     const byDevice = new Map();
     for (const entity of (snapshot && snapshot.entities) || []) {
       const role = entity.role && entity.role.role;
       if (!role || !entity.device_id || entity.device_id === window.DeviceMapModel.OWN_ENERGY_DEVICE_ID) continue;
-      let entry = byDevice.get(entity.device_id);
+      const from = subs.has(entity.entity_id) ? subs.get(entity.entity_id).id : entity.device_id;
+      let entry = byDevice.get(from);
       if (!entry) {
-        entry = {id: `role:${entity.device_id}`, cat: 'role', from: entity.device_id, to: balanceId, roles: [], entities: [], heuristic: false};
-        byDevice.set(entity.device_id, entry);
+        entry = {id: `role:${from}`, cat: 'role', from, to: balanceId, roles: [], entities: [], heuristic: false};
+        byDevice.set(from, entry);
       }
       if (!entry.roles.includes(role)) entry.roles.push(role);
       entry.entities.push(entity.entity_id);

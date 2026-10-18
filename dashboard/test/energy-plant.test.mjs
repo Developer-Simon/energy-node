@@ -22,7 +22,7 @@ function routes(table) {
 // isActive() reads the energy panel's "active" class and the page
 // visibility, so the DOM carries the panel and jsdom pretends to be visible.
 function createPlant(table) {
-  const dom = new JSDOM('<!doctype html><html><body><section id="energy-panel" class="active"></section></body></html>', { runScripts: 'outside-only', pretendToBeVisual: true });
+  const dom = new JSDOM('<!doctype html><html><body><section id="energy-panel" class="active"></section></body></html>', { runScripts: 'outside-only', pretendToBeVisual: true, url: 'http://localhost/' });
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = routes(table);
@@ -55,7 +55,7 @@ test('the plant view ignores the saved layers and shows energy and balance', asy
   const ids = component.elements().map(element => element.data.id);
   assert.ok(ids.includes('balance'));
   assert.ok(ids.includes('group:uv'));
-  assert.ok(ids.includes('data-role:pv'), 'role edges are drawn');
+  assert.ok(!ids.includes('data-role:pv'), 'role edges are opt-in and off by default');
   assert.ok(!ids.some(id => id.startsWith('rule:')), 'no data flow nodes');
 });
 
@@ -215,4 +215,45 @@ test('plant view draws the sub-device at its saved position', async () => {
 
   const labels = Object.fromEntries(component.labelItems().map(item => [item.id, item.value]));
   assert.equal(labels['sub:gone'], 'Messung fehlt');
+});
+
+test('role edges are drawn only when the switch is on, and the choice is remembered per browser', async () => {
+  const { component, window } = createPlant(TABLE);
+  await component.load();
+  component.toggleRoleEdges(true);
+  assert.ok(component.elements().map(element => element.data.id).includes('data-role:pv'));
+  assert.equal(window.localStorage.getItem('energy-plant-role-edges'), '1');
+  component.toggleRoleEdges(false);
+  assert.ok(!component.elements().map(element => element.data.id).includes('data-role:pv'));
+  assert.equal(window.localStorage.getItem('energy-plant-role-edges'), '0');
+});
+
+test('a remembered role edge choice is read on load', async () => {
+  const { component, window } = createPlant(TABLE);
+  window.localStorage.setItem('energy-plant-role-edges', '1');
+  await component.load();
+  assert.equal(component.roleEdgesOn, true);
+  assert.ok(component.elements().map(element => element.data.id).includes('data-role:pv'));
+});
+
+test('unreadable storage keeps the plant working with role edges off', async () => {
+  const { component, window } = createPlant(TABLE);
+  Object.defineProperty(window, 'localStorage', { get() { throw new Error('denied'); } });
+  await component.load();
+  assert.equal(component.roleEdgesOn, false);
+  assert.doesNotThrow(() => component.toggleRoleEdges(true));
+  assert.doesNotThrow(() => component.setFocus('pv'));
+});
+
+test('sub-device role edges start at the sub-device, the meter gets only its remaining entity', async () => {
+  const { component } = createPlant(SUB_TABLE);
+  await component.load();
+  component.toggleRoleEdges(true);
+  const roles = component.elements().filter(element => element.classes && element.classes.includes('devicemap-data-role'));
+  const byId = Object.fromEntries(roles.map(element => [element.data.id, element]));
+  assert.equal(byId['data-role:sub:wm'].data.source, 'sub:wm', 'the entity of the washing machine starts at its sub-device');
+  assert.equal(byId['data-role:plug'].data.source, 'plug');
+  assert.equal(roles.length, 2, 'no role edge of the meter for the sub-device entity');
+  const meterEdge = component.roleEdgeList().find(edge => edge.from === 'plug');
+  assert.deepEqual(JSON.parse(JSON.stringify(meterEdge.entities)), ['power_2']);
 });

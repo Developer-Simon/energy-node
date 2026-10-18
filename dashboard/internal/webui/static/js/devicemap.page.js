@@ -554,9 +554,9 @@
           return;
         }
         if (kind === 'balance' || id === this.balanceId()) {
-          const items = df.roleEdges(this.previewEnergy(), this.balanceId()).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
+          const items = df.roleEdges(this.previewEnergy(), this.balanceId(), this.deviceMap).map(edge => `${this.labelOf(edge.from)}: ${edge.roles.map(role => (role.startsWith('custom:') ? this.labelOf(role) : t(`energy.role_label.${role}`))).join(', ')}`);
           this.placePopover(rendered, {eyebrow: t('devicemap.pop.eyebrow.virtual'), title: t('devicemap.balance.name'), rows: [], text: t('devicemap.balance.description'),
-            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy(), this.balanceId()).flatMap(edge => edge.entities)}, action: null});
+            lists: [{label: '', items}], linkText: t('devicemap.pop.link.energy'), link: {tab: 'energy', entities: df.roleEdges(this.previewEnergy(), this.balanceId(), this.deviceMap).flatMap(edge => edge.entities)}, action: null});
           return;
         }
         const node = this.flowNodes().find(candidate => candidate.id === id);
@@ -840,7 +840,7 @@
 
       dataEdges() {
         const df = window.DeviceMapDataflow;
-        const edges = [...df.roleEdges(this.previewEnergy(), this.balanceId()), ...df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId()), ...this.stubInfo().edges];
+        const edges = [...df.roleEdges(this.previewEnergy(), this.balanceId(), this.deviceMap), ...df.flowEdges(this.flows, this.baseNodeIds(), this.balanceId()), ...this.stubInfo().edges];
         return this.view.hide_automation_links ? edges.filter(edge => !df.isAutomationLink(edge)) : edges;
       },
 
@@ -1613,8 +1613,8 @@
         const positionOf = id => nodes.find(node => (node.device_id || node.virtual_id) === id);
         let placed = 0;
         if (this.balanceId() === df.BALANCE_ID && (layers.balance || layers.data) && !has(df.BALANCE_ID)) {
-          const roleDevices = new Set(df.roleEdges(this.energy, df.BALANCE_ID).map(edge => edge.from));
-          const rolePositions = nodes.filter(node => roleDevices.has(node.device_id));
+          const roleDevices = new Set(df.roleEdges(this.energy, df.BALANCE_ID, this.deviceMap).map(edge => edge.from));
+          const rolePositions = nodes.filter(node => roleDevices.has(node.device_id || node.virtual_id));
           nodes.push({virtual_id: df.BALANCE_ID, ...df.placeBalance({rolePositions, allPositions: nodes, snap})});
           placed += 1;
         }

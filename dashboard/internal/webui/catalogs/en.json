@@ -1181,6 +1181,7 @@
   "energy.plant.aria": "Plant view with energy flow",
   "energy.plant.empty": "No devices detected yet.",
   "energy.plant.hint": "Arrangement from the device map, read only",
+  "energy.plant.role_edges": "Role edges",
   "energy.plant.title": "Plant live",
   "energy.ring.coverage_label": "COVERAGE",
   "energy.ring.description": "{label} {value}, total power {total}.",

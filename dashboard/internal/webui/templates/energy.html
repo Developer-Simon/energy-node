@@ -30,6 +30,7 @@
     <div class="energy-plant-head">
       <h3 id="energy-plant-title">{{t "energy.plant.title"}}</h3>
       <span class="energy-plant-hint">{{t "energy.plant.hint"}}</span>
+      <label class="energy-plant-switch"><span class="settings-toggle"><input id="energy-plant-role-edges" type="checkbox" role="switch" x-bind:checked="roleEdgesOn" x-on:change="toggleRoleEdges($event.target.checked)"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span><span>{{t "energy.plant.role_edges"}}</span></label>
     </div>
     <p class="energy-plant-empty" x-cloak x-show="empty">{{t "energy.plant.empty"}}</p>
     <div class="energy-plant-scroll" x-show="!empty">

@@ -12,6 +12,14 @@
   };
   const LAYERS = Object.freeze({wiring: false, energy: true, balance: true, data: false});
   const REFRESH_MS = 1000;
+  // Role edges are opt-in on the plant view, remembered per browser.
+  const ROLE_EDGES_KEY = 'energy-plant-role-edges';
+  const readRoleEdges = () => {
+    try { return window.localStorage.getItem(ROLE_EDGES_KEY) === '1'; } catch (error) { return false; }
+  };
+  const writeRoleEdges = on => {
+    try { window.localStorage.setItem(ROLE_EDGES_KEY, on ? '1' : '0'); } catch (error) { /* the choice lasts for this page only */ }
+  };
 
   const energyPlantView = () => {
     let cy = null;
@@ -24,6 +32,7 @@
       categories: {},
       iconMarkup: {},
       focusId: null,
+      roleEdgesOn: false,
       empty: false,
       loading: false,
       _timer: null,
@@ -47,6 +56,7 @@
           const wake = () => setTimeout(() => this.flowAnimator().start(), 0);
           on(document, 'visibilitychange', wake);
           on(window, 'dashboard-panel-changed', wake);
+          this.roleEdgesOn = readRoleEdges();
         }
         this.loading = true;
         try {
@@ -110,6 +120,19 @@
         return window.DeviceMapSubDevices.list(this.deviceMap);
       },
 
+      // Role edges from the devices (and sub-devices) to the balance node.
+      roleEdgeList() {
+        return window.DeviceMapDataflow.roleEdges(this.energy, this.balanceId(), this.deviceMap);
+      },
+
+      // Switch in the plant head. The edges are rebuilt in place, the
+      // arrangement and the flows stay as they are.
+      toggleRoleEdges(on) {
+        this.roleEdgesOn = Boolean(on);
+        writeRoleEdges(this.roleEdgesOn);
+        this.applyEnergy();
+      },
+
       subIsOrphan(sub) {
         return window.DeviceMapSubDevices.isOrphan(sub, this.devices);
       },
@@ -169,7 +192,7 @@
           positions.set(balanceId, positions.get(df.BALANCE_ID));
         }
         if (!positions.has(balanceId)) {
-          const roleDevices = df.roleEdges(this.energy, balanceId).map(edge => positions.get(edge.from)).filter(Boolean);
+          const roleDevices = this.roleEdgeList().map(edge => positions.get(edge.from)).filter(Boolean);
           positions.set(balanceId, df.placeBalance({rolePositions: roleDevices, allPositions: all(), snap}));
         }
         for (const spot of model.placeDevices({ids: missing, allPositions: anchors, snap})) positions.set(spot.id, {x: spot.x, y: spot.y});
@@ -224,7 +247,7 @@
           : [];
         const wiring = this.wiringEdges();
         const flows = graph.flowElements({pairs: graph.pairsOf(wiring), energy, view: this.view, edgeProps: this.deviceMap.edge_props});
-        const roles = graph.dataEdgeElements(df.roleEdges(this.energy, balanceId).filter(edge => this.nodeIds().has(edge.from)));
+        const roles = this.roleEdgesOn ? graph.dataEdgeElements(this.roleEdgeList().filter(edge => this.nodeIds().has(edge.from))) : [];
         return [...devices, ...subs, ...groups, ...balance, ...wiring, ...flows, ...roles];
       },
 
@@ -312,7 +335,8 @@
       setFocus(id) {
         this.focusId = id;
         const df = window.DeviceMapDataflow;
-        const related = id ? df.relatedFocus(id, {wiringPairs: window.DeviceMapGraph.pairsOf(this.wiringEdges()), dataEdges: df.roleEdges(this.energy), layers: LAYERS}) : null;
+        const dataEdges = this.roleEdgesOn ? this.roleEdgeList() : [];
+        const related = id ? df.relatedFocus(id, {wiringPairs: window.DeviceMapGraph.pairsOf(this.wiringEdges()), dataEdges, layers: LAYERS}) : null;
         if (labels) labels.setDimmed(related ? related.nodes : null);
         if (!cy) return;
         cy.batch(() => {

@@ -300,6 +300,7 @@ select.schema-control {
 .energy-plant-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
 .energy-plant-head h3 { margin: 0; }
 .energy-plant-hint { color: var(--text-muted); font-size: .84rem; }
+.energy-plant-switch { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; cursor: pointer; font-size: .9rem; }
 .energy-plant-scroll { overflow-x: auto; }
 .energy-plant-stage { position: relative; min-width: 680px; height: 360px; }
 .energy-plant-canvas { position: absolute; inset: 0; }
