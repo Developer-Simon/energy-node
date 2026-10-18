@@ -1130,7 +1130,7 @@ func TestOverviewPrefixesEveryURLBehindAForwardedPrefix(t *testing.T) {
 	body := renderWithBasePath(t, Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())), "/node/")
 	for _, marker := range []string{
 		`<html lang="de" data-base-path="/node" data-theme="mint">`,
-		`href="/node/static/css/base.css?v=39"`,
+		`href="/node/static/css/base.css?v=40"`,
 		`href="/node/static/img/favicon.svg"`,
 		`<script src="/node/static/js/dashboard.js`,
 		`<script src="/node/static/js-deps/alpine.min.js"`,
@@ -1626,7 +1626,7 @@ func TestStatsPanelRenders(t *testing.T) {
 	}
 	full := httptest.NewRecorder()
 	Overview(registry.New(), config.NewManager(t.TempDir()), settings.NewStore(t.TempDir())).ServeHTTP(full, httptest.NewRequest("GET", "/", nil))
-	if !strings.Contains(full.Body.String(), `id="tab-stats"`) || !strings.Contains(full.Body.String(), `energy-stats-model.js?v=3`) {
+	if !strings.Contains(full.Body.String(), `id="tab-stats"`) || !strings.Contains(full.Body.String(), `energy-stats-model.js?v=4`) {
 		t.Fatal("Tab oder Panel Statistik fehlt")
 	}
 }
@@ -2464,6 +2464,24 @@ func TestOverviewRendersBatteryTrajectoryCard(t *testing.T) {
 	// Das Zeitfenster reist als data-Attribut zur Karte, die es im Browser liest.
 	if !strings.Contains(body, `data-battery-window="12"`) || !strings.Contains(body, `data-battery-projection-window="3"`) {
 		t.Fatalf("Zeitfenster-Attribute fehlen am Layout-Item:\n%s", body)
+	}
+}
+
+func TestOverviewRendersEnergyStatsOptions(t *testing.T) {
+	body := renderOverviewWithItems(t, []settings.Item{
+		{ID: "stats", Type: "energy_stats", Span: "1", Visible: true, StatsPeriod: "month", StatsKPIs: []string{"autarky", "pv"}, StatsChart: "on"},
+	})
+	// Die Optionen reisen als data-Attribute zur Kachel, die sie im Browser liest.
+	for _, want := range []string{`data-stats-period="month"`, `data-stats-kpis="autarky,pv"`, `data-stats-chart="on"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("%s fehlt:\n%s", want, body)
+		}
+	}
+	// Das optionale Diagramm braucht ApexCharts vor dem Kachel-Skript.
+	layout := settings.Layout{Version: 3, Pages: []settings.Page{{ID: "p", Groups: []settings.Group{{ID: "g", Items: []settings.Item{{ID: "stats", Type: "energy_stats", Visible: true}}}}}}}
+	scripts := requiredEnergyCardScripts(layout, "")
+	if len(scripts) != 3 || scripts[0] != "/static/js-deps/apexcharts.min.js" {
+		t.Fatalf("energy_stats-Skripte = %v, want ApexCharts zuerst", scripts)
 	}
 }
 

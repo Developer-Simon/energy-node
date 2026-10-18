@@ -631,6 +631,34 @@ func TestNormalizeLayoutBatteryTrajectoryWindow(t *testing.T) {
 	}
 }
 
+func TestNormalizeLayoutEnergyStatsOptions(t *testing.T) {
+	layout := normalizeLayout(Layout{Version: 3, Pages: []Page{{ID: "p", Name: "P", Groups: []Group{{
+		ID: "g", Name: "G", Items: []Item{
+			// Ohne Angabe: kein fester Zeitraum, Standardkennzahlen, kein Diagramm.
+			{ID: "a", Type: "energy_stats", Span: "1", Visible: true},
+			// Eigene Werte, Unbekanntes und Doppeltes faellt aus der Liste.
+			{ID: "b", Type: "energy_stats", Span: "1", Visible: true, StatsPeriod: "month", StatsKPIs: []string{"autarky", "pv", "nope", "pv"}, StatsChart: "on"},
+			// Unbekannte Werte fallen zurueck.
+			{ID: "c", Type: "energy_stats", Span: "1", Visible: true, StatsPeriod: "decade", StatsKPIs: []string{"nope"}, StatsChart: "maybe"},
+			// Andere Typen tragen die Optionen nicht.
+			{ID: "d", Type: "diagnostics", Span: "1", Visible: true, StatsPeriod: "day", StatsKPIs: []string{"pv"}, StatsChart: "on"},
+		},
+	}}}}})
+	items := layout.Pages[0].Groups[0].Items
+	if items[0].StatsPeriod != "" || items[0].StatsKPIs != nil || items[0].StatsChart != "off" {
+		t.Fatalf("default = %q/%v/%q, want \"\"/nil/\"off\"", items[0].StatsPeriod, items[0].StatsKPIs, items[0].StatsChart)
+	}
+	if items[1].StatsPeriod != "month" || !slices.Equal(items[1].StatsKPIs, []string{"autarky", "pv"}) || items[1].StatsChart != "on" {
+		t.Fatalf("explizit = %q/%v/%q, want \"month\"/[autarky pv]/\"on\"", items[1].StatsPeriod, items[1].StatsKPIs, items[1].StatsChart)
+	}
+	if items[2].StatsPeriod != "" || items[2].StatsKPIs != nil || items[2].StatsChart != "off" {
+		t.Fatalf("fallback = %q/%v/%q, want \"\"/nil/\"off\"", items[2].StatsPeriod, items[2].StatsKPIs, items[2].StatsChart)
+	}
+	if items[3].StatsPeriod != "" || items[3].StatsKPIs != nil || items[3].StatsChart != "" {
+		t.Fatalf("fremder Typ traegt Optionen: %q/%v/%q", items[3].StatsPeriod, items[3].StatsKPIs, items[3].StatsChart)
+	}
+}
+
 func TestStoreDefaultsThemeToMint(t *testing.T) {
 	dir := t.TempDir()
 	legacy := `{"health_score_threshold":3,"sweep_interval_seconds":300,"show_discovery_tooltips":true,"show_runtime_status":false,"device_view_mode":"control"}`

@@ -135,3 +135,21 @@ test('fetchStats baut die URL mit Basispfad und laesst at weg, wenn leer', async
   assert.deepEqual(urls, ['/node/api/v1/energy/stats?period=day', '/node/api/v1/energy/stats?period=month&at=2026-09']);
   dom.window.close();
 });
+
+test('chartOptions zeichnet fuer die Kachel niedriger und ohne Legende', () => {
+  const {dom, model} = loadStatsModel();
+  const page = model.chartOptions(DAY_FIXTURE, 0);
+  assert.equal(page.chart.height, 340);
+  assert.equal(page.legend.show, true);
+  assert.equal(page.legend.position, 'bottom');
+  const card = model.chartOptions(DAY_FIXTURE, 0, {height: 180, legend: false});
+  assert.equal(card.chart.height, 180);
+  assert.equal(card.legend.show, false);
+  dom.window.close();
+});
+
+test('KPI_IDS nennt alle acht Kennzahlen in fester Reihenfolge', () => {
+  const {dom, model} = loadStatsModel();
+  assert.deepEqual([...model.KPI_IDS], ['consumption', 'pv', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge', 'autarky', 'self_consumption']);
+  dom.window.close();
+});

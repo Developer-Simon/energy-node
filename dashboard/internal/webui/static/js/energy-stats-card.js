@@ -1,13 +1,15 @@
 // Kachel energy_stats: Kennzahlen der Energiestatistik fuer heute, diese
-// Woche, diesen Monat oder dieses Jahr, ohne Diagramm. Die Zahlen aendern
-// sich hoechstens einmal je Stunde. Das SSE-Thema energy_stats traegt die
-// Revision der Statistik, und die Kachel laedt nur, wenn sie von der
-// geladenen abweicht. Der 60-Sekunden-Cache bleibt als Schutz gegen doppelte
-// Abfragen mehrerer Kacheln.
+// Woche, diesen Monat oder dieses Jahr, auf Wunsch mit Balkendiagramm. Die
+// Zahlen aendern sich hoechstens einmal je Stunde. Das SSE-Thema
+// energy_stats traegt die Revision der Statistik, und die Kachel laedt nur,
+// wenn sie von der geladenen abweicht. Der 60-Sekunden-Cache bleibt als
+// Schutz gegen doppelte Abfragen mehrerer Kacheln. Zeitraum, Kennzahlen und
+// Diagramm kommen als data-stats-* vom Layout-Item.
 (() => {
   const CACHE_MS = 60 * 1000;
   const CARD_KPIS = ['consumption', 'pv', 'grid_import', 'grid_export', 'autarky'];
   const STORAGE_PREFIX = 'energy-stats-period:';
+  const CHART_HEIGHT = 180;
   // Zeitraum -> {at, promise, revision}. revision ist undefined, solange die
   // Antwort aussteht.
   const cache = new Map();
@@ -69,6 +71,11 @@
   const energyStatsCard = () => ({
     period: 'day',
     itemId: '',
+    // Fest eingestellter Zeitraum, '' heisst nicht festgelegt.
+    preset: '',
+    kpiIds: CARD_KPIS,
+    showChart: false,
+    chart: null,
     kpis: [],
     coverage: '',
     coverageParts: [],
@@ -78,14 +85,27 @@
 
     init() {
       const host = this.$root && this.$root.closest('[data-layout-item-id]');
-      this.itemId = (host && host.dataset.layoutItemId) || 'energy-stats';
-      this.period = periodByItem.get(this.itemId) || storedPeriod(this.itemId) || 'day';
+      const options = (host && host.dataset) || {};
+      const model = window.EnergyStatsModel;
+      this.itemId = options.layoutItemId || 'energy-stats';
+      this.preset = model.PERIODS.includes(options.statsPeriod) ? options.statsPeriod : '';
+      const chosen = String(options.statsKpis || '').split(',').filter(id => model.KPI_IDS.includes(id));
+      this.kpiIds = chosen.length ? chosen : CARD_KPIS;
+      this.showChart = options.statsChart === 'on';
+      // Ein fester Zeitraum gilt bei jedem Seitenaufruf. Ein Klick auf einen
+      // Chip haelt dann nur bis zum Neuladen (periodByItem), der gemerkte
+      // Zeitraum im Browser bleibt aussen vor.
+      this.period = periodByItem.get(this.itemId) || this.preset || storedPeriod(this.itemId) || 'day';
+      if (this.showChart) this.themeOff = window.DashboardTheme.onChange(() => this.renderChart());
       cards.add(this);
       return this.load();
     },
 
     destroy() {
       cards.delete(this);
+      if (this.chart) this.chart.destroy();
+      this.chart = null;
+      if (this.themeOff) this.themeOff();
     },
 
     async load() {
@@ -97,18 +117,28 @@
         this.data = data;
         this.revision = data.revision;
         this.error = '';
-        this.kpis = model.kpis(data.total, CARD_KPIS);
+        this.kpis = model.kpis(data.total, this.kpiIds);
         this.coverage = model.coverageText(data.total && data.total.hours);
         this.coverageParts = model.coverageParts(data.total && data.total.hours);
+        this.renderChart();
       } catch (error) {
         this.error = error.message;
       }
     },
 
+    renderChart() {
+      const el = this.$refs && this.$refs.chart;
+      if (!this.showChart || !this.data || !el || !window.ApexCharts) return;
+      if (this.chart) this.chart.destroy();
+      const options = window.EnergyStatsModel.chartOptions(this.data, el.clientWidth || 0, {height: CHART_HEIGHT, legend: false});
+      this.chart = new window.ApexCharts(el, options);
+      this.chart.render();
+    },
+
     select(period) {
       this.period = period;
       periodByItem.set(this.itemId, period);
-      storePeriod(this.itemId, period);
+      if (!this.preset) storePeriod(this.itemId, period);
       return this.load();
     },
 

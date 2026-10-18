@@ -71,6 +71,9 @@
                       "show_advice": {"type": "string", "enum": ["on", "off"]},
                       "battery_window": {"type": "string", "enum": ["3", "6", "12", "24"]},
                       "battery_projection_window": {"type": "string", "enum": ["3", "6", "12", "24"]},
+                      "stats_period": {"type": "string", "enum": ["day", "week", "month", "year"]},
+                      "stats_kpis": {"type": "array", "items": {"type": "string", "enum": ["consumption", "pv", "grid_import", "grid_export", "battery_charge", "battery_discharge", "autarky", "self_consumption"]}},
+                      "stats_chart": {"type": "string", "enum": ["on", "off"]},
                       "history_series": {"type": "array", "items": {"type": "string", "minLength": 1}},
                       "history_range_hours": {"type": "string", "enum": ["1", "6", "24", "168", "720", "2160"]},
                       "history_aggregate": {"type": "string", "enum": ["avg", "min", "max"]}

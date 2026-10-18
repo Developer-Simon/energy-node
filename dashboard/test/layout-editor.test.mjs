@@ -2520,13 +2520,35 @@ test('switching to a view clears the own fields', async () => {
   assert.equal(item.historyAggregate, '');
 });
 
-test('the series checkboxes update historySeries', async () => {
-  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv']});
+test('the series chooser updates historySeries in Choices order', async () => {
+  const loaded = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv']});
+  const {component, factory, window} = loaded;
   const item = component.pages[0].groups[0].items[0];
   component._optionsItem = item;
-  component.applyOptionChange({target: {dataset: {role: 'history-series'}, value: 'role:grid', checked: true}});
-  component.applyOptionChange({target: {dataset: {role: 'history-series'}, value: 'role:pv', checked: false}});
+  // Ohne Choices-Instanz zaehlt die Reihenfolge der <option>s.
+  component.applyOptionChange({target: {dataset: {role: 'history-series'}, selectedOptions: [{value: 'role:grid'}]}});
   assert.deepEqual(plain(item.historySeries), ['role:grid']);
+
+  window.Choices = class { getValue() { return ['role:grid', 'role:pv']; } destroy() {} };
+  const body = window.document.createElement('div');
+  body.innerHTML = '<select multiple data-role="history-series"></select>';
+  factory.initEntityChoicesFor('h', body);
+  component.applyOptionChange({target: {dataset: {role: 'history-series'}, selectedOptions: [{value: 'role:pv'}, {value: 'role:grid'}]}});
+  assert.deepEqual(plain(item.historySeries), ['role:grid', 'role:pv']);
+  factory.destroyEntityChoicesFor('h');
+});
+
+test('the series chooser lists chosen series first, in their order', async () => {
+  const {component, factory} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv', 'role:grid']});
+  const item = component.pages[0].groups[0].items[0];
+  const html = factory.optionsSheetHTML(item, [], 'Verlauf', 4);
+  assert.ok(html.includes('data-role="history-series"'), 'Serien-Auswahl fehlt');
+  assert.ok(!html.includes('type="checkbox" role="switch" data-role="history-series"'), 'keine Schalter mehr');
+  const pv = html.indexOf('value="role:pv" selected');
+  const grid = html.indexOf('value="role:grid" selected');
+  const derived = html.indexOf('value="berechnet:hausverbrauch"');
+  assert.ok(pv >= 0 && grid > pv && derived > grid, 'Reihenfolge stimmt nicht');
+  assert.ok(!html.includes('value="berechnet:hausverbrauch" selected'));
 });
 
 test('payload() writes history_series and the two option fields in snake_case', async () => {
@@ -2537,4 +2559,65 @@ test('payload() writes history_series and the two option fields in snake_case', 
   assert.equal(item.history_aggregate, 'min');
   assert.equal(item.title, 'Netz');
   assert.equal(item.historySeries, undefined, 'kein camelCase im PUT-Rumpf');
+});
+
+test('energyOptionsHTML() zeigt Zeitraum, Kennzahlen und Diagrammschalter fuer energy_stats', () => {
+  const { factory } = loadLayoutPage({ gridstack: false });
+  const html = factory.energyOptionsHTML({type: 'energy_stats', statsPeriod: 'month', statsKpis: ['autarky', 'pv'], statsChart: 'on'});
+  assert.ok(html.includes('data-role="stats-period"'), 'Zeitraum fehlt');
+  assert.ok(html.includes('value="month" selected'), 'Zeitraum steht nicht auf month');
+  assert.ok(html.includes('data-role="stats-kpis"'), 'Kennzahlen fehlen');
+  // Gewaehlte zuerst, in gewaehlter Reihenfolge.
+  const autarky = html.indexOf('value="autarky" selected');
+  const pv = html.indexOf('value="pv" selected');
+  const consumption = html.indexOf('value="consumption"');
+  assert.ok(autarky >= 0 && pv > autarky && consumption > pv, 'Reihenfolge der Kennzahlen stimmt nicht');
+  assert.ok(!html.includes('value="consumption" selected'), 'consumption ist nicht gewaehlt');
+  assert.match(html, /data-role="stats-chart" checked/);
+
+  const fresh = factory.energyOptionsHTML({type: 'energy_stats'});
+  assert.ok(fresh.includes('value="" selected'), 'ohne Angabe gilt der zuletzt gewaehlte Zeitraum');
+  for (const id of ['consumption', 'pv', 'grid_import', 'grid_export', 'autarky']) assert.ok(fresh.includes(`value="${id}" selected`), `${id} ist vorgewaehlt`);
+  assert.ok(!fresh.includes('value="battery_charge" selected'));
+  assert.doesNotMatch(fresh, /data-role="stats-chart" checked/);
+});
+
+test('cardKey() nimmt mit Diagramm die Variante energy_stats:chart', () => {
+  const { factory } = loadLayoutPage({ gridstack: false });
+  assert.equal(factory.cardKey({type: 'energy_stats', statsChart: 'on'}), 'energy_stats:chart');
+  assert.equal(factory.cardKey({type: 'energy_stats', statsChart: 'off'}), 'energy_stats');
+});
+
+test('load() und payload() fuehren die energy_stats-Optionen hin und zurueck', async () => {
+  const {component} = await editorWithHistoryTile({id: 's', type: 'energy_stats', span: '1', visible: true, stats_period: 'week', stats_kpis: ['autarky', 'pv'], stats_chart: 'on'});
+  const item = component.pages[0].groups[0].items[0];
+  assert.equal(item.statsPeriod, 'week');
+  assert.deepEqual(plain(item.statsKpis), ['autarky', 'pv']);
+  assert.equal(item.statsChart, 'on');
+  const sent = component.payload().pages[0].groups[0].items[0];
+  assert.equal(sent.stats_period, 'week');
+  assert.deepEqual(plain(sent.stats_kpis), ['autarky', 'pv']);
+  assert.equal(sent.stats_chart, 'on');
+  assert.equal(sent.statsKpis, undefined, 'kein camelCase im PUT-Rumpf');
+});
+
+test('stats-kpis nimmt die Reihenfolge aus Choices, stats-chart setzt den Schalter', async () => {
+  const loaded = await editorWithHistoryTile({id: 's', type: 'energy_stats', span: '1', visible: true});
+  const {component, factory, window} = loaded;
+  const item = component.pages[0].groups[0].items[0];
+  component._optionsItem = item;
+  // Ohne Choices-Instanz zaehlt die Reihenfolge der <option>s.
+  component.applyOptionChange({target: {dataset: {role: 'stats-kpis'}, selectedOptions: [{value: 'pv'}, {value: 'autarky'}]}});
+  assert.deepEqual(plain(item.statsKpis), ['pv', 'autarky']);
+
+  window.Choices = class { getValue() { return ['autarky', 'pv']; } destroy() {} };
+  const body = window.document.createElement('div');
+  body.innerHTML = '<select multiple data-role="stats-kpis"></select>';
+  factory.initEntityChoicesFor('s', body);
+  component.applyOptionChange({target: {dataset: {role: 'stats-kpis'}, selectedOptions: [{value: 'pv'}, {value: 'autarky'}]}});
+  assert.deepEqual(plain(item.statsKpis), ['autarky', 'pv']);
+  factory.destroyEntityChoicesFor('s');
+
+  component.applyOptionChange({target: {dataset: {role: 'stats-chart'}, checked: true}});
+  assert.equal(item.statsChart, 'on');
 });

@@ -177,9 +177,20 @@ part on the load node.
 
 ![Energy statistics card](../images/dashboard-card-energy-stats.png)
 
-Consumption, PV yield, grid import, grid export and self-sufficiency for today,
-this week, this month or this year. **Open statistics** opens the
-[Statistics](statistics.md) tab for the same period. The card has no options.
+Key figures for today, this week, this month or this year. **Open statistics**
+opens the [Statistics](statistics.md) tab for the same period.
+
+| Option | Values | Default |
+|---|---|---|
+| Time period | last selected, today, this week, this month, this year | last selected |
+| Key figures | any of the eight figures of the Statistics tab, in the order picked | consumption, PV yield, grid import, feed-in, autarky |
+| Show bar chart | on, off | off |
+
+With **last selected**, the card starts with the period last clicked in this
+browser. A fixed period applies on every page load. Clicking another period
+still works but only lasts until the page is reloaded. The bar chart is the
+chart of the Statistics tab, smaller and without legend, and makes the card
+taller.
 
 ## Battery: status card
 

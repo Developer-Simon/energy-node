@@ -46,6 +46,8 @@ In its options, **Source** picks a saved history view. The tile then follows
 that view: change the view on the history page and the tile changes with it.
 **Own settings** lets the tile keep its own title, period, statistic and
 series. Switching from a view to own settings starts from the view's values.
+Series are picked in a search field. Without a selection the tile shows all
+recorded series.
 
 The tile only shows what this browser has recorded or received through the
 history exchange, like the history page. On a device that has not recorded

@@ -169,3 +169,15 @@ func TestCardTypeForItemPicksTheTrajectoryVariant(t *testing.T) {
 		t.Fatalf("Trajektorie MinSpan = %d, want 2", got)
 	}
 }
+
+func TestCardTypeForItemPicksTheStatsChartVariant(t *testing.T) {
+	if got := cardVariantKey(Item{Type: "energy_stats", StatsChart: "off"}); got != "energy_stats" {
+		t.Fatalf("ohne Diagramm = %q, want energy_stats", got)
+	}
+	if got := cardVariantKey(Item{Type: "energy_stats", StatsChart: "on"}); got != "energy_stats:chart" {
+		t.Fatalf("mit Diagramm = %q, want energy_stats:chart", got)
+	}
+	if got := CardTypeForItem(Item{Type: "energy_stats", StatsChart: "on"}).MinHeight; got != "26rem" {
+		t.Fatalf("MinHeight mit Diagramm = %q, want 26rem", got)
+	}
+}

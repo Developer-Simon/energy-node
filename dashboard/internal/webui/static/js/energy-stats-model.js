@@ -44,6 +44,7 @@
     autarky: {ratio: 'autarky'},
     self_consumption: {ratio: 'self_consumption'},
   };
+  const KPI_IDS = Object.keys(KPI);
 
   function kpis(totals, ids) {
     const source = totals || {};
@@ -179,7 +180,72 @@
     });
   }
 
+  // Wie HistoryChart.themeMode, ohne history-chart.js zu laden.
+  function themeMode() {
+    const attr = (document.documentElement.dataset.theme || '').toLowerCase();
+    if (attr === 'light' || attr === 'dark') return attr;
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+  }
+
+  // ApexCharts blendet sich überlappende Beschriftungen bei Balken mit
+  // rotate 0 nicht aus. Passen sie nicht in die Zeichenfläche, bekommt nur
+  // jede n-te Kategorie ihren Text. Breite 0 heißt unbekannt (jsdom, noch
+  // nicht gelayoutet), dann bleiben alle.
+  const Y_AXIS_PX = 70;
+  function thinLabels(labels, width) {
+    if (!width || !labels.length) return labels;
+    const longest = Math.max(...labels.map(label => String(label).length));
+    const labelPx = longest * 8 + 12;
+    const step = Math.max(1, Math.ceil(labels.length * labelPx / Math.max(width - Y_AXIS_PX, 1)));
+    return labels.map((label, index) => (index % step === 0 ? label : ''));
+  }
+
+  // Gemeinsam fuer Seite und Kachel. Die Kachel zeichnet niedriger und ohne
+  // Legende, die Kennzahlen darueber nennen die Rollen schon.
+  function chartOptions(result, width = 0, {height = 340, legend = true} = {}) {
+    const theme = window.DashboardTheme;
+    const series = chartSeries(result);
+    const labels = result.buckets.map(bucket => bucketLabel(result.period, bucket.local));
+    // Ein Array: ApexCharts faerbt bei einem einzelnen String nur die ersten Marken.
+    const labelColor = theme.color('text-muted');
+    const labelStyle = {colors: Array(24).fill(labelColor), fontSize: '12px'};
+    return {
+      chart: {type: 'bar', stacked: true, height, toolbar: {show: false}, animations: {enabled: false}, background: 'transparent', fontFamily: 'inherit'},
+      theme: {mode: themeMode()},
+      series: series.map(s => ({name: s.name, data: s.data, color: s.color, role: s.role})),
+      colors: series.map(s => s.color),
+      fill: {
+        type: series.map(s => (s.hatched ? 'pattern' : 'solid')),
+        opacity: 1,
+        pattern: {style: 'slantedLines', width: 6, height: 6, strokeWidth: 2},
+      },
+      stroke: {width: 0},
+      plotOptions: {bar: {columnWidth: '72%', borderRadius: 2}},
+      dataLabels: {enabled: false},
+      legend: {show: legend,
+        position: 'bottom', fontSize: '12px', labels: {colors: theme.color('text-muted')}, itemMargin: {horizontal: 10},
+        markers: {
+          size: 5, shape: 'circle',
+          customHTML: series.map(s => () => `<span class="stats-swatch${s.hatched ? ' is-hatched' : ''}" style="background-color:${s.color}"></span>`),
+        },
+      },
+      xaxis: {
+        categories: thinLabels(labels, width),
+        labels: {style: labelStyle, rotate: 0, hideOverlappingLabels: true},
+        axisBorder: {color: theme.color('border-soft')},
+        axisTicks: {color: theme.color('border-soft')},
+      },
+      yaxis: {forceNiceScale: true, labels: {style: labelStyle, showDuplicates: true, formatter: value => window.I18n.formatNumber(Math.abs(value), Math.abs(value) < 10 ? 1 : 0)}, title: {text: 'kWh', style: {color: theme.color('text-muted'), fontWeight: 400}}},
+      tooltip: {
+        x: {formatter: (value, opts) => (opts && labels[opts.dataPointIndex]) || value},
+        y: {formatter: value => formatKWh(value == null ? null : Math.abs(value))},
+      },
+      grid: {borderColor: theme.color('border-soft'), strokeDashArray: 3},
+      noData: {text: t('energy_stats.empty')},
+    };
+  }
+
   window.EnergyStatsModel = {
-    PERIODS, fetchStats, formatKWh, kpis, coverageText, coverageParts, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, tableRows, HATCHED_ROLES,
+    PERIODS, KPI_IDS, fetchStats, formatKWh, kpis, coverageText, coverageParts, localDate, bucketLabel, periodTitle, roleMeta, chartSeries, chartOptions, thinLabels, tableRows, HATCHED_ROLES,
   };
 })();
