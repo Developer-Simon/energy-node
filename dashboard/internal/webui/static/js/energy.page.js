@@ -45,7 +45,7 @@
     return body;
   };
 
-  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories'];
+  const SECTIONS = ['interpretation', 'roles', 'groups', 'categories', 'subdevices'];
   const readOpenSection = () => {
     try {
       const stored = localStorage.getItem('energy-open-section');
@@ -179,6 +179,7 @@
       }
       if (name === 'groups') return tn('energy.section.groups_meta', Object.keys(this.groups).length, {n: Object.keys(this.groups).length});
       if (name === 'categories') return tn('energy.section.categories_meta', Object.keys(this.categories).length, {n: Object.keys(this.categories).length});
+      if (name === 'subdevices') return tn('energy.section.subdevices_meta', this.subDeviceEntries.length, {n: this.subDeviceEntries.length});
       return '';
     },
 

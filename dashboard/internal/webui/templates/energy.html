@@ -204,22 +204,6 @@
       <div class="energy-acc-body" id="energy-acc-categories" role="region" aria-labelledby="energy-acc-categories-toggle" x-show="isSectionOpen('categories')" x-cloak>
         <p class="energy-groups-empty" x-show="!Object.keys(categories).length">{{t "energy.categories.empty"}}</p>
         <div class="energy-card-grid">
-          <div class="energy-sub-card" data-energy-sub-overview>
-            <div class="energy-groups-head">
-              <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-layers"></use></svg></span>
-              <span class="energy-sub-title">{{t "energy.categories.sub.title"}}</span>
-            </div>
-            <p class="energy-groups-empty" x-show="!subDeviceEntries.length">{{t "energy.categories.sub.empty"}}</p>
-            <ul class="energy-sub-list" x-show="subDeviceEntries.length" x-cloak>
-              <template x-for="entry in subDeviceEntries" x-bind:key="entry.id">
-                <li class="energy-sub-item">
-                  <span class="energy-sub-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="entry.iconMarkup"></svg></span>
-                  <span class="energy-sub-text"><span class="energy-sub-name" x-text="entry.label"></span><span class="energy-sub-meter" x-text="entry.meter"></span></span>
-                </li>
-              </template>
-            </ul>
-            <p class="energy-sub-hint">{{t "energy.categories.sub.read_only"}}</p>
-          </div>
           <template x-for="(category, id) in categories" x-bind:key="id">
             <div class="energy-category-card" x-bind:data-category-id="id">
               <div class="energy-groups-head">
@@ -234,6 +218,29 @@
           </template>
         </div>
         <button type="button" class="pill-button energy-groups-add" x-bind:disabled="!canEdit" x-on:click="addCategory()"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "energy.categories.add"}}</button>
+      </div>
+    </section>
+    <section class="energy-acc" data-energy-section="subdevices" x-bind:data-open="isSectionOpen('subdevices') ? 'true' : 'false'">
+      <h3 class="energy-acc-heading"><button type="button" class="energy-acc-toggle" id="energy-acc-subdevices-toggle" aria-controls="energy-acc-subdevices" x-bind:aria-expanded="isSectionOpen('subdevices') ? 'true' : 'false'" x-on:click="toggleSection('subdevices', $event)"><span class="energy-acc-title">{{t "energy.subdevices.title"}}</span><span class="energy-acc-meta" x-text="sectionMeta('subdevices')"></span><svg class="energy-acc-chevron" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-chevron"></use></svg></button></h3>
+      <div class="energy-acc-body" id="energy-acc-subdevices" role="region" aria-labelledby="energy-acc-subdevices-toggle" x-show="isSectionOpen('subdevices')" x-cloak>
+  <div class="energy-card-grid">
+<div class="energy-sub-card" data-energy-sub-overview>
+    <div class="energy-groups-head">
+      <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-layers"></use></svg></span>
+      <span class="energy-sub-title">{{t "energy.subdevices.title"}}</span>
+    </div>
+    <p class="energy-groups-empty" x-show="!subDeviceEntries.length">{{t "energy.subdevices.empty"}}</p>
+    <ul class="energy-sub-list" x-show="subDeviceEntries.length" x-cloak>
+      <template x-for="entry in subDeviceEntries" x-bind:key="entry.id">
+        <li class="energy-sub-item">
+          <span class="energy-sub-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="entry.iconMarkup"></svg></span>
+          <span class="energy-sub-text"><span class="energy-sub-name" x-text="entry.label"></span><span class="energy-sub-meter" x-text="entry.meter"></span></span>
+        </li>
+      </template>
+    </ul>
+    <p class="energy-sub-hint">{{t "energy.subdevices.read_only"}}</p>
+  </div>
+        </div>
       </div>
     </section>
   </div>
