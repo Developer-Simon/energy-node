@@ -43,6 +43,7 @@
   const cardKey = item => {
     if (item?.type === 'device' && item?.display === 'compact') return 'device:compact';
     if (item?.type === 'battery_status' && item?.display === 'trajectory') return 'battery_status:trajectory';
+    if (item?.type === 'energy_stats' && item?.statsChart === 'on') return 'energy_stats:chart';
     return item?.type || '';
   };
 
@@ -71,16 +72,17 @@
 
   const initEntityChoicesFor = (id, contentEl) => {
     if (!window.Choices) return;
-    const select = contentEl?.querySelector?.('[data-role="entity-refs"]');
+    const select = contentEl?.querySelector?.('[data-role="entity-refs"], [data-role="stats-kpis"]');
     if (!select) return;
+    const stats = select.dataset.role === 'stats-kpis';
     destroyEntityChoicesFor(id);
     entityChoicesInstances.set(id, new window.Choices(select, {
       removeItemButton: true,
       shouldSort: false,
       searchResultLimit: 30,
-      placeholderValue: t('layout_editor.entity_chooser.placeholder'),
+      placeholderValue: t(stats ? 'layout_editor.energy_stats.kpi_placeholder' : 'layout_editor.entity_chooser.placeholder'),
       noResultsText: t('layout_editor.entity_chooser.no_results'),
-      noChoicesText: t('layout_editor.entity_chooser.no_choices'),
+      noChoicesText: t(stats ? 'layout_editor.energy_stats.no_more_kpis' : 'layout_editor.entity_chooser.no_choices'),
       itemSelectText: '',
     }));
   };
@@ -286,6 +288,8 @@
     {role: 'show-advice', field: 'showAdvice', json: 'show_advice', kind: 'checkbox'},
     {role: 'battery-window', field: 'batteryWindow', json: 'battery_window', kind: 'select'},
     {role: 'battery-projection-window', field: 'batteryProjectionWindow', json: 'battery_projection_window', kind: 'select'},
+    {role: 'stats-period', field: 'statsPeriod', json: 'stats_period', kind: 'select'},
+    {role: 'stats-chart', field: 'statsChart', json: 'stats_chart', kind: 'checkbox'},
     {role: 'speed-reference-mode', field: 'speedReferenceMode', json: 'speed_reference_mode', kind: 'select'},
     {role: 'speed-reference-watts', field: 'speedReferenceWatts', json: 'speed_reference_watts', kind: 'number'},
     {role: 'history-range-hours', field: 'historyRangeHours', json: 'history_range_hours', kind: 'select'},
@@ -309,8 +313,15 @@
     // Nur die Trajektorie nutzt es (siehe Panel unten); die Saeule bekommt
     // den Wert zwar mit, zeigt aber kein Feld dafuer.
     battery_status: {batteryWindow: '6'},
+    energy_stats: {statsChart: 'off'},
   };
   const defaultEnergyOptions = type => ({...ENERGY_OPTION_DEFAULTS[type]});
+
+  // Kennzahlen der Kachel energy_stats. Muss zu KPI in energy-stats-model.js
+  // und statsKPIs in settings.go passen, die Standardauswahl zu CARD_KPIS in
+  // energy-stats-card.js.
+  const STATS_KPIS = ['consumption', 'pv', 'grid_import', 'grid_export', 'battery_charge', 'battery_discharge', 'autarky', 'self_consumption'];
+  const STATS_DEFAULT_KPIS = ['consumption', 'pv', 'grid_import', 'grid_export', 'autarky'];
 
   function selectFieldHTML(role, label, value, options) {
     const opts = options.map(([v, text]) =>
@@ -407,6 +418,26 @@
         [['3', 'layout_editor.option.battery_window.three'], ['6', 'layout_editor.option.battery_window.six'], ['12', 'layout_editor.option.battery_window.twelve'], ['24', 'layout_editor.option.battery_window.twentyfour']]) +
       selectFieldHTML('battery-projection-window', 'layout_editor.battery_status.battery_projection_window', item.batteryProjectionWindow || '',
         [['', 'layout_editor.option.battery_projection_window.like_window'], ['3', 'layout_editor.option.battery_projection_window.three'], ['6', 'layout_editor.option.battery_projection_window.six'], ['12', 'layout_editor.option.battery_projection_window.twelve'], ['24', 'layout_editor.option.battery_projection_window.twentyfour']]),
+
+    // Der Zeitraum ist optional, "" laesst die Kachel den zuletzt gewaehlten
+    // nehmen. Die Kennzahlen stehen gewaehlt zuerst und in ihrer Reihenfolge,
+    // weil Choices die Auswahl in der Reihenfolge der <option>s uebernimmt.
+    // Ohne eigene Auswahl sind die Standardkennzahlen vorgewaehlt, so wie die
+    // Kachel sie dann zeigt.
+    // i18n-keys: energy_stats.kpi.consumption, energy_stats.kpi.pv,
+    // energy_stats.kpi.grid_import, energy_stats.kpi.grid_export,
+    // energy_stats.kpi.battery_charge, energy_stats.kpi.battery_discharge,
+    // energy_stats.kpi.autarky, energy_stats.kpi.self_consumption
+    energy_stats: item => {
+      const selected = item.statsKpis && item.statsKpis.length ? item.statsKpis : STATS_DEFAULT_KPIS;
+      const ordered = [...selected, ...STATS_KPIS.filter(id => !selected.includes(id))];
+      const labelID = `layout-item-stats-kpis-label-${escapeHTML(item.id || '')}`;
+      return selectFieldHTML('stats-period', 'layout_editor.energy_stats.stats_period', item.statsPeriod || '',
+        [['', 'layout_editor.option.stats_period.last'], ['day', 'energy_stats.card.day'], ['week', 'energy_stats.card.week'], ['month', 'energy_stats.card.month'], ['year', 'energy_stats.card.year']]) +
+        `<div class="layout-modal-field"><label id="${labelID}">${escapeHTML(t('layout_editor.energy_stats.stats_kpis'))}</label>`
+        + `<select multiple data-role="stats-kpis" aria-labelledby="${labelID}">${ordered.map(id => `<option value="${id}"${selected.includes(id) ? ' selected' : ''}>${escapeHTML(t(`energy_stats.kpi.${id}`))}</option>`).join('')}</select></div>` +
+        checkboxFieldHTML('stats-chart', 'layout_editor.energy_stats.stats_chart', item.statsChart === 'on');
+    },
   };
 
   // Karten mit Typ-Minimum >= 2 (die fuenf Energiegrafik-Alternativen ausser
@@ -532,6 +563,7 @@
       title: '',
       entityRefs: [],
       historySeries: [],
+      statsKpis: d.statsKpis ? d.statsKpis.split(',') : [],
     };
     // data-speed-reference-mode -> dataset.speedReferenceMode === ENERGY_OPTION.field
     for (const {field} of ENERGY_OPTIONS) item[field] = d[field] || '';
@@ -707,6 +739,7 @@
       title: item.title || '',
       entityRefs: item.entityRefs || [],
       historySeries: item.historySeries || [],
+      statsKpis: item.statsKpis || [],
     };
     for (const field of ENERGY_OPTION_FIELDS) node[field] = item[field] || '';
     node.content = widgetHTML({...item, span}, label, missingRef, columns);
@@ -728,6 +761,7 @@
       title: node.title || '',
       entityRefs: node.entityRefs || [],
       historySeries: node.historySeries || [],
+      statsKpis: node.statsKpis || [],
     };
     for (const field of ENERGY_OPTION_FIELDS) item[field] = node[field] || '';
     return item;
@@ -1512,6 +1546,15 @@
         if (item.type === 'device' && item.display !== 'compact') item.entityRefs = [];
         this.syncSlotForItem(item);
         this.refillOptionsBody();
+      } else if (role === 'stats-kpis') {
+        // Choices kennt die Klickreihenfolge, selectedOptions nur die
+        // Reihenfolge der <option>s.
+        const choices = entityChoicesInstances.get(item.id);
+        item.statsKpis = choices ? choices.getValue(true) : Array.from(t.selectedOptions).map(option => option.value);
+      } else if (role === 'stats-chart') {
+        // Mit Diagramm gilt eine groessere Mindesthoehe (cardKey).
+        item.statsChart = t.checked ? 'on' : 'off';
+        this.syncSlotForItem(item);
       } else if (role === 'history-source') {
         if (t.value) {
           item.ref = t.value;
@@ -1573,6 +1616,7 @@
       slot.dataset.layoutItemRef = item.ref || '';
       if (item.type === 'device') slot.dataset.display = item.display || 'detail';
       if (item.type === 'battery_status') slot.dataset.display = item.display || 'column';
+      if (item.type === 'energy_stats') slot.dataset.statsChart = item.statsChart || 'off';
       const label = this.itemLabel(item);
       const title = slot.querySelector('.card-title b') || slot.querySelector('.layout-card-placeholder b');
       if (title) title.textContent = label;
@@ -1770,7 +1814,7 @@
             items: (group.items || (group.entity_ids || []).map(entityID => ({id: `entity:${entityID}`, type: 'entity_value', ref: entityID, span: '1', visible: true})))
               .map(item => ({
                 ...item, visibleCategories: item.visible_categories || [], flowScale: item.flow_scale || '', display: item.display || '', height: item.height || 0,
-                title: item.title || '', entityRefs: item.entity_refs || [], historySeries: item.history_series || [],
+                title: item.title || '', entityRefs: item.entity_refs || [], historySeries: item.history_series || [], statsKpis: item.stats_kpis || [],
                 ...Object.fromEntries(ENERGY_OPTIONS.map(({field, json}) => [field, item[json] || ''])),
               })),
           })),
@@ -2259,7 +2303,7 @@
         groups: page.groups.map(group => ({
           ...group,
           items: group.items.map(source => {
-            const {visibleCategories, flowScale, height, entityRefs, display, historySeries, ...item} = source;
+            const {visibleCategories, flowScale, height, entityRefs, display, historySeries, statsKpis, ...item} = source;
             for (const field of ENERGY_OPTION_FIELDS) delete item[field];
             return {
               ...item,
@@ -2269,6 +2313,7 @@
               ...(entityRefs && entityRefs.length ? {entity_refs: entityRefs} : {}),
               ...(display ? {display} : {}),
               ...(historySeries && historySeries.length ? {history_series: historySeries} : {}),
+              ...(statsKpis && statsKpis.length ? {stats_kpis: statsKpis} : {}),
               ...Object.fromEntries(ENERGY_OPTIONS.filter(({field}) => source[field]).map(({field, json}) => [json, source[field]])),
             };
           }),

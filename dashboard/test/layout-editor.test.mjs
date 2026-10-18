@@ -2538,3 +2538,64 @@ test('payload() writes history_series and the two option fields in snake_case', 
   assert.equal(item.title, 'Netz');
   assert.equal(item.historySeries, undefined, 'kein camelCase im PUT-Rumpf');
 });
+
+test('energyOptionsHTML() zeigt Zeitraum, Kennzahlen und Diagrammschalter fuer energy_stats', () => {
+  const { factory } = loadLayoutPage({ gridstack: false });
+  const html = factory.energyOptionsHTML({type: 'energy_stats', statsPeriod: 'month', statsKpis: ['autarky', 'pv'], statsChart: 'on'});
+  assert.ok(html.includes('data-role="stats-period"'), 'Zeitraum fehlt');
+  assert.ok(html.includes('value="month" selected'), 'Zeitraum steht nicht auf month');
+  assert.ok(html.includes('data-role="stats-kpis"'), 'Kennzahlen fehlen');
+  // Gewaehlte zuerst, in gewaehlter Reihenfolge.
+  const autarky = html.indexOf('value="autarky" selected');
+  const pv = html.indexOf('value="pv" selected');
+  const consumption = html.indexOf('value="consumption"');
+  assert.ok(autarky >= 0 && pv > autarky && consumption > pv, 'Reihenfolge der Kennzahlen stimmt nicht');
+  assert.ok(!html.includes('value="consumption" selected'), 'consumption ist nicht gewaehlt');
+  assert.match(html, /data-role="stats-chart" checked/);
+
+  const fresh = factory.energyOptionsHTML({type: 'energy_stats'});
+  assert.ok(fresh.includes('value="" selected'), 'ohne Angabe gilt der zuletzt gewaehlte Zeitraum');
+  for (const id of ['consumption', 'pv', 'grid_import', 'grid_export', 'autarky']) assert.ok(fresh.includes(`value="${id}" selected`), `${id} ist vorgewaehlt`);
+  assert.ok(!fresh.includes('value="battery_charge" selected'));
+  assert.doesNotMatch(fresh, /data-role="stats-chart" checked/);
+});
+
+test('cardKey() nimmt mit Diagramm die Variante energy_stats:chart', () => {
+  const { factory } = loadLayoutPage({ gridstack: false });
+  assert.equal(factory.cardKey({type: 'energy_stats', statsChart: 'on'}), 'energy_stats:chart');
+  assert.equal(factory.cardKey({type: 'energy_stats', statsChart: 'off'}), 'energy_stats');
+});
+
+test('load() und payload() fuehren die energy_stats-Optionen hin und zurueck', async () => {
+  const {component} = await editorWithHistoryTile({id: 's', type: 'energy_stats', span: '1', visible: true, stats_period: 'week', stats_kpis: ['autarky', 'pv'], stats_chart: 'on'});
+  const item = component.pages[0].groups[0].items[0];
+  assert.equal(item.statsPeriod, 'week');
+  assert.deepEqual(plain(item.statsKpis), ['autarky', 'pv']);
+  assert.equal(item.statsChart, 'on');
+  const sent = component.payload().pages[0].groups[0].items[0];
+  assert.equal(sent.stats_period, 'week');
+  assert.deepEqual(plain(sent.stats_kpis), ['autarky', 'pv']);
+  assert.equal(sent.stats_chart, 'on');
+  assert.equal(sent.statsKpis, undefined, 'kein camelCase im PUT-Rumpf');
+});
+
+test('stats-kpis nimmt die Reihenfolge aus Choices, stats-chart setzt den Schalter', async () => {
+  const loaded = await editorWithHistoryTile({id: 's', type: 'energy_stats', span: '1', visible: true});
+  const {component, factory, window} = loaded;
+  const item = component.pages[0].groups[0].items[0];
+  component._optionsItem = item;
+  // Ohne Choices-Instanz zaehlt die Reihenfolge der <option>s.
+  component.applyOptionChange({target: {dataset: {role: 'stats-kpis'}, selectedOptions: [{value: 'pv'}, {value: 'autarky'}]}});
+  assert.deepEqual(plain(item.statsKpis), ['pv', 'autarky']);
+
+  window.Choices = class { getValue() { return ['autarky', 'pv']; } destroy() {} };
+  const body = window.document.createElement('div');
+  body.innerHTML = '<select multiple data-role="stats-kpis"></select>';
+  factory.initEntityChoicesFor('s', body);
+  component.applyOptionChange({target: {dataset: {role: 'stats-kpis'}, selectedOptions: [{value: 'pv'}, {value: 'autarky'}]}});
+  assert.deepEqual(plain(item.statsKpis), ['autarky', 'pv']);
+  factory.destroyEntityChoicesFor('s');
+
+  component.applyOptionChange({target: {dataset: {role: 'stats-chart'}, checked: true}});
+  assert.equal(item.statsChart, 'on');
+});
