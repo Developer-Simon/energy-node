@@ -71,7 +71,7 @@ As of **2026-10-18**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `38` |
+| `css/base.css` | `39` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -265,7 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
-| v0.9.26 | `css/manager.css` (5 panels, system tab as setting cards, no Tailscale/TinyTuya title) | `44` | 2026-10-18 |
+| v0.9.26 | `css/base.css` (panel headings aligned on devices, diagnostics and settings, less space above the overview edit button) · `css/manager.css` (5 panels, system tab as setting cards, no Tailscale/TinyTuya title) | `39` · `44` | 2026-10-18 |
 | v0.9.25 | `css/manager.css` (5 panels, device map canvas border) · `js/dashboard.js` (device modal moved out, lazy loader) · `js/device-modal.js` (new, device modal, loaded on first open) | `43` · `38` · `1` (new) | 2026-10-18 |
 | v0.9.24 | `css/base.css` · `css/manager.css` (5 panels) · `js/dashboard.js` · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/devicemap-wiring.js` (energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap-subdevices.js` (new, energy, device map) · `js/devicemap.page.js` (device map) · `js/energy-plant.js` (energy) · `js/energy.page.js` (energy) | `38` · `42` · `37` · `13` · `8` · `3` · `5` · `7` · `1` · `28` · `6` · `13` | 2026-10-18 |
 | v0.9.23 | `js/devicemap-model.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/energy.page.js` (energy) | `12` · `27` · `12` | 2026-10-17 |

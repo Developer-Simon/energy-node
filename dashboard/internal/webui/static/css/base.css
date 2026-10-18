@@ -651,8 +651,12 @@ button.primary { background: var(--accent); color: var(--bg); border: 0; border-
    diese Grundregeln in layout-editor.css: bis zum ersten "Editieren" war der
    Knopf darum ein nackter <button>, und beim ersten Klick sprang er in Form.
    Alles, was nur im Bearbeitungsmodus vorkommt, bleibt in layout-editor.css. */
+/* margin-top zieht die Leiste in den Abstand unter der Tab-Zeile, sonst
+   addierten sich dieser und ihr eigenes Polster zu fast 30px Luft ueber dem
+   Editieren-Knopf. */
 .layout-toolbar {
   position:sticky; top:0; z-index:15;
+  margin-top:-.75rem;
   display:flex; align-items:center; gap:.5rem; flex-wrap:wrap;
   padding:.6rem .9rem;
   background:color-mix(in srgb, var(--bg) 78%, transparent);
@@ -1329,6 +1333,18 @@ dialog#device-modal .device-modal-scrollarea { flex: 1 1 auto; min-height: 0; ov
 .discovery-duplicate { margin: .7rem 0; padding: .6rem .75rem; border-left: 3px solid var(--warn); background: var(--warn-bg); }
 .license-footer a { color: var(--text-subtle); }
 h2 { margin-top: 2rem; font-size: 1.1rem; color: var(--accent); }
+/* Die Panel-Ueberschrift steht 2rem unter der Tab-Zeile, weil ihr margin-top
+   mit dem margin-bottom von nav zusammenfaellt. Wo das h2 in einem Flex-Kopf
+   steckt (Geraete, Diagnose) oder das Panel ein Container ist (Einstellungen,
+   Diagnose), faellt nichts zusammen, beide Abstaende addierten sich und die
+   Ueberschrift hing 20px tiefer als in den anderen Tabs. Dort traegt das
+   aeussere Element die 2rem, das h2 keine. */
+#settings-panel, #diagnostics-panel, .devices-panel-header { margin-top: 2rem; }
+#settings-panel > h2, .diag-head h2, .devices-panel-header h2 { margin-top: 0; }
+/* Der Dichte-Knopf ist 8px hoeher als die Ueberschrift und schob sie per
+   align-items:center um 4px nach unten. Mit dem negativen Rand bestimmt das
+   h2 die Zeilenhoehe, der Knopf bleibt mittig daneben. */
+.devices-panel-header .device-density-toggle { margin-block: -.25rem; }
 table { border-collapse: collapse; width: 100%; margin-bottom: 1.5rem; }
 th, td { border: 1px solid var(--border-soft); padding: 0.35rem 0.6rem; text-align: left; font-size: 0.92rem; }
 th { background: var(--panel-alt); }
