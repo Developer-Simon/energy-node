@@ -960,8 +960,11 @@
         const existing = this.subDevices().find(item => item.id === subId);
         if (!existing || (mode !== 'edit' && mode !== 'move')) return;
         const prop = (this.deviceMap.edge_props || []).find(item => item.child_id === existing.id);
+        // Without a stored channel the form shows and saves channel 1, the
+        // first option of the select, so an untouched save matches the view.
+        const stored = prop && Number.isInteger(prop.channel) && prop.channel >= 1 ? prop.channel : 1;
         this.subForm = {mode, subId: existing.id, deviceId: existing.device_id, entityId: existing.entity_id,
-          name: existing.label, icon: existing.icon, channel: prop && Number.isInteger(prop.channel) ? prop.channel : 0, error: ''};
+          name: existing.label, icon: existing.icon, channel: this.channelChoices(existing.device_id).length ? stored : 0, error: ''};
       },
 
       // Creates (POST, with the spot from placeNew) or changes (PUT) the
@@ -1237,6 +1240,14 @@
         this.groupDraft = null;
         this.groupWholePending = false;
         this.subForm = null;
+      },
+
+      // Opens another panel from the open one (sub-device and meter links).
+      // The drafts of the open panel go through the same guard as every other
+      // way out of a panel.
+      async navigatePanel(id) {
+        if (!(await this.leavePanel())) return;
+        this.openPanel(id);
       },
 
       closePanel() {

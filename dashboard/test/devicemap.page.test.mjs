@@ -2948,3 +2948,105 @@ test('an outside device-map-changed event refetches and merges the sub-devices',
   await new Promise(resolve => setTimeout(resolve, 0));
   assert.deepEqual(component.subDevices().map(sub => sub.id).sort(), ['sub:lampe', 'sub:wm']);
 });
+
+test('a successful edit PUTs the sub-device, merges the answer and closes the form', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method, body: options.body });
+    return { ok: true, status: 200, json: async () => SUB_MAP({ sub_devices: [{ ...SUB_WM, label: 'Trockner' }] }) };
+  };
+  const { component, stores } = subComponent({ fetchImpl });
+  component.openSubForm({ mode: 'edit', subId: 'sub:wm' });
+  component.subForm.name = 'Trockner';
+  await component.saveSubForm();
+
+  const put = calls.find(call => call.method === 'PUT');
+  assert.ok(put, 'a PUT was sent');
+  assert.ok(put.url.endsWith('/api/v1/device/map/sub-devices/sub%3Awm'));
+  const body = JSON.parse(put.body);
+  assert.equal(body.label, 'Trockner');
+  assert.equal(body.device_id, 'plug_b');
+  assert.equal(body.entity_id, 'power_1');
+  assert.equal(component.subForm, null, 'the form closes after a save');
+  assert.deepEqual(component.subDevices().map(sub => [sub.id, sub.label]), [['sub:wm', 'Trockner']]);
+  assert.equal(stores.toasts.criticals.length, 0, 'no error toast');
+});
+
+test('a successful move PUTs the new entity and device and merges them', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method, body: options.body });
+    return { ok: true, status: 200, json: async () => SUB_MAP({ sub_devices: [{ ...SUB_WM, device_id: 'pm', entity_id: 'power_3' }] }) };
+  };
+  const { component } = subComponent({ fetchImpl });
+  component.openSubForm({ mode: 'move', subId: 'sub:wm' });
+  component.setSubFormEntity('power_3');
+  await component.saveSubForm();
+
+  const put = calls.find(call => call.method === 'PUT');
+  assert.ok(put, 'a PUT was sent');
+  assert.ok(put.url.endsWith('/api/v1/device/map/sub-devices/sub%3Awm'));
+  const body = JSON.parse(put.body);
+  assert.equal(body.device_id, 'pm', 'the device follows the measured entity');
+  assert.equal(body.entity_id, 'power_3');
+  assert.equal(component.subForm, null, 'the form closes after a save');
+  assert.deepEqual(component.subDevices().map(sub => [sub.id, sub.device_id, sub.entity_id]), [['sub:wm', 'pm', 'power_3']]);
+});
+
+test('a sub-device without a stored channel edits as channel 1 and an untouched save sends 1', async () => {
+  const calls = [];
+  const fetchImpl = async (url, options = {}) => {
+    calls.push({ url: String(url), method: options.method, body: options.body });
+    return { ok: true, status: 200, json: async () => SUB_MAP() };
+  };
+  const map = SUB_MAP({ edge_props: [{ parent_id: 'plug_b', child_id: 'sub:wm', type: 'energy' }] });
+  const { component } = subComponent({ fetchImpl, map });
+  // Two switch roles on the meter give it channels.
+  component.switches = [
+    { device_id: 'plug_b', entity_id: 'switch.a', name: 'A', state: 'on' },
+    { device_id: 'plug_b', entity_id: 'switch.b', name: 'B', state: 'off' },
+  ];
+  component.savedAssignments = {
+    'switch.a': { role: 'switch', channel: 1 },
+    'switch.b': { role: 'switch', channel: 2 },
+  };
+  assert.equal(component.channelChoices('plug_b').length, 16, 'the meter offers channels');
+
+  component.openSubForm({ mode: 'edit', subId: 'sub:wm' });
+  assert.equal(component.subForm.channel, 1, 'the form shows the first channel');
+  await component.saveSubForm();
+  assert.equal(JSON.parse(calls.find(call => call.method === 'PUT').body).channel, 1, 'an untouched save sends 1');
+});
+
+// Meter panel with an unsaved draft, the state the "show" links leave from.
+function meterPanelWithDraft({ confirmAnswer }) {
+  const shown = createDevicemapPanel({ fetchImpl: async () => { throw new Error('unexpected fetch'); }, confirmAnswer });
+  const { component } = shown;
+  component.devices = SUB_FORM_DEVICES();
+  component.energy = SUB_ENERGY();
+  component.deviceMap = JSON.parse(JSON.stringify(SUB_MAP()));
+  component.savedDeviceMap = JSON.parse(JSON.stringify(SUB_MAP()));
+  component.canEditEnergy = true;
+  component.openPanel('plug_b');
+  component.setDraft('power_1', 'scale', 2);
+  return shown;
+}
+
+test('show sub-device keeps the meter panel and its drafts when leaving is refused', async () => {
+  const { component, stores } = meterPanelWithDraft({ confirmAnswer: false });
+  await component.navigatePanel('sub:wm');
+  assert.equal(stores.modal.calls.length, 1, 'the guard asks once');
+  assert.equal(component.panelId, 'plug_b', 'the meter panel stays open');
+  assert.equal(component.panelDirty(), true, 'the draft stays');
+});
+
+test('show meter from the sub panel asks, then discards the drafts and opens the meter', async () => {
+  const { component, stores } = meterPanelWithDraft({ confirmAnswer: true });
+  await component.navigatePanel('sub:wm');
+  assert.equal(stores.modal.calls.length, 1, 'the guard asks once');
+  assert.equal(component.panelId, 'sub:wm');
+  assert.equal(component.panelDirty(), false, 'the drafts are dropped');
+  await component.navigatePanel('plug_b');
+  assert.equal(stores.modal.calls.length, 1, 'a clean panel leaves without asking');
+  assert.equal(component.panelId, 'plug_b');
+});

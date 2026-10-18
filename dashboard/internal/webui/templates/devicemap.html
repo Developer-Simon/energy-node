@@ -97,7 +97,7 @@
                 </details>
                 <div class="devicemap-sub-row" x-show="panelView.kind === 'device' && (row.subDevice || row.canAddSub)">
                   <template x-if="row.subDevice">
-                    <button type="button" class="nav-row-button" x-on:click="openPanel(row.subDevice.id)">
+                    <button type="button" class="nav-row-button" x-on:click="navigatePanel(row.subDevice.id)">
                       <span class="devicemap-sub-name"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="iconMarkup[row.subDevice.icon] || ''"></svg><span x-text="row.subDevice.label"></span></span>
                       <span>{{t "devicemap.sub.show"}}</span>
                     </button>
@@ -453,7 +453,7 @@
               {{template "devicemap-role-row"}}
             </template>
             <div class="devicemap-sub-actions" x-show="panelView.canEdit">
-              <button type="button" class="nav-row-button" x-show="!panelView.orphan" x-on:click="openPanel(panelView.deviceId)"><span>{{t "devicemap.sub.show_meter"}}</span>{{template "devicemap-nav-arrow"}}</button>
+              <button type="button" class="nav-row-button" x-show="!panelView.orphan" x-on:click="navigatePanel(panelView.deviceId)"><span>{{t "devicemap.sub.show_meter"}}</span>{{template "devicemap-nav-arrow"}}</button>
               <button type="button" class="pill-button" x-show="!panelView.orphan" x-on:click="openSubForm({mode: 'edit', subId: panelId})">{{t "devicemap.sub.edit"}}</button>
               <button type="button" class="pill-button" x-on:click="openSubForm({mode: 'move', subId: panelId})">{{t "devicemap.sub.move"}}</button>
               <button type="button" class="pill-button danger" x-on:click="deleteSubDevice(panelId)">
