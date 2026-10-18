@@ -454,3 +454,113 @@ test('warningText shows raw message for warnings without key', () => {
   assert.equal(panel.warningText(rawWarning, 'message'), 'raw message');
   assert.equal(panel.warningText(rawWarning, 'hint'), 'raw hint');
 });
+
+// Sub-devices in the measurement tiles. The fetch stub answers with a device
+// map; the window records the device-map-changed events.
+function stubSubDeviceFetch(panel, answer) {
+  const calls = [];
+  const events = [];
+  panel.testWindow.fetch = async (url, options = {}) => {
+    calls.push({ url, method: options.method || 'GET', body: options.body ? JSON.parse(options.body) : null });
+    const body = typeof answer === 'function' ? answer(url, options) : answer;
+    return { ok: true, status: 200, json: async () => body };
+  };
+  panel.testWindow.addEventListener('device-map-changed', event => events.push(event.detail));
+  panel.$store = { toasts: { push() {} }, modal: { confirm: async () => true } };
+  panel.csrfToken = 'csrf-token';
+  panel.selectedDeviceId = 'wp';
+  return { calls, events };
+}
+
+function powerPanel({ canEditEnergy = true, subDevices = [], edgeProps = [] } = {}) {
+  const panel = createDevicesPanel();
+  panel.canEditEnergy = canEditEnergy;
+  panel.selectedDeviceId = 'wp';
+  panel.deviceDetail = {
+    id: 'wp',
+    name: 'Wärmepumpe',
+    entities: [
+      entity({ unique_id: 'pw', name: 'Leistung', unit_of_measurement: 'W', value: '420' }),
+    ],
+  };
+  panel.subDevices = subDevices;
+  panel.subEdgeProps = edgeProps;
+  return panel;
+}
+
+const dryer = {
+  id: 'sub:trockner', label: 'Trockner', icon: 'energy-node:dryer', device_id: 'wp', entity_id: 'pw',
+};
+
+test('power tile offers create sub-device with edit_energy', () => {
+  const panel = powerPanel();
+  const power = panel.deviceDetail.entities[0];
+  assert.equal(panel.isSubDeviceCandidate(power), true);
+  assert.equal(panel.subDeviceFor(power), null);
+  assert.equal(panel.subDeviceRowVisible(power), true);
+});
+
+test('tile shows icon and name of the existing sub-device', () => {
+  const panel = powerPanel({ subDevices: [dryer] });
+  const power = panel.deviceDetail.entities[0];
+  assert.equal(panel.subDeviceFor(power).label, 'Trockner');
+  assert.equal(panel.subDeviceRowVisible(power), true);
+});
+
+test('create posts without position and fires the map changed event', async () => {
+  const panel = powerPanel();
+  const { calls, events } = stubSubDeviceFetch(panel, {
+    nodes: [], edge_props: [], sub_devices: [{ ...dryer, id: 'sub:leistung', label: 'Leistung' }],
+  });
+  const power = panel.deviceDetail.entities[0];
+  panel.openSubDeviceForm(power);
+  assert.equal(panel.subForm.entityId, 'pw');
+  assert.equal(panel.subForm.subId, null);
+  await panel.saveSubDeviceForm();
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.equal(calls[0].url, '/api/v1/device/map/sub-devices');
+  assert.equal(calls[0].body.entity_id, 'pw');
+  assert.equal(calls[0].body.device_id, 'wp');
+  assert.equal('x' in calls[0].body, false);
+  assert.equal('y' in calls[0].body, false);
+  assert.equal(events.length, 1);
+  assert.equal(panel.subForm, null);
+});
+
+test('edit keeps the channel of the sub-device and sends a PUT', async () => {
+  const panel = powerPanel({
+    subDevices: [dryer],
+    edgeProps: [{ parent_id: 'wp', child_id: 'sub:trockner', type: 'energy', channel: 3 }],
+  });
+  const { calls } = stubSubDeviceFetch(panel, { nodes: [], edge_props: [], sub_devices: [{ ...dryer, label: 'Wäsche' }] });
+  panel.openSubDeviceForm(panel.deviceDetail.entities[0], dryer);
+  panel.subForm.name = 'Wäsche';
+  await panel.saveSubDeviceForm();
+  assert.equal(calls[0].method, 'PUT');
+  assert.equal(calls[0].url, '/api/v1/device/map/sub-devices/sub%3Atrockner');
+  assert.equal(calls[0].body.label, 'Wäsche');
+  assert.equal(calls[0].body.channel, 3);
+});
+
+test('without edit_energy no actions are rendered', () => {
+  const panel = powerPanel({ canEditEnergy: false });
+  const power = panel.deviceDetail.entities[0];
+  assert.equal(panel.subDeviceRowVisible(power), false);
+  panel.openSubDeviceForm(power);
+  assert.equal(panel.subForm, null);
+
+  const withSub = powerPanel({ canEditEnergy: false, subDevices: [dryer] });
+  assert.equal(withSub.subDeviceRowVisible(withSub.deviceDetail.entities[0]), true);
+  assert.equal(withSub.subActionsVisible(withSub.deviceDetail.entities[0]), false);
+});
+
+test('non-power tiles have no sub-device row', () => {
+  const panel = powerPanel({ subDevices: [dryer] });
+  const percent = entity({ unique_id: 'soc', name: 'Akku', unit_of_measurement: '%' });
+  const diagnostic = entity({ unique_id: 'pw', name: 'Leistung', unit_of_measurement: 'W', entity_category: 'diagnostic' });
+  assert.equal(panel.isSubDeviceCandidate(percent), false);
+  assert.equal(panel.subDeviceRowVisible(percent), false);
+  assert.equal(panel.isSubDeviceCandidate(diagnostic), false);
+  assert.equal(panel.subDeviceRowVisible(diagnostic), false);
+});

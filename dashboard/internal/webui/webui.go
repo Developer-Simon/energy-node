@@ -11,6 +11,7 @@ package webui
 import (
 	"embed"
 	"encoding/json"
+	"errors"
 	"hash/fnv"
 	"html/template"
 	"io/fs"
@@ -152,6 +153,7 @@ func buildOverviewTemplate(lang string) *template.Template {
 		"historyViewCard":    historyViewCard,
 		"activePage":         activeLayoutPage,
 		"layoutItem":         layoutItem,
+		"dict":               templateDict,
 	}
 	funcs["formatValue"] = func(raw, unit string) string { return numberStyle(lang).Value(raw, unit) }
 	funcs["formatNumber"] = func(value float64, decimals int) string { return numberStyle(lang).Number(value, decimals) }
@@ -162,6 +164,23 @@ func buildOverviewTemplate(lang string) *template.Template {
 }
 
 var overviewSets = newTemplateSets(buildOverviewTemplate)
+
+// templateDict builds a map from key and value pairs, so a shared template
+// such as device-icon-picker can take several named arguments.
+func templateDict(pairs ...any) (map[string]any, error) {
+	if len(pairs)%2 != 0 {
+		return nil, errors.New("dict needs key and value pairs")
+	}
+	values := make(map[string]any, len(pairs)/2)
+	for i := 0; i < len(pairs); i += 2 {
+		key, ok := pairs[i].(string)
+		if !ok {
+			return nil, errors.New("dict keys must be strings")
+		}
+		values[key] = pairs[i+1]
+	}
+	return values, nil
+}
 
 // overviewTmpl is the default-language set. Handlers pick the set for the
 // request's language via overviewSets; tests that render single partials

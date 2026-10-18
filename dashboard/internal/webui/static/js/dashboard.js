@@ -3,6 +3,9 @@
   // base.html publishes before any deferred script runs. Empty (and thus a
   // no-op) on direct access, so every generated URL stays byte-identical.
   const withBase = path => `${window.__DASHBOARD_BASE_PATH__ || ''}${path}`;
+  // Leistungs-Einheiten, fuer die ein Untergeraet angelegt werden kann (wie
+  // isSubDevicePowerUnit in der Go-API).
+  const SUB_DEVICE_POWER_UNITS = ['W', 'kW'];
 
   // Falls back to the key when i18n.js is absent (unit tests load this file
   // alone), so a missing runtime shows a visible gap instead of throwing.
@@ -694,6 +697,13 @@
     prefsSaving: false,
     prefsMessage: '',
     canEditPrefs: false,
+    // Untergeraete des Geraete-Modals: canEditEnergy nach edit_energy, subDevices
+    // und subEdgeProps aus /api/v1/device/map, subForm der offene Dialog.
+    canEditEnergy: false,
+    subDevices: [],
+    subEdgeProps: [],
+    subForm: null,
+    subSaving: false,
     // Choices.js-Instanz der Favoriten-Mehrfachauswahl - dieselbe Bibliothek
     // wie Settings > Darstellung und der Layout-Editor. Sie wird je Geraet
     // neu aufgebaut (seedPrefsDraft), nicht im SSE-Takt.
@@ -876,9 +886,11 @@
         this.csrfToken = session.csrf_token || '';
         this.canDeleteDiscovery = session.delete_device_discovery === true;
         this.canEditPrefs = session.edit_layout !== false;
+        this.canEditEnergy = session.edit_energy !== false;
       } catch (error) {
         this.csrfToken = '';
         this.canDeleteDiscovery = false;
+        this.canEditEnergy = false;
         // Ohne Sitzungs-API laeuft die Instanz ohne Authentifizierung - dann
         // laesst auch requireLayoutMutation den Schreibzugriff durch.
         this.canEditPrefs = true;
@@ -1344,6 +1356,7 @@
       });
       try {
         await this.loadDeviceDetail(deviceId, requestToken);
+        this.loadSubDevices();
         // Erstauswahl des Tabs nur beim Oeffnen (nicht bei jedem Live-Refresh).
         if (requestToken === this.detailRequestToken && this.selectedDeviceId === deviceId) {
           this.activeDeviceTab = this.defaultDeviceTab();
@@ -1384,6 +1397,121 @@
       }
     },
 
+    // Untergeraete: Messwert-Kacheln mit Leistung (W, kW) im Messwert-Tab
+    // tragen eine Zeile mit Icon und Name, darunter Bearbeiten und Loeschen.
+    async loadSubDevices() {
+      try {
+        const deviceMap = await requestJSON('/api/v1/device/map');
+        this.subDevices = deviceMap.sub_devices || [];
+        this.subEdgeProps = deviceMap.edge_props || [];
+      } catch (error) {
+        // Ohne Karte bleiben die Zeilen ohne Untergeraet; die Liste der
+        // Geraetedaten laeuft trotzdem weiter.
+      }
+    },
+
+    isSubDeviceCandidate(entity) {
+      return this.entityCategory(entity) === 'measurements' && SUB_DEVICE_POWER_UNITS.includes(entity.unit_of_measurement);
+    },
+
+    subDeviceFor(entity) {
+      return (this.subDevices || []).find(sub => sub.entity_id === entity.unique_id) || null;
+    },
+
+    subDeviceRowVisible(entity) {
+      return this.isSubDeviceCandidate(entity) && Boolean(this.subDeviceFor(entity) || this.canEditEnergy);
+    },
+
+    subActionsVisible(entity) {
+      return this.canEditEnergy && this.isSubDeviceCandidate(entity);
+    },
+
+    // Oeffnet den Dialog: ohne sub legt er ein Untergeraet an, mit sub
+    // aendert er Name und Icon. Ein Umhaengen oder ein Kanal gibt es hier
+    // nicht, der Kanal eines bestehenden Untergeraets bleibt erhalten.
+    openSubDeviceForm(entity, sub = null) {
+      if (!this.canEditEnergy || !this.isSubDeviceCandidate(entity)) return;
+      if (!sub && this.subDeviceFor(entity)) return;
+      const prop = sub ? this.subEdgeProps.find(item => item.child_id === sub.id) : null;
+      this.subForm = {
+        subId: sub ? sub.id : null,
+        deviceId: this.selectedDeviceId,
+        entityId: entity.unique_id,
+        name: sub ? sub.label : this.entityDisplayName(entity),
+        icon: sub ? sub.icon : this.savedIconName,
+        channel: prop && Number.isInteger(prop.channel) ? prop.channel : 0,
+        error: '',
+      };
+      this.$nextTick?.(() => {
+        const dialog = this.$refs.subDeviceDialog;
+        if (dialog && !dialog.open) dialog.showModal();
+      });
+    },
+
+    pickSubIcon(name) {
+      if (this.subForm) this.subForm.icon = name;
+    },
+
+    closeSubDeviceForm() {
+      if (this.$refs?.subDeviceDialog?.open) this.$refs.subDeviceDialog.close();
+      this.subForm = null;
+    },
+
+    // Legt das Untergeraet an (POST, ohne x und y: die Map platziert es beim
+    // naechsten Render) oder aendert es (PUT). Jede Antwort ist die volle
+    // Geraetekarte, daraus kommen Liste und Kanaele.
+    async saveSubDeviceForm() {
+      const form = this.subForm;
+      if (!form || this.subSaving || !this.canEditEnergy) return;
+      const label = form.name.trim();
+      if (!label) {
+        this.subForm = {...form, error: t('devices.sub.name_required')};
+        return;
+      }
+      const body = {label, icon: form.icon, device_id: form.deviceId, entity_id: form.entityId, channel: form.channel};
+      const path = form.subId ? `/api/v1/device/map/sub-devices/${encodeURIComponent(form.subId)}` : '/api/v1/device/map/sub-devices';
+      const options = {...this.mutationOptions(body), method: form.subId ? 'PUT' : 'POST'};
+      this.subSaving = true;
+      try {
+        const deviceMap = await requestJSON(path, options);
+        this.subDevices = deviceMap.sub_devices || [];
+        this.subEdgeProps = deviceMap.edge_props || [];
+        this.closeSubDeviceForm();
+        this.$store.toasts.push(t('devices.sub.saved'));
+        this.notifySubDeviceChanged();
+      } catch (error) {
+        if (this.subForm) this.subForm = {...this.subForm, error: error.message};
+      } finally {
+        this.subSaving = false;
+      }
+    },
+
+    // Entfernt das Untergeraet nach einer Bestaetigung. Die Entitaet zeigt
+    // danach wieder ihren Messwert.
+    async deleteSubDevice(sub) {
+      if (!sub || !this.canEditEnergy) return;
+      const confirmed = await this.$store.modal.confirm({
+        title: t('devices.sub.delete_title', {name: sub.label || sub.id}),
+        confirmLabel: t('devices.sub.delete'),
+        danger: true,
+      });
+      if (!confirmed) return;
+      try {
+        const deviceMap = await requestJSON(`/api/v1/device/map/sub-devices/${encodeURIComponent(sub.id)}`, {...this.mutationOptions(), method: 'DELETE'});
+        this.subDevices = deviceMap.sub_devices || [];
+        this.subEdgeProps = deviceMap.edge_props || [];
+        this.$store.toasts.push(t('devices.sub.deleted'));
+        this.notifySubDeviceChanged();
+      } catch (error) {
+        this.$store.toasts.push(error.message, 'critical');
+      }
+    },
+
+    // Map, Anlagengrafik und Energie-Seite laden nach.
+    notifySubDeviceChanged() {
+      window.dispatchEvent(new CustomEvent('device-map-changed', {detail: {source: 'devices'}}));
+    },
+
     closeDeviceDetail() {
       this.detailRequestToken += 1;
       if (this.$refs.deviceModalDialog?.open) this.$refs.deviceModalDialog.close();
@@ -1391,6 +1519,7 @@
       this.deviceDetail = null;
       this.detailError = '';
       this.prefsDraftFor = '';
+      this.closeSubDeviceForm();
       this.destroyFavoritesChoices();
       if (this.livePatchStale) {
         this.livePatchStale = false;

@@ -1589,6 +1589,16 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-stat .k { font-size: .76rem; color: var(--text-muted); overflow-wrap: anywhere; }
 .device-modal-stat .v { font-size: 1.15rem; font-variant-numeric: tabular-nums; color: var(--text-strong); margin-top: .1rem; overflow-wrap: anywhere; }
 .device-modal-stat .v small { font-size: .66rem; color: var(--text-faint); font-weight: 400; margin-left: .2rem; }
+.device-modal-sub { display: grid; gap: .35rem; margin-top: .5rem; padding-top: .45rem; border-top: 1px solid var(--border-soft); }
+.device-modal-sub-current { display: flex; align-items: center; gap: .4rem; min-width: 0; font-size: .82rem; color: var(--text); }
+.device-modal-sub-icon { display: inline-grid; flex: none; color: var(--accent); }
+.device-modal-sub-icon svg { width: 18px; height: 18px; }
+.device-modal-sub-name { overflow-wrap: anywhere; }
+.device-modal-sub-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
+.device-modal-sub-actions button { font-size: .76rem; padding: .2rem .5rem; }
+.device-sub-field { display: grid; gap: .3rem; margin: .6rem 0; font-size: .82rem; color: var(--text-muted); }
+.device-sub-field-label { display: block; margin: .6rem 0 .3rem; font-size: .82rem; color: var(--text-muted); }
+.device-sub-actions { display: flex; justify-content: flex-end; gap: .5rem; margin-top: .8rem; }
 
 .device-modal-control-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr)); gap: .7rem; }
 .device-modal-control-card { background: var(--panel-alt); border: 1px solid var(--border); border-radius: var(--radius-lg); padding: .9rem 1rem; }
