@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.23 (2026-10-17)
+## v0.9.24 (2026-10-18)
 
 ### Features
 
@@ -16,10 +16,23 @@
 - **energy:** The automatic load mode now always calculates the house consumption from the balance, and a house meter serves as a cross-check. A status line on the energy page shows the source, the fallback and the meter deviation, and Home Assistant gets measured and calculated house load as separate sensors. (#143) (59dfeb3)
 - **devicemap:** The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label. (#145) (b72187d)
 - **devicemap:** Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut. (#146) (9b162de)
+- **energy:** hide only role-less entries and share the list with the device map (#147) (0afdfc3)
+- **devicemap:** store sub-devices in device-map.json (2a07b5f)
+- **energy:** label entities after their sub-device (cda32d0)
+- **devicemap:** add the sub-device endpoint (660a51f)
+- **devicemap:** keep sub-devices on save and reapply their labels (f858835)
+- **devicemap:** add the sub-device model (dddd9f7)
+- **devicemap:** draw sub-devices behind their meter (9609896)
+- **devicemap:** draw sub-devices on the map page (5a6f9d3)
+- **devicemap:** draw sub-devices on the plant view (a918205)
+- **devicemap:** manage sub-devices in the map panels (f0e9713)
+- **devicemap:** show sub-devices in the map templates (bdc1420)
+- **energy:** label role rows after their sub-device (a353e47)
+- **devices:** manage sub-devices in the device modal (8247539)
+- **devicemap:** Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page. (#148)
 - **energy:** store hidden role table entries in energy.json (012eff7)
 - **devicemap:** hide role table entries in the device panel (6fb2734)
 - **energy:** hide only entries without a role and share the list (986870a)
-- **energy:** hide only role-less entries and share the list with the device map (#147)
 - **energy:** add the switch role with a channel (ee3bf7c)
 - **energy:** validate switch roles against the registry (f444022)
 - **devicemap:** resolve switches from energy roles and cut edges per channel (4f2be72)
@@ -99,6 +112,14 @@
 ### Fixes
 
 - **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144) (ba54b31)
+- **devicemap:** read sub-devices back from disk and keep the caller's slice (c32036e)
+- **devicemap:** let stored sub-device pairs win over stale request pairs (51c2646)
+- **devicemap:** keep sub-device placement moving and skip null entries (4d2561c)
+- **devicemap:** match sub-device entities by unique_id (5193882)
+- **devicemap:** use the absolute power of sub-devices in the meter edge (b55ff9e)
+- **devicemap:** default sub-device channel and guard panel links (dd0ec58)
+- **devices:** reset and tokenise sub-device load in the device modal (86f1e50)
+- **devicemap:** serialise device-map writes and check sub-device entities (7a92b37)
 - **devicemap:** keep the edge card chevron pointing right and update catalogs (b083235)
 - **devicemap:** keep saved switch roles and edge channels on save (5f8edc8)
 - **devices:** open the device modal only in the devices tab (d0d8031)
@@ -156,6 +177,7 @@
 
 ### Tests
 
+- **smoke:** add a Waschmaschine sub-device to the device map fixture (ea31cad)
 - **smoke:** add a two channel relay fixture and bump the lazy assets (57e029a)
 - **devicemap:** add switch fixtures and screenshot (baf7e2a)
 - **devicemap:** wire the balcony plug in front of its own inverter (4215284)
@@ -168,6 +190,7 @@
 
 ### Chores
 
+- **webui:** bump cache-busting versions for sub-devices (3de3b95)
 - **i18n:** drop the unused switch output texts (99b1aeb)
 - **webui:** bump lazy assets for switch state (bc7a8b6)
 - **dashboard:** bump cache-busting versions for changed assets (a5c7064)
