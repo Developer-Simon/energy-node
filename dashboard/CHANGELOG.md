@@ -29,6 +29,9 @@
 - **devicemap:** show sub-devices in the map templates (bdc1420)
 - **energy:** label role rows after their sub-device (a353e47)
 - **devices:** manage sub-devices in the device modal (8247539)
+- **energy:** show sub-devices as combined labels and in the categories overview (2d41014)
+- **energy:** make plant role edges opt-in and start sub-device role edges at the sub-device (5c89968)
+- **devices:** make sub-device management opt-in and refine its buttons (549cf08)
 - **devicemap:** Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page. (#148)
 - **energy:** store hidden role table entries in energy.json (012eff7)
 - **devicemap:** hide role table entries in the device panel (6fb2734)
@@ -178,6 +181,7 @@
 ### Tests
 
 - **smoke:** add a Waschmaschine sub-device to the device map fixture (ea31cad)
+- **smoke:** simulate heat pump, dehumidifier and cellar relay consumption (d0238d2)
 - **smoke:** add a two channel relay fixture and bump the lazy assets (57e029a)
 - **devicemap:** add switch fixtures and screenshot (baf7e2a)
 - **devicemap:** wire the balcony plug in front of its own inverter (4215284)
