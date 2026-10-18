@@ -178,6 +178,7 @@
 ### Documentation
 
 - **devicemap:** add a sub-device screenshot (b8806a4)
+- **dashboard:** refresh the screenshots with English names and add a statistics image (c772066)
 - **energy:** describe hiding entries in the role table (294634a)
 - **devicemap:** document the switch role and retake screenshots (7dcb363)
 - **energy:** document the reworked load modes and status line (4469508)
