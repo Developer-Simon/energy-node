@@ -112,7 +112,7 @@ type mqttConfigResponse struct {
 // (mqtt.json). GET requires only a logged-in session (roles matter for
 // writing, not reading a masked view); PUT requires mqtt_config, HTTPS and
 // CSRF, matching the role table in
-// knowhow/dashboard/dashboard-mqtt-setup.md. PUT never touches the running
+// docs/developing/api.md. PUT never touches the running
 // connection - see POST /api/v1/mqtt/reconnect for that.
 func handleMQTTConfig(store *settings.Store, credentials *mqttclient.CredentialStore, authManager *auth.Manager, base mqttclient.Config, energySensorOptions func() []energydiscovery.OptionalSensor) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

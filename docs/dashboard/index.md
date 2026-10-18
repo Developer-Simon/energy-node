@@ -13,8 +13,8 @@ anchor_moves:
   diagnostics: diagnostics.html
   automations: automations.html
   settings: settings.html
-  general: settings-general.html#general
-  appearance: settings-general.html#appearance
+  general: settings.html#general
+  appearance: settings-appearance.html#appearance
   history-1: settings-history.html#history
   mqtt: settings-mqtt.html#mqtt
   tailscale: settings-wizards.html#tailscale

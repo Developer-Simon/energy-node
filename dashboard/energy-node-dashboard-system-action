@@ -35,8 +35,8 @@ APP_CONFIG_OWNER="energynode"
 #        address must never leave the local broker down, since that would
 #        also cut the dashboard off from its own devices.
 #
-# See knowhow/dashboard/dashboard-mqtt-setup.md, Teil B, "Ablauf beim
-# Anwenden", for the full design rationale.
+# See docs/developing/data-flow.md (section on the Mosquitto bridge) for the
+# flow around this helper.
 apply_bridge_config() {
   [ -f "$BRIDGE_STAGED" ] || exit 65
   owner="$(/usr/bin/stat -c %U "$BRIDGE_STAGED" 2>/dev/null || echo '')"

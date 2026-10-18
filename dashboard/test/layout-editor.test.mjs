@@ -379,7 +379,7 @@ test('widgetHTML()/energyOptionsHTML() only show the speed-reference fields for 
 
 // Konfigurationsoptionen der sechs Energiegrafiken-Alternativen (Port der
 // sechs-Varianten-Exploration, siehe
-// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md). Diese Tests
+// docs/dashboard/overview-cards.md). Diese Tests
 // decken die generische Verdrahtung (energyOptionsHTML()-Dispatch,
 // defaultEnergyOptions(), handleWidgetChange()-Rollen, save()-Serialisierung)
 // ab, nicht jedes der 18 Felder einzeln - die Kartenlogik selbst hat eigene

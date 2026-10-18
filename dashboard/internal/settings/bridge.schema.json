@@ -1,6 +1,6 @@
 {
   "title": "Mosquitto bridge configuration (aussenstandort -> hauptsystem)",
-  "description": "Typed model the server renders into /etc/mosquitto/conf.d/bridge.conf. Never accepted as free text - see knowhow/dashboard/dashboard-mqtt-setup.md, Teil B.",
+  "description": "Typed model the server renders into /etc/mosquitto/conf.d/bridge.conf. Never accepted as free text.",
   "type": "object",
   "additionalProperties": false,
   "required": ["connections"],

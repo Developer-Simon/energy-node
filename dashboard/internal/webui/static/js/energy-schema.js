@@ -3,7 +3,7 @@
 // branch. Port of Vorschlag E from the six-proposals exploration; its
 // layout-editor options (stroke_mode, entity_labels, hide_inactive,
 // display_size, animate) are read from the layout item's data-* attributes,
-// see knowhow/dashboard/energiegrafiken-konfiguration-backlog.md. Entity IDs
+// see docs/dashboard/overview-cards.md. Entity IDs
 // for "Leistung + Entität" come from Snapshot.Sources (role -> entity
 // unique_id list), already present on the embedded snapshot; "base" (übrige
 // Verbraucher) has no single source entity - it is load minus wallbox minus
@@ -78,7 +78,7 @@
   }
 
   // battery_soc only appears in snapshot.values when at least one entity
-  // carries a capacity_kwh (see energie-interpretation.md) - no key means no
+  // carries a capacity_kwh (see docs/dashboard/energy.md) - no key means no
   // configured storage, so the label stays empty rather than showing "0 %".
   // Rounded to a whole percent, same convention as energy-flow.js's battery
   // node text, so both graphics read consistently.

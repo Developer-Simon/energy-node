@@ -40,9 +40,37 @@ consumer category named after the entity. Rename them under Custom categories.
 An entity that only got the role by name detection (not saved) is treated as
 house meter afterwards. If the status line reports a deviation, check it.
 
+When house consumption is calculated, “Remaining consumption” is a remainder, not a
+measurement. It takes in every consumer without a meter of its own.
+
 Below that: whether a remaining gap counts as house consumption, the tolerance,
 the surplus and grid import thresholds of the status card and the battery
 reserve.
+
+### Balance gap
+
+The gap is what is left when sources (PV, grid import, discharging) and sinks
+(consumption, feed-in, charging) do not add up.
+
+With **Unknown consumer** (the default) the gap is added to house consumption. A
+negative gap shows up as "Unknown generation". Self-sufficiency is then higher
+than in diagnostics, because the extra consumption counts as covered. With
+**Diagnostics** the gap stays visible as "Unassigned", and the status card
+reports an unbalanced balance.
+
+Gaps below the tolerance count as balanced. The default is 25 W, or 2 % of the
+total power in percent mode.
+
+In Calculated mode a gap can only be negative. That happens when wallbox and
+heat pump together report more than the calculated house consumption, usually
+because of a wrong scale or invert on one of their meters. A large gap in
+other modes mostly means a power entity without a role, see the list at the
+top of the tab.
+
+### Key figures
+
+Self-sufficiency is the share of house consumption not drawn from the grid.
+Self-consumption is the share of PV yield not fed into the grid.
 
 ## Energy roles
 
@@ -50,7 +78,9 @@ reserve.
 
 Every power and charge entity gets a role such as PV, grid, battery, house
 meter, wallbox, heat pump or a custom category. Entities sharing a role
-are summed. The tiles show each role with its value and whether it is fresh and
+are summed. Battery charge levels are the exception: each bank needs its usable
+capacity, and the total is weighted by capacity. A bank without capacity is
+left out and the tab says so. The tiles show each role with its value and whether it is fresh and
 live. Power values without a role are listed at the top of the tab, because
 they are the usual reason a balance does not add up.
 

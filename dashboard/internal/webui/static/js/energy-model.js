@@ -181,7 +181,7 @@
   // snapshot.balance through one code path. Only used for energy-day.js's
   // history points, reconstructed client-side from IndexedDB; every other
   // card prefers the server-computed balance via balanceOf(). See
-  // knowhow/dashboard/energie-interpretation.md and
+  // docs/dashboard/energy.md and
   // internal/energy/testdata/balance-cases.json, the fixture shared with
   // test/energy-model.test.mjs that keeps this from silently drifting away
   // from the Go original.

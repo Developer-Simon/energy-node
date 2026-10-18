@@ -8,7 +8,7 @@ import (
 // TestInterpretationNormalizedDefaultsThresholds covers the two Statuskarte
 // thresholds added alongside the layout-editor options for the six
 // alternative energy graphics (see
-// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md): they live on
+// docs/dashboard/overview-cards.md): they live on
 // Interpretation, not on a layout.Item, because they are fachliche
 // Schwellwerte rather than Darstellungsparameter.
 func TestInterpretationNormalizedDefaultsThresholds(t *testing.T) {

@@ -19,8 +19,15 @@
     - label: "Dashboard"
       url: "dashboard/index.md"
       children:
-        - { label: "Overview & layout editor", url: "dashboard/overview.md" }
-        - { label: "Devices", url: "dashboard/devices.md" }
+        - label: "Overview & layout editor"
+          url: "dashboard/overview.md"
+          children:
+            - { label: "Layout editor", url: "dashboard/layout-editor.md" }
+            - { label: "Cards", url: "dashboard/overview-cards.md" }
+        - label: "Devices"
+          url: "dashboard/devices.md"
+          children:
+            - { label: "Device dialog", url: "dashboard/device-modal.md" }
         - { label: "History", url: "dashboard/history.md" }
         - { label: "Statistics", url: "dashboard/statistics.md" }
         - { label: "Energy", url: "dashboard/energy.md" }
@@ -31,7 +38,7 @@
         - label: "Settings"
           url: "dashboard/settings.md"
           children:
-            - { label: "General & appearance", url: "dashboard/settings-general.md" }
+            - { label: "Appearance", url: "dashboard/settings-appearance.md" }
             - { label: "History", url: "dashboard/settings-history.md" }
             - { label: "MQTT", url: "dashboard/settings-mqtt.md" }
             - { label: "Tailscale & TinyTuya", url: "dashboard/settings-wizards.md" }
@@ -49,7 +56,10 @@
           url: "services/battery-soc.md"
           children:
             - { label: "How it works", url: "services/battery-soc-how-it-works.md" }
-        - { label: "Automations engine", url: "services/automations.md" }
+        - label: "Automations engine"
+          url: "services/automations.md"
+          children:
+            - { label: "How it works", url: "services/automations-how-it-works.md" }
 
 - title: Operating
   items:
@@ -84,6 +94,11 @@
   items:
     - { label: "Data flows", url: "developing/data-flow.md" }
     - { label: "HTTP API", url: "developing/api.md" }
+    - label: "Writing a device service"
+      url: "developing/new-device-service.md"
+      children:
+        - { label: "Configuration schemas", url: "developing/config-schema.md" }
+        - { label: "Service library", url: "developing/service-library.md" }
     - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
     - { label: "Cutting a release", url: "developing/releasing.md" }
     - { label: "Version overview", url: "developing/versions.md" }

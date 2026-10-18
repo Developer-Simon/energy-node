@@ -69,6 +69,34 @@ line above the chart then says how many series use the fallback. This also
 happens when the node cannot answer, for example because it runs without a data
 directory.
 
+## Two units in one chart
+
+Most series are power in watts. The battery state of charge, if a role provides
+it, is a series in percent. When both are visible, the chart gives each unit its
+own axis: watts on the left, percent on the right with a fixed scale from 0 to
+100. The tooltip names every value with the unit of its own series. The state of
+charge is not part of *House consumption (calculated)*.
+
+## Storage limits
+
+The recorder writes into the storage the browser grants to this page. Three
+things can go wrong:
+
+- The quota is full. Recording stops at the first failed write and the status
+  line says "Recording was paused because the browser storage is full". Retrying
+  would only fail again, so it does not retry. The pause survives a reload.
+  Reduce the storage budget or shorten the retention under
+  [Settings: History](settings-history.md). The page has no button to resume
+  recording yet.
+- The browser may delete the history. The recorder asks the browser to keep
+  the data (persistent storage). When the browser does not agree, the status line
+  says "Storage not guaranteed". On iOS Safari the history can disappear under
+  memory pressure even if the browser agrees. Firefox grants only a fraction of
+  the free disk space to a page, so a large budget can hit the browser limit
+  before it reaches the configured budget.
+- The history is per browser. A saved view opens on every device, but it only
+  shows what that device recorded or received through the exchange below.
+
 ## Exchange between browsers
 
 When two browsers have the dashboard open at the same time, each fetches the

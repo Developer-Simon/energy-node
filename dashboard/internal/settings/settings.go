@@ -216,7 +216,7 @@ type Item struct {
 
 	// Konfigurationsoptionen der sechs Energiegrafiken-Alternativen (Port
 	// der sechs-Varianten-Exploration, siehe
-	// knowhow/dashboard/energiegrafiken-konfiguration-backlog.md). Jedes
+	// docs/dashboard/overview-cards.md). Jedes
 	// Feld ist wie FlowScale ein String-Enum mit "" als Sentinel fuer
 	// "nicht gesetzt" - normalizeLayout fuellt den Typ-Default, sobald es
 	// den passenden item.Type sieht, und leert das Feld sonst.
@@ -493,8 +493,7 @@ type BridgeConnection struct {
 
 // BridgeConfig is stored as bridge.json. It models a list of connections so
 // a second bridge can be added later without a schema break, but today
-// exactly one entry is supported - see "Offene Punkte" in
-// knowhow/dashboard/dashboard-mqtt-setup.md.
+// exactly one entry is supported (maxBridgeConnections).
 type BridgeConfig struct {
 	Connections []BridgeConnection `json:"connections"`
 }
@@ -2433,7 +2432,7 @@ func defaultString(field *string, allowed []string, def string) {
 // normalizeEnergyGraphicOptions setzt die Konfigurationsoptionen der sechs
 // Energiegrafiken-Alternativen auf ihren Typ-Default, sobald item.Type
 // passt, und leert sie sonst - dasselbe Muster wie FlowScale fuer
-// energy_flow. Siehe knowhow/dashboard/energiegrafiken-konfiguration-backlog.md.
+// energy_flow. Siehe docs/dashboard/overview-cards.md.
 func normalizeEnergyGraphicOptions(item *Item) {
 	if item.Type == "energy_band" {
 		defaultString(&item.HeightReference, []string{"fill", "abs"}, "fill")

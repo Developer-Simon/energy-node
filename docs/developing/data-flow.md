@@ -453,7 +453,13 @@ flowchart LR
 {% endraw %}
 
 The dashboard never writes to `/etc` itself. It puts a file into its own data
-directory and lets a root helper do the rest. The status combines three
+directory and lets a root helper do the rest. The trust boundary is the helper,
+not the dashboard process: it reads exactly one compiled-in staging path, requires
+a regular file owned by the dashboard user of at most 8 KB and 200 lines, and
+accepts only lines that match a fixed directive allowlist (`connection`,
+`address`, `topic` and the like). A compromised dashboard process therefore
+cannot slip in `log_dest`, a new listener or any other directive. The helper keeps
+the previous file as a backup and restores it if Mosquitto does not restart. The status combines three
 sources: the systemd service state, the `$SYS` connection state and a checksum
 comparison between the stored and the installed configuration.
 

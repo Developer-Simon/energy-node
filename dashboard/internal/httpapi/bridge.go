@@ -319,7 +319,7 @@ func writeStagedBridgeFile(path, content string) error {
 
 // bridgeApplyErrorCode turns the root helper's exit code (see
 // energy-node-dashboard-system-action's apply_bridge_config) into the
-// error codes knowhow/dashboard/dashboard-mqtt-setup.md documents:
+// error codes docs/developing/api.md documents:
 // bridge_helper_failed for a rejected staged file (exit 65) and
 // bridge_restart_failed for a failed-but-rolled-back mosquitto restart
 // (exit 75).
@@ -338,7 +338,7 @@ func bridgeApplyErrorCode(err error) string {
 // invokes the root helper via systemactions.ApplyBridgeConfig - the helper
 // installs the file and restarts mosquitto, rolling back on failure. It
 // requires both mqtt_config and system_actions (see the role table in
-// knowhow/dashboard/dashboard-mqtt-setup.md): preparing a bridge
+// docs/developing/api.md): preparing a bridge
 // configuration is harmless, but writing a root-owned file and restarting a
 // system service is not.
 func handleBridgeApply(store *settings.Store, credentials *mqttclient.CredentialStore, authManager *auth.Manager, executor SystemActionExecutor, watcher BridgeWatcher, dataDir string, state *bridgeApplyState) http.HandlerFunc {
@@ -469,8 +469,8 @@ type bridgeDriftStatus struct {
 // bridgeDrift compares a freshly rendered configuration against the file
 // actually installed at targetPath, ignoring comments (and therefore the
 // header timestamp) via mqttbridge.DirectiveChecksum - "installed = saved"
-// vs "abweichend, seit ...", see knowhow/dashboard/dashboard-mqtt-setup.md,
-// Teil B, "Statusprüfung der Bridge".
+// vs "abweichend, seit ...", see docs/developing/data-flow.md
+// (section on the Mosquitto bridge) for the three status sources.
 func bridgeDrift(store *settings.Store, credentials *mqttclient.CredentialStore, targetPath string) bridgeDriftStatus {
 	result := bridgeDriftStatus{CheckedAt: time.Now().UTC()}
 	connection, configured, err := loadBridgeConnection(store)
@@ -497,7 +497,7 @@ func bridgeDrift(store *settings.Store, credentials *mqttclient.CredentialStore,
 }
 
 // handleBridgeStatus bundles the three status sources
-// knowhow/dashboard/dashboard-mqtt-setup.md documents - service state,
+// docs/developing/data-flow.md documents - service state,
 // $SYS bridge connection state, and drift - none of which require root.
 func handleBridgeStatus(store *settings.Store, credentials *mqttclient.CredentialStore, watcher BridgeWatcher, statusRunner systemactions.OutputRunner, targetPath string, state *bridgeApplyState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

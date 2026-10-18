@@ -66,5 +66,20 @@ Users who can configure the bridge see the same steps at the top of the bridge s
 7. In the Mosquitto bridge status, check that the bridge connection shows as
    connected and that "Installed = saved" shows yes.
 
+### If applying fails
+
+The root helper checks the generated file again before it installs anything. It
+has to be small, owned by the dashboard user and made only of the known bridge
+directives, so a file with anything else is rejected (`bridge_helper_failed`)
+and nothing changes. If Mosquitto does not start with the new file, for example
+because of a wrong address, the helper puts the previous configuration back and
+restarts Mosquitto again (`bridge_restart_failed`). A typo in the bridge
+address therefore does not leave the local broker down.
+
+The bridge password is part of `/etc/mosquitto/conf.d/bridge.conf` in plain
+text, because Mosquitto reads it from there. The file is readable only for root
+and the dashboard user. The preview in the dialog masks the password, and it
+never appears in revisions, logs or API responses.
+
 Guests see the bridge status with a note that the bridge cannot be set up in their
 session. The steps and the configuration form stay hidden for them.

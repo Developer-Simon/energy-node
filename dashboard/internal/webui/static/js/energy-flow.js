@@ -311,7 +311,7 @@
       else text = '--';
       // battery_soc (Fuellstand) is independent of the power flow above - only
       // present in snapshot.values when at least one entity carries a
-      // capacity_kwh (see energie-interpretation.md). Returned as its own
+      // capacity_kwh (see docs/dashboard/energy.md). Returned as its own
       // `soc` field and rendered on a dedicated line under the power value
       // (.energy-flow-battery-soc), not appended to `text` - the power
       // reading stays a clean number.
