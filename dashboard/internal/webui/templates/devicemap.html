@@ -194,7 +194,7 @@
               </ul>
             </div>
           </template>
-          <template x-if="popover.edge && !popover.edge.membership">
+          <template x-if="popover.edge && !popover.edge.membership && (!popover.edge.subDevice || popover.edge.channels.length > 1)">
             <div class="devicemap-edge-settings">
               <div class="category-field" x-show="!popover.edge.subDevice">
                 <div class="devicemap-edge-field-head">
