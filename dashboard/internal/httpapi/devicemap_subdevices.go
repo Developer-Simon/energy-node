@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/Developer-Simon/energy-node-dashboard/internal/deviceiconname"
 	"github.com/Developer-Simon/energy-node-dashboard/internal/energy"
@@ -28,6 +29,12 @@ type subDeviceBody struct {
 
 // maxSubDeviceChannel is the highest switch channel a sub-device can use.
 const maxSubDeviceChannel = 16
+
+// deviceMapWriteMu serialises every load-modify-save of the device map, so
+// two writers cannot both load before either saves and lose one write. A
+// handler takes it once around its whole read-modify-write. The helpers it
+// calls must not take it again, because sync.Mutex does not nest.
+var deviceMapWriteMu sync.Mutex
 
 var (
 	subDeviceSlugSeparator = regexp.MustCompile(`[^a-z0-9]+`)
@@ -92,7 +99,13 @@ func checkSubDeviceRequest(reg *registry.Registry, deviceMap settings.DeviceMap,
 	}
 	for _, device := range reg.Snapshot() {
 		for _, entity := range device.Entities {
-			if entity.UniqueID == request.EntityID && !isSubDevicePowerUnit(entity.UnitOfMeasurement) {
+			if entity.UniqueID != request.EntityID {
+				continue
+			}
+			if device.ID != request.DeviceID {
+				return uierror.New("error.sub_device_entity_device_mismatch", fmt.Sprintf("device-map sub-device entity %q does not belong to device %q", request.EntityID, request.DeviceID), nil)
+			}
+			if !isSubDevicePowerUnit(entity.UnitOfMeasurement) {
 				return uierror.New("error.sub_device_entity_invalid", fmt.Sprintf("device-map sub-device entity %q has no power unit", request.EntityID), nil)
 			}
 		}
@@ -195,6 +208,8 @@ func saveSubDeviceMap(store *settings.Store, resolver *energy.Resolver, w http.R
 }
 
 func handleCreateSubDevice(store *settings.Store, reg *registry.Registry, resolver *energy.Resolver, w http.ResponseWriter, r *http.Request) {
+	deviceMapWriteMu.Lock()
+	defer deviceMapWriteMu.Unlock()
 	request, ok := readSubDeviceRequest(w, r)
 	if !ok {
 		return
@@ -227,6 +242,8 @@ func handleCreateSubDevice(store *settings.Store, reg *registry.Registry, resolv
 }
 
 func handleUpdateSubDevice(store *settings.Store, reg *registry.Registry, resolver *energy.Resolver, w http.ResponseWriter, r *http.Request, id string) {
+	deviceMapWriteMu.Lock()
+	defer deviceMapWriteMu.Unlock()
 	request, ok := readSubDeviceRequest(w, r)
 	if !ok {
 		return
@@ -258,6 +275,8 @@ func handleUpdateSubDevice(store *settings.Store, reg *registry.Registry, resolv
 }
 
 func handleDeleteSubDevice(store *settings.Store, resolver *energy.Resolver, w http.ResponseWriter, id string) {
+	deviceMapWriteMu.Lock()
+	defer deviceMapWriteMu.Unlock()
 	deviceMap, err := store.LoadDeviceMap()
 	if err != nil {
 		writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)

@@ -1567,6 +1567,7 @@
   "error.sub_device_channel_invalid": "The channel must be between 1 and 16",
   "error.sub_device_duplicate": "A sub-device is defined more than once",
   "error.sub_device_edge_invalid": "A sub-device cannot be linked by a relation",
+  "error.sub_device_entity_device_mismatch": "The entity belongs to another device",
   "error.sub_device_entity_invalid": "The entity has no power unit W or kW",
   "error.sub_device_icon_invalid": "The icon is unknown",
   "error.sub_device_label_invalid": "The sub-device name must be 1 to 64 characters long",

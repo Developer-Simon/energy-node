@@ -1567,6 +1567,7 @@
   "error.sub_device_channel_invalid": "Der Kanal muss zwischen 1 und 16 liegen",
   "error.sub_device_duplicate": "Ein Untergerät ist doppelt angelegt",
   "error.sub_device_edge_invalid": "Ein Untergerät kann nicht mit einer Zuordnung verknüpft werden",
+  "error.sub_device_entity_device_mismatch": "Die Entität gehört zu einem anderen Gerät",
   "error.sub_device_entity_invalid": "Die Entität hat keine Leistungseinheit W oder kW",
   "error.sub_device_icon_invalid": "Das Icon ist unbekannt",
   "error.sub_device_label_invalid": "Der Name des Untergeräts muss 1 bis 64 Zeichen lang sein",

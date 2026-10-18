@@ -2,10 +2,12 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -319,7 +321,7 @@ func TestDeviceMapPutKeepsSubDevices(t *testing.T) {
 	}
 }
 
-func TestRestoreReappliesSubDeviceLabels(t *testing.T) {
+func TestRestoreKeepsCurrentSubDevices(t *testing.T) {
 	router, _, _ := subDeviceTestRouter(t)
 	// The first save creates the file without sub-devices, the second save
 	// keeps that version as a revision.
@@ -344,10 +346,74 @@ func TestRestoreReappliesSubDeviceLabels(t *testing.T) {
 	if restored.Code != http.StatusOK {
 		t.Fatalf("restore status %d: %s", restored.Code, restored.Body.String())
 	}
-	if value := decodeSubDeviceMap(t, restored); len(value.SubDevices) != 0 {
-		t.Fatalf("restored map still has sub-devices: %+v", value.SubDevices)
+	// The revision has no sub-devices, but the sub-device created after it
+	// is the server's current state and stays.
+	value := decodeSubDeviceMap(t, restored)
+	if len(value.SubDevices) != 1 || value.SubDevices[0].ID != "sub:waschmaschine" {
+		t.Fatalf("restore dropped the current sub-devices: %+v", value.SubDevices)
 	}
-	if got := energyLabelOf(t, router, "plug_b_power"); got != "Plug B / Leistung" {
-		t.Fatalf("label after restore = %q, want Plug B / Leistung", got)
+	if _, ok := hasEdgeProp(value, "plug_b", "sub:waschmaschine"); !ok {
+		t.Fatalf("restore dropped the sub-device pair: %+v", value.EdgeProps)
+	}
+	if got := energyLabelOf(t, router, "plug_b_power"); got != "Waschmaschine" {
+		t.Fatalf("label after restore = %q, want Waschmaschine", got)
+	}
+}
+
+func TestSubDeviceEntityMustBelongToDevice(t *testing.T) {
+	router, store, _ := subDeviceTestRouter(t)
+	// plug_b_power belongs to plug_b, so a sub-device on plug_c must be refused.
+	recorder := sendSubDevice(t, router, http.MethodPost, "/api/v1/device/map/sub-devices",
+		`{"label":"Waschmaschine","icon":"energy-node:plug-smart","device_id":"plug_c","entity_id":"plug_b_power"}`)
+	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"message_key":"error.sub_device_entity_device_mismatch"`) {
+		t.Fatalf("status %d, want 400 with error.sub_device_entity_device_mismatch: %s", recorder.Code, recorder.Body.String())
+	}
+	stored, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.SubDevices) != 0 || len(stored.EdgeProps) != 0 {
+		t.Fatalf("rejected sub-device was stored: %+v", stored)
+	}
+}
+
+func TestConcurrentDeviceMapWritesKeepEveryWrite(t *testing.T) {
+	router, store, reg := subDeviceTestRouter(t)
+	const count = 40
+	for i := 0; i < count; i++ {
+		reg.UpsertEntity(registry.Discovery{
+			Device: registry.DeviceInfo{ID: fmt.Sprintf("bulk_%02d", i), Name: "Bulk"},
+			Entity: registry.EntityInfo{UniqueID: fmt.Sprintf("bulk_%02d_power", i), Name: "Leistung", Component: "sensor", UnitOfMeasurement: "W", StateTopic: fmt.Sprintf("state/bulk_%02d", i)},
+		})
+	}
+	var wg sync.WaitGroup
+	failures := make(chan string, 2*count)
+	for i := 0; i < count; i++ {
+		wg.Add(2)
+		go func(i int) {
+			defer wg.Done()
+			body := fmt.Sprintf(`{"label":"Sub %02d","icon":"energy-node:plug-smart","device_id":"bulk_%02d","entity_id":"bulk_%02d_power"}`, i, i, i)
+			if recorder := sendSubDevice(t, router, http.MethodPost, "/api/v1/device/map/sub-devices", body); recorder.Code != http.StatusOK {
+				failures <- recorder.Body.String()
+			}
+		}(i)
+		go func() {
+			defer wg.Done()
+			if recorder := sendSubDevice(t, router, http.MethodPut, "/api/v1/device/map", `{"nodes":[]}`); recorder.Code != http.StatusOK {
+				failures <- recorder.Body.String()
+			}
+		}()
+	}
+	wg.Wait()
+	close(failures)
+	for failure := range failures {
+		t.Errorf("write failed: %s", failure)
+	}
+	stored, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(stored.SubDevices) != count {
+		t.Fatalf("stored %d sub-devices, want %d: a concurrent save overwrote another", len(stored.SubDevices), count)
 	}
 }

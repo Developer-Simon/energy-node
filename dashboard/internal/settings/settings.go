@@ -1066,6 +1066,18 @@ func (s *Store) ReadDeviceMapRevision(revision string) (json.RawMessage, error) 
 	return s.readRevisionLocked("device-map", revision)
 }
 
+// DeviceMapRevisionValue reads a stored revision without saving it, so the
+// caller can merge it with the current map before the save.
+func (s *Store) DeviceMapRevisionValue(revision string) (DeviceMap, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	data, err := s.readRevisionLocked("device-map", revision)
+	if err != nil {
+		return DeviceMap{}, err
+	}
+	return parseDeviceMapRevision(revision, data)
+}
+
 func (s *Store) RestoreDeviceMap(revision string) (DeviceMap, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1073,6 +1085,19 @@ func (s *Store) RestoreDeviceMap(revision string) (DeviceMap, error) {
 	if err != nil {
 		return DeviceMap{}, err
 	}
+	value, err := parseDeviceMapRevision(revision, data)
+	if err != nil {
+		return DeviceMap{}, err
+	}
+	if err := s.saveJSONLocked("device-map.json", value); err != nil {
+		return DeviceMap{}, err
+	}
+	s.deviceMapValue = cloneDeviceMap(value)
+	s.deviceMapLoaded = true
+	return value, nil
+}
+
+func parseDeviceMapRevision(revision string, data []byte) (DeviceMap, error) {
 	value := NewDeviceMap()
 	if err := json.Unmarshal(data, &value); err != nil {
 		return DeviceMap{}, fmt.Errorf("device-map revision %q: invalid JSON: %w", revision, err)
@@ -1082,11 +1107,6 @@ func (s *Store) RestoreDeviceMap(revision string) (DeviceMap, error) {
 	if err := validateDeviceMap(value); err != nil {
 		return DeviceMap{}, err
 	}
-	if err := s.saveJSONLocked("device-map.json", value); err != nil {
-		return DeviceMap{}, err
-	}
-	s.deviceMapValue = cloneDeviceMap(value)
-	s.deviceMapLoaded = true
 	return value, nil
 }
 
