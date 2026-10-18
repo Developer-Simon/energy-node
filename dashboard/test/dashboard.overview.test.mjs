@@ -51,6 +51,7 @@ function load({ html = '<div id="overview-panel" class="panel active"></div>' } 
   vm.runInContext(compactValuesSource, context);
   vm.runInContext(read('device-structure.js'), context);
   vm.runInContext(source, context);
+  vm.runInContext(read('device-modal.js'), context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   return { factories, window: dom.window, intervals };
 }
@@ -500,6 +501,7 @@ test('bei offenem Geraete-Modal ruht das Nachziehen des Rasters', async () => {
   // ohne passenden Fingerabdruck wuerde sonst tauschen.
   calls.length = 0;
 
+  panel.installDeviceModal();
   panel.selectedDeviceId = 'dev-1';
   panel.$refs.deviceModalDialog = { open: true, close() { this.open = false; } };
 

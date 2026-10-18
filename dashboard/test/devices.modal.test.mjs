@@ -15,6 +15,7 @@ import { JSDOM } from 'jsdom';
 import { installI18n } from './helpers/i18n.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
+const modalSource = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'js', 'device-modal.js'), 'utf8');
 const source = fs.readFileSync(
   path.join(here, '..', 'internal', 'webui', 'static', 'js', 'dashboard.js'),
   'utf8',
@@ -36,8 +37,11 @@ function createDevicesPanel() {
   dom.window.deviceTileMixin = () => ({});
   installI18n(dom.window);
   vm.runInContext(source, context);
+  vm.runInContext(modalSource, context);
   dom.window.document.dispatchEvent(new dom.window.Event('alpine:init'));
   const panel = factories.devicesPanel();
+  // Im Betrieb laedt selectDevice() device-modal.js nach, hier liegt es schon da.
+  panel.installDeviceModal();
   // Fuer Tests, die window.Choices doubeln muessen.
   Object.defineProperty(panel, 'testWindow', {value: dom.window});
   return panel;
@@ -730,7 +734,7 @@ test('opening a device clears the previous sub-devices before the new map arrive
     if (url.includes('/api/v1/device/map')) throw new Error('map down');
     return { ok: true, status: 200, json: async () => ({ id: 'wp', name: 'Wärmepumpe', entities }) };
   };
-  await panel.selectDevice('wp');
+  await panel.openDevice('wp');
   assert.equal(panel.subDevices.length, 0);
   assert.equal(panel.subDevicesReady, false);
   assert.equal(panel.subCreateVisible(entities[0]), false);

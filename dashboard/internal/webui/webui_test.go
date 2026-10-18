@@ -85,9 +85,23 @@ func TestDiagnosticsAssetLoadsHealthScores(t *testing.T) {
 	if recorder.Code != 200 {
 		t.Fatalf("got status %d: %s", recorder.Code, recorder.Body.String())
 	}
-	for _, marker := range []string{"warningGroups", "healthScores", "/api/v1/diagnostics/health", "sortedHealthScores", "runtimeStatusPanel", "/api/v1/health", "/api/v1/discovery", "selectDevice", "reloadDevice", "measurementEntities", "controlEntities", "configDiagEntities", "configEntities", "diagnosticEntities", "Promise.allSettled", "sortedWarnings", "groupedWarnings", "affectedEntityIds", "entityLabel", "runtime-status-setting-changed", "registry-updated", "dashboard-panel-changed", "setActivePanel"} {
+	for _, marker := range []string{"warningGroups", "healthScores", "/api/v1/diagnostics/health", "sortedHealthScores", "runtimeStatusPanel", "/api/v1/health", "/api/v1/discovery", "selectDevice", "Promise.allSettled", "runtime-status-setting-changed", "registry-updated", "dashboard-panel-changed", "setActivePanel"} {
 		if !strings.Contains(recorder.Body.String(), marker) {
 			t.Fatalf("diagnostics asset does not contain %q", marker)
+		}
+	}
+}
+
+// Das Geraete-Modal laedt devicesPanel erst beim ersten Oeffnen nach.
+func TestDeviceModalAssetCarriesTheModal(t *testing.T) {
+	recorder := httptest.NewRecorder()
+	Static().ServeHTTP(recorder, httptest.NewRequest("GET", "/static/js/device-modal.js", nil))
+	if recorder.Code != 200 {
+		t.Fatalf("got status %d: %s", recorder.Code, recorder.Body.String())
+	}
+	for _, marker := range []string{"deviceModalMixin", "openDevice", "reloadDevice", "measurementEntities", "controlEntities", "configDiagEntities", "configEntities", "diagnosticEntities", "sortedWarnings", "groupedWarnings", "affectedEntityIds", "entityLabel", "activityLog"} {
+		if !strings.Contains(recorder.Body.String(), marker) {
+			t.Fatalf("device modal asset does not contain %q", marker)
 		}
 	}
 }

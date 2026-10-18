@@ -105,6 +105,9 @@
 {{end}}
 
 {{define "device-modal"}}
+{{/* Rendert erst, wenn devicesPanel device-modal.js geladen hat (ensureDeviceModal). */}}
+<template x-if="deviceModalReady" x-ref="deviceModalTemplate" data-script="{{.BasePath}}/static/js/device-modal.js?v=1">
+<div class="device-modal-host">
 <dialog id="device-modal" class="device-detail" x-ref="deviceModalDialog" aria-labelledby="device-modal-heading" aria-modal="true" x-bind:aria-busy="detailLoading" data-choices-script="{{.BasePath}}/static/js-deps/choices.min.js" data-choices-css="{{.BasePath}}/static/css/choices.min.css,{{.BasePath}}/static/css/choices.css?v=2">
   <div class="device-modal-topbar">
     <div class="device-modal-topbar-id">
@@ -362,6 +365,8 @@
     </div>
   </form>
 </dialog>
+</div>
+</template>
 {{end}}
 
 {{define "device-modal-info-body"}}
