@@ -48,6 +48,66 @@
       </div>
     </div>
   </div>{{end}}
+{{define "devicemap-role-row"}}
+              <div class="devicemap-panel-entity" x-bind:class="{ dirty: row.dirty }">
+                <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name" x-text="row.name"></span><span class="devicemap-panel-entity-value" x-text="row.valueText"></span></div>
+                <div class="devicemap-panel-consequence" x-show="row.consequence" x-text="row.consequence"></div>
+                <div class="devicemap-panel-entity-id" x-show="row.unit !== 'switch'" x-text="row.id"></div>
+                <label class="devicemap-panel-field">{{t "devicemap.panel.role"}}
+                  <select x-on:change="setDraft(row.id, 'role', $event.target.value)" x-bind:disabled="!canEditEnergy">
+                    <optgroup label="{{t "devicemap.panel.optgroup.standard"}}">
+                      <option value="" x-bind:selected="!row.assignment.role">{{t "energy.roles.no_role"}}</option>
+                      <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'standard' && item.value)" x-bind:key="option.value">
+                        <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
+                      </template>
+                    </optgroup>
+                    <template x-if="roleOptionsFor(row.unit).some(item => item.group === 'custom')">
+                      <optgroup label="{{t "devicemap.panel.optgroup.custom"}}">
+                        <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'custom')" x-bind:key="option.value">
+                          <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
+                        </template>
+                      </optgroup>
+                    </template>
+                  </select>
+                </label>
+                <template x-if="row.unit === 'switch' && row.assignment.role === 'switch' && row.channels > 1">
+                  <label class="devicemap-panel-field">{{t "devicemap.panel.channel"}}
+                    <select x-on:change="setDraft(row.id, 'channel', $event.target.value)" x-bind:disabled="!canEditEnergy">
+                      <template x-for="n in row.channels" x-bind:key="n"><option x-bind:value="n" x-text="n" x-bind:selected="n === row.assignment.channel"></option></template>
+                    </select>
+                  </label>
+                </template>
+                <div class="devicemap-panel-source" x-show="customHint(row.assignment.role)"><span x-text="customHint(row.assignment.role)"></span></div>
+                <div class="devicemap-panel-source">
+                  <span class="devicemap-panel-chip" x-bind:data-source="row.source" x-text="$t(`devicemap.panel.source.${row.source}`)"></span>
+                  <span x-show="row.source === 'heuristic' || row.source === 'draft'" x-text="row.source === 'heuristic' || row.source === 'draft' ? $t(`devicemap.panel.source_hint.${row.source}`) : ''"></span>
+                  <button type="button" class="pill-button" x-show="row.canPin && canEditEnergy" x-on:click="pinAssignment(row.id)">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg>{{t "devicemap.panel.pin"}}
+                  </button>
+                </div>
+                <label class="devicemap-panel-field" x-show="row.unit !== 'switch' && row.assignment.role === 'battery_soc'">{{t "devicemap.panel.capacity"}}
+                  <input type="number" min="0" step="0.5" x-bind:value="row.assignment.capacity_kwh" x-on:change="setDraft(row.id, 'capacity_kwh', $event.target.value)" x-bind:disabled="!canEditEnergy">
+                </label>
+                <details x-show="row.unit !== '%' && row.unit !== 'switch' && row.assignment.role" x-bind:open="row.assignment.scale !== 1 || row.assignment.invert">
+                  <summary>{{t "devicemap.panel.scale_and_sign"}}</summary>
+                  <div class="devicemap-panel-field-row">
+                    <label class="devicemap-panel-field">{{t "devicemap.panel.scale"}}<input type="number" min="0.01" step="0.1" x-bind:value="row.assignment.scale" x-on:change="setDraft(row.id, 'scale', $event.target.value)" x-bind:disabled="!canEditEnergy"></label>
+                    <label class="devicemap-panel-check"><input type="checkbox" x-bind:checked="row.assignment.invert" x-on:change="setDraft(row.id, 'invert', $event.target.checked)" x-bind:disabled="!canEditEnergy"> {{t "devicemap.panel.invert"}}</label>
+                  </div>
+                </details>
+                <div class="devicemap-sub-row" x-show="panelView.kind === 'device' && (row.subDevice || row.canAddSub)">
+                  <template x-if="row.subDevice">
+                    <button type="button" class="nav-row-button" x-on:click="openPanel(row.subDevice.id)">
+                      <span class="devicemap-sub-name"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="iconMarkup[row.subDevice.icon] || ''"></svg><span x-text="row.subDevice.label"></span></span>
+                      <span>{{t "devicemap.sub.show"}}</span>
+                    </button>
+                  </template>
+                  <button type="button" class="pill-button" x-show="!row.subDevice && row.canAddSub" x-on:click="openSubForm({mode: 'create', entityId: row.id})">
+                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-plus"></use></svg>{{t "devicemap.sub.create"}}
+                  </button>
+                </div>
+              </div>
+{{end}}
 {{define "devicemap-nav-arrow"}}<svg class="nav-row-arrow" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M7 17 17 7M9 7h8v8"/></svg>{{end}}
 {{/* Shared device picker (device-picker.js). Rendered inside the device map's
      and the energy page's Alpine component, both mix in DevicePicker.mixin(). */}}
@@ -136,7 +196,7 @@
           </template>
           <template x-if="popover.edge && !popover.edge.membership">
             <div class="devicemap-edge-settings">
-              <div class="category-field">
+              <div class="category-field" x-show="!popover.edge.subDevice">
                 <div class="devicemap-edge-field-head">
                   <span class="category-field-label">{{t "devicemap.edge.type_label"}}</span>
                   <span class="devicemap-edge-detected" x-show="popover.edge.heuristic">{{t "devicemap.edge.detected"}}</span>
@@ -153,7 +213,7 @@
                   <template x-for="n in popover.edge.channels" x-bind:key="n"><option x-bind:value="n" x-text="n" x-bind:selected="n === popover.edge.channel"></option></template>
                 </select>
               </div>
-              <div class="category-field" x-show="popover.edge.type === 'energy'">
+              <div class="category-field" x-show="popover.edge.type === 'energy' && !popover.edge.subDevice">
                 <span class="category-field-label">{{t "devicemap.edge.direction_label"}}</span>
                 <div class="devicemap-segmented devicemap-segmented--two" role="radiogroup" aria-label="{{t "devicemap.edge.direction_label"}}">
                   <label><input type="radio" name="devicemap-edge-direction" value="auto" x-bind:checked="popover.edge.direction === 'auto'" x-bind:disabled="!canEditEnergy" x-on:change="setEdgeDirection('auto')"><span>{{t "devicemap.edge.direction.auto"}}</span></label>
@@ -173,7 +233,7 @@
             </div>
           </template>
           <div class="devicemap-edge-actions" x-show="popover.edge && !popover.edge.membership">
-            <button type="button" class="devicemap-edge-action" x-on:click="reverseSelectedRelation()" x-bind:disabled="!canEditEnergy || !(popover.edge && popover.edge.canReverse)" aria-describedby="devicemap-edge-reverse-reason">
+            <button type="button" class="devicemap-edge-action" x-show="!(popover.edge && popover.edge.subDevice)" x-on:click="reverseSelectedRelation()" x-bind:disabled="!canEditEnergy || !(popover.edge && popover.edge.canReverse)" aria-describedby="devicemap-edge-reverse-reason">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h15M15 4l4 4-4 4"/><path d="M20 16H5M9 12l-4 4 4 4"/></svg>
               <span class="devicemap-edge-action-text">
                 <span>{{t "devicemap.edge.reverse"}}</span>
@@ -304,53 +364,7 @@
             <p class="devicemap-panel-empty" x-show="panelView.empty === 'no_values'">{{t "devicemap.panel.empty.no_values"}}</p>
             <p class="devicemap-panel-empty" x-show="panelView.empty === 'no_power'">{{t "devicemap.panel.empty.no_power"}}</p>
             <template x-for="row in panelView.rows" x-bind:key="row.id">
-              <div class="devicemap-panel-entity" x-bind:class="{ dirty: row.dirty }">
-                <div class="devicemap-panel-entity-head"><span class="devicemap-panel-entity-name" x-text="row.name"></span><span class="devicemap-panel-entity-value" x-text="row.valueText"></span></div>
-                <div class="devicemap-panel-consequence" x-show="row.consequence" x-text="row.consequence"></div>
-                <div class="devicemap-panel-entity-id" x-show="row.unit !== 'switch'" x-text="row.id"></div>
-                <label class="devicemap-panel-field">{{t "devicemap.panel.role"}}
-                  <select x-on:change="setDraft(row.id, 'role', $event.target.value)" x-bind:disabled="!canEditEnergy">
-                    <optgroup label="{{t "devicemap.panel.optgroup.standard"}}">
-                      <option value="" x-bind:selected="!row.assignment.role">{{t "energy.roles.no_role"}}</option>
-                      <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'standard' && item.value)" x-bind:key="option.value">
-                        <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
-                      </template>
-                    </optgroup>
-                    <template x-if="roleOptionsFor(row.unit).some(item => item.group === 'custom')">
-                      <optgroup label="{{t "devicemap.panel.optgroup.custom"}}">
-                        <template x-for="option in roleOptionsFor(row.unit).filter(item => item.group === 'custom')" x-bind:key="option.value">
-                          <option x-bind:value="option.value" x-text="option.label" x-bind:selected="option.value === row.assignment.role"></option>
-                        </template>
-                      </optgroup>
-                    </template>
-                  </select>
-                </label>
-                <template x-if="row.unit === 'switch' && row.assignment.role === 'switch' && row.channels > 1">
-                  <label class="devicemap-panel-field">{{t "devicemap.panel.channel"}}
-                    <select x-on:change="setDraft(row.id, 'channel', $event.target.value)" x-bind:disabled="!canEditEnergy">
-                      <template x-for="n in row.channels" x-bind:key="n"><option x-bind:value="n" x-text="n" x-bind:selected="n === row.assignment.channel"></option></template>
-                    </select>
-                  </label>
-                </template>
-                <div class="devicemap-panel-source" x-show="customHint(row.assignment.role)"><span x-text="customHint(row.assignment.role)"></span></div>
-                <div class="devicemap-panel-source">
-                  <span class="devicemap-panel-chip" x-bind:data-source="row.source" x-text="$t(`devicemap.panel.source.${row.source}`)"></span>
-                  <span x-show="row.source === 'heuristic' || row.source === 'draft'" x-text="row.source === 'heuristic' || row.source === 'draft' ? $t(`devicemap.panel.source_hint.${row.source}`) : ''"></span>
-                  <button type="button" class="pill-button" x-show="row.canPin && canEditEnergy" x-on:click="pinAssignment(row.id)">
-                    <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3z"/></svg>{{t "devicemap.panel.pin"}}
-                  </button>
-                </div>
-                <label class="devicemap-panel-field" x-show="row.unit !== 'switch' && row.assignment.role === 'battery_soc'">{{t "devicemap.panel.capacity"}}
-                  <input type="number" min="0" step="0.5" x-bind:value="row.assignment.capacity_kwh" x-on:change="setDraft(row.id, 'capacity_kwh', $event.target.value)" x-bind:disabled="!canEditEnergy">
-                </label>
-                <details x-show="row.unit !== '%' && row.unit !== 'switch' && row.assignment.role" x-bind:open="row.assignment.scale !== 1 || row.assignment.invert">
-                  <summary>{{t "devicemap.panel.scale_and_sign"}}</summary>
-                  <div class="devicemap-panel-field-row">
-                    <label class="devicemap-panel-field">{{t "devicemap.panel.scale"}}<input type="number" min="0.01" step="0.1" x-bind:value="row.assignment.scale" x-on:change="setDraft(row.id, 'scale', $event.target.value)" x-bind:disabled="!canEditEnergy"></label>
-                    <label class="devicemap-panel-check"><input type="checkbox" x-bind:checked="row.assignment.invert" x-on:change="setDraft(row.id, 'invert', $event.target.checked)" x-bind:disabled="!canEditEnergy"> {{t "devicemap.panel.invert"}}</label>
-                  </div>
-                </details>
-              </div>
+                {{template "devicemap-role-row"}}
             </template>
             <div class="devicemap-panel-others" x-show="panelView.others.length">
               <span class="devicemap-panel-eyebrow">{{t "devicemap.panel.others"}}</span>
@@ -422,6 +436,38 @@
           </footer>
         </div>
       </template>
+      <template x-if="panelView && panelView.kind === 'sub'">
+        <div class="devicemap-panel-inner">
+          <header>
+            <div class="devicemap-sub-head">
+              <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="iconMarkup[panelView.icon] || ''"></svg>
+              <h3 id="devicemap-panel-title" x-text="panelView.title"></h3>
+            </div>
+            <button type="button" class="icon-button" x-on:click="requestClosePanel()" aria-label="{{t "devicemap.panel.close"}}" title="{{t "devicemap.panel.close"}}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true" focusable="false"><use href="#ico-close"></use></svg>
+            </button>
+          </header>
+          <div class="devicemap-panel-body">
+            <p class="devicemap-panel-empty" x-show="panelView.orphan">{{t "devicemap.sub.missing"}}</p>
+            <template x-for="row in (panelView.row ? [panelView.row] : [])" x-bind:key="row.id">
+              {{template "devicemap-role-row"}}
+            </template>
+            <div class="devicemap-sub-actions" x-show="panelView.canEdit">
+              <button type="button" class="nav-row-button" x-show="!panelView.orphan" x-on:click="openPanel(panelView.deviceId)"><span>{{t "devicemap.sub.show_meter"}}</span>{{template "devicemap-nav-arrow"}}</button>
+              <button type="button" class="pill-button" x-show="!panelView.orphan" x-on:click="openSubForm({mode: 'edit', subId: panelId})">{{t "devicemap.sub.edit"}}</button>
+              <button type="button" class="pill-button" x-on:click="openSubForm({mode: 'move', subId: panelId})">{{t "devicemap.sub.move"}}</button>
+              <button type="button" class="pill-button danger" x-on:click="deleteSubDevice(panelId)">
+                <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ico-trash"></use></svg>{{t "devicemap.sub.delete"}}
+              </button>
+            </div>
+          </div>
+          <footer x-show="panelView.canEdit && panelView.row">
+            <span class="devicemap-panel-status" role="status" x-text="panelStatusText()"></span>
+            <button type="button" x-on:click="discardPanel()" x-bind:disabled="!panelDirty() || panelSaving">{{t "devicemap.panel.discard"}}</button>
+            <button type="button" class="primary" data-panel-save x-on:click="savePanelAny()" x-bind:disabled="!panelDirty() || panelSaving">{{t "devicemap.panel.save"}}</button>
+          </footer>
+        </div>
+      </template>
     </aside>
   </div>
   <dialog class="app-modal devicemap-dialog" x-ref="groupDialog" aria-labelledby="devicemap-group-dialog-title" aria-describedby="devicemap-group-dialog-hint">
@@ -447,6 +493,42 @@
         <button type="submit" class="primary">{{t "devicemap.category.create_confirm"}}</button>
       </div>
     </form>
+  </dialog>
+  <dialog class="app-modal devicemap-dialog devicemap-sub-dialog" x-ref="subDialog" aria-labelledby="devicemap-sub-dialog-title" x-effect="if (subForm) { if (!$el.open) $el.showModal() } else if ($el.open) $el.close()" x-on:close="subForm = null">
+    <template x-if="subForm">
+      <form x-on:submit.prevent="saveSubForm()">
+        <h2 class="app-modal-title" id="devicemap-sub-dialog-title" x-text="$t(subForm.mode === 'create' ? 'devicemap.sub.create' : (subForm.mode === 'move' ? 'devicemap.sub.move' : 'devicemap.sub.edit'))"></h2>
+        <label class="devicemap-panel-field">{{t "devicemap.sub.name"}}<input type="text" required maxlength="60" autocomplete="off" x-model="subForm.name" x-bind:disabled="subSaving"></label>
+        <p class="devicemap-sub-error" role="alert" x-show="subForm.error" x-text="subForm.error"></p>
+        <template x-if="subFormShowsMeasurement()">
+          <label class="devicemap-panel-field">{{t "devicemap.sub.measurement"}}
+            <select x-bind:disabled="subSaving" x-on:change="setSubFormEntity($event.target.value)">
+              <template x-for="choice in subFormEntities()" x-bind:key="choice.entityId"><option x-bind:value="choice.entityId" x-text="choice.label" x-bind:selected="choice.entityId === subForm.entityId"></option></template>
+            </select>
+          </label>
+        </template>
+        <p class="devicemap-sub-hint" x-show="subFormShowsMeasurement() && !subFormEntities().some(choice => choice.entityId === subForm.entityId)">{{t "devicemap.sub.missing"}}</p>
+        <template x-if="subFormChannels().length">
+          <label class="devicemap-panel-field">{{t "devicemap.sub.channel"}}
+            <select x-bind:disabled="subSaving" x-on:change="subForm.channel = Number($event.target.value)">
+              <template x-for="n in subFormChannels()" x-bind:key="n"><option x-bind:value="n" x-text="n" x-bind:selected="n === subForm.channel"></option></template>
+            </select>
+          </label>
+        </template>
+        <div class="devicemap-sub-field" role="radiogroup" aria-label="{{t "devicemap.sub.icon"}}">
+          <span class="category-field-label">{{t "devicemap.sub.icon"}}</span>
+          <div class="category-icon-grid">
+            <template x-for="icon in iconCatalogue" x-bind:key="icon.name">
+              <label class="category-icon" x-bind:title="$t(icon.labelKey)"><input type="radio" name="devicemap-sub-icon" x-bind:value="icon.name" x-model="subForm.icon" x-bind:disabled="subSaving" x-bind:aria-label="$t(icon.labelKey)"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" x-html="icon.markup"></svg></label>
+            </template>
+          </div>
+        </div>
+        <div class="app-modal-actions">
+          <button type="button" x-on:click="$refs.subDialog.close()">{{t "common.cancel"}}</button>
+          <button type="submit" class="primary" x-bind:disabled="subSaving">{{t "common.save"}}</button>
+        </div>
+      </form>
+    </template>
   </dialog>
   {{template "device-picker"}}
   {{template "revisions" .}}

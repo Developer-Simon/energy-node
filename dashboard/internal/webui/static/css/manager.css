@@ -962,6 +962,18 @@ select.schema-control {
 .devicemap-panel-member span:nth-child(2) { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--text-subtle); }
 .devicemap-panel-category { display: flex; gap: 8px; align-items: center; font-size: .86rem; }
 .devicemap-panel-category .muted { color: var(--text-muted); }
+.devicemap-sub-row { display: grid; gap: 6px; }
+.devicemap-sub-name { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.devicemap-sub-name > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.devicemap-sub-name svg, .devicemap-sub-head svg { flex: none; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.devicemap-sub-head { display: flex; align-items: center; gap: 10px; min-width: 0; color: var(--accent); }
+.devicemap-sub-head svg { width: 26px; height: 26px; }
+.devicemap-sub-head h3 { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.devicemap-sub-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.devicemap-sub-actions .nav-row-button { flex: 1 1 100%; }
+.devicemap-sub-field { display: grid; gap: 6px; }
+.devicemap-sub-error { margin: 0; font-size: .84rem; color: var(--bad); }
+.devicemap-sub-hint { margin: 0; font-size: .84rem; color: var(--text-muted); }
 .devicemap-cat-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 .devicemap-cat-dot.cat-1 { background: var(--flow-cat-1); }
 .devicemap-cat-dot.cat-2 { background: var(--flow-cat-2); }
