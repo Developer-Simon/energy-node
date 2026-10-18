@@ -232,7 +232,7 @@
               </div>
             </div>
           </template>
-          <div class="devicemap-edge-actions" x-show="popover.edge && !popover.edge.membership">
+          <div class="devicemap-edge-actions" x-show="popover.edge && !popover.edge.membership && !popover.edge.subDevice">
             <button type="button" class="devicemap-edge-action" x-show="!(popover.edge && popover.edge.subDevice)" x-on:click="reverseSelectedRelation()" x-bind:disabled="!canEditEnergy || !(popover.edge && popover.edge.canReverse)" aria-describedby="devicemap-edge-reverse-reason">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M4 8h15M15 4l4 4-4 4"/><path d="M20 16H5M9 12l-4 4 4 4"/></svg>
               <span class="devicemap-edge-action-text">
