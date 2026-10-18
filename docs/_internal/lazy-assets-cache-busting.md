@@ -64,14 +64,14 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-10-17**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-10-18**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `37` |
+| `css/base.css` | `38` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -96,7 +96,7 @@ As of **2026-10-17**, read from `base.html` and `overview.html`. "–" means: no
 | `js/history-maintenance.js` | `1` |
 | `js/history-recorder.js` | `11` |
 | `js/notifications.js` | `2` |
-| `js/dashboard.js` | `35` |
+| `js/dashboard.js` | `37` |
 | `js/update-bar.js` | `3` |
 | `js/whatsnew.page.js` | `3` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
@@ -131,11 +131,11 @@ skips scripts already present as `<script src>`.
 | `devices-panel` | – | – |
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `14`, `css/diagnostics.css` `2` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `41` |
-| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `12`, `js/devicemap-graph.js` `7`, `js/devicemap-wiring.js` `2`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `4`, `js/devicemap-node-svg.js` `6`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `5`, `js/device-picker.js` `1`, `js/energy.page.js` `12` | `css/manager.css` `41` |
-| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `12`, `js/devicemap-node-svg.js` `6`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `7`, `js/devicemap-wiring.js` `2`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `4`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `27` | `css/manager.css` `41` |
-| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `23`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `41`, `css/settings-controls.css` `14` |
-| `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `41`, `css/automations.css` `6` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `42` |
+| `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `13`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `8`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `1`, `js/energy.page.js` `13` | `css/manager.css` `42` |
+| `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `13`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `8`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `28` | `css/manager.css` `42` |
+| `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `23`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `42`, `css/settings-controls.css` `14` |
+| `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `42`, `css/automations.css` `6` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `3`, `js/stats.page.js` `4` | `css/history.css` `7`, `css/stats.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -160,6 +160,7 @@ On a bump these must be raised **in every reference at once**, otherwise one
 place pulls the old file from the cache:
 
 - `css/manager.css` – 5 panels (`config`, `energy`, `devicemap`, `settings`, `automations`)
+- `js/devicemap-subdevices.js` – `energy-panel` and `devicemap-panel`
 - `js/device-picker.js`, `js/devicemap-graph.js`, `js/devicemap-wiring.js` – `energy-panel` and `devicemap-panel`
 - `js/energy-model.js` – channel 2 (`history-panel`), `stats-panel` **and** channel 3 (energy cards)
 - `js/energy-stats-model.js` – `stats-panel` **and** channel 3 (energy cards)
@@ -255,6 +256,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| unreleased, `feat/devicemap-sub-devices` | `css/base.css` · `css/manager.css` (5 panels) · `js/dashboard.js` · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/devicemap-wiring.js` (energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap-subdevices.js` (new, energy, device map) · `js/devicemap.page.js` (device map) · `js/energy-plant.js` (energy) · `js/energy.page.js` (energy) | `38` · `42` · `37` · `13` · `8` · `3` · `5` · `7` · `1` · `28` · `6` · `13` | 2026-10-18 |
 | unreleased, `feat/hide-role-table-entries` | `js/devicemap-model.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/energy.page.js` (energy) | `12` · `27` · `12` | 2026-10-17 |
 | unreleased, `feat/devicemap-switch-role` | `js/devicemap-switch.js` (energy, device map) · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap-wiring.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/energy.page.js` (energy) · `js/dashboard.js` · `css/manager.css` (5 panels) | `2` · `11` · `7` · `6` · `2` · `26` · `11` · `36` · `41` | 2026-10-17 |
 | unreleased, `feat/devicemap-switch-state` | `js/devicemap-graph.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap-labels.js` (energy, device map) · `js/devicemap.page.js` (device map) · `js/dashboard.js` · `css/manager.css` (5 panels) | `6` · `5` · `4` · `25` · `35` · `39` | 2026-10-16 |
