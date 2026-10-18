@@ -1,6 +1,6 @@
 // Package tailscale provides the dashboard's narrow, read-mostly boundary
 // to the Tailscale CLI already installed on the target system (see
-// knowhow/tailscale-setup.md for how it got there). Anything that changes
+// docs/install/index.md, section 3.1, for how it got there). Anything that changes
 // tailnet membership (login, logout) runs through the root
 // energy-node-dashboard-system-action helper, same as the Mosquitto
 // bridge apply flow - this package only ever shells out to the unprivileged
