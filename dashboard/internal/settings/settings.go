@@ -493,8 +493,7 @@ type BridgeConnection struct {
 
 // BridgeConfig is stored as bridge.json. It models a list of connections so
 // a second bridge can be added later without a schema break, but today
-// exactly one entry is supported - see "Offene Punkte" in
-// knowhow/dashboard/dashboard-mqtt-setup.md.
+// exactly one entry is supported (maxBridgeConnections).
 type BridgeConfig struct {
 	Connections []BridgeConnection `json:"connections"`
 }

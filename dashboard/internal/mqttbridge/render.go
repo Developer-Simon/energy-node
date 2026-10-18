@@ -3,8 +3,7 @@
 // install as /etc/mosquitto/conf.d/bridge.conf. Rendering never accepts
 // free-form text from the browser - only the typed settings.BridgeConnection
 // model, already validated by internal/settings on every load/save path.
-// See knowhow/dashboard/dashboard-mqtt-setup.md, Teil B, "Rendering statt
-// Freitext".
+// See docs/developing/data-flow.md (section on the Mosquitto bridge).
 package mqttbridge
 
 import (
@@ -51,8 +50,7 @@ func startType(auto bool) string {
 // acting username) rather than from the validated BridgeConnection model.
 // Even if this were bypassed, an injected line without a leading '#' would
 // still be rejected by the root helper's directive allowlist - see
-// knowhow/dashboard/dashboard-mqtt-setup.md, Teil B, "Ablauf beim
-// Anwenden".
+// docs/developing/data-flow.md (section on the Mosquitto bridge).
 func sanitizeCommentValue(value string) string {
 	var b strings.Builder
 	for _, r := range value {
