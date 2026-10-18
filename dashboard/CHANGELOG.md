@@ -22,6 +22,8 @@
 - **layout:** options for the energy statistics card in the editor (7712cae)
 - **layout:** store fixed period, key figures and chart switch of the statistics card (068e4f3)
 - **overview:** statistics card honours fixed period, key figures and bar chart (1ba32b9)
+- **i18n:** texts for the history card series chooser (63cb729)
+- **layout:** pick the history card series in a search field (dbb14e2)
 - **overview:** options for the energy statistics card (#151)
 - **devicemap:** store sub-devices in device-map.json (2a07b5f)
 - **energy:** label entities after their sub-device (cda32d0)
