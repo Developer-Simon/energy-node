@@ -1462,6 +1462,13 @@
       return this.isSubDeviceCandidate(entity) && Boolean(this.subDeviceFor(entity) || this.subCreateVisible(entity));
     },
 
+    // The switch is only offered when the open device has a power value that
+    // could carry a sub-device, or already has one.
+    subManageOffered() {
+      if (!this.canEditEnergy) return false;
+      return (this.deviceDetail?.entities || []).some(entity => this.isSubDeviceCandidate(entity));
+    },
+
     subActionsVisible(entity) {
       return this.canEditEnergy && this.subManage && this.isSubDeviceCandidate(entity);
     },

@@ -1595,7 +1595,8 @@ button.entity-group-chip[aria-busy="true"] .entity-group-chip-dot { background: 
 .device-modal-sub-icon svg { width: 18px; height: 18px; }
 .device-modal-sub-name { overflow-wrap: anywhere; }
 .device-modal-sub-actions { display: flex; flex-wrap: wrap; gap: .35rem; }
-.device-modal-manage-switch { display: inline-flex; align-items: center; gap: .5rem; margin-top: .7rem; font-size: .82rem; color: var(--text); cursor: pointer; }
+.device-modal-manage-btn { margin-top: .5rem; }
+.device-modal-manage-btn.is-on { background: var(--panel-alt); border-color: var(--border-soft); color: var(--text); }
 /* Sub-device row buttons: quiet by default. Create is a small accent text
    button with the plus icon, edit and delete are 32px icon buttons. Delete
    only turns red on hover or focus. Press feedback is a transform, dropped

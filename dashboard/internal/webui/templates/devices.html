@@ -375,7 +375,7 @@
   <div class="device-modal-meta-line" x-show="deviceDetail?.model"><dt>{{t "devices.device_info.model"}}</dt><dd x-text="deviceDetail?.model"></dd></div>
   <div class="device-modal-meta-line" x-show="deviceDetail?.firmware"><dt>{{t "devices.device_info.firmware"}}</dt><dd x-text="deviceDetail?.firmware"></dd></div>
   <div class="device-modal-meta-line"><dt>{{t "devices.device_info.entities"}}</dt><dd x-text="deviceDetail?.entities?.length || 0"></dd></div>
-  <template x-if="canEditEnergy"><label class="device-modal-manage-switch"><span class="settings-toggle"><input type="checkbox" role="switch" x-model="subManage"><span class="settings-toggle-track" aria-hidden="true"><span class="settings-toggle-thumb"></span></span></span><span>{{t "devices.sub.manage"}}</span></label></template>
+  <template x-if="subManageOffered()"><button type="button" class="device-modal-sub-btn device-modal-manage-btn" x-bind:class="{ 'is-on': subManage }" x-bind:aria-pressed="subManage ? 'true' : 'false'" x-on:click="subManage = !subManage">{{t "devices.sub.manage"}}</button></template>
 </div>
 <div x-show="deviceDetail?.relations?.length">
   <h5>{{t "devices.device_info.linked_devices"}}</h5>

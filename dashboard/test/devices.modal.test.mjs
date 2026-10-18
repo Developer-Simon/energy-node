@@ -531,6 +531,14 @@ test('the management switch is only offered with edit_energy', () => {
   assert.equal(panel.subActionsVisible(panel.deviceDetail.entities[0]), false);
 });
 
+test('the management button needs edit_energy and a power entity', () => {
+  assert.equal(powerPanel({ manage: false }).subManageOffered(), true);
+  assert.equal(powerPanel({ canEditEnergy: false, manage: false }).subManageOffered(), false);
+  const noPower = powerPanel({ manage: false });
+  noPower.deviceDetail.entities = [{ unique_id: 'x_temp', unit_of_measurement: '°C', device_class: 'temperature' }];
+  assert.equal(noPower.subManageOffered(), false);
+});
+
 test('opening a device or closing it turns sub-device management off', () => {
   const panel = powerPanel({ manage: true, subDevices: [dryer] });
   panel.$refs = {};
