@@ -61,15 +61,15 @@ the service runs.
 
 ### The status message
 
-<!-- slave-cleanup (plan .docs/superpowers/plans/2026-10-18-slave-aufraeumen.md, "Slave aufräumen"), Task 1: in the table below the rows poll_interval_s / diagnostic_poll_multiplier and actual_poll_interval_s are removed from the status message (no reader), and the value pending of runtime_status is dropped (never set). Task 5 updates this page and deletes this comment. -->
+The three poll fields and `pending` in this table are marked *(will be removed in future: slave cleanup)*. Nothing reads them. Do not build on them.
 
 | Field | Meaning |
 |---|---|
-| `poll_interval_s`, `diagnostic_poll_multiplier` | the values in use |
-| `actual_poll_interval_s` | the interval the scheduler runs with |
+| `poll_interval_s`, `diagnostic_poll_multiplier` | the values in use. *(will be removed in future: slave cleanup)* |
+| `actual_poll_interval_s` | the interval the scheduler runs with. Always equal to `poll_interval_s`. *(will be removed in future: slave cleanup)* |
 | `simulation_active` | `1` if every registered device simulates |
 | `last_update` | Unix time of the last successful poll round |
-| `runtime_status` | `ok`, `rejected` or `pending` |
+| `runtime_status` | `ok`, `rejected` or `pending`. The value `pending` is never set. *(will be removed in future: slave cleanup)* |
 | `error`, `error_code` | the reason for `rejected`. The code is stable and translated by the dashboard |
 | `config_revision`, `applied_revision` | SHA-256 of the file that was tried last and of the file in use |
 
