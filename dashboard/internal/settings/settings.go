@@ -249,6 +249,16 @@ type Item struct {
 	BatteryWindow           string `json:"battery_window,omitempty"`            // "3" | "6" | "12" | "24"
 	BatteryProjectionWindow string `json:"battery_projection_window,omitempty"` // "" | "3" | "6" | "12" | "24"
 
+	// energy_stats: StatsPeriod legt den Zeitraum fest, mit dem die Kachel
+	// bei jedem Seitenaufruf startet. "" heisst nicht festgelegt, dann gilt
+	// der im Browser gemerkte Zeitraum (echter Wert, kein Sentinel, wie
+	// BatteryProjectionWindow). StatsKPIs ist die Auswahl der Kennzahlen in
+	// Anzeigereihenfolge, leer heisst die fuenf Standardkennzahlen der
+	// Kachel. StatsChart blendet das Balkendiagramm unter den Zahlen ein.
+	StatsPeriod string   `json:"stats_period,omitempty"` // "" | "day" | "week" | "month" | "year"
+	StatsKPIs   []string `json:"stats_kpis,omitempty"`
+	StatsChart  string   `json:"stats_chart,omitempty"` // "on" | "off"
+
 	// entity_group, history_view: frei zusammengestellte Liste an Entitaeten - anders als
 	// Ref (ein einzelner Bezug) braucht dieser Typ mehrere. Title ist der
 	// einzige Item-Typ mit freiem Anzeigetext statt eines vom Ref
@@ -901,6 +911,9 @@ func cloneLayout(value Layout) Layout {
 					ShowAdvice:              item.ShowAdvice,
 					BatteryWindow:           item.BatteryWindow,
 					BatteryProjectionWindow: item.BatteryProjectionWindow,
+					StatsPeriod:             item.StatsPeriod,
+					StatsKPIs:               append([]string(nil), item.StatsKPIs...),
+					StatsChart:              item.StatsChart,
 					EntityRefs:              append([]string(nil), item.EntityRefs...),
 					Title:                   item.Title,
 					Display:                 item.Display,
@@ -2516,6 +2529,18 @@ func normalizeEnergyGraphicOptions(item *Item) {
 		item.BatteryWindow, item.BatteryProjectionWindow = "", ""
 	}
 
+	// energy_stats: ein unbekannter Zeitraum faellt auf "nicht festgelegt",
+	// unbekannte und doppelte Kennzahlen fallen weg, die Reihenfolge bleibt.
+	if item.Type == "energy_stats" {
+		if item.StatsPeriod != "" {
+			defaultString(&item.StatsPeriod, []string{"day", "week", "month", "year"}, "")
+		}
+		item.StatsKPIs = normalizeStatsKPIs(item.StatsKPIs)
+		defaultString(&item.StatsChart, []string{"on", "off"}, "off")
+	} else {
+		item.StatsPeriod, item.StatsKPIs, item.StatsChart = "", nil, ""
+	}
+
 	// history_view: gebunden (Ref gesetzt) liefert die Sicht Serien, Zeitraum,
 	// Kennwert und Namen - die Kachel traegt nichts davon selbst. Ohne Ref
 	// fuellt defaultString die beiden Enums, die Serienliste bleibt wie sie
@@ -2532,6 +2557,23 @@ func normalizeEnergyGraphicOptions(item *Item) {
 		}
 		item.HistorySeries, item.HistoryRangeHours, item.HistoryAggregate = nil, "", ""
 	}
+}
+
+// statsKPIs sind die Kennzahlen der Kachel energy_stats. Muss zu KPI in
+// energy-stats-model.js passen.
+var statsKPIs = []string{"consumption", "pv", "grid_import", "grid_export", "battery_charge", "battery_discharge", "autarky", "self_consumption"}
+
+// normalizeStatsKPIs behaelt nur bekannte Kennzahlen, jede einmal, in der
+// gewaehlten Reihenfolge. Leer bleibt nil, damit omitempty greift.
+func normalizeStatsKPIs(ids []string) []string {
+	var result []string
+	for _, id := range ids {
+		if !slices.Contains(statsKPIs, id) || slices.Contains(result, id) {
+			continue
+		}
+		result = append(result, id)
+	}
+	return result
 }
 
 // migrateToFlow hebt eine Gruppe vom v2-Koordinatenraster auf das v3-

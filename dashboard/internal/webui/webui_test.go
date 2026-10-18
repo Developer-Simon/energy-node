@@ -2467,6 +2467,24 @@ func TestOverviewRendersBatteryTrajectoryCard(t *testing.T) {
 	}
 }
 
+func TestOverviewRendersEnergyStatsOptions(t *testing.T) {
+	body := renderOverviewWithItems(t, []settings.Item{
+		{ID: "stats", Type: "energy_stats", Span: "1", Visible: true, StatsPeriod: "month", StatsKPIs: []string{"autarky", "pv"}, StatsChart: "on"},
+	})
+	// Die Optionen reisen als data-Attribute zur Kachel, die sie im Browser liest.
+	for _, want := range []string{`data-stats-period="month"`, `data-stats-kpis="autarky,pv"`, `data-stats-chart="on"`} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("%s fehlt:\n%s", want, body)
+		}
+	}
+	// Das optionale Diagramm braucht ApexCharts vor dem Kachel-Skript.
+	layout := settings.Layout{Version: 3, Pages: []settings.Page{{ID: "p", Groups: []settings.Group{{ID: "g", Items: []settings.Item{{ID: "stats", Type: "energy_stats", Visible: true}}}}}}}
+	scripts := requiredEnergyCardScripts(layout, "")
+	if len(scripts) != 3 || scripts[0] != "/static/js-deps/apexcharts.min.js" {
+		t.Fatalf("energy_stats-Skripte = %v, want ApexCharts zuerst", scripts)
+	}
+}
+
 // compactCardForItem ist die eine Stelle, an der sich entscheidet, welche
 // Zeilen eine kompakte Kachel zeigt: die fest gewaehlten (in genau ihrer
 // Reihenfolge), sonst die Automatik. Ein Ref ohne Treffer faellt still weg -

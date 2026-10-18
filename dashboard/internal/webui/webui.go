@@ -611,10 +611,11 @@ func defaultLayout(devices []registry.DeviceView) settings.Layout {
 // energyCardScripts ordnet jedem nachladbaren Kartentyp seine Skripte zu,
 // in Ladereihenfolge. energy_flow fehlt: energy-flow.js laedt immer.
 // history_view braucht ApexCharts und das gemeinsame Diagramm-Modul vor dem
-// eigenen Controller. energy-model.js steht nicht in der Liste, base.html
-// laedt es fuer jede Karte dieser Gruppe ohnehin mit. Die URLs muessen
-// buchstabengleich mit data-panel-script des Verlaufs-Panels sein, sonst
-// laedt das Panel sie ein zweites Mal (loadSingleAsset, dashboard.js).
+// eigenen Controller. energy_stats laedt ApexCharts fuer das optionale
+// Balkendiagramm immer mit. energy-model.js steht nicht in der Liste,
+// base.html laedt es fuer jede Karte dieser Gruppe ohnehin mit. Die URLs
+// muessen buchstabengleich mit data-panel-script des Verlaufs-Panels sein,
+// sonst laedt das Panel sie ein zweites Mal (loadSingleAsset, dashboard.js).
 var energyCardScripts = map[string][]string{
 	"energy_band":    {"/static/js/energy-band.js?v=2"},
 	"energy_ring":    {"/static/js/energy-ring.js?v=2"},
@@ -622,7 +623,7 @@ var energyCardScripts = map[string][]string{
 	"energy_day":     {"/static/js/energy-day.js?v=3"},
 	"energy_schema":  {"/static/js/energy-schema.js?v=2"},
 	"energy_status":  {"/static/js/energy-status.js?v=1"},
-	"energy_stats":   {"/static/js/energy-stats-model.js?v=3", "/static/js/energy-stats-card.js?v=3"},
+	"energy_stats":   {"/static/js-deps/apexcharts.min.js", "/static/js/energy-stats-model.js?v=3", "/static/js/energy-stats-card.js?v=3"},
 	"battery_status": {"/static/js/battery-status.js?v=2"},
 	"history_view":   {"/static/js-deps/apexcharts.min.js", "/static/js/history-chart.js?v=5", "/static/js/history-view-card.js?v=2"},
 }
