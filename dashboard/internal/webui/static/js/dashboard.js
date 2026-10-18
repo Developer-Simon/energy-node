@@ -6,6 +6,7 @@
   // Leistungs-Einheiten, fuer die ein Untergeraet angelegt werden kann (wie
   // isSubDevicePowerUnit in der Go-API).
   const SUB_DEVICE_POWER_UNITS = ['W', 'kW'];
+  const ACTIVITY_LOG_LIMIT = 200;
 
   // Falls back to the key when i18n.js is absent (unit tests load this file
   // alone), so a missing runtime shows a visible gap instead of throwing.
@@ -649,6 +650,8 @@
     // ihren Wert, auch wenn er in einem frueheren Delta kam.
     liveValues: {},
     deviceDetail: null,
+    // Aktivitaet seit dem Oeffnen des Modals (mergeActivity), neueste oben.
+    activityLog: [],
     detailLoading: false,
     detailError: '',
     reloadLoading: false,
@@ -1056,10 +1059,19 @@
       return rest || name;
     },
 
+    // Entitaeten, die sich einen State-Topic teilen (z.B. die Bilanz von
+    // energy_node), tragen dieselbe Nachricht. Sie zaehlt nur einmal.
     get recentMessages() {
+      const seen = new Set();
       return (this.deviceDetail?.entities || [])
         .filter(entity => entity.last_message)
         .map(entity => ({unique_id: entity.unique_id, ...entity.last_message}))
+        .filter(message => {
+          const id = message.topic ? `${message.topic}|${message.at}` : message.unique_id;
+          if (seen.has(id)) return false;
+          seen.add(id);
+          return true;
+        })
         .sort((left, right) => new Date(right.at) - new Date(left.at));
     },
 
@@ -1086,7 +1098,7 @@
       if (!message) return [];
       const raw = message.payload;
       if (raw === undefined || raw === null || String(raw).trim() === '') {
-        return [{label: message.topic || 'MQTT', value: t('devices.messages.empty_payload')}];
+        return [{key: 'empty', label: message.topic || 'MQTT', value: t('devices.messages.empty_payload')}];
       }
       let parsed = null;
       try {
@@ -1095,12 +1107,51 @@
         parsed = null;
       }
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-        const entries = Object.entries(parsed);
-        if (entries.length) return entries.map(([key, value]) => ({label: key, value: this.formatStateValue(value)}));
+        const states = [];
+        // Verschachtelte Objekte (z.B. balance.pv) zerfallen weiter, mit
+        // Punkt-Pfad als Label; Arrays bleiben ein JSON-Wert.
+        const walk = (object, prefix) => {
+          for (const [key, value] of Object.entries(object)) {
+            const path = prefix ? `${prefix}.${key}` : key;
+            if (value && typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length) walk(value, path);
+            else states.push({key: path, label: path, value: this.formatStateValue(value)});
+          }
+        };
+        walk(parsed, '');
+        if (states.length) return states;
       }
       const entity = (this.deviceDetail?.entities || []).find(item => item.unique_id === message.unique_id);
       const label = entity ? this.entityDisplayName(entity) : (message.topic || 'MQTT');
-      return [{label, value: String(raw)}];
+      return [{key: 'value', label, value: String(raw)}];
+    },
+
+    // Aktivitaet als eine flache Liste: Befehle, dann die letzten Nachrichten
+    // (neueste oben) Zeile fuer Zeile. Flach statt x-for im x-for, weil Alpine
+    // beim Umsortieren nur das innere <template> verschiebt, nicht dessen
+    // Zeilen. Schluessel bleiben ueber Live-Refreshes stabil, damit x-flip
+    // bestehende Zeilen gleiten und nur neue einblenden laesst.
+    get activityEntries() {
+      const commands = (this.deviceDetail?.command_actions || []).slice(0, 3).map(action => ({
+        key: `cmd-${action.at}-${action.entity_id}`,
+        at: action.at,
+        text: `${action.entity_id}: ${action.result === 'published' ? t('devices.activity.command_sent') : t('devices.activity.command_failed')}`,
+      }));
+      const messages = this.recentMessages.slice(0, 3).flatMap(message => this.messageStates(message).map(state => ({
+        key: `msg-${message.unique_id}-${message.at}-${state.key}`,
+        at: message.at,
+        text: `${state.label}: ${state.value}`,
+      })));
+      return [...commands, ...messages];
+    },
+
+    // Der Server haelt pro Entitaet nur die letzte Nachricht. Damit die
+    // Aktivitaet waechst statt sich auszutauschen, schreibt das Modal sie
+    // mit: neue Zeilen kommen oben dazu, bekannte bleiben darunter stehen.
+    // Gedeckelt, damit ein schnell sendendes Geraet den Speicher nicht fuellt.
+    mergeActivity() {
+      const known = new Set(this.activityLog.map(entry => entry.key));
+      const fresh = this.activityEntries.filter(entry => !known.has(entry.key));
+      if (fresh.length) this.activityLog = [...fresh, ...this.activityLog].slice(0, ACTIVITY_LOG_LIMIT);
     },
 
     entityCategory(entity) {
@@ -1350,6 +1401,7 @@
       const requestToken = ++this.detailRequestToken;
       this.selectedDeviceId = deviceId;
       this.deviceDetail = null;
+      this.activityLog = [];
       this.detailError = '';
       this.detailLoading = true;
       this.loadDeviceIcons();
@@ -1388,6 +1440,7 @@
       const detail = await requestJSON(`/api/v1/devices/${encodeURIComponent(deviceId)}`);
       if (requestToken !== this.detailRequestToken || this.selectedDeviceId !== deviceId) return;
       this.deviceDetail = detail;
+      this.mergeActivity();
       this.seedPrefsDraft();
       this.loadDeviceIcons();
       if (this.$nextTick) this.$nextTick(() => this.positionUnderline());
@@ -1564,6 +1617,7 @@
       if (this.$refs.deviceModalDialog?.open) this.$refs.deviceModalDialog.close();
       this.selectedDeviceId = '';
       this.deviceDetail = null;
+      this.activityLog = [];
       this.detailError = '';
       this.prefsDraftFor = '';
       this.closeSubDeviceForm();
@@ -2129,7 +2183,9 @@
 
   // x-flip: laesst die Eintraege einer kurzen Liste an ihre neue Position
   // gleiten (FLIP), statt hart umzuspringen, wenn oben ein Eintrag
-  // dazukommt. Neue Eintraege blenden von oben ein. Nur Transform/Opacity,
+  // dazukommt. Positionen zaehlen relativ zur Liste, damit Scrollen und
+  // Layout ueber der Liste keine Scheinbewegung erzeugen. Neue Eintraege
+  // blenden von oben ein. Nur Transform/Opacity,
   // <=240ms ease-out, bei prefers-reduced-motion komplett aus.
   const registerFlipDirective = Alpine => {
     Alpine.directive('flip', (el, {expression}, { cleanup }) => {
@@ -2138,38 +2194,56 @@
       const easing = 'cubic-bezier(0.23, 1, 0.32, 1)';
       const rects = new Map();
       const items = () => [...el.querySelectorAll(selector)];
+      // Laufender Versatz einer Gleitbewegung (translateY der Animation).
+      const shift = item => new DOMMatrix(getComputedStyle(item).transform).m42;
+      // Layout-Position relativ zur Liste selbst, ohne laufende Transforms.
+      // offsetTop allein bezieht sich auf den Scrollbereich, und Inhalt
+      // ueber der Liste (Warnungen, Chips) verschob dort alle Zeilen, ohne
+      // dass die Liste sich aenderte.
+      const position = item => item.getBoundingClientRect().top - el.getBoundingClientRect().top - shift(item);
       const snapshot = () => {
         rects.clear();
-        for (const item of items()) rects.set(item, item.getBoundingClientRect());
+        for (const item of items()) rects.set(item, position(item));
       };
-      // Die Erstbefuellung durch x-for wird still aufgenommen; erst spaetere
-      // Aenderungen (neuer Eintrag oben) werden animiert.
-      let ready = false;
-      requestAnimationFrame(() => { snapshot(); ready = true; });
+      // Eine Grundlinie gibt es nur, solange die Liste sichtbar ist und schon
+      // Eintraege hatte. Ohne sie (Modal gerade geoeffnet, Daten erst jetzt
+      // geladen) wird still aufgenommen, sonst floegen alle Eintraege ein.
+      let baseline = false;
+      const rebase = () => {
+        if (el.offsetParent === null) { rects.clear(); baseline = false; return; }
+        snapshot();
+        baseline = rects.size > 0;
+      };
+      requestAnimationFrame(rebase);
+      const resizeObserver = new ResizeObserver(() => { if (!baseline) rebase(); });
+      resizeObserver.observe(el);
       const observer = new MutationObserver(() => {
-        if (!ready || el.offsetParent === null) {
-          snapshot();
-          return;
-        }
+        if (!baseline) { rebase(); return; }
+        // Neu hinzugekommene Eintraege blenden oben ein, die uebrigen
+        // rutschen gleitend nach unten (Verschiebung = alte minus neue
+        // Position). Laeuft noch eine Gleitbewegung, startet die neue an der
+        // gerade sichtbaren Stelle statt zurueckzuspringen.
         for (const item of items()) {
           const previous = rects.get(item);
-          const next = item.getBoundingClientRect();
-          if (!previous) {
+          const next = position(item);
+          if (previous === undefined) {
             item.animate(
               [{opacity: 0, transform: 'translateY(-10px)'}, {opacity: 1, transform: 'none'}],
               {duration: 240, easing},
             );
-          } else if (previous.top !== next.top) {
+          } else if (Math.abs(previous - next) >= 0.5) {
+            const running = shift(item);
+            for (const animation of item.getAnimations()) animation.cancel();
             item.animate(
-              [{transform: `translateY(${previous.top - next.top}px)`}, {transform: 'none'}],
+              [{transform: `translateY(${previous - next + running}px)`}, {transform: 'none'}],
               {duration: 240, easing},
             );
           }
         }
-        snapshot();
+        rebase();
       });
       observer.observe(el, {childList: true, subtree: true});
-      cleanup(() => observer.disconnect());
+      cleanup(() => { observer.disconnect(); resizeObserver.disconnect(); });
     });
   };
 

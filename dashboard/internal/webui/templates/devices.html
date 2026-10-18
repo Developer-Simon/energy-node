@@ -257,10 +257,7 @@
           <div x-show="isAccordion" x-flip>
             <h4>{{t "devices.activity.title"}}</h4>
             <p x-show="!(deviceDetail?.command_actions || []).length && !recentMessages.length">{{t "devices.activity.empty"}}</p>
-            <template x-for="action in (deviceDetail?.command_actions || []).slice(0, 3)" :key="`mgmt-${action.at}-${action.entity_id}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(action.at)"></time><span x-text="`${action.entity_id}: ${action.result === 'published' ? $t('devices.activity.command_sent') : $t('devices.activity.command_failed')}`"></span></div></template>
-            <template x-for="message in recentMessages.slice(0, 3)" :key="`mgmt-${message.unique_id}-${message.at}`">
-              <template x-for="state in messageStates(message)" :key="`mgmt-${message.unique_id}-${message.at}-${state.label}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(message.at)"></time><span x-text="`${state.label}: ${state.value}`"></span></div></template>
-            </template>
+            <template x-for="entry in activityLog" :key="entry.key"><div class="device-modal-log-entry"><time x-text="formatDetailTime(entry.at)"></time><span x-text="entry.text"></span></div></template>
           </div>
 
           <h4>{{t "devices.mqtt_messages.title"}}</h4>
@@ -384,10 +381,7 @@
 <div x-show="!isAccordion" x-flip>
   <h5>{{t "devices.device_info.activity"}}</h5>
   <p x-show="!(deviceDetail?.command_actions || []).length && !recentMessages.length">{{t "devices.device_info.activity_empty"}}</p>
-  <template x-for="action in (deviceDetail?.command_actions || []).slice(0, 3)" :key="`${action.at}-${action.entity_id}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(action.at)"></time><span x-text="`${action.entity_id}: ${action.result === 'published' ? $t('devices.activity.command_sent') : $t('devices.activity.command_failed')}`"></span></div></template>
-  <template x-for="message in recentMessages.slice(0, 3)" :key="`${message.unique_id}-${message.at}`">
-    <template x-for="state in messageStates(message)" :key="`${message.unique_id}-${message.at}-${state.label}`"><div class="device-modal-log-entry"><time x-text="formatDetailTime(message.at)"></time><span x-text="`${state.label}: ${state.value}`"></span></div></template>
-  </template>
+  <template x-for="entry in activityLog" :key="entry.key"><div class="device-modal-log-entry"><time x-text="formatDetailTime(entry.at)"></time><span x-text="entry.text"></span></div></template>
 </div>
 {{end}}
 

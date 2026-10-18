@@ -200,6 +200,56 @@ test('messageStates zerlegt ein JSON-Payload in einzelne Zustaende', () => {
   assert.deepEqual(plainStates(states), ['car=2', 'amp=16']);
 });
 
+test('messageStates schluesselt verschachtelte Objekte mit Punkt-Pfad auf', () => {
+  const panel = createDevicesPanel();
+  const states = panel.messageStates({ topic: 't', at: '', payload: '{"balance":{"pv":4200,"categories":{"werkstatt":536}},"tags":[1,2]}' });
+  assert.deepEqual(plainStates(states), ['balance.pv=4200', 'balance.categories.werkstatt=536', 'tags=[1,2]']);
+});
+
+test('activityEntries ist flach, neueste Nachricht oben, mit stabilen Schluesseln', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1,"y":2}' } },
+    { unique_id: 'b', last_message: { topic: 'b', at: '2026-10-18T10:00:05Z', payload: 'on' } },
+  ], command_actions: [] };
+  const first = Array.from(panel.activityEntries, entry => entry.key);
+  assert.deepEqual(first, ['msg-b-2026-10-18T10:00:05Z-value', 'msg-a-2026-10-18T10:00:00Z-x', 'msg-a-2026-10-18T10:00:00Z-y']);
+  // Ein Live-Refresh mit identischen Daten liefert dieselben Schluessel.
+  panel.deviceDetail = JSON.parse(JSON.stringify(panel.deviceDetail));
+  assert.deepEqual(Array.from(panel.activityEntries, entry => entry.key), first);
+});
+
+test('recentMessages zaehlt eine Nachricht auf einem geteilten Topic nur einmal', () => {
+  const panel = createDevicesPanel();
+  const message = { topic: 'energy/balance', at: '2026-10-18T10:00:00Z', payload: '{"pv":1}' };
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'pv', last_message: message },
+    { unique_id: 'grid', last_message: { ...message } },
+    { unique_id: 'other', last_message: { topic: 'other', at: '2026-10-18T09:00:00Z', payload: '1' } },
+  ] };
+  assert.deepEqual(Array.from(panel.recentMessages, entry => entry.unique_id), ['pv', 'other']);
+});
+
+test('activityLog waechst: neue Eintraege oben, alte bleiben darunter', () => {
+  const panel = createDevicesPanel();
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:00Z', payload: '{"x":1}' } },
+  ], command_actions: [] };
+  panel.mergeActivity();
+  panel.deviceDetail = { name: 'x', entities: [
+    { unique_id: 'a', last_message: { topic: 'a', at: '2026-10-18T10:00:05Z', payload: '{"x":2}' } },
+  ], command_actions: [] };
+  panel.mergeActivity();
+  assert.deepEqual(Array.from(panel.activityLog, entry => entry.text), ['x: 2', 'x: 1']);
+  // Ein Refresh ohne neue Nachricht aendert nichts.
+  panel.mergeActivity();
+  assert.equal(panel.activityLog.length, 2);
+  // Schliessen verwirft das Log.
+  panel.$refs = {};
+  panel.closeDeviceDetail();
+  assert.equal(panel.activityLog.length, 0);
+});
+
 test('messageStates zeigt ein skalares Payload als eine Zeile unter dem Topic', () => {
   const panel = createDevicesPanel();
   panel.deviceDetail = { name: 'x', entities: [] };
