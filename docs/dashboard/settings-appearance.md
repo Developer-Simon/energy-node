@@ -1,22 +1,11 @@
 ---
-title: "Settings: General & appearance"
+title: "Settings: Appearance"
 ---
 
-# Settings: General & appearance
+# Settings: Appearance
 
-The tabs **General** and **Appearance** under *Settings*. The other tabs are
-listed on [Settings](settings.md).
-
-## General
-
-![General settings](../images/dashboard-settings-general.png)
-
-This tab holds the health threshold, the sweep interval, the live update
-interval and the storage health check. On a Pi the check reads the SD card's
-wear counters. When the root filesystem is not a readable MMC medium, the page
-says so. Settings are versioned, and **Settings revisions** restores an earlier
-state. The footer lists every bundled JavaScript library with its version,
-license and license link.
+The tab **Appearance** under *Settings*. The other tabs are listed on
+[Settings](settings.md).
 
 ## Appearance
 

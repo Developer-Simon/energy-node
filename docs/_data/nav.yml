@@ -34,7 +34,7 @@
         - label: "Settings"
           url: "dashboard/settings.md"
           children:
-            - { label: "General & appearance", url: "dashboard/settings-general.md" }
+            - { label: "Appearance", url: "dashboard/settings-appearance.md" }
             - { label: "History", url: "dashboard/settings-history.md" }
             - { label: "MQTT", url: "dashboard/settings-mqtt.md" }
             - { label: "Tailscale & TinyTuya", url: "dashboard/settings-wizards.md" }
