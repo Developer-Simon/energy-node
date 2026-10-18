@@ -93,7 +93,10 @@
   items:
     - { label: "Data flows", url: "developing/data-flow.md" }
     - { label: "HTTP API", url: "developing/api.md" }
-    - { label: "Configuration schemas", url: "developing/config-schema.md" }
+    - label: "Writing a device service"
+      url: "developing/new-device-service.md"
+      children:
+        - { label: "Configuration schemas", url: "developing/config-schema.md" }
     - { label: "Installer developer CLI", url: "developing/installer-cli.md" }
     - { label: "Cutting a release", url: "developing/releasing.md" }
     - { label: "Version overview", url: "developing/versions.md" }
