@@ -38,6 +38,7 @@ function createEnergyPanel({ fetchImpl, basePath, url } = {}) {
   installI18n(dom.window);
   vm.runInContext(pickerSource, context);
   vm.runInContext(switchSource, context);
+  vm.runInContext(subDevicesSource, context);
   vm.runInContext(scriptSource, context);
   const component = factories.energyRolesPanel();
   const stores = attachStores(component);
@@ -864,4 +865,62 @@ test('a saved switch role without a loaded switch row is written back unchanged'
   await component.load();
   await component.save();
   assert.deepEqual(plain(sent.assignments.gone), { role: 'switch', channel: 2 });
+});
+
+// Sub-devices: a power row takes the label of its sub-device from the device map.
+const subDevicesSource = fs.readFileSync(
+  path.join(here, '..', 'internal', 'webui', 'static', 'js', 'devicemap-subdevices.js'),
+  'utf8',
+);
+const subDeviceMap = {
+  sub_devices: [{ id: 'sub:wm', label: 'Waschmaschine', device_id: 'wechselrichter', entity_id: 'socket_power' }],
+};
+const labelOfRow = (component, id) => component.entities.find(entity => entity.id === id).label;
+
+test('power row is labelled after its sub-device', async () => {
+  const fetchImpl = async (url) => {
+    if (url === '/api/v1/device/map') return jsonResponse(subDeviceMap);
+    if (url === '/api/v1/devices') return jsonResponse(devicesResponse);
+    if (url === '/api/v1/energy/roles') return jsonResponse(rolesResponse);
+    if (url === '/api/v1/energy') return jsonResponse(energyResponse);
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const { component } = createEnergyPanel({ fetchImpl });
+  await component.load();
+  assert.equal(labelOfRow(component, 'socket_power'), 'Waschmaschine');
+  assert.equal(labelOfRow(component, 'pv_power'), 'Wechselrichter / PV Leistung', 'ohne Untergerät bleibt die alte Beschriftung');
+});
+
+test('row label falls back without the device map', async () => {
+  const fetchImpl = async (url) => {
+    if (url === '/api/v1/device/map') throw new Error('map down');
+    if (url === '/api/v1/devices') return jsonResponse(devicesResponse);
+    if (url === '/api/v1/energy/roles') return jsonResponse(rolesResponse);
+    if (url === '/api/v1/energy') return jsonResponse(energyResponse);
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const { component } = createEnergyPanel({ fetchImpl });
+  await component.load();
+  assert.equal(labelOfRow(component, 'socket_power'), 'Wechselrichter / Steckdose');
+  assert.equal(component.loading, false);
+});
+
+test('device-map-changed reloads the device map and relabels the row', async () => {
+  let map = { sub_devices: [] };
+  const fetchImpl = async (url) => {
+    if (url.endsWith('/api/v1/auth/session')) return jsonResponse({ edit_energy: true });
+    if (url === '/api/v1/device/map') return jsonResponse(map);
+    if (url === '/api/v1/devices') return jsonResponse(devicesResponse);
+    if (url === '/api/v1/energy/roles') return jsonResponse(rolesResponse);
+    if (url === '/api/v1/energy') return jsonResponse(energyResponse);
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const { component, window } = createEnergyPanel({ fetchImpl });
+  component.init();
+  await component.load();
+  assert.equal(labelOfRow(component, 'socket_power'), 'Wechselrichter / Steckdose');
+  map = subDeviceMap;
+  window.dispatchEvent(new window.CustomEvent('device-map-changed', { detail: { source: 'devicemap' } }));
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(labelOfRow(component, 'socket_power'), 'Waschmaschine');
 });

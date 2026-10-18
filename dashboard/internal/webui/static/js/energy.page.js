@@ -129,6 +129,8 @@
       window.addEventListener('energy-roles-changed', event => {
         if ((event.detail || {}).source !== ENERGY_PAGE_SOURCE) this.load();
       });
+      // Sub-device labels come from the device map, which the map page saves.
+      window.addEventListener('device-map-changed', () => this.load());
       window.addEventListener('energy-focus-rows', event => this.focusRows((event.detail && event.detail.ids) || []));
       window.addEventListener('energy-focus-group', event => this.focusGroup((event.detail && event.detail.id) || ''));
     },
@@ -276,13 +278,14 @@
     async load() {
       this.loading = true;
       try {
-        const [, devices, saved, snapshot, icons, switches] = await Promise.all([
+        const [, devices, saved, snapshot, icons, switches, deviceMap] = await Promise.all([
           this.loadSession(),
           requestJSON('/api/v1/devices'),
           requestJSON('/api/v1/energy/roles'),
           requestJSON('/api/v1/energy'),
           requestJSON('/api/v1/device/icons').catch(() => []),
           requestJSON('/api/v1/devices/switches').catch(() => []),
+          requestJSON('/api/v1/device/map').catch(() => ({})),
         ]);
         const savedAssignments = saved.assignments || {};
         const resolved = Object.fromEntries((snapshot.entities || []).map(item => [item.entity_id, item.role]));
@@ -294,7 +297,8 @@
               const shortName = stripDevicePrefix(device.name, entity.name || entity.object_id);
               return {
                 id: entity.unique_id,
-                label: shortName ? `${device.name} / ${shortName}` : device.name,
+                label: window.DeviceMapSubDevices.labelFor(deviceMap, entity.unique_id)
+                  || (shortName ? `${device.name} / ${shortName}` : device.name),
                 unit: entity.unit_of_measurement,
                 assignment: savedAssignments[entity.unique_id] || resolved[entity.unique_id] || {},
               };
