@@ -125,6 +125,7 @@
 - **devices:** reset and tokenise sub-device load in the device modal (86f1e50)
 - **devicemap:** serialise device-map writes and check sub-device entities (7a92b37)
 - **devicemap:** hide the empty action box on sub-device edges (6fcb374)
+- **devicemap:** skip the empty settings box on sub-device edges (a27a0d2)
 - **devicemap:** keep the edge card chevron pointing right and update catalogs (b083235)
 - **devicemap:** keep saved switch roles and edge channels on save (5f8edc8)
 - **devices:** open the device modal only in the devices tab (d0d8031)
