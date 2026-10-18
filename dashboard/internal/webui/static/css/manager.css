@@ -899,8 +899,12 @@ select.schema-control {
 #settings-system button, #settings-system input, #settings-system select, #settings-system textarea {
   border-radius: var(--radius-sm);
 }
-.system-access-panel { margin: 1rem 0 1.5rem; padding: 1rem; border: 1px solid var(--border-soft); border-left: 3px solid var(--info); border-radius: var(--radius-lg); background: var(--panel); }
-.system-access-panel .settings-help:last-of-type { margin-bottom: 0; }
+/* Der System-Tab steht im selben .settings-cards-Raster wie Allgemein und
+   Darstellung (settings-controls.css). Hier nur, was die generischen
+   Karten nicht schon koennen: Anmeldezeile mit Badge, die bei schmaler
+   Karte unter den Namen umbricht statt ihn zu quetschen. */
+.system-access-card .setting-row { flex-wrap: wrap; row-gap: .5rem; }
+.system-access-user { color: var(--text-strong); font-size: 1rem; font-weight: 600; letter-spacing: -.01em; overflow-wrap: anywhere; }
 /* Badge-Aufbau (Punkt + Farbwechsel als Transition) 1:1 von
    .runtime-status-badge uebernommen statt neu erfunden - gleiche Idiomatik,
    gleiche Stelle in base.css als Vorbild. */
@@ -924,10 +928,9 @@ select.schema-control {
 @media (hover: hover) and (pointer: fine) {
   .update-available-chip a.update-available-cta:hover { text-decoration: underline; }
 }
-.system-actions-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border); border-left: 3px solid var(--bad-strong); border-radius: var(--radius-lg); background: var(--panel); }
-.system-actions-panel h3 { margin: 0 0 .35rem; color: var(--bad); }
-.system-actions-panel p { color: var(--text-subtle); }
-.system-action-list { display: grid; gap: .65rem; margin-top: 1rem; max-width: 32rem; }
+/* Kein roter Seitenstreifen mehr: die Karte ist neutral wie ihre Nachbarn,
+   das Rot tragen nur die destruktiven Buttons selbst. */
+.system-action-list { display: grid; gap: .55rem; margin-top: .9rem; }
 .system-action-danger {
   display: flex; align-items: center; gap: .6rem;
   border: 1px solid var(--bad-line); padding: .65rem .8rem;
@@ -939,7 +942,8 @@ select.schema-control {
 /* Feedback auf dem Press, nicht erst auf dem Release - apple-design Abschnitt 1. */
 .system-action-danger:active:not(:disabled) { transform: scale(.98); }
 .system-action-danger:disabled { cursor: not-allowed; opacity: .45; }
-.system-config-panel { margin-top: 1.5rem; padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--panel); }
+.system-config-card .schema-form, .system-config-card .system-config-editor, .system-config-card .settings-warning { margin-top: .9rem; }
+.system-config-card .revision-panel { border-top-color: var(--border-soft); }
 .system-config-editor { font-family: ui-monospace, monospace; }
 .system-config-actions { display: flex; gap: .6rem; margin-top: 1rem; }
 .system-config-reload-list { display: grid; gap: .3rem; margin: .75rem 0 0; padding-left: 1.2rem; color: var(--text-subtle); font-size: .85rem; }

@@ -356,21 +356,24 @@
     {{template "revisions" .}}
   </div>
   </div>
-  <section id="settings-system" role="tabpanel" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
-    <h3>{{t "settings.system.title"}}</h3>
-    <section class="system-access-panel">
-      <p class="settings-help">{{t "settings.system.access.label"}} <strong x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong>. {{t "settings.system.access.note"}}</p>
-      <div class="toolbar">
+  <section id="settings-system" role="tabpanel" class="settings-cards" x-show="activeSettingsPage === 'system'" x-data="systemPanel()" x-init="load()">
+    <section class="setting-card system-access-card" aria-labelledby="system-access-heading">
+      <h3 class="setting-card-title" id="system-access-heading">{{t "settings.system.title"}}</h3>
+      <div class="setting-row">
+        <span class="setting-row-label">{{t "settings.system.access.label"}} <strong class="system-access-user" x-text="username || $t('settings.system.access.loading')">{{t "settings.system.access.loading"}}</strong></span>
         <span class="system-access-badge" x-bind:class="canSystemActions ? 'system-access-granted' : 'system-access-guest'" x-text="canSystemActions ? $t('settings.system.access_badge.granted') : $t('settings.system.access_badge.guest')">{{t "settings.system.access_badge.checking"}}</span>
+      </div>
+      <p class="setting-note">{{t "settings.system.access.note"}}</p>
+      <div class="setting-card-foot">
         <button class="icon-button labeled danger" type="button" x-on:click="logout()" x-bind:disabled="loading || busy" title="{{t "settings.system.logout.button"}}" aria-label="{{t "settings.system.logout.button"}}">
           <svg class="automation-icon"><use href="#ico-power-off"></use></svg>
           <span>{{t "settings.system.logout.button"}}</span>
         </button>
       </div>
     </section>
-    <section class="system-actions-panel" aria-labelledby="system-actions-heading">
-      <h3 id="system-actions-heading">{{t "settings.system.actions.title"}}</h3>
-      <p>{{t "settings.system.actions.warning"}}</p>
+    <section class="setting-card system-actions-card" aria-labelledby="system-actions-heading">
+      <h3 class="setting-card-title" id="system-actions-heading">{{t "settings.system.actions.title"}}</h3>
+      <p class="setting-note">{{t "settings.system.actions.warning"}}</p>
       <div class="system-action-list">
         <button class="system-action-danger" type="button" x-on:click="run('restart-dashboard', $t('settings.system.actions.restart_dashboard'))" x-bind:disabled="!canSystemActions || busy">
           <svg class="automation-icon"><use href="#ico-history"></use></svg>
@@ -386,14 +389,14 @@
         </button>
       </div>
     </section>
-    <section class="system-config-panel" aria-labelledby="system-config-heading" x-data="systemConfigPanel()" x-init="load()">
-      <h3 id="system-config-heading">{{t "settings.system.config.title"}}</h3>
-      <p class="settings-help">{{t "settings.system.config.file_info"}} {{t "settings.system.config.file_note"}}</p>
+    <section class="setting-card setting-card--wide system-config-card" aria-labelledby="system-config-heading" x-data="systemConfigPanel()" x-init="load()">
+      <h3 class="setting-card-title" id="system-config-heading">{{t "settings.system.config.title"}}</h3>
+      <p class="setting-note">{{t "settings.system.config.file_info"}} {{t "settings.system.config.file_note"}}</p>
       <div class="settings-warning" x-cloak x-show="recoverMode && unknownKeys.length">
         {{t "settings.system.config.unknown_fields_warning"}}
         (<span x-text="unknownKeys.join(', ')"></span>). {{t "settings.system.config.unknown_fields_help"}}
       </div>
-      <p class="settings-help" x-cloak x-show="recoverMode && !unknownKeys.length">{{t "settings.system.config.schema_error"}}</p>
+      <p class="setting-note" x-cloak x-show="recoverMode && !unknownKeys.length">{{t "settings.system.config.schema_error"}}</p>
       <textarea class="system-config-editor" rows="24" spellcheck="false" x-model="text" x-bind:disabled="busy" x-cloak x-show="recoverMode"></textarea>
       <form x-ref="form" class="schema-form" novalidate x-show="!recoverMode" x-on:input="dirtyTick++" x-on:change="dirtyTick++" x-on:submit.prevent="save()"></form>
       <div class="system-config-actions">
