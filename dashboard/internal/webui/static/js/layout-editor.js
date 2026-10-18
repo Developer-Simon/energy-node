@@ -70,19 +70,26 @@
     entityChoicesInstances.delete(id);
   };
 
+  // Platzhalter und Leertext je Auswahlfeld, das Choices bekommt.
+  const CHOOSER_TEXTS = {
+    'entity-refs': {placeholder: 'layout_editor.entity_chooser.placeholder', noChoices: 'layout_editor.entity_chooser.no_choices'},
+    'stats-kpis': {placeholder: 'layout_editor.energy_stats.kpi_placeholder', noChoices: 'layout_editor.energy_stats.no_more_kpis'},
+    'history-series': {placeholder: 'layout_editor.history_view.series_placeholder', noChoices: 'layout_editor.history_view.no_more_series'},
+  };
+
   const initEntityChoicesFor = (id, contentEl) => {
     if (!window.Choices) return;
-    const select = contentEl?.querySelector?.('[data-role="entity-refs"], [data-role="stats-kpis"]');
+    const select = contentEl?.querySelector?.('[data-role="entity-refs"], [data-role="stats-kpis"], [data-role="history-series"]');
     if (!select) return;
-    const stats = select.dataset.role === 'stats-kpis';
+    const texts = CHOOSER_TEXTS[select.dataset.role] || CHOOSER_TEXTS['entity-refs'];
     destroyEntityChoicesFor(id);
     entityChoicesInstances.set(id, new window.Choices(select, {
       removeItemButton: true,
       shouldSort: false,
       searchResultLimit: 30,
-      placeholderValue: t(stats ? 'layout_editor.energy_stats.kpi_placeholder' : 'layout_editor.entity_chooser.placeholder'),
+      placeholderValue: t(texts.placeholder),
       noResultsText: t('layout_editor.entity_chooser.no_results'),
-      noChoicesText: t(stats ? 'layout_editor.energy_stats.no_more_kpis' : 'layout_editor.entity_chooser.no_choices'),
+      noChoicesText: t(texts.noChoices),
       itemSelectText: '',
     }));
   };
@@ -637,16 +644,20 @@
     if (item.ref) return source;
     // Serien dieses Browsers, die berechnete Zeile und alles schon Gewaehlte -
     // eine auf einem anderen Geraet gewaehlte Serie darf hier nicht verschwinden.
-    const names = [...new Set([...historySeriesNames, 'berechnet:hausverbrauch', ...(item.historySeries || [])])].sort();
-    const series = names.map(name =>
-      `<label class="layout-modal-switchrow">${escapeHTML(historySeriesLabel(name))} ${toggleHTML('history-series', (item.historySeries || []).includes(name), ` value="${escapeHTML(name)}"`)}</label>`).join('');
+    // Gewaehlte stehen zuerst und in ihrer Reihenfolge, weil Choices die
+    // Auswahl in der Reihenfolge der <option>s uebernimmt.
+    const chosen = item.historySeries || [];
+    const names = [...chosen, ...[...new Set([...historySeriesNames, 'berechnet:hausverbrauch'])].filter(name => !chosen.includes(name)).sort()];
+    const labelID = `layout-item-history-series-label-${escapeHTML(item.id || '')}`;
+    const series = `<select multiple data-role="history-series" aria-labelledby="${labelID}">${names.map(name =>
+      `<option value="${escapeHTML(name)}"${chosen.includes(name) ? ' selected' : ''}>${escapeHTML(historySeriesLabel(name))}</option>`).join('')}</select>`;
     return source
       + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.title'))}</label><input type="text" data-role="history-title" value="${escapeHTML(item.title || '')}" placeholder="${escapeHTML(t('overview.history_view.default_title'))}"></div>`
       + selectFieldHTML('history-range-hours', 'layout_editor.history_view.range', item.historyRangeHours || '24',
         [['1', 'layout_editor.option.history_range.hour_1'], ['6', 'layout_editor.option.history_range.hour_6'], ['24', 'history.range.day'], ['168', 'history.range.week'], ['720', 'history.range.month'], ['2160', 'history.range.quarter']])
       + selectFieldHTML('history-aggregate', 'layout_editor.history_view.aggregate', item.historyAggregate || 'avg',
         [['avg', 'history.aggregate.average'], ['min', 'history.aggregate.minimum'], ['max', 'history.aggregate.maximum']])
-      + `<div class="layout-modal-field"><label>${escapeHTML(t('layout_editor.history_view.series'))}</label>${series}<p class="layout-modal-hint">${escapeHTML(t('layout_editor.history_view.series_hint'))}</p></div>`;
+      + `<div class="layout-modal-field"><label id="${labelID}">${escapeHTML(t('layout_editor.history_view.series'))}</label>${series}<p class="layout-modal-hint">${escapeHTML(t('layout_editor.history_view.series_hint'))}</p></div>`;
   }
 
   function entityValuePickerHTML(item, devices) {
@@ -1575,9 +1586,8 @@
         this.syncSlotForItem(item);
         this.refillOptionsBody();
       } else if (role === 'history-series') {
-        const set = new Set(item.historySeries || []);
-        if (t.checked) set.add(t.value); else set.delete(t.value);
-        item.historySeries = [...set];
+        const choices = entityChoicesInstances.get(item.id);
+        item.historySeries = choices ? choices.getValue(true) : Array.from(t.selectedOptions).map(option => option.value);
       } else if (role === 'history-title') {
         item.title = t.value;
         this.syncSlotForItem(item);

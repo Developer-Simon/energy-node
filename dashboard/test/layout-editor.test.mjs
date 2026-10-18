@@ -2520,13 +2520,35 @@ test('switching to a view clears the own fields', async () => {
   assert.equal(item.historyAggregate, '');
 });
 
-test('the series checkboxes update historySeries', async () => {
-  const {component} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv']});
+test('the series chooser updates historySeries in Choices order', async () => {
+  const loaded = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv']});
+  const {component, factory, window} = loaded;
   const item = component.pages[0].groups[0].items[0];
   component._optionsItem = item;
-  component.applyOptionChange({target: {dataset: {role: 'history-series'}, value: 'role:grid', checked: true}});
-  component.applyOptionChange({target: {dataset: {role: 'history-series'}, value: 'role:pv', checked: false}});
+  // Ohne Choices-Instanz zaehlt die Reihenfolge der <option>s.
+  component.applyOptionChange({target: {dataset: {role: 'history-series'}, selectedOptions: [{value: 'role:grid'}]}});
   assert.deepEqual(plain(item.historySeries), ['role:grid']);
+
+  window.Choices = class { getValue() { return ['role:grid', 'role:pv']; } destroy() {} };
+  const body = window.document.createElement('div');
+  body.innerHTML = '<select multiple data-role="history-series"></select>';
+  factory.initEntityChoicesFor('h', body);
+  component.applyOptionChange({target: {dataset: {role: 'history-series'}, selectedOptions: [{value: 'role:pv'}, {value: 'role:grid'}]}});
+  assert.deepEqual(plain(item.historySeries), ['role:grid', 'role:pv']);
+  factory.destroyEntityChoicesFor('h');
+});
+
+test('the series chooser lists chosen series first, in their order', async () => {
+  const {component, factory} = await editorWithHistoryTile({id: 'h', type: 'history_view', ref: '', span: '2', visible: true, history_series: ['role:pv', 'role:grid']});
+  const item = component.pages[0].groups[0].items[0];
+  const html = factory.optionsSheetHTML(item, [], 'Verlauf', 4);
+  assert.ok(html.includes('data-role="history-series"'), 'Serien-Auswahl fehlt');
+  assert.ok(!html.includes('type="checkbox" role="switch" data-role="history-series"'), 'keine Schalter mehr');
+  const pv = html.indexOf('value="role:pv" selected');
+  const grid = html.indexOf('value="role:grid" selected');
+  const derived = html.indexOf('value="berechnet:hausverbrauch"');
+  assert.ok(pv >= 0 && grid > pv && derived > grid, 'Reihenfolge stimmt nicht');
+  assert.ok(!html.includes('value="berechnet:hausverbrauch" selected'));
 });
 
 test('payload() writes history_series and the two option fields in snake_case', async () => {
