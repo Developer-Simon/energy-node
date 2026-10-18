@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.25 (2026-10-18)
+## v0.9.26 (2026-10-18)
 
 ### Features
 
@@ -119,9 +119,11 @@
 ### Fixes
 
 - **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144) (ba54b31)
+- **devices:** The device map shows the right edge of its canvas again (#149) (5727ba1)
+- **webui:** align panel headings and tighten the overview toolbar (bb8844e)
+- **webui:** settings in card layout and aligned panel headings (#150)
 - **devicemap:** keep the canvas right border inside the clipped stage (4278166)
 - **devices:** let the device modal activity grow as a log (6fc8edd)
-- **devices:** The device map shows the right edge of its canvas again (#149)
 - **devicemap:** read sub-devices back from disk and keep the caller's slice (c32036e)
 - **devicemap:** let stored sub-device pairs win over stale request pairs (51c2646)
 - **devicemap:** keep sub-device placement moving and skip null entries (4d2561c)
@@ -203,6 +205,11 @@
 - **dashboard:** cover the compact card row and row template attributes (8c52a25)
 - **smoke:** fake companion that feeds the energy statistics (b41a808)
 - **smoke:** expect the 1h tier in the exchange announcement (b9ddd86)
+
+### Style
+
+- **settings:** lay out the system tab as setting cards (ed93af2)
+- **settings:** drop the Tailscale and TinyTuya tab titles (e87d2cb)
 
 ### Chores
 
