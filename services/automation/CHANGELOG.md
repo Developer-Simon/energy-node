@@ -4,8 +4,8 @@
 
 ### Documentation
 
+- move internal notes on automations and overview cards into the docs (#140) (4651b98)
 - **automations:** explain rule evaluation and document guest roles (1c2c2ab)
-- move internal notes on automations and overview cards into the docs (#140)
 
 ## v0.5.1 (2026-10-12)
 

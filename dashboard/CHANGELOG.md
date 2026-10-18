@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.27 (2026-10-18)
+## v0.9.28 (2026-10-18)
 
 ### Features
 
@@ -18,6 +18,11 @@
 - **devicemap:** Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut. (#146) (9b162de)
 - **energy:** hide only role-less entries and share the list with the device map (#147) (0afdfc3)
 - **devicemap:** Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page. (#148) (054f852)
+- **i18n:** texts for the energy statistics card options (0c0a08a)
+- **layout:** options for the energy statistics card in the editor (7712cae)
+- **layout:** store fixed period, key figures and chart switch of the statistics card (068e4f3)
+- **overview:** statistics card honours fixed period, key figures and bar chart (1ba32b9)
+- **overview:** options for the energy statistics card (#151)
 - **devicemap:** store sub-devices in device-map.json (2a07b5f)
 - **energy:** label entities after their sub-device (cda32d0)
 - **devicemap:** add the sub-device endpoint (660a51f)
@@ -172,6 +177,7 @@
 ### Refactors
 
 - **dashboard:** remove unused Tippy.js and Popper.js (#139) (8f2318c)
+- **stats:** share the bar chart options between page and card (fb7f4fd)
 - **devices:** load the device modal lazily from its own file (2544335)
 - **devicemap:** move switch outputs into energy roles and add edge channels (d2ab424)
 - **devicemap:** draw the panel link icons from the icon pool (0134e7a)
@@ -183,6 +189,8 @@
 
 ### Documentation
 
+- move internal notes on automations and overview cards into the docs (#140) (4651b98)
+- **layout:** note how a new card type gets live updates (d86cfad)
 - **automations:** explain rule evaluation and document guest roles (1c2c2ab)
 - **dashboard:** document every overview card with screenshots (7cb493b)
 - **energy:** explain balance gap, tolerance and key figures (e6d8d6b)
@@ -190,7 +198,6 @@
 - **dashboard:** document the layout editor and keep its pitfalls internal (7fd15b6)
 - **mqtt:** describe bridge failure handling and the helper trust boundary (11000ac)
 - **tailscale:** point the package comment at the install guide (3e9495c)
-- move internal notes on automations and overview cards into the docs (#140)
 - **devicemap:** add a sub-device screenshot (b8806a4)
 - **dashboard:** refresh the screenshots with English names and add a statistics image (c772066)
 - **energy:** describe hiding entries in the role table (294634a)
@@ -221,6 +228,7 @@
 
 ### Chores
 
+- **webui:** bump cache-bust versions of the changed statistics assets (be49e3e)
 - **webui:** bump cache-busting versions for sub-devices (3de3b95)
 - **i18n:** drop the unused switch output texts (99b1aeb)
 - **webui:** bump lazy assets for switch state (bc7a8b6)
