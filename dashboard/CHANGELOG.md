@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.24 (2026-10-18)
+## v0.9.25 (2026-10-18)
 
 ### Features
 
@@ -17,6 +17,7 @@
 - **devicemap:** The device map shows which devices are switched off. A switched-off output cuts the line behind it, and every device without power fades out with an off label. (#145) (b72187d)
 - **devicemap:** Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut. (#146) (9b162de)
 - **energy:** hide only role-less entries and share the list with the device map (#147) (0afdfc3)
+- **devicemap:** Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page. (#148) (054f852)
 - **devicemap:** store sub-devices in device-map.json (2a07b5f)
 - **energy:** label entities after their sub-device (cda32d0)
 - **devicemap:** add the sub-device endpoint (660a51f)
@@ -36,7 +37,6 @@
 - **devices:** add an icon to the sub-device management button (9a80731)
 - **energy:** move the sub-device overview into its own accordion section (db80f56)
 - **energy:** add icons to the accordion sections and flatten the sub-device list (3736316)
-- **devicemap:** Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page. (#148)
 - **energy:** store hidden role table entries in energy.json (012eff7)
 - **devicemap:** hide role table entries in the device panel (6fb2734)
 - **energy:** hide only entries without a role and share the list (986870a)
@@ -119,6 +119,9 @@
 ### Fixes
 
 - **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144) (ba54b31)
+- **devicemap:** keep the canvas right border inside the clipped stage (4278166)
+- **devices:** let the device modal activity grow as a log (6fc8edd)
+- **devices:** The device map shows the right edge of its canvas again (#149)
 - **devicemap:** read sub-devices back from disk and keep the caller's slice (c32036e)
 - **devicemap:** let stored sub-device pairs win over stale request pairs (51c2646)
 - **devicemap:** keep sub-device placement moving and skip null entries (4d2561c)
@@ -167,6 +170,7 @@
 ### Refactors
 
 - **dashboard:** remove unused Tippy.js and Popper.js (#139) (8f2318c)
+- **devices:** load the device modal lazily from its own file (2544335)
 - **devicemap:** move switch outputs into energy roles and add edge channels (d2ab424)
 - **devicemap:** draw the panel link icons from the icon pool (0134e7a)
 - **energy:** drop measured load positions and the measured_split option (b927086)
