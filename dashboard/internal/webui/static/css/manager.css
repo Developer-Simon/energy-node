@@ -1254,6 +1254,17 @@ div.devicemap-view-menu-row { cursor: default; }
    page, one per row on a phone. */
 .energy-card-grid { display: grid; gap: .7rem; grid-template-columns: repeat(auto-fill, minmax(min(24rem, 100%), 1fr)); align-items: start; }
 .energy-groups-empty { margin: 0; font-size: .88rem; color: var(--text-muted); }
+/* Read-only sub-device overview at the top of the categories section. */
+.energy-sub-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: .8rem; padding: .85rem .95rem; border: 1px dashed var(--border-soft); border-radius: var(--radius-md); background: var(--panel-alt); }
+.energy-sub-title { font-size: 1rem; font-weight: 600; color: var(--text-strong); }
+.energy-sub-list { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+.energy-sub-item { display: flex; align-items: center; gap: .6rem; min-width: 0; }
+.energy-sub-icon { display: grid; place-items: center; flex: none; width: 2rem; height: 2rem; border-radius: 9px; background: var(--sunken); color: var(--text-subtle); }
+.energy-sub-icon svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.energy-sub-text { display: grid; min-width: 0; }
+.energy-sub-name { font-size: .92rem; color: var(--text-strong); overflow-wrap: anywhere; }
+.energy-sub-meter { font-size: .82rem; color: var(--text-muted); overflow-wrap: anywhere; }
+.energy-sub-hint { margin: 0; font-size: .82rem; color: var(--text-muted); }
 
 /* One rhythm between the main tiles of the energy page. Each tile used to
    bring its own margin (1rem, 18px, 1.2rem, and none between the role table

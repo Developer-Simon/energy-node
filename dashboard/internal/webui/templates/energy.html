@@ -203,6 +203,22 @@
       <div class="energy-acc-body" id="energy-acc-categories" role="region" aria-labelledby="energy-acc-categories-toggle" x-show="isSectionOpen('categories')" x-cloak>
         <p class="energy-groups-empty" x-show="!Object.keys(categories).length">{{t "energy.categories.empty"}}</p>
         <div class="energy-card-grid">
+          <div class="energy-sub-card" data-energy-sub-overview>
+            <div class="energy-groups-head">
+              <span class="energy-groups-glyph" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false"><use href="#ico-layers"></use></svg></span>
+              <span class="energy-sub-title">{{t "energy.categories.sub.title"}}</span>
+            </div>
+            <p class="energy-groups-empty" x-show="!subDeviceEntries.length">{{t "energy.categories.sub.empty"}}</p>
+            <ul class="energy-sub-list" x-show="subDeviceEntries.length" x-cloak>
+              <template x-for="entry in subDeviceEntries" x-bind:key="entry.id">
+                <li class="energy-sub-item">
+                  <span class="energy-sub-icon" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false" x-html="entry.iconMarkup"></svg></span>
+                  <span class="energy-sub-text"><span class="energy-sub-name" x-text="entry.label"></span><span class="energy-sub-meter" x-text="entry.meter"></span></span>
+                </li>
+              </template>
+            </ul>
+            <p class="energy-sub-hint">{{t "energy.categories.sub.read_only"}}</p>
+          </div>
           <template x-for="(category, id) in categories" x-bind:key="id">
             <div class="energy-category-card" x-bind:data-category-id="id">
               <div class="energy-groups-head">

@@ -887,7 +887,7 @@ test('power row is labelled after its sub-device', async () => {
   };
   const { component } = createEnergyPanel({ fetchImpl });
   await component.load();
-  assert.equal(labelOfRow(component, 'socket_power'), 'Waschmaschine');
+  assert.equal(labelOfRow(component, 'socket_power'), 'Wechselrichter · Waschmaschine');
   assert.equal(labelOfRow(component, 'pv_power'), 'Wechselrichter / PV Leistung', 'ohne Untergerät bleibt die alte Beschriftung');
 });
 
@@ -922,5 +922,49 @@ test('device-map-changed reloads the device map and relabels the row', async () 
   map = subDeviceMap;
   window.dispatchEvent(new window.CustomEvent('device-map-changed', { detail: { source: 'devicemap' } }));
   await new Promise(resolve => setImmediate(resolve));
-  assert.equal(labelOfRow(component, 'socket_power'), 'Waschmaschine');
+  assert.equal(labelOfRow(component, 'socket_power'), 'Wechselrichter · Waschmaschine');
+});
+
+test('sub-device row label joins the meter device name and the sub-device label', async () => {
+  const devices = [{ id: 'plug', name: 'Plug Entfeuchter', entities: [
+    { unique_id: 'socket_power', name: 'Steckdose', object_id: 'socket_power', unit_of_measurement: 'W' },
+  ] }];
+  const map = { sub_devices: [{ id: 'sub:wm', label: 'Waschmaschine', device_id: 'plug', entity_id: 'socket_power' }] };
+  const fetchImpl = async (url) => {
+    if (url === '/api/v1/device/map') return jsonResponse(map);
+    if (url === '/api/v1/devices') return jsonResponse(devices);
+    if (url === '/api/v1/energy/roles') return jsonResponse({ assignments: {}, interpretation: {} });
+    if (url === '/api/v1/energy') return jsonResponse({ entities: [], balance: { total: 0 }, unassigned: [], unassigned_count: 0 });
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const { component } = createEnergyPanel({ fetchImpl });
+  await component.load();
+  assert.equal(labelOfRow(component, 'socket_power'), 'Plug Entfeuchter · Waschmaschine');
+});
+
+// The categories overview lists every sub-device of the device map, read only.
+const devicesWithIds = devicesResponse.map(device => ({ ...device, id: 'wechselrichter' }));
+
+test('categories overview lists each sub-device with icon, label and meter device', async () => {
+  const map = { sub_devices: [{ id: 'sub:wm', label: 'Waschmaschine', icon: 'plug', device_id: 'wechselrichter', entity_id: 'socket_power' }] };
+  const fetchImpl = async (url) => {
+    if (url === '/api/v1/device/map') return jsonResponse(map);
+    if (url === '/api/v1/device/icons') return jsonResponse([{ name: 'plug', markup: '<path d="M1 1"/>' }]);
+    if (url === '/api/v1/devices') return jsonResponse(devicesWithIds);
+    if (url === '/api/v1/energy/roles') return jsonResponse(rolesResponse);
+    if (url === '/api/v1/energy') return jsonResponse(energyResponse);
+    throw new Error(`unexpected fetch ${url}`);
+  };
+  const { component } = createEnergyPanel({ fetchImpl });
+  await component.load();
+  assert.deepEqual(plain(component.subDeviceEntries), [
+    { id: 'sub:wm', label: 'Waschmaschine', iconMarkup: '<path d="M1 1"/>', meter: 'Wechselrichter' },
+  ]);
+  assert.deepEqual(plain(component.categories), {}, 'the overview is not part of the user categories');
+});
+
+test('categories overview is empty without sub-devices', async () => {
+  const { component } = createEnergyPanel({ fetchImpl: stubFetch() });
+  await component.load();
+  assert.deepEqual(plain(component.subDeviceEntries), []);
 });

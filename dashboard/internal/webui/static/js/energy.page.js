@@ -121,6 +121,7 @@
     groups: {},
     devicesList: [],
     iconCatalogue: [],
+    subDeviceEntries: [],
 
     init() {
       // Die Device Map speichert Rollen per PATCH. Ohne Neuladen haette diese
@@ -295,10 +296,15 @@
             .filter(entity => ['W', 'kW', '%'].includes(entity.unit_of_measurement))
             .map(entity => {
               const shortName = stripDevicePrefix(device.name, entity.name || entity.object_id);
+              // A sub-device row reads "<device> · <sub-device>", the meter
+              // device stays visible next to the measurement it belongs to.
+              const subLabel = window.DeviceMapSubDevices.labelFor(deviceMap, entity.unique_id);
+              let label;
+              if (subLabel) label = device.name ? `${device.name} · ${subLabel}` : subLabel;
+              else label = shortName ? `${device.name} / ${shortName}` : device.name;
               return {
                 id: entity.unique_id,
-                label: window.DeviceMapSubDevices.labelFor(deviceMap, entity.unique_id)
-                  || (shortName ? `${device.name} / ${shortName}` : device.name),
+                label,
                 unit: entity.unit_of_measurement,
                 assignment: savedAssignments[entity.unique_id] || resolved[entity.unique_id] || {},
               };
@@ -328,6 +334,17 @@
           .filter(device => device.id !== OWN_ENERGY_DEVICE_ID)
           .map(device => ({id: device.id, name: device.name || device.id, manufacturer: device.manufacturer || '', icon: device.icon_name || device.suggested_icon || ''}));
         this.iconCatalogue = icons || [];
+        // Read-only overview of the sub-devices, never part of the categories.
+        const meterName = deviceId => {
+          const device = devices.find(item => item.id === deviceId);
+          return device ? (device.name || device.id) : deviceId;
+        };
+        this.subDeviceEntries = window.DeviceMapSubDevices.list(deviceMap).map(sub => ({
+          id: sub.id,
+          label: sub.label || sub.entity_id,
+          iconMarkup: this.iconMarkupOf(sub.icon),
+          meter: meterName(sub.device_id),
+        }));
         this.unassigned = snapshot.unassigned || [];
         this.unassignedCount = snapshot.unassigned_count || 0;
         this.balanceTotal = (snapshot.balance && snapshot.balance.total) || 0;
