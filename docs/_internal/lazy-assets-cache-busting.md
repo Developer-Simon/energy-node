@@ -71,7 +71,7 @@ As of **2026-10-18**, read from `base.html` and `overview.html`. "–" means: no
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `39` |
+| `css/base.css` | `40` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -114,8 +114,8 @@ As of **2026-10-18**, read from `base.html` and `overview.html`. "–" means: no
 | `js/energy-day.js` | `3` |
 | `js/energy-band.js`, `js/energy-ring.js`, `js/energy-board.js`, `js/energy-schema.js` | `2` |
 | `js/energy-status.js` | `1` |
-| `js/energy-stats-model.js` | `3` |
-| `js/energy-stats-card.js` | `3` |
+| `js/energy-stats-model.js` | `4` |
+| `js/energy-stats-card.js` | `4` |
 | `js/history-chart.js` | `5` |
 | `js/history-view-card.js` | `2` |
 
@@ -145,7 +145,7 @@ on the `device-modal` template in
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `13`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `8`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `28` | `css/manager.css` `44` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `23`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `44`, `css/settings-controls.css` `14` |
 | `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `44`, `css/automations.css` `6` |
-| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `3`, `js/stats.page.js` `4` | `css/history.css` `7`, `css/stats.css` `3` |
+| `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `5` | `css/history.css` `7`, `css/stats.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
 editor is now an edit mode of the overview, and its assets load through their own
@@ -160,7 +160,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `17` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `18` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
@@ -265,6 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.9.28 | `css/base.css` (statistics card chart area) · `js/energy-stats-model.js` (stats panel + energy cards, shared bar chart options) · `js/energy-stats-card.js` (energy cards, fixed period, key figures, bar chart) · `js/stats.page.js` (stats panel, chart options from the model) · `js/layout-editor.js` (editor, statistics card options) | `40` · `4` · `4` · `5` · `18` | 2026-10-18 |
 | v0.9.26 | `css/base.css` (panel headings aligned on devices, diagnostics and settings, less space above the overview edit button) · `css/manager.css` (5 panels, system tab as setting cards, no Tailscale/TinyTuya title) | `39` · `44` | 2026-10-18 |
 | v0.9.25 | `css/manager.css` (5 panels, device map canvas border) · `js/dashboard.js` (device modal moved out, lazy loader) · `js/device-modal.js` (new, device modal, loaded on first open) | `43` · `38` · `1` (new) | 2026-10-18 |
 | v0.9.24 | `css/base.css` · `css/manager.css` (5 panels) · `js/dashboard.js` · `js/devicemap-model.js` (energy, device map) · `js/devicemap-graph.js` (energy, device map) · `js/devicemap-wiring.js` (energy, device map) · `js/devicemap-dataflow.js` (energy, device map) · `js/devicemap-node-svg.js` (energy, device map) · `js/devicemap-subdevices.js` (new, energy, device map) · `js/devicemap.page.js` (device map) · `js/energy-plant.js` (energy) · `js/energy.page.js` (energy) | `38` · `42` · `37` · `13` · `8` · `3` · `5` · `7` · `1` · `28` · `6` · `13` | 2026-10-18 |
