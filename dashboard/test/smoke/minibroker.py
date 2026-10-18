@@ -22,7 +22,7 @@ PUBLISH von Clients wird wie bei einem echten Broker weitergereicht und retained
 
 Discovery-Schalter der Fixture (homeassistant/switch/.../config) antworten wie
 ein Geraet: ein Befehl auf ihrem command_topic setzt den Zustand auf dem
-state_topic. So laesst sich z. B. Plug Balkon im Preset alle-funktionen
+state_topic. So laesst sich z. B. Plug Balcony im Preset alle-funktionen
 schalten.
 
     python3 minibroker.py [PORT] [FIXTURE.json] [--simulate]

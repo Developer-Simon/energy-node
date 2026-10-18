@@ -12,8 +12,11 @@
 //   B) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-installed
 //      node test/smoke/docs-screenshots.mjs dashboard-settings-versions
 //
-// Ohne Namen werden alle Bilder ausser dashboard-history und
-// dashboard-settings-versions geschrieben. Namen als Argumente begrenzen den
+//   C) run-local-dashboard.sh --keep --preset docs-screenshots --simulate-package --fake-companion
+//      node test/smoke/docs-screenshots.mjs dashboard-statistics
+//
+// Ohne Namen werden alle Bilder ausser dashboard-history,
+// dashboard-settings-versions und dashboard-statistics geschrieben. Namen als Argumente begrenzen den
 // Lauf auf genau diese Bilder.
 //
 // Der Verlauf wird im Browser aufgezeichnet (IndexedDB, history-recorder.js).
@@ -50,7 +53,7 @@ function parseArgs(argv) {
 }
 
 const args = parseArgs(process.argv.slice(2));
-const OPT_IN = ['dashboard-history', 'dashboard-settings-versions'];
+const OPT_IN = ['dashboard-history', 'dashboard-settings-versions', 'dashboard-statistics'];
 const want = (name) => (args.names.length ? args.names.includes(name) : !OPT_IN.includes(name));
 
 await mkdir(args.out, { recursive: true });
@@ -172,6 +175,16 @@ async function all() {
 
   await energyShowcase();
   await deviceMapShowcase();
+
+  if (want('dashboard-statistics')) {
+    // Needs the fake companion (--fake-companion): it feeds the hourly values.
+    s = await session(1110, 1100);
+    await tab(s.page, 'stats');
+    await s.page.waitForTimeout(2000);
+    await scrollToTabs(s.page);
+    await shot(s.page, 'dashboard-statistics');
+    await s.ctx.close();
+  }
 
   const subpages = [
     ['dashboard-settings-general', 'settings-general', 819],
@@ -324,7 +337,7 @@ async function deviceMapShowcase() {
     panel.openWiringPopover(edge.renderedMidpoint());
   }, [a, b]);
   if (want('dashboard-device-map-switch-off')) {
-    // Plug Balkon is switched off: the wiring card of its edge to the
+    // Plug Balcony is switched off: the wiring card of its edge to the
     // inverter is open, the view is framed on that pair and its neighbours.
     await openWiringCard('plug_balkon', 'balkon_kraftwerk');
     await s.page.waitForTimeout(1200);

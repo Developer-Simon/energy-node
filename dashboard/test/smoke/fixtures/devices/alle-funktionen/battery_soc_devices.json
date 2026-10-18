@@ -1,7 +1,7 @@
 [
   {
     "id": "bank",
-    "name": "Batterie SoC",
+    "name": "Battery SoC",
     "via_device": "energy_node",
     "system_type": "ac_coupled",
     "bank_b_enabled": true,

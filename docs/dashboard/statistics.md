@@ -4,6 +4,8 @@ title: "Energy statistics"
 
 # Energy statistics
 
+![The Statistics tab for one day](../images/dashboard-statistics.png)
+
 The **Statistics** tab shows how much energy flowed per role for a day, a week, a month or a year. Use **Back** and **Next** to move between periods.
 
 - **Chart:** stacked bars per hour (day), per day (week and month) or per month (year). Generation sits above the zero line (PV, battery discharge, grid import), consumption is mirrored below it (total consumption, battery charge, grid export).
