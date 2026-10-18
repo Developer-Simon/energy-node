@@ -29,14 +29,14 @@ has in the layout editor. How the editor itself works is described in
 
 The editor does not let a card get narrower than its minimum, because the
 drawing would no longer fit. The pictures on this page show each card at its
-minimum width, so text is cut off in places where a wider card has room. Cards that do not grow with extra height offer
-**Fixed height** instead. The extra space then stays empty.
+minimum width, so some text is cut off where a wider card has room. Cards that
+cannot use extra height offer **Fixed height** only as a minimum, and the extra
+space stays empty.
 
 All energy cards work from the same balance as the Energy tab. None of them is
-tied to a particular device. Two settings that change what the cards show are
-not layout options but belong to the energy configuration, see
-[Energy](energy.md): the surplus and grid import thresholds of the status card,
-and the battery reserve.
+tied to a particular device. Two settings that change what the cards show belong
+to the energy configuration, see [Energy](energy.md): the surplus and grid
+import thresholds of the status card, and the battery reserve.
 
 ## Energy: status card
 
@@ -186,7 +186,7 @@ this week, this month or this year. **Open statistics** opens the
 ![Battery status card, column](../images/dashboard-card-battery-status.png)
 ![Battery status card, trajectory](../images/dashboard-card-battery-status-trajectory.png)
 
-Has two displays:
+The card has two displays:
 
 - **Column (reserve and remaining time)** shows the stored energy as a
   segmented column with the time to full or empty.

@@ -23,9 +23,7 @@ signal and its number of warnings. The worst device comes first. A device that
 has never sent anything shows as critical with "No signal yet". In the
 screenshot every device is "unhealthy" because the fixture broker replays the
 retained messages once and then goes quiet. On real hardware the poll intervals
-keep the scores up. *(will be replaced in future: diagnostics cleanup. Today the
-score ages out after the health threshold from the settings, which is 3 seconds
-by default, and no service reports its poll interval any more.)*
+keep the scores up.
 
 Click a card to show only the findings of that device. Click it again, or the
 device chip in the findings toolbar, to show all devices again.

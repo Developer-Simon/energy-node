@@ -52,11 +52,11 @@ reserve.
 The gap is what is left when sources (PV, grid import, discharging) and sinks
 (consumption, feed-in, charging) do not add up.
 
-- **Unknown consumer (default):** the gap is added to house consumption. A
-  negative gap shows up as “Unknown generation”. Self-sufficiency is higher
-  than in diagnostics, because the extra consumption counts as covered.
-- **Diagnostics:** the gap stays visible as “Unassigned” and the status card
-  reports an unbalanced balance.
+With **Unknown consumer** (the default) the gap is added to house consumption. A
+negative gap shows up as "Unknown generation". Self-sufficiency is then higher
+than in diagnostics, because the extra consumption counts as covered. With
+**Diagnostics** the gap stays visible as "Unassigned", and the status card
+reports an unbalanced balance.
 
 Gaps below the tolerance count as balanced. The default is 25 W, or 2 % of the
 total power in percent mode.
@@ -69,8 +69,8 @@ top of the tab.
 
 ### Key figures
 
-- **Self-sufficiency:** the share of house consumption not drawn from the grid.
-- **Self-consumption:** the share of PV yield not fed into the grid.
+Self-sufficiency is the share of house consumption not drawn from the grid.
+Self-consumption is the share of PV yield not fed into the grid.
 
 ## Energy roles
 

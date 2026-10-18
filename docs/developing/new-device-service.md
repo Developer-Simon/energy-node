@@ -11,8 +11,8 @@ directly, the broker is the only connection. The overview of the existing
 services is on [Device services](../services/index.md), the channels they use
 are in [data flows](data-flow.md).
 
-This page walks through what a new service consists of and lists every place
-in the repository that has to know about it. The best template is the
+A new service consists of the parts below, and several places outside its
+directory have to know about it. The best template is the
 [APsystems EZ1](../services/apsystems-ez1.md) service
 (`services/apsystems_ez1/`), because it reads and controls. The
 [Trucki stick](../services/trucki.md) service is the shortest read-only one.
@@ -54,29 +54,29 @@ the first entry is `service_id`. The block always carries `poll_interval_s` and
 The shared library `libs/energy_node_common` carries everything that is not
 device specific, see [Service library](service-library.md) for the protocol. A service uses it like this:
 
-1. **Read `config.json`.** `appconfig.load(appconfig.config_path_from_argv())`.
+1. Read `config.json`. `appconfig.load(appconfig.config_path_from_argv())`.
    A missing or invalid file ends the program with a message. Systemd then
    restarts it, there is no fallback.
-2. **Load the devices.** A `ReloadableConfig(path, load_devices)` wraps the
+2. Load the devices. A `ReloadableConfig(path, load_devices)` wraps the
    loader. `load_or([])` lets the service start with an invalid file, run with
    no devices and report the error, instead of crashing in a loop.
-3. **Create the `Slave`.** It owns the scheduler and the settings protocol.
+3. Create the `Slave`. It owns the scheduler and the settings protocol.
    The service passes `poll_core` and, if it has slow values, `poll_diagnostics`.
    Everything else comes from the library: the poll rhythm, the per-device
    simulation switch, `config/reload` and the retained `settings/status`.
-4. **Build the MQTT client** with `mqtt.build_client`, with the last will on the
+4. Build the MQTT client with `mqtt.build_client`, with the last will on the
    service's `status/online` topic, and let `on_connect` call `slave.start()`.
    `on_message` first offers every message to `slave.handle_message()`.
-5. **Publish discovery** for every device and entity, retained, in the
+5. Publish discovery for every device and entity, retained, in the
    three-level form `homeassistant/<component>/<device_id>/<object_id>/config`.
    The helpers in `energy_node_common.discovery` build the config with
    `unique_id`, availability and the device block. Set `via_device` to the
    node's device ID, so the device hangs below the node in Home Assistant and
    on the device map.
-6. **Publish values** under `outstation/<device_id>/<topic>`, retained, and the
+6. Publish values under `outstation/<device_id>/<topic>`, retained, and the
    availability of each device with `publish_online_status`. A device that does
    not answer is marked offline with a reason, the others carry on.
-7. **Accept commands** on `outstation/<device_id>/set/...` for entities that can
+7. Accept commands on `outstation/<device_id>/set/...` for entities that can
    be controlled, and answer with the new state.
 
 ### Reload

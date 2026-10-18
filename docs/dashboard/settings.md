@@ -32,8 +32,7 @@ matching service is installed.
 
 ![General settings](../images/dashboard-settings-general.png)
 
-This tab holds the health threshold *(will be replaced in future: diagnostics
-cleanup, the unit, range and default change)*, the sweep interval, the live update
+This tab holds the health threshold, the sweep interval, the live update
 interval and the storage health check. On a Pi the check reads the SD card's
 wear counters. When the root filesystem is not a readable MMC medium, the page
 says so. Settings are versioned, and **Settings revisions** restores an earlier
