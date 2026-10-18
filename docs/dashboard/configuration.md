@@ -19,7 +19,9 @@ Values are validated before anything is written. A value outside the schema's
 range is rejected with HTTP 400, so it cannot end up in the file and stop a
 service from starting later.
 
-Saving writes the file and asks the owning service to reload it. The response
-carries the reload result, so if a service refuses the new file you see it here
-and not on the next restart. Editing automation rules also requires the
+Saving writes the file and asks the owning service to reload it. The dashboard
+reports whether the request could be sent. If the service refuses the new file,
+it keeps the old one and shows `rejected` in its status, so check the service
+after saving. Developers find the details in
+[Configuration schemas](../developing/config-schema.md). Editing automation rules also requires the
 `automations` role and a CSRF token.
