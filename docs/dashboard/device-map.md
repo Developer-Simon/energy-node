@@ -157,6 +157,8 @@ the measuring device becomes the plain link in front of it. The sub-device
 changes only the name and the icon. Values, roles, groups and the balance stay
 on the measurement, and the sub-device is not sent to Home Assistant.
 
+![A sub-device on the map](../images/dashboard-device-map-sub-device.png)
+
 Each power measurement carries at most one sub-device. A device with several
 power measurements, such as a two channel plug, can carry one sub-device per
 channel. The measurement must report its power in W or kW.

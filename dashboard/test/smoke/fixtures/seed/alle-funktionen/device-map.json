@@ -34,7 +34,7 @@
     {"parent_id": "plug_entfeuchter", "child_id": "sub:waschmaschine", "type": "energy", "channel": 1}
   ],
   "sub_devices": [
-    {"id": "sub:waschmaschine", "label": "Waschmaschine", "icon": "energy-node:plug", "device_id": "plug_entfeuchter", "entity_id": "plug_entfeuchter_power"}
+    {"id": "sub:waschmaschine", "label": "Washing machine", "icon": "energy-node:plug", "device_id": "plug_entfeuchter", "entity_id": "plug_entfeuchter_power"}
   ],
   "view": {
     "snap_to_grid": true,
