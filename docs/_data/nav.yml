@@ -23,7 +23,10 @@
           url: "dashboard/overview.md"
           children:
             - { label: "Cards", url: "dashboard/overview-cards.md" }
-        - { label: "Devices", url: "dashboard/devices.md" }
+        - label: "Devices"
+          url: "dashboard/devices.md"
+          children:
+            - { label: "Device dialog", url: "dashboard/device-modal.md" }
         - { label: "History", url: "dashboard/history.md" }
         - { label: "Statistics", url: "dashboard/statistics.md" }
         - { label: "Energy", url: "dashboard/energy.md" }

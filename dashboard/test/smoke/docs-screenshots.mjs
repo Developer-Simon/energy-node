@@ -186,6 +186,7 @@ async function all() {
 
   await energyShowcase();
   await deviceMapShowcase();
+  await deviceModalShowcase();
 
   if (want('dashboard-statistics')) {
     // Needs the fake companion (--fake-companion): it feeds the hourly values.
@@ -298,6 +299,29 @@ async function energyShowcase() {
     console.log('geschrieben:', name);
   }
   await s.ctx.close();
+}
+
+// Das Geraete-Modal: breit mit Seitenleiste und Tabs, schmal als Akkordeon.
+// Es zeigt das Geraet mit den meisten Entitaeten, damit Messwerte und
+// Steuerung beide gefuellt sind.
+async function deviceModalShowcase() {
+  const names = ['dashboard-device-modal', 'dashboard-device-modal-narrow', 'dashboard-device-modal-manage'];
+  if (!names.some(want)) return;
+  for (const [name, width, height] of [['dashboard-device-modal', 1280, 900], ['dashboard-device-modal-narrow', 560, 900]]) {
+    if (!want(name)) continue;
+    const s = await session(width, height);
+    await tab(s.page, 'devices');
+    await s.page.locator('.compact-card:visible, .device-detail-trigger:visible').first().click();
+    await s.page.waitForSelector('dialog#device-modal[open]');
+    await s.page.waitForTimeout(2500);
+    await element(s.page.locator('dialog#device-modal'), name);
+    if (name === 'dashboard-device-modal' && want('dashboard-device-modal-manage')) {
+      await s.page.locator('.device-modal-trigger').filter({ hasText: 'Management' }).first().click();
+      await s.page.waitForTimeout(1200);
+      await element(s.page.locator('dialog#device-modal'), 'dashboard-device-modal-manage');
+    }
+    await s.ctx.close();
+  }
 }
 
 async function deviceMapShowcase() {
