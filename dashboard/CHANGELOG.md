@@ -34,6 +34,7 @@
 - **devices:** make sub-device management opt-in and refine its buttons (549cf08)
 - **devices:** offer sub-device management as a quiet button (25489e8)
 - **devices:** add an icon to the sub-device management button (9a80731)
+- **energy:** move the sub-device overview into its own accordion section (db80f56)
 - **devicemap:** Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page. (#148)
 - **energy:** store hidden role table entries in energy.json (012eff7)
 - **devicemap:** hide role table entries in the device panel (6fb2734)
