@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.9.26 (2026-10-18)
+## v0.9.27 (2026-10-18)
 
 ### Features
 
@@ -120,8 +120,8 @@
 
 - **dashboard:** Help texts, device map, energy roles and statistics fit narrow screens, and export and battery charge are hatched in the statistics. (#144) (ba54b31)
 - **devices:** The device map shows the right edge of its canvas again (#149) (5727ba1)
+- **webui:** settings in card layout and aligned panel headings (#150) (cb9fa72)
 - **webui:** align panel headings and tighten the overview toolbar (bb8844e)
-- **webui:** settings in card layout and aligned panel headings (#150)
 - **devicemap:** keep the canvas right border inside the clipped stage (4278166)
 - **devices:** let the device modal activity grow as a log (6fc8edd)
 - **devicemap:** read sub-devices back from disk and keep the caller's slice (c32036e)
@@ -183,6 +183,14 @@
 
 ### Documentation
 
+- **automations:** explain rule evaluation and document guest roles (1c2c2ab)
+- **dashboard:** document every overview card with screenshots (7cb493b)
+- **energy:** explain balance gap, tolerance and key figures (e6d8d6b)
+- **devices:** document the device dialog with screenshots (3350952)
+- **dashboard:** document the layout editor and keep its pitfalls internal (7fd15b6)
+- **mqtt:** describe bridge failure handling and the helper trust boundary (11000ac)
+- **tailscale:** point the package comment at the install guide (3e9495c)
+- move internal notes on automations and overview cards into the docs (#140)
 - **devicemap:** add a sub-device screenshot (b8806a4)
 - **dashboard:** refresh the screenshots with English names and add a statistics image (c772066)
 - **energy:** describe hiding entries in the role table (294634a)
