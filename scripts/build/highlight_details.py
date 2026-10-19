@@ -68,6 +68,16 @@ def lookup(translations, pr, target):
     return _select(details, target)[1]
 
 
+def needs_image(translations, pr, target):
+    """True, wenn der Eintrag fuer das Ziel ein Bild hat. Nur dann braucht
+    resolve() den Tag oder Commit fuer die Bild-URL."""
+    details = translations.get(pr, {}).get(DETAILS_KEY)
+    if not isinstance(details, dict):
+        return False
+    _, entry = _select(details, target)
+    return isinstance(entry, dict) and "image" in entry
+
+
 def _is_number(value):
     return (isinstance(value, (int, float)) and not isinstance(value, bool)
             and math.isfinite(value))

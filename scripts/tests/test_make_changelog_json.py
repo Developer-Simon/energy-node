@@ -1,7 +1,10 @@
 import json
 import struct
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build"))
 import make_changelog_json as mcj
@@ -270,3 +273,43 @@ def test_cli_passes_the_image_ref(tmp_path):
     doc = json.loads(out.read_text(encoding="utf-8"))
     entry = doc["components"][0]["releases"][0]["groups"][0]["entries"][0]
     assert "/abc123/" in entry["details"]["image"]["url"]
+
+
+@pytest.mark.parametrize("details", [{"*": None}, "x"])
+def test_attach_details_raises_on_malformed_details(tmp_path, details):
+    releases = mcj.mark_highlights(mcj.parse_changelog(DETAILS_CHANGELOG))
+    with pytest.raises(ValueError, match="#148"):
+        mcj.attach_details(releases, tmp_path, {148: {"details": details}}, "dashboard", "abc123")
+
+
+@pytest.mark.parametrize("details", [{"*": None}, "x"])
+def test_build_document_fails_on_malformed_details(tmp_path, details):
+    repo = _details_repo(tmp_path)
+    (repo / "changelog/highlights/148.json").write_text(json.dumps({"details": details}), encoding="utf-8")
+    table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="#148"):
+        mcj.build_document(repo, table, bundle_version="v0.10.0", max_releases=5, generated_at="t", image_ref="v0.10.0")
+
+
+def test_attach_details_skips_targets_without_details(tmp_path):
+    releases = mcj.mark_highlights(mcj.parse_changelog(DETAILS_CHANGELOG))
+    translations = {148: {"details": {"installer": {"en": "x", "de": "x"}}}}
+    mcj.attach_details(releases, tmp_path, translations, "dashboard", None)
+    assert "details" not in releases[0]["groups"][0]["entries"][0]
+
+
+def test_attach_details_pins_the_image_of_a_target_entry(tmp_path):
+    repo = _details_repo(tmp_path)
+    (repo / "changelog/highlights/148.json").write_text(json.dumps({
+        "details": {"dashboard": {"en": "A switch", "de": "Ein Schalter", "image": "shot.png"}},
+    }), encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init"], cwd=repo, check=True)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+    translations = json.loads((repo / "changelog/highlights/148.json").read_text(encoding="utf-8"))
+    translations = {148: translations}
+    releases = mcj.mark_highlights(mcj.parse_changelog((repo / "dashboard/CHANGELOG.md").read_text(encoding="utf-8")))
+    mcj.attach_details(releases, repo, translations, "dashboard", None)
+    url = releases[0]["groups"][0]["entries"][0]["details"]["image"]["url"]
+    assert f"/{head}/docs/images/shot.png" in url

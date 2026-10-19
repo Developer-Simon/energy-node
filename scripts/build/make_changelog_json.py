@@ -136,7 +136,8 @@ def attach_details(releases, repo, translations, target, image_ref):
 
     image_ref None: der Tag oder Commit von repo wird erst gebraucht, wenn ein
     Eintrag tatsaechlich ein Bild hat. Repos ohne Git und ohne Bild-Details
-    bleiben damit lauffaehig.
+    bleiben damit lauffaehig. Jeder vorhandene Details-Schluessel wird geprueft,
+    auch wenn er kaputt ist: ValueError statt stillem Weglassen.
     """
     ref = image_ref
     for release in releases:
@@ -144,12 +145,14 @@ def attach_details(releases, repo, translations, target, image_ref):
             for entry in group["entries"]:
                 if "pr" not in entry:
                     continue
-                details = highlight_details.lookup(translations, entry["pr"], target)
-                if details is None:
+                if highlight_details.DETAILS_KEY not in translations.get(entry["pr"], {}):
                     continue
-                if ref is None and isinstance(details, dict) and "image" in details:
+                # resolve() prueft jeden vorhandenen Details-Schluessel, auch kaputte.
+                if ref is None and highlight_details.needs_image(translations, entry["pr"], target):
                     ref = highlight_details.image_ref(repo)
-                entry["details"] = highlight_details.resolve(repo, translations, entry["pr"], target, ref)
+                details = highlight_details.resolve(repo, translations, entry["pr"], target, ref)
+                if details is not None:
+                    entry["details"] = details
     return releases
 
 
