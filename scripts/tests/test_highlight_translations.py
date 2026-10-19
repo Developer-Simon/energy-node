@@ -2,6 +2,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build"))
 import highlight_translations as ht
 
@@ -109,17 +111,49 @@ def test_sync_replaces_language_wholesale(tmp_path):
     assert json.loads((repo / "changelog/highlights/140.json").read_text(encoding="utf-8")) == {"de": {"*": "neu"}}
 
 
-def test_archive_command_folds_files(tmp_path, capsys):
+def test_archive_command_needs_the_tag(tmp_path):
+    repo = make_repo(tmp_path)
+    with pytest.raises(SystemExit) as exit_info:
+        ht.main(["archive", "--repo", str(repo)])
+    assert exit_info.value.code == 2
+
+
+def test_archive_command_folds_into_the_tag_file(tmp_path, capsys):
     repo = make_repo(tmp_path)
     write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}})
-    assert ht.main(["archive", "--repo", str(repo)]) == 0
+    assert ht.main(["archive", "--repo", str(repo), "--tag", "v0.11.0"]) == 0
     assert "archived 1 files" in capsys.readouterr().out
     assert not (repo / "changelog/highlights/140.json").exists()
-    archive = json.loads((repo / "changelog/highlights/archive.json").read_text(encoding="utf-8"))
-    assert "140" in archive
+    release = json.loads((repo / "changelog/highlights/v0.11.0.json").read_text(encoding="utf-8"))
+    assert "140" in release
 
 
 def test_archive_command_with_nothing_to_do(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    assert ht.main(["archive", "--repo", str(repo)]) == 0
+    assert ht.main(["archive", "--repo", str(repo), "--tag", "v0.11.0"]) == 0
     assert "nothing to archive" in capsys.readouterr().out
+
+
+def test_validate_passes_without_details(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}})
+    assert ht.main(["validate", "--repo", str(repo)]) == 0
+    assert capsys.readouterr().out == ""
+
+
+def test_validate_fails_with_a_missing_image(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    details = {"en": "Switch channels", "de": "Schaltkanäle", "image": "fehlt.png"}
+    write_translation(repo, 148, {"de": {"*": "Schaltkanäle"}, "details": {"*": details}})
+    assert ht.main(["validate", "--repo", str(repo)]) == 1
+    out = capsys.readouterr().out
+    assert "#148" in out
+    assert "fehlt.png" in out
+
+
+def test_validate_checks_every_file_not_only_the_pr(tmp_path, capsys):
+    repo = make_repo(tmp_path)
+    details = {"en": "Switch channels", "de": "Schaltkanäle", "image": "fehlt.png"}
+    write_translation(repo, 141, {"de": {"*": "Text"}, "details": {"*": details}})
+    assert ht.main(["validate", "--repo", str(repo)]) == 1
+    assert "#141" in capsys.readouterr().out

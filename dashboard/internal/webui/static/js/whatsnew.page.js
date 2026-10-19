@@ -42,6 +42,13 @@
       return this.sincePrevious ? t('settings.whatsnew.title', {version: this.to}) : t('settings.whatsnew.installed_title');
     },
 
+    // All entries of a component in one list, the ones with details first.
+    // Array.prototype.sort is stable, so the order inside each group is kept.
+    entriesOf(component) {
+      const entries = (component.releases || []).flatMap((release) => release.entries || []);
+      return entries.sort((a, b) => Number(Boolean(b.details)) - Number(Boolean(a.details)));
+    },
+
     entryText(entry) {
       const text = localized(entry);
       return entry.pr ? `${text} (#${entry.pr})` : text;
@@ -56,6 +63,34 @@
 
     navigate(url) {
       window.location.assign(url);
+    },
+
+    // The detail text of an entry in the page language, English as fallback.
+    detailText(entry) {
+      const text = entry.details.text;
+      return window.I18n ? window.I18n.localized(text, text.en) : text.en;
+    },
+
+    // Position and size of an image inside its frame. crop is [x, y, w, h] as
+    // fractions of the image; without it, or with cropped false, the whole
+    // image fills the frame.
+    imageFrame(image, cropped) {
+      const [x, y, w, h] = cropped && image.crop ? image.crop : [0, 0, 1, 1];
+      return {
+        aspect: `${w * image.width} / ${h * image.height}`,
+        left: `${(-x / w) * 100}%`,
+        top: `${(-y / h) * 100}%`,
+        width: `${100 / w}%`,
+        height: `${100 / h}%`,
+      };
+    },
+
+    // Scrolls an opened row into view once the open animation has run.
+    onToggle(event) {
+      const row = event.target;
+      if (!row.open) return;
+      const reduced = Boolean(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+      setTimeout(() => row.scrollIntoView({block: 'nearest', behavior: reduced ? 'auto' : 'smooth'}), 330);
     },
   });
 

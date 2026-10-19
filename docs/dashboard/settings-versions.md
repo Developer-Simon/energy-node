@@ -18,7 +18,9 @@ installation, the two differ and the page points that out. Below that every
 application, service and library is listed with its version. **Changes** opens
 its changelog. A service that is not installed is marked as such. The switch
 in the package card chooses between the **Highlights** of each release and
-**Everything**, which includes every commit.
+**Everything**, which includes every commit. In the What's new dialog, a
+highlight with details has a **More** link that opens its explanation, its image
+and a link to the guide.
 
 The setting **Versions in the changelog** chooses how many bundle versions the
 changelog shows. **Last 5** is the default and shows the five newest versions.

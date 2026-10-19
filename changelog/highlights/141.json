@@ -1,5 +1,19 @@
 {
   "de": {
     "*": "Die Verlaufsseite bietet die zum Zeitraum passenden Auflösungen an und wählt die gröbste vor, zeigt ab einer Woche Stundenwerte aus der Energiestatistik und hat eine Schnellwahl für 3 Monate."
+  },
+  "details": {
+    "*": {
+      "en": "The first pill above the chart lists the resolutions that fit the chosen span and shows how much of it each one covers. The automatic choice is the coarsest resolution that has data. A week or longer shows hourly values from the energy statistics, and there is a quick choice for 3 months.",
+      "de": "Die erste Pille über dem Diagramm listet die zum Zeitraum passenden Auflösungen und zeigt, wie viel davon jede abdeckt. Automatisch gilt die gröbste Auflösung, die Daten hat. Ab einer Woche kommen Stundenwerte aus der Energiestatistik, und für 3 Monate gibt es eine Schnellwahl.",
+      "image": "dashboard-history.png",
+      "crop": [
+        0,
+        0.1,
+        1,
+        0.33
+      ],
+      "doc": "dashboard/history.html#resolutions"
+    }
   }
 }

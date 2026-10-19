@@ -22,6 +22,11 @@
 #                                                # Changelog, Auswahl) an, Sichtpruefung
 #                                                # fuer Einstellungen > Versionen. Nicht
 #                                                # mit --simulate-package kombinierbar
+#   ./run-local-dashboard.sh --real-changelog   # wie --simulate-installed, aber mit dem
+#                                                # echten Changelog des Repos (real_changelog.py),
+#                                                # der Vorgaenger ist der letzte Tag. Die ersten
+#                                                # zwei Highlights tragen Beispiel-Details. Die
+#                                                # Fixture-Proben der Versionsseite entfallen.
 #   ./run-local-dashboard.sh --simulate-update  # Update-Pruefung meldet immer v9.9.9
 #                                                # verfuegbar (fake_github_releases.py statt
 #                                                # der echten GitHub-API) - Sichtpruefung fuer
@@ -107,6 +112,7 @@ HTTPS=0
 SIMULATE_UPDATE=0
 SIMULATE_PACKAGE=0
 SIMULATE_INSTALLED=0
+REAL_CHANGELOG=0
 REJECT_CONFIGS=()
 HTTP_PORT="${DASHBOARD_SMOKE_PORT:-18100}"
 MQTT_PORT="${DASHBOARD_SMOKE_MQTT_PORT:-18883}"
@@ -204,6 +210,7 @@ while [[ $# -gt 0 ]]; do
     --simulate-update) SIMULATE_UPDATE=1; shift ;;
     --simulate-package) SIMULATE_UPDATE=1; SIMULATE_PACKAGE=1; shift ;;
     --simulate-installed) SIMULATE_INSTALLED=1; shift ;;
+    --real-changelog) SIMULATE_INSTALLED=1; REAL_CHANGELOG=1; shift ;;
     --reject-config) REJECT_CONFIGS+=("$2"); shift 2 ;;
     --port) HTTP_PORT="$2"; shift 2 ;;
     *) echo "unbekannte Option: $1" >&2; exit 2 ;;
@@ -406,7 +413,7 @@ if [[ $SIMULATE_PACKAGE -eq 1 ]]; then
   PACKAGE_ASSET="energy-node-v9.9.9-$PACKAGE_ARCH.tar.gz"
   mkdir -p "$WORK/package" "$WORK/installer-state"
   python3 - "$WORK/package/$PACKAGE_ASSET" "$PACKAGE_ARCH" "$WORK/installer-state" <<'PY'
-import io, json, os, sys, tarfile
+import io, json, os, sys, tarfile, urllib.parse
 
 archive, arch, state = sys.argv[1:4]
 manifest = {
@@ -424,8 +431,27 @@ manifest = {
         {"id": "82", "optional": True, "service_id": "battery_soc", "dir": "battery_soc", "unit": "battery-soc.service", "version": "v0.5.0"},
     ],
 }
-def entry(text, scope, pr, breaking=False):
-    return {"text": text, "breaking": breaking, "scope": scope, "pr": pr, "highlight": True}
+def entry(text, scope, pr, breaking=False, details=None):
+    e = {"text": text, "breaking": breaking, "scope": scope, "pr": pr, "highlight": True}
+    if details:
+        e["details"] = details
+    return e
+# Beispiel-Details fuer die Neuerungen-Zeilen: Bild mit Ausschnitt und Doku-Link,
+# dazu ein unerreichbares Bild (Bild und Umschalter muessen verschwinden).
+SHOT = ("<svg xmlns='http://www.w3.org/2000/svg' width='1000' height='600' viewBox='0 0 1000 600'>"
+        "<rect width='1000' height='600' fill='#dfe7ee'/><rect x='500' y='120' width='500' height='240' fill='#f2a33a'/>"
+        "<text x='750' y='250' font-size='40' text-anchor='middle' font-family='sans-serif'>crop area</text>"
+        "<text x='250' y='300' font-size='40' text-anchor='middle' font-family='sans-serif'>whole image</text></svg>")
+DETAILS_SHOT = {
+    "text": {"en": "Open a row to see what changed. The image starts on the crop and can show the whole picture.",
+             "de": "Zeile öffnen, um zu sehen, was sich geändert hat. Das Bild zeigt zuerst den Ausschnitt, auf Wunsch das ganze Bild."},
+    "image": {"url": "data:image/svg+xml," + urllib.parse.quote(SHOT), "width": 1000, "height": 600, "crop": [0.5, 0.2, 0.5, 0.4]},
+    "doc": "https://developer-simon.github.io/energy-node/dashboard/settings-versions.html",
+}
+DETAILS_BROKEN = {
+    "text": {"en": "This row has an unreachable image. Image and toggle must disappear."},
+    "image": {"url": "http://127.0.0.1:9/missing.png", "width": 1000, "height": 600, "crop": [0.1, 0.1, 0.5, 0.5]},
+}
 # Ein Commit innerhalb eines PRs: Detail, kein Highlight (make_changelog_json.py).
 def detail(text, scope, sha):
     return {"text": text, "breaking": False, "scope": scope, "hash": sha, "highlight": False}
@@ -441,10 +467,10 @@ changelog = {
         {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "9.9.9", "releases": [
             {"version": "9.9.9", "date": "2026-10-01", "groups": [
                 {"type": "feat", "label": "Features", "entries": [
-                    entry("show what is new before an update", "redeploy", 82),
+                    entry("show what is new before an update", "redeploy", 82, details=DETAILS_SHOT),
                     detail("count the changes per type in the preview card", "redeploy", "a1b2c3d")]},
                 {"type": "fix", "label": "Fixes", "entries": [
-                    entry("rest the battery flow icon on its fill level at 0 W", "energy", 81),
+                    entry("rest the battery flow icon on its fill level at 0 W", "energy", 81, details=DETAILS_BROKEN),
                     detail("keep the changelog filter when the language switches", "redeploy", "b2c3d4e")]},
                 {"type": "refactor", "label": "Refactors", "entries": [
                     detail("share the changelog model between installer and dashboard", "redeploy", "c3d4e5f")]}]},
@@ -1094,6 +1120,11 @@ check_history_exchange || FAILED=1
 
 echo
 if [[ $KEEP -eq 1 ]]; then
+  if [[ $REAL_CHANGELOG -eq 1 ]]; then
+    # Erst nach den Fixture-Proben: die Versionsseite liest die Dateien bei
+    # jeder Anfrage neu, ein Neustart ist nicht noetig.
+    python3 "$HERE/real_changelog.py" "$REPO_DIR" "$WORK/installer-state"
+  fi
   echo "Dashboard laeuft weiter: $BASE  (Login admin / $PASSWORD)"
   echo "Arbeitsverzeichnis: $WORK"
   # go:embed bindet Templates/CSS/JS beim Kompilieren ein - dieser Prozess

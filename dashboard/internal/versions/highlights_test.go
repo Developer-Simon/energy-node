@@ -235,3 +235,51 @@ func TestLoadReportsThePreviousBundle(t *testing.T) {
 		t.Fatalf("snap.Previous = %+v, want nil without previous-manifest.json", snap.Previous)
 	}
 }
+
+func TestHighlightsPassesDetailsThrough(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json": `{"schema_version":1,"components":[{"id":"dashboard","label":"Dashboard","version":"v0.9.0","releases":[
+		  {"version":"v0.9.0","groups":[{"type":"feat","entries":[
+		    {"text":"device map layers","pr":103,"breaking":false,"highlight":true,
+		     "details":{"text":{"en":"Layers in the device map","de":"Ebenen im Gerätediagramm"},
+		      "image":{"url":"https://example.invalid/shot.png","width":800,"height":600,"crop":[0.1,0.2,0.8,0.9]},
+		      "doc":"device-map-layers"}}]}]}]}]}`,
+		"installed-manifest.json": `{"version":"v0.9.0","components":{"dashboard":"v0.9.0"}}`,
+	})
+	view, err := Highlights(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry := view.Components[0].Releases[0].Entries[0]
+	d := entry.Details
+	if d == nil || d.Text["de"] != "Ebenen im Gerätediagramm" || d.Text["en"] != "Layers in the device map" {
+		t.Fatalf("details = %+v", d)
+	}
+	if d.Image == nil || d.Image.URL != "https://example.invalid/shot.png" || d.Image.Width != 800 || d.Image.Height != 600 {
+		t.Fatalf("image = %+v", d.Image)
+	}
+	if len(d.Image.Crop) != 4 || d.Image.Crop[0] != 0.1 || d.Image.Crop[3] != 0.9 {
+		t.Fatalf("crop = %v", d.Image.Crop)
+	}
+	if d.Doc != "device-map-layers" {
+		t.Fatalf("doc = %q", d.Doc)
+	}
+}
+
+func TestHighlightsWithoutDetailsOmitsTheKey(t *testing.T) {
+	dir := writeState(t, map[string]string{
+		"changelog.json":          highlightsDoc,
+		"installed-manifest.json": installedV090,
+	})
+	view, err := Highlights(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := json.Marshal(view)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(raw), `"details"`) {
+		t.Fatalf("response serialises details without any: %s", raw)
+	}
+}

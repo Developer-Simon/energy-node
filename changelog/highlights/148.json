@@ -1,5 +1,19 @@
 {
   "de": {
-    "*": "Einzelne Verbraucher an einem Messgerät lassen sich als Untergeräte benennen, in der Gerätekarte, im Geräte-Dialog und auf der Energie-Seite."
+    "*": "Einzelne Verbraucher an einem Messgerät lassen sich als Untergeräte benennen, in der Device-Map, im Geräte-Dialog und auf der Energie-Seite."
+  },
+  "details": {
+    "*": {
+      "en": "Name single appliances on a meter as sub-devices. They appear in the device map, in the device dialog and on the energy page, so a washing machine behind a plug gets its own place.",
+      "de": "Einzelne Verbraucher an einem Messgerät lassen sich als Untergeräte benennen. Sie erscheinen in der Device-Map, im Geräte-Dialog und auf der Energie-Seite, sodass eine Waschmaschine hinter einer Steckdose ihren eigenen Platz bekommt.",
+      "image": "dashboard-device-map-sub-device.png",
+      "crop": [
+        0.15,
+        0.38,
+        0.36,
+        0.28
+      ],
+      "doc": "dashboard/device-map.html#sub-devices"
+    }
   }
 }

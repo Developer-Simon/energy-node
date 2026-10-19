@@ -85,3 +85,61 @@ test('entryText uses the page language and falls back to English', async () => {
   assert.equal(panel.entryText({ text: 'layers', pr: 7, i18n: { fr: 'couches' } }), 'layers (#7)');
   assert.equal(panel.entryText({ text: 'layers' }), 'layers');
 });
+
+test('detailText uses the page language and falls back to English', async () => {
+  const { panel } = create(async () => json(VIEW));
+  assert.equal(panel.detailText({ details: { text: { en: 'a', de: 'b' } } }), 'b');
+  assert.equal(panel.detailText({ details: { text: { en: 'a' } } }), 'a');
+});
+
+test('imageFrame without crop fills the frame', async () => {
+  const { panel } = create(async () => json(VIEW));
+  assert.deepEqual({ ...panel.imageFrame({ width: 1000, height: 500 }, true) },
+    { aspect: '1000 / 500', left: '0%', top: '0%', width: '100%', height: '100%' });
+});
+
+test('imageFrame with crop zooms into the detail', async () => {
+  const { panel } = create(async () => json(VIEW));
+  assert.deepEqual({ ...panel.imageFrame({ width: 1000, height: 500, crop: [0.5, 0.2, 0.5, 0.4] }, true) },
+    { aspect: '500 / 200', left: '-100%', top: '-50%', width: '200%', height: '250%' });
+});
+
+test('imageFrame with cropped false shows the whole image', async () => {
+  const { panel } = create(async () => json(VIEW));
+  assert.deepEqual({ ...panel.imageFrame({ width: 1000, height: 500, crop: [0.5, 0.2, 0.5, 0.4] }, false) },
+    { aspect: '1000 / 500', left: '0%', top: '0%', width: '100%', height: '100%' });
+});
+
+test('onToggle scrolls the opened row into view', async () => {
+  const { panel, window } = create(async () => json(VIEW));
+  const timers = [];
+  window.setTimeout = (fn, ms) => { timers.push({ fn, ms }); };
+  let options = null;
+  const target = { open: true, scrollIntoView(o) { options = o; } };
+  panel.onToggle({ target });
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].ms, 330);
+  assert.equal(options, null);
+  timers[0].fn();
+  assert.equal(options.block, 'nearest');
+  assert.equal(options.behavior, 'smooth');
+});
+
+test('onToggle does nothing when the row closes', async () => {
+  const { panel, window } = create(async () => json(VIEW));
+  const timers = [];
+  window.setTimeout = (fn, ms) => { timers.push({ fn, ms }); };
+  panel.onToggle({ target: { open: false, scrollIntoView() { throw new Error('must not scroll'); } } });
+  assert.equal(timers.length, 0);
+});
+
+test('entriesOf lists entries with details first and keeps the order inside each group', async () => {
+  const { panel } = create(async () => json(VIEW));
+  const d = (text) => ({ text, details: { text: { en: text } } });
+  const component = { releases: [
+    { version: 'v2', entries: [{ text: 'a' }, d('b')] },
+    { version: 'v1', entries: [d('c'), { text: 'e' }] },
+  ] };
+  assert.deepEqual(panel.entriesOf(component).map((entry) => entry.text), ['b', 'c', 'a', 'e']);
+  assert.equal(panel.entriesOf({}).length, 0);
+});

@@ -1,6 +1,10 @@
 import json
+import struct
+import subprocess
 import sys
 from pathlib import Path
+
+import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build"))
 import make_changelog_json as mcj
@@ -209,3 +213,103 @@ def test_build_document_reads_translation_files(tmp_path):
 def test_parse_version_handles_version_file_and_manifest():
     assert mcj.parse_version("v1.2.3\n", "") == "v1.2.3"
     assert mcj.parse_version('{"version": "0.4.2"}', ".json") == "v0.4.2"
+
+
+DETAILS_CHANGELOG = """# Changelog
+
+## v0.10.0 (2026-10-19)
+
+### Features
+
+- **dashboard:** with details (#148) (abc1234)
+- an entry without a PR number
+- **dashboard:** without details (#149) (abc1235)
+"""
+
+PNG = b"\x89PNG\r\n\x1a\n" + b"\x00\x00\x00\x0dIHDR" + struct.pack(">II", 1200, 800) + b"\x08\x06\x00\x00\x00"
+
+
+def _details_repo(tmp_path):
+    repo = _repo(tmp_path)
+    (repo / "dashboard/CHANGELOG.md").write_text(DETAILS_CHANGELOG, encoding="utf-8")
+    (repo / "dashboard/VERSION").write_text("v0.10.0\n", encoding="utf-8")
+    (repo / "docs/images").mkdir(parents=True)
+    (repo / "docs/images/shot.png").write_bytes(PNG)
+    (repo / "docs/dashboard").mkdir(parents=True)
+    (repo / "docs/dashboard/device-map.md").write_text("# Device map\n", encoding="utf-8")
+    (repo / "changelog/highlights").mkdir(parents=True)
+    (repo / "changelog/highlights/148.json").write_text(json.dumps({
+        "details": {"*": {"en": "A switch", "de": "Ein Schalter", "image": "shot.png",
+                          "doc": "dashboard/device-map.html#switches"}},
+    }), encoding="utf-8")
+    return repo
+
+
+def test_attach_details_sets_details_on_pr_entries_only(tmp_path):
+    releases = mcj.mark_highlights(mcj.parse_changelog(DETAILS_CHANGELOG))
+    translations = {148: {"details": {"*": {"en": "A switch", "de": "Ein Schalter"}}}, 149: {"de": {"*": "nur Text"}}}
+    mcj.attach_details(releases, tmp_path, translations, "dashboard", "abc123")
+    entries = releases[0]["groups"][0]["entries"]
+    assert entries[0]["details"] == {"text": {"en": "A switch", "de": "Ein Schalter"}}
+    assert "details" not in entries[1], "no PR number, no details"
+    assert "details" not in entries[2], "PR 149 has no details key"
+
+
+def test_build_document_resolves_details_with_the_image_ref(tmp_path):
+    repo = _details_repo(tmp_path)
+    table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
+    doc = mcj.build_document(repo, table, bundle_version="v0.10.0", max_releases=5, generated_at="t", image_ref="v0.10.0")
+    entry = doc["components"][0]["releases"][0]["groups"][0]["entries"][0]
+    assert entry["details"]["text"] == {"en": "A switch", "de": "Ein Schalter"}
+    assert entry["details"]["image"]["url"].endswith("/v0.10.0/docs/images/shot.png")
+    assert (entry["details"]["image"]["width"], entry["details"]["image"]["height"]) == (1200, 800)
+    assert entry["details"]["doc"] == "https://developer-simon.github.io/energy-node/dashboard/device-map.html#switches"
+
+
+def test_cli_passes_the_image_ref(tmp_path):
+    repo = _details_repo(tmp_path)
+    out = tmp_path / "changelog.json"
+    assert mcj.main(["--repo", str(repo), "--out", str(out), "--bundle-version", "v0.10.0", "--image-ref", "abc123"]) == 0
+    doc = json.loads(out.read_text(encoding="utf-8"))
+    entry = doc["components"][0]["releases"][0]["groups"][0]["entries"][0]
+    assert "/abc123/" in entry["details"]["image"]["url"]
+
+
+@pytest.mark.parametrize("details", [{"*": None}, "x"])
+def test_attach_details_raises_on_malformed_details(tmp_path, details):
+    releases = mcj.mark_highlights(mcj.parse_changelog(DETAILS_CHANGELOG))
+    with pytest.raises(ValueError, match="#148"):
+        mcj.attach_details(releases, tmp_path, {148: {"details": details}}, "dashboard", "abc123")
+
+
+@pytest.mark.parametrize("details", [{"*": None}, "x"])
+def test_build_document_fails_on_malformed_details(tmp_path, details):
+    repo = _details_repo(tmp_path)
+    (repo / "changelog/highlights/148.json").write_text(json.dumps({"details": details}), encoding="utf-8")
+    table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
+    with pytest.raises(ValueError, match="#148"):
+        mcj.build_document(repo, table, bundle_version="v0.10.0", max_releases=5, generated_at="t", image_ref="v0.10.0")
+
+
+def test_attach_details_skips_targets_without_details(tmp_path):
+    releases = mcj.mark_highlights(mcj.parse_changelog(DETAILS_CHANGELOG))
+    translations = {148: {"details": {"installer": {"en": "x", "de": "x"}}}}
+    mcj.attach_details(releases, tmp_path, translations, "dashboard", None)
+    assert "details" not in releases[0]["groups"][0]["entries"][0]
+
+
+def test_attach_details_pins_the_image_of_a_target_entry(tmp_path):
+    repo = _details_repo(tmp_path)
+    (repo / "changelog/highlights/148.json").write_text(json.dumps({
+        "details": {"dashboard": {"en": "A switch", "de": "Ein Schalter", "image": "shot.png"}},
+    }), encoding="utf-8")
+    subprocess.run(["git", "init", "-q"], cwd=repo, check=True)
+    subprocess.run(["git", "add", "-A"], cwd=repo, check=True)
+    subprocess.run(["git", "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init"], cwd=repo, check=True)
+    head = subprocess.run(["git", "rev-parse", "HEAD"], cwd=repo, check=True, capture_output=True, text=True).stdout.strip()
+    translations = json.loads((repo / "changelog/highlights/148.json").read_text(encoding="utf-8"))
+    translations = {148: translations}
+    releases = mcj.mark_highlights(mcj.parse_changelog((repo / "dashboard/CHANGELOG.md").read_text(encoding="utf-8")))
+    mcj.attach_details(releases, repo, translations, "dashboard", None)
+    url = releases[0]["groups"][0]["entries"][0]["details"]["image"]["url"]
+    assert f"/{head}/docs/images/shot.png" in url

@@ -1,5 +1,19 @@
 {
   "de": {
     "*": "Der Lastmodus Automatisch rechnet den Hausverbrauch jetzt immer aus der Bilanz, ein Hauszähler dient als Kontrolle. Eine Statuszeile auf der Energie-Seite zeigt Quelle, Rückfall und Zählerabweichung, und Home Assistant erhält gemessene und berechnete Hauslast als eigene Sensoren."
+  },
+  "details": {
+    "*": {
+      "en": "House consumption is now always calculated from the balance. A house meter serves as a cross check and replaces the calculation only when no grid role is assigned. A line below the modes shows where the value comes from and how far the meter deviates.",
+      "de": "Der Hausverbrauch wird jetzt immer aus der Bilanz berechnet. Ein Hauszähler dient als Kontrolle und ersetzt die Rechnung nur, wenn keine Netz-Rolle zugeordnet ist. Eine Zeile unter den Modi zeigt, woher der Wert kommt und wie weit der Zähler abweicht.",
+      "image": "dashboard-energy-interpretation.png",
+      "crop": [
+        0,
+        0.07,
+        1,
+        0.52
+      ],
+      "doc": "dashboard/energy.html#balance-interpretation"
+    }
   }
 }

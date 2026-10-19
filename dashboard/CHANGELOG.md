@@ -1,9 +1,14 @@
 # Changelog
 
-## v0.9.28 (2026-10-18)
+## v0.10.0 (2026-10-19)
 
 ### Features
 
+- **versions:** pass highlight details to the what's new dialog (825b1ee)
+- **webui:** detail helpers and strings for expandable highlights (d0c02bb)
+- **webui:** expandable highlight details in the what's new dialog (0aa004d)
+- **webui:** list highlights with details first and align the bullets (cc9b264)
+- **changelog:** expandable highlight details in the what's new dialog (#152)
 - hourly energy statistics from Home Assistant via the companion (#130) (752f59a)
 - **dashboard:** energy statistics tile, page and recording mode (#132) (502a156)
 - **dashboard:** SSE topic subscriptions and a swap-free statistics tile (#133) (69eb694)
@@ -18,13 +23,13 @@
 - **devicemap:** Switches are now an energy role with an optional channel. The device map shows a green or red circle on every switched connection, and only the connection on a switched-off channel is cut. (#146) (9b162de)
 - **energy:** hide only role-less entries and share the list with the device map (#147) (0afdfc3)
 - **devicemap:** Name single appliances on a meter as sub-devices in the device map, the device dialog and the energy page. (#148) (054f852)
+- **overview:** options for the energy statistics card (#151) (b4f0f02)
 - **i18n:** texts for the energy statistics card options (0c0a08a)
 - **layout:** options for the energy statistics card in the editor (7712cae)
 - **layout:** store fixed period, key figures and chart switch of the statistics card (068e4f3)
 - **overview:** statistics card honours fixed period, key figures and bar chart (1ba32b9)
 - **i18n:** texts for the history card series chooser (63cb729)
 - **layout:** pick the history card series in a search field (dbb14e2)
-- **overview:** options for the energy statistics card (#151)
 - **devicemap:** store sub-devices in device-map.json (2a07b5f)
 - **energy:** label entities after their sub-device (cda32d0)
 - **devicemap:** add the sub-device endpoint (660a51f)
@@ -191,6 +196,7 @@
 
 ### Documentation
 
+- **versions:** correct the highlight crop comment (7b42687)
 - move internal notes on automations and overview cards into the docs (#140) (4651b98)
 - **layout:** note how a new card type gets live updates (d86cfad)
 - **automations:** explain rule evaluation and document guest roles (1c2c2ab)
@@ -211,6 +217,7 @@
 
 ### Tests
 
+- **smoke:** real changelog preset and card shots for the MQTT tab (2fa378e)
 - **smoke:** add a Waschmaschine sub-device to the device map fixture (ea31cad)
 - **smoke:** simulate heat pump, dehumidifier and cellar relay consumption (d0238d2)
 - **smoke:** add a two channel relay fixture and bump the lazy assets (57e029a)

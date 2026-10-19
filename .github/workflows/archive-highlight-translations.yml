@@ -1,10 +1,16 @@
 name: Archive highlight translations
 
-# Runs when a final release tag (vX.Y.Z) is pushed. It folds every
-# changelog/highlights/<PR>.json on `main` into changelog/highlights/archive.json
-# (scripts/build/highlight_translations.py archive), so the released texts move
-# out of the per-PR files and the directory stays short. The result goes to a
-# PR, because `main` is PR-protected and cannot take a direct push.
+# Runs when a final release tag (vX.Y.Z) is pushed. It folds the highlight files
+# on `main` into three kinds of files (scripts/build/highlight_translations.py
+# archive --tag), so the directory stays short:
+#   - changelog/highlights/<PR>.json: one per PR, still unreleased, folded into
+#     the file of the tag below
+#   - changelog/highlights/vX.Y.Z.json: the texts of one release, the previous
+#     release file moves into the archive of its major version
+#   - changelog/highlights/archive-vX.json: the texts of all releases of one major
+#     version
+# The result goes to a PR, because `main` is PR-protected and cannot take a
+# direct push.
 #
 # Prerelease tags (vX.Y.Z-bN) are skipped: their highlights are not released yet.
 #
@@ -24,7 +30,7 @@ permissions:
 
 jobs:
   archive:
-    name: Fold the translations into archive.json
+    name: Fold the highlight files of the release
     runs-on: ubuntu-latest
     if: ${{ !contains(github.ref_name, '-') }}
     env:
@@ -46,7 +52,7 @@ jobs:
             exit 0
           fi
 
-          python3 scripts/build/highlight_translations.py archive --repo .
+          python3 scripts/build/highlight_translations.py archive --repo . --tag "$TAG"
           if [ -z "$(git status --porcelain changelog/highlights)" ]; then
             echo "::notice::no highlight translation files to archive for $TAG"
             exit 0
@@ -56,10 +62,11 @@ jobs:
           branch="chore/archive-highlight-translations-${TAG}"
           body="$RUNNER_TEMP/body.md"
           cat > "$body" <<EOF
-          This PR moves the German highlight texts of the releases up to ${TAG} out
-          of their files, one per PR, into changelog/highlights/archive.json. The
-          directory then lists only the PRs that are not released yet. The texts do
-          not change.
+          This PR moves the German highlight texts up to ${TAG} out of the per-PR
+          files. The directory then has three kinds of files: one per PR that is not
+          released yet, one per release (v<MAJOR>.<MINOR>.<PATCH>.json, with ${TAG}
+          as the newest), and one archive per major version (archive-v<MAJOR>.json)
+          for the older releases. The texts do not change.
           The release workflow opened it when ${TAG} was tagged. Merge it with the
           squash button on GitHub, scripts/dev/merge-pr.sh does not apply because
           this PR has no commit message block.

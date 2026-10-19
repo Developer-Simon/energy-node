@@ -3,7 +3,8 @@
 
     highlight_translations.py sync  --repo <repo> --pr <N> --body-file <datei>
     highlight_translations.py check --repo <repo> --pr <N>
-    highlight_translations.py archive --repo <repo>
+    highlight_translations.py archive --repo <repo> --tag <vX.Y.Z>
+    highlight_translations.py validate --repo <repo>
 
 sync (Version-bump-Workflow): uebertraegt die Bloecke "Highlights (xx):" aus
 der PR-Beschreibung nach changelog/highlights/<N>.json. Ohne Block bleibt die
@@ -15,14 +16,20 @@ jeder CHANGELOG.md aus scripts/version/components.json braucht einen Text in
 jeder Sprache aus highlight_i18n.LANGUAGES. Eintraege ohne PR-Nummer (einzelne
 Commits) prueft niemand.
 
-archive (Release-Workflow): faltet alle changelog/highlights/<N>.json in
-archive.json und loescht sie.
+archive --tag (Release-Workflow): faltet alle changelog/highlights/<N>.json in
+changelog/highlights/<vX.Y.Z>.json, die Datei des vorigen Releases in
+archive-v<MAJOR>.json, und loescht die gefalteten Dateien.
+
+validate (CI): prueft die Details aller Dateien in changelog/highlights, nicht
+nur die des PRs (siehe highlight_details.validate). Eine Zeile je Meldung,
+Exit 1 bei mindestens einer.
 """
 import argparse
 import json
 import sys
 from pathlib import Path
 
+import highlight_details
 import highlight_i18n
 from make_changelog_json import mark_highlights, parse_changelog
 
@@ -87,8 +94,16 @@ def check(repo, pr):
     return 1
 
 
-def archive(repo):
-    folded = highlight_i18n.archive_files(repo / highlight_i18n.TRANSLATIONS_DIR)
+def validate(repo):
+    translations = highlight_i18n.load_translations(repo / highlight_i18n.TRANSLATIONS_DIR)
+    problems = highlight_details.validate(repo, translations)
+    for problem in problems:
+        print(problem)
+    return 1 if problems else 0
+
+
+def archive(repo, tag):
+    folded = highlight_i18n.archive_files(repo / highlight_i18n.TRANSLATIONS_DIR, tag)
     if not folded:
         print("nothing to archive")
     else:
@@ -107,10 +122,15 @@ def main(argv=None):
             command.add_argument("--body-file", required=True)
     archive_command = sub.add_parser("archive")
     archive_command.add_argument("--repo", required=True)
+    archive_command.add_argument("--tag", required=True)
+    validate_command = sub.add_parser("validate")
+    validate_command.add_argument("--repo", required=True)
     args = parser.parse_args(argv)
     repo = Path(args.repo)
     if args.command == "archive":
-        return archive(repo)
+        return archive(repo, args.tag)
+    if args.command == "validate":
+        return validate(repo)
     if args.command == "sync":
         return sync(repo, args.pr, args.body_file)
     return check(repo, args.pr)

@@ -64,14 +64,14 @@ asset counts as "already loaded" within a session.
 
 ## Current version state
 
-As of **2026-10-18**, read from `base.html` and `overview.html`. "–" means: no
+As of **2026-10-19**, read from `base.html` and `overview.html`. "–" means: no
 `?v=`, relies solely on the 1-day cache.
 
 ### Global
 
 | Asset | `?v=` |
 |---|---|
-| `css/base.css` | `40` |
+| `css/base.css` | `41` |
 | `js/i18n.js` | `4` (`login.html` still loads `3`) |
 
 ### Deferred `<script>` block (channel 1)
@@ -98,7 +98,7 @@ As of **2026-10-18**, read from `base.html` and `overview.html`. "–" means: no
 | `js/notifications.js` | `2` |
 | `js/dashboard.js` | `38` |
 | `js/update-bar.js` | `3` |
-| `js/whatsnew.page.js` | `3` (deferred script block, no longer in the settings-panel row) |
+| `js/whatsnew.page.js` | `4` (deferred script block, no longer in the settings-panel row) |
 | `js/overview.page.js` | `6` |
 | `js-deps/htmx.min.js` | – |
 | `js-deps/alpine-collapse.min.js` | – |
@@ -265,6 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.0 | `css/base.css` (what's new rows expand with explanation, image and guide link) · `js/whatsnew.page.js` (detailText, imageFrame, onToggle) | `41` · `4` | 2026-10-19 |
 | v0.9.28 | `css/base.css` (statistics card chart area) · `js/energy-stats-model.js` (stats panel + energy cards, shared bar chart options) · `js/energy-stats-card.js` (energy cards, fixed period, key figures, bar chart) · `js/stats.page.js` (stats panel, chart options from the model) · `js/layout-editor.js` (editor, statistics card options, history card series as search field) | `40` · `4` · `4` · `5` · `18` | 2026-10-18 |
 | v0.9.26 | `css/base.css` (panel headings aligned on devices, diagnostics and settings, less space above the overview edit button) · `css/manager.css` (5 panels, system tab as setting cards, no Tailscale/TinyTuya title) | `39` · `44` | 2026-10-18 |
 | v0.9.25 | `css/manager.css` (5 panels, device map canvas border) · `js/dashboard.js` (device modal moved out, lazy loader) · `js/device-modal.js` (new, device modal, loaded on first open) | `43` · `38` · `1` (new) | 2026-10-18 |
