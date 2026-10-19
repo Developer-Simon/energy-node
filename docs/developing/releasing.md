@@ -299,6 +299,7 @@ as `details` on each PR entry of `changelog.json`.
 problem, in the form `#<PR> <key>: <problem>`, and exits with 1. CI runs it, so a
 missing text or a wrong image name fails the PR before the merge. A broken detail
 also stops the bundle build with a `ValueError` that names the PR and the key.
+The images and doc pages that released highlights reference are checked on every run, so renaming or deleting one of them later fails CI and the bundle build, which is why the details entry must be updated first.
 
 To see the highlights as the dialog shows them, run:
 
