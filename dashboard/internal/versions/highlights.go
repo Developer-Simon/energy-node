@@ -21,6 +21,24 @@ type HighlightsEntry struct {
 	PR       int               `json:"pr,omitempty"`
 	Breaking bool              `json:"breaking"`
 	I18n     map[string]string `json:"i18n,omitempty"`
+	Details  *HighlightDetails `json:"details,omitempty"`
+}
+
+// HighlightImage is the screenshot of a highlight, with the crop (x0, y0, x1, y1
+// as fractions of the image) the dialog shows.
+type HighlightImage struct {
+	URL    string    `json:"url"`
+	Width  int       `json:"width"`
+	Height int       `json:"height"`
+	Crop   []float64 `json:"crop,omitempty"`
+}
+
+// HighlightDetails is the optional extra part of a highlight: a longer text
+// per language, an image and the doc page it links to.
+type HighlightDetails struct {
+	Text  map[string]string `json:"text"`
+	Image *HighlightImage   `json:"image,omitempty"`
+	Doc   string            `json:"doc,omitempty"`
 }
 
 // HighlightsRelease is one release of a component inside the range.
@@ -66,6 +84,7 @@ type fullDocument struct {
 					Breaking  bool              `json:"breaking"`
 					Highlight *bool             `json:"highlight"`
 					I18n      map[string]string `json:"i18n"`
+					Details   *HighlightDetails `json:"details"`
 				} `json:"entries"`
 			} `json:"groups"`
 		} `json:"releases"`
@@ -141,7 +160,7 @@ func Highlights(stateDir string) (*HighlightsView, error) {
 					if flagged && (e.Highlight == nil || !*e.Highlight) {
 						continue
 					}
-					out.Entries = append(out.Entries, HighlightsEntry{Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n})
+					out.Entries = append(out.Entries, HighlightsEntry{Text: e.Text, Scope: e.Scope, PR: e.PR, Breaking: e.Breaking, I18n: e.I18n, Details: e.Details})
 				}
 			}
 			if len(out.Entries) > 0 {
