@@ -8,6 +8,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build"))
 import highlight_details as hd
+import highlight_i18n as hi
 
 
 def make_png(path, width, height):
@@ -83,7 +84,7 @@ def test_validate_reports_each_problem(repo):
         "image not in docs/images": ({"en": "x", "de": "x", "image": "gone.png"}, "image gone.png not found in docs/images"),
         "image is not png": ({"en": "x", "de": "x", "image": "notes.png"}, "image notes.png is not a PNG"),
         "crop without image": ({"en": "x", "de": "x", "crop": [0, 0, 1, 1]}, "crop needs image"),
-        "crop with three values": ({"en": "x", "de": "x", "image": "shot.png", "crop": [0, 0, 1]}, "crop must be four numbers"),
+        "crop with three values": ({"en": "x", "de": "x", "image": "shot.png", "crop": [0, 0, 1]}, "crop must be four finite numbers"),
         "crop beyond right edge": ({"en": "x", "de": "x", "image": "shot.png", "crop": [0.5, 0, 0.6, 0.5]}, "crop must lie inside the image"),
         "crop width zero": ({"en": "x", "de": "x", "image": "shot.png", "crop": [0, 0, 0, 0.5]}, "crop width and height must be positive"),
         "doc page missing": ({"en": "x", "de": "x", "doc": "dashboard/nope.html"}, "doc page docs/dashboard/nope.md not found"),
@@ -124,3 +125,36 @@ def test_image_ref_falls_back_to_the_commit(tmp_path):
     git(tmp_path, "init", "-q")
     git(tmp_path, "commit", "-q", "--allow-empty", "-m", "init")
     assert hd.image_ref(tmp_path) == git(tmp_path, "rev-parse", "HEAD")
+
+
+@pytest.mark.parametrize("details", [["not", "a", "dict"], "text"])
+def test_resolve_raises_on_non_dict_details(repo, details):
+    with pytest.raises(ValueError, match="#148"):
+        hd.resolve(repo, {148: {"details": details}}, 148, "dashboard", image_ref="v0.10.0")
+
+
+@pytest.mark.parametrize("entry", [{}, None, "text"])
+def test_resolve_raises_on_empty_or_null_entry(repo, entry):
+    translations = {148: {"details": {"*": entry}}}
+    with pytest.raises(ValueError, match="#148"):
+        hd.resolve(repo, translations, 148, "dashboard", image_ref="v0.10.0")
+
+
+def test_resolve_raises_on_null_target_entry(repo):
+    translations = {148: {"details": {"dashboard": None, "*": FULL}}}
+    with pytest.raises(ValueError, match="#148 dashboard"):
+        hd.resolve(repo, translations, 148, "dashboard", image_ref="v0.10.0")
+
+
+def test_validate_reports_language_from_highlight_i18n(repo, monkeypatch):
+    monkeypatch.setattr(hi, "LANGUAGES", ("de", "fr"))
+    messages = hd.validate(repo, {148: {"details": {"*": {"en": "x", "de": "x"}}}})
+    assert messages == ["#148 *: text for fr is missing"]
+
+
+def test_crop_rejects_nan_and_infinity(repo):
+    for value in (float("nan"), float("inf")):
+        entry = {"en": "x", "de": "x", "image": "shot.png", "crop": [0.5, 0.2, value, 0.3]}
+        messages = hd.validate(repo, {148: {"details": {"*": entry}}})
+        assert len(messages) == 1
+        assert "crop must be four finite numbers" in messages[0]

@@ -16,12 +16,16 @@ Uebersetzungen) nur fuer diese Komponente und ersetzt das "*"-Objekt ganz.
 image liegt in docs/images, crop (x, y, Breite, Hoehe als Anteile 0 bis 1)
 gilt nur mit image, doc ist eine Seite der Doku unter docs/.
 
+Englisch ist immer Pflicht, dazu jede Sprache aus highlight_i18n.LANGUAGES.
 resolve() liefert daraus die Form fuer die Release-Notes. Das Bild ist an
 den Tag oder Commit gepinnt, aus dem das Release gebaut wird.
 """
+import math
 import struct
 import subprocess
 from pathlib import Path
+
+import highlight_i18n as hi
 
 DETAILS_KEY = "details"
 DEFAULT_KEY = "*"
@@ -29,7 +33,6 @@ RAW_BASE = "https://raw.githubusercontent.com/Developer-Simon/energy-node/"
 PAGES_BASE = "https://developer-simon.github.io/energy-node/"
 IMAGES_DIR = Path("docs/images")
 DOCS_DIR = Path("docs")
-TEXT_LANGUAGES = ("en", "de")
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
 
 
@@ -42,21 +45,37 @@ def png_size(path):
     return struct.unpack(">II", head[16:24])
 
 
+def _text_languages():
+    """Englisch plus die Sprachen aus highlight_i18n, zur Laufzeit gelesen."""
+    return ("en", *hi.LANGUAGES)
+
+
+def _select(details, target):
+    """(Schluessel, Eintrag) fuer das Ziel: der Schluessel target, sonst "*".
+    (None, None), wenn keiner der beiden da ist."""
+    if target in details:
+        return target, details[target]
+    if DEFAULT_KEY in details:
+        return DEFAULT_KEY, details[DEFAULT_KEY]
+    return None, None
+
+
 def lookup(translations, pr, target):
-    """Das Details-Objekt fuer das Ziel: erst der Schluessel target, sonst "*"."""
+    """Das Details-Objekt fuer das Ziel, None ohne Details."""
     details = translations.get(pr, {}).get(DETAILS_KEY)
     if not isinstance(details, dict):
         return None
-    return details.get(target) or details.get(DEFAULT_KEY) or None
+    return _select(details, target)[1]
 
 
 def _is_number(value):
-    return isinstance(value, (int, float)) and not isinstance(value, bool)
+    return (isinstance(value, (int, float)) and not isinstance(value, bool)
+            and math.isfinite(value))
 
 
 def _crop_problem(crop):
     if not isinstance(crop, list) or len(crop) != 4 or not all(_is_number(v) for v in crop):
-        return "crop must be four numbers [x, y, width, height]"
+        return "crop must be four finite numbers [x, y, width, height]"
     x, y, width, height = crop
     if width <= 0 or height <= 0:
         return "crop width and height must be positive"
@@ -69,7 +88,7 @@ def _doc_path(doc):
     """Pfad der Markdown-Seite unter docs/ zu einem Doku-Link wie
     "dashboard/device-map.html#switches" oder "dashboard/"."""
     page = doc.split("#", 1)[0]
-    if page.startswith("/") or ".." in Path(page).parts or not page:
+    if not page or page.startswith("/") or ".." in Path(page).parts:
         return None
     if page.endswith("/"):
         page += "index.md"
@@ -80,12 +99,16 @@ def _doc_path(doc):
     return DOCS_DIR / page
 
 
+def _details_problem(pr):
+    return f"#{pr} {DETAILS_KEY}: must be an object keyed by component"
+
+
 def _entry_problems(repo, pr, key, entry):
     prefix = f"#{pr} {key}: "
     if not isinstance(entry, dict):
         return [prefix + "details must be an object"]
     problems = []
-    for lang in TEXT_LANGUAGES:
+    for lang in _text_languages():
         if lang not in entry:
             problems.append(prefix + f"text for {lang} is missing")
         elif not isinstance(entry[lang], str) or not entry[lang].strip():
@@ -127,7 +150,7 @@ def validate(repo, translations):
         if details is None:
             continue
         if not isinstance(details, dict):
-            problems.append(f"#{pr} {DETAILS_KEY}: must be an object keyed by component")
+            problems.append(_details_problem(pr))
             continue
         for key in sorted(details):
             problems.extend(_entry_problems(repo, pr, key, details[key]))
@@ -136,15 +159,20 @@ def validate(repo, translations):
 
 def resolve(repo, translations, pr, target, image_ref):
     """Details fuer ein Highlight und eine Komponente als Dict fuer die
-    Release-Notes, None ohne Details. Ungueltige Details: ValueError."""
-    entry = lookup(translations, pr, target)
-    if entry is None:
+    Release-Notes, None ohne Details. Malformed details (kein Objekt, Eintrag
+    leer, null oder kein Objekt): ValueError mit der Meldung aus validate."""
+    if DETAILS_KEY not in translations.get(pr, {}):
         return None
-    key = target if translations[pr][DETAILS_KEY].get(target) else DEFAULT_KEY
+    details = translations[pr][DETAILS_KEY]
+    if not isinstance(details, dict):
+        raise ValueError(_details_problem(pr))
+    key, entry = _select(details, target)
+    if key is None:
+        return None
     problems = _entry_problems(repo, pr, key, entry)
     if problems:
         raise ValueError(problems[0])
-    result = {"text": {lang: entry[lang] for lang in TEXT_LANGUAGES}}
+    result = {"text": {lang: entry[lang] for lang in _text_languages()}}
     if "image" in entry:
         width, height = png_size(Path(repo) / IMAGES_DIR / entry["image"])
         image = {
