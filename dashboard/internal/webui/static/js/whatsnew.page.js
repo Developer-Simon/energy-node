@@ -42,6 +42,13 @@
       return this.sincePrevious ? t('settings.whatsnew.title', {version: this.to}) : t('settings.whatsnew.installed_title');
     },
 
+    // All entries of a component in one list, the ones with details first.
+    // Array.prototype.sort is stable, so the order inside each group is kept.
+    entriesOf(component) {
+      const entries = (component.releases || []).flatMap((release) => release.entries || []);
+      return entries.sort((a, b) => Number(Boolean(b.details)) - Number(Boolean(a.details)));
+    },
+
     entryText(entry) {
       const text = localized(entry);
       return entry.pr ? `${text} (#${entry.pr})` : text;

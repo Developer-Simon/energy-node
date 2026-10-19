@@ -113,8 +113,7 @@
             <span class="version-chip" x-text="component.from ? component.from + ' → ' + component.to : component.to"></span>
           </div>
           <ul class="release-entries">
-            <template x-for="release in component.releases" :key="release.version">
-              <template x-for="(entry, index) in release.entries" :key="release.version + '-' + index">
+            <template x-for="(entry, index) in entriesOf(component)" :key="index">
                 <li x-bind:class="{ 'whatsnew-has-detail': entry.details }"><span class="release-breaking" x-show="entry.breaking && !entry.details">{{t "settings.versions.breaking"}}</span> <span x-show="!entry.details" x-text="entryText(entry)"></span>
                   <template x-if="entry.details">
                     <details class="whatsnew-detail" name="whatsnew-detail" x-data="{ loaded: false, cropped: true }" x-on:toggle="loaded = loaded || $el.open; onToggle($event)">
@@ -136,7 +135,6 @@
                     </details>
                   </template>
                 </li>
-              </template>
             </template>
           </ul>
         </section>

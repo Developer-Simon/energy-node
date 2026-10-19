@@ -132,3 +132,14 @@ test('onToggle does nothing when the row closes', async () => {
   panel.onToggle({ target: { open: false, scrollIntoView() { throw new Error('must not scroll'); } } });
   assert.equal(timers.length, 0);
 });
+
+test('entriesOf lists entries with details first and keeps the order inside each group', async () => {
+  const { panel } = create(async () => json(VIEW));
+  const d = (text) => ({ text, details: { text: { en: text } } });
+  const component = { releases: [
+    { version: 'v2', entries: [{ text: 'a' }, d('b')] },
+    { version: 'v1', entries: [d('c'), { text: 'e' }] },
+  ] };
+  assert.deepEqual(panel.entriesOf(component).map((entry) => entry.text), ['b', 'c', 'a', 'e']);
+  assert.equal(panel.entriesOf({}).length, 0);
+});
