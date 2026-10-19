@@ -1,5 +1,5 @@
 {
   "de": {
-    "*": "Ausblenden nur für Einträge ohne Rolle, die Liste gilt auch in der Device Map"
+    "*": "Ausblenden betrifft nur noch Einträge ohne Rolle, und die ausgeblendeten Einträge gelten auch in der Device-Map."
   }
 }

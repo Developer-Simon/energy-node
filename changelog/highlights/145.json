@@ -1,5 +1,5 @@
 {
   "de": {
-    "*": "Die Gerätekarte zeigt, welche Geräte ausgeschaltet sind. Ein ausgeschalteter Ausgang trennt die Leitung dahinter, und jedes Gerät ohne Strom wird blass dargestellt und als aus markiert."
+    "*": "Die Device-Map zeigt, welche Geräte ausgeschaltet sind. Ein ausgeschalteter Ausgang trennt die Leitung dahinter, und jedes Gerät ohne Strom wird blass dargestellt und als aus markiert."
   }
 }
