@@ -224,18 +224,101 @@ example to fix a word or to translate an older release. `changelog.json`
 carries the texts as `"i18n": {"de": "…"}`, the dashboard, the installer and
 the release notes show them and fall back to English.
 
-The texts of older releases live in `changelog/highlights/archive.json`, in the
-form `{"<PR>": {"de": {...}}}`, so the file list stays short. New PRs get their
-own `<PR>.json`. A per-PR file overrides the archive for the languages it has.
-The per-version changelog files are regenerated from the current changelogs and
-translations on every release. Correcting a text in `archive.json` therefore
-reaches the node with the next bundle, because the updater replaces every file
-whose content changed.
+The directory has three kinds of translation files:
 
-When a final release tag is pushed, the workflow `archive-highlight-translations.yml`
-folds all `changelog/highlights/<PR>.json` into `archive.json` and opens a PR for
-it. Merge that PR on GitHub, not with merge-pr.sh. The workflow needs the `BUMP_TOKEN` secret, and
-without it the job skips with a notice.
+* `<PR>.json` holds the texts of one pull request that is not released yet.
+* `v<MAJOR>.<MINOR>.<PATCH>.json`, for example `v0.10.0.json`, holds the texts
+  of one release.
+* `archive-v<MAJOR>.json`, for example `archive-v0.json`, holds the texts of all
+  releases of one major version.
+
+The release and archive files have the form `{"<PR>": {"de": {...}}}`. A per-PR
+file overrides them for the languages it has. The per-version changelog files
+are regenerated from the current changelogs and translations on every release.
+A correction in a release file or in an archive therefore reaches the node with
+the next bundle, because the updater replaces every file whose content changed.
+
+When a final release tag `vX.Y.Z` is pushed, the workflow
+`archive-highlight-translations.yml` runs
+`highlight_translations.py archive --tag vX.Y.Z`. It folds every `<PR>.json` into
+`vX.Y.Z.json`, moves every older release file into the archive of its major
+version and deletes the folded files. The details of a highlight move with its
+texts. The workflow then opens a PR with these changes. Merge it on GitHub with
+the squash button. `scripts/dev/merge-pr.sh` does not apply to it, because the
+PR has no commit message block. The workflow needs the `BUMP_TOKEN` secret, and
+without it the job skips with a notice. Pre-release tags are skipped.
+
+### Details for bigger highlights
+
+A highlight can have a longer explanation, an image with a crop and a link to
+the guide. These details are the key `details` in the same
+`changelog/highlights/<PR>.json` file, next to the language keys. This complete
+file is valid and checked by `validate`:
+
+```json
+{
+  "de": {
+    "*": "Ein Relais mit mehreren Kanälen lässt sich pro Kanal schalten."
+  },
+  "details": {
+    "*": {
+      "en": "A relay with several channels can switch each channel on its own. Choose the channel of a connection in its card.",
+      "de": "Ein Relais mit mehreren Kanälen lässt sich pro Kanal schalten. Den Kanal einer Verbindung wählst du in ihrer Karte.",
+      "image": "dashboard-device-map-switch-channel.png",
+      "crop": [0.535, 0.17, 0.465, 0.31],
+      "doc": "dashboard/device-map.html#switchable-devices"
+    }
+  }
+}
+```
+
+The rules:
+
+* `en` is required, and so is every language of `highlight_i18n.LANGUAGES`
+  (currently `de`). No text may be empty.
+* `*` applies to every component. A key with a target, such as `dashboard`,
+  applies to that component only and replaces the `*` object as a whole. It
+  needs `en` and the other languages too.
+* `image` is the file name of a PNG in `docs/images/`, without a path.
+* `crop` needs `image`. It is `[x, y, width, height]` as fractions of the image,
+  each from 0 to 1. Width and height must be above 0, and `x + width` and
+  `y + height` must not be above 1.
+* `doc` is a page under `docs/`. Write it as the `.html` address of its `.md`
+  source, such as `dashboard/device-map.html`, or as a folder ending in `/`, such
+  as `dashboard/`. The page must exist. The part after `#` is not checked.
+
+The image is pinned. The bundle build turns the file name into a URL on GitHub's
+raw file server, `https://raw.githubusercontent.com/Developer-Simon/energy-node/<ref>/docs/images/<file>`.
+`<ref>` is the exact tag on `HEAD`, or the commit `HEAD` when no tag points
+there. The width and height are read from the PNG header. The `doc` link points
+to the documentation site, which is not pinned. The bundle carries the details
+as `details` on each PR entry of `changelog.json`.
+
+`highlight_translations.py validate --repo .` checks the details of every file in
+`changelog/highlights`, not only those of the open PR. It prints one line per
+problem, in the form `#<PR> <key>: <problem>`, and exits with 1. CI runs it, so a
+missing text or a wrong image name fails the PR before the merge. A broken detail
+also stops the bundle build with a `ValueError` that names the PR and the key.
+
+To see the highlights as the dialog shows them, run:
+
+```sh
+scripts/dev/highlight_details_preview.py --repo . --since v0.9.8
+```
+
+It writes `drafts/highlight-preview/index.html`, which Git ignores. The page
+shows the `dashboard` highlights newer than `--since`, with the dialog view next
+to the whole image. Draw a frame on the image with the mouse to set a crop. The
+line below the image holds the `crop` value to copy into the JSON. Highlights
+without details are marked, and the problems reported by `validate` are listed
+at the top. Pass `--out` to write the page somewhere else.
+
+In the What's new dialog, a highlight with details has a **More** link. The
+image loads only when the entry is opened. If it cannot be loaded, for example
+offline or because the pinned file is not on GitHub yet, the image and the
+crop switch disappear, and the text and the link stay.
+
+## One-time setup: the `BUMP_TOKEN` secret
 
 ## One-time setup: the `BUMP_TOKEN` secret
 
