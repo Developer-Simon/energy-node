@@ -242,3 +242,21 @@ def test_archive_files_second_run_folds_into_the_existing_tag_file(tmp_path):
     _write(tmp_path / "9.json", {"de": {"*": "neun"}})
     assert hi.archive_files(tmp_path, "v0.11.0") == [9]
     assert list(_read(tmp_path / "v0.11.0.json")) == ["5", "9"]
+
+
+def test_load_rejects_non_object_pr_file(tmp_path):
+    (tmp_path / "7.json").write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="7.json"):
+        hi.load_translations(tmp_path)
+
+
+def test_load_rejects_non_object_release_file(tmp_path):
+    (tmp_path / "v0.10.0.json").write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="v0.10.0.json"):
+        hi.load_translations(tmp_path)
+
+
+def test_load_rejects_non_object_archive_file(tmp_path):
+    (tmp_path / "archive-v0.json").write_text('"text"', encoding="utf-8")
+    with pytest.raises(ValueError, match="archive-v0.json"):
+        hi.load_translations(tmp_path)

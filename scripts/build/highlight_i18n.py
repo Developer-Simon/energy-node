@@ -78,23 +78,23 @@ def _read_map(path):
     """{pr: {lang: {key: text}}} aus einer Datei archive-v<MAJOR>.json oder
     v<MAJOR>.<MINOR>.<PATCH>.json. Schluessel sind PR-Nummern als Text, z.B.
     {"7": {"de": {"*": "..."}}}."""
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except json.JSONDecodeError as err:
-        raise ValueError(f"{path}: {err}") from err
-    if not isinstance(data, dict):
-        raise ValueError(f"{path}: the top level must be an object")
+    data = _read_object(path)
     for key in data:
         if not key.isdigit():
             raise ValueError(f"{path}: key {key!r} is not a PR number")
     return {int(key): entry for key, entry in data.items()}
 
 
-def _read_pr_file(path):
+def _read_object(path):
+    """Liest eine JSON-Datei, deren oberste Ebene ein Objekt sein muss. Sonst
+    ValueError mit Dateiname, bevor der Inhalt weiterverarbeitet wird."""
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as err:
         raise ValueError(f"{path}: {err}") from err
+    if not isinstance(data, dict):
+        raise ValueError(f"{path}: the top level must be an object")
+    return data
 
 
 def _version_key(stem):
@@ -149,7 +149,7 @@ def load_translations(directory):
     for path in _archive_paths(directory) + _release_files(directory):
         _fold(out, _read_map(path))
     for path in _pr_files(directory):
-        _fold(out, {int(path.stem): _read_pr_file(path)})
+        _fold(out, {int(path.stem): _read_object(path)})
     return out
 
 
@@ -173,7 +173,7 @@ def write_pr_file(directory, pr, blocks):
     geaendert hat."""
     directory = Path(directory)
     path = directory / f"{pr}.json"
-    current = json.loads(path.read_text(encoding="utf-8")) if path.is_file() else {}
+    current = _read_object(path) if path.is_file() else {}
     merged = {**current, **blocks}
     text = json.dumps(merged, indent=2, ensure_ascii=False, sort_keys=True) + "\n"
     if path.is_file() and path.read_text(encoding="utf-8") == text:
@@ -204,7 +204,7 @@ def archive_files(directory, tag):
     tag_path = directory / f"{tag}.json"
     releases = [path for path in _release_files(directory) if path.name != tag_path.name]
 
-    pr_entries = {int(path.stem): _read_pr_file(path) for path in pr_paths}
+    pr_entries = {int(path.stem): _read_object(path) for path in pr_paths}
     release_maps = [(path, _read_map(path)) for path in releases]
     tag_map = _read_map(tag_path) if tag_path.is_file() else {}
     archive_maps = {}
