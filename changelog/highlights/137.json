@@ -1,5 +1,19 @@
 {
   "de": {
     "*": "Wähle, wie viele Versionen der Changelog zeigt. Die Historie bleibt über Updates hinweg auf dem Gerät."
+  },
+  "details": {
+    "*": {
+      "en": "The setting Versions in the changelog sits on the Versions tab. Last 5 is the default and Last 20 is the most a bundle carries. All also shows the older versions the node kept from earlier updates.",
+      "de": "Die Einstellung Versionen im Changelog steht im Tab Versionen. Die letzten 5 sind voreingestellt, und die letzten 20 sind das Meiste, was ein Paket mitbringt. Alle zeigt zusätzlich die älteren Versionen, die das Gerät von früheren Updates behalten hat.",
+      "image": "dashboard-settings-versions.png",
+      "crop": [
+        0.02,
+        0.43,
+        0.48,
+        0.19
+      ],
+      "doc": "dashboard/settings-versions.html"
+    }
   }
 }

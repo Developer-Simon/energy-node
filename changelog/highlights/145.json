@@ -1,5 +1,19 @@
 {
   "de": {
     "*": "Die Device-Map zeigt, welche Geräte ausgeschaltet sind. Ein ausgeschalteter Ausgang trennt die Leitung dahinter, und jedes Gerät ohne Strom wird blass dargestellt und als aus markiert."
+  },
+  "details": {
+    "*": {
+      "en": "The device map marks every device without power as off and fades it out. A switched off output cuts the connection behind it.",
+      "de": "Die Device-Map markiert jedes Gerät ohne Strom als aus und blendet es ab. Ein ausgeschalteter Ausgang trennt die Verbindung dahinter.",
+      "image": "dashboard-device-map-switch-channel.png",
+      "crop": [
+        0.5,
+        0.17,
+        0.5,
+        0.3
+      ],
+      "doc": "dashboard/device-map.html#switchable-devices"
+    }
   }
 }
