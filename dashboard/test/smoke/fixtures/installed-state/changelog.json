@@ -3,23 +3,162 @@
   "generated_at": "2026-09-21T10:00:00+02:00",
   "bundle_version": "v0.7.5",
   "components": [
-    {"id": "dashboard", "label": "Dashboard", "kind": "app", "version": "v0.7.5", "releases": [
-      {"version": "v0.7.5", "date": "2026-09-21", "groups": [
-        {"type": "feat", "label": "Features", "entries": [
-          {"text": "add a versions page", "breaking": false, "scope": "dashboard", "pr": 51, "hash": "1234567", "highlight": true},
-          {"text": "show the package card above the component list", "breaking": false, "scope": "dashboard", "hash": "2345678", "highlight": false}]},
-        {"type": "fix", "label": "Fixes", "entries": [
-          {"text": "stop duplicate energy card mounts from fighting over springs", "breaking": false, "scope": "dashboard", "pr": 41, "hash": "3d3d7a8", "highlight": true}]},
-        {"type": "test", "label": "Tests", "entries": [
-          {"text": "cover a missing changelog.json", "breaking": false, "scope": "dashboard", "hash": "3456789", "highlight": false}]}]},
-      {"version": "v0.7.0", "date": "2026-09-16", "groups": [
-        {"type": "feat", "label": "Features", "entries": [
-          {"text": "drop the legacy node block", "breaking": true, "scope": "dashboard", "pr": 14, "hash": "e7f4ba1", "highlight": true}]}]}]},
-    {"id": "service:battery_soc", "label": "Battery SoC", "kind": "service", "version": "v0.4.0", "releases": [
-      {"version": "v0.4.0", "date": "2026-09-15", "groups": [
-        {"type": "feat", "label": "Features", "entries": [
-          {"text": "make device services self-describing with per-service manifests", "breaking": false, "pr": 12, "hash": "2e8c911", "highlight": true}]}]}]},
-    {"id": "service:shelly", "label": "Shelly", "kind": "service", "version": "v0.4.2", "releases": []},
-    {"id": "energy_node_common", "label": "energy_node_common", "kind": "library", "version": "v0.4.5", "releases": []}
+    {
+      "id": "dashboard",
+      "label": "Dashboard",
+      "kind": "app",
+      "version": "v0.7.5",
+      "releases": [
+        {
+          "version": "v0.7.5",
+          "date": "2026-09-21",
+          "groups": [
+            {
+              "type": "feat",
+              "label": "Features",
+              "entries": [
+                {
+                  "text": "add a versions page",
+                  "breaking": false,
+                  "scope": "dashboard",
+                  "pr": 51,
+                  "hash": "1234567",
+                  "highlight": true,
+                  "details": {
+                    "text": {
+                      "en": "The versions page lists every installed component. Open a row to see what changed since your version.",
+                      "de": "Die Versionsseite listet jede installierte Komponente. Öffne eine Zeile, um zu sehen, was sich seit deiner Version geändert hat."
+                    },
+                    "image": {
+                      "url": "data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20width%3D%271000%27%20height%3D%27600%27%20viewBox%3D%270%200%201000%20600%27%3E%3Crect%20width%3D%271000%27%20height%3D%27600%27%20fill%3D%27%23dfe7ee%27/%3E%3Crect%20x%3D%27500%27%20y%3D%27120%27%20width%3D%27500%27%20height%3D%27240%27%20fill%3D%27%23f2a33a%27/%3E%3Ctext%20x%3D%27750%27%20y%3D%27250%27%20font-size%3D%2740%27%20text-anchor%3D%27middle%27%20font-family%3D%27sans-serif%27%3Ecrop%20area%3C/text%3E%3Ctext%20x%3D%27250%27%20y%3D%27300%27%20font-size%3D%2740%27%20text-anchor%3D%27middle%27%20font-family%3D%27sans-serif%27%3Ewhole%20image%3C/text%3E%3C/svg%3E",
+                      "width": 1000,
+                      "height": 600,
+                      "crop": [
+                        0.5,
+                        0.2,
+                        0.5,
+                        0.4
+                      ]
+                    },
+                    "doc": "https://developer-simon.github.io/energy-node/dashboard/settings-versions.html"
+                  }
+                },
+                {
+                  "text": "show the package card above the component list",
+                  "breaking": false,
+                  "scope": "dashboard",
+                  "hash": "2345678",
+                  "highlight": false
+                }
+              ]
+            },
+            {
+              "type": "fix",
+              "label": "Fixes",
+              "entries": [
+                {
+                  "text": "stop duplicate energy card mounts from fighting over springs",
+                  "breaking": false,
+                  "scope": "dashboard",
+                  "pr": 41,
+                  "hash": "3d3d7a8",
+                  "highlight": true,
+                  "details": {
+                    "text": {
+                      "en": "Second row with an unreachable image. The image and the toggle must disappear."
+                    },
+                    "image": {
+                      "url": "http://127.0.0.1:9/missing.png",
+                      "width": 1000,
+                      "height": 600,
+                      "crop": [
+                        0.1,
+                        0.1,
+                        0.5,
+                        0.5
+                      ]
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "test",
+              "label": "Tests",
+              "entries": [
+                {
+                  "text": "cover a missing changelog.json",
+                  "breaking": false,
+                  "scope": "dashboard",
+                  "hash": "3456789",
+                  "highlight": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "version": "v0.7.0",
+          "date": "2026-09-16",
+          "groups": [
+            {
+              "type": "feat",
+              "label": "Features",
+              "entries": [
+                {
+                  "text": "drop the legacy node block",
+                  "breaking": true,
+                  "scope": "dashboard",
+                  "pr": 14,
+                  "hash": "e7f4ba1",
+                  "highlight": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "service:battery_soc",
+      "label": "Battery SoC",
+      "kind": "service",
+      "version": "v0.4.0",
+      "releases": [
+        {
+          "version": "v0.4.0",
+          "date": "2026-09-15",
+          "groups": [
+            {
+              "type": "feat",
+              "label": "Features",
+              "entries": [
+                {
+                  "text": "make device services self-describing with per-service manifests",
+                  "breaking": false,
+                  "pr": 12,
+                  "hash": "2e8c911",
+                  "highlight": true
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "service:shelly",
+      "label": "Shelly",
+      "kind": "service",
+      "version": "v0.4.2",
+      "releases": []
+    },
+    {
+      "id": "energy_node_common",
+      "label": "energy_node_common",
+      "kind": "library",
+      "version": "v0.4.5",
+      "releases": []
+    }
   ]
 }

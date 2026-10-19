@@ -226,6 +226,24 @@ async function all() {
     await s.ctx.close();
   }
 
+  // Einzelne Karten des MQTT-Tabs, eingebunden in docs/dashboard/settings-mqtt.md.
+  const mqttCards = [
+    ['dashboard-settings-mqtt-sensors', 'Home Assistant & simulation'],
+    ['dashboard-settings-mqtt-metrics', 'Publish system metrics'],
+    ['dashboard-settings-mqtt-bridge', 'Mosquitto bridge status'],
+  ];
+  if (mqttCards.some(([name]) => want(name))) {
+    s = await session(1110, 1800);
+    await tab(s.page, 'settings');
+    await s.page.locator('#settings-panel [role="tab"][aria-controls="settings-mqtt"]').click();
+    await s.page.waitForTimeout(2000);
+    for (const [name, title] of mqttCards) {
+      if (!want(name)) continue;
+      await element(s.page.locator('#settings-mqtt .setting-card', { has: s.page.getByRole('heading', { name: title }) }), name);
+    }
+    await s.ctx.close();
+  }
+
   if (want('dashboard-update-preview')) {
     s = await session(1280, 600);
     await s.page.goto(`${args.url}/redeploy/`, { waitUntil: 'networkidle' });
