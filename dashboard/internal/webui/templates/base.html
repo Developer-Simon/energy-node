@@ -53,7 +53,7 @@
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.svg" type="image/svg+xml">
   <link rel="icon" href="{{.BasePath}}/static/img/favicon.ico" sizes="any">
   <link rel="apple-touch-icon" href="{{.BasePath}}/static/img/apple-touch-icon.png">
-  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=40">
+  <link rel="stylesheet" href="{{.BasePath}}/static/css/base.css?v=41">
   <!-- Not deferred: every defer-Skript below (and every lazily loaded panel
        script) reads dashboardPath()/__DASHBOARD_BASE_PATH__ at request time,
        so the prefix has to exist before the first of them runs. -->
@@ -115,7 +115,27 @@
           <ul class="release-entries">
             <template x-for="release in component.releases" :key="release.version">
               <template x-for="(entry, index) in release.entries" :key="release.version + '-' + index">
-                <li><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></li>
+                <li x-bind:class="{ 'whatsnew-has-detail': entry.details }"><span class="release-breaking" x-show="entry.breaking && !entry.details">{{t "settings.versions.breaking"}}</span> <span x-show="!entry.details" x-text="entryText(entry)"></span>
+                  <template x-if="entry.details">
+                    <details class="whatsnew-detail" name="whatsnew-detail" x-data="{ loaded: false, cropped: true }" x-on:toggle="loaded = loaded || $el.open; onToggle($event)">
+                      <summary class="whatsnew-summary"><span><span class="release-breaking" x-show="entry.breaking">{{t "settings.versions.breaking"}}</span> <span x-text="entryText(entry)"></span></span><span class="whatsnew-more"><span class="whatsnew-more-closed">{{t "settings.whatsnew.more"}}</span><span class="whatsnew-more-open">{{t "settings.whatsnew.less"}}</span><svg class="whatsnew-chevron" viewBox="0 0 24 24" aria-hidden="true"><use href="#ico-chevron"></use></svg></span></summary>
+                      <div class="whatsnew-body">
+                        <p class="whatsnew-text" x-text="detailText(entry)"></p>
+                        <template x-if="entry.details.image">
+                          <figure class="whatsnew-figure">
+                            <span class="whatsnew-shot" x-bind:style="{ 'aspect-ratio': imageFrame(entry.details.image, cropped).aspect }"><img x-bind:src="loaded ? entry.details.image.url : null" x-bind:alt="entryText(entry)" x-bind:style="{ width: imageFrame(entry.details.image, cropped).width, height: imageFrame(entry.details.image, cropped).height, left: imageFrame(entry.details.image, cropped).left, top: imageFrame(entry.details.image, cropped).top }" x-on:load="$el.closest('.whatsnew-shot').classList.add('is-loaded')" x-on:error="$el.closest('.whatsnew-shot').classList.add('is-failed')"></span>
+                            <template x-if="entry.details.image.crop">
+                              <button type="button" class="whatsnew-crop-toggle" x-bind:aria-pressed="cropped ? 'false' : 'true'" x-on:click="cropped = !cropped"><span x-show="cropped">{{t "settings.whatsnew.full_image"}}</span><span x-show="!cropped">{{t "settings.whatsnew.crop"}}</span></button>
+                            </template>
+                          </figure>
+                        </template>
+                        <template x-if="entry.details.doc">
+                          <a class="whatsnew-link" x-bind:href="entry.details.doc" target="_blank" rel="noopener">{{t "settings.whatsnew.doc_link"}}</a>
+                        </template>
+                      </div>
+                    </details>
+                  </template>
+                </li>
               </template>
             </template>
           </ul>
@@ -298,7 +318,7 @@
   <script src="{{.BasePath}}/static/js/notifications.js?v=2" defer></script>
   <script src="{{.BasePath}}/static/js/dashboard.js?v=38" defer></script>
   <script src="{{.BasePath}}/static/js/update-bar.js?v=3" defer></script>
-  <script src="{{.BasePath}}/static/js/whatsnew.page.js?v=3" defer></script>
+  <script src="{{.BasePath}}/static/js/whatsnew.page.js?v=4" defer></script>
   <script src="{{.BasePath}}/static/js/overview.page.js?v=6" defer></script>
   <script src="{{.BasePath}}/static/js-deps/htmx.min.js" defer></script>
   <script src="{{.BasePath}}/static/js-deps/alpine-collapse.min.js" defer></script>

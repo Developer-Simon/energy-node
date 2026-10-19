@@ -1229,6 +1229,52 @@ table.energy-board-table tr.is-stale td { color: var(--text-faint); }
   text-transform: uppercase;
 }
 .whatsnew-eyebrow { font-size: .7rem; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-muted); }
+/* Aufklappbare Neuerungen: die ganze Zeile ist der Schalter, Bild und Doku-Link im Inhalt. */
+.whatsnew-has-detail { list-style: none; margin-left: -1.1rem; }
+.whatsnew-detail { interpolate-size: allow-keywords; border-radius: var(--radius-sm); transition: background-color .2s ease; }
+.whatsnew-detail[open] { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.whatsnew-summary { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: .6rem; padding: .2rem .4rem .2rem 1.1rem; border-radius: var(--radius-sm); cursor: pointer; list-style: none; -webkit-tap-highlight-color: transparent; transition: background-color .1s ease-out, transform .1s ease-out; }
+.whatsnew-summary::-webkit-details-marker { display: none; }
+.whatsnew-summary::before { content: ""; position: absolute; left: .35rem; top: .78em; width: 5px; height: 5px; border-radius: 50%; background: var(--accent); }
+.whatsnew-summary:hover { background: color-mix(in srgb, var(--text) 5%, transparent); }
+/* Response on press, not on release */
+.whatsnew-summary:active { background: color-mix(in srgb, var(--text) 9%, transparent); transform: scale(.992); }
+.whatsnew-summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.whatsnew-more { display: inline-flex; align-items: center; gap: .2rem; margin-top: .1rem; color: var(--accent-soft); font-size: .76rem; font-weight: 600; white-space: nowrap; }
+.whatsnew-chevron { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .32s var(--layout-ease); }
+.whatsnew-detail[open] .whatsnew-chevron { transform: rotate(90deg); }
+.whatsnew-more-open { display: none; }
+.whatsnew-detail[open] .whatsnew-more-open { display: inline; }
+.whatsnew-detail[open] .whatsnew-more-closed { display: none; }
+/* Height grows from the row (same path in and out), critically damped curve */
+.whatsnew-detail::details-content { block-size: 0; overflow: clip; transition: block-size .32s var(--layout-ease), content-visibility .32s allow-discrete; }
+.whatsnew-detail[open]::details-content { block-size: auto; }
+.whatsnew-body { display: grid; gap: .6rem; padding: .25rem .6rem .7rem 1.1rem; opacity: 0; transform: translateY(-4px); transition: opacity .22s ease, transform .32s var(--layout-ease); }
+.whatsnew-detail[open] .whatsnew-body { opacity: 1; transform: none; transition-delay: .04s; }
+.whatsnew-text { margin: 0; color: var(--text-subtle); font-size: .86rem; line-height: 1.55; }
+/* Screenshot: space reserved, fades in on load, frame disappears on error */
+.whatsnew-shot { display: block; position: relative; aspect-ratio: 16 / 10; border: 1px solid var(--border-soft); border-radius: var(--radius-sm); background: var(--sunken); overflow: hidden; transition: opacity .2s ease, aspect-ratio .32s var(--layout-ease); }
+.whatsnew-shot::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--text) 6%, transparent) 50%, transparent 70%); background-size: 200% 100%; animation: whatsnew-shimmer 1.4s linear infinite; }
+.whatsnew-shot.is-loaded::after { display: none; }
+.whatsnew-shot img { position: absolute; display: block; max-width: none; opacity: 0; transition: opacity .3s ease, width .32s var(--layout-ease), height .32s var(--layout-ease), left .32s var(--layout-ease), top .32s var(--layout-ease); }
+.whatsnew-shot.is-loaded img { opacity: 1; }
+.whatsnew-shot.is-failed { display: none; }
+@keyframes whatsnew-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.whatsnew-figure { display: grid; gap: .35rem; margin: 0; }
+.whatsnew-figure:has(.is-failed) { display: none; }
+.whatsnew-crop-toggle { justify-self: end; display: inline-flex; align-items: center; gap: .3rem; padding: .2rem .55rem; border: 1px solid var(--border-soft); border-radius: 999px; background: var(--panel); color: var(--text-muted); font-size: .74rem; cursor: pointer; transition: background-color .1s ease-out, color .1s ease-out, transform .1s ease-out; }
+.whatsnew-crop-toggle:hover { color: var(--text); }
+.whatsnew-crop-toggle:active { transform: scale(.96); background: var(--sunken); }
+.whatsnew-crop-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.whatsnew-link { justify-self: start; display: inline-flex; align-items: center; gap: .3rem; color: var(--accent-soft); font-size: .82rem; font-weight: 500; text-decoration: none; }
+.whatsnew-link:hover { color: var(--accent); text-decoration: underline; }
+@media (prefers-reduced-motion: reduce) {
+  .whatsnew-detail::details-content { transition: none; }
+  .whatsnew-body { transform: none; transition: opacity .15s ease; }
+  .whatsnew-chevron, .whatsnew-summary { transition: none; }
+  .whatsnew-summary:active { transform: none; }
+  .whatsnew-shot::after { animation: none; }
+}
 .update-bar-dismiss { padding: 0 .2rem; border: 0; background: none; color: var(--text-muted); font-size: 1.1rem; cursor: pointer; }
 .update-bar-restarting { border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
 .update-bar-restarting .update-bar-icon { stroke: var(--warn); }
