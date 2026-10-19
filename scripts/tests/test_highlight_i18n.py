@@ -83,6 +83,11 @@ def test_write_pr_file_merges_languages_and_reports_change(tmp_path):
     assert (tmp_path / "5.json").read_text(encoding="utf-8").endswith("}\n")
 
 
+def test_entry_i18n_ignores_the_details_key():
+    translations = {5: {"de": {"*": "x"}, "details": {"*": {"en": "e", "de": "d"}}}}
+    assert hi.entry_i18n(translations, 5, "installer") == {"de": "x"}
+
+
 def test_targets_from_table():
     table = {"components": [{"target": "dashboard"}, {"target": "service:shelly"}]}
     assert hi.targets_from_table(table) == {"dashboard", "service:shelly"}

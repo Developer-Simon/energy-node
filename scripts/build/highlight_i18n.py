@@ -32,6 +32,7 @@ DEFAULT_KEY = "*"
 BLOCK_HEAD = re.compile(r"^\s*Highlights \((?P<lang>[a-z]{2})\):\s*$")
 BLOCK_LINE = re.compile(r"^\s*-\s+(?P<text>.*\S)\s*$")
 TARGETED = re.compile(r"^(?P<target>[a-z_:-]+):\s+(?P<text>.+)$")
+LANGUAGE_KEY = re.compile(r"^[a-z]{2}$")
 
 
 def targets_from_table(table):
@@ -118,7 +119,7 @@ def lookup(translations, pr, target, lang):
 
 def entry_i18n(translations, pr, target):
     out = {}
-    for lang in sorted(translations.get(pr, {})):
+    for lang in sorted(k for k in translations.get(pr, {}) if LANGUAGE_KEY.match(k)):
         text = lookup(translations, pr, target, lang)
         if text:
             out[lang] = text
