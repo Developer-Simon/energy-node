@@ -26,6 +26,8 @@ once something is assigned to its role or category, so the list stays empty
 until then. House load measured and House load calculated, offered once a house meter is assigned. Energy Node Companion uses the measured one for the house meter history. All of them are on by default. Deselect a sensor to have the
 dashboard remove it from Home Assistant again, and select it to bring it back.
 
+![Home Assistant and simulation card with the additional sensors](../images/dashboard-settings-mqtt-sensors.png)
+
 A sensor is removed as well when its category is deleted or unassigned. This
 also works after a restart of the dashboard, because the announced sensors are
 remembered in `energydiscovery/announced.json`. In Home Assistant each category
@@ -47,6 +49,8 @@ from the selection to stop publishing it and add it again to resume. Changes are
 saved immediately. Guests see the selection but cannot change it. Changing it
 needs a login with configuration rights over HTTPS.
 
+![Published system metrics](../images/dashboard-settings-mqtt-metrics.png)
+
 ## Bridge to the main site
 
 Users who can configure the bridge see the same steps at the top of the bridge section.
@@ -65,6 +69,8 @@ Users who can configure the bridge see the same steps at the top of the bridge s
    interrupts all MQTT connections of this device, including the dashboard's.
 7. In the Mosquitto bridge status, check that the bridge connection shows as
    connected and that "Installed = saved" shows yes.
+
+![Mosquitto bridge status](../images/dashboard-settings-mqtt-bridge.png)
 
 ### If applying fails
 
