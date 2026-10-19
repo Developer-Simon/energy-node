@@ -5,9 +5,11 @@ Je PR eine Datei changelog/highlights/<PR>.json:
 
     {"de": {"*": "Text fuer jede Komponente", "dashboard": "nur fuer das Dashboard"}}
 
-Texte alter, bereits veroeffentlichter Highlights koennen in changelog/highlights/
-archive.json stehen ({"<PR>": {"de": {...}}}). Eine Datei <PR>.json ueberschreibt
-den Archiv-Eintrag fuer die Sprachen, die sie enthaelt.
+Nach einem Release wandern die Texte aus den PR-Dateien in zwei Arten von Dateien:
+changelog/highlights/v<MAJOR>.<MINOR>.<PATCH>.json enthaelt die Texte eines Releases,
+changelog/highlights/archive-v<MAJOR>.json die aller Releases einer Major-Version.
+Beide haben die Form {"<PR>": {"de": {...}}}. Eine Datei <PR>.json ueberschreibt
+den Eintrag aus diesen Dateien fuer die Sprachen, die sie enthaelt.
 
 "*" gilt fuer jede Komponente ohne eigene Zeile, wie eine Zeile ohne Ziel im
 Block "Highlights:" der Squash-Nachricht (scripts/generate_changelog.sh). Jeder
@@ -26,7 +28,8 @@ from pathlib import Path
 # Sprachen ausser Englisch, die jedes Highlight braucht (CI-Pruefung).
 LANGUAGES = ("de",)
 TRANSLATIONS_DIR = Path("changelog/highlights")
-ARCHIVE_NAME = "archive.json"
+RELEASE_FILE = re.compile(r"^v(?P<major>\d+)\.\d+\.\d+$")
+ARCHIVE_FILE = re.compile(r"^archive-v(?P<major>\d+)$")
 DEFAULT_KEY = "*"
 
 BLOCK_HEAD = re.compile(r"^\s*Highlights \((?P<lang>[a-z]{2})\):\s*$")
@@ -71,9 +74,10 @@ def parse_blocks(body, targets):
     return out
 
 
-def _read_archive(path):
-    """{pr: {lang: {key: text}}} aus archive.json. Schluessel sind PR-Nummern
-    als Text, z.B. {"7": {"de": {"*": "..."}}}."""
+def _read_map(path):
+    """{pr: {lang: {key: text}}} aus einer Datei archive-v<MAJOR>.json oder
+    v<MAJOR>.<MINOR>.<PATCH>.json. Schluessel sind PR-Nummern als Text, z.B.
+    {"7": {"de": {"*": "..."}}}."""
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as err:
@@ -86,29 +90,66 @@ def _read_archive(path):
     return {int(key): entry for key, entry in data.items()}
 
 
-def load_translations(directory):
-    """{pr: {lang: {key: text}}} aus <directory>/archive.json und <PR>.json.
+def _read_pr_file(path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as err:
+        raise ValueError(f"{path}: {err}") from err
 
-    Eine Datei <PR>.json ueberschreibt den Archiv-Eintrag je Sprache. Eine
-    kaputte Datei bricht ab (ValueError mit Dateiname): still verlorene
-    Uebersetzungen fallen sonst erst im Release auf.
+
+def _version_key(stem):
+    """(major, minor, patch) als Zahlen, damit v0.10.0 nach v0.9.0 kommt."""
+    return tuple(int(part) for part in stem[1:].split("."))
+
+
+def _archive_paths(directory):
+    """Alle archive-v<MAJOR>.json, nach Major aufsteigend."""
+    found = [path for path in directory.glob("*.json")
+             if path.is_file() and ARCHIVE_FILE.match(path.stem)]
+    return sorted(found, key=lambda path: int(ARCHIVE_FILE.match(path.stem)["major"]))
+
+
+def _release_files(directory):
+    """Alle v<X.Y.Z>.json, nach Version aufsteigend."""
+    found = [path for path in directory.glob("*.json")
+             if path.is_file() and RELEASE_FILE.match(path.stem)]
+    return sorted(found, key=lambda path: _version_key(path.stem))
+
+
+def _pr_files(directory):
+    """Alle <PR>.json, nach PR-Nummer aufsteigend."""
+    found = [path for path in directory.glob("*.json")
+             if path.is_file() and path.stem.isdigit()]
+    return sorted(found, key=lambda path: int(path.stem))
+
+
+def _fold(target, entries):
+    for pr, entry in entries.items():
+        target[pr] = {**target.get(pr, {}), **entry}
+
+
+def _write_map(path, data):
+    ordered = {str(pr): data[pr] for pr in sorted(data)}
+    path.write_text(json.dumps(ordered, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+
+
+def load_translations(directory):
+    """{pr: {lang: {key: text}}} aus allen Dateien des Verzeichnisses.
+
+    Reihenfolge: archive-v<MAJOR>.json nach Major aufsteigend, dann
+    v<X.Y.Z>.json nach Version, dann <PR>.json. Spaetere Dateien ueberschreiben
+    den frueheren Eintrag je Top-Level-Schluessel. Eine kaputte Datei bricht ab
+    (ValueError mit Dateiname): still verlorene Uebersetzungen fallen sonst erst
+    im Release auf.
     """
     out = {}
     directory = Path(directory)
     if not directory.is_dir():
         return out
-    archive = directory / ARCHIVE_NAME
-    if archive.is_file():
-        out = _read_archive(archive)
-    for path in sorted(directory.glob("*.json")):
-        if not path.stem.isdigit():
-            continue
-        try:
-            entry = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as err:
-            raise ValueError(f"{path}: {err}") from err
-        pr = int(path.stem)
-        out[pr] = {**out.get(pr, {}), **entry}
+    for path in _archive_paths(directory) + _release_files(directory):
+        _fold(out, _read_map(path))
+    for path in _pr_files(directory):
+        _fold(out, {int(path.stem): _read_pr_file(path)})
     return out
 
 
@@ -142,32 +183,44 @@ def write_pr_file(directory, pr, blocks):
     return True
 
 
-def archive_files(directory):
-    """Faltet alle <PR>.json in archive.json und loescht sie. Gibt die
-    gefalteten PR-Nummern sortiert zurueck, ohne Dateien gibt es nichts zu tun
-    und archive.json bleibt unangetastet.
+def archive_files(directory, tag):
+    """Faltet die <PR>.json in die Datei <tag>.json und die Release-Dateien in
+    archive-v<MAJOR>.json (je Major-Version eine), und loescht die gefalteten
+    Dateien. Gibt die in <tag>.json gefalteten PR-Nummern sortiert zurueck.
 
-    Alle Dateien werden vorher gelesen: eine kaputte Datei bricht ab (ValueError
-    mit Dateiname), bevor etwas geschrieben oder geloescht wird.
+    tag muss ein finales Release sein (vX.Y.Z). Ohne <PR>.json passiert nichts.
+    Existiert <tag>.json schon (zweiter Lauf), werden die PR-Dateien hineingefaltet.
+    Alle Dateien werden vor dem ersten Schreiben gelesen: eine kaputte Datei bricht
+    mit ValueError ab, bevor etwas geschrieben oder geloescht wird.
     """
+    if not RELEASE_FILE.match(tag):
+        raise ValueError(f"{tag!r} is not a final release tag vX.Y.Z")
     directory = Path(directory)
     if not directory.is_dir():
         return []
-    per_pr = [path for path in sorted(directory.glob("*.json")) if path.stem.isdigit()]
-    if not per_pr:
+    pr_paths = _pr_files(directory)
+    if not pr_paths:
         return []
-    archive_path = directory / ARCHIVE_NAME
-    archive = _read_archive(archive_path) if archive_path.is_file() else {}
-    folded = {}
-    for path in per_pr:
-        try:
-            folded[int(path.stem)] = json.loads(path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as err:
-            raise ValueError(f"{path}: {err}") from err
-    for pr, entry in folded.items():
-        archive[pr] = {**archive.get(pr, {}), **entry}
-    ordered = {str(pr): archive[pr] for pr in sorted(archive)}
-    archive_path.write_text(json.dumps(ordered, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    for path in per_pr:
+    tag_path = directory / f"{tag}.json"
+    releases = [path for path in _release_files(directory) if path.name != tag_path.name]
+
+    pr_entries = {int(path.stem): _read_pr_file(path) for path in pr_paths}
+    release_maps = [(path, _read_map(path)) for path in releases]
+    tag_map = _read_map(tag_path) if tag_path.is_file() else {}
+    archive_maps = {}
+    for path, entries in release_maps:
+        major = int(RELEASE_FILE.match(path.stem)["major"])
+        archive_path = directory / f"archive-v{major}.json"
+        if archive_path not in archive_maps:
+            archive_maps[archive_path] = _read_map(archive_path) if archive_path.is_file() else {}
+        _fold(archive_maps[archive_path], entries)
+    _fold(tag_map, pr_entries)
+
+    for archive_path, data in archive_maps.items():
+        _write_map(archive_path, data)
+    _write_map(tag_path, tag_map)
+    for path, _ in release_maps:
         path.unlink()
-    return sorted(folded)
+    for path in pr_paths:
+        path.unlink()
+    return sorted(pr_entries)

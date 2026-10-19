@@ -3,7 +3,7 @@
 
     highlight_translations.py sync  --repo <repo> --pr <N> --body-file <datei>
     highlight_translations.py check --repo <repo> --pr <N>
-    highlight_translations.py archive --repo <repo>
+    highlight_translations.py archive --repo <repo> --tag <vX.Y.Z>
     highlight_translations.py validate --repo <repo>
 
 sync (Version-bump-Workflow): uebertraegt die Bloecke "Highlights (xx):" aus
@@ -16,8 +16,9 @@ jeder CHANGELOG.md aus scripts/version/components.json braucht einen Text in
 jeder Sprache aus highlight_i18n.LANGUAGES. Eintraege ohne PR-Nummer (einzelne
 Commits) prueft niemand.
 
-archive (Release-Workflow): faltet alle changelog/highlights/<N>.json in
-archive.json und loescht sie.
+archive --tag (Release-Workflow): faltet alle changelog/highlights/<N>.json in
+changelog/highlights/<vX.Y.Z>.json, die Datei des vorigen Releases in
+archive-v<MAJOR>.json, und loescht die gefalteten Dateien.
 
 validate (CI): prueft die Details aller Dateien in changelog/highlights, nicht
 nur die des PRs (siehe highlight_details.validate). Eine Zeile je Meldung,
@@ -101,8 +102,8 @@ def validate(repo):
     return 1 if problems else 0
 
 
-def archive(repo):
-    folded = highlight_i18n.archive_files(repo / highlight_i18n.TRANSLATIONS_DIR)
+def archive(repo, tag):
+    folded = highlight_i18n.archive_files(repo / highlight_i18n.TRANSLATIONS_DIR, tag)
     if not folded:
         print("nothing to archive")
     else:
@@ -121,12 +122,13 @@ def main(argv=None):
             command.add_argument("--body-file", required=True)
     archive_command = sub.add_parser("archive")
     archive_command.add_argument("--repo", required=True)
+    archive_command.add_argument("--tag", required=True)
     validate_command = sub.add_parser("validate")
     validate_command.add_argument("--repo", required=True)
     args = parser.parse_args(argv)
     repo = Path(args.repo)
     if args.command == "archive":
-        return archive(repo)
+        return archive(repo, args.tag)
     if args.command == "validate":
         return validate(repo)
     if args.command == "sync":

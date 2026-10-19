@@ -94,7 +94,7 @@ def test_version_document_cuts_the_releases():
 
 
 def test_cli_archive_translation_reaches_the_older_version_file(tmp_path):
-    # Archiv-Anpassung: die Uebersetzung steht in archive.json, der Eintrag (#34)
+    # Archiv-Anpassung: die Uebersetzung steht in archive-v0.json, der Eintrag (#34)
     # gehoert zu einem aelteren Release als dem neuesten Bundle. Die Datei dieser
     # aelteren Bundle-Version muss sie tragen.
     repo = tmp_path / "repo"
@@ -108,7 +108,7 @@ def test_cli_archive_translation_reaches_the_older_version_file(tmp_path):
         {"id": "dashboard", "label": "Dashboard", "kind": "app", "target": "dashboard",
          "version_file": "dashboard/VERSION", "changelog": "dashboard/CHANGELOG.md", "bundle": True}]}
     (repo / "scripts/version/components.json").write_text(json.dumps(table), encoding="utf-8")
-    (repo / "changelog/highlights/archive.json").write_text(
+    (repo / "changelog/highlights/archive-v0.json").write_text(
         json.dumps({"34": {"de": {"*": "Ding"}}}), encoding="utf-8")
     old = ("## v0.6.0 (2026-09-01)\n\n### Fixes\n\n- **dashboard:** older fix (#9) (1111111)\n")
     new = old + ("\n## v0.7.0 (2026-09-16)\n\n### Features\n\n- **dashboard:** add a thing (#34) (e5fc9db)\n")

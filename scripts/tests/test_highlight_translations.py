@@ -2,6 +2,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "build"))
 import highlight_translations as ht
 
@@ -109,19 +111,26 @@ def test_sync_replaces_language_wholesale(tmp_path):
     assert json.loads((repo / "changelog/highlights/140.json").read_text(encoding="utf-8")) == {"de": {"*": "neu"}}
 
 
-def test_archive_command_folds_files(tmp_path, capsys):
+def test_archive_command_needs_the_tag(tmp_path):
+    repo = make_repo(tmp_path)
+    with pytest.raises(SystemExit) as exit_info:
+        ht.main(["archive", "--repo", str(repo)])
+    assert exit_info.value.code == 2
+
+
+def test_archive_command_folds_into_the_tag_file(tmp_path, capsys):
     repo = make_repo(tmp_path)
     write_translation(repo, 140, {"de": {"*": "zeigt die übersetzten Highlights"}})
-    assert ht.main(["archive", "--repo", str(repo)]) == 0
+    assert ht.main(["archive", "--repo", str(repo), "--tag", "v0.11.0"]) == 0
     assert "archived 1 files" in capsys.readouterr().out
     assert not (repo / "changelog/highlights/140.json").exists()
-    archive = json.loads((repo / "changelog/highlights/archive.json").read_text(encoding="utf-8"))
-    assert "140" in archive
+    release = json.loads((repo / "changelog/highlights/v0.11.0.json").read_text(encoding="utf-8"))
+    assert "140" in release
 
 
 def test_archive_command_with_nothing_to_do(tmp_path, capsys):
     repo = make_repo(tmp_path)
-    assert ht.main(["archive", "--repo", str(repo)]) == 0
+    assert ht.main(["archive", "--repo", str(repo), "--tag", "v0.11.0"]) == 0
     assert "nothing to archive" in capsys.readouterr().out
 
 
