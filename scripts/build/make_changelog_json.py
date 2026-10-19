@@ -23,6 +23,7 @@ import sys
 from pathlib import Path
 
 import changelog_history
+import highlight_details
 import highlight_i18n
 from changelog_history import parse_version  # noqa: F401  (re-exported)
 
@@ -129,7 +130,30 @@ def attach_translations(releases, translations, target):
     return releases
 
 
-def build_document(repo, table, *, bundle_version, max_releases, generated_at):
+def attach_details(releases, repo, translations, target, image_ref):
+    """Setzt "details" an jeden PR-Eintrag mit Details (Schluessel "details" in
+    changelog/highlights/<PR>.json, siehe highlight_details.py).
+
+    image_ref None: der Tag oder Commit von repo wird erst gebraucht, wenn ein
+    Eintrag tatsaechlich ein Bild hat. Repos ohne Git und ohne Bild-Details
+    bleiben damit lauffaehig.
+    """
+    ref = image_ref
+    for release in releases:
+        for group in release["groups"]:
+            for entry in group["entries"]:
+                if "pr" not in entry:
+                    continue
+                details = highlight_details.lookup(translations, entry["pr"], target)
+                if details is None:
+                    continue
+                if ref is None and isinstance(details, dict) and "image" in details:
+                    ref = highlight_details.image_ref(repo)
+                entry["details"] = highlight_details.resolve(repo, translations, entry["pr"], target, ref)
+    return releases
+
+
+def build_document(repo, table, *, bundle_version, max_releases, generated_at, image_ref=None):
     translations = highlight_i18n.load_translations(repo / highlight_i18n.TRANSLATIONS_DIR)
     components = []
     for row in table["components"]:
@@ -137,7 +161,9 @@ def build_document(repo, table, *, bundle_version, max_releases, generated_at):
             continue
         changelog = repo / row["changelog"]
         releases = mark_highlights(parse_changelog(changelog.read_text(encoding="utf-8"))) if changelog.is_file() else []
-        attach_translations(releases, translations, row.get("target", row["id"]))
+        target = row.get("target", row["id"])
+        attach_translations(releases, translations, target)
+        attach_details(releases, repo, translations, target, image_ref)
         components.append({
             "id": row["id"],
             "label": row["label"],
@@ -160,13 +186,15 @@ def main(argv=None):
     parser.add_argument("--out-dir", help="Verzeichnis fuer <version>.json je Bundle-Version")
     parser.add_argument("--bundle-version")
     parser.add_argument("--history", type=int, default=changelog_history.DEFAULT_HISTORY)
+    parser.add_argument("--image-ref", help="Tag oder Commit fuer Bild-URLs der Details (Standard: Tag oder HEAD von --repo)")
     args = parser.parse_args(argv)
     repo = Path(args.repo)
     table = json.loads((repo / "scripts/version/components.json").read_text(encoding="utf-8"))
     bundle_version = args.bundle_version or read_version(repo / "dashboard/VERSION")
     generated_at = datetime.datetime.now().astimezone().isoformat(timespec="seconds")
     # Alle Releases: die Bereiche je Bundle-Version schneiden erst die Schritte.
-    full = build_document(repo, table, bundle_version=bundle_version, max_releases=10_000, generated_at=generated_at)
+    full = build_document(repo, table, bundle_version=bundle_version, max_releases=10_000,
+                          generated_at=generated_at, image_ref=args.image_ref)
     steps = changelog_history.history(repo, table, bundle_version, max(args.history, 1))
     documents = [changelog_history.version_document(full, step, generated_at) for step in steps]
     write_json(Path(args.out), documents[0])
