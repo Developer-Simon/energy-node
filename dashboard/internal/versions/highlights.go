@@ -24,8 +24,8 @@ type HighlightsEntry struct {
 	Details  *HighlightDetails `json:"details,omitempty"`
 }
 
-// HighlightImage is the screenshot of a highlight, with the crop (x0, y0, x1, y1
-// as fractions of the image) the dialog shows.
+// HighlightImage is the screenshot of a highlight, with the crop (x, y, width,
+// height as fractions of the image) the dialog shows.
 type HighlightImage struct {
 	URL    string    `json:"url"`
 	Width  int       `json:"width"`
