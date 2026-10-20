@@ -183,3 +183,37 @@ test('eine Station ohne Marker zieht die Leiste nicht zurueck', () => {
   assert.deepEqual(plain(M.current(model, groups)), { number: 13, total: 13, label: 'Automation' });
   assert.equal(M.progress(model, groups), 100);
 });
+
+test('ein angehaengter Schritt ohne Marker haelt seine Station nicht auf wartet', () => {
+  const { window } = loadScripts(['i18n.js', 'format.js', 'services.js', 'run-model.js']);
+  window.I18n.catalog = realCatalog('de');
+  const shell = { t: (key, params) => window.I18n.t(key, params) };
+  const manifest = { steps: [{ id: '20' }, { id: '30' }, { id: '35', optional: true, requires: '83' }, { id: '40' }] };
+  const M = window.RunModel;
+  const groups = window.Services.runGroups(manifest, shell);
+  const firewall = groups[1];
+  assert.deepEqual(plain(firewall.ids), ['30', '35']);
+
+  const model = M.create('run-1');
+  play(M, model, [
+    ['run-started', { run_id: 'run-1', mode: 'update' }, 0],
+    ['step', { id: '30', state: 'begin' }, 1], ['step', { id: '30', state: 'skip', detail: 'bereits erledigt' }, 2],
+  ]);
+  // 35 koennte direkt nach 30 noch kommen: die Station bleibt offen.
+  assert.equal(M.groupState(model, firewall), 'wait');
+
+  play(M, model, [['step', { id: '40', state: 'begin' }, 3]]);
+  assert.equal(M.groupState(model, firewall), 'skip');
+
+  // Ein spaeteres Wiedereinspielen frueherer Marker aendert die Reihenfolge nicht.
+  play(M, model, [['step', { id: '30', state: 'begin' }, 4], ['step', { id: '30', state: 'skip', detail: 'bereits erledigt' }, 4]]);
+  assert.equal(M.groupState(model, firewall), 'skip');
+
+  const finished = M.create('run-2');
+  play(M, finished, [
+    ['run-started', { run_id: 'run-2', mode: 'update' }, 0],
+    ['step', { id: '30', state: 'begin' }, 1], ['step', { id: '30', state: 'ok' }, 2],
+    ['run-finished', { run_id: 'run-2', ok: true }, 3],
+  ]);
+  assert.equal(M.groupState(finished, firewall), 'ok');
+});

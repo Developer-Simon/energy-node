@@ -25,14 +25,14 @@
     return {
       runId: runId, started: false, finished: false, ok: null, code: '', detail: '', failedStep: '',
       mode: '', only: '', startedAt: 0, finishedAt: 0, lastAt: 0,
-      steps: {}, log: [], logCount: 0, loginUrl: '', loginStep: '', loginPending: false,
+      steps: {}, markers: 0, log: [], logCount: 0, loginUrl: '', loginStep: '', loginPending: false,
       rebootPending: false,
     };
   }
 
   function stepOf(model, id) {
     if (!model.steps[id]) {
-      model.steps[id] = { state: 'wait', detail: '', beganAt: 0, endedAt: 0, lastLine: '' };
+      model.steps[id] = { state: 'wait', detail: '', beganAt: 0, endedAt: 0, lastLine: '', order: 0 };
     }
     return model.steps[id];
   }
@@ -67,6 +67,10 @@
     }
     if (type === 'step') {
       var step = stepOf(model, data.id);
+      if (!step.order) {
+        model.markers += 1;
+        step.order = model.markers;
+      }
       if (data.state === 'begin') {
         step.state = 'run';
         step.beganAt = at;
@@ -118,8 +122,27 @@
     return model.steps[id] ? model.steps[id].state : 'wait';
   }
 
+  // Ein angehaengter Schritt (Services.runGroups, 35 unter 30) ohne Marker
+  // laeuft in diesem Lauf nicht - der Updater des Dashboards nimmt nur
+  // gewaehlte Schritte in den Auftrag. Er zaehlt nicht mehr mit, sobald nach
+  // dem ersten Schritt der Station ein fremder begann oder der Lauf endete.
+  // Ein wieder eingespielter frueherer Marker aendert order nicht.
+  function passedOver(model, group, id) {
+    if (id === group.ids[0] || stateOf(model, id) !== 'wait') {
+      return false;
+    }
+    if (model.finished) {
+      return true;
+    }
+    var head = model.steps[group.ids[0]];
+    return !!head && !!head.order && Object.keys(model.steps).some(function (other) {
+      return group.ids.indexOf(other) < 0 && model.steps[other].order > head.order;
+    });
+  }
+
   function groupState(model, group) {
-    var states = group.ids.map(function (id) { return stateOf(model, id); });
+    var states = group.ids.filter(function (id) { return !passedOver(model, group, id); })
+      .map(function (id) { return stateOf(model, id); });
     if (states.indexOf('fail') >= 0) {
       return 'fail';
     }
