@@ -69,13 +69,14 @@ fp_bundle="$tmp/fp"
 fingerprint_of() {
   rm -rf "$fp_bundle"
   mkdir -p "$fp_bundle/bootstrap/lib" "$fp_bundle/wheels" "$fp_bundle/dashboard"
-  printf '# step-inputs: bootstrap/lib/step.sh wheels/\necho a\n' > "$fp_bundle/bootstrap/50-python-deps.sh"
+  printf '# step-inputs: bootstrap/lib/step.sh wheels/ manifest:components.lib\necho a\n' > "$fp_bundle/bootstrap/50-python-deps.sh"
   printf 'echo ohne\n' > "$fp_bundle/bootstrap/15-system-upgrade.sh"
   printf 'lib\n' > "$fp_bundle/bootstrap/lib/step.sh"
   printf 'rad\n' > "$fp_bundle/wheels/x-1.0-py3-none-any.whl"
   printf 'bin\n' > "$fp_bundle/dashboard/energy-node-dashboard"
   "$1"
-  printf '{"version":"%s","steps":[{"id":"15"},{"id":"50"}]}\n' "${FP_VERSION:-v1.0.0}" \
+  printf '{"version":"%s","components":{"lib":"%s","other":"%s"},"steps":[{"id":"15"},{"id":"50"}]}\n' \
+    "${FP_VERSION:-v1.0.0}" "${FP_LIB:-v1}" "${FP_OTHER:-v1}" \
     > "$fp_bundle/manifest.head.json"
   run write_bundle_manifest "$fp_bundle" >/dev/null
   python3 -c 'import json,sys; s={x["id"]: x for x in json.load(open(sys.argv[1]))["steps"]}; print(s["50"].get("fingerprint",""), s["15"].get("fingerprint","-"))' \
@@ -98,6 +99,8 @@ base="$(fingerprint_of unchanged)"
 [ "$(fingerprint_of new_input)" != "$base" ] || fail "neue Datei unter einem Eingabe-Verzeichnis aendert den Fingerabdruck nicht"
 [ "$(fingerprint_of changed_lib)" != "$base" ] || fail "geaenderte Bibliothek aendert den Fingerabdruck nicht"
 [ "$(fingerprint_of changed_script)" != "$base" ] || fail "geaendertes Skript aendert den Fingerabdruck nicht"
+[ "$(FP_LIB=v2 fingerprint_of unchanged)" != "$base" ] || fail "genanntes Manifest-Unterfeld aendert den Fingerabdruck nicht"
+[ "$(FP_OTHER=v2 fingerprint_of unchanged)" = "$base" ] || fail "nicht genanntes Manifest-Unterfeld aendert den Fingerabdruck"
 
 set +e
 out="$(fingerprint_of typo_input 2>&1)"

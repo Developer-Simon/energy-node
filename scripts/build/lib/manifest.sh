@@ -11,7 +11,8 @@
 # Fingerabdruck (steps[].fingerprint). Das Skript nennt sie in Zeilen der Form
 #   # step-inputs: bootstrap/lib/render.sh dashboard/ manifest:caddy
 # Ein Pfad mit "/" am Ende steht fuer alles darunter, "manifest:<feld>" fuer
-# ein Feld des Manifests, das Skript selbst zaehlt immer mit. Der Stempel
+# ein Feld des Manifests, mit Punkt auch fuer ein Unterfeld
+# (manifest:components.energy_node_common), das Skript selbst zaehlt immer mit. Der Stempel
 # eines Schritts gilt, solange der Fingerabdruck gleich bleibt (lib/step.sh),
 # so laeuft ein Update nur die Schritte, deren Eingaben sich geaendert haben.
 # Ein Skript ohne step-inputs bekommt keinen Fingerabdruck und laeuft wie
@@ -62,7 +63,9 @@ def fingerprint(script_rel, inputs):
     lines = ["%s %s" % (script_rel, files[script_rel])]
     for item in inputs:
         if item.startswith("manifest:"):
-            value = manifest.get(item.split(":", 1)[1])
+            value = manifest
+            for key in item.split(":", 1)[1].split("."):
+                value = value.get(key) if isinstance(value, dict) else None
             lines.append("%s %s" % (item, json.dumps(value, sort_keys=True)))
             continue
         matched = sorted(rel for rel in files if rel == item or (item.endswith("/") and rel.startswith(item)))

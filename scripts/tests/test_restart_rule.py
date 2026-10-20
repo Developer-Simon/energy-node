@@ -54,3 +54,19 @@ def test_library_map_matches_the_services_imports():
     assert importers["battery_soc_core"] == restart_rule.LIBRARY_USERS["battery_soc_core"]
     assert restart_rule.LIBRARY_USERS["energy_node_common"] is None, "every service restarts for it"
     assert importers["energy_node_common"], "no service imports energy_node_common any more?"
+
+
+def test_service_steps_rerun_exactly_for_their_libraries():
+    """A service step's fingerprint names the library versions the restart rule
+    looks at, and not wheels/: a new third-party wheel (certifi) must not run
+    every service step again when none of them would restart."""
+    services = {}
+    for script in (REPO / "scripts" / "bootstrap").glob("8*-*.sh"):
+        text = script.read_text(encoding="utf-8")
+        inputs = " ".join(line.split(":", 1)[1] for line in text.splitlines() if line.startswith("# step-inputs:")).split()
+        directory = next(item.split("/")[1] for item in inputs if item.startswith("services/"))
+        assert "wheels/" not in inputs, script.name
+        services[directory] = {item.rsplit(".", 1)[1] for item in inputs if item.startswith("manifest:components.")}
+    for directory, named in services.items():
+        wanted = {lib for lib, users in restart_rule.LIBRARY_USERS.items() if users is None or directory in users}
+        assert named == wanted, directory
