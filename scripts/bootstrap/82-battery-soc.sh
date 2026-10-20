@@ -8,7 +8,8 @@
 # sie gleich bleiben, ueberspringt ein Update diesen Schritt.
 # step-inputs: bootstrap/lib/step.sh bootstrap/lib/service_step.sh
 # step-inputs: bootstrap/lib/render.sh bootstrap/lib/restart_rule.py
-# step-inputs: services/battery_soc/ wheels/
+# step-inputs: services/battery_soc/ manifest:components.energy_node_common
+# step-inputs: manifest:components.battery_soc_core
 set -euo pipefail
 # shellcheck source=scripts/bootstrap/lib/service_step.sh
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib/service_step.sh"

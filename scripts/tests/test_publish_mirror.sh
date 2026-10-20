@@ -130,6 +130,13 @@ echo "OK prerelease"
 wt="$(mktemp -d)"
 git -C "$repo" worktree add -q --detach "$wt" HEAD
 cp "$repo/scripts/publish_mirror.sh" "$repo/scripts/generate_changelog.sh" "$wt/scripts/"
+# The changelog only has an open section to name v9.10.0 while a commit on
+# the integration is not under a repo tag yet. Right after a release tag
+# there is none, so the worktree gets one of its own.
+printf '\n' >> "$wt/integrations/homeassistant/custom_components/battery_soc/__init__.py"
+git -C "$wt" -c user.name=test -c user.email=test@example.invalid commit -q \
+  -m "fix(battery_soc): unreleased change for the release test" \
+  -- integrations/homeassistant/custom_components/battery_soc/__init__.py
 git -C "$m" checkout -q main
 : > "$GH_LOG"
 PATH="$tmp/bin:$PATH" bash "$wt/scripts/publish_mirror.sh" --component battery_soc \

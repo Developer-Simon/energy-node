@@ -45,13 +45,18 @@
         <svg class="automation-icon icon-download" viewBox="0 0 24 24" aria-hidden="true"><defs><clipPath id="update-check-arrow-clip"><rect width="24" height="17"/></clipPath></defs><g clip-path="url(#update-check-arrow-clip)"><path class="icon-download-arrow" d="M12 3v12m0 0 5-5m-5 5-5-5"/></g><path d="M4 19h16"/></svg>
         <span x-text="checkingForUpdates ? $t('settings.versions.updates.checking') : $t('settings.versions.updates.check')"></span>
       </button>
-      <span x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-chip">
-        <svg class="automation-icon"><use href="#ico-download"></use></svg>
-        {{t "settings.versions.updates.available"}} <strong x-text="updateStatus ? updateStatus.latest : ''"></strong>
-        <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="update-available-cta">{{t "settings.versions.updates.cta"}}</a>
-        <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus ? updateStatus.notes_url : ''" target="_blank" rel="noopener">{{t "settings.versions.updates.notes"}}</a>
-      </span>
       <span x-show="updateStatus && !updateStatus.available" class="settings-help">{{t "settings.versions.updates.current"}}</span>
+    </div>
+    <div x-cloak x-show="updateStatus && updateStatus.available" x-transition:enter="update-badge-enter" x-transition:enter-start="update-badge-enter-start" x-transition:enter-end="update-badge-enter-end" class="update-available-row">
+      <span class="update-available-badge" aria-hidden="true"><svg class="automation-icon icon-download" viewBox="0 0 24 24"><defs><clipPath id="update-available-arrow-clip"><rect width="24" height="17"/></clipPath></defs><g clip-path="url(#update-available-arrow-clip)"><path class="icon-download-arrow" d="M12 3v12m0 0 5-5m-5 5-5-5"/></g><path d="M4 19h16"/></svg></span>
+      <span class="update-available-text">
+        <span class="update-available-title" x-text="$t('settings.versions.updates.available', {version: updateStatus ? updateStatus.latest : ''})"></span>
+        <span class="update-available-meta">
+          <span x-show="updateStatus && updateStatus.current">{{t "settings.versions.updates.installed"}} <span class="version-tag" x-text="updateStatus ? updateStatus.current : ''"></span></span>
+          <a x-show="updateStatus && updateStatus.notes_url" x-bind:href="updateStatus ? updateStatus.notes_url : ''" target="_blank" rel="noopener" class="update-available-notes">{{t "settings.versions.updates.notes"}}<svg class="automation-icon"><use href="#ico-chevron"></use></svg></a>
+        </span>
+      </span>
+      <a x-show="canSystemActions" x-bind:href="dashboardPath('/redeploy/')" class="icon-button labeled primary update-available-cta">{{t "settings.versions.updates.cta"}}</a>
     </div>
   </div>
   <template x-for="group in groups" :key="group.kind">

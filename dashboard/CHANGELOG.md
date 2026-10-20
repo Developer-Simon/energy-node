@@ -1,5 +1,15 @@
 # Changelog
 
+## v0.10.1 (2026-10-20)
+
+### Features
+
+- **settings:** update notice as a row with one update button (60a73fa)
+
+### Fixes
+
+- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153)
+
 ## v0.10.0 (2026-10-19)
 
 ### Features

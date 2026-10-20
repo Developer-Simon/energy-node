@@ -155,7 +155,12 @@ func strptr(s string) *string { return &s }
 
 func newScenario(name string, opts options) *stagedBackend {
 	fake := hostapitest.NewFake()
-	update := name == "vorlage-update"
+	// updater ist vorlage-update so, wie der Updater des Dashboards
+	// (dashboard/internal/updaterhost) den Lauf schreibt: nur gewaehlte
+	// Schritte stehen im Auftrag. Abgewaehlte melden gar nichts, auch der
+	// an die Firewall-Station gehaengte Schritt 35 nicht.
+	updater := name == "updater"
+	update := name == "vorlage-update" || updater
 
 	fake.Description = hostapi.Description{
 		Host: hostapi.HostInstaller, EntryPoints: []string{"install", "redeploy", "diagnose"},
@@ -334,6 +339,10 @@ func newScenario(name string, opts options) *stagedBackend {
 		}
 	}
 
+	if updater {
+		fake.Steps = jobSteps(fake.Steps)
+	}
+
 	if opts.systemUpdates {
 		updates := &hostapi.SystemUpdates{Count: 3, CheckedAt: "2026-10-04T06:12:00+00:00", Packages: []hostapi.SystemPackage{
 			{Name: "libssl3", From: "3.0.11-1~deb12u2", To: "3.0.13-1~deb12u1"},
@@ -345,6 +354,19 @@ func newScenario(name string, opts options) *stagedBackend {
 	}
 
 	return &stagedBackend{FakeBackend: fake, opts: opts, trusted: opts.trusted}
+}
+
+// jobSteps laesst die abgewaehlten Schritte weg, wie sie im Auftrag des
+// Dashboard-Updaters fehlen.
+func jobSteps(steps []hostapitest.FakeStep) []hostapitest.FakeStep {
+	var out []hostapitest.FakeStep
+	for _, step := range steps {
+		if step.State == "skip" && step.Detail == "nicht ausgewaehlt" {
+			continue
+		}
+		out = append(out, step)
+	}
+	return out
 }
 
 // fixtureChangelog is what "Was ist neu" shows. Two components with several
