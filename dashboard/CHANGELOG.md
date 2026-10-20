@@ -1,14 +1,24 @@
 # Changelog
 
+## v0.10.1 (2026-10-20)
+
+### Features
+
+- **settings:** update notice as a row with one update button (60a73fa)
+
+### Fixes
+
+- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153)
+
 ## v0.10.0 (2026-10-19)
 
 ### Features
 
+- **changelog:** expandable highlight details in the what's new dialog (#152) (1342d6c)
 - **versions:** pass highlight details to the what's new dialog (825b1ee)
 - **webui:** detail helpers and strings for expandable highlights (d0c02bb)
 - **webui:** expandable highlight details in the what's new dialog (0aa004d)
 - **webui:** list highlights with details first and align the bullets (cc9b264)
-- **changelog:** expandable highlight details in the what's new dialog (#152)
 - hourly energy statistics from Home Assistant via the companion (#130) (752f59a)
 - **dashboard:** energy statistics tile, page and recording mode (#132) (502a156)
 - **dashboard:** SSE topic subscriptions and a swap-free statistics tile (#133) (69eb694)

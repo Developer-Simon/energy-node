@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.6 (2026-10-20)
+
+### Fixes
+
+- **installer:** firewall station completes without the webhook step (4d33879)
+- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153)
+
 ## v0.2.5 (2026-10-16)
 
 ### Features

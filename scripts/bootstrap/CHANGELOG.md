@@ -1,5 +1,12 @@
 # Changelog
 
+## v0.2.3 (2026-10-20)
+
+### Fixes
+
+- **bootstrap:** service steps rerun only for their own library versions (cfa2a18)
+- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153)
+
 ## v0.2.2 (2026-10-06)
 
 ### Features
