@@ -132,6 +132,9 @@ stops a run at that step and `--fail-step <id>:<CODE>` makes one fail.
 `--trusted` skips the fingerprint dialog, `--dashboard` plays the variant
 hosted by the dashboard, and `--system-updates` answers the preview's
 "Check for updates" and the diagnose with three pending system packages.
+`--scenario updater` plays an update the way the dashboard's updater runs it:
+it implies `--dashboard`, and deselected steps are not in the job and report
+nothing (`scripts/dev/run-installer.sh --fakehost --scenario updater`).
 `npm run test:e2e` in `installer/webui` runs the browser suite.
 
 ### Publishing release binaries

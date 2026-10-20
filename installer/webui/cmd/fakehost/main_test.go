@@ -69,6 +69,16 @@ func TestTheUpdateScenarioCarriesANewOptionalService(t *testing.T) {
 	}
 }
 
+func TestTheUpdaterScenarioLeavesDeselectedStepsOut(t *testing.T) {
+	ids := map[string]bool{}
+	for _, step := range newScenario("updater", options{}).Steps {
+		ids[step.ID] = true
+	}
+	if ids["35"] || ids["82"] || !ids["30"] || !ids["85"] {
+		t.Errorf("updater steps = %v, want 30 and 85 without the deselected 35 and 82", ids)
+	}
+}
+
 func TestTheDiagnoseShowsTheShellyWebhookOnlyWhenChosen(t *testing.T) {
 	backend := newScenario("vorlage", options{})
 	webhookChecks := func() []hostapi.Check {

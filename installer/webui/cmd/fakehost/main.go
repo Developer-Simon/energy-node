@@ -39,7 +39,7 @@ func debugHandler(mainHandler http.Handler, backend *hostapitest.FakeBackend) ht
 func main() {
 	port := flag.Int("port", 8099, "Port auf 127.0.0.1")
 	language := flag.String("lang", "de", "Sprache beim ersten Laden")
-	scenario := flag.String("scenario", "vorlage", "vorlage (Erstinstallation) oder vorlage-update")
+	scenario := flag.String("scenario", "vorlage", "vorlage (Erstinstallation), vorlage-update oder updater (vorlage-update als Lauf des Dashboard-Updaters: Dashboard-Wirt, abgewaehlte Schritte fehlen)")
 	dashboard := flag.Bool("dashboard", false, "als Dashboard-Wirt auftreten: kein Verbindungsbildschirm, feste Sprache")
 	trusted := flag.Bool("trusted", false, "Host-Schluessel gilt als bekannt: kein Fingerabdruck-Dialog")
 	hold := flag.String("hold-step", "", "an diesem Schritt bis zum Abbrechen warten")
@@ -47,6 +47,10 @@ func main() {
 	delay := flag.Duration("step-delay", 150*time.Millisecond, "Pause je Schritt")
 	systemUpdates := flag.Bool("system-updates", false, "Systempakete auf Abfrage und in der Diagnose: drei ausstehende Updates")
 	flag.Parse()
+	// Den Updater gibt es nur im Dashboard: das Szenario bringt den Wirt mit.
+	if *scenario == "updater" {
+		*dashboard = true
+	}
 
 	catalogs, err := i18n.Load(webui.Catalogs())
 	if err != nil {
