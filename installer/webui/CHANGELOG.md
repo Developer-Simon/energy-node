@@ -7,6 +7,10 @@
 - **installer:** firewall station completes without the webhook step (4d33879)
 - clearer update notice, firewall station completes, service steps skip unchanged libraries (#153)
 
+### Tests
+
+- **installer:** fakehost scenario for the dashboard updater run (2c3cb0d)
+
 ## v0.2.5 (2026-10-16)
 
 ### Features
