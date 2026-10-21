@@ -43,6 +43,12 @@ The view menu holds the grid, snap to grid, width by power, the line style and
 the legend. With reduced motion enabled in the system the lines stand still and
 carry an arrow.
 
+The view belongs to the browser you use. Switching a layer, a connection type
+or a menu option changes only this browser, and a reload keeps it. When this
+view differs from the saved default, the menu says so. Save as default writes
+the current view into the map, so every browser starts with it. Restore default
+brings the saved default back in this browser.
+
 ## Connection types
 
 Click a connection to set what it stands for:
@@ -64,6 +70,14 @@ direction the flow always runs toward one of the two ends, whatever the sign.
 A connection you drew yourself can be reversed in the same card, which swaps
 parent and child. Connections that come from discovery and feeds into a group
 cannot be reversed, but their flow direction can still be set.
+
+The filter button next to the view menu hides connection types in this
+browser, with one switch per type. Switching off Data or Informational hides
+those wiring lines. While the Wiring layer is off, the two are greyed out and
+only Energy can be switched. Switching off Energy also hides the live energy
+flow when the Live energy layer is on. The map then shows a notice with a Show
+button that brings the energy connections back. The filter only changes what
+this browser draws. The map itself and its roles stay as they are.
 
 ## Device panel
 
@@ -176,7 +190,11 @@ of any other energy connection. A sub-device has no further connections.
 
 ## Permissions
 
-Changing the map, meaning the positions, the connections, the connection types
-and the groups, needs the permission `edit_energy`, the same permission as
-changing roles. Until there is a user management every account has it, guests
+Changing the map needs the permission `edit_device_map`. It covers the
+positions, the connections, the connection settings such as the type, the flow
+direction and the channel, and restoring a revision. Saving the default view
+needs `edit_device_map_view`. Changing the view in this browser needs no
+permission. Sub-devices and groups still need `edit_energy`, the same permission
+as changing roles. Restoring a revision keeps the saved default view. Until
+there is a user management every account has these permissions, guests
 included.
