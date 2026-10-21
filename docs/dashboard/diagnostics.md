@@ -41,3 +41,29 @@ entity or rule.
 
 The severity switch (All, Critical, Warning) works in both views and shows how
 many findings each choice leaves.
+
+## Service logs
+
+The service logs panel shows the journal lines of the Energy Node services. Only
+users with the `system_actions` role see it. Other users do not get the panel
+and the API answers with a permission error.
+
+Pick one of the 11 services in the Service dropdown, for example Dashboard,
+Automations, Mosquitto or Updater. Then choose the time range (15 minutes,
+1 hour, 6 hours, 24 hours or 7 days) and the number of lines (100, 200, 500 or
+1000). The default is the last 200 lines. Load fetches the lines again.
+
+The search field filters the lines that are already loaded. It does not query
+the journal again. When the query returns as many lines as you asked for, the
+panel adds the note that only the last lines are shown. Then choose a shorter
+time range or raise the number of lines.
+
+Turn on Refresh automatically to check for new lines every 5 seconds. The
+refresh adds only the lines written since the last check. It pauses while the
+browser tab is in the background or the panel is not visible. An error turns
+the automatic refresh off.
+
+If a service log query reports `journal_not_permitted`, the dashboard is not
+allowed to read the journal. This happens after an update that did not refresh
+the sudoers file. The next update sets up the permission, so the message goes
+away after that update.
