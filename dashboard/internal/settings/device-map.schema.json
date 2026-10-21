@@ -83,6 +83,16 @@
             "data": {"type": "boolean"}
           }
         },
+        "wiring_types": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["energy", "data", "info"],
+          "properties": {
+            "energy": {"type": "boolean"},
+            "data": {"type": "boolean"},
+            "info": {"type": "boolean"}
+          }
+        },
         "width_by_power": {"type": "boolean"},
         "hide_automation_links": {"type": "boolean"}
       }

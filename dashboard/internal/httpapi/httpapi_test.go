@@ -1005,7 +1005,7 @@ func TestDeviceMapEndpoints(t *testing.T) {
 	if len(deviceMap.Nodes) != 1 || deviceMap.Nodes[0].DeviceID != "node-a" || deviceMap.Nodes[0].X != 12.5 {
 		t.Fatalf("device-map after PUT = %#v", deviceMap)
 	}
-	wantView := settings.DeviceMapView{SnapToGrid: true, ShowGrid: true, GridSize: 20, EdgeStyle: "elbow", Layers: settings.DefaultDeviceMapLayers()}
+	wantView := settings.DeviceMapView{SnapToGrid: true, ShowGrid: true, GridSize: 20, EdgeStyle: "elbow", Layers: settings.DefaultDeviceMapLayers(), WiringTypes: settings.DefaultDeviceMapWiringTypes()}
 	if deviceMap.View != wantView {
 		t.Fatalf("device-map view after PUT = %#v, want %#v", deviceMap.View, wantView)
 	}
@@ -1246,6 +1246,38 @@ func TestDeviceMapRevisionEndpoints(t *testing.T) {
 	router.ServeHTTP(restore, restoreRequest)
 	if restore.Code != 200 || !strings.Contains(restore.Body.String(), "first") {
 		t.Fatalf("restore status %d: %s", restore.Code, restore.Body.String())
+	}
+}
+
+func TestDeviceMapRestoreKeepsCurrentView(t *testing.T) {
+	store := settings.NewStore(t.TempDir())
+	if err := store.SaveDeviceMap(settings.DeviceMap{Nodes: []settings.DeviceMapNode{{DeviceID: "first", X: 1, Y: 1}}, View: settings.DeviceMapView{ShowGrid: true}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SaveDeviceMap(settings.DeviceMap{Nodes: []settings.DeviceMapNode{{DeviceID: "second", X: 2, Y: 2}}, View: settings.DeviceMapView{ShowGrid: false}}); err != nil {
+		t.Fatal(err)
+	}
+	revisions, err := store.DeviceMapRevisions()
+	if err != nil || len(revisions) == 0 {
+		t.Fatalf("revisions %#v, err %v", revisions, err)
+	}
+	router := NewRouter(registry.New(), config.NewManager(t.TempDir()), store)
+	restore := httptest.NewRecorder()
+	restoreRequest := httptest.NewRequest("POST", "/api/v1/device/map/restore", strings.NewReader(`{"revision":"`+revisions[len(revisions)-1].Name+`"}`))
+	restoreRequest.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(restore, restoreRequest)
+	if restore.Code != 200 {
+		t.Fatalf("restore status %d: %s", restore.Code, restore.Body.String())
+	}
+	var saved settings.DeviceMap
+	if err := json.Unmarshal(restore.Body.Bytes(), &saved); err != nil {
+		t.Fatal(err)
+	}
+	if saved.View.ShowGrid {
+		t.Fatalf("restore must keep the current view (show_grid false): %+v", saved.View)
+	}
+	if len(saved.Nodes) != 1 || saved.Nodes[0].DeviceID != "first" {
+		t.Fatalf("restore must bring back the revision nodes: %+v", saved.Nodes)
 	}
 }
 
@@ -2497,5 +2529,19 @@ func TestAutomationStateEndpointReturnsTheFullDocument(t *testing.T) {
 	NewRouter(registry.New(), nil, nil).ServeHTTP(missing, httptest.NewRequest(http.MethodGet, "/api/v1/automation/state", nil))
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("no automation service should 404, got %d: %s", missing.Code, missing.Body.String())
+	}
+}
+
+func TestAuthSessionReportsDeviceMapRoles(t *testing.T) {
+	body := getAuthSessionAsGuest(t)
+	var session map[string]any
+	if err := json.Unmarshal(body, &session); err != nil {
+		t.Fatalf("Sitzungsantwort ist kein JSON: %v", err)
+	}
+	if session["edit_device_map"] != true {
+		t.Fatalf("Gäste haben RoleEditDeviceMap, das Flag fehlt aber: %v", session)
+	}
+	if session["edit_device_map_view"] != true {
+		t.Fatalf("Gäste haben RoleEditDeviceMapView, das Flag fehlt aber: %v", session)
 	}
 }

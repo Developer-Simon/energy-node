@@ -191,6 +191,10 @@
     {selector: 'edge.devicemap-wiring.devicemap-conn-info', style: {width: 1, 'line-color': theme.faint, 'target-arrow-color': theme.faint}},
     {selector: 'edge.devicemap-wiring.devicemap-conn-detected', style: {'line-opacity': 0.7}},
     ...(view.layers.wiring ? [] : [{selector: 'edge.devicemap-wiring:not(.devicemap-conn-energy)', style: {display: 'none'}}]),
+    // Connection types switched off in the view hide their wiring edges.
+    ...Object.entries(view.wiring_types || {})
+      .filter(([, shown]) => shown === false)
+      .map(([type]) => ({selector: 'edge.devicemap-wiring.devicemap-conn-' + type, style: {display: 'none'}})),
     // Dead edges: the source is cut (off output or no power), so no flow runs
     // over them.
     {selector: 'edge.devicemap-wiring.devicemap-dead', style: {'line-style': 'dotted', 'line-dash-pattern': [2, 4], 'line-color': theme.faint, 'target-arrow-shape': 'none'}},

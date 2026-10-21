@@ -42,11 +42,19 @@ const (
 	// Rollen, Interpretation, Gruppen, Kategorien und das Wiederherstellen
 	// ihrer Revisionen. Wie RoleEditLayout bekommt sie vorlaeufig jeder, auch
 	// jeder Gast, bis es eine Benutzerverwaltung gibt.
-	RoleEditEnergy   = "edit_energy"
-	guestLifetime    = 7 * 24 * time.Hour
-	sessionLifetime  = 24 * time.Hour
-	guestSessionLife = 7 * 24 * time.Hour
-	passwordRounds   = 120000
+	RoleEditEnergy = "edit_energy"
+	// RoleEditDeviceMap schaltet das Bearbeiten der Geraetekarte frei
+	// (Kanten, Schalter, Geraete). Wie RoleEditEnergy bekommt sie vorlaeufig
+	// jeder, auch jeder Gast, bis es eine Benutzerverwaltung gibt.
+	RoleEditDeviceMap = "edit_device_map"
+	// RoleEditDeviceMapView schaltet das Umschalten der Geraetekarte in die
+	// Ansicht des Bearbeiters frei. Wie RoleEditDeviceMap bekommt sie
+	// vorlaeufig jeder, auch jeder Gast, bis es eine Benutzerverwaltung gibt.
+	RoleEditDeviceMapView = "edit_device_map_view"
+	guestLifetime         = 7 * 24 * time.Hour
+	sessionLifetime       = 24 * time.Hour
+	guestSessionLife      = 7 * 24 * time.Hour
+	passwordRounds        = 120000
 )
 
 type User struct {
@@ -106,7 +114,7 @@ func NewManager(path, bootstrapUsername, bootstrapPassword string) (*Manager, er
 // guestRoles bekommt jeder Gast, solange es keine Rollen-Oberflaeche gibt
 // (siehe ContinueAsGuest). Die Nachruestung in newManager gibt sie auch
 // Gaesten, deren Konto vor einer neuen Rolle angelegt wurde.
-var guestRoles = []string{RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy}
+var guestRoles = []string{RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView}
 
 func newManager(path, bootstrapUsername, bootstrapPassword string, now func() time.Time) (*Manager, error) {
 	if bootstrapUsername == "" {
@@ -128,7 +136,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 	// since an existing users.json keeps the role list it was written with.
 	// Every new role that the bootstrap admin gets below belongs in this list
 	// too, or the already-installed node is the one that stays locked out.
-	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy} {
+	for _, role := range []string{RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView} {
 		if user, exists := manager.users[bootstrapUsername]; exists && !user.Guest && !HasRole(user, role) {
 			user.Roles = append(user.Roles, role)
 			manager.users[bootstrapUsername] = user
@@ -155,7 +163,7 @@ func newManager(path, bootstrapUsername, bootstrapPassword string, now func() ti
 				return nil, hashErr
 			}
 			nowValue := manager.now().UTC()
-			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy}, CreatedAt: nowValue, LastLoginAt: nowValue}
+			manager.users[bootstrapUsername] = User{Username: bootstrapUsername, PasswordHash: hash, Roles: []string{RoleSystemActions, RoleDeleteDeviceDiscovery, RoleTuneLiveUpdates, RoleMQTTConfig, RoleAutomations, RoleEditLayout, RoleCheckUpdates, RoleEditEnergy, RoleEditDeviceMap, RoleEditDeviceMapView}, CreatedAt: nowValue, LastLoginAt: nowValue}
 			changed = true
 		}
 	}

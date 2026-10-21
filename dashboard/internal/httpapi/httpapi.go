@@ -706,6 +706,8 @@ func writeAuthSession(w http.ResponseWriter, session auth.Session) {
 		"automations":             auth.HasRole(session.User, auth.RoleAutomations),
 		"edit_layout":             auth.HasRole(session.User, auth.RoleEditLayout),
 		"edit_energy":             auth.HasRole(session.User, auth.RoleEditEnergy),
+		"edit_device_map":         auth.HasRole(session.User, auth.RoleEditDeviceMap),
+		"edit_device_map_view":    auth.HasRole(session.User, auth.RoleEditDeviceMapView),
 		"csrf_token":              session.CSRFToken,
 		"expires_at":              session.ExpiresAt,
 	})
@@ -1632,6 +1634,36 @@ func requireEnergyMutation(w http.ResponseWriter, r *http.Request, manager *auth
 	return true
 }
 
+// requireDeviceMapMutation splits the device map writes into the map
+// structure (positions, relations, switches, devices) and the default view.
+// A write that changes the structure needs edit_device_map, one that changes
+// the view needs edit_device_map_view. Without an auth manager everything
+// passes, otherwise the caller needs a valid CSRF token as well.
+func requireDeviceMapMutation(w http.ResponseWriter, r *http.Request, manager *auth.Manager, structure, view bool) bool {
+	if manager == nil {
+		return true
+	}
+	user, ok := auth.UserFromContext(r.Context())
+	if !ok {
+		writeError(w, http.StatusUnauthorized, "authentication_required", "Anmeldung erforderlich")
+		return false
+	}
+	if structure && !auth.HasRole(user, auth.RoleEditDeviceMap) {
+		writeError(w, http.StatusForbidden, "device_map_forbidden", "Für das Ändern von Positionen und Verbindungen der Device Map fehlt die Berechtigung")
+		return false
+	}
+	if view && !auth.HasRole(user, auth.RoleEditDeviceMapView) {
+		writeError(w, http.StatusForbidden, "device_map_view_forbidden", "Für das Speichern der Standardansicht fehlt die Berechtigung")
+		return false
+	}
+	cookie, err := r.Cookie(sessionCookieName(isSecureRequest(r)))
+	if err != nil || !manager.ValidateCSRF(cookie.Value, r.Header.Get("X-CSRF-Token")) {
+		writeError(w, http.StatusForbidden, "csrf_failed", "Sicherheitsprüfung fehlgeschlagen")
+		return false
+	}
+	return true
+}
+
 // applyEnergyConfig hands a saved energy.json to the shared resolver. Every
 // write path calls it, restore included, so the live snapshot never lags
 // behind the file.
@@ -2316,9 +2348,6 @@ func handleDeviceMap(store *settings.Store, manager *auth.Manager) http.HandlerF
 			}
 			writeJSON(w, value)
 		case http.MethodPut:
-			if !requireEnergyMutation(w, r, manager) {
-				return
-			}
 			value := settings.NewDeviceMap()
 			if err := decodeBody(r, &value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
@@ -2331,7 +2360,13 @@ func handleDeviceMap(store *settings.Store, manager *auth.Manager) http.HandlerF
 				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
 				return
 			}
+			// Sub-devices are never part of the request. Keeping them first means
+			// DiffDeviceMap does not see orphaned sub-device nodes as a change.
 			keepSubDevices(&value, stored)
+			structure, view := settings.DiffDeviceMap(stored, value)
+			if !requireDeviceMapMutation(w, r, manager, structure || !view, view) {
+				return
+			}
 			if err := store.SaveDeviceMap(value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
 				return
@@ -2373,7 +2408,7 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 			return
 		}
 		if len(parts) == 1 && parts[0] == "restore" && r.Method == http.MethodPost {
-			if !requireEnergyMutation(w, r, manager) {
+			if !requireDeviceMapMutation(w, r, manager, true, false) {
 				return
 			}
 			var request struct {
@@ -2390,14 +2425,15 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_restore_rejected", err)
 				return
 			}
-			// The revision brings back its own map, but the sub-devices are
-			// always the current ones, as on a whole-map save.
+			// The revision brings back its own map, but the sub-devices and the
+			// default view are always the current ones, as on a whole-map save.
 			stored, err := store.LoadDeviceMap()
 			if err != nil {
 				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
 				return
 			}
 			keepSubDevices(&value, stored)
+			value.View = stored.View
 			if err := store.SaveDeviceMap(value); err != nil {
 				writeErrorDetail(w, http.StatusBadRequest, "device_map_restore_rejected", err)
 				return
@@ -2412,22 +2448,56 @@ func handleDeviceMapSub(store *settings.Store, reg *registry.Registry, configs *
 			writeJSON(w, saved)
 			return
 		}
+		if len(parts) == 1 && parts[0] == "view" {
+			if r.Method != http.MethodPut {
+				methodNotAllowed(w, http.MethodPut)
+				return
+			}
+			if !requireDeviceMapMutation(w, r, manager, false, true) {
+				return
+			}
+			view := settings.NewDeviceMap().View
+			if err := decodeBody(r, &view); err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
+				return
+			}
+			deviceMapWriteMu.Lock()
+			defer deviceMapWriteMu.Unlock()
+			stored, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			// Only the view changes. Nodes, relations and sub-devices stay as stored.
+			stored.View = view
+			if err := store.SaveDeviceMap(stored); err != nil {
+				writeErrorDetail(w, http.StatusBadRequest, "device_map_rejected", err)
+				return
+			}
+			saved, err := store.LoadDeviceMap()
+			if err != nil {
+				writeErrorDetail(w, http.StatusInternalServerError, "device_map_invalid", err)
+				return
+			}
+			writeJSON(w, saved)
+			return
+		}
 		if len(parts) == 1 && parts[0] == "relations" && r.Method == http.MethodPost {
-			if !requireEnergyMutation(w, r, manager) {
+			if !requireDeviceMapMutation(w, r, manager, true, false) {
 				return
 			}
 			handleCreateDeviceMapRelation(store, reg, w, r)
 			return
 		}
 		if len(parts) == 2 && parts[0] == "relations" && r.Method == http.MethodDelete {
-			if !requireEnergyMutation(w, r, manager) {
+			if !requireDeviceMapMutation(w, r, manager, true, false) {
 				return
 			}
 			handleDeleteDeviceMapRelation(store, reg, w, parts[1])
 			return
 		}
 		if len(parts) == 3 && parts[0] == "relations" && parts[2] == "reverse" && r.Method == http.MethodPost {
-			if !requireEnergyMutation(w, r, manager) {
+			if !requireDeviceMapMutation(w, r, manager, true, false) {
 				return
 			}
 			handleReverseDeviceMapRelation(store, reg, w, parts[1])

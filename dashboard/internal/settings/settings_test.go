@@ -2166,6 +2166,37 @@ func TestDeviceMapWithoutHideAutomationLinksShowsThem(t *testing.T) {
 	}
 }
 
+func TestDeviceMapWithoutWiringTypesShowsAll(t *testing.T) {
+	dir := t.TempDir()
+	legacy := `{"version":1,"nodes":[],"view":{"snap_to_grid":false,"show_grid":false,"grid_size":40,"edge_style":"straight"}}`
+	if err := os.WriteFile(filepath.Join(dir, "device-map.json"), []byte(legacy), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewStore(dir).LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.WiringTypes != (DeviceMapWiringTypes{true, true, true}) {
+		t.Fatalf("wiring_types = %#v, want all three types shown for a file without wiring_types", got.View.WiringTypes)
+	}
+}
+
+func TestDeviceMapWiringTypesRoundTrip(t *testing.T) {
+	store := NewStore(t.TempDir())
+	value := NewDeviceMap()
+	value.View.WiringTypes = DeviceMapWiringTypes{Energy: true, Data: false, Info: false}
+	if err := store.SaveDeviceMap(value); err != nil {
+		t.Fatal(err)
+	}
+	got, err := store.LoadDeviceMap()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.View.WiringTypes != value.View.WiringTypes {
+		t.Fatalf("wiring_types = %#v, want %#v round-tripped", got.View.WiringTypes, value.View.WiringTypes)
+	}
+}
+
 func TestDeviceMapLayersRestoredRevisionWithoutLayersGetsDefaults(t *testing.T) {
 	dir := t.TempDir()
 	store := NewStore(dir)
@@ -2790,5 +2821,39 @@ func TestEnergyChannelRules(t *testing.T) {
 	typed, ok := uierror.From(err)
 	if !ok || typed.Key != "error.energy_roles_rejected.channel_invalid" {
 		t.Fatalf("channel 17: err = %v, want error.energy_roles_rejected.channel_invalid", err)
+	}
+}
+
+func TestDiffDeviceMap(t *testing.T) {
+	base := DeviceMap{
+		Version: 1,
+		Nodes:   []DeviceMapNode{{DeviceID: "device_a", X: 1, Y: 1}},
+		View:    DeviceMapView{SnapToGrid: true, GridSize: 20, EdgeStyle: "curved"},
+	}
+	cases := []struct {
+		name      string
+		next      func(DeviceMap) DeviceMap
+		structure bool
+		view      bool
+	}{
+		{"same map", func(m DeviceMap) DeviceMap { return m }, false, false},
+		{"only show_grid changed", func(m DeviceMap) DeviceMap {
+			m.View.ShowGrid = true
+			return m
+		}, false, true},
+		{"only a node moved", func(m DeviceMap) DeviceMap {
+			m.Nodes = []DeviceMapNode{{DeviceID: "device_a", X: 5, Y: 1}}
+			return m
+		}, true, false},
+		{"only sub_devices changed", func(m DeviceMap) DeviceMap {
+			m.SubDevices = []DeviceMapSubDevice{{ID: "sub:x", Label: "Washer"}}
+			return m
+		}, false, false},
+	}
+	for _, tc := range cases {
+		structure, view := DiffDeviceMap(base, tc.next(base))
+		if structure != tc.structure || view != tc.view {
+			t.Errorf("%s: DiffDeviceMap() = (%v, %v), want (%v, %v)", tc.name, structure, view, tc.structure, tc.view)
+		}
 	}
 }

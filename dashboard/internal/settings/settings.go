@@ -17,6 +17,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"slices"
 	"sort"
@@ -352,12 +353,15 @@ type DeviceMapNode struct {
 }
 
 type DeviceMapView struct {
-	SnapToGrid   bool            `json:"snap_to_grid"`
-	ShowGrid     bool            `json:"show_grid"`
-	GridSize     int             `json:"grid_size"`
-	EdgeStyle    string          `json:"edge_style"`
-	Layers       DeviceMapLayers `json:"layers"`
-	WidthByPower bool            `json:"width_by_power"`
+	SnapToGrid bool            `json:"snap_to_grid"`
+	ShowGrid   bool            `json:"show_grid"`
+	GridSize   int             `json:"grid_size"`
+	EdgeStyle  string          `json:"edge_style"`
+	Layers     DeviceMapLayers `json:"layers"`
+	// WiringTypes is the connection type filter of the stored view. A file
+	// without "wiring_types" gets all three types shown.
+	WiringTypes  DeviceMapWiringTypes `json:"wiring_types"`
+	WidthByPower bool                 `json:"width_by_power"`
 	// HideAutomationLinks hides the lines to the automation node. Stored
 	// inverted, so the zero value (a file without the key) shows them.
 	HideAutomationLinks bool `json:"hide_automation_links,omitempty"`
@@ -378,10 +382,25 @@ func DefaultDeviceMapLayers() DeviceMapLayers {
 	return DeviceMapLayers{Wiring: true, Energy: true}
 }
 
+// DeviceMapWiringTypes says which connection types the stored view shows.
+// A value type like DeviceMapLayers, so DeviceMapView stays comparable.
+type DeviceMapWiringTypes struct {
+	Energy bool `json:"energy"`
+	Data   bool `json:"data"`
+	Info   bool `json:"info"`
+}
+
+func DefaultDeviceMapWiringTypes() DeviceMapWiringTypes {
+	return DeviceMapWiringTypes{Energy: true, Data: true, Info: true}
+}
+
 // NewDeviceMap is the decode target for every device-map read (file,
 // revision, PUT body): fields missing from the JSON keep these defaults.
 func NewDeviceMap() DeviceMap {
-	return DeviceMap{View: DeviceMapView{Layers: DefaultDeviceMapLayers()}}
+	return DeviceMap{View: DeviceMapView{
+		Layers:      DefaultDeviceMapLayers(),
+		WiringTypes: DefaultDeviceMapWiringTypes(),
+	}}
 }
 
 // DevicePrefs are the per-device display preferences the Devices tab writes:
@@ -1195,6 +1214,21 @@ func normalizeDeviceMap(value DeviceMap) DeviceMap {
 		value.View.EdgeStyle = "curved"
 	}
 	return value
+}
+
+// DiffDeviceMap says which part of a device map a save changes. Both maps
+// are normalized first and SubDevices are ignored, because the handler keeps
+// the stored sub-devices. view is true when the default view differs. structure
+// is true when anything else differs, for example a node position or a
+// connection.
+func DiffDeviceMap(stored, next DeviceMap) (structure, view bool) {
+	stored = normalizeDeviceMap(stored)
+	next = normalizeDeviceMap(next)
+	view = stored.View != next.View
+	stored.View, next.View = DeviceMapView{}, DeviceMapView{}
+	stored.SubDevices, next.SubDevices = nil, nil
+	structure = !reflect.DeepEqual(stored, next)
+	return structure, view
 }
 
 // maxSubDeviceLabelRunes is the longest sub-device label, counted in runes.

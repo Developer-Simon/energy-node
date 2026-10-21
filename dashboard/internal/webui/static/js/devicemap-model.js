@@ -7,6 +7,7 @@
   const num = (value, decimals) => window.I18n.formatNumber(value, decimals);
 
   const DEFAULT_LAYERS = Object.freeze({wiring: true, energy: true, balance: false, data: false});
+  const DEFAULT_WIRING_TYPES = Object.freeze({energy: true, data: true, info: true});
   // No layer is pending any more. Kept as an empty list so the page's
   // isLayerPending() still works for a future layer.
   const PENDING_LAYERS = Object.freeze([]);
@@ -468,7 +469,7 @@
   };
 
   window.DeviceMapModel = {
-    DEFAULT_LAYERS, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
+    DEFAULT_LAYERS, DEFAULT_WIRING_TYPES, PENDING_LAYERS, ROLE_META, SPEED_SECONDS, DASH_PATTERN, DASH_CYCLE,
     formatPower, balanceValueText, deviceEnergy, deviceHealth, nodeValueText, ringSpec, relatedIds,
     childrenIndex, edgeFlow, speedBucket, flowWidth, flowLabel, flowColorToken,
     POWER_ROLES, OWN_ENERGY_DEVICE_ID, isEligibleUnit, roleOptions, baseAssignment, isDraftChange,

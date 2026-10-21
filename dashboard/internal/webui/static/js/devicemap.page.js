@@ -29,6 +29,16 @@
 
   const DEFAULT_VIEW = {snap_to_grid: false, show_grid: false, grid_size: 40, edge_style: 'curved', width_by_power: false};
 
+  // Browser storage of the local view. Reading the property itself can throw
+  // (blocked storage), then null goes on and DeviceMapViewPrefs keeps nothing.
+  const viewStorage = () => {
+    try {
+      return window.localStorage;
+    } catch (error) {
+      return null;
+    }
+  };
+
   // Synthetic id for the snap-preview node (see onNodeDrag()) - never a real
   // device_id, so it can't collide with one.
   const SNAP_GHOST_ID = '__devicemap-snap-ghost__';
@@ -74,6 +84,9 @@
       selectedEdge: null, // {id, source, target, overrideId, membership} | null
       viewMenuOpen: false,
       unsaved: false,
+      // Browser-side view settings that differ from the server default, see
+      // setView(). Sparse, so a default changed on the server still reaches this browser.
+      localView: {},
       // Sub-device form while open: {mode, subId, deviceId, entityId, name, icon, channel, error}.
       subForm: null,
       subSaving: false,
@@ -105,6 +118,9 @@
       groupWholePending: false,
       categoryForGroup: false,
       canEditEnergy: true,
+      canEditMap: true,
+      canEditMapView: true,
+      filterMenuOpen: false,
       csrfToken: '',
       panelSaving: false,
       registryOff: null,
@@ -186,6 +202,8 @@
           // laesst requireEnergyMutation den Schreibzugriff durch.
           this.csrfToken = (session && session.csrf_token) || '';
           this.canEditEnergy = !session || session.edit_energy !== false;
+          this.canEditMap = !session || session.edit_device_map !== false;
+          this.canEditMapView = !session || session.edit_device_map_view !== false;
           this.devices = devices || [];
           this.deviceMap = deviceMap || {version: 1, nodes: [], edges: []};
           this.energy = energy;
@@ -194,6 +212,7 @@
           this.flowsUnavailable = flows === null;
           this.invalidConfigs = this.stubInfo().invalid;
           this.savedDeviceMap = JSON.parse(JSON.stringify(this.deviceMap));
+          this.initLocalView();
           this.renderGraph();
         } catch (error) {
           this.$store.toasts.push(error.message, 'critical');
@@ -231,7 +250,7 @@
       },
 
       flowElements() {
-        if (!this.view.layers.energy || !this.energy) return [];
+        if (!this.view.layers.energy || !this.energy || this.view.wiring_types?.energy === false) return [];
         // Off outputs and the dead area carry no flow.
         const cut = new Set(this.switchTargets(this.switchStatus()).keys());
         return window.DeviceMapGraph.flowElements({pairs: this.wiringPairs(), energy: this.energyByDevice(), view: this.view, edgeProps: this.deviceMap.edge_props, cut});
@@ -635,7 +654,7 @@
       // setProp keeps the channel for energy and drops it for other types.
       setEdgeType(type) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership || edge.subDevice || !window.DeviceMapWiring.TYPES.includes(type)) return;
+        if (!this.canEditMap || !edge || edge.membership || edge.subDevice || !window.DeviceMapWiring.TYPES.includes(type)) return;
         const current = this.edgePropsFor(edge);
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type, direction: current.direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
@@ -644,7 +663,7 @@
 
       setEdgeDirection(direction) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership || edge.subDevice) return;
+        if (!this.canEditMap || !edge || edge.membership || edge.subDevice) return;
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction, channel: this.storedEdgeChannel(edge)})};
         this.unsaved = true;
         this.afterEdgePropsChange();
@@ -654,7 +673,7 @@
       // moves the edge to another switch output, so the state follows it.
       setEdgeChannel(channel) {
         const edge = this.selectedEdge;
-        if (!edge || edge.membership || !Number.isInteger(channel)) return;
+        if (!this.canEditMap || !edge || edge.membership || !Number.isInteger(channel)) return;
         const current = this.edgePropsFor(edge);
         if (current.type !== 'energy') return;
         this.deviceMap = {...this.deviceMap, edge_props: window.DeviceMapWiring.setProp(this.deviceMap.edge_props, {parent: edge.source, child: edge.target, type: 'energy', direction: current.direction, channel})};
@@ -707,7 +726,7 @@
 
       async reverseSelectedRelation() {
         const selected = this.selectedEdge;
-        if (!selected || !selected.overrideId) return;
+        if (!this.canEditMap || !selected || !selected.overrideId) return;
         try {
           const result = await requestJSON(`/api/v1/device/map/relations/${selected.overrideId}/reverse`, {method: 'POST', headers: {'X-CSRF-Token': this.csrfToken}});
           const edges = (this.deviceMap.edges || []).map(edge => (edge.id === result.relation.id ? result.relation : edge));
@@ -741,7 +760,13 @@
 
       toggleViewMenu(open = !this.viewMenuOpen) {
         this.viewMenuOpen = open;
-        if (open) this.closePopover();
+        if (open) { this.filterMenuOpen = false; this.closePopover(); }
+      },
+
+      // The connection filter and the display menu never stay open together.
+      toggleFilterMenu(open = !this.filterMenuOpen) {
+        this.filterMenuOpen = open;
+        if (open) { this.viewMenuOpen = false; this.closePopover(); }
       },
 
       async openFlowLink(link) {
@@ -1328,6 +1353,7 @@
 
       async onBackgroundTap() {
         this.viewMenuOpen = false;
+        this.filterMenuOpen = false;
         if (this.popover || this.selectedEdge) { this.closePopover(); return; }
         await this.requestClosePanel();
       },
@@ -1335,7 +1361,11 @@
       async onEscape() {
         // An open dialog handles its own Escape (native cancel event).
         if (this.$store.modal.open || this.picker) return;
-        if (this.viewMenuOpen) { this.viewMenuOpen = false; return; }
+        if (this.viewMenuOpen || this.filterMenuOpen) {
+          this.viewMenuOpen = false;
+          this.filterMenuOpen = false;
+          return;
+        }
         if (this.popover) { this.closePopover(); return; }
         await this.requestClosePanel();
       },
@@ -1660,9 +1690,98 @@
       // deviceMap can arrive without a view (older revisions, or tests that
       // build deviceMap by hand) - merge onto defaults everywhere instead of
       // requiring every call site to null-check.
+      // The view saved on the server, with defaults for every key. save() sends
+      // this one, the browser settings in localView never reach the map.
+      get serverView() {
+        const model = window.DeviceMapModel;
+        const base = {...DEFAULT_VIEW, layers: model.DEFAULT_LAYERS, wiring_types: model.DEFAULT_WIRING_TYPES};
+        return window.DeviceMapViewPrefs.merge(base, this.deviceMap.view || {});
+      },
+
+      // What the page shows: the server view with this browser's settings on top.
       get view() {
-        const stored = this.deviceMap.view || {};
-        return {...DEFAULT_VIEW, ...stored, layers: {...window.DeviceMapModel.DEFAULT_LAYERS, ...(stored.layers || {})}};
+        return window.DeviceMapViewPrefs.merge(this.serverView, this.localView);
+      },
+
+      // Keeps only the browser settings that still differ from the server view,
+      // so a key that became the server default drops out of storage.
+      initLocalView() {
+        const prefs = window.DeviceMapViewPrefs;
+        const storage = viewStorage();
+        const server = this.serverView;
+        this.localView = prefs.diff(server, prefs.merge(server, prefs.load(storage, server)));
+        prefs.store(storage, this.localView);
+      },
+
+      // Changes a view setting for this browser only. The map stays as it is
+      // (no unsaved flag), the caller redraws what the change touches.
+      setView(patch) {
+        const prefs = window.DeviceMapViewPrefs;
+        this.localView = prefs.diff(this.serverView, prefs.merge(this.view, patch));
+        prefs.store(viewStorage(), this.localView);
+      },
+
+      viewDiffersFromDefault() {
+        return !window.DeviceMapViewPrefs.isEmpty(this.localView);
+      },
+
+      // Shows or hides one connection type for this browser. The wiring edges
+      // and the energy flows are restyled from the new filter.
+      toggleWiringType(type) {
+        if (!window.DeviceMapWiring.TYPES.includes(type)) return;
+        const wiringTypes = {...this.view.wiring_types, [type]: !this.view.wiring_types[type]};
+        this.setView({wiring_types: wiringTypes});
+        if (cy) cy.style(this.graphStyle());
+        this.applyFlows();
+      },
+
+      // A type is greyed out while the wiring layer is off, the energy type
+      // stays available because the energy layer draws its own edges.
+      wiringTypeDisabled(type) {
+        return type !== 'energy' && !this.view.layers.wiring;
+      },
+
+      wiringFilterActive() {
+        return window.DeviceMapWiring.TYPES.some(type => !this.view.wiring_types[type]) || Boolean(this.view.hide_automation_links);
+      },
+
+      energyFlowHidden() {
+        return Boolean(this.view.layers.energy && !this.view.wiring_types.energy);
+      },
+
+      showEnergyEdges() {
+        const wiringTypes = {...this.view.wiring_types, energy: true};
+        this.setView({wiring_types: wiringTypes});
+        if (cy) cy.style(this.graphStyle());
+        this.applyFlows();
+      },
+
+      // Writes this browser's view as the server default. Node positions and
+      // the unsaved flag are left alone.
+      async saveDefaultView() {
+        try {
+          const saved = await requestJSON('/api/v1/device/map/view', {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
+            body: JSON.stringify(this.view),
+          });
+          const view = (saved && saved.view) || this.view;
+          this.deviceMap = {...this.deviceMap, view};
+          this.savedDeviceMap = {...this.savedDeviceMap, view};
+          this.localView = {};
+          window.DeviceMapViewPrefs.store(viewStorage(), this.localView);
+          this.$store.toasts.push(t('devicemap.view.default_saved'));
+        } catch (error) {
+          this.$store.toasts.push(error.message, 'critical');
+        }
+      },
+
+      // Drops this browser's view settings, the server default applies again.
+      resetViewToDefault() {
+        this.localView = {};
+        window.DeviceMapViewPrefs.store(viewStorage(), this.localView);
+        this.renderGraph();
+        this.$store.toasts.push(t('devicemap.view.default_restored'));
       },
 
       isLayerPending(name) {
@@ -1670,23 +1789,19 @@
       },
 
       toggleAutomationLinks() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, hide_automation_links: !this.view.hide_automation_links}};
-        this.unsaved = true;
+        this.setView({hide_automation_links: !this.view.hide_automation_links});
         this.renderGraph();
       },
 
       toggleWidthByPower() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, width_by_power: !this.view.width_by_power}};
-        this.unsaved = true;
+        this.setView({width_by_power: !this.view.width_by_power});
         this.applyFlows();
       },
 
       async toggleLayer(name) {
         if (this.isLayerPending(name) || !(name in window.DeviceMapModel.DEFAULT_LAYERS)) return;
         const turningOn = !this.view.layers[name];
-        const layers = {...this.view.layers, [name]: turningOn};
-        this.deviceMap = {...this.deviceMap, view: {...this.view, layers}};
-        this.unsaved = true;
+        this.setView({layers: {...this.view.layers, [name]: turningOn}});
         this.closePopover();
         if (turningOn && (name === 'data' || name === 'balance')) {
           await this.loadFlows();
@@ -1819,13 +1934,14 @@
         // (firing dragfree instead of tap) - connect mode would then never
         // see the tap. Disabling grab while connect mode is active makes a
         // click unambiguously a tap, on mouse and touch alike.
-        cy.autoungrabify(this.connectMode);
+        cy.autoungrabify(this.connectMode || !this.canEditMap);
         cy.on('drag', 'node', event => this.onNodeDrag(event));
         cy.on('dragfree', 'node', event => this.onNodeDragFree(event));
         cy.on('tap', 'node', event => this.onNodeTap(event));
         cy.on('tap', 'edge', event => {
           if (this.connectMode) return;
           this.viewMenuOpen = false;
+          this.filterMenuOpen = false;
           if (event.target.hasClass('devicemap-data')) { this.clearEdgeSelection(); this.openEdgePopover(event.target.data('flowId'), event.renderedPosition); }
           else this.onEdgeTap(event);
         });
@@ -1891,20 +2007,17 @@
       },
 
       toggleSnapToGrid() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, snap_to_grid: !this.view.snap_to_grid}};
-        this.unsaved = true;
+        this.setView({snap_to_grid: !this.view.snap_to_grid});
       },
 
       toggleShowGrid() {
-        this.deviceMap = {...this.deviceMap, view: {...this.view, show_grid: !this.view.show_grid}};
-        this.unsaved = true;
+        this.setView({show_grid: !this.view.show_grid});
         this.syncGridBackground();
       },
 
       setEdgeStyle(style) {
         if (!window.DeviceMapGraph.EDGE_STYLES[style]) return;
-        this.deviceMap = {...this.deviceMap, view: {...this.view, edge_style: style}};
-        this.unsaved = true;
+        this.setView({edge_style: style});
         if (cy) cy.style(this.graphStyle());
       },
 
@@ -1924,6 +2037,7 @@
       },
 
       async toggleConnectMode() {
+        if (!this.canEditMap) return;
         if (!this.connectMode && this.panelId) {
           if (!(await this.leavePanel())) return;
           this.closePanel();
@@ -1934,7 +2048,7 @@
         this.connectSourceLabel = '';
         this.clearEdgeSelection();
         if (cy) {
-          cy.autoungrabify(this.connectMode);
+          cy.autoungrabify(this.connectMode || !this.canEditMap);
           cy.nodes().removeClass('devicemap-connect-source');
         }
       },
@@ -2352,7 +2466,7 @@
           // The switch roles live in the energy roles, the map keeps only the
           // edge channels (edge_props).
           // sub_devices go back unchanged, the server keeps its own copy anyway.
-          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.view, sub_devices: this.subDevices()};
+          const value = {version: 2, nodes, edges: this.deviceMap.edges || [], edge_props: edgeProps, view: this.canEditMapView ? this.view : this.serverView, sub_devices: this.subDevices()};
           await requestJSON('/api/v1/device/map', {
             method: 'PUT',
             headers: {'Content-Type': 'application/json', 'X-CSRF-Token': this.csrfToken},
@@ -2361,6 +2475,12 @@
           this.deviceMap = value;
           this.savedDeviceMap = JSON.parse(JSON.stringify(value));
           this.unsaved = false;
+          // The save carries the display changes of this browser along, so
+          // they become the default and the browser deviation is gone.
+          if (this.canEditMapView) {
+            this.localView = {};
+            window.DeviceMapViewPrefs.store(viewStorage(), this.localView);
+          }
           this.$store.toasts.push(t('devicemap.positions_saved'));
           this.notifyMapChanged();
         } catch (error) {

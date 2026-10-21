@@ -1,19 +1,32 @@
 # Changelog
 
-## v0.10.4 (2026-10-21)
+## v0.10.5 (2026-10-21)
 
 ### Features
 
+- **auth:** add edit_device_map and edit_device_map_view roles (5fccc61)
+- **settings:** store wiring type filter in the device map view (2030cf9)
+- **settings:** diff device map structure and view (36fe304)
+- **devicemap:** split map structure and default view permissions (6e8bdbd)
+- **devicemap:** add view preference helpers for browser storage (73dd689)
+- **devicemap:** keep view settings in the browser and save the default separately (7a74092)
+- **devicemap:** filter wiring types and respect map edit roles (6e928ff)
+- **devicemap:** hide wiring edges by connection type (2fb76a6)
+- **devicemap:** add filter texts, sprite and view prefs script (622c06a)
+- **devicemap:** filter button, hidden energy notice and default view controls (e299f62)
+- **devicemap:** connection icon, automation lines in the filter, save keeps the view (84c88f1)
+- **devicemap:** use a funnel with a connection node as the filter icon (b663822)
+- **devicemap:** The device map can hide connections by type (energy, data, info) with a new filter button. (#158)
 - **webui:** end edit mode when changes are discarded (30afe53)
 - **settings:** update notice as a row with one update button (60a73fa)
 
 ### Fixes
 
 - clearer update notice, firewall station completes, service steps skip unchanged libraries (#153) (c184d81)
+- **diagnostics:** use a working health threshold (#157) (48d39f7)
 - **settings:** measure the health threshold in seconds with a usable default (7366e0d)
 - **settings:** explain the health threshold in seconds (9716ff5)
 - **settings:** show the health threshold help as a tooltip (8851977)
-- **diagnostics:** use a working health threshold (#157)
 
 ### Refactors
 

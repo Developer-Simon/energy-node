@@ -270,3 +270,47 @@ func TestNewGuestsGetEditEnergy(t *testing.T) {
 		t.Fatal("a new guest must get edit_energy until there is a user management")
 	}
 }
+
+func TestGuestAndBootstrapGetDeviceMapRoles(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	manager, err := newManager(filepath.Join(t.TempDir(), "users.json"), "admin", "secret", func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	guest, err := manager.ContinueAsGuest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !HasRole(guest.User, RoleEditDeviceMap) || !HasRole(guest.User, RoleEditDeviceMapView) {
+		t.Fatal("a new guest must get edit_device_map and edit_device_map_view until there is a user management")
+	}
+	manager.mu.Lock()
+	admin := manager.users["admin"]
+	manager.mu.Unlock()
+	if !HasRole(admin, RoleEditDeviceMap) || !HasRole(admin, RoleEditDeviceMapView) {
+		t.Fatal("the bootstrap admin must get edit_device_map and edit_device_map_view")
+	}
+}
+
+func TestManagerBackfillsDeviceMapRolesForExistingGuest(t *testing.T) {
+	now := time.Date(2026, 10, 21, 12, 0, 0, 0, time.UTC)
+	path := filepath.Join(t.TempDir(), "users.json")
+	stored := `{"users":[` +
+		`{"username":"guest-old","guest":true,"roles":["edit_energy"],"created_at":"2026-10-20T00:00:00Z","last_login_at":"2026-10-20T00:00:00Z"}]}`
+	if err := os.WriteFile(path, []byte(stored), 0600); err != nil {
+		t.Fatal(err)
+	}
+	manager, err := newManager(path, "admin", "secret", func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager.mu.Lock()
+	guest := manager.users["guest-old"]
+	manager.mu.Unlock()
+	if !HasRole(guest, RoleEditDeviceMap) {
+		t.Error("existing guest was not backfilled with edit_device_map")
+	}
+	if !HasRole(guest, RoleEditDeviceMapView) {
+		t.Error("existing guest was not backfilled with edit_device_map_view")
+	}
+}
