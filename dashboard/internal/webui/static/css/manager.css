@@ -443,6 +443,11 @@ select.schema-control {
 .devicemap-focus-clear:active { transform: scale(.97); }
 .devicemap-focus-clear:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) { .devicemap-focus-chip, .devicemap-focus-chip[data-open="false"] { transform: translateX(-50%); } }
+/* Hint that energy edges are hidden by the connection filter. It sits under the
+   focus chip when both are open, so the focus chip moves up one row. */
+.devicemap-filter-chip { bottom: 14px; white-space: normal; max-width: calc(100% - 2rem); transition: opacity 160ms ease-out; }
+.devicemap-overlay:has(.devicemap-filter-chip[data-open="true"]) .devicemap-focus-chip[data-open="true"]:not(.devicemap-filter-chip) { bottom: 58px; }
+@media (prefers-reduced-motion: reduce) { .devicemap-filter-chip { transition: none; } }
 .devicemap-panel { position: absolute; top: 12px; right: 12px; bottom: 12px; width: 352px; max-width: calc(100% - 24px); z-index: 3; border-radius: var(--radius-lg);
   background: color-mix(in srgb, var(--panel) 82%, transparent); backdrop-filter: blur(22px) saturate(170%); -webkit-backdrop-filter: blur(22px) saturate(170%);
   border: 1px solid var(--border-soft); box-shadow: 0 18px 48px rgba(8, 10, 14, .18);
@@ -1084,6 +1089,19 @@ div.devicemap-view-menu-row { cursor: default; }
 .devicemap-edge-style-group .icon-button { width: 1.9rem; height: 1.7rem; border-color: transparent; background: transparent; color: var(--text-muted); border-radius: 7px; }
 .devicemap-edge-style-group .icon-button.active { background: var(--accent-bg); color: var(--accent); }
 .devicemap-view-menu-legend { display: grid; gap: .35rem; margin-top: .3rem; padding: .55rem .4rem .2rem; border-top: 1px solid var(--border-soft); }
+.devicemap-view-default { display: grid; gap: .5rem; margin-top: .3rem; padding: .55rem .4rem .3rem; border-top: 1px solid var(--border-soft); }
+.devicemap-view-default-text { margin: 0; font-size: .8rem; color: var(--text-subtle); }
+.devicemap-view-default-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
+.devicemap-filter-anchor { position: relative; display: inline-flex; }
+.devicemap-filter-sample { display: inline-block; width: 18px; height: 0; flex: none; border-top: 2px solid currentColor; border-radius: 2px; color: var(--text-subtle); }
+.devicemap-filter-sample[data-type="data"] { border-top-style: dashed; }
+.devicemap-filter-sample[data-type="info"] { border-top-width: 1px; opacity: .6; }
+.devicemap-filter-menu .devicemap-view-menu-row:has(input:disabled) { opacity: .5; cursor: not-allowed; }
+/* Dot marker for a changed view or a filter, same look on the button and on
+   the energy chip. */
+.devicemap-toolbar [data-filtered="true"] { position: relative; }
+.devicemap-toolbar [data-filtered="true"]::after { content: ""; position: absolute; top: 4px; right: 4px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); pointer-events: none; }
+.devicemap-layer-button[data-layer="energy"][data-filtered="true"] svg { opacity: .45; }
 .devicemap-legend { display: grid; grid-template-columns: 1fr 1fr; gap: .35rem .8rem; font-size: .76rem; color: var(--text-subtle); }
 .devicemap-legend span { display: inline-flex; align-items: center; gap: 6px; }
 .devicemap-legend i { display: inline-block; width: 18px; height: 0; border-top: 3px solid; border-radius: 2px; flex: none; }
@@ -1095,7 +1113,7 @@ div.devicemap-view-menu-row { cursor: default; }
    menu spans the whole bar instead of hanging off the button. */
 @media (max-width: 700px) {
   .devicemap-toolbar { position: relative; }
-  .devicemap-view-menu-anchor { position: static; }
+  .devicemap-view-menu-anchor, .devicemap-filter-anchor { position: static; }
   .devicemap-view-menu { left: 0; right: 0; width: auto; transform-origin: top center; }
 }
 @media (prefers-reduced-motion: reduce) {

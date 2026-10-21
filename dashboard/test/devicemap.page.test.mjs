@@ -1638,6 +1638,27 @@ test('Escape closes the display menu before anything else', async () => {
   assert.equal(component.panelId, 'bkw');
 });
 
+test('the connection filter and the display menu close each other', () => {
+  const {component} = createDevicemapPanel();
+  component.toggleViewMenu(true);
+  component.toggleFilterMenu(true);
+  assert.equal(component.filterMenuOpen, true);
+  assert.equal(component.viewMenuOpen, false);
+  component.toggleViewMenu(true);
+  assert.equal(component.viewMenuOpen, true);
+  assert.equal(component.filterMenuOpen, false);
+});
+
+test('Escape closes the connection filter and a background tap closes it too', async () => {
+  const {component} = createDevicemapPanel();
+  component.toggleFilterMenu(true);
+  await component.onEscape();
+  assert.equal(component.filterMenuOpen, false);
+  component.toggleFilterMenu(true);
+  await component.onBackgroundTap();
+  assert.equal(component.filterMenuOpen, false);
+});
+
 test('the picker offers devices and other groups, marks members of another group and skips current members', () => {
   const {component} = createDevicemapPanel();
   groupFixture(component);
@@ -2628,6 +2649,26 @@ test('the link button presses with a 100 ms scale that reduced motion drops', ()
   assert.match(css, /\.devicemap-popover-link:active \{ transform: scale\(\.98\); transition: transform 100ms ease-out; \}/);
   assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{[^}]*\.devicemap-popover-link:active \{ transform: none; \}/);
   assert.match(css, /\.devicemap-popover-link:focus-visible \{ outline: 2px solid var\(--accent\); outline-offset: 2px; \}/);
+});
+
+test('the filter button, the energy notice and the default view rows follow the edit rights', () => {
+  const html = readWebui('templates', 'devicemap.html');
+  const css = readWebui('static', 'css', 'manager.css');
+  assert.match(html, /id="devicemap-filter-toggle"[^>]*x-on:click="toggleFilterMenu\(\)"/);
+  assert.match(html, /<use href="#ico-filter"><\/use>/);
+  for (const type of ['energy', 'data', 'info']) {
+    assert.match(html, new RegExp(`id="devicemap-filter-${type}"[^>]*x-on:change="toggleWiringType\\('${type}'\\)"`));
+  }
+  assert.match(html, /<button class="icon-button primary" id="devicemap-save" type="button" x-show="canEditMap"/);
+  assert.match(html, /id="devicemap-connect-toggle"[^>]*x-bind:disabled="loading \|\| !canEditMap"/);
+  assert.match(html, /<button type="button" class="pill-button" x-show="canEditMapView" x-on:click="saveDefaultView\(\)">/);
+  assert.match(html, /x-on:click="resetViewToDefault\(\)"/);
+  assert.match(html, /class="devicemap-focus-chip devicemap-filter-chip" role="status" x-bind:data-open="energyFlowHidden\(\) \? 'true' : 'false'"/);
+  assert.match(html, /x-on:click="showEnergyEdges\(\)"/);
+  assert.match(html, /data-layer="energy" x-bind:data-filtered="energyFlowHidden\(\) \? 'true' : null"/);
+  assert.match(css, /\.devicemap-filter-sample\[data-type="data"\] \{ border-top-style: dashed; \}/);
+  assert.match(css, /\.devicemap-filter-chip \{[^}]*transition: opacity 160ms ease-out;/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\) \{ \.devicemap-filter-chip \{ transition: none; \} \}/);
 });
 
 test('the legend shows the output off as a filled dot in the bad colour', () => {

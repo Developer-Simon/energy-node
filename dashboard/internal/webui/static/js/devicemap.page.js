@@ -760,7 +760,13 @@
 
       toggleViewMenu(open = !this.viewMenuOpen) {
         this.viewMenuOpen = open;
-        if (open) this.closePopover();
+        if (open) { this.filterMenuOpen = false; this.closePopover(); }
+      },
+
+      // The connection filter and the display menu never stay open together.
+      toggleFilterMenu(open = !this.filterMenuOpen) {
+        this.filterMenuOpen = open;
+        if (open) { this.viewMenuOpen = false; this.closePopover(); }
       },
 
       async openFlowLink(link) {
@@ -1347,6 +1353,7 @@
 
       async onBackgroundTap() {
         this.viewMenuOpen = false;
+        this.filterMenuOpen = false;
         if (this.popover || this.selectedEdge) { this.closePopover(); return; }
         await this.requestClosePanel();
       },
@@ -1354,7 +1361,11 @@
       async onEscape() {
         // An open dialog handles its own Escape (native cancel event).
         if (this.$store.modal.open || this.picker) return;
-        if (this.viewMenuOpen) { this.viewMenuOpen = false; return; }
+        if (this.viewMenuOpen || this.filterMenuOpen) {
+          this.viewMenuOpen = false;
+          this.filterMenuOpen = false;
+          return;
+        }
         if (this.popover) { this.closePopover(); return; }
         await this.requestClosePanel();
       },
@@ -1930,6 +1941,7 @@
         cy.on('tap', 'edge', event => {
           if (this.connectMode) return;
           this.viewMenuOpen = false;
+          this.filterMenuOpen = false;
           if (event.target.hasClass('devicemap-data')) { this.clearEdgeSelection(); this.openEdgePopover(event.target.data('flowId'), event.renderedPosition); }
           else this.onEdgeTap(event);
         });
