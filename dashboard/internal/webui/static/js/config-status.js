@@ -34,7 +34,6 @@
   function classify(status, revision) {
     if (!status || !status.received || !revision || status.config_revision !== revision) return 'pending';
     if (status.runtime_status === 'rejected') return 'rejected';
-    if (status.runtime_status === 'pending') return 'pending';
     return 'applied';
   }
 

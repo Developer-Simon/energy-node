@@ -140,11 +140,11 @@ on the `device-modal` template in
 |---|---|---|
 | `history-panel` | `js-deps/apexcharts.min.js` –, `js-deps/flatpickr.min.js` `1`, `js-deps/flatpickr-l10n-de.js` `1`, `js/history-export.js` `2`, `js/energy-model.js` `4`, `js/history.js` `21` | `css/flatpickr.min.css` `1`, `css/flatpickr.css` `1`, `css/history.css` `7` |
 | `diagnostics-panel` | – | `css/settings-controls.css` `14`, `css/diagnostics.css` `2` |
-| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `3`, `js/config.page.js` `9` | `css/manager.css` `45` |
+| `config-panel` | `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/config-status.js` `4`, `js/config.page.js` `9` | `css/manager.css` `45` |
 | `energy-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `13`, `js/devicemap-subdevices.js` `1`, `js/devicemap-graph.js` `8`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/energy-plant.js` `6`, `js/device-picker.js` `1`, `js/energy.page.js` `13` | `css/manager.css` `45` |
 | `devicemap-panel` | `js-deps/cytoscape.min.js` –, `js/revisions.js` `4`, `js/devicemap-model.js` `13`, `js/devicemap-subdevices.js` `1`, `js/devicemap-node-svg.js` `7`, `js/devicemap-labels.js` `4`, `js/devicemap-graph.js` `8`, `js/devicemap-wiring.js` `3`, `js/devicemap-switch.js` `2`, `js/devicemap-dataflow.js` `5`, `js/automations-view.js` `2`, `js/device-picker.js` `1`, `js/devicemap.page.js` `28` | `css/manager.css` `45` |
 | `settings-panel` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/schema-form.js` `2`, `js/settings.page.js` `23`, `js/mqtt.page.js` `10`, `js/tailscale.page.js` `4`, `js/versions.page.js` `7`, `js/systemconfig.page.js` `5` | `css/choices.min.css` –, `css/choices.css` `2`, `css/manager.css` `45`, `css/settings-controls.css` `14` |
-| `automations-panel` | `js/config-status.js` `3`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `45`, `css/automations.css` `6` |
+| `automations-panel` | `js/config-status.js` `4`, `js/automations-view.js` `2`, `js/automations.page.js` `12` | `css/manager.css` `45`, `css/automations.css` `6` |
 | `stats-panel` | `js-deps/apexcharts.min.js` –, `js/energy-model.js` `4`, `js/energy-stats-model.js` `4`, `js/stats.page.js` `5` | `css/history.css` `7`, `css/stats.css` `3` |
 
 The former `layout-panel` is gone (the "layout edit mode" work): the layout
@@ -265,6 +265,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.2 | `js/config-status.js` (config and automations panels, unreachable `pending` runtime status removed) | `4` | 2026-10-21 |
 | v0.10.1 | `css/manager.css` (5 panels, update notice in settings as a row with one update button) | `45` | 2026-10-20 |
 | v0.10.0 | `css/base.css` (what's new rows expand with explanation, image and guide link) · `js/whatsnew.page.js` (detailText, imageFrame, onToggle) | `41` · `4` | 2026-10-19 |
 | v0.9.28 | `css/base.css` (statistics card chart area) · `js/energy-stats-model.js` (stats panel + energy cards, shared bar chart options) · `js/energy-stats-card.js` (energy cards, fixed period, key figures, bar chart) · `js/stats.page.js` (stats panel, chart options from the model) · `js/layout-editor.js` (editor, statistics card options, history card series as search field) | `40` · `4` · `4` · `5` · `18` | 2026-10-18 |
