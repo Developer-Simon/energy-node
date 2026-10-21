@@ -147,11 +147,6 @@
     return note;
   };
 
-  // Spurenbreite einer Groessenklasse. 'full' und jede Klasse oberhalb
-  // der Spaltenzahl belegen alle Spalten - dieselbe Vorschau-Naeherung, die
-  // die Container-Queries im echten Raster erzeugen.
-  const tracksFor = (span, columns) => (span === 'full' ? columns : Math.min(Number(span) || 1, columns));
-
   const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
 
   // Hoeheneinheit -> rem, identisch zu forcedHeightRem() in webui.go: n Zeilen
@@ -198,11 +193,6 @@
     + `<b>${escapeHTML(label ?? '')}</b>`
     + `<small>${escapeHTML(hint)}</small>`
     + `</div>`;
-
-  // Katalog-Mindesthoehe ('25rem') -> Zeilen a 7rem, aufgerundet.
-  // Damit stimmen die Hoehenverhaeltnisse der Vorschau ungefaehr, ohne dass
-  // die Hoehe gespeichert wird.
-  const heightUnits = minHeight => Math.max(1, Math.ceil((parseFloat(minHeight) || 7) / 7));
 
   const CATEGORY_OPTIONS = [
     {key: 'controls', label: 'layout_editor.category.controls'},
@@ -2070,8 +2060,6 @@
   layoutEditor.filterCatalog = filterCatalog;
   layoutEditor.optionsSheetHTML = optionsSheetHTML;
   layoutEditor.columnsFor = columnsFor;
-  layoutEditor.tracksFor = tracksFor;
-  layoutEditor.heightUnits = heightUnits;
   layoutEditor.resizeTo = resizeTo;
   layoutEditor.insertionPoint = insertionPoint;
   layoutEditor.heightRem = heightRem;

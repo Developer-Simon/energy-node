@@ -726,20 +726,6 @@ test('columnsFor kippt genau am auto-fill-Umschaltpunkt', () => {
   assert.equal(factory.columnsFor(1191), 4);
 });
 
-test('tracksFor deckelt jede Klasse auf die vorhandene Spaltenzahl', () => {
-  const {factory} = loadLayoutPage();
-  assert.equal(factory.tracksFor('2', 6), 2);
-  assert.equal(factory.tracksFor('6', 3), 3);
-  assert.equal(factory.tracksFor('full', 4), 4);
-});
-
-test('heightUnits rundet die Katalog-Mindesthoehe auf 7-rem-Einheiten auf', () => {
-  const {factory} = loadLayoutPage();
-  assert.equal(factory.heightUnits('25rem'), 4);
-  assert.equal(factory.heightUnits('6rem'), 1);
-  assert.equal(factory.heightUnits('14rem'), 2);
-});
-
 test('der PUT-Rumpf schickt version 3 und keine Koordinaten', async () => {
   const requests = [];
   const {component} = await loadedComponent({record: requests});
