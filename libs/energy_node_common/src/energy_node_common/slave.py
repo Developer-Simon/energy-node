@@ -13,7 +13,7 @@ spaeterer reload gelingt.
 from __future__ import annotations
 
 import time
-from typing import Any, Callable, Optional
+from typing import Callable, Optional
 
 import paho.mqtt.client as mqtt
 
@@ -56,7 +56,6 @@ class Slave:
         default_poll_interval_s: float = 60,
         default_diagnostic_multiplier: float = 10,
         node_device_id: Optional[str] = None,
-        on_setting_changed: Optional[Callable[[str, Any], None]] = None,
         on_simulation_changed: Optional[Callable[[str, bool], None]] = None,
         on_config_reload: Optional[Callable[[], None]] = None,
         on_poll_error: Optional[Callable[[Exception], None]] = None,
@@ -76,7 +75,6 @@ class Slave:
             if node_device_id
             else None
         )
-        self._on_setting_changed = on_setting_changed
         self._on_simulation_changed = on_simulation_changed
         self._on_config_reload = on_config_reload
         self._last_update_ts: Optional[int] = None
@@ -112,22 +110,6 @@ class Slave:
                 on_error=on_poll_error,
                 name=f"{service_id}-slave-scheduler",
             )
-
-    @property
-    def settings_topics(self) -> tuple:
-        """Topics, die der Service in seinem `on_connect` abonnieren muss."""
-        topics = [self._config_reload_topic]
-        if self._master_simulation_set_topic:
-            topics.append(self._master_simulation_set_topic)
-        topics.extend(
-            topic
-            for device_id in self._simulation_active
-            for topic in (
-                settings_set_topic(device_id, SIMULATION_SETTING),
-                settings_state_topic(device_id, SIMULATION_SETTING),
-            )
-        )
-        return tuple(topics)
 
     def register_devices(
         self, device_ids: list[str] | tuple[str, ...], client: Optional[mqtt.Client] = None

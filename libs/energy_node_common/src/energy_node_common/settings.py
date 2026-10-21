@@ -58,11 +58,6 @@ def parse_bool(value) -> tuple[Optional[bool], Optional[str]]:
     return None, "invalid_boolean_value"
 
 
-def validate_simulation_active(value) -> Optional[str]:
-    _, error = parse_bool(value)
-    return error
-
-
 @dataclass
 class SlaveStatus:
     """Gemeinsame Statusstruktur, die jeder Slave retained veroeffentlicht.
