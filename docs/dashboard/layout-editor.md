@@ -7,7 +7,7 @@ title: "Layout editor"
 **Edit** on the overview turns the page into the editor. You arrange the cards
 on the real grid, the same one the overview uses afterwards, so a card has the
 size in the editor that it has when you close it again. **Save & close** keeps
-the layout, **Discard changes** drops it.
+the layout, **Discard changes** drops it and closes the editor.
 
 ![Layout editor with the block picker open](../images/dashboard-layout-editor.png)
 

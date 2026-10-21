@@ -25,9 +25,6 @@ their content (`min-height` is a lower bound), Gridstack set a fixed height. Do
 not bring a second model back. Moving, resizing and dropping from the toolbox
 are about 120 lines of own code on the real grid.
 
-*(will be removed in future: Gridstack removal. The library and the code path
-that still calls it are no longer used, see the plan "Gridstack entfernen".)*
-
 ## Data model
 
 Position is the order in the document, there are no `x` or `y`. `span` is a size
@@ -179,8 +176,7 @@ engine.
   `TestEditorLaedtKeinGridstack`), `httpapi_test.go` (`TestLayoutGetShipsCardCatalog`).
 - JS: `layout-editor.test.mjs`, `layout-editor.guard.test.mjs`,
   `layout-editor.css.test.mjs` (the motion table of the design lock),
-  `overview.page.test.mjs`. The first two still use a Gridstack fake *(will be
-  removed in future: Gridstack removal)*.
+  `overview.page.test.mjs`.
 - By hand: view, *Edit*, hover chrome, options modal, toolbox, target width,
   *Page* creates a tab, *Save & close*.
 

@@ -4,10 +4,10 @@
 
 ### Refactors
 
+- **common:** clean up the slave status and hooks (#155) (00ddbed)
 - **common:** drop unused poll fields and pending from the slave status (00528ff)
 - **common:** remove unused slave hooks and helpers (6cf2e60)
 - **services:** name the slave poll rates after what they are (7cd303e)
-- **common:** clean up the slave status and hooks (#155)
 
 ## v0.4.10 (2026-09-30)
 

@@ -17,7 +17,6 @@ managed there until the next vendoring pass.
 | `cytoscape.min.js` | [Cytoscape.js](https://js.cytoscape.org/) | 3.34.0 | MIT |
 | `flatpickr.min.js` | [flatpickr](https://flatpickr.js.org/) | 4.6.13 | MIT |
 | `flatpickr-l10n-de.js` | flatpickr — German locale | matches `flatpickr.min.js` | MIT |
-| `gridstack-all.js` | [GridStack.js](https://gridstackjs.com/) | 13.0.1 | MIT |
 | `htmx.min.js` | [htmx](https://htmx.org/) | 2.0.6 | BSD 2-Clause |
 
 Each file above carries its own copyright; none of these projects are

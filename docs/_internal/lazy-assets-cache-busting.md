@@ -22,9 +22,7 @@ The only lever against this is a **manually maintained query string** `?v=N` on
 the `src`/`href`. When `N` changes it is a new URL as far as the cache is
 concerned and gets reloaded. Almost all of these query strings live centrally in
 [base.html](../../../dashboard/internal/webui/templates/base.html). **Exception:**
-Gridstack is no longer part of the editor assets since the move to the real CSS
-grid — edit mode moves and scales tiles itself so that the view and the editor
-show the same geometry.
+the overview's editor assets, which are declared on the overview panel (see below).
 
 The overview's editor assets (`js/layout-editor.js`, `css/layout-editor.css`)
 are declared in `data-editor-script` / `data-editor-css` on `#overview-panel` in
@@ -160,7 +158,7 @@ only place outside `base.html` with versioned assets.
 
 | Channel | Assets (`?v=`) |
 |---|---|
-| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `18` |
+| `data-editor-script` | `js-deps/choices.min.js` –, `js/revisions.js` `4`, `js/layout-editor.js` `19` |
 | `data-editor-css` | `css/choices.min.css` –, `css/choices.css` `1`, `css/layout-editor.css` `9` |
 
 ### Assets referenced from multiple places
@@ -265,6 +263,7 @@ recomputable.
 
 | Dashboard version | Files | New `?v=` | Date |
 |---|---|---|---|
+| v0.10.3 | `js/layout-editor.js` (overview editor, unreachable Gridstack path removed, discarding changes also ends edit mode) | `19` | 2026-10-21 |
 | v0.10.2 | `js/config-status.js` (config and automations panels, unreachable `pending` runtime status removed) | `4` | 2026-10-21 |
 | v0.10.1 | `css/manager.css` (5 panels, update notice in settings as a row with one update button) | `45` | 2026-10-20 |
 | v0.10.0 | `css/base.css` (what's new rows expand with explanation, image and guide link) · `js/whatsnew.page.js` (detailText, imageFrame, onToggle) | `41` · `4` | 2026-10-19 |

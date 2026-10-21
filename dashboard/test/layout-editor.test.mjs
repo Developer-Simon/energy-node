@@ -1,11 +1,9 @@
-// Regression tests for layout-editor.js's Gridstack integration: the pure
-// item<->GridStackWidget conversion helpers (toGridNode/fromGridNode),
-// widgetHTML()'s escaping and per-type controls, and the imperative
-// Gridstack-driving methods (renderGroup/addItem/handleWidgetChange/
-// handleWidgetClick/save/confirmUnsavedUnload). Gridstack itself is never
-// instantiated here (jsdom has no real drag/resize), same approach as
-// devicemap.page.test.mjs's fakeCytoscapeFactory: a minimal fake GridStack
-// class captures what the component asks it to do.
+// Regression tests for layout-editor.js: the live editor path (Weg A).
+// Pages, cards and the options modal are plain this.pages items. The tests
+// cover the item<->payload round trip, the options modal (optionsSheetHTML and
+// applyOptionChange), card chrome (dressCard), toolbox catalog, mount/unmount
+// on the real overview DOM, and the page and card actions. jsdom has no real
+// drag or resize, so pointer gestures are not driven here.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -22,83 +20,18 @@ const scriptSource = fs.readFileSync(
   'utf8',
 );
 
-// A minimal stand-in for a GridStack instance: enough surface for
-// renderGroup()/addItem()/handleWidgetChange()/handleWidgetClick() to drive
-// it and for tests to inspect what was loaded/added/removed/destroyed.
-// `nodes` mirrors GridStack's internal engine node list; `save()` strips
-// `content` the same way real GridStack does when called with `false`.
-function fakeGridStackClass(initCalls) {
-  return class FakeGridStack {
-    static init(options, el) {
-      const instance = {
-        options, el, nodes: [], listeners: [], destroyed: false,
-        // columnCount, nicht column: `column` ist bei Gridstack eine *Methode*
-        // (grid.column(n, 'list')), die Zahl liest man ueber getColumn().
-        columnCount: options.column,
-        compactCalls: [],
-        load(items) { this.nodes = items.map(item => ({...item})); },
-        addWidget(item) {
-          const node = {...item};
-          this.nodes.push(node);
-          this.listeners.forEach(cb => cb());
-          return {gridstackNode: node};
-        },
-        removeWidget(target) {
-          const node = target?.gridstackNode;
-          this.nodes = this.nodes.filter(n => n !== node);
-          this.listeners.forEach(cb => cb());
-        },
-        save(includeContent) {
-          return this.nodes.map(({content, ...rest}) => (includeContent ? {...rest, content} : {...rest}));
-        },
-        on(_events, cb) { this.listeners.push(cb); },
-        destroy() { this.destroyed = true; },
-        column(count) { this.columnCount = count; },
-        getColumn() { return this.columnCount; },
-        // mount() ruft makeWidget() auf schon vorhandenen .grid-stack-item-DOM-
-        // Knoten (server-gerenderte Karten). load() dagegen laesst GridStack die
-        // DOM bauen - dann haben die Nodes kein .el.
-        makeWidget(elem) {
-          const node = {
-            el: elem,
-            w: Number(elem?.getAttribute?.('gs-w')) || 1,
-            h: Number(elem?.getAttribute?.('gs-h')) || 1,
-            x: 0, y: this.nodes.length,
-          };
-          if (elem) elem.gridstackNode = node;
-          this.nodes.push(node);
-          return elem;
-        },
-        getGridItems() {
-          return this.nodes.map(node => (node.el ? node.el : {gridstackNode: node}));
-        },
-        update(target, changes) {
-          const node = target?.gridstackNode || target;
-          Object.assign(node, changes);
-          return this;
-        },
-        compact(layout) { this.compactCalls.push(layout); },
-      };
-      initCalls.push(instance);
-      return instance;
-    }
-  };
-}
-
-function loadLayoutPage({ fetchImpl, gridstack = true } = {}) {
+function loadLayoutPage({ fetchImpl } = {}) {
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { runScripts: 'outside-only', url: 'http://localhost/' });
   const context = dom.getInternalVMContext();
   installI18n(dom.window);
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = fetchImpl || (async () => { throw new Error('fetch should not be called'); });
-  const initCalls = [];
-  if (gridstack) dom.window.GridStack = fakeGridStackClass(initCalls);
   vm.runInContext(scriptSource, context);
   const component = factory();
   component.$nextTick = fn => fn();
   const stores = attachStores(component);
-  return { component, window: dom.window, document: dom.window.document, initCalls, factory, stores };
+  return { component, window: dom.window, document: dom.window.document, factory, stores };
 }
 
 // Wie loadLayoutPage(), aber fuer den Bearbeitungsmodus auf dem echten
@@ -114,15 +47,13 @@ function createEditor(bodyHTML) {
   let factory;
   dom.window.Alpine = { data: (_name, fn) => { factory = fn; } };
   dom.window.fetch = async () => { throw new Error('fetch should not be called'); };
-  const initCalls = [];
-  dom.window.GridStack = fakeGridStackClass(initCalls);
   vm.runInContext(scriptSource, context);
   global.document = dom.window.document;
   const editor = factory();
   editor.$nextTick = fn => fn();
   const stores = attachStores(editor);
   editor.init();
-  return { dom, editor, window: dom.window, document: dom.window.document, initCalls, factory, stores };
+  return { dom, editor, window: dom.window, document: dom.window.document, factory, stores };
 }
 
 // Die statischen Teile des Editor-Fragments (layout-editor.html) als
@@ -239,7 +170,7 @@ const LAYOUT_RESPONSE = {
 };
 
 // Gibt dieselben Schluessel zurueck wie loadLayoutPage (component, window,
-// document, initCalls, factory, stores), nur eben nach einem durchlaufenen
+// document, factory, stores), nur eben nach einem durchlaufenen
 // load(). factory hier ist die Fabrik *dieser* Instanz - ihre Hilfsfunktionen
 // sehen den geladenen Katalog.
 async function loadedComponent({record} = {}) {
@@ -251,79 +182,40 @@ async function loadedComponent({record} = {}) {
     return jsonResponse(payload);
   };
   const loaded = loadLayoutPage({fetchImpl});
-  // Das Grid-Element muss existieren, bevor renderGrids() es sucht.
-  loaded.document.body.innerHTML = '<div id="layout-grid-g"></div>';
   await loaded.component.load();
   return loaded;
 }
 
-test('toGridNode() carries type/ref/visible/visibleCategories/flowScale and never returns x/y', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const node = factory.toGridNode({id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, visibleCategories: ['controls']}, 'Gerät A', false, 4);
-  assert.equal('x' in node, false, 'x is not part of the flow-layout node - order is position');
-  assert.equal('y' in node, false);
-  assert.deepEqual(node.visibleCategories, ['controls']);
-
-  const flow = factory.toGridNode({id: 'b', type: 'energy_flow', span: 'full', visible: true, flowScale: 'speed'}, 'Energiefluss', false, 4);
-  assert.equal(flow.flowScale, 'speed');
-
-  const group = factory.toGridNode({id: 'c', type: 'entity_group', span: '1', visible: true, title: 'Sensoren', entityRefs: ['a', 'b']}, 'Sensoren', false, 4);
-  assert.equal(group.title, 'Sensoren');
-  assert.deepEqual(group.entityRefs, ['a', 'b']);
-});
-
-test('fromGridNode() defaults a missing span to the item-type default and height to 0', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const item = factory.fromGridNode({id: 'a', type: 'device', ref: 'dev1', visible: true});
+test('mount() gibt einer Kachel ohne span-Klasse den Typ-Default und Hoehe 0', () => {
+  const { dom, editor } = createEditor('<div class="layout-grid"><div class="layout-grid-item" data-layout-item-id="a" data-layout-item-kind="device" data-layout-item-ref="dev1"></div></div>');
+  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  const item = editor.itemForSlot(dom.window.document.querySelector('.layout-edit-slot'));
   assert.equal(item.span, '1');
   assert.equal(item.height, 0);
-  for (const key of ['x', 'y', 'w', 'h']) {
-    assert.ok(!(key in item), `fromGridNode gab ${key} zurueck`);
-  }
 });
 
-test('refMissing() flags an unknown device/entity ref but leaves other types alone', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const devices = [{id: 'dev1', entities: [{unique_id: 'ent1'}]}];
-  assert.equal(factory.refMissing({type: 'device', ref: 'dev1'}, devices), false);
-  assert.equal(factory.refMissing({type: 'device', ref: 'gone'}, devices), true);
-  assert.equal(factory.refMissing({type: 'energy_flow', ref: ''}, devices), false);
-  // entity_value ist seit der Abschaffung von 'entity' die einzige Karte mit
-  // einem einzelnen Entitaets-Ref.
-  assert.equal(factory.refMissing({type: 'entity_value', ref: 'ent1'}, devices), false);
-  assert.equal(factory.refMissing({type: 'entity_value', ref: 'gone'}, devices), true);
-  // entity_group ist erst dann "missing", wenn KEIN Ref der Liste trifft -
-  // ein einzelner geloeschter Ref neben gueltigen ist kein Fehlerzustand,
-  // dieselbe Toleranz wie beim serverseitigen Rendering (entityGroupForItem).
-  assert.equal(factory.refMissing({type: 'entity_group', entityRefs: ['ent1', 'gone']}, devices), false);
-  assert.equal(factory.refMissing({type: 'entity_group', entityRefs: ['gone']}, devices), true);
-  assert.equal(factory.refMissing({type: 'entity_group', entityRefs: []}, devices), true);
+test('die Kachel escaped den Namen im Platzhalter', () => {
+  const { component } = loadLayoutPage();
+  component.devices = [{id: 'dev1', name: '<script>alert(1)</script>', entities: []}];
+  const card = component.buildCard({id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true});
+  assert.equal(card.querySelector('script'), null, 'der Name muss escaped sein');
+  assert.ok(card.innerHTML.includes('&lt;script&gt;'));
 });
 
-test('widgetHTML() escapes the label and shows the missing-ref badge only when asked', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const html = factory.widgetHTML({type: 'device', visible: true}, '<script>alert(1)</script>', true);
-  assert.ok(!html.includes('<script>alert(1)</script>'), 'label must be HTML-escaped');
-  assert.ok(html.includes('&lt;script&gt;'));
-  assert.ok(html.includes('layout-item-missing-ref'));
-  const withoutBadge = factory.widgetHTML({type: 'device', visible: true}, 'Gerät A', false);
-  assert.ok(!withoutBadge.includes('layout-item-missing-ref'));
-});
-
-test('widgetHTML() renders category checkboxes for device items and a flow-scale select for energy_flow items, not both', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const device = factory.widgetHTML({type: 'device', visible: true, visibleCategories: ['controls']}, 'Gerät A', false);
+test('optionsSheetHTML() renders category checkboxes for device items and a flow-scale select for energy_flow items, not both', () => {
+  const { factory } = loadLayoutPage();
+  const device = factory.optionsSheetHTML({type: 'device', visible: true, visibleCategories: ['controls']}, [], 'Gerät A', 4);
   assert.ok(device.includes('data-role="category"'));
   assert.ok(device.includes('value="controls" checked'));
   assert.ok(!device.includes('data-role="flow-scale"'));
 
-  const flow = factory.widgetHTML({type: 'energy_flow', visible: true, flowScale: 'speed'}, 'Energiefluss', false);
+  const flow = factory.optionsSheetHTML({type: 'energy_flow', visible: true, flowScale: 'speed'}, [], 'Energiefluss', 4);
   assert.ok(flow.includes('data-role="flow-scale"'));
   assert.ok(flow.includes('value="speed" selected'));
   assert.ok(!flow.includes('data-role="category"'));
 });
 
-test('widgetHTML() renders a title field and a multi-select option per known entity for entity_group items', async () => {
+test('optionsSheetHTML() renders a title field and a multi-select option per known entity for entity_group items', async () => {
   const devices = [{id: 'dev1', name: 'Gerät 1', entities: [
     {unique_id: 'ent1', name: 'Werkstatt', object_id: 'temp_werkstatt'},
     {unique_id: 'ent2', name: 'Lager', object_id: 'temp_lager'},
@@ -331,9 +223,9 @@ test('widgetHTML() renders a title field and a multi-select option per known ent
   const { component, factory } = loadLayoutPage({
     fetchImpl: async url => (url.endsWith('/api/v1/devices') ? jsonResponse(devices) : jsonResponse(LAYOUT_RESPONSE)),
   });
-  await component.load(); // populates the module-level allDevices cache widgetHTML() reads from
+  await component.load(); // populates the module-level allDevices cache the sheet falls back to
 
-  const html = factory.widgetHTML({type: 'entity_group', visible: true, title: 'Sensoren', entityRefs: ['ent2']}, 'Sensoren', false, 4);
+  const html = factory.optionsSheetHTML({type: 'entity_group', visible: true, title: 'Sensoren', entityRefs: ['ent2']}, [], 'Sensoren', 4);
   assert.ok(html.includes('data-role="entity-group-title"'));
   assert.ok(html.includes('value="Sensoren"'));
   assert.ok(html.includes('<select multiple data-role="entity-refs"'));
@@ -343,7 +235,7 @@ test('widgetHTML() renders a title field and a multi-select option per known ent
   assert.ok(!html.includes('data-role="category"'), 'entity_group must not render the device-tile category fieldset');
 });
 
-test('widgetHTML() renders a single entity select for entity_value items, with the current ref selected', async () => {
+test('optionsSheetHTML() renders a single entity select for entity_value items, with the current ref selected', async () => {
   const devices = [{id: 'dev1', name: 'Gerät 1', entities: [
     {unique_id: 'ent1', name: 'Werkstatt', object_id: 'temp_werkstatt'},
     {unique_id: 'ent2', name: 'Lager', object_id: 'temp_lager'},
@@ -353,39 +245,40 @@ test('widgetHTML() renders a single entity select for entity_value items, with t
   });
   await component.load();
 
-  const html = factory.widgetHTML({type: 'entity_value', visible: true, ref: 'ent2'}, 'Wert-Karte', false, 4);
+  const html = factory.optionsSheetHTML({type: 'entity_value', visible: true, ref: 'ent2'}, [], 'Wert-Karte', 4);
   assert.ok(html.includes('data-role="entity-value-ref"'));
   assert.ok(html.includes('Gerät 1 / Werkstatt'));
   assert.ok(html.includes('Gerät 1 / Lager'));
   assert.ok(html.includes('value="ent2" selected'));
   assert.ok(!html.includes('value="ent1" selected'));
 
-  const empty = factory.widgetHTML({type: 'entity_value', visible: true, ref: ''}, 'Wert-Karte', true, 4);
+  const empty = factory.optionsSheetHTML({type: 'entity_value', visible: true, ref: ''}, [], 'Wert-Karte', 4);
   assert.ok(empty.includes('<option value="">Bitte wählen</option>'));
 });
 
-test('widgetHTML()/energyOptionsHTML() only show the speed-reference fields for energy_flow items in "speed" scale mode', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const width = factory.widgetHTML({type: 'energy_flow', visible: true, flowScale: 'width'}, 'Energiefluss', false);
+test('optionsSheetHTML()/energyOptionsHTML() only show the speed-reference fields for energy_flow items in "speed" scale mode', () => {
+  const { factory } = loadLayoutPage();
+  const width = factory.optionsSheetHTML({type: 'energy_flow', visible: true, flowScale: 'width'}, [], 'Energiefluss', 4);
   assert.ok(!width.includes('data-role="speed-reference-mode"'), 'width mode must not show the reference fields');
   assert.ok(!width.includes('data-role="speed-reference-watts"'));
 
-  const speed = factory.widgetHTML({type: 'energy_flow', visible: true, flowScale: 'speed', speedReferenceMode: 'fixed', speedReferenceWatts: 2500}, 'Energiefluss', false);
+  const speed = factory.optionsSheetHTML({type: 'energy_flow', visible: true, flowScale: 'speed', speedReferenceMode: 'fixed', speedReferenceWatts: 2500}, [], 'Energiefluss', 4);
   assert.ok(speed.includes('data-role="speed-reference-mode"'));
   assert.ok(speed.includes('value="fixed" selected'));
   assert.ok(speed.includes('data-role="speed-reference-watts"'));
   assert.ok(speed.includes('value="2500"'));
 });
 
+
 // Konfigurationsoptionen der sechs Energiegrafiken-Alternativen (Port der
 // sechs-Varianten-Exploration, siehe
 // docs/dashboard/overview-cards.md). Diese Tests
 // decken die generische Verdrahtung (energyOptionsHTML()-Dispatch,
-// defaultEnergyOptions(), handleWidgetChange()-Rollen, save()-Serialisierung)
+// defaultEnergyOptions(), applyOptionChange()-Rollen, save()-Serialisierung)
 // ab, nicht jedes der 18 Felder einzeln - die Kartenlogik selbst hat eigene
 // Tests in energy-band/-ring/-board/-day/-schema/-status.page.test.mjs.
 test('energyOptionsHTML() renders the right panel per energy card type and nothing for other types', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const band = factory.energyOptionsHTML({type: 'energy_band', heightReference: 'abs', animate: 'off'});
   assert.ok(band.includes('data-role="height-reference"'));
   assert.ok(band.includes('value="abs" selected'));
@@ -421,7 +314,7 @@ test('energyOptionsHTML() returns energy options as modal fields', async () => {
 });
 
 test('defaultEnergyOptions() returns the documented per-type defaults, and {} for non-energy types', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   assert.deepEqual(JSON.parse(JSON.stringify(factory.defaultEnergyOptions('energy_flow'))),
     {speedReferenceMode: 'relative', speedReferenceWatts: 1000, hideInactive: 'off'});
   assert.deepEqual(JSON.parse(JSON.stringify(factory.defaultEnergyOptions('energy_band'))),
@@ -432,7 +325,7 @@ test('defaultEnergyOptions() returns the documented per-type defaults, and {} fo
 });
 
 test('ENERGY_OPTION_BY_ROLE maps a select role to its camelCase field and a checkbox role to on/off', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   assert.deepEqual(
     JSON.parse(JSON.stringify(factory.ENERGY_OPTION_BY_ROLE['scale-mode'])),
     {role: 'scale-mode', field: 'scaleMode', json: 'scale_mode', kind: 'select'},
@@ -447,36 +340,7 @@ test('ENERGY_OPTION_BY_ROLE maps a select role to its camelCase field and a chec
   );
 });
 
-test('toGridNode()/fromGridNode() round-trip an energy card option through the GridStack node', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const node = factory.toGridNode({id: 'a', type: 'energy_board', span: '2', visible: true, sort: 'power', sparkWindow: '60'}, 'Datentafel', false, 4);
-  assert.equal(node.sort, 'power');
-  assert.equal(node.sparkWindow, '60');
-  const item = factory.fromGridNode(node);
-  assert.equal(item.sort, 'power');
-  assert.equal(item.sparkWindow, '60');
-});
-
-test('toGridNode()/fromGridNode() round-trip an entity_group title and entityRefs', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const node = factory.toGridNode({id: 'a', type: 'entity_group', span: '1', visible: true, title: 'Sensoren', entityRefs: ['ent1', 'ent2']}, 'Sensoren', false, 4);
-  const item = factory.fromGridNode(node);
-  assert.equal(item.title, 'Sensoren');
-  assert.deepEqual(item.entityRefs, ['ent1', 'ent2']);
-
-  // Andere Typen tragen keine leeren entity_group-Felder mit sich - dieselbe
-  // Erwartung wie visibleCategories/flowScale bei fromGridNode() ohne
-  // gesetzte Felder.
-  const other = factory.fromGridNode({id: 'b', type: 'device', ref: 'dev1', visible: true});
-  assert.equal(other.title, '');
-  // other.entityRefs is a fresh [] built inside the vm-executed fromGridNode,
-  // so it is a foreign Array from this realm's point of view - round-trip
-  // through JSON first, same workaround the file already uses for initCalls
-  // options crossing the jsdom vm realm.
-  assert.deepEqual(JSON.parse(JSON.stringify(other.entityRefs)), []);
-});
-
-test('load() fetches layout+devices, hydrates pages, and mounts a GridStack instance per group', async () => {
+test('load() fetches layout+devices and hydrates pages', async () => {
   const layout = {
     pages: [{id: 'page-1', name: '', order: 0, groups: [{
       id: 'group-1', name: 'Dashboard',
@@ -484,26 +348,15 @@ test('load() fetches layout+devices, hydrates pages, and mounts a GridStack inst
     }]}],
   };
   const devices = [{id: 'dev1', name: 'Node', entities: []}];
-  const { component, document, initCalls } = loadLayoutPage({
+  const { component } = loadLayoutPage({
     fetchImpl: async url => (url === '/api/v1/layout' ? jsonResponse(layout) : jsonResponse(devices)),
   });
-  const container = document.createElement('div');
-  container.id = 'layout-grid-group-1';
-  document.body.appendChild(container);
 
   await component.load();
 
   assert.equal(component.devices.length, 1);
   assert.equal(component.pages[0].groups[0].items[0].flowScale, 'width');
-  assert.equal(initCalls.length, 1, 'one GridStack instance per group');
-  // initCalls[0].options crosses the jsdom vm realm, so its plain-object
-  // prototype differs from this realm's Object - round-trip through JSON
-  // before deepEqual, same workaround devicemap.page.test.mjs uses.
-  // jsdom gibt clientWidth 0 zurueck (kein echtes Layout) - columnsFor(0) ist 1.
-  assert.deepEqual(JSON.parse(JSON.stringify(initCalls[0].options)), {column: 1, cellHeight: '7rem', float: false, disableResize: true, acceptWidgets: true, handle: '.layout-item-handle'});
-  assert.equal(initCalls[0].nodes.length, 1);
-  assert.equal(initCalls[0].nodes[0].id, 'energy-flow');
-  assert.ok(initCalls[0].compactCalls.includes('list'), 'renderGroup packs as a list after loading');
+  assert.equal(component.pages[0].groups[0].items[0].id, 'energy-flow');
 });
 
 test('itemOptions lists a single generic entity_value option (no per-entity ref), and itemLabel falls back to entity_group\'s own title / entity_value\'s picked ref', async () => {
@@ -525,7 +378,7 @@ test('itemOptions lists a single generic entity_value option (no per-entity ref)
   assert.equal(entityValue.ref, '');
   assert.equal(component.itemOptions.some(option => option.id === 'entity_value:ent1'), false, 'no more per-entity entity_value options');
 
-  // entity_group hat keine option.id in itemOptions (siehe addEntityGroup) -
+  // entity_group hat keine option.id in itemOptions (siehe addFromCatalog) -
   // itemLabel() muss trotzdem etwas Sinnvolles liefern: den eigenen Titel.
   assert.equal(component.itemLabel({type: 'entity_group', id: 'entity-group-123', title: 'Sensoren'}), 'Sensoren');
   assert.equal(component.itemLabel({type: 'entity_group', id: 'entity-group-123', title: ''}), 'Entitätenliste');
@@ -536,227 +389,128 @@ test('itemOptions lists a single generic entity_value option (no per-entity ref)
   assert.equal(component.itemLabel({type: 'entity_value', id: 'entity-value-123', ref: ''}), 'Wert-Karte');
 });
 
-function componentWithMountedGroup(items = []) {
-  const { component, document, initCalls } = loadLayoutPage();
-  const group = {id: 'group-1', name: 'Dashboard', items};
-  const page = {id: 'page-1', name: '', order: 0, groups: [group]};
-  component.pages = [page];
-  component.devices = [];
-  const container = document.createElement('div');
-  container.id = 'layout-grid-group-1';
-  document.body.appendChild(container);
-  component.renderGroup(group);
-  return { component, page, group, document, grid: initCalls[0] };
+// Die generische 'entity-value'-Option hat keinen Ref und darum keine
+// natuerliche eindeutige Karten-ID. Jeder Aufruf legt eine neue Karte an.
+test('addFromCatalog() creates a fresh id for the generic entity-value entry on every call', () => {
+  const { component } = loadLayoutPage();
+  component.pages = [{id: 'page-1', name: '', order: 0, groups: [{id: 'group-1', name: 'Dashboard', items: []}]}];
+  const entry = {id: 'entity-value', type: 'entity_value', ref: ''};
+  component.addFromCatalog(entry);
+  component.addFromCatalog(entry);
+  const items = component.pages[0].groups[0].items;
+  assert.equal(items.length, 2);
+  assert.equal(items[0].type, 'entity_value');
+  assert.equal(items[1].type, 'entity_value');
+  assert.notEqual(items[0].id, items[1].id);
+  assert.equal(items[0].ref, '');
+});
+
+// entity_group hat keinen Ref und damit keine natuerliche eindeutige ID.
+// Jeder Aufruf muss also eine eigene, neue Karte anlegen.
+test('addFromCatalog() adds a new entity_group card with a fresh id on every call', () => {
+  const { component } = loadLayoutPage();
+  component.pages = [{id: 'page-1', name: '', order: 0, groups: [{id: 'group-1', name: 'Dashboard', items: []}]}];
+  const entry = {id: 'entity-group', type: 'entity_group', ref: ''};
+  component.addFromCatalog(entry);
+  component.addFromCatalog(entry);
+  const items = component.pages[0].groups[0].items;
+  assert.equal(items.length, 2);
+  assert.equal(items[0].type, 'entity_group');
+  assert.equal(items[1].type, 'entity_group');
+  assert.notEqual(items[0].id, items[1].id);
+  assert.equal(items[0].title, 'Entitäten');
+  assert.deepEqual(JSON.parse(JSON.stringify(items[0].entityRefs)), []);
+  assert.equal(component.unsaved, true);
+});
+
+// applyOptionChange() schreibt aus dem Modal direkt in das Item der Kachel,
+// das gerade offen ist (_optionsItem). Ein Fake-Ziel genuegt dafuer.
+function optionChange(component, item, target) {
+  component._optionsItem = item;
+  component.applyOptionChange({target});
+  return item;
 }
 
-test('a remove on the mounted grid resyncs group.items from grid.save() and marks unsaved', () => {
-  const { component, group, grid } = componentWithMountedGroup([
-    {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, x: 0, y: 0, w: 1, h: 2, visibleCategories: []},
-  ]);
-  assert.equal(component.unsaved, false);
-  assert.equal(group.items.length, 1);
-  const node = grid.nodes[0];
-  // Same path GridStack takes when the user drags a widget out or the
-  // remove button fires grid.removeWidget(): the registered 'change added
-  // removed' listener rebuilds group.items from the grid's own node list.
-  grid.removeWidget({gridstackNode: node});
-  assert.equal(group.items.length, 0);
+test('applyOptionChange() updates a category on the item and ignores unknown roles', () => {
+  const { component } = loadLayoutPage();
+  const item = {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, visibleCategories: []};
+  optionChange(component, item, {dataset: {role: 'category'}, value: 'measurements', checked: true});
+  assert.deepEqual(JSON.parse(JSON.stringify(item.visibleCategories)), ['measurements']);
   assert.equal(component.unsaved, true);
-});
-
-test('addItem() adds an auto-positioned widget to the live grid and refuses a duplicate or a missing grid', () => {
-  const { component, group } = componentWithMountedGroup([]);
-  component.addItem(group, 'energy-flow');
-  assert.equal(group.items.length, 1);
-  assert.equal(group.items[0].type, 'energy_flow');
-  assert.equal(component.unsaved, true);
-
-  // duplicate id is a no-op
-  component.addItem(group, 'energy-flow');
-  assert.equal(group.items.length, 1);
-
-  // no live grid for this group -> no-op, no throw
-  const orphanGroup = {id: 'no-grid', name: 'Orphan', items: []};
-  component.addItem(orphanGroup, 'diagnostics');
-  assert.equal(orphanGroup.items.length, 0);
-});
-
-// Wie addEntityGroup(): die generische 'entity-value'-Option hat keinen Ref
-// und darum keine natuerliche eindeutige Karten-ID - addItem()s Dedup-Check
-// darf eine zweite Wert-Karte in derselben Gruppe nicht verhindern.
-test('addItem() creates a fresh id for the generic entity-value option on every call, bypassing the dedup check', () => {
-  const { component, group } = componentWithMountedGroup([]);
-  component.addItem(group, 'entity-value');
-  component.addItem(group, 'entity-value');
-  assert.equal(group.items.length, 2);
-  assert.equal(group.items[0].type, 'entity_value');
-  assert.equal(group.items[1].type, 'entity_value');
-  assert.notEqual(group.items[0].id, group.items[1].id);
-  assert.equal(group.items[0].ref, '');
-});
-
-// addEntityGroup() geht nicht ueber addItem()/itemOptions: entity_group hat
-// keinen Ref und damit keine natuerliche eindeutige option.id, die addItem()s
-// Dedup-Check (ein Item pro option.id je Gruppe) bedienen koennte. Jeder
-// Aufruf muss also eine eigene, neue Karte anlegen - auch ein zweiter Aufruf
-// direkt hintereinander.
-test('addEntityGroup() adds a new entity_group widget with a fresh id on every call', () => {
-  const { component, group } = componentWithMountedGroup([]);
-  component.addEntityGroup(group);
-  component.addEntityGroup(group);
-  assert.equal(group.items.length, 2);
-  assert.equal(group.items[0].type, 'entity_group');
-  assert.equal(group.items[1].type, 'entity_group');
-  assert.notEqual(group.items[0].id, group.items[1].id);
-  assert.equal(group.items[0].title, 'Entitäten');
-  assert.deepEqual(JSON.parse(JSON.stringify(group.items[0].entityRefs)), []);
-  assert.equal(component.unsaved, true);
-});
-
-test('handleWidgetChange() updates the gridstackNode for visible/category/flow-scale roles and ignores others', () => {
-  const { component, group } = componentWithMountedGroup([
-    {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, x: 0, y: 0, w: 1, h: 1, visibleCategories: []},
-  ]);
-  const node = {visible: true, visibleCategories: [], flowScale: ''};
-  const itemEl = {gridstackNode: node};
-  const grid = {
-    save: () => [{...node, id: 'a', type: 'device', ref: 'dev1', x: 0, y: 0, w: 1, h: 1}],
-    getColumn: () => 4,
-    update(target, changes) { Object.assign(target.gridstackNode, changes); },
-  };
-  const fakeTarget = role => ({dataset: {role}, closest: () => itemEl, checked: true, value: 'measurements'});
-
-  component.handleWidgetChange({target: fakeTarget('visible')}, grid, group);
-  assert.equal(node.visible, true);
-  assert.equal(component.unsaved, true);
-
-  component.handleWidgetChange({target: fakeTarget('category')}, grid, group);
-  assert.deepEqual(JSON.parse(JSON.stringify(node.visibleCategories)), ['measurements']);
-
-  component.handleWidgetChange({target: fakeTarget('flow-scale')}, grid, group);
-  // flow-scale role reads .value ('measurements' from the shared fake), just checking it's applied
-  assert.equal(node.flowScale, 'measurements');
 
   component.unsaved = false;
-  component.handleWidgetChange({target: {dataset: {}, closest: () => itemEl}}, grid, group);
+  optionChange(component, item, {dataset: {}, checked: true});
   assert.equal(component.unsaved, false, 'unrelated change events are ignored');
 });
 
-test('handleWidgetChange() re-renders the widget content on a flow-scale change, so the speed-reference fields show/hide immediately', () => {
-  const { component, group } = componentWithMountedGroup([
-    {id: 'b', type: 'energy_flow', ref: '', span: 'full', visible: true, x: 0, y: 0, w: 4, h: 4, flowScale: 'width'},
-  ]);
-  const node = {id: 'b', type: 'energy_flow', ref: '', span: 'full', visible: true, flowScale: 'width'};
-  const itemEl = {gridstackNode: node};
-  const grid = {
-    save: () => [{...node, x: 0, y: 0, w: 4, h: 4}],
-    getColumn: () => 4,
-    update(target, changes) { Object.assign(target.gridstackNode, changes); },
-  };
-  const target = {dataset: {role: 'flow-scale'}, closest: () => itemEl, value: 'speed'};
-
-  component.handleWidgetChange({target}, grid, group);
-
-  assert.equal(node.flowScale, 'speed');
-  assert.ok(node.content.includes('data-role="speed-reference-mode"'), 'switching to speed mode must re-render the reference fields in');
+test('applyOptionChange() ignores the visible role, the eye button in the chrome owns visibility', () => {
+  const { component } = loadLayoutPage();
+  const item = {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true};
+  optionChange(component, item, {dataset: {role: 'visible'}, checked: false});
+  assert.equal(item.visible, true);
+  assert.equal(component.unsaved, false);
 });
 
-test('handleWidgetChange() coerces a number-kind energy option to a JS number', () => {
-  const { component, group } = componentWithMountedGroup([
-    {id: 'a', type: 'energy_flow', span: 'full', visible: true, x: 0, y: 0, w: 4, h: 4, speedReferenceWatts: 1000},
-  ]);
-  const node = {visible: true, speedReferenceWatts: 1000};
-  const itemEl = {gridstackNode: node};
-  const grid = {save: () => [{...node, id: 'a', type: 'energy_flow', x: 0, y: 0, w: 4, h: 4}]};
+test('applyOptionChange() re-renders the modal body on a flow-scale change, so the speed-reference fields show/hide immediately', () => {
+  const { dom, editor } = createEditorWithFragment('');
+  const item = {id: 'b', type: 'energy_flow', ref: '', span: 'full', visible: true, flowScale: 'width'};
+  editor.pages = [{id: 'p', name: '', order: 0, groups: [{id: 'g', name: 'D', items: [item]}]}];
+  editor.devices = [];
+  editor._optionsItem = item;
+  editor.applyOptionChange({target: {dataset: {role: 'flow-scale'}, value: 'speed'}});
 
-  component.handleWidgetChange({target: {dataset: {role: 'speed-reference-watts'}, closest: () => itemEl, value: '2500'}}, grid, group);
-
-  assert.equal(node.speedReferenceWatts, 2500);
-  assert.equal(typeof node.speedReferenceWatts, 'number');
+  assert.equal(item.flowScale, 'speed');
+  const body = dom.window.document.querySelector('[data-modal-body]');
+  assert.ok(body.innerHTML.includes('data-role="speed-reference-mode"'), 'switching to speed mode must re-render the reference fields in');
 });
 
-test('handleWidgetChange() applies an energy-option select as its raw value and a checkbox as on/off', () => {
-  const { component, group } = componentWithMountedGroup([
-    {id: 'a', type: 'energy_band', span: '2', visible: true, x: 0, y: 0, w: 2, h: 1, heightReference: 'fill', animate: 'on'},
-  ]);
-  const node = {visible: true, heightReference: 'fill', animate: 'on'};
-  const itemEl = {gridstackNode: node};
-  const grid = {save: () => [{...node, id: 'a', type: 'energy_band', x: 0, y: 0, w: 2, h: 1}]};
-
-  component.handleWidgetChange({target: {dataset: {role: 'height-reference'}, closest: () => itemEl, value: 'abs'}}, grid, group);
-  assert.equal(node.heightReference, 'abs');
-
-  component.handleWidgetChange({target: {dataset: {role: 'animate'}, closest: () => itemEl, checked: false}}, grid, group);
-  assert.equal(node.animate, 'off');
-
-  component.handleWidgetChange({target: {dataset: {role: 'animate'}, closest: () => itemEl, checked: true}}, grid, group);
-  assert.equal(node.animate, 'on');
+test('applyOptionChange() coerces a number-kind energy option to a JS number', () => {
+  const { component } = loadLayoutPage();
+  const item = {id: 'a', type: 'energy_flow', span: 'full', visible: true, speedReferenceWatts: 1000};
+  optionChange(component, item, {dataset: {role: 'speed-reference-watts'}, value: '2500'});
+  assert.equal(item.speedReferenceWatts, 2500);
+  assert.equal(typeof item.speedReferenceWatts, 'number');
 });
 
-test('handleWidgetChange() updates the gridstackNode for entity-group-title/entity-refs roles', () => {
-  const { component, group } = componentWithMountedGroup([
-    {id: 'a', type: 'entity_group', span: '1', visible: true, x: 0, y: 0, w: 1, h: 2, title: 'Sensoren', entityRefs: []},
-  ]);
-  const node = {title: 'Sensoren', entityRefs: []};
-  const itemEl = {gridstackNode: node};
-  const grid = {
-    save: () => [{...node, id: 'a', type: 'entity_group', x: 0, y: 0, w: 1, h: 2}],
-    getColumn: () => 4,
-    update(target, changes) { Object.assign(target.gridstackNode, changes); },
-  };
+test('applyOptionChange() applies an energy-option select as its raw value and a checkbox as on/off', () => {
+  const { component } = loadLayoutPage();
+  const item = {id: 'a', type: 'energy_band', span: '2', visible: true, heightReference: 'fill', animate: 'on'};
+  optionChange(component, item, {dataset: {role: 'height-reference'}, value: 'abs'});
+  assert.equal(item.heightReference, 'abs');
 
-  component.handleWidgetChange({target: {dataset: {role: 'entity-group-title'}, closest: () => itemEl, value: 'Neuer Titel'}}, grid, group);
-  assert.equal(node.title, 'Neuer Titel');
+  optionChange(component, item, {dataset: {role: 'animate'}, checked: false});
+  assert.equal(item.animate, 'off');
+
+  optionChange(component, item, {dataset: {role: 'animate'}, checked: true});
+  assert.equal(item.animate, 'on');
+});
+
+test('applyOptionChange() updates title and entityRefs of an entity_group card', () => {
+  const { component } = loadLayoutPage();
+  const item = {id: 'a', type: 'entity_group', span: '1', visible: true, title: 'Sensoren', entityRefs: []};
+  optionChange(component, item, {dataset: {role: 'entity-group-title'}, value: 'Neuer Titel'});
+  assert.equal(item.title, 'Neuer Titel');
   assert.equal(component.unsaved, true);
 
-  // Choices.js haelt das <select multiple> synchron - handleWidgetChange
-  // liest darum ueber selectedOptions statt eines einzelnen checked/value
-  // wie beim vorherigen Checkbox-Fieldset.
+  // Choices.js haelt das <select multiple> synchron, gelesen wird darum ueber
+  // selectedOptions.
   const selectedOptions = values => values.map(value => ({value}));
-  component.handleWidgetChange({target: {dataset: {role: 'entity-refs'}, closest: () => itemEl, selectedOptions: selectedOptions(['ent1'])}}, grid, group);
-  assert.deepEqual(JSON.parse(JSON.stringify(node.entityRefs)), ['ent1']);
+  optionChange(component, item, {dataset: {role: 'entity-refs'}, selectedOptions: selectedOptions(['ent1'])});
+  assert.deepEqual(JSON.parse(JSON.stringify(item.entityRefs)), ['ent1']);
 
-  component.handleWidgetChange({target: {dataset: {role: 'entity-refs'}, closest: () => itemEl, selectedOptions: selectedOptions(['ent1', 'ent2'])}}, grid, group);
-  assert.deepEqual(JSON.parse(JSON.stringify(node.entityRefs)), ['ent1', 'ent2']);
+  optionChange(component, item, {dataset: {role: 'entity-refs'}, selectedOptions: selectedOptions(['ent1', 'ent2'])});
+  assert.deepEqual(JSON.parse(JSON.stringify(item.entityRefs)), ['ent1', 'ent2']);
 
-  component.handleWidgetChange({target: {dataset: {role: 'entity-refs'}, closest: () => itemEl, selectedOptions: selectedOptions(['ent2'])}}, grid, group);
-  assert.deepEqual(JSON.parse(JSON.stringify(node.entityRefs)), ['ent2']);
+  optionChange(component, item, {dataset: {role: 'entity-refs'}, selectedOptions: selectedOptions(['ent2'])});
+  assert.deepEqual(JSON.parse(JSON.stringify(item.entityRefs)), ['ent2']);
 });
 
-test('handleWidgetChange() updates ref and re-renders content for the entity-value-ref role', () => {
-  const { component, group } = componentWithMountedGroup([
-    {id: 'a', type: 'entity_value', ref: '', span: '1', visible: true, x: 0, y: 0, w: 1, h: 1},
-  ]);
-  const node = {type: 'entity_value', ref: ''};
-  const itemEl = {gridstackNode: node};
-  let updated = null;
-  const grid = {
-    save: () => [{...node, id: 'a', x: 0, y: 0, w: 1, h: 1}],
-    getColumn: () => 4,
-    update(target, changes) { updated = changes; Object.assign(target.gridstackNode, changes); },
-  };
-
-  component.handleWidgetChange({target: {dataset: {role: 'entity-value-ref'}, closest: () => itemEl, value: 'ent1'}}, grid, group);
-  assert.equal(node.ref, 'ent1');
-  assert.ok(updated?.content, 'must re-render content so the missing-ref badge/label update immediately');
+test('applyOptionChange() sets ref on an entity_value card and marks it unsaved', () => {
+  const { component } = loadLayoutPage();
+  const item = {id: 'a', type: 'entity_value', ref: '', span: '1', visible: true};
+  optionChange(component, item, {dataset: {role: 'entity-value-ref'}, value: 'ent1'});
+  assert.equal(item.ref, 'ent1');
   assert.equal(component.unsaved, true);
-});
-
-test('handleWidgetClick() removes the widget only when the remove-item button was clicked', () => {
-  const { component } = componentWithMountedGroup([
-    {id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, x: 0, y: 0, w: 1, h: 1, visibleCategories: []},
-  ]);
-  let removed = null;
-  const grid = {removeWidget: el => { removed = el; }};
-  const itemEl = {};
-  const removeButton = {closest: selector => (selector === '[data-role="remove-item"]' ? removeButton : itemEl)};
-  component.handleWidgetClick({target: removeButton}, grid);
-  assert.equal(removed, itemEl);
-
-  removed = null;
-  const otherButton = {closest: () => null};
-  component.handleWidgetClick({target: otherButton}, grid);
-  assert.equal(removed, null);
 });
 
 test('save() renames visibleCategories/flowScale to snake_case, PUTs the layout, and clears unsaved', async () => {
@@ -883,7 +637,7 @@ test('load() maps snake_case energy-option fields from the server back to camelC
   const { component } = loadLayoutPage({
     fetchImpl: async url => (url === '/api/v1/layout' ? jsonResponse(layout) : jsonResponse([])),
   });
-  await component.load(); // no #layout-grid-group-1 container exists, so renderGrids() no-ops harmlessly
+  await component.load();
   const item = component.pages[0].groups[0].items[0];
   assert.equal(item.kpi, 'eigen');
   assert.equal(item.labelMode, 'pct');
@@ -930,7 +684,7 @@ test('load() maps entity_refs/title from the server back into entityRefs/title, 
 });
 
 test('confirmUnsavedUnload() only blocks the tab close when there are unsaved changes', () => {
-  const { component } = loadLayoutPage({ gridstack: false });
+  const { component } = loadLayoutPage();
   let prevented = false;
   const event = {preventDefault: () => { prevented = true; }, returnValue: undefined};
 
@@ -944,79 +698,32 @@ test('confirmUnsavedUnload() only blocks the tab close when there are unsaved ch
   assert.equal(event.returnValue, '');
 });
 
-test('removeGroup() destroys the live GridStack instance for that group', () => {
-  const { component, page, grid } = componentWithMountedGroup([]);
-  assert.equal(grid.destroyed, false);
-  component.removeGroup(page, 0);
-  assert.equal(grid.destroyed, true);
-  assert.equal(page.groups.length, 0);
-});
-
-test('removePage() destroys the live GridStack instance for every group on that page', () => {
-  const { component, grid } = componentWithMountedGroup([]);
-  component.pages.push({id: 'page-2', name: 'Zweite Seite', order: 1, groups: []});
-  assert.equal(grid.destroyed, false);
+test('removePage() drops the page and renumbers the remaining pages', () => {
+  const { component } = loadLayoutPage();
+  component.pages = [
+    {id: 'page-1', name: '', order: 0, groups: [{id: 'group-1', name: 'Dashboard', items: [
+      {id: 'a', type: 'entity_group', title: 'Sensoren', entityRefs: []},
+    ]}]},
+    {id: 'page-2', name: 'Zweite Seite', order: 1, groups: []},
+  ];
   component.removePage(0);
-  assert.equal(grid.destroyed, true);
   assert.equal(component.pages.length, 1);
   assert.equal(component.pages[0].id, 'page-2');
   assert.equal(component.pages[0].order, 0, 'remaining pages are renumbered');
 });
 
 test('columnsFor spiegelt repeat(auto-fill, minmax(18rem, 1fr)) mit gap .8rem', () => {
-  const {factory} = loadLayoutPage({gridstack: false});
+  const {factory} = loadLayoutPage();
   assert.equal(factory.columnsFor(1180), 3);
   assert.equal(factory.columnsFor(1872), 6);
   assert.equal(factory.columnsFor(200), 1);
 });
 
 test('columnsFor kippt genau am auto-fill-Umschaltpunkt', () => {
-  const {factory} = loadLayoutPage({gridstack: false});
+  const {factory} = loadLayoutPage();
   // Die vierte Spur passt ab 4 * 288 + 3 * 12,8 = 1190,4 px.
   assert.equal(factory.columnsFor(1190), 3);
   assert.equal(factory.columnsFor(1191), 4);
-});
-
-test('tracksFor deckelt jede Klasse auf die vorhandene Spaltenzahl', () => {
-  const {factory} = loadLayoutPage({gridstack: false});
-  assert.equal(factory.tracksFor('2', 6), 2);
-  assert.equal(factory.tracksFor('6', 3), 3);
-  assert.equal(factory.tracksFor('full', 4), 4);
-});
-
-test('heightUnits rundet die Katalog-Mindesthoehe auf 7-rem-Einheiten auf', () => {
-  const {factory} = loadLayoutPage({gridstack: false});
-  assert.equal(factory.heightUnits('25rem'), 4);
-  assert.equal(factory.heightUnits('6rem'), 1);
-  assert.equal(factory.heightUnits('14rem'), 2);
-});
-
-test('toGridNode setzt h aus height, ersatzweise aus der Katalog-Mindesthoehe', async () => {
-  const {factory} = await loadedComponent();
-  // device: min_height 10rem -> 2 Einheiten, wenn keine Zwangshoehe gesetzt ist.
-  assert.equal(factory.toGridNode({id: 'a', type: 'device', span: '1'}, 'A', false, 4).h, 2);
-  assert.equal(factory.toGridNode({id: 'a', type: 'device', span: '1', height: 5}, 'A', false, 4).h, 5);
-  // span 6 auf vierspurigem Editor-Raster: w ist die Spaltenzahl.
-  assert.equal(factory.toGridNode({id: 'b', type: 'device', span: '6'}, 'B', false, 4).w, 4);
-});
-
-test('der Editor startet mehrspaltig, packt als Liste und laesst nicht ziehen', async () => {
-  const {initCalls} = await loadedComponent();
-  const grid = initCalls[0];
-  assert.equal(grid.options.disableResize, true);
-  assert.equal(typeof grid.options.column, 'number');
-  assert.ok(grid.compactCalls.includes('list'));
-});
-
-test('die Reihenfolge nach einem Zug entspricht der Listenpackung', async () => {
-  const {component, initCalls} = await loadedComponent();
-  const grid = initCalls[0];
-  // Zug simulieren: das zweite Item wandert vor das erste.
-  const [first, second] = grid.nodes;
-  grid.nodes = [{...second, x: 0, y: 0}, {...first, x: 0, y: 1}];
-  grid.listeners.forEach(cb => cb());
-  const ids = component.pages[0].groups[0].items.map(item => item.id);
-  assert.deepEqual(ids, [second.id, first.id]);
 });
 
 test('der PUT-Rumpf schickt version 3 und keine Koordinaten', async () => {
@@ -1033,10 +740,10 @@ test('der PUT-Rumpf schickt version 3 und keine Koordinaten', async () => {
   assert.equal(item.span, '2');
 });
 
-// Kleiner Helfer: widgetHTML() in ein Element haengen und abfragbar machen.
+// Kleiner Helfer: das Optionen-Modal einer Kachel in ein Element haengen.
 const renderWidget = (loaded, item, label, columns) => {
   const host = loaded.document.createElement('div');
-  host.innerHTML = loaded.factory.widgetHTML(item, label, false, columns);
+  host.innerHTML = loaded.factory.optionsSheetHTML(item, [], label, columns);
   return host;
 };
 
@@ -1076,56 +783,38 @@ test('Typen ohne fills_height tragen den Leerraum-Hinweis am Hoehenfeld', async 
   assert.match(getPlatzHint(withoutFill)?.textContent, /Leerraum/);
 });
 
-test('das Auswahlfeld setzt die Groessenklasse und packt neu', async () => {
+test('das Auswahlfeld setzt die Groessenklasse am Item', async () => {
   const loaded = await loadedComponent();
-  const {component, initCalls, document} = loaded;
-  const grid = initCalls[0];
-  const node = grid.nodes.find(candidate => candidate.type === 'device');
-  const el = document.createElement('div');
-  el.className = 'grid-stack-item';
-  el.gridstackNode = node;
+  const {component, document} = loaded;
+  const item = component.pages[0].groups[0].items.find(candidate => candidate.type === 'device');
   const select = document.createElement('select');
   select.dataset.role = 'span';
   select.innerHTML = '<option value="3" selected></option>';
-  el.appendChild(select);
-  document.body.appendChild(el);
-
-  grid.compactCalls.length = 0;
-  component.handleWidgetChange({target: select}, grid, component.pages[0].groups[0]);
-  assert.equal(node.span, '3');
-  assert.equal(node.w, Math.min(3, grid.getColumn()));
-  assert.ok(grid.compactCalls.includes('list'));
+  component._optionsItem = item;
+  component.applyOptionChange({target: select});
+  assert.equal(item.span, '3');
+  assert.equal(component.unsaved, true);
 });
 
 test('das Zahlenfeld setzt die Zwangshoehe, leer heisst keine', async () => {
   const loaded = await loadedComponent();
-  const {component, initCalls, document} = loaded;
-  const grid = initCalls[0];
-  const node = grid.nodes.find(candidate => candidate.type === 'device');
-  const el = document.createElement('div');
-  el.className = 'grid-stack-item';
-  el.gridstackNode = node;
+  const {component, document} = loaded;
+  const item = component.pages[0].groups[0].items.find(candidate => candidate.type === 'device');
   const input = document.createElement('input');
   input.dataset.role = 'height';
   input.value = '4';
-  el.appendChild(input);
-  document.body.appendChild(el);
-
-  component.handleWidgetChange({target: input}, grid, component.pages[0].groups[0]);
-  assert.equal(node.height, 4);
-  assert.equal(node.h, 4);
+  component._optionsItem = item;
+  component.applyOptionChange({target: input});
+  assert.equal(item.height, 4);
 
   input.value = '';
-  component.handleWidgetChange({target: input}, grid, component.pages[0].groups[0]);
-  assert.equal(node.height, 0);
-  // Ohne Zwangshoehe faellt die Vorschauhoehe auf die Katalog-Mindesthoehe
-  // zurueck: device 10rem -> 2 Einheiten.
-  assert.equal(node.h, 2);
+  component.applyOptionChange({target: input});
+  assert.equal(item.height, 0);
 });
 
 
 test('energyOptionsHTML() zeigt das Batterie-Zeitfenster nur für die Trajektorie', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
 
   const traj = factory.energyOptionsHTML({type: 'battery_status', display: 'trajectory', batteryWindow: '12', batteryProjectionWindow: '3'});
   assert.ok(traj.includes('data-role="battery-window"'), 'Zeitfenster-Feld fehlt');
@@ -1138,7 +827,7 @@ test('energyOptionsHTML() zeigt das Batterie-Zeitfenster nur für die Trajektori
 });
 
 test('das Batterie-Zeitfenster fährt über ENERGY_OPTIONS zwischen Feld und JSON hin und her', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const byField = Object.fromEntries(factory.ENERGY_OPTIONS.map(o => [o.field, o]));
   assert.equal(byField.batteryWindow.json, 'battery_window');
   assert.equal(byField.batteryWindow.kind, 'select');
@@ -1146,7 +835,7 @@ test('das Batterie-Zeitfenster fährt über ENERGY_OPTIONS zwischen Feld und JSO
 });
 
 test('initEntityChoicesFor()/destroyEntityChoicesFor() create and tear down a Choices instance for the entity-refs select', () => {
-  const { factory, window, document } = loadLayoutPage({ gridstack: false });
+  const { factory, window, document } = loadLayoutPage();
   const calls = { constructed: [], destroyed: 0 };
   window.Choices = class FakeChoices {
     constructor(select) { calls.constructed.push(select); this.select = select; }
@@ -1161,8 +850,8 @@ test('initEntityChoicesFor()/destroyEntityChoicesFor() create and tear down a Ch
   assert.equal(calls.constructed[0], el.querySelector('[data-role="entity-refs"]'));
 
   // Re-init for the same id must tear down the previous instance first -
-  // applyColumns()/renderGroup() re-render/replace widget content on every
-  // column change or reload, and a stale Choices instance left attached to a
+  // refillOptionsBody() re-renders the modal body on every
+  // change, and a stale Choices instance left attached to a
   // now-detached <select> would leak both the instance and its own
   // document-level event listeners.
   factory.initEntityChoicesFor('node-1', el);
@@ -1178,7 +867,7 @@ test('initEntityChoicesFor()/destroyEntityChoicesFor() create and tear down a Ch
 });
 
 test('initEntityChoicesFor() is a no-op without window.Choices or without a matching select', () => {
-  const { factory, document } = loadLayoutPage({ gridstack: false });
+  const { factory, document } = loadLayoutPage();
   const el = document.createElement('div');
   el.innerHTML = '<input data-role="entity-group-title">';
   document.body.appendChild(el);
@@ -1187,7 +876,7 @@ test('initEntityChoicesFor() is a no-op without window.Choices or without a matc
 });
 
 test('der Katalog zerfaellt in drei Register statt in ein Dropdown', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const cat = factory.catalog([{id: 'wallbox', name: 'Wallbox', entities: [{unique_id: 'e1', name: 'Leistung'}]}]);
   assert.ok(cat.karten.length >= 8, 'die festen Kartentypen');
   assert.deepEqual(cat.geraete.map(e => e.title), ['Wallbox']);
@@ -1202,7 +891,7 @@ test('der Katalog zerfaellt in drei Register statt in ein Dropdown', () => {
 });
 
 test('die Entitaetenliste steht als Baustein im Kartenregister', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const cat = factory.catalog([]);
   const entry = cat.karten.find(card => card.type === 'entity_group');
   assert.ok(entry, 'ohne Katalogeintrag ist die Entitaetenliste in der Toolbox unerreichbar');
@@ -1210,14 +899,14 @@ test('die Entitaetenliste steht als Baustein im Kartenregister', () => {
 });
 
 test('die Energiekarten heissen im Katalog durchgehend "Energie: ..."', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const cat = factory.catalog([]);
   const flow = cat.karten.find(card => card.type === 'energy_flow');
   assert.equal(flow.title, 'Energie: Energiefluss');
 });
 
 test('die Suche geht ueber alle Register', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const cat = factory.catalog([{id: 'wallbox', name: 'Wallbox', entities: []}]);
   assert.deepEqual(JSON.parse(JSON.stringify(factory.filterCatalog(cat, 'wallbox').map(e => e.title))), ['Wallbox']);
   assert.ok(factory.filterCatalog(cat, 'ring').some(e => /Ring/.test(e.title)));
@@ -1246,7 +935,7 @@ test('jedes Feld der Komponente ist deklariert, damit nichts in den Aussenbereic
   // Moduswechsel. So stand _optionsWired beim zweiten "Editieren" schon auf
   // true, die frische Komponente verdrahtete das frische Modal nicht mehr,
   // und das Modal liess sich nicht mehr schliessen.
-  const { component } = loadLayoutPage({ gridstack: false });
+  const { component } = loadLayoutPage();
   const assigned = new Set(
     [...scriptSource.matchAll(/this\.([A-Za-z_][A-Za-z0-9_]*)\s*=[^=]/g)].map(m => m[1]),
   );
@@ -1436,12 +1125,30 @@ test('der Verwerfen-Knopf steht nur bei Aenderungen und fuehrt durch den Waechte
   assert.equal(btn.hidden, false, 'bei Aenderungen erscheint er');
   let saved = 0;
   dom.window.addEventListener('layout-saved', () => { saved += 1; });
+  let left = 0;
+  dom.window.document.addEventListener('layout-editor:request-leave', () => { left += 1; });
   btn.click();
   await Promise.resolve();
   dom.window.document.querySelector('[data-guard-discard]').click();
   for (let i = 0; i < 5; i++) await Promise.resolve();
   assert.equal(editor.unsaved, false, 'der Waechter hat verworfen');
   assert.equal(saved, 1, 'die Uebersicht holt ihr Fragment neu');
+  assert.equal(left, 1, 'der Bearbeiten-Modus wird beendet');
+});
+
+test('Verwerfen abbrechen laesst den Bearbeiten-Modus offen', async () => {
+  const { dom, editor } = createEditorWithFragment('<div class="layout-toolbar"></div><div class="layout-grid"></div>');
+  document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
+  editor.load = async () => {};
+  editor.markUnsaved();
+  let left = 0;
+  dom.window.document.addEventListener('layout-editor:request-leave', () => { left += 1; });
+  dom.window.document.querySelector('.layout-toolbar [data-mode-discard]').click();
+  await Promise.resolve();
+  dom.window.document.querySelector('[data-guard-cancel]').click();
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  assert.equal(editor.unsaved, true);
+  assert.equal(left, 0);
 });
 
 test('der Wechsel zurueck auf Editorbreite animiert ueber die Pixelbreite statt auf auto zu springen', () => {
@@ -1475,7 +1182,7 @@ test('nach Speichern & schliessen laesst sich die Toolbox in der naechsten Sitzu
   assert.ok(dom.window.document.getElementById('toolbox').classList.contains('open'));
 });
 
-// --- Der Editor arbeitet auf dem echten Raster, ohne GridStack ------------
+// --- Der Editor arbeitet auf dem echten Raster ----------------------------
 // Die Uebersicht rendert die aktive Seite in einen [data-layout-page]-Traeger;
 // die Fixtures bilden das ab, damit sie dieselbe DOM-Form pruefen, die
 // overview.html tatsaechlich erzeugt.
@@ -1507,11 +1214,10 @@ test('mount() haengt Chrome und Griff in die Kachel statt sie zu umhuellen', () 
   assert.equal(card.querySelectorAll('.layout-resize-grip').length, 1, 'genau ein Griff');
 });
 
-test('mount() ruehrt GridStack nicht an', () => {
-  const { dom, initCalls } = createEditor(PAGE_GRID(CARD('a', 'device', '1')));
+test('mount() bringt keine fremden Raster-Klassen mit', () => {
+  const { dom } = createEditor(PAGE_GRID(CARD('a', 'device', '1')));
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
 
-  assert.equal(initCalls.length, 0, 'kein GridStack.init auf dem Uebersichtsraster');
   assert.equal(dom.window.document.querySelector('.grid-stack-item, .grid-stack-item-content'), null);
   assert.equal(dom.window.document.querySelector('.layout-grid').classList.contains('grid-stack'), false);
 });
@@ -1547,9 +1253,15 @@ test('ausgeblendete Kacheln der aktiven Seite stehen im Editor, im Ansichtsmodus
 });
 
 // Task 7: Chrome und Optionen-Modal sind getrennte Bausteine, beide an der
-// Fabrik der geladenen Komponente - wie widgetHTML().
-const { factory: task7Factory } = loadLayoutPage({ gridstack: false });
-const chromeHTML = task7Factory.chromeHTML;
+// Fabrik der geladenen Komponente. Das Chrome ist, was dressCard() an die
+// server-gerenderte Kachel haengt.
+const task7 = loadLayoutPage();
+const task7Factory = task7.factory;
+const chromeHTML = item => {
+  const card = task7.document.createElement('div');
+  task7.component.dressCard(card, item);
+  return card.innerHTML;
+};
 const optionsSheetHTML = task7Factory.optionsSheetHTML;
 
 test('die Kachel traegt kein Formularfeld mehr', () => {
@@ -1605,7 +1317,7 @@ test('jede Schalterzeile im Modal ist ein <label>', () => {
 });
 
 test('die Zielbreite bleibt in echten Pixeln und wird nur optisch verkleinert', () => {
-  const { applyTargetWidth } = loadLayoutPage({ gridstack: false }).factory;
+  const { applyTargetWidth } = loadLayoutPage().factory;
   // zoom statt Verschmaelerung: sonst rechnen die Container-Queries auf die
   // Editorbreite und die Vorschau loege genauso wie heute.
   const stage = applyTargetWidth(1280, 640);
@@ -1614,13 +1326,13 @@ test('die Zielbreite bleibt in echten Pixeln und wird nur optisch verkleinert', 
 });
 
 test('der Hinweis nennt Breite, Spaltenzahl und Verkleinerung', () => {
-  const { widthNote } = loadLayoutPage({ gridstack: false }).factory;
+  const { widthNote } = loadLayoutPage().factory;
   assert.equal(widthNote(390, 900), '390 px · 1 Spalte');
   assert.equal(widthNote(1280, 640), '1280 px · 4 Spalten · 50 % verkleinert');
 });
 
 test('Editorbreite ist die Voreinstellung und setzt nichts', () => {
-  const { applyTargetWidth, widthNote } = loadLayoutPage({ gridstack: false }).factory;
+  const { applyTargetWidth, widthNote } = loadLayoutPage().factory;
   assert.deepEqual(JSON.parse(JSON.stringify(applyTargetWidth(0, 900))), {});
   assert.equal(widthNote(0, 900), '');
 });
@@ -1641,7 +1353,7 @@ test('die Zielbreite wird nie vergroessert', () => {
   // Passt die Geraetebreite in den Editorbereich, steht die Buehne in ihrer
   // echten Groesse. Ohne die Kappung blies ein 390px-Handy auf 1376px
   // Editorbreite auf das 3,5-fache auf.
-  const { applyTargetWidth } = loadLayoutPage({ gridstack: false }).factory;
+  const { applyTargetWidth } = loadLayoutPage().factory;
   assert.equal(applyTargetWidth(390, 1376)['--target-zoom'], '1');
 });
 
@@ -2170,7 +1882,7 @@ test('die erste Seite im Leerzustand bekommt einen Traeger im Raster', () => {
 });
 
 test('cardKey() bildet die kompakte Geraetekachel auf ihren Varianteneintrag ab', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   assert.equal(factory.cardKey({type: 'device', display: 'compact'}), 'device:compact');
   assert.equal(factory.cardKey({type: 'device', display: 'detail'}), 'device');
   assert.equal(factory.cardKey({type: 'device'}), 'device');
@@ -2178,7 +1890,7 @@ test('cardKey() bildet die kompakte Geraetekachel auf ihren Varianteneintrag ab'
 });
 
 test('das Optionen-Modal einer Geraetekachel bietet die Darstellung an und blendet die Kategorien im Kompaktmodus aus', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const devices = [{id: 'dev1', name: 'Gerät 1', entities: []}];
 
   const detail = factory.optionsSheetHTML({id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, display: 'detail', visibleCategories: []}, devices, 'Gerät 1', 4);
@@ -2192,12 +1904,12 @@ test('das Optionen-Modal einer Geraetekachel bietet die Darstellung an und blend
   assert.match(compact, /layout-modal-hint/, 'der Hinweis auf die Kompaktauswahl fehlt');
 });
 
-test('toGridNode/fromGridNode tragen display, und die kompakte Kachel startet flacher', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
-  const node = factory.toGridNode({id: 'a', type: 'device', ref: 'dev1', span: '1', visible: true, display: 'compact'}, 'Gerät 1', false, 4);
-  assert.equal(node.display, 'compact');
-  assert.equal(factory.fromGridNode(node).display, 'compact');
-  assert.equal(factory.fromGridNode({id: 'b', type: 'device', ref: 'dev1', visible: true}).display, '');
+test('die kompakte Geraetekachel startet flacher als die Detailkachel', async () => {
+  const { component } = await loadedComponent();
+  const compact = component.buildCard({id: 'a', type: 'device', ref: 'dev1', display: 'compact'});
+  const detail = component.buildCard({id: 'b', type: 'device', ref: 'dev1', display: 'detail'});
+  assert.equal(compact.style.getPropertyValue('--card-min-height'), '7rem');
+  assert.equal(detail.style.getPropertyValue('--card-min-height'), '10rem');
 });
 
 test('display steht im Payload nur, wenn es gesetzt ist', async () => {
@@ -2211,7 +1923,7 @@ test('display steht im Payload nur, wenn es gesetzt ist', async () => {
 });
 
 test('das Optionen-Modal einer Geraetekachel bietet die Geraeteauswahl an', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const devices = [{id: 'dev1', name: 'Gerät 1', entities: []}, {id: 'dev2', name: 'Gerät 2', entities: []}];
   const html = factory.optionsSheetHTML({id: 'a', type: 'device', ref: 'dev2', span: '1', visible: true, display: 'detail', visibleCategories: []}, devices, 'Gerät 2', 4);
   assert.match(html, /data-role="device-ref"/);
@@ -2286,7 +1998,7 @@ test('ein Darstellungswechsel im Modal setzt item.display und data-display an de
 // zweites Argument) und auf den dunklen Themes unsichtbar, derselbe Fehler
 // nur eine Ebene tiefer verschoben.
 test('keine Toolbox-Miniatur traegt eine feste Farbe', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const baseCSS = fs.readFileSync(path.join(here, '..', 'internal', 'webui', 'static', 'css', 'base.css'), 'utf8');
   for (const [type, svg] of Object.entries(factory.THUMB)) {
     assert.equal(/#[0-9a-fA-F]{3,8}\b/.test(svg), false, `${type} enthaelt einen Hex-Wert`);
@@ -2304,7 +2016,7 @@ test('keine Toolbox-Miniatur traegt eine feste Farbe', () => {
 });
 
 test('cardKey bildet die Trajektorie auf ihren Variantenschlüssel ab', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   assert.equal(factory.cardKey({ type: 'battery_status', display: 'trajectory' }), 'battery_status:trajectory');
   assert.equal(factory.cardKey({ type: 'battery_status', display: 'column' }), 'battery_status');
   assert.equal(factory.cardKey({ type: 'battery_status' }), 'battery_status');
@@ -2312,7 +2024,7 @@ test('cardKey bildet die Trajektorie auf ihren Variantenschlüssel ab', () => {
 });
 
 test('das Optionen-Modal der Kompaktkachel bietet die Werteauswahl des eigenen Geraets', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const devices = [
     {id: 'dev1', name: 'Gerät 1', entities: [
       {unique_id: 'dev1_power', name: 'Leistung', object_id: 'power'},
@@ -2336,7 +2048,7 @@ test('das Optionen-Modal der Kompaktkachel bietet die Werteauswahl des eigenen G
 });
 
 test('applyOptionChange: die Werteauswahl der Kompaktkachel wird auf drei gedeckelt', () => {
-  const { component } = loadLayoutPage({ gridstack: false });
+  const { component } = loadLayoutPage();
   component._optionsItem = {id: 'a', type: 'device', ref: 'dev1', display: 'compact', entityRefs: []};
   const select = {dataset: {role: 'entity-refs'}, selectedOptions: [
     {value: 'e1'}, {value: 'e2'}, {value: 'e3'}, {value: 'e4'},
@@ -2348,7 +2060,7 @@ test('applyOptionChange: die Werteauswahl der Kompaktkachel wird auf drei gedeck
 });
 
 test('applyOptionChange: der Wechsel auf Detail und der Geraetewechsel leeren die Werteauswahl', () => {
-  const { component } = loadLayoutPage({ gridstack: false });
+  const { component } = loadLayoutPage();
   component.devices = [{id: 'dev1', name: 'G1', entities: []}, {id: 'dev2', name: 'G2', entities: []}];
   component._optionsItem = {id: 'a', type: 'device', ref: 'dev1', display: 'compact', entityRefs: ['e1', 'e2']};
   component._optionsSlot = null;
@@ -2448,7 +2160,6 @@ async function editorWithHistoryTile(item) {
   const fetchImpl = async url => jsonResponse(
     url.endsWith('/api/v1/devices') ? [] : url.endsWith('/api/v1/settings') ? {history_views: VIEWS} : layout);
   const loaded = loadLayoutPage({fetchImpl});
-  loaded.document.body.innerHTML = '<div id="layout-grid-g"></div>';
   await loaded.component.load();
   return loaded;
 }
@@ -2562,7 +2273,7 @@ test('payload() writes history_series and the two option fields in snake_case', 
 });
 
 test('energyOptionsHTML() zeigt Zeitraum, Kennzahlen und Diagrammschalter fuer energy_stats', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   const html = factory.energyOptionsHTML({type: 'energy_stats', statsPeriod: 'month', statsKpis: ['autarky', 'pv'], statsChart: 'on'});
   assert.ok(html.includes('data-role="stats-period"'), 'Zeitraum fehlt');
   assert.ok(html.includes('value="month" selected'), 'Zeitraum steht nicht auf month');
@@ -2583,7 +2294,7 @@ test('energyOptionsHTML() zeigt Zeitraum, Kennzahlen und Diagrammschalter fuer e
 });
 
 test('cardKey() nimmt mit Diagramm die Variante energy_stats:chart', () => {
-  const { factory } = loadLayoutPage({ gridstack: false });
+  const { factory } = loadLayoutPage();
   assert.equal(factory.cardKey({type: 'energy_stats', statsChart: 'on'}), 'energy_stats:chart');
   assert.equal(factory.cardKey({type: 'energy_stats', statsChart: 'off'}), 'energy_stats');
 });
