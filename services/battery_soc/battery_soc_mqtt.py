@@ -518,9 +518,9 @@ def main() -> None:
         state_save_interval_s = save_interval(new_service_config)
         config_store.commit(new_configs)
         logging.getLogger().setLevel(new_app_config.log_level)
-        slave.apply_config_defaults(
+        slave.apply_rates(
             poll_interval_s=new_service_config.poll_interval_s,
-            diagnostic_multiplier=new_service_config.diagnostic_poll_multiplier,
+            diagnostic_poll_multiplier=new_service_config.diagnostic_poll_multiplier,
         )
         flush_all()
         new_runtimes = [BatteryRuntime(config) for config in new_configs]
@@ -541,8 +541,8 @@ def main() -> None:
     slave = Slave(
         service_id=service_config.service_id,
         poll_core=poll_core,
-        default_poll_interval_s=service_config.poll_interval_s,
-        default_diagnostic_multiplier=service_config.diagnostic_poll_multiplier,
+        poll_interval_s=service_config.poll_interval_s,
+        diagnostic_poll_multiplier=service_config.diagnostic_poll_multiplier,
         node_device_id=app_config.dashboard.node_device_id,
         on_config_reload=reload_config,
         on_poll_error=lambda exc: print(f"Scheduler-Fehler: {exc}"),

@@ -101,11 +101,11 @@ class SimulationRoutingTests(unittest.TestCase):
         self.assertEqual(client.published, [])
 
 
-def test_apply_config_defaults_updates_values():
+def test_apply_rates_updates_values():
     slave = Slave(service_id="shelly", poll_core=lambda: None,
-                  default_poll_interval_s=20, default_diagnostic_multiplier=15)
+                  poll_interval_s=20, diagnostic_poll_multiplier=15)
 
-    slave.apply_config_defaults(poll_interval_s=30, diagnostic_multiplier=5)
+    slave.apply_rates(poll_interval_s=30, diagnostic_poll_multiplier=5)
 
     assert slave.poll_interval_s == 30
     assert slave.diagnostic_poll_multiplier == 5
@@ -116,7 +116,7 @@ def test_poll_interval_set_topic_is_ignored_config_wins():
     # zur Laufzeit ueberschreiben koennte: die config.json ist die Wahrheit.
     client = FakeClient()
     slave = Slave(service_id="shelly", poll_core=lambda: None,
-                  default_poll_interval_s=20, default_diagnostic_multiplier=15)
+                  poll_interval_s=20, diagnostic_poll_multiplier=15)
 
     handled = slave.handle_message(
         client, "outstation/shelly/settings/poll_interval_s/set", "45"
@@ -125,7 +125,7 @@ def test_poll_interval_set_topic_is_ignored_config_wins():
     assert handled is False
     assert slave.poll_interval_s == 20
 
-    slave.apply_config_defaults(poll_interval_s=30, diagnostic_multiplier=5)
+    slave.apply_rates(poll_interval_s=30, diagnostic_poll_multiplier=5)
     assert slave.poll_interval_s == 30
     assert slave.diagnostic_poll_multiplier == 5
 
@@ -145,7 +145,7 @@ def test_config_reload_still_dispatches():
 def test_status_payload_omits_poll_fields():
     client = FakeClient()
     slave = Slave(service_id="x", poll_core=lambda: None,
-                  default_poll_interval_s=42, default_diagnostic_multiplier=7)
+                  poll_interval_s=42, diagnostic_poll_multiplier=7)
 
     slave._publish_status(client)
 

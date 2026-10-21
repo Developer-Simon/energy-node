@@ -252,9 +252,9 @@ class TuyaService:
         self.config_store.commit(new_configs)
         logging.getLogger().setLevel(new_app_config.log_level)
         if self.slave is not None:
-            self.slave.apply_config_defaults(
+            self.slave.apply_rates(
                 poll_interval_s=new_service_config.poll_interval_s,
-                diagnostic_multiplier=new_service_config.diagnostic_poll_multiplier,
+                diagnostic_poll_multiplier=new_service_config.diagnostic_poll_multiplier,
             )
         with self._devices_lock:
             previous = {device.cfg.id: device for device in self.devices}
@@ -331,8 +331,8 @@ class TuyaService:
         self.slave = Slave(
             service_id=self.service_config.service_id,
             poll_core=self.poll_core,
-            default_poll_interval_s=self.service_config.poll_interval_s,
-            default_diagnostic_multiplier=self.service_config.diagnostic_poll_multiplier,
+            poll_interval_s=self.service_config.poll_interval_s,
+            diagnostic_poll_multiplier=self.service_config.diagnostic_poll_multiplier,
             node_device_id=self.node_device_id,
             on_config_reload=self.reload_config,
             on_poll_error=lambda exc: log.warning("Scheduler-Fehler: %s", exc),

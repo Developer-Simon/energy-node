@@ -779,9 +779,9 @@ class APsystemsService:
         self.config_store.commit(new_configs)
         logging.getLogger().setLevel(new_app_config.log_level)
         if self.slave is not None:
-            self.slave.apply_config_defaults(
+            self.slave.apply_rates(
                 poll_interval_s=new_service_config.poll_interval_s,
-                diagnostic_multiplier=new_service_config.diagnostic_poll_multiplier,
+                diagnostic_poll_multiplier=new_service_config.diagnostic_poll_multiplier,
             )
         new_devices = [APsystemsDevice(config, self.node_device_id) for config in new_configs]
         if self.loop is not None and self.loop.is_running():
@@ -958,8 +958,8 @@ class APsystemsService:
             service_id=self.service_config.service_id,
             poll_core=self.poll_core,
             poll_diagnostics=self.poll_diagnostics,
-            default_poll_interval_s=self.service_config.poll_interval_s,
-            default_diagnostic_multiplier=self.service_config.diagnostic_poll_multiplier,
+            poll_interval_s=self.service_config.poll_interval_s,
+            diagnostic_poll_multiplier=self.service_config.diagnostic_poll_multiplier,
             node_device_id=self.node_device_id,
             on_config_reload=self.reload_config,
             on_poll_error=self.on_poll_error,
