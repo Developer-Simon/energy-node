@@ -98,6 +98,7 @@
   color: var(--text);
   font-size: .92rem;
 }
+.setting-row-label-group { display: flex; align-items: center; gap: .4rem; }
 .setting-row-unit { color: var(--text-faint); font-size: .78rem; letter-spacing: .01em; }
 
 /* --- Stepper ( - value + ) --------------------------------------------------
