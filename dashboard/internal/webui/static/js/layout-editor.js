@@ -14,13 +14,6 @@
     return body;
   };
 
-  // GridStack's default renderCB writes node.content via textContent (plain
-  // text, XSS-safe by construction but useless for our interactive widgets).
-  // Overriding it to innerHTML is GridStack's own documented pattern for
-  // custom widget markup (see their html-content demo) - safe here because
-  // widgetHTML() escapes every piece of dynamic text it interpolates.
-  if (window.GridStack) window.GridStack.renderCB = (el, node) => { if (el && node?.content !== undefined) el.innerHTML = node.content; };
-
   const escapeHTML = value => String(value).replace(/[&<>"']/g, char => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[char]));
 
   // jsdom 25 kennt die <dialog>-API nicht (showModal/close sind undefined,
@@ -31,7 +24,7 @@
   const closeDialog = d => { if (typeof d.close === 'function') d.close(); else d.open = false; };
 
   // Der Kartentyp-Katalog aus GET /api/v1/layout (card_types). Modulweit und
-  // ausserhalb des reaktiven Alpine-Objekts, weil Gridstack-Widget-HTML
+  // ausserhalb des reaktiven Alpine-Objekts, weil das Widget-HTML
   // synchron daraus gebaut wird und Alpine dort nichts zu beobachten hat.
   let cardTypes = {};
   const FALLBACK_CARD_TYPE = {min_span: 1, min_width: '14rem', min_height: '6rem', fills_height: false, default_span: '1'};
@@ -48,19 +41,19 @@
   };
 
   // Wie cardTypes: das Entitaeten-Auswahlfeld der entity_group-Karte wird
-  // synchron aus Widget-HTML gebaut (siehe widgetHTML()), ausserhalb von
+  // synchron aus Widget-HTML gebaut (siehe optionsSheetHTML()), ausserhalb von
   // Alpines reaktivem Zugriff auf this.devices.
   let allDevices = [];
   const allEntityOptions = () => allDevices.flatMap(device =>
     (device.entities || []).map(entity => ({ref: entity.unique_id, label: `${device.name || device.id} / ${entity.name || entity.object_id}`})));
 
-  // Choices.js-Instanzen der entity_group-Mehrfachauswahl, je Grid-Node-ID -
+  // Choices.js-Instanzen der entity_group-Mehrfachauswahl, je Karten-ID -
   // dieselbe Bibliothek wie Settings > Darstellung (siehe deren
   // initChoices()/settings.page.js), hier aber auf ein <select> angewendet,
-  // das ausserhalb von Alpines Reaktivitaet als rohes widgetHTML() entsteht:
+  // das ausserhalb von Alpines Reaktivitaet als rohes HTML entsteht:
   // init/destroy laeuft darum imperativ an jeder Stelle, die den Inhalt eines
-  // entity_group-Widgets neu rendert (renderGroup, addEntityGroup,
-  // applyColumns), statt einmalig ueber $refs wie im Settings-Panel.
+  // entity_group-Widgets neu rendert (openOptions, refillOptionsBody,
+  // closeOptions), statt einmalig ueber $refs wie im Settings-Panel.
   const entityChoicesInstances = new Map();
 
   const destroyEntityChoicesFor = id => {
@@ -154,7 +147,7 @@
     return note;
   };
 
-  // Gridstack-Breite einer Groessenklasse. 'full' und jede Klasse oberhalb
+  // Spurenbreite einer Groessenklasse. 'full' und jede Klasse oberhalb
   // der Spaltenzahl belegen alle Spalten - dieselbe Vorschau-Naeherung, die
   // die Container-Queries im echten Raster erzeugen.
   const tracksFor = (span, columns) => (span === 'full' ? columns : Math.min(Number(span) || 1, columns));
@@ -206,17 +199,10 @@
     + `<small>${escapeHTML(hint)}</small>`
     + `</div>`;
 
-  // Katalog-Mindesthoehe ('25rem') -> Gridstack-Zeilen a 7rem, aufgerundet.
+  // Katalog-Mindesthoehe ('25rem') -> Zeilen a 7rem, aufgerundet.
   // Damit stimmen die Hoehenverhaeltnisse der Vorschau ungefaehr, ohne dass
   // die Hoehe gespeichert wird.
   const heightUnits = minHeight => Math.max(1, Math.ceil((parseFloat(minHeight) || 7) / 7));
-
-  const refMissing = (item, devices) => {
-    if (item.type === 'device') return !devices.some(device => device.id === item.ref);
-    if (item.type === 'entity_value') return !devices.some(device => (device.entities || []).some(entity => entity.unique_id === item.ref));
-    if (item.type === 'entity_group') return !(item.entityRefs || []).some(ref => devices.some(device => (device.entities || []).some(entity => entity.unique_id === ref)));
-    return false;
-  };
 
   const CATEGORY_OPTIONS = [
     {key: 'controls', label: 'layout_editor.category.controls'},
@@ -271,8 +257,8 @@
   // energy_flow's Animationsgeschwindigkeit-Referenz (siehe
   // docs/dashboard/overview-cards.md). Eine einzige Tabelle ist die
   // Wahrheit ueber role<->camelCase-Feld<->snake_case-JSON-Name<->
-  // Steuerungsart - toGridNode/fromGridNode, handleWidgetChange, load() und
-  // save() lesen alle aus ihr statt 20 Felder von Hand zu wiederholen.
+  // Steuerungsart - applyOptionChange, load() und
+  // payload() lesen alle aus ihr statt 20 Felder von Hand zu wiederholen.
   const ENERGY_OPTIONS = [
     {role: 'height-reference', field: 'heightReference', json: 'height_reference', kind: 'select'},
     {role: 'scale-mode', field: 'scaleMode', json: 'scale_mode', kind: 'select'},
@@ -305,7 +291,7 @@
   const ENERGY_OPTION_BY_ROLE = Object.fromEntries(ENERGY_OPTIONS.map(o => [o.role, o]));
   const ENERGY_OPTION_FIELDS = ENERGY_OPTIONS.map(o => o.field);
 
-  // Typ-Defaults fuers Anlegen im Editor (defaultPages(), addItem()) - vor
+  // Typ-Defaults fuers Anlegen im Editor (defaultPages(), addFromCatalog()) - vor
   // dem ersten Speichern gibt es noch keine server-normalisierten Werte.
   // Muessen mit normalizeEnergyGraphicOptions() in settings.go
   // uebereinstimmen.
@@ -456,10 +442,6 @@
     return html || '';
   }
 
-  // Pure function: builds the innerHTML for one widget's content div. No
-  // Alpine binding in here - Gridstack owns this DOM subtree once mounted,
-  // so interaction goes through event delegation on the grid container
-  // (see attachWidgetEvents()) instead of x-on directives.
   // Das Auswahlfeld ersetzt das Ziehen: nur so ist ein erzwungenes
   // Typ-Minimum ueberhaupt erklaerbar - ein Ziehen, das bei 2 stehenbleibt,
   // ohne zu sagen warum, waere schlechter.
@@ -503,32 +485,10 @@
       : `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.height.hint'))}</p>`;
   }
 
-  // Breite und Zwangshoehe stehen bei Karten mit Typ-Minimum >= 2
-  // nebeneinander statt gestapelt - derselbe Schwellwert wie
-  // energyOptionsHTML()'s Wide-Modifier, dieselbe Begruendung: genug Breite,
-  // um die Felder in einer Zeile zu zeigen. Der Leerraum-Hinweis bleibt eine
-  // eigene, volle Zeile darunter. Der Sichtbar-Schalter gehoert seit Task 7
-  // nicht mehr hierher, sondern in die Gruppe Sichtbarkeit von
-  // optionsSheetHTML().
-  function sizingHTML(item, label, columns) {
-    const span = spanSelectHTML(item, label, columns);
-    const height = heightFieldHTML(item);
-    const hint = heightHintHTML(item);
-    return `<div class="layout-modal-field-row">${span}${height}</div>${hint}`;
-  }
-
-  // Nur das Kachel-Chrome des Uebersichts-Bearbeitungsmodus: Verschiebegriff,
-  // Titelblock mit Typ und "Referenz fehlt"-Hinweis, das Auge (Sichtbarkeit
-  // als Knopf, kein Formularfeld), der Optionen-Knopf und der
-  // Groessen-Griff. Kein <select> und kein <input> - alle echten
-  // Eingabefelder liegen im Optionen-Modal (optionsSheetHTML), an dessen
-  // data-role-Namen handleWidgetChange() weiter haengt. label und missingRef
-  // sind reine Anzeige und optional; der GridStack-Pfad reicht sie wie bisher
-  // durch.
-  // Nur die drei Chip-Knoepfe. mount() setzt genau das in die schon
-  // vorhandene .layout-card-chrome-Huelle der Live-Kachel; der GridStack-Pfad
-  // (chromeHTML) rahmt es zusaetzlich mit .layout-card-chrome, Titelblock und
-  // Groessen-Griff.
+  // Die Chip-Knoepfe des Kachel-Chromes: Verschiebegriff, Auge, Optionen
+  // und Entfernen. dressCard() setzt sie in die .layout-card-chrome-Huelle
+  // der Live-Kachel. Kein <select> und kein <input>, die echten
+  // Eingabefelder liegen im Optionen-Modal (optionsSheetHTML).
   function chromeButtonsHTML(item) {
     const visible = item.visible !== false;
     const moveLabel = t('layout_editor.button.move');
@@ -541,14 +501,7 @@
       + `<button class="layout-chip-btn danger" type="button" data-role="remove" aria-label="${escapeHTML(removeLabel)}" title="${escapeHTML(removeLabel)}">${ICON.trash}</button>`;
   }
 
-  function chromeHTML(item, label, missingRef) {
-    const missingBadge = missingRef ? '<span class="layout-item-missing-ref">Referenz fehlt</span>' : '';
-    return `<div class="layout-card-chrome">${chromeButtonsHTML(item)}</div>`
-      + `<div class="card-title"><b>${escapeHTML(label ?? '')}</b><small>${escapeHTML(item.type)}</small>${missingBadge}</div>`
-      + `<span class="layout-resize-grip" aria-hidden="true">${ICON.grip}</span>`;
-  }
-
-  // Baut eine Item-Form (wie fromGridNode) aus den data-*-Attributen einer
+  // Baut eine Item-Form aus den data-*-Attributen einer
   // server-gerenderten .layout-grid-item. mount() nutzt sie als Rueckfall,
   // wenn das Item (noch) nicht in this.pages steht - im Normalfall liefert
   // load() this.pages, und mount() nimmt das echte Objekt, damit
@@ -704,9 +657,9 @@
   // Darstellung, Ort. Die Feld-Bausteine (spanSelectHTML, heightFieldHTML,
   // energyOptionsHTML, die Kategorie- und Entitaetenauswahl) wandern hierher;
   // nur die Gruppierung mit Ueberschriften kommt hinzu, damit
-  // handleWidgetChange() ueber dieselben data-role-Namen weiterlaeuft. devices
+  // applyOptionChange() ueber dieselben data-role-Namen weiterlaeuft. devices
   // ist die Geraeteliste fuer die Entitaetenauswahl - leer faellt es auf den
-  // Modulcache allDevices zurueck, genau wie widgetHTML() es heute tut. label
+  // Modulcache allDevices zurueck. label
   // und columns brauchen nur die Groessenfelder und sind optional.
   //
   // Eine Gruppe "Sichtbarkeit" mit eigenem Schalter gibt es hier nicht mehr:
@@ -721,85 +674,6 @@
     const ort = g('layout_editor.options_section.location', ortBody || `<p class="layout-modal-hint">${escapeHTML(t('layout_editor.options_hint.no_data_source'))}</p>`);
     return platz + darstellung + ort;
   }
-
-  // Komposition aus Kachel-Chrome und Optionen-Modal. Bleibt die eine
-  // Funktion, die der GridStack-Pfad (toGridNode/renderGroup/applyColumns) als
-  // Widget-Inhalt einsetzt - die Aufteilung ist rein DOM-Gruppierung, die
-  // data-roles und das Escaping bleiben identisch.
-  function widgetHTML(item, label, missingRef, columns) {
-    return chromeHTML(item, label, missingRef) + optionsSheetHTML(item, allDevices, label, columns);
-  }
-
-  // item (unsere Layout.Item-Form) -> GridStackWidget. x/y kommen nicht mehr
-  // vor: die Position ist die Reihenfolge, und compact('list') stellt sie
-  // nach jedem Laden her.
-  function toGridNode(item, label, missingRef, columns) {
-    const span = item.span || cardType(item.type).default_span;
-    // cardKey statt item.type: die kompakte Geraetekachel hat ihren eigenen
-    // Katalogeintrag mit kleinerer Mindesthoehe.
-    const type = cardType(cardKey(item));
-    const node = {
-      id: item.id,
-      w: tracksFor(span, columns),
-      h: item.height || heightUnits(type.min_height),
-      type: item.type, ref: item.ref || '', span, height: item.height || 0,
-      visible: item.visible !== false,
-      visibleCategories: item.visibleCategories || [],
-      flowScale: item.flowScale || '',
-      display: item.display || '',
-      title: item.title || '',
-      entityRefs: item.entityRefs || [],
-      historySeries: item.historySeries || [],
-      statsKpis: item.statsKpis || [],
-    };
-    for (const field of ENERGY_OPTION_FIELDS) node[field] = item[field] || '';
-    node.content = widgetHTML({...item, span}, label, missingRef, columns);
-    return node;
-  }
-
-  // GridStackNode (aus grid.save()) -> unsere Layout.Item-Form. Die
-  // Groessenklasse kommt aus dem Knoten selbst, nicht aus w: w ist nur noch
-  // die auf die Editor-Spaltenzahl gedeckelte Vorschau davon.
-  function fromGridNode(node) {
-    const item = {
-      id: node.id, type: node.type, ref: node.ref || '',
-      span: node.span || cardType(node.type).default_span,
-      visible: node.visible !== false,
-      visibleCategories: node.visibleCategories || [],
-      flowScale: node.flowScale || '',
-      display: node.display || '',
-      height: node.height || 0,
-      title: node.title || '',
-      entityRefs: node.entityRefs || [],
-      historySeries: node.historySeries || [],
-      statsKpis: node.statsKpis || [],
-    };
-    for (const field of ENERGY_OPTION_FIELDS) item[field] = node[field] || '';
-    return item;
-  }
-
-  // Reihenfolge auslesen. Nach compact('list') steht die Liste schon in
-  // (y, x)-Ordnung; das Sortieren ist die Absicherung, kein Umsortieren.
-  const itemsFromGrid = grid => grid.save(false)
-    .slice()
-    .sort((a, b) => (a.y || 0) - (b.y || 0) || (a.x || 0) - (b.x || 0))
-    .map(fromGridNode);
-
-  // Gridstack instances are plain platform handles, not view state - kept
-  // outside the reactive Alpine object so Gridstack's own DOM mutation never
-  // fights Alpine's mutation observer, same reasoning as devicemap.page.js's
-  // `let cy = null`. Keyed by group.id.
-  const grids = new Map();
-
-  // Wie die Grids selbst: Plattform-Handles, kein View-Zustand. Der gemerkte
-  // letzte Wert verhindert einen Neuaufbau bei unveraenderter Spaltenzahl -
-  // ResizeObserver feuert bei jedem Pixel.
-  const observers = new Map();
-  const lastColumns = new Map();
-
-  // Zweite Aufhaengstelle fuer Gridstack: nicht ein Raster je Gruppe wie in
-  // grids, sondern das eine Live-Raster der Uebersicht selbst, an das sich
-  // mount() haengt. Ebenfalls ein Plattform-Handle, kein View-Zustand.
 
   // Drei-Register-Katalog fuer die suchbare Toolbox: feste Kartentypen,
   // Geraete, Entitaeten.
@@ -869,7 +743,6 @@
     editItems: null,
     _activeWidth: 0,
     _widthResetTimer: null,
-    _gridObserver: null,
     _movedNodes: null,
     _modalHosts: null,
     _optionsItem: null,
@@ -922,11 +795,8 @@
     },
 
     // Bearbeitungsmodus an: jede vorhandene .layout-grid-item der Uebersicht
-    // bekommt eine .layout-edit-slot-Huelle mit Chrome und Groessen-Griff
-    // (Klassen aus layout-editor.css), danach uebernimmt Gridstack die Huellen
-    // auf dem bestehenden .layout-grid-Container. Der Chrome-Inhalt selbst und
-    // das Optionen-Modal sind Aufgabe spaeterer Schritte - hier steht nur das
-    // Geruest.
+    // bekommt Chrome und Groessen-Griff (dressCard) und wird damit zum
+    // .layout-edit-slot. Die Kachel bleibt dabei Rasterkind.
     mount() {
       const container = document.querySelector('.layout-grid');
       // id -> Item-Form. Steht das Item schon in this.pages (Normalfall nach
@@ -951,7 +821,7 @@
       if (container) this.bindPointerInteractions(container);
 
       // Eine Delegation auf dem Raster: ⋯ oeffnet das Options-Modal, das Auge
-      // schaltet Sichtbarkeit. Der Verschiebegriff .grab ist GridStacks handle.
+      // schaltet Sichtbarkeit. Der Verschiebegriff .grab laeuft ueber bindPointerInteractions().
       this.onGridClick = event => {
         const optsBtn = event.target.closest('[data-role="options"]');
         if (optsBtn) { this.openOptions(optsBtn.closest('.layout-edit-slot')); return; }
@@ -1211,13 +1081,8 @@
     // Bearbeitungsmodus aus: Chrome und Griffe entfernen, Huellen aufloesen,
     // jede .layout-grid-item bleibt an ihrem Platz als reine Ansicht stehen.
     unmount() {
-      this._gridObserver?.disconnect?.();
-      this._gridObserver = null;
-      // destroy(false): GridStack-Verhalten lösen, aber das echte .layout-grid
-      // und die Karten im DOM lassen - der Ansichtsmodus braucht sie weiter.
       const container = document.querySelector('.layout-grid');
       container?.removeEventListener('click', this.onGridClick);
-      container?.classList.remove('grid-stack');
       if (container) container.style.minHeight = '';
       if (this.onEditorKeydown) document.removeEventListener('keydown', this.onEditorKeydown);
       if (this.onEditorToolbarClick) document.removeEventListener('click', this.onEditorToolbarClick);
@@ -1503,7 +1368,7 @@
     },
 
     // Body nach einer Auswahl neu aufbauen, die andere Felder ein-/ausblendet
-    // (flow-scale, entity-value-ref) - dasselbe Muster wie handleWidgetChange().
+    // (flow-scale, entity-value-ref).
     refillOptionsBody() {
       const scrim = document.getElementById('layout-options-modal');
       const body = scrim?.querySelector('[data-modal-body]');
@@ -1514,8 +1379,8 @@
       initEntityChoicesFor(this._optionsItem.id, body);
     },
 
-    // change im Modal-Body: dieselbe Rollen-Tabelle wie handleWidgetChange(),
-    // aber auf ein reines this.pages-Item statt einen GridStack-Node (Weg A).
+    // change im Modal-Body: die Rollen-Tabelle schreibt direkt in das
+    // this.pages-Item der Kachel (Weg A).
     applyOptionChange(event) {
       const item = this._optionsItem;
       const role = event.target?.dataset.role;
@@ -1759,8 +1624,8 @@
         // Entitaeten statt einer Option je Entitaet - seit der Abschaffung
         // des Kartentyps 'entity' die einzige Entitaetenkarte mit einem
         // einzelnen Ref. Die konkrete Entitaet waehlt man danach im
-        // Widget selbst (siehe entityValuePicker in widgetHTML()) - addItem()
-        // erzeugt darum fuer diese Option jedes Mal eine frische Karten-ID
+        // Widget selbst (siehe entityValuePickerHTML() in optionsSheetHTML()).
+        // addFromCatalog() erzeugt darum fuer diese Option jedes Mal eine frische Karten-ID
         // statt die Option-ID wiederzuverwenden.
         {id: 'entity-value', type: 'entity_value', ref: ''},
         {id: 'history-view', type: 'history_view', ref: ''},
@@ -1772,7 +1637,7 @@
     },
 
     // entity_group hat kein Gegenstueck in itemOptions - der Titel kommt vom
-    // Nutzer, nicht von einem Ref, siehe addEntityGroup(). entity_value hat
+    // Nutzer, nicht von einem Ref, siehe addFromCatalog(). entity_value hat
     // seit der generischen 'entity-value'-Option ebenfalls keine passende
     // option.id mehr, sobald eine Entitaet gewaehlt wurde (die Karten-ID ist
     // dann eine frische newID(), keine der itemOptions-IDs) - der Name kommt
@@ -1847,7 +1712,6 @@
         // Erst jetzt stehen alle Items (auch die ausgeblendeten, die der
         // Server nicht rendert) - jetzt koennen sie ins Editor-Raster.
         this.syncHiddenCards();
-        this.$nextTick(() => this.renderGrids());
       }
     },
 
@@ -1867,157 +1731,6 @@
           }),
         }],
       }];
-    },
-
-    // (Re)mounts every group's Gridstack instance from current state. Used
-    // after load() and after any structural change (add/remove page/group)
-    // whose new/changed .grid-stack containers need a live instance -
-    // mirrors devicemap.page.js's destroy/recreate-on-change pattern.
-    renderGrids() {
-      for (const page of this.pages) {
-        for (const group of page.groups) this.renderGroup(group);
-      }
-    },
-
-    // Kein Template rendert derzeit noch ein `#layout-grid-<groupID>`-Element
-    // (der Editor laeuft ueber mount()/applyOptionChange() auf #overview-live,
-    // siehe test/layout-editor.test.mjs: "kein #layout-grid-group-1-Container
-    // vorhanden, renderGrids() no-opt harmlos") - der `if (!el ...) return;`
-    // unten macht diesen Pfad und handleWidgetChange() damit unerreichbaren,
-    // ungetesteten Legacy-Code. Deshalb kennt handleWidgetChange() (unten)
-    // weder role 'display' noch 'device-ref', und cardType() dort haengt noch
-    // an node.type statt cardKey(node) - vor einer echten Reaktivierung dieses
-    // Pfads muessten beide wie applyOptionChange() nachgezogen werden.
-    renderGroup(group) {
-      grids.get(group.id)?.destroy();
-      grids.delete(group.id);
-      observers.get(group.id)?.disconnect();
-      observers.delete(group.id);
-      const el = document.getElementById(`layout-grid-${group.id}`);
-      if (!el || !window.GridStack) return;
-      const columns = columnsFor(el.clientWidth);
-      lastColumns.set(group.id, columns);
-      const grid = window.GridStack.init({
-        column: columns,
-        cellHeight: '7rem',
-        float: false,
-        disableResize: true,   // Groesse kommt aus dem Auswahlfeld, nicht aus dem Ziehen
-        acceptWidgets: true,   // Ziehen zwischen Gruppen bleibt
-        handle: '.layout-item-handle',
-      }, el);
-      grid.load(group.items.map(item => toGridNode(item, this.itemLabel(item), refMissing(item, this.devices), columns)));
-      for (const itemEl of grid.getGridItems()) {
-        const node = itemEl.gridstackNode;
-        if (node?.type === 'entity_group') initEntityChoicesFor(node.id, itemEl);
-      }
-      grid.compact('list');
-
-      // compact('list') loest selbst ein change aus. Das Flag laesst den
-      // verschachtelten Aufruf sofort umkehren; die Auswertung uebernimmt
-      // der aeussere.
-      let packing = false;
-      const settle = () => {
-        if (packing) return;
-        packing = true;
-        grid.compact('list');
-        packing = false;
-        group.items = itemsFromGrid(grid);
-        this.unsaved = true;
-      };
-      grid.on('change added removed', settle);
-      el.addEventListener('change', event => this.handleWidgetChange(event, grid, group));
-      el.addEventListener('click', event => this.handleWidgetClick(event, grid));
-      grids.set(group.id, grid);
-
-      if (window.ResizeObserver) {
-        const observer = new ResizeObserver(entries => {
-          const next = columnsFor(entries[0].contentRect.width);
-          if (next === lastColumns.get(group.id)) return;
-          lastColumns.set(group.id, next);
-          this.applyColumns(grid, group, next);
-        });
-        observer.observe(el);
-        observers.set(group.id, observer);
-      }
-    },
-
-    // Spaltenwechsel: Gridstack umstellen, dann jede Kachel neu vermessen
-    // *und* neu beschriften - welche Groessenklassen den Hinweis "wirkt hier
-    // wie voll" tragen, haengt an der Spaltenzahl.
-    applyColumns(grid, group, columns) {
-      grid.column(columns, 'list');
-      for (const itemEl of grid.getGridItems()) {
-        const node = itemEl.gridstackNode;
-        if (!node) continue;
-        const item = fromGridNode(node);
-        grid.update(itemEl, {
-          w: tracksFor(item.span, columns),
-          content: widgetHTML(item, this.itemLabel(item), refMissing(item, this.devices), columns),
-        });
-        if (item.type === 'entity_group') initEntityChoicesFor(item.id, itemEl);
-      }
-      grid.compact('list');
-      group.items = itemsFromGrid(grid);
-    },
-
-    handleWidgetChange(event, grid, group) {
-      const el = event.target.closest('.grid-stack-item');
-      const node = el?.gridstackNode;
-      if (!node) return;
-      const role = event.target.dataset.role;
-      if (role === 'visible') {
-        node.visible = event.target.checked;
-      } else if (role === 'category') {
-        const categories = new Set(node.visibleCategories || []);
-        if (event.target.checked) categories.add(event.target.value); else categories.delete(event.target.value);
-        node.visibleCategories = [...categories];
-      } else if (role === 'entity-group-title') {
-        node.title = event.target.value;
-      } else if (role === 'entity-refs') {
-        // Choices.js haelt das zugrundeliegende <select multiple> als Quelle
-        // der Wahrheit synchron (siehe initEntityChoicesFor()) - selectedOptions
-        // spiegelt darum die per Choices getroffene Auswahl direkt wider.
-        node.entityRefs = Array.from(event.target.selectedOptions).map(option => option.value);
-      } else if (role === 'entity-value-ref') {
-        node.ref = event.target.value;
-        // Neu rendern, damit Kartenname/„Referenz fehlt"-Hinweis sofort die
-        // gewaehlte Entitaet widerspiegeln - dasselbe Muster wie flow-scale.
-        const item = fromGridNode(node);
-        grid.update(el, {content: widgetHTML(item, this.itemLabel(item), refMissing(item, this.devices), grid.getColumn())});
-      } else if (role === 'flow-scale') {
-        node.flowScale = event.target.value;
-        // The speed-reference fields only show up in "speed" mode - re-render
-        // so picking either option immediately shows/hides them.
-        const item = fromGridNode(node);
-        grid.update(el, {content: widgetHTML(item, this.itemLabel(item), refMissing(item, this.devices), grid.getColumn())});
-      } else if (role === 'span') {
-        node.span = event.target.value;
-        grid.update(el, {w: tracksFor(node.span, grid.getColumn())});
-        grid.compact('list');
-      } else if (role === 'height') {
-        const raw = Number(event.target.value);
-        node.height = Number.isFinite(raw) && raw >= 1 ? Math.min(12, Math.round(raw)) : 0;
-        grid.update(el, {h: node.height || heightUnits(cardType(node.type).min_height)});
-        grid.compact('list');
-      } else if (ENERGY_OPTION_BY_ROLE[role]) {
-        const {field, kind} = ENERGY_OPTION_BY_ROLE[role];
-        node[field] = kind === 'checkbox' ? (event.target.checked ? 'on' : 'off')
-          : kind === 'number' ? Number(event.target.value)
-          : event.target.value;
-      } else {
-        return;
-      }
-      group.items = itemsFromGrid(grid);
-      this.unsaved = true;
-    },
-
-    handleWidgetClick(event, grid) {
-      const button = event.target.closest('[data-role="remove-item"]');
-      if (!button) return;
-      const el = button.closest('.grid-stack-item');
-      if (!el) return;
-      if (el.gridstackNode?.type === 'entity_group') destroyEntityChoicesFor(el.gridstackNode.id);
-      grid.removeWidget(el);
     },
 
     // Index der aktiven Seite; faellt auf die erste zurueck, wenn die ID
@@ -2195,67 +1908,9 @@
       const page = this.pages[pageIndex];
       for (const group of page.groups) {
         for (const item of group.items) if (item.type === 'entity_group') destroyEntityChoicesFor(item.id);
-        grids.get(group.id)?.destroy();
-        grids.delete(group.id);
-        observers.get(group.id)?.disconnect();
-        observers.delete(group.id);
-        lastColumns.delete(group.id);
       }
       this.pages.splice(pageIndex, 1);
       this.pages.forEach((p, index) => p.order = index);
-    },
-
-    addGroup(page) {
-      page.groups.push({id: newID('group'), name: t('layout_editor.group.new_name'), items: []});
-      this.$nextTick(() => this.renderGrids());
-    },
-
-    removeGroup(page, groupIndex) {
-      const group = page.groups[groupIndex];
-      for (const item of group.items) if (item.type === 'entity_group') destroyEntityChoicesFor(item.id);
-      grids.get(group.id)?.destroy();
-      grids.delete(group.id);
-      observers.get(group.id)?.disconnect();
-      observers.delete(group.id);
-      lastColumns.delete(group.id);
-      page.groups.splice(groupIndex, 1);
-    },
-
-    addItem(group, optionId) {
-      const option = this.itemOptions.find(item => item.id === optionId);
-      const grid = grids.get(group.id);
-      if (!option || !grid) return;
-      // 'entity-value' ist die einzige generische Option (kein Ref, siehe
-      // itemOptions): mehrere Wert-Karten in derselben Gruppe muessen
-      // moeglich sein, darum eine frische ID statt der Dedup-Pruefung
-      // unten - dieselbe Begruendung wie addEntityGroup().
-      const generic = option.type === 'entity_value';
-      if (!generic && group.items.some(item => item.id === option.id)) return;
-      const item = {
-        id: generic ? newID('entity-value') : option.id, type: option.type, ref: option.ref, visible: true, visibleCategories: [],
-        flowScale: option.type === 'energy_flow' ? 'width' : '',
-        span: cardType(option.type).default_span, height: 0,
-        ...defaultEnergyOptions(option.type),
-      };
-      grid.addWidget(toGridNode(item, this.itemLabel(item), refMissing(item, this.devices), grid.getColumn()));
-    },
-
-    // entity_group durchlaeuft addItem() nicht: es hat keinen festen Ref und
-    // damit keine natuerliche eindeutige option.id - addItem()'s Dedup-Check
-    // (ein Item pro option.id je Gruppe) wuerde eine zweite Entitaetenliste
-    // in derselben Gruppe verhindern. Jeder Aufruf legt stattdessen eine neue
-    // Karte mit frischer ID an.
-    addEntityGroup(group) {
-      const grid = grids.get(group.id);
-      if (!grid) return;
-      const item = {
-        id: newID('entity-group'), type: 'entity_group', ref: '', visible: true, visibleCategories: [],
-        flowScale: '', span: cardType('entity_group').default_span, height: 0,
-        title: t('overview.entity_group.default_title'), entityRefs: [],
-        ...defaultEnergyOptions('entity_group'),
-      };
-      const el = grid.addWidget(toGridNode(item, this.itemLabel(item), refMissing(item, this.devices), grid.getColumn()));
-      initEntityChoicesFor(item.id, el);
     },
 
     // Fuegt ein aus dem Katalog gewaehltes Item zur ersten Gruppe der aktiven
@@ -2413,12 +2068,7 @@
   // system to import them through.
   layoutEditor.catalog = catalog;
   layoutEditor.filterCatalog = filterCatalog;
-  layoutEditor.toGridNode = toGridNode;
-  layoutEditor.fromGridNode = fromGridNode;
-  layoutEditor.widgetHTML = widgetHTML;
-  layoutEditor.chromeHTML = chromeHTML;
   layoutEditor.optionsSheetHTML = optionsSheetHTML;
-  layoutEditor.refMissing = refMissing;
   layoutEditor.columnsFor = columnsFor;
   layoutEditor.tracksFor = tracksFor;
   layoutEditor.heightUnits = heightUnits;
