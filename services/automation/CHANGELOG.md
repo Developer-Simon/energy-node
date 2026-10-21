@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.5.3 (2026-10-21)
+
+### Refactors
+
+- **common:** drop unused poll fields and pending from the slave status (00528ff)
+- **services:** name the slave poll rates after what they are (7cd303e)
+- **common:** clean up the slave status and hooks (#155)
+
 ## v0.5.2 (2026-10-18)
 
 ### Documentation

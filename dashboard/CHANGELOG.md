@@ -1,6 +1,6 @@
 # Changelog
 
-## v0.10.1 (2026-10-20)
+## v0.10.2 (2026-10-21)
 
 ### Features
 
@@ -8,7 +8,12 @@
 
 ### Fixes
 
-- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153)
+- clearer update notice, firewall station completes, service steps skip unchanged libraries (#153) (c184d81)
+
+### Refactors
+
+- **webui:** drop the unreachable pending runtime status (9c2eb2b)
+- **common:** clean up the slave status and hooks (#155)
 
 ## v0.10.0 (2026-10-19)
 
