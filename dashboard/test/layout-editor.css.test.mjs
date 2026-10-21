@@ -95,8 +95,7 @@ test('der Editor stylt .layout-grid-item nur im Bearbeitungsmodus um', () => {
 });
 
 test('der Bearbeitungsmodus laesst das Raster ein Raster bleiben', () => {
-  // display:block war die Anpassung an GridStacks absolute Anordnung. Bleibt
-  // sie stehen, faellt im Editor der ganze CSS-Grid-Fluss samt
+  // Ein display:block auf dem Raster wuerde im Editor den ganzen CSS-Grid-Fluss samt
   // Container-Queries weg - und der Moduswechsel verschiebt wieder alles.
   const rule = css.match(/#overview-panel\[data-mode="edit"\]\s+\.layout-grid\s*\{([^}]*)\}/s);
   assert.ok(rule, 'die Editor-Regel auf .layout-grid fehlt');

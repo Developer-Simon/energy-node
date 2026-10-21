@@ -121,7 +121,7 @@
         try {
           await this.editorAssetsReady();
         } catch (cause) {
-          // Stehenbleiben statt halb umschalten - ohne Gridstack gibt es
+          // Stehenbleiben statt halb umschalten, ohne Editor-Assets gibt es
           // keinen Editor, nur ein kaputtes Raster.
           this.error = t('overview.page.error.editor_load_failed');
           return;

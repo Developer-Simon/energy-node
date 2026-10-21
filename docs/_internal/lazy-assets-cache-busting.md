@@ -22,9 +22,7 @@ The only lever against this is a **manually maintained query string** `?v=N` on
 the `src`/`href`. When `N` changes it is a new URL as far as the cache is
 concerned and gets reloaded. Almost all of these query strings live centrally in
 [base.html](../../../dashboard/internal/webui/templates/base.html). **Exception:**
-Gridstack is no longer part of the editor assets since the move to the real CSS
-grid — edit mode moves and scales tiles itself so that the view and the editor
-show the same geometry.
+the overview's editor assets, which are declared on the overview panel (see below).
 
 The overview's editor assets (`js/layout-editor.js`, `css/layout-editor.css`)
 are declared in `data-editor-script` / `data-editor-css` on `#overview-panel` in

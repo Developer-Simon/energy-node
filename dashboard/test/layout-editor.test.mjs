@@ -1178,7 +1178,7 @@ test('nach Speichern & schliessen laesst sich die Toolbox in der naechsten Sitzu
   assert.ok(dom.window.document.getElementById('toolbox').classList.contains('open'));
 });
 
-// --- Der Editor arbeitet auf dem echten Raster, ohne GridStack ------------
+// --- Der Editor arbeitet auf dem echten Raster ----------------------------
 // Die Uebersicht rendert die aktive Seite in einen [data-layout-page]-Traeger;
 // die Fixtures bilden das ab, damit sie dieselbe DOM-Form pruefen, die
 // overview.html tatsaechlich erzeugt.
@@ -1210,7 +1210,7 @@ test('mount() haengt Chrome und Griff in die Kachel statt sie zu umhuellen', () 
   assert.equal(card.querySelectorAll('.layout-resize-grip').length, 1, 'genau ein Griff');
 });
 
-test('mount() ruehrt GridStack nicht an', () => {
+test('mount() bringt keine fremden Raster-Klassen mit', () => {
   const { dom } = createEditor(PAGE_GRID(CARD('a', 'device', '1')));
   document.dispatchEvent(new dom.window.CustomEvent('layout-editor:mount'));
 

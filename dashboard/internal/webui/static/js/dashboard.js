@@ -323,7 +323,7 @@
     // Die Editor-Abhaengigkeiten kommen erst beim ersten Druck auf Editieren.
     // overview-panel ist das einzige Panel ohne data-panel-src - es steht
     // inline in der Seite, und ohne diese Bremse zahlte jeder Aufruf der
-    // Uebersicht Gridstack und Choices mit. Das Promise wird gemerkt, damit
+    // Uebersicht Editor-Code und Choices mit. Das Promise wird gemerkt, damit
     // ein zweiter Klick nichts nachlaedt; bei Fehlschlag wird es verworfen,
     // sonst bliebe der Editor nach einem Netzausfall dauerhaft tot.
     editorAssetsReady() {

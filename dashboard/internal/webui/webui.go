@@ -96,9 +96,9 @@ func cardStyle(item settings.Item) template.CSS {
 	return template.CSS(style)
 }
 
-// forcedHeightRem rechnet Hoeheneinheiten in eine rem-Laenge um - dieselbe
-// Rechnung, die Gridstack im Editor mit cellHeight 7rem und .8rem Abstand
-// anstellt, damit Editorhoehe und Uebersicht deckungsgleich bleiben.
+// forcedHeightRem rechnet Hoeheneinheiten in eine rem-Laenge um: 7rem pro
+// Einheit plus .8rem Abstand zwischen den Einheiten, damit Editorhoehe und
+// Uebersicht deckungsgleich bleiben.
 func forcedHeightRem(units int) string {
 	value := float64(units)*7 + float64(units-1)*0.8
 	return strconv.FormatFloat(value, 'f', -1, 64) + "rem"

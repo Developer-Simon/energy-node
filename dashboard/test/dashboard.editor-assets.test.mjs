@@ -1,4 +1,4 @@
-// Die Editor-Abhaengigkeiten (Gridstack, Choices, layout-editor.js/css) duerfen
+// Die Editor-Abhaengigkeiten (Choices, layout-editor.js/css) duerfen
 // NICHT mit der Uebersicht kommen - overview-panel ist als einziges Panel nicht
 // lazy. Geprueft wird: nichts geladen bis zum ersten Aufruf, danach genau
 // einmal, und ein Fehlschlag darf einen zweiten Versuch nicht blockieren.
